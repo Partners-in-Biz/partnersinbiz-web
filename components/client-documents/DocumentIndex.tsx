@@ -71,6 +71,13 @@ interface LinkedResourceLink {
   href: string
 }
 
+type DocumentHrefFor = (document: ClientDocument) => string
+type LinkedResourceHrefFor = (
+  resource: 'project' | 'research',
+  id: string,
+  document: ClientDocument,
+) => string
+
 function cleanString(value: unknown) {
   return typeof value === 'string' && value.trim() ? value.trim() : ''
 }
@@ -96,11 +103,15 @@ function linkedResourceHref(basePath: string, resource: 'project' | 'research', 
   return ''
 }
 
-function linkedResourceLinks(document: ClientDocument, basePath: string): LinkedResourceLink[] {
+function linkedResourceLinks(
+  document: ClientDocument,
+  basePath: string,
+  resourceHrefFor?: LinkedResourceHrefFor,
+): LinkedResourceLink[] {
   const links: LinkedResourceLink[] = []
   const projectId = cleanString(document.linked?.projectId)
   if (projectId) {
-    const href = linkedResourceHref(basePath, 'project', projectId)
+    const href = resourceHrefFor?.('project', projectId, document) || linkedResourceHref(basePath, 'project', projectId)
     if (href) links.push({ key: `project-${projectId}`, label: 'Project', href })
   }
 
@@ -109,7 +120,7 @@ function linkedResourceLinks(document: ClientDocument, basePath: string): Linked
     .map(cleanString)
     .filter(Boolean)
     .forEach((researchItemId, index) => {
-      const href = linkedResourceHref(basePath, 'research', researchItemId)
+      const href = resourceHrefFor?.('research', researchItemId, document) || linkedResourceHref(basePath, 'research', researchItemId)
       if (href) {
         links.push({
           key: `research-${researchItemId}`,
@@ -145,6 +156,8 @@ function formatDate(value: unknown) {
 export function DocumentIndex({
   documents,
   basePath,
+  hrefFor,
+  linkedResourceHrefFor,
   canDelete = false,
   onDeleted,
   relationshipLabels = {},
@@ -152,6 +165,8 @@ export function DocumentIndex({
 }: {
   documents: ClientDocument[]
   basePath: string
+  hrefFor?: DocumentHrefFor
+  linkedResourceHrefFor?: LinkedResourceHrefFor
   canDelete?: boolean
   onDeleted?: (documentId: string) => void
   relationshipLabels?: Record<string, { companyName?: string; clientOrgName?: string }>
@@ -214,7 +229,8 @@ export function DocumentIndex({
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
         {visibleDocuments.map((document) => {
           const relationshipText = relationshipLabelList(relationshipLabels[document.id])
-          const resourceLinks = linkedResourceLinks(document, basePath)
+          const documentHref = hrefFor?.(document) || `${basePath}/${document.id}`
+          const resourceLinks = linkedResourceLinks(document, basePath, linkedResourceHrefFor)
           const parties = partyLabels[document.id]
           return (
             <article key={document.id} className="bento-card flex min-h-[260px] flex-col gap-5">
@@ -224,7 +240,7 @@ export function DocumentIndex({
                     {TYPE_LABELS[document.type] ?? readable(document.type)}
                   </p>
                   <h2 className="font-display text-xl leading-snug">
-                    <Link href={`${basePath}/${document.id}`} className="hover:text-[var(--color-pib-accent)]">
+                    <Link href={documentHref} className="hover:text-[var(--color-pib-accent)]">
                       {document.title}
                     </Link>
                   </h2>
@@ -311,7 +327,7 @@ export function DocumentIndex({
                       </span>
                     </button>
                   )}
-                  <Link href={`${basePath}/${document.id}`} className="btn-pib-accent !px-3 !py-1.5 !text-sm">
+                  <Link href={documentHref} className="btn-pib-accent !px-3 !py-1.5 !text-sm">
                     Open
                     <span className="material-symbols-outlined text-base">arrow_forward</span>
                   </Link>

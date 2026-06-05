@@ -6,6 +6,7 @@ import { useSearchParams } from 'next/navigation'
 import { DocumentIndex, type ClientDocumentPartyLabels } from '@/components/client-documents/DocumentIndex'
 import { PageHeader } from '@/components/ui/AppFoundation'
 import type { ClientDocument, ClientDocumentStatus } from '@/lib/client-documents/types'
+import { scopedPortalPath, scopeFromSearchParams } from '@/lib/portal/scoped-routing'
 
 const CLIENT_STATUSES: ClientDocumentStatus[] = ['client_review', 'changes_requested', 'approved', 'accepted']
 
@@ -18,7 +19,8 @@ interface PortalOrgResponse {
 
 export default function PortalDocuments() {
   const searchParams = useSearchParams()
-  const scopedOrgId = searchParams.get('orgId')?.trim() ?? ''
+  const routeScope = scopeFromSearchParams(searchParams)
+  const scopedOrgId = routeScope.orgId?.trim() ?? ''
   const [docs, setDocs] = useState<ClientDocument[]>([])
   const [orgName, setOrgName] = useState('')
   const [loading, setLoading] = useState(true)
@@ -85,7 +87,18 @@ export default function PortalDocuments() {
           ))}
         </div>
       ) : (
-        <DocumentIndex documents={docs} basePath="/portal/documents" partyLabels={partyLabels} />
+        <DocumentIndex
+          documents={docs}
+          basePath="/portal/documents"
+          hrefFor={(document) => scopedPortalPath(`/portal/documents/${encodeURIComponent(document.id)}`, routeScope)}
+          linkedResourceHrefFor={(resource, id) => scopedPortalPath(
+            resource === 'project'
+              ? `/portal/projects/${encodeURIComponent(id)}`
+              : `/portal/research/${encodeURIComponent(id)}`,
+            routeScope,
+          )}
+          partyLabels={partyLabels}
+        />
       )}
     </div>
   )

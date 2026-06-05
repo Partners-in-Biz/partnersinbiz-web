@@ -3,12 +3,14 @@ export const dynamic = 'force-dynamic'
 
 import { use, useCallback, useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
+import { useSearchParams } from 'next/navigation'
 import { DocumentRenderer } from '@/components/client-documents/DocumentRenderer'
 import { DocumentReviewRail } from '@/components/client-documents/DocumentReviewRail'
 import { CommentComposer } from '@/components/inline-comments/CommentComposer'
 import type { AnchorTarget } from '@/components/inline-comments/types'
 import type { ClientDocument, ClientDocumentVersion, DocumentComment } from '@/lib/client-documents/types'
 import type { ContextReference } from '@/lib/context-references/types'
+import { scopedPortalPath, scopeFromSearchParams } from '@/lib/portal/scoped-routing'
 
 interface Props {
   params: Promise<{ id: string }>
@@ -21,6 +23,8 @@ type PendingAnchor =
 
 export default function PortalDocumentDetail({ params }: Props) {
   const { id } = use(params)
+  const searchParams = useSearchParams()
+  const documentsHref = scopedPortalPath('/portal/documents', scopeFromSearchParams(searchParams))
   const [doc, setDoc] = useState<ClientDocument | null>(null)
   const [version, setVersion] = useState<ClientDocumentVersion | null>(null)
   const [comments, setComments] = useState<DocumentComment[]>([])
@@ -201,7 +205,7 @@ export default function PortalDocumentDetail({ params }: Props) {
   if (!doc || !version) {
     return (
       <div className="space-y-6">
-        <Link href="/portal/documents" className="flex items-center gap-1 text-sm text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-accent)]">
+        <Link href={documentsHref} className="flex items-center gap-1 text-sm text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-accent)]">
           <span className="material-symbols-outlined text-base">arrow_back</span>
           Back to Documents
         </Link>
@@ -226,7 +230,7 @@ export default function PortalDocumentDetail({ params }: Props) {
   return (
     <div className="space-y-6">
       <Link
-        href="/portal/documents"
+        href={documentsHref}
         className="flex items-center gap-1 text-sm text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-accent)]"
       >
         <span className="material-symbols-outlined text-base">arrow_back</span>

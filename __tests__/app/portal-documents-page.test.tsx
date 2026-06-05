@@ -70,8 +70,13 @@ describe('portal documents page', () => {
     expect(global.fetch).not.toHaveBeenCalledWith('/api/v1/client-documents')
   })
 
-  it('loads documents for the company-scoped portal org when opened from CRM workspace', async () => {
-    mockSearchParams = new URLSearchParams({ orgId: 'lumen-org', orgSlug: 'lumen-speeds' })
+  it('loads documents and keeps document/resource links scoped when opened from CRM workspace', async () => {
+    mockSearchParams = new URLSearchParams({
+      orgId: 'lumen-org',
+      orgSlug: 'lumen-speeds',
+      sourceCompanyId: 'company-1',
+      sourceCompanyName: 'Lumen',
+    })
     global.fetch = jest.fn((input: RequestInfo | URL) => {
       const url = String(input)
       if (url === '/api/v1/portal/org?orgId=lumen-org') {
@@ -94,6 +99,7 @@ describe('portal documents page', () => {
                 title: 'Lumen proposal',
                 type: 'sales_proposal',
                 status: 'client_review',
+                linked: { projectId: 'project-lumen', researchItemIds: ['research-lumen'] },
               },
             ],
           }),
@@ -112,5 +118,22 @@ describe('portal documents page', () => {
     })
     expect(global.fetch).toHaveBeenCalledWith('/api/v1/portal/org?orgId=lumen-org', { cache: 'no-store' })
     expect(global.fetch).toHaveBeenCalledWith('/api/v1/client-documents?orgId=lumen-org')
+    const scope = 'orgId=lumen-org&orgSlug=lumen-speeds&sourceCompanyId=company-1&sourceCompanyName=Lumen'
+    expect(screen.getByRole('link', { name: 'Lumen proposal' })).toHaveAttribute(
+      'href',
+      `/portal/documents/doc-lumen?${scope}`,
+    )
+    expect(screen.getByRole('link', { name: /open/i })).toHaveAttribute(
+      'href',
+      `/portal/documents/doc-lumen?${scope}`,
+    )
+    expect(screen.getByRole('link', { name: /^project$/i })).toHaveAttribute(
+      'href',
+      `/portal/projects/project-lumen?${scope}`,
+    )
+    expect(screen.getByRole('link', { name: /^research item$/i })).toHaveAttribute(
+      'href',
+      `/portal/research/research-lumen?${scope}`,
+    )
   })
 })
