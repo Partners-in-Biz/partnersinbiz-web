@@ -8,7 +8,7 @@ import {
   CampaignsWorkspace,
   type CampaignWorkspaceRecord,
 } from '@/components/campaigns/CampaignsWorkspace'
-import { CampaignRequestPanel } from './CampaignRequestPanel'
+import { CampaignRequestPanel } from '@/components/campaigns/CampaignRequestPanel'
 import type { Sequence } from '@/lib/sequences/types'
 import {
   resolvePortalCampaignUser,

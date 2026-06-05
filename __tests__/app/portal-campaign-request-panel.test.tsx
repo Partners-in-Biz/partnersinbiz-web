@@ -1,6 +1,6 @@
 import React from 'react'
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
-import { CampaignRequestPanel } from '@/app/(portal)/portal/campaigns/CampaignRequestPanel'
+import { CampaignRequestPanel } from '@/components/campaigns/CampaignRequestPanel'
 
 function jsonResponse(body: unknown, ok = true) {
   return {
