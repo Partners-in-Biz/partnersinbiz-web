@@ -15,8 +15,10 @@ export default function PortalPostHistory() {
     <SocialHistoryWorkspace
       title="Post History"
       description="View all your published and scheduled posts"
+      limit={200}
       buildApiPath={buildApiPath}
       statusOptions={['all', 'published', 'scheduled', 'draft', 'failed', 'cancelled']}
+      showPlatformFilter
     />
   )
 }
