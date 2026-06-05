@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import type { DealLineItem, Currency } from '@/lib/crm/types'
 import type { Product } from '@/lib/products/types'
+import type { PortalOrgRouteScope } from '@/lib/portal/scoped-routing'
 import { ProductPicker } from './ProductPicker'
 
 export interface DealLineItemsEditorProps {
@@ -10,6 +11,7 @@ export interface DealLineItemsEditorProps {
   onChange: (items: DealLineItem[]) => void
   currency: Currency
   orgId: string
+  orgScope?: PortalOrgRouteScope
   readOnly?: boolean
 }
 
@@ -45,7 +47,7 @@ const BLANK_DRAFT: DraftItem = { name: '', qty: 1, unitPrice: 0, discount: 0 }
 
 // ── Main component ────────────────────────────────────────────────────────────
 
-export function DealLineItemsEditor({ value, onChange, currency, orgId, readOnly = false }: DealLineItemsEditorProps) {
+export function DealLineItemsEditor({ value, onChange, currency, orgId, orgScope, readOnly = false }: DealLineItemsEditorProps) {
   const [addingRow, setAddingRow] = useState(false)
   const [draft, setDraft] = useState<DraftItem>(BLANK_DRAFT)
 
@@ -257,6 +259,7 @@ export function DealLineItemsEditor({ value, onChange, currency, orgId, readOnly
                 <td className={tdCls}>
                   <ProductPicker
                     orgId={orgId}
+                    orgScope={orgScope}
                     onSelect={handleProductSelect}
                     onAdHoc={handleAdHoc}
                     placeholder="Product name…"

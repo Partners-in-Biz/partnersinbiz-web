@@ -535,6 +535,7 @@ export function DealDrawer({
               <CompanyPicker
                 currentCompanyId={companyId || undefined}
                 currentCompanyName={companyName || undefined}
+                orgScope={drawerScope}
                 ariaLabel={fieldLabel('Deal company')}
                 onChange={({ companyId: nextCompanyId, companyName: nextCompanyName }) => {
                   setCompanyId(nextCompanyId ?? '')
@@ -708,6 +709,7 @@ export function DealDrawer({
               onChange={setLineItems}
               currency={currency}
               orgId={orgId}
+              orgScope={drawerScope}
             />
           </div>
 

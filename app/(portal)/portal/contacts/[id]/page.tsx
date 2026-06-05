@@ -2109,6 +2109,7 @@ export default function PortalContactDetailPage() {
               <CompanyPicker
                 currentCompanyId={editCompanyId}
                 currentCompanyName={editCompanyName}
+                orgScope={routeScope}
                 ariaLabel={`Linked company for ${contactName}`}
                 onChange={({ companyId, companyName }) => {
                   setEditCompanyId(companyId ?? '')

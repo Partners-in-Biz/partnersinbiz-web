@@ -3,9 +3,11 @@
 import Link from 'next/link'
 import { useEffect, useRef, useState } from 'react'
 import type { Product } from '@/lib/products/types'
+import { scopedApiPath, scopedPortalPath, type PortalOrgRouteScope } from '@/lib/portal/scoped-routing'
 
 export interface ProductPickerProps {
   orgId: string
+  orgScope?: PortalOrgRouteScope
   onSelect: (product: Product | null) => void
   onAdHoc?: (name: string) => void
   placeholder?: string
@@ -16,18 +18,21 @@ function productDisplayName(product: Product) {
   return product.name?.trim() || 'Product name missing'
 }
 
-export function ProductPicker({ onSelect, onAdHoc, placeholder = 'Search products…', className = '' }: ProductPickerProps) {
+export function ProductPicker({ orgId, orgScope, onSelect, onAdHoc, placeholder = 'Search products…', className = '' }: ProductPickerProps) {
   const [products, setProducts] = useState<Product[]>([])
   const [query, setQuery] = useState('')
   const [open, setOpen] = useState(false)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const containerRef = useRef<HTMLDivElement>(null)
+  const productScope = orgScope ?? { orgId }
+  const productsEndpoint = scopedApiPath('/api/v1/crm/products?limit=200', productScope)
+  const productCatalogHref = scopedPortalPath('/portal/settings/products', productScope)
 
   // Fetch product list once on mount
   useEffect(() => {
     let cancelled = false
-    fetch('/api/v1/crm/products?limit=200')
+    fetch(productsEndpoint)
       .then(r => r.json())
       .then(body => {
         if (cancelled) return
@@ -40,7 +45,7 @@ export function ProductPicker({ onSelect, onAdHoc, placeholder = 'Search product
       })
       .finally(() => { if (!cancelled) setLoading(false) })
     return () => { cancelled = true }
-  }, []) // the API uses the session org
+  }, [productsEndpoint])
 
   // Close on outside click
   useEffect(() => {
@@ -147,7 +152,7 @@ export function ProductPicker({ onSelect, onAdHoc, placeholder = 'Search product
               </p>
               {!query.trim() && (
                 <Link
-                  href="/portal/settings/products"
+                  href={productCatalogHref}
                   aria-label="Open product catalog to create quote-ready products"
                   className="mt-2 inline-flex items-center gap-1.5 text-xs font-medium text-[var(--color-accent-v2)] hover:underline"
                 >

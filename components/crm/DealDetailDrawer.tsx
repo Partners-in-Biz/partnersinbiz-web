@@ -436,6 +436,7 @@ export function DealDetailDrawer({
               onChange={() => {}} // no-op in read-only
               currency={deal.currency}
               orgId={orgId}
+              orgScope={orgScope}
               readOnly
             />
           </div>
