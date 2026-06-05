@@ -503,6 +503,8 @@ export function ContactsWorkspace({
   }
 
   const unownedContacts = contacts.filter((contact) => !hasContactOwner(contact))
+  const followUpDueContacts = contacts.filter(needsFollowUp)
+  const clientContacts = contacts.filter((contact) => contact.type === 'client')
   const ownerCoverage = contacts.length > 0 ? (contacts.length - unownedContacts.length) / contacts.length : 1
   const ownerFilteredContacts = ownerLens === 'unowned' ? unownedContacts : contacts
   const displayedContacts = followUpLens === 'stale'
@@ -607,6 +609,105 @@ export function ContactsWorkspace({
           </p>
         </section>
       )}
+
+      <section
+        role="region"
+        aria-label="Today's contact cockpit"
+        className="space-y-4"
+      >
+        <div className="flex flex-col gap-5 xl:flex-row xl:items-end xl:justify-between">
+          <div className="min-w-0 xl:max-w-sm">
+            <p className="eyebrow !text-[10px]">Executive lens</p>
+            <h2 className="mt-2 font-display text-2xl text-[var(--color-pib-text)]">Today&apos;s contact cockpit</h2>
+            <p className="mt-2 text-sm leading-6 text-[var(--color-pib-text-muted)]">
+              Follow-up pressure, owner gaps, customer volume, and the current working lens in one board-ready view.
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                setOwnerLens('all')
+                setFollowUpLens('stale')
+              }}
+              className={[
+                'btn-pib-secondary text-xs',
+                followUpLens === 'stale' ? 'border-amber-400/50 bg-amber-400/10 text-amber-100' : '',
+              ].join(' ')}
+              aria-label="Show contacts needing follow-up"
+            >
+              <span className="material-symbols-outlined text-[14px]" aria-hidden="true">edit_note</span>
+              Follow-ups
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setOwnerLens('unowned')
+                setFollowUpLens('all')
+              }}
+              className={[
+                'btn-pib-secondary text-xs',
+                ownerLens === 'unowned' ? 'border-amber-400/50 bg-amber-400/10 text-amber-100' : '',
+              ].join(' ')}
+              aria-label="Show owner gaps"
+            >
+              <span className="material-symbols-outlined text-[14px]" aria-hidden="true">manage_accounts</span>
+              Owner gaps
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setOwnerLens('all')
+                setFollowUpLens('all')
+              }}
+              className="btn-pib-secondary text-xs"
+              aria-label="Show full contact audience"
+            >
+              <span className="material-symbols-outlined text-[14px]" aria-hidden="true">groups</span>
+              Full audience
+            </button>
+          </div>
+        </div>
+
+        <div className="grid min-w-0 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <div className="rounded-lg border border-[var(--color-pib-line)] bg-white/[0.03] p-4">
+            <div className="flex items-start justify-between gap-3">
+              <p className="eyebrow !text-[10px]">Follow-up</p>
+              <span className="material-symbols-outlined text-[18px] text-[var(--color-pib-accent)]" aria-hidden="true">edit_note</span>
+            </div>
+            <p className="mt-3 text-2xl font-semibold text-[var(--color-pib-text)]">
+              {followUpDueContacts.length} {followUpDueContacts.length === 1 ? 'follow-up due' : 'follow-ups due'}
+            </p>
+          </div>
+          <div className="rounded-lg border border-[var(--color-pib-line)] bg-white/[0.03] p-4">
+            <div className="flex items-start justify-between gap-3">
+              <p className="eyebrow !text-[10px]">Owner gaps</p>
+              <span className="material-symbols-outlined text-[18px] text-[var(--color-pib-accent)]" aria-hidden="true">supervisor_account</span>
+            </div>
+            <p className="mt-3 text-2xl font-semibold text-[var(--color-pib-text)]">
+              {unownedContacts.length} {unownedContacts.length === 1 ? 'owner gap' : 'owner gaps'}
+            </p>
+          </div>
+          <div className="rounded-lg border border-[var(--color-pib-line)] bg-white/[0.03] p-4">
+            <div className="flex items-start justify-between gap-3">
+              <p className="eyebrow !text-[10px]">Customers</p>
+              <span className="material-symbols-outlined text-[18px] text-[var(--color-pib-accent)]" aria-hidden="true">handshake</span>
+            </div>
+            <p className="mt-3 text-2xl font-semibold text-[var(--color-pib-text)]">
+              {clientContacts.length} {clientContacts.length === 1 ? 'client' : 'clients'}
+            </p>
+          </div>
+          <div className="rounded-lg border border-[var(--color-pib-line)] bg-white/[0.03] p-4">
+            <div className="flex items-start justify-between gap-3">
+              <p className="eyebrow !text-[10px]">Visible</p>
+              <span className="material-symbols-outlined text-[18px] text-[var(--color-pib-accent)]" aria-hidden="true">filter_alt</span>
+            </div>
+            <p className="mt-3 text-2xl font-semibold text-[var(--color-pib-text)]">
+              {displayedContacts.length} visible
+            </p>
+          </div>
+        </div>
+      </section>
 
       <section className="grid gap-3 md:grid-cols-3">
         <div className="pib-stat-card">

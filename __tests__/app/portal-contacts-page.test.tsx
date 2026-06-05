@@ -131,6 +131,84 @@ describe('Portal contacts page', () => {
     expect(screen.getByText('owner: unowned')).toBeInTheDocument()
   })
 
+  it('gives executives a contact cockpit before the dense table', async () => {
+    const recentTouch = new Date().toISOString()
+    ;(global.fetch as jest.Mock).mockImplementation((input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url.startsWith('/api/v1/crm/contacts')) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            data: [
+              {
+                id: 'contact-owned',
+                name: 'Owned Client',
+                email: 'owned@example.com',
+                company: 'Owned Co',
+                type: 'client',
+                stage: 'won',
+                assignedTo: 'sales-lead-1',
+                assignedToRef: { uid: 'sales-lead-1', displayName: 'Ava Owner' },
+                tags: [],
+                lastContactedAt: null,
+              },
+              {
+                id: 'contact-unowned',
+                name: 'Unowned Prospect',
+                email: 'unowned@example.com',
+                company: 'Open Co',
+                type: 'lead',
+                stage: 'new',
+                assignedTo: '',
+                tags: [],
+                lastContactedAt: null,
+              },
+              {
+                id: 'contact-fresh',
+                name: 'Fresh Followup',
+                email: 'fresh@example.com',
+                company: 'Fresh Co',
+                type: 'lead',
+                stage: 'contacted',
+                assignedTo: 'sales-lead-1',
+                assignedToRef: { uid: 'sales-lead-1', displayName: 'Ava Owner' },
+                tags: [],
+                lastContactedAt: recentTouch,
+              },
+            ],
+          }),
+        } as Response)
+      }
+      if (url.startsWith('/api/v1/portal/settings/team')) {
+        return Promise.resolve({ ok: true, json: async () => ({ members: [] }) } as Response)
+      }
+      if (url.startsWith('/api/v1/crm/saved-views')) {
+        return Promise.resolve({ ok: true, json: async () => ({ data: [] }) } as Response)
+      }
+      return Promise.reject(new Error(`Unexpected fetch: ${url}`))
+    })
+
+    render(<PortalContactsPage />)
+
+    expect(await screen.findByRole('link', { name: 'Open contact Owned Client' })).toBeInTheDocument()
+    const cockpit = await screen.findByRole('region', { name: "Today's contact cockpit" })
+    expect(within(cockpit).getByRole('heading', { name: "Today's contact cockpit" })).toBeInTheDocument()
+    expect(within(cockpit).getByText('2 follow-ups due')).toBeInTheDocument()
+    expect(within(cockpit).getByText('1 owner gap')).toBeInTheDocument()
+    expect(within(cockpit).getByText('1 client')).toBeInTheDocument()
+    expect(cockpit.compareDocumentPosition(screen.getByRole('link', { name: 'Open contact Owned Client' })) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+
+    fireEvent.click(within(cockpit).getByRole('button', { name: 'Show contacts needing follow-up' }))
+
+    expect(screen.getByRole('link', { name: 'Open contact Owned Client' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Open contact Unowned Prospect' })).toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: 'Open contact Fresh Followup' })).not.toBeInTheDocument()
+    expect(screen.getByText('2 contacts need follow-up.')).toBeInTheDocument()
+
+    fireEvent.click(within(cockpit).getByRole('button', { name: 'Show full contact audience' }))
+    expect(screen.getByRole('link', { name: 'Open contact Fresh Followup' })).toBeInTheDocument()
+  })
+
   it('warns leaders when visible contacts look like smoke-test setup data', async () => {
     ;(global.fetch as jest.Mock).mockImplementation((input: RequestInfo | URL) => {
       const url = String(input)
