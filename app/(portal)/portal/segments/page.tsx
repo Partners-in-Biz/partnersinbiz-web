@@ -7,8 +7,8 @@ import type {
   BehavioralRule,
   EngagementScoreRule,
 } from '@/lib/crm/segments'
-import { BehavioralRuleEditor } from '@/components/admin/segments/BehavioralRuleEditor'
-import { EngagementRuleEditor } from '@/components/admin/segments/EngagementRuleEditor'
+import { BehavioralRuleEditor } from '@/components/crm/segments/BehavioralRuleEditor'
+import { EngagementRuleEditor } from '@/components/crm/segments/EngagementRuleEditor'
 import { PREDEFINED_SEGMENTS } from '@/lib/crm/predefined-segments'
 import {
   SegmentCommandCenter,

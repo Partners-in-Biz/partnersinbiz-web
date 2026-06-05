@@ -1,4 +1,4 @@
-// components/admin/segments/EngagementRuleEditor.tsx
+// components/crm/segments/EngagementRuleEditor.tsx
 'use client'
 
 import type { EngagementScoreRule } from '@/lib/crm/segments'

@@ -1,4 +1,4 @@
-// components/admin/segments/BehavioralRuleEditor.tsx
+// components/crm/segments/BehavioralRuleEditor.tsx
 'use client'
 
 import { useEffect, useState } from 'react'
