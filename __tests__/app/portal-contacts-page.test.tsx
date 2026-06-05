@@ -189,6 +189,8 @@ describe('Portal contacts page', () => {
     expect(screen.getByRole('checkbox', { name: 'Select Smoke composer focus contact 20260531172148' })).toBeChecked()
     expect(screen.queryByRole('checkbox', { name: 'Select Owned Client' })).not.toBeChecked()
     expect(screen.getByText('1 selected')).toBeInTheDocument()
+    expect(screen.getByRole('alertdialog', { name: 'Delete 1 selected contact?' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Confirm delete 1 selected contact' })).toBeInTheDocument()
   })
 
   it('warns when contacts fail to load instead of presenting the audience as empty', async () => {

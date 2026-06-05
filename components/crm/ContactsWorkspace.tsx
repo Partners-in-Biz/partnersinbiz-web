@@ -367,6 +367,11 @@ export function ContactsWorkspace({
     if (!ids.length) return
     setSelectedIds(new Set(ids))
     setBulkAction('add-tags')
+    setBulkDeleteConfirmOpen(true)
+    pushToast(
+      `${ids.length} setup contact${ids.length === 1 ? '' : 's'} selected for cleanup — confirm delete below.`,
+      'info',
+    )
   }
 
   async function handleBulkDelete() {
