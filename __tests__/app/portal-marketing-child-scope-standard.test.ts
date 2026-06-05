@@ -13,7 +13,7 @@ describe('portal marketing child scope standard', () => {
     const emailDomains = source('app/(portal)/portal/email-domains/page.tsx')
     const emailDomainsWorkspace = source('components/email-domains/EmailDomainsWorkspace.tsx')
     const emailAnalytics = source('app/(portal)/portal/email-analytics/page.tsx')
-    const emailAnalyticsDashboard = source('components/admin/email-analytics/EmailAnalyticsDashboard.tsx')
+    const emailAnalyticsDashboard = source('components/email-analytics/EmailAnalyticsDashboard.tsx')
     const sequences = source('app/(portal)/portal/settings/sequences/page.tsx')
     const sequencesWorkspace = source('components/crm/SequencesWorkspace.tsx')
     const automations = source('app/(portal)/portal/settings/automations/page.tsx')
@@ -42,7 +42,7 @@ describe('portal marketing child scope standard', () => {
 
     expect(emailAnalytics).toContain('canUsePortalOrg')
     expect(emailAnalytics).toContain('searchParams')
-    expect(emailAnalytics).toContain('@/components/admin/email-analytics/EmailAnalyticsDashboard')
+    expect(emailAnalytics).toContain('@/components/email-analytics/EmailAnalyticsDashboard')
     expect(emailAnalytics).toContain('surface="portal"')
     expect(emailAnalytics).toContain("orgScope={{ orgId: user.orgId, orgSlug: params?.orgSlug }}")
     expect(emailAnalyticsDashboard).toContain('scopedApiPath')

@@ -1,6 +1,6 @@
 import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
-import EmailAnalyticsDashboard from '@/components/admin/email-analytics/EmailAnalyticsDashboard'
+import EmailAnalyticsDashboard from '@/components/email-analytics/EmailAnalyticsDashboard'
 import { adminAuth, adminDb } from '@/lib/firebase/admin'
 import { canUsePortalOrg, resolvePortalActiveOrgId } from '@/lib/portal/org-access'
 

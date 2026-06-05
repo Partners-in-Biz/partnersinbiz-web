@@ -8,7 +8,7 @@
 export const dynamic = 'force-dynamic'
 
 import { useOrg } from '@/lib/contexts/OrgContext'
-import EmailAnalyticsDashboard from '@/components/admin/email-analytics/EmailAnalyticsDashboard'
+import EmailAnalyticsDashboard from '@/components/email-analytics/EmailAnalyticsDashboard'
 
 export default function AdminEmailAnalyticsPage() {
   const { selectedOrgId, orgName } = useOrg()

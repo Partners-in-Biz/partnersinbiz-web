@@ -1,8 +1,8 @@
 import React from 'react'
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
-import EmailAnalyticsDashboard from '@/components/admin/email-analytics/EmailAnalyticsDashboard'
+import EmailAnalyticsDashboard from '@/components/email-analytics/EmailAnalyticsDashboard'
 
-jest.mock('@/components/admin/email-analytics/charts', () => ({
+jest.mock('@/components/email-analytics/charts', () => ({
   LineChart: () => <div data-testid="line-chart" />,
   Donut: () => <div data-testid="donut-chart" />,
   BarChart: () => <div data-testid="bar-chart" />,
