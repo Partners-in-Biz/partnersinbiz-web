@@ -70,7 +70,7 @@ describe('ClientReviewQueuePage', () => {
       'href',
       '/portal/social?orgId=lumen-org&orgSlug=lumen-speeds',
     )
-    expect(screen.getByText('Open').closest('a')).toHaveAttribute(
+    expect(screen.getByText('Open review').closest('a')).toHaveAttribute(
       'href',
       '/portal/social/review/post-1?orgId=lumen-org&orgSlug=lumen-speeds',
     )

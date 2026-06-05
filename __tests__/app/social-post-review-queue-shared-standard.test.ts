@@ -1,4 +1,4 @@
-import { readFileSync } from 'fs'
+import { existsSync, readFileSync } from 'fs'
 import path from 'path'
 
 const root = process.cwd()
@@ -13,11 +13,22 @@ describe('social post review queue shared standard', () => {
     'app/(portal)/portal/social/review/page.tsx',
   ]
 
-  it('keeps admin QA and portal client review queues on the shared review queue card', () => {
+  it('keeps admin QA and portal client review queues on one shared workspace', () => {
+    const sharedWorkspacePath = path.join(root, 'components/social-review/SocialPostReviewQueueWorkspace.tsx')
+
+    expect(existsSync(sharedWorkspacePath)).toBe(true)
+    expect(source('components/social-review/SocialPostReviewQueueWorkspace.tsx')).toContain(
+      'export function SocialPostReviewQueueWorkspace',
+    )
+
     for (const route of routes) {
       const file = source(route)
 
-      expect(file).toContain('@/components/social-review/SocialPostReviewQueueCard')
+      expect(file).toContain('@/components/social-review/SocialPostReviewQueueWorkspace')
+      expect(file).not.toContain('@/components/social-review/SocialPostReviewQueueCard')
+      expect(file).not.toContain('useState')
+      expect(file).not.toContain('useEffect')
+      expect(file).not.toContain('fetch(')
       expect(file).not.toContain('function PlatformBadge')
       expect(file).not.toContain('const PLATFORM_COLORS')
       expect(file).not.toContain('function getPostText')
