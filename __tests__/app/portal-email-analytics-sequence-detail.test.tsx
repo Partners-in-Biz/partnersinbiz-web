@@ -62,7 +62,12 @@ beforeEach(() => {
 
 describe('PortalSequenceAnalyticsPage', () => {
   it('renders sequence analytics for portal users', async () => {
-    render(<PortalSequenceAnalyticsPage params={Promise.resolve({ id: 'seq-1' })} />)
+    render(
+      <PortalSequenceAnalyticsPage
+        params={Promise.resolve({ id: 'seq-1' })}
+        searchParams={Promise.resolve({ orgId: 'lumen-org', orgSlug: 'lumen-speeds' })}
+      />,
+    )
 
     expect(await screen.findByRole('heading', { name: 'Website welcome sequence performance' })).toBeInTheDocument()
     expect(screen.getByText('Turns new website leads into booked calls.')).toBeInTheDocument()
@@ -71,10 +76,10 @@ describe('PortalSequenceAnalyticsPage', () => {
     expect(screen.getByText(/Review Step 1 subject/)).toBeInTheDocument()
     expect(screen.getByRole('link', { name: /Back to email analytics/i })).toHaveAttribute(
       'href',
-      '/portal/email-analytics',
+      '/portal/email-analytics?orgId=lumen-org&orgSlug=lumen-speeds',
     )
     expect(screen.getAllByText('42').length).toBeGreaterThan(0)
     expect(screen.getByText('Welcome to the growth engine')).toBeInTheDocument()
-    expect(fetchMock).toHaveBeenCalledWith('/api/v1/email-analytics/sequences/seq-1')
+    expect(fetchMock).toHaveBeenCalledWith('/api/v1/email-analytics/sequences/seq-1?orgId=lumen-org')
   })
 })
