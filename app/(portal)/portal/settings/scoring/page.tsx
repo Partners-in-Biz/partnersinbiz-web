@@ -2,10 +2,12 @@
 'use client'
 export const dynamic = 'force-dynamic'
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { IcpProfileEditor } from '@/components/crm/IcpProfileEditor'
 import { LeadWeightsEditor } from '@/components/crm/LeadWeightsEditor'
 import { PageTabs } from '@/components/ui/AppFoundation'
+import { scopedApiPath, scopeFromSearchParams } from '@/lib/portal/scoped-routing'
 import type { IcpProfile, LeadSignalsWeights } from '@/lib/scoring/types'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -131,6 +133,12 @@ function PriorityAction({
 // ── Page ─────────────────────────────────────────────────────────────────────
 
 export default function ScoringPage() {
+  const searchParams = useSearchParams()
+  const orgScope = useMemo(() => scopeFromSearchParams(searchParams), [searchParams])
+  const scoringEndpoint = useCallback(
+    (path: string) => scopedApiPath(path, orgScope),
+    [orgScope],
+  )
   const [config, setConfig] = useState<ScoringConfig | null>(null)
   const [loading, setLoading] = useState(true)
   const [fetchError, setFetchError] = useState<string | null>(null)
@@ -154,7 +162,7 @@ export default function ScoringPage() {
   const fetchScoringConfig = useCallback(() => {
     setLoading(true)
     setFetchError(null)
-    fetch('/api/v1/crm/scoring/config')
+    fetch(scoringEndpoint('/api/v1/crm/scoring/config'))
       .then(async (r) => {
         const body = await r.json().catch(() => ({}))
         if (!r.ok) {
@@ -177,7 +185,7 @@ export default function ScoringPage() {
         setFetchError(error instanceof Error ? error.message : 'Failed to load scoring config. Please try again.')
       })
       .finally(() => setLoading(false))
-  }, [])
+  }, [scoringEndpoint])
 
   useEffect(() => {
     fetchScoringConfig()
@@ -191,7 +199,7 @@ export default function ScoringPage() {
     setSaveMsg(null)
     setSaveError(null)
     try {
-      const res = await fetch('/api/v1/crm/scoring/config', {
+      const res = await fetch(scoringEndpoint('/api/v1/crm/scoring/config'), {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ icp, leadWeights, aiEnabled }),
@@ -223,7 +231,7 @@ export default function ScoringPage() {
     setRecomputeMsg(null)
     setRecomputeConfirmOpen(false)
     try {
-      const res = await fetch('/api/v1/crm/scoring/recompute-all', { method: 'POST' })
+      const res = await fetch(scoringEndpoint('/api/v1/crm/scoring/recompute-all'), { method: 'POST' })
       const body = await res.json().catch(() => ({}))
       if (!res.ok) throw new Error(body.error ?? 'Recompute failed')
       const { processed = 0, succeeded = 0, failed = 0 } = body.data ?? body
