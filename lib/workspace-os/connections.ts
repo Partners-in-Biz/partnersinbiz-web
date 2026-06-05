@@ -1,4 +1,4 @@
-import { asRecord, assertNoRawSecrets, cleanIsoString, cleanRequiredString, cleanString, cleanStringArray, enumValue, slugify } from './common'
+import { asRecord, assertNoRawSecrets, cleanIsoString, cleanRequiredString, cleanString, cleanStringArray, enumValue, normalizeRegistryAudit, normalizeRegistryOwner, normalizeSafeMetadata, slugify, type SafeMetadata, type WorkspaceRegistryAudit, type WorkspaceRegistryOwner } from './common'
 
 export const WORKSPACE_CONNECTION_COLLECTION = 'workspace_connections'
 export const WORKSPACE_CONNECTION_PROVIDERS = ['google_workspace'] as const
@@ -20,6 +20,18 @@ export interface WorkspaceConnection {
   status: WorkspaceConnectionStatus
   ownerAgentId: string | null
   ownerUserId: string | null
+  owner: WorkspaceRegistryOwner
+  visibility: string | null
+  resourceType: string | null
+  resourceId: string | null
+  projectId: string | null
+  taskId: string | null
+  clientDocumentId: string | null
+  sourceDocumentId: string | null
+  sourceResearchItemId: string | null
+  capabilityScopes: string[]
+  audit: WorkspaceRegistryAudit
+  safeMetadata: SafeMetadata
   googleCloudProjectId: string | null
   oauthClientId: string | null
   serviceAccountEmail: string | null
@@ -88,6 +100,24 @@ export function normalizeWorkspaceConnectionInput(input: unknown, orgId: string)
     status: enumValue(body.status, WORKSPACE_CONNECTION_STATUSES, 'proposed', 'status'),
     ownerAgentId: cleanString(body.ownerAgentId),
     ownerUserId: cleanString(body.ownerUserId),
+    owner: normalizeRegistryOwner(body.owner, body.ownerAgentId, body.ownerUserId),
+    visibility: cleanString(body.visibility),
+    resourceType: cleanString(body.resourceType),
+    resourceId: cleanString(body.resourceId),
+    projectId: cleanString(body.projectId),
+    taskId: cleanString(body.taskId),
+    clientDocumentId: cleanString(body.clientDocumentId),
+    sourceDocumentId: cleanString(body.sourceDocumentId),
+    sourceResearchItemId: cleanString(body.sourceResearchItemId),
+    capabilityScopes: cleanStringArray(body.capabilityScopes),
+    audit: normalizeRegistryAudit(body.audit, {
+      approvalStatus: cleanString(body.approvalStatus),
+      approvalGateTaskId: cleanString(body.approvalGateTaskId),
+      riskLevel: cleanString(body.riskLevel),
+      lastReviewedAt: cleanIsoString(body.lastReviewedAt, 'lastReviewedAt'),
+      lastReviewedBy: cleanString(body.lastReviewedBy),
+    }),
+    safeMetadata: normalizeSafeMetadata(body.safeMetadata),
     googleCloudProjectId: cleanString(body.googleCloudProjectId),
     oauthClientId: cleanString(body.oauthClientId),
     serviceAccountEmail: cleanString(body.serviceAccountEmail),

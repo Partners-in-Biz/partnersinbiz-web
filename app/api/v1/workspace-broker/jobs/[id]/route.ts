@@ -48,9 +48,17 @@ export const PATCH = withAuth('admin', async (req: NextRequest, user, context) =
   const nextStatus = action === 'approve' ? 'queued' : 'cancelled'
   const approvalStatus = action === 'approve' ? 'approved' : 'rejected'
   const output = { ...(job.output ?? {}), googleMutationPerformed: false }
+  const approvalEvidence = {
+    ...((job.approvalEvidence && typeof job.approvalEvidence === 'object') ? job.approvalEvidence as Record<string, unknown> : {}),
+    status: approvalStatus,
+    decidedBy: user.uid,
+    decidedAt: FieldValue.serverTimestamp(),
+  }
   const update = {
     status: nextStatus,
     approvalStatus,
+    approvalSatisfied: action === 'approve',
+    approvalEvidence,
     approvalDecidedBy: user.uid,
     approvalDecidedAt: FieldValue.serverTimestamp(),
     output,

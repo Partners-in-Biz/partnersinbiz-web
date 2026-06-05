@@ -44,6 +44,14 @@ export interface WorkspaceFolder {
   description: string
   resourceType: string | null
   resourceId: string | null
+  projectId: string | null
+  taskId: string | null
+  clientDocumentId: string | null
+  connectionId: string | null
+  provider: string
+  owner: { type: string | null; id: string | null }
+  capabilityScopes: string[]
+  safeMetadata: Record<string, unknown>
   parentId: string | null
   visibility: WorkspaceFolderVisibility
   tags: string[]
@@ -73,6 +81,12 @@ export interface WorkspaceFolder {
     conflictCount: number
   }
   audit: {
+    approvalStatus: string | null
+    auditStatus: string | null
+    riskLevel: string | null
+    approvalGateTaskId: string | null
+    lastReviewedAt: string | null
+    lastReviewedBy: string | null
     conflictStatus: WorkspaceFolderConflictStatus
     lastConflictAt: string | null
     notes: string | null
@@ -176,6 +190,18 @@ function cleanLocalPathHint(value: unknown): string | null {
   return trimmed
 }
 
+function assertNoRawSecrets(input: unknown): void {
+  const forbidden = new Set(['clientSecret', 'client_secret', 'refreshToken', 'refresh_token', 'accessToken', 'access_token', 'privateKey', 'private_key', 'serviceAccountJson', 'keyJson', 'password', 'secret'])
+  const visit = (value: unknown, path: string[] = []) => {
+    if (!value || typeof value !== 'object') return
+    for (const [key, child] of Object.entries(value as Record<string, unknown>)) {
+      if (forbidden.has(key)) throw new Error(`raw secrets are not allowed in workspace folder registry (${[...path, key].join('.')})`)
+      visit(child, [...path, key])
+    }
+  }
+  visit(input)
+}
+
 function cleanIsoString(value: unknown, field: string): string | null {
   const trimmed = cleanString(value)
   if (!trimmed) return null
@@ -185,6 +211,7 @@ function cleanIsoString(value: unknown, field: string): string | null {
 }
 
 export function normalizeWorkspaceFolderInput(input: unknown, orgId: string): WorkspaceFolder {
+  assertNoRawSecrets(input)
   const body = asRecord(input)
   const permissions = asRecord(body.permissions)
   const syncState = asRecord(body.syncState)
@@ -196,6 +223,17 @@ export function normalizeWorkspaceFolderInput(input: unknown, orgId: string): Wo
     description: cleanString(body.description) ?? '',
     resourceType: cleanString(body.resourceType),
     resourceId: cleanString(body.resourceId),
+    projectId: cleanString(body.projectId),
+    taskId: cleanString(body.taskId),
+    clientDocumentId: cleanString(body.clientDocumentId),
+    connectionId: cleanString(body.connectionId),
+    provider: cleanString(body.provider) ?? 'google_workspace',
+    owner: {
+      type: cleanString(asRecord(body.owner).type) ?? (cleanString(body.ownerAgentId) ? 'agent' : cleanString(body.ownerUserId) ? 'user' : null),
+      id: cleanString(asRecord(body.owner).id) ?? cleanString(body.ownerAgentId) ?? cleanString(body.ownerUserId),
+    },
+    capabilityScopes: cleanStringArray(body.capabilityScopes),
+    safeMetadata: asRecord(body.safeMetadata),
     parentId: cleanString(body.parentId),
     visibility: enumValue(body.visibility, WORKSPACE_FOLDER_VISIBILITIES, 'admin_agents', 'visibility'),
     tags: cleanStringArray(body.tags),
@@ -225,6 +263,12 @@ export function normalizeWorkspaceFolderInput(input: unknown, orgId: string): Wo
       conflictCount: cleanNonNegativeInteger(syncState.conflictCount, 'syncState.conflictCount'),
     },
     audit: {
+      approvalStatus: cleanString(audit.approvalStatus) ?? cleanString(body.approvalStatus),
+      auditStatus: cleanString(audit.auditStatus) ?? cleanString(body.auditStatus) ?? 'unknown',
+      riskLevel: cleanString(audit.riskLevel) ?? cleanString(body.riskLevel),
+      approvalGateTaskId: cleanString(audit.approvalGateTaskId) ?? cleanString(body.approvalGateTaskId),
+      lastReviewedAt: cleanIsoString(audit.lastReviewedAt ?? body.lastReviewedAt, 'audit.lastReviewedAt'),
+      lastReviewedBy: cleanString(audit.lastReviewedBy) ?? cleanString(body.lastReviewedBy),
       conflictStatus: enumValue(audit.conflictStatus, WORKSPACE_FOLDER_CONFLICT_STATUSES, 'none', 'audit.conflictStatus'),
       lastConflictAt: cleanIsoString(audit.lastConflictAt, 'audit.lastConflictAt'),
       notes: cleanString(audit.notes),

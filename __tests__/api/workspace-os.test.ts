@@ -123,8 +123,14 @@ describe('workspace broker API routes', () => {
       operation: 'create_doc',
       status: 'awaiting_approval',
       requiredCapability: 'write',
-      output: { googleMutationPerformed: false },
+      output: expect.objectContaining({ googleMutationPerformed: false, resultArtifactIds: [], resultArtifactUrls: [] }),
       idempotencyKey: 'idem-1',
+      requester: { id: 'admin-1', type: 'admin', role: 'admin', agentId: null },
+      requestedCapability: 'write',
+      targetResource: expect.objectContaining({ orgId: 'org-1', projectId: 'project-1', title: 'Client-facing brief' }),
+      approvalRequired: true,
+      approvalSatisfied: false,
+      errors: [],
     }))
   })
 
@@ -136,7 +142,16 @@ describe('workspace broker API routes', () => {
 
     expect(res.status).toBe(202)
     expect(mockUpdate).not.toHaveBeenCalled()
-    expect(mockAdd).toHaveBeenCalledWith(expect.objectContaining({ operation: 'request_delete', status: 'awaiting_approval', output: { googleMutationPerformed: false } }))
+    expect(mockAdd).toHaveBeenCalledWith(expect.objectContaining({
+      operation: 'request_delete',
+      status: 'awaiting_approval',
+      output: expect.objectContaining({ googleMutationPerformed: false, resultArtifactIds: [], resultArtifactUrls: [] }),
+      requestedCapability: 'delete',
+      targetResource: expect.objectContaining({ orgId: 'org-1', artifactId: 'artifact-1' }),
+      approvalRequired: true,
+      approvalSatisfied: false,
+      errors: [],
+    }))
   })
 
   it('approves and rejects workspace broker jobs without performing Google mutations', async () => {
@@ -152,6 +167,8 @@ describe('workspace broker API routes', () => {
     expect(mockUpdate).toHaveBeenCalledWith(expect.objectContaining({
       status: 'queued',
       approvalStatus: 'approved',
+      approvalSatisfied: true,
+      approvalEvidence: expect.objectContaining({ status: 'approved', decidedBy: 'admin-1' }),
       output: { googleMutationPerformed: false },
       updatedAt: 'SERVER_TIMESTAMP',
     }))

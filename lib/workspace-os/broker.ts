@@ -82,7 +82,32 @@ export interface WorkspaceBrokerJobInput {
   approvalGateTaskId?: string | null
   approvalStatus?: string | null
   idempotencyKey?: string | null
+  now?: string | null
   input?: Record<string, unknown>
+}
+
+export interface WorkspaceBrokerRequester {
+  id: string | null
+  type: string
+  role: string
+  agentId: string | null
+}
+
+export interface WorkspaceBrokerApprovalEvidence {
+  gateTaskId: string | null
+  status: string | null
+}
+
+export interface WorkspaceBrokerTargetResource {
+  orgId?: string
+  connectionId?: string
+  artifactId?: string
+  folderId?: string
+  projectId?: string
+  taskId?: string
+  templateId?: string
+  title?: string
+  url?: string
 }
 
 export interface WorkspaceBrokerJob {
@@ -96,43 +121,103 @@ export interface WorkspaceBrokerJob {
   approvalGateTaskId: string | null
   approvalStatus: string | null
   requiredCapability: AgentCapability
+  requestedCapability: AgentCapability
   riskLevel: WorkspaceBrokerRiskLevel
+  approvalRequired: boolean
+  approvalSatisfied: boolean
+  approvalEvidence: WorkspaceBrokerApprovalEvidence
+  requester: WorkspaceBrokerRequester
+  targetResource: WorkspaceBrokerTargetResource
   input: Record<string, unknown>
-  output: { googleMutationPerformed: false; artifactId?: string | null; fileId?: string | null; url?: string | null }
+  output: { googleMutationPerformed: false; artifactId?: string | null; fileId?: string | null; url?: string | null; artifactIds: string[]; artifactUrls: string[]; resultArtifactIds: string[]; resultArtifactUrls: string[] }
+  resultArtifactIds: string[]
+  resultArtifactUrls: string[]
   error: string | null
+  errors: string[]
   attempts: number
   nextRunAt: string | null
   idempotencyKey: string | null
+  requestedAt: string
+  updatedAt: string
+  completedAt: string | null
+}
+
+function cleanOptionalStringField(payload: Record<string, unknown>, key: string): string | undefined {
+  return cleanString(payload[key]) ?? undefined
+}
+
+function buildWorkspaceBrokerRequester(input: WorkspaceBrokerJobInput): WorkspaceBrokerRequester {
+  const createdByType = cleanString(input.createdByType) ?? 'agent'
+  return {
+    id: cleanString(input.requestedBy),
+    type: createdByType,
+    role: createdByType,
+    agentId: cleanString(input.agentId),
+  }
+}
+
+function buildWorkspaceBrokerTargetResource(orgId: string, connectionId: string | null, payload: Record<string, unknown>): WorkspaceBrokerTargetResource {
+  const target: WorkspaceBrokerTargetResource = { orgId }
+  if (connectionId) target.connectionId = connectionId
+  for (const key of ['artifactId', 'folderId', 'projectId', 'taskId', 'templateId', 'title', 'url'] as const) {
+    const value = cleanOptionalStringField(payload, key)
+    if (value) target[key] = value
+  }
+  return target
 }
 
 export function buildWorkspaceBrokerJobInput(input: WorkspaceBrokerJobInput): WorkspaceBrokerJob {
   const operation = enumValue(input.operation, WORKSPACE_BROKER_OPERATIONS, 'link_existing', 'operation')
   const payload = asRecord(input.input)
+  const orgId = cleanRequiredString(input.orgId, 'orgId')
+  const connectionId = cleanString(input.connectionId)
+  const now = cleanString(input.now) ?? new Date().toISOString()
+  const approvalGateTaskId = cleanString(input.approvalGateTaskId)
+  const approvalStatus = cleanString(input.approvalStatus)
   const decision = evaluateWorkspaceBrokerApproval({
     operation,
     visibility: cleanString(payload.visibility),
-    approvalStatus: input.approvalStatus,
-    approvalGateTaskId: input.approvalGateTaskId,
+    approvalStatus,
+    approvalGateTaskId,
   })
   return {
-    orgId: cleanRequiredString(input.orgId, 'orgId'),
+    orgId,
     operation,
     status: decision.status,
-    connectionId: cleanString(input.connectionId),
+    connectionId,
     requestedBy: cleanString(input.requestedBy),
     createdByType: cleanString(input.createdByType) ?? 'agent',
     agentId: cleanString(input.agentId),
-    approvalGateTaskId: cleanString(input.approvalGateTaskId),
-    approvalStatus: cleanString(input.approvalStatus),
+    requester: buildWorkspaceBrokerRequester(input),
+    approvalGateTaskId,
+    approvalStatus,
     requiredCapability: decision.requiredCapability,
+    requestedCapability: decision.requiredCapability,
     riskLevel: decision.riskLevel,
+    approvalRequired: decision.approvalRequired,
+    approvalSatisfied: decision.approvalSatisfied,
+    approvalEvidence: { gateTaskId: approvalGateTaskId, status: approvalStatus },
+    targetResource: buildWorkspaceBrokerTargetResource(orgId, connectionId, payload),
     input: payload,
-    output: { googleMutationPerformed: false },
+    output: { googleMutationPerformed: false, artifactIds: [], artifactUrls: [], resultArtifactIds: [], resultArtifactUrls: [] },
+    resultArtifactIds: [],
+    resultArtifactUrls: [],
     error: null,
+    errors: [],
     attempts: 0,
     nextRunAt: null,
     idempotencyKey: cleanString(input.idempotencyKey),
+    requestedAt: now,
+    updatedAt: now,
+    completedAt: null,
   }
+}
+
+export function canExecuteWorkspaceBrokerJob(job: Partial<WorkspaceBrokerJob>): { ok: true } | { ok: false; reason: 'approval_required' | 'not_ready' } {
+  if (job.approvalRequired && !job.approvalSatisfied) return { ok: false, reason: 'approval_required' }
+  const status = cleanString(job.status)
+  if (status !== 'queued' && status !== 'running') return { ok: false, reason: 'not_ready' }
+  return { ok: true }
 }
 
 export function detectWorkspaceAclAlignment(input: { visibility: WorkspaceFolderVisibility; anyoneWithLink?: boolean; externalShared?: boolean; domainShared?: boolean }): WorkspaceAclAlignmentStatus {

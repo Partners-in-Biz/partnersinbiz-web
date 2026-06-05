@@ -31,6 +31,7 @@ export async function createBrokerJob(req: NextRequest, user: ApiUser, operation
   const ref = await adminDb.collection(WORKSPACE_BROKER_JOB_COLLECTION).add({
     ...job,
     ...actorFrom(user),
+    output: { googleMutationPerformed: false, resultArtifactIds: [], resultArtifactUrls: [] },
     createdAt: FieldValue.serverTimestamp(),
     updatedAt: FieldValue.serverTimestamp(),
   })

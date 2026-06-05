@@ -1,6 +1,23 @@
 import type { ApiUser } from '@/lib/api/types'
 import { WORKSPACE_FOLDER_VISIBILITIES, type WorkspaceFolderVisibility } from '@/lib/workspace-folders/model'
-import { asRecord, cleanHttpUrl, cleanRequiredString, cleanString, cleanStringArray, enumValue, slugify } from './common'
+import {
+  asRecord,
+  assertNoRawSecrets,
+  cleanHttpUrl,
+  cleanIsoString,
+  cleanRequiredString,
+  cleanString,
+  cleanStringArray,
+  enumValue,
+  normalizeRegistryAudit,
+  normalizeRegistryOwner,
+  normalizeSafeMetadata,
+  slugify,
+  type SafeMetadata,
+  type WorkspaceRegistryAudit,
+  type WorkspaceRegistryOwner,
+  type WorkspaceRegistryProvider,
+} from './common'
 
 export const WORKSPACE_ARTIFACT_COLLECTION = 'workspace_artifacts'
 export const WORKSPACE_ARTIFACT_TYPES = ['drive_folder', 'drive_file', 'google_doc', 'google_sheet', 'export', 'shortcut'] as const
@@ -32,6 +49,11 @@ export interface WorkspaceArtifact {
   sourceResearchItemId: string | null
   approvalGateTaskId: string | null
   agentId: string | null
+  provider: WorkspaceRegistryProvider
+  owner: WorkspaceRegistryOwner
+  capabilityScopes: string[]
+  audit: WorkspaceRegistryAudit
+  safeMetadata: SafeMetadata
   visibility: WorkspaceFolderVisibility
   lifecycleStatus: WorkspaceArtifactLifecycleStatus
   piBCanonicalUrl: string | null
@@ -54,6 +76,7 @@ function extractGoogleFileId(url: string | null, explicit: string | null): strin
 }
 
 export function normalizeWorkspaceArtifactInput(input: unknown, orgId: string): WorkspaceArtifact {
+  assertNoRawSecrets(input)
   const body = asRecord(input)
   const googleBody = asRecord(body.google)
   const permissions = asRecord(body.permissions)
@@ -90,6 +113,17 @@ export function normalizeWorkspaceArtifactInput(input: unknown, orgId: string): 
     sourceResearchItemId: cleanString(body.sourceResearchItemId),
     approvalGateTaskId: cleanString(body.approvalGateTaskId),
     agentId: cleanString(body.agentId),
+    provider: enumValue(body.provider, ['google_workspace'] as const, 'google_workspace', 'provider'),
+    owner: normalizeRegistryOwner(body.owner, body.ownerAgentId ?? body.agentId, body.ownerUserId ?? body.userId),
+    capabilityScopes: cleanStringArray(body.capabilityScopes),
+    audit: normalizeRegistryAudit(body.audit, {
+      approvalStatus: cleanString(body.approvalStatus),
+      approvalGateTaskId: cleanString(body.approvalGateTaskId),
+      riskLevel: cleanString(body.riskLevel),
+      lastReviewedAt: cleanIsoString(body.lastReviewedAt, 'lastReviewedAt'),
+      lastReviewedBy: cleanString(body.lastReviewedBy),
+    }),
+    safeMetadata: normalizeSafeMetadata(body.safeMetadata),
     visibility: enumValue(body.visibility, WORKSPACE_FOLDER_VISIBILITIES, 'admin_agents', 'visibility'),
     lifecycleStatus: enumValue(body.lifecycleStatus, WORKSPACE_ARTIFACT_STATUSES, 'draft', 'lifecycleStatus'),
     piBCanonicalUrl: cleanHttpUrl(body.piBCanonicalUrl, 'piBCanonicalUrl'),
