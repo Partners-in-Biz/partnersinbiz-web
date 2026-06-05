@@ -23,8 +23,22 @@ jest.mock('next/navigation', () => ({
 }))
 
 jest.mock('@/components/crm/ContactDealsPanel', () => ({
-  ContactDealsPanel: ({ contactName }: { contactName?: string }) => (
-    <div data-testid="contact-deals-panel">Deals for {contactName || 'contact name missing'}</div>
+  ContactDealsPanel: ({
+    contactName,
+    orgScope,
+  }: {
+    contactName?: string
+    orgScope?: { orgId?: string; orgSlug?: string; sourceCompanyId?: string; sourceCompanyName?: string }
+  }) => (
+    <div
+      data-testid="contact-deals-panel"
+      data-org-id={orgScope?.orgId ?? ''}
+      data-org-slug={orgScope?.orgSlug ?? ''}
+      data-source-company-id={orgScope?.sourceCompanyId ?? ''}
+      data-source-company-name={orgScope?.sourceCompanyName ?? ''}
+    >
+      Deals for {contactName || 'contact name missing'}
+    </div>
   ),
 }))
 
@@ -479,6 +493,10 @@ describe('Portal contact detail page', () => {
       .toHaveAttribute('href', `/portal/companies/company-1?${scope}`)
     expect(screen.getByRole('link', { name: 'Open linked company Lumen from company card' }))
       .toHaveAttribute('href', `/portal/companies/company-1?${scope}`)
+    expect(screen.getByTestId('contact-deals-panel')).toHaveAttribute('data-org-id', 'org-1')
+    expect(screen.getByTestId('contact-deals-panel')).toHaveAttribute('data-org-slug', 'lumen-speeds')
+    expect(screen.getByTestId('contact-deals-panel')).toHaveAttribute('data-source-company-id', 'company-1')
+    expect(screen.getByTestId('contact-deals-panel')).toHaveAttribute('data-source-company-name', 'Lumen')
     expect(global.fetch).toHaveBeenCalledWith('/api/v1/crm/companies/company-1?orgId=org-1')
 
     fireEvent.click(screen.getByRole('button', { name: 'Choose nurture sequence for Jane Client' }))

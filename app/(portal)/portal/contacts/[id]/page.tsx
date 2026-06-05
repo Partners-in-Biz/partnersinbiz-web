@@ -2671,6 +2671,7 @@ export default function PortalContactDetailPage() {
             contactId={id}
             contactName={contactName}
             orgId={typeof contact.orgId === 'string' ? contact.orgId : ''}
+            orgScope={routeScope}
           />
 
           {/* C3: Sequence enrollment panel */}

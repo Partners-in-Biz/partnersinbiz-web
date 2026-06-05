@@ -5,6 +5,7 @@ import Link from 'next/link'
 import type { Deal } from '@/lib/crm/types'
 import { extractPipelinesList } from '@/lib/pipelines/response'
 import type { Pipeline, PipelineStage } from '@/lib/pipelines/types'
+import { scopedApiPath, scopedPortalPath, type PortalOrgRouteScope } from '@/lib/portal/scoped-routing'
 import { DealDrawer } from './DealDrawer'
 
 function fmtCloseDate(ts: unknown): string {
@@ -110,9 +111,10 @@ interface Props {
   contactId: string
   contactName?: string
   orgId?: string
+  orgScope?: PortalOrgRouteScope
 }
 
-export function ContactDealsPanel({ contactId, contactName, orgId = '' }: Props) {
+export function ContactDealsPanel({ contactId, contactName, orgId = '', orgScope }: Props) {
   const [deals, setDeals] = useState<Deal[]>([])
   const [pipelinesById, setPipelinesById] = useState<Map<string, Pipeline>>(new Map())
   const [loading, setLoading] = useState(true)
@@ -122,6 +124,12 @@ export function ContactDealsPanel({ contactId, contactName, orgId = '' }: Props)
   const [selectedDeal, setSelectedDeal] = useState<Deal | null>(null)
   const contactLabel = contactName?.trim() || 'this contact'
   const opportunityHeadline = `Start ${contactLabel}'s first opportunity.`
+  const panelScope = orgScope ?? { orgId }
+  const scopedOrgId = panelScope.orgId ?? panelScope.id ?? orgId
+  const dealsEndpoint = scopedApiPath(`/api/v1/crm/deals?contactId=${encodeURIComponent(contactId)}&limit=100`, panelScope)
+  const pipelinesEndpoint = scopedApiPath('/api/v1/crm/pipelines', panelScope)
+  const dealDetailEndpoint = (dealId: string) => scopedApiPath(`/api/v1/crm/deals/${dealId}`, panelScope)
+  const dealHref = (dealId: string) => scopedPortalPath(`/portal/deals/${dealId}`, panelScope)
   const dealStats = deals.reduce(
     (stats, deal) => {
       const { kind } = resolveStage(deal, pipelinesById)
@@ -153,8 +161,8 @@ export function ContactDealsPanel({ contactId, contactName, orgId = '' }: Props)
 
     // Fetch deals and pipelines in parallel
     Promise.all([
-      fetch(`/api/v1/crm/deals?contactId=${encodeURIComponent(contactId)}&limit=100`).then(r => r.json()),
-      fetch('/api/v1/crm/pipelines').then(r => r.json()),
+      fetch(dealsEndpoint).then(r => r.json()),
+      fetch(pipelinesEndpoint).then(r => r.json()),
     ])
       .then(([dealsBody, pipelinesBody]) => {
         if (cancelled) return
@@ -181,7 +189,7 @@ export function ContactDealsPanel({ contactId, contactName, orgId = '' }: Props)
       })
 
     return () => { cancelled = true }
-  }, [contactId, reloadToken])
+  }, [contactId, reloadToken, dealsEndpoint, pipelinesEndpoint])
 
   function openNewDealDrawer() {
     setSelectedDeal(null)
@@ -333,7 +341,7 @@ export function ContactDealsPanel({ contactId, contactName, orgId = '' }: Props)
                 </span>
                 <div className="flex-1 min-w-0">
                   <Link
-                    href={`/portal/deals/${deal.id}`}
+                    href={dealHref(deal.id)}
                     className="text-sm font-medium text-[var(--color-pib-text)] hover:underline truncate block"
                   >
                     {titleLabel}
@@ -381,13 +389,13 @@ export function ContactDealsPanel({ contactId, contactName, orgId = '' }: Props)
           deal={selectedDeal ?? undefined}
           defaultContactId={contactId}
           defaultContactLabel={contactName}
-          orgId={orgId}
+          orgId={scopedOrgId}
           onSaved={(dealId) => {
             setShowDealDrawer(false)
             const editedDealId = selectedDeal?.id
             setSelectedDeal(null)
             // Fetch the saved deal and keep the contact-linked list current.
-            fetch(`/api/v1/crm/deals/${dealId}`)
+            fetch(dealDetailEndpoint(dealId))
               .then(r => r.json())
               .then(b => {
                 const newDeal = unwrapDeal(b)
@@ -400,7 +408,7 @@ export function ContactDealsPanel({ contactId, contactName, orgId = '' }: Props)
               })
               .catch(() => {
                 // Fallback: reload all deals for this contact
-                fetch(`/api/v1/crm/deals?contactId=${encodeURIComponent(contactId)}&limit=100`)
+                fetch(dealsEndpoint)
                   .then(r => r.json())
                   .then(b => setDeals(unwrapDealsList(b)))
                   .catch(() => undefined)

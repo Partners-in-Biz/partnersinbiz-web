@@ -357,19 +357,53 @@ describe('ContactDealsPanel', () => {
     expect(screen.getByText('Weighted value')).toBeInTheDocument()
   })
 
+  it('loads linked deals and links deal detail through the active company workspace scope', async () => {
+    const deal = makeDeal({ id: 'deal-99', title: 'Lumen scoped deal', stageId: 'discovery' })
+    mockFetch.mockImplementation((url: RequestInfo | URL) => {
+      const path = String(url)
+      if (path === '/api/v1/crm/deals?contactId=contact-1&limit=100&orgId=lumen-org') return apiResponse([deal])
+      if (path === '/api/v1/crm/pipelines?orgId=lumen-org') return pipelinesResponse()
+      return Promise.reject(new Error(`Unexpected fetch: ${path}`))
+    })
+
+    render(
+      <ContactDealsPanel
+        contactId="contact-1"
+        contactName="Ava Owner"
+        orgScope={{
+          orgId: 'lumen-org',
+          orgSlug: 'lumen-speeds',
+          sourceCompanyId: 'company-1',
+          sourceCompanyName: 'Lumen',
+        }}
+      />,
+    )
+
+    await waitFor(() => {
+      expect(screen.getByRole('link', { name: 'Lumen scoped deal' })).toHaveAttribute(
+        'href',
+        '/portal/deals/deal-99?orgId=lumen-org&orgSlug=lumen-speeds&sourceCompanyId=company-1&sourceCompanyName=Lumen',
+      )
+    })
+    expect(mockFetch).toHaveBeenCalledWith('/api/v1/crm/deals?contactId=contact-1&limit=100&orgId=lumen-org')
+    expect(mockFetch).toHaveBeenCalledWith('/api/v1/crm/pipelines?orgId=lumen-org')
+    expect(mockFetch).not.toHaveBeenCalledWith('/api/v1/crm/deals?contactId=contact-1&limit=100')
+    expect(mockFetch).not.toHaveBeenCalledWith('/api/v1/crm/pipelines')
+  })
+
   it('renders a newly created contact deal from the standard deal response envelope', async () => {
     const savedDeal = makeDeal({ id: 'deal-new', title: 'Fresh relationship deal', value: 12000 })
     mockFetch.mockImplementation((url: RequestInfo | URL, init?: RequestInit) => {
       const path = String(url)
       if (path.startsWith('/api/v1/crm/deals?contactId=')) return apiResponse([])
-      if (path === '/api/v1/crm/pipelines') return pipelinesResponse()
+      if (path === '/api/v1/crm/pipelines?orgId=org-1') return pipelinesResponse()
       if (path === '/api/v1/crm/deals' && init?.method === 'POST') {
         return Promise.resolve({
           ok: true,
           json: () => Promise.resolve({ success: true, data: { id: 'deal-new' } }),
         })
       }
-      if (path === '/api/v1/crm/deals/deal-new') {
+      if (path === '/api/v1/crm/deals/deal-new?orgId=org-1') {
         return Promise.resolve({
           ok: true,
           json: () => Promise.resolve({ success: true, data: { deal: savedDeal } }),
@@ -385,7 +419,7 @@ describe('ContactDealsPanel', () => {
     fireEvent.click(await screen.findByRole('button', { name: /Save mocked deal/i }))
 
     await waitFor(() => {
-      expect(screen.getByRole('link', { name: 'Fresh relationship deal' })).toHaveAttribute('href', '/portal/deals/deal-new')
+      expect(screen.getByRole('link', { name: 'Fresh relationship deal' })).toHaveAttribute('href', '/portal/deals/deal-new?orgId=org-1')
     })
     expect(screen.getByText('1 record')).toBeInTheDocument()
   })
