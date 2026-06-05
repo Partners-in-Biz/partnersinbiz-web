@@ -9,9 +9,25 @@ import {
 } from '@/lib/support/store'
 import { resolveContextReferences } from '@/lib/context-references/registry'
 import { sanitizeContextReferenceSeeds } from '@/lib/context-references/types'
+import {
+  RESOURCE_RELATIONSHIP_ARRAY_FIELDS,
+  RESOURCE_RELATIONSHIP_STRING_FIELDS,
+  normalizeResourceRelationshipLinks,
+} from '@/lib/client-documents/linkedValidation'
 import type { ApiUser } from '@/lib/api/types'
 
 export const dynamic = 'force-dynamic'
+
+function relationshipInputFrom(body: Record<string, unknown>) {
+  const value: Record<string, unknown> = {}
+  for (const key of RESOURCE_RELATIONSHIP_STRING_FIELDS) {
+    if (key in body) value[key] = body[key]
+  }
+  for (const key of RESOURCE_RELATIONSHIP_ARRAY_FIELDS) {
+    if (key in body) value[key] = body[key]
+  }
+  return Object.keys(value).length > 0 ? value : undefined
+}
 
 export const GET = withPortalAuthAndRole('viewer', async (_req: NextRequest, uid: string, orgId: string) => {
   const tickets = await listPortalSupportTickets(orgId, uid)
@@ -46,6 +62,11 @@ export const POST = withPortalAuthAndRole('viewer', async (req: NextRequest, uid
     apiUser,
     orgId,
   )
+  const relationshipInput = relationshipInputFrom(body as Record<string, unknown>)
+  const relationships = relationshipInput
+    ? normalizeResourceRelationshipLinks(relationshipInput)
+    : { ok: true as const, value: {} }
+  if (!relationships.ok) return apiError(relationships.error, 400)
 
   const id = await createSupportTicket({
     orgId,
@@ -53,6 +74,7 @@ export const POST = withPortalAuthAndRole('viewer', async (req: NextRequest, uid
     requesterName,
     requesterEmail,
     contextRefs,
+    relationshipLinks: relationships.value,
     ...parsed.value,
   })
 

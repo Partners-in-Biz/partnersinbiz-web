@@ -6,8 +6,25 @@ import { adminDb } from '@/lib/firebase/admin'
 import { isMailboxFolder, serializeAccount, serializeMessage, splitEmails } from '@/lib/mailbox/serializers'
 import { sendMailboxMessage } from '@/lib/mailbox/sendBridge'
 import { PIB_PLATFORM_ORG_ID } from '@/lib/platform/constants'
+import {
+  RESOURCE_RELATIONSHIP_ARRAY_FIELDS,
+  RESOURCE_RELATIONSHIP_STRING_FIELDS,
+  normalizeResourceRelationshipLinks,
+} from '@/lib/client-documents/linkedValidation'
 
 export const dynamic = 'force-dynamic'
+
+function relationshipInputFrom(body: Record<string, unknown>) {
+  const value: Record<string, unknown> = {}
+  for (const key of RESOURCE_RELATIONSHIP_STRING_FIELDS) {
+    if (key in body) value[key] = body[key]
+  }
+  for (const key of RESOURCE_RELATIONSHIP_ARRAY_FIELDS) {
+    if (key in body) value[key] = body[key]
+  }
+  if ('contextRefs' in body) value.contextRefs = body.contextRefs
+  return Object.keys(value).length > 0 ? value : undefined
+}
 
 async function loadAccount(accountId: string, orgId: string, uid: string) {
   const doc = await adminDb.collection('mailbox_accounts').doc(accountId).get()
@@ -96,6 +113,12 @@ export const POST = withAuth('admin', async (req: NextRequest, user) => {
     }
 
     const now = FieldValue.serverTimestamp()
+    const relationshipInput = relationshipInputFrom(body as Record<string, unknown>)
+    const relationships = relationshipInput
+      ? normalizeResourceRelationshipLinks(relationshipInput)
+      : { ok: true as const, value: {} }
+    if (!relationships.ok) return apiError(relationships.error, 400)
+
     const payload: Record<string, unknown> = {
       orgId,
       uid,
@@ -115,6 +138,7 @@ export const POST = withAuth('admin', async (req: NextRequest, user) => {
       bodyText,
       ...(bodyHtml ? { bodyHtml } : {}),
       snippet: bodyText.replace(/\s+/g, ' ').slice(0, 180),
+      ...relationships.value,
       createdAt: now,
       updatedAt: now,
     }
