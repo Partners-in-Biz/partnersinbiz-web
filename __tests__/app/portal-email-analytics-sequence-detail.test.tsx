@@ -65,7 +65,12 @@ describe('PortalSequenceAnalyticsPage', () => {
     render(
       <PortalSequenceAnalyticsPage
         params={Promise.resolve({ id: 'seq-1' })}
-        searchParams={Promise.resolve({ orgId: 'lumen-org', orgSlug: 'lumen-speeds' })}
+        searchParams={Promise.resolve({
+          orgId: 'lumen-org',
+          orgSlug: 'lumen-speeds',
+          sourceCompanyId: 'company-1',
+          sourceCompanyName: 'Lumen',
+        })}
       />,
     )
 
@@ -76,7 +81,7 @@ describe('PortalSequenceAnalyticsPage', () => {
     expect(screen.getByText(/Review Step 1 subject/)).toBeInTheDocument()
     expect(screen.getByRole('link', { name: /Back to email analytics/i })).toHaveAttribute(
       'href',
-      '/portal/email-analytics?orgId=lumen-org&orgSlug=lumen-speeds',
+      '/portal/email-analytics?orgId=lumen-org&orgSlug=lumen-speeds&sourceCompanyId=company-1&sourceCompanyName=Lumen',
     )
     expect(screen.getAllByText('42').length).toBeGreaterThan(0)
     expect(screen.getByText('Welcome to the growth engine')).toBeInTheDocument()

@@ -9,6 +9,8 @@ export const dynamic = 'force-dynamic'
 type PortalEmailAnalyticsSearchParams = {
   orgId?: string
   orgSlug?: string
+  sourceCompanyId?: string
+  sourceCompanyName?: string
 }
 
 async function currentUser(requestedOrgId?: string): Promise<{ uid: string; orgId?: string; forbidden?: boolean } | null> {
@@ -61,7 +63,12 @@ export default async function PortalEmailAnalyticsPage({
       orgId={user.orgId}
       isAdmin={false}
       surface="portal"
-      orgScope={{ orgId: user.orgId, orgSlug: params?.orgSlug }}
+      orgScope={{
+        orgId: user.orgId,
+        orgSlug: params?.orgSlug,
+        sourceCompanyId: params?.sourceCompanyId,
+        sourceCompanyName: params?.sourceCompanyName,
+      }}
     />
   )
 }
