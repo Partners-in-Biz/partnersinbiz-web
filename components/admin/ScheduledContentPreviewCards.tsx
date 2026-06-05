@@ -61,6 +61,18 @@ const CHANNEL_STYLES: Record<string, { label: string; badge: string; frame: stri
     frame: 'aspect-[16/9] bg-neutral-900/70',
     icon: '𝕏',
   },
+  bluesky: {
+    label: 'Bluesky post',
+    badge: 'Bluesky',
+    frame: 'aspect-[16/9] bg-sky-400/15',
+    icon: '☁',
+  },
+  pinterest: {
+    label: 'Pinterest pin',
+    badge: 'Pinterest',
+    frame: 'aspect-[2/3] max-h-64 bg-red-500/15',
+    icon: 'P',
+  },
   generic: {
     label: 'Generic post',
     badge: 'Post',
@@ -87,6 +99,8 @@ function previewKind(post: ScheduledContentPost): keyof typeof CHANNEL_STYLES {
   if (platform === 'facebook') return 'facebook'
   if (platform === 'linkedin') return 'linkedin'
   if (platform === 'x') return 'x'
+  if (platform === 'bluesky') return 'bluesky'
+  if (platform === 'pinterest') return 'pinterest'
   return 'generic'
 }
 

@@ -18,8 +18,8 @@ describe('ScheduledContentPreviewCards', () => {
       { ...basePost, id: 'facebook', platform: 'facebook', platforms: ['facebook'] },
       { ...basePost, id: 'linkedin', platform: 'linkedin', platforms: ['linkedin'] },
       { ...basePost, id: 'x', platform: 'x', platforms: ['twitter'] },
-      { ...basePost, id: 'generic', platform: 'mastodon', platforms: ['mastodon'] },
-      { ...basePost, id: 'approval', status: 'pending_approval', platform: 'linkedin', platforms: ['linkedin'] },
+      { ...basePost, id: 'bluesky', platform: 'bluesky', platforms: ['bluesky'] },
+      { ...basePost, id: 'pinterest', platform: 'pinterest', platforms: ['pinterest'] },
     ]
 
     render(<ScheduledContentPreviewCards slug="acme" posts={posts} loading={false} />)
@@ -28,12 +28,24 @@ describe('ScheduledContentPreviewCards', () => {
     expect(screen.getByText('Instagram reel')).toBeInTheDocument()
     expect(screen.getByText('Instagram story')).toBeInTheDocument()
     expect(screen.getByText('Facebook post')).toBeInTheDocument()
-    expect(screen.getAllByText('LinkedIn update')).toHaveLength(2)
+    expect(screen.getByText('LinkedIn update')).toBeInTheDocument()
     expect(screen.getByText('X post')).toBeInTheDocument()
-    expect(screen.getByText('Generic post')).toBeInTheDocument()
+    expect(screen.getByText('Bluesky post')).toBeInTheDocument()
+    expect(screen.getByText('Pinterest pin')).toBeInTheDocument()
 
     expect(screen.getByTestId('scheduled-preview-ig-square')).toHaveAttribute('href', '/admin/org/acme/social/standalone?postId=ig-square')
+  })
+
+  it('links approval statuses with approvalId', () => {
+    render(<ScheduledContentPreviewCards slug="acme" posts={[{ ...basePost, id: 'approval', status: 'pending_approval', platform: 'linkedin', platforms: ['linkedin'] }]} loading={false} />)
+
     expect(screen.getByTestId('scheduled-preview-approval')).toHaveAttribute('href', '/admin/org/acme/social/standalone?approvalId=approval')
+  })
+
+  it('falls back to a generic post label only for unknown platforms', () => {
+    render(<ScheduledContentPreviewCards slug="acme" posts={[{ ...basePost, id: 'generic', platform: 'mastodon', platforms: ['mastodon'] }]} loading={false} />)
+
+    expect(screen.getByText('Generic post')).toBeInTheDocument()
   })
 
   it('shows an empty state that still links to the social composer', () => {
