@@ -2,11 +2,12 @@
 
 export const dynamic = 'force-dynamic'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { onAuthStateChanged } from 'firebase/auth'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { auth, getClientAuth } from '@/lib/firebase/config'
 import { MessagesWorkspace } from '@/components/messages/MessagesWorkspace'
+import { scopedApiPath, scopeFromSearchParams } from '@/lib/portal/scoped-routing'
 
 interface OrgInfo {
   id: string
@@ -22,6 +23,9 @@ interface UserInfo {
 
 export default function PortalMessagesPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const orgScope = useMemo(() => scopeFromSearchParams(searchParams), [searchParams])
+  const orgEndpoint = useMemo(() => scopedApiPath('/api/v1/portal/org', orgScope), [orgScope])
   const [org, setOrg] = useState<OrgInfo | null>(null)
   const [user, setUser] = useState<UserInfo | null>(null)
   const [checking, setChecking] = useState(true)
@@ -41,7 +45,7 @@ export default function PortalMessagesPage() {
             return
           }
 
-          fetch('/api/v1/portal/org')
+          fetch(orgEndpoint)
             .then((r) => (r.ok ? r.json() : Promise.reject(new Error(`org fetch: ${r.status}`))))
             .then((body) => {
               if (cancelled) return
@@ -66,7 +70,7 @@ export default function PortalMessagesPage() {
       cancelled = true
       unsubscribe?.()
     }
-  }, [router])
+  }, [orgEndpoint, router])
 
   if (checking) {
     return (

@@ -2,9 +2,12 @@ import { render, screen, waitFor } from '@testing-library/react'
 import PortalMessagesPage from '@/app/(portal)/portal/messages/page'
 
 const mockPush = jest.fn()
+const mockRouter = { push: mockPush }
+let mockSearchParams = new URLSearchParams()
 
 jest.mock('next/navigation', () => ({
-  useRouter: () => ({ push: mockPush }),
+  useRouter: () => mockRouter,
+  useSearchParams: () => mockSearchParams,
 }))
 
 jest.mock('firebase/auth', () => ({
@@ -21,7 +24,11 @@ jest.mock('@/lib/firebase/config', () => ({
 
 jest.mock('@/components/chat/UnifiedChat', () => ({
   __esModule: true,
-  default: () => <div data-testid="unified-chat" />,
+  default: ({ orgId, orgName }: { orgId: string; orgName?: string }) => (
+    <div data-testid="unified-chat" data-org-id={orgId}>
+      {orgName}
+    </div>
+  ),
 }))
 
 function jsonResponse(body: unknown, ok = true) {
@@ -35,8 +42,15 @@ function jsonResponse(body: unknown, ok = true) {
 describe('Portal messages page layout', () => {
   beforeEach(() => {
     mockPush.mockClear()
+    mockSearchParams = new URLSearchParams()
     global.fetch = jest.fn(async (input: RequestInfo | URL) => {
       const url = String(input)
+      if (url === '/api/v1/portal/org?orgId=lumen-org') {
+        return jsonResponse({
+          org: { id: 'lumen-org', name: 'Lumen' },
+          user: { uid: 'user-1', name: 'Peet', email: 'peet@example.com', role: 'client' },
+        })
+      }
       if (url === '/api/v1/portal/org') {
         return jsonResponse({
           org: { id: 'org-1', name: 'Acme' },
@@ -68,4 +82,23 @@ describe('Portal messages page layout', () => {
       expect(intro).toHaveClass('opacity-0')
     }, { timeout: 4000 })
   }, 8000)
+
+  it('keeps portal messages scoped to the CRM company workspace organisation', async () => {
+    mockSearchParams = new URLSearchParams({
+      orgId: 'lumen-org',
+      orgSlug: 'lumen-speeds',
+      sourceCompanyId: 'company-1',
+      sourceCompanyName: 'Lumen',
+    })
+
+    render(<PortalMessagesPage />)
+
+    const chat = await screen.findByTestId('unified-chat')
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith('/api/v1/portal/org?orgId=lumen-org')
+    })
+    expect(chat).toHaveAttribute('data-org-id', 'lumen-org')
+    expect(screen.getByText('Lumen')).toBeInTheDocument()
+  })
 })
