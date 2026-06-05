@@ -386,6 +386,8 @@ export default function PortalContactDetailPage() {
   const searchParams = useSearchParams()
   const routeScope = useMemo(() => scopeFromSearchParams(searchParams), [searchParams])
   const contactApiPath = useCallback((path: string) => scopedApiPath(path, routeScope), [routeScope])
+  const contactListHref = scopedPortalPath('/portal/contacts', routeScope)
+  const contactDetailHref = scopedPortalPath(`/portal/contacts/${encodeURIComponent(id)}`, routeScope)
   const companyPickerRef = useRef<HTMLDivElement | null>(null)
   const nameFieldRef = useRef<HTMLInputElement | null>(null)
   const emailFieldRef = useRef<HTMLInputElement | null>(null)
@@ -1067,7 +1069,7 @@ export default function PortalContactDetailPage() {
       >
         <div className="flex items-center justify-between gap-3 flex-wrap">
           <Link
-            href="/portal/contacts"
+            href={contactListHref}
             className="text-xs text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] inline-flex items-center gap-1 transition-colors"
           >
             <span className="material-symbols-outlined text-sm" aria-hidden="true">arrow_back</span>
@@ -1170,7 +1172,7 @@ export default function PortalContactDetailPage() {
                 <span className="material-symbols-outlined text-[16px]" aria-hidden="true">refresh</span>
                 Retry
               </button>
-              <Link href="/portal/contacts" className="btn-pib-secondary text-sm">
+              <Link href={contactListHref} className="btn-pib-secondary text-sm">
                 <span className="material-symbols-outlined text-base" aria-hidden="true">arrow_back</span>
                 Back to contacts
               </Link>
@@ -1183,7 +1185,7 @@ export default function PortalContactDetailPage() {
     return (
       <div className="bento-card p-10 text-center">
         <h2 className="font-display text-2xl">Contact not found.</h2>
-        <Link href="/portal/contacts" className="btn-pib-secondary mt-6">
+        <Link href={contactListHref} className="btn-pib-secondary mt-6">
           <span className="material-symbols-outlined text-base">arrow_back</span>
           Back to contacts
         </Link>
@@ -1217,6 +1219,13 @@ export default function PortalContactDetailPage() {
   const companyLabel = companyNameValue || 'No company linked'
   const hasLinkedCompany = Boolean(linkedCompanyId)
   const hasCompanyContext = Boolean(companyNameValue)
+  const linkedCompanyHref = hasLinkedCompany
+    ? scopedPortalPath(`/portal/companies/${encodeURIComponent(linkedCompanyId)}`, routeScope)
+    : ''
+  const linkedCompanyApiPath = hasLinkedCompany
+    ? contactApiPath(`/api/v1/crm/companies/${linkedCompanyId}`)
+    : undefined
+  const sequenceSetupHref = scopedPortalPath('/portal/settings/sequences/new', routeScope)
   const lastTouchDays = daysSince(contact.lastContactedAt)
   const createdDays = daysSince(contact.createdAt)
   const profileFields = [
@@ -1404,7 +1413,7 @@ export default function PortalContactDetailPage() {
     <div className="space-y-8">
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <Link
-          href="/portal/contacts"
+          href={contactListHref}
           className="text-xs text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] inline-flex items-center gap-1 transition-colors"
         >
           <span className="material-symbols-outlined text-sm">arrow_back</span>
@@ -1516,7 +1525,7 @@ export default function PortalContactDetailPage() {
                 <div className="mt-3 flex flex-wrap items-center gap-2 text-sm text-[var(--color-pib-text-muted)]">
                   {hasLinkedCompany ? (
                     <Link
-                      href={`/portal/companies/${encodeURIComponent(linkedCompanyId)}`}
+                      href={linkedCompanyHref}
                       aria-label={`Open linked company ${companyLabel} from contact header`}
                       className="inline-flex items-center gap-1 text-[var(--color-pib-accent)] transition-colors hover:text-[var(--color-pib-text)]"
                     >
@@ -1797,7 +1806,7 @@ export default function PortalContactDetailPage() {
           entityType="contact"
           entityId={id}
           entityLabel={contactName}
-          href={`/portal/contacts/${id}`}
+          href={contactDetailHref}
           summary={`${contactName} CRM contact${type ? ` · ${type}` : ''}${stage ? ` · ${stage}` : ''}${hasLinkedCompany ? ` · company ${companyLabel}` : ' · unlinked contact workspace'}`}
           compact
         />
@@ -1812,6 +1821,8 @@ export default function PortalContactDetailPage() {
             <CompanyPanel
               companyId={linkedCompanyId}
               companyName={companyNameValue}
+              companyHref={linkedCompanyHref}
+              companyApiPath={linkedCompanyApiPath}
               emptyAction={{
                 label: 'Link company',
                 ariaLabel: `Link company from company card for ${contactName}`,
@@ -2910,7 +2921,7 @@ export default function PortalContactDetailPage() {
                       This workspace needs at least one nurture sequence before {contactName} can be enrolled from the contact record.
                     </p>
                     <Link
-                      href="/portal/settings/sequences/new"
+                      href={sequenceSetupHref}
                       className="btn-pib-secondary mt-3 inline-flex items-center gap-1.5 text-xs"
                     >
                       <span className="material-symbols-outlined text-[14px]" aria-hidden="true">add</span>

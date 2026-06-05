@@ -454,6 +454,39 @@ describe('Portal contact detail page', () => {
     })
   })
 
+  it('preserves CRM company source context across contact detail navigation links', async () => {
+    mockSearchParams = new URLSearchParams({
+      orgId: 'org-1',
+      orgSlug: 'lumen-speeds',
+      sourceCompanyId: 'company-1',
+      sourceCompanyName: 'Lumen',
+    })
+    mockContactOverrides = {
+      companyId: 'company-1',
+      companyName: 'Lumen',
+    }
+
+    render(<PortalContactDetailPage />)
+
+    await waitFor(() => {
+      expect(screen.getAllByDisplayValue('Jane Client').length).toBeGreaterThan(0)
+    })
+
+    const scope = 'orgId=org-1&orgSlug=lumen-speeds&sourceCompanyId=company-1&sourceCompanyName=Lumen'
+    expect(screen.getByRole('link', { name: /Contacts/ }))
+      .toHaveAttribute('href', `/portal/contacts?${scope}`)
+    expect(screen.getByRole('link', { name: 'Open linked company Lumen from contact header' }))
+      .toHaveAttribute('href', `/portal/companies/company-1?${scope}`)
+    expect(screen.getByRole('link', { name: 'Open linked company Lumen from company card' }))
+      .toHaveAttribute('href', `/portal/companies/company-1?${scope}`)
+    expect(global.fetch).toHaveBeenCalledWith('/api/v1/crm/companies/company-1?orgId=org-1')
+
+    fireEvent.click(screen.getByRole('button', { name: 'Choose nurture sequence for Jane Client' }))
+
+    expect(await screen.findByRole('link', { name: 'Build first sequence' }))
+      .toHaveAttribute('href', `/portal/settings/sequences/new?${scope}`)
+  })
+
   it('lets a busy team member discard unsaved contact profile edits', async () => {
     render(<PortalContactDetailPage />)
 
