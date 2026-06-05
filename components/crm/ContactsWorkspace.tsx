@@ -864,6 +864,7 @@ export function ContactsWorkspace({
       {/* Filters */}
       <section className="space-y-2">
         <SavedViewsBar
+          orgScope={apiScope}
           currentFilters={{
             search,
             stage: stageFilter,
@@ -871,7 +872,6 @@ export function ContactsWorkspace({
             owner: ownerLens === 'unowned' ? 'unowned' : '',
             followUp: followUpLens === 'stale' ? 'stale' : '',
           }}
-          orgScope={apiScope}
           onSelectView={(f) => {
             if (typeof f.search === 'string') setSearch(f.search)
             if (typeof f.stage === 'string') setStageFilter(f.stage)

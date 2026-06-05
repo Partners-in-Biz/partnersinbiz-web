@@ -113,6 +113,50 @@ describe('SavedViewsBar', () => {
     confirmSpy.mockRestore()
   })
 
+  it('keeps saved CRM views inside the selected company workspace scope', async () => {
+    global.fetch = jest.fn((input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url.startsWith('/api/v1/crm/saved-views')) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => viewsResponse,
+        } as Response)
+      }
+      return Promise.reject(new Error(`Unexpected fetch: ${url}`))
+    }) as jest.Mock
+
+    render(
+      <SavedViewsBar
+        currentFilters={{ stage: 'proposal' }}
+        onSelectView={jest.fn()}
+        resourceKind="contacts"
+        orgScope={{ orgId: 'lumen-org', orgSlug: 'lumen-speeds', sourceCompanyId: 'company-1', sourceCompanyName: 'Lumen' }}
+      />,
+    )
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith('/api/v1/crm/saved-views?resourceKind=contacts&orgId=lumen-org')
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: /save current view/i }))
+    fireEvent.change(screen.getByPlaceholderText('View name'), { target: { value: 'Proposal lens' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }))
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith(
+        '/api/v1/crm/saved-views?orgId=lumen-org',
+        expect.objectContaining({ method: 'POST' }),
+      )
+    })
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Delete saved view Hot proposal leads' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm delete saved view Hot proposal leads' }))
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith('/api/v1/crm/saved-views/view-hot?orgId=lumen-org', { method: 'DELETE' })
+    })
+  })
+
   it('names sparse saved CRM views across apply and delete controls', async () => {
     ;(global.fetch as jest.Mock).mockResolvedValue({
       ok: true,

@@ -21,6 +21,8 @@ describe('CRM contacts shared workspace standard', () => {
       expect(routeSource).not.toContain('ContactsBulkCommandBar')
       expect(routeSource).not.toContain('ContactDuplicateCommandCenter')
     }
+
+    expect(source('components/crm/ContactsWorkspace.tsx')).toMatch(/<SavedViewsBar[\s\S]*?orgScope=\{apiScope\}/)
   })
 
   it('keeps contact creation and editing on the shared CRM contact form', () => {
