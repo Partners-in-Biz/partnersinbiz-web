@@ -81,5 +81,7 @@ describe('Portal settings sequence edit page', () => {
     })
 
     expect(await screen.findByText('Sequence form rendered')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Sequences' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'arrow_back Sequences' })).not.toBeInTheDocument()
   })
 })

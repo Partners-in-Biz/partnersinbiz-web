@@ -29,7 +29,7 @@ export default function NewSequencePage() {
             onClick={handleCancel}
             className="cursor-pointer flex items-center gap-1 text-xs text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] mb-4 transition-colors"
           >
-            <span className="material-symbols-outlined text-[14px]">arrow_back</span>
+            <span aria-hidden="true" className="material-symbols-outlined text-[14px]">arrow_back</span>
             Sequences
           </button>
           <p className="eyebrow !text-[10px]">Journey builder</p>
