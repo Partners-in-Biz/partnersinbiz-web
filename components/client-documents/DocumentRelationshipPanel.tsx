@@ -382,7 +382,7 @@ export function DocumentRelationshipPanel({
           Document relationships
         </h3>
         <p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">
-          Search is scoped to the document tenant ({document.orgId}). Primary links are kept alongside the normalised multi-link fields.
+          Search is scoped to the document tenant ({document.orgId ?? 'unknown tenant'}). Primary links are kept alongside the normalised multi-link fields.
         </p>
       </div>
 
@@ -407,7 +407,7 @@ export function DocumentRelationshipPanel({
             <RelationshipField
               key={config.key}
               config={config}
-              orgId={document.orgId}
+              orgId={document.orgId ?? ''}
               values={values}
               labels={labels}
               onLabels={setLabels}
