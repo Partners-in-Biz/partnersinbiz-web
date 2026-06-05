@@ -1357,9 +1357,12 @@ export default function PortalContactDetailPage() {
       label: 'Relationship notes',
       value: notes.trim(),
       empty: 'No relationship notes captured',
-      actionLabel: 'Add notes',
-      actionAriaLabel: `Add relationship notes from details for ${contactName}`,
+      actionLabel: notes.trim() ? 'Edit notes' : 'Add notes',
+      actionAriaLabel: notes.trim()
+        ? `Edit relationship notes for ${contactName} from details`
+        : `Add relationship notes from details for ${contactName}`,
       onAction: () => focusProfileField(notesFieldRef),
+      needsActionWhenValued: true,
     },
     {
       label: 'Tags',

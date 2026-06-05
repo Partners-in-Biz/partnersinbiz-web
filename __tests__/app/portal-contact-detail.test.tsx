@@ -935,6 +935,25 @@ describe('Portal contact detail page', () => {
     expect(screen.getByRole('textbox', { name: 'Website for Jane Client' })).toHaveFocus()
   })
 
+  it('keeps captured relationship notes editable from the details card', async () => {
+    mockContactOverrides = {
+      notes: 'Met at the board review and wants a Q3 growth plan.',
+    }
+
+    render(<PortalContactDetailPage />)
+
+    await waitFor(() => {
+      expect(screen.getAllByDisplayValue('Jane Client').length).toBeGreaterThan(0)
+    })
+
+    expect(screen.getAllByText('Relationship notes').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Met at the board review and wants a Q3 growth plan.').length).toBeGreaterThan(0)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Edit relationship notes for Jane Client from details' }))
+
+    expect(screen.getByRole('textbox', { name: 'Relationship notes for Jane Client' })).toHaveFocus()
+  })
+
   it('turns first-viewport contact identity into direct email phone and company links', async () => {
     mockContactOverrides = {
       phone: '+27825550123',
