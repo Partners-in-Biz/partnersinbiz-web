@@ -230,6 +230,8 @@ type ProjectPortfolioReportPanelProps = {
   reportUrl?: string
   projectHrefBase?: string
   companyHrefBase?: string
+  buildProjectHref?: (projectId: string) => string
+  buildCompanyHref?: (companyId: string) => string
 }
 
 function joinHref(base: string, id: string): string {
@@ -240,6 +242,8 @@ export function ProjectPortfolioReportPanel({
   reportUrl = '/api/v1/projects/reporting',
   projectHrefBase = '/portal/projects',
   companyHrefBase = '/portal/companies',
+  buildProjectHref,
+  buildCompanyHref,
 }: ProjectPortfolioReportPanelProps) {
   const [state, setState] = useState<LoadState>({ status: 'loading', data: null, error: null })
 
@@ -395,7 +399,7 @@ export function ProjectPortfolioReportPanel({
             <EmptyLane>No client reporting data yet.</EmptyLane>
           ) : clients.map((client) => {
             const clientBlockedTasks = numberValue(client.blockedTasks)
-            const clientHref = client.companyId ? joinHref(companyHrefBase, client.companyId) : undefined
+            const clientHref = client.companyId ? (buildCompanyHref?.(client.companyId) ?? joinHref(companyHrefBase, client.companyId)) : undefined
             return (
               <RailCard
                 key={client.clientOrgId}
@@ -436,7 +440,7 @@ export function ProjectPortfolioReportPanel({
             const projectBlockedTasks = numberValue(project.reports?.tasks?.blocked)
             const railColor = healthTone(healthStatus) === 'danger' || projectBlockedTasks > 0 ? '#ef4444' : healthTone(healthStatus) === 'warn' ? '#f59e0b' : 'var(--color-accent-v2)'
             return (
-              <RailCard key={project.id} color={railColor} href={joinHref(projectHrefBase, project.id)} ariaLabel={`Open project ${project.name}`}>
+              <RailCard key={project.id} color={railColor} href={buildProjectHref?.(project.id) ?? joinHref(projectHrefBase, project.id)} ariaLabel={`Open project ${project.name}`}>
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
                     <p className="flex min-w-0 items-center gap-1 truncate text-sm font-medium text-on-surface">
