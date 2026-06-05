@@ -1,8 +1,8 @@
 import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
+import EmailAnalyticsDashboard from '@/components/admin/email-analytics/EmailAnalyticsDashboard'
 import { adminAuth, adminDb } from '@/lib/firebase/admin'
 import { canUsePortalOrg, resolvePortalActiveOrgId } from '@/lib/portal/org-access'
-import { EmailAnalyticsClient } from './EmailAnalyticsClient'
 
 export const dynamic = 'force-dynamic'
 
@@ -56,5 +56,12 @@ export default async function PortalEmailAnalyticsPage({
     )
   }
 
-  return <EmailAnalyticsClient orgId={user.orgId} orgSlug={params?.orgSlug} />
+  return (
+    <EmailAnalyticsDashboard
+      orgId={user.orgId}
+      isAdmin={false}
+      surface="portal"
+      orgScope={{ orgId: user.orgId, orgSlug: params?.orgSlug }}
+    />
+  )
 }

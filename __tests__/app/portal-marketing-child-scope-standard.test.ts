@@ -13,7 +13,7 @@ describe('portal marketing child scope standard', () => {
     const emailDomains = source('app/(portal)/portal/email-domains/page.tsx')
     const emailDomainsWorkspace = source('components/email-domains/EmailDomainsWorkspace.tsx')
     const emailAnalytics = source('app/(portal)/portal/email-analytics/page.tsx')
-    const emailAnalyticsClient = source('app/(portal)/portal/email-analytics/EmailAnalyticsClient.tsx')
+    const emailAnalyticsDashboard = source('components/admin/email-analytics/EmailAnalyticsDashboard.tsx')
     const sequences = source('app/(portal)/portal/settings/sequences/page.tsx')
     const automations = source('app/(portal)/portal/settings/automations/page.tsx')
     const communications = source('app/(portal)/portal/communications/page.tsx')
@@ -41,9 +41,11 @@ describe('portal marketing child scope standard', () => {
 
     expect(emailAnalytics).toContain('canUsePortalOrg')
     expect(emailAnalytics).toContain('searchParams')
-    expect(emailAnalytics).toContain('orgSlug={params?.orgSlug}')
-    expect(emailAnalyticsClient).toContain('scopedApiPath')
-    expect(emailAnalyticsClient).toContain('scopedPortalPath')
+    expect(emailAnalytics).toContain('@/components/admin/email-analytics/EmailAnalyticsDashboard')
+    expect(emailAnalytics).toContain('surface="portal"')
+    expect(emailAnalytics).toContain("orgScope={{ orgId: user.orgId, orgSlug: params?.orgSlug }}")
+    expect(emailAnalyticsDashboard).toContain('scopedApiPath')
+    expect(emailAnalyticsDashboard).toContain('scopedPortalPath')
 
     expect(sequences).toContain('scopeFromSearchParams')
     expect(sequences).toContain("sequenceEndpoint('/api/v1/crm/sequences'")
