@@ -897,6 +897,25 @@ describe('Portal contact detail page', () => {
     expect(screen.getByRole('textbox', { name: 'Timezone for Jane Client' })).toHaveFocus()
   })
 
+  it('shows segmentation tags as an actionable contact detail', async () => {
+    mockContactOverrides = {
+      tags: ['priority', 'board-review'],
+    }
+
+    render(<PortalContactDetailPage />)
+
+    await waitFor(() => {
+      expect(screen.getAllByDisplayValue('Jane Client').length).toBeGreaterThan(0)
+    })
+
+    expect(screen.getAllByText('Tags').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('priority, board-review').length).toBeGreaterThan(0)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Edit tags priority, board-review for Jane Client from details' }))
+
+    expect(screen.getByRole('textbox', { name: 'Tags for Jane Client' })).toHaveFocus()
+  })
+
   it('turns first-viewport contact identity into direct email phone and company links', async () => {
     mockContactOverrides = {
       phone: '+27825550123',

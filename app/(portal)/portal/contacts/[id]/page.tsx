@@ -1359,6 +1359,17 @@ export default function PortalContactDetailPage() {
       onAction: () => focusProfileField(notesFieldRef),
     },
     {
+      label: 'Tags',
+      value: tags.length > 0 ? tags.join(', ') : '',
+      empty: 'No tags captured',
+      actionLabel: tags.length > 0 ? 'Edit tags' : 'Add tags',
+      actionAriaLabel: tags.length > 0
+        ? `Edit tags ${tags.join(', ')} for ${contactName} from details`
+        : `Add tags from details for ${contactName}`,
+      onAction: () => focusProfileField(tagsFieldRef),
+      needsActionWhenValued: true,
+    },
+    {
       label: 'Source',
       value: sourceLabel,
       actionLabel: 'Edit source',
