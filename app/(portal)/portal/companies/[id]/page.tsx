@@ -16,7 +16,7 @@ import { CompanyEditDrawer, type CompanyTeamMember } from '@/components/crm/Comp
 import { CustomFieldsSection } from '@/components/crm/CustomFieldsSection'
 import { ContactForm } from '@/components/admin/crm/ContactForm'
 import { DealDrawer } from '@/components/crm/DealDrawer'
-import { scopedPortalPath } from '@/lib/portal/scoped-routing'
+import { scopeFromSearchParams, scopedApiPath, scopedPortalPath } from '@/lib/portal/scoped-routing'
 
 type RelatedContact = {
   id: string
@@ -1840,7 +1840,10 @@ export default function CompanyDetailPage() {
   const { id } = useParams<{ id: string }>()
   const router = useRouter()
   const searchParams = useSearchParams()
+  const orgScope = scopeFromSearchParams(searchParams)
+  const scopedOrgId = orgScope.orgId
   const initialTab = toCompanyTab(searchParams.get('tab')) ?? 'overview'
+  const companyApiPath = useCallback((path: string) => scopedApiPath(path, { orgId: scopedOrgId }), [scopedOrgId])
 
   const [company, setCompany] = useState<Company | null>(null)
   const [loading, setLoading] = useState(true)
@@ -1922,15 +1925,15 @@ export default function CompanyDetailPage() {
   const [relatedError, setRelatedError] = useState<string | null>(null)
 
   useEffect(() => {
-    fetch('/api/v1/crm/custom-fields?resource=company')
+    fetch(companyApiPath('/api/v1/crm/custom-fields?resource=company'))
       .then((r) => r.json())
       .then((b) => setCustomFieldDefs(b.data?.definitions ?? b.definitions ?? []))
       .catch(() => setCustomFieldDefs([]))
-  }, [])
+  }, [companyApiPath])
 
   useEffect(() => {
     let cancelled = false
-    fetch('/api/v1/portal/settings/team')
+    fetch(companyApiPath('/api/v1/portal/settings/team'))
       .then((res) => res.ok ? res.json() : null)
       .then((body) => {
         if (cancelled) return
@@ -1941,14 +1944,14 @@ export default function CompanyDetailPage() {
         if (!cancelled) setTeamMembers([])
       })
     return () => { cancelled = true }
-  }, [])
+  }, [companyApiPath])
 
   const fetchCompany = useCallback(async () => {
     if (!id) return
     setLoading(true)
     setError(null)
     try {
-      const res = await fetch(`/api/v1/crm/companies/${id}`)
+      const res = await fetch(companyApiPath(`/api/v1/crm/companies/${id}`))
       if (!res.ok) {
         const body = await res.json().catch(() => ({}))
         throw new Error(body.error ?? `HTTP ${res.status}`)
@@ -1960,7 +1963,7 @@ export default function CompanyDetailPage() {
     } finally {
       setLoading(false)
     }
-  }, [id])
+  }, [id, companyApiPath])
 
   useEffect(() => {
     void fetchCompany()
@@ -1970,7 +1973,7 @@ export default function CompanyDetailPage() {
       setRelatedLoading(true)
       setRelatedError(null)
       try {
-        const commandCenterRes = await fetch(`/api/v1/crm/companies/${nextCompanyId}/command-center?limit=100`)
+        const commandCenterRes = await fetch(companyApiPath(`/api/v1/crm/companies/${nextCompanyId}/command-center?limit=100`))
         if (!commandCenterRes.ok) {
           const body = await commandCenterRes.json().catch(() => ({}))
           throw new Error(body.error ?? `HTTP ${commandCenterRes.status}`)
@@ -2001,7 +2004,7 @@ export default function CompanyDetailPage() {
       } finally {
         if (!isCancelled()) setRelatedLoading(false)
       }
-  }, [])
+  }, [companyApiPath])
 
   const companyId = company?.id
   useEffect(() => {
@@ -2014,7 +2017,7 @@ export default function CompanyDetailPage() {
   }, [companyId, loadRelated])
 
   async function handleSave(patch: Partial<Company>): Promise<void> {
-    const res = await fetch(`/api/v1/crm/companies/${id}`, {
+    const res = await fetch(companyApiPath(`/api/v1/crm/companies/${id}`), {
       method: 'PATCH',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify(patch),
@@ -2028,7 +2031,7 @@ export default function CompanyDetailPage() {
 
   async function createCompanyContact(data: Record<string, unknown>): Promise<void> {
     if (!company) return
-    const res = await fetch('/api/v1/crm/contacts', {
+    const res = await fetch(companyApiPath('/api/v1/crm/contacts'), {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({
@@ -2065,7 +2068,7 @@ export default function CompanyDetailPage() {
     setSavingNote(true)
     setNoteError(null)
     try {
-      const res = await fetch('/api/v1/crm/activities', {
+      const res = await fetch(companyApiPath('/api/v1/crm/activities'), {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({
@@ -2108,7 +2111,7 @@ export default function CompanyDetailPage() {
     setCreatingProject(true)
     setProjectError(null)
     try {
-      const res = await fetch('/api/v1/projects', {
+      const res = await fetch(companyApiPath('/api/v1/projects'), {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({
@@ -2138,7 +2141,7 @@ export default function CompanyDetailPage() {
     setCreatingService(true)
     setServiceError(null)
     try {
-      const res = await fetch('/api/v1/service-workspaces', {
+      const res = await fetch(companyApiPath('/api/v1/service-workspaces'), {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({
@@ -2167,7 +2170,7 @@ export default function CompanyDetailPage() {
     setCreatingDocument(true)
     setDocumentError(null)
     try {
-      const res = await fetch('/api/v1/client-documents', {
+      const res = await fetch(companyApiPath('/api/v1/client-documents'), {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({
@@ -2195,7 +2198,7 @@ export default function CompanyDetailPage() {
     setCreatingRelationship(true)
     setRelationshipError(null)
     try {
-      const res = await fetch('/api/v1/crm/relationships', {
+      const res = await fetch(companyApiPath('/api/v1/crm/relationships'), {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({
@@ -2230,7 +2233,7 @@ export default function CompanyDetailPage() {
     setCreatingQuote(true)
     setQuoteError(null)
     try {
-      const res = await fetch('/api/v1/quotes', {
+      const res = await fetch(companyApiPath('/api/v1/quotes'), {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({
@@ -2262,7 +2265,7 @@ export default function CompanyDetailPage() {
     setCreatingInvoiceId(quote.id)
     setInvoiceError(null)
     try {
-      const res = await fetch(`/api/v1/quotes/${quote.id}`, {
+      const res = await fetch(companyApiPath(`/api/v1/quotes/${quote.id}`), {
         method: 'PATCH',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ action: 'convert-to-invoice' }),
@@ -2283,7 +2286,7 @@ export default function CompanyDetailPage() {
     setCreatingOrder(true)
     setOrderError(null)
     try {
-      const res = await fetch('/api/v1/orders', {
+      const res = await fetch(companyApiPath('/api/v1/orders'), {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({
@@ -2318,7 +2321,7 @@ export default function CompanyDetailPage() {
     setCreatingShipment(true)
     setShipmentError(null)
     try {
-      const res = await fetch('/api/v1/shipments', {
+      const res = await fetch(companyApiPath('/api/v1/shipments'), {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({
@@ -2346,7 +2349,7 @@ export default function CompanyDetailPage() {
     setCreatingInventoryItem(true)
     setInventoryError(null)
     try {
-      const res = await fetch('/api/v1/inventory-items', {
+      const res = await fetch(companyApiPath('/api/v1/inventory-items'), {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({
@@ -2378,7 +2381,7 @@ export default function CompanyDetailPage() {
     setDeleting(true)
     setArchiveError(null)
     try {
-      const res = await fetch(`/api/v1/crm/companies/${id}`, { method: 'DELETE' })
+      const res = await fetch(companyApiPath(`/api/v1/crm/companies/${id}`), { method: 'DELETE' })
       if (!res.ok) {
         const body = await res.json().catch(() => ({}))
         throw new Error(body.error ?? `HTTP ${res.status}`)

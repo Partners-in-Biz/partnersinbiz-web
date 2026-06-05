@@ -2,6 +2,10 @@ import React from 'react'
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import AdminCompanyCommandCenterPage from '@/app/(admin)/admin/org/[slug]/crm/companies/[id]/page'
 
+jest.mock('@/components/crm/EntityScopedChat', () => ({
+  EntityScopedChat: () => null,
+}))
+
 jest.mock('next/navigation', () => ({
   useParams: () => ({ slug: 'acme-client', id: 'company-1' }),
 }))

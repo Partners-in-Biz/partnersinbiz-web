@@ -3,6 +3,10 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import CompanyDetailPage from '@/app/(portal)/portal/companies/[id]/page'
 import type { CustomFieldDefinition } from '@/lib/customFields/types'
 
+jest.mock('@/components/crm/EntityScopedChat', () => ({
+  EntityScopedChat: () => null,
+}))
+
 let mockSearchParams = new URLSearchParams()
 let mockCompanyCustomFieldDefinitions: CustomFieldDefinition[] = []
 const pushMock = jest.fn()
@@ -195,6 +199,93 @@ describe('Portal company detail page', () => {
     await selectCompanyTab(/Invoices/i)
 
     expect(replaceMock).toHaveBeenCalledWith('/portal/companies/company-1?edit=profile&tab=invoices', { scroll: false })
+  })
+
+  it('loads company workspace links from the requested organisation scope', async () => {
+    mockSearchParams = new URLSearchParams('orgId=lumen-org&orgSlug=lumen-speeds')
+    global.fetch = jest.fn((input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url === '/api/v1/crm/custom-fields?resource=company&orgId=lumen-org') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ data: { definitions: [] } }),
+        } as Response)
+      }
+      if (url === '/api/v1/portal/settings/team?orgId=lumen-org') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ members: [] }),
+        } as Response)
+      }
+      if (url === '/api/v1/crm/companies/company-1?orgId=lumen-org') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            success: true,
+            data: {
+              company: {
+                id: 'company-1',
+                orgId: 'lumen-org',
+                name: 'Lumen',
+                linkedOrgId: 'lumen-org',
+                lifecycleStage: 'customer',
+              },
+            },
+          }),
+        } as Response)
+      }
+      if (url === '/api/v1/crm/companies/company-1/command-center?limit=100&orgId=lumen-org') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            success: true,
+            data: {
+              linkedWorkspace: {
+                id: 'lumen-org',
+                orgId: 'lumen-org',
+                name: 'Lumen Speeds',
+                slug: 'lumen-speeds',
+                orgSlug: 'lumen-speeds',
+              },
+              summary: {},
+              analytics: {},
+              contacts: [],
+              deals: [],
+              projects: [],
+              serviceWorkspaces: [],
+              relationships: [],
+              documents: [],
+              quotes: [],
+              invoices: [],
+              orders: [],
+              shipments: [],
+              inventoryItems: [],
+              activities: [],
+            },
+          }),
+        } as Response)
+      }
+      return Promise.resolve({
+        ok: false,
+        json: async () => ({ error: `Unexpected request: ${url}` }),
+      } as Response)
+    }) as jest.Mock
+
+    render(<CompanyDetailPage />)
+
+    await screen.findByRole('heading', { name: 'Lumen' })
+    await selectCompanyTab('Workspace')
+
+    expect(screen.getByRole('link', { name: 'Open marketing workspace for Lumen' })).toHaveAttribute(
+      'href',
+      '/portal/marketing?orgId=lumen-org&orgSlug=lumen-speeds',
+    )
+    expect(screen.getByRole('link', { name: 'Open campaigns workspace for Lumen' })).toHaveAttribute(
+      'href',
+      '/portal/campaigns?orgId=lumen-org&orgSlug=lumen-speeds',
+    )
+    expect(global.fetch).toHaveBeenCalledWith('/api/v1/crm/companies/company-1?orgId=lumen-org')
+    expect(global.fetch).toHaveBeenCalledWith('/api/v1/crm/companies/company-1/command-center?limit=100&orgId=lumen-org')
   })
 
   it('turns empty company custom fields into a profile capture action', async () => {
