@@ -3,6 +3,7 @@ import ProductsPage from '@/app/(portal)/portal/settings/products/page'
 import type { Product } from '@/lib/products/types'
 
 let products: Product[] = []
+let mockSearchParams = new URLSearchParams()
 
 jest.mock('@/components/crm/ProductModal', () => ({
   ProductModal: ({ product, onClose }: { product: unknown; onClose: () => void }) => (
@@ -13,10 +14,15 @@ jest.mock('@/components/crm/ProductModal', () => ({
   ),
 }))
 
+jest.mock('next/navigation', () => ({
+  useSearchParams: () => mockSearchParams,
+}))
+
 describe('Portal settings products page', () => {
   beforeEach(() => {
     jest.clearAllMocks()
     products = []
+    mockSearchParams = new URLSearchParams()
     global.fetch = jest.fn((input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input)
       if (url === '/api/v1/crm/products') {
@@ -37,6 +43,59 @@ describe('Portal settings products page', () => {
 
   afterEach(() => {
     jest.restoreAllMocks()
+  })
+
+  it('preserves company workspace scope across product list and delete operations', async () => {
+    mockSearchParams = new URLSearchParams({
+      orgId: 'org-1',
+      orgSlug: 'lumen-speeds',
+      sourceCompanyId: 'company-1',
+      sourceCompanyName: 'Lumen',
+    })
+    products = [{
+      id: 'product-1',
+      orgId: 'org-1',
+      name: 'Launch package',
+      description: 'Campaign setup package',
+      unit: 'package',
+      unitPrice: 25000,
+      currency: 'ZAR',
+      createdAt: null,
+      updatedAt: null,
+    }]
+
+    const fetchMock = jest.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      if (url === '/api/v1/crm/products?orgId=org-1') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ data: { products } }),
+        } as Response)
+      }
+      if (url === '/api/v1/crm/products/product-1?orgId=org-1' && init?.method === 'DELETE') {
+        products = []
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ success: true }),
+        } as Response)
+      }
+      return Promise.reject(new Error(`Unexpected fetch: ${url}`))
+    })
+    global.fetch = fetchMock as jest.Mock
+
+    render(<ProductsPage />)
+
+    expect(await screen.findByText('Launch package')).toBeInTheDocument()
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith('/api/v1/crm/products?orgId=org-1')
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Delete Launch package' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm delete catalog product Launch package' }))
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith('/api/v1/crm/products/product-1?orgId=org-1', { method: 'DELETE' })
+    })
   })
 
   it('turns the empty product catalog into a quote-readiness command center', async () => {

@@ -1,9 +1,11 @@
 'use client'
 export const dynamic = 'force-dynamic'
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { ProductModal } from '@/components/crm/ProductModal'
 import type { Product } from '@/lib/products/types'
+import { scopedApiPath, scopeFromSearchParams } from '@/lib/portal/scoped-routing'
 
 function fmtMoney(value: number, currency = 'ZAR'): string {
   const safeCurrency = currency?.trim() || 'ZAR'
@@ -64,6 +66,8 @@ function StatCard({ label, value, sub, icon }: { label: string; value: string; s
 }
 
 export default function ProductsPage() {
+  const searchParams = useSearchParams()
+  const orgScope = useMemo(() => scopeFromSearchParams(searchParams), [searchParams])
   const [products, setProducts] = useState<Product[]>([])
   const [loading, setLoading] = useState(true)
   const [fetchError, setFetchError] = useState<string | null>(null)
@@ -75,13 +79,14 @@ export default function ProductsPage() {
   const [search, setSearch] = useState('')
   const [currencyFilter, setCurrencyFilter] = useState('')
   const [healthFilter, setHealthFilter] = useState<'all' | 'ready' | 'needs-work'>('all')
+  const productEndpoint = useCallback((path: string) => scopedApiPath(path, orgScope), [orgScope])
 
   // ── Fetch ─────────────────────────────────────────────────────────────────────
 
   const loadProducts = useCallback(() => {
     setLoading(true)
     setFetchError(null)
-    fetch('/api/v1/crm/products')
+    fetch(productEndpoint('/api/v1/crm/products'))
       .then(async (r) => {
         const body = await r.json().catch(() => ({}))
         if (!r.ok) {
@@ -98,7 +103,7 @@ export default function ProductsPage() {
         setFetchError(err instanceof Error ? err.message : 'Failed to load products. Please try again.')
       })
       .finally(() => setLoading(false))
-  }, [])
+  }, [productEndpoint])
 
   useEffect(() => {
     loadProducts()
@@ -146,7 +151,7 @@ export default function ProductsPage() {
     setDeletingId(product.id)
     setDeleteError(null)
     try {
-      const res = await fetch(`/api/v1/crm/products/${product.id}`, { method: 'DELETE' })
+      const res = await fetch(productEndpoint(`/api/v1/crm/products/${product.id}`), { method: 'DELETE' })
       if (!res.ok) {
         const body = await res.json().catch(() => ({}))
         throw new Error(body.error ?? `HTTP ${res.status}`)
