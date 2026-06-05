@@ -97,6 +97,8 @@ export interface WorkspaceBrokerRequester {
 export interface WorkspaceBrokerApprovalEvidence {
   gateTaskId: string | null
   status: string | null
+  decidedBy?: string | null
+  decidedAt?: string | null
 }
 
 export interface WorkspaceBrokerTargetResource {
@@ -198,7 +200,11 @@ export function buildWorkspaceBrokerJobInput(input: WorkspaceBrokerJobInput): Wo
     riskLevel: decision.riskLevel,
     approvalRequired: decision.approvalRequired,
     approvalSatisfied: decision.approvalSatisfied,
-    approvalEvidence: { gateTaskId: approvalGateTaskId, status: approvalStatus },
+    approvalEvidence: {
+      gateTaskId: approvalGateTaskId,
+      status: approvalStatus,
+      ...(trustedApprovalSatisfied ? { decidedBy: cleanString(input.requestedBy), decidedAt: now } : {}),
+    },
     targetResource: buildWorkspaceBrokerTargetResource(orgId, connectionId, payload),
     input: payload,
     output: { googleMutationPerformed: false, artifactIds: [], artifactUrls: [], resultArtifactIds: [], resultArtifactUrls: [] },
@@ -220,7 +226,19 @@ export function canExecuteWorkspaceBrokerJob(job: Partial<WorkspaceBrokerJob>): 
   const visibility = asRecord(job.input).visibility
   const fallbackDecision = evaluateWorkspaceBrokerApproval({ operation, visibility: cleanString(visibility) })
   const approvalRequired = job.approvalRequired === true || fallbackDecision.approvalRequired
+  const approvalEvidence = asRecord(job.approvalEvidence)
+  const approvalStatus = cleanString(job.approvalStatus)?.toLowerCase()
+  const evidenceStatus = cleanString(approvalEvidence.status)?.toLowerCase()
+  const approvalGateTaskId = cleanString(job.approvalGateTaskId)
+  const evidenceGateTaskId = cleanString(approvalEvidence.gateTaskId)
   const approvalSatisfied = job.approvalSatisfied === true
+    && !!approvalStatus
+    && APPROVED.has(approvalStatus)
+    && !!approvalGateTaskId
+    && approvalGateTaskId === evidenceGateTaskId
+    && !!evidenceStatus
+    && APPROVED.has(evidenceStatus)
+    && !!cleanString(approvalEvidence.decidedBy)
   if (approvalRequired && !approvalSatisfied) return { ok: false, reason: 'approval_required' }
   const status = cleanString(job.status)
   if (status !== 'queued' && status !== 'running') return { ok: false, reason: 'not_ready' }

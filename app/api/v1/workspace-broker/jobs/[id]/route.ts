@@ -5,6 +5,7 @@ import { withAuth } from '@/lib/api/auth'
 import { apiError, apiSuccess } from '@/lib/api/response'
 import { orgAccessError, resolveOrgId } from '@/lib/workspace-os/api'
 import { WORKSPACE_BROKER_JOB_COLLECTION } from '@/lib/workspace-os/broker'
+import { cleanString } from '@/lib/workspace-os/common'
 
 export const dynamic = 'force-dynamic'
 type RouteContext = { params: Promise<{ id: string }> }
@@ -48,11 +49,15 @@ export const PATCH = withAuth('admin', async (req: NextRequest, user, context) =
   if (job.approvalRequired !== true) return apiError('Workspace broker job does not require approval', 400)
   if (job.status !== 'awaiting_approval') return apiError('Workspace broker job is not awaiting approval', 409)
 
+  const approvalGateTaskId = cleanString(body.approvalGateTaskId) ?? cleanString(job.approvalGateTaskId)
+  if (!approvalGateTaskId) return apiError('Workspace broker approval evidence is required', 400)
+
   const nextStatus = action === 'approve' ? 'queued' : 'cancelled'
   const approvalStatus = action === 'approve' ? 'approved' : 'rejected'
   const output = { ...(job.output ?? {}), googleMutationPerformed: false }
   const approvalEvidence = {
     ...((job.approvalEvidence && typeof job.approvalEvidence === 'object') ? job.approvalEvidence as Record<string, unknown> : {}),
+    gateTaskId: approvalGateTaskId,
     status: approvalStatus,
     decidedBy: user.uid,
     decidedAt: FieldValue.serverTimestamp(),
@@ -60,6 +65,7 @@ export const PATCH = withAuth('admin', async (req: NextRequest, user, context) =
   const update = {
     status: nextStatus,
     approvalStatus,
+    approvalGateTaskId,
     approvalSatisfied: action === 'approve',
     approvalEvidence,
     approvalDecidedBy: user.uid,

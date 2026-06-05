@@ -172,7 +172,7 @@ describe('workspace broker API routes', () => {
   })
 
   it('approves and rejects workspace broker jobs without performing Google mutations', async () => {
-    mockGetDoc.mockResolvedValue({ exists: true, id: 'job-1', data: () => ({ orgId: 'org-1', status: 'awaiting_approval', operation: 'request_share', approvalRequired: true, approvalSatisfied: false, output: { googleMutationPerformed: false } }) })
+    mockGetDoc.mockResolvedValue({ exists: true, id: 'job-1', data: () => ({ orgId: 'org-1', status: 'awaiting_approval', operation: 'request_share', approvalRequired: true, approvalSatisfied: false, approvalGateTaskId: 'task-approval-1', output: { googleMutationPerformed: false } }) })
     const { PATCH } = await import('@/app/api/v1/workspace-broker/jobs/[id]/route')
 
     const approved = await PATCH(new NextRequest('http://localhost/api/v1/workspace-broker/jobs/job-1?orgId=org-1', {
@@ -184,8 +184,9 @@ describe('workspace broker API routes', () => {
     expect(mockUpdate).toHaveBeenCalledWith(expect.objectContaining({
       status: 'queued',
       approvalStatus: 'approved',
+      approvalGateTaskId: 'task-approval-1',
       approvalSatisfied: true,
-      approvalEvidence: expect.objectContaining({ status: 'approved', decidedBy: 'admin-1' }),
+      approvalEvidence: expect.objectContaining({ gateTaskId: 'task-approval-1', status: 'approved', decidedBy: 'admin-1' }),
       output: { googleMutationPerformed: false },
       updatedAt: 'SERVER_TIMESTAMP',
     }))
@@ -204,6 +205,19 @@ describe('workspace broker API routes', () => {
       output: { googleMutationPerformed: false },
       updatedAt: 'SERVER_TIMESTAMP',
     }))
+  })
+
+  it('requires approval evidence before approving workspace broker jobs', async () => {
+    mockGetDoc.mockResolvedValue({ exists: true, id: 'job-1', data: () => ({ orgId: 'org-1', status: 'awaiting_approval', operation: 'request_share', approvalRequired: true, approvalSatisfied: false, output: { googleMutationPerformed: false } }) })
+    const { PATCH } = await import('@/app/api/v1/workspace-broker/jobs/[id]/route')
+    const res = await PATCH(new NextRequest('http://localhost/api/v1/workspace-broker/jobs/job-1?orgId=org-1', {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ action: 'approve' }),
+    }), { params: Promise.resolve({ id: 'job-1' }) })
+
+    expect(res.status).toBe(400)
+    expect(mockUpdate).not.toHaveBeenCalled()
   })
 
   it('rejects approval transitions for jobs that are not awaiting approval', async () => {

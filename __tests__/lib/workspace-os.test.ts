@@ -314,6 +314,7 @@ describe('workspace broker approval envelope', () => {
 
     expect(canExecuteWorkspaceBrokerJob(awaiting)).toMatchObject({ ok: false, reason: 'approval_required' })
     expect(canExecuteWorkspaceBrokerJob({ ...approved, status: 'running' })).toMatchObject({ ok: true })
+    expect(canExecuteWorkspaceBrokerJob({ ...approved, approvalEvidence: { ...approved.approvalEvidence, gateTaskId: 'other-task' } })).toMatchObject({ ok: false, reason: 'approval_required' })
     expect(canExecuteWorkspaceBrokerJob({ operation: 'request_share', status: 'queued', approvalRequired: false, approvalSatisfied: false, input: { visibility: 'admin_agents_clients' } })).toMatchObject({ ok: false, reason: 'approval_required' })
     expect(canExecuteWorkspaceBrokerJob({
       operation: 'request_share',
