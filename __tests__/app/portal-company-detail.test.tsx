@@ -4,7 +4,11 @@ import CompanyDetailPage from '@/app/(portal)/portal/companies/[id]/page'
 import type { CustomFieldDefinition } from '@/lib/customFields/types'
 
 jest.mock('@/components/crm/EntityScopedChat', () => ({
-  EntityScopedChat: () => null,
+  EntityScopedChat: ({ href, entityLabel }: { href: string; entityLabel: string }) => (
+    <a href={href} aria-label={`Open chat context for ${entityLabel}`}>
+      Chat context
+    </a>
+  ),
 }))
 
 let mockSearchParams = new URLSearchParams()
@@ -134,6 +138,95 @@ describe('Portal company detail page', () => {
 
     expect(screen.getByRole('link', { name: 'Back to Companies' })).toHaveAttribute('href', '/portal/companies')
     expect(screen.queryByRole('link', { name: /arrow_back/i })).not.toBeInTheDocument()
+  })
+
+  it('preserves workspace scope across company detail fallback navigation and archive redirect', async () => {
+    const scope = 'orgId=lumen-org&orgSlug=lumen-speeds&sourceCompanyId=source-company&sourceCompanyName=Lumen'
+    mockSearchParams = new URLSearchParams(`${scope}&edit=profile`)
+    global.fetch = jest.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      if (url === '/api/v1/crm/custom-fields?resource=company&orgId=lumen-org') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ data: { definitions: [] } }),
+        } as Response)
+      }
+      if (url === '/api/v1/portal/settings/team?orgId=lumen-org') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ members: [] }),
+        } as Response)
+      }
+      if (url === '/api/v1/crm/companies/company-1?orgId=lumen-org') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            success: true,
+            data: {
+              company: {
+                id: 'company-1',
+                orgId: 'lumen-org',
+                name: 'Lumen',
+                lifecycleStage: 'customer',
+              },
+            },
+          }),
+        } as Response)
+      }
+      if (url === '/api/v1/crm/companies/company-1/command-center?limit=100&orgId=lumen-org') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            success: true,
+            data: {
+              summary: {},
+              analytics: {},
+              contacts: [],
+              deals: [],
+              projects: [],
+              serviceWorkspaces: [],
+              relationships: [],
+              documents: [],
+              quotes: [],
+              invoices: [],
+              orders: [],
+              shipments: [],
+              inventoryItems: [],
+              activities: [],
+            },
+          }),
+        } as Response)
+      }
+      if (url === '/api/v1/crm/companies/company-1?orgId=lumen-org' && init?.method === 'DELETE') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ data: {} }),
+        } as Response)
+      }
+      return Promise.reject(new Error(`Unexpected fetch: ${url}`))
+    }) as jest.Mock
+
+    render(<CompanyDetailPage />)
+
+    await screen.findByRole('heading', { name: 'Lumen' })
+
+    expect(screen.getByRole('link', { name: 'Back to Companies' })).toHaveAttribute('href', `/portal/companies?${scope}`)
+
+    await selectCompanyTab(/Invoices/i)
+    expect(replaceMock).toHaveBeenCalledWith(`/portal/companies/company-1?${scope}&edit=profile&tab=invoices`, { scroll: false })
+
+    await selectCompanyTab(/Chat/i)
+    expect(screen.getByRole('link', { name: 'Open chat context for Lumen' })).toHaveAttribute('href', `/portal/companies/company-1?${scope}`)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Archive account Lumen' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Confirm archive Lumen' }))
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith('/api/v1/crm/companies/company-1?orgId=lumen-org', { method: 'DELETE' })
+    })
+    await waitFor(() => {
+      expect(pushMock).toHaveBeenCalledWith(`/portal/companies?${scope}`)
+    })
   })
 
   it('uses an in-page confirmation before archiving an account', async () => {

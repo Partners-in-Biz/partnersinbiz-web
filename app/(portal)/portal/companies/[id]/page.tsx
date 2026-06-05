@@ -1,7 +1,7 @@
 'use client'
 export const dynamic = 'force-dynamic'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useMemo } from 'react'
 import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import type { Company } from '@/lib/companies/types'
@@ -1840,10 +1840,11 @@ export default function CompanyDetailPage() {
   const { id } = useParams<{ id: string }>()
   const router = useRouter()
   const searchParams = useSearchParams()
-  const orgScope = scopeFromSearchParams(searchParams)
+  const orgScope = useMemo(() => scopeFromSearchParams(searchParams), [searchParams])
   const scopedOrgId = orgScope.orgId
   const initialTab = toCompanyTab(searchParams.get('tab')) ?? 'overview'
   const companyApiPath = useCallback((path: string) => scopedApiPath(path, { orgId: scopedOrgId }), [scopedOrgId])
+  const companyPortalPath = useCallback((path: string) => scopedPortalPath(path, orgScope), [orgScope])
 
   const [company, setCompany] = useState<Company | null>(null)
   const [loading, setLoading] = useState(true)
@@ -2386,7 +2387,7 @@ export default function CompanyDetailPage() {
         const body = await res.json().catch(() => ({}))
         throw new Error(body.error ?? `HTTP ${res.status}`)
       }
-      router.push('/portal/companies')
+      router.push(companyPortalPath('/portal/companies'))
       router.refresh()
     } catch (err) {
       setArchiveError(err instanceof Error ? err.message : 'Failed to archive company')
@@ -2408,7 +2409,7 @@ export default function CompanyDetailPage() {
           {error ?? 'Company not found.'}
         </p>
         <Link
-          href="/portal/companies"
+          href={companyPortalPath('/portal/companies')}
           aria-label="Back to Companies"
           className="btn-pib-secondary inline-flex items-center gap-1.5 mt-2"
         >
@@ -2425,7 +2426,7 @@ export default function CompanyDetailPage() {
     <div className="space-y-6">
       {/* Breadcrumb */}
       <Link
-        href="/portal/companies"
+        href={companyPortalPath('/portal/companies')}
         aria-label="Back to Companies"
         className="text-xs text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] inline-flex items-center gap-1 transition-colors"
       >
@@ -2732,7 +2733,7 @@ export default function CompanyDetailPage() {
             entityType="company"
             entityId={company.id}
             entityLabel={company.name}
-            href={`/portal/companies/${company.id}`}
+            href={companyPortalPath(`/portal/companies/${company.id}`)}
             summary={`${company.name} CRM company${company.lifecycleStage ? ` · ${company.lifecycleStage}` : ''}${company.linkedOrgId ? ` · linked workspace ${company.linkedOrgId}` : ' · unlinked lead workspace'}`}
           />
         )}
