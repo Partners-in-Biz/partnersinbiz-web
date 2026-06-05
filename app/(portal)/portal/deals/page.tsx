@@ -14,6 +14,7 @@ import { DealDrawer } from '@/components/crm/DealDrawer'
 import { DealDetailDrawer } from '@/components/crm/DealDetailDrawer'
 import { EmptyState, PageHeader, PageTabs } from '@/components/ui/AppFoundation'
 import type { Contact, Deal, Currency } from '@/lib/crm/types'
+import { scopedApiPath, scopedPortalPath, scopeFromSearchParams } from '@/lib/portal/scoped-routing'
 import { extractPipelinesList } from '@/lib/pipelines/response'
 import type { Pipeline, PipelineStage } from '@/lib/pipelines/types'
 
@@ -194,7 +195,7 @@ function isPipelineSetupArtifact(pipeline?: Pipeline): boolean {
   return /\b(smoke|test|delete)\b/.test(name)
 }
 
-function PipelineSetupReviewCard({ pipeline }: { pipeline: Pipeline }) {
+function PipelineSetupReviewCard({ pipeline, settingsHref }: { pipeline: Pipeline; settingsHref: string }) {
   return (
     <section
       role="region"
@@ -214,7 +215,7 @@ function PipelineSetupReviewCard({ pipeline }: { pipeline: Pipeline }) {
           </div>
         </div>
         <Link
-          href="/portal/settings/pipelines"
+          href={settingsHref}
           className="btn-pib-secondary inline-flex shrink-0 items-center gap-1.5 text-sm"
           aria-label={`Review pipeline settings for ${pipeline.name}`}
         >
@@ -363,6 +364,9 @@ function ProbabilityInput({ deal, onUpdate }: { deal: Deal; onUpdate: (id: strin
 
 export default function DealsPage() {
   const searchParams = useSearchParams()
+  const routeScope = useMemo(() => scopeFromSearchParams(searchParams), [searchParams])
+  const dealApiPath = useCallback((path: string) => scopedApiPath(path, routeScope), [routeScope])
+  const dealPortalPath = useCallback((path: string) => scopedPortalPath(path, routeScope), [routeScope])
   const requestedPipelineId = searchParams.get('pipelineId') ?? undefined
   const requestedStageId = searchParams.get('stage') ?? undefined
   const shouldOpenCreateDrawer = searchParams.get('create') === 'deal'
@@ -401,7 +405,7 @@ export default function DealsPage() {
   // Fetch pipelines once on mount
   useEffect(() => {
     let cancelled = false
-    fetch('/api/v1/crm/pipelines')
+    fetch(dealApiPath('/api/v1/crm/pipelines'))
       .then(r => readApiJson(r, 'Failed to load pipelines'))
       .then(body => {
         if (cancelled) return
@@ -424,11 +428,11 @@ export default function DealsPage() {
         setPipelinesLoading(false)
       })
     return () => { cancelled = true }
-  }, [requestedPipelineId])
+  }, [dealApiPath, requestedPipelineId])
 
   useEffect(() => {
     let cancelled = false
-    fetch('/api/v1/portal/settings/team')
+    fetch(dealApiPath('/api/v1/portal/settings/team'))
       .then((res) => res.ok ? res.json() : null)
       .then((body) => {
         if (cancelled) return
@@ -439,11 +443,11 @@ export default function DealsPage() {
         if (!cancelled) setTeamMembers([])
       })
     return () => { cancelled = true }
-  }, [])
+  }, [dealApiPath])
 
   useEffect(() => {
     let cancelled = false
-    fetch('/api/v1/crm/contacts?limit=200')
+    fetch(dealApiPath('/api/v1/crm/contacts?limit=200'))
       .then(r => readApiJson(r, 'Failed to load contacts'))
       .then(body => {
         if (cancelled) return
@@ -456,13 +460,13 @@ export default function DealsPage() {
         setContactsLoading(false)
       })
     return () => { cancelled = true }
-  }, [])
+  }, [dealApiPath])
 
   // Fetch deals whenever selected pipeline changes
   useEffect(() => {
     if (!selectedPipelineId) return
     let cancelled = false
-    fetch(`/api/v1/crm/deals?pipelineId=${encodeURIComponent(selectedPipelineId)}&limit=200`)
+    fetch(dealApiPath(`/api/v1/crm/deals?pipelineId=${encodeURIComponent(selectedPipelineId)}&limit=200`))
       .then(r => readApiJson(r, 'Failed to load deals'))
       .then(body => {
         if (cancelled) return
@@ -479,7 +483,7 @@ export default function DealsPage() {
         setLoading(false)
       })
     return () => { cancelled = true }
-  }, [requestedStageId, selectedPipelineId])
+  }, [dealApiPath, requestedStageId, selectedPipelineId])
 
   const selectedPipeline = pipelines.find(p => p.id === selectedPipelineId)
   const selectedPipelineNeedsReview = isPipelineSetupArtifact(selectedPipeline)
@@ -498,7 +502,7 @@ export default function DealsPage() {
 
   const handleStageChange = useCallback(async (dealId: string, newStageId: string) => {
     // Optimistic update happens inside DealKanban; we just fire the PATCH
-    const res = await fetch(`/api/v1/crm/deals/${dealId}`, {
+    const res = await fetch(dealApiPath(`/api/v1/crm/deals/${dealId}`), {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ stageId: newStageId }),
@@ -509,7 +513,7 @@ export default function DealsPage() {
     }
     // Sync local list so list-view stays consistent
     setDeals(prev => prev.map(d => d.id === dealId ? { ...d, stageId: newStageId } : d))
-  }, [])
+  }, [dealApiPath])
 
   const handlePipelineChange = useCallback((id: string) => {
     setLoading(true)
@@ -525,19 +529,19 @@ export default function DealsPage() {
     setViewingDeal(null)
     if (selectedPipelineId) {
       setLoading(true)
-      fetch(`/api/v1/crm/deals?pipelineId=${encodeURIComponent(selectedPipelineId)}&limit=200`)
+      fetch(dealApiPath(`/api/v1/crm/deals?pipelineId=${encodeURIComponent(selectedPipelineId)}&limit=200`))
         .then(r => readApiJson(r, 'Failed to load deals'))
         .then(body => { if (body.success) setDeals(body.data ?? []) })
         .catch(() => {})
         .finally(() => setLoading(false))
     }
-  }, [selectedPipelineId])
+  }, [dealApiPath, selectedPipelineId])
 
   function retryDealsLoad() {
     if (!selectedPipelineId) return
     setLoading(true)
     setError(null)
-    fetch(`/api/v1/crm/deals?pipelineId=${encodeURIComponent(selectedPipelineId)}&limit=200`)
+    fetch(dealApiPath(`/api/v1/crm/deals?pipelineId=${encodeURIComponent(selectedPipelineId)}&limit=200`))
       .then(r => readApiJson(r, 'Failed to load deals'))
       .then(body => {
         if (!body.success) throw new Error(body.error ?? 'Failed to load deals')
@@ -555,12 +559,12 @@ export default function DealsPage() {
     // Optimistic update
     setDeals(prev => prev.map(d => d.id === dealId ? { ...d, probability } : d))
     // Persist best-effort
-    await fetch(`/api/v1/crm/deals/${dealId}`, {
+    await fetch(dealApiPath(`/api/v1/crm/deals/${dealId}`), {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ probability }),
     }).catch(() => {})
-  }, [])
+  }, [dealApiPath])
 
   const filteredDeals = useMemo(() => {
     const query = search.trim().toLowerCase()
@@ -651,7 +655,7 @@ export default function DealsPage() {
     try {
       const ids = Array.from(selectedDealIds)
       await Promise.all(ids.map(async (dealId) => {
-        const res = await fetch(`/api/v1/crm/deals/${dealId}`, {
+        const res = await fetch(dealApiPath(`/api/v1/crm/deals/${dealId}`), {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ ownerUid }),
@@ -754,7 +758,7 @@ export default function DealsPage() {
       {isReady && !error && <PipelineSummary deals={deals} stages={stages} />}
 
       {isReady && !error && selectedPipeline && selectedPipelineNeedsReview && (
-        <PipelineSetupReviewCard pipeline={selectedPipeline} />
+        <PipelineSetupReviewCard pipeline={selectedPipeline} settingsHref={dealPortalPath('/portal/settings/pipelines')} />
       )}
 
       {isReady && !error && (
@@ -934,6 +938,8 @@ export default function DealsPage() {
             loading
             onStageChange={handleStageChange}
             contactLabelsById={contactLabelsById}
+            contactHrefForDeal={(deal) => dealPortalPath(`/portal/contacts/${deal.contactId}`)}
+            companyHrefForDeal={(deal) => dealPortalPath(`/portal/companies/${deal.companyId}`)}
           />
         ) : filteredDeals.length === 0 && stageFilter === 'all' ? (
           <PipelineLaunchCommandCenter
@@ -947,6 +953,8 @@ export default function DealsPage() {
             onStageChange={handleStageChange}
             contactLabelsById={contactLabelsById}
             onEditDeal={deal => setEditingDeal(deal)}
+            contactHrefForDeal={(deal) => dealPortalPath(`/portal/contacts/${deal.contactId}`)}
+            companyHrefForDeal={(deal) => dealPortalPath(`/portal/companies/${deal.companyId}`)}
           />
         )
       )}
@@ -1052,7 +1060,7 @@ export default function DealsPage() {
                       </td>
                       <td className="px-4 py-3 font-medium text-on-surface">
                         <Link
-                          href={`/portal/deals/${deal.id}`}
+                          href={dealPortalPath(`/portal/deals/${deal.id}`)}
                           className="hover:text-[var(--color-pib-accent)] transition-colors font-medium"
                           onClick={e => e.stopPropagation()}
                         >
@@ -1127,7 +1135,7 @@ export default function DealsPage() {
                       <td className="px-4 py-3" onClick={e => e.stopPropagation()}>
                         {deal.contactId ? (
                           <a
-                            href={`/portal/contacts/${deal.contactId}`}
+                            href={dealPortalPath(`/portal/contacts/${deal.contactId}`)}
                             className="text-xs text-[var(--color-accent-v2)] hover:underline"
                           >
                             {contactLabel || 'Contact identity missing'}
@@ -1226,7 +1234,7 @@ export default function DealsPage() {
                       >
                         <td className="px-4 py-3 font-medium">
                           <Link
-                            href={`/portal/deals/${deal.id}`}
+                            href={dealPortalPath(`/portal/deals/${deal.id}`)}
                             className="hover:text-[var(--color-pib-accent)] transition-colors"
                           >
                             {dealTitle}
@@ -1266,7 +1274,7 @@ export default function DealsPage() {
           defaultPipelineId={selectedPipelineId}
           onSaved={handleDealSaved}
           onClose={() => setShowCreateDrawer(false)}
-          orgId={''}
+          orgId={routeScope.orgId ?? ''}
         />
       )}
 
@@ -1277,7 +1285,7 @@ export default function DealsPage() {
           defaultContactLabel={contactLabelsById[editingDeal.contactId]}
           onSaved={handleDealSaved}
           onClose={() => setEditingDeal(null)}
-          orgId={''}
+          orgId={editingDeal.orgId ?? routeScope.orgId ?? ''}
         />
       )}
 
@@ -1286,8 +1294,10 @@ export default function DealsPage() {
         <DealDetailDrawer
           deal={viewingDeal}
           stages={stages}
-          orgId={''}
+          orgId={viewingDeal.orgId ?? routeScope.orgId ?? ''}
           contactLabel={contactLabelsById[viewingDeal.contactId]}
+          contactHrefForDeal={(deal) => dealPortalPath(`/portal/contacts/${deal.contactId}`)}
+          companyHrefForDeal={(deal) => dealPortalPath(`/portal/companies/${deal.companyId}`)}
           onClose={() => setViewingDeal(null)}
           onEdit={() => { setEditingDeal(viewingDeal); setViewingDeal(null) }}
         />

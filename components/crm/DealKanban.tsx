@@ -48,6 +48,8 @@ interface DealCardProps {
   stageColor?: string
   contactBasePath?: string
   companyBasePath?: string
+  contactHrefForDeal?: (deal: Deal) => string
+  companyHrefForDeal?: (deal: Deal) => string
   contactLabel?: string
   onEditDeal?: (deal: Deal) => void
 }
@@ -57,6 +59,8 @@ function DealCard({
   stageColor = '#6b7280',
   contactBasePath = '/portal/contacts',
   companyBasePath = '/portal/companies',
+  contactHrefForDeal,
+  companyHrefForDeal,
   contactLabel,
   onEditDeal,
 }: DealCardProps) {
@@ -66,6 +70,8 @@ function DealCard({
   const valueLabel = formatValue(deal.value, deal.currency)
   const readableContactLabel = contactLabel?.trim() || 'Contact identity missing'
   const readableCompanyLabel = deal.companyName?.trim() || (deal.companyId ? 'Company identity missing' : '')
+  const contactHref = contactHrefForDeal ? contactHrefForDeal(deal) : `${contactBasePath}/${deal.contactId}`
+  const companyHref = companyHrefForDeal ? companyHrefForDeal(deal) : `${companyBasePath}/${deal.companyId}`
 
   return (
     <div
@@ -100,7 +106,7 @@ function DealCard({
           )}
           {deal.contactId && (
             <Link
-              href={`${contactBasePath}/${deal.contactId}`}
+              href={contactHref}
               onClick={e => e.stopPropagation()}
               className="text-[10px] font-label px-2 py-0.5 rounded-full truncate max-w-[120px]"
               style={{ background: 'var(--color-surface-container)', color: 'var(--color-on-surface-variant)' }}
@@ -112,7 +118,7 @@ function DealCard({
         </div>
         {deal.companyId ? (
           <Link
-            href={`${companyBasePath}/${deal.companyId}`}
+            href={companyHref}
             onClick={e => e.stopPropagation()}
             className="text-xs text-gray-500 truncate mt-1 block hover:underline"
             title="View company"
@@ -134,11 +140,22 @@ interface DealColumnProps {
   deals: Deal[]
   contactBasePath?: string
   companyBasePath?: string
+  contactHrefForDeal?: (deal: Deal) => string
+  companyHrefForDeal?: (deal: Deal) => string
   contactLabelsById?: Record<string, string>
   onEditDeal?: (deal: Deal) => void
 }
 
-function DealColumn({ stage, deals, contactBasePath, companyBasePath, contactLabelsById, onEditDeal }: DealColumnProps) {
+function DealColumn({
+  stage,
+  deals,
+  contactBasePath,
+  companyBasePath,
+  contactHrefForDeal,
+  companyHrefForDeal,
+  contactLabelsById,
+  onEditDeal,
+}: DealColumnProps) {
   const dealIds = deals.map(d => d.id)
   const { setNodeRef, isOver } = useDroppable({ id: stage.id })
   const color = stage.color ?? '#6b7280'
@@ -173,6 +190,8 @@ function DealColumn({ stage, deals, contactBasePath, companyBasePath, contactLab
               stageColor={color}
               contactBasePath={contactBasePath}
               companyBasePath={companyBasePath}
+              contactHrefForDeal={contactHrefForDeal}
+              companyHrefForDeal={companyHrefForDeal}
               contactLabel={contactLabelsById?.[deal.contactId]}
               onEditDeal={onEditDeal}
             />
@@ -218,6 +237,8 @@ export interface DealKanbanProps {
   onStageChange: (dealId: string, newStageId: string) => Promise<void>
   contactBasePath?: string
   companyBasePath?: string
+  contactHrefForDeal?: (deal: Deal) => string
+  companyHrefForDeal?: (deal: Deal) => string
   contactLabelsById?: Record<string, string>
   onEditDeal?: (deal: Deal) => void
 }
@@ -233,6 +254,8 @@ export function DealKanban({
   onStageChange,
   contactBasePath = '/portal/contacts',
   companyBasePath = '/portal/companies',
+  contactHrefForDeal,
+  companyHrefForDeal,
   contactLabelsById,
   onEditDeal,
 }: DealKanbanProps) {
@@ -331,6 +354,8 @@ export function DealKanban({
               deals={getDealsForStage(stage.id)}
               contactBasePath={contactBasePath}
               companyBasePath={companyBasePath}
+              contactHrefForDeal={contactHrefForDeal}
+              companyHrefForDeal={companyHrefForDeal}
               contactLabelsById={contactLabelsById}
               onEditDeal={onEditDeal}
             />

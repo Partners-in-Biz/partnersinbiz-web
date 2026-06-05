@@ -28,7 +28,7 @@ jest.mock('@/components/crm/DealKanban', () => ({
 }))
 
 jest.mock('@/components/crm/DealDrawer', () => ({
-  DealDrawer: () => <div data-testid="deal-drawer" />,
+  DealDrawer: ({ orgId }: { orgId?: string }) => <div data-testid="deal-drawer" data-org-id={orgId ?? ''} />,
 }))
 
 jest.mock('@/components/crm/DealDetailDrawer', () => ({
@@ -101,12 +101,13 @@ describe('Portal deals page', () => {
         ],
       },
     ]
-    global.fetch = jest.fn((url: RequestInfo | URL) => {
-      const path = String(url)
+    global.fetch = jest.fn((url: RequestInfo | URL, init?: RequestInit) => {
+      const rawPath = String(url)
+      const path = rawPath.split('?')[0]
       if (path === '/api/v1/crm/pipelines') {
         return apiResponse(mockPipelineRows)
       }
-      if (path === '/api/v1/crm/contacts?limit=200') {
+      if (path === '/api/v1/crm/contacts') {
         return apiResponse([
           {
             id: 'contact-1',
@@ -137,11 +138,14 @@ describe('Portal deals page', () => {
           }),
         } as Response)
       }
-      if (path === '/api/v1/crm/deals?pipelineId=pipeline-1&limit=200') {
+      if (path === '/api/v1/crm/deals' && rawPath.includes('pipelineId=pipeline-1') && rawPath.includes('limit=200')) {
         return apiResponse(mockDealRows)
       }
-      if (path === '/api/v1/crm/deals?pipelineId=pipeline-smoke&limit=200') {
+      if (path === '/api/v1/crm/deals' && rawPath.includes('pipelineId=pipeline-smoke') && rawPath.includes('limit=200')) {
         return apiResponse(mockDealRows)
+      }
+      if (path === '/api/v1/crm/deals/deal-2' && (init?.method === 'PATCH' || init?.method === 'PUT')) {
+        return apiResponse({ id: 'deal-2' })
       }
       if (path === '/api/v1/crm/deals/deal-2') {
         return apiResponse({ id: 'deal-2' })
@@ -176,6 +180,36 @@ describe('Portal deals page', () => {
     })
 
     await waitFor(() => expect(screen.getByText('Growth retainer')).toBeInTheDocument())
+  })
+
+  it('preserves CRM company workspace scope across deal list data, links, and create actions', async () => {
+    mockSearchParams = new URLSearchParams({
+      view: 'list',
+      orgId: 'org-1',
+      orgSlug: 'lumen-speeds',
+      sourceCompanyId: 'company-1',
+      sourceCompanyName: 'Lumen',
+    })
+
+    render(<DealsPage />)
+
+    expect(await screen.findByText('Growth retainer')).toBeInTheDocument()
+
+    const scope = 'orgId=org-1&orgSlug=lumen-speeds&sourceCompanyId=company-1&sourceCompanyName=Lumen'
+    expect(global.fetch).toHaveBeenCalledWith('/api/v1/crm/pipelines?orgId=org-1')
+    expect(global.fetch).toHaveBeenCalledWith('/api/v1/crm/contacts?limit=200&orgId=org-1')
+    expect(global.fetch).toHaveBeenCalledWith('/api/v1/portal/settings/team?orgId=org-1')
+    expect(global.fetch).toHaveBeenCalledWith('/api/v1/crm/deals?pipelineId=pipeline-1&limit=200&orgId=org-1')
+
+    const row = screen.getByText('Growth retainer').closest('[data-deal-row]')
+    expect(row).not.toBeNull()
+    expect(within(row as HTMLElement).getByRole('link', { name: 'Growth retainer' }))
+      .toHaveAttribute('href', `/portal/deals/deal-1?${scope}`)
+    expect(within(row as HTMLElement).getByRole('link', { name: 'Ava Owner' }))
+      .toHaveAttribute('href', `/portal/contacts/contact-1?${scope}`)
+
+    fireEvent.click(screen.getByRole('button', { name: 'New deal' }))
+    expect(screen.getByTestId('deal-drawer')).toHaveAttribute('data-org-id', 'org-1')
   })
 
   it('names missing deal values and renders zero values as explicit commercial data', async () => {
