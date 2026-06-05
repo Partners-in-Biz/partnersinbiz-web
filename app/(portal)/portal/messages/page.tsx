@@ -6,7 +6,7 @@ import { useEffect, useState } from 'react'
 import { onAuthStateChanged } from 'firebase/auth'
 import { useRouter } from 'next/navigation'
 import { auth, getClientAuth } from '@/lib/firebase/config'
-import UnifiedChat from '@/components/chat/UnifiedChat'
+import { MessagesWorkspace } from '@/components/messages/MessagesWorkspace'
 
 interface OrgInfo {
   id: string
@@ -26,12 +26,6 @@ export default function PortalMessagesPage() {
   const [user, setUser] = useState<UserInfo | null>(null)
   const [checking, setChecking] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [showIntro, setShowIntro] = useState(true)
-
-  useEffect(() => {
-    const timer = window.setTimeout(() => setShowIntro(false), 3000)
-    return () => window.clearTimeout(timer)
-  }, [])
 
   useEffect(() => {
     let cancelled = false
@@ -101,33 +95,13 @@ export default function PortalMessagesPage() {
   }
 
   return (
-    <div
-      data-testid="portal-messages-workspace"
-      className="flex min-h-[640px] h-[calc(100dvh-120px)] min-w-0 flex-col overflow-hidden"
-    >
-      <header
-        data-testid="portal-messages-intro"
-        className={[
-          'hidden shrink-0 overflow-hidden transition-all duration-700 ease-out lg:flex lg:flex-wrap lg:items-end lg:justify-between lg:gap-4',
-          showIntro ? 'mb-4 max-h-28 translate-y-0 opacity-100' : 'mb-0 max-h-0 -translate-y-2 opacity-0',
-        ].join(' ')}
-      >
-        <div>
-          <p className="eyebrow">Direct line to your team</p>
-          <h1 className="pib-page-title mt-2">Messages</h1>
-          <p className="pib-page-sub mt-2 max-w-2xl">Start a conversation with your team or the Partners in Biz team.</p>
-        </div>
-      </header>
-
-      <section className="min-h-0 min-w-0 flex-1 overflow-hidden">
-        <UnifiedChat
-          orgId={org.id}
-          currentUserUid={user.uid}
-          currentUserDisplayName={user.name}
-          orgName={org.name}
-          allowAgentParticipants={user.role === 'admin'}
-        />
-      </section>
-    </div>
+    <MessagesWorkspace
+      surface="portal"
+      orgId={org.id}
+      orgName={org.name}
+      currentUserUid={user.uid}
+      currentUserDisplayName={user.name}
+      userRole={user.role}
+    />
   )
 }
