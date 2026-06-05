@@ -2,10 +2,12 @@
 'use client'
 export const dynamic = 'force-dynamic'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useMemo } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { CustomFieldDefinitionsList } from '@/components/crm/CustomFieldDefinitionsList'
 import { CustomFieldDefinitionDrawer } from '@/components/crm/CustomFieldDefinitionDrawer'
 import { PageTabs } from '@/components/ui/AppFoundation'
+import { scopedApiPath, scopeFromSearchParams } from '@/lib/portal/scoped-routing'
 import type { CustomFieldDefinition, CustomFieldResource, CustomFieldType } from '@/lib/customFields/types'
 
 // ── Constants ─────────────────────────────────────────────────────────────────
@@ -98,6 +100,12 @@ function StatCard({ label, value, sub, icon }: { label: string; value: string; s
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function CustomFieldsPage() {
+  const searchParams = useSearchParams()
+  const orgScope = useMemo(() => scopeFromSearchParams(searchParams), [searchParams])
+  const customFieldEndpoint = useCallback(
+    (path: string) => scopedApiPath(path, orgScope),
+    [orgScope],
+  )
   const [activeTab, setActiveTab] = useState<CustomFieldResource>('contact')
   const [definitions, setDefinitions] = useState<CustomFieldDefinition[]>([])
   const [loading, setLoading] = useState(true)
@@ -131,7 +139,7 @@ export default function CustomFieldsPage() {
     setLoading(true)
     setFetchError(null)
     try {
-      const res = await fetch(`/api/v1/crm/custom-fields?resource=${resource}`)
+      const res = await fetch(customFieldEndpoint(`/api/v1/crm/custom-fields?resource=${resource}`))
       const body = await res.json().catch(() => ({}))
       if (res.status === 404) {
         setFetchError('Custom fields API is not yet available. It will be ready shortly.')
@@ -151,7 +159,7 @@ export default function CustomFieldsPage() {
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [customFieldEndpoint])
 
   useEffect(() => {
     fetchDefs(activeTab)
@@ -191,7 +199,7 @@ export default function CustomFieldsPage() {
     setDefinitions(prev => prev.filter(d => d.id !== id))
     setDeletingId(id)
     try {
-      const res = await fetch(`/api/v1/crm/custom-fields/${id}`, { method: 'DELETE' })
+      const res = await fetch(customFieldEndpoint(`/api/v1/crm/custom-fields/${id}`), { method: 'DELETE' })
       if (!res.ok) {
         // Revert on failure
         await fetchDefs(activeTab)
@@ -212,7 +220,7 @@ export default function CustomFieldsPage() {
     setDefinitions(reordered)
 
     try {
-      const res = await fetch('/api/v1/crm/custom-fields/reorder', {
+      const res = await fetch(customFieldEndpoint('/api/v1/crm/custom-fields/reorder'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ resource: activeTab, ids: newIds }),
@@ -228,8 +236,8 @@ export default function CustomFieldsPage() {
   async function handleSave(def: Partial<CustomFieldDefinition>) {
     const isEdit = drawerMode === 'edit' && editingDef?.id
     const url = isEdit
-      ? `/api/v1/crm/custom-fields/${editingDef!.id}`
-      : '/api/v1/crm/custom-fields'
+      ? customFieldEndpoint(`/api/v1/crm/custom-fields/${editingDef!.id}`)
+      : customFieldEndpoint('/api/v1/crm/custom-fields')
     const method = isEdit ? 'PATCH' : 'POST'
 
     const res = await fetch(url, {
