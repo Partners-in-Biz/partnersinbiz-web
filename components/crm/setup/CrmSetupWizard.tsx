@@ -39,6 +39,24 @@ const PIPELINE_OPTIONS: Array<{ value: CrmPipelinePreference; label: string }> =
   { value: 'renewals', label: 'Renewals' },
 ]
 
+const TEAM_ROLLOUT_PLAN = [
+  {
+    title: 'Assign import owner',
+    description: 'Name the person accountable for source data, CSV cleanup, and first import validation.',
+    icon: 'assignment_ind',
+  },
+  {
+    title: 'Choose first pipeline',
+    description: 'Apply one pipeline before sales meetings so deal stages mean the same thing to everyone.',
+    icon: 'account_tree',
+  },
+  {
+    title: 'Prepare follow-up assets',
+    description: 'Select the first sequence, segment, or form that turns imported contacts into daily action.',
+    icon: 'route',
+  },
+]
+
 function templateIcon(kind: CrmStarterTemplate['kind']) {
   if (kind === 'pipeline') return 'sync_alt'
   if (kind === 'sequence') return 'route'
@@ -221,6 +239,41 @@ export function CrmSetupWizard() {
             {GMAIL_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
           </select>
         </Field>
+      </section>
+
+      <section role="region" aria-label="Team rollout plan" className="rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] p-4">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+          <div>
+            <p className="eyebrow !text-[10px]">CEO rollout</p>
+            <h2 className="mt-2 text-lg font-semibold text-[var(--color-pib-text)]">Team rollout plan</h2>
+            <p className="mt-2 max-w-2xl text-sm leading-6 text-[var(--color-pib-text-muted)]">
+              Capture who owns setup, what the team should launch first, and which decisions need to be visible before CRM becomes daily operating rhythm.
+            </p>
+          </div>
+          <div className="rounded-lg border border-[var(--color-pib-line)] bg-white/[0.03] px-4 py-3 text-sm text-[var(--color-pib-text-muted)]">
+            {setup.notes?.trim() ? 'Notes captured' : 'Notes needed'}
+          </div>
+        </div>
+
+        <div className="mt-5 grid gap-3 md:grid-cols-3">
+          {TEAM_ROLLOUT_PLAN.map((step) => (
+            <div key={step.title} className="rounded-lg border border-[var(--color-pib-line)] bg-white/[0.02] p-4">
+              <span className="material-symbols-outlined text-[20px] text-[var(--color-pib-accent)]" aria-hidden="true">{step.icon}</span>
+              <h3 className="mt-3 text-sm font-semibold text-[var(--color-pib-text)]">{step.title}</h3>
+              <p className="mt-2 text-xs leading-5 text-[var(--color-pib-text-muted)]">{step.description}</p>
+            </div>
+          ))}
+        </div>
+
+        <label className="mt-5 block space-y-2">
+          <span className="block text-xs font-label text-[var(--color-pib-text-muted)]">CRM rollout notes</span>
+          <textarea
+            className="pib-input min-h-[120px] w-full resize-y"
+            value={setup.notes ?? ''}
+            onChange={(e) => update('notes', e.target.value)}
+            placeholder="Example: Mandy owns import, sales reviews pipeline Mondays, support handles renewals."
+          />
+        </label>
       </section>
 
       <section className="rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] p-4">

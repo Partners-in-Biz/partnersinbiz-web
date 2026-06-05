@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { CrmSetupWizard } from '@/components/crm/setup/CrmSetupWizard'
 import type { CrmSetupState, CrmStarterTemplate } from '@/lib/crm/setup/types'
 
@@ -80,6 +80,32 @@ describe('CrmSetupWizard', () => {
     expect(screen.getByRole('checkbox', { name: 'Select New lead follow-up starter template' })).toBeChecked()
     expect(screen.getByRole('checkbox', { name: 'Select Hot leads starter template' })).toBeChecked()
     expect(screen.getByRole('button', { name: 'Apply Simple sales pipeline template' })).toBeInTheDocument()
+  })
+
+  it('captures CRM rollout notes and shows a team launch plan', async () => {
+    render(<CrmSetupWizard />)
+
+    const rolloutPlan = await screen.findByRole('region', { name: 'Team rollout plan' })
+
+    expect(within(rolloutPlan).getByRole('heading', { name: 'Team rollout plan' })).toBeInTheDocument()
+    expect(within(rolloutPlan).getByText('Assign import owner')).toBeInTheDocument()
+    expect(within(rolloutPlan).getByText('Choose first pipeline')).toBeInTheDocument()
+    expect(within(rolloutPlan).getByText('Prepare follow-up assets')).toBeInTheDocument()
+
+    fireEvent.change(screen.getByLabelText('CRM rollout notes'), {
+      target: { value: 'Mandy owns first import. Sales team reviews pipeline every Monday.' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Save setup' }))
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith(
+        '/api/v1/crm/setup',
+        expect.objectContaining({
+          method: 'PUT',
+          body: expect.stringContaining('Mandy owns first import'),
+        }),
+      )
+    })
   })
 
   it('shows a setup workspace loading state instead of a bare loading label', () => {
