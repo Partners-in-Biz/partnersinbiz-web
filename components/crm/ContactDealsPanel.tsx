@@ -390,6 +390,7 @@ export function ContactDealsPanel({ contactId, contactName, orgId = '', orgScope
           defaultContactId={contactId}
           defaultContactLabel={contactName}
           orgId={scopedOrgId}
+          orgScope={panelScope}
           onSaved={(dealId) => {
             setShowDealDrawer(false)
             const editedDealId = selectedDeal?.id

@@ -38,7 +38,8 @@ describe('DealDrawer', () => {
     mockPipelineDetailBody = null
     global.fetch = jest.fn((url: RequestInfo | URL, init?: RequestInit) => {
       const path = String(url)
-      if (path === '/api/v1/crm/pipelines') {
+      const basePath = path.split('?')[0]
+      if (basePath === '/api/v1/crm/pipelines') {
         return Promise.resolve({
           ok: true,
           json: async () => mockPipelinesBody ?? ({
@@ -55,7 +56,7 @@ describe('DealDrawer', () => {
         } as Response)
       }
 
-      if (path === '/api/v1/crm/pipelines/pipeline-1') {
+      if (basePath === '/api/v1/crm/pipelines/pipeline-1') {
         return Promise.resolve({
           ok: true,
           json: async () => mockPipelineDetailBody ?? ({
@@ -72,28 +73,28 @@ describe('DealDrawer', () => {
         } as Response)
       }
 
-      if (path === '/api/v1/crm/deals' && init?.method === 'POST') {
+      if (basePath === '/api/v1/crm/deals' && init?.method === 'POST') {
         return Promise.resolve({
           ok: true,
           json: async () => ({ success: true, data: { id: 'deal-1' } }),
         } as Response)
       }
 
-      if (path === '/api/v1/crm/deals/deal-1' && init?.method === 'PUT') {
+      if (basePath === '/api/v1/crm/deals/deal-1' && init?.method === 'PUT') {
         return Promise.resolve({
           ok: true,
           json: async () => ({ success: true, data: { id: 'deal-1' } }),
         } as Response)
       }
 
-      if (path.startsWith('/api/v1/crm/contacts?')) {
+      if (basePath === '/api/v1/crm/contacts') {
         return Promise.resolve({
           ok: true,
           json: async () => ({ success: true, data: [] }),
         } as Response)
       }
 
-      if (path === '/api/v1/crm/contacts/contact-1') {
+      if (basePath === '/api/v1/crm/contacts/contact-1') {
         return Promise.resolve({
           ok: true,
           json: async () => ({ success: true, data: { id: 'contact-1', name: 'Ava Owner', email: 'ava@example.test' } }),
@@ -371,5 +372,55 @@ describe('DealDrawer', () => {
 
     const contactsLink = screen.getByRole('link', { name: 'Create contact for this deal' })
     expect(contactsLink).toHaveAttribute('href', '/portal/contacts?create=contact')
+  })
+
+  it('preserves company workspace scope through deal drawer contact and pipeline operations', async () => {
+    const onSaved = jest.fn()
+
+    render(
+      <DealDrawer
+        defaultContactId="contact-1"
+        defaultContactLabel="Ava Owner"
+        defaultCompanyId="company-1"
+        defaultCompanyName="Acme Growth"
+        orgId="lumen-org"
+        orgScope={{
+          orgId: 'lumen-org',
+          orgSlug: 'lumen-speeds',
+          sourceCompanyId: 'company-1',
+          sourceCompanyName: 'Lumen',
+        }}
+        onSaved={onSaved}
+        onClose={jest.fn()}
+      />,
+    )
+
+    await screen.findByDisplayValue('Sales pipeline')
+
+    expect(global.fetch).toHaveBeenCalledWith('/api/v1/crm/pipelines?orgId=lumen-org')
+
+    fireEvent.change(screen.getByPlaceholderText('Search contacts...'), {
+      target: { value: 'No match' },
+    })
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith('/api/v1/crm/contacts?search=No%20match&limit=8&orgId=lumen-org')
+    })
+    expect(screen.getByRole('link', { name: 'Create contact for this deal' }))
+      .toHaveAttribute(
+        'href',
+        '/portal/contacts?create=contact&orgId=lumen-org&orgSlug=lumen-speeds&sourceCompanyId=company-1&sourceCompanyName=Lumen',
+      )
+
+    fireEvent.change(screen.getByPlaceholderText(/Annual License/i), {
+      target: { value: 'Scoped expansion package' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Create deal for Acme Growth' }))
+
+    await waitFor(() => expect(onSaved).toHaveBeenCalledWith('deal-1'))
+    expect(global.fetch).toHaveBeenCalledWith(
+      '/api/v1/crm/deals?orgId=lumen-org',
+      expect.objectContaining({ method: 'POST' }),
+    )
   })
 })

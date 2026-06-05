@@ -16,13 +16,21 @@ jest.mock('@/components/crm/DealDrawer', () => ({
   DealDrawer: ({
     deal,
     defaultContactLabel,
+    orgScope,
     onSaved,
   }: {
     deal?: Deal
     defaultContactLabel?: string
+    orgScope?: { orgId?: string; orgSlug?: string; sourceCompanyId?: string; sourceCompanyName?: string }
     onSaved: (dealId: string) => void
   }) => (
-    <div>
+    <div
+      data-testid="mock-deal-drawer"
+      data-org-id={orgScope?.orgId ?? ''}
+      data-org-slug={orgScope?.orgSlug ?? ''}
+      data-source-company-id={orgScope?.sourceCompanyId ?? ''}
+      data-source-company-name={orgScope?.sourceCompanyName ?? ''}
+    >
       {deal && <p>Drawer deal title: {deal.title}</p>}
       <p>Drawer contact label: {defaultContactLabel || 'missing'}</p>
       <button type="button" onClick={() => onSaved('deal-new')}>
@@ -389,6 +397,40 @@ describe('ContactDealsPanel', () => {
     expect(mockFetch).toHaveBeenCalledWith('/api/v1/crm/pipelines?orgId=lumen-org')
     expect(mockFetch).not.toHaveBeenCalledWith('/api/v1/crm/deals?contactId=contact-1&limit=100')
     expect(mockFetch).not.toHaveBeenCalledWith('/api/v1/crm/pipelines')
+  })
+
+  it('opens deal creation with the active company workspace scope', async () => {
+    mockFetch.mockImplementation((url: RequestInfo | URL) => {
+      const path = String(url)
+      if (path === '/api/v1/crm/deals?contactId=contact-1&limit=100&orgId=lumen-org') return apiResponse([])
+      if (path === '/api/v1/crm/pipelines?orgId=lumen-org') return pipelinesResponse()
+      return Promise.reject(new Error(`Unexpected fetch: ${path}`))
+    })
+
+    render(
+      <ContactDealsPanel
+        contactId="contact-1"
+        contactName="Ava Owner"
+        orgScope={{
+          orgId: 'lumen-org',
+          orgSlug: 'lumen-speeds',
+          sourceCompanyId: 'company-1',
+          sourceCompanyName: 'Lumen',
+        }}
+      />,
+    )
+
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { name: "Start Ava Owner's first opportunity." })).toBeInTheDocument()
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Create first deal for Ava Owner' }))
+
+    const drawer = screen.getByTestId('mock-deal-drawer')
+    expect(drawer).toHaveAttribute('data-org-id', 'lumen-org')
+    expect(drawer).toHaveAttribute('data-org-slug', 'lumen-speeds')
+    expect(drawer).toHaveAttribute('data-source-company-id', 'company-1')
+    expect(drawer).toHaveAttribute('data-source-company-name', 'Lumen')
   })
 
   it('renders a newly created contact deal from the standard deal response envelope', async () => {
