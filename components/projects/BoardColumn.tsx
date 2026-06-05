@@ -11,10 +11,11 @@ export type BoardTask = Task & { projectId: string; projectName: string }
 interface BoardColumnProps {
   column: Column
   tasks: BoardTask[]
+  buildProjectHref?: (projectId: string) => string
   onTaskClick: (task: BoardTask) => void
 }
 
-export function BoardColumn({ column, tasks, onTaskClick }: BoardColumnProps) {
+export function BoardColumn({ column, tasks, buildProjectHref, onTaskClick }: BoardColumnProps) {
   const taskIds = tasks.map(t => t.id)
   const { setNodeRef, isOver } = useDroppable({ id: column.id })
 
@@ -47,6 +48,7 @@ export function BoardColumn({ column, tasks, onTaskClick }: BoardColumnProps) {
               task={task}
               projectId={task.projectId}
               projectName={task.projectName}
+              projectHref={buildProjectHref?.(task.projectId)}
               onClick={() => onTaskClick(task)}
             />
           ))}

@@ -23,8 +23,22 @@ jest.mock('next/navigation', () => ({
 }))
 
 jest.mock('@/components/crm/ContactDealsPanel', () => ({
-  ContactDealsPanel: ({ contactName }: { contactName?: string }) => (
-    <div data-testid="contact-deals-panel">Deals for {contactName || 'contact name missing'}</div>
+  ContactDealsPanel: ({
+    contactName,
+    orgScope,
+  }: {
+    contactName?: string
+    orgScope?: { orgId?: string; orgSlug?: string; sourceCompanyId?: string; sourceCompanyName?: string }
+  }) => (
+    <div
+      data-testid="contact-deals-panel"
+      data-org-id={orgScope?.orgId ?? ''}
+      data-org-slug={orgScope?.orgSlug ?? ''}
+      data-source-company-id={orgScope?.sourceCompanyId ?? ''}
+      data-source-company-name={orgScope?.sourceCompanyName ?? ''}
+    >
+      Deals for {contactName || 'contact name missing'}
+    </div>
   ),
 }))
 
@@ -412,7 +426,7 @@ describe('Portal contact detail page', () => {
       expect(screen.getAllByDisplayValue('Jane Client').length).toBeGreaterThan(0)
     })
 
-    fireEvent.click(screen.getByRole('button', { name: 'Start activity trail for Jane Client' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Log first activity note for Jane Client' }))
 
     expect(screen.getByRole('textbox', { name: 'Relationship note for Jane Client' })).toBeInTheDocument()
     expect(screen.queryByPlaceholderText('Add note notes…')).not.toBeInTheDocument()
@@ -479,6 +493,10 @@ describe('Portal contact detail page', () => {
       .toHaveAttribute('href', `/portal/companies/company-1?${scope}`)
     expect(screen.getByRole('link', { name: 'Open linked company Lumen from company card' }))
       .toHaveAttribute('href', `/portal/companies/company-1?${scope}`)
+    expect(screen.getByTestId('contact-deals-panel')).toHaveAttribute('data-org-id', 'org-1')
+    expect(screen.getByTestId('contact-deals-panel')).toHaveAttribute('data-org-slug', 'lumen-speeds')
+    expect(screen.getByTestId('contact-deals-panel')).toHaveAttribute('data-source-company-id', 'company-1')
+    expect(screen.getByTestId('contact-deals-panel')).toHaveAttribute('data-source-company-name', 'Lumen')
     expect(global.fetch).toHaveBeenCalledWith('/api/v1/crm/companies/company-1?orgId=org-1')
 
     fireEvent.click(screen.getByRole('button', { name: 'Choose nurture sequence for Jane Client' }))
@@ -711,14 +729,14 @@ describe('Portal contact detail page', () => {
       expect(screen.getAllByDisplayValue('Jane Client').length).toBeGreaterThan(0)
     })
 
-    expect(await screen.findByText('Relationship timeline missing')).toBeInTheDocument()
-    expect(screen.getByRole('heading', { name: 'Start the first contact note' })).toBeInTheDocument()
+    expect(await screen.findByText('Relationship activity missing')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: "Start Jane Client's activity trail" })).toBeInTheDocument()
     expect(
       screen.getByText(
         'Log the first note, call, email, or meeting so the whole team can see what happened, who followed up, and what should happen next.'
       )
     ).toBeInTheDocument()
-    fireEvent.click(screen.getByRole('button', { name: 'Start activity trail for Jane Client' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Log first activity note for Jane Client' }))
 
     expect(screen.getByPlaceholderText('Add a relationship note, handoff, or context…')).toBeInTheDocument()
   })
@@ -770,6 +788,34 @@ describe('Portal contact detail page', () => {
     expect(await screen.findByText('No custom fields set.')).toBeInTheDocument()
 
     fireEvent.click(screen.getByRole('button', { name: 'Capture custom fields for Jane Client' }))
+
+    expect(screen.getByLabelText('Decision role')).toHaveFocus()
+  })
+
+  it('keeps populated custom fields editable from the custom fields card', async () => {
+    mockContactCustomFieldDefinitions = [{
+      id: 'field-1',
+      orgId: 'org-1',
+      resource: 'contact',
+      key: 'decision_role',
+      label: 'Decision role',
+      type: 'text',
+      required: false,
+      order: 0,
+      createdAt: null,
+      updatedAt: null,
+    }]
+    mockContactOverrides = {
+      customFields: {
+        decision_role: 'Economic buyer',
+      },
+    }
+
+    render(<PortalContactDetailPage />)
+
+    expect(await screen.findByText('Economic buyer')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Edit custom fields for Jane Client' }))
 
     expect(screen.getByLabelText('Decision role')).toHaveFocus()
   })
@@ -828,6 +874,157 @@ describe('Portal contact detail page', () => {
     expect(screen.getByRole('combobox', { name: 'Lifecycle stage for Jane Client' })).toHaveFocus()
   })
 
+  it('shows relationship owner as an actionable contact detail', async () => {
+    mockTeamMembers = [{ uid: 'owner-1', firstName: 'Mandy', lastName: 'Growth', jobTitle: 'Account lead' }]
+    mockContactOverrides = {
+      assignedTo: 'owner-1',
+      assignedToRef: { uid: 'owner-1', displayName: 'Mandy Growth' },
+    }
+
+    render(<PortalContactDetailPage />)
+
+    await waitFor(() => {
+      expect(screen.getAllByDisplayValue('Jane Client').length).toBeGreaterThan(0)
+    })
+
+    expect(screen.getAllByText('Relationship owner').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Mandy Growth').length).toBeGreaterThan(0)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Edit relationship owner Mandy Growth for Jane Client from details' }))
+
+    expect(screen.getByRole('combobox', { name: 'Relationship owner for Jane Client' })).toHaveFocus()
+  })
+
+  it('shows role department and timezone as actionable contact details', async () => {
+    mockContactOverrides = {
+      jobTitle: 'Finance Director',
+      department: 'Operations',
+      timezone: 'Africa/Johannesburg',
+    }
+
+    render(<PortalContactDetailPage />)
+
+    await waitFor(() => {
+      expect(screen.getAllByDisplayValue('Jane Client').length).toBeGreaterThan(0)
+    })
+
+    expect(screen.getAllByText('Role').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Finance Director').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Department').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Operations').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Timezone').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Africa/Johannesburg').length).toBeGreaterThan(0)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Edit role Finance Director for Jane Client from details' }))
+    expect(screen.getByRole('textbox', { name: 'Job title for Jane Client' })).toHaveFocus()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Edit department Operations for Jane Client from details' }))
+    expect(screen.getByRole('textbox', { name: 'Department for Jane Client' })).toHaveFocus()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Edit timezone Africa/Johannesburg for Jane Client from details' }))
+    expect(screen.getByRole('textbox', { name: 'Timezone for Jane Client' })).toHaveFocus()
+  })
+
+  it('shows segmentation tags as an actionable contact detail', async () => {
+    mockContactOverrides = {
+      tags: ['priority', 'board-review'],
+    }
+
+    render(<PortalContactDetailPage />)
+
+    await waitFor(() => {
+      expect(screen.getAllByDisplayValue('Jane Client').length).toBeGreaterThan(0)
+    })
+
+    expect(screen.getAllByText('Tags').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('priority, board-review').length).toBeGreaterThan(0)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Edit tags priority, board-review for Jane Client from details' }))
+
+    expect(screen.getByRole('textbox', { name: 'Tags for Jane Client' })).toHaveFocus()
+  })
+
+  it('keeps captured website details editable from the details card', async () => {
+    mockContactOverrides = {
+      website: 'https://partnersinbiz.online',
+    }
+
+    render(<PortalContactDetailPage />)
+
+    await waitFor(() => {
+      expect(screen.getAllByDisplayValue('Jane Client').length).toBeGreaterThan(0)
+    })
+
+    expect(screen.getByRole('link', { name: 'https://partnersinbiz.online' }))
+      .toHaveAttribute('href', 'https://partnersinbiz.online')
+
+    fireEvent.click(screen.getByRole('button', { name: 'Edit website https://partnersinbiz.online for Jane Client from details' }))
+
+    expect(screen.getByRole('textbox', { name: 'Website for Jane Client' })).toHaveFocus()
+  })
+
+  it('keeps captured relationship notes editable from the details card', async () => {
+    mockContactOverrides = {
+      notes: 'Met at the board review and wants a Q3 growth plan.',
+    }
+
+    render(<PortalContactDetailPage />)
+
+    await waitFor(() => {
+      expect(screen.getAllByDisplayValue('Jane Client').length).toBeGreaterThan(0)
+    })
+
+    expect(screen.getAllByText('Relationship notes').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Met at the board review and wants a Q3 growth plan.').length).toBeGreaterThan(0)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Edit relationship notes for Jane Client from details' }))
+
+    expect(screen.getByRole('textbox', { name: 'Relationship notes for Jane Client' })).toHaveFocus()
+  })
+
+  it('keeps captured email and phone details editable without losing direct contact links', async () => {
+    mockContactOverrides = {
+      phone: '+27825550123',
+    }
+
+    render(<PortalContactDetailPage />)
+
+    await waitFor(() => {
+      expect(screen.getAllByDisplayValue('Jane Client').length).toBeGreaterThan(0)
+    })
+
+    expect(screen.getAllByRole('link', { name: 'jane@example.com' })[0])
+      .toHaveAttribute('href', 'mailto:jane@example.com')
+    expect(screen.getAllByRole('link', { name: '+27825550123' })[0])
+      .toHaveAttribute('href', 'tel:+27825550123')
+
+    fireEvent.click(screen.getByRole('button', { name: 'Edit email jane@example.com for Jane Client from details' }))
+    expect(screen.getByRole('textbox', { name: 'Email address for Jane Client' })).toHaveFocus()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Edit phone +27825550123 for Jane Client from details' }))
+    expect(screen.getByRole('textbox', { name: 'Phone number for Jane Client' })).toHaveFocus()
+  })
+
+  it('keeps linked company details editable without losing the company link', async () => {
+    mockContactOverrides = {
+      companyId: 'company-1',
+      companyName: 'Acme Holdings',
+    }
+
+    render(<PortalContactDetailPage />)
+
+    await waitFor(() => {
+      expect(screen.getAllByDisplayValue('Jane Client').length).toBeGreaterThan(0)
+    })
+
+    expect(screen.getAllByRole('link', { name: 'Acme Holdings' })[0])
+      .toHaveAttribute('href', '/portal/companies/company-1')
+
+    fireEvent.click(screen.getByRole('button', { name: 'Edit linked company Acme Holdings for Jane Client from details' }))
+
+    expect(screen.getByRole('combobox', { name: 'Linked company for Jane Client' })).toHaveFocus()
+  })
+
   it('turns first-viewport contact identity into direct email phone and company links', async () => {
     mockContactOverrides = {
       phone: '+27825550123',
@@ -860,7 +1057,7 @@ describe('Portal contact detail page', () => {
 
     expect(screen.getByText('Unnamed contact')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Send first email to Unnamed contact' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Start activity trail for Unnamed contact' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Log first activity note for Unnamed contact' })).toBeInTheDocument()
     expect(screen.getByTestId('contact-deals-panel')).toHaveTextContent('Deals for Unnamed contact')
 
     fireEvent.click(screen.getByRole('button', { name: 'Schedule meeting from engagement cockpit with Unnamed contact' }))
@@ -1524,7 +1721,7 @@ describe('Portal contact detail page', () => {
       expect(screen.getAllByDisplayValue('Jane Client').length).toBeGreaterThan(0)
     })
 
-    expect(await screen.findByText('Owner identity missing')).toBeInTheDocument()
+    expect((await screen.findAllByText('Owner identity missing')).length).toBeGreaterThanOrEqual(1)
     expect(screen.getByText('Creator identity missing')).toBeInTheDocument()
     expect(screen.getByText('Updater identity missing')).toBeInTheDocument()
     expect(screen.getAllByText('Team snapshot details not captured').length).toBeGreaterThanOrEqual(3)

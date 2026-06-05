@@ -18,17 +18,32 @@ describe('ProductPicker', () => {
   })
 
   it('turns an empty product catalog into a settings action', async () => {
-    render(<ProductPicker orgId="org-1" onSelect={jest.fn()} />)
+    render(
+      <ProductPicker
+        orgId="org-1"
+        orgScope={{
+          orgId: 'org-1',
+          orgSlug: 'lumen-speeds',
+          sourceCompanyId: 'company-1',
+          sourceCompanyName: 'Lumen',
+        }}
+        onSelect={jest.fn()}
+      />,
+    )
 
     const input = await screen.findByRole('textbox')
     await waitFor(() => expect(input).toHaveAttribute('placeholder', 'Search products…'))
+    expect(global.fetch).toHaveBeenCalledWith('/api/v1/crm/products?limit=200&orgId=org-1')
 
     fireEvent.focus(input)
 
     expect(await screen.findByText('No products set up yet')).toBeInTheDocument()
 
     const catalogLink = screen.getByRole('link', { name: 'Open product catalog to create quote-ready products' })
-    expect(catalogLink).toHaveAttribute('href', '/portal/settings/products')
+    expect(catalogLink).toHaveAttribute(
+      'href',
+      '/portal/settings/products?orgId=org-1&orgSlug=lumen-speeds&sourceCompanyId=company-1&sourceCompanyName=Lumen',
+    )
   })
 
   it('names sparse catalog products before quote selection', async () => {

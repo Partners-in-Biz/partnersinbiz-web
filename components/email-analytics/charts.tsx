@@ -1,6 +1,6 @@
 'use client'
 
-// components/admin/email-analytics/charts.tsx
+// components/email-analytics/charts.tsx
 //
 // Pure-SVG, dependency-free charts for the email analytics dashboard.
 // Dark theme + amber accent. Series are kept simple — { date, value } or

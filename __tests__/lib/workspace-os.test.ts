@@ -11,7 +11,13 @@ import {
   buildWorkspaceBrokerJobInput,
   evaluateWorkspaceBrokerApproval,
   detectWorkspaceAclAlignment,
+  canExecuteWorkspaceBrokerJob,
 } from '@/lib/workspace-os/broker'
+import {
+  normalizeWorkspaceFolderInput,
+  buildWorkspaceFolderUpdate,
+  canReadWorkspaceFolder,
+} from '@/lib/workspace-folders/model'
 
 describe('workspace connection registry models', () => {
   it('normalizes approved Google Workspace connections without storing raw secrets', () => {
@@ -47,6 +53,35 @@ describe('workspace connection registry models', () => {
     expect(() => normalizeWorkspaceConnectionInput({ displayName: 'Bad', clientSecret: 'secret' }, 'org-1')).toThrow('raw secrets are not allowed')
     expect(() => normalizeWorkspaceConnectionInput({ displayName: 'Bad', credentialRef: { privateKey: '-----BEGIN PRIVATE KEY-----' } }, 'org-1')).toThrow('raw secrets are not allowed')
     expect(() => buildWorkspaceConnectionUpdate({ orgId: 'org-2' })).toThrow('orgId cannot be changed')
+  })
+
+  it('records the full safe registry envelope for tenant-scoped connections', () => {
+    const connection = normalizeWorkspaceConnectionInput({
+      displayName: 'Client Drive link',
+      owner: { type: 'agent', id: 'theo' },
+      visibility: 'admin_agents',
+      resourceType: 'project',
+      resourceId: 'project-1',
+      projectId: 'project-1',
+      taskId: 'task-1',
+      capabilityScopes: ['drive.read', 'docs.write'],
+      audit: { approvalStatus: 'approved', riskLevel: 'medium', lastReviewedBy: 'peet' },
+      safeMetadata: { note: 'metadata only', retryCount: 1, flags: ['internal'] },
+    }, 'org-1')
+
+    expect(connection).toMatchObject({
+      orgId: 'org-1',
+      provider: 'google_workspace',
+      visibility: 'admin_agents',
+      owner: { type: 'agent', id: 'theo' },
+      resourceType: 'project',
+      resourceId: 'project-1',
+      projectId: 'project-1',
+      taskId: 'task-1',
+      capabilityScopes: ['drive.read', 'docs.write'],
+      audit: expect.objectContaining({ approvalStatus: 'approved', riskLevel: 'medium', lastReviewedBy: 'peet' }),
+      safeMetadata: { note: 'metadata only', retryCount: 1, flags: ['internal'] },
+    })
   })
 })
 
@@ -97,6 +132,100 @@ describe('workspace artifact registry models', () => {
 
   it('rejects unsafe Google artifact URLs', () => {
     expect(() => normalizeWorkspaceArtifactInput({ title: 'Bad', googleUrl: 'javascript:alert(1)' }, 'org-1')).toThrow('googleUrl must be an http(s) URL')
+    expect(() => normalizeWorkspaceArtifactInput({ title: 'Bad', safeMetadata: { refreshToken: 'raw' } }, 'org-1')).toThrow('raw secrets are not allowed')
+  })
+
+  it('records provider, owner, capabilities, audit state, and safe metadata for artifacts', () => {
+    const artifact = normalizeWorkspaceArtifactInput({
+      title: 'Internal proof',
+      owner: { type: 'agent', id: 'theo' },
+      provider: 'google_workspace',
+      capabilityScopes: ['drive.read'],
+      safeMetadata: { source: 'broker', pages: 3 },
+      audit: { approvalStatus: 'pending', auditStatus: 'needs_review', lastReviewedBy: 'quinn' },
+    }, 'org-1')
+
+    expect(artifact).toMatchObject({
+      orgId: 'org-1',
+      provider: 'google_workspace',
+      owner: { type: 'agent', id: 'theo' },
+      capabilityScopes: ['drive.read'],
+      audit: expect.objectContaining({ approvalStatus: 'pending', auditStatus: 'needs_review', lastReviewedBy: 'quinn' }),
+      safeMetadata: { source: 'broker', pages: 3 },
+    })
+  })
+})
+
+describe('workspace folder registry models', () => {
+  it('records owner, provider, resource links, capability scopes, audit state, and safe metadata for folders', () => {
+    const folder = normalizeWorkspaceFolderInput({
+      name: 'Client assets',
+      resourceType: 'project',
+      resourceId: 'project-1',
+      projectId: 'project-1',
+      taskId: 'task-1',
+      clientDocumentId: 'doc-1',
+      connectionId: 'conn-1',
+      provider: 'google_workspace',
+      owner: { type: 'agent', id: 'theo' },
+      capabilityScopes: ['drive.read', 'drive.write'],
+      visibility: 'admin_agents',
+      audit: { approvalStatus: 'approved', auditStatus: 'aligned', lastReviewedBy: 'peet' },
+      safeMetadata: { source: 'provisioning' },
+    }, 'org-1')
+
+    expect(folder).toMatchObject({
+      orgId: 'org-1',
+      provider: 'google_workspace',
+      connectionId: 'conn-1',
+      owner: { type: 'agent', id: 'theo' },
+      resourceType: 'project',
+      resourceId: 'project-1',
+      projectId: 'project-1',
+      taskId: 'task-1',
+      clientDocumentId: 'doc-1',
+      capabilityScopes: ['drive.read', 'drive.write'],
+      audit: expect.objectContaining({ approvalStatus: 'approved', auditStatus: 'aligned', lastReviewedBy: 'peet' }),
+      safeMetadata: { source: 'provisioning' },
+    })
+  })
+
+  it('keeps folder reads tenant-isolated and agent capability filtered', () => {
+    const folder = normalizeWorkspaceFolderInput({ name: 'Theo only', visibility: 'admin_agents', permissions: { allowedAgentIds: ['theo'] } }, 'org-1')
+
+    expect(canReadWorkspaceFolder(folder, { uid: 'agent:theo', role: 'ai', agentId: 'theo' })).toBe(true)
+    expect(canReadWorkspaceFolder(folder, { uid: 'agent:maya', role: 'ai', agentId: 'maya' })).toBe(false)
+    expect(canReadWorkspaceFolder(folder, { uid: 'client', role: 'client', orgId: 'org-2' })).toBe(false)
+    expect(() => normalizeWorkspaceFolderInput({ name: 'Bad', safeMetadata: { accessToken: 'raw' } }, 'org-1')).toThrow('raw secrets are not allowed')
+  })
+
+  it('keeps folder registry updates complete and safe-metadata-only', () => {
+    const folder = normalizeWorkspaceFolderInput({
+      name: 'Client assets',
+      safeMetadata: { source: 'provisioning', nested: { ok: true }, dropMe: () => 'unsafe' },
+    }, 'org-1')
+    const update = buildWorkspaceFolderUpdate({
+      provider: 'google_workspace',
+      owner: { type: 'agent', id: 'theo' },
+      connectionId: 'conn-1',
+      projectId: 'project-1',
+      taskId: 'task-1',
+      clientDocumentId: 'doc-1',
+      capabilityScopes: ['drive.read'],
+      safeMetadata: { source: 'manual', nested: { ok: true }, unsafe: () => 'drop' },
+    })
+
+    expect(folder.safeMetadata).toEqual({ source: 'provisioning', nested: { ok: true } })
+    expect(update).toMatchObject({
+      provider: 'google_workspace',
+      owner: { type: 'agent', id: 'theo' },
+      connectionId: 'conn-1',
+      projectId: 'project-1',
+      taskId: 'task-1',
+      clientDocumentId: 'doc-1',
+      capabilityScopes: ['drive.read'],
+      safeMetadata: { source: 'manual', nested: { ok: true } },
+    })
   })
 })
 
@@ -104,26 +233,113 @@ describe('workspace broker approval envelope', () => {
   it('maps operations to safe capabilities and approval states', () => {
     expect(evaluateWorkspaceBrokerApproval({ operation: 'link_existing', visibility: 'admin_agents' })).toMatchObject({ requiredCapability: 'draft', riskLevel: 'low', approvalRequired: false })
     expect(evaluateWorkspaceBrokerApproval({ operation: 'create_doc', visibility: 'admin_agents_clients' })).toMatchObject({ requiredCapability: 'write', riskLevel: 'medium', approvalRequired: true })
+    expect(evaluateWorkspaceBrokerApproval({ operation: 'create_doc', visibility: 'admin_agents' })).toMatchObject({ requiredCapability: 'write', riskLevel: 'low', approvalRequired: true, status: 'awaiting_approval' })
     expect(evaluateWorkspaceBrokerApproval({ operation: 'request_share', visibility: 'admin_agents_clients' })).toMatchObject({ requiredCapability: 'publish', riskLevel: 'high', approvalRequired: true })
     expect(evaluateWorkspaceBrokerApproval({ operation: 'request_delete' })).toMatchObject({ requiredCapability: 'delete', riskLevel: 'high', approvalRequired: true })
   })
 
-  it('creates broker jobs honestly without claiming Google side effects', () => {
+  it('creates broker jobs with requester, target, approval, idempotency, result, error, and timestamp audit fields', () => {
     const job = buildWorkspaceBrokerJobInput({
       operation: 'create_sheet',
       orgId: 'org-1',
       agentId: 'theo',
-      input: { title: 'Budget', projectId: 'project-1', visibility: 'admin_agents_clients' },
+      requestedBy: 'agent:theo',
+      createdByType: 'agent',
+      approvalGateTaskId: 'task-approval-1',
+      approvalStatus: 'approved',
+      approvalTrusted: true,
+      idempotencyKey: 'idem-1',
+      now: '2026-06-05T12:00:00.000Z',
+      input: { title: 'Budget', projectId: 'project-1', folderId: 'folder-1', visibility: 'admin_agents_clients' },
     })
 
     expect(job).toMatchObject({
       orgId: 'org-1',
       operation: 'create_sheet',
-      status: 'awaiting_approval',
+      status: 'queued',
+      requester: { id: 'agent:theo', type: 'agent', role: 'agent', agentId: 'theo' },
+      requestedBy: 'agent:theo',
+      requestedCapability: 'write',
       requiredCapability: 'write',
       riskLevel: 'medium',
-      output: { googleMutationPerformed: false },
+      approvalRequired: true,
+      approvalSatisfied: true,
+      approvalEvidence: { gateTaskId: 'task-approval-1', status: 'approved' },
+      targetResource: { projectId: 'project-1', folderId: 'folder-1', title: 'Budget' },
+      output: { googleMutationPerformed: false, artifactIds: [], artifactUrls: [], resultArtifactIds: [], resultArtifactUrls: [] },
+      resultArtifactIds: [],
+      resultArtifactUrls: [],
+      errors: [],
+      error: null,
+      idempotencyKey: 'idem-1',
+      requestedAt: '2026-06-05T12:00:00.000Z',
+      updatedAt: '2026-06-05T12:00:00.000Z',
+      completedAt: null,
     })
+  })
+
+  it('does not treat caller-supplied approval fields as satisfied unless the caller is trusted', () => {
+    const job = buildWorkspaceBrokerJobInput({
+      operation: 'request_share',
+      orgId: 'org-1',
+      requestedBy: 'admin-1',
+      approvalGateTaskId: 'task-approval-1',
+      approvalStatus: 'approved',
+      input: { artifactId: 'artifact-1', visibility: 'admin_agents_clients' },
+    })
+
+    expect(job).toMatchObject({
+      status: 'awaiting_approval',
+      approvalRequired: true,
+      approvalSatisfied: false,
+      approvalEvidence: { gateTaskId: 'task-approval-1', status: 'approved' },
+    })
+  })
+
+  it('blocks gated broker side effects from execution until approval evidence is satisfied', () => {
+    const awaiting = buildWorkspaceBrokerJobInput({
+      operation: 'request_share',
+      orgId: 'org-1',
+      requestedBy: 'admin-1',
+      input: { artifactId: 'artifact-1', visibility: 'admin_agents_clients' },
+    })
+    const approved = buildWorkspaceBrokerJobInput({
+      operation: 'request_share',
+      orgId: 'org-1',
+      requestedBy: 'admin-1',
+      approvalGateTaskId: 'task-approval-1',
+      approvalStatus: 'approved',
+      approvalTrusted: true,
+      input: { artifactId: 'artifact-1', visibility: 'admin_agents_clients' },
+    })
+
+    expect(canExecuteWorkspaceBrokerJob(awaiting)).toMatchObject({ ok: false, reason: 'approval_required' })
+    expect(canExecuteWorkspaceBrokerJob({ ...approved, status: 'running' })).toMatchObject({ ok: true })
+    expect(canExecuteWorkspaceBrokerJob({ ...approved, approvalEvidence: { ...approved.approvalEvidence, gateTaskId: 'other-task' } })).toMatchObject({ ok: false, reason: 'approval_required' })
+    expect(canExecuteWorkspaceBrokerJob({ ...approved, approvalEvidence: { ...approved.approvalEvidence, decidedAt: null } })).toMatchObject({ ok: false, reason: 'approval_required' })
+    expect(canExecuteWorkspaceBrokerJob({ operation: 'request_share', status: 'queued', approvalRequired: false, approvalSatisfied: false, input: { visibility: 'admin_agents_clients' } })).toMatchObject({ ok: false, reason: 'approval_required' })
+    expect(canExecuteWorkspaceBrokerJob({
+      operation: 'request_share',
+      status: 'queued',
+      approvalStatus: 'approved',
+      approvalGateTaskId: 'caller-supplied-gate',
+      input: { visibility: 'admin_agents_clients' },
+    })).toMatchObject({ ok: false, reason: 'approval_required' })
+  })
+
+  it('requires persisted approval evidence before any Google mutation execution class can run', () => {
+    for (const operation of ['create_folder', 'create_doc', 'create_sheet', 'copy_template_doc', 'copy_template_sheet', 'export_pdf', 'request_share', 'request_delete'] as const) {
+      expect(canExecuteWorkspaceBrokerJob({
+        operation,
+        status: 'queued',
+        approvalRequired: false,
+        approvalSatisfied: false,
+        approvalStatus: null,
+        approvalGateTaskId: null,
+        approvalEvidence: { gateTaskId: null, status: null },
+        input: { visibility: 'admin_agents' },
+      })).toMatchObject({ ok: false, reason: 'approval_required' })
+    }
   })
 
   it('detects Google ACLs that are broader than PiB visibility', () => {

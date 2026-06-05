@@ -440,18 +440,23 @@ export const DELETE = withAuth('admin', async (req: NextRequest, user: ApiUser) 
     return apiError('Forbidden', 403)
   }
 
-  await adminDb.recursiveDelete(docRef)
+  await docRef.update({
+    archived: true,
+    archivedAt: FieldValue.serverTimestamp(),
+    archivedBy: user.uid,
+    updatedAt: FieldValue.serverTimestamp(),
+  })
 
   logActivity({
     orgId: typeof orgId === 'string' ? orgId : String(orgId ?? ''),
-    type: 'project_deleted',
+    type: 'project_archived',
     actorId: user.uid,
     actorName: user.uid,
     actorRole: user.role === 'ai' ? 'ai' : user.role === 'admin' ? 'admin' : 'client',
-    description: 'Deleted project',
+    description: 'Archived project',
     entityId: id,
     entityType: 'project',
   }).catch(() => {})
 
-  return apiSuccess({ id })
+  return apiSuccess({ id, archived: true })
 })

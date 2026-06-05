@@ -4,6 +4,7 @@ import { adminDb } from '@/lib/firebase/admin'
 import { apiError, apiSuccess } from '@/lib/api/response'
 import { callAgentPath } from '@/lib/agents/team'
 import { resolveKnowledgeAgent } from '@/lib/knowledge/agents'
+import { canUsePortalOrg } from '@/lib/portal/org-access'
 import type { KnowledgeSection } from '@/lib/knowledge/types'
 
 export const dynamic = 'force-dynamic'
@@ -24,29 +25,43 @@ function appendQuery(path: string, params: Record<string, string | undefined>) {
   return qs ? `${path}?${qs}` : path
 }
 
-async function resolveActiveOrgSlug(uid: string) {
+type ResolvedKnowledgeOrg =
+  | { ok: true; slug: string }
+  | { ok: false; status: number; error: string }
+
+async function resolveActiveOrgSlug(req: NextRequest, uid: string): Promise<ResolvedKnowledgeOrg> {
   const userDoc = await adminDb.collection('users').doc(uid).get()
-  if (!userDoc.exists) return null
+  if (!userDoc.exists) return { ok: false, status: 404, error: 'No active client wiki is linked to this account' }
   const user = userDoc.data() ?? {}
-  const orgId = typeof user.activeOrgId === 'string'
-    ? user.activeOrgId
-    : typeof user.orgId === 'string'
-      ? user.orgId
-      : ''
-  if (!orgId) return null
+  const requestedOrgId = req.nextUrl.searchParams.get('orgId')?.trim() ?? ''
+  const orgId = requestedOrgId || (
+    typeof user.activeOrgId === 'string'
+      ? user.activeOrgId
+      : typeof user.orgId === 'string'
+        ? user.orgId
+        : ''
+  )
+  if (!orgId) return { ok: false, status: 404, error: 'No active client wiki is linked to this account' }
+
+  if (requestedOrgId) {
+    const allowed = await canUsePortalOrg(uid, user, requestedOrgId)
+    if (!allowed) return { ok: false, status: 403, error: 'You do not have access to this organisation' }
+  }
 
   const orgDoc = await adminDb.collection('organizations').doc(orgId).get()
-  if (!orgDoc.exists) return null
+  if (!orgDoc.exists) return { ok: false, status: 404, error: 'No active client wiki is linked to this account' }
   const org = orgDoc.data() ?? {}
-  return typeof org.slug === 'string' && org.slug ? org.slug : null
+  const slug = typeof org.slug === 'string' && org.slug ? org.slug : ''
+  if (!slug) return { ok: false, status: 404, error: 'No active client wiki is linked to this account' }
+  return { ok: true, slug }
 }
 
 export const GET = withPortalAuth(async (req: NextRequest, uid: string) => {
   const section = readSection(req.nextUrl.searchParams)
   const path = req.nextUrl.searchParams.get('path')?.trim() || undefined
-  const slug = await resolveActiveOrgSlug(uid)
-  if (!slug) return apiError('No active client wiki is linked to this account', 404)
-  const agent = resolveKnowledgeAgent(slug)
+  const resolved = await resolveActiveOrgSlug(req, uid)
+  if (!resolved.ok) return apiError(resolved.error, resolved.status)
+  const agent = resolveKnowledgeAgent(resolved.slug)
 
   try {
     const upstream = await callAgentPath(KNOWLEDGE_AGENT, appendQuery('/admin/knowledge', {
@@ -61,7 +76,7 @@ export const GET = withPortalAuth(async (req: NextRequest, uid: string) => {
         : 'Knowledge backend is not available'
       return apiError(message, upstream.response.status, { upstream: upstream.data })
     }
-    return apiSuccess({ ...(upstream.data as Record<string, unknown>), requestedAgent: slug })
+    return apiSuccess({ ...(upstream.data as Record<string, unknown>), requestedAgent: resolved.slug })
   } catch (err) {
     return apiError(err instanceof Error ? err.message : 'Failed to reach knowledge backend', 502)
   }

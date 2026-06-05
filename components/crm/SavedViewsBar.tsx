@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { scopedApiPath, type PortalOrgRouteScope } from '@/lib/portal/scoped-routing'
 
 interface SavedView {
   id: string
@@ -12,6 +13,7 @@ interface Props {
   currentFilters: Record<string, unknown>
   onSelectView: (filters: Record<string, unknown>) => void
   resourceKind?: string
+  orgScope?: PortalOrgRouteScope
 }
 
 function savedViewDisplayName(view: SavedView) {
@@ -22,6 +24,7 @@ export function SavedViewsBar({
   currentFilters,
   onSelectView,
   resourceKind = 'contacts',
+  orgScope = {},
 }: Props) {
   const [views, setViews] = useState<SavedView[]>([])
   const [showSaveForm, setShowSaveForm] = useState(false)
@@ -46,7 +49,7 @@ export function SavedViewsBar({
 
   const load = useCallback(async () => {
     try {
-      const res = await fetch(`/api/v1/crm/saved-views?resourceKind=${resourceKind}`)
+      const res = await fetch(scopedApiPath(`/api/v1/crm/saved-views?resourceKind=${encodeURIComponent(resourceKind)}`, orgScope))
       if (res.ok) {
         const body = await res.json()
         const raw = body.data?.views ?? body.data ?? []
@@ -55,7 +58,7 @@ export function SavedViewsBar({
     } catch {
       // silent — views are non-critical
     }
-  }, [resourceKind])
+  }, [orgScope, resourceKind])
 
   useEffect(() => {
     void load()
@@ -65,7 +68,7 @@ export function SavedViewsBar({
     if (!newName.trim()) return
     setSaving(true)
     try {
-      const res = await fetch('/api/v1/crm/saved-views', {
+      const res = await fetch(scopedApiPath('/api/v1/crm/saved-views', orgScope), {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({
@@ -90,7 +93,7 @@ export function SavedViewsBar({
 
   async function confirmDeleteView() {
     if (!pendingDeleteView) return
-    await fetch(`/api/v1/crm/saved-views/${pendingDeleteView.id}`, { method: 'DELETE' })
+    await fetch(scopedApiPath(`/api/v1/crm/saved-views/${pendingDeleteView.id}`, orgScope), { method: 'DELETE' })
     setPendingDeleteView(null)
     load()
   }

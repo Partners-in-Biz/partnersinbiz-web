@@ -61,6 +61,21 @@ describe('CrossProjectTaskCard', () => {
     expect(badge).toHaveAttribute('href', '/portal/projects/proj-abc')
   })
 
+  it('uses the scoped project href supplied by the workspace', () => {
+    render(
+      <CrossProjectTaskCard
+        task={baseTask}
+        projectId="proj-abc"
+        projectName="My Project"
+        projectHref="/portal/projects/proj-abc?orgId=lumen-org&orgSlug=lumen-speeds"
+        onClick={jest.fn()}
+      />,
+    )
+
+    const badge = screen.getByText('My Project').closest('a')
+    expect(badge).toHaveAttribute('href', '/portal/projects/proj-abc?orgId=lumen-org&orgSlug=lumen-speeds')
+  })
+
   it('calls onClick when the card body is clicked', () => {
     const onClick = jest.fn()
     render(

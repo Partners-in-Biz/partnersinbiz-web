@@ -22,8 +22,8 @@ export async function createBrokerJob(req: NextRequest, user: ApiUser, operation
     createdByType: user.role === 'ai' ? 'agent' : user.role,
     agentId: user.agentId,
     connectionId: typeof body.connectionId === 'string' ? body.connectionId : null,
-    approvalGateTaskId: typeof body.approvalGateTaskId === 'string' ? body.approvalGateTaskId : null,
-    approvalStatus: typeof body.approvalStatus === 'string' ? body.approvalStatus : null,
+    approvalGateTaskId: null,
+    approvalStatus: null,
     idempotencyKey: req.headers.get('idempotency-key'),
     input: payload,
   })
@@ -31,6 +31,7 @@ export async function createBrokerJob(req: NextRequest, user: ApiUser, operation
   const ref = await adminDb.collection(WORKSPACE_BROKER_JOB_COLLECTION).add({
     ...job,
     ...actorFrom(user),
+    output: { googleMutationPerformed: false, resultArtifactIds: [], resultArtifactUrls: [] },
     createdAt: FieldValue.serverTimestamp(),
     updatedAt: FieldValue.serverTimestamp(),
   })

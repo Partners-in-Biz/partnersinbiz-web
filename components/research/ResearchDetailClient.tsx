@@ -12,6 +12,7 @@ import type {
   ResearchStatus,
   ResearchVisibility,
 } from '@/lib/research/types'
+import { scopedApiPath } from '@/lib/portal/scoped-routing'
 import {
   RESEARCH_FINDING_STATUSES,
   RESEARCH_STATUSES,
@@ -32,6 +33,7 @@ type Props = {
   mode: 'admin' | 'portal'
   basePath: string
   documentsBasePath?: string
+  orgId?: string
 }
 
 function label(value: string) {
@@ -45,7 +47,7 @@ function formatDate(value: unknown) {
   return new Intl.DateTimeFormat('en-ZA', { dateStyle: 'medium', timeStyle: 'short' }).format(date)
 }
 
-export function ResearchDetailClient({ id, mode, basePath, documentsBasePath = '/admin/documents' }: Props) {
+export function ResearchDetailClient({ id, mode, basePath, documentsBasePath = '/admin/documents', orgId }: Props) {
   const [item, setItem] = useState<ResearchItem | null>(null)
   const [sources, setSources] = useState<ResearchSource[]>([])
   const [comments, setComments] = useState<Comment[]>([])
@@ -59,10 +61,11 @@ export function ResearchDetailClient({ id, mode, basePath, documentsBasePath = '
   const [sourceUrl, setSourceUrl] = useState('')
   const [busy, setBusy] = useState('')
   const [error, setError] = useState('')
+  const portalApiPath = (path: string) => scopedApiPath(path, { orgId })
 
   async function load() {
     setError('')
-    const detailPath = mode === 'portal' ? `/api/v1/portal/research/${id}` : `/api/v1/research/${id}`
+    const detailPath = mode === 'portal' ? portalApiPath(`/api/v1/portal/research/${id}`) : `/api/v1/research/${id}`
     const detailRes = await fetch(detailPath)
     const detailBody = await detailRes.json().catch(() => null)
     if (!detailRes.ok) throw new Error(detailBody?.error ?? 'Could not load research')
@@ -78,7 +81,7 @@ export function ResearchDetailClient({ id, mode, basePath, documentsBasePath = '
     setVisibility(nextItem.visibility)
 
     const commentsPath = mode === 'portal'
-      ? `/api/v1/portal/research/${id}/comments`
+      ? portalApiPath(`/api/v1/portal/research/${id}/comments`)
       : `/api/v1/comments?orgId=${encodeURIComponent(nextItem.orgId)}&resourceType=research_item&resourceId=${encodeURIComponent(id)}`
     const commentsRes = await fetch(commentsPath)
     const commentsBody = await commentsRes.json().catch(() => null)
@@ -88,7 +91,7 @@ export function ResearchDetailClient({ id, mode, basePath, documentsBasePath = '
   useEffect(() => {
     load().catch((err) => setError(err instanceof Error ? err.message : 'Could not load research'))
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id, mode])
+  }, [id, mode, orgId])
 
   async function patchItem(patch: Partial<ResearchItem>) {
     if (!item || mode !== 'admin') return
@@ -136,7 +139,7 @@ export function ResearchDetailClient({ id, mode, basePath, documentsBasePath = '
     if (!item || !newComment.trim()) return
     setBusy('Commenting')
     setError('')
-    const path = mode === 'portal' ? `/api/v1/portal/research/${id}/comments` : '/api/v1/comments'
+    const path = mode === 'portal' ? portalApiPath(`/api/v1/portal/research/${id}/comments`) : '/api/v1/comments'
     const payload = mode === 'portal'
       ? {
           body: newComment,

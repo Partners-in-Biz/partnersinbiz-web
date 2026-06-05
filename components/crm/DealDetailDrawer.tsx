@@ -10,12 +10,14 @@
 import { useState } from 'react'
 import type { Deal, Currency } from '@/lib/crm/types'
 import type { PipelineStage } from '@/lib/pipelines/types'
+import { scopedApiPath, scopedPortalPath, type PortalOrgRouteScope } from '@/lib/portal/scoped-routing'
 import { DealLineItemsEditor } from './DealLineItemsEditor'
 
 export interface DealDetailDrawerProps {
   deal: Deal
   stages: PipelineStage[]
   orgId: string
+  orgScope?: PortalOrgRouteScope
   onClose: () => void
   onEdit?: () => void
   contactLabel?: string
@@ -62,6 +64,7 @@ export function DealDetailDrawer({
   deal,
   stages,
   orgId,
+  orgScope,
   onClose,
   onEdit,
   contactLabel,
@@ -78,6 +81,8 @@ export function DealDetailDrawer({
   const readableCompany = deal.companyName?.trim() || (deal.companyId ? 'Company name missing' : '')
   const contactHref = contactHrefForDeal ? contactHrefForDeal(deal) : `${contactBasePath}/${deal.contactId}`
   const companyHref = companyHrefForDeal ? companyHrefForDeal(deal) : `${companyBasePath}/${deal.companyId}`
+  const quoteCreatePath = scopedApiPath('/api/v1/quotes', orgScope ?? { orgId })
+  const quotesHref = scopedPortalPath('/portal/quotes', orgScope ?? { orgId })
   const ownerLabel = dealOwnerLabel(deal)
   const needsOwner = !deal.ownerRef?.displayName && !deal.ownerRef?.uid && !deal.ownerUid
   const closeDateLabel = fmtDate(deal.expectedCloseDate)
@@ -110,7 +115,7 @@ export function DealDetailDrawer({
     setQuoteError(null)
     setQuoteResult(null)
     try {
-      const res = await fetch('/api/v1/quotes', {
+      const res = await fetch(quoteCreatePath, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ dealId: deal.id }),
@@ -202,7 +207,7 @@ export function DealDetailDrawer({
               <span>
                 Quote {quoteResult.quoteNumber} created — view in{' '}
                 <a
-                  href="/portal/quotes"
+                  href={quotesHref}
                   className="underline font-semibold"
                   onClick={onClose}
                 >
@@ -431,6 +436,7 @@ export function DealDetailDrawer({
               onChange={() => {}} // no-op in read-only
               currency={deal.currency}
               orgId={orgId}
+              orgScope={orgScope}
               readOnly
             />
           </div>

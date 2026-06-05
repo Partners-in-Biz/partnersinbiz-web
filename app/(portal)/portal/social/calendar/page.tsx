@@ -2,14 +2,15 @@
 export const dynamic = 'force-dynamic'
 
 import { useEffect, useMemo, useState } from 'react'
-import { useSearchParams } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import {
   getScheduledDate,
   SocialCalendarWorkspace,
+  toDatetimeLocalValue,
   type SocialCalendarPost,
   type SocialCalendarPostStatus,
 } from '@/components/social/SocialCalendarWorkspace'
-import { scopedApiPath, scopedPortalPath, scopeFromSearchParams } from '@/lib/portal/scoped-routing'
+import { appendQueryParams, scopedApiPath, scopedPortalPath, scopeFromSearchParams } from '@/lib/portal/scoped-routing'
 
 const PORTAL_PUBLISHABLE_STATUSES: SocialCalendarPostStatus[] = [
   'draft',
@@ -39,7 +40,9 @@ function socialPostsListUrl(orgId?: string | null) {
 
 export default function PortalSocialCalendarPage() {
   const searchParams = useSearchParams()
+  const router = useRouter()
   const orgScope = useMemo(() => scopeFromSearchParams(searchParams), [searchParams])
+  const composeHref = useMemo(() => scopedPortalPath('/portal/social/compose', orgScope), [orgScope])
   const [posts, setPosts] = useState<SocialCalendarPost[]>([])
   const [loading, setLoading] = useState(true)
   const [activeOrgId, setActiveOrgId] = useState<string | null>(null)
@@ -115,6 +118,10 @@ export default function PortalSocialCalendarPage() {
     return nextPost
   }
 
+  const handleCreateForDay = (day: Date) => {
+    router.push(appendQueryParams(composeHref, { scheduledAt: toDatetimeLocalValue(day) }))
+  }
+
   return (
     <SocialCalendarWorkspace
       posts={posts}
@@ -122,13 +129,18 @@ export default function PortalSocialCalendarPage() {
       eyebrow="Social calendar"
       title="Scheduled posts"
       description="See what is planned across your connected social channels."
-      composeHref={scopedPortalPath('/portal/social/compose', orgScope)}
+      composeHref={composeHref}
       composeLabel="Compose post"
+      allowDayCreate
+      allowDragReschedule
+      closePanelAfterActions
       publishableStatuses={PORTAL_PUBLISHABLE_STATUSES}
       failPostOnPublishError
+      onCreateForDay={handleCreateForDay}
       onPostUpdated={handlePostUpdated}
       onPublishNow={handlePublishNow}
       onReschedulePost={handleReschedule}
+      editHref={() => composeHref}
     />
   )
 }

@@ -16,6 +16,8 @@ export default function PortalCommunicationsPage() {
       mode="portal"
       initialOrgId={orgScope.orgId ?? ''}
       initialOrgSlug={orgScope.orgSlug ?? ''}
+      sourceCompanyId={orgScope.sourceCompanyId ?? ''}
+      sourceCompanyName={orgScope.sourceCompanyName ?? ''}
     />
   )
 }

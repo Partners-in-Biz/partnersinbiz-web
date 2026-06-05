@@ -8,12 +8,13 @@
  */
 
 import Link from 'next/link'
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { Deal, DealLineItem, Currency } from '@/lib/crm/types'
 import { extractPipelinesList } from '@/lib/pipelines/response'
 import type { Pipeline, PipelineStage } from '@/lib/pipelines/types'
 import { CompanyPicker } from './CompanyPicker'
 import { DealLineItemsEditor } from './DealLineItemsEditor'
+import { scopedApiPath, scopedPortalPath, type PortalOrgRouteScope } from '@/lib/portal/scoped-routing'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -36,6 +37,8 @@ export interface DealDrawerProps {
   onClose: () => void
   /** orgId for the ProductPicker */
   orgId: string
+  /** Full portal workspace scope for scoped CRM handoffs. */
+  orgScope?: PortalOrgRouteScope
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -97,12 +100,16 @@ function dateInputValue(value: unknown): string {
 function ContactPicker({
   contactId,
   contactLabel,
+  contactsSearchPath,
+  createContactHref,
   ariaLabel = 'Search deal contacts',
   clearLabel = 'Clear contact',
   onChange,
 }: {
   contactId: string
   contactLabel: string
+  contactsSearchPath: (query: string) => string
+  createContactHref: string
   ariaLabel?: string
   clearLabel?: string
   onChange: (contact: { id: string; label: string } | null) => void
@@ -125,7 +132,7 @@ function ContactPicker({
     const timer = window.setTimeout(async () => {
       setLoading(true)
       try {
-        const res = await fetch(`/api/v1/crm/contacts?search=${encodeURIComponent(query)}&limit=8`)
+        const res = await fetch(contactsSearchPath(query))
         const body = await res.json().catch(() => ({}))
         if (!cancelled) {
           const list = body.data?.contacts ?? body.data ?? []
@@ -140,7 +147,7 @@ function ContactPicker({
       cancelled = true
       window.clearTimeout(timer)
     }
-  }, [contactLabel, query])
+  }, [contactLabel, contactsSearchPath, query])
 
   function select(contact: ContactResult) {
     const label = contactResultLabel(contact) ?? contact.id
@@ -204,7 +211,7 @@ function ContactPicker({
                 Create or link a contact before this opportunity can carry owner, email, quote, and activity history.
               </p>
               <Link
-                href="/portal/contacts?create=contact"
+                href={createContactHref}
                 className="inline-flex w-full items-center justify-center gap-1.5 rounded-md border border-[var(--color-pib-line)] bg-white/[0.04] px-3 py-2 text-xs font-medium text-[var(--color-pib-text)] transition-colors hover:border-[var(--color-accent-v2)] hover:text-[var(--color-accent-v2)]"
               >
                 <span aria-hidden="true" className="material-symbols-outlined text-[14px]">contacts</span>
@@ -242,8 +249,28 @@ export function DealDrawer({
   onSaved,
   onClose,
   orgId,
+  orgScope,
 }: DealDrawerProps) {
   const isEdit = !!deal
+  const drawerScope = useMemo(() => orgScope ?? {}, [orgScope])
+  const pipelinesPath = useMemo(() => scopedApiPath('/api/v1/crm/pipelines', drawerScope), [drawerScope])
+  const pipelineDetailPath = useCallback(
+    (pipelineId: string) => scopedApiPath(`/api/v1/crm/pipelines/${encodeURIComponent(pipelineId)}`, drawerScope),
+    [drawerScope],
+  )
+  const contactDetailPath = useCallback(
+    (contactId: string) => scopedApiPath(`/api/v1/crm/contacts/${encodeURIComponent(contactId)}`, drawerScope),
+    [drawerScope],
+  )
+  const contactsSearchPath = useCallback(
+    (query: string) => scopedApiPath(`/api/v1/crm/contacts?search=${encodeURIComponent(query)}&limit=8`, drawerScope),
+    [drawerScope],
+  )
+  const createContactHref = scopedPortalPath('/portal/contacts?create=contact', drawerScope)
+  const dealSavePath = useCallback(
+    (dealId?: string) => scopedApiPath(dealId ? `/api/v1/crm/deals/${dealId}` : '/api/v1/crm/deals', drawerScope),
+    [drawerScope],
+  )
 
   // Core fields
   const [title, setTitle] = useState(deal?.title ?? '')
@@ -299,7 +326,7 @@ export function DealDrawer({
     if (!shouldResolveContactLabel(activeContactId, contactLabel)) return
 
     let cancelled = false
-    fetch(`/api/v1/crm/contacts/${encodeURIComponent(activeContactId)}`)
+    fetch(contactDetailPath(activeContactId))
       .then((res) => res.ok ? res.json() : null)
       .then((body) => {
         if (cancelled) return
@@ -311,20 +338,20 @@ export function DealDrawer({
         if (!cancelled) setContactLabel(CONTACT_MISSING_LABEL)
       })
     return () => { cancelled = true }
-  }, [contactId, contactLabel])
+  }, [contactId, contactDetailPath, contactLabel])
 
   // ── Fetch pipelines ─────────────────────────────────────────────────────────
 
   useEffect(() => {
     let cancelled = false
-    fetch('/api/v1/crm/pipelines')
+    fetch(pipelinesPath)
       .then(r => r.json())
       .then(async body => {
         if (cancelled) return
         let list = extractPipelinesList(body)
         const needsSelectedPipeline = selectedPipelineId && !list.some(p => p.id === selectedPipelineId)
         if (needsSelectedPipeline) {
-          const res = await fetch(`/api/v1/crm/pipelines/${encodeURIComponent(selectedPipelineId)}`)
+          const res = await fetch(pipelineDetailPath(selectedPipelineId))
           const detailBody = res.ok ? await res.json().catch(() => null) : null
           const selectedPipeline = extractPipelineRecord(detailBody)
           if (selectedPipeline?.id) list = [...list, selectedPipeline]
@@ -410,7 +437,7 @@ export function DealDrawer({
       if (showLostReason && lostReason.trim()) payload.lostReason = lostReason.trim()
       else payload.lostReason = null  // clear if stage is no longer lost
 
-      const url = isEdit ? `/api/v1/crm/deals/${deal!.id}` : '/api/v1/crm/deals'
+      const url = isEdit ? dealSavePath(deal!.id) : dealSavePath()
       const method = isEdit ? 'PUT' : 'POST'
 
       const res = await fetch(url, {
@@ -493,6 +520,8 @@ export function DealDrawer({
               <ContactPicker
                 contactId={contactId}
                 contactLabel={contactLabel}
+                contactsSearchPath={contactsSearchPath}
+                createContactHref={createContactHref}
                 ariaLabel={fieldLabel('Deal contact')}
                 clearLabel={`Clear deal contact for ${dealContextName}`}
                 onChange={(contact) => {
@@ -506,6 +535,7 @@ export function DealDrawer({
               <CompanyPicker
                 currentCompanyId={companyId || undefined}
                 currentCompanyName={companyName || undefined}
+                orgScope={drawerScope}
                 ariaLabel={fieldLabel('Deal company')}
                 onChange={({ companyId: nextCompanyId, companyName: nextCompanyName }) => {
                   setCompanyId(nextCompanyId ?? '')
@@ -679,6 +709,7 @@ export function DealDrawer({
               onChange={setLineItems}
               currency={currency}
               orgId={orgId}
+              orgScope={drawerScope}
             />
           </div>
 

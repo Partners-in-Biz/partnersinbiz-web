@@ -635,9 +635,10 @@ describe('Portal contacts page', () => {
       .toHaveAttribute(
         'href',
         '/portal/contacts/contact-owned?activity=note&orgId=lumen-org&orgSlug=lumen-speeds&sourceCompanyId=company-1&sourceCompanyName=Lumen',
-      )
+    )
     expect(global.fetch).toHaveBeenCalledWith('/api/v1/crm/contacts?orgId=lumen-org')
     expect(global.fetch).toHaveBeenCalledWith('/api/v1/portal/settings/team?orgId=lumen-org')
+    expect(global.fetch).toHaveBeenCalledWith('/api/v1/crm/saved-views?resourceKind=contacts&orgId=lumen-org')
   })
 
   it('treats an empty contact stage lens as a clean funnel stage', async () => {

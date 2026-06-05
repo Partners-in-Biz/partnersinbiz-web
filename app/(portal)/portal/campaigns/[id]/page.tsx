@@ -67,7 +67,8 @@ export default async function PortalCampaignCockpitPage({
   const org = orgSnap.data() ?? {}
   const settings = (org.settings ?? {}) as Record<string, unknown>
   const brandColors = (settings.brandColors ?? undefined) as BrandColorsLike | undefined
-  const previewBrand: PreviewBrand | undefined = toPreviewBrand(brandColors, org.brandProfile)
+  const orgName = typeof org.name === 'string' ? org.name : ''
+  const previewBrand: PreviewBrand | undefined = toPreviewBrand(brandColors, org.brandProfile, orgName)
   const accent = brandColors?.accent ?? brandColors?.primary ?? '#F5A623'
 
   const styleVars = {
@@ -87,7 +88,7 @@ export default async function PortalCampaignCockpitPage({
         campaign={campaign}
         assets={assets}
         brand={previewBrand}
-        orgName={typeof org.name === 'string' ? org.name : ''}
+        orgName={orgName}
         monthLabel={monthLabel(campaign.createdAt)}
         shareToken={campaign.shareToken}
         shareEnabled={campaign.shareEnabled !== false}

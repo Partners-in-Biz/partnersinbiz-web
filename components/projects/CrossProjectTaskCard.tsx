@@ -19,10 +19,11 @@ interface CrossProjectTaskCardProps {
   task: Task
   projectId: string
   projectName: string
+  projectHref?: string
   onClick: () => void
 }
 
-export function CrossProjectTaskCard({ task, projectId, projectName, onClick }: CrossProjectTaskCardProps) {
+export function CrossProjectTaskCard({ task, projectId, projectName, projectHref, onClick }: CrossProjectTaskCardProps) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: task.id })
   const { text: badgeText, bg: badgeBg } = projectBadgeColor(projectId)
   const priorityColor = PRIORITY_COLOR[task.priority ?? 'normal'] ?? PRIORITY_COLOR.normal
@@ -60,7 +61,7 @@ export function CrossProjectTaskCard({ task, projectId, projectName, onClick }: 
         )}
         <div className="flex items-center justify-between gap-2">
           <Link
-            href={`/portal/projects/${projectId}`}
+            href={projectHref ?? `/portal/projects/${projectId}`}
             onClick={e => e.stopPropagation()}
             className="text-[10px] font-semibold px-2 py-0.5 rounded-full truncate max-w-[140px]"
             style={{ background: badgeBg, color: badgeText }}

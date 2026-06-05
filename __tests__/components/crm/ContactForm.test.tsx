@@ -1,5 +1,5 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
-import { ContactForm } from '@/components/admin/crm/ContactForm'
+import { ContactForm } from '@/components/crm/ContactForm'
 
 describe('ContactForm', () => {
   it('preserves and edits contact tags instead of clearing them on save', async () => {
@@ -53,6 +53,33 @@ describe('ContactForm', () => {
     }))
   })
 
+  it('preserves timezone so admin and portal contact context stays actionable', async () => {
+    const onSave = jest.fn().mockResolvedValue(undefined)
+
+    render(
+      <ContactForm
+        onSave={onSave}
+        onCancel={jest.fn()}
+        initial={{
+          name: 'Ava Owner',
+          email: 'ava@example.com',
+          timezone: 'Europe/London',
+        }}
+      />,
+    )
+
+    const timezoneInput = screen.getByLabelText('Timezone')
+    expect(timezoneInput).toHaveValue('Europe/London')
+
+    fireEvent.change(timezoneInput, { target: { value: 'Africa/Johannesburg' } })
+    fireEvent.click(screen.getByRole('button', { name: /Save Contact/i }))
+
+    await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1))
+    expect(onSave).toHaveBeenCalledWith(expect.objectContaining({
+      timezone: 'Africa/Johannesburg',
+    }))
+  })
+
   it('names account-scoped contact fields and actions by company context', async () => {
     const onSave = jest.fn().mockResolvedValue(undefined)
 
@@ -74,6 +101,7 @@ describe('ContactForm', () => {
     expect(screen.getByLabelText('Contact phone for Acme Holdings')).toBeInTheDocument()
     expect(screen.getByLabelText('Contact job title for Acme Holdings')).toBeInTheDocument()
     expect(screen.getByLabelText('Contact department for Acme Holdings')).toBeInTheDocument()
+    expect(screen.getByLabelText('Contact timezone for Acme Holdings')).toBeInTheDocument()
     expect(screen.getByLabelText('Contact company for Acme Holdings')).toHaveValue('Acme Holdings')
     expect(screen.getByLabelText('Contact owner for Acme Holdings')).toBeInTheDocument()
     expect(screen.getByLabelText('Contact source for Acme Holdings')).toHaveValue('manual')

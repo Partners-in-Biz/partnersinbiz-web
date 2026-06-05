@@ -1,11 +1,12 @@
 'use client'
 export const dynamic = 'force-dynamic'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { onAuthStateChanged } from 'firebase/auth'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { auth, getClientAuth } from '@/lib/firebase/config'
 import UnifiedChat from '@/components/chat/UnifiedChat'
+import { scopedApiPath, scopeFromSearchParams } from '@/lib/portal/scoped-routing'
 
 interface OrgInfo {
   id: string
@@ -22,11 +23,14 @@ interface UserInfo {
 export default function ConversationsPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
+  const orgScope = useMemo(() => scopeFromSearchParams(searchParams), [searchParams])
+  const orgEndpoint = useMemo(() => scopedApiPath('/api/v1/portal/org', orgScope), [orgScope])
   const initialConvId = searchParams.get('convId') ?? undefined
   const [org, setOrg] = useState<OrgInfo | null>(null)
   const [user, setUser] = useState<UserInfo | null>(null)
   const [checking, setChecking] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const workspaceLabel = orgScope.sourceCompanyName ? `${orgScope.sourceCompanyName} workspace` : 'Active workspace'
 
   useEffect(() => {
     let cancelled = false
@@ -42,8 +46,7 @@ export default function ConversationsPage() {
             return
           }
 
-          // Fetch org + user info from portal API
-          fetch('/api/v1/portal/org')
+          fetch(orgEndpoint)
             .then((r) => (r.ok ? r.json() : Promise.reject(new Error(`org fetch: ${r.status}`))))
             .then((body) => {
               if (cancelled) return
@@ -68,7 +71,7 @@ export default function ConversationsPage() {
       cancelled = true
       unsubscribe?.()
     }
-  }, [router])
+  }, [orgEndpoint, router])
 
   if (checking) {
     return (
@@ -98,11 +101,26 @@ export default function ConversationsPage() {
 
   return (
     <div className="space-y-6 lg:space-y-6">
-      <header className="hidden lg:block">
+      <header>
         <p className="eyebrow">Direct line to your team</p>
-        <h1 className="pib-page-title mt-2">Conversations</h1>
-        <p className="pib-page-sub">Chat with your team and the Partners in Biz team in one place.</p>
+        <h1 className="pib-page-title mt-2">Conversation command center</h1>
+        <p className="pib-page-sub">
+          Keep client decisions, team handoffs, and Partners in Biz collaboration tied to the right company workspace.
+        </p>
       </header>
+
+      <section className="grid gap-3 sm:grid-cols-3">
+        {[
+          ['Workspace', workspaceLabel],
+          ['Client thread', initialConvId ? 'Focused conversation' : 'All conversations'],
+          ['Team handoff', user.role === 'admin' ? 'Agent participants enabled' : 'PiB team connected'],
+        ].map(([label, value]) => (
+          <div key={label} className="rounded-lg border border-[var(--color-pib-border)] bg-white/80 p-4 shadow-sm">
+            <p className="eyebrow">{label}</p>
+            <p className="mt-2 text-sm font-semibold text-[var(--color-pib-text)]">{value}</p>
+          </div>
+        ))}
+      </section>
 
       <UnifiedChat
         orgId={org.id}

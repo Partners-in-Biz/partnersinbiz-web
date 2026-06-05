@@ -9,7 +9,7 @@ import {
   type PublicCrmIntegrationView,
   type ProviderRegistryEntry,
 } from '@/lib/crm/integrations/types'
-import { fmtTimestamp } from '@/components/admin/email/fmtTimestamp'
+import { fmtTimestamp } from '@/lib/format/timestamp'
 
 interface CampaignSummary {
   id: string

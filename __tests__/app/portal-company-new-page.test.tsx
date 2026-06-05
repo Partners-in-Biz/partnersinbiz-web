@@ -17,8 +17,22 @@ jest.mock('next/link', () => ({
 }))
 
 jest.mock('@/components/crm/CompanyEditDrawer', () => ({
-  CompanyEditDrawer: ({ onSave, onClose }: { onSave: (data: { name: string }) => Promise<void>; onClose: () => void }) => (
-    <section aria-label="Mock company drawer">
+  CompanyEditDrawer: ({
+    onSave,
+    onClose,
+    orgScope,
+  }: {
+    onSave: (data: { name: string }) => Promise<void>
+    onClose: () => void
+    orgScope?: { orgId?: string; orgSlug?: string; sourceCompanyId?: string; sourceCompanyName?: string }
+  }) => (
+    <section
+      aria-label="Mock company drawer"
+      data-org-id={orgScope?.orgId ?? ''}
+      data-org-slug={orgScope?.orgSlug ?? ''}
+      data-source-company-id={orgScope?.sourceCompanyId ?? ''}
+      data-source-company-name={orgScope?.sourceCompanyName ?? ''}
+    >
       <button type="button" onClick={() => onSave({ name: 'Scoped Company' })}>
         Save scoped company
       </button>
@@ -73,6 +87,10 @@ describe('Portal new company page', () => {
 
     render(<NewCompanyPage />)
 
+    expect(screen.getByLabelText('Mock company drawer')).toHaveAttribute('data-org-id', 'org-1')
+    expect(screen.getByLabelText('Mock company drawer')).toHaveAttribute('data-org-slug', 'lumen-speeds')
+    expect(screen.getByLabelText('Mock company drawer')).toHaveAttribute('data-source-company-id', 'source-company')
+    expect(screen.getByLabelText('Mock company drawer')).toHaveAttribute('data-source-company-name', 'Lumen')
     expect(screen.getByRole('link', { name: 'arrow_back Companies' })).toHaveAttribute('href', `/portal/companies?${scope}`)
 
     await waitFor(() => {

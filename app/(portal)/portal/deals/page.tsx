@@ -1275,6 +1275,7 @@ export default function DealsPage() {
           onSaved={handleDealSaved}
           onClose={() => setShowCreateDrawer(false)}
           orgId={routeScope.orgId ?? ''}
+          orgScope={routeScope}
         />
       )}
 
@@ -1286,6 +1287,7 @@ export default function DealsPage() {
           onSaved={handleDealSaved}
           onClose={() => setEditingDeal(null)}
           orgId={editingDeal.orgId ?? routeScope.orgId ?? ''}
+          orgScope={routeScope}
         />
       )}
 
@@ -1295,6 +1297,7 @@ export default function DealsPage() {
           deal={viewingDeal}
           stages={stages}
           orgId={viewingDeal.orgId ?? routeScope.orgId ?? ''}
+          orgScope={routeScope}
           contactLabel={contactLabelsById[viewingDeal.contactId]}
           contactHrefForDeal={(deal) => dealPortalPath(`/portal/contacts/${deal.contactId}`)}
           companyHrefForDeal={(deal) => dealPortalPath(`/portal/companies/${deal.companyId}`)}

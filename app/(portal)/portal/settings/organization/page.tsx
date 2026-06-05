@@ -3,6 +3,8 @@
 export const dynamic = 'force-dynamic'
 
 import { useEffect, useState } from 'react'
+import { useSearchParams } from 'next/navigation'
+import { scopedApiPath, scopeFromSearchParams } from '@/lib/portal/scoped-routing'
 
 type BillingContact = {
   name?: string
@@ -200,7 +202,22 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   )
 }
 
+function isFilled(value: string) {
+  return value.trim().length > 0
+}
+
+function countReadyAreas(form: FormState) {
+  return [
+    isFilled(form.legalName) && isFilled(form.registrationNumber),
+    isFilled(form.billingEmail) && isFilled(form.line1) && isFilled(form.city),
+    isFilled(form.authorizedSignatoryName) && isFilled(form.authorizedSignatoryEmail),
+    isFilled(form.accountsContactName) && isFilled(form.accountsContactEmail),
+  ].filter(Boolean).length
+}
+
 export default function OrganizationSettingsPage() {
+  const searchParams = useSearchParams()
+  const organizationEndpoint = scopedApiPath('/api/v1/portal/settings/organization', scopeFromSearchParams(searchParams))
   const [form, setForm] = useState<FormState>(emptyForm)
   const [canEdit, setCanEdit] = useState(false)
   const [role, setRole] = useState<string | null>(null)
@@ -211,7 +228,7 @@ export default function OrganizationSettingsPage() {
 
   useEffect(() => {
     let alive = true
-    fetch('/api/v1/portal/settings/organization')
+    fetch(organizationEndpoint)
       .then(async (res) => {
         const body = await res.json().catch(() => ({})) as OrganizationSettingsResponse
         if (!res.ok) throw new Error(body.error ?? 'Failed to load organisation details')
@@ -230,7 +247,7 @@ export default function OrganizationSettingsPage() {
         if (alive) setLoading(false)
       })
     return () => { alive = false }
-  }, [])
+  }, [organizationEndpoint])
 
   function updateText(field: TextField, value: string) {
     setForm((prev) => ({ ...prev, [field]: value }))
@@ -243,7 +260,7 @@ export default function OrganizationSettingsPage() {
     setSaved(false)
     setError('')
 
-    const res = await fetch('/api/v1/portal/settings/organization', {
+    const res = await fetch(organizationEndpoint, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(toPayload(form)),
@@ -279,24 +296,70 @@ export default function OrganizationSettingsPage() {
     )
   }
 
-  if (loading) return <div className="text-sm text-[var(--color-pib-text-muted)]">Loading...</div>
+  const readyAreas = countReadyAreas(form)
+  const accessLabel = canEdit ? `${role ? role[0].toUpperCase() + role.slice(1) : 'Editor'} access` : 'Read-only access'
+  const invoicePolicy = form.purchaseOrderRequired ? 'Purchase order required' : 'No purchase order required'
+  const legalIdentity = form.legalName || form.name || 'Legal identity missing'
+  const billingContact = form.billingEmail || form.accountsContactEmail || 'Billing contact missing'
+  const agreementOwner = form.authorizedSignatoryName || 'Signatory missing'
+
+  if (loading) {
+    return (
+      <div className="space-y-4">
+        <div className="h-6 w-48 rounded bg-[var(--color-pib-surface-soft)]" />
+        <div className="pib-card space-y-3">
+          <div className="h-5 w-60 rounded bg-[var(--color-pib-surface-soft)]" />
+          <div className="h-4 w-full max-w-xl rounded bg-[var(--color-pib-surface-soft)]" />
+        </div>
+      </div>
+    )
+  }
 
   return (
-    <div className="max-w-4xl space-y-8">
+    <div className="space-y-8">
       <div>
-        <h1 className="text-lg font-semibold mb-1">Organisation details</h1>
-        <p className="text-sm text-[var(--color-pib-text-muted)]">
-          Legal, billing, and agreement details for accepted proposals and future agreements.
+        <p className="eyebrow">CRM settings</p>
+        <h1 className="pib-page-title mt-2">Organisation details</h1>
+        <p className="mt-2 max-w-3xl text-sm text-[var(--color-pib-text-muted)]">
+          Keep legal, billing, agreement, and invoicing data ready before proposals, projects, and finance work scale across the team.
         </p>
       </div>
 
-      {role && (
-        <div className="flex items-center gap-2">
-          <span className="text-xs text-[var(--color-pib-text-muted)]">Workspace role:</span>
-          <span className="pill !text-[11px] !py-0.5 !px-2 capitalize">{role}</span>
-          {!canEdit && <span className="text-xs text-[var(--color-pib-text-muted)]">Read only</span>}
+      <section role="region" aria-label="Organisation command center" className="space-y-4">
+        <div className="pib-card space-y-5">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+            <div>
+              <p className="eyebrow !text-[10px]">Operating readiness</p>
+              <h2 className="mt-2 font-display text-2xl text-[var(--color-pib-text)]">Organisation command center</h2>
+              <p className="mt-2 max-w-2xl text-sm text-[var(--color-pib-text-muted)]">
+                Review the company identity, billing route, agreement owner, and invoice policy before editing the source fields below.
+              </p>
+            </div>
+            <div className="rounded-lg border border-[var(--color-pib-border)] bg-[var(--color-pib-surface-soft)] px-4 py-3 text-sm text-[var(--color-pib-text-muted)]">
+              {accessLabel}
+            </div>
+          </div>
+
+          <div className="grid gap-3 md:grid-cols-4">
+            <div className="rounded-lg border border-[var(--color-pib-border)] bg-[var(--color-pib-surface-soft)] p-4">
+              <p className="text-2xl font-semibold text-[var(--color-pib-text)]">{readyAreas} ready areas</p>
+              <p className="mt-2 text-xs leading-5 text-[var(--color-pib-text-muted)]">Legal, billing, signatory, and accounts readiness.</p>
+            </div>
+            <div className="rounded-lg border border-[var(--color-pib-border)] bg-[var(--color-pib-surface-soft)] p-4">
+              <p className="text-sm font-semibold text-[var(--color-pib-text)]">{legalIdentity}</p>
+              <p className="mt-2 text-xs leading-5 text-[var(--color-pib-text-muted)]">Legal identity used on agreements and client records.</p>
+            </div>
+            <div className="rounded-lg border border-[var(--color-pib-border)] bg-[var(--color-pib-surface-soft)] p-4">
+              <p className="text-sm font-semibold text-[var(--color-pib-text)]">{billingContact}</p>
+              <p className="mt-2 text-xs leading-5 text-[var(--color-pib-text-muted)]">Billing destination for accepted proposals and invoices.</p>
+            </div>
+            <div className="rounded-lg border border-[var(--color-pib-border)] bg-[var(--color-pib-surface-soft)] p-4">
+              <p className="text-sm font-semibold text-[var(--color-pib-text)]">{agreementOwner}</p>
+              <p className="mt-2 text-xs leading-5 text-[var(--color-pib-text-muted)]">{invoicePolicy}</p>
+            </div>
+          </div>
         </div>
-      )}
+      </section>
 
       <form onSubmit={handleSave} className="space-y-5">
         <Section title="Organisation">

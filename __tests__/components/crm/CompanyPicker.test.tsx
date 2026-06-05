@@ -100,6 +100,57 @@ describe('CompanyPicker', () => {
     })
   })
 
+  it('searches and creates companies through the active company workspace scope', async () => {
+    const handleChange = jest.fn()
+    mockFetch.mockImplementation((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      if (url === '/api/v1/crm/companies?search=lumen&limit=10&orgId=lumen-org') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ success: true, data: [] }),
+        } as Response)
+      }
+      if (url === '/api/v1/crm/companies?orgId=lumen-org' && init?.method === 'POST') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ success: true, data: { company: { id: 'company-new', name: 'Lumen Launch' } } }),
+        } as Response)
+      }
+      return Promise.reject(new Error(`Unexpected fetch: ${url}`))
+    })
+
+    render(
+      <CompanyPicker
+        orgScope={{ orgId: 'lumen-org' }}
+        onChange={handleChange}
+      />,
+    )
+    const input = screen.getByRole('combobox')
+
+    fireEvent.change(input, { target: { value: 'lumen' } })
+    jest.advanceTimersByTime(350)
+
+    await waitFor(() => {
+      expect(mockFetch).toHaveBeenCalledWith('/api/v1/crm/companies?search=lumen&limit=10&orgId=lumen-org')
+    })
+
+    await waitFor(() => {
+      expect(screen.getByText(/Create new company/i)).toBeInTheDocument()
+    })
+
+    fireEvent.click(screen.getByText(/Create new company/i))
+    fireEvent.change(screen.getByPlaceholderText('Company name *'), { target: { value: 'Lumen Launch' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Create' }))
+
+    await waitFor(() => {
+      expect(mockFetch).toHaveBeenCalledWith(
+        '/api/v1/crm/companies?orgId=lumen-org',
+        expect.objectContaining({ method: 'POST' }),
+      )
+      expect(handleChange).toHaveBeenCalledWith({ companyId: 'company-new', companyName: 'Lumen Launch' })
+    })
+  })
+
   it('shows a clear button when a value is selected', () => {
     render(
       <CompanyPicker

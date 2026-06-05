@@ -2,9 +2,11 @@
 'use client'
 export const dynamic = 'force-dynamic'
 
-import { useEffect, useState, type FormEvent, type ReactNode } from 'react'
+import { useCallback, useEffect, useMemo, useState, type FormEvent, type ReactNode } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { MemberRow } from '@/components/settings/MemberRow'
 import { TeamAccessGovernancePanel } from '@/components/settings/TeamAccessGovernancePanel'
+import { scopedApiPath, scopeFromSearchParams } from '@/lib/portal/scoped-routing'
 import type { OrgRole } from '@/lib/organizations/types'
 
 interface Member {
@@ -35,6 +37,9 @@ function InviteField({ id, label, children }: { id: string; label: string; child
 }
 
 export default function TeamPage() {
+  const searchParams = useSearchParams()
+  const orgScope = useMemo(() => scopeFromSearchParams(searchParams), [searchParams])
+  const teamEndpoint = useCallback((path: string) => scopedApiPath(path, orgScope), [orgScope])
   const [members, setMembers] = useState<Member[]>([])
   const [myProfile, setMyProfile] = useState<MyProfile>({ uid: '', role: null })
   const [loading, setLoading] = useState(true)
@@ -51,10 +56,16 @@ export default function TeamPage() {
   const [removingUid, setRemovingUid] = useState<string | null>(null)
   const [removeError, setRemoveError] = useState('')
 
+  const loadTeamMembers = useCallback(() => (
+    fetch(teamEndpoint('/api/v1/portal/settings/team')).then(r => r.ok ? r.json() : null).then(d => {
+      if (Array.isArray(d?.members)) setMembers(d.members)
+    })
+  ), [teamEndpoint])
+
   useEffect(() => {
     Promise.all([
-      fetch('/api/v1/portal/settings/team').then(r => r.ok ? r.json() : null),
-      fetch('/api/v1/portal/settings/profile').then(r => r.ok ? r.json() : null),
+      fetch(teamEndpoint('/api/v1/portal/settings/team')).then(r => r.ok ? r.json() : null),
+      fetch(teamEndpoint('/api/v1/portal/settings/profile')).then(r => r.ok ? r.json() : null),
     ]).then(([teamData, profileData]) => {
       if (Array.isArray(teamData?.members)) setMembers(teamData.members)
       if (profileData?.profile) {
@@ -66,12 +77,12 @@ export default function TeamPage() {
       .then(r => r.ok ? r.json() : null)
       .then(d => { if (d?.user?.uid) setMyProfile(p => ({ ...p, uid: d.user.uid })) })
       .catch(() => {})
-  }, [])
+  }, [teamEndpoint])
 
   async function handleRemove(uid: string) {
     setRemovingUid(uid)
     setRemoveError('')
-    const res = await fetch(`/api/v1/portal/settings/team/${uid}`, { method: 'DELETE' })
+    const res = await fetch(teamEndpoint(`/api/v1/portal/settings/team/${uid}`), { method: 'DELETE' })
     if (res.ok) {
       setMembers(prev => prev.filter(m => m.uid !== uid))
       setPendingRemoveMember(null)
@@ -83,7 +94,7 @@ export default function TeamPage() {
   }
 
   async function handleRoleChange(uid: string, newRole: OrgRole) {
-    const res = await fetch(`/api/v1/portal/settings/team/${uid}/role`, {
+    const res = await fetch(teamEndpoint(`/api/v1/portal/settings/team/${uid}/role`), {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ role: newRole }),
@@ -98,7 +109,7 @@ export default function TeamPage() {
     setInviting(true)
     setInviteError('')
     setInviteSent(false)
-    const res = await fetch('/api/v1/portal/settings/team/invite', {
+    const res = await fetch(teamEndpoint('/api/v1/portal/settings/team/invite'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -118,9 +129,7 @@ export default function TeamPage() {
       setInviteAccessScope('all')
       setInviteNote('')
       setInviteSent(true)
-      fetch('/api/v1/portal/settings/team').then(r => r.ok ? r.json() : null).then(d => {
-        if (Array.isArray(d?.members)) setMembers(d.members)
-      })
+      loadTeamMembers()
     } else {
       const body = await res.json().catch(() => ({}))
       setInviteError(body.error ?? 'Failed to invite. Try again.')

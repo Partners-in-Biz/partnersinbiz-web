@@ -2,9 +2,18 @@ import React from 'react'
 import { act, render, screen, waitFor } from '@testing-library/react'
 import PortalSocialCalendarPage from '@/app/(portal)/portal/social/calendar/page'
 
+const mockPush = jest.fn()
+let mockSearchParams = new URLSearchParams()
+
+jest.mock('next/navigation', () => ({
+  useRouter: () => ({ push: mockPush }),
+  useSearchParams: () => mockSearchParams,
+}))
+
 describe('PortalSocialCalendarPage', () => {
   beforeEach(() => {
-    jest.useFakeTimers().setSystemTime(new Date('2026-06-03T08:00:00.000Z'))
+    jest.clearAllMocks()
+    mockSearchParams = new URLSearchParams()
     global.fetch = jest.fn((input: RequestInfo | URL) => {
       const url = String(input)
       if (url === '/api/v1/portal/org') {
@@ -40,7 +49,6 @@ describe('PortalSocialCalendarPage', () => {
   })
 
   afterEach(() => {
-    jest.useRealTimers()
     jest.resetAllMocks()
   })
 

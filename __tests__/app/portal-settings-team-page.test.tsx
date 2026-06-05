@@ -3,6 +3,11 @@ import { fireEvent, render, screen, waitFor, within } from '@testing-library/rea
 import TeamPage from '@/app/(portal)/portal/settings/team/page'
 
 const fetchMock = jest.fn()
+let mockSearchParams = new URLSearchParams()
+
+jest.mock('next/navigation', () => ({
+  useSearchParams: () => mockSearchParams,
+}))
 
 beforeAll(() => {
   Object.defineProperty(global, 'fetch', {
@@ -13,6 +18,7 @@ beforeAll(() => {
 
 beforeEach(() => {
   fetchMock.mockReset()
+  mockSearchParams = new URLSearchParams()
   fetchMock.mockImplementation((input: RequestInfo | URL) => {
     const url = String(input)
     if (url === '/api/v1/portal/settings/team') {
@@ -58,6 +64,96 @@ beforeEach(() => {
 })
 
 describe('TeamPage', () => {
+  it('preserves company workspace scope across team list and access mutations', async () => {
+    mockSearchParams = new URLSearchParams({
+      orgId: 'org-1',
+      orgSlug: 'lumen-speeds',
+      sourceCompanyId: 'company-1',
+      sourceCompanyName: 'Lumen',
+    })
+
+    fetchMock.mockImplementation((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      if (url === '/api/v1/portal/settings/team?orgId=org-1') {
+        return Promise.resolve({
+          ok: true,
+          json: () =>
+            Promise.resolve({
+              members: [
+                {
+                  uid: 'current-admin',
+                  firstName: 'Mandy',
+                  lastName: 'Manager',
+                  jobTitle: 'Operations lead',
+                  avatarUrl: '',
+                  role: 'owner',
+                },
+                {
+                  uid: 'sales-rep',
+                  firstName: 'Sam',
+                  lastName: 'Sales',
+                  jobTitle: 'Sales rep',
+                  avatarUrl: '',
+                  role: 'member',
+                },
+              ],
+            }),
+        })
+      }
+      if (url === '/api/v1/portal/settings/profile?orgId=org-1') {
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve({ profile: { role: 'owner' } }),
+        })
+      }
+      if (url === '/api/v1/portal/org') {
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve({ user: { uid: 'current-admin' } }),
+        })
+      }
+      if (url === '/api/v1/portal/settings/team/sales-rep/role?orgId=org-1' && init?.method === 'PATCH') {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve({ role: 'viewer' }) })
+      }
+      if (url === '/api/v1/portal/settings/team/invite?orgId=org-1' && init?.method === 'POST') {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve({ uid: 'new-user' }) })
+      }
+      if (url === '/api/v1/portal/settings/team/sales-rep?orgId=org-1' && init?.method === 'DELETE') {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve({ removed: 'sales-rep' }) })
+      }
+      return Promise.reject(new Error(`Unexpected fetch: ${url}`))
+    })
+
+    render(<TeamPage />)
+
+    expect(await screen.findByText('Sam Sales')).toBeInTheDocument()
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith('/api/v1/portal/settings/team?orgId=org-1')
+      expect(fetchMock).toHaveBeenCalledWith('/api/v1/portal/settings/profile?orgId=org-1')
+    })
+
+    fireEvent.change(screen.getByRole('combobox', { name: 'Change role for Sam Sales' }), {
+      target: { value: 'viewer' },
+    })
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith('/api/v1/portal/settings/team/sales-rep/role?orgId=org-1', expect.objectContaining({ method: 'PATCH' }))
+    })
+
+    fireEvent.change(screen.getByRole('textbox', { name: 'Email' }), {
+      target: { value: 'new@example.com' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Send invite' }))
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith('/api/v1/portal/settings/team/invite?orgId=org-1', expect.objectContaining({ method: 'POST' }))
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Remove Sam Sales' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm remove Sam Sales from workspace' }))
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith('/api/v1/portal/settings/team/sales-rep?orgId=org-1', { method: 'DELETE' })
+    })
+  })
+
   it('names team administration controls for employee-scale CRM work', async () => {
     render(<TeamPage />)
 

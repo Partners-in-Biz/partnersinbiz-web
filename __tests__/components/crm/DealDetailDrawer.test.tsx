@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { DealDetailDrawer } from '@/components/crm/DealDetailDrawer'
 import type { Deal } from '@/lib/crm/types'
 import type { PipelineStage } from '@/lib/pipelines/types'
@@ -259,5 +259,42 @@ describe('DealDetailDrawer', () => {
     expect(screen.getByRole('button', { name: 'Set close date for Deal name missing' })).toBeInTheDocument()
 
     expect(screen.queryByRole('button', { name: /for\s*$/ })).not.toBeInTheDocument()
+  })
+
+  it('preserves company workspace scope when converting a deal to a quote', async () => {
+    const onClose = jest.fn()
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ success: true, data: { id: 'quote-1', quoteNumber: 'Q-001' } }),
+    } as Response)
+
+    render(
+      <DealDetailDrawer
+        deal={deal}
+        stages={stages}
+        orgId="lumen-org"
+        orgScope={{
+          orgId: 'lumen-org',
+          orgSlug: 'lumen-speeds',
+          sourceCompanyId: 'company-1',
+          sourceCompanyName: 'Lumen',
+        }}
+        onClose={onClose}
+      />,
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: 'Quote' }))
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith(
+        '/api/v1/quotes?orgId=lumen-org',
+        expect.objectContaining({ method: 'POST' }),
+      )
+    })
+
+    expect(await screen.findByRole('link', { name: 'Quotes' })).toHaveAttribute(
+      'href',
+      '/portal/quotes?orgId=lumen-org&orgSlug=lumen-speeds&sourceCompanyId=company-1&sourceCompanyName=Lumen',
+    )
   })
 })

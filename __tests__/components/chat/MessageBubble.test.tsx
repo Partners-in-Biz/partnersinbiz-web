@@ -135,4 +135,42 @@ describe('MessageBubble', () => {
     expect(screen.getByText((content) => content.includes('PASS __tests__/components/chat/MessageBubble.test.tsx'))).toBeInTheDocument()
     expect(screen.getByText(/exit 0/)).toBeInTheDocument()
   })
+
+  it('renders assistant markdown, mermaid-style diagrams, and inline SVG visually instead of as raw prose', () => {
+    render(
+      <MessageBubble
+        currentUserUid="user-1"
+        message={{
+          id: 'msg-1',
+          conversationId: 'conv-1',
+          role: 'assistant',
+          content: [
+            '### Visual options',
+            '',
+            '- Plain copy',
+            '- **Structured** content',
+            '',
+            'flowchart TD',
+            'A[Client request] --> B[Pip resolves org/client]',
+            'B --> C[Specialist agent handles work]',
+            '',
+            '<svg width="120" height="40" xmlns="http://www.w3.org/2000/svg"><rect width="120" height="40" fill="#fff"/><text x="8" y="24">SVG card</text></svg>',
+          ].join('\n'),
+          authorKind: 'agent',
+          authorId: 'pip',
+          authorDisplayName: 'Pip',
+          status: 'completed',
+        }}
+      />,
+    )
+
+    expect(screen.getByRole('heading', { name: 'Visual options' })).toBeInTheDocument()
+    expect(screen.getByText('Plain copy').closest('li')).toBeInTheDocument()
+    expect(screen.getByText('Structured')).toHaveClass('font-semibold')
+    expect(screen.getByRole('img', { name: 'Mermaid diagram' })).toBeInTheDocument()
+    expect(screen.getByText('Client request')).toBeInTheDocument()
+    expect(screen.queryByText(/flowchart TD/)).not.toBeInTheDocument()
+    expect(screen.getByText('SVG card')).toBeInTheDocument()
+    expect(screen.queryByText(/<svg width/)).not.toBeInTheDocument()
+  })
 })

@@ -5,10 +5,10 @@ export const dynamic = 'force-dynamic'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import { useParams, useRouter } from 'next/navigation'
-import { ActivityTimeline } from '@/components/admin/crm/ActivityTimeline'
 import ContactBrief from '@/components/admin/crm/ContactBrief'
-import { ContactForm } from '@/components/admin/crm/ContactForm'
-import { fmtTimestamp } from '@/components/admin/email/fmtTimestamp'
+import { ContactActivityTimeline } from '@/components/crm/ContactActivityTimeline'
+import { ContactForm } from '@/components/crm/ContactForm'
+import { fmtTimestamp } from '@/lib/format/timestamp'
 import { CompanyPanel } from '@/components/crm/CompanyPanel'
 import { ContactArchiveControl } from '@/components/crm/ContactArchiveControl'
 import { ContactDealsPanel } from '@/components/crm/ContactDealsPanel'
@@ -674,11 +674,25 @@ export default function ContactDetailPage() {
                   actionIcon="add_call"
                 />
                 <DetailRow
-                  label="Role"
-                  value={[contact.jobTitle, contact.department].filter(Boolean).join(' · ')}
+                  label="Job title"
+                  value={contact.jobTitle}
                   actionLabel={`Add role for ${name} from relationship profile`}
                   onAction={() => setEditing(true)}
                   actionIcon="badge"
+                />
+                <DetailRow
+                  label="Department"
+                  value={contact.department}
+                  actionLabel={`Add department for ${name} from relationship profile`}
+                  onAction={() => setEditing(true)}
+                  actionIcon="corporate_fare"
+                />
+                <DetailRow
+                  label="Timezone"
+                  value={contact.timezone}
+                  actionLabel={`Add timezone for ${name} from relationship profile`}
+                  onAction={() => setEditing(true)}
+                  actionIcon="schedule"
                 />
                 <DetailRow
                   label="Website"
@@ -936,8 +950,8 @@ export default function ContactDetailPage() {
               </div>
             </div>
             <div className="p-5">
-              <ActivityTimeline
-                activities={activities as never}
+              <ContactActivityTimeline
+                activities={activities}
                 loading={activitiesLoading}
                 contactName={contact.name}
                 onAddNote={focusNoteComposer}

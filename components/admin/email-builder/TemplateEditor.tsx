@@ -8,7 +8,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import AiAssistantPanel from '@/components/admin/email/AiAssistantPanel'
+import AiAssistantPanel from '@/components/email/AiAssistantPanel'
 import { BlockIcon, blockLabel } from './BlockIcon'
 import {
   ButtonBlockForm,

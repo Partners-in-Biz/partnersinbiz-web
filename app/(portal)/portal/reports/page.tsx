@@ -1,34 +1,26 @@
 'use client'
 export const dynamic = 'force-dynamic'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import { ReportsWorkspace, type ReportsWorkspaceReport } from '@/components/reports/ReportsWorkspace'
-
-function scopedPortalHref(path: string, orgId: string, orgSlug: string) {
-  if (!orgId) return path
-  const params = new URLSearchParams({ orgId })
-  if (orgSlug) params.set('orgSlug', orgSlug)
-  return `${path}${path.includes('?') ? '&' : '?'}${params.toString()}`
-}
+import { scopedApiPath, scopedPortalPath, scopeFromSearchParams } from '@/lib/portal/scoped-routing'
 
 export default function PortalReports() {
   const searchParams = useSearchParams()
-  const scopedOrgId = searchParams.get('orgId')?.trim() ?? ''
-  const scopedOrgSlug = searchParams.get('orgSlug')?.trim() ?? ''
+  const routeScope = useMemo(() => scopeFromSearchParams(searchParams), [searchParams])
+  const reportsUrl = useMemo(() => scopedApiPath('/api/v1/portal/reports', routeScope), [routeScope])
+  const crmReportsHref = useMemo(() => scopedPortalPath('/portal/reports/crm', routeScope), [routeScope])
   const [reports, setReports] = useState<ReportsWorkspaceReport[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    const reportsUrl = scopedOrgId
-      ? `/api/v1/portal/reports?orgId=${encodeURIComponent(scopedOrgId)}`
-      : '/api/v1/portal/reports'
     fetch(reportsUrl)
       .then((r) => r.json())
       .then((b) => { setReports(b.reports ?? []); setLoading(false) })
       .catch(() => setLoading(false))
-  }, [scopedOrgId])
+  }, [reportsUrl])
 
   return (
     <div className="space-y-10">
@@ -45,7 +37,7 @@ export default function PortalReports() {
         <p className="eyebrow mb-3">Analytics</p>
         <div className="flex flex-wrap gap-3">
           <Link
-            href={scopedPortalHref('/portal/reports/crm', scopedOrgId, scopedOrgSlug)}
+            href={crmReportsHref}
             className="bento-card !p-4 flex items-center gap-3 hover:border-[var(--color-pib-accent)] transition-colors group min-w-[200px]"
           >
             <span className="material-symbols-outlined text-[22px] text-[var(--color-pib-accent)]">contacts</span>

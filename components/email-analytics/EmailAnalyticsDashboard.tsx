@@ -1,6 +1,6 @@
 'use client'
 
-// components/admin/email-analytics/EmailAnalyticsDashboard.tsx
+// components/email-analytics/EmailAnalyticsDashboard.tsx
 //
 // The main client-side dashboard. Owns date range, tab state, and the four
 // data fetches (overview, timeseries, contacts, leaderboard).

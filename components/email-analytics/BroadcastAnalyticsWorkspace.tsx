@@ -2,7 +2,7 @@
 
 import { useEffect, useState, type ReactNode } from 'react'
 import Link from 'next/link'
-import { BarChart, CountBar, LineChart } from '@/components/admin/email-analytics/charts'
+import { BarChart, CountBar, LineChart } from '@/components/email-analytics/charts'
 import { scopedApiPath, scopedPortalPath, type PortalOrgRouteScope } from '@/lib/portal/scoped-routing'
 import type {
   BroadcastDetailedStats,

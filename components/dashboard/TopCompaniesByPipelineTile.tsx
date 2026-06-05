@@ -1,7 +1,8 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
+import { scopedApiPath, scopedPortalPath, type PortalOrgRouteScope } from '@/lib/portal/scoped-routing'
 
 interface CompanySummary {
   id: string
@@ -10,12 +11,21 @@ interface CompanySummary {
   openDealsCount?: number
 }
 
-export function TopCompaniesByPipelineTile() {
+type TopCompaniesByPipelineTileProps = {
+  orgScope?: PortalOrgRouteScope
+}
+
+export function TopCompaniesByPipelineTile({ orgScope = {} }: TopCompaniesByPipelineTileProps) {
   const [companies, setCompanies] = useState<CompanySummary[]>([])
   const [loading, setLoading] = useState(true)
+  const companiesPath = useMemo(
+    () => scopedApiPath('/api/v1/crm/companies?orderBy=updatedAt-desc&limit=5', orgScope),
+    [orgScope],
+  )
+  const companiesHref = useMemo(() => scopedPortalPath('/portal/companies', orgScope), [orgScope])
 
   useEffect(() => {
-    fetch('/api/v1/crm/companies?orderBy=updatedAt-desc&limit=5')
+    fetch(companiesPath)
       .then((r) => r.json())
       .then((body) => {
         const data = body.data ?? body  // PiB apiSuccess envelope
@@ -23,7 +33,7 @@ export function TopCompaniesByPipelineTile() {
         setLoading(false)
       })
       .catch(() => setLoading(false))
-  }, [])
+  }, [companiesPath])
 
   if (loading) {
     return (
@@ -46,7 +56,7 @@ export function TopCompaniesByPipelineTile() {
       <div className="flex items-center justify-between mb-3">
         <p className="eyebrow !text-[10px]">Recent companies</p>
         <Link
-          href="/portal/companies"
+          href={companiesHref}
           className="text-xs text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] inline-flex items-center gap-1 transition-colors"
         >
           View all
@@ -57,7 +67,7 @@ export function TopCompaniesByPipelineTile() {
         {companies.map((c) => (
           <li key={c.id}>
             <Link
-              href={`/portal/companies/${c.id}`}
+              href={scopedPortalPath(`/portal/companies/${c.id}`, orgScope)}
               className="flex items-center gap-2.5 text-sm hover:bg-white/[0.03] p-1.5 rounded-lg transition-colors group"
             >
               {c.logoUrl ? (

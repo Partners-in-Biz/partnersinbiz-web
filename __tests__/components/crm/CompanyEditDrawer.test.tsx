@@ -2,6 +2,7 @@ import React from 'react'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { CompanyEditDrawer } from '@/components/crm/CompanyEditDrawer'
 import type { Company } from '@/lib/companies/types'
+import type { PortalOrgRouteScope } from '@/lib/portal/scoped-routing'
 
 // ── Mocks ─────────────────────────────────────────────────────────────────────
 
@@ -12,8 +13,21 @@ global.fetch = jest.fn().mockResolvedValue({
 })
 
 jest.mock('@/components/crm/CompanyPicker', () => ({
-  CompanyPicker: ({ onChange }: { onChange: (v: { companyId: string | null; companyName: string | null }) => void }) => (
-    <button type="button" onClick={() => onChange({ companyId: 'co-parent', companyName: 'Parent Co' })}>
+  CompanyPicker: ({
+    onChange,
+    orgScope,
+  }: {
+    onChange: (v: { companyId: string | null; companyName: string | null }) => void
+    orgScope?: PortalOrgRouteScope
+  }) => (
+    <button
+      type="button"
+      data-org-id={orgScope?.orgId ?? ''}
+      data-org-slug={orgScope?.orgSlug ?? ''}
+      data-source-company-id={orgScope?.sourceCompanyId ?? ''}
+      data-source-company-name={orgScope?.sourceCompanyName ?? ''}
+      onClick={() => onChange({ companyId: 'co-parent', companyName: 'Parent Co' })}
+    >
       MockCompanyPicker
     </button>
   ),
@@ -129,6 +143,27 @@ describe('CompanyEditDrawer', () => {
         }),
       )
     })
+  })
+
+  it('keeps parent company lookup inside the selected company workspace scope', () => {
+    render(
+      <CompanyEditDrawer
+        mode="create"
+        orgScope={{
+          orgId: 'lumen-org',
+          orgSlug: 'lumen-speeds',
+          sourceCompanyId: 'company-1',
+          sourceCompanyName: 'Lumen',
+        }}
+        onSave={async () => {}}
+        onClose={noopClose}
+      />,
+    )
+
+    expect(screen.getByRole('button', { name: 'MockCompanyPicker' })).toHaveAttribute('data-org-id', 'lumen-org')
+    expect(screen.getByRole('button', { name: 'MockCompanyPicker' })).toHaveAttribute('data-org-slug', 'lumen-speeds')
+    expect(screen.getByRole('button', { name: 'MockCompanyPicker' })).toHaveAttribute('data-source-company-id', 'company-1')
+    expect(screen.getByRole('button', { name: 'MockCompanyPicker' })).toHaveAttribute('data-source-company-name', 'Lumen')
   })
 
   it('calls onClose when the cancel button in the footer is clicked', () => {

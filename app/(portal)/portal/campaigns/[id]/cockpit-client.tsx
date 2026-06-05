@@ -1,7 +1,7 @@
 'use client'
 
 import { useSearchParams } from 'next/navigation'
-import { scopedPortalPath, scopeFromSearchParams } from '@/lib/portal/scoped-routing'
+import { scopedApiPath, scopedPortalPath, scopeFromSearchParams } from '@/lib/portal/scoped-routing'
 import {
   CampaignCockpitClient,
   type CampaignCockpitClientProps,
@@ -21,6 +21,8 @@ export function CockpitClient(props: PortalCockpitClientProps) {
   const scope = scopeFromSearchParams(searchParams)
   const campaignsHref = scopedPortalPath('/portal/campaigns', scope)
   const campaignBasePath = scopedPortalPath(`/portal/campaigns/${props.campaignId}`, scope)
+  const campaignAssetsPath = scopedApiPath(`/api/v1/campaigns/${props.campaignId}/assets`, scope)
+  const approveAllPath = scopedApiPath(`/api/v1/campaigns/${props.campaignId}/approve-all`, scope)
 
   return (
     <CampaignCockpitClient
@@ -30,6 +32,12 @@ export function CockpitClient(props: PortalCockpitClientProps) {
       basePath={campaignBasePath}
       assetApprovalMode="client"
       showClientBlogApprovals
+      apiPaths={{
+        approveAll: approveAllPath,
+        assets: campaignAssetsPath,
+        clientBlogApprove: (contentId) =>
+          scopedApiPath(`/api/v1/seo/content/${encodeURIComponent(contentId)}/client-approve`, scope),
+      }}
     />
   )
 }

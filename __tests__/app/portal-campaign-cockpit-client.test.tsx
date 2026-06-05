@@ -139,6 +139,65 @@ describe('Portal campaign cockpit client', () => {
     expect(tabUrl.searchParams.get('orgSlug')).toBe('lumen-speeds')
   })
 
+  it('preserves CRM company scope on approve-all and asset reload APIs', async () => {
+    searchParams = new URLSearchParams('orgId=lumen-org&orgSlug=lumen-speeds')
+    ;(global.fetch as jest.Mock).mockImplementation((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      if (url === '/api/v1/campaigns/campaign-1/approve-all?orgId=lumen-org' && init?.method === 'POST') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ success: true }),
+        } as Response)
+      }
+      if (url === '/api/v1/campaigns/campaign-1/assets?orgId=lumen-org') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            data: {
+              blogs: [],
+              videos: [],
+              social: [],
+              meta: { byStatus: { pending_approval: 0 } },
+            },
+          }),
+        } as Response)
+      }
+      return Promise.reject(new Error(`Unexpected fetch: ${url}`))
+    })
+
+    render(
+      <CockpitClient
+        campaignId="campaign-1"
+        campaign={{
+          description: 'June campaign for high-value leads',
+          research: { taglines: { master: 'Make every lead count' } },
+        }}
+        assets={{
+          blogs: [],
+          videos: [],
+          social: [],
+          meta: { byStatus: { pending_approval: 2 } },
+        }}
+        brand={undefined}
+        orgName="Lumen"
+        monthLabel="June 2026"
+        shareEnabled={false}
+      />,
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: 'Approve all awaiting assets (2)' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm approve 2 campaign assets' }))
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith('/api/v1/campaigns/campaign-1/approve-all?orgId=lumen-org', {
+        method: 'POST',
+      })
+      expect(global.fetch).toHaveBeenCalledWith('/api/v1/campaigns/campaign-1/assets?orgId=lumen-org')
+      expect(global.fetch).not.toHaveBeenCalledWith('/api/v1/campaigns/campaign-1/approve-all', { method: 'POST' })
+      expect(global.fetch).not.toHaveBeenCalledWith('/api/v1/campaigns/campaign-1/assets')
+    })
+  })
+
   it('exposes generic Social and Videos tabs as shared cockpit destinations', () => {
     render(
       <CockpitClient
@@ -225,5 +284,56 @@ describe('Portal campaign cockpit client', () => {
       'href',
       '/portal/campaigns/campaign-1/blog/blog-1?orgId=lumen-org&orgSlug=lumen-speeds',
     )
+  })
+
+  it('preserves CRM company scope on in-cockpit blog approval APIs', async () => {
+    searchParams = new URLSearchParams('orgId=lumen-org&orgSlug=lumen-speeds&tab=blogs')
+    ;(global.fetch as jest.Mock).mockImplementation((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      if (url === '/api/v1/seo/content/blog-1/client-approve?orgId=lumen-org' && init?.method === 'POST') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ success: true }),
+        } as Response)
+      }
+      return Promise.reject(new Error(`Unexpected fetch: ${url}`))
+    })
+
+    render(
+      <CockpitClient
+        campaignId="campaign-1"
+        campaign={{
+          description: 'June campaign for high-value leads',
+          research: { taglines: { master: 'Make every lead count' } },
+        }}
+        assets={{
+          blogs: [
+            {
+              id: 'blog-1',
+              title: 'Lumen launch blog',
+              status: 'review',
+              draft: { body: 'Draft body', wordCount: 220 },
+            },
+          ],
+          videos: [],
+          social: [],
+          meta: { byStatus: { pending_approval: 1 } },
+        }}
+        brand={undefined}
+        orgName="Lumen"
+        monthLabel="June 2026"
+        shareEnabled={false}
+      />,
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: 'Approve this post ✓' }))
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith('/api/v1/seo/content/blog-1/client-approve?orgId=lumen-org', {
+        method: 'POST',
+      })
+      expect(global.fetch).not.toHaveBeenCalledWith('/api/v1/seo/content/blog-1/client-approve', { method: 'POST' })
+    })
+    expect(await screen.findByText('Approved ✓ — awaiting publishing')).toBeInTheDocument()
   })
 })

@@ -64,6 +64,11 @@ export interface CampaignCockpitClientProps {
   basePath: string
   assetApprovalMode?: 'direct' | 'client'
   showClientBlogApprovals?: boolean
+  apiPaths?: {
+    approveAll: string
+    assets: string
+    clientBlogApprove: (contentId: string) => string
+  }
 }
 
 export function CampaignCockpitClient({
@@ -80,6 +85,7 @@ export function CampaignCockpitClient({
   basePath,
   assetApprovalMode = 'direct',
   showClientBlogApprovals = false,
+  apiPaths,
 }: CampaignCockpitClientProps) {
   const router = useRouter()
   const search = useSearchParams()
@@ -108,12 +114,12 @@ export function CampaignCockpitClient({
     setApproveAllStatus(null)
     setApproveAllError(null)
     try {
-      const r = await fetch(`/api/v1/campaigns/${campaignId}/approve-all`, { method: 'POST' })
+      const r = await fetch(apiPaths?.approveAll ?? `/api/v1/campaigns/${campaignId}/approve-all`, { method: 'POST' })
       if (!r.ok) {
         const json = await r.json().catch(() => ({}))
         throw new Error(json?.error ?? 'Approval failed')
       }
-      const a = await fetch(`/api/v1/campaigns/${campaignId}/assets`).then(res => res.json())
+      const a = await fetch(apiPaths?.assets ?? `/api/v1/campaigns/${campaignId}/assets`).then(res => res.json())
       setAssets(a.data ?? null)
       setApproveAllStatus('All campaign assets are approved and ready for publishing.')
       setShowApproveAllConfirm(false)
@@ -277,6 +283,7 @@ export function CampaignCockpitClient({
             brand={brand}
             basePath={basePath}
             showClientApprovals={showClientBlogApprovals}
+            clientBlogApproveHref={apiPaths?.clientBlogApprove}
           />
         )}
         {tab === 'social' && (
@@ -678,7 +685,13 @@ function emptyCopy(label: string, kind: string): React.ReactNode {
   )
 }
 
-function BlogApproveButton({ contentId, onApproved }: { contentId: string; onApproved: () => void }) {
+function BlogApproveButton({
+  onApproved,
+  approveHref,
+}: {
+  onApproved: () => void
+  approveHref: string
+}) {
   const [loading, setLoading] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
 
@@ -689,7 +702,7 @@ function BlogApproveButton({ contentId, onApproved }: { contentId: string; onApp
     setLoading(true)
     setError(null)
     try {
-      const res = await fetch(`/api/v1/seo/content/${contentId}/client-approve`, { method: 'POST' })
+      const res = await fetch(approveHref, { method: 'POST' })
       if (!res.ok) {
         const json = await res.json().catch(() => ({}))
         throw new Error(json?.error ?? 'Approval failed')
@@ -725,11 +738,13 @@ function BlogsTab({
   brand,
   basePath,
   showClientApprovals,
+  clientBlogApproveHref,
 }: {
   blogs: AnyObj[]
   brand: PreviewBrand | undefined
   basePath: string
   showClientApprovals: boolean
+  clientBlogApproveHref?: (contentId: string) => string
 }) {
   const [statuses, setStatuses] = React.useState<Record<string, string>>({})
 
@@ -756,7 +771,7 @@ function BlogsTab({
             />
             {showClientApprovals && isReview && (
               <BlogApproveButton
-                contentId={b.id}
+                approveHref={clientBlogApproveHref?.(b.id) ?? `/api/v1/seo/content/${b.id}/client-approve`}
                 onApproved={() => setStatuses(prev => ({ ...prev, [b.id]: 'client_approved' }))}
               />
             )}

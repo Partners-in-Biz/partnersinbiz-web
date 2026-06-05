@@ -24,6 +24,8 @@ export default function OrgDocumentsPage() {
   const slug = params.slug
   const search = useSearchParams()
   const activeStatus = (search.get('status') ?? 'all') as ClientDocumentStatus | 'all'
+  const activeType = search.get('type') ?? 'all'
+  const query = (search.get('q') ?? '').trim().toLowerCase()
 
   const [orgId, setOrgId] = useState<string | null>(null)
   const [orgName, setOrgName] = useState('')
@@ -64,8 +66,17 @@ export default function OrgDocumentsPage() {
     }
   }, [orgId])
 
-  const filtered =
-    activeStatus === 'all' ? documents : documents.filter((d) => d.status === activeStatus)
+  const filtered = documents.filter((d) => {
+    const statusMatches = activeStatus === 'all' ? d.status !== 'archived' : d.status === activeStatus
+    const typeMatches = activeType === 'all' || d.type === activeType
+    if (!statusMatches || !typeMatches) return false
+    if (!query) return true
+    return [d.title, d.type, d.status]
+      .filter(Boolean)
+      .join(' ')
+      .toLowerCase()
+      .includes(query)
+  })
   const partyLabels: Record<string, ClientDocumentPartyLabels> = Object.fromEntries(
     filtered.map((document) => [
       document.id,
@@ -77,12 +88,20 @@ export default function OrgDocumentsPage() {
       },
     ]),
   )
-  const statusTabs = STATUS_TABS.map((tab) => ({
-    label: tab.label,
-    value: tab.value,
-    href: tab.value === 'all' ? `/admin/org/${slug}/documents` : `/admin/org/${slug}/documents?status=${tab.value}`,
-    badge: documents.filter((d) => tab.value === 'all' || d.status === tab.value).length,
-  }))
+  const typeOptions = Array.from(new Set(documents.map((doc) => doc.type).filter(Boolean))).sort()
+  const statusTabs = STATUS_TABS.map((tab) => {
+    const tabParams = new URLSearchParams()
+    if (tab.value !== 'all') tabParams.set('status', tab.value)
+    if (activeType !== 'all') tabParams.set('type', activeType)
+    if (query) tabParams.set('q', query)
+    const qs = tabParams.toString()
+    return {
+      label: tab.label,
+      value: tab.value,
+      href: qs ? `/admin/org/${slug}/documents?${qs}` : `/admin/org/${slug}/documents`,
+      badge: documents.filter((d) => tab.value === 'all' ? d.status !== 'archived' : d.status === tab.value).length,
+    }
+  })
 
   return (
     <OrgThemedFrame orgId={orgId} className="-m-6 min-h-screen p-6">
@@ -102,6 +121,36 @@ export default function OrgDocumentsPage() {
           )}
           tabs={<PageLinkTabs tabs={statusTabs} activeValue={activeStatus} ariaLabel="Document status filters" />}
         />
+
+        <form className="bento-card !p-4 grid gap-3 md:grid-cols-[minmax(0,1fr)_220px_auto]" action={`/admin/org/${slug}/documents`}>
+          {activeStatus !== 'all' && <input type="hidden" name="status" value={activeStatus} />}
+          <label className="block">
+            <span className="eyebrow !text-[9px]">Search</span>
+            <input
+              name="q"
+              defaultValue={search.get('q') ?? ''}
+              placeholder="Search title, type, or status..."
+              className="pib-input mt-1"
+            />
+          </label>
+          <label className="block">
+            <span className="eyebrow !text-[9px]">Type</span>
+            <select name="type" defaultValue={activeType} className="pib-select mt-1">
+              <option value="all">All types</option>
+              {typeOptions.map((type) => (
+                <option key={type} value={type}>{type.replaceAll('_', ' ')}</option>
+              ))}
+            </select>
+          </label>
+          <div className="flex items-end gap-2">
+            <button type="submit" className="btn-pib-accent h-10">Apply</button>
+            {(activeType !== 'all' || query) && (
+              <Link href={activeStatus === 'all' ? `/admin/org/${slug}/documents` : `/admin/org/${slug}/documents?status=${activeStatus}`} className="btn-pib-secondary h-10">
+                Clear
+              </Link>
+            )}
+          </div>
+        </form>
 
         {loading ? (
           <div className="space-y-3">

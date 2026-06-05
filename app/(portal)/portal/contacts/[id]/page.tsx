@@ -4,7 +4,8 @@ export const dynamic = 'force-dynamic'
 import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from 'react'
 import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
-import { fmtTimestamp } from '@/components/admin/email/fmtTimestamp'
+import { fmtTimestamp } from '@/lib/format/timestamp'
+import { ContactActivityTimeline, type ContactActivityTimelineActivity } from '@/components/crm/ContactActivityTimeline'
 import { ContactDealsPanel } from '@/components/crm/ContactDealsPanel'
 import { ContactEngagementPanel } from '@/components/crm/ContactEngagementPanel'
 import { CompanyPanel } from '@/components/crm/CompanyPanel'
@@ -131,18 +132,6 @@ interface TeamMemberOption {
   firstName?: string
   lastName?: string
   jobTitle?: string
-}
-
-const ACTIVITY_ICONS: Record<string, string> = {
-  note: 'notes',
-  email_sent: 'mail',
-  email_received: 'inbox',
-  sequence_enrolled: 'route',
-  sequence_completed: 'route',
-  contact_captured: 'add_circle',
-  call: 'call',
-  meeting_scheduled: 'event',
-  stage_change: 'swap_horiz',
 }
 
 const STAGE_OPTIONS = ['new', 'contacted', 'replied', 'demo', 'proposal', 'won', 'lost']
@@ -313,26 +302,10 @@ function emailStatusLabel(email: EmailRecord): string {
   return EMAIL_STATUS_LABELS[key] ?? (fallback ? fallback.charAt(0).toUpperCase() + fallback.slice(1) : 'Email status not captured')
 }
 
-function activityTimeLabel(activity: ActivityRecord): string {
-  return fmtTimestamp(activity.createdAt) || 'Activity time not captured'
-}
-
-function activitySummaryLabel(activity: ActivityRecord): string {
-  const summary = activity.summary?.trim() || activity.notes?.trim()
-  if (summary) return summary
-  return 'Activity summary missing'
-}
-
-function activityContinuationNote(activity: ActivityRecord): string {
+function activityContinuationNote(activity: Pick<ContactActivityTimelineActivity, 'summary' | 'notes'>): string {
   const summary = activity.summary?.trim() || activity.notes?.trim()
   if (!summary) return ''
   return `Follow-up from: ${summary}`
-}
-
-function activityActorLabel(activity: ActivityRecord): string {
-  if (activity.createdByRef?.displayName?.trim()) return activity.createdByRef.displayName
-  if (activity.createdByRef?.uid?.trim()) return 'Activity actor identity missing'
-  return 'Activity actor not captured'
 }
 
 function normalizeSequenceOptions(body: unknown): { id: string; name: string }[] {
@@ -825,7 +798,7 @@ export default function PortalContactDetailPage() {
     setLogError(null)
   }
 
-  function continueFromActivity(activity: ActivityRecord) {
+  function continueFromActivity(activity: ContactActivityTimelineActivity) {
     setLogSummary(activityContinuationNote(activity))
     openFirstNoteComposer()
   }
@@ -1291,6 +1264,7 @@ export default function PortalContactDetailPage() {
     assignedTo && contact.assignedToRef?.uid === assignedTo
       ? contact.assignedToRef
       : teamMemberRef(teamMembers.find((member) => member.uid === assignedTo))
+  const ownerLabel = ownerRef?.displayName?.trim() || (assignedTo ? 'Owner identity missing' : '')
   const sourceLabel = displayLabel(source, SOURCE_LABELS)
   const typeLabel = displayLabel(type, TYPE_LABELS)
   const stageLabel = displayLabel(stage, STAGE_LABELS)
@@ -1300,27 +1274,80 @@ export default function PortalContactDetailPage() {
       value: email.trim(),
       href: email.trim() ? `mailto:${email.trim()}` : '',
       empty: 'No email captured',
-      actionLabel: 'Add email',
-      actionAriaLabel: `Add email from details for ${contactName}`,
+      actionLabel: email.trim() ? 'Edit email' : 'Add email',
+      actionAriaLabel: email.trim()
+        ? `Edit email ${email.trim()} for ${contactName} from details`
+        : `Add email from details for ${contactName}`,
       onAction: () => focusProfileField(emailFieldRef),
+      needsActionWhenValued: true,
     },
     {
       label: 'Phone',
       value: phone.trim(),
       href: phone.trim() ? `tel:${phone.trim()}` : '',
       empty: 'No phone captured',
-      actionLabel: 'Add phone',
-      actionAriaLabel: `Add phone from details for ${contactName}`,
+      actionLabel: phone.trim() ? 'Edit phone' : 'Add phone',
+      actionAriaLabel: phone.trim()
+        ? `Edit phone ${phone.trim()} for ${contactName} from details`
+        : `Add phone from details for ${contactName}`,
       onAction: () => focusProfileField(phoneFieldRef),
+      needsActionWhenValued: true,
     },
     {
       label: 'Linked company',
       value: hasLinkedCompany || hasCompanyContext ? companyLabel : '',
+      href: hasLinkedCompany ? linkedCompanyHref : '',
       empty: 'No company linked',
-      actionLabel: 'Link company',
-      actionAriaLabel: `Link company from details for ${contactName}`,
+      actionLabel: hasLinkedCompany || hasCompanyContext ? 'Edit company' : 'Link company',
+      actionAriaLabel: hasLinkedCompany || hasCompanyContext
+        ? `Edit linked company ${companyLabel} for ${contactName} from details`
+        : `Link company from details for ${contactName}`,
       onAction: focusCompanyPicker,
-      needsActionWhenValued: !hasLinkedCompany,
+      needsActionWhenValued: true,
+    },
+    {
+      label: 'Relationship owner',
+      value: ownerLabel,
+      empty: 'No owner assigned',
+      actionLabel: ownerLabel ? 'Edit owner' : 'Assign owner',
+      actionAriaLabel: ownerLabel
+        ? `Edit relationship owner ${ownerLabel} for ${contactName} from details`
+        : `Assign relationship owner for ${contactName} from details`,
+      onAction: () => focusProfileField(ownerFieldRef),
+      needsActionWhenValued: true,
+    },
+    {
+      label: 'Role',
+      value: jobTitle.trim(),
+      empty: 'No role captured',
+      actionLabel: jobTitle.trim() ? 'Edit role' : 'Add role',
+      actionAriaLabel: jobTitle.trim()
+        ? `Edit role ${jobTitle.trim()} for ${contactName} from details`
+        : `Add role from details for ${contactName}`,
+      onAction: () => focusProfileField(jobTitleFieldRef),
+      needsActionWhenValued: true,
+    },
+    {
+      label: 'Department',
+      value: department.trim(),
+      empty: 'No department captured',
+      actionLabel: department.trim() ? 'Edit department' : 'Add department',
+      actionAriaLabel: department.trim()
+        ? `Edit department ${department.trim()} for ${contactName} from details`
+        : `Add department from details for ${contactName}`,
+      onAction: () => focusProfileField(departmentFieldRef),
+      needsActionWhenValued: true,
+    },
+    {
+      label: 'Timezone',
+      value: timezone.trim(),
+      empty: 'No timezone captured',
+      actionLabel: timezone.trim() ? 'Edit timezone' : 'Add timezone',
+      actionAriaLabel: timezone.trim()
+        ? `Edit timezone ${timezone.trim()} for ${contactName} from details`
+        : `Add timezone from details for ${contactName}`,
+      onAction: () => focusProfileField(timezoneFieldRef),
+      needsActionWhenValued: true,
     },
     {
       label: 'Website',
@@ -1328,17 +1355,34 @@ export default function PortalContactDetailPage() {
       href: websiteHref(website),
       external: true,
       empty: 'No website captured',
-      actionLabel: 'Add website',
-      actionAriaLabel: `Add website from details for ${contactName}`,
+      actionLabel: website.trim() ? 'Edit website' : 'Add website',
+      actionAriaLabel: website.trim()
+        ? `Edit website ${website.trim()} for ${contactName} from details`
+        : `Add website from details for ${contactName}`,
       onAction: () => focusProfileField(websiteFieldRef),
+      needsActionWhenValued: true,
     },
     {
       label: 'Relationship notes',
       value: notes.trim(),
       empty: 'No relationship notes captured',
-      actionLabel: 'Add notes',
-      actionAriaLabel: `Add relationship notes from details for ${contactName}`,
+      actionLabel: notes.trim() ? 'Edit notes' : 'Add notes',
+      actionAriaLabel: notes.trim()
+        ? `Edit relationship notes for ${contactName} from details`
+        : `Add relationship notes from details for ${contactName}`,
       onAction: () => focusProfileField(notesFieldRef),
+      needsActionWhenValued: true,
+    },
+    {
+      label: 'Tags',
+      value: tags.length > 0 ? tags.join(', ') : '',
+      empty: 'No tags captured',
+      actionLabel: tags.length > 0 ? 'Edit tags' : 'Add tags',
+      actionAriaLabel: tags.length > 0
+        ? `Edit tags ${tags.join(', ')} for ${contactName} from details`
+        : `Add tags from details for ${contactName}`,
+      onAction: () => focusProfileField(tagsFieldRef),
+      needsActionWhenValued: true,
     },
     {
       label: 'Source',
@@ -1972,6 +2016,11 @@ export default function PortalContactDetailPage() {
                   ariaLabel: `Capture custom fields for ${contactName}`,
                   onClick: focusCustomFields,
                 }}
+                action={{
+                  label: 'Edit fields',
+                  ariaLabel: `Edit custom fields for ${contactName}`,
+                  onClick: focusCustomFields,
+                }}
               />
             </div>
           )}
@@ -2136,6 +2185,7 @@ export default function PortalContactDetailPage() {
               <CompanyPicker
                 currentCompanyId={editCompanyId}
                 currentCompanyName={editCompanyName}
+                orgScope={routeScope}
                 ariaLabel={`Linked company for ${contactName}`}
                 onChange={({ companyId, companyName }) => {
                   setEditCompanyId(companyId ?? '')
@@ -2683,88 +2733,22 @@ export default function PortalContactDetailPage() {
               )}
             </div>
 
-            {/* B1: Activity timeline */}
-            {activitiesLoading ? (
-              <div className="p-5 space-y-2">
-                {[...Array(3)].map((_, i) => (
-                  <div key={i} className="pib-skeleton h-10" />
-                ))}
-              </div>
-            ) : activities.length === 0 ? (
-              <div className="p-10">
-                <div className="mx-auto flex max-w-lg flex-col items-center gap-3 text-center">
-                  <span
-                    aria-hidden="true"
-                    className="material-symbols-outlined flex h-10 w-10 items-center justify-center rounded-md border border-[var(--color-pib-line)] bg-white/[0.04] text-[20px] text-[var(--color-pib-accent)]"
-                  >
-                    history
-                  </span>
-                  <div>
-                    <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">
-                      Relationship timeline missing
-                    </p>
-                    <h3 className="mt-1 text-base font-semibold text-[var(--color-pib-text)]">Start the first contact note</h3>
-                    <p className="mt-2 text-sm leading-6 text-[var(--color-pib-text-muted)]">
-                      Log the first note, call, email, or meeting so the whole team can see what happened, who followed up, and what should happen next.
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={openFirstNoteComposer}
-                    aria-label={`Start activity trail for ${contactName}`}
-                    className="btn-pib-primary mt-4 inline-flex items-center gap-1.5 text-xs"
-                  >
-                    <span className="material-symbols-outlined text-[14px]" aria-hidden="true">edit_note</span>
-                    Start activity trail
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <div className="px-5 pb-4">
-                {activities.map((a) => (
-                  <div key={a.id} className="flex gap-3 py-3 border-b border-[var(--color-pib-line)] last:border-0">
-                    {/* Icon */}
-                    <div className="shrink-0 w-8 h-8 rounded-full bg-[var(--color-pib-surface)] border border-[var(--color-pib-line)] flex items-center justify-center">
-                      <span className="material-symbols-outlined text-[14px] text-[var(--color-pib-text-muted)]">
-                        {ACTIVITY_ICONS[String(a.type ?? '')] ?? 'circle'}
-                      </span>
-                    </div>
-                    {/* Content */}
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm text-[var(--color-pib-text)]">{activitySummaryLabel(a)}</p>
-                      <p className="text-xs text-[var(--color-pib-text-muted)] mt-0.5">
-                        {activityActorLabel(a)} · {activityTimeLabel(a)}
-                      </p>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => continueFromActivity(a)}
-                      aria-label={`Continue from activity ${activitySummaryLabel(a)} with ${contactName}`}
-                      className="inline-flex shrink-0 items-center gap-1 rounded-md border border-[var(--color-pib-line)] px-2 py-1 text-[11px] font-medium text-[var(--color-pib-accent)] transition-colors hover:border-[var(--color-pib-accent)] hover:text-[var(--color-pib-text)]"
-                    >
-                      <span className="material-symbols-outlined text-[13px]" aria-hidden="true">edit_note</span>
-                      Continue
-                    </button>
-                  </div>
-                ))}
-                {activities.length === 50 && (
-                  <button
-                    type="button"
-                    onClick={loadMoreActivities}
-                    aria-label={`Load more activity for ${contactName}`}
-                    className="text-sm text-[var(--color-pib-text-muted)] w-full py-2 hover:text-[var(--color-pib-text)]"
-                  >
-                    Load more
-                  </button>
-                )}
-              </div>
-            )}
+            <ContactActivityTimeline
+              activities={activities}
+              loading={activitiesLoading}
+              contactName={contactName}
+              onAddNote={openFirstNoteComposer}
+              onContinueActivity={continueFromActivity}
+              hasMore={activities.length === 50}
+              onLoadMore={loadMoreActivities}
+            />
           </div>
 
           <ContactDealsPanel
             contactId={id}
             contactName={contactName}
             orgId={typeof contact.orgId === 'string' ? contact.orgId : ''}
+            orgScope={routeScope}
           />
 
           {/* C3: Sequence enrollment panel */}

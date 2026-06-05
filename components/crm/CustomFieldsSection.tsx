@@ -16,6 +16,11 @@ export interface CustomFieldsSectionProps {
     ariaLabel: string
     onClick: () => void
   }
+  action?: {
+    label: string
+    ariaLabel: string
+    onClick: () => void
+  }
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -43,7 +48,7 @@ function allValuesEmpty(defs: CustomFieldDefinition[], values: Record<string, un
 
 // ── Public component ──────────────────────────────────────────────────────────
 
-export function CustomFieldsSection({ definitions, values, onChange, mode, emptyAction }: CustomFieldsSectionProps) {
+export function CustomFieldsSection({ definitions, values, onChange, mode, emptyAction, action }: CustomFieldsSectionProps) {
   if (definitions.length === 0) return null
 
   if (mode === 'read' && allValuesEmpty(definitions, values)) {
@@ -74,6 +79,19 @@ export function CustomFieldsSection({ definitions, values, onChange, mode, empty
 
   return (
     <div className="space-y-6">
+      {mode === 'read' && action && (
+        <div className="flex justify-end">
+          <button
+            type="button"
+            onClick={action.onClick}
+            aria-label={action.ariaLabel}
+            className="inline-flex items-center gap-1 rounded-md border border-[var(--color-pib-line)] px-2 py-1 text-xs font-medium text-[var(--color-pib-text)] transition-colors hover:bg-white/10"
+          >
+            <span className="material-symbols-outlined text-[14px]">edit_note</span>
+            {action.label}
+          </button>
+        </div>
+      )}
       {Array.from(groups.entries()).map(([group, defs]) => (
         <section key={group}>
           <h4 className="text-xs font-label text-[var(--color-pib-text-muted)] uppercase tracking-wider mb-3">

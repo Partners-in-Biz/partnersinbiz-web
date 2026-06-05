@@ -2,7 +2,7 @@ import React from 'react'
 import { render, screen } from '@testing-library/react'
 import PortalSequenceAnalyticsPage from '@/app/(portal)/portal/email-analytics/sequences/[id]/page'
 
-jest.mock('@/components/admin/email-analytics/charts', () => ({
+jest.mock('@/components/email-analytics/charts', () => ({
   BarChart: () => <div data-testid="bar-chart" />,
   Donut: () => <div data-testid="donut-chart" />,
 }))

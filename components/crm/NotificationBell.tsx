@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef, useCallback } from 'react'
 import type { Notification } from '@/lib/notifications/types'
-import { fmtTimestamp } from '@/components/admin/email/fmtTimestamp'
+import { fmtTimestamp } from '@/lib/format/timestamp'
 
 type NotificationWithId = Notification & { id: string }
 

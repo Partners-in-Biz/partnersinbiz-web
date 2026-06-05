@@ -17,6 +17,8 @@ interface CommunicationsConsoleProps {
   mode: 'admin' | 'portal'
   initialOrgId?: string
   initialOrgSlug?: string
+  sourceCompanyId?: string
+  sourceCompanyName?: string
 }
 
 type ConsoleView = 'inbox' | 'templates' | 'campaigns' | 'automations' | 'channels' | 'analytics'
@@ -86,7 +88,13 @@ const FILTER_LABELS: Array<{ id: InboxFilter; label: string }> = [
 
 const FIELD_CLASS = 'w-full rounded-lg border border-[var(--color-card-border)] bg-[var(--color-surface-container)] px-3 py-2 text-sm text-[var(--color-pib-text)] outline-none focus:border-[var(--color-pib-accent)]'
 
-export function CommunicationsConsole({ mode, initialOrgId = '', initialOrgSlug = '' }: CommunicationsConsoleProps) {
+export function CommunicationsConsole({
+  mode,
+  initialOrgId = '',
+  initialOrgSlug = '',
+  sourceCompanyId = '',
+  sourceCompanyName = '',
+}: CommunicationsConsoleProps) {
   const { selectedOrgId, orgName, orgs } = useOrg()
   const [view, setView] = useState<ConsoleView>('inbox')
   const [filter, setFilter] = useState<InboxFilter>('open')
@@ -106,6 +114,15 @@ export function CommunicationsConsole({ mode, initialOrgId = '', initialOrgSlug 
 
   const requestedOrgId = initialOrgId.trim()
   const requestedOrgSlug = initialOrgSlug.trim()
+  const sourceContext = {
+    orgId: requestedOrgId || undefined,
+    orgSlug: requestedOrgSlug || undefined,
+    sourceCompanyId: sourceCompanyId.trim() || undefined,
+    sourceCompanyName: sourceCompanyName.trim() || undefined,
+  }
+  const workspaceLabel = sourceContext.sourceCompanyName
+    ? `${sourceContext.sourceCompanyName} workspace`
+    : activeWorkspaceLabel(mode, requestedOrgSlug, requestedOrgId)
   const linkedOrg = requestedOrgSlug ? orgs.find((org) => org.slug === requestedOrgSlug) : undefined
   const activeOrgId = mode === 'portal'
     ? requestedOrgId || portalOrgId
@@ -122,7 +139,7 @@ export function CommunicationsConsole({ mode, initialOrgId = '', initialOrgSlug 
   const canLoad = Boolean(activeOrgId) && (mode === 'admin' || portalOrgReady)
   const marketingHref = mode === 'admin'
     ? '/admin/marketing'
-    : scopedPortalPath('/portal/marketing', { orgId: activeOrgId, orgSlug: requestedOrgSlug })
+    : scopedPortalPath('/portal/marketing', { ...sourceContext, orgId: activeOrgId, orgSlug: requestedOrgSlug })
 
   useEffect(() => {
     if (mode !== 'portal') return
@@ -256,7 +273,7 @@ export function CommunicationsConsole({ mode, initialOrgId = '', initialOrgSlug 
       <header className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
           <p className="eyebrow">{mode === 'admin' ? 'Admin console' : 'Organisation console'}</p>
-          <h1 className="pib-page-title mt-2">Communications</h1>
+          <h1 className="pib-page-title mt-2">Communications command center</h1>
           <p className="pib-page-sub mt-2 max-w-3xl">
             Manage customer conversations, templates, campaigns, opt-ins, routing, channel health, and performance across WhatsApp, SMS, email, in-app, Messenger, and Instagram.
           </p>
@@ -271,6 +288,25 @@ export function CommunicationsConsole({ mode, initialOrgId = '', initialOrgSlug 
           Marketing
         </Link>
       </header>
+
+      <section className="grid gap-3 md:grid-cols-3" aria-label="Communications command summary">
+        {[
+          ['Workspace', workspaceLabel, activeOrgId || 'Resolving organisation', 'business_center'],
+          ['Inbox control', `${FILTER_LABELS.length} queues`, 'Open, owned, pending, resolved, and snoozed work', 'inbox'],
+          ['Human handoff', 'Approval gated', 'Drafts, Hermes suggestions, and outbound replies stay accountable', 'approval'],
+        ].map(([label, value, sub, icon]) => (
+          <div key={label} className="rounded-xl border border-[var(--color-card-border)] bg-[var(--color-surface)] p-4">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">{label}</p>
+                <p className="mt-2 text-lg font-semibold text-[var(--color-pib-text)]">{value}</p>
+              </div>
+              <span className="material-symbols-outlined text-lg text-[var(--color-pib-accent)]" aria-hidden="true">{icon}</span>
+            </div>
+            <p className="mt-2 text-xs text-[var(--color-pib-text-muted)]">{sub}</p>
+          </div>
+        ))}
+      </section>
 
       {!canLoad && (
         <div className="pib-card p-5">
@@ -319,6 +355,13 @@ export function CommunicationsConsole({ mode, initialOrgId = '', initialOrgSlug 
       {view === 'analytics' && <AnalyticsView analytics={analytics} />}
     </div>
   )
+}
+
+function activeWorkspaceLabel(mode: 'admin' | 'portal', slug: string, orgId: string) {
+  if (mode === 'admin') return slug || orgId || 'Admin selected workspace'
+  if (slug) return `${slug} workspace`
+  if (orgId) return `${orgId} workspace`
+  return 'Active workspace'
 }
 
 function InboxView({

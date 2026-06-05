@@ -8,7 +8,7 @@ import {
   type CampaignBlogDetailComment,
   type CampaignBlogDetailRecord,
 } from '@/components/campaign-blog-detail/CampaignBlogDetailWorkspace'
-import { scopedPortalPath, scopeFromSearchParams } from '@/lib/portal/scoped-routing'
+import { scopedApiPath, scopedPortalPath, scopeFromSearchParams } from '@/lib/portal/scoped-routing'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnyObj = any
@@ -55,6 +55,10 @@ function PortalCampaignBlogDetail({
   const [loadError, setLoadError] = useState<string | null>(null)
   const [actionError, setActionError] = useState<string | null>(null)
   const [busy, setBusy] = useState<null | 'approve' | 'comment'>(null)
+  const orgScope = scopeFromSearchParams(searchParams)
+  const campaignAssetsEndpoint = scopedApiPath(`/api/v1/campaigns/${campaignId}/assets`, orgScope)
+  const commentsEndpoint = scopedApiPath(`/api/v1/seo/content/${blogId}/comments`, orgScope)
+  const approveEndpoint = scopedApiPath(`/api/v1/seo/content/${blogId}/client-approve`, orgScope)
 
   useEffect(() => {
     if (!campaignId || !blogId) {
@@ -69,12 +73,12 @@ function PortalCampaignBlogDetail({
     setActionError(null)
 
     Promise.all([
-      fetch(`/api/v1/campaigns/${campaignId}/assets`).then(async response => {
+      fetch(campaignAssetsEndpoint).then(async response => {
         const body = await response.json().catch(() => ({}))
         if (!response.ok) throw new Error(body?.error ?? 'Campaign assets could not load.')
         return body
       }),
-      fetch(`/api/v1/seo/content/${blogId}/comments`).then(async response => {
+      fetch(commentsEndpoint).then(async response => {
         const body = await response.json().catch(() => ({}))
         if (!response.ok) throw new Error(body?.error ?? 'Comments could not load.')
         return body
@@ -97,15 +101,15 @@ function PortalCampaignBlogDetail({
     return () => {
       cancelled = true
     }
-  }, [campaignId, blogId])
+  }, [campaignId, blogId, campaignAssetsEndpoint, commentsEndpoint])
 
   const campaignBlogsHref = scopedPortalPath(
     `/portal/campaigns/${campaignId}?tab=blogs`,
-    scopeFromSearchParams(searchParams),
+    orgScope,
   )
 
   async function refreshComments() {
-    const refreshed = await fetch(`/api/v1/seo/content/${blogId}/comments`).then(response => response.json())
+    const refreshed = await fetch(commentsEndpoint).then(response => response.json())
     setComments((refreshed.data ?? []) as CampaignBlogDetailComment[])
   }
 
@@ -114,7 +118,7 @@ function PortalCampaignBlogDetail({
     setBusy('comment')
     setActionError(null)
     try {
-      const response = await fetch(`/api/v1/seo/content/${blogId}/comments`, {
+      const response = await fetch(commentsEndpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(commentPayload(text, anchor)),
@@ -141,7 +145,7 @@ function PortalCampaignBlogDetail({
     setBusy('approve')
     setActionError(null)
     try {
-      const response = await fetch(`/api/v1/seo/content/${blogId}/client-approve`, {
+      const response = await fetch(approveEndpoint, {
         method: 'POST',
       })
       const body = await response.json().catch(() => ({}))

@@ -65,3 +65,59 @@ export function assertNoRawSecrets(input: unknown): void {
   }
   visit(input)
 }
+
+export type WorkspaceRegistryProvider = 'google_workspace'
+export type WorkspaceRegistryOwner = { type: 'agent' | 'user' | 'system' | null; id: string | null }
+export type WorkspaceRegistryAudit = {
+  approvalStatus: string | null
+  auditStatus: string | null
+  riskLevel: string | null
+  approvalGateTaskId: string | null
+  lastReviewedAt: string | null
+  lastReviewedBy: string | null
+  notes: string | null
+}
+export type SafeMetadata = Record<string, unknown>
+
+export function normalizeRegistryOwner(value: unknown, fallbackAgentId?: unknown, fallbackUserId?: unknown): WorkspaceRegistryOwner {
+  const body = asRecord(value)
+  const fallbackType = cleanString(fallbackAgentId) ? 'agent' : cleanString(fallbackUserId) ? 'user' : 'agent'
+  const type = enumValue(body.type, ['agent', 'user', 'system'] as const, fallbackType, 'owner.type')
+  const id = cleanString(body.id) ?? cleanString(fallbackAgentId) ?? cleanString(fallbackUserId)
+  return { type: id ? type : null, id }
+}
+
+export function normalizeRegistryAudit(value: unknown, fallbacks: Partial<WorkspaceRegistryAudit> = {}): WorkspaceRegistryAudit {
+  const body = asRecord(value)
+  return {
+    approvalStatus: cleanString(body.approvalStatus) ?? fallbacks.approvalStatus ?? null,
+    auditStatus: cleanString(body.auditStatus) ?? fallbacks.auditStatus ?? 'unknown',
+    riskLevel: cleanString(body.riskLevel) ?? fallbacks.riskLevel ?? null,
+    approvalGateTaskId: cleanString(body.approvalGateTaskId) ?? fallbacks.approvalGateTaskId ?? null,
+    lastReviewedAt: cleanIsoString(body.lastReviewedAt, 'audit.lastReviewedAt') ?? fallbacks.lastReviewedAt ?? null,
+    lastReviewedBy: cleanString(body.lastReviewedBy) ?? fallbacks.lastReviewedBy ?? null,
+    notes: cleanString(body.notes) ?? fallbacks.notes ?? null,
+  }
+}
+
+function sanitizeSafeMetadataValue(value: unknown): unknown {
+  if (value === null || typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') return value
+  if (Array.isArray(value)) return value.map(sanitizeSafeMetadataValue).filter((item) => item !== undefined)
+  if (value && typeof value === 'object') {
+    const result: Record<string, unknown> = {}
+    for (const [key, child] of Object.entries(value as Record<string, unknown>)) {
+      const cleanKey = cleanString(key)
+      if (!cleanKey) continue
+      const sanitized = sanitizeSafeMetadataValue(child)
+      if (sanitized !== undefined) result[cleanKey] = sanitized
+    }
+    return result
+  }
+  return undefined
+}
+
+export function normalizeSafeMetadata(value: unknown): SafeMetadata {
+  assertNoRawSecrets(value)
+  const sanitized = sanitizeSafeMetadataValue(asRecord(value))
+  return asRecord(sanitized)
+}

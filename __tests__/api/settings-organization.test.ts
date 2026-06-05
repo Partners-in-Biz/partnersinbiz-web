@@ -7,6 +7,7 @@ const mockOrgUpdate = jest.fn()
 const mockOrgDoc = jest.fn()
 const mockCollection = jest.fn()
 const mockResolvePortalActiveOrgId = jest.fn()
+const mockCanUsePortalOrg = jest.fn()
 
 jest.mock('@/lib/firebase/admin', () => ({
   adminDb: { collection: mockCollection },
@@ -17,6 +18,7 @@ jest.mock('@/lib/auth/portal-middleware', () => ({
       (req: NextRequest) => handler(req, 'uid-1'),
 }))
 jest.mock('@/lib/portal/org-access', () => ({
+  canUsePortalOrg: mockCanUsePortalOrg,
   resolvePortalActiveOrgId: mockResolvePortalActiveOrgId,
 }))
 jest.mock('@/lib/platform-owner/relationships', () => ({
@@ -69,6 +71,7 @@ const baseOrg = {
 
 function stage(role = 'owner', orgPatch: Record<string, unknown> = {}) {
   mockResolvePortalActiveOrgId.mockResolvedValue('org-1')
+  mockCanUsePortalOrg.mockResolvedValue(true)
   mockUserGet.mockResolvedValue({ exists: true, data: () => ({ activeOrgId: 'org-1' }) })
   mockOrgGet.mockResolvedValue({
     exists: true,
@@ -115,6 +118,16 @@ describe('GET /api/v1/portal/settings/organization', () => {
       },
       permissions: { canEdit: true },
     })
+  })
+
+  it('returns organisation details for a requested CRM company workspace org', async () => {
+    const { GET } = await import('@/app/api/v1/portal/settings/organization/route')
+    const res = await GET(new NextRequest('http://localhost/api/v1/portal/settings/organization?orgId=lumen-org'))
+
+    expect(res.status).toBe(200)
+    expect(mockCanUsePortalOrg).toHaveBeenCalledWith('uid-1', { activeOrgId: 'org-1' }, 'lumen-org')
+    expect(mockOrgDoc).toHaveBeenCalledWith('lumen-org')
+    expect(mockResolvePortalActiveOrgId).not.toHaveBeenCalled()
   })
 })
 
@@ -187,6 +200,24 @@ describe('PATCH /api/v1/portal/settings/organization', () => {
     })
     expect(update.active).toBeUndefined()
     expect(update.billingDetails.bankingDetails.accountNumber).toBe('123')
+  })
+
+  it('updates organisation details for a requested CRM company workspace org', async () => {
+    stage('admin')
+
+    const { PATCH } = await import('@/app/api/v1/portal/settings/organization/route')
+    const req = new NextRequest('http://localhost/api/v1/portal/settings/organization?orgId=lumen-org', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: 'Lumen Speeds Holdings' }),
+    })
+    const res = await PATCH(req)
+
+    expect(res.status).toBe(200)
+    expect(mockCanUsePortalOrg).toHaveBeenCalledWith('uid-1', { activeOrgId: 'org-1' }, 'lumen-org')
+    expect(mockOrgDoc).toHaveBeenCalledWith('lumen-org')
+    expect(mockOrgUpdate).toHaveBeenCalledWith(expect.objectContaining({ name: 'Lumen Speeds Holdings' }))
+    expect(mockResolvePortalActiveOrgId).not.toHaveBeenCalled()
   })
 
   it('blocks portal members and viewers from editing organisation details', async () => {

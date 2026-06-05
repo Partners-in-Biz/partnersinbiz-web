@@ -62,7 +62,12 @@ describe('portal reports page', () => {
   })
 
   it('loads reports for the company-scoped portal org when opened from CRM workspace', async () => {
-    mockSearchParams = new URLSearchParams({ orgId: 'lumen-org', orgSlug: 'lumen-speeds' })
+    mockSearchParams = new URLSearchParams({
+      orgId: 'lumen-org',
+      orgSlug: 'lumen-speeds',
+      sourceCompanyId: 'company-1',
+      sourceCompanyName: 'Lumen',
+    })
     global.fetch = jest.fn((input: RequestInfo | URL) => {
       const url = String(input)
       if (url === '/api/v1/portal/reports?orgId=lumen-org') {
@@ -94,7 +99,7 @@ describe('portal reports page', () => {
     expect(global.fetch).not.toHaveBeenCalledWith('/api/v1/portal/reports')
     expect(screen.getByRole('link', { name: /crm reports/i })).toHaveAttribute(
       'href',
-      '/portal/reports/crm?orgId=lumen-org&orgSlug=lumen-speeds',
+      '/portal/reports/crm?orgId=lumen-org&orgSlug=lumen-speeds&sourceCompanyId=company-1&sourceCompanyName=Lumen',
     )
   })
 })

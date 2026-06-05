@@ -1,7 +1,8 @@
 'use client'
 
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import { usePathname, useSearchParams } from 'next/navigation'
+import { scopedPortalPath, scopeFromSearchParams } from '@/lib/portal/scoped-routing'
 
 interface SettingsNavProps {
   name: string
@@ -43,6 +44,14 @@ function canSee(linkMinRole: string | null, userRole: string | null): boolean {
 
 export function SettingsNav({ name, email, initials, role, collapsed }: SettingsNavProps) {
   const pathname = usePathname()
+  const searchParams = useSearchParams()
+  const routeScope = scopeFromSearchParams(searchParams)
+  const scopedWorkspaceLinks = WORKSPACE_LINKS
+    .filter((link) => canSee(link.minRole, role))
+    .map((link) => ({
+      ...link,
+      scopedHref: scopedPortalPath(link.href, routeScope),
+    }))
 
   if (collapsed) {
     return (
@@ -55,10 +64,13 @@ export function SettingsNav({ name, email, initials, role, collapsed }: Settings
         >
           <span className="material-symbols-outlined text-[18px]" aria-hidden="true">arrow_back</span>
         </Link>
-        {[...ACCOUNT_LINKS, ...WORKSPACE_LINKS.filter((l) => canSee(l.minRole, role))].map((link) => (
+        {[
+          ...ACCOUNT_LINKS.map((link) => ({ ...link, scopedHref: link.href })),
+          ...scopedWorkspaceLinks,
+        ].map((link) => (
           <Link
             key={link.href}
-            href={link.href}
+            href={link.scopedHref}
             title={link.label}
             aria-label={link.label}
             className={[
@@ -125,12 +137,12 @@ export function SettingsNav({ name, email, initials, role, collapsed }: Settings
 
         <div className="space-y-0.5">
           <p className="eyebrow !text-[10px] px-3 mb-2">Workspace</p>
-          {WORKSPACE_LINKS.filter((l) => canSee(l.minRole, role)).map((link) => {
+          {scopedWorkspaceLinks.map((link) => {
             const on = pathname === link.href || pathname.startsWith(link.href + '/')
             return (
               <Link
                 key={link.href}
-                href={link.href}
+                href={link.scopedHref}
                 aria-label={link.label}
                 className={[
                   'flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors',

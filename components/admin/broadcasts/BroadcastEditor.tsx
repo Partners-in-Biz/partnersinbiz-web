@@ -1,8 +1,8 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import AiAssistantPanel from '@/components/admin/email/AiAssistantPanel'
-import PreflightPanel from '@/components/admin/email/PreflightPanel'
+import AiAssistantPanel from '@/components/email/AiAssistantPanel'
+import PreflightPanel from '@/components/email/PreflightPanel'
 import { PageTabs } from '@/components/ui/AppFoundation'
 import type { Broadcast, BroadcastStatus } from '@/lib/broadcasts/types'
 import type { PreflightReport } from '@/lib/email/preflight'

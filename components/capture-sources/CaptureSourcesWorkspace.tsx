@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState, useCallback } from 'react'
 import Link from 'next/link'
 import type { CaptureSource, CaptureSourceType } from '@/lib/crm/captureSources'
-import { fmtTimestamp } from '@/components/admin/email/fmtTimestamp'
+import { fmtTimestamp } from '@/lib/format/timestamp'
 
 interface CampaignSummary {
   id: string

@@ -21,5 +21,21 @@ describe('CRM contacts shared workspace standard', () => {
       expect(routeSource).not.toContain('ContactsBulkCommandBar')
       expect(routeSource).not.toContain('ContactDuplicateCommandCenter')
     }
+
+    expect(source('components/crm/ContactsWorkspace.tsx')).toMatch(/<SavedViewsBar[\s\S]*?orgScope=\{apiScope\}/)
+  })
+
+  it('keeps contact creation and editing on the shared CRM contact form', () => {
+    const sharedFormPath = path.join(repoRoot, 'components/crm/ContactForm.tsx')
+    const adminContactDetail = source('app/(admin)/admin/crm/contacts/[id]/page.tsx')
+    const portalCompanyDetail = source('app/(portal)/portal/companies/[id]/page.tsx')
+    const sharedContactsWorkspace = source('components/crm/ContactsWorkspace.tsx')
+
+    expect(fs.existsSync(sharedFormPath)).toBe(true)
+
+    for (const routeSource of [adminContactDetail, portalCompanyDetail, sharedContactsWorkspace]) {
+      expect(routeSource).toContain('@/components/crm/ContactForm')
+      expect(routeSource).not.toContain('@/components/admin/crm/ContactForm')
+    }
   })
 })

@@ -1,9 +1,16 @@
 import React from 'react'
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import OrganizationSettingsPage from '@/app/(portal)/portal/settings/organization/page'
+
+let mockSearchParams = new URLSearchParams()
+
+jest.mock('next/navigation', () => ({
+  useSearchParams: () => mockSearchParams,
+}))
 
 describe('Portal organisation settings page', () => {
   beforeEach(() => {
+    mockSearchParams = new URLSearchParams()
     global.fetch = jest.fn((input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input)
       if (url === '/api/v1/portal/settings/organization' && !init?.method) {
@@ -31,7 +38,7 @@ describe('Portal organisation settings page', () => {
                 invoiceInstructions: 'Email invoices monthly.',
               },
             },
-            permissions: { canEdit: true },
+            permissions: { canEdit: true, role: 'owner' },
           }),
         } as Response)
       }
@@ -58,6 +65,21 @@ describe('Portal organisation settings page', () => {
     expect(screen.queryByLabelText(/Account number/i)).not.toBeInTheDocument()
   })
 
+  it('summarizes organisation readiness before the long CRM settings form', async () => {
+    render(<OrganizationSettingsPage />)
+
+    const commandCenter = await screen.findByRole('region', { name: 'Organisation command center' })
+
+    expect(commandCenter).toBeInTheDocument()
+    expect(within(commandCenter).getByRole('heading', { name: 'Organisation command center' })).toBeInTheDocument()
+    expect(within(commandCenter).getByText('4 ready areas')).toBeInTheDocument()
+    expect(within(commandCenter).getByText('Owner access')).toBeInTheDocument()
+    expect(within(commandCenter).getByText('Purchase order required')).toBeInTheDocument()
+    expect(within(commandCenter).getByText('Client Legal Pty Ltd')).toBeInTheDocument()
+    expect(within(commandCenter).getByText('accounts@client.example')).toBeInTheDocument()
+    expect(within(commandCenter).getByText('Owner Person')).toBeInTheDocument()
+  })
+
   it('saves organisation detail changes back to the portal route', async () => {
     render(<OrganizationSettingsPage />)
 
@@ -73,6 +95,63 @@ describe('Portal organisation settings page', () => {
           body: expect.stringContaining('Updated Legal Pty Ltd'),
         }),
       )
+    })
+  })
+
+  it('loads and saves organisation details through the active company workspace scope', async () => {
+    mockSearchParams = new URLSearchParams({
+      orgId: 'lumen-org',
+      orgSlug: 'lumen-speeds',
+      sourceCompanyId: 'company-1',
+      sourceCompanyName: 'Lumen',
+    })
+    global.fetch = jest.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      if (url === '/api/v1/portal/settings/organization?orgId=lumen-org' && !init?.method) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            organization: {
+              id: 'lumen-org',
+              name: 'Lumen',
+              billingEmail: 'accounts@lumenspeeds.com',
+              billingDetails: {
+                legalName: 'Lumen Speeds Pty Ltd',
+                registrationNumber: '2024/123456/07',
+                accountsContact: { name: 'Lumen Accounts', email: 'accounts@lumenspeeds.com' },
+                authorizedSignatory: { name: 'Lumen Owner', email: 'owner@lumenspeeds.com' },
+              },
+            },
+            permissions: { canEdit: true, role: 'admin' },
+          }),
+        } as Response)
+      }
+      if (url === '/api/v1/portal/settings/organization?orgId=lumen-org' && init?.method === 'PATCH') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ updated: true }),
+        } as Response)
+      }
+      return Promise.resolve({ ok: false, json: async () => ({ error: `unexpected fetch: ${url}` }) } as Response)
+    }) as jest.Mock
+
+    render(<OrganizationSettingsPage />)
+
+    const legalName = await screen.findByLabelText(/Legal company name/i)
+    expect(legalName).toHaveValue('Lumen Speeds Pty Ltd')
+    fireEvent.change(legalName, { target: { value: 'Lumen Speeds Holdings' } })
+    fireEvent.click(screen.getByRole('button', { name: /Save organisation details/i }))
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith('/api/v1/portal/settings/organization?orgId=lumen-org')
+      expect(global.fetch).toHaveBeenCalledWith(
+        '/api/v1/portal/settings/organization?orgId=lumen-org',
+        expect.objectContaining({
+          method: 'PATCH',
+          body: expect.stringContaining('Lumen Speeds Holdings'),
+        }),
+      )
+      expect(global.fetch).not.toHaveBeenCalledWith('/api/v1/portal/settings/organization')
     })
   })
 })

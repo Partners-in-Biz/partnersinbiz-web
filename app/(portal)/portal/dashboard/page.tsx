@@ -6,7 +6,7 @@ import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import { ProfileCompleteBanner } from '@/components/settings/ProfileCompleteBanner'
 import { TopCompaniesByPipelineTile } from '@/components/dashboard/TopCompaniesByPipelineTile'
-import { fmtTimestamp } from '@/components/admin/email/fmtTimestamp'
+import { fmtTimestamp } from '@/lib/format/timestamp'
 import { ScheduledContentPreviewCards, type ScheduledContentPost } from '@/components/social/ScheduledContentPreviewCards'
 import { DonutChart, HorizontalBarChart, StatCardWithChart, TrendAreaChart } from '@/components/ui/Charts'
 import { EmptyState, PageHeader, Surface } from '@/components/ui/AppFoundation'
@@ -677,7 +677,7 @@ export default function PortalDashboard() {
       </section>
 
       {/* CRM — Top companies tile (self-hides when no companies exist) */}
-      <TopCompaniesByPipelineTile />
+      <TopCompaniesByPipelineTile orgScope={orgScope} />
 
       {/* Pipeline / CRM section */}
       {!crmLoading && crmData && (

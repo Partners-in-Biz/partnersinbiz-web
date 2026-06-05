@@ -51,9 +51,10 @@ interface CrossProjectBoardProps {
   loading: boolean
   onTaskUpdate: (projectId: string, taskId: string, patch: Partial<Task>) => void
   sortMode?: 'latest' | 'manual'
+  buildProjectHref?: (projectId: string) => string
 }
 
-export function CrossProjectBoard({ tasks: initialTasks, loading, onTaskUpdate, sortMode = 'latest' }: CrossProjectBoardProps) {
+export function CrossProjectBoard({ tasks: initialTasks, loading, onTaskUpdate, sortMode = 'latest', buildProjectHref }: CrossProjectBoardProps) {
   const [tasks, setTasks] = useState<BoardTask[]>([])
   const [activeTask, setActiveTask] = useState<BoardTask | null>(null)
   const [selectedTask, setSelectedTask] = useState<BoardTask | null>(null)
@@ -177,6 +178,7 @@ export function CrossProjectBoard({ tasks: initialTasks, loading, onTaskUpdate, 
                 key={column.id}
                 column={column}
                 tasks={getTasksForColumn(column.id)}
+                buildProjectHref={buildProjectHref}
                 onTaskClick={setSelectedTask}
               />
             )
@@ -189,6 +191,7 @@ export function CrossProjectBoard({ tasks: initialTasks, loading, onTaskUpdate, 
               task={activeTask}
               projectId={activeTask.projectId}
               projectName={activeTask.projectName}
+              projectHref={buildProjectHref?.(activeTask.projectId)}
               onClick={() => {}}
             />
           ) : null}

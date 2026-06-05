@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
+import { scopedApiPath, type PortalOrgRouteScope } from '@/lib/portal/scoped-routing'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -18,13 +19,14 @@ interface CreateFormState {
 export interface CompanyPickerProps {
   currentCompanyId?: string
   currentCompanyName?: string
+  orgScope?: PortalOrgRouteScope
   ariaLabel?: string
   onChange: (val: { companyId: string | null; companyName: string | null }) => void
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
-export function CompanyPicker({ currentCompanyId, currentCompanyName, ariaLabel = 'Search companies', onChange }: CompanyPickerProps) {
+export function CompanyPicker({ currentCompanyId, currentCompanyName, orgScope, ariaLabel = 'Search companies', onChange }: CompanyPickerProps) {
   const [query, setQuery] = useState(currentCompanyName ?? '')
   const [results, setResults] = useState<CompanyResult[]>([])
   const [open, setOpen] = useState(false)
@@ -35,6 +37,7 @@ export function CompanyPicker({ currentCompanyId, currentCompanyName, ariaLabel 
 
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const containerRef = useRef<HTMLDivElement>(null)
+  const companyScope = orgScope ?? {}
 
   // Close dropdown on outside click
   useEffect(() => {
@@ -60,7 +63,7 @@ export function CompanyPicker({ currentCompanyId, currentCompanyName, ariaLabel 
     debounceRef.current = setTimeout(async () => {
       setLoading(true)
       try {
-        const res = await fetch(`/api/v1/crm/companies?search=${encodeURIComponent(q)}&limit=10`)
+        const res = await fetch(scopedApiPath(`/api/v1/crm/companies?search=${encodeURIComponent(q)}&limit=10`, companyScope))
         if (res.ok) {
           const body = await res.json()
           const raw: CompanyResult[] = body.data?.companies ?? body.data ?? []
@@ -93,7 +96,7 @@ export function CompanyPicker({ currentCompanyId, currentCompanyName, ariaLabel 
     if (!createForm.name.trim()) return
     setCreating(true)
     try {
-      const res = await fetch('/api/v1/crm/companies', {
+      const res = await fetch(scopedApiPath('/api/v1/crm/companies', companyScope), {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ name: createForm.name.trim(), domain: createForm.domain || undefined }),
