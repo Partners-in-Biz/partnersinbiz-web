@@ -5,7 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } fro
 import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { fmtTimestamp } from '@/lib/format/timestamp'
-import { ContactActivityTimeline } from '@/components/crm/ContactActivityTimeline'
+import { ContactActivityTimeline, type ContactActivityTimelineActivity } from '@/components/crm/ContactActivityTimeline'
 import { ContactDealsPanel } from '@/components/crm/ContactDealsPanel'
 import { ContactEngagementPanel } from '@/components/crm/ContactEngagementPanel'
 import { CompanyPanel } from '@/components/crm/CompanyPanel'
@@ -302,7 +302,7 @@ function emailStatusLabel(email: EmailRecord): string {
   return EMAIL_STATUS_LABELS[key] ?? (fallback ? fallback.charAt(0).toUpperCase() + fallback.slice(1) : 'Email status not captured')
 }
 
-function activityContinuationNote(activity: ActivityRecord): string {
+function activityContinuationNote(activity: Pick<ContactActivityTimelineActivity, 'summary' | 'notes'>): string {
   const summary = activity.summary?.trim() || activity.notes?.trim()
   if (!summary) return ''
   return `Follow-up from: ${summary}`
@@ -798,7 +798,7 @@ export default function PortalContactDetailPage() {
     setLogError(null)
   }
 
-  function continueFromActivity(activity: ActivityRecord) {
+  function continueFromActivity(activity: ContactActivityTimelineActivity) {
     setLogSummary(activityContinuationNote(activity))
     openFirstNoteComposer()
   }
