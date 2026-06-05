@@ -126,6 +126,18 @@ export const notificationAdapter: BriefingSourceAdapter<NotificationDocument> = 
       return 'review'
     }
 
+    // Completed client-document acceptance/approval is evidence, not a fresh risk or approval gate.
+    // The document workflow has already recorded the client-visible decision, so keep it out of
+    // action lanes unless another source creates an explicit follow-up task.
+    if (type === 'client_document.approved' || type === 'client_document.accepted') {
+      return 'fyi'
+    }
+
+    // Read notifications are FYI; a read client notification should not keep Risk/Action badges alive.
+    if (doc.status === 'read') {
+      return 'fyi'
+    }
+
     // Critical notification types
     if (type.includes('error') || type.includes('incident') || type.includes('alert') || doc.priority === 'urgent') {
       return 'critical'
@@ -139,11 +151,6 @@ export const notificationAdapter: BriefingSourceAdapter<NotificationDocument> = 
     // Assignment notifications
     if (type.includes('task.assigned')) {
       return 'progress'
-    }
-
-    // Read notifications are FYI
-    if (doc.status === 'read') {
-      return 'fyi'
     }
 
     // Default unread notifications are FYI
