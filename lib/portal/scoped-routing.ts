@@ -3,6 +3,8 @@ export type PortalOrgRouteScope = {
   orgSlug?: string | null
   id?: string | null
   slug?: string | null
+  sourceCompanyId?: string | null
+  sourceCompanyName?: string | null
 }
 
 type QueryValue = string | number | boolean | null | undefined
@@ -19,6 +21,8 @@ export function scopeFromSearchParams(searchParams?: SearchParamReader | null): 
   return {
     orgId: cleanScopeValue(searchParams?.get('orgId')) || undefined,
     orgSlug: cleanScopeValue(searchParams?.get('orgSlug')) || undefined,
+    sourceCompanyId: cleanScopeValue(searchParams?.get('sourceCompanyId')) || undefined,
+    sourceCompanyName: cleanScopeValue(searchParams?.get('sourceCompanyName')) || undefined,
   }
 }
 
@@ -37,6 +41,8 @@ export function scopedPortalPath(path: string, scope: PortalOrgRouteScope): stri
   return appendQueryParams(path, {
     orgId: cleanScopeValue(scope.orgId) || cleanScopeValue(scope.id),
     orgSlug: cleanScopeValue(scope.orgSlug) || cleanScopeValue(scope.slug),
+    sourceCompanyId: cleanScopeValue(scope.sourceCompanyId),
+    sourceCompanyName: cleanScopeValue(scope.sourceCompanyName),
   })
 }
 

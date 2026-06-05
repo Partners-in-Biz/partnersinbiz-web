@@ -2588,6 +2588,7 @@ export default function CompanyDetailPage() {
         {!relatedLoading && tab === 'workspace' && (
           <CompanyWorkspacePanel
             companyName={company.name}
+            companyId={company.id}
             mode="portal"
             workspace={related.linkedWorkspace}
           />

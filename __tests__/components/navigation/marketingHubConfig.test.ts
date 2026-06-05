@@ -64,17 +64,23 @@ describe('marketing hub config', () => {
       surface: 'portal',
       orgId: 'client-org',
       orgSlug: 'lumen-speeds',
-    } as never)
+      sourceCompanyId: 'company-1',
+      sourceCompanyName: 'Lumen',
+    })
     const hrefs = actionMap(portal.sections)
+    const sourceSuffix = '&sourceCompanyId=company-1&sourceCompanyName=Lumen'
 
-    expect(portal.primaryAction?.href).toBe('/portal/social?orgId=client-org&orgSlug=lumen-speeds')
-    expect(hrefs.get('Campaigns')).toBe('/portal/campaigns?orgId=client-org&orgSlug=lumen-speeds')
-    expect(hrefs.get('SEO')).toBe('/portal/seo?orgId=client-org&orgSlug=lumen-speeds')
-    expect(hrefs.get('Capture sources')).toBe('/portal/capture-sources?orgId=client-org&orgSlug=lumen-speeds')
+    expect(portal.sourceContext).toEqual({ sourceCompanyName: 'Lumen', targetWorkspaceName: 'lumen-speeds' })
+    expect(portal.primaryAction?.href).toBe(`/portal/social?orgId=client-org&orgSlug=lumen-speeds${sourceSuffix}`)
+    expect(hrefs.get('Campaigns')).toBe(`/portal/campaigns?orgId=client-org&orgSlug=lumen-speeds${sourceSuffix}`)
+    expect(hrefs.get('SEO')).toBe(`/portal/seo?orgId=client-org&orgSlug=lumen-speeds${sourceSuffix}`)
+    expect(hrefs.get('Capture sources')).toBe(`/portal/capture-sources?orgId=client-org&orgSlug=lumen-speeds${sourceSuffix}`)
 
     for (const href of hrefs.values()) {
       expect(href).toContain('orgId=client-org')
       expect(href).toContain('orgSlug=lumen-speeds')
+      expect(href).toContain('sourceCompanyId=company-1')
+      expect(href).toContain('sourceCompanyName=Lumen')
     }
   })
 })

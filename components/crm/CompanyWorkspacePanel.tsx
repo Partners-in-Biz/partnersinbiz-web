@@ -22,6 +22,7 @@ type WorkspaceAction = {
 
 interface CompanyWorkspacePanelProps {
   companyName: string
+  companyId?: string
   mode: WorkspaceMode
   workspace?: LinkedWorkspace | null
 }
@@ -236,7 +237,7 @@ function portalActions(workspace: LinkedWorkspace): WorkspaceAction[] {
   ]
 }
 
-export function CompanyWorkspacePanel({ companyName, mode, workspace }: CompanyWorkspacePanelProps) {
+export function CompanyWorkspacePanel({ companyName, companyId, mode, workspace }: CompanyWorkspacePanelProps) {
   if (!workspace) {
     const leadWorkspaceItems = [
       {
@@ -279,10 +280,13 @@ export function CompanyWorkspacePanel({ companyName, mode, workspace }: CompanyW
     )
   }
 
-  const actions = mode === 'portal' ? portalActions(workspace) : adminActions(workspace)
+  const workspaceScope = mode === 'portal' && companyId
+    ? { ...workspace, sourceCompanyId: companyId, sourceCompanyName: companyName }
+    : workspace
+  const actions = mode === 'portal' ? portalActions(workspaceScope) : adminActions(workspace)
   const eyebrow = mode === 'portal' ? 'Linked organisation workspace' : 'Organisation workspace'
   const dashboardHref = mode === 'portal'
-    ? scopedPortalPath('/portal/dashboard', workspace)
+    ? scopedPortalPath('/portal/dashboard', workspaceScope)
     : adminOrgPath(workspace.slug, '/dashboard')
 
   return (

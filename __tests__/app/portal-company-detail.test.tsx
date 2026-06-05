@@ -278,11 +278,11 @@ describe('Portal company detail page', () => {
 
     expect(screen.getByRole('link', { name: 'Open marketing workspace for Lumen' })).toHaveAttribute(
       'href',
-      '/portal/marketing?orgId=lumen-org&orgSlug=lumen-speeds',
+      '/portal/marketing?orgId=lumen-org&orgSlug=lumen-speeds&sourceCompanyId=company-1&sourceCompanyName=Lumen',
     )
     expect(screen.getByRole('link', { name: 'Open campaigns workspace for Lumen' })).toHaveAttribute(
       'href',
-      '/portal/campaigns?orgId=lumen-org&orgSlug=lumen-speeds',
+      '/portal/campaigns?orgId=lumen-org&orgSlug=lumen-speeds&sourceCompanyId=company-1&sourceCompanyName=Lumen',
     )
     expect(global.fetch).toHaveBeenCalledWith('/api/v1/crm/companies/company-1?orgId=lumen-org')
     expect(global.fetch).toHaveBeenCalledWith('/api/v1/crm/companies/company-1/command-center?limit=100&orgId=lumen-org')

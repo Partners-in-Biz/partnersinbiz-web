@@ -2,7 +2,7 @@ import type { HubAction, HubPageProps, HubSection } from './HubPage'
 import { scopedPortalPath } from '@/lib/portal/scoped-routing'
 
 type MarketingHubSurface =
-  | { surface: 'portal'; orgId?: string; orgSlug?: string }
+  | { surface: 'portal'; orgId?: string; orgSlug?: string; sourceCompanyId?: string; sourceCompanyName?: string }
   | { surface: 'admin' }
   | { surface: 'admin-org'; slug: string }
 
@@ -24,6 +24,9 @@ export function buildMarketingHubProps(config: MarketingHubSurface): HubPageProp
       eyebrow: 'Client portal',
       title: 'Marketing',
       description: 'Your brand, campaigns, social approvals, SEO work, contacts, and lead capture in one place.',
+      sourceContext: config.sourceCompanyName
+        ? { sourceCompanyName: config.sourceCompanyName, targetWorkspaceName: config.orgSlug || config.orgId || 'the linked organisation' }
+        : undefined,
       primaryAction: {
         label: 'Review social',
         href: scopedPortalPath('/portal/social', config),
