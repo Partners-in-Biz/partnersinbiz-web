@@ -539,6 +539,22 @@ describe('Portal contact detail page', () => {
     expect(screen.queryByText('timeline records loaded')).not.toBeInTheDocument()
   })
 
+  it('keeps populated last-contacted details actionable from the details card', async () => {
+    mockContactOverrides = {
+      lastContactedAt: new Date().toISOString(),
+    }
+
+    render(<PortalContactDetailPage />)
+
+    await waitFor(() => {
+      expect(screen.getAllByDisplayValue('Jane Client').length).toBeGreaterThan(0)
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Log follow-up for Jane Client from last contacted detail' }))
+
+    expect(screen.getByRole('textbox', { name: 'Relationship note for Jane Client' })).toBeInTheDocument()
+  })
+
   it('turns empty sequence enrollment into a nurture workflow action', async () => {
     render(<PortalContactDetailPage />)
 
@@ -1189,7 +1205,7 @@ describe('Portal contact detail page', () => {
     expect(screen.getByPlaceholderText('Add a relationship note, handoff, or context…')).toBeInTheDocument()
   })
 
-  it('turns stale last contacted detail into a fresh touch action', async () => {
+  it('turns stale last contacted detail into a follow-up action', async () => {
     mockContactOverrides = {
       lastContactedAt: new Date('2026-01-01T08:00:00.000Z'),
     }
@@ -1200,7 +1216,7 @@ describe('Portal contact detail page', () => {
       expect(screen.getAllByDisplayValue('Jane Client').length).toBeGreaterThan(0)
     })
 
-    fireEvent.click(screen.getByRole('button', { name: 'Log fresh touch for Jane Client from last contacted detail' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Log follow-up for Jane Client from last contacted detail' }))
 
     expect(screen.getByRole('textbox', { name: 'Relationship note for Jane Client' })).toBeInTheDocument()
   })
