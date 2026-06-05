@@ -2,6 +2,9 @@ import { render, screen } from '@testing-library/react'
 import PortalDashboard from '@/app/(portal)/portal/dashboard/page'
 
 let mockSearchParams = new URLSearchParams()
+const mockTopCompaniesByPipelineTile = jest.fn(({ orgScope }: { orgScope?: Record<string, unknown> }) => (
+  <div data-testid="top-companies-tile" data-org-id={String(orgScope?.orgId ?? '')} />
+))
 
 jest.mock('next/navigation', () => ({
   useSearchParams: () => mockSearchParams,
@@ -19,7 +22,7 @@ jest.mock('@/components/settings/ProfileCompleteBanner', () => ({
 }))
 
 jest.mock('@/components/dashboard/TopCompaniesByPipelineTile', () => ({
-  TopCompaniesByPipelineTile: () => null,
+  TopCompaniesByPipelineTile: (props: { orgScope?: Record<string, unknown> }) => mockTopCompaniesByPipelineTile(props),
 }))
 
 jest.mock('@/components/social/ScheduledContentPreviewCards', () => ({
@@ -283,5 +286,8 @@ describe('Portal dashboard CRM widget', () => {
     expect(global.fetch).toHaveBeenCalledWith('/api/v1/portal/org?orgId=lumen-org')
     expect(global.fetch).toHaveBeenCalledWith('/api/v1/portal/dashboard?orgId=lumen-org')
     expect(global.fetch).toHaveBeenCalledWith('/api/v1/crm/dashboard?orgId=lumen-org')
+    expect(mockTopCompaniesByPipelineTile).toHaveBeenCalledWith({
+      orgScope: expect.objectContaining({ orgId: 'lumen-org', orgSlug: 'lumen-speeds' }),
+    })
   })
 })

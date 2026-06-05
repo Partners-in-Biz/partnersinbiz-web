@@ -677,7 +677,7 @@ export default function PortalDashboard() {
       </section>
 
       {/* CRM — Top companies tile (self-hides when no companies exist) */}
-      <TopCompaniesByPipelineTile />
+      <TopCompaniesByPipelineTile orgScope={orgScope} />
 
       {/* Pipeline / CRM section */}
       {!crmLoading && crmData && (
