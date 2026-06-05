@@ -12,7 +12,7 @@ describe('portal campaign child route back links', () => {
     const file = source('app/(portal)/portal/campaigns/email/[id]/page.tsx')
 
     expect(file).toContain('scopedPortalHref')
-    expect(file).toContain("href={scopedPortalHref('/portal/campaigns', scope)}")
+    expect(file).toContain("backHref={scopedPortalHref('/portal/campaigns', scope)}")
     expect(file).not.toContain('href="/portal/campaigns"')
   })
 
