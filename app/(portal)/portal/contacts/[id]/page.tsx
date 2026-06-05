@@ -1296,11 +1296,14 @@ export default function PortalContactDetailPage() {
     {
       label: 'Linked company',
       value: hasLinkedCompany || hasCompanyContext ? companyLabel : '',
+      href: hasLinkedCompany ? linkedCompanyHref : '',
       empty: 'No company linked',
-      actionLabel: 'Link company',
-      actionAriaLabel: `Link company from details for ${contactName}`,
+      actionLabel: hasLinkedCompany || hasCompanyContext ? 'Edit company' : 'Link company',
+      actionAriaLabel: hasLinkedCompany || hasCompanyContext
+        ? `Edit linked company ${companyLabel} for ${contactName} from details`
+        : `Link company from details for ${contactName}`,
       onAction: focusCompanyPicker,
-      needsActionWhenValued: !hasLinkedCompany,
+      needsActionWhenValued: true,
     },
     {
       label: 'Relationship owner',

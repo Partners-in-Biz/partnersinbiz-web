@@ -977,6 +977,26 @@ describe('Portal contact detail page', () => {
     expect(screen.getByRole('textbox', { name: 'Phone number for Jane Client' })).toHaveFocus()
   })
 
+  it('keeps linked company details editable without losing the company link', async () => {
+    mockContactOverrides = {
+      companyId: 'company-1',
+      companyName: 'Acme Holdings',
+    }
+
+    render(<PortalContactDetailPage />)
+
+    await waitFor(() => {
+      expect(screen.getAllByDisplayValue('Jane Client').length).toBeGreaterThan(0)
+    })
+
+    expect(screen.getAllByRole('link', { name: 'Acme Holdings' })[0])
+      .toHaveAttribute('href', '/portal/companies/company-1')
+
+    fireEvent.click(screen.getByRole('button', { name: 'Edit linked company Acme Holdings for Jane Client from details' }))
+
+    expect(screen.getByRole('combobox', { name: 'Linked company for Jane Client' })).toHaveFocus()
+  })
+
   it('turns first-viewport contact identity into direct email phone and company links', async () => {
     mockContactOverrides = {
       phone: '+27825550123',
