@@ -137,6 +137,11 @@ describe('client documents API', () => {
   })
 
   it('creates a platform-owned document linked to a CRM company and client org', async () => {
+    mockDocGet.mockResolvedValue({
+      exists: true,
+      data: () => ({ orgId: 'pib-platform-owner', linkedOrgId: 'client-org', deleted: false }),
+    })
+
     const { POST } = await import('@/app/api/v1/client-documents/route')
     const req = jsonRequest('http://localhost/api/v1/client-documents', {
       orgId: 'pib-platform-owner',
@@ -151,7 +156,12 @@ describe('client documents API', () => {
     expect(res.status).toBe(201)
     expect(documentWrite).toEqual(expect.objectContaining({
       orgId: 'pib-platform-owner',
-      linked: { companyId: 'company-1', clientOrgId: 'client-org' },
+      linked: {
+        companyId: 'company-1',
+        companyIds: ['company-1'],
+        clientOrgId: 'client-org',
+        clientOrgIds: ['client-org'],
+      },
     }))
   })
 
@@ -163,6 +173,10 @@ describe('client documents API', () => {
           data: () => ({ orgId: 'pib-platform-owner', linkedOrgId: 'client-org', deleted: false }),
         },
       ],
+    })
+    mockDocGet.mockResolvedValue({
+      exists: true,
+      data: () => ({ orgId: 'pib-platform-owner', linkedOrgId: 'client-org', deleted: false }),
     })
 
     const { POST } = await import('@/app/api/v1/client-documents/route')
@@ -179,16 +193,26 @@ describe('client documents API', () => {
     expect(res.status).toBe(201)
     expect(body.data).toEqual(expect.objectContaining({
       orgId: 'pib-platform-owner',
-      linked: { companyId: 'company-1', clientOrgId: 'client-org' },
+      linked: {
+        companyId: 'company-1',
+        companyIds: ['company-1'],
+        clientOrgId: 'client-org',
+        clientOrgIds: ['client-org'],
+      },
     }))
     expect(documentWrite).toEqual(expect.objectContaining({
       orgId: 'pib-platform-owner',
-      linked: { companyId: 'company-1', clientOrgId: 'client-org' },
+      linked: {
+        companyId: 'company-1',
+        companyIds: ['company-1'],
+        clientOrgId: 'client-org',
+        clientOrgIds: ['client-org'],
+      },
     }))
   })
 
   it('source-owns new company-only documents from the linked CRM company org without requiring a client org', async () => {
-    mockDocGet.mockResolvedValueOnce({
+    mockDocGet.mockResolvedValue({
       exists: true,
       data: () => ({ orgId: 'pib-platform-owner', name: 'Standalone Prospect', deleted: false }),
     })
@@ -207,11 +231,11 @@ describe('client documents API', () => {
     expect(res.status).toBe(201)
     expect(body.data).toEqual(expect.objectContaining({
       orgId: 'pib-platform-owner',
-      linked: { companyId: 'company-plain' },
+      linked: { companyId: 'company-plain', companyIds: ['company-plain'] },
     }))
     expect(documentWrite).toEqual(expect.objectContaining({
       orgId: 'pib-platform-owner',
-      linked: { companyId: 'company-plain' },
+      linked: { companyId: 'company-plain', companyIds: ['company-plain'] },
     }))
   })
 
@@ -544,6 +568,10 @@ describe('client documents API', () => {
       id: 'doc-1',
       data: () => ({ orgId: 'pib-platform-owner', title: 'Old', deleted: false }),
     })
+    mockDocGet.mockResolvedValue({
+      exists: true,
+      data: () => ({ orgId: 'pib-platform-owner', deleted: false }),
+    })
 
     const { PATCH } = await import('@/app/api/v1/client-documents/[id]/route')
     const req = jsonRequest(
@@ -558,7 +586,67 @@ describe('client documents API', () => {
     expect(mockTransactionUpdate).toHaveBeenCalledWith(
       expect.objectContaining({ id: 'doc-1' }),
       expect.objectContaining({
-        linked: { companyId: 'company-1', clientOrgId: 'client-org' },
+        linked: {
+          companyId: 'company-1',
+          companyIds: ['company-1'],
+          clientOrgId: 'client-org',
+          clientOrgIds: ['client-org'],
+        },
+        updatedBy: 'admin-1',
+        updatedByType: 'user',
+      }),
+    )
+  })
+
+  it('patches normalised multi-relationship fields while preserving scalar primary links', async () => {
+    mockTransactionGet.mockResolvedValueOnce({
+      exists: true,
+      id: 'doc-1',
+      data: () => ({ orgId: 'org-1', title: 'Old', deleted: false }),
+    })
+    mockDocGet.mockResolvedValue({
+      exists: true,
+      data: () => ({ orgId: 'org-1', deleted: false }),
+    })
+
+    const { PATCH } = await import('@/app/api/v1/client-documents/[id]/route')
+    const req = jsonRequest(
+      'http://localhost/api/v1/client-documents/doc-1',
+      {
+        linked: {
+          companyId: 'company-1',
+          companyIds: ['company-2', 'company-1'],
+          contactId: 'contact-1',
+          contactIds: ['contact-2', 'contact-1'],
+          clientOrgId: 'client-org-1',
+          clientOrgIds: ['client-org-2', 'client-org-1'],
+          projectId: 'project-1',
+          projectIds: ['project-2', 'project-1'],
+          dealId: 'deal-1',
+          dealIds: ['deal-2', 'deal-1'],
+        },
+      },
+      'PATCH',
+    )
+
+    const res = await PATCH(req, adminUser, { params: Promise.resolve({ id: 'doc-1' }) })
+
+    expect(res.status).toBe(200)
+    expect(mockTransactionUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'doc-1' }),
+      expect.objectContaining({
+        linked: {
+          companyId: 'company-1',
+          companyIds: ['company-1', 'company-2'],
+          contactId: 'contact-1',
+          contactIds: ['contact-1', 'contact-2'],
+          clientOrgId: 'client-org-1',
+          clientOrgIds: ['client-org-1', 'client-org-2'],
+          projectId: 'project-1',
+          projectIds: ['project-1', 'project-2'],
+          dealId: 'deal-1',
+          dealIds: ['deal-1', 'deal-2'],
+        },
         updatedBy: 'admin-1',
         updatedByType: 'user',
       }),

@@ -29,6 +29,14 @@ export interface ResearchLinked {
   dealId?: string
   companyId?: string
   contactId?: string
+  projectIds?: string[]
+  dealIds?: string[]
+  companyIds?: string[]
+  contactIds?: string[]
+  clientOrgIds?: string[]
+  socialPostIds?: string[]
+  emailThreadIds?: string[]
+  supportTicketIds?: string[]
   documentIds?: string[]
 }
 

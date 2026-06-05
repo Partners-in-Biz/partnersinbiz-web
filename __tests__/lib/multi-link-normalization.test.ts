@@ -2,6 +2,7 @@ import {
   LINKED_ARRAY_FIELDS,
   normalizeClientDocumentLinks,
   normalizeProjectLinks,
+  normalizeResourceRelationshipLinks,
 } from '@/lib/client-documents/linkedValidation'
 
 describe('multi-link normalization', () => {
@@ -93,5 +94,40 @@ describe('multi-link normalization', () => {
       'projectIds',
       'dealIds',
     ]))
+  })
+
+  it('normalizes non-document resource company/contact links without changing primary buyer fields', () => {
+    const result = normalizeResourceRelationshipLinks({
+      companyId: ' primary-company ',
+      companyIds: ['secondary-company', 'primary-company'],
+      contactId: ' signatory-contact ',
+      contactIds: [' stakeholder-contact ', 'signatory-contact'],
+      dealId: 'primary-deal',
+      dealIds: ['secondary-deal'],
+      projectId: 'project-1',
+      projectIds: ['project-2'],
+      contextRefs: [{ type: 'company', id: 'primary-company', label: 'Primary Company' }],
+    })
+
+    expect(result).toEqual({
+      ok: true,
+      value: {
+        companyId: 'primary-company',
+        companyIds: ['primary-company', 'secondary-company'],
+        contactId: 'signatory-contact',
+        contactIds: ['signatory-contact', 'stakeholder-contact'],
+        dealId: 'primary-deal',
+        dealIds: ['primary-deal', 'secondary-deal'],
+        projectId: 'project-1',
+        projectIds: ['project-1', 'project-2'],
+        contextRefs: [{ type: 'company', id: 'primary-company', label: 'Primary Company' }],
+      },
+    })
+  })
+
+  it('rejects invalid non-document resource link arrays', () => {
+    const result = normalizeResourceRelationshipLinks({ contactIds: ['contact-1', 42] })
+
+    expect(result).toEqual({ ok: false, error: 'linked.contactIds[1] must be a string' })
   })
 })

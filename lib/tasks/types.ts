@@ -51,6 +51,17 @@ export interface Task {
   projectId: string | null
   contactId: string | null
   dealId: string | null
+  companyId?: string | null
+  clientOrgId?: string | null
+  projectIds?: string[]
+  contactIds?: string[]
+  dealIds?: string[]
+  companyIds?: string[]
+  clientOrgIds?: string[]
+  researchItemIds?: string[]
+  socialPostIds?: string[]
+  emailThreadIds?: string[]
+  supportTicketIds?: string[]
   tags: string[]
   columnId?: string | null
   createdBy: string
@@ -93,6 +104,17 @@ export interface TaskInput {
   projectId?: string
   contactId?: string
   dealId?: string
+  companyId?: string
+  clientOrgId?: string
+  projectIds?: string[]
+  contactIds?: string[]
+  dealIds?: string[]
+  companyIds?: string[]
+  clientOrgIds?: string[]
+  researchItemIds?: string[]
+  socialPostIds?: string[]
+  emailThreadIds?: string[]
+  supportTicketIds?: string[]
   tags?: string[]
   columnId?: string | null
   assigneeAgentId?: AgentId | null

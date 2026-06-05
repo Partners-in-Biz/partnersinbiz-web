@@ -15,6 +15,11 @@ import { logAudit } from '@/lib/social/audit'
 import { notifyApprovalNeeded } from '@/lib/notifications/notify'
 import { logActivity } from '@/lib/activity/log'
 import { emptyApprovalState } from '@/lib/social/approval'
+import {
+  RESOURCE_RELATIONSHIP_ARRAY_FIELDS,
+  RESOURCE_RELATIONSHIP_STRING_FIELDS,
+  normalizeResourceRelationshipLinks,
+} from '@/lib/client-documents/linkedValidation'
 
 export const dynamic = 'force-dynamic'
 
@@ -41,6 +46,18 @@ function toProviderPlatform(platform: string): SocialPlatformType | null {
   if (platform === 'x' || platform === 'twitter') return 'twitter'
   const p = platform.toLowerCase() as SocialPlatformType
   return ACTIVE_PLATFORMS.includes(p) ? p : null
+}
+
+function relationshipInputFrom(body: Record<string, unknown>) {
+  const value: Record<string, unknown> = {}
+  for (const key of RESOURCE_RELATIONSHIP_STRING_FIELDS) {
+    if (key in body) value[key] = body[key]
+  }
+  for (const key of RESOURCE_RELATIONSHIP_ARRAY_FIELDS) {
+    if (key in body) value[key] = body[key]
+  }
+  if ('contextRefs' in body) value.contextRefs = body.contextRefs
+  return Object.keys(value).length > 0 ? value : undefined
 }
 
 export const GET = withAuth('client', withTenant(async (req, user, orgId) => {
@@ -202,6 +219,12 @@ export const POST = withAuth('client', withTenant(async (req, user, orgId) => {
 
   if (body.status === 'draft') status = 'draft'
 
+  const relationshipInput = relationshipInputFrom(body as Record<string, unknown>)
+  const relationships = relationshipInput
+    ? normalizeResourceRelationshipLinks(relationshipInput)
+    : { ok: true as const, value: {} }
+  if (!relationships.ok) return apiError(relationships.error, 400)
+
   // --- Build EnhancedSocialPost document ---
   const doc = {
     platform: legacyPlatform ?? (platforms[0] === 'twitter' ? 'x' : platforms[0]),
@@ -235,6 +258,7 @@ export const POST = withAuth('client', withTenant(async (req, user, orgId) => {
     threadParts: body.threadParts ?? [],
     category: body.category ?? 'other',
     tags: body.tags ?? [],
+    ...relationships.value,
     externalId: null,
     error: null,
     createdAt: FieldValue.serverTimestamp(),

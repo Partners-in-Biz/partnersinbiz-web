@@ -45,6 +45,14 @@ const PROJECT_PRIMARY_ARRAY_FIELDS = {
   recipientOrgId: 'recipientOrgIds',
 } as const
 
+const RESOURCE_RELATIONSHIP_PRIMARY_ARRAY_FIELDS = {
+  companyId: 'companyIds',
+  contactId: 'contactIds',
+  clientOrgId: 'clientOrgIds',
+  projectId: 'projectIds',
+  dealId: 'dealIds',
+} as const
+
 export type LinkValidationResult<T> = { ok: true; value: T } | { ok: false; error: string }
 
 type NormalizeOptions = {
@@ -194,6 +202,100 @@ export function normalizeProjectLinks(
     PROJECT_PRIMARY_ARRAY_FIELDS,
     options,
   )
+}
+
+export type ResourceRelationshipLinkSet = {
+  companyId?: string
+  contactId?: string
+  clientOrgId?: string
+  projectId?: string
+  dealId?: string
+  companyIds?: string[]
+  contactIds?: string[]
+  clientOrgIds?: string[]
+  projectIds?: string[]
+  dealIds?: string[]
+  researchItemIds?: string[]
+  socialPostIds?: string[]
+  emailThreadIds?: string[]
+  supportTicketIds?: string[]
+  contextRefs?: Array<Record<string, unknown>>
+}
+
+export const RESOURCE_RELATIONSHIP_STRING_FIELDS: Set<string> = new Set([
+  'companyId',
+  'contactId',
+  'clientOrgId',
+  'projectId',
+  'dealId',
+] as const)
+
+export const RESOURCE_RELATIONSHIP_ARRAY_FIELDS: Set<string> = new Set([
+  'companyIds',
+  'contactIds',
+  'clientOrgIds',
+  'projectIds',
+  'dealIds',
+  'researchItemIds',
+  'socialPostIds',
+  'emailThreadIds',
+  'supportTicketIds',
+] as const)
+
+function normalizeContextRefs(value: unknown): LinkValidationResult<Array<Record<string, unknown>> | undefined> {
+  if (value === undefined) return { ok: true, value: undefined }
+  if (!Array.isArray(value)) return { ok: false, error: 'linked.contextRefs must be an array' }
+  const refs: Array<Record<string, unknown>> = []
+  const seen = new Set<string>()
+  for (let index = 0; index < value.length; index += 1) {
+    const ref = value[index]
+    if (!ref || typeof ref !== 'object' || Array.isArray(ref)) {
+      return { ok: false, error: `linked.contextRefs[${index}] must be an object` }
+    }
+    const record = ref as Record<string, unknown>
+    const type = typeof record.type === 'string' ? record.type.trim() : ''
+    const id = typeof record.id === 'string' ? record.id.trim() : ''
+    if (!type) return { ok: false, error: `linked.contextRefs[${index}].type must be a non-empty string` }
+    if (!id) return { ok: false, error: `linked.contextRefs[${index}].id must be a non-empty string` }
+    const key = `${type}:${id}`
+    if (seen.has(key)) continue
+    seen.add(key)
+    refs.push({ ...record, type, id })
+    if (refs.length >= 50) break
+  }
+  return { ok: true, value: refs.length > 0 ? refs : undefined }
+}
+
+export function normalizeResourceRelationshipLinks(
+  value: unknown,
+  options: NormalizeOptions = {},
+): LinkValidationResult<ResourceRelationshipLinkSet> {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return { ok: false, error: 'linked must be an object' }
+  }
+
+  const linked = value as Record<string, unknown>
+  const linkedWithoutContextRefs = { ...linked }
+  delete linkedWithoutContextRefs.contextRefs
+  const core = normalizeLinkedRecord<ResourceRelationshipLinkSet>(
+    linkedWithoutContextRefs,
+    RESOURCE_RELATIONSHIP_STRING_FIELDS,
+    RESOURCE_RELATIONSHIP_ARRAY_FIELDS,
+    RESOURCE_RELATIONSHIP_PRIMARY_ARRAY_FIELDS,
+    options,
+  )
+  if (core.ok === false) return core
+
+  const contextRefs = normalizeContextRefs(linked.contextRefs)
+  if (contextRefs.ok === false) return contextRefs
+
+  return {
+    ok: true,
+    value: {
+      ...core.value,
+      ...(contextRefs.value ? { contextRefs: contextRefs.value } : {}),
+    },
+  }
 }
 
 export function validateClientDocumentLinks(
