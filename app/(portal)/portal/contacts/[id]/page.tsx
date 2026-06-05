@@ -1159,7 +1159,7 @@ export default function PortalContactDetailPage() {
       <div className="bento-card p-10 text-center">
         <h2 className="font-display text-2xl">Contact not found.</h2>
         <Link href={contactListHref} className="btn-pib-secondary mt-6">
-          <span className="material-symbols-outlined text-base">arrow_back</span>
+          <span className="material-symbols-outlined text-base" aria-hidden="true">arrow_back</span>
           Back to contacts
         </Link>
       </div>
@@ -1459,7 +1459,7 @@ export default function PortalContactDetailPage() {
           href={contactListHref}
           className="text-xs text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] inline-flex items-center gap-1 transition-colors"
         >
-          <span className="material-symbols-outlined text-sm">arrow_back</span>
+          <span className="material-symbols-outlined text-sm" aria-hidden="true">arrow_back</span>
           Contacts
         </Link>
         <div className="flex items-center gap-2">

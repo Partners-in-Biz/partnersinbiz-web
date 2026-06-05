@@ -487,8 +487,9 @@ describe('Portal contact detail page', () => {
     })
 
     const scope = 'orgId=org-1&orgSlug=lumen-speeds&sourceCompanyId=company-1&sourceCompanyName=Lumen'
-    expect(screen.getByRole('link', { name: /Contacts/ }))
+    expect(screen.getByRole('link', { name: 'Contacts' }))
       .toHaveAttribute('href', `/portal/contacts?${scope}`)
+    expect(screen.queryByRole('link', { name: 'arrow_back Contacts' })).not.toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Open linked company Lumen from contact header' }))
       .toHaveAttribute('href', `/portal/companies/company-1?${scope}`)
     expect(screen.getByRole('link', { name: 'Open linked company Lumen from company card' }))
