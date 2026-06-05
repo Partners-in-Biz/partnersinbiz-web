@@ -792,6 +792,34 @@ describe('Portal contact detail page', () => {
     expect(screen.getByLabelText('Decision role')).toHaveFocus()
   })
 
+  it('keeps populated custom fields editable from the custom fields card', async () => {
+    mockContactCustomFieldDefinitions = [{
+      id: 'field-1',
+      orgId: 'org-1',
+      resource: 'contact',
+      key: 'decision_role',
+      label: 'Decision role',
+      type: 'text',
+      required: false,
+      order: 0,
+      createdAt: null,
+      updatedAt: null,
+    }]
+    mockContactOverrides = {
+      customFields: {
+        decision_role: 'Economic buyer',
+      },
+    }
+
+    render(<PortalContactDetailPage />)
+
+    expect(await screen.findByText('Economic buyer')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Edit custom fields for Jane Client' }))
+
+    expect(screen.getByLabelText('Decision role')).toHaveFocus()
+  })
+
   it('turns the company card empty state into a company picker action', async () => {
     render(<PortalContactDetailPage />)
 

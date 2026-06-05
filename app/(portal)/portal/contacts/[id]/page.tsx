@@ -2016,6 +2016,11 @@ export default function PortalContactDetailPage() {
                   ariaLabel: `Capture custom fields for ${contactName}`,
                   onClick: focusCustomFields,
                 }}
+                action={{
+                  label: 'Edit fields',
+                  ariaLabel: `Edit custom fields for ${contactName}`,
+                  onClick: focusCustomFields,
+                }}
               />
             </div>
           )}
