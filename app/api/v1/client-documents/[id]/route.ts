@@ -4,6 +4,7 @@ import { NextRequest } from 'next/server'
 import { withAuth } from '@/lib/api/auth'
 import { apiError, apiSuccess } from '@/lib/api/response'
 import type { ApiUser } from '@/lib/api/types'
+import { canAccessOrg } from '@/lib/api/platformAdmin'
 import { assertClientDocumentDataAccess, getAccessibleClientDocument } from '@/lib/client-documents/access'
 import { validateClientDocumentLinks } from '@/lib/client-documents/linkedValidation'
 import { CLIENT_DOCUMENTS_COLLECTION } from '@/lib/client-documents/store'
@@ -33,12 +34,43 @@ function actorType(user: ApiUser) {
   return user.role === 'ai' ? 'agent' : 'user'
 }
 
+async function assertPatchLinkTenantSafety(
+  linked: ClientDocument['linked'],
+  documentOrgId: string | undefined,
+  user: ApiUser,
+): Promise<{ ok: true } | { ok: false; error: string; status: number }> {
+  for (const clientOrgId of linked.clientOrgIds ?? []) {
+    if (!canAccessOrg(user, clientOrgId)) return { ok: false, error: `Forbidden linked client org: ${clientOrgId}`, status: 403 }
+  }
+
+  if (!documentOrgId) return { ok: true }
+
+  for (const companyId of linked.companyIds ?? []) {
+    const snap = await adminDb.collection('companies').doc(companyId).get()
+    const data = snap.exists ? snap.data() as { orgId?: string; deleted?: boolean } : null
+    if (!data || data.deleted === true || data.orgId !== documentOrgId) {
+      return { ok: false, error: `linked.companyIds contains a company outside the document org: ${companyId}`, status: 400 }
+    }
+  }
+
+  for (const contactId of linked.contactIds ?? []) {
+    const snap = await adminDb.collection('contacts').doc(contactId).get()
+    const data = snap.exists ? snap.data() as { orgId?: string; deleted?: boolean } : null
+    if (!data || data.deleted === true || data.orgId !== documentOrgId) {
+      return { ok: false, error: `linked.contactIds contains a contact outside the document org: ${contactId}`, status: 400 }
+    }
+  }
+
+  return { ok: true }
+}
+
 function validateAssumptions(
   value: unknown,
 ): { ok: true; value: DocumentAssumption[] } | { ok: false; error: string } {
   if (!Array.isArray(value)) return { ok: false, error: 'assumptions must be an array' }
 
-  for (const [index, assumption] of value.entries()) {
+  for (let index = 0; index < value.length; index += 1) {
+    const assumption = value[index]
     if (!assumption || typeof assumption !== 'object' || Array.isArray(assumption)) {
       return { ok: false, error: `assumptions[${index}] must be an object` }
     }
@@ -105,13 +137,13 @@ export const PATCH = withAuth('admin', async (req: NextRequest, user: ApiUser, c
 
   if ('linked' in body) {
     const linked = validateClientDocumentLinks(body.linked)
-    if (!linked.ok) return apiError(linked.error, 400)
+    if (linked.ok === false) return apiError(linked.error, 400)
     update.linked = linked.value
   }
 
   if ('assumptions' in body) {
     const assumptions = validateAssumptions(body.assumptions)
-    if (!assumptions.ok) return apiError(assumptions.error, 400)
+    if (assumptions.ok === false) return apiError(assumptions.error, 400)
     update.assumptions = assumptions.value
   }
 
@@ -129,6 +161,12 @@ export const PATCH = withAuth('admin', async (req: NextRequest, user: ApiUser, c
 
     const access = assertClientDocumentDataAccess(snap.data() as Partial<ClientDocument>, user)
     if (!access.ok) return access
+
+    if (update.linked) {
+      const data = snap.data() as Partial<ClientDocument>
+      const tenantSafety = await assertPatchLinkTenantSafety(update.linked as ClientDocument['linked'], data.orgId, user)
+      if (tenantSafety.ok === false) return { ok: false as const, response: apiError(tenantSafety.error, tenantSafety.status) }
+    }
 
     transaction.update(documentRef, update)
     return { ok: true as const }

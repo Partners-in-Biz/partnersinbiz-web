@@ -4,8 +4,9 @@ import { withAuth } from '@/lib/api/auth'
 import { resolveOrgScope } from '@/lib/api/orgScope'
 import { apiError, apiSuccess } from '@/lib/api/response'
 import type { ApiUser } from '@/lib/api/types'
+import { canAccessOrg } from '@/lib/api/platformAdmin'
 import { isClientVisibleClientDocument } from '@/lib/client-documents/access'
-import { validateClientDocumentLinks } from '@/lib/client-documents/linkedValidation'
+import { normalizeClientDocumentLinks, validateClientDocumentLinks } from '@/lib/client-documents/linkedValidation'
 import { CLIENT_DOCUMENTS_COLLECTION, createClientDocument } from '@/lib/client-documents/store'
 import { themeFromOrg } from '@/lib/client-documents/themeFromOrg'
 import type {
@@ -82,13 +83,44 @@ async function companyForLinkedDocument(companyId: string): Promise<{ id: string
   }
 }
 
+async function assertDocumentLinkTenantSafety(
+  linked: ClientDocumentLinkSet,
+  documentOrgId: string | undefined,
+  user: ApiUser,
+): Promise<{ ok: true } | { ok: false; error: string; status: number }> {
+  for (const clientOrgId of linked.clientOrgIds ?? []) {
+    if (!canAccessOrg(user, clientOrgId)) return { ok: false, error: `Forbidden linked client org: ${clientOrgId}`, status: 403 }
+  }
+
+  if (!documentOrgId) return { ok: true }
+
+  for (const companyId of linked.companyIds ?? []) {
+    const snap = await adminDb.collection('companies').doc(companyId).get()
+    const data = snap.exists ? snap.data() as { orgId?: string; deleted?: boolean } : null
+    if (!data || data.deleted === true || data.orgId !== documentOrgId) {
+      return { ok: false, error: `linked.companyIds contains a company outside the document org: ${companyId}`, status: 400 }
+    }
+  }
+
+  for (const contactId of linked.contactIds ?? []) {
+    const snap = await adminDb.collection('contacts').doc(contactId).get()
+    const data = snap.exists ? snap.data() as { orgId?: string; deleted?: boolean } : null
+    if (!data || data.deleted === true || data.orgId !== documentOrgId) {
+      return { ok: false, error: `linked.contactIds contains a contact outside the document org: ${contactId}`, status: 400 }
+    }
+  }
+
+  return { ok: true }
+}
+
 function validateCreateAssumptions(
   value: unknown,
 ): { ok: true; value: CreateAssumptionInput[] } | { ok: false; error: string } {
   if (!Array.isArray(value)) return { ok: false, error: 'assumptions must be an array' }
 
   const assumptions: CreateAssumptionInput[] = []
-  for (const [index, assumption] of value.entries()) {
+  for (let index = 0; index < value.length; index += 1) {
+    const assumption = value[index]
     if (!assumption || typeof assumption !== 'object' || Array.isArray(assumption)) {
       return { ok: false, error: `assumptions[${index}] must be an object` }
     }
@@ -113,10 +145,11 @@ function validateCreateAssumptions(
       return { ok: false, error: `assumptions[${index}].blockId must be a string` }
     }
 
+    const blockId = typeof row.blockId === 'string' ? row.blockId.trim() : undefined
     assumptions.push({
       text,
       ...(row.severity === undefined ? {} : { severity: row.severity as DocumentAssumption['severity'] }),
-      ...(row.blockId === undefined ? {} : { blockId: row.blockId }),
+      ...(blockId ? { blockId } : {}),
     })
   }
 
@@ -191,21 +224,21 @@ export const POST = withAuth('admin', async (req: NextRequest, user: ApiUser) =>
   let linked: ClientDocumentLinkSet = {}
   if ('linked' in body) {
     const linkedResult = validateClientDocumentLinks(body.linked)
-    if (!linkedResult.ok) return apiError(linkedResult.error, 400)
+    if (linkedResult.ok === false) return apiError(linkedResult.error, 400)
     linked = linkedResult.value
   }
 
   let assumptions: CreateAssumptionInput[] = []
   if ('assumptions' in body) {
     const assumptionsResult = validateCreateAssumptions(body.assumptions)
-    if (!assumptionsResult.ok) return apiError(assumptionsResult.error, 400)
+    if (assumptionsResult.ok === false) return apiError(assumptionsResult.error, 400)
     assumptions = assumptionsResult.value
   }
 
   const platformCompany = orgId ? await platformCompanyForClientOrg(orgId) : null
   const linkedCompany = !orgId && linked.companyId ? await companyForLinkedDocument(linked.companyId) : null
   const documentOrgId = platformCompany ? PIB_PLATFORM_ORG_ID : linkedCompany?.orgId ?? orgId
-  const documentLinked: ClientDocumentLinkSet = platformCompany
+  const rawDocumentLinked: ClientDocumentLinkSet = platformCompany
     ? {
         ...linked,
         companyId: linked.companyId || platformCompany.id,
@@ -218,6 +251,12 @@ export const POST = withAuth('admin', async (req: NextRequest, user: ApiUser) =>
           ...(linkedCompany.linkedOrgId ? { clientOrgId: linked.clientOrgId || linkedCompany.linkedOrgId } : {}),
         }
       : linked
+
+  const normalizedDocumentLinked = normalizeClientDocumentLinks(rawDocumentLinked)
+  if (normalizedDocumentLinked.ok === false) return apiError(normalizedDocumentLinked.error, 400)
+  const documentLinked = normalizedDocumentLinked.value
+  const tenantSafety = await assertDocumentLinkTenantSafety(documentLinked, documentOrgId, user)
+  if (tenantSafety.ok === false) return apiError(tenantSafety.error, tenantSafety.status)
 
   // Auto-populate the first version's theme from the org's brand colors. If
   // the request body supplied its own theme, that wins. If there is no orgId

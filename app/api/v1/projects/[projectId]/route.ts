@@ -9,6 +9,8 @@ import { withAuth } from '@/lib/api/auth'
 import { apiSuccess, apiError } from '@/lib/api/response'
 import { getProjectForUser } from '@/lib/projects/access'
 import { logActivity } from '@/lib/activity/log'
+import { canAccessOrg } from '@/lib/api/platformAdmin'
+import { normalizeProjectLinks, pickProjectLinkFields, type ProjectLinkSet } from '@/lib/client-documents/linkedValidation'
 
 export const dynamic = 'force-dynamic'
 
@@ -24,6 +26,41 @@ const VALID_STATUSES = [
 ] as const
 
 type ProjectStatus = (typeof VALID_STATUSES)[number]
+
+type LinkSafetyUser = Parameters<typeof canAccessOrg>[0]
+
+async function loadOwnedCrmRecord(collection: 'companies' | 'contacts', id: string, orgId: string) {
+  const snap = await adminDb.collection(collection).doc(id).get()
+  if (!snap.exists) return null
+  const data = (snap.data() ?? {}) as Record<string, unknown>
+  if (data.deleted === true) return null
+  return data.orgId === orgId ? data : null
+}
+
+async function assertProjectPatchLinkTenantSafety(
+  links: ProjectLinkSet,
+  sourceOrgId: string,
+  user: LinkSafetyUser,
+): Promise<{ ok: true } | { ok: false; error: string; status: number }> {
+  const linkedOrgIds = Array.from(new Set([...(links.recipientOrgIds ?? []), ...(links.clientOrgIds ?? [])]))
+  for (const orgId of linkedOrgIds) {
+    if (!canAccessOrg(user, orgId)) return { ok: false, error: `Forbidden linked recipient org: ${orgId}`, status: 403 }
+  }
+
+  const companyIds = Array.from(new Set([...(links.companyIds ?? []), ...(links.sourceCompanyIds ?? [])]))
+  for (const companyId of companyIds) {
+    const company = await loadOwnedCrmRecord('companies', companyId, sourceOrgId)
+    if (!company) return { ok: false, error: `Project company link is outside the source org: ${companyId}`, status: 400 }
+  }
+
+  const contactIds = Array.from(new Set([...(links.contactIds ?? []), ...(links.sourceContactIds ?? [])]))
+  for (const contactId of contactIds) {
+    const contact = await loadOwnedCrmRecord('contacts', contactId, sourceOrgId)
+    if (!contact) return { ok: false, error: `Project contact link is outside the source org: ${contactId}`, status: 400 }
+  }
+
+  return { ok: true }
+}
 
 export const GET = withAuth('client', async (req: NextRequest, user, ctx) => {
   const { projectId } = await (ctx as RouteContext).params
@@ -69,6 +106,19 @@ export const PATCH = withAuth('client', async (req: NextRequest, user, ctx) => {
   }
 
   const orgId = access.doc.data()?.orgId as string | undefined
+  const sourceOrgId = (access.doc.data()?.sourceOrgId as string | undefined) || orgId
+  const requestedLinks = pickProjectLinkFields(body)
+  if (Object.keys(requestedLinks).length > 0) {
+    const existing = access.doc.data() ?? {}
+    const normalizedLinks = normalizeProjectLinks({ ...pickProjectLinkFields(existing), ...requestedLinks })
+    if (normalizedLinks.ok === false) return apiError(normalizedLinks.error, 400)
+    if (sourceOrgId) {
+      const linkSafety = await assertProjectPatchLinkTenantSafety(normalizedLinks.value, sourceOrgId, user)
+      if (linkSafety.ok === false) return apiError(linkSafety.error, linkSafety.status)
+    }
+    Object.assign(updates, normalizedLinks.value)
+  }
+
   await adminDb.collection('projects').doc(projectId).update(updates)
 
   if (orgId) {
