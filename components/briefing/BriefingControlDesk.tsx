@@ -174,6 +174,8 @@ const PRIORITIES = [
   { value: 'fyi', label: 'Changed', icon: 'history' },
 ]
 
+const BRIEFING_CONTROL_DESK_LIMIT = '300'
+
 const SOURCES = [
   { value: 'all', label: 'All sources' },
   { value: 'task', label: 'Tasks' },
@@ -914,7 +916,17 @@ function addPulseItem(row: PulseRow, item: BriefingCard) {
   if (item.priority === 'critical') row.blocked += 1
   if (item.priority === 'review' || item.priority === 'needs-peet') row.review += 1
   if (item.actor.type === 'agent' || item.source.type === 'agent-output') row.agents += 1
-  if (item.source.type === 'client-document' || item.source.type === 'approval') row.documents += 1
+  const isDocumentSignal = item.source.type === 'client-document'
+    || item.source.type === 'approval'
+    || (item.source.type === 'notification'
+      && Boolean(
+        cleanText(item.context.documentId)
+        || cleanText(item.context.documentTitle)
+        || cleanText(item.metadata?.documentId)
+        || cleanText(item.metadata?.documentTitle)
+        || cleanText(item.metadata?.notificationType).startsWith('client_document.'),
+      ))
+  if (isDocumentSignal) row.documents += 1
   row.latestAt = Math.max(row.latestAt, new Date(item.occurredAt).getTime())
 }
 
@@ -996,7 +1008,7 @@ export function BriefingControlDesk({ mode }: { mode: Mode }) {
     if (orgId) params.set('orgId', orgId)
     if (priority !== 'all') params.set('priority', priority)
     if (sourceType !== 'all') params.set('sourceType', sourceType)
-    params.set('limit', '80')
+    params.set('limit', BRIEFING_CONTROL_DESK_LIMIT)
     return params.toString()
   }, [orgId, priority, sourceType])
 
