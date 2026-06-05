@@ -45,6 +45,9 @@ export const PATCH = withAuth('admin', async (req: NextRequest, user, context) =
   const action = typeof body.action === 'string' ? body.action.trim().toLowerCase() : ''
   if (action !== 'approve' && action !== 'reject') return apiError('Invalid workspace broker job action', 400)
 
+  if (job.approvalRequired !== true) return apiError('Workspace broker job does not require approval', 400)
+  if (job.status !== 'awaiting_approval') return apiError('Workspace broker job is not awaiting approval', 409)
+
   const nextStatus = action === 'approve' ? 'queued' : 'cancelled'
   const approvalStatus = action === 'approve' ? 'approved' : 'rejected'
   const output = { ...(job.output ?? {}), googleMutationPerformed: false }

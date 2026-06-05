@@ -81,6 +81,7 @@ export interface WorkspaceBrokerJobInput {
   createdByType?: string | null
   approvalGateTaskId?: string | null
   approvalStatus?: string | null
+  approvalTrusted?: boolean | null
   idempotencyKey?: string | null
   now?: string | null
   input?: Record<string, unknown>
@@ -174,11 +175,12 @@ export function buildWorkspaceBrokerJobInput(input: WorkspaceBrokerJobInput): Wo
   const now = cleanString(input.now) ?? new Date().toISOString()
   const approvalGateTaskId = cleanString(input.approvalGateTaskId)
   const approvalStatus = cleanString(input.approvalStatus)
+  const trustedApprovalSatisfied = input.approvalTrusted === true && !!approvalGateTaskId && !!approvalStatus && APPROVED.has(approvalStatus.toLowerCase())
   const decision = evaluateWorkspaceBrokerApproval({
     operation,
     visibility: cleanString(payload.visibility),
-    approvalStatus,
-    approvalGateTaskId,
+    approvalStatus: trustedApprovalSatisfied ? approvalStatus : null,
+    approvalGateTaskId: trustedApprovalSatisfied ? approvalGateTaskId : null,
   })
   return {
     orgId,
@@ -214,7 +216,12 @@ export function buildWorkspaceBrokerJobInput(input: WorkspaceBrokerJobInput): Wo
 }
 
 export function canExecuteWorkspaceBrokerJob(job: Partial<WorkspaceBrokerJob>): { ok: true } | { ok: false; reason: 'approval_required' | 'not_ready' } {
-  if (job.approvalRequired && !job.approvalSatisfied) return { ok: false, reason: 'approval_required' }
+  const operation = typeof job.operation === 'string' && (WORKSPACE_BROKER_OPERATIONS as readonly string[]).includes(job.operation) ? job.operation as WorkspaceBrokerOperation : 'link_existing'
+  const visibility = asRecord(job.input).visibility
+  const fallbackDecision = evaluateWorkspaceBrokerApproval({ operation, visibility: cleanString(visibility), approvalStatus: cleanString(job.approvalStatus), approvalGateTaskId: cleanString(job.approvalGateTaskId) })
+  const approvalRequired = job.approvalRequired === true || fallbackDecision.approvalRequired
+  const approvalSatisfied = job.approvalSatisfied === true || fallbackDecision.approvalSatisfied
+  if (approvalRequired && !approvalSatisfied) return { ok: false, reason: 'approval_required' }
   const status = cleanString(job.status)
   if (status !== 'queued' && status !== 'running') return { ok: false, reason: 'not_ready' }
   return { ok: true }
