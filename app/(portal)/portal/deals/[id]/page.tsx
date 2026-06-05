@@ -492,7 +492,7 @@ export default function DealDetailPage() {
           monetization_on
         </span>
         <p className="text-[var(--color-pib-text-muted)]">{error || 'Deal not found'}</p>
-        <Link href="/portal/deals" className="text-sm text-[var(--color-pib-accent)] hover:underline">
+        <Link href={dealListHref} className="text-sm text-[var(--color-pib-accent)] hover:underline">
           ← Back to Deals
         </Link>
       </div>

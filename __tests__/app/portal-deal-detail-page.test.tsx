@@ -196,6 +196,33 @@ describe('Portal deal detail page', () => {
     expect(pushMock).toHaveBeenCalledWith(`/portal/deals?${scope}`)
   })
 
+  it('preserves workspace scope on the deal detail error fallback link', async () => {
+    mockSearchParams = new URLSearchParams({
+      orgId: 'org-1',
+      orgSlug: 'lumen-speeds',
+      sourceCompanyId: 'company-1',
+      sourceCompanyName: 'Lumen',
+    })
+    global.fetch = jest.fn((url: RequestInfo | URL) => {
+      if (String(url) === '/api/v1/crm/deals/deal-archive-1?orgId=org-1') {
+        return Promise.resolve({
+          ok: false,
+          status: 404,
+          json: async () => ({ error: 'Deal not found' }),
+        } as Response)
+      }
+      return Promise.reject(new Error(`Unexpected fetch: ${String(url)}`))
+    }) as jest.Mock
+
+    render(<DealDetailPage />)
+
+    expect(await screen.findByText('Deal not found')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /Back to Deals/ })).toHaveAttribute(
+      'href',
+      '/portal/deals?orgId=org-1&orgSlug=lumen-speeds&sourceCompanyId=company-1&sourceCompanyName=Lumen',
+    )
+  })
+
   it('keeps next best action cards readable in the deal side rail', async () => {
     render(<DealDetailPage />)
 
