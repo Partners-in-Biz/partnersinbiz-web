@@ -220,7 +220,7 @@ export function canExecuteWorkspaceBrokerJob(job: Partial<WorkspaceBrokerJob>): 
   const visibility = asRecord(job.input).visibility
   const fallbackDecision = evaluateWorkspaceBrokerApproval({ operation, visibility: cleanString(visibility), approvalStatus: cleanString(job.approvalStatus), approvalGateTaskId: cleanString(job.approvalGateTaskId) })
   const approvalRequired = job.approvalRequired === true || fallbackDecision.approvalRequired
-  const approvalSatisfied = job.approvalSatisfied === true || fallbackDecision.approvalSatisfied
+  const approvalSatisfied = job.approvalSatisfied === true || (job.approvalSatisfied === undefined && fallbackDecision.approvalSatisfied)
   if (approvalRequired && !approvalSatisfied) return { ok: false, reason: 'approval_required' }
   const status = cleanString(job.status)
   if (status !== 'queued' && status !== 'running') return { ok: false, reason: 'not_ready' }

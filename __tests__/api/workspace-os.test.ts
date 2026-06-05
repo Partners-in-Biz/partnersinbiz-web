@@ -155,7 +155,7 @@ describe('workspace broker API routes', () => {
   })
 
   it('approves and rejects workspace broker jobs without performing Google mutations', async () => {
-    mockGetDoc.mockResolvedValue({ exists: true, id: 'job-1', data: () => ({ orgId: 'org-1', status: 'awaiting_approval', operation: 'request_share', output: { googleMutationPerformed: false } }) })
+    mockGetDoc.mockResolvedValue({ exists: true, id: 'job-1', data: () => ({ orgId: 'org-1', status: 'awaiting_approval', operation: 'request_share', approvalRequired: true, approvalSatisfied: false, output: { googleMutationPerformed: false } }) })
     const { PATCH } = await import('@/app/api/v1/workspace-broker/jobs/[id]/route')
 
     const approved = await PATCH(new NextRequest('http://localhost/api/v1/workspace-broker/jobs/job-1?orgId=org-1', {

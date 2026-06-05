@@ -247,6 +247,24 @@ describe('workspace broker approval envelope', () => {
     })
   })
 
+  it('does not treat caller-supplied approval fields as satisfied unless the caller is trusted', () => {
+    const job = buildWorkspaceBrokerJobInput({
+      operation: 'request_share',
+      orgId: 'org-1',
+      requestedBy: 'admin-1',
+      approvalGateTaskId: 'task-approval-1',
+      approvalStatus: 'approved',
+      input: { artifactId: 'artifact-1', visibility: 'admin_agents_clients' },
+    })
+
+    expect(job).toMatchObject({
+      status: 'awaiting_approval',
+      approvalRequired: true,
+      approvalSatisfied: false,
+      approvalEvidence: { gateTaskId: 'task-approval-1', status: 'approved' },
+    })
+  })
+
   it('blocks gated broker side effects from execution until approval evidence is satisfied', () => {
     const awaiting = buildWorkspaceBrokerJobInput({
       operation: 'request_share',
@@ -260,11 +278,13 @@ describe('workspace broker approval envelope', () => {
       requestedBy: 'admin-1',
       approvalGateTaskId: 'task-approval-1',
       approvalStatus: 'approved',
+      approvalTrusted: true,
       input: { artifactId: 'artifact-1', visibility: 'admin_agents_clients' },
     })
 
     expect(canExecuteWorkspaceBrokerJob(awaiting)).toMatchObject({ ok: false, reason: 'approval_required' })
     expect(canExecuteWorkspaceBrokerJob({ ...approved, status: 'running' })).toMatchObject({ ok: true })
+    expect(canExecuteWorkspaceBrokerJob({ operation: 'request_share', status: 'queued', approvalRequired: false, approvalSatisfied: false, input: { visibility: 'admin_agents_clients' } })).toMatchObject({ ok: false, reason: 'approval_required' })
   })
 
   it('detects Google ACLs that are broader than PiB visibility', () => {
