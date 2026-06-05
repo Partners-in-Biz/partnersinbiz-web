@@ -6,7 +6,7 @@ function source(relativePath: string) {
 }
 
 describe('mobile apps shared workspace standard', () => {
-  it('keeps portal and admin org mobile-app routes thin and shares the app list surface', () => {
+  it('keeps portal and admin org mobile-app routes thin and shares the app workspace shell', () => {
     const adminRoute = source('app/(admin)/admin/org/[slug]/mobile-apps/page.tsx')
     const portalRoute = source('app/(portal)/portal/mobile-apps/page.tsx')
 
@@ -24,10 +24,19 @@ describe('mobile apps shared workspace standard', () => {
 
     const adminWorkspace = source('components/mobile-apps/MobileAppsAdminWorkspace.tsx')
     const portalWorkspace = source('components/mobile-apps/MobileAppsPortalWorkspace.tsx')
+    const sharedShell = source('components/mobile-apps/MobileAppsWorkspaceShell.tsx')
     const sharedList = source('components/mobile-apps/MobileAppList.tsx')
 
+    expect(sharedShell).toContain('export function MobileAppsWorkspaceShell')
     expect(adminWorkspace).toContain('@/components/mobile-apps/MobileAppList')
+    expect(adminWorkspace).toContain('@/components/mobile-apps/MobileAppsWorkspaceShell')
+    expect(adminWorkspace).not.toContain('Digital presence</p>')
+    expect(adminWorkspace).not.toContain('Apps</p><p')
+    expect(adminWorkspace).not.toContain('Portal</p><p')
     expect(portalWorkspace).toContain('@/components/mobile-apps/MobileAppList')
+    expect(portalWorkspace).toContain('@/components/mobile-apps/MobileAppsWorkspaceShell')
+    expect(portalWorkspace).not.toContain('Digital presence</p>')
+    expect(portalWorkspace).not.toContain('app{apps.length === 1')
     expect(sharedList).toContain('export function MobileAppList')
   })
 })

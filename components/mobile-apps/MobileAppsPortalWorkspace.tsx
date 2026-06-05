@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import type { MobileAppRecord } from '@/lib/mobile-apps/types'
 import { MobileAppList } from '@/components/mobile-apps/MobileAppList'
+import { MobileAppsWorkspaceShell } from '@/components/mobile-apps/MobileAppsWorkspaceShell'
 
 export function MobileAppsPortalWorkspace() {
   const [apps, setApps] = useState<MobileAppRecord[]>([])
@@ -50,96 +51,82 @@ export function MobileAppsPortalWorkspace() {
     await load()
   }
 
-  if (loading) return <div className="p-6"><div className="pib-skeleton h-80" /></div>
-
   return (
-    <main className="p-4 sm:p-6 lg:p-8 space-y-6 max-w-6xl mx-auto">
-      <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
-        <div>
-          <p className="eyebrow">Digital presence</p>
-          <h1 className="text-3xl font-headline font-bold text-[var(--color-pib-text)]">Mobile apps</h1>
-          <p className="text-sm text-[var(--color-pib-text-muted)] mt-2 max-w-2xl">Store links, listing copy, ratings, release notes and app tasks that need client review.</p>
-        </div>
-        <div className="rounded-2xl border border-[var(--color-pib-line)] bg-[var(--color-pib-card)] px-4 py-3 text-sm text-[var(--color-pib-text-muted)]">
-          {apps.length} app{apps.length === 1 ? '' : 's'} tracked
-        </div>
-      </div>
-
-      {notice && <div className="rounded-2xl border border-[var(--color-pib-line)] bg-[var(--color-pib-card)] p-4 text-sm">{notice}</div>}
-
-      {apps.length === 0 ? (
-        <MobileAppList
-          apps={apps}
-          emptyTitle="No mobile app profile yet"
-          emptyDescription="When the PiB team adds your App Store or Google Play presence, it will appear here for review."
-        />
-      ) : (
-        <MobileAppList
-          apps={apps}
-          emptyTitle="No mobile app profile yet"
-          emptyDescription="When the PiB team adds your App Store or Google Play presence, it will appear here for review."
-          showListingDetails
-          showReleaseNotes
-          renderActions={(app) => (
-            <>
-              {app.appStoreUrl && (
-                <a href={app.appStoreUrl} target="_blank" rel="noreferrer" className="pib-btn-primary text-sm">
-                  Open App Store
-                </a>
-              )}
-              {app.playStoreUrl && (
-                <a href={app.playStoreUrl} target="_blank" rel="noreferrer" className="pib-btn-primary text-sm">
-                  Open Google Play
-                </a>
-              )}
-              {app.supportUrl && (
-                <a href={app.supportUrl} target="_blank" rel="noreferrer" className="pib-btn-ghost text-sm">
-                  Support
-                </a>
-              )}
-            </>
-          )}
-          renderFooter={(app) => (
-            <>
-              {app.clientNotes && <p className="rounded-2xl bg-white/[0.04] p-3 text-sm">{app.clientNotes}</p>}
-              {editingId === app.id ? (
-                <div className="space-y-3 rounded-2xl border border-[var(--color-pib-line)] p-3">
-                  <label className="block text-sm">
-                    <span className="eyebrow !text-[10px]">Notes for PiB</span>
-                    <textarea
-                      value={clientNotes}
-                      onChange={(e) => setClientNotes(e.target.value)}
-                      rows={3}
-                      className="mt-2 w-full rounded-xl border border-[var(--color-pib-line)] bg-transparent p-3"
-                    />
-                  </label>
-                  <label className="block text-sm">
-                    <span className="eyebrow !text-[10px]">Listing feedback</span>
-                    <textarea
-                      value={clientFeedback}
-                      onChange={(e) => setClientFeedback(e.target.value)}
-                      rows={3}
-                      className="mt-2 w-full rounded-xl border border-[var(--color-pib-line)] bg-transparent p-3"
-                    />
-                  </label>
-                  <div className="flex gap-2">
-                    <button type="button" onClick={saveFeedback} className="pib-btn-primary text-sm">
-                      Save feedback
-                    </button>
-                    <button type="button" onClick={() => setEditingId(null)} className="pib-btn-ghost text-sm">
-                      Cancel
-                    </button>
-                  </div>
+    <MobileAppsWorkspaceShell
+      apps={apps}
+      surface="portal"
+      eyebrow="Digital presence"
+      title="Mobile apps"
+      description="Store links, listing copy, ratings, release notes and app tasks that need client review."
+      notice={notice}
+      loading={loading}
+      className="p-4 sm:p-6 lg:p-8"
+    >
+      <MobileAppList
+        apps={apps}
+        emptyTitle="No mobile app profile yet"
+        emptyDescription="When the PiB team adds your App Store or Google Play presence, it will appear here for review."
+        showListingDetails
+        showReleaseNotes
+        renderActions={(app) => (
+          <>
+            {app.appStoreUrl && (
+              <a href={app.appStoreUrl} target="_blank" rel="noreferrer" className="pib-btn-primary text-sm">
+                Open App Store
+              </a>
+            )}
+            {app.playStoreUrl && (
+              <a href={app.playStoreUrl} target="_blank" rel="noreferrer" className="pib-btn-primary text-sm">
+                Open Google Play
+              </a>
+            )}
+            {app.supportUrl && (
+              <a href={app.supportUrl} target="_blank" rel="noreferrer" className="pib-btn-ghost text-sm">
+                Support
+              </a>
+            )}
+          </>
+        )}
+        renderFooter={(app) => (
+          <>
+            {app.clientNotes && <p className="rounded-2xl bg-white/[0.04] p-3 text-sm">{app.clientNotes}</p>}
+            {editingId === app.id ? (
+              <div className="space-y-3 rounded-2xl border border-[var(--color-pib-line)] p-3">
+                <label className="block text-sm">
+                  <span className="eyebrow !text-[10px]">Notes for PiB</span>
+                  <textarea
+                    value={clientNotes}
+                    onChange={(e) => setClientNotes(e.target.value)}
+                    rows={3}
+                    className="mt-2 w-full rounded-xl border border-[var(--color-pib-line)] bg-transparent p-3"
+                  />
+                </label>
+                <label className="block text-sm">
+                  <span className="eyebrow !text-[10px]">Listing feedback</span>
+                  <textarea
+                    value={clientFeedback}
+                    onChange={(e) => setClientFeedback(e.target.value)}
+                    rows={3}
+                    className="mt-2 w-full rounded-xl border border-[var(--color-pib-line)] bg-transparent p-3"
+                  />
+                </label>
+                <div className="flex gap-2">
+                  <button type="button" onClick={saveFeedback} className="pib-btn-primary text-sm">
+                    Save feedback
+                  </button>
+                  <button type="button" onClick={() => setEditingId(null)} className="pib-btn-ghost text-sm">
+                    Cancel
+                  </button>
                 </div>
-              ) : (
-                <button type="button" onClick={() => startFeedback(app)} className="pib-btn-ghost text-sm">
-                  Leave feedback / request changes
-                </button>
-              )}
-            </>
-          )}
-        />
-      )}
-    </main>
+              </div>
+            ) : (
+              <button type="button" onClick={() => startFeedback(app)} className="pib-btn-ghost text-sm">
+                Leave feedback / request changes
+              </button>
+            )}
+          </>
+        )}
+      />
+    </MobileAppsWorkspaceShell>
   )
 }

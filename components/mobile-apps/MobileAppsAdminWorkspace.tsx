@@ -1,8 +1,9 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import type { MobileAppRecord, MobileAppPlatform, MobileAppStatus } from '@/lib/mobile-apps/types'
 import { MobileAppList } from '@/components/mobile-apps/MobileAppList'
+import { MobileAppsWorkspaceShell } from '@/components/mobile-apps/MobileAppsWorkspaceShell'
 
 interface MobileAppsAdminWorkspaceProps {
   orgId: string
@@ -150,8 +151,6 @@ export function MobileAppsAdminWorkspace({ orgId, orgName }: MobileAppsAdminWork
   const [saving, setSaving] = useState(false)
   const [notice, setNotice] = useState('')
 
-  const liveApps = useMemo(() => apps.filter(app => app.status === 'live').length, [apps])
-
   async function loadApps(id: string) {
     const res = await fetch(`/api/v1/mobile-apps?orgId=${encodeURIComponent(id)}`)
     const body = await res.json()
@@ -193,25 +192,15 @@ export function MobileAppsAdminWorkspace({ orgId, orgName }: MobileAppsAdminWork
     setNotice('Mobile app archived from the client portal.')
   }
 
-  if (loading) return <div className="pib-skeleton h-96 max-w-6xl mx-auto" />
-
   return (
-    <div className="max-w-6xl mx-auto space-y-6">
-      <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
-        <div>
-          <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant mb-1">{orgName} / Digital presence</p>
-          <h1 className="text-2xl font-headline font-bold text-on-surface">Mobile Apps</h1>
-          <p className="text-sm text-on-surface-variant mt-2 max-w-2xl">Track App Store and Play Store presence, ASO copy, release state, client-safe links, ratings and internal access notes.</p>
-        </div>
-        <div className="grid grid-cols-3 gap-2 text-center">
-          <div className="pib-card-section px-4 py-3"><p className="text-xs text-on-surface-variant">Apps</p><p className="text-xl font-bold">{apps.length}</p></div>
-          <div className="pib-card-section px-4 py-3"><p className="text-xs text-on-surface-variant">Live</p><p className="text-xl font-bold">{liveApps}</p></div>
-          <div className="pib-card-section px-4 py-3"><p className="text-xs text-on-surface-variant">Portal</p><p className="text-xl font-bold">{apps.filter(a => a.visibility?.showInClientPortal !== false).length}</p></div>
-        </div>
-      </div>
-
-      {notice && <div className="pib-card-section p-3 text-sm text-on-surface">{notice}</div>}
-
+    <MobileAppsWorkspaceShell
+      apps={apps}
+      surface="admin"
+      eyebrow={`${orgName} / Digital presence`}
+      description="Track App Store and Play Store presence, ASO copy, release state, client-safe links, ratings and internal access notes."
+      notice={notice}
+      loading={loading}
+    >
       <div className="grid gap-6 lg:grid-cols-[1fr_390px]">
         <div className="space-y-4">
           <MobileAppList
@@ -281,7 +270,7 @@ export function MobileAppsAdminWorkspace({ orgId, orgName }: MobileAppsAdminWork
           <button type="submit" disabled={saving || !form.name.trim()} className="pib-btn-primary w-full">{saving ? 'Saving…' : 'Save mobile app'}</button>
         </form>
       </div>
-    </div>
+    </MobileAppsWorkspaceShell>
   )
 }
 
