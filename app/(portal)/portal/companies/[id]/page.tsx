@@ -16,6 +16,7 @@ import { CompanyEditDrawer, type CompanyTeamMember } from '@/components/crm/Comp
 import { CustomFieldsSection } from '@/components/crm/CustomFieldsSection'
 import { ContactForm } from '@/components/admin/crm/ContactForm'
 import { DealDrawer } from '@/components/crm/DealDrawer'
+import { scopedPortalPath } from '@/lib/portal/scoped-routing'
 
 type RelatedContact = {
   id: string
@@ -665,6 +666,7 @@ function ProjectsPanel({
   projects,
   company,
   contacts,
+  workspace,
   creatingProject,
   projectError,
   onCreateProject,
@@ -673,12 +675,16 @@ function ProjectsPanel({
   projects: RelatedProject[]
   company: Company
   contacts: RelatedContact[]
+  workspace?: LinkedWorkspace | null
   creatingProject: boolean
   projectError: string | null
   onCreateProject: () => void
   onCreateContact: () => void
 }) {
   const firstContact = contacts[0]
+  const scopedWorkspaceHref = (path: string) => (
+    workspace ? scopedPortalPath(path, workspace) : path
+  )
   if (projects.length === 0) {
     return (
       <EmptyPanel
@@ -755,7 +761,7 @@ function ProjectsPanel({
         emptyIcon="folder_off"
         emptyLabel="No linked projects yet."
         title={(row) => projectNameLabel(row as RelatedProject)}
-        hrefFor={(row) => `/portal/projects/${row.id}`}
+        hrefFor={(row) => scopedWorkspaceHref(`/portal/projects/${row.id}`)}
         metaFor={(row) => [
           projectDescriptionLabel(row as RelatedProject),
           projectStatusLabel(row as RelatedProject),
@@ -850,16 +856,22 @@ function ServicesPanel({
 function DocumentsPanel({
   documents,
   company,
+  workspace,
   creatingDocument,
   documentError,
   onCreateDocument,
 }: {
   documents: RelatedDocument[]
   company: Company
+  workspace?: LinkedWorkspace | null
   creatingDocument: boolean
   documentError: string | null
   onCreateDocument: () => void
 }) {
+  const scopedWorkspaceHref = (path: string) => (
+    workspace ? scopedPortalPath(path, workspace) : path
+  )
+
   if (documents.length === 0) {
     return (
       <EmptyPanel
@@ -906,7 +918,7 @@ function DocumentsPanel({
         emptyIcon="description"
         emptyLabel="No linked documents yet."
         title={(row) => documentTitleLabel(row as RelatedDocument)}
-        hrefFor={(row) => `/portal/documents/${row.id}`}
+        hrefFor={(row) => scopedWorkspaceHref(`/portal/documents/${row.id}`)}
         metaFor={(row) => [
           documentTypeLabel(row as RelatedDocument),
           documentStatusLabel(row as RelatedDocument),
@@ -2598,6 +2610,7 @@ export default function CompanyDetailPage() {
             projects={related.projects}
             company={company}
             contacts={related.contacts}
+            workspace={related.linkedWorkspace}
             creatingProject={creatingProject}
             projectError={projectError}
             onCreateProject={createDiscoveryProject}
@@ -2608,6 +2621,7 @@ export default function CompanyDetailPage() {
           <DocumentsPanel
             documents={related.documents}
             company={company}
+            workspace={related.linkedWorkspace}
             creatingDocument={creatingDocument}
             documentError={documentError}
             onCreateDocument={createSalesProposalDocument}

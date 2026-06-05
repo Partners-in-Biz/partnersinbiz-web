@@ -305,8 +305,10 @@ describe('CRM OS company command center foundations', () => {
 
     expect(center.linkedWorkspace).toEqual({
       id: 'client-org',
+      orgId: 'client-org',
       name: 'Lumen Speeds',
       slug: 'lumen-speeds',
+      orgSlug: 'lumen-speeds',
     })
   })
 })

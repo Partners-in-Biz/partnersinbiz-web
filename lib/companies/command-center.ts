@@ -11,7 +11,9 @@ export type CommandCenterRow = { id: string; [key: string]: unknown }
 
 export type LinkedWorkspace = {
   id: string
+  orgId: string
   slug: string
+  orgSlug: string
   name: string
 }
 
@@ -207,7 +209,9 @@ async function loadLinkedWorkspace(company: Company): Promise<LinkedWorkspace | 
   if (!snap.exists) {
     return {
       id: linkedOrgId,
+      orgId: linkedOrgId,
       slug: linkedOrgId,
+      orgSlug: linkedOrgId,
       name: linkedOrgId,
     }
   }
@@ -218,7 +222,9 @@ async function loadLinkedWorkspace(company: Company): Promise<LinkedWorkspace | 
 
   return {
     id: linkedOrgId,
+    orgId: linkedOrgId,
     slug,
+    orgSlug: slug,
     name,
   }
 }

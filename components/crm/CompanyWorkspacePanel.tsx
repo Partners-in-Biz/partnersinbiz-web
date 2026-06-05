@@ -5,7 +5,9 @@ import { scopedPortalPath } from '@/lib/portal/scoped-routing'
 
 export type LinkedWorkspace = {
   id: string
+  orgId?: string
   slug: string
+  orgSlug?: string
   name: string
 }
 
