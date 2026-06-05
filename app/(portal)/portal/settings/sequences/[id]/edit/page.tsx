@@ -1,9 +1,10 @@
 'use client'
 export const dynamic = 'force-dynamic'
 
-import { use, useCallback, useEffect, useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { use, useCallback, useEffect, useMemo, useState } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { SequenceForm } from '@/components/crm/SequenceForm'
+import { scopedApiPath, scopedPortalPath, scopeFromSearchParams } from '@/lib/portal/scoped-routing'
 import type { Sequence } from '@/lib/sequences/types'
 
 export default function EditSequencePage({
@@ -13,6 +14,13 @@ export default function EditSequencePage({
 }) {
   const { id } = use(params)
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const orgScope = useMemo(() => scopeFromSearchParams(searchParams), [searchParams])
+  const sequencesHref = useMemo(() => scopedPortalPath('/portal/settings/sequences', orgScope), [orgScope])
+  const sequenceEndpoint = useCallback(
+    (path: string) => scopedApiPath(path, orgScope),
+    [orgScope],
+  )
 
   const [sequence, setSequence] = useState<Sequence | null>(null)
   const [loading, setLoading] = useState(true)
@@ -23,7 +31,7 @@ export default function EditSequencePage({
     setLoading(true)
     setFetchError(null)
     try {
-      const res = await fetch(`/api/v1/crm/sequences/${id}`)
+      const res = await fetch(sequenceEndpoint(`/api/v1/crm/sequences/${id}`))
       const body = await res.json().catch(() => ({}))
       if (!res.ok) {
         const message = typeof body?.error === 'string' ? body.error : `HTTP ${res.status}`
@@ -37,7 +45,7 @@ export default function EditSequencePage({
     } finally {
       if (!cancelled?.()) setLoading(false)
     }
-  }, [id])
+  }, [id, sequenceEndpoint])
 
   useEffect(() => {
     if (!id) return
@@ -50,11 +58,11 @@ export default function EditSequencePage({
   }, [id, loadSequence])
 
   function handleSave() {
-    router.push('/portal/settings/sequences')
+    router.push(sequencesHref)
   }
 
   function handleCancel() {
-    router.push('/portal/settings/sequences')
+    router.push(sequencesHref)
   }
 
   return (
@@ -128,7 +136,7 @@ export default function EditSequencePage({
           </div>
         </section>
       ) : sequence ? (
-        <SequenceForm initial={sequence} onSave={handleSave} onCancel={handleCancel} />
+        <SequenceForm initial={sequence} apiScope={orgScope} onSave={handleSave} onCancel={handleCancel} />
       ) : null}
     </div>
   )

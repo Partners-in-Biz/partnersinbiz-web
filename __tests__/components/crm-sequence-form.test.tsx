@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { SequenceForm } from '@/components/crm/SequenceForm'
 
 describe('SequenceForm', () => {
@@ -46,5 +46,30 @@ describe('SequenceForm', () => {
 
     expect(screen.getByText('Step 1: Email body is required before activation.')).toBeInTheDocument()
     expect(global.fetch).not.toHaveBeenCalled()
+  })
+
+  it('creates sequences through the active company workspace scope', async () => {
+    render(
+      <SequenceForm
+        apiScope={{ orgId: 'lumen-org' }}
+        onSave={jest.fn()}
+        onCancel={jest.fn()}
+      />,
+    )
+
+    fireEvent.change(screen.getByRole('textbox', { name: 'Sequence name' }), {
+      target: { value: 'Lumen lead welcome' },
+    })
+    fireEvent.change(screen.getByRole('textbox', { name: 'Step 1 email subject' }), {
+      target: { value: 'Welcome to Lumen' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Create sequence' }))
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith(
+        '/api/v1/crm/sequences?orgId=lumen-org',
+        expect.objectContaining({ method: 'POST' }),
+      )
+    })
   })
 })

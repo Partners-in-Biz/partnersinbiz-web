@@ -1,18 +1,23 @@
 'use client'
 export const dynamic = 'force-dynamic'
 
-import { useRouter } from 'next/navigation'
+import { useMemo } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { SequenceForm } from '@/components/crm/SequenceForm'
+import { scopedPortalPath, scopeFromSearchParams } from '@/lib/portal/scoped-routing'
 
 export default function NewSequencePage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const orgScope = useMemo(() => scopeFromSearchParams(searchParams), [searchParams])
+  const sequencesHref = useMemo(() => scopedPortalPath('/portal/settings/sequences', orgScope), [orgScope])
 
   function handleSave() {
-    router.push('/portal/settings/sequences')
+    router.push(sequencesHref)
   }
 
   function handleCancel() {
-    router.push('/portal/settings/sequences')
+    router.push(sequencesHref)
   }
 
   return (
@@ -41,7 +46,7 @@ export default function NewSequencePage() {
         </div>
       </div>
 
-      <SequenceForm onSave={handleSave} onCancel={handleCancel} />
+      <SequenceForm apiScope={orgScope} initial={{ orgId: orgScope.orgId ?? undefined }} onSave={handleSave} onCancel={handleCancel} />
     </div>
   )
 }

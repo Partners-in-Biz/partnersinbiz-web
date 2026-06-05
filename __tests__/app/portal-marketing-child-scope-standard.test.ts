@@ -15,6 +15,7 @@ describe('portal marketing child scope standard', () => {
     const emailAnalytics = source('app/(portal)/portal/email-analytics/page.tsx')
     const emailAnalyticsDashboard = source('components/admin/email-analytics/EmailAnalyticsDashboard.tsx')
     const sequences = source('app/(portal)/portal/settings/sequences/page.tsx')
+    const sequencesWorkspace = source('components/crm/SequencesWorkspace.tsx')
     const automations = source('app/(portal)/portal/settings/automations/page.tsx')
     const communications = source('app/(portal)/portal/communications/page.tsx')
     const contacts = source('app/(portal)/portal/contacts/page.tsx')
@@ -48,8 +49,10 @@ describe('portal marketing child scope standard', () => {
     expect(emailAnalyticsDashboard).toContain('scopedPortalPath')
 
     expect(sequences).toContain('scopeFromSearchParams')
-    expect(sequences).toContain("sequenceEndpoint('/api/v1/crm/sequences'")
-    expect(sequences).toContain("sequenceHref('/portal/settings/sequences/new'")
+    expect(sequences).toContain('@/components/crm/SequencesWorkspace')
+    expect(sequences).toContain('surface="portal"')
+    expect(sequencesWorkspace).toContain("sequenceEndpoint('/api/v1/crm/sequences'")
+    expect(sequencesWorkspace).toContain('sequenceHref(sequenceNewPath(surface))')
 
     expect(automations).toContain('scopeFromSearchParams')
     expect(automations).toContain("automationEndpoint('/api/v1/crm/automations'")

@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import type { Sequence, SequenceStep, SequenceStatus } from '@/lib/sequences/types'
 import { validateSequenceActivation } from '@/lib/sequences/validation'
+import { scopedApiPath, type PortalOrgRouteScope } from '@/lib/portal/scoped-routing'
 
 // ── Input class helper ────────────────────────────────────────────────────────
 
@@ -201,13 +202,14 @@ function blankStep(index: number): SequenceStep {
 
 interface Props {
   initial?: Partial<Sequence>
+  apiScope?: PortalOrgRouteScope
   onSave: (seq: Sequence) => void
   onCancel: () => void
 }
 
 // ── SequenceForm ──────────────────────────────────────────────────────────────
 
-export function SequenceForm({ initial, onSave, onCancel }: Props) {
+export function SequenceForm({ initial, apiScope, onSave, onCancel }: Props) {
   const [name, setName] = useState(initial?.name ?? '')
   const [description, setDescription] = useState(initial?.description ?? '')
   const [status, setStatus] = useState<SequenceStatus>(initial?.status ?? 'draft')
@@ -301,9 +303,11 @@ export function SequenceForm({ initial, onSave, onCancel }: Props) {
         topicId: initial?.topicId,
       }
 
-      const url = isEdit
-        ? `/api/v1/crm/sequences/${initial!.id}`
-        : '/api/v1/crm/sequences'
+      const sequenceScope = apiScope ?? { orgId: initial?.orgId }
+      const url = scopedApiPath(
+        isEdit ? `/api/v1/crm/sequences/${initial!.id}` : '/api/v1/crm/sequences',
+        sequenceScope,
+      )
       const method = isEdit ? 'PUT' : 'POST'
 
       const res = await fetch(url, {
