@@ -1,14 +1,16 @@
 'use client'
 export const dynamic = 'force-dynamic'
 
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
+import { useSearchParams } from 'next/navigation'
 import { ProfileCompleteBanner } from '@/components/settings/ProfileCompleteBanner'
 import { TopCompaniesByPipelineTile } from '@/components/dashboard/TopCompaniesByPipelineTile'
 import { fmtTimestamp } from '@/components/admin/email/fmtTimestamp'
 import { ScheduledContentPreviewCards, type ScheduledContentPost } from '@/components/admin/ScheduledContentPreviewCards'
 import { DonutChart, HorizontalBarChart, StatCardWithChart, TrendAreaChart } from '@/components/ui/Charts'
 import { EmptyState, PageHeader, Surface } from '@/components/ui/AppFoundation'
+import { scopedApiPath, scopedPortalPath, scopeFromSearchParams } from '@/lib/portal/scoped-routing'
 
 interface Kpis {
   total_revenue: number
@@ -290,6 +292,8 @@ interface CampaignStats {
 }
 
 export default function PortalDashboard() {
+  const searchParams = useSearchParams()
+  const orgScope = useMemo(() => scopeFromSearchParams(searchParams), [searchParams])
   const [portalOrg, setPortalOrg] = useState<PortalOrg | null>(null)
   const [portalOrgLoaded, setPortalOrgLoaded] = useState(false)
   const [data, setData] = useState<DashboardData | null>(null)
@@ -307,21 +311,23 @@ export default function PortalDashboard() {
   })
   const [crmData, setCrmData] = useState<CrmDashboardData | null>(null)
   const [crmLoading, setCrmLoading] = useState(true)
+  const scopedHref = useCallback((path: string) => scopedPortalPath(path, orgScope), [orgScope])
+  const scopedApi = useCallback((path: string) => scopedApiPath(path, orgScope), [orgScope])
 
   useEffect(() => {
-    fetch('/api/v1/portal/org')
+    fetch(scopedApi('/api/v1/portal/org'))
       .then((r) => (r.ok ? r.json() : null))
       .then((body) => setPortalOrg(body?.org ?? null))
       .catch(() => setPortalOrg(null))
       .finally(() => setPortalOrgLoaded(true))
-  }, [])
+  }, [scopedApi])
 
   useEffect(() => {
-    fetch('/api/v1/portal/dashboard')
+    fetch(scopedApi('/api/v1/portal/dashboard'))
       .then((r) => r.json())
       .then((b) => { setData(b); setLoading(false) })
       .catch(() => setLoading(false))
-  }, [])
+  }, [scopedApi])
 
   useEffect(() => {
     if (!portalOrgLoaded) return
@@ -368,7 +374,7 @@ export default function PortalDashboard() {
   }, [portalOrg?.id])
 
   useEffect(() => {
-    fetch('/api/v1/crm/dashboard')
+    fetch(scopedApi('/api/v1/crm/dashboard'))
       .then(async r => {
         const body = await r.json().catch(() => null)
         return r.ok ? normalizeCrmDashboardPayload(body) : null
@@ -376,13 +382,13 @@ export default function PortalDashboard() {
       .then(data => setCrmData(data ?? EMPTY_CRM_DASHBOARD))
       .catch(() => setCrmData(EMPTY_CRM_DASHBOARD))
       .finally(() => setCrmLoading(false))
-  }, [])
+  }, [scopedApi])
 
   useEffect(() => {
     if (!portalOrg?.id) return
 
     // Total contacts — read meta.total
-    fetch('/api/v1/crm/contacts?limit=1')
+    fetch(scopedApi('/api/v1/crm/contacts?limit=1'))
       .then((r) => (r.ok ? r.json() : null))
       .then((b) => {
         if (b) {
@@ -404,7 +410,7 @@ export default function PortalDashboard() {
       .catch(() => {})
 
     // Capture sources
-    fetch('/api/v1/crm/capture-sources')
+    fetch(scopedApi('/api/v1/crm/capture-sources'))
       .then((r) => (r.ok ? r.json() : null))
       .then((b) => {
         if (b) {
@@ -413,7 +419,7 @@ export default function PortalDashboard() {
         }
       })
       .catch(() => {})
-  }, [portalOrg?.id])
+  }, [portalOrg?.id, scopedApi])
 
   const noData = !loading && (!data || (data?.connections?.length ?? 0) === 0)
   const activeProjects = projects.filter(p => ['active', 'in_progress', 'development', 'review', 'live', 'maintenance'].includes(p.status))
@@ -449,10 +455,10 @@ export default function PortalDashboard() {
           description={new Date().toLocaleDateString('en-ZA', { weekday: 'long', month: 'long', day: 'numeric' })}
           actions={(
             <>
-              <Link href="/portal/projects" className="pib-btn-primary text-sm font-label">
+              <Link href={scopedHref('/portal/projects')} className="pib-btn-primary text-sm font-label">
                 Request project
               </Link>
-              <Link href="/portal/properties" className="pib-btn-secondary text-sm font-label">
+              <Link href={scopedHref('/portal/properties')} className="pib-btn-secondary text-sm font-label">
                 Set properties
               </Link>
             </>
@@ -498,12 +504,12 @@ export default function PortalDashboard() {
           slug={orgSlug}
           posts={scheduledPosts}
           loading={workspaceLoading || scheduledLoading}
-          composeHref="/portal/social/compose"
+          composeHref={scopedHref('/portal/social/compose')}
           description="Client-safe previews open into review or calendar."
           hrefForPost={(post) => (
             post.status === 'pending_approval' || post.status === 'client_review' || post.status === 'qa_review'
-              ? `/portal/social/review/${post.id}`
-              : `/portal/social/calendar?postId=${post.id}`
+              ? scopedHref(`/portal/social/review/${post.id}`)
+              : scopedHref(`/portal/social/calendar?postId=${post.id}`)
           )}
         />
 
@@ -511,7 +517,7 @@ export default function PortalDashboard() {
           <Surface className="space-y-3 lg:col-span-2">
             <div className="flex items-center justify-between">
               <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Projects</p>
-              <Link href="/portal/projects" className="text-[10px] font-label uppercase tracking-wide text-[var(--color-pib-accent)]">
+              <Link href={scopedHref('/portal/projects')} className="text-[10px] font-label uppercase tracking-wide text-[var(--color-pib-accent)]">
                 View all →
               </Link>
             </div>
@@ -525,14 +531,14 @@ export default function PortalDashboard() {
                 icon="rocket_launch"
                 title="No projects yet."
                 description="Project updates will appear here once work has been opened for your workspace."
-                action={<Link href="/portal/projects" className="btn-pib-secondary text-sm">Request project</Link>}
+                action={<Link href={scopedHref('/portal/projects')} className="btn-pib-secondary text-sm">Request project</Link>}
               />
             ) : (
               <div className="-mx-6 space-y-1">
                 {projects.slice(0, 6).map((project) => (
                   <Link
                     key={project.id}
-                    href={`/portal/projects/${project.id}`}
+                    href={scopedHref(`/portal/projects/${project.id}`)}
                     className="flex items-center gap-4 rounded-lg px-6 py-3 transition-colors hover:bg-[var(--color-row-hover)]"
                   >
                     <div className="min-w-0 flex-1">
@@ -572,7 +578,7 @@ export default function PortalDashboard() {
                   <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">
                     Platform Breakdown
                   </p>
-                  <Link href="/portal/social" className="text-[10px] font-label uppercase tracking-wide text-[var(--color-pib-accent)]">
+                  <Link href={scopedHref('/portal/social')} className="text-[10px] font-label uppercase tracking-wide text-[var(--color-pib-accent)]">
                     View Social →
                   </Link>
                 </div>
@@ -609,12 +615,12 @@ export default function PortalDashboard() {
           <p className="mb-3 text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Quick Actions</p>
           <div className="flex flex-wrap gap-2">
             {[
-              { label: 'Projects', href: '/portal/projects' },
-              { label: 'Messages', href: '/portal/messages' },
-              { label: 'Properties', href: '/portal/properties' },
-              { label: 'Reports', href: '/portal/reports' },
-              { label: 'Marketing', href: '/portal/marketing' },
-              { label: 'Team', href: '/portal/settings/team' },
+              { label: 'Projects', href: scopedHref('/portal/projects') },
+              { label: 'Messages', href: scopedHref('/portal/messages') },
+              { label: 'Properties', href: scopedHref('/portal/properties') },
+              { label: 'Reports', href: scopedHref('/portal/reports') },
+              { label: 'Marketing', href: scopedHref('/portal/marketing') },
+              { label: 'Team', href: scopedHref('/portal/settings/team') },
             ].map(a => (
               <Link key={a.href} href={a.href} className="pib-btn-secondary text-xs font-label">{a.label}</Link>
             ))}
@@ -627,7 +633,7 @@ export default function PortalDashboard() {
         <div className="flex items-baseline justify-between mb-4">
           <h2 className="eyebrow">Campaigns</h2>
           <Link
-            href="/portal/campaigns"
+            href={scopedHref('/portal/campaigns')}
             className="text-xs text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] inline-flex items-center gap-1 transition-colors"
           >
             All campaigns
@@ -635,7 +641,7 @@ export default function PortalDashboard() {
           </Link>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <Link href="/portal/contacts" className="pib-stat-card hover:border-[var(--color-pib-accent)] transition-colors group">
+          <Link href={scopedHref('/portal/contacts')} className="pib-stat-card hover:border-[var(--color-pib-accent)] transition-colors group">
             <div className="flex items-start justify-between">
               <p className="eyebrow !text-[10px]">Contacts</p>
               <span className="material-symbols-outlined text-[18px] text-[var(--color-pib-text-muted)] group-hover:text-[var(--color-pib-accent)] transition-colors">contacts</span>
@@ -646,7 +652,7 @@ export default function PortalDashboard() {
             <p className="mt-3 text-xs text-[var(--color-pib-text-muted)]">total in your audience</p>
           </Link>
 
-          <Link href="/portal/campaigns" className="pib-stat-card hover:border-[var(--color-pib-accent)] transition-colors group">
+          <Link href={scopedHref('/portal/campaigns')} className="pib-stat-card hover:border-[var(--color-pib-accent)] transition-colors group">
             <div className="flex items-start justify-between">
               <p className="eyebrow !text-[10px]">Active campaigns</p>
               <span className="material-symbols-outlined text-[18px] text-[var(--color-pib-text-muted)] group-hover:text-[var(--color-pib-accent)] transition-colors">campaign</span>
@@ -657,7 +663,7 @@ export default function PortalDashboard() {
             <p className="mt-3 text-xs text-[var(--color-pib-text-muted)]">running right now</p>
           </Link>
 
-          <Link href="/portal/capture-sources" className="pib-stat-card hover:border-[var(--color-pib-accent)] transition-colors group">
+          <Link href={scopedHref('/portal/capture-sources')} className="pib-stat-card hover:border-[var(--color-pib-accent)] transition-colors group">
             <div className="flex items-start justify-between">
               <p className="eyebrow !text-[10px]">Capture sources</p>
               <span className="material-symbols-outlined text-[18px] text-[var(--color-pib-text-muted)] group-hover:text-[var(--color-pib-accent)] transition-colors">inventory_2</span>
@@ -679,7 +685,7 @@ export default function PortalDashboard() {
           <div className="flex items-baseline justify-between mb-4">
             <h2 className="eyebrow">Pipeline</h2>
             <Link
-              href="/portal/deals"
+              href={scopedHref('/portal/deals')}
               className="text-xs text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] inline-flex items-center gap-1 transition-colors"
             >
               View deals
@@ -736,7 +742,7 @@ export default function PortalDashboard() {
                   )
                   const className = 'flex items-start gap-2 py-2 border-b border-[var(--color-pib-line)] last:border-0 transition-colors hover:text-[var(--color-pib-accent)]'
                   return href ? (
-                    <Link key={a.id} href={href} className={className}>
+                    <Link key={a.id} href={scopedHref(href)} className={className}>
                       {content}
                     </Link>
                   ) : (
@@ -768,7 +774,7 @@ export default function PortalDashboard() {
                     crmData.topOpenDeals.map(d => (
                       <tr key={d.id} className="border-b border-[var(--color-pib-line)] last:border-0">
                         <td className="py-2">
-                          <Link href={`/portal/deals/${encodeURIComponent(d.id)}`} className="font-medium hover:text-[var(--color-pib-accent)]">
+                          <Link href={scopedHref(`/portal/deals/${encodeURIComponent(d.id)}`)} className="font-medium hover:text-[var(--color-pib-accent)]">
                             {d.title ?? '—'}
                           </Link>
                         </td>
@@ -798,7 +804,7 @@ export default function PortalDashboard() {
           title="No data yet."
           description="Once your team connects integrations, KPIs will appear here within 24 hours."
           action={(
-            <Link href="/portal/properties" className="btn-pib-secondary">
+            <Link href={scopedHref('/portal/properties')} className="btn-pib-secondary">
               Manage properties
               <span className="material-symbols-outlined text-base">arrow_forward</span>
             </Link>
@@ -831,7 +837,7 @@ export default function PortalDashboard() {
             <section>
               <div className="flex items-baseline justify-between mb-4">
                 <h2 className="eyebrow">Latest report</h2>
-                <Link href="/portal/reports" className="text-xs text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] inline-flex items-center gap-1 transition-colors">
+                <Link href={scopedHref('/portal/reports')} className="text-xs text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] inline-flex items-center gap-1 transition-colors">
                   All reports
                   <span className="material-symbols-outlined text-sm">arrow_outward</span>
                 </Link>
@@ -872,7 +878,7 @@ export default function PortalDashboard() {
             <section>
               <div className="flex items-baseline justify-between mb-4">
                 <h2 className="eyebrow">Your properties</h2>
-                <Link href="/portal/properties" className="text-xs text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] inline-flex items-center gap-1 transition-colors">
+                <Link href={scopedHref('/portal/properties')} className="text-xs text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] inline-flex items-center gap-1 transition-colors">
                   Manage
                   <span className="material-symbols-outlined text-sm">arrow_outward</span>
                 </Link>

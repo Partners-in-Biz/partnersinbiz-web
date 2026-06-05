@@ -1,11 +1,77 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
-import { useRouter } from 'next/navigation'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
+import Link from 'next/link'
 import PlatformPreview from '@/components/social/PlatformPreview'
 import { appendQueryParams } from '@/lib/portal/scoped-routing'
 
-const PLATFORM_CONFIG: Record<string, { label: string; bg: string; short: string; charLimit: number; supportsThreads: boolean }> = {
+type SocialScope = 'org' | 'personal'
+type ComposeMode = 'single' | 'thread'
+type SocialPostCategory = 'work' | 'personal' | 'ai' | 'sport' | 'sa' | 'other'
+type ImageProvider = 'xai' | 'gemini'
+type ImageSize = '1024x1024' | '1024x1536' | '1536x1024'
+
+interface PlatformConfig {
+  label: string
+  bg: string
+  short: string
+  charLimit: number
+  supportsThreads: boolean
+}
+
+interface Account {
+  id: string
+  platform: string
+  displayName?: string
+  name?: string
+  username?: string
+  status?: string
+}
+
+interface MediaItem {
+  id: string
+  url: string
+  type: 'image'
+  altText?: string
+}
+
+interface ImageTemplate {
+  id: string
+  name: string
+  description: string
+  promptTemplate: string
+  suggestedSize: ImageSize
+  category: string
+}
+
+interface AiCaption {
+  text: string
+  hashtags: string[]
+}
+
+interface AiHashtag {
+  tag: string
+  relevance: number
+}
+
+interface SocialPostComposerProps {
+  scope?: SocialScope
+  title?: string
+  description?: string
+  accountsHref?: string
+  afterSaveHref?: string
+  afterPublishHref?: string
+  previewFallbackName?: string
+  previewFallbackHandle?: string
+  orgId?: string | null
+  advanced?: boolean
+  queryPrefill?: boolean
+  accountFilter?: 'active' | 'connected'
+  previewMode?: 'sidebar' | 'toggle'
+}
+
+const PLATFORM_CONFIG: Record<string, PlatformConfig> = {
   twitter: { label: 'X (Twitter)', bg: 'bg-black', short: 'X', charLimit: 280, supportsThreads: true },
   linkedin: { label: 'LinkedIn', bg: 'bg-blue-700', short: 'LI', charLimit: 3000, supportsThreads: false },
   facebook: { label: 'Facebook', bg: 'bg-blue-600', short: 'FB', charLimit: 63206, supportsThreads: false },
@@ -20,32 +86,30 @@ const PLATFORM_CONFIG: Record<string, { label: string; bg: string; short: string
   dribbble: { label: 'Dribbble', bg: 'bg-pink-500', short: 'DR', charLimit: 500, supportsThreads: false },
 }
 
-interface Account {
-  id: string
-  platform: string
-  displayName: string
-  username: string
-  status: string
+const CATEGORIES: SocialPostCategory[] = ['work', 'personal', 'ai', 'sport', 'sa', 'other']
+
+function accountLabel(account: Account): string {
+  return account.displayName || account.name || account.username || account.id
 }
 
-interface MediaItem {
-  id: string
-  url: string
-  type: 'image'
-  altText: string
+function accountHandle(account?: Account, fallback = '@yourbrand'): string {
+  if (!account?.username) return fallback
+  return `@${account.username.replace(/^@/, '')}`
 }
 
-type SocialScope = 'org' | 'personal'
+function normaliseHashtag(value: string): string {
+  const clean = value.trim().replace(/^[#,]+|[,]+$/g, '')
+  return clean ? `#${clean.replace(/^#/, '')}` : ''
+}
 
-interface SocialPostComposerProps {
-  scope?: SocialScope
-  title?: string
-  description?: string
-  accountsHref?: string
-  afterSaveHref?: string
-  previewFallbackName?: string
-  previewFallbackHandle?: string
-  orgId?: string | null
+function addChip(
+  raw: string,
+  current: string[],
+  setItems: (updater: (prev: string[]) => string[]) => void,
+  transform: (value: string) => string = (value) => value.trim().replace(/^,|,$/g, ''),
+) {
+  const value = transform(raw)
+  if (value && !current.includes(value)) setItems((prev) => [...prev, value])
 }
 
 export default function SocialPostComposer({
@@ -54,23 +118,57 @@ export default function SocialPostComposer({
   description = 'Create and schedule social media content',
   accountsHref = '/portal/social/accounts',
   afterSaveHref = '/portal/social',
+  afterPublishHref,
   previewFallbackName = 'Your Brand',
   previewFallbackHandle = '@yourbrand',
   orgId,
+  advanced = false,
+  queryPrefill = false,
+  accountFilter = 'active',
+  previewMode = advanced ? 'toggle' : 'sidebar',
 }: SocialPostComposerProps) {
   const router = useRouter()
+  const searchParams = useSearchParams()
+
   const [accounts, setAccounts] = useState<Account[]>([])
   const [selectedPlatforms, setSelectedPlatforms] = useState<string[]>([])
   const [selectedAccounts, setSelectedAccounts] = useState<string[]>([])
+  const [mode, setMode] = useState<ComposeMode>('single')
   const [content, setContent] = useState('')
+  const [threadParts, setThreadParts] = useState<string[]>([''])
   const [scheduledFor, setScheduledFor] = useState('')
-  const [hashtags, setHashtags] = useState<string[]>([])
+  const [category, setCategory] = useState<SocialPostCategory>('work')
+  const [tagInput, setTagInput] = useState('')
+  const [tags, setTags] = useState<string[]>([])
   const [hashtagInput, setHashtagInput] = useState('')
+  const [hashtags, setHashtags] = useState<string[]>([])
+  const [labelInput, setLabelInput] = useState('')
+  const [labels, setLabels] = useState<string[]>([])
+  const [mediaItems, setMediaItems] = useState<MediaItem[]>([])
+  const [uploadingImage, setUploadingImage] = useState(false)
+  const [showPreview, setShowPreview] = useState(previewMode === 'sidebar')
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [submitting, setSubmitting] = useState(false)
   const [successMsg, setSuccessMsg] = useState('')
-  const [mediaItems, setMediaItems] = useState<MediaItem[]>([])
-  const [uploadingImage, setUploadingImage] = useState(false)
+
+  const [showAi, setShowAi] = useState(false)
+  const [aiPrompt, setAiPrompt] = useState('')
+  const [aiLoading, setAiLoading] = useState(false)
+  const [aiCaptions, setAiCaptions] = useState<AiCaption[]>([])
+  const [aiHashtags, setAiHashtags] = useState<AiHashtag[]>([])
+  const [bestTimeLoading, setBestTimeLoading] = useState(false)
+
+  const [showImageModal, setShowImageModal] = useState(false)
+  const [imagePrompt, setImagePrompt] = useState('')
+  const [imageProvider, setImageProvider] = useState<ImageProvider>('xai')
+  const [imageSize, setImageSize] = useState<ImageSize>('1024x1024')
+  const [imageTemplates, setImageTemplates] = useState<ImageTemplate[]>([])
+  const [selectedTemplate, setSelectedTemplate] = useState('')
+  const [generatedImageUrl, setGeneratedImageUrl] = useState('')
+  const [generatedPrompt, setGeneratedPrompt] = useState('')
+  const [imageLoading, setImageLoading] = useState(false)
+  const [imageError, setImageError] = useState('')
+  const [templatesLoading, setTemplatesLoading] = useState(false)
 
   const socialApiPath = useCallback((path: string) => appendQueryParams(path, {
     scope: scope === 'personal' ? 'personal' : undefined,
@@ -79,77 +177,154 @@ export default function SocialPostComposer({
 
   useEffect(() => {
     fetch(socialApiPath('/api/v1/social/accounts'))
-      .then(r => r.json())
-      .then(b => setAccounts((b.data ?? []).filter((a: Account) => a.status === 'active')))
-      .catch(() => {})
-  }, [socialApiPath])
+      .then((response) => response.json())
+      .then((body) => {
+        const loaded = Array.isArray(body.data) ? body.data : []
+        setAccounts(loaded.filter((account: Account) => {
+          if (accountFilter === 'connected') return account.status !== 'disconnected'
+          return account.status === 'active'
+        }))
+      })
+      .catch(() => setAccounts([]))
+  }, [accountFilter, socialApiPath])
 
-  const togglePlatform = (p: string) => {
-    setSelectedPlatforms(prev =>
-      prev.includes(p) ? prev.filter(x => x !== p) : [...prev, p]
-    )
-  }
-
-  const toggleAccount = (id: string) => {
-    setSelectedAccounts(prev =>
-      prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
-    )
-  }
-
-  // Auto-select accounts when platforms change
   useEffect(() => {
-    const matching = accounts
-      .filter(a => selectedPlatforms.includes(a.platform))
-      .map(a => a.id)
-    setSelectedAccounts(matching)
-  }, [selectedPlatforms, accounts])
+    if (!advanced) return
+    setTemplatesLoading(true)
+    fetch('/api/v1/social/ai/image-templates')
+      .then((response) => response.json())
+      .then((body) => {
+        if (Array.isArray(body.data)) setImageTemplates(body.data)
+      })
+      .catch(() => {})
+      .finally(() => setTemplatesLoading(false))
+  }, [advanced])
+
+  useEffect(() => {
+    if (!queryPrefill) return
+    const draft = searchParams.get('draft')
+    if (draft) setContent(decodeURIComponent(draft))
+    const topic = searchParams.get('topic')
+    if (topic) setTags([decodeURIComponent(topic)])
+    const scheduledAt = searchParams.get('scheduledAt')
+    if (scheduledAt) setScheduledFor(scheduledAt)
+  }, [queryPrefill, searchParams])
+
+  const availablePlatforms = useMemo(() => {
+    return Array.from(new Set(accounts.map((account) => account.platform))).filter((platform) => PLATFORM_CONFIG[platform])
+  }, [accounts])
+
+  const showThreadToggle = advanced && selectedPlatforms.some((platform) => PLATFORM_CONFIG[platform]?.supportsThreads)
+  const isThread = showThreadToggle && mode === 'thread'
 
   const charLimit = selectedPlatforms.length > 0
-    ? Math.min(...selectedPlatforms.map(p => PLATFORM_CONFIG[p]?.charLimit ?? 5000))
-    : 5000
+    ? Math.min(...selectedPlatforms.map((platform) => PLATFORM_CONFIG[platform]?.charLimit ?? 5000))
+    : advanced ? 280 : 5000
 
-  const availablePlatforms = [...new Set(accounts.map(a => a.platform))]
+  useEffect(() => {
+    if (!showThreadToggle && mode === 'thread') setMode('single')
+  }, [mode, showThreadToggle])
+
+  useEffect(() => {
+    const matching = accounts
+      .filter((account) => selectedPlatforms.includes(account.platform))
+      .map((account) => account.id)
+
+    setSelectedAccounts((prev) => {
+      const retained = advanced ? prev.filter((id) => matching.includes(id)) : []
+      return Array.from(new Set([...retained, ...matching]))
+    })
+  }, [accounts, advanced, selectedPlatforms])
+
+  const selectedAccountObjects = accounts.filter((account) => selectedAccounts.includes(account.id))
+  const filteredAccounts = accounts.filter((account) => selectedPlatforms.includes(account.platform))
+
+  const togglePlatform = (platform: string) => {
+    setSelectedPlatforms((prev) => prev.includes(platform) ? prev.filter((item) => item !== platform) : [...prev, platform])
+  }
+
+  const toggleAccount = (accountId: string) => {
+    setSelectedAccounts((prev) => prev.includes(accountId) ? prev.filter((item) => item !== accountId) : [...prev, accountId])
+  }
+
+  const updateThreadPart = (index: number, value: string) => {
+    setThreadParts((prev) => prev.map((part, i) => i === index ? value : part))
+  }
+
+  const addThreadPart = () => setThreadParts((prev) => [...prev, ''])
+  const removeThreadPart = (index: number) => setThreadParts((prev) => prev.filter((_, i) => i !== index))
 
   const validate = useCallback(() => {
-    const errs: Record<string, string> = {}
-    if (!content.trim()) errs.content = 'Content cannot be empty.'
-    if (selectedPlatforms.length === 0) errs.platforms = 'Select at least one platform.'
-    if (selectedAccounts.length === 0) errs.accounts = 'Select at least one account.'
-    if (content.length > charLimit) errs.content = `Content exceeds ${charLimit} character limit.`
-    setErrors(errs)
-    return Object.keys(errs).length === 0
-  }, [content, selectedPlatforms, selectedAccounts, charLimit])
+    const nextErrors: Record<string, string> = {}
+    if (selectedPlatforms.length === 0) nextErrors.platforms = 'Select at least one platform.'
+    if (selectedAccounts.length === 0) nextErrors.accounts = 'Select at least one account.'
 
-  const handleHashtagKey = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter' || e.key === ',') {
-      e.preventDefault()
-      const val = hashtagInput.trim().replace(/^[#,]+|[,]+$/g, '')
-      if (val && !hashtags.includes(val)) setHashtags(prev => [...prev, val])
-      setHashtagInput('')
+    if (isThread) {
+      threadParts.forEach((part, index) => {
+        if (!part.trim()) nextErrors[`thread_${index}`] = 'Post cannot be empty.'
+        if (part.length > charLimit) nextErrors[`thread_${index}_len`] = `Part ${index + 1} exceeds ${charLimit} characters.`
+      })
+    } else {
+      if (!content.trim()) nextErrors.content = 'Content cannot be empty.'
+      if (content.length > charLimit) nextErrors.content = `Content exceeds ${charLimit} character limit.`
+    }
+
+    setErrors(nextErrors)
+    return Object.keys(nextErrors).length === 0
+  }, [charLimit, content, isThread, selectedAccounts.length, selectedPlatforms.length, threadParts])
+
+  const chipKeyDown = (
+    value: string,
+    items: string[],
+    setInput: (value: string) => void,
+    setItems: (updater: (prev: string[]) => string[]) => void,
+    transform?: (value: string) => string,
+  ) => (event: React.KeyboardEvent<HTMLInputElement>) => {
+    if (event.key === 'Enter' || event.key === ',') {
+      event.preventDefault()
+      addChip(value, items, setItems, transform)
+      setInput('')
     }
   }
 
-  const buildBody = (status: 'draft' | 'scheduled') => ({
-    content: { text: content, platformOverrides: {} },
-    platforms: selectedPlatforms,
-    accountIds: selectedAccounts,
-    status,
-    scheduledAt: scheduledFor ? new Date(scheduledFor).toISOString() : undefined,
-    media: mediaItems.map((item, index) => ({
-      mediaId: item.id,
-      type: item.type,
-      url: item.url,
-      thumbnailUrl: item.url,
-      width: 0,
-      height: 0,
-      duration: null,
-      altText: item.altText,
-      order: index,
-    })),
-    hashtags,
-    labels: [],
-    source: 'ui',
-  })
+  const removeChip = (item: string, setItems: (updater: (prev: string[]) => string[]) => void) => {
+    setItems((prev) => prev.filter((value) => value !== item))
+  }
+
+  const buildBody = (status: 'draft' | 'scheduled') => {
+    const body: Record<string, unknown> = {
+      content: {
+        text: isThread ? (threadParts[0] ?? '') : content,
+        platformOverrides: {},
+        ...(isThread ? { threadParts } : {}),
+      },
+      platforms: selectedPlatforms,
+      accountIds: selectedAccounts,
+      status,
+      scheduledAt: scheduledFor ? new Date(scheduledFor).toISOString() : undefined,
+      media: mediaItems.map((item, index) => ({
+        mediaId: item.id,
+        type: item.type,
+        url: item.url,
+        thumbnailUrl: item.url,
+        width: 0,
+        height: 0,
+        duration: null,
+        altText: item.altText ?? '',
+        order: index,
+      })),
+      hashtags,
+      labels: advanced ? labels : [],
+      source: 'ui',
+    }
+
+    if (advanced) {
+      body.category = category
+      body.tags = tags
+    }
+
+    return body
+  }
 
   const handleImageUpload = async (file: File | null) => {
     if (!file) return
@@ -159,7 +334,7 @@ export default function SocialPostComposer({
     }
 
     setUploadingImage(true)
-    setErrors(prev => {
+    setErrors((prev) => {
       const next = { ...prev }
       delete next.upload
       return next
@@ -170,22 +345,16 @@ export default function SocialPostComposer({
       formData.append('file', file)
       formData.append('altText', file.name.replace(/\.[^.]+$/, ''))
 
-      const res = await fetch(socialApiPath('/api/v1/social/media/upload'), {
-        method: 'POST',
-        body: formData,
-      })
+      const res = await fetch(socialApiPath('/api/v1/social/media/upload'), { method: 'POST', body: formData })
       const body = await res.json()
       if (!res.ok) throw new Error(body.error ?? 'Image upload failed')
 
-      setMediaItems(prev => [
-        ...prev,
-        {
-          id: body.data.id,
-          url: body.data.url,
-          type: 'image',
-          altText: file.name.replace(/\.[^.]+$/, ''),
-        },
-      ])
+      setMediaItems((prev) => [...prev, {
+        id: body.data.id,
+        url: body.data.url,
+        type: 'image',
+        altText: file.name.replace(/\.[^.]+$/, ''),
+      }])
     } catch (err: unknown) {
       setErrors({ upload: err instanceof Error ? err.message : 'Image upload failed' })
     } finally {
@@ -193,8 +362,49 @@ export default function SocialPostComposer({
     }
   }
 
-  const removeMediaItem = (id: string) => {
-    setMediaItems(prev => prev.filter(item => item.id !== id))
+  const handleGenerateImage = async () => {
+    if (!imagePrompt.trim()) {
+      setImageError('Please enter an image prompt')
+      return
+    }
+
+    setImageLoading(true)
+    setImageError('')
+    setGeneratedImageUrl('')
+    setGeneratedPrompt('')
+
+    try {
+      const res = await fetch('/api/v1/social/ai/image', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompt: imagePrompt, provider: imageProvider, size: imageSize }),
+      })
+      const body = await res.json()
+      if (!res.ok) throw new Error(body.error ?? 'Failed to generate image')
+      if (body.data?.url) {
+        setGeneratedImageUrl(body.data.url)
+        setGeneratedPrompt(body.data.revisedPrompt ?? '')
+      }
+    } catch (err: unknown) {
+      setImageError(err instanceof Error ? err.message : 'Error generating image')
+    } finally {
+      setImageLoading(false)
+    }
+  }
+
+  const useGeneratedImage = () => {
+    if (!generatedImageUrl) return
+    setMediaItems((prev) => [...prev, {
+      id: `generated-${Date.now()}`,
+      url: generatedImageUrl,
+      type: 'image',
+      altText: imagePrompt || 'Generated social image',
+    }])
+    setGeneratedImageUrl('')
+    setGeneratedPrompt('')
+    setImagePrompt('')
+    setSelectedTemplate('')
+    setShowImageModal(false)
   }
 
   const handleSubmit = async (action: 'draft' | 'schedule' | 'publish') => {
@@ -203,9 +413,10 @@ export default function SocialPostComposer({
       setErrors({ submit: 'Set a schedule date/time first.' })
       return
     }
+
     setSubmitting(true)
     try {
-      const status = action === 'publish' ? 'draft' : action === 'schedule' ? 'scheduled' : 'draft'
+      const status = action === 'schedule' ? 'scheduled' : 'draft'
       const res = await fetch(socialApiPath('/api/v1/social/posts'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -221,10 +432,11 @@ export default function SocialPostComposer({
         const pubBody = await pubRes.json()
         if (!pubRes.ok) throw new Error(pubBody.error ?? 'Failed to publish')
         setSuccessMsg('Published successfully!')
+        setTimeout(() => router.push(afterPublishHref ?? afterSaveHref), 1200)
       } else {
         setSuccessMsg(action === 'schedule' ? 'Post scheduled!' : 'Draft saved!')
+        setTimeout(() => router.push(afterSaveHref), 1200)
       }
-      setTimeout(() => router.push(afterSaveHref), 1200)
     } catch (err: unknown) {
       setErrors({ submit: err instanceof Error ? err.message : 'Something went wrong' })
     } finally {
@@ -232,236 +444,626 @@ export default function SocialPostComposer({
     }
   }
 
+  const handleBestTime = async () => {
+    setBestTimeLoading(true)
+    try {
+      const platform = selectedPlatforms[0] ?? 'twitter'
+      const res = await fetch(`/api/v1/social/ai/best-time?platform=${encodeURIComponent(platform)}`)
+      const body = await res.json()
+      const bestSlot = body.data?.slots?.[0]
+      if (!res.ok || !bestSlot) return
+
+      const now = new Date()
+      const targetDate = new Date(now)
+      const dayDiff = (bestSlot.dayOfWeek - now.getDay() + 7) % 7
+      if (dayDiff === 0 && now.getHours() >= bestSlot.hour) targetDate.setDate(targetDate.getDate() + 7)
+      if (dayDiff > 0) targetDate.setDate(targetDate.getDate() + dayDiff)
+      targetDate.setHours(bestSlot.hour, 0, 0, 0)
+      setScheduledFor(new Date(targetDate.getTime() - targetDate.getTimezoneOffset() * 60000).toISOString().slice(0, 16))
+    } finally {
+      setBestTimeLoading(false)
+    }
+  }
+
+  const handleAiGenerate = async () => {
+    if (!aiPrompt.trim()) return
+    setAiLoading(true)
+    setAiCaptions([])
+    try {
+      const res = await fetch('/api/v1/social/ai/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          prompt: aiPrompt,
+          platform: selectedPlatforms[0] ?? 'twitter',
+          tone: 'professional',
+          count: 3,
+          includeHashtags: true,
+        }),
+      })
+      const body = await res.json()
+      if (Array.isArray(body.data?.captions)) setAiCaptions(body.data.captions)
+    } finally {
+      setAiLoading(false)
+    }
+  }
+
+  const handleAiHashtags = async () => {
+    const text = isThread ? threadParts.join('\n\n') : content
+    if (!text.trim()) return
+    setAiLoading(true)
+    setAiHashtags([])
+    try {
+      const res = await fetch('/api/v1/social/ai/hashtags', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text, platform: selectedPlatforms[0] ?? 'twitter', count: 10 }),
+      })
+      const body = await res.json()
+      if (Array.isArray(body.data?.hashtags)) setAiHashtags(body.data.hashtags)
+    } finally {
+      setAiLoading(false)
+    }
+  }
+
+  const applyCaption = (caption: AiCaption) => {
+    setContent(caption.text)
+    setMode('single')
+    if (caption.hashtags?.length) setHashtags((prev) => [...new Set([...prev, ...caption.hashtags])])
+    setAiCaptions([])
+  }
+
+  const applyHashtag = (tag: string) => {
+    if (!hashtags.includes(tag)) setHashtags((prev) => [...prev, tag])
+  }
+
   const minDateTime = new Date().toISOString().slice(0, 16)
+  const previewContent = isThread ? threadParts.join('\n\n') : content
+
+  const renderPreview = () => {
+    if (selectedPlatforms.length === 0) {
+      return (
+        <div className="pib-card p-4 text-sm text-[var(--color-on-surface-variant)]">
+          Select a connected platform to see its preview.
+        </div>
+      )
+    }
+
+    return (
+      <div className={previewMode === 'toggle' ? 'flex gap-4 overflow-x-auto pb-4' : 'space-y-4'}>
+        {selectedPlatforms.map((platform) => {
+          const account = selectedAccountObjects.find((item) => item.platform === platform)
+            ?? accounts.find((item) => item.platform === platform)
+          return (
+            <div key={platform} className={previewMode === 'toggle' ? 'flex-shrink-0' : 'space-y-2'}>
+              <div className="flex items-center gap-2 text-xs font-label font-bold uppercase tracking-widest text-[var(--color-on-surface-variant)]">
+                <span className={`${PLATFORM_CONFIG[platform]?.bg ?? 'bg-gray-600'} text-white text-[10px] px-2 py-0.5 rounded font-bold`}>
+                  {PLATFORM_CONFIG[platform]?.short ?? platform.slice(0, 2).toUpperCase()}
+                </span>
+                {PLATFORM_CONFIG[platform]?.label ?? platform}
+              </div>
+              <PlatformPreview
+                platform={platform}
+                content={previewContent}
+                mediaItems={mediaItems}
+                charLimit={PLATFORM_CONFIG[platform]?.charLimit ?? 5000}
+                userName={account ? accountLabel(account) : previewFallbackName}
+                userHandle={accountHandle(account, previewFallbackHandle)}
+              />
+            </div>
+          )
+        })}
+      </div>
+    )
+  }
 
   return (
-    <div className="grid gap-6 xl:grid-cols-[minmax(0,42rem)_minmax(22rem,1fr)]">
+    <div className={previewMode === 'sidebar' ? 'grid gap-6 xl:grid-cols-[minmax(0,42rem)_minmax(22rem,1fr)]' : 'p-6 max-w-2xl mx-auto space-y-6'}>
       <div className="space-y-6 max-w-2xl">
-      <div>
-        <h1 className="font-headline text-2xl font-bold tracking-tighter">{title}</h1>
-        <p className="text-sm text-[var(--color-on-surface-variant)] mt-1">{description}</p>
-      </div>
-
-      {successMsg && (
-        <div className="border border-green-400/40 p-4 text-green-300 text-sm">{successMsg}</div>
-      )}
-      {errors.submit && (
-        <div className="border border-red-400/40 p-4 text-red-300 text-sm">{errors.submit}</div>
-      )}
-
-      {/* Platform Selection */}
-      <div>
-        <label className="block text-xs font-label uppercase tracking-widest text-[var(--color-on-surface-variant)] mb-2">Platforms</label>
-        {availablePlatforms.length === 0 ? (
-          <p className="text-[var(--color-on-surface-variant)] text-sm">No accounts connected. <a href={accountsHref} className="text-[var(--color-accent-v2)] underline">Connect an account</a> first.</p>
-        ) : (
-          <div className="flex flex-wrap gap-2">
-            {availablePlatforms.map(p => {
-              const cfg = PLATFORM_CONFIG[p]
-              if (!cfg) return null
-              const selected = selectedPlatforms.includes(p)
-              return (
-                <button
-                  key={p}
-                  onClick={() => togglePlatform(p)}
-                  className={`px-4 py-2 text-sm font-label font-bold uppercase tracking-widest border transition-colors ${
-                    selected
-                      ? 'pib-btn-primary'
-                      : 'pib-btn-secondary'
-                  }`}
-                >
-                  {cfg.label}
-                </button>
-              )
-            })}
-          </div>
-        )}
-        {errors.platforms && <p className="text-red-300 text-xs mt-1">{errors.platforms}</p>}
-      </div>
-
-      {/* Account Selection */}
-      {selectedPlatforms.length > 0 && (
         <div>
-          <label className="block text-xs font-label uppercase tracking-widest text-[var(--color-on-surface-variant)] mb-2">Accounts</label>
-          <div className="space-y-2">
-            {accounts
-              .filter(a => selectedPlatforms.includes(a.platform))
-              .map(acc => (
-                <label key={acc.id} className="pib-card pib-card-hover p-3 cursor-pointer flex items-center gap-3 transition-colors">
-                  <input
-                    type="checkbox"
-                    checked={selectedAccounts.includes(acc.id)}
-                    onChange={() => toggleAccount(acc.id)}
-                    className="accent-[var(--color-accent-v2)]"
-                  />
-                  <span className={`${PLATFORM_CONFIG[acc.platform]?.bg ?? 'bg-gray-600'} text-white text-[10px] px-2 py-0.5 rounded font-bold`}>
-                    {PLATFORM_CONFIG[acc.platform]?.short ?? acc.platform.slice(0, 2).toUpperCase()}
+          <h1 className={advanced ? 'text-2xl font-semibold text-on-surface' : 'font-headline text-2xl font-bold tracking-tighter'}>
+            {title}
+          </h1>
+          <p className={advanced ? 'text-sm text-on-surface-variant mt-1' : 'text-sm text-[var(--color-on-surface-variant)] mt-1'}>
+            {description}
+          </p>
+        </div>
+
+        {successMsg && <div className="border border-green-400/40 p-4 text-green-300 text-sm">{successMsg}</div>}
+        {errors.submit && <div className="border border-red-400/40 p-4 text-red-300 text-sm">{errors.submit}</div>}
+
+        <section className="pib-card space-y-3">
+          <h2 className="text-sm font-label uppercase tracking-widest text-on-surface-variant">Platforms</h2>
+          {availablePlatforms.length === 0 ? (
+            <p className="text-[var(--color-on-surface-variant)] text-sm">
+              No accounts connected. <Link href={accountsHref} className="text-[var(--color-accent-v2)] underline">Connect an account</Link> first.
+            </p>
+          ) : (
+            <div className="flex flex-wrap gap-2">
+              {availablePlatforms.map((platform) => {
+                const config = PLATFORM_CONFIG[platform]
+                const selected = selectedPlatforms.includes(platform)
+                return (
+                  <button
+                    key={platform}
+                    onClick={() => togglePlatform(platform)}
+                    className={`px-4 py-2 text-sm font-label font-bold uppercase tracking-widest border transition-colors ${
+                      selected ? 'pib-btn-primary' : 'pib-btn-secondary'
+                    }`}
+                  >
+                    <span className={`${config.bg} inline-block w-5 h-5 rounded text-[10px] font-bold leading-5 text-center text-white mr-1.5 align-middle`}>
+                      {config.short}
+                    </span>
+                    {config.label}
+                  </button>
+                )
+              })}
+            </div>
+          )}
+          {errors.platforms && <p className="text-red-300 text-xs mt-1">{errors.platforms}</p>}
+        </section>
+
+        {selectedPlatforms.length > 0 && (
+          <section className="pib-card space-y-3">
+            <h2 className="text-sm font-label uppercase tracking-widest text-on-surface-variant">Accounts</h2>
+            <div className="space-y-2">
+              {selectedPlatforms.map((platform) => {
+                const platformAccounts = filteredAccounts.filter((account) => account.platform === platform)
+                if (platformAccounts.length === 0) return null
+                return (
+                  <div key={platform}>
+                    <p className="text-xs text-on-surface-variant font-medium mb-1">{PLATFORM_CONFIG[platform]?.label ?? platform}</p>
+                    {platformAccounts.map((account) => (
+                      <label key={account.id} className="pib-card pib-card-hover p-3 cursor-pointer flex items-center gap-3 transition-colors">
+                        <input
+                          type="checkbox"
+                          checked={selectedAccounts.includes(account.id)}
+                          onChange={() => toggleAccount(account.id)}
+                          className="accent-[var(--color-accent-v2)]"
+                        />
+                        <span className={`${PLATFORM_CONFIG[account.platform]?.bg ?? 'bg-gray-600'} text-white text-[10px] px-2 py-0.5 rounded font-bold`}>
+                          {PLATFORM_CONFIG[account.platform]?.short ?? account.platform.slice(0, 2).toUpperCase()}
+                        </span>
+                        <span className="text-sm text-[var(--color-on-surface)]">{accountLabel(account)}</span>
+                        <span className="text-xs text-[var(--color-on-surface-variant)]">{accountHandle(account, '')}</span>
+                      </label>
+                    ))}
+                  </div>
+                )
+              })}
+            </div>
+            {errors.accounts && <p className="text-red-300 text-xs mt-1">{errors.accounts}</p>}
+          </section>
+        )}
+
+        {advanced && showThreadToggle && (
+          <section className="pib-card space-y-3">
+            <div className="flex flex-col sm:flex-row gap-4">
+              <div className="flex-1">
+                <label className="block text-xs font-medium text-on-surface-variant uppercase tracking-wide mb-2">Mode</label>
+                <div className="flex gap-2">
+                  {(['single', 'thread'] as ComposeMode[]).map((item) => (
+                    <button
+                      key={item}
+                      onClick={() => setMode(item)}
+                      className={`px-4 py-2 rounded-lg font-label text-sm font-medium transition-colors capitalize ${
+                        mode === item ? 'bg-white text-black' : 'bg-surface-container text-on-surface hover:bg-surface-container-high'
+                      }`}
+                    >
+                      {item === 'single' ? 'Single Post' : 'Thread'}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              {previewMode === 'toggle' && (
+                <div className="flex-1">
+                  <label className="block text-xs font-medium text-on-surface-variant uppercase tracking-wide mb-2">Preview</label>
+                  <button
+                    onClick={() => setShowPreview((value) => !value)}
+                    className={`w-full px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                      showPreview ? 'bg-amber-500 text-black font-label' : 'bg-surface-container text-on-surface hover:bg-surface-container-high font-label'
+                    }`}
+                  >
+                    {showPreview ? 'Hide Preview' : 'Show Preview'}
+                  </button>
+                </div>
+              )}
+            </div>
+          </section>
+        )}
+
+        {isThread ? (
+          <section className="pib-card space-y-3">
+            <h2 className="text-sm font-label uppercase tracking-widest text-on-surface-variant">Thread Parts</h2>
+            {threadParts.map((part, index) => (
+              <div key={index} className="rounded-xl bg-surface-container p-3 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-on-surface-variant">Part {index + 1}</span>
+                  {threadParts.length > 1 && (
+                    <button onClick={() => removeThreadPart(index)} className="text-xs text-red-400 hover:text-red-300 transition-colors">
+                      Remove
+                    </button>
+                  )}
+                </div>
+                <textarea
+                  rows={3}
+                  value={part}
+                  onChange={(event) => updateThreadPart(index, event.target.value)}
+                  placeholder={`Part ${index + 1}...`}
+                  className="w-full bg-transparent text-sm text-on-surface placeholder:text-on-surface-variant/50 resize-none outline-none"
+                />
+                <div className="flex justify-end">
+                  <span className={`text-xs ${part.length > charLimit ? 'text-red-400' : 'text-on-surface-variant'}`}>
+                    {part.length} / {charLimit}
                   </span>
-                  <span className="text-sm text-[var(--color-on-surface)]">{acc.displayName}</span>
-                  <span className="text-xs text-[var(--color-on-surface-variant)]">@{acc.username || acc.displayName}</span>
-                </label>
-              ))}
-          </div>
-          {errors.accounts && <p className="text-red-300 text-xs mt-1">{errors.accounts}</p>}
-        </div>
-      )}
+                </div>
+                {(errors[`thread_${index}`] || errors[`thread_${index}_len`]) && (
+                  <p className="text-xs text-red-400">{errors[`thread_${index}`] || errors[`thread_${index}_len`]}</p>
+                )}
+              </div>
+            ))}
+            <button onClick={addThreadPart} className="pib-btn-secondary !py-2 !text-sm">+ Add Part</button>
+          </section>
+        ) : (
+          <section>
+            <label className="block text-xs font-label uppercase tracking-widest text-[var(--color-on-surface-variant)] mb-2">Content</label>
+            <div className="pib-card p-3">
+              <textarea
+                rows={6}
+                value={content}
+                onChange={(event) => setContent(event.target.value)}
+                placeholder="Write your post…"
+                className="w-full bg-transparent text-sm text-[var(--color-on-surface)] placeholder:text-[var(--color-on-surface-variant)] resize-none outline-none"
+              />
+              <div className="flex justify-end mt-1">
+                <span className={`text-xs ${content.length > charLimit ? 'text-red-400' : 'text-[var(--color-on-surface-variant)]'}`}>
+                  {content.length} / {charLimit}
+                </span>
+              </div>
+            </div>
+            {errors.content && <p className="text-red-300 text-xs mt-1">{errors.content}</p>}
+          </section>
+        )}
 
-      {/* Content */}
-      <div>
-        <label className="block text-xs font-label uppercase tracking-widest text-[var(--color-on-surface-variant)] mb-2">Content</label>
-        <div className="pib-card p-3">
-          <textarea
-            rows={6}
-            value={content}
-            onChange={e => setContent(e.target.value)}
-            placeholder="Write your post…"
-            className="w-full bg-transparent text-sm text-[var(--color-on-surface)] placeholder:text-[var(--color-on-surface-variant)] resize-none outline-none"
-          />
-          <div className="flex justify-end mt-1">
-            <span className={`text-xs ${content.length > charLimit ? 'text-red-400' : 'text-[var(--color-on-surface-variant)]'}`}>
-              {content.length} / {charLimit}
-            </span>
-          </div>
-        </div>
-        {errors.content && <p className="text-red-300 text-xs mt-1">{errors.content}</p>}
-      </div>
+        {previewMode === 'toggle' && showPreview && (
+          <section className="pib-card p-6">
+            <h3 className="text-sm font-semibold text-on-surface mb-4">Platform Preview</h3>
+            {renderPreview()}
+          </section>
+        )}
 
-      {/* Media */}
-      <div>
-        <label className="block text-xs font-label uppercase tracking-widest text-[var(--color-on-surface-variant)] mb-2">Images</label>
-        <div className="pib-card p-3 space-y-3">
+        <section className="pib-card p-3 space-y-3">
+          <label className="block text-xs font-label uppercase tracking-widest text-[var(--color-on-surface-variant)]">Images</label>
           {mediaItems.length > 0 && (
             <div className="grid grid-cols-2 gap-2">
-              {mediaItems.map(media => (
+              {mediaItems.map((media) => (
                 <div key={media.id} className="relative overflow-hidden border border-[var(--color-outline-variant)] bg-black/20">
                   <img src={media.url} alt={media.altText || 'Uploaded media'} className="h-32 w-full object-cover" />
                   <button
                     type="button"
-                    onClick={() => removeMediaItem(media.id)}
+                    onClick={() => setMediaItems((prev) => prev.filter((item) => item.id !== media.id))}
                     className="absolute right-1 top-1 flex h-7 w-7 items-center justify-center bg-black/70 text-sm font-bold text-white transition-colors hover:bg-red-600"
                     aria-label="Remove image"
                   >
-                    ×
+                    x
                   </button>
                 </div>
               ))}
             </div>
           )}
-          <label className="flex cursor-pointer items-center justify-center border border-dashed border-[var(--color-outline-variant)] px-4 py-3 text-sm font-label font-bold uppercase tracking-widest text-[var(--color-on-surface-variant)] transition-colors hover:border-[var(--color-on-surface-variant)] hover:text-[var(--color-on-surface)]">
-            {uploadingImage ? 'Uploading...' : '+ Upload Image'}
-            <input
-              type="file"
-              accept="image/jpeg,image/png,image/gif,image/webp"
-              disabled={uploadingImage}
-              onChange={e => {
-                handleImageUpload(e.target.files?.[0] ?? null)
-                e.currentTarget.value = ''
-              }}
-              className="sr-only"
-            />
-          </label>
-        </div>
-        {errors.upload && <p className="text-red-300 text-xs mt-1">{errors.upload}</p>}
-      </div>
+          {advanced ? (
+            <button
+              onClick={() => setShowImageModal(true)}
+              className="w-full px-4 py-3 text-sm font-label font-bold uppercase tracking-widest border border-dashed border-[var(--color-outline-variant)] text-[var(--color-on-surface-variant)] transition-colors hover:border-[var(--color-on-surface-variant)] hover:text-[var(--color-on-surface)]"
+            >
+              + Generate Image with AI
+            </button>
+          ) : (
+            <label className="flex cursor-pointer items-center justify-center border border-dashed border-[var(--color-outline-variant)] px-4 py-3 text-sm font-label font-bold uppercase tracking-widest text-[var(--color-on-surface-variant)] transition-colors hover:border-[var(--color-on-surface-variant)] hover:text-[var(--color-on-surface)]">
+              {uploadingImage ? 'Uploading...' : '+ Upload Image'}
+              <input
+                type="file"
+                accept="image/jpeg,image/png,image/gif,image/webp"
+                disabled={uploadingImage}
+                onChange={(event) => {
+                  handleImageUpload(event.target.files?.[0] ?? null)
+                  event.currentTarget.value = ''
+                }}
+                className="sr-only"
+              />
+            </label>
+          )}
+          {errors.upload && <p className="text-red-300 text-xs mt-1">{errors.upload}</p>}
+        </section>
 
-      {/* Schedule */}
-      <div>
-        <label className="block text-xs font-label uppercase tracking-widest text-[var(--color-on-surface-variant)] mb-2">Schedule For</label>
-        <input
-          type="datetime-local"
-          value={scheduledFor}
-          min={minDateTime}
-          onChange={e => setScheduledFor(e.target.value)}
-          className="border border-[var(--color-outline-variant)] bg-transparent px-4 py-2.5 text-sm text-[var(--color-on-surface)] outline-none focus:border-[var(--color-on-surface-variant)] transition-colors"
-        />
-        <p className="text-xs text-[var(--color-on-surface-variant)] mt-1">Leave empty to save as draft.</p>
-      </div>
+        {advanced && (
+          <section className="pib-card p-4 space-y-3">
+            <button
+              onClick={() => setShowAi((value) => !value)}
+              className="flex items-center gap-2 text-sm font-medium text-on-surface hover:text-white transition-colors"
+            >
+              <span className="text-base">*</span>
+              AI Assist
+              <span className="text-[10px] text-on-surface-variant">{showAi ? 'Hide' : 'Show'}</span>
+            </button>
 
-      {/* Hashtags */}
-      <div>
-        <label className="block text-xs font-label uppercase tracking-widest text-[var(--color-on-surface-variant)] mb-2">Hashtags</label>
-        <input
-          type="text"
-          value={hashtagInput}
-          onChange={e => setHashtagInput(e.target.value)}
-          onKeyDown={handleHashtagKey}
-          placeholder="Type a hashtag and press Enter…"
-          className="w-full border border-[var(--color-outline-variant)] bg-transparent px-4 py-2.5 text-sm text-[var(--color-on-surface)] placeholder:text-[var(--color-on-surface-variant)] outline-none focus:border-[var(--color-on-surface-variant)] transition-colors"
-        />
-        {hashtags.length > 0 && (
-          <div className="flex flex-wrap gap-2 mt-2">
-            {hashtags.map(tag => (
-              <span key={tag} className="flex items-center gap-1 px-2 py-0.5 border border-[var(--color-outline-variant)] text-[var(--color-on-surface-variant)] text-xs">
-                #{tag}
-                <button onClick={() => setHashtags(prev => prev.filter(t => t !== tag))} className="text-[var(--color-on-surface-variant)] hover:text-[var(--color-on-surface)] ml-1">×</button>
-              </span>
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* Actions */}
-      <div className="flex flex-wrap gap-3 pt-2">
-        <button
-          onClick={() => handleSubmit('draft')}
-          disabled={submitting}
-          className="pib-btn-secondary disabled:opacity-50"
-        >
-          Save Draft
-        </button>
-        <button
-          onClick={() => handleSubmit('schedule')}
-          disabled={submitting || !scheduledFor}
-          className="pib-btn-primary disabled:opacity-50"
-        >
-          Schedule
-        </button>
-        <button
-          onClick={() => handleSubmit('publish')}
-          disabled={submitting}
-          className="pib-btn-secondary disabled:opacity-50"
-        >
-          Publish Now
-        </button>
-      </div>
-      </div>
-
-      <aside className="space-y-4 xl:sticky xl:top-6 xl:self-start">
-        <div>
-          <h2 className="font-headline text-xl font-bold tracking-tighter">Preview</h2>
-          <p className="text-sm text-[var(--color-on-surface-variant)] mt-1">Selected platforms render here as you compose.</p>
-        </div>
-        {selectedPlatforms.length === 0 ? (
-          <div className="pib-card p-4 text-sm text-[var(--color-on-surface-variant)]">
-            Select a connected platform to see its preview.
-          </div>
-        ) : (
-          <div className="space-y-4">
-            {selectedPlatforms.map(platform => {
-              const account = accounts.find(a => a.platform === platform && selectedAccounts.includes(a.id))
-                ?? accounts.find(a => a.platform === platform)
-              return (
-                <div key={platform} className="space-y-2">
-                  <div className="flex items-center gap-2 text-xs font-label font-bold uppercase tracking-widest text-[var(--color-on-surface-variant)]">
-                    <span className={`${PLATFORM_CONFIG[platform]?.bg ?? 'bg-gray-600'} text-white text-[10px] px-2 py-0.5 rounded font-bold`}>
-                      {PLATFORM_CONFIG[platform]?.short ?? platform.slice(0, 2).toUpperCase()}
-                    </span>
-                    {PLATFORM_CONFIG[platform]?.label ?? platform}
+            {showAi && (
+              <div className="space-y-3 pt-1">
+                <div className="space-y-2">
+                  <label className="text-xs font-medium text-on-surface-variant uppercase tracking-wide">Generate Caption</label>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={aiPrompt}
+                      onChange={(event) => setAiPrompt(event.target.value)}
+                      onKeyDown={(event) => event.key === 'Enter' && handleAiGenerate()}
+                      placeholder="Topic or prompt"
+                      className="flex-1 rounded-lg bg-surface px-3 py-2 text-sm text-on-surface placeholder:text-on-surface-variant/50 outline-none border border-transparent focus:border-outline-variant transition-colors"
+                    />
+                    <button onClick={handleAiGenerate} disabled={aiLoading || !aiPrompt.trim()} className="pib-btn-primary !py-2 !px-3 !text-xs disabled:opacity-50">
+                      {aiLoading ? 'Generating...' : 'Generate'}
+                    </button>
                   </div>
-                  <PlatformPreview
-                    platform={platform}
-                    content={content}
-                    mediaItems={mediaItems}
-                    charLimit={PLATFORM_CONFIG[platform]?.charLimit ?? 5000}
-                    userName={account?.displayName || previewFallbackName}
-                    userHandle={account?.username ? `@${account.username.replace(/^@/, '')}` : previewFallbackHandle}
-                  />
+                  {aiCaptions.map((caption, index) => (
+                    <div key={index} className="rounded-lg bg-surface p-2.5">
+                      <p className="text-xs text-on-surface leading-relaxed">{caption.text}</p>
+                      {caption.hashtags?.length > 0 && <p className="text-[10px] text-on-surface-variant mt-1">{caption.hashtags.join(' ')}</p>}
+                      <button onClick={() => applyCaption(caption)} className="mt-1.5 text-[10px] text-blue-400 hover:text-blue-300 font-medium">
+                        Use this caption
+                      </button>
+                    </div>
+                  ))}
                 </div>
-              )
-            })}
-          </div>
+
+                {previewContent.trim() && (
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      <label className="text-xs font-medium text-on-surface-variant uppercase tracking-wide">Suggest Hashtags</label>
+                      <button onClick={handleAiHashtags} disabled={aiLoading} className="pib-btn-secondary !py-1 !px-2 !text-[10px] disabled:opacity-50">
+                        {aiLoading ? 'Loading...' : 'Suggest'}
+                      </button>
+                    </div>
+                    {aiHashtags.length > 0 && (
+                      <div className="flex flex-wrap gap-1.5">
+                        {aiHashtags.map((item, index) => (
+                          <button
+                            key={index}
+                            onClick={() => applyHashtag(item.tag)}
+                            disabled={hashtags.includes(item.tag)}
+                            className={`text-[10px] px-2 py-0.5 rounded-full font-medium transition-colors ${
+                              hashtags.includes(item.tag) ? 'bg-surface-container-high text-on-surface-variant/40' : 'bg-surface text-on-surface hover:bg-surface-container-high'
+                            }`}
+                          >
+                            {item.tag} <span className="text-on-surface-variant/60">{Math.round(item.relevance * 100)}%</span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+          </section>
         )}
-      </aside>
+
+        <section className="pib-card space-y-3">
+          <h2 className="text-sm font-label uppercase tracking-widest text-on-surface-variant">Schedule</h2>
+          <div className="flex items-end gap-2">
+            <div className="flex-1">
+              <label className="block text-xs font-medium text-on-surface-variant uppercase tracking-wide mb-2">Schedule For</label>
+              <input
+                type="datetime-local"
+                value={scheduledFor}
+                min={minDateTime}
+                onChange={(event) => setScheduledFor(event.target.value)}
+                className="w-full rounded-xl bg-surface-container px-4 py-2.5 text-sm text-on-surface outline-none border border-transparent focus:border-outline-variant transition-colors"
+              />
+            </div>
+            {advanced && (
+              <button onClick={handleBestTime} disabled={bestTimeLoading} className="pib-btn-secondary !py-2.5 !px-3 !text-xs disabled:opacity-50">
+                {bestTimeLoading ? 'Finding...' : 'Best time'}
+              </button>
+            )}
+          </div>
+          <p className="text-xs text-on-surface-variant">Leave empty to save as draft.</p>
+        </section>
+
+        {advanced && (
+          <>
+            <section className="pib-card space-y-3">
+              <h2 className="text-sm font-label uppercase tracking-widest text-on-surface-variant">Category</h2>
+              <select
+                value={category}
+                onChange={(event) => setCategory(event.target.value as SocialPostCategory)}
+                className="rounded-xl bg-surface-container px-4 py-2.5 text-sm text-on-surface outline-none border border-transparent focus:border-outline-variant transition-colors capitalize"
+              >
+                {CATEGORIES.map((item) => <option key={item} value={item}>{item}</option>)}
+              </select>
+            </section>
+
+            <ChipSection
+              title="Labels"
+              value={labelInput}
+              items={labels}
+              placeholder="Type a label and press Enter or comma..."
+              onChange={setLabelInput}
+              onKeyDown={chipKeyDown(labelInput, labels, setLabelInput, setLabels)}
+              onRemove={(item) => removeChip(item, setLabels)}
+            />
+
+            <ChipSection
+              title="Tags"
+              value={tagInput}
+              items={tags}
+              placeholder="Type a tag and press Enter or comma..."
+              onChange={setTagInput}
+              onKeyDown={chipKeyDown(tagInput, tags, setTagInput, setTags)}
+              onRemove={(item) => removeChip(item, setTags)}
+            />
+          </>
+        )}
+
+        <ChipSection
+          title="Hashtags"
+          value={hashtagInput}
+          items={hashtags}
+          placeholder="Type a hashtag and press Enter or comma..."
+          onChange={setHashtagInput}
+          onKeyDown={chipKeyDown(hashtagInput, hashtags, setHashtagInput, setHashtags, normaliseHashtag)}
+          onRemove={(item) => removeChip(item, setHashtags)}
+        />
+
+        <section className="pib-card">
+          <div className="flex flex-wrap gap-3">
+            <button onClick={() => handleSubmit('draft')} disabled={submitting} className="pib-btn-secondary disabled:opacity-50">
+              Save Draft
+            </button>
+            <button onClick={() => handleSubmit('schedule')} disabled={submitting || !scheduledFor} className="pib-btn-primary disabled:opacity-50">
+              Schedule
+            </button>
+            <button onClick={() => handleSubmit('publish')} disabled={submitting} className="pib-btn-secondary disabled:opacity-50">
+              Publish Now
+            </button>
+          </div>
+        </section>
+      </div>
+
+      {previewMode === 'sidebar' && (
+        <aside className="space-y-4 xl:sticky xl:top-6 xl:self-start">
+          <div>
+            <h2 className="font-headline text-xl font-bold tracking-tighter">Preview</h2>
+            <p className="text-sm text-[var(--color-on-surface-variant)] mt-1">Selected platforms render here as you compose.</p>
+          </div>
+          {renderPreview()}
+        </aside>
+      )}
+
+      {advanced && showImageModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-surface rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto space-y-4 p-6">
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-semibold text-on-surface">AI Image Generation</h2>
+              <button onClick={() => setShowImageModal(false)} className="text-on-surface-variant hover:text-on-surface text-xl">x</button>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-xs font-medium text-on-surface-variant uppercase tracking-wide">Template (Optional)</label>
+              <select
+                value={selectedTemplate}
+                disabled={templatesLoading}
+                onChange={(event) => {
+                  const templateId = event.target.value
+                  setSelectedTemplate(templateId)
+                  const template = imageTemplates.find((item) => item.id === templateId)
+                  if (template) {
+                    setImagePrompt(template.promptTemplate)
+                    setImageSize(template.suggestedSize)
+                  }
+                }}
+                className="w-full rounded-xl bg-surface-container px-4 py-2.5 text-sm text-on-surface outline-none border border-transparent focus:border-outline-variant transition-colors"
+              >
+                <option value="">Choose a template...</option>
+                {imageTemplates.map((template) => (
+                  <option key={template.id} value={template.id}>{template.name} - {template.description}</option>
+                ))}
+              </select>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-xs font-medium text-on-surface-variant uppercase tracking-wide">Image Prompt</label>
+              <textarea
+                rows={4}
+                value={imagePrompt}
+                onChange={(event) => setImagePrompt(event.target.value)}
+                placeholder="Describe the image you want to generate..."
+                className="w-full rounded-xl bg-surface-container px-4 py-2.5 text-sm text-on-surface placeholder:text-on-surface-variant/50 outline-none border border-transparent focus:border-outline-variant transition-colors resize-none"
+              />
+              <p className="text-[10px] text-on-surface-variant">{imagePrompt.length} / 4000 characters</p>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <label className="space-y-2 text-xs font-medium text-on-surface-variant uppercase tracking-wide">
+                Provider
+                <select value={imageProvider} onChange={(event) => setImageProvider(event.target.value as ImageProvider)} className="w-full rounded-xl bg-surface-container px-4 py-2.5 text-sm text-on-surface">
+                  <option value="xai">xAI (Grok)</option>
+                  <option value="gemini">Google Gemini</option>
+                </select>
+              </label>
+              <label className="space-y-2 text-xs font-medium text-on-surface-variant uppercase tracking-wide">
+                Size
+                <select value={imageSize} onChange={(event) => setImageSize(event.target.value as ImageSize)} className="w-full rounded-xl bg-surface-container px-4 py-2.5 text-sm text-on-surface">
+                  <option value="1024x1024">Square (1024x1024)</option>
+                  <option value="1024x1536">Portrait (1024x1536)</option>
+                  <option value="1536x1024">Landscape (1536x1024)</option>
+                </select>
+              </label>
+            </div>
+
+            {imageError && <div className="px-4 py-3 rounded-xl bg-red-900/30 text-red-400 text-sm">{imageError}</div>}
+
+            <button onClick={handleGenerateImage} disabled={imageLoading || !imagePrompt.trim()} className="w-full pib-btn-primary disabled:opacity-50">
+              {imageLoading ? 'Generating...' : 'Generate Image'}
+            </button>
+
+            {generatedImageUrl && (
+              <div className="space-y-2">
+                <div className="rounded-xl bg-surface-container overflow-hidden">
+                  <img src={generatedImageUrl} alt="generated" className="w-full" />
+                </div>
+                {generatedPrompt && (
+                  <div className="rounded-lg bg-surface p-2.5">
+                    <p className="text-[10px] text-on-surface-variant font-medium mb-1">Revised Prompt:</p>
+                    <p className="text-xs text-on-surface leading-relaxed">{generatedPrompt}</p>
+                  </div>
+                )}
+                <button onClick={useGeneratedImage} className="w-full pib-btn-secondary">Use This Image</button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
+  )
+}
+
+function ChipSection({
+  title,
+  value,
+  items,
+  placeholder,
+  onChange,
+  onKeyDown,
+  onRemove,
+}: {
+  title: string
+  value: string
+  items: string[]
+  placeholder: string
+  onChange: (value: string) => void
+  onKeyDown: (event: React.KeyboardEvent<HTMLInputElement>) => void
+  onRemove: (item: string) => void
+}) {
+  return (
+    <section className="pib-card space-y-3">
+      <h2 className="text-sm font-label uppercase tracking-widest text-on-surface-variant">{title}</h2>
+      <input
+        type="text"
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        onKeyDown={onKeyDown}
+        placeholder={placeholder}
+        className="w-full rounded-xl bg-surface-container px-4 py-2.5 text-sm text-on-surface placeholder:text-on-surface-variant/50 outline-none border border-transparent focus:border-outline-variant transition-colors"
+      />
+      {items.length > 0 && (
+        <div className="flex flex-wrap gap-2">
+          {items.map((item) => (
+            <span key={item} className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-surface-container-high text-on-surface text-xs font-medium">
+              {item}
+              <button onClick={() => onRemove(item)} className="text-on-surface-variant hover:text-on-surface transition-colors ml-0.5">x</button>
+            </span>
+          ))}
+        </div>
+      )}
+    </section>
   )
 }
