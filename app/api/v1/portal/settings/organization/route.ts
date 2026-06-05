@@ -6,7 +6,7 @@ import { apiError, apiErrorFromException } from '@/lib/api/response'
 import { ROLE_RANK } from '@/lib/orgMembers/types'
 import type { OrgRole } from '@/lib/organizations/types'
 import { mergeBillingDetailsForWrite, publicBillingDetails } from '@/lib/organizations/billing-details'
-import { resolvePortalActiveOrgId } from '@/lib/portal/org-access'
+import { canUsePortalOrg, resolvePortalActiveOrgId } from '@/lib/portal/org-access'
 import { syncPlatformCompanyAgreementFieldsForOrg } from '@/lib/platform-owner/relationships'
 
 export const dynamic = 'force-dynamic'
@@ -20,10 +20,25 @@ function isOrgRole(value: unknown): value is OrgRole {
   return typeof value === 'string' && value in ROLE_RANK
 }
 
-async function resolveOrgId(uid: string): Promise<string | null> {
+type ResolvedOrg =
+  | { ok: true; orgId: string }
+  | { ok: false; response: Response }
+
+async function resolveOrgId(req: NextRequest, uid: string): Promise<ResolvedOrg> {
   const userDoc = await adminDb.collection('users').doc(uid).get()
-  if (!userDoc.exists) return null
-  return resolvePortalActiveOrgId(uid, userDoc.data() ?? {})
+  if (!userDoc.exists) return { ok: false, response: apiError('User not found', 404) }
+
+  const userData = userDoc.data() ?? {}
+  const requestedOrgId = req.nextUrl.searchParams.get('orgId')?.trim() ?? ''
+  if (requestedOrgId) {
+    const allowed = await canUsePortalOrg(uid, userData, requestedOrgId)
+    if (!allowed) return { ok: false, response: apiError('You do not have access to this organisation', 403) }
+    return { ok: true, orgId: requestedOrgId }
+  }
+
+  const orgId = await resolvePortalActiveOrgId(uid, userData)
+  if (!orgId) return { ok: false, response: apiError('No active workspace', 400) }
+  return { ok: true, orgId }
 }
 
 function memberRole(org: OrgData, uid: string): OrgRole | null {
@@ -58,10 +73,11 @@ function cleanEmail(value: unknown): string | undefined {
   return typeof value === 'string' ? value.trim().toLowerCase() : undefined
 }
 
-export const GET = withPortalAuth(async (_req: NextRequest, uid: string) => {
+export const GET = withPortalAuth(async (req: NextRequest, uid: string) => {
   try {
-    const orgId = await resolveOrgId(uid)
-    if (!orgId) return apiError('No active workspace', 400)
+    const resolved = await resolveOrgId(req, uid)
+    if (!resolved.ok) return resolved.response
+    const { orgId } = resolved
 
     const orgDoc = await adminDb.collection('organizations').doc(orgId).get()
     if (!orgDoc.exists) return apiError('Organisation not found', 404)
@@ -76,8 +92,9 @@ export const GET = withPortalAuth(async (_req: NextRequest, uid: string) => {
 
 export const PATCH = withPortalAuth(async (req: NextRequest, uid: string) => {
   try {
-    const orgId = await resolveOrgId(uid)
-    if (!orgId) return apiError('No active workspace', 400)
+    const resolved = await resolveOrgId(req, uid)
+    if (!resolved.ok) return resolved.response
+    const { orgId } = resolved
 
     const orgRef = adminDb.collection('organizations').doc(orgId)
     const orgDoc = await orgRef.get()

@@ -3,6 +3,8 @@
 export const dynamic = 'force-dynamic'
 
 import { useEffect, useState } from 'react'
+import { useSearchParams } from 'next/navigation'
+import { scopedApiPath, scopeFromSearchParams } from '@/lib/portal/scoped-routing'
 
 type BillingContact = {
   name?: string
@@ -214,6 +216,8 @@ function countReadyAreas(form: FormState) {
 }
 
 export default function OrganizationSettingsPage() {
+  const searchParams = useSearchParams()
+  const organizationEndpoint = scopedApiPath('/api/v1/portal/settings/organization', scopeFromSearchParams(searchParams))
   const [form, setForm] = useState<FormState>(emptyForm)
   const [canEdit, setCanEdit] = useState(false)
   const [role, setRole] = useState<string | null>(null)
@@ -224,7 +228,7 @@ export default function OrganizationSettingsPage() {
 
   useEffect(() => {
     let alive = true
-    fetch('/api/v1/portal/settings/organization')
+    fetch(organizationEndpoint)
       .then(async (res) => {
         const body = await res.json().catch(() => ({})) as OrganizationSettingsResponse
         if (!res.ok) throw new Error(body.error ?? 'Failed to load organisation details')
@@ -243,7 +247,7 @@ export default function OrganizationSettingsPage() {
         if (alive) setLoading(false)
       })
     return () => { alive = false }
-  }, [])
+  }, [organizationEndpoint])
 
   function updateText(field: TextField, value: string) {
     setForm((prev) => ({ ...prev, [field]: value }))
@@ -256,7 +260,7 @@ export default function OrganizationSettingsPage() {
     setSaved(false)
     setError('')
 
-    const res = await fetch('/api/v1/portal/settings/organization', {
+    const res = await fetch(organizationEndpoint, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(toPayload(form)),
