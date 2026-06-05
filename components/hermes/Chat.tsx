@@ -2,6 +2,7 @@
 
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { ChatEvent } from '@/lib/hermes/types'
+import { ChatMessageContent } from '@/components/chat/MessageBubble'
 import VoiceInputButton from '@/components/chat/VoiceInputButton'
 
 type Role = 'user' | 'assistant' | 'system' | 'tool'
@@ -516,7 +517,7 @@ export default function HermesChat({ orgId, profileEnabled, projectId, projectNa
                   >
                     {m.status === 'pending' && !m.content && <span className="opacity-70 italic">Thinking…</span>}
                     {m.status === 'waiting_approval' && !m.content && <span className="opacity-70 italic">Paused — awaiting tool approval…</span>}
-                    {m.content || (m.status === 'failed' && m.error)}
+                    <ChatMessageContent content={m.content || (m.status === 'failed' && m.error) || ''} />
                   </div>
                   {m.role === 'assistant' && m.status === 'waiting_approval' && approvalPending[m.id] && (
                     <div className="mt-2 rounded-xl border border-[#f59e0b44] bg-[#1a1500] px-4 py-3 text-sm">

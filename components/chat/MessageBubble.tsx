@@ -2,7 +2,7 @@
 
 /* eslint-disable @next/next/no-img-element -- Conversation attachments use arbitrary Firebase Storage URLs. */
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import type { ChatEvent } from '@/lib/hermes/types'
 import type { ContextReference } from '@/lib/context-references/types'
 import type { SlashCommandPayload } from '@/lib/chat/slash-commands'
@@ -256,6 +256,201 @@ function formatBytes(bytes: number): string {
   return `${Math.max(1, Math.round(bytes / 1024))} KB`
 }
 
+function hasRichChatMarkup(content: string): boolean {
+  return /(^|\n)```/.test(content)
+    || /(^|\n)\s{0,3}#{1,4}\s+\S/.test(content)
+    || /(^|\n)\s*[-*]\s+\S/.test(content)
+    || /(^|\n)\s*\d+\.\s+\S/.test(content)
+    || /(^|\n)\s*(flowchart|graph)\s+(TD|TB|BT|LR|RL)\b/i.test(content)
+    || /<svg\b[\s\S]*<\/svg>/i.test(content)
+    || /\[[^\]]+\]\(https?:\/\/[^)]+\)/.test(content)
+    || /`[^`]+`|\*\*[^*]+\*\*/.test(content)
+}
+
+function inlineMarkdown(text: string): ReactNode[] {
+  const nodes: ReactNode[] = []
+  const tokenPattern = /(\*\*([^*]+)\*\*|`([^`]+)`|\[([^\]]+)\]\((https?:\/\/[^\s)]+)\))/g
+  let lastIndex = 0
+  let match: RegExpExecArray | null
+  while ((match = tokenPattern.exec(text)) !== null) {
+    if (match.index > lastIndex) nodes.push(text.slice(lastIndex, match.index))
+    if (match[2]) {
+      nodes.push(<strong key={`strong-${match.index}`} className="font-semibold text-on-surface">{match[2]}</strong>)
+    } else if (match[3]) {
+      nodes.push(<code key={`code-${match.index}`} className="rounded bg-black/30 px-1 py-0.5 font-mono text-[0.9em] text-primary">{match[3]}</code>)
+    } else if (match[4] && match[5]) {
+      nodes.push(
+        <a key={`link-${match.index}`} href={match[5]} target="_blank" rel="noreferrer" className="text-primary underline decoration-primary/50 underline-offset-2 hover:decoration-primary">
+          {match[4]}
+        </a>,
+      )
+    }
+    lastIndex = match.index + match[0].length
+  }
+  if (lastIndex < text.length) nodes.push(text.slice(lastIndex))
+  return nodes
+}
+
+function sanitizeInlineSvg(svg: string): string | null {
+  const trimmed = svg.trim()
+  if (!/^<svg\b[\s\S]*<\/svg>$/i.test(trimmed)) return null
+  if (/<script\b|\son[a-z]+\s*=|javascript:/i.test(trimmed)) return null
+  return trimmed
+}
+
+function parseMermaidNodes(source: string): { labels: string[] } {
+  const labels = new Map<string, string>()
+  const nodePattern = /([A-Za-z][\w-]*)(?:\[([^\]]+)\]|\(([^)]+)\)|\{([^}]+)\})?/g
+
+  source.split('\n').forEach((line) => {
+    if (/^\s*(flowchart|graph)\s+/i.test(line) || !line.trim()) return
+    const arrow = line.match(/(.+?)(?:-->|---|==>|-\.->)(.+)/)
+    if (!arrow) return
+    ;[arrow[1], arrow[2]].forEach((part) => {
+      nodePattern.lastIndex = 0
+      const found = nodePattern.exec(part.trim())
+      if (!found) return
+      const id = found[1]
+      const label = found[2] ?? found[3] ?? found[4] ?? id
+      labels.set(id, label)
+    })
+  })
+
+  return { labels: Array.from(labels.values()) }
+}
+
+function MermaidPreview({ source }: { source: string }) {
+  const parsed = parseMermaidNodes(source)
+  return (
+    <div role="img" aria-label="Mermaid diagram" className="my-2 overflow-hidden rounded-xl border border-primary/25 bg-black/25 p-3">
+      <div className="mb-2 flex items-center gap-2 text-[11px] font-label uppercase tracking-wide text-primary">
+        <span className="material-symbols-outlined text-[15px]">account_tree</span>
+        Diagram
+      </div>
+      {parsed.labels.length > 0 ? (
+        <div className="flex flex-col items-center gap-1.5 text-center text-xs text-on-surface">
+          {parsed.labels.map((label, index) => (
+            <div key={`${label}-${index}`} className="flex flex-col items-center gap-1.5">
+              <div className="rounded-lg border border-white/15 bg-white/[0.06] px-3 py-2 shadow-sm">
+                {inlineMarkdown(label)}
+              </div>
+              {index < parsed.labels.length - 1 && <span className="text-primary/80">↓</span>}
+            </div>
+          ))}
+        </div>
+      ) : (
+        <pre className="overflow-auto whitespace-pre-wrap rounded-lg bg-black/35 p-2 font-mono text-[11px] text-on-surface-variant">{source}</pre>
+      )}
+    </div>
+  )
+}
+
+function SvgPreview({ source }: { source: string }) {
+  const safeSvg = sanitizeInlineSvg(source)
+  if (!safeSvg) {
+    return <pre className="my-2 overflow-auto whitespace-pre-wrap rounded-xl border border-white/10 bg-black/30 p-3 font-mono text-xs text-on-surface-variant">{source}</pre>
+  }
+  return (
+    <div className="my-2 overflow-auto rounded-xl border border-primary/20 bg-white p-3 text-slate-950" dangerouslySetInnerHTML={{ __html: safeSvg }} />
+  )
+}
+
+function CodeBlock({ language, code }: { language: string; code: string }) {
+  const normalizedLanguage = language.trim().toLowerCase()
+  if (/^(mermaid|mmd)$/.test(normalizedLanguage) || /^\s*(flowchart|graph)\s+/i.test(code)) {
+    return <MermaidPreview source={code} />
+  }
+  if (/^(svg|html)$/.test(normalizedLanguage) && /<svg\b[\s\S]*<\/svg>/i.test(code)) {
+    return <SvgPreview source={code} />
+  }
+  return (
+    <pre className="my-2 max-h-96 overflow-auto rounded-xl border border-white/10 bg-black/35 p-3 font-mono text-xs leading-relaxed text-on-surface-variant">
+      <code>{code}</code>
+    </pre>
+  )
+}
+
+function renderMarkdownBlocks(content: string): ReactNode[] {
+  const nodes: ReactNode[] = []
+  const fencePattern = /```([^\n`]*)\n([\s\S]*?)```/g
+  let lastIndex = 0
+  let match: RegExpExecArray | null
+
+  const pushPlain = (plain: string, baseKey: string) => {
+    const lines = plain.split('\n')
+    let paragraph: string[] = []
+    const flushParagraph = () => {
+      if (!paragraph.length) return
+      const text = paragraph.join('\n').trim()
+      if (text) nodes.push(<p key={`${baseKey}-p-${nodes.length}`} className="my-1.5 whitespace-pre-wrap">{inlineMarkdown(text)}</p>)
+      paragraph = []
+    }
+
+    for (let index = 0; index < lines.length; index += 1) {
+      const line = lines[index]
+      const heading = line.match(/^\s{0,3}(#{1,4})\s+(.+)$/)
+      const listItem = line.match(/^\s*(?:[-*]|\d+\.)\s+(.+)$/)
+      const diagramStart = line.match(/^\s*(flowchart|graph)\s+(TD|TB|BT|LR|RL)\b/i)
+      const svgStart = line.match(/^\s*<svg\b/i)
+
+      if (diagramStart) {
+        flushParagraph()
+        const block: string[] = [line]
+        while (index + 1 < lines.length && lines[index + 1].trim()) {
+          block.push(lines[index + 1])
+          index += 1
+        }
+        nodes.push(<MermaidPreview key={`${baseKey}-diagram-${nodes.length}`} source={block.join('\n')} />)
+      } else if (svgStart) {
+        flushParagraph()
+        const block: string[] = [line]
+        while (index + 1 < lines.length && !/<\/svg>\s*$/i.test(lines[index])) {
+          block.push(lines[index + 1])
+          index += 1
+        }
+        nodes.push(<SvgPreview key={`${baseKey}-svg-${nodes.length}`} source={block.join('\n')} />)
+      } else if (heading) {
+        flushParagraph()
+        const Tag = (`h${Math.min(heading[1].length + 2, 6)}`) as 'h3' | 'h4' | 'h5' | 'h6'
+        nodes.push(<Tag key={`${baseKey}-h-${nodes.length}`} className="mt-3 mb-1 text-sm font-semibold text-on-surface">{inlineMarkdown(heading[2])}</Tag>)
+      } else if (listItem) {
+        flushParagraph()
+        const items: string[] = [listItem[1]]
+        while (index + 1 < lines.length) {
+          const next = lines[index + 1].match(/^\s*(?:[-*]|\d+\.)\s+(.+)$/)
+          if (!next) break
+          items.push(next[1])
+          index += 1
+        }
+        nodes.push(
+          <ul key={`${baseKey}-list-${nodes.length}`} className="my-1.5 list-disc space-y-1 pl-5">
+            {items.map((item, itemIndex) => <li key={itemIndex}>{inlineMarkdown(item)}</li>)}
+          </ul>,
+        )
+      } else if (!line.trim()) {
+        flushParagraph()
+      } else {
+        paragraph.push(line)
+      }
+    }
+    flushParagraph()
+  }
+
+  while ((match = fencePattern.exec(content)) !== null) {
+    if (match.index > lastIndex) pushPlain(content.slice(lastIndex, match.index), `plain-${lastIndex}`)
+    nodes.push(<CodeBlock key={`code-${match.index}`} language={match[1]} code={match[2].trimEnd()} />)
+    lastIndex = match.index + match[0].length
+  }
+  if (lastIndex < content.length) pushPlain(content.slice(lastIndex), `plain-${lastIndex}`)
+  return nodes
+}
+
+export function ChatMessageContent({ content }: { content: string }) {
+  if (!content) return null
+  if (!hasRichChatMarkup(content)) return <>{content}</>
+  return <div className="space-y-1 [&>:first-child]:mt-0 [&>:last-child]:mb-0">{renderMarkdownBlocks(content)}</div>
+}
+
 function copyableText(message: ConversationMessage): string {
   return message.content || message.error || ''
 }
@@ -486,7 +681,7 @@ export default function MessageBubble({
                 onMouseUp={handleTextSelection}
                 className="max-w-full overflow-hidden rounded-2xl rounded-br-md px-4 py-2.5 text-[15px] lg:text-sm whitespace-pre-wrap break-words [overflow-wrap:anywhere] bg-[var(--color-card-active,rgba(255,255,255,0.08))] lg:bg-primary lg:text-on-primary text-on-surface"
               >
-              {m.content}
+              <ChatMessageContent content={m.content} />
               {attachmentList}
               </div>
             </div>
@@ -705,7 +900,7 @@ export default function MessageBubble({
             {isWaiting && !m.content && (
               <span className="opacity-70 italic">Paused — awaiting tool approval…</span>
             )}
-            {m.content || (isFailed && m.error) || null}
+            <ChatMessageContent content={m.content || (isFailed && m.error) || ''} />
             {attachmentList}
           </div>
         </div>
@@ -715,3 +910,5 @@ export default function MessageBubble({
     </div>
   )
 }
+
+
