@@ -1,7 +1,9 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { PageTabs } from '@/components/ui/AppFoundation'
+import { scopedApiPath, scopeFromSearchParams } from '@/lib/portal/scoped-routing'
 
 type BillingTab = 'invoices' | 'quotes'
 type InvoiceStatus = 'draft' | 'sent' | 'viewed' | 'payment_pending_verification' | 'paid' | 'partially_paid' | 'overdue' | 'cancelled'
@@ -79,11 +81,21 @@ function extractQuotes(body: unknown): Quote[] {
 }
 
 export default function PaymentsPage() {
+  const searchParams = useSearchParams()
+  const orgScope = useMemo(() => scopeFromSearchParams(searchParams), [searchParams])
   const [tab, setTab] = useState<BillingTab>('invoices')
   const [invoices, setInvoices] = useState<Invoice[]>([])
   const [quotes, setQuotes] = useState<Quote[]>([])
   const [loading, setLoading] = useState(true)
   const [updatingQuoteId, setUpdatingQuoteId] = useState<string | null>(null)
+  const workspaceLabel = orgScope.sourceCompanyName ? `${orgScope.sourceCompanyName} workspace` : 'Active workspace'
+  const billingApiPath = useMemo(
+    () => ({
+      invoices: scopedApiPath('/api/v1/invoices?view=received', orgScope),
+      quotes: scopedApiPath('/api/v1/quotes?view=received', orgScope),
+    }),
+    [orgScope],
+  )
 
   useEffect(() => {
     let cancelled = false
@@ -91,8 +103,8 @@ export default function PaymentsPage() {
       setLoading(true)
       try {
         const [invoiceRes, quoteRes] = await Promise.all([
-          fetch('/api/v1/invoices?view=received'),
-          fetch('/api/v1/quotes?view=received'),
+          fetch(billingApiPath.invoices),
+          fetch(billingApiPath.quotes),
         ])
         const [invoiceBody, quoteBody] = await Promise.all([
           invoiceRes.ok ? invoiceRes.json() : Promise.resolve({ data: [] }),
@@ -109,7 +121,7 @@ export default function PaymentsPage() {
     }
     fetchBilling()
     return () => { cancelled = true }
-  }, [])
+  }, [billingApiPath])
 
   const currency = invoices[0]?.currency ?? quotes[0]?.currency ?? 'ZAR'
   const totals = useMemo(() => {
@@ -122,13 +134,15 @@ export default function PaymentsPage() {
     const pendingQuotes = quotes
       .filter((quote) => quote.status === 'sent')
       .reduce((sum, quote) => sum + (quote.total || 0), 0)
-    return { totalPaid, totalOutstanding, pendingQuotes }
+    const overdueInvoices = invoices.filter((invoice) => invoice.status === 'overdue').length
+    const openQuotes = quotes.filter((quote) => quote.status === 'sent').length
+    return { totalPaid, totalOutstanding, pendingQuotes, overdueInvoices, openQuotes }
   }, [invoices, quotes])
 
   async function updateQuoteStatus(quoteId: string, status: QuoteStatus) {
     setUpdatingQuoteId(quoteId)
     try {
-      const res = await fetch(`/api/v1/quotes/${quoteId}`, {
+      const res = await fetch(scopedApiPath(`/api/v1/quotes/${quoteId}`, orgScope), {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status }),
@@ -144,27 +158,34 @@ export default function PaymentsPage() {
   return (
     <div className="space-y-8">
       <header>
-        <p className="eyebrow">Billing</p>
-        <h1 className="pib-page-title mt-2">Billing</h1>
-        <p className="pib-page-sub max-w-2xl">Invoices, quotes, and payment history for work with Partners in Biz.</p>
+        <p className="eyebrow">Finance operations</p>
+        <h1 className="pib-page-title mt-2">Finance command center</h1>
+        <p className="pib-page-sub max-w-3xl">
+          Track invoices, quote decisions, and payment pressure for the active company workspace.
+        </p>
       </header>
 
       {!loading && (
-        <section className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <section className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
           <div className="pib-stat-card">
-            <p className="eyebrow !text-[10px]">Paid</p>
+            <p className="eyebrow !text-[10px]">Workspace</p>
+            <p className="font-display text-xl mt-3 text-[var(--color-pib-text)]">{workspaceLabel}</p>
+            <p className="mt-2 text-xs text-[var(--color-pib-text-muted)] font-mono">scoped finance view</p>
+          </div>
+          <div className="pib-stat-card">
+            <p className="eyebrow !text-[10px]">Revenue protected</p>
             <p className="font-display text-3xl mt-3 text-[var(--color-pib-success)]">{formatCurrency(totals.totalPaid, currency)}</p>
             <p className="mt-2 text-xs text-[var(--color-pib-text-muted)] font-mono">{invoices.filter((invoice) => invoice.status === 'paid').length} invoices</p>
           </div>
           <div className="pib-stat-card">
-            <p className="eyebrow !text-[10px]">Outstanding</p>
+            <p className="eyebrow !text-[10px]">Payment risk</p>
             <p className="font-display text-3xl mt-3 text-[var(--color-pib-accent)]">{formatCurrency(totals.totalOutstanding, currency)}</p>
-            <p className="mt-2 text-xs text-[var(--color-pib-text-muted)] font-mono">awaiting payment</p>
+            <p className="mt-2 text-xs text-[var(--color-pib-text-muted)] font-mono">{totals.overdueInvoices} overdue invoices</p>
           </div>
           <div className="pib-stat-card">
-            <p className="eyebrow !text-[10px]">Open Quotes</p>
+            <p className="eyebrow !text-[10px]">Decision pipeline</p>
             <p className="font-display text-3xl mt-3">{formatCurrency(totals.pendingQuotes, currency)}</p>
-            <p className="mt-2 text-xs text-[var(--color-pib-text-muted)] font-mono">{quotes.filter((quote) => quote.status === 'sent').length} awaiting response</p>
+            <p className="mt-2 text-xs text-[var(--color-pib-text-muted)] font-mono">{totals.openQuotes} quotes awaiting response</p>
           </div>
         </section>
       )}
@@ -208,7 +229,7 @@ export default function PaymentsPage() {
                   <div className="md:col-span-2"><p className="text-sm font-display text-lg">{formatCurrency(invoice.total ?? 0, invoice.currency ?? 'ZAR')}</p></div>
                   <div className="col-span-2 md:col-span-2"><span className={INVOICE_STATUS_PILL[invoice.status] ?? 'pib-pill'}><span className="w-1.5 h-1.5 rounded-full bg-current" />{label(invoice.status)}</span></div>
                   <div className="col-span-2 md:col-span-1 flex md:justify-end">
-                    <a href={`/api/v1/invoices/${invoice.id}/pdf`} target="_blank" rel="noopener noreferrer" className="text-xs text-[var(--color-pib-accent-hover)] hover:text-[var(--color-pib-accent)] inline-flex items-center gap-1 font-mono uppercase tracking-widest">
+                    <a href={scopedApiPath(`/api/v1/invoices/${invoice.id}/pdf`, orgScope)} target="_blank" rel="noopener noreferrer" className="text-xs text-[var(--color-pib-accent-hover)] hover:text-[var(--color-pib-accent)] inline-flex items-center gap-1 font-mono uppercase tracking-widest" aria-label={`Download ${invoice.invoiceNumber} PDF`}>
                       PDF
                       <span className="material-symbols-outlined text-sm">arrow_outward</span>
                     </a>
@@ -245,8 +266,8 @@ export default function PaymentsPage() {
                 <div className="col-span-2 md:col-span-2 flex flex-wrap justify-start gap-2 md:justify-end">
                   {quote.status === 'sent' ? (
                     <>
-                      <button type="button" onClick={() => updateQuoteStatus(quote.id, 'accepted')} disabled={updatingQuoteId === quote.id} className="pib-btn-primary !px-3 !py-1.5 text-xs">Accept</button>
-                      <button type="button" onClick={() => updateQuoteStatus(quote.id, 'declined')} disabled={updatingQuoteId === quote.id} className="pib-btn-secondary !px-3 !py-1.5 text-xs">Decline</button>
+                      <button type="button" onClick={() => updateQuoteStatus(quote.id, 'accepted')} disabled={updatingQuoteId === quote.id} className="pib-btn-primary !px-3 !py-1.5 text-xs" aria-label={`Accept quote ${quote.quoteNumber}`}>Accept</button>
+                      <button type="button" onClick={() => updateQuoteStatus(quote.id, 'declined')} disabled={updatingQuoteId === quote.id} className="pib-btn-secondary !px-3 !py-1.5 text-xs" aria-label={`Decline quote ${quote.quoteNumber}`}>Decline</button>
                     </>
                   ) : (
                     <span className="text-xs text-[var(--color-pib-text-muted)]">No action</span>
