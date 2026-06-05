@@ -1308,6 +1308,39 @@ export default function PortalContactDetailPage() {
       needsActionWhenValued: true,
     },
     {
+      label: 'Role',
+      value: jobTitle.trim(),
+      empty: 'No role captured',
+      actionLabel: jobTitle.trim() ? 'Edit role' : 'Add role',
+      actionAriaLabel: jobTitle.trim()
+        ? `Edit role ${jobTitle.trim()} for ${contactName} from details`
+        : `Add role from details for ${contactName}`,
+      onAction: () => focusProfileField(jobTitleFieldRef),
+      needsActionWhenValued: true,
+    },
+    {
+      label: 'Department',
+      value: department.trim(),
+      empty: 'No department captured',
+      actionLabel: department.trim() ? 'Edit department' : 'Add department',
+      actionAriaLabel: department.trim()
+        ? `Edit department ${department.trim()} for ${contactName} from details`
+        : `Add department from details for ${contactName}`,
+      onAction: () => focusProfileField(departmentFieldRef),
+      needsActionWhenValued: true,
+    },
+    {
+      label: 'Timezone',
+      value: timezone.trim(),
+      empty: 'No timezone captured',
+      actionLabel: timezone.trim() ? 'Edit timezone' : 'Add timezone',
+      actionAriaLabel: timezone.trim()
+        ? `Edit timezone ${timezone.trim()} for ${contactName} from details`
+        : `Add timezone from details for ${contactName}`,
+      onAction: () => focusProfileField(timezoneFieldRef),
+      needsActionWhenValued: true,
+    },
+    {
       label: 'Website',
       value: website.trim(),
       href: websiteHref(website),

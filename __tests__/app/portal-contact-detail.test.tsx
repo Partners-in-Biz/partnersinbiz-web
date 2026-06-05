@@ -867,6 +867,36 @@ describe('Portal contact detail page', () => {
     expect(screen.getByRole('combobox', { name: 'Relationship owner for Jane Client' })).toHaveFocus()
   })
 
+  it('shows role department and timezone as actionable contact details', async () => {
+    mockContactOverrides = {
+      jobTitle: 'Finance Director',
+      department: 'Operations',
+      timezone: 'Africa/Johannesburg',
+    }
+
+    render(<PortalContactDetailPage />)
+
+    await waitFor(() => {
+      expect(screen.getAllByDisplayValue('Jane Client').length).toBeGreaterThan(0)
+    })
+
+    expect(screen.getAllByText('Role').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Finance Director').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Department').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Operations').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Timezone').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Africa/Johannesburg').length).toBeGreaterThan(0)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Edit role Finance Director for Jane Client from details' }))
+    expect(screen.getByRole('textbox', { name: 'Job title for Jane Client' })).toHaveFocus()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Edit department Operations for Jane Client from details' }))
+    expect(screen.getByRole('textbox', { name: 'Department for Jane Client' })).toHaveFocus()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Edit timezone Africa/Johannesburg for Jane Client from details' }))
+    expect(screen.getByRole('textbox', { name: 'Timezone for Jane Client' })).toHaveFocus()
+  })
+
   it('turns first-viewport contact identity into direct email phone and company links', async () => {
     mockContactOverrides = {
       phone: '+27825550123',
