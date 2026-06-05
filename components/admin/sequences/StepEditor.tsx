@@ -5,7 +5,7 @@ import type { SequenceStep, SequenceBranch, WaitUntil } from '@/lib/sequences/ty
 import type { PreflightReport } from '@/lib/email/preflight'
 import BranchEditor from './BranchEditor'
 import WaitUntilEditor from './WaitUntilEditor'
-import PreflightPanel from '@/components/admin/email/PreflightPanel'
+import PreflightPanel from '@/components/email/PreflightPanel'
 import { countSmsSegments } from '@/lib/sms/segments'
 
 interface Props {
@@ -203,6 +203,13 @@ export default function StepEditor({ steps, onChange, sequenceId }: Props) {
                       className="w-full px-3 py-2 rounded-lg border border-outline-variant bg-surface text-on-surface text-sm font-mono"
                     />
                   </div>
+                  {sequenceId && (
+                    <PreflightPanel
+                      report={preflightReports[i] ?? null}
+                      loading={preflightLoading[i] ?? false}
+                      onRefresh={() => runPreflight(i)}
+                    />
+                  )}
                 </>
               )}
 

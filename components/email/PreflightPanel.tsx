@@ -1,4 +1,4 @@
-// components/admin/email/PreflightPanel.tsx
+// components/email/PreflightPanel.tsx
 //
 // Renders a PreflightReport in the broadcast / sequence step editor.
 // Shows a green "Ready to send" or red "X issues need attention" banner,
@@ -6,7 +6,7 @@
 // detail, recommendation, and "Fix in editor" jump.
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { PageTabs } from '@/components/ui/AppFoundation'
 import type { PreflightIssue, PreflightReport, PreflightSeverity } from '@/lib/email/preflight'
 
@@ -35,7 +35,7 @@ function tabForLocation(location?: string): 'content' | 'audience' | 'schedule' 
 }
 
 export default function PreflightPanel({ report, loading, onRefresh, onJumpToTab }: Props) {
-  const [activeTab, setActiveTab] = useState<PreflightSeverity>('error')
+  const [selectedTab, setSelectedTab] = useState<PreflightSeverity | null>(null)
 
   const groups = useMemo(() => {
     const g: Record<PreflightSeverity, PreflightIssue[]> = { error: [], warning: [], info: [] }
@@ -44,13 +44,9 @@ export default function PreflightPanel({ report, loading, onRefresh, onJumpToTab
     return g
   }, [report])
 
-  // Default tab to whichever section has any items (errors > warnings > info).
-  useEffect(() => {
-    if (!report) return
-    if (groups.error.length > 0) setActiveTab('error')
-    else if (groups.warning.length > 0) setActiveTab('warning')
-    else if (groups.info.length > 0) setActiveTab('info')
-  }, [report, groups])
+  const defaultTab: PreflightSeverity =
+    groups.error.length > 0 ? 'error' : groups.warning.length > 0 ? 'warning' : 'info'
+  const activeTab = selectedTab ?? defaultTab
 
   return (
     <div className="space-y-4">
@@ -97,7 +93,7 @@ export default function PreflightPanel({ report, loading, onRefresh, onJumpToTab
           <PageTabs
             ariaLabel="Preflight severity"
             value={activeTab}
-            onValueChange={(value) => setActiveTab(value as PreflightSeverity)}
+            onValueChange={(value) => setSelectedTab(value as PreflightSeverity)}
             tabs={SEVERITY_TABS.map((tab) => ({
               label: tab.label,
               value: tab.key,

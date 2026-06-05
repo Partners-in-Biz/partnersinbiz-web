@@ -1,4 +1,4 @@
-// components/admin/email/AbTestingPanel.tsx
+// components/email/AbTestingPanel.tsx
 //
 // Reusable A/B testing editor panel. Drops into BroadcastEditor and the
 // SequenceStepEditor — both take an AbConfig value/onChange pair.
