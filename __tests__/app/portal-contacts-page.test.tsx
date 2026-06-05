@@ -68,7 +68,7 @@ describe('Portal contacts page', () => {
           }),
         } as Response)
       }
-      if (url === '/api/v1/portal/settings/team') {
+      if (url.startsWith('/api/v1/portal/settings/team')) {
         return Promise.resolve({
           ok: true,
           json: async () => ({
@@ -531,6 +531,33 @@ describe('Portal contacts page', () => {
     await waitFor(() => {
       expect(global.fetch).toHaveBeenCalledWith('/api/v1/crm/contacts?search=Owned+Co')
     })
+  })
+
+  it('preserves CRM company source context on portal contact row links', async () => {
+    mockSearchParams = new URLSearchParams({
+      orgId: 'lumen-org',
+      orgSlug: 'lumen-speeds',
+      sourceCompanyId: 'company-1',
+      sourceCompanyName: 'Lumen',
+    })
+
+    render(<PortalContactsPage />)
+
+    const ownedRowLink = await screen.findByRole('link', { name: 'Open contact Owned Client' })
+    const ownedRow = ownedRowLink.closest('[data-contact-row]')
+    expect(ownedRow).not.toBeNull()
+
+    expect(ownedRowLink).toHaveAttribute(
+      'href',
+      '/portal/contacts/contact-owned?orgId=lumen-org&orgSlug=lumen-speeds&sourceCompanyId=company-1&sourceCompanyName=Lumen',
+    )
+    expect(within(ownedRow as HTMLElement).getByRole('link', { name: 'Log activity for Owned Client from last contacted column' }))
+      .toHaveAttribute(
+        'href',
+        '/portal/contacts/contact-owned?activity=note&orgId=lumen-org&orgSlug=lumen-speeds&sourceCompanyId=company-1&sourceCompanyName=Lumen',
+      )
+    expect(global.fetch).toHaveBeenCalledWith('/api/v1/crm/contacts?orgId=lumen-org')
+    expect(global.fetch).toHaveBeenCalledWith('/api/v1/portal/settings/team?orgId=lumen-org')
   })
 
   it('treats an empty contact stage lens as a clean funnel stage', async () => {

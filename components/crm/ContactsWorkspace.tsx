@@ -200,9 +200,16 @@ export function ContactsWorkspace({
   const isAdmin = mode === 'admin'
   const scopedOrgId = orgScope.orgId ?? orgScope.id
   const scopedOrgSlug = orgScope.orgSlug ?? orgScope.slug
+  const scopedSourceCompanyId = orgScope.sourceCompanyId
+  const scopedSourceCompanyName = orgScope.sourceCompanyName
   const routeScope = useMemo(
-    () => ({ orgId: scopedOrgId, orgSlug: scopedOrgSlug }),
-    [scopedOrgId, scopedOrgSlug],
+    () => ({
+      orgId: scopedOrgId,
+      orgSlug: scopedOrgSlug,
+      sourceCompanyId: scopedSourceCompanyId,
+      sourceCompanyName: scopedSourceCompanyName,
+    }),
+    [scopedOrgId, scopedOrgSlug, scopedSourceCompanyId, scopedSourceCompanyName],
   )
   const [contactOrgId, setContactOrgId] = useState('')
   const activeAdminOrgId = selectedOrgId || scopedOrgId || contactOrgId
