@@ -61,6 +61,8 @@ describe('portal marketing child scope standard', () => {
     expect(communications).toContain('scopeFromSearchParams')
     expect(communications).toContain('initialOrgId={orgScope.orgId ??')
     expect(communications).toContain('initialOrgSlug={orgScope.orgSlug ??')
+    expect(communications).toContain('sourceCompanyId={orgScope.sourceCompanyId ??')
+    expect(communications).toContain('sourceCompanyName={orgScope.sourceCompanyName ??')
 
     expect(contacts).toContain('scopeFromSearchParams')
     expect(contacts).toContain('orgScope={orgScope}')

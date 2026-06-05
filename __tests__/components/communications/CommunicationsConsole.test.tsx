@@ -89,4 +89,31 @@ describe('CommunicationsConsole organisation scoping', () => {
       '/api/v1/communications/conversations?status=open&limit=100',
     )
   })
+
+  it('shows the linked CRM company workspace and preserves source context on portal handoffs', async () => {
+    render(
+      <CommunicationsConsole
+        mode="portal"
+        initialOrgId="lumen-org"
+        initialOrgSlug="lumen-speeds"
+        sourceCompanyId="company-1"
+        sourceCompanyName="Lumen"
+      />,
+    )
+
+    expect(screen.getByRole('heading', { name: 'Communications command center' })).toBeInTheDocument()
+    expect(screen.getByText('Lumen workspace')).toBeInTheDocument()
+    expect(screen.getByText('Inbox control')).toBeInTheDocument()
+    expect(screen.getByText('Human handoff')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /marketing/i })).toHaveAttribute(
+      'href',
+      '/portal/marketing?orgId=lumen-org&orgSlug=lumen-speeds&sourceCompanyId=company-1&sourceCompanyName=Lumen',
+    )
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith(
+        '/api/v1/communications/conversations?orgId=lumen-org&status=open&limit=100',
+      )
+    })
+  })
 })
