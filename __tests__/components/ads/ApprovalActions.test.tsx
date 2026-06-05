@@ -3,7 +3,7 @@
  */
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import '@testing-library/jest-dom'
-import { ApprovalActions } from '@/app/(portal)/portal/ads/campaigns/[id]/ApprovalActions'
+import { AdCampaignReviewActions } from '@/components/ads/AdCampaignReviewActions'
 
 jest.mock('next/navigation', () => ({
   useRouter: () => ({ refresh: jest.fn(), push: jest.fn() }),
@@ -20,15 +20,15 @@ afterEach(() => {
   jest.clearAllMocks()
 })
 
-describe('ApprovalActions', () => {
+describe('AdCampaignReviewActions', () => {
   it('renders Approve + Request changes buttons', () => {
-    render(<ApprovalActions campaignId="camp-1" />)
+    render(<AdCampaignReviewActions campaignId="camp-1" />)
     expect(screen.getByRole('button', { name: /approve/i })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /request changes/i })).toBeInTheDocument()
   })
 
   it('POSTs to /approve when Approve is clicked', async () => {
-    render(<ApprovalActions campaignId="camp-1" />)
+    render(<AdCampaignReviewActions campaignId="camp-1" />)
     fireEvent.click(screen.getByRole('button', { name: /approve/i }))
     await waitFor(() => {
       expect(global.fetch).toHaveBeenCalledWith(
@@ -39,7 +39,7 @@ describe('ApprovalActions', () => {
   })
 
   it('carries the selected company org into approve requests', async () => {
-    render(<ApprovalActions campaignId="camp-1" orgId="lumen-org" />)
+    render(<AdCampaignReviewActions campaignId="camp-1" orgId="lumen-org" />)
     fireEvent.click(screen.getByRole('button', { name: /approve/i }))
     await waitFor(() => {
       expect(global.fetch).toHaveBeenCalledWith(

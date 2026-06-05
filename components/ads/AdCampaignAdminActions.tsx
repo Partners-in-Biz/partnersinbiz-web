@@ -11,7 +11,7 @@ interface Props {
   reviewState?: 'awaiting' | 'approved' | 'rejected'
 }
 
-export function CampaignActionsClient({ orgId, orgSlug, campaignId, status, reviewState }: Props) {
+export function AdCampaignAdminActions({ orgId, orgSlug, campaignId, status, reviewState }: Props) {
   const router = useRouter()
   const [busy, setBusy] = useState<'launch' | 'pause' | 'delete' | 'submit' | null>(null)
   const [confirmAction, setConfirmAction] = useState<'delete' | 'submit' | null>(null)

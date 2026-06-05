@@ -52,8 +52,8 @@ jest.mock('@/components/ads/InsightsChart', () => ({
   InsightsChart: () => null,
 }))
 
-jest.mock('@/app/(portal)/portal/ads/campaigns/[id]/ApprovalActions', () => ({
-  ApprovalActions: () => null,
+jest.mock('@/components/ads/AdCampaignReviewActions', () => ({
+  AdCampaignReviewActions: () => null,
 }))
 
 jest.mock('@/app/(portal)/portal/ads/ads/[id]/CommentThread', () => ({

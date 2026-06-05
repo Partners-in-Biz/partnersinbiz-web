@@ -3,7 +3,7 @@
  */
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import '@testing-library/jest-dom'
-import { CampaignActionsClient } from '@/app/(admin)/admin/org/[slug]/ads/campaigns/[id]/CampaignActionsClient'
+import { AdCampaignAdminActions } from '@/components/ads/AdCampaignAdminActions'
 
 const mockPush = jest.fn()
 const mockRefresh = jest.fn()
@@ -20,7 +20,7 @@ beforeEach(() => {
   }) as unknown as typeof fetch
 })
 
-describe('CampaignActionsClient', () => {
+describe('AdCampaignAdminActions', () => {
   it('shows inline launch failures instead of a native alert', async () => {
     const alertSpy = jest.spyOn(window, 'alert').mockImplementation(() => undefined)
     global.fetch = jest.fn().mockResolvedValue({
@@ -29,7 +29,7 @@ describe('CampaignActionsClient', () => {
     }) as unknown as typeof fetch
 
     render(
-      <CampaignActionsClient
+      <AdCampaignAdminActions
         orgId="org_1"
         orgSlug="acme"
         campaignId="camp_1"
@@ -47,7 +47,7 @@ describe('CampaignActionsClient', () => {
     const confirmSpy = jest.spyOn(window, 'confirm').mockImplementation(() => true)
 
     render(
-      <CampaignActionsClient
+      <AdCampaignAdminActions
         orgId="org_1"
         orgSlug="acme"
         campaignId="camp_1"
@@ -76,7 +76,7 @@ describe('CampaignActionsClient', () => {
     const confirmSpy = jest.spyOn(window, 'confirm').mockImplementation(() => true)
 
     render(
-      <CampaignActionsClient
+      <AdCampaignAdminActions
         orgId="org_1"
         orgSlug="acme"
         campaignId="camp_1"
