@@ -14,6 +14,7 @@ describe('portal marketing child scope standard', () => {
     const emailDomainsWorkspace = source('components/email-domains/EmailDomainsWorkspace.tsx')
     const communications = source('app/(portal)/portal/communications/page.tsx')
     const contacts = source('app/(portal)/portal/contacts/page.tsx')
+    const contactsWorkspace = source('components/crm/ContactsWorkspace.tsx')
 
     expect(branding).toContain('scopeFromSearchParams')
     expect(branding).toContain("scopedApiPath('/api/v1/portal/brand-profile'")
@@ -39,7 +40,8 @@ describe('portal marketing child scope standard', () => {
     expect(communications).toContain('initialOrgSlug={orgScope.orgSlug ??')
 
     expect(contacts).toContain('scopeFromSearchParams')
-    expect(contacts).toContain('scopedApiPath')
-    expect(contacts).toContain('scopedPortalPath')
+    expect(contacts).toContain('orgScope={orgScope}')
+    expect(contactsWorkspace).toContain('scopedApiPath')
+    expect(contactsWorkspace).toContain('scopedPortalPath')
   })
 })

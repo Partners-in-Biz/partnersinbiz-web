@@ -145,6 +145,7 @@ export function ContactsBulkCommandBar({
               <span className="eyebrow !text-[10px]">Owner</span>
               {teamMembers.length > 0 ? (
                 <select
+                  aria-label="Assign selected contacts to owner"
                   value={bulkAssignUid}
                   onChange={(event) => onAssignUidChange(event.target.value)}
                   className="pib-input !w-full !py-2 !text-sm"
@@ -213,6 +214,7 @@ export function ContactsBulkCommandBar({
         <button
           onClick={onApply}
           disabled={bulkPending}
+          aria-label="Apply updates"
           className="btn-pib-accent !py-2.5 !text-sm justify-center disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <span className="material-symbols-outlined text-[16px]">done_all</span>
