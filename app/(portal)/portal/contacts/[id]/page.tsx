@@ -1,7 +1,7 @@
 'use client'
 export const dynamic = 'force-dynamic'
 
-import { useCallback, useEffect, useRef, useState, type RefObject } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from 'react'
 import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { fmtTimestamp } from '@/components/admin/email/fmtTimestamp'
@@ -16,6 +16,7 @@ import { EntityScopedChat } from '@/components/crm/EntityScopedChat'
 import { ScoreChip } from '@/components/crm/ScoreChip'
 import type { CustomFieldDefinition } from '@/lib/customFields/types'
 import type { MemberRef } from '@/lib/orgMembers/memberRef'
+import { scopedApiPath, scopedPortalPath, scopeFromSearchParams } from '@/lib/portal/scoped-routing'
 
 interface ContactRecord {
   id?: string
@@ -383,6 +384,8 @@ export default function PortalContactDetailPage() {
   const { id } = useParams<{ id: string }>()
   const router = useRouter()
   const searchParams = useSearchParams()
+  const routeScope = useMemo(() => scopeFromSearchParams(searchParams), [searchParams])
+  const contactApiPath = useCallback((path: string) => scopedApiPath(path, routeScope), [routeScope])
   const companyPickerRef = useRef<HTMLDivElement | null>(null)
   const nameFieldRef = useRef<HTMLInputElement | null>(null)
   const emailFieldRef = useRef<HTMLInputElement | null>(null)
@@ -506,7 +509,7 @@ export default function PortalContactDetailPage() {
     setLoading(true)
     setContactFetchError('')
     try {
-      const r = await fetch(`/api/v1/crm/contacts/${id}`)
+      const r = await fetch(contactApiPath(`/api/v1/crm/contacts/${id}`))
       const b = await r.json().catch(() => ({}))
       if (!r.ok) {
         throw new Error(typeof b?.error === 'string' ? b.error : `HTTP ${r.status}`)
@@ -538,7 +541,7 @@ export default function PortalContactDetailPage() {
     } finally {
       if (!cancelled?.()) setLoading(false)
     }
-  }, [id])
+  }, [contactApiPath, id])
 
   useEffect(() => {
     let cancelled = false
@@ -551,61 +554,61 @@ export default function PortalContactDetailPage() {
 
   useEffect(() => {
     // Fetch custom field definitions once per page mount
-    fetch('/api/v1/crm/custom-fields?resource=contact')
+    fetch(contactApiPath('/api/v1/crm/custom-fields?resource=contact'))
       .then((r) => r.json())
       .then((b) => setCustomFieldDefs(b.data?.definitions ?? b.definitions ?? []))
       .catch(() => setCustomFieldDefs([]))
-  }, [])
+  }, [contactApiPath])
 
   useEffect(() => {
-    fetch('/api/v1/portal/settings/team')
+    fetch(contactApiPath('/api/v1/portal/settings/team'))
       .then((r) => (r.ok ? r.json() : null))
       .then((body) => setTeamMembers(body?.members ?? []))
       .catch(() => setTeamMembers([]))
-  }, [])
+  }, [contactApiPath])
 
   useEffect(() => {
     if (!id) return
-    fetch(`/api/v1/email?contactId=${id}&limit=20`)
+    fetch(contactApiPath(`/api/v1/email?contactId=${id}&limit=20`))
       .then((r) => r.json())
       .then((b) => {
         setEmails(b.data ?? [])
         setEmailsLoading(false)
       })
       .catch(() => setEmailsLoading(false))
-  }, [id])
+  }, [contactApiPath, id])
 
   useEffect(() => {
     if (!id) return
-    fetch(`/api/v1/crm/activities?contactId=${id}&limit=50`)
+    fetch(contactApiPath(`/api/v1/crm/activities?contactId=${id}&limit=50`))
       .then((r) => r.json())
       .then((b) => {
         setActivities(b.data?.activities ?? b.data ?? [])
         setActivitiesLoading(false)
       })
       .catch(() => setActivitiesLoading(false))
-  }, [id])
+  }, [contactApiPath, id])
 
   // C1: Fetch smart suggestions (silent fail)
   useEffect(() => {
     if (!id) return
-    fetch(`/api/v1/crm/contacts/${id}/suggestions`)
+    fetch(contactApiPath(`/api/v1/crm/contacts/${id}/suggestions`))
       .then((r) => r.json())
       .then((b) => setSuggestions(b.data?.suggestions ?? []))
       .catch(() => setSuggestions([]))
-  }, [id])
+  }, [contactApiPath, id])
 
   // C3: Fetch enrollments
   useEffect(() => {
     if (!id) return
-    fetch(`/api/v1/crm/contacts/${id}/enrollments`)
+    fetch(contactApiPath(`/api/v1/crm/contacts/${id}/enrollments`))
       .then((r) => r.json())
       .then((b) => {
         setEnrollments(b.data?.enrollments ?? [])
         setEnrollmentsLoading(false)
       })
       .catch(() => setEnrollmentsLoading(false))
-  }, [id])
+  }, [contactApiPath, id])
 
   useEffect(() => {
     if (searchParams.get('activity') !== 'note') return
@@ -642,7 +645,7 @@ export default function PortalContactDetailPage() {
       if (customFieldDefs.length > 0) {
         payload.customFields = editCustomFields
       }
-      const res = await fetch(`/api/v1/crm/contacts/${id}`, {
+      const res = await fetch(contactApiPath(`/api/v1/crm/contacts/${id}`), {
         method: 'PUT',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify(payload),
@@ -713,13 +716,13 @@ export default function PortalContactDetailPage() {
     setArchiving(true)
     setError('')
     try {
-      const res = await fetch(`/api/v1/crm/contacts/${id}`, { method: 'DELETE' })
+      const res = await fetch(contactApiPath(`/api/v1/crm/contacts/${id}`), { method: 'DELETE' })
       if (!res.ok) {
         const err = await res.json().catch(() => ({}))
         throw new Error(err.error ?? 'Archive failed')
       }
       setArchiveConfirmOpen(false)
-      router.push('/portal/contacts')
+      router.push(scopedPortalPath('/portal/contacts', routeScope))
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Archive failed')
     } finally {
@@ -732,7 +735,7 @@ export default function PortalContactDetailPage() {
     setScoreSaving(true)
     setScoreError(null)
     try {
-      const res = await fetch(`/api/v1/crm/contacts/${id}/recompute-score`, {
+      const res = await fetch(contactApiPath(`/api/v1/crm/contacts/${id}/recompute-score`), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ includeAi: true }),
@@ -756,7 +759,7 @@ export default function PortalContactDetailPage() {
   async function loadMoreActivities() {
     const nextPage = activityPage + 1
     try {
-      const r = await fetch(`/api/v1/crm/activities?contactId=${id}&limit=50&page=${nextPage}`)
+      const r = await fetch(contactApiPath(`/api/v1/crm/activities?contactId=${id}&limit=50&page=${nextPage}`))
       const b = await r.json()
       const more: ActivityRecord[] = b.data?.activities ?? b.data ?? []
       setActivities((prev) => [...prev, ...more])
@@ -877,7 +880,7 @@ export default function PortalContactDetailPage() {
     try {
       if (logType === 'email_sent') {
         if (!email.trim() || !logEmailSubject.trim() || !logSummary.trim()) return
-        const res = await fetch(`/api/v1/crm/contacts/${id}/send-email`, {
+        const res = await fetch(contactApiPath(`/api/v1/crm/contacts/${id}/send-email`), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ subject: logEmailSubject.trim(), bodyText: logSummary.trim() }),
@@ -899,7 +902,7 @@ export default function PortalContactDetailPage() {
         setLogError(null)
       } else if (logType === 'sms') {
         if (!logSummary.trim()) return
-        const res = await fetch(`/api/v1/crm/contacts/${id}/send-sms`, {
+        const res = await fetch(contactApiPath(`/api/v1/crm/contacts/${id}/send-sms`), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ message: logSummary.trim() }),
@@ -924,7 +927,7 @@ export default function PortalContactDetailPage() {
         const end = new Date(meetingEndAt)
         if (!Number.isFinite(start.getTime()) || !Number.isFinite(end.getTime()) || end <= start) return
         const title = meetingTitle.trim() || `Meeting with ${contactName}`
-        const res = await fetch(`/api/v1/crm/contacts/${id}/schedule-meeting`, {
+        const res = await fetch(contactApiPath(`/api/v1/crm/contacts/${id}/schedule-meeting`), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -956,7 +959,7 @@ export default function PortalContactDetailPage() {
       } else {
         if (logType === 'call' && !phone.trim()) return
         if (!logSummary.trim()) return
-        const res = await fetch('/api/v1/crm/activities', {
+        const res = await fetch(contactApiPath('/api/v1/crm/activities'), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -989,7 +992,7 @@ export default function PortalContactDetailPage() {
     setAiError(null)
     setAiDraft(null)
     try {
-      const res = await fetch('/api/v1/crm/ai/compose-email', {
+      const res = await fetch(contactApiPath('/api/v1/crm/ai/compose-email'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ contactId: id, purpose: aiPurpose, tone: aiTone }),
@@ -1006,7 +1009,7 @@ export default function PortalContactDetailPage() {
 
   // C3: Enrollment handlers
   async function handleOpenEnrollModal() {
-    const r = await fetch('/api/v1/crm/sequences')
+    const r = await fetch(contactApiPath('/api/v1/crm/sequences'))
     const b = await r.json()
     setSequences(normalizeSequenceOptions(b))
     setEnrollingSequenceId('')
@@ -1019,7 +1022,7 @@ export default function PortalContactDetailPage() {
     setEnrolling(true)
     setEnrollError('')
     try {
-      const res = await fetch(`/api/v1/crm/sequences/${enrollingSequenceId}/enrollments`, {
+      const res = await fetch(contactApiPath(`/api/v1/crm/sequences/${enrollingSequenceId}/enrollments`), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ contactId: id }),
@@ -1041,7 +1044,7 @@ export default function PortalContactDetailPage() {
     if (!enrollment?.sequenceId) return
     setUnenrollError('')
     try {
-      const res = await fetch(`/api/v1/crm/sequences/${enrollment.sequenceId}/enrollments/${enrollmentId}`, {
+      const res = await fetch(contactApiPath(`/api/v1/crm/sequences/${enrollment.sequenceId}/enrollments/${enrollmentId}`), {
         method: 'DELETE',
       })
       if (!res.ok) {

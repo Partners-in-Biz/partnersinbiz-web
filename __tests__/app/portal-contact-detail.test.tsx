@@ -28,6 +28,12 @@ jest.mock('@/components/crm/ContactDealsPanel', () => ({
   ),
 }))
 
+jest.mock('@/components/crm/EntityScopedChat', () => ({
+  EntityScopedChat: ({ entityName }: { entityName?: string }) => (
+    <div data-testid="entity-scoped-chat">Chat for {entityName || 'contact name missing'}</div>
+  ),
+}))
+
 describe('Portal contact detail page', () => {
   beforeEach(() => {
     mockContactCustomFieldDefinitions = []
@@ -44,7 +50,8 @@ describe('Portal contact detail page', () => {
     mockSearchParams = new URLSearchParams()
     global.fetch = jest.fn((input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input)
-      if (url === '/api/v1/crm/contacts/contact-1') {
+      const path = url.split('?')[0]
+      if (path === '/api/v1/crm/contacts/contact-1') {
         return Promise.resolve({
           ok: true,
           json: async () => ({
@@ -63,49 +70,49 @@ describe('Portal contact detail page', () => {
           }),
         } as Response)
       }
-      if (url === '/api/v1/crm/custom-fields?resource=contact') {
+      if (path === '/api/v1/crm/custom-fields') {
         return Promise.resolve({
           ok: true,
           json: async () => ({ data: { definitions: mockContactCustomFieldDefinitions } }),
         } as Response)
       }
-      if (url === '/api/v1/portal/settings/team') {
+      if (path === '/api/v1/portal/settings/team') {
         return Promise.resolve({
           ok: true,
           json: async () => ({ members: mockTeamMembers }),
         } as Response)
       }
-      if (url === '/api/v1/email?contactId=contact-1&limit=20') {
+      if (path === '/api/v1/email') {
         return Promise.resolve({
           ok: true,
           json: async () => ({ data: mockEmails }),
         } as Response)
       }
-      if (url === '/api/v1/crm/activities?contactId=contact-1&limit=50') {
+      if (path === '/api/v1/crm/activities') {
         return Promise.resolve({
           ok: true,
           json: async () => ({ data: { activities: mockActivities } }),
         } as Response)
       }
-      if (url === '/api/v1/crm/contacts/contact-1/suggestions') {
+      if (path === '/api/v1/crm/contacts/contact-1/suggestions') {
         return Promise.resolve({
           ok: true,
           json: async () => ({ data: { suggestions: mockSuggestions } }),
         } as Response)
       }
-      if (url === '/api/v1/crm/contacts/contact-1/enrollments') {
+      if (path === '/api/v1/crm/contacts/contact-1/enrollments') {
         return Promise.resolve({
           ok: true,
           json: async () => ({ data: { enrollments: mockEnrollments } }),
         } as Response)
       }
-      if (url === '/api/v1/crm/sequences') {
+      if (path === '/api/v1/crm/sequences') {
         return Promise.resolve({
           ok: true,
           json: async () => ({ data: { sequences: mockSequences } }),
         } as Response)
       }
-      if (url === '/api/v1/crm/sequences/seq-1/enrollments' && init?.method === 'POST') {
+      if (path === '/api/v1/crm/sequences/seq-1/enrollments' && init?.method === 'POST') {
         return Promise.resolve({
           ok: !mockSequenceEnrollError,
           json: async () => mockSequenceEnrollError
@@ -121,7 +128,7 @@ describe('Portal contact detail page', () => {
               }),
         } as Response)
       }
-      if (url === '/api/v1/crm/contacts/contact-1/recompute-score') {
+      if (path === '/api/v1/crm/contacts/contact-1/recompute-score') {
         return Promise.resolve({
           ok: true,
           json: async () => ({
@@ -135,7 +142,7 @@ describe('Portal contact detail page', () => {
           }),
         } as Response)
       }
-      if (url === '/api/v1/crm/ai/compose-email') {
+      if (path === '/api/v1/crm/ai/compose-email') {
         return Promise.resolve({
           ok: true,
           json: async () => ({
@@ -146,13 +153,13 @@ describe('Portal contact detail page', () => {
           }),
         } as Response)
       }
-      if (url === '/api/v1/crm/contacts/contact-1' && init?.method === 'DELETE') {
+      if (path === '/api/v1/crm/contacts/contact-1' && init?.method === 'DELETE') {
         return Promise.resolve({
           ok: true,
           json: async () => ({ success: true }),
         } as Response)
       }
-      if (url === '/api/v1/crm/sequences/seq-1/enrollments/enrollment-1' && init?.method === 'DELETE') {
+      if (path === '/api/v1/crm/sequences/seq-1/enrollments/enrollment-1' && init?.method === 'DELETE') {
         return Promise.resolve({
           ok: !mockSequenceUnenrollError,
           json: async () => mockSequenceUnenrollError ? ({ error: mockSequenceUnenrollError }) : ({ success: true }),
@@ -420,6 +427,31 @@ describe('Portal contact detail page', () => {
       expect(screen.getAllByDisplayValue('Jane Client').length).toBeGreaterThan(0)
     })
     expect(screen.getByRole('textbox', { name: 'Relationship note for Jane Client' })).toBeInTheDocument()
+  })
+
+  it('scopes portal contact detail data and actions to the requested organisation workspace', async () => {
+    mockSearchParams = new URLSearchParams('orgId=org-1&orgSlug=lumen-speeds')
+    mockSequences = [{ id: 'seq-1', name: 'Leadership follow-up' }]
+
+    render(<PortalContactDetailPage />)
+
+    await waitFor(() => {
+      expect(screen.getAllByDisplayValue('Jane Client').length).toBeGreaterThan(0)
+    })
+
+    expect(global.fetch).toHaveBeenCalledWith('/api/v1/crm/contacts/contact-1?orgId=org-1')
+    expect(global.fetch).toHaveBeenCalledWith('/api/v1/crm/custom-fields?resource=contact&orgId=org-1')
+    expect(global.fetch).toHaveBeenCalledWith('/api/v1/portal/settings/team?orgId=org-1')
+    expect(global.fetch).toHaveBeenCalledWith('/api/v1/email?contactId=contact-1&limit=20&orgId=org-1')
+    expect(global.fetch).toHaveBeenCalledWith('/api/v1/crm/activities?contactId=contact-1&limit=50&orgId=org-1')
+    expect(global.fetch).toHaveBeenCalledWith('/api/v1/crm/contacts/contact-1/suggestions?orgId=org-1')
+    expect(global.fetch).toHaveBeenCalledWith('/api/v1/crm/contacts/contact-1/enrollments?orgId=org-1')
+
+    fireEvent.click(screen.getByRole('button', { name: 'Choose nurture sequence for Jane Client' }))
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith('/api/v1/crm/sequences?orgId=org-1')
+    })
   })
 
   it('lets a busy team member discard unsaved contact profile edits', async () => {
