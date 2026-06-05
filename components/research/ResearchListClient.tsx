@@ -15,6 +15,7 @@ type Props = {
   orgId?: string
   orgName?: string
   orgs?: OrgOption[]
+  itemHref?: (item: ResearchItem) => string
 }
 
 function label(value: string) {
@@ -28,7 +29,7 @@ function formatDate(value: unknown) {
   return new Intl.DateTimeFormat('en-ZA', { day: '2-digit', month: 'short', year: 'numeric' }).format(date)
 }
 
-export function ResearchListClient({ mode, title, description, basePath, orgId, orgName, orgs = [] }: Props) {
+export function ResearchListClient({ mode, title, description, basePath, orgId, orgName, orgs = [], itemHref }: Props) {
   const [activeOrgId, setActiveOrgId] = useState(orgId ?? orgs[0]?.id ?? '')
   const [items, setItems] = useState<ResearchItem[]>([])
   const [loading, setLoading] = useState(true)
@@ -42,7 +43,7 @@ export function ResearchListClient({ mode, title, description, basePath, orgId, 
 
   const query = useMemo(() => {
     const params = new URLSearchParams()
-    if (mode === 'admin' && activeOrgId) params.set('orgId', activeOrgId)
+    if (activeOrgId) params.set('orgId', activeOrgId)
     if (status !== 'all') params.set('status', status)
     if (kind !== 'all') params.set('kind', kind)
     if (visibility !== 'all' && mode === 'admin') params.set('visibility', visibility)
@@ -168,7 +169,7 @@ export function ResearchListClient({ mode, title, description, basePath, orgId, 
                 <div className="min-w-0">
                   <p className="text-xs uppercase tracking-[0.18em] text-[var(--color-pib-text-muted)]">{label(item.kind)}</p>
                   <h2 className="mt-2 font-display text-xl leading-snug">
-                    <Link href={`${basePath}/${item.id}`} className="hover:text-[var(--color-pib-accent)]">{item.title}</Link>
+                    <Link href={itemHref?.(item) ?? `${basePath}/${item.id}`} className="hover:text-[var(--color-pib-accent)]">{item.title}</Link>
                   </h2>
                 </div>
                 <span className="material-symbols-outlined shrink-0 text-[var(--color-pib-accent)]">travel_explore</span>
