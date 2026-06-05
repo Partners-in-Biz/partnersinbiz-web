@@ -4,20 +4,13 @@
 // yours, not ours." Defaults to last 90 days, JSON.
 
 import { NextRequest, NextResponse } from 'next/server'
-import { withPortalAuth } from '@/lib/auth/portal-middleware'
-import { adminDb } from '@/lib/firebase/admin'
+import { withPortalAuthAndRole } from '@/lib/auth/portal-middleware'
 import { listMetrics } from '@/lib/metrics/query'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/
-
-async function resolveOrgId(uid: string): Promise<string | null> {
-  const userDoc = await adminDb.collection('users').doc(uid).get()
-  const data = userDoc.data() as { orgId?: string } | undefined
-  return data?.orgId ?? null
-}
 
 function csvEscape(v: unknown): string {
   if (v === null || v === undefined) return ''
@@ -28,10 +21,7 @@ function csvEscape(v: unknown): string {
   return s
 }
 
-export const GET = withPortalAuth(async (req: NextRequest, uid: string) => {
-  const orgId = await resolveOrgId(uid)
-  if (!orgId) return NextResponse.json({ error: 'No org' }, { status: 404 })
-
+export const GET = withPortalAuthAndRole('viewer', async (req: NextRequest, _uid: string, orgId: string) => {
   const url = new URL(req.url)
   const format = (url.searchParams.get('format') ?? 'json').toLowerCase()
   const today = new Date().toISOString().slice(0, 10)
