@@ -1264,6 +1264,7 @@ export default function PortalContactDetailPage() {
     assignedTo && contact.assignedToRef?.uid === assignedTo
       ? contact.assignedToRef
       : teamMemberRef(teamMembers.find((member) => member.uid === assignedTo))
+  const ownerLabel = ownerRef?.displayName?.trim() || (assignedTo ? 'Owner identity missing' : '')
   const sourceLabel = displayLabel(source, SOURCE_LABELS)
   const typeLabel = displayLabel(type, TYPE_LABELS)
   const stageLabel = displayLabel(stage, STAGE_LABELS)
@@ -1294,6 +1295,17 @@ export default function PortalContactDetailPage() {
       actionAriaLabel: `Link company from details for ${contactName}`,
       onAction: focusCompanyPicker,
       needsActionWhenValued: !hasLinkedCompany,
+    },
+    {
+      label: 'Relationship owner',
+      value: ownerLabel,
+      empty: 'No owner assigned',
+      actionLabel: ownerLabel ? 'Edit owner' : 'Assign owner',
+      actionAriaLabel: ownerLabel
+        ? `Edit relationship owner ${ownerLabel} for ${contactName} from details`
+        : `Assign relationship owner for ${contactName} from details`,
+      onAction: () => focusProfileField(ownerFieldRef),
+      needsActionWhenValued: true,
     },
     {
       label: 'Website',

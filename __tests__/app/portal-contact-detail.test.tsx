@@ -846,6 +846,27 @@ describe('Portal contact detail page', () => {
     expect(screen.getByRole('combobox', { name: 'Lifecycle stage for Jane Client' })).toHaveFocus()
   })
 
+  it('shows relationship owner as an actionable contact detail', async () => {
+    mockTeamMembers = [{ uid: 'owner-1', firstName: 'Mandy', lastName: 'Growth', jobTitle: 'Account lead' }]
+    mockContactOverrides = {
+      assignedTo: 'owner-1',
+      assignedToRef: { uid: 'owner-1', displayName: 'Mandy Growth' },
+    }
+
+    render(<PortalContactDetailPage />)
+
+    await waitFor(() => {
+      expect(screen.getAllByDisplayValue('Jane Client').length).toBeGreaterThan(0)
+    })
+
+    expect(screen.getAllByText('Relationship owner').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Mandy Growth').length).toBeGreaterThan(0)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Edit relationship owner Mandy Growth for Jane Client from details' }))
+
+    expect(screen.getByRole('combobox', { name: 'Relationship owner for Jane Client' })).toHaveFocus()
+  })
+
   it('turns first-viewport contact identity into direct email phone and company links', async () => {
     mockContactOverrides = {
       phone: '+27825550123',
@@ -1542,7 +1563,7 @@ describe('Portal contact detail page', () => {
       expect(screen.getAllByDisplayValue('Jane Client').length).toBeGreaterThan(0)
     })
 
-    expect(await screen.findByText('Owner identity missing')).toBeInTheDocument()
+    expect((await screen.findAllByText('Owner identity missing')).length).toBeGreaterThanOrEqual(1)
     expect(screen.getByText('Creator identity missing')).toBeInTheDocument()
     expect(screen.getByText('Updater identity missing')).toBeInTheDocument()
     expect(screen.getAllByText('Team snapshot details not captured').length).toBeGreaterThanOrEqual(3)
