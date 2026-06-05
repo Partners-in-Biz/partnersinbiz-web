@@ -216,6 +216,7 @@ describe('workspace broker approval envelope', () => {
       createdByType: 'agent',
       approvalGateTaskId: 'task-approval-1',
       approvalStatus: 'approved',
+      approvalTrusted: true,
       idempotencyKey: 'idem-1',
       now: '2026-06-05T12:00:00.000Z',
       input: { title: 'Budget', projectId: 'project-1', folderId: 'folder-1', visibility: 'admin_agents_clients' },
