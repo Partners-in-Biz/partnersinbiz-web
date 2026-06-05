@@ -100,6 +100,24 @@ describe('CrossProjectBoard', () => {
     expect(screen.getByText('My board task')).toBeInTheDocument()
   })
 
+  it('uses scoped project hrefs for project badges', () => {
+    const task = makeBoardTask({ projectId: 'proj-a', projectName: 'Scoped Project' })
+
+    render(
+      <CrossProjectBoard
+        tasks={[task]}
+        loading={false}
+        onTaskUpdate={jest.fn()}
+        buildProjectHref={(projectId) => `/portal/projects/${projectId}?orgId=lumen-org&orgSlug=lumen-speeds`}
+      />,
+    )
+
+    expect(screen.getByText('Scoped Project').closest('a')).toHaveAttribute(
+      'href',
+      '/portal/projects/proj-a?orgId=lumen-org&orgSlug=lumen-speeds',
+    )
+  })
+
   it('shows empty state when no tasks at all', () => {
     render(<CrossProjectBoard tasks={[]} loading={false} onTaskUpdate={jest.fn()} />)
     expect(screen.getByText(/No tasks yet/i)).toBeInTheDocument()

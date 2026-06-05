@@ -49,5 +49,6 @@ describe('projects shared workspace standard', () => {
     expect(workspace).toContain('scopedPortalPath')
     expect(workspace).toContain('projectHrefBase')
     expect(workspace).toContain('buildProjectHref')
+    expect(workspace).toContain('buildProjectHref={buildProjectHref}')
   })
 })

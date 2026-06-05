@@ -556,6 +556,7 @@ export function ProjectsWorkspace({ mode, orgSlug = '', orgScope = {} }: Project
               tasks={boardTasks}
               loading={boardLoading}
               sortMode={boardSortMode}
+              buildProjectHref={buildProjectHref}
               onTaskUpdate={handleBoardTaskUpdate}
             />
           ) : loading ? (
