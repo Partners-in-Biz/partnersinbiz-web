@@ -255,9 +255,39 @@ function priorityAccentColor(priority: BriefingCard['priority'] | string) {
 }
 
 function titledId(title: string | null | undefined, id: string | null | undefined) {
-  if (title && id && title === id) return title
-  if (title && id) return `${title} (${id})`
-  return title ?? id ?? 'Unknown'
+  const cleanTitle = title?.trim()
+  const cleanId = id?.trim()
+  if (cleanTitle && cleanId && cleanTitle !== cleanId && !looksLikeOpaqueId(cleanId)) return `${cleanTitle} (${cleanId})`
+  if (cleanTitle) return cleanTitle
+  if (cleanId && !looksLikeOpaqueId(cleanId)) return cleanId
+  return 'Unknown'
+}
+
+function sourceTypeLabel(type: string) {
+  const option = SOURCES.find((source) => source.value === type)
+  return option?.label.replace(/s$/, '') ?? type.replace(/-/g, ' ')
+}
+
+function looksLikeOpaqueId(value: string | null | undefined) {
+  if (!value) return false
+  const trimmed = value.trim()
+  return /^[A-Za-z0-9_-]{16,}$/.test(trimmed) || /^[a-z]+_[A-Za-z0-9_-]{8,}$/i.test(trimmed)
+}
+
+function humanReadableCopy(value: string | null | undefined) {
+  if (!value) return ''
+  let copy = value.replace(/(?:^|\.\s*)View:\s*\S+/g, '').replace(/\s{2,}/g, ' ').trim()
+  copy = copy.replace(/^([A-Za-z0-9_-]{16,})\s+(approved|accepted)\s+/i, (_match, actorId: string, action: string) => {
+    if (!looksLikeOpaqueId(actorId)) return `${actorId} ${action} `
+    return `A user ${action} `
+  })
+  return copy.replace(/\s+\./g, '.').trim()
+}
+
+function viewHrefFromCopy(value: string | null | undefined) {
+  if (!value) return null
+  const match = value.match(/(?:^|\.\s*)View:\s*(\S+)/)
+  return match?.[1] ?? null
 }
 
 function sourceLabel(item: BriefingCard) {
@@ -288,7 +318,7 @@ function sourceLabel(item: BriefingCard) {
   if (item.context.agentProfile || item.context.agentRunId) return `${item.source.type} / ${titledId(item.context.agentProfile, item.context.agentRunId ?? item.source.id)}`
   if (item.context.workspaceBrokerOperation || item.context.workspaceBrokerJobId) return `${item.source.type} / ${titledId(item.context.workspaceBrokerOperation, item.context.workspaceBrokerJobId ?? item.source.id)}`
   if (item.context.calendarEventTitle || item.context.calendarEventId) return `${item.source.type} / ${titledId(item.context.calendarEventTitle, item.context.calendarEventId ?? item.source.id)}`
-  return `${item.source.type} / ${item.source.id}`
+  return sourceTypeLabel(item.source.type)
 }
 
 function sourceHref(item: BriefingCard, mode: Mode) {
@@ -2374,7 +2404,23 @@ export function BriefingControlDesk({ mode }: { mode: Mode }) {
                       <span className="ml-auto text-xs text-on-surface-variant">{item.timeAgo}</span>
                     </div>
                     <h2 className="mt-3 text-lg font-semibold leading-snug text-on-surface">{item.title}</h2>
-                    <p className="mt-2 text-sm leading-6 text-on-surface-variant">{item.summary}</p>
+                    <p className="mt-2 text-sm leading-6 text-on-surface-variant">
+                      {humanReadableCopy(item.summary)}
+                      {viewHrefFromCopy(item.summary) ? (
+                        <>
+                          {' '}
+                          <a
+                            className="font-medium text-[var(--color-accent-text)] underline underline-offset-4"
+                            href={viewHrefFromCopy(item.summary) ?? undefined}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            onClick={(event) => event.stopPropagation()}
+                          >
+                            View
+                          </a>
+                        </>
+                      ) : null}
+                    </p>
                     <div className="mt-3 flex flex-wrap gap-2 text-xs text-on-surface-variant">
                       <span>Workspace: {titledId(item.context.orgName, item.orgId)}</span>
                       {item.context.companyName || item.context.companyId ? <span>Company: {titledId(item.context.companyName, item.context.companyId)}</span> : null}
@@ -2402,7 +2448,22 @@ export function BriefingControlDesk({ mode }: { mode: Mode }) {
               <div className="mt-4 space-y-5">
                 <div>
                   <h2 className="text-xl font-semibold text-on-surface">{selected.title}</h2>
-                  <p className="mt-2 text-sm leading-6 text-on-surface-variant">{selected.excerpt || selected.summary}</p>
+                  <p className="mt-2 text-sm leading-6 text-on-surface-variant">
+                    {humanReadableCopy(selected.excerpt || selected.summary)}
+                    {viewHrefFromCopy(selected.excerpt || selected.summary) || viewHrefFromCopy(selected.summary) ? (
+                      <>
+                        {' '}
+                        <a
+                          className="font-medium text-[var(--color-accent-text)] underline underline-offset-4"
+                          href={(viewHrefFromCopy(selected.excerpt || selected.summary) || viewHrefFromCopy(selected.summary)) ?? undefined}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                        >
+                          View
+                        </a>
+                      </>
+                    ) : null}
+                  </p>
                 </div>
 
                 <div className="rounded-lg border border-[var(--color-card-border)] bg-[var(--color-surface-container)] p-3">

@@ -244,8 +244,8 @@ const notificationBriefingItem = {
   orgId: 'org-1',
   priority: 'client-risk',
   title: 'New enquiry needs follow-up',
-  summary: 'A new lead requested a proposal call.',
-  excerpt: 'A new lead requested a proposal call.',
+  summary: 'A new lead requested a proposal call. View: /portal/contacts?followUp=stale',
+  excerpt: 'A new lead requested a proposal call. View: /portal/contacts?followUp=stale',
   timeAgo: '6 minutes ago',
   requiresAction: true,
   source: { type: 'notification', id: 'notification-1', url: '/portal/contacts?followUp=stale' },
@@ -1736,6 +1736,9 @@ describe('BriefingControlDesk', () => {
     fireEvent.click(await screen.findByRole('button', { name: /New enquiry needs follow-up/i }))
 
     expect(screen.getByRole('link', { name: /open source/i })).toHaveAttribute('href', '/portal/contacts?followUp=stale')
+    const viewLinks = screen.getAllByRole('link', { name: /^view$/i })
+    expect(viewLinks.some((link) => link.getAttribute('href') === '/portal/contacts?followUp=stale' && link.getAttribute('target') === '_blank')).toBe(true)
+    expect(screen.queryByText(/View: \/portal\/contacts/)).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: /mark notification read/i })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /archive notification/i })).toBeInTheDocument()
 

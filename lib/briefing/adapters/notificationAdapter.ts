@@ -67,6 +67,17 @@ function cleanString(value: unknown): string | null {
   return typeof value === 'string' && value.trim().length > 0 ? value.trim() : null
 }
 
+function looksLikeOpaqueId(value: string | null | undefined): boolean {
+  if (!value) return false
+  return /^[A-Za-z0-9_-]{16,}$/.test(value.trim()) || /^[a-z]+_[A-Za-z0-9_-]{8,}$/i.test(value.trim())
+}
+
+function cleanHumanName(value: unknown): string | null {
+  const text = cleanString(value)
+  if (!text || looksLikeOpaqueId(text)) return null
+  return text
+}
+
 function activityText(doc: ActivityDocument): string {
   return cleanString(doc.summary) ?? cleanString(doc.description) ?? cleanString(doc.metadata?.nextAction) ?? cleanString(doc.metadata?.note) ?? 'Activity logged'
 }
@@ -158,6 +169,16 @@ export const notificationAdapter: BriefingSourceAdapter<NotificationDocument> = 
   },
 
   extractActor(doc: NotificationDocument) {
+    const actorName = cleanHumanName(doc.data?.actorName)
+    if (actorName) {
+      return {
+        id: 'user',
+        name: actorName,
+        role: 'client' as const,
+        type: 'user' as const,
+      }
+    }
+
     // Use agent if specified
     if (doc.agentId) {
       const agentId = doc.agentId
@@ -185,12 +206,26 @@ export const notificationAdapter: BriefingSourceAdapter<NotificationDocument> = 
     // Extract context from data if available
     const data = doc.data ?? {}
     const projectId = typeof data.projectId === 'string' ? data.projectId : null
+    const projectName = typeof data.projectName === 'string' ? data.projectName : null
     const taskId = typeof data.taskId === 'string' ? data.taskId : null
+    const taskTitle = typeof data.taskTitle === 'string' ? data.taskTitle : null
+    const documentId = typeof data.documentId === 'string' ? data.documentId : null
+    const documentTitle = typeof data.documentTitle === 'string' ? data.documentTitle : null
+    const quoteId = typeof data.quoteId === 'string' ? data.quoteId : null
+    const quoteNumber = typeof data.quoteNumber === 'string' ? data.quoteNumber : null
+    const companyName = typeof data.companyName === 'string' ? data.companyName : null
 
     return {
       orgId,
       projectId,
+      projectName,
       taskId,
+      taskTitle,
+      documentId,
+      documentTitle,
+      quoteId,
+      quoteNumber,
+      companyName,
       userId: doc.userId,
     }
   },
@@ -200,6 +235,21 @@ export const notificationAdapter: BriefingSourceAdapter<NotificationDocument> = 
   },
 
   extractSummary(doc: NotificationDocument): string {
+    const type = doc.type.toLowerCase()
+    const documentTitle = cleanString(doc.data?.documentTitle)
+    const actorName = cleanHumanName(doc.data?.actorName)
+    const quoteNumber = cleanString(doc.data?.quoteNumber)
+    const companyName = cleanString(doc.data?.companyName)
+
+    if ((type === 'client_document.approved' || type === 'client_document.accepted') && documentTitle) {
+      const action = type === 'client_document.accepted' ? 'accepted' : 'approved'
+      return actorName ? `${actorName} ${action} ${documentTitle}.` : `${documentTitle} was ${action}.`
+    }
+
+    if (type === 'quote.accepted' && quoteNumber) {
+      return companyName ? `Quote ${quoteNumber} for ${companyName} was accepted.` : `Quote ${quoteNumber} was accepted.`
+    }
+
     const parts: string[] = []
 
     parts.push(`Type: ${doc.type}`)
@@ -207,10 +257,6 @@ export const notificationAdapter: BriefingSourceAdapter<NotificationDocument> = 
     if (doc.body) {
       const excerpt = extractMultiFieldExcerpt(doc, ['body'], { maxLength: 150 })
       if (excerpt) parts.push(excerpt)
-    }
-
-    if (doc.link) {
-      parts.push(`View: ${doc.link}`)
     }
 
     return parts.join('. ') || 'No details.'
