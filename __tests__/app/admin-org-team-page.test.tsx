@@ -1,5 +1,5 @@
 import '@testing-library/jest-dom'
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import TeamPage from '@/app/(admin)/admin/org/[slug]/team/page'
 
 jest.mock('next/navigation', () => ({
@@ -127,6 +127,19 @@ it('renders the invite section as one coherent access panel', async () => {
   expect(screen.getByRole('heading', { name: 'Create client login' })).toBeInTheDocument()
   expect(screen.getByRole('heading', { name: 'Add existing client' })).toBeInTheDocument()
   expect(screen.getByRole('heading', { name: 'Add existing PiB member' })).toBeInTheDocument()
+})
+
+it('reuses the shared team access governance panel for admin workspaces', async () => {
+  render(<TeamPage />)
+
+  const governance = await screen.findByRole('region', { name: 'Team access governance' })
+
+  expect(within(governance).getByRole('heading', { name: 'Employee access needs CRM coverage' })).toBeInTheDocument()
+  expect(within(governance).getByText('A CEO needs at least one clearly assigned CRM or sales operator before contacts, deals, and follow-ups can scale across the team.')).toBeInTheDocument()
+  expect(within(governance).getByText('1 member')).toBeInTheDocument()
+  expect(within(governance).getByText('1 admin')).toBeInTheDocument()
+  expect(within(governance).getByText('0 CRM/sales')).toBeInTheDocument()
+  expect(within(governance).getByRole('button', { name: 'Prepare CRM sales invite' })).toBeInTheDocument()
 })
 
 it('submits the create-login form with the selected role', async () => {
