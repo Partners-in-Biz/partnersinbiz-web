@@ -129,10 +129,12 @@ describe('Admin company command center page', () => {
                 id: 'company-1',
                 orgId: 'org-1',
                 name: 'Acme Holdings',
+                linkedOrgId: 'client-org',
                 lifecycleStage: 'customer',
                 tier: 'smb',
                 industry: 'Creative services',
               },
+              linkedWorkspace: { id: 'client-org', orgId: 'client-org', slug: 'lumen-speeds', orgSlug: 'lumen-speeds', name: 'Lumen Speeds' },
               summary: {
                 contacts: 1,
                 deals: 1,
@@ -178,13 +180,13 @@ describe('Admin company command center page', () => {
     fireEvent.click(screen.getByRole('tab', { name: /Contacts/i }))
     expect(screen.getByRole('link', { name: 'Open Ava Buyer from Acme Holdings admin command center' })).toHaveAttribute(
       'href',
-      '/portal/contacts/contact-1',
+      '/portal/contacts/contact-1?orgId=client-org&orgSlug=lumen-speeds&sourceCompanyId=company-1&sourceCompanyName=Acme+Holdings',
     )
 
     fireEvent.click(screen.getByRole('tab', { name: /Deals/i }))
     expect(screen.getByRole('link', { name: 'Open Growth Retainer from Acme Holdings admin command center' })).toHaveAttribute(
       'href',
-      '/portal/deals/deal-1',
+      '/portal/deals/deal-1?orgId=client-org&orgSlug=lumen-speeds&sourceCompanyId=company-1&sourceCompanyName=Acme+Holdings',
     )
   })
 
@@ -263,6 +265,10 @@ describe('Admin company command center page', () => {
     render(<AdminCompanyCommandCenterPage />)
 
     expect(await screen.findByText('Admin company command center')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /Portal view/ })).toHaveAttribute(
+      'href',
+      '/portal/companies/company-1?orgId=client-org&orgSlug=lumen-speeds&sourceCompanyId=company-1&sourceCompanyName=Lumen',
+    )
 
     fireEvent.click(screen.getByRole('tab', { name: 'Workspace' }))
 
