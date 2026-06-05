@@ -2,7 +2,9 @@
 export const dynamic = 'force-dynamic'
 
 import Link from 'next/link'
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useMemo } from 'react'
+import { useSearchParams } from 'next/navigation'
+import { scopedApiPath, scopedPortalPath, scopeFromSearchParams } from '@/lib/portal/scoped-routing'
 
 // ── API response types ─────────────────────────────────────────────────────────
 
@@ -175,21 +177,23 @@ function activityTypeLabel(value: string): string {
   return normalized ? normalized.charAt(0).toUpperCase() + normalized.slice(1) : 'Activity'
 }
 
-function dealStageLensHref(stage: PipelineVelocityStage): string {
+type PortalHrefBuilder = (path: string) => string
+
+function dealStageLensHref(stage: PipelineVelocityStage, buildHref: PortalHrefBuilder = (path) => path): string {
   const params = new URLSearchParams({
     view: 'list',
     pipelineId: stage.pipelineId,
     stage: stage.stageId,
   })
-  return `/portal/deals?${params.toString()}`
+  return buildHref(`/portal/deals?${params.toString()}`)
 }
 
-function repDealsHref(rep: RepPerformanceRow): string {
+function repDealsHref(rep: RepPerformanceRow, buildHref: PortalHrefBuilder = (path) => path): string {
   const params = new URLSearchParams({
     view: 'list',
     owner: rep.uid,
   })
-  return `/portal/deals?${params.toString()}`
+  return buildHref(`/portal/deals?${params.toString()}`)
 }
 
 function repOpenValueLabel(rep: RepPerformanceRow): string {
@@ -323,7 +327,7 @@ function InsightCard({
   )
 }
 
-function ReportSourceWarning({ failures }: { failures: string[] }) {
+function ReportSourceWarning({ failures, reloadHref }: { failures: string[]; reloadHref: string }) {
   if (failures.length === 0) return null
   return (
     <section className="rounded-lg border border-amber-500/25 bg-amber-500/[0.07] p-4">
@@ -341,7 +345,7 @@ function ReportSourceWarning({ failures }: { failures: string[] }) {
           </div>
         </div>
         <Link
-          href="/portal/reports/crm"
+          href={reloadHref}
           aria-label="Reload CRM reports after source failure"
           className="pib-btn-secondary inline-flex shrink-0 items-center gap-1.5 text-sm"
         >
@@ -492,6 +496,10 @@ type DaysOption = (typeof DAY_OPTIONS)[number]
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function CrmReportsPage() {
+  const searchParams = useSearchParams()
+  const routeScope = useMemo(() => scopeFromSearchParams(searchParams), [searchParams])
+  const reportApiPath = useCallback((path: string) => scopedApiPath(path, routeScope), [routeScope])
+  const reportPortalPath = useCallback((path: string) => scopedPortalPath(path, routeScope), [routeScope])
   const [funnel, setFunnel] = useState<FunnelData | null>(null)
   const [forecast, setForecast] = useState<ForecastData | null>(null)
   const [activity, setActivity] = useState<ActivityData | null>(null)
@@ -505,11 +513,11 @@ export default function CrmReportsPage() {
   // Initial fetch — all reports in parallel
   useEffect(() => {
     Promise.all([
-      fetchReportSource('Funnel', '/api/v1/crm/reports/funnel', isFunnelData),
-      fetchReportSource('Forecast', '/api/v1/crm/reports/forecast', isForecastData),
-      fetchReportSource('Pipeline velocity', '/api/v1/crm/reports/pipeline-velocity', isPipelineVelocityData),
-      fetchReportSource('Rep performance', '/api/v1/crm/reports/rep-performance', isRepPerformanceData),
-      fetchReportSource('Activity', `/api/v1/crm/reports/activity-summary?days=30`, isActivityData),
+      fetchReportSource('Funnel', reportApiPath('/api/v1/crm/reports/funnel'), isFunnelData),
+      fetchReportSource('Forecast', reportApiPath('/api/v1/crm/reports/forecast'), isForecastData),
+      fetchReportSource('Pipeline velocity', reportApiPath('/api/v1/crm/reports/pipeline-velocity'), isPipelineVelocityData),
+      fetchReportSource('Rep performance', reportApiPath('/api/v1/crm/reports/rep-performance'), isRepPerformanceData),
+      fetchReportSource('Activity', reportApiPath('/api/v1/crm/reports/activity-summary?days=30'), isActivityData),
     ])
       .then(([funnelBody, forecastBody, velocityBody, repBody, activityBody]) => {
         setFunnel(funnelBody.data)
@@ -523,13 +531,13 @@ export default function CrmReportsPage() {
       })
       .catch(() => {})
       .finally(() => setLoading(false))
-  }, [])
+  }, [reportApiPath])
 
   // Refetch activity when days selector changes (after initial load)
   const fetchActivity = useCallback(
     (d: DaysOption) => {
       setActivityLoading(true)
-      fetchReportSource('Activity', `/api/v1/crm/reports/activity-summary?days=${d}`, isActivityData)
+      fetchReportSource('Activity', reportApiPath(`/api/v1/crm/reports/activity-summary?days=${d}`), isActivityData)
         .then((nextActivity) => {
           setActivity(nextActivity.data)
           setReportFailures((current) => {
@@ -540,7 +548,7 @@ export default function CrmReportsPage() {
         .catch(() => {})
         .finally(() => setActivityLoading(false))
     },
-    [],
+    [reportApiPath],
   )
 
   function handleDaysChange(d: DaysOption) {
@@ -638,14 +646,14 @@ export default function CrmReportsPage() {
   const teamExecutionAction =
     unassignedContacts > 0
       ? {
-          href: '/portal/contacts?owner=unowned',
+          href: reportPortalPath('/portal/contacts?owner=unowned'),
           label: 'Review owner gaps',
           ariaLabel: 'Open unowned contacts from team execution report',
           icon: 'manage_accounts',
         }
       : unassignedDealCount > 0
         ? {
-            href: '/portal/deals?view=list&owner=unassigned',
+            href: reportPortalPath('/portal/deals?view=list&owner=unassigned'),
             label: 'Review deal owners',
             ariaLabel: 'Open unassigned deals from team execution report',
             icon: 'manage_accounts',
@@ -705,7 +713,7 @@ export default function CrmReportsPage() {
         </p>
       </header>
 
-      <ReportSourceWarning failures={reportFailures} />
+      <ReportSourceWarning failures={reportFailures} reloadHref={reportPortalPath('/portal/reports/crm')} />
 
       <section className="grid gap-4 lg:grid-cols-[1.15fr_0.85fr]">
         <div className="space-y-5">
@@ -763,12 +771,12 @@ export default function CrmReportsPage() {
           title={topStage ? `${labelize(topStage[0])} holds ${fmtNum(topStage[1])} contacts` : 'No dominant stage yet'}
           body={`${fmtPercent(prospectMix)} of active contacts are prospects and ${fmtNum(churnedCount)} contacts are churned.`}
           action={topStage ? {
-            href: `/portal/contacts?stage=${encodeURIComponent(topStage[0])}`,
+            href: reportPortalPath(`/portal/contacts?stage=${encodeURIComponent(topStage[0])}`),
             label: 'Review stage',
             ariaLabel: `Open contacts in dominant ${labelize(topStage[0])} stage`,
             icon: 'contacts',
           } : {
-            href: '/portal/contacts?create=contact',
+            href: reportPortalPath('/portal/contacts?create=contact'),
             label: 'Classify contact stages',
             ariaLabel: 'Open contacts to classify funnel stages',
             icon: 'contacts',
@@ -781,12 +789,12 @@ export default function CrmReportsPage() {
           title={forecastHasUnpricedOpenDeals ? 'Forecast value needed' : `${fmtZar(nearTermForecastValue)} weighted near term`}
           body={forecastHasUnpricedOpenDeals ? 'Capture deal values before the next revenue review' : `${fmtNum(noDateDeals)} open deals have no close date, which limits forecast reliability.`}
           action={forecastHasUnpricedOpenDeals ? {
-            href: '/portal/deals?view=list',
+            href: reportPortalPath('/portal/deals?view=list'),
             label: 'Review deal values',
             ariaLabel: 'Open pipeline deals needing value capture',
             icon: 'payments',
           } : noDateDeals > 0 ? {
-            href: '/portal/deals?view=forecast&focus=no-close-date',
+            href: reportPortalPath('/portal/deals?view=forecast&focus=no-close-date'),
             label: 'Review dates',
             ariaLabel: 'Open forecast deals missing close dates',
             icon: 'edit_calendar',
@@ -799,12 +807,12 @@ export default function CrmReportsPage() {
           title={slowestStage ? `${labelize(slowestStage.stageId)} is slowest` : 'No slowest stage yet'}
           body={slowestStage ? `Average age is ${slowestStage.avgDays.toFixed(1)} days with a max of ${slowestStage.maxDays.toFixed(1)} days.` : 'Stage age will appear once deals have enough movement history.'}
           action={slowestStage ? {
-            href: dealStageLensHref(slowestStage),
+            href: dealStageLensHref(slowestStage, reportPortalPath),
             label: 'Review stage',
             ariaLabel: `Open deals in slowest ${labelize(slowestStage.stageId)} stage`,
             icon: 'view_list',
           } : {
-            href: '/portal/deals?create=deal',
+            href: reportPortalPath('/portal/deals?create=deal'),
             label: 'Review pipeline',
             ariaLabel: 'Open pipeline to build stage velocity insight',
             icon: 'view_kanban',
@@ -837,7 +845,7 @@ export default function CrmReportsPage() {
             title="No contact data yet"
             body="Contacts will populate the funnel as leads, prospects, clients, and churned accounts are created."
             action={{
-              href: '/portal/contacts?create=contact',
+              href: reportPortalPath('/portal/contacts?create=contact'),
               label: 'Open contacts',
               ariaLabel: 'Open contacts to create reportable CRM records',
               icon: 'contacts',
@@ -877,7 +885,7 @@ export default function CrmReportsPage() {
                       There are contacts in CRM, but none are grouped by stage yet. Classify the next contact so leadership can see where the pipeline is stuck.
                     </p>
                     <Link
-                      href="/portal/contacts?create=contact"
+                      href={reportPortalPath('/portal/contacts?create=contact')}
                       aria-label="Open contacts to classify missing stage mix"
                       className="pib-btn-secondary mt-3 inline-flex items-center gap-1.5 text-xs"
                     >
@@ -908,7 +916,7 @@ export default function CrmReportsPage() {
             title="No forecast data yet"
             body="Open deals with values and close dates will build the forecast automatically."
             action={{
-              href: '/portal/deals?create=deal',
+              href: reportPortalPath('/portal/deals?create=deal'),
               label: 'Open pipeline',
               ariaLabel: 'Open pipeline to create forecast deals',
               icon: 'view_kanban',
@@ -949,7 +957,7 @@ export default function CrmReportsPage() {
                     <ForecastRow
                       label="No close date"
                       period={forecast.periods.noDate}
-                      href="/portal/deals?view=forecast&focus=no-close-date"
+                      href={reportPortalPath('/portal/deals?view=forecast&focus=no-close-date')}
                       ariaLabel="Open no close date forecast deals"
                     />
                   </tbody>
@@ -967,7 +975,7 @@ export default function CrmReportsPage() {
                   title={`${fmtNum(noDateDeals)} deals need a date`}
                   body="No-date deals are still visible, but they should not be allowed to hide from forecast review."
                   action={noDateDeals > 0 ? {
-                    href: '/portal/deals?view=forecast&focus=no-close-date',
+                    href: reportPortalPath('/portal/deals?view=forecast&focus=no-close-date'),
                     label: 'Review dates',
                     ariaLabel: 'Open forecast close-date hygiene list',
                     icon: 'edit_calendar',
@@ -988,7 +996,7 @@ export default function CrmReportsPage() {
             title="No time-in-stage data yet"
             body="Velocity appears once deals are moving through tracked pipeline stages."
             action={{
-              href: '/portal/deals?create=deal',
+              href: reportPortalPath('/portal/deals?create=deal'),
               label: 'Open pipeline',
               ariaLabel: 'Open pipeline to move deals through tracked stages',
               icon: 'view_kanban',
@@ -1008,7 +1016,7 @@ export default function CrmReportsPage() {
               </p>
               {velocity.summary.slowestStage ? (
                 <Link
-                  href={dealStageLensHref(velocity.summary.slowestStage)}
+                  href={dealStageLensHref(velocity.summary.slowestStage, reportPortalPath)}
                   aria-label={`Review deals in slowest ${labelize(velocity.summary.slowestStage.stageId)} stage from bottleneck summary`}
                   className="mt-3 inline-flex items-center gap-1.5 text-xs font-medium text-[var(--color-pib-accent)] hover:underline"
                 >
@@ -1017,7 +1025,7 @@ export default function CrmReportsPage() {
                 </Link>
               ) : (
                 <Link
-                  href="/portal/deals?create=deal"
+                  href={reportPortalPath('/portal/deals?create=deal')}
                   aria-label="Review pipeline movement from bottleneck summary"
                   className="mt-3 inline-flex items-center gap-1.5 text-xs font-medium text-[var(--color-pib-accent)] hover:underline"
                 >
@@ -1049,7 +1057,7 @@ export default function CrmReportsPage() {
                     <tr key={`${stage.pipelineId}:${stage.stageId}`} className="border-b border-[var(--color-pib-line)] last:border-0 hover:bg-white/[0.03]">
                       <td className="px-4 py-3 text-sm font-medium text-[var(--color-pib-text)]">
                         <Link
-                          href={dealStageLensHref(stage)}
+                          href={dealStageLensHref(stage, reportPortalPath)}
                           aria-label={`Open ${labelize(stage.stageId)} stage deals from velocity table`}
                           className="inline-flex max-w-full items-center gap-1.5 rounded-md text-[var(--color-pib-text)] transition-colors hover:text-[var(--color-pib-accent)] focus:outline-none focus:ring-2 focus:ring-[var(--color-pib-accent)] focus:ring-offset-2 focus:ring-offset-[var(--color-pib-bg)]"
                         >
@@ -1082,7 +1090,7 @@ export default function CrmReportsPage() {
             title="No rep performance data yet"
             body="Rep metrics will appear once deals and activities have owners."
             action={{
-              href: '/portal/settings/team',
+              href: reportPortalPath('/portal/settings/team'),
               label: 'Open team',
               ariaLabel: 'Open team settings to prepare CRM rep reporting',
               icon: 'groups',
@@ -1109,7 +1117,7 @@ export default function CrmReportsPage() {
                     <tr key={rep.uid} className="border-b border-[var(--color-pib-line)] last:border-0">
                       <td className="px-4 py-3 text-sm font-medium text-[var(--color-pib-text)]">
                         <Link
-                          href={repDealsHref(rep)}
+                          href={repDealsHref(rep, reportPortalPath)}
                           aria-label={`Open ${rep.displayName} deals from rep performance report`}
                           className="inline-flex max-w-full items-center gap-1.5 rounded-md text-[var(--color-pib-text)] transition-colors hover:text-[var(--color-pib-accent)] focus:outline-none focus:ring-2 focus:ring-[var(--color-pib-accent)] focus:ring-offset-2 focus:ring-offset-[var(--color-pib-bg)]"
                         >
@@ -1126,7 +1134,7 @@ export default function CrmReportsPage() {
                       <td className="px-4 py-3 text-sm text-right font-mono text-[var(--color-pib-text)]">
                         {rep.winRate === null ? (
                           <Link
-                            href={repDealsHref(rep)}
+                            href={repDealsHref(rep, reportPortalPath)}
                             aria-label={`Open ${rep.displayName} deals to create win-rate baseline`}
                             className="inline-flex items-center gap-1 rounded-full border border-amber-400/20 bg-amber-400/10 px-2 py-1 text-[11px] font-medium text-amber-200 transition-colors hover:border-amber-300/40 hover:bg-amber-400/15 focus:outline-none focus:ring-2 focus:ring-[var(--color-pib-accent)] focus:ring-offset-2 focus:ring-offset-[var(--color-pib-bg)]"
                           >
@@ -1153,13 +1161,13 @@ export default function CrmReportsPage() {
                 <OwnershipMetricTile
                   label="Contact owners"
                   value={fmtPercent(contactOwnerCoverage)}
-                  href={unassignedContacts > 0 ? '/portal/contacts?owner=unowned' : undefined}
+                  href={unassignedContacts > 0 ? reportPortalPath('/portal/contacts?owner=unowned') : undefined}
                   ariaLabel={unassignedContacts > 0 ? 'Open unowned contacts from ownership contact coverage summary' : undefined}
                 />
                 <OwnershipMetricTile
                   label="Unowned"
                   value={fmtNum(unassignedContacts)}
-                  href={unassignedContacts > 0 ? '/portal/contacts?owner=unowned' : undefined}
+                  href={unassignedContacts > 0 ? reportPortalPath('/portal/contacts?owner=unowned') : undefined}
                   ariaLabel={unassignedContacts > 0 ? `Open ${fmtNum(unassignedContacts)} unowned contacts from ownership summary` : undefined}
                 />
               </div>
@@ -1202,7 +1210,7 @@ export default function CrmReportsPage() {
             title="No activity data yet"
             body="Calls, emails, meetings, notes, and tasks will build the activity pulse."
             action={{
-              href: '/portal/contacts?followUp=stale',
+              href: reportPortalPath('/portal/contacts?followUp=stale'),
               label: 'Open contacts',
               ariaLabel: 'Open contacts to log CRM activity',
               icon: 'contacts',
@@ -1239,7 +1247,7 @@ export default function CrmReportsPage() {
                     Activity exists, but calls, emails, meetings, notes, and tasks are not classified yet. Classify the next touch so leadership can see which channel is moving relationships.
                   </p>
                   <Link
-                    href="/portal/contacts?followUp=stale"
+                    href={reportPortalPath('/portal/contacts?followUp=stale')}
                     aria-label="Open contacts to log typed CRM activity"
                     className="pib-btn-secondary mt-3 inline-flex items-center gap-1.5 text-xs"
                   >
@@ -1271,7 +1279,7 @@ export default function CrmReportsPage() {
                   <p className="mt-1 font-mono text-xs text-[var(--color-pib-text-muted)]">of {fmtNum(activity.perDay.length)}</p>
                   {daysWithoutActivity > 0 && (
                     <Link
-                      href="/portal/contacts?followUp=stale"
+                      href={reportPortalPath('/portal/contacts?followUp=stale')}
                       aria-label="Open contacts needing follow-up from activity rhythm"
                       className="mt-3 inline-flex items-center gap-1.5 text-xs font-medium text-[var(--color-pib-accent)] hover:underline"
                     >

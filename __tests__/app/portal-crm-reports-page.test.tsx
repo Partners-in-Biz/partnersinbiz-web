@@ -1,6 +1,12 @@
 import { act, render, screen, waitFor, within } from '@testing-library/react'
 import CrmReportsPage from '@/app/(portal)/portal/reports/crm/page'
 
+let mockSearchParams = new URLSearchParams()
+
+jest.mock('next/navigation', () => ({
+  useSearchParams: () => mockSearchParams,
+}))
+
 jest.mock('next/link', () => ({
   __esModule: true,
   default: ({ children, href, ...props }: { children: React.ReactNode; href: string }) => (
@@ -18,8 +24,10 @@ function apiResponse(data: unknown) {
 describe('Portal CRM reports page', () => {
   beforeEach(() => {
     jest.clearAllMocks()
+    mockSearchParams = new URLSearchParams()
     global.fetch = jest.fn((url: RequestInfo | URL) => {
-      const path = String(url)
+      const rawPath = String(url)
+      const path = rawPath.split('?')[0]
       if (path === '/api/v1/crm/reports/funnel') {
         return apiResponse({
           byType: { lead: 3, prospect: 2, client: 1, churned: 0, other: 0 },
@@ -72,7 +80,7 @@ describe('Portal CRM reports page', () => {
           },
         })
       }
-      if (path === '/api/v1/crm/reports/activity-summary?days=30') {
+      if (path === '/api/v1/crm/reports/activity-summary' && rawPath.includes('days=30')) {
         return apiResponse({
           byType: { call: 3, email: 4 },
           total: 7,
@@ -83,6 +91,37 @@ describe('Portal CRM reports page', () => {
       }
       return Promise.reject(new Error(`Unexpected fetch: ${path}`))
     })
+  })
+
+  it('preserves CRM company workspace scope across report data loads and drilldown links', async () => {
+    mockSearchParams = new URLSearchParams({
+      orgId: 'org-1',
+      orgSlug: 'lumen-speeds',
+      sourceCompanyId: 'company-1',
+      sourceCompanyName: 'Lumen',
+    })
+
+    render(<CrmReportsPage />)
+
+    expect(await screen.findByText('Executive signal')).toBeInTheDocument()
+
+    expect(global.fetch).toHaveBeenCalledWith('/api/v1/crm/reports/funnel?orgId=org-1')
+    expect(global.fetch).toHaveBeenCalledWith('/api/v1/crm/reports/forecast?orgId=org-1')
+    expect(global.fetch).toHaveBeenCalledWith('/api/v1/crm/reports/pipeline-velocity?orgId=org-1')
+    expect(global.fetch).toHaveBeenCalledWith('/api/v1/crm/reports/rep-performance?orgId=org-1')
+    expect(global.fetch).toHaveBeenCalledWith('/api/v1/crm/reports/activity-summary?days=30&orgId=org-1')
+
+    const scope = 'orgId=org-1&orgSlug=lumen-speeds&sourceCompanyId=company-1&sourceCompanyName=Lumen'
+    expect(screen.getByRole('link', { name: 'Open unowned contacts from team execution report' }))
+      .toHaveAttribute('href', `/portal/contacts?owner=unowned&${scope}`)
+    expect(screen.getByRole('link', { name: 'Open forecast deals missing close dates' }))
+      .toHaveAttribute('href', `/portal/deals?view=forecast&focus=no-close-date&${scope}`)
+    expect(screen.getByRole('link', { name: 'Open no close date forecast deals' }))
+      .toHaveAttribute('href', `/portal/deals?view=forecast&focus=no-close-date&${scope}`)
+    expect(screen.getByRole('link', { name: 'Open contacts in dominant New stage' }))
+      .toHaveAttribute('href', `/portal/contacts?stage=new&${scope}`)
+    expect(screen.getByRole('link', { name: 'Open Mandy Manager deals from rep performance report' }))
+      .toHaveAttribute('href', `/portal/deals?view=list&owner=u1&${scope}`)
   })
 
   it('renders contact owner coverage as an executive accountability signal', async () => {
