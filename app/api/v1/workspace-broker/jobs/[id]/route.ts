@@ -4,8 +4,9 @@ import { adminDb } from '@/lib/firebase/admin'
 import { withAuth } from '@/lib/api/auth'
 import { apiError, apiSuccess } from '@/lib/api/response'
 import { orgAccessError, resolveOrgId } from '@/lib/workspace-os/api'
-import { WORKSPACE_BROKER_JOB_COLLECTION } from '@/lib/workspace-os/broker'
+import { WORKSPACE_BROKER_JOB_COLLECTION, canExecuteWorkspaceBrokerJob, type WorkspaceBrokerJob } from '@/lib/workspace-os/broker'
 import { cleanString } from '@/lib/workspace-os/common'
+import { executeWorkspaceBrokerJob } from '@/lib/workspace-os/googleBrokerExecutor'
 
 export const dynamic = 'force-dynamic'
 type RouteContext = { params: Promise<{ id: string }> }
@@ -44,7 +45,52 @@ export const PATCH = withAuth('admin', async (req: NextRequest, user, context) =
   }
 
   const action = typeof body.action === 'string' ? body.action.trim().toLowerCase() : ''
-  if (action !== 'approve' && action !== 'reject') return apiError('Invalid workspace broker job action', 400)
+  if (action !== 'approve' && action !== 'reject' && action !== 'execute') return apiError('Invalid workspace broker job action', 400)
+
+  if (action === 'execute') {
+    const executionGate = canExecuteWorkspaceBrokerJob(job as Partial<WorkspaceBrokerJob>)
+    if (!executionGate.ok) return apiError(executionGate.reason === 'approval_required' ? 'Workspace broker approval evidence is required before execution' : 'Workspace broker job is not ready for execution', executionGate.reason === 'approval_required' ? 403 : 409)
+
+    await ref.update({ status: 'running', startedAt: FieldValue.serverTimestamp(), updatedAt: FieldValue.serverTimestamp() })
+    try {
+      const result = await executeWorkspaceBrokerJob({ ...(job as unknown as WorkspaceBrokerJob), id })
+      const resultArtifactIds = result.artifactIds
+      const resultArtifactUrls = result.artifactUrls
+      const output = {
+        ...(job.output ?? {}),
+        ...result.output,
+        googleMutationPerformed: result.googleMutationPerformed,
+        providerResultIds: result.providerResultIds,
+        artifactIds: resultArtifactIds,
+        artifactUrls: resultArtifactUrls,
+        resultArtifactIds,
+        resultArtifactUrls,
+      }
+      const update = {
+        status: 'done',
+        output,
+        resultArtifactIds,
+        resultArtifactUrls,
+        error: null,
+        errors: [],
+        completedAt: FieldValue.serverTimestamp(),
+        updatedAt: FieldValue.serverTimestamp(),
+      }
+      await ref.update(update)
+      return apiSuccess({ id, status: 'done', googleMutationPerformed: result.googleMutationPerformed, artifactIds: resultArtifactIds, artifactUrls: resultArtifactUrls, providerResultIds: result.providerResultIds })
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Workspace broker execution failed'
+      await ref.update({
+        status: 'failed',
+        error: message,
+        errors: [message],
+        output: { ...(job.output ?? {}), googleMutationPerformed: false },
+        failedAt: FieldValue.serverTimestamp(),
+        updatedAt: FieldValue.serverTimestamp(),
+      })
+      return apiError(message, 500)
+    }
+  }
 
   if (job.approvalRequired !== true) return apiError('Workspace broker job does not require approval', 400)
   if (job.status !== 'awaiting_approval') return apiError('Workspace broker job is not awaiting approval', 409)

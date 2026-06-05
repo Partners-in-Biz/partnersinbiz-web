@@ -232,4 +232,70 @@ describe('workspace broker API routes', () => {
     expect(res.status).toBe(409)
     expect(mockUpdate).not.toHaveBeenCalled()
   })
+
+  it('executes approved internal Google broker jobs through the server credential path and links artifact ids', async () => {
+    process.env.GOOGLE_WORKSPACE_CREDS_JSON_PATH = '/approved/workspace-sa.json'
+    mockGetDoc.mockResolvedValueOnce({
+      exists: true,
+      id: 'job-1',
+      data: () => ({
+        orgId: 'org-1',
+        status: 'queued',
+        operation: 'create_folder',
+        approvalRequired: false,
+        approvalSatisfied: false,
+        approvalStatus: null,
+        approvalGateTaskId: null,
+        approvalEvidence: { gateTaskId: null, status: null },
+        input: { title: 'Internal Evidence', parentFolderId: 'parent-1', visibility: 'admin_agents', projectId: 'project-1', taskId: 'task-1' },
+        output: { googleMutationPerformed: false },
+      }),
+    })
+    mockAdd.mockResolvedValueOnce({ id: 'artifact-created' })
+    jest.doMock('@/lib/workspace-os/googleBrokerExecutor', () => ({
+      executeWorkspaceBrokerJob: jest.fn(async () => ({
+        googleMutationPerformed: true,
+        providerResultIds: ['folder-1'],
+        artifactIds: ['artifact-created'],
+        artifactUrls: ['https://drive.google.com/drive/folders/folder-1'],
+        output: { fileId: 'folder-1', url: 'https://drive.google.com/drive/folders/folder-1', mimeType: 'application/vnd.google-apps.folder' },
+      })),
+    }))
+    const { PATCH } = await import('@/app/api/v1/workspace-broker/jobs/[id]/route')
+
+    const res = await PATCH(new NextRequest('http://localhost/api/v1/workspace-broker/jobs/job-1?orgId=org-1', {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ action: 'execute', credentialsPath: '/untrusted/body.json', approvalStatus: 'approved' }),
+    }), { params: Promise.resolve({ id: 'job-1' }) })
+
+    const body = await res.json()
+    expect(res.status).toBe(200)
+    expect(body.data).toMatchObject({ id: 'job-1', status: 'done', googleMutationPerformed: true, artifactIds: ['artifact-created'] })
+    expect(mockUpdate).toHaveBeenCalledWith(expect.objectContaining({
+      status: 'done',
+      completedAt: 'SERVER_TIMESTAMP',
+      resultArtifactIds: ['artifact-created'],
+      resultArtifactUrls: ['https://drive.google.com/drive/folders/folder-1'],
+      output: expect.objectContaining({
+        googleMutationPerformed: true,
+        fileId: 'folder-1',
+        artifactIds: ['artifact-created'],
+        resultArtifactIds: ['artifact-created'],
+      }),
+    }))
+  })
+
+  it('blocks execution when persisted approval evidence is missing and ignores caller supplied approval fields', async () => {
+    mockGetDoc.mockResolvedValue({ exists: true, id: 'job-1', data: () => ({ orgId: 'org-1', status: 'queued', operation: 'create_doc', approvalRequired: true, approvalSatisfied: false, input: { title: 'Client doc', visibility: 'admin_agents_clients' }, output: { googleMutationPerformed: false } }) })
+    const { PATCH } = await import('@/app/api/v1/workspace-broker/jobs/[id]/route')
+    const res = await PATCH(new NextRequest('http://localhost/api/v1/workspace-broker/jobs/job-1?orgId=org-1', {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ action: 'execute', approvalStatus: 'approved', approvalGateTaskId: 'task-approval-1' }),
+    }), { params: Promise.resolve({ id: 'job-1' }) })
+
+    expect(res.status).toBe(403)
+    expect(mockUpdate).not.toHaveBeenCalled()
+  })
 })

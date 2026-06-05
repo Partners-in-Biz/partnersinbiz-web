@@ -1,0 +1,136 @@
+const mockGoogleAuth = jest.fn()
+const mockDrive = jest.fn()
+const mockDocs = jest.fn()
+const mockSheets = jest.fn()
+const mockAdd = jest.fn()
+const mockDoc = jest.fn()
+const mockGetDoc = jest.fn()
+const mockUpdateDoc = jest.fn()
+const mockCollection = jest.fn()
+const mockServerTimestamp = jest.fn(() => 'SERVER_TIMESTAMP')
+
+jest.mock('googleapis', () => ({
+  google: {
+    auth: { GoogleAuth: mockGoogleAuth },
+    drive: mockDrive,
+    docs: mockDocs,
+    sheets: mockSheets,
+  },
+}))
+
+jest.mock('@/lib/firebase/admin', () => ({ adminDb: { collection: mockCollection } }))
+jest.mock('firebase-admin/firestore', () => ({ FieldValue: { serverTimestamp: mockServerTimestamp } }))
+
+function setupGoogleClients() {
+  const drive = {
+    files: {
+      create: jest.fn(),
+      copy: jest.fn(),
+      get: jest.fn(),
+      update: jest.fn(),
+      export: jest.fn(),
+      delete: jest.fn(),
+    },
+    permissions: { list: jest.fn() },
+  }
+  const docs = { documents: { create: jest.fn(), batchUpdate: jest.fn() } }
+  const sheets = { spreadsheets: { create: jest.fn() } }
+  mockDrive.mockReturnValue(drive)
+  mockDocs.mockReturnValue(docs)
+  mockSheets.mockReturnValue(sheets)
+  return { drive, docs, sheets }
+}
+
+beforeEach(() => {
+  jest.resetModules()
+  jest.clearAllMocks()
+  process.env.GOOGLE_WORKSPACE_CREDS_JSON_PATH = '/approved/workspace-sa.json'
+  mockDoc.mockReturnValue({ get: mockGetDoc, update: mockUpdateDoc })
+  mockCollection.mockImplementation((name: string) => {
+    if (name !== 'workspace_artifacts') throw new Error(`Unexpected collection: ${name}`)
+    return { add: mockAdd, doc: mockDoc }
+  })
+})
+
+describe('Google Workspace broker executor', () => {
+  it('creates Sheets with the server credential path and links the provider artifact into PiB metadata', async () => {
+    const { drive, sheets } = setupGoogleClients()
+    drive.files.get.mockResolvedValueOnce({ data: { parents: ['root'] } })
+    drive.files.update.mockResolvedValueOnce({ data: { id: 'sheet-1', parents: ['folder-1'] } })
+    sheets.spreadsheets.create.mockResolvedValueOnce({ data: { spreadsheetId: 'sheet-1', spreadsheetUrl: 'https://docs.google.com/spreadsheets/d/sheet-1/edit' } })
+    mockAdd.mockResolvedValueOnce({ id: 'artifact-sheet-1' })
+
+    const { executeWorkspaceBrokerJob } = await import('@/lib/workspace-os/googleBrokerExecutor')
+    const result = await executeWorkspaceBrokerJob({
+      id: 'job-1',
+      orgId: 'org-1',
+      operation: 'create_sheet',
+      status: 'queued',
+      requiredCapability: 'write',
+      approvalStatus: 'approved',
+      approvalGateTaskId: 'gate-1',
+      input: { title: 'Budget', folderId: 'folder-1', projectId: 'project-1', taskId: 'task-1', credentialsPath: '/untrusted/body.json' },
+    } as never)
+
+    expect(mockGoogleAuth).toHaveBeenCalledWith(expect.objectContaining({
+      keyFile: '/approved/workspace-sa.json',
+      scopes: expect.arrayContaining(['https://www.googleapis.com/auth/spreadsheets']),
+    }))
+    expect(sheets.spreadsheets.create).toHaveBeenCalledWith({ requestBody: { properties: { title: 'Budget' } } })
+    expect(drive.files.update).toHaveBeenCalledWith(expect.objectContaining({ fileId: 'sheet-1', addParents: 'folder-1' }))
+    expect(mockAdd).toHaveBeenCalledWith(expect.objectContaining({
+      orgId: 'org-1',
+      artifactType: 'google_sheet',
+      google: expect.objectContaining({ fileId: 'sheet-1' }),
+      projectId: 'project-1',
+      taskId: 'task-1',
+      safeMetadata: expect.objectContaining({ brokerJobId: 'job-1', providerFileId: 'sheet-1' }),
+    }))
+    expect(result).toMatchObject({ googleMutationPerformed: true, providerResultIds: ['sheet-1'], artifactIds: ['artifact-sheet-1'] })
+    expect(result.output).toMatchObject({ credentialPathEnv: 'GOOGLE_WORKSPACE_CREDS_JSON_PATH' })
+  })
+
+  it('reads Drive metadata and permission state without performing Google mutations', async () => {
+    const { drive } = setupGoogleClients()
+    mockGetDoc.mockResolvedValueOnce({ exists: true, data: () => ({ orgId: 'org-1', title: 'Plan', google: { fileId: 'doc-1' } }) })
+    drive.files.get.mockResolvedValueOnce({ data: { id: 'doc-1', name: 'Plan', mimeType: 'application/vnd.google-apps.document', webViewLink: 'https://docs.google.com/document/d/doc-1/edit', parents: ['folder-1'], modifiedTime: '2026-06-05T10:00:00.000Z' } })
+    drive.permissions.list.mockResolvedValueOnce({ data: { permissions: [{ type: 'user', role: 'writer', emailAddress: 'person@example.com' }] } })
+
+    const { executeWorkspaceBrokerJob } = await import('@/lib/workspace-os/googleBrokerExecutor')
+    const result = await executeWorkspaceBrokerJob({
+      id: 'job-2',
+      orgId: 'org-1',
+      operation: 'permission_audit',
+      status: 'queued',
+      requiredCapability: 'review',
+      input: { artifactId: 'artifact-doc-1' },
+    } as never)
+
+    expect(drive.files.create).not.toHaveBeenCalled()
+    expect(drive.files.delete).not.toHaveBeenCalled()
+    expect(mockUpdateDoc).toHaveBeenCalledWith(expect.objectContaining({
+      google: expect.objectContaining({ fileId: 'doc-1', webViewLink: 'https://docs.google.com/document/d/doc-1/edit' }),
+      permissions: expect.objectContaining({ anyoneWithLink: false, externalShared: true, providerPermissionCount: 1 }),
+    }))
+    expect(result).toMatchObject({ googleMutationPerformed: false, providerResultIds: ['doc-1'], artifactIds: ['artifact-doc-1'] })
+  })
+
+  it('rolls back created Google files when PiB artifact linking fails', async () => {
+    const { drive } = setupGoogleClients()
+    drive.files.create.mockResolvedValueOnce({ data: { id: 'folder-1', name: 'Evidence', mimeType: 'application/vnd.google-apps.folder', webViewLink: 'https://drive.google.com/drive/folders/folder-1', parents: ['parent-1'] } })
+    drive.files.delete.mockResolvedValueOnce({ data: {} })
+    mockAdd.mockRejectedValueOnce(new Error('metadata link failed'))
+
+    const { executeWorkspaceBrokerJob } = await import('@/lib/workspace-os/googleBrokerExecutor')
+    await expect(executeWorkspaceBrokerJob({
+      id: 'job-3',
+      orgId: 'org-1',
+      operation: 'create_folder',
+      status: 'queued',
+      requiredCapability: 'write',
+      input: { title: 'Evidence', parentFolderId: 'parent-1' },
+    } as never)).rejects.toThrow('metadata link failed')
+
+    expect(drive.files.delete).toHaveBeenCalledWith({ fileId: 'folder-1' })
+  })
+})
