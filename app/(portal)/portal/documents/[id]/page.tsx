@@ -206,7 +206,7 @@ export default function PortalDocumentDetail({ params }: Props) {
     return (
       <div className="space-y-6">
         <Link href={documentsHref} className="flex items-center gap-1 text-sm text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-accent)]">
-          <span className="material-symbols-outlined text-base">arrow_back</span>
+          <span className="material-symbols-outlined text-base" aria-hidden="true">arrow_back</span>
           Back to Documents
         </Link>
         <div className="bento-card p-10 text-center">
@@ -233,7 +233,7 @@ export default function PortalDocumentDetail({ params }: Props) {
         href={documentsHref}
         className="flex items-center gap-1 text-sm text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-accent)]"
       >
-        <span className="material-symbols-outlined text-base">arrow_back</span>
+        <span className="material-symbols-outlined text-base" aria-hidden="true">arrow_back</span>
         Back to Documents
       </Link>
 

@@ -84,9 +84,31 @@ describe('portal document detail scoped routing', () => {
     })
 
     expect(await screen.findByText('Document rendered')).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: /back to documents/i })).toHaveAttribute(
+    expect(screen.getByRole('link', { name: 'Back to Documents' })).toHaveAttribute(
       'href',
       '/portal/documents?orgId=lumen-org&orgSlug=lumen-speeds&sourceCompanyId=company-1&sourceCompanyName=Lumen',
     )
+    expect(screen.queryByRole('link', { name: 'arrow_back Back to Documents' })).not.toBeInTheDocument()
+  })
+
+  it('keeps the not-found document handoff scoped with a clean command name', async () => {
+    mockSearchParams = new URLSearchParams({
+      orgId: 'lumen-org',
+      orgSlug: 'lumen-speeds',
+      sourceCompanyId: 'company-1',
+      sourceCompanyName: 'Lumen',
+    })
+    global.fetch = jest.fn(() => Promise.reject(new Error('not found'))) as jest.Mock
+
+    await act(async () => {
+      render(<PortalDocumentDetail params={Promise.resolve({ id: 'missing-doc' })} />)
+    })
+
+    expect(await screen.findByText('Document not found.')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Back to Documents' })).toHaveAttribute(
+      'href',
+      '/portal/documents?orgId=lumen-org&orgSlug=lumen-speeds&sourceCompanyId=company-1&sourceCompanyName=Lumen',
+    )
+    expect(screen.queryByRole('link', { name: 'arrow_back Back to Documents' })).not.toBeInTheDocument()
   })
 })
