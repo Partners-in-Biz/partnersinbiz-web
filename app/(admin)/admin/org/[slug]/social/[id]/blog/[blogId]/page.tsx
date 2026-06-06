@@ -3,12 +3,8 @@
 import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { OrgThemedFrame, useOrgBrand } from '@/components/admin/OrgThemedFrame'
-import {
-  CampaignBlogDetailWorkspace,
-  type CampaignBlogCommentAnchor,
-  type CampaignBlogDetailComment,
-  type CampaignBlogDetailRecord,
-} from '@/components/campaign-blog-detail/CampaignBlogDetailWorkspace'
+import { CampaignBlogDetailWorkspace } from '@/components/campaign-blog-detail/CampaignBlogDetailWorkspace'
+import { useCampaignBlogDetail } from '@/components/campaign-blog-detail/useCampaignBlogDetail'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnyObj = any
@@ -19,21 +15,6 @@ function todayIsoDate(): string {
 
 function paramValue(value: string | string[] | undefined): string {
   return Array.isArray(value) ? value[0] ?? '' : value ?? ''
-}
-
-function commentPayload(text: string, anchor: CampaignBlogCommentAnchor): AnyObj {
-  const payload: AnyObj = { text: text.trim() }
-
-  if (anchor.kind === 'text') {
-    payload.anchor = { type: 'text', text: anchor.text }
-    if (typeof anchor.offset === 'number') payload.anchor.offset = anchor.offset
-  }
-
-  if (anchor.kind === 'image') {
-    payload.anchor = { type: 'image', mediaUrl: anchor.mediaUrl }
-  }
-
-  return payload
 }
 
 export default function BlogDetailPage() {
@@ -77,51 +58,26 @@ function Detail({
 }) {
   const router = useRouter()
   const { brand } = useOrgBrand()
-  const [blog, setBlog] = useState<CampaignBlogDetailRecord | null>(null)
-  const [comments, setComments] = useState<CampaignBlogDetailComment[]>([])
-  const [loading, setLoading] = useState(true)
-  const [busy, setBusy] = useState<null | 'approve' | 'comment' | 'save'>(null)
-
-  useEffect(() => {
-    setLoading(true)
-    Promise.all([
-      fetch(`/api/v1/campaigns/${id}/assets`).then(response => response.json()),
-      fetch(`/api/v1/seo/content/${blogId}/comments`).then(response => response.json()),
-    ])
-      .then(([assetsBody, commentsBody]) => {
-        const blogs = (assetsBody.data?.blogs ?? []) as CampaignBlogDetailRecord[]
-        setBlog(blogs.find(item => item.id === blogId) ?? null)
-        setComments((commentsBody.data ?? []) as CampaignBlogDetailComment[])
-      })
-      .catch(() => {})
-      .finally(() => setLoading(false))
-  }, [id, blogId])
-
-  async function refreshComments() {
-    const refreshed = await fetch(`/api/v1/seo/content/${blogId}/comments`).then(response => response.json())
-    setComments((refreshed.data ?? []) as CampaignBlogDetailComment[])
-  }
-
-  async function postComment(text: string, anchor: CampaignBlogCommentAnchor) {
-    if (!text.trim() || busy) return
-    setBusy('comment')
-    try {
-      const response = await fetch(`/api/v1/seo/content/${blogId}/comments`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(commentPayload(text, anchor)),
-      })
-
-      if (!response.ok) throw new Error('comment failed')
-      await refreshComments()
-    } finally {
-      setBusy(null)
-    }
-  }
+  const [actionBusy, setActionBusy] = useState<null | 'approve' | 'save'>(null)
+  const {
+    blog,
+    comments,
+    loading,
+    loadError,
+    actionError,
+    busy: commentBusy,
+    refreshBlog,
+    postComment,
+  } = useCampaignBlogDetail({
+    campaignId: id,
+    blogId,
+    assetsEndpoint: `/api/v1/campaigns/${id}/assets`,
+    commentsEndpoint: `/api/v1/seo/content/${blogId}/comments`,
+  })
 
   async function approve(publishDate?: string) {
-    if (busy) return
-    setBusy('approve')
+    if (actionBusy) return
+    setActionBusy('approve')
     try {
       const response = await fetch(`/api/v1/seo/content/${blogId}/publish`, {
         method: 'POST',
@@ -133,17 +89,17 @@ function Detail({
       router.refresh()
       router.push(`/admin/org/${slug}/social/${id}?tab=blogs`)
     } finally {
-      setBusy(null)
+      setActionBusy(null)
     }
   }
 
   async function saveBody(markdown: string) {
-    if (busy) return
+    if (actionBusy) return
 
     const draftId = blog?.draftPostId
     if (!draftId) return
 
-    setBusy('save')
+    setActionBusy('save')
     try {
       const response = await fetch(`/api/v1/seo/drafts/${draftId}`, {
         method: 'PATCH',
@@ -153,11 +109,9 @@ function Detail({
 
       if (!response.ok) throw new Error('save failed')
 
-      const assetsBody = await fetch(`/api/v1/campaigns/${id}/assets`).then(result => result.json())
-      const blogs = (assetsBody.data?.blogs ?? []) as CampaignBlogDetailRecord[]
-      setBlog(blogs.find(item => item.id === blogId) ?? null)
+      await refreshBlog()
     } finally {
-      setBusy(null)
+      setActionBusy(null)
     }
   }
 
@@ -171,6 +125,8 @@ function Detail({
       blog={blog}
       comments={comments}
       brand={brand}
+      loadError={loadError}
+      actionError={actionError}
       backHref={`/admin/org/${slug}/social/${id}?tab=blogs`}
       backLabel={orgName ? `${orgName} - Blog Posts` : 'Blog Posts'}
       statusLabel={isPublished ? 'Published' : 'Awaiting Review'}
@@ -187,17 +143,17 @@ function Detail({
       }
       canEdit={!isPublished && !!blog?.draftPostId}
       editLabel="Edit body"
-      saveBusy={busy === 'save'}
+      saveBusy={actionBusy === 'save'}
       onSaveBody={saveBody}
       onComment={postComment}
-      commentBusy={busy === 'comment'}
+      commentBusy={commentBusy === 'comment'}
       approval={{
         visible: !isPublished,
         title: 'Ready to ship?',
         noCommentsCopy: 'Approve to publish, or highlight text / click an image to leave inline feedback.',
         commentsCopy: count =>
           `${count} comment${count === 1 ? '' : 's'} pending. Approve to publish anyway, or wait for the writer to address them.`,
-        busy: busy === 'approve',
+        busy: actionBusy === 'approve',
         buttonLabel: publishDate =>
           scheduledForFuture(publishDate) ? `Schedule for ${publishDate}` : 'Approve & publish',
         busyLabel: publishDate => (scheduledForFuture(publishDate) ? 'Scheduling...' : 'Publishing...'),

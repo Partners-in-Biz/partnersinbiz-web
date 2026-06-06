@@ -26,4 +26,21 @@ describe('campaign blog detail shared standard', () => {
       expect(file).not.toContain('<BlogReaderCard')
     }
   })
+
+  it('keeps blog detail route controllers in the shared campaign-blog-detail hook', () => {
+    expect(source('components/campaign-blog-detail/useCampaignBlogDetail.ts')).toContain(
+      'export function useCampaignBlogDetail',
+    )
+
+    for (const route of routes) {
+      const file = source(route)
+
+      expect(file).toContain('@/components/campaign-blog-detail/useCampaignBlogDetail')
+      expect(file).not.toContain('function commentPayload')
+      expect(file).not.toContain('useState<CampaignBlogDetailRecord')
+      expect(file).not.toContain('useState<CampaignBlogDetailComment')
+      expect(file).not.toContain('fetch(`/api/v1/campaigns/${id}/assets`')
+      expect(file).not.toContain('fetch(campaignAssetsEndpoint)')
+    }
+  })
 })
