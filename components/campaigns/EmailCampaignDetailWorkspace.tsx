@@ -109,7 +109,7 @@ export function EmailCampaignDetailWorkspace({
           href={backHref}
           className="inline-flex items-center gap-1 text-sm text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] transition-colors"
         >
-          <span className="material-symbols-outlined text-base">arrow_back</span>
+          <span className="material-symbols-outlined text-base" aria-hidden="true">arrow_back</span>
           {backLabel}
         </Link>
 

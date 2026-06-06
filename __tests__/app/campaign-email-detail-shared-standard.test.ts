@@ -17,9 +17,12 @@ describe('email campaign detail shared workspace standard', () => {
     const adminCompanyRoute = source('app/(admin)/admin/org/[slug]/campaigns/[id]/page.tsx')
 
     expect(existsSync(sharedWorkspacePath)).toBe(true)
-    expect(source('components/campaigns/EmailCampaignDetailWorkspace.tsx')).toContain(
+    const sharedWorkspace = source('components/campaigns/EmailCampaignDetailWorkspace.tsx')
+    expect(sharedWorkspace).toContain(
       'export function EmailCampaignDetailWorkspace',
     )
+    expect(sharedWorkspace).toContain('<span className="material-symbols-outlined text-base" aria-hidden="true">arrow_back</span>')
+    expect(sharedWorkspace).not.toContain('<span className="material-symbols-outlined text-base">arrow_back</span>')
 
     expect(portalRoute).toContain('@/components/campaigns/EmailCampaignDetailWorkspace')
     expect(adminCompanyRoute).toContain('@/components/campaigns/EmailCampaignDetailWorkspace')
