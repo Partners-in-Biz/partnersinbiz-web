@@ -341,6 +341,11 @@ describe('PortalCaptureSourceImportPage', () => {
     expect(screen.getByText('Rows parsed')).toBeInTheDocument()
     expect(screen.getByText('Attribution source')).toBeInTheDocument()
     expect(screen.getByText('Validation gate')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Back to capture sources' })).toHaveAttribute(
+      'href',
+      '/portal/capture-sources',
+    )
+    expect(screen.queryByRole('link', { name: 'arrow_back Back to capture sources' })).not.toBeInTheDocument()
     await waitFor(() => {
       expect(screen.getByText('Homepage enquiry form - form')).toBeInTheDocument()
       expect(screen.getByText('Partner API intake - api')).toBeInTheDocument()
