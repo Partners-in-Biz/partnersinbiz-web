@@ -205,6 +205,49 @@ describe('unified conversation message routing', () => {
     expect(prompt).toContain('approval-gates: publish')
   })
 
+  it('injects council-mode guidance when the /council slash command is used', async () => {
+    mockGetConversation.mockResolvedValue({
+      id: 'conv-1',
+      orgId: 'pib-platform-owner',
+      participantUids: ['client-1'],
+      participantAgentIds: ['pip'],
+      participants: [
+        { kind: 'user', uid: 'client-1', role: 'client', displayName: 'Client User' },
+        { kind: 'agent', agentId: 'pip', name: 'Pip' },
+      ],
+    })
+    const { POST } = await import('@/app/api/v1/conversations/[convId]/messages/route')
+
+    const res = await POST(new NextRequest('http://localhost/api/v1/conversations/conv-1/messages', {
+      method: 'POST',
+      body: JSON.stringify({
+        content: 'Should we launch the new workflow this week?',
+        slashCommand: {
+          id: 'council',
+          token: '/council',
+          label: 'Council mode',
+          executorKind: 'agent_intent',
+          args: 'Should we launch the new workflow this week?',
+        },
+      }),
+    }), { params: Promise.resolve({ convId: 'conv-1' }) })
+
+    expect(res.status).toBe(201)
+    expect(mockCreateHermesRun).toHaveBeenCalledTimes(1)
+    const prompt = mockCreateHermesRun.mock.calls[0][2].prompt as string
+    expect(prompt).toContain('id: council')
+    expect(prompt).toContain('Council mode requirements:')
+    expect(prompt).toContain('Select the relevant PiB specialist perspectives')
+    expect(prompt).toContain('consensus/recommendation')
+    expect(mockCreateMessage).toHaveBeenCalledWith('conv-1', expect.objectContaining({
+      slashCommand: expect.objectContaining({
+        id: 'council',
+        token: '/council',
+        args: 'Should we launch the new workflow this week?',
+      }),
+    }))
+  })
+
   it('returns a failed assistant message instead of a 500 when agent key decrypt fails', async () => {
     const update = jest.fn().mockResolvedValue(undefined)
     mockMessagesCollection.mockReturnValue({ doc: () => ({ update }) })

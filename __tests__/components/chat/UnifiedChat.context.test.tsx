@@ -237,6 +237,7 @@ describe('UnifiedChat context references', () => {
 
     expect(await screen.findByRole('button', { name: 'Use /task' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Use /route' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Use /council' })).toBeInTheDocument()
 
     fireEvent.click(screen.getByRole('button', { name: 'Use /task' }))
     expect(input).toHaveValue('/task ')
@@ -256,6 +257,35 @@ describe('UnifiedChat context references', () => {
         token: '/task',
         executorKind: 'agent_intent',
         args: 'Follow up with Theo about slash commands',
+      })
+    })
+  })
+
+  it('sends /council as structured command metadata', async () => {
+    render(
+      <UnifiedChat
+        orgId="org-1"
+        currentUserUid="user-1"
+        currentUserDisplayName="Peet"
+      />,
+    )
+
+    const input = await screen.findByPlaceholderText('Send a message')
+    fireEvent.change(input, { target: { value: '/council Should we launch the new workflow this week?' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Send message' }))
+
+    await waitFor(() => {
+      const messagePost = mockFetch.mock.calls.find(([url, init]) =>
+        String(url) === '/api/v1/conversations/conv-1/messages' && init?.method === 'POST',
+      )
+      expect(messagePost).toBeTruthy()
+      const body = JSON.parse(messagePost![1].body as string)
+      expect(body.content).toBe('Should we launch the new workflow this week?')
+      expect(body.slashCommand).toMatchObject({
+        id: 'council',
+        token: '/council',
+        executorKind: 'agent_intent',
+        args: 'Should we launch the new workflow this week?',
       })
     })
   })
