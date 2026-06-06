@@ -3,6 +3,7 @@
 import type { ReactNode } from 'react'
 import { useMemo, useState } from 'react'
 import type { ToolSlug } from '@/lib/tools/catalog'
+import type { UrlAuditKind, UrlAuditResult } from '@/lib/tools/url-audit'
 import {
   calculateKeywordBalance,
   calculateLeadValue,
@@ -10,6 +11,11 @@ import {
   estimateWebsiteCost,
   generateMetaSuggestions,
 } from '@/lib/tools/calculators'
+
+const dispatchToolEvent = (event: string, detail: Record<string, unknown>) => {
+  if (typeof window === 'undefined') return
+  window.dispatchEvent(new CustomEvent(event, { detail }))
+}
 
 const formatZar = (value: number) =>
   new Intl.NumberFormat('en-ZA', {
@@ -58,7 +64,7 @@ const TextField = ({ label, value, onChange }: { label: string; value: string; o
 )
 
 const ResultCard = ({ label, value, hint }: { label: string; value: string; hint?: string }) => (
-  <div className="rounded-2xl border border-[var(--color-pib-line)] bg-[var(--color-pib-bg)]/55 p-5">
+  <div className="rounded-2xl border border-[var(--color-pib-line)] bg-[linear-gradient(135deg,rgba(255,255,255,0.08),rgba(255,255,255,0.02))] p-5 shadow-[0_18px_50px_rgba(0,0,0,0.18)]">
     <p className="text-xs uppercase tracking-[0.2em] text-[var(--color-pib-text-faint)]">{label}</p>
     <p className="mt-2 font-display text-2xl text-[var(--color-pib-text)]">{value}</p>
     {hint ? <p className="mt-2 text-sm text-[var(--color-pib-text-muted)]">{hint}</p> : null}
@@ -230,6 +236,142 @@ function KeywordBalanceTool() {
   )
 }
 
+
+function UrlAuditTool({ kind }: { kind: UrlAuditKind }) {
+  const defaults: Record<UrlAuditKind, string> = {
+    metadata: 'https://partnersinbiz.online/services/growth-systems',
+    robots: 'https://partnersinbiz.online',
+    sitemap: 'https://partnersinbiz.online/sitemap.xml',
+  }
+  const [url, setUrl] = useState(defaults[kind])
+  const [result, setResult] = useState<UrlAuditResult | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const [loading, setLoading] = useState(false)
+
+  const run = async () => {
+    setLoading(true)
+    setError(null)
+    setResult(null)
+    dispatchToolEvent('tool_started', { slug: `${kind}-url-audit`, url })
+
+    try {
+      const response = await fetch('/api/v1/tools/url-audit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ kind, url }),
+      })
+      const body = await response.json()
+      if (!response.ok || !body.ok) throw new Error(body.error || 'Checker failed.')
+      setResult(body.result)
+      dispatchToolEvent('tool_completed', { slug: `${kind}-url-audit`, status: body.result.status })
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : 'Checker failed.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <ToolPanel>
+      <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_auto] md:items-end">
+        <TextField label="Public URL to check" value={url} onChange={setUrl} />
+        <button type="button" onClick={run} disabled={loading} className="btn-pib-primary min-h-[52px] justify-center disabled:cursor-not-allowed disabled:opacity-60">
+          {loading ? 'Checking...' : 'Run safe check'}
+        </button>
+      </div>
+      <p className="mt-4 rounded-2xl border border-[var(--color-pib-line)] bg-[var(--color-pib-bg)]/45 p-4 text-sm text-[var(--color-pib-text-muted)]">
+        Public-safe wrapper: http/https only, private networks blocked, redirects limited, timeout enforced, and oversized responses rejected.
+      </p>
+      {error ? <p className="mt-5 rounded-2xl border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-200">{error}</p> : null}
+      {result ? <UrlAuditResultView result={result} /> : null}
+    </ToolPanel>
+  )
+}
+
+function UrlAuditResultView({ result }: { result: UrlAuditResult }) {
+  if (result.kind === 'metadata') {
+    return (
+      <div className="mt-8 space-y-5">
+        <ResultGrid>
+          <ResultCard label="HTTP status" value={result.status.toString()} />
+          <ResultCard label="Title length" value={`${result.titleLength} chars`} hint={result.title ?? 'Missing title'} />
+          <ResultCard label="Description" value={`${result.descriptionLength} chars`} hint={result.description ?? 'Missing description'} />
+          <ResultCard label="H1 count" value={result.h1Count.toString()} />
+        </ResultGrid>
+        <AuditLists issues={result.issues} quickWins={result.quickWins} />
+        <ResultSnippet title="Canonical" body={result.canonical ?? 'Missing'} />
+        <ResultSnippet title="Open Graph preview" body={`Title: ${result.openGraph.title ?? 'missing'} • Description: ${result.openGraph.description ?? 'missing'} • Image: ${result.openGraph.image ?? 'missing'}`} />
+      </div>
+    )
+  }
+
+  if (result.kind === 'robots') {
+    return (
+      <div className="mt-8 space-y-5">
+        <ResultGrid>
+          <ResultCard label="HTTP status" value={result.status.toString()} />
+          <ResultCard label="Robots found" value={result.exists ? 'Yes' : 'No'} />
+          <ResultCard label="Sitemaps" value={result.sitemapUrls.length.toString()} />
+          <ResultCard label="Disallow rules" value={result.disallowCount.toString()} />
+        </ResultGrid>
+        <AuditLists issues={result.issues} quickWins={result.quickWins} />
+        <ResultSnippet title="Sitemap directives" body={result.sitemapUrls.length ? result.sitemapUrls.join('\n') : 'None found'} />
+      </div>
+    )
+  }
+
+  return (
+    <div className="mt-8 space-y-5">
+      <ResultGrid>
+        <ResultCard label="HTTP status" value={result.status.toString()} />
+        <ResultCard label="URLs" value={result.urlCount.toString()} />
+        <ResultCard label="Nested sitemaps" value={result.sitemapCount.toString()} />
+        <ResultCard label="Sample URLs" value={result.sampleUrls.length.toString()} />
+      </ResultGrid>
+      <AuditLists issues={result.issues} quickWins={result.quickWins} />
+      <ResultSnippet title="Sample discovered URLs" body={result.sampleUrls.length ? result.sampleUrls.join('\n') : 'No URLs found'} />
+    </div>
+  )
+}
+
+function AuditLists({ issues, quickWins }: { issues: string[]; quickWins: string[] }) {
+  return (
+    <div className="grid gap-4 lg:grid-cols-2">
+      <div className="rounded-2xl border border-amber-400/25 bg-amber-400/10 p-5">
+        <p className="text-xs uppercase tracking-[0.2em] text-amber-200">Issues to review</p>
+        <ul className="mt-3 space-y-2 text-sm text-[var(--color-pib-text-muted)]">
+          {(issues.length ? issues : ['No obvious baseline issue found.']).map(item => <li key={item}>• {item}</li>)}
+        </ul>
+      </div>
+      <div className="rounded-2xl border border-emerald-400/25 bg-emerald-400/10 p-5">
+        <p className="text-xs uppercase tracking-[0.2em] text-emerald-200">Quick wins</p>
+        <ul className="mt-3 space-y-2 text-sm text-[var(--color-pib-text-muted)]">
+          {quickWins.map(item => <li key={item}>• {item}</li>)}
+        </ul>
+      </div>
+    </div>
+  )
+}
+
+function ResultSnippet({ title, body }: { title: string; body: string }) {
+  const copy = async () => {
+    await navigator.clipboard?.writeText(body)
+    dispatchToolEvent('tool_result_copied', { title })
+  }
+
+  return (
+    <div className="rounded-2xl border border-[var(--color-pib-line)] bg-[var(--color-pib-bg)]/45 p-5">
+      <div className="flex items-center justify-between gap-3">
+        <p className="text-xs uppercase tracking-[0.2em] text-[var(--color-pib-text-faint)]">{title}</p>
+        <button type="button" onClick={copy} className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--color-pib-accent)]">
+          Copy
+        </button>
+      </div>
+      <pre className="mt-3 whitespace-pre-wrap break-words text-sm leading-relaxed text-[var(--color-pib-text-muted)]">{body}</pre>
+    </div>
+  )
+}
+
 function Toggle({ label, checked, onChange }: { label: string; checked: boolean; onChange: (value: boolean) => void }) {
   return (
     <label className="flex items-center gap-3 rounded-2xl border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)]/70 px-4 py-3">
@@ -253,5 +395,8 @@ export function PublicToolInteractive({ slug }: { slug: ToolSlug }) {
   if (slug === 'lead-value-calculator') return <LeadValueTool />
   if (slug === 'meta-title-description-generator') return <MetaGeneratorTool />
   if (slug === 'keyword-balance-checker') return <KeywordBalanceTool />
+  if (slug === 'website-metadata-checker') return <UrlAuditTool kind="metadata" />
+  if (slug === 'robots-txt-checker') return <UrlAuditTool kind="robots" />
+  if (slug === 'sitemap-checker') return <UrlAuditTool kind="sitemap" />
   return null
 }

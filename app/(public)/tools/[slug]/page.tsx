@@ -64,6 +64,20 @@ export default function ToolPage({ params }: { params: { slug: string } }) {
               {tool.description}
             </p>
           </Reveal>
+          <Reveal delay={300}>
+            <div className="mt-10 grid max-w-4xl gap-3 sm:grid-cols-3">
+              {[
+                ['Tool mode', tool.difficulty],
+                ['Proof angle', tool.proofPoint],
+                ['Data handling', 'Browser-first or public-safe wrapper'],
+              ].map(([label, value]) => (
+                <div key={label} className="rounded-3xl border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)]/70 p-5 backdrop-blur">
+                  <p className="text-xs uppercase tracking-[0.2em] text-[var(--color-pib-text-faint)]">{label}</p>
+                  <p className="mt-2 text-sm font-medium text-[var(--color-pib-text)]">{value}</p>
+                </div>
+              ))}
+            </div>
+          </Reveal>
         </div>
       </section>
 

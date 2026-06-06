@@ -6,6 +6,9 @@ export type ToolSlug =
   | 'lead-value-calculator'
   | 'meta-title-description-generator'
   | 'keyword-balance-checker'
+  | 'website-metadata-checker'
+  | 'robots-txt-checker'
+  | 'sitemap-checker'
 
 export type PublicTool = {
   slug: ToolSlug
@@ -18,6 +21,8 @@ export type PublicTool = {
   inputs: string[]
   cta: string
   serviceHref: string
+  difficulty: string
+  proofPoint: string
   faqs: { q: string; a: string }[]
 }
 
@@ -33,6 +38,8 @@ export const PUBLIC_TOOLS: PublicTool[] = [
     inputs: ['Current organic visits', 'Expected traffic lift', 'Lead conversion rate', 'Close rate', 'Average deal value', 'Monthly SEO investment'],
     cta: 'Turn this into a 30-day SEO growth plan',
     serviceHref: '/services/growth-systems',
+    difficulty: 'Plan before spend',
+    proofPoint: 'Connects traffic lift to leads, customers, and payback.',
     faqs: [
       {
         q: 'Is this a guarantee?',
@@ -55,6 +62,8 @@ export const PUBLIC_TOOLS: PublicTool[] = [
     inputs: ['Page count', 'Design level', 'Copywriting', 'CMS', 'Integrations', 'Portal/app functionality'],
     cta: 'Ask PiB to scope the real build',
     serviceHref: '/services/web-development',
+    difficulty: 'Scope before quote',
+    proofPoint: 'Shows where complexity changes budget and timeline.',
     faqs: [
       {
         q: 'Why is the output a range?',
@@ -77,6 +86,8 @@ export const PUBLIC_TOOLS: PublicTool[] = [
     inputs: ['Average sale value', 'Gross margin', 'Close rate', 'Lifetime multiplier'],
     cta: 'Build a lead engine around this number',
     serviceHref: '/services/growth-systems',
+    difficulty: 'Revenue guardrail',
+    proofPoint: 'Turns margin and close rate into a safer CPL ceiling.',
     faqs: [
       {
         q: 'Why use margin instead of revenue?',
@@ -99,6 +110,8 @@ export const PUBLIC_TOOLS: PublicTool[] = [
     inputs: ['Business name', 'Service', 'Location', 'Audience', 'Benefit'],
     cta: 'Let PiB review the whole page',
     serviceHref: '/services/web-development',
+    difficulty: 'Copy clarity check',
+    proofPoint: 'Creates options with live title and description length cues.',
     faqs: [
       {
         q: 'Will better metadata make a page rank?',
@@ -107,6 +120,79 @@ export const PUBLIC_TOOLS: PublicTool[] = [
       {
         q: 'Should every page use the same format?',
         a: 'No. Keep important pages specific. Repeated titles and vague descriptions weaken click-through and make site structure less clear.',
+      },
+    ],
+  },
+
+  {
+    slug: 'website-metadata-checker',
+    title: 'Website Metadata Checker',
+    shortTitle: 'Metadata Checker',
+    description: 'Fetch a public page safely and check title, meta description, canonical, robots, Open Graph, headings, and common preview gaps.',
+    category: 'Technical SEO',
+    icon: 'page_info',
+    outcome: 'A safe metadata snapshot, issue list, preview hints, and quick fixes for one public URL.',
+    inputs: ['Public page URL'],
+    cta: 'Ask PiB to fix the on-page gaps',
+    serviceHref: '/services/web-development',
+    difficulty: 'Live page check',
+    proofPoint: 'Uses hardened public fetch controls before reading page metadata.',
+    faqs: [
+      {
+        q: 'Can this scan any URL?',
+        a: 'No. It only fetches public http/https pages and blocks private, local, oversized, slow, or redirected-to-private targets.',
+      },
+      {
+        q: 'Does metadata alone fix SEO?',
+        a: 'No. Metadata helps clarity and click-through, but page quality, intent fit, technical health, links, and proof still matter.',
+      },
+    ],
+  },
+  {
+    slug: 'robots-txt-checker',
+    title: 'Robots.txt Checker',
+    shortTitle: 'Robots Checker',
+    description: 'Check whether a public site exposes robots.txt, sitemap hints, broad disallow rules, and crawl guidance worth reviewing.',
+    category: 'Technical SEO',
+    icon: 'robot_2',
+    outcome: 'Robots.txt status, sitemap references, disallow warnings, and practical crawl-access guidance.',
+    inputs: ['Public website URL'],
+    cta: 'Let PiB review the crawl setup',
+    serviceHref: '/services/web-development',
+    difficulty: 'Crawl access check',
+    proofPoint: 'Fetches only the site robots.txt through the public-safe wrapper.',
+    faqs: [
+      {
+        q: 'Is a missing robots.txt always bad?',
+        a: 'Not always. Many simple sites work without one, but a deliberate file helps communicate sitemap locations and crawl rules.',
+      },
+      {
+        q: 'Can this prove Google indexes the site?',
+        a: 'No. It checks crawl guidance only. Search Console and live index checks are needed for indexing proof.',
+      },
+    ],
+  },
+  {
+    slug: 'sitemap-checker',
+    title: 'Sitemap Checker',
+    shortTitle: 'Sitemap Checker',
+    description: 'Check a public sitemap URL for response status, URL counts, nested sitemap references, and obvious discovery problems.',
+    category: 'Technical SEO',
+    icon: 'account_tree',
+    outcome: 'Sitemap response, URL/sample counts, nested sitemap hints, and warnings for missing or tiny maps.',
+    inputs: ['Public website or sitemap URL'],
+    cta: 'Ask PiB to repair technical discovery',
+    serviceHref: '/services/web-development',
+    difficulty: 'Discovery check',
+    proofPoint: 'Uses redirect, timeout, size, and private-network protections before reading XML.',
+    faqs: [
+      {
+        q: 'Should every URL be in the sitemap?',
+        a: 'No. Include important canonical URLs that should be discovered and indexed; exclude duplicates, filtered views, and private pages.',
+      },
+      {
+        q: 'Does a sitemap force indexing?',
+        a: 'No. It helps discovery. Search engines still decide based on page quality, canonical signals, crawlability, and site authority.',
       },
     ],
   },
@@ -121,6 +207,8 @@ export const PUBLIC_TOOLS: PublicTool[] = [
     inputs: ['Draft text', 'Target phrase'],
     cta: 'Get a content improvement pass',
     serviceHref: '/services/growth-systems',
+    difficulty: 'Readability check',
+    proofPoint: 'Flags repetition without pretending density is a ranking formula.',
     faqs: [
       {
         q: 'Is keyword density still an SEO ranking formula?',
