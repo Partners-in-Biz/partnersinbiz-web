@@ -418,6 +418,57 @@ describe('POST /api/v1/projects', () => {
       claimStatus: 'claimed',
     }))
   })
+
+  it('keeps additional project CRM links as reverse-visibility links without claim invite fan-out', async () => {
+    mockOrgGet.mockResolvedValue({
+      empty: false,
+      docs: [{ id: 'sender-org', data: () => ({ name: 'Sender Org' }) }],
+    })
+    mockAdd.mockResolvedValue({ id: 'project-1' })
+    mockCompanyGet.mockResolvedValue({ exists: true, data: () => ({ orgId: 'sender-org', name: 'Linked company' }) })
+    mockContactGet.mockResolvedValue({ exists: true, data: () => ({ orgId: 'sender-org', name: 'Linked contact', email: 'primary@example.com' }) })
+    mockEnsureClaimableRelationship.mockResolvedValue({
+      id: 'relationship-1',
+      claimToken: 'claim-token-1',
+      targetOrgId: undefined,
+      targetUserId: undefined,
+      status: 'pending',
+    })
+
+    const { POST } = await import('@/app/api/v1/projects/route')
+    const req = new NextRequest('http://localhost/api/v1/projects', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        name: 'Shared implementation',
+        orgSlug: 'sender-org',
+        companyId: 'company-primary',
+        contactId: 'contact-primary',
+        companyIds: ['company-secondary'],
+        contactIds: ['contact-secondary'],
+      }),
+    })
+
+    const res = await POST(req)
+
+    expect(res.status).toBe(201)
+    expect(mockAdd).toHaveBeenCalledWith(expect.objectContaining({
+      companyId: 'company-primary',
+      sourceCompanyId: 'company-primary',
+      companyIds: ['company-primary', 'company-secondary'],
+      sourceCompanyIds: ['company-primary'],
+      contactId: 'contact-primary',
+      sourceContactId: 'contact-primary',
+      contactIds: ['contact-primary', 'contact-secondary'],
+      sourceContactIds: ['contact-primary'],
+    }))
+    expect(mockEnsureClaimableRelationship).toHaveBeenCalledTimes(1)
+    expect(mockEnsureClaimableRelationship).toHaveBeenCalledWith(expect.objectContaining({
+      sourceCompanyId: 'company-primary',
+      sourceContactId: 'contact-primary',
+      recipientEmail: 'primary@example.com',
+    }))
+  })
 })
 
 describe('PATCH /api/v1/projects/[projectId]', () => {
@@ -455,12 +506,14 @@ describe('PATCH /api/v1/projects/[projectId]', () => {
 
     expect(res.status).toBe(200)
     expect(mockProjectUpdate).toHaveBeenCalledWith(expect.objectContaining({
+      companyId: 'company-primary',
       sourceCompanyId: 'company-primary',
+      companyIds: ['company-primary', 'company-secondary'],
       sourceCompanyIds: ['company-primary'],
-      companyIds: ['company-secondary', 'company-primary'],
+      contactId: 'contact-primary',
       sourceContactId: 'contact-primary',
+      contactIds: ['contact-primary', 'contact-secondary'],
       sourceContactIds: ['contact-primary'],
-      contactIds: ['contact-secondary'],
     }))
     expect(mockEnsureClaimableRelationship).not.toHaveBeenCalled()
     expect(mockProjectUpdate).not.toHaveBeenCalledWith(expect.objectContaining({ claimToken: expect.anything() }))

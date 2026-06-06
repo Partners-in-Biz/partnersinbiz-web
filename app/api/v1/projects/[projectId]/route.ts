@@ -110,7 +110,14 @@ export const PATCH = withAuth('client', async (req: NextRequest, user, ctx) => {
   const requestedLinks = pickProjectLinkFields(body)
   if (Object.keys(requestedLinks).length > 0) {
     const existing = access.doc.data() ?? {}
-    const normalizedLinks = normalizeProjectLinks({ ...pickProjectLinkFields(existing), ...requestedLinks })
+    const requestedProjectLinks = { ...requestedLinks }
+    if (requestedProjectLinks.sourceCompanyId !== undefined && requestedProjectLinks.companyId === undefined) {
+      requestedProjectLinks.companyId = requestedProjectLinks.sourceCompanyId
+    }
+    if (requestedProjectLinks.sourceContactId !== undefined && requestedProjectLinks.contactId === undefined) {
+      requestedProjectLinks.contactId = requestedProjectLinks.sourceContactId
+    }
+    const normalizedLinks = normalizeProjectLinks({ ...pickProjectLinkFields(existing), ...requestedProjectLinks })
     if (normalizedLinks.ok === false) return apiError(normalizedLinks.error, 400)
     if (sourceOrgId) {
       const linkSafety = await assertProjectPatchLinkTenantSafety(normalizedLinks.value, sourceOrgId, user)

@@ -84,6 +84,12 @@ function mockFetch() {
             description: 'Initial board description',
             brief: 'Existing project brief',
             status: 'development',
+            sourceCompanyId: 'company-primary',
+            companyId: 'company-primary',
+            companyIds: ['company-primary', 'company-extra'],
+            sourceContactId: 'contact-primary',
+            contactId: 'contact-primary',
+            contactIds: ['contact-primary', 'contact-extra'],
             columns: [],
           },
         }),
@@ -335,6 +341,41 @@ describe('Admin project docs and settings tabs', () => {
     await waitFor(() => expect(screen.getByText('Manage this board')).toBeInTheDocument())
     expect(screen.getByLabelText('Project Name')).toHaveValue('Client Website')
     expect(screen.getByText('Current board')).toBeInTheDocument()
+  })
+
+  it('shows and saves primary plus additional project CRM relationship links', async () => {
+    render(<ProjectDetailPage />)
+
+    fireEvent.click(screen.getByRole('tab', { name: 'Settings' }))
+
+    await waitFor(() => expect(screen.getByLabelText('Primary company')).toHaveValue('company-primary'))
+    expect(screen.getByLabelText('Primary contact')).toHaveValue('contact-primary')
+    expect(screen.getByLabelText('Additional company links')).toHaveValue('company-extra')
+    expect(screen.getByLabelText('Additional contact links')).toHaveValue('contact-extra')
+
+    fireEvent.change(screen.getByLabelText('Primary company'), { target: { value: 'company-new-primary' } })
+    fireEvent.change(screen.getByLabelText('Additional company links'), { target: { value: 'company-extra\ncompany-secondary' } })
+    fireEvent.change(screen.getByLabelText('Primary contact'), { target: { value: 'contact-new-primary' } })
+    fireEvent.change(screen.getByLabelText('Additional contact links'), { target: { value: 'contact-extra\ncontact-secondary' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Save Settings' }))
+
+    await waitFor(() => expect(global.fetch).toHaveBeenCalledWith(
+      '/api/v1/projects/project-1',
+      expect.objectContaining({
+        method: 'PATCH',
+        body: JSON.stringify({
+          name: 'Client Website',
+          status: 'development',
+          description: 'Initial board description',
+          companyId: 'company-new-primary',
+          sourceCompanyId: 'company-new-primary',
+          companyIds: ['company-new-primary', 'company-extra', 'company-secondary'],
+          contactId: 'contact-new-primary',
+          sourceContactId: 'contact-new-primary',
+          contactIds: ['contact-new-primary', 'contact-extra', 'contact-secondary'],
+        }),
+      }),
+    ))
   })
 
   it('shows project People & Access controls in settings', async () => {

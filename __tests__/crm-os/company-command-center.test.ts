@@ -337,6 +337,33 @@ describe('CRM OS company command center foundations', () => {
     expect(projectLinksContact({ contactIds: ['other-contact'] }, 'contact-1')).toBe(false)
   })
 
+  it('lists contact projects by scalar and array contact links without composite-index query chains', async () => {
+    const projectsCollection = collectionFor([
+      { id: 'by-contact', data: { orgId: 'org-1', contactId: 'contact-1', name: 'By Contact', createdAt: timestamp(10) } },
+      { id: 'by-source-contact', data: { orgId: 'org-1', sourceContactId: 'contact-1', name: 'By Source Contact', createdAt: timestamp(20) } },
+      { id: 'by-contact-array', data: { orgId: 'org-1', contactIds: ['contact-1', 'contact-2'], name: 'By Contact Array', createdAt: timestamp(30) } },
+      { id: 'by-source-contact-array', data: { orgId: 'org-1', sourceContactIds: ['contact-1'], name: 'By Source Contact Array', createdAt: timestamp(40) } },
+      { id: 'archived-contact-array', data: { orgId: 'org-1', contactIds: ['contact-1'], name: 'Archived Contact Array', archived: true, createdAt: timestamp(50) } },
+      { id: 'other-contact', data: { orgId: 'org-1', contactIds: ['other-contact'], name: 'Other Contact', createdAt: timestamp(60) } },
+    ])
+    mockCollection.mockImplementation((name: string) => {
+      if (name === 'projects') return projectsCollection
+      return collectionFor()
+    })
+
+    const { listContactProjects } = await import('@/lib/companies/command-center')
+    const projects = await listContactProjects({ id: 'contact-1', orgId: 'org-1' }, { limit: 10 })
+
+    expect(projects.map((project) => project.id)).toEqual([
+      'by-source-contact-array',
+      'by-contact-array',
+      'by-source-contact',
+      'by-contact',
+    ])
+    expect(projectsCollection.where).toHaveBeenCalledWith('orgId', '==', 'org-1')
+    expect(projectsCollection.where).toHaveBeenCalledTimes(1)
+  })
+
   it('includes linked organisation workspace metadata for client-org companies', async () => {
     mockCollection.mockImplementation((name: string) => {
       if (name === 'organizations') return collectionFor([

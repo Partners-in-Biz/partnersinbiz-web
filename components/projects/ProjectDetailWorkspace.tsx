@@ -359,6 +359,8 @@ export function ProjectDetailWorkspace({
     const cleanSourceContactId = settingsSourceContactId.trim()
     const cleanAdditionalCompanyIds = normalizeRelationshipIds(settingsAdditionalCompanyIds, [cleanSourceCompanyId])
     const cleanAdditionalContactIds = normalizeRelationshipIds(settingsAdditionalContactIds, [cleanSourceContactId])
+    const cleanCompanyIds = [cleanSourceCompanyId, ...cleanAdditionalCompanyIds].filter(Boolean)
+    const cleanContactIds = [cleanSourceContactId, ...cleanAdditionalContactIds].filter(Boolean)
     setSavingSettings(true)
     setSettingsSaved(false)
     await fetch(`/api/v1/projects/${projectId}`, {
@@ -368,10 +370,12 @@ export function ProjectDetailWorkspace({
         name: settingsName.trim(),
         status: settingsStatus,
         description: settingsDescription,
+        companyId: cleanSourceCompanyId || undefined,
         sourceCompanyId: cleanSourceCompanyId || undefined,
-        companyIds: cleanAdditionalCompanyIds,
+        companyIds: cleanCompanyIds,
+        contactId: cleanSourceContactId || undefined,
         sourceContactId: cleanSourceContactId || undefined,
-        contactIds: cleanAdditionalContactIds,
+        contactIds: cleanContactIds,
       }),
     })
     setProject(prev => prev ? {
@@ -379,10 +383,12 @@ export function ProjectDetailWorkspace({
       name: settingsName.trim(),
       status: settingsStatus,
       description: settingsDescription,
+      companyId: cleanSourceCompanyId || undefined,
       sourceCompanyId: cleanSourceCompanyId || undefined,
-      companyIds: cleanAdditionalCompanyIds,
+      companyIds: cleanCompanyIds,
+      contactId: cleanSourceContactId || undefined,
       sourceContactId: cleanSourceContactId || undefined,
-      contactIds: cleanAdditionalContactIds,
+      contactIds: cleanContactIds,
     } : null)
     setSettingsAdditionalCompanyIds(cleanAdditionalCompanyIds)
     setSettingsAdditionalContactIds(cleanAdditionalContactIds)
