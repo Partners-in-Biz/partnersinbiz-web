@@ -468,7 +468,7 @@ describe('PATCH /api/v1/projects/[projectId]', () => {
 })
 
 describe('DELETE /api/v1/projects', () => {
-  it('recursively deletes the project document and nested task subcollections', async () => {
+  it('soft-archives the project without recursively deleting nested work', async () => {
     const projectRef = {
       get: mockProjectGetById,
       update: mockProjectUpdate,
@@ -479,10 +479,18 @@ describe('DELETE /api/v1/projects', () => {
     const { DELETE } = await import('@/app/api/v1/projects/route')
     const req = new NextRequest('http://localhost/api/v1/projects?id=project-1', { method: 'DELETE' })
     const res = await DELETE(req)
+    const body = await res.json()
 
     expect(res.status).toBe(200)
+    expect(body).toEqual({ success: true, data: { id: 'project-1', archived: true } })
     expect(mockProjectDoc).toHaveBeenCalledWith('project-1')
-    expect(mockRecursiveDelete).toHaveBeenCalledWith(projectRef)
+    expect(mockProjectUpdate).toHaveBeenCalledWith(expect.objectContaining({
+      archived: true,
+      archivedAt: 'SERVER_TIMESTAMP',
+      archivedBy: 'admin-1',
+      updatedAt: 'SERVER_TIMESTAMP',
+    }))
+    expect(mockRecursiveDelete).not.toHaveBeenCalled()
     expect(mockProjectDelete).not.toHaveBeenCalled()
   })
 })
