@@ -181,16 +181,25 @@ export function buildSlashCommandPayload(
   }
 }
 
+export function councilModeGuidanceLines(trigger: 'slash-command' | 'multi-agent-chat' = 'slash-command'): string[] {
+  const opening = trigger === 'multi-agent-chat'
+    ? 'Council-style multi-agent orchestration requirements:'
+    : 'Council mode requirements:'
+
+  return [
+    opening,
+    '- Select the relevant PiB specialist perspectives for the question before answering. Use role fit: Theo=engineering, Maya=content/brand/social, Sage=research/strategy, Vera=data/analytics, Nora=ops/billing/admin, Quinn=QA/release, Ari=paid media, Silas=SEO, Luca=support, Iris=documents, Blake=sales.',
+    '- Prefer real independent perspectives when supported: use Hermes subagents for bounded one-off analysis, or Projects/Kanban task-bus handoffs when the work needs durable ownership, evidence, approvals, or review.',
+    '- If you cannot actually call a subagent/specialist in this run, simulate only the clearly relevant perspectives and label them as perspective analysis, not as completed agent execution.',
+    '- Include challenge/debate: key disagreements, risks, approval gates, and what evidence would change the recommendation.',
+    '- Finish with a clear consensus/recommendation, minority objections if any, confidence level, and the owner for next execution.',
+    '- Do not perform client-visible, spend, deploy, finance, secret/config, or destructive actions without the normal approval gate.',
+  ]
+}
+
 export function slashCommandInstruction(payload: SlashCommandPayload): string {
   const commandGuidance = payload.id === 'council'
-    ? [
-        'Council mode requirements:',
-        '- Select the relevant PiB specialist perspectives for the question before answering. Use role fit: Theo=engineering, Maya=content/brand/social, Sage=research/strategy, Vera=data/analytics, Nora=ops/billing/admin, Quinn=QA/release, Ari=paid media, Silas=SEO, Luca=support, Iris=documents, Blake=sales.',
-        '- Gather independent perspectives where tool-supported subagents or task-bus handoffs are useful; otherwise simulate only the perspectives that are clearly in scope and label them as perspective analysis, not as completed agent execution.',
-        '- Include challenge/debate: key disagreements, risks, approval gates, and what evidence would change the recommendation.',
-        '- Finish with a clear consensus/recommendation, minority objections if any, confidence level, and the owner for next execution.',
-        '- Do not perform client-visible, spend, deploy, finance, secret/config, or destructive actions without the normal approval gate.',
-      ]
+    ? councilModeGuidanceLines('slash-command')
     : []
 
   return [

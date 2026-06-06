@@ -180,6 +180,37 @@ describe('unified conversation message routing', () => {
     expect(body.data.dispatchAgentId).toBe('pip')
   })
 
+  it('routes multi-agent conversations through Pip with council-style orchestration guidance', async () => {
+    mockGetConversation.mockResolvedValue({
+      id: 'conv-1',
+      orgId: 'pib-platform-owner',
+      participantUids: ['client-1'],
+      participantAgentIds: ['pip', 'maya', 'theo'],
+      participants: [
+        { kind: 'user', uid: 'client-1', role: 'client', displayName: 'Client User' },
+        { kind: 'agent', agentId: 'pip', name: 'Pip' },
+        { kind: 'agent', agentId: 'maya', name: 'Maya' },
+        { kind: 'agent', agentId: 'theo', name: 'Theo' },
+      ],
+    })
+    const { POST } = await import('@/app/api/v1/conversations/[convId]/messages/route')
+
+    const res = await POST(req(), { params: Promise.resolve({ convId: 'conv-1' }) })
+
+    expect(res.status).toBe(201)
+    expect(mockCreateHermesRun).toHaveBeenCalledTimes(1)
+    const prompt = mockCreateHermesRun.mock.calls[0][2].prompt as string
+    expect(prompt).toContain('[Multi-agent orchestration]')
+    expect(prompt).toContain('Council-style multi-agent orchestration requirements:')
+    expect(prompt).toContain('Hermes subagents for bounded one-off analysis')
+    expect(prompt).toContain('Theo=engineering')
+    expect(mockCreateHermesRun.mock.calls[0][2].metadata).toEqual(expect.objectContaining({
+      dispatchAgentId: 'pip',
+      requestedAgentIds: ['pip', 'maya', 'theo'],
+      orchestrationMode: 'pip-orchestrator',
+    }))
+  })
+
   it('injects selected agent skills and approval gates into the dispatched prompt', async () => {
     mockGetConversation.mockResolvedValue({
       id: 'conv-1',
