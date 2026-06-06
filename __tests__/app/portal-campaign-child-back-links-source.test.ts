@@ -21,6 +21,8 @@ describe('portal campaign child route back links', () => {
 
     expect(file).toContain('scopedPortalHref')
     expect(file).toContain("href={scopedPortalHref('/portal/campaigns', scope)}")
+    expect(file).toContain('<span className="material-symbols-outlined text-base" aria-hidden="true">arrow_back</span>')
+    expect(file).not.toContain('<span className="material-symbols-outlined text-base">arrow_back</span>')
     expect(file).not.toContain('href="/portal/campaigns"')
   })
 })
