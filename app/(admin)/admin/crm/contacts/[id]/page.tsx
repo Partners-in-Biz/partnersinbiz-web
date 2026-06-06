@@ -585,7 +585,7 @@ export default function ContactDetailPage() {
                 </button>
               )}
               <button onClick={() => setEditing((value) => !value)} className="pib-btn-primary text-sm">
-                <span className="material-symbols-outlined text-base">{editing ? 'close' : 'edit'}</span>
+                <span className="material-symbols-outlined text-base" aria-hidden="true">{editing ? 'close' : 'edit'}</span>
                 {editing ? 'Cancel edit' : 'Edit contact'}
               </button>
             </div>
