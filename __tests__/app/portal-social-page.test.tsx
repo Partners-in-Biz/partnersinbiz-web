@@ -53,7 +53,7 @@ describe('PortalSocialDashboard', () => {
           }),
         } as Response)
       }
-      if (url === '/api/v1/portal/org?orgId=lumen-org') {
+      if (url === '/api/v1/portal/org?orgId=lumen-org' || url === '/api/v1/portal/org') {
         return Promise.resolve({
           ok: true,
           json: async () => ({ org: { id: 'lumen-org', name: 'Lumen', slug: 'lumen-speeds' } }),
@@ -126,6 +126,28 @@ describe('PortalSocialDashboard', () => {
         '/api/v1/social/posts/post-1/approve?orgId=lumen-org',
         expect.objectContaining({ method: 'POST' }),
       )
+    })
+  })
+
+  it('uses the resolved active portal org for social data when the route has no orgId query', async () => {
+    mockSearchParams = new URLSearchParams()
+
+    await act(async () => {
+      render(<PortalSocialDashboard />)
+      await Promise.resolve()
+      await Promise.resolve()
+    })
+
+    expect(await screen.findByText('Lumen')).toBeInTheDocument()
+    expect(await screen.findByText('Lumen Speeds')).toBeInTheDocument()
+    await waitFor(() => {
+      expect(screen.getAllByText('Lumen launch social post')).toHaveLength(2)
+    })
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith('/api/v1/portal/org')
+      expect(global.fetch).toHaveBeenCalledWith('/api/v1/social/accounts?orgId=lumen-org')
+      expect(global.fetch).toHaveBeenCalledWith('/api/v1/social/posts?limit=200&orgId=lumen-org')
     })
   })
 })

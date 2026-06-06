@@ -103,6 +103,11 @@ function normalizeLinks(values: unknown, fallbackType: string): Array<{ label: s
 }
 
 function normalizeTextList(values: unknown): string[] {
+  if (typeof values === 'number' && Number.isFinite(values)) return [String(values)]
+  if (typeof values === 'string') {
+    const value = values.trim()
+    return value ? [value] : []
+  }
   if (!Array.isArray(values)) return []
   return values.flatMap((entry) => {
     if (typeof entry === 'string') {
@@ -116,6 +121,37 @@ function normalizeTextList(values: unknown): string[] {
     }
     return []
   }).slice(0, 10)
+}
+
+
+function normalizeLearningEvidence(values: unknown): Array<{ label: string; href?: string; type?: string }> {
+  if (typeof values === 'number' && Number.isFinite(values)) return [{ label: String(values) }]
+  if (typeof values === 'string') {
+    const value = values.trim()
+    return value ? [{ label: value }] : []
+  }
+  if (!Array.isArray(values)) return []
+  return values.flatMap((entry) => {
+    if (typeof entry === 'string') {
+      const value = entry.trim()
+      return value ? [{ label: value }] : []
+    }
+    if (!entry || typeof entry !== 'object' || Array.isArray(entry)) return []
+    const record = entry as Record<string, unknown>
+    const label = compactString(record.label) ?? compactString(record.title) ?? compactString(record.summary) ?? compactString(record.change) ?? compactString(record.name) ?? compactString(record.skill) ?? compactString(record.path)
+    if (!label) return []
+    const href = compactString(record.href) ?? compactString(record.url) ?? compactString(record.path) ?? undefined
+    const type = compactString(record.type) ?? compactString(record.category) ?? undefined
+    return [{ label, href, type }]
+  }).slice(0, 12)
+}
+
+function pickLearningEvidence(data: Record<string, unknown> | null | undefined, keys: string[]): Array<{ label: string; href?: string; type?: string }> {
+  for (const key of keys) {
+    const evidence = normalizeLearningEvidence(data?.[key])
+    if (evidence.length) return evidence
+  }
+  return []
 }
 
 function reviewStatusCopy(doc: AgentLearningReviewTask): string {
@@ -214,6 +250,17 @@ export const agentLearningReviewAdapter: BriefingSourceAdapter<AgentLearningRevi
         wikiLinks: normalizeLinks(data?.wikiLinks, 'wiki'),
         taskLinks: normalizeLinks(data?.taskLinks, 'task'),
         proposedChanges: normalizeTextList(data?.recommendedSkillChanges ?? data?.proposedSkillChanges ?? data?.learningItems),
+        dashboard: {
+          skillsChanged: [
+            ...pickLearningEvidence(data, ['skillsAdded', 'skillsCreated', 'newSkills']),
+            ...pickLearningEvidence(data, ['skillsUpdated', 'skillUpdates', 'updatedSkills']),
+          ].slice(0, 12),
+          mistakesReduced: pickLearningEvidence(data, ['recurringMistakesReduced', 'mistakesReduced', 'mistakeReductions', 'reducedMistakes']),
+          staleInstructionsFound: pickLearningEvidence(data, ['staleInstructionsFound', 'staleInstructions', 'staleSopsFound', 'staleGuidanceFound']),
+          blockedTasksPrevented: pickLearningEvidence(data, ['blockedTasksPrevented', 'blockersPrevented', 'preventedBlockedTasks']),
+          newSopsProposed: pickLearningEvidence(data, ['newSopsProposed', 'sopsProposed', 'newSOPsProposed', 'proposedSops']),
+          knowledgeCaptured: pickLearningEvidence(data, ['clientProjectKnowledgeCaptured', 'knowledgeCaptured', 'clientKnowledgeCaptured', 'projectKnowledgeCaptured']),
+        },
         sourceDocumentId: compactString(data?.sourceDocumentId) ?? compactString(doc.agentInput?.context && typeof doc.agentInput.context === 'object' ? (doc.agentInput.context as Record<string, unknown>).sourceDocumentId : null) ?? null,
         approvalGateTaskId: compactString(data?.approvalGateTaskId) ?? compactString(doc.agentInput?.context && typeof doc.agentInput.context === 'object' ? (doc.agentInput.context as Record<string, unknown>).approvalGateTaskId : null) ?? null,
       },
