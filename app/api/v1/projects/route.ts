@@ -18,6 +18,7 @@ import {
 } from '@/lib/platform-owner/relationships'
 import { canAccessProject } from '@/lib/projects/access'
 import { ensureProjectOwnerMembership } from '@/lib/projects/collaboration'
+import { normalizeProjectLinks, pickProjectLinkFields, type ProjectLinkSet } from '@/lib/client-documents/linkedValidation'
 
 const VALID_STATUSES = [
   'discovery',
@@ -93,6 +94,34 @@ async function loadOwnedCrmRecord(
   if (!snap.exists) return null
   const data = (snap.data() ?? {}) as Record<string, unknown>
   return data.orgId === orgId ? data : null
+}
+
+async function assertProjectLinkTenantSafety(
+  links: ProjectLinkSet,
+  sourceOrgId: string,
+  user: ApiUser,
+  trustedCompanyIds: string[] = [],
+): Promise<{ ok: true } | { ok: false; error: string; status: number }> {
+  const linkedOrgIds = Array.from(new Set([...(links.recipientOrgIds ?? []), ...(links.clientOrgIds ?? [])]))
+  for (const orgId of linkedOrgIds) {
+    if (!canAccessOrg(user, orgId)) return { ok: false, error: `Forbidden linked recipient org: ${orgId}`, status: 403 }
+  }
+
+  const trustedCompanies = new Set(trustedCompanyIds)
+  const companyIds = Array.from(new Set([...(links.companyIds ?? []), ...(links.sourceCompanyIds ?? [])]))
+  for (const companyId of companyIds) {
+    if (trustedCompanies.has(companyId)) continue
+    const company = await loadOwnedCrmRecord('companies', companyId, sourceOrgId)
+    if (!company) return { ok: false, error: `Project company link is outside the source org: ${companyId}`, status: 400 }
+  }
+
+  const contactIds = Array.from(new Set([...(links.contactIds ?? []), ...(links.sourceContactIds ?? [])]))
+  for (const contactId of contactIds) {
+    const contact = await loadOwnedCrmRecord('contacts', contactId, sourceOrgId)
+    if (!contact) return { ok: false, error: `Project contact link is outside the source org: ${contactId}`, status: 400 }
+  }
+
+  return { ok: true }
 }
 
 async function resolveProjectCrmTarget(body: Record<string, unknown>, sourceOrgId: string) {
@@ -273,6 +302,9 @@ export const GET = withAuth('client', async (req: NextRequest, user: ApiUser) =>
 
 export const POST = withAuth('client', async (req: NextRequest, user: ApiUser) => {
   const body = await req.json()
+  const normalizedLinks = normalizeProjectLinks(pickProjectLinkFields(body))
+  if (normalizedLinks.ok === false) return apiError(normalizedLinks.error, 400)
+  Object.assign(body, normalizedLinks.value)
 
   if (!body.name?.trim()) return apiError('Name is required')
   if (body.status && !VALID_STATUSES.includes(body.status as ProjectStatus)) {
@@ -337,10 +369,25 @@ export const POST = withAuth('client', async (req: NextRequest, user: ApiUser) =
       })
     : null
 
+  const finalLinks = normalizeProjectLinks({
+    ...normalizedLinks.value,
+    sourceCompanyId: crmTarget?.companyId || platformCompany?.companyId || normalizedLinks.value.sourceCompanyId,
+    sourceContactId: crmTarget?.contactId || normalizedLinks.value.sourceContactId,
+    companyId: crmTarget?.companyId || platformCompany?.companyId || normalizedLinks.value.companyId,
+    contactId: crmTarget?.contactId || normalizedLinks.value.contactId,
+    recipientOrgId: crmTarget?.recipientOrgId || recipientOrgId || normalizedLinks.value.recipientOrgId,
+    clientOrgId: crmTarget?.recipientOrgId || recipientOrgId || normalizedLinks.value.clientOrgId,
+  })
+  if (finalLinks.ok === false) return apiError(finalLinks.error, 400)
+  const trustedCompanyIds = platformCompany?.companyId ? [platformCompany.companyId] : []
+  const linkSafety = await assertProjectLinkTenantSafety(finalLinks.value, sourceOrgId, user, trustedCompanyIds)
+  if (linkSafety.ok === false) return apiError(linkSafety.error, linkSafety.status)
+
   const name = body.name.trim()
   const ownerUid = user.uid
   const ownerOrgId = sourceOrgId
   const docRef = await adminDb.collection('projects').add(stripUndefined({
+    ...finalLinks.value,
     name,
     ownerUid,
     ownerOrgId,

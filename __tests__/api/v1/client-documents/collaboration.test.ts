@@ -6,6 +6,7 @@ const mockChildGet = jest.fn()
 const mockChildSet = jest.fn()
 const mockChildUpdate = jest.fn()
 const mockChildDoc = jest.fn()
+const mockDocumentUpdate = jest.fn()
 const mockArrayUnion = jest.fn((...values: unknown[]) => ({ __arrayUnion: values }))
 const mockResolveContextReferences = jest.fn()
 
@@ -24,9 +25,10 @@ jest.mock('@/lib/firebase/admin', () => ({
 
 jest.mock('@/lib/api/auth', () => ({
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  withAuth: (requiredRole: 'admin' | 'client', handler: any) => async (req: NextRequest, user: any, ctx?: any) => {
+  withAuth: (requiredRole: 'admin' | 'client' | Array<'admin' | 'client'>, handler: any) => async (req: NextRequest, user: any, ctx?: any) => {
+    const requiredRoles = Array.isArray(requiredRole) ? requiredRole : [requiredRole]
     const roleOk =
-      user?.role === 'ai' || user?.role === 'admin' || (requiredRole === 'client' && user?.role === 'client')
+      user?.role === 'ai' || user?.role === 'admin' || (requiredRoles.includes('client') && user?.role === 'client')
 
     if (!roleOk) {
       return new Response(JSON.stringify({ success: false, error: 'Forbidden' }), {
@@ -61,6 +63,7 @@ beforeEach(() => {
   mockChildGet.mockReset()
   mockChildSet.mockResolvedValue(undefined)
   mockChildUpdate.mockResolvedValue(undefined)
+  mockDocumentUpdate.mockResolvedValue(undefined)
   mockArrayUnion.mockClear()
   mockResolveContextReferences.mockReset()
   mockResolveContextReferences.mockResolvedValue([])
@@ -78,6 +81,7 @@ beforeEach(() => {
   const documentRef = {
     id: 'doc-1',
     get: mockDocumentGet,
+    update: mockDocumentUpdate,
     collection: jest.fn(() => childCollection),
   }
 
@@ -89,7 +93,7 @@ describe('client document collaboration API', () => {
     mockDocumentGet.mockResolvedValueOnce({
       exists: true,
       id: 'doc-1',
-      data: () => ({ orgId: 'org-1', currentVersionId: 'version-1', deleted: false }),
+      data: () => ({ orgId: 'org-1', currentVersionId: 'version-1', deleted: false, status: 'client_review', linked: { clientOrgId: 'org-1' } }),
     })
 
     const { POST } = await import('@/app/api/v1/client-documents/[id]/comments/route')
@@ -148,6 +152,7 @@ describe('client document collaboration API', () => {
         title: 'Client Proposal',
         type: 'sales_proposal',
         status: 'client_review',
+        linked: { clientOrgId: 'org-1' },
       }),
     })
 
@@ -175,11 +180,82 @@ describe('client document collaboration API', () => {
     )
   })
 
+  it('promotes selected CRM contact and company refs into document-level links without creating mention notifications', async () => {
+    const resolvedRefs = [
+      {
+        type: 'document',
+        id: 'doc-1',
+        orgId: 'org-1',
+        label: 'Client Proposal',
+        origin: 'current_page',
+      },
+      {
+        type: 'contact',
+        id: 'contact-1',
+        orgId: 'org-1',
+        label: 'Jane Client',
+        origin: 'mention',
+      },
+      {
+        type: 'company',
+        id: 'company-1',
+        orgId: 'org-1',
+        label: 'Client Co',
+        origin: 'mention',
+      },
+      {
+        type: 'project',
+        id: 'project-1',
+        orgId: 'org-1',
+        label: 'Launch Project',
+        origin: 'mention',
+      },
+    ]
+    mockResolveContextReferences.mockResolvedValueOnce(resolvedRefs)
+    mockDocumentGet.mockResolvedValueOnce({
+      exists: true,
+      id: 'doc-1',
+      data: () => ({
+        orgId: 'org-1',
+        currentVersionId: 'version-1',
+        deleted: false,
+        title: 'Client Proposal',
+        type: 'sales_proposal',
+        status: 'client_review',
+        linked: { clientOrgId: 'org-1' },
+      }),
+    })
+
+    const { POST } = await import('@/app/api/v1/client-documents/[id]/comments/route')
+    const req = jsonRequest('http://localhost/api/v1/client-documents/doc-1/comments', {
+      text: 'Tie this feedback back to Jane and Client Co.',
+      alsoLinkToDocument: true,
+      contextRefs: [
+        { type: 'contacts', id: 'contact-1', orgId: 'org-1', origin: 'mention' },
+        { type: 'companies', id: 'company-1', orgId: 'org-1', origin: 'mention' },
+        { type: 'projects', id: 'project-1', orgId: 'org-1', origin: 'mention' },
+      ],
+    })
+
+    const res = await POST(req, clientUser, { params: Promise.resolve({ id: 'doc-1' }) })
+
+    expect(res.status).toBe(201)
+    expect(mockDocumentUpdate).toHaveBeenCalledWith(expect.objectContaining({
+      'linked.contactIds': { __arrayUnion: ['contact-1'] },
+      'linked.companyIds': { __arrayUnion: ['company-1'] },
+    }))
+    expect(mockDocumentUpdate).not.toHaveBeenCalledWith(expect.objectContaining({
+      'linked.projectIds': expect.anything(),
+    }))
+    expect(mockChildSet).toHaveBeenCalledWith(expect.objectContaining({ contextRefs: resolvedRefs }))
+  })
+
+
   it('lists comments for an accessible document', async () => {
     mockDocumentGet.mockResolvedValueOnce({
       exists: true,
       id: 'doc-1',
-      data: () => ({ orgId: 'org-1', currentVersionId: 'version-1', deleted: false }),
+      data: () => ({ orgId: 'org-1', currentVersionId: 'version-1', deleted: false, status: 'client_review', linked: { clientOrgId: 'org-1' } }),
     })
     mockChildGet.mockResolvedValueOnce({
       docs: [{ id: 'comment-1', data: () => ({ text: 'Looks good', status: 'open' }) }],
@@ -198,7 +274,7 @@ describe('client document collaboration API', () => {
     mockDocumentGet.mockResolvedValueOnce({
       exists: true,
       id: 'doc-1',
-      data: () => ({ orgId: 'org-1', currentVersionId: 'version-1', deleted: false }),
+      data: () => ({ orgId: 'org-1', currentVersionId: 'version-1', deleted: false, status: 'client_review', linked: { clientOrgId: 'org-1' } }),
     })
 
     const { POST } = await import('@/app/api/v1/client-documents/[id]/comments/route')
@@ -241,6 +317,7 @@ describe('client document collaboration API', () => {
         title: 'Client Proposal',
         type: 'sales_proposal',
         status: 'client_review',
+        linked: { clientOrgId: 'org-1' },
       }),
     })
     mockChildGet.mockResolvedValueOnce({
@@ -278,11 +355,67 @@ describe('client document collaboration API', () => {
     })
   })
 
+  it('promotes selected CRM refs from replies into document-level links', async () => {
+    const resolvedRefs = [
+      {
+        type: 'document',
+        id: 'doc-1',
+        orgId: 'org-1',
+        label: 'Client Proposal',
+        origin: 'current_page',
+      },
+      {
+        type: 'company',
+        id: 'company-1',
+        orgId: 'org-1',
+        label: 'Client Co',
+        origin: 'mention',
+      },
+    ]
+    mockResolveContextReferences.mockResolvedValueOnce(resolvedRefs)
+    mockDocumentGet.mockResolvedValueOnce({
+      exists: true,
+      id: 'doc-1',
+      data: () => ({
+        orgId: 'org-1',
+        currentVersionId: 'version-1',
+        deleted: false,
+        title: 'Client Proposal',
+        type: 'sales_proposal',
+        status: 'client_review',
+        linked: { clientOrgId: 'org-1' },
+      }),
+    })
+    mockChildGet.mockResolvedValueOnce({
+      exists: true,
+      id: 'comment-1',
+      data: () => ({ status: 'open', text: 'Needs context.' }),
+    })
+
+    const { POST } = await import('@/app/api/v1/client-documents/[id]/comments/[commentId]/replies/route')
+    const req = jsonRequest('http://localhost/api/v1/client-documents/doc-1/comments/comment-1/replies', {
+      text: 'Client Co is the document-level relationship for this thread.',
+      alsoLinkToDocument: true,
+      contextRefs: [{ type: 'companies', id: 'company-1', orgId: 'org-1', origin: 'mention' }],
+    })
+
+    const res = await POST(req, clientUser, { params: Promise.resolve({ id: 'doc-1', commentId: 'comment-1' }) })
+
+    expect(res.status).toBe(201)
+    expect(mockDocumentUpdate).toHaveBeenCalledWith(expect.objectContaining({
+      'linked.companyIds': { __arrayUnion: ['company-1'] },
+    }))
+    expect(mockDocumentUpdate).not.toHaveBeenCalledWith(expect.objectContaining({
+      'linked.contactIds': expect.anything(),
+    }))
+  })
+
+
   it('resolves an accessible comment', async () => {
     mockDocumentGet.mockResolvedValueOnce({
       exists: true,
       id: 'doc-1',
-      data: () => ({ orgId: 'org-1', currentVersionId: 'version-1', deleted: false }),
+      data: () => ({ orgId: 'org-1', currentVersionId: 'version-1', deleted: false, status: 'client_review', linked: { clientOrgId: 'org-1' } }),
     })
     mockChildGet.mockResolvedValueOnce({
       exists: true,
@@ -312,7 +445,7 @@ describe('client document collaboration API', () => {
     mockDocumentGet.mockResolvedValueOnce({
       exists: true,
       id: 'doc-1',
-      data: () => ({ orgId: 'org-1', currentVersionId: 'version-1', deleted: false }),
+      data: () => ({ orgId: 'org-1', currentVersionId: 'version-1', deleted: false, status: 'client_review', linked: { clientOrgId: 'org-1' } }),
     })
 
     const { POST } = await import('@/app/api/v1/client-documents/[id]/suggestions/route')
@@ -344,7 +477,7 @@ describe('client document collaboration API', () => {
     mockDocumentGet.mockResolvedValueOnce({
       exists: true,
       id: 'doc-1',
-      data: () => ({ orgId: 'org-1', currentVersionId: 'version-1', deleted: false }),
+      data: () => ({ orgId: 'org-1', currentVersionId: 'version-1', deleted: false, status: 'client_review', linked: { clientOrgId: 'org-1' } }),
     })
     mockChildGet.mockResolvedValueOnce({
       docs: [{ id: 'suggestion-1', data: () => ({ status: 'open', kind: 'insert_text' }) }],
@@ -363,7 +496,7 @@ describe('client document collaboration API', () => {
     mockDocumentGet.mockResolvedValueOnce({
       exists: true,
       id: 'doc-1',
-      data: () => ({ orgId: 'org-1', currentVersionId: 'version-1', deleted: false }),
+      data: () => ({ orgId: 'org-1', currentVersionId: 'version-1', deleted: false, status: 'client_review', linked: { clientOrgId: 'org-1' } }),
     })
 
     const { POST } = await import('@/app/api/v1/client-documents/[id]/suggestions/route')
@@ -395,7 +528,7 @@ describe('client document collaboration API', () => {
     mockDocumentGet.mockResolvedValueOnce({
       exists: true,
       id: 'doc-1',
-      data: () => ({ orgId: 'org-1', currentVersionId: 'version-1', deleted: false }),
+      data: () => ({ orgId: 'org-1', currentVersionId: 'version-1', deleted: false, status: 'client_review', linked: { clientOrgId: 'org-1' } }),
     })
     mockChildGet.mockResolvedValueOnce({
       exists: true,
@@ -423,7 +556,7 @@ describe('client document collaboration API', () => {
     mockDocumentGet.mockResolvedValueOnce({
       exists: true,
       id: 'doc-1',
-      data: () => ({ orgId: 'org-1', currentVersionId: 'version-1', deleted: false }),
+      data: () => ({ orgId: 'org-1', currentVersionId: 'version-1', deleted: false, status: 'client_review', linked: { clientOrgId: 'org-1' } }),
     })
     mockChildGet.mockResolvedValueOnce({
       exists: true,

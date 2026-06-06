@@ -104,7 +104,7 @@ function renderPortalDashboard() {
     orgId: string
     isAdmin: boolean
     surface: 'portal'
-    orgScope: { orgId: string; orgSlug: string }
+    orgScope: { orgId: string; orgSlug: string; sourceCompanyId?: string; sourceCompanyName?: string }
   }>
 
   return render(
@@ -112,7 +112,12 @@ function renderPortalDashboard() {
       orgId="lumen-org"
       isAdmin={false}
       surface="portal"
-      orgScope={{ orgId: 'lumen-org', orgSlug: 'lumen-speeds' }}
+      orgScope={{
+        orgId: 'lumen-org',
+        orgSlug: 'lumen-speeds',
+        sourceCompanyId: 'company-1',
+        sourceCompanyName: 'Lumen',
+      }}
     />,
   )
 }
@@ -129,7 +134,7 @@ describe('portal email analytics shared dashboard', () => {
     const link = await screen.findByRole('link', { name: 'Open analytics for June broadcast' })
     expect(link).toHaveAttribute(
       'href',
-      '/portal/email-analytics/broadcasts/br-1?orgId=lumen-org&orgSlug=lumen-speeds',
+      '/portal/email-analytics/broadcasts/br-1?orgId=lumen-org&orgSlug=lumen-speeds&sourceCompanyId=company-1&sourceCompanyName=Lumen',
     )
   })
 
@@ -142,7 +147,11 @@ describe('portal email analytics shared dashboard', () => {
     const link = screen.getByRole('link', { name: /Website welcome sequence/i })
     expect(link).toHaveAttribute(
       'href',
-      '/portal/email-analytics/sequences/seq-1?orgId=lumen-org&orgSlug=lumen-speeds',
+      '/portal/email-analytics/sequences/seq-1?orgId=lumen-org&orgSlug=lumen-speeds&sourceCompanyId=company-1&sourceCompanyName=Lumen',
+    )
+    expect(screen.getByRole('link', { name: /Manage sequences/i })).toHaveAttribute(
+      'href',
+      '/portal/settings/sequences?orgId=lumen-org&orgSlug=lumen-speeds&sourceCompanyId=company-1&sourceCompanyName=Lumen',
     )
     expect(screen.queryByRole('link', { name: /Dormant draft sequence/i })).not.toBeInTheDocument()
 

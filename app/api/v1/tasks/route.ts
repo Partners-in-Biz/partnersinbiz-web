@@ -30,8 +30,25 @@ import {
   applyAgentColumnForCreate,
   applyAgentDispatchDefaultsForStandaloneAssignment,
 } from '@/lib/tasks/agentState'
+import {
+  RESOURCE_RELATIONSHIP_ARRAY_FIELDS,
+  RESOURCE_RELATIONSHIP_STRING_FIELDS,
+  normalizeResourceRelationshipLinks,
+} from '@/lib/client-documents/linkedValidation'
 
 export const dynamic = 'force-dynamic'
+
+function relationshipInputFrom(body: Record<string, unknown>) {
+  const value: Record<string, unknown> = {}
+  for (const key of RESOURCE_RELATIONSHIP_STRING_FIELDS) {
+    if (key in body) value[key] = body[key]
+  }
+  for (const key of RESOURCE_RELATIONSHIP_ARRAY_FIELDS) {
+    if (key in body) value[key] = body[key]
+  }
+  if ('contextRefs' in body) value.contextRefs = body.contextRefs
+  return Object.keys(value).length > 0 ? value : undefined
+}
 
 export const GET = withAuth('admin', async (req, user) => {
   const { searchParams } = new URL(req.url)
@@ -212,6 +229,12 @@ export const POST = withAuth(
     const dueDate = body.dueDate ?? null
     const assignedTo = body.assignedTo ?? null
 
+    const relationshipInput = relationshipInputFrom(body as unknown as Record<string, unknown>)
+    const relationships = relationshipInput
+      ? normalizeResourceRelationshipLinks(relationshipInput)
+      : { ok: true as const, value: {} }
+    if (!relationships.ok) return apiError(relationships.error, 400)
+
     const docData: Record<string, unknown> = {
       orgId: body.orgId.trim(),
       title,
@@ -223,6 +246,7 @@ export const POST = withAuth(
       projectId: body.projectId ?? null,
       contactId: body.contactId ?? null,
       dealId: body.dealId ?? null,
+      ...relationships.value,
       tags: body.tags ?? [],
       columnId: typeof body.columnId === 'string' && body.columnId.trim() ? body.columnId.trim() : 'todo',
       ...actorFrom(user),

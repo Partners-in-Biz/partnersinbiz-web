@@ -37,7 +37,7 @@ jest.mock('@/lib/ads/campaigns/store', () => ({
   listCampaigns: (...args: unknown[]) => mockListAdCampaigns(...args),
 }))
 
-jest.mock('@/app/(portal)/portal/campaigns/CampaignRequestPanel', () => ({
+jest.mock('@/components/campaigns/CampaignRequestPanel', () => ({
   CampaignRequestPanel: () => null,
 }))
 

@@ -11,6 +11,9 @@ const mockProjectGetById = jest.fn()
 const mockProjectDelete = jest.fn()
 const mockProjectMemberDoc = jest.fn()
 const mockProjectMemberSet = jest.fn()
+const mockProjectMemberGet = jest.fn()
+const mockProjectOrganizationDoc = jest.fn()
+const mockProjectOrganizationGet = jest.fn()
 const mockCollection = jest.fn()
 const mockRecursiveDelete = jest.fn()
 const mockActivityAdd = jest.fn()
@@ -98,8 +101,11 @@ beforeEach(() => {
   mockRecursiveDelete.mockResolvedValue(undefined)
   mockActivityAdd.mockResolvedValue({ id: 'activity-1' })
   mockProjectUpdate.mockResolvedValue(undefined)
-  mockProjectMemberDoc.mockReturnValue({ set: mockProjectMemberSet })
+  mockProjectMemberDoc.mockReturnValue({ set: mockProjectMemberSet, get: mockProjectMemberGet })
   mockProjectMemberSet.mockResolvedValue(undefined)
+  mockProjectMemberGet.mockResolvedValue({ exists: false, data: () => undefined })
+  mockProjectOrganizationDoc.mockReturnValue({ get: mockProjectOrganizationGet })
+  mockProjectOrganizationGet.mockResolvedValue({ exists: false, data: () => undefined })
   mockCompanyDoc.mockReturnValue({ get: mockCompanyGet })
   mockContactDoc.mockReturnValue({ get: mockContactGet })
   mockCompanyGet.mockResolvedValue({ exists: false, data: () => undefined })
@@ -122,6 +128,7 @@ beforeEach(() => {
     if (name === 'organizations') return { where: mockOrgWhere, doc: mockOrgDoc }
     if (name === 'projects') return projectCollection
     if (name === 'projectMembers') return { doc: mockProjectMemberDoc }
+    if (name === 'projectOrganizations') return { doc: mockProjectOrganizationDoc }
     if (name === 'companies') return { doc: mockCompanyDoc }
     if (name === 'contacts') return { doc: mockContactDoc }
     if (name === 'activity') return { add: mockActivityAdd }
@@ -411,10 +418,110 @@ describe('POST /api/v1/projects', () => {
       claimStatus: 'claimed',
     }))
   })
+
+  it('keeps additional project CRM links as reverse-visibility links without claim invite fan-out', async () => {
+    mockOrgGet.mockResolvedValue({
+      empty: false,
+      docs: [{ id: 'sender-org', data: () => ({ name: 'Sender Org' }) }],
+    })
+    mockAdd.mockResolvedValue({ id: 'project-1' })
+    mockCompanyGet.mockResolvedValue({ exists: true, data: () => ({ orgId: 'sender-org', name: 'Linked company' }) })
+    mockContactGet.mockResolvedValue({ exists: true, data: () => ({ orgId: 'sender-org', name: 'Linked contact', email: 'primary@example.com' }) })
+    mockEnsureClaimableRelationship.mockResolvedValue({
+      id: 'relationship-1',
+      claimToken: 'claim-token-1',
+      targetOrgId: undefined,
+      targetUserId: undefined,
+      status: 'pending',
+    })
+
+    const { POST } = await import('@/app/api/v1/projects/route')
+    const req = new NextRequest('http://localhost/api/v1/projects', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        name: 'Shared implementation',
+        orgSlug: 'sender-org',
+        companyId: 'company-primary',
+        contactId: 'contact-primary',
+        companyIds: ['company-secondary'],
+        contactIds: ['contact-secondary'],
+      }),
+    })
+
+    const res = await POST(req)
+
+    expect(res.status).toBe(201)
+    expect(mockAdd).toHaveBeenCalledWith(expect.objectContaining({
+      companyId: 'company-primary',
+      sourceCompanyId: 'company-primary',
+      companyIds: ['company-primary', 'company-secondary'],
+      sourceCompanyIds: ['company-primary'],
+      contactId: 'contact-primary',
+      sourceContactId: 'contact-primary',
+      contactIds: ['contact-primary', 'contact-secondary'],
+      sourceContactIds: ['contact-primary'],
+    }))
+    expect(mockEnsureClaimableRelationship).toHaveBeenCalledTimes(1)
+    expect(mockEnsureClaimableRelationship).toHaveBeenCalledWith(expect.objectContaining({
+      sourceCompanyId: 'company-primary',
+      sourceContactId: 'contact-primary',
+      recipientEmail: 'primary@example.com',
+    }))
+  })
+})
+
+describe('PATCH /api/v1/projects/[projectId]', () => {
+  it('updates normalized project company/contact links without fanning out claim tokens', async () => {
+    mockUser = { uid: 'admin-1', role: 'admin', orgId: 'platform', allowedOrgIds: ['platform', 'recipient-org'] }
+    mockProjectGetById.mockResolvedValue({
+      exists: true,
+      id: 'project-1',
+      data: () => ({
+        orgId: 'platform',
+        sourceOrgId: 'platform',
+        name: 'Shared implementation',
+        sourceCompanyId: 'company-primary',
+        sourceContactId: 'contact-primary',
+        recipientOrgId: 'recipient-org',
+        claimToken: 'claim-token-1',
+      }),
+    })
+    mockCompanyGet.mockResolvedValue({ exists: true, data: () => ({ orgId: 'platform', name: 'Linked company' }) })
+    mockContactGet.mockResolvedValue({ exists: true, data: () => ({ orgId: 'platform', name: 'Linked contact' }) })
+
+    const { PATCH } = await import('@/app/api/v1/projects/[projectId]/route')
+    const req = new NextRequest('http://localhost/api/v1/projects/project-1', {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        sourceCompanyId: ' company-primary ',
+        companyIds: ['company-secondary', 'company-primary'],
+        sourceContactId: ' contact-primary ',
+        contactIds: ['contact-secondary'],
+      }),
+    })
+
+    const res = await PATCH(req, { params: Promise.resolve({ projectId: 'project-1' }) })
+
+    expect(res.status).toBe(200)
+    expect(mockProjectUpdate).toHaveBeenCalledWith(expect.objectContaining({
+      companyId: 'company-primary',
+      sourceCompanyId: 'company-primary',
+      companyIds: ['company-primary', 'company-secondary'],
+      sourceCompanyIds: ['company-primary'],
+      contactId: 'contact-primary',
+      sourceContactId: 'contact-primary',
+      contactIds: ['contact-primary', 'contact-secondary'],
+      sourceContactIds: ['contact-primary'],
+    }))
+    expect(mockEnsureClaimableRelationship).not.toHaveBeenCalled()
+    expect(mockProjectUpdate).not.toHaveBeenCalledWith(expect.objectContaining({ claimToken: expect.anything() }))
+  })
 })
 
 describe('DELETE /api/v1/projects', () => {
-  it('recursively deletes the project document and nested task subcollections', async () => {
+  it('soft-archives the project without recursively deleting nested work', async () => {
     const projectRef = {
       get: mockProjectGetById,
       update: mockProjectUpdate,
@@ -425,10 +532,18 @@ describe('DELETE /api/v1/projects', () => {
     const { DELETE } = await import('@/app/api/v1/projects/route')
     const req = new NextRequest('http://localhost/api/v1/projects?id=project-1', { method: 'DELETE' })
     const res = await DELETE(req)
+    const body = await res.json()
 
     expect(res.status).toBe(200)
+    expect(body).toEqual({ success: true, data: { id: 'project-1', archived: true } })
     expect(mockProjectDoc).toHaveBeenCalledWith('project-1')
-    expect(mockRecursiveDelete).toHaveBeenCalledWith(projectRef)
+    expect(mockProjectUpdate).toHaveBeenCalledWith(expect.objectContaining({
+      archived: true,
+      archivedAt: 'SERVER_TIMESTAMP',
+      archivedBy: 'admin-1',
+      updatedAt: 'SERVER_TIMESTAMP',
+    }))
+    expect(mockRecursiveDelete).not.toHaveBeenCalled()
     expect(mockProjectDelete).not.toHaveBeenCalled()
   })
 })

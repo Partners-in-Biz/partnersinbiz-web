@@ -1159,7 +1159,7 @@ export default function PortalContactDetailPage() {
       <div className="bento-card p-10 text-center">
         <h2 className="font-display text-2xl">Contact not found.</h2>
         <Link href={contactListHref} className="btn-pib-secondary mt-6">
-          <span className="material-symbols-outlined text-base">arrow_back</span>
+          <span className="material-symbols-outlined text-base" aria-hidden="true">arrow_back</span>
           Back to contacts
         </Link>
       </div>
@@ -1259,7 +1259,6 @@ export default function PortalContactDetailPage() {
           : 'Cold'
   const lastTouchLabel = lastTouchDays === null ? 'No touch yet' : lastTouchDays === 0 ? 'Today' : `${lastTouchDays}d`
   const shouldPromptTouchLog = lastTouchDays === null || lastTouchDays > 30
-  const shouldPromptLastContactedRefresh = lastTouchDays !== null && lastTouchDays > 30
   const ownerRef =
     assignedTo && contact.assignedToRef?.uid === assignedTo
       ? contact.assignedToRef
@@ -1460,7 +1459,7 @@ export default function PortalContactDetailPage() {
           href={contactListHref}
           className="text-xs text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] inline-flex items-center gap-1 transition-colors"
         >
-          <span className="material-symbols-outlined text-sm">arrow_back</span>
+          <span className="material-symbols-outlined text-sm" aria-hidden="true">arrow_back</span>
           Contacts
         </Link>
         <div className="flex items-center gap-2">
@@ -1929,26 +1928,26 @@ export default function PortalContactDetailPage() {
               </div>
             ))}
             {contact.lastContactedAt ? (
-              <div>
+              <div className="rounded-md border border-[var(--color-pib-line)] bg-white/[0.015] p-3">
                 <p className="text-[10px] uppercase tracking-widest text-[var(--color-pib-text-muted)] font-mono">
                   Last contacted
                 </p>
-                <p className="text-[var(--color-pib-text-muted)] mt-0.5 text-xs font-mono">
-                  {fmtTimestamp(contact.lastContactedAt)}
-                </p>
+                <div className="mt-1 flex flex-wrap items-center justify-between gap-2">
+                  <p className="text-[var(--color-pib-text-muted)] text-xs font-mono">
+                    {fmtTimestamp(contact.lastContactedAt)}
+                  </p>
+                  <button
+                    type="button"
+                    aria-label={`Log follow-up for ${contactName} from last contacted detail`}
+                    onClick={openFirstNoteComposer}
+                    className="inline-flex items-center gap-1 rounded-md border border-[var(--color-pib-line)] px-2 py-1 text-[11px] font-medium text-[var(--color-pib-accent)] transition-colors hover:border-[var(--color-pib-accent)] hover:text-[var(--color-pib-text)]"
+                  >
+                    <span className="material-symbols-outlined text-[13px]" aria-hidden="true">edit_note</span>
+                    Log follow-up
+                  </button>
+                </div>
               </div>
             ) : null}
-            {shouldPromptLastContactedRefresh && (
-              <button
-                type="button"
-                aria-label={`Log fresh touch for ${contactName} from last contacted detail`}
-                onClick={openFirstNoteComposer}
-                className="inline-flex w-full items-center justify-center gap-1 rounded-md border border-[var(--color-pib-line)] px-2 py-1.5 text-[11px] font-medium text-[var(--color-pib-accent)] transition-colors hover:border-[var(--color-pib-accent)] hover:text-[var(--color-pib-text)]"
-              >
-                <span className="material-symbols-outlined text-[13px]" aria-hidden="true">edit_note</span>
-                Log fresh touch
-              </button>
-            )}
           </div>
 
           <ContactIdentityPanel

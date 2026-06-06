@@ -49,8 +49,8 @@ jest.mock('@/lib/campaigns/load', () => ({
   loadCampaignWithAssets: (...args: unknown[]) => mockLoadCampaignWithAssets(...args),
 }))
 
-jest.mock('@/app/(portal)/portal/campaigns/[id]/cockpit-client', () => ({
-  CockpitClient: (props: { campaignId: string; orgName: string; brand?: { name?: string } }) =>
+jest.mock('@/components/campaign-cockpit/PortalCampaignCockpitClient', () => ({
+  PortalCampaignCockpitClient: (props: { campaignId: string; orgName: string; brand?: { name?: string } }) =>
     mockCockpitClient(props),
 }))
 

@@ -132,6 +132,56 @@ describe('Portal CRM hub', () => {
     expect(createDealLink).toHaveAttribute('href', '/portal/deals?create=deal')
   })
 
+  it('turns top open deals without contact context into a contact-cleanup action', async () => {
+    mockSearchParams = new URLSearchParams({
+      orgId: 'org-1',
+      orgSlug: 'lumen-speeds',
+      sourceCompanyId: 'company-1',
+      sourceCompanyName: 'Lumen',
+    })
+
+    ;(global.fetch as jest.Mock).mockImplementation((input: RequestInfo | URL) => {
+      const rawUrl = String(input)
+      const url = rawUrl.split('?')[0]
+      if (url === '/api/v1/crm/dashboard') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            data: {
+              openDealsCount: 1,
+              openDealsValue: 20000,
+              weightedPipelineValue: 12000,
+              wonThisMonth: { count: 0, value: 0 },
+              lostThisMonth: { count: 0 },
+              recentActivities: [],
+              topOpenDeals: [
+                {
+                  id: 'deal-1',
+                  title: 'Board reporting rollout',
+                  value: 20000,
+                  currency: 'ZAR',
+                  probability: 60,
+                  contactName: '',
+                  contactId: '',
+                },
+              ],
+            },
+          }),
+        } as Response)
+      }
+      return Promise.reject(new Error(`Unexpected fetch: ${rawUrl}`))
+    })
+
+    render(<PortalCrmPage />)
+
+    expect(await screen.findByText('Board reporting rollout')).toBeInTheDocument()
+    expect(screen.getByText('Contact cleanup needed')).toBeInTheDocument()
+
+    const scope = 'orgId=org-1&orgSlug=lumen-speeds&sourceCompanyId=company-1&sourceCompanyName=Lumen'
+    expect(screen.getByRole('link', { name: 'Open missing contact cleanup for Board reporting rollout' }))
+      .toHaveAttribute('href', `/portal/deals?view=list&focus=needsContact&${scope}`)
+  })
+
   it('names CRM hub navigation by business destination without decorative icon text', async () => {
     render(<PortalCrmPage />)
 

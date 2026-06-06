@@ -80,6 +80,30 @@ describe('TaskDetailPanel', () => {
     expect(props.onClose).toHaveBeenCalledTimes(1)
   })
 
+  it('surfaces an approval gate action directly on approval todo cards', async () => {
+    const props = renderPanel({
+      task: {
+        ...task,
+        labels: ['approval-gate'],
+        approvalStatus: 'pending',
+      },
+    })
+
+    await waitFor(() => expect(screen.queryByText('Loading comments...')).not.toBeInTheDocument())
+
+    expect(screen.getByText('Approval gate')).toBeInTheDocument()
+    expect(screen.getByText(/does not approve production/i)).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: /approve this gate/i }))
+
+    await waitFor(() => expect(props.onUpdate).toHaveBeenCalledWith('task-1', {
+      columnId: 'done',
+      reviewStatus: 'approved',
+      approvalStatus: 'approved',
+    }))
+    expect(global.fetch).toHaveBeenCalledWith('/api/v1/projects/project-1/tasks/task-1/comments', expect.objectContaining({ method: 'POST' }))
+  })
+
   it('uses an in-page confirmation before deleting project tasks', async () => {
     const confirmSpy = jest.spyOn(window, 'confirm').mockReturnValue(false)
     const props = renderPanel()

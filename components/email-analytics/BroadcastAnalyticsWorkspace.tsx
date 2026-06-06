@@ -12,6 +12,8 @@ import type {
 export type BroadcastAnalyticsSearchParams = {
   orgId?: string
   orgSlug?: string
+  sourceCompanyId?: string
+  sourceCompanyName?: string
 }
 
 type BroadcastAnalyticsWorkspaceProps = {
@@ -28,6 +30,8 @@ function scopeFromParams(params?: BroadcastAnalyticsSearchParams): PortalOrgRout
   return {
     orgId: clean(params?.orgId) || undefined,
     orgSlug: clean(params?.orgSlug) || undefined,
+    sourceCompanyId: clean(params?.sourceCompanyId) || undefined,
+    sourceCompanyName: clean(params?.sourceCompanyName) || undefined,
   }
 }
 

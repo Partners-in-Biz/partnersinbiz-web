@@ -4,7 +4,7 @@ import { getCampaign } from '@/lib/ads/campaigns/store'
 import { listAdSets } from '@/lib/ads/adsets/store'
 import { listAds } from '@/lib/ads/ads/store'
 import { AdCampaignDetailWorkspace } from '@/components/ads/AdCampaignDetailWorkspace'
-import { CampaignActionsClient } from './CampaignActionsClient'
+import { AdCampaignAdminActions } from '@/components/ads/AdCampaignAdminActions'
 
 interface Params {
   slug: string
@@ -36,7 +36,7 @@ export default async function CampaignDetailPage({
       ads={ads}
       backHref={`/admin/org/${slug}/ads/campaigns`}
       actions={
-        <CampaignActionsClient
+        <AdCampaignAdminActions
           orgId={orgId}
           orgSlug={slug}
           campaignId={id}

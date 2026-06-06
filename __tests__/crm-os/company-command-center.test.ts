@@ -87,13 +87,16 @@ describe('CRM OS company command center foundations', () => {
     jest.clearAllMocks()
   })
 
-  it('lists company projects by company fields and linked org fields without composite-index query chains', async () => {
+  it('lists company projects by scalar and array company links without composite-index query chains', async () => {
     const projectsCollection = collectionFor([
       { id: 'by-company', data: { orgId: 'org-1', companyId: 'company-1', name: 'By Company', createdAt: timestamp(10) } },
       { id: 'by-source', data: { orgId: 'org-1', sourceCompanyId: 'company-1', name: 'By Source', createdAt: timestamp(20) } },
+      { id: 'by-company-array', data: { orgId: 'org-1', companyIds: ['company-1', 'other-company'], name: 'By Company Array', createdAt: timestamp(25) } },
+      { id: 'by-source-array', data: { orgId: 'org-1', sourceCompanyIds: ['company-1'], name: 'By Source Array', createdAt: timestamp(28) } },
       { id: 'by-recipient', data: { orgId: 'org-1', recipientOrgId: 'client-org', name: 'By Recipient', createdAt: timestamp(30) } },
       { id: 'by-relationship', data: { orgId: 'org-1', relationshipId: 'rel-1', name: 'By Relationship', createdAt: timestamp(35) } },
-      { id: 'other', data: { orgId: 'org-1', companyId: 'other-company', name: 'Other', createdAt: timestamp(40) } },
+      { id: 'archived-array', data: { orgId: 'org-1', companyIds: ['company-1'], name: 'Archived Array', archived: true, createdAt: timestamp(38) } },
+      { id: 'other', data: { orgId: 'org-1', companyIds: ['other-company'], name: 'Other', createdAt: timestamp(40) } },
     ])
     const relationshipsCollection = collectionFor([
       { id: 'rel-1', data: { sourceOrgId: 'org-1', sourceCompanyId: 'company-1', targetOrgId: 'client-org', status: 'active' } },
@@ -108,7 +111,14 @@ describe('CRM OS company command center foundations', () => {
     const { listCompanyProjects } = await import('@/lib/companies/command-center')
     const projects = await listCompanyProjects(company(), { limit: 10 })
 
-    expect(projects.map((project) => project.id)).toEqual(['by-relationship', 'by-recipient', 'by-source', 'by-company'])
+    expect(projects.map((project) => project.id)).toEqual([
+      'by-relationship',
+      'by-recipient',
+      'by-source-array',
+      'by-company-array',
+      'by-source',
+      'by-company',
+    ])
     expect(projectsCollection.where).toHaveBeenCalledWith('orgId', '==', 'org-1')
     expect(projectsCollection.where).toHaveBeenCalledTimes(1)
     expect(relationshipsCollection.where).toHaveBeenCalledWith('sourceOrgId', '==', 'org-1')
@@ -135,6 +145,27 @@ describe('CRM OS company command center foundations', () => {
           title: 'Direct client proposal',
           status: 'internal_draft',
           updatedAt: timestamp(30),
+        },
+      },
+      {
+        id: 'direct-client-array',
+        data: {
+          orgId: 'client-org',
+          linked: { companyIds: ['platform-company'], clientOrgId: 'client-org' },
+          title: 'Direct client array proposal',
+          status: 'internal_draft',
+          updatedAt: timestamp(35),
+        },
+      },
+      {
+        id: 'archived-client-array',
+        data: {
+          orgId: 'client-org',
+          linked: { companyIds: ['platform-company'], clientOrgId: 'client-org' },
+          title: 'Archived client array proposal',
+          status: 'internal_draft',
+          archived: true,
+          updatedAt: timestamp(36),
         },
       },
       {
@@ -189,8 +220,8 @@ describe('CRM OS company command center foundations', () => {
       linkedOrgId: 'pib-platform-owner',
     }), { limit: 10 })
 
-    expect(platformDocs.map((doc) => doc.id)).toEqual(['direct-client', 'platform-linked'])
-    expect(supplierDocs.map((doc) => doc.id)).toEqual(['direct-client', 'platform-linked'])
+    expect(platformDocs.map((doc) => doc.id)).toEqual(['direct-client-array', 'direct-client', 'platform-linked'])
+    expect(supplierDocs.map((doc) => doc.id)).toEqual(['direct-client-array', 'direct-client', 'platform-linked'])
   })
 
   it('lists company-only documents for CRM companies that are not linked to a system organisation', async () => {
@@ -285,6 +316,52 @@ describe('CRM OS company command center foundations', () => {
     expect(center.projects[0].name).toBe('SEO Sprint')
     expect(center.documents[0].title).toBe('Proposal')
     expect(center.relationships[0].id).toBe('rel-1')
+  })
+
+  it('matches contact document and project links across scalar and array fields', async () => {
+    const {
+      documentLinksContact,
+      projectLinksContact,
+    } = await import('@/lib/companies/command-center')
+
+    expect(documentLinksContact({ linked: { contactId: 'contact-1' } }, 'contact-1')).toBe(true)
+    expect(documentLinksContact({ linked: { contactIds: ['contact-1', 'contact-2'] } }, 'contact-1')).toBe(true)
+    expect(documentLinksContact({ sourceContactId: 'contact-1' }, 'contact-1')).toBe(true)
+    expect(documentLinksContact({ sourceContactIds: ['contact-1'] }, 'contact-1')).toBe(true)
+    expect(documentLinksContact({ linked: { contactIds: ['other-contact'] } }, 'contact-1')).toBe(false)
+
+    expect(projectLinksContact({ contactId: 'contact-1' }, 'contact-1')).toBe(true)
+    expect(projectLinksContact({ contactIds: ['contact-1'] }, 'contact-1')).toBe(true)
+    expect(projectLinksContact({ sourceContactId: 'contact-1' }, 'contact-1')).toBe(true)
+    expect(projectLinksContact({ sourceContactIds: ['contact-1'] }, 'contact-1')).toBe(true)
+    expect(projectLinksContact({ contactIds: ['other-contact'] }, 'contact-1')).toBe(false)
+  })
+
+  it('lists contact projects by scalar and array contact links without composite-index query chains', async () => {
+    const projectsCollection = collectionFor([
+      { id: 'by-contact', data: { orgId: 'org-1', contactId: 'contact-1', name: 'By Contact', createdAt: timestamp(10) } },
+      { id: 'by-source-contact', data: { orgId: 'org-1', sourceContactId: 'contact-1', name: 'By Source Contact', createdAt: timestamp(20) } },
+      { id: 'by-contact-array', data: { orgId: 'org-1', contactIds: ['contact-1', 'contact-2'], name: 'By Contact Array', createdAt: timestamp(30) } },
+      { id: 'by-source-contact-array', data: { orgId: 'org-1', sourceContactIds: ['contact-1'], name: 'By Source Contact Array', createdAt: timestamp(40) } },
+      { id: 'archived-contact-array', data: { orgId: 'org-1', contactIds: ['contact-1'], name: 'Archived Contact Array', archived: true, createdAt: timestamp(50) } },
+      { id: 'other-contact', data: { orgId: 'org-1', contactIds: ['other-contact'], name: 'Other Contact', createdAt: timestamp(60) } },
+    ])
+    mockCollection.mockImplementation((name: string) => {
+      if (name === 'projects') return projectsCollection
+      return collectionFor()
+    })
+
+    const { listContactProjects } = await import('@/lib/companies/command-center')
+    const projects = await listContactProjects({ id: 'contact-1', orgId: 'org-1' }, { limit: 10 })
+
+    expect(projects.map((project) => project.id)).toEqual([
+      'by-source-contact-array',
+      'by-contact-array',
+      'by-source-contact',
+      'by-contact',
+    ])
+    expect(projectsCollection.where).toHaveBeenCalledWith('orgId', '==', 'org-1')
+    expect(projectsCollection.where).toHaveBeenCalledTimes(1)
   })
 
   it('includes linked organisation workspace metadata for client-org companies', async () => {

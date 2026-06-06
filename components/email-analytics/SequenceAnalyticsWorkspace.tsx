@@ -9,6 +9,8 @@ import type { SequenceDetailedStats } from '@/lib/email-analytics/aggregate'
 export type SequenceAnalyticsSearchParams = {
   orgId?: string
   orgSlug?: string
+  sourceCompanyId?: string
+  sourceCompanyName?: string
 }
 
 type SequenceAnalyticsWorkspaceProps = {
@@ -25,6 +27,8 @@ function scopeFromParams(params?: SequenceAnalyticsSearchParams): PortalOrgRoute
   return {
     orgId: clean(params?.orgId) || undefined,
     orgSlug: clean(params?.orgSlug) || undefined,
+    sourceCompanyId: clean(params?.sourceCompanyId) || undefined,
+    sourceCompanyName: clean(params?.sourceCompanyName) || undefined,
   }
 }
 

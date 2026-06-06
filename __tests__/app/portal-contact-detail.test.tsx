@@ -487,8 +487,9 @@ describe('Portal contact detail page', () => {
     })
 
     const scope = 'orgId=org-1&orgSlug=lumen-speeds&sourceCompanyId=company-1&sourceCompanyName=Lumen'
-    expect(screen.getByRole('link', { name: /Contacts/ }))
+    expect(screen.getByRole('link', { name: 'Contacts' }))
       .toHaveAttribute('href', `/portal/contacts?${scope}`)
+    expect(screen.queryByRole('link', { name: 'arrow_back Contacts' })).not.toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Open linked company Lumen from contact header' }))
       .toHaveAttribute('href', `/portal/companies/company-1?${scope}`)
     expect(screen.getByRole('link', { name: 'Open linked company Lumen from company card' }))
@@ -537,6 +538,22 @@ describe('Portal contact detail page', () => {
 
     expect(screen.getByText('No relationship history yet')).toBeInTheDocument()
     expect(screen.queryByText('timeline records loaded')).not.toBeInTheDocument()
+  })
+
+  it('keeps populated last-contacted details actionable from the details card', async () => {
+    mockContactOverrides = {
+      lastContactedAt: new Date().toISOString(),
+    }
+
+    render(<PortalContactDetailPage />)
+
+    await waitFor(() => {
+      expect(screen.getAllByDisplayValue('Jane Client').length).toBeGreaterThan(0)
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Log follow-up for Jane Client from last contacted detail' }))
+
+    expect(screen.getByRole('textbox', { name: 'Relationship note for Jane Client' })).toBeInTheDocument()
   })
 
   it('turns empty sequence enrollment into a nurture workflow action', async () => {
@@ -1189,7 +1206,7 @@ describe('Portal contact detail page', () => {
     expect(screen.getByPlaceholderText('Add a relationship note, handoff, or context…')).toBeInTheDocument()
   })
 
-  it('turns stale last contacted detail into a fresh touch action', async () => {
+  it('turns stale last contacted detail into a follow-up action', async () => {
     mockContactOverrides = {
       lastContactedAt: new Date('2026-01-01T08:00:00.000Z'),
     }
@@ -1200,7 +1217,7 @@ describe('Portal contact detail page', () => {
       expect(screen.getAllByDisplayValue('Jane Client').length).toBeGreaterThan(0)
     })
 
-    fireEvent.click(screen.getByRole('button', { name: 'Log fresh touch for Jane Client from last contacted detail' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Log follow-up for Jane Client from last contacted detail' }))
 
     expect(screen.getByRole('textbox', { name: 'Relationship note for Jane Client' })).toBeInTheDocument()
   })

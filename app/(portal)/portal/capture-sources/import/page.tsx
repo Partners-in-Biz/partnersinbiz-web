@@ -302,7 +302,7 @@ export default function PortalCaptureSourceImportPage() {
             href={captureSourcesHref}
             className="btn-pib-secondary !py-2 !px-4 !text-sm"
           >
-            <span className="material-symbols-outlined text-base">arrow_back</span>
+            <span className="material-symbols-outlined text-base" aria-hidden="true">arrow_back</span>
             Back to capture sources
           </Link>
         </div>

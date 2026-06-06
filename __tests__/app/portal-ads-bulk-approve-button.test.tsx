@@ -1,5 +1,5 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
-import { BulkApproveButton } from '@/app/(portal)/portal/ads/BulkApproveButton'
+import { BulkApproveButton } from '@/components/ads/BulkApproveButton'
 
 const refresh = jest.fn()
 

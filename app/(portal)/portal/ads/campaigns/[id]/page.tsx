@@ -4,7 +4,7 @@ import { listAdSets } from '@/lib/ads/adsets/store'
 import { listAds } from '@/lib/ads/ads/store'
 import { InsightsChart } from '@/components/ads/InsightsChart'
 import { AdCampaignDetailWorkspace } from '@/components/ads/AdCampaignDetailWorkspace'
-import { ApprovalActions } from './ApprovalActions'
+import { AdCampaignReviewActions } from '@/components/ads/AdCampaignReviewActions'
 import {
   resolvePortalAdsUser,
   scopedPortalHref,
@@ -43,7 +43,7 @@ export default async function PortalAdCampaignDetail({
       adSets={adSets}
       ads={ads}
       backHref={scopedPortalHref('/portal/ads', scope)}
-      reviewActions={<ApprovalActions campaignId={id} orgId={scope.orgId} />}
+      reviewActions={<AdCampaignReviewActions campaignId={id} orgId={scope.orgId} />}
       adHref={(ad) => scopedPortalHref(`/portal/ads/ads/${ad.id}`, scope)}
       insights={
         campaign.status !== 'DRAFT' ? (

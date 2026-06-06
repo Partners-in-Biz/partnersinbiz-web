@@ -30,6 +30,8 @@ export const POST = withPortalAuthAndRole('member', async (req: NextRequest, uid
   const title = cleanString(body.title)
   const goal = cleanString(body.goal)
   const audience = cleanString(body.audience)
+  const sourceCompanyId = cleanString(body.sourceCompanyId)
+  const sourceCompanyName = cleanString(body.sourceCompanyName)
 
   if (!CAMPAIGN_TYPES.has(campaignType)) {
     return apiError('campaignType must be one of: social, email, ads, seo-content, mixed', 400)
@@ -54,6 +56,8 @@ export const POST = withPortalAuthAndRole('member', async (req: NextRequest, uid
     successMetric: cleanString(body.successMetric),
     details: cleanDetails(body.details),
     notes: cleanString(body.notes),
+    ...(sourceCompanyId ? { sourceCompanyId } : {}),
+    ...(sourceCompanyName ? { sourceCompanyName } : {}),
     status: 'new',
     createdAt: FieldValue.serverTimestamp(),
     updatedAt: FieldValue.serverTimestamp(),

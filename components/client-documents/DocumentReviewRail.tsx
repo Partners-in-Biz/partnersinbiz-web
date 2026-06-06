@@ -29,6 +29,40 @@ function anchorPreview(c: DocumentComment): string | null {
   return null
 }
 
+function hasCrmRefs(refs: ContextReference[]) {
+  return refs.some((ref) => ref.type === 'contact' || ref.type === 'company')
+}
+
+function AlsoLinkToDocumentOption({
+  checked,
+  disabled,
+  refs,
+  onChange,
+}: {
+  checked: boolean
+  disabled?: boolean
+  refs: ContextReference[]
+  onChange: (checked: boolean) => void
+}) {
+  if (!hasCrmRefs(refs)) return null
+
+  return (
+    <label className="flex items-start gap-2 rounded-md border border-white/10 bg-white/5 px-2 py-1.5 text-[11px] text-on-surface-variant">
+      <input
+        type="checkbox"
+        checked={checked}
+        disabled={disabled}
+        onChange={(event) => onChange(event.target.checked)}
+        className="mt-0.5"
+      />
+      <span>
+        Also link selected contacts/companies to this document
+        <span className="block text-[10px] opacity-75">CRM refs stay as context tags and do not notify contacts or companies.</span>
+      </span>
+    </label>
+  )
+}
+
 function CommentReply({ reply }: { reply: DocumentCommentReply }) {
   return (
     <div className="border-l-2 border-[var(--color-pib-line)] pl-3 py-1">
@@ -47,7 +81,7 @@ interface CommentItemProps {
   isActive: boolean
   onScroll: () => void
   onResolve: (resolved: boolean) => Promise<void> | void
-  onReply: (text: string, contextRefs: ContextReference[]) => Promise<void> | void
+  onReply: (text: string, contextRefs: ContextReference[], alsoLinkToDocument?: boolean) => Promise<void> | void
   registerRef: (el: HTMLDivElement | null) => void
   orgId?: string
 }
@@ -56,6 +90,7 @@ function CommentItem({ comment, isActive, onScroll, onResolve, onReply, register
   const [busyResolve, setBusyResolve] = useState(false)
   const [replyText, setReplyText] = useState('')
   const [replyContextRefs, setReplyContextRefs] = useState<ContextReference[]>([])
+  const [replyAlsoLinkToDocument, setReplyAlsoLinkToDocument] = useState(false)
   const [busyReply, setBusyReply] = useState(false)
   const [showReply, setShowReply] = useState(false)
   const isResolved = comment.status === 'resolved'
@@ -75,9 +110,10 @@ function CommentItem({ comment, isActive, onScroll, onResolve, onReply, register
     if (!trimmed || busyReply) return
     setBusyReply(true)
     try {
-      await onReply(trimmed, replyContextRefs)
+      await onReply(trimmed, replyContextRefs, replyAlsoLinkToDocument)
       setReplyText('')
       setReplyContextRefs([])
+      setReplyAlsoLinkToDocument(false)
       setShowReply(false)
     } finally {
       setBusyReply(false)
@@ -154,13 +190,22 @@ function CommentItem({ comment, isActive, onScroll, onResolve, onReply, register
             <ContextReferencePicker
               orgId={orgId}
               value={replyContextRefs}
-              onChange={setReplyContextRefs}
+              onChange={(refs) => {
+                setReplyContextRefs(refs)
+                if (!hasCrmRefs(refs)) setReplyAlsoLinkToDocument(false)
+              }}
               inputLabel="Add reply context reference"
-              placeholder="@contacts: @projects: @tasks:"
+              placeholder="@contacts: @companies: @projects: @tasks:"
               disabled={busyReply}
               compact
             />
           ) : null}
+          <AlsoLinkToDocumentOption
+            checked={replyAlsoLinkToDocument}
+            disabled={busyReply}
+            refs={replyContextRefs}
+            onChange={setReplyAlsoLinkToDocument}
+          />
           <button
             type="button"
             onClick={handleReplySubmit}
@@ -182,7 +227,7 @@ export interface DocumentReviewRailProps {
   activeCommentId?: string | null
   onPublish?: () => void
   onResolve?: (commentId: string, resolved: boolean) => Promise<void> | void
-  onReply?: (commentId: string, text: string, contextRefs: ContextReference[]) => Promise<void> | void
+  onReply?: (commentId: string, text: string, contextRefs: ContextReference[], alsoLinkToDocument?: boolean) => Promise<void> | void
   onScrollToComment?: (commentId: string) => void
 }
 
@@ -267,7 +312,7 @@ export function DocumentReviewRail({
                 isActive={activeCommentId === c.id}
                 onScroll={() => onScrollToComment?.(c.id)}
                 onResolve={async (resolved) => { if (onResolve) await onResolve(c.id, resolved) }}
-                onReply={async (text, contextRefs) => { if (onReply) await onReply(c.id, text, contextRefs) }}
+                onReply={async (text, contextRefs, alsoLinkToDocument) => { if (onReply) await onReply(c.id, text, contextRefs, alsoLinkToDocument) }}
                 orgId={document.orgId}
                 registerRef={(el) => { refMap.current.set(c.id, el) }}
               />

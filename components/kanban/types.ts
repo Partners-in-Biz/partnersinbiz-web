@@ -75,6 +75,7 @@ export interface Task {
   reviewerIds?: string[]
   reviewerAgentId?: AgentId | null
   reviewStatus?: 'pending' | 'in-progress' | 'approved' | 'changes-requested' | null
+  approvalStatus?: 'pending' | 'approved' | 'rejected' | 'denied' | null
   riskLevel?: 'low' | 'medium' | 'high' | 'critical'
   requiredCapability?: string | null
   requestedByAgentId?: AgentId | null

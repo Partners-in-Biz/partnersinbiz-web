@@ -1141,7 +1141,15 @@ export default function DealsPage() {
                             {contactLabel || 'Contact identity missing'}
                           </a>
                         ) : (
-                          <span className="text-xs text-on-surface-variant">No contact linked</span>
+                          <button
+                            type="button"
+                            aria-label={`Link contact for ${dealTitle} from deals list`}
+                            onClick={() => setEditingDeal(deal)}
+                            className="inline-flex items-center gap-1 rounded-md border border-transparent px-1.5 py-1 text-xs text-on-surface-variant transition-colors hover:border-[var(--color-pib-accent)] hover:text-[var(--color-pib-text)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-pib-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--color-pib-bg)]"
+                          >
+                            <span className="material-symbols-outlined text-[13px]" aria-hidden="true">person_add</span>
+                            No contact linked
+                          </button>
                         )}
                       </td>
                     </tr>

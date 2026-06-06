@@ -146,7 +146,8 @@ export async function publishClientDocument(
   id: string,
   user: ApiUser,
   expectedOrgId?: string | null,
-): Promise<{ id: string; versionId: string }> {
+  options: { acknowledgeMultiOrgPublish?: boolean } = {},
+): Promise<{ id: string; versionId: string; clientOrgIds: string[]; multiOrgPublish: boolean }> {
   const documentRef = adminDb.collection(CLIENT_DOCUMENTS_COLLECTION).doc(id)
 
   return adminDb.runTransaction(async (transaction) => {
@@ -174,6 +175,19 @@ export async function publishClientDocument(
       throw new Error('Resolve blocking assumptions before publishing')
     }
 
+    const clientOrgIds = Array.from(new Set([
+      ...(document.linked?.clientOrgId ? [document.linked.clientOrgId] : []),
+      ...(document.linked?.clientOrgIds ?? []),
+    ].map((orgId) => orgId.trim()).filter(Boolean)))
+
+    if (clientOrgIds.length === 0) {
+      throw new Error('Explicit linked client org is required before publishing')
+    }
+
+    if (clientOrgIds.length > 1 && options.acknowledgeMultiOrgPublish !== true) {
+      throw new Error('Publishing to multiple client orgs requires explicit acknowledgement')
+    }
+
     const versionRef = documentRef.collection('versions').doc(document.currentVersionId)
 
     transaction.update(documentRef, {
@@ -186,6 +200,11 @@ export async function publishClientDocument(
     })
     transaction.update(versionRef, { status: 'published' })
 
-    return { id, versionId: document.currentVersionId }
+    return {
+      id,
+      versionId: document.currentVersionId,
+      clientOrgIds,
+      multiOrgPublish: clientOrgIds.length > 1,
+    }
   })
 }

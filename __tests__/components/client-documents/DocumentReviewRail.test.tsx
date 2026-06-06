@@ -107,6 +107,30 @@ describe('DocumentReviewRail', () => {
       'comment-open',
       'Jane has the latest requirements.',
       [expect.objectContaining({ type: 'contact', id: 'contact-1', label: 'Jane Client' })],
+      false,
+    ))
+  })
+
+  it('passes the explicit document-level link option with selected CRM reply refs', async () => {
+    const onReply = jest.fn()
+    render(<DocumentReviewRail document={document} comments={comments} onReply={onReply} />)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Reply' }))
+    fireEvent.change(screen.getByPlaceholderText('Write a reply…'), {
+      target: { value: 'Jane has the latest requirements.' },
+    })
+    fireEvent.change(screen.getByLabelText('Add reply context reference'), {
+      target: { value: '@contacts:jane' },
+    })
+    fireEvent.click(await screen.findByRole('button', { name: 'Attach Jane Client' }))
+    fireEvent.click(screen.getByLabelText(/Also link selected contacts\/companies to this document/))
+    fireEvent.click(screen.getByRole('button', { name: 'Send reply' }))
+
+    await waitFor(() => expect(onReply).toHaveBeenCalledWith(
+      'comment-open',
+      'Jane has the latest requirements.',
+      [expect.objectContaining({ type: 'contact', id: 'contact-1', label: 'Jane Client' })],
+      true,
     ))
   })
 })

@@ -11,11 +11,16 @@ describe('campaigns shared workspace standard', () => {
     const adminOrgRoute = source('app/(admin)/admin/org/[slug]/campaigns/page.tsx')
     const adminGlobalRoute = source('app/(admin)/admin/campaigns/page.tsx')
     const sharedWorkspacePath = path.join(process.cwd(), 'components/campaigns/CampaignsWorkspace.tsx')
+    const sharedRequestPanelPath = path.join(process.cwd(), 'components/campaigns/CampaignRequestPanel.tsx')
 
     expect(existsSync(sharedWorkspacePath)).toBe(true)
+    expect(existsSync(sharedRequestPanelPath)).toBe(true)
     expect(source('components/campaigns/CampaignsWorkspace.tsx')).toContain('export function CampaignsWorkspace')
+    expect(source('components/campaigns/CampaignRequestPanel.tsx')).toContain('export function CampaignRequestPanel')
 
     expect(portalRoute).toContain('@/components/campaigns/CampaignsWorkspace')
+    expect(portalRoute).toContain('@/components/campaigns/CampaignRequestPanel')
+    expect(portalRoute).not.toContain('./CampaignRequestPanel')
     expect(portalRoute).not.toContain('function StatTile')
     expect(portalRoute).not.toContain('function SectionHeader')
     expect(portalRoute).not.toContain('function EmailCampaignCard')

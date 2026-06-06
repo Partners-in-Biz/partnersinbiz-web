@@ -8,7 +8,7 @@ import {
   CampaignsWorkspace,
   type CampaignWorkspaceRecord,
 } from '@/components/campaigns/CampaignsWorkspace'
-import { CampaignRequestPanel } from './CampaignRequestPanel'
+import { CampaignRequestPanel } from '@/components/campaigns/CampaignRequestPanel'
 import type { Sequence } from '@/lib/sequences/types'
 import {
   resolvePortalCampaignUser,
@@ -171,7 +171,13 @@ export default async function PortalCampaignsIndex({
       adCampaigns={adCampaigns}
       requests={requests}
       brandStyle={brandStyle}
-      requestComposer={<CampaignRequestPanel orgId={scope.orgId} />}
+      requestComposer={
+        <CampaignRequestPanel
+          orgId={scope.orgId}
+          sourceCompanyId={scope.sourceCompanyId}
+          sourceCompanyName={scope.sourceCompanyName}
+        />
+      }
       hrefs={{
         content: (campaign) => scopedPortalHref(`/portal/campaigns/${campaign.id}`, scope),
         email: (campaign) =>

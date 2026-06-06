@@ -5,12 +5,16 @@ import { ContextReferencePicker } from '@/components/context-references/ContextR
 import type { ContextReference } from '@/lib/context-references/types'
 import type { AnchorTarget } from './types'
 
+function hasCrmRefs(refs: ContextReference[]) {
+  return refs.some((ref) => ref.type === 'contact' || ref.type === 'company')
+}
+
 interface Props {
   anchor: AnchorTarget
   orgId?: string
   projectId?: string
   onCancel: () => void
-  onSubmit: (text: string, contextRefs: ContextReference[]) => Promise<void> | void
+  onSubmit: (text: string, contextRefs: ContextReference[], alsoLinkToDocument?: boolean) => Promise<void> | void
   busy?: boolean
 }
 
@@ -22,6 +26,7 @@ interface Props {
 export function CommentComposer({ anchor, orgId, projectId, onCancel, onSubmit, busy }: Props) {
   const [text, setText] = useState('')
   const [contextRefs, setContextRefs] = useState<ContextReference[]>([])
+  const [alsoLinkToDocument, setAlsoLinkToDocument] = useState(false)
   const ref = useRef<HTMLTextAreaElement | null>(null)
 
   useEffect(() => {
@@ -83,12 +88,30 @@ export function CommentComposer({ anchor, orgId, projectId, onCancel, onSubmit, 
             orgId={orgId}
             projectId={projectId}
             value={contextRefs}
-            onChange={setContextRefs}
+            onChange={(refs) => {
+              setContextRefs(refs)
+              if (!hasCrmRefs(refs)) setAlsoLinkToDocument(false)
+            }}
             inputLabel="Add feedback context reference"
-            placeholder="@projects: @tasks: @contacts:"
+            placeholder="@projects: @tasks: @contacts: @companies:"
             disabled={busy}
             compact
           />
+        ) : null}
+        {hasCrmRefs(contextRefs) ? (
+          <label className="flex items-start gap-2 rounded-md border border-[var(--color-outline)] bg-[var(--color-surface-variant)] px-2 py-1.5 text-xs text-on-surface-variant">
+            <input
+              type="checkbox"
+              checked={alsoLinkToDocument}
+              disabled={busy}
+              onChange={(event) => setAlsoLinkToDocument(event.target.checked)}
+              className="mt-0.5"
+            />
+            <span>
+              Also link selected contacts/companies to this document
+              <span className="block text-[10px] opacity-75">CRM refs stay as context tags and do not notify contacts or companies.</span>
+            </span>
+          </label>
         ) : null}
         <div className="flex items-center justify-end gap-2">
           <button
@@ -101,7 +124,7 @@ export function CommentComposer({ anchor, orgId, projectId, onCancel, onSubmit, 
           </button>
           <button
             type="button"
-            onClick={() => onSubmit(text, contextRefs)}
+            onClick={() => onSubmit(text, contextRefs, alsoLinkToDocument)}
             disabled={busy || text.trim().length === 0}
             className="text-sm font-label px-4 py-2 rounded-md transition-opacity disabled:opacity-50"
             style={{

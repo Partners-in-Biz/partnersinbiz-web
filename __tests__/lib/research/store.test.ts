@@ -39,7 +39,7 @@ beforeEach(() => {
 })
 
 describe('research store', () => {
-  it('creates a normalized research item with structured findings and recommendations', async () => {
+  it('creates a normalized research item with structured findings, recommendations, and multi-links', async () => {
     const { createResearchItem } = await import('@/lib/research/store')
 
     const created = await createResearchItem({
@@ -48,6 +48,15 @@ describe('research store', () => {
       kind: 'competitor',
       visibility: 'client_visible',
       summary: 'Summary',
+      linked: {
+        companyId: ' company-primary ',
+        companyIds: ['company-secondary', 'company-primary'],
+        contactId: 'contact-primary',
+        contactIds: ['contact-secondary'],
+        dealId: 'deal-primary',
+        dealIds: ['deal-secondary'],
+        documentIds: ['doc-1'],
+      },
       findings: [{ title: 'Finding', body: 'Body', confidence: 'high' }],
       recommendations: [{ title: 'Recommendation', body: 'Body', priority: 'high' }],
       user,
@@ -66,6 +75,15 @@ describe('research store', () => {
     const payload = mockSet.mock.calls[0][0]
     expect(payload.findings[0]).toMatchObject({ id: expect.any(String), confidence: 'high', status: 'open' })
     expect(payload.recommendations[0]).toMatchObject({ id: expect.any(String), priority: 'high', status: 'open' })
+    expect(payload.linked).toMatchObject({
+      companyId: 'company-primary',
+      companyIds: ['company-primary', 'company-secondary'],
+      contactId: 'contact-primary',
+      contactIds: ['contact-primary', 'contact-secondary'],
+      dealId: 'deal-primary',
+      dealIds: ['deal-primary', 'deal-secondary'],
+      documentIds: ['doc-1'],
+    })
   })
 
   it('soft archives research items instead of deleting evidence', async () => {

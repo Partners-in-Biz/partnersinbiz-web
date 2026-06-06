@@ -76,10 +76,13 @@ describe('Portal enquiry detail page', () => {
     expect(screen.getByText('Lumen workspace')).toBeInTheDocument()
     expect(screen.getByText('Intake status')).toBeInTheDocument()
     expect(screen.getByText('Team next step')).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: /back to projects/i })).toHaveAttribute(
+    expect(screen.getByText('Conversation history')).toBeInTheDocument()
+    expect(screen.queryByText('groups', { selector: 'p' })).not.toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Back to projects' })).toHaveAttribute(
       'href',
       '/portal/projects?orgId=lumen-org&orgSlug=lumen-speeds&sourceCompanyId=company-1&sourceCompanyName=Lumen',
     )
+    expect(screen.queryByRole('link', { name: 'arrow_back Back to projects' })).not.toBeInTheDocument()
     expect(screen.getByTestId('message-thread')).toHaveAttribute('data-enquiry-id', 'enq-1')
 
     await waitFor(() => {

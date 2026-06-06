@@ -64,7 +64,7 @@ export default function NewCompanyPage() {
           href={companyPortalPath('/portal/companies')}
           className="text-xs text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] inline-flex items-center gap-1 transition-colors"
         >
-          <span className="material-symbols-outlined text-sm">arrow_back</span>
+          <span aria-hidden="true" className="material-symbols-outlined text-sm">arrow_back</span>
           Companies
         </Link>
 

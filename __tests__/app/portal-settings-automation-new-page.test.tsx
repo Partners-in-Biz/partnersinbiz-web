@@ -50,6 +50,8 @@ describe('Portal settings automation new page', () => {
     render(<NewAutomationPage />)
 
     expect(screen.getByText('Automation rule form rendered')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Automations' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'arrow_back Automations' })).not.toBeInTheDocument()
     expect(formProps).toHaveBeenLastCalledWith(
       expect.objectContaining({
         endpoint: '/api/v1/crm/automations?orgId=lumen-org',
@@ -58,6 +60,9 @@ describe('Portal settings automation new page', () => {
     )
 
     const scopedReturn = '/portal/settings/automations?orgId=lumen-org&orgSlug=lumen-speeds&sourceCompanyId=source-company&sourceCompanyName=Lumen'
+
+    fireEvent.click(screen.getByRole('button', { name: 'Automations' }))
+    expect(push).toHaveBeenCalledWith(scopedReturn)
 
     fireEvent.click(screen.getByRole('button', { name: 'Cancel mocked automation' }))
     expect(push).toHaveBeenCalledWith(scopedReturn)

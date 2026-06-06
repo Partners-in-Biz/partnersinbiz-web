@@ -5,6 +5,11 @@ import Link from 'next/link'
 import { useParams } from 'next/navigation'
 import { OrgThemedFrame } from '@/components/admin/OrgThemedFrame'
 import { DocumentEditorShell } from '@/components/client-documents/DocumentEditorShell'
+import {
+  DocumentRelationshipChips,
+  DocumentRelationshipPanel,
+  getClientVisibleOrgIds,
+} from '@/components/client-documents/DocumentRelationshipPanel'
 import { ShareSettingsPanel } from '@/components/client-documents/share/ShareSettingsPanel'
 import type { ClientDocument, ClientDocumentVersion, DocumentComment } from '@/lib/client-documents/types'
 
@@ -110,6 +115,13 @@ export default function OrgDocumentDetailPage() {
   }
 
   async function handlePublish() {
+    if (document && getClientVisibleOrgIds(document).length > 1) {
+      const confirmed = window.confirm(
+        'Client-visible warning: this document is linked to more than one client organisation. Publish only if each organisation should be able to see it.',
+      )
+      if (!confirmed) return
+    }
+
     setPublishing(true)
     try {
       await fetch(`/api/v1/client-documents/${id}/publish`, { method: 'POST' })
@@ -151,12 +163,14 @@ export default function OrgDocumentDetailPage() {
             </Link>
 
             <input
-              className="flex-1 bg-transparent text-base font-semibold outline-none focus:ring-0"
+              className="min-w-0 flex-1 bg-transparent text-base font-semibold outline-none focus:ring-0"
               value={titleValue}
               onChange={(e) => setTitleValue(e.target.value)}
               onBlur={handleTitleBlur}
               aria-label="Document title"
             />
+
+            <DocumentRelationshipChips document={document} />
 
             <span
               className={`shrink-0 rounded px-2 py-1 text-[10px] uppercase tracking-wide ${
@@ -192,6 +206,21 @@ export default function OrgDocumentDetailPage() {
               </button>
             )}
           </div>
+
+          {getClientVisibleOrgIds(document).length > 1 && (
+            <div className="border-b border-amber-500/50 bg-amber-500/10 px-4 py-3 text-sm text-amber-200" role="alert">
+              Client-visible warning: publishing this document would expose it to {getClientVisibleOrgIds(document).length} linked client organisations.
+            </div>
+          )}
+
+          <details className="border-b border-[var(--color-outline)] bg-[var(--color-pib-surface)] px-4 py-3">
+            <summary className="cursor-pointer text-xs font-semibold uppercase tracking-wider text-[var(--color-pib-text-muted)]">
+              Document relationships
+            </summary>
+            <div className="mt-3">
+              <DocumentRelationshipPanel document={document} onChange={setDocument} />
+            </div>
+          </details>
 
           {/* Share settings — collapsible under the top bar so it sits near the existing Share button */}
           <details className="border-b border-[var(--color-outline)] bg-[var(--color-pib-surface)] px-4 py-3">

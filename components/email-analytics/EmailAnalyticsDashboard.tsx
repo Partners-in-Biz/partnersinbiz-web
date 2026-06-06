@@ -85,8 +85,17 @@ export default function EmailAnalyticsDashboard({
     () => ({
       orgId: orgScope?.orgId ?? (surface === 'portal' ? orgId : undefined),
       orgSlug: orgScope?.orgSlug ?? undefined,
+      sourceCompanyId: orgScope?.sourceCompanyId ?? undefined,
+      sourceCompanyName: orgScope?.sourceCompanyName ?? undefined,
     }),
-    [orgId, orgScope?.orgId, orgScope?.orgSlug, surface],
+    [
+      orgId,
+      orgScope?.orgId,
+      orgScope?.orgSlug,
+      orgScope?.sourceCompanyId,
+      orgScope?.sourceCompanyName,
+      surface,
+    ],
   )
 
   return (

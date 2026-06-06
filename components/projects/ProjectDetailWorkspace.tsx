@@ -17,7 +17,26 @@ import { ProjectSuitePanel } from '@/components/projects/ProjectSuitePanel'
 import { PageTabs } from '@/components/ui/AppFoundation'
 import type { AgentMember, Column, Task, TeamMember } from '@/components/kanban/types'
 
-interface Project { id: string; orgId?: string; clientOrgId?: string; name: string; description?: string; brief?: string; status?: string; columns: Column[] }
+interface Project {
+  id: string
+  orgId?: string
+  clientOrgId?: string
+  companyId?: string
+  contactId?: string
+  sourceCompanyId?: string
+  sourceContactId?: string
+  recipientOrgId?: string
+  companyIds?: string[]
+  contactIds?: string[]
+  sourceCompanyIds?: string[]
+  sourceContactIds?: string[]
+  recipientOrgIds?: string[]
+  name: string
+  description?: string
+  brief?: string
+  status?: string
+  columns: Column[]
+}
 interface CurrentUser { uid: string; displayName: string }
 interface OrganizationOption { id: string; name: string; slug?: string; type?: string; status?: string }
 type TaskListSort = 'latest' | 'due'
@@ -134,6 +153,12 @@ function mergeProjectAccessMembers(orgMembers: TeamMember[], accessMembers: Proj
   return Array.from(merged.values())
 }
 
+function normalizeRelationshipIds(values?: string[], excludedIds: string[] = []): string[] {
+  if (!Array.isArray(values)) return []
+  const excluded = new Set(excludedIds.map(value => value.trim()).filter(Boolean))
+  return Array.from(new Set(values.map(value => value.trim()).filter(Boolean))).filter(value => !excluded.has(value))
+}
+
 export type ProjectDetailWorkspaceMode = 'admin' | 'portal'
 
 interface ProjectDetailWorkspaceProps {
@@ -178,6 +203,10 @@ export function ProjectDetailWorkspace({
   const [settingsName, setSettingsName] = useState('')
   const [settingsStatus, setSettingsStatus] = useState('discovery')
   const [settingsDescription, setSettingsDescription] = useState('')
+  const [settingsSourceCompanyId, setSettingsSourceCompanyId] = useState('')
+  const [settingsAdditionalCompanyIds, setSettingsAdditionalCompanyIds] = useState<string[]>([])
+  const [settingsSourceContactId, setSettingsSourceContactId] = useState('')
+  const [settingsAdditionalContactIds, setSettingsAdditionalContactIds] = useState<string[]>([])
   const [orgOptions, setOrgOptions] = useState<OrganizationOption[]>([])
   const [targetOrgId, setTargetOrgId] = useState('')
   const [movingProject, setMovingProject] = useState(false)
@@ -212,6 +241,12 @@ export function ProjectDetailWorkspace({
       setSettingsName(pBody.data?.name ?? '')
       setSettingsStatus(pBody.data?.status ?? 'discovery')
       setSettingsDescription(pBody.data?.description ?? '')
+      const primaryCompanyId = pBody.data?.sourceCompanyId ?? pBody.data?.companyId ?? ''
+      const primaryContactId = pBody.data?.sourceContactId ?? pBody.data?.contactId ?? ''
+      setSettingsSourceCompanyId(primaryCompanyId)
+      setSettingsAdditionalCompanyIds(normalizeRelationshipIds(pBody.data?.companyIds, [primaryCompanyId]))
+      setSettingsSourceContactId(primaryContactId)
+      setSettingsAdditionalContactIds(normalizeRelationshipIds(pBody.data?.contactIds, [primaryContactId]))
       setLoading(false)
     }).catch(() => setLoading(false))
 
@@ -320,14 +355,43 @@ export function ProjectDetailWorkspace({
 
   const handleSaveSettings = async () => {
     if (!settingsName.trim()) return
+    const cleanSourceCompanyId = settingsSourceCompanyId.trim()
+    const cleanSourceContactId = settingsSourceContactId.trim()
+    const cleanAdditionalCompanyIds = normalizeRelationshipIds(settingsAdditionalCompanyIds, [cleanSourceCompanyId])
+    const cleanAdditionalContactIds = normalizeRelationshipIds(settingsAdditionalContactIds, [cleanSourceContactId])
+    const cleanCompanyIds = [cleanSourceCompanyId, ...cleanAdditionalCompanyIds].filter(Boolean)
+    const cleanContactIds = [cleanSourceContactId, ...cleanAdditionalContactIds].filter(Boolean)
     setSavingSettings(true)
     setSettingsSaved(false)
     await fetch(`/api/v1/projects/${projectId}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name: settingsName.trim(), status: settingsStatus, description: settingsDescription }),
+      body: JSON.stringify({
+        name: settingsName.trim(),
+        status: settingsStatus,
+        description: settingsDescription,
+        companyId: cleanSourceCompanyId || undefined,
+        sourceCompanyId: cleanSourceCompanyId || undefined,
+        companyIds: cleanCompanyIds,
+        contactId: cleanSourceContactId || undefined,
+        sourceContactId: cleanSourceContactId || undefined,
+        contactIds: cleanContactIds,
+      }),
     })
-    setProject(prev => prev ? { ...prev, name: settingsName.trim(), status: settingsStatus, description: settingsDescription } : null)
+    setProject(prev => prev ? {
+      ...prev,
+      name: settingsName.trim(),
+      status: settingsStatus,
+      description: settingsDescription,
+      companyId: cleanSourceCompanyId || undefined,
+      sourceCompanyId: cleanSourceCompanyId || undefined,
+      companyIds: cleanCompanyIds,
+      contactId: cleanSourceContactId || undefined,
+      sourceContactId: cleanSourceContactId || undefined,
+      contactIds: cleanContactIds,
+    } : null)
+    setSettingsAdditionalCompanyIds(cleanAdditionalCompanyIds)
+    setSettingsAdditionalContactIds(cleanAdditionalContactIds)
     setSavingSettings(false)
     setSettingsSaved(true)
     setTimeout(() => setSettingsSaved(false), 2500)
@@ -694,6 +758,14 @@ export function ProjectDetailWorkspace({
           onNameChange={setSettingsName}
           onStatusChange={setSettingsStatus}
           onDescriptionChange={setSettingsDescription}
+          sourceCompanyId={settingsSourceCompanyId}
+          additionalCompanyIds={settingsAdditionalCompanyIds}
+          sourceContactId={settingsSourceContactId}
+          additionalContactIds={settingsAdditionalContactIds}
+          onSourceCompanyIdChange={setSettingsSourceCompanyId}
+          onAdditionalCompanyIdsChange={setSettingsAdditionalCompanyIds}
+          onSourceContactIdChange={setSettingsSourceContactId}
+          onAdditionalContactIdsChange={setSettingsAdditionalContactIds}
           onSave={handleSaveSettings}
           peopleAccessSlot={<ProjectPeopleAccessPanel projectId={projectId} />}
           adminTransferSlot={isAdmin ? (

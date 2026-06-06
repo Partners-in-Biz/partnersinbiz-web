@@ -29,10 +29,27 @@ import {
   applyAgentTodoRequeue,
   applyStandaloneTaskStatusForAgentStatus,
 } from '@/lib/tasks/agentState'
+import {
+  RESOURCE_RELATIONSHIP_ARRAY_FIELDS,
+  RESOURCE_RELATIONSHIP_STRING_FIELDS,
+  normalizeResourceRelationshipLinks,
+} from '@/lib/client-documents/linkedValidation'
 
 export const dynamic = 'force-dynamic'
 
 type RouteContext = { params: Promise<{ id: string }> }
+
+function relationshipInputFrom(body: Record<string, unknown>) {
+  const value: Record<string, unknown> = {}
+  for (const key of RESOURCE_RELATIONSHIP_STRING_FIELDS) {
+    if (key in body) value[key] = body[key]
+  }
+  for (const key of RESOURCE_RELATIONSHIP_ARRAY_FIELDS) {
+    if (key in body) value[key] = body[key]
+  }
+  if ('contextRefs' in body) value.contextRefs = body.contextRefs
+  return Object.keys(value).length > 0 ? value : undefined
+}
 
 export const GET = withAuth('admin', async (_req, _user, context) => {
   const { id } = await (context as RouteContext).params
@@ -126,6 +143,13 @@ export const PUT = withAuth('admin', async (req, user, context) => {
   const updates: Record<string, unknown> = {}
   for (const key of UPDATABLE_FIELDS) {
     if (body[key] !== undefined) updates[key] = body[key]
+  }
+
+  const relationshipInput = relationshipInputFrom(body)
+  if (relationshipInput) {
+    const relationships = normalizeResourceRelationshipLinks(relationshipInput)
+    if (!relationships.ok) return apiError(relationships.error, 400)
+    Object.assign(updates, relationships.value)
   }
 
   // Re-assigning to a new agent auto-resets agentStatus unless caller set it explicitly.

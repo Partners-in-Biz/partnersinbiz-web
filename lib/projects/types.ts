@@ -28,15 +28,21 @@ export interface Project {
   sourceOrgId?: string
   issuerOrgId?: string
   recipientOrgId?: string
+  recipientOrgIds?: string[]
   recipientUserId?: string
   targetOrgId?: string
   targetUserId?: string
   clientOrgId?: string | null
+  clientOrgIds?: string[]
   clientId?: string
   sourceCompanyId?: string
+  sourceCompanyIds?: string[]
   sourceContactId?: string
+  sourceContactIds?: string[]
   companyId?: string
+  companyIds?: string[]
   contactId?: string
+  contactIds?: string[]
   recipientEmail?: string
   recipientName?: string
   recipientCompanyName?: string

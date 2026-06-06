@@ -705,7 +705,7 @@ export default function DealDetailPage() {
         href={dealListHref}
         className="inline-flex items-center gap-1 text-xs text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] transition-colors"
       >
-        <span className="material-symbols-outlined text-[14px]">arrow_back</span>
+        <span className="material-symbols-outlined text-[14px]" aria-hidden="true">arrow_back</span>
         Deals
       </Link>
 
@@ -738,18 +738,18 @@ export default function DealDetailPage() {
           <div className="flex shrink-0 flex-wrap items-center gap-2">
             {deal.contactId && (
               <Link href={scopedPortalPath(`/portal/contacts/${deal.contactId}`, routeScope)} className="btn-pib-secondary inline-flex items-center gap-1.5">
-                <span className="material-symbols-outlined text-[16px]">person</span>
+                <span className="material-symbols-outlined text-[16px]" aria-hidden="true">person</span>
                 Contact
               </Link>
             )}
             {deal.companyId && (
               <Link href={scopedPortalPath(`/portal/companies/${deal.companyId}`, routeScope)} className="btn-pib-secondary inline-flex items-center gap-1.5">
-                <span className="material-symbols-outlined text-[16px]">domain</span>
+                <span className="material-symbols-outlined text-[16px]" aria-hidden="true">domain</span>
                 Company
               </Link>
             )}
             <button type="button" onClick={() => setEditOpen(true)} className="btn-pib-secondary inline-flex items-center gap-1.5">
-              <span className="material-symbols-outlined text-[16px]">edit</span>
+              <span className="material-symbols-outlined text-[16px]" aria-hidden="true">edit</span>
               Edit
             </button>
             <button

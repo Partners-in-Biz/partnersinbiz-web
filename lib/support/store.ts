@@ -1,6 +1,7 @@
 import { FieldValue, Timestamp, type Query } from 'firebase-admin/firestore'
 import { adminDb } from '@/lib/firebase/admin'
 import type { ContextReference } from '@/lib/context-references/types'
+import type { ResourceRelationshipLinkSet } from '@/lib/client-documents/linkedValidation'
 import {
   SUPPORT_CATEGORIES,
   SUPPORT_PRIORITIES,
@@ -83,6 +84,19 @@ function toTicket(id: string, data: RawDoc, orgName?: string): SupportTicket {
     priority: data.priority ?? 'normal',
     sourceUrl: data.sourceUrl ?? '',
     sourcePath: data.sourcePath ?? '',
+    companyId: data.companyId ?? null,
+    contactId: data.contactId ?? null,
+    clientOrgId: data.clientOrgId ?? null,
+    projectId: data.projectId ?? null,
+    dealId: data.dealId ?? null,
+    companyIds: Array.isArray(data.companyIds) ? data.companyIds : [],
+    contactIds: Array.isArray(data.contactIds) ? data.contactIds : [],
+    clientOrgIds: Array.isArray(data.clientOrgIds) ? data.clientOrgIds : [],
+    projectIds: Array.isArray(data.projectIds) ? data.projectIds : [],
+    dealIds: Array.isArray(data.dealIds) ? data.dealIds : [],
+    researchItemIds: Array.isArray(data.researchItemIds) ? data.researchItemIds : [],
+    socialPostIds: Array.isArray(data.socialPostIds) ? data.socialPostIds : [],
+    emailThreadIds: Array.isArray(data.emailThreadIds) ? data.emailThreadIds : [],
     contextRefs: Array.isArray(data.contextRefs) ? data.contextRefs : [],
     assignedToType: data.assignedToType ?? null,
     assigneeUserId: data.assigneeUserId ?? null,
@@ -140,6 +154,7 @@ export async function createSupportTicket(args: {
   sourceUrl?: string
   sourcePath?: string
   contextRefs?: ContextReference[]
+  relationshipLinks?: ResourceRelationshipLinkSet
 }) {
   const ref = adminDb.collection(SUPPORT_TICKETS_COLLECTION).doc()
   const batch = adminDb.batch()
@@ -156,6 +171,7 @@ export async function createSupportTicket(args: {
     priority: args.priority,
     sourceUrl: args.sourceUrl ?? '',
     sourcePath: args.sourcePath ?? '',
+    ...(args.relationshipLinks ?? {}),
     contextRefs: args.contextRefs ?? [],
     assignedToType: null,
     assigneeUserId: null,

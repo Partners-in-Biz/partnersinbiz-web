@@ -5,6 +5,7 @@ import { withAuth } from '@/lib/api/auth'
 import { apiError, apiSuccess } from '@/lib/api/response'
 import type { ApiUser } from '@/lib/api/types'
 import { getAccessibleClientDocument } from '@/lib/client-documents/access'
+import { promoteCrmContextRefsToDocumentLinks } from '@/lib/client-documents/context-reference-links'
 import { sendDocumentCommentEmail } from '@/lib/client-documents/notifications'
 import { CLIENT_DOCUMENTS_COLLECTION } from '@/lib/client-documents/store'
 import type { ClientDocument, DocumentComment } from '@/lib/client-documents/types'
@@ -104,6 +105,10 @@ export const POST = withAuth('client', async (req: NextRequest, user: ApiUser, c
     user,
     access.document.orgId,
   )
+
+  if ((body as Record<string, unknown>).alsoLinkToDocument === true) {
+    await promoteCrmContextRefsToDocumentLinks(id, contextRefs)
+  }
 
   const ref = adminDb.collection(CLIENT_DOCUMENTS_COLLECTION).doc(id).collection('comments').doc()
   const userName = typeof body.userName === 'string' && body.userName.trim() ? body.userName.trim() : user.uid

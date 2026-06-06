@@ -14,6 +14,11 @@ import { logActivity } from '@/lib/activity/log'
 import type { SocialPostCategory } from '@/lib/social/types'
 import type { SocialPlatformType, PostStatus } from '@/lib/social/providers'
 import {
+  RESOURCE_RELATIONSHIP_ARRAY_FIELDS,
+  RESOURCE_RELATIONSHIP_STRING_FIELDS,
+  normalizeResourceRelationshipLinks,
+} from '@/lib/client-documents/linkedValidation'
+import {
   cancelSocialQueueEntry,
   hasActivePublishAccount,
   hasFinalApproval,
@@ -30,6 +35,18 @@ const VALID_STATUSES: PostStatus[] = [
 const VALID_CATEGORIES: SocialPostCategory[] = ['work', 'personal', 'ai', 'sport', 'sa', 'other']
 
 type Params = { params: Promise<{ id: string }> }
+
+function relationshipInputFrom(body: Record<string, unknown>) {
+  const value: Record<string, unknown> = {}
+  for (const key of RESOURCE_RELATIONSHIP_STRING_FIELDS) {
+    if (key in body) value[key] = body[key]
+  }
+  for (const key of RESOURCE_RELATIONSHIP_ARRAY_FIELDS) {
+    if (key in body) value[key] = body[key]
+  }
+  if ('contextRefs' in body) value.contextRefs = body.contextRefs
+  return Object.keys(value).length > 0 ? value : undefined
+}
 
 export const GET = withAuth('client', withTenant(async (_req, _user, orgId, context) => {
   const { id } = await (context as Params).params
@@ -112,6 +129,13 @@ export const PUT = withAuth('admin', withTenant(async (req, user, orgId, context
   if ('campaignId' in body) updates.campaignId = body.campaignId
   if ('pillarId' in body) updates.pillarId = body.pillarId
   if ('audience' in body) updates.audience = body.audience
+
+  const relationshipInput = relationshipInputFrom(body as Record<string, unknown>)
+  if (relationshipInput) {
+    const relationships = normalizeResourceRelationshipLinks(relationshipInput)
+    if (!relationships.ok) return apiError(relationships.error, 400)
+    Object.assign(updates, relationships.value)
+  }
 
   const proposedPost = { ...existing, ...updates }
   const proposedStatus = (updates.status ?? existing.status) as PostStatus | undefined

@@ -282,11 +282,17 @@ export const CANONICAL_SHOWCASE_BLOCK_CONTRACTS = {
 
 export interface ClientDocumentLinkSet {
   companyId?: string
+  companyIds?: string[]
+  contactId?: string
+  contactIds?: string[]
   clientOrgId?: string
+  clientOrgIds?: string[]
   projectId?: string
+  projectIds?: string[]
   campaignId?: string
   reportId?: string
   dealId?: string
+  dealIds?: string[]
   seoSprintId?: string
   geoWorkspaceId?: string
   geoAuditId?: string

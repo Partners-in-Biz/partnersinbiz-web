@@ -55,7 +55,7 @@ function chunk<T>(items: T[], size: number): T[][] {
 
 function limitValue(limit?: number): number {
   if (!Number.isFinite(limit ?? NaN)) return DEFAULT_LIMIT
-  return Math.min(Math.max(Number(limit), 1), 100)
+  return Math.min(Math.max(Number(limit), 1), 300)
 }
 
 function userScopedOrgIds(user: ApiUser, requestedOrgId?: string | null): string[] | null {

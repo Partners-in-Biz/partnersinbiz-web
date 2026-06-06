@@ -34,7 +34,7 @@ Agents must leave completed work committed and pushed to `origin/development`. I
 
 ## Deployments
 
-Push normal work to `origin/development`. Vercel should build those pushes as Preview deployments for development/testing. The public production site remains tied to `main`.
+Push normal work to `origin/development`, but do not trigger Vercel Preview builds for every routine commit. Vercel Preview builds are intentionally skipped on `development` unless Peet explicitly asks for a build-triggering push; in that case include `[vercel-build]` or `[preview-build]` in the commit message. The public production site remains tied to `main`, and `main` may build automatically because production merges are infrequent and explicit.
 
 ## Hermes Agent Skill Policy
 

@@ -8,7 +8,7 @@ interface Props {
   orgId?: string
 }
 
-export function ApprovalActions({ campaignId, orgId }: Props) {
+export function AdCampaignReviewActions({ campaignId, orgId }: Props) {
   const router = useRouter()
   const [busy, setBusy] = useState<'approve' | 'reject' | null>(null)
   const [showReject, setShowReject] = useState(false)
@@ -82,7 +82,7 @@ export function ApprovalActions({ campaignId, orgId }: Props) {
             onClick={submitReject}
             disabled={busy !== null || reason.trim().length < 10}
           >
-            {busy === 'reject' ? 'Sending…' : 'Send rejection'}
+            {busy === 'reject' ? 'Sending...' : 'Send rejection'}
           </button>
           <button
             className="btn-pib-ghost text-sm"
@@ -105,7 +105,7 @@ export function ApprovalActions({ campaignId, orgId }: Props) {
           onClick={approve}
           disabled={busy !== null}
         >
-          {busy === 'approve' ? 'Approving…' : 'Approve'}
+          {busy === 'approve' ? 'Approving...' : 'Approve'}
         </button>
         <button
           className="btn-pib-ghost text-sm"

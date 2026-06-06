@@ -1,4 +1,4 @@
-import { readFileSync } from 'fs'
+import { existsSync, readFileSync } from 'fs'
 import path from 'path'
 
 const root = process.cwd()
@@ -13,7 +13,11 @@ describe('ads campaign workspace reuse', () => {
     const admin = readAppFile('app/(admin)/admin/org/[slug]/ads/campaigns/page.tsx')
 
     expect(portal).toContain('@/components/ads/AdCampaignsWorkspace')
+    expect(portal).toContain('@/components/ads/BulkApproveButton')
     expect(admin).toContain('@/components/ads/AdCampaignsWorkspace')
+    expect(existsSync(path.join(root, 'components/ads/BulkApproveButton.tsx'))).toBe(true)
+    expect(existsSync(path.join(root, 'app/(portal)/portal/ads/BulkApproveButton.tsx'))).toBe(false)
+    expect(portal).not.toContain('./BulkApproveButton')
     expect(portal).not.toMatch(/function CampaignRow|STATUS_COLOR/)
     expect(admin).not.toMatch(/STATUS_TINT/)
   })

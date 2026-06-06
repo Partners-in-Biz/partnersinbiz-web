@@ -2,6 +2,9 @@ import { FieldValue } from 'firebase-admin/firestore'
 
 import type { ApiUser } from '@/lib/api/types'
 import { adminDb } from '@/lib/firebase/admin'
+import {
+  normalizeResourceRelationshipLinks,
+} from '@/lib/client-documents/linkedValidation'
 import type {
   ResearchConfidence,
   ResearchFinding,
@@ -117,7 +120,26 @@ function linked(value: unknown): ResearchLinked {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return {}
   const input = value as Record<string, unknown>
   const result: ResearchLinked = {}
-  for (const key of ['projectId', 'campaignId', 'seoSprintId', 'dealId', 'companyId', 'contactId'] as const) {
+  const relationshipInput = Object.fromEntries(Object.entries(input).filter(([key]) => [
+    'companyId',
+    'contactId',
+    'clientOrgId',
+    'projectId',
+    'dealId',
+    'companyIds',
+    'contactIds',
+    'clientOrgIds',
+    'projectIds',
+    'dealIds',
+    'socialPostIds',
+    'emailThreadIds',
+    'supportTicketIds',
+    'contextRefs',
+  ].includes(key)))
+  const relationship = normalizeResourceRelationshipLinks(relationshipInput)
+  if (relationship.ok === false) throw new Error(relationship.error)
+  Object.assign(result, relationship.value)
+  for (const key of ['campaignId', 'seoSprintId'] as const) {
     if (typeof input[key] === 'string' && input[key].trim()) result[key] = input[key].trim()
   }
   const documentIds = strings(input.documentIds)
