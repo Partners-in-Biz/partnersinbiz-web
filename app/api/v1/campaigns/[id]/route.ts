@@ -15,6 +15,9 @@ import { lastActorFrom } from '@/lib/api/actor'
 import type { Campaign } from '@/lib/campaigns/types'
 import type { ApiUser } from '@/lib/api/types'
 import { logActivity } from '@/lib/activity/log'
+import {
+  normalizeResourceRelationshipLinks,
+} from '@/lib/client-documents/linkedValidation'
 
 export const dynamic = 'force-dynamic'
 
@@ -31,6 +34,29 @@ const CONTENT_PATCH_FIELDS = [
   'calendar',
   'shareEnabled',
 ] as const
+
+function relationshipInputFrom(body: Record<string, unknown>) {
+  const value: Record<string, unknown> = {}
+  const safeStringFields = ['companyId', 'clientOrgId', 'projectId', 'dealId']
+  const safeArrayFields = [
+    'companyIds',
+    'clientOrgIds',
+    'projectIds',
+    'dealIds',
+    'researchItemIds',
+    'socialPostIds',
+    'emailThreadIds',
+    'supportTicketIds',
+  ]
+  for (const key of safeStringFields) {
+    if (key in body) value[key] = body[key]
+  }
+  for (const key of safeArrayFields) {
+    if (key in body) value[key] = body[key]
+  }
+  if ('contextRefs' in body) value.contextRefs = body.contextRefs
+  return Object.keys(value).length > 0 ? value : undefined
+}
 
 export const GET = withAuth('client', async (_req: NextRequest, user: ApiUser, context?: unknown) => {
   const { id } = await (context as Params).params
@@ -85,6 +111,13 @@ export const PUT = withAuth('client', async (req: NextRequest, user: ApiUser, co
     }
   }
 
+  const relationshipInput = relationshipInputFrom(body as Record<string, unknown>)
+  if (relationshipInput) {
+    const relationships = normalizeResourceRelationshipLinks(relationshipInput)
+    if (!relationships.ok) return apiError(relationships.error, 400)
+    Object.assign(editable, relationships.value)
+  }
+
   await snap.ref.update({
     ...editable,
     updatedAt: FieldValue.serverTimestamp(),
@@ -108,6 +141,12 @@ export const PATCH = withAuth('client', async (req: NextRequest, user: ApiUser, 
   const update: Record<string, unknown> = { ...lastActorFrom(user) }
   for (const k of CONTENT_PATCH_FIELDS) {
     if (k in body) update[k] = body[k]
+  }
+  const relationshipInput = relationshipInputFrom(body as Record<string, unknown>)
+  if (relationshipInput) {
+    const relationships = normalizeResourceRelationshipLinks(relationshipInput)
+    if (!relationships.ok) return apiError(relationships.error, 400)
+    Object.assign(update, relationships.value)
   }
   if (Object.keys(update).length === 1) {
     return apiError('No allowed fields to update', 400)
