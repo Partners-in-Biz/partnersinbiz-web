@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { PageTabs } from '@/components/ui/AppFoundation'
+import { appendQueryParams } from '@/lib/portal/scoped-routing'
 
 type Surface = 'admin' | 'portal'
 type FilterTab = 'pending' | 'scheduled' | 'published'
@@ -171,6 +172,19 @@ function formatRelativeTime(ts: TimestampLike): string {
   if (diffHours < 24) return `${diffHours}h ago`
   if (diffDays < 7) return `${diffDays}d ago`
   return d.toLocaleDateString('en-ZA', { day: 'numeric', month: 'short' })
+}
+
+function hasQueryParam(path: string, name: string): boolean {
+  try {
+    return new URL(path, 'https://partnersinbiz.local').searchParams.has(name)
+  } catch {
+    return false
+  }
+}
+
+function appendResolvedOrg(path: string, orgId?: string, orgSlug?: string): string {
+  if (!orgId || hasQueryParam(path, 'orgId')) return path
+  return appendQueryParams(path, { orgId, orgSlug })
 }
 
 function statusLabel(status: string): string {
@@ -585,6 +599,8 @@ export default function SocialOverviewWorkspace({
   const [posts, setPosts] = useState<SocialPost[]>([])
   const [loading, setLoading] = useState(true)
   const [orgName, setOrgName] = useState('')
+  const [resolvedOrgId, setResolvedOrgId] = useState('')
+  const [resolvedOrgSlug, setResolvedOrgSlug] = useState('')
   const [unreadInboxCount, setUnreadInboxCount] = useState<number | null>(null)
   const [actionLoading, setActionLoading] = useState<string | null>(null)
   const [actionError, setActionError] = useState<string | null>(null)
@@ -602,14 +618,19 @@ export default function SocialOverviewWorkspace({
     async function load() {
       setLoading(true)
       try {
-        const [accountBody, postBody, orgBody, inboxBody] = await Promise.all([
-          fetch(apiPath('/api/v1/social/accounts')).then((response) => response.json()).catch(() => null),
-          fetch(apiPath(`/api/v1/social/posts?limit=${postsLimit}`)).then((response) => response.json()).catch(() => null),
-          loadOrgName
-            ? fetch(apiPath('/api/v1/portal/org')).then((response) => response.json()).catch(() => null)
-            : Promise.resolve(null),
+        const orgBody = loadOrgName
+          ? await fetch(apiPath('/api/v1/portal/org')).then((response) => response.json()).catch(() => null)
+          : null
+        const nextOrg = orgBody?.org ?? orgBody?.data?.[0]
+        const nextOrgId = typeof nextOrg?.id === 'string' ? nextOrg.id : ''
+        const nextOrgSlug = typeof nextOrg?.slug === 'string' ? nextOrg.slug : ''
+        const socialApiPath = (path: string) => appendResolvedOrg(apiPath(path), nextOrgId)
+
+        const [accountBody, postBody, inboxBody] = await Promise.all([
+          fetch(socialApiPath('/api/v1/social/accounts')).then((response) => response.json()).catch(() => null),
+          fetch(socialApiPath(`/api/v1/social/posts?limit=${postsLimit}`)).then((response) => response.json()).catch(() => null),
           showInboxCount
-            ? fetch(apiPath('/api/v1/social/inbox?status=unread&limit=1')).then((response) => response.json()).catch(() => null)
+            ? fetch(socialApiPath('/api/v1/social/inbox?status=unread&limit=1')).then((response) => response.json()).catch(() => null)
             : Promise.resolve(null),
         ])
 
@@ -619,8 +640,10 @@ export default function SocialOverviewWorkspace({
         setAccounts(Array.isArray(nextAccounts) ? nextAccounts : [])
         setPosts(Array.isArray(postBody?.data) ? postBody.data : [])
 
-        const nextOrgName = orgBody?.org?.name ?? orgBody?.data?.[0]?.name
+        const nextOrgName = nextOrg?.name
         if (nextOrgName) setOrgName(nextOrgName)
+        setResolvedOrgId(nextOrgId)
+        setResolvedOrgSlug(nextOrgSlug)
 
         if (showInboxCount) {
           const items = inboxBody?.items ?? []
@@ -722,8 +745,13 @@ export default function SocialOverviewWorkspace({
   }, [posts])
 
   const primary = primaryAction ? { ...primaryAction, href: hrefFor(primaryAction.href) } : null
-  const actions = quickActions.map((action) => ({ ...action, href: hrefFor(action.href) }))
-  const accountsHref = hrefFor('/portal/social/accounts')
+  const primaryHref = primary ? appendResolvedOrg(primary.href, resolvedOrgId, resolvedOrgSlug) : null
+  const primaryWithResolvedOrg = primary && primaryHref ? { ...primary, href: primaryHref } : primary
+  const actions = quickActions.map((action) => ({
+    ...action,
+    href: appendResolvedOrg(hrefFor(action.href), resolvedOrgId, resolvedOrgSlug),
+  }))
+  const accountsHref = appendResolvedOrg(hrefFor('/portal/social/accounts'), resolvedOrgId, resolvedOrgSlug)
 
   return (
     <div className="space-y-10">
@@ -734,7 +762,7 @@ export default function SocialOverviewWorkspace({
           {orgName && <p className="text-sm text-[var(--color-pib-text-muted)] mt-1.5 font-mono">{orgName}</p>}
           <p className="pib-page-sub max-w-xl">{description}</p>
         </div>
-        {primary && <ActionLink action={{ ...primary, primary: true }} />}
+        {primaryWithResolvedOrg && <ActionLink action={{ ...primaryWithResolvedOrg, primary: true }} />}
       </header>
 
       {loading ? (
