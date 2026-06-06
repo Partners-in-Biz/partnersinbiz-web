@@ -1697,6 +1697,93 @@ describe('Portal company detail page', () => {
     )
   })
 
+  it('links an existing CRM contact from the empty company contacts tab', async () => {
+    const putContact = jest.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ success: true, data: { id: 'contact-existing' } }),
+    } as Response)
+
+    global.fetch = jest.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      if (url === '/api/v1/crm/custom-fields?resource=company') {
+        return Promise.resolve({ ok: true, json: async () => ({ data: { definitions: [] } }) } as Response)
+      }
+      if (url === '/api/v1/crm/companies/company-1') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            success: true,
+            data: { company: { id: 'company-1', orgId: 'org-1', name: 'Acme Holdings', lifecycleStage: 'customer' } },
+          }),
+        } as Response)
+      }
+      if (url === '/api/v1/crm/companies/company-1/command-center?limit=100') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            success: true,
+            data: {
+              summary: {},
+              analytics: {},
+              contacts: [],
+              deals: [],
+              quotes: [],
+              invoices: [],
+              projects: [],
+              serviceWorkspaces: [],
+              relationships: [],
+              documents: [],
+              orders: [],
+              shipments: [],
+              inventoryItems: [],
+              activities: [],
+            },
+          }),
+        } as Response)
+      }
+      if (url === '/api/v1/crm/contacts?limit=25') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            success: true,
+            data: [{ id: 'contact-existing', name: 'Existing Buyer', email: 'existing@example.com', company: 'Old Co' }],
+          }),
+        } as Response)
+      }
+      if (url === '/api/v1/crm/contacts/contact-existing' && init?.method === 'PUT') {
+        return putContact(input, init)
+      }
+      return Promise.resolve({ ok: true, json: async () => ({ data: {} }) } as Response)
+    }) as jest.Mock
+
+    render(<CompanyDetailPage />)
+
+    await screen.findByRole('heading', { name: 'Acme Holdings' })
+    await selectCompanyTab(/Contacts/i)
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Link existing contact' }))
+    expect(screen.getByRole('dialog', { name: 'Link existing contact to Acme Holdings' })).toBeInTheDocument()
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Link' }))
+
+    await waitFor(() => {
+      expect(putContact).toHaveBeenCalledWith(
+        '/api/v1/crm/contacts/contact-existing',
+        expect.objectContaining({
+          method: 'PUT',
+          body: expect.stringContaining('"companyId":"company-1"'),
+        }),
+      )
+    })
+    expect(JSON.parse((putContact.mock.calls[0][1] as RequestInit).body as string)).toEqual(
+      expect.objectContaining({
+        company: 'Acme Holdings',
+        companyId: 'company-1',
+        companyName: 'Acme Holdings',
+      }),
+    )
+  })
+
   it('turns an empty company deals tab into a prefilled create-deal action when a contact exists', async () => {
     global.fetch = jest.fn((input: RequestInfo | URL) => {
       const url = String(input)

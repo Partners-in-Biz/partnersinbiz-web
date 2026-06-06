@@ -25,6 +25,9 @@ type RelatedContact = {
   name?: string
   email?: string
   phone?: string
+  company?: string
+  companyId?: string
+  companyName?: string
   type?: string
   stage?: string
   updatedAt?: unknown
@@ -480,10 +483,12 @@ function ContactsPanel({
   contacts,
   company,
   onCreateContact,
+  onLinkExistingContact,
 }: {
   contacts: RelatedContact[]
   company: Company
   onCreateContact: () => void
+  onLinkExistingContact: () => void
 }) {
   if (contacts.length === 0) {
     return (
@@ -491,10 +496,16 @@ function ContactsPanel({
         icon="person_add"
         label="No linked contacts yet. Add the first stakeholder so emails, deals, quotes, and activity have a real relationship anchor."
       >
-        <button type="button" onClick={onCreateContact} className="btn-pib-primary inline-flex items-center gap-1.5">
-          <span className="material-symbols-outlined text-[16px]" aria-hidden="true">person_add</span>
-          Add first contact for {company.name}
-        </button>
+        <div className="flex flex-wrap justify-center gap-2">
+          <button type="button" onClick={onCreateContact} className="btn-pib-primary inline-flex items-center gap-1.5">
+            <span className="material-symbols-outlined text-[16px]" aria-hidden="true">person_add</span>
+            Add first contact for {company.name}
+          </button>
+          <button type="button" onClick={onLinkExistingContact} className="btn-pib-secondary inline-flex items-center gap-1.5">
+            <span className="material-symbols-outlined text-[16px]" aria-hidden="true">link</span>
+            Link existing contact
+          </button>
+        </div>
       </EmptyPanel>
     )
   }
@@ -507,10 +518,16 @@ function ContactsPanel({
             Add every buyer, approver, finance owner, and delivery contact that matters for {company.name}.
           </p>
         </div>
-        <button type="button" onClick={onCreateContact} className="btn-pib-secondary inline-flex shrink-0 items-center gap-1.5">
-          <span className="material-symbols-outlined text-[16px]" aria-hidden="true">person_add</span>
-          Add contact for {company.name}
-        </button>
+        <div className="flex flex-wrap gap-2 sm:justify-end">
+          <button type="button" onClick={onLinkExistingContact} className="btn-pib-secondary inline-flex shrink-0 items-center gap-1.5">
+            <span className="material-symbols-outlined text-[16px]" aria-hidden="true">link</span>
+            Link existing contact
+          </button>
+          <button type="button" onClick={onCreateContact} className="btn-pib-secondary inline-flex shrink-0 items-center gap-1.5">
+            <span className="material-symbols-outlined text-[16px]" aria-hidden="true">person_add</span>
+            Add contact for {company.name}
+          </button>
+        </div>
       </div>
       <TableShell>
         <table className="w-full text-sm">
@@ -538,6 +555,134 @@ function ContactsPanel({
           </tbody>
         </table>
       </TableShell>
+    </div>
+  )
+}
+
+function ExistingContactLinkDrawer({
+  company,
+  existingContacts,
+  apiPath,
+  onLink,
+  onClose,
+}: {
+  company: Company
+  existingContacts: RelatedContact[]
+  apiPath: (path: string) => string
+  onLink: (contact: RelatedContact) => Promise<void>
+  onClose: () => void
+}) {
+  const [query, setQuery] = useState('')
+  const [contacts, setContacts] = useState<RelatedContact[]>([])
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [linkingId, setLinkingId] = useState<string | null>(null)
+  const linkedContactIds = useMemo(() => new Set(existingContacts.map((contact) => contact.id)), [existingContacts])
+  const searchTerm = query.trim()
+
+  useEffect(() => {
+    let cancelled = false
+    const timer = window.setTimeout(async () => {
+      setLoading(true)
+      setError(null)
+      try {
+        const params = new URLSearchParams({ limit: '25' })
+        if (searchTerm) params.set('search', searchTerm)
+        const res = await fetch(apiPath(`/api/v1/crm/contacts?${params.toString()}`))
+        const body = await res.json().catch(() => ({}))
+        if (!res.ok) throw new Error(body.error ?? 'Existing contacts could not be loaded')
+        const rows = Array.isArray(body.data) ? body.data : []
+        if (!cancelled) setContacts(rows.filter((contact: RelatedContact) => !linkedContactIds.has(contact.id)))
+      } catch (err) {
+        if (!cancelled) {
+          setContacts([])
+          setError(err instanceof Error ? err.message : 'Existing contacts could not be loaded')
+        }
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
+    }, 250)
+
+    return () => {
+      cancelled = true
+      window.clearTimeout(timer)
+    }
+  }, [apiPath, linkedContactIds, searchTerm])
+
+  async function handleLink(contact: RelatedContact): Promise<void> {
+    setLinkingId(contact.id)
+    setError(null)
+    try {
+      await onLink(contact)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to link contact')
+      setLinkingId(null)
+    }
+  }
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex"
+      role="dialog"
+      aria-modal="true"
+      aria-label={`Link existing contact to ${company.name}`}
+    >
+      <div className="flex-1 bg-black/60 backdrop-blur-sm" onClick={onClose} />
+      <div className="w-full max-w-lg overflow-y-auto border-l border-[var(--color-pib-line)] bg-[var(--color-pib-surface)]">
+        <div className="flex items-center justify-between border-b border-[var(--color-pib-line)] px-6 py-4">
+          <div>
+            <p className="eyebrow !text-[10px]">Company contact</p>
+            <h2 className="font-display text-lg">Link existing contact to {company.name}</h2>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="text-[var(--color-pib-text-muted)] transition-colors hover:text-[var(--color-pib-text)]"
+            aria-label={`Close existing contact drawer for ${company.name}`}
+          >
+            <span className="material-symbols-outlined text-[20px]">close</span>
+          </button>
+        </div>
+        <div className="space-y-4 p-6">
+          <label className="block text-sm">
+            <span className="mb-1 block text-[var(--color-pib-text-muted)]">Search contacts</span>
+            <input
+              className="input-pib w-full"
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder="Search by name, email, or company"
+            />
+          </label>
+          {error && <p className="rounded-lg border border-red-400/20 bg-red-400/10 px-3 py-2 text-sm text-red-100">{error}</p>}
+          <div className="space-y-2">
+            {loading ? <p className="text-sm text-[var(--color-pib-text-muted)]">Loading contacts...</p> : null}
+            {!loading && contacts.length === 0 ? (
+              <p className="text-sm text-[var(--color-pib-text-muted)]">No unlinked contacts found. Create a new contact instead if this person is not in CRM yet.</p>
+            ) : null}
+            {contacts.map((contact) => (
+              <div key={contact.id} className="rounded-xl border border-[var(--color-pib-line)] bg-white/[0.02] p-3">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <p className="font-medium text-[var(--color-pib-text)]">{contactIdentityLabel(contact)}</p>
+                    <p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">
+                      {contact.email || 'No email captured'}{contact.companyName || contact.company ? ` · ${contact.companyName || contact.company}` : ''}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    className="btn-pib-secondary inline-flex shrink-0 items-center justify-center gap-1.5 text-xs"
+                    onClick={() => void handleLink(contact)}
+                    disabled={Boolean(linkingId)}
+                  >
+                    <span className="material-symbols-outlined text-[15px]" aria-hidden="true">link</span>
+                    {linkingId === contact.id ? 'Linking...' : 'Link'}
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
     </div>
   )
 }
@@ -1663,6 +1808,7 @@ export default function CompanyDetailPage() {
   const [tab, setTab] = useState<CompanyTab>(initialTab)
   const [editOpen, setEditOpen] = useState(false)
   const [newContactOpen, setNewContactOpen] = useState(false)
+  const [existingContactOpen, setExistingContactOpen] = useState(false)
   const [newDealOpen, setNewDealOpen] = useState(false)
   const [noteOpen, setNoteOpen] = useState(false)
   const [companyNote, setCompanyNote] = useState('')
@@ -1854,6 +2000,25 @@ export default function CompanyDetailPage() {
       throw new Error(body.error ?? 'Failed to create contact')
     }
     setNewContactOpen(false)
+    await loadRelated(company.id)
+  }
+
+  async function linkExistingCompanyContact(contact: RelatedContact): Promise<void> {
+    if (!company) return
+    const res = await fetch(companyApiPath(`/api/v1/crm/contacts/${contact.id}`), {
+      method: 'PUT',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        company: company.name,
+        companyId: company.id,
+        companyName: company.name,
+      }),
+    })
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}))
+      throw new Error(body.error ?? 'Failed to link contact')
+    }
+    setExistingContactOpen(false)
     await loadRelated(company.id)
   }
 
@@ -2406,6 +2571,7 @@ export default function CompanyDetailPage() {
             contacts={related.contacts}
             company={company}
             onCreateContact={() => setNewContactOpen(true)}
+            onLinkExistingContact={() => setExistingContactOpen(true)}
           />
         )}
         {!relatedLoading && tab === 'deals' && (
@@ -2599,6 +2765,16 @@ export default function CompanyDetailPage() {
             />
           </div>
         </div>
+      )}
+
+      {existingContactOpen && (
+        <ExistingContactLinkDrawer
+          company={company}
+          existingContacts={related.contacts}
+          apiPath={companyApiPath}
+          onLink={linkExistingCompanyContact}
+          onClose={() => setExistingContactOpen(false)}
+        />
       )}
 
       {newDealOpen && related.contacts[0] && (
