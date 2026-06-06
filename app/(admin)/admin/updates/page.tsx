@@ -1,6 +1,14 @@
 import Link from 'next/link'
+import type { Metadata } from 'next'
 
 export const dynamic = 'force-dynamic'
+
+export const metadata: Metadata = {
+  robots: {
+    index: false,
+    follow: false,
+  },
+}
 
 type UpdateArea = {
   title: string
@@ -11,6 +19,14 @@ type UpdateArea = {
   hrefLabel: string
   steps: string[]
   checks: string[]
+}
+
+type FutureUpdateCouncilStandard = {
+  title: string
+  summary: string
+  criteria: string[]
+  entryFields: string[]
+  councilChecks: string[]
 }
 
 export const ADMIN_UPDATE_AREAS: UpdateArea[] = [
@@ -175,6 +191,27 @@ const RELEASE_NOTES = [
   'This is an internal admin page; it does not send messages, publish content, spend budget, deploy code, or change client records by itself.',
 ]
 
+export const FUTURE_UPDATE_COUNCIL_STANDARD: FutureUpdateCouncilStandard = {
+  title: 'Future updates council standard',
+  summary: 'Future entries on this page should be added when the council view is that a platform change materially affects operator workflow, client delivery, evidence standards, approvals, or strategic risk.',
+  criteria: [
+    'Add the update when it changes where admins should go, how work should be routed, what evidence should be checked, or which approval gate applies.',
+    'Skip routine technical changes that do not change operator behaviour; keep those in commits, tasks, or release notes instead.',
+    'Prefer the synthesized council recommendation over separate long agent monologues, but preserve meaningful objections and risks.',
+  ],
+  entryFields: [
+    'Surface changed: the admin area, client workspace, project board, agent workflow, or governance path affected.',
+    'Why it matters: the operator/client-delivery impact and what decision quality improves.',
+    'What to do now: the concrete next behaviour, route, task, approval, or evidence check.',
+    'Council view: relevant specialist perspectives, recommendation, owner, confidence, and any minority objection.',
+    'Proof: linked PR, task, spec, research item, screenshot, test result, or live route confirmation.',
+  ],
+  councilChecks: [
+    'Future update entries are internal planning guidance, not public announcements, SEO-facing content, client commitments, or launch promises until separately approved.',
+    'Client-visible sends, public publishing, paid spend, finance, secrets/config, destructive data changes, and production deploys still require their own explicit approval gate.',
+  ],
+}
+
 export default function AdminUpdatesPage() {
   return (
     <div className="mx-auto max-w-7xl space-y-8">
@@ -203,6 +240,51 @@ export default function AdminUpdatesPage() {
             </div>
           </div>
         ))}
+      </section>
+
+      <section className="pib-card overflow-hidden border-[var(--color-pib-accent)]/25" aria-label="Future updates council standard">
+        <div className="border-b border-[var(--color-pib-line)] bg-[var(--color-pib-accent-soft)]/10 p-5 md:p-6">
+          <p className="eyebrow">Council standard</p>
+          <h2 className="mt-1 text-2xl font-display text-[var(--color-pib-text)]">{FUTURE_UPDATE_COUNCIL_STANDARD.title}</h2>
+          <p className="mt-3 max-w-4xl text-sm leading-6 text-[var(--color-pib-text-muted)]">
+            {FUTURE_UPDATE_COUNCIL_STANDARD.summary}
+          </p>
+        </div>
+        <div className="grid gap-4 p-5 md:grid-cols-3 md:p-6">
+          <div className="rounded-2xl border border-[var(--color-pib-line)] bg-white/[0.02] p-4">
+            <h3 className="text-sm font-label font-semibold uppercase tracking-widest text-[var(--color-pib-text)]">When to add</h3>
+            <ul className="mt-3 space-y-2 text-sm leading-6 text-[var(--color-pib-text-muted)]">
+              {FUTURE_UPDATE_COUNCIL_STANDARD.criteria.map((item) => (
+                <li key={item} className="flex gap-2">
+                  <span className="material-symbols-outlined mt-0.5 text-[16px] text-[var(--color-pib-accent)]" aria-hidden="true">rule</span>
+                  <span>{item}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+          <div className="rounded-2xl border border-[var(--color-pib-line)] bg-white/[0.02] p-4">
+            <h3 className="text-sm font-label font-semibold uppercase tracking-widest text-[var(--color-pib-text)]">What each entry shows</h3>
+            <ul className="mt-3 space-y-2 text-sm leading-6 text-[var(--color-pib-text-muted)]">
+              {FUTURE_UPDATE_COUNCIL_STANDARD.entryFields.map((item) => (
+                <li key={item} className="flex gap-2">
+                  <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--color-pib-accent)]" aria-hidden="true" />
+                  <span>{item}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+          <div className="rounded-2xl border border-amber-300/25 bg-amber-500/5 p-4">
+            <h3 className="text-sm font-label font-semibold uppercase tracking-widest text-amber-100">Boundaries</h3>
+            <ul className="mt-3 space-y-2 text-sm leading-6 text-amber-100/85">
+              {FUTURE_UPDATE_COUNCIL_STANDARD.councilChecks.map((item) => (
+                <li key={item} className="flex gap-2">
+                  <span className="material-symbols-outlined mt-0.5 text-[16px] text-amber-200" aria-hidden="true">verified_user</span>
+                  <span>{item}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
       </section>
 
       <section className="space-y-4" aria-label="Updated admin areas">

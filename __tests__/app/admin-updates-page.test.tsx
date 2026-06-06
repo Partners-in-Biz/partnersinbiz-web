@@ -1,6 +1,6 @@
 import React from 'react'
 import { render, screen } from '@testing-library/react'
-import AdminUpdatesPage, { ADMIN_UPDATE_AREAS } from '@/app/(admin)/admin/updates/page'
+import AdminUpdatesPage, { ADMIN_UPDATE_AREAS, FUTURE_UPDATE_COUNCIL_STANDARD } from '@/app/(admin)/admin/updates/page'
 import { OPERATOR_NAV, OPERATOR_NAV_TOPBAR } from '@/components/admin/navConfig'
 
 jest.mock('next/link', () => {
@@ -15,6 +15,12 @@ describe('Admin updates page', () => {
 
     expect(screen.getByRole('heading', { name: /what changed and where to go/i })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: /start at dashboard/i })).toHaveAttribute('href', '/admin/dashboard')
+
+    expect(screen.getByRole('heading', { name: FUTURE_UPDATE_COUNCIL_STANDARD.title })).toBeInTheDocument()
+    expect(screen.getByText(FUTURE_UPDATE_COUNCIL_STANDARD.summary)).toBeInTheDocument()
+    expect(screen.getByText(FUTURE_UPDATE_COUNCIL_STANDARD.criteria[0])).toBeInTheDocument()
+    expect(screen.getByText(FUTURE_UPDATE_COUNCIL_STANDARD.entryFields[3])).toBeInTheDocument()
+    expect(screen.getByText(FUTURE_UPDATE_COUNCIL_STANDARD.councilChecks[0])).toBeInTheDocument()
 
     for (const area of ADMIN_UPDATE_AREAS) {
       expect(screen.getByRole('heading', { name: area.title })).toBeInTheDocument()
