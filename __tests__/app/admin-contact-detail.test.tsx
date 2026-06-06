@@ -119,6 +119,8 @@ describe('Admin contact detail page', () => {
     await waitFor(() => {
       expect(screen.getByRole('heading', { name: 'Jane Client' })).toBeInTheDocument()
     })
+    expect(screen.getByRole('link', { name: 'Contacts' })).toHaveAttribute('href', '/admin/crm/contacts')
+    expect(screen.queryByRole('link', { name: 'arrow_back Contacts' })).not.toBeInTheDocument()
     expect(screen.getByText('Brief for Jane Client')).toBeInTheDocument()
 
     fireEvent.click(screen.getByRole('button', { name: 'Recompute score for Jane Client from admin qualification panel' }))

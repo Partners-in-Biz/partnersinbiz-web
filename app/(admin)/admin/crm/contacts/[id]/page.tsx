@@ -508,7 +508,7 @@ export default function ContactDetailPage() {
         <h1 className="mt-4 font-headline text-2xl font-bold tracking-tight text-on-surface">Contact not found</h1>
         <p className="mt-2 text-sm text-on-surface-variant">{pageError || 'This contact may have been removed or belongs to another workspace.'}</p>
         <Link href="/admin/crm/contacts" className="pib-btn-secondary mt-6 inline-flex text-sm">
-          <span className="material-symbols-outlined text-base">arrow_back</span>
+          <span className="material-symbols-outlined text-base" aria-hidden="true">arrow_back</span>
           Back to contacts
         </Link>
       </div>
@@ -521,7 +521,7 @@ export default function ContactDetailPage() {
         href="/admin/crm/contacts"
         className="inline-flex items-center gap-1 text-xs font-label uppercase tracking-widest text-on-surface-variant hover:text-on-surface"
       >
-        <span className="material-symbols-outlined text-[15px]">arrow_back</span>
+        <span className="material-symbols-outlined text-[15px]" aria-hidden="true">arrow_back</span>
         Contacts
       </Link>
 
