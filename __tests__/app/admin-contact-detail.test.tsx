@@ -229,6 +229,17 @@ describe('Admin contact detail page', () => {
     expect(screen.queryByRole('button', { name: 'close Cancel edit' })).not.toBeInTheDocument()
   })
 
+  it('keeps the admin contact note composer command name free of decorative icon text', async () => {
+    render(<AdminContactDetailPage />)
+
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { name: 'Jane Client' })).toBeInTheDocument()
+    })
+
+    expect(screen.getByRole('button', { name: 'Add note' })).toBeDisabled()
+    expect(screen.queryByRole('button', { name: 'add_comment Add note' })).not.toBeInTheDocument()
+  })
+
   it('turns weak admin profile strength into a command-center enrichment action', async () => {
     render(<AdminContactDetailPage />)
 

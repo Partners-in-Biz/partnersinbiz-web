@@ -944,7 +944,7 @@ export default function ContactDetailPage() {
                   disabled={savingNote || !noteText.trim()}
                   className="pib-btn-primary text-sm disabled:opacity-40"
                 >
-                  <span className="material-symbols-outlined text-base">add_comment</span>
+                  <span className="material-symbols-outlined text-base" aria-hidden="true">add_comment</span>
                   {savingNote ? 'Adding' : 'Add note'}
                 </button>
               </div>
