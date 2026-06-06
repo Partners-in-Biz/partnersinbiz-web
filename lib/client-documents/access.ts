@@ -1,8 +1,6 @@
 import { apiError } from '@/lib/api/response'
 import { resolveOrgScope } from '@/lib/api/orgScope'
 import type { ApiUser } from '@/lib/api/types'
-import { PIB_PLATFORM_ORG_ID } from '@/lib/platform/constants'
-
 import { getClientDocument } from './store'
 import type { ClientDocument, ClientDocumentStatus } from './types'
 
@@ -17,21 +15,30 @@ function userOrgIds(user: ApiUser): string[] {
   return user.orgIds?.length ? user.orgIds : (user.orgId ? [user.orgId] : [])
 }
 
-function isPlatformLinkedClientVisible(document: Partial<ClientDocument>, user: ApiUser): boolean {
+function linkedClientOrgIds(document: Partial<ClientDocument>): string[] {
+  const ids = new Set<string>()
+  const linked = document.linked
+  if (typeof linked?.clientOrgId === 'string' && linked.clientOrgId.trim()) ids.add(linked.clientOrgId.trim())
+  for (const id of linked?.clientOrgIds ?? []) {
+    if (typeof id === 'string' && id.trim()) ids.add(id.trim())
+  }
+  return Array.from(ids)
+}
+
+function isExplicitlyLinkedClientVisible(document: Partial<ClientDocument>, user: ApiUser): boolean {
   if (user.role !== 'client') return false
-  if (document.orgId !== PIB_PLATFORM_ORG_ID) return false
   if (!document.status || !CLIENT_VISIBLE_STATUSES.has(document.status)) return false
-  const linkedClientOrgId = document.linked?.clientOrgId
-  return Boolean(linkedClientOrgId && userOrgIds(user).includes(linkedClientOrgId))
+  const allowedOrgIds = new Set(userOrgIds(user))
+  return linkedClientOrgIds(document).some((orgId) => allowedOrgIds.has(orgId))
 }
 
 export function assertClientDocumentDataAccess(document: Partial<ClientDocument>, user: ApiUser) {
-  if (isPlatformLinkedClientVisible(document, user)) {
-    return { ok: true as const }
+  if (user.role === 'client') {
+    if (isExplicitlyLinkedClientVisible(document, user)) return { ok: true as const }
+    return { ok: false as const, response: apiError('Forbidden', 403) }
   }
 
   if (!document.orgId) {
-    if (user.role === 'client') return { ok: false as const, response: apiError('Forbidden', 403) }
     return { ok: true as const }
   }
 
@@ -53,4 +60,13 @@ export async function getAccessibleClientDocument(id: string, user: ApiUser) {
 
 export function isClientVisibleClientDocument(document: Pick<ClientDocument, 'status'>): boolean {
   return CLIENT_VISIBLE_STATUSES.has(document.status)
+}
+
+export function isClientVisibleToOrg(document: Partial<ClientDocument>, orgId: string): boolean {
+  if (!document.status || !CLIENT_VISIBLE_STATUSES.has(document.status)) return false
+  return linkedClientOrgIds(document).includes(orgId)
+}
+
+export function explicitLinkedClientOrgIds(document: Partial<ClientDocument>): string[] {
+  return linkedClientOrgIds(document)
 }

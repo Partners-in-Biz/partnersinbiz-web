@@ -171,6 +171,7 @@ describe('client document store', () => {
         status: 'internal_draft',
         currentVersionId: 'version-1',
         shareEnabled: false,
+        linked: { clientOrgId: 'org-1' },
         assumptions: [{ id: 'assumption-1', severity: 'needs_review', status: 'open' }],
       }),
     })
@@ -180,6 +181,8 @@ describe('client document store', () => {
     await expect(publishClientDocument('doc-1', { uid: 'u1', role: 'admin' }, 'org-1')).resolves.toEqual({
       id: 'doc-1',
       versionId: 'version-1',
+      clientOrgIds: ['org-1'],
+      multiOrgPublish: false,
     })
     expect(mockRunTransaction).toHaveBeenCalledTimes(1)
     expect(mockTransactionGet).toHaveBeenCalledWith(expect.objectContaining({ id: 'doc-1' }))
@@ -200,6 +203,75 @@ describe('client document store', () => {
       expect.objectContaining({ id: 'version-1' }),
       { status: 'published' },
     )
+  })
+
+  it('fails safe when publishing without explicit linked client org ids', async () => {
+    mockTransactionGet.mockResolvedValue({
+      exists: true,
+      id: 'doc-1',
+      data: () => ({
+        orgId: 'org-1',
+        status: 'internal_draft',
+        currentVersionId: 'version-1',
+        shareEnabled: false,
+        linked: { companyIds: ['company-1'], contactIds: ['contact-1'] },
+        assumptions: [],
+      }),
+    })
+
+    const { publishClientDocument } = await import('@/lib/client-documents/store')
+
+    await expect(publishClientDocument('doc-1', { uid: 'u1', role: 'admin' }, 'org-1')).rejects.toThrow(
+      'Explicit linked client org is required before publishing',
+    )
+    expect(mockTransactionUpdate).not.toHaveBeenCalled()
+  })
+
+  it('requires multi-org publish acknowledgement before exposing a document to multiple client orgs', async () => {
+    mockTransactionGet.mockResolvedValue({
+      exists: true,
+      id: 'doc-1',
+      data: () => ({
+        orgId: 'pib-platform-owner',
+        status: 'internal_draft',
+        currentVersionId: 'version-1',
+        shareEnabled: false,
+        linked: { clientOrgIds: ['client-org-1', 'client-org-2'] },
+        assumptions: [],
+      }),
+    })
+
+    const { publishClientDocument } = await import('@/lib/client-documents/store')
+
+    await expect(publishClientDocument('doc-1', { uid: 'u1', role: 'admin' }, 'pib-platform-owner')).rejects.toThrow(
+      'Publishing to multiple client orgs requires explicit acknowledgement',
+    )
+    expect(mockTransactionUpdate).not.toHaveBeenCalled()
+  })
+
+  it('publishes multi-org documents only after explicit acknowledgement', async () => {
+    mockTransactionGet.mockResolvedValue({
+      exists: true,
+      id: 'doc-1',
+      data: () => ({
+        orgId: 'pib-platform-owner',
+        status: 'internal_draft',
+        currentVersionId: 'version-1',
+        shareEnabled: false,
+        linked: { clientOrgIds: ['client-org-1', 'client-org-2'] },
+        assumptions: [],
+      }),
+    })
+
+    const { publishClientDocument } = await import('@/lib/client-documents/store')
+
+    await expect(publishClientDocument('doc-1', { uid: 'u1', role: 'admin' }, 'pib-platform-owner', { acknowledgeMultiOrgPublish: true })).resolves.toEqual({
+      id: 'doc-1',
+      versionId: 'version-1',
+      clientOrgIds: ['client-org-1', 'client-org-2'],
+      multiOrgPublish: true,
+    })
+    expect(mockTransactionUpdate).toHaveBeenCalledTimes(2)
   })
 
   it('blocks publish when the document org changes inside the transaction', async () => {

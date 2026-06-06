@@ -102,7 +102,7 @@ export default function PortalDocumentDetail({ params }: Props) {
     window.setTimeout(() => setActiveCommentId(null), 2500)
   }, [comments])
 
-  async function submitComposer(text: string, contextRefs: ContextReference[]) {
+  async function submitComposer(text: string, contextRefs: ContextReference[], alsoLinkToDocument?: boolean) {
     if (!pendingAnchor) return
     setComposerBusy(true)
     try {
@@ -116,6 +116,7 @@ export default function PortalDocumentDetail({ params }: Props) {
       }
       if (version) payload.versionId = version.id
       if (contextRefs.length > 0) payload.contextRefs = contextRefs
+      if (alsoLinkToDocument) payload.alsoLinkToDocument = true
 
       const res = await fetch(`/api/v1/client-documents/${id}/comments`, {
         method: 'POST',
@@ -140,13 +141,14 @@ export default function PortalDocumentDetail({ params }: Props) {
     if (res.ok) await refreshComments()
   }
 
-  async function handleReply(commentId: string, text: string, contextRefs: ContextReference[]) {
+  async function handleReply(commentId: string, text: string, contextRefs: ContextReference[], alsoLinkToDocument?: boolean) {
     const res = await fetch(`/api/v1/client-documents/${id}/comments/${commentId}/replies`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         text,
         ...(contextRefs.length > 0 ? { contextRefs } : {}),
+        ...(alsoLinkToDocument ? { alsoLinkToDocument: true } : {}),
       }),
     })
     if (res.ok) await refreshComments()

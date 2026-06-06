@@ -6,6 +6,7 @@ import { withAuth } from '@/lib/api/auth'
 import { resolveOrgScope } from '@/lib/api/orgScope'
 import { apiError, apiSuccess } from '@/lib/api/response'
 import type { ApiUser } from '@/lib/api/types'
+import { promoteCrmContextRefsToDocumentLinks } from '@/lib/client-documents/context-reference-links'
 import { sendDocumentReplyEmail } from '@/lib/client-documents/notifications'
 import { CLIENT_DOCUMENTS_COLLECTION, getClientDocument } from '@/lib/client-documents/store'
 import type { ClientDocument, DocumentComment, DocumentCommentReply } from '@/lib/client-documents/types'
@@ -21,26 +22,32 @@ function userRole(user: ApiUser) {
   return user.role === 'ai' ? 'agent' : user.role
 }
 
-function assertDocumentDataAccess(document: Partial<ClientDocument>, user: ApiUser) {
+type DocumentAccessResult =
+  | { ok: true; document: ClientDocument & { id: string } }
+  | { ok: false; response: Response }
+
+type DocumentDataAccessResult = { ok: true } | { ok: false; response: Response }
+
+function assertDocumentDataAccess(document: Partial<ClientDocument>, user: ApiUser): DocumentDataAccessResult {
   if (!document.orgId) {
-    if (user.role === 'client') return { ok: false as const, response: apiError('Forbidden', 403) }
-    return { ok: true as const }
+    if (user.role === 'client') return { ok: false, response: apiError('Forbidden', 403) }
+    return { ok: true }
   }
 
   const scope = resolveOrgScope(user, document.orgId)
-  if (!scope.ok) return { ok: false as const, response: apiError(scope.error, scope.status) }
+  if (!scope.ok) return { ok: false, response: apiError(scope.error, scope.status) }
 
-  return { ok: true as const }
+  return { ok: true }
 }
 
-async function assertDocumentAccess(id: string, user: ApiUser) {
+async function assertDocumentAccess(id: string, user: ApiUser): Promise<DocumentAccessResult> {
   const document = await getClientDocument(id)
-  if (!document) return { ok: false as const, response: apiError('Document not found', 404) }
+  if (!document) return { ok: false, response: apiError('Document not found', 404) }
 
   const access = assertDocumentDataAccess(document, user)
-  if (!access.ok) return access
+  if (access.ok === false) return access
 
-  return { ok: true as const, document }
+  return { ok: true, document }
 }
 
 function documentContextSeed(id: string, document: ClientDocument): ContextReferenceSeed {
@@ -56,7 +63,7 @@ function documentContextSeed(id: string, document: ClientDocument): ContextRefer
 export const POST = withAuth('client', async (req: NextRequest, user: ApiUser, ctx: RouteContext) => {
   const { id, commentId } = await ctx.params
   const access = await assertDocumentAccess(id, user)
-  if (!access.ok) return access.response
+  if (access.ok === false) return access.response
 
   const body = await req.json().catch(() => null)
   if (!body || typeof body !== 'object' || Array.isArray(body)) return apiError('Invalid JSON', 400)
@@ -79,6 +86,10 @@ export const POST = withAuth('client', async (req: NextRequest, user: ApiUser, c
     user,
     access.document.orgId,
   )
+
+  if ((body as Record<string, unknown>).alsoLinkToDocument === true) {
+    await promoteCrmContextRefsToDocumentLinks(id, contextRefs)
+  }
 
   const userName = typeof body.userName === 'string' && body.userName.trim() ? body.userName.trim() : user.uid
   // Note: array elements cannot contain serverTimestamp sentinels — use Date.

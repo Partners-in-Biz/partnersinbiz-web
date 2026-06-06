@@ -5,7 +5,7 @@ import { resolveOrgScope } from '@/lib/api/orgScope'
 import { apiError, apiSuccess } from '@/lib/api/response'
 import type { ApiUser } from '@/lib/api/types'
 import { canAccessOrg } from '@/lib/api/platformAdmin'
-import { isClientVisibleClientDocument } from '@/lib/client-documents/access'
+import { isClientVisibleToOrg } from '@/lib/client-documents/access'
 import { normalizeClientDocumentLinks, validateClientDocumentLinks } from '@/lib/client-documents/linkedValidation'
 import { CLIENT_DOCUMENTS_COLLECTION, createClientDocument } from '@/lib/client-documents/store'
 import { themeFromOrg } from '@/lib/client-documents/themeFromOrg'
@@ -187,14 +187,20 @@ export const GET = withAuth('client', async (req: NextRequest, user: ApiUser) =>
   if (scope.orgId !== PIB_PLATFORM_ORG_ID) {
     const platformDocuments = await listForOrg(PIB_PLATFORM_ORG_ID)
     const linkedPlatformDocuments = platformDocuments
-      .filter((doc) => doc.linked?.clientOrgId === scope.orgId)
-      .filter((doc) => user.role !== 'client' || isClientVisibleClientDocument(doc))
+      .filter((doc) => {
+        const linkedOrgIds = new Set([
+          ...(doc.linked?.clientOrgId ? [doc.linked.clientOrgId] : []),
+          ...(doc.linked?.clientOrgIds ?? []),
+        ])
+        return linkedOrgIds.has(scope.orgId)
+      })
+      .filter((doc) => user.role !== 'client' || isClientVisibleToOrg(doc, scope.orgId))
     const byId = new Map<string, ClientDocument & { id: string }>()
     for (const document of [...documents, ...linkedPlatformDocuments]) byId.set(document.id, document)
     documents = Array.from(byId.values())
   }
   if (user.role === 'client') {
-    documents = documents.filter((doc) => isClientVisibleClientDocument(doc))
+    documents = documents.filter((doc) => isClientVisibleToOrg(doc, scope.orgId))
   }
 
   return apiSuccess(documents)

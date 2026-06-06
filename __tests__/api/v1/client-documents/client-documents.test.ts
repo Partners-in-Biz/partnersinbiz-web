@@ -365,12 +365,13 @@ describe('client documents API', () => {
     expect(body.data).toEqual([{ id: 'doc-1', orgId: 'org-1', title: 'Proposal', deleted: false }])
   })
 
-  it('lists direct client documents together with platform-owned documents linked to the client org', async () => {
+  it('lists only client-visible documents explicitly linked to the client org for client users', async () => {
     mockQueryGet
       .mockResolvedValueOnce({
         docs: [
-          { id: 'doc-direct', data: () => ({ orgId: 'client-org', title: 'Direct document', status: 'approved', deleted: false }) },
-          { id: 'doc-internal', data: () => ({ orgId: 'client-org', title: 'Internal document', status: 'internal_draft', deleted: false }) },
+          { id: 'doc-direct', data: () => ({ orgId: 'client-org', title: 'Direct document without explicit link', status: 'approved', deleted: false }) },
+          { id: 'doc-direct-linked', data: () => ({ orgId: 'client-org', title: 'Direct linked document', status: 'approved', linked: { clientOrgIds: ['client-org'] }, deleted: false }) },
+          { id: 'doc-internal', data: () => ({ orgId: 'client-org', title: 'Internal document with many CRM links', status: 'internal_review', linked: { clientOrgIds: ['client-org'], companyIds: ['company-1', 'company-2'], contactIds: ['contact-1', 'contact-2'] }, deleted: false }) },
         ],
       })
       .mockResolvedValueOnce({
@@ -381,7 +382,17 @@ describe('client documents API', () => {
               orgId: 'pib-platform-owner',
               title: 'Linked platform document',
               status: 'client_review',
-              linked: { clientOrgId: 'client-org', companyId: 'company-1' },
+              linked: { clientOrgIds: ['client-org'], companyIds: ['company-1'] },
+              deleted: false,
+            }),
+          },
+          {
+            id: 'doc-crm-only',
+            data: () => ({
+              orgId: 'pib-platform-owner',
+              title: 'CRM-only company link must not expose',
+              status: 'approved',
+              linked: { companyIds: ['company-1'], contactIds: ['contact-1'] },
               deleted: false,
             }),
           },
@@ -391,7 +402,7 @@ describe('client documents API', () => {
               orgId: 'pib-platform-owner',
               title: 'Other client document',
               status: 'client_review',
-              linked: { clientOrgId: 'other-org', companyId: 'company-2' },
+              linked: { clientOrgIds: ['other-org'], companyIds: ['company-2'] },
               deleted: false,
             }),
           },
@@ -405,7 +416,7 @@ describe('client documents API', () => {
     const body = await res.json()
 
     expect(res.status).toBe(200)
-    expect(body.data.map((doc: { id: string }) => doc.id)).toEqual(['doc-direct', 'doc-linked'])
+    expect(body.data.map((doc: { id: string }) => doc.id)).toEqual(['doc-direct-linked', 'doc-linked'])
   })
 
   it('lists selected-client documents for admins together with platform-owned documents linked to that client org', async () => {
@@ -462,7 +473,7 @@ describe('client documents API', () => {
     mockDocGet.mockResolvedValueOnce({
       exists: true,
       id: 'doc-1',
-      data: () => ({ orgId: 'org-1', title: 'Proposal', deleted: false }),
+      data: () => ({ orgId: 'org-1', title: 'Proposal', status: 'approved', linked: { clientOrgId: 'org-1' }, deleted: false }),
     })
 
     const { GET } = await import('@/app/api/v1/client-documents/[id]/route')
@@ -518,6 +529,46 @@ describe('client documents API', () => {
     const res = await GET(req, linkedClientUser, { params: Promise.resolve({ id: 'doc-1' }) })
 
     expect(res.status).toBe(403)
+  })
+
+  it('blocks clients from direct-org documents without an explicit client org link', async () => {
+    mockDocGet.mockResolvedValueOnce({
+      exists: true,
+      id: 'doc-1',
+      data: () => ({
+        orgId: 'client-org',
+        title: 'Approved but not explicitly linked',
+        status: 'approved',
+        linked: { companyIds: ['company-1'], contactIds: ['contact-1'] },
+        deleted: false,
+      }),
+    })
+
+    const { GET } = await import('@/app/api/v1/client-documents/[id]/route')
+    const req = new NextRequest('http://localhost/api/v1/client-documents/doc-1')
+    const res = await GET(req, linkedClientUser, { params: Promise.resolve({ id: 'doc-1' }) })
+
+    expect(res.status).toBe(403)
+  })
+
+  it('allows clients to fetch client-visible documents explicitly linked via clientOrgIds', async () => {
+    mockDocGet.mockResolvedValueOnce({
+      exists: true,
+      id: 'doc-1',
+      data: () => ({
+        orgId: 'pib-platform-owner',
+        title: 'Explicit array-linked proposal',
+        status: 'approved',
+        linked: { clientOrgIds: ['client-org'], companyIds: ['company-1'], contactIds: ['contact-1'] },
+        deleted: false,
+      }),
+    })
+
+    const { GET } = await import('@/app/api/v1/client-documents/[id]/route')
+    const req = new NextRequest('http://localhost/api/v1/client-documents/doc-1')
+    const res = await GET(req, linkedClientUser, { params: Promise.resolve({ id: 'doc-1' }) })
+
+    expect(res.status).toBe(200)
   })
 
   it('blocks clients from standalone internal documents', async () => {
@@ -653,6 +704,31 @@ describe('client documents API', () => {
     )
   })
 
+  it('rejects cross-org CRM contact ids in document links', async () => {
+    mockTransactionGet.mockResolvedValueOnce({
+      exists: true,
+      id: 'doc-1',
+      data: () => ({ orgId: 'org-1', title: 'Old', deleted: false }),
+    })
+    mockDocGet
+      .mockResolvedValueOnce({ exists: true, data: () => ({ orgId: 'org-1', deleted: false }) })
+      .mockResolvedValueOnce({ exists: true, data: () => ({ orgId: 'org-2', deleted: false }) })
+
+    const { PATCH } = await import('@/app/api/v1/client-documents/[id]/route')
+    const req = jsonRequest(
+      'http://localhost/api/v1/client-documents/doc-1',
+      { linked: { companyIds: ['company-1'], contactIds: ['contact-foreign'] } },
+      'PATCH',
+    )
+
+    const res = await PATCH(req, adminUser, { params: Promise.resolve({ id: 'doc-1' }) })
+    const body = await res.json()
+
+    expect(res.status).toBe(400)
+    expect(body.error).toContain('linked.contactIds contains a contact outside the document org')
+    expect(mockTransactionUpdate).not.toHaveBeenCalled()
+  })
+
   it('rejects unsupported patch fields', async () => {
     mockTransactionGet.mockResolvedValueOnce({
       exists: true,
@@ -741,6 +817,7 @@ describe('client documents API', () => {
       data: () => ({
         orgId: 'org-1',
         currentVersionId: 'version-1',
+        linked: { clientOrgId: 'org-1' },
         assumptions: [],
         deleted: false,
       }),
@@ -750,6 +827,7 @@ describe('client documents API', () => {
       data: () => ({
         orgId: 'org-1',
         currentVersionId: 'version-1',
+        linked: { clientOrgId: 'org-1' },
         assumptions: [],
         deleted: false,
       }),
@@ -761,7 +839,12 @@ describe('client documents API', () => {
     const body = await res.json()
 
     expect(res.status).toBe(200)
-    expect(body.data).toEqual({ id: 'doc-1', versionId: 'version-1' })
+    expect(body.data).toEqual({
+      id: 'doc-1',
+      versionId: 'version-1',
+      clientOrgIds: ['org-1'],
+      multiOrgPublish: false,
+    })
     expect(mockTransactionUpdate).toHaveBeenCalledWith(
       expect.anything(),
       expect.objectContaining({
@@ -773,6 +856,39 @@ describe('client documents API', () => {
       }),
     )
     expect(mockTransactionUpdate).toHaveBeenCalledWith(expect.anything(), { status: 'published' })
+  })
+
+  it('returns a multi-org publish warning unless explicitly acknowledged', async () => {
+    mockDocGet.mockResolvedValueOnce({
+      exists: true,
+      id: 'doc-1',
+      data: () => ({
+        orgId: 'pib-platform-owner',
+        currentVersionId: 'version-1',
+        linked: { clientOrgIds: ['client-org-1', 'client-org-2'] },
+        assumptions: [],
+        deleted: false,
+      }),
+    })
+    mockTransactionGet.mockResolvedValueOnce({
+      exists: true,
+      data: () => ({
+        orgId: 'pib-platform-owner',
+        currentVersionId: 'version-1',
+        linked: { clientOrgIds: ['client-org-1', 'client-org-2'] },
+        assumptions: [],
+        deleted: false,
+      }),
+    })
+
+    const { POST } = await import('@/app/api/v1/client-documents/[id]/publish/route')
+    const req = jsonRequest('http://localhost/api/v1/client-documents/doc-1/publish', {}, 'POST')
+    const res = await POST(req, user, { params: Promise.resolve({ id: 'doc-1' }) })
+    const body = await res.json()
+
+    expect(res.status).toBe(409)
+    expect(body.error).toBe('Publishing to multiple client orgs requires explicit acknowledgement')
+    expect(mockTransactionUpdate).not.toHaveBeenCalled()
   })
 
   it('blocks clients from publishing documents before transaction update', async () => {
@@ -847,7 +963,7 @@ describe('client documents API', () => {
     mockTransactionGet.mockResolvedValueOnce({
       exists: true,
       id: 'doc-1',
-      data: () => ({ orgId: 'org-1', title: 'Proposal', deleted: false }),
+      data: () => ({ orgId: 'org-1', title: 'Proposal', status: 'approved', linked: { clientOrgId: 'org-1' }, deleted: false }),
     })
 
     const { POST } = await import('@/app/api/v1/client-documents/[id]/archive/route')
@@ -905,7 +1021,7 @@ describe('client documents API', () => {
     mockDocGet.mockResolvedValueOnce({
       exists: true,
       id: 'doc-1',
-      data: () => ({ orgId: 'org-1', title: 'Proposal', deleted: false }),
+      data: () => ({ orgId: 'org-1', title: 'Proposal', status: 'approved', linked: { clientOrgId: 'org-1' }, deleted: false }),
     })
     mockVersionsGet.mockResolvedValueOnce({
       docs: [{ id: 'version-1', data: () => ({ versionNumber: 1, status: 'draft' }) }],
