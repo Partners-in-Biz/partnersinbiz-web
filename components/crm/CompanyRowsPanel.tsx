@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import type { ReactNode } from 'react'
 import Link from 'next/link'
+import { CompanyRecordEmptyPanel, CompanyRecordStatusChip } from '@/components/crm/CompanyRecordPrimitives'
 
 export type CompanyRowsPanelRow = {
   id: string
@@ -26,48 +27,6 @@ type CompanyRowsPanelProps<Row extends CompanyRowsPanelRow> = {
   searchPlaceholder?: string
   statusEmptyLabel?: string
   linkedRow?: boolean
-}
-
-function readableStatusLabel(value: string): string {
-  return value
-    .split(/[_-]+/)
-    .filter(Boolean)
-    .map((part, index) => {
-      const lower = part.toLowerCase()
-      return index === 0 ? lower.charAt(0).toUpperCase() + lower.slice(1) : lower
-    })
-    .join(' ')
-}
-
-function CompanyStatusChip({ value, emptyLabel = 'Status not set' }: { value?: unknown; emptyLabel?: string }) {
-  if (typeof value !== 'string' || !value.trim()) {
-    return <span className="text-xs text-[var(--color-pib-text-muted)]">{emptyLabel}</span>
-  }
-  return (
-    <span className="inline-flex rounded-full bg-emerald-500/15 px-2 py-0.5 text-[10px] font-label uppercase tracking-wide text-emerald-300">
-      {readableStatusLabel(value)}
-    </span>
-  )
-}
-
-function EmptyRowsPanel({
-  icon,
-  label,
-  children,
-}: {
-  icon: string
-  label: string
-  children?: ReactNode
-}) {
-  return (
-    <div className="bento-card p-10 text-center">
-      <span className="material-symbols-outlined text-4xl text-[var(--color-pib-text-muted)]">{icon}</span>
-      <p className="mt-3 text-sm text-[var(--color-pib-text-muted)]">
-        {label}
-      </p>
-      {children ? <div className="mt-5 flex justify-center">{children}</div> : null}
-    </div>
-  )
 }
 
 function rowStatus(row: CompanyRowsPanelRow): string | undefined {
@@ -118,7 +77,7 @@ export function CompanyRowsPanel<Row extends CompanyRowsPanelRow>({
 
   if (rows.length === 0) {
     if (emptyContent) return emptyContent
-    return <EmptyRowsPanel icon={emptyIcon} label={emptyLabel}>{emptyChildren}</EmptyRowsPanel>
+    return <CompanyRecordEmptyPanel icon={emptyIcon} label={emptyLabel}>{emptyChildren}</CompanyRecordEmptyPanel>
   }
 
   return (
@@ -158,7 +117,7 @@ export function CompanyRowsPanel<Row extends CompanyRowsPanelRow>({
         </div>
       ) : null}
       {filteredRows.length === 0 ? (
-        <EmptyRowsPanel icon="filter_alt_off" label={filteredEmptyLabel ?? emptyLabel} />
+        <CompanyRecordEmptyPanel icon="filter_alt_off" label={filteredEmptyLabel ?? emptyLabel} />
       ) : (
         <div className="bento-card divide-y divide-[var(--color-pib-line)]">
           {filteredRows.map((row) => {
@@ -182,7 +141,7 @@ export function CompanyRowsPanel<Row extends CompanyRowsPanelRow>({
                   )}
                 </div>
                 <div className="flex shrink-0 items-center gap-2">
-                  {'status' in row ? <CompanyStatusChip value={row.status} emptyLabel={statusEmptyLabel} /> : null}
+                  {'status' in row ? <CompanyRecordStatusChip value={row.status} emptyLabel={statusEmptyLabel} /> : null}
                   {href && linkedRow ? (
                     <span aria-hidden="true" className="material-symbols-outlined text-[16px] text-[var(--color-pib-text-muted)]">
                       open_in_new

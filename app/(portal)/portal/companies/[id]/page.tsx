@@ -8,6 +8,7 @@ import type { Company } from '@/lib/companies/types'
 import type { CustomFieldDefinition } from '@/lib/customFields/types'
 import { CompanyAnalyticsPanel } from '@/components/crm/CompanyAnalyticsPanel'
 import { CompanyHeader } from '@/components/crm/CompanyHeader'
+import { CompanyRecordEmptyPanel, CompanyRecordStatusChip, CompanyRecordTableShell } from '@/components/crm/CompanyRecordPrimitives'
 import { CompanyRowsPanel } from '@/components/crm/CompanyRowsPanel'
 import { CompanyTabsBar, COMPANY_TABS } from '@/components/crm/CompanyTabsBar'
 import type { CompanyTab } from '@/components/crm/CompanyTabsBar'
@@ -206,48 +207,6 @@ function PageSkeleton() {
       <Skeleton className="h-48 w-full" />
     </div>
   )
-}
-
-function EmptyPanel({ icon, label, children }: { icon: string; label: string; children?: React.ReactNode }) {
-  return (
-    <div className="bento-card p-10 text-center">
-      <span className="material-symbols-outlined text-4xl text-[var(--color-pib-text-muted)]">{icon}</span>
-      <p className="text-sm text-[var(--color-pib-text-muted)] mt-3">
-        {label}
-      </p>
-      {children ? <div className="mt-5 flex justify-center">{children}</div> : null}
-    </div>
-  )
-}
-
-function TableShell({ children }: { children: React.ReactNode }) {
-  return (
-    <div className="bento-card overflow-hidden">
-      <div className="overflow-x-auto">
-        {children}
-      </div>
-    </div>
-  )
-}
-
-function StatusChip({ value, emptyLabel = 'Status not set' }: { value?: string; emptyLabel?: string }) {
-  if (!value) return <span className="text-xs text-[var(--color-pib-text-muted)]">{emptyLabel}</span>
-  return (
-    <span className="inline-flex rounded-full bg-emerald-500/15 px-2 py-0.5 text-[10px] font-label uppercase tracking-wide text-emerald-300">
-      {readableStatusLabel(value)}
-    </span>
-  )
-}
-
-function readableStatusLabel(value: string): string {
-  return value
-    .split(/[_-]+/)
-    .filter(Boolean)
-    .map((part, index) => {
-      const lower = part.toLowerCase()
-      return index === 0 ? lower.charAt(0).toUpperCase() + lower.slice(1) : lower
-    })
-    .join(' ')
 }
 
 function formatCurrency(value?: number, currency = 'ZAR') {
@@ -495,7 +454,7 @@ function ContactsPanel({
 }) {
   if (contacts.length === 0) {
     return (
-      <EmptyPanel
+      <CompanyRecordEmptyPanel
         icon="person_add"
         label="No linked contacts yet. Add the first stakeholder so emails, deals, quotes, and activity have a real relationship anchor."
       >
@@ -509,7 +468,7 @@ function ContactsPanel({
             Link existing contact
           </button>
         </div>
-      </EmptyPanel>
+      </CompanyRecordEmptyPanel>
     )
   }
   return (
@@ -532,7 +491,7 @@ function ContactsPanel({
           </button>
         </div>
       </div>
-      <TableShell>
+      <CompanyRecordTableShell>
         <table className="w-full text-sm">
           <thead className="border-b border-[var(--color-pib-line)] text-[10px] font-label uppercase tracking-wider text-[var(--color-pib-text-muted)]">
             <tr>
@@ -551,13 +510,13 @@ function ContactsPanel({
                   </Link>
                 </td>
                 <td className="px-5 py-4 text-[var(--color-pib-text-muted)]">{contact.email || 'No email captured'}</td>
-                <td className="px-5 py-4"><StatusChip value={contact.type} emptyLabel="Type not set" /></td>
-                <td className="px-5 py-4"><StatusChip value={contact.stage} emptyLabel="Stage not set" /></td>
+                <td className="px-5 py-4"><CompanyRecordStatusChip value={contact.type} emptyLabel="Type not set" /></td>
+                <td className="px-5 py-4"><CompanyRecordStatusChip value={contact.stage} emptyLabel="Stage not set" /></td>
               </tr>
             ))}
           </tbody>
         </table>
-      </TableShell>
+      </CompanyRecordTableShell>
     </div>
   )
 }
@@ -720,7 +679,7 @@ function DealsPanel({
   if (deals.length === 0) {
     const firstContact = contacts[0]
     return (
-      <EmptyPanel
+      <CompanyRecordEmptyPanel
         icon="work_off"
         label={
           firstContact
@@ -739,7 +698,7 @@ function DealsPanel({
             Add contact before deal
           </button>
         )}
-      </EmptyPanel>
+      </CompanyRecordEmptyPanel>
     )
   }
   return (
@@ -763,7 +722,7 @@ function DealsPanel({
           </button>
         )}
       </div>
-      <TableShell>
+      <CompanyRecordTableShell>
         <table className="w-full text-sm">
           <thead className="border-b border-[var(--color-pib-line)] text-[10px] font-label uppercase tracking-wider text-[var(--color-pib-text-muted)]">
             <tr>
@@ -782,13 +741,13 @@ function DealsPanel({
                   </Link>
                 </td>
                 <td className="px-5 py-4 text-[var(--color-pib-text-muted)]">{dealValueLabel(deal)}</td>
-                <td className="px-5 py-4"><StatusChip value={deal.stageId} emptyLabel="Stage not set" /></td>
+                <td className="px-5 py-4"><CompanyRecordStatusChip value={deal.stageId} emptyLabel="Stage not set" /></td>
                 <td className="px-5 py-4 text-[var(--color-pib-text-muted)]">{dealProbabilityLabel(deal)}</td>
               </tr>
             ))}
           </tbody>
         </table>
-      </TableShell>
+      </CompanyRecordTableShell>
     </div>
   )
 }
@@ -847,7 +806,7 @@ function ProjectsPanel({
   )
   if (projects.length === 0) {
     return (
-      <EmptyPanel
+      <CompanyRecordEmptyPanel
         icon="folder_off"
         label={
           firstContact?.email
@@ -881,7 +840,7 @@ function ProjectsPanel({
           )}
           {projectError ? <p className="max-w-md text-xs text-red-300">{projectError}</p> : null}
         </div>
-      </EmptyPanel>
+      </CompanyRecordEmptyPanel>
     )
   }
   return (
@@ -955,7 +914,7 @@ function ServicesPanel({
   const firstContact = contacts[0]
   if (serviceWorkspaces.length === 0) {
     return (
-      <EmptyPanel
+      <CompanyRecordEmptyPanel
         icon="workspaces"
         label={
           firstProject
@@ -977,7 +936,7 @@ function ServicesPanel({
           </button>
           {serviceError ? <p className="max-w-md text-xs text-red-300">{serviceError}</p> : null}
         </div>
-      </EmptyPanel>
+      </CompanyRecordEmptyPanel>
     )
   }
   return (
@@ -1036,7 +995,7 @@ function DocumentsPanel({
 
   if (documents.length === 0) {
     return (
-      <EmptyPanel
+      <CompanyRecordEmptyPanel
         icon="description"
         label={`No linked documents yet. Start a sales proposal draft for ${company.name} so commercial context, approvals, and client-facing history stay attached to this account.`}
       >
@@ -1052,7 +1011,7 @@ function DocumentsPanel({
           </button>
           {documentError ? <p className="max-w-md text-xs text-red-300">{documentError}</p> : null}
         </div>
-      </EmptyPanel>
+      </CompanyRecordEmptyPanel>
     )
   }
   return (
@@ -1111,7 +1070,7 @@ function RelationshipsPanel({
   const firstContact = contacts[0]
   if (relationships.length === 0) {
     return (
-      <EmptyPanel
+      <CompanyRecordEmptyPanel
         icon="hub"
         label={
           firstContact
@@ -1131,7 +1090,7 @@ function RelationshipsPanel({
           </button>
           {relationshipError ? <p className="max-w-md text-xs text-red-300">{relationshipError}</p> : null}
         </div>
-      </EmptyPanel>
+      </CompanyRecordEmptyPanel>
     )
   }
   return (
@@ -1189,7 +1148,7 @@ function QuotesPanel({
   if (quotes.length === 0) {
     const firstDeal = deals[0]
     return (
-      <EmptyPanel
+      <CompanyRecordEmptyPanel
         icon="request_quote"
         label={
           firstDeal
@@ -1216,7 +1175,7 @@ function QuotesPanel({
           )}
           {quoteError ? <p className="max-w-md text-xs text-red-300">{quoteError}</p> : null}
         </div>
-      </EmptyPanel>
+      </CompanyRecordEmptyPanel>
     )
   }
   const firstDeal = deals[0]
@@ -1247,7 +1206,7 @@ function QuotesPanel({
         )}
       </div>
       {quoteError ? <p className="text-xs text-red-300">{quoteError}</p> : null}
-      <TableShell>
+      <CompanyRecordTableShell>
         <table className="w-full text-sm">
           <thead className="border-b border-[var(--color-pib-line)] text-[10px] font-label uppercase tracking-wider text-[var(--color-pib-text-muted)]">
             <tr>
@@ -1261,14 +1220,14 @@ function QuotesPanel({
             {quotes.map((quote) => (
               <tr key={quote.id} className="hover:bg-white/[0.02]">
                 <td className="px-5 py-4 font-mono">{quote.quoteNumber || quote.id}</td>
-                <td className="px-5 py-4"><StatusChip value={quote.status} emptyLabel="Quote status not set" /></td>
+                <td className="px-5 py-4"><CompanyRecordStatusChip value={quote.status} emptyLabel="Quote status not set" /></td>
                 <td className="px-5 py-4 text-[var(--color-pib-text-muted)]">{quoteTotalLabel(quote)}</td>
                 <td className="px-5 py-4 text-[var(--color-pib-text-muted)]">{quoteValidUntilLabel(quote)}</td>
               </tr>
             ))}
           </tbody>
         </table>
-      </TableShell>
+      </CompanyRecordTableShell>
     </div>
   )
 }
@@ -1291,7 +1250,7 @@ function InvoicesPanel({
   if (invoices.length === 0) {
     const acceptedQuote = quotes.find((quote) => quote.status === 'accepted')
     return (
-      <EmptyPanel
+      <CompanyRecordEmptyPanel
         icon="receipt_long"
         label={
           acceptedQuote
@@ -1324,7 +1283,7 @@ function InvoicesPanel({
           )}
           {invoiceError ? <p className="max-w-md text-xs text-red-300">{invoiceError}</p> : null}
         </div>
-      </EmptyPanel>
+      </CompanyRecordEmptyPanel>
     )
   }
   const acceptedQuote = quotes.find((quote) => quote.status === 'accepted')
@@ -1359,7 +1318,7 @@ function InvoicesPanel({
         )}
       </div>
       {invoiceError ? <p className="text-xs text-red-300">{invoiceError}</p> : null}
-      <TableShell>
+      <CompanyRecordTableShell>
         <table className="w-full text-sm">
           <thead className="border-b border-[var(--color-pib-line)] text-[10px] font-label uppercase tracking-wider text-[var(--color-pib-text-muted)]">
             <tr>
@@ -1374,7 +1333,7 @@ function InvoicesPanel({
             {invoices.map((invoice) => (
               <tr key={invoice.id} className="hover:bg-white/[0.02]">
                 <td className="px-5 py-4 font-mono">{invoice.invoiceNumber || invoice.id}</td>
-                <td className="px-5 py-4"><StatusChip value={invoice.status} emptyLabel="Invoice status not set" /></td>
+                <td className="px-5 py-4"><CompanyRecordStatusChip value={invoice.status} emptyLabel="Invoice status not set" /></td>
                 <td className="px-5 py-4 text-[var(--color-pib-text-muted)]">{invoiceTotalLabel(invoice)}</td>
                 <td className="px-5 py-4 text-[var(--color-pib-text-muted)]">{invoiceDueDateLabel(invoice)}</td>
                 <td className="px-5 py-4 text-right">
@@ -1386,7 +1345,7 @@ function InvoicesPanel({
             ))}
           </tbody>
         </table>
-      </TableShell>
+      </CompanyRecordTableShell>
     </div>
   )
 }
@@ -1409,7 +1368,7 @@ function OrdersPanel({
   if (orders.length === 0) {
     const firstInvoice = invoices[0]
     return (
-      <EmptyPanel
+      <CompanyRecordEmptyPanel
         icon="orders"
         label={
           firstInvoice
@@ -1440,7 +1399,7 @@ function OrdersPanel({
           )}
           {orderError ? <p className="max-w-md text-xs text-red-300">{orderError}</p> : null}
         </div>
-      </EmptyPanel>
+      </CompanyRecordEmptyPanel>
     )
   }
   const firstInvoice = invoices[0]
@@ -1508,7 +1467,7 @@ function ShipmentsPanel({
   if (shipments.length === 0) {
     const firstOrder = orders[0]
     return (
-      <EmptyPanel
+      <CompanyRecordEmptyPanel
         icon="local_shipping"
         label={
           firstOrder
@@ -1539,7 +1498,7 @@ function ShipmentsPanel({
           )}
           {shipmentError ? <p className="max-w-md text-xs text-red-300">{shipmentError}</p> : null}
         </div>
-      </EmptyPanel>
+      </CompanyRecordEmptyPanel>
     )
   }
   const firstOrder = orders[0]
@@ -1604,7 +1563,7 @@ function InventoryPanel({
 }) {
   if (inventoryItems.length === 0) {
     return (
-      <EmptyPanel
+      <CompanyRecordEmptyPanel
         icon="inventory_2"
         label={`No inventory items yet. Start a tracked item for ${company.name} so stock, reservations, low-stock warnings, and fulfillment history have an operational anchor.`}
       >
@@ -1620,7 +1579,7 @@ function InventoryPanel({
           </button>
           {inventoryError ? <p className="max-w-md text-xs text-red-300">{inventoryError}</p> : null}
         </div>
-      </EmptyPanel>
+      </CompanyRecordEmptyPanel>
     )
   }
   return (
@@ -1753,7 +1712,7 @@ function ActivityPanel({
   if (activities.length === 0) {
     if (composer) return composer
     return (
-      <EmptyPanel
+      <CompanyRecordEmptyPanel
         icon="history"
         label={
           firstContact
@@ -1772,7 +1731,7 @@ function ActivityPanel({
             Add contact before activity
           </button>
         )}
-      </EmptyPanel>
+      </CompanyRecordEmptyPanel>
     )
   }
   return (
