@@ -1,5 +1,9 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
-import UnifiedChat from '@/components/chat/UnifiedChat'
+import UnifiedChat, {
+  formatConversationAttachmentUploadError,
+  shouldStopFinalizePollingForStatus,
+  uploadConversationAttachment,
+} from '@/components/chat/UnifiedChat'
 import type { ContextReference } from '@/lib/context-references/types'
 
 jest.mock('@/components/chat/VoiceInputButton', () => ({
@@ -45,6 +49,35 @@ function jsonResponse(body: unknown, ok = true) {
     json: async () => body,
   } as Response
 }
+
+describe('UnifiedChat upload and finalize error handling', () => {
+  it('formats deployment-protection and network upload failures into useful user-facing errors', async () => {
+    expect(formatConversationAttachmentUploadError(new Error('Failed to fetch'), 'photo.png')).toContain(
+      'blocked before the app could receive photo.png',
+    )
+
+    global.fetch = jest.fn(async () => ({
+      ok: false,
+      status: 401,
+      statusText: 'Unauthorized',
+      headers: new Headers({ 'content-type': 'text/html; charset=utf-8' }),
+      text: async () => '<!doctype html><title>Authentication Required</title>',
+      json: async () => { throw new Error('not json') },
+    } as Response))
+
+    await expect(uploadConversationAttachment('conv-1', new File(['x'], 'photo.png', { type: 'image/png' })))
+      .rejects.toThrow('Upload blocked before the app could receive photo.png')
+  })
+
+  it('treats missing finalize routes/resources as terminal instead of retryable polling failures', () => {
+    expect(shouldStopFinalizePollingForStatus(400)).toBe(true)
+    expect(shouldStopFinalizePollingForStatus(401)).toBe(true)
+    expect(shouldStopFinalizePollingForStatus(403)).toBe(true)
+    expect(shouldStopFinalizePollingForStatus(404)).toBe(true)
+    expect(shouldStopFinalizePollingForStatus(502)).toBe(false)
+    expect(shouldStopFinalizePollingForStatus(503)).toBe(false)
+  })
+})
 
 describe('UnifiedChat context references', () => {
   let mockFetch: jest.Mock
