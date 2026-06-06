@@ -1666,8 +1666,8 @@ export default function UnifiedChat({
             <button
               type="button"
               onClick={() => fileInputRef.current?.click()}
-              disabled={sending || !activeConversation}
-              title="Attach file"
+              disabled={sending}
+              title={activeConversation ? 'Attach file' : 'Attach file and start a new conversation'}
               aria-label="Attach file"
               className="self-end flex items-center justify-center w-9 h-9 rounded-full text-on-surface-variant hover:text-on-surface hover:bg-white/[0.08] transition-colors disabled:opacity-40 shrink-0"
             >

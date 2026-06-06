@@ -326,6 +326,93 @@ describe('UnifiedChat context references', () => {
     expect(messagePosts).toHaveLength(0)
   })
 
+  it('allows attaching a file before an auto-created agent conversation exists', async () => {
+    mockFetch.mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      if (url.includes('/visible-agents')) {
+        return jsonResponse({ data: [] })
+      }
+      if (url.startsWith('/api/v1/conversations?')) {
+        return jsonResponse({ data: { conversations: [] } })
+      }
+      if (url === '/api/v1/conversations' && init?.method === 'POST') {
+        return jsonResponse({
+          data: {
+            conversation: {
+              ...baseConversation,
+              id: 'conv-created',
+              title: 'Attachment conversation',
+            },
+          },
+        })
+      }
+      if (url === '/api/v1/conversations/conv-created/attachments' && init?.method === 'POST') {
+        return jsonResponse({
+          data: {
+            id: 'file-1',
+            name: 'brief.pdf',
+            url: 'https://files.example.com/brief.pdf',
+            contentType: 'application/pdf',
+            sizeBytes: 1024,
+          },
+        })
+      }
+      if (url === '/api/v1/conversations/conv-created/messages') {
+        if (init?.method === 'POST') {
+          return jsonResponse({
+            data: {
+              message: {
+                id: 'msg-1',
+                conversationId: 'conv-created',
+                role: 'user',
+                content: 'Please review\n\nAttachment: brief.pdf (1.0 KB)',
+                authorKind: 'user',
+                authorId: 'user-1',
+                authorDisplayName: 'Peet',
+                status: 'completed',
+              },
+            },
+          })
+        }
+        return jsonResponse({ data: { messages: [] } })
+      }
+      throw new Error(`Unhandled fetch: ${url}`)
+    })
+
+    const { container } = render(
+      <UnifiedChat
+        orgId="org-1"
+        currentUserUid="user-1"
+        currentUserDisplayName="Peet"
+      />,
+    )
+
+    const input = await screen.findByPlaceholderText('Message Pip')
+    const attachButton = screen.getByRole('button', { name: 'Attach file' })
+    expect(attachButton).not.toBeDisabled()
+
+    const fileInput = container.querySelector('input[type="file"]') as HTMLInputElement
+    const file = new File(['pdf'], 'brief.pdf', { type: 'application/pdf' })
+    fireEvent.change(fileInput, { target: { files: [file] } })
+
+    expect(await screen.findByText('brief.pdf')).toBeInTheDocument()
+    fireEvent.change(input, { target: { value: 'Please review' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Send message' }))
+
+    await waitFor(() => {
+      expect(mockFetch).toHaveBeenCalledWith('/api/v1/conversations', expect.objectContaining({ method: 'POST' }))
+      expect(mockFetch).toHaveBeenCalledWith('/api/v1/conversations/conv-created/attachments', expect.objectContaining({ method: 'POST' }))
+      const messagePost = mockFetch.mock.calls.find(([url, init]) =>
+        String(url) === '/api/v1/conversations/conv-created/messages' && init?.method === 'POST',
+      )
+      expect(messagePost).toBeTruthy()
+      expect(JSON.parse(messagePost![1].body as string)).toMatchObject({
+        content: 'Please review\n\nAttachment: brief.pdf (1.0 KB)',
+        attachments: [{ id: 'file-1', name: 'brief.pdf' }],
+      })
+    })
+  })
+
   it('keeps loaded messages in a scrollable log and scrolls to the latest message', async () => {
     Object.defineProperty(HTMLElement.prototype, 'scrollHeight', {
       configurable: true,
