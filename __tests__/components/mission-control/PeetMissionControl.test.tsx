@@ -48,6 +48,31 @@ const feedItems = [
     metadata: { nextAction: 'Review social shortlist' },
     occurredAt: '2026-06-04T08:35:00.000Z',
   },
+
+  {
+    id: 'agent-learning-review:weekly-1',
+    orgId: 'pib-platform-owner',
+    priority: 'review',
+    title: 'Weekly Agent Learning Review - PiB platform',
+    summary: 'Review proposed learning items. No automatic skill or wiki rewrites.',
+    source: { type: 'agent-learning-review', id: 'weekly-1', url: '/admin/projects/project-learning?taskId=weekly-1' },
+    actor: { id: 'pip', name: 'Pip', role: 'orchestrator' },
+    context: { orgId: 'pib-platform-owner', orgName: 'Partners in Biz', taskId: 'weekly-1' },
+    metadata: {
+      agentLearningReview: {
+        reviewGate: 'proposals-only',
+        dashboard: {
+          skillsChanged: [{ label: 'partnersinbiz/platform-ops updated', href: '/admin/skills/partnersinbiz/platform-ops' }],
+          mistakesReduced: [{ label: 'Stopped repeating approval-gate drift' }],
+          staleInstructionsFound: [{ label: 'Old cron SOP still said auto-apply skills' }],
+          blockedTasksPrevented: [{ label: 'Dependency gate prevented premature Theo pickup' }],
+          newSopsProposed: [{ label: 'Weekly learning review SOP' }],
+          knowledgeCaptured: [{ label: 'Agent learning log', href: '/admin/wiki/partners/agent-learning' }],
+        },
+      },
+    },
+    occurredAt: '2026-06-04T08:50:00.000Z',
+  },
   {
     id: 'task:blocker',
     orgId: 'pib-platform-owner',
@@ -94,7 +119,7 @@ describe('PeetMissionControl', () => {
 
     await screen.findByText('Generated 04 Jun, 09:00')
     const kpis = screen.getByLabelText('Mission Control KPI snapshot')
-    expect(within(kpis).getByText('4')).toBeInTheDocument()
+    expect(within(kpis).getByText('5')).toBeInTheDocument()
     expect(within(kpis).getByText('Live cards')).toBeInTheDocument()
     expect(within(kpis).getAllByText('2').length).toBeGreaterThanOrEqual(1)
     expect(within(kpis).getByText('Follow-ups')).toBeInTheDocument()
@@ -111,6 +136,16 @@ describe('PeetMissionControl', () => {
     expect(screen.getAllByText(/external gates remain closed/).length).toBeGreaterThanOrEqual(1)
     expect(screen.getByRole('heading', { name: 'Agent outputs' })).toBeInTheDocument()
     expect(screen.getAllByText(/property-network social shortlist ready/).length).toBeGreaterThanOrEqual(1)
+    expect(screen.getByRole('heading', { name: 'Agent Learning dashboard' })).toBeInTheDocument()
+    const learningDashboard = screen.getByLabelText('Agent Learning dashboard')
+    expect(within(learningDashboard).getByText('Skills added/updated')).toBeInTheDocument()
+    expect(within(learningDashboard).getByText('partnersinbiz/platform-ops updated')).toBeInTheDocument()
+    expect(within(learningDashboard).getByText('Recurring mistakes reduced')).toBeInTheDocument()
+    expect(within(learningDashboard).getByText('Stopped repeating approval-gate drift')).toBeInTheDocument()
+    expect(within(learningDashboard).getByText('Stale instructions found')).toBeInTheDocument()
+    expect(within(learningDashboard).getByText('Blocked tasks prevented')).toBeInTheDocument()
+    expect(within(learningDashboard).getByText('New SOPs proposed')).toBeInTheDocument()
+    expect(within(learningDashboard).getByText('Client/project knowledge captured')).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: 'Follow-ups' })).toBeInTheDocument()
     expect(screen.getByText('Follow up: create Choice C approval packet')).toBeInTheDocument()
   })

@@ -25,6 +25,12 @@ describe('agentLearningReviewAdapter', () => {
         wikiLinks: [{ label: 'Agent learning log', href: '/admin/wiki/partners/agent-learning' }],
         taskLinks: [{ label: 'Follow-up task', href: '/admin/projects/project-website?taskId=task-learning-1' }],
         proposedSkillChanges: ['Add a pitfall about not rewriting skills automatically.'],
+        skillsUpdated: [{ label: 'systematic-debugging skill updated', href: '/admin/skills/systematic-debugging' }],
+        recurringMistakesReduced: ['Stopped confusing learning with live mutation'],
+        staleInstructionsFound: ['Old SOP said auto-apply changes'],
+        blockedTasksPrevented: ['Approval-gated task stayed awaiting-input'],
+        newSopsProposed: ['Weekly Agent Learning Review loop'],
+        clientProjectKnowledgeCaptured: [{ label: 'Agent learning log', href: '/admin/wiki/partners/agent-learning' }],
       },
     },
   }
@@ -49,6 +55,14 @@ describe('agentLearningReviewAdapter', () => {
       wikiLinks: [{ label: 'Agent learning log', href: '/admin/wiki/partners/agent-learning', type: 'wiki' }],
       taskLinks: [{ label: 'Follow-up task', href: '/admin/projects/project-website?taskId=task-learning-1', type: 'task' }],
       proposedChanges: ['Add a pitfall about not rewriting skills automatically.'],
+      dashboard: {
+        skillsChanged: [{ label: 'systematic-debugging skill updated', href: '/admin/skills/systematic-debugging' }],
+        mistakesReduced: [{ label: 'Stopped confusing learning with live mutation' }],
+        staleInstructionsFound: [{ label: 'Old SOP said auto-apply changes' }],
+        blockedTasksPrevented: [{ label: 'Approval-gated task stayed awaiting-input' }],
+        newSopsProposed: [{ label: 'Weekly Agent Learning Review loop' }],
+        knowledgeCaptured: [{ label: 'Agent learning log', href: '/admin/wiki/partners/agent-learning' }],
+      },
     })
   })
 

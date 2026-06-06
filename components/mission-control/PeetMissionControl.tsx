@@ -30,6 +30,17 @@ type AgentTask = {
   createdAt?: string | null
 }
 
+
+type LearningEvidence = { label: string; href?: string; type?: string }
+
+type LearningDashboardMetric = {
+  key: string
+  label: string
+  detail: string
+  items: LearningEvidence[]
+  icon: string
+}
+
 type MissionData = {
   items: BriefingCard[]
   tasks: AgentTask[]
@@ -145,6 +156,51 @@ function isAgentOutput(item: BriefingCard) {
   return item.source?.type === 'agent-output' || includesAny(`${item.title} ${item.summary ?? ''}`, ['agent output', 'ready', 'completed'])
 }
 
+function isLearningItem(item: BriefingCard) {
+  return item.source?.type === 'agent-learning-review' || Boolean(agentLearningReviewMetadata(item)?.reviewGate)
+}
+
+function normalizeEvidenceList(value: unknown): LearningEvidence[] {
+  if (!Array.isArray(value)) return []
+  return value.flatMap((entry): LearningEvidence[] => {
+    if (typeof entry === 'string') {
+      const label = entry.trim()
+      return label ? [{ label }] : []
+    }
+    if (!entry || typeof entry !== 'object' || Array.isArray(entry)) return []
+    const record = entry as Record<string, unknown>
+    const label = asText(record.label) || asText(record.title) || asText(record.summary) || asText(record.change) || asText(record.name)
+    if (!label) return []
+    return [{
+      label,
+      href: asText(record.href) || asText(record.url) || undefined,
+      type: asText(record.type) || asText(record.category) || undefined,
+    }]
+  })
+}
+
+function agentLearningReviewMetadata(item: BriefingCard): Record<string, unknown> | null {
+  const raw = item.metadata?.agentLearningReview
+  return raw && typeof raw === 'object' && !Array.isArray(raw) ? raw as Record<string, unknown> : null
+}
+
+function learningDashboardMetrics(items: BriefingCard[]): LearningDashboardMetric[] {
+  const dashboardRows = items.flatMap((item) => {
+    const metadata = agentLearningReviewMetadata(item)
+    const dashboard = metadata?.dashboard
+    return dashboard && typeof dashboard === 'object' && !Array.isArray(dashboard) ? [dashboard as Record<string, unknown>] : []
+  })
+  const collect = (field: string) => dashboardRows.flatMap(row => normalizeEvidenceList(row[field]))
+  return [
+    { key: 'skillsChanged', label: 'Skills added/updated', icon: 'school', detail: 'Skill changes proposed or completed with source links.', items: collect('skillsChanged') },
+    { key: 'mistakesReduced', label: 'Recurring mistakes reduced', icon: 'psychology', detail: 'Repeated failure modes turned into guardrails.', items: collect('mistakesReduced') },
+    { key: 'staleInstructionsFound', label: 'Stale instructions found', icon: 'manage_search', detail: 'Old SOPs or guidance flagged for review.', items: collect('staleInstructionsFound') },
+    { key: 'blockedTasksPrevented', label: 'Blocked tasks prevented', icon: 'lock_open', detail: 'Blockers avoided by better routing, dependencies, or gates.', items: collect('blockedTasksPrevented') },
+    { key: 'newSopsProposed', label: 'New SOPs proposed', icon: 'rule', detail: 'New runbooks or templates proposed for approval.', items: collect('newSopsProposed') },
+    { key: 'knowledgeCaptured', label: 'Client/project knowledge captured', icon: 'menu_book', detail: 'Durable wiki, project, or client context added.', items: collect('knowledgeCaptured') },
+  ]
+}
+
 function isFollowUp(task: AgentTask) {
   const status = task.agentStatus ?? task.columnId ?? ''
   return !['done', 'cancelled', 'completed'].includes(status)
@@ -195,6 +251,54 @@ function FollowUpList({ tasks }: { tasks: AgentTask[] }) {
         </Link>
       ))}
     </div>
+  )
+}
+
+
+function AgentLearningDashboard({ items, metrics }: { items: BriefingCard[]; metrics: LearningDashboardMetric[] }) {
+  const totalEvidence = metrics.reduce((sum, metric) => sum + metric.items.length, 0)
+  if (items.length === 0 && totalEvidence === 0) {
+    return null
+  }
+  return (
+    <Surface className="p-4 sm:p-5 lg:col-span-2" aria-label="Agent Learning dashboard">
+      <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">System learning</p>
+          <h2 className="mt-1 text-lg font-headline font-bold text-on-surface">Agent Learning dashboard</h2>
+          <p className="mt-2 max-w-3xl text-xs leading-5 text-on-surface-variant">
+            Shows reviewable evidence that the PiB operating system is learning: no automatic skill/wiki rewrite, just source-backed improvements Peet can inspect.
+          </p>
+        </div>
+        <Link href="/admin/briefings?source=agent-learning-review" className="pib-btn-secondary self-start">Open learning reviews</Link>
+      </div>
+      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+        {metrics.map(metric => {
+          const preview = metric.items.slice(0, 2)
+          return (
+            <div key={metric.key} className="rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)]/70 p-4">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">{metric.label}</p>
+                  <p className="mt-2 text-3xl font-headline font-bold leading-none text-on-surface">{metric.items.length}</p>
+                </div>
+                <span className="material-symbols-outlined text-[22px] text-[var(--color-pib-accent)]" aria-hidden>{metric.icon}</span>
+              </div>
+              <p className="mt-3 text-xs leading-5 text-on-surface-variant">{metric.detail}</p>
+              {preview.length ? (
+                <div className="mt-3 space-y-1">
+                  {preview.map((item, index) => item.href ? (
+                    <Link key={`${metric.key}-${index}`} href={item.href} className="block truncate text-xs font-medium text-[var(--color-pib-accent)] hover:text-[var(--color-pib-accent-hover)]">{item.label}</Link>
+                  ) : (
+                    <p key={`${metric.key}-${index}`} className="truncate text-xs font-medium text-on-surface">{item.label}</p>
+                  ))}
+                </div>
+              ) : <p className="mt-3 text-xs text-on-surface-variant">No evidence captured in this category yet.</p>}
+            </div>
+          )
+        })}
+      </div>
+    </Surface>
   )
 }
 
@@ -250,6 +354,8 @@ export function PeetMissionControl() {
   const revenue = useMemo(() => data.items.filter(isRevenue), [data.items])
   const risks = useMemo(() => data.items.filter(isRisk), [data.items])
   const outputs = useMemo(() => data.items.filter(isAgentOutput), [data.items])
+  const learningItems = useMemo(() => data.items.filter(isLearningItem), [data.items])
+  const learningMetrics = useMemo(() => learningDashboardMetrics(learningItems), [learningItems])
   const decisions = useMemo(() => data.items.filter(item => asText(item.metadata?.decision) || includesAny(item.title, ['approved', 'decision', 'choice'])), [data.items])
   const followUps = useMemo(() => data.tasks.filter(isFollowUp), [data.tasks])
   const generatedStatus = useMemo(() => generatedAtStatus(data.generatedAt), [data.generatedAt])
@@ -281,9 +387,11 @@ export function PeetMissionControl() {
         <KpiTile label="Approvals" value={approvals.length} icon="verified_user" detail="Human decisions and gated actions separated from execution." />
         <KpiTile label="Client risks" value={risks.length} icon="report" detail="Blocked, risk, and closed-gate cards that need attention." />
         <KpiTile label="Follow-ups" value={followUps.length} icon="task_alt" detail="Open project or agent tasks Peet can inspect next." />
+        <KpiTile label="Agent learning" value={learningItems.length} icon="school" detail="Reviewable learning cards with skill, SOP, blocker, and knowledge evidence." />
       </section>
 
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+        <AgentLearningDashboard items={learningItems} metrics={learningMetrics} />
         <Surface className="p-4 sm:p-5">
           <SectionTitle eyebrow="Decisions" title="Today’s decisions" count={decisions.length} />
           {decisions.length === 0 ? <EmptyCard label="No explicit decision cards found yet today." /> : (
