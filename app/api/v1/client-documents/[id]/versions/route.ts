@@ -8,16 +8,36 @@ import { assertClientDocumentDataAccess, getAccessibleClientDocument } from '@/l
 import { deserializeBlocksFromFirestore, serializeBlocksForFirestore } from '@/lib/client-documents/firestore-blocks'
 import { CLIENT_DOCUMENTS_COLLECTION } from '@/lib/client-documents/store'
 import { CANONICAL_DOCUMENT_BLOCK_TYPES } from '@/lib/client-documents/types'
-import type { ClientDocument, DocumentBlock, DocumentBlockType, DocumentTheme } from '@/lib/client-documents/types'
+import type {
+  ClientDocument,
+  DocumentBlock,
+  DocumentBlockType,
+  DocumentBlockVisibility,
+  DocumentTheme,
+} from '@/lib/client-documents/types'
 import { adminDb } from '@/lib/firebase/admin'
+import { contextReferenceKey, sanitizeContextReferenceSeeds } from '@/lib/context-references/types'
+import type { ContextReference } from '@/lib/context-references/types'
 
 export const dynamic = 'force-dynamic'
 
 type RouteContext = { params: Promise<{ id: string }> }
 
 const BLOCK_TYPES = new Set<DocumentBlockType>(CANONICAL_DOCUMENT_BLOCK_TYPES)
-const BLOCK_FIELDS = new Set(['id', 'type', 'title', 'content', 'required', 'locked', 'clientEditable', 'display'])
+const BLOCK_FIELDS = new Set([
+  'id',
+  'type',
+  'title',
+  'content',
+  'required',
+  'locked',
+  'clientEditable',
+  'visibility',
+  'contextRefs',
+  'display',
+])
 const MOTIONS = new Set(['none', 'reveal', 'sticky', 'counter', 'timeline'])
+const VISIBILITIES = new Set<DocumentBlockVisibility>(['hidden', 'internal-only', 'client-visible'])
 
 const DEFAULT_THEME: DocumentTheme = {
   palette: {
@@ -36,8 +56,32 @@ function actorType(user: ApiUser) {
   return user.role === 'ai' ? 'agent' : 'user'
 }
 
+function sanitizeBlockContextRefs(value: unknown): ContextReference[] {
+  const seeds = sanitizeContextReferenceSeeds(value)
+  const byKey = new Map<string, ContextReference>()
+
+  for (const ref of seeds) {
+    if (!ref.orgId) continue
+    const normalized: ContextReference = {
+      type: ref.type,
+      id: ref.id,
+      orgId: ref.orgId,
+      label: ref.label || `${ref.type}:${ref.id}`,
+      origin: ref.origin ?? 'manual',
+      ...(ref.href ? { href: ref.href } : {}),
+      ...(ref.summary ? { summary: ref.summary } : {}),
+      ...(ref.metadata ? { metadata: ref.metadata } : {}),
+    }
+    byKey.set(contextReferenceKey(normalized), normalized)
+  }
+
+  return Array.from(byKey.values())
+}
+
 function validateBlocks(value: unknown): { ok: true; value: DocumentBlock[] } | { ok: false; error: string } {
   if (!Array.isArray(value)) return { ok: false, error: 'blocks array is required' }
+
+  const blocks: DocumentBlock[] = []
 
   for (const [index, block] of value.entries()) {
     if (!block || typeof block !== 'object' || Array.isArray(block)) {
@@ -67,6 +111,12 @@ function validateBlocks(value: unknown): { ok: true; value: DocumentBlock[] } | 
     }
     if (row.clientEditable !== undefined && typeof row.clientEditable !== 'boolean') {
       return { ok: false, error: `blocks[${index}].clientEditable must be a boolean` }
+    }
+    if (row.visibility !== undefined && (typeof row.visibility !== 'string' || !VISIBILITIES.has(row.visibility as DocumentBlockVisibility))) {
+      return { ok: false, error: `blocks[${index}].visibility is invalid` }
+    }
+    if (row.contextRefs !== undefined && !Array.isArray(row.contextRefs)) {
+      return { ok: false, error: `blocks[${index}].contextRefs must be an array` }
     }
     if (!row.display || typeof row.display !== 'object' || Array.isArray(row.display)) {
       return { ok: false, error: `blocks[${index}].display must be an object` }
@@ -107,9 +157,26 @@ function validateBlocks(value: unknown): { ok: true; value: DocumentBlock[] } | 
         }
       }
     }
+
+    blocks.push({
+      id: row.id.trim(),
+      type: row.type as DocumentBlockType,
+      ...(typeof row.title === 'string' ? { title: row.title.trim() } : {}),
+      content: row.content,
+      required: row.required,
+      ...(typeof row.locked === 'boolean' ? { locked: row.locked } : {}),
+      ...(typeof row.clientEditable === 'boolean' ? { clientEditable: row.clientEditable } : {}),
+      ...(typeof row.visibility === 'string' ? { visibility: row.visibility as DocumentBlockVisibility } : {}),
+      ...(row.contextRefs !== undefined ? { contextRefs: sanitizeBlockContextRefs(row.contextRefs) } : {}),
+      display: {
+        ...(typeof display.variant === 'string' ? { variant: display.variant.trim() } : {}),
+        ...(typeof display.accent === 'string' ? { accent: display.accent.trim() } : {}),
+        ...(typeof display.motion === 'string' ? { motion: display.motion as DocumentBlock['display']['motion'] } : {}),
+      },
+    })
   }
 
-  return { ok: true, value: value as DocumentBlock[] }
+  return { ok: true, value: blocks }
 }
 
 function validateTheme(value: unknown): { ok: true; value: DocumentTheme } | { ok: false; error: string } {

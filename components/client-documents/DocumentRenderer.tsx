@@ -1,12 +1,13 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type { ClientDocument, ClientDocumentVersion, DocumentComment } from '@/lib/client-documents/types'
 import { DocumentTheme } from './theme/DocumentTheme'
 import { getRenderer } from './blocks'
 import { useReveal } from './motion/useReveal'
 import { useCounter } from './motion/useCounter'
 import { SelectionPopover } from '@/components/inline-comments/SelectionPopover'
+import { ContextReferenceChips } from '@/components/context-references/ContextReferenceChips'
 import { applyInlineMarkers, clearInlineMarkers, findBlockIdForNode } from '@/lib/client-documents/inlineMarkers'
 
 function readableType(type: string) {
@@ -134,6 +135,7 @@ export interface DocumentRendererProps {
   onRequestTextComment?: (anchor: { text: string; blockId: string | null }) => void
   onRequestImageComment?: (anchor: { mediaUrl: string; blockId: string | null }) => void
   onMarkerClick?: (commentId: string) => void
+  showInternalContextRefs?: boolean
 }
 
 export function DocumentRenderer({
@@ -143,10 +145,15 @@ export function DocumentRenderer({
   onRequestTextComment,
   onRequestImageComment,
   onMarkerClick,
+  showInternalContextRefs = false,
 }: DocumentRendererProps) {
   const [activeBlockId, setActiveBlockId] = useState<string | null>(null)
   const [progress, setProgress] = useState(0)
   const articleRef = useRef<HTMLElement>(null)
+  const visibleBlocks = useMemo(
+    () => version.blocks.filter((block) => block.visibility !== 'hidden' && (showInternalContextRefs || block.visibility !== 'internal-only')),
+    [showInternalContextRefs, version.blocks],
+  )
 
   useReveal(articleRef, version.id)
   useCounter(articleRef, version.id)
@@ -154,7 +161,7 @@ export function DocumentRenderer({
   useEffect(() => {
     const root = articleRef.current
     if (!root) return
-    const sections = version.blocks
+    const sections = visibleBlocks
       .map((b) => root.querySelector(`#block-${b.id}`))
       .filter(Boolean) as HTMLElement[]
     if (sections.length === 0) return
@@ -173,7 +180,7 @@ export function DocumentRenderer({
 
     sections.forEach((el) => observer.observe(el))
     return () => observer.disconnect()
-  }, [version.blocks])
+  }, [visibleBlocks])
 
   useEffect(() => {
     function onScroll() {
@@ -280,15 +287,25 @@ export function DocumentRenderer({
 
           <div className="grid gap-10 md:grid-cols-[1fr_180px]">
             <div>
-              {version.blocks.map((block, index) => {
+              {visibleBlocks.map((block, index) => {
                 const Renderer = getRenderer(block.type)
-                return <Renderer key={block.id} block={block} index={index} />
+                return (
+                  <div key={block.id} className="relative">
+                    {showInternalContextRefs && block.contextRefs && block.contextRefs.length > 0 ? (
+                      <div className="mb-2 rounded-lg border border-amber-400/20 bg-amber-400/10 px-3 py-2" data-testid={`block-context-${block.id}`}>
+                        <p className="mb-1 text-[10px] uppercase tracking-[0.16em] text-amber-200/80">Internal context</p>
+                        <ContextReferenceChips refs={block.contextRefs} compact />
+                      </div>
+                    ) : null}
+                    <Renderer block={block} index={index} />
+                  </div>
+                )
               })}
               <AgreementSignatureSection document={clientDoc} />
             </div>
             <aside className="hidden pt-10 md:block">
               <nav className="sticky top-24 space-y-1 text-xs text-[var(--doc-muted)]">
-                {version.blocks.map((block) => {
+                {visibleBlocks.map((block) => {
                   const isActive = activeBlockId === block.id
                   return (
                     <a

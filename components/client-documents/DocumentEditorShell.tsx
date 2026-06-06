@@ -51,6 +51,7 @@ export function DocumentEditorShell({
               <DocumentBlockEditor
                 key={block.id}
                 block={block}
+                orgId={document.orgId}
                 onChange={handleBlockChange}
               />
             ))}
