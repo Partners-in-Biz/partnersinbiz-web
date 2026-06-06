@@ -5,6 +5,7 @@ import Image from 'next/image'
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
 import type { Company } from '@/lib/companies/types'
+import { CompanyAnalyticsPanel } from '@/components/crm/CompanyAnalyticsPanel'
 import { CompanyOverviewPanel } from '@/components/crm/CompanyOverviewPanel'
 import { CompanyTabsBar, type CompanyTab } from '@/components/crm/CompanyTabsBar'
 import { CompanyWorkspacePanel, type LinkedWorkspace } from '@/components/crm/CompanyWorkspacePanel'
@@ -348,63 +349,6 @@ function SimpleRowsPanel({
   )
 }
 
-function AnalyticsPanel({ center, companyName, portalHref }: { center: CommandCenter; companyName: string; portalHref: string }) {
-  const analytics = center.analytics ?? {}
-  const summary = center.summary ?? {}
-  const tiles = [
-    { label: 'Account value', value: formatCurrency(analytics.accountValue), icon: 'payments' },
-    { label: 'Weighted pipeline', value: formatCurrency(analytics.weightedPipelineValue), icon: 'query_stats' },
-    { label: 'Tracked orders', value: formatCurrency(analytics.trackedOrderValue), icon: 'orders' },
-    { label: 'Open projects', value: String(analytics.openProjectCount ?? summary.projects ?? 0), icon: 'folder_managed' },
-    { label: 'Active services', value: String(analytics.activeServiceCount ?? summary.serviceWorkspaces ?? 0), icon: 'workspaces' },
-    { label: 'Collaborations', value: String(analytics.collaborationCount ?? summary.relationships ?? 0), icon: 'hub' },
-  ]
-
-  return (
-    <div className="space-y-4">
-      <div className="grid gap-3 md:grid-cols-3">
-        {tiles.map((tile) => (
-          <div key={tile.label} className="pib-stat-card">
-            <div className="flex items-start justify-between gap-3">
-              <p className="eyebrow !text-[10px]">{tile.label}</p>
-              <span className="material-symbols-outlined text-[18px] text-[var(--color-pib-text-muted)]">{tile.icon}</span>
-            </div>
-            <p className="mt-3 text-2xl font-semibold text-[var(--color-pib-text)]">{tile.value}</p>
-          </div>
-        ))}
-      </div>
-      <div className="bento-card p-5">
-        <p className="eyebrow !text-[10px]">Risk signals</p>
-        {(analytics.riskSignals ?? []).length === 0 ? (
-          <div className="mt-3 rounded-lg border border-emerald-400/20 bg-emerald-400/10 p-4">
-            <p className="eyebrow !text-[10px] text-emerald-200">Risk watch clear</p>
-            <h3 className="mt-1 text-sm font-semibold text-[var(--color-pib-text)]">Keep leadership risk reviewable</h3>
-            <p className="mt-1 text-sm leading-6 text-[var(--color-pib-text-muted)]">
-              No active risk signals are flagged for {companyName}. Review the portal workspace so finance, delivery, and relationship risk stay visible before the account surprises leadership.
-            </p>
-            <Link
-              href={portalHref}
-              aria-label={`Open portal risk review for ${companyName}`}
-              className="btn-pib-secondary mt-3 inline-flex items-center gap-1.5 text-xs"
-            >
-              <span aria-hidden="true" className="material-symbols-outlined text-[14px]">open_in_new</span>
-              Open portal risk review
-            </Link>
-          </div>
-        ) : (
-          <div className="mt-3 flex flex-wrap gap-2">
-            {(analytics.riskSignals ?? []).map((signal) => (
-              <span key={signal} className="rounded-full border border-amber-400/30 bg-amber-400/10 px-2.5 py-1 text-xs text-amber-200">
-                {signal}
-              </span>
-            ))}
-          </div>
-        )}
-      </div>
-    </div>
-  )
-}
-
 export default function AdminCompanyCommandCenterPage() {
   const params = useParams<{ slug: string; id: string }>()
   const slug = params.slug
@@ -526,7 +470,17 @@ export default function AdminCompanyCommandCenterPage() {
           />
         )}
         {tab === 'analytics' && (
-          <AnalyticsPanel center={center} companyName={company.name} portalHref={portalCompanyHref} />
+          <CompanyAnalyticsPanel
+            analytics={center.analytics}
+            summary={center.summary}
+            companyName={company.name}
+            hrefForTab={(targetTab) => portalPathFor(`/portal/companies/${id}?tab=${targetTab}`)}
+            riskClearActionHref={portalCompanyHref}
+            riskClearActionLabel="Open portal risk review"
+            riskClearActionAriaLabel={`Open portal risk review for ${company.name}`}
+            riskClearActionIcon="open_in_new"
+            riskClearBody={`No active risk signals are flagged for ${company.name}. Review the portal workspace so finance, delivery, and relationship risk stay visible before the account surprises leadership.`}
+          />
         )}
         {tab === 'workspace' && (
           <CompanyWorkspacePanel
