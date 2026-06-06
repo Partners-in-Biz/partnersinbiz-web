@@ -8,6 +8,7 @@ import type { Company } from '@/lib/companies/types'
 import type { CustomFieldDefinition } from '@/lib/customFields/types'
 import { CompanyAnalyticsPanel } from '@/components/crm/CompanyAnalyticsPanel'
 import { CompanyHeader } from '@/components/crm/CompanyHeader'
+import { CompanyRowsPanel } from '@/components/crm/CompanyRowsPanel'
 import { CompanyTabsBar, COMPANY_TABS } from '@/components/crm/CompanyTabsBar'
 import type { CompanyTab } from '@/components/crm/CompanyTabsBar'
 import { CompanyOverviewPanel } from '@/components/crm/CompanyOverviewPanel'
@@ -757,7 +758,7 @@ function ProjectsPanel({
         )}
       </div>
       {projectError ? <p className="text-xs text-red-300">{projectError}</p> : null}
-      <SimpleRowsPanel
+      <CompanyRowsPanel
         rows={projects}
         emptyIcon="folder_off"
         emptyLabel="No linked projects match these filters."
@@ -841,7 +842,7 @@ function ServicesPanel({
         </button>
       </div>
       {serviceError ? <p className="text-xs text-red-300">{serviceError}</p> : null}
-      <SimpleRowsPanel
+      <CompanyRowsPanel
         rows={serviceWorkspaces}
         emptyIcon="workspaces"
         emptyLabel="No service workspaces yet."
@@ -916,7 +917,7 @@ function DocumentsPanel({
         </button>
       </div>
       {documentError ? <p className="text-xs text-red-300">{documentError}</p> : null}
-      <SimpleRowsPanel
+      <CompanyRowsPanel
         rows={documents}
         emptyIcon="description"
         emptyLabel="No linked documents match these filters."
@@ -995,7 +996,7 @@ function RelationshipsPanel({
         </button>
       </div>
       {relationshipError ? <p className="text-xs text-red-300">{relationshipError}</p> : null}
-      <SimpleRowsPanel
+      <CompanyRowsPanel
         rows={relationships}
         emptyIcon="hub"
         emptyLabel="No business relationships yet."
@@ -1316,7 +1317,7 @@ function OrdersPanel({
         )}
       </div>
       {orderError ? <p className="text-xs text-red-300">{orderError}</p> : null}
-      <SimpleRowsPanel
+      <CompanyRowsPanel
         rows={orders}
         emptyIcon="orders"
         emptyLabel="No linked orders yet."
@@ -1415,7 +1416,7 @@ function ShipmentsPanel({
         )}
       </div>
       {shipmentError ? <p className="text-xs text-red-300">{shipmentError}</p> : null}
-      <SimpleRowsPanel
+      <CompanyRowsPanel
         rows={shipments}
         emptyIcon="local_shipping"
         emptyLabel="No shipments yet."
@@ -1484,7 +1485,7 @@ function InventoryPanel({
         </button>
       </div>
       {inventoryError ? <p className="text-xs text-red-300">{inventoryError}</p> : null}
-      <SimpleRowsPanel
+      <CompanyRowsPanel
         rows={inventoryItems}
         emptyIcon="inventory_2"
         emptyLabel="No inventory items yet."
@@ -1495,122 +1496,6 @@ function InventoryPanel({
           inventoryStatusLabel(row as RelatedInventoryItem),
         ]}
       />
-    </div>
-  )
-}
-
-function SimpleRowsPanel({
-  rows,
-  emptyIcon,
-  emptyLabel,
-  title,
-  hrefFor,
-  metaFor,
-  enableFilters = false,
-  searchPlaceholder = 'Search rows...',
-}: {
-  rows: Array<{ id: string; [key: string]: unknown }>
-  emptyIcon: string
-  emptyLabel: string
-  title: (row: { id: string; [key: string]: unknown }) => string
-  hrefFor?: (row: { id: string; [key: string]: unknown }) => string | undefined
-  metaFor: (row: { id: string; [key: string]: unknown }) => Array<string | undefined>
-  enableFilters?: boolean
-  searchPlaceholder?: string
-}) {
-  const [query, setQuery] = useState('')
-  const [statusFilter, setStatusFilter] = useState('all')
-  const [archiveFilter, setArchiveFilter] = useState<'active' | 'archived' | 'all'>('active')
-
-  const statusOptions = Array.from(new Set(
-    rows
-      .map((row) => typeof row.status === 'string' ? row.status : undefined)
-      .filter((status): status is string => Boolean(status) && status !== 'archived'),
-  )).sort()
-
-  const filteredRows = enableFilters ? rows.filter((row) => {
-    const isArchived = row.archived === true || row.status === 'archived'
-    if (archiveFilter === 'active' && isArchived) return false
-    if (archiveFilter === 'archived' && !isArchived) return false
-    if (statusFilter !== 'all' && row.status !== statusFilter) return false
-    const q = query.trim().toLowerCase()
-    if (!q) return true
-    const rowTitle = title(row)
-    const meta = metaFor(row).filter(Boolean)
-    return [rowTitle, typeof row.status === 'string' ? row.status : undefined, ...meta]
-      .filter(Boolean)
-      .join(' ')
-      .toLowerCase()
-      .includes(q)
-  }) : rows
-
-  if (rows.length === 0) return <EmptyPanel icon={emptyIcon} label={emptyLabel} />
-  return (
-    <div className="space-y-3">
-      {enableFilters ? (
-        <div className="bento-card !p-4 grid gap-3 md:grid-cols-[minmax(0,1fr)_180px_180px]">
-          <label className="block">
-            <span className="eyebrow !text-[9px]">Search</span>
-            <input
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
-              placeholder={searchPlaceholder}
-              className="pib-input mt-1"
-            />
-          </label>
-          <label className="block">
-            <span className="eyebrow !text-[9px]">Status</span>
-            <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)} className="pib-select mt-1">
-              <option value="all">All statuses</option>
-              {statusOptions.map((status) => (
-                <option key={status} value={status}>{status.replaceAll('_', ' ')}</option>
-              ))}
-            </select>
-          </label>
-          <label className="block">
-            <span className="eyebrow !text-[9px]">History</span>
-            <select
-              value={archiveFilter}
-              onChange={(event) => setArchiveFilter(event.target.value as 'active' | 'archived' | 'all')}
-              className="pib-select mt-1"
-            >
-              <option value="active">Active only</option>
-              <option value="archived">Archived only</option>
-              <option value="all">Active + archived</option>
-            </select>
-          </label>
-        </div>
-      ) : null}
-      {filteredRows.length === 0 ? (
-        <EmptyPanel icon={emptyIcon} label={emptyLabel} />
-      ) : (
-        <div className="bento-card divide-y divide-[var(--color-pib-line)]">
-          {filteredRows.map((row) => {
-            const rowTitle = title(row)
-            const href = hrefFor?.(row)
-            const meta = metaFor(row).filter(Boolean)
-            return (
-              <div key={row.id} className="px-5 py-4 flex items-start justify-between gap-4">
-                <div className="min-w-0">
-                  {href ? (
-                    <Link href={href} className="font-medium text-sm text-[var(--color-accent-v2)] hover:underline">
-                      {rowTitle}
-                    </Link>
-                  ) : (
-                    <p className="font-medium text-sm text-[var(--color-pib-text)]">{rowTitle}</p>
-                  )}
-                  {meta.length > 0 && (
-                    <p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">
-                      {meta.join(' · ')}
-                    </p>
-                  )}
-                </div>
-                {'status' in row && typeof row.status === 'string' ? <StatusChip value={row.status} /> : null}
-              </div>
-            )
-          })}
-        </div>
-      )}
     </div>
   )
 }
