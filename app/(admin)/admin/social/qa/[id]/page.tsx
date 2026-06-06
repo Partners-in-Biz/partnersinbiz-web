@@ -1,19 +1,10 @@
 'use client'
 export const dynamic = 'force-dynamic'
 
-import { useCallback, useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
-import {
-  SocialPostReviewWorkspace,
-  type SocialPostReviewComment,
-  type SocialPostReviewPost,
-} from '@/components/social-review/SocialPostReviewWorkspace'
+import { SocialPostReviewWorkspace } from '@/components/social-review/SocialPostReviewWorkspace'
+import { useSocialPostReviewDetail } from '@/components/social-review/useSocialPostReviewDetail'
 import { useOrg } from '@/lib/contexts/OrgContext'
-
-interface InlineNotice {
-  type: 'success' | 'error' | 'info'
-  text: string
-}
 
 function paramValue(value: string | string[] | undefined): string {
   return Array.isArray(value) ? value[0] ?? '' : value ?? ''
@@ -25,99 +16,49 @@ export default function QaDetailPage() {
   const id = paramValue(params?.id)
   const { orgId } = useOrg()
 
-  const [post, setPost] = useState<SocialPostReviewPost | null>(null)
-  const [postLoading, setPostLoading] = useState(true)
-  const [postError, setPostError] = useState('')
-  const [comments, setComments] = useState<SocialPostReviewComment[]>([])
-  const [commentsLoading, setCommentsLoading] = useState(true)
-  const [notice, setNotice] = useState<InlineNotice | null>(null)
-  const [busy, setBusy] = useState<null | 'approve' | 'reject' | 'comment' | 'manual'>(null)
-
   const orgQs = orgId ? `?orgId=${orgId}` : ''
-
-  const showNotice = useCallback((next: InlineNotice) => {
-    setNotice(next)
-    window.setTimeout(() => setNotice(current => (current === next ? null : current)), 3500)
-  }, [])
-
-  const fetchPost = useCallback(async () => {
-    if (!id) return
-    setPostLoading(true)
-    setPostError('')
-    try {
-      const response = await fetch(`/api/v1/social/posts/${id}${orgQs}`)
-      const body = await response.json()
-      if (!response.ok) throw new Error(body.error ?? 'Failed to load post')
-      setPost(body.data ?? body)
-    } catch (err: unknown) {
-      setPostError(err instanceof Error ? err.message : 'Failed to load post')
-    } finally {
-      setPostLoading(false)
-    }
-  }, [id, orgQs])
-
-  const fetchComments = useCallback(async () => {
-    if (!id) return
-    setCommentsLoading(true)
-    try {
-      const response = await fetch(`/api/v1/social/posts/${id}/comments${orgQs}`)
-      const body = await response.json()
-      if (!response.ok) throw new Error(body.error ?? 'Failed to load comments')
-      setComments((body.data ?? body ?? []) as SocialPostReviewComment[])
-    } catch {
-      setComments([])
-    } finally {
-      setCommentsLoading(false)
-    }
-  }, [id, orgQs])
-
-  useEffect(() => {
-    fetchPost()
-    fetchComments()
-  }, [fetchPost, fetchComments])
+  const {
+    post,
+    comments,
+    loading: postLoading,
+    commentsLoading,
+    loadError: postError,
+    notice,
+    busy,
+    loadPost,
+    loadComments,
+    runReviewAction,
+  } = useSocialPostReviewDetail({
+    id,
+    postPath: id ? `/api/v1/social/posts/${id}${orgQs}` : '',
+    commentsPath: id ? `/api/v1/social/posts/${id}/comments${orgQs}` : '',
+  })
 
   async function handleApprove() {
-    if (!id) return false
-    setBusy('approve')
-    try {
-      const response = await fetch(`/api/v1/social/posts/${id}/qa-approve${orgQs}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({}),
-      })
-      const body = await response.json().catch(() => ({}))
-      if (!response.ok) throw new Error(body.error ?? 'Failed to approve')
-      showNotice({ type: 'success', text: 'Approved - sent to client review.' })
+    const approved = await runReviewAction({
+      busyKey: 'approve',
+      path: id ? `/api/v1/social/posts/${id}/qa-approve${orgQs}` : '',
+      successText: 'Approved - sent to client review.',
+      errorText: 'Failed to approve',
+    })
+    if (approved) {
       router.push('/admin/social/qa')
-      return true
-    } catch (err: unknown) {
-      showNotice({ type: 'error', text: err instanceof Error ? err.message : 'Failed to approve.' })
-      return false
-    } finally {
-      setBusy(null)
     }
+    return approved
   }
 
   async function handleReject(reason: string) {
-    if (!id) return false
-    setBusy('reject')
-    try {
-      const response = await fetch(`/api/v1/social/posts/${id}/qa-reject${orgQs}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ reason }),
-      })
-      const body = await response.json().catch(() => ({}))
-      if (!response.ok) throw new Error(body.error ?? 'Failed to reject')
-      showNotice({ type: 'success', text: 'Sent back for regeneration.' })
+    const rejected = await runReviewAction({
+      busyKey: 'reject',
+      path: id ? `/api/v1/social/posts/${id}/qa-reject${orgQs}` : '',
+      payload: { reason },
+      successText: 'Sent back for regeneration.',
+      errorText: 'Failed to reject',
+    })
+    if (rejected) {
       router.push('/admin/social/qa')
-      return true
-    } catch (err: unknown) {
-      showNotice({ type: 'error', text: err instanceof Error ? err.message : 'Failed to reject.' })
-      return false
-    } finally {
-      setBusy(null)
     }
+    return rejected
   }
 
   async function handleManualRegenerate() {
@@ -130,45 +71,23 @@ export default function QaDetailPage() {
       return false
     }
 
-    setBusy('manual')
-    try {
-      const response = await fetch(`/api/v1/social/posts/${id}/regenerate${orgQs}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({}),
-      })
-      const body = await response.json().catch(() => ({}))
-      if (!response.ok) throw new Error(body.error ?? 'Failed to regenerate')
-      showNotice({ type: 'success', text: 'Regeneration triggered.' })
-      await fetchPost()
-      return true
-    } catch (err: unknown) {
-      showNotice({ type: 'error', text: err instanceof Error ? err.message : 'Failed to regenerate.' })
-      return false
-    } finally {
-      setBusy(null)
-    }
+    return runReviewAction({
+      busyKey: 'manual',
+      path: `/api/v1/social/posts/${id}/regenerate${orgQs}`,
+      successText: 'Regeneration triggered.',
+      errorText: 'Failed to regenerate',
+      onSuccess: loadPost,
+    })
   }
 
   async function handlePostComment(text: string) {
-    if (!id) return false
-    setBusy('comment')
-    try {
-      const response = await fetch(`/api/v1/social/posts/${id}/comments${orgQs}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text }),
-      })
-      const body = await response.json().catch(() => ({}))
-      if (!response.ok) throw new Error(body.error ?? 'Failed to post note')
-      await fetchComments()
-      return true
-    } catch (err: unknown) {
-      showNotice({ type: 'error', text: err instanceof Error ? err.message : 'Failed to post note.' })
-      return false
-    } finally {
-      setBusy(null)
-    }
+    return runReviewAction({
+      busyKey: 'comment',
+      path: id ? `/api/v1/social/posts/${id}/comments${orgQs}` : '',
+      payload: { text },
+      errorText: 'Failed to post note.',
+      onSuccess: loadComments,
+    })
   }
 
   const status = (post?.status ?? '').toString()

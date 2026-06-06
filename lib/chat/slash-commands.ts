@@ -4,6 +4,7 @@ export type SlashCommandId =
   | 'use-current-page'
   | 'task'
   | 'route'
+  | 'council'
   | 'briefing'
   | 'search'
   | 'skills'
@@ -62,6 +63,15 @@ export const SLASH_COMMANDS: SlashCommandDefinition[] = [
     description: 'Route work to the right PiB specialist with structured task-bus intent.',
     aliases: ['/handoff', '/assign'],
     icon: 'alt_route',
+    executorKind: 'agent_intent',
+  },
+  {
+    id: 'council',
+    token: '/council',
+    label: 'Council mode',
+    description: 'Ask Pip to convene a structured specialist council, debate trade-offs, and return a synthesized recommendation.',
+    aliases: ['/debate', '/panel', '/roundtable'],
+    icon: 'groups',
     executorKind: 'agent_intent',
   },
   {
@@ -171,7 +181,27 @@ export function buildSlashCommandPayload(
   }
 }
 
+export function councilModeGuidanceLines(trigger: 'slash-command' | 'multi-agent-chat' = 'slash-command'): string[] {
+  const opening = trigger === 'multi-agent-chat'
+    ? 'Council-style multi-agent orchestration requirements:'
+    : 'Council mode requirements:'
+
+  return [
+    opening,
+    '- Select the relevant PiB specialist perspectives for the question before answering. Use role fit: Theo=engineering, Maya=content/brand/social, Sage=research/strategy, Vera=data/analytics, Nora=ops/billing/admin, Quinn=QA/release, Ari=paid media, Silas=SEO, Luca=support, Iris=documents, Blake=sales.',
+    '- Prefer real independent perspectives when supported: use Hermes subagents for bounded one-off analysis, or Projects/Kanban task-bus handoffs when the work needs durable ownership, evidence, approvals, or review.',
+    '- If you cannot actually call a subagent/specialist in this run, simulate only the clearly relevant perspectives and label them as perspective analysis, not as completed agent execution.',
+    '- Include challenge/debate: key disagreements, risks, approval gates, and what evidence would change the recommendation.',
+    '- Finish with a clear consensus/recommendation, minority objections if any, confidence level, and the owner for next execution.',
+    '- Do not perform client-visible, spend, deploy, finance, secret/config, or destructive actions without the normal approval gate.',
+  ]
+}
+
 export function slashCommandInstruction(payload: SlashCommandPayload): string {
+  const commandGuidance = payload.id === 'council'
+    ? councilModeGuidanceLines('slash-command')
+    : []
+
   return [
     '[Slash command]',
     `id: ${payload.id}`,
@@ -180,6 +210,7 @@ export function slashCommandInstruction(payload: SlashCommandPayload): string {
     `executor: ${payload.executorKind}`,
     payload.args ? `args: ${payload.args}` : 'args: ',
     'Treat this as structured command intent from the composer, not as decorative message text. If it maps to a platform operation, use the relevant typed API/workflow rather than guessing from prose.',
+    ...commandGuidance,
     '---',
     '',
   ].join('\n')

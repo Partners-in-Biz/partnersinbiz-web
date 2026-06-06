@@ -109,6 +109,7 @@ describe('CommunicationsConsole organisation scoping', () => {
       'href',
       '/portal/marketing?orgId=lumen-org&orgSlug=lumen-speeds&sourceCompanyId=company-1&sourceCompanyName=Lumen',
     )
+    expect(screen.queryByRole('link', { name: /arrow_back Marketing/i })).not.toBeInTheDocument()
 
     await waitFor(() => {
       expect(global.fetch).toHaveBeenCalledWith(

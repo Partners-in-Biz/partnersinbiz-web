@@ -93,6 +93,70 @@ describe('POST /api/v1/campaigns', () => {
       })
     )
   })
+
+  it('normalizes relationship links on campaign create without launching side effects', async () => {
+    mockGet.mockResolvedValue({ exists: true, data: () => ({ orgId: 'o1' }) })
+    mockAdd.mockResolvedValue({ id: 'camp-1' })
+    const { POST } = await import('@/app/api/v1/campaigns/route')
+    const req = new NextRequest('http://localhost/api/v1/campaigns', {
+      method: 'POST',
+      headers: { ...authHeader, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        orgId: 'o1',
+        name: 'Welcome',
+        companyId: 'company-1',
+        companyIds: ['company-2', 'company-1'],
+        contactId: 'stakeholder-contact',
+        contactIds: ['audience-contact'],
+        contextRefs: [{ type: 'contacts', id: 'stakeholder-contact' }],
+      }),
+    })
+    const res = await POST(req, { uid: 'u1', role: 'admin' })
+    expect(res.status).toBe(201)
+    expect(mockAdd).toHaveBeenCalledWith(
+      expect.objectContaining({
+        status: 'draft',
+        companyId: 'company-1',
+        companyIds: ['company-1', 'company-2'],
+        contactIds: ['audience-contact'],
+        contextRefs: [{ type: 'contacts', id: 'stakeholder-contact' }],
+      })
+    )
+    expect(mockAdd).toHaveBeenCalledWith(
+      expect.not.objectContaining({
+        contactId: 'stakeholder-contact',
+      })
+    )
+  })
+})
+
+describe('PUT /api/v1/campaigns/[id]', () => {
+  it('normalizes relationship links on draft campaign update', async () => {
+    mockGet.mockResolvedValue({
+      exists: true,
+      data: () => ({ orgId: 'o1', status: 'draft', contactIds: [] }),
+      ref: { update: mockUpdate },
+    })
+    const { PUT } = await import('@/app/api/v1/campaigns/[id]/route')
+    const req = new NextRequest('http://localhost/api/v1/campaigns/camp-1', {
+      method: 'PUT',
+      headers: { ...authHeader, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        name: 'Updated',
+        companyId: 'company-1',
+        companyIds: ['company-2'],
+        contextRefs: [{ type: 'contacts', id: 'contact-1' }],
+      }),
+    })
+    const res = await PUT(req, { uid: 'u1', role: 'admin' }, { params: Promise.resolve({ id: 'camp-1' }) })
+    expect(res.status).toBe(200)
+    expect(mockUpdate).toHaveBeenCalledWith(expect.objectContaining({
+      name: 'Updated',
+      companyId: 'company-1',
+      companyIds: ['company-1', 'company-2'],
+      contextRefs: [{ type: 'contacts', id: 'contact-1' }],
+    }))
+  })
 })
 
 describe('GET /api/v1/campaigns', () => {

@@ -31,6 +31,7 @@ describe('PortalSeoSprintChrome', () => {
       'href',
       '/portal/seo?orgId=lumen-org&orgSlug=lumen-speeds',
     )
+    expect(screen.queryByRole('link', { name: /arrow_back All sprints/i })).not.toBeInTheDocument()
     expect(screen.getByRole('link', { name: /Progress/i })).toHaveAttribute(
       'href',
       '/portal/seo/sprints/lumen-sprint?orgId=lumen-org&orgSlug=lumen-speeds',

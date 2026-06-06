@@ -1,23 +1,15 @@
 'use client'
 export const dynamic = 'force-dynamic'
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useMemo } from 'react'
 import { useParams, useRouter, useSearchParams } from 'next/navigation'
-import {
-  SocialPostReviewWorkspace,
-  type SocialPostReviewComment,
-  type SocialPostReviewPost,
-} from '@/components/social-review/SocialPostReviewWorkspace'
+import { SocialPostReviewWorkspace } from '@/components/social-review/SocialPostReviewWorkspace'
+import { useSocialPostReviewDetail } from '@/components/social-review/useSocialPostReviewDetail'
 import {
   scopedApiPath,
   scopedPortalPath,
   scopeFromSearchParams,
 } from '@/lib/portal/scoped-routing'
-
-interface InlineNotice {
-  type: 'success' | 'error' | 'info'
-  text: string
-}
 
 function paramValue(value: string | string[] | undefined): string {
   return Array.isArray(value) ? value[0] ?? '' : value ?? ''
@@ -30,123 +22,57 @@ export default function ClientReviewDetailPage() {
   const id = paramValue(params?.id)
   const orgScope = useMemo(() => scopeFromSearchParams(searchParams), [searchParams])
   const reviewQueueHref = useMemo(() => scopedPortalPath('/portal/social/review', orgScope), [orgScope])
-
-  const [post, setPost] = useState<SocialPostReviewPost | null>(null)
-  const [comments, setComments] = useState<SocialPostReviewComment[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-  const [notice, setNotice] = useState<InlineNotice | null>(null)
-  const [busy, setBusy] = useState<null | 'approve' | 'reject' | 'comment'>(null)
-
-  const showNotice = useCallback((next: InlineNotice) => {
-    setNotice(next)
-    window.setTimeout(() => setNotice(current => (current === next ? null : current)), 3500)
-  }, [])
-
-  const load = useCallback(async () => {
-    if (!id) return
-    setLoading(true)
-    setError(null)
-    try {
-      const [postRes, commentsRes] = await Promise.all([
-        fetch(scopedApiPath(`/api/v1/social/posts/${id}`, orgScope))
-          .then(response => response.json())
-          .catch(() => ({})),
-        fetch(scopedApiPath(`/api/v1/social/posts/${id}/comments`, orgScope))
-          .then(response => response.json())
-          .catch(() => ({})),
-      ])
-
-      if (postRes?.error) {
-        setError(postRes.error)
-      } else {
-        setPost(postRes?.data ?? null)
-      }
-
-      setComments(Array.isArray(commentsRes?.data) ? commentsRes.data : [])
-    } catch {
-      setError('Could not load this post.')
-    } finally {
-      setLoading(false)
-    }
-  }, [id, orgScope])
-
-  useEffect(() => {
-    load()
-  }, [load])
+  const {
+    post,
+    comments,
+    loading,
+    commentsLoading,
+    loadError: error,
+    notice,
+    busy,
+    runReviewAction,
+    appendCommentFromBody,
+  } = useSocialPostReviewDetail({
+    id,
+    postPath: id ? scopedApiPath(`/api/v1/social/posts/${id}`, orgScope) : '',
+    commentsPath: id ? scopedApiPath(`/api/v1/social/posts/${id}/comments`, orgScope) : '',
+  })
 
   async function handleApprove() {
-    if (!id || busy) return false
-    setBusy('approve')
-    try {
-      const response = await fetch(scopedApiPath(`/api/v1/social/posts/${id}/client-approve`, orgScope), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({}),
-      })
-      const body = await response.json().catch(() => ({}))
-      if (!response.ok) {
-        showNotice({ type: 'error', text: body?.error || 'Could not approve. Please try again.' })
-        return false
-      }
-      showNotice({ type: 'success', text: 'Approved - will be published.' })
+    const approved = await runReviewAction({
+      busyKey: 'approve',
+      path: id ? scopedApiPath(`/api/v1/social/posts/${id}/client-approve`, orgScope) : '',
+      successText: 'Approved - will be published.',
+      errorText: 'Could not approve. Please try again.',
+    })
+    if (approved) {
       window.setTimeout(() => router.push(reviewQueueHref), 700)
-      return true
-    } catch {
-      showNotice({ type: 'error', text: 'Network error. Please try again.' })
-      return false
-    } finally {
-      setBusy(null)
     }
+    return approved
   }
 
   async function handleReject(reason: string) {
-    if (!id || busy) return false
-    setBusy('reject')
-    try {
-      const response = await fetch(scopedApiPath(`/api/v1/social/posts/${id}/client-reject`, orgScope), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ reason }),
-      })
-      const body = await response.json().catch(() => ({}))
-      if (!response.ok) {
-        showNotice({ type: 'error', text: body?.error || 'Could not send back. Please try again.' })
-        return false
-      }
-      showNotice({ type: 'success', text: 'Sent back - your AI agent is regenerating now.' })
+    const rejected = await runReviewAction({
+      busyKey: 'reject',
+      path: id ? scopedApiPath(`/api/v1/social/posts/${id}/client-reject`, orgScope) : '',
+      payload: { reason },
+      successText: 'Sent back - your AI agent is regenerating now.',
+      errorText: 'Could not send back. Please try again.',
+    })
+    if (rejected) {
       window.setTimeout(() => router.push(reviewQueueHref), 700)
-      return true
-    } catch {
-      showNotice({ type: 'error', text: 'Network error. Please try again.' })
-      return false
-    } finally {
-      setBusy(null)
     }
+    return rejected
   }
 
   async function handlePostNote(text: string) {
-    if (!id || busy) return false
-    setBusy('comment')
-    try {
-      const response = await fetch(scopedApiPath(`/api/v1/social/posts/${id}/comments`, orgScope), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text }),
-      })
-      const body = await response.json().catch(() => ({}))
-      if (!response.ok) {
-        showNotice({ type: 'error', text: body?.error || 'Could not post note.' })
-        return false
-      }
-      if (body?.data) setComments(current => [...current, body.data])
-      return true
-    } catch {
-      showNotice({ type: 'error', text: 'Network error.' })
-      return false
-    } finally {
-      setBusy(null)
-    }
+    return runReviewAction({
+      busyKey: 'comment',
+      path: id ? scopedApiPath(`/api/v1/social/posts/${id}/comments`, orgScope) : '',
+      payload: { text },
+      errorText: 'Could not post note.',
+      onSuccess: appendCommentFromBody,
+    })
   }
 
   const supportsDownload = post?.deliveryMode === 'download_only' || post?.deliveryMode === 'both'
@@ -157,6 +83,7 @@ export default function ClientReviewDetailPage() {
       loadError={error}
       post={post}
       comments={comments}
+      commentsLoading={commentsLoading}
       backHref={reviewQueueHref}
       backLabel="review queue"
       title="Review post"

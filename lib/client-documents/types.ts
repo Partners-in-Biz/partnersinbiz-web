@@ -336,6 +336,8 @@ export interface DocumentTheme {
   }
 }
 
+export type DocumentBlockVisibility = 'hidden' | 'internal-only' | 'client-visible'
+
 export interface DocumentBlock {
   id: string
   type: DocumentBlockType
@@ -344,6 +346,8 @@ export interface DocumentBlock {
   required: boolean
   locked?: boolean
   clientEditable?: boolean
+  visibility?: DocumentBlockVisibility
+  contextRefs?: ContextReference[]
   display: {
     variant?: string
     accent?: string

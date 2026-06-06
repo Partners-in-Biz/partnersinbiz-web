@@ -34,6 +34,51 @@ function isValidEmail(e: string) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e)
 }
 
+type ContactCompanyLink = {
+  companyId: string
+  companyName: string
+  roleTitle?: string
+  relationshipType?: string
+  primary?: boolean
+}
+
+function cleanOptionalString(value: unknown): string | undefined {
+  return typeof value === 'string' ? value.trim() || undefined : undefined
+}
+
+async function normalizeCompanyLinks(rawLinks: unknown, orgId: string, primary?: { companyId?: string; companyName?: string }): Promise<ContactCompanyLink[] | null> {
+  const input = Array.isArray(rawLinks) ? rawLinks : []
+  const links: ContactCompanyLink[] = []
+
+  for (const raw of input) {
+    if (!raw || typeof raw !== 'object') return null
+    const row = raw as Record<string, unknown>
+    const companyId = cleanOptionalString(row.companyId)
+    if (!companyId) return null
+    const loaded = await loadCompany(companyId, orgId)
+    if (!loaded) return null
+    const next: ContactCompanyLink = {
+      companyId,
+      companyName: loaded.data.name,
+      ...(cleanOptionalString(row.roleTitle) ? { roleTitle: cleanOptionalString(row.roleTitle) } : {}),
+      ...(cleanOptionalString(row.relationshipType) ? { relationshipType: cleanOptionalString(row.relationshipType) } : {}),
+      ...(row.primary === true ? { primary: true } : {}),
+    }
+    const existingIndex = links.findIndex((link) => link.companyId === companyId)
+    if (existingIndex >= 0) links[existingIndex] = { ...links[existingIndex], ...next }
+    else links.push(next)
+  }
+
+  if (primary?.companyId && !links.some((link) => link.companyId === primary.companyId)) {
+    links.unshift({ companyId: primary.companyId, companyName: primary.companyName ?? '', primary: true })
+  }
+
+  return links.map((link, index) => index === 0 && !links.some((candidate) => candidate.primary)
+    ? { ...link, primary: true }
+    : link)
+}
+
+
 function timestampMillis(value: unknown): number {
   if (!value) return 0
   if (typeof value === 'object' && value !== null) {
@@ -152,6 +197,12 @@ export const POST = withCrmAuth('member', async (req, ctx) => {
     resolvedCompanyName = loaded.data.name
   }
 
+  const normalizedCompanyLinks = await normalizeCompanyLinks(bodyRaw.companyLinks, orgId, resolvedCompanyId ? {
+    companyId: resolvedCompanyId,
+    companyName: resolvedCompanyName,
+  } : undefined)
+  if (normalizedCompanyLinks === null) return apiError('Invalid companyLinks', 400)
+
   const contactData = {
     orgId,
     capturedFromId,
@@ -172,6 +223,7 @@ export const POST = withCrmAuth('member', async (req, ctx) => {
     assignedToRef,  // may be undefined; sanitize step will strip
     companyId: resolvedCompanyId,     // undefined if not provided; sanitize strips
     companyName: resolvedCompanyName, // undefined if not provided; sanitize strips
+    companyLinks: normalizedCompanyLinks.length > 0 ? normalizedCompanyLinks : undefined,
     deleted: false,
     subscribedAt: FieldValue.serverTimestamp(),
     unsubscribedAt: null,

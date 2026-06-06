@@ -24,6 +24,54 @@ import { validateCustomFields } from '@/lib/customFields/validation'
 
 type RouteCtx = { params: Promise<{ id: string }> }
 
+type ContactCompanyLink = {
+  companyId: string
+  companyName: string
+  roleTitle?: string
+  relationshipType?: string
+  primary?: boolean
+}
+
+function cleanOptionalString(value: unknown): string | undefined {
+  return typeof value === 'string' ? value.trim() || undefined : undefined
+}
+
+async function normalizeCompanyLinks(rawLinks: unknown, orgId: string, existingPrimary?: { companyId?: unknown }): Promise<ContactCompanyLink[] | null> {
+  const input = Array.isArray(rawLinks) ? rawLinks : []
+  const links: ContactCompanyLink[] = []
+
+  for (const raw of input) {
+    if (!raw || typeof raw !== 'object') return null
+    const row = raw as Record<string, unknown>
+    const companyId = cleanOptionalString(row.companyId)
+    if (!companyId) return null
+    const loaded = await loadCompany(companyId, orgId)
+    if (!loaded) return null
+    const next: ContactCompanyLink = {
+      companyId,
+      companyName: loaded.data.name,
+      ...(cleanOptionalString(row.roleTitle) ? { roleTitle: cleanOptionalString(row.roleTitle) } : {}),
+      ...(cleanOptionalString(row.relationshipType) ? { relationshipType: cleanOptionalString(row.relationshipType) } : {}),
+      ...(row.primary === true ? { primary: true } : {}),
+    }
+    const existingIndex = links.findIndex((link) => link.companyId === companyId)
+    if (existingIndex >= 0) links[existingIndex] = { ...links[existingIndex], ...next }
+    else links.push(next)
+  }
+
+  const primaryId = cleanOptionalString(existingPrimary?.companyId)
+  if (primaryId && !links.some((link) => link.companyId === primaryId)) {
+    const loaded = await loadCompany(primaryId, orgId)
+    if (!loaded) return null
+    links.unshift({ companyId: primaryId, companyName: loaded.data.name, primary: true })
+  }
+
+  return links.map((link, index) => index === 0 && !links.some((candidate) => candidate.primary)
+    ? { ...link, primary: true }
+    : link)
+}
+
+
 // ---------------------------------------------------------------------------
 // GET — viewer+
 // ---------------------------------------------------------------------------
@@ -93,6 +141,16 @@ async function handleUpdate(
     }
     // Remove raw companyId from patch so it doesn't overwrite resolved value
     // (patch.companyId is already set above; remove the body spread duplicate)
+  }
+
+
+
+  if ('companyLinks' in body || 'companyId' in body) {
+    const normalizedLinks = await normalizeCompanyLinks(body.companyLinks, ctx.orgId, {
+      companyId: body.companyId ?? existing.companyId,
+    })
+    if (normalizedLinks === null) return apiError('Invalid companyLinks', 400)
+    patch.companyLinks = normalizedLinks
   }
 
   // Custom field validation (best-effort — Firestore outage must not block core write)

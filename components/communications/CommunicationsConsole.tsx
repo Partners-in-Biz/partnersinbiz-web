@@ -284,7 +284,7 @@ export function CommunicationsConsole({
           )}
         </div>
         <Link href={marketingHref} className="btn-pib-secondary self-start lg:self-auto">
-          <span className="material-symbols-outlined text-base">arrow_back</span>
+          <span className="material-symbols-outlined text-base" aria-hidden="true">arrow_back</span>
           Marketing
         </Link>
       </header>

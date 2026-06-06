@@ -6,7 +6,10 @@ import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import type { Company } from '@/lib/companies/types'
 import type { CustomFieldDefinition } from '@/lib/customFields/types'
+import { CompanyAnalyticsPanel } from '@/components/crm/CompanyAnalyticsPanel'
 import { CompanyHeader } from '@/components/crm/CompanyHeader'
+import { CompanyRecordEmptyPanel, CompanyRecordStatusChip, CompanyRecordTableShell } from '@/components/crm/CompanyRecordPrimitives'
+import { CompanyRowsPanel } from '@/components/crm/CompanyRowsPanel'
 import { CompanyTabsBar, COMPANY_TABS } from '@/components/crm/CompanyTabsBar'
 import type { CompanyTab } from '@/components/crm/CompanyTabsBar'
 import { CompanyOverviewPanel } from '@/components/crm/CompanyOverviewPanel'
@@ -23,6 +26,12 @@ type RelatedContact = {
   name?: string
   email?: string
   phone?: string
+  company?: string
+  companyId?: string
+  companyName?: string
+  companyLinks?: Array<{ companyId?: string; companyName?: string; roleTitle?: string; relationshipType?: string; primary?: boolean }>
+  roleTitle?: string
+  relationshipType?: string
   type?: string
   stage?: string
   updatedAt?: unknown
@@ -198,48 +207,6 @@ function PageSkeleton() {
       <Skeleton className="h-48 w-full" />
     </div>
   )
-}
-
-function EmptyPanel({ icon, label, children }: { icon: string; label: string; children?: React.ReactNode }) {
-  return (
-    <div className="bento-card p-10 text-center">
-      <span className="material-symbols-outlined text-4xl text-[var(--color-pib-text-muted)]">{icon}</span>
-      <p className="text-sm text-[var(--color-pib-text-muted)] mt-3">
-        {label}
-      </p>
-      {children ? <div className="mt-5 flex justify-center">{children}</div> : null}
-    </div>
-  )
-}
-
-function TableShell({ children }: { children: React.ReactNode }) {
-  return (
-    <div className="bento-card overflow-hidden">
-      <div className="overflow-x-auto">
-        {children}
-      </div>
-    </div>
-  )
-}
-
-function StatusChip({ value, emptyLabel = 'Status not set' }: { value?: string; emptyLabel?: string }) {
-  if (!value) return <span className="text-xs text-[var(--color-pib-text-muted)]">{emptyLabel}</span>
-  return (
-    <span className="inline-flex rounded-full bg-emerald-500/15 px-2 py-0.5 text-[10px] font-label uppercase tracking-wide text-emerald-300">
-      {readableStatusLabel(value)}
-    </span>
-  )
-}
-
-function readableStatusLabel(value: string): string {
-  return value
-    .split(/[_-]+/)
-    .filter(Boolean)
-    .map((part, index) => {
-      const lower = part.toLowerCase()
-      return index === 0 ? lower.charAt(0).toUpperCase() + lower.slice(1) : lower
-    })
-    .join(' ')
 }
 
 function formatCurrency(value?: number, currency = 'ZAR') {
@@ -478,22 +445,30 @@ function ContactsPanel({
   contacts,
   company,
   onCreateContact,
+  onLinkExistingContact,
 }: {
   contacts: RelatedContact[]
   company: Company
   onCreateContact: () => void
+  onLinkExistingContact: () => void
 }) {
   if (contacts.length === 0) {
     return (
-      <EmptyPanel
+      <CompanyRecordEmptyPanel
         icon="person_add"
         label="No linked contacts yet. Add the first stakeholder so emails, deals, quotes, and activity have a real relationship anchor."
       >
-        <button type="button" onClick={onCreateContact} className="btn-pib-primary inline-flex items-center gap-1.5">
-          <span className="material-symbols-outlined text-[16px]" aria-hidden="true">person_add</span>
-          Add first contact for {company.name}
-        </button>
-      </EmptyPanel>
+        <div className="flex flex-wrap justify-center gap-2">
+          <button type="button" onClick={onCreateContact} className="btn-pib-primary inline-flex items-center gap-1.5">
+            <span className="material-symbols-outlined text-[16px]" aria-hidden="true">person_add</span>
+            Add first contact for {company.name}
+          </button>
+          <button type="button" onClick={onLinkExistingContact} className="btn-pib-secondary inline-flex items-center gap-1.5">
+            <span className="material-symbols-outlined text-[16px]" aria-hidden="true">link</span>
+            Link existing contact
+          </button>
+        </div>
+      </CompanyRecordEmptyPanel>
     )
   }
   return (
@@ -505,12 +480,18 @@ function ContactsPanel({
             Add every buyer, approver, finance owner, and delivery contact that matters for {company.name}.
           </p>
         </div>
-        <button type="button" onClick={onCreateContact} className="btn-pib-secondary inline-flex shrink-0 items-center gap-1.5">
-          <span className="material-symbols-outlined text-[16px]" aria-hidden="true">person_add</span>
-          Add contact for {company.name}
-        </button>
+        <div className="flex flex-wrap gap-2 sm:justify-end">
+          <button type="button" onClick={onLinkExistingContact} className="btn-pib-secondary inline-flex shrink-0 items-center gap-1.5">
+            <span className="material-symbols-outlined text-[16px]" aria-hidden="true">link</span>
+            Link existing contact
+          </button>
+          <button type="button" onClick={onCreateContact} className="btn-pib-secondary inline-flex shrink-0 items-center gap-1.5">
+            <span className="material-symbols-outlined text-[16px]" aria-hidden="true">person_add</span>
+            Add contact for {company.name}
+          </button>
+        </div>
       </div>
-      <TableShell>
+      <CompanyRecordTableShell>
         <table className="w-full text-sm">
           <thead className="border-b border-[var(--color-pib-line)] text-[10px] font-label uppercase tracking-wider text-[var(--color-pib-text-muted)]">
             <tr>
@@ -529,13 +510,151 @@ function ContactsPanel({
                   </Link>
                 </td>
                 <td className="px-5 py-4 text-[var(--color-pib-text-muted)]">{contact.email || 'No email captured'}</td>
-                <td className="px-5 py-4"><StatusChip value={contact.type} emptyLabel="Type not set" /></td>
-                <td className="px-5 py-4"><StatusChip value={contact.stage} emptyLabel="Stage not set" /></td>
+                <td className="px-5 py-4"><CompanyRecordStatusChip value={contact.type} emptyLabel="Type not set" /></td>
+                <td className="px-5 py-4"><CompanyRecordStatusChip value={contact.stage} emptyLabel="Stage not set" /></td>
               </tr>
             ))}
           </tbody>
         </table>
-      </TableShell>
+      </CompanyRecordTableShell>
+    </div>
+  )
+}
+
+function ExistingContactLinkDrawer({
+  company,
+  existingContacts,
+  apiPath,
+  onLink,
+  onClose,
+}: {
+  company: Company
+  existingContacts: RelatedContact[]
+  apiPath: (path: string) => string
+  onLink: (contact: RelatedContact) => Promise<void>
+  onClose: () => void
+}) {
+  const [query, setQuery] = useState('')
+  const [roleTitle, setRoleTitle] = useState('')
+  const [contacts, setContacts] = useState<RelatedContact[]>([])
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [linkingId, setLinkingId] = useState<string | null>(null)
+  const linkedContactIds = useMemo(() => new Set(existingContacts.map((contact) => contact.id)), [existingContacts])
+  const searchTerm = query.trim()
+
+  useEffect(() => {
+    let cancelled = false
+    const timer = window.setTimeout(async () => {
+      setLoading(true)
+      setError(null)
+      try {
+        const params = new URLSearchParams({ limit: '25' })
+        if (searchTerm) params.set('search', searchTerm)
+        const res = await fetch(apiPath(`/api/v1/crm/contacts?${params.toString()}`))
+        const body = await res.json().catch(() => ({}))
+        if (!res.ok) throw new Error(body.error ?? 'Existing contacts could not be loaded')
+        const rows = Array.isArray(body.data) ? body.data : []
+        if (!cancelled) setContacts(rows.filter((contact: RelatedContact) => !linkedContactIds.has(contact.id)))
+      } catch (err) {
+        if (!cancelled) {
+          setContacts([])
+          setError(err instanceof Error ? err.message : 'Existing contacts could not be loaded')
+        }
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
+    }, 250)
+
+    return () => {
+      cancelled = true
+      window.clearTimeout(timer)
+    }
+  }, [apiPath, linkedContactIds, searchTerm])
+
+  async function handleLink(contact: RelatedContact): Promise<void> {
+    setLinkingId(contact.id)
+    setError(null)
+    try {
+      await onLink({ ...contact, roleTitle: roleTitle.trim() || undefined })
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to link contact')
+      setLinkingId(null)
+    }
+  }
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex"
+      role="dialog"
+      aria-modal="true"
+      aria-label={`Link existing contact to ${company.name}`}
+    >
+      <div className="flex-1 bg-black/60 backdrop-blur-sm" onClick={onClose} />
+      <div className="w-full max-w-lg overflow-y-auto border-l border-[var(--color-pib-line)] bg-[var(--color-pib-surface)]">
+        <div className="flex items-center justify-between border-b border-[var(--color-pib-line)] px-6 py-4">
+          <div>
+            <p className="eyebrow !text-[10px]">Company contact</p>
+            <h2 className="font-display text-lg">Link existing contact to {company.name}</h2>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="text-[var(--color-pib-text-muted)] transition-colors hover:text-[var(--color-pib-text)]"
+            aria-label={`Close existing contact drawer for ${company.name}`}
+          >
+            <span className="material-symbols-outlined text-[20px]">close</span>
+          </button>
+        </div>
+        <div className="space-y-4 p-6">
+          <label className="block text-sm">
+            <span className="mb-1 block text-[var(--color-pib-text-muted)]">Search contacts</span>
+            <input
+              className="input-pib w-full"
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder="Search by name, email, or company"
+            />
+          </label>
+          <label className="block text-sm">
+            <span className="mb-1 block text-[var(--color-pib-text-muted)]">Role at {company.name} (optional)</span>
+            <input
+              className="input-pib w-full"
+              value={roleTitle}
+              onChange={(event) => setRoleTitle(event.target.value)}
+              placeholder="Founder, director, part owner, advisor..."
+            />
+          </label>
+          {error && <p className="rounded-lg border border-red-400/20 bg-red-400/10 px-3 py-2 text-sm text-red-100">{error}</p>}
+          <div className="space-y-2">
+            {loading ? <p className="text-sm text-[var(--color-pib-text-muted)]">Loading contacts...</p> : null}
+            {!loading && contacts.length === 0 ? (
+              <p className="text-sm text-[var(--color-pib-text-muted)]">No unlinked contacts found. Create a new contact instead if this person is not in CRM yet.</p>
+            ) : null}
+            {contacts.map((contact) => (
+              <div key={contact.id} className="rounded-xl border border-[var(--color-pib-line)] bg-white/[0.02] p-3">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <p className="font-medium text-[var(--color-pib-text)]">{contactIdentityLabel(contact)}</p>
+                    <p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">
+                      {contact.email || 'No email captured'}{contact.companyName || contact.company ? ` · ${contact.companyName || contact.company}` : ''}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    className="btn-pib-secondary inline-flex shrink-0 items-center justify-center gap-1.5 text-xs"
+                    onClick={() => void handleLink(contact)}
+                    disabled={Boolean(linkingId)}
+                  >
+                    <span className="material-symbols-outlined text-[15px]" aria-hidden="true">link</span>
+                    {linkingId === contact.id ? 'Linking...' : 'Link'}
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
     </div>
   )
 }
@@ -560,7 +679,7 @@ function DealsPanel({
   if (deals.length === 0) {
     const firstContact = contacts[0]
     return (
-      <EmptyPanel
+      <CompanyRecordEmptyPanel
         icon="work_off"
         label={
           firstContact
@@ -579,7 +698,7 @@ function DealsPanel({
             Add contact before deal
           </button>
         )}
-      </EmptyPanel>
+      </CompanyRecordEmptyPanel>
     )
   }
   return (
@@ -603,7 +722,7 @@ function DealsPanel({
           </button>
         )}
       </div>
-      <TableShell>
+      <CompanyRecordTableShell>
         <table className="w-full text-sm">
           <thead className="border-b border-[var(--color-pib-line)] text-[10px] font-label uppercase tracking-wider text-[var(--color-pib-text-muted)]">
             <tr>
@@ -622,13 +741,13 @@ function DealsPanel({
                   </Link>
                 </td>
                 <td className="px-5 py-4 text-[var(--color-pib-text-muted)]">{dealValueLabel(deal)}</td>
-                <td className="px-5 py-4"><StatusChip value={deal.stageId} emptyLabel="Stage not set" /></td>
+                <td className="px-5 py-4"><CompanyRecordStatusChip value={deal.stageId} emptyLabel="Stage not set" /></td>
                 <td className="px-5 py-4 text-[var(--color-pib-text-muted)]">{dealProbabilityLabel(deal)}</td>
               </tr>
             ))}
           </tbody>
         </table>
-      </TableShell>
+      </CompanyRecordTableShell>
     </div>
   )
 }
@@ -687,7 +806,7 @@ function ProjectsPanel({
   )
   if (projects.length === 0) {
     return (
-      <EmptyPanel
+      <CompanyRecordEmptyPanel
         icon="folder_off"
         label={
           firstContact?.email
@@ -721,7 +840,7 @@ function ProjectsPanel({
           )}
           {projectError ? <p className="max-w-md text-xs text-red-300">{projectError}</p> : null}
         </div>
-      </EmptyPanel>
+      </CompanyRecordEmptyPanel>
     )
   }
   return (
@@ -756,7 +875,7 @@ function ProjectsPanel({
         )}
       </div>
       {projectError ? <p className="text-xs text-red-300">{projectError}</p> : null}
-      <SimpleRowsPanel
+      <CompanyRowsPanel
         rows={projects}
         emptyIcon="folder_off"
         emptyLabel="No linked projects match these filters."
@@ -795,7 +914,7 @@ function ServicesPanel({
   const firstContact = contacts[0]
   if (serviceWorkspaces.length === 0) {
     return (
-      <EmptyPanel
+      <CompanyRecordEmptyPanel
         icon="workspaces"
         label={
           firstProject
@@ -817,7 +936,7 @@ function ServicesPanel({
           </button>
           {serviceError ? <p className="max-w-md text-xs text-red-300">{serviceError}</p> : null}
         </div>
-      </EmptyPanel>
+      </CompanyRecordEmptyPanel>
     )
   }
   return (
@@ -840,7 +959,7 @@ function ServicesPanel({
         </button>
       </div>
       {serviceError ? <p className="text-xs text-red-300">{serviceError}</p> : null}
-      <SimpleRowsPanel
+      <CompanyRowsPanel
         rows={serviceWorkspaces}
         emptyIcon="workspaces"
         emptyLabel="No service workspaces yet."
@@ -876,7 +995,7 @@ function DocumentsPanel({
 
   if (documents.length === 0) {
     return (
-      <EmptyPanel
+      <CompanyRecordEmptyPanel
         icon="description"
         label={`No linked documents yet. Start a sales proposal draft for ${company.name} so commercial context, approvals, and client-facing history stay attached to this account.`}
       >
@@ -892,7 +1011,7 @@ function DocumentsPanel({
           </button>
           {documentError ? <p className="max-w-md text-xs text-red-300">{documentError}</p> : null}
         </div>
-      </EmptyPanel>
+      </CompanyRecordEmptyPanel>
     )
   }
   return (
@@ -915,7 +1034,7 @@ function DocumentsPanel({
         </button>
       </div>
       {documentError ? <p className="text-xs text-red-300">{documentError}</p> : null}
-      <SimpleRowsPanel
+      <CompanyRowsPanel
         rows={documents}
         emptyIcon="description"
         emptyLabel="No linked documents match these filters."
@@ -951,7 +1070,7 @@ function RelationshipsPanel({
   const firstContact = contacts[0]
   if (relationships.length === 0) {
     return (
-      <EmptyPanel
+      <CompanyRecordEmptyPanel
         icon="hub"
         label={
           firstContact
@@ -971,7 +1090,7 @@ function RelationshipsPanel({
           </button>
           {relationshipError ? <p className="max-w-md text-xs text-red-300">{relationshipError}</p> : null}
         </div>
-      </EmptyPanel>
+      </CompanyRecordEmptyPanel>
     )
   }
   return (
@@ -994,7 +1113,7 @@ function RelationshipsPanel({
         </button>
       </div>
       {relationshipError ? <p className="text-xs text-red-300">{relationshipError}</p> : null}
-      <SimpleRowsPanel
+      <CompanyRowsPanel
         rows={relationships}
         emptyIcon="hub"
         emptyLabel="No business relationships yet."
@@ -1029,7 +1148,7 @@ function QuotesPanel({
   if (quotes.length === 0) {
     const firstDeal = deals[0]
     return (
-      <EmptyPanel
+      <CompanyRecordEmptyPanel
         icon="request_quote"
         label={
           firstDeal
@@ -1056,7 +1175,7 @@ function QuotesPanel({
           )}
           {quoteError ? <p className="max-w-md text-xs text-red-300">{quoteError}</p> : null}
         </div>
-      </EmptyPanel>
+      </CompanyRecordEmptyPanel>
     )
   }
   const firstDeal = deals[0]
@@ -1087,7 +1206,7 @@ function QuotesPanel({
         )}
       </div>
       {quoteError ? <p className="text-xs text-red-300">{quoteError}</p> : null}
-      <TableShell>
+      <CompanyRecordTableShell>
         <table className="w-full text-sm">
           <thead className="border-b border-[var(--color-pib-line)] text-[10px] font-label uppercase tracking-wider text-[var(--color-pib-text-muted)]">
             <tr>
@@ -1101,14 +1220,14 @@ function QuotesPanel({
             {quotes.map((quote) => (
               <tr key={quote.id} className="hover:bg-white/[0.02]">
                 <td className="px-5 py-4 font-mono">{quote.quoteNumber || quote.id}</td>
-                <td className="px-5 py-4"><StatusChip value={quote.status} emptyLabel="Quote status not set" /></td>
+                <td className="px-5 py-4"><CompanyRecordStatusChip value={quote.status} emptyLabel="Quote status not set" /></td>
                 <td className="px-5 py-4 text-[var(--color-pib-text-muted)]">{quoteTotalLabel(quote)}</td>
                 <td className="px-5 py-4 text-[var(--color-pib-text-muted)]">{quoteValidUntilLabel(quote)}</td>
               </tr>
             ))}
           </tbody>
         </table>
-      </TableShell>
+      </CompanyRecordTableShell>
     </div>
   )
 }
@@ -1131,7 +1250,7 @@ function InvoicesPanel({
   if (invoices.length === 0) {
     const acceptedQuote = quotes.find((quote) => quote.status === 'accepted')
     return (
-      <EmptyPanel
+      <CompanyRecordEmptyPanel
         icon="receipt_long"
         label={
           acceptedQuote
@@ -1164,7 +1283,7 @@ function InvoicesPanel({
           )}
           {invoiceError ? <p className="max-w-md text-xs text-red-300">{invoiceError}</p> : null}
         </div>
-      </EmptyPanel>
+      </CompanyRecordEmptyPanel>
     )
   }
   const acceptedQuote = quotes.find((quote) => quote.status === 'accepted')
@@ -1199,7 +1318,7 @@ function InvoicesPanel({
         )}
       </div>
       {invoiceError ? <p className="text-xs text-red-300">{invoiceError}</p> : null}
-      <TableShell>
+      <CompanyRecordTableShell>
         <table className="w-full text-sm">
           <thead className="border-b border-[var(--color-pib-line)] text-[10px] font-label uppercase tracking-wider text-[var(--color-pib-text-muted)]">
             <tr>
@@ -1214,7 +1333,7 @@ function InvoicesPanel({
             {invoices.map((invoice) => (
               <tr key={invoice.id} className="hover:bg-white/[0.02]">
                 <td className="px-5 py-4 font-mono">{invoice.invoiceNumber || invoice.id}</td>
-                <td className="px-5 py-4"><StatusChip value={invoice.status} emptyLabel="Invoice status not set" /></td>
+                <td className="px-5 py-4"><CompanyRecordStatusChip value={invoice.status} emptyLabel="Invoice status not set" /></td>
                 <td className="px-5 py-4 text-[var(--color-pib-text-muted)]">{invoiceTotalLabel(invoice)}</td>
                 <td className="px-5 py-4 text-[var(--color-pib-text-muted)]">{invoiceDueDateLabel(invoice)}</td>
                 <td className="px-5 py-4 text-right">
@@ -1226,7 +1345,7 @@ function InvoicesPanel({
             ))}
           </tbody>
         </table>
-      </TableShell>
+      </CompanyRecordTableShell>
     </div>
   )
 }
@@ -1249,7 +1368,7 @@ function OrdersPanel({
   if (orders.length === 0) {
     const firstInvoice = invoices[0]
     return (
-      <EmptyPanel
+      <CompanyRecordEmptyPanel
         icon="orders"
         label={
           firstInvoice
@@ -1280,7 +1399,7 @@ function OrdersPanel({
           )}
           {orderError ? <p className="max-w-md text-xs text-red-300">{orderError}</p> : null}
         </div>
-      </EmptyPanel>
+      </CompanyRecordEmptyPanel>
     )
   }
   const firstInvoice = invoices[0]
@@ -1315,7 +1434,7 @@ function OrdersPanel({
         )}
       </div>
       {orderError ? <p className="text-xs text-red-300">{orderError}</p> : null}
-      <SimpleRowsPanel
+      <CompanyRowsPanel
         rows={orders}
         emptyIcon="orders"
         emptyLabel="No linked orders yet."
@@ -1348,7 +1467,7 @@ function ShipmentsPanel({
   if (shipments.length === 0) {
     const firstOrder = orders[0]
     return (
-      <EmptyPanel
+      <CompanyRecordEmptyPanel
         icon="local_shipping"
         label={
           firstOrder
@@ -1379,7 +1498,7 @@ function ShipmentsPanel({
           )}
           {shipmentError ? <p className="max-w-md text-xs text-red-300">{shipmentError}</p> : null}
         </div>
-      </EmptyPanel>
+      </CompanyRecordEmptyPanel>
     )
   }
   const firstOrder = orders[0]
@@ -1414,7 +1533,7 @@ function ShipmentsPanel({
         )}
       </div>
       {shipmentError ? <p className="text-xs text-red-300">{shipmentError}</p> : null}
-      <SimpleRowsPanel
+      <CompanyRowsPanel
         rows={shipments}
         emptyIcon="local_shipping"
         emptyLabel="No shipments yet."
@@ -1444,7 +1563,7 @@ function InventoryPanel({
 }) {
   if (inventoryItems.length === 0) {
     return (
-      <EmptyPanel
+      <CompanyRecordEmptyPanel
         icon="inventory_2"
         label={`No inventory items yet. Start a tracked item for ${company.name} so stock, reservations, low-stock warnings, and fulfillment history have an operational anchor.`}
       >
@@ -1460,7 +1579,7 @@ function InventoryPanel({
           </button>
           {inventoryError ? <p className="max-w-md text-xs text-red-300">{inventoryError}</p> : null}
         </div>
-      </EmptyPanel>
+      </CompanyRecordEmptyPanel>
     )
   }
   return (
@@ -1483,7 +1602,7 @@ function InventoryPanel({
         </button>
       </div>
       {inventoryError ? <p className="text-xs text-red-300">{inventoryError}</p> : null}
-      <SimpleRowsPanel
+      <CompanyRowsPanel
         rows={inventoryItems}
         emptyIcon="inventory_2"
         emptyLabel="No inventory items yet."
@@ -1494,275 +1613,6 @@ function InventoryPanel({
           inventoryStatusLabel(row as RelatedInventoryItem),
         ]}
       />
-    </div>
-  )
-}
-
-function SimpleRowsPanel({
-  rows,
-  emptyIcon,
-  emptyLabel,
-  title,
-  hrefFor,
-  metaFor,
-  enableFilters = false,
-  searchPlaceholder = 'Search rows...',
-}: {
-  rows: Array<{ id: string; [key: string]: unknown }>
-  emptyIcon: string
-  emptyLabel: string
-  title: (row: { id: string; [key: string]: unknown }) => string
-  hrefFor?: (row: { id: string; [key: string]: unknown }) => string | undefined
-  metaFor: (row: { id: string; [key: string]: unknown }) => Array<string | undefined>
-  enableFilters?: boolean
-  searchPlaceholder?: string
-}) {
-  const [query, setQuery] = useState('')
-  const [statusFilter, setStatusFilter] = useState('all')
-  const [archiveFilter, setArchiveFilter] = useState<'active' | 'archived' | 'all'>('active')
-
-  const statusOptions = Array.from(new Set(
-    rows
-      .map((row) => typeof row.status === 'string' ? row.status : undefined)
-      .filter((status): status is string => Boolean(status) && status !== 'archived'),
-  )).sort()
-
-  const filteredRows = enableFilters ? rows.filter((row) => {
-    const isArchived = row.archived === true || row.status === 'archived'
-    if (archiveFilter === 'active' && isArchived) return false
-    if (archiveFilter === 'archived' && !isArchived) return false
-    if (statusFilter !== 'all' && row.status !== statusFilter) return false
-    const q = query.trim().toLowerCase()
-    if (!q) return true
-    const rowTitle = title(row)
-    const meta = metaFor(row).filter(Boolean)
-    return [rowTitle, typeof row.status === 'string' ? row.status : undefined, ...meta]
-      .filter(Boolean)
-      .join(' ')
-      .toLowerCase()
-      .includes(q)
-  }) : rows
-
-  if (rows.length === 0) return <EmptyPanel icon={emptyIcon} label={emptyLabel} />
-  return (
-    <div className="space-y-3">
-      {enableFilters ? (
-        <div className="bento-card !p-4 grid gap-3 md:grid-cols-[minmax(0,1fr)_180px_180px]">
-          <label className="block">
-            <span className="eyebrow !text-[9px]">Search</span>
-            <input
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
-              placeholder={searchPlaceholder}
-              className="pib-input mt-1"
-            />
-          </label>
-          <label className="block">
-            <span className="eyebrow !text-[9px]">Status</span>
-            <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)} className="pib-select mt-1">
-              <option value="all">All statuses</option>
-              {statusOptions.map((status) => (
-                <option key={status} value={status}>{status.replaceAll('_', ' ')}</option>
-              ))}
-            </select>
-          </label>
-          <label className="block">
-            <span className="eyebrow !text-[9px]">History</span>
-            <select
-              value={archiveFilter}
-              onChange={(event) => setArchiveFilter(event.target.value as 'active' | 'archived' | 'all')}
-              className="pib-select mt-1"
-            >
-              <option value="active">Active only</option>
-              <option value="archived">Archived only</option>
-              <option value="all">Active + archived</option>
-            </select>
-          </label>
-        </div>
-      ) : null}
-      {filteredRows.length === 0 ? (
-        <EmptyPanel icon={emptyIcon} label={emptyLabel} />
-      ) : (
-        <div className="bento-card divide-y divide-[var(--color-pib-line)]">
-          {filteredRows.map((row) => {
-            const rowTitle = title(row)
-            const href = hrefFor?.(row)
-            const meta = metaFor(row).filter(Boolean)
-            return (
-              <div key={row.id} className="px-5 py-4 flex items-start justify-between gap-4">
-                <div className="min-w-0">
-                  {href ? (
-                    <Link href={href} className="font-medium text-sm text-[var(--color-accent-v2)] hover:underline">
-                      {rowTitle}
-                    </Link>
-                  ) : (
-                    <p className="font-medium text-sm text-[var(--color-pib-text)]">{rowTitle}</p>
-                  )}
-                  {meta.length > 0 && (
-                    <p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">
-                      {meta.join(' · ')}
-                    </p>
-                  )}
-                </div>
-                {'status' in row && typeof row.status === 'string' ? <StatusChip value={row.status} /> : null}
-              </div>
-            )
-          })}
-        </div>
-      )}
-    </div>
-  )
-}
-
-function AnalyticsPanel({
-  analytics,
-  summary,
-  companyName,
-  onOpenTab,
-}: {
-  analytics: CommandCenterAnalytics
-  summary: CommandCenterSummary
-  companyName: string
-  onOpenTab: (tab: CompanyTab) => void
-}) {
-  const tiles = [
-    { label: 'Account value', value: formatCurrency(analytics.accountValue ?? 0), icon: 'payments' },
-    { label: 'Weighted pipeline', value: formatCurrency(analytics.weightedPipelineValue ?? 0), icon: 'query_stats' },
-    { label: 'Tracked orders', value: formatCurrency(analytics.trackedOrderValue ?? 0), icon: 'orders' },
-    { label: 'Open projects', value: String(analytics.openProjectCount ?? summary.projects ?? 0), icon: 'folder_managed' },
-    { label: 'Active services', value: String(analytics.activeServiceCount ?? summary.serviceWorkspaces ?? 0), icon: 'workspaces' },
-    { label: 'Collaborations', value: String(analytics.collaborationCount ?? summary.relationships ?? 0), icon: 'hub' },
-  ]
-  const riskSignals = analytics.riskSignals ?? []
-  const lowStockItems = summary.lowStockItems ?? 0
-  const openOrders = summary.openOrders ?? 0
-  const overdueInvoices = summary.overdueInvoices ?? 0
-  const weightedPipelineValue = analytics.weightedPipelineValue ?? 0
-  const operatingActions: Array<{
-    label: string
-    value: string
-    icon: string
-    tab: CompanyTab
-    ariaLabel: string
-    tone: 'risk' | 'watch' | 'good'
-  }> = [
-    ...(lowStockItems > 0
-      ? [{
-          label: 'Inventory risk',
-          value: `${lowStockItems} low-stock ${lowStockItems === 1 ? 'item' : 'items'}`,
-          icon: 'inventory_2',
-          tab: 'inventory' as CompanyTab,
-          ariaLabel: `Review inventory risk for ${companyName}`,
-          tone: 'risk' as const,
-        }]
-      : [{
-          label: 'Inventory coverage',
-          value: 'No low-stock items',
-          icon: 'inventory_2',
-          tab: 'inventory' as CompanyTab,
-          ariaLabel: `Review inventory coverage for ${companyName}`,
-          tone: 'good' as const,
-        }]),
-    {
-      label: 'Fulfillment',
-      value: openOrders > 0 ? `${openOrders} open ${openOrders === 1 ? 'order' : 'orders'}` : 'No open order blockers',
-      icon: 'orders',
-      tab: 'orders',
-      ariaLabel: `Review fulfillment orders for ${companyName}`,
-      tone: openOrders > 0 ? 'watch' : 'good',
-    },
-    {
-      label: 'Cash collection',
-      value: overdueInvoices > 0 ? `${overdueInvoices} overdue ${overdueInvoices === 1 ? 'invoice' : 'invoices'}` : 'No overdue invoices',
-      icon: 'receipt_long',
-      tab: 'invoices',
-      ariaLabel: `Review cash collection for ${companyName}`,
-      tone: overdueInvoices > 0 ? 'risk' : 'good',
-    },
-    {
-      label: 'Pipeline',
-      value: weightedPipelineValue > 0 ? `${formatCurrency(weightedPipelineValue)} weighted` : 'No weighted pipeline',
-      icon: 'query_stats',
-      tab: 'deals',
-      ariaLabel: `Review pipeline for ${companyName}`,
-      tone: weightedPipelineValue > 0 ? 'watch' : 'risk',
-    },
-  ]
-  const toneClass = {
-    risk: 'border-red-400/30 bg-red-500/10 text-red-200',
-    watch: 'border-amber-400/30 bg-amber-400/10 text-amber-100',
-    good: 'border-emerald-400/30 bg-emerald-400/10 text-emerald-100',
-  }
-  return (
-    <div className="space-y-4">
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-        {tiles.map((tile) => (
-          <div key={tile.label} className="pib-stat-card">
-            <div className="flex items-start justify-between gap-3">
-              <p className="eyebrow !text-[10px]">{tile.label}</p>
-              <span aria-hidden="true" className="material-symbols-outlined text-[18px] text-[var(--color-pib-text-muted)]">{tile.icon}</span>
-            </div>
-            <p className="mt-3 text-2xl font-semibold text-[var(--color-pib-text)]">{tile.value}</p>
-          </div>
-        ))}
-      </div>
-      <div className="bento-card p-5">
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-          <div>
-            <p className="eyebrow !text-[10px]">Account operating brief</p>
-            <h3 className="mt-1 font-display text-xl text-[var(--color-pib-text)]">Where the team should act next</h3>
-          </div>
-          <span className="rounded-full border border-[var(--color-pib-line)] px-2.5 py-1 text-xs text-[var(--color-pib-text-muted)]">
-            {riskSignals.length > 0 ? `${riskSignals.length} active signal${riskSignals.length === 1 ? '' : 's'}` : 'No active risks'}
-          </span>
-        </div>
-        <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-          {operatingActions.map((action) => (
-            <button
-              key={action.label}
-              type="button"
-              onClick={() => onOpenTab(action.tab)}
-              aria-label={action.ariaLabel}
-              className={`rounded-xl border p-4 text-left transition-transform hover:-translate-y-0.5 ${toneClass[action.tone]}`}
-            >
-              <div className="flex items-center justify-between gap-3">
-                <span className="text-[10px] font-label uppercase tracking-widest opacity-80">{action.label}</span>
-                <span className="material-symbols-outlined text-[18px]" aria-hidden="true">{action.icon}</span>
-              </div>
-              <p className="mt-3 text-sm font-semibold">{action.value}</p>
-            </button>
-          ))}
-        </div>
-      </div>
-      <div className="bento-card p-5">
-        <p className="eyebrow !text-[10px]">Risk signals</p>
-        {riskSignals.length === 0 ? (
-          <div className="mt-3 rounded-lg border border-emerald-400/20 bg-emerald-400/10 p-4">
-            <p className="eyebrow !text-[10px] text-emerald-200">Risk watch clear</p>
-            <h3 className="mt-1 text-sm font-semibold text-[var(--color-pib-text)]">Keep leadership risk reviewable</h3>
-            <p className="mt-1 text-sm leading-6 text-[var(--color-pib-text-muted)]">
-              No active risk signals are flagged for {companyName}. Review invoices, orders, and inventory so finance, delivery, and relationship risk stay visible before the account surprises leadership.
-            </p>
-            <button
-              type="button"
-              onClick={() => onOpenTab('invoices')}
-              aria-label={`Review invoices, orders, and inventory for ${companyName}`}
-              className="btn-pib-secondary mt-3 inline-flex items-center gap-1.5 text-xs"
-            >
-              <span aria-hidden="true" className="material-symbols-outlined text-[14px]">fact_check</span>
-              Review risk records
-            </button>
-          </div>
-        ) : (
-          <div className="mt-3 flex flex-wrap gap-2">
-            {riskSignals.map((signal) => (
-              <span key={signal} className="rounded-full border border-amber-400/30 bg-amber-400/10 px-2.5 py-1 text-xs text-amber-200">
-                {signal}
-              </span>
-            ))}
-          </div>
-        )}
-      </div>
     </div>
   )
 }
@@ -1862,7 +1712,7 @@ function ActivityPanel({
   if (activities.length === 0) {
     if (composer) return composer
     return (
-      <EmptyPanel
+      <CompanyRecordEmptyPanel
         icon="history"
         label={
           firstContact
@@ -1881,7 +1731,7 @@ function ActivityPanel({
             Add contact before activity
           </button>
         )}
-      </EmptyPanel>
+      </CompanyRecordEmptyPanel>
     )
   }
   return (
@@ -1930,6 +1780,7 @@ export default function CompanyDetailPage() {
   const [tab, setTab] = useState<CompanyTab>(initialTab)
   const [editOpen, setEditOpen] = useState(false)
   const [newContactOpen, setNewContactOpen] = useState(false)
+  const [existingContactOpen, setExistingContactOpen] = useState(false)
   const [newDealOpen, setNewDealOpen] = useState(false)
   const [noteOpen, setNoteOpen] = useState(false)
   const [companyNote, setCompanyNote] = useState('')
@@ -2114,6 +1965,7 @@ export default function CompanyDetailPage() {
         company: company.name,
         companyId: company.id,
         companyName: company.name,
+        companyLinks: [{ companyId: company.id, companyName: company.name, primary: true }],
       }),
     })
     if (!res.ok) {
@@ -2121,6 +1973,30 @@ export default function CompanyDetailPage() {
       throw new Error(body.error ?? 'Failed to create contact')
     }
     setNewContactOpen(false)
+    await loadRelated(company.id)
+  }
+
+  async function linkExistingCompanyContact(contact: RelatedContact): Promise<void> {
+    if (!company) return
+    const res = await fetch(companyApiPath(`/api/v1/crm/contacts/${contact.id}`), {
+      method: 'PUT',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        companyLinks: [
+          ...(Array.isArray(contact.companyLinks) ? contact.companyLinks : []),
+          {
+            companyId: company.id,
+            companyName: company.name,
+            ...(contact.roleTitle ? { roleTitle: contact.roleTitle } : {}),
+          },
+        ],
+      }),
+    })
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}))
+      throw new Error(body.error ?? 'Failed to link contact')
+    }
+    setExistingContactOpen(false)
     await loadRelated(company.id)
   }
 
@@ -2673,6 +2549,7 @@ export default function CompanyDetailPage() {
             contacts={related.contacts}
             company={company}
             onCreateContact={() => setNewContactOpen(true)}
+            onLinkExistingContact={() => setExistingContactOpen(true)}
           />
         )}
         {!relatedLoading && tab === 'deals' && (
@@ -2778,7 +2655,12 @@ export default function CompanyDetailPage() {
           />
         )}
         {!relatedLoading && tab === 'analytics' && (
-          <AnalyticsPanel analytics={related.analytics} summary={related.summary} companyName={company.name} onOpenTab={selectTab} />
+          <CompanyAnalyticsPanel
+            analytics={related.analytics}
+            summary={related.summary}
+            companyName={company.name}
+            onOpenTab={selectTab}
+          />
         )}
         {!relatedLoading && tab === 'activity' && (
           <ActivityPanel
@@ -2861,6 +2743,16 @@ export default function CompanyDetailPage() {
             />
           </div>
         </div>
+      )}
+
+      {existingContactOpen && (
+        <ExistingContactLinkDrawer
+          company={company}
+          existingContacts={related.contacts}
+          apiPath={companyApiPath}
+          onLink={linkExistingCompanyContact}
+          onClose={() => setExistingContactOpen(false)}
+        />
       )}
 
       {newDealOpen && related.contacts[0] && (

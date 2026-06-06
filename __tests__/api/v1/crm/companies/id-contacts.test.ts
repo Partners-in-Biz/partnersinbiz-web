@@ -2,7 +2,6 @@
  * Tests for GET /api/v1/crm/companies/:id/contacts
  * (A1 W3-H — linked contacts endpoint)
  */
-import { NextRequest } from 'next/server'
 
 jest.mock('@/lib/firebase/admin', () => ({
   adminAuth: { verifySessionCookie: jest.fn() },
@@ -58,6 +57,9 @@ function stageAuth(
         doc: () => ({
           get: () => Promise.resolve({ exists: true, data: () => member }),
         }),
+        where: jest.fn().mockReturnValue({
+          get: () => Promise.resolve({ docs: [{ id: `${member.orgId}_${member.uid}`, data: () => member }] }),
+        }),
       }
     }
     if (name === 'organizations') {
@@ -98,7 +100,7 @@ describe('GET /api/v1/crm/companies/:id/contacts', () => {
 
     const contactDocs = [
       { id: 'c1', data: { orgId, companyId, name: 'Alice', email: 'alice@acme.com' } },
-      { id: 'c2', data: { orgId, companyId, name: 'Bob', email: 'bob@acme.com' } },
+      { id: 'c2', data: { orgId, companyLinks: [{ companyId, companyName: 'Acme', roleTitle: 'Advisor' }], name: 'Bob', email: 'bob@acme.com' } },
     ]
     stageAuth(member, contactDocs)
 

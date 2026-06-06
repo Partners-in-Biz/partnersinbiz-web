@@ -1130,6 +1130,55 @@ describe('client documents API', () => {
     )
   })
 
+  it('sanitizes block-level context refs and explicit internal-only visibility on draft versions', async () => {
+    mockTransactionGet.mockResolvedValueOnce({
+      exists: true,
+      id: 'doc-1',
+      data: () => ({ orgId: 'org-1', title: 'Proposal', deleted: false }),
+    })
+
+    const { POST } = await import('@/app/api/v1/client-documents/[id]/versions/route')
+    const req = jsonRequest('http://localhost/api/v1/client-documents/doc-1/versions', {
+      blocks: [
+        {
+          id: 'summary',
+          type: 'summary',
+          title: 'Summary',
+          content: 'Client-safe copy',
+          required: true,
+          display: {},
+          visibility: 'internal-only',
+          contextRefs: [
+            { type: 'company', id: ' company-1 ', orgId: 'org-1', label: ' Acme CRM ', origin: 'manual', href: '/admin/crm/companies/company-1' },
+            { type: 'company', id: 'company-1', orgId: 'org-1', label: 'Duplicate', origin: 'manual' },
+            { type: 'not-real', id: 'bad', label: 'Bad' },
+          ],
+        },
+      ],
+      theme: {
+        palette: { bg: '#0A0A0B', text: '#F7F4EE', accent: '#F5A623' },
+        typography: { heading: 'Instrument Serif', body: 'Geist' },
+      },
+    })
+
+    const res = await POST(req, user, { params: Promise.resolve({ id: 'doc-1' }) })
+
+    expect(res.status).toBe(201)
+    expect(mockTransactionSet).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'version-1' }),
+      expect.objectContaining({
+        blocks: [
+          expect.objectContaining({
+            visibility: 'internal-only',
+            contextRefs: [
+              expect.objectContaining({ type: 'company', id: 'company-1', orgId: 'org-1', label: 'Acme CRM', origin: 'manual' }),
+            ],
+          }),
+        ],
+      }),
+    )
+  })
+
   it('blocks clients from creating document versions', async () => {
     const { POST } = await import('@/app/api/v1/client-documents/[id]/versions/route')
     const req = jsonRequest('http://localhost/api/v1/client-documents/doc-1/versions', { blocks: [] })

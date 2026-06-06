@@ -119,6 +119,8 @@ describe('Admin contact detail page', () => {
     await waitFor(() => {
       expect(screen.getByRole('heading', { name: 'Jane Client' })).toBeInTheDocument()
     })
+    expect(screen.getByRole('link', { name: 'Contacts' })).toHaveAttribute('href', '/admin/crm/contacts')
+    expect(screen.queryByRole('link', { name: 'arrow_back Contacts' })).not.toBeInTheDocument()
     expect(screen.getByText('Brief for Jane Client')).toBeInTheDocument()
 
     fireEvent.click(screen.getByRole('button', { name: 'Recompute score for Jane Client from admin qualification panel' }))
@@ -209,6 +211,33 @@ describe('Admin contact detail page', () => {
 
     const headerEmailLink = screen.getByRole('link', { name: 'Email Jane Client from contact command center' })
     expect(headerEmailLink).toHaveAttribute('href', '/admin/email/compose?to=jane%40example.com&contactId=contact-1&orgId=org-1')
+  })
+
+  it('keeps the admin contact edit command name free of decorative icon text', async () => {
+    render(<AdminContactDetailPage />)
+
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { name: 'Jane Client' })).toBeInTheDocument()
+    })
+
+    const editButton = screen.getByRole('button', { name: 'Edit contact' })
+    expect(screen.queryByRole('button', { name: 'edit Edit contact' })).not.toBeInTheDocument()
+
+    fireEvent.click(editButton)
+
+    expect(screen.getByRole('button', { name: 'Cancel edit' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'close Cancel edit' })).not.toBeInTheDocument()
+  })
+
+  it('keeps the admin contact note composer command name free of decorative icon text', async () => {
+    render(<AdminContactDetailPage />)
+
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { name: 'Jane Client' })).toBeInTheDocument()
+    })
+
+    expect(screen.getByRole('button', { name: 'Add note' })).toBeDisabled()
+    expect(screen.queryByRole('button', { name: 'add_comment Add note' })).not.toBeInTheDocument()
   })
 
   it('turns weak admin profile strength into a command-center enrichment action', async () => {

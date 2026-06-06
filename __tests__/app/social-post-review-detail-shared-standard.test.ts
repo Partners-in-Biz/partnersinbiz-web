@@ -26,4 +26,21 @@ describe('social post review detail shared standard', () => {
       expect(file).not.toContain('const PLATFORM_COLORS')
     }
   })
+
+  it('keeps review detail route controllers on the shared social-review hook', () => {
+    expect(source('components/social-review/useSocialPostReviewDetail.ts')).toContain(
+      'export function useSocialPostReviewDetail',
+    )
+
+    for (const route of routes) {
+      const file = source(route)
+
+      expect(file).toContain('@/components/social-review/useSocialPostReviewDetail')
+      expect(file).not.toContain('useEffect')
+      expect(file).not.toContain('useState<SocialPostReviewPost')
+      expect(file).not.toContain('useState<SocialPostReviewComment')
+      expect(file).not.toContain('fetch(')
+      expect(file).not.toContain('showNotice')
+    }
+  })
 })

@@ -76,26 +76,69 @@ const POLL_INTERVAL = 1500
 const MAX_RUN_POLL_ATTEMPTS = Math.ceil((90 * 60 * 1000) / POLL_INTERVAL)
 const HUMAN_CHAT_REFRESH_INTERVAL = 3000
 
-async function uploadConversationAttachment(convId: string, file: File): Promise<ConversationAttachment> {
+export function formatConversationAttachmentUploadError(error: unknown, fileName: string): string {
+  const raw = error instanceof Error ? error.message : String(error || '')
+  const lower = raw.toLowerCase()
+  if (
+    lower.includes('failed to fetch') ||
+    lower.includes('load failed') ||
+    lower.includes('networkerror') ||
+    lower.includes('err_access_denied') ||
+    lower.includes('authentication required') ||
+    lower.includes('deployment protection')
+  ) {
+    return `Upload blocked before the app could receive ${fileName}. This usually means the preview deployment is protected or the request was blocked by the browser. Open the logged-in production app or use an approved preview bypass, then try again.`
+  }
+  return raw || `Upload failed: ${fileName}`
+}
+
+export function shouldStopFinalizePollingForStatus(status: number): boolean {
+  return status === 400 || status === 401 || status === 403 || status === 404
+}
+
+async function readApiResponse(res: Response): Promise<Record<string, unknown>> {
+  if (typeof res.text === 'function') {
+    const text = await res.text().catch(() => '')
+    if (!text) return {}
+    try {
+      return JSON.parse(text) as Record<string, unknown>
+    } catch {
+      return { error: text.slice(0, 240) }
+    }
+  }
+  if (typeof res.json === 'function') {
+    return await res.json().catch(() => ({} as Record<string, unknown>)) as Record<string, unknown>
+  }
+  return {}
+}
+
+export async function uploadConversationAttachment(convId: string, file: File): Promise<ConversationAttachment> {
   const form = new FormData()
   form.append('file', file)
 
-  const res = await fetch(`/api/v1/conversations/${convId}/attachments`, {
-    method: 'POST',
-    body: form,
-  })
-  const body = await res.json().catch(() => ({}))
-  if (!res.ok || !body.data?.url) {
-    throw new Error(body.error || `Upload failed: ${file.name}`)
-  }
+  try {
+    const res = await fetch(`/api/v1/conversations/${convId}/attachments`, {
+      method: 'POST',
+      body: form,
+    })
+    const body = await readApiResponse(res)
+    const data = body.data as Partial<ConversationAttachment & { storagePath?: string }> | undefined
+    if (!res.ok || !data?.url) {
+      const statusCopy = res.status ? ` (${res.status}${res.statusText ? ` ${res.statusText}` : ''})` : ''
+      const bodyError = typeof body.error === 'string' ? body.error : ''
+      throw new Error(formatConversationAttachmentUploadError(bodyError || `Upload failed${statusCopy}: ${file.name}`, file.name))
+    }
 
-  return {
-    id: body.data.id,
-    name: body.data.name ?? file.name,
-    url: body.data.url,
-    contentType: body.data.contentType ?? file.type,
-    sizeBytes: body.data.sizeBytes ?? file.size,
-    ...(body.data.storagePath ? { storagePath: body.data.storagePath } : {}),
+    return {
+      id: data.id as string,
+      name: data.name ?? file.name,
+      url: data.url,
+      contentType: data.contentType ?? file.type,
+      sizeBytes: data.sizeBytes ?? file.size,
+      ...(data.storagePath ? { storagePath: data.storagePath } : {}),
+    }
+  } catch (err) {
+    throw new Error(formatConversationAttachmentUploadError(err, file.name))
   }
 }
 
@@ -521,10 +564,33 @@ export default function UnifiedChat({
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ runId, agentId, events }),
         })
-        const body = await res.json()
-        const status: string | undefined = body.data?.status
+        const body = await readApiResponse(res)
+        const data = body.data as { status?: string } | undefined
+        const status: string | undefined = data?.status
 
-        // Non-2xx from finalize API (e.g. 502 upstream) — keep polling, don't bail
+        if (!res.ok && shouldStopFinalizePollingForStatus(res.status)) {
+          closeEventStream(msgId)
+          const apiMessage = typeof body.error === 'string' && !body.error.trim().startsWith('<')
+            ? body.error
+            : undefined
+          setMessages((prev) =>
+            prev.map((m) =>
+              m.id === msgId
+                ? {
+                    ...m,
+                    status: 'failed',
+                    error: apiMessage
+                      ? `Agent response could not be finalized: ${apiMessage}. Refresh and send again if needed.`
+                      : `Agent response could not be finalized (${res.status}). Refresh and send again if needed.`,
+                    content: '',
+                  }
+                : m,
+            ),
+          )
+          return
+        }
+
+        // Retry transient non-2xx finalize API errors (e.g. 502 upstream), but do not retry terminal auth/not-found cases.
         if (!res.ok && status !== 'failed') {
           scheduleFinalizePoll(convId, msgId, runId, agentId, attempts)
           return
@@ -1666,8 +1732,8 @@ export default function UnifiedChat({
             <button
               type="button"
               onClick={() => fileInputRef.current?.click()}
-              disabled={sending || !activeConversation}
-              title="Attach file"
+              disabled={sending}
+              title={activeConversation ? 'Attach file' : 'Attach file and start a new conversation'}
               aria-label="Attach file"
               className="self-end flex items-center justify-center w-9 h-9 rounded-full text-on-surface-variant hover:text-on-surface hover:bg-white/[0.08] transition-colors disabled:opacity-40 shrink-0"
             >

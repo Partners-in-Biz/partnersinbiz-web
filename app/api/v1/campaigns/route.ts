@@ -26,12 +26,38 @@ import { EMPTY_STATS, type Campaign as EmailCampaign, type CampaignStatus as Ema
 import type { CampaignClientType } from '@/lib/types/campaign'
 import type { ApiUser } from '@/lib/api/types'
 import { logActivity } from '@/lib/activity/log'
+import {
+  normalizeResourceRelationshipLinks,
+} from '@/lib/client-documents/linkedValidation'
 
 export const dynamic = 'force-dynamic'
 
 const VALID_EMAIL_STATUSES: EmailCampaignStatus[] = ['draft', 'scheduled', 'active', 'paused', 'completed']
 const VALID_CONTENT_STATUSES = ['draft', 'in_review', 'approved', 'shipping', 'archived'] as const
 const VALID_CLIENT_TYPES: CampaignClientType[] = ['service-business', 'consumer-app', 'b2b-saas']
+
+function relationshipInputFrom(body: Record<string, unknown>) {
+  const value: Record<string, unknown> = {}
+  const safeStringFields = ['companyId', 'clientOrgId', 'projectId', 'dealId']
+  const safeArrayFields = [
+    'companyIds',
+    'clientOrgIds',
+    'projectIds',
+    'dealIds',
+    'researchItemIds',
+    'socialPostIds',
+    'emailThreadIds',
+    'supportTicketIds',
+  ]
+  for (const key of safeStringFields) {
+    if (key in body) value[key] = body[key]
+  }
+  for (const key of safeArrayFields) {
+    if (key in body) value[key] = body[key]
+  }
+  if ('contextRefs' in body) value.contextRefs = body.contextRefs
+  return Object.keys(value).length > 0 ? value : undefined
+}
 
 export const GET = withAuth('client', async (req: NextRequest, user: ApiUser) => {
   const { searchParams } = new URL(req.url)
@@ -93,6 +119,12 @@ async function createContentEngineCampaign(
     return apiError(`clientType must be one of: ${VALID_CLIENT_TYPES.join(', ')}`, 400)
   }
 
+  const relationshipInput = relationshipInputFrom(body as Record<string, unknown>)
+  const relationships = relationshipInput
+    ? normalizeResourceRelationshipLinks(relationshipInput)
+    : { ok: true as const, value: {} }
+  if (!relationships.ok) return apiError(relationships.error, 400)
+
   const shareToken = randomBytes(12).toString('hex') // 24 hex chars
 
   const ref = await adminDb.collection('campaigns').add({
@@ -107,6 +139,7 @@ async function createContentEngineCampaign(
     brandIdentity: body.brandIdentity ?? null,
     pillars: Array.isArray(body.pillars) ? body.pillars : [],
     calendar: Array.isArray(body.calendar) ? body.calendar : [],
+    ...relationships.value,
     createdAt: FieldValue.serverTimestamp(),
     updatedAt: FieldValue.serverTimestamp(),
     deleted: false,
@@ -142,6 +175,12 @@ async function createEmailCampaign(
   const name = typeof body.name === 'string' ? body.name.trim() : ''
   if (!name) return apiError('name is required', 400)
 
+  const relationshipInput = relationshipInputFrom(body as Record<string, unknown>)
+  const relationships = relationshipInput
+    ? normalizeResourceRelationshipLinks(relationshipInput)
+    : { ok: true as const, value: {} }
+  if (!relationships.ok) return apiError(relationships.error, 400)
+
   const sequenceId = typeof body.sequenceId === 'string' ? body.sequenceId.trim() : ''
   if (sequenceId) {
     const seqSnap = await adminDb.collection('sequences').doc(sequenceId).get()
@@ -162,6 +201,7 @@ async function createEmailCampaign(
     replyTo: body.replyTo ?? '',
     segmentId: body.segmentId ?? '',
     contactIds: Array.isArray(body.contactIds) ? body.contactIds : [],
+    ...relationships.value,
     sequenceId,
     triggers: {
       captureSourceIds: Array.isArray(body.triggers?.captureSourceIds) ? body.triggers.captureSourceIds : [],

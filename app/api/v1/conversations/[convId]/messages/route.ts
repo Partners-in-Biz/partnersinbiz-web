@@ -28,7 +28,7 @@ import {
   sanitizeContextReferenceSeeds,
   type ContextReferenceSeed,
 } from '@/lib/context-references/types'
-import { getSlashCommandByToken, slashCommandInstruction, type SlashCommandPayload } from '@/lib/chat/slash-commands'
+import { councilModeGuidanceLines, getSlashCommandByToken, slashCommandInstruction, type SlashCommandPayload } from '@/lib/chat/slash-commands'
 import { buildAgentSkillsPromptBlock } from '@/lib/chat/agent-skills'
 import type { HermesProfileLink } from '@/lib/hermes/types'
 import type { ApiUser } from '@/lib/api/types'
@@ -179,10 +179,9 @@ function buildOrchestrationContext(conversation: Conversation, dispatchAgentId: 
     '[Multi-agent orchestration]',
     'You are Pip, the operator/orchestrator for this conversation.',
     `The admin selected these agents for the work: ${agentNames || requestedAgentIds.join(', ')}.`,
-    'Do not make every selected agent answer separately by default.',
-    'First decide whether this is simple enough to answer directly.',
-    'For substantial or cross-domain work, create or describe clear task-bus work for the relevant specialists and synthesize the outcome for the user.',
-    'Use the selected agents as routing intent: Theo=engineering, Maya=marketing/creative, Sage=research, Nora=operations/finance/admin.',
+    'Use the selected agents as routing intent and as the available council membership for this turn.',
+    ...councilModeGuidanceLines('multi-agent-chat'),
+    'Do not make every selected agent answer separately by default; use only the perspectives that add material value.',
     'When you hand work off, keep the chat response concise and include what each specialist should own plus any board/session links you create.',
     '---',
     '',

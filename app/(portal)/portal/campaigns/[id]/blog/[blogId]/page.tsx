@@ -1,35 +1,13 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { useParams, useRouter, useSearchParams } from 'next/navigation'
-import {
-  CampaignBlogDetailWorkspace,
-  type CampaignBlogCommentAnchor,
-  type CampaignBlogDetailComment,
-  type CampaignBlogDetailRecord,
-} from '@/components/campaign-blog-detail/CampaignBlogDetailWorkspace'
+import { CampaignBlogDetailWorkspace } from '@/components/campaign-blog-detail/CampaignBlogDetailWorkspace'
+import { useCampaignBlogDetail } from '@/components/campaign-blog-detail/useCampaignBlogDetail'
 import { scopedApiPath, scopedPortalPath, scopeFromSearchParams } from '@/lib/portal/scoped-routing'
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type AnyObj = any
 
 function paramValue(value: string | string[] | undefined): string {
   return Array.isArray(value) ? value[0] ?? '' : value ?? ''
-}
-
-function commentPayload(text: string, anchor: CampaignBlogCommentAnchor): AnyObj {
-  const payload: AnyObj = { text: text.trim() }
-
-  if (anchor.kind === 'text') {
-    payload.anchor = { type: 'text', text: anchor.text }
-    if (typeof anchor.offset === 'number') payload.anchor.offset = anchor.offset
-  }
-
-  if (anchor.kind === 'image') {
-    payload.anchor = { type: 'image', mediaUrl: anchor.mediaUrl }
-  }
-
-  return payload
 }
 
 export default function PortalCampaignBlogDetailPage() {
@@ -49,101 +27,42 @@ function PortalCampaignBlogDetail({
 }) {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const [blog, setBlog] = useState<CampaignBlogDetailRecord | null>(null)
-  const [comments, setComments] = useState<CampaignBlogDetailComment[]>([])
-  const [loading, setLoading] = useState(true)
-  const [loadError, setLoadError] = useState<string | null>(null)
-  const [actionError, setActionError] = useState<string | null>(null)
-  const [busy, setBusy] = useState<null | 'approve' | 'comment'>(null)
+  const [approvalBusy, setApprovalBusy] = useState(false)
+  const [approvalError, setApprovalError] = useState<string | null>(null)
   const orgScope = scopeFromSearchParams(searchParams)
   const campaignAssetsEndpoint = scopedApiPath(`/api/v1/campaigns/${campaignId}/assets`, orgScope)
   const commentsEndpoint = scopedApiPath(`/api/v1/seo/content/${blogId}/comments`, orgScope)
   const approveEndpoint = scopedApiPath(`/api/v1/seo/content/${blogId}/client-approve`, orgScope)
-
-  useEffect(() => {
-    if (!campaignId || !blogId) {
-      setLoading(false)
-      setLoadError('Blog post not found.')
-      return
-    }
-
-    let cancelled = false
-    setLoading(true)
-    setLoadError(null)
-    setActionError(null)
-
-    Promise.all([
-      fetch(campaignAssetsEndpoint).then(async response => {
-        const body = await response.json().catch(() => ({}))
-        if (!response.ok) throw new Error(body?.error ?? 'Campaign assets could not load.')
-        return body
-      }),
-      fetch(commentsEndpoint).then(async response => {
-        const body = await response.json().catch(() => ({}))
-        if (!response.ok) throw new Error(body?.error ?? 'Comments could not load.')
-        return body
-      }),
-    ])
-      .then(([assetsBody, commentsBody]) => {
-        if (cancelled) return
-        const blogs = (assetsBody.data?.blogs ?? []) as CampaignBlogDetailRecord[]
-        setBlog(blogs.find(item => item.id === blogId) ?? null)
-        setComments((commentsBody.data ?? []) as CampaignBlogDetailComment[])
-      })
-      .catch((err: unknown) => {
-        if (cancelled) return
-        setLoadError(err instanceof Error ? err.message : 'Blog post could not load.')
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false)
-      })
-
-    return () => {
-      cancelled = true
-    }
-  }, [campaignId, blogId, campaignAssetsEndpoint, commentsEndpoint])
+  const {
+    blog,
+    setBlog,
+    comments,
+    loading,
+    loadError,
+    actionError,
+    busy: commentBusy,
+    postComment,
+  } = useCampaignBlogDetail({
+    campaignId,
+    blogId,
+    assetsEndpoint: campaignAssetsEndpoint,
+    commentsEndpoint,
+    onCommentPosted: body => {
+      if (body.data?.statusFlipped) {
+        setBlog(current => current ? { ...current, status: 'idea' } : current)
+      }
+    },
+  })
 
   const campaignBlogsHref = scopedPortalPath(
     `/portal/campaigns/${campaignId}?tab=blogs`,
     orgScope,
   )
 
-  async function refreshComments() {
-    const refreshed = await fetch(commentsEndpoint).then(response => response.json())
-    setComments((refreshed.data ?? []) as CampaignBlogDetailComment[])
-  }
-
-  async function postComment(text: string, anchor: CampaignBlogCommentAnchor) {
-    if (!text.trim() || busy) return
-    setBusy('comment')
-    setActionError(null)
-    try {
-      const response = await fetch(commentsEndpoint, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(commentPayload(text, anchor)),
-      })
-      const body = await response.json().catch(() => ({}))
-
-      if (!response.ok) throw new Error(body?.error ?? 'Comment could not be sent.')
-
-      if (body?.data?.statusFlipped) {
-        setBlog(current => current ? { ...current, status: 'idea' } : current)
-      }
-
-      await refreshComments()
-    } catch (err: unknown) {
-      setActionError(err instanceof Error ? err.message : 'Comment could not be sent.')
-      throw err
-    } finally {
-      setBusy(null)
-    }
-  }
-
   async function approve() {
-    if (busy || !blogId) return
-    setBusy('approve')
-    setActionError(null)
+    if (approvalBusy || !blogId) return
+    setApprovalBusy(true)
+    setApprovalError(null)
     try {
       const response = await fetch(approveEndpoint, {
         method: 'POST',
@@ -155,9 +74,9 @@ function PortalCampaignBlogDetail({
       setBlog(current => current ? { ...current, status: body?.data?.status ?? 'client_approved' } : current)
       router.refresh()
     } catch (err: unknown) {
-      setActionError(err instanceof Error ? err.message : 'Approval could not be recorded.')
+      setApprovalError(err instanceof Error ? err.message : 'Approval could not be recorded.')
     } finally {
-      setBusy(null)
+      setApprovalBusy(false)
     }
   }
 
@@ -172,7 +91,7 @@ function PortalCampaignBlogDetail({
       blog={blog}
       comments={comments}
       loadError={loadError}
-      actionError={actionError}
+      actionError={approvalError ?? actionError}
       backHref={campaignBlogsHref}
       backLabel="Blog Posts"
       statusLabel={isPublished ? 'Published' : isApproved ? 'Approved' : canReview ? 'Awaiting Review' : undefined}
@@ -183,7 +102,7 @@ function PortalCampaignBlogDetail({
           : null
       }
       onComment={postComment}
-      commentBusy={busy === 'comment'}
+      commentBusy={commentBusy === 'comment'}
       approval={
         canReview
           ? {
@@ -191,7 +110,7 @@ function PortalCampaignBlogDetail({
               noCommentsCopy: 'Approve this post for publishing, or leave feedback for the writer.',
               commentsCopy: count =>
                 `${count} comment${count === 1 ? '' : 's'} recorded. Approve anyway if the post is ready.`,
-              busy: busy === 'approve',
+              busy: approvalBusy,
               buttonLabel: 'Approve this post',
               busyLabel: 'Approving...',
               onApprove: approve,

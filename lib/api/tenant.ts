@@ -11,6 +11,7 @@
  */
 import { NextRequest, NextResponse } from 'next/server'
 import { adminDb } from '@/lib/firebase/admin'
+import { canUsePortalOrg, resolvePortalActiveOrgId } from '@/lib/portal/org-access'
 import { apiError } from './response'
 import type { ApiUser } from './types'
 import { canAccessOrg, restrictedAdminOrgIds } from './platformAdmin'
@@ -61,11 +62,16 @@ async function resolveOrgId(req: NextRequest, user: ApiUser): Promise<string | n
     }
 
     case 'client': {
-      // Use activeOrgId if the client has switched workspaces, else fall back to orgId
       const userDoc = await adminDb.collection('users').doc(user.uid).get()
       if (!userDoc.exists) return DEFAULT_ORG_ID
       const data = userDoc.data()!
-      return (data.activeOrgId as string | undefined) ?? (data.orgId as string | undefined) ?? DEFAULT_ORG_ID
+      const { searchParams } = new URL(req.url)
+      const requestedOrgId = searchParams.get('orgId')?.trim()
+      if (requestedOrgId) {
+        const allowed = await canUsePortalOrg(user.uid, data, requestedOrgId)
+        return allowed ? requestedOrgId : null
+      }
+      return (await resolvePortalActiveOrgId(user.uid, data)) ?? DEFAULT_ORG_ID
     }
 
     default:
