@@ -63,7 +63,7 @@ export function PortalSeoSprintChrome({
             href={seoHref('/portal/seo')}
             className="text-xs text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] inline-flex items-center gap-1"
           >
-            <span className="material-symbols-outlined text-[14px]">arrow_back</span>
+            <span className="material-symbols-outlined text-[14px]" aria-hidden="true">arrow_back</span>
             All sprints
           </Link>
           <div className="mt-5 grid grid-cols-1 lg:grid-cols-[1fr_auto] gap-6 lg:items-end">
