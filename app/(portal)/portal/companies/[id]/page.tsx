@@ -28,6 +28,9 @@ type RelatedContact = {
   company?: string
   companyId?: string
   companyName?: string
+  companyLinks?: Array<{ companyId?: string; companyName?: string; roleTitle?: string; relationshipType?: string; primary?: boolean }>
+  roleTitle?: string
+  relationshipType?: string
   type?: string
   stage?: string
   updatedAt?: unknown
@@ -573,6 +576,7 @@ function ExistingContactLinkDrawer({
   onClose: () => void
 }) {
   const [query, setQuery] = useState('')
+  const [roleTitle, setRoleTitle] = useState('')
   const [contacts, setContacts] = useState<RelatedContact[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -613,7 +617,7 @@ function ExistingContactLinkDrawer({
     setLinkingId(contact.id)
     setError(null)
     try {
-      await onLink(contact)
+      await onLink({ ...contact, roleTitle: roleTitle.trim() || undefined })
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to link contact')
       setLinkingId(null)
@@ -651,6 +655,15 @@ function ExistingContactLinkDrawer({
               value={query}
               onChange={(event) => setQuery(event.target.value)}
               placeholder="Search by name, email, or company"
+            />
+          </label>
+          <label className="block text-sm">
+            <span className="mb-1 block text-[var(--color-pib-text-muted)]">Role at {company.name} (optional)</span>
+            <input
+              className="input-pib w-full"
+              value={roleTitle}
+              onChange={(event) => setRoleTitle(event.target.value)}
+              placeholder="Founder, director, part owner, advisor..."
             />
           </label>
           {error && <p className="rounded-lg border border-red-400/20 bg-red-400/10 px-3 py-2 text-sm text-red-100">{error}</p>}
@@ -1993,6 +2006,7 @@ export default function CompanyDetailPage() {
         company: company.name,
         companyId: company.id,
         companyName: company.name,
+        companyLinks: [{ companyId: company.id, companyName: company.name, primary: true }],
       }),
     })
     if (!res.ok) {
@@ -2009,9 +2023,14 @@ export default function CompanyDetailPage() {
       method: 'PUT',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({
-        company: company.name,
-        companyId: company.id,
-        companyName: company.name,
+        companyLinks: [
+          ...(Array.isArray(contact.companyLinks) ? contact.companyLinks : []),
+          {
+            companyId: company.id,
+            companyName: company.name,
+            ...(contact.roleTitle ? { roleTitle: contact.roleTitle } : {}),
+          },
+        ],
       }),
     })
     if (!res.ok) {

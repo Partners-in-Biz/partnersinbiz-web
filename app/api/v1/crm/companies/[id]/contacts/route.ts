@@ -1,7 +1,7 @@
 /**
  * GET /api/v1/crm/companies/:id/contacts
  *
- * Returns all contacts linked to this company via companyId (within the caller's org).
+ * Returns all contacts linked to this company via companyId or companyLinks (within the caller's org).
  * Auth: viewer+
  * Query params: limit (default 50, max 200)
  */
@@ -53,6 +53,10 @@ export const GET = withCrmAuth<RouteCtx>(
       .filter((contact) => contact.deleted !== true)
       .filter((contact) => (
         contact.companyId === companyId ||
+        (Array.isArray(contact.companyLinks) && contact.companyLinks.some((link) => {
+          const row = link as { companyId?: unknown }
+          return row.companyId === companyId
+        })) ||
         (linkedOrgId && contact.linkedOrgId === linkedOrgId)
       ))
       .sort((a, b) => timeValue(b.updatedAt) - timeValue(a.updatedAt))

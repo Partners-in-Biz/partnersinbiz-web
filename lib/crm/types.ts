@@ -81,6 +81,7 @@ export interface Contact {
   deleted?: boolean
   companyId?: string
   companyName?: string
+  companyLinks?: ContactCompanyLink[]
   linkedUserId?: string       // PiB user linked through a sender-owned CRM contact
   linkedOrgId?: string        // PiB client org this contact belongs to when mirrored into platform CRM
   clientMemberActive?: boolean
@@ -90,6 +91,14 @@ export interface Contact {
   aiLeadScore?: number        // 0-100, LLM-based (only set if scoringConfig.aiEnabled)
   scoreUpdatedAt?: Timestamp  // last computed
   scoreSignals?: Record<string, number>  // per-signal contribution (debug)
+}
+
+export interface ContactCompanyLink {
+  companyId: string
+  companyName: string
+  roleTitle?: string
+  relationshipType?: string
+  primary?: boolean
 }
 
 export type ContactInput = Omit<Contact, 'id' | 'createdAt' | 'updatedAt'>

@@ -1746,7 +1746,15 @@ describe('Portal company detail page', () => {
           ok: true,
           json: async () => ({
             success: true,
-            data: [{ id: 'contact-existing', name: 'Existing Buyer', email: 'existing@example.com', company: 'Old Co' }],
+            data: [{
+              id: 'contact-existing',
+              name: 'Existing Buyer',
+              email: 'existing@example.com',
+              company: 'Old Co',
+              companyId: 'company-old',
+              companyName: 'Old Co',
+              companyLinks: [{ companyId: 'company-old', companyName: 'Old Co', roleTitle: 'Founder', primary: true }],
+            }],
           }),
         } as Response)
       }
@@ -1764,6 +1772,7 @@ describe('Portal company detail page', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'Link existing contact' }))
     expect(screen.getByRole('dialog', { name: 'Link existing contact to Acme Holdings' })).toBeInTheDocument()
 
+    fireEvent.change(screen.getByLabelText('Role at Acme Holdings (optional)'), { target: { value: 'Part owner' } })
     fireEvent.click(await screen.findByRole('button', { name: 'Link' }))
 
     await waitFor(() => {
@@ -1771,15 +1780,16 @@ describe('Portal company detail page', () => {
         '/api/v1/crm/contacts/contact-existing',
         expect.objectContaining({
           method: 'PUT',
-          body: expect.stringContaining('"companyId":"company-1"'),
+          body: expect.stringContaining('"companyLinks"'),
         }),
       )
     })
     expect(JSON.parse((putContact.mock.calls[0][1] as RequestInit).body as string)).toEqual(
       expect.objectContaining({
-        company: 'Acme Holdings',
-        companyId: 'company-1',
-        companyName: 'Acme Holdings',
+        companyLinks: [
+          { companyId: 'company-old', companyName: 'Old Co', roleTitle: 'Founder', primary: true },
+          { companyId: 'company-1', companyName: 'Acme Holdings', roleTitle: 'Part owner' },
+        ],
       }),
     )
   })
