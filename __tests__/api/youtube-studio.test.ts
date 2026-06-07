@@ -7,9 +7,12 @@ const mockAdd = jest.fn()
 const mockDoc = jest.fn()
 const mockDocGet = jest.fn()
 const mockDocSet = jest.fn()
+const mockBatch = jest.fn()
+const mockBatchSet = jest.fn()
+const mockBatchCommit = jest.fn()
 
 jest.mock('@/lib/firebase/admin', () => ({
-  adminDb: { collection: mockCollection },
+  adminDb: { collection: mockCollection, batch: mockBatch },
 }))
 
 jest.mock('@/lib/api/auth', () => ({
@@ -35,6 +38,7 @@ type CollectionFixture = {
   listDocs?: FirestoreDoc[]
   docs?: Record<string, FirestoreDoc>
   add?: jest.Mock
+  nextDocId?: string
 }
 
 function stageFirestore(fixtures: Record<string, CollectionFixture>) {
@@ -66,17 +70,19 @@ function stageFirestore(fixtures: Record<string, CollectionFixture>) {
         }
       },
       add: fixture.add ?? mockAdd,
-      doc: (id: string) => {
-        mockDoc(id)
-        const record = fixture.docs?.[id]
+      doc: (id?: string) => {
+        const docId = id ?? fixture.nextDocId ?? 'new-doc-id'
+        mockDoc(docId)
+        const record = fixture.docs?.[docId]
         const set = record?.set ?? mockDocSet
-        const ref = { set }
+        const ref = { id: docId, set }
 
         return {
+          id: docId,
           set,
           get: async () => {
-            mockDocGet(id)
-            if (!record) return { exists: false, id, data: () => undefined, ref }
+            mockDocGet(docId)
+            if (!record) return { exists: false, id: docId, data: () => undefined, ref }
             return {
               exists: true,
               id: record.id,
@@ -91,6 +97,8 @@ function stageFirestore(fixtures: Record<string, CollectionFixture>) {
 
   mockAdd.mockResolvedValue({ id: 'new-id' })
   mockDocSet.mockResolvedValue(undefined)
+  mockBatch.mockReturnValue({ set: mockBatchSet, commit: mockBatchCommit })
+  mockBatchCommit.mockResolvedValue(undefined)
 }
 
 describe('youtube studio admin API', () => {
@@ -190,10 +198,50 @@ describe('youtube studio admin API', () => {
     }), { merge: true })
   })
 
-  it('creates a publish packet and links it back to the video project', async () => {
-    const packetAdd = jest.fn().mockResolvedValue({ id: 'packet-1' })
-    const videoSet = jest.fn().mockResolvedValue(undefined)
+  it('rejects channel workspace updates that point outside the video org', async () => {
+    stageFirestore({
+      youtube_channel_workspaces: {
+        docs: {
+          'channel-2': {
+            id: 'channel-2',
+            data: { orgId: 'org-2', title: 'Other org', deleted: false },
+          },
+        },
+      },
+      youtube_video_projects: {
+        docs: {
+          'video-1': {
+            id: 'video-1',
+            data: {
+              orgId: 'org-1',
+              channelWorkspaceId: 'channel-1',
+              title: 'Launch',
+              objective: 'Keep',
+              status: 'production',
+              videoType: 'tutorial',
+              source: { intakeType: 'manual' },
+              linked: {},
+              approvalPolicy: { requireClientDraftApproval: false },
+              deleted: false,
+            },
+          },
+        },
+      },
+    })
 
+    const { PUT } = await import('@/app/api/v1/youtube-studio/videos/[id]/route')
+    const res = await PUT(new NextRequest('http://localhost/api/v1/youtube-studio/videos/video-1', {
+      method: 'PUT',
+      body: JSON.stringify({ channelWorkspaceId: 'channel-2' }),
+    }), { params: Promise.resolve({ id: 'video-1' }) })
+    const body = await res.json()
+
+    expect(res.status).toBe(400)
+    expect(body.error).toMatch(/channelWorkspaceId/i)
+    expect(mockDocSet).not.toHaveBeenCalled()
+  })
+
+  it('creates a draft private publish packet and atomically links it back to the video project', async () => {
     stageFirestore({
       youtube_channel_workspaces: {
         docs: {
@@ -208,12 +256,11 @@ describe('youtube studio admin API', () => {
           'video-1': {
             id: 'video-1',
             data: { orgId: 'org-1', channelWorkspaceId: 'channel-1', title: 'Launch', deleted: false },
-            set: videoSet,
           },
         },
       },
       youtube_publishing_packets: {
-        add: packetAdd,
+        nextDocId: 'packet-1',
       },
     })
 
@@ -224,6 +271,11 @@ describe('youtube studio admin API', () => {
         orgId: 'org-1',
         channelWorkspaceId: 'channel-1',
         videoProjectId: 'video-1',
+        status: 'published',
+        visibility: 'public',
+        approvedBy: 'client-supplied-approver',
+        approvedAt: 'client-supplied-date',
+        approvedSnapshotHash: 'client-supplied-hash',
         titleOptions: [{ text: 'Launch plan' }],
         tags: [' growth ', '', 'ops'],
       }),
@@ -232,17 +284,29 @@ describe('youtube studio admin API', () => {
 
     expect(res.status).toBe(201)
     expect(body.data.id).toBe('packet-1')
-    expect(packetAdd).toHaveBeenCalledWith(expect.objectContaining({
+    expect(mockBatch).toHaveBeenCalledTimes(1)
+    expect(mockBatchSet).toHaveBeenCalledTimes(2)
+    expect(mockBatchCommit).toHaveBeenCalledTimes(1)
+
+    expect(mockBatchSet).toHaveBeenNthCalledWith(1, expect.objectContaining({ id: 'packet-1' }), expect.objectContaining({
       orgId: 'org-1',
       channelWorkspaceId: 'channel-1',
       videoProjectId: 'video-1',
       versionNumber: 1,
+      status: 'draft',
       visibility: 'private',
       tags: ['growth', 'ops'],
       createdAt: 'SERVER_TS',
     }))
-    expect(JSON.stringify(packetAdd.mock.calls[0][0])).not.toContain('undefined')
-    expect(videoSet).toHaveBeenCalledWith(expect.objectContaining({
+
+    const packetWrite = mockBatchSet.mock.calls[0][1]
+    expect(JSON.stringify(packetWrite)).not.toContain('undefined')
+    expect(packetWrite.approvedBy).toBeUndefined()
+    expect(packetWrite.approvedAt).toBeUndefined()
+    expect(packetWrite.approvedSnapshotHash).toBeUndefined()
+    expect(packetWrite.checks.approval.status).toBe('warning')
+
+    expect(mockBatchSet).toHaveBeenNthCalledWith(2, expect.objectContaining({ id: 'video-1' }), expect.objectContaining({
       publishPacketId: 'packet-1',
       updatedBy: 'admin-1',
       updatedAt: 'SERVER_TS',

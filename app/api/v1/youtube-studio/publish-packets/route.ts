@@ -16,16 +16,6 @@ import type { YouTubeGateCheck, YouTubePublishingPacket } from '@/lib/youtube-st
 
 export const dynamic = 'force-dynamic'
 
-const PACKET_STATUSES: YouTubePublishingPacket['status'][] = [
-  'draft',
-  'internal_review',
-  'client_review',
-  'approved',
-  'blocked',
-  'published',
-]
-const PACKET_VISIBILITIES: YouTubePublishingPacket['visibility'][] = ['private', 'unlisted', 'public']
-
 function cleanString(value: unknown): string | undefined {
   return typeof value === 'string' && value.trim() ? value.trim() : undefined
 }
@@ -38,10 +28,6 @@ function cleanStringArray(value: unknown): string[] {
 
 function cleanPositiveNumber(value: unknown): number | undefined {
   return typeof value === 'number' && Number.isFinite(value) && value >= 0 ? value : undefined
-}
-
-function pick<T extends string>(allowed: readonly T[], value: unknown, fallback: T): T {
-  return allowed.includes(value as T) ? value as T : fallback
 }
 
 function defaultGateCheck(message: string): YouTubeGateCheck {
@@ -139,7 +125,7 @@ export const POST = withAuth('admin', async (req: NextRequest, user) => {
       ? Math.max(1, Math.floor(body.versionNumber))
       : 1,
     supersedesPacketId: cleanString(body.supersedesPacketId),
-    status: pick(PACKET_STATUSES, body.status, 'draft'),
+    status: 'draft',
     titleOptions: cleanTitleOptions(body.titleOptions),
     description: cleanString(body.description),
     tags: cleanStringArray(body.tags),
@@ -147,7 +133,7 @@ export const POST = withAuth('admin', async (req: NextRequest, user) => {
     thumbnailAssetId: cleanString(body.thumbnailAssetId),
     captionAssetId: cleanString(body.captionAssetId),
     videoAssetId: cleanString(body.videoAssetId),
-    visibility: pick(PACKET_VISIBILITIES, body.visibility, 'private'),
+    visibility: 'private',
     publishAt: body.publishAt,
     selfDeclaredMadeForKids: typeof body.selfDeclaredMadeForKids === 'boolean' ? body.selfDeclaredMadeForKids : undefined,
     containsSyntheticMedia: typeof body.containsSyntheticMedia === 'boolean' ? body.containsSyntheticMedia : undefined,
@@ -157,11 +143,14 @@ export const POST = withAuth('admin', async (req: NextRequest, user) => {
     ...actorFields(user),
   })
 
-  const ref = await adminDb.collection(YOUTUBE_COLLECTIONS.packets).add(packet)
-  await video.ref.set({
-    publishPacketId: ref.id,
+  const packetRef = adminDb.collection(YOUTUBE_COLLECTIONS.packets).doc()
+  const batch = adminDb.batch()
+  batch.set(packetRef, packet)
+  batch.set(video.ref, {
+    publishPacketId: packetRef.id,
     ...updateActorFields(user),
   }, { merge: true })
+  await batch.commit()
 
-  return apiSuccess({ id: ref.id }, 201)
+  return apiSuccess({ id: packetRef.id }, 201)
 })
