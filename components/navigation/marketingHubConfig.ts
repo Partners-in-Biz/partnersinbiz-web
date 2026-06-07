@@ -63,6 +63,13 @@ export function buildMarketingHubProps(config: MarketingHubSurface): HubPageProp
             description: 'Track sprint progress, keywords, content, audits, pages, and blog drafts.',
             eyebrow: 'Search',
           },
+          {
+            label: 'GEO SEO',
+            href: scopedPortalPath('/portal/geo-seo', config),
+            icon: 'psychology_alt',
+            description: 'Review AI search visibility, GEO audits, answer-engine readiness, and approval-gated reports.',
+            eyebrow: 'AI search',
+          },
         ]),
         section('Social media', [
           {

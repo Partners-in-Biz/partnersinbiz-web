@@ -50,6 +50,22 @@ type BuildSuccess = {
 
 const DEFAULT_PRIORITY = 'medium'
 const GENERATED_LABEL = 'generated-from-approved-spec'
+const GEO_SEO_RUNTIME_SKILL_PATH = 'geo-seo-service'
+const SIDE_EFFECT_GATES = [
+  'production-deploy',
+  'public-publish',
+  'client-or-prospect-message',
+  'paid-spend',
+  'secret-or-config-change',
+  'billing-or-finance-change',
+  'destructive-delete-or-archive',
+] as const
+const SIDE_EFFECT_CONSTRAINTS = [
+  'No production deploy, release promotion, or main merge without explicit approval',
+  'No public publishing or public share/report promotion without explicit approval',
+  'No client-visible or prospect-visible send/message without explicit approval',
+  'No paid spend, ad launch, billing, finance, secret, config, or destructive action without explicit approval',
+]
 
 function cleanString(value: unknown): string | null {
   return typeof value === 'string' && value.trim() ? value.trim() : null
