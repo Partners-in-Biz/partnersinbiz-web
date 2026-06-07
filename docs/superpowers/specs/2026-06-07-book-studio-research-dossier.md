@@ -247,6 +247,34 @@ The module should not be limited to children's books. It should define a structu
 
 Important: Low-content books may be valid commercially, but they should be treated as a separate risk class because some platform features, ISBN needs, and series eligibility differ.
 
+### Book-Type Gate Matrix
+
+The taxonomy above should drive the workflow. Each project should choose a `bookTypeFamily` and inherit default production, file, rights, and review gates. The operator can add extra gates, but should not be able to remove mandatory gates without an approval record.
+
+| Book family | Default production model | Required gates | Channel-specific warnings |
+| --- | --- | --- | --- |
+| **Narrative fiction, novellas, short stories, poetry** | Reflowable manuscript first, with EPUB as the primary ebook artifact and print PDF as a later edition. | Brief approval, outline approval, developmental edit, copyedit, proofread, metadata review, AI disclosure review. | KDP and Google metadata must accurately represent the book; avoid misleading subtitles, category stuffing, and claims that the book is part of a set if the set is not complete. |
+| **Children's picture books and early readers** | Fixed-layout/page-spread model for illustrated editions; simple reflowable only when the book is mostly text. | Reading-level review, age-fit review, illustration/style bible, asset rights audit, bleed/margin check, proof review. | KDP fixed-layout guidance treats children's ebooks and comics as specialized formats with Guided View/panel behavior. The module should not assume a normal chapter EPUB is acceptable for picture-heavy children's books. |
+| **Comics, graphic novels, manga, illustrated gift books** | Fixed-layout edition with page/panel records, high-resolution artwork, panel navigation metadata, and print-ready PDF package. | Panel/page continuity review, image quality review, asset rights audit, cover/wrap proof, fixed-layout validation. | KDP notes that graphic novels, manga, comics, and some children's ebooks are common fixed-layout cases, and recommends image quality suitable for high-resolution devices. These projects need their own file validator and cannot share the basic manuscript-only exporter. |
+| **Business, how-to, memoir, biography, educational, local history, research-backed reports** | Structured long-form manuscript with source ledger, citations/notes where needed, and optional companion worksheets. | Fact-check, source review, claims review, permissions review for quotes/images, copyedit, proofread. | Non-fiction claims create reputation and liability risk for PiB. Unsupported claims should block publishing packets until removed, qualified, or linked to evidence. |
+| **Cookbooks and instructional books** | Structured recipe/instruction records plus narrative manuscript. | Safety/common-sense review, ingredient/unit consistency, image rights audit, accessibility/print usability review. | The module should track units, ingredients, allergens or warnings when provided, and image provenance. It should not let a recipe/instruction book be treated as ordinary prose if users need precise steps. |
+| **Workbooks, puzzle books, coloring books, pattern books, activity books** | Print/fixed-layout first. Each page is a usable activity, puzzle, worksheet, or colorable spread; ebook export is optional and channel-specific. | Page completeness, answer key where relevant, duplicate/repetition check, print usability check, DRM/printing setting review for Google, Kindle suitability review. | KDP's Kindle quality guide says puzzle books, blank journals, pattern books, coloring books, and facing-page translations are generally not suited to Kindle. Google says books meant to be written on, cut, or printed must allow printing by disabling DRM or they can be removed. |
+| **Low-content journals, planners, notebooks, logbooks** | Print-only product family with template/interior generator, cover/wrap package, and metadata risk review. | Low-content classification review, ISBN option decision, duplication check, metadata honesty check, print proof. | KDP low-content books do not require ISBNs, are not eligible for free KDP ISBNs, do not support release dates, are not eligible for KDP series, and do not support Expanded Distribution. ISBN choice is locked after publication. |
+| **Public-domain editions, translations, annotations, companion books, summaries, study guides** | High-risk rights workflow, not a normal generation workflow. Requires rights evidence before any outline or metadata work. | Rights proof, differentiation proof, territory review, title/description compliance, human legal/business approval. | KDP may require proof of public-domain status and only allows differentiated public-domain versions in specific ways. Google says public-domain books are no longer accepted except from select partners. KDP also restricts companion books based on copyrighted works, and the Kindle quality guide warns companion guides are generally not allowed except limited cases. |
+| **Audiobooks and auto-narrated editions** | Separate audiobook edition linked to the ebook/print project, with narrator/source, audio files, cover, sample, and optional supplemental PDF. | Audio rights review, narration disclosure/provenance, audio quality check, cover check, channel eligibility review. | Google accepts audiobook files separately from ebooks and has duration, bitrate, format, cover, and supplemental PDF requirements. ACX/KDP Virtual Voice should be modeled as an audiobook channel adapter, not as a property of the text edition. |
+
+Source-backed gate implications:
+
+- KDP AI disclosure is mandatory for AI-generated text, images, or translations when publishing or republishing. AI-assisted brainstorming, editing, refinement, or checking does not require disclosure, but PiB should still track it internally for provenance. Source: [KDP content guidelines](https://kdp.amazon.com/en_US/help/topic/G200672390).
+- KDP quality review can remove or investigate books with misleading metadata, duplicate/missing/wrong content, content not suited to Kindle, disappointing content, or companion-guide problems. Source: [Guide to Kindle Content Quality](https://kdp.amazon.com/en_US/help/topic/G200952510).
+- KDP low-content rules affect ISBN, series, release date, Expanded Distribution, read sample, and transparency-code behavior. Source: [KDP low-content books](https://kdp.amazon.com/en_US/help/topic/GGE5T76TWKA85DJM).
+- KDP public-domain publishing requires proof and differentiation when a free version exists, and formatting improvements, collections, price, sales rank, or freely available internet content do not count as differentiation. Source: [KDP public-domain content](https://kdp.amazon.com/en_US/help/topic/G200743940).
+- Google Play Books prefers EPUB, also accepts PDF, requires complete files rather than sample excerpts, requires EPUBCheck validation for EPUB, expects at least four pages, limits files to under 2 GB, and uses identifier-specific filename rules for bulk/file matching. Source: [Google book file guidelines](https://support.google.com/books/partner/answer/3424254).
+- Google publisher policies treat repetitive/low-utility content, misleading metadata, impersonation, technical defects, duplicate/non-exclusive deliveries, public-domain submissions, copyright, trademark, and content-safety issues as enforcement surfaces. Sources: [Google publisher program policies](https://support.google.com/books/partner/answer/166501), [Google publisher content policies](https://support.google.com/books/partner/answer/1067634).
+- U.S. copyright registration is a separate rights risk from store disclosure. The Copyright Office requires human authorship; prompt-only AI output is not protected by copyright, while human selection, arrangement, and substantial modification may support a claim only for human-authored aspects. AI-generated material that is more than de minimis should be disclosed and excluded from the copyright claim. Source: [U.S. Copyright Office AI registration guidance](https://www.copyright.gov/ai/ai_policy_guidance.pdf).
+
+Design implication: the Book Studio UI should never ask only "what genre is this?" It should ask what kind of product this is, then load a production gate profile. A low-content planner, a children's picture book, a Kindle novella, a public-domain annotated edition, and an audiobook need different artifact models, validators, approval gates, and analytics expectations.
+
 ## Core Module Capabilities
 
 ### 1. Book And Series Workspace
@@ -505,6 +533,16 @@ type BookProjectStatus =
 type BookFormat = 'ebook' | 'paperback' | 'hardcover' | 'audiobook'
 type BookLayoutMode = 'reflowable' | 'fixed_layout' | 'print_pdf'
 type BookChannel = 'kdp' | 'google_play_books' | 'apple_books' | 'kobo' | 'draft2digital' | 'ingramspark' | 'direct'
+type BookTypeFamily =
+  | 'narrative'
+  | 'children_early_reader'
+  | 'visual_sequential'
+  | 'nonfiction'
+  | 'instructional'
+  | 'activity_workbook'
+  | 'low_content'
+  | 'public_domain_or_companion'
+  | 'audiobook'
 
 interface BookProject {
   id: string
@@ -515,7 +553,13 @@ interface BookProject {
   seriesId?: string
   seriesVolume?: number
   status: BookProjectStatus
+  bookTypeFamily: BookTypeFamily
   bookType: string
+  productionGateProfile: {
+    requiredGateIds: string[]
+    waivedGateIds?: Array<{ gateId: string; approvalTaskId: string; reason: string }>
+    channelWarnings: Array<{ channel: BookChannel; message: string; severity: 'info' | 'warning' | 'blocker' }>
+  }
   audience: {
     ageRange?: string
     readingLevel?: string
@@ -546,6 +590,10 @@ interface BookProject {
     aiGeneratedText: boolean
     aiGeneratedImages: boolean
     aiGeneratedTranslation: boolean
+    aiAssistedOnly?: boolean
+    publicDomainClaim?: boolean
+    companionOrSummaryWork?: boolean
+    lowContentClassification?: boolean
     rightsConfirmed: boolean
     copyrightNotes?: string
     policyRisk: 'low' | 'medium' | 'high'
@@ -774,6 +822,7 @@ Mitigation: analytics should show unit economics and stage-gate ad spend.
 
 - Admin-only book/series workspace.
 - Firestore records for books, series, channel listings, and artifacts.
+- Book-type gate profiles for narrative, children's, visual/sequential, nonfiction, activity/workbook, low-content, public-domain/companion, and audiobook projects.
 - Research linkages.
 - Client document generation for book brief and publishing packet.
 - Portal module toggle, but portal may show read/review only.
@@ -816,11 +865,12 @@ Build the first approved spec around:
 
 1. Admin Book Studio.
 2. Series manager.
-3. Research-backed book brief.
-4. Hermes skill set for research, outline, metadata, and readiness.
-5. Client document approval for brief and publishing packet.
-6. KDP/Google export checklist and channel listing tracker.
-7. Analytics import model, initially manual CSV/report ingestion.
+3. Book-type gate profiles and compliance defaults.
+4. Research-backed book brief.
+5. Hermes skill set for research, outline, metadata, and readiness.
+6. Client document approval for brief and publishing packet.
+7. KDP/Google export checklist and channel listing tracker.
+8. Analytics import model, initially manual CSV/report ingestion.
 
 Do not include in the first implementation:
 
