@@ -26,6 +26,7 @@ function numberValue(value: unknown): number | null {
 export function mapGeoSeoWorkspace(id: string, data: Record<string, unknown>): GeoSeoWorkspaceRecord {
   return {
     id,
+    orgId: stringValue(data.orgId),
     siteName: stringValue(data.siteName),
     siteUrl: stringValue(data.siteUrl),
     status: stringValue(data.status),
@@ -37,6 +38,10 @@ export function mapGeoSeoWorkspace(id: string, data: Record<string, unknown>): G
     linkedSeoSprintId: stringValue(data.linkedSeoSprintId),
     auditState: stringValue(data.auditState) || stringValue(data.latestAuditStatus),
     reportState: stringValue(data.reportState) || stringValue(data.latestReportStatus),
+    sourceCompanyId: stringValue(data.sourceCompanyId),
+    sourceCompanyName: stringValue(data.sourceCompanyName),
+    projectId: stringValue(data.projectId),
+    approvalGateTaskId: stringValue(data.approvalGateTaskId),
   }
 }
 
@@ -47,4 +52,18 @@ export async function loadGeoSeoWorkspaces(orgId?: string | null): Promise<GeoSe
   return snap.docs
     .map((doc) => mapGeoSeoWorkspace(doc.id, doc.data()))
     .sort((a, b) => (b.lastAuditAt || '').localeCompare(a.lastAuditAt || ''))
+}
+
+export async function loadGeoSeoWorkspace(id: string, orgId?: string | null): Promise<GeoSeoWorkspaceRecord | null> {
+  const workspaceId = stringValue(id)
+  if (!workspaceId) return null
+
+  const snap = await adminDb.collection('geo_workspaces').doc(workspaceId).get()
+  if (!snap.exists) return null
+
+  const data = snap.data() ?? {}
+  if (data.deleted === true) return null
+  if (orgId && data.orgId !== orgId) return null
+
+  return mapGeoSeoWorkspace(snap.id, data)
 }

@@ -3,6 +3,7 @@ import { scopedPortalPath, type PortalOrgRouteScope } from '@/lib/portal/scoped-
 
 export type GeoSeoWorkspaceRecord = {
   id: string
+  orgId?: string | null
   siteName?: string | null
   siteUrl?: string | null
   status?: string | null
@@ -14,6 +15,10 @@ export type GeoSeoWorkspaceRecord = {
   linkedSeoSprintId?: string | null
   auditState?: string | null
   reportState?: string | null
+  sourceCompanyId?: string | null
+  sourceCompanyName?: string | null
+  projectId?: string | null
+  approvalGateTaskId?: string | null
 }
 
 type GeoSeoWorkspaceProps = {
@@ -24,14 +29,18 @@ type GeoSeoWorkspaceProps = {
   emptyActionHref?: string
 }
 
-function label(value: string | null | undefined, fallback = 'not-started') {
+export function geoSeoLabel(value: string | null | undefined, fallback = 'not-started') {
   return value?.replace(/_/g, ' ') || fallback
 }
 
-function scoreDelta(workspace: GeoSeoWorkspaceRecord) {
+export function geoSeoScoreDelta(workspace: GeoSeoWorkspaceRecord) {
   if (typeof workspace.currentGeoScore !== 'number' || typeof workspace.previousGeoScore !== 'number') return null
   const delta = workspace.currentGeoScore - workspace.previousGeoScore
   return `${delta >= 0 ? '+' : ''}${delta} pts`
+}
+
+export function geoSeoDateLabel(value: string | null | undefined) {
+  return value ? new Date(value).toLocaleDateString('en-ZA') : 'Not scheduled'
 }
 
 function workspaceHref(workspaceId: string, surface: 'admin' | 'portal', basePath?: string, orgScope?: PortalOrgRouteScope) {
@@ -108,7 +117,7 @@ export function GeoSeoWorkspace({
             <article key={workspace.id} className="pib-card p-5">
               <div className="flex items-start justify-between gap-4">
                 <div>
-                  <p className="eyebrow">{label(workspace.mode, 'monitoring')}</p>
+                  <p className="eyebrow">{geoSeoLabel(workspace.mode, 'monitoring')}</p>
                   <h2 className="mt-1 text-xl font-display text-[var(--color-pib-text)]">{workspace.siteName || workspace.siteUrl || 'GEO SEO workspace'}</h2>
                   {workspace.siteUrl && <p className="mt-1 text-sm text-[var(--color-pib-text-muted)]">{workspace.siteUrl}</p>}
                 </div>
@@ -121,16 +130,16 @@ export function GeoSeoWorkspace({
               </div>
 
               <div className="mt-5 grid gap-2 sm:grid-cols-3">
-                <span className="pill justify-center">Workspace {label(workspace.status, 'draft')}</span>
-                <span className="pill justify-center">Audit {label(workspace.auditState)}</span>
-                <span className="pill justify-center">Report {label(workspace.reportState)}</span>
+                <span className="pill justify-center">Workspace {geoSeoLabel(workspace.status, 'draft')}</span>
+                <span className="pill justify-center">Audit {geoSeoLabel(workspace.auditState)}</span>
+                <span className="pill justify-center">Report {geoSeoLabel(workspace.reportState)}</span>
               </div>
 
               <div className="mt-5 grid gap-3 text-sm text-[var(--color-pib-text-muted)] sm:grid-cols-2">
-                <p>Score movement: <span className="font-semibold text-[var(--color-pib-text)]">{scoreDelta(workspace) || 'No baseline yet'}</span></p>
+                <p>Score movement: <span className="font-semibold text-[var(--color-pib-text)]">{geoSeoScoreDelta(workspace) || 'No baseline yet'}</span></p>
                 <p>Linked SEO sprint: <span className="font-semibold text-[var(--color-pib-text)]">{workspace.linkedSeoSprintId ? 'Connected' : 'Not linked'}</span></p>
-                <p>Last audit: <span className="font-semibold text-[var(--color-pib-text)]">{workspace.lastAuditAt ? new Date(workspace.lastAuditAt).toLocaleDateString('en-ZA') : 'Not run'}</span></p>
-                <p>Next audit: <span className="font-semibold text-[var(--color-pib-text)]">{workspace.nextAuditAt ? new Date(workspace.nextAuditAt).toLocaleDateString('en-ZA') : 'Not scheduled'}</span></p>
+                <p>Last audit: <span className="font-semibold text-[var(--color-pib-text)]">{workspace.lastAuditAt ? geoSeoDateLabel(workspace.lastAuditAt) : 'Not run'}</span></p>
+                <p>Next audit: <span className="font-semibold text-[var(--color-pib-text)]">{geoSeoDateLabel(workspace.nextAuditAt)}</span></p>
               </div>
 
               <div className="mt-5 flex flex-wrap items-center gap-3">
