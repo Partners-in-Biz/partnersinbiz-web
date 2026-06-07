@@ -494,6 +494,73 @@ V1 should track manual publishing with export packages:
 
 Each channel listing should store external IDs such as ASIN, ISBN, Google identifier, product URL, status, and last checked date.
 
+#### Publishing Packet Runbook
+
+Every channel listing should generate a channel-specific Publishing Packet. This is the operator's source of truth for manual upload, review, and post-upload status. The packet should be a structured record plus a client-document view when client approval is required.
+
+Core packet sections:
+
+- **Book identity:** title, subtitle, contributors, publisher/imprint, language, audience, mature-content flags, book type family, edition type, and linked series.
+- **Metadata proof:** cover/title/subtitle/author/series consistency check, description, keywords, categories/genres, audience/reading-age rules, and metadata-policy warnings.
+- **Rights and disclosure:** rights owner, territories, public-domain/companion-work status, copyrighted-source dependencies, AI-generated-vs-assisted disclosure, translation disclosure, image rights, and approval evidence.
+- **File package:** manuscript/interior artifact, cover artifact, EPUB/PDF/audio variant, validation/previewer result, file checksum, export version, and upload-ready filename.
+- **Commercial setup:** channel, format, royalty model, list price, currency, KDP Select or exclusivity state, DRM/copy-print choice where supported, pre-order or release date, and payment/reporting notes.
+- **Manual upload evidence:** operator, upload timestamp, external account, screenshots or notes, external IDs, product URL, review state, blocker reason, and next action.
+- **Approval state:** internal reviewer, client-visible reviewer if any, approval task ID, waiver IDs, and final release decision.
+
+KDP packet fields should be split by format:
+
+- **eBook:** title setup fields, contributors, description, keywords, up to three categories, primary audience, primary marketplace, AI disclosure, manuscript file, cover file, Kindle Online Previewer/quality-check result, rights/territories, price/royalty option, KDP Select decision, ASIN/product URL, and publication status.
+- **Paperback/hardcover:** title setup fields, ISBN/imprint decision, print options, publication date, interior file, full-wrap cover file, Print Previewer result, proof-copy decision, price/royalty/printing-cost summary, ASIN/ISBN/product URL, and publication status.
+- **Series:** KDP series eligibility, series name, series order, linked formats, public-domain/low-content exclusion warnings, and Amazon series page status.
+
+KDP hard blockers:
+
+- Metadata on title, subtitle, author name, series information, and ISBN does not match the uploaded manuscript/cover where KDP expects it.
+- AI-generated text, images, or translations are present but disclosure is unset or contradicted by provenance.
+- Paperback or hardcover ISBN/imprint does not match the registered ISBN/imprint decision.
+- Categories or keywords are irrelevant, misleading, competitor-author-driven, promotional, or policy-sensitive.
+- Print Previewer or Online Previewer has unresolved quality issues that affect customer experience.
+- Public-domain, companion, low-content, children's, mature-content, or rights-sensitive flags do not have review evidence.
+
+KDP design sources: [Create a Book](https://kdp.amazon.com/help?topicId=G202172740), [Upload Book Resources](https://kdp.amazon.com/en_US/help/topic/G202175860), [Upload and Preview Book Content](https://kdp.amazon.com/en_US/help/topic/G200641240/), [Metadata Guidelines](https://kdp.amazon.com/help?topicId=G201953870), and [Content Guidelines](https://kdp.amazon.com/en_US/help/topic/G200672390).
+
+Google Play Books packet fields:
+
+- **Book metadata:** ISBN or Google identifier, title, contributors, language, genre, description, publisher/imprint, release date, series name, series relationship, and volume number.
+- **Files:** EPUB artifact, PDF artifact, cover artifact, EpubCheck result for EPUB, PDF password/bookmark check, file size check, filename convention state for bulk/identifier-based upload, and full-book-not-sample confirmation.
+- **Sales settings:** countries/territories, price/currency, DRM/copy-print choices, preview settings, pre-order/release behavior, payment profile, and tax/payment readiness.
+- **Series:** series name exact-match check, capitalization/punctuation check, whole-number volume check, no skipped/repeated numbers for ordered series, book type, and special type label such as box set, bundle, omnibus, or special edition when applicable.
+- **Reporting setup:** expected report type, identifier mapping, earnings report timing, transaction report timing, preview traffic report mapping, and unmatched-row reconciliation rules.
+
+Google hard blockers:
+
+- Missing EPUB/PDF content file, invalid file type, password-protected PDF, incomplete split-file set, or EPUB not validated.
+- Cover file missing or below required dimensions.
+- Identifier mismatch between the book record and file naming where identifier-based upload is used.
+- Series name, punctuation, capitalization, or volume numbers are inconsistent across books.
+- Sales territories, payment profile, or pricing are incomplete.
+- Report identifiers cannot be mapped back to `bookProjectId`, `editionId`, and `channelListingId`.
+
+Google design sources: [How to sell books on Google Play](https://support.google.com/books/partner/answer/1079107), [Book metadata and information](https://support.google.com/books/partner/answer/3237055), [Book file guidelines](https://support.google.com/books/partner/answer/3424254), [Get started with series](https://support.google.com/books/partner/answer/11069638), and [Report overview](https://support.google.com/books/partner/answer/9266485).
+
+Recommended channel listing states:
+
+| State | Meaning | Allowed next states |
+| --- | --- | --- |
+| `draft` | Listing exists but packet is incomplete. | `packet_ready`, `blocked`, `archived` |
+| `packet_ready` | Required fields and files exist, but not yet approved for upload. | `approved_for_upload`, `blocked`, `draft` |
+| `approved_for_upload` | Internal release approval passed. | `uploaded`, `blocked`, `packet_ready` |
+| `uploaded` | Operator uploaded files/metadata externally and recorded evidence. | `in_review`, `revision_required`, `live`, `blocked` |
+| `in_review` | Store/channel review is pending. | `live`, `revision_required`, `rejected`, `blocked` |
+| `revision_required` | Channel or reviewer requested changes. | `packet_ready`, `uploaded`, `blocked` |
+| `live` | Listing is publicly available and URL/external IDs are recorded. | `revision_required`, `archived` |
+| `rejected` | Channel rejected the submission. | `packet_ready`, `blocked`, `archived` |
+| `blocked` | PiB cannot proceed until a rights, file, policy, metadata, approval, or account issue is resolved. | `draft`, `packet_ready`, `archived` |
+| `archived` | Listing is no longer active in PiB workflow. | none |
+
+The app should require blocker notes and an owner whenever a listing enters `blocked`, `revision_required`, or `rejected`. The portal should show client-safe summaries only after an admin marks the blocker client-visible.
+
 ### 8. Analytics And Reporting
 
 Analytics should combine:
