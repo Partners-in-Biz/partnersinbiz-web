@@ -22,6 +22,26 @@ type Props = {
 
 type ApiEnvelope<T> = { success: boolean; data?: T; error?: string; upstream?: unknown }
 type GraphNote = KnowledgeNote & { section: KnowledgeSection }
+
+async function readApiEnvelope<T>(res: Response, fallbackError: string): Promise<ApiEnvelope<T>> {
+  const contentType = res.headers.get('content-type') ?? ''
+  if (contentType.includes('application/json')) {
+    try {
+      return await res.json() as ApiEnvelope<T>
+    } catch {
+      return { success: false, error: res.ok ? fallbackError : 'Knowledge backend is not available' }
+    }
+  }
+
+  const text = await res.text().catch(() => '')
+  if (!res.ok) {
+    return {
+      success: false,
+      error: res.status >= 500 ? 'Knowledge backend is not available' : text || fallbackError,
+    }
+  }
+  return { success: false, error: text || fallbackError }
+}
 type GraphNode = KnowledgeItem & { id: string; section: KnowledgeSection; title: string; x: number; y: number; radius: number; degree: number }
 type GraphEdge = { from: string; to: string }
 type KnowledgeGraph = { nodes: GraphNode[]; edges: GraphEdge[] }
@@ -408,7 +428,7 @@ export function KnowledgeBrowser({
     setLoading(true)
     setError(null)
     const res = await fetch(`${apiPath}?${queryBase.toString()}`)
-    const body = await res.json() as ApiEnvelope<KnowledgeListing>
+    const body = await readApiEnvelope<KnowledgeListing>(res, 'Could not load knowledge base')
     if (requestId !== listRequestRef.current) return
     if (!res.ok || !body.success || !body.data) {
       setError(body.error || 'Could not load knowledge base')
@@ -430,7 +450,7 @@ export function KnowledgeBrowser({
     const params = new URLSearchParams(queryBase)
     params.set('path', path)
     const res = await fetch(`${apiPath}?${params.toString()}`)
-    const body = await res.json() as ApiEnvelope<KnowledgeNote>
+    const body = await readApiEnvelope<KnowledgeNote>(res, 'Could not load note')
     if (requestId !== noteRequestRef.current) return
     if (!res.ok || !body.success || !body.data) {
       setError(body.error || 'Could not load note')
@@ -450,7 +470,7 @@ export function KnowledgeBrowser({
         const listParams = new URLSearchParams({ scope, section: graphSection })
         if (agent) listParams.set('agent', agent)
         const listRes = await fetch(`${apiPath}?${listParams.toString()}`)
-        const listBody = await listRes.json() as ApiEnvelope<KnowledgeListing>
+        const listBody = await readApiEnvelope<KnowledgeListing>(listRes, `Could not load ${graphSection}`)
         if (!listRes.ok || !listBody.success || !listBody.data) throw new Error(listBody.error || `Could not load ${graphSection}`)
         const files = listBody.data.items.filter((item) => item.type === 'file')
         const sectionNotes = await Promise.all(
@@ -458,7 +478,7 @@ export function KnowledgeBrowser({
             const params = new URLSearchParams(listParams)
             params.set('path', item.path)
             const res = await fetch(`${apiPath}?${params.toString()}`)
-            const body = await res.json() as ApiEnvelope<KnowledgeNote>
+            const body = await readApiEnvelope<KnowledgeNote>(res, `Could not load ${graphSection}/${item.path}`)
             if (!res.ok || !body.success || !body.data) throw new Error(body.error || `Could not load ${graphSection}/${item.path}`)
             return { ...body.data, section: graphSection }
           }),
@@ -482,7 +502,7 @@ export function KnowledgeBrowser({
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ scope, section, agent, path, content }),
     })
-    const body = await res.json() as ApiEnvelope<unknown>
+    const body = await readApiEnvelope<unknown>(res, 'Knowledge save failed')
     setSaving(false)
     if (!res.ok || !body.success) {
       setError(body.error || 'Could not save note')
