@@ -179,6 +179,63 @@ If V1 is approved as the internal production studio, the module should behave li
 - Portal book detail: approved brief/proof/cover/publishing packet, comments, approvals, change requests.
 - Analytics view: book, series, channel, format, reporting period, and estimated/reported/settled financial separation.
 
+### Workspace Route Blueprint
+
+Book Studio should follow the PiB shared-workspace pattern used by Projects, Documents, Mobile Apps, and the YouTube Studio placeholder: route files resolve auth/org/surface context, while shared workspace components own the actual product UI. Do not build separate admin and portal implementations that drift.
+
+Recommended route wrappers:
+
+| Route | Surface | Purpose |
+| --- | --- | --- |
+| `/admin/org/[slug]/book-studio` | Admin | Client-scoped Book Studio index, command center, filters, create action, and risk queue. |
+| `/admin/org/[slug]/book-studio/[bookId]` | Admin | Book project detail with production, gates, publishing, and analytics tabs. |
+| `/admin/org/[slug]/book-studio/series/[seriesId]` | Admin | Series workspace, continuity bible, volume map, and channel-series status. |
+| `/admin/book-studio` | Admin/global optional | Cross-client view for PiB operators, useful only after client-scoped routes exist. |
+| `/portal/book-studio` | Portal | Client-safe book project index, hidden when `settings.portalModules.bookStudio === false`. |
+| `/portal/book-studio/[bookId]` | Portal | Client-safe review detail for approved briefs, proofs, publishing packets, comments, and approvals. |
+
+Recommended shared components:
+
+- `BookStudioWorkspaceShell`: shared header, stats, risk rail, module status, surface-specific actions, and empty/unavailable states.
+- `BookProjectList`: reusable list/table/cards for admin and portal with surface-specific columns.
+- `BookProjectDetailWorkspace`: tabbed project workspace that receives `mode: 'admin' | 'portal'`, org scope, book ID, and optional source company/workspace scope.
+- `BookSeriesWorkspace`: series-level plan, ordered/unordered volume map, continuity bible, and channel series warnings.
+- `BookPublishingPacketPanel`: KDP/Google readiness packets, channel listing states, blockers, approvals, and manual upload evidence.
+- `BookQualityGatePanel`: required gates, warnings, blockers, waivers, reviewer, and approval task links.
+- `BookHermesTasksPanel`: task packet status, assigned agent, expected artifacts, reviewer, risk, and approval gate.
+- `BookAnalyticsPanel`: estimated/reported/settled metrics, import ledger, reconciliation queue, and confidence labels.
+
+Admin book detail tabs should be:
+
+1. **Overview:** project summary, book type, stage, owner, series, target channels, risk, next action, and linked Project/Kanban state.
+2. **Research:** linked Research items, findings, recommendations, source coverage, and gaps.
+3. **Brief:** Book Brief client document, approval state, assumptions, scope, success criteria, and source links.
+4. **Manuscript:** outline, section/page plan, manuscript versions, editorial status, and AI provenance.
+5. **Assets:** covers, illustrations, interiors, audio, source files, rights/provenance, and artifact visibility.
+6. **Gates:** book-type gate profile, compliance flags, rights/AI/ISBN/content warnings, and waivers.
+7. **Publishing:** KDP/Google packets, channel listings, blocker notes, manual upload evidence, external IDs, and live URLs.
+8. **Analytics:** imports, reconciliation, estimated/reported/settled performance, launch attribution, and cost recovery.
+9. **Hermes:** queued/running/completed skill tasks, artifacts, reviews, and approval handoffs.
+
+Portal book detail should be intentionally narrower:
+
+- **Summary:** approved book/project summary, current status, next client action, and safe timeline.
+- **Review:** client-visible Book Brief, manuscript/proof excerpts, cover directions, publishing packet, comments, approvals, and change requests.
+- **Publishing:** client-safe channel status, blockers only when marked client-visible, approved launch dates, and live links.
+- **Analytics:** client-safe performance summaries with source/confidence labels, not internal reconciliation queues.
+
+Portal must not expose internal Research notes, unapproved Hermes outputs, raw rights blockers, competitor analysis, internal risk notes, unpublished metadata drafts, report import errors, or operator-only upload evidence unless an admin explicitly marks the item client-visible.
+
+Critical UI states:
+
+- `module_disabled`: portal route/API returns disabled-module state and the nav item is hidden.
+- `no_projects`: admin shows create/onboarding actions; portal shows no reviewable projects.
+- `needs_brief_approval`: show Book Brief approval as the primary next action.
+- `blocked`: show blocker owner, severity, evidence links, and whether client visibility is allowed.
+- `approved_for_upload`: show manual upload checklist and final internal approval summary.
+- `live`: show external URLs, analytics-import next step, and launch follow-up actions.
+- `analytics_unmatched`: show reconciliation queue and task creation, not misleading totals.
+
 ### V1 Non-Negotiable Guardrails
 
 - No direct public publishing submission without an approval task.
