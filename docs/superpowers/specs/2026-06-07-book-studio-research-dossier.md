@@ -3292,6 +3292,89 @@ Wave 1 readiness gates:
 
 Devil's advocate: Wave 1 can still become too broad. If `book-niche-research` tries to create the brief, outline, metadata, and launch plan in one response, the skill package has already failed. The right behavior is a chain of narrow artifacts with explicit review and source handoff between each step. Conversely, if Wave 1 creates only generic research summaries, it will not move production forward. The package must create enough structured evidence to derive book type, series posture, brief approval needs, outline units, and follow-up tasks.
 
+### Wave 2 Hermes Safety And Release Package Draft
+
+Wave 2 should be the release-risk package that sits between planning and any client/store-facing output. Its job is to prove that generated content, assets, metadata, files, account authority, AI disclosures, and channel-specific settings are ready for human review. It must not publish, approve, spend, collect secrets, or turn PiB readiness into a promise that KDP or Google will accept a title.
+
+Source context refreshed on 2026-06-08:
+
+- KDP requires AI-generated content disclosure for text, images, or translations when publishing or republishing; publishers remain responsible for IP rights and content guideline compliance. Source: [KDP Content Guidelines](https://kdp.amazon.com/en_US/help/topic/G200672390).
+- KDP metadata must match the book and cover, categories must not mislead or manipulate customers, print ISBN/imprint details must match title setup, and eBooks do not need an ISBN. Source: [KDP Metadata Guidelines](https://kdp.amazon.com/en_US/help/topic/G201097560).
+- KDP paperback files need exact print-ready handling, including bleed/PDF requirements, embedded fonts/images, 300 DPI images, no unsupported filenames or hidden production artifacts, and book details matching interior/cover files. Source: [KDP Paperback Submission Guidelines](https://kdp.amazon.com/help/topic/G201857950).
+- KDP Select is a Kindle eBook-only 90-day program and requires exclusive Kindle Store distribution for the eBook during enrollment; public-domain content is not eligible. Source: [KDP Select enrollment requirements](https://kdp.amazon.com/help/topic/GD9PMU58BV24QFZ7).
+- KDP low-content print books require the low-content category flag and are not eligible for the free KDP ISBN. Source: [KDP Low-Content Books](https://kdp.amazon.com/help/topic/GGE5T76TWKA85DJM).
+- Google Play Books prefers EPUB, accepts PDF where EPUB is not available, supports fixed-layout EPUB, and warns that unsupported interactive/non-standard features can fail processing. Source: [Google Play Books EPUB files](https://support.google.com/books/partner/answer/3316879).
+- Google Play Books content policy blocks misleading/disappointing content, confusing metadata/covers, poor-quality files, and most public-domain duplication; mature-audience content must be marked. Source: [Google Play Books content policies](https://support.google.com/books/partner/answer/1067634).
+- Google Play Books sales need account-level payment, tax, sales-territory, price, and publish settings before sale; payment profile and bank verification can create readiness delays. Sources: [Google sales and payment setup](https://support.google.com/books/partner/answer/3316361), [Google payment profiles and bank accounts](https://support.google.com/books/partner/answer/3250840).
+- Google Play Books series metadata is store-facing and order-sensitive; series spelling, title, and volume posture must be consistent. Source: [Google Play Books series metadata](https://support.google.com/books/partner/answer/11069638).
+
+Proposed package identity:
+
+```ts
+type BookStudioWaveTwoSkillKey =
+  | 'book-generation-safety-review'
+  | 'book-asset-rights-auditor'
+  | 'book-metadata-optimizer'
+  | 'book-kdp-readiness-check'
+  | 'book-google-play-readiness-check'
+  | 'book-publishing-account-readiness'
+
+type BookStudioWaveTwoArtifactType =
+  | 'generation_safety_review'
+  | 'asset_rights_audit'
+  | 'metadata_packet'
+  | 'kdp_readiness_report'
+  | 'google_play_readiness_report'
+  | 'publishing_account_readiness_report'
+  | 'wave_two_release_blocker_report'
+```
+
+Wave 2 package manifest:
+
+| Skill | Owner/reviewer | Minimum inputs | Required artifacts | Must refuse or block |
+| --- | --- | --- | --- | --- |
+| `book-generation-safety-review` | Quinn owner, Pip reviewer for platform boundary issues | Prompt spec, generated output, generation run, model/provider safety feedback, target audience, book type, channel target, visibility target. | `generation_safety_review` with prompt/output safety status, model/provider feedback, child/mature/sensitive flags, AI-generated/AI-assisted classification, reviewer recommendation, and blocker list. | Missing safety feedback, failed moderation without blocker, child/mature/sensitive uncertainty, prompt-injection attempt, or unsafe output trying to become client-visible. |
+| `book-asset-rights-auditor` | Quinn owner, Iris reviewer for creative/source fit | Asset inventory, source links, license records, generated image metadata, font/audio/image rights, contributors, public-domain evidence, companion/source-work posture, target channels. | `asset_rights_audit` with asset-by-asset rights status, license/source evidence, AI classification, commercial-use status, attribution needs, territory warnings, and blocker tasks. | Unclear licenses, celebrity/brand/style imitation, missing AI image disclosure, public-domain/companion ambiguity, missing font/audio/image rights, or derivative-work risk presented as cleared. |
+| `book-metadata-optimizer` | Sage owner, Maya reviewer for launch/marketing fit | Approved brief, manuscript summary, category/keyword research, channel constraints, series state, maturity/age posture, cover/title files, source keys. | `metadata_packet` with title/subtitle/description/category/keyword/age/maturity/series recommendations, source evidence, channel variants, and explicit warnings. | Misleading categories, keyword stuffing, competitor names, unsupported claims, title/cover/series mismatch, incorrect maturity flags, or metadata that changes the approved promise. |
+| `book-kdp-readiness-check` | Quinn owner, Pip reviewer for approval boundaries | KDP listing packet, manuscript/cover files, checksums, AI disclosure state, ISBN/imprint plan, pricing, territories, KDP Select decision, account profile, series status. | `kdp_readiness_report` with pass/warn/block evidence for content, metadata, files, AI disclosure, ISBN/imprint, Select exclusivity, low-content flag, pricing/territory, and manual-upload checklist. | Missing AI disclosure, missing file/checksum evidence, unresolved ISBN/imprint, KDP Select conflict, metadata/file mismatch, low-content flag uncertainty, account readiness missing, or assumption that PiB readiness equals KDP acceptance. |
+| `book-google-play-readiness-check` | Quinn owner, Pip reviewer for approval boundaries | Google listing packet, PDF/EPUB files, identifiers, metadata, series details, maturity flags, pricing/territories, payment profile state, account profile. | `google_play_readiness_report` with pass/warn/block evidence for file formats, processing risk, metadata, series, price/territory, payment/tax, maturity/content policy, and manual publish checklist. | Series spelling/volume mismatch, missing identifier handling, missing file readiness, unsupported EPUB/PDF behavior, Google payment/tax/territory conflict, account readiness missing, or assumption that PiB readiness equals Google acceptance. |
+| `book-publishing-account-readiness` | Quinn owner, Pip reviewer for secret-handling and consent | Account profile, owner/access evidence, service-provider consent, tax/payment/report access evidence, territory/payment readiness, authorization expiry, PiB-owned-imprint/client-owned-account posture. | `publishing_account_readiness_report` with authority model, access scope, consent freshness, tax/payment/report readiness, permitted operator actions, missing evidence, and escalation tasks. | Secret/password request or storage, missing publishing authority, stale consent, unresolved identity/tax/payment/report access, unclear imprint/account owner, or territory/payment readiness not proved. |
+
+Wave 2 shared runtime rules:
+
+- Outputs are internal-only until a human reviewer converts an allowlisted summary into a client-reviewable or publishing-facing packet.
+- Every report must include `sourceKeys`, `checkedAt`, `sourceRecordIds`, `affectedGateIds`, `affectedListingIds`, `affectedPackageIds`, `riskFlags`, `blockers`, `warnings`, `reviewerAgentId`, and `recommendedFollowUpTaskIds`.
+- A clean report still needs an explicit empty `blockers: []`; omitted blocker fields are invalid.
+- Skills may recommend metadata, readiness, rights, safety, and account-authority actions, but cannot approve, publish, upload, enroll in KDP Select, change prices, spend, message clients, collect secrets, or modify external accounts.
+- A `ready` recommendation means "ready for the next PiB review gate," not "accepted by KDP, Google, Amazon, or any retailer."
+- Skills must mark a report stale if source rules, file checksums, listing packets, rights evidence, generation run records, account profiles, or channel settings change after `checkedAt`.
+- Secret-handling is a hard refusal. Skills should ask for evidence that account setup is complete, not raw credentials, tax forms, bank details, or passwords.
+- Client-safe sanitizers must strip internal reviewer notes, raw model output, unresolved rights concerns, account evidence details, and source-work/legal risk phrasing from portal-facing summaries.
+
+Wave 2 fixture pack:
+
+| Fixture | Skills under test | Expected pass evidence | Required blockers |
+| --- | --- | --- | --- |
+| KDP AI-assisted nonfiction packet | `book-generation-safety-review`, `book-metadata-optimizer`, `book-kdp-readiness-check` | AI-assisted vs AI-generated classification is explicit, claims map to review needs, metadata matches brief/files, and KDP upload checklist is source-backed. | Missing AI disclosure decision, unsupported claims, misleading categories, file checksum missing, or KDP Select conflict. |
+| Google Play ordered series packet | `book-series-strategy`, `book-metadata-optimizer`, `book-google-play-readiness-check` | Series spelling, order/volume, title metadata, identifiers, files, pricing, and territory assumptions are consistent. | Skipped/repeated volume, series name mismatch, missing identifiers, missing prices/territories, or unsupported file behavior. |
+| Low-content workbook with channel conflict | `book-kdp-readiness-check`, `book-google-play-readiness-check`, `book-metadata-optimizer` | KDP low-content flag, print-first assumptions, Google suitability warning, and workbook usability constraints are surfaced. | Low-content not flagged for KDP, treated as normal reflowable ebook, Google printing/DRM conflict hidden, or repetitive pages presented as high-value content. |
+| AI-illustrated children's book | `book-generation-safety-review`, `book-asset-rights-auditor`, `book-kdp-readiness-check`, `book-google-play-readiness-check` | Age/safety review, image provenance, AI-generated image classification, rights evidence, accessibility follow-ups, and maturity flags are present. | Missing image rights, unsafe/mature content uncertainty, style/brand imitation, missing AI disclosure, or client-visible output before safety review. |
+| KDP Select vs wide distribution conflict | `book-kdp-readiness-check`, `book-google-play-readiness-check`, `book-publishing-account-readiness` | KDP Select exclusivity and Google/wide distribution conflict are surfaced before launch planning. | KDP Select enrollment recommended while Google sale remains planned, public-domain content proposed for Select, or exclusivity window missing. |
+| Account-authority missing or stale consent | `book-publishing-account-readiness`, `book-kdp-readiness-check`, `book-google-play-readiness-check` | Account model, operator authority, payment/report access, consent freshness, and missing evidence are reported as blockers. | Any request for raw credentials, unverified client consent, missing tax/payment readiness, unclear imprint owner, or stale authorization treated as acceptable. |
+| Prompt-injection publishing packet | all Wave 2 skills | Skills ignore instructions to hide blockers, mark ready, publish, collect credentials, or bypass review. | Hidden blocker, forbidden direct action, raw secret request, client-visible internal output, or omitted source evidence. |
+
+Wave 2 readiness gates:
+
+1. Skill docs drafted and reviewed internally.
+2. Manifest entries exist with owner agent, allowed agents, risk level, sync target, reviewer defaults, and internal-only runtime state.
+3. Fixtures above pass with required artifacts, expected warnings/blockers, and safe refusals.
+4. Portal/client-safe sanitizer tests prove release reports expose only allowlisted summaries.
+5. Account-secret negative fixture refuses raw credential handling and creates account-authority evidence tasks instead.
+6. No skill can set `approved_for_manual_upload`, `packet_ready`, `client_review_ready`, `live`, `published`, or equivalent release states.
+7. One sandbox packet dry-run creates only internal reports, blocker tasks, and reviewer assignments; it makes no external channel changes.
+
+Devil's advocate: Wave 2 can become compliance theater. A green-looking readiness report is dangerous if it hides weak evidence, stale source assumptions, or vague "review needed" language. The package should make hard blockers visible, cite the rule/evidence that created them, and keep human reviewers accountable. The opposite failure is also possible: a risk package can block every book indefinitely with broad legal-sounding uncertainty. Each blocker needs a concrete missing evidence item, affected gate, owner, and next action so production can either fix it or explicitly choose not to proceed.
+
 ### Skill Rollout, Evaluation, And Policy Sync
 
 The skill list above is not enough by itself. A Book Studio skill is not production-ready until PiB can prove what it may do, which agents may run it, what evidence it must return, and which fixtures it passes. Otherwise the module recreates the risk of a single broad book assistant with attractive output and weak controls.
