@@ -63,6 +63,7 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
   const [actionNotice, setActionNotice] = useState('')
   const loadRequestIdRef = useRef(0)
   const activeOrgIdRef = useRef(orgId)
+  const previousOrgIdRef = useRef(orgId)
   activeOrgIdRef.current = orgId
   const notice = loadNotice || actionNotice
 
@@ -106,6 +107,15 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
   }, [orgId])
 
   useEffect(() => {
+    if (previousOrgIdRef.current === orgId) return
+    previousOrgIdRef.current = orgId
+    setForm(emptyForm)
+    setSaving(false)
+    setLoadNotice('')
+    setActionNotice('')
+  }, [orgId])
+
+  useEffect(() => {
     if (orgId) void load()
     return () => {
       loadRequestIdRef.current += 1
@@ -119,6 +129,8 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
   async function saveChannel(event: React.FormEvent) {
     event.preventDefault()
     if (saving || !form.channelTitle.trim()) return
+    const mutationOrgId = orgId
+    const isCurrentMutation = () => mutationOrgId === activeOrgIdRef.current
     setSaving(true)
     setActionNotice('')
     setLoadNotice('')
@@ -127,7 +139,7 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          orgId,
+          orgId: mutationOrgId,
           title: form.channelTitle,
           youtubeHandle: form.youtubeHandle,
           contentPillars: splitLines(form.contentPillars),
@@ -135,6 +147,7 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
         }),
       })
       const body = await res.json().catch(() => ({}))
+      if (!isCurrentMutation()) return
       if (!res.ok) {
         setActionNotice(body.error ?? 'Could not save YouTube channel workspace')
         return
@@ -150,15 +163,21 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
       setActionNotice('YouTube channel workspace saved.')
       await load()
     } catch {
-      setActionNotice('Could not save YouTube channel workspace')
+      if (isCurrentMutation()) {
+        setActionNotice('Could not save YouTube channel workspace')
+      }
     } finally {
-      setSaving(false)
+      if (isCurrentMutation()) {
+        setSaving(false)
+      }
     }
   }
 
   async function saveVideo(event: React.FormEvent) {
     event.preventDefault()
     if (saving || !form.videoChannelId || !form.videoTitle.trim()) return
+    const mutationOrgId = orgId
+    const isCurrentMutation = () => mutationOrgId === activeOrgIdRef.current
     setSaving(true)
     setActionNotice('')
     setLoadNotice('')
@@ -167,7 +186,7 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          orgId,
+          orgId: mutationOrgId,
           channelWorkspaceId: form.videoChannelId,
           title: form.videoTitle,
           objective: form.objective,
@@ -177,6 +196,7 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
         }),
       })
       const body = await res.json().catch(() => ({}))
+      if (!isCurrentMutation()) return
       if (!res.ok) {
         setActionNotice(body.error ?? 'Could not save video project')
         return
@@ -185,9 +205,13 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
       setActionNotice('Video project saved.')
       await load()
     } catch {
-      setActionNotice('Could not save video project')
+      if (isCurrentMutation()) {
+        setActionNotice('Could not save video project')
+      }
     } finally {
-      setSaving(false)
+      if (isCurrentMutation()) {
+        setSaving(false)
+      }
     }
   }
 

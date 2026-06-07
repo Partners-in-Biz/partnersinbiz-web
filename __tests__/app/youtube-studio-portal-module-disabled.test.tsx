@@ -98,6 +98,61 @@ describe('YouTubeStudioPortalWorkspace module availability', () => {
     })
   })
 
+  it('ignores stale portal request completions after the scoped org changes', async () => {
+    let resolveRequest: (value: Response) => void = () => undefined
+    const requestPromise = new Promise<Response>((resolve) => {
+      resolveRequest = resolve
+    })
+    const veloxData = {
+      ...portalData,
+      data: {
+        ...portalData.data,
+        channels: [
+          {
+            id: 'channel-2',
+            title: 'Velox Channel',
+            status: 'active',
+            youtubeHandle: '@velox',
+          },
+        ],
+        videos: [],
+      },
+    }
+    const fetchMock = jest.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      if (init?.method === 'POST') return requestPromise
+      if (url.includes('velox-org')) return jsonResponse(veloxData)
+      return jsonResponse(portalData)
+    })
+    global.fetch = fetchMock as jest.Mock
+
+    const { rerender } = render(<YouTubeStudioPortalWorkspace orgId="lumen-org" />)
+
+    expect(await screen.findAllByText('Lumen Channel')).not.toHaveLength(0)
+    fireEvent.change(screen.getByLabelText('Channel'), { target: { value: 'channel-1' } })
+    fireEvent.change(screen.getByLabelText('Video title'), { target: { value: 'Lumen stale request' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Send request' }))
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Sending...' })).toBeDisabled()
+    })
+
+    rerender(<YouTubeStudioPortalWorkspace orgId="velox-org" />)
+
+    expect(await screen.findAllByText('Velox Channel')).not.toHaveLength(0)
+    expect((screen.getByLabelText('Channel') as HTMLSelectElement).value).toBe('')
+    expect((screen.getByLabelText('Video title') as HTMLInputElement).value).toBe('')
+
+    await act(async () => {
+      resolveRequest(jsonResponse({ success: true, data: { id: 'request-1' } }))
+      await requestPromise
+      await Promise.resolve()
+    })
+
+    expect(screen.queryByText('Video request sent to the PiB team.')).not.toBeInTheDocument()
+    expect((screen.getByLabelText('Video title') as HTMLInputElement).value).toBe('')
+  })
+
   it('clears stale load notices after successful scoped portal reloads', async () => {
     const fetchMock = jest.fn(async (input: RequestInfo | URL) => {
       if (String(input).includes('blocked-org')) {
@@ -197,6 +252,65 @@ describe('YouTubeStudioPortalWorkspace module availability', () => {
     await waitFor(() => {
       expect(screen.queryByText('Could not load the full YouTube Studio workspace.')).not.toBeInTheDocument()
     })
+  })
+
+  it('ignores stale admin save completions after the scoped org changes', async () => {
+    let resolveSave: (value: Response) => void = () => undefined
+    const savePromise = new Promise<Response>((resolve) => {
+      resolveSave = resolve
+    })
+    const fetchMock = jest.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      if (init?.method === 'POST') return savePromise
+      if (url.includes('velox-org') && url.includes('/channels')) {
+        return jsonResponse({
+          success: true,
+          data: {
+            channels: [
+              {
+                id: 'channel-2',
+                title: 'Velox Channel',
+                status: 'active',
+                youtubeHandle: '@velox',
+              },
+            ],
+          },
+        })
+      }
+      if (url.includes('/channels')) return jsonResponse({ success: true, data: { channels: [] } })
+      if (url.includes('/series')) return jsonResponse({ success: true, data: { series: [] } })
+      if (url.includes('/videos')) return jsonResponse({ success: true, data: { videos: [] } })
+      return jsonResponse({ success: true })
+    })
+    global.fetch = fetchMock as jest.Mock
+
+    const { rerender } = render(<YouTubeStudioAdminWorkspace orgId="lumen-org" orgName="Lumen" />)
+
+    await waitFor(() => {
+      expect(fetchMock.mock.calls.filter(([input]) => String(input).includes('lumen-org'))).toHaveLength(3)
+    })
+
+    const channelTitleField = await screen.findByLabelText('Channel title')
+    fireEvent.change(channelTitleField, { target: { value: 'Lumen stale channel' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Save channel' }))
+
+    await waitFor(() => {
+      expect(screen.getAllByRole('button', { name: 'Saving...' })).toHaveLength(2)
+    })
+
+    rerender(<YouTubeStudioAdminWorkspace orgId="velox-org" orgName="Velox" />)
+
+    expect(await screen.findAllByText('Velox Channel')).not.toHaveLength(0)
+    expect((screen.getByLabelText('Channel title') as HTMLInputElement).value).toBe('')
+
+    await act(async () => {
+      resolveSave(jsonResponse({ success: true, data: { id: 'channel-1' } }))
+      await savePromise
+      await Promise.resolve()
+    })
+
+    expect(screen.queryByText('YouTube channel workspace saved.')).not.toBeInTheDocument()
+    expect((screen.getByLabelText('Channel title') as HTMLInputElement).value).toBe('')
   })
 
   it('ignores out-of-order admin loads after the scoped org changes', async () => {

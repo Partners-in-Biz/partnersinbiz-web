@@ -51,6 +51,7 @@ export function YouTubeStudioPortalWorkspace({ orgId }: YouTubeStudioPortalWorks
 
   const apiPath = useMemo(() => scopedApiPath('/api/v1/portal/youtube-studio', { orgId }), [orgId])
   const activeApiPathRef = useRef(apiPath)
+  const previousApiPathRef = useRef(apiPath)
   activeApiPathRef.current = apiPath
   const notice = loadNotice || actionNotice
 
@@ -101,6 +102,19 @@ export function YouTubeStudioPortalWorkspace({ orgId }: YouTubeStudioPortalWorks
   }, [apiPath])
 
   useEffect(() => {
+    if (previousApiPathRef.current === apiPath) return
+    previousApiPathRef.current = apiPath
+    submittingRequestRef.current = false
+    reviewingIdRef.current = null
+    setRequest(emptyRequest)
+    setReviewNotes({})
+    setSubmittingRequest(false)
+    setReviewingId(null)
+    setLoadNotice('')
+    setActionNotice('')
+  }, [apiPath])
+
+  useEffect(() => {
     void load()
     return () => {
       loadRequestIdRef.current += 1
@@ -114,17 +128,20 @@ export function YouTubeStudioPortalWorkspace({ orgId }: YouTubeStudioPortalWorks
   async function submitRequest(event: React.FormEvent) {
     event.preventDefault()
     if (submittingRequestRef.current || !request.channelWorkspaceId || !request.title.trim()) return
+    const mutationApiPath = apiPath
+    const isCurrentMutation = () => mutationApiPath === activeApiPathRef.current
     submittingRequestRef.current = true
     setSubmittingRequest(true)
     setActionNotice('')
     setLoadNotice('')
     try {
-      const res = await fetch(apiPath, {
+      const res = await fetch(mutationApiPath, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(request),
       })
       const body = await res.json().catch(() => ({}))
+      if (!isCurrentMutation()) return
       if (!res.ok) {
         setActionNotice(body.error ?? 'Could not submit video request')
         return
@@ -133,26 +150,33 @@ export function YouTubeStudioPortalWorkspace({ orgId }: YouTubeStudioPortalWorks
       setActionNotice('Video request sent to the PiB team.')
       await load()
     } catch {
-      setActionNotice('Could not submit video request')
+      if (isCurrentMutation()) {
+        setActionNotice('Could not submit video request')
+      }
     } finally {
-      submittingRequestRef.current = false
-      setSubmittingRequest(false)
+      if (isCurrentMutation()) {
+        submittingRequestRef.current = false
+        setSubmittingRequest(false)
+      }
     }
   }
 
   async function saveDecision(videoId: string, decision: 'approved' | 'changes_requested' | 'rejected') {
     if (reviewingIdRef.current) return
+    const mutationApiPath = apiPath
+    const isCurrentMutation = () => mutationApiPath === activeApiPathRef.current
     reviewingIdRef.current = videoId
     setReviewingId(videoId)
     setActionNotice('')
     setLoadNotice('')
     try {
-      const res = await fetch(apiPath, {
+      const res = await fetch(mutationApiPath, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id: videoId, decision, notes: reviewNotes[videoId] ?? '' }),
       })
       const body = await res.json().catch(() => ({}))
+      if (!isCurrentMutation()) return
       if (!res.ok) {
         setActionNotice(body.error ?? 'Could not save review')
         return
@@ -160,10 +184,14 @@ export function YouTubeStudioPortalWorkspace({ orgId }: YouTubeStudioPortalWorks
       setActionNotice('Review saved for the PiB team.')
       await load()
     } catch {
-      setActionNotice('Could not save review')
+      if (isCurrentMutation()) {
+        setActionNotice('Could not save review')
+      }
     } finally {
-      reviewingIdRef.current = null
-      setReviewingId(null)
+      if (isCurrentMutation()) {
+        reviewingIdRef.current = null
+        setReviewingId(null)
+      }
     }
   }
 
