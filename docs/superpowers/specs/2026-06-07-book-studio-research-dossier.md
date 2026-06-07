@@ -583,6 +583,8 @@ The writing workflow should support:
 
 For illustrated or fixed-layout books, the module needs a page/spread model. For reflowable fiction/non-fiction, it needs a manuscript model with semantic structure.
 
+The production model should store editable manuscript units and release snapshots separately. A section can move through drafting, internal review, client review, approval, and revision without mutating the already-approved manuscript version. Editorial passes, claim reviews, accessibility reviews, and generation runs should attach to the exact unit or version they reviewed.
+
 ### 5. Visual And Cover Production
 
 Capabilities:
@@ -1024,6 +1026,34 @@ The ledger should make model/provider details useful without making PiB dependen
 
 Devil's advocate: without this layer, the Book Studio module will feel fast in demos and become brittle in production. A stale run can overwrite a better draft, a failed safety check can disappear into a chat transcript, a model bill can grow invisibly, a prompt can use the wrong source packet, and a reviewer will not be able to prove which exact output was approved.
 
+### 15. Manuscript, Editorial, And Accessibility Production Model
+
+Book Studio also needs a manuscript production ledger. A book is not one blob of generated text; it is a structured publication with front matter, body matter, back matter, sections, pages or spreads, navigation, citations, assets, accessibility notes, editorial passes, and client-safe review packets.
+
+Current source-backed constraints:
+
+- EPUB 3.3 defines EPUB publications through package documents, navigation documents, EPUB content documents, fixed layouts, media overlays, and container rules. Source: [W3C EPUB 3.3](https://www.w3.org/publishing/epub3/).
+- EPUB Accessibility 1.1 defines accessibility conformance and discoverability requirements, including accessibility metadata, evaluation/certification information, and re-evaluation after changes. Source: [W3C EPUB Accessibility 1.1](https://www.w3.org/TR/epub-a11y-11/).
+- Google Play Books recommends submitting both PDF and EPUB where relevant, prefers EPUB 3.3, warns that not all EPUB 3 features are supported, supports the `toc nav` rendering path, recommends EPUBCheck validation, and advises fixed-layout review in Web Reader/tablet before going live. Source: [Google EPUB files](https://support.google.com/books/partner/answer/3316879).
+- KDP's quality guide flags broken or misleading links, TOC problems, unlinked footnotes, missing logical TOC, confusing hyperlinks, inaccessible tables, and poor reader experience as quality issues that can trigger action. Source: [KDP Kindle Content Quality](https://kdp.amazon.com/en_US/help/topic/G200952510).
+- KDP's TOC guidance expects a working table of contents and styled chapter headings for a good ebook navigation experience. Source: [KDP Create a Table of Contents](https://kdp.amazon.com/en_US/help/topic/G201605700).
+
+Design implication: Book Studio should model manuscript structure separately from manuscript versions. Sections/pages are editable units; versions are release snapshots. Hermes can draft or edit a unit, but a version manifest decides which units, assets, editorial passes, rights reviews, accessibility checks, and generation runs are included in an approved manuscript or proof.
+
+Production rules:
+
+- **Structured units, not blobs:** store front matter, chapters, sections, pages/spreads, captions, exercises, answer keys, glossary entries, references, and back matter as addressable units with order, parent/child relationships, and target format hints.
+- **Version snapshots:** an approved manuscript/proof is a manifest over unit revisions and artifacts. Editing a section after approval creates a new draft revision and cannot silently mutate the approved manifest.
+- **Navigation is a gate:** each exportable version records TOC inclusion, navigation label, EPUB semantic type where known, reading order, footnote/reference link state, and start-of-content/body-matter marker.
+- **Editorial passes are first-class:** developmental edit, copyedit, proofread, fact check, reading-level review, accessibility review, link/TOC review, and specialist review each create pass records with scope, findings, blockers, reviewer, and output artifacts.
+- **Claims and citations:** non-fiction, instructional, local history, business, health/legal/financial, public-domain/companion, and education projects need a claim ledger. Unsupported, disputed, stale, or uncited claims block client-visible publishing packets unless waived by an approval task.
+- **Accessibility metadata:** image alt text, reading order, table usability, captions, audio/video alternatives, language direction, accessibility summary, and evaluator/date/report evidence should be captured before EPUB/PDF package approval.
+- **Client review is curated:** clients should review a Book Brief, selected manuscript/proof packet, cover/proof packet, or Publishing Packet. They should not see raw generation outputs, unstable section drafts, internal fact-check notes, or unresolved rights/safety blockers unless explicitly marked client-visible.
+
+For implementation, the manuscript workspace should feel like a production board: outline tree on the left, selected section/page in the center, and right-side panels for sources, claims, editorial passes, comments, generation runs, accessibility, and gates. That keeps Hermes output anchored to a specific unit and review state.
+
+Devil's advocate: if Book Studio treats manuscript work as one long AI chat, the team will lose track of what changed, which draft the client approved, whether a footnote still points to the right source, whether the TOC works, and whether a later generated paragraph invalidated accessibility, claims, rights, or publishing evidence.
+
 ## Proposed Data Model
 
 Names are draft interface names for discussion.
@@ -1091,6 +1121,44 @@ type BookGenerationRunType =
 
 type BookGenerationProvider = 'openai' | 'gemini' | 'hermes' | 'local_worker' | 'manual'
 
+type BookManuscriptUnitType =
+  | 'front_matter'
+  | 'body_matter'
+  | 'back_matter'
+  | 'chapter'
+  | 'section'
+  | 'page'
+  | 'spread'
+  | 'caption'
+  | 'exercise'
+  | 'answer_key'
+  | 'glossary_entry'
+  | 'reference_entry'
+
+type BookManuscriptUnitStatus =
+  | 'planned'
+  | 'drafting'
+  | 'internal_review'
+  | 'client_review'
+  | 'approved'
+  | 'revision_required'
+  | 'superseded'
+  | 'blocked'
+
+type BookEditorialPassType =
+  | 'outline_review'
+  | 'developmental_edit'
+  | 'copyedit'
+  | 'proofread'
+  | 'fact_check'
+  | 'reading_level_review'
+  | 'accessibility_review'
+  | 'link_toc_review'
+  | 'specialist_review'
+  | 'client_review'
+
+type BookClaimReviewStatus = 'unreviewed' | 'supported' | 'unsupported' | 'disputed' | 'stale' | 'waived'
+
 interface BookProject {
   id: string
   orgId: string
@@ -1138,6 +1206,8 @@ interface BookProject {
     taskIds: string[]
     approvalGateTaskIds: string[]
     publishingAccountProfileIds: string[]
+    manuscriptUnitIds: string[]
+    editorialPassIds: string[]
     generationRunIds: string[]
     projectId?: string
     campaignId?: string
@@ -1164,6 +1234,180 @@ interface BookProject {
     copyrightNotes?: string
     policyRisk: 'low' | 'medium' | 'high'
   }
+}
+```
+
+```ts
+interface BookManuscriptUnit {
+  id: string
+  orgId: string
+  bookProjectId: string
+  bookSeriesId?: string
+  parentUnitId?: string
+  unitType: BookManuscriptUnitType
+  order: number
+  title?: string
+  slug?: string
+  status: BookManuscriptUnitStatus
+  targetFormatHints: Array<'epub' | 'print_pdf' | 'fixed_layout' | 'audiobook' | 'portal_review'>
+  content: {
+    sourceDocumentId?: string
+    sourceDocumentSectionId?: string
+    latestDraftRevisionId?: string
+    approvedRevisionId?: string
+    editableArtifactId?: string
+    latestDraftArtifactId?: string
+    approvedArtifactId?: string
+    wordCount?: number
+    pageCount?: number
+    readingLevel?: string
+    locale?: string
+  }
+  navigation: {
+    includeInToc: boolean
+    tocLabel?: string
+    epubType?: string
+    linearReadingOrder: boolean
+    startsBodyMatter?: boolean
+    footnoteIds: string[]
+    outboundLinkIds: string[]
+  }
+  sourceLedger: {
+    researchItemIds: string[]
+    sourceDocumentIds: string[]
+    sourceArtifactIds: string[]
+    generationRunIds: string[]
+    provenanceEventIds: string[]
+  }
+  reviewState: {
+    requiredEditorialPassTypes: BookEditorialPassType[]
+    completedEditorialPassIds: string[]
+    claimIds: string[]
+    accessibilityReviewIds: string[]
+    blockerCount: number
+    reviewerAgentId?: string
+    approvalGateTaskId?: string
+  }
+  visibility: 'internal' | 'client_reviewable' | 'approved_publication_source'
+  createdAt: string
+  updatedAt: string
+}
+```
+
+```ts
+interface BookManuscriptUnitRevision {
+  id: string
+  orgId: string
+  bookProjectId: string
+  manuscriptUnitId: string
+  revisionLabel: string
+  status: 'draft' | 'in_review' | 'approved' | 'superseded' | 'blocked'
+  contentArtifactId: string
+  source: {
+    previousRevisionId?: string
+    taskId?: string
+    generationRunId?: string
+    sourceDocumentIds: string[]
+    sourceArtifactIds: string[]
+  }
+  reviewCoverage: {
+    editorialPassIds: string[]
+    claimReviewIds: string[]
+    accessibilityReviewIds: string[]
+    provenanceEventIds: string[]
+  }
+  createdBy: { type: 'user' | 'agent' | 'system'; id: string }
+  createdAt: string
+  approvedAt?: string
+}
+```
+
+```ts
+interface BookEditorialPass {
+  id: string
+  orgId: string
+  bookProjectId: string
+  manuscriptVersionId?: string
+  manuscriptUnitIds: string[]
+  passType: BookEditorialPassType
+  state: 'queued' | 'in_progress' | 'needs_review' | 'passed' | 'warning' | 'blocked' | 'waived'
+  assigneeAgentId?: string
+  reviewerAgentId?: string
+  source: {
+    taskId?: string
+    generationRunId?: string
+    sourceDocumentIds: string[]
+    sourceArtifactIds: string[]
+  }
+  findings: Array<{
+    id: string
+    unitId?: string
+    severity: 'info' | 'warning' | 'blocker'
+    title: string
+    recommendation: string
+    clientVisible: boolean
+    resolvedAt?: string
+  }>
+  gates: {
+    approvalGateTaskId?: string
+    waiverTaskId?: string
+    blocksClientVisibility: boolean
+    blocksExportApproval: boolean
+  }
+  outputArtifactIds: string[]
+  createdAt: string
+  completedAt?: string
+}
+```
+
+```ts
+interface BookClaimReview {
+  id: string
+  orgId: string
+  bookProjectId: string
+  manuscriptUnitId: string
+  claimTextSummary: string
+  claimType: 'factual' | 'legal' | 'financial' | 'health' | 'historical' | 'technical' | 'quote' | 'other'
+  status: BookClaimReviewStatus
+  sourceResearchItemIds: string[]
+  sourceDocumentIds: string[]
+  researchSourceIds: string[]
+  reviewerAgentId?: string
+  notes?: string
+  approvalGateTaskId?: string
+  createdAt: string
+  updatedAt: string
+}
+```
+
+```ts
+interface BookAccessibilityReview {
+  id: string
+  orgId: string
+  bookProjectId: string
+  manuscriptVersionId?: string
+  packageId?: string
+  scope: 'manuscript' | 'epub' | 'pdf' | 'fixed_layout' | 'audiobook'
+  state: 'not_started' | 'in_review' | 'passed' | 'warning' | 'blocked' | 'waived'
+  checks: {
+    readingOrder: 'unknown' | 'passed' | 'warning' | 'blocked'
+    tocNavigation: 'unknown' | 'passed' | 'warning' | 'blocked'
+    linkTargets: 'unknown' | 'passed' | 'warning' | 'blocked'
+    altText: 'not_applicable' | 'missing' | 'partial' | 'complete' | 'blocked'
+    tables: 'not_applicable' | 'passed' | 'warning' | 'blocked'
+    languageDirection: 'unknown' | 'passed' | 'warning' | 'blocked'
+    audioVideoAlternatives: 'not_applicable' | 'missing' | 'partial' | 'complete' | 'blocked'
+  }
+  metadata: {
+    accessibilitySummary?: string
+    conformsTo?: string
+    evaluatedBy?: string
+    evaluatedAt?: string
+    reportArtifactId?: string
+  }
+  blockerTaskIds: string[]
+  createdAt: string
+  updatedAt: string
 }
 ```
 
@@ -1244,7 +1488,8 @@ interface BookGenerationRun {
     resultFileArtifactId?: string
   }
   target: {
-    scope: 'project' | 'section' | 'page' | 'spread' | 'asset' | 'package' | 'channel_listing' | 'analytics_import'
+    scope: 'project' | 'manuscript_unit' | 'section' | 'page' | 'spread' | 'asset' | 'package' | 'channel_listing' | 'analytics_import'
+    manuscriptUnitId?: string
     sectionId?: string
     pageId?: string
     artifactId?: string
@@ -1342,6 +1587,11 @@ interface BookProvenanceEvent {
     | 'generation_run_completed'
     | 'generation_run_failed'
     | 'safety_review_recorded'
+    | 'manuscript_unit_created'
+    | 'manuscript_unit_revised'
+    | 'editorial_pass_completed'
+    | 'claim_review_recorded'
+    | 'accessibility_review_recorded'
     | 'manual_upload_recorded'
     | 'report_imported'
   actor: {
@@ -1359,15 +1609,19 @@ interface BookProvenanceEvent {
     modelName?: string
     generationRunId?: string
     promptSummary?: string
+    editorialPassId?: string
   }
   target: {
     manuscriptVersionId?: string
     sectionId?: string
     pageId?: string
+    manuscriptUnitId?: string
     artifactId?: string
     channelListingId?: string
     exportPackageId?: string
     generationRunId?: string
+    claimReviewId?: string
+    accessibilityReviewId?: string
   }
   aiUsage: {
     classification: 'none' | 'assisted' | 'generated'
@@ -1395,6 +1649,11 @@ interface BookVersionManifest {
   sourceArtifactIds: string[]
   exportPackageIds?: string[]
   generationRunIds: string[]
+  manuscriptUnitIds: string[]
+  manuscriptUnitRevisionIds: string[]
+  editorialPassIds: string[]
+  claimReviewIds: string[]
+  accessibilityReviewIds: string[]
   sectionIds: string[]
   pageIds: string[]
   checksums: Array<{ artifactId: string; algorithm: 'sha256'; value: string }>
@@ -1760,12 +2019,14 @@ The module will need new skills, not one giant "book" skill.
 
 - `book-brief-builder`: turn client/business goals into a book brief.
 - `book-outline-builder`: produce outline, chapter/page map, and continuity plan.
+- `book-manuscript-structure-keeper`: maintain manuscript units, hierarchy, navigation, release snapshots, and section/page status.
 - `book-draft-writer`: draft sections within the approved outline.
 - `book-developmental-editor`: structure, pacing, promise, reader fit.
 - `book-copyeditor`: grammar, clarity, style, consistency.
 - `book-proofreader`: final typo and formatting pass.
 - `book-reading-level-review`: age/reading-level assessment.
 - `book-fact-checker`: source-backed review for non-fiction claims.
+- `book-accessibility-review`: reading order, TOC/link usability, alt text, table usability, language direction, and accessibility metadata review.
 
 ### Visual And Layout Skills
 
@@ -1812,12 +2073,14 @@ Draft skill contracts:
 | `book-series-strategy` | Sage + Iris | Research item, target audience, genre, commercial goal, existing book/series IDs. | Series plan with standalone-vs-series recommendation, volume order, continuity bible requirements, cadence, and risk notes. | Must flag KDP/Google series constraints, volume gaps, public-domain/low-content issues, and continuity dependencies. |
 | `book-brief-builder` | Iris | Client goal, Research item, audience, book type, brand voice, channel plan. | Book Brief client document or internal brief with approval mode, scope, success criteria, assumptions, and source links. | Client-visible only after internal review. Formal approval required before production tasks start. |
 | `book-outline-builder` | Iris + Maya | Approved brief, book type, length/format constraints, series bible, research links. | Chapter/page map, continuity plan, required assets, and task candidates. | Must stay within approved brief. Changes to promise/audience/format create a brief revision. |
+| `book-manuscript-structure-keeper` | Iris + Theo | Approved outline, book type, target formats, manuscript units, navigation rules, generation runs, editorial pass state. | Updated manuscript unit tree, TOC/navigation map, release snapshot recommendation, and unit-level blockers. | Cannot approve content quality by itself. Must block release snapshots when unit order, TOC labels, source units, or required pass coverage are inconsistent. |
 | `book-draft-writer` | Maya | Approved outline section, style guide, research sources, AI disclosure state, writing constraints. | Draft manuscript section linked to a manuscript version or client document section. | Draft only. Must record AI-generated vs AI-assisted status and source dependencies. No public-ready claim. |
 | `book-developmental-editor` | Iris | Draft manuscript, brief, outline, audience, book type. | Editorial report with structural issues, reader-fit notes, revision tasks, and approval recommendation. | Can propose rewrites but should not silently replace approved scope. |
 | `book-copyeditor` | Iris | Revised manuscript, style guide, spelling locale, brand terms, glossary. | Copyedit pass with tracked suggestions or clean revision plus change summary. | Must preserve meaning and flag factual uncertainty instead of "fixing" facts. |
 | `book-proofreader` | Quinn + Iris | Final-layout proof, manuscript version, file package, channel checklist. | Proofread report and final typo/formatting issue list. | Release gate evidence before export/publishing packet approval. |
 | `book-reading-level-review` | Iris | Draft/manuscript, target age/grade, book type, sensitive content flags. | Reading-level and age-fit assessment with flagged vocabulary, sentence complexity, and content concerns. | Required for children's, early-reader, education, and YA projects. |
 | `book-fact-checker` | Sage | Non-fiction draft claims, research sources, citation expectations. | Claim-level fact-check report with verified/disputed/unsupported status. | Unsupported claims must block client-visible publishing packets until resolved or removed. |
+| `book-accessibility-review` | Quinn + Theo | Manuscript version or export package, unit tree, TOC/nav map, images/tables/media, language/reading-order metadata. | Accessibility review with pass/warn/block checks, metadata summary, missing alt text/table/link issues, and evaluator/report evidence. | Must block export approval when navigation, reading order, alt text, tables, links, or required accessibility metadata are missing or unresolved. |
 | `book-cover-brief` | Maya | Book brief, metadata, audience, comparable covers, format/channel constraints. | Cover creative brief with title hierarchy, visual direction, trim/format needs, and avoid list. | Must flag trademark/IP/lookalike risks and store-safe content concerns. |
 | `book-illustration-director` | Maya | Art style guide, character bible, scene list, rights constraints, model/tool constraints. | Scene prompts, continuity notes, asset checklist, and provenance requirements. | Must record AI/image provenance and block unlicensed style mimicry or celebrity/brand lookalikes. |
 | `book-layout-designer` | Maya + Quinn | Manuscript, trim/format, interior type, images, bleed/margin rules. | Layout plan, page/spread map, print/ebook packaging checklist, and validation tasks. | Must separate layout recommendations from validated print-ready files until file checks pass. |
@@ -1877,8 +2140,11 @@ type BookStudioArtifactType =
   | 'book_brief_document'
   | 'series_strategy'
   | 'outline_packet'
+  | 'manuscript_structure_map'
   | 'manuscript_section'
   | 'editorial_report'
+  | 'claim_review_report'
+  | 'accessibility_review_report'
   | 'cover_brief'
   | 'illustration_direction'
   | 'layout_plan'
@@ -1901,6 +2167,7 @@ Every Book Studio Hermes task should include:
 - `requiredCapability` matching one Book Studio skill name, such as `book-kdp-readiness-check`;
 - `riskLevel`, with rights, public publishing, AI disclosure, children's content, public-domain/companion, low-content, audiobook, and paid launch work defaulting to `high` or `critical`;
 - at least one source pointer (`sourceResearchItemId`, `sourceDocumentId`, `sourceArtifactIds`, or `channelListingId`) unless the task is an initial research task;
+- `manuscriptUnitId` or `manuscriptVersionId` for section drafting, editing, proofing, claim review, accessibility review, link/TOC review, and release-snapshot work;
 - `generationRunId` for every long-running, high-cost, model-backed, validation, package, or report-import job;
 - `safetyPolicyKey` and budget limits for any model-backed writing, image, cover, metadata, translation, or children's-content task;
 - `expectedArtifacts` that name the artifact type and destination;
@@ -1917,7 +2184,7 @@ Implementation should not try to install all skills at once. The first wave shou
 | --- | --- | --- |
 | 1. Foundation research and brief | `book-generation-run-governor`, `book-niche-research`, `book-series-strategy`, `book-brief-builder`, `book-outline-builder` | Creates the evidence, planning, and execution-control loop before manuscript or publishing work starts. |
 | 2. Safety and release checks | `book-generation-safety-review`, `book-asset-rights-auditor`, `book-metadata-optimizer`, `book-kdp-readiness-check`, `book-google-play-readiness-check`, `book-publishing-account-readiness` | Prevents policy/rights/account-authority mistakes before anything reaches a client or store. |
-| 3. Production drafting | `book-draft-writer`, `book-developmental-editor`, `book-copyeditor`, `book-proofreader`, `book-reading-level-review`, `book-fact-checker` | Useful only after the brief and gate model are stable. |
+| 3. Production drafting | `book-manuscript-structure-keeper`, `book-draft-writer`, `book-developmental-editor`, `book-copyeditor`, `book-proofreader`, `book-reading-level-review`, `book-fact-checker`, `book-accessibility-review` | Useful only after the brief and gate model are stable; keeps drafts tied to units, claims, navigation, accessibility, and version snapshots. |
 | 4. Visual and package work | `book-cover-brief`, `book-illustration-director`, `book-layout-designer`, `book-export-packager`, `book-file-package-validator` | Depends on approved book direction, rights rules, and file-package conventions. |
 | 5. Launch and analytics | `book-publishing-ops`, `book-analytics-import`, `book-launch-campaign` | Depends on channel listing state, packet fields, and import ledger behavior. |
 
@@ -2046,8 +2313,12 @@ Mitigation: require a pricing plan, cost estimate, margin confidence label, and 
 ### Phase 2: Manuscript And Series Production
 
 - Outline and manuscript versioning.
+- Manuscript unit tree for front matter, body matter, back matter, chapters, sections, pages/spreads, captions, exercises, answer keys, glossary entries, and references.
+- Editorial pass ledger for developmental edit, copyedit, proofread, fact check, reading-level review, accessibility review, link/TOC review, specialist review, and client review.
+- Claim/citation ledger for non-fiction, instructional, education, public-domain/companion, and other evidence-sensitive projects.
+- Accessibility review records for reading order, TOC/navigation, link targets, alt text, tables, language direction, media alternatives, evaluator/date/report metadata, and export blockers.
 - Series style guide and continuity checks.
-- Page/chapter status.
+- Page/chapter/unit status.
 - Comments and approval handoff through client documents.
 - Asset library/provenance.
 
@@ -2109,7 +2380,7 @@ This is not yet an implementation plan. It is the smallest coherent foundation t
 | Epic | Scope | Why it matters | Done when |
 | --- | --- | --- | --- |
 | Module entitlement | Add a future `settings.portalModules.bookStudio` switch, safe portal org exposure, and portal API guards. | Client visibility must be controlled per organisation, matching the new Mobile Apps module-switch pattern. | Admin can enable/disable portal Book Studio visibility without affecting internal admin work. |
-| Domain records | Add typed records and sanitizers for `book_projects`, `book_series`, `book_project_editions`, `book_channel_listings`, `book_quality_gates`, provenance/version/rights records, and analytics import metadata. | The module needs book-specific state, but Research, Documents, Projects, and artifacts remain authoritative for evidence, approvals, work, and large files. | Records are org-scoped, serializable, guarded by role, and do not embed large manuscript or image payloads. |
+| Domain records | Add typed records and sanitizers for `book_projects`, `book_series`, `book_project_editions`, `book_channel_listings`, `book_quality_gates`, manuscript/editorial records, provenance/version/rights records, and analytics import metadata. | The module needs book-specific state, but Research, Documents, Projects, and artifacts remain authoritative for evidence, approvals, work, and large files. | Records are org-scoped, serializable, guarded by role, and do not embed large manuscript or image payloads. |
 | Admin workspace | Build admin list/detail routes for book projects and series with tabs for overview, research, brief, production, publishing, gates, and analytics. | Operators need one command surface before manuscript generation or export engines exist. | A PiB admin can create a project, connect it to a series, see status/risk/gates, and move through the production checklist. |
 | Research and brief bridge | Link or create Research items and Book Brief client documents from a book project. | The module should inherit PiB's evidence and approval model rather than recreate `ai-story` research notes. | A book project can show linked findings/recommendations, create a brief packet, and preserve source IDs. |
 | Hermes task contracts | Store Hermes-ready task metadata for research, brief, outline, metadata, and readiness work without granting direct publish powers. | Agent output must be bounded, reviewable, and attributable. | Created tasks include book context, expected artifacts, reviewer, risk level, and approval-gate linkage. |
@@ -2137,6 +2408,8 @@ This is not yet an implementation plan. It is the smallest coherent foundation t
 - A stale, failed, blocked, expired, cancelled, or superseded generation run cannot update an approved manuscript version, client-visible packet, export package, or channel listing.
 - Generation outputs cannot become client-visible or publishing-facing until required prompt/output safety review, rights/provenance checks, and reviewer gates pass.
 - Budget overruns, repeated retries, high-cost runs, missing usage data, or unsafe retained-prompt requests create blocker/approval tasks instead of continuing silently.
+- Manuscript units can be versioned independently from release manifests, and approved manifests cannot be silently mutated by later section/page edits.
+- Manuscript/proof snapshots can require editorial pass coverage, claim/citation review, TOC/link review, and accessibility review before client visibility or export approval.
 - A KDP readiness packet explicitly captures metadata, categories/keywords, file checklist, AI-generated-vs-assisted disclosure, ISBN/imprint choice, rights confirmation, content-risk notes, provenance/version evidence, pricing, and manual upload status.
 - A Google Play readiness packet explicitly captures EPUB/PDF readiness, cover file, metadata, series naming/volume consistency, rights/territories, pricing, DRM/copy-print choices, provenance/version evidence, and manual Partner Center status.
 - KDP and Google channel listings can store price plans, royalty/revenue-share assumptions, cost estimates, KDP Select exclusivity state, calculator/effective-price evidence, margin confidence, and approval/waiver state.
@@ -2151,6 +2424,7 @@ This is not yet an implementation plan. It is the smallest coherent foundation t
 
 - Type/sanitizer tests for Book Studio records, provenance/version/rights records, and defaults.
 - Type/sanitizer tests for export package manifests, file roles, validation results, preview evidence, and checksum-bound approvals.
+- Type/sanitizer tests for manuscript units, unit revisions, editorial passes, claim reviews, accessibility reviews, and release snapshot manifests.
 - Admin API tests for org scoping, create/update/list, soft archive, and linked-record preservation.
 - Portal guard tests for disabled module state, role access, and client-visible filtering.
 - Gate-profile tests for each book type family.
@@ -2160,6 +2434,7 @@ This is not yet an implementation plan. It is the smallest coherent foundation t
 - Hermes task contract tests that verify provenance, reviewer, expected artifacts, and forbidden direct-action fields.
 - Generation run tests that verify idempotency keys, source manifests, usage budgets, retry/cancel/supersede transitions, and stale-run overwrite blocking.
 - Safety gate tests that block client-visible or publishing-facing output when prompt/output moderation, provider safety feedback, rights review, or reviewer approval is missing, failed, stale, or inconclusive.
+- Manuscript production tests that verify approved version manifests do not mutate when units are revised, and that missing editorial/claim/accessibility/link/TOC coverage blocks client-visible proof or export approval where required.
 - Gate tests that block publishing-packet readiness when provenance, rights review, AI disclosure, or version manifest evidence is missing.
 - Analytics import tests that verify estimated/reported/settled separation and reconciliation task creation.
 
