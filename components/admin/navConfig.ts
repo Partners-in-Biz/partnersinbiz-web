@@ -17,6 +17,7 @@ export interface NavItem {
 export const OPERATOR_NAV: NavItem[] = [
   { label: 'Home',         href: '/admin/dashboard',    icon: 'space_dashboard', group: 'work' },
   { label: 'Updates',      href: '/admin/updates',      icon: 'new_releases', group: 'work' },
+  { label: 'Loop Engine',  href: '/admin/loop-engine',  icon: 'all_inclusive', group: 'work' },
   { label: 'Briefings',    href: '/admin/briefings',    icon: 'team_dashboard', group: 'work' },
   { label: 'Clients',      href: '/admin/clients',      icon: 'groups', group: 'work', activePatterns: ['/admin/organizations'] },
   { label: 'Pipeline',     href: '/admin/crm/contacts', icon: 'view_kanban', group: 'work', activePatterns: ['/admin/crm'] },
@@ -53,6 +54,7 @@ export const OPERATOR_NAV: NavItem[] = [
 export const OPERATOR_NAV_TOPBAR: NavItem[] = [
   { label: 'Home',     href: '/admin/dashboard',    icon: 'space_dashboard' },
   { label: 'Updates',  href: '/admin/updates',      icon: 'new_releases' },
+  { label: 'Loop Engine', href: '/admin/loop-engine', icon: 'all_inclusive' },
   { label: 'Briefings', href: '/admin/briefings', icon: 'team_dashboard' },
   { label: 'Clients',  href: '/admin/clients',      icon: 'groups', activePatterns: ['/admin/organizations'] },
   { label: 'Pipeline', href: '/admin/crm/contacts', icon: 'view_kanban', activePatterns: ['/admin/crm'] },
