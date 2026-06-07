@@ -229,6 +229,13 @@ export function buildMarketingHubProps(config: MarketingHubSurface): HubPageProp
             description: 'Create or open the client SEO sprint.',
             eyebrow: 'Search',
           },
+          {
+            label: 'GEO SEO',
+            href: orgPath(slug, '/geo-seo'),
+            icon: 'psychology_alt',
+            description: 'Open AI search visibility workspaces, GEO audits, and gated reports for this client.',
+            eyebrow: 'AI search',
+          },
         ]),
         section('Social media', [
           {
@@ -377,6 +384,13 @@ export function buildMarketingHubProps(config: MarketingHubSurface): HubPageProp
           icon: 'trending_up',
           description: 'Run sprints, draft content, monitor keywords, and track optimisation work.',
           eyebrow: 'Search',
+        },
+        {
+          label: 'GEO SEO',
+          href: '/admin/geo-seo',
+          icon: 'psychology_alt',
+          description: 'Run AI search visibility workspaces, GEO audits, and approval-gated reports.',
+          eyebrow: 'AI search',
         },
       ]),
       section('Email and nurture', [

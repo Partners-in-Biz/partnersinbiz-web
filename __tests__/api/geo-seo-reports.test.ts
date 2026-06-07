@@ -29,8 +29,16 @@ jest.mock('@/lib/firebase/admin', () => ({
   },
 }))
 
+type TestUser = { uid: string; role: 'ai' | 'admin' | 'client' }
+type TestRouteContext = { params: Promise<{ id: string }> }
+type TestHandler = (req: NextRequest, user: TestUser, ctx?: TestRouteContext) => Response | Promise<Response>
+
 jest.mock('@/lib/api/auth', () => ({
-  withAuth: (_requiredRole: 'admin' | 'client', handler: any) => async (req: NextRequest, user: any, ctx?: any) => {
+  withAuth: (_requiredRole: 'admin' | 'client', handler: TestHandler) => async (
+    req: NextRequest,
+    user: TestUser,
+    ctx?: TestRouteContext,
+  ) => {
     if (!user || !['ai', 'admin'].includes(user.role)) {
       return new Response(JSON.stringify({ success: false, error: 'Forbidden' }), {
         status: 403,
@@ -51,8 +59,14 @@ function jsonRequest(url: string, body: unknown, method = 'POST') {
   })
 }
 
+type TestDocRef = {
+  id: string
+  get?: jest.Mock
+  collection?: jest.Mock
+}
+
 function setupDocCollections() {
-  const refs: Record<string, any> = {
+  const refs: Record<string, TestDocRef> = {
     geo_audits: { id: 'audit-1', get: mockDocGet },
     client_documents: {
       id: 'doc-1',
@@ -134,7 +148,7 @@ describe('GEO SEO report Client Document workflow', () => {
         evidenceRowIds: ['ev-row-1', 'ev-row-2'],
       },
     })
-    const reportWrite = mockBatchSet.mock.calls.find((call) => call[1]?.documentId === 'doc-1')?.[1]
+    const reportWrite = mockBatchSet.mock.calls.find((call) => call[1]?.documentId === 'doc-1' && call[1]?.visibility === 'internal')?.[1]
     expect(reportWrite).toMatchObject({
       status: 'internal_draft',
       visibility: 'internal',

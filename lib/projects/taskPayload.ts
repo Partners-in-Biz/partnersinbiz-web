@@ -30,6 +30,17 @@ const VALID_AGENT_CAPABILITIES = [
   'message_client',
   'access_secret',
   'delete',
+  'software_build',
+  'client_document',
+  'research',
+  'seo',
+  'geo_seo',
+  'qa',
+  'content',
+  'engineering',
+  'quality-assurance',
+  'research-recommendation-followup',
+  'research-intelligence',
 ] as const
 
 export const TASK_SOURCE_LINKAGE_FIELDS = [
@@ -42,6 +53,14 @@ export const TASK_SOURCE_LINKAGE_FIELDS = [
   'requiredCapability',
   'requestedByAgentId',
   'expectedArtifacts',
+  'geoWorkspaceId',
+  'geoAuditId',
+  'geoFindingId',
+  'geoTaskId',
+  'seoSprintId',
+  'seoTaskId',
+  'linkedSeoTaskId',
+  'projectTaskId',
 ] as const
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -121,6 +140,18 @@ function applyProvenanceFields(
   }
   if (source.expectedArtifacts !== undefined) {
     target.expectedArtifacts = cleanStringArray(source.expectedArtifacts)
+  }
+  for (const field of TASK_SOURCE_LINKAGE_FIELDS) {
+    if (!(field in source)) continue
+    if (
+      field in target
+      || field === 'riskLevel'
+      || field === 'requiredCapability'
+      || field === 'requestedByAgentId'
+      || field === 'expectedArtifacts'
+    ) continue
+    const cleaned = cleanString(source[field])
+    if (cleaned) target[field] = cleaned
   }
   return { ok: true, value: null }
 }

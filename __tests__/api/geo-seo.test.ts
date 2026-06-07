@@ -12,6 +12,8 @@ const mockSet = jest.fn()
 const mockUpdate = jest.fn()
 const mockWhere = jest.fn()
 const mockGet = jest.fn()
+const mockSubDoc = jest.fn()
+const mockSubCollection = jest.fn()
 const mockCollection = jest.fn()
 const mockServerTimestamp = jest.fn(() => 'SERVER_TIMESTAMP')
 
@@ -19,7 +21,10 @@ jest.mock('@/lib/firebase/admin', () => ({ adminDb: { collection: mockCollection
 jest.mock('@/lib/api/auth', () => ({
   withAuth: (_role: string, handler: MockHandler) => async (req: NextRequest, ctx?: unknown) => handler(req, mockUser, ctx),
 }))
-jest.mock('firebase-admin/firestore', () => ({ FieldValue: { serverTimestamp: mockServerTimestamp } }))
+jest.mock('firebase-admin/firestore', () => ({
+  FieldValue: { serverTimestamp: mockServerTimestamp },
+  Timestamp: { fromMillis: (value: number) => ({ toMillis: () => value }) },
+}))
 
 beforeEach(() => {
   jest.resetModules()
@@ -27,8 +32,10 @@ beforeEach(() => {
   mockUser = { uid: 'agent:theo', role: 'ai', agentId: 'theo' }
   const query = { where: mockWhere, get: mockGet }
   mockWhere.mockReturnValue(query)
-  mockDoc.mockReturnValue({ get: mockGetDoc, set: mockSet, update: mockUpdate })
-  mockAdd.mockResolvedValue({ id: 'created-1' })
+  mockSubDoc.mockImplementation((id?: string) => ({ id: id || 'project-task-1', set: mockSet, get: mockGetDoc, update: mockUpdate }))
+  mockSubCollection.mockReturnValue({ doc: mockSubDoc })
+  mockDoc.mockImplementation((id?: string) => ({ id: id || 'doc-1', get: mockGetDoc, set: mockSet, update: mockUpdate, collection: mockSubCollection }))
+  mockAdd.mockResolvedValue({ id: 'created-1', set: mockSet })
   mockSet.mockResolvedValue(undefined)
   mockUpdate.mockResolvedValue(undefined)
   mockGet.mockResolvedValue({ docs: [] })
@@ -60,7 +67,7 @@ describe('GEO SEO namespace tenant-safe record APIs', () => {
     const { POST } = await import('@/app/api/v1/geo-seo/workspaces/route')
     const res = await POST(new NextRequest('http://localhost/api/v1/geo-seo/workspaces', {
       method: 'POST',
-      headers: { 'content-type': 'application/json', 'x-org-id': 'pib-platform-owner', 'idempotency-key': 'geo-workspace-1' },
+      headers: { 'content-type': 'application/json', 'x-org-id': 'pib-platform-owner' },
       body: JSON.stringify({
         orgId: 'pib-platform-owner',
         clientOrgId: 'client-org-1',
@@ -145,6 +152,90 @@ describe('GEO SEO namespace tenant-safe record APIs', () => {
     expect(mockCollection).toHaveBeenCalledWith('geo_reports')
     expect(mockCollection).toHaveBeenCalledWith('geo_check_runs')
     expect(mockAdd).toHaveBeenCalledWith(expect.objectContaining({ orgId: 'pib-platform-owner', clientOrgId: 'client-org-1', companyId: 'company-1', sourceCompanyId: 'company-1', createdAt: 'SERVER_TIMESTAMP' }))
+  })
+
+  it('creates linked Projects/Kanban and SEO Sprint tasks for classic SEO GEO findings', async () => {
+    mockGetDoc
+      .mockResolvedValueOnce({ exists: true, id: 'ws-1', data: () => ({ orgId: 'pib-platform-owner', projectId: 'project-1', linkedSeoSprintId: 'sprint-1', sourceDocumentId: 'doc-1', sourceSpecVersion: 'v1', approvalGateTaskId: 'gate-1', deleted: false }) })
+      .mockResolvedValueOnce({ exists: true, id: 'sprint-1', data: () => ({ orgId: 'pib-platform-owner', deleted: false }) })
+    const { POST } = await import('@/app/api/v1/geo-seo/findings/route')
+
+    const res = await POST(new NextRequest('http://localhost/api/v1/geo-seo/findings', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'x-org-id': 'pib-platform-owner' },
+      body: JSON.stringify({
+        orgId: 'pib-platform-owner',
+        workspaceId: 'ws-1',
+        auditId: 'audit-1',
+        title: 'Core Web Vitals regression',
+        category: 'technical',
+        description: 'LCP regression is hurting organic clicks and rankings.',
+        sourceDocumentSectionId: 'bridge-rules',
+        riskLevel: 'high',
+        requiredCapability: 'seo',
+        reviewerAgentId: 'qa-release',
+        expectedArtifacts: ['seo_task_update', 'project_task_evidence'],
+        bridgeToSeoSprint: true,
+        createProjectTask: true,
+      }),
+    }))
+    const body = await res.json()
+
+    expect(res.status).toBe(201)
+    expect(body.data).toEqual({ id: 'created-1', linkedSeoTaskId: 'doc-1', projectTaskId: 'project-task-1' })
+    expect(mockCollection).toHaveBeenCalledWith('seo_tasks')
+    expect(mockCollection).toHaveBeenCalledWith('projects')
+    expect(mockSet).toHaveBeenCalledWith(expect.objectContaining({
+      source: 'geo_finding',
+      geoWorkspaceId: 'ws-1',
+      geoAuditId: 'audit-1',
+      geoFindingId: 'created-1',
+      sourceDocumentId: 'doc-1',
+      sourceSpecVersion: 'v1',
+      approvalGateTaskId: 'gate-1',
+      requiredCapability: 'seo',
+      expectedArtifacts: ['seo_task_update', 'project_task_evidence'],
+    }))
+    expect(mockSet).toHaveBeenCalledWith(expect.objectContaining({
+      projectId: 'project-1',
+      assigneeAgentId: 'seo',
+      reviewerAgentId: 'qa-release',
+      geoWorkspaceId: 'ws-1',
+      geoAuditId: 'audit-1',
+      geoFindingId: 'created-1',
+      seoTaskId: 'doc-1',
+      linkedSeoTaskId: 'doc-1',
+      sourceDocumentId: 'doc-1',
+      sourceDocumentSectionId: 'bridge-rules',
+      sourceSpecVersion: 'v1',
+      approvalGateTaskId: 'gate-1',
+      riskLevel: 'high',
+      requiredCapability: 'seo',
+      expectedArtifacts: ['seo_task_update', 'project_task_evidence'],
+    }))
+  })
+
+  it('rejects SEO Sprint bridging for GEO-only findings without classic SEO remediation criteria', async () => {
+    const { POST } = await import('@/app/api/v1/geo-seo/findings/route')
+
+    const res = await POST(new NextRequest('http://localhost/api/v1/geo-seo/findings', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'x-org-id': 'pib-platform-owner' },
+      body: JSON.stringify({
+        orgId: 'pib-platform-owner',
+        workspaceId: 'ws-1',
+        title: 'Improve AI answer citability',
+        category: 'citability',
+        description: 'Add concise answer evidence for AI recommendation visibility.',
+        bridgeToSeoSprint: true,
+        seoSprintId: 'sprint-1',
+      }),
+    }))
+    const body = await res.json()
+
+    expect(res.status).toBe(400)
+    expect(body.error).toMatch(/classic SEO remediation criteria/)
+    expect(mockAdd).not.toHaveBeenCalled()
   })
 
   it('enforces tenant ownership when reading and updating individual GEO records', async () => {
