@@ -1,9 +1,22 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { type ReactNode, useCallback, useEffect, useMemo, useState } from 'react'
 import { scopedPortalPath, type PortalOrgRouteScope } from '@/lib/portal/scoped-routing'
 
 const BRIEFING_AUTO_REFRESH_MS = 5 * 60_000
+const ACTION_CONTROL_GRID_CLASS = 'mt-3 grid min-w-0 grid-cols-1 gap-2'
+const ACTION_CONTEXT_GRID_CLASS = 'mt-2 grid min-w-0 grid-cols-1 gap-2'
+const ACTION_CONTROL_CLASS = 'pib-btn-secondary min-w-0 w-full items-start justify-start whitespace-normal rounded-lg px-3 py-2 text-left text-xs leading-4'
+const ACTION_CONTROL_LINK_CLASS = `${ACTION_CONTROL_CLASS} inline-flex`
+const ACTION_CONTROL_ICON_CLASS = 'material-symbols-outlined shrink-0 text-[15px]'
+
+function ActionControlLabel({ children }: { children: ReactNode }) {
+  return (
+    <span data-action-label className="min-w-0 flex-1 whitespace-normal break-words text-left leading-4">
+      {children}
+    </span>
+  )
+}
 
 interface OrgSummary {
   id: string
@@ -2977,66 +2990,66 @@ export function BriefingControlDesk({ mode, portalScope }: { mode: Mode; portalS
                       </ul>
                     </div>
                   ) : null}
-                  <div className="mt-3 grid grid-cols-2 gap-2">
-                    <button className="pib-btn-secondary justify-center text-xs" type="button" onClick={() => approvePhase2Item(selected)} disabled={!!busyAction} aria-label="Approve internal review">
-                      <span className="material-symbols-outlined text-[15px]" aria-hidden="true">verified</span>
-                      Approve internal review
+                  <div className={ACTION_CONTROL_GRID_CLASS} aria-label="Internal review action controls">
+                    <button className={ACTION_CONTROL_CLASS} type="button" onClick={() => approvePhase2Item(selected)} disabled={!!busyAction} aria-label="Approve internal review">
+                      <span className={ACTION_CONTROL_ICON_CLASS} aria-hidden="true">verified</span>
+                      <ActionControlLabel>Approve internal review</ActionControlLabel>
                     </button>
-                    <button className="pib-btn-secondary justify-center text-xs" type="button" onClick={() => rejectPhase2Item(selected)} disabled={!!busyAction || (canSocialPostAct(selected) && !!socialActionStage(selected) && !socialChangeText.trim())} aria-label="Request internal changes">
-                      <span className="material-symbols-outlined text-[15px]" aria-hidden="true">assignment_return</span>
-                      Request internal changes
+                    <button className={ACTION_CONTROL_CLASS} type="button" onClick={() => rejectPhase2Item(selected)} disabled={!!busyAction || (canSocialPostAct(selected) && !!socialActionStage(selected) && !socialChangeText.trim())} aria-label="Request internal changes">
+                      <span className={ACTION_CONTROL_ICON_CLASS} aria-hidden="true">assignment_return</span>
+                      <ActionControlLabel>Request internal changes</ActionControlLabel>
                     </button>
-                    <button className="pib-btn-secondary justify-center text-xs" type="button" onClick={() => setItemState(selected, 'snoozed')} disabled={!!busyAction} aria-label="Snooze internal review item">
-                      <span className="material-symbols-outlined text-[15px]" aria-hidden="true">snooze</span>
-                      Snooze
+                    <button className={ACTION_CONTROL_CLASS} type="button" onClick={() => setItemState(selected, 'snoozed')} disabled={!!busyAction} aria-label="Snooze internal review item">
+                      <span className={ACTION_CONTROL_ICON_CLASS} aria-hidden="true">snooze</span>
+                      <ActionControlLabel>Snooze</ActionControlLabel>
                     </button>
-                    <button className="pib-btn-secondary justify-center text-xs" type="button" onClick={() => createPhase2Task(selected)} disabled={!!busyAction || !(selected.context.projectId || selected.context.orgId || selected.orgId)}>
-                      <span className="material-symbols-outlined text-[15px]" aria-hidden="true">add_task</span>
-                      Create follow-up task
+                    <button className={ACTION_CONTROL_CLASS} type="button" onClick={() => createPhase2Task(selected)} disabled={!!busyAction || !(selected.context.projectId || selected.context.orgId || selected.orgId)}>
+                      <span className={ACTION_CONTROL_ICON_CLASS} aria-hidden="true">add_task</span>
+                      <ActionControlLabel>Create follow-up task</ActionControlLabel>
                     </button>
-                    <button className="pib-btn-secondary justify-center text-xs" type="button" onClick={() => createRoutedBriefingTask(selected, 'ask-specialist-triage')} disabled={!selected.context.projectId} aria-label={selected.context.projectId ? `Ask ${phase2AgentLabel(selected)} to triage` : `Ask ${phase2AgentLabel(selected)} to triage unavailable`} title={!selected.context.projectId ? 'Requires a linked project before routing to a specialist.' : undefined}>
-                      <span className="material-symbols-outlined text-[15px]" aria-hidden="true">support_agent</span>
-                      {selected.context.projectId ? `Ask ${phase2AgentLabel(selected)} to triage` : `Ask ${phase2AgentLabel(selected)} to triage unavailable`}
+                    <button className={ACTION_CONTROL_CLASS} type="button" onClick={() => createRoutedBriefingTask(selected, 'ask-specialist-triage')} disabled={!selected.context.projectId} aria-label={selected.context.projectId ? `Ask ${phase2AgentLabel(selected)} to triage` : `Ask ${phase2AgentLabel(selected)} to triage unavailable`} title={!selected.context.projectId ? 'Requires a linked project before routing to a specialist.' : undefined}>
+                      <span className={ACTION_CONTROL_ICON_CLASS} aria-hidden="true">support_agent</span>
+                      <ActionControlLabel>{selected.context.projectId ? `Ask ${phase2AgentLabel(selected)} to triage` : `Ask ${phase2AgentLabel(selected)} to triage unavailable`}</ActionControlLabel>
                     </button>
-                    <button className="pib-btn-secondary justify-center text-xs" type="button" onClick={() => createRoutedBriefingTask(selected, 'create-routed-task')} disabled={!selected.context.projectId} aria-label={selected.context.projectId ? `Create routed ${phase2AgentLabel(selected)} task` : `Create routed ${phase2AgentLabel(selected)} task unavailable`} title={!selected.context.projectId ? 'Requires a linked project before creating a routed specialist task.' : undefined}>
-                      <span className="material-symbols-outlined text-[15px]" aria-hidden="true">route</span>
-                      {selected.context.projectId ? `Create routed ${phase2AgentLabel(selected)} task` : `Create routed ${phase2AgentLabel(selected)} task unavailable`}
+                    <button className={ACTION_CONTROL_CLASS} type="button" onClick={() => createRoutedBriefingTask(selected, 'create-routed-task')} disabled={!selected.context.projectId} aria-label={selected.context.projectId ? `Create routed ${phase2AgentLabel(selected)} task` : `Create routed ${phase2AgentLabel(selected)} task unavailable`} title={!selected.context.projectId ? 'Requires a linked project before creating a routed specialist task.' : undefined}>
+                      <span className={ACTION_CONTROL_ICON_CLASS} aria-hidden="true">route</span>
+                      <ActionControlLabel>{selected.context.projectId ? `Create routed ${phase2AgentLabel(selected)} task` : `Create routed ${phase2AgentLabel(selected)} task unavailable`}</ActionControlLabel>
                     </button>
-                    <button className="pib-btn-secondary justify-center text-xs" type="button" onClick={() => createRoutedBriefingTask(selected, 'link-existing-task')} disabled={!selected.context.projectId} aria-label={selected.context.projectId ? 'Link existing task' : 'Link existing task unavailable'} title={!selected.context.projectId ? 'Requires a linked project before linking an existing project task.' : undefined}>
-                      <span className="material-symbols-outlined text-[15px]" aria-hidden="true">add_link</span>
-                      {selected.context.projectId ? 'Link existing task' : 'Link existing task unavailable'}
+                    <button className={ACTION_CONTROL_CLASS} type="button" onClick={() => createRoutedBriefingTask(selected, 'link-existing-task')} disabled={!selected.context.projectId} aria-label={selected.context.projectId ? 'Link existing task' : 'Link existing task unavailable'} title={!selected.context.projectId ? 'Requires a linked project before linking an existing project task.' : undefined}>
+                      <span className={ACTION_CONTROL_ICON_CLASS} aria-hidden="true">add_link</span>
+                      <ActionControlLabel>{selected.context.projectId ? 'Link existing task' : 'Link existing task unavailable'}</ActionControlLabel>
                     </button>
                     {canTaskAct(selected) ? (
-                      <button className="pib-btn-secondary justify-center text-xs" type="button" onClick={() => assignPhase2Agent(selected)} disabled={!!busyAction}>
-                        <span className="material-symbols-outlined text-[15px]" aria-hidden="true">smart_toy</span>
-                        Assign {phase2AgentId(selected)}
+                      <button className={ACTION_CONTROL_CLASS} type="button" onClick={() => assignPhase2Agent(selected)} disabled={!!busyAction}>
+                        <span className={ACTION_CONTROL_ICON_CLASS} aria-hidden="true">smart_toy</span>
+                        <ActionControlLabel>Assign {phase2AgentId(selected)}</ActionControlLabel>
                       </button>
                     ) : (
-                      <button className="pib-btn-secondary justify-center text-xs" type="button" disabled title="Agent assignment requires a linked project task." aria-label="Assign agent unavailable">
-                        <span className="material-symbols-outlined text-[15px]" aria-hidden="true">smart_toy</span>
-                        Assign agent unavailable
+                      <button className={ACTION_CONTROL_CLASS} type="button" disabled title="Agent assignment requires a linked project task." aria-label="Assign agent unavailable">
+                        <span className={ACTION_CONTROL_ICON_CLASS} aria-hidden="true">smart_toy</span>
+                        <ActionControlLabel>Assign agent unavailable</ActionControlLabel>
                       </button>
                     )}
                     {evidenceHref(selected, mode, portalScope) ? (
-                      <a className="pib-btn-secondary inline-flex justify-center text-xs" href={evidenceHref(selected, mode, portalScope) ?? undefined} target="_blank" rel="noopener noreferrer">
-                        <span className="material-symbols-outlined text-[15px]" aria-hidden="true">fact_check</span>
-                        Open evidence
+                      <a className={ACTION_CONTROL_LINK_CLASS} href={evidenceHref(selected, mode, portalScope) ?? undefined} target="_blank" rel="noopener noreferrer">
+                        <span className={ACTION_CONTROL_ICON_CLASS} aria-hidden="true">fact_check</span>
+                        <ActionControlLabel>Open evidence</ActionControlLabel>
                       </a>
                     ) : (
-                      <button className="pib-btn-secondary justify-center text-xs" type="button" disabled title="No evidence link is available on this briefing." aria-label="Open evidence unavailable">
-                        <span className="material-symbols-outlined text-[15px]" aria-hidden="true">fact_check</span>
-                        Open evidence unavailable
+                      <button className={ACTION_CONTROL_CLASS} type="button" disabled title="No evidence link is available on this briefing." aria-label="Open evidence unavailable">
+                        <span className={ACTION_CONTROL_ICON_CLASS} aria-hidden="true">fact_check</span>
+                        <ActionControlLabel>Open evidence unavailable</ActionControlLabel>
                       </button>
                     )}
                     {canConvertToCrmActivity(selected) ? (
-                      <button className="pib-btn-secondary col-span-2 justify-center text-xs" type="button" onClick={() => convertToCrmActivity(selected)} disabled={!!busyAction}>
-                        <span className="material-symbols-outlined text-[15px]" aria-hidden="true">add_notes</span>
-                        Convert to CRM activity
+                      <button className={ACTION_CONTROL_CLASS} type="button" onClick={() => convertToCrmActivity(selected)} disabled={!!busyAction}>
+                        <span className={ACTION_CONTROL_ICON_CLASS} aria-hidden="true">add_notes</span>
+                        <ActionControlLabel>Convert to CRM activity</ActionControlLabel>
                       </button>
                     ) : (
-                      <button className="pib-btn-secondary col-span-2 justify-center text-xs" type="button" disabled aria-label="Convert to CRM activity unavailable">
-                        <span className="material-symbols-outlined text-[15px]" aria-hidden="true">add_notes</span>
-                        Convert to CRM activity unavailable
+                      <button className={ACTION_CONTROL_CLASS} type="button" disabled aria-label="Convert to CRM activity unavailable">
+                        <span className={ACTION_CONTROL_ICON_CLASS} aria-hidden="true">add_notes</span>
+                        <ActionControlLabel>Convert to CRM activity unavailable</ActionControlLabel>
                       </button>
                     )}
                   </div>
@@ -3046,37 +3059,37 @@ export function BriefingControlDesk({ mode, portalScope }: { mode: Mode; portalS
                   <p className="mt-2 text-xs text-on-surface-variant">Usable alternatives for this card: {phase2UsableAlternatives(selected, mode, portalScope).join(', ')}.</p>
                   <div className="mt-3 rounded-lg border border-white/10 bg-white/[0.03] p-3">
                     <p className="text-[10px] font-label uppercase tracking-[0.16em] text-on-surface-variant">Copy and chat context</p>
-                    <div className="mt-2 grid grid-cols-2 gap-2">
-                      <button className="pib-btn-secondary justify-center text-xs" type="button" onClick={() => copyBriefingAction(selected, 'exact-ask')} disabled={!!busyAction}>
-                        <span className="material-symbols-outlined text-[15px]" aria-hidden="true">content_copy</span>
-                        Copy exact ask
+                    <div className={ACTION_CONTEXT_GRID_CLASS} aria-label="Copy and chat context controls">
+                      <button className={ACTION_CONTROL_CLASS} type="button" onClick={() => copyBriefingAction(selected, 'exact-ask')} disabled={!!busyAction}>
+                        <span className={ACTION_CONTROL_ICON_CLASS} aria-hidden="true">content_copy</span>
+                        <ActionControlLabel>Copy exact ask</ActionControlLabel>
                       </button>
-                      <button className="pib-btn-secondary justify-center text-xs" type="button" onClick={() => copyBriefingAction(selected, 'full-briefing')} disabled={!!busyAction}>
-                        <span className="material-symbols-outlined text-[15px]" aria-hidden="true">description</span>
-                        Copy full briefing
+                      <button className={ACTION_CONTROL_CLASS} type="button" onClick={() => copyBriefingAction(selected, 'full-briefing')} disabled={!!busyAction}>
+                        <span className={ACTION_CONTROL_ICON_CLASS} aria-hidden="true">description</span>
+                        <ActionControlLabel>Copy full briefing</ActionControlLabel>
                       </button>
-                      <button className="pib-btn-secondary justify-center text-xs" type="button" onClick={() => copyBriefingAction(selected, 'agent-handoff')} disabled={!!busyAction}>
-                        <span className="material-symbols-outlined text-[15px]" aria-hidden="true">quick_reference</span>
-                        Copy agent handoff
+                      <button className={ACTION_CONTROL_CLASS} type="button" onClick={() => copyBriefingAction(selected, 'agent-handoff')} disabled={!!busyAction}>
+                        <span className={ACTION_CONTROL_ICON_CLASS} aria-hidden="true">quick_reference</span>
+                        <ActionControlLabel>Copy agent handoff</ActionControlLabel>
                       </button>
-                      <button className="pib-btn-secondary justify-center text-xs" type="button" onClick={() => copyBriefingAction(selected, 'blocker-summary')} disabled={!!busyAction}>
-                        <span className="material-symbols-outlined text-[15px]" aria-hidden="true">front_hand</span>
-                        Copy blocker summary
+                      <button className={ACTION_CONTROL_CLASS} type="button" onClick={() => copyBriefingAction(selected, 'blocker-summary')} disabled={!!busyAction}>
+                        <span className={ACTION_CONTROL_ICON_CLASS} aria-hidden="true">front_hand</span>
+                        <ActionControlLabel>Copy blocker summary</ActionControlLabel>
                       </button>
-                      <button className="pib-btn-secondary justify-center text-xs" type="button" onClick={() => copyBriefingAction(selected, 'evidence-links')} disabled={!!busyAction}>
-                        <span className="material-symbols-outlined text-[15px]" aria-hidden="true">link</span>
-                        Copy evidence links
+                      <button className={ACTION_CONTROL_CLASS} type="button" onClick={() => copyBriefingAction(selected, 'evidence-links')} disabled={!!busyAction}>
+                        <span className={ACTION_CONTROL_ICON_CLASS} aria-hidden="true">link</span>
+                        <ActionControlLabel>Copy evidence links</ActionControlLabel>
                       </button>
-                      <a className="pib-btn-secondary inline-flex justify-center text-xs" href={briefingChatHref(selected)}>
-                        <span className="material-symbols-outlined text-[15px]" aria-hidden="true">chat</span>
-                        Chat about this with {phase2AgentLabel(selected)}
+                      <a className={ACTION_CONTROL_LINK_CLASS} href={briefingChatHref(selected)}>
+                        <span className={ACTION_CONTROL_ICON_CLASS} aria-hidden="true">chat</span>
+                        <ActionControlLabel>Chat about this with {phase2AgentLabel(selected)}</ActionControlLabel>
                       </a>
                     </div>
                   </div>
                   <div className="mt-3 rounded-lg border border-amber-300/25 bg-amber-300/10 p-3">
-                    <button className="pib-btn-secondary w-full justify-center text-xs" type="button" disabled aria-label="Approval gates stay explicit">
-                      <span className="material-symbols-outlined text-[15px]" aria-hidden="true">lock</span>
-                      Approval gates stay explicit
+                    <button className={ACTION_CONTROL_CLASS} type="button" disabled aria-label="Approval gates stay explicit">
+                      <span className={ACTION_CONTROL_ICON_CLASS} aria-hidden="true">lock</span>
+                      <ActionControlLabel>Approval gates stay explicit</ActionControlLabel>
                     </button>
                     <p className="mt-2 text-xs leading-5 text-amber-100">
                       Mission Control can route decisions, but {MISSION_CONTROL_APPROVAL_GATES.join(', ')} require a separate explicit approval before any side effect.
@@ -3095,7 +3108,7 @@ export function BriefingControlDesk({ mode, portalScope }: { mode: Mode; portalS
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-2">
+                <div className={ACTION_CONTROL_GRID_CLASS} aria-label="Source action controls">
                   <button className="pib-btn-secondary justify-center text-xs" type="button" onClick={() => setItemState(selected, 'handled')} disabled={!!busyAction}>
                     <span className="material-symbols-outlined text-[15px]" aria-hidden="true">done_all</span>
                     Mark reviewed
@@ -3117,7 +3130,7 @@ export function BriefingControlDesk({ mode, portalScope }: { mode: Mode; portalS
                     </button>
                   ) : null}
                   {reviewable(selected) ? (
-                    <button className="pib-btn-secondary col-span-2 justify-center text-xs" type="button" onClick={() => taskPatch(selected, { reviewStatus: 'changes-requested', agentStatus: 'pending', columnId: 'todo' }, 'Sent back to the assigned agent.')} disabled={!!busyAction}>
+                    <button className="pib-btn-secondary justify-center text-xs" type="button" onClick={() => taskPatch(selected, { reviewStatus: 'changes-requested', agentStatus: 'pending', columnId: 'todo' }, 'Sent back to the assigned agent.')} disabled={!!busyAction}>
                       <span className="material-symbols-outlined text-[15px]" aria-hidden="true">assignment_return</span>
                       Send back to agent
                     </button>
@@ -3375,7 +3388,7 @@ export function BriefingControlDesk({ mode, portalScope }: { mode: Mode; portalS
                     </button>
                   ) : null}
                   {broadcastSendable(selected) ? (
-                    <div className="col-span-2 rounded-lg border border-amber-300/25 bg-amber-300/10 p-3">
+                    <div className="rounded-lg border border-amber-300/25 bg-amber-300/10 p-3">
                       <button className="pib-btn-secondary w-full justify-center text-xs" type="button" disabled aria-label="Send broadcast requires approval">
                         <span className="material-symbols-outlined text-[15px]" aria-hidden="true">lock</span>
                         Send broadcast requires approval

@@ -1457,6 +1457,31 @@ describe('BriefingControlDesk', () => {
     expect(screen.queryByText(/ask Theo to triage, link existing task, create routed Theo task/)).not.toBeInTheDocument()
   })
 
+  it('keeps long action-panel command labels contained in wrapped controls', async () => {
+    render(<BriefingControlDesk mode="portal" />)
+
+    fireEvent.click(await screen.findByRole('button', { name: /Document pending approval: Growth plan/i }))
+
+    expect(screen.getByLabelText('Internal review action controls')).toHaveClass('grid-cols-1')
+    expect(screen.getByLabelText('Copy and chat context controls')).toHaveClass('grid-cols-1')
+
+    const longControls = [
+      screen.getByRole('button', { name: /ask theo to triage unavailable/i }),
+      screen.getByRole('button', { name: /create routed theo task unavailable/i }),
+      screen.getByRole('button', { name: /link existing task unavailable/i }),
+      screen.getByRole('button', { name: /convert to crm activity unavailable/i }),
+      screen.getByRole('link', { name: /chat about this with theo/i }),
+    ]
+
+    longControls.forEach((control) => {
+      expect(control).toHaveClass('min-w-0')
+      expect(control).toHaveClass('whitespace-normal')
+      expect(control).toHaveClass('rounded-lg')
+      expect(control.querySelector('[data-action-label]')).toHaveClass('min-w-0')
+      expect(control.querySelector('[data-action-label]')).toHaveClass('whitespace-normal')
+    })
+  })
+
   it('renders Agent Learning Review proposals with skill, wiki, task links and no automatic rewrite guard', async () => {
     render(<BriefingControlDesk mode="portal" />)
 
