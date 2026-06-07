@@ -307,6 +307,67 @@ Existing PiB primitives remain authoritative where they are already stronger:
 8. **Manual channel execution:** Operator uploads externally to KDP/Google and records external IDs, status, review notes, blockers, and live URLs in `book_channel_listings`.
 9. **Analytics import:** Vera imports reports/ad data/PiB launch funnel rows, matches them to book/series/edition/channel listings, and creates reconciliation tasks for mismatches.
 
+### Series Operating Model
+
+Series support should be more than grouping books under one name. For Book Studio, a series is a commercial, editorial, metadata, and analytics object that controls continuity, release cadence, volume order, channel rules, and future production decisions.
+
+Series modes:
+
+| Mode | Use case | PiB behavior |
+| --- | --- | --- |
+| `ordered` | Fiction arcs, children's sequences, instructional courses, multi-volume nonfiction, comic issues. | Requires volume numbers, no gaps without a waiver, continuity checks, and channel series metadata checks. |
+| `unordered` | Topical nonfiction, brand authority books, devotional collections, companion guides, standalone books in the same universe. | Allows recommended reading order and related-content grouping without claiming strict volume sequence. |
+| `collection` | Box sets, omnibus editions, bundles, collected volumes, seasonal compilations. | Modeled as a separate book project linked to source volumes; channel support differs by platform and format. |
+| `spin_off` | Character/topic spin-offs or sub-series. | Links back to a parent series but maintains its own style guide, channel metadata, and analytics rollups. |
+
+The series record should own:
+
+- **Identity:** series name, subtitle/tagline, description, owner org, author/brand, language, audience, genre, and parent series if any.
+- **Order model:** ordered/unordered/collection/spin-off mode, volume numbers, recommended reading order, release cadence, planned-but-unpublished slots, and gap warnings.
+- **Continuity bible:** recurring characters, places, timeline, terminology, visual style, tone, content rules, canon status, recurring offers/CTAs, and forbidden contradictions.
+- **Research links:** market evidence, comparable series, reader expectations, review-mining patterns, category/keyword research, and release-cadence evidence.
+- **Production defaults:** default book type family, gate profile, trim/layout defaults, cover style system, metadata rules, Hermes skill defaults, and review requirements.
+- **Channel series state:** KDP series ID/page URL, Google series metadata, channel-specific warnings, live titles, related content, unsupported features, and external page status.
+- **Analytics rollup:** per-volume performance, series sell-through, launch order, reader acquisition source, read-through/drop-off, refund patterns, production cost recovery, and next-book recommendations.
+
+Series lifecycle:
+
+1. **Concept:** Research validates whether a series helps the audience/commercial goal or creates unnecessary production debt.
+2. **Bible draft:** Sage/Iris create a series strategy and continuity bible from Research, client goals, and existing books.
+3. **Approved bible:** Operator approves the bible before multiple volumes or repeated visual assets are generated.
+4. **Volume planning:** PiB creates planned book slots with `planned`, `in_production`, `ready_for_packet`, `published`, `paused`, or `cancelled` status.
+5. **Production:** Each book inherits series defaults but can override details with explicit notes and reviewer approval.
+6. **Channel setup:** KDP/Google series metadata is checked before manual upload, and each channel listing stores external series status.
+7. **Live monitoring:** Analytics tracks per-volume and aggregate performance and creates next-book or revision tasks when read-through, reviews, or refunds expose a problem.
+
+Series gates:
+
+- `series_strategy_approved`: required before creating more than one production book under the series.
+- `continuity_bible_current`: required before outline or draft tasks for any later volume.
+- `volume_order_validated`: required for ordered series and Google/KDP channel packets.
+- `channel_series_eligibility_checked`: required before any KDP/Google series metadata is sent to a publishing packet.
+- `series_metadata_consistency_checked`: title, subtitle, contributor, series name, punctuation, capitalization, volume number, and linked-format checks.
+- `series_analytics_reviewed`: required before approving a new follow-up volume after earlier volumes are live.
+
+KDP implications:
+
+- A KDP series can start before every book is complete, books can be added or removed, and linked formats on the Bookshelf are automatically added when one linked format is added to the series.
+- Public-domain and low-content books are not eligible for KDP series creation, so PiB should block KDP series packets for those book type families unless the channel rules change.
+- Kindle box sets can be added as related content, but KDP does not provide the same bundled/boxed-set creation path for paperbacks.
+- Amazon series pages and features vary by marketplace. PiB should store marketplace-specific series page URLs and support warnings instead of assuming one universal series page.
+- KDP series 1-click/bulk-buy has limits such as title count, unavailable Kindle items, pre-orders, multiple editions, fewer than two live titles, and paperback/hardcover-only sets. PiB should treat it as an observed channel capability, not a promised feature.
+
+Google implications:
+
+- Series name spelling, punctuation, capitalization, and volume numbering must be consistent across books.
+- Ordered series should use whole-number volume values without skipped or duplicate numbers unless the operator records a deliberate exception.
+- Google can model special relationships such as bundle, omnibus, box set, and special edition, so PiB should store relationship type separately from ordinary volume order.
+- Report imports must map sales/preview rows back to both book and series because Google identifiers can differ from ISBN handling and internal Google IDs.
+
+Hermes series tasks should never invent canon. They should propose continuity bible changes, flag contradictions, draft next-volume briefs, and recommend release cadence, but the operator owns final canon approval. If a later book contradicts an approved bible, the task should produce a `continuity_change_request` artifact rather than silently rewriting the series bible.
+
+Series design sources: [KDP Start a Book Series](https://kdp.amazon.com/en_US/help/topic/GMFKBUS43QQ5AJ5A), [KDP Amazon Series Page](https://kdp.amazon.com/en_US/help/topic/G83483M7NAQMBX46), and [Google Play Books series](https://support.google.com/books/partner/answer/11069638).
+
 ### Non-Port Rules
 
 - Do not use `users/{uid}/projects` style ownership. Every Book Studio record is `orgId` scoped and must pass admin/portal/agent org authorization.
