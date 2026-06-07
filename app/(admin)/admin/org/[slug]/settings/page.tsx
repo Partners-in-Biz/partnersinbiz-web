@@ -19,6 +19,7 @@ interface OrgForm {
   currency: 'USD' | 'EUR' | 'ZAR'
   portalModules: Record<string, boolean>
   portalMobileApps: boolean
+  portalYouTubeStudio: boolean
   // Email send-time optimisation
   preferredSendHourLocal: number
   preferredSendDaysOfWeek: number[]
@@ -61,7 +62,7 @@ interface OrgForm {
 const emptyForm: OrgForm = {
   name: '', website: '', description: '', industry: '', billingEmail: '',
   status: 'active', notificationEmail: '', defaultApprovalRequired: false, timezone: 'Africa/Johannesburg', currency: 'ZAR',
-  portalModules: {}, portalMobileApps: true,
+  portalModules: {}, portalMobileApps: true, portalYouTubeStudio: true,
   preferredSendHourLocal: 9, preferredSendDaysOfWeek: [1, 2, 3, 4, 5], replyNotifyEmails: '',
   line1: '', line2: '', city: '', state: '', postalCode: '', country: '',
   legalName: '', tradingName: '', vatNumber: '', registrationNumber: '', taxNumber: '', phone: '',
@@ -191,6 +192,7 @@ export default function OrgSettingsPage() {
             : 'ZAR',
           portalModules,
           portalMobileApps: portalModules.mobileApps !== false,
+          portalYouTubeStudio: portalModules.youtubeStudio !== false,
           preferredSendHourLocal:
             typeof settings.preferredSendHourLocal === 'number'
               ? settings.preferredSendHourLocal
@@ -263,6 +265,7 @@ export default function OrgSettingsPage() {
           portalModules: {
             ...form.portalModules,
             mobileApps: form.portalMobileApps,
+            youtubeStudio: form.portalYouTubeStudio,
           },
           replyNotifyEmails: form.replyNotifyEmails
             .split(/[\s,]+/)
@@ -643,6 +646,22 @@ export default function OrgSettingsPage() {
               <span className="block text-sm font-semibold text-on-surface">Mobile Apps</span>
               <span className="mt-1 block text-xs text-on-surface-variant">
                 Show App Store and Google Play review links, release notes, and app feedback tools in the client portal.
+              </span>
+            </span>
+          </label>
+          <label htmlFor="portalYouTubeStudio" className="flex items-start gap-3 rounded-lg border border-outline-variant/60 bg-[var(--color-surface-container)]/40 p-4">
+            <input
+              id="portalYouTubeStudio"
+              type="checkbox"
+              aria-label="YouTube Studio"
+              checked={form.portalYouTubeStudio}
+              onChange={e => update('portalYouTubeStudio', e.target.checked)}
+              className="mt-0.5 h-4 w-4 rounded border-outline text-primary"
+            />
+            <span>
+              <span className="block text-sm font-semibold text-on-surface">YouTube Studio</span>
+              <span className="mt-1 block text-xs text-on-surface-variant">
+                Show channel video requests, draft reviews, publishing packet approvals, and client-safe YouTube analytics.
               </span>
             </span>
           </label>

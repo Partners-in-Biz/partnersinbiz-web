@@ -102,15 +102,18 @@ describe('OrgSettingsPage folder mappings', () => {
   })
 
   it('loads and saves the Mobile Apps client portal module switch', async () => {
-    detailSettings = { portalModules: { mobileApps: false } }
+    detailSettings = { portalModules: { mobileApps: false, youtubeStudio: false } }
 
     render(<OrgSettingsPage />)
 
     await waitFor(() => expect(screen.getByText('Client portal modules')).toBeInTheDocument())
     const mobileAppsSwitch = screen.getByLabelText('Mobile Apps') as HTMLInputElement
     expect(mobileAppsSwitch).not.toBeChecked()
+    const youtubeStudioSwitch = screen.getByLabelText('YouTube Studio') as HTMLInputElement
+    expect(youtubeStudioSwitch).not.toBeChecked()
 
     fireEvent.click(mobileAppsSwitch)
+    fireEvent.click(youtubeStudioSwitch)
     fireEvent.click(screen.getByRole('button', { name: 'Save Settings' }))
 
     await waitFor(() => {
@@ -122,6 +125,7 @@ describe('OrgSettingsPage folder mappings', () => {
         settings: {
           portalModules: {
             mobileApps: true,
+            youtubeStudio: true,
           },
         },
       })

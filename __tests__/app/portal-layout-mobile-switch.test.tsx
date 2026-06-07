@@ -6,7 +6,7 @@ const pushMock = jest.fn()
 const refreshMock = jest.fn()
 let mockPathname = '/portal/dashboard'
 let mockSearchParams = new URLSearchParams()
-let mockPortalModules: { mobileApps?: boolean } | undefined
+let mockPortalModules: { mobileApps?: boolean; youtubeStudio?: boolean } | undefined
 
 jest.mock('next/navigation', () => ({
   useRouter: () => ({
@@ -206,6 +206,18 @@ describe('PortalLayout mobile role switch', () => {
     })
   })
 
+  it('keeps YouTube Studio visible when no portal module setting is stored', async () => {
+    render(
+      <PortalLayout>
+        <div>Portal content</div>
+      </PortalLayout>,
+    )
+
+    await waitFor(() => {
+      expect(screen.getAllByRole('link', { name: /YouTube Studio/ }).length).toBeGreaterThan(0)
+    })
+  })
+
   it('hides Mobile Apps navigation when the active organisation disables the module', async () => {
     mockPortalModules = { mobileApps: false }
 
@@ -219,6 +231,22 @@ describe('PortalLayout mobile role switch', () => {
 
     await waitFor(() => {
       expect(screen.queryByRole('link', { name: /Mobile Apps/ })).not.toBeInTheDocument()
+    })
+  })
+
+  it('hides YouTube Studio navigation when the active organisation disables the module', async () => {
+    mockPortalModules = { youtubeStudio: false }
+
+    render(
+      <PortalLayout>
+        <div>Portal content</div>
+      </PortalLayout>,
+    )
+
+    expect(await screen.findByText('Client portal')).toBeInTheDocument()
+
+    await waitFor(() => {
+      expect(screen.queryByRole('link', { name: /YouTube Studio/ })).not.toBeInTheDocument()
     })
   })
 })

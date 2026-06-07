@@ -1,9 +1,10 @@
-export type PortalModuleKey = 'mobileApps'
+export type PortalModuleKey = 'mobileApps' | 'youtubeStudio'
 
 export type PortalModules = Record<PortalModuleKey, boolean>
 
 export const DEFAULT_PORTAL_MODULES: PortalModules = {
   mobileApps: true,
+  youtubeStudio: true,
 }
 
 type OrgSettingsLike = {
@@ -14,6 +15,7 @@ export function resolvePortalModules(settings: OrgSettingsLike): PortalModules {
   const stored = settings?.portalModules ?? {}
   return {
     mobileApps: stored.mobileApps !== false,
+    youtubeStudio: stored.youtubeStudio !== false,
   }
 }
 

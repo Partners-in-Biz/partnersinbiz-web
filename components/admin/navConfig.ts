@@ -117,6 +117,7 @@ export function workspaceNav(slug: string): NavItem[] {
     { label: 'Documents', href: `/admin/org/${slug}/documents`, icon: 'description', group: 'work' },
     { label: 'Research', href: `/admin/org/${slug}/research`, icon: 'travel_explore', group: 'work' },
     { label: 'Mobile Apps', href: `/admin/org/${slug}/mobile-apps`, icon: 'smartphone', group: 'work' },
+    { label: 'YouTube Studio', href: `/admin/org/${slug}/youtube-studio`, icon: 'smart_display', group: 'work' },
     {
       label: 'Marketing',
       href: `/admin/org/${slug}/marketing`,

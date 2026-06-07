@@ -38,6 +38,7 @@ const NAV_LINKS: NavItem[] = [
   { href: '/portal/documents', label: 'Documents', icon: 'description',     group: 'work' },
   { href: '/portal/research',  label: 'Research',  icon: 'travel_explore', group: 'data' },
   { href: '/portal/mobile-apps', label: 'Mobile Apps', icon: 'smartphone', group: 'work' },
+  { href: '/portal/youtube-studio', label: 'YouTube Studio', icon: 'smart_display', group: 'work' },
   {
     href: '/portal/crm',
     label: 'CRM',
@@ -415,7 +416,11 @@ function PortalLayoutContent({ children }: { children: React.ReactNode }) {
         )
       : path
 
-  const visibleNavLinks = NAV_LINKS.filter((item) => item.href !== '/portal/mobile-apps' || portalModules.mobileApps)
+  const visibleNavLinks = NAV_LINKS.filter((item) => {
+    if (item.href === '/portal/mobile-apps') return portalModules.mobileApps
+    if (item.href === '/portal/youtube-studio') return portalModules.youtubeStudio
+    return true
+  })
   const navWithBadges: NavItem[] = visibleNavLinks.map((item) => {
     const href = requestedOrgId
       ? scopedShellHref(item.href)
