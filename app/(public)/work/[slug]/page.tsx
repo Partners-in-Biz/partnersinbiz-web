@@ -13,6 +13,7 @@ interface CaseContent {
   pullQuote: string
   outcomeQuote: { quote: string; author: string; role: string; avatar: string }
   visuals: [string, string]
+  siteUrl?: string
   brief: string
   insight: string
   build: string
@@ -20,6 +21,67 @@ interface CaseContent {
 }
 
 const CONTENT: Record<Slug, CaseContent> = {
+  velox: {
+    contact: { name: 'Partners in Biz', role: 'Product studio' },
+    pullQuote:
+      'Velox needed to feel like a game in the first minute, then behave like serious learning software once the habit started.',
+    outcomeQuote: {
+      quote:
+        'This is the app-development work we want prospects to see: product strategy, mobile delivery, subscriptions, multilingual UX, analytics, and a live marketing surface moving together.',
+      author: 'Peet Stander',
+      role: 'Founder, Partners in Biz',
+      avatar: '/images/case-velox-cover.png',
+    },
+    visuals: ['/images/case-velox-dashboard.png', '/images/case-velox-cover.png'],
+    siteUrl: 'https://veloxmath.com/',
+    brief:
+      'Velox is a mental math training product built around a sharp promise: beat your calculator, then keep improving with structured practice. The app had to work as a public web product and as a store-ready mobile app without splitting the codebase. The brief was not just "make a math app". It needed a 60-second challenge that anyone could understand, a deeper Math Gym for repeat practice, lesson progression, records, streaks, language-specific training, and a payment path that would survive real App Store and Play Store review.',
+    insight:
+      'Education apps fail when the first session feels like homework and the long-term system feels like a dashboard. Velox needed both loops. The first loop is fast: a challenge, a score, a reason to try again. The second loop is durable: weak-spots training, curriculum unlocks, leaderboards, achievements, and progress records. Treating those as one product system meant the landing page, mobile shell, practice model, subscription gates, and analytics all had to tell the same story.',
+    build:
+      'We built Velox as a Vite + React 19 application with Capacitor powering iOS and Android builds. Firebase handles authentication and progress data, RevenueCat handles native subscriptions, and the app uses a shared React surface for the web product, mobile shell, and marketing site. The latest release added multilingual app and training-language controls, refreshed the landing page around real app screenshots, tightened the Math Gym practice model, and made the subscription experience native enough for mobile users while still keeping the web route useful for acquisition.',
+    shipped: [
+      'Vite + React 19 product app with shared web and mobile code',
+      'Capacitor iOS and Android builds with native integrations',
+      '60-second challenge, Math Gym workouts, streaks, records, and leaderboards',
+      'Progressive curriculum with 50+ lessons and practice gating',
+      'Firebase authentication, progress storage, and analytics surfaces',
+      'RevenueCat subscription flow and customer-centre integration',
+      'Multilingual app and training-language preference system',
+      'Marketing site using real app screenshots and store-ready positioning',
+    ],
+  },
+  lumen: {
+    contact: { name: 'Partners in Biz', role: 'Product studio' },
+    pullQuote:
+      'Lumen had to do more than read faster. It had to let people choose the language they use the app in, then train in the language they are trying to improve.',
+    outcomeQuote: {
+      quote:
+        'Lumen shows the full mobile-app stack: real onboarding, multilingual product logic, native subscriptions, AI-assisted practice, app-store assets, and a web product that can still convert.',
+      author: 'Peet Stander',
+      role: 'Founder, Partners in Biz',
+      avatar: '/images/case-lumen-cover.png',
+    },
+    visuals: ['/images/case-lumen-language.png', '/images/case-lumen-cover.png'],
+    siteUrl: 'https://lumenspeeds.com/',
+    brief:
+      'Lumen is a speed-reading and focus trainer for people who want to improve reading speed without losing comprehension. The product expanded into multilingual use: someone can use the interface in English, Afrikaans, or Portuguese while training in a different language path. That meant the app could not treat "language" as a single setting. It needed separate app-language and training-language state, per-language progress, reading history, spaced repetition cards, analytics, onboarding, and a native payment model across web, iOS, and Android.',
+    insight:
+      'Most learning apps bolt translation onto the surface after the product is already built. Lumen needed the opposite: language had to be part of the product model. Progress, cards, reading sessions, comprehension, and coaching only make sense if the app knows which language the learner is training. Once that was true, the interface language could become a separate comfort setting instead of a constraint on the learning path.',
+    build:
+      'We built Lumen as a Vite + React app with Capacitor for iOS and Android. Firebase handles authentication, session history, and cloud functions; i18next powers localisation; RevenueCat powers native in-app purchases; and Gemini-backed functions generate reading passages and comprehension questions. The current release tightened the multilingual onboarding, produced fresh App Store and Play Store screenshot sets, connected native subscription state through RevenueCat, and kept the public web product aligned with the mobile experience.',
+    shipped: [
+      'Vite + React product app deployed for web, iOS, and Android',
+      'Separate app-language and training-language model',
+      'English, Afrikaans, and Portuguese interface support',
+      'RSVP speed-reading sessions with comprehension and WPM tracking',
+      'Per-language progress, history, SRS cards, and analytics',
+      'Firebase authentication, data storage, and cloud functions',
+      'Gemini-assisted reading passage and question generation',
+      'RevenueCat native subscriptions, restore flow, and webhook handling',
+      'Current App Store and Play Store screenshot/marketing asset set',
+    ],
+  },
   athleet: {
     contact: { name: 'Daniel Roux', role: 'Co-founder, Athleet' },
     pullQuote:
@@ -223,6 +285,19 @@ export default async function CaseStudyPage({
               <p className="mt-8 max-w-2xl text-lg md:text-xl text-[var(--color-pib-text-muted)] text-pretty">
                 {study.summary}
               </p>
+              {content.siteUrl && (
+                <div className="mt-8">
+                  <a
+                    href={content.siteUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="btn-pib-secondary"
+                  >
+                    Visit live product
+                    <span className="material-symbols-outlined text-base">arrow_outward</span>
+                  </a>
+                </div>
+              )}
             </Reveal>
 
             {/* Context strip */}

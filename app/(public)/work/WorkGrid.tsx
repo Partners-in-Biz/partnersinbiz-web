@@ -9,7 +9,7 @@ import { Reveal } from '@/components/marketing/Reveal'
 type CaseStudy = (typeof CASE_STUDIES)[number]
 
 const INDUSTRY_FILTERS = ['All', 'Sports', 'Aviation', 'Legal', 'EdTech'] as const
-const SERVICE_FILTERS = ['All services', 'Web App', 'Mobile', 'Marketing Website'] as const
+const SERVICE_FILTERS = ['All services', 'Web App', 'Mobile App', 'Marketing Website'] as const
 
 type IndustryFilter = (typeof INDUSTRY_FILTERS)[number]
 type ServiceFilter = (typeof SERVICE_FILTERS)[number]
@@ -26,7 +26,7 @@ function matchesIndustry(c: CaseStudy, f: IndustryFilter) {
 function matchesService(c: CaseStudy, f: ServiceFilter) {
   if (f === 'All services') return true
   if (f === 'Web App') return c.services.some((s) => s.toLowerCase().includes('web application'))
-  if (f === 'Mobile') return c.services.some((s) => s.toLowerCase().includes('mobile'))
+  if (f === 'Mobile App') return c.services.some((s) => s.toLowerCase().includes('mobile'))
   if (f === 'Marketing Website') return c.services.some((s) => s.toLowerCase().includes('marketing'))
   return true
 }
