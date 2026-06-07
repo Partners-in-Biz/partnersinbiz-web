@@ -17,6 +17,8 @@ interface OrgForm {
   defaultApprovalRequired: boolean
   timezone: string
   currency: 'USD' | 'EUR' | 'ZAR'
+  portalModules: Record<string, boolean>
+  portalMobileApps: boolean
   // Email send-time optimisation
   preferredSendHourLocal: number
   preferredSendDaysOfWeek: number[]
@@ -59,6 +61,7 @@ interface OrgForm {
 const emptyForm: OrgForm = {
   name: '', website: '', description: '', industry: '', billingEmail: '',
   status: 'active', notificationEmail: '', defaultApprovalRequired: false, timezone: 'Africa/Johannesburg', currency: 'ZAR',
+  portalModules: {}, portalMobileApps: true,
   preferredSendHourLocal: 9, preferredSendDaysOfWeek: [1, 2, 3, 4, 5], replyNotifyEmails: '',
   line1: '', line2: '', city: '', state: '', postalCode: '', country: '',
   legalName: '', tradingName: '', vatNumber: '', registrationNumber: '', taxNumber: '', phone: '',
@@ -170,6 +173,9 @@ export default function OrgSettingsPage() {
         const addr = bd.address ?? {}
         const bank = bd.bankingDetails ?? {}
         const settings = d.settings ?? {}
+        const portalModules = settings.portalModules && typeof settings.portalModules === 'object'
+          ? settings.portalModules as Record<string, boolean>
+          : {}
         setForm({
           name: d.name ?? '',
           website: d.website ?? '',
@@ -183,6 +189,8 @@ export default function OrgSettingsPage() {
           currency: ['USD', 'EUR', 'ZAR'].includes(settings.currency)
             ? settings.currency
             : 'ZAR',
+          portalModules,
+          portalMobileApps: portalModules.mobileApps !== false,
           preferredSendHourLocal:
             typeof settings.preferredSendHourLocal === 'number'
               ? settings.preferredSendHourLocal
@@ -252,6 +260,10 @@ export default function OrgSettingsPage() {
           currency: form.currency,
           preferredSendHourLocal: form.preferredSendHourLocal,
           preferredSendDaysOfWeek: form.preferredSendDaysOfWeek,
+          portalModules: {
+            ...form.portalModules,
+            mobileApps: form.portalMobileApps,
+          },
           replyNotifyEmails: form.replyNotifyEmails
             .split(/[\s,]+/)
             .map((e) => e.trim().toLowerCase())
@@ -608,6 +620,32 @@ export default function OrgSettingsPage() {
               </select>
             </div>
           </div>
+        </div>
+
+        {/* Client portal modules */}
+        <div className="pib-card space-y-4">
+          <div>
+            <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Client portal modules</p>
+            <p className="mt-1 text-xs text-on-surface-variant">
+              Choose which work areas this client can see in their portal. Disabled modules stay available to PiB admins.
+            </p>
+          </div>
+          <label htmlFor="portalMobileApps" className="flex items-start gap-3 rounded-lg border border-outline-variant/60 bg-[var(--color-surface-container)]/40 p-4">
+            <input
+              id="portalMobileApps"
+              type="checkbox"
+              aria-label="Mobile Apps"
+              checked={form.portalMobileApps}
+              onChange={e => update('portalMobileApps', e.target.checked)}
+              className="mt-0.5 h-4 w-4 rounded border-outline text-primary"
+            />
+            <span>
+              <span className="block text-sm font-semibold text-on-surface">Mobile Apps</span>
+              <span className="mt-1 block text-xs text-on-surface-variant">
+                Show App Store and Google Play review links, release notes, and app feedback tools in the client portal.
+              </span>
+            </span>
+          </label>
         </div>
 
         {/* Email send-time + reply notifications */}

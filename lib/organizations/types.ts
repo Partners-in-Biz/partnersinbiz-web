@@ -1,6 +1,7 @@
 // lib/organizations/types.ts
 
 import type { Timestamp } from 'firebase-admin/firestore'
+import type { PortalModules } from '@/lib/organizations/portal-modules'
 
 // ── Org Type & Status ─────────────────────────────────────────────────────
 
@@ -87,6 +88,7 @@ export interface OrgSettings {
   currency: 'USD' | 'EUR' | 'ZAR'
   defaultApprovalRequired: boolean  // social posts need client approval by default
   notificationEmail: string
+  portalModules?: Partial<PortalModules>
   brandColors?: {
     primary: string
     secondary: string
