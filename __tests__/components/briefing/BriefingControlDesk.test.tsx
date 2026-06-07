@@ -1099,9 +1099,16 @@ const bookingBriefingItem = {
 }
 
 describe('BriefingControlDesk', () => {
+  const writeText = jest.fn()
+
   beforeEach(() => {
     jest.useFakeTimers()
     jest.setSystemTime(new Date('2026-05-31T10:05:00.000Z'))
+    writeText.mockResolvedValue(undefined)
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: { writeText },
+    })
     global.fetch = jest.fn(async (input: RequestInfo | URL) => {
       const url = String(input)
       if (url === '/api/v1/portal/org') {
@@ -1416,10 +1423,20 @@ describe('BriefingControlDesk', () => {
     expect(screen.getByRole('button', { name: /reject phase 2 item/i })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /snooze phase 2 item/i })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /create follow-up task/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /ask theo to triage/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /create routed theo task/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /link existing task/i })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /assign theo/i })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: /open evidence/i })).toHaveAttribute('href', 'https://partnersinbiz.online/admin/projects/project-1?taskId=task-1')
+    expect(screen.getByRole('button', { name: /copy exact ask/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /copy full briefing/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /copy agent handoff/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /copy blocker summary/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /copy evidence links/i })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /chat about this with theo/i })).toHaveAttribute('href', '/admin/org/client-one/messages?agent=theo&projectId=project-1&taskId=task-1&briefingId=task%3Aitem-1')
     expect(screen.getByRole('button', { name: /convert to crm activity unavailable/i })).toBeDisabled()
-    expect(screen.getByText('CRM conversion needs a contact or deal on the briefing card.')).toBeInTheDocument()
+    expect(screen.getByText('Unavailable: CRM conversion needs a contact or deal on the briefing card.')).toBeInTheDocument()
+    expect(screen.getByText(/Nearest valid alternatives: create follow-up task, ask Theo to triage, link existing task, create routed Theo task\./)).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /approval gates stay explicit/i })).toBeDisabled()
     expect(screen.getByText(/production deploys, external sends, public publishing, paid spend, finance changes, secret\/config changes, destructive actions require a separate explicit approval/i)).toBeInTheDocument()
   })
@@ -1437,6 +1454,42 @@ describe('BriefingControlDesk', () => {
     expect(screen.getByRole('link', { name: 'Agent learning log' })).toHaveAttribute('href', '/admin/wiki/partners/agent-learning')
     expect(screen.getByRole('link', { name: 'Follow-up task' })).toHaveAttribute('href', '/admin/projects/project-1?taskId=task-learning-1')
     expect(screen.getByText(/Source doc: doc-learning-2026-06-04 · Approval gate task: approval-learning-1/)).toBeInTheDocument()
+  })
+
+  it('copies briefing context snippets and creates routed specialist tasks with card context', async () => {
+    render(<BriefingControlDesk mode="portal" />)
+
+    expect((await screen.findAllByText('Theo completed work - review required')).length).toBeGreaterThan(0)
+    fireEvent.click(screen.getByRole('button', { name: /copy exact ask/i }))
+    await waitFor(() => expect(writeText).toHaveBeenCalledWith(expect.stringContaining('Ask: Theo completed work - review required')))
+    expect(writeText).toHaveBeenLastCalledWith(expect.stringContaining('Project: Launch site (project-1)'))
+
+    fireEvent.click(screen.getByRole('button', { name: /copy evidence links/i }))
+    await waitFor(() => expect(writeText).toHaveBeenLastCalledWith(expect.stringContaining('Development preview: https://partnersinbiz.online/admin/projects/project-1?taskId=task-1')))
+
+    fireEvent.click(screen.getByRole('button', { name: /ask theo to triage/i }))
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith('/api/v1/briefings/items/task%3Aitem-1/actions', expect.objectContaining({
+        method: 'POST',
+        body: expect.stringContaining('"action":"ask-specialist-triage"'),
+      }))
+    })
+    const triageCall = (global.fetch as jest.Mock).mock.calls.find(([url, options]) => url === '/api/v1/briefings/items/task%3Aitem-1/actions' && String(options?.body).includes('ask-specialist-triage'))
+    expect(JSON.parse(triageCall?.[1]?.body)).toMatchObject({
+      action: 'ask-specialist-triage',
+      assigneeAgentId: 'theo',
+      context: expect.objectContaining({ projectId: 'project-1', taskId: 'task-1' }),
+      source: expect.objectContaining({ type: 'agent-output', id: 'item-1' }),
+      metadata: expect.objectContaining({ softwareBuildEvidence: expect.any(Array) }),
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: /create routed theo task/i }))
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith('/api/v1/briefings/items/task%3Aitem-1/actions', expect.objectContaining({
+        method: 'POST',
+        body: expect.stringContaining('"action":"create-routed-task"'),
+      }))
+    })
   })
 
   it('creates follow-up tasks and assigns the current task from Phase 2 controls', async () => {
