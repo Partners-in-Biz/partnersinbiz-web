@@ -187,6 +187,12 @@ interface BriefingCard {
     gatedActions?: string[]
   } | null
   disabledReason?: string | null
+  nearestValidActions?: Array<{
+    action: string
+    label: string
+    reason?: string | null
+    href?: string
+  }> | null
   userState?: {
     status?: 'active' | 'read' | 'handled' | 'snoozed' | 'rejected' | 'approved' | 'pending-review' | 'follow-up-created'
     note?: string | null
@@ -211,7 +217,7 @@ type Flash = { kind: 'ok' | 'error'; message: string } | null
 const PRIORITIES = [
   { value: 'all', label: 'All priorities', icon: 'select_all' },
   { value: 'critical', label: 'Blocked', icon: 'priority_high' },
-  { value: 'needs-peet', label: 'Needs Peet', icon: 'person_alert' },
+  { value: 'needs-peet', label: 'Action required', icon: 'person_alert' },
   { value: 'client-risk', label: 'Risk', icon: 'release_alert' },
   { value: 'review', label: 'Review', icon: 'rate_review' },
   { value: 'progress', label: 'In motion', icon: 'motion_photos_auto' },
@@ -259,7 +265,7 @@ const SOURCES = [
 
 const PRIORITY_LABELS: Record<BriefingCard['priority'], string> = {
   critical: 'Blocked',
-  'needs-peet': 'Needs Peet',
+  'needs-peet': 'Action required',
   'client-risk': 'Risk',
   review: 'Review',
   progress: 'In motion',
@@ -866,7 +872,7 @@ function documentReviewable(item: BriefingCard) {
 }
 
 function briefingStateLabel(item: BriefingCard) {
-  if (item.userState?.status === 'handled') return 'Handled'
+  if (item.userState?.status === 'handled') return 'Marked reviewed'
   if (item.userState?.status === 'snoozed') return 'Snoozed'
   if (item.requiresAction) return 'Needs action'
   return 'Active'
@@ -910,6 +916,33 @@ function phase2AgentLabel(item: BriefingCard) {
 
 function canConvertToCrmActivity(item: BriefingCard) {
   return Boolean(item.context.contactId || item.context.dealId || item.metadata?.contactId || item.metadata?.dealId)
+}
+
+function phase2UsableAlternatives(item: BriefingCard, mode: Mode, portalScope?: PortalOrgRouteScope) {
+  const alternatives: string[] = []
+  if (item.context.projectId || item.context.orgId || item.orgId) alternatives.push('create follow-up task')
+  if (item.context.projectId) {
+    alternatives.push(`ask ${phase2AgentLabel(item)} to triage`)
+    alternatives.push('link existing task')
+    alternatives.push(`create routed ${phase2AgentLabel(item)} task`)
+  }
+  if (evidenceHref(item, mode, portalScope)) alternatives.push('open evidence')
+  else if (sourceHref(item, mode, portalScope)) alternatives.push('open source')
+  return alternatives.filter((alternative, index, all) => all.indexOf(alternative) === index)
+}
+
+function phase2UnavailableActionCopy(item: BriefingCard) {
+  if (item.context.projectId) return null
+  return `Project-scoped routing is unavailable: this card is not linked to a project. Open the source or create a follow-up task first.`
+}
+
+function crmUnavailableCopy(item: BriefingCard) {
+  if (canConvertToCrmActivity(item)) return null
+  return 'CRM conversion unavailable: this card needs a linked contact or deal first. Open the source to link CRM context, or create a follow-up task before converting.'
+}
+
+function contractNearestValidActions(item: BriefingCard) {
+  return (item.nearestValidActions ?? []).filter((action) => action.label?.trim())
 }
 
 function evidenceHref(item: BriefingCard, mode: Mode, portalScope?: PortalOrgRouteScope) {
@@ -1033,15 +1066,15 @@ type WorkflowLaneId = 'all' | 'decide' | 'approve' | 'unblock' | 'follow-up' | '
 const WORKFLOW_LANES: Array<{ id: WorkflowLaneId; label: string; icon: string; description: string }> = [
   { id: 'decide', label: 'Decide', icon: 'rule', description: 'Business decisions, quotes, finance choices, and account-risk calls.' },
   { id: 'approve', label: 'Approve', icon: 'approval', description: 'Explicit approval gates for documents, campaigns, spends, runs, and brokered side effects.' },
-  { id: 'unblock', label: 'Unblock', icon: 'lock_open', description: 'Cards paused because Peet, an account owner, or a client input is blocking progress.' },
+  { id: 'unblock', label: 'Unblock', icon: 'lock_open', description: 'Cards paused because an account owner, client input, or internal reviewer is blocking progress.' },
   { id: 'follow-up', label: 'Follow up', icon: 'follow_the_signs', description: 'Messages, inboxes, CRM touches, support replies, forms, bookings, and overdue relationship actions.' },
   { id: 'agent-review', label: 'Review agent work', icon: 'smart_toy', description: 'Agent outputs, learning proposals, build evidence, and run approvals that need human review.' },
-  { id: 'fyi-evidence', label: 'FYI/evidence', icon: 'fact_check', description: 'Progress, completed work, shipments, reports, and source-backed evidence Peet may inspect.' },
+  { id: 'fyi-evidence', label: 'FYI/evidence', icon: 'fact_check', description: 'Progress, completed work, shipments, reports, and source-backed evidence for internal review.' },
 ]
 
 const SUMMARY_COUNTER_DEFS = [
-  { id: 'needsPeet', label: 'Needs Peet', icon: 'person_alert', color: 'var(--color-accent-v2)' },
-  { id: 'blockedByPeet', label: 'Blocked by Peet', icon: 'front_hand', color: '#f97316' },
+  { id: 'needsPeet', label: 'Action required', icon: 'person_alert', color: 'var(--color-accent-v2)' },
+  { id: 'blockedByPeet', label: 'Input blocker', icon: 'front_hand', color: '#f97316' },
   { id: 'approvalNeeded', label: 'Approval needed', icon: 'approval', color: '#f59e0b' },
   { id: 'agentReview', label: 'Agent review', icon: 'smart_toy', color: '#4ade80' },
   { id: 'followUpsDue', label: 'Follow-ups due', icon: 'forward_to_inbox', color: '#60a5fa' },
@@ -2471,9 +2504,8 @@ export function BriefingControlDesk({ mode, portalScope }: { mode: Mode; portalS
     }
   }
 
-  async function broadcastAction(item: BriefingCard, action: 'send-now' | 'pause' | 'resume') {
+  async function broadcastAction(item: BriefingCard, action: 'pause' | 'resume') {
     if (!canBroadcastAct(item)) return
-    if (action === 'send-now' && !broadcastSendable(item)) return
     if (action === 'pause' && !broadcastPausable(item)) return
     if (action === 'resume' && !broadcastResumable(item)) return
     setBusyAction(`broadcast-${action}`)
@@ -2481,15 +2513,12 @@ export function BriefingControlDesk({ mode, portalScope }: { mode: Mode; portalS
       const res = await fetch(`/api/v1/broadcasts/${encodeURIComponent(item.source.id)}/${action}`, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: action === 'send-now' ? JSON.stringify({ immediate: false }) : undefined,
       })
       const body = await res.json()
       if (!res.ok) throw new Error(body.error || 'Broadcast action failed')
-      const message = action === 'send-now'
-        ? 'Broadcast queued from the control desk.'
-        : action === 'pause'
-          ? 'Broadcast paused from the control desk.'
-          : 'Broadcast resumed from the control desk.'
+      const message = action === 'pause'
+        ? 'Broadcast paused from the control desk.'
+        : 'Broadcast resumed from the control desk.'
       setFlash({ kind: 'ok', message })
       await loadFeed({ quiet: true })
     } catch (err) {
@@ -2765,7 +2794,7 @@ export function BriefingControlDesk({ mode, portalScope }: { mode: Mode; portalS
               {loading ? (
                 <div className="rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)] p-6 text-sm text-on-surface-variant">Loading live control desk...</div>
               ) : items.length === 0 ? (
-                <div className="rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)] p-6 text-sm text-on-surface-variant">No matching cards are active. Handled and snoozed cards stay out of this live view until they return.</div>
+                <div className="rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)] p-6 text-sm text-on-surface-variant">No matching cards are active. Marked reviewed and snoozed cards stay out of this live view until they return.</div>
               ) : (
                 items.map((item) => (
                   <button
@@ -2928,19 +2957,36 @@ export function BriefingControlDesk({ mode, portalScope }: { mode: Mode; portalS
 
                 <div className="rounded-lg border border-white/10 bg-white/[0.03] p-3">
                   <div className="flex items-center justify-between gap-3">
-                    <p className="text-xs font-semibold uppercase tracking-[0.16em] text-brand">Phase 2 actions</p>
+                    <p className="text-xs font-semibold uppercase tracking-[0.16em] text-brand">Internal review actions</p>
                     <span className="rounded-full border border-emerald-300/30 bg-emerald-300/10 px-2 py-1 text-[11px] text-emerald-100">Safe controls only</span>
                   </div>
+                  {selected.disabledReason ? (
+                    <div className="mt-3 rounded-lg border border-amber-300/25 bg-amber-300/10 p-3 text-xs leading-5 text-amber-100">
+                      <p><span className="font-semibold">Disabled action reason:</span> {selected.disabledReason}</p>
+                    </div>
+                  ) : null}
+                  {contractNearestValidActions(selected).length ? (
+                    <div className="mt-3 rounded-lg border border-white/10 bg-white/[0.03] p-3 text-xs leading-5 text-on-surface-variant">
+                      <p className="font-semibold text-on-surface">Contract alternatives</p>
+                      <ul className="mt-1 space-y-1">
+                        {contractNearestValidActions(selected).map((action) => (
+                          <li key={`${action.action}-${action.label}`}>
+                            <span className="font-medium text-on-surface">{action.label}</span>{action.reason ? ` — ${action.reason}` : ''}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  ) : null}
                   <div className="mt-3 grid grid-cols-2 gap-2">
-                    <button className="pib-btn-secondary justify-center text-xs" type="button" onClick={() => approvePhase2Item(selected)} disabled={!!busyAction} aria-label="Approve Phase 2 item">
+                    <button className="pib-btn-secondary justify-center text-xs" type="button" onClick={() => approvePhase2Item(selected)} disabled={!!busyAction} aria-label="Approve internal review">
                       <span className="material-symbols-outlined text-[15px]" aria-hidden="true">verified</span>
-                      Approve
+                      Approve internal review
                     </button>
-                    <button className="pib-btn-secondary justify-center text-xs" type="button" onClick={() => rejectPhase2Item(selected)} disabled={!!busyAction || (canSocialPostAct(selected) && !!socialActionStage(selected) && !socialChangeText.trim())} aria-label="Reject Phase 2 item">
+                    <button className="pib-btn-secondary justify-center text-xs" type="button" onClick={() => rejectPhase2Item(selected)} disabled={!!busyAction || (canSocialPostAct(selected) && !!socialActionStage(selected) && !socialChangeText.trim())} aria-label="Request internal changes">
                       <span className="material-symbols-outlined text-[15px]" aria-hidden="true">assignment_return</span>
-                      Reject
+                      Request internal changes
                     </button>
-                    <button className="pib-btn-secondary justify-center text-xs" type="button" onClick={() => setItemState(selected, 'snoozed')} disabled={!!busyAction} aria-label="Snooze Phase 2 item">
+                    <button className="pib-btn-secondary justify-center text-xs" type="button" onClick={() => setItemState(selected, 'snoozed')} disabled={!!busyAction} aria-label="Snooze internal review item">
                       <span className="material-symbols-outlined text-[15px]" aria-hidden="true">snooze</span>
                       Snooze
                     </button>
@@ -2948,17 +2994,17 @@ export function BriefingControlDesk({ mode, portalScope }: { mode: Mode; portalS
                       <span className="material-symbols-outlined text-[15px]" aria-hidden="true">add_task</span>
                       Create follow-up task
                     </button>
-                    <button className="pib-btn-secondary justify-center text-xs" type="button" onClick={() => createRoutedBriefingTask(selected, 'ask-specialist-triage')} disabled={!selected.context.projectId}>
+                    <button className="pib-btn-secondary justify-center text-xs" type="button" onClick={() => createRoutedBriefingTask(selected, 'ask-specialist-triage')} disabled={!selected.context.projectId} aria-label={selected.context.projectId ? `Ask ${phase2AgentLabel(selected)} to triage` : `Ask ${phase2AgentLabel(selected)} to triage unavailable`} title={!selected.context.projectId ? 'Requires a linked project before routing to a specialist.' : undefined}>
                       <span className="material-symbols-outlined text-[15px]" aria-hidden="true">support_agent</span>
-                      Ask {phase2AgentLabel(selected)} to triage
+                      {selected.context.projectId ? `Ask ${phase2AgentLabel(selected)} to triage` : `Ask ${phase2AgentLabel(selected)} to triage unavailable`}
                     </button>
-                    <button className="pib-btn-secondary justify-center text-xs" type="button" onClick={() => createRoutedBriefingTask(selected, 'create-routed-task')} disabled={!selected.context.projectId}>
+                    <button className="pib-btn-secondary justify-center text-xs" type="button" onClick={() => createRoutedBriefingTask(selected, 'create-routed-task')} disabled={!selected.context.projectId} aria-label={selected.context.projectId ? `Create routed ${phase2AgentLabel(selected)} task` : `Create routed ${phase2AgentLabel(selected)} task unavailable`} title={!selected.context.projectId ? 'Requires a linked project before creating a routed specialist task.' : undefined}>
                       <span className="material-symbols-outlined text-[15px]" aria-hidden="true">route</span>
-                      Create routed {phase2AgentLabel(selected)} task
+                      {selected.context.projectId ? `Create routed ${phase2AgentLabel(selected)} task` : `Create routed ${phase2AgentLabel(selected)} task unavailable`}
                     </button>
-                    <button className="pib-btn-secondary justify-center text-xs" type="button" onClick={() => createRoutedBriefingTask(selected, 'link-existing-task')} disabled={!selected.context.projectId}>
+                    <button className="pib-btn-secondary justify-center text-xs" type="button" onClick={() => createRoutedBriefingTask(selected, 'link-existing-task')} disabled={!selected.context.projectId} aria-label={selected.context.projectId ? 'Link existing task' : 'Link existing task unavailable'} title={!selected.context.projectId ? 'Requires a linked project before linking an existing project task.' : undefined}>
                       <span className="material-symbols-outlined text-[15px]" aria-hidden="true">add_link</span>
-                      Link existing task
+                      {selected.context.projectId ? 'Link existing task' : 'Link existing task unavailable'}
                     </button>
                     {canTaskAct(selected) ? (
                       <button className="pib-btn-secondary justify-center text-xs" type="button" onClick={() => assignPhase2Agent(selected)} disabled={!!busyAction}>
@@ -2994,9 +3040,10 @@ export function BriefingControlDesk({ mode, portalScope }: { mode: Mode; portalS
                       </button>
                     )}
                   </div>
-                  {!canTaskAct(selected) ? <p className="mt-2 text-xs text-on-surface-variant">Unavailable: Agent assignment requires a linked project task. Nearest valid alternatives: create follow-up task, ask {phase2AgentLabel(selected)} to triage, link existing task, create routed {phase2AgentLabel(selected)} task.</p> : null}
-                  {!canConvertToCrmActivity(selected) ? <p className="mt-2 text-xs text-on-surface-variant">Unavailable: CRM conversion needs a contact or deal on the briefing card.</p> : null}
-                  <p className="mt-2 text-xs text-on-surface-variant">Nearest valid alternatives: create follow-up task, ask {phase2AgentLabel(selected)} to triage, link existing task, create routed {phase2AgentLabel(selected)} task.</p>
+                  {!canTaskAct(selected) ? <p className="mt-2 text-xs text-on-surface-variant">Unavailable: Agent assignment requires a linked project task.</p> : null}
+                  {phase2UnavailableActionCopy(selected) ? <p className="mt-2 text-xs text-on-surface-variant">{phase2UnavailableActionCopy(selected)}</p> : null}
+                  {crmUnavailableCopy(selected) ? <p className="mt-2 text-xs text-on-surface-variant">{crmUnavailableCopy(selected)}</p> : null}
+                  <p className="mt-2 text-xs text-on-surface-variant">Usable alternatives for this card: {phase2UsableAlternatives(selected, mode, portalScope).join(', ')}.</p>
                   <div className="mt-3 rounded-lg border border-white/10 bg-white/[0.03] p-3">
                     <p className="text-[10px] font-label uppercase tracking-[0.16em] text-on-surface-variant">Copy and chat context</p>
                     <div className="mt-2 grid grid-cols-2 gap-2">
@@ -3051,7 +3098,7 @@ export function BriefingControlDesk({ mode, portalScope }: { mode: Mode; portalS
                 <div className="grid grid-cols-2 gap-2">
                   <button className="pib-btn-secondary justify-center text-xs" type="button" onClick={() => setItemState(selected, 'handled')} disabled={!!busyAction}>
                     <span className="material-symbols-outlined text-[15px]" aria-hidden="true">done_all</span>
-                    Handled
+                    Mark reviewed
                   </button>
                   <button className="pib-btn-secondary justify-center text-xs" type="button" onClick={() => setItemState(selected, 'snoozed')} disabled={!!busyAction}>
                     <span className="material-symbols-outlined text-[15px]" aria-hidden="true">snooze</span>
@@ -3328,10 +3375,13 @@ export function BriefingControlDesk({ mode, portalScope }: { mode: Mode; portalS
                     </button>
                   ) : null}
                   {broadcastSendable(selected) ? (
-                    <button className="pib-btn-secondary justify-center text-xs" type="button" onClick={() => broadcastAction(selected, 'send-now')} disabled={!!busyAction}>
-                      <span className="material-symbols-outlined text-[15px]" aria-hidden="true">send</span>
-                      Send broadcast now
-                    </button>
+                    <div className="col-span-2 rounded-lg border border-amber-300/25 bg-amber-300/10 p-3">
+                      <button className="pib-btn-secondary w-full justify-center text-xs" type="button" disabled aria-label="Send broadcast requires approval">
+                        <span className="material-symbols-outlined text-[15px]" aria-hidden="true">lock</span>
+                        Send broadcast requires approval
+                      </button>
+                      <p className="mt-2 text-xs leading-5 text-amber-100">External broadcast sending requires a separate explicit approval gate before any recipient-visible email is queued.</p>
+                    </div>
                   ) : null}
                   {broadcastPausable(selected) ? (
                     <button className="pib-btn-secondary justify-center text-xs" type="button" onClick={() => broadcastAction(selected, 'pause')} disabled={!!busyAction}>
@@ -3704,7 +3754,7 @@ export function BriefingControlDesk({ mode, portalScope }: { mode: Mode; portalS
                       </span>
                     </div>
                     <div className="mt-4 rounded-md border border-white/10 bg-white/[0.04] p-3">
-                      <p className="text-xs font-medium text-on-surface-variant">What should Peet do now?</p>
+                      <p className="text-xs font-medium text-on-surface-variant">Recommended reviewer next step</p>
                       <p className="mt-1 text-sm text-on-surface">{selectedReviewCard.nextAction}</p>
                     </div>
                     <div className="mt-4 grid gap-3 lg:grid-cols-2">
