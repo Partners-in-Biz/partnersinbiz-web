@@ -980,6 +980,57 @@ Do not include in the first implementation:
 - All channels.
 - Autonomous paid ads launch.
 
+## Phase 1 Foundation Blueprint
+
+This is not yet an implementation plan. It is the smallest coherent foundation that turns the research dossier into a PiB-native product surface once the product position is approved.
+
+### Phase 1 Epics
+
+| Epic | Scope | Why it matters | Done when |
+| --- | --- | --- | --- |
+| Module entitlement | Add a future `settings.portalModules.bookStudio` switch, safe portal org exposure, and portal API guards. | Client visibility must be controlled per organisation, matching the new Mobile Apps module-switch pattern. | Admin can enable/disable portal Book Studio visibility without affecting internal admin work. |
+| Domain records | Add typed records and sanitizers for `book_projects`, `book_series`, `book_project_editions`, `book_channel_listings`, `book_quality_gates`, and analytics import metadata. | The module needs book-specific state, but Research, Documents, Projects, and artifacts remain authoritative for evidence, approvals, work, and large files. | Records are org-scoped, serializable, guarded by role, and do not embed large manuscript or image payloads. |
+| Admin workspace | Build admin list/detail routes for book projects and series with tabs for overview, research, brief, production, publishing, gates, and analytics. | Operators need one command surface before manuscript generation or export engines exist. | A PiB admin can create a project, connect it to a series, see status/risk/gates, and move through the production checklist. |
+| Research and brief bridge | Link or create Research items and Book Brief client documents from a book project. | The module should inherit PiB's evidence and approval model rather than recreate `ai-story` research notes. | A book project can show linked findings/recommendations, create a brief packet, and preserve source IDs. |
+| Hermes task contracts | Store Hermes-ready task metadata for research, brief, outline, metadata, and readiness work without granting direct publish powers. | Agent output must be bounded, reviewable, and attributable. | Created tasks include book context, expected artifacts, reviewer, risk level, and approval-gate linkage. |
+| Publishing packet and channel tracker | Add KDP/Google channel listing records, readiness state, blocker notes, metadata fields, file checklist, AI disclosure, ISBN/imprint decision, pricing summary, and manual external status. | KDP/Google setup is currently a manual operator action; PiB should prepare and track it, not pretend it can safely auto-publish. | A project can produce a channel-specific readiness packet and record uploaded/in review/live/blocked status with evidence. |
+| Portal review surface | Add client-safe portal read/review routes only when the module is enabled and selected records are approved for portal visibility. | Clients need review and approval, not internal risk notes or raw research assumptions. | Portal users see only approved briefs, proofs, publishing packets, comments, and approval/change-request actions. |
+| Analytics ingestion shell | Add manual report-import ledger and normalized analytics snapshot records before building automated integrations. | KDP and Google reports can lag and disagree; the data model must separate estimated, reported, and settled figures from day one. | Admin can attach a KDP/Google report import, see confidence/source labels, and create reconciliation tasks for mismatches. |
+
+### Phase 1 Acceptance Criteria
+
+- A PiB admin can create a book project under a client organisation with `bookTypeFamily`, status, series, initial target channels, and compliance defaults.
+- Missing or disabled portal entitlement cannot expose Book Studio in portal nav, portal API responses, or scoped workspace state.
+- Book-type gate profiles generate the correct initial `book_quality_gates` for narrative, children's, visual/sequential, nonfiction, activity/workbook, low-content, public-domain/companion, and audiobook projects.
+- The project detail can link Research, create or attach a Book Brief document, link a Project/Kanban workspace, and show linked artifacts without duplicating those systems.
+- Hermes task preparation is possible for research, brief, outline, metadata, and readiness checks, but the tasks do not publish, submit, or spend money.
+- A KDP readiness packet explicitly captures metadata, categories/keywords, file checklist, AI-generated-vs-assisted disclosure, ISBN/imprint choice, rights confirmation, content-risk notes, pricing, and manual upload status.
+- A Google Play readiness packet explicitly captures EPUB/PDF readiness, cover file, metadata, series naming/volume consistency, rights/territories, pricing, DRM/copy-print choices, and manual Partner Center status.
+- Portal reviewers can comment, approve, or request changes on approved client-visible packets while internal research, unresolved rights blockers, and draft risk notes remain hidden.
+- Analytics imports are source-labeled and confidence-labeled; estimated dashboard data, reported sales/read data, settled payment data, and ad attribution data are not merged into one ambiguous metric.
+
+### Phase 1 Test Focus
+
+- Type/sanitizer tests for Book Studio records and defaults.
+- Admin API tests for org scoping, create/update/list, soft archive, and linked-record preservation.
+- Portal guard tests for disabled module state, role access, and client-visible filtering.
+- Gate-profile tests for each book type family.
+- Publishing packet tests for KDP and Google required fields and blocker behavior.
+- Hermes task contract tests that verify provenance, reviewer, expected artifacts, and forbidden direct-action fields.
+- Analytics import tests that verify estimated/reported/settled separation and reconciliation task creation.
+
+### Phase 1 Explicit Deferrals
+
+- No direct KDP, Google Play Books, Apple, Kobo, Draft2Digital, IngramSpark, ACX, or ads API publishing.
+- No client self-serve book generator.
+- No full manuscript editor or print-perfect fixed-layout engine.
+- No autonomous cover/image generation approval into public packets.
+- No automated ISBN purchase/registration.
+- No paid ad launch, budget mutation, or Amazon Ads automation.
+- No guarantee that a packet passing PiB readiness will be accepted by a publishing platform.
+
+Approval of option 1, internal PiB production studio with optional client review, should unlock a separate implementation plan for this Phase 1 foundation.
+
 ## Open Product Decision
 
 The next design step depends on one product decision:
