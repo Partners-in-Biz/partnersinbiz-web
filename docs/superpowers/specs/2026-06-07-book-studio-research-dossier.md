@@ -91,6 +91,31 @@ V1 should design for KDP and Google first, but not close the door on:
 
 These channels have different royalty timing, file requirements, return policies, ISBN implications, and reporting sources. The module should use a channel adapter model so KDP and Google are not hardcoded into the core book record.
 
+### Wider Channel Adapter Research
+
+The module should model each publishing destination as a channel adapter with channel-specific requirements, because each store has different upload paths, reporting timing, exclusivity rules, file formats, and tax/payment behavior.
+
+| Channel | What the module should know | Design implication |
+| --- | --- | --- |
+| **Apple Books** | Direct publishing requires an iTunes Connect account and Apple Books supports EPUB publishing through its Publishing Portal. Apple directs PDF/KF8 and partner delivery through preferred partners rather than treating those as the normal direct upload path. Source: [Apple Books publish](https://authors.apple.com/publish). | Treat Apple as an ebook/audiobook channel where EPUB readiness, cover, sample, description, author, release/pre-order dates, and partner-delivery state are stored per listing. Do not assume print support. |
+| **Kobo Writing Life** | Kobo setup includes title/author/description/category, cover, EPUB or manuscript conversion, DRM choice, territory, price, and publish action. Kobo also supports territorial rights. Dashboard earnings are estimates and monthly finance reports are authoritative. Source: [Kobo Writing Life FAQ](https://www.kobo.com/kobo-writing-life/blog/frequently-asked-questions). | Store DRM, territory rights, price overrides, and estimated-vs-report royalty state separately. Analytics should reconcile dashboard estimates against monthly reports. |
+| **Draft2Digital** | Draft2Digital sends book files and metadata to selected partner stores. Store review times vary, library retailers can take longer, and print listing can take around weeks. D2D warns against overlapping D2D Print with KDP Expanded Distribution or IngramSpark. Partner payments can lag 30-90 days depending on ebook/audio/print. Source: [Draft2Digital FAQ](https://draft2digital.com/faq/). | Model D2D as an aggregator channel with downstream destinations, not as a single store. Track selected retailers, downstream review status, duplicate-distribution conflicts, and delayed payment windows. |
+| **IngramSpark** | IngramSpark requires cover and interior files; distributed books need an ISBN for each format. It can assign a non-distributable SKU for print-only use, and it is non-exclusive if the publisher owns the ISBN. It warns against pairing its print distribution with KDP Expanded Distribution. Source: [IngramSpark FAQ](https://www.ingramspark.com/faqs). | Treat IngramSpark as print/wide-distribution infrastructure with ISBN ownership, print file readiness, distribution conflict checks, SKU-only mode, and wholesale/retail economics. |
+| **Audiobook via ACX/KDP Virtual Voice** | ACX supports audiobook production and distribution across Audible, Amazon, and iTunes, with requirements around an Amazon-listed book, audio rights, manuscript, and cover art. KDP Virtual Voice is a beta path for eligible KDP eBooks in the U.S. marketplace, with generated narration clearly labeled and different royalty/reporting behavior. Sources: [ACX for KDP authors](https://www.acx.com/landing/kdp), [KDP Virtual Voice](https://kdp.amazon.com/en_US/help/topic/G3QRL9HQNF273Q2H). | Model audiobook editions separately from ebook/print editions. Track narrator/source, voice disclosure, audio rights, sample, per-finished-hour cost or royalty share, royalty model, and channel eligibility. |
+| **ISBN registries** | ISBNs identify a specific title/product and the publisher responsible in the supply chain. ISBNs bought from a source other than an official agency may not identify the publisher accurately. Source: [ISBN.org](https://www.isbn.org/about_ISBN_standard). | Store ISBN ownership, agency/source, imprint, format binding, and whether a free platform ISBN creates imprint or distribution constraints. Do not treat ISBN as just an optional string. |
+| **EPUB validation** | EPUBCheck is the official conformance checker for EPUB publications. Source: [W3C EPUBCheck](https://w3c.github.io/epubcheck/docs/). | Add a future artifact validator step for EPUB files and store validation results as release-gate evidence before Apple/Kobo/Google/D2D export. |
+
+Channel adapter records should separate:
+
+- **Core book identity:** title, author/brand, series, audience, genre, language, rights owner, and content rating.
+- **Edition identity:** ebook, paperback, hardcover, audiobook, workbook, low-content, or special format.
+- **File package:** manuscript source, EPUB/PDF/interior/cover/audio files, validation results, and upload-ready version.
+- **Channel listing:** channel, downstream retailer if aggregator, metadata, pricing, territory rights, ISBN/imprint, publication status, and external IDs.
+- **Financial state:** estimated dashboard metrics, report-import metrics, settled payments, tax/withholding notes, refunds/returns/credits, and report source.
+- **Risk state:** exclusivity conflicts, duplicate distribution conflicts, AI disclosure, public-domain/low-content rules, rights uncertainties, and manual-review blockers.
+
+This prevents false simplicity. A "book" is not one record with one price and one status; it is a product family with editions, files, listings, and financial ledgers that can disagree across channels.
+
 ## Recommended Product Position
 
 Recommended V1: **Internal PiB Book Studio with optional client review**.
