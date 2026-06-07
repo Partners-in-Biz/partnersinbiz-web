@@ -1044,23 +1044,84 @@ Reconciliation workflow:
 
 Dashboard views:
 
-- Book performance.
-- Series performance.
-- Channel comparison.
-- Format comparison.
-- Launch funnel.
-- Ad spend vs attributed sales.
-- Reads vs sales.
-- Refunds.
-- Royalties by period.
-- Publishing blockers.
-- Quality/review status.
-- Import/reconciliation queue.
-- Production cost recovery.
-- Series sell-through.
-- Attribution confidence.
+- **Book performance:** units, reads, refunds, royalties, payment state, cost recovery, blockers, launch events, and current confidence for one book.
+- **Series performance:** per-volume sales, read-through, release spacing, follow-up tasks, aggregate royalties, and volume gaps.
+- **Channel comparison:** KDP ebook, KDP print, Google, and future channel totals by estimated/reported/settled confidence.
+- **Format comparison:** ebook, paperback, hardcover, audiobook, workbook/fixed-layout, and low-content performance with direct costs visible.
+- **Launch funnel:** PiB landing visits, clicks, email/social/ad events, Amazon Attribution where available, store orders, reads, refunds, and review/lifecycle events.
+- **Ad spend vs attributed sales:** spend, clicks, attributed units, attributed royalties, ROAS by confidence, and unattributed organic lift caveats.
+- **Reads vs sales:** KENP/KU read estimates, finalized KENP royalties when available, ebook/print order split, and read-to-purchase interpretation notes.
+- **Refunds and returns:** negative rows, return rate, country/channel concentration, and whether refunds are included in the current confidence layer.
+- **Royalties by period:** estimated, reported, settled, and reconciled amounts with report/source links and currency conversion notes.
+- **Publishing blockers:** missing external IDs, report access gaps, account profile blockers, unmatched identifiers, and stale source/report mappings.
+- **Quality and review status:** live quality feedback, store rejection/revision events, review-compliance status, and post-launch revision tasks.
+- **Import/reconciliation queue:** imports by status, unmatched rows, changed totals, duplicate rows, parser warnings, and owner/task.
+- **Production cost recovery:** production cost, launch cost, direct unit cost, reported/settled revenue, break-even units, and recovery confidence.
+- **Series sell-through:** first-book buyers/readers to next-volume buyers/readers, series promotions, bundle effects, and confidence notes.
+- **Attribution confidence:** whether a metric came from a channel dashboard, official report, payment report, Amazon Attribution, PiB tracking, or manual adjustment.
 
 The dashboard should never present dashboard estimates as settled revenue. It should label the source and confidence of every money number.
+
+### Analytics Dashboard, Reporting UX, And Client-Safe Summaries
+
+Book Studio analytics should answer two different questions without mixing them:
+
+1. **Operator question:** what happened, what source proves it, what is unresolved, and what task should happen next?
+2. **Client question:** how is the book performing in a clear, source-labeled way that does not expose internal reconciliation noise or overstate profit?
+
+Recommended dashboard lanes:
+
+| Lane | Admin view | Portal/client-safe view |
+| --- | --- | --- |
+| `launch_signal` | PiB landing, email, social, short-link, ad, Amazon Attribution, Google promotion, and external launch events with source/campaign IDs. | Launch activity summary, approved live links, and visible milestones. Hide raw UTM/debug/import details. |
+| `sales_activity` | Orders, free units, refunded units, net units, KENP reads, preview visits, transaction rows, and unmatched identifiers. | Net units/reads only when source confidence is at least `channel_report`; show estimates only with an explicit estimate label. |
+| `revenue_confidence` | Estimated royalties, reported publisher revenue, settled payments, currency conversion, refunds, payment profile, and confidence transitions. | Revenue summaries only when source is `reported`, `settled`, or explicitly labeled `estimate`; no "profit" label without costs. |
+| `cost_recovery` | Production cost, launch cost, direct unit cost, ad spend, outside vendor costs, Hermes/generation cost, and break-even units. | Client-visible only when approved; otherwise show progress toward cost recovery without internal labor/vendor detail. |
+| `series_health` | Series sell-through, volume gaps, release cadence, cross-book attribution, next-volume tasks, and bundle/promotion impacts. | High-level series performance and next approved series actions. |
+| `quality_lifecycle` | Store review state, revision requests, post-launch quality feedback, file revisions, review-compliance status, and blockers. | Live/revision status, client-actionable blockers, and approved update notes. |
+| `reconciliation_work` | Import ledger, parser warnings, duplicate rows, negative/refund rows, changed totals, stale report mappings, and reconciliation tasks. | Hidden by default; show only a simple "reports pending/reconciled" state. |
+
+Metric labels must be precise:
+
+- `estimated`: dashboard, royalty estimator, early KENP/read estimate, ad attribution, or PiB tracking signal.
+- `reported`: downloaded channel report or transaction report, not yet matched to payment.
+- `settled`: payment/earnings report or payment receipt evidence.
+- `reconciled`: reported and settled figures matched for the same period, currency, channel, and listing.
+- `manual_adjustment`: human-entered correction with reason, approver, and source artifact.
+- `unmatched`: imported row cannot yet map to a known book, series, edition, listing, campaign, or payment profile.
+
+Admin dashboard cards should include:
+
+| Card | Shows | Must not do |
+| --- | --- | --- |
+| `current_period_signal` | Latest estimated/reported units, KENP reads, royalties, spend, and source age. | Present current-period dashboard estimates as settled income. |
+| `settlement_tracker` | Prior-month royalties, Google earnings reports, KDP payments, expected payment windows, and missing payment evidence. | Assume a sale is paid before earnings/payment evidence exists. |
+| `launch_attribution` | PiB links, Amazon Attribution, campaign IDs, attributed units, ad spend, and confidence caveats. | Treat attributed sales as incremental profit without cost and organic-baseline context. |
+| `margin_recovery` | Production cost, launch cost, direct cost, reported/settled revenue, break-even progress, and margin confidence. | Show "profit" when production or launch costs are incomplete. |
+| `reconciliation_queue` | Unmatched rows, duplicate rows, parser warnings, changed totals, negative rows, owner, and next task. | Hide import failures behind a clean-looking dashboard. |
+| `client_summary_preview` | Exactly what the portal would show for performance, blockers, and confidence labels. | Leak internal import errors, vendor costs, raw report files, or unapproved risk notes. |
+
+Source-backed reporting implications:
+
+- KDP's dashboard can show estimated royalties, orders, and KENP reads, while prior-month royalties and payments are the evidence path for actual earnings; the dashboard should therefore default current-month money to `estimated`. Source: [KDP Reports](https://kdp.amazon.com/en_US/help/topic/G201723280).
+- Google Partner Center distinguishes monthly earnings reports from sales summary/transaction reports and preview-traffic reports; sales/transaction reports can appear before all values are final, while earnings reports are tied to payment profiles. Source: [Google Play Books report overview](https://support.google.com/books/partner/answer/9266485).
+- Google Partner Center analytics can show total sales, top titles, average sale price, and top geographies, but financial reporting that matches payment belongs to earnings reports. Source: [Google Partner Center analytics](https://support.google.com/books/partner/answer/10311066).
+- Amazon Attribution is useful for eligible KDP authors and can expose campaign measurement through the advertising console or reporting API, but it should remain an attribution signal, not a settlement source. Source: [Amazon Attribution for KDP authors](https://advertising.amazon.com/resources/whats-new/amazon-attribution-kdp-authors).
+
+Portal rules:
+
+- Portal analytics are opt-in per project and should use sanitized summaries, not raw imports.
+- Portal summaries should show the period, metric source, confidence, last import time, and whether data is partial.
+- Portal revenue should default to reported/settled summaries; estimated values need a visible estimate label.
+- Portal should never show unreconciled parser errors, unmatched row IDs, internal cost/vendor lines, raw payment profile details, or ad-platform debug fields.
+- Client comments on analytics should become tasks for the PiB operator or analyst, not mutate the ledger.
+
+Devil's advocate:
+
+- A visually clean dashboard can be more misleading than no dashboard if it hides source confidence. Every chart should make the confidence layer obvious.
+- Attribution can flatter a launch. Amazon Attribution, ad dashboards, social clicks, and store sales are not the same as incremental profit.
+- Series analytics can overstate momentum when book one is free or discounted. Separate paid, free, borrowed/KU, preview, and bundled units.
+- Reconciliation work is boring but essential. If unmatched rows are hidden, the team will make decisions on incomplete numbers.
 
 ### 9. Commercial Pricing And Margin Model
 
@@ -2064,6 +2125,109 @@ interface BookLaunchPlan {
   approvedAt?: string
   createdAt: string
   updatedAt: string
+}
+```
+
+```ts
+type BookAnalyticsSourceConfidence =
+  | 'dashboard_estimate'
+  | 'channel_report'
+  | 'payment_report'
+  | 'ad_attribution'
+  | 'pib_tracking'
+  | 'manual_adjustment'
+
+type BookAnalyticsMetricLayer = 'estimated' | 'reported' | 'settled' | 'reconciled' | 'manual_adjustment' | 'unmatched'
+
+type BookAnalyticsReportType =
+  | 'kdp_dashboard'
+  | 'kdp_orders'
+  | 'kdp_kenp'
+  | 'kdp_prior_month_royalties'
+  | 'kdp_payments'
+  | 'google_earnings'
+  | 'google_sales_summary'
+  | 'google_sales_transactions'
+  | 'google_preview_traffic'
+  | 'amazon_attribution'
+  | 'amazon_ads'
+  | 'pib_campaign_tracking'
+  | 'manual_cost_adjustment'
+
+interface BookAnalyticsImport {
+  id: string
+  orgId: string
+  bookProjectId?: string
+  bookSeriesId?: string
+  channel?: BookChannel
+  reportType: BookAnalyticsReportType
+  sourceConfidence: BookAnalyticsSourceConfidence
+  period: { start: string; end: string; timezone?: string }
+  sourceArtifactId?: string
+  parserVersion: string
+  checksum?: { algorithm: 'sha256'; value: string }
+  currency?: string
+  status: 'uploaded' | 'parsed' | 'validated' | 'reconciled' | 'superseded' | 'blocked'
+  rowCounts: {
+    totalRows: number
+    matchedRows: number
+    unmatchedRows: number
+    duplicateRows: number
+    refundRows: number
+    warningRows: number
+  }
+  supersedesImportId?: string
+  blockerTaskIds: string[]
+  importedBy: string
+  importedAt: string
+}
+
+interface BookAnalyticsDashboardSnapshot {
+  id: string
+  orgId: string
+  scope:
+    | { type: 'book'; bookProjectId: string }
+    | { type: 'series'; bookSeriesId: string }
+    | { type: 'channel'; channelListingId: string }
+    | { type: 'launch'; launchPlanId: string }
+  period: { start: string; end: string; timezone?: string }
+  sourceImportIds: string[]
+  confidence: BookAnalyticsMetricLayer
+  metrics: {
+    unitsPurchased?: number
+    unitsRefunded?: number
+    netUnits?: number
+    freeUnits?: number
+    kenpReads?: number
+    previewVisits?: number
+    attributedUnits?: number
+    adSpend?: { amount: number; currency: string; confidence: BookAnalyticsMetricLayer }
+    estimatedPublisherRevenue?: { amount: number; currency: string }
+    reportedPublisherRevenue?: { amount: number; currency: string }
+    settledPublisherRevenue?: { amount: number; currency: string }
+    productionCost?: { amount: number; currency: string; complete: boolean }
+    launchCost?: { amount: number; currency: string; complete: boolean }
+    contributionMargin?: { amount: number; currency: string; confidence: BookAnalyticsMetricLayer }
+    costRecovery?: { amount: number; currency: string; confidence: BookAnalyticsMetricLayer }
+  }
+  reconciliation: {
+    state: 'not_started' | 'in_progress' | 'reconciled' | 'blocked'
+    unmatchedImportIds: string[]
+    changedTotalImportIds: string[]
+    blockerTaskIds: string[]
+    notes?: string
+  }
+  clientSafeSummary?: {
+    visible: boolean
+    periodLabel: string
+    summary: string
+    confidenceLabel: string
+    hiddenReason?: string
+    approvedBy?: string
+    approvedAt?: string
+  }
+  createdAt: string
+  supersededAt?: string
 }
 ```
 
@@ -3408,6 +3572,7 @@ This is not yet an implementation plan. It is the smallest coherent foundation t
 | Commercial pricing ledger | Add price-plan, cost-estimate, margin-confidence, and approval fields to channel listings before reports are imported. | KDP/Google economics vary by royalty option, print cost, delivery cost, territory, exclusivity, refunds, payment profile, and currency conversion. | Admin can record a KDP/Google price plan, attach calculator/Partner Center evidence, see estimated margin/cost recovery, and require reviewer approval or a waiver before launch. |
 | Portal review surface | Add client-safe portal read/review routes only when the module is enabled and selected records are approved for portal visibility. | Clients need review and approval, not internal risk notes or raw research assumptions. | Portal users see only approved briefs, proofs, publishing packets, comments, and approval/change-request actions. |
 | Analytics ingestion shell | Add manual report-import ledger and normalized analytics snapshot records before building automated integrations. | KDP and Google reports can lag and disagree; the data model must separate estimated, reported, and settled figures from day one. | Admin can attach a KDP/Google report import, see confidence/source labels, and create reconciliation tasks for mismatches. |
+| Analytics dashboard and summaries | Add admin dashboard lanes and client-safe summaries for launch signal, sales activity, revenue confidence, cost recovery, series health, quality lifecycle, and reconciliation work. | Book analytics can mislead clients and operators if dashboard estimates, reports, payments, ad attribution, and PiB launch signals collapse into one number. | Admin sees source/confidence labels and reconciliation queues; portal sees only approved summaries with period, source, confidence, partial-data labels, and no raw import or internal cost detail. |
 
 ### Phase 1 Acceptance Criteria
 
@@ -3443,6 +3608,8 @@ This is not yet an implementation plan. It is the smallest coherent foundation t
 - A project cannot mark a publishing packet `approved_for_upload` while its selected publishing account profile has incomplete identity, tax, payment, access, report, or territory readiness required for that channel.
 - Portal reviewers can comment, approve, or request changes on approved client-visible packets while internal research, unresolved rights blockers, and draft risk notes remain hidden.
 - Analytics imports are source-labeled and confidence-labeled; estimated dashboard data, reported sales/read data, settled payment data, and ad attribution data are not merged into one ambiguous metric.
+- Analytics dashboard snapshots expose `estimated`, `reported`, `settled`, `reconciled`, `manual_adjustment`, and `unmatched` layers separately, with source imports and reconciliation state attached.
+- Client-safe analytics summaries hide raw imports, parser errors, unmatched row IDs, internal vendor/labor costs, payment-profile details, and ad-platform debug fields unless an admin explicitly approves a sanitized summary.
 - Launch plans can store campaign activities, tracking IDs, budgets, approval gates, promotion windows, review-compliance records, and lifecycle events without launching ads or sending public/client-visible messages automatically.
 - Review requests, ARC/free-copy outreach, and third-party promotion services are blocked until review-compliance checks pass or an approval-task waiver exists.
 
@@ -3470,6 +3637,8 @@ This is not yet an implementation plan. It is the smallest coherent foundation t
 - Manuscript production tests that verify approved version manifests do not mutate when units are revised, and that missing editorial/claim/accessibility/link/TOC coverage blocks client-visible proof or export approval where required.
 - Gate tests that block publishing-packet readiness when provenance, rights review, AI disclosure, or version manifest evidence is missing.
 - Analytics import tests that verify estimated/reported/settled separation and reconciliation task creation.
+- Analytics dashboard tests that verify source/confidence labels, current-period estimates, settlement trackers, attribution caveats, margin/cost-recovery completeness, and reconciliation queue visibility.
+- Portal analytics sanitizer tests that verify client-safe summaries include period/source/confidence/partial-data labels and exclude raw imports, parser errors, unmatched row IDs, internal cost lines, payment-profile details, and ad debug fields.
 - Launch lifecycle tests that verify paid activity, review outreach, promotion windows, price changes, and public listing lifecycle events require approval gates and preserve attribution/review-compliance evidence.
 
 ### Phase 1 Explicit Deferrals
