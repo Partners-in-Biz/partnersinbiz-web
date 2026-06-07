@@ -17,6 +17,7 @@ import { NotificationBell } from '@/components/crm/NotificationBell'
 import { MessageDrawer } from '@/components/chat/MessageDrawer'
 import { detectCurrentPageContext } from '@/lib/context-references/route-context'
 import { PIB_PLATFORM_ORG_ID } from '@/lib/platform/constants'
+import { resolvePortalModules, type PortalModules } from '@/lib/organizations/portal-modules'
 
 const PORTAL_MATERIAL_SYMBOLS =
   'https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap'
@@ -122,6 +123,7 @@ interface PortalOrgOption {
   slug: string
   type?: string
   logoUrl: string
+  portalModules?: PortalModules
 }
 
 function active(pathname: string, item: NavItem) {
@@ -222,6 +224,7 @@ function PortalLayoutContent({ children }: { children: React.ReactNode }) {
   const [activeOrgId, setActiveOrgId] = useState('')
   const [activeOrgSlug, setActiveOrgSlug] = useState('')
   const [activeOrgType, setActiveOrgType] = useState('')
+  const [portalModules, setPortalModules] = useState<PortalModules>(() => resolvePortalModules(undefined))
   const [userRole, setUserRole] = useState('')
   const [orgSwitching, setOrgSwitching] = useState(false)
   const [memberRole, setMemberRole] = useState<string | null>(null)
@@ -271,6 +274,7 @@ function PortalLayoutContent({ children }: { children: React.ReactNode }) {
               if (d?.org?.id) setActiveOrgId(d.org.id)
               if (d?.org?.slug) setActiveOrgSlug(d.org.slug)
               if (d?.org?.type) setActiveOrgType(d.org.type)
+              if (d?.org) setPortalModules(resolvePortalModules({ portalModules: d.org.portalModules }))
               if (d?.user?.role) setUserRole(d.user.role)
             })
             .catch(() => {})
@@ -286,6 +290,7 @@ function PortalLayoutContent({ children }: { children: React.ReactNode }) {
               if (activeOrg?.name) setOrgName(activeOrg.name)
               if (activeOrg?.slug) setActiveOrgSlug(activeOrg.slug)
               if (activeOrg?.type) setActiveOrgType(activeOrg.type)
+              if (activeOrg?.portalModules) setPortalModules(resolvePortalModules({ portalModules: activeOrg.portalModules }))
               if (requestedOrgId && d?.activeOrgId !== requestedOrgId) {
                 fetch('/api/v1/portal/active-org', {
                   method: 'POST',
@@ -366,6 +371,7 @@ function PortalLayoutContent({ children }: { children: React.ReactNode }) {
         setOrgName(switched.name)
         setActiveOrgSlug(switched.slug)
         setActiveOrgType(switched.type ?? '')
+        if (switched.portalModules) setPortalModules(resolvePortalModules({ portalModules: switched.portalModules }))
       }
       if (requestedOrgId) {
         router.push(scopedPortalHref(pathname, orgId, switched?.slug ?? ''))
@@ -409,7 +415,8 @@ function PortalLayoutContent({ children }: { children: React.ReactNode }) {
         )
       : path
 
-  const navWithBadges: NavItem[] = NAV_LINKS.map((item) => {
+  const visibleNavLinks = NAV_LINKS.filter((item) => item.href !== '/portal/mobile-apps' || portalModules.mobileApps)
+  const navWithBadges: NavItem[] = visibleNavLinks.map((item) => {
     const href = requestedOrgId
       ? scopedShellHref(item.href)
       : item.href
@@ -427,6 +434,7 @@ function PortalLayoutContent({ children }: { children: React.ReactNode }) {
         slug: activeOrgSlug || requestedOrgSlug,
         type: activeOrgType,
         logoUrl: '',
+        portalModules,
       }
     : null
   const workspaceOptions = requestedWorkspaceOption ? [requestedWorkspaceOption, ...orgs] : orgs
@@ -839,7 +847,7 @@ function PortalLayoutContent({ children }: { children: React.ReactNode }) {
           <span className="eyebrow !text-[10px]">Client portal</span>
           <span className="hidden sm:inline w-1 h-1 rounded-full bg-[var(--color-pib-line-strong)]" />
           <span className="hidden sm:inline text-xs text-[var(--color-pib-text-muted)]">
-            {NAV_LINKS.find(n => active(pathname, n))?.label ?? 'Overview'}
+            {visibleNavLinks.find(n => active(pathname, n))?.label ?? 'Overview'}
           </span>
           <div className="ml-auto flex items-center gap-3">
             {canOpenAdminView && (

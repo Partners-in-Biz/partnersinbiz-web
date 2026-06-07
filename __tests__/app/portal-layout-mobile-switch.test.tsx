@@ -6,6 +6,7 @@ const pushMock = jest.fn()
 const refreshMock = jest.fn()
 let mockPathname = '/portal/dashboard'
 let mockSearchParams = new URLSearchParams()
+let mockPortalModules: { mobileApps?: boolean } | undefined
 
 jest.mock('next/navigation', () => ({
   useRouter: () => ({
@@ -83,13 +84,14 @@ describe('PortalLayout mobile role switch', () => {
     jest.clearAllMocks()
     mockPathname = '/portal/dashboard'
     mockSearchParams = new URLSearchParams()
+    mockPortalModules = undefined
     global.fetch = jest.fn((input: RequestInfo | URL) => {
       const url = String(input)
       if (url === '/api/v1/portal/org') {
         return Promise.resolve({
           ok: true,
           json: async () => ({
-            org: { id: 'org-acme', slug: 'acme', name: 'Acme Growth', type: 'client' },
+            org: { id: 'org-acme', slug: 'acme', name: 'Acme Growth', type: 'client', portalModules: mockPortalModules },
             user: { role: 'admin' },
           }),
         } as Response)
@@ -98,7 +100,7 @@ describe('PortalLayout mobile role switch', () => {
         return Promise.resolve({
           ok: true,
           json: async () => ({
-            org: { id: 'lumen-org', slug: 'lumen-speeds', name: 'Lumen', type: 'client' },
+            org: { id: 'lumen-org', slug: 'lumen-speeds', name: 'Lumen', type: 'client', portalModules: mockPortalModules },
             user: { role: 'admin' },
           }),
         } as Response)
@@ -189,6 +191,34 @@ describe('PortalLayout mobile role switch', () => {
       expect(marketingHref).toBe(
         '/portal/marketing?orgId=lumen-org&orgSlug=lumen-speeds&sourceCompanyId=company-1&sourceCompanyName=Lumen',
       )
+    })
+  })
+
+  it('keeps Mobile Apps visible when no portal module setting is stored', async () => {
+    render(
+      <PortalLayout>
+        <div>Portal content</div>
+      </PortalLayout>,
+    )
+
+    await waitFor(() => {
+      expect(screen.getAllByRole('link', { name: /Mobile Apps/ }).length).toBeGreaterThan(0)
+    })
+  })
+
+  it('hides Mobile Apps navigation when the active organisation disables the module', async () => {
+    mockPortalModules = { mobileApps: false }
+
+    render(
+      <PortalLayout>
+        <div>Portal content</div>
+      </PortalLayout>,
+    )
+
+    expect(await screen.findByText('Client portal')).toBeInTheDocument()
+
+    await waitFor(() => {
+      expect(screen.queryByRole('link', { name: /Mobile Apps/ })).not.toBeInTheDocument()
     })
   })
 })

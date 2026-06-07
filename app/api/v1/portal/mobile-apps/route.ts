@@ -4,10 +4,26 @@ import { adminDb } from '@/lib/firebase/admin'
 import { apiError, apiSuccess } from '@/lib/api/response'
 import { withPortalAuthAndRole } from '@/lib/auth/portal-middleware'
 import { clientSafeMobileApp, serializeMobileApp } from '@/lib/mobile-apps/sanitize'
+import { isPortalModuleEnabled } from '@/lib/organizations/portal-modules'
 
 export const dynamic = 'force-dynamic'
 
+async function mobileAppsModuleGuard(orgId: string) {
+  const orgDoc = await adminDb.collection('organizations').doc(orgId).get()
+  if (!orgDoc.exists) return apiError('Organisation not found', 404)
+  if (!isPortalModuleEnabled(orgDoc.data()?.settings, 'mobileApps')) {
+    return apiError('Mobile Apps module is disabled for this client portal', 403, {
+      moduleDisabled: true,
+      module: 'mobileApps',
+    })
+  }
+  return null
+}
+
 export const GET = withPortalAuthAndRole('viewer', async (_req: NextRequest, _uid, orgId) => {
+  const disabled = await mobileAppsModuleGuard(orgId)
+  if (disabled) return disabled
+
   const snap = await adminDb
     .collection('mobile_apps')
     .where('orgId', '==', orgId)
@@ -22,6 +38,9 @@ export const GET = withPortalAuthAndRole('viewer', async (_req: NextRequest, _ui
 })
 
 export const PUT = withPortalAuthAndRole('member', async (req: NextRequest, uid, orgId) => {
+  const disabled = await mobileAppsModuleGuard(orgId)
+  if (disabled) return disabled
+
   const body = await req.json().catch(() => ({}))
   const appId = typeof body.id === 'string' ? body.id.trim() : ''
   if (!appId) return apiError('id is required', 400)

@@ -5,6 +5,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { withPortalAuth } from '@/lib/auth/portal-middleware'
 import { adminDb } from '@/lib/firebase/admin'
 import { canUsePortalOrg, resolvePortalActiveOrgId } from '@/lib/portal/org-access'
+import { resolvePortalModules } from '@/lib/organizations/portal-modules'
 
 export const dynamic = 'force-dynamic'
 
@@ -54,6 +55,7 @@ export const GET = withPortalAuth(async (req: NextRequest, uid: string) => {
       logoUrl: org.logoUrl ?? '',
       plan: org.plan ?? 'starter',
       status: org.status ?? 'active',
+      portalModules: resolvePortalModules(org.settings),
     },
     user: {
       uid,

@@ -7,7 +7,10 @@ jest.mock('next/navigation', () => ({
 }))
 
 describe('OrgSettingsPage folder mappings', () => {
+  let detailSettings: Record<string, unknown>
+
   beforeEach(() => {
+    detailSettings = {}
     global.fetch = jest.fn((input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input)
       if (url === '/api/v1/organizations') {
@@ -19,7 +22,7 @@ describe('OrgSettingsPage folder mappings', () => {
       if (url === '/api/v1/organizations/org_1') {
         return Promise.resolve({
           ok: true,
-          json: async () => ({ data: { id: 'org_1', name: 'Acme Client', settings: {} } }),
+          json: async () => ({ data: { id: 'org_1', name: 'Acme Client', settings: detailSettings } }),
         } as Response)
       }
       if (url === '/api/v1/workspace-connections?orgId=org_1') {
@@ -94,6 +97,33 @@ describe('OrgSettingsPage folder mappings', () => {
         connectionKey: 'google-workspace-drive-docs-sheets',
         connectionType: 'user_oauth',
         tokenStatus: 'needs_authorization',
+      })
+    })
+  })
+
+  it('loads and saves the Mobile Apps client portal module switch', async () => {
+    detailSettings = { portalModules: { mobileApps: false } }
+
+    render(<OrgSettingsPage />)
+
+    await waitFor(() => expect(screen.getByText('Client portal modules')).toBeInTheDocument())
+    const mobileAppsSwitch = screen.getByLabelText('Mobile Apps') as HTMLInputElement
+    expect(mobileAppsSwitch).not.toBeChecked()
+
+    fireEvent.click(mobileAppsSwitch)
+    fireEvent.click(screen.getByRole('button', { name: 'Save Settings' }))
+
+    await waitFor(() => {
+      const put = (global.fetch as jest.Mock).mock.calls.find(([url, init]) =>
+        String(url) === '/api/v1/organizations/org_1' && init?.method === 'PUT',
+      )
+      expect(put).toBeTruthy()
+      expect(JSON.parse(put![1].body as string)).toMatchObject({
+        settings: {
+          portalModules: {
+            mobileApps: true,
+          },
+        },
       })
     })
   })

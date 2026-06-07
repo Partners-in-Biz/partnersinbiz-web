@@ -12,10 +12,18 @@ export function MobileAppsPortalWorkspace() {
   const [clientNotes, setClientNotes] = useState('')
   const [clientFeedback, setClientFeedback] = useState('')
   const [notice, setNotice] = useState('')
+  const [moduleDisabled, setModuleDisabled] = useState(false)
 
   async function load() {
     const res = await fetch('/api/v1/portal/mobile-apps')
     const body = await res.json().catch(() => ({}))
+    if (!res.ok && body.moduleDisabled === true) {
+      setModuleDisabled(true)
+      setApps([])
+      setLoading(false)
+      return
+    }
+    setModuleDisabled(false)
     setApps(Array.isArray(body.data?.apps) ? body.data.apps : [])
     setLoading(false)
   }
@@ -49,6 +57,24 @@ export function MobileAppsPortalWorkspace() {
     setEditingId(null)
     setNotice('Feedback saved for the PiB team.')
     await load()
+  }
+
+  if (moduleDisabled) {
+    return (
+      <MobileAppsWorkspaceShell
+        apps={[]}
+        surface="portal"
+        eyebrow="Digital presence"
+        title="Mobile apps"
+        description="Mobile app review is controlled by your PiB workspace settings."
+        loading={loading}
+        className="p-4 sm:p-6 lg:p-8"
+      >
+        <div className="rounded-2xl border border-[var(--color-pib-line)] bg-[var(--color-pib-card)] p-6 text-sm text-[var(--color-pib-text)]">
+          Mobile Apps is not enabled for this portal.
+        </div>
+      </MobileAppsWorkspaceShell>
+    )
   }
 
   return (
