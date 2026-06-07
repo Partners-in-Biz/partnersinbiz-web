@@ -15,6 +15,13 @@ function readPublicMaterialSymbolNames() {
   )
 }
 
+function readLiteralMaterialSymbols(source: string) {
+  return Array.from(
+    source.matchAll(/className="[^"]*material-symbols-outlined[^"]*"[^>]*>\s*([a-z0-9_]+)\s*<\/span>/g),
+    match => match[1]
+  )
+}
+
 describe('public layout icon subset', () => {
   it('loads the Material Symbols used by the Gauteng audit page', () => {
     const materialSymbolNames = readPublicMaterialSymbolNames()
@@ -44,6 +51,37 @@ describe('public layout icon subset', () => {
 
     expect(toolIcons.length).toBeGreaterThan(0)
     for (const iconName of toolIcons) {
+      expect(materialSymbolNames).toContain(iconName)
+    }
+  })
+
+  it('loads every Material Symbol used by the start-project form options', () => {
+    const materialSymbolNames = readPublicMaterialSymbolNames()
+    const startProjectFormSource = readFileSync(
+      path.join(process.cwd(), 'app/(public)/start-a-project/StartProjectForm.tsx'),
+      'utf8'
+    )
+    const formOptionIcons = Array.from(
+      startProjectFormSource.matchAll(/icon:\s*'([^']+)'/g),
+      match => match[1]
+    )
+
+    expect(formOptionIcons.length).toBeGreaterThan(0)
+    for (const iconName of formOptionIcons) {
+      expect(materialSymbolNames).toContain(iconName)
+    }
+  })
+
+  it('loads every literal Material Symbol used by the start-project page shell', () => {
+    const materialSymbolNames = readPublicMaterialSymbolNames()
+    const startProjectPageSource = readFileSync(
+      path.join(process.cwd(), 'app/(public)/start-a-project/page.tsx'),
+      'utf8'
+    )
+    const pageShellIcons = readLiteralMaterialSymbols(startProjectPageSource)
+
+    expect(pageShellIcons.length).toBeGreaterThan(0)
+    for (const iconName of pageShellIcons) {
       expect(materialSymbolNames).toContain(iconName)
     }
   })
