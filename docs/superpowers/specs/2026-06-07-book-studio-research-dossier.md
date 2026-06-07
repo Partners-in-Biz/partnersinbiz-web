@@ -995,6 +995,35 @@ Channel listings, publishing packets, and file packages should reference an acco
 
 Devil's advocate: the easiest operational shortcut is to ask a client for a KDP password or to publish under whichever account is convenient. That creates security, tax, payment, rights, and ownership risk. Book Studio should make this friction visible early: a strong book is not publishable if the account owner, tax profile, payment profile, territories, and upload authority are unresolved.
 
+### 14. Hermes Generation Run Runtime And Safety Governance
+
+Book Studio needs a generation-run ledger before any long manuscript, image, layout, validation, or analytics job can become reliable. A Project/Kanban task is the orchestration and review surface; a generation run is the durable execution record that proves what was requested, which model/tool ran, what sources were allowed, what it cost, what safety checks fired, what artifacts were produced, and whether the output is still current.
+
+Current source-backed constraints:
+
+- OpenAI's moderation endpoint can classify text and image inputs, returns per-category flags/scores, and the docs warn that score-based custom policies may need recalibration as the moderation model changes. Source: [OpenAI moderation guide](https://platform.openai.com/docs/guides/moderation).
+- OpenAI Batch API is intended for asynchronous work that does not need immediate responses, offers a separate high-throughput/cost-discounted path, has a 24-hour completion window, writes outputs/errors to files, and says output order is not guaranteed so callers should map results by `custom_id`. Source: [OpenAI Batch API](https://platform.openai.com/docs/guides/batch).
+- OpenAI background mode exists for long-running model responses and is polled asynchronously, but response data is retained briefly for polling and is not compatible with Zero Data Retention guarantees. Source: [OpenAI background mode](https://platform.openai.com/docs/guides/background).
+- Gemini safety settings are configurable per request across harassment, hate speech, sexually explicit, and dangerous content; built-in child-safety protections cannot be adjusted; safety feedback can appear on prompt and candidate responses. Source: [Gemini safety settings](https://ai.google.dev/gemini-api/docs/safety-settings).
+- Gemini Batch API supports inline or JSONL/file-backed batch jobs, asynchronous status polling, cancellation/deletion, and terminal states such as succeeded, failed, cancelled, and expired. Source: [Gemini Batch API](https://ai.google.dev/gemini-api/docs/batch-api).
+
+PiB design implication: Book Studio should not call a model directly from a route or browser interaction and then write the result into a manuscript. It should create a `BookGenerationRun`, attach it to the Project/Kanban task, record the approved source set and budget, execute through a Hermes skill or approved backend worker, then expose only reviewed artifacts.
+
+Run governance rules:
+
+- **One active run per target by default:** only one active run may target the same manuscript section, page/spread, cover concept, package, or analytics import unless the operator explicitly creates a branch. Newer runs supersede older draft output rather than overwriting approved versions.
+- **Idempotency required:** every run stores an idempotency key derived from org, book, target scope, skill key, source manifest, prompt spec version, and requested output type. Retries reuse the same run unless the source or prompt contract changes.
+- **Prompt/input manifest:** store approved source IDs, prompt spec version, prompt summary, model/provider, parameters, tool/skill version, policy profile, budget, and retained prompt only when safe. Do not store raw secrets, full client private documents, API keys, account credentials, or unnecessarily large manuscript blobs in the run record.
+- **Budget controls:** runs carry token, image, audio, page, request, time, and money budgets. Repeated retries, high-cost models, large batches, or budget overruns create an approval/blocker task instead of continuing automatically.
+- **Safety preflight and postflight:** risky prompts and produced outputs get moderation/safety review before becoming client-visible or publishing-facing. A failed or inconclusive safety review creates a blocker and stores the category, provider feedback, reviewer, and required next action.
+- **Rights and derivative-risk hooks:** safety review is not enough. Runs that generate manuscript, image, cover, translation, public-domain, companion, or children's content must link to rights/provenance gates before approval.
+- **Recoverable execution:** queued, running, failed, cancelled, blocked, and expired states are first-class. Operators can retry, cancel, branch, or supersede a run, but each action creates provenance.
+- **No unreviewed publish path:** a completed run creates draft artifacts, version manifests, reports, or task output only. It cannot mark a publishing packet ready, approve a channel listing, message a client, upload files, or spend money without separate approval evidence.
+
+The ledger should make model/provider details useful without making PiB dependent on one provider. OpenAI background or batch jobs, Gemini batch jobs, a local validation worker, or Hermes-side synthesis all become external execution backends behind one PiB run record.
+
+Devil's advocate: without this layer, the Book Studio module will feel fast in demos and become brittle in production. A stale run can overwrite a better draft, a failed safety check can disappear into a chat transcript, a model bill can grow invisibly, a prompt can use the wrong source packet, and a reviewer will not be able to prove which exact output was approved.
+
 ## Proposed Data Model
 
 Names are draft interface names for discussion.
@@ -1034,6 +1063,33 @@ type BookTypeFamily =
   | 'low_content'
   | 'public_domain_or_companion'
   | 'audiobook'
+
+type BookGenerationRunState =
+  | 'queued'
+  | 'running'
+  | 'needs_review'
+  | 'partially_completed'
+  | 'completed'
+  | 'failed'
+  | 'cancelled'
+  | 'blocked'
+  | 'expired'
+  | 'superseded'
+
+type BookGenerationRunType =
+  | 'research'
+  | 'outline'
+  | 'draft'
+  | 'edit'
+  | 'fact_check'
+  | 'image_direction'
+  | 'cover'
+  | 'layout'
+  | 'export'
+  | 'validation'
+  | 'analytics_import'
+
+type BookGenerationProvider = 'openai' | 'gemini' | 'hermes' | 'local_worker' | 'manual'
 
 interface BookProject {
   id: string
@@ -1082,6 +1138,7 @@ interface BookProject {
     taskIds: string[]
     approvalGateTaskIds: string[]
     publishingAccountProfileIds: string[]
+    generationRunIds: string[]
     projectId?: string
     campaignId?: string
     companyId?: string
@@ -1167,6 +1224,104 @@ interface BookPublishingAccountProfile {
 ```
 
 ```ts
+interface BookGenerationRun {
+  id: string
+  orgId: string
+  bookProjectId: string
+  bookSeriesId?: string
+  editionId?: string
+  taskId: string
+  generationRunType: BookGenerationRunType
+  skillKey: string
+  assigneeAgentId: string
+  state: BookGenerationRunState
+  provider: BookGenerationProvider
+  externalJob?: {
+    providerJobId?: string
+    providerResponseId?: string
+    batchName?: string
+    statusUrl?: string
+    resultFileArtifactId?: string
+  }
+  target: {
+    scope: 'project' | 'section' | 'page' | 'spread' | 'asset' | 'package' | 'channel_listing' | 'analytics_import'
+    sectionId?: string
+    pageId?: string
+    artifactId?: string
+    packageId?: string
+    channelListingId?: string
+    branchLabel?: string
+  }
+  inputManifest: {
+    idempotencyKey: string
+    promptSpecVersion: string
+    promptSummary: string
+    retainedPromptArtifactId?: string
+    sourceResearchItemIds: string[]
+    sourceDocumentIds: string[]
+    sourceArtifactIds: string[]
+    sourceVersionManifestIds: string[]
+    sourceGenerationRunIds: string[]
+    modelName?: string
+    modelSnapshot?: string
+    toolVersion?: string
+    parameters?: Record<string, string | number | boolean>
+    safetyPolicyKey: string
+    allowedDataClasses: Array<'public' | 'client_internal' | 'sensitive_summary_only'>
+  }
+  budget: {
+    maxInputTokens?: number
+    maxOutputTokens?: number
+    maxImageCount?: number
+    maxAudioMinutes?: number
+    maxPages?: number
+    maxRequests?: number
+    maxRuntimeSeconds?: number
+    maxCost?: { amount: number; currency: string }
+    approvalTaskIdForOverrun?: string
+  }
+  usage?: {
+    inputTokens?: number
+    outputTokens?: number
+    imageCount?: number
+    audioMinutes?: number
+    pageCount?: number
+    requestCount?: number
+    runtimeSeconds?: number
+    estimatedCost?: { amount: number; currency: string; source: 'provider_usage' | 'manual_estimate' }
+  }
+  safety: {
+    preflightStatus: 'not_required' | 'passed' | 'warning' | 'blocked' | 'needs_review'
+    postflightStatus: 'not_required' | 'passed' | 'warning' | 'blocked' | 'needs_review'
+    moderationProvider?: 'openai' | 'gemini' | 'manual'
+    flaggedCategories: string[]
+    safetyReportArtifactIds: string[]
+    reviewerAgentId?: string
+    approvalGateTaskId?: string
+  }
+  output: {
+    artifactIds: string[]
+    documentIds: string[]
+    versionManifestIds: string[]
+    provenanceEventIds: string[]
+    warnings: string[]
+    blockers: Array<{ title: string; severity: 'warning' | 'blocker'; nextAction: string }>
+  }
+  retry: {
+    attempt: number
+    maxAttempts: number
+    previousRunId?: string
+    retryReason?: string
+    cancelReason?: string
+    supersededByRunId?: string
+  }
+  createdAt: string
+  startedAt?: string
+  completedAt?: string
+}
+```
+
+```ts
 interface BookProvenanceEvent {
   id: string
   orgId: string
@@ -1183,6 +1338,10 @@ interface BookProvenanceEvent {
     | 'export_created'
     | 'validation_recorded'
     | 'account_readiness_recorded'
+    | 'generation_run_created'
+    | 'generation_run_completed'
+    | 'generation_run_failed'
+    | 'safety_review_recorded'
     | 'manual_upload_recorded'
     | 'report_imported'
   actor: {
@@ -1198,6 +1357,7 @@ interface BookProvenanceEvent {
     previousVersionId?: string
     toolName?: string
     modelName?: string
+    generationRunId?: string
     promptSummary?: string
   }
   target: {
@@ -1207,6 +1367,7 @@ interface BookProvenanceEvent {
     artifactId?: string
     channelListingId?: string
     exportPackageId?: string
+    generationRunId?: string
   }
   aiUsage: {
     classification: 'none' | 'assisted' | 'generated'
@@ -1233,6 +1394,7 @@ interface BookVersionManifest {
   sourceDocumentIds: string[]
   sourceArtifactIds: string[]
   exportPackageIds?: string[]
+  generationRunIds: string[]
   sectionIds: string[]
   pageIds: string[]
   checksums: Array<{ artifactId: string; algorithm: 'sha256'; value: string }>
@@ -1299,6 +1461,7 @@ interface BookFilePackage {
     sourceDocumentIds: string[]
     sourceArtifactIds: string[]
     sourceTaskIds: string[]
+    generationRunIds: string[]
     exportTool?: string
     exportToolVersion?: string
     exportedBy?: string
@@ -1613,6 +1776,8 @@ The module will need new skills, not one giant "book" skill.
 
 ### Publishing And Analytics Skills
 
+- `book-generation-run-governor`: create, budget, retry, cancel, supersede, and reconcile generation run records.
+- `book-generation-safety-review`: preflight prompts and postflight outputs for provider safety feedback, PiB policy fit, and client/publishing visibility blockers.
 - `book-metadata-optimizer`: channel-safe title, description, categories, keywords.
 - `book-kdp-readiness-check`: KDP checklist, AI disclosure, ISBN, file package, metadata.
 - `book-google-play-readiness-check`: Google metadata, series, files, price, report setup.
@@ -1633,6 +1798,8 @@ Every Book Studio skill should declare:
 - **Inputs:** required record IDs, source artifacts, research IDs, client document IDs, or approval task IDs.
 - **Outputs:** exact artifact type, target collection/document, and whether the output is internal, client-reviewable, or public-ready.
 - **Evidence contract:** sources, assumptions, provenance, validation results, and confidence/risk flags.
+- **Runtime contract:** generation run type, idempotency key, allowed source manifest, provider/model policy, retry/cancel behavior, and maximum cost/usage budget.
+- **Safety contract:** prompt preflight, output postflight, required moderation/safety artifacts, and whether the output is allowed to become client-visible or publishing-facing.
 - **Allowed actions:** read, draft, write, approve, publish, spend, message_client, or delete. Publish/spend/message_client/delete/secret work remains hard-gated by approval tasks.
 - **Reviewer:** the default reviewer agent and when human approval is required.
 
@@ -1655,6 +1822,8 @@ Draft skill contracts:
 | `book-illustration-director` | Maya | Art style guide, character bible, scene list, rights constraints, model/tool constraints. | Scene prompts, continuity notes, asset checklist, and provenance requirements. | Must record AI/image provenance and block unlicensed style mimicry or celebrity/brand lookalikes. |
 | `book-layout-designer` | Maya + Quinn | Manuscript, trim/format, interior type, images, bleed/margin rules. | Layout plan, page/spread map, print/ebook packaging checklist, and validation tasks. | Must separate layout recommendations from validated print-ready files until file checks pass. |
 | `book-asset-rights-auditor` | Quinn | Asset list, source links, licenses, generated-image metadata, contributors. | Rights/provenance audit with pass/fail/blocker status for each asset. | Hard gate before client-visible publishing packet and public submission. |
+| `book-generation-run-governor` | Pip + Theo | Project/task IDs, skill key, approved source manifest, target scope, model/provider policy, budget, idempotency key. | `BookGenerationRun` record, state transitions, retry/cancel/supersede notes, usage/cost reconciliation, and blocker tasks. | Required for long-running or high-cost generation/validation/import jobs. Cannot create public/client-visible output by itself. |
+| `book-generation-safety-review` | Quinn + Pip | Prompt/output artifact, run ID, target audience, book type, provider safety feedback, PiB safety policy. | Safety review report with pass/warn/block state, flagged categories, visibility recommendation, and required next actions. | Blocks client-visible or publishing-facing output when preflight/postflight safety is failed, missing, stale, or unresolved. |
 | `book-metadata-optimizer` | Sage + Maya | Approved brief, manuscript summary, categories, keywords, competitor research, channel constraints. | Channel-specific metadata packet: title/subtitle, description, keywords, categories, series text, mature flags. | Must avoid misleading categories, competitor names as keywords, keyword stuffing, and claims unsupported by content. |
 | `book-kdp-readiness-check` | Quinn | KDP listing packet, files, AI disclosure, ISBN/imprint, metadata, pricing, series status. | KDP readiness report with blockers, warnings, and manual upload checklist. | Approval required before any KDP public submission. |
 | `book-google-play-readiness-check` | Quinn | Google listing packet, PDF/EPUB files, metadata, identifiers, series details, pricing. | Google Play readiness report and Partner Center checklist. | Must check identifier/series consistency and file package readiness before upload. |
@@ -1680,6 +1849,7 @@ interface BookStudioAgentContext {
   editionId?: string
   channelListingId?: string
   publishingAccountProfileId?: string
+  generationRunId?: string
   bookTypeFamily: BookTypeFamily
   productionGateProfile: string
   sourceResearchItemId?: string
@@ -1691,6 +1861,14 @@ interface BookStudioAgentContext {
   approvalGateTaskId?: string
   expectedArtifactTypes: BookStudioArtifactType[]
   visibility: 'internal' | 'client_reviewable'
+  safetyPolicyKey?: string
+  budget?: {
+    maxCost?: { amount: number; currency: string }
+    maxInputTokens?: number
+    maxOutputTokens?: number
+    maxImageCount?: number
+    maxRuntimeSeconds?: number
+  }
   riskFlags: string[]
 }
 
@@ -1705,6 +1883,8 @@ type BookStudioArtifactType =
   | 'illustration_direction'
   | 'layout_plan'
   | 'rights_audit'
+  | 'generation_run_report'
+  | 'safety_review_report'
   | 'metadata_packet'
   | 'kdp_readiness_report'
   | 'google_play_readiness_report'
@@ -1721,6 +1901,8 @@ Every Book Studio Hermes task should include:
 - `requiredCapability` matching one Book Studio skill name, such as `book-kdp-readiness-check`;
 - `riskLevel`, with rights, public publishing, AI disclosure, children's content, public-domain/companion, low-content, audiobook, and paid launch work defaulting to `high` or `critical`;
 - at least one source pointer (`sourceResearchItemId`, `sourceDocumentId`, `sourceArtifactIds`, or `channelListingId`) unless the task is an initial research task;
+- `generationRunId` for every long-running, high-cost, model-backed, validation, package, or report-import job;
+- `safetyPolicyKey` and budget limits for any model-backed writing, image, cover, metadata, translation, or children's-content task;
 - `expectedArtifacts` that name the artifact type and destination;
 - a `reviewerAgentId` for any output that can become client-visible or publishing-facing;
 - `approvalGateTaskId` whenever the task can influence public metadata, publishing, paid spend, ISBN/imprint, AI disclosure, or client-visible packets.
@@ -1733,8 +1915,8 @@ Implementation should not try to install all skills at once. The first wave shou
 
 | Wave | Skills | Why first |
 | --- | --- | --- |
-| 1. Foundation research and brief | `book-niche-research`, `book-series-strategy`, `book-brief-builder`, `book-outline-builder` | Creates the evidence and planning loop before manuscript or publishing work starts. |
-| 2. Safety and release checks | `book-asset-rights-auditor`, `book-metadata-optimizer`, `book-kdp-readiness-check`, `book-google-play-readiness-check`, `book-publishing-account-readiness` | Prevents policy/rights/account-authority mistakes before anything reaches a client or store. |
+| 1. Foundation research and brief | `book-generation-run-governor`, `book-niche-research`, `book-series-strategy`, `book-brief-builder`, `book-outline-builder` | Creates the evidence, planning, and execution-control loop before manuscript or publishing work starts. |
+| 2. Safety and release checks | `book-generation-safety-review`, `book-asset-rights-auditor`, `book-metadata-optimizer`, `book-kdp-readiness-check`, `book-google-play-readiness-check`, `book-publishing-account-readiness` | Prevents policy/rights/account-authority mistakes before anything reaches a client or store. |
 | 3. Production drafting | `book-draft-writer`, `book-developmental-editor`, `book-copyeditor`, `book-proofreader`, `book-reading-level-review`, `book-fact-checker` | Useful only after the brief and gate model are stable. |
 | 4. Visual and package work | `book-cover-brief`, `book-illustration-director`, `book-layout-designer`, `book-export-packager`, `book-file-package-validator` | Depends on approved book direction, rights rules, and file-package conventions. |
 | 5. Launch and analytics | `book-publishing-ops`, `book-analytics-import`, `book-launch-campaign` | Depends on channel listing state, packet fields, and import ledger behavior. |
@@ -1812,9 +1994,21 @@ Mitigation: build channel adapters and manual checklist/export flows first; API 
 - Fixed-layout books, EPUB generation, print PDF, cover wrap, and image-heavy exports are complex.
 - Firestore records can get large if manuscript/page content and image metadata are stored carelessly.
 - Long-running generation jobs do not fit ordinary request/response routes.
+- Model-backed generation can fail, expire, duplicate, or return in a different order from request order when run through batch/offline systems.
+- Without a run ledger, cost, token usage, model/provider version, prompt inputs, and stale-output overwrites become difficult to audit.
 - Rendering acceptance by KDP/Google cannot be proven by local tests alone.
 
-Mitigation: keep core records small, store large files in storage, use job records/agent tasks, and create verifiable export packages.
+Mitigation: keep core records small, store large files in storage, use generation run records plus agent tasks, enforce idempotency/supersede rules, and create verifiable export packages.
+
+### AI Safety And Quality Risk
+
+- Book generation can produce unsafe, mature, defamatory, low-quality, or policy-incompatible text/images before anyone notices.
+- Provider safety systems are useful but not identical to PiB's business policy or KDP/Google publishing risk.
+- Safety scores and categories can change as provider models evolve, so thresholds must be versioned and reviewable.
+- Children's books, education, health/legal/financial non-fiction, public-domain derivatives, and AI images need stricter human review than ordinary internal drafts.
+- An output can be "safe" in a moderation sense and still be commercially unusable, plagiaristic-looking, misleading, off-brief, or rights-risky.
+
+Mitigation: require prompt preflight, output postflight, safety report artifacts, rights/provenance gates, reviewer approval, and client/publishing visibility locks before generated output leaves internal review.
 
 ### Commercial Risk
 
@@ -1846,7 +2040,8 @@ Mitigation: require a pricing plan, cost estimate, margin confidence label, and 
 - Client document generation for book brief and publishing packet.
 - Portal module toggle, but portal may show read/review only.
 - Publishing account profile readiness for KDP/Google before upload approval.
-- Hermes skills for research, brief, outline, metadata, readiness check.
+- Generation run ledger for model-backed Hermes work, budgets, safety checks, retries, and stale-output protection.
+- Hermes skills for research, brief, outline, metadata, readiness check, run governance, and generation safety review.
 
 ### Phase 2: Manuscript And Series Production
 
@@ -1889,12 +2084,13 @@ Build the first approved spec around:
 3. Book-type gate profiles and compliance defaults.
 4. PiB-native integration backbone: Research, Client Documents, Projects/Kanban, workspace artifacts, Hermes task provenance, and future portal module gating.
 5. Research-backed book brief.
-6. Hermes skill set for research, outline, metadata, and readiness.
-7. Client document approval for brief and publishing packet.
-8. Export package manifest and validation tracker for source archives, KDP/Google files, checksums, preview evidence, and upload instructions.
-9. Publisher account governance for KDP/Google ownership, access, tax/payment/profile readiness, report access, and operating authority.
-10. KDP/Google export checklist and channel listing tracker.
-11. Analytics import model, initially manual CSV/report ingestion.
+6. Generation run ledger for model-backed Hermes jobs, budgets, safety checks, retries, and stale-output protection.
+7. Hermes skill set for research, outline, metadata, readiness, run governance, and safety review.
+8. Client document approval for brief and publishing packet.
+9. Export package manifest and validation tracker for source archives, KDP/Google files, checksums, preview evidence, and upload instructions.
+10. Publisher account governance for KDP/Google ownership, access, tax/payment/profile readiness, report access, and operating authority.
+11. KDP/Google export checklist and channel listing tracker.
+12. Analytics import model, initially manual CSV/report ingestion.
 
 Do not include in the first implementation:
 
@@ -1917,6 +2113,7 @@ This is not yet an implementation plan. It is the smallest coherent foundation t
 | Admin workspace | Build admin list/detail routes for book projects and series with tabs for overview, research, brief, production, publishing, gates, and analytics. | Operators need one command surface before manuscript generation or export engines exist. | A PiB admin can create a project, connect it to a series, see status/risk/gates, and move through the production checklist. |
 | Research and brief bridge | Link or create Research items and Book Brief client documents from a book project. | The module should inherit PiB's evidence and approval model rather than recreate `ai-story` research notes. | A book project can show linked findings/recommendations, create a brief packet, and preserve source IDs. |
 | Hermes task contracts | Store Hermes-ready task metadata for research, brief, outline, metadata, and readiness work without granting direct publish powers. | Agent output must be bounded, reviewable, and attributable. | Created tasks include book context, expected artifacts, reviewer, risk level, and approval-gate linkage. |
+| Generation run ledger | Add `BookGenerationRun` records linked to tasks, source manifests, prompt specs, provider jobs, usage/cost budgets, safety review, retries, and output artifacts. | Long-running book generation and validation cannot be trusted as route-local model calls or chat transcripts. | Model-backed tasks create run records, enforce idempotency, preserve usage/safety results, and prevent stale runs from overwriting newer approved versions. |
 | Rights, provenance, and version ledger | Add provenance events, version manifests, rights reviews, and asset-rights metadata linked to documents, tasks, and artifacts. | AI disclosure, copyright registration, public-domain/companion claims, asset licensing, and client disputes require evidence before upload, not after a problem appears. | Each reviewable or exportable version has source links, AI usage classification, contributors, checksums where relevant, rights state, and a release-gate decision. |
 | Export package manifest | Add file package records for source archives, KDP ebook/print, Google ebook, audiobook, and metadata-only packets with files, checksums, validations, preview evidence, source versions, rights snapshots, and upload instructions. | Store-ready work is not proven by manuscript approval. The module needs a repeatable way to prove which exact files were validated, previewed, approved, uploaded, and later superseded. | A channel listing can reference candidate packages, and only a package with required files, validation results, preview evidence, provenance, and checksum-bound approval can become the approved upload package. |
 | Publishing account governance | Add channel account profile records for KDP/Google ownership, access method, legal publisher/imprint, tax/payment/report readiness, Google service-provider consent, territories, blockers, and evidence artifacts without storing secrets. | Upload-ready files are still not publishable if account identity, tax, payment, territory, report access, or operating authority is unresolved. | A channel listing references an account profile, and upload approval is blocked when the profile is missing, stale, credential-sharing-dependent, or has unresolved account blockers. |
@@ -1936,6 +2133,10 @@ This is not yet an implementation plan. It is the smallest coherent foundation t
 - Publishing account profiles can store channel, owner, legal publisher/imprint, access method, PiB operator IDs, consent evidence, identity/tax/payment/report/territory readiness, recheck dates, and account-level blockers without storing passwords, tax IDs, bank account numbers, or identity documents.
 - Rights reviews can block or approve AI disclosure, copyright-registration posture, public-domain/companion claims, quote permissions, asset/font/audio licenses, territory rights, and Google DRM/printing settings.
 - Hermes task preparation is possible for research, brief, outline, metadata, and readiness checks, but the tasks do not publish, submit, or spend money.
+- Model-backed Hermes tasks create `BookGenerationRun` records with idempotency keys, approved source manifests, provider/model policy, prompt spec version, usage/cost budgets, safety policy, and output artifact references.
+- A stale, failed, blocked, expired, cancelled, or superseded generation run cannot update an approved manuscript version, client-visible packet, export package, or channel listing.
+- Generation outputs cannot become client-visible or publishing-facing until required prompt/output safety review, rights/provenance checks, and reviewer gates pass.
+- Budget overruns, repeated retries, high-cost runs, missing usage data, or unsafe retained-prompt requests create blocker/approval tasks instead of continuing silently.
 - A KDP readiness packet explicitly captures metadata, categories/keywords, file checklist, AI-generated-vs-assisted disclosure, ISBN/imprint choice, rights confirmation, content-risk notes, provenance/version evidence, pricing, and manual upload status.
 - A Google Play readiness packet explicitly captures EPUB/PDF readiness, cover file, metadata, series naming/volume consistency, rights/territories, pricing, DRM/copy-print choices, provenance/version evidence, and manual Partner Center status.
 - KDP and Google channel listings can store price plans, royalty/revenue-share assumptions, cost estimates, KDP Select exclusivity state, calculator/effective-price evidence, margin confidence, and approval/waiver state.
@@ -1957,6 +2158,8 @@ This is not yet an implementation plan. It is the smallest coherent foundation t
 - File package gate tests that block upload approval when required files, checksums, validation results, preview evidence, or rights/disclosure snapshots are missing or stale.
 - Publishing account profile tests that ensure sensitive credentials cannot be stored and upload approval is blocked by missing/stale account readiness, unresolved account blockers, or shared-credential-dependent access.
 - Hermes task contract tests that verify provenance, reviewer, expected artifacts, and forbidden direct-action fields.
+- Generation run tests that verify idempotency keys, source manifests, usage budgets, retry/cancel/supersede transitions, and stale-run overwrite blocking.
+- Safety gate tests that block client-visible or publishing-facing output when prompt/output moderation, provider safety feedback, rights review, or reviewer approval is missing, failed, stale, or inconclusive.
 - Gate tests that block publishing-packet readiness when provenance, rights review, AI disclosure, or version manifest evidence is missing.
 - Analytics import tests that verify estimated/reported/settled separation and reconciliation task creation.
 
