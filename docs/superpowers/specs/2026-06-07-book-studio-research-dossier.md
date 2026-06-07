@@ -915,6 +915,97 @@ Draft skill contracts:
 
 Future implementation should either add these as separate `.claude/skills/book-*/SKILL.md` files or group closely related editorial skills into a `book-editorial` package only if the manifest still exposes clear sub-capabilities. The policy manifest must include owner agent, allowed agents, risk level, sync target, and approval gates before VPS skill sync.
 
+### Hermes Task Packet Runtime Shape
+
+Book Studio should dispatch Hermes work through Projects/Kanban tasks rather than route-local prompts. The existing task shape already supports the needed contract: `assigneeAgentId`, `agentInput.spec`, `agentInput.context`, `agentInput.constraints`, `requiredCapability`, `riskLevel`, `reviewerAgentId`, `approvalGateTaskId`, `sourceResearchItemId`, `sourceDocumentId`, `sourceDocumentSectionId`, `expectedArtifacts`, `internalOnly`, and `agentOutput.artifacts`.
+
+Recommended `agentInput.context` for Book Studio tasks:
+
+```ts
+interface BookStudioAgentContext {
+  bookProjectId: string
+  bookSeriesId?: string
+  editionId?: string
+  channelListingId?: string
+  bookTypeFamily: BookTypeFamily
+  productionGateProfile: string
+  sourceResearchItemId?: string
+  sourceDocumentId?: string
+  sourceDocumentSectionId?: string
+  sourceArtifactIds?: string[]
+  publishingPacketId?: string
+  qualityGateIds?: string[]
+  approvalGateTaskId?: string
+  expectedArtifactTypes: BookStudioArtifactType[]
+  visibility: 'internal' | 'client_reviewable'
+  riskFlags: string[]
+}
+
+type BookStudioArtifactType =
+  | 'research_item'
+  | 'book_brief_document'
+  | 'series_strategy'
+  | 'outline_packet'
+  | 'manuscript_section'
+  | 'editorial_report'
+  | 'cover_brief'
+  | 'illustration_direction'
+  | 'layout_plan'
+  | 'rights_audit'
+  | 'metadata_packet'
+  | 'kdp_readiness_report'
+  | 'google_play_readiness_report'
+  | 'export_manifest'
+  | 'publishing_status_note'
+  | 'analytics_import'
+  | 'launch_campaign_brief'
+```
+
+Every Book Studio Hermes task should include:
+
+- a concise `agentInput.spec` that states the job, accepted inputs, and exact output shape;
+- `requiredCapability` matching one Book Studio skill name, such as `book-kdp-readiness-check`;
+- `riskLevel`, with rights, public publishing, AI disclosure, children's content, public-domain/companion, low-content, audiobook, and paid launch work defaulting to `high` or `critical`;
+- at least one source pointer (`sourceResearchItemId`, `sourceDocumentId`, `sourceArtifactIds`, or `channelListingId`) unless the task is an initial research task;
+- `expectedArtifacts` that name the artifact type and destination;
+- a `reviewerAgentId` for any output that can become client-visible or publishing-facing;
+- `approvalGateTaskId` whenever the task can influence public metadata, publishing, paid spend, ISBN/imprint, AI disclosure, or client-visible packets.
+
+Skill outputs should use `agentOutput.summary` for a short human-readable result and `agentOutput.artifacts` for structured references. A skill may draft, annotate, recommend, or create internal artifacts, but it should not silently transition a book project, channel listing, client document, or campaign into an externally visible state. State transitions remain task/API actions with approval evidence.
+
+### Initial Skill Implementation Waves
+
+Implementation should not try to install all skills at once. The first wave should cover the minimum production loop:
+
+| Wave | Skills | Why first |
+| --- | --- | --- |
+| 1. Foundation research and brief | `book-niche-research`, `book-series-strategy`, `book-brief-builder`, `book-outline-builder` | Creates the evidence and planning loop before manuscript or publishing work starts. |
+| 2. Safety and release checks | `book-asset-rights-auditor`, `book-metadata-optimizer`, `book-kdp-readiness-check`, `book-google-play-readiness-check` | Prevents policy/rights mistakes before anything reaches a client or store. |
+| 3. Production drafting | `book-draft-writer`, `book-developmental-editor`, `book-copyeditor`, `book-proofreader`, `book-reading-level-review`, `book-fact-checker` | Useful only after the brief and gate model are stable. |
+| 4. Visual and package work | `book-cover-brief`, `book-illustration-director`, `book-layout-designer`, `book-export-packager` | Depends on approved book direction, rights rules, and file-package conventions. |
+| 5. Launch and analytics | `book-publishing-ops`, `book-analytics-import`, `book-launch-campaign` | Depends on channel listing state, packet fields, and import ledger behavior. |
+
+Wave 1 and Wave 2 are the right targets for a first Hermes skill rollout because they reduce strategic and policy risk before the module generates a large amount of manuscript or visual work.
+
+### Skill Action Matrix
+
+| Action | Admin/operator | Portal client | Hermes skill |
+| --- | --- | --- | --- |
+| Create book project | Yes | No in V1 | No; can recommend via task |
+| Create Research item | Yes | No | Yes for research skills, internal by default |
+| Create Book Brief | Yes | Review/approve only | Draft only; client-visible after review |
+| Create outline | Yes | Review/approve only when exposed | Draft only |
+| Draft manuscript section | Yes | Review/comment only when exposed | Draft only, never final approval |
+| Create cover/illustration direction | Yes | Review/comment only when exposed | Draft only with provenance requirements |
+| Approve rights/AI disclosure/ISBN/imprint | Yes | Can confirm facts where requested | No final approval |
+| Approve publishing packet | Yes | Can approve client-facing facts/scope | No |
+| Upload/publish to KDP/Google | Manual operator action in V1 | No | No direct public publishing |
+| Change paid launch spend | Yes with approval | No | No direct spend |
+| Import analytics reports | Yes | No | Yes for import/normalization tasks |
+| View analytics | Yes | Client-safe summary | Yes if assigned |
+
+This matrix should be enforced in skill policy, task creation, and future API guards. If a skill output recommends a public action, the output should create or update a blocker/approval task rather than performing the action itself.
+
 ### Approval Gates
 
 These actions should require explicit approval tasks:
