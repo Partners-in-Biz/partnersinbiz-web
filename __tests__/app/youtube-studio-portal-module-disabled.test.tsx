@@ -1,5 +1,5 @@
 import React from 'react'
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { YouTubeStudioAdminWorkspace } from '@/components/youtube-studio/YouTubeStudioAdminWorkspace'
 import { YouTubeStudioPortalWorkspace } from '@/components/youtube-studio/YouTubeStudioPortalWorkspace'
 
@@ -119,6 +119,49 @@ describe('YouTubeStudioPortalWorkspace module availability', () => {
     })
   })
 
+  it('ignores out-of-order portal loads after the scoped org changes', async () => {
+    let resolveLumenLoad: (value: Response) => void = () => undefined
+    const lumenLoad = new Promise<Response>((resolve) => {
+      resolveLumenLoad = resolve
+    })
+    const fetchMock = jest.fn(async (input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url.includes('lumen-org')) return lumenLoad
+      if (url.includes('blocked-org')) {
+        return jsonResponse(
+          {
+            success: false,
+            error: 'YouTube Studio module is disabled for this client portal',
+            moduleDisabled: true,
+            module: 'youtubeStudio',
+          },
+          false,
+        )
+      }
+      return jsonResponse(portalData)
+    })
+    global.fetch = fetchMock as jest.Mock
+
+    const { rerender } = render(<YouTubeStudioPortalWorkspace orgId="lumen-org" />)
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining('lumen-org'))
+    })
+
+    rerender(<YouTubeStudioPortalWorkspace orgId="blocked-org" />)
+
+    expect(await screen.findByText('YouTube Studio is not enabled for this portal.')).toBeInTheDocument()
+
+    await act(async () => {
+      resolveLumenLoad(jsonResponse(portalData))
+      await lumenLoad
+      await Promise.resolve()
+    })
+
+    expect(screen.getByText('YouTube Studio is not enabled for this portal.')).toBeInTheDocument()
+    expect(screen.queryByText('Lumen Channel')).not.toBeInTheDocument()
+    expect(screen.queryByText('Draft launch cut')).not.toBeInTheDocument()
+  })
+
   it('clears stale load notices after successful scoped admin reloads', async () => {
     const fetchMock = jest.fn(async (input: RequestInfo | URL) => {
       const url = String(input)
@@ -154,6 +197,109 @@ describe('YouTubeStudioPortalWorkspace module availability', () => {
     await waitFor(() => {
       expect(screen.queryByText('Could not load the full YouTube Studio workspace.')).not.toBeInTheDocument()
     })
+  })
+
+  it('ignores out-of-order admin loads after the scoped org changes', async () => {
+    let resolveLumenChannels: (value: Response) => void = () => undefined
+    let resolveLumenSeries: (value: Response) => void = () => undefined
+    let resolveLumenVideos: (value: Response) => void = () => undefined
+    const lumenChannels = new Promise<Response>((resolve) => {
+      resolveLumenChannels = resolve
+    })
+    const lumenSeries = new Promise<Response>((resolve) => {
+      resolveLumenSeries = resolve
+    })
+    const lumenVideos = new Promise<Response>((resolve) => {
+      resolveLumenVideos = resolve
+    })
+    const fetchMock = jest.fn(async (input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url.includes('lumen-org') && url.includes('/channels')) return lumenChannels
+      if (url.includes('lumen-org') && url.includes('/series')) return lumenSeries
+      if (url.includes('lumen-org') && url.includes('/videos')) return lumenVideos
+      if (url.includes('velox-org') && url.includes('/channels')) {
+        return jsonResponse({
+          success: true,
+          data: {
+            channels: [
+              {
+                id: 'channel-2',
+                title: 'Velox Channel',
+                status: 'active',
+                youtubeHandle: '@velox',
+              },
+            ],
+          },
+        })
+      }
+      if (url.includes('velox-org') && url.includes('/series')) return jsonResponse({ success: true, data: { series: [] } })
+      if (url.includes('velox-org') && url.includes('/videos')) {
+        return jsonResponse({
+          success: true,
+          data: {
+            videos: [
+              {
+                id: 'video-2',
+                title: 'Velox launch cut',
+                status: 'production',
+                objective: 'Produce the launch video',
+                videoType: 'long_form',
+              },
+            ],
+          },
+        })
+      }
+      return jsonResponse({ success: true })
+    })
+    global.fetch = fetchMock as jest.Mock
+
+    const { rerender } = render(<YouTubeStudioAdminWorkspace orgId="lumen-org" orgName="Lumen" />)
+    await waitFor(() => {
+      expect(fetchMock.mock.calls.filter(([input]) => String(input).includes('lumen-org'))).toHaveLength(3)
+    })
+
+    rerender(<YouTubeStudioAdminWorkspace orgId="velox-org" orgName="Velox" />)
+
+    expect(await screen.findAllByText('Velox Channel')).not.toHaveLength(0)
+    expect(await screen.findByText('Velox launch cut')).toBeInTheDocument()
+
+    await act(async () => {
+      resolveLumenChannels(jsonResponse({
+        success: true,
+        data: {
+          channels: [
+            {
+              id: 'channel-1',
+              title: 'Lumen Channel',
+              status: 'active',
+              youtubeHandle: '@lumen',
+            },
+          ],
+        },
+      }))
+      resolveLumenSeries(jsonResponse({ success: true, data: { series: [] } }))
+      resolveLumenVideos(jsonResponse({
+        success: true,
+        data: {
+          videos: [
+            {
+              id: 'video-1',
+              title: 'Lumen draft cut',
+              status: 'production',
+              objective: 'Old org video',
+              videoType: 'long_form',
+            },
+          ],
+        },
+      }))
+      await Promise.all([lumenChannels, lumenSeries, lumenVideos])
+      await Promise.resolve()
+    })
+
+    expect(screen.getAllByText('Velox Channel')).not.toHaveLength(0)
+    expect(screen.getByText('Velox launch cut')).toBeInTheDocument()
+    expect(screen.queryByText('Lumen Channel')).not.toBeInTheDocument()
+    expect(screen.queryByText('Lumen draft cut')).not.toBeInTheDocument()
   })
 
   it('disables portal review actions while a decision is in flight', async () => {

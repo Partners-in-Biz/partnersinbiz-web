@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import type { YouTubeChannelWorkspace, YouTubeSeries, YouTubeVideoProject, YouTubeVideoType } from '@/lib/youtube-studio/types'
 import { YouTubeChannelCard, YouTubeVideoCard } from '@/components/youtube-studio/YouTubeStudioCards'
 import { YouTubeStudioWorkspaceShell } from '@/components/youtube-studio/YouTubeStudioWorkspaceShell'
@@ -61,9 +61,16 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
   const [saving, setSaving] = useState(false)
   const [loadNotice, setLoadNotice] = useState('')
   const [actionNotice, setActionNotice] = useState('')
+  const loadRequestIdRef = useRef(0)
+  const activeOrgIdRef = useRef(orgId)
+  activeOrgIdRef.current = orgId
   const notice = loadNotice || actionNotice
 
   const load = useCallback(async () => {
+    if (orgId !== activeOrgIdRef.current) return
+    const requestId = loadRequestIdRef.current + 1
+    loadRequestIdRef.current = requestId
+    const isCurrentRequest = () => requestId === loadRequestIdRef.current && orgId === activeOrgIdRef.current
     setLoading(true)
     try {
       const [channelRes, seriesRes, videoRes] = await Promise.all([
@@ -76,6 +83,7 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
         seriesRes.json().catch(() => ({})),
         videoRes.json().catch(() => ({})),
       ])
+      if (!isCurrentRequest()) return
       setChannels(Array.isArray(channelBody.data?.channels) ? channelBody.data.channels : [])
       setSeries(Array.isArray(seriesBody.data?.series) ? seriesBody.data.series : [])
       setVideos(Array.isArray(videoBody.data?.videos) ? videoBody.data.videos : [])
@@ -85,17 +93,23 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
         setLoadNotice('')
       }
     } catch {
+      if (!isCurrentRequest()) return
       setChannels([])
       setSeries([])
       setVideos([])
       setLoadNotice('Could not load the YouTube Studio workspace.')
     } finally {
-      setLoading(false)
+      if (isCurrentRequest()) {
+        setLoading(false)
+      }
     }
   }, [orgId])
 
   useEffect(() => {
     if (orgId) void load()
+    return () => {
+      loadRequestIdRef.current += 1
+    }
   }, [orgId, load])
 
   function update<K extends keyof FormState>(field: K, value: FormState[K]) {

@@ -47,15 +47,23 @@ export function YouTubeStudioPortalWorkspace({ orgId }: YouTubeStudioPortalWorks
   const [moduleDisabled, setModuleDisabled] = useState(false)
   const submittingRequestRef = useRef(false)
   const reviewingIdRef = useRef<string | null>(null)
+  const loadRequestIdRef = useRef(0)
 
   const apiPath = useMemo(() => scopedApiPath('/api/v1/portal/youtube-studio', { orgId }), [orgId])
+  const activeApiPathRef = useRef(apiPath)
+  activeApiPathRef.current = apiPath
   const notice = loadNotice || actionNotice
 
   const load = useCallback(async () => {
+    if (apiPath !== activeApiPathRef.current) return
+    const requestId = loadRequestIdRef.current + 1
+    loadRequestIdRef.current = requestId
+    const isCurrentRequest = () => requestId === loadRequestIdRef.current && apiPath === activeApiPathRef.current
     setLoading(true)
     try {
       const res = await fetch(apiPath)
       const body = await res.json().catch(() => ({}))
+      if (!isCurrentRequest()) return
       if (!res.ok && body.moduleDisabled === true) {
         setModuleDisabled(true)
         setChannels([])
@@ -78,6 +86,7 @@ export function YouTubeStudioPortalWorkspace({ orgId }: YouTubeStudioPortalWorks
         setLoadNotice('')
       }
     } catch {
+      if (!isCurrentRequest()) return
       setModuleDisabled(false)
       setChannels([])
       setSeries([])
@@ -85,12 +94,17 @@ export function YouTubeStudioPortalWorkspace({ orgId }: YouTubeStudioPortalWorks
       setPackets([])
       setLoadNotice('Could not load YouTube Studio.')
     } finally {
-      setLoading(false)
+      if (isCurrentRequest()) {
+        setLoading(false)
+      }
     }
   }, [apiPath])
 
   useEffect(() => {
     void load()
+    return () => {
+      loadRequestIdRef.current += 1
+    }
   }, [load])
 
   function update<K extends keyof RequestForm>(field: K, value: RequestForm[K]) {
