@@ -3051,6 +3051,37 @@ This is not yet an implementation plan. It is the smallest coherent foundation t
 
 Approval of option 1, internal PiB production studio with optional client review, should unlock a separate implementation plan for this Phase 1 foundation.
 
+## Requirement Traceability And Approval Readiness
+
+This section maps the original module request to the current dossier so the next planning step can verify scope instead of relying on memory.
+
+| Original requirement | Current design coverage | Evidence in this dossier | Implementation readiness |
+| --- | --- | --- | --- |
+| Create books to sell on Amazon KDP, Google Play Books, and similar channels. | Multi-channel publishing operations with KDP, Google Play Books, Apple, Kobo, Draft2Digital, IngramSpark, ACX/audio, and direct channel considerations. | External Publishing Constraints, Wider Channel Adapter Research, Publishing Operations, Export Package Model, Publishing Account Governance, Domain API Contract. | Ready for Phase 1 KDP/Google workflow and manual-handoff implementation planning; wider channels remain later adapters. |
+| Support different types of books. | Book type is a production gate profile, not only a genre field. Narrative, children's, visual/sequential, nonfiction, instructional, activity/workbook, low-content, public-domain/companion, and audiobook families have distinct gates and warnings. | Book Types To Support, Book-Type Gate Matrix, Workspace Experience, Phase 1 Acceptance Criteria. | Ready for typed gate-profile implementation planning. Full export engines by type are phased later. |
+| Support creating series. | Series is modeled as editorial, commercial, metadata, continuity, and analytics state, not only a label. | Series Operating Model, Data Model, Workspace Route Blueprint, Phase 1 Epics. | Ready for Phase 1 series record/list/detail implementation planning, with deeper continuity tooling later. |
+| Use Hermes agents and create new skills. | Hermes work is decomposed into owned skills with contracts, task packets, readiness levels, fixture evaluation, manifest governance, and no direct publish/spend powers. | Hermes Skills Needed, Hermes Skill Contract Model, Hermes Task Packet Runtime Shape, Skill Rollout/Evaluation/Policy Sync, Skill Action Matrix, Approval Gates. | Ready for Wave 1/Wave 2 skill-doc and manifest/evaluation planning, but runtime dispatch should wait for skill readiness checks. |
+| Create books with AI assistance without becoming a low-quality AI generator. | Generation is mediated through `BookGenerationRun`, safety review, provenance, editorial passes, claim checks, accessibility checks, and approval gates. | Hermes Generation Run Runtime And Safety Governance, Manuscript/Editorial/Accessibility Production Model, Rights/Provenance/Version Governance, Devil's Advocate. | Ready for generation-run ledger and reviewed-artifact workflow planning. Full draft generation should remain behind gates. |
+| Publish books. | Publishing starts as export-and-manual-handoff with readiness packets, account governance, file package validation, price plans, external IDs, and manual status tracking. | Publishing Operations, Export/Validation/File Package Model, Publisher Account/Operating Authority, Domain API Contract, Phase 1 Deferrals. | Ready for manual KDP/Google tracker implementation planning. Direct automated publishing remains explicitly deferred. |
+| Track analytics. | Analytics separates estimated, reported, settled, PiB-owned, ad-attributed, and manually adjusted metrics with import ledger and reconciliation queue. | Analytics And Reporting, Commercial Pricing Model, Launch Lifecycle Governance, Phase 1 Acceptance Criteria. | Ready for manual import shell and confidence-labeled dashboard planning. Automated reporting integrations are later. |
+| Play devil's advocate from all angles. | Risks are covered across product, legal/rights, platform, engineering, AI safety/quality, commercial, workspace UX, launch/review, and API-route rule drift. | Devil's Advocate plus devil's-advocate paragraphs inside major sections. | Ready to use as implementation review gates; keep expanding as new risks are discovered. |
+| Learn from `PMStander/ai-story` but integrate with PiB. | `ai-story` patterns are mapped to PiB-native org-scoped records, shared workspaces, Research, Client Documents, Projects/Kanban, artifacts, Hermes policy, and portal module gating. | Lessons From `PMStander/ai-story`, Concept Mapping, Source Inventory And Migration Delta, Non-Port Rules, PiB Integration Architecture. | Ready for implementation planning that reuses product ideas but not the standalone architecture. |
+| Fit into the Partners in Biz platform. | The module is designed around existing admin/org/portal surfaces, org scope, module switches, shared workspaces, API guards, and tenant-safe helpers. | Workspace Route Blueprint, Workspace Experience, Canonical Records And Ownership, Domain API Contract, Phase 1 Blueprint. | Ready for Phase 1 implementation planning once option 1 is approved. |
+
+### Approval Packet For The Next Step
+
+Before implementation planning starts, the product decision should be recorded explicitly:
+
+- **Recommended approval:** Book Studio V1 is an internal PiB production studio with optional client review.
+- **Initial build surface:** admin org-scoped Book Studio with portal review only for approved artifacts.
+- **Initial channels:** KDP and Google Play Books readiness/manual-handoff flows.
+- **Initial book families:** narrative, nonfiction, children's/visual, activity/workbook, low-content, public-domain/companion, and audiobook as gate profiles; not all require full export tooling in Phase 1.
+- **Initial Hermes scope:** research, brief, outline, metadata, readiness, generation-run governance, and safety review. Draft-writing and visual generation can be planned but should not be enabled as client-visible or publishing-facing output until fixtures and review gates are ready.
+- **Initial analytics scope:** manual import ledger, source/confidence labels, and reconciliation tasks.
+- **Explicit non-goals:** self-serve public SaaS, direct store publishing automation, autonomous ad spend, automatic review outreach, full print-perfect layout engine, and storing sensitive publishing-account secrets.
+
+If this approval packet is accepted, the next artifact should be a separate implementation plan for Phase 1. That plan should start with module entitlement, typed domain records/sanitizers, admin workspace shell, gate-profile derivation, Research/Client Document/Project bridges, and portal disabled-module guards before any manuscript generation feature.
+
 ## Open Product Decision
 
 The next design step depends on one product decision:
