@@ -344,6 +344,118 @@ Phase 1 should test the experience, not only the data model:
 - Quality gate UI shows source/evidence/blocker ownership and cannot mark a gate passed without required evidence.
 - Client approval supersedes correctly when a brief, proof, export package, or publishing packet version changes.
 
+### Release Review Scorecard
+
+Book Studio needs a plain release scorecard that prevents the team from mistaking "many gates exist" for "this exact book is ready." The scorecard is an internal release-review rubric, not an automated promise that Amazon, Google, or any distributor will accept the book. It should sit above individual gates and convert policy source keys, evidence records, artifact versions, package checksums, account readiness, and reviewer decisions into a structured release decision.
+
+The scorecard should draw from the policy source register, especially `kdp_content_ai_ip`, `kdp_quality_reader_experience`, `kdp_metadata_categories_keywords`, `google_sell_content_policy`, `google_files_metadata_series`, `epub_validation_accessibility`, `copyright_ai_human_authorship`, and `review_compliance_ftc_amazon`. Each category needs direct evidence links, not a free-text "looks good" note.
+
+Recommended release states:
+
+| State | Meaning | Allowed next action |
+| --- | --- | --- |
+| `draft` | Project exists, but there is not enough evidence to evaluate release readiness. | Create brief, research, gates, and first artifacts. |
+| `needs_evidence` | One or more required scorecard categories cannot be evaluated. | Collect source, proof, rights, account, package, or approval evidence. |
+| `internal_review` | Work can continue internally, but client or upload approval is not ready. | Create tasks, run Hermes skills, collect evidence, resolve blockers. |
+| `client_review_ready` | Client-safe brief, proof, cover option, or packet is reviewed and internal-only risks are hidden or summarized safely. | Request client review or approval. |
+| `packet_ready` | Files, metadata, account assumptions, and package evidence can enter final release review. | Run release review and channel/package validation. |
+| `approved_for_manual_upload` | Required release categories passed or have approved waivers for this exact package, channel, and account profile. | Operator can manually upload externally and record evidence. |
+| `blocked` | At least one blocker prevents client review, package approval, upload approval, launch, or reporting trust. | Show blocker owner, source, evidence gap, and next task. |
+| `waived_with_approval` | A non-critical warning or risk has a named approver, expiry, and downstream owner. | Continue only for the scoped stage and package version. |
+| `live_monitoring` | Book is live or uploaded externally, and the next risk is analytics, quality feedback, revision, or launch follow-up. | Import reports, monitor feedback, create revision/lifecycle tasks. |
+
+Recommended scorecard categories:
+
+| Category | Required evidence | Block condition |
+| --- | --- | --- |
+| `brief_fit` | Approved book brief, audience, type family, promise, scope, channel plan, format plan, and client involvement model. | The current manuscript, package, or listing no longer matches the approved brief or target audience. |
+| `source_research` | Linked Research item, source coverage, category/competitor evidence, claims register, and unresolved-fact log. | Factual claims, category strategy, or market assumptions have no current source evidence. |
+| `manuscript_quality` | Editorial pass, proof pass, reading-level/structure check, completeness check, and repetitive/low-quality risk review. | Missing content, wrong content, destructive errors, low-utility/repetitive content, or no proof evidence. |
+| `navigation_accessibility` | TOC, internal links, footnotes, reading order, tables, image handling, alt text, and format-specific accessibility checks. | Broken navigation, inaccessible critical content, unreadable tables/images, or failed validation without approved waiver. |
+| `asset_rights_provenance` | Cover/interior images, fonts, audio, public-domain status, licenses, contributor roles, and AI-generated vs AI-assisted classification. | Missing rights evidence, unresolved public-domain/companion-book risk, unknown AI disclosure posture, or territory rights gap. |
+| `metadata_truthfulness` | Title, subtitle, author/contributor, series, categories, keywords, description, cover text, AI disclosure answers, and maturity flags. | Misleading metadata, category/keyword stuffing, mismatched title/series/author, or unsupported public listing claim. |
+| `file_package` | Exact files, source versions, manifest, checksums, EPUB/PDF/KPF/print/audio validation, preview/proof evidence, and channel instructions. | Missing file, changed checksum after approval, stale package, failed preview/validation, or channel/book-type mismatch. |
+| `account_authority` | Publishing account profile, operating authority, consent, tax/payment/report posture, territory rights, and external dependency list. | Missing account profile, shared-credential dependency, incomplete authority, missing consent, payment/report blocker, or territory mismatch. |
+| `commercial_viability` | Price plan, royalty assumption, print/file cost estimate, margin confidence, KDP Select/wide-distribution conflict check, and launch budget. | Unreviewed pricing, negative per-unit margin without waiver, stale calculator evidence, or unresolved exclusivity conflict. |
+| `client_visibility` | Client-safe packet, sanitized blockers, approval version, comment/change history, and portal visibility record. | Client-facing packet exposes internal-only notes, raw Hermes output, unresolved rights risk, or superseded approval. |
+| `launch_review_hygiene` | Review outreach plan, ARC/promo/ads approvals, FTC/Amazon review compliance, attribution, public copy, and budget approval. | Paid launch, review request, public send, price promotion, or third-party campaign exists without compliance evidence. |
+| `analytics_readiness` | Import labels, source/report access, estimated/reported/settled separation, external listing IDs, attribution tags, and reconciliation owner. | Reporting would mix estimates with settled revenue, cannot match listing IDs, or lacks report access for the selected account. |
+| `source_freshness` | Source keys, checked-at timestamps, next refresh dates, and changed-policy impact notes. | A required source key is stale, changed, missing, or marked `needs_recheck` for a release-sensitive gate. |
+
+Minimum decisions:
+
+- `client_review_ready` requires a client-safe brief/proof/packet, no unresolved rights or safety blocker, no raw Hermes output, and no internal-only risk text in the portal artifact.
+- `packet_ready` requires every required scorecard category to be `pass`, `warning`, or `not_applicable` with owner/evidence; the package must be complete; the channel readiness report must exist; pricing/account/source freshness must be current.
+- `approved_for_manual_upload` requires required gates to be passed or approval-waived, the selected package to be checksum-bound, account authority to be current, source register checks to be current, and a human release reviewer to approve the exact package/listing pair.
+- `live_monitoring` can be set only after external manual upload/live evidence is recorded. Store acceptance, timing, ranking, review behavior, and payout settlement are never guaranteed by the PiB scorecard.
+
+Draft record shape:
+
+```ts
+interface BookReleaseReviewScorecard {
+  id: string
+  orgId: string
+  bookProjectId: string
+  channelListingId?: string
+  exportPackageId?: string
+  state:
+    | 'draft'
+    | 'needs_evidence'
+    | 'internal_review'
+    | 'client_review_ready'
+    | 'packet_ready'
+    | 'approved_for_manual_upload'
+    | 'blocked'
+    | 'waived_with_approval'
+    | 'live_monitoring'
+  categories: Array<{
+    key:
+      | 'brief_fit'
+      | 'source_research'
+      | 'manuscript_quality'
+      | 'navigation_accessibility'
+      | 'asset_rights_provenance'
+      | 'metadata_truthfulness'
+      | 'file_package'
+      | 'account_authority'
+      | 'commercial_viability'
+      | 'client_visibility'
+      | 'launch_review_hygiene'
+      | 'analytics_readiness'
+      | 'source_freshness'
+    status: 'pass' | 'warning' | 'blocker' | 'not_applicable'
+    sourceKeys: string[]
+    evidenceIds: string[]
+    ownerId?: string
+    blockerCode?: string
+    waiverTaskId?: string
+    clientVisible: boolean
+  }>
+  decision: {
+    status:
+      | 'not_ready'
+      | 'client_review_ready'
+      | 'packet_ready'
+      | 'approved_for_manual_upload'
+      | 'blocked'
+    reviewerId: string
+    reviewedAt: string
+    approvalTaskId?: string
+  }
+}
+```
+
+Scorecard rules:
+
+- No single numeric score should hide a release blocker. A book with twelve green categories and one hard rights blocker is `blocked`, not "92% ready."
+- Warnings need an owner, due date, evidence link, and waiver path. Otherwise they become blockers.
+- Any brief/artifact/version/package/source/account change after approval should recompute the scorecard and mark affected approvals stale.
+- Portal users should see only a client-safe scorecard summary, and only when admin explicitly exposes it. Internal source, rights, commercial, and policy notes stay hidden unless converted into client-safe blockers.
+- Hermes skills can recommend scorecard findings, but Hermes cannot emit a passing release scorecard or move a book into `approved_for_manual_upload`.
+- A scorecard can become bureaucratic theater if reviewers tick boxes without evidence. Every pass must point to evidence, every warning needs owner/expiry, and every waiver needs an approval task.
+
+Phase 1 tests should cover scorecard sanitization and transition rules: `approved_for_manual_upload` requires current source freshness, package checksum evidence, account authority, and passed or approved-waived gates; portal APIs expose only client-safe scorecard summaries; Hermes task outputs can propose findings but cannot set release-sensitive decision states.
+
 ### V1 Non-Negotiable Guardrails
 
 - No direct public publishing submission without an approval task.
