@@ -2,6 +2,22 @@ import { YouTubeStudioPortalWorkspace } from '@/components/youtube-studio/YouTub
 
 export const dynamic = 'force-dynamic'
 
-export default function PortalYouTubeStudioPage() {
-  return <YouTubeStudioPortalWorkspace />
+type PortalYouTubeStudioSearchParams = {
+  orgId?: string | string[]
+}
+
+function firstSearchParam(value?: string | string[]) {
+  const first = Array.isArray(value) ? value[0] : value
+  return typeof first === 'string' ? first.trim() : ''
+}
+
+export default async function PortalYouTubeStudioPage({
+  searchParams,
+}: {
+  searchParams?: Promise<PortalYouTubeStudioSearchParams>
+} = {}) {
+  const params = await searchParams
+  const orgId = firstSearchParam(params?.orgId)
+
+  return <YouTubeStudioPortalWorkspace orgId={orgId || undefined} />
 }

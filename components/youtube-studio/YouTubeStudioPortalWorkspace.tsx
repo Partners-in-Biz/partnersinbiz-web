@@ -1,9 +1,14 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { YouTubeChannelWorkspace, YouTubePublishingPacket, YouTubeSeries, YouTubeVideoProject } from '@/lib/youtube-studio/types'
 import { YouTubeChannelCard, YouTubeVideoCard } from '@/components/youtube-studio/YouTubeStudioCards'
 import { YouTubeStudioWorkspaceShell } from '@/components/youtube-studio/YouTubeStudioWorkspaceShell'
+import { scopedApiPath } from '@/lib/portal/scoped-routing'
+
+interface YouTubeStudioPortalWorkspaceProps {
+  orgId?: string | null
+}
 
 type RequestForm = {
   channelWorkspaceId: string
@@ -27,7 +32,7 @@ function isClientReviewOpen(video: YouTubeVideoProject) {
   )
 }
 
-export function YouTubeStudioPortalWorkspace() {
+export function YouTubeStudioPortalWorkspace({ orgId }: YouTubeStudioPortalWorkspaceProps = {}) {
   const [channels, setChannels] = useState<YouTubeChannelWorkspace[]>([])
   const [series, setSeries] = useState<YouTubeSeries[]>([])
   const [videos, setVideos] = useState<YouTubeVideoProject[]>([])
@@ -35,13 +40,19 @@ export function YouTubeStudioPortalWorkspace() {
   const [request, setRequest] = useState<RequestForm>(emptyRequest)
   const [reviewNotes, setReviewNotes] = useState<Record<string, string>>({})
   const [loading, setLoading] = useState(true)
+  const [submittingRequest, setSubmittingRequest] = useState(false)
+  const [reviewingId, setReviewingId] = useState<string | null>(null)
   const [notice, setNotice] = useState('')
   const [moduleDisabled, setModuleDisabled] = useState(false)
+  const submittingRequestRef = useRef(false)
+  const reviewingIdRef = useRef<string | null>(null)
 
-  async function load() {
+  const apiPath = useMemo(() => scopedApiPath('/api/v1/portal/youtube-studio', { orgId }), [orgId])
+
+  const load = useCallback(async () => {
     setLoading(true)
     try {
-      const res = await fetch('/api/v1/portal/youtube-studio')
+      const res = await fetch(apiPath)
       const body = await res.json().catch(() => ({}))
       if (!res.ok && body.moduleDisabled === true) {
         setModuleDisabled(true)
@@ -68,11 +79,11 @@ export function YouTubeStudioPortalWorkspace() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [apiPath])
 
   useEffect(() => {
     void load()
-  }, [])
+  }, [load])
 
   function update<K extends keyof RequestForm>(field: K, value: RequestForm[K]) {
     setRequest((prev) => ({ ...prev, [field]: value }))
@@ -80,37 +91,56 @@ export function YouTubeStudioPortalWorkspace() {
 
   async function submitRequest(event: React.FormEvent) {
     event.preventDefault()
-    if (!request.channelWorkspaceId || !request.title.trim()) return
+    if (submittingRequestRef.current || !request.channelWorkspaceId || !request.title.trim()) return
+    submittingRequestRef.current = true
+    setSubmittingRequest(true)
     setNotice('')
-    const res = await fetch('/api/v1/portal/youtube-studio', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(request),
-    })
-    const body = await res.json().catch(() => ({}))
-    if (!res.ok) {
-      setNotice(body.error ?? 'Could not submit video request')
-      return
+    try {
+      const res = await fetch(apiPath, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(request),
+      })
+      const body = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        setNotice(body.error ?? 'Could not submit video request')
+        return
+      }
+      setRequest(emptyRequest)
+      setNotice('Video request sent to the PiB team.')
+      await load()
+    } catch {
+      setNotice('Could not submit video request')
+    } finally {
+      submittingRequestRef.current = false
+      setSubmittingRequest(false)
     }
-    setRequest(emptyRequest)
-    setNotice('Video request sent to the PiB team.')
-    await load()
   }
 
   async function saveDecision(videoId: string, decision: 'approved' | 'changes_requested' | 'rejected') {
+    if (reviewingIdRef.current) return
+    reviewingIdRef.current = videoId
+    setReviewingId(videoId)
     setNotice('')
-    const res = await fetch('/api/v1/portal/youtube-studio', {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id: videoId, decision, notes: reviewNotes[videoId] ?? '' }),
-    })
-    const body = await res.json().catch(() => ({}))
-    if (!res.ok) {
-      setNotice(body.error ?? 'Could not save review')
-      return
+    try {
+      const res = await fetch(apiPath, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: videoId, decision, notes: reviewNotes[videoId] ?? '' }),
+      })
+      const body = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        setNotice(body.error ?? 'Could not save review')
+        return
+      }
+      setNotice('Review saved for the PiB team.')
+      await load()
+    } catch {
+      setNotice('Could not save review')
+    } finally {
+      reviewingIdRef.current = null
+      setReviewingId(null)
     }
-    setNotice('Review saved for the PiB team.')
-    await load()
   }
 
   if (moduleDisabled) {
@@ -163,19 +193,35 @@ export function YouTubeStudioPortalWorkspace() {
                     <div className="w-full space-y-3">
                       <textarea
                         rows={3}
+                        disabled={reviewingId === video.id}
                         value={reviewNotes[video.id] ?? ''}
                         onChange={(event) => setReviewNotes((prev) => ({ ...prev, [video.id!]: event.target.value }))}
                         placeholder="Notes for PiB"
                         className="w-full rounded-xl border border-[var(--color-pib-line)] bg-transparent p-3 text-sm"
                       />
                       <div className="flex flex-wrap gap-2">
-                        <button type="button" onClick={() => saveDecision(video.id!, 'approved')} className="pib-btn-primary text-sm">
+                        <button
+                          type="button"
+                          disabled={Boolean(reviewingId)}
+                          onClick={() => saveDecision(video.id!, 'approved')}
+                          className="pib-btn-primary text-sm"
+                        >
                           Approve
                         </button>
-                        <button type="button" onClick={() => saveDecision(video.id!, 'changes_requested')} className="pib-btn-ghost text-sm">
+                        <button
+                          type="button"
+                          disabled={Boolean(reviewingId)}
+                          onClick={() => saveDecision(video.id!, 'changes_requested')}
+                          className="pib-btn-ghost text-sm"
+                        >
                           Request changes
                         </button>
-                        <button type="button" onClick={() => saveDecision(video.id!, 'rejected')} className="pib-btn-ghost text-sm">
+                        <button
+                          type="button"
+                          disabled={Boolean(reviewingId)}
+                          onClick={() => saveDecision(video.id!, 'rejected')}
+                          className="pib-btn-ghost text-sm"
+                        >
                           Reject
                         </button>
                       </div>
@@ -210,8 +256,8 @@ export function YouTubeStudioPortalWorkspace() {
           <Field label="Video title" value={request.title} onChange={(value) => update('title', value)} required />
           <TextArea label="Objective" value={request.objective} onChange={(value) => update('objective', value)} />
           <Field label="Source URL" value={request.sourceUrl} onChange={(value) => update('sourceUrl', value)} />
-          <button type="submit" disabled={!request.channelWorkspaceId || !request.title.trim()} className="pib-btn-primary w-full">
-            Send request
+          <button type="submit" disabled={submittingRequest || !request.channelWorkspaceId || !request.title.trim()} className="pib-btn-primary w-full">
+            {submittingRequest ? 'Sending...' : 'Send request'}
           </button>
         </form>
       </div>

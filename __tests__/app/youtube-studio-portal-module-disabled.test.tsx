@@ -1,6 +1,40 @@
 import React from 'react'
-import { render, screen, waitFor } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { YouTubeStudioPortalWorkspace } from '@/components/youtube-studio/YouTubeStudioPortalWorkspace'
+
+function jsonResponse(body: unknown, ok = true): Response {
+  return {
+    ok,
+    status: ok ? 200 : 500,
+    json: async () => body,
+  } as Response
+}
+
+const portalData = {
+  success: true,
+  data: {
+    channels: [
+      {
+        id: 'channel-1',
+        title: 'Lumen Channel',
+        status: 'active',
+        youtubeHandle: '@lumen',
+      },
+    ],
+    series: [],
+    videos: [
+      {
+        id: 'video-1',
+        title: 'Draft launch cut',
+        status: 'client_review',
+        objective: 'Review this draft',
+        videoType: 'long_form',
+        clientReview: { status: 'requested' },
+      },
+    ],
+    packets: [],
+  },
+}
 
 describe('YouTubeStudioPortalWorkspace module availability', () => {
   beforeEach(() => {
@@ -24,5 +58,70 @@ describe('YouTubeStudioPortalWorkspace module availability', () => {
       expect(screen.getByText('YouTube Studio is not enabled for this portal.')).toBeInTheDocument()
     })
     expect(screen.queryByText('No YouTube videos yet')).not.toBeInTheDocument()
+  })
+
+  it('uses the scoped portal org id for load, request, and review API calls', async () => {
+    const orgId = 'lumen org/1'
+    const scopedPath = `/api/v1/portal/youtube-studio?${new URLSearchParams({ orgId }).toString()}`
+    const fetchMock = jest.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
+      if (init?.method === 'POST') return jsonResponse({ success: true, data: { id: 'request-1' } })
+      if (init?.method === 'PUT') return jsonResponse({ success: true })
+      return jsonResponse(portalData)
+    })
+    global.fetch = fetchMock as jest.Mock
+
+    render(<YouTubeStudioPortalWorkspace orgId={orgId} />)
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(scopedPath)
+    })
+
+    fireEvent.change(await screen.findByLabelText('Channel'), { target: { value: 'channel-1' } })
+    fireEvent.change(screen.getByLabelText('Video title'), { target: { value: 'New launch video' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Send request' }))
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        scopedPath,
+        expect.objectContaining({ method: 'POST' }),
+      )
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Approve' }))
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        scopedPath,
+        expect.objectContaining({ method: 'PUT' }),
+      )
+    })
+  })
+
+  it('disables portal review actions while a decision is in flight', async () => {
+    let resolveReview: (value: Response) => void = () => undefined
+    const reviewPromise = new Promise<Response>((resolve) => {
+      resolveReview = resolve
+    })
+    const fetchMock = jest.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
+      if (init?.method === 'PUT') return reviewPromise
+      return jsonResponse(portalData)
+    })
+    global.fetch = fetchMock as jest.Mock
+
+    render(<YouTubeStudioPortalWorkspace />)
+
+    const approveButton = await screen.findByRole('button', { name: 'Approve' })
+    fireEvent.click(approveButton)
+
+    await waitFor(() => {
+      expect(approveButton).toBeDisabled()
+    })
+    fireEvent.click(approveButton)
+    expect(fetchMock.mock.calls.filter(([, init]) => init?.method === 'PUT')).toHaveLength(1)
+
+    resolveReview(jsonResponse({ success: true }))
+    await waitFor(() => {
+      expect(approveButton).not.toBeDisabled()
+    })
   })
 })

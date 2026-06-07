@@ -100,65 +100,75 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
 
   async function saveChannel(event: React.FormEvent) {
     event.preventDefault()
-    if (!form.channelTitle.trim()) return
+    if (saving || !form.channelTitle.trim()) return
     setSaving(true)
     setNotice('')
-    const res = await fetch('/api/v1/youtube-studio/channels', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        orgId,
-        title: form.channelTitle,
-        youtubeHandle: form.youtubeHandle,
-        contentPillars: splitLines(form.contentPillars),
-        audienceNotes: form.audienceNotes,
-      }),
-    })
-    const body = await res.json().catch(() => ({}))
-    setSaving(false)
-    if (!res.ok) {
-      setNotice(body.error ?? 'Could not save YouTube channel workspace')
-      return
+    try {
+      const res = await fetch('/api/v1/youtube-studio/channels', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          orgId,
+          title: form.channelTitle,
+          youtubeHandle: form.youtubeHandle,
+          contentPillars: splitLines(form.contentPillars),
+          audienceNotes: form.audienceNotes,
+        }),
+      })
+      const body = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        setNotice(body.error ?? 'Could not save YouTube channel workspace')
+        return
+      }
+      setForm((prev) => ({
+        ...prev,
+        channelTitle: '',
+        youtubeHandle: '',
+        contentPillars: '',
+        audienceNotes: '',
+        videoChannelId: body.data?.id ?? prev.videoChannelId,
+      }))
+      setNotice('YouTube channel workspace saved.')
+      await load()
+    } catch {
+      setNotice('Could not save YouTube channel workspace')
+    } finally {
+      setSaving(false)
     }
-    setForm((prev) => ({
-      ...prev,
-      channelTitle: '',
-      youtubeHandle: '',
-      contentPillars: '',
-      audienceNotes: '',
-      videoChannelId: body.data?.id ?? prev.videoChannelId,
-    }))
-    setNotice('YouTube channel workspace saved.')
-    await load()
   }
 
   async function saveVideo(event: React.FormEvent) {
     event.preventDefault()
-    if (!form.videoChannelId || !form.videoTitle.trim()) return
+    if (saving || !form.videoChannelId || !form.videoTitle.trim()) return
     setSaving(true)
     setNotice('')
-    const res = await fetch('/api/v1/youtube-studio/videos', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        orgId,
-        channelWorkspaceId: form.videoChannelId,
-        title: form.videoTitle,
-        objective: form.objective,
-        videoType: form.videoType,
-        source: { intakeType: form.sourceUrl ? 'source_url' : 'manual', sourceUrl: form.sourceUrl },
-        visibility: { showInClientPortal: true },
-      }),
-    })
-    const body = await res.json().catch(() => ({}))
-    setSaving(false)
-    if (!res.ok) {
-      setNotice(body.error ?? 'Could not save video project')
-      return
+    try {
+      const res = await fetch('/api/v1/youtube-studio/videos', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          orgId,
+          channelWorkspaceId: form.videoChannelId,
+          title: form.videoTitle,
+          objective: form.objective,
+          videoType: form.videoType,
+          source: { intakeType: form.sourceUrl ? 'source_url' : 'manual', sourceUrl: form.sourceUrl },
+          visibility: { showInClientPortal: true },
+        }),
+      })
+      const body = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        setNotice(body.error ?? 'Could not save video project')
+        return
+      }
+      setForm((prev) => ({ ...prev, videoTitle: '', objective: '', sourceUrl: '' }))
+      setNotice('Video project saved.')
+      await load()
+    } catch {
+      setNotice('Could not save video project')
+    } finally {
+      setSaving(false)
     }
-    setForm((prev) => ({ ...prev, videoTitle: '', objective: '', sourceUrl: '' }))
-    setNotice('Video project saved.')
-    await load()
   }
 
   return (
