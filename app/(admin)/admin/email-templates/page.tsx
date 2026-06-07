@@ -102,7 +102,7 @@ export default function EmailTemplatesPage() {
             {
               id: 'b_init_3',
               type: 'footer',
-              props: { orgName: '{{orgName}}', address: 'Cape Town, South Africa', unsubscribeUrl: '{{unsubscribeUrl}}' },
+              props: { orgName: '{{orgName}}', address: 'Pretoria, Gauteng, South Africa', unsubscribeUrl: '{{unsubscribeUrl}}' },
             },
           ],
           theme: {

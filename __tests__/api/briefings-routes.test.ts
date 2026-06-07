@@ -222,6 +222,47 @@ describe('briefing API routes', () => {
     }), { merge: true })
   })
 
+  it('persists auditable inline decision submissions without touching external side-effect collections', async () => {
+    const { POST } = await import('@/app/api/v1/briefings/items/[itemId]/state/route')
+
+    const res = await POST(new NextRequest('http://localhost/api/v1/briefings/items/seo-task%3Atheme-1/state', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        orgId: 'pib-platform-owner',
+        action: 'handled',
+        approvalState: 'decision_submitted',
+        approvalCopy: 'SEO can continue through internal evidence only.',
+        decisionSubmission: {
+          optionId: 'option-a',
+          optionLabel: 'A: Service + location keywords',
+          inputTarget: { action: 'complete', resourceType: 'seo-task', resourceId: 'theme-1', orgId: 'pib-platform-owner' },
+          afterSubmit: { releasesAgentId: 'seo', createsAuditTrail: true, consequence: 'Continue SEO work internally.' },
+          sideEffectPerformed: false,
+        },
+      }),
+    }), { params: Promise.resolve({ itemId: 'seo-task%3Atheme-1' }) })
+    const body = await res.json()
+
+    expect(res.status).toBe(200)
+    expect(body.data).toMatchObject({ status: 'handled', approvalState: 'decision_submitted', sideEffectPerformed: false })
+    expect(mockStateSet).toHaveBeenCalledWith(expect.objectContaining({
+      itemId: 'seo-task:theme-1',
+      orgId: 'pib-platform-owner',
+      status: 'handled',
+      decisionSubmission: expect.objectContaining({
+        optionId: 'option-a',
+        inputTarget: expect.objectContaining({ resourceType: 'seo-task', resourceId: 'theme-1' }),
+        sideEffectPerformed: false,
+      }),
+      sideEffectPerformed: false,
+    }), { merge: true })
+    expect(mockCollection).not.toHaveBeenCalledWith('social_posts')
+    expect(mockCollection).not.toHaveBeenCalledWith('emails')
+    expect(mockCollection).not.toHaveBeenCalledWith('deployments')
+    expect(mockCollection).not.toHaveBeenCalledWith('ad_campaigns')
+  })
+
   it('creates linked Projects/Kanban tasks with source ids, evidence rows, approval gate copy, and assign-agent routing', async () => {
     const { POST } = await import('@/app/api/v1/briefings/items/[itemId]/actions/route')
 
@@ -302,6 +343,42 @@ describe('briefing API routes', () => {
     expect(payload.agentInput.context.approvalGateCopy).toContain('approval-task-1')
     expect(payload.agentInput.context.approvalGateCopy).toContain('external send')
     expect(mockActivityAdd).not.toHaveBeenCalled()
+  })
+
+  it('accepts routed briefing alternatives for specialist triage and routed task creation', async () => {
+    const { POST } = await import('@/app/api/v1/briefings/items/[itemId]/actions/route')
+
+    for (const action of ['ask-specialist-triage', 'create-routed-task']) {
+      mockProjectTaskAdd.mockClear()
+      const res = await POST(new NextRequest('http://localhost/api/v1/briefings/items/agent-output%3Aout-1/actions', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          action,
+          orgId: 'pib-platform-owner',
+          title: `${action}: Theo should review`,
+          spec: 'Review this briefing with the attached card context and evidence.',
+          assigneeAgentId: 'theo',
+          context: { orgId: 'pib-platform-owner', projectId: 'project-1', taskId: 'source-task-1' },
+          source: { type: 'agent-output', id: 'out-1', url: '/admin/projects/project-1?taskId=source-task-1' },
+          metadata: { softwareBuildEvidence: [{ kind: 'commit', label: 'Development commit', value: 'abc123' }] },
+        }),
+      }), { params: Promise.resolve({ itemId: 'agent-output%3Aout-1' }) })
+      const body = await res.json()
+
+      expect(res.status).toBe(201)
+      expect(body.data).toMatchObject({ action, taskId: 'linked-task-1', projectId: 'project-1' })
+      expect(mockProjectTaskAdd).toHaveBeenCalledWith(expect.objectContaining({
+        assigneeAgentId: 'theo',
+        agentStatus: 'pending',
+        internalOnly: true,
+      }))
+      expect(mockProjectTaskAdd.mock.calls[0][0].agentInput.context).toMatchObject({
+        sourceBriefingId: 'agent-output:out-1',
+        sourceTaskId: 'source-task-1',
+        sourceBriefingSourceType: 'agent-output',
+      })
+    }
   })
 
   it('rejects external briefing action requests without creating durable records', async () => {

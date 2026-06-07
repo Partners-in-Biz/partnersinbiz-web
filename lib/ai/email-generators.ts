@@ -344,7 +344,7 @@ function buildSalvageDocument(opts: {
   const blocks: Block[] = htmlBodyToBlocks(opts.bodyHtml)
   const footerProps: FooterBlockProps = {
     orgName: opts.orgName ?? '{{orgName}}',
-    address: 'Cape Town, South Africa',
+    address: 'Pretoria, Gauteng, South Africa',
     unsubscribeUrl: opts.unsubscribeUrl ?? '{{unsubscribeUrl}}',
   }
   blocks.push({ id: makeBlockId(), type: 'footer', props: footerProps })
@@ -888,7 +888,7 @@ export async function generateNewsletter(input: GenerateNewsletterInput): Promis
       type: 'footer',
       props: {
         orgName: input.orgName,
-        address: 'Cape Town, South Africa',
+        address: 'Pretoria, Gauteng, South Africa',
         unsubscribeUrl: input.unsubscribeUrl ?? '{{unsubscribeUrl}}',
       },
     })

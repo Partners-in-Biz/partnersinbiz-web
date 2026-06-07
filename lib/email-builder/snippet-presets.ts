@@ -45,7 +45,7 @@ const footerSocialBlocks: Block[] = [
     type: 'footer',
     props: {
       orgName: '{{orgName}}',
-      address: 'Cape Town, South Africa',
+      address: 'Pretoria, Gauteng, South Africa',
       unsubscribeUrl: '{{unsubscribeUrl}}',
       social: {
         twitter: 'https://twitter.com/yourbrand',

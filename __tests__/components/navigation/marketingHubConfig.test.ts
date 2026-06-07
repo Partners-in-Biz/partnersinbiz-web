@@ -28,6 +28,7 @@ describe('marketing hub config', () => {
     expect(hrefs.get('Campaigns')).toBe('/admin/org/lumen-speeds/campaigns')
     expect(hrefs.get('Ads')).toBe('/admin/org/lumen-speeds/ads/campaigns')
     expect(hrefs.get('SEO')).toBe('/admin/org/lumen-speeds/seo')
+    expect(hrefs.get('GEO SEO')).toBe('/admin/org/lumen-speeds/geo-seo')
     expect(hrefs.get('Social overview')).toBe('/admin/org/lumen-speeds/social')
     expect(hrefs.get('Capture sources')).toBe('/admin/org/lumen-speeds/capture-sources')
     expect(hrefs.get('Email domains')).toBe('/admin/org/lumen-speeds/email-domains')
@@ -74,6 +75,7 @@ describe('marketing hub config', () => {
     expect(portal.primaryAction?.href).toBe(`/portal/social?orgId=client-org&orgSlug=lumen-speeds${sourceSuffix}`)
     expect(hrefs.get('Campaigns')).toBe(`/portal/campaigns?orgId=client-org&orgSlug=lumen-speeds${sourceSuffix}`)
     expect(hrefs.get('SEO')).toBe(`/portal/seo?orgId=client-org&orgSlug=lumen-speeds${sourceSuffix}`)
+    expect(hrefs.get('GEO SEO')).toBe(`/portal/geo-seo?orgId=client-org&orgSlug=lumen-speeds${sourceSuffix}`)
     expect(hrefs.get('Capture sources')).toBe(`/portal/capture-sources?orgId=client-org&orgSlug=lumen-speeds${sourceSuffix}`)
 
     for (const href of hrefs.values()) {

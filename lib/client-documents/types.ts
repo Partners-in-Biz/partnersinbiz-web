@@ -296,7 +296,15 @@ export interface ClientDocumentLinkSet {
   seoSprintId?: string
   geoWorkspaceId?: string
   geoAuditId?: string
+  geoReportId?: string
   geoTaskIds?: string[]
+  sourceDocumentId?: string
+  sourceDocumentSectionId?: string
+  sourceSpecVersion?: string
+  approvalGateTaskId?: string
+  sourceCompanyId?: string
+  evidenceIds?: string[]
+  evidenceRowIds?: string[]
   researchItemIds?: string[]
   socialPostIds?: string[]
   invoiceId?: string

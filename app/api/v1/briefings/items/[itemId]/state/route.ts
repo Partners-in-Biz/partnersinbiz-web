@@ -39,6 +39,11 @@ function cleanText(value: unknown, maxLength = 1000): string | null {
   return trimmed || null
 }
 
+function cleanObject(value: unknown): Record<string, unknown> | null {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null
+  return value as Record<string, unknown>
+}
+
 function snoozeUntil(value: unknown): Timestamp | null {
   if (typeof value === 'string') {
     const ms = Date.parse(value)
@@ -84,6 +89,7 @@ export const POST = withAuth('client', async (req: NextRequest, user, ctx) => {
 
   const approvalState = cleanText(body.approvalState)
   const approvalCopy = cleanText(body.approvalCopy, 2000)
+  const decisionSubmission = cleanObject(body.decisionSubmission)
   const ref = adminDb.collection('briefing_user_states').doc(stateDocId(orgId, user.uid, itemId))
   await ref.set({
     itemId,
@@ -95,6 +101,7 @@ export const POST = withAuth('client', async (req: NextRequest, user, ctx) => {
     snoozedUntil,
     approvalState,
     approvalCopy,
+    decisionSubmission,
     sideEffectPerformed: false,
     updatedAt: FieldValue.serverTimestamp(),
     createdAt: FieldValue.serverTimestamp(),

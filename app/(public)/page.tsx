@@ -39,7 +39,7 @@ export default function HomePage() {
                 <span className="absolute inset-0 rounded-full bg-[var(--color-pib-success)] opacity-75 animate-ping" />
                 <span className="relative inline-flex rounded-full h-2 w-2 bg-[var(--color-pib-success)]" />
               </span>
-              <span className="eyebrow text-[var(--color-pib-text-muted)]">Open for new work · April 2026</span>
+              <span className="eyebrow text-[var(--color-pib-text-muted)]">Open for new work · Pretoria & remote</span>
             </div>
           </Reveal>
 

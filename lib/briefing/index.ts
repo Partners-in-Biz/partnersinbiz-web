@@ -6,6 +6,7 @@
 
 export * from './types'
 export * from './utils'
+export * from './cardContract'
 
 // Adapters
 export { taskAdapter, projectAdapter } from './adapters/taskAdapter'

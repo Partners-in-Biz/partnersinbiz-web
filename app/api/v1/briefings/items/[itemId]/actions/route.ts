@@ -10,7 +10,7 @@ import { isValidAgentId } from '@/lib/agents/types'
 export const dynamic = 'force-dynamic'
 
 type RouteContext = { params: Promise<{ itemId: string }> }
-const SAFE_ACTIONS = ['create-task', 'assign-agent', 'create-crm-activity'] as const
+const SAFE_ACTIONS = ['create-task', 'assign-agent', 'create-crm-activity', 'ask-specialist-triage', 'create-routed-task', 'link-existing-task'] as const
 const GATED_EXTERNAL_ACTIONS = new Set([
   'send',
   'send-email',

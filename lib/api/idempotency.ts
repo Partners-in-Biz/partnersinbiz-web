@@ -8,7 +8,7 @@ type IdempotentHandler = (
   user: ApiUser,
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   context?: any,
-) => Promise<NextResponse>
+) => Promise<Response>
 
 const WINDOW_MS = 24 * 60 * 60 * 1000 // 24h
 const COLLECTION = 'idempotency_keys'

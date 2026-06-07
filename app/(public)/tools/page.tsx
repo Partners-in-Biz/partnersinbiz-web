@@ -59,6 +59,20 @@ export default function ToolsPage() {
               </Link>
             </div>
           </Reveal>
+          <Reveal delay={320}>
+            <div className="mt-12 grid max-w-4xl gap-3 sm:grid-cols-3">
+              {[
+                ['8', 'public tools'],
+                ['0', 'account required'],
+                ['Safe', 'URL audit wrappers'],
+              ].map(([value, label]) => (
+                <div key={label} className="rounded-3xl border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)]/70 px-5 py-4 backdrop-blur">
+                  <p className="font-display text-3xl text-[var(--color-pib-text)]">{value}</p>
+                  <p className="mt-1 text-xs uppercase tracking-[0.2em] text-[var(--color-pib-text-faint)]">{label}</p>
+                </div>
+              ))}
+            </div>
+          </Reveal>
         </div>
       </section>
 
@@ -67,7 +81,8 @@ export default function ToolsPage() {
           <div className="grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-3">
             {PUBLIC_TOOLS.map((tool, index) => (
               <Reveal key={tool.slug} delay={index * 60}>
-                <Link href={`/tools/${tool.slug}`} className="bento-card group flex h-full flex-col gap-6 p-8">
+                <Link href={`/tools/${tool.slug}`} className="bento-card group relative flex h-full flex-col gap-6 overflow-hidden p-8 transition duration-300 hover:-translate-y-1 hover:border-[var(--color-pib-accent)]/50 hover:shadow-[0_24px_90px_rgba(50,255,214,0.14)]">
+                  <div className="absolute inset-x-6 top-0 h-px bg-gradient-to-r from-transparent via-[var(--color-pib-accent)]/50 to-transparent opacity-0 transition group-hover:opacity-100" />
                   <div className="flex items-start justify-between gap-4">
                     <span
                       className="material-symbols-outlined text-[var(--color-pib-accent)]"
@@ -85,9 +100,15 @@ export default function ToolsPage() {
                       {tool.description}
                     </p>
                   </div>
-                  <div>
-                    <p className="text-xs uppercase tracking-[0.2em] text-[var(--color-pib-text-faint)]">Output</p>
-                    <p className="mt-2 text-sm text-[var(--color-pib-text)]">{tool.outcome}</p>
+                  <div className="grid gap-3 rounded-3xl border border-[var(--color-pib-line)] bg-[var(--color-pib-bg)]/40 p-4">
+                    <div>
+                      <p className="text-xs uppercase tracking-[0.2em] text-[var(--color-pib-text-faint)]">Output</p>
+                      <p className="mt-2 text-sm text-[var(--color-pib-text)]">{tool.outcome}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs uppercase tracking-[0.2em] text-[var(--color-pib-text-faint)]">Proof angle</p>
+                      <p className="mt-2 text-sm text-[var(--color-pib-text-muted)]">{tool.proofPoint}</p>
+                    </div>
                   </div>
                   <div className="pib-link-underline inline-flex items-center gap-1.5 text-sm font-medium text-[var(--color-pib-accent)]">
                     Use the tool
@@ -102,6 +123,15 @@ export default function ToolsPage() {
 
       <section className="section pt-0">
         <div className="container-pib">
+          <div className="bento-card mb-8 grid gap-6 overflow-hidden p-8 lg:grid-cols-[1fr_0.8fr]">
+            <div>
+              <p className="eyebrow mb-4">Built like a mini growth lab</p>
+              <h2 className="font-display text-3xl text-[var(--color-pib-text)] md:text-5xl">Calculators for commercial judgement. Checkers for technical proof. CTAs for real work.</h2>
+            </div>
+            <div className="rounded-3xl border border-[var(--color-pib-line)] bg-[var(--color-pib-bg)]/50 p-5 text-sm leading-relaxed text-[var(--color-pib-text-muted)]">
+              The live URL tools use hardened public wrappers instead of internal admin SEO routes: private-network targets are blocked, redirects are limited, responses are capped, and output is sanitised into practical issues and quick wins.
+            </div>
+          </div>
           <SectionHead
             eyebrow="How to use them"
             title="Free first. Commercial when the numbers make sense."

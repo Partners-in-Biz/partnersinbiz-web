@@ -5,8 +5,9 @@
  * execute, complete, or skip tasks from the briefing surface.
  */
 
+import { withBriefingCardContract } from '../cardContract'
 import type { BriefingPriority, BriefingSourceAdapter } from '../types'
-import { extractMultiFieldExcerpt, extractOrgId, hashSourceDocument, normalizeTimestamp } from '../utils'
+import { extractMultiFieldExcerpt, extractOrgId, generateSourceUrl, hashSourceDocument, normalizeTimestamp } from '../utils'
 
 interface SeoTaskDocument extends Record<string, unknown> {
   orgId?: string | null
@@ -52,10 +53,7 @@ function title(doc: SeoTaskDocument, docId: string): string {
 }
 
 function sourceUrl(doc: SeoTaskDocument, docId: string): string {
-  const sprintId = clean(doc.sprintId)
-  if (sprintId) return `/admin/seo/sprints/${encodeURIComponent(sprintId)}/tasks?task=${encodeURIComponent(docId)}`
-  if (doc.orgSlug) return `/admin/org/${encodeURIComponent(doc.orgSlug)}/seo?task=${encodeURIComponent(docId)}`
-  return `/admin/seo?task=${encodeURIComponent(docId)}`
+  return generateSourceUrl('seo-task', docId, { orgSlug: clean(doc.orgSlug), projectId: clean(doc.sprintId) })
 }
 
 function statusLabel(status: string | null): string {
@@ -158,7 +156,7 @@ export const seoTaskAdapter: BriefingSourceAdapter<SeoTaskDocument> = {
   toItem(doc: SeoTaskDocument, docId: string) {
     const orgId = seoOrgId(doc)
     const occurredAt = this.extractOccurredAt(doc, docId) ?? new Date()
-    return {
+    return withBriefingCardContract({
       orgId,
       source: {
         type: this.sourceType,
@@ -178,6 +176,6 @@ export const seoTaskAdapter: BriefingSourceAdapter<SeoTaskDocument> = {
       metadata: this.extractMetadata?.(doc, docId),
       createdAt: occurredAt,
       updatedAt: occurredAt,
-    }
+    })
   },
 }

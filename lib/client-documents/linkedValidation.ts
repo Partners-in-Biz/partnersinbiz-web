@@ -11,6 +11,12 @@ export const LINKED_STRING_FIELDS: Set<string> = new Set([
   'seoSprintId',
   'geoWorkspaceId',
   'geoAuditId',
+  'geoReportId',
+  'sourceDocumentId',
+  'sourceDocumentSectionId',
+  'sourceSpecVersion',
+  'approvalGateTaskId',
+  'sourceCompanyId',
   'invoiceId',
 ] as const)
 
@@ -22,6 +28,8 @@ export const LINKED_ARRAY_FIELDS: Set<string> = new Set([
   'dealIds',
   'socialPostIds',
   'geoTaskIds',
+  'evidenceIds',
+  'evidenceRowIds',
   'researchItemIds',
 ] as const)
 export const LINKED_FIELDS: Set<string> = new Set([...Array.from(LINKED_STRING_FIELDS), ...Array.from(LINKED_ARRAY_FIELDS)])

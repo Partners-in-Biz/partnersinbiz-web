@@ -2,6 +2,12 @@ import Link from 'next/link'
 import { SITE, SERVICES } from '@/lib/seo/site'
 import NewsletterForm from '@/components/marketing/NewsletterForm'
 
+const SOCIAL_LINKS = [
+  { label: 'Facebook', href: SITE.social.facebook },
+  { label: 'LinkedIn', href: SITE.social.linkedin },
+  { label: 'GitHub', href: SITE.social.github },
+].filter((item) => Boolean(item.href))
+
 export default function Footer() {
   return (
     <footer className="relative border-t border-[var(--color-pib-line)] mt-32" aria-labelledby="footer-heading">
@@ -89,11 +95,13 @@ export default function Footer() {
           <div className="md:col-span-2">
             <h4 className="eyebrow mb-5">Connect</h4>
             <ul className="space-y-3 text-sm">
-              <li><a href={SITE.social.facebook} target="_blank" rel="noopener noreferrer" className="text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] transition-colors">Facebook</a></li>
-              <li><a href={SITE.social.linkedin} target="_blank" rel="noopener noreferrer" className="text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] transition-colors">LinkedIn</a></li>
-              <li><a href={SITE.social.twitter} target="_blank" rel="noopener noreferrer" className="text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] transition-colors">X / Twitter</a></li>
-              <li><a href={SITE.social.github} target="_blank" rel="noopener noreferrer" className="text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] transition-colors">GitHub</a></li>
-              <li><a href={SITE.social.instagram} target="_blank" rel="noopener noreferrer" className="text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] transition-colors">Instagram</a></li>
+              {SOCIAL_LINKS.map((item) => (
+                <li key={item.href}>
+                  <a href={item.href} target="_blank" rel="noopener noreferrer" className="text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] transition-colors">
+                    {item.label}
+                  </a>
+                </li>
+              ))}
             </ul>
           </div>
 

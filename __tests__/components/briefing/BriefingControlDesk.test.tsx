@@ -671,6 +671,58 @@ const seoTaskBriefingItem = {
   occurredAt: '2026-05-31T09:52:30.000Z',
 }
 
+const seoKeywordDecisionBriefingItem = {
+  id: 'seo-task:seo-keyword-theme-1',
+  orgId: 'org-1',
+  priority: 'needs-peet',
+  title: 'Queued SEO task: Choose keyword theme',
+  summary: 'Keyword theme decision is not_started. Peet must choose the next theme before SEO can continue.',
+  excerpt: 'Pick a keyword/theme direction for the next sprint cluster.',
+  timeAgo: '11 minutes ago',
+  requiresAction: true,
+  source: { type: 'seo-task', id: 'seo-keyword-theme-1', url: '/admin/seo/sprints/sprint-1/tasks?task=seo-keyword-theme-1' },
+  actor: { id: 'system', name: 'System', role: 'system', type: 'system' },
+  context: {
+    orgId: 'org-1',
+    orgName: 'Client One',
+    orgSlug: 'client-one',
+    seoTaskId: 'seo-keyword-theme-1',
+    seoTaskTitle: 'Choose keyword theme',
+    seoSprintId: 'sprint-1',
+  },
+  decisionRequest: {
+    prompt: 'Choose keyword/theme direction: Choose keyword theme',
+    scope: 'internal',
+    source: 'seo-task',
+    reason: 'Peet must choose the next theme before SEO can continue.',
+  },
+  options: [
+    { id: 'option-a', label: 'A: Service + location keywords', description: 'Prioritise high-intent service/location terms for pages and briefs.', recommended: true },
+    { id: 'option-b', label: 'B: Problem / solution themes', description: 'Prioritise search themes around pain points, FAQs, and solution-led content.' },
+    { id: 'option-c', label: 'C: Authority / comparison themes', description: 'Prioritise authority-building, competitor, and comparison-led topics.' },
+    { id: 'other', label: 'Other keyword/theme', description: 'Capture a custom theme in the free-text box before submitting.' },
+  ],
+  recommendedOption: { id: 'option-a', label: 'A: Service + location keywords' },
+  inputTarget: { action: 'complete', resourceType: 'seo-task', resourceId: 'seo-keyword-theme-1', orgId: 'org-1' },
+  afterSubmit: {
+    consequence: 'SEO work can continue only through internal task state/evidence updates; public publishing remains separately approval-gated.',
+    releasesAgentId: 'seo',
+    createsAuditTrail: true,
+    nextStatus: 'handled',
+  },
+  agentHandoff: { targetAgentId: 'seo', sourceTaskId: 'seo-keyword-theme-1', sourceProjectId: null, summary: 'Keyword theme choice submitted.' },
+  safetyGate: { level: 'internal-only', summary: 'External SEO publishing remains separately approval-gated.', sideEffectAllowed: false, requiresApproval: false, gatedActions: ['public-publish', 'external-send', 'paid-spend', 'production-deploy'] },
+  metadata: {
+    seoTaskStatus: 'not_started',
+    taskType: 'decision',
+    focus: 'Keyword theme',
+    week: 12,
+    phase: 3,
+    autopilotEligible: true,
+  },
+  occurredAt: '2026-05-31T09:52:20.000Z',
+}
+
 const adCampaignBriefingItem = {
   id: 'ad-campaign:ad-campaign-1',
   orgId: 'org-1',
@@ -1047,9 +1099,16 @@ const bookingBriefingItem = {
 }
 
 describe('BriefingControlDesk', () => {
+  const writeText = jest.fn()
+
   beforeEach(() => {
     jest.useFakeTimers()
     jest.setSystemTime(new Date('2026-05-31T10:05:00.000Z'))
+    writeText.mockResolvedValue(undefined)
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: { writeText },
+    })
     global.fetch = jest.fn(async (input: RequestInfo | URL) => {
       const url = String(input)
       if (url === '/api/v1/portal/org') {
@@ -1071,7 +1130,7 @@ describe('BriefingControlDesk', () => {
         } as Response
       }
       if (url.startsWith('/api/v1/briefings/feed')) {
-        const orgOneItems = [briefingItem, agentLearningBriefingItem, documentBriefingItem, documentCommentBriefingItem, approvalBriefingItem, conversationBriefingItem, socialBriefingItem, notificationBriefingItem, activityBriefingItem, contactBriefingItem, reportBriefingItem, supportBriefingItem, invoiceBriefingItem, invoiceProofBriefingItem, quoteBriefingItem, shipmentBriefingItem, orderBriefingItem, inventoryBriefingItem, expenseBriefingItem, seoContentBriefingItem, seoTaskBriefingItem, adCampaignBriefingItem, draftBroadcastBriefingItem, scheduledBroadcastBriefingItem, pausedBroadcastBriefingItem, draftCampaignBriefingItem, activeCampaignBriefingItem, formSubmissionBriefingItem, socialInboxBriefingItem, mailboxBriefingItem, agentRunBriefingItem, workspaceBrokerBriefingItem, calendarBriefingItem]
+        const orgOneItems = [briefingItem, agentLearningBriefingItem, documentBriefingItem, documentCommentBriefingItem, approvalBriefingItem, conversationBriefingItem, socialBriefingItem, notificationBriefingItem, activityBriefingItem, contactBriefingItem, reportBriefingItem, supportBriefingItem, invoiceBriefingItem, invoiceProofBriefingItem, quoteBriefingItem, shipmentBriefingItem, orderBriefingItem, inventoryBriefingItem, expenseBriefingItem, seoContentBriefingItem, seoTaskBriefingItem, seoKeywordDecisionBriefingItem, adCampaignBriefingItem, draftBroadcastBriefingItem, scheduledBroadcastBriefingItem, pausedBroadcastBriefingItem, draftCampaignBriefingItem, activeCampaignBriefingItem, formSubmissionBriefingItem, socialInboxBriefingItem, mailboxBriefingItem, agentRunBriefingItem, workspaceBrokerBriefingItem, calendarBriefingItem]
         const items = url.includes('orgId=org-2')
           ? [secondOrgBriefingItem]
           : url.includes('orgId=org-1')
@@ -1086,6 +1145,12 @@ describe('BriefingControlDesk', () => {
         return {
           ok: true,
           json: async () => ({ data: { itemId: 'task:item-1', status: 'handled' } }),
+        } as Response
+      }
+      if (url === '/api/v1/briefings/items/seo-task%3Aseo-keyword-theme-1/state') {
+        return {
+          ok: true,
+          json: async () => ({ data: { itemId: 'seo-task:seo-keyword-theme-1', status: 'handled', sideEffectPerformed: false } }),
         } as Response
       }
       if (url === '/api/v1/projects/project-1/tasks/task-1/comments') {
@@ -1358,10 +1423,20 @@ describe('BriefingControlDesk', () => {
     expect(screen.getByRole('button', { name: /reject phase 2 item/i })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /snooze phase 2 item/i })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /create follow-up task/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /ask theo to triage/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /create routed theo task/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /link existing task/i })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /assign theo/i })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: /open evidence/i })).toHaveAttribute('href', 'https://partnersinbiz.online/admin/projects/project-1?taskId=task-1')
+    expect(screen.getByRole('button', { name: /copy exact ask/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /copy full briefing/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /copy agent handoff/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /copy blocker summary/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /copy evidence links/i })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /chat about this with theo/i })).toHaveAttribute('href', '/admin/org/client-one/messages?agent=theo&projectId=project-1&taskId=task-1&briefingId=task%3Aitem-1')
     expect(screen.getByRole('button', { name: /convert to crm activity unavailable/i })).toBeDisabled()
-    expect(screen.getByText('CRM conversion needs a contact or deal on the briefing card.')).toBeInTheDocument()
+    expect(screen.getByText('Unavailable: CRM conversion needs a contact or deal on the briefing card.')).toBeInTheDocument()
+    expect(screen.getByText(/Nearest valid alternatives: create follow-up task, ask Theo to triage, link existing task, create routed Theo task\./)).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /approval gates stay explicit/i })).toBeDisabled()
     expect(screen.getByText(/production deploys, external sends, public publishing, paid spend, finance changes, secret\/config changes, destructive actions require a separate explicit approval/i)).toBeInTheDocument()
   })
@@ -1379,6 +1454,42 @@ describe('BriefingControlDesk', () => {
     expect(screen.getByRole('link', { name: 'Agent learning log' })).toHaveAttribute('href', '/admin/wiki/partners/agent-learning')
     expect(screen.getByRole('link', { name: 'Follow-up task' })).toHaveAttribute('href', '/admin/projects/project-1?taskId=task-learning-1')
     expect(screen.getByText(/Source doc: doc-learning-2026-06-04 · Approval gate task: approval-learning-1/)).toBeInTheDocument()
+  })
+
+  it('copies briefing context snippets and creates routed specialist tasks with card context', async () => {
+    render(<BriefingControlDesk mode="portal" />)
+
+    expect((await screen.findAllByText('Theo completed work - review required')).length).toBeGreaterThan(0)
+    fireEvent.click(screen.getByRole('button', { name: /copy exact ask/i }))
+    await waitFor(() => expect(writeText).toHaveBeenCalledWith(expect.stringContaining('Ask: Theo completed work - review required')))
+    expect(writeText).toHaveBeenLastCalledWith(expect.stringContaining('Project: Launch site (project-1)'))
+
+    fireEvent.click(screen.getByRole('button', { name: /copy evidence links/i }))
+    await waitFor(() => expect(writeText).toHaveBeenLastCalledWith(expect.stringContaining('Development preview: https://partnersinbiz.online/admin/projects/project-1?taskId=task-1')))
+
+    fireEvent.click(screen.getByRole('button', { name: /ask theo to triage/i }))
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith('/api/v1/briefings/items/task%3Aitem-1/actions', expect.objectContaining({
+        method: 'POST',
+        body: expect.stringContaining('"action":"ask-specialist-triage"'),
+      }))
+    })
+    const triageCall = (global.fetch as jest.Mock).mock.calls.find(([url, options]) => url === '/api/v1/briefings/items/task%3Aitem-1/actions' && String(options?.body).includes('ask-specialist-triage'))
+    expect(JSON.parse(triageCall?.[1]?.body)).toMatchObject({
+      action: 'ask-specialist-triage',
+      assigneeAgentId: 'theo',
+      context: expect.objectContaining({ projectId: 'project-1', taskId: 'task-1' }),
+      source: expect.objectContaining({ type: 'agent-output', id: 'item-1' }),
+      metadata: expect.objectContaining({ softwareBuildEvidence: expect.any(Array) }),
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: /create routed theo task/i }))
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith('/api/v1/briefings/items/task%3Aitem-1/actions', expect.objectContaining({
+        method: 'POST',
+        body: expect.stringContaining('"action":"create-routed-task"'),
+      }))
+    })
   })
 
   it('creates follow-up tasks and assigns the current task from Phase 2 controls', async () => {
@@ -1527,6 +1638,81 @@ describe('BriefingControlDesk', () => {
     expect(screen.getByRole('button', { name: /^unblock$/i })).toBeInTheDocument()
     expect(screen.getAllByText('1 live cards').length).toBeGreaterThan(0)
     expect(screen.getByRole('button', { name: /all workspaces/i })).toBeInTheDocument()
+  })
+
+  it('maps admin command cards into workflow lanes with Peet-focused counters', async () => {
+    render(<BriefingControlDesk mode="admin" />)
+
+    expect(await screen.findByText('Briefings control desk')).toBeInTheDocument()
+    for (const label of [
+      'Needs Peet',
+      'Blocked by Peet',
+      'Approval needed',
+      'Agent review',
+      'Follow-ups due',
+      'Client/account risk',
+      'In progress',
+      'Recently completed',
+    ]) {
+      expect(screen.getByLabelText(`Summary counter: ${label}`)).toBeInTheDocument()
+    }
+
+    expect(screen.getByText('Workflow lanes')).toBeInTheDocument()
+    for (const lane of ['Decide', 'Approve', 'Unblock', 'Follow up', 'Review agent work', 'FYI/evidence']) {
+      expect(screen.getByRole('button', { name: new RegExp(`${lane} workflow lane`, 'i') })).toBeInTheDocument()
+    }
+
+    fireEvent.click(screen.getByRole('button', { name: /approve workflow lane/i }))
+    expect((await screen.findAllByText('Document pending approval: Growth plan')).length).toBeGreaterThan(0)
+
+    fireEvent.click(screen.getByRole('button', { name: /review agent work workflow lane/i }))
+    expect((await screen.findAllByText('Theo completed work - review required')).length).toBeGreaterThan(0)
+    expect(screen.getByText('Weekly Agent Learning Review - Theo')).toBeInTheDocument()
+    expect(screen.getAllByLabelText(/Software build evidence for Theo completed work/i).length).toBeGreaterThan(0)
+    expect(screen.getByRole('link', { name: /open source/i })).toHaveAttribute('href', 'https://partnersinbiz.online/admin/projects/project-1?taskId=task-1')
+  })
+
+  it('submits generic inline SEO keyword/theme decisions through the auditable inputTarget contract', async () => {
+    render(<BriefingControlDesk mode="portal" />)
+
+    fireEvent.click(await screen.findByText('Queued SEO task: Choose keyword theme'))
+
+    expect(screen.getByLabelText('Inline decision submission')).toBeInTheDocument()
+    expect(screen.getByText('Choose keyword/theme direction: Choose keyword theme')).toBeInTheDocument()
+    expect(screen.getByText('A: Service + location keywords')).toBeInTheDocument()
+    expect(screen.getByText('B: Problem / solution themes')).toBeInTheDocument()
+    expect(screen.getByText('C: Authority / comparison themes')).toBeInTheDocument()
+    expect(screen.getByText('Recommended')).toBeInTheDocument()
+    expect(screen.getByText(/No publish, send, spend, deploy, finance, secret\/config, or destructive action is performed/i)).toBeInTheDocument()
+
+    fireEvent.click(screen.getByText('Other keyword/theme'))
+    fireEvent.change(screen.getByPlaceholderText('Describe the custom keyword/theme direction...'), { target: { value: 'Use AI agent operations themes for the next cluster.' } })
+    fireEvent.click(screen.getByRole('button', { name: /submit choice/i }))
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith('/api/v1/briefings/items/seo-task%3Aseo-keyword-theme-1/state', expect.objectContaining({
+        method: 'POST',
+        body: expect.stringContaining('"decisionSubmission"'),
+      }))
+    })
+    const submitCall = (global.fetch as jest.Mock).mock.calls.find(([url]) => url === '/api/v1/briefings/items/seo-task%3Aseo-keyword-theme-1/state')
+    const payload = JSON.parse(submitCall?.[1]?.body)
+    expect(payload).toMatchObject({
+      orgId: 'org-1',
+      action: 'handled',
+      approvalState: 'decision_submitted',
+      decisionSubmission: {
+        optionId: 'other',
+        inputTarget: { action: 'complete', resourceType: 'seo-task', resourceId: 'seo-keyword-theme-1', orgId: 'org-1' },
+        afterSubmit: { releasesAgentId: 'seo', createsAuditTrail: true },
+        sideEffectPerformed: false,
+      },
+    })
+    expect(payload.decisionSubmission.otherText).toBe('Use AI agent operations themes for the next cluster.')
+    expect(payload.decisionSubmission.noSideEffectCopy).toContain('No publish, send, spend, deploy, finance, secret/config, or destructive action was performed')
+    await waitFor(() => {
+      expect(screen.getByText(/seo can continue from the auditable handoff/i)).toBeInTheDocument()
+    })
   })
 
   it('posts inline replies and removes handled cards from the visible desk', async () => {
