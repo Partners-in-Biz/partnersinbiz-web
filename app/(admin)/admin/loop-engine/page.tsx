@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import type { Metadata } from 'next'
 import { LOOP_REGISTRY, loopsByStatus } from '@/lib/loop-engine/registry'
+import { evaluateLoopRun } from '@/lib/loop-engine/executor'
 import { explainTaskLoopReadiness } from '@/lib/loop-engine/readiness'
 
 export const dynamic = 'force-dynamic'
@@ -27,6 +28,24 @@ const DEMO_TASK = {
   approvalGateTaskId: 'approval-gate-task',
   approvalGateStatus: 'pending',
 }
+
+const DEMO_RUN = evaluateLoopRun({
+  loopId: 'lead-response',
+  orgId: 'pib-platform-owner',
+  dryRun: true,
+  now: new Date('2026-06-07T00:00:00.000Z'),
+  idempotencyKey: 'admin-page-demo',
+  trigger: { kind: 'event', ref: 'demo-lead', source: 'admin-demo' },
+  candidates: [{
+    id: 'demo-lead',
+    type: 'lead',
+    title: 'High-intent form submission from a tracked source',
+    riskLevel: 'critical',
+    requiredCapability: 'message_client',
+    approvalGateStatus: 'missing',
+    context: { source: 'form', speedToLeadMinutes: 0 },
+  }],
+})
 
 export default function AdminLoopEnginePage() {
   const activeLoops = loopsByStatus('active')
@@ -68,6 +87,45 @@ export default function AdminLoopEnginePage() {
           <p className="mt-2 text-3xl font-semibold text-[var(--color-pib-text)]">{plannedLoops.length}</p>
           <p className="mt-2 text-sm text-[var(--color-pib-muted)]">SEO-to-CRM and lead-response loops queued after visibility/governance hardening.</p>
         </div>
+      </section>
+
+      <section className="pib-card p-6">
+        <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+          <div>
+            <p className="pib-label">Run records and API</p>
+            <h2 className="mt-2 text-2xl font-semibold text-[var(--color-pib-text)]">Full-loop execution layer</h2>
+            <p className="mt-2 max-w-3xl text-sm text-[var(--color-pib-muted)]">
+              The engine now evaluates candidates into durable run records with proposed actions, approval gates, evidence, owner/reviewer routing, and a dry-run-first API before any internal action is executed.
+            </p>
+          </div>
+          <span className="rounded-full bg-sky-500/10 px-3 py-1 text-sm font-medium text-sky-700">{DEMO_RUN.status}</span>
+        </div>
+        <div className="mt-5 grid gap-4 lg:grid-cols-3">
+          <div className="rounded-2xl border border-[var(--color-pib-border)] bg-white/70 p-4">
+            <p className="text-sm font-semibold text-[var(--color-pib-text)]">Run decision</p>
+            <p className="mt-2 text-sm text-[var(--color-pib-muted)]">{DEMO_RUN.decision}</p>
+          </div>
+          <div className="rounded-2xl border border-[var(--color-pib-border)] bg-white/70 p-4">
+            <p className="text-sm font-semibold text-[var(--color-pib-text)]">Candidate summary</p>
+            <p className="mt-2 text-sm text-[var(--color-pib-muted)]">{DEMO_RUN.candidateSummary}</p>
+          </div>
+          <div className="rounded-2xl border border-[var(--color-pib-border)] bg-white/70 p-4">
+            <p className="text-sm font-semibold text-[var(--color-pib-text)]">Approval gates</p>
+            <p className="mt-2 text-sm text-[var(--color-pib-muted)]">{DEMO_RUN.approvalGates.join(', ') || 'None'}</p>
+          </div>
+        </div>
+        <div className="mt-5 grid gap-3 md:grid-cols-2">
+          {DEMO_RUN.proposedActions.map((action) => (
+            <div key={action.id} className="rounded-xl border border-[var(--color-pib-border)] bg-white p-3">
+              <p className="text-sm font-semibold text-[var(--color-pib-text)]">{action.label}</p>
+              <p className="mt-1 text-sm text-[var(--color-pib-muted)]">{action.summary}</p>
+              <p className="mt-2 text-xs uppercase tracking-wide text-[var(--color-pib-muted)]">{action.mode} · {action.kind}</p>
+            </div>
+          ))}
+        </div>
+        <p className="mt-4 text-xs text-[var(--color-pib-muted)]">
+          API surface: POST /api/v1/admin/loop-engine/evaluate can persist dry-run or guarded run records; GET /api/v1/admin/loop-engine/runs lists recent org-scoped run history.
+        </p>
       </section>
 
       <section className="pib-card p-6">

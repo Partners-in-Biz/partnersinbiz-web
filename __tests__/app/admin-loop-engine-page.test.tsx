@@ -19,6 +19,12 @@ describe('Admin loop engine page', () => {
     expect(screen.getByRole('link', { name: /open projects/i })).toHaveAttribute('href', '/admin/projects')
     expect(screen.getByRole('link', { name: /open briefings/i })).toHaveAttribute('href', '/admin/briefings')
 
+    expect(screen.getByRole('heading', { name: /full-loop execution layer/i })).toBeInTheDocument()
+    expect(screen.getByText(/dry-run-first API/i)).toBeInTheDocument()
+    expect(screen.getByText(/Create internal lead-response task/i)).toBeInTheDocument()
+    expect(screen.getByText(/Draft lead response for approval/i)).toBeInTheDocument()
+    expect(screen.getByText(/POST \/api\/v1\/admin\/loop-engine\/evaluate/i)).toBeInTheDocument()
+
     expect(screen.getByRole('heading', { name: /task eligibility explainer/i })).toBeInTheDocument()
     expect(screen.getAllByText(/agentStatus is awaiting-input, not pending/i).length).toBeGreaterThan(0)
     expect(screen.getAllByText(/Approval-sensitive task is not approved/i).length).toBeGreaterThan(0)

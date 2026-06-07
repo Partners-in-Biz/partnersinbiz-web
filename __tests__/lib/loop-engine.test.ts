@@ -1,4 +1,6 @@
 import { LOOP_REGISTRY, getLoopById, loopsByStatus, loopsRequiringApprovalGate } from '@/lib/loop-engine/registry'
+import { isActionExecutableWithoutApproval } from '@/lib/loop-engine/actions'
+import { evaluateLoopRun } from '@/lib/loop-engine/executor'
 import { explainTaskLoopReadiness, evidenceRequirementsForRisk } from '@/lib/loop-engine/readiness'
 
 describe('loop engine registry', () => {
@@ -26,6 +28,90 @@ describe('loop engine registry', () => {
       'seo-to-crm-acquisition',
       'lead-response',
     ]))
+  })
+})
+
+describe('loop execution engine', () => {
+  it('creates dry-run lead-response proposals without executing client-visible work', () => {
+    const run = evaluateLoopRun({
+      loopId: 'lead-response',
+      orgId: 'pib-platform-owner',
+      dryRun: true,
+      now: new Date('2026-06-07T00:00:00.000Z'),
+      idempotencyKey: 'lead-demo',
+      candidates: [{
+        id: 'lead-1',
+        type: 'lead',
+        title: 'New website lead',
+        riskLevel: 'critical',
+        requiredCapability: 'message_client',
+      }],
+    })
+
+    expect(run.id).toBe('lead-response:lead-demo')
+    expect(run.status).toBe('awaiting_approval')
+    expect(run.proposedActions.map((action) => action.kind)).toEqual(expect.arrayContaining(['task-create', 'message-draft']))
+    expect(run.executedActions).toEqual([])
+    expect(run.approvalGates).toEqual(expect.arrayContaining(['client-visible']))
+    expect(run.decision).toMatch(/approval/i)
+
+    const draftAction = run.proposedActions.find((action) => action.kind === 'message-draft')
+    expect(draftAction).toEqual(expect.objectContaining({ mode: 'draft-only' }))
+    expect(draftAction && isActionExecutableWithoutApproval(draftAction)).toBe(false)
+  })
+
+  it('executes only safe internal actions when dryRun is false', () => {
+    const run = evaluateLoopRun({
+      loopId: 'review-pileup',
+      orgId: 'pib-platform-owner',
+      dryRun: false,
+      now: new Date('2026-06-07T00:00:00.000Z'),
+      idempotencyKey: 'review-demo',
+      candidates: [{
+        id: 'review-1',
+        type: 'review-item',
+        title: 'Review completed internal task',
+        taskId: 'task-1',
+        riskLevel: 'medium',
+      }],
+    })
+
+    expect(run.status).toBe('executed')
+    expect(run.executedActions).toHaveLength(1)
+    expect(run.executedActions[0]).toEqual(expect.objectContaining({ kind: 'task-review', mode: 'safe-auto' }))
+    expect(run.decision).toMatch(/safe internal actions/i)
+  })
+
+  it('keeps dependency release behind approval gates for sensitive work', () => {
+    const run = evaluateLoopRun({
+      loopId: 'dependency-release',
+      orgId: 'pib-platform-owner',
+      dryRun: false,
+      now: new Date('2026-06-07T00:00:00.000Z'),
+      idempotencyKey: 'release-demo',
+      candidates: [{
+        id: 'task-2',
+        type: 'task',
+        title: 'Publish approved page',
+        taskId: 'task-2',
+        riskLevel: 'high',
+        requiredCapability: 'publish',
+        approvalGateStatus: 'approved',
+        task: {
+          columnId: 'todo',
+          status: 'todo',
+          assigneeAgentId: 'maya',
+          agentStatus: 'pending',
+          agentInput: { spec: 'Prepare publish checklist.' },
+          dependsOn: [],
+        },
+      }],
+    })
+
+    expect(run.status).toBe('awaiting_approval')
+    expect(run.executedActions).toEqual([])
+    expect(run.proposedActions[0]).toEqual(expect.objectContaining({ mode: 'approval-required' }))
+    expect(run.approvalGates).toEqual(expect.arrayContaining(['public-publishing']))
   })
 })
 
