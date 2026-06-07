@@ -582,6 +582,8 @@ The module should support at least two rendering paths:
 - **Reflowable book renderer:** chapters/sections to EPUB and manuscript preview.
 - **Fixed-layout renderer:** pages/spreads to print PDF and possibly fixed-layout EPUB later.
 
+Every export should create or update a file package manifest. The renderer creates files, but the package validator decides whether those files are assembled, validated, previewed, approved, uploaded, superseded, or blocked.
+
 Do not promise full KDP acceptance in-app. KDP Print Previewer and store review remain external gates.
 
 ### 7. Publishing Operations
@@ -841,7 +843,69 @@ Versioning rules:
 
 Devil's advocate: provenance work feels heavy until the first store review, rights complaint, AI disclosure mistake, or client dispute. The module should make provenance capture routine and low-friction so operators are not reconstructing who created what after a book is already live.
 
-### 11. Client Portal Surface
+### 11. Export, Validation, And File Package Model
+
+Book Studio should treat every upload-ready file set as a versioned package with a manifest, not as an informal folder of exports. This is where many book projects fail: the manuscript can be approved, the cover can look good, and the metadata can read well, while the actual EPUB, print interior, full-wrap cover, or audiobook bundle still fails store processing or manual review.
+
+Source-backed constraints:
+
+- KDP eBook uploads should be tested in Kindle Previewer or KDP Online Previewer. KDP's Online Previewer can surface quality issues, but books still go through the regular publishing review process. For fixed-layout books with Guided View or interactive textbook features, Amazon points authors to Kindle Create previewer or Kindle Previewer rather than relying only on Online Previewer. Source: [KDP upload and preview book content](https://kdp.amazon.com/en_US/help/topic/G200641240/).
+- KDP reflowable eBook uploads should now use EPUB, KPF, or DOC/DOCX; Amazon no longer accepts MOBI for new or updated fixed-layout eBooks from March 18, 2025. KDP accepts EPUB 2.0 and 3.0 when files meet Kindle Publishing Guidelines. Source: [KDP MOBI support FAQ](https://kdp.amazon.com/en_US/help/topic/GULSQMHU5MNH4EZM).
+- KDP print files have strict requirements around bleed, page size, margins, cover PDF dimensions, embedded fonts/images, flattened transparency/layers, file size, unsupported filename characters, no crop marks/comments/metadata, and 300 DPI images. Source: [KDP paperback submission guidelines](https://kdp.amazon.com/en_US/help/topic/G201857950).
+- KDP print preview is an external gate. Print Previewer checks paperback/hardcover files for issues before submission, and Amazon manually checks interior and cover files after submission. Source: [KDP upload and preview book content](https://kdp.amazon.com/en_US/help/topic/G200641240/).
+- KDP trim, bleed, and margins depend on book size, bleed state, and page count; if one interior page requires bleed, the whole interior file should be set up with bleed. Source: [KDP trim, bleed, and margins](https://kdp.amazon.com/en_US/help/topic/GVBQ3CMEQW3W2VL6/).
+- Google Play Books accepts ebook content as EPUB or PDF, recommends providing both, rejects DOC/HTML and other file types, requires complete books rather than sample excerpts, requires files under 2 GB, requires cover dimensions, blocks password-protected PDFs, and requires EPUB files to be validated by EpubCheck. Source: [Google book file guidelines](https://support.google.com/books/partner/answer/3424254).
+- EPUBCheck is the official conformance checker for EPUB publications. Source: [W3C EPUBCheck](https://w3c.github.io/epubcheck/docs/).
+- Kindle Create comic/kids workflows can import PDF, PNG, or JPEG page files, add Guided View panels, save editable KCB projects, and export publishable KPF files. The KCB source project should be preserved for future updates; KPF is the publishing file. Source: [KDP Prepare Comic and Kids' eBooks with Kindle Create](https://kdp.amazon.com/en_US/help/topic/GJMRD9F78MS9F43R).
+
+Package types:
+
+| Package type | Primary use | Required files | Validation/evidence |
+| --- | --- | --- | --- |
+| `source_archive` | Preserve editable source inputs for future revisions. | Google Doc export, DOCX, InDesign/Affinity/Sigil source, Kindle Create KCB, layered artwork, source images, font/license notes. | Checksums, rights/provenance links, source app/version notes, visibility restrictions. |
+| `kdp_ebook_reflowable` | KDP Kindle eBook for fiction/nonfiction text-first books. | EPUB, KPF, or DOCX; ebook cover image; metadata packet. | EPUBCheck when EPUB is used, Kindle Previewer/Online Previewer evidence, AI disclosure state, quality issue notes. |
+| `kdp_ebook_fixed_layout` | Children's, comic, manga, graphic, image-heavy, or interactive Kindle projects. | KPF or fixed-layout EPUB; page images/PDF source; cover; Guided View or panel metadata when relevant. | Kindle Create/Previewer evidence, panel/page order check, image quality check, source KCB preservation. |
+| `kdp_print_paperback` | Paperback edition. | PDF interior or accepted manuscript file; full-wrap cover PDF; print options; barcode/ISBN decision. | Page-count/trim/bleed/margin checks, cover size formula/template evidence, embedded-font/image check, Print Previewer evidence. |
+| `kdp_print_hardcover` | Hardcover edition. | PDF interior or accepted manuscript file; full-wrap cover PDF; hardcover print options; ISBN/imprint decision. | Same as print paperback plus hardcover trim/page-count eligibility checks. |
+| `google_ebook` | Google Play Books ebook listing. | EPUB and/or PDF, cover file, metadata/price/territory packet. | EpubCheck result, PDF password/bookmark/full-book check, under-2GB check, identifier filename check when bulk/identifier upload is used. |
+| `audiobook_package` | Google audiobook, ACX, Virtual Voice, or future audio channel. | Audio files or zip, square cover, sample where required, supplemental PDF if used, narrator/source notes. | Audio rights/provenance, format/bitrate/duration checks per channel, cover check, narration disclosure. |
+| `metadata_only_packet` | Early publishing readiness before final files exist. | Metadata, price plan, disclosure answers, ISBN/imprint choice, territory plan, checklist. | Cannot become `approved_for_upload`; used only for review and planning. |
+
+Recommended package state machine:
+
+| State | Meaning | Gate behavior |
+| --- | --- | --- |
+| `draft` | Package record exists but files or source versions are incomplete. | Cannot be attached to `packet_ready`. |
+| `assembled` | Files have been exported/attached and manifest is complete. | Can enter validation. |
+| `validated` | Automated/static checks passed or warnings are recorded with owner. | Can enter preview/proof workflow. |
+| `previewed` | External preview evidence exists: Kindle Previewer, KDP Online Previewer, Print Previewer, physical proof, Google file check, or equivalent. | Can be considered for upload approval. |
+| `approved_for_upload` | Internal reviewer approved this exact package version for a specific channel listing. | Can be uploaded manually; any file/checksum change invalidates approval. |
+| `uploaded` | Operator uploaded the package externally and recorded evidence. | Channel listing can move to review/live tracking. |
+| `superseded` | A newer package replaces this one. | Cannot be uploaded unless explicitly restored through approval. |
+| `blocked` | File, validation, preview, rights, metadata, or channel issue prevents progress. | Requires blocker owner, evidence, and next action. |
+
+Manifest rules:
+
+- Every package stores `bookProjectId`, `editionId`, optional `channelListingId`, `packageType`, `state`, `manifestVersion`, source version IDs, source artifact IDs, file roles, filenames, MIME types, sizes, SHA-256 checksums, generated/exported timestamps, and the export tool/version where known.
+- Every package stores validation results as structured records with `validatorKey`, `validatorVersion`, `scope`, `status`, `severity`, `checkedAt`, `summary`, `reportArtifactId`, and `blockingIssueIds`.
+- Every package stores preview/proof evidence separately from automated validation. KDP/Google acceptance cannot be inferred from EPUBCheck or a local PDF check alone.
+- Every package stores upload instructions for the operator: channel, account/context, exact file roles, upload order, filenames, fields to copy, expected preview steps, and where to record screenshots or notes.
+- Every package stores disclosure and rights snapshots: AI-generated text/images/translation answers, rights review IDs, asset-rights IDs, territory rights, ISBN/imprint choice, DRM/copy-print decision where relevant, and client approval IDs where applicable.
+- Large files remain in workspace artifacts, Google Drive, storage-backed exports, or external source folders. Firestore stores manifests, checksums, state, and references only.
+
+Validator layers:
+
+- **Static manifest validation:** required file roles are present, checksums exist, source versions are current, filenames are upload-safe, file sizes are within channel limits, and the package references approved rights/provenance records.
+- **Format validation:** EPUBCheck for EPUB; PDF preflight checks for encrypted/password-protected PDFs, page count, page box size, embedded fonts, image resolution evidence, and KDP/Google-specific file roles; audio checks for duration, format, bitrate/sample-rate evidence where a channel requires it.
+- **Channel validation:** KDP packet check, Google packet check, series/identifier consistency, pricing/exclusivity conflict check, AI disclosure check, rights/territory check, and manual-upload checklist.
+- **Preview/proof validation:** KDP Online Previewer/Kindle Previewer evidence for ebooks, KDP Print Previewer and optional physical proof evidence for print, Google upload/file processing notes, or a recorded waiver when a preview step is unavailable.
+- **Human release validation:** Quinn/operator approval for `approved_for_upload`, with exact package ID and checksum list in the approval task.
+
+Package approval must be checksum-bound. If any included file changes, the package should move out of `approved_for_upload` and require revalidation. If only metadata changes, the affected channel listing should record whether the existing package approval still applies.
+
+Devil's advocate: PiB can build impressive manuscript and image workflows and still lose trust if file packaging is casual. A package that "opens on my machine" is not a store-ready package. The module should make final file proof boring, repeatable, and auditable, with every exception visible before a client or channel sees the book.
+
+### 12. Client Portal Surface
 
 Portal access should be module-gated like Mobile Apps:
 
@@ -975,6 +1039,7 @@ interface BookProvenanceEvent {
     | 'approval_recorded'
     | 'waiver_recorded'
     | 'export_created'
+    | 'validation_recorded'
     | 'manual_upload_recorded'
     | 'report_imported'
   actor: {
@@ -1024,6 +1089,7 @@ interface BookVersionManifest {
   supersedesVersionId?: string
   sourceDocumentIds: string[]
   sourceArtifactIds: string[]
+  exportPackageIds?: string[]
   sectionIds: string[]
   pageIds: string[]
   checksums: Array<{ artifactId: string; algorithm: 'sha256'; value: string }>
@@ -1031,6 +1097,174 @@ interface BookVersionManifest {
   provenanceEventIds: string[]
   rightsReviewIds: string[]
   releaseGateIds: string[]
+}
+```
+
+```ts
+type BookFilePackageType =
+  | 'source_archive'
+  | 'kdp_ebook_reflowable'
+  | 'kdp_ebook_fixed_layout'
+  | 'kdp_print_paperback'
+  | 'kdp_print_hardcover'
+  | 'google_ebook'
+  | 'audiobook_package'
+  | 'metadata_only_packet'
+
+type BookFilePackageState =
+  | 'draft'
+  | 'assembled'
+  | 'validated'
+  | 'previewed'
+  | 'approved_for_upload'
+  | 'uploaded'
+  | 'superseded'
+  | 'blocked'
+
+type BookFileRole =
+  | 'editable_source'
+  | 'manuscript'
+  | 'interior_pdf'
+  | 'ebook_epub'
+  | 'ebook_kpf'
+  | 'ebook_docx'
+  | 'ebook_cover'
+  | 'full_wrap_cover_pdf'
+  | 'cover_template'
+  | 'page_image'
+  | 'audio_master'
+  | 'audio_sample'
+  | 'supplemental_pdf'
+  | 'metadata_packet'
+  | 'validation_report'
+  | 'preview_evidence'
+
+interface BookFilePackage {
+  id: string
+  orgId: string
+  bookProjectId: string
+  editionId?: string
+  channelListingId?: string
+  packageType: BookFilePackageType
+  state: BookFilePackageState
+  manifestVersion: number
+  packageLabel: string
+  supersedesPackageId?: string
+  source: {
+    manuscriptVersionIds: string[]
+    versionManifestIds: string[]
+    sourceDocumentIds: string[]
+    sourceArtifactIds: string[]
+    sourceTaskIds: string[]
+    exportTool?: string
+    exportToolVersion?: string
+    exportedBy?: string
+    exportedAt?: string
+  }
+  files: Array<{
+    artifactId: string
+    role: BookFileRole
+    filename: string
+    mimeType: string
+    sizeBytes: number
+    checksum: { algorithm: 'sha256'; value: string }
+    required: boolean
+    channelUploadOrder?: number
+  }>
+  printSpec?: {
+    trimSize?: string
+    bleed: boolean
+    pageCount?: number
+    interiorType?: 'black_white' | 'standard_color' | 'premium_color'
+    paperType?: 'white' | 'cream' | 'groundwood'
+    coverWidthInches?: number
+    coverHeightInches?: number
+    spineWidthInches?: number
+    barcodeProvided?: boolean
+  }
+  ebookSpec?: {
+    layoutMode: 'reflowable' | 'fixed_layout'
+    epubVersion?: '2' | '3'
+    kindleSourceFormat?: 'epub' | 'kpf' | 'docx'
+    googleFormatsIncluded?: Array<'epub' | 'pdf'>
+  }
+  disclosureSnapshot: {
+    aiGeneratedText: boolean
+    aiGeneratedImages: boolean
+    aiGeneratedTranslation: boolean
+    rightsReviewIds: string[]
+    assetRightsIds: string[]
+    approvalTaskIds: string[]
+  }
+  validations: BookPackageValidation[]
+  previewEvidence: BookPackagePreviewEvidence[]
+  uploadInstructions: {
+    channel: BookChannel
+    accountContext?: string
+    steps: Array<{ order: number; action: string; fileRole?: BookFileRole; notes?: string }>
+    expectedExternalFields: string[]
+  }
+  approval?: {
+    status: 'not_requested' | 'needs_review' | 'approved' | 'waived' | 'revoked'
+    approvedBy?: string
+    approvedAt?: string
+    approvalGateTaskId?: string
+    approvedChecksumSet?: Array<{ artifactId: string; sha256: string }>
+    revokedBecause?: string
+  }
+  blockers: Array<{
+    title: string
+    severity: 'warning' | 'blocker'
+    ownerId?: string
+    sourceValidationId?: string
+    clientVisible: boolean
+    nextAction: string
+  }>
+}
+
+interface BookPackageValidation {
+  id: string
+  validatorKey:
+    | 'manifest_required_files'
+    | 'epubcheck'
+    | 'pdf_preflight'
+    | 'kdp_ebook_preview'
+    | 'kdp_print_preview'
+    | 'google_file_guidelines'
+    | 'audio_file_check'
+    | 'rights_disclosure_snapshot'
+  validatorVersion?: string
+  scope: 'package' | 'file' | 'channel_listing' | 'rights' | 'preview'
+  status: 'passed' | 'warning' | 'blocked' | 'waived' | 'not_applicable'
+  severity: 'info' | 'warning' | 'blocker'
+  checkedAt: string
+  checkedBy: { type: 'user' | 'agent' | 'system'; id: string }
+  summary: string
+  reportArtifactId?: string
+  issues: Array<{
+    code?: string
+    message: string
+    fileRole?: BookFileRole
+    artifactId?: string
+    pageOrLocation?: string
+    recommendedAction?: string
+  }>
+}
+
+interface BookPackagePreviewEvidence {
+  id: string
+  type:
+    | 'kindle_previewer'
+    | 'kdp_online_previewer'
+    | 'kdp_print_previewer'
+    | 'physical_proof'
+    | 'google_partner_center_file_processing'
+    | 'manual_reader_check'
+  status: 'passed' | 'warning' | 'blocked' | 'waived'
+  checkedAt: string
+  checkedBy: string
+  evidenceArtifactIds: string[]
+  notes: string
 }
 ```
 
@@ -1140,6 +1374,12 @@ interface BookChannelListing {
     sku?: string
     url?: string
   }
+  filePackages: {
+    candidatePackageIds: string[]
+    approvedUploadPackageId?: string
+    lastUploadedPackageId?: string
+    requiredPackageTypes: BookFilePackageType[]
+  }
   metadata: {
     title: string
     subtitle?: string
@@ -1232,6 +1472,7 @@ The module will need new skills, not one giant "book" skill.
 - `book-kdp-readiness-check`: KDP checklist, AI disclosure, ISBN, file package, metadata.
 - `book-google-play-readiness-check`: Google metadata, series, files, price, report setup.
 - `book-export-packager`: generate or assemble EPUB/PDF/cover/metadata packets.
+- `book-file-package-validator`: run manifest, EPUB/PDF/audio, preview-evidence, and checksum-bound package checks.
 - `book-publishing-ops`: maintain channel status and manual upload steps.
 - `book-analytics-import`: parse CSV/report exports and separate estimated/reported/settled metrics.
 - `book-launch-campaign`: connect book launch to PiB social/email/ads/landing pages.
@@ -1272,6 +1513,7 @@ Draft skill contracts:
 | `book-kdp-readiness-check` | Quinn | KDP listing packet, files, AI disclosure, ISBN/imprint, metadata, pricing, series status. | KDP readiness report with blockers, warnings, and manual upload checklist. | Approval required before any KDP public submission. |
 | `book-google-play-readiness-check` | Quinn | Google listing packet, PDF/EPUB files, metadata, identifiers, series details, pricing. | Google Play readiness report and Partner Center checklist. | Must check identifier/series consistency and file package readiness before upload. |
 | `book-export-packager` | Theo + Quinn | Approved manuscript/assets, layout plan, metadata packet, validation requirements. | Export packet manifest with files, checksums, validation results, and manual-upload instructions. | Produces artifacts only; public publishing remains a separate approval-gated action. |
+| `book-file-package-validator` | Quinn + Theo | Export package manifest, files, source versions, channel listing, preview/proof evidence. | Package validation report with pass/warn/block results, checksum-bound approval recommendation, and required re-export actions. | Must block upload approval when required files, checksums, rights snapshot, EPUBCheck/PDF/audio checks, or preview evidence are missing. |
 | `book-publishing-ops` | Pip + Quinn | Approved publishing packet, channel listing IDs, approval task, manual upload state. | Channel status updates, external IDs, blocker tasks, and post-upload review notes. | Requires approval task for public submission; no silent store upload. |
 | `book-analytics-import` | Vera | Channel reports, ad reports, UTM/landing data, book/series IDs, reporting period. | Analytics import with estimated/reported/settled separation and reconciliation notes. | Must preserve source report, import timestamp, currency, refunds/returns, and confidence. |
 | `book-launch-campaign` | Maya + Ari + Vera | Approved book packet, launch window, channels, budget approval state, audience, tracking plan. | Launch campaign brief, social/email/ad tasks, landing-page/link plan, and measurement plan. | Drafts are allowed; paid spend and public/client-visible sends require approval gates. |
@@ -1319,6 +1561,7 @@ type BookStudioArtifactType =
   | 'kdp_readiness_report'
   | 'google_play_readiness_report'
   | 'export_manifest'
+  | 'file_package_validation_report'
   | 'publishing_status_note'
   | 'analytics_import'
   | 'launch_campaign_brief'
@@ -1345,7 +1588,7 @@ Implementation should not try to install all skills at once. The first wave shou
 | 1. Foundation research and brief | `book-niche-research`, `book-series-strategy`, `book-brief-builder`, `book-outline-builder` | Creates the evidence and planning loop before manuscript or publishing work starts. |
 | 2. Safety and release checks | `book-asset-rights-auditor`, `book-metadata-optimizer`, `book-kdp-readiness-check`, `book-google-play-readiness-check` | Prevents policy/rights mistakes before anything reaches a client or store. |
 | 3. Production drafting | `book-draft-writer`, `book-developmental-editor`, `book-copyeditor`, `book-proofreader`, `book-reading-level-review`, `book-fact-checker` | Useful only after the brief and gate model are stable. |
-| 4. Visual and package work | `book-cover-brief`, `book-illustration-director`, `book-layout-designer`, `book-export-packager` | Depends on approved book direction, rights rules, and file-package conventions. |
+| 4. Visual and package work | `book-cover-brief`, `book-illustration-director`, `book-layout-designer`, `book-export-packager`, `book-file-package-validator` | Depends on approved book direction, rights rules, and file-package conventions. |
 | 5. Launch and analytics | `book-publishing-ops`, `book-analytics-import`, `book-launch-campaign` | Depends on channel listing state, packet fields, and import ledger behavior. |
 
 Wave 1 and Wave 2 are the right targets for a first Hermes skill rollout because they reduce strategic and policy risk before the module generates a large amount of manuscript or visual work.
@@ -1464,6 +1707,7 @@ Mitigation: require a pricing plan, cost estimate, margin confidence label, and 
 - PDF interior export for simple print/fixed layouts.
 - Cover asset package.
 - Metadata packet.
+- File package manifest with checksums, validation results, preview/proof evidence, rights/disclosure snapshot, and upload instructions.
 - KDP/Google checklists.
 
 ### Phase 4: Publishing Ops And Analytics
@@ -1492,8 +1736,9 @@ Build the first approved spec around:
 5. Research-backed book brief.
 6. Hermes skill set for research, outline, metadata, and readiness.
 7. Client document approval for brief and publishing packet.
-8. KDP/Google export checklist and channel listing tracker.
-9. Analytics import model, initially manual CSV/report ingestion.
+8. Export package manifest and validation tracker for source archives, KDP/Google files, checksums, preview evidence, and upload instructions.
+9. KDP/Google export checklist and channel listing tracker.
+10. Analytics import model, initially manual CSV/report ingestion.
 
 Do not include in the first implementation:
 
@@ -1517,6 +1762,7 @@ This is not yet an implementation plan. It is the smallest coherent foundation t
 | Research and brief bridge | Link or create Research items and Book Brief client documents from a book project. | The module should inherit PiB's evidence and approval model rather than recreate `ai-story` research notes. | A book project can show linked findings/recommendations, create a brief packet, and preserve source IDs. |
 | Hermes task contracts | Store Hermes-ready task metadata for research, brief, outline, metadata, and readiness work without granting direct publish powers. | Agent output must be bounded, reviewable, and attributable. | Created tasks include book context, expected artifacts, reviewer, risk level, and approval-gate linkage. |
 | Rights, provenance, and version ledger | Add provenance events, version manifests, rights reviews, and asset-rights metadata linked to documents, tasks, and artifacts. | AI disclosure, copyright registration, public-domain/companion claims, asset licensing, and client disputes require evidence before upload, not after a problem appears. | Each reviewable or exportable version has source links, AI usage classification, contributors, checksums where relevant, rights state, and a release-gate decision. |
+| Export package manifest | Add file package records for source archives, KDP ebook/print, Google ebook, audiobook, and metadata-only packets with files, checksums, validations, preview evidence, source versions, rights snapshots, and upload instructions. | Store-ready work is not proven by manuscript approval. The module needs a repeatable way to prove which exact files were validated, previewed, approved, uploaded, and later superseded. | A channel listing can reference candidate packages, and only a package with required files, validation results, preview evidence, provenance, and checksum-bound approval can become the approved upload package. |
 | Publishing packet and channel tracker | Add KDP/Google channel listing records, readiness state, blocker notes, metadata fields, file checklist, AI disclosure, ISBN/imprint decision, pricing summary, and manual external status. | KDP/Google setup is currently a manual operator action; PiB should prepare and track it, not pretend it can safely auto-publish. | A project can produce a channel-specific readiness packet and record uploaded/in review/live/blocked status with evidence. |
 | Commercial pricing ledger | Add price-plan, cost-estimate, margin-confidence, and approval fields to channel listings before reports are imported. | KDP/Google economics vary by royalty option, print cost, delivery cost, territory, exclusivity, refunds, payment profile, and currency conversion. | Admin can record a KDP/Google price plan, attach calculator/Partner Center evidence, see estimated margin/cost recovery, and require reviewer approval or a waiver before launch. |
 | Portal review surface | Add client-safe portal read/review routes only when the module is enabled and selected records are approved for portal visibility. | Clients need review and approval, not internal risk notes or raw research assumptions. | Portal users see only approved briefs, proofs, publishing packets, comments, and approval/change-request actions. |
@@ -1529,11 +1775,13 @@ This is not yet an implementation plan. It is the smallest coherent foundation t
 - Book-type gate profiles generate the correct initial `book_quality_gates` for narrative, children's, visual/sequential, nonfiction, activity/workbook, low-content, public-domain/companion, and audiobook projects.
 - The project detail can link Research, create or attach a Book Brief document, link a Project/Kanban workspace, and show linked artifacts without duplicating those systems.
 - Manuscript/proof/export versions can store provenance manifests with source document/artifact/task links, contributor roles, AI usage classification, rights review IDs, and checksums where files are involved.
+- Export file packages can store package type, state, source versions, source artifacts, file roles, filenames, MIME types, sizes, SHA-256 checksums, validation results, preview/proof evidence, rights/disclosure snapshots, upload instructions, blockers, and checksum-bound approval state.
 - Rights reviews can block or approve AI disclosure, copyright-registration posture, public-domain/companion claims, quote permissions, asset/font/audio licenses, territory rights, and Google DRM/printing settings.
 - Hermes task preparation is possible for research, brief, outline, metadata, and readiness checks, but the tasks do not publish, submit, or spend money.
 - A KDP readiness packet explicitly captures metadata, categories/keywords, file checklist, AI-generated-vs-assisted disclosure, ISBN/imprint choice, rights confirmation, content-risk notes, provenance/version evidence, pricing, and manual upload status.
 - A Google Play readiness packet explicitly captures EPUB/PDF readiness, cover file, metadata, series naming/volume consistency, rights/territories, pricing, DRM/copy-print choices, provenance/version evidence, and manual Partner Center status.
 - KDP and Google channel listings can store price plans, royalty/revenue-share assumptions, cost estimates, KDP Select exclusivity state, calculator/effective-price evidence, margin confidence, and approval/waiver state.
+- A project cannot mark a channel listing `approved_for_upload` unless the selected upload package is in `approved_for_upload` state and all included file checksums match the package approval task.
 - A project cannot mark a publishing packet `approved_for_upload` while its selected channel listing has an unreviewed price plan, an unresolved KDP Select/wide-distribution conflict, or a negative per-unit margin without a waiver.
 - Portal reviewers can comment, approve, or request changes on approved client-visible packets while internal research, unresolved rights blockers, and draft risk notes remain hidden.
 - Analytics imports are source-labeled and confidence-labeled; estimated dashboard data, reported sales/read data, settled payment data, and ad attribution data are not merged into one ambiguous metric.
@@ -1541,10 +1789,12 @@ This is not yet an implementation plan. It is the smallest coherent foundation t
 ### Phase 1 Test Focus
 
 - Type/sanitizer tests for Book Studio records, provenance/version/rights records, and defaults.
+- Type/sanitizer tests for export package manifests, file roles, validation results, preview evidence, and checksum-bound approvals.
 - Admin API tests for org scoping, create/update/list, soft archive, and linked-record preservation.
 - Portal guard tests for disabled module state, role access, and client-visible filtering.
 - Gate-profile tests for each book type family.
 - Publishing packet tests for KDP and Google required fields and blocker behavior.
+- File package gate tests that block upload approval when required files, checksums, validation results, preview evidence, or rights/disclosure snapshots are missing or stale.
 - Hermes task contract tests that verify provenance, reviewer, expected artifacts, and forbidden direct-action fields.
 - Gate tests that block publishing-packet readiness when provenance, rights review, AI disclosure, or version manifest evidence is missing.
 - Analytics import tests that verify estimated/reported/settled separation and reconciliation task creation.
