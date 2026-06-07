@@ -8,12 +8,12 @@ import { WorkGrid } from './WorkGrid'
 export const metadata: Metadata = {
   title: 'Selected work — Case studies | Partners in Biz',
   description:
-    'Real builds. Real outcomes. Real names. Selected case studies from Partners in Biz across sport-tech, aviation, legal, and EdTech.',
+    'Real builds, live codebases, and shipped products from Partners in Biz across mobile apps, web apps, sport-tech, aviation, legal, and EdTech.',
   alternates: { canonical: '/work' },
   openGraph: {
     title: 'Selected work — Case studies | Partners in Biz',
     description:
-      'Real builds. Real outcomes. Real names. Selected case studies from Partners in Biz.',
+      'Real builds, live codebases, and shipped products from Partners in Biz.',
     url: `${SITE.url}/work`,
     type: 'website',
   },
@@ -56,8 +56,8 @@ export default function WorkIndexPage() {
               </h1>
               <p className="mt-8 max-w-2xl text-lg md:text-xl text-[var(--color-pib-text-muted)] text-pretty">
                 A small body of work we are proud of — from sports clubs and law firms to aviation
-                loyalty platforms. Each one is a real client, a real codebase, and a real outcome
-                we can point at.
+                loyalty platforms, mobile apps, and owned EdTech products. Each one is a real
+                codebase and a real shipped surface we can point at.
               </p>
             </Reveal>
 
@@ -74,7 +74,7 @@ export default function WorkIndexPage() {
                   </span>
                 </span>
                 <span className="text-sm text-[var(--color-pib-text-muted)]">
-                  Working with 4 clients · last shipped 12 days ago
+                  Client work, internal products, and app builds in one portfolio
                 </span>
               </div>
             </Reveal>

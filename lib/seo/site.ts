@@ -102,6 +102,42 @@ export const SERVICES = [
 
 export const CASE_STUDIES = [
   {
+    slug: 'velox',
+    client: 'Velox',
+    industry: 'EdTech / Maths',
+    services: ['Mobile App', 'Web Application', 'Product Strategy'],
+    year: '2026',
+    summary:
+      'Mental math training app with a 60-second challenge, Math Gym workouts, multilingual practice, subscriptions, and store-ready mobile builds.',
+    headline: 'A mental math app built around speed, streaks, and serious practice',
+    metrics: [
+      { value: '60s', label: 'challenge loop' },
+      { value: '50+', label: 'lessons' },
+      { value: 'iOS + Android', label: 'mobile builds' },
+    ],
+    cover: '/images/case-velox-cover.png',
+    stack: ['Vite', 'React 19', 'Capacitor', 'Firebase', 'RevenueCat', 'Tailwind v4'],
+    href: '/work/velox',
+  },
+  {
+    slug: 'lumen',
+    client: 'Lumen',
+    industry: 'EdTech / Reading',
+    services: ['Mobile App', 'Web Application', 'AI Features'],
+    year: '2026',
+    summary:
+      'Multilingual speed-reading app with separate app and training languages, RSVP sessions, progress analytics, AI-generated practice, and native subscriptions.',
+    headline: 'A multilingual reading trainer for web, iOS, and Android',
+    metrics: [
+      { value: '3', label: 'app languages' },
+      { value: 'RSVP', label: 'training mode' },
+      { value: 'IAP', label: 'native subscriptions' },
+    ],
+    cover: '/images/case-lumen-cover.png',
+    stack: ['Vite', 'React 19', 'Capacitor', 'Firebase', 'RevenueCat', 'i18next'],
+    href: '/work/lumen',
+  },
+  {
     slug: 'athleet',
     client: 'Athleet',
     industry: 'Sports & Fitness',

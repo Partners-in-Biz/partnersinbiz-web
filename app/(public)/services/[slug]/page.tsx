@@ -149,7 +149,7 @@ const CONTENT: Record<Slug, ServiceContent> = {
       { step: '04', title: 'Launch + iterate', body: 'Production launch, then a 60-day stabilisation window for the rough edges.' },
     ],
     techExtras: ['Server Actions', 'Firestore', 'Supabase', 'TanStack', 'Resend', 'Stripe / PayPal'],
-    caseStudySlugs: ['athleet', 'loyalty-plus'],
+    caseStudySlugs: ['velox', 'lumen', 'athleet', 'loyalty-plus'],
     relatedInsightSlugs: [
       'website-vs-app-south-africa-sme',
       'next-js-16-for-business-websites',
@@ -216,7 +216,7 @@ const CONTENT: Record<Slug, ServiceContent> = {
       { step: '04', title: 'Store submission', body: 'Listings written, screenshots produced, review responses handled.' },
     ],
     techExtras: ['Expo', 'EAS Build', 'React Native', 'Reanimated', 'Sentry', 'Capacitor (when it fits)'],
-    caseStudySlugs: ['athleet', 'loyalty-plus'],
+    caseStudySlugs: ['velox', 'lumen', 'athleet', 'loyalty-plus'],
     relatedInsightSlugs: [
       'website-vs-app-south-africa-sme',
       'south-african-website-cost-2026',
@@ -412,7 +412,7 @@ const CONTENT: Record<Slug, ServiceContent> = {
       { step: '04', title: 'Ongoing partnership', body: 'Advisory, fractional CTO, or full-time engagement — whatever the work needs.' },
     ],
     techExtras: ['Architecture review', 'AI strategy', 'Fractional CTO', 'Equity partnerships', 'Discovery sprints'],
-    caseStudySlugs: ['athleet', 'loyalty-plus'],
+    caseStudySlugs: ['velox', 'lumen', 'athleet', 'loyalty-plus'],
     relatedInsightSlugs: [
       'next-js-16-for-business-websites',
       'building-an-ai-agent-that-bills',
