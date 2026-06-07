@@ -1,0 +1,197 @@
+export type ActorType = 'user' | 'agent' | 'system'
+
+export interface YouTubeApprovalPolicy {
+  requireInternalBriefApproval: boolean
+  requireClientBriefApproval: boolean
+  requireClientScriptApproval: boolean
+  requireClientDraftApproval: boolean
+  requireClientThumbnailApproval: boolean
+  requireClientPublishConfirmation: boolean
+  requireInternalPublishApproval: boolean
+}
+
+export interface YouTubePublishingPolicy {
+  allowedModes: Array<'manual_handoff' | 'private_api_upload' | 'scheduled_api_publish'>
+  defaultVisibility: 'private' | 'unlisted' | 'public'
+  privateFirstRequired: boolean
+  publicPublishRequiresAdmin: boolean
+  publicPublishRequiresClientConfirmation: boolean
+}
+
+export type YouTubeChannelStatus = 'setup' | 'strategy' | 'active' | 'paused' | 'blocked' | 'archived'
+export type YouTubeSeriesFormat = 'shorts' | 'long_form' | 'podcast' | 'case_study' | 'tutorial' | 'ads' | 'mixed'
+export type YouTubeSeriesCadence = 'daily' | 'weekly' | 'fortnightly' | 'monthly' | 'campaign' | 'ad_hoc'
+export type YouTubeSeriesStatus = 'active' | 'paused' | 'complete' | 'archived'
+export type YouTubeVideoType =
+  | 'short'
+  | 'long_form'
+  | 'clip_pack'
+  | 'podcast_episode'
+  | 'webinar_cutdown'
+  | 'testimonial'
+  | 'case_study'
+  | 'tutorial'
+  | 'product_demo'
+  | 'ad_creative'
+  | 'community_update'
+export type YouTubeVideoStatus =
+  | 'intake'
+  | 'briefing'
+  | 'production'
+  | 'internal_review'
+  | 'client_review'
+  | 'changes_requested'
+  | 'publish_ready'
+  | 'scheduled'
+  | 'live'
+  | 'blocked'
+  | 'archived'
+export type YouTubeSourceType = 'raw_footage' | 'source_url' | 'transcript' | 'research' | 'client_request' | 'manual'
+export type YouTubeGateStatus = 'pass' | 'warning' | 'block' | 'not_applicable'
+
+export interface YouTubeGateCheck {
+  status: YouTubeGateStatus
+  message: string
+  checkedBy?: string
+  checkedByType?: ActorType
+  checkedAt?: unknown
+}
+
+export interface YouTubeChannelWorkspace {
+  id?: string
+  orgId: string
+  title: string
+  youtubeChannelId?: string
+  youtubeHandle?: string
+  status: YouTubeChannelStatus
+  connectedAccountId?: string
+  strategyDocumentId?: string
+  defaultApprovalPolicy: YouTubeApprovalPolicy
+  defaultPublishingPolicy: YouTubePublishingPolicy
+  contentPillars: string[]
+  audienceNotes?: string
+  avoidTopics: string[]
+  aiDisclosureDefaults: { syntheticMediaLikely: boolean; notes?: string }
+  internalNotes?: string
+  clientNotes?: string
+  visibility?: { showInClientPortal?: boolean; showAnalytics?: boolean }
+  createdAt?: unknown
+  updatedAt?: unknown
+  createdBy?: string
+  createdByType?: ActorType
+  updatedBy?: string
+  updatedByType?: ActorType
+  deleted: boolean
+}
+
+export interface YouTubeSeries {
+  id?: string
+  orgId: string
+  channelWorkspaceId: string
+  name: string
+  objective?: string
+  audience?: string
+  format: YouTubeSeriesFormat
+  cadence: YouTubeSeriesCadence
+  targetDurationSeconds?: number
+  episodeTemplate: {
+    hook?: string
+    sections: Array<{ label: string; targetSeconds?: number; notes?: string }>
+    outro?: string
+  }
+  styleGuide: {
+    visualNotes?: string
+    thumbnailNotes?: string
+    captionNotes?: string
+    introOutroRules?: string
+  }
+  season?: string
+  status: YouTubeSeriesStatus
+  deleted: boolean
+}
+
+export interface YouTubeVideoProject {
+  id?: string
+  orgId: string
+  channelWorkspaceId: string
+  seriesId?: string
+  title: string
+  workingTitle?: string
+  videoType: YouTubeVideoType
+  status: YouTubeVideoStatus
+  objective: string
+  targetAudience?: string
+  targetDurationSeconds?: number
+  source: {
+    intakeType: YouTubeSourceType
+    researchItemId?: string
+    campaignId?: string
+    projectId?: string
+    sourceUrl?: string
+    transcriptAssetId?: string
+  }
+  linked: {
+    projectId?: string
+    taskIds?: string[]
+    documentIds?: string[]
+    campaignId?: string
+    socialPostIds?: string[]
+  }
+  approvalPolicy: YouTubeApprovalPolicy
+  publishPacketId?: string
+  youtubeVideoId?: string
+  scheduledAt?: unknown
+  publishedAt?: unknown
+  clientReview?: {
+    status?: 'not_requested' | 'requested' | 'approved' | 'changes_requested' | 'rejected'
+    notes?: string
+    decidedAt?: unknown
+    decidedBy?: string
+  }
+  internalNotes?: string
+  clientNotes?: string
+  visibility?: { showInClientPortal?: boolean; showAnalytics?: boolean; showPublishingPacket?: boolean }
+  createdAt?: unknown
+  updatedAt?: unknown
+  createdBy?: string
+  createdByType?: ActorType
+  updatedBy?: string
+  updatedByType?: ActorType
+  deleted: boolean
+}
+
+export interface YouTubePublishingPacket {
+  id?: string
+  orgId: string
+  channelWorkspaceId: string
+  videoProjectId: string
+  versionNumber: number
+  supersedesPacketId?: string
+  status: 'draft' | 'internal_review' | 'client_review' | 'approved' | 'blocked' | 'published'
+  titleOptions: Array<{ text: string; rationale?: string; selected?: boolean }>
+  description?: string
+  tags: string[]
+  chapters: Array<{ startSeconds: number; title: string }>
+  thumbnailAssetId?: string
+  captionAssetId?: string
+  videoAssetId?: string
+  visibility: 'private' | 'unlisted' | 'public'
+  publishAt?: unknown
+  selfDeclaredMadeForKids?: boolean
+  containsSyntheticMedia?: boolean
+  aiDisclosureNotes?: string
+  checks: {
+    rights: YouTubeGateCheck
+    aiDisclosure: YouTubeGateCheck
+    madeForKids: YouTubeGateCheck
+    metadata: YouTubeGateCheck
+    thumbnail: YouTubeGateCheck
+    captions: YouTubeGateCheck
+    approval: YouTubeGateCheck
+    connectedAccount: YouTubeGateCheck
+  }
+  approvedBy?: string
+  approvedAt?: unknown
+  approvedSnapshotHash?: string
+  deleted: boolean
+}

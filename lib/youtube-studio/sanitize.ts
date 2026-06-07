@@ -1,0 +1,265 @@
+import type {
+  YouTubeApprovalPolicy,
+  YouTubeChannelStatus,
+  YouTubeChannelWorkspace,
+  YouTubePublishingPacket,
+  YouTubePublishingPolicy,
+  YouTubeSeries,
+  YouTubeSeriesCadence,
+  YouTubeSeriesFormat,
+  YouTubeSeriesStatus,
+  YouTubeSourceType,
+  YouTubeVideoProject,
+  YouTubeVideoStatus,
+  YouTubeVideoType,
+} from './types'
+
+const CHANNEL_STATUSES: YouTubeChannelStatus[] = ['setup', 'strategy', 'active', 'paused', 'blocked', 'archived']
+const SERIES_FORMATS: YouTubeSeriesFormat[] = ['shorts', 'long_form', 'podcast', 'case_study', 'tutorial', 'ads', 'mixed']
+const SERIES_CADENCES: YouTubeSeriesCadence[] = ['daily', 'weekly', 'fortnightly', 'monthly', 'campaign', 'ad_hoc']
+const SERIES_STATUSES: YouTubeSeriesStatus[] = ['active', 'paused', 'complete', 'archived']
+const VIDEO_TYPES: YouTubeVideoType[] = [
+  'short',
+  'long_form',
+  'clip_pack',
+  'podcast_episode',
+  'webinar_cutdown',
+  'testimonial',
+  'case_study',
+  'tutorial',
+  'product_demo',
+  'ad_creative',
+  'community_update',
+]
+const VIDEO_STATUSES: YouTubeVideoStatus[] = [
+  'intake',
+  'briefing',
+  'production',
+  'internal_review',
+  'client_review',
+  'changes_requested',
+  'publish_ready',
+  'scheduled',
+  'live',
+  'blocked',
+  'archived',
+]
+const SOURCE_TYPES: YouTubeSourceType[] = ['raw_footage', 'source_url', 'transcript', 'research', 'client_request', 'manual']
+
+type RawInput = Record<string, unknown>
+
+function cleanString(value: unknown): string | undefined {
+  return typeof value === 'string' && value.trim() ? value.trim() : undefined
+}
+
+function cleanNumber(value: unknown): number | undefined {
+  return typeof value === 'number' && Number.isFinite(value) ? value : undefined
+}
+
+function cleanBoolean(value: unknown): boolean | undefined {
+  return typeof value === 'boolean' ? value : undefined
+}
+
+function cleanObject(value: unknown): RawInput {
+  return value && typeof value === 'object' && !Array.isArray(value) ? value as RawInput : {}
+}
+
+function cleanStringArray(value: unknown): string[] {
+  if (Array.isArray(value)) return value.map(cleanString).filter((item): item is string => Boolean(item))
+  if (typeof value === 'string') return value.split(/[\n,]+/).map((item) => item.trim()).filter(Boolean)
+  return []
+}
+
+function compact<T extends Record<string, unknown>>(value: T): Partial<T> {
+  return Object.fromEntries(Object.entries(value).filter(([, entry]) => entry !== undefined)) as Partial<T>
+}
+
+function pick<T extends string>(values: readonly T[], input: unknown, fallback: T): T {
+  return values.includes(input as T) ? input as T : fallback
+}
+
+export function defaultYouTubeApprovalPolicy(): YouTubeApprovalPolicy {
+  return {
+    requireInternalBriefApproval: true,
+    requireClientBriefApproval: false,
+    requireClientScriptApproval: false,
+    requireClientDraftApproval: true,
+    requireClientThumbnailApproval: false,
+    requireClientPublishConfirmation: false,
+    requireInternalPublishApproval: true,
+  }
+}
+
+export function defaultYouTubePublishingPolicy(): YouTubePublishingPolicy {
+  return {
+    allowedModes: ['manual_handoff'],
+    defaultVisibility: 'private',
+    privateFirstRequired: true,
+    publicPublishRequiresAdmin: true,
+    publicPublishRequiresClientConfirmation: false,
+  }
+}
+
+function approvalPolicyFrom(input: unknown): YouTubeApprovalPolicy {
+  const source = cleanObject(input)
+  const defaults = defaultYouTubeApprovalPolicy()
+
+  return {
+    requireInternalBriefApproval: cleanBoolean(source.requireInternalBriefApproval) ?? defaults.requireInternalBriefApproval,
+    requireClientBriefApproval: cleanBoolean(source.requireClientBriefApproval) ?? defaults.requireClientBriefApproval,
+    requireClientScriptApproval: cleanBoolean(source.requireClientScriptApproval) ?? defaults.requireClientScriptApproval,
+    requireClientDraftApproval: cleanBoolean(source.requireClientDraftApproval) ?? defaults.requireClientDraftApproval,
+    requireClientThumbnailApproval: cleanBoolean(source.requireClientThumbnailApproval) ?? defaults.requireClientThumbnailApproval,
+    requireClientPublishConfirmation:
+      cleanBoolean(source.requireClientPublishConfirmation) ?? defaults.requireClientPublishConfirmation,
+    requireInternalPublishApproval:
+      cleanBoolean(source.requireInternalPublishApproval) ?? defaults.requireInternalPublishApproval,
+  }
+}
+
+export function sanitizeYouTubeChannelWorkspaceInput(
+  input: RawInput
+): Omit<YouTubeChannelWorkspace, 'id' | 'createdAt' | 'updatedAt' | 'createdBy' | 'createdByType' | 'updatedBy' | 'updatedByType'> {
+  const disclosure = cleanObject(input.aiDisclosureDefaults)
+  const visibility = cleanObject(input.visibility)
+
+  return {
+    orgId: cleanString(input.orgId) ?? '',
+    title: cleanString(input.title) ?? 'Untitled YouTube channel',
+    youtubeChannelId: cleanString(input.youtubeChannelId),
+    youtubeHandle: cleanString(input.youtubeHandle),
+    status: pick(CHANNEL_STATUSES, input.status, 'setup'),
+    connectedAccountId: cleanString(input.connectedAccountId),
+    strategyDocumentId: cleanString(input.strategyDocumentId),
+    defaultApprovalPolicy: approvalPolicyFrom(input.defaultApprovalPolicy),
+    defaultPublishingPolicy: defaultYouTubePublishingPolicy(),
+    contentPillars: cleanStringArray(input.contentPillars),
+    audienceNotes: cleanString(input.audienceNotes),
+    avoidTopics: cleanStringArray(input.avoidTopics),
+    aiDisclosureDefaults: {
+      syntheticMediaLikely: disclosure.syntheticMediaLikely === true,
+      notes: cleanString(disclosure.notes),
+    },
+    internalNotes: cleanString(input.internalNotes),
+    clientNotes: cleanString(input.clientNotes),
+    visibility: {
+      showInClientPortal: visibility.showInClientPortal !== false,
+      showAnalytics: visibility.showAnalytics !== false,
+    },
+    deleted: input.deleted === true,
+  }
+}
+
+export function sanitizeYouTubeSeriesInput(input: RawInput): Omit<YouTubeSeries, 'id'> {
+  const template = cleanObject(input.episodeTemplate)
+  const style = cleanObject(input.styleGuide)
+  const rawSections = Array.isArray(template.sections) ? template.sections : []
+
+  return {
+    orgId: cleanString(input.orgId) ?? '',
+    channelWorkspaceId: cleanString(input.channelWorkspaceId) ?? '',
+    name: cleanString(input.name) ?? 'Untitled series',
+    objective: cleanString(input.objective),
+    audience: cleanString(input.audience),
+    format: pick(SERIES_FORMATS, input.format, 'mixed'),
+    cadence: pick(SERIES_CADENCES, input.cadence, 'ad_hoc'),
+    targetDurationSeconds: cleanNumber(input.targetDurationSeconds),
+    episodeTemplate: {
+      hook: cleanString(template.hook),
+      sections: rawSections.flatMap((entry) => {
+        const item = cleanObject(entry)
+        const label = cleanString(item.label)
+        return label ? [compact({ label, targetSeconds: cleanNumber(item.targetSeconds), notes: cleanString(item.notes) })] : []
+      }) as Array<{ label: string; targetSeconds?: number; notes?: string }>,
+      outro: cleanString(template.outro),
+    },
+    styleGuide: {
+      visualNotes: cleanString(style.visualNotes),
+      thumbnailNotes: cleanString(style.thumbnailNotes),
+      captionNotes: cleanString(style.captionNotes),
+      introOutroRules: cleanString(style.introOutroRules),
+    },
+    season: cleanString(input.season),
+    status: pick(SERIES_STATUSES, input.status, 'active'),
+    deleted: input.deleted === true,
+  }
+}
+
+export function sanitizeYouTubeVideoProjectInput(
+  input: RawInput
+): Omit<YouTubeVideoProject, 'id' | 'createdAt' | 'updatedAt' | 'createdBy' | 'createdByType' | 'updatedBy' | 'updatedByType'> {
+  const source = cleanObject(input.source)
+  const linked = cleanObject(input.linked)
+  const review = cleanObject(input.clientReview)
+  const visibility = cleanObject(input.visibility)
+
+  return {
+    orgId: cleanString(input.orgId) ?? '',
+    channelWorkspaceId: cleanString(input.channelWorkspaceId) ?? '',
+    seriesId: cleanString(input.seriesId),
+    title: cleanString(input.title) ?? 'Untitled video',
+    workingTitle: cleanString(input.workingTitle),
+    videoType: pick(VIDEO_TYPES, input.videoType, 'long_form'),
+    status: pick(VIDEO_STATUSES, input.status, 'intake'),
+    objective: cleanString(input.objective) ?? '',
+    targetAudience: cleanString(input.targetAudience),
+    targetDurationSeconds: cleanNumber(input.targetDurationSeconds),
+    source: {
+      intakeType: pick(SOURCE_TYPES, source.intakeType, 'manual'),
+      researchItemId: cleanString(source.researchItemId),
+      campaignId: cleanString(source.campaignId),
+      projectId: cleanString(source.projectId),
+      sourceUrl: cleanString(source.sourceUrl),
+      transcriptAssetId: cleanString(source.transcriptAssetId),
+    },
+    linked: {
+      projectId: cleanString(linked.projectId),
+      taskIds: cleanStringArray(linked.taskIds),
+      documentIds: cleanStringArray(linked.documentIds),
+      campaignId: cleanString(linked.campaignId),
+      socialPostIds: cleanStringArray(linked.socialPostIds),
+    },
+    approvalPolicy: approvalPolicyFrom(input.approvalPolicy),
+    publishPacketId: cleanString(input.publishPacketId),
+    youtubeVideoId: cleanString(input.youtubeVideoId),
+    scheduledAt: input.scheduledAt,
+    publishedAt: input.publishedAt,
+    clientReview: {
+      status: pick(['not_requested', 'requested', 'approved', 'changes_requested', 'rejected'] as const, review.status, 'not_requested'),
+      notes: cleanString(review.notes),
+      decidedAt: review.decidedAt,
+      decidedBy: cleanString(review.decidedBy),
+    },
+    internalNotes: cleanString(input.internalNotes),
+    clientNotes: cleanString(input.clientNotes),
+    visibility: {
+      showInClientPortal: visibility.showInClientPortal !== false,
+      showAnalytics: visibility.showAnalytics !== false,
+      showPublishingPacket: visibility.showPublishingPacket === true,
+    },
+    deleted: input.deleted === true,
+  }
+}
+
+export function serializeYouTubeRecord<T extends object>(id: string, data: Record<string, unknown>): T & { id: string } {
+  return { id, ...(JSON.parse(JSON.stringify(data)) as T) }
+}
+
+export function clientSafeYouTubeChannelWorkspace(
+  channel: YouTubeChannelWorkspace
+): Omit<YouTubeChannelWorkspace, 'connectedAccountId' | 'internalNotes'> {
+  const safe = { ...channel }
+  delete safe.connectedAccountId
+  delete safe.internalNotes
+  return safe
+}
+
+export function clientSafeYouTubeVideoProject(video: YouTubeVideoProject): Omit<YouTubeVideoProject, 'internalNotes'> {
+  const safe = { ...video }
+  delete safe.internalNotes
+  return safe
+}
+
+export function clientSafeYouTubePublishingPacket(packet: YouTubePublishingPacket): YouTubePublishingPacket {
+  return packet
+}
