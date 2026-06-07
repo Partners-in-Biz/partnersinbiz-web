@@ -266,6 +266,11 @@ function defaultStage(): Required<FirestoreStage> {
               sourceAssetId: 'chapter-source-secret',
               policyNotes: 'operator-only chapter policy note',
             },
+            {
+              startSeconds: -1,
+              title: 'Legacy negative start',
+              internalPrompt: 'negative chapter should not leak',
+            },
           ],
           thumbnailAssetId: 'thumbnail-secret',
           captionAssetId: 'caption-secret',

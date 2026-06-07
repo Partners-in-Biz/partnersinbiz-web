@@ -327,6 +327,11 @@ describe('youtube studio sanitizers', () => {
           title: '',
           internalPrompt: 'empty chapter should not leak',
         },
+        {
+          startSeconds: -1,
+          title: 'Legacy negative start',
+          internalPrompt: 'negative chapter should not leak',
+        },
       ] as Array<{ startSeconds: number; title: string }>,
       thumbnailAssetId: 'thumbnail-secret',
       captionAssetId: 'caption-secret',

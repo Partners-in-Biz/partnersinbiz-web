@@ -504,7 +504,7 @@ function clientSafePacketChapter(chapter: unknown): ClientSafePacketChapter | un
   const source = cleanObject(chapter)
   const startSeconds = cleanNumber(source.startSeconds)
   const title = cleanString(source.title)
-  if (startSeconds === undefined || !title) return undefined
+  if (startSeconds === undefined || startSeconds < 0 || !title) return undefined
 
   return { startSeconds, title }
 }
