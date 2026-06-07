@@ -273,6 +273,14 @@ async function createLinkedSeoTask(args: {
   return ref.id
 }
 
+async function validateProjectTaskTarget(projectId: string, orgId: string) {
+  const projectSnap = await adminDb.collection('projects').doc(projectId).get()
+  if (!projectSnap.exists || projectSnap.data()?.deleted === true || projectSnap.data()?.orgId !== orgId) {
+    return apiError('Project not found for GEO finding task handoff', 404)
+  }
+  return null
+}
+
 async function createLinkedProjectTask(args: {
   body: Record<string, unknown>
   orgId: string
@@ -288,6 +296,8 @@ async function createLinkedProjectTask(args: {
     || cleanString(args.body.projectId)
     || cleanString(args.workspace?.projectId)
   if (!projectId) return apiError('projectId is required when createProjectTask is requested for a GEO finding', 400)
+  const projectTargetError = await validateProjectTaskTarget(projectId, args.orgId)
+  if (projectTargetError) return projectTargetError
 
   const linkage = sourceLinkage(args.body, args.findingId, args.workspace)
   const title = cleanString(fieldFrom(taskInput, 'title')) || cleanString(args.body.title) || `Resolve GEO finding ${args.findingId}`
