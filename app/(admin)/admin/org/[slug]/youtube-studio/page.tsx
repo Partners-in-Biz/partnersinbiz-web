@@ -1,6 +1,6 @@
 import { notFound } from 'next/navigation'
 import { adminDb } from '@/lib/firebase/admin'
-import { YouTubeStudioPlaceholder } from '@/components/youtube-studio/YouTubeStudioPlaceholder'
+import { YouTubeStudioAdminWorkspace } from '@/components/youtube-studio/YouTubeStudioAdminWorkspace'
 
 export const dynamic = 'force-dynamic'
 
@@ -14,8 +14,9 @@ export default async function AdminOrgYouTubeStudioPage({ params }: { params: Pr
 
   if (snap.empty) notFound()
 
-  const org = snap.docs[0].data() ?? {}
+  const orgDoc = snap.docs[0]
+  const org = orgDoc.data() ?? {}
   const orgName = typeof org.name === 'string' && org.name.trim() ? org.name.trim() : slug
 
-  return <YouTubeStudioPlaceholder surface="admin" orgName={orgName} />
+  return <YouTubeStudioAdminWorkspace orgId={orgDoc.id} orgName={orgName} />
 }
