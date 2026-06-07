@@ -42,12 +42,14 @@ export function YouTubeStudioPortalWorkspace({ orgId }: YouTubeStudioPortalWorks
   const [loading, setLoading] = useState(true)
   const [submittingRequest, setSubmittingRequest] = useState(false)
   const [reviewingId, setReviewingId] = useState<string | null>(null)
-  const [notice, setNotice] = useState('')
+  const [loadNotice, setLoadNotice] = useState('')
+  const [actionNotice, setActionNotice] = useState('')
   const [moduleDisabled, setModuleDisabled] = useState(false)
   const submittingRequestRef = useRef(false)
   const reviewingIdRef = useRef<string | null>(null)
 
   const apiPath = useMemo(() => scopedApiPath('/api/v1/portal/youtube-studio', { orgId }), [orgId])
+  const notice = loadNotice || actionNotice
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -60,6 +62,8 @@ export function YouTubeStudioPortalWorkspace({ orgId }: YouTubeStudioPortalWorks
         setSeries([])
         setVideos([])
         setPackets([])
+        setLoadNotice('')
+        setActionNotice('')
         return
       }
 
@@ -68,14 +72,18 @@ export function YouTubeStudioPortalWorkspace({ orgId }: YouTubeStudioPortalWorks
       setSeries(Array.isArray(body.data?.series) ? body.data.series : [])
       setVideos(Array.isArray(body.data?.videos) ? body.data.videos : [])
       setPackets(Array.isArray(body.data?.packets) ? body.data.packets : [])
-      if (!res.ok) setNotice(body.error ?? 'Could not load YouTube Studio.')
+      if (!res.ok) {
+        setLoadNotice(body.error ?? 'Could not load YouTube Studio.')
+      } else {
+        setLoadNotice('')
+      }
     } catch {
       setModuleDisabled(false)
       setChannels([])
       setSeries([])
       setVideos([])
       setPackets([])
-      setNotice('Could not load YouTube Studio.')
+      setLoadNotice('Could not load YouTube Studio.')
     } finally {
       setLoading(false)
     }
@@ -94,7 +102,8 @@ export function YouTubeStudioPortalWorkspace({ orgId }: YouTubeStudioPortalWorks
     if (submittingRequestRef.current || !request.channelWorkspaceId || !request.title.trim()) return
     submittingRequestRef.current = true
     setSubmittingRequest(true)
-    setNotice('')
+    setActionNotice('')
+    setLoadNotice('')
     try {
       const res = await fetch(apiPath, {
         method: 'POST',
@@ -103,14 +112,14 @@ export function YouTubeStudioPortalWorkspace({ orgId }: YouTubeStudioPortalWorks
       })
       const body = await res.json().catch(() => ({}))
       if (!res.ok) {
-        setNotice(body.error ?? 'Could not submit video request')
+        setActionNotice(body.error ?? 'Could not submit video request')
         return
       }
       setRequest(emptyRequest)
-      setNotice('Video request sent to the PiB team.')
+      setActionNotice('Video request sent to the PiB team.')
       await load()
     } catch {
-      setNotice('Could not submit video request')
+      setActionNotice('Could not submit video request')
     } finally {
       submittingRequestRef.current = false
       setSubmittingRequest(false)
@@ -121,7 +130,8 @@ export function YouTubeStudioPortalWorkspace({ orgId }: YouTubeStudioPortalWorks
     if (reviewingIdRef.current) return
     reviewingIdRef.current = videoId
     setReviewingId(videoId)
-    setNotice('')
+    setActionNotice('')
+    setLoadNotice('')
     try {
       const res = await fetch(apiPath, {
         method: 'PUT',
@@ -130,13 +140,13 @@ export function YouTubeStudioPortalWorkspace({ orgId }: YouTubeStudioPortalWorks
       })
       const body = await res.json().catch(() => ({}))
       if (!res.ok) {
-        setNotice(body.error ?? 'Could not save review')
+        setActionNotice(body.error ?? 'Could not save review')
         return
       }
-      setNotice('Review saved for the PiB team.')
+      setActionNotice('Review saved for the PiB team.')
       await load()
     } catch {
-      setNotice('Could not save review')
+      setActionNotice('Could not save review')
     } finally {
       reviewingIdRef.current = null
       setReviewingId(null)

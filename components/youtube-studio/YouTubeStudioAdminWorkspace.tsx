@@ -59,7 +59,9 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
   const [form, setForm] = useState<FormState>(emptyForm)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
-  const [notice, setNotice] = useState('')
+  const [loadNotice, setLoadNotice] = useState('')
+  const [actionNotice, setActionNotice] = useState('')
+  const notice = loadNotice || actionNotice
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -78,13 +80,15 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
       setSeries(Array.isArray(seriesBody.data?.series) ? seriesBody.data.series : [])
       setVideos(Array.isArray(videoBody.data?.videos) ? videoBody.data.videos : [])
       if (!channelRes.ok || !seriesRes.ok || !videoRes.ok) {
-        setNotice('Could not load the full YouTube Studio workspace.')
+        setLoadNotice('Could not load the full YouTube Studio workspace.')
+      } else {
+        setLoadNotice('')
       }
     } catch {
       setChannels([])
       setSeries([])
       setVideos([])
-      setNotice('Could not load the YouTube Studio workspace.')
+      setLoadNotice('Could not load the YouTube Studio workspace.')
     } finally {
       setLoading(false)
     }
@@ -102,7 +106,8 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
     event.preventDefault()
     if (saving || !form.channelTitle.trim()) return
     setSaving(true)
-    setNotice('')
+    setActionNotice('')
+    setLoadNotice('')
     try {
       const res = await fetch('/api/v1/youtube-studio/channels', {
         method: 'POST',
@@ -117,7 +122,7 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
       })
       const body = await res.json().catch(() => ({}))
       if (!res.ok) {
-        setNotice(body.error ?? 'Could not save YouTube channel workspace')
+        setActionNotice(body.error ?? 'Could not save YouTube channel workspace')
         return
       }
       setForm((prev) => ({
@@ -128,10 +133,10 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
         audienceNotes: '',
         videoChannelId: body.data?.id ?? prev.videoChannelId,
       }))
-      setNotice('YouTube channel workspace saved.')
+      setActionNotice('YouTube channel workspace saved.')
       await load()
     } catch {
-      setNotice('Could not save YouTube channel workspace')
+      setActionNotice('Could not save YouTube channel workspace')
     } finally {
       setSaving(false)
     }
@@ -141,7 +146,8 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
     event.preventDefault()
     if (saving || !form.videoChannelId || !form.videoTitle.trim()) return
     setSaving(true)
-    setNotice('')
+    setActionNotice('')
+    setLoadNotice('')
     try {
       const res = await fetch('/api/v1/youtube-studio/videos', {
         method: 'POST',
@@ -158,14 +164,14 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
       })
       const body = await res.json().catch(() => ({}))
       if (!res.ok) {
-        setNotice(body.error ?? 'Could not save video project')
+        setActionNotice(body.error ?? 'Could not save video project')
         return
       }
       setForm((prev) => ({ ...prev, videoTitle: '', objective: '', sourceUrl: '' }))
-      setNotice('Video project saved.')
+      setActionNotice('Video project saved.')
       await load()
     } catch {
-      setNotice('Could not save video project')
+      setActionNotice('Could not save video project')
     } finally {
       setSaving(false)
     }

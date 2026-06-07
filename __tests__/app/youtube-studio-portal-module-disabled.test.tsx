@@ -1,5 +1,6 @@
 import React from 'react'
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { YouTubeStudioAdminWorkspace } from '@/components/youtube-studio/YouTubeStudioAdminWorkspace'
 import { YouTubeStudioPortalWorkspace } from '@/components/youtube-studio/YouTubeStudioPortalWorkspace'
 
 function jsonResponse(body: unknown, ok = true): Response {
@@ -94,6 +95,64 @@ describe('YouTubeStudioPortalWorkspace module availability', () => {
         scopedPath,
         expect.objectContaining({ method: 'PUT' }),
       )
+    })
+  })
+
+  it('clears stale load notices after successful scoped portal reloads', async () => {
+    const fetchMock = jest.fn(async (input: RequestInfo | URL) => {
+      if (String(input).includes('blocked-org')) {
+        return jsonResponse({ success: false, error: 'Portal load is blocked' }, false)
+      }
+      return jsonResponse(portalData)
+    })
+    global.fetch = fetchMock as jest.Mock
+
+    const { rerender } = render(<YouTubeStudioPortalWorkspace orgId="blocked-org" />)
+
+    expect(await screen.findByText('Portal load is blocked')).toBeInTheDocument()
+
+    rerender(<YouTubeStudioPortalWorkspace orgId="lumen-org" />)
+
+    expect(await screen.findAllByText('Lumen Channel')).not.toHaveLength(0)
+    await waitFor(() => {
+      expect(screen.queryByText('Portal load is blocked')).not.toBeInTheDocument()
+    })
+  })
+
+  it('clears stale load notices after successful scoped admin reloads', async () => {
+    const fetchMock = jest.fn(async (input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url.includes('blocked-org')) return jsonResponse({ success: false }, false)
+      if (url.includes('/channels')) {
+        return jsonResponse({
+          success: true,
+          data: {
+            channels: [
+              {
+                id: 'channel-1',
+                title: 'Lumen Channel',
+                status: 'active',
+                youtubeHandle: '@lumen',
+              },
+            ],
+          },
+        })
+      }
+      if (url.includes('/series')) return jsonResponse({ success: true, data: { series: [] } })
+      if (url.includes('/videos')) return jsonResponse({ success: true, data: { videos: [] } })
+      return jsonResponse({ success: true })
+    })
+    global.fetch = fetchMock as jest.Mock
+
+    const { rerender } = render(<YouTubeStudioAdminWorkspace orgId="blocked-org" orgName="Blocked" />)
+
+    expect(await screen.findByText('Could not load the full YouTube Studio workspace.')).toBeInTheDocument()
+
+    rerender(<YouTubeStudioAdminWorkspace orgId="lumen-org" orgName="Lumen" />)
+
+    expect(await screen.findAllByText('Lumen Channel')).not.toHaveLength(0)
+    await waitFor(() => {
+      expect(screen.queryByText('Could not load the full YouTube Studio workspace.')).not.toBeInTheDocument()
     })
   })
 
