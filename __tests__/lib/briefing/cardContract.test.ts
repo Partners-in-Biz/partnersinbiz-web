@@ -24,12 +24,14 @@ describe('briefing v2 card contract', () => {
       source: 'seo-task',
     })
     expect(item.options).toEqual(expect.arrayContaining([
-      expect.objectContaining({ id: 'complete', label: expect.stringContaining('Complete') }),
-      expect.objectContaining({ id: 'skip', label: expect.stringContaining('Skip') }),
+      expect.objectContaining({ id: 'option-a', label: expect.stringContaining('A:'), recommended: true }),
+      expect.objectContaining({ id: 'option-b', label: expect.stringContaining('B:') }),
+      expect.objectContaining({ id: 'option-c', label: expect.stringContaining('C:') }),
+      expect.objectContaining({ id: 'other', label: expect.stringContaining('Other') }),
     ]))
-    expect(item.recommendedOption).toMatchObject({ id: 'complete' })
+    expect(item.recommendedOption).toMatchObject({ id: 'option-a' })
     expect(item.inputTarget).toMatchObject({ action: 'complete', resourceType: 'seo-task', resourceId: 'seo-task-1' })
-    expect(item.afterSubmit).toMatchObject({ consequence: expect.stringContaining('SEO') })
+    expect(item.afterSubmit).toMatchObject({ consequence: expect.stringContaining('SEO'), releasesAgentId: 'seo', createsAuditTrail: true })
     expect(item.agentHandoff).toMatchObject({ targetAgentId: 'seo', sourceTaskId: 'seo-task-1' })
     expect(item.evidenceLinks).toEqual(expect.arrayContaining([
       expect.objectContaining({ label: expect.stringContaining('Open source'), href: expect.stringContaining('seo-task-1') }),

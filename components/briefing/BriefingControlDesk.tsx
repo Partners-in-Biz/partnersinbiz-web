@@ -144,6 +144,49 @@ interface BriefingCard {
     calendarEventTitle?: string | null
   }
   metadata?: Record<string, unknown> | null
+  decisionRequest?: {
+    prompt: string
+    scope: 'internal' | 'client' | 'prospect' | 'public'
+    source: string
+    reason?: string | null
+  } | null
+  options?: Array<{
+    id: string
+    label: string
+    description?: string | null
+    recommended?: boolean
+    disabled?: boolean
+    disabledReason?: string | null
+  }> | null
+  recommendedOption?: { id: string; label: string } | null
+  inputTarget?: {
+    action: string
+    resourceType: string
+    resourceId: string
+    orgId?: string | null
+    method?: 'state' | 'route' | 'copy' | 'chat'
+  } | null
+  afterSubmit?: {
+    consequence: string
+    releasesAgentId?: string | null
+    createsAuditTrail?: boolean
+    nextStatus?: string | null
+  } | null
+  agentHandoff?: {
+    targetAgentId?: string | null
+    sourceTaskId?: string | null
+    sourceProjectId?: string | null
+    summary: string
+    context?: Record<string, unknown> | null
+  } | null
+  safetyGate?: {
+    level: string
+    summary: string
+    sideEffectAllowed: boolean
+    requiresApproval: boolean
+    gatedActions?: string[]
+  } | null
+  disabledReason?: string | null
   userState?: {
     status?: 'active' | 'read' | 'handled' | 'snoozed' | 'rejected' | 'approved' | 'pending-review' | 'follow-up-created'
     note?: string | null
@@ -919,6 +962,28 @@ const MISSION_CONTROL_APPROVAL_GATES = [
   'destructive actions',
 ]
 
+type WorkflowLaneId = 'all' | 'decide' | 'approve' | 'unblock' | 'follow-up' | 'agent-review' | 'fyi-evidence'
+
+const WORKFLOW_LANES: Array<{ id: WorkflowLaneId; label: string; icon: string; description: string }> = [
+  { id: 'decide', label: 'Decide', icon: 'rule', description: 'Business decisions, quotes, finance choices, and account-risk calls.' },
+  { id: 'approve', label: 'Approve', icon: 'approval', description: 'Explicit approval gates for documents, campaigns, spends, runs, and brokered side effects.' },
+  { id: 'unblock', label: 'Unblock', icon: 'lock_open', description: 'Cards paused because Peet, an account owner, or a client input is blocking progress.' },
+  { id: 'follow-up', label: 'Follow up', icon: 'follow_the_signs', description: 'Messages, inboxes, CRM touches, support replies, forms, bookings, and overdue relationship actions.' },
+  { id: 'agent-review', label: 'Review agent work', icon: 'smart_toy', description: 'Agent outputs, learning proposals, build evidence, and run approvals that need human review.' },
+  { id: 'fyi-evidence', label: 'FYI/evidence', icon: 'fact_check', description: 'Progress, completed work, shipments, reports, and source-backed evidence Peet may inspect.' },
+]
+
+const SUMMARY_COUNTER_DEFS = [
+  { id: 'needsPeet', label: 'Needs Peet', icon: 'person_alert', color: 'var(--color-accent-v2)' },
+  { id: 'blockedByPeet', label: 'Blocked by Peet', icon: 'front_hand', color: '#f97316' },
+  { id: 'approvalNeeded', label: 'Approval needed', icon: 'approval', color: '#f59e0b' },
+  { id: 'agentReview', label: 'Agent review', icon: 'smart_toy', color: '#4ade80' },
+  { id: 'followUpsDue', label: 'Follow-ups due', icon: 'forward_to_inbox', color: '#60a5fa' },
+  { id: 'clientRisk', label: 'Client/account risk', icon: 'release_alert', color: '#ef4444' },
+  { id: 'inProgress', label: 'In progress', icon: 'progress_activity', color: '#38bdf8' },
+  { id: 'recentlyCompleted', label: 'Recently completed', icon: 'task_alt', color: '#a78bfa' },
+] as const
+
 function cleanText(value: unknown): string {
   return typeof value === 'string' ? value.trim() : ''
 }
@@ -969,12 +1034,88 @@ function accountPulseIdentity(item: BriefingCard): { id: string; name: string } 
   return { id: WORKSPACE_OPERATIONS_KEY, name: 'Workspace operations' }
 }
 
+function workflowHaystack(item: BriefingCard) {
+  return `${item.priority} ${item.source.type} ${item.title} ${item.summary} ${item.excerpt ?? ''} ${cleanText(item.metadata?.status)} ${cleanText(item.metadata?.agentStatus)} ${cleanText(item.metadata?.columnId)} ${cleanText(item.metadata?.approvalStatus)} ${cleanText(item.metadata?.reviewState)} ${cleanText(item.metadata?.runStatus)} ${cleanText(item.metadata?.brokerStatus)} ${cleanText(item.metadata?.supportStatus)} ${cleanText(item.metadata?.invoiceStatus)} ${cleanText(item.metadata?.quoteStatus)} ${cleanText(item.metadata?.campaignStatus)} ${cleanText(item.metadata?.broadcastStatus)} ${cleanText(item.metadata?.orderStatus)} ${cleanText(item.metadata?.fulfillmentStatus)}`.toLowerCase()
+}
+
+function isAgentReviewItem(item: BriefingCard) {
+  return item.source.type === 'agent-output'
+    || item.source.type === 'agent-learning-review'
+    || item.source.type === 'agent-run'
+    || item.actor.type === 'agent'
+    || Boolean(agentOutputReviewCard(item) || agentLearningReviewCard(item))
+}
+
+function isApprovalNeededItem(item: BriefingCard) {
+  const type = item.source.type
+  const haystack = workflowHaystack(item)
+  if (type === 'approval' || type === 'client-document' || type === 'workspace-broker-job') return true
+  if (type === 'social-post' || type === 'seo-content' || type === 'ad-campaign' || type === 'expense') return true
+  if (type === 'invoice' && /draft|payment_pending_verification/.test(haystack)) return true
+  if (type === 'broadcast' && /draft|ready|paused/.test(haystack)) return true
+  if (type === 'campaign' && /draft|ready|approve|launch/.test(haystack)) return true
+  return /approval|approve|awaiting|pending review|ready for review|client review|reviewState:awaiting/.test(haystack)
+}
+
+function isBlockedByPeetItem(item: BriefingCard) {
+  const haystack = workflowHaystack(item)
+  return item.priority === 'critical'
+    || item.priority === 'client-risk'
+    || /blocked|blocker|waiting on|awaiting input|awaiting-input|waiting_for_approval|paused|closed gate|missing|failed/.test(haystack)
+}
+
+function isFollowUpDueItem(item: BriefingCard) {
+  return [
+    'activity',
+    'contact',
+    'comment',
+    'conversation',
+    'notification',
+    'support-ticket',
+    'enquiry',
+    'form-submission',
+    'social-inbox',
+    'mailbox-message',
+    'booking',
+    'calendar-event',
+  ].includes(item.source.type) || /follow[- ]?up|reply|rsvp|unread|new enquiry|new form|dm needs|email from/.test(workflowHaystack(item))
+}
+
+function isClientRiskItem(item: BriefingCard) {
+  return item.priority === 'client-risk'
+    || item.priority === 'critical'
+    || ['support-ticket', 'order', 'inventory-item', 'seo-task'].includes(item.source.type)
+    || /risk|urgent|low stock|blocked|failed|overdue|stale|missing|negative/.test(workflowHaystack(item))
+}
+
+function isInProgressItem(item: BriefingCard) {
+  return /in_progress|in progress|active|running|scheduled|in_transit|queued|started|reviewing/.test(workflowHaystack(item))
+}
+
+function isRecentlyCompletedItem(item: BriefingCard) {
+  return /completed|done|delivered|paid|approved|sent|fulfilled|resolved|handled|closed|archived/.test(workflowHaystack(item))
+}
+
+function workflowLaneForItem(item: BriefingCard): WorkflowLaneId {
+  if (isAgentReviewItem(item)) return 'agent-review'
+  if (isApprovalNeededItem(item)) return 'approve'
+  if (isBlockedByPeetItem(item)) return 'unblock'
+  if (isFollowUpDueItem(item)) return 'follow-up'
+  if (isClientRiskItem(item) || ['quote', 'invoice', 'order', 'expense'].includes(item.source.type)) return 'decide'
+  return 'fyi-evidence'
+}
+
+function workflowLaneCount(items: BriefingCard[], laneId: WorkflowLaneId) {
+  return items.filter((item) => workflowLaneForItem(item) === laneId).length
+}
+
 export function BriefingControlDesk({ mode, portalScope }: { mode: Mode; portalScope?: PortalOrgRouteScope }) {
   const [orgs, setOrgs] = useState<OrgSummary[]>([])
   const [orgId, setOrgId] = useState('')
   const [accountPulseId, setAccountPulseId] = useState('')
   const [priority, setPriority] = useState('all')
   const [sourceType, setSourceType] = useState('all')
+  const [workflowLane, setWorkflowLane] = useState<WorkflowLaneId>('all')
   const [feed, setFeed] = useState<BriefingFeed | null>(null)
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
@@ -993,6 +1134,8 @@ export function BriefingControlDesk({ mode, portalScope }: { mode: Mode; portalS
   const [paymentProofRejectReason, setPaymentProofRejectReason] = useState('')
   const [seoChangeText, setSeoChangeText] = useState('')
   const [seoTaskSkipReason, setSeoTaskSkipReason] = useState('')
+  const [decisionChoices, setDecisionChoices] = useState<Record<string, string>>({})
+  const [decisionOtherText, setDecisionOtherText] = useState<Record<string, string>>({})
   const [adCampaignChangeText, setAdCampaignChangeText] = useState('')
   const [busyAction, setBusyAction] = useState<string | null>(null)
   const [flash, setFlash] = useState<Flash>(null)
@@ -1079,26 +1222,55 @@ export function BriefingControlDesk({ mode, portalScope }: { mode: Mode; portalS
   }, [autoRefresh, loadFeed, mode, orgId])
 
   const allItems = useMemo(() => feed?.items ?? [], [feed?.items])
-  const items = useMemo(() => {
+  const pulseScopedItems = useMemo(() => {
     if (mode !== 'portal' || !accountPulseId) return allItems
     return allItems.filter((item) => accountPulseIdentity(item).id === accountPulseId)
   }, [accountPulseId, allItems, mode])
+  const items = useMemo(() => {
+    if (workflowLane === 'all') return pulseScopedItems
+    return pulseScopedItems.filter((item) => workflowLaneForItem(item) === workflowLane)
+  }, [pulseScopedItems, workflowLane])
   const selected = items.find((item) => item.id === selectedId) ?? items[0] ?? null
   const selectedReviewCard = selected ? agentOutputReviewCard(selected) : null
   const selectedLearningReview = selected ? agentLearningReviewCard(selected) : null
 
-  const counts = useMemo(() => {
-    const result: Record<string, number> = {}
-    for (const item of items) result[item.priority] = (result[item.priority] ?? 0) + 1
-    return result
-  }, [items])
-
   const topStats = useMemo(() => ({
-    action: items.filter((item) => item.requiresAction).length,
-    blocked: counts.critical ?? 0,
-    review: counts.review ?? 0,
-    agents: items.filter((item) => item.actor.type === 'agent' || item.source.type === 'agent-output').length,
-  }), [counts, items])
+    needsPeet: pulseScopedItems.filter((item) => item.priority === 'needs-peet' || item.requiresAction).length,
+    blockedByPeet: pulseScopedItems.filter(isBlockedByPeetItem).length,
+    approvalNeeded: pulseScopedItems.filter(isApprovalNeededItem).length,
+    agentReview: pulseScopedItems.filter(isAgentReviewItem).length,
+    followUpsDue: pulseScopedItems.filter(isFollowUpDueItem).length,
+    clientRisk: pulseScopedItems.filter(isClientRiskItem).length,
+    inProgress: pulseScopedItems.filter(isInProgressItem).length,
+    recentlyCompleted: pulseScopedItems.filter(isRecentlyCompletedItem).length,
+  }), [pulseScopedItems])
+
+  function selectWorkflowLane(laneId: WorkflowLaneId) {
+    setWorkflowLane(laneId)
+    const next = laneId === 'all'
+      ? pulseScopedItems[0]
+      : pulseScopedItems.find((item) => workflowLaneForItem(item) === laneId)
+    setSelectedId(next?.id ?? null)
+  }
+
+  function selectedDecisionOptionId(item: BriefingCard) {
+    return decisionChoices[item.id]
+      || item.recommendedOption?.id
+      || item.options?.find((option) => option.recommended && !option.disabled)?.id
+      || item.options?.find((option) => !option.disabled)?.id
+      || ''
+  }
+
+  function selectedDecisionOption(item: BriefingCard) {
+    const optionId = selectedDecisionOptionId(item)
+    return item.options?.find((option) => option.id === optionId) ?? null
+  }
+
+  function decisionSubmitAction(item: BriefingCard): 'handled' | 'pending-review' | 'follow-up-created' {
+    const nextStatus = item.afterSubmit?.nextStatus
+    if (nextStatus === 'pending-review' || nextStatus === 'follow-up-created') return nextStatus
+    return 'handled'
+  }
 
   const workspacePulse = useMemo(() => {
     const byOrg = new Map<string, PulseRow>()
@@ -1196,6 +1368,52 @@ export function BriefingControlDesk({ mode, portalScope }: { mode: Mode; portalS
       setFlash({ kind: 'ok', message: action === 'snoozed' ? 'Snoozed for 24 hours.' : action === 'handled' ? 'Marked handled.' : 'Returned to active.' })
     } catch (err) {
       setFlash({ kind: 'error', message: err instanceof Error ? err.message : 'State update failed' })
+    } finally {
+      setBusyAction(null)
+    }
+  }
+
+  async function submitInlineDecision(item: BriefingCard) {
+    const option = selectedDecisionOption(item)
+    if (!item.decisionRequest || !item.inputTarget || !item.afterSubmit || !option) return
+    const otherText = decisionOtherText[item.id]?.trim() ?? ''
+    if (option.id === 'other' && !otherText) {
+      setFlash({ kind: 'error', message: 'Add the custom keyword/theme before submitting Other.' })
+      return
+    }
+    const action = decisionSubmitAction(item)
+    setBusyAction('submit-decision')
+    try {
+      const res = await fetch(`/api/v1/briefings/items/${encodeURIComponent(item.id)}/state`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          orgId: item.orgId || item.context.orgId || item.inputTarget.orgId,
+          action,
+          note: option.id === 'other' ? `Decision submitted: ${option.label}. Other: ${otherText}` : `Decision submitted: ${option.label}`,
+          approvalState: 'decision_submitted',
+          approvalCopy: item.afterSubmit.consequence,
+          decisionSubmission: {
+            optionId: option.id,
+            optionLabel: option.label,
+            otherText: option.id === 'other' ? otherText : null,
+            decisionRequest: item.decisionRequest,
+            inputTarget: item.inputTarget,
+            afterSubmit: item.afterSubmit,
+            agentHandoff: item.agentHandoff ?? null,
+            safetyGate: item.safetyGate ?? null,
+            sideEffectPerformed: false,
+            noSideEffectCopy: 'No publish, send, spend, deploy, finance, secret/config, or destructive action was performed.',
+          },
+        }),
+      })
+      const body = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(body.error || 'Decision submission failed')
+      setFeed((current) => current ? { ...current, items: current.items.filter((row) => row.id !== item.id), total: Math.max(0, current.total - 1) } : current)
+      setDecisionOtherText((current) => ({ ...current, [item.id]: '' }))
+      setFlash({ kind: 'ok', message: item.afterSubmit.releasesAgentId ? `Choice submitted. ${item.afterSubmit.releasesAgentId} can continue from the auditable handoff.` : 'Choice submitted and recorded for audit.' })
+    } catch (err) {
+      setFlash({ kind: 'error', message: err instanceof Error ? err.message : 'Decision submission failed' })
     } finally {
       setBusyAction(null)
     }
@@ -2276,15 +2494,10 @@ export function BriefingControlDesk({ mode, portalScope }: { mode: Mode; portalS
               </p>
             </div>
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-              {[
-                { label: 'Needs action', value: topStats.action, icon: 'bolt', color: 'var(--color-accent-v2)' },
-                { label: 'Blocked', value: topStats.blocked, icon: 'priority_high', color: '#ef4444' },
-                { label: 'For review', value: topStats.review, icon: 'rate_review', color: '#60a5fa' },
-                { label: 'Agent signals', value: topStats.agents, icon: 'smart_toy', color: '#4ade80' },
-              ].map((stat) => (
-                <div key={stat.label} className="rounded-lg border border-[var(--color-card-border)] bg-[var(--color-surface-container)] p-3">
+              {SUMMARY_COUNTER_DEFS.map((stat) => (
+                <div key={stat.id} aria-label={`Summary counter: ${stat.label}`} className="rounded-lg border border-[var(--color-card-border)] bg-[var(--color-surface-container)] p-3">
                   <span className="material-symbols-outlined text-[18px]" style={{ color: stat.color }} aria-hidden="true">{stat.icon}</span>
-                  <p className="mt-2 text-2xl font-semibold text-on-surface">{stat.value}</p>
+                  <p className="mt-2 text-2xl font-semibold text-on-surface">{topStats[stat.id]}</p>
                   <p className="text-xs text-on-surface-variant">{stat.label}</p>
                 </div>
               ))}
@@ -2400,23 +2613,34 @@ export function BriefingControlDesk({ mode, portalScope }: { mode: Mode; portalS
 
         <section className="grid gap-4 xl:grid-cols-[280px_minmax(0,1fr)_420px] xl:items-start">
           <aside className="rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)] p-3 xl:sticky xl:top-4 xl:h-fit">
-            <p className="eyebrow !text-[10px] px-1">Signal lanes</p>
-            <div className="mt-3 grid grid-cols-2 gap-2 xl:grid-cols-1">
-              {PRIORITIES.filter((p) => p.value !== 'all').map((p) => (
-                <button
-                  key={p.value}
-                  type="button"
-                  onClick={() => setPriority(p.value)}
-                  className={`flex min-h-14 items-center gap-3 rounded-lg border px-3 py-2 text-left text-sm transition ${priority === p.value ? 'border-[var(--color-accent-v2)] bg-[var(--color-accent-subtle)] text-on-surface' : 'border-[var(--color-card-border)] bg-[var(--color-surface-container)] text-on-surface-variant hover:border-[var(--color-accent-v2)]/50 hover:text-on-surface'}`}
-                  style={{ borderLeft: `3px solid ${priorityAccentColor(p.value)}` }}
-                >
-                  <span className="material-symbols-outlined text-[19px]" style={{ color: priorityAccentColor(p.value) }} aria-hidden="true">{p.icon}</span>
-                  <span className="min-w-0 flex-1">
-                    <span className="block font-medium">{p.label}</span>
-                    <span className="block text-xs text-on-surface-variant">{counts[p.value] ?? 0} live</span>
-                  </span>
+            <div className="flex items-center justify-between gap-2 px-1">
+              <p className="eyebrow !text-[10px]">Workflow lanes</p>
+              {workflowLane !== 'all' ? (
+                <button type="button" className="text-xs font-medium text-[var(--color-accent-text)] hover:underline" onClick={() => selectWorkflowLane('all')}>
+                  All lanes
                 </button>
-              ))}
+              ) : null}
+            </div>
+            <div className="mt-3 grid grid-cols-2 gap-2 xl:grid-cols-1">
+              {WORKFLOW_LANES.map((lane) => {
+                const laneCount = workflowLaneCount(pulseScopedItems, lane.id)
+                return (
+                  <button
+                    key={lane.id}
+                    type="button"
+                    onClick={() => selectWorkflowLane(lane.id)}
+                    aria-label={`${lane.label} workflow lane`}
+                    className={`flex min-h-20 items-start gap-3 rounded-lg border px-3 py-2 text-left text-sm transition ${workflowLane === lane.id ? 'border-[var(--color-accent-v2)] bg-[var(--color-accent-subtle)] text-on-surface' : 'border-[var(--color-card-border)] bg-[var(--color-surface-container)] text-on-surface-variant hover:border-[var(--color-accent-v2)]/50 hover:text-on-surface'}`}
+                    style={{ borderLeft: `3px solid ${priorityAccentColor(lane.id === 'unblock' ? 'critical' : lane.id === 'approve' || lane.id === 'agent-review' ? 'review' : lane.id === 'follow-up' ? 'needs-peet' : lane.id === 'decide' ? 'client-risk' : 'fyi')}` }}
+                  >
+                    <span className="material-symbols-outlined mt-0.5 text-[19px]" style={{ color: priorityAccentColor(lane.id === 'unblock' ? 'critical' : lane.id === 'approve' || lane.id === 'agent-review' ? 'review' : lane.id === 'follow-up' ? 'needs-peet' : lane.id === 'decide' ? 'client-risk' : 'fyi') }} aria-hidden="true">{lane.icon}</span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block font-medium">{lane.label}</span>
+                      <span className="block text-xs text-on-surface-variant">{laneCount} live · {lane.description}</span>
+                    </span>
+                  </button>
+                )
+              })}
             </div>
           </aside>
 
@@ -2474,7 +2698,19 @@ export function BriefingControlDesk({ mode, portalScope }: { mode: Mode; portalS
                       <div className="mt-3 grid gap-1 rounded-lg border border-white/10 bg-white/[0.03] p-2 text-xs text-on-surface-variant" aria-label={`Software build evidence for ${item.title}`}>
                         {softwareBuildEvidenceRows(item).slice(0, 4).map((row) => (
                           <span key={`${row.kind}:${row.label}:${row.value}`} className="truncate">
-                            <span className="font-medium text-on-surface">{row.label}:</span> {row.value}
+                            <span className="font-medium text-on-surface">{row.label}:</span>{' '}
+                            {row.href ? (
+                              <a
+                                className="text-[var(--color-accent-text)] underline underline-offset-4"
+                                href={row.href}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                aria-label={`Open ${row.label} evidence`}
+                                onClick={(event) => event.stopPropagation()}
+                              >
+                                Evidence link
+                              </a>
+                            ) : row.value}
                           </span>
                         ))}
                       </div>
@@ -2519,6 +2755,65 @@ export function BriefingControlDesk({ mode, portalScope }: { mode: Mode; portalS
                   </div>
                   <p className="mt-3 text-sm leading-6 text-on-surface-variant">{phase2NextActionCopy(selected, mode)}</p>
                 </div>
+
+                {selected.decisionRequest && selected.options?.length && selected.inputTarget && selected.afterSubmit ? (
+                  <div className="rounded-lg border border-[var(--color-accent-v2)]/35 bg-[var(--color-accent-subtle)] p-3" aria-label="Inline decision submission">
+                    <div className="flex items-center justify-between gap-3">
+                      <p className="text-xs font-semibold uppercase tracking-[0.16em] text-brand">Decision required</p>
+                      <span className="rounded-full border border-emerald-300/30 bg-emerald-300/10 px-2 py-1 text-[11px] text-emerald-100">Auditable internal write</span>
+                    </div>
+                    <p className="mt-2 text-sm font-medium text-on-surface">{selected.decisionRequest.prompt}</p>
+                    {selected.decisionRequest.reason ? <p className="mt-1 text-xs leading-5 text-on-surface-variant">{selected.decisionRequest.reason}</p> : null}
+                    <div className="mt-3 space-y-2" role="radiogroup" aria-label="Decision options">
+                      {selected.options.map((option) => {
+                        const checked = selectedDecisionOptionId(selected) === option.id
+                        const recommended = option.recommended || selected.recommendedOption?.id === option.id
+                        return (
+                          <label key={option.id} className={`block rounded-lg border p-3 text-sm ${checked ? 'border-[var(--color-accent-v2)] bg-black/10' : 'border-white/10 bg-white/[0.03]'} ${option.disabled ? 'opacity-60' : ''}`}>
+                            <span className="flex items-start gap-2">
+                              <input
+                                type="radio"
+                                name={`decision-${selected.id}`}
+                                checked={checked}
+                                disabled={option.disabled || !!busyAction}
+                                onChange={() => setDecisionChoices((current) => ({ ...current, [selected.id]: option.id }))}
+                              />
+                              <span className="min-w-0 flex-1">
+                                <span className="flex flex-wrap items-center gap-2 font-medium text-on-surface">
+                                  {option.label}
+                                  {recommended ? <span className="rounded-full border border-emerald-300/30 bg-emerald-300/10 px-2 py-0.5 text-[10px] uppercase tracking-wide text-emerald-100">Recommended</span> : null}
+                                </span>
+                                {option.description ? <span className="mt-1 block text-xs leading-5 text-on-surface-variant">{option.description}</span> : null}
+                                {option.disabledReason ? <span className="mt-1 block text-xs leading-5 text-amber-100">{option.disabledReason}</span> : null}
+                              </span>
+                            </span>
+                          </label>
+                        )
+                      })}
+                    </div>
+                    {selectedDecisionOptionId(selected) === 'other' ? (
+                      <label className="mt-3 block text-xs font-medium text-on-surface-variant" htmlFor={`decision-other-${selected.id}`}>
+                        Other keyword/theme
+                        <textarea
+                          id={`decision-other-${selected.id}`}
+                          className="pib-input mt-2 min-h-20 w-full resize-y"
+                          value={decisionOtherText[selected.id] ?? ''}
+                          onChange={(event) => setDecisionOtherText((current) => ({ ...current, [selected.id]: event.target.value }))}
+                          placeholder="Describe the custom keyword/theme direction..."
+                        />
+                      </label>
+                    ) : null}
+                    <div className="mt-3 rounded-lg border border-white/10 bg-white/[0.03] p-3 text-xs leading-5 text-on-surface-variant">
+                      <p><span className="font-semibold text-on-surface">After submit:</span> {selected.afterSubmit.consequence}</p>
+                      {selected.afterSubmit.releasesAgentId ? <p className="mt-1">Handoff: unblocks/continues {selected.afterSubmit.releasesAgentId} with source {selected.agentHandoff?.sourceTaskId ?? selected.inputTarget.resourceId}.</p> : null}
+                      <p className="mt-1">No publish, send, spend, deploy, finance, secret/config, or destructive action is performed.</p>
+                    </div>
+                    <button className="pib-btn-primary mt-3 w-full justify-center text-xs" type="button" onClick={() => submitInlineDecision(selected)} disabled={!!busyAction || !selectedDecisionOption(selected) || (selectedDecisionOptionId(selected) === 'other' && !decisionOtherText[selected.id]?.trim())}>
+                      <span className="material-symbols-outlined text-[15px]" aria-hidden="true">rule_settings</span>
+                      Submit choice
+                    </button>
+                  </div>
+                ) : null}
 
                 <div className="rounded-lg border border-white/10 bg-white/[0.03] p-3">
                   <div className="flex items-center justify-between gap-3">

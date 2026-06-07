@@ -86,23 +86,37 @@ function seoTaskContract(item: BriefingSourceItem): Partial<BriefingV2CardContra
   const status = clean(item.metadata?.seoTaskStatus) ?? null
   const taskTitle = firstText(item.context.seoTaskTitle, item.title) ?? item.source.id
   const blocked = status === 'blocked'
+  const focus = firstText(item.metadata?.focus, item.context.seoTaskTitle, item.title) ?? ''
+  const taskType = firstText(item.metadata?.taskType) ?? ''
+  const isKeywordThemeDecision = /keyword|theme|cluster|decision/i.test(`${focus} ${taskType} ${taskTitle}`)
+  const options: BriefingV2CardContract['options'] = isKeywordThemeDecision
+    ? [
+        { id: 'option-a', label: 'A: Service + location keywords', description: 'Prioritise high-intent service/location terms for pages and briefs.', recommended: true },
+        { id: 'option-b', label: 'B: Problem / solution themes', description: 'Prioritise search themes around pain points, FAQs, and solution-led content.', recommended: false },
+        { id: 'option-c', label: 'C: Authority / comparison themes', description: 'Prioritise authority-building, competitor, and comparison-led topics.', recommended: false },
+        { id: 'other', label: 'Other keyword/theme', description: 'Capture a custom theme in the free-text box before submitting.', recommended: false },
+      ]
+    : [
+        { id: 'complete', label: 'Complete / continue', description: 'Confirm the SEO task can proceed or be marked complete.', recommended: !blocked },
+        { id: 'skip', label: 'Skip / hold', description: 'Hold this SEO task and keep the reason auditable.', recommended: false },
+        { id: 'create-follow-up', label: 'Create follow-up task', description: 'Route the unresolved SEO decision to Projects/Kanban.', recommended: blocked },
+      ]
+  const recommendedOption = isKeywordThemeDecision
+    ? { id: 'option-a', label: 'A: Service + location keywords' }
+    : blocked
+      ? { id: 'create-follow-up', label: 'Create follow-up task' }
+      : { id: 'complete', label: 'Complete / continue' }
   return {
     decisionRequest: {
-      prompt: blocked ? `Unblock SEO task: ${taskTitle}` : `Decide SEO task: ${taskTitle}`,
+      prompt: isKeywordThemeDecision ? `Choose keyword/theme direction: ${taskTitle}` : blocked ? `Unblock SEO task: ${taskTitle}` : `Decide SEO task: ${taskTitle}`,
       scope: 'internal',
       source: item.source.type,
       reason: firstText(item.metadata?.blockerReason, item.summary) ?? 'SEO needs an internal decision before the next step can continue.',
     },
-    options: [
-      { id: 'complete', label: 'Complete / continue', description: 'Confirm the SEO task can proceed or be marked complete.', recommended: !blocked },
-      { id: 'skip', label: 'Skip / hold', description: 'Hold this SEO task and keep the reason auditable.', recommended: false },
-      { id: 'create-follow-up', label: 'Create follow-up task', description: 'Route the unresolved SEO decision to Projects/Kanban.', recommended: blocked },
-    ],
-    recommendedOption: blocked
-      ? { id: 'create-follow-up', label: 'Create follow-up task' }
-      : { id: 'complete', label: 'Complete / continue' },
+    options,
+    recommendedOption,
     inputTarget: { action: blocked ? 'create-task' : 'complete', resourceType: item.source.type, resourceId: item.source.id, orgId: item.orgId },
-    afterSubmit: { consequence: 'SEO work can continue only through internal task state/evidence updates; public publishing remains separately approval-gated.', releasesAgentId: 'seo', createsAuditTrail: true },
+    afterSubmit: { consequence: 'SEO work can continue only through internal task state/evidence updates; public publishing remains separately approval-gated.', releasesAgentId: 'seo', createsAuditTrail: true, nextStatus: blocked ? 'follow-up-created' : 'handled' },
     agentHandoff: { targetAgentId: 'seo', sourceTaskId: item.context.seoTaskId ?? item.source.id, sourceProjectId: item.context.projectId ?? null, summary: item.summary, context: { sprintId: item.context.seoSprintId ?? null } },
     disabledReason: `External SEO publishing is disabled here: ${GATED_EXTERNAL_ACTIONS}`,
   }
