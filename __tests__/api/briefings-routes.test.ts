@@ -345,6 +345,42 @@ describe('briefing API routes', () => {
     expect(mockActivityAdd).not.toHaveBeenCalled()
   })
 
+  it('accepts routed briefing alternatives for specialist triage and routed task creation', async () => {
+    const { POST } = await import('@/app/api/v1/briefings/items/[itemId]/actions/route')
+
+    for (const action of ['ask-specialist-triage', 'create-routed-task']) {
+      mockProjectTaskAdd.mockClear()
+      const res = await POST(new NextRequest('http://localhost/api/v1/briefings/items/agent-output%3Aout-1/actions', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          action,
+          orgId: 'pib-platform-owner',
+          title: `${action}: Theo should review`,
+          spec: 'Review this briefing with the attached card context and evidence.',
+          assigneeAgentId: 'theo',
+          context: { orgId: 'pib-platform-owner', projectId: 'project-1', taskId: 'source-task-1' },
+          source: { type: 'agent-output', id: 'out-1', url: '/admin/projects/project-1?taskId=source-task-1' },
+          metadata: { softwareBuildEvidence: [{ kind: 'commit', label: 'Development commit', value: 'abc123' }] },
+        }),
+      }), { params: Promise.resolve({ itemId: 'agent-output%3Aout-1' }) })
+      const body = await res.json()
+
+      expect(res.status).toBe(201)
+      expect(body.data).toMatchObject({ action, taskId: 'linked-task-1', projectId: 'project-1' })
+      expect(mockProjectTaskAdd).toHaveBeenCalledWith(expect.objectContaining({
+        assigneeAgentId: 'theo',
+        agentStatus: 'pending',
+        internalOnly: true,
+      }))
+      expect(mockProjectTaskAdd.mock.calls[0][0].agentInput.context).toMatchObject({
+        sourceBriefingId: 'agent-output:out-1',
+        sourceTaskId: 'source-task-1',
+        sourceBriefingSourceType: 'agent-output',
+      })
+    }
+  })
+
   it('rejects external briefing action requests without creating durable records', async () => {
     const { POST } = await import('@/app/api/v1/briefings/items/[itemId]/actions/route')
 
