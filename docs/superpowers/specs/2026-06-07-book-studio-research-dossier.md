@@ -236,6 +236,89 @@ Critical UI states:
 - `live`: show external URLs, analytics-import next step, and launch follow-up actions.
 - `analytics_unmatched`: show reconciliation queue and task creation, not misleading totals.
 
+### Workspace Experience And Review Lanes
+
+Book Studio should feel like a production cockpit, not a blank manuscript editor or an AI chat window. At any point, a PiB operator should be able to answer five questions without digging through unrelated records:
+
+1. What stage is this book in?
+2. What is the next decision or action?
+3. What evidence supports the current state?
+4. Who owns each blocker?
+5. Which artifacts are safe for client review?
+
+The primary project journey should be a stage rail that is derived from real state, not manually typed status text:
+
+1. **Intake:** client org, owner, book type, audience, channel targets, format, series posture, budget posture, and first decision notes.
+2. **Research:** linked Research item, source coverage, competitor/category notes, target reader, commercial risk, and factual gaps.
+3. **Brief:** internal or client-visible Book Brief with assumptions, scope, success criteria, channel plan, and approval state.
+4. **Series/outline:** series record, volume order, style/continuity bible, outline, chapter/page plan, and missing continuity decisions.
+5. **Manuscript/assets:** draft versions, page/spread plans, cover and interior assets, audio or visual work, provenance, and human review state.
+6. **Quality gates:** rights, AI disclosure, metadata, accessibility, file, link/TOC, book-type, commercial, client-approval, and reviewer gates.
+7. **Export package:** source archive, EPUB/PDF/KPF/print/audio package, manifest, checksums, validation evidence, and preview evidence.
+8. **Publishing packet:** store metadata, pricing, territories, ISBN/imprint, AI disclosure answers, channel checklist, and approval state.
+9. **Manual upload/review:** operator upload evidence, external listing IDs, store review status, revision requests, and client/client-account dependencies.
+10. **Launch/lifecycle:** live links, launch tasks, post-publication quality feedback, revision queue, promotion tasks, and client communication.
+11. **Analytics/reconciliation:** imported reports, estimates vs reported vs settled revenue, unmatched rows, cost recovery, and next reporting task.
+
+The admin create flow should start with the client organisation and a small set of decisions: book type family, target outcome, target channels, formats, series choice, expected client involvement, and publishing account model. Before creation, the form should show the derived mandatory gate profile. For example, a coloring book aimed at KDP print and Google Play Books should immediately show print package, DRM/printing, image rights, and Kindle-unsuitable-format warnings. A nonfiction ebook should show fact-checking, metadata/content match, source citation, link/TOC, AI disclosure, and accessibility gates. Creation should link or create a Book Project, Research item, and optional Book Brief document, but Hermes generation should not start until the brief/research/gate profile exists.
+
+The admin project detail layout should be optimized for repeated operator work:
+
+- **Header:** project title, client org, series/volume, book type family, stage, risk level, portal visibility, owner, and next action.
+- **Main panel:** the active artifact for the selected tab: research summary, brief, outline, manuscript version, asset set, gate profile, publishing packet, upload evidence, or analytics.
+- **Right rail:** evidence links, active gates, Hermes tasks, blockers, approvals, waiver requests, and client visibility.
+- **Decision drawer:** convert a recommendation into a task, document, gate, approval request, client-visible blocker, waiver request, or Hermes task packet.
+
+Every artifact should live in an explicit lane:
+
+| Lane | Default visibility | Operator purpose | Portal behavior |
+| --- | --- | --- | --- |
+| Research | Internal | Market, audience, category, competitor, pricing, and policy evidence. | Hidden unless a reviewed summary is promoted into a brief or client document. |
+| Brief | Internal until reviewed | Scope, assumptions, success criteria, book type, channel plan, and approval state. | Client-visible when the brief document is published for review. |
+| Manuscript/proof | Internal until proofed | Drafts, versions, editorial review, excerpts, page/spread proofs, and change history. | Only approved excerpts/proofs are visible; raw generation output stays hidden. |
+| Covers/assets | Internal until rights reviewed | Cover options, images, fonts, audio, source files, license/provenance, and approval state. | Client sees approved options/proofs plus rights-safe summaries. |
+| Gates | Internal by default | Quality, rights, AI disclosure, metadata, accessibility, commercial, and file-package blockers. | Only client-actionable blockers are shown with safe wording. |
+| Publishing packet | Internal until approved | KDP/Google metadata, pricing, territories, disclosure answers, file checklist, and manual upload steps. | Client can approve or request changes on reviewed packet versions. |
+| Analytics | Internal until reconciled | Import ledger, unmatched rows, estimated/reported/settled splits, and cost recovery. | Client sees safe summaries with source and confidence labels. |
+
+The portal review surface should be narrower than admin. Its job is to let clients review, comment, approve, request changes, view safe blockers, see launch status, and inspect live links or performance summaries. It should not expose internal research, unresolved rights notes, raw Hermes outputs, unpublished metadata drafts, reconciliation errors, operator-only upload evidence, competitor analysis, or internal risk notes unless an admin explicitly marks a specific summary client-visible. If the future `settings.portalModules.bookStudio` switch is disabled, the portal nav should hide Book Studio and direct portal access should return the same disabled-module pattern used by Mobile Apps and YouTube Studio.
+
+Quality gates should be UI objects, not hidden checklist text. Each gate should show:
+
+- Status: `not_started`, `in_review`, `passed`, `warning`, `blocked`, `waived`, or `not_applicable`.
+- Owner and due date.
+- Evidence links or missing-evidence prompts.
+- Source/policy reason where relevant.
+- Client visibility state.
+- Waiver request/approval state.
+- Dependent tasks or Hermes task packets.
+
+The quality gate panel should make the source-backed risk visible without overloading the operator. KDP's quality guide should drive gates for metadata/content mismatch, broken TOC or links, missing content, wrong content, image/formatting/table accessibility problems, disappointing duplicate or reused content, and book types that are unsuitable for Kindle because their main purpose is writing or coloring. Google Play Books policies should drive gates for misleading metadata, account/content authorization, poor-quality or low-utility files, copyright/licensing risk, and policy review. These sources should appear as evidence links on the relevant gate, not as generic footnotes buried in the dossier.
+
+State labels should be conservative:
+
+- Use `packet ready for manual upload`, not `ready to publish`, until store upload/review is complete.
+- Use `approved for this package version`, not `approved`, because file checksum changes invalidate approval.
+- Use `blocked by rights`, `blocked by missing file preview`, `blocked by client publishing-account dependency`, or `blocked by policy review`, not a generic `blocked`.
+- Use `estimated`, `reported`, `settled`, or `reconciled` on every money metric.
+- Use `client review requested`, `client changes requested`, `client approved packet`, and `client approval superseded` for portal approvals.
+
+Devil's advocate:
+
+- A polished dashboard can create false confidence. The workspace must not make generated books look upload-ready just because the stage rail advanced.
+- The portal can become either too opaque or too frightening. It should show client-safe context and decisions, not the raw internal risk ledger.
+- Intake that is too open-ended will let operators bypass gates and create low-quality books. Intake that is too rigid will break unusual book types. Gate profiles should be defaulted by book type, with add-on gates and approval-backed waivers.
+- Hermes task output should never become a client-visible artifact by default. A human reviewer must promote it into a brief, proof, asset packet, publishing packet, or safe blocker summary.
+- A book can be creatively strong and commercially weak. The workspace must keep margin, royalties, file costs, print costs, ads, refunds, and payment lag visible before launch approval.
+
+Phase 1 should test the experience, not only the data model:
+
+- The stage rail and next action are derived from project, gate, package, listing, approval, and analytics state.
+- Admin create flow displays mandatory gates before the project is created.
+- Portal review routes hide internal-only lanes and return disabled-module states when the module switch is off.
+- Quality gate UI shows source/evidence/blocker ownership and cannot mark a gate passed without required evidence.
+- Client approval supersedes correctly when a brief, proof, export package, or publishing packet version changes.
+
 ### V1 Non-Negotiable Guardrails
 
 - No direct public publishing submission without an approval task.
