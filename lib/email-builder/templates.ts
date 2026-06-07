@@ -35,7 +35,12 @@ const STARTER_PREFIX = 'starter-'
 const PIB_PRIMARY = '#F5A623'
 const PIB_DARK = '#0A0A0B'
 const PIB_OFFWHITE = '#F4F4F5'
-const PIB_GREY = '#52525B'
+const PIB_ADDRESS = 'Pretoria, Gauteng, South Africa'
+const PIB_SOCIAL = {
+  facebook: 'https://www.facebook.com/partnersinbiz',
+  linkedin: 'https://www.linkedin.com/company/the-partners-in-biz',
+  github: 'https://github.com/Partners-in-Biz',
+}
 
 const SYSTEM_FONT = "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif"
 
@@ -130,9 +135,9 @@ const newsletterBlocks: Block[] = [
     type: 'footer',
     props: {
       orgName: '{{orgName}}',
-      address: 'Cape Town, South Africa',
+      address: PIB_ADDRESS,
       unsubscribeUrl: '{{unsubscribeUrl}}',
-      social: { twitter: 'https://twitter.com/partnersinbiz', linkedin: 'https://linkedin.com/company/partnersinbiz' },
+      social: PIB_SOCIAL,
     },
   },
 ]
@@ -215,7 +220,7 @@ const welcomeBlocks: Block[] = [
     type: 'footer',
     props: {
       orgName: '{{orgName}}',
-      address: 'Cape Town, South Africa',
+      address: PIB_ADDRESS,
       unsubscribeUrl: '{{unsubscribeUrl}}',
     },
   },
@@ -348,9 +353,9 @@ const productLaunchBlocks: Block[] = [
     type: 'footer',
     props: {
       orgName: '{{orgName}}',
-      address: 'Cape Town, South Africa',
+      address: PIB_ADDRESS,
       unsubscribeUrl: '{{unsubscribeUrl}}',
-      social: { twitter: 'https://twitter.com/partnersinbiz', linkedin: 'https://linkedin.com/company/partnersinbiz' },
+      social: PIB_SOCIAL,
     },
   },
 ]
@@ -411,7 +416,7 @@ const reengagementBlocks: Block[] = [
     type: 'footer',
     props: {
       orgName: '{{orgName}}',
-      address: 'Cape Town, South Africa',
+      address: PIB_ADDRESS,
       unsubscribeUrl: '{{unsubscribeUrl}}',
     },
   },
@@ -485,7 +490,7 @@ const receiptBlocks: Block[] = [
     type: 'footer',
     props: {
       orgName: '{{orgName}}',
-      address: 'Cape Town, South Africa',
+      address: PIB_ADDRESS,
       unsubscribeUrl: '{{unsubscribeUrl}}',
     },
   },

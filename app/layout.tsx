@@ -75,8 +75,6 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary_large_image',
-    site: '@partnersinbiz',
-    creator: '@peetstander',
     title: SITE.name,
     description: SITE.description,
     images: ['/og/default.png'],

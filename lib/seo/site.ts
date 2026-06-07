@@ -21,16 +21,13 @@ export const SITE = {
   founder: {
     name: 'Peet Stander',
     role: 'Founder & Principal Engineer',
-    linkedin: 'https://www.linkedin.com/in/peetstander', // PLACEHOLDER — verify
-    twitter: 'https://twitter.com/peetstander', // PLACEHOLDER
-    github: 'https://github.com/peetstander', // PLACEHOLDER
+    linkedin: 'https://www.linkedin.com/in/peetstander',
+    github: 'https://github.com/PMStander',
   },
   social: {
     facebook: 'https://www.facebook.com/partnersinbiz',
-    linkedin: 'https://www.linkedin.com/company/partnersinbiz', // PLACEHOLDER
-    twitter: 'https://twitter.com/partnersinbiz', // PLACEHOLDER
-    instagram: 'https://www.instagram.com/partnersinbiz', // PLACEHOLDER
-    github: 'https://github.com/partnersinbiz', // PLACEHOLDER
+    linkedin: 'https://www.linkedin.com/company/the-partners-in-biz',
+    github: 'https://github.com/Partners-in-Biz',
   },
   cal: {
     url: '/book-a-call',

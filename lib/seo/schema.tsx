@@ -4,6 +4,10 @@ const ORG_ID = `${SITE.url}/#organization`;
 const LOCAL_ID = `${SITE.url}/#localbusiness`;
 const SITE_ID = `${SITE.url}/#website`;
 const FOUNDER_ID = `${SITE.url}/about#founder`;
+const socialProfiles = Object.values(SITE.social).filter(Boolean).map(String);
+const founderProfiles = Object.values(SITE.founder).filter(
+  (value) => typeof value === 'string' && value.startsWith('https://'),
+).map(String);
 
 export const organizationGraph = {
   '@context': 'https://schema.org',
@@ -16,7 +20,7 @@ export const organizationGraph = {
       url: SITE.url,
       logo: {
         '@type': 'ImageObject',
-        url: `${SITE.url}/og/logo.png`,
+        url: `${SITE.url}/pib-logo-512.png`,
         width: 512,
         height: 512,
       },
@@ -24,12 +28,7 @@ export const organizationGraph = {
       founder: { '@id': FOUNDER_ID },
       email: SITE.email,
       description: SITE.description,
-      sameAs: [
-        SITE.social.linkedin,
-        SITE.social.twitter,
-        SITE.social.instagram,
-        SITE.social.github,
-      ],
+      sameAs: socialProfiles,
       contactPoint: [
         {
           '@type': 'ContactPoint',
@@ -95,11 +94,7 @@ export const organizationGraph = {
       name: SITE.founder.name,
       jobTitle: SITE.founder.role,
       worksFor: { '@id': ORG_ID },
-      sameAs: [
-        SITE.founder.linkedin,
-        SITE.founder.twitter,
-        SITE.founder.github,
-      ],
+      sameAs: founderProfiles,
     },
   ],
 };
@@ -204,7 +199,6 @@ export function JsonLd({ data }: { data: unknown }) {
   return (
     <script
       type="application/ld+json"
-      // eslint-disable-next-line react/no-danger
       dangerouslySetInnerHTML={{ __html: JSON.stringify(data) }}
     />
   );

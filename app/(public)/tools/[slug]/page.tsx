@@ -11,8 +11,11 @@ export function generateStaticParams() {
   return PUBLIC_TOOLS.map(tool => ({ slug: tool.slug }))
 }
 
-export function generateMetadata({ params }: { params: { slug: string } }): Metadata {
-  const tool = toolBySlug.get(params.slug as ToolSlug)
+type ToolPageParams = Promise<{ slug: string }>
+
+export async function generateMetadata({ params }: { params: ToolPageParams }): Promise<Metadata> {
+  const { slug } = await params
+  const tool = toolBySlug.get(slug as ToolSlug)
   if (!tool) return {}
 
   return {
@@ -28,8 +31,9 @@ export function generateMetadata({ params }: { params: { slug: string } }): Meta
   }
 }
 
-export default function ToolPage({ params }: { params: { slug: string } }) {
-  const tool = toolBySlug.get(params.slug as ToolSlug)
+export default async function ToolPage({ params }: { params: ToolPageParams }) {
+  const { slug } = await params
+  const tool = toolBySlug.get(slug as ToolSlug)
   if (!tool) notFound()
 
   const breadcrumb = breadcrumbSchema([
