@@ -7,6 +7,7 @@ const mockListAgents = jest.fn()
 const mockCreateAgent = jest.fn()
 const mockUpdateAgent = jest.fn()
 const mockCallAgentPath = jest.fn()
+const mockCallAgentStream = jest.fn()
 
 let mockUser: MockUser = { uid: 'super-1', role: 'admin' }
 
@@ -20,6 +21,7 @@ jest.mock('@/lib/agents/team', () => ({
   createAgent: (input: unknown) => mockCreateAgent(input),
   updateAgent: (agentId: string, patch: unknown) => mockUpdateAgent(agentId, patch),
   callAgentPath: (agentId: string, path: string, init?: unknown) => mockCallAgentPath(agentId, path, init),
+  callAgentStream: (agentId: string, path: string) => mockCallAgentStream(agentId, path),
 }))
 
 function routeCtx(agentId = 'pip') {
@@ -66,6 +68,7 @@ beforeEach(() => {
     response: { ok: true, status: 200 },
     data: { baseUrl: 'https://agent.test', apiKey: 'plain-key' },
   })
+  mockCallAgentStream.mockResolvedValue({ ok: true, status: 200, body: new ReadableStream({ start(controller) { controller.close() } }) })
 })
 
 describe('admin agent permissions', () => {
@@ -173,6 +176,21 @@ describe('admin agent permissions', () => {
         headers: expect.objectContaining({ 'Content-Type': 'application/json' }),
       }),
     )
+  })
+
+
+  it('keeps run events as a 200 SSE response when the live agent stream is unavailable', async () => {
+    mockCallAgentStream.mockResolvedValue({ ok: false, status: 502, body: null })
+
+    const { GET } = await import('@/app/api/v1/admin/agents/[agentId]/runs/[runId]/events/route')
+    const res = await GET(new NextRequest('http://localhost/api/v1/admin/agents/pip/runs/run-1/events'), runRouteCtx('pip', 'run-1'))
+
+    expect(res.status).toBe(200)
+    expect(res.headers.get('Content-Type')).toContain('text/event-stream')
+    const text = await res.text()
+    expect(text).toContain('stream.unavailable')
+    expect(text).toContain('final response polling will continue')
+    expect(mockCallAgentStream).toHaveBeenCalledWith('pip', '/v1/runs/run-1/events')
   })
 
   it('rejects invalid agent approval choices before proxying', async () => {

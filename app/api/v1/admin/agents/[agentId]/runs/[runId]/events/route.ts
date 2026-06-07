@@ -11,6 +11,28 @@ import { callAgentStream } from '@/lib/agents/team'
 import { isValidAgentId, type AgentId } from '@/lib/agents/types'
 import { createNormalizedHermesSseStream } from '@/lib/hermes/progress-events'
 
+const encoder = new TextEncoder()
+
+function singleEventStream(event: Record<string, unknown>) {
+  return new ReadableStream<Uint8Array>({
+    start(controller) {
+      controller.enqueue(encoder.encode(`data: ${JSON.stringify(event)}\n\n`))
+      controller.close()
+    },
+  })
+}
+
+function sseResponse(stream: ReadableStream<Uint8Array>) {
+  return new Response(stream, {
+    status: 200,
+    headers: {
+      'Content-Type': 'text/event-stream',
+      'Cache-Control': 'no-cache',
+      'X-Accel-Buffering': 'no',
+    },
+  })
+}
+
 export const dynamic = 'force-dynamic'
 
 type Ctx = { params: Promise<{ agentId: string; runId: string }> }
@@ -22,20 +44,26 @@ export const GET = withAuth('admin', async (_req: NextRequest, _user, ctx) => {
   try {
     const upstream = await callAgentStream(agentId as AgentId, `/v1/runs/${encodeURIComponent(runId)}/events`)
     if (!upstream.ok || !upstream.body) {
-      return apiError(`Agent gateway returned ${upstream.status}`, 502)
+      return sseResponse(singleEventStream({
+        event: 'stream.unavailable',
+        runId,
+        run_id: runId,
+        timestamp: Date.now() / 1000,
+        error: `Agent gateway returned ${upstream.status}`,
+        activity: 'Live event stream unavailable; final response polling will continue.',
+      }))
     }
 
     const stream = createNormalizedHermesSseStream(upstream.body, { runId })
-
-    return new Response(stream, {
-      status: 200,
-      headers: {
-        'Content-Type': 'text/event-stream',
-        'Cache-Control': 'no-cache',
-        'X-Accel-Buffering': 'no',
-      },
-    })
+    return sseResponse(stream)
   } catch (err) {
-    return apiError(err instanceof Error ? err.message : 'Stream failed', 502)
+    return sseResponse(singleEventStream({
+      event: 'stream.unavailable',
+      runId,
+      run_id: runId,
+      timestamp: Date.now() / 1000,
+      error: err instanceof Error ? err.message : 'Stream failed',
+      activity: 'Live event stream unavailable; final response polling will continue.',
+    }))
   }
 })
