@@ -2,6 +2,7 @@ import type {
   YouTubeApprovalPolicy,
   YouTubeChannelStatus,
   YouTubeChannelWorkspace,
+  YouTubeGateCheck,
   YouTubePublishingPacket,
   YouTubePublishingPolicy,
   YouTubeSeries,
@@ -18,6 +19,12 @@ const CHANNEL_STATUSES: YouTubeChannelStatus[] = ['setup', 'strategy', 'active',
 const SERIES_FORMATS: YouTubeSeriesFormat[] = ['shorts', 'long_form', 'podcast', 'case_study', 'tutorial', 'ads', 'mixed']
 const SERIES_CADENCES: YouTubeSeriesCadence[] = ['daily', 'weekly', 'fortnightly', 'monthly', 'campaign', 'ad_hoc']
 const SERIES_STATUSES: YouTubeSeriesStatus[] = ['active', 'paused', 'complete', 'archived']
+const PUBLISHING_MODES: YouTubePublishingPolicy['allowedModes'] = [
+  'manual_handoff',
+  'private_api_upload',
+  'scheduled_api_publish',
+]
+const PUBLISHING_VISIBILITIES: YouTubePublishingPolicy['defaultVisibility'][] = ['private', 'unlisted', 'public']
 const VIDEO_TYPES: YouTubeVideoType[] = [
   'short',
   'long_form',
@@ -70,6 +77,32 @@ function cleanStringArray(value: unknown): string[] {
   return []
 }
 
+function isPlainObject(value: unknown): value is RawInput {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return false
+  const prototype = Object.getPrototypeOf(value)
+  return prototype === Object.prototype || prototype === null
+}
+
+function stripUndefinedDeep<T>(value: T): T {
+  if (Array.isArray(value)) {
+    return value
+      .map((item) => stripUndefinedDeep(item))
+      .filter((item) => item !== undefined) as T
+  }
+
+  if (isPlainObject(value)) {
+    return Object.fromEntries(
+      Object.entries(value).flatMap(([key, entry]) => {
+        if (entry === undefined) return []
+        const cleanEntry = stripUndefinedDeep(entry)
+        return cleanEntry === undefined ? [] : [[key, cleanEntry]]
+      })
+    ) as T
+  }
+
+  return value
+}
+
 function compact<T extends Record<string, unknown>>(value: T): Partial<T> {
   return Object.fromEntries(Object.entries(value).filter(([, entry]) => entry !== undefined)) as Partial<T>
 }
@@ -100,6 +133,23 @@ export function defaultYouTubePublishingPolicy(): YouTubePublishingPolicy {
   }
 }
 
+export function sanitizeYouTubePublishingPolicyInput(input: unknown): YouTubePublishingPolicy {
+  const source = cleanObject(input)
+  const defaults = defaultYouTubePublishingPolicy()
+  const allowedModes = cleanStringArray(source.allowedModes).filter((mode): mode is YouTubePublishingPolicy['allowedModes'][number] =>
+    PUBLISHING_MODES.includes(mode as YouTubePublishingPolicy['allowedModes'][number])
+  )
+
+  return {
+    allowedModes: allowedModes.length ? allowedModes : defaults.allowedModes,
+    defaultVisibility: pick(PUBLISHING_VISIBILITIES, source.defaultVisibility, defaults.defaultVisibility),
+    privateFirstRequired: cleanBoolean(source.privateFirstRequired) ?? defaults.privateFirstRequired,
+    publicPublishRequiresAdmin: cleanBoolean(source.publicPublishRequiresAdmin) ?? defaults.publicPublishRequiresAdmin,
+    publicPublishRequiresClientConfirmation:
+      cleanBoolean(source.publicPublishRequiresClientConfirmation) ?? defaults.publicPublishRequiresClientConfirmation,
+  }
+}
+
 function approvalPolicyFrom(input: unknown): YouTubeApprovalPolicy {
   const source = cleanObject(input)
   const defaults = defaultYouTubeApprovalPolicy()
@@ -117,13 +167,15 @@ function approvalPolicyFrom(input: unknown): YouTubeApprovalPolicy {
   }
 }
 
+// These sanitizers produce full create/replace Firestore payloads. PATCH callers must merge with
+// the existing record first, or use dedicated partial-update sanitizers once those exist.
 export function sanitizeYouTubeChannelWorkspaceInput(
   input: RawInput
 ): Omit<YouTubeChannelWorkspace, 'id' | 'createdAt' | 'updatedAt' | 'createdBy' | 'createdByType' | 'updatedBy' | 'updatedByType'> {
   const disclosure = cleanObject(input.aiDisclosureDefaults)
   const visibility = cleanObject(input.visibility)
 
-  return {
+  return stripUndefinedDeep({
     orgId: cleanString(input.orgId) ?? '',
     title: cleanString(input.title) ?? 'Untitled YouTube channel',
     youtubeChannelId: cleanString(input.youtubeChannelId),
@@ -132,7 +184,7 @@ export function sanitizeYouTubeChannelWorkspaceInput(
     connectedAccountId: cleanString(input.connectedAccountId),
     strategyDocumentId: cleanString(input.strategyDocumentId),
     defaultApprovalPolicy: approvalPolicyFrom(input.defaultApprovalPolicy),
-    defaultPublishingPolicy: defaultYouTubePublishingPolicy(),
+    defaultPublishingPolicy: sanitizeYouTubePublishingPolicyInput(input.defaultPublishingPolicy),
     contentPillars: cleanStringArray(input.contentPillars),
     audienceNotes: cleanString(input.audienceNotes),
     avoidTopics: cleanStringArray(input.avoidTopics),
@@ -147,7 +199,7 @@ export function sanitizeYouTubeChannelWorkspaceInput(
       showAnalytics: visibility.showAnalytics !== false,
     },
     deleted: input.deleted === true,
-  }
+  })
 }
 
 export function sanitizeYouTubeSeriesInput(input: RawInput): Omit<YouTubeSeries, 'id'> {
@@ -155,7 +207,7 @@ export function sanitizeYouTubeSeriesInput(input: RawInput): Omit<YouTubeSeries,
   const style = cleanObject(input.styleGuide)
   const rawSections = Array.isArray(template.sections) ? template.sections : []
 
-  return {
+  return stripUndefinedDeep({
     orgId: cleanString(input.orgId) ?? '',
     channelWorkspaceId: cleanString(input.channelWorkspaceId) ?? '',
     name: cleanString(input.name) ?? 'Untitled series',
@@ -182,7 +234,7 @@ export function sanitizeYouTubeSeriesInput(input: RawInput): Omit<YouTubeSeries,
     season: cleanString(input.season),
     status: pick(SERIES_STATUSES, input.status, 'active'),
     deleted: input.deleted === true,
-  }
+  })
 }
 
 export function sanitizeYouTubeVideoProjectInput(
@@ -193,7 +245,7 @@ export function sanitizeYouTubeVideoProjectInput(
   const review = cleanObject(input.clientReview)
   const visibility = cleanObject(input.visibility)
 
-  return {
+  return stripUndefinedDeep({
     orgId: cleanString(input.orgId) ?? '',
     channelWorkspaceId: cleanString(input.channelWorkspaceId) ?? '',
     seriesId: cleanString(input.seriesId),
@@ -238,7 +290,7 @@ export function sanitizeYouTubeVideoProjectInput(
       showPublishingPacket: visibility.showPublishingPacket === true,
     },
     deleted: input.deleted === true,
-  }
+  })
 }
 
 export function serializeYouTubeRecord<T extends object>(id: string, data: Record<string, unknown>): T & { id: string } {
@@ -260,6 +312,31 @@ export function clientSafeYouTubeVideoProject(video: YouTubeVideoProject): Omit<
   return safe
 }
 
-export function clientSafeYouTubePublishingPacket(packet: YouTubePublishingPacket): YouTubePublishingPacket {
-  return packet
+function clientSafeGateCheck(check: YouTubeGateCheck): Pick<YouTubeGateCheck, 'status' | 'message'> {
+  return {
+    status: check.status,
+    message: check.message,
+  }
+}
+
+export function clientSafeYouTubePublishingPacket(
+  packet: YouTubePublishingPacket
+): Omit<YouTubePublishingPacket, 'approvedBy' | 'approvedAt' | 'approvedSnapshotHash'> {
+  const safe = {
+    ...packet,
+    checks: {
+      rights: clientSafeGateCheck(packet.checks.rights),
+      aiDisclosure: clientSafeGateCheck(packet.checks.aiDisclosure),
+      madeForKids: clientSafeGateCheck(packet.checks.madeForKids),
+      metadata: clientSafeGateCheck(packet.checks.metadata),
+      thumbnail: clientSafeGateCheck(packet.checks.thumbnail),
+      captions: clientSafeGateCheck(packet.checks.captions),
+      approval: clientSafeGateCheck(packet.checks.approval),
+      connectedAccount: clientSafeGateCheck(packet.checks.connectedAccount),
+    },
+  }
+  delete safe.approvedBy
+  delete safe.approvedAt
+  delete safe.approvedSnapshotHash
+  return stripUndefinedDeep(safe)
 }
