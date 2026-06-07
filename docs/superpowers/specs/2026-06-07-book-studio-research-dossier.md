@@ -3574,6 +3574,45 @@ This is not yet an implementation plan. It is the smallest coherent foundation t
 | Analytics ingestion shell | Add manual report-import ledger and normalized analytics snapshot records before building automated integrations. | KDP and Google reports can lag and disagree; the data model must separate estimated, reported, and settled figures from day one. | Admin can attach a KDP/Google report import, see confidence/source labels, and create reconciliation tasks for mismatches. |
 | Analytics dashboard and summaries | Add admin dashboard lanes and client-safe summaries for launch signal, sales activity, revenue confidence, cost recovery, series health, quality lifecycle, and reconciliation work. | Book analytics can mislead clients and operators if dashboard estimates, reports, payments, ad attribution, and PiB launch signals collapse into one number. | Admin sees source/confidence labels and reconciliation queues; portal sees only approved summaries with period, source, confidence, partial-data labels, and no raw import or internal cost detail. |
 
+### Phase 1 Dependency Sequence And Risk Gates
+
+This section is still design guidance, not the implementation plan. It records the order constraints that the later plan must respect. The source context was rechecked on 2026-06-08 against KDP start/content guidance, Google Play Books selling guidance, Google Play Books series guidance, and `PMStander/ai-story` `main` at `11ef473`.
+
+The safest Phase 1 sequence is:
+
+1. **Module entitlement and portal guard first.** Add `bookStudio` to the portal module resolver, admin org settings, safe portal org payloads, portal nav filtering, and disabled portal API response shape before any client-visible route exists. This should follow the Mobile Apps/YouTube Studio module-switch pattern so disabled client organisations cannot discover partial book records by direct URL.
+2. **Domain records and sanitizers before screens.** Create typed org-scoped records, server serializers, client-safe serializers, and transition helpers before building broad UI. This keeps route handlers from inventing ad hoc Firestore shapes and makes portal visibility rules testable.
+3. **Template and gate derivation before manuscript generation.** Project creation should apply a book-type template, default quality gates, expected artifact plan, channel packet requirements, and stale-derivation rules before any Hermes task can draft content. The selected `bookTypeFamily` must decide the workflow, not only the labels shown in the UI.
+4. **Admin workspace before portal review.** Build the admin index/detail and series manager first. Portal pages should only expose artifacts that an admin has deliberately marked client-visible after the internal gates, source links, and risk notes are in place.
+5. **Research, brief, project, and artifact bridges before new editors.** The first useful Book Studio surface should create or link PiB Research, Book Brief client documents, Project/Kanban work, and workspace artifacts. A new manuscript/canvas editor is lower priority than proving the operating loop.
+6. **Publishing account, package, and price gates before upload readiness.** KDP/Google channel trackers should not allow `approved_for_upload` until account authority, file package, checksum, rights/provenance, AI disclosure, pricing, and margin evidence are all current.
+7. **Hermes skill policy and fixture harness before runtime enablement.** Draft skill docs and manifest entries can exist early, but watcher dispatch should stay disabled until fixtures, negative controls, reviewer defaults, sanitizers, and drift checks pass.
+8. **Generation run ledger before draft-writing skills.** Research, outline, metadata, and readiness skills can be planned first. Any model-backed writing, image, package, or import job needs `BookGenerationRun` idempotency, budget, safety, source manifest, and stale-output rules before it can touch reviewable records.
+9. **Manual analytics import before automated reporting.** Build the report-import ledger and confidence-labeled dashboard before adding KDP/Google automated integrations. The dashboard must make lag, source, settlement, attribution, and reconciliation limits visible.
+
+Dependency guardrails:
+
+| Later capability | Must wait for | Why |
+| --- | --- | --- |
+| Portal Book Studio route | Module entitlement, portal-safe serializer, client-visible packet states. | Direct URL access must not leak internal research, risk notes, raw Hermes output, or unapproved analytics. |
+| Book creation wizard | Domain records, template derivation, gate profile defaults, Research/Project bridge. | `ai-story` proved the wizard is useful, but PiB must create an operational project, not only prompt inputs. |
+| Series manager | `book_series` records, series type/order rules, linked project list, continuity evidence. | KDP/Google series behavior and continuity bibles affect metadata, reading order, analytics, and future volume tasks. |
+| Draft-writing Hermes skill | Skill evaluation harness, generation run ledger, source manifest, editorial/reviewer gates. | A generated draft without provenance, safety, and editorial coverage becomes a client/publishing risk. |
+| Cover/illustration generation | Asset rights metadata, source/artifact checksums, prompt/output safety review, client-safe proof states. | Visual assets have copyright, font, model-output, and storefront-quality risk before they are attractive UI assets. |
+| KDP/Google upload-ready state | Account profile, export package approval, price/margin approval, rights/provenance review, current policy source keys. | Store submission is a manual external act, but PiB must prove why the packet was considered ready. |
+| Client analytics summary | Analytics import ledger, source/confidence layers, sanitizer, admin summary approval. | Clients should see useful performance context, not raw report errors, unmatched rows, payment profile detail, or internal costs. |
+
+Devil's advocate: the most tempting mistake is to start with a polished "Create book with AI" experience because it resembles `ai-story` and demos well. That would invert the risk order. The module would generate work before PiB knows which gates apply, who owns the publishing account, whether the channel accepts the planned format, whether the brief is approved, whether assets are licensed, whether the client can see the output, or whether later reports can reconcile sales. The second tempting mistake is to overcorrect into a compliance database that never helps operators make books. The dependency sequence above keeps both risks in check: get entitlement, records, templates, gates, and bridges in place, then add assisted production where it improves a controlled workflow.
+
+Implementation planning preconditions:
+
+- Peet approves option 1: internal PiB production studio with optional client review.
+- The policy source register is rechecked at plan start.
+- Phase 1 channels are frozen to KDP and Google Play Books manual-handoff flows.
+- Phase 1 book families are frozen to gate profiles, not full bespoke exporters for every format.
+- Direct store publishing, ad spend, automated review outreach, and public self-serve generation remain out of scope.
+- The first plan uses small vertical slices that can ship independently: entitlement, records/sanitizers, template/gate creation, admin workspace, then portal review and Hermes readiness.
+
 ### Phase 1 Acceptance Criteria
 
 - A PiB admin can create a book project under a client organisation with `bookTypeFamily`, status, series, initial target channels, and compliance defaults.
