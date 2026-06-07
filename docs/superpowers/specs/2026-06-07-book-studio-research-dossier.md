@@ -2368,6 +2368,137 @@ interface BookChannelListing {
 }
 ```
 
+## Domain API, Query, And Mutation Contract
+
+Book Studio should use the same route-wrapper pattern as Mobile Apps, YouTube Studio, Research, Projects, and Client Documents: route handlers resolve auth, org, module entitlement, and surface-specific visibility, while shared library functions own sanitizing, serialization, gate checks, and state transitions. The API should not expose raw Firestore documents or let route-local code bypass publishing gates.
+
+### Collection And API Boundaries
+
+Recommended collection ownership:
+
+| Collection | API owner | Mutability model | Notes |
+| --- | --- | --- | --- |
+| `book_projects` | Book Studio project API | Mutable summary with guarded state transitions. | Stores compact identity, stage, risk, visibility, current pointers, and linked PiB record IDs only. |
+| `book_series` | Book Studio series API | Mutable summary with guarded ordering changes. | Stores continuity and ordering metadata; style bibles should be documents/artifacts. |
+| `book_project_editions` | Book Studio edition API | Mutable until package approval. | Stores format/channel readiness decisions, not large files. |
+| `book_quality_gates` | Book Studio gate API | Guarded transition records. | Gates can pass, warn, block, waive, or become not applicable only with evidence or approval references. |
+| `book_channel_listings` | Publishing packet API | Guarded transition records. | KDP/Google status, metadata packet, price plan, upload package, external IDs, and manual status. |
+| `book_publishing_account_profiles` | Publishing account API | Mutable with recheck history. | No credentials, tax IDs, bank details, identity documents, or secret fields. |
+| `book_export_packages` | Export package API | Versioned; approval is checksum-bound. | File manifests, validation results, preview evidence, rights snapshots, and upload instructions. |
+| `book_generation_runs` | Hermes/runtime API | Append-heavy state ledger. | Idempotent model-backed task execution, budgets, provider jobs, safety review, output artifacts, and supersede/cancel history. |
+| `book_manuscript_units` | Manuscript API | Mutable planning records. | Section/page/spread structure with pointers to revisions and artifacts. |
+| `book_manuscript_unit_revisions` | Manuscript API | Versioned; approved revisions are immutable. | Content lives in documents/artifacts; records store references, review coverage, and approval state. |
+| `book_editorial_passes` | Manuscript/review API | Append-heavy review records. | Developmental edit, copyedit, proofread, fact check, reading-level, accessibility, link/TOC, specialist, and client review. |
+| `book_provenance_events` | Provenance API | Immutable event ledger. | Generation, import, edit, approval, waiver, export, upload, and report-import evidence. |
+| `book_rights_reviews` | Provenance API | Guarded review records. | AI disclosure, copyright, public-domain/companion, asset/font/audio, territory, and DRM/printing decisions. |
+| `book_analytics_imports` | Analytics API | Immutable import ledger. | Source report, parser version, checksum, period, currency, confidence, and raw evidence. |
+| `book_analytics_snapshots` | Analytics API | Superseded snapshots. | Derived dashboards are recalculated from validated imports and marked by source confidence. |
+| `book_launch_plans` | Launch API | Guarded campaign records. | Activity plans, budgets, approval gates, promotion windows, review hygiene, attribution, and lifecycle events. |
+| `book_skill_evaluations` | Hermes policy API | Append-heavy evaluation records. | Fixture, dry-run, readiness, drift, expected artifacts, reviewer, and follow-up tasks. |
+
+### Route Families
+
+Admin APIs should stay org-scoped and require `orgId`, matching the existing `withAuth('admin')` plus org-access pattern:
+
+| Route | Methods | Purpose |
+| --- | --- | --- |
+| `/api/v1/book-studio/projects` | `GET`, `POST` | List/create projects for an org; `POST` creates initial gate profile and optional linked Project/Kanban shell. |
+| `/api/v1/book-studio/projects/[id]` | `GET`, `PATCH` | Load/update project summary, visibility, links, stage, owner, and safe state transitions. |
+| `/api/v1/book-studio/projects/[id]/archive` | `POST` | Soft archive project and hide from portal without deleting evidence ledgers. |
+| `/api/v1/book-studio/series` | `GET`, `POST` | List/create series for an org; supports ordered/unordered/collection/spin-off modes. |
+| `/api/v1/book-studio/series/[id]` | `GET`, `PATCH` | Update continuity metadata, volume map, planned slots, and channel-series warnings. |
+| `/api/v1/book-studio/projects/[id]/gates` | `GET`, `POST`, `PATCH` | List gates, add ad hoc gate, transition gate state, or request/record waiver. |
+| `/api/v1/book-studio/projects/[id]/brief` | `POST` | Create or link a Book Brief client document from project/research state. |
+| `/api/v1/book-studio/projects/[id]/research` | `POST` | Link existing Research item or create a seed Research item. |
+| `/api/v1/book-studio/projects/[id]/tasks` | `POST` | Create Hermes-ready task packets with exact `bookStudioSkillKey` and reviewer defaults. |
+| `/api/v1/book-studio/projects/[id]/manuscript-units` | `GET`, `POST`, `PATCH` | Manage structure and revision pointers without storing long manuscript text in the project record. |
+| `/api/v1/book-studio/projects/[id]/export-packages` | `GET`, `POST`, `PATCH` | Assemble package manifests, validation evidence, preview evidence, and checksum-bound approvals. |
+| `/api/v1/book-studio/projects/[id]/channel-listings` | `GET`, `POST`, `PATCH` | Manage channel readiness, metadata packet, account profile, price plan, selected package, and manual external status. |
+| `/api/v1/book-studio/projects/[id]/analytics-imports` | `GET`, `POST` | Attach/import reports and create reconciliation summaries without overwriting raw import evidence. |
+| `/api/v1/book-studio/skill-evaluations` | `GET`, `POST` | Record fixture/dry-run evaluations and readiness state for Book Studio skills. |
+
+Portal APIs should be smaller and client-safe:
+
+| Route | Methods | Purpose |
+| --- | --- | --- |
+| `/api/v1/portal/book-studio` | `GET` | Return visible project summaries, approved review packets, safe blockers, and safe analytics summaries for the active portal org. |
+| `/api/v1/portal/book-studio/[id]` | `GET` | Return one client-visible project detail with only approved lanes and client-actionable tasks. |
+| `/api/v1/portal/book-studio/[id]/comments` | `POST` | Add client comments to the approved review artifact or packet. |
+| `/api/v1/portal/book-studio/[id]/decision` | `POST` | Record approved, changes requested, or rejected decisions only when a review state is open. |
+| `/api/v1/portal/book-studio/request` | `POST` | Optional future client request intake; should create an internal reviewable request, not a production-ready project. |
+
+The portal route must load the active org, check `isPortalModuleEnabled(settings, 'bookStudio')`, and return `403` with `{ moduleDisabled: true, module: 'bookStudio' }` when disabled. It must not query or return project records after the module guard fails.
+
+### Query Rules
+
+Book Studio should prefer simple Firestore queries and in-memory filtering/sorting where the result set is org-scoped:
+
+- Every list query starts with `where('orgId', '==', orgId)`.
+- Avoid `!=`, broad `array-contains-any`, and cross-field ordering until a deliberate index is documented.
+- Filter `deleted !== true` or `archived !== true` in memory unless an index-backed query is deliberately added.
+- Portal list queries first collect project IDs visible to the client, then filter dependent gates, packets, comments, and analytics by those IDs.
+- Admin detail APIs may fan out in parallel by `orgId` and explicit IDs, but must reject any dependent record whose `orgId` or `bookProjectId` does not match.
+- Large content is never hydrated through list endpoints. Lists return compact summaries and counts; detail routes load the selected lane.
+- API responses should include serialized timestamps and omit empty optional fields.
+
+### Mutation Rules
+
+Mutations should use shared transition helpers rather than route-local state edits:
+
+- Project creation creates default gates from `bookTypeFamily`, target channels, account model, and format decisions in the same batch where possible.
+- Project updates can change summary fields, owner, visibility, linked IDs, and next action, but cannot silently pass gates, approve packages, mark listings uploaded, or supersede approved versions.
+- Gate transitions require evidence for `passed`, approval evidence for `waived`, and blocker notes for `blocked`.
+- Export package approval is bound to the exact package version, file roles, and checksums. Any file/checksum/source-version change returns the package to review.
+- Channel listing `approved_for_upload` requires passed/waived required gates, selected approved export package, reviewed price plan, current account profile, and no unresolved rights/disclosure blockers.
+- Portal decisions can only affect open client-review states. They create comments/decision records and update client-review status; they do not publish, upload, spend, archive, or delete.
+- Analytics imports are append-only. Re-importing a period creates a superseding import/snapshot rather than rewriting prior evidence.
+- Generation runs use idempotency keys and cannot update approved versions, client-visible packets, export packages, or channel listings after the run becomes stale, blocked, failed, cancelled, expired, or superseded.
+
+### Response And Error Semantics
+
+Recommended response conventions:
+
+- `400`: missing required input, invalid enum, malformed body, or unsupported route action.
+- `403`: org access denied, portal module disabled, portal record not visible, or role cannot perform action.
+- `404`: record missing, deleted/archived when not explicitly requested, or hidden from the current surface.
+- `409`: state conflict, stale package checksum, closed client-review decision, stale generation run, duplicate series volume, or upload approval attempted while dependent state changed.
+- `422`: readiness/gate validation failed with a structured blocker list.
+
+Every blocker response should include machine-readable `blockers` where useful:
+
+```ts
+type BookStudioBlocker = {
+  code: string
+  severity: 'warning' | 'blocker'
+  gateId?: string
+  sourceRecordId?: string
+  message: string
+  clientVisible: boolean
+}
+```
+
+Admin responses may include internal blockers and evidence IDs. Portal responses include only client-visible blockers and client-safe summaries.
+
+### Sanitizers And Client-Safe Serializers
+
+Phase 1 should create shared helpers before route handlers grow:
+
+- `sanitizeBookProjectInput`
+- `serializeBookStudioRecord`
+- `clientSafeBookProject`
+- `clientSafeBookPublishingPacket`
+- `clientSafeBookAnalyticsSummary`
+- `ensureBookStudioOrgAccess`
+- `ensureBookStudioPortalEnabled`
+- `deriveBookStageAndNextAction`
+- `deriveBookTypeGateProfile`
+- `validateBookGateTransition`
+- `validateExportPackageApproval`
+- `validateChannelListingUploadApproval`
+- `stripUndefinedDeep`
+
+The devil's-advocate concern is that route files will become the product rules if these helpers are skipped. Book Studio has too many dependent states for scattered inline checks; the same gate logic must protect admin buttons, portal decisions, Hermes task outputs, and API mutations.
+
 ## Hermes Skills Needed
 
 The module will need new skills, not one giant "book" skill.
