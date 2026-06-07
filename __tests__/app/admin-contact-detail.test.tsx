@@ -213,6 +213,20 @@ describe('Admin contact detail page', () => {
     expect(headerEmailLink).toHaveAttribute('href', '/admin/email/compose?to=jane%40example.com&contactId=contact-1&orgId=org-1')
   })
 
+  it('keeps the admin header call action contextual and free of decorative icon text', async () => {
+    contactOverride = { phone: '+27115550123' }
+
+    render(<AdminContactDetailPage />)
+
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { name: 'Jane Client' })).toBeInTheDocument()
+    })
+
+    const headerCallLink = screen.getByRole('link', { name: 'Call Jane Client from contact command center' })
+    expect(headerCallLink).toHaveAttribute('href', 'tel:+27115550123')
+    expect(screen.queryByRole('link', { name: 'call Call' })).not.toBeInTheDocument()
+  })
+
   it('keeps the admin contact edit command name free of decorative icon text', async () => {
     render(<AdminContactDetailPage />)
 

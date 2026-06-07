@@ -557,8 +557,8 @@ export default function ContactDetailPage() {
                 </button>
               )}
               {contact.phone && (
-                <a href={`tel:${contact.phone}`} className="pib-btn-secondary text-sm">
-                  <span className="material-symbols-outlined text-base">call</span>
+                <a href={`tel:${contact.phone}`} aria-label={`Call ${name} from contact command center`} className="pib-btn-secondary text-sm">
+                  <span className="material-symbols-outlined text-base" aria-hidden="true">call</span>
                   Call
                 </a>
               )}
