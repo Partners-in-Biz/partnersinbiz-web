@@ -93,11 +93,23 @@ describe('OrgSettingsPage folder mappings', () => {
         String(url) === '/api/v1/workspace-connections' && init?.method === 'POST',
       )
       expect(post).toBeTruthy()
-      expect(JSON.parse(post![1].body as string)).toMatchObject({
-        connectionKey: 'google-workspace-drive-docs-sheets',
+      const payload = JSON.parse(post![1].body as string)
+      expect(payload).toMatchObject({
+        connectionKey: 'google-workspace-drive-docs-sheets-gmail-calendar',
         connectionType: 'user_oauth',
         tokenStatus: 'needs_authorization',
+        capabilityScopes: ['drive.read', 'drive.write', 'docs.write', 'sheets.write', 'gmail.read', 'gmail.send', 'calendar.events'],
+        riskLevel: 'high',
       })
+      expect(payload.scopes).toEqual(expect.arrayContaining([
+        expect.objectContaining({ scope: 'https://www.googleapis.com/auth/drive.file', classification: 'sensitive' }),
+        expect.objectContaining({ scope: 'https://www.googleapis.com/auth/gmail.send', classification: 'restricted' }),
+        expect.objectContaining({ scope: 'https://www.googleapis.com/auth/calendar.events', classification: 'sensitive' }),
+      ]))
+      expect(screen.getByRole('link', { name: /Authorize Google Workspace/i })).toHaveAttribute(
+        'href',
+        '/api/v1/workspace-connections/google/authorize?orgId=org_1&connectionKey=google-workspace-drive-docs-sheets-gmail-calendar&returnTo=%2Fadmin%2Forg%2Facme-client%2Fsettings',
+      )
     })
   })
 

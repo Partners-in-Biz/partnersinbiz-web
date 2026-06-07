@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useParams } from 'next/navigation'
 import { copyToClipboard } from '@/lib/utils/clipboard'
+import { LEGACY_GOOGLE_WORKSPACE_CONNECTION_KEY, UNIFIED_GOOGLE_WORKSPACE_CONNECTION_KEY, UNIFIED_GOOGLE_WORKSPACE_SCOPES, workspaceScopeRows } from '@/lib/mailbox/googleOAuth'
 import type { WorkspaceFolder } from '@/lib/workspace-folders/model'
 
 interface OrgForm {
@@ -84,18 +85,15 @@ type WorkspaceConnectionSummary = {
   tokenStatus?: string
 }
 
-const GOOGLE_WORKSPACE_OAUTH_SCOPES = [
-  { scope: 'https://www.googleapis.com/auth/drive.file', classification: 'sensitive', approved: false },
-  { scope: 'https://www.googleapis.com/auth/documents', classification: 'sensitive', approved: false },
-  { scope: 'https://www.googleapis.com/auth/spreadsheets', classification: 'sensitive', approved: false },
-] as const
+const GOOGLE_WORKSPACE_OAUTH_SCOPES = workspaceScopeRows(UNIFIED_GOOGLE_WORKSPACE_SCOPES)
 
 const REQUIRED_WORKSPACE_OAUTHS = [
   {
-    key: 'google-workspace-drive-docs-sheets',
-    displayName: 'Google Workspace Drive, Docs & Sheets',
-    description: 'Required for Drive folder mappings, Google Docs/Sheets broker jobs, artifact exports, and sync audits.',
-    capabilityScopes: ['drive.read', 'drive.write', 'docs.write', 'sheets.write'],
+    key: UNIFIED_GOOGLE_WORKSPACE_CONNECTION_KEY,
+    aliases: [LEGACY_GOOGLE_WORKSPACE_CONNECTION_KEY],
+    displayName: 'Unified Google Workspace: Drive, Docs, Sheets, Gmail & Calendar',
+    description: 'Required for Drive folder mappings, Docs/Sheets broker jobs, Gmail-safe mailbox handling, Calendar scheduling, artifact exports, and sync audits.',
+    capabilityScopes: ['drive.read', 'drive.write', 'docs.write', 'sheets.write', 'gmail.read', 'gmail.send', 'calendar.events'],
     capabilities: { driveRead: true, driveWrite: true, driveShare: false, driveDelete: false, docsRead: true, docsWrite: true, sheetsRead: true, sheetsWrite: true, externalShare: false },
   },
 ] as const
@@ -334,11 +332,13 @@ export default function OrgSettingsPage() {
   }
 
   const requiredWorkspaceOauths = useMemo(() => REQUIRED_WORKSPACE_OAUTHS.map((oauth) => {
-    const existing = workspaceConnections.find((connection) => connection.connectionKey === oauth.key)
+    const keys = new Set<string>([oauth.key, ...oauth.aliases])
+    const existing = workspaceConnections.find((connection) => connection.connectionKey ? keys.has(connection.connectionKey) : false)
     return { ...oauth, existing }
   }), [workspaceConnections])
 
   const missingWorkspaceOauthCount = requiredWorkspaceOauths.filter((oauth) => !oauth.existing).length
+  const googleWorkspaceAuthorizeKey = requiredWorkspaceOauths[0]?.existing?.connectionKey ?? UNIFIED_GOOGLE_WORKSPACE_CONNECTION_KEY
 
   async function refreshWorkspaceConnections(currentOrgId = orgId) {
     if (!currentOrgId) return
@@ -369,10 +369,10 @@ export default function OrgSettingsPage() {
             capabilities: oauth.capabilities,
             scopes: GOOGLE_WORKSPACE_OAUTH_SCOPES,
             tokenStatus: 'needs_authorization',
-            reconnectInstructions: 'Use the Google OAuth authorization button from this settings page, then map Drive folders once the account is connected. Raw OAuth tokens are never stored in this registry record.',
-            riskLevel: 'medium',
+            reconnectInstructions: 'Use the Authorize Google Workspace button from this settings page. The OAuth callback links the encrypted mailbox credential store to this registry record without exposing raw tokens.',
+            riskLevel: 'high',
             approvalStatus: 'pending',
-            dataTouched: ['google_drive', 'google_docs', 'google_sheets', 'workspace_artifacts'],
+            dataTouched: ['google_drive', 'google_docs', 'google_sheets', 'gmail', 'google_calendar', 'workspace_artifacts'],
             safeMetadata: {
               setupSurface: 'admin_org_settings_workspace_folder_registry',
               sourceOfTruth: 'google_drive',
@@ -457,10 +457,10 @@ export default function OrgSettingsPage() {
                   {preparingOauths ? 'Preparing…' : missingWorkspaceOauthCount > 0 ? `Prepare ${missingWorkspaceOauthCount} OAuth${missingWorkspaceOauthCount === 1 ? '' : 's'}` : 'OAuth records ready'}
                 </button>
                 <a
-                  href="/api/v1/admin/mailbox/google/authorize"
+                  href={orgId ? `/api/v1/workspace-connections/google/authorize?orgId=${encodeURIComponent(orgId)}&connectionKey=${encodeURIComponent(googleWorkspaceAuthorizeKey)}&returnTo=${encodeURIComponent(`/admin/org/${slug}/settings`)}` : '/api/v1/workspace-connections/google/authorize'}
                   className="pib-btn-secondary text-xs"
                 >
-                  Authorize Google account
+                  Authorize Google Workspace
                 </a>
               </div>
             </div>

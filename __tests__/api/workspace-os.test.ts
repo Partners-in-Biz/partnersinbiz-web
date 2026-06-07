@@ -9,6 +9,8 @@ const mockGet = jest.fn()
 const mockWhere = jest.fn()
 const mockDoc = jest.fn()
 const mockUpdate = jest.fn()
+const mockSet = jest.fn()
+const mockDelete = jest.fn()
 const mockGetDoc = jest.fn()
 const mockCollection = jest.fn()
 const mockServerTimestamp = jest.fn(() => 'SERVER_TIMESTAMP')
@@ -17,19 +19,25 @@ jest.mock('@/lib/firebase/admin', () => ({ adminDb: { collection: mockCollection
 jest.mock('@/lib/api/auth', () => ({
   withAuth: (_role: string, handler: MockHandler) => async (req: NextRequest, ctx?: unknown) => handler(req, mockUser, ctx),
 }))
-jest.mock('firebase-admin/firestore', () => ({ FieldValue: { serverTimestamp: mockServerTimestamp } }))
+jest.mock('firebase-admin/firestore', () => ({
+  FieldValue: { serverTimestamp: mockServerTimestamp },
+  Timestamp: {
+    now: jest.fn(() => 'NOW_TIMESTAMP'),
+    fromMillis: jest.fn((millis: number) => ({ millis, toMillis: () => millis })),
+  },
+}))
 jest.mock('@/lib/activity/log', () => ({ logActivity: jest.fn(() => Promise.resolve()) }))
 
 beforeEach(() => {
   jest.resetModules()
   jest.clearAllMocks()
   mockUser = { uid: 'admin-1', role: 'admin' }
-  const query = { where: mockWhere, get: mockGet }
+  const query = { where: mockWhere, limit: jest.fn(() => query), get: mockGet }
   mockWhere.mockReturnValue(query)
   mockGetDoc.mockReset()
-  mockDoc.mockReturnValue({ get: mockGetDoc, update: mockUpdate })
+  mockDoc.mockReturnValue({ get: mockGetDoc, update: mockUpdate, set: mockSet, delete: mockDelete })
   mockCollection.mockImplementation((name: string) => {
-    if (!['workspace_connections', 'workspace_artifacts', 'workspace_broker_jobs', 'workspace_artifact_events'].includes(name)) {
+    if (!['workspace_connections', 'workspace_artifacts', 'workspace_broker_jobs', 'workspace_artifact_events', 'mailbox_oauth_states', 'mailbox_accounts'].includes(name)) {
       throw new Error(`Unexpected collection: ${name}`)
     }
     return { add: mockAdd, where: mockWhere, get: mockGet, doc: mockDoc }
@@ -65,6 +73,37 @@ describe('workspace connection API routes', () => {
     expect(mismatch.status).toBe(400)
     expect(forbidden.status).toBe(403)
     expect(mockAdd).not.toHaveBeenCalled()
+  })
+
+  it('starts unified Google Workspace OAuth from an org-scoped registry record', async () => {
+    process.env.GOOGLE_OAUTH_CLIENT_ID = 'client-id'
+    process.env.GOOGLE_OAUTH_CLIENT_SECRET = 'client-secret'
+    mockGet.mockResolvedValue({ docs: [{ id: 'conn-1', data: () => ({
+      orgId: 'org-1',
+      connectionKey: 'google-workspace-drive-docs-sheets-gmail-calendar',
+      scopes: [
+        { scope: 'https://www.googleapis.com/auth/drive.file' },
+        { scope: 'https://www.googleapis.com/auth/gmail.send' },
+        { scope: 'https://www.googleapis.com/auth/calendar.events' },
+      ],
+      deleted: false,
+    }) }] })
+    const { GET } = await import('@/app/api/v1/workspace-connections/google/authorize/route')
+    const res = await GET(new NextRequest('http://localhost/api/v1/workspace-connections/google/authorize?orgId=org-1&connectionKey=google-workspace-drive-docs-sheets-gmail-calendar&returnTo=%2Fadmin%2Forg%2Facme-client%2Fsettings'))
+
+    expect(res.status).toBe(302)
+    const location = res.headers.get('location') ?? ''
+    expect(location).toContain('https://accounts.google.com/o/oauth2/v2/auth')
+    expect(decodeURIComponent(location)).toContain('https://www.googleapis.com/auth/gmail.send')
+    expect(decodeURIComponent(location)).toContain('https://www.googleapis.com/auth/calendar.events')
+    expect(mockSet).toHaveBeenCalledWith(expect.objectContaining({
+      orgId: 'org-1',
+      uid: 'admin-1',
+      connectionId: 'conn-1',
+      connectionKey: 'google-workspace-drive-docs-sheets-gmail-calendar',
+      returnTo: '/admin/org/acme-client/settings',
+      requestedScopes: expect.arrayContaining(['https://www.googleapis.com/auth/gmail.send', 'https://www.googleapis.com/auth/calendar.events']),
+    }))
   })
 })
 
