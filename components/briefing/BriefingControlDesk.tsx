@@ -903,6 +903,11 @@ function phase2AgentId(item: BriefingCard) {
   return 'theo'
 }
 
+function phase2AgentLabel(item: BriefingCard) {
+  const agentId = phase2AgentId(item)
+  return agentId ? agentId.charAt(0).toUpperCase() + agentId.slice(1) : 'Specialist'
+}
+
 function canConvertToCrmActivity(item: BriefingCard) {
   return Boolean(item.context.contactId || item.context.dealId || item.metadata?.contactId || item.metadata?.dealId)
 }
@@ -923,6 +928,67 @@ function briefingActionSourcePayload(item: BriefingCard, mode: Mode, portalScope
     source: { ...item.source, url: sourceHref(item, mode, portalScope) || item.source.url || undefined },
     metadata: item.metadata ?? {},
   }
+}
+
+function briefingProjectLine(item: BriefingCard) {
+  if (!item.context.projectName && !item.context.projectId) return null
+  return `Project: ${item.context.projectName ?? 'Unknown project'}${item.context.projectId ? ` (${item.context.projectId})` : ''}`
+}
+
+function briefingTaskLine(item: BriefingCard) {
+  if (!item.context.taskTitle && !item.context.taskId) return null
+  return `Task: ${item.context.taskTitle ?? 'Unknown task'}${item.context.taskId ? ` (${item.context.taskId})` : ''}`
+}
+
+function briefingEvidenceLines(item: BriefingCard) {
+  const rows = softwareBuildEvidenceRows(item)
+  if (rows.length === 0) return ['Evidence: none attached']
+  return rows.map((row) => `${row.label}: ${row.href || row.value}`)
+}
+
+function briefingContextLines(item: BriefingCard, mode: Mode, portalScope?: PortalOrgRouteScope) {
+  return [
+    `Ask: ${item.title}`,
+    item.summary ? `Summary: ${item.summary}` : null,
+    item.excerpt ? `Excerpt: ${item.excerpt}` : null,
+    item.context.orgName || item.context.orgId ? `Workspace: ${item.context.orgName ?? 'Unknown workspace'} (${item.context.orgId || item.orgId})` : null,
+    briefingProjectLine(item),
+    briefingTaskLine(item),
+    item.context.documentTitle || item.context.documentId ? `Document: ${item.context.documentTitle ?? 'Unknown document'}${item.context.documentId ? ` (${item.context.documentId})` : ''}` : null,
+    `Source: ${item.source.type}/${item.source.id}`,
+    sourceHref(item, mode, portalScope) ? `Source URL: ${sourceHref(item, mode, portalScope)}` : null,
+  ].filter((line): line is string => Boolean(line))
+}
+
+function briefingCopyText(item: BriefingCard, kind: 'exact-ask' | 'full-briefing' | 'agent-handoff' | 'blocker-summary' | 'evidence-links', mode: Mode, portalScope?: PortalOrgRouteScope) {
+  const context = briefingContextLines(item, mode, portalScope)
+  if (kind === 'exact-ask') return context.join('\n')
+  if (kind === 'evidence-links') return briefingEvidenceLines(item).join('\n')
+  if (kind === 'blocker-summary') {
+    const blockers = softwareBuildEvidenceRows(item).filter((row) => row.kind === 'blocker').map((row) => `${row.label}: ${row.value}`)
+    const gates = item.safetyGate?.gatedActions?.length ? [`Gated actions: ${item.safetyGate.gatedActions.join(', ')}`] : []
+    return [...context, ...(blockers.length ? blockers : ['Blockers: none listed on this card']), ...gates, 'Approval gates remain explicit before external send, public publish, paid spend, production deploy, finance, secret/config, or destructive actions.'].join('\n')
+  }
+  if (kind === 'agent-handoff') {
+    const target = item.agentHandoff?.targetAgentId || phase2AgentId(item)
+    return [
+      `Agent handoff target: ${target}`,
+      ...context,
+      item.agentHandoff?.summary ? `Handoff summary: ${item.agentHandoff.summary}` : null,
+      ...briefingEvidenceLines(item),
+    ].filter((line): line is string => Boolean(line)).join('\n')
+  }
+  return [...context, 'Evidence:', ...briefingEvidenceLines(item)].join('\n')
+}
+
+function briefingChatHref(item: BriefingCard) {
+  const slug = item.context.orgSlug || item.orgId || item.context.orgId
+  const params = new URLSearchParams()
+  params.set('agent', phase2AgentId(item))
+  if (item.context.projectId) params.set('projectId', item.context.projectId)
+  if (item.context.taskId) params.set('taskId', item.context.taskId)
+  params.set('briefingId', item.id)
+  return `/admin/org/${encodeURIComponent(slug)}/messages?${params.toString()}`
 }
 
 function defaultSnoozeDate() {
@@ -1481,6 +1547,51 @@ export function BriefingControlDesk({ mode, portalScope }: { mode: Mode; portalS
       await loadFeed({ quiet: true })
     } catch (err) {
       setFlash({ kind: 'error', message: err instanceof Error ? err.message : 'Follow-up task creation failed' })
+    } finally {
+      setBusyAction(null)
+    }
+  }
+
+  async function copyBriefingAction(item: BriefingCard, kind: 'exact-ask' | 'full-briefing' | 'agent-handoff' | 'blocker-summary' | 'evidence-links') {
+    try {
+      await navigator.clipboard.writeText(briefingCopyText(item, kind, mode, portalScope))
+      setFlash({ kind: 'ok', message: 'Briefing context copied.' })
+    } catch (err) {
+      setFlash({ kind: 'error', message: err instanceof Error ? err.message : 'Clipboard copy failed' })
+    }
+  }
+
+  async function createRoutedBriefingTask(item: BriefingCard, action: 'ask-specialist-triage' | 'create-routed-task' | 'link-existing-task') {
+    const agentId = phase2AgentId(item)
+    const isTriage = action === 'ask-specialist-triage'
+    const title = action === 'link-existing-task'
+      ? `Link existing task: ${item.title}`
+      : isTriage
+        ? `Triage briefing: ${item.title}`
+        : `Routed ${agentId} task: ${item.title}`
+    setBusyAction(`phase2-${action}`)
+    try {
+      const res = await fetch(briefingActionEndpoint(item), {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          action,
+          ...briefingActionSourcePayload(item, mode, portalScope),
+          title,
+          description: item.summary,
+          spec: `${title}\n\n${briefingCopyText(item, 'full-briefing', mode, portalScope)}`,
+          priority: item.priority === 'critical' ? 'high' : 'medium',
+          assigneeAgentId: agentId,
+          labels: ['briefing-action', action, 'internal-only'],
+          sourceTitle: item.title,
+        }),
+      })
+      const body = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(body.error || 'Routed briefing task creation failed')
+      setFlash({ kind: 'ok', message: isTriage ? `${agentId} triage task created from the briefing.` : 'Routed internal task created from the briefing.' })
+      await loadFeed({ quiet: true })
+    } catch (err) {
+      setFlash({ kind: 'error', message: err instanceof Error ? err.message : 'Routed briefing task creation failed' })
     } finally {
       setBusyAction(null)
     }
@@ -2837,6 +2948,18 @@ export function BriefingControlDesk({ mode, portalScope }: { mode: Mode; portalS
                       <span className="material-symbols-outlined text-[15px]" aria-hidden="true">add_task</span>
                       Create follow-up task
                     </button>
+                    <button className="pib-btn-secondary justify-center text-xs" type="button" onClick={() => createRoutedBriefingTask(selected, 'ask-specialist-triage')} disabled={!selected.context.projectId}>
+                      <span className="material-symbols-outlined text-[15px]" aria-hidden="true">support_agent</span>
+                      Ask {phase2AgentLabel(selected)} to triage
+                    </button>
+                    <button className="pib-btn-secondary justify-center text-xs" type="button" onClick={() => createRoutedBriefingTask(selected, 'create-routed-task')} disabled={!selected.context.projectId}>
+                      <span className="material-symbols-outlined text-[15px]" aria-hidden="true">route</span>
+                      Create routed {phase2AgentLabel(selected)} task
+                    </button>
+                    <button className="pib-btn-secondary justify-center text-xs" type="button" onClick={() => createRoutedBriefingTask(selected, 'link-existing-task')} disabled={!selected.context.projectId}>
+                      <span className="material-symbols-outlined text-[15px]" aria-hidden="true">add_link</span>
+                      Link existing task
+                    </button>
                     {canTaskAct(selected) ? (
                       <button className="pib-btn-secondary justify-center text-xs" type="button" onClick={() => assignPhase2Agent(selected)} disabled={!!busyAction}>
                         <span className="material-symbols-outlined text-[15px]" aria-hidden="true">smart_toy</span>
@@ -2871,8 +2994,38 @@ export function BriefingControlDesk({ mode, portalScope }: { mode: Mode; portalS
                       </button>
                     )}
                   </div>
-                  {!canTaskAct(selected) ? <p className="mt-2 text-xs text-on-surface-variant">Agent assignment requires a linked project task.</p> : null}
-                  {!canConvertToCrmActivity(selected) ? <p className="mt-2 text-xs text-on-surface-variant">CRM conversion needs a contact or deal on the briefing card.</p> : null}
+                  {!canTaskAct(selected) ? <p className="mt-2 text-xs text-on-surface-variant">Unavailable: Agent assignment requires a linked project task. Nearest valid alternatives: create follow-up task, ask {phase2AgentLabel(selected)} to triage, link existing task, create routed {phase2AgentLabel(selected)} task.</p> : null}
+                  {!canConvertToCrmActivity(selected) ? <p className="mt-2 text-xs text-on-surface-variant">Unavailable: CRM conversion needs a contact or deal on the briefing card.</p> : null}
+                  <p className="mt-2 text-xs text-on-surface-variant">Nearest valid alternatives: create follow-up task, ask {phase2AgentLabel(selected)} to triage, link existing task, create routed {phase2AgentLabel(selected)} task.</p>
+                  <div className="mt-3 rounded-lg border border-white/10 bg-white/[0.03] p-3">
+                    <p className="text-[10px] font-label uppercase tracking-[0.16em] text-on-surface-variant">Copy and chat context</p>
+                    <div className="mt-2 grid grid-cols-2 gap-2">
+                      <button className="pib-btn-secondary justify-center text-xs" type="button" onClick={() => copyBriefingAction(selected, 'exact-ask')} disabled={!!busyAction}>
+                        <span className="material-symbols-outlined text-[15px]" aria-hidden="true">content_copy</span>
+                        Copy exact ask
+                      </button>
+                      <button className="pib-btn-secondary justify-center text-xs" type="button" onClick={() => copyBriefingAction(selected, 'full-briefing')} disabled={!!busyAction}>
+                        <span className="material-symbols-outlined text-[15px]" aria-hidden="true">description</span>
+                        Copy full briefing
+                      </button>
+                      <button className="pib-btn-secondary justify-center text-xs" type="button" onClick={() => copyBriefingAction(selected, 'agent-handoff')} disabled={!!busyAction}>
+                        <span className="material-symbols-outlined text-[15px]" aria-hidden="true">quick_reference</span>
+                        Copy agent handoff
+                      </button>
+                      <button className="pib-btn-secondary justify-center text-xs" type="button" onClick={() => copyBriefingAction(selected, 'blocker-summary')} disabled={!!busyAction}>
+                        <span className="material-symbols-outlined text-[15px]" aria-hidden="true">front_hand</span>
+                        Copy blocker summary
+                      </button>
+                      <button className="pib-btn-secondary justify-center text-xs" type="button" onClick={() => copyBriefingAction(selected, 'evidence-links')} disabled={!!busyAction}>
+                        <span className="material-symbols-outlined text-[15px]" aria-hidden="true">link</span>
+                        Copy evidence links
+                      </button>
+                      <a className="pib-btn-secondary inline-flex justify-center text-xs" href={briefingChatHref(selected)}>
+                        <span className="material-symbols-outlined text-[15px]" aria-hidden="true">chat</span>
+                        Chat about this with {phase2AgentLabel(selected)}
+                      </a>
+                    </div>
+                  </div>
                   <div className="mt-3 rounded-lg border border-amber-300/25 bg-amber-300/10 p-3">
                     <button className="pib-btn-secondary w-full justify-center text-xs" type="button" disabled aria-label="Approval gates stay explicit">
                       <span className="material-symbols-outlined text-[15px]" aria-hidden="true">lock</span>
