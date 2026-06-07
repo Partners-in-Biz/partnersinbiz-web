@@ -714,6 +714,53 @@ Source-backed gate implications:
 
 Design implication: the Book Studio UI should never ask only "what genre is this?" It should ask what kind of product this is, then load a production gate profile. A low-content planner, a children's picture book, a Kindle novella, a public-domain annotated edition, and an audiobook need different artifact models, validators, approval gates, and analytics expectations.
 
+### Production Playbooks And Template Packs
+
+The book-type gate matrix should become an operational template pack, not a set of notes an operator has to remember. When an admin chooses a `bookTypeFamily`, target channels, formats, account model, and series posture, Book Studio should apply a versioned production template that creates the right intake questions, artifact lanes, default gates, Hermes task sequence, export package expectations, portal review milestones, scorecard categories, and analytics labels.
+
+V1 can keep templates as typed server-side configuration rather than editable database records. The important rule is that the applied template version is recorded on the project so future reviewers can see which defaults created the gates and tasks. Later, PiB can add admin-managed templates once the first few book types are proven.
+
+Template pack contents:
+
+- **Intake blocks:** required decisions before project creation, such as audience, format, channel, language, series, source material, account model, AI usage plan, rights posture, and client approval model.
+- **Manuscript model:** default unit structure, such as chapters, sections, pages, spreads, exercises, recipes, answer keys, panels, or audio chapters.
+- **Artifact plan:** required briefs, outlines, manuscripts, proofs, covers, source archives, packages, rights evidence, review packets, and analytics imports.
+- **Hermes task sequence:** recommended skill packets, owner agents, expected artifacts, reviewer gates, and stages where generation must pause for human review.
+- **Default gates:** required quality, rights, metadata, accessibility, commercial, account, file package, and source-freshness checks.
+- **Export package plan:** required file roles, package types, validators, preview evidence, and channel upload instructions.
+- **Portal review milestones:** the exact moments where a client can safely review a brief, proof, cover option, publishing packet, change request, live link, or analytics summary.
+- **Scorecard mapping:** which release scorecard categories are required, optional, or not applicable for the selected type and channel.
+
+Recommended initial playbooks:
+
+| Playbook | Generated structure | Hermes sequence | Required release evidence |
+| --- | --- | --- | --- |
+| `narrative_reflowable` | Brief, outline, chapter units, release manuscript snapshot, EPUB package, optional print package. | Research, brief, outline, draft, developmental edit, copyedit, proofread, metadata, KDP/Google readiness. | Editorial pass coverage, TOC/link review, AI/provenance review, metadata truthfulness, EPUB/package validation, client packet approval where applicable. |
+| `children_picture_fixed_layout` | Spread plan, style bible, character/setting bible, illustration asset set, fixed-layout proof, cover/wrap package. | Research, brief, age-fit review, illustration direction, layout design, reading-level review, asset-rights audit, package validation. | Reading age fit, asset rights, image quality, bleed/margin proof, accessibility summary, cover/proof approval, print or fixed-layout preview evidence. |
+| `nonfiction_business_how_to` | Source-backed outline, claim register, chapter units, examples/worksheets, citation/source packet, EPUB/print package. | Niche research, brief, outline, draft, fact-check, developmental edit, copyedit, proofread, metadata, launch plan. | Source coverage, claims review, permissions for quotes/images, legal/reputation risk review, metadata/content match, commercial viability. |
+| `cookbook_instructional` | Recipe/instruction records, units/ingredients/steps, safety/warning notes, photos/diagrams, index/glossary, print and EPUB package. | Research, structure keeper, draft, fact/common-sense check, image direction, accessibility review, proofread, package validation. | Unit consistency, safety/common-sense review, image rights, print usability, accessibility, ingredient/allergen/warning handling where relevant. |
+| `activity_workbook_puzzle_coloring` | Page generator, activity pages, answer keys where relevant, teacher/parent notes, print-first package, optional digital package. | Research, layout design, puzzle/activity generation, duplicate/repetition review, answer-key review, asset-rights audit, package validation. | Page completeness, answer-key correctness, duplicate/repetition check, print proof, Google DRM/printing decision, Kindle suitability warning. |
+| `low_content_print` | Interior template, cover/wrap package, metadata packet, print proof, classification review. | Brief, template generator, duplication review, metadata review, print package validation. | Low-content classification, KDP ISBN option evidence, no release-date/series assumptions, metadata honesty, duplicate-content check, print proof. |
+| `public_domain_companion_rights_first` | Rights dossier first, differentiation plan, source scan, annotation/translation/companion plan, human approval before drafting. | Rights research, risk review, brief only after approval, structure keeper, source/citation review, metadata review. | Public-domain or source-work rights evidence, differentiation proof, territory review, companion/summary compliance, legal/business approval, title/description compliance. |
+| `audiobook_edition` | Audio edition linked to text project, narration/source plan, chapter audio list, cover, sample, supplemental PDF where needed. | Rights review, narration brief, script/prep, audio quality review, accessibility/supplemental review, channel readiness. | Audio rights, narrator/source provenance, duration/format/bitrate checks, cover file readiness, supplemental PDF evidence, channel eligibility. |
+| `series_governance` | Series bible, volume map, continuity ledger, shared metadata, release order, cross-sell plan, analytics rollup. | Series strategy, continuity review, metadata review, launch/lifecycle plan, analytics reconciliation. | Series name/order consistency, volume-gap review, style/continuity approval, channel series metadata evidence, cross-book rights and analytics linkage. |
+
+Source-backed implications:
+
+- Reflowable KDP books should fit content where body text separates cleanly from images; image-heavy or exact-layout projects should use fixed-layout or print paths instead. Source: [KDP creating reflowable books](https://kdp.amazon.com/en_US/help/topic/GPNJPYK298J8TRRV).
+- KDP print projects need cover/interior rules for bleed, margins, embedded fonts, image resolution, file size, spine text, page count, and Previewer evidence. Sources: [KDP paperback submission guidelines](https://kdp.amazon.com/en_US/help/topic/G201857950), [KDP upload and preview content](https://kdp.amazon.com/en_US/help/topic/G200641240).
+- KDP low-content books have their own ISBN and feature limitations, so they need a separate playbook rather than being treated as generic journals or workbooks. Source: [KDP low-content books](https://kdp.amazon.com/en_US/help/topic/GGE5T76TWKA85DJM).
+- Google Play Books accepts ebook content as EPUB/PDF, recommends both where possible, requires complete files rather than samples, and requires EPUBCheck validation for EPUB files. Source: [Google book file guidelines](https://support.google.com/books/partner/answer/3424254).
+- Google Play Books supports EPUB fixed layout and embedded audio/video in EPUB, but not JavaScript or non-standard interactive behavior; this should block overly interactive workbook/activity promises. Source: [Google EPUB files](https://support.google.com/books/partner/answer/3316879).
+- Google series metadata needs consistent series names across books, including capitalization, spaces, and punctuation. Source: [Google series metadata](https://support.google.com/books/partner/answer/11069638).
+
+Devil's advocate:
+
+- Templates can make weak projects look legitimate. A template should create evidence requirements, not confidence. If the evidence is missing, the template should create blockers.
+- Too many templates will fragment the module and make tests brittle. V1 should start with a small set of canonical playbooks and allow add-on gates rather than bespoke workflows for every niche.
+- A template applied at project creation can become stale when the book changes format, channel, account model, or series posture. Changing those decisions should re-run template derivation and mark affected gates, packets, and scorecards stale.
+- Hermes should not decide the template silently. An operator can accept a recommended template, but the applied template and version must be visible and auditable.
+
 ## Core Module Capabilities
 
 ### 1. Book And Series Workspace
@@ -1464,6 +1511,38 @@ type BookStudioSkillReadinessLevel =
   | 'internal_project_enabled'
   | 'client_visible_enabled'
 
+type BookProductionTemplateStage =
+  | 'intake'
+  | 'research'
+  | 'brief'
+  | 'outline'
+  | 'manuscript'
+  | 'asset_production'
+  | 'layout'
+  | 'proof'
+  | 'export_package'
+  | 'publishing_packet'
+  | 'manual_upload'
+  | 'launch'
+  | 'analytics'
+
+type BookProductionTemplateArtifactRole =
+  | 'research_summary'
+  | 'book_brief'
+  | 'series_bible'
+  | 'outline'
+  | 'manuscript_snapshot'
+  | 'page_spread_proof'
+  | 'cover_option'
+  | 'asset_rights_dossier'
+  | 'claim_register'
+  | 'answer_key'
+  | 'audio_file'
+  | 'export_package'
+  | 'publishing_packet'
+  | 'client_review_packet'
+  | 'analytics_import'
+
 interface BookStudioSkillEvaluation {
   id: string
   orgId: string
@@ -1505,6 +1584,74 @@ interface BookStudioSkillEvaluation {
   reviewedAt?: string
 }
 
+interface BookProductionTemplate {
+  id: string
+  version: string
+  label: string
+  bookTypeFamily: BookTypeFamily
+  appliesTo: {
+    formats: BookFormat[]
+    layoutModes: BookLayoutMode[]
+    channels: BookChannel[]
+    seriesAware: boolean
+    accountModels: BookPublishingAccountModel[]
+  }
+  intakeBlocks: Array<{
+    key: string
+    label: string
+    requiredBeforeCreate: boolean
+    requiredFields: string[]
+    blockerIfMissing: boolean
+  }>
+  manuscriptModel: {
+    defaultUnitTypes: BookManuscriptUnitType[]
+    defaultLayoutMode: BookLayoutMode
+    requiredFrontMatter: string[]
+    requiredBackMatter: string[]
+    requiresAnswerKey: boolean
+    requiresClaimsRegister: boolean
+  }
+  artifactPlan: Array<{
+    role: BookProductionTemplateArtifactRole
+    stage: BookProductionTemplateStage
+    requiredBeforeStage?: BookProductionTemplateStage
+    clientVisibleDefault: boolean
+    evidenceRequired: boolean
+  }>
+  defaultGates: Array<{
+    gateType: string
+    stage: BookProductionTemplateStage
+    required: boolean
+    sourceKeys: string[]
+    blocksClientVisibility: boolean
+    blocksExportApproval: boolean
+    blocksManualUpload: boolean
+  }>
+  hermesSequence: Array<{
+    bookStudioSkillKey: string
+    triggerStage: BookProductionTemplateStage
+    expectedArtifactRoles: BookProductionTemplateArtifactRole[]
+    reviewerAgentId: string
+    blocksUntilReviewed: boolean
+  }>
+  exportPackages: Array<{
+    packageType: 'kdp_ebook' | 'kdp_print' | 'google_ebook' | 'audiobook' | 'metadata_only'
+    channel: BookChannel
+    requiredFileRoles: string[]
+    requiredValidators: string[]
+    externalPreviewEvidence: string[]
+  }>
+  portalMilestones: Array<{
+    stage: BookProductionTemplateStage
+    allowedArtifactRoles: BookProductionTemplateArtifactRole[]
+    approvalType: 'brief' | 'proof' | 'cover' | 'publishing_packet' | 'change_request' | 'analytics_summary'
+  }>
+  scorecardCategoryKeys: string[]
+  analyticsLabels: string[]
+  createdAt: string
+  retiredAt?: string
+}
+
 interface BookProject {
   id: string
   orgId: string
@@ -1516,6 +1663,13 @@ interface BookProject {
   status: BookProjectStatus
   bookTypeFamily: BookTypeFamily
   bookType: string
+  productionTemplate: {
+    templateId: string
+    templateVersion: string
+    appliedAt: string
+    appliedBy: { type: 'user' | 'system' | 'agent'; id: string }
+    overrideApprovalTaskIds: string[]
+  }
   productionGateProfile: {
     requiredGateIds: string[]
     waivedGateIds?: Array<{ gateId: string; approvalTaskId: string; reason: string }>
@@ -3106,6 +3260,7 @@ This is not yet an implementation plan. It is the smallest coherent foundation t
 | --- | --- | --- | --- |
 | Module entitlement | Add a future `settings.portalModules.bookStudio` switch, safe portal org exposure, and portal API guards. | Client visibility must be controlled per organisation, matching the new Mobile Apps module-switch pattern. | Admin can enable/disable portal Book Studio visibility without affecting internal admin work. |
 | Domain records | Add typed records and sanitizers for `book_projects`, `book_series`, `book_project_editions`, `book_channel_listings`, `book_quality_gates`, manuscript/editorial records, provenance/version/rights records, and analytics import metadata. | The module needs book-specific state, but Research, Documents, Projects, and artifacts remain authoritative for evidence, approvals, work, and large files. | Records are org-scoped, serializable, guarded by role, and do not embed large manuscript or image payloads. |
+| Production templates | Add versioned server-side template packs for canonical book families, with intake blocks, manuscript models, artifact plans, default gates, Hermes sequences, export packages, portal milestones, and scorecard categories. | Book type should drive the workflow from the first screen; operators should not manually remember how a low-content book differs from a picture book, nonfiction book, or audiobook. | Project creation records the applied template/version and creates default gates, tasks, artifact expectations, and stale-check behavior from that template. |
 | Admin workspace | Build admin list/detail routes for book projects and series with tabs for overview, research, brief, production, publishing, gates, and analytics. | Operators need one command surface before manuscript generation or export engines exist. | A PiB admin can create a project, connect it to a series, see status/risk/gates, and move through the production checklist. |
 | Research and brief bridge | Link or create Research items and Book Brief client documents from a book project. | The module should inherit PiB's evidence and approval model rather than recreate `ai-story` research notes. | A book project can show linked findings/recommendations, create a brief packet, and preserve source IDs. |
 | Hermes task contracts | Store Hermes-ready task metadata for research, brief, outline, metadata, and readiness work without granting direct publish powers. | Agent output must be bounded, reviewable, and attributable. | Created tasks include book context, expected artifacts, reviewer, risk level, and approval-gate linkage. |
@@ -3124,6 +3279,8 @@ This is not yet an implementation plan. It is the smallest coherent foundation t
 - A PiB admin can create a book project under a client organisation with `bookTypeFamily`, status, series, initial target channels, and compliance defaults.
 - Missing or disabled portal entitlement cannot expose Book Studio in portal nav, portal API responses, or scoped workspace state.
 - Book-type gate profiles generate the correct initial `book_quality_gates` for narrative, children's, visual/sequential, nonfiction, activity/workbook, low-content, public-domain/companion, and audiobook projects.
+- Production templates apply canonical intake blocks, manuscript unit defaults, artifact plans, Hermes task sequences, export package expectations, portal review milestones, and scorecard category requirements for each supported V1 book family.
+- Changing a project's book type family, target channel, format, account model, or series posture re-runs template derivation and marks affected gates, export packages, approvals, and scorecards stale instead of silently preserving old readiness.
 - The project detail can link Research, create or attach a Book Brief document, link a Project/Kanban workspace, and show linked artifacts without duplicating those systems.
 - Manuscript/proof/export versions can store provenance manifests with source document/artifact/task links, contributor roles, AI usage classification, rights review IDs, and checksums where files are involved.
 - Export file packages can store package type, state, source versions, source artifacts, file roles, filenames, MIME types, sizes, SHA-256 checksums, validation results, preview/proof evidence, rights/disclosure snapshots, upload instructions, blockers, and checksum-bound approval state.
@@ -3155,6 +3312,8 @@ This is not yet an implementation plan. It is the smallest coherent foundation t
 ### Phase 1 Test Focus
 
 - Type/sanitizer tests for Book Studio records, provenance/version/rights records, and defaults.
+- Type/sanitizer tests for production templates, template application records, required template fields, and template-version preservation on projects.
+- Template derivation tests for narrative/reflowable, children's fixed-layout, nonfiction, instructional, activity/workbook, low-content, public-domain/companion, audiobook, and series-governance playbooks.
 - Type/sanitizer tests for export package manifests, file roles, validation results, preview evidence, and checksum-bound approvals.
 - Type/sanitizer tests for manuscript units, unit revisions, editorial passes, claim reviews, accessibility reviews, and release snapshot manifests.
 - Admin API tests for org scoping, create/update/list, soft archive, and linked-record preservation.
