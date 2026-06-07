@@ -245,9 +245,28 @@ function defaultStage(): Required<FirestoreStage> {
           versionNumber: 1,
           supersedesPacketId: 'packet-internal-parent',
           status: 'client_review',
-          titleOptions: [{ text: 'Launch plan', selected: true }],
+          titleOptions: [
+            {
+              text: 'Launch plan',
+              rationale: 'Client-safe framing',
+              selected: true,
+              internalPrompt: 'secret title prompt',
+              scoringAudit: { score: 0.92 },
+              sourceAssetId: 'title-source-secret',
+              policyNotes: 'operator-only title policy note',
+            },
+          ],
           tags: ['growth'],
-          chapters: [{ startSeconds: 0, title: 'Intro' }],
+          chapters: [
+            {
+              startSeconds: 0,
+              title: 'Intro',
+              internalPrompt: 'secret chapter prompt',
+              scoringAudit: { score: 0.88 },
+              sourceAssetId: 'chapter-source-secret',
+              policyNotes: 'operator-only chapter policy note',
+            },
+          ],
           thumbnailAssetId: 'thumbnail-secret',
           captionAssetId: 'caption-secret',
           videoAssetId: 'video-asset-secret',
@@ -452,6 +471,18 @@ describe('portal youtube studio API', () => {
     expect(packet.checks.rights).not.toHaveProperty('checkedBy')
     expect(packet.checks.rights).not.toHaveProperty('checkedByType')
     expect(packet.checks.aiDisclosure).not.toHaveProperty('checkedBy')
+    expect(packet.titleOptions).toEqual([
+      { text: 'Launch plan', rationale: 'Client-safe framing', selected: true },
+    ])
+    expect(packet.titleOptions[0]).not.toHaveProperty('internalPrompt')
+    expect(packet.titleOptions[0]).not.toHaveProperty('scoringAudit')
+    expect(packet.titleOptions[0]).not.toHaveProperty('sourceAssetId')
+    expect(packet.titleOptions[0]).not.toHaveProperty('policyNotes')
+    expect(packet.chapters).toEqual([{ startSeconds: 0, title: 'Intro' }])
+    expect(packet.chapters[0]).not.toHaveProperty('internalPrompt')
+    expect(packet.chapters[0]).not.toHaveProperty('scoringAudit')
+    expect(packet.chapters[0]).not.toHaveProperty('sourceAssetId')
+    expect(packet.chapters[0]).not.toHaveProperty('policyNotes')
   })
 
   it('blocks access when the org disables YouTube Studio before querying YouTube collections', async () => {

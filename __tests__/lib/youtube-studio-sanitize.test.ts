@@ -296,9 +296,38 @@ describe('youtube studio sanitizers', () => {
       versionNumber: 1,
       supersedesPacketId: 'packet-parent-secret',
       status: 'approved',
-      titleOptions: [{ text: 'Launch plan', selected: true }],
+      titleOptions: [
+        {
+          text: 'Launch plan',
+          rationale: 'Client-safe framing',
+          selected: true,
+          internalPrompt: 'secret title prompt',
+          scoringAudit: { score: 0.92 },
+          sourceAssetId: 'title-source-secret',
+          policyNotes: 'operator-only title policy note',
+        },
+        {
+          text: '',
+          selected: true,
+          internalPrompt: 'empty title should not leak',
+        },
+      ] as Array<{ text: string; rationale?: string; selected?: boolean }>,
       tags: ['growth'],
-      chapters: [{ startSeconds: 0, title: 'Intro' }],
+      chapters: [
+        {
+          startSeconds: 0,
+          title: 'Intro',
+          internalPrompt: 'secret chapter prompt',
+          scoringAudit: { score: 0.88 },
+          sourceAssetId: 'chapter-source-secret',
+          policyNotes: 'operator-only chapter policy note',
+        },
+        {
+          startSeconds: 45,
+          title: '',
+          internalPrompt: 'empty chapter should not leak',
+        },
+      ] as Array<{ startSeconds: number; title: string }>,
       thumbnailAssetId: 'thumbnail-secret',
       captionAssetId: 'caption-secret',
       videoAssetId: 'video-secret',
@@ -336,6 +365,10 @@ describe('youtube studio sanitizers', () => {
         aiDisclosure: { status: 'warning', message: 'Review disclosure' },
       },
     })
+    expect(safe.titleOptions).toEqual([
+      { text: 'Launch plan', rationale: 'Client-safe framing', selected: true },
+    ])
+    expect(safe.chapters).toEqual([{ startSeconds: 0, title: 'Intro' }])
     expect(safe).not.toHaveProperty('approvedBy')
     expect(safe).not.toHaveProperty('approvedAt')
     expect(safe).not.toHaveProperty('approvedSnapshotHash')
@@ -349,5 +382,13 @@ describe('youtube studio sanitizers', () => {
     expect(safe.checks.rights).not.toHaveProperty('checkedAt')
     expect(safe.checks.aiDisclosure).not.toHaveProperty('checkedBy')
     expect(safe.checks.approval).not.toHaveProperty('checkedByType')
+    expect(safe.titleOptions[0]).not.toHaveProperty('internalPrompt')
+    expect(safe.titleOptions[0]).not.toHaveProperty('scoringAudit')
+    expect(safe.titleOptions[0]).not.toHaveProperty('sourceAssetId')
+    expect(safe.titleOptions[0]).not.toHaveProperty('policyNotes')
+    expect(safe.chapters[0]).not.toHaveProperty('internalPrompt')
+    expect(safe.chapters[0]).not.toHaveProperty('scoringAudit')
+    expect(safe.chapters[0]).not.toHaveProperty('sourceAssetId')
+    expect(safe.chapters[0]).not.toHaveProperty('policyNotes')
   })
 })

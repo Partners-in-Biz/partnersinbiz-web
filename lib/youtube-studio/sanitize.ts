@@ -55,6 +55,8 @@ const SOURCE_TYPES: YouTubeSourceType[] = ['raw_footage', 'source_url', 'transcr
 
 type RawInput = Record<string, unknown>
 type PacketReviewCheckKey = Exclude<keyof YouTubePublishingPacket['checks'], 'connectedAccount'>
+type ClientSafePacketTitleOption = YouTubePublishingPacket['titleOptions'][number]
+type ClientSafePacketChapter = YouTubePublishingPacket['chapters'][number]
 
 export type ClientSafeYouTubeChannelWorkspace = {
   id?: string
@@ -158,6 +160,10 @@ function cleanStringArray(value: unknown): string[] {
   if (Array.isArray(value)) return value.map(cleanString).filter((item): item is string => Boolean(item))
   if (typeof value === 'string') return value.split(/[\n,]+/).map((item) => item.trim()).filter(Boolean)
   return []
+}
+
+function isDefined<T>(value: T | undefined): value is T {
+  return value !== undefined
 }
 
 function isPlainObject(value: unknown): value is RawInput {
@@ -482,6 +488,27 @@ function clientSafeGateCheck(check?: YouTubeGateCheck): ClientSafeYouTubeGateChe
   })
 }
 
+function clientSafePacketTitleOption(option: unknown): ClientSafePacketTitleOption | undefined {
+  const source = cleanObject(option)
+  const text = cleanString(source.text)
+  if (!text) return undefined
+
+  return stripUndefinedDeep({
+    text,
+    rationale: cleanString(source.rationale),
+    selected: cleanBoolean(source.selected),
+  })
+}
+
+function clientSafePacketChapter(chapter: unknown): ClientSafePacketChapter | undefined {
+  const source = cleanObject(chapter)
+  const startSeconds = cleanNumber(source.startSeconds)
+  const title = cleanString(source.title)
+  if (startSeconds === undefined || !title) return undefined
+
+  return { startSeconds, title }
+}
+
 export function clientSafeYouTubePublishingPacket(
   packet: YouTubePublishingPacket
 ): ClientSafeYouTubePublishingPacket {
@@ -492,10 +519,14 @@ export function clientSafeYouTubePublishingPacket(
     videoProjectId: packet.videoProjectId,
     versionNumber: packet.versionNumber,
     status: packet.status,
-    titleOptions: Array.isArray(packet.titleOptions) ? packet.titleOptions : [],
+    titleOptions: Array.isArray(packet.titleOptions)
+      ? packet.titleOptions.map(clientSafePacketTitleOption).filter(isDefined)
+      : [],
     description: packet.description,
     tags: Array.isArray(packet.tags) ? packet.tags : [],
-    chapters: Array.isArray(packet.chapters) ? packet.chapters : [],
+    chapters: Array.isArray(packet.chapters)
+      ? packet.chapters.map(clientSafePacketChapter).filter(isDefined)
+      : [],
     visibility: packet.visibility,
     selfDeclaredMadeForKids: packet.selfDeclaredMadeForKids,
     containsSyntheticMedia: packet.containsSyntheticMedia,
