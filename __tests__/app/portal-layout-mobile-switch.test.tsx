@@ -206,6 +206,20 @@ describe('PortalLayout mobile role switch', () => {
     })
   })
 
+  it('keeps Mobile Apps visible when the active organisation enables the module', async () => {
+    mockPortalModules = { mobileApps: true }
+
+    render(
+      <PortalLayout>
+        <div>Portal content</div>
+      </PortalLayout>,
+    )
+
+    await waitFor(() => {
+      expect(screen.getAllByRole('link', { name: /Mobile Apps/ }).length).toBeGreaterThan(0)
+    })
+  })
+
   it('keeps YouTube Studio visible when no portal module setting is stored', async () => {
     render(
       <PortalLayout>
