@@ -301,6 +301,7 @@ async function createLinkedProjectTask(args: {
   const existingContext = isPlainRecord(existingAgentInput.context) ? existingAgentInput.context : {}
   const payload = {
     ...taskInput,
+    ...linkage,
     title,
     description,
     priority: cleanString(fieldFrom(taskInput, 'priority')) || cleanString(args.body.priority) || 'medium',
@@ -316,7 +317,6 @@ async function createLinkedProjectTask(args: {
     expectedArtifacts: cleanStringList(fieldFrom(taskInput, 'expectedArtifacts')).length
       ? cleanStringList(fieldFrom(taskInput, 'expectedArtifacts'))
       : (Array.isArray(linkage.expectedArtifacts) ? linkage.expectedArtifacts : ['geo_record_update', 'evidence_link', 'completion_note']),
-    ...linkage,
     ...(args.linkedSeoTaskId ? { linkedSeoTaskId: args.linkedSeoTaskId, seoTaskId: args.linkedSeoTaskId } : {}),
     agentInput: {
       ...existingAgentInput,
