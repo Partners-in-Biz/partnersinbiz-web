@@ -116,6 +116,31 @@ Channel adapter records should separate:
 
 This prevents false simplicity. A "book" is not one record with one price and one status; it is a product family with editions, files, listings, and financial ledgers that can disagree across channels.
 
+### Policy Source Register And Refresh Cadence
+
+Book Studio should treat policy links as operational dependencies. A gate that depends on KDP, Google, copyright, advertising, or review rules should carry a source key, last-checked date, and stale-source warning. This register was refreshed on 2026-06-08 from official sources and should be rechecked before implementation planning, before enabling a new channel, and before marking any real publishing packet upload-ready.
+
+| Source key | Official source | Drives these gates | Refresh cadence | If stale or changed |
+| --- | --- | --- | --- | --- |
+| `kdp_content_ai_ip` | [KDP Content Guidelines](https://kdp.amazon.com/en_US/help/topic/G200672390) | AI-generated-vs-assisted disclosure, illegal/infringing content, companion/summary risk, public-domain differentiation, poor customer experience. | Monthly while active; always before KDP packet approval. | Block KDP upload approval until Quinn or the release reviewer confirms the affected gates. |
+| `kdp_quality_reader_experience` | [KDP Guide to Kindle Content Quality](https://kdp.amazon.com/en_US/help/topic/G200952510) | Metadata/content mismatch, broken links/TOC, missing/wrong content, poor formatting, accessibility/readability, Kindle-unsuitable activity formats. | Monthly while active; always before file package preview approval. | Reopen quality gates and require new preview/proof evidence where affected. |
+| `kdp_metadata_categories_keywords` | [KDP Metadata Guidelines](https://kdp.amazon.com/en_US/help/topic/G201097560) | Title/subtitle/author/series consistency, categories, keywords, misleading metadata, public listing copy. | Monthly while active; before final metadata approval. | Re-run metadata review and invalidate public-listing approval if rules changed. |
+| `kdp_reports_promotions_ads` | [KDP Reports](https://kdp.amazon.com/en_US/help/topic/GKEPUW32CTE6LFDA), [KDP Promote Your Book](https://kdp.amazon.com/en_US/help/topic/G201723090), [KDP Advertising](https://kdp.amazon.com/en_US/help/topic/G201499010) | Estimated vs reported vs settled analytics, launch activities, Amazon Ads attribution limits, promotion planning. | Monthly during launch/reporting; before paid launch approval. | Mark analytics confidence stale and require launch-plan or report-parser review. |
+| `google_sell_content_policy` | [How to sell books on Google Play](https://support.google.com/books/partner/answer/1079107), [Google Play Books Content Policies](https://support.google.com/books/partner/answer/1067634?hl=en) | Google account/content authorization, poor-quality or misleading files, policy review, channel eligibility. | Monthly while active; always before Google packet approval. | Block Google upload approval and re-run content-policy readiness. |
+| `google_files_metadata_series` | [Google book file guidelines](https://support.google.com/books/partner/answer/3424254?hl=en), [Google book metadata](https://support.google.com/books/partner/answer/3237055?hl=en), [Google series metadata](https://support.google.com/books/partner/answer/11069638?hl=en) | EPUB/PDF package requirements, cover/file validation, identifiers, metadata, series naming, volume order. | Monthly while active; always before Google file/package approval. | Invalidate affected package or series approval until the package is rechecked. |
+| `google_reports_finance` | [Google Play Books report overview](https://support.google.com/books/partner/answer/9266485?hl=en) | Earnings, sales summary, transaction reports, preview traffic, refund rows, currency conversion, confidence labels. | Monthly during reporting; before analytics parser changes. | Preserve imports but mark derived snapshots stale until report mapping is reviewed. |
+| `epub_validation_accessibility` | [W3C EPUBCheck](https://w3c.github.io/epubcheck/docs/), [EPUB Accessibility 1.1](https://www.w3.org/TR/epub-a11y-11/) | EPUB conformance, accessibility metadata, evaluation evidence, re-evaluation after publication changes. | Quarterly; before enabling automated EPUB export. | Treat automated EPUB validation as unavailable until validator version and reports are updated. |
+| `copyright_ai_human_authorship` | [U.S. Copyright Office AI registration guidance](https://www.copyright.gov/ai/ai_policy_guidance.pdf) | Human-authored contribution, excluded AI-generated material, copyright-registration posture, provenance summaries. | Quarterly; before copyright-registration-ready state. | Block copyright-registration-ready labels and require rights/provenance review. |
+| `review_compliance_ftc_amazon` | [FTC fake reviews rule](https://www.ftc.gov/news-events/news/press-releases/2024/08/federal-trade-commission-announces-final-rule-banning-fake-reviews-testimonials), [Amazon customer review update](https://www.aboutamazon.com/news/innovation-at-amazon/update-on-customer-reviews) | Review requests, ARC/free-copy outreach, third-party promotion, insider reviews, compensation/disclosure risk. | Monthly during launch planning; before any review outreach. | Block review outreach and third-party promotion until review-compliance copy is reapproved. |
+
+Operational rules:
+
+- Source keys should be stored on quality gates, readiness reports, launch plans, and Hermes output artifacts where the recommendation depends on a policy.
+- A source check is not a legal opinion. It records the operational rule that Book Studio used when creating a gate, blocker, waiver, or readiness recommendation.
+- If a source changes, affected gates become `needs_recheck` or `blocked` rather than silently remaining approved.
+- Readiness helpers should report source freshness alongside blocker status, especially for KDP/Google upload approval, review outreach, paid launch approval, and copyright-registration-ready labels.
+- Hermes skills may summarize source-backed requirements, but they must include source keys and should not present a policy conclusion as permanent.
+
 ## Recommended Product Position
 
 Recommended V1: **Internal PiB Book Studio with optional client review**.
