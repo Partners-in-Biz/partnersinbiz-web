@@ -24,6 +24,9 @@ export const dynamic = 'force-dynamic'
 
 type PlainRecord = Record<string, unknown>
 type ClientDecision = 'approved' | 'changes_requested' | 'rejected'
+type PortalChannelResult =
+  | { channel: YouTubeChannelWorkspace & { id: string } }
+  | { error: Response }
 
 function cleanString(value: unknown): string | undefined {
   return typeof value === 'string' && value.trim() ? value.trim() : undefined
@@ -75,7 +78,7 @@ function isClientDecisionOpen(video: YouTubeVideoProject): boolean {
   )
 }
 
-async function loadPortalVisibleChannel(channelWorkspaceId: string, orgId: string) {
+async function loadPortalVisibleChannel(channelWorkspaceId: string, orgId: string): Promise<PortalChannelResult> {
   const channelDoc = await adminDb.collection(YOUTUBE_COLLECTIONS.channels).doc(channelWorkspaceId).get()
   if (!channelDoc.exists) return { error: apiError('YouTube channel workspace not found', 404) }
 
@@ -137,7 +140,7 @@ export const GET = withPortalAuthAndRole('viewer', async (_req: NextRequest, _ui
   return apiSuccess({ channels, series, videos, packets })
 })
 
-export const POST = withPortalAuthAndRole('member', async (req: NextRequest, uid, orgId) => {
+async function handlePortalYouTubeStudioPost(req: NextRequest, uid: string, orgId: string): Promise<Response> {
   const disabled = await youtubeStudioModuleGuard(orgId)
   if (disabled) return disabled
 
@@ -177,9 +180,12 @@ export const POST = withPortalAuthAndRole('member', async (req: NextRequest, uid
     updatedAt: FieldValue.serverTimestamp(),
   })
   const ref = await adminDb.collection(YOUTUBE_COLLECTIONS.videos).add(write)
+  if (!ref?.id) return apiError('Could not create video request', 500)
 
   return apiSuccess({ id: ref.id }, 201)
-})
+}
+
+export const POST = withPortalAuthAndRole('member', handlePortalYouTubeStudioPost)
 
 export const PUT = withPortalAuthAndRole('member', async (req: NextRequest, uid, orgId) => {
   const disabled = await youtubeStudioModuleGuard(orgId)
