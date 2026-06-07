@@ -630,6 +630,8 @@ V1 should track manual publishing with export packages:
 - KDP print setup.
 - Google Play Books setup.
 - Future channel slots for Apple/Kobo/D2D/IngramSpark.
+- Publishing account profile and operating authority.
+- Account identity, tax, payment, access, report, and territory readiness.
 - ISBN decision.
 - Imprint.
 - Rights territory.
@@ -661,6 +663,7 @@ Core packet sections:
 - **Rights and disclosure:** rights owner, territories, public-domain/companion-work status, copyrighted-source dependencies, AI-generated-vs-assisted disclosure, translation disclosure, image rights, and approval evidence.
 - **File package:** manuscript/interior artifact, cover artifact, EPUB/PDF/audio variant, validation/previewer result, file checksum, export version, and upload-ready filename.
 - **Commercial setup:** channel, format, royalty model, list price, currency, KDP Select or exclusivity state, DRM/copy-print choice where supported, pre-order or release date, and payment/reporting notes.
+- **Account readiness:** selected account profile, legal publisher/imprint owner, access model, identity/tax/payment/report/territory readiness, service-provider consent when relevant, and account-level blockers.
 - **Manual upload evidence:** operator, upload timestamp, external account, screenshots or notes, external IDs, product URL, review state, blocker reason, and next action.
 - **Approval state:** internal reviewer, client-visible reviewer if any, approval task ID, waiver IDs, and final release decision.
 
@@ -678,6 +681,7 @@ KDP hard blockers:
 - Categories or keywords are irrelevant, misleading, competitor-author-driven, promotional, or policy-sensitive.
 - Print Previewer or Online Previewer has unresolved quality issues that affect customer experience.
 - Public-domain, companion, low-content, children's, mature-content, or rights-sensitive flags do not have review evidence.
+- KDP account readiness is missing, tax/identity/payment setup is incomplete, upload authority is undocumented, or the workflow depends on shared credentials.
 
 KDP design sources: [Create a Book](https://kdp.amazon.com/help?topicId=G202172740), [Upload Book Resources](https://kdp.amazon.com/en_US/help/topic/G202175860), [Upload and Preview Book Content](https://kdp.amazon.com/en_US/help/topic/G200641240/), [Metadata Guidelines](https://kdp.amazon.com/help?topicId=G201953870), and [Content Guidelines](https://kdp.amazon.com/en_US/help/topic/G200672390).
 
@@ -686,6 +690,7 @@ Google Play Books packet fields:
 - **Book metadata:** ISBN or Google identifier, title, contributors, language, genre, description, publisher/imprint, release date, series name, series relationship, and volume number.
 - **Files:** EPUB artifact, PDF artifact, cover artifact, EpubCheck result for EPUB, PDF password/bookmark check, file size check, filename convention state for bulk/identifier-based upload, and full-book-not-sample confirmation.
 - **Sales settings:** countries/territories, price/currency, DRM/copy-print choices, preview settings, pre-order/release behavior, payment profile, and tax/payment readiness.
+- **Account setup:** Partner Center access model, user/access type or service-provider consent, payment/report access, collection code where applicable, and payment-profile linkage.
 - **Series:** series name exact-match check, capitalization/punctuation check, whole-number volume check, no skipped/repeated numbers for ordered series, book type, and special type label such as box set, bundle, omnibus, or special edition when applicable.
 - **Reporting setup:** expected report type, identifier mapping, earnings report timing, transaction report timing, preview traffic report mapping, and unmatched-row reconciliation rules.
 
@@ -696,6 +701,7 @@ Google hard blockers:
 - Identifier mismatch between the book record and file naming where identifier-based upload is used.
 - Series name, punctuation, capitalization, or volume numbers are inconsistent across books.
 - Sales territories, payment profile, or pricing are incomplete.
+- Partner Center access, service-provider consent, payment/report access, or account/collection-code mapping is missing where PiB is expected to operate or reconcile reports.
 - Report identifiers cannot be mapped back to `bookProjectId`, `editionId`, and `channelListingId`.
 
 Google design sources: [How to sell books on Google Play](https://support.google.com/books/partner/answer/1079107), [Book metadata and information](https://support.google.com/books/partner/answer/3237055), [Book file guidelines](https://support.google.com/books/partner/answer/3424254), [Get started with series](https://support.google.com/books/partner/answer/11069638), and [Report overview](https://support.google.com/books/partner/answer/9266485).
@@ -951,6 +957,44 @@ Portal access should be module-gated like Mobile Apps:
 - Clients can comment, approve, request changes, or accept publishing packets depending on permissions.
 - Clients should not directly trigger publishing, paid ads, or public release without approval gates.
 
+### 13. Publisher Account, Access, And Operating Authority
+
+Book Studio needs an account-governance layer before any upload-ready package can be treated as operationally ready. The publishing account is not just a login. It controls legal identity, payment destination, tax posture, territories, reports, account-level permissions, and who can make irreversible public changes.
+
+Current source-backed constraints:
+
+- KDP account setup requires author/publisher information, payment information, tax information, and sometimes identity verification. KDP warns not to enter a pen name in account details because payments and tax forms use the legal account name. Source: [KDP account setup](https://kdp.amazon.com/en_US/help/topic/G202187760) and [Create a KDP Account](https://kdp.amazon.com/en_US/help/topic/G200620010).
+- KDP account management stores personal, tax, and financial information in the account. Amazon says tax identity must be received and validated before updating or publishing books in the Kindle store, and KDP does not recommend multiple people sharing the same login credentials. Source: [Manage Your KDP Account](https://kdp.amazon.com/en_US/help/topic/G200634350).
+- KDP may require identity verification during setup or later; publishing features can be restricted until verification is completed. Source: [Verify your identity](https://kdp.amazon.com/en_US/help/topic/GH7TYHP6FR9QAUM9).
+- KDP explicitly says it will not ask for Amazon passwords or full bank details outside Amazon/KDP/Author Central, and recommends two-step verification and strong unique passwords. Source: [KDP account security and avoiding scams](https://kdp.amazon.com/en_US/help/topic/GWAJ6TKCFEA6D8SL).
+- Google Play Books Partner Center supports additional users with separate credentials and access types for Book Catalog, Analytics and Reports, Payment Center, and Administrative Access. Payment Center access includes bank account information and earnings reports, which are the report type to use for financial reconciliation. Source: [Manage additional Partner Center users](https://support.google.com/books/partner/answer/3157480?hl=en).
+- Google supports Client Service Provider workflows. Service providers can access client accounts, need Publisher Consent Form approval for payments and reports, and client collection codes identify books for a client or imprint. Source: [Google Play Books service providers](https://support.google.com/books/partner/answer/3323299?hl=en).
+- Google sales territories must be linked to payment profiles, cannot overlap except for `WORLD` exclusions, should exclude countries where the publisher lacks rights, and require both an active territory and price for the book to sell. Source: [Google sales territories](https://support.google.com/books/partner/answer/3157463?hl=en).
+
+PiB design implication: Book Studio should record account readiness and operating authority, but it should not store passwords, bank account numbers, tax IDs, full identity documents, or raw payment credentials. Sensitive account setup stays inside KDP, Google Partner Center, or the client's secure systems. PiB stores status, owner, access model, evidence artifacts, expiry/recheck dates, and approval tasks.
+
+Account operating models:
+
+| Model | Use when | PiB behavior |
+| --- | --- | --- |
+| `client_owned_manual_handoff` | Client owns the KDP/Google account and does not grant PiB direct access. | PiB prepares files/metadata/instructions; client uploads or screenshares; PiB records evidence and status only after client confirmation. |
+| `client_owned_pib_assisted` | Client owns the account but invites PiB users where the platform supports it. | Google can use user/access-type or service-provider patterns; KDP should avoid shared credentials and may require live client participation for 2FA/account steps. |
+| `pib_owned_imprint` | PiB publishes under a PiB-owned imprint or account by explicit commercial agreement. | Requires legal/commercial approval, rights assignment or license evidence, payment/revenue-share model, imprint disclosure, and stronger internal approval gates. |
+| `aggregator_or_provider` | A distributor/service-provider account routes work to downstream stores. | Store provider name, client collection/imprint code, downstream channel map, report access state, and duplicate-distribution conflicts. |
+
+Account readiness gates:
+
+- **Identity and legal owner:** account owner, legal publisher name, imprint/pen-name separation, authorized representative, and whether identity verification is complete or pending.
+- **Payment and tax:** payment profile/bank setup status, tax profile status, report access status, payment profile/territory linkage, and evidence that the client or authorized owner completed sensitive setup outside PiB.
+- **Access and security:** access model, named PiB operators, two-step/credential constraints, Google access types, service-provider consent, and no shared-password storage.
+- **Territory and rights alignment:** channel sales territories, country exclusions, fixed-price-law flags, rights territory map, and payment profile linkage.
+- **Report access:** whether PiB can download KDP/Google reports, whether earnings reports are available for reconciliation, and who must supply missing reports.
+- **Account-level blockers:** unverified identity, incomplete tax profile, missing payment profile, missing Google territory, no report access, duplicate account conflicts, platform review holds, or client has not granted operating authority.
+
+Channel listings, publishing packets, and file packages should reference an account profile. `approved_for_upload` is blocked when the selected channel account profile is missing, stale, has unresolved account-level blockers, or lacks the operating authority needed for the planned upload. For KDP especially, PiB should assume the operator may need the client/account owner present for account-sensitive steps unless there is a documented, permitted access method.
+
+Devil's advocate: the easiest operational shortcut is to ask a client for a KDP password or to publish under whichever account is convenient. That creates security, tax, payment, rights, and ownership risk. Book Studio should make this friction visible early: a strong book is not publishable if the account owner, tax profile, payment profile, territories, and upload authority are unresolved.
+
 ## Proposed Data Model
 
 Names are draft interface names for discussion.
@@ -975,6 +1019,11 @@ type BookProjectStatus =
 type BookFormat = 'ebook' | 'paperback' | 'hardcover' | 'audiobook'
 type BookLayoutMode = 'reflowable' | 'fixed_layout' | 'print_pdf'
 type BookChannel = 'kdp' | 'google_play_books' | 'apple_books' | 'kobo' | 'draft2digital' | 'ingramspark' | 'direct'
+type BookPublishingAccountModel =
+  | 'client_owned_manual_handoff'
+  | 'client_owned_pib_assisted'
+  | 'pib_owned_imprint'
+  | 'aggregator_or_provider'
 type BookTypeFamily =
   | 'narrative'
   | 'children_early_reader'
@@ -1032,6 +1081,7 @@ interface BookProject {
     workspaceArtifactIds: string[]
     taskIds: string[]
     approvalGateTaskIds: string[]
+    publishingAccountProfileIds: string[]
     projectId?: string
     campaignId?: string
     companyId?: string
@@ -1061,6 +1111,62 @@ interface BookProject {
 ```
 
 ```ts
+interface BookPublishingAccountProfile {
+  id: string
+  orgId: string
+  channel: BookChannel
+  accountModel: BookPublishingAccountModel
+  accountOwner: {
+    ownerType: 'client' | 'pib' | 'aggregator' | 'other'
+    displayName: string
+    legalPublisherName?: string
+    imprintName?: string
+    authorizedRepresentative?: string
+  }
+  externalAccount: {
+    accountLabel: string
+    externalAccountId?: string
+    googleCollectionCode?: string
+    providerName?: string
+    notes?: string
+  }
+  access: {
+    status: 'not_started' | 'requested' | 'granted' | 'client_required' | 'revoked' | 'blocked'
+    method:
+      | 'manual_client_upload'
+      | 'screen_share'
+      | 'named_user_access'
+      | 'google_service_provider'
+      | 'pib_owned_login'
+      | 'aggregator_dashboard'
+    pibOperatorUserIds: string[]
+    requiredClientPresence: boolean
+    sensitiveCredentialStored: false
+    consentDocumentIds: string[]
+    approvalTaskIds: string[]
+  }
+  readiness: {
+    identityVerification: 'unknown' | 'not_required' | 'pending' | 'complete' | 'blocked'
+    taxProfile: 'unknown' | 'not_required' | 'pending' | 'complete' | 'blocked'
+    paymentProfile: 'unknown' | 'pending' | 'complete' | 'blocked'
+    reportAccess: 'none' | 'catalog_only' | 'analytics' | 'earnings' | 'full'
+    territoryProfile: 'not_applicable' | 'missing' | 'partial' | 'complete' | 'blocked'
+    lastVerifiedAt?: string
+    recheckDueAt?: string
+    evidenceArtifactIds: string[]
+  }
+  blockers: Array<{
+    title: string
+    severity: 'warning' | 'blocker'
+    source: 'identity' | 'tax' | 'payment' | 'access' | 'territory' | 'rights' | 'reports' | 'security'
+    ownerId?: string
+    nextAction: string
+    clientVisible: boolean
+  }>
+}
+```
+
+```ts
 interface BookProvenanceEvent {
   id: string
   orgId: string
@@ -1076,6 +1182,7 @@ interface BookProvenanceEvent {
     | 'waiver_recorded'
     | 'export_created'
     | 'validation_recorded'
+    | 'account_readiness_recorded'
     | 'manual_upload_recorded'
     | 'report_imported'
   actor: {
@@ -1236,6 +1343,7 @@ interface BookFilePackage {
   previewEvidence: BookPackagePreviewEvidence[]
   uploadInstructions: {
     channel: BookChannel
+    publishingAccountProfileId?: string
     accountContext?: string
     steps: Array<{ order: number; action: string; fileRole?: BookFileRole; notes?: string }>
     expectedExternalFields: string[]
@@ -1402,6 +1510,7 @@ interface BookChannelListing {
   bookProjectId: string
   channel: BookChannel
   format: BookFormat
+  publishingAccountProfileId?: string
   status: 'not_started' | 'metadata_ready' | 'files_ready' | 'uploaded' | 'in_review' | 'live' | 'blocked' | 'unpublished'
   identifiers: {
     isbn?: string
@@ -1509,6 +1618,7 @@ The module will need new skills, not one giant "book" skill.
 - `book-google-play-readiness-check`: Google metadata, series, files, price, report setup.
 - `book-export-packager`: generate or assemble EPUB/PDF/cover/metadata packets.
 - `book-file-package-validator`: run manifest, EPUB/PDF/audio, preview-evidence, and checksum-bound package checks.
+- `book-publishing-account-readiness`: check KDP/Google account ownership, access, identity/tax/payment/report/territory readiness, and operating authority.
 - `book-publishing-ops`: maintain channel status and manual upload steps.
 - `book-analytics-import`: parse CSV/report exports and separate estimated/reported/settled metrics.
 - `book-launch-campaign`: connect book launch to PiB social/email/ads/landing pages.
@@ -1550,6 +1660,7 @@ Draft skill contracts:
 | `book-google-play-readiness-check` | Quinn | Google listing packet, PDF/EPUB files, metadata, identifiers, series details, pricing. | Google Play readiness report and Partner Center checklist. | Must check identifier/series consistency and file package readiness before upload. |
 | `book-export-packager` | Theo + Quinn | Approved manuscript/assets, layout plan, metadata packet, validation requirements. | Export packet manifest with files, checksums, validation results, and manual-upload instructions. | Produces artifacts only; public publishing remains a separate approval-gated action. |
 | `book-file-package-validator` | Quinn + Theo | Export package manifest, files, source versions, channel listing, preview/proof evidence. | Package validation report with pass/warn/block results, checksum-bound approval recommendation, and required re-export actions. | Must block upload approval when required files, checksums, rights snapshot, EPUBCheck/PDF/audio checks, or preview evidence are missing. |
+| `book-publishing-account-readiness` | Quinn + Pip | Publishing account profile, channel listing, consent documents, account-readiness evidence, territory/pricing plan. | Account readiness report with pass/warn/block state, missing authority checklist, and recheck date. | Must not request, store, or transmit passwords, tax IDs, bank details, or identity documents; blocks upload approval when account authority or readiness is missing. |
 | `book-publishing-ops` | Pip + Quinn | Approved publishing packet, channel listing IDs, approval task, manual upload state. | Channel status updates, external IDs, blocker tasks, and post-upload review notes. | Requires approval task for public submission; no silent store upload. |
 | `book-analytics-import` | Vera | Channel reports, ad reports, UTM/landing data, book/series IDs, reporting period. | Analytics import with estimated/reported/settled separation and reconciliation notes. | Must preserve source report, import timestamp, currency, refunds/returns, and confidence. |
 | `book-launch-campaign` | Maya + Ari + Vera | Approved book packet, launch window, channels, budget approval state, audience, tracking plan. | Launch campaign brief, social/email/ad tasks, landing-page/link plan, and measurement plan. | Drafts are allowed; paid spend and public/client-visible sends require approval gates. |
@@ -1568,6 +1679,7 @@ interface BookStudioAgentContext {
   bookSeriesId?: string
   editionId?: string
   channelListingId?: string
+  publishingAccountProfileId?: string
   bookTypeFamily: BookTypeFamily
   productionGateProfile: string
   sourceResearchItemId?: string
@@ -1622,10 +1734,12 @@ Implementation should not try to install all skills at once. The first wave shou
 | Wave | Skills | Why first |
 | --- | --- | --- |
 | 1. Foundation research and brief | `book-niche-research`, `book-series-strategy`, `book-brief-builder`, `book-outline-builder` | Creates the evidence and planning loop before manuscript or publishing work starts. |
-| 2. Safety and release checks | `book-asset-rights-auditor`, `book-metadata-optimizer`, `book-kdp-readiness-check`, `book-google-play-readiness-check` | Prevents policy/rights mistakes before anything reaches a client or store. |
+| 2. Safety and release checks | `book-asset-rights-auditor`, `book-metadata-optimizer`, `book-kdp-readiness-check`, `book-google-play-readiness-check`, `book-publishing-account-readiness` | Prevents policy/rights/account-authority mistakes before anything reaches a client or store. |
 | 3. Production drafting | `book-draft-writer`, `book-developmental-editor`, `book-copyeditor`, `book-proofreader`, `book-reading-level-review`, `book-fact-checker` | Useful only after the brief and gate model are stable. |
 | 4. Visual and package work | `book-cover-brief`, `book-illustration-director`, `book-layout-designer`, `book-export-packager`, `book-file-package-validator` | Depends on approved book direction, rights rules, and file-package conventions. |
 | 5. Launch and analytics | `book-publishing-ops`, `book-analytics-import`, `book-launch-campaign` | Depends on channel listing state, packet fields, and import ledger behavior. |
+
+`book-publishing-account-readiness` should run with Wave 2 for any project that expects PiB to help upload or reconcile reports, because unresolved account authority can block a launch even when metadata and files are ready.
 
 Wave 1 and Wave 2 are the right targets for a first Hermes skill rollout because they reduce strategic and policy risk before the module generates a large amount of manuscript or visual work.
 
@@ -1640,6 +1754,7 @@ Wave 1 and Wave 2 are the right targets for a first Hermes skill rollout because
 | Draft manuscript section | Yes | Review/comment only when exposed | Draft only, never final approval |
 | Create cover/illustration direction | Yes | Review/comment only when exposed | Draft only with provenance requirements |
 | Approve rights/AI disclosure/ISBN/imprint | Yes | Can confirm facts where requested | No final approval |
+| Approve publishing account authority | Yes | Can grant/confirm client-owned access where requested | Readiness check only; no secret handling |
 | Approve publishing packet | Yes | Can approve client-facing facts/scope | No |
 | Upload/publish to KDP/Google | Manual operator action in V1 | No | No direct public publishing |
 | Change paid launch spend | Yes with approval | No | No direct spend |
@@ -1657,6 +1772,7 @@ These actions should require explicit approval tasks:
 - Client-visible publication package.
 - AI-generated content disclosure decision.
 - ISBN/imprint decision.
+- Publishing account owner, service-provider consent, report/payment access, or PiB-owned-imprint operating model.
 - Copyright-sensitive derivative/companion book decisions.
 - Final metadata if it can affect public listing or policy compliance.
 
@@ -1677,6 +1793,7 @@ Mitigation: position V1 as a controlled production workflow with quality gates, 
 - Covers or art too close to known books/brands can create policy and IP risk.
 - Companion books, summaries, study guides, or public-domain derivatives can trigger policy scrutiny.
 - Author/imprint/ISBN ownership decisions have long-term consequences.
+- Publishing under the wrong account, legal name, imprint, tax profile, or payment profile can create ownership and revenue disputes even if the book itself is valid.
 
 Mitigation: store provenance, disclosure state, source links, and required human approvals.
 
@@ -1686,6 +1803,7 @@ Mitigation: store provenance, disclosure state, source links, and required human
 - Google Play Books supports bulk workflows but still expects Partner Center setup and policy compliance.
 - Store analytics are delayed and can disagree with ads reports.
 - KDP Select exclusivity conflicts with selling the ebook elsewhere.
+- KDP account setup, identity verification, tax validation, two-step verification, and no-shared-credential constraints can block upload timing; Google Partner Center access and service-provider consent can block report reconciliation.
 
 Mitigation: build channel adapters and manual checklist/export flows first; API automation only for sanctioned reporting/ads surfaces.
 
@@ -1727,6 +1845,7 @@ Mitigation: require a pricing plan, cost estimate, margin confidence label, and 
 - Research linkages.
 - Client document generation for book brief and publishing packet.
 - Portal module toggle, but portal may show read/review only.
+- Publishing account profile readiness for KDP/Google before upload approval.
 - Hermes skills for research, brief, outline, metadata, readiness check.
 
 ### Phase 2: Manuscript And Series Production
@@ -1773,8 +1892,9 @@ Build the first approved spec around:
 6. Hermes skill set for research, outline, metadata, and readiness.
 7. Client document approval for brief and publishing packet.
 8. Export package manifest and validation tracker for source archives, KDP/Google files, checksums, preview evidence, and upload instructions.
-9. KDP/Google export checklist and channel listing tracker.
-10. Analytics import model, initially manual CSV/report ingestion.
+9. Publisher account governance for KDP/Google ownership, access, tax/payment/profile readiness, report access, and operating authority.
+10. KDP/Google export checklist and channel listing tracker.
+11. Analytics import model, initially manual CSV/report ingestion.
 
 Do not include in the first implementation:
 
@@ -1799,6 +1919,7 @@ This is not yet an implementation plan. It is the smallest coherent foundation t
 | Hermes task contracts | Store Hermes-ready task metadata for research, brief, outline, metadata, and readiness work without granting direct publish powers. | Agent output must be bounded, reviewable, and attributable. | Created tasks include book context, expected artifacts, reviewer, risk level, and approval-gate linkage. |
 | Rights, provenance, and version ledger | Add provenance events, version manifests, rights reviews, and asset-rights metadata linked to documents, tasks, and artifacts. | AI disclosure, copyright registration, public-domain/companion claims, asset licensing, and client disputes require evidence before upload, not after a problem appears. | Each reviewable or exportable version has source links, AI usage classification, contributors, checksums where relevant, rights state, and a release-gate decision. |
 | Export package manifest | Add file package records for source archives, KDP ebook/print, Google ebook, audiobook, and metadata-only packets with files, checksums, validations, preview evidence, source versions, rights snapshots, and upload instructions. | Store-ready work is not proven by manuscript approval. The module needs a repeatable way to prove which exact files were validated, previewed, approved, uploaded, and later superseded. | A channel listing can reference candidate packages, and only a package with required files, validation results, preview evidence, provenance, and checksum-bound approval can become the approved upload package. |
+| Publishing account governance | Add channel account profile records for KDP/Google ownership, access method, legal publisher/imprint, tax/payment/report readiness, Google service-provider consent, territories, blockers, and evidence artifacts without storing secrets. | Upload-ready files are still not publishable if account identity, tax, payment, territory, report access, or operating authority is unresolved. | A channel listing references an account profile, and upload approval is blocked when the profile is missing, stale, credential-sharing-dependent, or has unresolved account blockers. |
 | Publishing packet and channel tracker | Add KDP/Google channel listing records, readiness state, blocker notes, metadata fields, file checklist, AI disclosure, ISBN/imprint decision, pricing summary, and manual external status. | KDP/Google setup is currently a manual operator action; PiB should prepare and track it, not pretend it can safely auto-publish. | A project can produce a channel-specific readiness packet and record uploaded/in review/live/blocked status with evidence. |
 | Commercial pricing ledger | Add price-plan, cost-estimate, margin-confidence, and approval fields to channel listings before reports are imported. | KDP/Google economics vary by royalty option, print cost, delivery cost, territory, exclusivity, refunds, payment profile, and currency conversion. | Admin can record a KDP/Google price plan, attach calculator/Partner Center evidence, see estimated margin/cost recovery, and require reviewer approval or a waiver before launch. |
 | Portal review surface | Add client-safe portal read/review routes only when the module is enabled and selected records are approved for portal visibility. | Clients need review and approval, not internal risk notes or raw research assumptions. | Portal users see only approved briefs, proofs, publishing packets, comments, and approval/change-request actions. |
@@ -1812,13 +1933,16 @@ This is not yet an implementation plan. It is the smallest coherent foundation t
 - The project detail can link Research, create or attach a Book Brief document, link a Project/Kanban workspace, and show linked artifacts without duplicating those systems.
 - Manuscript/proof/export versions can store provenance manifests with source document/artifact/task links, contributor roles, AI usage classification, rights review IDs, and checksums where files are involved.
 - Export file packages can store package type, state, source versions, source artifacts, file roles, filenames, MIME types, sizes, SHA-256 checksums, validation results, preview/proof evidence, rights/disclosure snapshots, upload instructions, blockers, and checksum-bound approval state.
+- Publishing account profiles can store channel, owner, legal publisher/imprint, access method, PiB operator IDs, consent evidence, identity/tax/payment/report/territory readiness, recheck dates, and account-level blockers without storing passwords, tax IDs, bank account numbers, or identity documents.
 - Rights reviews can block or approve AI disclosure, copyright-registration posture, public-domain/companion claims, quote permissions, asset/font/audio licenses, territory rights, and Google DRM/printing settings.
 - Hermes task preparation is possible for research, brief, outline, metadata, and readiness checks, but the tasks do not publish, submit, or spend money.
 - A KDP readiness packet explicitly captures metadata, categories/keywords, file checklist, AI-generated-vs-assisted disclosure, ISBN/imprint choice, rights confirmation, content-risk notes, provenance/version evidence, pricing, and manual upload status.
 - A Google Play readiness packet explicitly captures EPUB/PDF readiness, cover file, metadata, series naming/volume consistency, rights/territories, pricing, DRM/copy-print choices, provenance/version evidence, and manual Partner Center status.
 - KDP and Google channel listings can store price plans, royalty/revenue-share assumptions, cost estimates, KDP Select exclusivity state, calculator/effective-price evidence, margin confidence, and approval/waiver state.
+- KDP and Google channel listings reference a publishing account profile before upload approval; unresolved account blockers prevent `approved_for_upload`.
 - A project cannot mark a channel listing `approved_for_upload` unless the selected upload package is in `approved_for_upload` state and all included file checksums match the package approval task.
 - A project cannot mark a publishing packet `approved_for_upload` while its selected channel listing has an unreviewed price plan, an unresolved KDP Select/wide-distribution conflict, or a negative per-unit margin without a waiver.
+- A project cannot mark a publishing packet `approved_for_upload` while its selected publishing account profile has incomplete identity, tax, payment, access, report, or territory readiness required for that channel.
 - Portal reviewers can comment, approve, or request changes on approved client-visible packets while internal research, unresolved rights blockers, and draft risk notes remain hidden.
 - Analytics imports are source-labeled and confidence-labeled; estimated dashboard data, reported sales/read data, settled payment data, and ad attribution data are not merged into one ambiguous metric.
 
@@ -1831,6 +1955,7 @@ This is not yet an implementation plan. It is the smallest coherent foundation t
 - Gate-profile tests for each book type family.
 - Publishing packet tests for KDP and Google required fields and blocker behavior.
 - File package gate tests that block upload approval when required files, checksums, validation results, preview evidence, or rights/disclosure snapshots are missing or stale.
+- Publishing account profile tests that ensure sensitive credentials cannot be stored and upload approval is blocked by missing/stale account readiness, unresolved account blockers, or shared-credential-dependent access.
 - Hermes task contract tests that verify provenance, reviewer, expected artifacts, and forbidden direct-action fields.
 - Gate tests that block publishing-packet readiness when provenance, rights review, AI disclosure, or version manifest evidence is missing.
 - Analytics import tests that verify estimated/reported/settled separation and reconciliation task creation.
