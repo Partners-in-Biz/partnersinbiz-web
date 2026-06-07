@@ -1,6 +1,7 @@
 import {
   clientSafeYouTubePublishingPacket,
   clientSafeYouTubeChannelWorkspace,
+  clientSafeYouTubeSeries,
   clientSafeYouTubeVideoProject,
   defaultYouTubeApprovalPolicy,
   defaultYouTubePublishingPolicy,
@@ -121,6 +122,79 @@ describe('youtube studio sanitizers', () => {
       },
       deleted: false,
     })
+  })
+
+  it('keeps portal series records client safe', () => {
+    const safe = clientSafeYouTubeSeries({
+      id: 'series-1',
+      orgId: 'org-1',
+      channelWorkspaceId: 'channel-1',
+      name: 'Client Series',
+      objective: 'Build trust',
+      audience: 'Owners',
+      format: 'long_form',
+      cadence: 'weekly',
+      targetDurationSeconds: 600,
+      episodeTemplate: {
+        hook: 'Open with the result',
+        sections: [
+          {
+            label: 'Problem',
+            targetSeconds: 90,
+            notes: 'Client-facing structure',
+            internalPrompt: 'hidden',
+          } as { label: string; targetSeconds?: number; notes?: string },
+        ],
+        outro: 'Close with action',
+        internalTemplateId: 'template-secret',
+      } as {
+        hook?: string
+        sections: Array<{ label: string; targetSeconds?: number; notes?: string }>
+        outro?: string
+      },
+      styleGuide: {
+        visualNotes: 'Bright office footage',
+        thumbnailNotes: 'Founder portrait',
+        captionNotes: 'Sentence case',
+        introOutroRules: 'Keep the intro short',
+        internalStyleToken: 'style-secret',
+      } as {
+        visualNotes?: string
+        thumbnailNotes?: string
+        captionNotes?: string
+        introOutroRules?: string
+      },
+      season: 'Season 1',
+      status: 'active',
+      deleted: false,
+      createdBy: 'admin-1',
+      updatedBy: 'admin-2',
+    } as Parameters<typeof clientSafeYouTubeSeries>[0])
+
+    expect(Object.keys(safe).sort()).toEqual([
+      'audience',
+      'cadence',
+      'channelWorkspaceId',
+      'episodeTemplate',
+      'format',
+      'id',
+      'name',
+      'objective',
+      'orgId',
+      'season',
+      'status',
+      'styleGuide',
+      'targetDurationSeconds',
+    ].sort())
+    expect(safe.episodeTemplate.sections).toEqual([
+      { label: 'Problem', targetSeconds: 90, notes: 'Client-facing structure' },
+    ])
+    expect(safe).not.toHaveProperty('createdBy')
+    expect(safe).not.toHaveProperty('updatedBy')
+    expect(safe).not.toHaveProperty('deleted')
+    expect(safe.episodeTemplate).not.toHaveProperty('internalTemplateId')
+    expect(safe.episodeTemplate.sections[0]).not.toHaveProperty('internalPrompt')
+    expect(safe.styleGuide).not.toHaveProperty('internalStyleToken')
   })
 
   it('keeps portal video records client safe', () => {

@@ -91,6 +91,31 @@ export type ClientSafeYouTubeVideoProject = {
   >
 }
 
+export type ClientSafeYouTubeSeries = {
+  id?: string
+  orgId: string
+  channelWorkspaceId: string
+  name: string
+  objective?: string
+  audience?: string
+  format: YouTubeSeriesFormat
+  cadence: YouTubeSeriesCadence
+  targetDurationSeconds?: number
+  episodeTemplate: {
+    hook?: string
+    sections: Array<{ label: string; targetSeconds?: number; notes?: string }>
+    outro?: string
+  }
+  styleGuide: {
+    visualNotes?: string
+    thumbnailNotes?: string
+    captionNotes?: string
+    introOutroRules?: string
+  }
+  season?: string
+  status: YouTubeSeriesStatus
+}
+
 export type ClientSafeYouTubeGateCheck = Pick<YouTubeGateCheck, 'status' | 'message'>
 
 export type ClientSafeYouTubePublishingPacket = Pick<
@@ -380,6 +405,39 @@ export function clientSafeYouTubeChannelWorkspace(
           showAnalytics: channel.visibility.showAnalytics,
         }
       : undefined,
+  })
+}
+
+export function clientSafeYouTubeSeries(series: YouTubeSeries): ClientSafeYouTubeSeries {
+  return stripUndefinedDeep({
+    id: series.id,
+    orgId: series.orgId,
+    channelWorkspaceId: series.channelWorkspaceId,
+    name: series.name,
+    objective: series.objective,
+    audience: series.audience,
+    format: pick(SERIES_FORMATS, series.format, 'mixed'),
+    cadence: pick(SERIES_CADENCES, series.cadence, 'ad_hoc'),
+    targetDurationSeconds: series.targetDurationSeconds,
+    episodeTemplate: {
+      hook: series.episodeTemplate?.hook,
+      sections: Array.isArray(series.episodeTemplate?.sections)
+        ? series.episodeTemplate.sections.map((section) => ({
+            label: section.label,
+            targetSeconds: section.targetSeconds,
+            notes: section.notes,
+          }))
+        : [],
+      outro: series.episodeTemplate?.outro,
+    },
+    styleGuide: {
+      visualNotes: series.styleGuide?.visualNotes,
+      thumbnailNotes: series.styleGuide?.thumbnailNotes,
+      captionNotes: series.styleGuide?.captionNotes,
+      introOutroRules: series.styleGuide?.introOutroRules,
+    },
+    season: series.season,
+    status: pick(SERIES_STATUSES, series.status, 'active'),
   })
 }
 

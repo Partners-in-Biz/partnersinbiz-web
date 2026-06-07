@@ -120,7 +120,40 @@ function defaultStage(): Required<FirestoreStage> {
           orgId: 'org-1',
           channelWorkspaceId: 'channel-1',
           name: 'Client Series',
+          objective: 'Build trust with buyer education',
+          audience: 'Client stakeholders',
+          format: 'long_form',
+          cadence: 'weekly',
+          targetDurationSeconds: 600,
+          episodeTemplate: {
+            hook: 'Open with the business outcome',
+            sections: [
+              {
+                label: 'Problem',
+                targetSeconds: 90,
+                notes: 'Frame the client pain',
+                internalPrompt: 'Do not expose prompt',
+              },
+            ],
+            outro: 'Close with next steps',
+            internalTemplateId: 'template-secret',
+          },
+          styleGuide: {
+            visualNotes: 'Bright office footage',
+            thumbnailNotes: 'Use founder portrait',
+            captionNotes: 'Sentence case',
+            introOutroRules: 'Keep intro under 5 seconds',
+            internalStyleToken: 'style-secret',
+          },
+          season: 'Season 1',
           status: 'active',
+          internalNotes: 'hide series notes',
+          createdAt: { seconds: 10 },
+          updatedAt: { seconds: 11 },
+          createdBy: 'admin-1',
+          createdByType: 'user',
+          updatedBy: 'admin-2',
+          updatedByType: 'user',
           deleted: false,
         },
       },
@@ -332,6 +365,7 @@ describe('portal youtube studio API', () => {
     expect(body.data.videos.map((video: { id: string }) => video.id)).toEqual(['video-1'])
     expect(body.data.packets.map((packet: { id: string }) => packet.id)).toEqual(['packet-1'])
     const channel = body.data.channels[0]
+    const series = body.data.series[0]
     const video = body.data.videos[0]
     const packet = body.data.packets[0]
     expect(channel).not.toHaveProperty('connectedAccountId')
@@ -341,6 +375,56 @@ describe('portal youtube studio API', () => {
     expect(channel).not.toHaveProperty('strategyDocumentId')
     expect(channel).not.toHaveProperty('defaultApprovalPolicy')
     expect(channel).not.toHaveProperty('defaultPublishingPolicy')
+    expect(Object.keys(series).sort()).toEqual([
+      'audience',
+      'cadence',
+      'channelWorkspaceId',
+      'episodeTemplate',
+      'format',
+      'id',
+      'name',
+      'objective',
+      'orgId',
+      'season',
+      'status',
+      'styleGuide',
+      'targetDurationSeconds',
+    ].sort())
+    expect(series).toMatchObject({
+      id: 'series-1',
+      orgId: 'org-1',
+      channelWorkspaceId: 'channel-1',
+      name: 'Client Series',
+      objective: 'Build trust with buyer education',
+      audience: 'Client stakeholders',
+      format: 'long_form',
+      cadence: 'weekly',
+      targetDurationSeconds: 600,
+      episodeTemplate: {
+        hook: 'Open with the business outcome',
+        sections: [{ label: 'Problem', targetSeconds: 90, notes: 'Frame the client pain' }],
+        outro: 'Close with next steps',
+      },
+      styleGuide: {
+        visualNotes: 'Bright office footage',
+        thumbnailNotes: 'Use founder portrait',
+        captionNotes: 'Sentence case',
+        introOutroRules: 'Keep intro under 5 seconds',
+      },
+      season: 'Season 1',
+      status: 'active',
+    })
+    expect(series).not.toHaveProperty('internalNotes')
+    expect(series).not.toHaveProperty('createdAt')
+    expect(series).not.toHaveProperty('updatedAt')
+    expect(series).not.toHaveProperty('createdBy')
+    expect(series).not.toHaveProperty('createdByType')
+    expect(series).not.toHaveProperty('updatedBy')
+    expect(series).not.toHaveProperty('updatedByType')
+    expect(series).not.toHaveProperty('deleted')
+    expect(series.episodeTemplate).not.toHaveProperty('internalTemplateId')
+    expect(series.episodeTemplate.sections[0]).not.toHaveProperty('internalPrompt')
+    expect(series.styleGuide).not.toHaveProperty('internalStyleToken')
     expect(video).not.toHaveProperty('internalNotes')
     expect(video).not.toHaveProperty('createdBy')
     expect(video).not.toHaveProperty('updatedBy')

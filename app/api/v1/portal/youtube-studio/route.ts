@@ -8,6 +8,7 @@ import { stripUndefinedDeep, YOUTUBE_COLLECTIONS } from '@/lib/youtube-studio/ap
 import {
   clientSafeYouTubeChannelWorkspace,
   clientSafeYouTubePublishingPacket,
+  clientSafeYouTubeSeries,
   clientSafeYouTubeVideoProject,
   sanitizeYouTubeVideoProjectInput,
   serializeYouTubeRecord,
@@ -126,6 +127,7 @@ export const GET = withPortalAuthAndRole('viewer', async (_req: NextRequest, _ui
     .sort((a, b) => a.title.localeCompare(b.title))
   const series = seriesRaw
     .filter((item) => item.id && visibleSeriesIds.has(item.id))
+    .map(clientSafeYouTubeSeries)
     .sort((a, b) => a.name.localeCompare(b.name))
   const videos = visibleVideosRaw
     .map(clientSafeYouTubeVideoProject)
