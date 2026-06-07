@@ -797,7 +797,51 @@ Pricing governance:
 
 The devil's-advocate position is that many book projects are vanity projects unless the economics are visible. Book Studio should make the weak-margin case obvious early: low-content books under print royalty thresholds, color-heavy workbooks, illustrated children's books, broad-distribution paperbacks with returns, and paid-ad launches without reviews can all look attractive creatively while failing commercially.
 
-### 10. Client Portal Surface
+### 10. Rights, Provenance, And Version Governance
+
+Book Studio needs a rights and provenance ledger from day one. This is separate from store metadata and separate from editorial status. Store disclosure, copyright registration, client approval, and internal risk are related but not interchangeable.
+
+Source-backed constraints:
+
+- KDP requires publishers to disclose AI-generated text, images, or translations when publishing or republishing, but does not require disclosure for AI-assisted work such as brainstorming, editing, refinement, or checking. KDP also says the publisher remains responsible for verifying AI-generated or AI-assisted content against content guidelines and intellectual-property rights. Source: [KDP content guidelines](https://kdp.amazon.com/en_US/help/topic/G200672390).
+- U.S. Copyright Office guidance says copyright protects human-authored contributions, not material where the traditional elements of authorship were produced by a machine. If AI-generated material is more than de minimis, applicants should disclose it and exclude that material from the claim while identifying the human-authored contribution. Source: [U.S. Copyright Office AI registration guidance](https://www.copyright.gov/ai/ai_policy_guidance.pdf).
+- The Copyright Office's 2025 AI report page confirms the office is continuing to treat copyrightability as a human-authorship analysis and is maintaining AI-specific registration guidance and decisions. Source: [U.S. Copyright Office AI initiative](https://www.copyright.gov/ai/).
+- Google Play Books can disapprove an account if it cannot confirm that the account is authorized to upload the content, and it may disable preview while reviewing potential policy violations. Source: [Google Play Books content policies](https://support.google.com/books/partner/answer/1067634).
+- Google publisher program policies make copy/paste, printing, DRM, refund, content-policy, revenue-share, and report fields part of the operational evidence for books on sale. For workbook/activity content, Google requires DRM to be disabled when physical-page use is needed so users can print. Source: [Google Play Books publisher program policies](https://support.google.com/books/partner/answer/166501).
+
+The module should track provenance at four levels:
+
+- **Project provenance:** creator/client brief, original idea owner, source Research IDs, client-provided materials, rights owner, imprint/publisher identity, and intended copyright-registration posture.
+- **Version provenance:** outline/manuscript/proof version, human authors/editors, Hermes tasks, AI tools used, prompts or prompt summaries where retention is safe, model/vendor, generated-vs-assisted classification, and human modification summary.
+- **Asset provenance:** cover, illustration, photo, icon, template, font, audio, puzzle/workbook file, source URL/file, creator, license, terms, expiration, attribution requirement, derivative-work warning, and approved-use scope.
+- **Channel provenance:** AI disclosure answers, copyright/public-domain/companion evidence, territory rights, DRM/copy-print settings, ISBN/imprint source, price/royalty evidence, manual upload evidence, review notes, and live URL.
+
+Recommended governance records:
+
+- `book_provenance_events`: immutable timeline of generation, edit, import, approval, waiver, export, upload, and report-import actions. It should store actor, source object, target object, event type, summary, risk level, and evidence links.
+- `book_version_manifests`: per manuscript/proof/export version, listing sections/pages, artifacts, checksums, Hermes tasks, human contributors, AI usage classification, release status, and replacement lineage.
+- `book_rights_reviews`: review state for copyrighted source material, public-domain claims, companion/summary projects, image/audio/font licenses, AI disclosure posture, copyright-registration posture, territory rights, and blocker/waiver state.
+- `book_asset_rights`: asset-level license/provenance metadata linked to `workspace_artifacts`, not duplicated as large blobs inside book records.
+
+Required gate behavior:
+
+- A publishing packet cannot be marked `packet_ready` unless every included manuscript version and asset has a provenance record.
+- A KDP packet cannot be marked `approved_for_upload` unless AI-generated-vs-assisted answers are explicit for text, images, and translation.
+- A copyright-registration-ready state cannot be shown unless human-authored contributions and excluded AI-generated material are described separately.
+- A public-domain or companion project cannot enter production without rights/differentiation evidence and a human approval task.
+- A Google workbook/activity packet cannot be approved while DRM/printing settings conflict with the book's physical-page use.
+- A client-visible proof cannot hide unresolved internal rights blockers; either resolve the blocker or expose a client-safe blocker summary before asking for approval.
+
+Versioning rules:
+
+- Treat outlines, manuscript sections, page/spread proofs, cover concepts, final interiors, EPUB/PDF packages, and publishing packets as versioned artifacts.
+- Store large text and files in client documents, Google Docs, storage-backed artifacts, or export packages. Core book records store references, checksums, summaries, and state.
+- Do not overwrite a previously approved version. Supersede it with a new version and preserve the approval history.
+- Every export package should include a manifest with file names, checksums, version IDs, source artifacts, validation results, disclosure state, and manual upload instructions.
+
+Devil's advocate: provenance work feels heavy until the first store review, rights complaint, AI disclosure mistake, or client dispute. The module should make provenance capture routine and low-friction so operators are not reconstructing who created what after a book is already live.
+
+### 11. Client Portal Surface
 
 Portal access should be module-gated like Mobile Apps:
 
@@ -892,6 +936,15 @@ interface BookProject {
     campaignId?: string
     companyId?: string
   }
+  provenance: {
+    originalIdeaSource?: 'client' | 'pib' | 'research' | 'hermes' | 'other'
+    rightsOwner?: string
+    imprintOwner?: string
+    currentManuscriptVersionId?: string
+    currentExportPackageId?: string
+    provenanceEventIds: string[]
+    rightsReviewIds: string[]
+  }
   compliance: {
     aiGeneratedText: boolean
     aiGeneratedImages: boolean
@@ -903,6 +956,115 @@ interface BookProject {
     rightsConfirmed: boolean
     copyrightNotes?: string
     policyRisk: 'low' | 'medium' | 'high'
+  }
+}
+```
+
+```ts
+interface BookProvenanceEvent {
+  id: string
+  orgId: string
+  bookProjectId: string
+  eventType:
+    | 'source_added'
+    | 'ai_generation'
+    | 'human_edit'
+    | 'version_created'
+    | 'asset_added'
+    | 'rights_reviewed'
+    | 'approval_recorded'
+    | 'waiver_recorded'
+    | 'export_created'
+    | 'manual_upload_recorded'
+    | 'report_imported'
+  actor: {
+    type: 'user' | 'agent' | 'system'
+    id: string
+    displayName?: string
+  }
+  source: {
+    researchItemIds?: string[]
+    documentIds?: string[]
+    artifactIds?: string[]
+    taskIds?: string[]
+    previousVersionId?: string
+    toolName?: string
+    modelName?: string
+    promptSummary?: string
+  }
+  target: {
+    manuscriptVersionId?: string
+    sectionId?: string
+    pageId?: string
+    artifactId?: string
+    channelListingId?: string
+    exportPackageId?: string
+  }
+  aiUsage: {
+    classification: 'none' | 'assisted' | 'generated'
+    generatedText?: boolean
+    generatedImages?: boolean
+    generatedTranslation?: boolean
+    humanModificationSummary?: string
+  }
+  riskLevel: 'low' | 'medium' | 'high' | 'critical'
+  evidenceNotes?: string
+  createdAt: string
+}
+```
+
+```ts
+interface BookVersionManifest {
+  id: string
+  orgId: string
+  bookProjectId: string
+  versionType: 'outline' | 'manuscript' | 'proof' | 'cover' | 'interior' | 'epub' | 'pdf' | 'audiobook' | 'publishing_packet'
+  versionLabel: string
+  status: 'draft' | 'in_review' | 'approved' | 'superseded' | 'released' | 'blocked'
+  supersedesVersionId?: string
+  sourceDocumentIds: string[]
+  sourceArtifactIds: string[]
+  sectionIds: string[]
+  pageIds: string[]
+  checksums: Array<{ artifactId: string; algorithm: 'sha256'; value: string }>
+  contributors: Array<{ type: 'user' | 'agent'; id: string; role: string }>
+  provenanceEventIds: string[]
+  rightsReviewIds: string[]
+  releaseGateIds: string[]
+}
+```
+
+```ts
+interface BookRightsReview {
+  id: string
+  orgId: string
+  bookProjectId: string
+  scope: 'project' | 'manuscript_version' | 'asset' | 'channel_listing' | 'export_package'
+  scopeId: string
+  status: 'not_started' | 'in_review' | 'passed' | 'warning' | 'blocked' | 'waived'
+  reviewType:
+    | 'ai_disclosure'
+    | 'copyright_registration'
+    | 'public_domain'
+    | 'companion_or_summary'
+    | 'asset_license'
+    | 'quote_permission'
+    | 'font_license'
+    | 'audio_rights'
+    | 'territory_rights'
+    | 'drm_printing'
+  findings: Array<{
+    title: string
+    body: string
+    severity: 'info' | 'warning' | 'blocker'
+    sourceIds: string[]
+  }>
+  decision?: {
+    outcome: 'approve' | 'block' | 'waive'
+    decidedBy: string
+    decidedAt: string
+    notes: string
+    approvalGateTaskId?: string
   }
 }
 ```
@@ -1350,10 +1512,11 @@ This is not yet an implementation plan. It is the smallest coherent foundation t
 | Epic | Scope | Why it matters | Done when |
 | --- | --- | --- | --- |
 | Module entitlement | Add a future `settings.portalModules.bookStudio` switch, safe portal org exposure, and portal API guards. | Client visibility must be controlled per organisation, matching the new Mobile Apps module-switch pattern. | Admin can enable/disable portal Book Studio visibility without affecting internal admin work. |
-| Domain records | Add typed records and sanitizers for `book_projects`, `book_series`, `book_project_editions`, `book_channel_listings`, `book_quality_gates`, and analytics import metadata. | The module needs book-specific state, but Research, Documents, Projects, and artifacts remain authoritative for evidence, approvals, work, and large files. | Records are org-scoped, serializable, guarded by role, and do not embed large manuscript or image payloads. |
+| Domain records | Add typed records and sanitizers for `book_projects`, `book_series`, `book_project_editions`, `book_channel_listings`, `book_quality_gates`, provenance/version/rights records, and analytics import metadata. | The module needs book-specific state, but Research, Documents, Projects, and artifacts remain authoritative for evidence, approvals, work, and large files. | Records are org-scoped, serializable, guarded by role, and do not embed large manuscript or image payloads. |
 | Admin workspace | Build admin list/detail routes for book projects and series with tabs for overview, research, brief, production, publishing, gates, and analytics. | Operators need one command surface before manuscript generation or export engines exist. | A PiB admin can create a project, connect it to a series, see status/risk/gates, and move through the production checklist. |
 | Research and brief bridge | Link or create Research items and Book Brief client documents from a book project. | The module should inherit PiB's evidence and approval model rather than recreate `ai-story` research notes. | A book project can show linked findings/recommendations, create a brief packet, and preserve source IDs. |
 | Hermes task contracts | Store Hermes-ready task metadata for research, brief, outline, metadata, and readiness work without granting direct publish powers. | Agent output must be bounded, reviewable, and attributable. | Created tasks include book context, expected artifacts, reviewer, risk level, and approval-gate linkage. |
+| Rights, provenance, and version ledger | Add provenance events, version manifests, rights reviews, and asset-rights metadata linked to documents, tasks, and artifacts. | AI disclosure, copyright registration, public-domain/companion claims, asset licensing, and client disputes require evidence before upload, not after a problem appears. | Each reviewable or exportable version has source links, AI usage classification, contributors, checksums where relevant, rights state, and a release-gate decision. |
 | Publishing packet and channel tracker | Add KDP/Google channel listing records, readiness state, blocker notes, metadata fields, file checklist, AI disclosure, ISBN/imprint decision, pricing summary, and manual external status. | KDP/Google setup is currently a manual operator action; PiB should prepare and track it, not pretend it can safely auto-publish. | A project can produce a channel-specific readiness packet and record uploaded/in review/live/blocked status with evidence. |
 | Commercial pricing ledger | Add price-plan, cost-estimate, margin-confidence, and approval fields to channel listings before reports are imported. | KDP/Google economics vary by royalty option, print cost, delivery cost, territory, exclusivity, refunds, payment profile, and currency conversion. | Admin can record a KDP/Google price plan, attach calculator/Partner Center evidence, see estimated margin/cost recovery, and require reviewer approval or a waiver before launch. |
 | Portal review surface | Add client-safe portal read/review routes only when the module is enabled and selected records are approved for portal visibility. | Clients need review and approval, not internal risk notes or raw research assumptions. | Portal users see only approved briefs, proofs, publishing packets, comments, and approval/change-request actions. |
@@ -1365,9 +1528,11 @@ This is not yet an implementation plan. It is the smallest coherent foundation t
 - Missing or disabled portal entitlement cannot expose Book Studio in portal nav, portal API responses, or scoped workspace state.
 - Book-type gate profiles generate the correct initial `book_quality_gates` for narrative, children's, visual/sequential, nonfiction, activity/workbook, low-content, public-domain/companion, and audiobook projects.
 - The project detail can link Research, create or attach a Book Brief document, link a Project/Kanban workspace, and show linked artifacts without duplicating those systems.
+- Manuscript/proof/export versions can store provenance manifests with source document/artifact/task links, contributor roles, AI usage classification, rights review IDs, and checksums where files are involved.
+- Rights reviews can block or approve AI disclosure, copyright-registration posture, public-domain/companion claims, quote permissions, asset/font/audio licenses, territory rights, and Google DRM/printing settings.
 - Hermes task preparation is possible for research, brief, outline, metadata, and readiness checks, but the tasks do not publish, submit, or spend money.
-- A KDP readiness packet explicitly captures metadata, categories/keywords, file checklist, AI-generated-vs-assisted disclosure, ISBN/imprint choice, rights confirmation, content-risk notes, pricing, and manual upload status.
-- A Google Play readiness packet explicitly captures EPUB/PDF readiness, cover file, metadata, series naming/volume consistency, rights/territories, pricing, DRM/copy-print choices, and manual Partner Center status.
+- A KDP readiness packet explicitly captures metadata, categories/keywords, file checklist, AI-generated-vs-assisted disclosure, ISBN/imprint choice, rights confirmation, content-risk notes, provenance/version evidence, pricing, and manual upload status.
+- A Google Play readiness packet explicitly captures EPUB/PDF readiness, cover file, metadata, series naming/volume consistency, rights/territories, pricing, DRM/copy-print choices, provenance/version evidence, and manual Partner Center status.
 - KDP and Google channel listings can store price plans, royalty/revenue-share assumptions, cost estimates, KDP Select exclusivity state, calculator/effective-price evidence, margin confidence, and approval/waiver state.
 - A project cannot mark a publishing packet `approved_for_upload` while its selected channel listing has an unreviewed price plan, an unresolved KDP Select/wide-distribution conflict, or a negative per-unit margin without a waiver.
 - Portal reviewers can comment, approve, or request changes on approved client-visible packets while internal research, unresolved rights blockers, and draft risk notes remain hidden.
@@ -1375,12 +1540,13 @@ This is not yet an implementation plan. It is the smallest coherent foundation t
 
 ### Phase 1 Test Focus
 
-- Type/sanitizer tests for Book Studio records and defaults.
+- Type/sanitizer tests for Book Studio records, provenance/version/rights records, and defaults.
 - Admin API tests for org scoping, create/update/list, soft archive, and linked-record preservation.
 - Portal guard tests for disabled module state, role access, and client-visible filtering.
 - Gate-profile tests for each book type family.
 - Publishing packet tests for KDP and Google required fields and blocker behavior.
 - Hermes task contract tests that verify provenance, reviewer, expected artifacts, and forbidden direct-action fields.
+- Gate tests that block publishing-packet readiness when provenance, rights review, AI disclosure, or version manifest evidence is missing.
 - Analytics import tests that verify estimated/reported/settled separation and reconciliation task creation.
 
 ### Phase 1 Explicit Deferrals
