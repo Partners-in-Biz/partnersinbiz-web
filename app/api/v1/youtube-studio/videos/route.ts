@@ -6,6 +6,7 @@ import {
   actorFields,
   ensureOrgAccess,
   listByOrg,
+  loadScopedRecord,
   YOUTUBE_COLLECTIONS,
 } from '@/lib/youtube-studio/api'
 import { sanitizeYouTubeVideoProjectInput, serializeYouTubeRecord } from '@/lib/youtube-studio/sanitize'
@@ -39,6 +40,15 @@ export const POST = withAuth('admin', async (req: NextRequest, user) => {
   const channel = await adminDb.collection(YOUTUBE_COLLECTIONS.channels).doc(data.channelWorkspaceId).get()
   if (!channel.exists || channel.data()?.deleted === true) return apiError('YouTube channel workspace not found', 404)
   if (channel.data()?.orgId !== orgId) return apiError('channelWorkspaceId does not belong to organisation', 400)
+
+  if (data.seriesId) {
+    const series = await loadScopedRecord(YOUTUBE_COLLECTIONS.series, data.seriesId)
+    if (!series || series.data.deleted === true) return apiError('YouTube series not found', 404)
+    if (series.data.orgId !== orgId) return apiError('seriesId does not belong to organisation', 400)
+    if (series.data.channelWorkspaceId !== data.channelWorkspaceId) {
+      return apiError('seriesId does not belong to channel workspace', 400)
+    }
+  }
 
   const ref = await adminDb.collection(YOUTUBE_COLLECTIONS.videos).add({
     ...data,

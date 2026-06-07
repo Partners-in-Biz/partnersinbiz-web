@@ -63,6 +63,7 @@ export const PUT = withAuth('admin', async (req, user, ctx?: RouteContext) => {
   const nextSeriesId = hasSeriesPatch ? cleanString(body.seriesId) : currentSeriesId
 
   if (hasChannelWorkspacePatch && !nextChannelWorkspaceId) return apiError('channelWorkspaceId is required', 400)
+  if (hasSeriesPatch && !nextSeriesId) return apiError('seriesId cannot be empty', 400)
 
   const channelChanged = nextChannelWorkspaceId !== currentChannelWorkspaceId
   const seriesChanged = (nextSeriesId ?? '') !== (currentSeriesId ?? '')

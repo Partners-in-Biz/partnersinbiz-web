@@ -117,6 +117,16 @@ export const POST = withAuth('admin', async (req: NextRequest, user) => {
     return apiError('channelWorkspaceId does not match video project', 400)
   }
 
+  const supersedesPacketId = cleanString(body.supersedesPacketId)
+  if (supersedesPacketId) {
+    const superseded = await loadScopedRecord(YOUTUBE_COLLECTIONS.packets, supersedesPacketId)
+    if (!superseded || superseded.data.deleted === true) return apiError('Superseded publishing packet not found', 404)
+    if (superseded.data.orgId !== orgId) return apiError('supersedesPacketId does not belong to organisation', 400)
+    if (superseded.data.videoProjectId !== videoProjectId) {
+      return apiError('supersedesPacketId does not belong to video project', 400)
+    }
+  }
+
   const packet = stripUndefinedDeep({
     orgId,
     channelWorkspaceId,
@@ -124,7 +134,7 @@ export const POST = withAuth('admin', async (req: NextRequest, user) => {
     versionNumber: typeof body.versionNumber === 'number' && Number.isFinite(body.versionNumber)
       ? Math.max(1, Math.floor(body.versionNumber))
       : 1,
-    supersedesPacketId: cleanString(body.supersedesPacketId),
+    supersedesPacketId,
     status: 'draft',
     titleOptions: cleanTitleOptions(body.titleOptions),
     description: cleanString(body.description),

@@ -154,6 +154,53 @@ describe('youtube studio admin API', () => {
     }))
   })
 
+  it.each([
+    ['missing', {}],
+    ['cross-org', {
+      'series-1': {
+        id: 'series-1',
+        data: { orgId: 'org-2', channelWorkspaceId: 'channel-1', name: 'Other org', deleted: false },
+      },
+    }],
+    ['mismatched channel', {
+      'series-1': {
+        id: 'series-1',
+        data: { orgId: 'org-1', channelWorkspaceId: 'channel-2', name: 'Other channel', deleted: false },
+      },
+    }],
+  ])('rejects video project creation with a %s series relationship', async (_label, seriesDocs) => {
+    stageFirestore({
+      youtube_channel_workspaces: {
+        docs: {
+          'channel-1': {
+            id: 'channel-1',
+            data: { orgId: 'org-1', title: 'Acme', deleted: false },
+          },
+        },
+      },
+      youtube_series: {
+        docs: seriesDocs,
+      },
+      youtube_video_projects: {},
+    })
+
+    const { POST } = await import('@/app/api/v1/youtube-studio/videos/route')
+    const res = await POST(new NextRequest('http://localhost/api/v1/youtube-studio/videos', {
+      method: 'POST',
+      body: JSON.stringify({
+        orgId: 'org-1',
+        channelWorkspaceId: 'channel-1',
+        seriesId: 'series-1',
+        title: 'Launch',
+      }),
+    }))
+    const body = await res.json()
+
+    expect(res.status).toBeGreaterThanOrEqual(400)
+    expect(body.error).toMatch(/series/i)
+    expect(mockAdd).not.toHaveBeenCalled()
+  })
+
   it('updates a video project without changing org scope or resetting omitted fields', async () => {
     const existingVideo = {
       orgId: 'org-1',
@@ -241,6 +288,45 @@ describe('youtube studio admin API', () => {
     expect(mockDocSet).not.toHaveBeenCalled()
   })
 
+  it.each([
+    ['empty', ''],
+    ['null', null],
+  ])('rejects %s seriesId updates instead of silently leaving the old value', async (_label, seriesId) => {
+    stageFirestore({
+      youtube_video_projects: {
+        docs: {
+          'video-1': {
+            id: 'video-1',
+            data: {
+              orgId: 'org-1',
+              channelWorkspaceId: 'channel-1',
+              seriesId: 'series-1',
+              title: 'Launch',
+              objective: 'Keep',
+              status: 'production',
+              videoType: 'tutorial',
+              source: { intakeType: 'manual' },
+              linked: {},
+              approvalPolicy: { requireClientDraftApproval: false },
+              deleted: false,
+            },
+          },
+        },
+      },
+    })
+
+    const { PUT } = await import('@/app/api/v1/youtube-studio/videos/[id]/route')
+    const res = await PUT(new NextRequest('http://localhost/api/v1/youtube-studio/videos/video-1', {
+      method: 'PUT',
+      body: JSON.stringify({ seriesId }),
+    }), { params: Promise.resolve({ id: 'video-1' }) })
+    const body = await res.json()
+
+    expect(res.status).toBe(400)
+    expect(body.error).toMatch(/seriesId/i)
+    expect(mockDocSet).not.toHaveBeenCalled()
+  })
+
   it('creates a draft private publish packet and atomically links it back to the video project', async () => {
     stageFirestore({
       youtube_channel_workspaces: {
@@ -311,5 +397,66 @@ describe('youtube studio admin API', () => {
       updatedBy: 'admin-1',
       updatedAt: 'SERVER_TS',
     }), { merge: true })
+  })
+
+  it.each([
+    ['missing', {}, 404],
+    ['deleted', {
+      'packet-old': {
+        id: 'packet-old',
+        data: { orgId: 'org-1', videoProjectId: 'video-1', deleted: true },
+      },
+    }, 404],
+    ['cross-org', {
+      'packet-old': {
+        id: 'packet-old',
+        data: { orgId: 'org-2', videoProjectId: 'video-1', deleted: false },
+      },
+    }, 400],
+    ['mismatched video', {
+      'packet-old': {
+        id: 'packet-old',
+        data: { orgId: 'org-1', videoProjectId: 'video-2', deleted: false },
+      },
+    }, 400],
+  ])('rejects publish packet creation with a %s superseded packet relationship', async (_label, packetDocs, expectedStatus) => {
+    stageFirestore({
+      youtube_channel_workspaces: {
+        docs: {
+          'channel-1': {
+            id: 'channel-1',
+            data: { orgId: 'org-1', title: 'Acme', deleted: false },
+          },
+        },
+      },
+      youtube_video_projects: {
+        docs: {
+          'video-1': {
+            id: 'video-1',
+            data: { orgId: 'org-1', channelWorkspaceId: 'channel-1', title: 'Launch', deleted: false },
+          },
+        },
+      },
+      youtube_publishing_packets: {
+        docs: packetDocs,
+      },
+    })
+
+    const { POST } = await import('@/app/api/v1/youtube-studio/publish-packets/route')
+    const res = await POST(new NextRequest('http://localhost/api/v1/youtube-studio/publish-packets', {
+      method: 'POST',
+      body: JSON.stringify({
+        orgId: 'org-1',
+        channelWorkspaceId: 'channel-1',
+        videoProjectId: 'video-1',
+        supersedesPacketId: 'packet-old',
+      }),
+    }))
+    const body = await res.json()
+
+    expect(res.status).toBe(expectedStatus)
+    expect(body.error).toMatch(/superseded|supersedesPacketId/i)
+    expect(mockBatchSet).not.toHaveBeenCalled()
+    expect(mockBatchCommit).not.toHaveBeenCalled()
   })
 })
