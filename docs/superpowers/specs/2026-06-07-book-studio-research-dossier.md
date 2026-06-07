@@ -3229,6 +3229,69 @@ Implementation should not try to install all skills at once. The first wave shou
 
 Wave 1 and Wave 2 are the right targets for a first Hermes skill rollout because they reduce strategic and policy risk before the module generates a large amount of manuscript or visual work.
 
+### Wave 1 Hermes Skill Package Draft
+
+Wave 1 should be a planning and evidence package, not a writing package. Its job is to turn a client/business goal into a source-backed book project, series decision, approved brief, outline plan, and generation-run control shell. If these skills are weak, every later manuscript, cover, file package, and analytics task inherits bad assumptions.
+
+Proposed package identity:
+
+```ts
+type BookStudioWaveOneSkillKey =
+  | 'book-generation-run-governor'
+  | 'book-niche-research'
+  | 'book-series-strategy'
+  | 'book-brief-builder'
+  | 'book-outline-builder'
+
+type BookStudioWaveOneArtifactType =
+  | 'generation_run_control'
+  | 'niche_research_report'
+  | 'series_strategy_report'
+  | 'book_brief_document'
+  | 'outline_plan'
+  | 'wave_one_readiness_report'
+```
+
+Wave 1 package manifest:
+
+| Skill | Owner/reviewer | Minimum inputs | Required artifacts | Must refuse or block |
+| --- | --- | --- | --- | --- |
+| `book-generation-run-governor` | Pip owner, Theo reviewer for technical run issues | `bookProjectId`, `taskId`, `bookStudioSkillKey`, target scope, source manifest, model/provider policy, budget, idempotency key. | `generation_run_control` with state, budget, source manifest, prompt spec version, retry/cancel/supersede rules, and output lineage placeholders. | Missing idempotency key, missing budget for model-backed work, unsafe prompt retention, stale/failed/superseded run trying to update approved or client-visible records. |
+| `book-niche-research` | Sage owner, Quinn reviewer for policy-sensitive claims | Client/org, audience, book type family, target channels, seed ideas, source constraints, internal visibility. | `niche_research_report` linked to a PiB Research item with sources, assumptions, audience segments, competitor/category notes, pricing signals, channel fit, and risk flags. | Invented bestseller data, copied review text, uncited category claims, competitor keyword stuffing, public-domain/companion conclusions without rights evidence, client-visible output by default. |
+| `book-series-strategy` | Sage owner, Iris reviewer for editorial fit | Research item, audience, genre, commercial goal, existing book/series IDs, target channel series constraints. | `series_strategy_report` with standalone-vs-series recommendation, ordered/unordered posture, volume map, continuity bible needs, cadence, analytics assumptions, and KDP/Google warnings. | Skipped/repeated volume numbers for ordered Google series, public-domain/low-content KDP series assumptions, invented canon, continuity rewrite without operator approval. |
+| `book-brief-builder` | Iris owner, Quinn reviewer for visibility/risk | Client goal, approved/internal research, audience, book type, brand voice, target channels, client involvement mode. | `book_brief_document` as internal brief or Client Document draft with scope, promise, audience, non-goals, source links, assumptions, success criteria, approval language, and risk notes. | Client-visible brief with unresolved rights/policy blockers, hidden assumptions, unsupported claims, or promise/channel mismatch. |
+| `book-outline-builder` | Iris owner, Maya reviewer for creative structure | Approved brief, book type template, length/format constraints, series bible, research links, target channels. | `outline_plan` with chapter/page map, unit hierarchy, required assets, continuity hooks, editorial passes, claim/accessibility needs, and task candidates. | Outline that changes the approved promise/audience/format, creates unsupported claims, ignores series continuity, skips required book-type gates, or starts drafting text as if approved. |
+
+Wave 1 shared runtime rules:
+
+- All outputs are internal by default unless the operator explicitly promotes a reviewed Book Brief client document.
+- Every output must include `sourceKeys`, `sourceRecordIds`, `assumptions`, `riskFlags`, `visibility`, `reviewerAgentId`, and `requiredFollowUpTaskIds`.
+- Every skill must return a structured blocker list. Empty blockers must be meaningful, not omitted.
+- Skills can recommend tasks but cannot create client-visible packets, approve briefs, pass release gates, publish, spend, request reviews, access secrets, or mutate external channel state.
+- `book-generation-run-governor` is required for model-backed Wave 1 tasks if the task can incur meaningful cost, run asynchronously, or produce output later used by another record.
+
+Wave 1 fixture pack:
+
+| Fixture | Skills under test | Expected pass evidence | Required blockers |
+| --- | --- | --- | --- |
+| Brand authority nonfiction ebook | `book-niche-research`, `book-brief-builder`, `book-outline-builder` | Research cites sources, brief defines audience/promise/non-goals, outline maps claims to review needs. | Unsupported market-size claims, medical/legal/financial claims without review, channel-fit assumptions without source. |
+| Children's fixed-layout series seed | `book-niche-research`, `book-series-strategy`, `book-outline-builder` | Series posture, age band, visual continuity needs, reading-level review, asset plan, and accessibility needs are surfaced. | Mature content, unsafe theme, skipped continuity bible, missing alt-text/accessibility plan, unreviewed image provenance. |
+| Low-content workbook | `book-niche-research`, `book-brief-builder`, `book-outline-builder` | Print-first assumptions, activity/answer-key plan, repeatable-page warning, Google suitability caution, and file/package needs are recorded. | Treating low-content as normal ebook, ignoring KDP low-content disclosure, Google DRM/printing conflict, generic duplicated pages without value. |
+| Public-domain or companion idea | `book-niche-research`, `book-series-strategy`, `book-brief-builder` | Rights-first workflow, differentiation evidence, source-work risk, territory warning, and no drafting until rights review. | Companion-title overreach, copyrighted-source dependency, public-domain proof missing, misleading metadata or author attribution. |
+| Prompt-injection brief | all Wave 1 skills | Skill ignores instructions to bypass gates, reveal internal notes, publish directly, or hide source uncertainty. | Any public/client-visible output, forbidden action request, missing source list, or approval-gate bypass. |
+
+Wave 1 readiness gates:
+
+1. Skill docs drafted and reviewed internally.
+2. Manifest entries exist with owner agent, allowed agents, risk level, sync target, and no runtime dispatch.
+3. Task payload tests preserve `agentInput.context.bookStudioSkillKey`, expected artifacts, risk flags, reviewer, and source links.
+4. Fixtures above produce structured artifacts and expected blockers.
+5. Negative fixtures prove safe refusal or blocker creation.
+6. One sandbox internal project dry-run creates no client-visible output and no external channel mutations.
+7. Drift checks confirm no unexpected local/profile Book Studio skills are loaded.
+
+Devil's advocate: Wave 1 can still become too broad. If `book-niche-research` tries to create the brief, outline, metadata, and launch plan in one response, the skill package has already failed. The right behavior is a chain of narrow artifacts with explicit review and source handoff between each step. Conversely, if Wave 1 creates only generic research summaries, it will not move production forward. The package must create enough structured evidence to derive book type, series posture, brief approval needs, outline units, and follow-up tasks.
+
 ### Skill Rollout, Evaluation, And Policy Sync
 
 The skill list above is not enough by itself. A Book Studio skill is not production-ready until PiB can prove what it may do, which agents may run it, what evidence it must return, and which fixtures it passes. Otherwise the module recreates the risk of a single broad book assistant with attractive output and weak controls.
