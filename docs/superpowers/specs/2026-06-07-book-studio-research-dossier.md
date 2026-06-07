@@ -322,6 +322,7 @@ V1 should introduce small, org-scoped Book Studio records while using existing P
 - `book_channel_listings`: KDP, Google, and future channel state with metadata, pricing, territory rights, identifiers, upload status, blockers, and readiness report links.
 - `book_quality_gates`: required checks, source task/document/research evidence, reviewer, pass/warn/block state, waiver state, and approval task link.
 - `book_launch_plans`, `book_promotion_windows`, `book_review_compliance_records`, and `book_lifecycle_events`: governed sell-through, review hygiene, attribution, promotion, price-change, revision, and postmortem records.
+- `book_skill_evaluations`: fixture and dry-run evidence proving Book Studio Hermes skills meet their contracts before runtime or client-visible enablement.
 - `book_analytics_imports` and normalized analytics rows/snapshots: import ledger and reconciliation evidence.
 
 Existing PiB primitives remain authoritative where they are already stronger:
@@ -337,7 +338,7 @@ Existing PiB primitives remain authoritative where they are already stronger:
 1. **Create project:** PiB operator creates a `book_project` under an org, chooses `bookTypeFamily`, selects or creates `book_series`, and creates/links a Project/Kanban workspace.
 2. **Research:** Sage creates an internal Research item and sources. Recommendations can be promoted into a Book Brief or Kanban tasks only after review.
 3. **Brief:** Iris turns approved research and client/business goals into a Book Brief client document when approval is needed. The `book_project` stores only summary fields and document IDs.
-4. **Production tasks:** Pip or the operator creates Hermes-ready Project/Kanban tasks with `agentInput.context.bookProjectId`, `bookSeriesId`, `sourceResearchItemId`, `sourceDocumentId`, `requiredCapability`, `riskLevel`, `reviewerAgentId`, `approvalGateTaskId`, and `expectedArtifacts`.
+4. **Production tasks:** Pip or the operator creates Hermes-ready Project/Kanban tasks with `agentInput.context.bookProjectId`, `bookStudioSkillKey`, `bookSeriesId`, `sourceResearchItemId`, `sourceDocumentId`, validator-safe `requiredCapability`, `riskLevel`, `reviewerAgentId`, `approvalGateTaskId`, and `expectedArtifacts`.
 5. **Manuscript and assets:** Maya/Iris/Quinn tasks create or revise sections, style guides, covers, illustrations, and proof reports. File outputs are linked as workspace artifacts with provenance and visibility state.
 6. **Quality gates:** `book_quality_gates` aggregate evidence from tasks, documents, research, and artifacts. Blockers stay internal until resolved or waived through an approval task.
 7. **Publishing packet:** Quinn/Pip assemble channel-specific metadata, files, AI disclosure, ISBN/imprint choice, rights/territory state, and upload checklist into a client document or internal packet.
@@ -1234,6 +1235,55 @@ type BookLifecycleEventType =
   | 'series_follow_up_started'
   | 'analytics_reviewed'
   | 'postmortem_completed'
+type BookStudioSkillReadinessLevel =
+  | 'proposed'
+  | 'skill_doc_drafted'
+  | 'manifest_allowlisted'
+  | 'fixture_tested'
+  | 'sandbox_dry_run_verified'
+  | 'internal_project_enabled'
+  | 'client_visible_enabled'
+
+interface BookStudioSkillEvaluation {
+  id: string
+  orgId: string
+  skillKey: string
+  skillPolicyVersion: string
+  catalogVersion: string
+  readinessLevel: BookStudioSkillReadinessLevel
+  fixtureKey: string
+  fixtureType:
+    | 'market_niche_research'
+    | 'public_domain_companion_risk'
+    | 'children_fixed_layout'
+    | 'low_content_workbook'
+    | 'nonfiction_claims'
+    | 'launch_review_compliance'
+    | 'analytics_import_reconciliation'
+    | 'export_package_validation'
+  inputManifest: {
+    sourceResearchItemIds: string[]
+    sourceDocumentIds: string[]
+    sourceArtifactIds: string[]
+    sourceSpecVersion?: string
+    bookTypeFamily?: BookTypeFamily
+    channel?: BookChannel
+    safetyPolicyKey?: string
+    expectedArtifacts: string[]
+  }
+  result: {
+    state: 'passed' | 'warning' | 'blocked' | 'failed'
+    summary: string
+    missingArtifacts: string[]
+    forbiddenActionsRequested: string[]
+    followUpTaskIds: string[]
+    outputArtifactIds: string[]
+  }
+  reviewerAgentId: string
+  approvalGateTaskId?: string
+  createdAt: string
+  reviewedAt?: string
+}
 
 interface BookProject {
   id: string
@@ -1288,6 +1338,7 @@ interface BookProject {
     launchPlanIds: string[]
     reviewComplianceRecordIds: string[]
     lifecycleEventIds: string[]
+    skillEvaluationIds: string[]
     projectId?: string
     campaignId?: string
     companyId?: string
@@ -2339,13 +2390,23 @@ Book Studio should dispatch Hermes work through Projects/Kanban tasks rather tha
 Recommended `agentInput.context` for Book Studio tasks:
 
 ```ts
+type BookStudioSkillKey = string // must match a Book Studio entry in config/agent-skill-policy.json
+
 interface BookStudioAgentContext {
   bookProjectId: string
+  bookStudioSkillKey: BookStudioSkillKey
+  sourceSpecVersion?: string
   bookSeriesId?: string
   editionId?: string
   channelListingId?: string
   publishingAccountProfileId?: string
   generationRunId?: string
+  skillEvaluationId?: string
+  manuscriptUnitId?: string
+  manuscriptVersionId?: string
+  launchPlanId?: string
+  reviewComplianceRecordId?: string
+  lifecycleEventId?: string
   bookTypeFamily: BookTypeFamily
   productionGateProfile: string
   sourceResearchItemId?: string
@@ -2394,12 +2455,14 @@ type BookStudioArtifactType =
   | 'launch_campaign_brief'
   | 'review_compliance_report'
   | 'lifecycle_status_report'
+  | 'skill_evaluation_report'
 ```
 
 Every Book Studio Hermes task should include:
 
 - a concise `agentInput.spec` that states the job, accepted inputs, and exact output shape;
-- `requiredCapability` matching one Book Studio skill name, such as `book-kdp-readiness-check`;
+- `agentInput.context.bookStudioSkillKey` matching one Book Studio skill path or package capability in `config/agent-skill-policy.json`;
+- `requiredCapability` set to an accepted task capability such as `research`, `content`, `qa`, `draft`, or `write`, or to a future Book Studio capability only after `lib/projects/taskPayload.ts` deliberately allows it;
 - `riskLevel`, with rights, public publishing, AI disclosure, children's content, public-domain/companion, low-content, audiobook, and paid launch work defaulting to `high` or `critical`;
 - at least one source pointer (`sourceResearchItemId`, `sourceDocumentId`, `sourceArtifactIds`, or `channelListingId`) unless the task is an initial research task;
 - `manuscriptUnitId` or `manuscriptVersionId` for section drafting, editing, proofing, claim review, accessibility review, link/TOC review, and release-snapshot work;
@@ -2426,6 +2489,68 @@ Implementation should not try to install all skills at once. The first wave shou
 `book-publishing-account-readiness` should run with Wave 2 for any project that expects PiB to help upload or reconcile reports, because unresolved account authority can block a launch even when metadata and files are ready.
 
 Wave 1 and Wave 2 are the right targets for a first Hermes skill rollout because they reduce strategic and policy risk before the module generates a large amount of manuscript or visual work.
+
+### Skill Rollout, Evaluation, And Policy Sync
+
+The skill list above is not enough by itself. A Book Studio skill is not production-ready until PiB can prove what it may do, which agents may run it, what evidence it must return, and which fixtures it passes. Otherwise the module recreates the risk of a single broad book assistant with attractive output and weak controls.
+
+Current PiB policy already has the right enforcement surface:
+
+- `config/agent-skill-policy.json` is the canonical manifest for repo skill paths, owner agent, allowed runtime agents, risk level, sync target, agent skill lists, capabilities, approval gates, and reviewer defaults.
+- `docs/deploy/hermes-agent-skill-policy.md` requires generated runtime directories at `/var/lib/hermes/agent-skills/<agentId>` and warns against loading `/var/lib/hermes/pib-skills` directly.
+- `lib/agents/skill-policy.ts` can list catalog skills, build per-agent policy state, classify installed skills, and compute drift between expected and installed skills.
+- `lib/projects/taskPayload.ts` already preserves provenance fields, but it currently accepts only the existing `VALID_AGENT_CAPABILITIES`. Book Studio should not put exact skill names into `requiredCapability` until that validator is extended. Use `bookStudioSkillKey` in `agentInput.context` for exact dispatch identity, and keep `requiredCapability` on the accepted capability vocabulary until a deliberate migration adds a Book Studio capability namespace.
+
+Skill policy bootstrap should work like this:
+
+1. Add draft skill docs under `.claude/skills/book-*/SKILL.md` or a small number of grouped packages only where the package still exposes exact sub-capabilities.
+2. Add matching `skillCatalog` entries with `ownerAgentId`, `allowedAgentIds`, `riskLevel`, and `syncTarget: 'vps'`.
+3. Add the skills to the owning and allowed agents' `pibSkills` or `runtimeSkills` lists only after fixture tests pass.
+4. Keep publish, spend, message-client, access-secret, delete, and final approval work behind the existing hard approval gates.
+5. Run manifest validation and drift checks before VPS sync. A missing, unexpected, or locally profile-loaded Book Studio skill is a blocker, not a warning.
+
+Skill readiness should be explicit:
+
+| Level | State | Allowed use |
+| --- | --- | --- |
+| 0 | Proposed in dossier only | No runtime task dispatch. |
+| 1 | Skill doc drafted | Internal review only; no watcher dispatch. |
+| 2 | Manifest allowlisted | Can appear in policy preview and drift checks, but cannot affect client-visible or publishing-facing records. |
+| 3 | Fixture tested | Can run against canned inputs and produce expected artifacts; still no live project mutation. |
+| 4 | Sandbox dry-run verified | Can run on internal sandbox book projects with internal-only output and reviewer assignment. |
+| 5 | Internal project enabled | Can run on real PiB-operated book projects, still behind reviewer and approval gates. |
+| 6 | Client-visible enabled | Outputs may become client-reviewable only after visibility, safety, rights, provenance, and reviewer gates pass. |
+
+Minimum evaluation fixtures:
+
+| Fixture | Skills covered | Must prove |
+| --- | --- | --- |
+| Market niche research | `book-niche-research`, `book-series-strategy`, `book-brief-builder` | Sources are cited, assumptions are labeled, findings stay internal, and no bestseller/category claims are invented. |
+| Public-domain or companion-risk project | `book-asset-rights-auditor`, `book-kdp-readiness-check`, `book-google-play-readiness-check` | Public-domain proof, copyrighted-source risk, companion-guide limits, territory risk, and upload blockers are surfaced before metadata or manuscript work proceeds. |
+| Children's fixed-layout picture book | `book-outline-builder`, `book-illustration-director`, `book-reading-level-review`, `book-accessibility-review`, `book-file-package-validator` | Age fit, visual continuity, image provenance, alt text, reading order, bleed/trim assumptions, and safety review are required before client visibility. |
+| Low-content workbook or puzzle book | `book-layout-designer`, `book-export-packager`, `book-google-play-readiness-check`, `book-file-package-validator` | The workflow treats print/DRM/printing requirements as product constraints and blocks Google settings that would make physical-page use impossible. |
+| Nonfiction claims and citations | `book-fact-checker`, `book-developmental-editor`, `book-copyeditor` | Unsupported claims become blockers or revision tasks instead of silently edited prose. |
+| Launch and review compliance | `book-launch-campaign`, `book-review-compliance-check`, `book-lifecycle-ops` | Review requests, ARC/free-copy plans, third-party promotion services, public sends, and paid spend all require compliance evidence and approval gates. |
+| Analytics import reconciliation | `book-analytics-import`, `book-lifecycle-ops` | Estimated, reported, settled, refunded, and attributed metrics remain source-labeled and create reconciliation tasks when identifiers or totals do not match. |
+| Export/package validation | `book-export-packager`, `book-file-package-validator`, `book-publishing-ops` | Checksums, file roles, preview evidence, rights snapshots, and manual upload instructions are present before upload approval. |
+
+Dispatch blockers:
+
+- Do not dispatch a task whose `bookStudioSkillKey` is absent from the manifest or below the required readiness level for that project scope.
+- Do not dispatch a task blocked by dependencies or a pending `approvalGateTaskId`.
+- Do not dispatch a model-backed writing, translation, image, metadata, children's-content, validation, or report-import job without `generationRunId`, `safetyPolicyKey`, budget limits, and an idempotency key.
+- Do not dispatch client-visible or publishing-facing work without `reviewerAgentId`, `expectedArtifacts`, source links, and a visibility target.
+- Do not dispatch public publishing, paid launch, review outreach, price change, unpublish/archive, secret/account, or destructive-data actions as direct skill actions. Those remain approval-gated operator/API actions.
+- Do not sync Book Studio skills to the VPS when drift checks show missing skills, unexpected profile skills, wrong external dirs, stale local profile skills, or manifest/package mismatch.
+
+First rollout sequence:
+
+1. Add manifest entries and draft skill docs for Wave 1 and Wave 2, but keep them internal-only.
+2. Add tests for manifest shape, task payload sanitizer support for `bookStudioSkillKey`, forbidden direct-action fields, and required provenance.
+3. Run the evaluation fixtures above against canned inputs and record `skill_evaluation_report` artifacts.
+4. Enable sandbox dry-runs on one internal PiB book project.
+5. Enable internal project dispatch only after drift checks are clean and Quinn/Iris have reviewed the fixture outputs.
+6. Allow client-reviewable outputs only after the portal visibility model, safety gates, rights/provenance gates, and approval tasks are implemented.
 
 ### Skill Action Matrix
 
@@ -2633,6 +2758,7 @@ This is not yet an implementation plan. It is the smallest coherent foundation t
 | Admin workspace | Build admin list/detail routes for book projects and series with tabs for overview, research, brief, production, publishing, gates, and analytics. | Operators need one command surface before manuscript generation or export engines exist. | A PiB admin can create a project, connect it to a series, see status/risk/gates, and move through the production checklist. |
 | Research and brief bridge | Link or create Research items and Book Brief client documents from a book project. | The module should inherit PiB's evidence and approval model rather than recreate `ai-story` research notes. | A book project can show linked findings/recommendations, create a brief packet, and preserve source IDs. |
 | Hermes task contracts | Store Hermes-ready task metadata for research, brief, outline, metadata, and readiness work without granting direct publish powers. | Agent output must be bounded, reviewable, and attributable. | Created tasks include book context, expected artifacts, reviewer, risk level, and approval-gate linkage. |
+| Hermes skill policy and evaluation harness | Add draft Wave 1 and Wave 2 Book Studio skill docs, manifest entries, readiness levels, fixture definitions, and evaluation-result artifacts before runtime enablement. | Book Studio depends on Hermes work, but untested skills can create bad manuscripts, misleading metadata, rights exposure, or unsafe publishing decisions at scale. | Each enabled skill has manifest ownership, allowed agents, risk level, sync target, fixture coverage, readiness state, and clean drift status before watcher dispatch. |
 | Generation run ledger | Add `BookGenerationRun` records linked to tasks, source manifests, prompt specs, provider jobs, usage/cost budgets, safety review, retries, and output artifacts. | Long-running book generation and validation cannot be trusted as route-local model calls or chat transcripts. | Model-backed tasks create run records, enforce idempotency, preserve usage/safety results, and prevent stale runs from overwriting newer approved versions. |
 | Rights, provenance, and version ledger | Add provenance events, version manifests, rights reviews, and asset-rights metadata linked to documents, tasks, and artifacts. | AI disclosure, copyright registration, public-domain/companion claims, asset licensing, and client disputes require evidence before upload, not after a problem appears. | Each reviewable or exportable version has source links, AI usage classification, contributors, checksums where relevant, rights state, and a release-gate decision. |
 | Export package manifest | Add file package records for source archives, KDP ebook/print, Google ebook, audiobook, and metadata-only packets with files, checksums, validations, preview evidence, source versions, rights snapshots, and upload instructions. | Store-ready work is not proven by manuscript approval. The module needs a repeatable way to prove which exact files were validated, previewed, approved, uploaded, and later superseded. | A channel listing can reference candidate packages, and only a package with required files, validation results, preview evidence, provenance, and checksum-bound approval can become the approved upload package. |
@@ -2653,6 +2779,10 @@ This is not yet an implementation plan. It is the smallest coherent foundation t
 - Publishing account profiles can store channel, owner, legal publisher/imprint, access method, PiB operator IDs, consent evidence, identity/tax/payment/report/territory readiness, recheck dates, and account-level blockers without storing passwords, tax IDs, bank account numbers, or identity documents.
 - Rights reviews can block or approve AI disclosure, copyright-registration posture, public-domain/companion claims, quote permissions, asset/font/audio licenses, territory rights, and Google DRM/printing settings.
 - Hermes task preparation is possible for research, brief, outline, metadata, and readiness checks, but the tasks do not publish, submit, or spend money.
+- Book Studio task packets store an exact `bookStudioSkillKey` while `requiredCapability` remains compatible with the current task payload validator or a deliberate future Book Studio capability migration.
+- Wave 1 and Wave 2 skills cannot be enabled for watcher dispatch until they have manifest entries, owner/allowed-agent metadata, readiness state, fixture coverage, reviewer defaults, and clean drift checks.
+- `skill_evaluation_report` artifacts record fixture input, expected artifacts, actual artifacts, pass/warn/block state, reviewer, readiness level, and required follow-up tasks.
+- Dispatch is blocked when a skill is missing from the manifest, below readiness level, blocked by a pending approval gate, missing expected artifacts, missing source evidence, or trying to request publish/spend/message-client/access-secret/delete work directly.
 - Model-backed Hermes tasks create `BookGenerationRun` records with idempotency keys, approved source manifests, provider/model policy, prompt spec version, usage/cost budgets, safety policy, and output artifact references.
 - A stale, failed, blocked, expired, cancelled, or superseded generation run cannot update an approved manuscript version, client-visible packet, export package, or channel listing.
 - Generation outputs cannot become client-visible or publishing-facing until required prompt/output safety review, rights/provenance checks, and reviewer gates pass.
@@ -2682,7 +2812,10 @@ This is not yet an implementation plan. It is the smallest coherent foundation t
 - Publishing packet tests for KDP and Google required fields and blocker behavior.
 - File package gate tests that block upload approval when required files, checksums, validation results, preview evidence, or rights/disclosure snapshots are missing or stale.
 - Publishing account profile tests that ensure sensitive credentials cannot be stored and upload approval is blocked by missing/stale account readiness, unresolved account blockers, or shared-credential-dependent access.
-- Hermes task contract tests that verify provenance, reviewer, expected artifacts, and forbidden direct-action fields.
+- Hermes skill policy tests that verify Book Studio skill manifest entries include owner agent, allowed agents, risk level, sync target, reviewer defaults, and do not appear in runtime agent lists before the required readiness level.
+- Hermes task contract tests that verify `bookStudioSkillKey`, `requiredCapability` validator compatibility, provenance, reviewer, expected artifacts, and forbidden direct-action fields.
+- Skill evaluation fixture tests for market research, public-domain/companion risk, children's fixed layout, low-content workbook, nonfiction claims, launch/review compliance, analytics reconciliation, and export/package validation.
+- Drift tests that block VPS sync or watcher dispatch when expected Book Studio skills are missing, unexpected skills are installed, external dirs are wrong, or local profile skills bypass the policy manifest.
 - Generation run tests that verify idempotency keys, source manifests, usage budgets, retry/cancel/supersede transitions, and stale-run overwrite blocking.
 - Safety gate tests that block client-visible or publishing-facing output when prompt/output moderation, provider safety feedback, rights review, or reviewer approval is missing, failed, stale, or inconclusive.
 - Manuscript production tests that verify approved version manifests do not mutate when units are revised, and that missing editorial/claim/accessibility/link/TOC coverage blocks client-visible proof or export approval where required.
