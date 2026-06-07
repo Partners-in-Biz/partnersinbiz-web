@@ -618,6 +618,48 @@ The module will need new skills, not one giant "book" skill.
 - `book-analytics-import`: parse CSV/report exports and separate estimated/reported/settled metrics.
 - `book-launch-campaign`: connect book launch to PiB social/email/ads/landing pages.
 
+### Hermes Skill Contract Model
+
+PiB's Hermes policy treats skills as owned, allowlisted, versioned runtime capabilities. Book Studio skills should follow that pattern rather than becoming ad-hoc prompts. Pip remains the orchestrator, specialist agents own skill families, and Quinn/QA reviews release-sensitive output.
+
+Every Book Studio skill should declare:
+
+- **Trigger phrases:** what user/request language loads the skill.
+- **Inputs:** required record IDs, source artifacts, research IDs, client document IDs, or approval task IDs.
+- **Outputs:** exact artifact type, target collection/document, and whether the output is internal, client-reviewable, or public-ready.
+- **Evidence contract:** sources, assumptions, provenance, validation results, and confidence/risk flags.
+- **Allowed actions:** read, draft, write, approve, publish, spend, message_client, or delete. Publish/spend/message_client/delete/secret work remains hard-gated by approval tasks.
+- **Reviewer:** the default reviewer agent and when human approval is required.
+
+Draft skill contracts:
+
+| Skill | Owner | Inputs | Outputs | Evidence and gates |
+| --- | --- | --- | --- | --- |
+| `book-niche-research` | Sage | Client/org, audience, book type, target channels, seed keywords, source constraints. | Internal Research item with findings, recommendations, competitor/category notes, pricing ranges, and risk flags. | Must cite sources and keep visibility internal until reviewed. No invented bestseller claims. |
+| `book-competitor-review-mining` | Sage | Approved competitor list or channel search brief, review URLs/snippets, target reader promise. | Pattern summary of reader complaints, praise, unmet needs, and positioning opportunities. | Must summarize patterns only. Do not copy review text into manuscripts or metadata. |
+| `book-series-strategy` | Sage + Iris | Research item, target audience, genre, commercial goal, existing book/series IDs. | Series plan with standalone-vs-series recommendation, volume order, continuity bible requirements, cadence, and risk notes. | Must flag KDP/Google series constraints, volume gaps, public-domain/low-content issues, and continuity dependencies. |
+| `book-brief-builder` | Iris | Client goal, Research item, audience, book type, brand voice, channel plan. | Book Brief client document or internal brief with approval mode, scope, success criteria, assumptions, and source links. | Client-visible only after internal review. Formal approval required before production tasks start. |
+| `book-outline-builder` | Iris + Maya | Approved brief, book type, length/format constraints, series bible, research links. | Chapter/page map, continuity plan, required assets, and task candidates. | Must stay within approved brief. Changes to promise/audience/format create a brief revision. |
+| `book-draft-writer` | Maya | Approved outline section, style guide, research sources, AI disclosure state, writing constraints. | Draft manuscript section linked to a manuscript version or client document section. | Draft only. Must record AI-generated vs AI-assisted status and source dependencies. No public-ready claim. |
+| `book-developmental-editor` | Iris | Draft manuscript, brief, outline, audience, book type. | Editorial report with structural issues, reader-fit notes, revision tasks, and approval recommendation. | Can propose rewrites but should not silently replace approved scope. |
+| `book-copyeditor` | Iris | Revised manuscript, style guide, spelling locale, brand terms, glossary. | Copyedit pass with tracked suggestions or clean revision plus change summary. | Must preserve meaning and flag factual uncertainty instead of "fixing" facts. |
+| `book-proofreader` | Quinn + Iris | Final-layout proof, manuscript version, file package, channel checklist. | Proofread report and final typo/formatting issue list. | Release gate evidence before export/publishing packet approval. |
+| `book-reading-level-review` | Iris | Draft/manuscript, target age/grade, book type, sensitive content flags. | Reading-level and age-fit assessment with flagged vocabulary, sentence complexity, and content concerns. | Required for children's, early-reader, education, and YA projects. |
+| `book-fact-checker` | Sage | Non-fiction draft claims, research sources, citation expectations. | Claim-level fact-check report with verified/disputed/unsupported status. | Unsupported claims must block client-visible publishing packets until resolved or removed. |
+| `book-cover-brief` | Maya | Book brief, metadata, audience, comparable covers, format/channel constraints. | Cover creative brief with title hierarchy, visual direction, trim/format needs, and avoid list. | Must flag trademark/IP/lookalike risks and store-safe content concerns. |
+| `book-illustration-director` | Maya | Art style guide, character bible, scene list, rights constraints, model/tool constraints. | Scene prompts, continuity notes, asset checklist, and provenance requirements. | Must record AI/image provenance and block unlicensed style mimicry or celebrity/brand lookalikes. |
+| `book-layout-designer` | Maya + Quinn | Manuscript, trim/format, interior type, images, bleed/margin rules. | Layout plan, page/spread map, print/ebook packaging checklist, and validation tasks. | Must separate layout recommendations from validated print-ready files until file checks pass. |
+| `book-asset-rights-auditor` | Quinn | Asset list, source links, licenses, generated-image metadata, contributors. | Rights/provenance audit with pass/fail/blocker status for each asset. | Hard gate before client-visible publishing packet and public submission. |
+| `book-metadata-optimizer` | Sage + Maya | Approved brief, manuscript summary, categories, keywords, competitor research, channel constraints. | Channel-specific metadata packet: title/subtitle, description, keywords, categories, series text, mature flags. | Must avoid misleading categories, competitor names as keywords, keyword stuffing, and claims unsupported by content. |
+| `book-kdp-readiness-check` | Quinn | KDP listing packet, files, AI disclosure, ISBN/imprint, metadata, pricing, series status. | KDP readiness report with blockers, warnings, and manual upload checklist. | Approval required before any KDP public submission. |
+| `book-google-play-readiness-check` | Quinn | Google listing packet, PDF/EPUB files, metadata, identifiers, series details, pricing. | Google Play readiness report and Partner Center checklist. | Must check identifier/series consistency and file package readiness before upload. |
+| `book-export-packager` | Theo + Quinn | Approved manuscript/assets, layout plan, metadata packet, validation requirements. | Export packet manifest with files, checksums, validation results, and manual-upload instructions. | Produces artifacts only; public publishing remains a separate approval-gated action. |
+| `book-publishing-ops` | Pip + Quinn | Approved publishing packet, channel listing IDs, approval task, manual upload state. | Channel status updates, external IDs, blocker tasks, and post-upload review notes. | Requires approval task for public submission; no silent store upload. |
+| `book-analytics-import` | Vera | Channel reports, ad reports, UTM/landing data, book/series IDs, reporting period. | Analytics import with estimated/reported/settled separation and reconciliation notes. | Must preserve source report, import timestamp, currency, refunds/returns, and confidence. |
+| `book-launch-campaign` | Maya + Ari + Vera | Approved book packet, launch window, channels, budget approval state, audience, tracking plan. | Launch campaign brief, social/email/ad tasks, landing-page/link plan, and measurement plan. | Drafts are allowed; paid spend and public/client-visible sends require approval gates. |
+
+Future implementation should either add these as separate `.claude/skills/book-*/SKILL.md` files or group closely related editorial skills into a `book-editorial` package only if the manifest still exposes clear sub-capabilities. The policy manifest must include owner agent, allowed agents, risk level, sync target, and approval gates before VPS skill sync.
+
 ### Approval Gates
 
 These actions should require explicit approval tasks:
