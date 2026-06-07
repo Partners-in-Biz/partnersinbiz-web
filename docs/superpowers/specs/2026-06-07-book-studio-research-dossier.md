@@ -197,6 +197,69 @@ If V1 is approved as the internal production studio, the module should behave li
 - KDP/Google readiness is clear enough that a PiB operator can execute the manual store setup consistently.
 - Analytics can ingest early reports even when the data is delayed, partial, or inconsistent across store and ad platforms.
 
+## PiB Integration Architecture
+
+Book Studio should be a PiB module, not a port of `ai-story`. The `ai-story` repo has useful product ideas, but its architecture is built around a standalone Vite/Firebase app with browser routes such as `BookWizard`, `StoryStudio`, `BookCanvas`, `SeriesManager`, `NicheResearch`, `AssetLibrary`, `Publishing`, `Analytics`, and a separate `agent/` service. Its Firestore shape is user-scoped (`users/{uid}/projects`, nested chapters/assets/characters, `users/{uid}/series`, and user campaigns), and its agent tools cover broad actions such as `auto_generate_book`, `create_book`, `create_series`, `generate_illustration`, `deep_research`, `optimize_for_kdp`, and `create_ad_keywords`. Source: [PMStander/ai-story](https://github.com/PMStander/ai-story).
+
+PiB should reuse the workflow ideas, not the ownership model. Book Studio records must be org-scoped, approval-gated, and linked to existing PiB surfaces.
+
+### Concept Mapping From `ai-story` To PiB
+
+| `ai-story` concept | What to keep | PiB-native implementation |
+| --- | --- | --- |
+| Book Wizard | Guided intake for category, concept, format, style, series, and generation plan. | Admin Book Studio create flow that sets `bookTypeFamily`, gate profile, linked org, series, Research item, Project/Kanban workspace, and optional Book Brief client document. |
+| Story Studio / Story Outline | Assisted drafting, continuation, outline, and section-level editing. | Manuscript/version workspace backed by book sections and client documents, with Hermes draft/editor tasks and explicit AI disclosure/provenance. |
+| Book Canvas / Preview | Page/spread review for fixed-layout books. | Fixed-layout proof workspace that links page/spread metadata to workspace artifacts, cover/interior files, and proofing tasks. |
+| Series Manager / Style Guide | Series grouping, research notes, style guide, characters, and consistency checks. | `book_series` records plus PiB Research links, style/continuity bibles, ordered volume map, KDP/Google series warnings, and Hermes series-strategy tasks. |
+| Niche Research | Topic/category/competitor discovery and recommendations. | PiB Research items with source records, findings, recommendations, internal visibility by default, and promotion into briefs/tasks only after review. |
+| Asset Library | Images, covers, generated artwork, puzzle files, answer keys. | `workspace_artifacts` for files and export packages, with `resourceType: 'book_project'`, source research/document/task IDs, approval gate, agent owner, visibility, provenance, and rights metadata. |
+| Publishing Hub | Workflow status tracking from research to publish. | Channel listing tracker with per-channel KDP/Google/Apple/Kobo/D2D/Ingram status, readiness reports, external IDs, blockers, and approval-gated public submission steps. |
+| Analytics | Writing progress and simple published counts. | Book/series/channel analytics ledger that imports store/ad/PiB reports and separates estimated, reported, and settled metrics. |
+| Single story assistant | Conversational help for writing, illustrations, research, KDP, ads, and series. | Multiple Hermes skills owned by Sage, Iris, Maya, Quinn, Theo, Pip, Vera, and Ari, dispatched through Projects/Kanban with provenance and approval gates. |
+
+### Canonical Records And Ownership
+
+V1 should introduce small, org-scoped Book Studio records while using existing PiB primitives for evidence, review, work, and files:
+
+- `book_projects`: core identity, status, type family, gate profile, creative brief summary, compliance state, linked PiB records, and current risk state.
+- `book_series`: series identity, order mode, style/continuity bible, volume map, shared channel-series metadata, and release cadence.
+- `book_editions` or `book_project_editions`: ebook, paperback, hardcover, audiobook, workbook, low-content, or fixed-layout edition records. Each edition stores format decisions, file requirements, identifiers, and readiness state.
+- `book_manuscript_versions`: version metadata, authorship/AI provenance, section map, approval state, and document/artifact links. Large manuscript content should live in client documents, Google Docs, or storage-backed artifacts, not as a large Firestore blob.
+- `book_sections` or `book_pages`: semantic chapters/sections for reflowable books and pages/spreads/panels for fixed-layout books. These should stay concise and link to artifacts for large images/files.
+- `book_channel_listings`: KDP, Google, and future channel state with metadata, pricing, territory rights, identifiers, upload status, blockers, and readiness report links.
+- `book_quality_gates`: required checks, source task/document/research evidence, reviewer, pass/warn/block state, waiver state, and approval task link.
+- `book_analytics_imports` and normalized analytics rows/snapshots: import ledger and reconciliation evidence.
+
+Existing PiB primitives remain authoritative where they are already stronger:
+
+- **Research:** market evidence, competitor analysis, category/keyword findings, rights research, policy notes, and recommendations.
+- **Client Documents:** Book Briefs, manuscript/proof review packets, cover option packets, Publishing Packets, final client acceptance, and versioned comments/suggestions.
+- **Projects/Kanban:** work orchestration, approval gates, agent dispatch, reviewer assignment, dependencies, and release-sensitive decisions.
+- **Workspace artifacts:** generated or uploaded files such as EPUB, PDF interior, full-wrap cover, audio files, screenshots, validation reports, exported metadata packets, and source files.
+- **Portal module switches:** `settings.portalModules.bookStudio` should gate client-visible Book Studio nav/API surfaces later, matching the Mobile Apps pattern.
+
+### End-To-End Data Flow
+
+1. **Create project:** PiB operator creates a `book_project` under an org, chooses `bookTypeFamily`, selects or creates `book_series`, and creates/links a Project/Kanban workspace.
+2. **Research:** Sage creates an internal Research item and sources. Recommendations can be promoted into a Book Brief or Kanban tasks only after review.
+3. **Brief:** Iris turns approved research and client/business goals into a Book Brief client document when approval is needed. The `book_project` stores only summary fields and document IDs.
+4. **Production tasks:** Pip or the operator creates Hermes-ready Project/Kanban tasks with `agentInput.context.bookProjectId`, `bookSeriesId`, `sourceResearchItemId`, `sourceDocumentId`, `requiredCapability`, `riskLevel`, `reviewerAgentId`, `approvalGateTaskId`, and `expectedArtifacts`.
+5. **Manuscript and assets:** Maya/Iris/Quinn tasks create or revise sections, style guides, covers, illustrations, and proof reports. File outputs are linked as workspace artifacts with provenance and visibility state.
+6. **Quality gates:** `book_quality_gates` aggregate evidence from tasks, documents, research, and artifacts. Blockers stay internal until resolved or waived through an approval task.
+7. **Publishing packet:** Quinn/Pip assemble channel-specific metadata, files, AI disclosure, ISBN/imprint choice, rights/territory state, and upload checklist into a client document or internal packet.
+8. **Manual channel execution:** Operator uploads externally to KDP/Google and records external IDs, status, review notes, blockers, and live URLs in `book_channel_listings`.
+9. **Analytics import:** Vera imports reports/ad data/PiB launch funnel rows, matches them to book/series/edition/channel listings, and creates reconciliation tasks for mismatches.
+
+### Non-Port Rules
+
+- Do not use `users/{uid}/projects` style ownership. Every Book Studio record is `orgId` scoped and must pass admin/portal/agent org authorization.
+- Do not store or rely on a user's browser-held Gemini key for production workflows. Hermes skills should use PiB-managed agent credentials and policy-controlled capabilities.
+- Do not keep one catch-all book assistant with broad write/publish/spend powers. Split capabilities into owned Hermes skills with reviewer defaults.
+- Do not treat a status dropdown as publishing evidence. KDP/Google statuses need external IDs, upload notes, screenshots or reports where relevant, and reviewer evidence.
+- Do not show writing-progress counts as commercial analytics. Store/ad/PiB report imports must be reconciled and labeled by confidence.
+- Do not save large data URLs or full manuscripts in core records. Use storage-backed artifacts, Google Docs, client documents, or purpose-built version records.
+- Do not expose internal research, risk notes, or unresolved rights issues in the portal. Portal surfaces should show only approved/client-visible records.
+
 ## Book Types To Support
 
 The module should not be limited to children's books. It should define a structured taxonomy with format-specific gates.
@@ -560,6 +623,11 @@ interface BookProject {
     waivedGateIds?: Array<{ gateId: string; approvalTaskId: string; reason: string }>
     channelWarnings: Array<{ channel: BookChannel; message: string; severity: 'info' | 'warning' | 'blocker' }>
   }
+  visibility: {
+    portalVisible: boolean
+    clientReviewEnabled: boolean
+    internalRiskNotesVisibleToClient: false
+  }
   audience: {
     ageRange?: string
     readingLevel?: string
@@ -582,6 +650,9 @@ interface BookProject {
   linked: {
     researchItemIds: string[]
     clientDocumentIds: string[]
+    workspaceArtifactIds: string[]
+    taskIds: string[]
+    approvalGateTaskIds: string[]
     projectId?: string
     campaignId?: string
     companyId?: string
@@ -597,6 +668,33 @@ interface BookProject {
     rightsConfirmed: boolean
     copyrightNotes?: string
     policyRisk: 'low' | 'medium' | 'high'
+  }
+}
+```
+
+```ts
+interface BookQualityGate {
+  id: string
+  orgId: string
+  bookProjectId: string
+  gateKey: string
+  title: string
+  status: 'not_started' | 'in_progress' | 'passed' | 'warning' | 'blocked' | 'waived'
+  severity: 'info' | 'warning' | 'blocker'
+  reviewerAgentId?: string
+  requiredCapability?: 'read' | 'draft' | 'write' | 'approve' | 'publish' | 'spend' | 'message_client'
+  evidence: {
+    sourceResearchItemIds: string[]
+    sourceDocumentIds: string[]
+    taskIds: string[]
+    workspaceArtifactIds: string[]
+    notes?: string
+  }
+  waiver?: {
+    approvalGateTaskId: string
+    approvedBy: string
+    reason: string
+    approvedAt: string
   }
 }
 ```
@@ -823,6 +921,7 @@ Mitigation: analytics should show unit economics and stage-gate ad spend.
 - Admin-only book/series workspace.
 - Firestore records for books, series, channel listings, and artifacts.
 - Book-type gate profiles for narrative, children's, visual/sequential, nonfiction, activity/workbook, low-content, public-domain/companion, and audiobook projects.
+- PiB integration wiring for Research, Client Documents, Projects/Kanban, workspace artifacts, Hermes task provenance, and future `settings.portalModules.bookStudio`.
 - Research linkages.
 - Client document generation for book brief and publishing packet.
 - Portal module toggle, but portal may show read/review only.
@@ -866,11 +965,12 @@ Build the first approved spec around:
 1. Admin Book Studio.
 2. Series manager.
 3. Book-type gate profiles and compliance defaults.
-4. Research-backed book brief.
-5. Hermes skill set for research, outline, metadata, and readiness.
-6. Client document approval for brief and publishing packet.
-7. KDP/Google export checklist and channel listing tracker.
-8. Analytics import model, initially manual CSV/report ingestion.
+4. PiB-native integration backbone: Research, Client Documents, Projects/Kanban, workspace artifacts, Hermes task provenance, and future portal module gating.
+5. Research-backed book brief.
+6. Hermes skill set for research, outline, metadata, and readiness.
+7. Client document approval for brief and publishing packet.
+8. KDP/Google export checklist and channel listing tracker.
+9. Analytics import model, initially manual CSV/report ingestion.
 
 Do not include in the first implementation:
 
