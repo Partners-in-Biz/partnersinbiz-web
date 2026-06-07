@@ -747,7 +747,57 @@ Dashboard views:
 
 The dashboard should never present dashboard estimates as settled revenue. It should label the source and confidence of every money number.
 
-### 9. Client Portal Surface
+### 9. Commercial Pricing And Margin Model
+
+Book Studio should treat pricing as an operational model with evidence, not as a single `price` field. A client can approve a beautiful book that is commercially weak if print costs, delivery fees, refunds, currency conversion, KDP Select exclusivity, payment lag, and ad spend are not visible before launch.
+
+Source-backed commercial constraints:
+
+- KDP eBooks have two royalty choices. The 35% option is calculated from list price excluding VAT, while the 70% option subtracts delivery costs and applies only in eligible territories; Brazil, Japan, Mexico, and India require KDP Select for 70% eligibility when other requirements are met. Public-domain eBooks are not eligible for the 70% option. Sources: [KDP Digital Book Pricing Page](https://kdp.amazon.com/en_US/help/topic/G200634500), [KDP Price Your Book](https://kdp.amazon.com/en_US/help/topic/G200641280).
+- KDP paperback royalties are now 50% or 60% on Amazon distribution depending on list-price thresholds by marketplace, then printing costs are subtracted. Expanded Distribution uses 40% of list price minus printing costs and has slower reporting/payment timing. Source: [KDP Paperback Royalty](https://kdp.amazon.com/en_US/help/topic/G201834330).
+- KDP hardcover royalties are 60% of list price minus printing costs, and printing costs depend on page count, ink type, and marketplace. Source: [KDP Hardcover Pricing and Royalties](https://kdp.amazon.com/en_US/help/topic/GTTMJWM4H3BLQA9A).
+- KDP print pricing uses fixed cost plus page-count multiplied by per-page cost, rounds calculations by currency, and pays print royalties about 60 days after standard Amazon distribution sales or about 90 days after Expanded Distribution sales. Source: [KDP Print Book Pricing Page](https://kdp.amazon.com/en_US/help/topic/G8BKPU9AGVZSF9QF).
+- KDP Select is a 90-day Kindle eBook-only program. It adds Kindle Unlimited and promotion eligibility but requires the Kindle eBook to be exclusive to the Kindle Store during the enrollment period; print, video, audio, and other formats can still be distributed elsewhere. Source: [KDP Select enrollment](https://kdp.amazon.com/help/topic/GD9PMU58BV24QFZ7).
+- Google Play Books has no cost to sell books through Google Play, bases revenue share on the publisher-provided list price, and requires file/settings/DRM/country/list-price setup in Partner Center. Source: [How to sell books on Google Play](https://support.google.com/books/partner/answer/1079107).
+- Google Play Books offers a 70% ebook revenue split in most supported countries for partners who accepted the updated 2019 Terms of Service; default split can be 52% for older terms or certain countries, and the effective split should be checked per book in Partner Center. Source: [Google Play Books Revenue Split FAQs](https://support.google.com/books/partner/answer/9331459).
+- Google price setup requires each book to have a price and account-level payment settings, supports currency conversion and country-specific/fixed-price-law settings, and allows effective dates for price changes. Sources: [Google book prices](https://support.google.com/books/partner/answer/3238849), [Google sales territories](https://support.google.com/books/partner/answer/3157463).
+- Google requires a payment profile before selling books; the profile country determines payment currency, and multiple profiles can be used for different bank accounts. Source: [Google payment profile setup](https://support.google.com/books/partner/answer/4490848).
+- Google reports expose monthly earnings, sales summary, transaction, refund, revenue percentage, publisher revenue, payment amount, currency conversion, and preview-traffic fields. Source: [Google report overview](https://support.google.com/books/partner/answer/9266485).
+
+Commercial records should separate:
+
+- **Price plan:** target channel, format, marketplace/territory, list price, currency, tax-included flag, fixed-price-law flag, price effective window, royalty/revenue-share option, KDP Select state, DRM/copy-print choice, and approval status.
+- **Cost model:** KDP delivery cost estimate for eBooks, print cost estimate for paperback/hardcover, file-size estimate, page count, ink type, trim family, cover/interior package, ISBN/imprint cost, human production cost, Hermes/generation cost, cover/art/audio cost, ads/launch budget, and miscellaneous platform/vendor fees.
+- **Revenue expectation:** estimated royalty per unit, estimated publisher revenue share, expected refunds/returns, expected ad-attributed sales, expected KENP/read revenue if KDP Select, expected settlement window, and confidence label.
+- **Actual ledger:** report-import rows, payment rows, refunds/returns, ad spend, production cost entries, manual adjustments, exchange rates, and reconciliation state.
+- **Decision evidence:** pricing calculator screenshot/file, Partner Center effective-price evidence, KDP pricing-grid evidence, approval document, owner, reviewer, and last checked timestamp.
+
+Recommended derived metrics:
+
+- `grossListRevenue`: units times list price, never treated as publisher income.
+- `channelGrossRevenue`: channel-reported sale value before publisher share where available.
+- `estimatedPublisherRevenue`: royalty/revenue-share estimate before settlement.
+- `reportedPublisherRevenue`: imported sales/transaction report revenue.
+- `settledPublisherRevenue`: payment or earnings report revenue.
+- `directUnitCost`: delivery cost, print cost, platform fees, and return/refund adjustments where known.
+- `productionCost`: PiB/internal time, Hermes task cost, editing, artwork, ISBN/imprint, narration, file validation, and outside vendors.
+- `launchCost`: ads, email/social promotion, landing pages, influencer/review activity, and paid assets.
+- `contributionMargin`: settled or reported publisher revenue minus direct unit cost and launch cost.
+- `costRecovery`: settled or reported publisher revenue minus production cost and launch cost.
+- `marginConfidence`: `estimate`, `reported`, `settled`, or `reconciled`.
+
+Pricing governance:
+
+- No price or royalty/revenue-share recommendation should be treated as approved until a human reviewer approves the pricing plan.
+- No KDP Select enrollment should be approved if the ebook is also planned for Google/Apple/Kobo/D2D during the same 90-day period.
+- No print book should be approved for launch until the packet shows a positive per-unit margin at the selected list price or records an explicit loss-leader waiver.
+- No illustrated/comic/picture-heavy ebook should use the 70% KDP royalty option blindly; the delivery-cost estimate can make 35% economically better.
+- No ad launch budget should be approved until the dashboard can show break-even units, expected refund drag, and the confidence level of attributed sales.
+- No client-facing dashboard should show "profit" unless production cost, launch cost, refunds, and settled/reported royalty source are clear.
+
+The devil's-advocate position is that many book projects are vanity projects unless the economics are visible. Book Studio should make the weak-margin case obvious early: low-content books under print royalty thresholds, color-heavy workbooks, illustrated children's books, broad-distribution paperbacks with returns, and paid-ad launches without reviews can all look attractive creatively while failing commercially.
+
+### 10. Client Portal Surface
 
 Portal access should be module-gated like Mobile Apps:
 
@@ -942,7 +992,40 @@ interface BookChannelListing {
     marketplace: string
     currency: string
     listPrice: number
-    royaltyPlan?: string
+    taxIncluded?: boolean
+    fixedPriceLawApplies?: boolean
+    effectiveFrom?: string
+    effectiveUntil?: string
+    royaltyPlan?: 'kdp_ebook_35' | 'kdp_ebook_70' | 'kdp_print_50' | 'kdp_print_60' | 'kdp_expanded_40' | 'google_70' | 'google_52' | 'other'
+    kdpSelect?: {
+      enrolled: boolean
+      termStart?: string
+      termEnd?: string
+      exclusivityAcknowledgedBy?: string
+    }
+    costEstimate?: {
+      fileSizeMb?: number
+      deliveryCost?: number
+      pageCount?: number
+      inkType?: 'black' | 'standard_color' | 'premium_color'
+      printCost?: number
+      productionCostAllocated?: number
+      launchCostAllocated?: number
+      source?: 'kdp_calculator' | 'partner_center' | 'manual' | 'imported_report'
+      checkedAt?: string
+    }
+    marginEstimate?: {
+      estimatedPublisherRevenue?: number
+      estimatedContributionMargin?: number
+      estimatedCostRecovery?: number
+      confidence: 'estimate' | 'reported' | 'settled' | 'reconciled'
+    }
+    approval?: {
+      status: 'draft' | 'needs_review' | 'approved' | 'waived'
+      approvedBy?: string
+      approvedAt?: string
+      waiverReason?: string
+    }
   }>
   aiDisclosure: {
     text: boolean
@@ -1176,12 +1259,14 @@ Mitigation: keep core records small, store large files in storage, use job recor
 
 ### Commercial Risk
 
-- Many book types have weak margins after print costs, returns, ad spend, and time.
-- Bookstore distribution through Ingram-like channels can introduce return risk.
-- Children's and illustrated books are expensive to make well.
-- Paid ads can burn budget before reviews/social proof exist.
+- Many book types have weak margins after print costs, delivery fees, refunds, ad spend, and human/Hermes production time.
+- KDP print royalty thresholds can make a small price change materially affect margin.
+- KDP Select can improve KU/promotional reach while blocking wide ebook sales for the enrollment period.
+- Bookstore distribution through Ingram-like channels can introduce return risk and wholesale-discount pressure.
+- Children's, illustrated, comic, workbook, and audio books are expensive to make well and can have high file/print costs.
+- Paid ads can burn budget before reviews, conversion evidence, series read-through, or social proof exist.
 
-Mitigation: analytics should show unit economics and stage-gate ad spend.
+Mitigation: require a pricing plan, cost estimate, margin confidence label, and reviewer approval before publishing packets or ad budgets can move to launch.
 
 ## Phased Delivery Recommendation
 
@@ -1270,6 +1355,7 @@ This is not yet an implementation plan. It is the smallest coherent foundation t
 | Research and brief bridge | Link or create Research items and Book Brief client documents from a book project. | The module should inherit PiB's evidence and approval model rather than recreate `ai-story` research notes. | A book project can show linked findings/recommendations, create a brief packet, and preserve source IDs. |
 | Hermes task contracts | Store Hermes-ready task metadata for research, brief, outline, metadata, and readiness work without granting direct publish powers. | Agent output must be bounded, reviewable, and attributable. | Created tasks include book context, expected artifacts, reviewer, risk level, and approval-gate linkage. |
 | Publishing packet and channel tracker | Add KDP/Google channel listing records, readiness state, blocker notes, metadata fields, file checklist, AI disclosure, ISBN/imprint decision, pricing summary, and manual external status. | KDP/Google setup is currently a manual operator action; PiB should prepare and track it, not pretend it can safely auto-publish. | A project can produce a channel-specific readiness packet and record uploaded/in review/live/blocked status with evidence. |
+| Commercial pricing ledger | Add price-plan, cost-estimate, margin-confidence, and approval fields to channel listings before reports are imported. | KDP/Google economics vary by royalty option, print cost, delivery cost, territory, exclusivity, refunds, payment profile, and currency conversion. | Admin can record a KDP/Google price plan, attach calculator/Partner Center evidence, see estimated margin/cost recovery, and require reviewer approval or a waiver before launch. |
 | Portal review surface | Add client-safe portal read/review routes only when the module is enabled and selected records are approved for portal visibility. | Clients need review and approval, not internal risk notes or raw research assumptions. | Portal users see only approved briefs, proofs, publishing packets, comments, and approval/change-request actions. |
 | Analytics ingestion shell | Add manual report-import ledger and normalized analytics snapshot records before building automated integrations. | KDP and Google reports can lag and disagree; the data model must separate estimated, reported, and settled figures from day one. | Admin can attach a KDP/Google report import, see confidence/source labels, and create reconciliation tasks for mismatches. |
 
@@ -1282,6 +1368,8 @@ This is not yet an implementation plan. It is the smallest coherent foundation t
 - Hermes task preparation is possible for research, brief, outline, metadata, and readiness checks, but the tasks do not publish, submit, or spend money.
 - A KDP readiness packet explicitly captures metadata, categories/keywords, file checklist, AI-generated-vs-assisted disclosure, ISBN/imprint choice, rights confirmation, content-risk notes, pricing, and manual upload status.
 - A Google Play readiness packet explicitly captures EPUB/PDF readiness, cover file, metadata, series naming/volume consistency, rights/territories, pricing, DRM/copy-print choices, and manual Partner Center status.
+- KDP and Google channel listings can store price plans, royalty/revenue-share assumptions, cost estimates, KDP Select exclusivity state, calculator/effective-price evidence, margin confidence, and approval/waiver state.
+- A project cannot mark a publishing packet `approved_for_upload` while its selected channel listing has an unreviewed price plan, an unresolved KDP Select/wide-distribution conflict, or a negative per-unit margin without a waiver.
 - Portal reviewers can comment, approve, or request changes on approved client-visible packets while internal research, unresolved rights blockers, and draft risk notes remain hidden.
 - Analytics imports are source-labeled and confidence-labeled; estimated dashboard data, reported sales/read data, settled payment data, and ad attribution data are not merged into one ambiguous metric.
 
