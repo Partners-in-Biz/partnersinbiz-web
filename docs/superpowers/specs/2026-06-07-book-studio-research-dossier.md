@@ -321,6 +321,7 @@ V1 should introduce small, org-scoped Book Studio records while using existing P
 - `book_sections` or `book_pages`: semantic chapters/sections for reflowable books and pages/spreads/panels for fixed-layout books. These should stay concise and link to artifacts for large images/files.
 - `book_channel_listings`: KDP, Google, and future channel state with metadata, pricing, territory rights, identifiers, upload status, blockers, and readiness report links.
 - `book_quality_gates`: required checks, source task/document/research evidence, reviewer, pass/warn/block state, waiver state, and approval task link.
+- `book_launch_plans`, `book_promotion_windows`, `book_review_compliance_records`, and `book_lifecycle_events`: governed sell-through, review hygiene, attribution, promotion, price-change, revision, and postmortem records.
 - `book_analytics_imports` and normalized analytics rows/snapshots: import ledger and reconciliation evidence.
 
 Existing PiB primitives remain authoritative where they are already stronger:
@@ -1054,6 +1055,40 @@ For implementation, the manuscript workspace should feel like a production board
 
 Devil's advocate: if Book Studio treats manuscript work as one long AI chat, the team will lose track of what changed, which draft the client approved, whether a footnote still points to the right source, whether the TOC works, and whether a later generated paragraph invalidated accessibility, claims, rights, or publishing evidence.
 
+### 16. Launch, Reviews, Promotions, And Lifecycle Operations
+
+Book Studio should treat launch as a governed operating phase, not a final checkbox after upload. A book can be live and still commercially weak if the launch plan has no reader segment, no approved messaging, no review hygiene, no attribution, no promotion calendar, no budget control, and no lifecycle loop for revisions or future series entries.
+
+Current source-backed constraints:
+
+- KDP tells authors they can promote books with email, websites, outreach, Author Central, Amazon Advertising, Free Promotions, Kindle Countdown Deals, pre-orders, gifting, Kindle previews, and sample chapters, but warns that authors remain responsible for third-party tactics that manipulate Kindle publishing services or programs. Source: [KDP Promote Your Book](https://kdp.amazon.com/en_US/help/topic/G201723090).
+- Amazon Ads for KDP supports Sponsored Products and Sponsored Brands for books, requires detail-page readiness and ad moderation, and explicitly notes that Amazon Ads reports attribute only ad-driven sales while KDP reports show all book sales. Source: [KDP Advertising for books](https://kdp.amazon.com/en_US/help/topic/G201499010).
+- Kindle Countdown Deals are KDP Select-only, marketplace-limited, require pricing stability before/after the promotion, must be scheduled in advance, and can only be used once per KDP Select term instead of a Free Book Promotion. Source: [KDP Kindle Countdown Deals](https://kdp.amazon.com/en_US/help/topic/G201293780).
+- Free Book Promotions are KDP Select-only for Kindle eBooks, allow up to 5 free days per 90-day term, do not pay royalties during the free period, and shift rank behavior between free and paid lists. Source: [KDP Free Book Promotions](https://kdp.amazon.com/en_US/help/topic/G201298240).
+- Google Play Books supports promo codes, promotional pricing, series bundles, and series subscription discounts, with different eligibility, distribution, and series behavior. Sources: [Google promotions overview](https://support.google.com/books/partner/answer/11098571) and [Google promotional pricing](https://support.google.com/books/partner/answer/4566728).
+- Amazon says its community guidelines prohibit incentivized reviews unless facilitated through Amazon Vine, and the FTC final rule prohibits fake reviews, buying sentiment-conditioned reviews, undisclosed insider testimonials, review suppression, and fake social indicators. Sources: [Amazon review update](https://www.aboutamazon.com/news/innovation-at-amazon/update-on-customer-reviews) and [FTC fake reviews rule](https://www.ftc.gov/news-events/news/press-releases/2024/08/federal-trade-commission-announces-final-rule-banning-fake-reviews-testimonials).
+
+Design implication: Book Studio should model a launch plan with campaign activities, tracking links, promotion windows, review-compliance state, lifecycle events, and attribution evidence. It should not let an operator go from "book is live" to "spend money" or "ask for reviews" without a reviewed plan.
+
+Launch operations records should cover:
+
+- **Launch strategy:** target reader, positioning, channel mix, launch window, target territories, expected margin, break-even units, series/read-through assumption, and whether this is a first release, sequel, revised edition, promotion, or reactivation.
+- **Campaign activities:** PiB landing page, email sequence, social posts, short links, Amazon Ads, non-Amazon paid ads, Amazon Attribution links, Google promotion, KDP Select promotion, Author Central checklist, sample/preview link, newsletter/outreach, and client-owned channels.
+- **Promotion windows:** KDP Select term, Free Promotion day usage, Countdown Deal timing, Google promo pricing/codes/series promotions, territories, currency, list price before/after, and overlap/conflict checks.
+- **Review hygiene:** permitted review request copy, no compensation or sentiment condition, no insider/family/staff review request without disclosure review, no review gating/suppression, third-party service risk, ARC/free-copy disclosure requirements, and FTC/Amazon blocker state.
+- **Attribution and measurement:** UTM source/medium/campaign, short-link IDs, Amazon Attribution tag/campaign where available, Amazon Ads campaign ID, Google promotion ID, PiB email/social/ad IDs, landing-page events, channel report imports, and confidence labels.
+- **Lifecycle events:** launch, promotion, ad start/stop, price change, revised edition, metadata update, file revision, store rejection/reinstatement, unpublish/archive, series follow-up, rights/account recheck, analytics review, and postmortem.
+
+Governance rules:
+
+- Paid ads, public sends, review requests, promotion scheduling, KDP Select enrollment changes, price changes, and lifecycle actions that affect public listings need approval tasks.
+- Launch copy must use the approved metadata packet and cannot invent bestseller rank, review count, ratings, awards, or platform promises.
+- Amazon Ads and KDP reports should be reconciled rather than treated as contradictory; ad dashboards show attribution windows while KDP reports show broader sales/royalties.
+- Free/discount promotions should not be presented as profit unless the dashboard separates zero-royalty downloads, paid sales, ad cost, read-through, refunds, and later settled royalties.
+- Third-party promotion or review services should be treated as high-risk until their tactics are recorded and reviewed; "guaranteed ROI" and review-generation claims should create blockers.
+
+Devil's advocate: a launch layer can become performative marketing admin if it does not control spend, review risk, and attribution confidence. Book Studio should help PiB avoid the common failure mode where a book is technically live, social posts go out, ads spend money, a promotion is consumed, reviews are requested badly, and no one can prove which activity created sales or whether the launch was economically worth repeating.
+
 ## Proposed Data Model
 
 Names are draft interface names for discussion.
@@ -1158,6 +1193,47 @@ type BookEditorialPassType =
   | 'client_review'
 
 type BookClaimReviewStatus = 'unreviewed' | 'supported' | 'unsupported' | 'disputed' | 'stale' | 'waived'
+type BookLaunchPlanState = 'draft' | 'needs_review' | 'approved' | 'active' | 'paused' | 'completed' | 'blocked' | 'archived'
+type BookLaunchActivityType =
+  | 'pib_landing_page'
+  | 'email_sequence'
+  | 'social_campaign'
+  | 'amazon_ads'
+  | 'non_amazon_paid_ads'
+  | 'amazon_attribution'
+  | 'google_play_promotion'
+  | 'kdp_free_promotion'
+  | 'kindle_countdown_deal'
+  | 'author_central'
+  | 'sample_or_preview'
+  | 'newsletter_outreach'
+  | 'third_party_promotion'
+  | 'manual_outreach'
+type BookPromotionWindowType =
+  | 'kdp_free_promotion'
+  | 'kindle_countdown_deal'
+  | 'google_promo_code'
+  | 'google_promotional_pricing'
+  | 'google_series_bundle'
+  | 'google_series_subscription'
+  | 'manual_price_drop'
+type BookLifecycleEventType =
+  | 'launch'
+  | 'promotion_started'
+  | 'promotion_ended'
+  | 'ad_campaign_started'
+  | 'ad_campaign_paused'
+  | 'price_changed'
+  | 'metadata_updated'
+  | 'file_revision_uploaded'
+  | 'revised_edition_started'
+  | 'store_rejection'
+  | 'store_reinstatement'
+  | 'unpublished'
+  | 'archived'
+  | 'series_follow_up_started'
+  | 'analytics_reviewed'
+  | 'postmortem_completed'
 
 interface BookProject {
   id: string
@@ -1209,6 +1285,9 @@ interface BookProject {
     manuscriptUnitIds: string[]
     editorialPassIds: string[]
     generationRunIds: string[]
+    launchPlanIds: string[]
+    reviewComplianceRecordIds: string[]
+    lifecycleEventIds: string[]
     projectId?: string
     campaignId?: string
     companyId?: string
@@ -1408,6 +1487,156 @@ interface BookAccessibilityReview {
   blockerTaskIds: string[]
   createdAt: string
   updatedAt: string
+}
+```
+
+```ts
+interface BookLaunchPlan {
+  id: string
+  orgId: string
+  bookProjectId: string
+  bookSeriesId?: string
+  channelListingIds: string[]
+  state: BookLaunchPlanState
+  launchType: 'new_release' | 'sequel_release' | 'revised_edition' | 'promotion' | 'reactivation'
+  strategy: {
+    readerSegment: string
+    positioningSummary: string
+    launchWindowStart?: string
+    launchWindowEnd?: string
+    targetTerritories: string[]
+    targetChannels: BookChannel[]
+    breakEvenUnits?: number
+    marginConfidence: 'estimate' | 'reported' | 'settled' | 'unknown'
+    seriesReadThroughAssumption?: string
+  }
+  activities: Array<{
+    id: string
+    type: BookLaunchActivityType
+    ownerId?: string
+    status: 'planned' | 'needs_review' | 'approved' | 'active' | 'paused' | 'completed' | 'blocked' | 'cancelled'
+    scheduledStart?: string
+    scheduledEnd?: string
+    sourceCampaignId?: string
+    sourceTaskId?: string
+    sourceDocumentId?: string
+    approvalGateTaskId?: string
+    budget?: { amount: number; currency: string; approved: boolean }
+    blockers: Array<{ title: string; severity: 'warning' | 'blocker'; nextAction: string }>
+  }>
+  tracking: {
+    landingPageUrl?: string
+    shortLinkIds: string[]
+    utmCampaign?: string
+    amazonAttributionTagIds: string[]
+    amazonAdsCampaignIds: string[]
+    googlePromotionIds: string[]
+    emailCampaignIds: string[]
+    socialCampaignIds: string[]
+  }
+  reviewComplianceRecordIds: string[]
+  promotionWindowIds: string[]
+  lifecycleEventIds: string[]
+  approvedBy?: string
+  approvedAt?: string
+  createdAt: string
+  updatedAt: string
+}
+```
+
+```ts
+interface BookPromotionWindow {
+  id: string
+  orgId: string
+  bookProjectId: string
+  launchPlanId?: string
+  channelListingId: string
+  promotionType: BookPromotionWindowType
+  status: 'draft' | 'needs_review' | 'approved' | 'scheduled' | 'active' | 'ended' | 'cancelled' | 'blocked'
+  schedule: {
+    startsAt: string
+    endsAt: string
+    marketplaceTimeZone?: string
+    kdpSelectTermId?: string
+  }
+  pricing: {
+    listPriceBefore?: { amount: number; currency: string }
+    promotionPrice?: { amount: number; currency: string }
+    listPriceAfter?: { amount: number; currency: string }
+    countries: string[]
+  }
+  eligibility: {
+    kdpSelectRequired?: boolean
+    kdpSelectConfirmed?: boolean
+    selectPromotionDaysUsed?: number
+    selectPromotionDaysAvailable?: number
+    priceStabilityChecked?: boolean
+    googleSeriesEligibilityChecked?: boolean
+  }
+  evidence: {
+    approvalTaskId?: string
+    scheduledEvidenceArtifactId?: string
+    resultImportIds: string[]
+    notes?: string
+  }
+  createdAt: string
+  updatedAt: string
+}
+```
+
+```ts
+interface BookReviewComplianceRecord {
+  id: string
+  orgId: string
+  bookProjectId: string
+  launchPlanId?: string
+  state: 'draft' | 'needs_review' | 'approved' | 'warning' | 'blocked' | 'waived'
+  requestContext: 'none' | 'client_list' | 'arc_reader' | 'newsletter' | 'social' | 'third_party_service' | 'post_purchase_followup' | 'manual'
+  checks: {
+    noCompensationForSentiment: boolean
+    noInsiderOrFamilyRequestWithoutDisclosureReview: boolean
+    noReviewGatingOrSuppression: boolean
+    noFakeSocialProof: boolean
+    amazonGuidelineReviewed: boolean
+    ftcGuidelineReviewed: boolean
+    thirdPartyTacticsRecorded: boolean
+  }
+  approvedRequestCopyArtifactId?: string
+  blockerTaskIds: string[]
+  reviewerAgentId?: string
+  approvalGateTaskId?: string
+  createdAt: string
+  updatedAt: string
+}
+```
+
+```ts
+interface BookLifecycleEvent {
+  id: string
+  orgId: string
+  bookProjectId: string
+  bookSeriesId?: string
+  launchPlanId?: string
+  channelListingId?: string
+  eventType: BookLifecycleEventType
+  status: 'planned' | 'recorded' | 'needs_review' | 'approved' | 'blocked' | 'superseded'
+  summary: string
+  evidence: {
+    sourceTaskIds: string[]
+    sourceDocumentIds: string[]
+    sourceArtifactIds: string[]
+    analyticsImportIds: string[]
+    externalUrl?: string
+  }
+  impact: {
+    affectsPublicListing: boolean
+    affectsPricing: boolean
+    affectsFiles: boolean
+    affectsAdsOrSpend: boolean
+    clientVisible: boolean
+  }
+  approvalGateTaskId?: string
+  createdAt: string
 }
 ```
 
@@ -2048,6 +2277,8 @@ The module will need new skills, not one giant "book" skill.
 - `book-publishing-ops`: maintain channel status and manual upload steps.
 - `book-analytics-import`: parse CSV/report exports and separate estimated/reported/settled metrics.
 - `book-launch-campaign`: connect book launch to PiB social/email/ads/landing pages.
+- `book-review-compliance-check`: review planned review requests, ARC/free-copy handling, third-party promotion tactics, and FTC/Amazon risk.
+- `book-lifecycle-ops`: track post-launch revisions, price changes, promotion windows, ad state, store blockers, archive/unpublish events, and series follow-up tasks.
 
 ### Hermes Skill Contract Model
 
@@ -2096,6 +2327,8 @@ Draft skill contracts:
 | `book-publishing-ops` | Pip + Quinn | Approved publishing packet, channel listing IDs, approval task, manual upload state. | Channel status updates, external IDs, blocker tasks, and post-upload review notes. | Requires approval task for public submission; no silent store upload. |
 | `book-analytics-import` | Vera | Channel reports, ad reports, UTM/landing data, book/series IDs, reporting period. | Analytics import with estimated/reported/settled separation and reconciliation notes. | Must preserve source report, import timestamp, currency, refunds/returns, and confidence. |
 | `book-launch-campaign` | Maya + Ari + Vera | Approved book packet, launch window, channels, budget approval state, audience, tracking plan. | Launch campaign brief, social/email/ad tasks, landing-page/link plan, and measurement plan. | Drafts are allowed; paid spend and public/client-visible sends require approval gates. |
+| `book-review-compliance-check` | Quinn + Ari | Launch plan, review request copy, ARC/free-copy plan, third-party promotion details, Amazon/FTC policy evidence. | Review-compliance report with pass/warn/block state, permitted copy, disclosure notes, and blocker tasks. | Required before review requests, ARC outreach, or third-party review/promotion services. Blocks compensation-for-sentiment, review gating, insider requests without disclosure review, and fake social proof. |
+| `book-lifecycle-ops` | Pip + Vera | Live channel listings, launch plan, analytics summary, blocker notes, price/promotion/revision request, approval task. | Lifecycle event record, follow-up tasks, revised packet requirements, and analytics/postmortem summary. | Public listing changes, price changes, unpublish/archive, ad state changes, and revised-edition actions need approval gates. |
 
 Future implementation should either add these as separate `.claude/skills/book-*/SKILL.md` files or group closely related editorial skills into a `book-editorial` package only if the manifest still exposes clear sub-capabilities. The policy manifest must include owner agent, allowed agents, risk level, sync target, and approval gates before VPS skill sync.
 
@@ -2159,6 +2392,8 @@ type BookStudioArtifactType =
   | 'publishing_status_note'
   | 'analytics_import'
   | 'launch_campaign_brief'
+  | 'review_compliance_report'
+  | 'lifecycle_status_report'
 ```
 
 Every Book Studio Hermes task should include:
@@ -2186,7 +2421,7 @@ Implementation should not try to install all skills at once. The first wave shou
 | 2. Safety and release checks | `book-generation-safety-review`, `book-asset-rights-auditor`, `book-metadata-optimizer`, `book-kdp-readiness-check`, `book-google-play-readiness-check`, `book-publishing-account-readiness` | Prevents policy/rights/account-authority mistakes before anything reaches a client or store. |
 | 3. Production drafting | `book-manuscript-structure-keeper`, `book-draft-writer`, `book-developmental-editor`, `book-copyeditor`, `book-proofreader`, `book-reading-level-review`, `book-fact-checker`, `book-accessibility-review` | Useful only after the brief and gate model are stable; keeps drafts tied to units, claims, navigation, accessibility, and version snapshots. |
 | 4. Visual and package work | `book-cover-brief`, `book-illustration-director`, `book-layout-designer`, `book-export-packager`, `book-file-package-validator` | Depends on approved book direction, rights rules, and file-package conventions. |
-| 5. Launch and analytics | `book-publishing-ops`, `book-analytics-import`, `book-launch-campaign` | Depends on channel listing state, packet fields, and import ledger behavior. |
+| 5. Launch and analytics | `book-publishing-ops`, `book-analytics-import`, `book-launch-campaign`, `book-review-compliance-check`, `book-lifecycle-ops` | Depends on channel listing state, packet fields, import ledger behavior, review hygiene, attribution, and public lifecycle governance. |
 
 `book-publishing-account-readiness` should run with Wave 2 for any project that expects PiB to help upload or reconcile reports, because unresolved account authority can block a launch even when metadata and files are ready.
 
@@ -2209,6 +2444,9 @@ Wave 1 and Wave 2 are the right targets for a first Hermes skill rollout because
 | Change paid launch spend | Yes with approval | No | No direct spend |
 | Import analytics reports | Yes | No | Yes for import/normalization tasks |
 | View analytics | Yes | Client-safe summary | Yes if assigned |
+| Request reviews or run ARC outreach | Yes with compliance approval | Can receive approved request only | Compliance check only; no manipulation or direct review gating |
+| Schedule promotions or price changes | Yes with approval | Can approve client-facing facts where requested | Draft/recommend only |
+| Record lifecycle events | Yes | Client-safe summary where visible | Draft/recommend and create internal reports only |
 
 This matrix should be enforced in skill policy, task creation, and future API guards. If a skill output recommends a public action, the output should create or update a blocker/approval task rather than performing the action itself.
 
@@ -2218,6 +2456,9 @@ These actions should require explicit approval tasks:
 
 - Public publishing submission.
 - Paid ad campaign launch or spend changes.
+- Review request, ARC/free-copy outreach, or third-party promotion plan.
+- KDP/Google promotion scheduling or price change.
+- Unpublish/archive, revised edition, metadata update, or file revision affecting a public listing.
 - Client-visible publication package.
 - AI-generated content disclosure decision.
 - ISBN/imprint decision.
@@ -2285,8 +2526,11 @@ Mitigation: require prompt preflight, output postflight, safety report artifacts
 - Bookstore distribution through Ingram-like channels can introduce return risk and wholesale-discount pressure.
 - Children's, illustrated, comic, workbook, and audio books are expensive to make well and can have high file/print costs.
 - Paid ads can burn budget before reviews, conversion evidence, series read-through, or social proof exist.
+- Review requests, ARC/free-copy programs, third-party promotion sites, and influencer outreach can create Amazon/FTC risk if compensation, disclosure, or sentiment conditions are mishandled.
+- Amazon Ads, KDP, Google promotions, PiB links, and external ad dashboards can all report different attribution slices, so launch "success" is easy to overclaim.
+- A client can mistake downloads, free-rank movement, email opens, or ad-attributed sales for durable profit if the dashboard does not separate free, paid, attributed, settled, and margin-adjusted outcomes.
 
-Mitigation: require a pricing plan, cost estimate, margin confidence label, and reviewer approval before publishing packets or ad budgets can move to launch.
+Mitigation: require a pricing plan, cost estimate, margin confidence label, launch plan, review-compliance record, tracking plan, and reviewer approval before publishing packets, promotion windows, review requests, or ad budgets can move to launch.
 
 ## Phased Delivery Recommendation
 
@@ -2334,6 +2578,10 @@ Mitigation: require a pricing plan, cost estimate, margin confidence label, and 
 ### Phase 4: Publishing Ops And Analytics
 
 - Channel listing status tracking.
+- Launch campaign plan with PiB landing, email, social, ads, Amazon Attribution, Google promotions, and approved tracking links.
+- Review-compliance ledger for review requests, ARC/free-copy outreach, third-party services, and FTC/Amazon risk.
+- Promotion window tracker for KDP Free Promotions, Kindle Countdown Deals, Google promo codes/pricing, series bundles, and series subscriptions.
+- Lifecycle event tracker for price changes, revised editions, metadata updates, file revisions, unpublish/archive, series follow-ups, and postmortems.
 - Manual import for KDP/Google reports.
 - PiB launch campaign linkage.
 - Series/book dashboards.
@@ -2361,7 +2609,8 @@ Build the first approved spec around:
 9. Export package manifest and validation tracker for source archives, KDP/Google files, checksums, preview evidence, and upload instructions.
 10. Publisher account governance for KDP/Google ownership, access, tax/payment/profile readiness, report access, and operating authority.
 11. KDP/Google export checklist and channel listing tracker.
-12. Analytics import model, initially manual CSV/report ingestion.
+12. Launch/review/promotion lifecycle ledger for governed sell-through operations after upload.
+13. Analytics import model, initially manual CSV/report ingestion.
 
 Do not include in the first implementation:
 
@@ -2419,6 +2668,8 @@ This is not yet an implementation plan. It is the smallest coherent foundation t
 - A project cannot mark a publishing packet `approved_for_upload` while its selected publishing account profile has incomplete identity, tax, payment, access, report, or territory readiness required for that channel.
 - Portal reviewers can comment, approve, or request changes on approved client-visible packets while internal research, unresolved rights blockers, and draft risk notes remain hidden.
 - Analytics imports are source-labeled and confidence-labeled; estimated dashboard data, reported sales/read data, settled payment data, and ad attribution data are not merged into one ambiguous metric.
+- Launch plans can store campaign activities, tracking IDs, budgets, approval gates, promotion windows, review-compliance records, and lifecycle events without launching ads or sending public/client-visible messages automatically.
+- Review requests, ARC/free-copy outreach, and third-party promotion services are blocked until review-compliance checks pass or an approval-task waiver exists.
 
 ### Phase 1 Test Focus
 
@@ -2437,6 +2688,7 @@ This is not yet an implementation plan. It is the smallest coherent foundation t
 - Manuscript production tests that verify approved version manifests do not mutate when units are revised, and that missing editorial/claim/accessibility/link/TOC coverage blocks client-visible proof or export approval where required.
 - Gate tests that block publishing-packet readiness when provenance, rights review, AI disclosure, or version manifest evidence is missing.
 - Analytics import tests that verify estimated/reported/settled separation and reconciliation task creation.
+- Launch lifecycle tests that verify paid activity, review outreach, promotion windows, price changes, and public listing lifecycle events require approval gates and preserve attribution/review-compliance evidence.
 
 ### Phase 1 Explicit Deferrals
 
@@ -2446,6 +2698,8 @@ This is not yet an implementation plan. It is the smallest coherent foundation t
 - No autonomous cover/image generation approval into public packets.
 - No automated ISBN purchase/registration.
 - No paid ad launch, budget mutation, or Amazon Ads automation.
+- No automated review solicitation, third-party promotion purchase, or influencer/ARC outreach.
+- No automated KDP/Google promotion scheduling or price-change execution.
 - No guarantee that a packet passing PiB readiness will be accepted by a publishing platform.
 
 Approval of option 1, internal PiB production studio with optional client review, should unlock a separate implementation plan for this Phase 1 foundation.
