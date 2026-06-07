@@ -155,6 +155,11 @@ describe('buildApprovedDocumentTaskFanout', () => {
         type: 'geo_seo_strategy',
         title: 'GEO SEO Strategy',
         templateId: 'geo-seo-strategy-v1',
+        linked: {
+          ...document.linked,
+          companyId: 'source-company-1',
+          clientOrgId: 'client-org-1',
+        },
       },
       versionId: 'version-1',
       approvalId: 'approval-1',
@@ -174,9 +179,82 @@ describe('buildApprovedDocumentTaskFanout', () => {
       ['Maya: execute approved GEO content and distribution', 'maya', ['task-approval']],
       ['Sage: review GEO delta and next opportunities', 'sage', ['task-maya-execute']],
     ])
-    expect(result.tasks[0].labels).toEqual(expect.arrayContaining(['geo-record-required', 'seo-overlap-check']))
-    expect(result.tasks[1].labels).toEqual(expect.arrayContaining(['seo-content-link', 'client-approval-required']))
-    expect(result.tasks[3].labels).toEqual(expect.arrayContaining(['approved-only', 'linked-artifacts-required']))
+    expect(result.tasks[0].labels).toEqual(expect.arrayContaining(['geo-record-required', 'seo-overlap-check', 'skill:geo-seo-service']))
+    expect(result.tasks[1].labels).toEqual(expect.arrayContaining(['seo-content-link', 'client-approval-required', 'skill:geo-seo-service']))
+    expect(result.tasks[3].labels).toEqual(expect.arrayContaining(['approved-only', 'linked-artifacts-required', 'skill:geo-seo-service']))
+    expect(result.tasks[0]).toMatchObject({
+      orgId: 'org-1',
+      sourceOrgId: 'org-1',
+      clientOrgId: 'client-org-1',
+      recipientOrgId: 'client-org-1',
+      companyId: 'source-company-1',
+      sourceCompanyId: 'source-company-1',
+      visibility: 'internal-only',
+      clientPortalVisible: false,
+      shareStatus: 'internal-only',
+      sideEffectPolicy: {
+        mode: 'approval-gated',
+        approvalGateTaskId: 'approval-1',
+        externalSideEffectsApproved: false,
+        blockedUntilApproved: expect.arrayContaining([
+          'production-deploy',
+          'public-publish',
+          'client-or-prospect-message',
+          'paid-spend',
+          'secret-or-config-change',
+          'billing-or-finance-change',
+          'destructive-delete-or-archive',
+        ]),
+      },
+      agentInput: {
+        context: {
+          orgId: 'org-1',
+          sourceOrgId: 'org-1',
+          clientOrgId: 'client-org-1',
+          sourceCompanyId: 'source-company-1',
+          visibility: 'internal-only',
+          clientPortalVisible: false,
+          requiredRuntimeSkillPaths: ['geo-seo-service'],
+          staleRuntimeSkillPathsRejected: ['.claude/skills/geo-seo-service/SKILL.md'],
+        },
+        constraints: expect.arrayContaining([
+          'No production deploy, release promotion, or main merge without explicit approval',
+          'No public publishing or public share/report promotion without explicit approval',
+          'No client-visible or prospect-visible send/message without explicit approval',
+          'No paid spend, ad launch, billing, finance, secret, config, or destructive action without explicit approval',
+        ]),
+      },
+    })
+    expect(result.tasks[0].orgId).not.toBe('client-org-1')
+  })
+
+  it('rejects GEO SEO task fanout from a source CRM company without linked client org context', () => {
+    const result = buildApprovedDocumentTaskFanout({
+      document: {
+        ...document,
+        type: 'geo_seo_strategy',
+        title: 'GEO SEO Strategy',
+        templateId: 'geo-seo-strategy-v1',
+        linked: {
+          ...document.linked,
+          companyId: 'source-company-1',
+          clientOrgId: undefined,
+          clientOrgIds: [],
+        },
+      },
+      versionId: 'version-1',
+      approvalId: 'approval-1',
+      blocks: createBlocksFromTemplate('geo_seo_strategy'),
+      actorId: 'ai-agent',
+      taskRefs: ['task-sage-research', 'task-maya-draft', 'task-approval', 'task-maya-execute', 'task-delta'],
+      plan: {},
+    })
+
+    expect(result).toEqual({
+      ok: false,
+      error: 'GEO SEO task generation requires a linked clientOrgId when a source CRM company is attached',
+      status: 400,
+    })
   })
 
   it('uses implementation-ready default chains for approved build specs', () => {

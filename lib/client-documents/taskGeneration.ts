@@ -178,6 +178,44 @@ function linkedArtifactsForDocument(document: ClientDocument & { id: string }) {
   ].filter(Boolean)
 }
 
+function sourceContextForDocument(document: ClientDocument & { id: string }) {
+  const linked = document.linked ?? {}
+  const clientOrgId = cleanString(linked.clientOrgId) ?? cleanString(linked.clientOrgIds?.[0])
+  const sourceCompanyId = cleanString(linked.companyId) ?? cleanString(linked.companyIds?.[0])
+  const sourceOrgId = cleanString(document.orgId)
+  return {
+    sourceOrgId,
+    clientOrgId,
+    recipientOrgId: clientOrgId,
+    companyId: sourceCompanyId,
+    sourceCompanyId,
+  }
+}
+
+function clientPortalVisibilityForTask(document: ClientDocument) {
+  const isClientVisible = document.status === 'client_review' || document.status === 'accepted'
+  return {
+    visibility: isClientVisible ? 'client-visible' : 'internal-only',
+    clientPortalVisible: isClientVisible,
+    shareStatus: isClientVisible ? 'approved-visible' : 'internal-only',
+  }
+}
+
+function sideEffectPolicyForTask(approvalId: string) {
+  return {
+    mode: 'approval-gated',
+    approvalGateTaskId: approvalId,
+    blockedUntilApproved: SIDE_EFFECT_GATES,
+    allowedWithoutAdditionalApproval: ['internal-draft', 'internal-tests', 'internal-evidence'],
+    externalSideEffectsApproved: false,
+    requiresExplicitApprovalFor: SIDE_EFFECT_GATES,
+  }
+}
+
+function runtimeSkillPathsForTask(document: ClientDocument): string[] {
+  return document.type === 'geo_seo_strategy' ? [GEO_SEO_RUNTIME_SKILL_PATH] : []
+}
+
 function taskPlanItems(plan: ApprovedDocumentTaskPlan, blocks: DocumentBlock[], document?: ClientDocument): ApprovedDocumentTaskPlanItem[] {
   if (Array.isArray(plan.tasks) && plan.tasks.length > 0) return plan.tasks
   if (document?.type) {
@@ -195,6 +233,15 @@ export function buildApprovedDocumentTaskFanout(input: BuildInput): BuildSuccess
   const projectId = cleanString(input.document.linked?.projectId)
   if (!projectId) {
     return { ok: false, error: 'Document must be linked to a project before tasks can be generated', status: 400 }
+  }
+
+  const documentSourceContext = sourceContextForDocument(input.document)
+  if (input.document.type === 'geo_seo_strategy' && documentSourceContext.sourceCompanyId && !documentSourceContext.clientOrgId) {
+    return {
+      ok: false,
+      error: 'GEO SEO task generation requires a linked clientOrgId when a source CRM company is attached',
+      status: 400,
+    }
   }
 
   const items = taskPlanItems(input.plan, input.blocks, input.document)
@@ -237,6 +284,7 @@ export function buildApprovedDocumentTaskFanout(input: BuildInput): BuildSuccess
       GENERATED_LABEL,
       `document:${input.document.id}`,
       `document-section:${block.id}`,
+      ...runtimeSkillPathsForTask(input.document).map((skillPath) => `skill:${skillPath}`),
       ...cleanStringArray(item.labels),
     ]))
     const dependsOn = cleanStringArray(item.dependsOn).map((dep) => {
@@ -252,10 +300,21 @@ export function buildApprovedDocumentTaskFanout(input: BuildInput): BuildSuccess
     const requiredCapability = cleanString(item.requiredCapability) ?? defaults.requiredCapability
     const expectedArtifacts = cleanStringArray(item.expectedArtifacts).length > 0 ? cleanStringArray(item.expectedArtifacts) : defaults.expectedArtifacts
     const sourceResearchItemId = cleanString(item.sourceResearchItemId) ?? firstLinkedResearchItemId(input.document)
+    const sourceContext = sourceContextForDocument(input.document)
+    const portalVisibility = clientPortalVisibilityForTask(input.document)
+    const sideEffectPolicy = sideEffectPolicyForTask(input.approvalId)
+    const requiredRuntimeSkillPaths = runtimeSkillPathsForTask(input.document)
 
     const task: BuiltTask = {
       id: taskId,
       orgId: input.document.orgId ?? null,
+      clientOrgId: sourceContext.clientOrgId,
+      recipientOrgId: sourceContext.recipientOrgId,
+      companyId: sourceContext.companyId,
+      sourceCompanyId: sourceContext.sourceCompanyId,
+      sourceOrgId: sourceContext.sourceOrgId,
+      ...portalVisibility,
+      sideEffectPolicy,
       projectId,
       columnId: 'todo',
       title,
@@ -300,6 +359,19 @@ export function buildApprovedDocumentTaskFanout(input: BuildInput): BuildSuccess
         spec: agentSpec,
         context: {
           orgId: input.document.orgId ?? null,
+          clientOrgId: sourceContext.clientOrgId,
+          recipientOrgId: sourceContext.recipientOrgId,
+          companyId: sourceContext.companyId,
+          sourceCompanyId: sourceContext.sourceCompanyId,
+          sourceOrgId: sourceContext.sourceOrgId,
+          sourceContext,
+          portalVisibility,
+          visibility: portalVisibility.visibility,
+          clientPortalVisible: portalVisibility.clientPortalVisible,
+          shareStatus: portalVisibility.shareStatus,
+          sideEffectPolicy,
+          requiredRuntimeSkillPaths,
+          staleRuntimeSkillPathsRejected: requiredRuntimeSkillPaths.length > 0 ? ['.claude/skills/geo-seo-service/SKILL.md'] : [],
           projectId,
           linkedRecords: input.document.linked ?? {},
           documentId: input.document.id,
@@ -320,7 +392,11 @@ export function buildApprovedDocumentTaskFanout(input: BuildInput): BuildSuccess
             content: block.content,
           },
         },
-        constraints: ['Use the inherited spec section as the source of truth', 'Respect dependsOn before starting blocked work'],
+        constraints: [
+          'Use the inherited spec section as the source of truth',
+          'Respect dependsOn before starting blocked work',
+          ...SIDE_EFFECT_CONSTRAINTS,
+        ],
       },
     }
 
