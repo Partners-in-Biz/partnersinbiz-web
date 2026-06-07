@@ -274,6 +274,42 @@ PiB should reuse the workflow ideas, not the ownership model. Book Studio record
 | Analytics | Writing progress and simple published counts. | Book/series/channel analytics ledger that imports store/ad/PiB reports and separates estimated, reported, and settled metrics. |
 | Single story assistant | Conversational help for writing, illustrations, research, KDP, ads, and series. | Multiple Hermes skills owned by Sage, Iris, Maya, Quinn, Theo, Pip, Vera, and Ari, dispatched through Projects/Kanban with provenance and approval gates. |
 
+### `ai-story` Source Inventory And Migration Delta
+
+Inspection target: [`PMStander/ai-story`](https://github.com/PMStander/ai-story), `main` at commit `11ef473` on 2026-06-07. The repo is useful as a working product sketch, but it should be treated as reference material rather than source code to port directly.
+
+Observed implementation:
+
+- **Runtime:** standalone Vite/React app with protected routes in `src/App.jsx` and a persistent `AgentChat` mounted beside the app shell.
+- **Book creation:** `src/pages/BookWizard.jsx` performs category, concept, format, style, generation, image, cover, Firestore, and Storage writes inside one browser flow.
+- **Book categories:** `src/lib/bookGenres.js` supports children, comic, fiction, Christian/faith, humor, and puzzle/activity categories with genre/tone/art-style defaults.
+- **Format helpers:** `src/lib/kdpFormats.js` stores trim-size, page-count, interior, art-style, and rough KDP pricing reference data.
+- **Editing:** `src/pages/StoryStudio.jsx` and `src/pages/BookCanvas.jsx` provide page/spread editing, layout presets, text/image element controls, and debounced canvas layout saves.
+- **Series:** `src/pages/SeriesManager.jsx` keeps series descriptions, research notes, book IDs, recurring characters, and style-guide checks.
+- **Research:** `src/pages/NicheResearch.jsx` calls Gemini research helpers with Google Search grounding, then renders keywords, bestsellers, analytics, gaps, and series tabs.
+- **Publishing:** `src/pages/Publishing.jsx` is a status checklist and table, not a real channel adapter, file validator, or store-submission ledger.
+- **Analytics:** `src/pages/Analytics.jsx` calculates local book/chapter/word progress and placeholder AI usage, not sales, royalty, ad, or review reconciliation.
+- **Data ownership:** `src/lib/firestore.js` stores projects, chapters, assets, campaigns, series, and chats under `users/{uid}/...`.
+- **AI execution:** `src/lib/gemini.js` creates browser-side Gemini clients with the user's API key; `agent/server.ts` receives the key over HTTP, creates an in-memory ADK session, and returns action payloads; `src/contexts/AgentProvider.jsx` then applies those actions in the browser.
+- **Embeddings:** `functions/index.js` generates chapter and character embeddings from user-scoped document writes and stores vectors back on the same records.
+
+Migration deltas:
+
+| Source pattern in `ai-story` | PiB decision | Reason |
+| --- | --- | --- |
+| User-owned Firestore paths such as `users/{uid}/projects` and `users/{uid}/series`. | Use org-scoped `book_projects`, `book_series`, editions, sections/pages, channel listings, quality gates, and workspace artifacts. | PiB work is tenant/client owned, not individual creator owned. Admin, portal, and agent access must resolve the same org scope. |
+| Browser flow generates content, images, cover, uploads assets, writes chapters, and updates project status in one action. | Split into explicit Project/Kanban tasks, artifacts, manifests, and approval gates. | Book generation is high-risk because text, images, rights, disclosure, and files need review before client or channel exposure. |
+| BYOK Gemini API key stored/read from user settings and sent to a standalone agent HTTP endpoint. | Use PiB-managed server/Hermes capability dispatch with allowlisted skill contracts and org audit trails. | Client secrets and agent actions should not cross an unaudited browser-to-agent boundary. |
+| Agent action payloads directly create series/books, update series research, and mutate style guides in the current browser session. | Hermes actions create bounded artifacts or task outputs; a PiB API records mutations after authorization and review checks. | Conversational help is valuable, but autonomous mutation must be auditable and reversible. |
+| Category-aware wizard asks for category, topic, genre, audience, format, style, and series link. | Reuse the intake shape, but make the selected category load a PiB `bookTypeFamily` gate profile and required packet checklist. | This is the strongest UX lesson from `ai-story`; PiB needs it tied to validators and operations, not only prompt selection. |
+| Canvas layout stores fixed-layout text/image rectangles directly on chapter records. | Keep page/spread layout metadata compact, but store source files, proofs, and export packages as artifacts with checksums and provenance. | Fixed-layout work needs inspectable proofs and upload-ready package records, not only browser layout state. |
+| Series style guide and research notes are embedded on the series record. | Store concise series bible fields on `book_series`, and link substantial research, evidence, style packets, and client approvals to PiB Research/Documents. | Series continuity is core, but evidence and approvals should stay in PiB's existing source-of-truth systems. |
+| Publishing status is a manually editable workflow step. | Store channel-specific listing states, package requirements, upload package IDs, external IDs, rejection/review notes, blockers, and preview evidence. | A checklist cannot prove KDP/Google readiness or preserve why a package was approved. |
+| Analytics is progress-oriented and mostly local. | Use the analytics reconciliation model already defined in this dossier: reported, settled, estimated, imported, and disputed rows per book/series/channel/listing. | Sales, royalties, ad spend, reviews, and PiB funnel data will arrive late, partially, and with mismatched identifiers. |
+| The repo includes useful prototype helpers such as trim-size data, category defaults, layout presets, and puzzle rendering. | Treat these as product references; re-source channel constraints from official KDP/Google docs and rewrite code in PiB patterns. | Prototype constants can drift and may encode assumptions that are not valid for every channel, territory, or format. |
+
+Devil's-advocate conclusion: over-porting `ai-story` would make Book Studio feel fast early but weak operationally. PiB would inherit a solo-creator tool that can generate attractive artifacts without proving rights, margins, file validity, client approval, or channel readiness. Under-learning from it would also be a mistake: the category-aware wizard, canvas/proof workflow, series style guide, agent action vocabulary, and research tabs are concrete UX patterns that can make the PiB module usable from day one.
+
 ### Canonical Records And Ownership
 
 V1 should introduce small, org-scoped Book Studio records while using existing PiB primitives for evidence, review, work, and files:
