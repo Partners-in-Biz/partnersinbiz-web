@@ -1,6 +1,6 @@
 'use client'
 
-import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { FormEvent, KeyboardEvent, useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 import type { ChatEvent } from '@/lib/hermes/types'
 import { AGENT_IDS, type AgentSkillPolicyState } from '@/lib/agents/types'
 import {
@@ -226,6 +226,7 @@ export default function UnifiedChat({
   // Attachment state
   const [attachments, setAttachments] = useState<File[]>([])
   const fileInputRef = useRef<HTMLInputElement | null>(null)
+  const attachmentInputId = useId()
 
   // Mobile pane navigation: which pane is visible on small screens
   const [mobilePane, setMobilePane] = useState<'list' | 'conversation'>('list')
@@ -1721,7 +1722,9 @@ export default function UnifiedChat({
               type="file"
               multiple
               accept="image/*,.pdf,.txt,.md,.csv,.json,.docx,.xlsx"
-              className="hidden"
+              id={attachmentInputId}
+              className="sr-only"
+              tabIndex={-1}
               onChange={(e) => {
                 const files = Array.from(e.target.files ?? [])
                 setAttachments((prev) => [...prev, ...files].slice(0, 5))
@@ -1729,16 +1732,24 @@ export default function UnifiedChat({
               }}
             />
             {/* Attach */}
-            <button
-              type="button"
-              onClick={() => fileInputRef.current?.click()}
-              disabled={sending}
+            <label
+              htmlFor={sending ? undefined : attachmentInputId}
+              role="button"
+              tabIndex={sending ? -1 : 0}
+              onKeyDown={(e: KeyboardEvent<HTMLLabelElement>) => {
+                if (sending) return
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault()
+                  fileInputRef.current?.click()
+                }
+              }}
               title={activeConversation ? 'Attach file' : 'Attach file and start a new conversation'}
               aria-label="Attach file"
-              className="self-end flex items-center justify-center w-9 h-9 rounded-full text-on-surface-variant hover:text-on-surface hover:bg-white/[0.08] transition-colors disabled:opacity-40 shrink-0"
+              aria-disabled={sending}
+              className="self-end flex items-center justify-center w-9 h-9 rounded-full text-on-surface-variant hover:text-on-surface hover:bg-white/[0.08] transition-colors aria-disabled:opacity-40 shrink-0 cursor-pointer aria-disabled:cursor-not-allowed"
             >
               <span className="material-symbols-outlined text-[20px]">attach_file</span>
-            </button>
+            </label>
 
             <VoiceInputButton
               disabled={sending || !activeConversation}

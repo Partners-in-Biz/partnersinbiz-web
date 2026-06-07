@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useParams } from 'next/navigation'
 import { copyToClipboard } from '@/lib/utils/clipboard'
 import type { WorkspaceFolder } from '@/lib/workspace-folders/model'
@@ -71,6 +71,30 @@ const emptyForm: OrgForm = {
 
 type WorkspaceFolderWithId = WorkspaceFolder & { id: string }
 type OrgSummary = { id: string; name?: string; slug?: string }
+type WorkspaceConnectionSummary = {
+  id: string
+  displayName?: string
+  connectionKey?: string | null
+  connectionType?: string
+  status?: string
+  tokenStatus?: string
+}
+
+const GOOGLE_WORKSPACE_OAUTH_SCOPES = [
+  { scope: 'https://www.googleapis.com/auth/drive.file', classification: 'sensitive', approved: false },
+  { scope: 'https://www.googleapis.com/auth/documents', classification: 'sensitive', approved: false },
+  { scope: 'https://www.googleapis.com/auth/spreadsheets', classification: 'sensitive', approved: false },
+] as const
+
+const REQUIRED_WORKSPACE_OAUTHS = [
+  {
+    key: 'google-workspace-drive-docs-sheets',
+    displayName: 'Google Workspace Drive, Docs & Sheets',
+    description: 'Required for Drive folder mappings, Google Docs/Sheets broker jobs, artifact exports, and sync audits.',
+    capabilityScopes: ['drive.read', 'drive.write', 'docs.write', 'sheets.write'],
+    capabilities: { driveRead: true, driveWrite: true, driveShare: false, driveDelete: false, docsRead: true, docsWrite: true, sheetsRead: true, sheetsWrite: true, externalShare: false },
+  },
+] as const
 
 function folderVisibilityLabel(value: WorkspaceFolder['visibility']) {
   if (value === 'admin_only') return 'Admin only'
@@ -107,8 +131,10 @@ export default function OrgSettingsPage() {
   const [saved, setSaved] = useState(false)
   const [copiedId, setCopiedId] = useState(false)
   const [folderMappings, setFolderMappings] = useState<WorkspaceFolderWithId[]>([])
+  const [workspaceConnections, setWorkspaceConnections] = useState<WorkspaceConnectionSummary[]>([])
   const [folderNotice, setFolderNotice] = useState('')
   const [resyncingFolderId, setResyncingFolderId] = useState<string | null>(null)
+  const [preparingOauths, setPreparingOauths] = useState(false)
 
   function copyOrgId() {
     if (!orgId) return
@@ -136,6 +162,9 @@ export default function OrgSettingsPage() {
       const folderBody = await folderRes.json().catch(() => ({ data: { folders: [] } }))
       const folders = Array.isArray(folderBody.data?.folders) ? folderBody.data.folders : []
       setFolderMappings(folders)
+      const connectionRes = await fetch(`/api/v1/workspace-connections?orgId=${encodeURIComponent(org.id)}`)
+      const connectionBody = await connectionRes.json().catch(() => ({ data: [] }))
+      setWorkspaceConnections(Array.isArray(connectionBody.data) ? connectionBody.data : [])
       if (d) {
         const bd = d.billingDetails ?? {}
         const addr = bd.address ?? {}
@@ -289,6 +318,67 @@ export default function OrgSettingsPage() {
     setResyncingFolderId(null)
   }
 
+  const requiredWorkspaceOauths = useMemo(() => REQUIRED_WORKSPACE_OAUTHS.map((oauth) => {
+    const existing = workspaceConnections.find((connection) => connection.connectionKey === oauth.key)
+    return { ...oauth, existing }
+  }), [workspaceConnections])
+
+  const missingWorkspaceOauthCount = requiredWorkspaceOauths.filter((oauth) => !oauth.existing).length
+
+  async function refreshWorkspaceConnections(currentOrgId = orgId) {
+    if (!currentOrgId) return
+    const res = await fetch(`/api/v1/workspace-connections?orgId=${encodeURIComponent(currentOrgId)}`)
+    const body = await res.json().catch(() => ({ data: [] }))
+    setWorkspaceConnections(Array.isArray(body.data) ? body.data : [])
+  }
+
+  async function prepareRequiredWorkspaceOauths() {
+    if (!orgId || preparingOauths) return
+    setPreparingOauths(true)
+    setFolderNotice('')
+    try {
+      const missing = requiredWorkspaceOauths.filter((oauth) => !oauth.existing)
+      for (const oauth of missing) {
+        const res = await fetch('/api/v1/workspace-connections', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            orgId,
+            connectionKey: oauth.key,
+            displayName: oauth.displayName,
+            provider: 'google_workspace',
+            connectionType: 'user_oauth',
+            status: 'proposed',
+            automationIdentity: 'peet',
+            capabilityScopes: oauth.capabilityScopes,
+            capabilities: oauth.capabilities,
+            scopes: GOOGLE_WORKSPACE_OAUTH_SCOPES,
+            tokenStatus: 'needs_authorization',
+            reconnectInstructions: 'Use the Google OAuth authorization button from this settings page, then map Drive folders once the account is connected. Raw OAuth tokens are never stored in this registry record.',
+            riskLevel: 'medium',
+            approvalStatus: 'pending',
+            dataTouched: ['google_drive', 'google_docs', 'google_sheets', 'workspace_artifacts'],
+            safeMetadata: {
+              setupSurface: 'admin_org_settings_workspace_folder_registry',
+              sourceOfTruth: 'google_drive',
+              portalExposure: 'deferred_until_folder_visibility_review',
+            },
+          }),
+        })
+        const body = await res.json().catch(() => ({}))
+        if (!res.ok) throw new Error(body.error ?? `Failed to create ${oauth.displayName}`)
+      }
+      await refreshWorkspaceConnections()
+      setFolderNotice(missing.length > 0
+        ? `Prepared ${missing.length} Google Workspace OAuth registry record${missing.length === 1 ? '' : 's'}. Start the Google OAuth flow, then add folder mappings.`
+        : 'All required Google Workspace OAuth registry records are already prepared.')
+    } catch (err) {
+      setFolderNotice(err instanceof Error ? err.message : 'Failed to prepare OAuth records.')
+    } finally {
+      setPreparingOauths(false)
+    }
+  }
+
   if (loading) return <div className="pib-skeleton h-96 max-w-3xl mx-auto" />
 
   return (
@@ -332,6 +422,47 @@ export default function OrgSettingsPage() {
           <span className="rounded-full bg-[var(--color-surface-container)] px-3 py-1 text-[10px] font-label uppercase tracking-wider text-on-surface-variant">
             Portal exposure deferred
           </span>
+        </div>
+        <div className="border-t border-outline-variant/50 p-4">
+          <div className="rounded-xl border border-primary/20 bg-primary/5 p-4">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div className="min-w-0 flex-1">
+                <h2 className="text-sm font-semibold text-on-surface">Required Google OAuth setup</h2>
+                <p className="mt-1 text-xs text-on-surface-variant">
+                  Prepare the workspace OAuth records admins need before adding Drive folders. The buttons do not expose raw tokens; they create auditable registry records and start the approved Google authorization flow.
+                </p>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={prepareRequiredWorkspaceOauths}
+                  disabled={preparingOauths || missingWorkspaceOauthCount === 0}
+                  className="pib-btn-primary text-xs"
+                >
+                  {preparingOauths ? 'Preparing…' : missingWorkspaceOauthCount > 0 ? `Prepare ${missingWorkspaceOauthCount} OAuth${missingWorkspaceOauthCount === 1 ? '' : 's'}` : 'OAuth records ready'}
+                </button>
+                <a
+                  href="/api/v1/admin/mailbox/google/authorize"
+                  className="pib-btn-secondary text-xs"
+                >
+                  Authorize Google account
+                </a>
+              </div>
+            </div>
+            <div className="mt-3 grid gap-2">
+              {requiredWorkspaceOauths.map((oauth) => (
+                <div key={oauth.key} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-outline-variant/50 bg-[var(--color-surface)] px-3 py-2 text-xs">
+                  <div>
+                    <p className="font-medium text-on-surface">{oauth.displayName}</p>
+                    <p className="mt-0.5 text-on-surface-variant">{oauth.description}</p>
+                  </div>
+                  <span className={oauth.existing ? 'rounded-full bg-green-500/10 px-2 py-0.5 text-[10px] font-label uppercase tracking-wide text-green-300' : 'rounded-full bg-amber-500/10 px-2 py-0.5 text-[10px] font-label uppercase tracking-wide text-amber-300'}>
+                    {oauth.existing ? `${oauth.existing.status ?? 'proposed'} · ${oauth.existing.tokenStatus ?? 'token pending'}` : 'Not prepared'}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
         <div className="divide-y divide-outline-variant/50">
           {folderMappings.length === 0 ? (

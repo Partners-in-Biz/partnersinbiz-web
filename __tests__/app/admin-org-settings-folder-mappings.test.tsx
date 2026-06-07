@@ -22,6 +22,9 @@ describe('OrgSettingsPage folder mappings', () => {
           json: async () => ({ data: { id: 'org_1', name: 'Acme Client', settings: {} } }),
         } as Response)
       }
+      if (url === '/api/v1/workspace-connections?orgId=org_1') {
+        return Promise.resolve({ ok: true, json: async () => ({ data: [] }) } as Response)
+      }
       if (url === '/api/v1/workspace-folders?orgId=org_1' && !init) {
         return Promise.resolve({
           ok: true,
@@ -51,6 +54,9 @@ describe('OrgSettingsPage folder mappings', () => {
           }),
         } as Response)
       }
+      if (url === '/api/v1/workspace-connections' && init?.method === 'POST') {
+        return Promise.resolve({ ok: true, json: async () => ({ data: { id: 'conn_1' } }) } as Response)
+      }
       if (url === '/api/v1/workspace-folders/assets/resync?orgId=org_1') {
         return Promise.resolve({
           ok: true,
@@ -72,8 +78,23 @@ describe('OrgSettingsPage folder mappings', () => {
     expect(screen.getByText('VPS')).toBeInTheDocument()
     expect(screen.getByText('Local Cowork')).toBeInTheDocument()
     expect(screen.getByText('Portal exposure deferred')).toBeInTheDocument()
+    expect(screen.getByText('Required Google OAuth setup')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Prepare 1 OAuth/i })).toBeInTheDocument()
 
     fireEvent.click(screen.getByRole('button', { name: /Resync Source Assets/i }))
     await waitFor(() => expect(screen.getByText('Manual resync is not configured for this folder yet.')).toBeInTheDocument())
+
+    fireEvent.click(screen.getByRole('button', { name: /Prepare 1 OAuth/i }))
+    await waitFor(() => {
+      const post = (global.fetch as jest.Mock).mock.calls.find(([url, init]) =>
+        String(url) === '/api/v1/workspace-connections' && init?.method === 'POST',
+      )
+      expect(post).toBeTruthy()
+      expect(JSON.parse(post![1].body as string)).toMatchObject({
+        connectionKey: 'google-workspace-drive-docs-sheets',
+        connectionType: 'user_oauth',
+        tokenStatus: 'needs_authorization',
+      })
+    })
   })
 })
