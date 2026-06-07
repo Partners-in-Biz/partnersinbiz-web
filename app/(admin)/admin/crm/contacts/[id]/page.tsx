@@ -541,7 +541,7 @@ export default function ContactDetailPage() {
             <div className="flex flex-wrap items-center gap-2">
               {composeEmailHref && (
                 <Link href={composeEmailHref} aria-label={`Email ${name} from contact command center`} className="pib-btn-secondary text-sm">
-                  <span className="material-symbols-outlined text-base">mail</span>
+                  <span className="material-symbols-outlined text-base" aria-hidden="true">mail</span>
                   Email
                 </Link>
               )}
@@ -552,7 +552,7 @@ export default function ContactDetailPage() {
                   onClick={() => setEditing(true)}
                   className="pib-btn-secondary text-sm"
                 >
-                  <span className="material-symbols-outlined text-base">alternate_email</span>
+                  <span className="material-symbols-outlined text-base" aria-hidden="true">alternate_email</span>
                   Add email
                 </button>
               )}
@@ -569,7 +569,7 @@ export default function ContactDetailPage() {
                   onClick={() => setEditing(true)}
                   className="pib-btn-secondary text-sm"
                 >
-                  <span className="material-symbols-outlined text-base">add_call</span>
+                  <span className="material-symbols-outlined text-base" aria-hidden="true">add_call</span>
                   Add phone
                 </button>
               )}
@@ -580,7 +580,7 @@ export default function ContactDetailPage() {
                   onClick={() => setEditing(true)}
                   className="pib-btn-secondary text-sm"
                 >
-                  <span className="material-symbols-outlined text-base">domain_add</span>
+                  <span className="material-symbols-outlined text-base" aria-hidden="true">domain_add</span>
                   Add company
                 </button>
               )}

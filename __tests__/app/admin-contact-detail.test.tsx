@@ -213,6 +213,24 @@ describe('Admin contact detail page', () => {
     expect(headerEmailLink).toHaveAttribute('href', '/admin/email/compose?to=jane%40example.com&contactId=contact-1&orgId=org-1')
   })
 
+  it('hides decorative icons from admin header profile-completion commands', async () => {
+    contactOverride = { email: '', phone: '', company: '', companyId: '', companyName: '' }
+
+    render(<AdminContactDetailPage />)
+
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { name: 'Jane Client' })).toBeInTheDocument()
+    })
+
+    const addEmail = screen.getByRole('button', { name: 'Add email for Jane Client from contact command center' })
+    const addPhone = screen.getByRole('button', { name: 'Add phone for Jane Client from contact command center' })
+    const addCompany = screen.getByRole('button', { name: 'Add company for Jane Client from contact command center' })
+
+    expect(addEmail.querySelector('.material-symbols-outlined')).toHaveAttribute('aria-hidden', 'true')
+    expect(addPhone.querySelector('.material-symbols-outlined')).toHaveAttribute('aria-hidden', 'true')
+    expect(addCompany.querySelector('.material-symbols-outlined')).toHaveAttribute('aria-hidden', 'true')
+  })
+
   it('keeps the admin header call action contextual and free of decorative icon text', async () => {
     contactOverride = { phone: '+27115550123' }
 
