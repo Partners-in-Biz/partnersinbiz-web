@@ -415,6 +415,42 @@ Analytics should combine:
 
 Important design principle: separate **estimated**, **reported**, and **settled** money. KDP/Google/aggregators update at different times, and ad dashboards can disagree with royalty dashboards.
 
+Source-backed constraints:
+
+- KDP Reports expose dashboard estimates, orders, KENP reads, promotions, pre-orders, month-to-date, prior-month royalties, royalty estimator, and payments. KDP dashboard data can update at different cadences, KENP finalization can happen later, and estimated royalties can differ from actual payments. Sources: [KDP Reports](https://kdp.amazon.com/en_US/help/topic/G201723280), [KDP orders and payments](https://kdp.amazon.com/en_US/help/topic/GKEPUW32CTE6LFDA).
+- Google Partner Center reports include earnings, sales summary, sales transaction, and Google Books preview traffic reports. Custom reports can export tab-separated files; sales and transaction records include refunds, countries, identifiers, list price, publisher revenue, payment amount, and currency conversion fields. Source: [Google Play Books reports](https://support.google.com/books/partner/answer/9266485).
+- Amazon Attribution can be used by eligible KDP authors to measure non-Amazon ads and Amazon sales impact; KDP authors can access it through the advertising console or supported API integrations. Sources: [Amazon Attribution for KDP authors](https://advertising.amazon.com/resources/whats-new/amazon-attribution-kdp-authors), [Amazon Attribution overview](https://advertising.amazon.com/en-us/solutions/products/amazon-attribution/).
+- Kobo Writing Life explicitly treats dashboard data as live estimates and points authors to monthly reports for definitive sales data. Promotions, discounts, refunds, credit memos, and Kobo Plus can make dashboard totals differ from final reports. Sources: [Kobo dashboard](https://kobowritinglife.zendesk.com/hc/en-us/articles/4412366365211-Understanding-Your-New-Dashboard), [Kobo FAQ](https://www.kobo.com/kobo-writing-life/blog/frequently-asked-questions).
+- Draft2Digital partner payments can lag by store and format: ebook/audiobook payments commonly arrive after store payment windows, and print can lag longer. Source: [Draft2Digital FAQ](https://draft2digital.com/faq/).
+
+Analytics model:
+
+- **Estimated metrics:** near-real-time dashboards, royalty estimators, ad attribution dashboards, KENP estimates, Kobo dashboard estimates, and PiB launch funnel data.
+- **Reported metrics:** downloaded/imported channel reports for orders, transactions, reads, refunds, preview traffic, attribution, and ad spend.
+- **Settled metrics:** payment reports, monthly earnings reports, credit memos, tax/withholding notes, and actual payment receipts.
+- **PiB-owned metrics:** landing-page visits, UTM clicks, campaign source, email opens/clicks, short-link events, social campaign posts, ad set spend, and client approval timeline.
+- **Derived metrics:** net units, net royalties, contribution margin, cost per purchase, cost per attributed sale, ROAS by confidence level, KENP royalty estimate vs finalized royalty, refund rate, review velocity, series sell-through, launch-to-first-sale time, and production cost recovery.
+
+Analytics ingestion should use a ledger pattern:
+
+- Store every import as an immutable `book_analytics_imports` record with source, channel, period, importedBy, importedAt, file checksum, parser version, currency, and confidence.
+- Normalize rows into `book_analytics_events` or equivalent snapshots without deleting the raw import evidence.
+- Link each row to `bookProjectId`, `seriesId`, `editionId`, `channelListingId`, and external identifiers where possible.
+- Keep unmatched rows in a reconciliation queue rather than dropping them.
+- Allow superseding/re-importing a period, but preserve the previous import and mark the new import as the current source of truth.
+- Separate accounting currency from purchase/list-price currency and record conversion rate when the report provides it.
+- Mark source confidence explicitly: `dashboard_estimate`, `channel_report`, `payment_report`, `ad_attribution`, `pib_tracking`, or `manual_adjustment`.
+
+Reconciliation workflow:
+
+1. Import or manually record source data.
+2. Parse and validate expected columns for the channel/report type.
+3. Match rows to book, series, edition, format, and listing.
+4. Flag missing identifiers, unknown titles, unexpected currencies, negative/refund rows, and duplicate rows.
+5. Produce a reconciliation summary: new rows, changed rows, unmatched rows, total estimated, total reported, total settled, and confidence.
+6. Update dashboard snapshots only after validation.
+7. Create Project/Kanban tasks for unresolved mismatches when money, attribution, or channel status is materially affected.
+
 Dashboard views:
 
 - Book performance.
@@ -428,6 +464,12 @@ Dashboard views:
 - Royalties by period.
 - Publishing blockers.
 - Quality/review status.
+- Import/reconciliation queue.
+- Production cost recovery.
+- Series sell-through.
+- Attribution confidence.
+
+The dashboard should never present dashboard estimates as settled revenue. It should label the source and confidence of every money number.
 
 ### 9. Client Portal Surface
 
