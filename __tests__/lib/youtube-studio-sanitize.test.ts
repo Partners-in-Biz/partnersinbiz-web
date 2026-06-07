@@ -287,6 +287,29 @@ describe('youtube studio sanitizers', () => {
     expect(safe).not.toHaveProperty('defaultPublishingPolicy')
   })
 
+  it('narrows portal channel content pillars to strings only', () => {
+    const safe = clientSafeYouTubeChannelWorkspace({
+      id: 'channel-1',
+      orgId: 'org-1',
+      title: 'Client Channel',
+      status: 'active',
+      defaultApprovalPolicy: defaultYouTubeApprovalPolicy(),
+      defaultPublishingPolicy: defaultYouTubePublishingPolicy(),
+      contentPillars: [
+        ' Growth ',
+        { label: 'Retention', policyNotes: 'internal pillar guidance' },
+        '',
+        'Case studies',
+      ] as unknown as string[],
+      avoidTopics: [],
+      aiDisclosureDefaults: { syntheticMediaLikely: false },
+      deleted: false,
+    })
+
+    expect(safe.contentPillars).toEqual(['Growth', 'Case studies'])
+    expect(JSON.stringify(safe)).not.toContain('policyNotes')
+  })
+
   it('redacts internal publishing packet audit fields for portal clients', () => {
     const safe = clientSafeYouTubePublishingPacket({
       id: 'packet-1',
@@ -312,7 +335,12 @@ describe('youtube studio sanitizers', () => {
           internalPrompt: 'empty title should not leak',
         },
       ] as Array<{ text: string; rationale?: string; selected?: boolean }>,
-      tags: ['growth'],
+      tags: [
+        'growth',
+        { text: 'internal', internalPrompt: 'secret tag prompt' },
+        '',
+        'retention',
+      ] as unknown as string[],
       chapters: [
         {
           startSeconds: 0,
@@ -373,6 +401,8 @@ describe('youtube studio sanitizers', () => {
     expect(safe.titleOptions).toEqual([
       { text: 'Launch plan', rationale: 'Client-safe framing', selected: true },
     ])
+    expect(safe.tags).toEqual(['growth', 'retention'])
+    expect(JSON.stringify(safe)).not.toContain('internalPrompt')
     expect(safe.chapters).toEqual([{ startSeconds: 0, title: 'Intro' }])
     expect(safe).not.toHaveProperty('approvedBy')
     expect(safe).not.toHaveProperty('approvedAt')

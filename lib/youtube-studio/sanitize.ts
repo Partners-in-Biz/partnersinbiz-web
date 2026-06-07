@@ -396,7 +396,7 @@ export function clientSafeYouTubeChannelWorkspace(
     youtubeChannelId: channel.youtubeChannelId,
     youtubeHandle: channel.youtubeHandle,
     status: channel.status,
-    contentPillars: Array.isArray(channel.contentPillars) ? channel.contentPillars : [],
+    contentPillars: cleanStringArray(channel.contentPillars),
     audienceNotes: channel.audienceNotes,
     clientNotes: channel.clientNotes,
     aiDisclosureDefaults: channel.aiDisclosureDefaults
@@ -523,7 +523,7 @@ export function clientSafeYouTubePublishingPacket(
       ? packet.titleOptions.map(clientSafePacketTitleOption).filter(isDefined)
       : [],
     description: packet.description,
-    tags: Array.isArray(packet.tags) ? packet.tags : [],
+    tags: cleanStringArray(packet.tags),
     chapters: Array.isArray(packet.chapters)
       ? packet.chapters.map(clientSafePacketChapter).filter(isDefined)
       : [],

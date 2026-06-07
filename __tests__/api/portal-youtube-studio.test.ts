@@ -90,6 +90,12 @@ function defaultStage(): Required<FirestoreStage> {
           orgId: 'org-1',
           title: 'Acme Channel',
           status: 'active',
+          contentPillars: [
+            'Growth',
+            { label: 'Internal pillar', policyNotes: 'operator-only channel guidance' },
+            '',
+            'Retention',
+          ],
           visibility: { showInClientPortal: true },
           deleted: false,
           connectedAccountId: 'secret-account',
@@ -256,7 +262,12 @@ function defaultStage(): Required<FirestoreStage> {
               policyNotes: 'operator-only title policy note',
             },
           ],
-          tags: ['growth'],
+          tags: [
+            'growth',
+            { text: 'internal', internalPrompt: 'secret tag prompt' },
+            '',
+            'retention',
+          ],
           chapters: [
             {
               startSeconds: 0,
@@ -399,6 +410,8 @@ describe('portal youtube studio API', () => {
     expect(channel).not.toHaveProperty('strategyDocumentId')
     expect(channel).not.toHaveProperty('defaultApprovalPolicy')
     expect(channel).not.toHaveProperty('defaultPublishingPolicy')
+    expect(channel.contentPillars).toEqual(['Growth', 'Retention'])
+    expect(JSON.stringify(channel)).not.toContain('policyNotes')
     expect(Object.keys(series).sort()).toEqual([
       'audience',
       'cadence',
@@ -483,6 +496,8 @@ describe('portal youtube studio API', () => {
     expect(packet.titleOptions[0]).not.toHaveProperty('scoringAudit')
     expect(packet.titleOptions[0]).not.toHaveProperty('sourceAssetId')
     expect(packet.titleOptions[0]).not.toHaveProperty('policyNotes')
+    expect(packet.tags).toEqual(['growth', 'retention'])
+    expect(JSON.stringify(packet)).not.toContain('secret tag prompt')
     expect(packet.chapters).toEqual([{ startSeconds: 0, title: 'Intro' }])
     expect(packet.chapters[0]).not.toHaveProperty('internalPrompt')
     expect(packet.chapters[0]).not.toHaveProperty('scoringAudit')
