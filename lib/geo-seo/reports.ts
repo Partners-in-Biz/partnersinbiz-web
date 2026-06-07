@@ -73,22 +73,22 @@ function normalizeAssumptions(
   user: ApiUser,
 ): DocumentAssumption[] {
   const createdAt = new Date().toISOString()
-  return (assumptions ?? [])
-    .map((assumption, index) => {
-      const text = cleanString(assumption?.text)
-      if (!text) return null
-      const severity = assumption?.severity
-      return {
-        id: cleanString((assumption as { id?: string }).id) ?? `geo-assumption-${index + 1}`,
-        text,
-        severity: severity === 'info' || severity === 'blocks_publish' || severity === 'needs_review' ? severity : 'needs_review',
-        status: (assumption as DocumentAssumption).status === 'resolved' ? 'resolved' : 'open',
-        ...(cleanString(assumption?.blockId) ? { blockId: cleanString(assumption?.blockId) } : {}),
-        createdBy: cleanString((assumption as DocumentAssumption).createdBy) ?? user.uid,
-        createdAt: (assumption as DocumentAssumption).createdAt ?? createdAt,
-      } satisfies DocumentAssumption
+  const normalized: DocumentAssumption[] = []
+  ;(assumptions ?? []).forEach((assumption, index) => {
+    const text = cleanString(assumption?.text)
+    if (!text) return
+    const severity = assumption?.severity
+    normalized.push({
+      id: cleanString((assumption as { id?: string }).id) ?? `geo-assumption-${index + 1}`,
+      text,
+      severity: severity === 'info' || severity === 'blocks_publish' || severity === 'needs_review' ? severity : 'needs_review',
+      status: (assumption as DocumentAssumption).status === 'resolved' ? 'resolved' : 'open',
+      ...(cleanString(assumption?.blockId) ? { blockId: cleanString(assumption?.blockId) } : {}),
+      createdBy: cleanString((assumption as DocumentAssumption).createdBy) ?? user.uid,
+      createdAt: (assumption as DocumentAssumption).createdAt ?? createdAt,
     })
-    .filter((assumption): assumption is DocumentAssumption => assumption !== null)
+  })
+  return normalized
 }
 
 function reportBlocks(input: { audit: GeoAuditRecord; reportId: string; assumptions: DocumentAssumption[]; evidenceRowIds: string[] }): DocumentBlock[] {
