@@ -225,7 +225,7 @@ function CommandMetric({
     <div className="pib-card min-w-[150px] flex-1 px-4 py-3">
       <div className="flex items-center justify-between gap-3">
         <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">{label}</p>
-        <span className="material-symbols-outlined text-[17px] text-on-surface-variant">{icon}</span>
+        <span className="material-symbols-outlined text-[17px] text-on-surface-variant" aria-hidden="true">{icon}</span>
       </div>
       <p className="mt-2 text-xl font-headline font-bold text-on-surface leading-none">{value}</p>
       <p className="mt-1 text-[11px] text-on-surface-variant">{sub}</p>

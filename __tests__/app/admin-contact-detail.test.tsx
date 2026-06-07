@@ -231,6 +231,24 @@ describe('Admin contact detail page', () => {
     expect(addCompany.querySelector('.material-symbols-outlined')).toHaveAttribute('aria-hidden', 'true')
   })
 
+  it('hides decorative command-center metric icons from admin contact status cards', async () => {
+    render(<AdminContactDetailPage />)
+
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { name: 'Jane Client' })).toBeInTheDocument()
+    })
+
+    const commandCenter = screen.getByRole('banner')
+    const metricIcons = Array.from(commandCenter.querySelectorAll('.pib-card .material-symbols-outlined'))
+      .filter((icon) => !icon.closest('a,button'))
+      .filter((icon) => ['fact_check', 'moving', 'schedule', 'mail', 'hub'].includes(icon.textContent?.trim() ?? ''))
+
+    expect(metricIcons).toHaveLength(5)
+    metricIcons.forEach((icon) => {
+      expect(icon).toHaveAttribute('aria-hidden', 'true')
+    })
+  })
+
   it('keeps the admin header call action contextual and free of decorative icon text', async () => {
     contactOverride = { phone: '+27115550123' }
 
