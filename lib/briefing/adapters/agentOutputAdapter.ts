@@ -5,6 +5,7 @@
  */
 
 import { buildAgentOutputReviewCard } from '@/lib/agent-output-review-card'
+import { withBriefingCardContract } from '../cardContract'
 import type { BriefingSourceAdapter, BriefingPriority } from '../types'
 import { normalizeActor, hashSourceDocument, extractMultiFieldExcerpt, normalizeTimestamp, extractOrgId, extractTaskId, generateSourceUrl } from '../utils'
 
@@ -237,7 +238,7 @@ export const agentOutputAdapter: BriefingSourceAdapter<AgentOutputDocument> = {
     const metadata = this.extractMetadata?.(doc, docId)
     const sourceHash = this.hashSource(doc, docId)
 
-    return {
+    return withBriefingCardContract({
       orgId,
       source: {
         type: this.sourceType,
@@ -257,6 +258,6 @@ export const agentOutputAdapter: BriefingSourceAdapter<AgentOutputDocument> = {
       metadata,
       createdAt: occurredAt,
       updatedAt: occurredAt,
-    }
+    })
   },
 }

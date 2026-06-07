@@ -2,6 +2,7 @@ import { FieldValue } from 'firebase-admin/firestore'
 import { adminAuth, adminDb } from '@/lib/firebase/admin'
 import type { ApiUser } from '@/lib/api/types'
 import { canAccessOrg } from '@/lib/api/platformAdmin'
+import { withBriefingCardContract } from './cardContract'
 import type { BriefingCard, BriefingCardAction, BriefingCardStateStatus, BriefingPriority, BriefingResponse, BriefingSourceAdapter, BriefingSourceItem, BriefingSourceType } from './types'
 import { activityAdapter, adCampaignAdapter, agentLearningReviewAdapter, agentOutputAdapter, agentRunAdapter, approvalAdapter, bookingAdapter, broadcastAdapter, calendarEventAdapter, campaignAdapter, clientDocumentAdapter, commentAdapter, contactAdapter, dealAdapter, enquiryAdapter, expenseAdapter, formSubmissionAdapter, inventoryItemAdapter, invoiceAdapter, mailboxMessageAdapter, notificationAdapter, orderAdapter, projectAdapter, quoteAdapter, reportAdapter, seoContentAdapter, seoTaskAdapter, shipmentAdapter, socialInboxAdapter, socialPostAdapter, supportTicketAdapter, taskAdapter, workspaceBrokerJobAdapter } from './index'
 import { comparePriority, formatTimeAgo, normalizeTimestamp, priorityRequiresAction } from './utils'
@@ -529,7 +530,7 @@ function decorate(item: BriefingSourceItem, orgs: Map<string, OrgSummary>): Brie
     ? { ...item.source, url: `/admin/org/${encodeURIComponent(context.orgSlug)}/ads/campaigns/${encodeURIComponent(item.source.id)}` }
     : item.source
   const score = (priorityRequiresAction(item.priority) ? 100 : 0) + Math.max(0, 30 - Math.floor((Date.now() - occurred.getTime()) / 86_400_000))
-  return {
+  return withBriefingCardContract({
     ...item,
     source,
     id: item.id ?? `${item.source.type}:${item.source.id}:${item.sourceHash}`,
@@ -541,7 +542,7 @@ function decorate(item: BriefingSourceItem, orgs: Map<string, OrgSummary>): Brie
     unread: item.status !== 'acknowledged' && item.status !== 'resolved',
     requiresAction: priorityRequiresAction(item.priority),
     relevanceScore: score,
-  }
+  })
 }
 
 function displayProjectName(project: ProjectSummary | undefined): string | null {

@@ -199,10 +199,85 @@ export interface BriefingSourceRef {
   url?: string            // Web UI URL for the source
 }
 
+export interface BriefingDecisionRequest {
+  prompt: string
+  scope: 'internal' | 'client' | 'prospect' | 'public'
+  source: BriefingSourceType | string
+  reason?: string | null
+}
+
+export interface BriefingDecisionOption {
+  id: string
+  label: string
+  description?: string | null
+  recommended?: boolean
+  disabled?: boolean
+  disabledReason?: string | null
+}
+
+export interface BriefingInputTarget {
+  action: string
+  resourceType: BriefingSourceType | string
+  resourceId: string
+  orgId?: string | null
+  method?: 'state' | 'route' | 'copy' | 'chat'
+}
+
+export interface BriefingAfterSubmit {
+  consequence: string
+  releasesAgentId?: string | null
+  createsAuditTrail?: boolean
+  nextStatus?: BriefingCardStateStatus | 'active' | string | null
+}
+
+export interface BriefingAgentHandoff {
+  targetAgentId?: string | null
+  sourceTaskId?: string | null
+  sourceProjectId?: string | null
+  summary: string
+  context?: Record<string, unknown> | null
+}
+
+export interface BriefingEvidenceLink {
+  id: string
+  label: string
+  href?: string
+  description?: string | null
+  kind: 'source' | 'evidence' | 'document' | 'task' | 'commit' | 'verification' | 'blocker' | string
+}
+
+export interface BriefingSafetyGate {
+  level: 'internal-only' | 'approval-required' | 'disabled' | string
+  summary: string
+  sideEffectAllowed: boolean
+  requiresApproval: boolean
+  gatedActions?: string[]
+}
+
+export interface BriefingNearestValidAction {
+  action: string
+  label: string
+  reason?: string | null
+  href?: string
+}
+
+export interface BriefingV2CardContract {
+  decisionRequest: BriefingDecisionRequest
+  options: BriefingDecisionOption[]
+  recommendedOption?: BriefingDecisionOption | null
+  inputTarget: BriefingInputTarget
+  afterSubmit: BriefingAfterSubmit
+  agentHandoff: BriefingAgentHandoff
+  evidenceLinks: BriefingEvidenceLink[]
+  safetyGate: BriefingSafetyGate
+  disabledReason?: string | null
+  nearestValidActions: BriefingNearestValidAction[]
+}
+
 /**
  * A normalized briefing item from a source adapter.
  */
-export interface BriefingSourceItem {
+export interface BriefingSourceItem extends Partial<BriefingV2CardContract> {
   /**
    * Briefing item unique identifier.
    */

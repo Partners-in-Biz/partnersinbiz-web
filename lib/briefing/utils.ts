@@ -420,6 +420,15 @@ export function generateSourceUrl(
     case 'notification':
       return `${baseUrl}/admin/inbox?notification=${docId}`
 
+    case 'seo-task':
+      if (context?.projectId) {
+        return `${baseUrl}/admin/seo/sprints/${encodeURIComponent(context.projectId)}/tasks?task=${encodeURIComponent(docId)}`
+      }
+      if (context?.orgSlug) {
+        return `${baseUrl}/admin/org/${encodeURIComponent(context.orgSlug)}/seo?task=${encodeURIComponent(docId)}`
+      }
+      return `${baseUrl}/admin/seo?task=${encodeURIComponent(docId)}`
+
     default:
       return `${baseUrl}/admin`
   }
