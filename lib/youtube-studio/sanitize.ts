@@ -54,6 +54,64 @@ const VIDEO_STATUSES: YouTubeVideoStatus[] = [
 const SOURCE_TYPES: YouTubeSourceType[] = ['raw_footage', 'source_url', 'transcript', 'research', 'client_request', 'manual']
 
 type RawInput = Record<string, unknown>
+type PacketReviewCheckKey = Exclude<keyof YouTubePublishingPacket['checks'], 'connectedAccount'>
+
+export type ClientSafeYouTubeChannelWorkspace = {
+  id?: string
+  orgId: string
+  title: string
+  youtubeChannelId?: string
+  youtubeHandle?: string
+  status: YouTubeChannelStatus
+  contentPillars: string[]
+  audienceNotes?: string
+  clientNotes?: string
+  aiDisclosureDefaults?: { syntheticMediaLikely: boolean; notes?: string }
+  visibility?: Pick<NonNullable<YouTubeChannelWorkspace['visibility']>, 'showInClientPortal' | 'showAnalytics'>
+}
+
+export type ClientSafeYouTubeVideoProject = {
+  id?: string
+  orgId: string
+  channelWorkspaceId: string
+  seriesId?: string
+  title: string
+  workingTitle?: string
+  videoType: YouTubeVideoType
+  status: YouTubeVideoStatus
+  objective: string
+  targetAudience?: string
+  targetDurationSeconds?: number
+  source: Pick<YouTubeVideoProject['source'], 'intakeType'>
+  clientReview?: Pick<NonNullable<YouTubeVideoProject['clientReview']>, 'status' | 'notes'>
+  clientNotes?: string
+  visibility?: Pick<
+    NonNullable<YouTubeVideoProject['visibility']>,
+    'showInClientPortal' | 'showAnalytics' | 'showPublishingPacket'
+  >
+}
+
+export type ClientSafeYouTubeGateCheck = Pick<YouTubeGateCheck, 'status' | 'message'>
+
+export type ClientSafeYouTubePublishingPacket = Pick<
+  YouTubePublishingPacket,
+  | 'id'
+  | 'orgId'
+  | 'channelWorkspaceId'
+  | 'videoProjectId'
+  | 'versionNumber'
+  | 'status'
+  | 'titleOptions'
+  | 'description'
+  | 'tags'
+  | 'chapters'
+  | 'visibility'
+  | 'selfDeclaredMadeForKids'
+  | 'containsSyntheticMedia'
+  | 'aiDisclosureNotes'
+> & {
+  checks: Partial<Record<PacketReviewCheckKey, ClientSafeYouTubeGateCheck>>
+}
 
 function cleanString(value: unknown): string | undefined {
   return typeof value === 'string' && value.trim() ? value.trim() : undefined
@@ -299,44 +357,99 @@ export function serializeYouTubeRecord<T extends object>(id: string, data: Recor
 
 export function clientSafeYouTubeChannelWorkspace(
   channel: YouTubeChannelWorkspace
-): Omit<YouTubeChannelWorkspace, 'connectedAccountId' | 'internalNotes'> {
-  const safe = { ...channel }
-  delete safe.connectedAccountId
-  delete safe.internalNotes
-  return safe
+): ClientSafeYouTubeChannelWorkspace {
+  return stripUndefinedDeep({
+    id: channel.id,
+    orgId: channel.orgId,
+    title: channel.title,
+    youtubeChannelId: channel.youtubeChannelId,
+    youtubeHandle: channel.youtubeHandle,
+    status: channel.status,
+    contentPillars: Array.isArray(channel.contentPillars) ? channel.contentPillars : [],
+    audienceNotes: channel.audienceNotes,
+    clientNotes: channel.clientNotes,
+    aiDisclosureDefaults: channel.aiDisclosureDefaults
+      ? {
+          syntheticMediaLikely: channel.aiDisclosureDefaults.syntheticMediaLikely === true,
+          notes: channel.aiDisclosureDefaults.notes,
+        }
+      : undefined,
+    visibility: channel.visibility
+      ? {
+          showInClientPortal: channel.visibility.showInClientPortal,
+          showAnalytics: channel.visibility.showAnalytics,
+        }
+      : undefined,
+  })
 }
 
-export function clientSafeYouTubeVideoProject(video: YouTubeVideoProject): Omit<YouTubeVideoProject, 'internalNotes'> {
-  const safe = { ...video }
-  delete safe.internalNotes
-  return safe
+export function clientSafeYouTubeVideoProject(video: YouTubeVideoProject): ClientSafeYouTubeVideoProject {
+  return stripUndefinedDeep({
+    id: video.id,
+    orgId: video.orgId,
+    channelWorkspaceId: video.channelWorkspaceId,
+    seriesId: video.seriesId,
+    title: video.title,
+    workingTitle: video.workingTitle,
+    videoType: video.videoType,
+    status: video.status,
+    objective: video.objective,
+    targetAudience: video.targetAudience,
+    targetDurationSeconds: video.targetDurationSeconds,
+    source: {
+      intakeType: pick(SOURCE_TYPES, video.source?.intakeType, 'manual'),
+    },
+    clientReview: video.clientReview
+      ? {
+          status: video.clientReview.status,
+          notes: video.clientReview.notes,
+        }
+      : undefined,
+    clientNotes: video.clientNotes,
+    visibility: video.visibility
+      ? {
+          showInClientPortal: video.visibility.showInClientPortal,
+          showAnalytics: video.visibility.showAnalytics,
+          showPublishingPacket: video.visibility.showPublishingPacket,
+        }
+      : undefined,
+  })
 }
 
-function clientSafeGateCheck(check: YouTubeGateCheck): Pick<YouTubeGateCheck, 'status' | 'message'> {
-  return {
+function clientSafeGateCheck(check?: YouTubeGateCheck): ClientSafeYouTubeGateCheck | undefined {
+  if (!check) return undefined
+  return stripUndefinedDeep({
     status: check.status,
     message: check.message,
-  }
+  })
 }
 
 export function clientSafeYouTubePublishingPacket(
   packet: YouTubePublishingPacket
-): Omit<YouTubePublishingPacket, 'approvedBy' | 'approvedAt' | 'approvedSnapshotHash'> {
-  const safe = {
-    ...packet,
+): ClientSafeYouTubePublishingPacket {
+  return stripUndefinedDeep({
+    id: packet.id,
+    orgId: packet.orgId,
+    channelWorkspaceId: packet.channelWorkspaceId,
+    videoProjectId: packet.videoProjectId,
+    versionNumber: packet.versionNumber,
+    status: packet.status,
+    titleOptions: Array.isArray(packet.titleOptions) ? packet.titleOptions : [],
+    description: packet.description,
+    tags: Array.isArray(packet.tags) ? packet.tags : [],
+    chapters: Array.isArray(packet.chapters) ? packet.chapters : [],
+    visibility: packet.visibility,
+    selfDeclaredMadeForKids: packet.selfDeclaredMadeForKids,
+    containsSyntheticMedia: packet.containsSyntheticMedia,
+    aiDisclosureNotes: packet.aiDisclosureNotes,
     checks: {
-      rights: clientSafeGateCheck(packet.checks.rights),
-      aiDisclosure: clientSafeGateCheck(packet.checks.aiDisclosure),
-      madeForKids: clientSafeGateCheck(packet.checks.madeForKids),
-      metadata: clientSafeGateCheck(packet.checks.metadata),
-      thumbnail: clientSafeGateCheck(packet.checks.thumbnail),
-      captions: clientSafeGateCheck(packet.checks.captions),
-      approval: clientSafeGateCheck(packet.checks.approval),
-      connectedAccount: clientSafeGateCheck(packet.checks.connectedAccount),
+      rights: clientSafeGateCheck(packet.checks?.rights),
+      aiDisclosure: clientSafeGateCheck(packet.checks?.aiDisclosure),
+      madeForKids: clientSafeGateCheck(packet.checks?.madeForKids),
+      metadata: clientSafeGateCheck(packet.checks?.metadata),
+      thumbnail: clientSafeGateCheck(packet.checks?.thumbnail),
+      captions: clientSafeGateCheck(packet.checks?.captions),
+      approval: clientSafeGateCheck(packet.checks?.approval),
     },
-  }
-  delete safe.approvedBy
-  delete safe.approvedAt
-  delete safe.approvedSnapshotHash
-  return stripUndefinedDeep(safe)
+  })
 }

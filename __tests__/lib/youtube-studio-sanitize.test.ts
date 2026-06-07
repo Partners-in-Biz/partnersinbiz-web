@@ -131,11 +131,48 @@ describe('youtube studio sanitizers', () => {
       objective: 'Explain the service',
       videoType: 'long_form',
       internalNotes: 'Do not show this risk note',
+      source: {
+        intakeType: 'source_url',
+        researchItemId: 'research-secret',
+        campaignId: 'campaign-secret',
+        projectId: 'project-secret',
+        sourceUrl: 'https://internal.example/source',
+        transcriptAssetId: 'transcript-secret',
+      },
+      linked: {
+        projectId: 'project-secret',
+        taskIds: ['task-secret'],
+        documentIds: ['doc-secret'],
+        campaignId: 'campaign-secret',
+        socialPostIds: ['social-secret'],
+      },
+      approvalPolicy: { requireInternalPublishApproval: true },
+      publishPacketId: 'packet-secret',
+      youtubeVideoId: 'youtube-secret',
+      scheduledAt: { seconds: 1 },
+      publishedAt: { seconds: 2 },
+      clientReview: { status: 'requested', notes: 'Client-facing note', decidedBy: 'client-secret' },
       visibility: { showInClientPortal: true },
     })
 
-    expect(clientSafeYouTubeVideoProject({ id: 'video-1', ...video })).not.toHaveProperty('internalNotes')
-    expect(clientSafeYouTubeVideoProject({ id: 'video-1', ...video })).toMatchObject({
+    const safe = clientSafeYouTubeVideoProject({
+      id: 'video-1',
+      ...video,
+      createdBy: 'admin-1',
+      updatedBy: 'admin-2',
+    })
+    expect(safe).not.toHaveProperty('internalNotes')
+    expect(safe).not.toHaveProperty('createdBy')
+    expect(safe).not.toHaveProperty('updatedBy')
+    expect(safe).not.toHaveProperty('approvalPolicy')
+    expect(safe).not.toHaveProperty('linked')
+    expect(safe).not.toHaveProperty('publishPacketId')
+    expect(safe).not.toHaveProperty('youtubeVideoId')
+    expect(safe).not.toHaveProperty('scheduledAt')
+    expect(safe).not.toHaveProperty('publishedAt')
+    expect(safe.source).toEqual({ intakeType: 'source_url' })
+    expect(safe.clientReview).not.toHaveProperty('decidedBy')
+    expect(safe).toMatchObject({
       id: 'video-1',
       title: 'Draft',
       videoType: 'long_form',
@@ -157,12 +194,23 @@ describe('youtube studio sanitizers', () => {
       orgId: 'org-1',
       title: 'Client Channel',
       connectedAccountId: 'secret-oauth-id',
+      strategyDocumentId: 'strategy-secret',
       internalNotes: 'internal',
     })
 
-    const safe = clientSafeYouTubeChannelWorkspace({ id: 'channel-1', ...channel })
+    const safe = clientSafeYouTubeChannelWorkspace({
+      id: 'channel-1',
+      ...channel,
+      createdBy: 'admin-1',
+      updatedBy: 'admin-2',
+    })
     expect(safe).not.toHaveProperty('connectedAccountId')
     expect(safe).not.toHaveProperty('internalNotes')
+    expect(safe).not.toHaveProperty('createdBy')
+    expect(safe).not.toHaveProperty('updatedBy')
+    expect(safe).not.toHaveProperty('strategyDocumentId')
+    expect(safe).not.toHaveProperty('defaultApprovalPolicy')
+    expect(safe).not.toHaveProperty('defaultPublishingPolicy')
   })
 
   it('redacts internal publishing packet audit fields for portal clients', () => {
@@ -172,10 +220,14 @@ describe('youtube studio sanitizers', () => {
       channelWorkspaceId: 'channel-1',
       videoProjectId: 'video-1',
       versionNumber: 1,
+      supersedesPacketId: 'packet-parent-secret',
       status: 'approved',
       titleOptions: [{ text: 'Launch plan', selected: true }],
       tags: ['growth'],
       chapters: [{ startSeconds: 0, title: 'Intro' }],
+      thumbnailAssetId: 'thumbnail-secret',
+      captionAssetId: 'caption-secret',
+      videoAssetId: 'video-secret',
       visibility: 'private',
       checks: {
         rights: {
@@ -191,7 +243,12 @@ describe('youtube studio sanitizers', () => {
         thumbnail: { status: 'pass', message: 'Thumbnail approved' },
         captions: { status: 'pass', message: 'Captions ready' },
         approval: { status: 'pass', message: 'Approved', checkedByType: 'system' },
-        connectedAccount: { status: 'warning', message: 'Manual handoff required' },
+        connectedAccount: {
+          status: 'warning',
+          message: 'Manual handoff required',
+          checkedBy: 'admin-2',
+          checkedByType: 'user',
+        },
       },
       approvedBy: 'admin-1',
       approvedAt: { seconds: 2 },
@@ -208,6 +265,11 @@ describe('youtube studio sanitizers', () => {
     expect(safe).not.toHaveProperty('approvedBy')
     expect(safe).not.toHaveProperty('approvedAt')
     expect(safe).not.toHaveProperty('approvedSnapshotHash')
+    expect(safe).not.toHaveProperty('supersedesPacketId')
+    expect(safe).not.toHaveProperty('thumbnailAssetId')
+    expect(safe).not.toHaveProperty('captionAssetId')
+    expect(safe).not.toHaveProperty('videoAssetId')
+    expect(safe.checks).not.toHaveProperty('connectedAccount')
     expect(safe.checks.rights).not.toHaveProperty('checkedBy')
     expect(safe.checks.rights).not.toHaveProperty('checkedByType')
     expect(safe.checks.rights).not.toHaveProperty('checkedAt')

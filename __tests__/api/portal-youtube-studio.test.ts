@@ -71,7 +71,12 @@ function defaultChecks() {
     thumbnail: { status: 'pass', message: 'Thumbnail approved' },
     captions: { status: 'pass', message: 'Captions ready' },
     approval: { status: 'pass', message: 'Approved', checkedByType: 'system' },
-    connectedAccount: { status: 'warning', message: 'Manual handoff required' },
+    connectedAccount: {
+      status: 'warning',
+      message: 'Manual handoff required',
+      checkedBy: 'admin-2',
+      checkedByType: 'user',
+    },
   }
 }
 
@@ -88,7 +93,12 @@ function defaultStage(): Required<FirestoreStage> {
           visibility: { showInClientPortal: true },
           deleted: false,
           connectedAccountId: 'secret-account',
+          strategyDocumentId: 'strategy-doc-secret',
+          defaultApprovalPolicy: { requireInternalBriefApproval: true },
+          defaultPublishingPolicy: { allowedModes: ['scheduled_api_publish'] },
           internalNotes: 'hide channel notes',
+          createdBy: 'admin-1',
+          updatedBy: 'admin-2',
         },
       },
       {
@@ -137,8 +147,30 @@ function defaultStage(): Required<FirestoreStage> {
           status: 'client_review',
           videoType: 'long_form',
           visibility: { showInClientPortal: true, showPublishingPacket: true },
+          source: {
+            intakeType: 'research',
+            researchItemId: 'research-secret',
+            campaignId: 'campaign-secret',
+            projectId: 'project-secret',
+            sourceUrl: 'https://internal.example/source',
+            transcriptAssetId: 'transcript-secret',
+          },
+          linked: {
+            projectId: 'linked-project-secret',
+            taskIds: ['task-secret'],
+            documentIds: ['document-secret'],
+            campaignId: 'linked-campaign-secret',
+            socialPostIds: ['social-secret'],
+          },
+          approvalPolicy: { requireInternalPublishApproval: true },
+          publishPacketId: 'packet-secret',
+          youtubeVideoId: 'youtube-secret',
+          scheduledAt: { seconds: 3 },
+          publishedAt: { seconds: 4 },
           internalNotes: 'hide video notes',
-          clientReview: { status: 'requested' },
+          clientReview: { status: 'requested', notes: 'Client-facing note', decidedBy: 'client-secret' },
+          createdBy: 'admin-1',
+          updatedBy: 'admin-2',
           deleted: false,
         },
       },
@@ -178,10 +210,14 @@ function defaultStage(): Required<FirestoreStage> {
           channelWorkspaceId: 'channel-1',
           videoProjectId: 'video-1',
           versionNumber: 1,
+          supersedesPacketId: 'packet-internal-parent',
           status: 'client_review',
           titleOptions: [{ text: 'Launch plan', selected: true }],
           tags: ['growth'],
           chapters: [{ startSeconds: 0, title: 'Intro' }],
+          thumbnailAssetId: 'thumbnail-secret',
+          captionAssetId: 'caption-secret',
+          videoAssetId: 'video-asset-secret',
           visibility: 'private',
           checks: defaultChecks(),
           approvedBy: 'admin-1',
@@ -295,13 +331,43 @@ describe('portal youtube studio API', () => {
     expect(body.data.series.map((series: { id: string }) => series.id)).toEqual(['series-1'])
     expect(body.data.videos.map((video: { id: string }) => video.id)).toEqual(['video-1'])
     expect(body.data.packets.map((packet: { id: string }) => packet.id)).toEqual(['packet-1'])
-    expect(body.data.channels[0]).not.toHaveProperty('connectedAccountId')
-    expect(body.data.channels[0]).not.toHaveProperty('internalNotes')
-    expect(body.data.videos[0]).not.toHaveProperty('internalNotes')
-    expect(body.data.packets[0]).not.toHaveProperty('approvedBy')
-    expect(body.data.packets[0]).not.toHaveProperty('approvedAt')
-    expect(body.data.packets[0]).not.toHaveProperty('approvedSnapshotHash')
-    expect(body.data.packets[0].checks.rights).not.toHaveProperty('checkedBy')
+    const channel = body.data.channels[0]
+    const video = body.data.videos[0]
+    const packet = body.data.packets[0]
+    expect(channel).not.toHaveProperty('connectedAccountId')
+    expect(channel).not.toHaveProperty('internalNotes')
+    expect(channel).not.toHaveProperty('createdBy')
+    expect(channel).not.toHaveProperty('updatedBy')
+    expect(channel).not.toHaveProperty('strategyDocumentId')
+    expect(channel).not.toHaveProperty('defaultApprovalPolicy')
+    expect(channel).not.toHaveProperty('defaultPublishingPolicy')
+    expect(video).not.toHaveProperty('internalNotes')
+    expect(video).not.toHaveProperty('createdBy')
+    expect(video).not.toHaveProperty('updatedBy')
+    expect(video).not.toHaveProperty('approvalPolicy')
+    expect(video).not.toHaveProperty('linked')
+    expect(video).not.toHaveProperty('publishPacketId')
+    expect(video).not.toHaveProperty('youtubeVideoId')
+    expect(video).not.toHaveProperty('scheduledAt')
+    expect(video).not.toHaveProperty('publishedAt')
+    expect(video.source).toEqual({ intakeType: 'research' })
+    expect(video.source).not.toHaveProperty('researchItemId')
+    expect(video.source).not.toHaveProperty('campaignId')
+    expect(video.source).not.toHaveProperty('projectId')
+    expect(video.source).not.toHaveProperty('sourceUrl')
+    expect(video.source).not.toHaveProperty('transcriptAssetId')
+    expect(video.clientReview).not.toHaveProperty('decidedBy')
+    expect(packet).not.toHaveProperty('supersedesPacketId')
+    expect(packet).not.toHaveProperty('thumbnailAssetId')
+    expect(packet).not.toHaveProperty('captionAssetId')
+    expect(packet).not.toHaveProperty('videoAssetId')
+    expect(packet).not.toHaveProperty('approvedBy')
+    expect(packet).not.toHaveProperty('approvedAt')
+    expect(packet).not.toHaveProperty('approvedSnapshotHash')
+    expect(packet.checks).not.toHaveProperty('connectedAccount')
+    expect(packet.checks.rights).not.toHaveProperty('checkedBy')
+    expect(packet.checks.rights).not.toHaveProperty('checkedByType')
+    expect(packet.checks.aiDisclosure).not.toHaveProperty('checkedBy')
   })
 
   it('blocks access when the org disables YouTube Studio before querying YouTube collections', async () => {
