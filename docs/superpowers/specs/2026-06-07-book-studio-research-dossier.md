@@ -108,6 +108,70 @@ The alternatives are weaker:
 - A fully client-facing self-serve book generator increases quality, policy, copyright, and reputation risk before the workflow is mature.
 - A public SaaS would require billing, abuse prevention, public onboarding, separate support, and aggressive content moderation that PiB does not need for V1.
 
+## Product Positioning Options
+
+This module has three credible product positions. The implementation should not begin until one is chosen, because the choice changes permissions, workflow design, Hermes skill gates, analytics, and legal exposure.
+
+| Option | What it means | Advantages | Risks | Fit for V1 |
+| --- | --- | --- | --- | --- |
+| Internal PiB production studio with optional client review | PiB admins and Hermes agents create books; clients review selected artifacts and approve decisions through portal/documents. | Reuses existing PiB strengths; keeps risky actions behind staff review; easiest to integrate with Research, Documents, Projects, and Hermes approvals; protects quality. | Less self-serve; Peet/PiB remains responsible for production throughput. | Best fit. |
+| Client-facing self-serve module | Clients log into the portal and generate books themselves with guided AI workflows. | More scalable per client; visible product value; could become a premium client module. | High risk of poor output, copyright issues, policy mistakes, AI disclosure errors, and support burden. Needs strong moderation and limits. | Later, after internal workflow proves itself. |
+| Public/productized AI-book SaaS | A public product where anyone signs up, pays, generates, exports, and possibly publishes books. | Larger market; standalone revenue stream; clear marketing story. | Requires billing, abuse prevention, public onboarding, public support, moderation, content policy enforcement, and separate growth engine. Distracts from PiB platform integration. | Not a V1 unless PiB explicitly pivots into this product. |
+
+Recommendation: approve the internal production studio first, then add client self-serve controls only after the production workflow has reliable quality gates and analytics.
+
+## Draft V1 Operating Model
+
+If V1 is approved as the internal production studio, the module should behave like a controlled publishing workspace rather than a document editor with AI buttons.
+
+### Personas
+
+- **PiB operator:** creates book projects, assigns Hermes work, reviews outputs, controls publishing readiness, and owns public submission decisions.
+- **Hermes specialist:** performs bounded tasks such as niche research, brief creation, outline drafting, metadata optimization, readiness checks, and analytics import.
+- **Client reviewer:** reviews approved briefs, drafts, covers, proofs, and publishing packets when the portal module is enabled.
+- **QA/release reviewer:** verifies policy, file package, metadata, AI disclosure, and approval gates before public publishing.
+- **Data analyst:** imports and reconciles reports after launch.
+
+### V1 Workflow
+
+1. Create a book project under a client organisation.
+2. Link or create a Book Research item.
+3. Generate a structured Book Brief as a client document when approval is needed.
+4. Create or attach a series record if the book belongs to a sequence.
+5. Build an outline and manuscript/page plan.
+6. Track manuscript, visual, layout, metadata, and publishing tasks through Projects/Kanban.
+7. Produce a Publishing Packet with metadata, file checklist, AI disclosure, channel plan, ISBN/imprint decision, and launch checklist.
+8. Export files and metadata for manual KDP/Google setup.
+9. Track each channel listing through status changes: metadata ready, files ready, uploaded, in review, live, blocked, revision required.
+10. Import reports manually at first and reconcile sales, reads, royalties, ad spend, and launch traffic.
+
+### V1 Screens
+
+- Admin Book Studio index: filters by org, status, series, channel, and risk.
+- Admin book project detail: overview, research, brief, manuscript, assets, publishing packet, channel listings, analytics.
+- Admin series detail: ordered/unordered books, style guide, continuity notes, volume gaps, channel series links.
+- Portal Book Studio index: reviewable client-safe projects only.
+- Portal book detail: approved brief/proof/cover/publishing packet, comments, approvals, change requests.
+- Analytics view: book, series, channel, format, reporting period, and estimated/reported/settled financial separation.
+
+### V1 Non-Negotiable Guardrails
+
+- No direct public publishing submission without an approval task.
+- No paid ad launch or budget change without an approval task.
+- No claim that KDP/Google acceptance is guaranteed by PiB validation.
+- No untracked AI-generated text/image/translation in a publishing packet.
+- No metadata recommendation that uses competitor author names, unrelated keywords, or misleading category placement.
+- No client-visible publishing packet until rights, AI disclosure, ISBN/imprint, and mature-content flags are explicitly reviewed.
+- No large manuscript or image payloads embedded directly in core Firestore records; store large files as artifacts/assets.
+
+### V1 Success Criteria
+
+- PiB can create a book project, link research, create a brief, manage a series, track production tasks, prepare a publishing packet, and track KDP/Google status without leaving the platform for project management.
+- Hermes skills produce bounded artifacts that can be reviewed, revised, and approved rather than directly publishing content.
+- Clients can review and approve selected book artifacts without seeing internal-only research or risk notes.
+- KDP/Google readiness is clear enough that a PiB operator can execute the manual store setup consistently.
+- Analytics can ingest early reports even when the data is delayed, partial, or inconsistent across store and ad platforms.
+
 ## Book Types To Support
 
 The module should not be limited to children's books. It should define a structured taxonomy with format-specific gates.
