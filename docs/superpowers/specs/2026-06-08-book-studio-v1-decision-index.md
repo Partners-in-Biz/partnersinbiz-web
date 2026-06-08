@@ -8,6 +8,7 @@
 **Review scorecard:** `docs/superpowers/specs/2026-06-08-book-studio-v1-approval-review-scorecard.md`
 **Pilot product decision register:** `docs/superpowers/specs/2026-06-08-book-studio-v1-pilot-product-decision-register.md`
 **Revision impact matrix:** `docs/superpowers/specs/2026-06-08-book-studio-v1-approval-revision-impact-matrix.md`
+**Approval decision form:** `docs/superpowers/specs/2026-06-08-book-studio-v1-approval-decision-form.md`
 
 ## Purpose
 
@@ -24,8 +25,9 @@ If Peet has 10 minutes:
 3. Use the approval review scorecard to mark each category as pass, warn, or block.
 4. Use the pilot product decision register if the first commercial/product proof is the unclear part.
 5. Use the revision impact matrix if the likely outcome is "approve with revisions."
-6. Review the mock review packet to see the operating loop in a concrete business nonfiction example.
-7. Decide whether to approve the exact wording, revise specific fields, reject the internal-studio posture, or request another design aid.
+6. Copy the approval decision form when the decision needs to be recorded.
+7. Review the mock review packet to see the operating loop in a concrete business nonfiction example.
+8. Decide whether to approve the exact wording, revise specific fields, reject the internal-studio posture, or request another design aid.
 
 If Peet has 30 minutes:
 
@@ -44,9 +46,10 @@ If Peet has 30 minutes:
 | 3 | `2026-06-08-book-studio-v1-approval-review-scorecard.md` | A compact pass/warn/block rubric for deciding whether the approval packet is ready. |
 | 4 | `2026-06-08-book-studio-v1-pilot-product-decision-register.md` | A standalone first-pilot product register for deciding which book archetypes prove V1. |
 | 5 | `2026-06-08-book-studio-v1-approval-revision-impact-matrix.md` | A field-by-field map of what changes if Peet approves with revisions. |
-| 6 | `2026-06-08-book-studio-v1-review-script.md` | A structured 30-minute review agenda and exact revision format. |
-| 7 | `2026-06-08-book-studio-v1-mock-review-packet.md` | A concrete example of admin state, portal wording, blockers, and analytics confidence. |
-| 8 | `2026-06-08-book-studio-v1-acceptance-fixtures.md` | Minimum pass, warning, and blocker cases a future demo must satisfy. |
+| 6 | `2026-06-08-book-studio-v1-approval-decision-form.md` | A copyable final decision record with warnings, blockers, source-refresh gate, and planning permission. |
+| 7 | `2026-06-08-book-studio-v1-review-script.md` | A structured 30-minute review agenda and exact revision format. |
+| 8 | `2026-06-08-book-studio-v1-mock-review-packet.md` | A concrete example of admin state, portal wording, blockers, and analytics confidence. |
+| 9 | `2026-06-08-book-studio-v1-acceptance-fixtures.md` | Minimum pass, warning, and blocker cases a future demo must satisfy. |
 
 ## Evidence And Boundary Appendices
 

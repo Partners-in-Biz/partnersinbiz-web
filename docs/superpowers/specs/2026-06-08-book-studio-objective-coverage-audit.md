@@ -9,6 +9,7 @@
 **Approval review scorecard:** `docs/superpowers/specs/2026-06-08-book-studio-v1-approval-review-scorecard.md`
 **Pilot product decision register:** `docs/superpowers/specs/2026-06-08-book-studio-v1-pilot-product-decision-register.md`
 **Revision impact matrix:** `docs/superpowers/specs/2026-06-08-book-studio-v1-approval-revision-impact-matrix.md`
+**Approval decision form:** `docs/superpowers/specs/2026-06-08-book-studio-v1-approval-decision-form.md`
 **Acceptance fixture pack:** `docs/superpowers/specs/2026-06-08-book-studio-v1-acceptance-fixtures.md`
 **Source refresh contract:** `docs/superpowers/specs/2026-06-08-book-studio-v1-source-refresh-contract.md`
 **Book family gate catalog:** `docs/superpowers/specs/2026-06-08-book-studio-v1-book-family-gate-catalog.md`
@@ -51,6 +52,7 @@ Covered now:
 - A review scorecard that turns the packet into a compact pass/warn/block decision rubric without creating runtime scope.
 - A pilot product decision register that separates first commercial proof, print-risk proof, series proof, blocker proof, and creative-range fixture decisions without making market-demand claims.
 - A revision impact matrix that names the evidence docs, source refresh triggers, blockers, and devil's-advocate concerns created when an approval field changes.
+- An approval decision form that records the final decision outcome, accepted warnings, remaining blockers, source-refresh state, and whether Phase 1 planning is allowed.
 - A Hermes skill evaluation packet defining per-skill input contracts, pass/warn/block cases, forbidden-action regressions, sanitizer expectations, stale-source behavior, and fixture IDs for the recommended first skill package.
 - A portal access and promotion model defining the future module switch default, disabled state, safe DTO shape, artifact promotion states, client permissions, invalidation rules, and org isolation requirements.
 - A domain record/state model defining conceptual record families, relationships, lifecycle states, packet states, analytics states, core invariants, invalidation triggers, and future test obligations without choosing schema or implementation order.

@@ -8,12 +8,15 @@
 **Review script:** `docs/superpowers/specs/2026-06-08-book-studio-v1-review-script.md`
 **Pilot product decision register:** `docs/superpowers/specs/2026-06-08-book-studio-v1-pilot-product-decision-register.md`
 **Revision impact matrix:** `docs/superpowers/specs/2026-06-08-book-studio-v1-approval-revision-impact-matrix.md`
+**Approval decision form:** `docs/superpowers/specs/2026-06-08-book-studio-v1-approval-decision-form.md`
 
 ## Purpose
 
 This scorecard gives Peet a compact way to judge whether the current Book Studio V1 approval packet is ready to approve, revise, reject, or send back for one more design aid.
 
 It does not approve Book Studio runtime routes, records, APIs, Firestore collections, UI, module toggles, Hermes runtime dispatch, direct publishing, analytics automation, or a Phase 1 task list.
+
+When the rows have been reviewed, copy the approval decision form to record the final outcome, accepted warnings, remaining blockers, source-refresh gate, and whether Phase 1 planning is allowed.
 
 ## How To Use It
 

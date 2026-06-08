@@ -5,6 +5,7 @@
 **Authoritative approval packet:** `docs/superpowers/specs/2026-06-08-book-studio-v1-approval-packet.md`
 **Decision index:** `docs/superpowers/specs/2026-06-08-book-studio-v1-decision-index.md`
 **Review scorecard:** `docs/superpowers/specs/2026-06-08-book-studio-v1-approval-review-scorecard.md`
+**Approval decision form:** `docs/superpowers/specs/2026-06-08-book-studio-v1-approval-decision-form.md`
 
 ## Purpose
 
@@ -13,6 +14,8 @@ This matrix shows what must be revised if Peet changes one field in the Book Stu
 It does not approve runtime routes, APIs, Firestore collections, database schemas, UI components, module toggles, Hermes runtime dispatch, direct publishing, analytics automation, automated export/file validation, or a Phase 1 task list.
 
 If a change creates a blocker, the blocker becomes a design-packet revision or a new design-only aid. It does not become implementation work until Peet approves the revised approval record and a separate Phase 1 implementation plan is written.
+
+When revisions are accepted, record the changed fields, updated evidence docs, remaining blockers, and `planningAllowed` gate in the approval decision form.
 
 ## Revision Rules
 
