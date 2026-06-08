@@ -7,6 +7,7 @@
 **Review aid:** `docs/superpowers/specs/2026-06-08-book-studio-v1-review-script.md`
 **Acceptance fixture pack:** `docs/superpowers/specs/2026-06-08-book-studio-v1-acceptance-fixtures.md`
 **Source refresh contract:** `docs/superpowers/specs/2026-06-08-book-studio-v1-source-refresh-contract.md`
+**Ownership and commercial model:** `docs/superpowers/specs/2026-06-08-book-studio-v1-ownership-commercial-model.md`
 
 ## Purpose
 
@@ -26,6 +27,7 @@ Covered now:
 - Book families, series, publishing packets, Hermes skill boundaries, analytics confidence, portal review artifacts, and devil's-advocate risks.
 - Acceptance fixtures for pass, warn, and block cases.
 - Policy/source freshness contract for KDP, Google Play Books, channel reports, account authority, Hermes source behavior, and `ai-story` as design evidence only.
+- Ownership, account authority, commercial decision states, revenue/cost separation, client approval artifacts, upload-readiness blockers, and Hermes commercial boundaries.
 
 Not covered as approved build work:
 
@@ -50,10 +52,11 @@ Not covered as approved build work:
 | Play devil's advocate from all angles. | The dossier, approval packet, review script, and acceptance fixtures include risk sections for policy drift, rights, AI disclosure, unsafe Hermes actions, client visibility, analytics overclaiming, direct publishing pressure, and over-broad V1 scope. | Covered for design review. | Keep negative-control fixtures in the future demo set unless Peet explicitly removes them and accepts weaker blocker proof. |
 | Learn from `PMStander/ai-story`. | The dossier extracts `ai-story` lessons around wizard intake, series, templates, KDP presets, agents, and package expectations, then rejects direct porting because PiB needs multi-tenant admin/portal, Projects, Client Documents, Research, Hermes policy, and Firestore patterns. | Covered for architecture lessons. | Treat `ai-story` as a learning source, not a runtime dependency or migration target. |
 | Integrate with the PiB platform. | The dossier maps Book Studio to PiB admin, portal, Research, Client Documents, Projects/Kanban, artifacts, org module entitlement, portal disabled state, sanitizers, and shared review artifacts. | Covered for design. | Runtime integration remains unapproved until Peet accepts the V1 approval record. |
+| Define ownership and commercial governance. | The ownership/commercial model defines PiB-owned and client-owned workflows, account authority profiles, commercial decision states, revenue/cost separation, client approval artifacts, upload-readiness blockers, and Hermes commercial boundaries. | Covered for V1 design. | Keep shared/revenue-share economics blocked unless Peet explicitly approves the added operating load. |
 
 ## Evidence Quality Check
 
-The current research dossier contains a current-source addendum dated 2026-06-08. The source refresh contract adds a standalone evidence rule set for keeping those policy claims current. Together, they are enough for a design decision today, but not enough to make future implementation or upload-ready claims without refresh.
+The current research dossier contains a current-source addendum dated 2026-06-08. The source refresh contract adds a standalone evidence rule set for keeping those policy claims current. The ownership/commercial model adds the account-authority and economics review surface. Together, they are enough for a design decision today, but not enough to make future implementation or upload-ready claims without refresh and approval.
 
 Evidence rules for the next phase:
 
