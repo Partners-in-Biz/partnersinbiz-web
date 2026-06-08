@@ -4241,6 +4241,50 @@ Devil's advocate:
 - If the approval record is too narrow, the first implementation may under-serve creative range. Keep non-selected book families as gate profiles and fixtures, not production promises.
 - If the approval record is too broad, Phase 1 will become a platform rebuild. The handoff gate should choose a learning path, not exhaust the entire book-publishing market.
 
+### V1 Review Brief For Peet
+
+Use this as the concise decision surface after reading the dossier. It is meant to help Peet approve, revise, or reject the V1 direction without treating the whole dossier as an implementation plan.
+
+Recommended decision:
+
+> Approve Book Studio V1 as an internal PiB production studio with optional client review. Phase 1 should focus on KDP and Google Play Books manual-handoff readiness; business nonfiction, activity/low-content print, series scaffolding, and a public-domain/companion negative-control fixture; admin-first production surfaces; controlled Hermes skill readiness; publishing packet tracking; and manual analytics imports. Do not include self-serve client generation, public SaaS, direct store publishing, autonomous ad spend, automated review outreach, sensitive account-secret custody, or full print-perfect editing in Phase 1.
+
+Default approval record:
+
+| Decision field | Recommended selection | Change only if |
+| --- | --- | --- |
+| Product posture | Internal PiB production studio with optional client review. | Peet wants client self-serve or public SaaS risk to become the primary product experiment. |
+| First channels | KDP and Google Play Books manual-handoff workflows. | Peet wants wide distribution, print distribution, Apple/Kobo/D2D/Ingram, or audio to define V1. |
+| First pilots | Business nonfiction, activity/low-content print, series scaffolding, and public-domain/companion negative-control fixture. | Peet wants creative/visual range or audio risk to be the first learning goal. |
+| First portal artifacts | Book Brief first, then proof package, publishing packet, and analytics summary as they become safe. | Peet wants the portal to start with only one artifact type. |
+| Hermes first scope | Wave 1 plus selected Wave 2 safety skills as docs, manifests, fixtures, and evaluation gates before runtime dispatch. | Peet wants a smaller first plan limited to research/brief/outline/readiness. |
+| Ownership model | Shared workflow with owner type plus publishing account governance. | Peet wants PiB-owned books only for the first implementation. |
+| Deferrals | Accept all Phase 1 explicit deferrals. | Peet is willing to fund a separate risk pass for direct publishing, ads, review outreach, audio, or full layout tooling. |
+
+Revision choices if Peet does not approve the default:
+
+| Revision | What changes in the future implementation plan | Main risk |
+| --- | --- | --- |
+| Narrower operational V1 | Keep only business nonfiction, low-content/activity print, KDP/Google packets, and Book Brief portal review. | Faster to ship, but weaker proof for series, creative, and rights blocker cases. |
+| Creative-range V1 | Add children's/visual as an early production pilot with stronger asset-rights, fixed-layout, and proof gates. | More compelling creatively, but file/layout/rights work may slow the foundation. |
+| Risk-discipline V1 | Put public-domain/companion and rights blockers at the center of the first plan. | Safer, but less likely to produce a revenue-positive first book quickly. |
+| Client-facing V1 | Move portal creation/review earlier and reduce admin-only operations. | Requires a separate client safety, abuse, permissions, and support design before implementation. |
+| Publishing-automation V1 | Attempt direct upload/API automation instead of manual handoff. | Should be rejected for now unless a separate account-authority, platform API, liability, and rollback design is approved. |
+
+Approval outcomes:
+
+- **Approve default:** write the Phase 1 implementation plan from the approval record and this dossier.
+- **Approve with revisions:** update the approval record and affected dossier sections first, then write the implementation plan.
+- **Reject V1 posture:** stop Book Studio implementation planning and reopen product positioning.
+- **Request more design detail:** add another design-only section or visual/workflow aid without writing runtime code.
+
+Devil's advocate:
+
+- The default approval is intentionally conservative. It may feel less ambitious than a full AI-book platform, but it proves whether PiB can repeatedly create publishable, accountable books before scaling exposure.
+- A narrower V1 is easier to ship but can hide the hard parts of creative assets, series quality, and rights.
+- A more ambitious V1 can impress in demos while quietly undermining quality, compliance, and analytics trust.
+- If the first plan does not force a negative-control blocked project, Book Studio may learn how to pass easy cases while failing to reject unsafe ones.
+
 ## Open Product Decision
 
 The next design step depends on one product decision:
