@@ -13,9 +13,13 @@ const mockSet = jest.fn()
 const mockDelete = jest.fn()
 const mockGetDoc = jest.fn()
 const mockCollection = jest.fn()
+const mockBatch = jest.fn()
+const mockBatchSet = jest.fn()
+const mockBatchCommit = jest.fn()
 const mockServerTimestamp = jest.fn(() => 'SERVER_TIMESTAMP')
+let generatedDocIds: string[] = []
 
-jest.mock('@/lib/firebase/admin', () => ({ adminDb: { collection: mockCollection } }))
+jest.mock('@/lib/firebase/admin', () => ({ adminDb: { collection: mockCollection, batch: mockBatch } }))
 jest.mock('@/lib/api/auth', () => ({
   withAuth: (_role: string, handler: MockHandler) => async (req: NextRequest, ctx?: unknown) => handler(req, mockUser, ctx),
 }))
@@ -32,10 +36,13 @@ beforeEach(() => {
   jest.resetModules()
   jest.clearAllMocks()
   mockUser = { uid: 'admin-1', role: 'admin' }
+  generatedDocIds = []
   const query = { where: mockWhere, limit: jest.fn(() => query), get: mockGet }
   mockWhere.mockReturnValue(query)
   mockGetDoc.mockReset()
-  mockDoc.mockReturnValue({ get: mockGetDoc, update: mockUpdate, set: mockSet, delete: mockDelete })
+  mockBatch.mockReturnValue({ set: mockBatchSet, commit: mockBatchCommit })
+  mockBatchCommit.mockResolvedValue(undefined)
+  mockDoc.mockImplementation((id?: string) => ({ id: id ?? generatedDocIds.shift() ?? 'generated-doc', get: mockGetDoc, update: mockUpdate, set: mockSet, delete: mockDelete }))
   mockCollection.mockImplementation((name: string) => {
     if (!['workspace_connections', 'workspace_artifacts', 'workspace_broker_jobs', 'workspace_artifact_events', 'mailbox_oauth_states', 'mailbox_accounts'].includes(name)) {
       throw new Error(`Unexpected collection: ${name}`)
