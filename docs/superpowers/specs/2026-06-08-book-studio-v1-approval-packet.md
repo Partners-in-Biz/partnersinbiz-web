@@ -9,12 +9,13 @@
 **Production package QA aid:** `docs/superpowers/specs/2026-06-08-book-studio-v1-production-package-qa-model.md`
 **Operator workspace aid:** `docs/superpowers/specs/2026-06-08-book-studio-v1-operator-workspace-control-model.md`
 **Jurisdiction/local publisher aid:** `docs/superpowers/specs/2026-06-08-book-studio-v1-jurisdiction-local-publisher-model.md`
+**ai-story non-port aid:** `docs/superpowers/specs/2026-06-08-book-studio-v1-ai-story-non-port-checklist.md`
 
 ## Purpose
 
 This packet gives Peet a short decision surface for Book Studio V1. The full dossier covers research, channel constraints, book types, series, Hermes skills, publishing operations, analytics, risk, and PiB integration. This packet captures only the decision needed before a Phase 1 implementation plan can be written.
 
-The dossier commit shows where the primary research was last changed. The decision bundle content baseline shows the review-ready set of companion packets that shape the boundary: portal access, domain state, operator workspace, source refresh, book-family gates, ownership/commercial governance, jurisdiction/local publisher evidence, wider channels, Hermes evaluation, and production package QA. Metadata-only handoff edits after that baseline do not change the product boundary, but a future Phase 1 plan must still quote the current `development` commit at planning time and list any content revisions after this baseline.
+The dossier commit shows where the primary research was last changed. The decision bundle content baseline shows the review-ready set of companion packets that shape the boundary: portal access, domain state, operator workspace, source refresh, book-family gates, ownership/commercial governance, jurisdiction/local publisher evidence, `ai-story` non-port rules, wider channels, Hermes evaluation, and production package QA. Metadata-only handoff edits after that baseline do not change the product boundary, but a future Phase 1 plan must still quote the current `development` commit at planning time and list any content revisions after this baseline.
 
 ## Recommended Approval
 
@@ -140,6 +141,7 @@ The future Phase 1 plan must:
 - Map evidence-sensitive tasks to the V1 evidence acceptance matrix.
 - Preserve the production package QA rule that proof, file, cover, rights, accessibility, source freshness, and checksum evidence bind manual-handoff readiness to one exact package version.
 - Preserve the jurisdiction/local publisher rule that KDP or Google channel readiness does not prove South African legal-deposit, ISBN/imprint, copyright, contributor-authority, or local publisher readiness.
+- Preserve the `ai-story` non-port rule that prior standalone UX patterns can be reused only after keep/rewrite/reject classification and cannot bypass PiB org scope, Research, Client Documents, Projects/Kanban, portal gating, or Hermes skill governance.
 - Keep runtime Hermes dispatch disabled until ledgers, sanitizers, fixtures, reviewer defaults, and forbidden-action tests exist.
 
 ## What Remains Unapproved

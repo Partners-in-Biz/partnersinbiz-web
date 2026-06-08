@@ -8,6 +8,7 @@
 **Book family gate catalog:** `docs/superpowers/specs/2026-06-08-book-studio-v1-book-family-gate-catalog.md`
 **Wider channel source aid:** `docs/superpowers/specs/2026-06-08-book-studio-v1-wider-channel-adapter-packet.md`
 **Jurisdiction/local publisher source aid:** `docs/superpowers/specs/2026-06-08-book-studio-v1-jurisdiction-local-publisher-model.md`
+**ai-story non-port aid:** `docs/superpowers/specs/2026-06-08-book-studio-v1-ai-story-non-port-checklist.md`
 
 ## Purpose
 
@@ -38,6 +39,8 @@ Wider-channel source keys for Apple Books, Kobo Writing Life, Draft2Digital, Ing
 Local publisher source keys for South African legal deposit, CIPC copyright posture, ISBN publisher identity, and South African ISBN workflow are separated in the jurisdiction/local publisher packet. They are local-obligation evidence only and do not change V1's KDP/Google manual-handoff channel focus.
 
 The book-family gate catalog refreshed the same KDP/Google source cluster on 2026-06-08 and added a profile-level mapping for nonfiction/reference, narrative, activity/workbook, low-content, children/visual, cookbook/photo/portfolio, public-domain/companion, audiobook, and series overlay decisions. It is a review aid, not a source of permanent policy truth.
+
+The `ai-story` non-port checklist records the planning-time rule for using the prior project: recheck `ai-story-head`, decide whether each reused concept is kept, rewritten, or rejected, and never treat `ai-story` behavior as publishing-policy, legal, local publisher, or analytics evidence.
 
 ## 2026-06-08 Live Spot-Check Addendum
 
@@ -101,6 +104,7 @@ Stale source evidence should block only the dependent claim.
 | Local publisher claim | South African legal-deposit, ISBN/imprint, copyright, contributor, or jurisdiction evidence behind that claim. | KDP/Google packet work can continue if its channel evidence is fresh and wording does not imply local compliance. |
 | Analytics promotion | Any report-definition source behind the promoted metric. | Internal import, reconciliation task, and no-revenue portal state. |
 | Hermes skill output | Source key required by the skill's manifest is stale or missing. | Skill can ask for refresh task creation, but not produce readiness output. |
+| `ai-story` concept reuse | The referenced `ai-story-head` commit was not rechecked, or the future plan does not classify the concept as keep/rewrite/reject. | General product discussion can continue, but the concept cannot become a Phase 1 planning dependency. |
 
 ## Hermes Source Behavior
 
