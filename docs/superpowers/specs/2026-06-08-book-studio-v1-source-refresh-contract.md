@@ -5,6 +5,7 @@
 **Authoritative dossier:** `docs/superpowers/specs/2026-06-07-book-studio-research-dossier.md`
 **Decision packet:** `docs/superpowers/specs/2026-06-08-book-studio-v1-approval-packet.md`
 **Publishing and analytics model:** `docs/superpowers/specs/2026-06-08-book-studio-v1-publishing-analytics-model.md`
+**Book family gate catalog:** `docs/superpowers/specs/2026-06-08-book-studio-v1-book-family-gate-catalog.md`
 **Wider channel source aid:** `docs/superpowers/specs/2026-06-08-book-studio-v1-wider-channel-adapter-packet.md`
 
 ## Purpose
@@ -32,6 +33,8 @@ These source keys were rechecked on 2026-06-08.
 | `ai-story-head` | `https://github.com/PMStander/ai-story` at `11ef473c94f977b1dbc487f8645c4711728b6095` | The prior project remains a learning source for wizard intake, story/series flow, and KDP-oriented packaging expectations. | Treat `ai-story` as design evidence only; do not use it as a runtime dependency or migration target without a separate approval decision. |
 
 Wider-channel source keys for Apple Books, Kobo Writing Life, Draft2Digital, IngramSpark, ACX, KDP Virtual Voice, ISBN.org, and W3C EPUBCheck are separated in the wider channel adapter packet. They are future-compatibility evidence only and do not expand V1 beyond KDP and Google Play Books.
+
+The book-family gate catalog refreshed the same KDP/Google source cluster on 2026-06-08 and added a profile-level mapping for nonfiction/reference, narrative, activity/workbook, low-content, children/visual, cookbook/photo/portfolio, public-domain/companion, audiobook, and series overlay decisions. It is a review aid, not a source of permanent policy truth.
 
 ## Evidence Freshness Rules
 
