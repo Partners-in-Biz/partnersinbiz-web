@@ -5,12 +5,15 @@
 **Authoritative dossier:** `docs/superpowers/specs/2026-06-07-book-studio-research-dossier.md`
 **Decision packet:** `docs/superpowers/specs/2026-06-08-book-studio-v1-approval-packet.md`
 **Risk register:** `docs/superpowers/specs/2026-06-08-book-studio-v1-red-team-risk-register.md`
+**Evaluation packet:** `docs/superpowers/specs/2026-06-08-book-studio-v1-hermes-skill-evaluation-packet.md`
 
 ## Purpose
 
 This blueprint extracts the Hermes-agent portion of Book Studio V1 into one reviewable surface. It answers what Hermes should help with, which skills are needed first, what each skill may output, and what must stay forbidden until the Book Studio approval record and later implementation plan exist.
 
 This file does not create `.claude/skills`, edit skill manifests, enable runtime dispatch, define app routes, create records, or approve a Phase 1 implementation plan.
+
+The companion evaluation packet turns this blueprint into per-skill pass, warning, block, and forbidden-action fixture expectations. It should be reviewed before any future implementation plan names a Book Studio Hermes skill as a candidate runtime skill.
 
 ## Hermes Posture For V1
 
