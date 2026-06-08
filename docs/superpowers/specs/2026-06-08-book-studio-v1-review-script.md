@@ -10,6 +10,7 @@
 **Pilot product decision register:** `docs/superpowers/specs/2026-06-08-book-studio-v1-pilot-product-decision-register.md`
 **Revision impact matrix:** `docs/superpowers/specs/2026-06-08-book-studio-v1-approval-revision-impact-matrix.md`
 **Approval decision form:** `docs/superpowers/specs/2026-06-08-book-studio-v1-approval-decision-form.md`
+**Source refresh execution report:** `docs/superpowers/specs/2026-06-08-book-studio-v1-source-refresh-execution-report.md`
 **Concrete review aid:** `docs/superpowers/specs/2026-06-08-book-studio-v1-mock-review-packet.md`
 **Portal access aid:** `docs/superpowers/specs/2026-06-08-book-studio-v1-portal-access-promotion-model.md`
 **Package QA aid:** `docs/superpowers/specs/2026-06-08-book-studio-v1-production-package-qa-model.md`
@@ -31,7 +32,7 @@ The review has four possible outcomes:
 
 ## 30-Minute Review Agenda
 
-Before the agenda, open the decision index, approval packet, coverage audit, review scorecard, pilot product decision register, revision impact matrix, approval decision form, mock review packet, package QA aid, and jurisdiction/local publisher aid. The decision index answers "what should I read and what decision is needed?" The approval packet answers "what would we approve?" The coverage audit answers "which original objective requirements are covered?" The scorecard answers "which categories are pass, warn, or block?" The pilot register answers "which first book archetypes prove V1 without pretending market demand is already validated?" The revision matrix answers "what else must change if Peet approves with revisions?" The decision form answers "what exact decision record controls planning?" The mock packet answers "what would this feel like in PiB?" The package QA aid answers "what would make a book package safe enough for proof, portal review, or manual handoff?" The jurisdiction/local publisher aid answers "what local publisher evidence must stay separate from KDP/Google readiness?"
+Before the agenda, open the decision index, approval packet, coverage audit, review scorecard, pilot product decision register, revision impact matrix, approval decision form, mock review packet, package QA aid, and jurisdiction/local publisher aid. The decision index answers "what should I read and what decision is needed?" The approval packet answers "what would we approve?" The coverage audit answers "which original objective requirements are covered?" The scorecard answers "which categories are pass, warn, or block?" The pilot register answers "which first book archetypes prove V1 without pretending market demand is already validated?" The revision matrix answers "what else must change if Peet approves with revisions?" The decision form answers "what exact decision record controls planning?" The source refresh execution report answers "how do we prove current official sources were checked before planning?" The mock packet answers "what would this feel like in PiB?" The package QA aid answers "what would make a book package safe enough for proof, portal review, or manual handoff?" The jurisdiction/local publisher aid answers "what local publisher evidence must stay separate from KDP/Google readiness?"
 
 ### 1. Confirm The Product Posture
 

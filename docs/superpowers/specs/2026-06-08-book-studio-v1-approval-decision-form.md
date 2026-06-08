@@ -7,6 +7,7 @@
 **Review scorecard:** `docs/superpowers/specs/2026-06-08-book-studio-v1-approval-review-scorecard.md`
 **Review script:** `docs/superpowers/specs/2026-06-08-book-studio-v1-review-script.md`
 **Revision impact matrix:** `docs/superpowers/specs/2026-06-08-book-studio-v1-approval-revision-impact-matrix.md`
+**Source refresh execution report:** `docs/superpowers/specs/2026-06-08-book-studio-v1-source-refresh-execution-report.md`
 **Coverage audit:** `docs/superpowers/specs/2026-06-08-book-studio-objective-coverage-audit.md`
 
 ## Purpose
@@ -168,7 +169,7 @@ A valid decision record must pass these checks before a Phase 1 plan is written:
 4. Every warning is listed in `warningsAccepted` or converted into a changed approval field.
 5. `blockersRemaining` is empty before `planningAllowed` can be true.
 6. If revisions apply, `changedApprovalFields` and `affectedEvidenceDocsUpdated` are both non-empty.
-7. `sourceRefreshRequiredBeforePlanning.completed` is true before `planningAllowed` can be true.
+7. `sourceRefreshRequiredBeforePlanning.completed` is true before `planningAllowed` can be true, backed by a completed source refresh execution report.
 8. `whatRemainsUnapproved` still excludes runtime routes, APIs, records, Firestore collections, UI, module toggles, Hermes runtime dispatch, direct publishing, analytics automation, and a Phase 1 task list.
 
 ## Devil's Advocate

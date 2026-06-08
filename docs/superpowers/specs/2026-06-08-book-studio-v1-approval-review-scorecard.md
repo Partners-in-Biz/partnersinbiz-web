@@ -9,6 +9,7 @@
 **Pilot product decision register:** `docs/superpowers/specs/2026-06-08-book-studio-v1-pilot-product-decision-register.md`
 **Revision impact matrix:** `docs/superpowers/specs/2026-06-08-book-studio-v1-approval-revision-impact-matrix.md`
 **Approval decision form:** `docs/superpowers/specs/2026-06-08-book-studio-v1-approval-decision-form.md`
+**Source refresh execution report:** `docs/superpowers/specs/2026-06-08-book-studio-v1-source-refresh-execution-report.md`
 
 ## Purpose
 
@@ -16,7 +17,7 @@ This scorecard gives Peet a compact way to judge whether the current Book Studio
 
 It does not approve Book Studio runtime routes, records, APIs, Firestore collections, UI, module toggles, Hermes runtime dispatch, direct publishing, analytics automation, or a Phase 1 task list.
 
-When the rows have been reviewed, copy the approval decision form to record the final outcome, accepted warnings, remaining blockers, source-refresh gate, and whether Phase 1 planning is allowed.
+When the rows have been reviewed, copy the approval decision form to record the final outcome, accepted warnings, remaining blockers, source-refresh gate, and whether Phase 1 planning is allowed. After approval or revision, use the source refresh execution report before writing any Phase 1 plan.
 
 ## How To Use It
 
@@ -40,7 +41,7 @@ Overall decision rule:
 | Category | Pass standard | Warning examples | Block examples | Primary evidence docs |
 | --- | --- | --- | --- | --- |
 | Product posture | V1 is an internal PiB production studio with optional client review. | Peet wants more portal visibility but still accepts admin-operated production. | Peet wants public AI-book SaaS, client self-serve generation, or a creator tool as V1. | Approval packet, review script, objective coverage audit. |
-| First channel boundary | KDP and Google Play Books manual handoff are enough for first proof. | One wider channel must stay future-compatible but not built first. | Direct publishing, credential custody, automated review outreach, Amazon Ads, or wider-channel automation is required for V1. | Publishing and analytics model, source refresh contract, wider-channel adapter packet. |
+| First channel boundary | KDP and Google Play Books manual handoff are enough for first proof. | One wider channel must stay future-compatible but not built first. | Direct publishing, credential custody, automated review outreach, Amazon Ads, or wider-channel automation is required for V1. | Publishing and analytics model, source refresh contract, source refresh execution report, wider-channel adapter packet. |
 | First pilot set | Business nonfiction, activity or low-content print, series scaffolding, and a rights-first negative control are accepted. | A children's or visual fixture is added as a gated fixture only. | Pilot set is vague, visual/audio-first, or removes blocker proof without accepting weaker safety evidence. | Pilot product decision register, book-family gate catalog, acceptance fixtures, mock review packet. |
 | Book-family gate coverage | Every important book family has a gate profile, fixture posture, or explicit deferral. | A family needs stronger future compatibility notes before planning. | A family is treated as supported without rights, format, accessibility, analytics, and channel evidence. | Book-family gate catalog, approval packet, coverage audit. |
 | Series governance | Volume order, continuity, shared metadata, release state, and rollup analytics are part of the V1 design boundary. | Series is accepted but not first demo evidence. | Series support means only naming several unrelated books as a series. | Research dossier, acceptance fixtures, domain record/state model. |

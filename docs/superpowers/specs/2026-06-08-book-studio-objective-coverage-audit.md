@@ -12,6 +12,7 @@
 **Approval decision form:** `docs/superpowers/specs/2026-06-08-book-studio-v1-approval-decision-form.md`
 **Acceptance fixture pack:** `docs/superpowers/specs/2026-06-08-book-studio-v1-acceptance-fixtures.md`
 **Source refresh contract:** `docs/superpowers/specs/2026-06-08-book-studio-v1-source-refresh-contract.md`
+**Source refresh execution report:** `docs/superpowers/specs/2026-06-08-book-studio-v1-source-refresh-execution-report.md`
 **Book family gate catalog:** `docs/superpowers/specs/2026-06-08-book-studio-v1-book-family-gate-catalog.md`
 **Ownership and commercial model:** `docs/superpowers/specs/2026-06-08-book-studio-v1-ownership-commercial-model.md`
 **Mock review packet:** `docs/superpowers/specs/2026-06-08-book-studio-v1-mock-review-packet.md`
@@ -53,6 +54,7 @@ Covered now:
 - A pilot product decision register that separates first commercial proof, print-risk proof, series proof, blocker proof, and creative-range fixture decisions without making market-demand claims.
 - A revision impact matrix that names the evidence docs, source refresh triggers, blockers, and devil's-advocate concerns created when an approval field changes.
 - An approval decision form that records the final decision outcome, accepted warnings, remaining blockers, source-refresh state, and whether Phase 1 planning is allowed.
+- A source refresh execution report template that converts the source-refresh contract into a copyable review artifact for clearing or blocking the pre-planning source gate.
 - A Hermes skill evaluation packet defining per-skill input contracts, pass/warn/block cases, forbidden-action regressions, sanitizer expectations, stale-source behavior, and fixture IDs for the recommended first skill package.
 - A portal access and promotion model defining the future module switch default, disabled state, safe DTO shape, artifact promotion states, client permissions, invalidation rules, and org isolation requirements.
 - A domain record/state model defining conceptual record families, relationships, lifecycle states, packet states, analytics states, core invariants, invalidation triggers, and future test obligations without choosing schema or implementation order.
@@ -97,6 +99,7 @@ Evidence rules for the next phase:
 
 - A Phase 1 implementation plan must quote the final approval record and the current dossier commit.
 - A Phase 1 implementation plan must quote the current `development` commit at planning time and list any design-packet content revisions after the baseline.
+- A Phase 1 implementation plan must cite a completed source refresh execution report when `sourceRefreshRequiredBeforePlanning.completed` is true.
 - Any policy-dependent task must cite the source register keys it relies on.
 - Any local publisher task must cite the South African legal-deposit, ISBN/imprint, copyright, or publisher-source keys it relies on.
 - Any task reusing an `ai-story` concept must cite the `ai-story` baseline used, classify the concept as keep/rewrite/reject, and preserve PiB org-scope, portal-scope, and Hermes-scope guardrails.

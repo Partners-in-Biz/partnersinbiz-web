@@ -7,6 +7,7 @@
 **Pilot product decision register:** `docs/superpowers/specs/2026-06-08-book-studio-v1-pilot-product-decision-register.md`
 **Revision impact matrix:** `docs/superpowers/specs/2026-06-08-book-studio-v1-approval-revision-impact-matrix.md`
 **Approval decision form:** `docs/superpowers/specs/2026-06-08-book-studio-v1-approval-decision-form.md`
+**Source refresh execution report:** `docs/superpowers/specs/2026-06-08-book-studio-v1-source-refresh-execution-report.md`
 **Authoritative dossier:** `docs/superpowers/specs/2026-06-07-book-studio-research-dossier.md` at commit `d7ff96d1`.
 **Decision bundle content baseline:** `ddee2021 docs(book-studio): add local publisher obligations model`.
 **Coverage audit:** `docs/superpowers/specs/2026-06-08-book-studio-objective-coverage-audit.md`
@@ -152,7 +153,7 @@ The future Phase 1 plan must:
 
 - Quote the final approval record and the current dossier commit.
 - Quote the current `development` commit at planning time and list any design-packet content revisions after the baseline.
-- Recheck the policy source register before listing tasks.
+- Recheck the policy source register before listing tasks and record the result in the source refresh execution report.
 - Map every task to the selected pilot set.
 - Map evidence-sensitive tasks to the V1 evidence acceptance matrix.
 - Preserve the production package QA rule that proof, file, cover, rights, accessibility, source freshness, and checksum evidence bind manual-handoff readiness to one exact package version.

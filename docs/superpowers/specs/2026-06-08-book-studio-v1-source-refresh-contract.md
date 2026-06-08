@@ -4,6 +4,7 @@
 **Status:** Design-only evidence contract; not an implementation plan.
 **Authoritative dossier:** `docs/superpowers/specs/2026-06-07-book-studio-research-dossier.md`
 **Decision packet:** `docs/superpowers/specs/2026-06-08-book-studio-v1-approval-packet.md`
+**Execution report run sheet:** `docs/superpowers/specs/2026-06-08-book-studio-v1-source-refresh-execution-report.md`
 **Publishing and analytics model:** `docs/superpowers/specs/2026-06-08-book-studio-v1-publishing-analytics-model.md`
 **Book family gate catalog:** `docs/superpowers/specs/2026-06-08-book-studio-v1-book-family-gate-catalog.md`
 **Wider channel source aid:** `docs/superpowers/specs/2026-06-08-book-studio-v1-wider-channel-adapter-packet.md`
@@ -15,6 +16,8 @@
 Book Studio depends on policies, report timing, file rules, series rules, and account-governance rules that can change outside PiB. This contract defines how future Book Studio work should prove that a publishing, analytics, Hermes, or portal claim is based on current evidence.
 
 This file does not create runtime source records, APIs, Firestore collections, route handlers, Hermes skill files, report parsers, publishing integrations, or a Phase 1 task list.
+
+The execution report run sheet converts this contract into a copyable review artifact. Use it after Peet approves or revises V1 and before any Phase 1 implementation plan is written.
 
 ## Verified Source Set
 

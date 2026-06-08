@@ -6,6 +6,7 @@
 **Decision index:** `docs/superpowers/specs/2026-06-08-book-studio-v1-decision-index.md`
 **Review scorecard:** `docs/superpowers/specs/2026-06-08-book-studio-v1-approval-review-scorecard.md`
 **Approval decision form:** `docs/superpowers/specs/2026-06-08-book-studio-v1-approval-decision-form.md`
+**Source refresh execution report:** `docs/superpowers/specs/2026-06-08-book-studio-v1-source-refresh-execution-report.md`
 
 ## Purpose
 
@@ -22,6 +23,7 @@ When revisions are accepted, record the changed fields, updated evidence docs, r
 - Revise only the smallest approval field that actually changes.
 - Update every linked evidence packet named in the row before planning.
 - Treat added channels, added book families, added portal exposure, or broader Hermes scope as source-refresh triggers.
+- Use the source refresh execution report to record each triggered source result before planning.
 - Keep KDP and Google Play Books manual handoff as the default V1 boundary unless `firstChannels` is explicitly revised.
 - Keep runtime Hermes dispatch disabled unless a later approved implementation plan scopes manifests, ledgers, sanitizers, fixtures, reviewer defaults, and forbidden-action tests.
 - Keep direct publishing, credential custody, public SaaS, self-serve generation, autonomous ad spend, automated review outreach, and unreconciled analytics out of V1 unless Peet explicitly reopens product posture.
