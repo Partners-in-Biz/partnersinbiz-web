@@ -171,6 +171,39 @@ describe('workspace broker API routes', () => {
       approvalSatisfied: false,
       errors: [],
     }))
+    expect(mockAdd).toHaveBeenCalledWith(expect.objectContaining({
+      orgId: 'org-1',
+      brokerJobId: 'job-1',
+      operation: 'create_doc',
+      eventType: 'broker_job_queued',
+      status: 'awaiting_approval',
+      resultStatus: 'blocked',
+      actor: expect.objectContaining({ id: 'admin-1', role: 'admin' }),
+      approvalGateTaskId: null,
+      source: expect.objectContaining({ projectId: 'project-1' }),
+      safeMetadata: expect.objectContaining({ approvalRequired: true, requiredCapability: 'write' }),
+      createdAt: 'SERVER_TIMESTAMP',
+    }))
+  })
+
+  it('returns the existing workspace broker job when an idempotency key is replayed', async () => {
+    mockGet.mockResolvedValue({ docs: [
+      { id: 'job-existing', data: () => ({ orgId: 'org-1', operation: 'create_doc', status: 'awaiting_approval', idempotencyKey: 'idem-replay', approvalRequired: true, requiredCapability: 'write', riskLevel: 'medium', output: { googleMutationPerformed: false } }) },
+    ] })
+    mockAdd.mockResolvedValue({ id: 'job-new' })
+    const { POST } = await import('@/app/api/v1/workspace-broker/docs/create/route')
+    const res = await POST(new NextRequest('http://localhost/api/v1/workspace-broker/docs/create', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'idempotency-key': 'idem-replay' },
+      body: JSON.stringify({ orgId: 'org-1', title: 'Client-facing brief', visibility: 'admin_agents_clients', projectId: 'project-1' }),
+    }))
+    const body = await res.json()
+
+    expect(res.status).toBe(200)
+    expect(body.data).toMatchObject({ id: 'job-existing', status: 'awaiting_approval', approvalRequired: true, googleMutationPerformed: false })
+    expect(mockWhere).toHaveBeenCalledWith('orgId', '==', 'org-1')
+    expect(mockWhere).toHaveBeenCalledWith('idempotencyKey', '==', 'idem-replay')
+    expect(mockAdd).not.toHaveBeenCalled()
   })
 
   it('does not let create callers self-satisfy Workspace broker approval gates', async () => {

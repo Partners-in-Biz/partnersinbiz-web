@@ -15,6 +15,32 @@ export async function createBrokerJob(req: NextRequest, user: ApiUser, operation
   if (accessError) return accessError
   const orgId = resolved.orgId!
   const payload = { ...body, ...extraInput }
+  const idempotencyKey = req.headers.get('idempotency-key')?.trim() || null
+  if (idempotencyKey) {
+    try {
+      const existing = await adminDb
+        .collection(WORKSPACE_BROKER_JOB_COLLECTION)
+        .where('orgId', '==', orgId)
+        .where('idempotencyKey', '==', idempotencyKey)
+        .limit(1)
+        .get()
+      const existingDoc = existing?.docs?.[0]
+      if (existingDoc) {
+        const existingJob = existingDoc.data() as Record<string, unknown>
+        const output = existingJob.output && typeof existingJob.output === 'object' ? existingJob.output as Record<string, unknown> : {}
+        return apiSuccess({
+          id: existingDoc.id,
+          approvalRequired: existingJob.approvalRequired === true,
+          requiredCapability: existingJob.requiredCapability,
+          riskLevel: existingJob.riskLevel,
+          status: existingJob.status,
+          googleMutationPerformed: output.googleMutationPerformed === true,
+        }, 200)
+      }
+    } catch (error) {
+      return apiError('Could not enforce Workspace broker idempotency', 500)
+    }
+  }
   const job = buildWorkspaceBrokerJobInput({
     orgId,
     operation,
@@ -24,7 +50,7 @@ export async function createBrokerJob(req: NextRequest, user: ApiUser, operation
     connectionId: typeof body.connectionId === 'string' ? body.connectionId : null,
     approvalGateTaskId: null,
     approvalStatus: null,
-    idempotencyKey: req.headers.get('idempotency-key'),
+    idempotencyKey,
     input: payload,
   })
   const decision = evaluateWorkspaceBrokerApproval({ operation, visibility: typeof payload.visibility === 'string' ? payload.visibility : null, approvalStatus: job.approvalStatus, approvalGateTaskId: job.approvalGateTaskId })
