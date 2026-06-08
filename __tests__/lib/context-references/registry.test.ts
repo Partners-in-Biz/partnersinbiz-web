@@ -143,6 +143,82 @@ beforeEach(() => {
         }),
       ])
     }
+    if (name === 'deals') {
+      return queryFor([
+        doc('deal-1', {
+          orgId: 'org-1',
+          title: 'Website expansion deal',
+          stage: 'proposal',
+          value: 25000,
+          currency: 'ZAR',
+          contactName: 'Jane Client',
+          deleted: false,
+        }),
+      ])
+    }
+    if (name === 'invoices') {
+      return queryFor([
+        doc('invoice-1', {
+          orgId: 'org-1',
+          invoiceNumber: 'INV-1001',
+          clientName: 'Elemental',
+          status: 'sent',
+          total: 18000,
+          currency: 'ZAR',
+          deleted: false,
+        }),
+      ])
+    }
+    if (name === 'properties') {
+      return queryFor([
+        doc('property-1', {
+          orgId: 'org-1',
+          name: 'Sunset Villa',
+          address: '42 Ocean Road',
+          status: 'active',
+          deleted: false,
+        }),
+      ])
+    }
+    if (name === 'workspace_artifacts') {
+      return queryFor([
+        doc('artifact-1', {
+          orgId: 'org-1',
+          title: 'Phase 2 broker plan',
+          artifactType: 'google_doc',
+          projectId: 'project-1',
+          visibility: 'admin_agents',
+          lifecycleStatus: 'internal_review',
+          google: { url: 'https://docs.google.com/document/d/doc-1/edit' },
+          deleted: false,
+        }),
+      ])
+    }
+    if (name === 'workspace_connections') {
+      return queryFor([
+        doc('connection-1', {
+          orgId: 'org-1',
+          displayName: 'Parent Google Workspace',
+          provider: 'google_workspace',
+          connectionType: 'user_oauth',
+          status: 'active',
+          tokenStatus: 'connected',
+          deleted: false,
+        }),
+      ])
+    }
+    if (name === 'workspace_broker_jobs') {
+      return queryFor([
+        doc('job-1', {
+          orgId: 'org-1',
+          operation: 'create_doc',
+          status: 'awaiting_approval',
+          input: { title: 'Client-facing brief' },
+          requiredCapability: 'write',
+          deleted: false,
+        }),
+      ])
+    }
     if (name === 'projects') {
       return {
         ...queryFor([]),
@@ -288,5 +364,37 @@ describe('context reference registry', () => {
         summary: expect.stringContaining('client_review'),
       }),
     ])
+  })
+
+  it('makes operational records and Workspace OS artifacts usable as chat context references', async () => {
+    const { resolveContextReferences, searchContextReferences, buildAttachedContextBlock } = await import('@/lib/context-references/registry')
+    const user = { uid: 'admin-1', role: 'admin' as const, authKind: 'session' as const }
+
+    expect(contextReferenceTypeFrom('deals')).toBe('deal')
+    expect(contextReferenceTypeFrom('invoice')).toBe('invoice')
+    expect(contextReferenceTypeFrom('workspace artifacts')).toBe('workspace_artifact')
+    expect(contextReferenceTypeFrom('broker jobs')).toBe('workspace_broker_job')
+
+    await expect(searchContextReferences({ type: 'deal', query: 'expansion', orgId: 'org-1', limit: 8, user })).resolves.toEqual([
+      expect.objectContaining({ type: 'deal', id: 'deal-1', label: 'Website expansion deal', summary: expect.stringContaining('proposal') }),
+    ])
+    await expect(searchContextReferences({ type: 'workspace_artifact', query: 'phase 2', orgId: 'org-1', limit: 8, user })).resolves.toEqual([
+      expect.objectContaining({ type: 'workspace_artifact', id: 'artifact-1', label: 'Phase 2 broker plan', href: '/admin/workspace/artifacts/artifact-1' }),
+    ])
+
+    const refs = await resolveContextReferences([
+      { type: 'invoice', id: 'invoice-1', orgId: 'org-1' },
+      { type: 'property', id: 'property-1', orgId: 'org-1' },
+      { type: 'workspace_connection', id: 'connection-1', orgId: 'org-1' },
+      { type: 'workspace_broker_job', id: 'job-1', orgId: 'org-1' },
+    ], user)
+
+    expect(refs).toEqual(expect.arrayContaining([
+      expect.objectContaining({ type: 'invoice', label: 'INV-1001' }),
+      expect.objectContaining({ type: 'property', label: 'Sunset Villa' }),
+      expect.objectContaining({ type: 'workspace_connection', label: 'Parent Google Workspace' }),
+      expect.objectContaining({ type: 'workspace_broker_job', label: 'create_doc' }),
+    ]))
+    expect(buildAttachedContextBlock(refs)).toContain('workspace_broker_job: create_doc')
   })
 })

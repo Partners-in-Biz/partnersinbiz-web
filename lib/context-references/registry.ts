@@ -68,11 +68,29 @@ const COLLECTION_BY_TYPE: Partial<Record<ContextReferenceType, string>> = {
   email: 'mailbox_messages',
   support: SUPPORT_TICKETS_COLLECTION,
   task: 'tasks',
+  deal: 'deals',
+  invoice: 'invoices',
+  quote: 'quotes',
+  property: 'properties',
+  seo_sprint: 'seo_sprints',
+  workspace_folder: 'workspace_folders',
+  workspace_artifact: 'workspace_artifacts',
+  workspace_connection: 'workspace_connections',
+  workspace_broker_job: 'workspace_broker_jobs',
+  file: 'uploads',
+  report: 'reports',
+  calendar_event: 'calendar_events',
 }
 
 function clean(value: unknown, max = 260): string {
   if (typeof value === 'number' && Number.isFinite(value)) return String(value)
   return typeof value === 'string' ? value.trim().replace(/\s+/g, ' ').slice(0, max) : ''
+}
+
+function nestedClean(value: unknown, key: string, max = 260): string {
+  return value && typeof value === 'object' && !Array.isArray(value)
+    ? clean((value as Record<string, unknown>)[key], max)
+    : ''
 }
 
 function compactSummary(parts: Array<unknown>, max = MAX_CONTEXT_SUMMARY_CHARS): string {
@@ -148,6 +166,30 @@ function href(type: ContextReferenceType, id: string, data: RawDoc, seedHref?: s
       return `/admin/email/mailbox/${id}`
     case 'support':
       return `/admin/support/${id}`
+    case 'deal':
+      return `/admin/crm/pipeline?dealId=${encodeURIComponent(id)}`
+    case 'invoice':
+      return `/admin/invoices/${id}`
+    case 'quote':
+      return `/admin/quotes/${id}`
+    case 'property':
+      return `/admin/properties/${id}`
+    case 'seo_sprint':
+      return `/admin/seo/sprints/${id}`
+    case 'workspace_folder':
+      return `/admin/workspace/folders/${id}`
+    case 'workspace_artifact':
+      return `/admin/workspace/artifacts/${id}`
+    case 'workspace_connection':
+      return `/admin/workspace/connections/${id}`
+    case 'workspace_broker_job':
+      return `/admin/workspace/broker/jobs/${id}`
+    case 'file':
+      return `/admin/files/${id}`
+    case 'report':
+      return `/admin/reports/${id}`
+    case 'calendar_event':
+      return `/admin/calendar?eventId=${encodeURIComponent(id)}`
   }
 }
 
@@ -195,6 +237,14 @@ function matchesQuery(data: RawDoc, q: string): boolean {
     data.name,
     data.title,
     data.subject,
+    data.invoiceNumber,
+    data.quoteNumber,
+    data.fileName,
+    data.originalName,
+    data.displayName,
+    data.operation,
+    nestedClean(data.input, 'title'),
+    nestedClean(data.google, 'url'),
     data.email,
     data.company,
     data.sku,
@@ -359,7 +409,7 @@ async function resolveResearch(input: ResolverInput): Promise<ContextReference |
 }
 
 async function resolveGeneric(
-  type: 'social' | 'campaign' | 'email',
+  type: Exclude<ContextReferenceType, 'project' | 'task' | 'contact' | 'company' | 'product' | 'document' | 'research' | 'support'>,
   input: ResolverInput,
 ): Promise<ContextReference | null> {
   const collection = COLLECTION_BY_TYPE[type]
@@ -370,9 +420,17 @@ async function resolveGeneric(
   const orgId = docOrgId(data, input.seed.orgId ?? input.defaultOrgId)
   if (isDeleted(data) || !orgId || !sameOrg(data, expectedOrgId(input.seed, input.defaultOrgId)) || !canUseOrg(input.user, orgId)) return null
   if (type === 'email' && input.user.role === 'client' && clean(data.uid) !== input.user.uid) return null
+  if (type === 'workspace_artifact' && input.user.role === 'client' && (clean(data.visibility) !== 'admin_agents_clients' || clean(data.lifecycleStatus) !== 'client_visible')) return null
   const label = clean(data.name) ||
     clean(data.title) ||
     clean(data.subject) ||
+    clean(data.invoiceNumber) ||
+    clean(data.quoteNumber) ||
+    clean(data.fileName) ||
+    clean(data.originalName) ||
+    clean(data.displayName) ||
+    clean(data.operation) ||
+    nestedClean(data.input, 'title') ||
     clean(data.content, 80) ||
     input.seed.label ||
     doc.id
@@ -385,11 +443,27 @@ async function resolveGeneric(
     href: href(type, doc.id, data, input.seed.href),
     summary: compactSummary([
       data.status ? `status: ${clean(data.status)}` : '',
+      data.lifecycleStatus ? `lifecycle: ${clean(data.lifecycleStatus)}` : '',
+      data.stage ? `stage: ${clean(data.stage)}` : '',
+      data.total ? `total: ${clean(data.currency)} ${clean(data.total)}` : '',
+      data.value ? `value: ${clean(data.currency)} ${clean(data.value)}` : '',
+      data.artifactType ? `artifact: ${clean(data.artifactType)}` : '',
+      data.connectionType ? `connection: ${clean(data.connectionType)}` : '',
+      data.tokenStatus ? `token: ${clean(data.tokenStatus)}` : '',
+      data.requiredCapability ? `capability: ${clean(data.requiredCapability)}` : '',
       type === 'social' ? data.platform : '',
       type === 'email' ? data.fromEmail || data.from : '',
       type === 'email' ? data.snippet || data.body : '',
       type === 'campaign' ? data.description : '',
+      data.clientName,
+      data.contactName,
+      data.address,
+      data.description,
+      data.summary,
+      data.notes,
       data.content,
+      nestedClean(data.google, 'url', 500),
+      nestedClean(data.input, 'title'),
     ]),
   })
 }
@@ -435,6 +509,18 @@ async function resolveOne(seed: ContextReferenceSeed, user: ApiUser, defaultOrgI
     case 'social':
     case 'campaign':
     case 'email':
+    case 'deal':
+    case 'invoice':
+    case 'quote':
+    case 'property':
+    case 'seo_sprint':
+    case 'workspace_folder':
+    case 'workspace_artifact':
+    case 'workspace_connection':
+    case 'workspace_broker_job':
+    case 'file':
+    case 'report':
+    case 'calendar_event':
       return resolveGeneric(seed.type, { seed, user, defaultOrgId })
     case 'support':
       return resolveSupport({ seed, user, defaultOrgId })
@@ -474,10 +560,18 @@ function refFromSearchRow(
   if (type === 'research' && user.role === 'client' && clean(data.visibility) !== 'client_visible') return null
   if (type === 'email' && user.role === 'client' && clean(data.uid) !== user.uid) return null
   if (type === 'support' && user.role === 'client' && clean(data.createdBy) !== user.uid) return null
+  if (type === 'workspace_artifact' && user.role === 'client' && (clean(data.visibility) !== 'admin_agents_clients' || clean(data.lifecycleStatus) !== 'client_visible')) return null
 
   const label = clean(data.name) ||
     clean(data.title) ||
     clean(data.subject) ||
+    clean(data.invoiceNumber) ||
+    clean(data.quoteNumber) ||
+    clean(data.fileName) ||
+    clean(data.originalName) ||
+    clean(data.displayName) ||
+    clean(data.operation) ||
+    nestedClean(data.input, 'title') ||
     clean(data.email) ||
     clean(data.content, 80) ||
     id
@@ -490,13 +584,26 @@ function refFromSearchRow(
     href: href(type, id, data),
     summary: compactSummary([
       type === 'product' ? productPriceSummary(data) : '',
-      data.status,
+      data.status ? `status: ${clean(data.status)}` : '',
+      data.lifecycleStatus ? `lifecycle: ${clean(data.lifecycleStatus)}` : '',
+      data.stage ? `stage: ${clean(data.stage)}` : '',
+      data.total ? `total: ${clean(data.currency)} ${clean(data.total)}` : '',
+      data.value ? `value: ${clean(data.currency)} ${clean(data.value)}` : '',
+      data.artifactType ? `artifact: ${clean(data.artifactType)}` : '',
+      data.connectionType ? `connection: ${clean(data.connectionType)}` : '',
+      data.tokenStatus ? `token: ${clean(data.tokenStatus)}` : '',
+      data.requiredCapability ? `capability: ${clean(data.requiredCapability)}` : '',
+      data.clientName,
+      data.contactName,
+      data.address,
       data.description,
       data.summary,
       data.notes,
       data.content,
       data.email,
       data.sku ? `sku: ${clean(data.sku)}` : '',
+      nestedClean(data.google, 'url', 500),
+      nestedClean(data.input, 'title'),
     ]),
     ...(metadata ? { metadata } : {}),
   })
