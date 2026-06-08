@@ -9,6 +9,7 @@
 **Jurisdiction/local publisher model:** `docs/superpowers/specs/2026-06-08-book-studio-v1-jurisdiction-local-publisher-model.md`
 **Market evidence model:** `docs/superpowers/specs/2026-06-08-book-studio-v1-market-evidence-model.md`
 **Editorial quality model:** `docs/superpowers/specs/2026-06-08-book-studio-v1-editorial-quality-reader-experience-model.md`
+**Language and translation model:** `docs/superpowers/specs/2026-06-08-book-studio-v1-language-translation-edition-model.md`
 
 ## Purpose
 
@@ -35,6 +36,7 @@ The recommended V1 stays defensible by keeping five hard boundaries:
 - Internal PiB production studio first, not public self-serve SaaS.
 - KDP and Google Play Books manual handoff first, not direct publishing automation.
 - Reviewed market evidence before production selection, not sales/rank promises or shelf screenshots.
+- Translated editions with their own language, rights, quality, metadata, identifier, channel, and analytics gates.
 - Reviewed artifact promotion to portal, not raw admin or Hermes visibility.
 - Hermes as bounded assistant with fixtures, not autonomous publisher.
 - Manual analytics imports with confidence labels, not a single revenue promise.
@@ -56,6 +58,7 @@ The recommended V1 stays defensible by keeping five hard boundaries:
 | Hermes skills | Can Hermes exceed its approved role? | Hermes publishes, approves, spends, messages clients, requests credentials, or marks client-ready. | Forbidden-action fixture, skill manifests, reviewer defaults, output sanitizers, runtime dispatch gate. | Block until forbidden-action tests and sanitizers exist. |
 | Generation provenance | Can disclosure answers be reconstructed later? | AI-generated/assisted status is guessed after drafts are edited or overwritten. | Generation run records, idempotency keys, source manifests, immutable provenance, disclosure derivation. | Block if disclosure is a project-level checkbox only. |
 | Editorial review integrity | Can quality review become a rubber stamp? | Reviewers accept raw AI prose, invented citations, copied structure, unusable activities, or generic chapters because the proof looks polished. | Quality states, required quality lanes, family-specific quality traps, warning owner/due-date rules, and `QUALITY-*` fixtures. | Block if package QA, portal proof, or publishing packet readiness can proceed without quality pass or accepted warnings. |
+| Translated editions | Can a translated book bypass source-target evidence? | AI, beta, or human translation output looks publishable but lacks target-language QA, rights, contributor credit, metadata, identifiers, pricing/territory, reading-direction, channel support, or disclosure evidence. | Language/translation model, source refresh, editorial quality gate, production package QA, and channel packet separation. | Block if translated-edition production, package QA, portal proof, manual handoff, or analytics promotion can proceed without translation gates. |
 | Portal safety | Can clients see internal uncertainty? | Raw research, raw Hermes output, rights notes, parser errors, upload-account details, or unreconciled costs leak. | Reviewed artifact promotion by version, portal module gate, safe blockers, client-safe summaries. | Block if portal mirrors admin state. |
 | Publishing authority | Can PiB upload under the wrong account or authority? | Client-owned and PiB-owned books blur account, tax, payment, imprint, territory, or consent responsibility. | Ownership model, publishing account readiness report, manual upload evidence, no credential custody. | Block if account authority is unresolved. |
 | Local publisher obligations | Can KDP/Google readiness be mistaken for South African local readiness? | Legal deposit, ISBN/imprint, copyright posture, contributor authority, publisher jurisdiction, or local adaptation evidence is missed after a polished channel packet passes. | Jurisdiction/local publisher model, separate evidence lanes, portal-safe blockers, source-refresh keys. | Block if local-compliance, ISBN/imprint, copyright-registration, or legal-deposit claims lack reviewed evidence. |
@@ -77,6 +80,7 @@ The recommended V1 should be stopped or redesigned if any of these become true:
 - Portal users must see raw generation, raw research, internal rights notes, or unreconciled analytics.
 - Book Brief or production work can start from market screenshots, copied competitor positioning, automated market scraping, sales forecasts, rank promises, or negative/unknown print margin.
 - Package QA, portal proof, or publishing packet readiness can start from a generated/assisted manuscript that has not passed editorial quality review or accepted-warning review.
+- Translated-edition production, package QA, portal proof, manual handoff, Kindle Translate pathway, Google translated-edition packet, or translated-edition analytics can bypass language, rights, provenance, target-quality, metadata, identifier, pricing/territory, channel, and disclosure gates.
 - First scope must include wide distribution, audio, children/visual production, or full layout tooling without a separate source and safety refresh.
 - Hermes runtime dispatch must be live before manifests, fixtures, sanitizers, reviewer defaults, and forbidden-action tests exist.
 - The first demo cannot show one pass case, one warning case, and one blocked case.

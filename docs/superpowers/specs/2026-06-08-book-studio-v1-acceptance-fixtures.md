@@ -9,6 +9,7 @@
 **Launch/lifecycle governance model:** `docs/superpowers/specs/2026-06-08-book-studio-v1-launch-lifecycle-governance-model.md`
 **Market evidence model:** `docs/superpowers/specs/2026-06-08-book-studio-v1-market-evidence-model.md`
 **Editorial quality model:** `docs/superpowers/specs/2026-06-08-book-studio-v1-editorial-quality-reader-experience-model.md`
+**Language and translation model:** `docs/superpowers/specs/2026-06-08-book-studio-v1-language-translation-edition-model.md`
 
 ## Purpose
 
@@ -33,6 +34,7 @@ These rules apply to every fixture below:
 - Any analytics value must include source, period, timezone, confidence, and reconciliation state.
 - Any AI disclosure answer must come from provenance/generation records, not a single project checkbox.
 - Candidate selection must not use automated market scraping, sales forecasts, rank promises, bestseller claims, or competitor-copy reuse.
+- Any translated edition must keep source and target edition evidence separate, including language, rights, provenance, target quality, identifiers, channel support, pricing, portal, and analytics state.
 
 Devil's advocate:
 
@@ -307,6 +309,38 @@ A business nonfiction draft was assisted by Hermes. It has a strong-looking proo
 - Invented or unsupported claims are hidden by metadata or cover polish.
 - Hermes can mark quality-approved or rewrite approved files without a new version and invalidation.
 
+## Fixture J: Language, Translation, And Edition Governance Gate
+
+### Scenario
+
+An English business nonfiction eBook is proposed for a Spanish translated edition. The operator wants to use a Hermes-assisted translation brief, check KDP Kindle Translate eligibility, and prepare a Google Play Books translated-edition packet.
+
+### Expected State
+
+| Area | Acceptance evidence |
+| --- | --- |
+| Language scope | Source language, target language, locale, script, primary language, reading direction, and target-language reviewer are visible. |
+| Rights | Translation rights, territory rights, contributor authority, original author, and translator credit posture are reviewable. |
+| Provenance | Human translator, AI-generated translation, AI-assisted editing, or KDP Kindle Translate beta path is explicitly classified. |
+| Target quality | Meaning fidelity, fluency, glossary consistency, source/claim preservation, cultural adaptation, and target-reader fit are reviewed. |
+| KDP packet | KDP supported-language, file-format, AI disclosure, contributor, Kindle Translate eligibility, pricing, territory, KDP Select, and report behavior are separate from the source edition. |
+| Google packet | Google primary language, identifier or GGKEY plan, title/subtitle/description, contributors, genres, series, files, reviewer access, and pricing rows are separate from KDP. |
+| Portal | Portal sees only a reviewed translated-edition summary or safe blocker, not raw translation notes or account screenshots. |
+| Analytics | Source edition and translated edition stay separated by edition, language, channel, territory, report type, confidence, and reconciliation state. |
+
+### Mixed Output
+
+- `LANG-PASS-001`: Spanish target edition has translation rights, provenance, glossary, target metadata, target quality review, KDP/Google source freshness, pricing, territory, and analytics labels; it may move to channel preflight for the current target version only.
+- `LANG-WARN-001`: target-language draft is useful, but Google identifier, KDP Select posture, or human target-language reviewer evidence is incomplete; it remains internal reviewable with owner/date warnings.
+- `LANG-BLOCK-001`: AI-translated public-domain companion or unsupported target-language file tries to reach package QA or portal with hidden disclosure and weak rights; package QA, portal promotion, and manual handoff are blocked.
+
+### Failure Conditions
+
+- A translated edition reaches package QA, portal proof, manual handoff, or analytics promotion without target-language QA.
+- AI-generated translation disclosure is hidden because the output was edited by a human.
+- KDP Kindle Translate beta output is treated as approved, editable, print-ready, or Google-ready without separate review.
+- Source-edition sales or rankings become a translated-edition demand promise.
+
 ## Minimum Future Demo Set
 
 If the approval packet is accepted, a future Phase 1 implementation demo should include at least:
@@ -319,6 +353,7 @@ If the approval packet is accepted, a future Phase 1 implementation demo should 
 6. Fixture G blocking unsafe launch, review, price, and promotion actions.
 7. Fixture H proving market evidence pass/warn/block before production selection.
 8. Fixture I proving editorial quality pass/warn/block before package QA or portal proof.
+9. Fixture J proving translated-edition pass/warn/block before package QA, portal proof, manual handoff, or analytics promotion.
 
 The demo should not be accepted if it only shows:
 
@@ -328,6 +363,7 @@ The demo should not be accepted if it only shows:
 - A revenue chart without confidence labels.
 - A Hermes task that can perform public, financial, credential, or approval actions.
 - A generated proof that bypasses editorial quality lanes.
+- A translated edition that bypasses language, rights, target-quality, metadata, identifier, channel, pricing, disclosure, or analytics gates.
 
 ## Approval Gate Reminder
 

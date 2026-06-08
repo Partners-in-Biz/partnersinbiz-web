@@ -12,6 +12,7 @@
 **ai-story non-port checklist:** `docs/superpowers/specs/2026-06-08-book-studio-v1-ai-story-non-port-checklist.md`
 **Launch/lifecycle governance model:** `docs/superpowers/specs/2026-06-08-book-studio-v1-launch-lifecycle-governance-model.md`
 **Market evidence model:** `docs/superpowers/specs/2026-06-08-book-studio-v1-market-evidence-model.md`
+**Language/translation model:** `docs/superpowers/specs/2026-06-08-book-studio-v1-language-translation-edition-model.md`
 
 ## Purpose
 
@@ -73,6 +74,19 @@ bookStudioV1SourceRefreshReport:
         - google-series
         - google-reports
         - google-service-provider
+    language_translation_edition_sources:
+      required: true
+      completed: false
+      sources:
+        - kdp-language-reading-direction
+        - kdp-supported-languages
+        - kdp-content-ai-ip
+        - kdp-kindle-translate-beta
+        - kdp-kindle-translate-pricing-reports
+        - google-metadata
+        - google-add-book
+        - google-isbns-identifiers
+        - google-content-policies
     market_evidence_selection_sources:
       required: true
       completed: false
@@ -144,6 +158,42 @@ bookStudioV1SourceRefreshReport:
         - changed_non_blocking
         - changed_blocking
         - unavailable
+      evidenceSummary: not_recorded_yet
+      affectedApprovalFields: []
+      affectedDocsToRevise: []
+      planningImpact: planning_blocked_until_result_recorded
+    - key: kdp-language-reading-direction
+      url: https://kdp.amazon.com/en_US/help/topic/GQSHRFWZ5CEY7XAC
+      officialSource: true
+      checkedAt: "not_recorded_yet"
+      result: not_recorded_yet
+      evidenceSummary: not_recorded_yet
+      affectedApprovalFields: []
+      affectedDocsToRevise: []
+      planningImpact: planning_blocked_until_result_recorded
+    - key: kdp-supported-languages
+      url: https://kdp.amazon.com/en_US/help/topic/G200673300
+      officialSource: true
+      checkedAt: "not_recorded_yet"
+      result: not_recorded_yet
+      evidenceSummary: not_recorded_yet
+      affectedApprovalFields: []
+      affectedDocsToRevise: []
+      planningImpact: planning_blocked_until_result_recorded
+    - key: kdp-kindle-translate-beta
+      url: https://kdp.amazon.com/en_US/help/topic/GRSNH76FDTJHRX49
+      officialSource: true
+      checkedAt: "not_recorded_yet"
+      result: not_recorded_yet
+      evidenceSummary: not_recorded_yet
+      affectedApprovalFields: []
+      affectedDocsToRevise: []
+      planningImpact: planning_blocked_until_result_recorded
+    - key: kdp-kindle-translate-pricing-reports
+      url: https://kdp.amazon.com/en_US/help/topic/GS36UMYB3M9FDBSB
+      officialSource: true
+      checkedAt: "not_recorded_yet"
+      result: not_recorded_yet
       evidenceSummary: not_recorded_yet
       affectedApprovalFields: []
       affectedDocsToRevise: []
@@ -285,6 +335,15 @@ bookStudioV1SourceRefreshReport:
       planningImpact: planning_blocked_until_result_recorded
     - key: google-add-book
       url: https://support.google.com/books/partner/answer/9261664?hl=en
+      officialSource: true
+      checkedAt: "not_recorded_yet"
+      result: not_recorded_yet
+      evidenceSummary: not_recorded_yet
+      affectedApprovalFields: []
+      affectedDocsToRevise: []
+      planningImpact: planning_blocked_until_result_recorded
+    - key: google-isbns-identifiers
+      url: https://support.google.com/books/partner/answer/3431108?hl=en
       officialSource: true
       checkedAt: "not_recorded_yet"
       result: not_recorded_yet
@@ -504,7 +563,7 @@ bookStudioV1SourceRefreshReport:
 
 ## Required Source Groups
 
-The reviewer must check the source groups required by the final decision record. The recommended V1 approval requires six core groups: KDP, Google Play Books, market evidence, local publisher/jurisdiction, launch/lifecycle, and `ai-story`.
+The reviewer must check the source groups required by the final decision record. The recommended V1 approval requires seven core groups: KDP, Google Play Books, language/translation, market evidence, local publisher/jurisdiction, launch/lifecycle, and `ai-story`.
 
 | Group | Source key | Source to check | Planning claim protected |
 | --- | --- | --- | --- |
@@ -528,6 +587,15 @@ The reviewer must check the source groups required by the final decision record.
 | Google Play Books | `google-series` | `https://support.google.com/books/partner/answer/11069638?hl=en` | Google series numbering, name matching, order, and catalog workflow. |
 | Google Play Books | `google-reports` | `https://support.google.com/books/partner/answer/9266485?hl=en` | Google earnings, sales, transaction, refund, preview, and timezone evidence. |
 | Google Play Books | `google-service-provider` | `https://support.google.com/books/partner/answer/3323299?hl=en` | Service-provider, client consent, report/payment access, and account authority assumptions. |
+| Language/translation | `kdp-language-reading-direction` | `https://kdp.amazon.com/en_US/help/topic/GQSHRFWZ5CEY7XAC` | KDP primary language, content-file metadata language, and reading-direction evidence for translated editions. |
+| Language/translation | `kdp-supported-languages` | `https://kdp.amazon.com/en_US/help/topic/G200673300` | KDP target-language, format, paperback/hardcover/eBook, PDF, and right-to-left support checks. |
+| Language/translation | `kdp-content-ai-ip` | `https://kdp.amazon.com/en_US/help/topic/G200672390` | AI-generated translation disclosure, translator/original-author contributor credit, rights, and customer-experience evidence. |
+| Language/translation | `kdp-kindle-translate-beta` | `https://kdp.amazon.com/en_US/help/topic/GRSNH76FDTJHRX49` | Kindle Translate beta eligibility, direct-editing, territory, series, print, and audiobook limitations. |
+| Language/translation | `kdp-kindle-translate-pricing-reports` | `https://kdp.amazon.com/en_US/help/topic/GS36UMYB3M9FDBSB` | Translated-edition pricing, KDP Select, royalty, report, and analytics separation. |
+| Language/translation | `google-metadata` | `https://support.google.com/books/partner/answer/3237055?hl=en` | Google primary language, title, contributor, genre, identifier, and duplicate-risk metadata checks. |
+| Language/translation | `google-add-book` | `https://support.google.com/books/partner/answer/9261664?hl=en` | Google translated-edition Book Catalog flow, language, contributor, series, content, reviewer, and pricing fields. |
+| Language/translation | `google-isbns-identifiers` | `https://support.google.com/books/partner/answer/3431108?hl=en` | Google ISBN/GGKEY and print/eBook identifier planning for translated editions. |
+| Language/translation | `google-content-policies` | `https://support.google.com/books/partner/answer/1067634?hl=en` | Google translated-edition quality, misleading metadata, duplicate, readability, and public-domain blockers. |
 | Market evidence | `kdp-keywords-discoverability` | `https://kdp.amazon.com/en_US/help/topic/G201743260` | Keyword hypotheses for candidate selection, not rank promises. |
 | Market evidence | `kdp-categories-discoverability` | `https://kdp.amazon.com/en_US/help/topic/G200652170` | Relevant category fit for candidate selection, not misleading shelf placement. |
 | Market evidence | `kdp-search-results` | `https://kdp.amazon.com/en_US/help/topic/GPYDJ3SECAVVPNVG` | Dynamic search caveats and no future-sales inference from snapshots. |
@@ -589,10 +657,11 @@ A source refresh report can support `sourceRefreshRequiredBeforePlanning.complet
 5. No required source result is `changed_blocking` or `unavailable` for a claim that appears in the planned Phase 1 scope.
 6. Every `changed_non_blocking` result names any affected docs that were updated or explicitly confirms no doc update is needed.
 7. Every wider-channel source triggered by an approval revision is checked before the revised channel appears in planning.
-8. Local publisher sources remain separate from KDP and Google channel readiness.
-9. `ai-story-head` is treated as a prior-project baseline only, with keep/rewrite/reject classification deferred to planning.
-10. `blockersRemaining` is empty before `planningAllowedAfterRefresh` can become true.
-11. The report still excludes runtime routes, APIs, Firestore collections, UI, module toggles, Hermes runtime dispatch, direct publishing, analytics automation, and a Phase 1 task list.
+8. Every language/translation source triggered by translated-edition scope is checked before translation production, package QA, portal proof, manual handoff, or translated-edition analytics appears in planning.
+9. Local publisher sources remain separate from KDP and Google channel readiness.
+10. `ai-story-head` is treated as a prior-project baseline only, with keep/rewrite/reject classification deferred to planning.
+11. `blockersRemaining` is empty before `planningAllowedAfterRefresh` can become true.
+12. The report still excludes runtime routes, APIs, Firestore collections, UI, module toggles, Hermes runtime dispatch, direct publishing, analytics automation, and a Phase 1 task list.
 
 ## Devil's Advocate
 

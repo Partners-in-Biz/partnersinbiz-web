@@ -14,6 +14,7 @@
 **Launch and lifecycle governance model:** `docs/superpowers/specs/2026-06-08-book-studio-v1-launch-lifecycle-governance-model.md`
 **Market evidence model:** `docs/superpowers/specs/2026-06-08-book-studio-v1-market-evidence-model.md`
 **Editorial quality model:** `docs/superpowers/specs/2026-06-08-book-studio-v1-editorial-quality-reader-experience-model.md`
+**Language and translation model:** `docs/superpowers/specs/2026-06-08-book-studio-v1-language-translation-edition-model.md`
 
 ## Purpose
 
@@ -36,8 +37,9 @@ If Peet has 10 minutes:
 9. Review the launch and lifecycle governance model if the open concern is what happens after a book is live.
 10. Review the market evidence model if the open concern is how PiB chooses book ideas worth producing before Hermes/editorial work starts.
 11. Review the editorial quality model if the open concern is how Book Studio prevents polished weak AI-assisted drafts from becoming proof, packet, portal, or publishing-ready.
-12. Review the mock review packet to see the operating loop in a concrete business nonfiction example.
-13. Decide whether to approve the exact wording, revise specific fields, reject the internal-studio posture, or request another design aid.
+12. Review the language and translation model if the open concern is translated editions, AI translation disclosure, target-language quality, KDP Translate, or Google language metadata.
+13. Review the mock review packet to see the operating loop in a concrete business nonfiction example.
+14. Decide whether to approve the exact wording, revise specific fields, reject the internal-studio posture, or request another design aid.
 
 If Peet has 30 minutes:
 
@@ -77,6 +79,7 @@ If Peet has 30 minutes:
 | Operator workspace control model | When checking how admins should operate Book Studio without a blank-prompt-first workflow. |
 | Production package QA model | When checking proof, file, cover, rights, accessibility, source, and checksum evidence. |
 | Editorial quality and reader experience model | When checking manuscript quality, source/claim integrity, reader promise fit, continuity, usability, accessibility, and client-safe quality summaries before package or portal promotion. |
+| Language, translation, and edition governance model | When checking translated editions, source/target language, AI translation disclosure, target metadata, identifiers, reading direction, translation QA, channel support, and analytics separation. |
 | Jurisdiction/local publisher model | When checking South African legal-deposit, ISBN/imprint, copyright, contributor, and local publisher lanes. |
 | Launch and lifecycle governance model | When checking post-publication launch, promotion, pricing, review, revision, unpublish, and safe portal status rules. |
 | Hermes skill blueprint, evaluation packet, and contract pack | When reviewing new Hermes skills, copyable contract fields, fixture gates, forbidden actions, and runtime dispatch blockers. |
@@ -109,6 +112,7 @@ Approval unlocks only a future implementation plan. That plan must:
 - preserve editorial quality and reader-experience gates before package QA, portal review, or publishing packet readiness, and
 - preserve launch/lifecycle guardrails for review compliance, price and promotion approvals, external action evidence, revision invalidation, and no automated review outreach or ad spend, and
 - preserve the market evidence rule that a candidate must pass or carry accepted warnings before Book Brief or production selection, and
+- preserve language and translation gates before any translated-edition production, package QA, portal proof, manual handoff, Kindle Translate pathway, Google translated-edition packet, or translated-edition analytics claim, and
 - include at least one pass case, one warning case, and one blocker case.
 
 Approval does not unlock:
@@ -120,6 +124,7 @@ Approval does not unlock:
 - public SaaS,
 - autonomous ads,
 - automated review outreach,
+- translated-edition production, translation engine work, Kindle Translate automation, or Google translated-edition handoff before the language and translation model gates are approved in the Phase 1 plan,
 - automated export/file validation before package QA is implemented, or
 - automated report integrations before the manual import model is proven.
 

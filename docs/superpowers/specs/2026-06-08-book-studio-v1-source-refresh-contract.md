@@ -12,6 +12,7 @@
 **ai-story non-port aid:** `docs/superpowers/specs/2026-06-08-book-studio-v1-ai-story-non-port-checklist.md`
 **Launch/lifecycle source aid:** `docs/superpowers/specs/2026-06-08-book-studio-v1-launch-lifecycle-governance-model.md`
 **Market evidence source aid:** `docs/superpowers/specs/2026-06-08-book-studio-v1-market-evidence-model.md`
+**Language/translation source aid:** `docs/superpowers/specs/2026-06-08-book-studio-v1-language-translation-edition-model.md`
 
 ## Purpose
 
@@ -28,6 +29,10 @@ These source keys were rechecked on 2026-06-08.
 | Source key | Official source | Why it matters to Book Studio V1 | Design consequence |
 | --- | --- | --- | --- |
 | `kdp-content-ai-ip` | `https://kdp.amazon.com/en_US/help/topic/G200672390` | KDP content guidelines cover AI disclosure, IP responsibility, customer experience, companion-book limits, and public-domain expectations. | Publishing packets need AI-use, rights, companion, public-domain, and customer-experience evidence before KDP handoff. |
+| `kdp-language-reading-direction` | `https://kdp.amazon.com/en_US/help/topic/GQSHRFWZ5CEY7XAC` | KDP language selection, content language, content-file metadata, primary language, and reading direction must align. | Translated editions need source/target language, primary-language, file metadata, reading-direction, and cover-layout evidence before KDP package review. |
+| `kdp-supported-languages` | `https://kdp.amazon.com/en_US/help/topic/G200673300` | KDP language and format support differs across eBook, paperback, hardcover, right-to-left, and PDF upload paths. | Target-language and format support must be checked before claiming translated-edition package readiness. |
+| `kdp-kindle-translate-beta` | `https://kdp.amazon.com/en_US/help/topic/GRSNH76FDTJHRX49` | Kindle Translate is an invite-only beta for eligible KDP eBooks and has limits around direct editing, print, audiobook, territory, and series behavior. | Kindle Translate must be modeled as a beta pathway with eligibility evidence, not a general translation engine or print/audio workflow. |
+| `kdp-kindle-translate-pricing-reports` | `https://kdp.amazon.com/en_US/help/topic/GS36UMYB3M9FDBSB` | Kindle Translate pricing, royalties, KDP reports, KDP Select, and territory behavior can differ from the source edition. | Translated-edition pricing, KDP Select, reports, and analytics must stay separate from source-edition state. |
 | `kdp-keywords-discoverability` | `https://kdp.amazon.com/en_US/help/topic/G201743260` | KDP keyword guidance affects candidate discoverability hypotheses and should discourage vague or irrelevant keyword choices. | Market evidence must treat keywords as relevant hypotheses, not rank promises or stuffing prompts. |
 | `kdp-categories-discoverability` | `https://kdp.amazon.com/en_US/help/topic/G200652170` | KDP category guidance affects candidate shelf fit and relevance. | Candidate selection should block misleading categories and preserve relevance over superficial popularity. |
 | `kdp-search-results` | `https://kdp.amazon.com/en_US/help/topic/GPYDJ3SECAVVPNVG` | Amazon search results are dynamic and can change. | Research snapshots must not promise first-page placement, stable rank, or future sales. |
@@ -48,6 +53,7 @@ These source keys were rechecked on 2026-06-08.
 | `google-program-policies` | `https://support.google.com/books/partner/answer/166501?hl=en` | Google policies define accepted digital file types, reports, refunds, content rules, currency handling, DRM/printing expectations, and client-services requirements. | Google packets need file, rights, DRM/print, price/currency, refund, and account-authority evidence. |
 | `google-sell-books` | `https://support.google.com/books/partner/answer/1079107?hl=en` | Google Play Books selling depends on sale countries, file formats, DRM/list-price settings, previews, and revenue-share behavior. | KDP viability must not be treated as Google viability in candidate or price review. |
 | `google-metadata` | `https://support.google.com/books/partner/answer/3237055?hl=en` | Google metadata affects discoverability and requires relevant title, genre, and identifier information. | Candidate evidence should keep Google genres and metadata separate from KDP category/keyword assumptions. |
+| `google-isbns-identifiers` | `https://support.google.com/books/partner/answer/3431108?hl=en` | Google can assign GGKEY identifiers, validates ISBNs, and treats print/eBook identifiers and reports carefully. | Translated editions need explicit identifier or GGKEY planning; source identifiers should not be reused blindly. |
 | `google-content-policies` | `https://support.google.com/books/partner/answer/1067634?hl=en` | Google content policies warn against spam, misleading or disappointing content, confusing metadata, duplicate public-domain content, and poor file quality. | Market evidence should block misleading, duplicate, or low-quality candidate ideas before production. |
 | `google-add-book` | `https://support.google.com/books/partner/answer/9261664?hl=en` | Google single-book setup uses Book Catalog, templates, ISBN/EAN or GGKEY, book info, genres, contributors, series, and settings. | Google packet readiness must map PiB metadata to the Partner Center entry fields rather than reuse KDP fields blindly. |
 | `google-series` | `https://support.google.com/books/partner/answer/11069638?hl=en` | Google series requires ordered titles, relationship type, whole-number series numbering, consistent naming, genre behavior, and series catalog workflows. | Series continuity and numbering checks must be channel-specific and not inferred from PiB's internal volume plan alone. |
@@ -70,6 +76,8 @@ The book-family gate catalog refreshed the same KDP/Google source cluster on 202
 
 The market evidence model adds candidate-selection source keys for KDP keywords, categories, search behavior, metadata, descriptions, content quality, print pricing, and Google selling, metadata, and content policy. These keys govern whether a book idea can become production-selectable; they do not create sales forecasts, rank promises, market scraping, or bestseller claims.
 
+The language/translation model adds translated-edition source keys for KDP language and reading direction, KDP supported languages, Kindle Translate beta, Kindle Translate pricing/reports, Google primary language metadata, Google add-book flow, Google identifiers, and Google content quality. These keys govern source/target-language evidence, AI translation disclosure, target-language quality, translated-edition metadata, identifiers, pricing, channel support, and analytics separation.
+
 The `ai-story` non-port checklist records the planning-time rule for using the prior project: recheck `ai-story-head`, decide whether each reused concept is kept, rewritten, or rejected, and never treat `ai-story` behavior as publishing-policy, legal, local publisher, or analytics evidence.
 
 ## 2026-06-08 Live Spot-Check Addendum
@@ -77,10 +85,14 @@ The `ai-story` non-port checklist records the planning-time rule for using the p
 A live official-source spot check on 2026-06-08 did not change the recommended V1 posture, but it tightened the account-authority rule:
 
 - KDP still separates AI-generated content from AI-assisted content and requires disclosure for AI-generated text, images, or translations when publishing or republishing.
+- KDP still requires language selection, book language, and content-file metadata language to match, with primary-language selection for multi-language books and reading-direction evidence where direction applies.
+- KDP supported-language and file-format rules still require target-language and format review before translated-edition package readiness.
+- Kindle Translate remains an invite-only beta pathway for eligible KDP eBooks, not a general print, audiobook, or editable translation engine.
 - KDP low-content books still need their own gate profile: they are not eligible for free KDP ISBNs and are not eligible for creating a KDP series.
 - KDP keyword, category, search, metadata, description, and content-quality guidance still supports a relevance-and-customer-experience market gate rather than rank promises or keyword stuffing.
 - KDP reports still require confidence separation: dashboard/order/KENP/payment/update timing differs by report, format, marketplace, and settlement period.
 - Google Play Books still needs channel-specific metadata, file processing, pricing, and review/publish checks instead of a reused KDP packet.
+- Google Play Books still treats language as primary book metadata and identifiers as edition-sensitive, so translated editions need their own Google metadata and identifier plan.
 - Google Play Books metadata and content-policy pages still support separate Google genre, metadata, content-quality, and duplicate-risk review before candidate selection or packet readiness.
 - Google Play Books series numbering still needs channel-specific validation: series names must match and ordered series numbers must be whole numbers without skipped or repeated values.
 - Google Play Books reports still need timezone and report-type separation: earnings, sales, transactions, refunds, and preview traffic cannot become one unqualified revenue metric.
@@ -95,6 +107,7 @@ Policy-sensitive claims need source freshness before they can affect a reviewed 
 | KDP upload readiness | Recheck KDP content, metadata, format, print, low-content, series, and report pages used by the packet within 14 days of manual handoff. | Packet cannot be marked manual-handoff ready. |
 | Google upload readiness | Recheck Google add-book, program policy, file, series, payment/report, and service-provider pages used by the packet within 14 days of manual handoff. | Packet remains internal-reviewable or blocked. |
 | AI disclosure | Recheck KDP AI/content guidance and any Google AI/content guidance before answering channel disclosure questions. | AI disclosure state becomes "needs policy refresh". |
+| Language/translation or translated edition | Recheck KDP language/reading-direction, supported-language, Kindle Translate, KDP AI/content, Google metadata, Google add-book, Google identifier, and Google content-policy sources before translation production, package QA, portal proof, manual handoff, or translated-edition analytics promotion. | Translated edition remains evidence-collecting, internal-reviewable, or blocked; no package, portal, manual-handoff, or analytics-ready claim is allowed. |
 | Low-content or activity print | Recheck KDP low-content and print-option pages before approving ISBN, barcode, sample, expanded-distribution, series, trim, page-count, and margin assumptions. | Print package cannot be approved. |
 | Series eligibility | Recheck KDP and Google series guidance before external series-page or bundle claims. | Only internal PiB series wording is allowed. |
 | Google DRM/printable activity content | Recheck Google program policies before uploading coloring, puzzle, cut-pattern, workbook, or other physical-page-dependent content. | Google packet must warn or block. |
@@ -138,6 +151,7 @@ Stale source evidence should block only the dependent claim.
 | Google manual handoff | Google add-book, program policy, series, report, or service-provider source used by that packet. | Internal drafting, research, and KDP review if KDP evidence is fresh. |
 | Client-safe publishing packet | Any source behind the promoted packet summary. | Internal packet work and safe "pending source refresh" blocker. |
 | Local publisher claim | South African legal-deposit, ISBN/imprint, copyright, contributor, or jurisdiction evidence behind that claim. | KDP/Google packet work can continue if its channel evidence is fresh and wording does not imply local compliance. |
+| Translated-edition claim | KDP/Google source behind language, reading direction, supported format, Kindle Translate eligibility, AI translation disclosure, Google primary language, identifier, add-book flow, or content quality. | Source-edition drafting and internal translation evidence collection; no translated-edition package QA, portal proof, manual handoff, or analytics promotion. |
 | Market candidate selection | KDP/Google source behind keywords, categories/genres, metadata, search, content-quality, price/margin, or book-family fit. | Internal idea capture and Research evidence collection; no Book Brief or production-selected state. |
 | Analytics promotion | Any report-definition source behind the promoted metric. | Internal import, reconciliation task, and no-revenue portal state. |
 | Launch/lifecycle action | Any review, promotion, price, public-copy, status, update, or unpublish source behind that action. | Internal launch planning and safe "source refresh required" blocker. |
@@ -162,6 +176,7 @@ Forbidden:
 - Use unofficial blog/forum content as authoritative policy.
 - Treat `ai-story` behavior as a publishing-policy source.
 - Fill upload, disclosure, account, or analytics answers from model memory.
+- Translate final publication text or mark translated-edition readiness from model memory without source/target evidence.
 - Convert a stale-source warning into a pass decision.
 
 ## Devil's Advocate
