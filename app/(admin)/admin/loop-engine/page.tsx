@@ -61,7 +61,7 @@ export default function AdminLoopEnginePage() {
             <p className="pib-label mb-3">Internal operating layer</p>
             <h1 className="pib-page-title">Loop Engine</h1>
             <p className="pib-page-sub mt-3">
-              Design loops that prompt agents: registry, eligibility rules, evidence requirements, review routing, and approval gates in one visible operator surface.
+              Design loops that prompt agents: loop contracts, eligibility rules, no-progress detection, evidence requirements, review routing, and approval gates in one visible operator surface.
             </p>
           </div>
           <div className="flex flex-wrap gap-3">
@@ -106,8 +106,20 @@ export default function AdminLoopEnginePage() {
             <p className="mt-2 text-sm text-[var(--color-pib-muted)]">{DEMO_RUN.decision}</p>
           </div>
           <div className="rounded-2xl border border-[var(--color-pib-border)] bg-white/70 p-4">
+            <p className="text-sm font-semibold text-[var(--color-pib-text)]">Progress signal</p>
+            <p className="mt-2 text-sm text-[var(--color-pib-muted)]">{DEMO_RUN.observability.progressSignal} · no-op streak {DEMO_RUN.observability.noOpStreak}</p>
+          </div>
+          <div className="rounded-2xl border border-[var(--color-pib-border)] bg-white/70 p-4">
+            <p className="text-sm font-semibold text-[var(--color-pib-text)]">Needs human judgment</p>
+            <p className="mt-2 text-sm text-[var(--color-pib-muted)]">{DEMO_RUN.observability.needsHumanJudgment ? 'Yes — approval or reviewer evidence required' : 'No — safe internal action only'}</p>
+          </div>
+          <div className="rounded-2xl border border-[var(--color-pib-border)] bg-white/70 p-4">
             <p className="text-sm font-semibold text-[var(--color-pib-text)]">Candidate summary</p>
             <p className="mt-2 text-sm text-[var(--color-pib-muted)]">{DEMO_RUN.candidateSummary}</p>
+          </div>
+          <div className="rounded-2xl border border-[var(--color-pib-border)] bg-white/70 p-4">
+            <p className="text-sm font-semibold text-[var(--color-pib-text)]">Last meaningful action</p>
+            <p className="mt-2 text-sm text-[var(--color-pib-muted)]">{DEMO_RUN.observability.lastMeaningfulAction}</p>
           </div>
           <div className="rounded-2xl border border-[var(--color-pib-border)] bg-white/70 p-4">
             <p className="text-sm font-semibold text-[var(--color-pib-text)]">Approval gates</p>
@@ -177,6 +189,18 @@ export default function AdminLoopEnginePage() {
                 <dd className="mt-1 text-[var(--color-pib-muted)]">{loop.trigger.description}</dd>
               </div>
               <div>
+                <dt className="font-semibold text-[var(--color-pib-text)]">Stop condition</dt>
+                <dd className="mt-1 text-[var(--color-pib-muted)]">{loop.loopContract.stopCondition}</dd>
+              </div>
+              <div>
+                <dt className="font-semibold text-[var(--color-pib-text)]">No-progress policy</dt>
+                <dd className="mt-1 text-[var(--color-pib-muted)]">{loop.loopContract.noProgressPolicy}</dd>
+              </div>
+              <div>
+                <dt className="font-semibold text-[var(--color-pib-text)]">Budget guardrail</dt>
+                <dd className="mt-1 text-[var(--color-pib-muted)]">{loop.loopContract.budgetGuardrail}</dd>
+              </div>
+              <div>
                 <dt className="font-semibold text-[var(--color-pib-text)]">Owner / reviewer</dt>
                 <dd className="mt-1 text-[var(--color-pib-muted)]">{loop.ownerAgentId} → {loop.reviewerAgentId}</dd>
               </div>
@@ -192,6 +216,10 @@ export default function AdminLoopEnginePage() {
             <div className="mt-4 rounded-xl bg-[var(--color-pib-muted)]/5 p-3">
               <p className="text-sm font-semibold text-[var(--color-pib-text)]">Last decision</p>
               <p className="mt-1 text-sm text-[var(--color-pib-muted)]">{loop.lastDecision}</p>
+            </div>
+            <div className="mt-3 rounded-xl bg-emerald-500/5 p-3">
+              <p className="text-sm font-semibold text-[var(--color-pib-text)]">Buyer-facing value</p>
+              <p className="mt-1 text-sm text-[var(--color-pib-muted)]">{loop.positioning.buyerValue}</p>
             </div>
             {loop.approvalGates.length > 0 ? (
               <div className="mt-4 flex flex-wrap gap-2">

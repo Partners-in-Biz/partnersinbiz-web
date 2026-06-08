@@ -160,6 +160,41 @@ function runEvidence(candidate: LoopRunCandidate, eligible: boolean): LoopRunEvi
   ]
 }
 
+
+function buildObservability(input: {
+  status: LoopRunRecord['status']
+  loop: LoopRegistryEntry
+  candidates: LoopRunCandidate[]
+  proposedActions: LoopActionProposal[]
+  executedActions: LoopActionProposal[]
+  readinessResults: Array<ReturnType<typeof explainTaskLoopReadiness> & { candidateId: string }>
+}): LoopRunRecord['observability'] {
+  const blockedReasons = input.readinessResults
+    .filter((result) => !result.eligible)
+    .flatMap((result) => result.reasons.map((reason) => `${result.candidateId}: ${reason.label}`))
+  const needsHumanJudgment = input.status === 'awaiting_approval'
+    || input.loop.approvalGates.includes('human-review')
+    || input.proposedActions.some((action) => action.approvalGates.length > 0)
+  const progressSignal = input.status === 'executed'
+    ? 'advanced'
+    : input.status === 'awaiting_approval'
+      ? 'awaiting-approval'
+      : input.status === 'blocked'
+        ? 'blocked'
+        : input.proposedActions.length === 0
+          ? 'no-op'
+          : 'advanced'
+
+  return {
+    lastMeaningfulAction: input.executedActions[0]?.label ?? input.proposedActions[0]?.label ?? (input.candidates.length > 0 ? 'Evaluated candidates without an executable action.' : 'Evaluated loop with no candidates.'),
+    noOpStreak: progressSignal === 'no-op' || progressSignal === 'blocked' ? 1 : 0,
+    verificationFailures: blockedReasons,
+    budgetStatus: input.proposedActions.length > input.loop.loopContract.maxIterations ? 'near-limit' : 'within-budget',
+    needsHumanJudgment,
+    progressSignal,
+  }
+}
+
 export function evaluateLoopRun(input: EvaluateLoopRunInput): LoopRunRecord {
   const loop = getLoopById(input.loopId)
   if (!loop) throw new Error(`Unknown loopId ${input.loopId}`)
@@ -185,6 +220,7 @@ export function evaluateLoopRun(input: EvaluateLoopRunInput): LoopRunRecord {
   const candidateSummary = candidates.length === 0
     ? 'No loop candidates were supplied for this evaluation.'
     : `${candidates.length} candidate${candidates.length === 1 ? '' : 's'} evaluated; ${proposedActions.length} proposed action${proposedActions.length === 1 ? '' : 's'}.`
+  const observability = buildObservability({ status, loop, candidates, proposedActions, executedActions, readinessResults })
   const decision = status === 'awaiting_approval'
     ? 'The loop found work, but one or more proposed actions require approval before execution.'
     : status === 'blocked'
@@ -211,6 +247,7 @@ export function evaluateLoopRun(input: EvaluateLoopRunInput): LoopRunRecord {
     executedActions,
     approvalGates,
     evidence,
+    observability,
     decision,
     createdByType: input.createdByType ?? 'agent',
     createdBy: input.createdBy ?? 'pip',

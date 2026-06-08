@@ -21,6 +21,12 @@ describe('loop engine registry', () => {
     }))
     expect(approvalLoop?.approvalGates).toEqual(expect.arrayContaining(['client-visible', 'production-deploy', 'destructive-data']))
     expect(approvalLoop?.evidenceRequirements.join(' ')).toMatch(/approval/i)
+    expect(approvalLoop?.loopContract).toEqual(expect.objectContaining({
+      stopCondition: expect.stringMatching(/approval/i),
+      maxIterations: 1,
+      noProgressPolicy: expect.stringMatching(/awaiting input/i),
+    }))
+    expect(approvalLoop?.positioning.buyerValue).toMatch(/Governed automation/i)
 
     expect(loopsByStatus('active').length).toBeGreaterThanOrEqual(2)
     expect(loopsRequiringApprovalGate('client-visible').map((loop) => loop.id)).toEqual(expect.arrayContaining([
@@ -54,6 +60,11 @@ describe('loop execution engine', () => {
     expect(run.executedActions).toEqual([])
     expect(run.approvalGates).toEqual(expect.arrayContaining(['client-visible']))
     expect(run.decision).toMatch(/approval/i)
+    expect(run.observability).toEqual(expect.objectContaining({
+      progressSignal: 'awaiting-approval',
+      needsHumanJudgment: true,
+      budgetStatus: 'within-budget',
+    }))
 
     const draftAction = run.proposedActions.find((action) => action.kind === 'message-draft')
     expect(draftAction).toEqual(expect.objectContaining({ mode: 'draft-only' }))
@@ -80,6 +91,11 @@ describe('loop execution engine', () => {
     expect(run.executedActions).toHaveLength(1)
     expect(run.executedActions[0]).toEqual(expect.objectContaining({ kind: 'task-review', mode: 'safe-auto' }))
     expect(run.decision).toMatch(/safe internal actions/i)
+    expect(run.observability).toEqual(expect.objectContaining({
+      progressSignal: 'advanced',
+      noOpStreak: 0,
+      lastMeaningfulAction: 'Route stale review item',
+    }))
   })
 
   it('keeps dependency release behind approval gates for sensitive work', () => {

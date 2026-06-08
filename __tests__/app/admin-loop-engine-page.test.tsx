@@ -16,13 +16,17 @@ describe('Admin loop engine page', () => {
 
     expect(screen.getByRole('heading', { name: /loop engine/i })).toBeInTheDocument()
     expect(screen.getByText(/design loops that prompt agents/i)).toBeInTheDocument()
+    expect(screen.getByText(/no-progress detection/i)).toBeInTheDocument()
     expect(screen.getByRole('link', { name: /open projects/i })).toHaveAttribute('href', '/admin/projects')
     expect(screen.getByRole('link', { name: /open briefings/i })).toHaveAttribute('href', '/admin/briefings')
 
     expect(screen.getByRole('heading', { name: /full-loop execution layer/i })).toBeInTheDocument()
     expect(screen.getByText(/dry-run-first API/i)).toBeInTheDocument()
-    expect(screen.getByText(/Create internal lead-response task/i)).toBeInTheDocument()
-    expect(screen.getByText(/Draft lead response for approval/i)).toBeInTheDocument()
+    expect(screen.getByText(/Progress signal/i)).toBeInTheDocument()
+    expect(screen.getByText(/Needs human judgment/i)).toBeInTheDocument()
+    expect(screen.getByText(/Last meaningful action/i)).toBeInTheDocument()
+    expect(screen.getAllByText(/Create internal lead-response task/i).length).toBeGreaterThan(0)
+    expect(screen.getAllByText(/Draft lead response for approval/i).length).toBeGreaterThan(0)
     expect(screen.getByText(/POST \/api\/v1\/admin\/loop-engine\/evaluate/i)).toBeInTheDocument()
 
     expect(screen.getByRole('heading', { name: /task eligibility explainer/i })).toBeInTheDocument()
@@ -34,6 +38,9 @@ describe('Admin loop engine page', () => {
       expect(screen.getByRole('heading', { name: loop.name })).toBeInTheDocument()
       expect(screen.getByText(loop.whyItMatters)).toBeInTheDocument()
       expect(screen.getByText(loop.lastDecision)).toBeInTheDocument()
+      expect(screen.getByText(loop.loopContract.stopCondition)).toBeInTheDocument()
+      expect(screen.getByText(loop.loopContract.noProgressPolicy)).toBeInTheDocument()
+      expect(screen.getByText(loop.positioning.buyerValue)).toBeInTheDocument()
     }
   })
 

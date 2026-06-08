@@ -39,6 +39,15 @@ export type LoopRunTrigger = {
   source?: string | null
 }
 
+export type LoopRunObservability = {
+  lastMeaningfulAction: string
+  noOpStreak: number
+  verificationFailures: string[]
+  budgetStatus: 'within-budget' | 'near-limit' | 'exceeded'
+  needsHumanJudgment: boolean
+  progressSignal: 'advanced' | 'no-op' | 'blocked' | 'awaiting-approval'
+}
+
 export type LoopRunRecord = {
   id: string
   loopId: string
@@ -57,6 +66,7 @@ export type LoopRunRecord = {
   executedActions: LoopActionProposal[]
   approvalGates: string[]
   evidence: LoopRunEvidence[]
+  observability: LoopRunObservability
   decision: string
   createdByType: 'system' | 'agent' | 'user'
   createdBy: string
