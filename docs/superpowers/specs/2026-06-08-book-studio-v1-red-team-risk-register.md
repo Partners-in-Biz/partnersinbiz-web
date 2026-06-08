@@ -6,6 +6,7 @@
 **Decision packet:** `docs/superpowers/specs/2026-06-08-book-studio-v1-approval-packet.md`
 **Review script:** `docs/superpowers/specs/2026-06-08-book-studio-v1-review-script.md`
 **Acceptance fixtures:** `docs/superpowers/specs/2026-06-08-book-studio-v1-acceptance-fixtures.md`
+**Jurisdiction/local publisher model:** `docs/superpowers/specs/2026-06-08-book-studio-v1-jurisdiction-local-publisher-model.md`
 
 ## Purpose
 
@@ -52,6 +53,7 @@ The recommended V1 stays defensible by keeping five hard boundaries:
 | Generation provenance | Can disclosure answers be reconstructed later? | AI-generated/assisted status is guessed after drafts are edited or overwritten. | Generation run records, idempotency keys, source manifests, immutable provenance, disclosure derivation. | Block if disclosure is a project-level checkbox only. |
 | Portal safety | Can clients see internal uncertainty? | Raw research, raw Hermes output, rights notes, parser errors, upload-account details, or unreconciled costs leak. | Reviewed artifact promotion by version, portal module gate, safe blockers, client-safe summaries. | Block if portal mirrors admin state. |
 | Publishing authority | Can PiB upload under the wrong account or authority? | Client-owned and PiB-owned books blur account, tax, payment, imprint, territory, or consent responsibility. | Ownership model, publishing account readiness report, manual upload evidence, no credential custody. | Block if account authority is unresolved. |
+| Local publisher obligations | Can KDP/Google readiness be mistaken for South African local readiness? | Legal deposit, ISBN/imprint, copyright posture, contributor authority, publisher jurisdiction, or local adaptation evidence is missed after a polished channel packet passes. | Jurisdiction/local publisher model, separate evidence lanes, portal-safe blockers, source-refresh keys. | Block if local-compliance, ISBN/imprint, copyright-registration, or legal-deposit claims lack reviewed evidence. |
 | Direct publishing | Is manual upload treated as temporary debt instead of a boundary? | The team rushes API publishing before packet evidence and account governance are proven. | V1 excludes direct publishing and sensitive credential storage. | Block if direct store automation is requested before V1 proof. |
 | Launch and reviews | Can launch activity create platform or reputation risk? | Automated review outreach, paid activity, public sends, price changes, or promotion claims bypass approval. | Launch/review compliance gates and explicit V1 deferrals for automated outreach and ad spend. | Block if any public launch action lacks approval. |
 | Analytics truth | Can reports become a misleading revenue story? | Estimated, reported, settled, refunded, adjusted, unmatched, ad-attributed, and partial values merge into one total. | Manual import ledger, confidence labels, reconciliation tasks, client-safe promotion only after review. | Block if source, period, timezone, confidence, or reconciliation state is missing. |

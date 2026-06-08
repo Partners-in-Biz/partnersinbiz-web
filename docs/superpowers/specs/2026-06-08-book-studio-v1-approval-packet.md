@@ -8,12 +8,13 @@
 **Portal access aid:** `docs/superpowers/specs/2026-06-08-book-studio-v1-portal-access-promotion-model.md`
 **Production package QA aid:** `docs/superpowers/specs/2026-06-08-book-studio-v1-production-package-qa-model.md`
 **Operator workspace aid:** `docs/superpowers/specs/2026-06-08-book-studio-v1-operator-workspace-control-model.md`
+**Jurisdiction/local publisher aid:** `docs/superpowers/specs/2026-06-08-book-studio-v1-jurisdiction-local-publisher-model.md`
 
 ## Purpose
 
 This packet gives Peet a short decision surface for Book Studio V1. The full dossier covers research, channel constraints, book types, series, Hermes skills, publishing operations, analytics, risk, and PiB integration. This packet captures only the decision needed before a Phase 1 implementation plan can be written.
 
-The dossier commit shows where the primary research was last changed. The decision bundle baseline shows the review-ready set of companion packets that shape the boundary: portal access, domain state, operator workspace, source refresh, book-family gates, ownership/commercial governance, wider channels, Hermes evaluation, and production package QA. Any later updates to these packets should be listed as decision-bundle revisions before Phase 1 planning starts.
+The dossier commit shows where the primary research was last changed. The decision bundle baseline shows the review-ready set of companion packets that shape the boundary: portal access, domain state, operator workspace, source refresh, book-family gates, ownership/commercial governance, jurisdiction/local publisher evidence, wider channels, Hermes evaluation, and production package QA. Any later updates to these packets should be listed as decision-bundle revisions before Phase 1 planning starts.
 
 ## Recommended Approval
 
@@ -26,7 +27,7 @@ The first version should focus on:
 - Activity/workbook or low-content print products.
 - Series scaffolding.
 - A public-domain or companion negative-control fixture that proves the module can block unsafe projects.
-- Admin-first records, gate profiles, Research/Client Document/Project/artifact bridges, publishing packet tracking, controlled Hermes skill readiness, package QA evidence, and manual analytics imports.
+- Admin-first records, gate profiles, Research/Client Document/Project/artifact bridges, publishing packet tracking, local publisher evidence lanes, controlled Hermes skill readiness, package QA evidence, and manual analytics imports.
 
 It should not include:
 
@@ -80,6 +81,12 @@ bookStudioV1Approval:
       - book-publishing-account-readiness
     wave3To5RuntimeDispatch: disabled_until_ledgers_sanitizers_fixtures_and_forbidden_action_tests_exist
   ownershipModel: shared_workflow_with_owner_type_and_account_governance
+  jurisdictionAndLocalPublisherScope:
+    - publisher_jurisdiction_evidence
+    - south_africa_legal_deposit_evidence_lane
+    - isbn_imprint_source_and_owner_decision
+    - copyright_posture_and_contributor_authority
+    - territory_and_local_adaptation_review
   analyticsScope:
     - manual_import_ledger
     - source_confidence_labels
@@ -105,7 +112,7 @@ bookStudioV1Approval:
 
 Peet can use this wording if the recommended V1 is acceptable:
 
-> Approve Book Studio V1 as an internal PiB production studio with optional client review. Use KDP and Google Play Books manual-handoff as the first channel focus. Start with business nonfiction, activity or low-content print, series scaffolding, and a public-domain or companion negative-control fixture. Build admin-first records, gate profiles, Research/Client Document/Project/artifact bridges, publishing packet tracking, controlled Hermes skill readiness, package QA evidence, and manual analytics imports. Keep self-serve generation, public SaaS, direct publishing, account-secret custody, autonomous ads, automated review outreach, full layout tooling, automated export/file validation, and automated report integrations out of V1.
+> Approve Book Studio V1 as an internal PiB production studio with optional client review. Use KDP and Google Play Books manual-handoff as the first channel focus. Start with business nonfiction, activity or low-content print, series scaffolding, and a public-domain or companion negative-control fixture. Build admin-first records, gate profiles, Research/Client Document/Project/artifact bridges, publishing packet tracking, local publisher evidence lanes, controlled Hermes skill readiness, package QA evidence, and manual analytics imports. Keep self-serve generation, public SaaS, direct publishing, account-secret custody, autonomous ads, automated review outreach, full layout tooling, automated export/file validation, and automated report integrations out of V1.
 
 ## Safe Revisions Before Approval
 
@@ -132,6 +139,7 @@ The future Phase 1 plan must:
 - Map every task to the selected pilot set.
 - Map evidence-sensitive tasks to the V1 evidence acceptance matrix.
 - Preserve the production package QA rule that proof, file, cover, rights, accessibility, source freshness, and checksum evidence bind manual-handoff readiness to one exact package version.
+- Preserve the jurisdiction/local publisher rule that KDP or Google channel readiness does not prove South African legal-deposit, ISBN/imprint, copyright, contributor-authority, or local publisher readiness.
 - Keep runtime Hermes dispatch disabled until ledgers, sanitizers, fixtures, reviewer defaults, and forbidden-action tests exist.
 
 ## What Remains Unapproved

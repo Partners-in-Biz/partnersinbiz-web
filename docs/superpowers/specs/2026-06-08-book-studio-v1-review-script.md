@@ -9,6 +9,7 @@
 **Portal access aid:** `docs/superpowers/specs/2026-06-08-book-studio-v1-portal-access-promotion-model.md`
 **Package QA aid:** `docs/superpowers/specs/2026-06-08-book-studio-v1-production-package-qa-model.md`
 **Operator workspace aid:** `docs/superpowers/specs/2026-06-08-book-studio-v1-operator-workspace-control-model.md`
+**Jurisdiction/local publisher aid:** `docs/superpowers/specs/2026-06-08-book-studio-v1-jurisdiction-local-publisher-model.md`
 
 ## Purpose
 
@@ -25,7 +26,7 @@ The review has four possible outcomes:
 
 ## 30-Minute Review Agenda
 
-Before the agenda, open the approval packet, coverage audit, mock review packet, and package QA aid. The approval packet answers "what would we approve?" The coverage audit answers "which original objective requirements are covered?" The mock packet answers "what would this feel like in PiB?" The package QA aid answers "what would make a book package safe enough for proof, portal review, or manual handoff?"
+Before the agenda, open the approval packet, coverage audit, mock review packet, package QA aid, and jurisdiction/local publisher aid. The approval packet answers "what would we approve?" The coverage audit answers "which original objective requirements are covered?" The mock packet answers "what would this feel like in PiB?" The package QA aid answers "what would make a book package safe enough for proof, portal review, or manual handoff?" The jurisdiction/local publisher aid answers "what local publisher evidence must stay separate from KDP/Google readiness?"
 
 ### 1. Confirm The Product Posture
 
@@ -176,7 +177,34 @@ Block state:
 
 - The packet is marked upload-ready while files, pricing, rights, account readiness, disclosure, or source freshness are missing.
 
-### 7. Confirm Analytics And Reporting Trust
+### 7. Confirm Jurisdiction And Local Publisher Evidence
+
+Review the local publisher model:
+
+- South African legal-deposit evidence lane.
+- ISBN/imprint source, owner, agency, format, and platform-ISBN consequences.
+- Copyright posture, human authorship, AI-use classification, and contributor authority.
+- Territory, adaptation, account/payment, and publisher-identity evidence.
+
+Review questions:
+
+- Should PiB-owned South African books default to a PiB imprint, named-author imprint, or another publisher identity?
+- Should client-owned books default to client-owned ISBN/imprint decisions unless the client explicitly approves PiB as publisher?
+- Is local publisher evidence allowed to warn during drafting but block local-compliance, upload-ready, and client-facing publisher claims?
+
+Pass state:
+
+- KDP/Google channel readiness and local publisher readiness are treated as separate gates.
+
+Warning state:
+
+- South African local evidence exists as a warning lane, but first implementation planning needs one explicit fixture to prove it.
+
+Block state:
+
+- The packet can claim local compliance, publisher readiness, ISBN/imprint readiness, copyright registration, or legal-deposit completion without reviewed evidence.
+
+### 8. Confirm Analytics And Reporting Trust
 
 Review the analytics posture:
 
@@ -203,7 +231,7 @@ Block state:
 
 - Screenshots, raw imports, estimates, or unsettled reports are presented as guaranteed revenue.
 
-### 8. Confirm Production Package QA
+### 9. Confirm Production Package QA
 
 Review the production package posture:
 
@@ -246,7 +274,7 @@ This section is a future demo checklist, not a build plan. It defines what evide
 
 Peet can approve with this text:
 
-> Approve Book Studio V1 as an internal PiB production studio with optional client review. Use KDP and Google Play Books manual-handoff as the first channel focus. Start with business nonfiction, activity or low-content print, series scaffolding, and a public-domain or companion negative-control fixture. Build admin-first records, gate profiles, Research/Client Document/Project/artifact bridges, publishing packet tracking, controlled Hermes skill readiness, package QA evidence, and manual analytics imports. Keep self-serve generation, public SaaS, direct publishing, account-secret custody, autonomous ads, automated review outreach, full layout tooling, automated export/file validation, and automated report integrations out of V1.
+> Approve Book Studio V1 as an internal PiB production studio with optional client review. Use KDP and Google Play Books manual-handoff as the first channel focus. Start with business nonfiction, activity or low-content print, series scaffolding, and a public-domain or companion negative-control fixture. Build admin-first records, gate profiles, Research/Client Document/Project/artifact bridges, publishing packet tracking, local publisher evidence lanes, controlled Hermes skill readiness, package QA evidence, and manual analytics imports. Keep self-serve generation, public SaaS, direct publishing, account-secret custody, autonomous ads, automated review outreach, full layout tooling, automated export/file validation, and automated report integrations out of V1.
 
 ## Exact Revision Response
 

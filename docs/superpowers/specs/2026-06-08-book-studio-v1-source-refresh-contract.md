@@ -7,6 +7,7 @@
 **Publishing and analytics model:** `docs/superpowers/specs/2026-06-08-book-studio-v1-publishing-analytics-model.md`
 **Book family gate catalog:** `docs/superpowers/specs/2026-06-08-book-studio-v1-book-family-gate-catalog.md`
 **Wider channel source aid:** `docs/superpowers/specs/2026-06-08-book-studio-v1-wider-channel-adapter-packet.md`
+**Jurisdiction/local publisher source aid:** `docs/superpowers/specs/2026-06-08-book-studio-v1-jurisdiction-local-publisher-model.md`
 
 ## Purpose
 
@@ -33,6 +34,8 @@ These source keys were rechecked on 2026-06-08.
 | `ai-story-head` | `https://github.com/PMStander/ai-story` at `11ef473c94f977b1dbc487f8645c4711728b6095` | The prior project remains a learning source for wizard intake, story/series flow, and KDP-oriented packaging expectations. | Treat `ai-story` as design evidence only; do not use it as a runtime dependency or migration target without a separate approval decision. |
 
 Wider-channel source keys for Apple Books, Kobo Writing Life, Draft2Digital, IngramSpark, ACX, KDP Virtual Voice, ISBN.org, and W3C EPUBCheck are separated in the wider channel adapter packet. They are future-compatibility evidence only and do not expand V1 beyond KDP and Google Play Books.
+
+Local publisher source keys for South African legal deposit, CIPC copyright posture, ISBN publisher identity, and South African ISBN workflow are separated in the jurisdiction/local publisher packet. They are local-obligation evidence only and do not change V1's KDP/Google manual-handoff channel focus.
 
 The book-family gate catalog refreshed the same KDP/Google source cluster on 2026-06-08 and added a profile-level mapping for nonfiction/reference, narrative, activity/workbook, low-content, children/visual, cookbook/photo/portfolio, public-domain/companion, audiobook, and series overlay decisions. It is a review aid, not a source of permanent policy truth.
 
@@ -61,6 +64,7 @@ Policy-sensitive claims need source freshness before they can affect a reviewed 
 | Series eligibility | Recheck KDP and Google series guidance before external series-page or bundle claims. | Only internal PiB series wording is allowed. |
 | Google DRM/printable activity content | Recheck Google program policies before uploading coloring, puzzle, cut-pattern, workbook, or other physical-page-dependent content. | Google packet must warn or block. |
 | Account authority | Recheck Google service-provider and KDP account/security guidance before claiming PiB can manage account, payment, report, or upload access. | Account state becomes "authority unverified". |
+| Local publisher readiness | Recheck applicable legal-deposit, ISBN/imprint, copyright, contributor, and publisher-jurisdiction sources before claiming local compliance or local publisher readiness. | Local publisher state becomes "evidence needed" or "source refresh required". |
 | Analytics summary | Recheck channel report timing and field definitions before promoting revenue, order, KENP, payment, refund, preview, or currency statements to the portal. | Summary can stay internal but not client-promoted. |
 
 ## Source Evidence Contract
@@ -94,6 +98,7 @@ Stale source evidence should block only the dependent claim.
 | KDP manual handoff | KDP content, file, print, series, low-content, pricing, or reports source used by that packet. | Internal drafting, research, and packet review. |
 | Google manual handoff | Google add-book, program policy, series, report, or service-provider source used by that packet. | Internal drafting, research, and KDP review if KDP evidence is fresh. |
 | Client-safe publishing packet | Any source behind the promoted packet summary. | Internal packet work and safe "pending source refresh" blocker. |
+| Local publisher claim | South African legal-deposit, ISBN/imprint, copyright, contributor, or jurisdiction evidence behind that claim. | KDP/Google packet work can continue if its channel evidence is fresh and wording does not imply local compliance. |
 | Analytics promotion | Any report-definition source behind the promoted metric. | Internal import, reconciliation task, and no-revenue portal state. |
 | Hermes skill output | Source key required by the skill's manifest is stale or missing. | Skill can ask for refresh task creation, but not produce readiness output. |
 

@@ -6,6 +6,7 @@
 **Decision packet:** `docs/superpowers/specs/2026-06-08-book-studio-v1-approval-packet.md`
 **Publishing and analytics model:** `docs/superpowers/specs/2026-06-08-book-studio-v1-publishing-analytics-model.md`
 **Source refresh contract:** `docs/superpowers/specs/2026-06-08-book-studio-v1-source-refresh-contract.md`
+**Jurisdiction/local publisher model:** `docs/superpowers/specs/2026-06-08-book-studio-v1-jurisdiction-local-publisher-model.md`
 
 ## Purpose
 
@@ -45,6 +46,7 @@ Every KDP or Google channel packet should reference an account authority profile
 | Profile area | Required state | Must not store |
 | --- | --- | --- |
 | Account owner | PiB, client, or approved publisher entity. | Passwords, two-factor recovery codes, identity documents, bank account numbers, tax IDs. |
+| Publisher jurisdiction | Country/entity/person/imprint evidence for the publisher identity used in the packet. | Legal conclusions, private legal notes, or raw identity documents. |
 | Operator authority | Who may upload, change metadata, view reports, or record evidence. | Shared login credentials or private account notes. |
 | Identity readiness | External state label such as not checked, ready, pending, failed, or recheck required. | Uploaded identity photos or personal document copies. |
 | Tax/payment readiness | External state label and recheck date. | Full tax forms, full banking details, or payment profile secrets. |
@@ -105,6 +107,7 @@ Manual handoff should block when any of these are unresolved:
 - Owner is unknown or conflicts with account owner.
 - Client approval is required but missing.
 - Account authority is unverified, stale, or credential-sharing-dependent.
+- Publisher jurisdiction, South African legal-deposit, ISBN/imprint, copyright posture, contributor authority, or local adaptation evidence is required but unresolved.
 - Identity, tax, payment, report, or territory readiness is unresolved for the selected channel.
 - Contributor, image, quote, font, AI, public-domain, companion, or trademark rights are unresolved.
 - Price, margin, refund, currency, or cost assumptions are unknown and no waiver exists.
