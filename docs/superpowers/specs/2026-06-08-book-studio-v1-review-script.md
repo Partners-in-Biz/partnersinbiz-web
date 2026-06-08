@@ -16,6 +16,7 @@
 **Package QA aid:** `docs/superpowers/specs/2026-06-08-book-studio-v1-production-package-qa-model.md`
 **Operator workspace aid:** `docs/superpowers/specs/2026-06-08-book-studio-v1-operator-workspace-control-model.md`
 **Jurisdiction/local publisher aid:** `docs/superpowers/specs/2026-06-08-book-studio-v1-jurisdiction-local-publisher-model.md`
+**Hermes skill contract pack:** `docs/superpowers/specs/2026-06-08-book-studio-v1-hermes-skill-contract-pack.md`
 
 ## Purpose
 
@@ -32,7 +33,7 @@ The review has four possible outcomes:
 
 ## 30-Minute Review Agenda
 
-Before the agenda, open the decision index, approval packet, coverage audit, review scorecard, pilot product decision register, revision impact matrix, approval decision form, mock review packet, package QA aid, and jurisdiction/local publisher aid. The decision index answers "what should I read and what decision is needed?" The approval packet answers "what would we approve?" The coverage audit answers "which original objective requirements are covered?" The scorecard answers "which categories are pass, warn, or block?" The pilot register answers "which first book archetypes prove V1 without pretending market demand is already validated?" The revision matrix answers "what else must change if Peet approves with revisions?" The decision form answers "what exact decision record controls planning?" The source refresh execution report answers "how do we prove current official sources were checked before planning?" The mock packet answers "what would this feel like in PiB?" The package QA aid answers "what would make a book package safe enough for proof, portal review, or manual handoff?" The jurisdiction/local publisher aid answers "what local publisher evidence must stay separate from KDP/Google readiness?"
+Before the agenda, open the decision index, approval packet, coverage audit, review scorecard, pilot product decision register, revision impact matrix, approval decision form, mock review packet, package QA aid, jurisdiction/local publisher aid, and Hermes skill contract pack. The decision index answers "what should I read and what decision is needed?" The approval packet answers "what would we approve?" The coverage audit answers "which original objective requirements are covered?" The scorecard answers "which categories are pass, warn, or block?" The pilot register answers "which first book archetypes prove V1 without pretending market demand is already validated?" The revision matrix answers "what else must change if Peet approves with revisions?" The decision form answers "what exact decision record controls planning?" The source refresh execution report answers "how do we prove current official sources were checked before planning?" The mock packet answers "what would this feel like in PiB?" The package QA aid answers "what would make a book package safe enough for proof, portal review, or manual handoff?" The jurisdiction/local publisher aid answers "what local publisher evidence must stay separate from KDP/Google readiness?" The Hermes skill contract pack answers "what fields must every first skill declare before any runtime skill spec exists?"
 
 ### 1. Confirm The Product Posture
 
@@ -139,6 +140,7 @@ Review the recommended Hermes posture:
 
 - Wave 1 planning and evidence skills: niche research, series strategy, brief builder, outline builder.
 - Selected Wave 2 safety/readiness docs and fixtures: generation safety, metadata, KDP readiness, Google readiness, publishing account readiness.
+- Proposed contract records for first skills: allowed inputs, required source keys, existing artifacts, allowed outputs, forbidden actions, reviewer defaults, portal visibility, fixtures, stale-source behavior, and no-runtime flags.
 - Runtime dispatch disabled until ledgers, sanitizers, fixtures, reviewer defaults, and forbidden-action tests exist.
 
 Review questions:
@@ -146,6 +148,7 @@ Review questions:
 - Are skills being approved as bounded docs, manifests, fixtures, and evaluation records before runtime dispatch?
 - Can every Hermes output become a reviewable artifact or task, rather than a final public action?
 - Does any proposed skill publish, spend, message clients, request secrets, mark client-ready, or bypass human review?
+- Does any proposed skill lack a contract record, source-key behavior, fixture IDs, or portal visibility rule?
 
 Pass state:
 

@@ -16,6 +16,7 @@
 **Operator workspace aid:** `docs/superpowers/specs/2026-06-08-book-studio-v1-operator-workspace-control-model.md`
 **Jurisdiction/local publisher aid:** `docs/superpowers/specs/2026-06-08-book-studio-v1-jurisdiction-local-publisher-model.md`
 **ai-story non-port aid:** `docs/superpowers/specs/2026-06-08-book-studio-v1-ai-story-non-port-checklist.md`
+**Hermes skill contract pack:** `docs/superpowers/specs/2026-06-08-book-studio-v1-hermes-skill-contract-pack.md`
 
 ## Purpose
 
@@ -95,6 +96,7 @@ bookStudioV1Approval:
       - book-kdp-readiness-check
       - book-google-play-readiness-check
       - book-publishing-account-readiness
+    contractPack: docs/superpowers/specs/2026-06-08-book-studio-v1-hermes-skill-contract-pack.md
     wave3To5RuntimeDispatch: disabled_until_ledgers_sanitizers_fixtures_and_forbidden_action_tests_exist
   ownershipModel: shared_workflow_with_owner_type_and_account_governance
   jurisdictionAndLocalPublisherScope:
@@ -160,6 +162,7 @@ The future Phase 1 plan must:
 - Preserve the jurisdiction/local publisher rule that KDP or Google channel readiness does not prove South African legal-deposit, ISBN/imprint, copyright, contributor-authority, or local publisher readiness.
 - Preserve the `ai-story` non-port rule that prior standalone UX patterns can be reused only after keep/rewrite/reject classification and cannot bypass PiB org scope, Research, Client Documents, Projects/Kanban, portal gating, or Hermes skill governance.
 - Keep runtime Hermes dispatch disabled until ledgers, sanitizers, fixtures, reviewer defaults, and forbidden-action tests exist.
+- Preserve the Hermes contract pack rule that first skills are `proposed_contract_only`, cannot trigger publishing, cannot write runtime data, and must block stale-source readiness claims.
 
 ## What Remains Unapproved
 

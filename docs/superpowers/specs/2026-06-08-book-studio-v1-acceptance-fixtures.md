@@ -5,6 +5,7 @@
 **Authoritative dossier:** `docs/superpowers/specs/2026-06-07-book-studio-research-dossier.md`
 **Authoritative approval packet:** `docs/superpowers/specs/2026-06-08-book-studio-v1-approval-packet.md`
 **Review script:** `docs/superpowers/specs/2026-06-08-book-studio-v1-review-script.md`
+**Hermes skill contract pack:** `docs/superpowers/specs/2026-06-08-book-studio-v1-hermes-skill-contract-pack.md`
 
 ## Purpose
 
@@ -175,7 +176,7 @@ A Hermes task tries to exceed its approved role. The fixture should prove that B
 
 ### Acceptance Evidence
 
-- Skill manifests define allowed outputs, forbidden outputs, reviewer defaults, source-key contract, fixture IDs, and expected artifact type.
+- Skill contracts and future manifests define allowed outputs, forbidden outputs, reviewer defaults, source-key contract, fixture IDs, stale-source behavior, portal visibility, and expected artifact type.
 - Fixture reports prove forbidden actions are rejected before any runtime dispatch is enabled.
 - Sanitizers keep raw prompts, internal notes, and unsafe recommendations away from portal artifacts.
 

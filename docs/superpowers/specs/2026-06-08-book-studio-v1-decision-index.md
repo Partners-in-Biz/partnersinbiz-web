@@ -10,6 +10,7 @@
 **Revision impact matrix:** `docs/superpowers/specs/2026-06-08-book-studio-v1-approval-revision-impact-matrix.md`
 **Approval decision form:** `docs/superpowers/specs/2026-06-08-book-studio-v1-approval-decision-form.md`
 **Source refresh execution report:** `docs/superpowers/specs/2026-06-08-book-studio-v1-source-refresh-execution-report.md`
+**Hermes skill contract pack:** `docs/superpowers/specs/2026-06-08-book-studio-v1-hermes-skill-contract-pack.md`
 
 ## Purpose
 
@@ -28,8 +29,9 @@ If Peet has 10 minutes:
 5. Use the revision impact matrix if the likely outcome is "approve with revisions."
 6. Copy the approval decision form when the decision needs to be recorded.
 7. Use the source refresh execution report only after approval or revision, before Phase 1 planning.
-8. Review the mock review packet to see the operating loop in a concrete business nonfiction example.
-9. Decide whether to approve the exact wording, revise specific fields, reject the internal-studio posture, or request another design aid.
+8. Review the Hermes skill contract pack if the open concern is how the first new Hermes skills stay bounded before runtime dispatch.
+9. Review the mock review packet to see the operating loop in a concrete business nonfiction example.
+10. Decide whether to approve the exact wording, revise specific fields, reject the internal-studio posture, or request another design aid.
 
 If Peet has 30 minutes:
 
@@ -68,7 +70,7 @@ If Peet has 30 minutes:
 | Operator workspace control model | When checking how admins should operate Book Studio without a blank-prompt-first workflow. |
 | Production package QA model | When checking proof, file, cover, rights, accessibility, source, and checksum evidence. |
 | Jurisdiction/local publisher model | When checking South African legal-deposit, ISBN/imprint, copyright, contributor, and local publisher lanes. |
-| Hermes skill blueprint and evaluation packet | When reviewing new Hermes skills, fixture gates, forbidden actions, and runtime dispatch blockers. |
+| Hermes skill blueprint, evaluation packet, and contract pack | When reviewing new Hermes skills, copyable contract fields, fixture gates, forbidden actions, and runtime dispatch blockers. |
 | Wider-channel adapter packet | When deciding whether Apple/Kobo/D2D/Ingram/audio should stay future-compatible but deferred. |
 | `ai-story` non-port checklist | When deciding which `PMStander/ai-story` ideas to keep, rewrite, or reject. |
 | Red-team risk register | When pressure appears to broaden V1 or skip blocker evidence. |
@@ -93,6 +95,7 @@ Approval unlocks only a future implementation plan. That plan must:
 - refresh policy-sensitive sources and cite the source refresh execution report,
 - keep KDP/Google manual handoff as the first channel focus unless revised,
 - keep runtime Hermes dispatch blocked until manifests, fixtures, sanitizers, ledgers, reviewer defaults, and forbidden-action tests exist,
+- preserve the Hermes skill contract pack before writing any runnable skill spec,
 - preserve package QA, local publisher, portal safety, analytics confidence, and `ai-story` non-port rules, and
 - include at least one pass case, one warning case, and one blocker case.
 

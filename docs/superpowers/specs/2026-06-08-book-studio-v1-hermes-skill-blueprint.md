@@ -6,6 +6,7 @@
 **Decision packet:** `docs/superpowers/specs/2026-06-08-book-studio-v1-approval-packet.md`
 **Risk register:** `docs/superpowers/specs/2026-06-08-book-studio-v1-red-team-risk-register.md`
 **Evaluation packet:** `docs/superpowers/specs/2026-06-08-book-studio-v1-hermes-skill-evaluation-packet.md`
+**Contract pack:** `docs/superpowers/specs/2026-06-08-book-studio-v1-hermes-skill-contract-pack.md`
 
 ## Purpose
 
@@ -14,6 +15,8 @@ This blueprint extracts the Hermes-agent portion of Book Studio V1 into one revi
 This file does not create `.claude/skills`, edit skill manifests, enable runtime dispatch, define app routes, create records, or approve a Phase 1 implementation plan.
 
 The companion evaluation packet turns this blueprint into per-skill pass, warning, block, and forbidden-action fixture expectations. It should be reviewed before any future implementation plan names a Book Studio Hermes skill as a candidate runtime skill.
+
+The contract pack turns this blueprint into copyable per-skill contract records. It should be used after this blueprint and before any future skill spec, manifest, fixture runner, sanitizer, or runtime dispatch work is planned.
 
 ## Hermes Posture For V1
 
@@ -94,6 +97,8 @@ Every Book Studio skill should declare these fields before runtime dispatch is c
 - Fixture IDs that prove pass, warning, block, and forbidden-action behavior.
 - Sanitizer path for removing raw prompts, internal notes, account details, parser errors, and unsafe recommendations from portal surfaces.
 - Budget and idempotency expectations for generation or long-running tasks.
+
+The contract pack provides the first copyable version of these fields for `book-niche-research`, `book-series-strategy`, `book-brief-builder`, `book-outline-builder`, `book-generation-safety-review`, `book-metadata-optimizer`, `book-kdp-readiness-check`, `book-google-play-readiness-check`, and `book-publishing-account-readiness`.
 
 ## Forbidden Action Matrix
 

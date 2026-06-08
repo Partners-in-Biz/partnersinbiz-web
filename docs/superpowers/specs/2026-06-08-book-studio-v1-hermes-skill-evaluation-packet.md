@@ -8,12 +8,15 @@
 **Acceptance fixtures:** `docs/superpowers/specs/2026-06-08-book-studio-v1-acceptance-fixtures.md`
 **Source refresh contract:** `docs/superpowers/specs/2026-06-08-book-studio-v1-source-refresh-contract.md`
 **Book family gate catalog:** `docs/superpowers/specs/2026-06-08-book-studio-v1-book-family-gate-catalog.md`
+**Contract pack:** `docs/superpowers/specs/2026-06-08-book-studio-v1-hermes-skill-contract-pack.md`
 
 ## Purpose
 
 The Hermes skill blueprint names the first Book Studio skills and their broad boundaries. The acceptance fixture pack defines module-level pass, warning, and block scenarios. This packet connects those two layers: it defines what each candidate Hermes skill must prove before runtime dispatch can be considered.
 
 This file does not create `.claude/skills`, skill manifests, app routes, Firestore records, APIs, UI, sanitizers, runtime dispatch, direct publishing, analytics importers, or a Phase 1 task list.
+
+Use the contract pack to copy the proposed per-skill contract fields into future skill specs after Peet approves or revises the V1 approval record. The evaluation packet remains the pass, warning, blocker, and forbidden-regression standard.
 
 ## Evaluation Principle
 

@@ -10,6 +10,7 @@
 **Revision impact matrix:** `docs/superpowers/specs/2026-06-08-book-studio-v1-approval-revision-impact-matrix.md`
 **Approval decision form:** `docs/superpowers/specs/2026-06-08-book-studio-v1-approval-decision-form.md`
 **Source refresh execution report:** `docs/superpowers/specs/2026-06-08-book-studio-v1-source-refresh-execution-report.md`
+**Hermes skill contract pack:** `docs/superpowers/specs/2026-06-08-book-studio-v1-hermes-skill-contract-pack.md`
 
 ## Purpose
 
@@ -45,7 +46,7 @@ Overall decision rule:
 | First pilot set | Business nonfiction, activity or low-content print, series scaffolding, and a rights-first negative control are accepted. | A children's or visual fixture is added as a gated fixture only. | Pilot set is vague, visual/audio-first, or removes blocker proof without accepting weaker safety evidence. | Pilot product decision register, book-family gate catalog, acceptance fixtures, mock review packet. |
 | Book-family gate coverage | Every important book family has a gate profile, fixture posture, or explicit deferral. | A family needs stronger future compatibility notes before planning. | A family is treated as supported without rights, format, accessibility, analytics, and channel evidence. | Book-family gate catalog, approval packet, coverage audit. |
 | Series governance | Volume order, continuity, shared metadata, release state, and rollup analytics are part of the V1 design boundary. | Series is accepted but not first demo evidence. | Series support means only naming several unrelated books as a series. | Research dossier, acceptance fixtures, domain record/state model. |
-| Hermes scope | Hermes produces bounded artifacts, checks, and recommendations; runtime dispatch stays gated. | Peet wants Wave 1 only or selected Wave 2 docs only. | Hermes can publish, approve, spend, message clients, request secrets, mark client-ready, or bypass review. | Hermes skill blueprint, Hermes skill evaluation packet, review script. |
+| Hermes scope | Hermes produces bounded artifacts, checks, recommendations, and proposed contract records; runtime dispatch stays gated. | Peet wants Wave 1 only or selected Wave 2 docs only. | Hermes can publish, approve, spend, message clients, request secrets, mark client-ready, bypass review, or run without contract fixtures. | Hermes skill blueprint, Hermes skill evaluation packet, Hermes skill contract pack, review script. |
 | Publishing packet governance | Upload-ready claims require file, metadata, rights, account authority, AI disclosure, source freshness, and upload evidence. | One channel-specific warning needs an owner or waiver path. | A packet can be marked upload-ready while evidence is missing or stale. | Publishing and analytics model, production package QA model, ownership/commercial model. |
 | Account and ownership model | PiB-owned, client-owned, and shared authority states are explicit enough for first manual handoff. | Approval narrows to PiB-owned books only. | PiB stores sensitive channel secrets, publishes under unclear authority, or blends client and PiB revenue/costs. | Ownership/commercial model, source refresh contract, jurisdiction/local publisher model. |
 | Jurisdiction and local publisher evidence | Local publisher readiness stays separate from KDP/Google channel readiness. | South African local evidence is a warning lane for drafting but blocks local-compliance claims. | Legal-deposit, ISBN/imprint, copyright, contributor, or publisher claims can pass without reviewed evidence. | Jurisdiction/local publisher model, approval packet, review script. |
@@ -65,6 +66,7 @@ The strongest reasons to approve as written:
 - The packet narrows V1 to KDP and Google manual handoff instead of direct publishing.
 - The first pilot set proves business value, series behavior, and blocker handling without starting from the hardest visual/audio cases.
 - Hermes is treated as reviewed artifact production and evidence checking, not autonomous publishing.
+- The Hermes contract pack makes first skill boundaries copyable without creating runnable skill files.
 - Package QA, local publisher, portal safety, analytics confidence, and `ai-story` non-port rules are explicit.
 
 The strongest reasons to approve with revisions:
