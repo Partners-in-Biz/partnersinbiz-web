@@ -8,6 +8,7 @@
 **Coverage audit:** `docs/superpowers/specs/2026-06-08-book-studio-objective-coverage-audit.md`
 **Review scorecard:** `docs/superpowers/specs/2026-06-08-book-studio-v1-approval-review-scorecard.md`
 **Pilot product decision register:** `docs/superpowers/specs/2026-06-08-book-studio-v1-pilot-product-decision-register.md`
+**Revision impact matrix:** `docs/superpowers/specs/2026-06-08-book-studio-v1-approval-revision-impact-matrix.md`
 **Concrete review aid:** `docs/superpowers/specs/2026-06-08-book-studio-v1-mock-review-packet.md`
 **Portal access aid:** `docs/superpowers/specs/2026-06-08-book-studio-v1-portal-access-promotion-model.md`
 **Package QA aid:** `docs/superpowers/specs/2026-06-08-book-studio-v1-production-package-qa-model.md`
@@ -29,7 +30,7 @@ The review has four possible outcomes:
 
 ## 30-Minute Review Agenda
 
-Before the agenda, open the decision index, approval packet, coverage audit, review scorecard, pilot product decision register, mock review packet, package QA aid, and jurisdiction/local publisher aid. The decision index answers "what should I read and what decision is needed?" The approval packet answers "what would we approve?" The coverage audit answers "which original objective requirements are covered?" The scorecard answers "which categories are pass, warn, or block?" The pilot register answers "which first book archetypes prove V1 without pretending market demand is already validated?" The mock packet answers "what would this feel like in PiB?" The package QA aid answers "what would make a book package safe enough for proof, portal review, or manual handoff?" The jurisdiction/local publisher aid answers "what local publisher evidence must stay separate from KDP/Google readiness?"
+Before the agenda, open the decision index, approval packet, coverage audit, review scorecard, pilot product decision register, revision impact matrix, mock review packet, package QA aid, and jurisdiction/local publisher aid. The decision index answers "what should I read and what decision is needed?" The approval packet answers "what would we approve?" The coverage audit answers "which original objective requirements are covered?" The scorecard answers "which categories are pass, warn, or block?" The pilot register answers "which first book archetypes prove V1 without pretending market demand is already validated?" The revision matrix answers "what else must change if Peet approves with revisions?" The mock packet answers "what would this feel like in PiB?" The package QA aid answers "what would make a book package safe enough for proof, portal review, or manual handoff?" The jurisdiction/local publisher aid answers "what local publisher evidence must stay separate from KDP/Google readiness?"
 
 ### 1. Confirm The Product Posture
 
@@ -285,6 +286,8 @@ Peet can request revisions with this structure:
 
 ```yaml
 bookStudioV1ApprovalRevision:
+  productPosture:
+    choose: internal_pib_production_studio_with_optional_client_review | pib_owned_internal_studio_only | client_review_first_internal_studio
   firstPilotSet:
     add: []
     remove: []
@@ -294,7 +297,13 @@ bookStudioV1ApprovalRevision:
     choose: wave1_only | wave1_plus_selected_wave2_docs_and_fixtures | broader_docs_only_no_runtime
   ownershipModel:
     choose: pib_owned_only | shared_pib_and_client_owned
+  jurisdictionAndLocalPublisherScope:
+    add: []
+    remove: []
   productionReadinessScope:
+    add: []
+    remove: []
+  analyticsScope:
     add: []
     remove: []
   firstChannels:
@@ -304,6 +313,8 @@ bookStudioV1ApprovalRevision:
     add: []
     remove: []
 ```
+
+After filling this structure, check the revision impact matrix and name the affected evidence docs before any implementation plan is written.
 
 ## Devil's Advocate
 

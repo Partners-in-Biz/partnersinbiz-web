@@ -7,6 +7,7 @@
 **Coverage audit:** `docs/superpowers/specs/2026-06-08-book-studio-objective-coverage-audit.md`
 **Review scorecard:** `docs/superpowers/specs/2026-06-08-book-studio-v1-approval-review-scorecard.md`
 **Pilot product decision register:** `docs/superpowers/specs/2026-06-08-book-studio-v1-pilot-product-decision-register.md`
+**Revision impact matrix:** `docs/superpowers/specs/2026-06-08-book-studio-v1-approval-revision-impact-matrix.md`
 
 ## Purpose
 
@@ -22,8 +23,9 @@ If Peet has 10 minutes:
 2. Skim the objective coverage audit's **Requirement Coverage Matrix**.
 3. Use the approval review scorecard to mark each category as pass, warn, or block.
 4. Use the pilot product decision register if the first commercial/product proof is the unclear part.
-5. Review the mock review packet to see the operating loop in a concrete business nonfiction example.
-6. Decide whether to approve the exact wording, revise specific fields, reject the internal-studio posture, or request another design aid.
+5. Use the revision impact matrix if the likely outcome is "approve with revisions."
+6. Review the mock review packet to see the operating loop in a concrete business nonfiction example.
+7. Decide whether to approve the exact wording, revise specific fields, reject the internal-studio posture, or request another design aid.
 
 If Peet has 30 minutes:
 
@@ -41,9 +43,10 @@ If Peet has 30 minutes:
 | 2 | `2026-06-08-book-studio-objective-coverage-audit.md` | Proof that the original objective was covered at design depth. |
 | 3 | `2026-06-08-book-studio-v1-approval-review-scorecard.md` | A compact pass/warn/block rubric for deciding whether the approval packet is ready. |
 | 4 | `2026-06-08-book-studio-v1-pilot-product-decision-register.md` | A standalone first-pilot product register for deciding which book archetypes prove V1. |
-| 5 | `2026-06-08-book-studio-v1-review-script.md` | A structured 30-minute review agenda and exact revision format. |
-| 6 | `2026-06-08-book-studio-v1-mock-review-packet.md` | A concrete example of admin state, portal wording, blockers, and analytics confidence. |
-| 7 | `2026-06-08-book-studio-v1-acceptance-fixtures.md` | Minimum pass, warning, and blocker cases a future demo must satisfy. |
+| 5 | `2026-06-08-book-studio-v1-approval-revision-impact-matrix.md` | A field-by-field map of what changes if Peet approves with revisions. |
+| 6 | `2026-06-08-book-studio-v1-review-script.md` | A structured 30-minute review agenda and exact revision format. |
+| 7 | `2026-06-08-book-studio-v1-mock-review-packet.md` | A concrete example of admin state, portal wording, blockers, and analytics confidence. |
+| 8 | `2026-06-08-book-studio-v1-acceptance-fixtures.md` | Minimum pass, warning, and blocker cases a future demo must satisfy. |
 
 ## Evidence And Boundary Appendices
 
@@ -62,6 +65,7 @@ If Peet has 30 minutes:
 | Wider-channel adapter packet | When deciding whether Apple/Kobo/D2D/Ingram/audio should stay future-compatible but deferred. |
 | `ai-story` non-port checklist | When deciding which `PMStander/ai-story` ideas to keep, rewrite, or reject. |
 | Red-team risk register | When pressure appears to broaden V1 or skip blocker evidence. |
+| Revision impact matrix | When Peet changes an approval field and the affected evidence docs must be named before planning. |
 
 ## Decision Options
 
@@ -109,6 +113,8 @@ If Peet wants changes, use this shape:
 
 ```yaml
 bookStudioV1ApprovalRevision:
+  productPosture:
+    choose: internal_pib_production_studio_with_optional_client_review | pib_owned_internal_studio_only | client_review_first_internal_studio
   firstPilotSet:
     add: []
     remove: []
@@ -118,7 +124,13 @@ bookStudioV1ApprovalRevision:
     choose: wave1_only | wave1_plus_selected_wave2_docs_and_fixtures | broader_docs_only_no_runtime
   ownershipModel:
     choose: pib_owned_only | shared_pib_and_client_owned
+  jurisdictionAndLocalPublisherScope:
+    add: []
+    remove: []
   productionReadinessScope:
+    add: []
+    remove: []
+  analyticsScope:
     add: []
     remove: []
   firstChannels:

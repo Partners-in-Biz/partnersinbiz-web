@@ -7,6 +7,7 @@
 **Coverage audit:** `docs/superpowers/specs/2026-06-08-book-studio-objective-coverage-audit.md`
 **Review script:** `docs/superpowers/specs/2026-06-08-book-studio-v1-review-script.md`
 **Pilot product decision register:** `docs/superpowers/specs/2026-06-08-book-studio-v1-pilot-product-decision-register.md`
+**Revision impact matrix:** `docs/superpowers/specs/2026-06-08-book-studio-v1-approval-revision-impact-matrix.md`
 
 ## Purpose
 
@@ -86,6 +87,8 @@ If a row scores `warn`, copy the exact row name into the revision record and cho
 | Wider channel pressure | Add the channel to `firstChannels` only if source refresh and channel-specific governance are accepted. Otherwise keep it in future-compatible deferral. |
 | Ownership uncertainty | Change `ownershipModel` to `pib_owned_only` or add a clearer shared-governance note. |
 | Accepted deferral | Add the deferral to `acceptedDeferrals` so the future plan cannot silently build it. |
+
+Use the revision impact matrix before planning from any warning that changes `productPosture`, `firstChannels`, `firstPilotSet`, `firstPortalReviewArtifacts`, `hermesFirstScope`, `ownershipModel`, `jurisdictionAndLocalPublisherScope`, `productionReadinessScope`, `analyticsScope`, or `acceptedDeferrals`.
 
 If a row scores `block`, do not translate it into a task list. First revise the approval packet or write a design-only aid that answers the blocker.
 
