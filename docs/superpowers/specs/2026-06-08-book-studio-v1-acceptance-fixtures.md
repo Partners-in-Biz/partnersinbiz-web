@@ -8,6 +8,7 @@
 **Hermes skill contract pack:** `docs/superpowers/specs/2026-06-08-book-studio-v1-hermes-skill-contract-pack.md`
 **Launch/lifecycle governance model:** `docs/superpowers/specs/2026-06-08-book-studio-v1-launch-lifecycle-governance-model.md`
 **Market evidence model:** `docs/superpowers/specs/2026-06-08-book-studio-v1-market-evidence-model.md`
+**Editorial quality model:** `docs/superpowers/specs/2026-06-08-book-studio-v1-editorial-quality-reader-experience-model.md`
 
 ## Purpose
 
@@ -278,6 +279,34 @@ PiB compares three candidate ideas before any Book Brief or production work star
 - The workflow suggests misleading categories, vague keywords, copied competitor metadata, or trademark-adjacent positioning.
 - A negative or unknown print margin does not block or warn before production selection.
 
+## Fixture I: Editorial Quality And Reader Experience Gate
+
+### Scenario
+
+A business nonfiction draft was assisted by Hermes. It has a strong-looking proof and cover, but review finds unsupported examples, inconsistent terminology, broad promise wording, invented citations, and generic sections.
+
+### Expected State
+
+| Area | Acceptance evidence |
+| --- | --- |
+| Quality lanes | Reader promise, structure, originality, claim/source integrity, editorial quality, continuity, usability/accessibility, rights-sensitive content, and client-safe summary lanes are visible. |
+| Hermes | Hermes may produce issue lists, style-drift notes, claim warnings, and revision tasks only; it cannot mark quality-approved. |
+| Package QA | Package QA and publishing packet readiness are blocked until quality lanes pass or warnings are accepted. |
+| Portal | Portal proof is blocked until a reviewed client-safe summary exists. |
+| Invalidation | Any manuscript, metadata, proof, source, or quality-lane change invalidates dependent quality state. |
+
+### Mixed Output
+
+- `QUALITY-PASS-001`: narrowed draft has source-linked claims, coherent structure, clear reader promise, style-guide alignment, and no unresolved blockers; it may move to package QA for the current version only.
+- `QUALITY-WARN-001`: useful draft has unsupported examples, inconsistent terms, and broad promise wording; it remains internal reviewable with owner/date revision tasks.
+- `QUALITY-BLOCK-001`: generic AI guide has no defensible angle, copied competitor structure, invented citations, and polished metadata; Book Brief promotion, proof, packet readiness, and client-safe claims are blocked.
+
+### Failure Conditions
+
+- Raw AI prose or a pretty proof reaches portal or publishing packet readiness.
+- Invented or unsupported claims are hidden by metadata or cover polish.
+- Hermes can mark quality-approved or rewrite approved files without a new version and invalidation.
+
 ## Minimum Future Demo Set
 
 If the approval packet is accepted, a future Phase 1 implementation demo should include at least:
@@ -289,6 +318,7 @@ If the approval packet is accepted, a future Phase 1 implementation demo should 
 5. Fixture F showing a partial analytics import warning.
 6. Fixture G blocking unsafe launch, review, price, and promotion actions.
 7. Fixture H proving market evidence pass/warn/block before production selection.
+8. Fixture I proving editorial quality pass/warn/block before package QA or portal proof.
 
 The demo should not be accepted if it only shows:
 
@@ -297,6 +327,7 @@ The demo should not be accepted if it only shows:
 - A publishing packet without source freshness and version evidence.
 - A revenue chart without confidence labels.
 - A Hermes task that can perform public, financial, credential, or approval actions.
+- A generated proof that bypasses editorial quality lanes.
 
 ## Approval Gate Reminder
 

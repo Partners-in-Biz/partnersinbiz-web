@@ -13,6 +13,7 @@
 **Hermes skill contract pack:** `docs/superpowers/specs/2026-06-08-book-studio-v1-hermes-skill-contract-pack.md`
 **Launch and lifecycle governance model:** `docs/superpowers/specs/2026-06-08-book-studio-v1-launch-lifecycle-governance-model.md`
 **Market evidence model:** `docs/superpowers/specs/2026-06-08-book-studio-v1-market-evidence-model.md`
+**Editorial quality model:** `docs/superpowers/specs/2026-06-08-book-studio-v1-editorial-quality-reader-experience-model.md`
 
 ## Purpose
 
@@ -48,6 +49,7 @@ Overall decision rule:
 | First pilot set | Business nonfiction, activity or low-content print, series scaffolding, and a rights-first negative control are accepted. | A children's or visual fixture is added as a gated fixture only. | Pilot set is vague, visual/audio-first, or removes blocker proof without accepting weaker safety evidence. | Pilot product decision register, book-family gate catalog, acceptance fixtures, mock review packet. |
 | Market evidence gate | Candidate ideas need reviewed audience/buyer, competitive shelf, discoverability, differentiation, rights, channel, price/margin, PiB fit, and capacity evidence before production selection. | Candidate can proceed with named evidence warnings, owner, and review date. | Production starts from a shelf screenshot, sales/rank promise, generic AI-book idea, misleading metadata, copied competitor positioning, or negative/unknown margin. | Market evidence model, pilot product decision register, acceptance fixtures, source refresh contract. |
 | Book-family gate coverage | Every important book family has a gate profile, fixture posture, or explicit deferral. | A family needs stronger future compatibility notes before planning. | A family is treated as supported without rights, format, accessibility, analytics, and channel evidence. | Book-family gate catalog, approval packet, coverage audit. |
+| Editorial quality and reader experience | Generated or assisted manuscripts need version-bound quality lanes for reader promise, structure, originality, source/claim integrity, editorial quality, continuity, usability, accessibility, rights-sensitive content, and client-safe summaries. | A draft is useful but needs named revision tasks, accepted warnings, or a narrower quality lane before package/portal work. | Raw AI prose, generic content, invented claims, copied structure, unusable activities, or weak client-safe summaries can reach package QA, portal proof, or packet readiness. | Editorial quality model, production package QA model, red-team register, acceptance fixtures. |
 | Series governance | Volume order, continuity, shared metadata, release state, and rollup analytics are part of the V1 design boundary. | Series is accepted but not first demo evidence. | Series support means only naming several unrelated books as a series. | Research dossier, acceptance fixtures, domain record/state model. |
 | Hermes scope | Hermes produces bounded artifacts, checks, recommendations, and proposed contract records; runtime dispatch stays gated. | Peet wants Wave 1 only or selected Wave 2 docs only. | Hermes can publish, approve, spend, message clients, request secrets, mark client-ready, bypass review, or run without contract fixtures. | Hermes skill blueprint, Hermes skill evaluation packet, Hermes skill contract pack, review script. |
 | Publishing packet governance | Upload-ready claims require file, metadata, rights, account authority, AI disclosure, source freshness, and upload evidence. | One channel-specific warning needs an owner or waiver path. | A packet can be marked upload-ready while evidence is missing or stale. | Publishing and analytics model, production package QA model, ownership/commercial model. |
@@ -70,6 +72,7 @@ The strongest reasons to approve as written:
 - The packet narrows V1 to KDP and Google manual handoff instead of direct publishing.
 - The first pilot set proves business value, series behavior, and blocker handling without starting from the hardest visual/audio cases.
 - The market evidence gate prevents weak candidates from becoming Book Briefs, production projects, sales forecasts, or rank promises.
+- The editorial quality gate prevents polished weak AI-assisted drafts from becoming proof, packet, portal, or publishing-ready.
 - Hermes is treated as reviewed artifact production and evidence checking, not autonomous publishing.
 - The Hermes contract pack makes first skill boundaries copyable without creating runnable skill files.
 - Package QA, local publisher, portal safety, analytics confidence, and `ai-story` non-port rules are explicit.

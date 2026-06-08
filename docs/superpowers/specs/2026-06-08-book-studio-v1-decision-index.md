@@ -13,6 +13,7 @@
 **Hermes skill contract pack:** `docs/superpowers/specs/2026-06-08-book-studio-v1-hermes-skill-contract-pack.md`
 **Launch and lifecycle governance model:** `docs/superpowers/specs/2026-06-08-book-studio-v1-launch-lifecycle-governance-model.md`
 **Market evidence model:** `docs/superpowers/specs/2026-06-08-book-studio-v1-market-evidence-model.md`
+**Editorial quality model:** `docs/superpowers/specs/2026-06-08-book-studio-v1-editorial-quality-reader-experience-model.md`
 
 ## Purpose
 
@@ -34,8 +35,9 @@ If Peet has 10 minutes:
 8. Review the Hermes skill contract pack if the open concern is how the first new Hermes skills stay bounded before runtime dispatch.
 9. Review the launch and lifecycle governance model if the open concern is what happens after a book is live.
 10. Review the market evidence model if the open concern is how PiB chooses book ideas worth producing before Hermes/editorial work starts.
-11. Review the mock review packet to see the operating loop in a concrete business nonfiction example.
-12. Decide whether to approve the exact wording, revise specific fields, reject the internal-studio posture, or request another design aid.
+11. Review the editorial quality model if the open concern is how Book Studio prevents polished weak AI-assisted drafts from becoming proof, packet, portal, or publishing-ready.
+12. Review the mock review packet to see the operating loop in a concrete business nonfiction example.
+13. Decide whether to approve the exact wording, revise specific fields, reject the internal-studio posture, or request another design aid.
 
 If Peet has 30 minutes:
 
@@ -74,6 +76,7 @@ If Peet has 30 minutes:
 | Domain record/state model | When checking the conceptual record relationships a future plan must preserve. |
 | Operator workspace control model | When checking how admins should operate Book Studio without a blank-prompt-first workflow. |
 | Production package QA model | When checking proof, file, cover, rights, accessibility, source, and checksum evidence. |
+| Editorial quality and reader experience model | When checking manuscript quality, source/claim integrity, reader promise fit, continuity, usability, accessibility, and client-safe quality summaries before package or portal promotion. |
 | Jurisdiction/local publisher model | When checking South African legal-deposit, ISBN/imprint, copyright, contributor, and local publisher lanes. |
 | Launch and lifecycle governance model | When checking post-publication launch, promotion, pricing, review, revision, unpublish, and safe portal status rules. |
 | Hermes skill blueprint, evaluation packet, and contract pack | When reviewing new Hermes skills, copyable contract fields, fixture gates, forbidden actions, and runtime dispatch blockers. |
@@ -103,6 +106,7 @@ Approval unlocks only a future implementation plan. That plan must:
 - keep runtime Hermes dispatch blocked until manifests, fixtures, sanitizers, ledgers, reviewer defaults, and forbidden-action tests exist,
 - preserve the Hermes skill contract pack before writing any runnable skill spec,
 - preserve package QA, local publisher, portal safety, analytics confidence, and `ai-story` non-port rules, and
+- preserve editorial quality and reader-experience gates before package QA, portal review, or publishing packet readiness, and
 - preserve launch/lifecycle guardrails for review compliance, price and promotion approvals, external action evidence, revision invalidation, and no automated review outreach or ad spend, and
 - preserve the market evidence rule that a candidate must pass or carry accepted warnings before Book Brief or production selection, and
 - include at least one pass case, one warning case, and one blocker case.
