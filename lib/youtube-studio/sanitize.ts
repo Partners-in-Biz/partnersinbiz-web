@@ -118,6 +118,8 @@ export type ClientSafeYouTubeSeries = {
   status: YouTubeSeriesStatus
 }
 
+type ClientSafeSeriesSection = ClientSafeYouTubeSeries['episodeTemplate']['sections'][number]
+
 export type ClientSafeYouTubeGateCheck = Pick<YouTubeGateCheck, 'status' | 'message'>
 
 export type ClientSafeYouTubePublishingPacket = Pick<
@@ -414,35 +416,49 @@ export function clientSafeYouTubeChannelWorkspace(
   })
 }
 
+function clientSafeSeriesSection(section: unknown): ClientSafeSeriesSection | undefined {
+  const source = cleanObject(section)
+  const label = cleanString(source.label)
+  if (!label) return undefined
+
+  const targetSeconds = cleanNumber(source.targetSeconds)
+  const notes = cleanString(source.notes)
+  const safeSection: ClientSafeSeriesSection = { label }
+
+  if (targetSeconds !== undefined && targetSeconds >= 0) safeSection.targetSeconds = targetSeconds
+  if (notes) safeSection.notes = notes
+
+  return safeSection
+}
+
 export function clientSafeYouTubeSeries(series: YouTubeSeries): ClientSafeYouTubeSeries {
+  const template = cleanObject(series.episodeTemplate)
+  const style = cleanObject(series.styleGuide)
+
   return stripUndefinedDeep({
-    id: series.id,
-    orgId: series.orgId,
-    channelWorkspaceId: series.channelWorkspaceId,
-    name: series.name,
-    objective: series.objective,
-    audience: series.audience,
+    id: cleanString(series.id),
+    orgId: cleanString(series.orgId) ?? '',
+    channelWorkspaceId: cleanString(series.channelWorkspaceId) ?? '',
+    name: cleanString(series.name) ?? 'Untitled series',
+    objective: cleanString(series.objective),
+    audience: cleanString(series.audience),
     format: pick(SERIES_FORMATS, series.format, 'mixed'),
     cadence: pick(SERIES_CADENCES, series.cadence, 'ad_hoc'),
-    targetDurationSeconds: series.targetDurationSeconds,
+    targetDurationSeconds: cleanNumber(series.targetDurationSeconds),
     episodeTemplate: {
-      hook: series.episodeTemplate?.hook,
-      sections: Array.isArray(series.episodeTemplate?.sections)
-        ? series.episodeTemplate.sections.map((section) => ({
-            label: section.label,
-            targetSeconds: section.targetSeconds,
-            notes: section.notes,
-          }))
+      hook: cleanString(template.hook),
+      sections: Array.isArray(template.sections)
+        ? template.sections.map(clientSafeSeriesSection).filter(isDefined)
         : [],
-      outro: series.episodeTemplate?.outro,
+      outro: cleanString(template.outro),
     },
     styleGuide: {
-      visualNotes: series.styleGuide?.visualNotes,
-      thumbnailNotes: series.styleGuide?.thumbnailNotes,
-      captionNotes: series.styleGuide?.captionNotes,
-      introOutroRules: series.styleGuide?.introOutroRules,
+      visualNotes: cleanString(style.visualNotes),
+      thumbnailNotes: cleanString(style.thumbnailNotes),
+      captionNotes: cleanString(style.captionNotes),
+      introOutroRules: cleanString(style.introOutroRules),
     },
-    season: series.season,
+    season: cleanString(series.season),
     status: pick(SERIES_STATUSES, series.status, 'active'),
   })
 }

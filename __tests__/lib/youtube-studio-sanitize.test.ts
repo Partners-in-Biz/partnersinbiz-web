@@ -197,6 +197,81 @@ describe('youtube studio sanitizers', () => {
     expect(safe.styleGuide).not.toHaveProperty('internalStyleToken')
   })
 
+  it('drops malformed portal series sections and object-valued series scalars', () => {
+    const safe = clientSafeYouTubeSeries({
+      id: 'series-1',
+      orgId: 'org-1',
+      channelWorkspaceId: 'channel-1',
+      name: 'Client Series',
+      objective: { internalNote: 'secret objective' } as unknown as string,
+      audience: '  Owners  ',
+      format: 'long_form',
+      cadence: 'weekly',
+      targetDurationSeconds: { seconds: 600 } as unknown as number,
+      episodeTemplate: {
+        hook: { internalPrompt: 'secret hook' } as unknown as string,
+        sections: [
+          null,
+          'not-a-section',
+          {
+            label: { text: 'Internal section', policyNotes: 'operator-only section policy' },
+            targetSeconds: 30,
+            notes: 'should drop with malformed label',
+          },
+          {
+            label: ' Safe segment ',
+            targetSeconds: Number.POSITIVE_INFINITY,
+            notes: { internalPrompt: 'secret section notes' },
+          },
+          {
+            label: 'Negative segment',
+            targetSeconds: -5,
+            notes: 'Keep section but omit negative duration',
+          },
+          {
+            label: 'Valid segment',
+            targetSeconds: 45,
+            notes: '  Client notes  ',
+            internalPrompt: 'hidden',
+          },
+        ],
+        outro: { internalPrompt: 'secret outro' } as unknown as string,
+      } as unknown as {
+        hook?: string
+        sections: Array<{ label: string; targetSeconds?: number; notes?: string }>
+        outro?: string
+      },
+      styleGuide: {
+        visualNotes: { internalPrompt: 'secret visual note' } as unknown as string,
+        thumbnailNotes: '  Thumbnail guidance  ',
+        captionNotes: { policyNotes: 'secret caption policy' } as unknown as string,
+        introOutroRules: '  Keep it concise  ',
+      },
+      season: { internalSeasonPlan: 'secret season' } as unknown as string,
+      status: 'active',
+      deleted: false,
+    } as Parameters<typeof clientSafeYouTubeSeries>[0])
+
+    expect(safe).not.toHaveProperty('objective')
+    expect(safe.audience).toBe('Owners')
+    expect(safe).not.toHaveProperty('targetDurationSeconds')
+    expect(safe).not.toHaveProperty('season')
+    expect(safe.episodeTemplate).toEqual({
+      sections: [
+        { label: 'Safe segment' },
+        { label: 'Negative segment', notes: 'Keep section but omit negative duration' },
+        { label: 'Valid segment', targetSeconds: 45, notes: 'Client notes' },
+      ],
+    })
+    expect(safe.styleGuide).toEqual({
+      thumbnailNotes: 'Thumbnail guidance',
+      introOutroRules: 'Keep it concise',
+    })
+    expect(JSON.stringify(safe)).not.toContain('internalPrompt')
+    expect(JSON.stringify(safe)).not.toContain('policyNotes')
+    expect(JSON.stringify(safe)).not.toContain('secret')
+  })
+
   it('keeps portal video records client safe', () => {
     const video = sanitizeYouTubeVideoProjectInput({
       orgId: 'org-1',

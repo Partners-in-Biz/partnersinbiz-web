@@ -140,6 +140,14 @@ function defaultStage(): Required<FirestoreStage> {
                 notes: 'Frame the client pain',
                 internalPrompt: 'Do not expose prompt',
               },
+              null,
+              'not-a-section',
+              {
+                label: { text: 'Internal section', policyNotes: 'operator-only section policy' },
+                targetSeconds: 45,
+                notes: { internalPrompt: 'secret section notes' },
+                internalPrompt: 'Do not expose malformed section prompt',
+              },
             ],
             outro: 'Close with next steps',
             internalTemplateId: 'template-secret',
@@ -461,6 +469,8 @@ describe('portal youtube studio API', () => {
     expect(series).not.toHaveProperty('deleted')
     expect(series.episodeTemplate).not.toHaveProperty('internalTemplateId')
     expect(series.episodeTemplate.sections[0]).not.toHaveProperty('internalPrompt')
+    expect(JSON.stringify(series)).not.toContain('operator-only section policy')
+    expect(JSON.stringify(series)).not.toContain('secret section notes')
     expect(series.styleGuide).not.toHaveProperty('internalStyleToken')
     expect(video).not.toHaveProperty('internalNotes')
     expect(video).not.toHaveProperty('createdBy')
