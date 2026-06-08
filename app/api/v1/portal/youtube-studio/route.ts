@@ -1,4 +1,5 @@
 import { NextRequest } from 'next/server'
+import { createHash } from 'crypto'
 import { FieldValue } from 'firebase-admin/firestore'
 import { adminDb } from '@/lib/firebase/admin'
 import { apiError, apiSuccess } from '@/lib/api/response'
@@ -77,12 +78,74 @@ function parseDecision(value: unknown): ClientDecision | null {
   return null
 }
 
+function packetDecisionStatus(decision: ClientDecision): YouTubePublishingPacket['status'] {
+  if (decision === 'approved') return 'approved'
+  if (decision === 'changes_requested') return 'draft'
+  return 'blocked'
+}
+
+function packetDecisionApprovalStatus(decision: ClientDecision) {
+  if (decision === 'approved') return 'pass'
+  if (decision === 'changes_requested') return 'warning'
+  return 'block'
+}
+
+function packetDecisionMessage(decision: ClientDecision, notes?: string) {
+  const base = decision === 'approved'
+    ? 'Client approved publishing packet.'
+    : decision === 'changes_requested'
+      ? 'Client requested publishing packet changes.'
+      : 'Client rejected publishing packet.'
+  return notes ? `${base} ${notes}` : base
+}
+
+function stableStringify(value: unknown): string {
+  if (Array.isArray(value)) return `[${value.map(stableStringify).join(',')}]`
+  if (value && typeof value === 'object') {
+    return `{${Object.entries(value as PlainRecord)
+      .sort(([left], [right]) => left.localeCompare(right))
+      .map(([key, entry]) => `${JSON.stringify(key)}:${stableStringify(entry)}`)
+      .join(',')}}`
+  }
+  return JSON.stringify(value)
+}
+
+function packetApprovalSnapshotHash(packet: YouTubePublishingPacket, status: YouTubePublishingPacket['status'], approvalCheck: PlainRecord) {
+  const snapshot = {
+    channelWorkspaceId: packet.channelWorkspaceId,
+    videoProjectId: packet.videoProjectId,
+    versionNumber: packet.versionNumber,
+    status,
+    titleOptions: packet.titleOptions,
+    description: packet.description,
+    tags: packet.tags,
+    chapters: packet.chapters,
+    visibility: packet.visibility,
+    selfDeclaredMadeForKids: packet.selfDeclaredMadeForKids,
+    containsSyntheticMedia: packet.containsSyntheticMedia,
+    aiDisclosureNotes: packet.aiDisclosureNotes,
+    checks: {
+      ...cleanBody(packet.checks),
+      approval: {
+        status: approvalCheck.status,
+        message: approvalCheck.message,
+      },
+    },
+  }
+
+  return createHash('sha256').update(stableStringify(stripUndefinedDeep(snapshot))).digest('hex')
+}
+
 function isClientDecisionOpen(video: YouTubeVideoProject): boolean {
   return (
     video.status === 'client_review' ||
     video.status === 'changes_requested' ||
     video.clientReview?.status === 'requested'
   )
+}
+
+function isPacketDecisionOpen(packet: YouTubePublishingPacket): boolean {
+  return packet.status === 'client_review'
 }
 
 async function loadPortalVisibleChannel(channelWorkspaceId: string, orgId: string): Promise<PortalChannelResult> {
@@ -211,16 +274,83 @@ async function handlePortalYouTubeStudioPost(req: NextRequest, uid: string, orgI
 
 export const POST = withPortalAuthAndRole('member', handlePortalYouTubeStudioPost)
 
+async function handlePortalPacketDecision(
+  body: PlainRecord,
+  uid: string,
+  orgId: string,
+  decision: ClientDecision,
+): Promise<Response> {
+  const packetId = cleanString(body.packetId) ?? ''
+  if (!packetId) return apiError('packetId is required', 400)
+
+  const packetRef = adminDb.collection(YOUTUBE_COLLECTIONS.packets).doc(packetId)
+  const packetDoc = await packetRef.get()
+  if (!packetDoc.exists) return apiError('Publishing packet not found', 404)
+
+  const packet = serializeYouTubeRecord<YouTubePublishingPacket>(packetDoc.id, packetDoc.data()!)
+  if (packet.deleted === true) return apiError('Publishing packet not found', 404)
+  if (packet.orgId !== orgId) return apiError('Forbidden', 403)
+  if (!isPacketDecisionOpen(packet)) return apiError('Publishing packet is not awaiting client review', 409)
+
+  const videoRef = adminDb.collection(YOUTUBE_COLLECTIONS.videos).doc(packet.videoProjectId)
+  const videoDoc = await videoRef.get()
+  if (!videoDoc.exists) return apiError('Video project not found', 404)
+  const video = serializeYouTubeRecord<YouTubeVideoProject>(videoDoc.id, videoDoc.data()!)
+  if (video.deleted === true) return apiError('Video project not found', 404)
+  if (video.orgId !== orgId) return apiError('Forbidden', 403)
+  if (!isPortalVisible(video) || video.visibility?.showPublishingPacket !== true) {
+    return apiError('Publishing packet is not visible in the client portal', 403)
+  }
+  if (video.channelWorkspaceId !== packet.channelWorkspaceId) {
+    return apiError('Publishing packet does not match the video project channel', 400)
+  }
+
+  const channelResult = await loadPortalVisibleChannel(packet.channelWorkspaceId, orgId)
+  if ('error' in channelResult) return channelResult.error
+
+  const notes = cleanString(body.notes)
+  const approval = stripUndefinedDeep({
+    status: packetDecisionApprovalStatus(decision),
+    message: packetDecisionMessage(decision, notes),
+    checkedBy: uid,
+    checkedByType: 'user',
+    checkedAt: FieldValue.serverTimestamp(),
+  })
+  const status = packetDecisionStatus(decision)
+  const write = stripUndefinedDeep({
+    status,
+    checks: {
+      ...cleanBody(packet.checks),
+      approval,
+    },
+    approvedBy: decision === 'approved' ? uid : undefined,
+    approvedAt: decision === 'approved' ? FieldValue.serverTimestamp() : undefined,
+    approvedSnapshotHash: decision === 'approved'
+      ? packetApprovalSnapshotHash(packet, status, approval)
+      : undefined,
+    updatedBy: uid,
+    updatedByType: 'user',
+    updatedAt: FieldValue.serverTimestamp(),
+  })
+
+  await packetRef.set(write, { merge: true })
+
+  return apiSuccess({ id: packetId, updated: true })
+}
+
 export const PUT = withPortalAuthAndRole('member', async (req: NextRequest, uid, orgId) => {
   const disabled = await youtubeStudioModuleGuard(orgId)
   if (disabled) return disabled
 
   const body = cleanBody(await req.json().catch(() => ({})))
-  const id = cleanString(body.id) ?? ''
-  if (!id) return apiError('id is required', 400)
-
   const decision = parseDecision(body.decision)
   if (!decision) return apiError('decision must be approved, changes_requested, or rejected', 400)
+  if (cleanString(body.packetId)) {
+    return handlePortalPacketDecision(body, uid, orgId, decision)
+  }
+
+  const id = cleanString(body.id) ?? ''
+  if (!id) return apiError('id is required', 400)
 
   const ref = adminDb.collection(YOUTUBE_COLLECTIONS.videos).doc(id)
   const doc = await ref.get()

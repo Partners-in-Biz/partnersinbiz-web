@@ -204,6 +204,7 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [creatingPacket, setCreatingPacket] = useState(false)
+  const [updatingPacketId, setUpdatingPacketId] = useState<string | null>(null)
   const [queueingJob, setQueueingJob] = useState(false)
   const [importingAnalytics, setImportingAnalytics] = useState(false)
   const [savingReadiness, setSavingReadiness] = useState(false)
@@ -275,6 +276,7 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
     setForm(emptyForm)
     setSaving(false)
     setCreatingPacket(false)
+    setUpdatingPacketId(null)
     setQueueingJob(false)
     setImportingAnalytics(false)
     setSavingReadiness(false)
@@ -529,6 +531,38 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
     }
   }
 
+  async function updatePublishingPacketStatus(packetId: string | undefined, status: Exclude<YouTubePublishingPacket['status'], 'published'>) {
+    if (updatingPacketId || !packetId) return
+    const mutationOrgId = orgId
+    const isCurrentMutation = () => mutationOrgId === activeOrgIdRef.current
+    setUpdatingPacketId(packetId)
+    setActionNotice('')
+    setLoadNotice('')
+    try {
+      const res = await fetch('/api/v1/youtube-studio/publish-packets', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: packetId, status }),
+      })
+      const body = await res.json().catch(() => ({}))
+      if (!isCurrentMutation()) return
+      if (!res.ok) {
+        setActionNotice(body.error ?? 'Could not update publishing packet')
+        return
+      }
+      setActionNotice(packetStatusNotice(status))
+      await load()
+    } catch {
+      if (isCurrentMutation()) {
+        setActionNotice('Could not update publishing packet')
+      }
+    } finally {
+      if (isCurrentMutation()) {
+        setUpdatingPacketId(null)
+      }
+    }
+  }
+
   async function importAnalytics(event: React.FormEvent) {
     event.preventDefault()
     if (importingAnalytics || !form.analyticsChannelId || !form.analyticsPeriodStart || !form.analyticsPeriodEnd) return
@@ -703,6 +737,40 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
                         </span>
                       ))}
                     </div>
+                    {packet.id ? (
+                      <div className="flex flex-wrap gap-2">
+                        {packet.status !== 'client_review' && packet.status !== 'approved' && packet.status !== 'published' ? (
+                          <button
+                            type="button"
+                            disabled={Boolean(updatingPacketId)}
+                            onClick={() => updatePublishingPacketStatus(packet.id, 'client_review')}
+                            className="pib-btn-primary text-sm"
+                          >
+                            {updatingPacketId === packet.id ? 'Updating...' : 'Send to portal'}
+                          </button>
+                        ) : null}
+                        {packet.status !== 'approved' && packet.status !== 'published' ? (
+                          <button
+                            type="button"
+                            disabled={Boolean(updatingPacketId)}
+                            onClick={() => updatePublishingPacketStatus(packet.id, 'approved')}
+                            className="pib-btn-ghost text-sm"
+                          >
+                            Approve packet
+                          </button>
+                        ) : null}
+                        {packet.status !== 'blocked' && packet.status !== 'published' ? (
+                          <button
+                            type="button"
+                            disabled={Boolean(updatingPacketId)}
+                            onClick={() => updatePublishingPacketStatus(packet.id, 'blocked')}
+                            className="pib-btn-ghost text-sm"
+                          >
+                            Block packet
+                          </button>
+                        ) : null}
+                      </div>
+                    ) : null}
                   </article>
                 ))}
               </div>
@@ -1127,6 +1195,14 @@ function packetGateEntries(packet: YouTubePublishingPacket) {
     keyof YouTubePublishingPacket['checks'],
     YouTubePublishingPacket['checks'][keyof YouTubePublishingPacket['checks']],
   ]>
+}
+
+function packetStatusNotice(status: Exclude<YouTubePublishingPacket['status'], 'published'>) {
+  if (status === 'client_review') return 'Publishing packet sent to the client portal.'
+  if (status === 'approved') return 'Publishing packet approved.'
+  if (status === 'blocked') return 'Publishing packet blocked.'
+  if (status === 'internal_review') return 'Publishing packet moved to internal review.'
+  return 'Publishing packet returned to draft.'
 }
 
 function formatToken(value: string) {

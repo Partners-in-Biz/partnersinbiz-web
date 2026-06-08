@@ -46,14 +46,17 @@ export function YouTubeStudioPortalWorkspace({ orgId }: YouTubeStudioPortalWorks
   const [analytics, setAnalytics] = useState<YouTubeAnalyticsSnapshot[]>([])
   const [request, setRequest] = useState<RequestForm>(emptyRequest)
   const [reviewNotes, setReviewNotes] = useState<Record<string, string>>({})
+  const [packetNotes, setPacketNotes] = useState<Record<string, string>>({})
   const [loading, setLoading] = useState(true)
   const [submittingRequest, setSubmittingRequest] = useState(false)
   const [reviewingId, setReviewingId] = useState<string | null>(null)
+  const [reviewingPacketId, setReviewingPacketId] = useState<string | null>(null)
   const [loadNotice, setLoadNotice] = useState('')
   const [actionNotice, setActionNotice] = useState('')
   const [moduleDisabled, setModuleDisabled] = useState(false)
   const submittingRequestRef = useRef(false)
   const reviewingIdRef = useRef<string | null>(null)
+  const reviewingPacketIdRef = useRef<string | null>(null)
   const loadRequestIdRef = useRef(0)
 
   const apiPath = useMemo(() => scopedApiPath('/api/v1/portal/youtube-studio', { orgId }), [orgId])
@@ -116,10 +119,13 @@ export function YouTubeStudioPortalWorkspace({ orgId }: YouTubeStudioPortalWorks
     previousApiPathRef.current = apiPath
     submittingRequestRef.current = false
     reviewingIdRef.current = null
+    reviewingPacketIdRef.current = null
     setRequest(emptyRequest)
     setReviewNotes({})
+    setPacketNotes({})
     setSubmittingRequest(false)
     setReviewingId(null)
+    setReviewingPacketId(null)
     setLoadNotice('')
     setActionNotice('')
   }, [apiPath])
@@ -201,6 +207,40 @@ export function YouTubeStudioPortalWorkspace({ orgId }: YouTubeStudioPortalWorks
       if (isCurrentMutation()) {
         reviewingIdRef.current = null
         setReviewingId(null)
+      }
+    }
+  }
+
+  async function savePacketDecision(packetId: string, decision: 'approved' | 'changes_requested' | 'rejected') {
+    if (reviewingPacketIdRef.current) return
+    const mutationApiPath = apiPath
+    const isCurrentMutation = () => mutationApiPath === activeApiPathRef.current
+    reviewingPacketIdRef.current = packetId
+    setReviewingPacketId(packetId)
+    setActionNotice('')
+    setLoadNotice('')
+    try {
+      const res = await fetch(mutationApiPath, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ packetId, decision, notes: packetNotes[packetId] ?? '' }),
+      })
+      const body = await res.json().catch(() => ({}))
+      if (!isCurrentMutation()) return
+      if (!res.ok) {
+        setActionNotice(body.error ?? 'Could not save publishing packet decision')
+        return
+      }
+      setActionNotice('Publishing packet decision saved for the PiB team.')
+      await load()
+    } catch {
+      if (isCurrentMutation()) {
+        setActionNotice('Could not save publishing packet decision')
+      }
+    } finally {
+      if (isCurrentMutation()) {
+        reviewingPacketIdRef.current = null
+        setReviewingPacketId(null)
       }
     }
   }
@@ -331,6 +371,44 @@ export function YouTubeStudioPortalWorkspace({ orgId }: YouTubeStudioPortalWorks
                       </span>
                     ))}
                   </div>
+                  {packet.id && packet.status === 'client_review' ? (
+                    <div className="space-y-3">
+                      <textarea
+                        rows={3}
+                        disabled={reviewingPacketId === packet.id}
+                        value={packetNotes[packet.id] ?? ''}
+                        onChange={(event) => setPacketNotes((prev) => ({ ...prev, [packet.id!]: event.target.value }))}
+                        placeholder="Packet notes for PiB"
+                        className="w-full rounded-xl border border-[var(--color-pib-line)] bg-transparent p-3 text-sm"
+                      />
+                      <div className="flex flex-wrap gap-2">
+                        <button
+                          type="button"
+                          disabled={Boolean(reviewingPacketId)}
+                          onClick={() => savePacketDecision(packet.id!, 'approved')}
+                          className="pib-btn-primary text-sm"
+                        >
+                          Approve packet
+                        </button>
+                        <button
+                          type="button"
+                          disabled={Boolean(reviewingPacketId)}
+                          onClick={() => savePacketDecision(packet.id!, 'changes_requested')}
+                          className="pib-btn-ghost text-sm"
+                        >
+                          Request packet changes
+                        </button>
+                        <button
+                          type="button"
+                          disabled={Boolean(reviewingPacketId)}
+                          onClick={() => savePacketDecision(packet.id!, 'rejected')}
+                          className="pib-btn-ghost text-sm"
+                        >
+                          Reject packet
+                        </button>
+                      </div>
+                    </div>
+                  ) : null}
                 </article>
               ))
             )}

@@ -134,6 +134,34 @@ describe('YouTubeStudioPortalWorkspace module availability', () => {
     expect(screen.getByText('connected account: pass')).toBeInTheDocument()
   })
 
+  it('sends a portal publishing packet decision from the client workspace', async () => {
+    const fetchMock = jest.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
+      if (init?.method === 'PUT') return jsonResponse({ success: true })
+      return jsonResponse(portalData)
+    })
+    global.fetch = fetchMock as jest.Mock
+
+    render(<YouTubeStudioPortalWorkspace />)
+
+    const approvePacketButton = await screen.findByRole('button', { name: 'Approve packet' })
+    fireEvent.click(approvePacketButton)
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        '/api/v1/portal/youtube-studio',
+        expect.objectContaining({ method: 'PUT' }),
+      )
+    })
+    const packetDecisionCall = fetchMock.mock.calls.find(([, init]) => (
+      init?.method === 'PUT' &&
+      String(init.body).includes('"packetId":"packet-1"')
+    ))
+    expect(JSON.parse(String(packetDecisionCall?.[1]?.body))).toMatchObject({
+      packetId: 'packet-1',
+      decision: 'approved',
+    })
+  })
+
   it('ignores stale portal request completions after the scoped org changes', async () => {
     let resolveRequest: (value: Response) => void = () => undefined
     const requestPromise = new Promise<Response>((resolve) => {
@@ -373,6 +401,95 @@ describe('YouTubeStudioPortalWorkspace module availability', () => {
       selfDeclaredMadeForKids: true,
       containsSyntheticMedia: true,
       aiDisclosureNotes: 'Synthetic b-roll disclosed.',
+    })
+  })
+
+  it('sends an admin publishing packet to portal review', async () => {
+    const fetchMock = jest.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      if (init?.method === 'PUT') return jsonResponse({ success: true, data: { id: 'packet-1' } })
+      if (url.includes('/channels')) {
+        return jsonResponse({
+          success: true,
+          data: {
+            channels: [
+              {
+                id: 'channel-1',
+                title: 'Lumen Channel',
+                status: 'active',
+                youtubeHandle: '@lumen',
+              },
+            ],
+          },
+        })
+      }
+      if (url.includes('/series')) return jsonResponse({ success: true, data: { series: [] } })
+      if (url.includes('/videos')) {
+        return jsonResponse({
+          success: true,
+          data: {
+            videos: [
+              {
+                id: 'video-1',
+                channelWorkspaceId: 'channel-1',
+                title: 'Draft launch cut',
+                status: 'production',
+                objective: 'Prepare launch',
+                videoType: 'long_form',
+              },
+            ],
+          },
+        })
+      }
+      if (url.includes('/publish-packets')) {
+        return jsonResponse({
+          success: true,
+          data: {
+            packets: [
+              {
+                id: 'packet-1',
+                channelWorkspaceId: 'channel-1',
+                videoProjectId: 'video-1',
+                versionNumber: 1,
+                status: 'draft',
+                visibility: 'private',
+                titleOptions: [{ text: 'Launch plan', selected: true }],
+                description: 'Client-safe launch description',
+                tags: ['growth'],
+                chapters: [],
+                checks: {
+                  rights: { status: 'pass' },
+                  approval: { status: 'warning' },
+                },
+              },
+            ],
+          },
+        })
+      }
+      if (url.includes('/agent-jobs')) return jsonResponse({ success: true, data: { jobs: [] } })
+      if (url.includes('/analytics')) return jsonResponse({ success: true, data: { snapshots: [] } })
+      return jsonResponse({ success: true })
+    })
+    global.fetch = fetchMock as jest.Mock
+
+    render(<YouTubeStudioAdminWorkspace orgId="lumen-org" orgName="Lumen" />)
+
+    const sendButton = await screen.findByRole('button', { name: 'Send to portal' })
+    fireEvent.click(sendButton)
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        '/api/v1/youtube-studio/publish-packets',
+        expect.objectContaining({ method: 'PUT' }),
+      )
+    })
+    const putCall = fetchMock.mock.calls.find(([input, init]) => (
+      String(input) === '/api/v1/youtube-studio/publish-packets' &&
+      init?.method === 'PUT'
+    ))
+    expect(JSON.parse(String(putCall?.[1]?.body))).toMatchObject({
+      id: 'packet-1',
+      status: 'client_review',
     })
   })
 

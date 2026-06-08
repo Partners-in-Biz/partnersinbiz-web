@@ -691,6 +691,226 @@ describe('youtube studio admin API', () => {
     expect(JSON.stringify(packetUpdate)).not.toContain('client-supplied')
   })
 
+  it('sends a publishing packet to client review and exposes it on the video project', async () => {
+    stageFirestore({
+      youtube_channel_workspaces: {
+        docs: {
+          'channel-1': {
+            id: 'channel-1',
+            data: { orgId: 'org-1', title: 'Acme', deleted: false },
+          },
+        },
+      },
+      youtube_video_projects: {
+        docs: {
+          'video-1': {
+            id: 'video-1',
+            data: {
+              orgId: 'org-1',
+              channelWorkspaceId: 'channel-1',
+              title: 'Launch',
+              visibility: { showInClientPortal: true },
+              deleted: false,
+            },
+          },
+        },
+      },
+      youtube_publishing_packets: {
+        docs: {
+          'packet-1': {
+            id: 'packet-1',
+            data: {
+              orgId: 'org-1',
+              channelWorkspaceId: 'channel-1',
+              videoProjectId: 'video-1',
+              versionNumber: 1,
+              status: 'draft',
+              visibility: 'private',
+              titleOptions: [{ text: 'Launch plan' }],
+              tags: [],
+              chapters: [],
+              checks: {
+                rights: { status: 'pass', message: 'Rights cleared.' },
+                approval: { status: 'warning', message: 'Client confirmation required.' },
+              },
+              deleted: false,
+            },
+          },
+        },
+      },
+    })
+
+    const { PUT } = await import('@/app/api/v1/youtube-studio/publish-packets/route')
+    const res = await PUT(new NextRequest('http://localhost/api/v1/youtube-studio/publish-packets', {
+      method: 'PUT',
+      body: JSON.stringify({ id: 'packet-1', status: 'client_review' }),
+    }))
+
+    expect(res.status).toBe(200)
+    expect(mockDocSet).toHaveBeenCalledWith(expect.objectContaining({
+      status: 'client_review',
+      visibility: 'private',
+      updatedBy: 'admin-1',
+      updatedAt: 'SERVER_TS',
+    }), { merge: true })
+    expect(mockDocSet).toHaveBeenCalledWith(expect.objectContaining({
+      visibility: { showPublishingPacket: true },
+      updatedBy: 'admin-1',
+      updatedAt: 'SERVER_TS',
+    }), { merge: true })
+  })
+
+  it('rejects approval of a publishing packet with blocking checks', async () => {
+    stageFirestore({
+      youtube_channel_workspaces: {
+        docs: {
+          'channel-1': {
+            id: 'channel-1',
+            data: {
+              orgId: 'org-1',
+              title: 'Acme',
+              connectedAccountId: 'youtube-account-1',
+              publishingReadiness: {
+                accountStatus: 'connected',
+                apiProjectStatus: 'verified',
+                readiness: 'scheduled_publish_ready',
+              },
+              deleted: false,
+            },
+          },
+        },
+      },
+      youtube_video_projects: {
+        docs: {
+          'video-1': {
+            id: 'video-1',
+            data: { orgId: 'org-1', channelWorkspaceId: 'channel-1', title: 'Launch', deleted: false },
+          },
+        },
+      },
+      youtube_publishing_packets: {
+        docs: {
+          'packet-1': {
+            id: 'packet-1',
+            data: {
+              orgId: 'org-1',
+              channelWorkspaceId: 'channel-1',
+              videoProjectId: 'video-1',
+              versionNumber: 1,
+              status: 'client_review',
+              visibility: 'private',
+              titleOptions: [{ text: 'Launch plan' }],
+              tags: [],
+              chapters: [],
+              checks: {
+                rights: { status: 'block', message: 'Rights are not cleared.' },
+                approval: { status: 'warning', message: 'Approval required.' },
+              },
+              deleted: false,
+            },
+          },
+        },
+      },
+    })
+
+    const { PUT } = await import('@/app/api/v1/youtube-studio/publish-packets/route')
+    const res = await PUT(new NextRequest('http://localhost/api/v1/youtube-studio/publish-packets', {
+      method: 'PUT',
+      body: JSON.stringify({ id: 'packet-1', status: 'approved' }),
+    }))
+    const body = await res.json()
+
+    expect(res.status).toBe(409)
+    expect(body.error).toMatch(/blocking/i)
+    expect(mockDocSet).not.toHaveBeenCalled()
+  })
+
+  it('approves a non-blocked publishing packet with system approval metadata', async () => {
+    stageFirestore({
+      youtube_channel_workspaces: {
+        docs: {
+          'channel-1': {
+            id: 'channel-1',
+            data: {
+              orgId: 'org-1',
+              title: 'Acme',
+              connectedAccountId: 'youtube-account-1',
+              publishingReadiness: {
+                accountStatus: 'connected',
+                apiProjectStatus: 'verified',
+                readiness: 'scheduled_publish_ready',
+              },
+              deleted: false,
+            },
+          },
+        },
+      },
+      youtube_video_projects: {
+        docs: {
+          'video-1': {
+            id: 'video-1',
+            data: { orgId: 'org-1', channelWorkspaceId: 'channel-1', title: 'Launch', deleted: false },
+          },
+        },
+      },
+      youtube_publishing_packets: {
+        docs: {
+          'packet-1': {
+            id: 'packet-1',
+            data: {
+              orgId: 'org-1',
+              channelWorkspaceId: 'channel-1',
+              videoProjectId: 'video-1',
+              versionNumber: 1,
+              status: 'client_review',
+              visibility: 'private',
+              titleOptions: [{ text: 'Launch plan', selected: true }],
+              description: 'Ready to publish.',
+              tags: ['growth'],
+              chapters: [{ startSeconds: 0, title: 'Intro' }],
+              checks: {
+                rights: { status: 'pass', message: 'Rights cleared.' },
+                aiDisclosure: { status: 'pass', message: 'Disclosure reviewed.' },
+                madeForKids: { status: 'pass', message: 'Declaration reviewed.' },
+                metadata: { status: 'pass', message: 'Metadata reviewed.' },
+                thumbnail: { status: 'pass', message: 'Thumbnail reviewed.' },
+                captions: { status: 'pass', message: 'Captions reviewed.' },
+                approval: { status: 'warning', message: 'Approval required.' },
+              },
+              deleted: false,
+            },
+          },
+        },
+      },
+    })
+
+    const { PUT } = await import('@/app/api/v1/youtube-studio/publish-packets/route')
+    const res = await PUT(new NextRequest('http://localhost/api/v1/youtube-studio/publish-packets', {
+      method: 'PUT',
+      body: JSON.stringify({
+        id: 'packet-1',
+        status: 'approved',
+        approvedBy: 'client-supplied',
+        approvedSnapshotHash: 'client-supplied-hash',
+      }),
+    }))
+
+    expect(res.status).toBe(200)
+    const packetUpdate = mockDocSet.mock.calls[0][0]
+    expect(packetUpdate.status).toBe('approved')
+    expect(packetUpdate.approvedBy).toBe('admin-1')
+    expect(packetUpdate.approvedAt).toBe('SERVER_TS')
+    expect(packetUpdate.approvedSnapshotHash).toEqual(expect.any(String))
+    expect(packetUpdate.approvedSnapshotHash).not.toBe('client-supplied-hash')
+    expect(packetUpdate.checks.approval).toEqual({
+      status: 'pass',
+      message: 'Publishing packet approved by admin.',
+      checkedBy: 'admin-1',
+      checkedByType: 'user',
+      checkedAt: 'SERVER_TS',
+    })
+  })
+
   it.each([
     ['deleted packet', {
       packet: { orgId: 'org-1', channelWorkspaceId: 'channel-1', videoProjectId: 'video-1', deleted: true },

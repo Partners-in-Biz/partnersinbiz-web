@@ -1,4 +1,6 @@
 import { NextRequest } from 'next/server'
+import { createHash } from 'crypto'
+import { FieldValue } from 'firebase-admin/firestore'
 import { adminDb } from '@/lib/firebase/admin'
 import { withAuth } from '@/lib/api/auth'
 import { apiError, apiSuccess } from '@/lib/api/response'
@@ -31,6 +33,13 @@ const PACKET_CHECK_KEYS: PacketCheckKey[] = [
 ]
 
 const GATE_STATUSES: YouTubeGateCheck['status'][] = ['pass', 'warning', 'block', 'not_applicable']
+const ADMIN_PACKET_STATUSES: Array<Exclude<YouTubePublishingPacket['status'], 'published'>> = [
+  'draft',
+  'internal_review',
+  'client_review',
+  'approved',
+  'blocked',
+]
 
 function cleanString(value: unknown): string | undefined {
   return typeof value === 'string' && value.trim() ? value.trim() : undefined
@@ -56,6 +65,12 @@ function hasOwn(source: Record<string, unknown>, key: string): boolean {
 
 function pickGateStatus(value: unknown, fallback: YouTubeGateCheck['status']): YouTubeGateCheck['status'] {
   return GATE_STATUSES.includes(value as YouTubeGateCheck['status']) ? value as YouTubeGateCheck['status'] : fallback
+}
+
+function pickAdminPacketStatus(value: unknown, fallback: Exclude<YouTubePublishingPacket['status'], 'published'>) {
+  return ADMIN_PACKET_STATUSES.includes(value as Exclude<YouTubePublishingPacket['status'], 'published'>)
+    ? value as Exclude<YouTubePublishingPacket['status'], 'published'>
+    : fallback
 }
 
 function defaultGateCheck(message: string): YouTubeGateCheck {
@@ -185,6 +200,57 @@ function cleanGateChecks(value: unknown, existing?: unknown): PacketChecks {
     const fallback = cleanGateCheck(existingSource[key], defaults[key])
     return [key, cleanGateCheck(source[key], fallback)]
   })) as PacketChecks
+}
+
+function hasBlockingChecks(checks: PacketChecks) {
+  return PACKET_CHECK_KEYS.some((key) => checks[key]?.status === 'block')
+}
+
+function approvalCheck(user: Parameters<typeof updateActorFields>[0], message: string, status: YouTubeGateCheck['status']): YouTubeGateCheck {
+  return {
+    status,
+    message,
+    checkedBy: user.uid,
+    checkedByType: user.role === 'ai' ? 'agent' : 'user',
+    checkedAt: FieldValue.serverTimestamp(),
+  }
+}
+
+function stableStringify(value: unknown): string {
+  if (Array.isArray(value)) return `[${value.map(stableStringify).join(',')}]`
+  if (value && typeof value === 'object') {
+    return `{${Object.entries(value as Record<string, unknown>)
+      .sort(([left], [right]) => left.localeCompare(right))
+      .map(([key, entry]) => `${JSON.stringify(key)}:${stableStringify(entry)}`)
+      .join(',')}}`
+  }
+  return JSON.stringify(value)
+}
+
+function approvalSnapshotHash(packet: Partial<YouTubePublishingPacket>) {
+  const snapshot = {
+    channelWorkspaceId: packet.channelWorkspaceId,
+    videoProjectId: packet.videoProjectId,
+    versionNumber: packet.versionNumber,
+    status: packet.status,
+    titleOptions: packet.titleOptions,
+    description: packet.description,
+    tags: packet.tags,
+    chapters: packet.chapters,
+    visibility: packet.visibility,
+    selfDeclaredMadeForKids: packet.selfDeclaredMadeForKids,
+    containsSyntheticMedia: packet.containsSyntheticMedia,
+    aiDisclosureNotes: packet.aiDisclosureNotes,
+    checks: Object.fromEntries(PACKET_CHECK_KEYS.map((key) => [
+      key,
+      {
+        status: packet.checks?.[key]?.status,
+        message: packet.checks?.[key]?.message,
+      },
+    ])),
+  }
+
+  return createHash('sha256').update(stableStringify(stripUndefinedDeep(snapshot))).digest('hex')
 }
 
 function cleanTitleOptions(value: unknown): YouTubePublishingPacket['titleOptions'] {
@@ -360,6 +426,18 @@ export const PUT = withAuth('admin', async (req: NextRequest, user) => {
   const versionNumber = typeof versionSource === 'number' && Number.isFinite(versionSource)
     ? Math.max(1, Math.floor(versionSource))
     : 1
+  const existingStatus = pickAdminPacketStatus(loaded.data.status, 'draft')
+  const status = hasOwn(body, 'status') ? pickAdminPacketStatus(body.status, 'draft') : existingStatus
+  let checks = applySystemChecks(cleanGateChecks(body.checks, loaded.data.checks), channel.data)
+  if (status === 'approved') {
+    checks = {
+      ...checks,
+      approval: approvalCheck(user, 'Publishing packet approved by admin.', 'pass'),
+    }
+    if (hasBlockingChecks(checks)) {
+      return apiError('Publishing packet has blocking checks and cannot be approved', 409)
+    }
+  }
 
   const packet = stripUndefinedDeep({
     orgId,
@@ -367,7 +445,7 @@ export const PUT = withAuth('admin', async (req: NextRequest, user) => {
     videoProjectId,
     versionNumber,
     supersedesPacketId,
-    status: 'draft',
+    status,
     titleOptions: cleanTitleOptions(valueFromPatch(body, loaded.data, 'titleOptions')),
     description: cleanString(valueFromPatch(body, loaded.data, 'description')),
     tags: cleanStringArray(valueFromPatch(body, loaded.data, 'tags')),
@@ -384,12 +462,24 @@ export const PUT = withAuth('admin', async (req: NextRequest, user) => {
       ? valueFromPatch(body, loaded.data, 'containsSyntheticMedia')
       : undefined,
     aiDisclosureNotes: cleanString(valueFromPatch(body, loaded.data, 'aiDisclosureNotes')),
-    checks: applySystemChecks(cleanGateChecks(body.checks, loaded.data.checks), channel.data),
+    checks,
+    approvedBy: status === 'approved' ? user.uid : undefined,
+    approvedAt: status === 'approved' ? FieldValue.serverTimestamp() : undefined,
     deleted: false,
     ...updateActorFields(user),
   })
+  const write = stripUndefinedDeep({
+    ...packet,
+    approvedSnapshotHash: status === 'approved' ? approvalSnapshotHash(packet as Partial<YouTubePublishingPacket>) : undefined,
+  })
 
-  await loaded.ref.set(packet, { merge: true })
+  await loaded.ref.set(write, { merge: true })
+  if (status === 'client_review') {
+    await video.ref.set({
+      visibility: { showPublishingPacket: true },
+      ...updateActorFields(user),
+    }, { merge: true })
+  }
 
   return apiSuccess({ id, updated: true })
 })
