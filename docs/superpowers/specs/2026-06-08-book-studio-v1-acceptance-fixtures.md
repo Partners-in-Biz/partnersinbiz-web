@@ -10,6 +10,7 @@
 **Market evidence model:** `docs/superpowers/specs/2026-06-08-book-studio-v1-market-evidence-model.md`
 **Editorial quality model:** `docs/superpowers/specs/2026-06-08-book-studio-v1-editorial-quality-reader-experience-model.md`
 **Language and translation model:** `docs/superpowers/specs/2026-06-08-book-studio-v1-language-translation-edition-model.md`
+**Production budget and capacity model:** `docs/superpowers/specs/2026-06-08-book-studio-v1-production-budget-capacity-model.md`
 
 ## Purpose
 
@@ -35,6 +36,7 @@ These rules apply to every fixture below:
 - Any AI disclosure answer must come from provenance/generation records, not a single project checkbox.
 - Candidate selection must not use automated market scraping, sales forecasts, rank promises, bestseller claims, or competitor-copy reuse.
 - Any translated edition must keep source and target edition evidence separate, including language, rights, provenance, target quality, identifiers, channel support, pricing, portal, and analytics state.
+- Any production start must have approved or accepted-warning budget and capacity evidence, including human capacity, Hermes/model spend, proof costs, channel economics, and launch-spend separation.
 
 Devil's advocate:
 
@@ -341,6 +343,41 @@ An English business nonfiction eBook is proposed for a Spanish translated editio
 - KDP Kindle Translate beta output is treated as approved, editable, print-ready, or Google-ready without separate review.
 - Source-edition sales or rankings become a translated-edition demand promise.
 
+## Fixture K: Production Budget And Capacity Gate
+
+### Scenario
+
+PiB selects a low-content planner candidate after market evidence review. The operator wants to start Hermes-assisted page planning, order print proofs, and promise the client a delivery date before the budget and capacity lanes are reviewed.
+
+### Expected State
+
+| Area | Acceptance evidence |
+| --- | --- |
+| Budget scope | Candidate version, page/asset range, target formats, book family, and selected channels are visible. |
+| Capacity | Operator, reviewer, editor/designer, source reviewer, and client approver have owner and calendar evidence. |
+| Hermes | Model-backed runs require generation run, idempotency key, source manifest, budget ceiling, retry limit, and stale-output protection. |
+| Print/proof | KDP print cost, proof-copy cost, proof shipping estimate, trim, paper, ink, marketplace, and page-count assumptions are visible. |
+| Channel economics | KDP royalty/delivery/print assumptions and Google revenue-split/price rows are separated by channel and territory. |
+| Break-even | Break-even is internal risk language only; no sales forecast, rank promise, or profit guarantee is created. |
+| Portal | Client sees only reviewed scope/status or approval request, not raw PiB costs, margin, model costs, or proof-order details. |
+
+### Mixed Output
+
+- `BUDGET-PASS-001`: business nonfiction ebook has bounded scope, owners, no proof cost, approved Hermes run ceiling, KDP/Google price warnings, and zero launch spend; it may start scoped production.
+- `BUDGET-WARN-001`: low-content planner can continue only after owner/date warnings for print cost, proof shipping, and margin confirmation.
+- `BUDGET-WARN-002`: series concept allows book-one production only; future-volume cost and capacity remain blocked.
+- `BUDGET-BLOCK-001`: workbook with unknown page count, color/trim assumptions, no proof budget, and unknown margin blocks production.
+- `BUDGET-BLOCK-002`: translated illustrated book needs target-language and art/fixed-layout work outside V1 capacity, so it blocks or must be re-scoped.
+- `BUDGET-BLOCK-003`: launch ads or promo-code distribution are blocked from the production budget and must use launch/lifecycle approval.
+
+### Failure Conditions
+
+- A candidate starts production without approved or accepted-warning budget and capacity state.
+- Hermes/model work can incur cost without a run ledger, budget ceiling, or retry limit.
+- Proof ordering, print cost, shipping, page count, trim, or color assumptions are hidden for print-led books.
+- Break-even language becomes a client-visible profit promise.
+- Launch spend is bundled into production approval.
+
 ## Minimum Future Demo Set
 
 If the approval packet is accepted, a future Phase 1 implementation demo should include at least:
@@ -354,6 +391,7 @@ If the approval packet is accepted, a future Phase 1 implementation demo should 
 7. Fixture H proving market evidence pass/warn/block before production selection.
 8. Fixture I proving editorial quality pass/warn/block before package QA or portal proof.
 9. Fixture J proving translated-edition pass/warn/block before package QA, portal proof, manual handoff, or analytics promotion.
+10. Fixture K proving production budget/capacity pass/warn/block before production start, Hermes/model spend, proof orders, portal production promises, or launch-spend proposals.
 
 The demo should not be accepted if it only shows:
 
@@ -364,6 +402,7 @@ The demo should not be accepted if it only shows:
 - A Hermes task that can perform public, financial, credential, or approval actions.
 - A generated proof that bypasses editorial quality lanes.
 - A translated edition that bypasses language, rights, target-quality, metadata, identifier, channel, pricing, disclosure, or analytics gates.
+- A production start that bypasses budget, human capacity, Hermes/model budget, proof-cost, channel-economics, or launch-spend separation gates.
 
 ## Approval Gate Reminder
 

@@ -13,6 +13,7 @@
 **Launch/lifecycle governance model:** `docs/superpowers/specs/2026-06-08-book-studio-v1-launch-lifecycle-governance-model.md`
 **Market evidence model:** `docs/superpowers/specs/2026-06-08-book-studio-v1-market-evidence-model.md`
 **Language/translation model:** `docs/superpowers/specs/2026-06-08-book-studio-v1-language-translation-edition-model.md`
+**Production budget/capacity model:** `docs/superpowers/specs/2026-06-08-book-studio-v1-production-budget-capacity-model.md`
 
 ## Purpose
 
@@ -103,6 +104,19 @@ bookStudioV1SourceRefreshReport:
         - google-metadata
         - google-content-policies
         - google-program-policies
+    production_budget_capacity_sources:
+      required: true
+      completed: false
+      sources:
+        - kdp-price-book
+        - kdp-digital-book-pricing
+        - kdp-paperback-printing-cost
+        - kdp-proof-author-copy-cost
+        - kdp-proof-author-copy-shipping
+        - kdp-reports
+        - google-book-prices
+        - google-revenue-split
+        - google-reports
     local_publisher_and_jurisdiction_sources:
       required: true
       completed: false
@@ -297,6 +311,42 @@ bookStudioV1SourceRefreshReport:
       affectedApprovalFields: []
       affectedDocsToRevise: []
       planningImpact: planning_blocked_until_result_recorded
+    - key: kdp-digital-book-pricing
+      url: https://kdp.amazon.com/en_US/help/topic/G200634500
+      officialSource: true
+      checkedAt: "not_recorded_yet"
+      result: not_recorded_yet
+      evidenceSummary: not_recorded_yet
+      affectedApprovalFields: []
+      affectedDocsToRevise: []
+      planningImpact: planning_blocked_until_result_recorded
+    - key: kdp-paperback-printing-cost
+      url: https://kdp.amazon.com/en_US/help/topic/G201834340
+      officialSource: true
+      checkedAt: "not_recorded_yet"
+      result: not_recorded_yet
+      evidenceSummary: not_recorded_yet
+      affectedApprovalFields: []
+      affectedDocsToRevise: []
+      planningImpact: planning_blocked_until_result_recorded
+    - key: kdp-proof-author-copy-cost
+      url: https://kdp.amazon.com/en_US/help/topic/G2MYNEKHT443C2H2
+      officialSource: true
+      checkedAt: "not_recorded_yet"
+      result: not_recorded_yet
+      evidenceSummary: not_recorded_yet
+      affectedApprovalFields: []
+      affectedDocsToRevise: []
+      planningImpact: planning_blocked_until_result_recorded
+    - key: kdp-proof-author-copy-shipping
+      url: https://kdp.amazon.com/en_US/help/topic/GG6GRS7TKXVG6AGW
+      officialSource: true
+      checkedAt: "not_recorded_yet"
+      result: not_recorded_yet
+      evidenceSummary: not_recorded_yet
+      affectedApprovalFields: []
+      affectedDocsToRevise: []
+      planningImpact: planning_blocked_until_result_recorded
     - key: google-program-policies
       url: https://support.google.com/books/partner/answer/166501?hl=en
       officialSource: true
@@ -362,6 +412,15 @@ bookStudioV1SourceRefreshReport:
       planningImpact: planning_blocked_until_result_recorded
     - key: google-reports
       url: https://support.google.com/books/partner/answer/9266485?hl=en
+      officialSource: true
+      checkedAt: "not_recorded_yet"
+      result: not_recorded_yet
+      evidenceSummary: not_recorded_yet
+      affectedApprovalFields: []
+      affectedDocsToRevise: []
+      planningImpact: planning_blocked_until_result_recorded
+    - key: google-revenue-split
+      url: https://support.google.com/books/partner/answer/9331459?hl=en
       officialSource: true
       checkedAt: "not_recorded_yet"
       result: not_recorded_yet
@@ -563,7 +622,7 @@ bookStudioV1SourceRefreshReport:
 
 ## Required Source Groups
 
-The reviewer must check the source groups required by the final decision record. The recommended V1 approval requires seven core groups: KDP, Google Play Books, language/translation, market evidence, local publisher/jurisdiction, launch/lifecycle, and `ai-story`.
+The reviewer must check the source groups required by the final decision record. The recommended V1 approval requires eight core groups: KDP, Google Play Books, language/translation, market evidence, production budget/capacity, local publisher/jurisdiction, launch/lifecycle, and `ai-story`.
 
 | Group | Source key | Source to check | Planning claim protected |
 | --- | --- | --- | --- |
@@ -603,6 +662,15 @@ The reviewer must check the source groups required by the final decision record.
 | Market evidence | `kdp-print-pricing` | `https://kdp.amazon.com/en_US/help/topic/G8BKPU9AGVZSF9QF` | Print candidate margin and negative-margin blocker evidence. |
 | Market evidence | `google-metadata` | `https://support.google.com/books/partner/answer/3237055?hl=en` | Google genre and metadata fit for candidate selection. |
 | Market evidence | `google-content-policies` | `https://support.google.com/books/partner/answer/1067634?hl=en` | Google duplicate, misleading, spam, and quality blockers for candidate selection. |
+| Production budget/capacity | `kdp-price-book` | `https://kdp.amazon.com/en_US/help/topic/G200641280` | KDP list price, royalty option, territory, tax, fixed-price-law, and price-update budget assumptions. |
+| Production budget/capacity | `kdp-digital-book-pricing` | `https://kdp.amazon.com/en_US/help/topic/G200634500` | KDP eBook royalty, delivery cost, file-size, territory, promotional price, VAT, and price-match budget warnings. |
+| Production budget/capacity | `kdp-paperback-printing-cost` | `https://kdp.amazon.com/en_US/help/topic/G201834340` | KDP print cost, minimum list price, trim, page count, ink, paper, marketplace, and print-led margin blockers. |
+| Production budget/capacity | `kdp-proof-author-copy-cost` | `https://kdp.amazon.com/en_US/help/topic/G2MYNEKHT443C2H2` | KDP proof and author copy cost assumptions for print proof budgets. |
+| Production budget/capacity | `kdp-proof-author-copy-shipping` | `https://kdp.amazon.com/en_US/help/topic/GG6GRS7TKXVG6AGW` | KDP proof and author copy shipping estimate and checkout-evidence warning. |
+| Production budget/capacity | `kdp-reports` | `https://kdp.amazon.com/en_US/help/topic/GVTTXHKHVPAPBEDQ` | KDP estimate, payment, report timing, expanded distribution, KENP, and cost-recovery confidence. |
+| Production budget/capacity | `google-book-prices` | `https://support.google.com/books/partner/answer/3238849?hl=en` | Google country, currency, tax, effective-date, fixed-price-law, and payment-setting budget assumptions. |
+| Production budget/capacity | `google-revenue-split` | `https://support.google.com/books/partner/answer/9331459?hl=en` | Google revenue split by terms/country before Google margin or cost-recovery claims. |
+| Production budget/capacity | `google-reports` | `https://support.google.com/books/partner/answer/9266485?hl=en` | Google earnings, sales, refund, preview, currency, and report-type evidence for budget reconciliation. |
 | Launch/lifecycle | `kdp-select-promotions` | `https://kdp.amazon.com/en_US/help/topic/G200798990` | KDP Select, Kindle Unlimited, exclusivity, and promotion eligibility assumptions. |
 | Launch/lifecycle | `kdp-free-book-promotion` | `https://kdp.amazon.com/en_US/help/topic/G201298240` | Free Book Promotion eligibility, timing, royalty, rank, and cancellation caveats. |
 | Launch/lifecycle | `kdp-merchandising-reviews` | `https://kdp.amazon.com/en_US/help/topic/G200673650` | KDP review request, advance copy, and review-influence guardrails. |
@@ -658,10 +726,11 @@ A source refresh report can support `sourceRefreshRequiredBeforePlanning.complet
 6. Every `changed_non_blocking` result names any affected docs that were updated or explicitly confirms no doc update is needed.
 7. Every wider-channel source triggered by an approval revision is checked before the revised channel appears in planning.
 8. Every language/translation source triggered by translated-edition scope is checked before translation production, package QA, portal proof, manual handoff, or translated-edition analytics appears in planning.
-9. Local publisher sources remain separate from KDP and Google channel readiness.
-10. `ai-story-head` is treated as a prior-project baseline only, with keep/rewrite/reject classification deferred to planning.
-11. `blockersRemaining` is empty before `planningAllowedAfterRefresh` can become true.
-12. The report still excludes runtime routes, APIs, Firestore collections, UI, module toggles, Hermes runtime dispatch, direct publishing, analytics automation, and a Phase 1 task list.
+9. Every production budget/capacity source triggered by production-start, Hermes/model spend, proof-order, channel-economics, cost-recovery, or launch-spend scope is checked before those claims appear in planning.
+10. Local publisher sources remain separate from KDP and Google channel readiness.
+11. `ai-story-head` is treated as a prior-project baseline only, with keep/rewrite/reject classification deferred to planning.
+12. `blockersRemaining` is empty before `planningAllowedAfterRefresh` can become true.
+13. The report still excludes runtime routes, APIs, Firestore collections, UI, module toggles, Hermes runtime dispatch, direct publishing, analytics automation, budget approval workflows, cost calculators, and a Phase 1 task list.
 
 ## Devil's Advocate
 
@@ -683,6 +752,7 @@ This report does not create or approve:
 - Client self-serve generation.
 - Public/productized AI-book SaaS.
 - Automated analytics imports or report integrations.
+- Production budget ledgers, cost calculators, billing flows, or budget approval workflows.
 - A Phase 1 implementation task list.
 
 ## Current Review State

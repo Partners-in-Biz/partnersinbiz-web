@@ -21,6 +21,7 @@
 **Launch and lifecycle governance aid:** `docs/superpowers/specs/2026-06-08-book-studio-v1-launch-lifecycle-governance-model.md`
 **Market evidence aid:** `docs/superpowers/specs/2026-06-08-book-studio-v1-market-evidence-model.md`
 **Language and translation aid:** `docs/superpowers/specs/2026-06-08-book-studio-v1-language-translation-edition-model.md`
+**Production budget and capacity aid:** `docs/superpowers/specs/2026-06-08-book-studio-v1-production-budget-capacity-model.md`
 
 ## Purpose
 
@@ -122,6 +123,7 @@ bookStudioV1Approval:
     - estimated_reported_settled_separation
     - reconciliation_tasks
   productionReadinessScope:
+    - production_budget_and_capacity_gate
     - package_qa_evidence
     - checksum_bound_package_readiness
     - format_rights_accessibility_and_source_preflight
@@ -137,6 +139,7 @@ bookStudioV1Approval:
     - no_automated_export_or_file_validation_before_package_qa_is_implemented
     - no_automated_report_integrations_before_manual_import_model_is_proven
     - no_translation_engine_or_kindle_translate_automation_before_language_translation_gates_are_implemented
+    - no_budget_approval_or_cost_calculator_runtime_before_production_budget_gates_are_implemented
 ```
 
 ## Plain-Language Approval
@@ -173,6 +176,7 @@ The future Phase 1 plan must:
 - Map every task to the selected pilot set.
 - Map evidence-sensitive tasks to the V1 evidence acceptance matrix.
 - Preserve the market evidence model rule that a candidate reaches Book Brief or production selection only after a reviewed pass/warn/block decision, and that market evidence cannot promise sales, rank, or bestseller outcomes.
+- Preserve the production budget and capacity rule that a production-selectable candidate cannot start production, incur Hermes/model spend, order proofs, make client production promises, or propose launch spend without approved or accepted-warning budget and capacity evidence.
 - Preserve the language and translation model rule that translated editions need source/target language, translation rights, translator or AI provenance, target-language quality, reading direction, metadata, identifiers, pricing/territory, channel support, disclosure, portal, and analytics gates before translated-edition production, package QA, portal proof, manual handoff, or analytics promotion.
 - Preserve the production package QA rule that proof, file, cover, rights, accessibility, source freshness, and checksum evidence bind manual-handoff readiness to one exact package version.
 - Preserve the jurisdiction/local publisher rule that KDP or Google channel readiness does not prove South African legal-deposit, ISBN/imprint, copyright, contributor-authority, or local publisher readiness.

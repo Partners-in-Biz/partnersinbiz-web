@@ -10,6 +10,7 @@
 **Market evidence model:** `docs/superpowers/specs/2026-06-08-book-studio-v1-market-evidence-model.md`
 **Editorial quality model:** `docs/superpowers/specs/2026-06-08-book-studio-v1-editorial-quality-reader-experience-model.md`
 **Language and translation model:** `docs/superpowers/specs/2026-06-08-book-studio-v1-language-translation-edition-model.md`
+**Production budget and capacity model:** `docs/superpowers/specs/2026-06-08-book-studio-v1-production-budget-capacity-model.md`
 
 ## Purpose
 
@@ -36,6 +37,7 @@ The recommended V1 stays defensible by keeping five hard boundaries:
 - Internal PiB production studio first, not public self-serve SaaS.
 - KDP and Google Play Books manual handoff first, not direct publishing automation.
 - Reviewed market evidence before production selection, not sales/rank promises or shelf screenshots.
+- Reviewed production budget and capacity before production starts, not invisible human/model/proof spend.
 - Translated editions with their own language, rights, quality, metadata, identifier, channel, and analytics gates.
 - Reviewed artifact promotion to portal, not raw admin or Hermes visibility.
 - Hermes as bounded assistant with fixtures, not autonomous publisher.
@@ -49,6 +51,7 @@ The recommended V1 stays defensible by keeping five hard boundaries:
 | Scope | Does V1 try to cover every channel and book family? | Phase 1 becomes KDP, Google, Apple, Kobo, D2D, Ingram, audio, visual books, ads, and reviews at once. | Approval packet narrows first channels and pilots; wider channels stay adapter research. | Block if wider channels become first-scope requirements without source refresh. |
 | Book quality | Can a polished but weak book pass? | AI produces generic content that looks complete but disappoints readers or mismatches metadata. | Editorial quality model, Research packet, Book Brief, version-bound quality lanes, proof/package evidence, and negative-control fixtures. | Warn unless first demo includes at least one quality block case. |
 | Market evidence | Can a weak idea become a production project because the shelf looks active? | Operators treat search rank, bestseller labels, review counts, competitor screenshots, or generic category activity as proof that this book will sell. | Market evidence packet, pass/warn/block candidate state, KDP/Google discoverability source refresh, no sales/rank promises, Fixture H. | Block if Book Brief or production can start without reviewed market evidence. |
+| Production budget and capacity | Can a good candidate quietly become unaffordable or unsupportable? | Human work, Hermes/model runs, proof copies, print costs, launch spend, and review load are invisible until the project is already committed. | Production budget/capacity model, budget states, capacity lanes, Hermes run ceilings, proof-cost evidence, and `BUDGET-*` fixtures. | Block if production can start without approved or accepted-warning budget and capacity evidence. |
 | Rights and IP | Can weak rights evidence hide behind a nice cover? | Public-domain, companion, summary, quote, trademark, or asset risks are treated as creative issues instead of release blockers. | Rights-first fixture, asset provenance gates, public-domain/companion negative control, internal-only rights notes. | Block when rights evidence is missing, stale, or ambiguous for public use. |
 | KDP policy | Can the packet claim KDP readiness from memory? | Unsupported formats, misleading metadata, AI disclosure, ISBN/imprint, quality, or series rules are missed. | Source register, KDP readiness check, source freshness, manual upload checklist, packet blockers. | Block if source freshness or disclosure provenance is missing. |
 | Google Play Books policy | Can Google readiness be treated as the same as KDP readiness? | File, identifier, metadata, series, report, or content-policy differences are flattened. | Separate Google readiness packet, identifier history, file validation, report confidence model. | Block if Google evidence is inferred only from KDP packet state. |
@@ -79,6 +82,7 @@ The recommended V1 should be stopped or redesigned if any of these become true:
 - V1 must automate review outreach, paid ads, price changes, or public launch sends.
 - Portal users must see raw generation, raw research, internal rights notes, or unreconciled analytics.
 - Book Brief or production work can start from market screenshots, copied competitor positioning, automated market scraping, sales forecasts, rank promises, or negative/unknown print margin.
+- Production work, Hermes/model spend, proof orders, client production promises, or launch-spend proposals can start without approved or accepted-warning production budget and capacity evidence.
 - Package QA, portal proof, or publishing packet readiness can start from a generated/assisted manuscript that has not passed editorial quality review or accepted-warning review.
 - Translated-edition production, package QA, portal proof, manual handoff, Kindle Translate pathway, Google translated-edition packet, or translated-edition analytics can bypass language, rights, provenance, target-quality, metadata, identifier, pricing/territory, channel, and disclosure gates.
 - First scope must include wide distribution, audio, children/visual production, or full layout tooling without a separate source and safety refresh.
