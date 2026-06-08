@@ -108,6 +108,35 @@ const portalData = {
         },
       },
     ],
+    productionDrafts: [
+      {
+        id: 'draft-1',
+        videoProjectId: 'video-1',
+        title: 'Launch story draft',
+        draftType: 'script',
+        status: 'client_review',
+        versionNumber: 2,
+        summary: 'Narrative arc for the launch story.',
+        hook: 'Open with the before/after tension.',
+        outline: ['Hook', 'Problem', 'Proof'],
+        scriptText: 'Client-visible draft script excerpt.',
+        scenes: [{
+          label: 'Hook',
+          summary: 'Founder opens with the measurable result.',
+          targetSeconds: 45,
+          voiceover: 'We cut reporting time in half.',
+          visualNotes: 'Talking-head with product overlay.',
+          onScreenText: 'Reporting time cut in half',
+        }],
+        checks: {
+          claims: { status: 'warning' },
+          brand: { status: 'pass' },
+          sourceEvidence: { status: 'warning' },
+          clientApproval: { status: 'warning' },
+        },
+        clientNotes: 'Client can review the flow and script.',
+      },
+    ],
     analytics: [],
   },
 }
@@ -211,6 +240,22 @@ describe('YouTubeStudioPortalWorkspace module availability', () => {
     expect(screen.getByText('120s-178s / vertical short / suggested')).toBeInTheDocument()
     expect(screen.getByText('Client explains the measurable result.')).toBeInTheDocument()
     expect(screen.getByText('We cut reporting time in half after the launch.')).toBeInTheDocument()
+    expect(screen.queryByText('Operator-only')).not.toBeInTheDocument()
+  })
+
+  it('renders client-facing production draft summaries', async () => {
+    global.fetch = jest.fn().mockResolvedValue(jsonResponse(portalData))
+
+    render(<YouTubeStudioPortalWorkspace />)
+
+    expect(await screen.findByText('Launch story draft')).toBeInTheDocument()
+    expect(screen.getByText('script / client review / v2')).toBeInTheDocument()
+    expect(screen.getByText('Narrative arc for the launch story.')).toBeInTheDocument()
+    expect(screen.getByText('Open with the before/after tension.')).toBeInTheDocument()
+    expect(screen.getByText('Client-visible draft script excerpt.')).toBeInTheDocument()
+    expect(screen.getByText('Hook / 45s')).toBeInTheDocument()
+    expect(screen.getByText('Founder opens with the measurable result.')).toBeInTheDocument()
+    expect(screen.getByText('claims: warning')).toBeInTheDocument()
     expect(screen.queryByText('Operator-only')).not.toBeInTheDocument()
   })
 
@@ -384,6 +429,7 @@ describe('YouTubeStudioPortalWorkspace module availability', () => {
       if (url.includes('/videos')) return jsonResponse({ success: true, data: { videos: [] } })
       if (url.includes('/publish-packets')) return jsonResponse({ success: true, data: { packets: [] } })
       if (url.includes('/release-plans')) return jsonResponse({ success: true, data: { releasePlans: [] } })
+      if (url.includes('/production-drafts')) return jsonResponse({ success: true, data: { productionDrafts: [] } })
       return jsonResponse({ success: true })
     })
     global.fetch = fetchMock as jest.Mock
@@ -440,6 +486,7 @@ describe('YouTubeStudioPortalWorkspace module availability', () => {
       if (url.includes('/publish-packets')) return jsonResponse({ success: true, data: { packets: [] } })
       if (url.includes('/release-plans')) return jsonResponse({ success: true, data: { releasePlans: [] } })
       if (url.includes('/agent-jobs')) return jsonResponse({ success: true, data: { jobs: [] } })
+      if (url.includes('/production-drafts')) return jsonResponse({ success: true, data: { productionDrafts: [] } })
       if (url.includes('/analytics')) return jsonResponse({ success: true, data: { snapshots: [] } })
       return jsonResponse({ success: true })
     })
@@ -549,6 +596,7 @@ describe('YouTubeStudioPortalWorkspace module availability', () => {
         })
       }
       if (url.includes('/release-plans')) return jsonResponse({ success: true, data: { releasePlans: [] } })
+      if (url.includes('/production-drafts')) return jsonResponse({ success: true, data: { productionDrafts: [] } })
       if (url.includes('/agent-jobs')) return jsonResponse({ success: true, data: { jobs: [] } })
       if (url.includes('/analytics')) return jsonResponse({ success: true, data: { snapshots: [] } })
       return jsonResponse({ success: true })
@@ -640,6 +688,7 @@ describe('YouTubeStudioPortalWorkspace module availability', () => {
         })
       }
       if (url.includes('/release-plans')) return jsonResponse({ success: true, data: { releasePlans: [] } })
+      if (url.includes('/production-drafts')) return jsonResponse({ success: true, data: { productionDrafts: [] } })
       if (url.includes('/agent-jobs')) return jsonResponse({ success: true, data: { jobs: [] } })
       if (url.includes('/analytics')) return jsonResponse({ success: true, data: { snapshots: [] } })
       return jsonResponse({ success: true })
@@ -742,6 +791,7 @@ describe('YouTubeStudioPortalWorkspace module availability', () => {
       if (url.includes('/publish-packets')) return jsonResponse({ success: true, data: { packets: [] } })
       if (url.includes('/release-plans')) return jsonResponse({ success: true, data: { releasePlans: [] } })
       if (url.includes('/agent-jobs')) return jsonResponse({ success: true, data: { jobs: [] } })
+      if (url.includes('/production-drafts')) return jsonResponse({ success: true, data: { productionDrafts: [] } })
       if (url.includes('/analytics')) return jsonResponse({ success: true, data: { snapshots: [] } })
       return jsonResponse({ success: true })
     })
@@ -824,6 +874,148 @@ describe('YouTubeStudioPortalWorkspace module availability', () => {
     })
   })
 
+  it('posts production drafts from the admin workspace', async () => {
+    const fetchMock = jest.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      if (url === '/api/v1/youtube-studio/production-drafts' && init?.method === 'POST') {
+        return jsonResponse({ success: true, data: { id: 'draft-new' } })
+      }
+      if (url.includes('/channels')) {
+        return jsonResponse({
+          success: true,
+          data: {
+            channels: [
+              {
+                id: 'channel-1',
+                title: 'Lumen Channel',
+                status: 'active',
+                youtubeHandle: '@lumen',
+              },
+            ],
+          },
+        })
+      }
+      if (url.includes('/series')) return jsonResponse({ success: true, data: { series: [] } })
+      if (url.includes('/videos')) {
+        return jsonResponse({
+          success: true,
+          data: {
+            videos: [
+              {
+                id: 'video-1',
+                channelWorkspaceId: 'channel-1',
+                title: 'Draft launch cut',
+                status: 'production',
+                objective: 'Prepare launch',
+                videoType: 'long_form',
+              },
+            ],
+          },
+        })
+      }
+      if (url.includes('/source-assets')) {
+        return jsonResponse({
+          success: true,
+          data: {
+            sourceAssets: [
+              {
+                id: 'asset-1',
+                channelWorkspaceId: 'channel-1',
+                videoProjectId: 'video-1',
+                title: 'Launch interview raw footage',
+                assetType: 'raw_footage',
+                status: 'ready',
+              },
+            ],
+          },
+        })
+      }
+      if (url.includes('/clip-candidates')) {
+        return jsonResponse({
+          success: true,
+          data: {
+            clipCandidates: [
+              {
+                id: 'clip-1',
+                sourceAssetId: 'asset-1',
+                videoProjectId: 'video-1',
+                title: 'Strong customer proof moment',
+                startSeconds: 120,
+                endSeconds: 178,
+                targetFormat: 'vertical_short',
+                status: 'suggested',
+              },
+            ],
+          },
+        })
+      }
+      if (url.includes('/production-drafts')) return jsonResponse({ success: true, data: { productionDrafts: [] } })
+      if (url.includes('/publish-packets')) return jsonResponse({ success: true, data: { packets: [] } })
+      if (url.includes('/release-plans')) return jsonResponse({ success: true, data: { releasePlans: [] } })
+      if (url.includes('/agent-jobs')) return jsonResponse({ success: true, data: { jobs: [] } })
+      if (url.includes('/analytics')) return jsonResponse({ success: true, data: { snapshots: [] } })
+      return jsonResponse({ success: true })
+    })
+    global.fetch = fetchMock as jest.Mock
+
+    render(<YouTubeStudioAdminWorkspace orgId="lumen-org" orgName="Lumen" />)
+
+    const createDraftButton = await screen.findByRole('button', { name: 'Create production draft' })
+    const draftForm = within(createDraftButton.closest('form') as HTMLElement)
+
+    fireEvent.change(draftForm.getByLabelText('Draft video'), { target: { value: 'video-1' } })
+    fireEvent.change(draftForm.getByLabelText('Draft title'), { target: { value: 'Launch story draft' } })
+    fireEvent.change(draftForm.getByLabelText('Draft type'), { target: { value: 'script' } })
+    fireEvent.change(draftForm.getByLabelText('Draft summary'), { target: { value: 'Narrative arc for the launch story.' } })
+    fireEvent.change(draftForm.getByLabelText('Draft hook'), { target: { value: 'Open with the before/after tension.' } })
+    fireEvent.change(draftForm.getByLabelText('Draft outline'), { target: { value: 'Hook\nProblem\nProof' } })
+    fireEvent.change(draftForm.getByLabelText('Draft script'), { target: { value: 'Client-visible draft script excerpt.' } })
+    fireEvent.change(draftForm.getByLabelText('Draft source assets'), { target: { value: 'asset-1' } })
+    fireEvent.change(draftForm.getByLabelText('Draft clip candidates'), { target: { value: 'clip-1' } })
+    fireEvent.change(draftForm.getByLabelText('Draft scenes'), {
+      target: {
+        value: 'Hook | 45 | Founder opens with the measurable result. | We cut reporting time in half. | Talking-head with product overlay. | Reporting time cut in half',
+      },
+    })
+    fireEvent.click(draftForm.getByLabelText('Show draft in portal'))
+    fireEvent.click(draftForm.getByLabelText('Show script in portal'))
+    fireEvent.click(draftForm.getByLabelText('Show scenes in portal'))
+    fireEvent.click(createDraftButton)
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        '/api/v1/youtube-studio/production-drafts',
+        expect.objectContaining({ method: 'POST' }),
+      )
+    })
+    const draftPost = fetchMock.mock.calls.find(([input, init]) => (
+      String(input) === '/api/v1/youtube-studio/production-drafts' &&
+      init?.method === 'POST'
+    ))
+    expect(JSON.parse(String(draftPost?.[1]?.body))).toMatchObject({
+      orgId: 'lumen-org',
+      channelWorkspaceId: 'channel-1',
+      videoProjectId: 'video-1',
+      title: 'Launch story draft',
+      draftType: 'script',
+      summary: 'Narrative arc for the launch story.',
+      hook: 'Open with the before/after tension.',
+      outline: ['Hook', 'Problem', 'Proof'],
+      scriptText: 'Client-visible draft script excerpt.',
+      sourceAssetIds: ['asset-1'],
+      clipCandidateIds: ['clip-1'],
+      scenes: [{
+        label: 'Hook',
+        targetSeconds: 45,
+        summary: 'Founder opens with the measurable result.',
+        voiceover: 'We cut reporting time in half.',
+        visualNotes: 'Talking-head with product overlay.',
+        onScreenText: 'Reporting time cut in half',
+      }],
+      visibility: { showInClientPortal: true, showScriptInPortal: true, showScenesInPortal: true },
+    })
+  })
+
   it('ignores stale admin save completions after the scoped org changes', async () => {
     let resolveSave: (value: Response) => void = () => undefined
     const savePromise = new Promise<Response>((resolve) => {
@@ -852,6 +1044,7 @@ describe('YouTubeStudioPortalWorkspace module availability', () => {
       if (url.includes('/videos')) return jsonResponse({ success: true, data: { videos: [] } })
       if (url.includes('/publish-packets')) return jsonResponse({ success: true, data: { packets: [] } })
       if (url.includes('/release-plans')) return jsonResponse({ success: true, data: { releasePlans: [] } })
+      if (url.includes('/production-drafts')) return jsonResponse({ success: true, data: { productionDrafts: [] } })
       return jsonResponse({ success: true })
     })
     global.fetch = fetchMock as jest.Mock
@@ -859,7 +1052,7 @@ describe('YouTubeStudioPortalWorkspace module availability', () => {
     const { rerender } = render(<YouTubeStudioAdminWorkspace orgId="lumen-org" orgName="Lumen" />)
 
     await waitFor(() => {
-      expect(fetchMock.mock.calls.filter(([input]) => String(input).includes('lumen-org'))).toHaveLength(9)
+      expect(fetchMock.mock.calls.filter(([input]) => String(input).includes('lumen-org'))).toHaveLength(10)
     })
 
     const channelTitleField = await screen.findByLabelText('Channel title')
@@ -945,7 +1138,7 @@ describe('YouTubeStudioPortalWorkspace module availability', () => {
 
     const { rerender } = render(<YouTubeStudioAdminWorkspace orgId="lumen-org" orgName="Lumen" />)
     await waitFor(() => {
-      expect(fetchMock.mock.calls.filter(([input]) => String(input).includes('lumen-org'))).toHaveLength(9)
+      expect(fetchMock.mock.calls.filter(([input]) => String(input).includes('lumen-org'))).toHaveLength(10)
     })
 
     rerender(<YouTubeStudioAdminWorkspace orgId="velox-org" orgName="Velox" />)

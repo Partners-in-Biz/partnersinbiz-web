@@ -22,6 +22,10 @@ import type {
   YouTubeConnectedAccountStatus,
   YouTubeGateCheck,
   YouTubeGateStatus,
+  YouTubeProductionDraft,
+  YouTubeProductionDraftScene,
+  YouTubeProductionDraftStatus,
+  YouTubeProductionDraftType,
   YouTubePublishingPacket,
   YouTubePublishingPolicy,
   YouTubePublishingReadiness,
@@ -130,6 +134,24 @@ const CLIP_TARGET_FORMATS: YouTubeClipTargetFormat[] = [
   'long_form_excerpt',
   'ad_cutdown',
   'testimonial_cut',
+]
+const PRODUCTION_DRAFT_TYPES: YouTubeProductionDraftType[] = [
+  'brief',
+  'outline',
+  'script',
+  'storyboard',
+  'shot_list',
+  'voiceover',
+  'edit_notes',
+]
+const PRODUCTION_DRAFT_STATUSES: YouTubeProductionDraftStatus[] = [
+  'draft',
+  'internal_review',
+  'client_review',
+  'approved',
+  'changes_requested',
+  'blocked',
+  'archived',
 ]
 const CLIENT_REVIEW_STATUSES = ['not_requested', 'requested', 'approved', 'changes_requested', 'rejected'] as const
 const PACKET_STATUSES: YouTubePublishingPacket['status'][] = [
@@ -375,6 +397,36 @@ export type ClientSafeYouTubeClipCandidate = Pick<
   }
 }
 
+type ClientSafeProductionDraftScene = Pick<
+  YouTubeProductionDraftScene,
+  'label' | 'summary' | 'targetSeconds' | 'voiceover' | 'visualNotes' | 'onScreenText'
+>
+
+export type ClientSafeYouTubeProductionDraft = Pick<
+  YouTubeProductionDraft,
+  | 'id'
+  | 'orgId'
+  | 'channelWorkspaceId'
+  | 'videoProjectId'
+  | 'title'
+  | 'draftType'
+  | 'status'
+  | 'versionNumber'
+  | 'summary'
+  | 'hook'
+  | 'outline'
+  | 'scriptText'
+  | 'clientNotes'
+> & {
+  scenes: ClientSafeProductionDraftScene[]
+  checks: {
+    claims?: ClientSafeYouTubeGateCheck
+    brand?: ClientSafeYouTubeGateCheck
+    sourceEvidence?: ClientSafeYouTubeGateCheck
+    clientApproval?: ClientSafeYouTubeGateCheck
+  }
+}
+
 function cleanString(value: unknown): string | undefined {
   return typeof value === 'string' && value.trim() ? value.trim() : undefined
 }
@@ -400,6 +452,16 @@ function cleanStringArray(value: unknown): string[] {
   if (Array.isArray(value)) return value.map(cleanString).filter((item): item is string => Boolean(item))
   if (typeof value === 'string') return value.split(/[\n,]+/).map((item) => item.trim()).filter(Boolean)
   return []
+}
+
+function uniqueCleanStringArray(value: unknown): string[] {
+  return Array.from(new Set(cleanStringArray(value)))
+}
+
+function cleanPositiveInteger(value: unknown, fallback = 1): number {
+  const number = cleanNonNegativeNumber(value)
+  if (number === undefined || number < 1) return fallback
+  return Math.floor(number)
 }
 
 function cleanStringRecord(value: unknown): Record<string, string> | undefined {
@@ -772,6 +834,82 @@ export function sanitizeYouTubeClipCandidateInput(
   })
 }
 
+function sanitizeProductionDraftChecks(input: unknown): YouTubeProductionDraft['checks'] {
+  const source = cleanObject(input)
+
+  return {
+    claims: stripUndefinedDeep({
+      status: pick(GATE_STATUSES, cleanObject(source.claims).status, 'warning'),
+      message: cleanString(cleanObject(source.claims).message) ?? 'Claims review required before this draft is client-ready.',
+    }),
+    brand: stripUndefinedDeep({
+      status: pick(GATE_STATUSES, cleanObject(source.brand).status, 'warning'),
+      message: cleanString(cleanObject(source.brand).message) ?? 'Brand review required before this draft is client-ready.',
+    }),
+    sourceEvidence: stripUndefinedDeep({
+      status: pick(GATE_STATUSES, cleanObject(source.sourceEvidence).status, 'warning'),
+      message: cleanString(cleanObject(source.sourceEvidence).message) ?? 'Source evidence review required before this draft is client-ready.',
+    }),
+    clientApproval: stripUndefinedDeep({
+      status: pick(GATE_STATUSES, cleanObject(source.clientApproval).status, 'warning'),
+      message: cleanString(cleanObject(source.clientApproval).message) ?? 'Client approval required before production can proceed.',
+    }),
+  }
+}
+
+function sanitizeProductionDraftScenes(input: unknown): YouTubeProductionDraftScene[] {
+  if (!Array.isArray(input)) return []
+
+  return input.flatMap((item) => {
+    const source = cleanObject(item)
+    const label = cleanString(source.label)
+    if (!label) return []
+
+    return [stripUndefinedDeep({
+      label,
+      summary: cleanString(source.summary),
+      targetSeconds: cleanNonNegativeNumber(source.targetSeconds),
+      voiceover: cleanString(source.voiceover),
+      visualNotes: cleanString(source.visualNotes),
+      onScreenText: cleanString(source.onScreenText),
+      sourceAssetIds: uniqueCleanStringArray(source.sourceAssetIds),
+      clipCandidateIds: uniqueCleanStringArray(source.clipCandidateIds),
+    })]
+  })
+}
+
+export function sanitizeYouTubeProductionDraftInput(
+  input: RawInput
+): Omit<YouTubeProductionDraft, 'id' | 'createdAt' | 'updatedAt' | 'createdBy' | 'createdByType' | 'updatedBy' | 'updatedByType'> {
+  const visibility = cleanObject(input.visibility)
+
+  return stripUndefinedDeep({
+    orgId: cleanString(input.orgId) ?? '',
+    channelWorkspaceId: cleanString(input.channelWorkspaceId) ?? '',
+    videoProjectId: cleanString(input.videoProjectId) ?? '',
+    title: cleanString(input.title) ?? 'Untitled production draft',
+    draftType: pick(PRODUCTION_DRAFT_TYPES, input.draftType, 'script'),
+    status: pick(PRODUCTION_DRAFT_STATUSES, input.status, 'draft'),
+    versionNumber: cleanPositiveInteger(input.versionNumber),
+    summary: cleanString(input.summary),
+    hook: cleanString(input.hook),
+    outline: uniqueCleanStringArray(input.outline),
+    scriptText: cleanString(input.scriptText),
+    sourceAssetIds: uniqueCleanStringArray(input.sourceAssetIds),
+    clipCandidateIds: uniqueCleanStringArray(input.clipCandidateIds),
+    scenes: sanitizeProductionDraftScenes(input.scenes),
+    checks: sanitizeProductionDraftChecks(input.checks),
+    visibility: {
+      showInClientPortal: visibility.showInClientPortal === true,
+      showScriptInPortal: visibility.showScriptInPortal === true,
+      showScenesInPortal: visibility.showScenesInPortal === true,
+    },
+    internalNotes: cleanString(input.internalNotes),
+    clientNotes: cleanString(input.clientNotes),
+    deleted: input.deleted === true,
+  })
+}
+
 function sanitizeYouTubeAnalyticsMetrics(input: unknown): YouTubeAnalyticsMetrics {
   const source = cleanObject(input)
 
@@ -1110,6 +1248,53 @@ export function clientSafeYouTubeClipCandidate(clip: YouTubeClipCandidate): Clie
       rights: clientSafeGateCheck(checks.rights),
       aiDisclosure: clientSafeGateCheck(checks.aiDisclosure),
     },
+  })
+}
+
+function clientSafeProductionDraftScene(scene: unknown): ClientSafeProductionDraftScene | undefined {
+  const source = cleanObject(scene)
+  const label = cleanString(source.label)
+  if (!label) return undefined
+
+  return stripUndefinedDeep({
+    label,
+    summary: cleanString(source.summary),
+    targetSeconds: cleanNonNegativeNumber(source.targetSeconds),
+    voiceover: cleanString(source.voiceover),
+    visualNotes: cleanString(source.visualNotes),
+    onScreenText: cleanString(source.onScreenText),
+  })
+}
+
+export function clientSafeYouTubeProductionDraft(
+  draft: YouTubeProductionDraft
+): ClientSafeYouTubeProductionDraft {
+  const checks = cleanObject(draft.checks)
+  const visibility = cleanObject(draft.visibility)
+
+  return stripUndefinedDeep({
+    id: cleanString(draft.id),
+    orgId: cleanString(draft.orgId) ?? '',
+    channelWorkspaceId: cleanString(draft.channelWorkspaceId) ?? '',
+    videoProjectId: cleanString(draft.videoProjectId) ?? '',
+    title: cleanString(draft.title) ?? 'Untitled production draft',
+    draftType: pick(PRODUCTION_DRAFT_TYPES, draft.draftType, 'script'),
+    status: pick(PRODUCTION_DRAFT_STATUSES, draft.status, 'draft'),
+    versionNumber: cleanPositiveInteger(draft.versionNumber),
+    summary: cleanString(draft.summary),
+    hook: cleanString(draft.hook),
+    outline: uniqueCleanStringArray(draft.outline),
+    scriptText: visibility.showScriptInPortal === true ? cleanString(draft.scriptText) : undefined,
+    scenes: visibility.showScenesInPortal === true
+      ? (Array.isArray(draft.scenes) ? draft.scenes.map(clientSafeProductionDraftScene).filter(isDefined) : [])
+      : [],
+    checks: {
+      claims: clientSafeGateCheck(checks.claims),
+      brand: clientSafeGateCheck(checks.brand),
+      sourceEvidence: clientSafeGateCheck(checks.sourceEvidence),
+      clientApproval: clientSafeGateCheck(checks.clientApproval),
+    },
+    clientNotes: cleanString(draft.clientNotes),
   })
 }
 

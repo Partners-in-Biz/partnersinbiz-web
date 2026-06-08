@@ -10,6 +10,7 @@ const mockPacketsGet = jest.fn()
 const mockReleasePlansGet = jest.fn()
 const mockSourceAssetsGet = jest.fn()
 const mockClipCandidatesGet = jest.fn()
+const mockProductionDraftsGet = jest.fn()
 const mockAnalyticsGet = jest.fn()
 const mockAdd = jest.fn()
 const mockDoc = jest.fn()
@@ -55,6 +56,7 @@ type FirestoreStage = {
   releasePlans?: FirestoreDoc[]
   sourceAssets?: FirestoreDoc[]
   clipCandidates?: FirestoreDoc[]
+  productionDrafts?: FirestoreDoc[]
   analytics?: FirestoreDoc[]
 }
 
@@ -470,6 +472,66 @@ function defaultStage(): Required<FirestoreStage> {
         },
       },
     ],
+    productionDrafts: [
+      {
+        id: 'draft-1',
+        data: {
+          orgId: 'org-1',
+          channelWorkspaceId: 'channel-1',
+          videoProjectId: 'video-1',
+          title: 'Launch story draft',
+          draftType: 'script',
+          status: 'client_review',
+          versionNumber: 2,
+          summary: 'Narrative arc for the launch story.',
+          hook: 'Open with the before/after tension.',
+          outline: ['Hook', 'Problem', 'Proof'],
+          scriptText: 'Client-visible draft script excerpt.',
+          sourceAssetIds: ['asset-1', 'asset-secret'],
+          clipCandidateIds: ['clip-1', 'clip-secret'],
+          scenes: [
+            {
+              label: 'Hook',
+              summary: 'Founder opens with the measurable result.',
+              targetSeconds: 45,
+              voiceover: 'We cut reporting time in half.',
+              visualNotes: 'Talking-head with product overlay.',
+              onScreenText: 'Reporting time cut in half',
+              sourceAssetIds: ['asset-1'],
+              clipCandidateIds: ['clip-1'],
+              internalPrompt: 'Operator-only scene prompt',
+              sourceTrace: 'secret source trace',
+            },
+          ],
+          checks: {
+            claims: { status: 'warning', message: 'Claims need source review.', checkedBy: 'admin-secret' },
+            brand: { status: 'pass', message: 'Brand voice is aligned.', checkedBy: 'agent-secret' },
+            sourceEvidence: { status: 'warning', message: 'Evidence map pending.' },
+            clientApproval: { status: 'warning', message: 'Client review requested.' },
+          },
+          visibility: { showInClientPortal: true, showScriptInPortal: true, showScenesInPortal: true },
+          clientNotes: 'Client can review the flow and script.',
+          internalNotes: 'Operator-only production draft notes',
+          createdBy: 'admin-1',
+          updatedBy: 'admin-2',
+          deleted: false,
+        },
+      },
+      {
+        id: 'draft-hidden-video',
+        data: {
+          orgId: 'org-1',
+          channelWorkspaceId: 'channel-1',
+          videoProjectId: 'video-hidden',
+          title: 'Hidden video draft',
+          draftType: 'script',
+          status: 'client_review',
+          versionNumber: 1,
+          visibility: { showInClientPortal: true },
+          deleted: false,
+        },
+      },
+    ],
     analytics: [
       {
         id: 'snapshot-1',
@@ -540,6 +602,7 @@ function stageFirestore(overrides: FirestoreStage = {}) {
   const releasePlanDocs = docsById(staged.releasePlans)
   const sourceAssetDocs = docsById(staged.sourceAssets)
   const clipCandidateDocs = docsById(staged.clipCandidates)
+  const productionDraftDocs = docsById(staged.productionDrafts)
   const analyticsDocs = docsById(staged.analytics)
 
   mockOrgGet.mockResolvedValue({
@@ -567,6 +630,9 @@ function stageFirestore(overrides: FirestoreStage = {}) {
   mockClipCandidatesGet.mockResolvedValue({
     docs: staged.clipCandidates.map((doc) => ({ id: doc.id, data: () => doc.data })),
   })
+  mockProductionDraftsGet.mockResolvedValue({
+    docs: staged.productionDrafts.map((doc) => ({ id: doc.id, data: () => doc.data })),
+  })
   mockAnalyticsGet.mockResolvedValue({
     docs: staged.analytics.map((doc) => ({ id: doc.id, data: () => doc.data })),
   })
@@ -584,6 +650,7 @@ function stageFirestore(overrides: FirestoreStage = {}) {
       youtube_release_plans: { docs: releasePlanDocs, queryGet: mockReleasePlansGet },
       youtube_source_assets: { docs: sourceAssetDocs, queryGet: mockSourceAssetsGet },
       youtube_clip_candidates: { docs: clipCandidateDocs, queryGet: mockClipCandidatesGet },
+      youtube_production_drafts: { docs: productionDraftDocs, queryGet: mockProductionDraftsGet },
       youtube_analytics_snapshots: { docs: analyticsDocs, queryGet: mockAnalyticsGet },
     }
     const collection = collections[name as keyof typeof collections]
@@ -636,6 +703,7 @@ describe('portal youtube studio API', () => {
     expect(body.data.releasePlans.map((plan: { id: string }) => plan.id)).toEqual(['release-1'])
     expect(body.data.sourceAssets.map((asset: { id: string }) => asset.id)).toEqual(['asset-1'])
     expect(body.data.clipCandidates.map((clip: { id: string }) => clip.id)).toEqual(['clip-1'])
+    expect(body.data.productionDrafts.map((draft: { id: string }) => draft.id)).toEqual(['draft-1'])
     expect(body.data.analytics.map((snapshot: { id: string }) => snapshot.id)).toEqual(['snapshot-1'])
     const channel = body.data.channels[0]
     const series = body.data.series[0]
@@ -644,6 +712,7 @@ describe('portal youtube studio API', () => {
     const releasePlan = body.data.releasePlans[0]
     const sourceAsset = body.data.sourceAssets[0]
     const clipCandidate = body.data.clipCandidates[0]
+    const productionDraft = body.data.productionDrafts[0]
     const snapshot = body.data.analytics[0]
     expect(channel).not.toHaveProperty('connectedAccountId')
     expect(channel).not.toHaveProperty('internalNotes')
@@ -816,6 +885,44 @@ describe('portal youtube studio API', () => {
     expect(clipCandidate).not.toHaveProperty('createdBy')
     expect(clipCandidate.checks.rights).not.toHaveProperty('checkedBy')
     expect(JSON.stringify(clipCandidate)).not.toContain('Operator-only')
+    expect(productionDraft).toMatchObject({
+      id: 'draft-1',
+      orgId: 'org-1',
+      channelWorkspaceId: 'channel-1',
+      videoProjectId: 'video-1',
+      title: 'Launch story draft',
+      draftType: 'script',
+      status: 'client_review',
+      versionNumber: 2,
+      summary: 'Narrative arc for the launch story.',
+      hook: 'Open with the before/after tension.',
+      outline: ['Hook', 'Problem', 'Proof'],
+      scriptText: 'Client-visible draft script excerpt.',
+      scenes: [{
+        label: 'Hook',
+        summary: 'Founder opens with the measurable result.',
+        targetSeconds: 45,
+        voiceover: 'We cut reporting time in half.',
+        visualNotes: 'Talking-head with product overlay.',
+        onScreenText: 'Reporting time cut in half',
+      }],
+      checks: {
+        claims: { status: 'warning', message: 'Claims need source review.' },
+        brand: { status: 'pass', message: 'Brand voice is aligned.' },
+        sourceEvidence: { status: 'warning', message: 'Evidence map pending.' },
+        clientApproval: { status: 'warning', message: 'Client review requested.' },
+      },
+      clientNotes: 'Client can review the flow and script.',
+    })
+    expect(productionDraft).not.toHaveProperty('sourceAssetIds')
+    expect(productionDraft).not.toHaveProperty('clipCandidateIds')
+    expect(productionDraft).not.toHaveProperty('internalNotes')
+    expect(productionDraft).not.toHaveProperty('createdBy')
+    expect(productionDraft.checks.claims).not.toHaveProperty('checkedBy')
+    expect(productionDraft.scenes[0]).not.toHaveProperty('sourceAssetIds')
+    expect(productionDraft.scenes[0]).not.toHaveProperty('clipCandidateIds')
+    expect(JSON.stringify(productionDraft)).not.toContain('Operator-only')
+    expect(JSON.stringify(productionDraft)).not.toContain('secret')
     expect(snapshot).toMatchObject({
       id: 'snapshot-1',
       orgId: 'org-1',
@@ -1036,6 +1143,7 @@ describe('portal youtube studio API', () => {
     expect(mockReleasePlansGet).not.toHaveBeenCalled()
     expect(mockSourceAssetsGet).not.toHaveBeenCalled()
     expect(mockClipCandidatesGet).not.toHaveBeenCalled()
+    expect(mockProductionDraftsGet).not.toHaveBeenCalled()
     expect(mockAnalyticsGet).not.toHaveBeenCalled()
   })
 

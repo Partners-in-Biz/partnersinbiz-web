@@ -1911,4 +1911,285 @@ describe('youtube studio admin API', () => {
     expect(body.error).toMatch(errorPattern)
     expect(mockAdd).not.toHaveBeenCalled()
   })
+
+  it('lists production drafts for an org and filters by video project', async () => {
+    stageFirestore({
+      youtube_production_drafts: {
+        listDocs: [
+          {
+            id: 'draft-1',
+            data: {
+              orgId: 'org-1',
+              channelWorkspaceId: 'channel-1',
+              videoProjectId: 'video-1',
+              title: 'Launch story draft',
+              draftType: 'script',
+              status: 'client_review',
+              versionNumber: 2,
+              deleted: false,
+            },
+          },
+          {
+            id: 'draft-hidden',
+            data: {
+              orgId: 'org-1',
+              channelWorkspaceId: 'channel-1',
+              videoProjectId: 'video-1',
+              title: 'Deleted draft',
+              draftType: 'script',
+              status: 'draft',
+              versionNumber: 1,
+              deleted: true,
+            },
+          },
+          {
+            id: 'draft-other-video',
+            data: {
+              orgId: 'org-1',
+              channelWorkspaceId: 'channel-1',
+              videoProjectId: 'video-2',
+              title: 'Other video draft',
+              draftType: 'outline',
+              status: 'draft',
+              versionNumber: 1,
+              deleted: false,
+            },
+          },
+        ],
+      },
+    })
+
+    const { GET } = await import('@/app/api/v1/youtube-studio/production-drafts/route')
+    const res = await GET(new NextRequest('http://localhost/api/v1/youtube-studio/production-drafts?orgId=org-1&videoProjectId=video-1'))
+    const body = await res.json()
+
+    expect(res.status).toBe(200)
+    expect(mockWhere).toHaveBeenCalledWith('orgId', '==', 'org-1')
+    expect(body.data.productionDrafts.map((draft: { id: string }) => draft.id)).toEqual(['draft-1'])
+  })
+
+  it('creates a production draft with sanitized script, scenes, checks, and actor fields', async () => {
+    stageFirestore({
+      youtube_channel_workspaces: {
+        docs: {
+          'channel-1': {
+            id: 'channel-1',
+            data: { orgId: 'org-1', title: 'Acme', deleted: false },
+          },
+        },
+      },
+      youtube_video_projects: {
+        docs: {
+          'video-1': {
+            id: 'video-1',
+            data: { orgId: 'org-1', channelWorkspaceId: 'channel-1', title: 'Launch', deleted: false },
+          },
+        },
+      },
+      youtube_source_assets: {
+        docs: {
+          'asset-1': {
+            id: 'asset-1',
+            data: { orgId: 'org-1', channelWorkspaceId: 'channel-1', videoProjectId: 'video-1', title: 'Raw footage', deleted: false },
+          },
+        },
+      },
+      youtube_clip_candidates: {
+        docs: {
+          'clip-1': {
+            id: 'clip-1',
+            data: { orgId: 'org-1', channelWorkspaceId: 'channel-1', videoProjectId: 'video-1', sourceAssetId: 'asset-1', title: 'Proof clip', deleted: false },
+          },
+        },
+      },
+      youtube_production_drafts: {},
+    })
+
+    const { POST } = await import('@/app/api/v1/youtube-studio/production-drafts/route')
+    const res = await POST(new NextRequest('http://localhost/api/v1/youtube-studio/production-drafts', {
+      method: 'POST',
+      body: JSON.stringify({
+        orgId: 'org-1',
+        channelWorkspaceId: 'channel-1',
+        videoProjectId: 'video-1',
+        title: ' Launch story draft ',
+        draftType: 'script',
+        status: 'approved',
+        versionNumber: -5,
+        summary: ' Client-facing narrative arc. ',
+        hook: ' Open with the before/after tension. ',
+        outline: [' Hook ', '', { label: 'not allowed' }, 'Proof'],
+        scriptText: ' Client-visible script excerpt. ',
+        sourceAssetIds: ['asset-1', '', 'asset-1'],
+        clipCandidateIds: ['clip-1'],
+        scenes: [
+          {
+            label: ' Hook ',
+            summary: ' Founder opens with the outcome. ',
+            targetSeconds: 45,
+            voiceover: ' We cut reporting time in half. ',
+            visualNotes: 'Use talking-head with product overlay.',
+            onScreenText: 'Reporting time cut in half',
+            sourceAssetIds: ['asset-1'],
+            clipCandidateIds: ['clip-1'],
+            internalPrompt: 'operator-only scene prompt',
+          },
+          { label: '', targetSeconds: -10 },
+        ],
+        checks: {
+          claims: { status: 'pass', message: ' Claims mapped to transcript. ', checkedBy: 'client-supplied' },
+          brand: { status: 'bad-status', message: { secret: true } },
+          sourceEvidence: { status: 'warning', message: ' Needs source review. ' },
+          clientApproval: { status: 'pass', message: ' Client already approved. ' },
+        },
+        visibility: { showInClientPortal: true, showScriptInPortal: true, showScenesInPortal: true },
+        internalNotes: 'Operator-only production note.',
+        clientNotes: 'Client can review the draft flow.',
+        deleted: true,
+      }),
+    }))
+    const body = await res.json()
+
+    expect(res.status).toBe(201)
+    expect(body.data.id).toBe('new-id')
+    expect(mockAdd).toHaveBeenCalledWith(expect.objectContaining({
+      orgId: 'org-1',
+      channelWorkspaceId: 'channel-1',
+      videoProjectId: 'video-1',
+      title: 'Launch story draft',
+      draftType: 'script',
+      status: 'draft',
+      versionNumber: 1,
+      summary: 'Client-facing narrative arc.',
+      hook: 'Open with the before/after tension.',
+      outline: ['Hook', 'Proof'],
+      scriptText: 'Client-visible script excerpt.',
+      sourceAssetIds: ['asset-1'],
+      clipCandidateIds: ['clip-1'],
+      scenes: [{
+        label: 'Hook',
+        summary: 'Founder opens with the outcome.',
+        targetSeconds: 45,
+        voiceover: 'We cut reporting time in half.',
+        visualNotes: 'Use talking-head with product overlay.',
+        onScreenText: 'Reporting time cut in half',
+        sourceAssetIds: ['asset-1'],
+        clipCandidateIds: ['clip-1'],
+      }],
+      checks: {
+        claims: { status: 'pass', message: 'Claims mapped to transcript.' },
+        brand: { status: 'warning', message: 'Brand review required before this draft is client-ready.' },
+        sourceEvidence: { status: 'warning', message: 'Needs source review.' },
+        clientApproval: { status: 'pass', message: 'Client already approved.' },
+      },
+      visibility: { showInClientPortal: true, showScriptInPortal: true, showScenesInPortal: true },
+      internalNotes: 'Operator-only production note.',
+      clientNotes: 'Client can review the draft flow.',
+      deleted: false,
+      createdBy: 'admin-1',
+      createdByType: 'user',
+      updatedBy: 'admin-1',
+      updatedByType: 'user',
+      createdAt: 'SERVER_TS',
+      updatedAt: 'SERVER_TS',
+    }))
+    expect(JSON.stringify(mockAdd.mock.calls[0][0])).not.toContain('operator-only scene prompt')
+    expect(JSON.stringify(mockAdd.mock.calls[0][0])).not.toContain('client-supplied')
+  })
+
+  it('rejects production draft creation with a mismatched source asset relationship', async () => {
+    stageFirestore({
+      youtube_channel_workspaces: {
+        docs: {
+          'channel-1': {
+            id: 'channel-1',
+            data: { orgId: 'org-1', title: 'Acme', deleted: false },
+          },
+        },
+      },
+      youtube_video_projects: {
+        docs: {
+          'video-1': {
+            id: 'video-1',
+            data: { orgId: 'org-1', channelWorkspaceId: 'channel-1', title: 'Launch', deleted: false },
+          },
+        },
+      },
+      youtube_source_assets: {
+        docs: {
+          'asset-2': {
+            id: 'asset-2',
+            data: { orgId: 'org-1', channelWorkspaceId: 'channel-2', videoProjectId: 'video-2', title: 'Other source', deleted: false },
+          },
+        },
+      },
+      youtube_clip_candidates: {},
+      youtube_production_drafts: {},
+    })
+
+    const { POST } = await import('@/app/api/v1/youtube-studio/production-drafts/route')
+    const res = await POST(new NextRequest('http://localhost/api/v1/youtube-studio/production-drafts', {
+      method: 'POST',
+      body: JSON.stringify({
+        orgId: 'org-1',
+        channelWorkspaceId: 'channel-1',
+        videoProjectId: 'video-1',
+        title: 'Launch story draft',
+        sourceAssetIds: ['asset-2'],
+      }),
+    }))
+    const body = await res.json()
+
+    expect(res.status).toBe(400)
+    expect(body.error).toMatch(/sourceAssetIds/i)
+    expect(mockAdd).not.toHaveBeenCalled()
+  })
+
+  it('rejects production draft creation with a mismatched scene source asset relationship', async () => {
+    stageFirestore({
+      youtube_channel_workspaces: {
+        docs: {
+          'channel-1': {
+            id: 'channel-1',
+            data: { orgId: 'org-1', title: 'Acme', deleted: false },
+          },
+        },
+      },
+      youtube_video_projects: {
+        docs: {
+          'video-1': {
+            id: 'video-1',
+            data: { orgId: 'org-1', channelWorkspaceId: 'channel-1', title: 'Launch', deleted: false },
+          },
+        },
+      },
+      youtube_source_assets: {
+        docs: {
+          'asset-2': {
+            id: 'asset-2',
+            data: { orgId: 'org-1', channelWorkspaceId: 'channel-2', videoProjectId: 'video-2', title: 'Other source', deleted: false },
+          },
+        },
+      },
+      youtube_clip_candidates: {},
+      youtube_production_drafts: {},
+    })
+
+    const { POST } = await import('@/app/api/v1/youtube-studio/production-drafts/route')
+    const res = await POST(new NextRequest('http://localhost/api/v1/youtube-studio/production-drafts', {
+      method: 'POST',
+      body: JSON.stringify({
+        orgId: 'org-1',
+        channelWorkspaceId: 'channel-1',
+        videoProjectId: 'video-1',
+        title: 'Launch story draft',
+        scenes: [{ label: 'Hook', sourceAssetIds: ['asset-2'] }],
+      }),
+    }))
+    const body = await res.json()
+
+    expect(res.status).toBe(400)
+    expect(body.error).toMatch(/sourceAssetIds/i)
+    expect(mockAdd).not.toHaveBeenCalled()
+  })
 })

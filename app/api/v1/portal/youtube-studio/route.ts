@@ -11,6 +11,7 @@ import {
   clientSafeYouTubeChannelWorkspace,
   clientSafeYouTubeClipCandidate,
   clientSafeYouTubePublishingPacket,
+  clientSafeYouTubeProductionDraft,
   clientSafeYouTubeReleasePlan,
   clientSafeYouTubeSeries,
   clientSafeYouTubeSourceAsset,
@@ -22,6 +23,7 @@ import type {
   YouTubeAnalyticsSnapshot,
   YouTubeChannelWorkspace,
   YouTubeClipCandidate,
+  YouTubeProductionDraft,
   YouTubePublishingPacket,
   YouTubeReleasePlan,
   YouTubeSeries,
@@ -178,6 +180,7 @@ export const GET = withPortalAuthAndRole('viewer', async (_req: NextRequest, _ui
     releasePlansRaw,
     sourceAssetsRaw,
     clipCandidatesRaw,
+    productionDraftsRaw,
     analyticsRaw,
   ] = await Promise.all([
     listOrg<YouTubeChannelWorkspace>(YOUTUBE_COLLECTIONS.channels, orgId),
@@ -187,6 +190,7 @@ export const GET = withPortalAuthAndRole('viewer', async (_req: NextRequest, _ui
     listOrg<YouTubeReleasePlan>(YOUTUBE_COLLECTIONS.releasePlans, orgId),
     listOrg<YouTubeSourceAsset>(YOUTUBE_COLLECTIONS.sourceAssets, orgId),
     listOrg<YouTubeClipCandidate>(YOUTUBE_COLLECTIONS.clipCandidates, orgId),
+    listOrg<YouTubeProductionDraft>(YOUTUBE_COLLECTIONS.productionDrafts, orgId),
     listOrg<YouTubeAnalyticsSnapshot>(YOUTUBE_COLLECTIONS.analytics, orgId),
   ])
 
@@ -264,6 +268,14 @@ export const GET = withPortalAuthAndRole('viewer', async (_req: NextRequest, _ui
     )
     .map(clientSafeYouTubeClipCandidate)
     .sort((a, b) => a.startSeconds - b.startSeconds || a.title.localeCompare(b.title))
+  const productionDrafts = productionDraftsRaw
+    .filter((draft) =>
+      visibleChannelIds.has(draft.channelWorkspaceId) &&
+      visibleVideoIds.has(draft.videoProjectId) &&
+      draft.visibility?.showInClientPortal === true
+    )
+    .map(clientSafeYouTubeProductionDraft)
+    .sort((a, b) => a.title.localeCompare(b.title) || b.versionNumber - a.versionNumber)
   const analytics = analyticsRaw
     .filter((snapshot) =>
       snapshot.visibility?.showInClientPortal === true &&
@@ -274,7 +286,17 @@ export const GET = withPortalAuthAndRole('viewer', async (_req: NextRequest, _ui
     .map(clientSafeYouTubeAnalyticsSnapshot)
     .sort((a, b) => b.periodEnd.localeCompare(a.periodEnd))
 
-  return apiSuccess({ channels, series, videos, packets, releasePlans, sourceAssets, clipCandidates, analytics })
+  return apiSuccess({
+    channels,
+    series,
+    videos,
+    packets,
+    releasePlans,
+    sourceAssets,
+    clipCandidates,
+    productionDrafts,
+    analytics,
+  })
 })
 
 async function handlePortalYouTubeStudioPost(req: NextRequest, uid: string, orgId: string): Promise<Response> {

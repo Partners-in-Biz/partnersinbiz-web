@@ -13,6 +13,8 @@ import type {
   YouTubeClipCandidate,
   YouTubeClipTargetFormat,
   YouTubeConnectedAccountStatus,
+  YouTubeProductionDraft,
+  YouTubeProductionDraftType,
   YouTubePublishingPacket,
   YouTubePublishingPolicy,
   YouTubePublishingReadinessLevel,
@@ -62,6 +64,19 @@ type FormState = {
   clipHook: string
   clipTranscriptExcerpt: string
   clipShowInPortal: boolean
+  draftVideoId: string
+  draftTitle: string
+  draftType: YouTubeProductionDraftType
+  draftSummary: string
+  draftHook: string
+  draftOutline: string
+  draftScript: string
+  draftSourceAssetIds: string
+  draftClipCandidateIds: string
+  draftScenes: string
+  draftShowInPortal: boolean
+  draftShowScriptInPortal: boolean
+  draftShowScenesInPortal: boolean
   jobVideoId: string
   jobSkillKey: YouTubeProductionSkillKey
   jobInputSummary: string
@@ -133,6 +148,19 @@ const emptyForm: FormState = {
   clipHook: '',
   clipTranscriptExcerpt: '',
   clipShowInPortal: false,
+  draftVideoId: '',
+  draftTitle: '',
+  draftType: 'script',
+  draftSummary: '',
+  draftHook: '',
+  draftOutline: '',
+  draftScript: '',
+  draftSourceAssetIds: '',
+  draftClipCandidateIds: '',
+  draftScenes: '',
+  draftShowInPortal: false,
+  draftShowScriptInPortal: false,
+  draftShowScenesInPortal: false,
   jobVideoId: '',
   jobSkillKey: 'youtube-video-brief',
   jobInputSummary: '',
@@ -237,6 +265,15 @@ const clipTargetFormats: YouTubeClipTargetFormat[] = [
   'ad_cutdown',
   'testimonial_cut',
 ]
+const productionDraftTypes: YouTubeProductionDraftType[] = [
+  'brief',
+  'outline',
+  'script',
+  'storyboard',
+  'shot_list',
+  'voiceover',
+  'edit_notes',
+]
 
 function splitLines(value: string) {
   return value.split(/[\n,]+/).map((item) => item.trim()).filter(Boolean)
@@ -267,6 +304,22 @@ function parseChapters(value: string): YouTubePublishingPacket['chapters'] {
   })
 }
 
+function parseProductionScenes(value: string): YouTubeProductionDraft['scenes'] {
+  return value.split('\n').flatMap((line) => {
+    const [label, targetSeconds, summary, voiceover, visualNotes, onScreenText] = line.split('|').map((part) => part.trim())
+    if (!label) return []
+
+    return [{
+      label,
+      targetSeconds: numericValue(targetSeconds),
+      summary,
+      voiceover,
+      visualNotes,
+      onScreenText,
+    }]
+  })
+}
+
 export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdminWorkspaceProps) {
   const [channels, setChannels] = useState<YouTubeChannelWorkspace[]>([])
   const [series, setSeries] = useState<YouTubeSeries[]>([])
@@ -275,6 +328,7 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
   const [releasePlans, setReleasePlans] = useState<YouTubeReleasePlan[]>([])
   const [sourceAssets, setSourceAssets] = useState<YouTubeSourceAsset[]>([])
   const [clipCandidates, setClipCandidates] = useState<YouTubeClipCandidate[]>([])
+  const [productionDrafts, setProductionDrafts] = useState<YouTubeProductionDraft[]>([])
   const [jobs, setJobs] = useState<YouTubeAgentJob[]>([])
   const [analytics, setAnalytics] = useState<YouTubeAnalyticsSnapshot[]>([])
   const [form, setForm] = useState<FormState>(emptyForm)
@@ -282,6 +336,7 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
   const [saving, setSaving] = useState(false)
   const [addingSourceAsset, setAddingSourceAsset] = useState(false)
   const [creatingClipCandidate, setCreatingClipCandidate] = useState(false)
+  const [creatingProductionDraft, setCreatingProductionDraft] = useState(false)
   const [creatingPacket, setCreatingPacket] = useState(false)
   const [creatingReleasePlan, setCreatingReleasePlan] = useState(false)
   const [updatingPacketId, setUpdatingPacketId] = useState<string | null>(null)
@@ -307,6 +362,13 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
         return sourceAsset ? video.channelWorkspaceId === sourceAsset.channelWorkspaceId : true
       })
     : videos
+  const draftVideo = videos.find((video) => video.id === form.draftVideoId)
+  const draftSourceAssets = draftVideo
+    ? sourceAssets.filter((asset) => !asset.videoProjectId || asset.videoProjectId === draftVideo.id)
+    : sourceAssets
+  const draftClipCandidates = draftVideo
+    ? clipCandidates.filter((clip) => !clip.videoProjectId || clip.videoProjectId === draftVideo.id)
+    : clipCandidates
   const approvedPackets = packets.filter((packet) => packet.id && packet.status === 'approved')
 
   const load = useCallback(async () => {
@@ -316,7 +378,18 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
     const isCurrentRequest = () => requestId === loadRequestIdRef.current && orgId === activeOrgIdRef.current
     setLoading(true)
     try {
-      const [channelRes, seriesRes, videoRes, packetRes, releasePlanRes, sourceAssetRes, clipCandidateRes, jobRes, analyticsRes] = await Promise.all([
+      const [
+        channelRes,
+        seriesRes,
+        videoRes,
+        packetRes,
+        releasePlanRes,
+        sourceAssetRes,
+        clipCandidateRes,
+        productionDraftRes,
+        jobRes,
+        analyticsRes,
+      ] = await Promise.all([
         fetch(`/api/v1/youtube-studio/channels?orgId=${encodeURIComponent(orgId)}`),
         fetch(`/api/v1/youtube-studio/series?orgId=${encodeURIComponent(orgId)}`),
         fetch(`/api/v1/youtube-studio/videos?orgId=${encodeURIComponent(orgId)}`),
@@ -324,10 +397,22 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
         fetch(`/api/v1/youtube-studio/release-plans?orgId=${encodeURIComponent(orgId)}`),
         fetch(`/api/v1/youtube-studio/source-assets?orgId=${encodeURIComponent(orgId)}`),
         fetch(`/api/v1/youtube-studio/clip-candidates?orgId=${encodeURIComponent(orgId)}`),
+        fetch(`/api/v1/youtube-studio/production-drafts?orgId=${encodeURIComponent(orgId)}`),
         fetch(`/api/v1/youtube-studio/agent-jobs?orgId=${encodeURIComponent(orgId)}`),
         fetch(`/api/v1/youtube-studio/analytics?orgId=${encodeURIComponent(orgId)}`),
       ])
-      const [channelBody, seriesBody, videoBody, packetBody, releasePlanBody, sourceAssetBody, clipCandidateBody, jobBody, analyticsBody] = await Promise.all([
+      const [
+        channelBody,
+        seriesBody,
+        videoBody,
+        packetBody,
+        releasePlanBody,
+        sourceAssetBody,
+        clipCandidateBody,
+        productionDraftBody,
+        jobBody,
+        analyticsBody,
+      ] = await Promise.all([
         channelRes.json().catch(() => ({})),
         seriesRes.json().catch(() => ({})),
         videoRes.json().catch(() => ({})),
@@ -335,6 +420,7 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
         releasePlanRes.json().catch(() => ({})),
         sourceAssetRes.json().catch(() => ({})),
         clipCandidateRes.json().catch(() => ({})),
+        productionDraftRes.json().catch(() => ({})),
         jobRes.json().catch(() => ({})),
         analyticsRes.json().catch(() => ({})),
       ])
@@ -346,6 +432,7 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
       setReleasePlans(Array.isArray(releasePlanBody.data?.releasePlans) ? releasePlanBody.data.releasePlans : [])
       setSourceAssets(Array.isArray(sourceAssetBody.data?.sourceAssets) ? sourceAssetBody.data.sourceAssets : [])
       setClipCandidates(Array.isArray(clipCandidateBody.data?.clipCandidates) ? clipCandidateBody.data.clipCandidates : [])
+      setProductionDrafts(Array.isArray(productionDraftBody.data?.productionDrafts) ? productionDraftBody.data.productionDrafts : [])
       setJobs(Array.isArray(jobBody.data?.jobs) ? jobBody.data.jobs : [])
       setAnalytics(Array.isArray(analyticsBody.data?.snapshots) ? analyticsBody.data.snapshots : [])
       if (
@@ -356,6 +443,7 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
         !releasePlanRes.ok ||
         !sourceAssetRes.ok ||
         !clipCandidateRes.ok ||
+        !productionDraftRes.ok ||
         !jobRes.ok ||
         !analyticsRes.ok
       ) {
@@ -372,6 +460,7 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
       setReleasePlans([])
       setSourceAssets([])
       setClipCandidates([])
+      setProductionDrafts([])
       setJobs([])
       setAnalytics([])
       setLoadNotice('Could not load the YouTube Studio workspace.')
@@ -389,6 +478,7 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
     setSaving(false)
     setAddingSourceAsset(false)
     setCreatingClipCandidate(false)
+    setCreatingProductionDraft(false)
     setCreatingPacket(false)
     setCreatingReleasePlan(false)
     setUpdatingPacketId(null)
@@ -683,6 +773,77 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
     } finally {
       if (isCurrentMutation()) {
         setCreatingClipCandidate(false)
+      }
+    }
+  }
+
+  async function createProductionDraft(event: React.FormEvent) {
+    event.preventDefault()
+    if (creatingProductionDraft || !form.draftVideoId || !form.draftTitle.trim()) return
+    const selectedVideo = videos.find((video) => video.id === form.draftVideoId)
+    if (!selectedVideo?.channelWorkspaceId) {
+      setActionNotice('Select a video with a channel before creating a production draft')
+      return
+    }
+
+    const mutationOrgId = orgId
+    const isCurrentMutation = () => mutationOrgId === activeOrgIdRef.current
+    setCreatingProductionDraft(true)
+    setActionNotice('')
+    setLoadNotice('')
+    try {
+      const res = await fetch('/api/v1/youtube-studio/production-drafts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          orgId: mutationOrgId,
+          channelWorkspaceId: selectedVideo.channelWorkspaceId,
+          videoProjectId: form.draftVideoId,
+          title: form.draftTitle,
+          draftType: form.draftType,
+          summary: form.draftSummary,
+          hook: form.draftHook,
+          outline: splitLines(form.draftOutline),
+          scriptText: form.draftScript,
+          sourceAssetIds: splitLines(form.draftSourceAssetIds),
+          clipCandidateIds: splitLines(form.draftClipCandidateIds),
+          scenes: parseProductionScenes(form.draftScenes),
+          visibility: {
+            showInClientPortal: form.draftShowInPortal,
+            showScriptInPortal: form.draftShowScriptInPortal,
+            showScenesInPortal: form.draftShowScenesInPortal,
+          },
+        }),
+      })
+      const body = await res.json().catch(() => ({}))
+      if (!isCurrentMutation()) return
+      if (!res.ok) {
+        setActionNotice(body.error ?? 'Could not create production draft')
+        return
+      }
+      setForm((prev) => ({
+        ...prev,
+        draftTitle: '',
+        draftSummary: '',
+        draftHook: '',
+        draftOutline: '',
+        draftScript: '',
+        draftSourceAssetIds: '',
+        draftClipCandidateIds: '',
+        draftScenes: '',
+        draftShowInPortal: false,
+        draftShowScriptInPortal: false,
+        draftShowScenesInPortal: false,
+      }))
+      setActionNotice('Production draft created.')
+      await load()
+    } catch {
+      if (isCurrentMutation()) {
+        setActionNotice('Could not create production draft')
+      }
+    } finally {
+      if (isCurrentMutation()) {
+        setCreatingProductionDraft(false)
       }
     }
   }
@@ -1065,6 +1226,59 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
                     {clip.transcriptExcerpt ? <p className="break-words text-xs text-on-surface-variant">{clip.transcriptExcerpt}</p> : null}
                     <div className="grid gap-2 text-xs text-on-surface-variant sm:grid-cols-2">
                       {clipGateEntries(clip).map(([key, check]) => (
+                        <span key={key} className="min-w-0 break-words">
+                          {formatToken(key)}: {formatToken(check?.status ?? 'not_applicable')}
+                        </span>
+                      ))}
+                    </div>
+                  </article>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div className="space-y-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <h2 className="font-headline text-xl font-semibold text-on-surface">Production drafts</h2>
+              <span className="rounded-full bg-[var(--color-surface-container-high)] px-3 py-1 text-xs font-label uppercase tracking-widest text-on-surface-variant">
+                {productionDrafts.length} draft{productionDrafts.length === 1 ? '' : 's'}
+              </span>
+            </div>
+            {productionDrafts.length === 0 ? (
+              <div className="pib-card-section p-5 text-sm text-on-surface-variant">No scripts, outlines, or shot lists drafted yet.</div>
+            ) : (
+              <div className="grid gap-3">
+                {productionDrafts.map((draft) => (
+                  <article key={draft.id ?? `${draft.videoProjectId}-${draft.versionNumber}`} className="pib-card-section space-y-3 p-4">
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <h3 className="break-words font-semibold text-on-surface">{draft.title}</h3>
+                        <p className="mt-1 text-sm text-on-surface-variant">{productionDraftMeta(draft)}</p>
+                      </div>
+                      <StatusPill status={draft.status} />
+                    </div>
+                    {draft.summary ? <p className="break-words text-sm text-on-surface-variant">{draft.summary}</p> : null}
+                    {draft.hook ? <p className="break-words text-sm text-on-surface-variant">{draft.hook}</p> : null}
+                    {draft.outline?.length ? (
+                      <div className="flex flex-wrap gap-2">
+                        {draft.outline.slice(0, 6).map((item) => <StatusPill key={item} status={item} />)}
+                      </div>
+                    ) : null}
+                    {draft.scriptText ? (
+                      <p className="line-clamp-3 break-words text-sm text-on-surface-variant">{draft.scriptText}</p>
+                    ) : null}
+                    {draft.scenes?.length ? (
+                      <div className="grid gap-2">
+                        {draft.scenes.slice(0, 2).map((scene, index) => (
+                          <div key={`${scene.label}-${index}`} className="rounded-lg border border-[var(--color-pib-line)] p-3 text-sm text-on-surface-variant">
+                            <p className="font-medium text-on-surface">{productionSceneMeta(scene)}</p>
+                            {scene.summary ? <p className="mt-1 break-words">{scene.summary}</p> : null}
+                          </div>
+                        ))}
+                      </div>
+                    ) : null}
+                    <div className="grid gap-2 text-xs text-on-surface-variant sm:grid-cols-2">
+                      {productionDraftGateEntries(draft).map(([key, check]) => (
                         <span key={key} className="min-w-0 break-words">
                           {formatToken(key)}: {formatToken(check?.status ?? 'not_applicable')}
                         </span>
@@ -1503,6 +1717,101 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
             </button>
           </form>
 
+          <form onSubmit={createProductionDraft} className="pib-card-section space-y-4 p-5">
+            <h2 className="font-headline font-bold text-on-surface">Create production draft</h2>
+            <label className="block text-sm">
+              <span className="text-xs font-label uppercase tracking-widest text-on-surface-variant">Draft video</span>
+              <select
+                value={form.draftVideoId}
+                onChange={(event) => update('draftVideoId', event.target.value)}
+                className="mt-1 w-full rounded-lg border border-[var(--color-outline-variant)] bg-[var(--color-surface)] px-3 py-2 text-sm"
+              >
+                <option value="">Select a video</option>
+                {videos.map((video) => (
+                  <option key={video.id ?? video.title} value={video.id ?? ''}>{video.title}</option>
+                ))}
+              </select>
+            </label>
+            <Field label="Draft title" value={form.draftTitle} onChange={(value) => update('draftTitle', value)} required />
+            <Select
+              label="Draft type"
+              value={form.draftType}
+              onChange={(value) => update('draftType', value as YouTubeProductionDraftType)}
+              options={productionDraftTypes}
+            />
+            <TextArea label="Draft summary" value={form.draftSummary} onChange={(value) => update('draftSummary', value)} />
+            <Field label="Draft hook" value={form.draftHook} onChange={(value) => update('draftHook', value)} />
+            <TextArea
+              label="Draft outline"
+              value={form.draftOutline}
+              onChange={(value) => update('draftOutline', value)}
+              placeholder="One section per line"
+            />
+            <TextArea label="Draft script" value={form.draftScript} onChange={(value) => update('draftScript', value)} />
+            <label className="block text-sm">
+              <span className="text-xs font-label uppercase tracking-widest text-on-surface-variant">Draft source assets</span>
+              <select
+                value={form.draftSourceAssetIds}
+                onChange={(event) => update('draftSourceAssetIds', event.target.value)}
+                className="mt-1 w-full rounded-lg border border-[var(--color-outline-variant)] bg-[var(--color-surface)] px-3 py-2 text-sm"
+              >
+                <option value="">No source asset selected</option>
+                {draftSourceAssets.map((asset) => (
+                  <option key={asset.id ?? asset.title} value={asset.id ?? ''}>{asset.title}</option>
+                ))}
+              </select>
+            </label>
+            <label className="block text-sm">
+              <span className="text-xs font-label uppercase tracking-widest text-on-surface-variant">Draft clip candidates</span>
+              <select
+                value={form.draftClipCandidateIds}
+                onChange={(event) => update('draftClipCandidateIds', event.target.value)}
+                className="mt-1 w-full rounded-lg border border-[var(--color-outline-variant)] bg-[var(--color-surface)] px-3 py-2 text-sm"
+              >
+                <option value="">No clip selected</option>
+                {draftClipCandidates.map((clip) => (
+                  <option key={clip.id ?? clip.title} value={clip.id ?? ''}>{clip.title}</option>
+                ))}
+              </select>
+            </label>
+            <TextArea
+              label="Draft scenes"
+              value={form.draftScenes}
+              onChange={(value) => update('draftScenes', value)}
+              placeholder="Label | seconds | summary | voiceover | visual notes | on-screen text"
+            />
+            <label className="flex items-center gap-2 text-sm text-on-surface-variant">
+              <input
+                type="checkbox"
+                checked={form.draftShowInPortal}
+                onChange={(event) => update('draftShowInPortal', event.target.checked)}
+                className="h-4 w-4"
+              />
+              Show draft in portal
+            </label>
+            <label className="flex items-center gap-2 text-sm text-on-surface-variant">
+              <input
+                type="checkbox"
+                checked={form.draftShowScriptInPortal}
+                onChange={(event) => update('draftShowScriptInPortal', event.target.checked)}
+                className="h-4 w-4"
+              />
+              Show script in portal
+            </label>
+            <label className="flex items-center gap-2 text-sm text-on-surface-variant">
+              <input
+                type="checkbox"
+                checked={form.draftShowScenesInPortal}
+                onChange={(event) => update('draftShowScenesInPortal', event.target.checked)}
+                className="h-4 w-4"
+              />
+              Show scenes in portal
+            </label>
+            <button type="submit" disabled={creatingProductionDraft || !form.draftVideoId || !form.draftTitle.trim()} className="pib-btn-primary w-full">
+              {creatingProductionDraft ? 'Creating...' : 'Create production draft'}
+            </button>
+          </form>
+
           <form onSubmit={queueAgentJob} className="pib-card-section space-y-4 p-5">
             <h2 className="font-headline font-bold text-on-surface">Queue Hermes job</h2>
             <label className="block text-sm">
@@ -1807,6 +2116,23 @@ function clipGateEntries(clip: YouTubeClipCandidate) {
   return Object.entries(clip.checks ?? {}) as Array<[
     keyof YouTubeClipCandidate['checks'],
     YouTubeClipCandidate['checks'][keyof YouTubeClipCandidate['checks']],
+  ]>
+}
+
+function productionDraftMeta(draft: YouTubeProductionDraft) {
+  return `${formatToken(draft.draftType)} / ${formatToken(draft.status)} / v${draft.versionNumber || 1}`
+}
+
+function productionSceneMeta(scene: YouTubeProductionDraft['scenes'][number]) {
+  const parts = [scene.label]
+  if (typeof scene.targetSeconds === 'number') parts.push(`${scene.targetSeconds}s`)
+  return parts.join(' / ')
+}
+
+function productionDraftGateEntries(draft: YouTubeProductionDraft) {
+  return Object.entries(draft.checks ?? {}) as Array<[
+    keyof YouTubeProductionDraft['checks'],
+    YouTubeProductionDraft['checks'][keyof YouTubeProductionDraft['checks']],
   ]>
 }
 

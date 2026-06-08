@@ -5,6 +5,7 @@ import type {
   YouTubeAnalyticsSnapshot,
   YouTubeChannelWorkspace,
   YouTubeClipCandidate,
+  YouTubeProductionDraft,
   YouTubePublishingPacket,
   YouTubeReleasePlan,
   YouTubeSeries,
@@ -49,6 +50,7 @@ export function YouTubeStudioPortalWorkspace({ orgId }: YouTubeStudioPortalWorks
   const [releasePlans, setReleasePlans] = useState<YouTubeReleasePlan[]>([])
   const [sourceAssets, setSourceAssets] = useState<YouTubeSourceAsset[]>([])
   const [clipCandidates, setClipCandidates] = useState<YouTubeClipCandidate[]>([])
+  const [productionDrafts, setProductionDrafts] = useState<YouTubeProductionDraft[]>([])
   const [analytics, setAnalytics] = useState<YouTubeAnalyticsSnapshot[]>([])
   const [request, setRequest] = useState<RequestForm>(emptyRequest)
   const [reviewNotes, setReviewNotes] = useState<Record<string, string>>({})
@@ -90,6 +92,7 @@ export function YouTubeStudioPortalWorkspace({ orgId }: YouTubeStudioPortalWorks
         setReleasePlans([])
         setSourceAssets([])
         setClipCandidates([])
+        setProductionDrafts([])
         setAnalytics([])
         setLoadNotice('')
         setActionNotice('')
@@ -104,6 +107,7 @@ export function YouTubeStudioPortalWorkspace({ orgId }: YouTubeStudioPortalWorks
       setReleasePlans(Array.isArray(body.data?.releasePlans) ? body.data.releasePlans : [])
       setSourceAssets(Array.isArray(body.data?.sourceAssets) ? body.data.sourceAssets : [])
       setClipCandidates(Array.isArray(body.data?.clipCandidates) ? body.data.clipCandidates : [])
+      setProductionDrafts(Array.isArray(body.data?.productionDrafts) ? body.data.productionDrafts : [])
       setAnalytics(Array.isArray(body.data?.analytics) ? body.data.analytics : [])
       if (!res.ok) {
         setLoadNotice(body.error ?? 'Could not load YouTube Studio.')
@@ -120,6 +124,7 @@ export function YouTubeStudioPortalWorkspace({ orgId }: YouTubeStudioPortalWorks
       setReleasePlans([])
       setSourceAssets([])
       setClipCandidates([])
+      setProductionDrafts([])
       setAnalytics([])
       setLoadNotice('Could not load YouTube Studio.')
     } finally {
@@ -400,6 +405,57 @@ export function YouTubeStudioPortalWorkspace({ orgId }: YouTubeStudioPortalWorks
           </div>
 
           <div className="space-y-3">
+            <h2 className="font-headline text-xl font-semibold text-on-surface">Production drafts</h2>
+            {productionDrafts.length === 0 ? (
+              <div className="pib-card-section p-5 text-sm text-on-surface-variant">No production drafts are visible yet.</div>
+            ) : (
+              productionDrafts.map((draft) => (
+                <article key={draft.id ?? `${draft.videoProjectId}-${draft.versionNumber}`} className="pib-card-section space-y-3 p-4">
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <h3 className="break-words font-semibold text-on-surface">{draft.title}</h3>
+                      <p className="mt-1 text-sm text-on-surface-variant">{productionDraftMeta(draft)}</p>
+                    </div>
+                  </div>
+                  {draft.summary ? <p className="break-words text-sm text-on-surface-variant">{draft.summary}</p> : null}
+                  {draft.hook ? <p className="break-words text-sm text-on-surface-variant">{draft.hook}</p> : null}
+                  {draft.outline?.length ? (
+                    <div className="flex flex-wrap gap-2">
+                      {draft.outline.slice(0, 6).map((item) => (
+                        <span key={item} className="max-w-full break-words rounded-full bg-white/[0.04] px-2 py-1 text-xs text-on-surface-variant">
+                          {item}
+                        </span>
+                      ))}
+                    </div>
+                  ) : null}
+                  {draft.scriptText ? <p className="break-words text-sm text-on-surface-variant">{draft.scriptText}</p> : null}
+                  {draft.scenes?.length ? (
+                    <div className="grid gap-2">
+                      {draft.scenes.slice(0, 3).map((scene, index) => (
+                        <div key={`${scene.label}-${index}`} className="rounded-lg border border-[var(--color-pib-line)] p-3 text-sm text-on-surface-variant">
+                          <p className="font-medium text-on-surface">{productionSceneMeta(scene)}</p>
+                          {scene.summary ? <p className="mt-1 break-words">{scene.summary}</p> : null}
+                          {scene.voiceover ? <p className="mt-1 break-words">{scene.voiceover}</p> : null}
+                          {scene.visualNotes ? <p className="mt-1 break-words">{scene.visualNotes}</p> : null}
+                          {scene.onScreenText ? <p className="mt-1 break-words">{scene.onScreenText}</p> : null}
+                        </div>
+                      ))}
+                    </div>
+                  ) : null}
+                  <div className="grid gap-2 text-xs text-on-surface-variant sm:grid-cols-2">
+                    {productionDraftGateEntries(draft).map(([key, check]) => (
+                      <span key={key} className="min-w-0 break-words">
+                        {formatToken(key)}: {formatToken(check?.status ?? 'not_applicable')}
+                      </span>
+                    ))}
+                  </div>
+                  {draft.clientNotes ? <p className="break-words text-sm text-on-surface-variant">{draft.clientNotes}</p> : null}
+                </article>
+              ))
+            )}
+          </div>
+
+          <div className="space-y-3">
             <h2 className="font-headline text-xl font-semibold text-on-surface">Publishing packets</h2>
             {packets.length === 0 ? (
               <div className="pib-card-section p-5 text-sm text-on-surface-variant">No publishing packets are ready for review yet.</div>
@@ -602,6 +658,23 @@ function clipGateEntries(clip: YouTubeClipCandidate) {
   return Object.entries(clip.checks ?? {}) as Array<[
     keyof YouTubeClipCandidate['checks'],
     YouTubeClipCandidate['checks'][keyof YouTubeClipCandidate['checks']],
+  ]>
+}
+
+function productionDraftMeta(draft: YouTubeProductionDraft) {
+  return `${formatToken(draft.draftType)} / ${formatToken(draft.status)} / v${draft.versionNumber || 1}`
+}
+
+function productionSceneMeta(scene: YouTubeProductionDraft['scenes'][number]) {
+  const parts = [scene.label]
+  if (typeof scene.targetSeconds === 'number') parts.push(`${scene.targetSeconds}s`)
+  return parts.join(' / ')
+}
+
+function productionDraftGateEntries(draft: YouTubeProductionDraft) {
+  return Object.entries(draft.checks ?? {}) as Array<[
+    keyof YouTubeProductionDraft['checks'],
+    YouTubeProductionDraft['checks'][keyof YouTubeProductionDraft['checks']],
   ]>
 }
 

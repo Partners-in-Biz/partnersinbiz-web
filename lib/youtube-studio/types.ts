@@ -91,6 +91,15 @@ export type YouTubeSourceAssetStatus = 'intake' | 'processing' | 'ready' | 'need
 export type YouTubeSourceAssetMediaFormat = 'horizontal' | 'vertical' | 'square' | 'audio' | 'document' | 'unknown'
 export type YouTubeClipCandidateStatus = 'suggested' | 'selected' | 'rejected' | 'needs_review' | 'exported' | 'archived'
 export type YouTubeClipTargetFormat = 'vertical_short' | 'square_short' | 'long_form_excerpt' | 'ad_cutdown' | 'testimonial_cut'
+export type YouTubeProductionDraftType = 'brief' | 'outline' | 'script' | 'storyboard' | 'shot_list' | 'voiceover' | 'edit_notes'
+export type YouTubeProductionDraftStatus =
+  | 'draft'
+  | 'internal_review'
+  | 'client_review'
+  | 'approved'
+  | 'changes_requested'
+  | 'blocked'
+  | 'archived'
 export type YouTubeGateStatus = 'pass' | 'warning' | 'block' | 'not_applicable'
 export type YouTubeProductionSkillKey =
   | 'youtube-channel-strategy'
@@ -353,6 +362,51 @@ export interface YouTubeClipCandidate {
   }
   visibility?: { showInClientPortal?: boolean }
   internalNotes?: string
+  createdAt?: unknown
+  updatedAt?: unknown
+  createdBy?: string
+  createdByType?: ActorType
+  updatedBy?: string
+  updatedByType?: ActorType
+  deleted: boolean
+}
+
+export interface YouTubeProductionDraftScene {
+  label: string
+  summary?: string
+  targetSeconds?: number
+  voiceover?: string
+  visualNotes?: string
+  onScreenText?: string
+  sourceAssetIds?: string[]
+  clipCandidateIds?: string[]
+}
+
+export interface YouTubeProductionDraft {
+  id?: string
+  orgId: string
+  channelWorkspaceId: string
+  videoProjectId: string
+  title: string
+  draftType: YouTubeProductionDraftType
+  status: YouTubeProductionDraftStatus
+  versionNumber: number
+  summary?: string
+  hook?: string
+  outline: string[]
+  scriptText?: string
+  sourceAssetIds: string[]
+  clipCandidateIds: string[]
+  scenes: YouTubeProductionDraftScene[]
+  checks: {
+    claims: YouTubeGateCheck
+    brand: YouTubeGateCheck
+    sourceEvidence: YouTubeGateCheck
+    clientApproval: YouTubeGateCheck
+  }
+  visibility?: { showInClientPortal?: boolean; showScriptInPortal?: boolean; showScenesInPortal?: boolean }
+  internalNotes?: string
+  clientNotes?: string
   createdAt?: unknown
   updatedAt?: unknown
   createdBy?: string
