@@ -170,6 +170,38 @@ This module has three credible product positions. The implementation should not 
 
 Recommendation: approve the internal production studio first, then add client self-serve controls only after the production workflow has reliable quality gates and analytics.
 
+### V1 Decision Brief And Approval Criteria
+
+This section is a decision aid for Peet before implementation planning starts. It was refreshed on 2026-06-08 against official KDP content, metadata, low-content, KDP Select, and reports guidance, plus Google Play Books content/program policy, series, file, analytics, and report guidance. The conclusion remains: V1 should be an internal PiB production studio with optional client review, not a self-serve generator or public SaaS.
+
+The core reason is not only quality preference. It is operating risk. KDP requires AI-generated content disclosure, policy-compliant metadata, rights review, differentiated public-domain work, and account/report handling. Google Play Books has separate file, metadata, series, content-policy, Partner Center access, analytics, earnings, and report timing constraints. Both channels can produce delayed or partial analytics, and neither should be represented as a fully automated publishing endpoint in V1.
+
+| Decision pressure | Internal PiB studio | Client self-serve | Public SaaS |
+| --- | --- | --- | --- |
+| Publishing policy control | PiB staff can enforce source-backed gates before client or store visibility. | Clients can create risky content before PiB sees it. | Unknown users require public moderation, abuse prevention, and support. |
+| Hermes skill safety | Skills can be bounded to internal tasks with reviewer gates and fixture readiness. | Skills need stronger runtime moderation and client-facing refusal UX. | Skills need public misuse controls, billing controls, and high-volume incident handling. |
+| Account ownership | PiB can track client/account authority without collecting secrets. | Clients may expect credential storage or direct store actions. | Public users would require a separate account-linking, support, and liability model. |
+| Analytics truthfulness | Admin can reconcile estimated, reported, settled, and manual data before client summaries. | Clients may over-read partial reports as profit. | Public dashboards would need stronger disclaimers, support, and financial reconciliation tooling. |
+| Commercial fit | Supports PiB service delivery, client value, and repeatable internal operations. | Useful later as a premium portal feature. | A separate product strategy, not a PiB platform module. |
+
+Approve V1 only if these statements are acceptable:
+
+- PiB remains the operator of record for production workflow decisions.
+- Clients review only selected, sanitized artifacts and approvals.
+- KDP and Google Play Books start as manual upload/readiness channels, not direct publishing integrations.
+- Hermes skills create evidence, drafts, metadata, checks, and reports, but cannot publish, spend, message clients, collect secrets, or approve public release.
+- The first success metric is controlled throughput and quality evidence, not maximum book volume.
+
+Kill or pause the first implementation plan if any of these become required for V1:
+
+- Public users must be able to generate and export books without PiB review.
+- The system must submit directly to KDP or Google before a sanctioned API and approval model exists.
+- Publishing account passwords, bank details, tax IDs, or identity documents must be stored in PiB.
+- Draft-writing or visual generation must become client-visible before fixture tests, safety reports, rights checks, and reviewer gates exist.
+- The dashboard must claim profit, royalties, or attribution before report imports and settlement confidence are separated.
+
+Devil's advocate: the internal studio recommendation is also not free. It keeps production responsibility on PiB, creates an operational queue, and may feel less exciting than a public AI-book product. The reason it is still the right V1 is that it turns the riskiest unknowns into controlled evidence: book type gates, account authority, rights, metadata, export packages, approval state, and report reconciliation. If this internal workflow cannot make high-quality books profitably, a self-serve version would only scale the failure faster.
+
 ## Draft V1 Operating Model
 
 If V1 is approved as the internal production studio, the module should behave like a controlled publishing workspace rather than a document editor with AI buttons.
