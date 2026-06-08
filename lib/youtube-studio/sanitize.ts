@@ -3,6 +3,14 @@ import type {
   YouTubeAgentJobPriority,
   YouTubeAgentJobStatus,
   YouTubeAgentJobVisibility,
+  YouTubeAnalyticsFreshness,
+  YouTubeAnalyticsMetrics,
+  YouTubeAnalyticsRecommendation,
+  YouTubeAnalyticsRecommendationConfidence,
+  YouTubeAnalyticsRecommendationStatus,
+  YouTubeAnalyticsRecommendationType,
+  YouTubeAnalyticsSnapshot,
+  YouTubeAnalyticsSource,
   YouTubeApprovalPolicy,
   YouTubeChannelStatus,
   YouTubeChannelWorkspace,
@@ -80,6 +88,23 @@ const AGENT_JOB_STATUSES: YouTubeAgentJobStatus[] = [
 ]
 const AGENT_JOB_PRIORITIES: YouTubeAgentJobPriority[] = ['low', 'normal', 'high', 'urgent']
 const AGENT_JOB_VISIBILITIES: YouTubeAgentJobVisibility[] = ['internal', 'client_visible']
+const ANALYTICS_SOURCES: YouTubeAnalyticsSource[] = ['youtube_analytics_api', 'youtube_reporting_api', 'manual_import']
+const ANALYTICS_FRESHNESS: YouTubeAnalyticsFreshness[] = ['fresh', 'delayed', 'partial', 'estimated']
+const ANALYTICS_RECOMMENDATION_TYPES: YouTubeAnalyticsRecommendationType[] = [
+  'retitle',
+  'thumbnail_test',
+  'shorts_pack',
+  'follow_up_video',
+  'series_change',
+  'cadence_change',
+]
+const ANALYTICS_RECOMMENDATION_CONFIDENCES: YouTubeAnalyticsRecommendationConfidence[] = ['low', 'medium', 'high']
+const ANALYTICS_RECOMMENDATION_STATUSES: YouTubeAnalyticsRecommendationStatus[] = [
+  'suggested',
+  'accepted',
+  'rejected',
+  'converted_to_task',
+]
 
 type RawInput = Record<string, unknown>
 type PacketReviewCheckKey = Exclude<keyof YouTubePublishingPacket['checks'], 'connectedAccount'>
@@ -172,12 +197,34 @@ export type ClientSafeYouTubePublishingPacket = Pick<
   checks: Partial<Record<PacketReviewCheckKey, ClientSafeYouTubeGateCheck>>
 }
 
+export type ClientSafeYouTubeAnalyticsSnapshot = Pick<
+  YouTubeAnalyticsSnapshot,
+  | 'id'
+  | 'orgId'
+  | 'channelWorkspaceId'
+  | 'videoProjectId'
+  | 'seriesId'
+  | 'periodStart'
+  | 'periodEnd'
+  | 'source'
+  | 'sourceFreshness'
+  | 'metrics'
+  | 'clientSummary'
+> & {
+  recommendations: Array<Pick<YouTubeAnalyticsRecommendation, 'type' | 'summary' | 'confidence' | 'status'>>
+}
+
 function cleanString(value: unknown): string | undefined {
   return typeof value === 'string' && value.trim() ? value.trim() : undefined
 }
 
 function cleanNumber(value: unknown): number | undefined {
   return typeof value === 'number' && Number.isFinite(value) ? value : undefined
+}
+
+function cleanNonNegativeNumber(value: unknown): number | undefined {
+  const number = cleanNumber(value)
+  return number !== undefined && number >= 0 ? number : undefined
 }
 
 function cleanBoolean(value: unknown): boolean | undefined {
@@ -192,6 +239,17 @@ function cleanStringArray(value: unknown): string[] {
   if (Array.isArray(value)) return value.map(cleanString).filter((item): item is string => Boolean(item))
   if (typeof value === 'string') return value.split(/[\n,]+/).map((item) => item.trim()).filter(Boolean)
   return []
+}
+
+function cleanStringRecord(value: unknown): Record<string, string> | undefined {
+  const source = cleanObject(value)
+  const entries = Object.entries(source).flatMap(([key, entry]) => {
+    const safeKey = cleanString(key)
+    const safeValue = cleanString(entry)
+    return safeKey && safeValue ? [[safeKey, safeValue] as const] : []
+  })
+
+  return entries.length ? Object.fromEntries(entries) : undefined
 }
 
 function isDefined<T>(value: T | undefined): value is T {
@@ -442,6 +500,82 @@ export function sanitizeYouTubeAgentJobInput(
   })
 }
 
+function sanitizeYouTubeAnalyticsMetrics(input: unknown): YouTubeAnalyticsMetrics {
+  const source = cleanObject(input)
+
+  return stripUndefinedDeep({
+    views: cleanNonNegativeNumber(source.views),
+    watchTimeMinutes: cleanNonNegativeNumber(source.watchTimeMinutes),
+    averageViewDurationSeconds: cleanNonNegativeNumber(source.averageViewDurationSeconds),
+    averageViewPercentage: cleanNonNegativeNumber(source.averageViewPercentage),
+    impressions: cleanNonNegativeNumber(source.impressions),
+    impressionsCtr: cleanNonNegativeNumber(source.impressionsCtr),
+    subscribersGained: cleanNonNegativeNumber(source.subscribersGained),
+    subscribersLost: cleanNonNegativeNumber(source.subscribersLost),
+    likes: cleanNonNegativeNumber(source.likes),
+    comments: cleanNonNegativeNumber(source.comments),
+    shares: cleanNonNegativeNumber(source.shares),
+  })
+}
+
+function sanitizeYouTubeAnalyticsRecommendations(input: unknown): YouTubeAnalyticsRecommendation[] {
+  if (!Array.isArray(input)) return []
+
+  return input.flatMap((entry) => {
+    const source = cleanObject(entry)
+    const summary = cleanString(source.summary)
+    if (!summary) return []
+
+    return [stripUndefinedDeep({
+      type: pick(ANALYTICS_RECOMMENDATION_TYPES, source.type, 'follow_up_video'),
+      summary,
+      confidence: pick(ANALYTICS_RECOMMENDATION_CONFIDENCES, source.confidence, 'low'),
+      status: pick(ANALYTICS_RECOMMENDATION_STATUSES, source.status, 'suggested'),
+      taskId: cleanString(source.taskId),
+      notes: cleanString(source.notes),
+    })]
+  })
+}
+
+export function sanitizeYouTubeAnalyticsSnapshotInput(
+  input: RawInput
+): Omit<
+  YouTubeAnalyticsSnapshot,
+  | 'id'
+  | 'importedAt'
+  | 'importedBy'
+  | 'importedByType'
+  | 'createdAt'
+  | 'updatedAt'
+  | 'createdBy'
+  | 'createdByType'
+  | 'updatedBy'
+  | 'updatedByType'
+> {
+  const visibility = cleanObject(input.visibility)
+
+  return stripUndefinedDeep({
+    orgId: cleanString(input.orgId) ?? '',
+    channelWorkspaceId: cleanString(input.channelWorkspaceId) ?? '',
+    videoProjectId: cleanString(input.videoProjectId),
+    youtubeVideoId: cleanString(input.youtubeVideoId),
+    seriesId: cleanString(input.seriesId),
+    periodStart: cleanString(input.periodStart) ?? '',
+    periodEnd: cleanString(input.periodEnd) ?? '',
+    source: pick(ANALYTICS_SOURCES, input.source, 'manual_import'),
+    sourceFreshness: pick(ANALYTICS_FRESHNESS, input.sourceFreshness, 'partial'),
+    metrics: sanitizeYouTubeAnalyticsMetrics(input.metrics),
+    dimensions: cleanStringRecord(input.dimensions),
+    recommendations: sanitizeYouTubeAnalyticsRecommendations(input.recommendations),
+    clientSummary: cleanString(input.clientSummary),
+    internalNotes: cleanString(input.internalNotes),
+    visibility: {
+      showInClientPortal: visibility.showInClientPortal === true,
+    },
+    deleted: input.deleted === true,
+  })
+}
+
 export function serializeYouTubeRecord<T extends object>(id: string, data: Record<string, unknown>): T & { id: string } {
   return { id, ...(JSON.parse(JSON.stringify(data)) as T) }
 }
@@ -625,5 +759,39 @@ export function clientSafeYouTubePublishingPacket(
       captions: clientSafeGateCheck(checks.captions),
       approval: clientSafeGateCheck(checks.approval),
     },
+  })
+}
+
+function clientSafeAnalyticsRecommendation(recommendation: unknown) {
+  const source = cleanObject(recommendation)
+  const summary = cleanString(source.summary)
+  if (!summary) return undefined
+
+  return {
+    type: pick(ANALYTICS_RECOMMENDATION_TYPES, source.type, 'follow_up_video'),
+    summary,
+    confidence: pick(ANALYTICS_RECOMMENDATION_CONFIDENCES, source.confidence, 'low'),
+    status: pick(ANALYTICS_RECOMMENDATION_STATUSES, source.status, 'suggested'),
+  }
+}
+
+export function clientSafeYouTubeAnalyticsSnapshot(
+  snapshot: YouTubeAnalyticsSnapshot
+): ClientSafeYouTubeAnalyticsSnapshot {
+  return stripUndefinedDeep({
+    id: cleanString(snapshot.id),
+    orgId: cleanString(snapshot.orgId) ?? '',
+    channelWorkspaceId: cleanString(snapshot.channelWorkspaceId) ?? '',
+    videoProjectId: cleanString(snapshot.videoProjectId),
+    seriesId: cleanString(snapshot.seriesId),
+    periodStart: cleanString(snapshot.periodStart) ?? '',
+    periodEnd: cleanString(snapshot.periodEnd) ?? '',
+    source: pick(ANALYTICS_SOURCES, snapshot.source, 'manual_import'),
+    sourceFreshness: pick(ANALYTICS_FRESHNESS, snapshot.sourceFreshness, 'partial'),
+    metrics: sanitizeYouTubeAnalyticsMetrics(snapshot.metrics),
+    clientSummary: cleanString(snapshot.clientSummary),
+    recommendations: Array.isArray(snapshot.recommendations)
+      ? snapshot.recommendations.map(clientSafeAnalyticsRecommendation).filter(isDefined)
+      : [],
   })
 }

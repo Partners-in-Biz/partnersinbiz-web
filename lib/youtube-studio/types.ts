@@ -68,6 +68,40 @@ export type YouTubeProductionSkillKey =
 export type YouTubeAgentJobStatus = 'queued' | 'running' | 'waiting_for_review' | 'completed' | 'failed' | 'cancelled'
 export type YouTubeAgentJobPriority = 'low' | 'normal' | 'high' | 'urgent'
 export type YouTubeAgentJobVisibility = 'internal' | 'client_visible'
+export type YouTubeAnalyticsSource = 'youtube_analytics_api' | 'youtube_reporting_api' | 'manual_import'
+export type YouTubeAnalyticsFreshness = 'fresh' | 'delayed' | 'partial' | 'estimated'
+export type YouTubeAnalyticsRecommendationType =
+  | 'retitle'
+  | 'thumbnail_test'
+  | 'shorts_pack'
+  | 'follow_up_video'
+  | 'series_change'
+  | 'cadence_change'
+export type YouTubeAnalyticsRecommendationConfidence = 'low' | 'medium' | 'high'
+export type YouTubeAnalyticsRecommendationStatus = 'suggested' | 'accepted' | 'rejected' | 'converted_to_task'
+
+export interface YouTubeAnalyticsMetrics {
+  views?: number
+  watchTimeMinutes?: number
+  averageViewDurationSeconds?: number
+  averageViewPercentage?: number
+  impressions?: number
+  impressionsCtr?: number
+  subscribersGained?: number
+  subscribersLost?: number
+  likes?: number
+  comments?: number
+  shares?: number
+}
+
+export interface YouTubeAnalyticsRecommendation {
+  type: YouTubeAnalyticsRecommendationType
+  summary: string
+  confidence: YouTubeAnalyticsRecommendationConfidence
+  status: YouTubeAnalyticsRecommendationStatus
+  taskId?: string
+  notes?: string
+}
 
 export interface YouTubeGateCheck {
   status: YouTubeGateStatus
@@ -236,6 +270,35 @@ export interface YouTubeAgentJob {
     documentIds?: string[]
     researchItemIds?: string[]
   }
+  createdAt?: unknown
+  updatedAt?: unknown
+  createdBy?: string
+  createdByType?: ActorType
+  updatedBy?: string
+  updatedByType?: ActorType
+  deleted: boolean
+}
+
+export interface YouTubeAnalyticsSnapshot {
+  id?: string
+  orgId: string
+  channelWorkspaceId: string
+  videoProjectId?: string
+  youtubeVideoId?: string
+  seriesId?: string
+  periodStart: string
+  periodEnd: string
+  source: YouTubeAnalyticsSource
+  sourceFreshness: YouTubeAnalyticsFreshness
+  metrics: YouTubeAnalyticsMetrics
+  dimensions?: Record<string, string>
+  recommendations: YouTubeAnalyticsRecommendation[]
+  clientSummary?: string
+  internalNotes?: string
+  visibility?: { showInClientPortal?: boolean }
+  importedAt?: unknown
+  importedBy?: string
+  importedByType?: ActorType
   createdAt?: unknown
   updatedAt?: unknown
   createdBy?: string

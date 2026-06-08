@@ -7,6 +7,7 @@ const mockChannelsGet = jest.fn()
 const mockSeriesGet = jest.fn()
 const mockVideosGet = jest.fn()
 const mockPacketsGet = jest.fn()
+const mockAnalyticsGet = jest.fn()
 const mockAdd = jest.fn()
 const mockDoc = jest.fn()
 const mockDocGet = jest.fn()
@@ -48,6 +49,7 @@ type FirestoreStage = {
   series?: FirestoreDoc[]
   videos?: FirestoreDoc[]
   packets?: FirestoreDoc[]
+  analytics?: FirestoreDoc[]
 }
 
 function docsById(docs: FirestoreDoc[] = []) {
@@ -319,6 +321,61 @@ function defaultStage(): Required<FirestoreStage> {
         },
       },
     ],
+    analytics: [
+      {
+        id: 'snapshot-1',
+        data: {
+          orgId: 'org-1',
+          channelWorkspaceId: 'channel-1',
+          videoProjectId: 'video-1',
+          seriesId: 'series-1',
+          periodStart: '2026-06-01',
+          periodEnd: '2026-06-07',
+          source: 'youtube_analytics_api',
+          sourceFreshness: 'delayed',
+          metrics: {
+            views: 1000,
+            watchTimeMinutes: 240,
+            averageViewPercentage: 44,
+            impressionsCtr: 3.2,
+            secretMetric: 999,
+          },
+          dimensions: { country: 'ZA', internalSegment: 'operator-only dimension' },
+          clientSummary: 'Views are building but the hook still needs work.',
+          internalNotes: 'Operator-only analytics notes',
+          recommendations: [
+            {
+              type: 'thumbnail_test',
+              summary: 'Test a clearer before/after thumbnail.',
+              confidence: 'medium',
+              status: 'suggested',
+              taskId: 'task-secret',
+              notes: 'internal recommendation note',
+            },
+          ],
+          visibility: { showInClientPortal: true },
+          importedBy: 'admin-1',
+          importedAt: { seconds: 12 },
+          deleted: false,
+        },
+      },
+      {
+        id: 'snapshot-hidden',
+        data: {
+          orgId: 'org-1',
+          channelWorkspaceId: 'channel-1',
+          videoProjectId: 'video-1',
+          periodStart: '2026-06-01',
+          periodEnd: '2026-06-07',
+          source: 'manual_import',
+          sourceFreshness: 'partial',
+          metrics: { views: 99 },
+          recommendations: [],
+          visibility: { showInClientPortal: false },
+          deleted: false,
+        },
+      },
+    ],
   }
 }
 
@@ -331,6 +388,7 @@ function stageFirestore(overrides: FirestoreStage = {}) {
   const videoDocs = docsById(staged.videos)
   const seriesDocs = docsById(staged.series)
   const packetDocs = docsById(staged.packets)
+  const analyticsDocs = docsById(staged.analytics)
 
   mockOrgGet.mockResolvedValue({
     exists: true,
@@ -348,6 +406,9 @@ function stageFirestore(overrides: FirestoreStage = {}) {
   mockPacketsGet.mockResolvedValue({
     docs: staged.packets.map((doc) => ({ id: doc.id, data: () => doc.data })),
   })
+  mockAnalyticsGet.mockResolvedValue({
+    docs: staged.analytics.map((doc) => ({ id: doc.id, data: () => doc.data })),
+  })
   mockAdd.mockResolvedValue({ id: 'request-1' })
   mockDocSet.mockResolvedValue(undefined)
 
@@ -359,6 +420,7 @@ function stageFirestore(overrides: FirestoreStage = {}) {
       youtube_series: { docs: seriesDocs, queryGet: mockSeriesGet },
       youtube_video_projects: { docs: videoDocs, queryGet: mockVideosGet },
       youtube_publishing_packets: { docs: packetDocs, queryGet: mockPacketsGet },
+      youtube_analytics_snapshots: { docs: analyticsDocs, queryGet: mockAnalyticsGet },
     }
     const collection = collections[name as keyof typeof collections]
     if (!collection) throw new Error(`Unexpected collection: ${name}`)
@@ -407,10 +469,12 @@ describe('portal youtube studio API', () => {
     expect(body.data.series.map((series: { id: string }) => series.id)).toEqual(['series-1'])
     expect(body.data.videos.map((video: { id: string }) => video.id)).toEqual(['video-1'])
     expect(body.data.packets.map((packet: { id: string }) => packet.id)).toEqual(['packet-1'])
+    expect(body.data.analytics.map((snapshot: { id: string }) => snapshot.id)).toEqual(['snapshot-1'])
     const channel = body.data.channels[0]
     const series = body.data.series[0]
     const video = body.data.videos[0]
     const packet = body.data.packets[0]
+    const snapshot = body.data.analytics[0]
     expect(channel).not.toHaveProperty('connectedAccountId')
     expect(channel).not.toHaveProperty('internalNotes')
     expect(channel).not.toHaveProperty('createdBy')
@@ -513,6 +577,38 @@ describe('portal youtube studio API', () => {
     expect(packet.chapters[0]).not.toHaveProperty('scoringAudit')
     expect(packet.chapters[0]).not.toHaveProperty('sourceAssetId')
     expect(packet.chapters[0]).not.toHaveProperty('policyNotes')
+    expect(snapshot).toMatchObject({
+      id: 'snapshot-1',
+      orgId: 'org-1',
+      channelWorkspaceId: 'channel-1',
+      videoProjectId: 'video-1',
+      seriesId: 'series-1',
+      periodStart: '2026-06-01',
+      periodEnd: '2026-06-07',
+      source: 'youtube_analytics_api',
+      sourceFreshness: 'delayed',
+      metrics: {
+        views: 1000,
+        watchTimeMinutes: 240,
+        averageViewPercentage: 44,
+        impressionsCtr: 3.2,
+      },
+      clientSummary: 'Views are building but the hook still needs work.',
+      recommendations: [{
+        type: 'thumbnail_test',
+        summary: 'Test a clearer before/after thumbnail.',
+        confidence: 'medium',
+        status: 'suggested',
+      }],
+    })
+    expect(snapshot).not.toHaveProperty('dimensions')
+    expect(snapshot).not.toHaveProperty('internalNotes')
+    expect(snapshot).not.toHaveProperty('importedBy')
+    expect(snapshot).not.toHaveProperty('importedAt')
+    expect(snapshot.recommendations[0]).not.toHaveProperty('taskId')
+    expect(snapshot.recommendations[0]).not.toHaveProperty('notes')
+    expect(JSON.stringify(snapshot)).not.toContain('operator-only')
+    expect(JSON.stringify(snapshot)).not.toContain('task-secret')
   })
 
   it('does not crash or leak when visible Firestore scalar values are malformed', async () => {
@@ -660,6 +756,31 @@ describe('portal youtube studio API', () => {
     expect(JSON.stringify(body)).not.toContain('Operator-only')
   })
 
+  it('hides client-visible analytics when the channel analytics toggle is off', async () => {
+    const defaults = defaultStage()
+    stageFirestore({
+      channels: defaults.channels.map((channel) =>
+        channel.id === 'channel-1'
+          ? {
+              ...channel,
+              data: {
+                ...channel.data,
+                visibility: { showInClientPortal: true, showAnalytics: false },
+              },
+            }
+          : channel
+      ),
+    })
+
+    const { GET } = await import('@/app/api/v1/portal/youtube-studio/route')
+    const res = await GET(new NextRequest('http://localhost/api/v1/portal/youtube-studio'))
+    const body = await res.json()
+
+    expect(res.status).toBe(200)
+    expect(body.data.channels.map((channel: { id: string }) => channel.id)).toEqual(['channel-1'])
+    expect(body.data.analytics).toEqual([])
+  })
+
   it('blocks access when the org disables YouTube Studio before querying YouTube collections', async () => {
     stageFirestore({ settings: { portalModules: { youtubeStudio: false } } })
 
@@ -673,6 +794,7 @@ describe('portal youtube studio API', () => {
     expect(mockSeriesGet).not.toHaveBeenCalled()
     expect(mockVideosGet).not.toHaveBeenCalled()
     expect(mockPacketsGet).not.toHaveBeenCalled()
+    expect(mockAnalyticsGet).not.toHaveBeenCalled()
   })
 
   it('lets a portal member submit a sanitized client video request', async () => {

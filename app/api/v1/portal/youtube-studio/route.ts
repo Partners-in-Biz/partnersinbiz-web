@@ -6,6 +6,7 @@ import { withPortalAuthAndRole } from '@/lib/auth/portal-middleware'
 import { isPortalModuleEnabled } from '@/lib/organizations/portal-modules'
 import { stripUndefinedDeep, YOUTUBE_COLLECTIONS } from '@/lib/youtube-studio/api'
 import {
+  clientSafeYouTubeAnalyticsSnapshot,
   clientSafeYouTubeChannelWorkspace,
   clientSafeYouTubePublishingPacket,
   clientSafeYouTubeSeries,
@@ -14,6 +15,7 @@ import {
   serializeYouTubeRecord,
 } from '@/lib/youtube-studio/sanitize'
 import type {
+  YouTubeAnalyticsSnapshot,
   YouTubeChannelWorkspace,
   YouTubePublishingPacket,
   YouTubeSeries,
@@ -60,6 +62,10 @@ function isPortalVisible(record: { visibility?: { showInClientPortal?: boolean }
   return record.visibility?.showInClientPortal !== false
 }
 
+function isAnalyticsVisible(record: { visibility?: { showAnalytics?: boolean } }): boolean {
+  return record.visibility?.showAnalytics !== false
+}
+
 function decisionStatus(decision: ClientDecision): YouTubeVideoStatus {
   if (decision === 'approved') return 'internal_review'
   if (decision === 'changes_requested') return 'changes_requested'
@@ -95,16 +101,23 @@ export const GET = withPortalAuthAndRole('viewer', async (_req: NextRequest, _ui
   const disabled = await youtubeStudioModuleGuard(orgId)
   if (disabled) return disabled
 
-  const [channelsRaw, seriesRaw, videosRaw, packetsRaw] = await Promise.all([
+  const [channelsRaw, seriesRaw, videosRaw, packetsRaw, analyticsRaw] = await Promise.all([
     listOrg<YouTubeChannelWorkspace>(YOUTUBE_COLLECTIONS.channels, orgId),
     listOrg<YouTubeSeries>(YOUTUBE_COLLECTIONS.series, orgId),
     listOrg<YouTubeVideoProject>(YOUTUBE_COLLECTIONS.videos, orgId),
     listOrg<YouTubePublishingPacket>(YOUTUBE_COLLECTIONS.packets, orgId),
+    listOrg<YouTubeAnalyticsSnapshot>(YOUTUBE_COLLECTIONS.analytics, orgId),
   ])
 
   const visibleChannelIds = new Set(
     channelsRaw
       .filter(isPortalVisible)
+      .map((channel) => channel.id)
+      .filter((id): id is string => Boolean(id))
+  )
+  const analyticsVisibleChannelIds = new Set(
+    channelsRaw
+      .filter((channel) => isPortalVisible(channel) && isAnalyticsVisible(channel))
       .map((channel) => channel.id)
       .filter((id): id is string => Boolean(id))
   )
@@ -138,8 +151,17 @@ export const GET = withPortalAuthAndRole('viewer', async (_req: NextRequest, _ui
       visibleVideosRaw.some((video) => video.id === packet.videoProjectId && video.visibility?.showPublishingPacket === true)
     )
     .map(clientSafeYouTubePublishingPacket)
+  const analytics = analyticsRaw
+    .filter((snapshot) =>
+      snapshot.visibility?.showInClientPortal === true &&
+      analyticsVisibleChannelIds.has(snapshot.channelWorkspaceId) &&
+      (!snapshot.videoProjectId || visibleVideoIds.has(snapshot.videoProjectId)) &&
+      (!snapshot.seriesId || visibleSeriesIds.has(snapshot.seriesId))
+    )
+    .map(clientSafeYouTubeAnalyticsSnapshot)
+    .sort((a, b) => b.periodEnd.localeCompare(a.periodEnd))
 
-  return apiSuccess({ channels, series, videos, packets })
+  return apiSuccess({ channels, series, videos, packets, analytics })
 })
 
 async function handlePortalYouTubeStudioPost(req: NextRequest, uid: string, orgId: string): Promise<Response> {

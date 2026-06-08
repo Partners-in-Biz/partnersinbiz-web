@@ -34,6 +34,7 @@ const portalData = {
       },
     ],
     packets: [],
+    analytics: [],
   },
 }
 
@@ -287,7 +288,7 @@ describe('YouTubeStudioPortalWorkspace module availability', () => {
     const { rerender } = render(<YouTubeStudioAdminWorkspace orgId="lumen-org" orgName="Lumen" />)
 
     await waitFor(() => {
-      expect(fetchMock.mock.calls.filter(([input]) => String(input).includes('lumen-org'))).toHaveLength(4)
+      expect(fetchMock.mock.calls.filter(([input]) => String(input).includes('lumen-org'))).toHaveLength(5)
     })
 
     const channelTitleField = await screen.findByLabelText('Channel title')
@@ -369,7 +370,7 @@ describe('YouTubeStudioPortalWorkspace module availability', () => {
 
     const { rerender } = render(<YouTubeStudioAdminWorkspace orgId="lumen-org" orgName="Lumen" />)
     await waitFor(() => {
-      expect(fetchMock.mock.calls.filter(([input]) => String(input).includes('lumen-org'))).toHaveLength(4)
+      expect(fetchMock.mock.calls.filter(([input]) => String(input).includes('lumen-org'))).toHaveLength(5)
     })
 
     rerender(<YouTubeStudioAdminWorkspace orgId="velox-org" orgName="Velox" />)

@@ -1,4 +1,5 @@
 import {
+  clientSafeYouTubeAnalyticsSnapshot,
   clientSafeYouTubePublishingPacket,
   clientSafeYouTubeChannelWorkspace,
   clientSafeYouTubeSeries,
@@ -6,6 +7,7 @@ import {
   defaultYouTubeApprovalPolicy,
   defaultYouTubePublishingPolicy,
   sanitizeYouTubeAgentJobInput,
+  sanitizeYouTubeAnalyticsSnapshotInput,
   sanitizeYouTubeChannelWorkspaceInput,
   sanitizeYouTubePublishingPolicyInput,
   sanitizeYouTubeSeriesInput,
@@ -142,6 +144,123 @@ describe('youtube studio sanitizers', () => {
       deleted: true,
     })
     expectNoUndefinedValues(result)
+  })
+
+  it('sanitizes analytics snapshots and client-safe analytics summaries', () => {
+    const result = sanitizeYouTubeAnalyticsSnapshotInput({
+      orgId: ' org-1 ',
+      channelWorkspaceId: ' channel-1 ',
+      videoProjectId: ' video-1 ',
+      seriesId: ' series-1 ',
+      youtubeVideoId: ' youtube-1 ',
+      periodStart: ' 2026-06-01 ',
+      periodEnd: ' 2026-06-07 ',
+      source: 'bad-source',
+      sourceFreshness: 'estimated',
+      metrics: {
+        views: 100,
+        watchTimeMinutes: -1,
+        averageViewDurationSeconds: 45,
+        averageViewPercentage: 44,
+        impressionsCtr: 3.2,
+        comments: 'bad',
+      },
+      dimensions: {
+        country: ' ZA ',
+        hidden: { nested: true },
+      },
+      recommendations: [
+        {
+          type: 'thumbnail_test',
+          summary: ' Test a clearer thumbnail. ',
+          confidence: 'medium',
+          status: 'accepted',
+          taskId: ' task-1 ',
+          notes: ' Internal note ',
+        },
+        {
+          type: 'retitle',
+          summary: '',
+          confidence: 'high',
+        },
+      ],
+      clientSummary: ' Useful client summary. ',
+      internalNotes: ' Operator notes. ',
+      visibility: { showInClientPortal: true },
+      deleted: true,
+    })
+
+    expect(result).toEqual({
+      orgId: 'org-1',
+      channelWorkspaceId: 'channel-1',
+      videoProjectId: 'video-1',
+      youtubeVideoId: 'youtube-1',
+      seriesId: 'series-1',
+      periodStart: '2026-06-01',
+      periodEnd: '2026-06-07',
+      source: 'manual_import',
+      sourceFreshness: 'estimated',
+      metrics: {
+        views: 100,
+        averageViewDurationSeconds: 45,
+        averageViewPercentage: 44,
+        impressionsCtr: 3.2,
+      },
+      dimensions: { country: 'ZA' },
+      recommendations: [{
+        type: 'thumbnail_test',
+        summary: 'Test a clearer thumbnail.',
+        confidence: 'medium',
+        status: 'accepted',
+        taskId: 'task-1',
+        notes: 'Internal note',
+      }],
+      clientSummary: 'Useful client summary.',
+      internalNotes: 'Operator notes.',
+      visibility: { showInClientPortal: true },
+      deleted: true,
+    })
+    expectNoUndefinedValues(result)
+
+    const safe = clientSafeYouTubeAnalyticsSnapshot({
+      id: 'snapshot-1',
+      ...result,
+      source: 'youtube_analytics_api',
+      sourceFreshness: 'delayed',
+      importedBy: 'admin-1',
+      importedAt: { seconds: 1 },
+      createdBy: 'admin-1',
+      updatedBy: 'admin-2',
+    })
+
+    expect(safe).toEqual({
+      id: 'snapshot-1',
+      orgId: 'org-1',
+      channelWorkspaceId: 'channel-1',
+      videoProjectId: 'video-1',
+      seriesId: 'series-1',
+      periodStart: '2026-06-01',
+      periodEnd: '2026-06-07',
+      source: 'youtube_analytics_api',
+      sourceFreshness: 'delayed',
+      metrics: {
+        views: 100,
+        averageViewDurationSeconds: 45,
+        averageViewPercentage: 44,
+        impressionsCtr: 3.2,
+      },
+      clientSummary: 'Useful client summary.',
+      recommendations: [{
+        type: 'thumbnail_test',
+        summary: 'Test a clearer thumbnail.',
+        confidence: 'medium',
+        status: 'accepted',
+      }],
+    })
+    expect(safe).not.toHaveProperty('dimensions')
+    expect(safe).not.toHaveProperty('internalNotes')
+    expect(JSON.stringify(safe)).not.toContain('task-1')
+    expect(JSON.stringify(safe)).not.toContain('Internal note')
   })
 
   it('sanitizes series format and cadence to safe defaults', () => {

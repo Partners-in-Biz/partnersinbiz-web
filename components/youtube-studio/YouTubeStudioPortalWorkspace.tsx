@@ -1,7 +1,13 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import type { YouTubeChannelWorkspace, YouTubePublishingPacket, YouTubeSeries, YouTubeVideoProject } from '@/lib/youtube-studio/types'
+import type {
+  YouTubeAnalyticsSnapshot,
+  YouTubeChannelWorkspace,
+  YouTubePublishingPacket,
+  YouTubeSeries,
+  YouTubeVideoProject,
+} from '@/lib/youtube-studio/types'
 import { YouTubeChannelCard, YouTubeVideoCard } from '@/components/youtube-studio/YouTubeStudioCards'
 import { YouTubeStudioWorkspaceShell } from '@/components/youtube-studio/YouTubeStudioWorkspaceShell'
 import { scopedApiPath } from '@/lib/portal/scoped-routing'
@@ -37,6 +43,7 @@ export function YouTubeStudioPortalWorkspace({ orgId }: YouTubeStudioPortalWorks
   const [series, setSeries] = useState<YouTubeSeries[]>([])
   const [videos, setVideos] = useState<YouTubeVideoProject[]>([])
   const [packets, setPackets] = useState<YouTubePublishingPacket[]>([])
+  const [analytics, setAnalytics] = useState<YouTubeAnalyticsSnapshot[]>([])
   const [request, setRequest] = useState<RequestForm>(emptyRequest)
   const [reviewNotes, setReviewNotes] = useState<Record<string, string>>({})
   const [loading, setLoading] = useState(true)
@@ -71,6 +78,7 @@ export function YouTubeStudioPortalWorkspace({ orgId }: YouTubeStudioPortalWorks
         setSeries([])
         setVideos([])
         setPackets([])
+        setAnalytics([])
         setLoadNotice('')
         setActionNotice('')
         return
@@ -81,6 +89,7 @@ export function YouTubeStudioPortalWorkspace({ orgId }: YouTubeStudioPortalWorks
       setSeries(Array.isArray(body.data?.series) ? body.data.series : [])
       setVideos(Array.isArray(body.data?.videos) ? body.data.videos : [])
       setPackets(Array.isArray(body.data?.packets) ? body.data.packets : [])
+      setAnalytics(Array.isArray(body.data?.analytics) ? body.data.analytics : [])
       if (!res.ok) {
         setLoadNotice(body.error ?? 'Could not load YouTube Studio.')
       } else {
@@ -93,6 +102,7 @@ export function YouTubeStudioPortalWorkspace({ orgId }: YouTubeStudioPortalWorks
       setSeries([])
       setVideos([])
       setPackets([])
+      setAnalytics([])
       setLoadNotice('Could not load YouTube Studio.')
     } finally {
       if (isCurrentRequest()) {
@@ -288,6 +298,44 @@ export function YouTubeStudioPortalWorkspace({ orgId }: YouTubeStudioPortalWorks
               </p>
             ) : null}
           </div>
+
+          <div className="space-y-3">
+            <h2 className="font-headline text-xl font-semibold text-on-surface">Analytics summaries</h2>
+            {analytics.length === 0 ? (
+              <div className="pib-card-section p-5 text-sm text-on-surface-variant">No client-facing YouTube analytics summaries yet.</div>
+            ) : (
+              analytics.slice(0, 4).map((snapshot) => (
+                <article key={snapshot.id ?? `${snapshot.channelWorkspaceId}-${snapshot.periodEnd}`} className="pib-card-section space-y-3 p-4">
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <h3 className="break-words font-semibold text-on-surface">{snapshot.clientSummary || 'YouTube analytics update'}</h3>
+                      <p className="mt-1 text-sm text-on-surface-variant">
+                        {snapshot.periodStart} to {snapshot.periodEnd} / {formatToken(snapshot.sourceFreshness)}
+                      </p>
+                    </div>
+                    <span className="shrink-0 rounded-full bg-[var(--color-surface-container-high)] px-3 py-1 text-xs font-label uppercase tracking-widest text-on-surface-variant">
+                      {formatToken(snapshot.source)}
+                    </span>
+                  </div>
+                  <div className="grid gap-2 text-sm text-on-surface-variant sm:grid-cols-4">
+                    <Metric label="Views" value={snapshot.metrics?.views} />
+                    <Metric label="Watch min" value={snapshot.metrics?.watchTimeMinutes} />
+                    <Metric label="Avg viewed" value={snapshot.metrics?.averageViewPercentage} suffix="%" />
+                    <Metric label="CTR" value={snapshot.metrics?.impressionsCtr} suffix="%" />
+                  </div>
+                  {snapshot.recommendations?.length ? (
+                    <div className="space-y-2">
+                      {snapshot.recommendations.slice(0, 2).map((recommendation, index) => (
+                        <p key={`${recommendation.type}-${index}`} className="break-words text-sm text-on-surface-variant">
+                          <span className="font-medium text-on-surface">{formatToken(recommendation.type)}:</span> {recommendation.summary}
+                        </p>
+                      ))}
+                    </div>
+                  ) : null}
+                </article>
+              ))
+            )}
+          </div>
         </section>
 
         <form onSubmit={submitRequest} className="pib-card-section h-fit space-y-4 p-5 lg:sticky lg:top-6">
@@ -315,6 +363,18 @@ export function YouTubeStudioPortalWorkspace({ orgId }: YouTubeStudioPortalWorks
       </div>
     </YouTubeStudioWorkspaceShell>
   )
+}
+
+function Metric({ label, value, suffix = '' }: { label: string; value?: number; suffix?: string }) {
+  return (
+    <span className="min-w-0 break-words">
+      {label}: {value === undefined ? 'not set' : `${value}${suffix}`}
+    </span>
+  )
+}
+
+function formatToken(value: string) {
+  return value.replace(/[-_]/g, ' ')
 }
 
 function Field({

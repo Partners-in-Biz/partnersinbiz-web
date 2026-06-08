@@ -3,6 +3,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type {
   YouTubeAgentJob,
+  YouTubeAnalyticsFreshness,
+  YouTubeAnalyticsRecommendationConfidence,
+  YouTubeAnalyticsRecommendationType,
+  YouTubeAnalyticsSnapshot,
+  YouTubeAnalyticsSource,
   YouTubeChannelWorkspace,
   YouTubeProductionSkillKey,
   YouTubeSeries,
@@ -31,6 +36,21 @@ type FormState = {
   jobVideoId: string
   jobSkillKey: YouTubeProductionSkillKey
   jobInputSummary: string
+  analyticsChannelId: string
+  analyticsVideoId: string
+  analyticsPeriodStart: string
+  analyticsPeriodEnd: string
+  analyticsSource: YouTubeAnalyticsSource
+  analyticsFreshness: YouTubeAnalyticsFreshness
+  analyticsViews: string
+  analyticsWatchTimeMinutes: string
+  analyticsAverageViewPercentage: string
+  analyticsImpressionsCtr: string
+  analyticsClientSummary: string
+  analyticsRecommendationType: YouTubeAnalyticsRecommendationType
+  analyticsRecommendationSummary: string
+  analyticsRecommendationConfidence: YouTubeAnalyticsRecommendationConfidence
+  analyticsShowInPortal: boolean
 }
 
 const emptyForm: FormState = {
@@ -46,6 +66,21 @@ const emptyForm: FormState = {
   jobVideoId: '',
   jobSkillKey: 'youtube-video-brief',
   jobInputSummary: '',
+  analyticsChannelId: '',
+  analyticsVideoId: '',
+  analyticsPeriodStart: '',
+  analyticsPeriodEnd: '',
+  analyticsSource: 'manual_import',
+  analyticsFreshness: 'partial',
+  analyticsViews: '',
+  analyticsWatchTimeMinutes: '',
+  analyticsAverageViewPercentage: '',
+  analyticsImpressionsCtr: '',
+  analyticsClientSummary: '',
+  analyticsRecommendationType: 'follow_up_video',
+  analyticsRecommendationSummary: '',
+  analyticsRecommendationConfidence: 'low',
+  analyticsShowInPortal: false,
 }
 
 const videoTypes: YouTubeVideoType[] = [
@@ -61,9 +96,26 @@ const videoTypes: YouTubeVideoType[] = [
   'ad_creative',
   'community_update',
 ]
+const analyticsSources: YouTubeAnalyticsSource[] = ['manual_import', 'youtube_analytics_api', 'youtube_reporting_api']
+const analyticsFreshnessOptions: YouTubeAnalyticsFreshness[] = ['fresh', 'delayed', 'partial', 'estimated']
+const analyticsRecommendationTypes: YouTubeAnalyticsRecommendationType[] = [
+  'retitle',
+  'thumbnail_test',
+  'shorts_pack',
+  'follow_up_video',
+  'series_change',
+  'cadence_change',
+]
+const analyticsRecommendationConfidences: YouTubeAnalyticsRecommendationConfidence[] = ['low', 'medium', 'high']
 
 function splitLines(value: string) {
   return value.split(/[\n,]+/).map((item) => item.trim()).filter(Boolean)
+}
+
+function numericValue(value: string) {
+  if (!value.trim()) return undefined
+  const parsed = Number(value)
+  return Number.isFinite(parsed) && parsed >= 0 ? parsed : undefined
 }
 
 export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdminWorkspaceProps) {
@@ -71,10 +123,12 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
   const [series, setSeries] = useState<YouTubeSeries[]>([])
   const [videos, setVideos] = useState<YouTubeVideoProject[]>([])
   const [jobs, setJobs] = useState<YouTubeAgentJob[]>([])
+  const [analytics, setAnalytics] = useState<YouTubeAnalyticsSnapshot[]>([])
   const [form, setForm] = useState<FormState>(emptyForm)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [queueingJob, setQueueingJob] = useState(false)
+  const [importingAnalytics, setImportingAnalytics] = useState(false)
   const [loadNotice, setLoadNotice] = useState('')
   const [actionNotice, setActionNotice] = useState('')
   const loadRequestIdRef = useRef(0)
@@ -82,6 +136,9 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
   const previousOrgIdRef = useRef(orgId)
   activeOrgIdRef.current = orgId
   const notice = loadNotice || actionNotice
+  const analyticsVideoOptions = form.analyticsChannelId
+    ? videos.filter((video) => video.channelWorkspaceId === form.analyticsChannelId)
+    : videos
 
   const load = useCallback(async () => {
     if (orgId !== activeOrgIdRef.current) return
@@ -90,24 +147,27 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
     const isCurrentRequest = () => requestId === loadRequestIdRef.current && orgId === activeOrgIdRef.current
     setLoading(true)
     try {
-      const [channelRes, seriesRes, videoRes, jobRes] = await Promise.all([
+      const [channelRes, seriesRes, videoRes, jobRes, analyticsRes] = await Promise.all([
         fetch(`/api/v1/youtube-studio/channels?orgId=${encodeURIComponent(orgId)}`),
         fetch(`/api/v1/youtube-studio/series?orgId=${encodeURIComponent(orgId)}`),
         fetch(`/api/v1/youtube-studio/videos?orgId=${encodeURIComponent(orgId)}`),
         fetch(`/api/v1/youtube-studio/agent-jobs?orgId=${encodeURIComponent(orgId)}`),
+        fetch(`/api/v1/youtube-studio/analytics?orgId=${encodeURIComponent(orgId)}`),
       ])
-      const [channelBody, seriesBody, videoBody, jobBody] = await Promise.all([
+      const [channelBody, seriesBody, videoBody, jobBody, analyticsBody] = await Promise.all([
         channelRes.json().catch(() => ({})),
         seriesRes.json().catch(() => ({})),
         videoRes.json().catch(() => ({})),
         jobRes.json().catch(() => ({})),
+        analyticsRes.json().catch(() => ({})),
       ])
       if (!isCurrentRequest()) return
       setChannels(Array.isArray(channelBody.data?.channels) ? channelBody.data.channels : [])
       setSeries(Array.isArray(seriesBody.data?.series) ? seriesBody.data.series : [])
       setVideos(Array.isArray(videoBody.data?.videos) ? videoBody.data.videos : [])
       setJobs(Array.isArray(jobBody.data?.jobs) ? jobBody.data.jobs : [])
-      if (!channelRes.ok || !seriesRes.ok || !videoRes.ok || !jobRes.ok) {
+      setAnalytics(Array.isArray(analyticsBody.data?.snapshots) ? analyticsBody.data.snapshots : [])
+      if (!channelRes.ok || !seriesRes.ok || !videoRes.ok || !jobRes.ok || !analyticsRes.ok) {
         setLoadNotice('Could not load the full YouTube Studio workspace.')
       } else {
         setLoadNotice('')
@@ -118,6 +178,7 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
       setSeries([])
       setVideos([])
       setJobs([])
+      setAnalytics([])
       setLoadNotice('Could not load the YouTube Studio workspace.')
     } finally {
       if (isCurrentRequest()) {
@@ -132,6 +193,7 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
     setForm(emptyForm)
     setSaving(false)
     setQueueingJob(false)
+    setImportingAnalytics(false)
     setLoadNotice('')
     setActionNotice('')
   }, [orgId])
@@ -145,6 +207,28 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
 
   function update<K extends keyof FormState>(field: K, value: FormState[K]) {
     setForm((prev) => ({ ...prev, [field]: value }))
+  }
+
+  function selectAnalyticsChannel(channelWorkspaceId: string) {
+    setForm((prev) => {
+      const selectedVideo = videos.find((video) => video.id === prev.analyticsVideoId)
+      const keepSelectedVideo = !channelWorkspaceId || selectedVideo?.channelWorkspaceId === channelWorkspaceId
+
+      return {
+        ...prev,
+        analyticsChannelId: channelWorkspaceId,
+        analyticsVideoId: keepSelectedVideo ? prev.analyticsVideoId : '',
+      }
+    })
+  }
+
+  function selectAnalyticsVideo(videoProjectId: string) {
+    const selectedVideo = videos.find((video) => video.id === videoProjectId)
+    setForm((prev) => ({
+      ...prev,
+      analyticsVideoId: videoProjectId,
+      analyticsChannelId: selectedVideo?.channelWorkspaceId ?? prev.analyticsChannelId,
+    }))
   }
 
   async function saveChannel(event: React.FormEvent) {
@@ -180,6 +264,7 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
         contentPillars: '',
         audienceNotes: '',
         videoChannelId: body.data?.id ?? prev.videoChannelId,
+        analyticsChannelId: body.data?.id ?? prev.analyticsChannelId,
       }))
       setActionNotice('YouTube channel workspace saved.')
       await load()
@@ -228,6 +313,8 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
         objective: '',
         sourceUrl: '',
         jobVideoId: body.data?.id ?? prev.jobVideoId,
+        analyticsVideoId: body.data?.id ?? prev.analyticsVideoId,
+        analyticsChannelId: prev.analyticsChannelId || prev.videoChannelId,
       }))
       setActionNotice('Video project saved.')
       await load()
@@ -238,6 +325,72 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
     } finally {
       if (isCurrentMutation()) {
         setSaving(false)
+      }
+    }
+  }
+
+  async function importAnalytics(event: React.FormEvent) {
+    event.preventDefault()
+    if (importingAnalytics || !form.analyticsChannelId || !form.analyticsPeriodStart || !form.analyticsPeriodEnd) return
+    const mutationOrgId = orgId
+    const isCurrentMutation = () => mutationOrgId === activeOrgIdRef.current
+    setImportingAnalytics(true)
+    setActionNotice('')
+    setLoadNotice('')
+    try {
+      const recommendationSummary = form.analyticsRecommendationSummary.trim()
+      const res = await fetch('/api/v1/youtube-studio/analytics', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          orgId: mutationOrgId,
+          channelWorkspaceId: form.analyticsChannelId,
+          videoProjectId: form.analyticsVideoId || undefined,
+          periodStart: form.analyticsPeriodStart,
+          periodEnd: form.analyticsPeriodEnd,
+          source: form.analyticsSource,
+          sourceFreshness: form.analyticsFreshness,
+          metrics: {
+            views: numericValue(form.analyticsViews),
+            watchTimeMinutes: numericValue(form.analyticsWatchTimeMinutes),
+            averageViewPercentage: numericValue(form.analyticsAverageViewPercentage),
+            impressionsCtr: numericValue(form.analyticsImpressionsCtr),
+          },
+          clientSummary: form.analyticsClientSummary,
+          recommendations: recommendationSummary
+            ? [{
+                type: form.analyticsRecommendationType,
+                summary: recommendationSummary,
+                confidence: form.analyticsRecommendationConfidence,
+              }]
+            : [],
+          visibility: { showInClientPortal: form.analyticsShowInPortal },
+        }),
+      })
+      const body = await res.json().catch(() => ({}))
+      if (!isCurrentMutation()) return
+      if (!res.ok) {
+        setActionNotice(body.error ?? 'Could not import analytics snapshot')
+        return
+      }
+      setForm((prev) => ({
+        ...prev,
+        analyticsViews: '',
+        analyticsWatchTimeMinutes: '',
+        analyticsAverageViewPercentage: '',
+        analyticsImpressionsCtr: '',
+        analyticsClientSummary: '',
+        analyticsRecommendationSummary: '',
+      }))
+      setActionNotice('Analytics snapshot imported.')
+      await load()
+    } catch {
+      if (isCurrentMutation()) {
+        setActionNotice('Could not import analytics snapshot')
+      }
+    } finally {
+      if (isCurrentMutation()) {
+        setImportingAnalytics(false)
       }
     }
   }
@@ -346,6 +499,51 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
               </div>
             )}
           </div>
+
+          <div className="space-y-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <h2 className="font-headline text-xl font-semibold text-on-surface">Analytics feedback</h2>
+              <span className="rounded-full bg-[var(--color-surface-container-high)] px-3 py-1 text-xs font-label uppercase tracking-widest text-on-surface-variant">
+                {analytics.length} snapshot{analytics.length === 1 ? '' : 's'}
+              </span>
+            </div>
+            {analytics.length === 0 ? (
+              <div className="pib-card-section p-5 text-sm text-on-surface-variant">No YouTube analytics snapshots imported yet.</div>
+            ) : (
+              <div className="grid gap-3">
+                {analytics.slice(0, 5).map((snapshot) => (
+                  <article key={snapshot.id ?? `${snapshot.channelWorkspaceId}-${snapshot.periodEnd}`} className="pib-card-section space-y-3 p-4">
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <h3 className="break-words font-semibold text-on-surface">{snapshot.clientSummary || 'Analytics snapshot'}</h3>
+                        <p className="mt-1 text-sm text-on-surface-variant">
+                          {snapshot.periodStart} to {snapshot.periodEnd} / {formatToken(snapshot.sourceFreshness)}
+                        </p>
+                      </div>
+                      <span className="shrink-0 rounded-full bg-[var(--color-surface-container-high)] px-3 py-1 text-xs font-label uppercase tracking-widest text-on-surface-variant">
+                        {formatToken(snapshot.source)}
+                      </span>
+                    </div>
+                    <div className="grid gap-2 text-sm text-on-surface-variant sm:grid-cols-4">
+                      <Metric label="Views" value={snapshot.metrics?.views} />
+                      <Metric label="Watch min" value={snapshot.metrics?.watchTimeMinutes} />
+                      <Metric label="Avg viewed" value={snapshot.metrics?.averageViewPercentage} suffix="%" />
+                      <Metric label="CTR" value={snapshot.metrics?.impressionsCtr} suffix="%" />
+                    </div>
+                    {snapshot.recommendations?.length ? (
+                      <div className="space-y-2">
+                        {snapshot.recommendations.slice(0, 2).map((recommendation, index) => (
+                          <p key={`${recommendation.type}-${index}`} className="break-words text-sm text-on-surface-variant">
+                            <span className="font-medium text-on-surface">{formatToken(recommendation.type)}:</span> {recommendation.summary}
+                          </p>
+                        ))}
+                      </div>
+                    ) : null}
+                  </article>
+                ))}
+              </div>
+            )}
+          </div>
         </section>
 
         <aside className="space-y-4 lg:sticky lg:top-6">
@@ -430,9 +628,125 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
               {queueingJob ? 'Queueing...' : 'Queue job packet'}
             </button>
           </form>
+
+          <form onSubmit={importAnalytics} className="pib-card-section space-y-4 p-5">
+            <h2 className="font-headline font-bold text-on-surface">Import analytics</h2>
+            <label className="block text-sm">
+              <span className="text-xs font-label uppercase tracking-widest text-on-surface-variant">Channel</span>
+              <select
+                value={form.analyticsChannelId}
+                onChange={(event) => selectAnalyticsChannel(event.target.value)}
+                className="mt-1 w-full rounded-lg border border-[var(--color-outline-variant)] bg-[var(--color-surface)] px-3 py-2 text-sm"
+              >
+                <option value="">Select a channel</option>
+                {channels.map((channel) => (
+                  <option key={channel.id ?? channel.title} value={channel.id ?? ''}>{channel.title}</option>
+                ))}
+              </select>
+            </label>
+            <label className="block text-sm">
+              <span className="text-xs font-label uppercase tracking-widest text-on-surface-variant">Video</span>
+              <select
+                value={form.analyticsVideoId}
+                onChange={(event) => selectAnalyticsVideo(event.target.value)}
+                className="mt-1 w-full rounded-lg border border-[var(--color-outline-variant)] bg-[var(--color-surface)] px-3 py-2 text-sm"
+              >
+                <option value="">Channel snapshot</option>
+                {analyticsVideoOptions.map((video) => (
+                  <option key={video.id ?? video.title} value={video.id ?? ''}>{video.title}</option>
+                ))}
+              </select>
+            </label>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <Field
+                label="Period start"
+                value={form.analyticsPeriodStart}
+                onChange={(value) => update('analyticsPeriodStart', value)}
+                required
+                type="date"
+              />
+              <Field
+                label="Period end"
+                value={form.analyticsPeriodEnd}
+                onChange={(value) => update('analyticsPeriodEnd', value)}
+                required
+                type="date"
+              />
+            </div>
+            <Select
+              label="Source"
+              value={form.analyticsSource}
+              onChange={(value) => update('analyticsSource', value as YouTubeAnalyticsSource)}
+              options={analyticsSources}
+            />
+            <Select
+              label="Freshness"
+              value={form.analyticsFreshness}
+              onChange={(value) => update('analyticsFreshness', value as YouTubeAnalyticsFreshness)}
+              options={analyticsFreshnessOptions}
+            />
+            <div className="grid gap-3 sm:grid-cols-2">
+              <Field label="Views" value={form.analyticsViews} onChange={(value) => update('analyticsViews', value)} type="number" />
+              <Field
+                label="Watch minutes"
+                value={form.analyticsWatchTimeMinutes}
+                onChange={(value) => update('analyticsWatchTimeMinutes', value)}
+                type="number"
+              />
+              <Field
+                label="Avg viewed %"
+                value={form.analyticsAverageViewPercentage}
+                onChange={(value) => update('analyticsAverageViewPercentage', value)}
+                type="number"
+              />
+              <Field label="CTR %" value={form.analyticsImpressionsCtr} onChange={(value) => update('analyticsImpressionsCtr', value)} type="number" />
+            </div>
+            <TextArea label="Client summary" value={form.analyticsClientSummary} onChange={(value) => update('analyticsClientSummary', value)} />
+            <Select
+              label="Recommendation type"
+              value={form.analyticsRecommendationType}
+              onChange={(value) => update('analyticsRecommendationType', value as YouTubeAnalyticsRecommendationType)}
+              options={analyticsRecommendationTypes}
+            />
+            <Select
+              label="Confidence"
+              value={form.analyticsRecommendationConfidence}
+              onChange={(value) => update('analyticsRecommendationConfidence', value as YouTubeAnalyticsRecommendationConfidence)}
+              options={analyticsRecommendationConfidences}
+            />
+            <TextArea
+              label="Recommendation"
+              value={form.analyticsRecommendationSummary}
+              onChange={(value) => update('analyticsRecommendationSummary', value)}
+            />
+            <label className="flex items-center gap-2 text-sm text-on-surface-variant">
+              <input
+                type="checkbox"
+                checked={form.analyticsShowInPortal}
+                onChange={(event) => update('analyticsShowInPortal', event.target.checked)}
+                className="h-4 w-4"
+              />
+              Show client-safe summary in portal
+            </label>
+            <button
+              type="submit"
+              disabled={importingAnalytics || !form.analyticsChannelId || !form.analyticsPeriodStart || !form.analyticsPeriodEnd}
+              className="pib-btn-primary w-full"
+            >
+              {importingAnalytics ? 'Importing...' : 'Import snapshot'}
+            </button>
+          </form>
         </aside>
       </div>
     </YouTubeStudioWorkspaceShell>
+  )
+}
+
+function Metric({ label, value, suffix = '' }: { label: string; value?: number; suffix?: string }) {
+  return (
+    <span className="min-w-0 break-words">
+      {label}: {value === undefined ? 'not set' : `${value}${suffix}`}
+    </span>
   )
 }
 
@@ -449,16 +763,19 @@ function Field({
   value,
   onChange,
   required,
+  type = 'text',
 }: {
   label: string
   value: string
   onChange: (value: string) => void
   required?: boolean
+  type?: 'date' | 'number' | 'text'
 }) {
   return (
     <label className="block text-sm">
       <span className="text-xs font-label uppercase tracking-widest text-on-surface-variant">{label}</span>
       <input
+        type={type}
         required={required}
         value={value}
         onChange={(event) => onChange(event.target.value)}

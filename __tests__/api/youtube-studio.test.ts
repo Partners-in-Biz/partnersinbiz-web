@@ -868,4 +868,234 @@ describe('youtube studio admin API', () => {
     expect(body.error).toMatch(errorPattern)
     expect(mockAdd).not.toHaveBeenCalled()
   })
+
+  it('lists analytics snapshots for an org and filters by video project', async () => {
+    stageFirestore({
+      youtube_analytics_snapshots: {
+        listDocs: [
+          {
+            id: 'snapshot-old',
+            data: {
+              orgId: 'org-1',
+              channelWorkspaceId: 'channel-1',
+              videoProjectId: 'video-1',
+              periodStart: '2026-05-01',
+              periodEnd: '2026-05-31',
+              source: 'manual_import',
+              sourceFreshness: 'partial',
+              metrics: { views: 100 },
+              recommendations: [],
+              deleted: false,
+            },
+          },
+          {
+            id: 'snapshot-hidden',
+            data: {
+              orgId: 'org-1',
+              channelWorkspaceId: 'channel-1',
+              videoProjectId: 'video-1',
+              periodStart: '2026-06-01',
+              periodEnd: '2026-06-02',
+              source: 'manual_import',
+              sourceFreshness: 'partial',
+              metrics: { views: 999 },
+              recommendations: [],
+              deleted: true,
+            },
+          },
+          {
+            id: 'snapshot-new',
+            data: {
+              orgId: 'org-1',
+              channelWorkspaceId: 'channel-1',
+              videoProjectId: 'video-1',
+              periodStart: '2026-06-01',
+              periodEnd: '2026-06-07',
+              source: 'youtube_analytics_api',
+              sourceFreshness: 'delayed',
+              metrics: { views: 250 },
+              recommendations: [],
+              deleted: false,
+            },
+          },
+          {
+            id: 'snapshot-other-video',
+            data: {
+              orgId: 'org-1',
+              channelWorkspaceId: 'channel-1',
+              videoProjectId: 'video-2',
+              periodStart: '2026-06-01',
+              periodEnd: '2026-06-07',
+              source: 'manual_import',
+              sourceFreshness: 'partial',
+              metrics: { views: 50 },
+              recommendations: [],
+              deleted: false,
+            },
+          },
+        ],
+      },
+    })
+
+    const { GET } = await import('@/app/api/v1/youtube-studio/analytics/route')
+    const res = await GET(new NextRequest('http://localhost/api/v1/youtube-studio/analytics?orgId=org-1&videoProjectId=video-1'))
+    const body = await res.json()
+
+    expect(res.status).toBe(200)
+    expect(mockWhere).toHaveBeenCalledWith('orgId', '==', 'org-1')
+    expect(body.data.snapshots.map((snapshot: { id: string }) => snapshot.id)).toEqual(['snapshot-new', 'snapshot-old'])
+  })
+
+  it('creates an analytics snapshot with actor fields and source labels', async () => {
+    stageFirestore({
+      youtube_channel_workspaces: {
+        docs: {
+          'channel-1': {
+            id: 'channel-1',
+            data: { orgId: 'org-1', title: 'Acme', deleted: false },
+          },
+        },
+      },
+      youtube_series: {
+        docs: {
+          'series-1': {
+            id: 'series-1',
+            data: { orgId: 'org-1', channelWorkspaceId: 'channel-1', name: 'Series', deleted: false },
+          },
+        },
+      },
+      youtube_video_projects: {
+        docs: {
+          'video-1': {
+            id: 'video-1',
+            data: {
+              orgId: 'org-1',
+              channelWorkspaceId: 'channel-1',
+              seriesId: 'series-1',
+              title: 'Launch',
+              deleted: false,
+            },
+          },
+        },
+      },
+      youtube_analytics_snapshots: {},
+    })
+
+    const { POST } = await import('@/app/api/v1/youtube-studio/analytics/route')
+    const res = await POST(new NextRequest('http://localhost/api/v1/youtube-studio/analytics', {
+      method: 'POST',
+      body: JSON.stringify({
+        orgId: 'org-1',
+        channelWorkspaceId: 'channel-1',
+        videoProjectId: 'video-1',
+        periodStart: '2026-06-01',
+        periodEnd: '2026-06-07',
+        source: 'youtube_analytics_api',
+        sourceFreshness: 'delayed',
+        metrics: { views: 1000, watchTimeMinutes: 250, averageViewPercentage: -1 },
+        dimensions: { country: 'ZA', secret: { nested: true } },
+        clientSummary: 'Early performance is directionally useful.',
+        internalNotes: 'Use this for operator review.',
+        recommendations: [
+          { type: 'thumbnail_test', summary: 'Test a clearer result-led thumbnail.', confidence: 'medium' },
+          { type: 'bad', summary: '', confidence: 'high' },
+        ],
+        visibility: { showInClientPortal: true },
+        deleted: true,
+      }),
+    }))
+    const body = await res.json()
+
+    expect(res.status).toBe(201)
+    expect(body.data.id).toBe('new-id')
+    expect(mockAdd).toHaveBeenCalledWith(expect.objectContaining({
+      orgId: 'org-1',
+      channelWorkspaceId: 'channel-1',
+      seriesId: 'series-1',
+      videoProjectId: 'video-1',
+      periodStart: '2026-06-01',
+      periodEnd: '2026-06-07',
+      source: 'youtube_analytics_api',
+      sourceFreshness: 'delayed',
+      metrics: { views: 1000, watchTimeMinutes: 250 },
+      dimensions: { country: 'ZA' },
+      clientSummary: 'Early performance is directionally useful.',
+      internalNotes: 'Use this for operator review.',
+      recommendations: [{
+        type: 'thumbnail_test',
+        summary: 'Test a clearer result-led thumbnail.',
+        confidence: 'medium',
+        status: 'suggested',
+      }],
+      visibility: { showInClientPortal: true },
+      deleted: false,
+      importedAt: 'SERVER_TS',
+      importedBy: 'admin-1',
+      importedByType: 'user',
+      createdBy: 'admin-1',
+      createdByType: 'user',
+      updatedBy: 'admin-1',
+      updatedByType: 'user',
+      createdAt: 'SERVER_TS',
+      updatedAt: 'SERVER_TS',
+    }))
+  })
+
+  it.each([
+    ['bad period', { periodStart: '2026-06-10', periodEnd: '2026-06-01' }, /periodStart/i],
+    ['invalid calendar date', { periodStart: '2026-02-30' }, /YYYY-MM-DD/i],
+    ['cross-org video', { videoProjectId: 'video-cross' }, /videoProjectId/i],
+    ['mismatched series', { seriesId: 'series-2' }, /seriesId/i],
+  ])('rejects analytics snapshot creation with a %s relationship', async (_label, bodyPatch, errorPattern) => {
+    stageFirestore({
+      youtube_channel_workspaces: {
+        docs: {
+          'channel-1': {
+            id: 'channel-1',
+            data: { orgId: 'org-1', title: 'Acme', deleted: false },
+          },
+        },
+      },
+      youtube_series: {
+        docs: {
+          'series-2': {
+            id: 'series-2',
+            data: { orgId: 'org-1', channelWorkspaceId: 'channel-2', name: 'Other', deleted: false },
+          },
+        },
+      },
+      youtube_video_projects: {
+        docs: {
+          'video-1': {
+            id: 'video-1',
+            data: { orgId: 'org-1', channelWorkspaceId: 'channel-1', title: 'Launch', deleted: false },
+          },
+          'video-cross': {
+            id: 'video-cross',
+            data: { orgId: 'org-2', channelWorkspaceId: 'channel-1', title: 'Other', deleted: false },
+          },
+        },
+      },
+      youtube_analytics_snapshots: {},
+    })
+
+    const { POST } = await import('@/app/api/v1/youtube-studio/analytics/route')
+    const res = await POST(new NextRequest('http://localhost/api/v1/youtube-studio/analytics', {
+      method: 'POST',
+      body: JSON.stringify({
+        orgId: 'org-1',
+        channelWorkspaceId: 'channel-1',
+        videoProjectId: 'video-1',
+        periodStart: '2026-06-01',
+        periodEnd: '2026-06-07',
+        metrics: { views: 100 },
+        ...bodyPatch,
+      }),
+    }))
+    const body = await res.json()
+
+    expect(res.status).toBe(400)
+    expect(body.error).toMatch(errorPattern)
+    expect(mockAdd).not.toHaveBeenCalled()
+  })
 })

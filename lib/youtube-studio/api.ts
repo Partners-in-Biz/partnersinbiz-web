@@ -12,6 +12,7 @@ export const YOUTUBE_COLLECTIONS = {
   videos: 'youtube_video_projects',
   packets: 'youtube_publishing_packets',
   agentJobs: 'youtube_agent_jobs',
+  analytics: 'youtube_analytics_snapshots',
 } as const
 
 export function actorFields(user: ApiUser) {
