@@ -99,6 +99,14 @@ function defaultStage(): Required<FirestoreStage> {
             'Retention',
           ],
           visibility: { showInClientPortal: true },
+          publishingReadiness: {
+            accountStatus: 'connected',
+            apiProjectStatus: 'verified',
+            readiness: 'scheduled_publish_ready',
+            defaultUploadPrivacy: 'private',
+            allowedModes: ['manual_handoff', 'private_api_upload', 'scheduled_api_publish'],
+            notes: 'operator-only publishing readiness',
+          },
           deleted: false,
           connectedAccountId: 'secret-account',
           strategyDocumentId: 'strategy-doc-secret',
@@ -482,6 +490,7 @@ describe('portal youtube studio API', () => {
     expect(channel).not.toHaveProperty('strategyDocumentId')
     expect(channel).not.toHaveProperty('defaultApprovalPolicy')
     expect(channel).not.toHaveProperty('defaultPublishingPolicy')
+    expect(channel).not.toHaveProperty('publishingReadiness')
     expect(channel.contentPillars).toEqual(['Growth', 'Retention'])
     expect(JSON.stringify(channel)).not.toContain('policyNotes')
     expect(Object.keys(series).sort()).toEqual([

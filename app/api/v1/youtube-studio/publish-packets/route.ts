@@ -78,6 +78,95 @@ function defaultChecks(): YouTubePublishingPacket['checks'] {
   }
 }
 
+function connectedAccountGate(channel: Record<string, unknown>): YouTubeGateCheck {
+  const readiness = cleanObject(channel.publishingReadiness)
+  const connectedAccountId = cleanString(channel.connectedAccountId)
+  const accountStatus = readiness.accountStatus
+  const apiProjectStatus = readiness.apiProjectStatus
+  const readinessLevel = readiness.readiness
+
+  if (!connectedAccountId && accountStatus !== 'connected') {
+    return {
+      status: 'block',
+      message: 'No connected YouTube account recorded for this channel.',
+    }
+  }
+
+  if (accountStatus === 'needs_reauth' || accountStatus === 'revoked') {
+    return {
+      status: 'block',
+      message: 'YouTube account needs reauthorization before API upload.',
+    }
+  }
+
+  if (accountStatus === 'blocked' || apiProjectStatus === 'blocked' || readinessLevel === 'blocked') {
+    return {
+      status: 'block',
+      message: 'YouTube publishing is blocked for this channel.',
+    }
+  }
+
+  if (apiProjectStatus === 'quota_limited') {
+    return {
+      status: 'block',
+      message: 'YouTube API quota is limited before upload.',
+    }
+  }
+
+  if (apiProjectStatus === 'audit_required') {
+    return {
+      status: 'block',
+      message: 'YouTube API compliance audit must be resolved before upload.',
+    }
+  }
+
+  if (readinessLevel === 'scheduled_publish_ready' && apiProjectStatus === 'unverified_private_only') {
+    return {
+      status: 'block',
+      message: 'YouTube API project is unverified; public or scheduled publish is not ready.',
+    }
+  }
+
+  if (readinessLevel === 'private_upload_ready' || readinessLevel === 'scheduled_publish_ready') {
+    return {
+      status: 'pass',
+      message: readinessLevel === 'scheduled_publish_ready'
+        ? 'Connected account and API project are ready for scheduled publishing.'
+        : 'Connected account is ready for private API upload.',
+    }
+  }
+
+  if (readinessLevel === 'manual_only') {
+    return {
+      status: 'warning',
+      message: 'Channel is approved for manual handoff only; API upload is not ready.',
+    }
+  }
+
+  if (connectedAccountId || accountStatus === 'connected') {
+    return {
+      status: 'warning',
+      message: 'Connected account is recorded; publishing readiness still requires review.',
+    }
+  }
+
+  return defaultChecks().connectedAccount
+}
+
+function checksForChannel(channel: Record<string, unknown>): PacketChecks {
+  return {
+    ...defaultChecks(),
+    connectedAccount: connectedAccountGate(channel),
+  }
+}
+
+function applySystemChecks(checks: PacketChecks, channel: Record<string, unknown>): PacketChecks {
+  return {
+    ...checks,
+    connectedAccount: connectedAccountGate(channel),
+  }
+}
+
 function cleanGateCheck(value: unknown, fallback: YouTubeGateCheck): YouTubeGateCheck {
   const source = cleanObject(value)
 
@@ -200,7 +289,7 @@ export const POST = withAuth('admin', async (req: NextRequest, user) => {
     selfDeclaredMadeForKids: typeof body.selfDeclaredMadeForKids === 'boolean' ? body.selfDeclaredMadeForKids : undefined,
     containsSyntheticMedia: typeof body.containsSyntheticMedia === 'boolean' ? body.containsSyntheticMedia : undefined,
     aiDisclosureNotes: cleanString(body.aiDisclosureNotes),
-    checks: defaultChecks(),
+    checks: checksForChannel(channel.data),
     deleted: false,
     ...actorFields(user),
   })
@@ -295,7 +384,7 @@ export const PUT = withAuth('admin', async (req: NextRequest, user) => {
       ? valueFromPatch(body, loaded.data, 'containsSyntheticMedia')
       : undefined,
     aiDisclosureNotes: cleanString(valueFromPatch(body, loaded.data, 'aiDisclosureNotes')),
-    checks: cleanGateChecks(body.checks, loaded.data.checks),
+    checks: applySystemChecks(cleanGateChecks(body.checks, loaded.data.checks), channel.data),
     deleted: false,
     ...updateActorFields(user),
   })

@@ -1,4 +1,5 @@
 import type {
+  ActorType,
   YouTubeAgentJob,
   YouTubeAgentJobPriority,
   YouTubeAgentJobStatus,
@@ -11,13 +12,17 @@ import type {
   YouTubeAnalyticsRecommendationType,
   YouTubeAnalyticsSnapshot,
   YouTubeAnalyticsSource,
+  YouTubeApiProjectStatus,
   YouTubeApprovalPolicy,
   YouTubeChannelStatus,
   YouTubeChannelWorkspace,
+  YouTubeConnectedAccountStatus,
   YouTubeGateCheck,
   YouTubeGateStatus,
   YouTubePublishingPacket,
   YouTubePublishingPolicy,
+  YouTubePublishingReadiness,
+  YouTubePublishingReadinessLevel,
   YouTubeProductionSkillKey,
   YouTubeSeries,
   YouTubeSeriesCadence,
@@ -104,6 +109,29 @@ const ANALYTICS_RECOMMENDATION_STATUSES: YouTubeAnalyticsRecommendationStatus[] 
   'accepted',
   'rejected',
   'converted_to_task',
+]
+const ACTOR_TYPES: ActorType[] = ['user', 'agent', 'system']
+const CONNECTED_ACCOUNT_STATUSES: YouTubeConnectedAccountStatus[] = [
+  'not_connected',
+  'connected',
+  'needs_reauth',
+  'revoked',
+  'blocked',
+]
+const API_PROJECT_STATUSES: YouTubeApiProjectStatus[] = [
+  'unknown',
+  'unverified_private_only',
+  'verified',
+  'audit_required',
+  'quota_limited',
+  'blocked',
+]
+const PUBLISHING_READINESS_LEVELS: YouTubePublishingReadinessLevel[] = [
+  'not_ready',
+  'manual_only',
+  'private_upload_ready',
+  'scheduled_publish_ready',
+  'blocked',
 ]
 
 type RawInput = Record<string, unknown>
@@ -329,6 +357,27 @@ export function sanitizeYouTubePublishingPolicyInput(input: unknown): YouTubePub
   }
 }
 
+export function sanitizeYouTubePublishingReadinessInput(input: unknown): YouTubePublishingReadiness {
+  const source = cleanObject(input)
+  const allowedModes = cleanStringArray(source.allowedModes).filter((mode): mode is YouTubePublishingPolicy['allowedModes'][number] =>
+    PUBLISHING_MODES.includes(mode as YouTubePublishingPolicy['allowedModes'][number])
+  )
+
+  return stripUndefinedDeep({
+    accountStatus: pick(CONNECTED_ACCOUNT_STATUSES, source.accountStatus, 'not_connected'),
+    apiProjectStatus: pick(API_PROJECT_STATUSES, source.apiProjectStatus, 'unknown'),
+    readiness: pick(PUBLISHING_READINESS_LEVELS, source.readiness, 'not_ready'),
+    defaultUploadPrivacy: pick(PUBLISHING_VISIBILITIES, source.defaultUploadPrivacy, 'private'),
+    allowedModes: allowedModes.length ? allowedModes : ['manual_handoff'],
+    quotaDailyLimit: cleanNonNegativeNumber(source.quotaDailyLimit),
+    quotaUnitsRemaining: cleanNonNegativeNumber(source.quotaUnitsRemaining),
+    lastCheckedAt: source.lastCheckedAt,
+    checkedBy: cleanString(source.checkedBy),
+    checkedByType: ACTOR_TYPES.includes(source.checkedByType as ActorType) ? source.checkedByType as ActorType : undefined,
+    notes: cleanString(source.notes),
+  })
+}
+
 function approvalPolicyFrom(input: unknown): YouTubeApprovalPolicy {
   const source = cleanObject(input)
   const defaults = defaultYouTubeApprovalPolicy()
@@ -362,6 +411,9 @@ export function sanitizeYouTubeChannelWorkspaceInput(
     status: pick(CHANNEL_STATUSES, input.status, 'setup'),
     connectedAccountId: cleanString(input.connectedAccountId),
     strategyDocumentId: cleanString(input.strategyDocumentId),
+    publishingReadiness: input.publishingReadiness
+      ? sanitizeYouTubePublishingReadinessInput(input.publishingReadiness)
+      : undefined,
     defaultApprovalPolicy: approvalPolicyFrom(input.defaultApprovalPolicy),
     defaultPublishingPolicy: sanitizeYouTubePublishingPolicyInput(input.defaultPublishingPolicy),
     contentPillars: cleanStringArray(input.contentPillars),

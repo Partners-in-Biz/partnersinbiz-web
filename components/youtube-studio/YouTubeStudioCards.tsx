@@ -46,6 +46,14 @@ export function YouTubeChannelCard({
           ))}
         </div>
       ) : null}
+      {channel.publishingReadiness ? (
+        <div className="grid grid-cols-2 gap-2 text-xs text-on-surface-variant sm:grid-cols-4">
+          <span className="min-w-0 break-words">Publishing: {label(channel.publishingReadiness.readiness)}</span>
+          <span className="min-w-0 break-words">Account: {label(channel.publishingReadiness.accountStatus)}</span>
+          <span className="min-w-0 break-words">API: {label(channel.publishingReadiness.apiProjectStatus)}</span>
+          <span className="min-w-0 break-words">Privacy: {label(channel.publishingReadiness.defaultUploadPrivacy)}</span>
+        </div>
+      ) : null}
       {channel.clientNotes ? <p className="break-words text-sm text-on-surface-variant">{channel.clientNotes}</p> : null}
       {children ? <div className="flex flex-wrap gap-2 pt-1">{children}</div> : null}
     </article>

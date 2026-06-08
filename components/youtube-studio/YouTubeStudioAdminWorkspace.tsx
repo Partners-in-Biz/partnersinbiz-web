@@ -8,7 +8,11 @@ import type {
   YouTubeAnalyticsRecommendationType,
   YouTubeAnalyticsSnapshot,
   YouTubeAnalyticsSource,
+  YouTubeApiProjectStatus,
   YouTubeChannelWorkspace,
+  YouTubeConnectedAccountStatus,
+  YouTubePublishingPolicy,
+  YouTubePublishingReadinessLevel,
   YouTubeProductionSkillKey,
   YouTubeSeries,
   YouTubeVideoProject,
@@ -51,6 +55,15 @@ type FormState = {
   analyticsRecommendationSummary: string
   analyticsRecommendationConfidence: YouTubeAnalyticsRecommendationConfidence
   analyticsShowInPortal: boolean
+  readinessChannelId: string
+  readinessConnectedAccountId: string
+  readinessAccountStatus: YouTubeConnectedAccountStatus
+  readinessApiProjectStatus: YouTubeApiProjectStatus
+  readinessLevel: YouTubePublishingReadinessLevel
+  readinessDefaultPrivacy: YouTubePublishingPolicy['defaultVisibility']
+  readinessQuotaDailyLimit: string
+  readinessQuotaUnitsRemaining: string
+  readinessNotes: string
 }
 
 const emptyForm: FormState = {
@@ -81,6 +94,15 @@ const emptyForm: FormState = {
   analyticsRecommendationSummary: '',
   analyticsRecommendationConfidence: 'low',
   analyticsShowInPortal: false,
+  readinessChannelId: '',
+  readinessConnectedAccountId: '',
+  readinessAccountStatus: 'not_connected',
+  readinessApiProjectStatus: 'unknown',
+  readinessLevel: 'not_ready',
+  readinessDefaultPrivacy: 'private',
+  readinessQuotaDailyLimit: '',
+  readinessQuotaUnitsRemaining: '',
+  readinessNotes: '',
 }
 
 const videoTypes: YouTubeVideoType[] = [
@@ -107,6 +129,23 @@ const analyticsRecommendationTypes: YouTubeAnalyticsRecommendationType[] = [
   'cadence_change',
 ]
 const analyticsRecommendationConfidences: YouTubeAnalyticsRecommendationConfidence[] = ['low', 'medium', 'high']
+const connectedAccountStatuses: YouTubeConnectedAccountStatus[] = ['not_connected', 'connected', 'needs_reauth', 'revoked', 'blocked']
+const apiProjectStatuses: YouTubeApiProjectStatus[] = [
+  'unknown',
+  'unverified_private_only',
+  'verified',
+  'audit_required',
+  'quota_limited',
+  'blocked',
+]
+const publishingReadinessLevels: YouTubePublishingReadinessLevel[] = [
+  'not_ready',
+  'manual_only',
+  'private_upload_ready',
+  'scheduled_publish_ready',
+  'blocked',
+]
+const publishingVisibilities: YouTubePublishingPolicy['defaultVisibility'][] = ['private', 'unlisted', 'public']
 
 function splitLines(value: string) {
   return value.split(/[\n,]+/).map((item) => item.trim()).filter(Boolean)
@@ -129,6 +168,7 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
   const [saving, setSaving] = useState(false)
   const [queueingJob, setQueueingJob] = useState(false)
   const [importingAnalytics, setImportingAnalytics] = useState(false)
+  const [savingReadiness, setSavingReadiness] = useState(false)
   const [loadNotice, setLoadNotice] = useState('')
   const [actionNotice, setActionNotice] = useState('')
   const loadRequestIdRef = useRef(0)
@@ -194,6 +234,7 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
     setSaving(false)
     setQueueingJob(false)
     setImportingAnalytics(false)
+    setSavingReadiness(false)
     setLoadNotice('')
     setActionNotice('')
   }, [orgId])
@@ -231,6 +272,14 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
     }))
   }
 
+  function allowedModesForReadiness(readiness: YouTubePublishingReadinessLevel): YouTubePublishingPolicy['allowedModes'] {
+    if (readiness === 'scheduled_publish_ready') {
+      return ['manual_handoff', 'private_api_upload', 'scheduled_api_publish']
+    }
+    if (readiness === 'private_upload_ready') return ['manual_handoff', 'private_api_upload']
+    return ['manual_handoff']
+  }
+
   async function saveChannel(event: React.FormEvent) {
     event.preventDefault()
     if (saving || !form.channelTitle.trim()) return
@@ -265,6 +314,7 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
         audienceNotes: '',
         videoChannelId: body.data?.id ?? prev.videoChannelId,
         analyticsChannelId: body.data?.id ?? prev.analyticsChannelId,
+        readinessChannelId: body.data?.id ?? prev.readinessChannelId,
       }))
       setActionNotice('YouTube channel workspace saved.')
       await load()
@@ -325,6 +375,51 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
     } finally {
       if (isCurrentMutation()) {
         setSaving(false)
+      }
+    }
+  }
+
+  async function savePublishingReadiness(event: React.FormEvent) {
+    event.preventDefault()
+    if (savingReadiness || !form.readinessChannelId) return
+    const mutationOrgId = orgId
+    const isCurrentMutation = () => mutationOrgId === activeOrgIdRef.current
+    setSavingReadiness(true)
+    setActionNotice('')
+    setLoadNotice('')
+    try {
+      const res = await fetch(`/api/v1/youtube-studio/channels/${encodeURIComponent(form.readinessChannelId)}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          connectedAccountId: form.readinessConnectedAccountId,
+          publishingReadiness: {
+            accountStatus: form.readinessAccountStatus,
+            apiProjectStatus: form.readinessApiProjectStatus,
+            readiness: form.readinessLevel,
+            defaultUploadPrivacy: form.readinessDefaultPrivacy,
+            allowedModes: allowedModesForReadiness(form.readinessLevel),
+            quotaDailyLimit: numericValue(form.readinessQuotaDailyLimit),
+            quotaUnitsRemaining: numericValue(form.readinessQuotaUnitsRemaining),
+            notes: form.readinessNotes,
+          },
+        }),
+      })
+      const body = await res.json().catch(() => ({}))
+      if (!isCurrentMutation()) return
+      if (!res.ok) {
+        setActionNotice(body.error ?? 'Could not save publishing readiness')
+        return
+      }
+      setActionNotice('Publishing readiness saved.')
+      await load()
+    } catch {
+      if (isCurrentMutation()) {
+        setActionNotice('Could not save publishing readiness')
+      }
+    } finally {
+      if (isCurrentMutation()) {
+        setSavingReadiness(false)
       }
     }
   }
@@ -560,6 +655,70 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
             <TextArea label="Audience notes" value={form.audienceNotes} onChange={(value) => update('audienceNotes', value)} />
             <button type="submit" disabled={saving || !form.channelTitle.trim()} className="pib-btn-primary w-full">
               {saving ? 'Saving...' : 'Save channel'}
+            </button>
+          </form>
+
+          <form onSubmit={savePublishingReadiness} className="pib-card-section space-y-4 p-5">
+            <h2 className="font-headline font-bold text-on-surface">Publishing readiness</h2>
+            <label className="block text-sm">
+              <span className="text-xs font-label uppercase tracking-widest text-on-surface-variant">Channel</span>
+              <select
+                value={form.readinessChannelId}
+                onChange={(event) => update('readinessChannelId', event.target.value)}
+                className="mt-1 w-full rounded-lg border border-[var(--color-outline-variant)] bg-[var(--color-surface)] px-3 py-2 text-sm"
+              >
+                <option value="">Select a channel</option>
+                {channels.map((channel) => (
+                  <option key={channel.id ?? channel.title} value={channel.id ?? ''}>{channel.title}</option>
+                ))}
+              </select>
+            </label>
+            <Field
+              label="Connected account ID"
+              value={form.readinessConnectedAccountId}
+              onChange={(value) => update('readinessConnectedAccountId', value)}
+            />
+            <Select
+              label="Account status"
+              value={form.readinessAccountStatus}
+              onChange={(value) => update('readinessAccountStatus', value as YouTubeConnectedAccountStatus)}
+              options={connectedAccountStatuses}
+            />
+            <Select
+              label="API project"
+              value={form.readinessApiProjectStatus}
+              onChange={(value) => update('readinessApiProjectStatus', value as YouTubeApiProjectStatus)}
+              options={apiProjectStatuses}
+            />
+            <Select
+              label="Readiness"
+              value={form.readinessLevel}
+              onChange={(value) => update('readinessLevel', value as YouTubePublishingReadinessLevel)}
+              options={publishingReadinessLevels}
+            />
+            <Select
+              label="Default privacy"
+              value={form.readinessDefaultPrivacy}
+              onChange={(value) => update('readinessDefaultPrivacy', value as YouTubePublishingPolicy['defaultVisibility'])}
+              options={publishingVisibilities}
+            />
+            <div className="grid gap-3 sm:grid-cols-2">
+              <Field
+                label="Daily quota"
+                value={form.readinessQuotaDailyLimit}
+                onChange={(value) => update('readinessQuotaDailyLimit', value)}
+                type="number"
+              />
+              <Field
+                label="Quota left"
+                value={form.readinessQuotaUnitsRemaining}
+                onChange={(value) => update('readinessQuotaUnitsRemaining', value)}
+                type="number"
+              />
+            </div>
+            <TextArea label="Readiness notes" value={form.readinessNotes} onChange={(value) => update('readinessNotes', value)} />
+            <button type="submit" disabled={savingReadiness || !form.readinessChannelId} className="pib-btn-primary w-full">
+              {savingReadiness ? 'Saving...' : 'Save readiness'}
             </button>
           </form>
 

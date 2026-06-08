@@ -10,6 +10,7 @@ import {
   sanitizeYouTubeAnalyticsSnapshotInput,
   sanitizeYouTubeChannelWorkspaceInput,
   sanitizeYouTubePublishingPolicyInput,
+  sanitizeYouTubePublishingReadinessInput,
   sanitizeYouTubeSeriesInput,
   sanitizeYouTubeVideoProjectInput,
   serializeYouTubeRecord,
@@ -75,6 +76,45 @@ describe('youtube studio sanitizers', () => {
         privateFirstRequired: 'no',
       })
     ).toEqual(defaultYouTubePublishingPolicy())
+  })
+
+  it('sanitizes channel publishing readiness records', () => {
+    const result = sanitizeYouTubePublishingReadinessInput({
+      accountStatus: 'connected',
+      apiProjectStatus: 'verified',
+      readiness: 'scheduled_publish_ready',
+      defaultUploadPrivacy: 'public',
+      allowedModes: ['manual_handoff', 'private_api_upload', 'scheduled_api_publish', 'bad-mode'],
+      quotaDailyLimit: 10000,
+      quotaUnitsRemaining: -1,
+      lastCheckedAt: '2026-06-08T06:00:00.000Z',
+      checkedBy: ' admin-1 ',
+      checkedByType: 'agent',
+      notes: ' Ready after compliance review. ',
+      deleted: true,
+    })
+
+    expect(result).toEqual({
+      accountStatus: 'connected',
+      apiProjectStatus: 'verified',
+      readiness: 'scheduled_publish_ready',
+      defaultUploadPrivacy: 'public',
+      allowedModes: ['manual_handoff', 'private_api_upload', 'scheduled_api_publish'],
+      quotaDailyLimit: 10000,
+      lastCheckedAt: '2026-06-08T06:00:00.000Z',
+      checkedBy: 'admin-1',
+      checkedByType: 'agent',
+      notes: 'Ready after compliance review.',
+    })
+    expectNoUndefinedValues(result)
+
+    expect(sanitizeYouTubePublishingReadinessInput({ accountStatus: 'bad', allowedModes: ['bad-mode'] })).toEqual({
+      accountStatus: 'not_connected',
+      apiProjectStatus: 'unknown',
+      readiness: 'not_ready',
+      defaultUploadPrivacy: 'private',
+      allowedModes: ['manual_handoff'],
+    })
   })
 
   it('removes undefined values from minimal Firestore write payloads', () => {

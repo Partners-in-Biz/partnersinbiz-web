@@ -158,6 +158,63 @@ describe('youtube studio admin API', () => {
     }))
   })
 
+  it('updates channel publishing readiness with sanitized account and quota fields', async () => {
+    stageFirestore({
+      youtube_channel_workspaces: {
+        docs: {
+          'channel-1': {
+            id: 'channel-1',
+            data: {
+              orgId: 'org-1',
+              title: 'Acme',
+              status: 'active',
+              contentPillars: [],
+              avoidTopics: [],
+              deleted: false,
+            },
+          },
+        },
+      },
+    })
+
+    const { PUT } = await import('@/app/api/v1/youtube-studio/channels/[id]/route')
+    const res = await PUT(new NextRequest('http://localhost/api/v1/youtube-studio/channels/channel-1', {
+      method: 'PUT',
+      body: JSON.stringify({
+        orgId: 'org-2',
+        connectedAccountId: ' youtube-account-1 ',
+        publishingReadiness: {
+          accountStatus: 'connected',
+          apiProjectStatus: 'verified',
+          readiness: 'scheduled_publish_ready',
+          defaultUploadPrivacy: 'public',
+          allowedModes: ['manual_handoff', 'private_api_upload', 'scheduled_api_publish', 'bad-mode'],
+          quotaDailyLimit: 10000,
+          quotaUnitsRemaining: -1,
+          notes: ' Ready for private-first API upload. ',
+        },
+      }),
+    }), { params: Promise.resolve({ id: 'channel-1' }) })
+
+    expect(res.status).toBe(200)
+    expect(mockDocSet).toHaveBeenCalledWith(expect.objectContaining({
+      orgId: 'org-1',
+      connectedAccountId: 'youtube-account-1',
+      publishingReadiness: {
+        accountStatus: 'connected',
+        apiProjectStatus: 'verified',
+        readiness: 'scheduled_publish_ready',
+        defaultUploadPrivacy: 'public',
+        allowedModes: ['manual_handoff', 'private_api_upload', 'scheduled_api_publish'],
+        quotaDailyLimit: 10000,
+        notes: 'Ready for private-first API upload.',
+      },
+      updatedBy: 'admin-1',
+      updatedByType: 'user',
+      updatedAt: 'SERVER_TS',
+    }), { merge: true })
+  })
+
   it('forces new series records to active instead of deleted', async () => {
     stageFirestore({
       youtube_channel_workspaces: {
@@ -403,7 +460,19 @@ describe('youtube studio admin API', () => {
         docs: {
           'channel-1': {
             id: 'channel-1',
-            data: { orgId: 'org-1', title: 'Acme', deleted: false },
+            data: {
+              orgId: 'org-1',
+              title: 'Acme',
+              connectedAccountId: 'youtube-account-1',
+              publishingReadiness: {
+                accountStatus: 'connected',
+                apiProjectStatus: 'unverified_private_only',
+                readiness: 'private_upload_ready',
+                defaultUploadPrivacy: 'private',
+                allowedModes: ['manual_handoff', 'private_api_upload'],
+              },
+              deleted: false,
+            },
           },
         },
       },
@@ -461,6 +530,10 @@ describe('youtube studio admin API', () => {
     expect(packetWrite.approvedAt).toBeUndefined()
     expect(packetWrite.approvedSnapshotHash).toBeUndefined()
     expect(packetWrite.checks.approval.status).toBe('warning')
+    expect(packetWrite.checks.connectedAccount).toEqual({
+      status: 'pass',
+      message: 'Connected account is ready for private API upload.',
+    })
 
     expect(mockBatchSet).toHaveBeenNthCalledWith(2, expect.objectContaining({ id: 'video-1' }), expect.objectContaining({
       publishPacketId: 'packet-1',
@@ -611,7 +684,10 @@ describe('youtube studio admin API', () => {
     expect(packetUpdate.approvedAt).toBeUndefined()
     expect(packetUpdate.approvedSnapshotHash).toBeUndefined()
     expect(packetUpdate.checks.rights).toEqual({ status: 'pass', message: 'Rights cleared' })
-    expect(packetUpdate.checks.connectedAccount).toEqual({ status: 'pass', message: 'Connected account requires review before publishing.' })
+    expect(packetUpdate.checks.connectedAccount).toEqual({
+      status: 'block',
+      message: 'No connected YouTube account recorded for this channel.',
+    })
     expect(JSON.stringify(packetUpdate)).not.toContain('client-supplied')
   })
 

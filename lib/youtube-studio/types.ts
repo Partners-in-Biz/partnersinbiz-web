@@ -18,6 +18,35 @@ export interface YouTubePublishingPolicy {
   publicPublishRequiresClientConfirmation: boolean
 }
 
+export type YouTubeConnectedAccountStatus = 'not_connected' | 'connected' | 'needs_reauth' | 'revoked' | 'blocked'
+export type YouTubeApiProjectStatus =
+  | 'unknown'
+  | 'unverified_private_only'
+  | 'verified'
+  | 'audit_required'
+  | 'quota_limited'
+  | 'blocked'
+export type YouTubePublishingReadinessLevel =
+  | 'not_ready'
+  | 'manual_only'
+  | 'private_upload_ready'
+  | 'scheduled_publish_ready'
+  | 'blocked'
+
+export interface YouTubePublishingReadiness {
+  accountStatus: YouTubeConnectedAccountStatus
+  apiProjectStatus: YouTubeApiProjectStatus
+  readiness: YouTubePublishingReadinessLevel
+  defaultUploadPrivacy: YouTubePublishingPolicy['defaultVisibility']
+  allowedModes: YouTubePublishingPolicy['allowedModes']
+  quotaDailyLimit?: number
+  quotaUnitsRemaining?: number
+  lastCheckedAt?: unknown
+  checkedBy?: string
+  checkedByType?: ActorType
+  notes?: string
+}
+
 export type YouTubeChannelStatus = 'setup' | 'strategy' | 'active' | 'paused' | 'blocked' | 'archived'
 export type YouTubeSeriesFormat = 'shorts' | 'long_form' | 'podcast' | 'case_study' | 'tutorial' | 'ads' | 'mixed'
 export type YouTubeSeriesCadence = 'daily' | 'weekly' | 'fortnightly' | 'monthly' | 'campaign' | 'ad_hoc'
@@ -120,6 +149,7 @@ export interface YouTubeChannelWorkspace {
   status: YouTubeChannelStatus
   connectedAccountId?: string
   strategyDocumentId?: string
+  publishingReadiness?: YouTubePublishingReadiness
   defaultApprovalPolicy: YouTubeApprovalPolicy
   defaultPublishingPolicy: YouTubePublishingPolicy
   contentPillars: string[]
