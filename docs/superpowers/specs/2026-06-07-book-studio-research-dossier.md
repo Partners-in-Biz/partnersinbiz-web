@@ -843,6 +843,73 @@ Research templates should cover:
 
 Research records should link to the book project and series. Generated recommendations can be promoted into tasks or documents.
 
+#### Book Research Evidence Packet
+
+Book Studio should standardize the first Research item created for every book project as a `book_research_evidence_packet`. This is not a new Firestore collection. It is a PiB Research item using the current `ResearchItem`, `ResearchSource`, `ResearchFinding`, and `ResearchRecommendation` shapes, with Book Studio metadata in tags, links, and structured notes. The packet keeps evidence out of `book_projects` while still making it queryable, reviewable, exportable, and reusable across briefs, tasks, gates, channel listings, and client-safe summaries.
+
+The packet should be internal by default. A client can see only a reviewed summary promoted into a Book Brief or Client Document. Raw competitor notes, risk notes, policy interpretation, report-parser uncertainty, and Hermes scratch output stay internal unless an admin deliberately creates a sanitized client-visible Research item or document.
+
+Recommended packet shape:
+
+```ts
+interface BookResearchEvidencePacket {
+  researchItemKind: 'market' | 'content' | 'product' | 'internal'
+  researchItemTags: [
+    'book-studio',
+    `book-project:${string}`,
+    `book-type:${BookTypeFamily}`,
+    `channel:${BookChannelKey}`,
+  ]
+  linked: {
+    projectIds: string[]
+    clientOrgIds: string[]
+    documentIds?: string[]
+  }
+  notesSections: Array<
+    | 'research_question'
+    | 'target_reader'
+    | 'market_and_category'
+    | 'competitors_and_comparables'
+    | 'pricing_and_margin_signals'
+    | 'series_viability'
+    | 'rights_and_policy_risks'
+    | 'book_type_gate_implications'
+    | 'channel_fit'
+    | 'open_questions'
+  >
+}
+```
+
+Minimum source coverage:
+
+| Evidence lane | Required sources | Output into Book Studio |
+| --- | --- | --- |
+| Reader and market fit | Search results, comparable listings, review themes, client/brand context, audience assumptions. | Brief promise, target reader, non-goals, commercial risk, and follow-up tasks. |
+| Category and metadata fit | KDP metadata guidance, Google metadata/series guidance, comparable category patterns, title/cover/content match evidence. | Metadata gate requirements, title/subtitle warnings, category/keyword candidates, and misleading-metadata blockers. |
+| Book-type suitability | KDP quality guidance, KDP low-content/format constraints where relevant, Google file requirements, print/digital usability evidence. | Gate profile overrides, export package expectations, and format warnings such as Kindle-unsuitable activity pages or Google PDF/EPUB needs. |
+| Series viability | Comparable series evidence, KDP/Google series rules, reading-order assumptions, continuity dependencies. | Series posture, volume map, continuity bible requirements, and skipped/repeated-number blockers. |
+| Rights and policy risk | KDP content/IP guidance, Google content policies, source-work rights evidence, quote/image/font/audio license notes. | Rights review tasks, AI disclosure posture, public-domain/companion blockers, and client-safe warning language. |
+| Pricing and analytics assumptions | KDP/Google pricing/reporting evidence, comparable prices, format cost signals, launch-channel assumptions. | Price-plan draft, margin-confidence label, report import expectations, and analytics caveats. |
+
+Findings should be small and reusable. A good finding is "Google ordered series requires whole-number series numbers with no skipped or repeated numbers for normal ordered series" with a source ID and affected gate. A weak finding is "series are good for sales" without evidence, channel, audience, or action.
+
+Recommendations should create one of four outcomes:
+
+- **Proceed:** evidence supports the book type, channel, audience, and first brief.
+- **Revise:** the idea can work if the audience, promise, format, channel, series posture, or rights model changes.
+- **Block:** the idea has unresolved rights, policy, account, metadata, or commercial risk that should stop production work.
+- **Escalate:** a human reviewer needs to decide because the evidence is sensitive, stale, legally ambiguous, or commercially material.
+
+Hermes rules:
+
+- `book-niche-research` may create or update the packet, add sources, draft findings, and propose recommendations.
+- Hermes output must include source IDs or explicit "source missing" blockers. It cannot invent bestseller data, review counts, category rank, royalties, or policy conclusions.
+- The packet cannot move to `verified` until a reviewer checks source quality and rejects or accepts Hermes recommendations.
+- A Book Brief cannot be client-visible if it depends on findings still marked `open`, `disputed`, or `outdated`.
+- When policy sources change, affected findings become `outdated` and downstream gates become `needs_recheck`.
+
+Implementation implication: Phase 1 should not build a separate Book Studio research table. It should add helper functions that create the seed Research item, add standard tags/links, map Book Studio source lanes to `ResearchSource` records, and promote reviewed findings into gates, brief sections, metadata packets, or tasks. This preserves PiB's source-of-truth model and avoids the `ai-story` pattern of embedding research notes directly inside project or series records.
+
 ### 3. Creative Brief And Editorial Plan
 
 Every book should start with a structured brief:
@@ -3739,7 +3806,7 @@ This is not yet an implementation plan. It is the smallest coherent foundation t
 | Domain records | Add typed records and sanitizers for `book_projects`, `book_series`, `book_project_editions`, `book_channel_listings`, `book_quality_gates`, manuscript/editorial records, provenance/version/rights records, and analytics import metadata. | The module needs book-specific state, but Research, Documents, Projects, and artifacts remain authoritative for evidence, approvals, work, and large files. | Records are org-scoped, serializable, guarded by role, and do not embed large manuscript or image payloads. |
 | Production templates | Add versioned server-side template packs for canonical book families, with intake blocks, manuscript models, artifact plans, default gates, Hermes sequences, export packages, portal milestones, and scorecard categories. | Book type should drive the workflow from the first screen; operators should not manually remember how a low-content book differs from a picture book, nonfiction book, or audiobook. | Project creation records the applied template/version and creates default gates, tasks, artifact expectations, and stale-check behavior from that template. |
 | Admin workspace | Build admin list/detail routes for book projects and series with tabs for overview, research, brief, production, publishing, gates, and analytics. | Operators need one command surface before manuscript generation or export engines exist. | A PiB admin can create a project, connect it to a series, see status/risk/gates, and move through the production checklist. |
-| Research and brief bridge | Link or create Research items and Book Brief client documents from a book project. | The module should inherit PiB's evidence and approval model rather than recreate `ai-story` research notes. | A book project can show linked findings/recommendations, create a brief packet, and preserve source IDs. |
+| Research evidence packet and brief bridge | Link or create a seed Book Research Evidence Packet, add source lanes, preserve source IDs, and create Book Brief client documents from reviewed findings. | The module should inherit PiB's evidence and approval model rather than recreate `ai-story` research notes. | A book project can show linked findings/recommendations, source coverage, unresolved gaps, and a brief packet while raw/internal evidence remains hidden from portal users. |
 | Hermes task contracts | Store Hermes-ready task metadata for research, brief, outline, metadata, and readiness work without granting direct publish powers. | Agent output must be bounded, reviewable, and attributable. | Created tasks include book context, expected artifacts, reviewer, risk level, and approval-gate linkage. |
 | Hermes skill policy and evaluation harness | Add draft Wave 1 and Wave 2 Book Studio skill docs, manifest entries, readiness levels, fixture definitions, and evaluation-result artifacts before runtime enablement. | Book Studio depends on Hermes work, but untested skills can create bad manuscripts, misleading metadata, rights exposure, or unsafe publishing decisions at scale. | Each enabled skill has manifest ownership, allowed agents, risk level, sync target, fixture coverage, readiness state, and clean drift status before watcher dispatch. |
 | Generation run ledger | Add `BookGenerationRun` records linked to tasks, source manifests, prompt specs, provider jobs, usage/cost budgets, safety review, retries, and output artifacts. | Long-running book generation and validation cannot be trusted as route-local model calls or chat transcripts. | Model-backed tasks create run records, enforce idempotency, preserve usage/safety results, and prevent stale runs from overwriting newer approved versions. |
@@ -3799,6 +3866,8 @@ Implementation planning preconditions:
 - Production templates apply canonical intake blocks, manuscript unit defaults, artifact plans, Hermes task sequences, export package expectations, portal review milestones, and scorecard category requirements for each supported V1 book family.
 - Changing a project's book type family, target channel, format, account model, or series posture re-runs template derivation and marks affected gates, export packages, approvals, and scorecards stale instead of silently preserving old readiness.
 - The project detail can link Research, create or attach a Book Brief document, link a Project/Kanban workspace, and show linked artifacts without duplicating those systems.
+- Every project can create or link a Book Research Evidence Packet using current PiB Research records, with standard Book Studio tags, linked client/project IDs, source lanes, finding statuses, recommendation outcomes, and internal-by-default visibility.
+- Book Brief generation and client-visible summaries are blocked when their required Research findings are still `open`, `disputed`, `outdated`, missing source IDs, or marked internal-only.
 - Manuscript/proof/export versions can store provenance manifests with source document/artifact/task links, contributor roles, AI usage classification, rights review IDs, and checksums where files are involved.
 - Export file packages can store package type, state, source versions, source artifacts, file roles, filenames, MIME types, sizes, SHA-256 checksums, validation results, preview/proof evidence, rights/disclosure snapshots, upload instructions, blockers, and checksum-bound approval state.
 - Publishing account profiles can store channel, owner, legal publisher/imprint, access method, PiB operator IDs, consent evidence, identity/tax/payment/report/territory readiness, recheck dates, and account-level blockers without storing passwords, tax IDs, bank account numbers, or identity documents.
@@ -3838,6 +3907,8 @@ Implementation planning preconditions:
 - Type/sanitizer tests for export package manifests, file roles, validation results, preview evidence, and checksum-bound approvals.
 - Type/sanitizer tests for manuscript units, unit revisions, editorial passes, claim reviews, accessibility reviews, and release snapshot manifests.
 - Admin API tests for org scoping, create/update/list, soft archive, and linked-record preservation.
+- Research packet bridge tests that create a seed Research item with standard Book Studio tags/links, source lanes, finding/recommendation records, internal visibility, and no duplicate book-specific research collection.
+- Brief/client-summary tests that block promotion when source-linked findings are missing, `open`, `disputed`, `outdated`, or internal-only.
 - Portal guard tests for disabled module state, role access, and client-visible filtering.
 - Gate-profile tests for each book type family.
 - Publishing packet tests for KDP and Google required fields and blocker behavior.
