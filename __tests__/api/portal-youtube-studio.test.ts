@@ -515,6 +515,151 @@ describe('portal youtube studio API', () => {
     expect(packet.chapters[0]).not.toHaveProperty('policyNotes')
   })
 
+  it('does not crash or leak when visible Firestore scalar values are malformed', async () => {
+    stageFirestore({
+      channels: [
+        {
+          id: 'channel-alpha',
+          data: {
+            orgId: 'org-1',
+            title: 'Alpha Channel',
+            status: 'active',
+            contentPillars: [],
+            visibility: { showInClientPortal: true },
+            deleted: false,
+          },
+        },
+        {
+          id: 'channel-malformed',
+          data: {
+            orgId: 'org-1',
+            title: { text: 'Operator-only channel title', policyNotes: 'secret channel policy' },
+            status: { raw: 'active' },
+            contentPillars: [' Growth ', { internalPrompt: 'secret pillar prompt' }],
+            audienceNotes: { internalPrompt: 'secret audience note' },
+            aiDisclosureDefaults: {
+              syntheticMediaLikely: { raw: true },
+              notes: { internalPrompt: 'secret disclosure note' },
+            },
+            visibility: { showInClientPortal: true, showAnalytics: { raw: true } },
+            deleted: false,
+          },
+        },
+      ],
+      series: [],
+      videos: [
+        {
+          id: 'video-alpha',
+          data: {
+            orgId: 'org-1',
+            channelWorkspaceId: 'channel-alpha',
+            title: 'Alpha Video',
+            objective: 'Visible',
+            status: 'client_review',
+            videoType: 'long_form',
+            visibility: { showInClientPortal: true, showPublishingPacket: false },
+            deleted: false,
+          },
+        },
+        {
+          id: 'video-malformed',
+          data: {
+            orgId: 'org-1',
+            channelWorkspaceId: 'channel-malformed',
+            title: { text: 'Operator-only video title', policyNotes: 'secret video policy' },
+            objective: { internalPrompt: 'secret objective prompt' },
+            status: { raw: 'client_review' },
+            videoType: { raw: 'long_form' },
+            source: { intakeType: { raw: 'research' }, researchItemId: 'research-secret' },
+            visibility: { showInClientPortal: true, showPublishingPacket: true },
+            clientReview: { status: 'requested', notes: { internalPrompt: 'secret review note' } },
+            deleted: false,
+          },
+        },
+      ],
+      packets: [
+        {
+          id: 'packet-malformed',
+          data: {
+            orgId: 'org-1',
+            channelWorkspaceId: 'channel-malformed',
+            videoProjectId: 'video-malformed',
+            versionNumber: { raw: 2 },
+            status: { raw: 'client_review' },
+            titleOptions: [{ text: ' Client-safe title ', rationale: { internalPrompt: 'secret rationale' } }],
+            description: { internalPrompt: 'secret description' },
+            tags: [' growth ', { internalPrompt: 'secret tag' }],
+            chapters: [{ startSeconds: 0, title: ' Intro ', internalPrompt: 'secret chapter prompt' }],
+            visibility: { raw: 'public' },
+            selfDeclaredMadeForKids: { raw: false },
+            containsSyntheticMedia: true,
+            aiDisclosureNotes: { internalPrompt: 'secret ai disclosure note' },
+            checks: {
+              rights: {
+                status: { raw: 'pass' },
+                message: { internalPrompt: 'secret gate message' },
+                checkedBy: 'admin-secret',
+              },
+              aiDisclosure: { status: 'warning', message: ' Review disclosure ', checkedBy: 'agent-secret' },
+              connectedAccount: { status: 'warning', message: 'secret connected account' },
+            },
+            deleted: false,
+          },
+        },
+      ],
+    })
+
+    const { GET } = await import('@/app/api/v1/portal/youtube-studio/route')
+    const res = await GET(new NextRequest('http://localhost/api/v1/portal/youtube-studio'))
+    const body = await res.json()
+
+    expect(res.status).toBe(200)
+    const channel = body.data.channels.find((item: { id: string }) => item.id === 'channel-malformed')
+    const video = body.data.videos.find((item: { id: string }) => item.id === 'video-malformed')
+    const packet = body.data.packets.find((item: { id: string }) => item.id === 'packet-malformed')
+
+    expect(channel).toMatchObject({
+      id: 'channel-malformed',
+      title: 'Untitled YouTube channel',
+      status: 'setup',
+      contentPillars: ['Growth'],
+      aiDisclosureDefaults: { syntheticMediaLikely: false },
+    })
+    expect(channel).not.toHaveProperty('audienceNotes')
+    expect(channel.visibility).not.toHaveProperty('showAnalytics')
+    expect(video).toMatchObject({
+      id: 'video-malformed',
+      title: 'Untitled video',
+      objective: '',
+      videoType: 'long_form',
+      status: 'intake',
+      source: { intakeType: 'manual' },
+      clientReview: { status: 'requested' },
+    })
+    expect(video.clientReview).not.toHaveProperty('notes')
+    expect(packet).toMatchObject({
+      id: 'packet-malformed',
+      versionNumber: 1,
+      status: 'draft',
+      titleOptions: [{ text: 'Client-safe title' }],
+      tags: ['growth'],
+      chapters: [{ startSeconds: 0, title: 'Intro' }],
+      visibility: 'private',
+      containsSyntheticMedia: true,
+      checks: {
+        rights: { status: 'not_applicable' },
+        aiDisclosure: { status: 'warning', message: 'Review disclosure' },
+      },
+    })
+    expect(packet).not.toHaveProperty('description')
+    expect(packet).not.toHaveProperty('selfDeclaredMadeForKids')
+    expect(packet).not.toHaveProperty('aiDisclosureNotes')
+    expect(packet.checks).not.toHaveProperty('connectedAccount')
+    expect(packet.checks.rights).not.toHaveProperty('message')
+    expect(JSON.stringify(body)).not.toContain('secret')
+    expect(JSON.stringify(body)).not.toContain('Operator-only')
+  })
+
   it('blocks access when the org disables YouTube Studio before querying YouTube collections', async () => {
     stageFirestore({ settings: { portalModules: { youtubeStudio: false } } })
 

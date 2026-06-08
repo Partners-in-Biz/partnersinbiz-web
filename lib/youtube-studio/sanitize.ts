@@ -3,6 +3,7 @@ import type {
   YouTubeChannelStatus,
   YouTubeChannelWorkspace,
   YouTubeGateCheck,
+  YouTubeGateStatus,
   YouTubePublishingPacket,
   YouTubePublishingPolicy,
   YouTubeSeries,
@@ -52,6 +53,16 @@ const VIDEO_STATUSES: YouTubeVideoStatus[] = [
   'archived',
 ]
 const SOURCE_TYPES: YouTubeSourceType[] = ['raw_footage', 'source_url', 'transcript', 'research', 'client_request', 'manual']
+const CLIENT_REVIEW_STATUSES = ['not_requested', 'requested', 'approved', 'changes_requested', 'rejected'] as const
+const PACKET_STATUSES: YouTubePublishingPacket['status'][] = [
+  'draft',
+  'internal_review',
+  'client_review',
+  'approved',
+  'blocked',
+  'published',
+]
+const GATE_STATUSES: YouTubeGateStatus[] = ['pass', 'warning', 'block', 'not_applicable']
 
 type RawInput = Record<string, unknown>
 type PacketReviewCheckKey = Exclude<keyof YouTubePublishingPacket['checks'], 'connectedAccount'>
@@ -391,26 +402,29 @@ export function serializeYouTubeRecord<T extends object>(id: string, data: Recor
 export function clientSafeYouTubeChannelWorkspace(
   channel: YouTubeChannelWorkspace
 ): ClientSafeYouTubeChannelWorkspace {
+  const disclosure = cleanObject(channel.aiDisclosureDefaults)
+  const visibility = cleanObject(channel.visibility)
+
   return stripUndefinedDeep({
-    id: channel.id,
-    orgId: channel.orgId,
-    title: channel.title,
-    youtubeChannelId: channel.youtubeChannelId,
-    youtubeHandle: channel.youtubeHandle,
-    status: channel.status,
+    id: cleanString(channel.id),
+    orgId: cleanString(channel.orgId) ?? '',
+    title: cleanString(channel.title) ?? 'Untitled YouTube channel',
+    youtubeChannelId: cleanString(channel.youtubeChannelId),
+    youtubeHandle: cleanString(channel.youtubeHandle),
+    status: pick(CHANNEL_STATUSES, channel.status, 'setup'),
     contentPillars: cleanStringArray(channel.contentPillars),
-    audienceNotes: channel.audienceNotes,
-    clientNotes: channel.clientNotes,
+    audienceNotes: cleanString(channel.audienceNotes),
+    clientNotes: cleanString(channel.clientNotes),
     aiDisclosureDefaults: channel.aiDisclosureDefaults
       ? {
-          syntheticMediaLikely: channel.aiDisclosureDefaults.syntheticMediaLikely === true,
-          notes: channel.aiDisclosureDefaults.notes,
+          syntheticMediaLikely: cleanBoolean(disclosure.syntheticMediaLikely) ?? false,
+          notes: cleanString(disclosure.notes),
         }
       : undefined,
     visibility: channel.visibility
       ? {
-          showInClientPortal: channel.visibility.showInClientPortal,
-          showAnalytics: channel.visibility.showAnalytics,
+          showInClientPortal: cleanBoolean(visibility.showInClientPortal),
+          showAnalytics: cleanBoolean(visibility.showAnalytics),
         }
       : undefined,
   })
@@ -464,43 +478,49 @@ export function clientSafeYouTubeSeries(series: YouTubeSeries): ClientSafeYouTub
 }
 
 export function clientSafeYouTubeVideoProject(video: YouTubeVideoProject): ClientSafeYouTubeVideoProject {
+  const source = cleanObject(video.source)
+  const review = cleanObject(video.clientReview)
+  const visibility = cleanObject(video.visibility)
+
   return stripUndefinedDeep({
-    id: video.id,
-    orgId: video.orgId,
-    channelWorkspaceId: video.channelWorkspaceId,
-    seriesId: video.seriesId,
-    title: video.title,
-    workingTitle: video.workingTitle,
-    videoType: video.videoType,
-    status: video.status,
-    objective: video.objective,
-    targetAudience: video.targetAudience,
-    targetDurationSeconds: video.targetDurationSeconds,
+    id: cleanString(video.id),
+    orgId: cleanString(video.orgId) ?? '',
+    channelWorkspaceId: cleanString(video.channelWorkspaceId) ?? '',
+    seriesId: cleanString(video.seriesId),
+    title: cleanString(video.title) ?? 'Untitled video',
+    workingTitle: cleanString(video.workingTitle),
+    videoType: pick(VIDEO_TYPES, video.videoType, 'long_form'),
+    status: pick(VIDEO_STATUSES, video.status, 'intake'),
+    objective: cleanString(video.objective) ?? '',
+    targetAudience: cleanString(video.targetAudience),
+    targetDurationSeconds: cleanNumber(video.targetDurationSeconds),
     source: {
-      intakeType: pick(SOURCE_TYPES, video.source?.intakeType, 'manual'),
+      intakeType: pick(SOURCE_TYPES, source.intakeType, 'manual'),
     },
     clientReview: video.clientReview
       ? {
-          status: video.clientReview.status,
-          notes: video.clientReview.notes,
+          status: pick(CLIENT_REVIEW_STATUSES, review.status, 'not_requested'),
+          notes: cleanString(review.notes),
         }
       : undefined,
-    clientNotes: video.clientNotes,
+    clientNotes: cleanString(video.clientNotes),
     visibility: video.visibility
       ? {
-          showInClientPortal: video.visibility.showInClientPortal,
-          showAnalytics: video.visibility.showAnalytics,
-          showPublishingPacket: video.visibility.showPublishingPacket,
+          showInClientPortal: cleanBoolean(visibility.showInClientPortal),
+          showAnalytics: cleanBoolean(visibility.showAnalytics),
+          showPublishingPacket: cleanBoolean(visibility.showPublishingPacket),
         }
       : undefined,
   })
 }
 
-function clientSafeGateCheck(check?: YouTubeGateCheck): ClientSafeYouTubeGateCheck | undefined {
+function clientSafeGateCheck(check?: unknown): ClientSafeYouTubeGateCheck | undefined {
   if (!check) return undefined
+  const source = cleanObject(check)
+
   return stripUndefinedDeep({
-    status: check.status,
-    message: check.message,
+    status: pick(GATE_STATUSES, source.status, 'not_applicable'),
+    message: cleanString(source.message),
   })
 }
 
@@ -528,33 +548,35 @@ function clientSafePacketChapter(chapter: unknown): ClientSafePacketChapter | un
 export function clientSafeYouTubePublishingPacket(
   packet: YouTubePublishingPacket
 ): ClientSafeYouTubePublishingPacket {
+  const checks = cleanObject(packet.checks)
+
   return stripUndefinedDeep({
-    id: packet.id,
-    orgId: packet.orgId,
-    channelWorkspaceId: packet.channelWorkspaceId,
-    videoProjectId: packet.videoProjectId,
-    versionNumber: packet.versionNumber,
-    status: packet.status,
+    id: cleanString(packet.id),
+    orgId: cleanString(packet.orgId) ?? '',
+    channelWorkspaceId: cleanString(packet.channelWorkspaceId) ?? '',
+    videoProjectId: cleanString(packet.videoProjectId) ?? '',
+    versionNumber: cleanNumber(packet.versionNumber) ?? 1,
+    status: pick(PACKET_STATUSES, packet.status, 'draft'),
     titleOptions: Array.isArray(packet.titleOptions)
       ? packet.titleOptions.map(clientSafePacketTitleOption).filter(isDefined)
       : [],
-    description: packet.description,
+    description: cleanString(packet.description),
     tags: cleanStringArray(packet.tags),
     chapters: Array.isArray(packet.chapters)
       ? packet.chapters.map(clientSafePacketChapter).filter(isDefined)
       : [],
-    visibility: packet.visibility,
-    selfDeclaredMadeForKids: packet.selfDeclaredMadeForKids,
-    containsSyntheticMedia: packet.containsSyntheticMedia,
-    aiDisclosureNotes: packet.aiDisclosureNotes,
+    visibility: pick(PUBLISHING_VISIBILITIES, packet.visibility, 'private'),
+    selfDeclaredMadeForKids: cleanBoolean(packet.selfDeclaredMadeForKids),
+    containsSyntheticMedia: cleanBoolean(packet.containsSyntheticMedia),
+    aiDisclosureNotes: cleanString(packet.aiDisclosureNotes),
     checks: {
-      rights: clientSafeGateCheck(packet.checks?.rights),
-      aiDisclosure: clientSafeGateCheck(packet.checks?.aiDisclosure),
-      madeForKids: clientSafeGateCheck(packet.checks?.madeForKids),
-      metadata: clientSafeGateCheck(packet.checks?.metadata),
-      thumbnail: clientSafeGateCheck(packet.checks?.thumbnail),
-      captions: clientSafeGateCheck(packet.checks?.captions),
-      approval: clientSafeGateCheck(packet.checks?.approval),
+      rights: clientSafeGateCheck(checks.rights),
+      aiDisclosure: clientSafeGateCheck(checks.aiDisclosure),
+      madeForKids: clientSafeGateCheck(checks.madeForKids),
+      metadata: clientSafeGateCheck(checks.metadata),
+      thumbnail: clientSafeGateCheck(checks.thumbnail),
+      captions: clientSafeGateCheck(checks.captions),
+      approval: clientSafeGateCheck(checks.approval),
     },
   })
 }

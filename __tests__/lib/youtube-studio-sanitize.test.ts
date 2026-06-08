@@ -328,6 +328,62 @@ describe('youtube studio sanitizers', () => {
     })
   })
 
+  it('drops malformed portal video scalars and nested review/source values', () => {
+    const safe = clientSafeYouTubeVideoProject({
+      id: { raw: 'video-secret-id' } as unknown as string,
+      orgId: ' org-1 ',
+      channelWorkspaceId: ' channel-1 ',
+      seriesId: { raw: 'series-secret-id' } as unknown as string,
+      title: { text: 'Operator-only title', policyNotes: 'secret video title policy' } as unknown as string,
+      workingTitle: ' Client draft ',
+      videoType: 'bad-video-type' as Parameters<typeof clientSafeYouTubeVideoProject>[0]['videoType'],
+      status: { raw: 'client_review' } as unknown as Parameters<typeof clientSafeYouTubeVideoProject>[0]['status'],
+      objective: { internalPrompt: 'secret objective' } as unknown as string,
+      targetAudience: { internalPrompt: 'secret audience' } as unknown as string,
+      targetDurationSeconds: Number.POSITIVE_INFINITY,
+      source: {
+        intakeType: { raw: 'research' } as unknown as Parameters<typeof clientSafeYouTubeVideoProject>[0]['source']['intakeType'],
+        researchItemId: 'research-secret',
+      },
+      linked: {},
+      approvalPolicy: defaultYouTubeApprovalPolicy(),
+      clientReview: {
+        status: { raw: 'requested' } as unknown as NonNullable<Parameters<typeof clientSafeYouTubeVideoProject>[0]['clientReview']>['status'],
+        notes: { internalPrompt: 'secret review note' } as unknown as string,
+        decidedBy: 'client-secret',
+      },
+      clientNotes: ' Client-facing note ',
+      visibility: {
+        showInClientPortal: { raw: true } as unknown as boolean,
+        showAnalytics: true,
+        showPublishingPacket: { raw: true } as unknown as boolean,
+      },
+      deleted: false,
+    } as Parameters<typeof clientSafeYouTubeVideoProject>[0])
+
+    expect(safe).toMatchObject({
+      orgId: 'org-1',
+      channelWorkspaceId: 'channel-1',
+      title: 'Untitled video',
+      workingTitle: 'Client draft',
+      videoType: 'long_form',
+      status: 'intake',
+      objective: '',
+      source: { intakeType: 'manual' },
+      clientReview: { status: 'not_requested' },
+      clientNotes: 'Client-facing note',
+      visibility: { showAnalytics: true },
+    })
+    expect(safe).not.toHaveProperty('id')
+    expect(safe).not.toHaveProperty('seriesId')
+    expect(safe).not.toHaveProperty('targetAudience')
+    expect(safe).not.toHaveProperty('targetDurationSeconds')
+    expect(safe.visibility).not.toHaveProperty('showInClientPortal')
+    expect(safe.visibility).not.toHaveProperty('showPublishingPacket')
+    expect(JSON.stringify(safe)).not.toContain('secret')
+    expect(JSON.stringify(safe)).not.toContain('Operator-only')
+  })
+
   it('serializes Firestore records through JSON-safe values', () => {
     const serialized = serializeYouTubeRecord('id-1', {
       orgId: 'org-1',
@@ -383,6 +439,49 @@ describe('youtube studio sanitizers', () => {
 
     expect(safe.contentPillars).toEqual(['Growth', 'Case studies'])
     expect(JSON.stringify(safe)).not.toContain('policyNotes')
+  })
+
+  it('drops malformed portal channel scalars and visibility values', () => {
+    const safe = clientSafeYouTubeChannelWorkspace({
+      id: { raw: 'channel-secret-id' } as unknown as string,
+      orgId: ' org-1 ',
+      title: { text: 'Operator-only channel', policyNotes: 'secret channel policy' } as unknown as string,
+      youtubeChannelId: { raw: 'youtube-secret' } as unknown as string,
+      youtubeHandle: ' @client ',
+      status: { raw: 'active' } as unknown as Parameters<typeof clientSafeYouTubeChannelWorkspace>[0]['status'],
+      defaultApprovalPolicy: defaultYouTubeApprovalPolicy(),
+      defaultPublishingPolicy: defaultYouTubePublishingPolicy(),
+      contentPillars: [' Growth ', { internalPrompt: 'secret pillar' }, 'Retention'] as unknown as string[],
+      audienceNotes: { internalPrompt: 'secret audience note' } as unknown as string,
+      avoidTopics: [],
+      aiDisclosureDefaults: {
+        syntheticMediaLikely: { raw: true } as unknown as boolean,
+        notes: { internalPrompt: 'secret disclosure note' } as unknown as string,
+      },
+      clientNotes: ' Client-facing note ',
+      visibility: {
+        showInClientPortal: { raw: true } as unknown as boolean,
+        showAnalytics: false,
+      },
+      deleted: false,
+    })
+
+    expect(safe).toMatchObject({
+      orgId: 'org-1',
+      title: 'Untitled YouTube channel',
+      youtubeHandle: '@client',
+      status: 'setup',
+      contentPillars: ['Growth', 'Retention'],
+      clientNotes: 'Client-facing note',
+      aiDisclosureDefaults: { syntheticMediaLikely: false },
+      visibility: { showAnalytics: false },
+    })
+    expect(safe).not.toHaveProperty('id')
+    expect(safe).not.toHaveProperty('youtubeChannelId')
+    expect(safe).not.toHaveProperty('audienceNotes')
+    expect(safe.visibility).not.toHaveProperty('showInClientPortal')
+    expect(JSON.stringify(safe)).not.toContain('secret')
+    expect(JSON.stringify(safe)).not.toContain('Operator-only')
   })
 
   it('redacts internal publishing packet audit fields for portal clients', () => {
@@ -500,5 +599,78 @@ describe('youtube studio sanitizers', () => {
     expect(safe.chapters[0]).not.toHaveProperty('scoringAudit')
     expect(safe.chapters[0]).not.toHaveProperty('sourceAssetId')
     expect(safe.chapters[0]).not.toHaveProperty('policyNotes')
+  })
+
+  it('drops malformed portal packet scalars and gate check messages', () => {
+    const safe = clientSafeYouTubePublishingPacket({
+      id: { raw: 'packet-secret-id' } as unknown as string,
+      orgId: ' org-1 ',
+      channelWorkspaceId: ' channel-1 ',
+      videoProjectId: ' video-1 ',
+      versionNumber: { raw: 2 } as unknown as number,
+      status: { raw: 'approved' } as unknown as Parameters<typeof clientSafeYouTubePublishingPacket>[0]['status'],
+      titleOptions: [
+        {
+          text: ' Client title ',
+          rationale: { internalPrompt: 'secret rationale' } as unknown as string,
+          selected: { raw: true } as unknown as boolean,
+        },
+      ],
+      description: { internalPrompt: 'secret description' } as unknown as string,
+      tags: [' growth ', { internalPrompt: 'secret tag' }] as unknown as string[],
+      chapters: [{ startSeconds: 0, title: ' Intro ', internalPrompt: 'secret chapter' } as { startSeconds: number; title: string }],
+      visibility: { raw: 'public' } as unknown as Parameters<typeof clientSafeYouTubePublishingPacket>[0]['visibility'],
+      selfDeclaredMadeForKids: { raw: false } as unknown as boolean,
+      containsSyntheticMedia: true,
+      aiDisclosureNotes: { internalPrompt: 'secret disclosure note' } as unknown as string,
+      checks: {
+        rights: {
+          status: { raw: 'pass' } as unknown as Parameters<typeof clientSafeYouTubePublishingPacket>[0]['checks']['rights']['status'],
+          message: { internalPrompt: 'secret rights message' } as unknown as string,
+          checkedBy: 'admin-secret',
+        },
+        aiDisclosure: {
+          status: 'warning',
+          message: ' Review disclosure ',
+          checkedBy: 'agent-secret',
+        },
+        madeForKids: 'secret malformed check' as unknown as Parameters<typeof clientSafeYouTubePublishingPacket>[0]['checks']['madeForKids'],
+        metadata: { status: 'pass', message: ' Metadata complete ' },
+        thumbnail: { status: 'pass', message: ' Thumbnail approved ' },
+        captions: { status: 'pass', message: ' Captions ready ' },
+        approval: { status: 'pass', message: ' Approved ', checkedByType: 'system' },
+        connectedAccount: {
+          status: 'warning',
+          message: 'secret connected account',
+        },
+      },
+      deleted: false,
+    } as Parameters<typeof clientSafeYouTubePublishingPacket>[0])
+
+    expect(safe).toMatchObject({
+      orgId: 'org-1',
+      channelWorkspaceId: 'channel-1',
+      videoProjectId: 'video-1',
+      versionNumber: 1,
+      status: 'draft',
+      titleOptions: [{ text: 'Client title' }],
+      tags: ['growth'],
+      chapters: [{ startSeconds: 0, title: 'Intro' }],
+      visibility: 'private',
+      containsSyntheticMedia: true,
+      checks: {
+        rights: { status: 'not_applicable' },
+        aiDisclosure: { status: 'warning', message: 'Review disclosure' },
+        madeForKids: { status: 'not_applicable' },
+      },
+    })
+    expect(safe).not.toHaveProperty('id')
+    expect(safe).not.toHaveProperty('description')
+    expect(safe).not.toHaveProperty('selfDeclaredMadeForKids')
+    expect(safe).not.toHaveProperty('aiDisclosureNotes')
+    expect(safe.checks).not.toHaveProperty('connectedAccount')
+    expect(safe.checks.rights).not.toHaveProperty('message')
+    expect(safe.checks.aiDisclosure).not.toHaveProperty('checkedBy')
+    expect(JSON.stringify(safe)).not.toContain('secret')
   })
 })
