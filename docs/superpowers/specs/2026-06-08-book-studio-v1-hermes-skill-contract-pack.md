@@ -10,6 +10,7 @@
 **Source refresh execution report:** `docs/superpowers/specs/2026-06-08-book-studio-v1-source-refresh-execution-report.md`
 **ai-story non-port checklist:** `docs/superpowers/specs/2026-06-08-book-studio-v1-ai-story-non-port-checklist.md`
 **Launch/lifecycle governance model:** `docs/superpowers/specs/2026-06-08-book-studio-v1-launch-lifecycle-governance-model.md`
+**Market evidence model:** `docs/superpowers/specs/2026-06-08-book-studio-v1-market-evidence-model.md`
 
 ## Purpose
 
@@ -52,6 +53,8 @@ bookStudioV1HermesSkillContracts:
     - spend_or_allocate_ad_budget
     - automated_review_outreach
     - change_live_price_promotion_metadata_or_listing
+    - promise_market_demand_sales_rank_or_bestseller_status
+    - copy_competitor_metadata_or_content
     - expose_raw_hermes_output_to_portal
     - replace_official_source_refresh
     - use_ai_story_as_policy_source
@@ -101,17 +104,31 @@ allowedInputs:
 requiredSourceKeys:
   - source-refresh-contract
   - book-family-gate-catalog
+  - market-evidence-model
+  - kdp-keywords-discoverability
+  - kdp-categories-discoverability
+  - kdp-search-results
+  - kdp-content-quality
+  - google-metadata
+  - google-content-policies
 requiredExistingArtifacts:
   - bookProjectDraft
   - intakeSummary
 allowedOutputs:
   - internalResearchItem
+  - marketEvidencePacketDraft
   - confidenceLabeledFinding
+  - candidateSelectionWarning
+  - candidateSelectionBlocker
   - unsupportedClaimWarning
   - reviewerQuestion
   - taskSuggestion
 forbiddenActions:
   - invent_bestseller_claims
+  - predict_sales_rank_royalties_or_market_demand
+  - copy_competitor_metadata_or_content
+  - recommend_misleading_categories_or_keyword_stuffing
+  - mark_candidate_production_selectable
   - cite_model_memory_as_source_evidence
   - create_client_ready_copy
   - recommend_channel_launch
@@ -119,10 +136,16 @@ reviewerDefault: research_lead
 portalVisibility: hidden_unless_rewritten_into_reviewed_book_brief
 passFixtures:
   - HERMES-BNF-PASS-001
+  - MARKET-PASS-001
 warnFixtures:
   - HERMES-SOURCE-WARN-001
+  - MARKET-WARN-001
+  - MARKET-WARN-002
 blockFixtures:
   - HERMES-RIGHTS-BLOCK-001
+  - MARKET-BLOCK-001
+  - MARKET-BLOCK-002
+  - MARKET-BLOCK-003
 forbiddenFixtures:
   - HERMES-FORBID-001
 staleSourceBehavior: warn_for_internal_findings_and_block_any_client_promise_or_channel_readiness_claim

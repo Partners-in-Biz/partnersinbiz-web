@@ -7,6 +7,7 @@
 **Review script:** `docs/superpowers/specs/2026-06-08-book-studio-v1-review-script.md`
 **Hermes skill contract pack:** `docs/superpowers/specs/2026-06-08-book-studio-v1-hermes-skill-contract-pack.md`
 **Launch/lifecycle governance model:** `docs/superpowers/specs/2026-06-08-book-studio-v1-launch-lifecycle-governance-model.md`
+**Market evidence model:** `docs/superpowers/specs/2026-06-08-book-studio-v1-market-evidence-model.md`
 
 ## Purpose
 
@@ -30,6 +31,7 @@ These rules apply to every fixture below:
 - Any client-visible artifact must be promoted by reviewed artifact version.
 - Any analytics value must include source, period, timezone, confidence, and reconciliation state.
 - Any AI disclosure answer must come from provenance/generation records, not a single project checkbox.
+- Candidate selection must not use automated market scraping, sales forecasts, rank promises, bestseller claims, or competitor-copy reuse.
 
 Devil's advocate:
 
@@ -247,6 +249,35 @@ PiB has a live business nonfiction ebook and an operator asks Book Studio to run
 - Review guidance is treated as a marketing optimization problem instead of a compliance surface.
 - Portal reports free downloads, redemptions, rank movement, or dashboard estimates as settled revenue.
 
+## Fixture H: Market Evidence Candidate Selection Gate
+
+### Scenario
+
+PiB compares three candidate ideas before any Book Brief or production work starts: a business nonfiction guide with a clear buyer use case, a low-content planner with thin margin evidence, and a public-domain companion idea with no rights/originality proof.
+
+### Expected State
+
+| Area | Acceptance evidence |
+| --- | --- |
+| Research packet | Each candidate has audience/buyer use case, competitive shelf observations, metadata hypotheses, price/margin posture, channel fit, PiB fit, and unresolved assumptions. |
+| Discoverability | KDP keywords/categories and Google genres are treated as relevant hypotheses, not keyword-stuffing or rank promises. |
+| Competitive shelf | Comparable-title notes are observations with dates and source IDs; competitor copy, cover identity, trademark cues, and rank/sales forecasts are not reused. |
+| Hermes | `book-niche-research` can summarize findings, warn, block, and suggest next-evidence tasks; it cannot choose the winning product or promise demand. |
+| Portal | Client sees no raw market evidence; only a reviewed candidate summary or safe blocker can be promoted. |
+
+### Mixed Output
+
+- Business nonfiction candidate reaches `production_selectable` for Book Brief work only.
+- Low-content planner reaches `selectable_with_warnings` until print cost, proof, differentiation, and margin evidence are reviewed.
+- Public-domain companion reaches `blocked` until rights, originality, and affiliation evidence pass.
+
+### Failure Conditions
+
+- A candidate reaches Book Brief or production work with no reviewed market evidence packet.
+- Search rank, bestseller status, review count, or competitor screenshots are treated as proof of future sales.
+- The workflow suggests misleading categories, vague keywords, copied competitor metadata, or trademark-adjacent positioning.
+- A negative or unknown print margin does not block or warn before production selection.
+
 ## Minimum Future Demo Set
 
 If the approval packet is accepted, a future Phase 1 implementation demo should include at least:
@@ -257,6 +288,7 @@ If the approval packet is accepted, a future Phase 1 implementation demo should 
 4. Fixture E blocking Hermes forbidden actions.
 5. Fixture F showing a partial analytics import warning.
 6. Fixture G blocking unsafe launch, review, price, and promotion actions.
+7. Fixture H proving market evidence pass/warn/block before production selection.
 
 The demo should not be accepted if it only shows:
 
@@ -272,4 +304,4 @@ This fixture pack does not approve implementation. It only describes evidence th
 
 The approval gate is still:
 
-> Approve Book Studio V1 as an internal PiB production studio with optional client review. Use KDP and Google Play Books manual-handoff as the first channel focus. Start with business nonfiction, activity or low-content print, series scaffolding, and a public-domain or companion negative-control fixture. Build admin-first records, gate profiles, Research/Client Document/Project/artifact bridges, publishing packet tracking, local publisher evidence lanes, controlled Hermes skill readiness, package QA evidence, and manual analytics imports. Keep self-serve generation, public SaaS, direct publishing, account-secret custody, autonomous ads, automated review outreach, full layout tooling, automated export/file validation, and automated report integrations out of V1.
+> Approve Book Studio V1 as an internal PiB production studio with optional client review. Use KDP and Google Play Books manual-handoff as the first channel focus. Start with business nonfiction, activity or low-content print, series scaffolding, and a public-domain or companion negative-control fixture. Build admin-first records, market evidence gates, gate profiles, Research/Client Document/Project/artifact bridges, publishing packet tracking, local publisher evidence lanes, controlled Hermes skill readiness, package QA evidence, and manual analytics imports. Keep self-serve generation, public SaaS, direct publishing, account-secret custody, autonomous ads, automated review outreach, sales forecasting or rank promises from market research, full layout tooling, automated export/file validation, and automated report integrations out of V1.

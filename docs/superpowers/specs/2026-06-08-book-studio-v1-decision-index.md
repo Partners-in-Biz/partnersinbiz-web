@@ -12,6 +12,7 @@
 **Source refresh execution report:** `docs/superpowers/specs/2026-06-08-book-studio-v1-source-refresh-execution-report.md`
 **Hermes skill contract pack:** `docs/superpowers/specs/2026-06-08-book-studio-v1-hermes-skill-contract-pack.md`
 **Launch and lifecycle governance model:** `docs/superpowers/specs/2026-06-08-book-studio-v1-launch-lifecycle-governance-model.md`
+**Market evidence model:** `docs/superpowers/specs/2026-06-08-book-studio-v1-market-evidence-model.md`
 
 ## Purpose
 
@@ -32,8 +33,9 @@ If Peet has 10 minutes:
 7. Use the source refresh execution report only after approval or revision, before Phase 1 planning.
 8. Review the Hermes skill contract pack if the open concern is how the first new Hermes skills stay bounded before runtime dispatch.
 9. Review the launch and lifecycle governance model if the open concern is what happens after a book is live.
-10. Review the mock review packet to see the operating loop in a concrete business nonfiction example.
-11. Decide whether to approve the exact wording, revise specific fields, reject the internal-studio posture, or request another design aid.
+10. Review the market evidence model if the open concern is how PiB chooses book ideas worth producing before Hermes/editorial work starts.
+11. Review the mock review packet to see the operating loop in a concrete business nonfiction example.
+12. Decide whether to approve the exact wording, revise specific fields, reject the internal-studio posture, or request another design aid.
 
 If Peet has 30 minutes:
 
@@ -64,6 +66,7 @@ If Peet has 30 minutes:
 | --- | --- |
 | Source refresh contract | Before relying on KDP, Google, analytics, source freshness, or `ai-story` baseline claims. |
 | Source refresh execution report | After approval or revision, when the source-refresh contract must be run before Phase 1 planning. |
+| Market evidence model | When checking how a candidate book idea becomes pass/warn/block before Book Brief or production work starts. |
 | Book-family gate catalog | When deciding whether the first pilot set covers enough book types. |
 | Publishing and analytics model | When reviewing manual handoff, upload evidence, analytics confidence, and reconciliation. |
 | Ownership and commercial model | When deciding PiB-owned, client-owned, or shared ownership posture. |
@@ -101,6 +104,7 @@ Approval unlocks only a future implementation plan. That plan must:
 - preserve the Hermes skill contract pack before writing any runnable skill spec,
 - preserve package QA, local publisher, portal safety, analytics confidence, and `ai-story` non-port rules, and
 - preserve launch/lifecycle guardrails for review compliance, price and promotion approvals, external action evidence, revision invalidation, and no automated review outreach or ad spend, and
+- preserve the market evidence rule that a candidate must pass or carry accepted warnings before Book Brief or production selection, and
 - include at least one pass case, one warning case, and one blocker case.
 
 Approval does not unlock:
@@ -119,7 +123,7 @@ Approval does not unlock:
 
 If Peet accepts the recommended V1, use this:
 
-> Approve Book Studio V1 as an internal PiB production studio with optional client review. Use KDP and Google Play Books manual-handoff as the first channel focus. Start with business nonfiction, activity or low-content print, series scaffolding, and a public-domain or companion negative-control fixture. Build admin-first records, gate profiles, Research/Client Document/Project/artifact bridges, publishing packet tracking, local publisher evidence lanes, controlled Hermes skill readiness, package QA evidence, and manual analytics imports. Keep self-serve generation, public SaaS, direct publishing, account-secret custody, autonomous ads, automated review outreach, full layout tooling, automated export/file validation, and automated report integrations out of V1.
+> Approve Book Studio V1 as an internal PiB production studio with optional client review. Use KDP and Google Play Books manual-handoff as the first channel focus. Start with business nonfiction, activity or low-content print, series scaffolding, and a public-domain or companion negative-control fixture. Build admin-first records, market evidence gates, gate profiles, Research/Client Document/Project/artifact bridges, publishing packet tracking, local publisher evidence lanes, controlled Hermes skill readiness, package QA evidence, and manual analytics imports. Keep self-serve generation, public SaaS, direct publishing, account-secret custody, autonomous ads, automated review outreach, sales forecasting or rank promises from market research, full layout tooling, automated export/file validation, and automated report integrations out of V1.
 
 ## Exact Revision Shape
 
@@ -134,6 +138,9 @@ bookStudioV1ApprovalRevision:
     remove: []
   firstPortalReviewArtifacts:
     startWith: []
+  marketEvidenceScope:
+    add: []
+    remove: []
   hermesFirstScope:
     choose: wave1_only | wave1_plus_selected_wave2_docs_and_fixtures | broader_docs_only_no_runtime
   ownershipModel:

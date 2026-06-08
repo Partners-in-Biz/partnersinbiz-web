@@ -18,6 +18,7 @@
 **ai-story non-port aid:** `docs/superpowers/specs/2026-06-08-book-studio-v1-ai-story-non-port-checklist.md`
 **Hermes skill contract pack:** `docs/superpowers/specs/2026-06-08-book-studio-v1-hermes-skill-contract-pack.md`
 **Launch and lifecycle governance aid:** `docs/superpowers/specs/2026-06-08-book-studio-v1-launch-lifecycle-governance-model.md`
+**Market evidence aid:** `docs/superpowers/specs/2026-06-08-book-studio-v1-market-evidence-model.md`
 
 ## Purpose
 
@@ -44,7 +45,7 @@ The first version should focus on:
 - Activity/workbook or low-content print products.
 - Series scaffolding.
 - A public-domain or companion negative-control fixture that proves the module can block unsafe projects.
-- Admin-first records, gate profiles, Research/Client Document/Project/artifact bridges, publishing packet tracking, local publisher evidence lanes, controlled Hermes skill readiness, package QA evidence, and manual analytics imports.
+- Admin-first records, market evidence gates, gate profiles, Research/Client Document/Project/artifact bridges, publishing packet tracking, local publisher evidence lanes, controlled Hermes skill readiness, package QA evidence, and manual analytics imports.
 
 It should not include:
 
@@ -85,6 +86,13 @@ bookStudioV1Approval:
     - proof_package_when_reviewed
     - publishing_packet_when_reviewed
     - analytics_summary_when_reconciled
+  marketEvidenceScope:
+    - reviewed_book_research_evidence_packet_before_production_selection
+    - audience_buyer_use_case
+    - competitive_shelf_observations
+    - discoverability_metadata_hypotheses
+    - price_margin_and_channel_fit_review
+    - pass_warn_block_candidate_decision
   hermesFirstScope:
     wave1_planning_and_evidence:
       - book-niche-research
@@ -122,6 +130,7 @@ bookStudioV1Approval:
     - no_sensitive_account_secret_custody
     - no_autonomous_ad_spend
     - no_automated_review_outreach
+    - no_sales_forecasting_or_rank_promises_from_market_research
     - no_full_print_perfect_layout_engine
     - no_automated_export_or_file_validation_before_package_qa_is_implemented
     - no_automated_report_integrations_before_manual_import_model_is_proven
@@ -131,7 +140,7 @@ bookStudioV1Approval:
 
 Peet can use this wording if the recommended V1 is acceptable:
 
-> Approve Book Studio V1 as an internal PiB production studio with optional client review. Use KDP and Google Play Books manual-handoff as the first channel focus. Start with business nonfiction, activity or low-content print, series scaffolding, and a public-domain or companion negative-control fixture. Build admin-first records, gate profiles, Research/Client Document/Project/artifact bridges, publishing packet tracking, local publisher evidence lanes, controlled Hermes skill readiness, package QA evidence, and manual analytics imports. Keep self-serve generation, public SaaS, direct publishing, account-secret custody, autonomous ads, automated review outreach, full layout tooling, automated export/file validation, and automated report integrations out of V1.
+> Approve Book Studio V1 as an internal PiB production studio with optional client review. Use KDP and Google Play Books manual-handoff as the first channel focus. Start with business nonfiction, activity or low-content print, series scaffolding, and a public-domain or companion negative-control fixture. Build admin-first records, market evidence gates, gate profiles, Research/Client Document/Project/artifact bridges, publishing packet tracking, local publisher evidence lanes, controlled Hermes skill readiness, package QA evidence, and manual analytics imports. Keep self-serve generation, public SaaS, direct publishing, account-secret custody, autonomous ads, automated review outreach, sales forecasting or rank promises from market research, full layout tooling, automated export/file validation, and automated report integrations out of V1.
 
 ## Safe Revisions Before Approval
 
@@ -140,6 +149,7 @@ Peet can use this wording if the recommended V1 is acceptable:
 | `firstPilotSet` | Add `children_visual_gated_pilot`. | Phase 1 planning must bring asset-rights, fixed-layout proofing, image safety, and accessibility evidence earlier. |
 | `firstPilotSet` | Remove the public-domain/companion negative-control fixture. | Faster first plan, but weaker proof that Book Studio can block attractive but unsafe projects. |
 | `firstPortalReviewArtifacts` | Start with `book_brief` only. | Safer portal scope, but clients see less of the publishing workflow in early V1. |
+| `marketEvidenceScope` | Narrow first demo to admin-only market evidence packets. | Safer portal/client scope, but candidate pass/warn/block evidence still blocks Book Brief and production selection. |
 | `hermesFirstScope` | Wave 1 only. | Safer first plan, but KDP/Google readiness, metadata, account authority, and generation safety checks become follow-up work. |
 | `ownershipModel` | PiB-owned books only. | Easier account governance, but weaker fit for client-owned publishing projects. |
 | `productionReadinessScope` | Limit first planning to package QA evidence only. | Safer first plan, but checksum-bound readiness, format preflight, rights/accessibility preflight, and source freshness become follow-up work. |
@@ -159,6 +169,7 @@ The future Phase 1 plan must:
 - Recheck the policy source register before listing tasks and record the result in the source refresh execution report.
 - Map every task to the selected pilot set.
 - Map evidence-sensitive tasks to the V1 evidence acceptance matrix.
+- Preserve the market evidence model rule that a candidate reaches Book Brief or production selection only after a reviewed pass/warn/block decision, and that market evidence cannot promise sales, rank, or bestseller outcomes.
 - Preserve the production package QA rule that proof, file, cover, rights, accessibility, source freshness, and checksum evidence bind manual-handoff readiness to one exact package version.
 - Preserve the jurisdiction/local publisher rule that KDP or Google channel readiness does not prove South African legal-deposit, ISBN/imprint, copyright, contributor-authority, or local publisher readiness.
 - Preserve the `ai-story` non-port rule that prior standalone UX patterns can be reused only after keep/rewrite/reject classification and cannot bypass PiB org scope, Research, Client Documents, Projects/Kanban, portal gating, or Hermes skill governance.
@@ -173,6 +184,7 @@ The future Phase 1 plan must:
 - Runtime Hermes dispatch.
 - Runtime export engines, file validators, package manifest records, or package QA automation.
 - Direct KDP, Google Play Books, Apple, Kobo, Draft2Digital, IngramSpark, ACX, Amazon Ads, or review-outreach automation.
+- Automated market scraping, sales forecasting, rank promises, bestseller claims, or competitor-copy reuse.
 - Client self-serve generation.
 - Public/productized AI-book SaaS.
 

@@ -11,6 +11,7 @@
 **Wider channel adapter packet:** `docs/superpowers/specs/2026-06-08-book-studio-v1-wider-channel-adapter-packet.md`
 **ai-story non-port checklist:** `docs/superpowers/specs/2026-06-08-book-studio-v1-ai-story-non-port-checklist.md`
 **Launch/lifecycle governance model:** `docs/superpowers/specs/2026-06-08-book-studio-v1-launch-lifecycle-governance-model.md`
+**Market evidence model:** `docs/superpowers/specs/2026-06-08-book-studio-v1-market-evidence-model.md`
 
 ## Purpose
 
@@ -49,19 +50,45 @@ bookStudioV1SourceRefreshReport:
       completed: false
       sources:
         - kdp-content-ai-ip
+        - kdp-keywords-discoverability
+        - kdp-categories-discoverability
+        - kdp-search-results
+        - kdp-metadata-guidelines
+        - kdp-description-guidelines
+        - kdp-content-quality
         - kdp-low-content
         - kdp-series
         - kdp-print-options
         - kdp-reports
+        - kdp-print-pricing
     google_play_books_policy_and_packet_requirements:
       required: true
       completed: false
       sources:
         - google-program-policies
+        - google-sell-books
+        - google-metadata
+        - google-content-policies
         - google-add-book
         - google-series
         - google-reports
         - google-service-provider
+    market_evidence_selection_sources:
+      required: true
+      completed: false
+      sources:
+        - kdp-keywords-discoverability
+        - kdp-categories-discoverability
+        - kdp-search-results
+        - kdp-metadata-guidelines
+        - kdp-description-guidelines
+        - kdp-content-quality
+        - kdp-price-book
+        - kdp-print-pricing
+        - google-sell-books
+        - google-metadata
+        - google-content-policies
+        - google-program-policies
     local_publisher_and_jurisdiction_sources:
       required: true
       completed: false
@@ -121,6 +148,60 @@ bookStudioV1SourceRefreshReport:
       affectedApprovalFields: []
       affectedDocsToRevise: []
       planningImpact: planning_blocked_until_result_recorded
+    - key: kdp-keywords-discoverability
+      url: https://kdp.amazon.com/en_US/help/topic/G201743260
+      officialSource: true
+      checkedAt: "not_recorded_yet"
+      result: not_recorded_yet
+      evidenceSummary: not_recorded_yet
+      affectedApprovalFields: []
+      affectedDocsToRevise: []
+      planningImpact: planning_blocked_until_result_recorded
+    - key: kdp-categories-discoverability
+      url: https://kdp.amazon.com/en_US/help/topic/G200652170
+      officialSource: true
+      checkedAt: "not_recorded_yet"
+      result: not_recorded_yet
+      evidenceSummary: not_recorded_yet
+      affectedApprovalFields: []
+      affectedDocsToRevise: []
+      planningImpact: planning_blocked_until_result_recorded
+    - key: kdp-search-results
+      url: https://kdp.amazon.com/en_US/help/topic/GPYDJ3SECAVVPNVG
+      officialSource: true
+      checkedAt: "not_recorded_yet"
+      result: not_recorded_yet
+      evidenceSummary: not_recorded_yet
+      affectedApprovalFields: []
+      affectedDocsToRevise: []
+      planningImpact: planning_blocked_until_result_recorded
+    - key: kdp-metadata-guidelines
+      url: https://kdp.amazon.com/en_US/help/topic/G201097560
+      officialSource: true
+      checkedAt: "not_recorded_yet"
+      result: not_recorded_yet
+      evidenceSummary: not_recorded_yet
+      affectedApprovalFields: []
+      affectedDocsToRevise: []
+      planningImpact: planning_blocked_until_result_recorded
+    - key: kdp-description-guidelines
+      url: https://kdp.amazon.com/en_US/help/topic/G201189630
+      officialSource: true
+      checkedAt: "not_recorded_yet"
+      result: not_recorded_yet
+      evidenceSummary: not_recorded_yet
+      affectedApprovalFields: []
+      affectedDocsToRevise: []
+      planningImpact: planning_blocked_until_result_recorded
+    - key: kdp-content-quality
+      url: https://kdp.amazon.com/en_US/help/topic/G200952510
+      officialSource: true
+      checkedAt: "not_recorded_yet"
+      result: not_recorded_yet
+      evidenceSummary: not_recorded_yet
+      affectedApprovalFields: []
+      affectedDocsToRevise: []
+      planningImpact: planning_blocked_until_result_recorded
     - key: kdp-low-content
       url: https://kdp.amazon.com/en_US/help/topic/GGE5T76TWKA85DJM
       officialSource: true
@@ -157,8 +238,44 @@ bookStudioV1SourceRefreshReport:
       affectedApprovalFields: []
       affectedDocsToRevise: []
       planningImpact: planning_blocked_until_result_recorded
+    - key: kdp-print-pricing
+      url: https://kdp.amazon.com/en_US/help/topic/G8BKPU9AGVZSF9QF
+      officialSource: true
+      checkedAt: "not_recorded_yet"
+      result: not_recorded_yet
+      evidenceSummary: not_recorded_yet
+      affectedApprovalFields: []
+      affectedDocsToRevise: []
+      planningImpact: planning_blocked_until_result_recorded
     - key: google-program-policies
       url: https://support.google.com/books/partner/answer/166501?hl=en
+      officialSource: true
+      checkedAt: "not_recorded_yet"
+      result: not_recorded_yet
+      evidenceSummary: not_recorded_yet
+      affectedApprovalFields: []
+      affectedDocsToRevise: []
+      planningImpact: planning_blocked_until_result_recorded
+    - key: google-sell-books
+      url: https://support.google.com/books/partner/answer/1079107?hl=en
+      officialSource: true
+      checkedAt: "not_recorded_yet"
+      result: not_recorded_yet
+      evidenceSummary: not_recorded_yet
+      affectedApprovalFields: []
+      affectedDocsToRevise: []
+      planningImpact: planning_blocked_until_result_recorded
+    - key: google-metadata
+      url: https://support.google.com/books/partner/answer/3237055?hl=en
+      officialSource: true
+      checkedAt: "not_recorded_yet"
+      result: not_recorded_yet
+      evidenceSummary: not_recorded_yet
+      affectedApprovalFields: []
+      affectedDocsToRevise: []
+      planningImpact: planning_blocked_until_result_recorded
+    - key: google-content-policies
+      url: https://support.google.com/books/partner/answer/1067634?hl=en
       officialSource: true
       checkedAt: "not_recorded_yet"
       result: not_recorded_yet
@@ -387,20 +504,37 @@ bookStudioV1SourceRefreshReport:
 
 ## Required Source Groups
 
-The reviewer must check the source groups required by the final decision record. The recommended V1 approval requires all five core groups: KDP, Google Play Books, local publisher/jurisdiction, launch/lifecycle, and `ai-story`.
+The reviewer must check the source groups required by the final decision record. The recommended V1 approval requires six core groups: KDP, Google Play Books, market evidence, local publisher/jurisdiction, launch/lifecycle, and `ai-story`.
 
 | Group | Source key | Source to check | Planning claim protected |
 | --- | --- | --- | --- |
 | KDP | `kdp-content-ai-ip` | `https://kdp.amazon.com/en_US/help/topic/G200672390` | AI disclosure, rights/IP, public-domain, companion-book, and KDP packet safety. |
+| KDP | `kdp-keywords-discoverability` | `https://kdp.amazon.com/en_US/help/topic/G201743260` | KDP keyword relevance and market evidence discoverability hypotheses. |
+| KDP | `kdp-categories-discoverability` | `https://kdp.amazon.com/en_US/help/topic/G200652170` | KDP category relevance, shelf fit, and misleading-category blockers. |
+| KDP | `kdp-search-results` | `https://kdp.amazon.com/en_US/help/topic/GPYDJ3SECAVVPNVG` | Dynamic search-result caveats and no rank or sales promises. |
+| KDP | `kdp-metadata-guidelines` | `https://kdp.amazon.com/en_US/help/topic/G201097560` | Metadata, cover, category, title/subtitle, age, marketplace, and customer-experience posture. |
+| KDP | `kdp-description-guidelines` | `https://kdp.amazon.com/en_US/help/topic/G201189630` | Description restrictions, keyword-stuffing blockers, testimonial/review/promotion caveats. |
+| KDP | `kdp-content-quality` | `https://kdp.amazon.com/en_US/help/topic/G200952510` | Low-quality, misleading, duplicate, too-short, and poor customer-experience blockers. |
 | KDP | `kdp-low-content` | `https://kdp.amazon.com/en_US/help/topic/GGE5T76TWKA85DJM` | Low-content, ISBN, sample, barcode, distribution, and series assumptions. |
 | KDP | `kdp-series` | `https://kdp.amazon.com/en_US/help/topic/GMFKBUS43QQ5AJ5A` | External KDP series eligibility and channel-specific series state. |
 | KDP | `kdp-print-options` | `https://kdp.amazon.com/en_US/help/topic/G201834180` | Print format, trim, paper, color, page-count, cover, and cost assumptions. |
 | KDP | `kdp-reports` | `https://kdp.amazon.com/en_US/help/topic/GVTTXHKHVPAPBEDQ` | KDP analytics source confidence, timing, KENP, payment, and settlement separation. |
+| KDP | `kdp-print-pricing` | `https://kdp.amazon.com/en_US/help/topic/G8BKPU9AGVZSF9QF` | Print-cost and print-royalty evidence for workbook, planner, and low-content margin review. |
 | Google Play Books | `google-program-policies` | `https://support.google.com/books/partner/answer/166501?hl=en` | Google policy, file, price, DRM/print, currency, refund, and account-authority evidence. |
+| Google Play Books | `google-sell-books` | `https://support.google.com/books/partner/answer/1079107?hl=en` | Google sale-country, file, DRM/list-price, preview, and revenue-share assumptions. |
+| Google Play Books | `google-metadata` | `https://support.google.com/books/partner/answer/3237055?hl=en` | Google title, genre, identifier, metadata completeness, and discoverability assumptions. |
+| Google Play Books | `google-content-policies` | `https://support.google.com/books/partner/answer/1067634?hl=en` | Google spam, misleading-content, duplicate, metadata, and file-quality blockers. |
 | Google Play Books | `google-add-book` | `https://support.google.com/books/partner/answer/9261664?hl=en` | Google Partner Center metadata and add-book packet fields. |
 | Google Play Books | `google-series` | `https://support.google.com/books/partner/answer/11069638?hl=en` | Google series numbering, name matching, order, and catalog workflow. |
 | Google Play Books | `google-reports` | `https://support.google.com/books/partner/answer/9266485?hl=en` | Google earnings, sales, transaction, refund, preview, and timezone evidence. |
 | Google Play Books | `google-service-provider` | `https://support.google.com/books/partner/answer/3323299?hl=en` | Service-provider, client consent, report/payment access, and account authority assumptions. |
+| Market evidence | `kdp-keywords-discoverability` | `https://kdp.amazon.com/en_US/help/topic/G201743260` | Keyword hypotheses for candidate selection, not rank promises. |
+| Market evidence | `kdp-categories-discoverability` | `https://kdp.amazon.com/en_US/help/topic/G200652170` | Relevant category fit for candidate selection, not misleading shelf placement. |
+| Market evidence | `kdp-search-results` | `https://kdp.amazon.com/en_US/help/topic/GPYDJ3SECAVVPNVG` | Dynamic search caveats and no future-sales inference from snapshots. |
+| Market evidence | `kdp-content-quality` | `https://kdp.amazon.com/en_US/help/topic/G200952510` | Blocks generic, duplicate, or disappointing candidate ideas before production selection. |
+| Market evidence | `kdp-print-pricing` | `https://kdp.amazon.com/en_US/help/topic/G8BKPU9AGVZSF9QF` | Print candidate margin and negative-margin blocker evidence. |
+| Market evidence | `google-metadata` | `https://support.google.com/books/partner/answer/3237055?hl=en` | Google genre and metadata fit for candidate selection. |
+| Market evidence | `google-content-policies` | `https://support.google.com/books/partner/answer/1067634?hl=en` | Google duplicate, misleading, spam, and quality blockers for candidate selection. |
 | Launch/lifecycle | `kdp-select-promotions` | `https://kdp.amazon.com/en_US/help/topic/G200798990` | KDP Select, Kindle Unlimited, exclusivity, and promotion eligibility assumptions. |
 | Launch/lifecycle | `kdp-free-book-promotion` | `https://kdp.amazon.com/en_US/help/topic/G201298240` | Free Book Promotion eligibility, timing, royalty, rank, and cancellation caveats. |
 | Launch/lifecycle | `kdp-merchandising-reviews` | `https://kdp.amazon.com/en_US/help/topic/G200673650` | KDP review request, advance copy, and review-influence guardrails. |

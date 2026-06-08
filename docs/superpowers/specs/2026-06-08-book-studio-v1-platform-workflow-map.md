@@ -8,6 +8,7 @@
 **Portal access model:** `docs/superpowers/specs/2026-06-08-book-studio-v1-portal-access-promotion-model.md`
 **Domain record/state model:** `docs/superpowers/specs/2026-06-08-book-studio-v1-domain-record-state-model.md`
 **Operator workspace control model:** `docs/superpowers/specs/2026-06-08-book-studio-v1-operator-workspace-control-model.md`
+**Market evidence model:** `docs/superpowers/specs/2026-06-08-book-studio-v1-market-evidence-model.md`
 
 ## Purpose
 
@@ -38,7 +39,8 @@ flowchart TD
   approval["Peet approves or revises V1 record"] --> intake["Admin creates Book Studio project"]
   intake --> gates["Book type, channel, ownership, and series gates derived"]
   gates --> research["Research packet linked to PiB Research"]
-  research --> brief["Book Brief created as internal or client-reviewable artifact"]
+  research --> market["Market evidence pass/warn/block review"]
+  market --> brief["Book Brief created as internal or client-reviewable artifact"]
   brief --> structure["Series, outline, manuscript, page plan, and asset structure"]
   structure --> production["Production work through Projects/Kanban and controlled Hermes skills"]
   production --> proof["Proof, editorial, rights, provenance, and package checks"]
@@ -60,7 +62,7 @@ flowchart TD
 | --- | --- | --- | --- |
 | Admin Book Studio | Operate book projects end to end. | Project state, gate profile, linked research, brief status, production tasks, packet readiness, upload evidence, analytics confidence. | Direct store publishing, raw client self-serve generation, or unchecked upload-ready labels. |
 | Projects/Kanban | Turn book production into accountable work. | Human and Hermes tasks, owners, blockers, review gates, artifact links. | Route-local prompt execution that bypasses task review. |
-| Research | Hold source-backed market, category, rights, and policy evidence. | Findings, source keys, confidence, unresolved claims, internal notes. | Client-visible legal conclusions or unsupported market promises. |
+| Research | Hold source-backed market, category, rights, and policy evidence. | Findings, market evidence packets, source keys, confidence, unresolved claims, internal notes. | Client-visible legal conclusions, unsupported market promises, sales forecasts, rank promises, or copied competitor positioning. |
 | Client Documents | Promote reviewed Book Briefs, proofs, packet summaries, and analytics summaries. | Versioned approval artifacts and comment/review state. | Raw Hermes output, internal rights notes, parser errors, or upload-account details. |
 | Portal Book Studio | Let clients review safe artifacts when the module is enabled. | Reviewed briefs, selected proofs, packet summaries, live status, safe blockers, confidence-labeled analytics. | Any unreviewed internal production data. |
 | Hermes skills | Produce bounded reviewable assistance. | Recommendations, drafts, checks, reports, and task suggestions with evidence contracts. | Publishing, spending, client messaging, credential requests, or approval bypasses. |
@@ -77,8 +79,9 @@ sequenceDiagram
   participant Stores as KDP/Google
   participant Analytics as Analytics
 
-  Admin->>Research: Create research packet and Book Brief
+  Admin->>Research: Create research and market evidence packet
   Hermes-->>Research: Add source-backed recommendations for review
+  Admin->>Research: Approve market evidence pass/warn/block state
   Admin->>Portal: Promote reviewed Book Brief version if client input is needed
   Admin->>Hermes: Assign bounded production/check task through Projects
   Hermes-->>Admin: Return draft/check/report as reviewable artifact
@@ -96,6 +99,7 @@ sequenceDiagram
 | V1 approval | Explicit approval record exists. | One field is revised and reflected in packet/dossier. | "Start building" is requested without posture, channel, pilot, portal, Hermes, and deferral choices. |
 | Intake | Book family, formats, channels, owner, series posture, and client involvement derive mandatory gates. | Optional gate has owner/date/waiver path. | Drafting begins from a blank prompt without a gate profile. |
 | Research | Source-backed findings and confidence labels exist. | Non-blocking claims need stronger evidence before launch. | Unsupported or internal-only claims are promoted to a client brief. |
+| Market evidence | Candidate has reviewed audience/buyer, competitive shelf, discoverability, rights, channel, price/margin, PiB fit, and capacity evidence. | Candidate is selectable with named evidence warnings, owner, and review date. | Book Brief or production starts from shelf screenshots, rank/sales promises, copied competitor positioning, misleading metadata, or unknown/negative margin. |
 | Hermes | Skill output is bounded, reviewable, and artifact-linked. | Runtime dispatch remains disabled while fixtures mature. | Skill can publish, spend, message clients, ask for secrets, or mark client-ready. |
 | Production proof | Manuscript, assets, rights, provenance, checks, and package version are bound to the current artifact. | Package is internally reviewable but not upload-ready. | File changes after approval without invalidating proof or packet state. |
 | Publishing packet | KDP/Google packet has files, metadata, disclosure, pricing, rights, account authority, source freshness, and upload instructions. | One channel-specific warning has owner/date/waiver path. | Upload-ready state appears while evidence is missing or stale. |
@@ -110,12 +114,13 @@ Peet should be able to review V1 through this sequence:
 1. Approve or revise the V1 approval record.
 2. Open an example business nonfiction or activity/low-content project.
 3. Confirm the derived book-family and channel gates appear before drafting.
-4. Link or create a Research packet and reviewed Book Brief.
-5. See one Hermes recommendation become a reviewable artifact or task.
-6. See one blocker, ideally the public-domain/companion negative-control fixture.
-7. See a KDP/Google packet marked manual-handoff ready only after evidence is present.
-8. See upload evidence recorded after human upload.
-9. See analytics imported with confidence labels and reconciliation state before portal promotion.
+4. Link or create a Research packet and reviewed market evidence packet.
+5. Create a Book Brief only after the candidate is pass or accepted-warning.
+6. See one Hermes recommendation become a reviewable artifact or task.
+7. See one blocker, ideally the public-domain/companion negative-control fixture.
+8. See a KDP/Google packet marked manual-handoff ready only after evidence is present.
+9. See upload evidence recorded after human upload.
+10. See analytics imported with confidence labels and reconciliation state before portal promotion.
 
 ## Decisions This Map Does Not Make
 

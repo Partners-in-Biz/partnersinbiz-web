@@ -7,6 +7,7 @@
 **Review script:** `docs/superpowers/specs/2026-06-08-book-studio-v1-review-script.md`
 **Acceptance fixtures:** `docs/superpowers/specs/2026-06-08-book-studio-v1-acceptance-fixtures.md`
 **Jurisdiction/local publisher model:** `docs/superpowers/specs/2026-06-08-book-studio-v1-jurisdiction-local-publisher-model.md`
+**Market evidence model:** `docs/superpowers/specs/2026-06-08-book-studio-v1-market-evidence-model.md`
 
 ## Purpose
 
@@ -32,6 +33,7 @@ The recommended V1 stays defensible by keeping five hard boundaries:
 
 - Internal PiB production studio first, not public self-serve SaaS.
 - KDP and Google Play Books manual handoff first, not direct publishing automation.
+- Reviewed market evidence before production selection, not sales/rank promises or shelf screenshots.
 - Reviewed artifact promotion to portal, not raw admin or Hermes visibility.
 - Hermes as bounded assistant with fixtures, not autonomous publisher.
 - Manual analytics imports with confidence labels, not a single revenue promise.
@@ -43,6 +45,7 @@ The recommended V1 stays defensible by keeping five hard boundaries:
 | Product posture | Are we building an operating system or a flashy generator? | The module starts with "write me a book" and skips research, gates, rights, and review. | Approval packet defines internal production studio posture; workflow map starts with intake, gates, and evidence. | Pass if Peet approves the posture explicitly. |
 | Scope | Does V1 try to cover every channel and book family? | Phase 1 becomes KDP, Google, Apple, Kobo, D2D, Ingram, audio, visual books, ads, and reviews at once. | Approval packet narrows first channels and pilots; wider channels stay adapter research. | Block if wider channels become first-scope requirements without source refresh. |
 | Book quality | Can a polished but weak book pass? | AI produces generic content that looks complete but disappoints readers or mismatches metadata. | Research packet, Book Brief, editorial passes, proof/package evidence, and negative-control fixtures. | Warn unless first demo includes at least one block case. |
+| Market evidence | Can a weak idea become a production project because the shelf looks active? | Operators treat search rank, bestseller labels, review counts, competitor screenshots, or generic category activity as proof that this book will sell. | Market evidence packet, pass/warn/block candidate state, KDP/Google discoverability source refresh, no sales/rank promises, Fixture H. | Block if Book Brief or production can start without reviewed market evidence. |
 | Rights and IP | Can weak rights evidence hide behind a nice cover? | Public-domain, companion, summary, quote, trademark, or asset risks are treated as creative issues instead of release blockers. | Rights-first fixture, asset provenance gates, public-domain/companion negative control, internal-only rights notes. | Block when rights evidence is missing, stale, or ambiguous for public use. |
 | KDP policy | Can the packet claim KDP readiness from memory? | Unsupported formats, misleading metadata, AI disclosure, ISBN/imprint, quality, or series rules are missed. | Source register, KDP readiness check, source freshness, manual upload checklist, packet blockers. | Block if source freshness or disclosure provenance is missing. |
 | Google Play Books policy | Can Google readiness be treated as the same as KDP readiness? | File, identifier, metadata, series, report, or content-policy differences are flattened. | Separate Google readiness packet, identifier history, file validation, report confidence model. | Block if Google evidence is inferred only from KDP packet state. |
@@ -70,6 +73,7 @@ The recommended V1 should be stopped or redesigned if any of these become true:
 - V1 must directly publish to stores or hold channel credentials.
 - V1 must automate review outreach, paid ads, price changes, or public launch sends.
 - Portal users must see raw generation, raw research, internal rights notes, or unreconciled analytics.
+- Book Brief or production work can start from market screenshots, copied competitor positioning, automated market scraping, sales forecasts, rank promises, or negative/unknown print margin.
 - First scope must include wide distribution, audio, children/visual production, or full layout tooling without a separate source and safety refresh.
 - Hermes runtime dispatch must be live before manifests, fixtures, sanitizers, reviewer defaults, and forbidden-action tests exist.
 - The first demo cannot show one pass case, one warning case, and one blocked case.
@@ -90,10 +94,11 @@ Before implementation planning, Peet should be able to answer:
 1. Is the internal production-studio posture acceptable for V1?
 2. Are KDP and Google Play Books manual handoff enough for the first channel proof?
 3. Should the negative-control rights fixture stay in the first demo set?
-4. Is portal review limited to promoted artifact versions?
-5. Is Hermes allowed only to create reviewable artifacts, checks, and tasks?
-6. Is manual analytics import acceptable until confidence and reconciliation behavior is proven?
-7. Are the V1 deferrals acceptable: no self-serve generation, direct publishing, credential custody, automated review outreach, autonomous ads, full layout tooling, or automated report integrations?
+4. Is the market evidence gate required before Book Brief or production selection?
+5. Is portal review limited to promoted artifact versions?
+6. Is Hermes allowed only to create reviewable artifacts, checks, and tasks?
+7. Is manual analytics import acceptable until confidence and reconciliation behavior is proven?
+8. Are the V1 deferrals acceptable: no self-serve generation, direct publishing, credential custody, automated review outreach, autonomous ads, sales/rank promises from market research, full layout tooling, or automated report integrations?
 
 ## Current Decision State
 

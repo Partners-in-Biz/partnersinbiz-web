@@ -7,6 +7,7 @@
 **Workflow map:** `docs/superpowers/specs/2026-06-08-book-studio-v1-platform-workflow-map.md`
 **Domain record/state model:** `docs/superpowers/specs/2026-06-08-book-studio-v1-domain-record-state-model.md`
 **Portal access model:** `docs/superpowers/specs/2026-06-08-book-studio-v1-portal-access-promotion-model.md`
+**Market evidence model:** `docs/superpowers/specs/2026-06-08-book-studio-v1-market-evidence-model.md`
 
 ## Purpose
 
@@ -26,6 +27,7 @@ The admin workspace should be organized around the current safest next action fo
 | New project intake | Create the gate profile before production starts. | `bookProject` plus `bookGateProfile`. | Org, owner model, book family, formats, channels, series posture, client involvement, first evidence needs. | A blank manuscript prompt or upload-ready shortcut. |
 | Project command center | Run one project from idea to analytics. | `bookProject`. | Stage rail, current blockers, next safe command, evidence lanes, artifact versions, packet state, portal promotion state. | Direct store upload, credential capture, raw client exposure. |
 | Evidence lane | Keep claims source-backed. | `bookResearchPacketLink`. | Source freshness, confidence, unresolved claims, internal-only notes, refresh tasks. | Client-visible research conclusions without reviewed brief wording. |
+| Market evidence lane | Decide whether the candidate is worth producing before Book Brief or production work. | `bookMarketEvidencePacket`. | Audience/buyer use case, competitive shelf observations, discoverability hypotheses, price/margin posture, channel fit, PiB fit, pass/warn/block decision. | Sales forecasts, rank promises, automated market scraping, copied competitor positioning, or production selection without reviewer decision. |
 | Brief and approval lane | Turn research into a reviewable promise. | `bookBriefVersion` and `bookPortalPromotion`. | Audience, promise, scope, assumptions, decisions, safe client approval state. | Approval for unsupported claims or stale source assumptions. |
 | Series and structure lane | Keep continuity and volume order controlled. | `bookSeries`. | Volume order, continuity facts, shared style/metadata, future-volume warnings. | Claim that later volumes or external series pages are already approved. |
 | Production lane | Coordinate manuscript, proof, assets, and tasks. | `bookProductionArtifact`. | Current artifact versions, checksum, editorial/proof tasks, Projects/Kanban links, Hermes review artifacts. | Raw Hermes output as final copy or client-visible proof. |
@@ -43,6 +45,7 @@ The project command center should use the domain states as an operator rail. Eac
 | --- | --- | --- | --- |
 | `intake` | Missing gate choices and ownership/channel assumptions. | Complete intake, derive gate profile, create/link Research packet. | Draft manuscript before gates exist. |
 | `researching` | Source lanes, confidence, unresolved facts, refresh needs. | Request/refresh research, ask Hermes for bounded research recommendations, mark blocker. | Promote raw research to client. |
+| `market_review` | Candidate pass/warn/block state, weak evidence, margin/relevance risks, and next-evidence needs. | Mark production-selectable, mark selectable with warnings, block/retire candidate, or create next-evidence task. | Start Book Brief or production from search rank, shelf screenshots, generic AI ideas, or negative/unknown margin. |
 | `brief_review` | Brief version, assumptions, approval questions, client-safe wording. | Internal approve, request changes, promote reviewed brief to portal. | Ask client to approve unsupported or internal-only claims. |
 | `production` | Active manuscript/proof/assets/tasks and artifact versions. | Create Projects/Kanban tasks, attach proof, request bounded Hermes review, send artifact to internal review. | Generate full book as final artifact from one prompt. |
 | `proof_review` | Editorial, accessibility, rights, provenance, and checksum evidence. | Approve current proof, request revision, invalidate stale approvals. | Keep approval after file or asset changes. |
@@ -71,8 +74,11 @@ Commands that fit V1 design:
 
 - Complete intake and derive gate profile.
 - Link or create Research packet.
+- Review market evidence pass/warn/block state.
+- Mark candidate production-selectable with accepted warnings.
+- Block or retire weak candidate.
 - Request source refresh.
-- Draft internal Book Brief from reviewed research.
+- Draft internal Book Brief from reviewed market evidence and source-backed research.
 - Promote reviewed Book Brief version to portal.
 - Create Projects/Kanban production tasks.
 - Attach manuscript/proof/package artifact.
@@ -105,6 +111,7 @@ Commands that should not exist in V1:
 | Future module disabled for an org | Portal has no Book Studio navigation and portal/API access returns a disabled-module state. Admin can still manage internal work if V1 approval permits it. |
 | No projects | Index invites creating a gated intake, not generating a manuscript. |
 | Missing Research packet | Project command center blocks brief promotion and shows "Create or link Research packet" as the next action. |
+| Missing market evidence | Project command center blocks Book Brief and production selection and shows "Review market evidence" as the next action. |
 | Stale source | Packet readiness and client summary promotion are blocked until refresh. |
 | Missing rights evidence | Proof/package approval is blocked at asset level. |
 | Channel packet warning | Packet may be reviewed internally, but manual handoff needs owner/date/waiver or resolution. |
@@ -132,6 +139,7 @@ A future implementation demo should prove the operator model with these cases af
 | Scenario | Must prove |
 | --- | --- |
 | Business nonfiction project | Intake derives gates before drafting, research links to the brief, and the next safe action is visible at every stage. |
+| Market evidence gate | Candidate reaches pass/warn/block before Book Brief; weak candidates block without sales or rank promises. |
 | Activity/low-content warning case | Kindle/print/channel suitability warnings block upload-ready claims until resolved or explicitly waived. |
 | Series scaffold | The operator sees volume order, continuity, and future-volume warnings without treating the full series as approved. |
 | Public-domain/companion block | The blocker lane stops production and gives a safe internal/client explanation. |

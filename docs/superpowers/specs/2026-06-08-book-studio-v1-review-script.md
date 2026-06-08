@@ -18,6 +18,7 @@
 **Jurisdiction/local publisher aid:** `docs/superpowers/specs/2026-06-08-book-studio-v1-jurisdiction-local-publisher-model.md`
 **Hermes skill contract pack:** `docs/superpowers/specs/2026-06-08-book-studio-v1-hermes-skill-contract-pack.md`
 **Launch and lifecycle governance aid:** `docs/superpowers/specs/2026-06-08-book-studio-v1-launch-lifecycle-governance-model.md`
+**Market evidence aid:** `docs/superpowers/specs/2026-06-08-book-studio-v1-market-evidence-model.md`
 
 ## Purpose
 
@@ -34,7 +35,7 @@ The review has four possible outcomes:
 
 ## 30-Minute Review Agenda
 
-Before the agenda, open the decision index, approval packet, coverage audit, review scorecard, pilot product decision register, revision impact matrix, approval decision form, mock review packet, package QA aid, jurisdiction/local publisher aid, Hermes skill contract pack, and launch/lifecycle governance aid. The decision index answers "what should I read and what decision is needed?" The approval packet answers "what would we approve?" The coverage audit answers "which original objective requirements are covered?" The scorecard answers "which categories are pass, warn, or block?" The pilot register answers "which first book archetypes prove V1 without pretending market demand is already validated?" The revision matrix answers "what else must change if Peet approves with revisions?" The decision form answers "what exact decision record controls planning?" The source refresh execution report answers "how do we prove current official sources were checked before planning?" The mock packet answers "what would this feel like in PiB?" The package QA aid answers "what would make a book package safe enough for proof, portal review, or manual handoff?" The jurisdiction/local publisher aid answers "what local publisher evidence must stay separate from KDP/Google readiness?" The Hermes skill contract pack answers "what fields must every first skill declare before any runtime skill spec exists?" The launch/lifecycle aid answers "what happens after a book is live without drifting into review outreach, ad spend, price automation, or public launch automation?"
+Before the agenda, open the decision index, approval packet, coverage audit, review scorecard, pilot product decision register, revision impact matrix, approval decision form, mock review packet, market evidence aid, package QA aid, jurisdiction/local publisher aid, Hermes skill contract pack, and launch/lifecycle governance aid. The decision index answers "what should I read and what decision is needed?" The approval packet answers "what would we approve?" The coverage audit answers "which original objective requirements are covered?" The scorecard answers "which categories are pass, warn, or block?" The pilot register answers "which first book archetypes prove V1 without pretending market demand is already validated?" The market evidence aid answers "what evidence stops weak candidate ideas before Book Brief or production selection?" The revision matrix answers "what else must change if Peet approves with revisions?" The decision form answers "what exact decision record controls planning?" The source refresh execution report answers "how do we prove current official sources were checked before planning?" The mock packet answers "what would this feel like in PiB?" The package QA aid answers "what would make a book package safe enough for proof, portal review, or manual handoff?" The jurisdiction/local publisher aid answers "what local publisher evidence must stay separate from KDP/Google readiness?" The Hermes skill contract pack answers "what fields must every first skill declare before any runtime skill spec exists?" The launch/lifecycle aid answers "what happens after a book is live without drifting into review outreach, ad spend, price automation, or public launch automation?"
 
 ### 1. Confirm The Product Posture
 
@@ -108,7 +109,33 @@ Block state:
 
 - Pilot selection stays vague, or the first scope jumps to audio/full visual publishing before the core workflow is proven.
 
-### 4. Confirm Portal Review Artifacts
+### 4. Confirm Market Evidence Gate
+
+Review the candidate-selection posture:
+
+- Candidate ideas need reviewed market evidence before Book Brief or production selection.
+- Evidence includes reader/buyer use case, competitive shelf observations, discoverability metadata, differentiation, rights, channel fit, price/margin, PiB strategic fit, and capacity.
+- Market research cannot promise sales, rank, bestseller status, or future revenue.
+
+Review questions:
+
+- Does Peet accept that weak or speculative ideas can be blocked before production, even if they look easy for Hermes to create?
+- Should market evidence be required for all live candidates, including PiB-owned internal books?
+- Are automated market scraping, copied competitor metadata, and sales/rank promises correctly excluded?
+
+Pass state:
+
+- Peet accepts a pass/warn/block market evidence gate before Book Brief or production work.
+
+Warning state:
+
+- A candidate may proceed with named warnings only when owner, review date, and next evidence are visible.
+
+Block state:
+
+- Production can start from shelf screenshots, search-rank assumptions, generic AI-book ideas, copied competitor positioning, or unknown/negative print margins.
+
+### 5. Confirm Portal Review Artifacts
 
 Review the first client-safe portal artifacts:
 
@@ -135,7 +162,7 @@ Block state:
 
 - Clients can see raw research, raw Hermes drafts, internal rights notes, or unreconciled analytics.
 
-### 5. Confirm Hermes Scope
+### 6. Confirm Hermes Scope
 
 Review the recommended Hermes posture:
 
@@ -163,7 +190,7 @@ Block state:
 
 - Runtime Hermes dispatch is approved before forbidden-action tests, output sanitizers, fixture reports, and reviewer defaults exist.
 
-### 6. Confirm Publishing Packet And Account Governance
+### 7. Confirm Publishing Packet And Account Governance
 
 Review the manual publishing packet model:
 
@@ -187,7 +214,7 @@ Block state:
 
 - The packet is marked upload-ready while files, pricing, rights, account readiness, disclosure, or source freshness are missing.
 
-### 7. Confirm Jurisdiction And Local Publisher Evidence
+### 8. Confirm Jurisdiction And Local Publisher Evidence
 
 Review the local publisher model:
 
@@ -214,7 +241,7 @@ Block state:
 
 - The packet can claim local compliance, publisher readiness, ISBN/imprint readiness, copyright registration, or legal-deposit completion without reviewed evidence.
 
-### 8. Confirm Analytics And Reporting Trust
+### 9. Confirm Analytics And Reporting Trust
 
 Review the analytics posture:
 
@@ -241,7 +268,7 @@ Block state:
 
 - Screenshots, raw imports, estimates, or unsettled reports are presented as guaranteed revenue.
 
-### 9. Confirm Production Package QA
+### 10. Confirm Production Package QA
 
 Review the production package posture:
 
@@ -284,7 +311,7 @@ This section is a future demo checklist, not a build plan. It defines what evide
 
 Peet can approve with this text:
 
-> Approve Book Studio V1 as an internal PiB production studio with optional client review. Use KDP and Google Play Books manual-handoff as the first channel focus. Start with business nonfiction, activity or low-content print, series scaffolding, and a public-domain or companion negative-control fixture. Build admin-first records, gate profiles, Research/Client Document/Project/artifact bridges, publishing packet tracking, local publisher evidence lanes, controlled Hermes skill readiness, package QA evidence, and manual analytics imports. Keep self-serve generation, public SaaS, direct publishing, account-secret custody, autonomous ads, automated review outreach, full layout tooling, automated export/file validation, and automated report integrations out of V1.
+> Approve Book Studio V1 as an internal PiB production studio with optional client review. Use KDP and Google Play Books manual-handoff as the first channel focus. Start with business nonfiction, activity or low-content print, series scaffolding, and a public-domain or companion negative-control fixture. Build admin-first records, market evidence gates, gate profiles, Research/Client Document/Project/artifact bridges, publishing packet tracking, local publisher evidence lanes, controlled Hermes skill readiness, package QA evidence, and manual analytics imports. Keep self-serve generation, public SaaS, direct publishing, account-secret custody, autonomous ads, automated review outreach, sales forecasting or rank promises from market research, full layout tooling, automated export/file validation, and automated report integrations out of V1.
 
 ## Exact Revision Response
 

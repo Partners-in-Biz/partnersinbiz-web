@@ -7,6 +7,7 @@
 **Workflow map:** `docs/superpowers/specs/2026-06-08-book-studio-v1-platform-workflow-map.md`
 **Portal access model:** `docs/superpowers/specs/2026-06-08-book-studio-v1-portal-access-promotion-model.md`
 **Publishing and analytics model:** `docs/superpowers/specs/2026-06-08-book-studio-v1-publishing-analytics-model.md`
+**Market evidence model:** `docs/superpowers/specs/2026-06-08-book-studio-v1-market-evidence-model.md`
 
 ## Purpose
 
@@ -33,6 +34,7 @@ The future implementation should keep the concepts separable even if it stores s
 | `bookProject` | The org-scoped book production workspace and lifecycle root. | Org, owner profile, book family, channel scope, current project state, linked Projects/Kanban items. | A single "generate book" prompt with no gates. |
 | `bookGateProfile` | The derived mandatory gate set for the selected book family, formats, channels, ownership, and series posture. | Book family catalog, channel source keys, rights/provenance requirements, portal review rules. | A static checklist that ignores book type or channel. |
 | `bookResearchPacketLink` | The bridge from Book Studio to PiB Research evidence. | Research item, source keys, confidence labels, unresolved claims, source refresh state. | A pasted research summary with no source lineage. |
+| `bookMarketEvidencePacket` | The candidate-selection review packet that decides whether the idea can become production-selectable. | Research packet, gate profile, audience/buyer evidence, competitive shelf observations, metadata hypotheses, price/margin posture, channel fit, PiB fit, pass/warn/block decision. | A sales forecast, rank promise, automated market scrape, or competitor-copy record. |
 | `bookBriefVersion` | A versioned product brief describing audience, promise, scope, assumptions, outline direction, channels, decisions, and success criteria. | Research packet, gate profile, client approval artifact when promoted. | A client approval request for unsupported claims. |
 | `bookSeries` | Optional series scaffold covering volume order, continuity, shared metadata, and rollup rules. | Book projects, continuity notes, channel series warnings, analytics rollup shape. | A claim that future volumes or external series pages are approved. |
 | `bookProductionArtifact` | Versioned manuscript, proof, package, cover, asset, and export artifacts. | File checksum, editorial checks, accessibility checks, rights ledger, package manifest. | A mutable file that keeps approval after content changes. |
@@ -53,12 +55,14 @@ The future implementation should keep the concepts separable even if it stores s
 flowchart TD
   project["bookProject"] --> gates["bookGateProfile"]
   project --> research["bookResearchPacketLink"]
+  research --> market["bookMarketEvidencePacket"]
+  gates --> market
   project --> brief["bookBriefVersion"]
   project --> series["bookSeries"]
   project --> artifacts["bookProductionArtifact"]
   project --> decisions["bookDecisionLog"]
 
-  research --> brief
+  market --> brief
   gates --> brief
   gates --> artifacts
   artifacts --> generation["bookGenerationRun"]
@@ -83,7 +87,8 @@ flowchart TD
 | State | Meaning | Exit condition |
 | --- | --- | --- |
 | `intake` | Admin is capturing the book idea, org, ownership posture, family, formats, channels, and client involvement. | Gate profile is derived. |
-| `researching` | Market, channel, source, policy, rights, and category evidence is being gathered. | Research packet is reviewable. |
+| `researching` | Market, channel, source, policy, rights, and category evidence is being gathered. | Research packet and market evidence packet are reviewable. |
+| `market_review` | Candidate selection is pass/warn/block reviewed before Book Brief or production work. | Candidate is production-selectable, selectable with accepted warnings, or blocked/retired. |
 | `brief_review` | Book Brief is being reviewed internally or through a promoted safe client version. | Brief version is approved or changes are requested. |
 | `production` | Manuscript, proof, assets, series structure, and package work is active. | Current proof/package artifact is ready for review. |
 | `proof_review` | Editorial, accessibility, rights, provenance, and package checks are being reviewed. | Proof/package version passes or is sent back. |
@@ -149,6 +154,7 @@ Analytics must distinguish report import, interpretation, reconciliation, and po
 - Client approval is bound to an exact artifact version and must not survive file, metadata, price, disclosure, rights, source, or packet changes.
 - KDP and Google packet readiness are independent state machines.
 - Source freshness is a blocking input for upload-readiness, not an optional note.
+- Market evidence is a blocking input for Book Brief and production selection; it is not a sales forecast, rank promise, or bestseller claim.
 - Hermes output is always artifact-linked, evaluation-linked, and reviewer-gated before it can influence a client-visible artifact.
 - Account authority is recorded as a decision posture and evidence reference; sensitive channel credentials are not stored in Book Studio V1.
 - Rights evidence is asset-specific and territory-aware; it is not a project-wide boolean.
@@ -161,7 +167,8 @@ Analytics must distinguish report import, interpretation, reconciliation, and po
 
 | Trigger | Invalidates |
 | --- | --- |
-| Source register item becomes stale or disputed. | Research packet, Book Brief claims, publishing packet readiness, portal summaries that rely on the source. |
+| Source register item becomes stale or disputed. | Research packet, market evidence packet, Book Brief claims, publishing packet readiness, portal summaries that rely on the source. |
+| Candidate audience, buyer use case, competitor observation, category/genre, keyword, price, margin, or channel-fit evidence changes. | Market evidence decision, Book Brief approval, and affected production-selection state. |
 | Manuscript, cover, proof, EPUB, PDF, asset, or package checksum changes. | Proof approval, package approval, channel packet readiness, client approval for the old version. |
 | Book promise, audience, title, subtitle, category, keyword, or description changes. | Book Brief approval and affected publishing metadata checks. |
 | Rights, public-domain, quote, image, font, contributor, or AI asset evidence changes. | Rights approval, proof approval, packet readiness, portal claims. |
@@ -180,6 +187,8 @@ If Peet approves the V1 record and implementation planning starts, the first pla
 - A changed file checksum invalidates proof, packet, and client approval states.
 - KDP packet approval does not mark Google Play Books approved, and the reverse.
 - A stale source blocks upload-readiness.
+- Missing or blocked market evidence prevents Book Brief promotion and production selection.
+- Market evidence cannot store rank promises, sales forecasts, copied competitor metadata, or automated scrape results as proof.
 - Raw Hermes output, internal notes, rights uncertainty, parser errors, account details, and unreconciled costs cannot appear in portal DTOs.
 - Partial analytics imports stay warning-labeled until reconciliation is complete.
 - Client approval can only apply to promoted artifact versions.

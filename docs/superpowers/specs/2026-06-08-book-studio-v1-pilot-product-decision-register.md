@@ -7,12 +7,13 @@
 **Book-family gate catalog:** `docs/superpowers/specs/2026-06-08-book-studio-v1-book-family-gate-catalog.md`
 **Approval review scorecard:** `docs/superpowers/specs/2026-06-08-book-studio-v1-approval-review-scorecard.md`
 **Acceptance fixtures:** `docs/superpowers/specs/2026-06-08-book-studio-v1-acceptance-fixtures.md`
+**Market evidence model:** `docs/superpowers/specs/2026-06-08-book-studio-v1-market-evidence-model.md`
 
 ## Purpose
 
 This register turns the embedded pilot-selection work from the main dossier into a standalone decision aid. It helps Peet choose which first book products Book Studio should prove without turning the decision into runtime work.
 
-It does not claim current market demand, choose a final title, approve production, create templates, create Hermes skills, create Firestore records, create UI, publish to KDP or Google Play Books, or authorize a Phase 1 task list. Every live book candidate still needs a Research evidence packet before production.
+It does not claim current market demand, choose a final title, approve production, create templates, create Hermes skills, create Firestore records, create UI, publish to KDP or Google Play Books, or authorize a Phase 1 task list. Every live book candidate still needs a reviewed market evidence packet before production selection.
 
 ## Decision Needed
 
@@ -49,6 +50,7 @@ Every real pilot candidate needs these reviewed artifacts before production:
 | Evidence area | Required before production | Why |
 | --- | --- | --- |
 | Audience and promise | Target reader, buyer/use case, claim sensitivity, success criteria, and why the book should exist. | Prevents generic AI books and vague "content for sale" projects. |
+| Market evidence | Reader/buyer use case, competitive shelf observations, discoverability hypotheses, price/margin posture, channel fit, PiB strategic fit, and pass/warn/block candidate decision. | Prevents production selection from becoming a sales forecast, rank promise, or shelf-screenshot shortcut. |
 | Source and originality | Source list, claim confidence, quote/citation limits, originality posture, and differentiation from existing work. | Prevents unsupported claims, thin rewrites, and weak market positioning. |
 | Book-family gate profile | Family key, formats, channels, ownership mode, series mode, required evidence, blockers, and portal visibility. | Prevents treating all book types as one workflow. |
 | Ownership and account authority | PiB-owned, client-owned, or shared posture; account used; publisher/imprint; territory and payment implications. | Prevents unclear publishing authority and blended commercial reporting. |
@@ -73,7 +75,7 @@ bookStudioV1PilotDecision:
     - cookbook_photo_portfolio_catalog
     - audiobook_or_narrated_extension
     - wide_distribution_first_channel
-  researchRequiredBeforeProduction: true
+  marketEvidenceRequiredBeforeProductionSelection: true
   marketDemandClaimsAllowedBeforeResearchPacket: false
 ```
 

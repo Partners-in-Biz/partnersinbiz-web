@@ -9,6 +9,7 @@
 **Revision impact matrix:** `docs/superpowers/specs/2026-06-08-book-studio-v1-approval-revision-impact-matrix.md`
 **Source refresh execution report:** `docs/superpowers/specs/2026-06-08-book-studio-v1-source-refresh-execution-report.md`
 **Coverage audit:** `docs/superpowers/specs/2026-06-08-book-studio-objective-coverage-audit.md`
+**Market evidence model:** `docs/superpowers/specs/2026-06-08-book-studio-v1-market-evidence-model.md`
 
 ## Purpose
 
@@ -43,12 +44,14 @@ bookStudioV1Decision:
     approvalPacket: docs/superpowers/specs/2026-06-08-book-studio-v1-approval-packet.md
     scorecard: docs/superpowers/specs/2026-06-08-book-studio-v1-approval-review-scorecard.md
     pilotRegister: docs/superpowers/specs/2026-06-08-book-studio-v1-pilot-product-decision-register.md
+    marketEvidenceModel: docs/superpowers/specs/2026-06-08-book-studio-v1-market-evidence-model.md
     revisionImpactMatrix: docs/superpowers/specs/2026-06-08-book-studio-v1-approval-revision-impact-matrix.md
     coverageAudit: docs/superpowers/specs/2026-06-08-book-studio-objective-coverage-audit.md
   scorecardSummary:
     productPosture: pass
     firstChannels: pass
     firstPilotSet: pass
+    marketEvidenceGate: pass
     bookFamilyGateCoverage: pass
     hermesScope: pass
     publishingAndAccountGovernance: pass
@@ -75,6 +78,13 @@ bookStudioV1Decision:
       - proof_package_when_reviewed
       - publishing_packet_when_reviewed
       - analytics_summary_when_reconciled
+    marketEvidenceScope:
+      - reviewed_book_research_evidence_packet_before_production_selection
+      - audience_buyer_use_case
+      - competitive_shelf_observations
+      - discoverability_metadata_hypotheses
+      - price_margin_and_channel_fit_review
+      - pass_warn_block_candidate_decision
     hermesFirstScope: wave1_planning_and_evidence_plus_selected_wave2_safety_docs_no_runtime_dispatch
     ownershipModel: shared_workflow_with_owner_type_and_account_governance
     jurisdictionAndLocalPublisherScope:
@@ -99,6 +109,7 @@ bookStudioV1Decision:
       - no_sensitive_account_secret_custody
       - no_autonomous_ad_spend
       - no_automated_review_outreach
+      - no_sales_forecasting_or_rank_promises_from_market_research
       - no_full_print_perfect_layout_engine
       - no_automated_export_or_file_validation_before_package_qa_is_implemented
       - no_automated_report_integrations_before_manual_import_model_is_proven
@@ -112,7 +123,8 @@ bookStudioV1Decision:
     firstPrintRiskProof: activity_or_low_content_print_product
     firstSeriesProof: series_scaffolding
     firstBlockerProof: public_domain_or_companion_negative_control_fixture
-    marketDemandResearchRequiredForProductionSelection: true
+    marketEvidenceRequiredForProductionSelection: true
+    marketDemandClaimsAllowedBeforeResearchPacket: false
   warningsAccepted: []
   blockersRemaining: []
   sourceRefreshRequiredBeforePlanning:
@@ -121,7 +133,9 @@ bookStudioV1Decision:
     requiredSourceGroups:
       - kdp_policy_and_packet_requirements
       - google_play_books_policy_and_packet_requirements
+      - market_evidence_selection_sources
       - local_publisher_and_jurisdiction_sources
+      - launch_lifecycle_sources
       - ai_story_source_baseline
   planningAllowed: false
   planningAllowedRule: "Set true only when decision is approve_as_written or approve_with_revisions, blockersRemaining is empty, affected revision docs are updated when revisions apply, and sourceRefreshRequiredBeforePlanning.completed is true."
@@ -149,6 +163,7 @@ At minimum, map changes through the revision impact matrix:
 | `productPosture` | Portal access, ownership/commercial, operator workflow, and coverage audit. |
 | `firstChannels` | Source refresh, wider-channel adapter, publishing/analytics, and package QA. |
 | `firstPilotSet` | Pilot register, book-family gates, acceptance fixtures, mock packet, and coverage audit. |
+| `marketEvidenceScope` | Market evidence model, source refresh contract, acceptance fixtures, pilot register, and coverage audit. |
 | `firstPortalReviewArtifacts` | Portal access, mock packet, acceptance fixtures, and operator workflow. |
 | `hermesFirstScope` | Hermes blueprint, Hermes evaluation packet, acceptance fixtures, scorecard, and coverage audit. |
 | `ownershipModel` | Ownership/commercial, jurisdiction/local publisher, publishing/analytics, and mock packet. |
@@ -163,7 +178,7 @@ If an evidence update is not finished, set `planningAllowed: false`. Do not conv
 
 A valid decision record must pass these checks before a Phase 1 plan is written:
 
-1. The record names the approval packet, decision index, scorecard, pilot register, revision matrix, coverage audit, and reviewed `development` commit.
+1. The record names the approval packet, decision index, scorecard, pilot register, revision matrix, coverage audit, market evidence model, and reviewed `development` commit.
 2. The selected `decision` is one of the four allowed decision options.
 3. Every scorecard row is recorded as `pass`, `warn`, or `block`.
 4. Every warning is listed in `warningsAccepted` or converted into a changed approval field.
@@ -177,7 +192,7 @@ A valid decision record must pass these checks before a Phase 1 plan is written:
 - A decision form can become a rubber stamp if the scorecard rows are copied as pass without reviewing the evidence. The scorecard summary must reflect real review, not optimism.
 - A warning is not a small implementation issue. It is an accepted product-risk decision and must be named.
 - A blocker is not a task. If a blocker remains, the next artifact is a revised design packet or another design aid.
-- Source refresh is easy to postpone because the design packet is broad. Do not write the Phase 1 plan until source-sensitive KDP, Google, local publisher, and `ai-story` baseline checks are refreshed or explicitly removed from the first plan.
+- Source refresh is easy to postpone because the design packet is broad. Do not write the Phase 1 plan until source-sensitive KDP, Google, market evidence, local publisher, launch/lifecycle, and `ai-story` baseline checks are refreshed or explicitly removed from the first plan.
 - `planningAllowed: true` is a strong claim. It means the approval decision, blockers, revisions, and source-refresh gate all support writing a separate Phase 1 plan.
 
 ## Explicit Exclusions
@@ -191,6 +206,7 @@ This form does not create or approve:
 - Direct KDP, Google Play Books, Apple, Kobo, Draft2Digital, IngramSpark, ACX, Amazon Ads, or review-outreach automation.
 - Client self-serve generation.
 - Public/productized AI-book SaaS.
+- Automated market scraping, sales forecasting, rank promises, bestseller claims, or competitor-copy reuse.
 - Automated analytics imports or report integrations.
 - A Phase 1 implementation task list.
 
