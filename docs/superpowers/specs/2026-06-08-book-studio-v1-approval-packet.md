@@ -8,8 +8,9 @@
 **Revision impact matrix:** `docs/superpowers/specs/2026-06-08-book-studio-v1-approval-revision-impact-matrix.md`
 **Approval decision form:** `docs/superpowers/specs/2026-06-08-book-studio-v1-approval-decision-form.md`
 **Source refresh execution report:** `docs/superpowers/specs/2026-06-08-book-studio-v1-source-refresh-execution-report.md`
-**Authoritative dossier:** `docs/superpowers/specs/2026-06-07-book-studio-research-dossier.md` at commit `d7ff96d1`.
-**Decision bundle content baseline:** `ddee2021 docs(book-studio): add local publisher obligations model`.
+**Authoritative dossier:** `docs/superpowers/specs/2026-06-07-book-studio-research-dossier.md`.
+**Source-research baseline:** `d7ff96d1 docs(book-studio): clarify v1 approval decision`.
+**Decision bundle content baseline:** `856eedfb docs(book-studio): add market evidence gate`.
 **Coverage audit:** `docs/superpowers/specs/2026-06-08-book-studio-objective-coverage-audit.md`
 **Portal access aid:** `docs/superpowers/specs/2026-06-08-book-studio-v1-portal-access-promotion-model.md`
 **Production package QA aid:** `docs/superpowers/specs/2026-06-08-book-studio-v1-production-package-qa-model.md`
@@ -32,7 +33,7 @@ Use the revision impact matrix when Peet approves with revisions and the affecte
 
 Use the approval decision form when the review outcome is ready to be recorded with accepted warnings, remaining blockers, source-refresh state, and a `planningAllowed` gate.
 
-The dossier commit shows where the primary research was last changed. The decision bundle content baseline shows the review-ready set of companion packets that shape the boundary: portal access, domain state, operator workspace, source refresh, book-family gates, ownership/commercial governance, jurisdiction/local publisher evidence, `ai-story` non-port rules, wider channels, Hermes evaluation, and production package QA. Metadata-only handoff edits after that baseline do not change the product boundary, but a future Phase 1 plan must still quote the current `development` commit at planning time and list any content revisions after this baseline.
+The source-research baseline shows where the primary research first reached V1 approval-decision shape. The decision bundle content baseline shows the review-ready set of companion packets that shape the boundary: portal access, domain state, operator workspace, source refresh, book-family gates, market evidence, ownership/commercial governance, jurisdiction/local publisher evidence, launch/lifecycle governance, `ai-story` non-port rules, wider channels, Hermes evaluation, and production package QA. Metadata-only or wording-sync handoff edits after that baseline do not change the product boundary, but a future Phase 1 plan must still quote the current dossier commit and current `development` commit at planning time and list any content revisions after this baseline.
 
 ## Recommended Approval
 

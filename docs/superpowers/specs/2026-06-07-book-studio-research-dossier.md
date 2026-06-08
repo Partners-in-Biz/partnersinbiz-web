@@ -4146,7 +4146,7 @@ This packet is the short decision form Peet can approve, reject, or revise befor
 
 Approval text Peet can use:
 
-> Approve Book Studio V1 as an internal PiB production studio with optional client review. Use KDP and Google Play Books manual-handoff as the first channel focus. Start with business nonfiction, activity or low-content print, series scaffolding, and a public-domain or companion negative-control fixture. Build admin-first records, gate profiles, Research/Client Document/Project/artifact bridges, publishing packet tracking, local publisher evidence lanes, controlled Hermes skill readiness, package QA evidence, and manual analytics imports. Keep self-serve generation, public SaaS, direct publishing, account-secret custody, autonomous ads, automated review outreach, full layout tooling, automated export/file validation, and automated report integrations out of V1.
+> Approve Book Studio V1 as an internal PiB production studio with optional client review. Use KDP and Google Play Books manual-handoff as the first channel focus. Start with business nonfiction, activity or low-content print, series scaffolding, and a public-domain or companion negative-control fixture. Build admin-first records, market evidence gates, gate profiles, Research/Client Document/Project/artifact bridges, publishing packet tracking, local publisher evidence lanes, controlled Hermes skill readiness, package QA evidence, and manual analytics imports. Keep self-serve generation, public SaaS, direct publishing, account-secret custody, autonomous ads, automated review outreach, sales forecasting or rank promises from market research, full layout tooling, automated export/file validation, and automated report integrations out of V1.
 
 This approval would unlock a separate Phase 1 implementation plan. It would not approve runtime code yet; the implementation plan still needs to decompose the foundation into small vertical slices, define test coverage, and recheck source links at plan start.
 
@@ -4232,6 +4232,7 @@ What counts as approval:
 
 - Peet explicitly approves Book Studio V1 as an internal PiB production studio with optional client review, or explicitly chooses a different product posture.
 - Peet chooses the first pilot set, with the recommended default being business nonfiction, activity/low-content print, series scaffolding, and a public-domain/companion negative-control fixture.
+- Peet confirms that live book candidates need reviewed market evidence before Book Brief or production selection, with no automated market scraping, sales forecasting, rank promises, bestseller claims, or competitor-copy reuse.
 - Peet confirms KDP and Google Play Books as the first manual-handoff channel focus, or names a different first channel set.
 - Peet confirms which portal review artifacts come first: Book Brief, proof package, publishing packet, analytics summary, or a narrower subset.
 - Peet confirms Hermes scope for the first implementation plan: Wave 1 only, Wave 1 plus selected Wave 2 safety skills, or a broader skill-doc/fixture package without runtime dispatch.
@@ -4253,6 +4254,7 @@ The approval record should be short and explicit:
 | `productPosture` | `internal_pib_production_studio_with_optional_client_review` | Drives permissions, portal visibility, Hermes safety gates, and admin-first surfaces. |
 | `firstChannels` | `kdp_manual_handoff`, `google_play_books_manual_handoff` | Defines the first packet fields, source refreshes, upload evidence, and analytics imports. |
 | `firstPilotSet` | `business_nonfiction`, `activity_low_content_print`, `series_scaffolding`, `public_domain_companion_negative_control` | Defines first templates, fixtures, test cases, and acceptance examples. |
+| `marketEvidenceScope` | `reviewed_market_evidence_required_before_book_brief_or_production_selection` | Prevents shelf screenshots, generic AI-book ideas, unsupported demand claims, copied competitor positioning, negative margin, sales forecasts, or rank promises from becoming production work. |
 | `portalReviewArtifacts` | `book_brief`, `proof_package`, `publishing_packet`, `analytics_summary` with the selected first subset marked | Prevents raw internal research or unapproved generated output from becoming client-visible. |
 | `hermesFirstScope` | `wave_1_plus_selected_wave_2_safety` unless Peet narrows it | Defines which skill docs, manifests, fixture tests, and reviewer gates belong in Phase 1. |
 | `ownershipModel` | `shared_workflow_with_owner_type_and_account_governance` | Keeps PiB-owned and client-owned books compatible while preserving account authority checks. |
@@ -4278,7 +4280,7 @@ Use this as the concise decision surface after reading the dossier. It is meant 
 
 Recommended decision:
 
-> Approve Book Studio V1 as an internal PiB production studio with optional client review. Use KDP and Google Play Books manual-handoff as the first channel focus. Start with business nonfiction, activity or low-content print, series scaffolding, and a public-domain or companion negative-control fixture. Build admin-first records, gate profiles, Research/Client Document/Project/artifact bridges, publishing packet tracking, local publisher evidence lanes, controlled Hermes skill readiness, package QA evidence, and manual analytics imports. Keep self-serve generation, public SaaS, direct publishing, account-secret custody, autonomous ads, automated review outreach, full layout tooling, automated export/file validation, and automated report integrations out of V1.
+> Approve Book Studio V1 as an internal PiB production studio with optional client review. Use KDP and Google Play Books manual-handoff as the first channel focus. Start with business nonfiction, activity or low-content print, series scaffolding, and a public-domain or companion negative-control fixture. Build admin-first records, market evidence gates, gate profiles, Research/Client Document/Project/artifact bridges, publishing packet tracking, local publisher evidence lanes, controlled Hermes skill readiness, package QA evidence, and manual analytics imports. Keep self-serve generation, public SaaS, direct publishing, account-secret custody, autonomous ads, automated review outreach, sales forecasting or rank promises from market research, full layout tooling, automated export/file validation, and automated report integrations out of V1.
 
 Default approval record:
 
@@ -4368,7 +4370,7 @@ Use the matrix in three places:
 
 | Workflow area | Pass evidence | Warning evidence | Block evidence | Reviewer question |
 | --- | --- | --- | --- | --- |
-| V1 approval record | Product posture, first channels, pilot set, portal artifacts, Hermes scope, ownership model, analytics scope, and deferrals are explicitly approved. | Approval is broad but one dependent choice is ambiguous; the affected surface is held out of the first plan. | "Start building" is requested without a posture, pilot set, or channel scope. | What exact decision authorizes this work? |
+| V1 approval record | Product posture, first channels, pilot set, market evidence scope, portal artifacts, Hermes scope, ownership model, analytics scope, and deferrals are explicitly approved. | Approval is broad but one dependent choice is ambiguous; the affected surface is held out of the first plan. | "Start building" is requested without a posture, pilot set, market evidence scope, or channel scope. | What exact decision authorizes this work? |
 | Module entitlement and portal surface | Book Studio is controlled by a future `settings.portalModules.bookStudio` switch, with missing setting defaulting visible only after approval. | Admin surface can exist while portal review remains hidden. | Portal exposes Book Studio before client-safe artifacts and disabled-module behavior exist. | Can a disabled client org see or call anything risky? |
 | Intake and gate profile | Book family, format, channel, ownership, series posture, client involvement, and mandatory gates are derived before drafting starts. | Optional add-on gates or waivers are pending but do not affect the first artifact. | A draft, cover, packet, or Hermes task starts from a blank prompt without a derived gate profile. | Which book-type rules are active and why? |
 | Research packet | Linked Research item has source lanes, findings, recommendations, confidence labels, unresolved facts, and internal visibility by default. | Some non-blocking market or pricing assumptions need stronger sources before launch approval. | Findings are missing source IDs, disputed, outdated, internal-only, or legally sensitive while a brief is being promoted. | What current evidence supports the book promise? |
@@ -4428,6 +4430,27 @@ bookStudioV1Approval:
     - proof_package_when_reviewed
     - publishing_packet_when_reviewed
     - analytics_summary_when_reconciled
+  marketEvidenceScope:
+    requiredBefore:
+      - book_brief
+      - production_selection
+    evidenceLanes:
+      - reader_buyer_use_case
+      - competitive_shelf_observations
+      - discoverability_metadata
+      - book_family_fit
+      - differentiation_quality_promise
+      - rights_originality
+      - channel_fit
+      - price_margin
+      - pib_strategic_fit
+      - production_capacity
+    forbiddenMarketClaims:
+      - automated_market_scraping
+      - sales_forecasts
+      - rank_promises
+      - bestseller_claims
+      - copied_competitor_positioning
   hermesFirstScope:
     wave1_planning_and_evidence:
       - book-niche-research
@@ -4454,13 +4477,14 @@ bookStudioV1Approval:
     - no_sensitive_account_secret_custody
     - no_autonomous_ad_spend
     - no_automated_review_outreach
+    - no_sales_forecasting_or_rank_promises_from_market_research
     - no_full_print_perfect_layout_engine
     - no_automated_report_integrations_before_manual_import_model_is_proven
 ```
 
 Plain-language approval Peet can send:
 
-> Approve Book Studio V1 as an internal PiB production studio with optional client review. Use KDP and Google Play Books manual-handoff as the first channel focus. Start with business nonfiction, activity or low-content print, series scaffolding, and a public-domain or companion negative-control fixture. Build admin-first records, gate profiles, Research/Client Document/Project/artifact bridges, publishing packet tracking, local publisher evidence lanes, controlled Hermes skill readiness, package QA evidence, and manual analytics imports. Keep self-serve generation, public SaaS, direct publishing, account-secret custody, autonomous ads, automated review outreach, full layout tooling, automated export/file validation, and automated report integrations out of V1.
+> Approve Book Studio V1 as an internal PiB production studio with optional client review. Use KDP and Google Play Books manual-handoff as the first channel focus. Start with business nonfiction, activity or low-content print, series scaffolding, and a public-domain or companion negative-control fixture. Build admin-first records, market evidence gates, gate profiles, Research/Client Document/Project/artifact bridges, publishing packet tracking, local publisher evidence lanes, controlled Hermes skill readiness, package QA evidence, and manual analytics imports. Keep self-serve generation, public SaaS, direct publishing, account-secret custody, autonomous ads, automated review outreach, sales forecasting or rank promises from market research, full layout tooling, automated export/file validation, and automated report integrations out of V1.
 
 If Peet wants to revise the default, change only the specific fields below before implementation planning:
 
@@ -4469,6 +4493,7 @@ If Peet wants to revise the default, change only the specific fields below befor
 | `firstPilotSet` | Add `children_visual_gated_pilot`. | Implementation planning must bring asset-rights, fixed-layout proofing, image safety, and accessibility evidence earlier. |
 | `firstPilotSet` | Remove the public-domain/companion negative-control fixture. | Faster plan, but weaker proof that the module blocks legally weak projects. |
 | `firstPortalReviewArtifacts` | Start with `book_brief` only. | Portal scope becomes smaller and safer, but clients see less of the publishing workflow in early V1. |
+| `marketEvidenceScope` | Narrow first demo to admin-only market evidence packets. | Safer portal/client scope, but candidate pass/warn/block evidence still blocks Book Brief and production selection. |
 | `hermesFirstScope` | Wave 1 only. | Safer first plan, but readiness checks for KDP/Google, metadata, account authority, and generation safety become a separate follow-up. |
 | `ownershipModel` | PiB-owned books only. | Easier account governance, but weaker fit for client-owned publishing projects. |
 | `firstChannels` | Add Apple/Kobo/D2D/Ingram/audio. | Requires additional source refresh, account governance, file package, distribution conflict, reporting, and payment research before planning. |
@@ -4493,7 +4518,7 @@ The broad product-positioning question has been narrowed by the dossier, review 
 
 Recommended decision:
 
-> Approve the copyable V1 approval record as written: Book Studio V1 is an internal PiB production studio with optional client review, focused first on KDP and Google Play Books manual handoff, business nonfiction, activity or low-content print, series scaffolding, and a public-domain or companion negative-control fixture. Phase 1 may be planned only for admin-first records, gate profiles, Research/Client Document/Project/artifact bridges, publishing packet tracking, local publisher evidence lanes, controlled Hermes skill readiness, package QA evidence, and manual analytics imports. Self-serve generation, public SaaS, direct publishing, account-secret custody, autonomous ads, automated review outreach, full layout tooling, automated export/file validation, and automated report integrations remain out of V1.
+> Approve the copyable V1 approval record as written: Book Studio V1 is an internal PiB production studio with optional client review, focused first on KDP and Google Play Books manual handoff, business nonfiction, activity or low-content print, series scaffolding, and a public-domain or companion negative-control fixture. Phase 1 may be planned only for admin-first records, market evidence gates, gate profiles, Research/Client Document/Project/artifact bridges, publishing packet tracking, local publisher evidence lanes, controlled Hermes skill readiness, package QA evidence, and manual analytics imports. Self-serve generation, public SaaS, direct publishing, account-secret custody, autonomous ads, automated review outreach, sales forecasting or rank promises from market research, full layout tooling, automated export/file validation, and automated report integrations remain out of V1.
 
 If Peet approves this:
 
@@ -4504,7 +4529,7 @@ If Peet approves this:
 
 If Peet wants changes first:
 
-- Update only the changed approval-record fields: first pilots, first portal artifacts, Hermes first scope, ownership model, first channels, or accepted deferrals.
+- Update only the changed approval-record fields: first pilots, market evidence scope, first portal artifacts, Hermes first scope, ownership model, first channels, or accepted deferrals.
 - Re-check any affected dossier sections for contradictions.
 - Do not start implementation planning until the revised record is explicit.
 

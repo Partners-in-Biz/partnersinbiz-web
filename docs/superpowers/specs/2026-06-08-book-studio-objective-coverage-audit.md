@@ -27,7 +27,7 @@
 **ai-story non-port checklist:** `docs/superpowers/specs/2026-06-08-book-studio-v1-ai-story-non-port-checklist.md`
 **Launch and lifecycle governance model:** `docs/superpowers/specs/2026-06-08-book-studio-v1-launch-lifecycle-governance-model.md`
 **Market evidence model:** `docs/superpowers/specs/2026-06-08-book-studio-v1-market-evidence-model.md`
-**Decision bundle content baseline:** `ddee2021 docs(book-studio): add local publisher obligations model`
+**Decision bundle content baseline:** `856eedfb docs(book-studio): add market evidence gate`
 
 ## Purpose
 
@@ -35,7 +35,7 @@ This audit maps Peet's original Book Studio objective to the current design arti
 
 This document does not authorize runtime code, Firestore collections, routes, APIs, UI, Hermes dispatch, publishing automation, or a Phase 1 implementation plan. Those stay gated until Peet explicitly approves or revises the Book Studio V1 approval record.
 
-When Phase 1 planning is approved later, quote both the source dossier commit and the current `development` commit at planning time. The dossier commit identifies the source-backed research base; the current planning commit identifies the companion packets that constrain portal access, domain state, operator controls, Hermes evaluation, package QA, jurisdiction/local publisher evidence, and objective coverage. The decision bundle content baseline records the last product-boundary packet update before metadata-only handoff cleanup.
+When Phase 1 planning is approved later, quote both the source dossier commit and the current `development` commit at planning time. The dossier commit identifies the source-backed research base; the current planning commit identifies the companion packets that constrain portal access, domain state, operator controls, Hermes evaluation, package QA, jurisdiction/local publisher evidence, launch/lifecycle governance, market evidence, and objective coverage. The decision bundle content baseline records the last product-boundary packet update before metadata-only or wording-sync handoff cleanup.
 
 ## Current Coverage Summary
 
