@@ -116,6 +116,8 @@ Peet can use this wording if the recommended V1 is acceptable:
 | `firstPortalReviewArtifacts` | Start with `book_brief` only. | Safer portal scope, but clients see less of the publishing workflow in early V1. |
 | `hermesFirstScope` | Wave 1 only. | Safer first plan, but KDP/Google readiness, metadata, account authority, and generation safety checks become follow-up work. |
 | `ownershipModel` | PiB-owned books only. | Easier account governance, but weaker fit for client-owned publishing projects. |
+| `productionReadinessScope` | Limit first planning to package QA evidence only. | Safer first plan, but checksum-bound readiness, format preflight, rights/accessibility preflight, and source freshness become follow-up work. |
+| `productionReadinessScope` | Add `manual_preview_rendering_fixture`. | Phase 1 planning must include a preview fixture that proves reviewed proof/package versions render consistently, without claiming automated export validation. |
 | `firstChannels` | Add Apple/Kobo/D2D/Ingram/audio. | Requires additional source refresh, account governance, package, distribution-conflict, reporting, and payment research before planning. |
 
 ## What Approval Unlocks

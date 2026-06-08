@@ -263,6 +263,9 @@ bookStudioV1ApprovalRevision:
     choose: wave1_only | wave1_plus_selected_wave2_docs_and_fixtures | broader_docs_only_no_runtime
   ownershipModel:
     choose: pib_owned_only | shared_pib_and_client_owned
+  productionReadinessScope:
+    add: []
+    remove: []
   firstChannels:
     add: []
     remove: []
