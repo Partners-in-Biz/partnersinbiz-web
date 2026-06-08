@@ -29,12 +29,24 @@ These source keys were rechecked on 2026-06-08.
 | `google-add-book` | `https://support.google.com/books/partner/answer/9261664?hl=en` | Google single-book setup uses Book Catalog, templates, ISBN/EAN or GGKEY, book info, genres, contributors, series, and settings. | Google packet readiness must map PiB metadata to the Partner Center entry fields rather than reuse KDP fields blindly. |
 | `google-series` | `https://support.google.com/books/partner/answer/11069638?hl=en` | Google series requires ordered titles, relationship type, whole-number series numbering, consistent naming, genre behavior, and series catalog workflows. | Series continuity and numbering checks must be channel-specific and not inferred from PiB's internal volume plan alone. |
 | `google-reports` | `https://support.google.com/books/partner/answer/9266485?hl=en` | Google report availability and fields differ across earnings, sales summary, transactions, and preview traffic, with Pacific-time reporting and possible missing values. | Google analytics must preserve report type, period, timezone, missing-value state, refunds, and preview-vs-sales separation. |
-| `google-service-provider` | `https://support.google.com/books/partner/answer/3323299?hl=en` | Google distinguishes service-provider access, client consent, payments/report access, collection codes, and account participation. | Book Studio cannot assume PiB can manage client Google accounts or pull reports without explicit account authority evidence. |
+| `google-service-provider` | `https://support.google.com/books/partner/answer/3323299?hl=en` | Google distinguishes service-provider access, client consent, payments/report access, collection codes, account participation, and currently states that applications for a Google Books Client Service Agreement are not accepted. | Book Studio cannot assume PiB can become a new Google service provider, manage client Google accounts, or pull reports without explicit account authority evidence and an already-valid access model. |
 | `ai-story-head` | `https://github.com/PMStander/ai-story` at `11ef473c94f977b1dbc487f8645c4711728b6095` | The prior project remains a learning source for wizard intake, story/series flow, and KDP-oriented packaging expectations. | Treat `ai-story` as design evidence only; do not use it as a runtime dependency or migration target without a separate approval decision. |
 
 Wider-channel source keys for Apple Books, Kobo Writing Life, Draft2Digital, IngramSpark, ACX, KDP Virtual Voice, ISBN.org, and W3C EPUBCheck are separated in the wider channel adapter packet. They are future-compatibility evidence only and do not expand V1 beyond KDP and Google Play Books.
 
 The book-family gate catalog refreshed the same KDP/Google source cluster on 2026-06-08 and added a profile-level mapping for nonfiction/reference, narrative, activity/workbook, low-content, children/visual, cookbook/photo/portfolio, public-domain/companion, audiobook, and series overlay decisions. It is a review aid, not a source of permanent policy truth.
+
+## 2026-06-08 Live Spot-Check Addendum
+
+A live official-source spot check on 2026-06-08 did not change the recommended V1 posture, but it tightened the account-authority rule:
+
+- KDP still separates AI-generated content from AI-assisted content and requires disclosure for AI-generated text, images, or translations when publishing or republishing.
+- KDP low-content books still need their own gate profile: they are not eligible for free KDP ISBNs and are not eligible for creating a KDP series.
+- KDP reports still require confidence separation: dashboard/order/KENP/payment/update timing differs by report, format, marketplace, and settlement period.
+- Google Play Books still needs channel-specific metadata, file processing, pricing, and review/publish checks instead of a reused KDP packet.
+- Google Play Books series numbering still needs channel-specific validation: series names must match and ordered series numbers must be whole numbers without skipped or repeated values.
+- Google Play Books reports still need timezone and report-type separation: earnings, sales, transactions, refunds, and preview traffic cannot become one unqualified revenue metric.
+- Google's service-provider page currently says new Google Books Client Service Agreement applications are not accepted. Treat this as a hard planning constraint: client-owned Google workflows should start from `client_owned_manual_handoff` or an already-approved access model, not an assumption that PiB can obtain new service-provider status during Phase 1.
 
 ## Evidence Freshness Rules
 
