@@ -51,11 +51,11 @@ function brokerReplayResponse(id: string, existingJob: Record<string, unknown>, 
 
 export async function createBrokerJob(req: NextRequest, user: ApiUser, operation: WorkspaceBrokerOperation, extraInput: Record<string, unknown> = {}) {
   const body = (await req.json().catch(() => ({}))) as Record<string, unknown>
-  const resolved = resolveOrgId(req, user, body)
+  const payload = { ...body, ...extraInput }
+  const resolved = resolveOrgId(req, user, payload)
   const accessError = orgAccessError(user, resolved.orgId, resolved.mismatch)
   if (accessError) return accessError
   const orgId = resolved.orgId!
-  const payload = { ...body, ...extraInput }
   const idempotencyKey = req.headers.get('idempotency-key')?.trim() || null
   const requestFingerprint = idempotencyKey ? workspaceBrokerRequestFingerprint({ orgId, operation, payload }) : null
 

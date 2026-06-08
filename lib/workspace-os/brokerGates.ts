@@ -19,7 +19,7 @@ const GOOGLE_MUTATION_OPERATIONS = new Set<WorkspaceBrokerOperation>([
 
 const APPROVED = new Set(['approved', 'accepted', 'resolved'])
 const READY_CONNECTION_STATUSES = new Set(['active', 'approved'])
-const READY_TOKEN_STATUSES = new Set(['valid', 'healthy'])
+const READY_TOKEN_STATUSES = new Set(['valid', 'healthy', 'active'])
 
 const OPERATION_CAPABILITIES: Record<WorkspaceBrokerOperation, string[]> = {
   link_existing: ['read'],

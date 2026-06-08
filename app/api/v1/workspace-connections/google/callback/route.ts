@@ -156,7 +156,7 @@ export async function GET(req: NextRequest) {
     const previousSafeMetadata = asRecord(connection.data.safeMetadata)
     await connection.ref.set({
       status: 'active',
-      tokenStatus: 'active',
+      tokenStatus: 'valid',
       ownerUserId: stateData.uid,
       owner: { type: 'user', id: stateData.uid },
       credentialRef: {

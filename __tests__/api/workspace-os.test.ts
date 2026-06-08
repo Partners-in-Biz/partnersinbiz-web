@@ -130,6 +130,46 @@ describe('workspace connection API routes', () => {
       requestedScopes: expect.arrayContaining(['https://www.googleapis.com/auth/gmail.send', 'https://www.googleapis.com/auth/calendar.events']),
     }))
   })
+
+  it('rejects deleted workspace connection review and reconnect actions', async () => {
+    mockGetDoc.mockResolvedValue({ exists: true, id: 'conn-deleted', data: () => ({ orgId: 'org-1', displayName: 'Deleted', deleted: true }) })
+
+    const { POST: review } = await import('@/app/api/v1/workspace-connections/[id]/review/route')
+    const reviewRes = await review(new NextRequest('http://localhost/api/v1/workspace-connections/conn-deleted/review?orgId=org-1', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ status: 'approved' }),
+    }), { params: Promise.resolve({ id: 'conn-deleted' }) })
+
+    const { POST: reconnect } = await import('@/app/api/v1/workspace-connections/[id]/reconnect/route')
+    const reconnectRes = await reconnect(new NextRequest('http://localhost/api/v1/workspace-connections/conn-deleted/reconnect?orgId=org-1', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+    }), { params: Promise.resolve({ id: 'conn-deleted' }) })
+
+    expect(reviewRes.status).toBe(404)
+    expect(reconnectRes.status).toBe(404)
+    expect(mockUpdate).not.toHaveBeenCalled()
+  })
+
+  it('validates workspace connection review status fields', async () => {
+    mockGetDoc.mockResolvedValue({ exists: true, id: 'conn-1', data: () => ({ orgId: 'org-1', displayName: 'Drive', deleted: false }) })
+    const { POST } = await import('@/app/api/v1/workspace-connections/[id]/review/route')
+    const invalidStatus = await POST(new NextRequest('http://localhost/api/v1/workspace-connections/conn-1/review?orgId=org-1', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ status: 'enabled' }),
+    }), { params: Promise.resolve({ id: 'conn-1' }) })
+    const invalidApproval = await POST(new NextRequest('http://localhost/api/v1/workspace-connections/conn-1/review?orgId=org-1', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ status: 'approved', approvalStatus: 'self_approved' }),
+    }), { params: Promise.resolve({ id: 'conn-1' }) })
+
+    expect(invalidStatus.status).toBe(400)
+    expect(invalidApproval.status).toBe(400)
+    expect(mockUpdate).not.toHaveBeenCalled()
+  })
 })
 
 describe('workspace artifact API routes', () => {
@@ -427,10 +467,76 @@ describe('workspace broker API routes', () => {
       status: 'awaiting_approval',
       output: expect.objectContaining({ googleMutationPerformed: false, resultArtifactIds: [], resultArtifactUrls: [] }),
       requestedCapability: 'delete',
-      targetResource: expect.objectContaining({ orgId: 'org-1', artifactId: 'artifact-1' }),
+      targetResource: expect.objectContaining({ orgId: 'org-1', artifactId: 'artifact-1', connectionId: 'conn-1' }),
+      input: expect.objectContaining({ artifactTitle: 'Plan', artifactType: 'google_doc', visibility: 'admin_agents', connectionId: 'conn-1' }),
       approvalRequired: true,
       approvalSatisfied: false,
       errors: [],
+    }))
+  })
+
+  it('validates artifact existence and org ownership before queueing artifact broker actions', async () => {
+    const { POST } = await import('@/app/api/v1/workspace-broker/artifacts/[id]/export/route')
+
+    mockGetDoc.mockResolvedValueOnce({ exists: false, id: 'missing-artifact', data: () => undefined })
+    const missing = await POST(new NextRequest('http://localhost/api/v1/workspace-broker/artifacts/missing-artifact/export?orgId=org-1', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({}) }), { params: Promise.resolve({ id: 'missing-artifact' }) })
+    expect(missing.status).toBe(404)
+
+    mockGetDoc.mockResolvedValueOnce({ exists: true, id: 'deleted-artifact', data: () => ({ orgId: 'org-1', title: 'Deleted', artifactType: 'google_doc', visibility: 'admin_agents', connectionId: 'conn-1', deleted: true }) })
+    const deleted = await POST(new NextRequest('http://localhost/api/v1/workspace-broker/artifacts/deleted-artifact/export?orgId=org-1', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({}) }), { params: Promise.resolve({ id: 'deleted-artifact' }) })
+    expect(deleted.status).toBe(404)
+
+    mockGetDoc.mockResolvedValueOnce({ exists: true, id: 'other-org-artifact', data: () => ({ orgId: 'org-2', title: 'Other', artifactType: 'google_doc', visibility: 'admin_agents', connectionId: 'conn-2', deleted: false }) })
+    const forbidden = await POST(new NextRequest('http://localhost/api/v1/workspace-broker/artifacts/other-org-artifact/export?orgId=org-1', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({}) }), { params: Promise.resolve({ id: 'other-org-artifact' }) })
+    expect(forbidden.status).toBe(403)
+
+    expect(mockAdd).not.toHaveBeenCalled()
+    expect(mockBatchSet).not.toHaveBeenCalled()
+    expect(mockBatchCreate).not.toHaveBeenCalled()
+  })
+
+  it('ignores caller body orgId when queueing artifact broker jobs and uses the artifact org', async () => {
+    generatedDocIds = ['job-artifact-org', 'event-artifact-org']
+    mockGet.mockResolvedValue({ docs: [] })
+    mockGetDoc.mockResolvedValueOnce({ exists: true, id: 'artifact-org', data: () => ({ orgId: 'org-1', title: 'Org Locked', artifactType: 'google_doc', visibility: 'admin_agents', connectionId: 'conn-org', deleted: false }) })
+    const { POST } = await import('@/app/api/v1/workspace-broker/artifacts/[id]/permission-audit/route')
+    const res = await POST(new NextRequest('http://localhost/api/v1/workspace-broker/artifacts/artifact-org/permission-audit', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ orgId: 'org-2', reason: 'attempted cross-org queue' }),
+    }), { params: Promise.resolve({ id: 'artifact-org' }) })
+
+    expect(res.status).toBe(201)
+    expect(mockBatchSet).toHaveBeenCalledWith(expect.objectContaining({ id: 'job-artifact-org' }), expect.objectContaining({
+      orgId: 'org-1',
+      operation: 'permission_audit',
+      input: expect.objectContaining({ orgId: 'org-1', artifactId: 'artifact-org', connectionId: 'conn-org' }),
+      targetResource: expect.objectContaining({ orgId: 'org-1', artifactId: 'artifact-org', connectionId: 'conn-org' }),
+    }))
+  })
+
+  it.each([
+    ['request-share', 'request_share', 'publish', { capabilityScopes: ['publish'], capabilities: { driveShare: true, externalShare: true } }],
+    ['export', 'export_pdf', 'write', { capabilityScopes: ['write'], capabilities: { driveRead: true, driveWrite: true } }],
+    ['permission-audit', 'permission_audit', 'read', { capabilityScopes: ['read'], capabilities: { driveRead: true } }],
+  ])('queues artifact %s jobs with artifact context after org validation', async (routeName, operation, requestedCapability, connectionOverrides) => {
+    generatedDocIds = [`job-${routeName}`, `event-${routeName}`]
+    mockGet.mockResolvedValue({ docs: [] })
+    mockGetDoc
+      .mockResolvedValueOnce({ exists: true, id: 'artifact-ctx', data: () => ({ orgId: 'org-1', title: 'Evidence Plan', artifactType: 'google_doc', visibility: 'admin_agents_clients', connectionId: 'conn-ctx', projectId: 'project-ctx', taskId: 'task-ctx', deleted: false }) })
+      .mockResolvedValueOnce({ exists: true, id: 'conn-ctx', data: () => ({ ...approvedConnection, ...connectionOverrides }) })
+    const { POST } = await import(`@/app/api/v1/workspace-broker/artifacts/[id]/${routeName}/route`)
+    const res = await POST(new NextRequest(`http://localhost/api/v1/workspace-broker/artifacts/artifact-ctx/${routeName}?orgId=org-1`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ reason: 'verify context' }) }), { params: Promise.resolve({ id: 'artifact-ctx' }) })
+
+    expect(res.status).toBe(operation === 'permission_audit' ? 201 : 202)
+    expect(mockAdd).not.toHaveBeenCalled()
+    expect(mockBatchSet).toHaveBeenCalledWith(expect.objectContaining({ id: `job-${routeName}` }), expect.objectContaining({
+      operation,
+      requestedCapability,
+      connectionId: 'conn-ctx',
+      targetResource: expect.objectContaining({ orgId: 'org-1', artifactId: 'artifact-ctx', connectionId: 'conn-ctx', projectId: 'project-ctx', taskId: 'task-ctx' }),
+      input: expect.objectContaining({ artifactId: 'artifact-ctx', artifactTitle: 'Evidence Plan', artifactType: 'google_doc', visibility: 'admin_agents_clients', connectionId: 'conn-ctx' }),
+      output: expect.objectContaining({ googleMutationPerformed: false, resultArtifactIds: [], resultArtifactUrls: [] }),
     }))
   })
 
