@@ -4147,6 +4147,52 @@ Scenario acceptance for V1 review:
 
 The pilot set should be selected before implementation planning because it decides which template packs, gates, Hermes fixtures, portal review packets, and analytics import cases need to exist in the first plan.
 
+### V1 Pilot Selection Scorecard
+
+The scenario pack above says what each pilot proves. This scorecard decides which pilots should shape the first implementation plan. It is not a sprint plan and does not approve runtime implementation.
+
+Scoring dimensions:
+
+- **Learning speed:** how quickly the pilot proves the Book Studio operating loop from Research to Book Brief, gates, packet, and analytics evidence.
+- **Revenue path clarity:** whether the pilot can reach a credible KDP/Google readiness packet and price/margin review without large speculative dependencies.
+- **Channel/file risk:** whether ebook, print, fixed-layout, audio, and metadata requirements are likely to dominate the foundation work.
+- **Rights risk:** whether the pilot depends on uncertain copyright, trademark, public-domain, illustration, audio, or attribution decisions.
+- **Hermes readiness:** whether the first skills can produce bounded, source-linked, reviewable outputs without needing full generation automation.
+- **Portal/client value:** whether the first portal review packet helps a real client understand progress without exposing internal risk notes or raw generated drafts.
+- **Analytics learnability:** whether manual report imports, source/confidence labels, and reconciliation tasks can be tested without waiting on complex distribution events.
+- **Replayability:** whether the pilot becomes a reusable client delivery pattern instead of a one-off experiment.
+
+| Pilot option | Learning speed | Risk coverage | Hermes readiness | Publishing proof | Analytics proof | Recommendation |
+| --- | --- | --- | --- | --- | --- | --- |
+| Business nonfiction plus activity/low-content plus series scaffolding | High | Medium | High | High for KDP/Google manual packet flow and print/ebook readiness | High for manual imports, confidence labels, and series rollups | Recommended first set. |
+| Children's/visual gated pilot | Medium | High | Medium | Medium; fixed-layout, artwork, proof, accessibility, and rights gates dominate | Medium; slower to reach live/report data | Include as a gate-profile and fixture, but defer full production runtime. |
+| Public-domain/companion negative-control pilot | Medium | Very high | High for research, rights prompts, and blocker tasks | Low as a launch target until rights approval is proven | Low | Use as a blocker/fixture pilot, not a commercial pilot. |
+| Audiobook/narrated extension | Low | High | Medium | Low for V1 because channel/audio package scope is outside the KDP/Google ebook/print foundation | Low | Defer beyond Phase 1 unless Peet explicitly chooses audiobook V1. |
+
+Recommended first pilot set:
+
+1. **Business nonfiction ebook:** proves source-linked research, claim review, Book Brief, metadata, manuscript unit tracking, editorial gates, KDP/Google packet readiness, and manual analytics import.
+2. **Activity/workbook or low-content print product:** proves print-first templates, page-plan review, answer-key or repetition checks, low-content classification, cost/price review, and print proof tracking.
+3. **Series scaffolding:** proves series records, volume ordering, continuity bible basics, shared metadata/styling, and book-level plus series-level analytics summaries.
+4. **Public-domain/companion negative-control fixture:** proves the system can block attractive but weak rights cases before production, without treating the blocker as a launch target.
+
+What Peet's pilot choice changes:
+
+| Choice area | If the recommended first set is used | If visual/audio leads instead |
+| --- | --- | --- |
+| Template packs | Nonfiction, activity/low-content, print proof, and series scaffolding templates must be production-ready first. | Children's fixed-layout, illustration rights, accessibility, audio package, and talent/voice consent templates become first-class immediately. |
+| Hermes fixtures | Research, outline, metadata, claim-check, low-content classification, print checklist, and series-continuity fixtures carry the first evaluation suite. | Visual spread, asset-rights, reading-level, narration, pronunciation, and audio QA fixtures need earlier coverage. |
+| Portal packets | Book Brief, proof packet, publishing packet, and analytics summary can be concise and mostly text/table based. | Portal packets need richer asset/proof previews, rights summaries, accessibility notes, and possibly audio sample review. |
+| Analytics imports | Manual ebook/print sales and series rollup cases prove the confidence-label model quickly. | Analytics proof is slower because visual/audio pilots add production time before store reports can teach the dashboard anything. |
+| Channel packet fields | KDP/Google ebook plus print-readiness fields can lead, with wider channels deferred. | Fixed-layout, illustration, audio, and channel-specific package fields become harder to defer. |
+
+Devil's advocate:
+
+- If V1 starts only with nonfiction and activity books, Book Studio may overfit to practical publishing operations and under-prove creative/visual workflows. Mitigation: include children's/visual as a gate-profile and fixture, even if full runtime production waits.
+- If V1 starts with children's/visual or audio, the team may spend most of Phase 1 on file, rights, proofing, and asset complexity before proving the core PiB operating loop. Mitigation: require the admin shell, records, gates, packet tracker, and manual analytics import to work before any visual/audio production promise.
+- If the negative-control rights pilot is skipped, the module may look safer than it is. The first implementation plan should include at least one project that must be blocked by evidence, not only projects designed to pass.
+- If pilot selection is left vague, implementation will drift toward attractive generation features. The selected pilot set should be written into the Phase 1 plan as the reason for each template, gate, Hermes fixture, portal packet, and analytics test.
+
 ## Open Product Decision
 
 The next design step depends on one product decision:
