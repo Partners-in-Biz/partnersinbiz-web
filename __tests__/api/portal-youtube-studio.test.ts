@@ -7,6 +7,7 @@ const mockChannelsGet = jest.fn()
 const mockSeriesGet = jest.fn()
 const mockVideosGet = jest.fn()
 const mockPacketsGet = jest.fn()
+const mockReleasePlansGet = jest.fn()
 const mockAnalyticsGet = jest.fn()
 const mockAdd = jest.fn()
 const mockDoc = jest.fn()
@@ -49,6 +50,7 @@ type FirestoreStage = {
   series?: FirestoreDoc[]
   videos?: FirestoreDoc[]
   packets?: FirestoreDoc[]
+  releasePlans?: FirestoreDoc[]
   analytics?: FirestoreDoc[]
 }
 
@@ -329,6 +331,52 @@ function defaultStage(): Required<FirestoreStage> {
         },
       },
     ],
+    releasePlans: [
+      {
+        id: 'release-1',
+        data: {
+          orgId: 'org-1',
+          channelWorkspaceId: 'channel-1',
+          videoProjectId: 'video-1',
+          publishingPacketId: 'packet-1',
+          mode: 'scheduled_api_publish',
+          status: 'scheduled',
+          uploadPrivacyStatus: 'private',
+          targetVisibility: 'public',
+          scheduledPublishAt: '2026-06-20T10:00:00Z',
+          publicSummary: 'Launch goes live next week.',
+          internalNotes: 'Operator-only rollout notes',
+          executionJobId: 'secret-execution-job',
+          checks: {
+            approvedPacket: { status: 'pass', message: 'Approved', checkedBy: 'admin-secret' },
+            connectedAccount: { status: 'pass', message: 'Ready', checkedBy: 'admin-secret' },
+            privateFirst: { status: 'pass', message: 'Private-first upload is enforced' },
+            clientConfirmation: { status: 'not_applicable', message: 'Client confirmation not required' },
+            scheduleWindow: { status: 'pass', message: 'Schedule is valid' },
+          },
+          visibility: { showInClientPortal: true },
+          createdBy: 'admin-1',
+          updatedBy: 'admin-2',
+          deleted: false,
+        },
+      },
+      {
+        id: 'release-hidden',
+        data: {
+          orgId: 'org-1',
+          channelWorkspaceId: 'channel-1',
+          videoProjectId: 'video-1',
+          publishingPacketId: 'packet-1',
+          mode: 'manual_handoff',
+          status: 'ready',
+          uploadPrivacyStatus: 'private',
+          targetVisibility: 'private',
+          checks: {},
+          visibility: { showInClientPortal: false },
+          deleted: false,
+        },
+      },
+    ],
     analytics: [
       {
         id: 'snapshot-1',
@@ -396,6 +444,7 @@ function stageFirestore(overrides: FirestoreStage = {}) {
   const videoDocs = docsById(staged.videos)
   const seriesDocs = docsById(staged.series)
   const packetDocs = docsById(staged.packets)
+  const releasePlanDocs = docsById(staged.releasePlans)
   const analyticsDocs = docsById(staged.analytics)
 
   mockOrgGet.mockResolvedValue({
@@ -414,6 +463,9 @@ function stageFirestore(overrides: FirestoreStage = {}) {
   mockPacketsGet.mockResolvedValue({
     docs: staged.packets.map((doc) => ({ id: doc.id, data: () => doc.data })),
   })
+  mockReleasePlansGet.mockResolvedValue({
+    docs: staged.releasePlans.map((doc) => ({ id: doc.id, data: () => doc.data })),
+  })
   mockAnalyticsGet.mockResolvedValue({
     docs: staged.analytics.map((doc) => ({ id: doc.id, data: () => doc.data })),
   })
@@ -428,6 +480,7 @@ function stageFirestore(overrides: FirestoreStage = {}) {
       youtube_series: { docs: seriesDocs, queryGet: mockSeriesGet },
       youtube_video_projects: { docs: videoDocs, queryGet: mockVideosGet },
       youtube_publishing_packets: { docs: packetDocs, queryGet: mockPacketsGet },
+      youtube_release_plans: { docs: releasePlanDocs, queryGet: mockReleasePlansGet },
       youtube_analytics_snapshots: { docs: analyticsDocs, queryGet: mockAnalyticsGet },
     }
     const collection = collections[name as keyof typeof collections]
@@ -466,7 +519,7 @@ describe('portal youtube studio API', () => {
     stageFirestore()
   })
 
-  it('returns client-safe channel, video, and packet records when enabled by default', async () => {
+  it('returns client-safe channel, video, packet, and release plan records when enabled by default', async () => {
     const { GET } = await import('@/app/api/v1/portal/youtube-studio/route')
     const res = await GET(new NextRequest('http://localhost/api/v1/portal/youtube-studio'))
     const body = await res.json()
@@ -477,11 +530,13 @@ describe('portal youtube studio API', () => {
     expect(body.data.series.map((series: { id: string }) => series.id)).toEqual(['series-1'])
     expect(body.data.videos.map((video: { id: string }) => video.id)).toEqual(['video-1'])
     expect(body.data.packets.map((packet: { id: string }) => packet.id)).toEqual(['packet-1'])
+    expect(body.data.releasePlans.map((plan: { id: string }) => plan.id)).toEqual(['release-1'])
     expect(body.data.analytics.map((snapshot: { id: string }) => snapshot.id)).toEqual(['snapshot-1'])
     const channel = body.data.channels[0]
     const series = body.data.series[0]
     const video = body.data.videos[0]
     const packet = body.data.packets[0]
+    const releasePlan = body.data.releasePlans[0]
     const snapshot = body.data.analytics[0]
     expect(channel).not.toHaveProperty('connectedAccountId')
     expect(channel).not.toHaveProperty('internalNotes')
@@ -586,6 +641,30 @@ describe('portal youtube studio API', () => {
     expect(packet.chapters[0]).not.toHaveProperty('scoringAudit')
     expect(packet.chapters[0]).not.toHaveProperty('sourceAssetId')
     expect(packet.chapters[0]).not.toHaveProperty('policyNotes')
+    expect(releasePlan).toMatchObject({
+      id: 'release-1',
+      orgId: 'org-1',
+      channelWorkspaceId: 'channel-1',
+      videoProjectId: 'video-1',
+      publishingPacketId: 'packet-1',
+      mode: 'scheduled_api_publish',
+      status: 'scheduled',
+      targetVisibility: 'public',
+      scheduledPublishAt: '2026-06-20T10:00:00Z',
+      publicSummary: 'Launch goes live next week.',
+      checks: {
+        approvedPacket: { status: 'pass', message: 'Approved' },
+        connectedAccount: { status: 'pass', message: 'Ready' },
+        privateFirst: { status: 'pass', message: 'Private-first upload is enforced' },
+        clientConfirmation: { status: 'not_applicable', message: 'Client confirmation not required' },
+        scheduleWindow: { status: 'pass', message: 'Schedule is valid' },
+      },
+    })
+    expect(releasePlan).not.toHaveProperty('uploadPrivacyStatus')
+    expect(releasePlan).not.toHaveProperty('internalNotes')
+    expect(releasePlan).not.toHaveProperty('executionJobId')
+    expect(releasePlan).not.toHaveProperty('createdBy')
+    expect(releasePlan.checks.approvedPacket).not.toHaveProperty('checkedBy')
     expect(snapshot).toMatchObject({
       id: 'snapshot-1',
       orgId: 'org-1',
@@ -803,6 +882,7 @@ describe('portal youtube studio API', () => {
     expect(mockSeriesGet).not.toHaveBeenCalled()
     expect(mockVideosGet).not.toHaveBeenCalled()
     expect(mockPacketsGet).not.toHaveBeenCalled()
+    expect(mockReleasePlansGet).not.toHaveBeenCalled()
     expect(mockAnalyticsGet).not.toHaveBeenCalled()
   })
 

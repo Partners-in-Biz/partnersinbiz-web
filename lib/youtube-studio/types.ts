@@ -108,6 +108,8 @@ export type YouTubeAnalyticsRecommendationType =
   | 'cadence_change'
 export type YouTubeAnalyticsRecommendationConfidence = 'low' | 'medium' | 'high'
 export type YouTubeAnalyticsRecommendationStatus = 'suggested' | 'accepted' | 'rejected' | 'converted_to_task'
+export type YouTubeReleaseMode = YouTubePublishingPolicy['allowedModes'][number]
+export type YouTubeReleasePlanStatus = 'draft' | 'ready' | 'scheduled' | 'published' | 'blocked' | 'cancelled'
 
 export interface YouTubeAnalyticsMetrics {
   views?: number
@@ -329,6 +331,37 @@ export interface YouTubeAnalyticsSnapshot {
   importedAt?: unknown
   importedBy?: string
   importedByType?: ActorType
+  createdAt?: unknown
+  updatedAt?: unknown
+  createdBy?: string
+  createdByType?: ActorType
+  updatedBy?: string
+  updatedByType?: ActorType
+  deleted: boolean
+}
+
+export interface YouTubeReleasePlan {
+  id?: string
+  orgId: string
+  channelWorkspaceId: string
+  videoProjectId: string
+  publishingPacketId: string
+  mode: YouTubeReleaseMode
+  status: YouTubeReleasePlanStatus
+  uploadPrivacyStatus: YouTubePublishingPolicy['defaultVisibility']
+  targetVisibility: YouTubePublishingPolicy['defaultVisibility']
+  scheduledPublishAt?: unknown
+  publicSummary?: string
+  internalNotes?: string
+  executionJobId?: string
+  checks: {
+    approvedPacket: YouTubeGateCheck
+    connectedAccount: YouTubeGateCheck
+    privateFirst: YouTubeGateCheck
+    clientConfirmation: YouTubeGateCheck
+    scheduleWindow: YouTubeGateCheck
+  }
+  visibility?: { showInClientPortal?: boolean }
   createdAt?: unknown
   updatedAt?: unknown
   createdBy?: string

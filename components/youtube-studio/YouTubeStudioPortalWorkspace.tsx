@@ -5,6 +5,7 @@ import type {
   YouTubeAnalyticsSnapshot,
   YouTubeChannelWorkspace,
   YouTubePublishingPacket,
+  YouTubeReleasePlan,
   YouTubeSeries,
   YouTubeVideoProject,
 } from '@/lib/youtube-studio/types'
@@ -43,6 +44,7 @@ export function YouTubeStudioPortalWorkspace({ orgId }: YouTubeStudioPortalWorks
   const [series, setSeries] = useState<YouTubeSeries[]>([])
   const [videos, setVideos] = useState<YouTubeVideoProject[]>([])
   const [packets, setPackets] = useState<YouTubePublishingPacket[]>([])
+  const [releasePlans, setReleasePlans] = useState<YouTubeReleasePlan[]>([])
   const [analytics, setAnalytics] = useState<YouTubeAnalyticsSnapshot[]>([])
   const [request, setRequest] = useState<RequestForm>(emptyRequest)
   const [reviewNotes, setReviewNotes] = useState<Record<string, string>>({})
@@ -81,6 +83,7 @@ export function YouTubeStudioPortalWorkspace({ orgId }: YouTubeStudioPortalWorks
         setSeries([])
         setVideos([])
         setPackets([])
+        setReleasePlans([])
         setAnalytics([])
         setLoadNotice('')
         setActionNotice('')
@@ -92,6 +95,7 @@ export function YouTubeStudioPortalWorkspace({ orgId }: YouTubeStudioPortalWorks
       setSeries(Array.isArray(body.data?.series) ? body.data.series : [])
       setVideos(Array.isArray(body.data?.videos) ? body.data.videos : [])
       setPackets(Array.isArray(body.data?.packets) ? body.data.packets : [])
+      setReleasePlans(Array.isArray(body.data?.releasePlans) ? body.data.releasePlans : [])
       setAnalytics(Array.isArray(body.data?.analytics) ? body.data.analytics : [])
       if (!res.ok) {
         setLoadNotice(body.error ?? 'Could not load YouTube Studio.')
@@ -105,6 +109,7 @@ export function YouTubeStudioPortalWorkspace({ orgId }: YouTubeStudioPortalWorks
       setSeries([])
       setVideos([])
       setPackets([])
+      setReleasePlans([])
       setAnalytics([])
       setLoadNotice('Could not load YouTube Studio.')
     } finally {
@@ -415,6 +420,41 @@ export function YouTubeStudioPortalWorkspace({ orgId }: YouTubeStudioPortalWorks
           </div>
 
           <div className="space-y-3">
+            <h2 className="font-headline text-xl font-semibold text-on-surface">Release plans</h2>
+            {releasePlans.length === 0 ? (
+              <div className="pib-card-section p-5 text-sm text-on-surface-variant">No YouTube release plans are visible yet.</div>
+            ) : (
+              releasePlans.map((plan) => (
+                <article key={plan.id ?? `${plan.videoProjectId}-${plan.publishingPacketId}`} className="pib-card-section space-y-3 p-4">
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <h3 className="break-words font-semibold text-on-surface">{plan.publicSummary || 'YouTube release plan'}</h3>
+                      <p className="mt-1 text-sm text-on-surface-variant">
+                        {formatToken(plan.mode)} / {formatToken(plan.status)} / {formatToken(plan.targetVisibility)}
+                      </p>
+                    </div>
+                    {plan.scheduledPublishAt ? (
+                      <span className="shrink-0 rounded-full bg-[var(--color-surface-container-high)] px-3 py-1 text-xs font-label uppercase tracking-widest text-on-surface-variant">
+                        scheduled
+                      </span>
+                    ) : null}
+                  </div>
+                  {plan.scheduledPublishAt ? (
+                    <p className="break-words text-sm text-on-surface-variant">scheduled for {String(plan.scheduledPublishAt)}</p>
+                  ) : null}
+                  <div className="grid gap-2 text-xs text-on-surface-variant sm:grid-cols-2">
+                    {releasePlanGateEntries(plan).map(([key, check]) => (
+                      <span key={key} className="min-w-0 break-words">
+                        {formatToken(key)}: {formatToken(check?.status ?? 'not_applicable')}
+                      </span>
+                    ))}
+                  </div>
+                </article>
+              ))
+            )}
+          </div>
+
+          <div className="space-y-3">
             <h2 className="font-headline text-xl font-semibold text-on-surface">Analytics summaries</h2>
             {analytics.length === 0 ? (
               <div className="pib-card-section p-5 text-sm text-on-surface-variant">No client-facing YouTube analytics summaries yet.</div>
@@ -500,6 +540,13 @@ function packetGateEntries(packet: YouTubePublishingPacket) {
   return Object.entries(packet.checks ?? {}) as Array<[
     keyof YouTubePublishingPacket['checks'],
     YouTubePublishingPacket['checks'][keyof YouTubePublishingPacket['checks']],
+  ]>
+}
+
+function releasePlanGateEntries(plan: YouTubeReleasePlan) {
+  return Object.entries(plan.checks ?? {}) as Array<[
+    keyof YouTubeReleasePlan['checks'],
+    YouTubeReleasePlan['checks'][keyof YouTubeReleasePlan['checks']],
   ]>
 }
 

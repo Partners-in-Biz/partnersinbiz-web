@@ -911,6 +911,215 @@ describe('youtube studio admin API', () => {
     })
   })
 
+  it('creates a scheduled release plan from an approved packet and marks the video scheduled', async () => {
+    stageFirestore({
+      youtube_channel_workspaces: {
+        docs: {
+          'channel-1': {
+            id: 'channel-1',
+            data: {
+              orgId: 'org-1',
+              title: 'Acme',
+              connectedAccountId: 'youtube-account-1',
+              publishingReadiness: {
+                accountStatus: 'connected',
+                apiProjectStatus: 'verified',
+                readiness: 'scheduled_publish_ready',
+                allowedModes: ['manual_handoff', 'private_api_upload', 'scheduled_api_publish'],
+              },
+              defaultPublishingPolicy: {
+                allowedModes: ['manual_handoff', 'private_api_upload', 'scheduled_api_publish'],
+                privateFirstRequired: true,
+                publicPublishRequiresAdmin: true,
+                publicPublishRequiresClientConfirmation: false,
+              },
+              deleted: false,
+            },
+          },
+        },
+      },
+      youtube_video_projects: {
+        docs: {
+          'video-1': {
+            id: 'video-1',
+            data: {
+              orgId: 'org-1',
+              channelWorkspaceId: 'channel-1',
+              title: 'Launch',
+              status: 'publish_ready',
+              deleted: false,
+            },
+          },
+        },
+      },
+      youtube_publishing_packets: {
+        docs: {
+          'packet-1': {
+            id: 'packet-1',
+            data: {
+              orgId: 'org-1',
+              channelWorkspaceId: 'channel-1',
+              videoProjectId: 'video-1',
+              versionNumber: 1,
+              status: 'approved',
+              visibility: 'private',
+              titleOptions: [{ text: 'Launch plan', selected: true }],
+              tags: ['growth'],
+              chapters: [],
+              checks: {
+                rights: { status: 'pass', message: 'Rights cleared.' },
+                aiDisclosure: { status: 'pass', message: 'Disclosure reviewed.' },
+                madeForKids: { status: 'pass', message: 'Declaration reviewed.' },
+                metadata: { status: 'pass', message: 'Metadata reviewed.' },
+                thumbnail: { status: 'pass', message: 'Thumbnail reviewed.' },
+                captions: { status: 'pass', message: 'Captions reviewed.' },
+                approval: { status: 'pass', message: 'Approved.' },
+                connectedAccount: { status: 'pass', message: 'Ready.' },
+              },
+              approvedBy: 'admin-1',
+              approvedAt: 'SERVER_TS',
+              approvedSnapshotHash: 'approved-hash',
+              deleted: false,
+            },
+          },
+        },
+      },
+      youtube_release_plans: {
+        nextDocId: 'release-1',
+      },
+    })
+
+    const { POST } = await import('@/app/api/v1/youtube-studio/release-plans/route')
+    const res = await POST(new NextRequest('http://localhost/api/v1/youtube-studio/release-plans', {
+      method: 'POST',
+      body: JSON.stringify({
+        orgId: 'org-1',
+        publishingPacketId: 'packet-1',
+        mode: 'scheduled_api_publish',
+        targetVisibility: 'public',
+        scheduledPublishAt: '2026-06-20T10:00:00Z',
+        publicSummary: 'Launch goes live next week.',
+        internalNotes: 'Operator-only rollout notes.',
+        executionJobId: 'client-supplied-job',
+        status: 'published',
+        deleted: true,
+      }),
+    }))
+    const body = await res.json()
+
+    expect(res.status).toBe(201)
+    expect(body.data.id).toBe('release-1')
+    expect(mockBatch).toHaveBeenCalledTimes(1)
+    expect(mockBatchSet).toHaveBeenCalledTimes(2)
+    expect(mockBatchCommit).toHaveBeenCalledTimes(1)
+    expect(mockBatchSet).toHaveBeenNthCalledWith(1, expect.objectContaining({ id: 'release-1' }), expect.objectContaining({
+      orgId: 'org-1',
+      channelWorkspaceId: 'channel-1',
+      videoProjectId: 'video-1',
+      publishingPacketId: 'packet-1',
+      mode: 'scheduled_api_publish',
+      status: 'scheduled',
+      uploadPrivacyStatus: 'private',
+      targetVisibility: 'public',
+      scheduledPublishAt: '2026-06-20T10:00:00Z',
+      publicSummary: 'Launch goes live next week.',
+      internalNotes: 'Operator-only rollout notes.',
+      visibility: { showInClientPortal: true },
+      createdBy: 'admin-1',
+      createdByType: 'user',
+      updatedBy: 'admin-1',
+      updatedByType: 'user',
+      createdAt: 'SERVER_TS',
+      updatedAt: 'SERVER_TS',
+      deleted: false,
+    }))
+    const releaseWrite = mockBatchSet.mock.calls[0][1]
+    expect(releaseWrite.executionJobId).toBeUndefined()
+    expect(releaseWrite.checks.approvedPacket.status).toBe('pass')
+    expect(releaseWrite.checks.connectedAccount.status).toBe('pass')
+    expect(releaseWrite.checks.privateFirst.status).toBe('pass')
+    expect(releaseWrite.checks.scheduleWindow.status).toBe('pass')
+    expect(mockBatchSet).toHaveBeenNthCalledWith(2, expect.objectContaining({ id: 'video-1' }), expect.objectContaining({
+      status: 'scheduled',
+      scheduledAt: '2026-06-20T10:00:00Z',
+      updatedBy: 'admin-1',
+      updatedByType: 'user',
+      updatedAt: 'SERVER_TS',
+    }), { merge: true })
+  })
+
+  it.each([
+    ['draft packet', { status: 'draft' }, /approved/i],
+    ['blocking gate', {
+      status: 'approved',
+      checks: {
+        rights: { status: 'block', message: 'Rights blocked.' },
+        approval: { status: 'pass', message: 'Approved.' },
+        connectedAccount: { status: 'pass', message: 'Ready.' },
+      },
+    }, /blocking/i],
+  ])('rejects release plan creation from a %s', async (_label, packetPatch, errorPattern) => {
+    stageFirestore({
+      youtube_channel_workspaces: {
+        docs: {
+          'channel-1': {
+            id: 'channel-1',
+            data: { orgId: 'org-1', title: 'Acme', connectedAccountId: 'youtube-account-1', deleted: false },
+          },
+        },
+      },
+      youtube_video_projects: {
+        docs: {
+          'video-1': {
+            id: 'video-1',
+            data: { orgId: 'org-1', channelWorkspaceId: 'channel-1', title: 'Launch', deleted: false },
+          },
+        },
+      },
+      youtube_publishing_packets: {
+        docs: {
+          'packet-1': {
+            id: 'packet-1',
+            data: {
+              orgId: 'org-1',
+              channelWorkspaceId: 'channel-1',
+              videoProjectId: 'video-1',
+              versionNumber: 1,
+              visibility: 'private',
+              titleOptions: [{ text: 'Launch plan' }],
+              tags: [],
+              chapters: [],
+              checks: {
+                rights: { status: 'pass', message: 'Rights cleared.' },
+                approval: { status: 'pass', message: 'Approved.' },
+                connectedAccount: { status: 'pass', message: 'Ready.' },
+              },
+              deleted: false,
+              ...packetPatch,
+            },
+          },
+        },
+      },
+      youtube_release_plans: {},
+    })
+
+    const { POST } = await import('@/app/api/v1/youtube-studio/release-plans/route')
+    const res = await POST(new NextRequest('http://localhost/api/v1/youtube-studio/release-plans', {
+      method: 'POST',
+      body: JSON.stringify({
+        orgId: 'org-1',
+        publishingPacketId: 'packet-1',
+        mode: 'private_api_upload',
+      }),
+    }))
+    const body = await res.json()
+
+    expect(res.status).toBeGreaterThanOrEqual(400)
+    expect(body.error).toMatch(errorPattern)
+    expect(mockBatchSet).not.toHaveBeenCalled()
+    expect(mockBatchCommit).not.toHaveBeenCalled()
+  })
+
   it.each([
     ['deleted packet', {
       packet: { orgId: 'org-1', channelWorkspaceId: 'channel-1', videoProjectId: 'video-1', deleted: true },

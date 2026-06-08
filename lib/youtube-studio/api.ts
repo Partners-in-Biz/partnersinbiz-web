@@ -11,6 +11,7 @@ export const YOUTUBE_COLLECTIONS = {
   series: 'youtube_series',
   videos: 'youtube_video_projects',
   packets: 'youtube_publishing_packets',
+  releasePlans: 'youtube_release_plans',
   agentJobs: 'youtube_agent_jobs',
   analytics: 'youtube_analytics_snapshots',
 } as const

@@ -24,6 +24,9 @@ import type {
   YouTubePublishingReadiness,
   YouTubePublishingReadinessLevel,
   YouTubeProductionSkillKey,
+  YouTubeReleaseMode,
+  YouTubeReleasePlan,
+  YouTubeReleasePlanStatus,
   YouTubeSeries,
   YouTubeSeriesCadence,
   YouTubeSeriesFormat,
@@ -109,6 +112,15 @@ const ANALYTICS_RECOMMENDATION_STATUSES: YouTubeAnalyticsRecommendationStatus[] 
   'accepted',
   'rejected',
   'converted_to_task',
+]
+const RELEASE_MODES: YouTubeReleaseMode[] = ['manual_handoff', 'private_api_upload', 'scheduled_api_publish']
+const RELEASE_PLAN_STATUSES: YouTubeReleasePlanStatus[] = [
+  'draft',
+  'ready',
+  'scheduled',
+  'published',
+  'blocked',
+  'cancelled',
 ]
 const ACTOR_TYPES: ActorType[] = ['user', 'agent', 'system']
 const CONNECTED_ACCOUNT_STATUSES: YouTubeConnectedAccountStatus[] = [
@@ -240,6 +252,28 @@ export type ClientSafeYouTubeAnalyticsSnapshot = Pick<
   | 'clientSummary'
 > & {
   recommendations: Array<Pick<YouTubeAnalyticsRecommendation, 'type' | 'summary' | 'confidence' | 'status'>>
+}
+
+export type ClientSafeYouTubeReleasePlan = Pick<
+  YouTubeReleasePlan,
+  | 'id'
+  | 'orgId'
+  | 'channelWorkspaceId'
+  | 'videoProjectId'
+  | 'publishingPacketId'
+  | 'mode'
+  | 'status'
+  | 'targetVisibility'
+  | 'scheduledPublishAt'
+  | 'publicSummary'
+> & {
+  checks: {
+    approvedPacket?: ClientSafeYouTubeGateCheck
+    connectedAccount?: ClientSafeYouTubeGateCheck
+    privateFirst?: ClientSafeYouTubeGateCheck
+    clientConfirmation?: ClientSafeYouTubeGateCheck
+    scheduleWindow?: ClientSafeYouTubeGateCheck
+  }
 }
 
 function cleanString(value: unknown): string | undefined {
@@ -810,6 +844,30 @@ export function clientSafeYouTubePublishingPacket(
       thumbnail: clientSafeGateCheck(checks.thumbnail),
       captions: clientSafeGateCheck(checks.captions),
       approval: clientSafeGateCheck(checks.approval),
+    },
+  })
+}
+
+export function clientSafeYouTubeReleasePlan(plan: YouTubeReleasePlan): ClientSafeYouTubeReleasePlan {
+  const checks = cleanObject(plan.checks)
+
+  return stripUndefinedDeep({
+    id: cleanString(plan.id),
+    orgId: cleanString(plan.orgId) ?? '',
+    channelWorkspaceId: cleanString(plan.channelWorkspaceId) ?? '',
+    videoProjectId: cleanString(plan.videoProjectId) ?? '',
+    publishingPacketId: cleanString(plan.publishingPacketId) ?? '',
+    mode: pick(RELEASE_MODES, plan.mode, 'manual_handoff'),
+    status: pick(RELEASE_PLAN_STATUSES, plan.status, 'draft'),
+    targetVisibility: pick(PUBLISHING_VISIBILITIES, plan.targetVisibility, 'private'),
+    scheduledPublishAt: cleanString(plan.scheduledPublishAt),
+    publicSummary: cleanString(plan.publicSummary),
+    checks: {
+      approvedPacket: clientSafeGateCheck(checks.approvedPacket),
+      connectedAccount: clientSafeGateCheck(checks.connectedAccount),
+      privateFirst: clientSafeGateCheck(checks.privateFirst),
+      clientConfirmation: clientSafeGateCheck(checks.clientConfirmation),
+      scheduleWindow: clientSafeGateCheck(checks.scheduleWindow),
     },
   })
 }

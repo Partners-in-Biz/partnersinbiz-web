@@ -15,6 +15,8 @@ import type {
   YouTubePublishingPolicy,
   YouTubePublishingReadinessLevel,
   YouTubeProductionSkillKey,
+  YouTubeReleaseMode,
+  YouTubeReleasePlan,
   YouTubeSeries,
   YouTubeVideoProject,
   YouTubeVideoType,
@@ -49,6 +51,12 @@ type FormState = {
   packetMadeForKids: boolean
   packetContainsSyntheticMedia: boolean
   packetAiDisclosureNotes: string
+  releasePacketId: string
+  releaseMode: YouTubeReleaseMode
+  releaseTargetVisibility: YouTubePublishingPolicy['defaultVisibility']
+  releaseScheduledPublishAt: string
+  releasePublicSummary: string
+  releaseInternalNotes: string
   analyticsChannelId: string
   analyticsVideoId: string
   analyticsPeriodStart: string
@@ -96,6 +104,12 @@ const emptyForm: FormState = {
   packetMadeForKids: false,
   packetContainsSyntheticMedia: false,
   packetAiDisclosureNotes: '',
+  releasePacketId: '',
+  releaseMode: 'manual_handoff',
+  releaseTargetVisibility: 'private',
+  releaseScheduledPublishAt: '',
+  releasePublicSummary: '',
+  releaseInternalNotes: '',
   analyticsChannelId: '',
   analyticsVideoId: '',
   analyticsPeriodStart: '',
@@ -162,6 +176,7 @@ const publishingReadinessLevels: YouTubePublishingReadinessLevel[] = [
   'scheduled_publish_ready',
   'blocked',
 ]
+const releaseModes: YouTubeReleaseMode[] = ['manual_handoff', 'private_api_upload', 'scheduled_api_publish']
 const publishingVisibilities: YouTubePublishingPolicy['defaultVisibility'][] = ['private', 'unlisted', 'public']
 
 function splitLines(value: string) {
@@ -198,12 +213,14 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
   const [series, setSeries] = useState<YouTubeSeries[]>([])
   const [videos, setVideos] = useState<YouTubeVideoProject[]>([])
   const [packets, setPackets] = useState<YouTubePublishingPacket[]>([])
+  const [releasePlans, setReleasePlans] = useState<YouTubeReleasePlan[]>([])
   const [jobs, setJobs] = useState<YouTubeAgentJob[]>([])
   const [analytics, setAnalytics] = useState<YouTubeAnalyticsSnapshot[]>([])
   const [form, setForm] = useState<FormState>(emptyForm)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [creatingPacket, setCreatingPacket] = useState(false)
+  const [creatingReleasePlan, setCreatingReleasePlan] = useState(false)
   const [updatingPacketId, setUpdatingPacketId] = useState<string | null>(null)
   const [queueingJob, setQueueingJob] = useState(false)
   const [importingAnalytics, setImportingAnalytics] = useState(false)
@@ -218,6 +235,7 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
   const analyticsVideoOptions = form.analyticsChannelId
     ? videos.filter((video) => video.channelWorkspaceId === form.analyticsChannelId)
     : videos
+  const approvedPackets = packets.filter((packet) => packet.id && packet.status === 'approved')
 
   const load = useCallback(async () => {
     if (orgId !== activeOrgIdRef.current) return
@@ -226,19 +244,21 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
     const isCurrentRequest = () => requestId === loadRequestIdRef.current && orgId === activeOrgIdRef.current
     setLoading(true)
     try {
-      const [channelRes, seriesRes, videoRes, packetRes, jobRes, analyticsRes] = await Promise.all([
+      const [channelRes, seriesRes, videoRes, packetRes, releasePlanRes, jobRes, analyticsRes] = await Promise.all([
         fetch(`/api/v1/youtube-studio/channels?orgId=${encodeURIComponent(orgId)}`),
         fetch(`/api/v1/youtube-studio/series?orgId=${encodeURIComponent(orgId)}`),
         fetch(`/api/v1/youtube-studio/videos?orgId=${encodeURIComponent(orgId)}`),
         fetch(`/api/v1/youtube-studio/publish-packets?orgId=${encodeURIComponent(orgId)}`),
+        fetch(`/api/v1/youtube-studio/release-plans?orgId=${encodeURIComponent(orgId)}`),
         fetch(`/api/v1/youtube-studio/agent-jobs?orgId=${encodeURIComponent(orgId)}`),
         fetch(`/api/v1/youtube-studio/analytics?orgId=${encodeURIComponent(orgId)}`),
       ])
-      const [channelBody, seriesBody, videoBody, packetBody, jobBody, analyticsBody] = await Promise.all([
+      const [channelBody, seriesBody, videoBody, packetBody, releasePlanBody, jobBody, analyticsBody] = await Promise.all([
         channelRes.json().catch(() => ({})),
         seriesRes.json().catch(() => ({})),
         videoRes.json().catch(() => ({})),
         packetRes.json().catch(() => ({})),
+        releasePlanRes.json().catch(() => ({})),
         jobRes.json().catch(() => ({})),
         analyticsRes.json().catch(() => ({})),
       ])
@@ -247,9 +267,10 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
       setSeries(Array.isArray(seriesBody.data?.series) ? seriesBody.data.series : [])
       setVideos(Array.isArray(videoBody.data?.videos) ? videoBody.data.videos : [])
       setPackets(Array.isArray(packetBody.data?.packets) ? packetBody.data.packets : [])
+      setReleasePlans(Array.isArray(releasePlanBody.data?.releasePlans) ? releasePlanBody.data.releasePlans : [])
       setJobs(Array.isArray(jobBody.data?.jobs) ? jobBody.data.jobs : [])
       setAnalytics(Array.isArray(analyticsBody.data?.snapshots) ? analyticsBody.data.snapshots : [])
-      if (!channelRes.ok || !seriesRes.ok || !videoRes.ok || !packetRes.ok || !jobRes.ok || !analyticsRes.ok) {
+      if (!channelRes.ok || !seriesRes.ok || !videoRes.ok || !packetRes.ok || !releasePlanRes.ok || !jobRes.ok || !analyticsRes.ok) {
         setLoadNotice('Could not load the full YouTube Studio workspace.')
       } else {
         setLoadNotice('')
@@ -260,6 +281,7 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
       setSeries([])
       setVideos([])
       setPackets([])
+      setReleasePlans([])
       setJobs([])
       setAnalytics([])
       setLoadNotice('Could not load the YouTube Studio workspace.')
@@ -276,6 +298,7 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
     setForm(emptyForm)
     setSaving(false)
     setCreatingPacket(false)
+    setCreatingReleasePlan(false)
     setUpdatingPacketId(null)
     setQueueingJob(false)
     setImportingAnalytics(false)
@@ -563,6 +586,53 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
     }
   }
 
+  async function createReleasePlan(event: React.FormEvent) {
+    event.preventDefault()
+    if (creatingReleasePlan || !form.releasePacketId) return
+    const mutationOrgId = orgId
+    const isCurrentMutation = () => mutationOrgId === activeOrgIdRef.current
+    setCreatingReleasePlan(true)
+    setActionNotice('')
+    setLoadNotice('')
+    try {
+      const res = await fetch('/api/v1/youtube-studio/release-plans', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          orgId: mutationOrgId,
+          publishingPacketId: form.releasePacketId,
+          mode: form.releaseMode,
+          targetVisibility: form.releaseTargetVisibility,
+          scheduledPublishAt: form.releaseScheduledPublishAt,
+          publicSummary: form.releasePublicSummary,
+          internalNotes: form.releaseInternalNotes,
+        }),
+      })
+      const body = await res.json().catch(() => ({}))
+      if (!isCurrentMutation()) return
+      if (!res.ok) {
+        setActionNotice(body.error ?? 'Could not create release plan')
+        return
+      }
+      setForm((prev) => ({
+        ...prev,
+        releaseScheduledPublishAt: '',
+        releasePublicSummary: '',
+        releaseInternalNotes: '',
+      }))
+      setActionNotice('Release plan created.')
+      await load()
+    } catch {
+      if (isCurrentMutation()) {
+        setActionNotice('Could not create release plan')
+      }
+    } finally {
+      if (isCurrentMutation()) {
+        setCreatingReleasePlan(false)
+      }
+    }
+  }
+
   async function importAnalytics(event: React.FormEvent) {
     event.preventDefault()
     if (importingAnalytics || !form.analyticsChannelId || !form.analyticsPeriodStart || !form.analyticsPeriodEnd) return
@@ -771,6 +841,49 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
                         ) : null}
                       </div>
                     ) : null}
+                  </article>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div className="space-y-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <h2 className="font-headline text-xl font-semibold text-on-surface">Release plans</h2>
+              <span className="rounded-full bg-[var(--color-surface-container-high)] px-3 py-1 text-xs font-label uppercase tracking-widest text-on-surface-variant">
+                {releasePlans.length} plan{releasePlans.length === 1 ? '' : 's'}
+              </span>
+            </div>
+            {releasePlans.length === 0 ? (
+              <div className="pib-card-section p-5 text-sm text-on-surface-variant">No approved release plans yet.</div>
+            ) : (
+              <div className="grid gap-3">
+                {releasePlans.map((plan) => (
+                  <article key={plan.id ?? `${plan.videoProjectId}-${plan.publishingPacketId}`} className="pib-card-section space-y-3 p-4">
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <h3 className="break-words font-semibold text-on-surface">
+                          {plan.publicSummary || releasePlanTitle(plan, packets)}
+                        </h3>
+                        <p className="mt-1 text-sm text-on-surface-variant">
+                          {formatToken(plan.mode)} / {formatToken(plan.status)} / {formatToken(plan.targetVisibility)}
+                        </p>
+                      </div>
+                      <StatusPill status={plan.status} />
+                    </div>
+                    {plan.scheduledPublishAt ? (
+                      <p className="break-words text-sm text-on-surface-variant">scheduled for {String(plan.scheduledPublishAt)}</p>
+                    ) : null}
+                    {plan.internalNotes ? (
+                      <p className="break-words text-sm text-on-surface-variant">{plan.internalNotes}</p>
+                    ) : null}
+                    <div className="grid gap-2 text-xs text-on-surface-variant sm:grid-cols-2">
+                      {releasePlanGateEntries(plan).map(([key, check]) => (
+                        <span key={key} className="min-w-0 break-words">
+                          {formatToken(key)}: {formatToken(check?.status ?? 'not_applicable')}
+                        </span>
+                      ))}
+                    </div>
                   </article>
                 ))}
               </div>
@@ -1061,6 +1174,54 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
             </button>
           </form>
 
+          <form onSubmit={createReleasePlan} className="pib-card-section space-y-4 p-5">
+            <h2 className="font-headline font-bold text-on-surface">Plan release</h2>
+            <label className="block text-sm">
+              <span className="text-xs font-label uppercase tracking-widest text-on-surface-variant">Approved packet</span>
+              <select
+                value={form.releasePacketId}
+                onChange={(event) => update('releasePacketId', event.target.value)}
+                className="mt-1 w-full rounded-lg border border-[var(--color-outline-variant)] bg-[var(--color-surface)] px-3 py-2 text-sm"
+              >
+                <option value="">Select an approved packet</option>
+                {approvedPackets.map((packet) => (
+                  <option key={packet.id ?? packetTitle(packet)} value={packet.id ?? ''}>{packetTitle(packet)}</option>
+                ))}
+              </select>
+            </label>
+            <Select
+              label="Release mode"
+              value={form.releaseMode}
+              onChange={(value) => update('releaseMode', value as YouTubeReleaseMode)}
+              options={releaseModes}
+            />
+            <Select
+              label="Target visibility"
+              value={form.releaseTargetVisibility}
+              onChange={(value) => update('releaseTargetVisibility', value as YouTubePublishingPolicy['defaultVisibility'])}
+              options={publishingVisibilities}
+            />
+            <Field
+              label="Scheduled publish time"
+              value={form.releaseScheduledPublishAt}
+              onChange={(value) => update('releaseScheduledPublishAt', value)}
+              placeholder="2026-06-20T10:00:00Z"
+            />
+            <TextArea
+              label="Public summary"
+              value={form.releasePublicSummary}
+              onChange={(value) => update('releasePublicSummary', value)}
+            />
+            <TextArea
+              label="Internal release notes"
+              value={form.releaseInternalNotes}
+              onChange={(value) => update('releaseInternalNotes', value)}
+            />
+            <button type="submit" disabled={creatingReleasePlan || !form.releasePacketId} className="pib-btn-primary w-full">
+              {creatingReleasePlan ? 'Creating...' : 'Create release plan'}
+            </button>
+          </form>
+
           <form onSubmit={importAnalytics} className="pib-card-section space-y-4 p-5">
             <h2 className="font-headline font-bold text-on-surface">Import analytics</h2>
             <label className="block text-sm">
@@ -1197,6 +1358,18 @@ function packetGateEntries(packet: YouTubePublishingPacket) {
   ]>
 }
 
+function releasePlanTitle(plan: YouTubeReleasePlan, packets: YouTubePublishingPacket[]) {
+  const packet = packets.find((item) => item.id === plan.publishingPacketId)
+  return packet ? packetTitle(packet) : 'YouTube release plan'
+}
+
+function releasePlanGateEntries(plan: YouTubeReleasePlan) {
+  return Object.entries(plan.checks ?? {}) as Array<[
+    keyof YouTubeReleasePlan['checks'],
+    YouTubeReleasePlan['checks'][keyof YouTubeReleasePlan['checks']],
+  ]>
+}
+
 function packetStatusNotice(status: Exclude<YouTubePublishingPacket['status'], 'published'>) {
   if (status === 'client_review') return 'Publishing packet sent to the client portal.'
   if (status === 'approved') return 'Publishing packet approved.'
@@ -1213,12 +1386,14 @@ function Field({
   label,
   value,
   onChange,
+  placeholder,
   required,
   type = 'text',
 }: {
   label: string
   value: string
   onChange: (value: string) => void
+  placeholder?: string
   required?: boolean
   type?: 'date' | 'number' | 'text'
 }) {
@@ -1229,6 +1404,7 @@ function Field({
         type={type}
         required={required}
         value={value}
+        placeholder={placeholder}
         onChange={(event) => onChange(event.target.value)}
         className="mt-1 w-full rounded-lg border border-[var(--color-outline-variant)] bg-[var(--color-surface)] px-3 py-2 text-sm"
       />
