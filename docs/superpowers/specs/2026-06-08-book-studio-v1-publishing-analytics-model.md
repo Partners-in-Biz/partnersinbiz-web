@@ -5,12 +5,15 @@
 **Authoritative dossier:** `docs/superpowers/specs/2026-06-07-book-studio-research-dossier.md`
 **Decision packet:** `docs/superpowers/specs/2026-06-08-book-studio-v1-approval-packet.md`
 **Workflow map:** `docs/superpowers/specs/2026-06-08-book-studio-v1-platform-workflow-map.md`
+**Production package QA model:** `docs/superpowers/specs/2026-06-08-book-studio-v1-production-package-qa-model.md`
 
 ## Purpose
 
 This model extracts the publishing and analytics parts of Book Studio V1 into one review surface. It explains how PiB should move from a reviewed book package to KDP/Google manual handoff, then from external reports to trustworthy client-safe analytics.
 
 This file does not create records, routes, APIs, components, direct publishing integrations, report parsers, or a Phase 1 implementation plan.
+
+The companion production package QA model defines what "reviewed book package" means before a packet can claim manual-handoff readiness.
 
 ## V1 Publishing Posture
 
