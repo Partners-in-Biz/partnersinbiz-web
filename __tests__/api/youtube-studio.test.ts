@@ -1,4 +1,5 @@
 import { NextRequest } from 'next/server'
+import type { ApiUser } from '@/lib/api/types'
 
 const mockCollection = jest.fn()
 const mockWhere = jest.fn()
@@ -11,12 +12,14 @@ const mockBatch = jest.fn()
 const mockBatchSet = jest.fn()
 const mockBatchCommit = jest.fn()
 
+type MockAuthHandler = (req: NextRequest, user: ApiUser, context?: unknown) => Promise<Response>
+
 jest.mock('@/lib/firebase/admin', () => ({
   adminDb: { collection: mockCollection, batch: mockBatch },
 }))
 
 jest.mock('@/lib/api/auth', () => ({
-  withAuth: (_role: string, handler: any) => (req: NextRequest, ctx?: any) =>
+  withAuth: (_role: string, handler: MockAuthHandler) => (req: NextRequest, ctx?: unknown) =>
     handler(req, { uid: 'admin-1', role: 'admin' }, ctx),
 }))
 
