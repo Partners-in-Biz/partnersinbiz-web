@@ -75,6 +75,39 @@ const portalData = {
         },
       },
     ],
+    sourceAssets: [
+      {
+        id: 'asset-1',
+        videoProjectId: 'video-1',
+        title: 'Launch interview raw footage',
+        assetType: 'raw_footage',
+        status: 'ready',
+        durationSeconds: 960,
+        mediaFormat: 'horizontal',
+        sourceUrl: 'https://client.example/raw-interview',
+        clientNotes: 'Client supplied launch interview footage.',
+        rights: { status: 'needs_review', owner: 'Acme Team', license: 'Client supplied footage' },
+      },
+    ],
+    clipCandidates: [
+      {
+        id: 'clip-1',
+        sourceAssetId: 'asset-1',
+        videoProjectId: 'video-1',
+        title: 'Strong customer proof moment',
+        summary: 'Client explains the measurable result.',
+        startSeconds: 120,
+        endSeconds: 178,
+        targetFormat: 'vertical_short',
+        status: 'suggested',
+        hook: 'We cut reporting time in half.',
+        transcriptExcerpt: 'We cut reporting time in half after the launch.',
+        checks: {
+          rights: { status: 'warning' },
+          aiDisclosure: { status: 'warning' },
+        },
+      },
+    ],
     analytics: [],
   },
 }
@@ -163,6 +196,22 @@ describe('YouTubeStudioPortalWorkspace module availability', () => {
     expect(screen.getByText('scheduled for 2026-06-20T10:00:00Z')).toBeInTheDocument()
     expect(screen.getByText('approved packet: pass')).toBeInTheDocument()
     expect(screen.queryByText('secret-execution-job')).not.toBeInTheDocument()
+  })
+
+  it('renders client-facing source asset and clip candidate summaries', async () => {
+    global.fetch = jest.fn().mockResolvedValue(jsonResponse(portalData))
+
+    render(<YouTubeStudioPortalWorkspace />)
+
+    expect(await screen.findByText('Launch interview raw footage')).toBeInTheDocument()
+    expect(screen.getByText('raw footage / ready / 960s')).toBeInTheDocument()
+    expect(screen.getByText('Client supplied launch interview footage.')).toBeInTheDocument()
+    expect(screen.getByText('rights: needs review')).toBeInTheDocument()
+    expect(screen.getByText('Strong customer proof moment')).toBeInTheDocument()
+    expect(screen.getByText('120s-178s / vertical short / suggested')).toBeInTheDocument()
+    expect(screen.getByText('Client explains the measurable result.')).toBeInTheDocument()
+    expect(screen.getByText('We cut reporting time in half after the launch.')).toBeInTheDocument()
+    expect(screen.queryByText('Operator-only')).not.toBeInTheDocument()
   })
 
   it('sends a portal publishing packet decision from the client workspace', async () => {
@@ -629,6 +678,152 @@ describe('YouTubeStudioPortalWorkspace module availability', () => {
     })
   })
 
+  it('posts source assets and clip candidates from the admin workspace', async () => {
+    const fetchMock = jest.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      if (url === '/api/v1/youtube-studio/source-assets' && init?.method === 'POST') {
+        return jsonResponse({ success: true, data: { id: 'asset-new' } })
+      }
+      if (url === '/api/v1/youtube-studio/clip-candidates' && init?.method === 'POST') {
+        return jsonResponse({ success: true, data: { id: 'clip-new' } })
+      }
+      if (url.includes('/channels')) {
+        return jsonResponse({
+          success: true,
+          data: {
+            channels: [
+              {
+                id: 'channel-1',
+                title: 'Lumen Channel',
+                status: 'active',
+                youtubeHandle: '@lumen',
+              },
+            ],
+          },
+        })
+      }
+      if (url.includes('/series')) return jsonResponse({ success: true, data: { series: [] } })
+      if (url.includes('/videos')) {
+        return jsonResponse({
+          success: true,
+          data: {
+            videos: [
+              {
+                id: 'video-1',
+                channelWorkspaceId: 'channel-1',
+                title: 'Draft launch cut',
+                status: 'production',
+                objective: 'Prepare launch',
+                videoType: 'long_form',
+              },
+            ],
+          },
+        })
+      }
+      if (url.includes('/source-assets')) {
+        return jsonResponse({
+          success: true,
+          data: {
+            sourceAssets: [
+              {
+                id: 'asset-1',
+                channelWorkspaceId: 'channel-1',
+                videoProjectId: 'video-1',
+                title: 'Launch interview raw footage',
+                assetType: 'raw_footage',
+                status: 'ready',
+                durationSeconds: 960,
+              },
+            ],
+          },
+        })
+      }
+      if (url.includes('/clip-candidates')) return jsonResponse({ success: true, data: { clipCandidates: [] } })
+      if (url.includes('/publish-packets')) return jsonResponse({ success: true, data: { packets: [] } })
+      if (url.includes('/release-plans')) return jsonResponse({ success: true, data: { releasePlans: [] } })
+      if (url.includes('/agent-jobs')) return jsonResponse({ success: true, data: { jobs: [] } })
+      if (url.includes('/analytics')) return jsonResponse({ success: true, data: { snapshots: [] } })
+      return jsonResponse({ success: true })
+    })
+    global.fetch = fetchMock as jest.Mock
+
+    render(<YouTubeStudioAdminWorkspace orgId="lumen-org" orgName="Lumen" />)
+
+    const addAssetButton = await screen.findByRole('button', { name: 'Add source asset' })
+    const assetForm = within(addAssetButton.closest('form') as HTMLElement)
+
+    fireEvent.change(assetForm.getByLabelText('Asset channel'), { target: { value: 'channel-1' } })
+    fireEvent.change(assetForm.getByLabelText('Asset video'), { target: { value: 'video-1' } })
+    fireEvent.change(assetForm.getByLabelText('Asset title'), { target: { value: 'Launch interview raw footage' } })
+    fireEvent.change(assetForm.getByLabelText('Asset type'), { target: { value: 'raw_footage' } })
+    fireEvent.change(assetForm.getByLabelText('Asset URL'), { target: { value: 'https://client.example/raw-interview' } })
+    fireEvent.change(assetForm.getByLabelText('Duration seconds'), { target: { value: '960' } })
+    fireEvent.change(assetForm.getByLabelText('Client asset notes'), { target: { value: 'Client supplied launch interview footage.' } })
+    fireEvent.click(assetForm.getByLabelText('Show asset in portal'))
+    fireEvent.click(addAssetButton)
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        '/api/v1/youtube-studio/source-assets',
+        expect.objectContaining({ method: 'POST' }),
+      )
+    })
+    const assetPost = fetchMock.mock.calls.find(([input, init]) => (
+      String(input) === '/api/v1/youtube-studio/source-assets' &&
+      init?.method === 'POST'
+    ))
+    expect(JSON.parse(String(assetPost?.[1]?.body))).toMatchObject({
+      orgId: 'lumen-org',
+      channelWorkspaceId: 'channel-1',
+      videoProjectId: 'video-1',
+      title: 'Launch interview raw footage',
+      assetType: 'raw_footage',
+      sourceUrl: 'https://client.example/raw-interview',
+      durationSeconds: 960,
+      clientNotes: 'Client supplied launch interview footage.',
+      visibility: { showInClientPortal: true },
+    })
+
+    const createClipButton = await screen.findByRole('button', { name: 'Create clip candidate' })
+    const clipForm = within(createClipButton.closest('form') as HTMLElement)
+
+    fireEvent.change(clipForm.getByLabelText('Clip source asset'), { target: { value: 'asset-1' } })
+    fireEvent.change(clipForm.getByLabelText('Clip video'), { target: { value: 'video-1' } })
+    fireEvent.change(clipForm.getByLabelText('Clip title'), { target: { value: 'Strong customer proof moment' } })
+    fireEvent.change(clipForm.getByLabelText('Start'), { target: { value: '02:00' } })
+    fireEvent.change(clipForm.getByLabelText('End'), { target: { value: '02:58' } })
+    fireEvent.change(clipForm.getByLabelText('Target format'), { target: { value: 'vertical_short' } })
+    fireEvent.change(clipForm.getByLabelText('Clip summary'), { target: { value: 'Client explains the measurable result.' } })
+    fireEvent.change(clipForm.getByLabelText('Clip hook'), { target: { value: 'We cut reporting time in half.' } })
+    fireEvent.change(clipForm.getByLabelText('Clip transcript excerpt'), { target: { value: 'We cut reporting time in half after the launch.' } })
+    fireEvent.click(clipForm.getByLabelText('Show clip in portal'))
+    fireEvent.click(createClipButton)
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        '/api/v1/youtube-studio/clip-candidates',
+        expect.objectContaining({ method: 'POST' }),
+      )
+    })
+    const clipPost = fetchMock.mock.calls.find(([input, init]) => (
+      String(input) === '/api/v1/youtube-studio/clip-candidates' &&
+      init?.method === 'POST'
+    ))
+    expect(JSON.parse(String(clipPost?.[1]?.body))).toMatchObject({
+      orgId: 'lumen-org',
+      sourceAssetId: 'asset-1',
+      videoProjectId: 'video-1',
+      title: 'Strong customer proof moment',
+      startSeconds: 120,
+      endSeconds: 178,
+      targetFormat: 'vertical_short',
+      summary: 'Client explains the measurable result.',
+      hook: 'We cut reporting time in half.',
+      transcriptExcerpt: 'We cut reporting time in half after the launch.',
+      visibility: { showInClientPortal: true },
+    })
+  })
+
   it('ignores stale admin save completions after the scoped org changes', async () => {
     let resolveSave: (value: Response) => void = () => undefined
     const savePromise = new Promise<Response>((resolve) => {
@@ -664,7 +859,7 @@ describe('YouTubeStudioPortalWorkspace module availability', () => {
     const { rerender } = render(<YouTubeStudioAdminWorkspace orgId="lumen-org" orgName="Lumen" />)
 
     await waitFor(() => {
-      expect(fetchMock.mock.calls.filter(([input]) => String(input).includes('lumen-org'))).toHaveLength(7)
+      expect(fetchMock.mock.calls.filter(([input]) => String(input).includes('lumen-org'))).toHaveLength(9)
     })
 
     const channelTitleField = await screen.findByLabelText('Channel title')
@@ -750,7 +945,7 @@ describe('YouTubeStudioPortalWorkspace module availability', () => {
 
     const { rerender } = render(<YouTubeStudioAdminWorkspace orgId="lumen-org" orgName="Lumen" />)
     await waitFor(() => {
-      expect(fetchMock.mock.calls.filter(([input]) => String(input).includes('lumen-org'))).toHaveLength(7)
+      expect(fetchMock.mock.calls.filter(([input]) => String(input).includes('lumen-org'))).toHaveLength(9)
     })
 
     rerender(<YouTubeStudioAdminWorkspace orgId="velox-org" orgName="Velox" />)

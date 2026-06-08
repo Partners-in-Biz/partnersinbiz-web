@@ -16,6 +16,9 @@ import type {
   YouTubeApprovalPolicy,
   YouTubeChannelStatus,
   YouTubeChannelWorkspace,
+  YouTubeClipCandidate,
+  YouTubeClipCandidateStatus,
+  YouTubeClipTargetFormat,
   YouTubeConnectedAccountStatus,
   YouTubeGateCheck,
   YouTubeGateStatus,
@@ -31,6 +34,10 @@ import type {
   YouTubeSeriesCadence,
   YouTubeSeriesFormat,
   YouTubeSeriesStatus,
+  YouTubeSourceAsset,
+  YouTubeSourceAssetMediaFormat,
+  YouTubeSourceAssetStatus,
+  YouTubeSourceAssetType,
   YouTubeSourceType,
   YouTubeVideoProject,
   YouTubeVideoStatus,
@@ -75,6 +82,55 @@ const VIDEO_STATUSES: YouTubeVideoStatus[] = [
   'archived',
 ]
 const SOURCE_TYPES: YouTubeSourceType[] = ['raw_footage', 'source_url', 'transcript', 'research', 'client_request', 'manual']
+const SOURCE_ASSET_TYPES: YouTubeSourceAssetType[] = [
+  'raw_footage',
+  'source_url',
+  'transcript',
+  'thumbnail',
+  'audio',
+  'caption',
+  'broll',
+  'image',
+  'document',
+  'rendered_video',
+]
+const SOURCE_ASSET_STATUSES: YouTubeSourceAssetStatus[] = [
+  'intake',
+  'processing',
+  'ready',
+  'needs_rights_review',
+  'blocked',
+  'archived',
+]
+const SOURCE_ASSET_MEDIA_FORMATS: YouTubeSourceAssetMediaFormat[] = [
+  'horizontal',
+  'vertical',
+  'square',
+  'audio',
+  'document',
+  'unknown',
+]
+const SOURCE_ASSET_RIGHT_STATUSES: Array<NonNullable<NonNullable<YouTubeSourceAsset['rights']>['status']>> = [
+  'unknown',
+  'cleared',
+  'needs_review',
+  'blocked',
+]
+const CLIP_CANDIDATE_STATUSES: YouTubeClipCandidateStatus[] = [
+  'suggested',
+  'selected',
+  'rejected',
+  'needs_review',
+  'exported',
+  'archived',
+]
+const CLIP_TARGET_FORMATS: YouTubeClipTargetFormat[] = [
+  'vertical_short',
+  'square_short',
+  'long_form_excerpt',
+  'ad_cutdown',
+  'testimonial_cut',
+]
 const CLIENT_REVIEW_STATUSES = ['not_requested', 'requested', 'approved', 'changes_requested', 'rejected'] as const
 const PACKET_STATUSES: YouTubePublishingPacket['status'][] = [
   'draft',
@@ -150,6 +206,7 @@ type RawInput = Record<string, unknown>
 type PacketReviewCheckKey = Exclude<keyof YouTubePublishingPacket['checks'], 'connectedAccount'>
 type ClientSafePacketTitleOption = YouTubePublishingPacket['titleOptions'][number]
 type ClientSafePacketChapter = YouTubePublishingPacket['chapters'][number]
+type ClientSafeSourceAssetRights = Pick<NonNullable<YouTubeSourceAsset['rights']>, 'status' | 'owner' | 'license'>
 
 export type ClientSafeYouTubeChannelWorkspace = {
   id?: string
@@ -273,6 +330,48 @@ export type ClientSafeYouTubeReleasePlan = Pick<
     privateFirst?: ClientSafeYouTubeGateCheck
     clientConfirmation?: ClientSafeYouTubeGateCheck
     scheduleWindow?: ClientSafeYouTubeGateCheck
+  }
+}
+
+export type ClientSafeYouTubeSourceAsset = Pick<
+  YouTubeSourceAsset,
+  | 'id'
+  | 'orgId'
+  | 'channelWorkspaceId'
+  | 'videoProjectId'
+  | 'seriesId'
+  | 'title'
+  | 'description'
+  | 'assetType'
+  | 'status'
+  | 'durationSeconds'
+  | 'mediaFormat'
+  | 'sourceUrl'
+  | 'transcriptAssetId'
+  | 'clientNotes'
+> & {
+  rights?: ClientSafeSourceAssetRights
+}
+
+export type ClientSafeYouTubeClipCandidate = Pick<
+  YouTubeClipCandidate,
+  | 'id'
+  | 'orgId'
+  | 'channelWorkspaceId'
+  | 'videoProjectId'
+  | 'sourceAssetId'
+  | 'title'
+  | 'summary'
+  | 'startSeconds'
+  | 'endSeconds'
+  | 'targetFormat'
+  | 'status'
+  | 'hook'
+  | 'transcriptExcerpt'
+> & {
+  checks: {
+    rights?: ClientSafeYouTubeGateCheck
+    aiDisclosure?: ClientSafeYouTubeGateCheck
   }
 }
 
@@ -586,6 +685,93 @@ export function sanitizeYouTubeAgentJobInput(
   })
 }
 
+function sanitizeSourceAssetRights(input: unknown): YouTubeSourceAsset['rights'] | undefined {
+  const source = cleanObject(input)
+  if (!Object.keys(source).length) return undefined
+
+  return stripUndefinedDeep({
+    status: pick(SOURCE_ASSET_RIGHT_STATUSES, source.status, 'unknown'),
+    owner: cleanString(source.owner),
+    license: cleanString(source.license),
+    notes: cleanString(source.notes),
+  })
+}
+
+export function sanitizeYouTubeSourceAssetInput(
+  input: RawInput
+): Omit<YouTubeSourceAsset, 'id' | 'createdAt' | 'updatedAt' | 'createdBy' | 'createdByType' | 'updatedBy' | 'updatedByType'> {
+  const visibility = cleanObject(input.visibility)
+
+  return stripUndefinedDeep({
+    orgId: cleanString(input.orgId) ?? '',
+    channelWorkspaceId: cleanString(input.channelWorkspaceId) ?? '',
+    videoProjectId: cleanString(input.videoProjectId),
+    seriesId: cleanString(input.seriesId),
+    title: cleanString(input.title) ?? 'Untitled source asset',
+    description: cleanString(input.description),
+    assetType: pick(SOURCE_ASSET_TYPES, input.assetType, 'raw_footage'),
+    status: pick(SOURCE_ASSET_STATUSES, input.status, 'ready'),
+    durationSeconds: cleanNonNegativeNumber(input.durationSeconds),
+    mediaFormat: pick(SOURCE_ASSET_MEDIA_FORMATS, input.mediaFormat, 'unknown'),
+    sourceUrl: cleanString(input.sourceUrl),
+    storagePath: cleanString(input.storagePath),
+    transcriptText: cleanString(input.transcriptText),
+    transcriptAssetId: cleanString(input.transcriptAssetId),
+    rights: sanitizeSourceAssetRights(input.rights),
+    visibility: {
+      showInClientPortal: visibility.showInClientPortal === true,
+      showTranscriptInPortal: visibility.showTranscriptInPortal === true,
+    },
+    internalNotes: cleanString(input.internalNotes),
+    clientNotes: cleanString(input.clientNotes),
+    deleted: input.deleted === true,
+  })
+}
+
+function sanitizeClipCandidateChecks(input: unknown): YouTubeClipCandidate['checks'] {
+  const source = cleanObject(input)
+
+  return {
+    rights: stripUndefinedDeep({
+      status: pick(GATE_STATUSES, cleanObject(source.rights).status, 'warning'),
+      message: cleanString(cleanObject(source.rights).message) ?? 'Rights review required before this clip can be released.',
+    }),
+    aiDisclosure: stripUndefinedDeep({
+      status: pick(GATE_STATUSES, cleanObject(source.aiDisclosure).status, 'warning'),
+      message: cleanString(cleanObject(source.aiDisclosure).message) ?? 'AI disclosure review required before this clip can be released.',
+    }),
+  }
+}
+
+export function sanitizeYouTubeClipCandidateInput(
+  input: RawInput
+): Omit<YouTubeClipCandidate, 'id' | 'createdAt' | 'updatedAt' | 'createdBy' | 'createdByType' | 'updatedBy' | 'updatedByType'> {
+  const visibility = cleanObject(input.visibility)
+
+  return stripUndefinedDeep({
+    orgId: cleanString(input.orgId) ?? '',
+    channelWorkspaceId: cleanString(input.channelWorkspaceId) ?? '',
+    videoProjectId: cleanString(input.videoProjectId),
+    sourceAssetId: cleanString(input.sourceAssetId) ?? '',
+    title: cleanString(input.title) ?? 'Untitled clip candidate',
+    summary: cleanString(input.summary),
+    startSeconds: cleanNonNegativeNumber(input.startSeconds) ?? 0,
+    endSeconds: cleanNonNegativeNumber(input.endSeconds) ?? 0,
+    targetFormat: pick(CLIP_TARGET_FORMATS, input.targetFormat, 'vertical_short'),
+    status: pick(CLIP_CANDIDATE_STATUSES, input.status, 'suggested'),
+    score: cleanNonNegativeNumber(input.score),
+    hook: cleanString(input.hook),
+    rationale: cleanString(input.rationale),
+    transcriptExcerpt: cleanString(input.transcriptExcerpt),
+    checks: sanitizeClipCandidateChecks(input.checks),
+    visibility: {
+      showInClientPortal: visibility.showInClientPortal === true,
+    },
+    internalNotes: cleanString(input.internalNotes),
+    deleted: input.deleted === true,
+  })
+}
+
 function sanitizeYouTubeAnalyticsMetrics(input: unknown): YouTubeAnalyticsMetrics {
   const source = cleanObject(input)
 
@@ -868,6 +1054,61 @@ export function clientSafeYouTubeReleasePlan(plan: YouTubeReleasePlan): ClientSa
       privateFirst: clientSafeGateCheck(checks.privateFirst),
       clientConfirmation: clientSafeGateCheck(checks.clientConfirmation),
       scheduleWindow: clientSafeGateCheck(checks.scheduleWindow),
+    },
+  })
+}
+
+function clientSafeSourceAssetRights(rights: unknown): ClientSafeSourceAssetRights | undefined {
+  const source = cleanObject(rights)
+  if (!Object.keys(source).length) return undefined
+
+  return stripUndefinedDeep({
+    status: pick(SOURCE_ASSET_RIGHT_STATUSES, source.status, 'unknown'),
+    owner: cleanString(source.owner),
+    license: cleanString(source.license),
+  })
+}
+
+export function clientSafeYouTubeSourceAsset(asset: YouTubeSourceAsset): ClientSafeYouTubeSourceAsset {
+  return stripUndefinedDeep({
+    id: cleanString(asset.id),
+    orgId: cleanString(asset.orgId) ?? '',
+    channelWorkspaceId: cleanString(asset.channelWorkspaceId) ?? '',
+    videoProjectId: cleanString(asset.videoProjectId),
+    seriesId: cleanString(asset.seriesId),
+    title: cleanString(asset.title) ?? 'Untitled source asset',
+    description: cleanString(asset.description),
+    assetType: pick(SOURCE_ASSET_TYPES, asset.assetType, 'raw_footage'),
+    status: pick(SOURCE_ASSET_STATUSES, asset.status, 'intake'),
+    durationSeconds: cleanNonNegativeNumber(asset.durationSeconds),
+    mediaFormat: pick(SOURCE_ASSET_MEDIA_FORMATS, asset.mediaFormat, 'unknown'),
+    sourceUrl: cleanString(asset.sourceUrl),
+    transcriptAssetId: cleanString(asset.transcriptAssetId),
+    rights: clientSafeSourceAssetRights(asset.rights),
+    clientNotes: cleanString(asset.clientNotes),
+  })
+}
+
+export function clientSafeYouTubeClipCandidate(clip: YouTubeClipCandidate): ClientSafeYouTubeClipCandidate {
+  const checks = cleanObject(clip.checks)
+
+  return stripUndefinedDeep({
+    id: cleanString(clip.id),
+    orgId: cleanString(clip.orgId) ?? '',
+    channelWorkspaceId: cleanString(clip.channelWorkspaceId) ?? '',
+    videoProjectId: cleanString(clip.videoProjectId),
+    sourceAssetId: cleanString(clip.sourceAssetId) ?? '',
+    title: cleanString(clip.title) ?? 'Untitled clip candidate',
+    summary: cleanString(clip.summary),
+    startSeconds: cleanNonNegativeNumber(clip.startSeconds) ?? 0,
+    endSeconds: cleanNonNegativeNumber(clip.endSeconds) ?? 0,
+    targetFormat: pick(CLIP_TARGET_FORMATS, clip.targetFormat, 'vertical_short'),
+    status: pick(CLIP_CANDIDATE_STATUSES, clip.status, 'suggested'),
+    hook: cleanString(clip.hook),
+    transcriptExcerpt: cleanString(clip.transcriptExcerpt),
+    checks: {
+      rights: clientSafeGateCheck(checks.rights),
+      aiDisclosure: clientSafeGateCheck(checks.aiDisclosure),
     },
   })
 }

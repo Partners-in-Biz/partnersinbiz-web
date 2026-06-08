@@ -1603,4 +1603,312 @@ describe('youtube studio admin API', () => {
     expect(body.error).toMatch(errorPattern)
     expect(mockAdd).not.toHaveBeenCalled()
   })
+
+  it('lists source assets for an org and filters by video project', async () => {
+    stageFirestore({
+      youtube_source_assets: {
+        listDocs: [
+          {
+            id: 'asset-1',
+            data: {
+              orgId: 'org-1',
+              channelWorkspaceId: 'channel-1',
+              videoProjectId: 'video-1',
+              title: 'Launch interview raw footage',
+              assetType: 'raw_footage',
+              status: 'ready',
+              deleted: false,
+            },
+          },
+          {
+            id: 'asset-hidden',
+            data: {
+              orgId: 'org-1',
+              channelWorkspaceId: 'channel-1',
+              videoProjectId: 'video-1',
+              title: 'Deleted asset',
+              assetType: 'raw_footage',
+              status: 'ready',
+              deleted: true,
+            },
+          },
+          {
+            id: 'asset-other-video',
+            data: {
+              orgId: 'org-1',
+              channelWorkspaceId: 'channel-1',
+              videoProjectId: 'video-2',
+              title: 'Other video raw footage',
+              assetType: 'raw_footage',
+              status: 'ready',
+              deleted: false,
+            },
+          },
+        ],
+      },
+    })
+
+    const { GET } = await import('@/app/api/v1/youtube-studio/source-assets/route')
+    const res = await GET(new NextRequest('http://localhost/api/v1/youtube-studio/source-assets?orgId=org-1&videoProjectId=video-1'))
+    const body = await res.json()
+
+    expect(res.status).toBe(200)
+    expect(mockWhere).toHaveBeenCalledWith('orgId', '==', 'org-1')
+    expect(body.data.sourceAssets.map((asset: { id: string }) => asset.id)).toEqual(['asset-1'])
+  })
+
+  it('creates a source asset with sanitized rights and actor fields', async () => {
+    stageFirestore({
+      youtube_channel_workspaces: {
+        docs: {
+          'channel-1': {
+            id: 'channel-1',
+            data: { orgId: 'org-1', title: 'Acme', deleted: false },
+          },
+        },
+      },
+      youtube_video_projects: {
+        docs: {
+          'video-1': {
+            id: 'video-1',
+            data: { orgId: 'org-1', channelWorkspaceId: 'channel-1', title: 'Launch', deleted: false },
+          },
+        },
+      },
+      youtube_source_assets: {},
+    })
+
+    const { POST } = await import('@/app/api/v1/youtube-studio/source-assets/route')
+    const res = await POST(new NextRequest('http://localhost/api/v1/youtube-studio/source-assets', {
+      method: 'POST',
+      body: JSON.stringify({
+        orgId: 'org-1',
+        channelWorkspaceId: 'channel-1',
+        videoProjectId: 'video-1',
+        title: ' Launch interview raw footage ',
+        assetType: 'raw_footage',
+        status: 'exported',
+        durationSeconds: 960,
+        mediaFormat: 'horizontal',
+        storagePath: 'gs://private-bucket/acme/raw.mp4',
+        transcriptText: 'Internal transcript should stay operator-side.',
+        rights: {
+          status: 'needs_review',
+          owner: ' Acme Team ',
+          license: ' Client supplied footage ',
+          notes: ' Confirm speaker consent. ',
+        },
+        visibility: { showInClientPortal: true, showTranscriptInPortal: true },
+        internalNotes: 'Operator clipping notes.',
+        deleted: true,
+      }),
+    }))
+    const body = await res.json()
+
+    expect(res.status).toBe(201)
+    expect(body.data.id).toBe('new-id')
+    expect(mockAdd).toHaveBeenCalledWith(expect.objectContaining({
+      orgId: 'org-1',
+      channelWorkspaceId: 'channel-1',
+      videoProjectId: 'video-1',
+      title: 'Launch interview raw footage',
+      assetType: 'raw_footage',
+      status: 'ready',
+      durationSeconds: 960,
+      mediaFormat: 'horizontal',
+      storagePath: 'gs://private-bucket/acme/raw.mp4',
+      transcriptText: 'Internal transcript should stay operator-side.',
+      rights: {
+        status: 'needs_review',
+        owner: 'Acme Team',
+        license: 'Client supplied footage',
+        notes: 'Confirm speaker consent.',
+      },
+      visibility: { showInClientPortal: true, showTranscriptInPortal: true },
+      internalNotes: 'Operator clipping notes.',
+      deleted: false,
+      createdBy: 'admin-1',
+      createdByType: 'user',
+      updatedBy: 'admin-1',
+      updatedByType: 'user',
+      createdAt: 'SERVER_TS',
+      updatedAt: 'SERVER_TS',
+    }))
+  })
+
+  it('rejects source asset creation when the linked video belongs to another channel', async () => {
+    stageFirestore({
+      youtube_channel_workspaces: {
+        docs: {
+          'channel-1': {
+            id: 'channel-1',
+            data: { orgId: 'org-1', title: 'Acme', deleted: false },
+          },
+        },
+      },
+      youtube_video_projects: {
+        docs: {
+          'video-1': {
+            id: 'video-1',
+            data: { orgId: 'org-1', channelWorkspaceId: 'channel-2', title: 'Other channel', deleted: false },
+          },
+        },
+      },
+      youtube_source_assets: {},
+    })
+
+    const { POST } = await import('@/app/api/v1/youtube-studio/source-assets/route')
+    const res = await POST(new NextRequest('http://localhost/api/v1/youtube-studio/source-assets', {
+      method: 'POST',
+      body: JSON.stringify({
+        orgId: 'org-1',
+        channelWorkspaceId: 'channel-1',
+        videoProjectId: 'video-1',
+        title: 'Launch raw footage',
+      }),
+    }))
+    const body = await res.json()
+
+    expect(res.status).toBe(400)
+    expect(body.error).toMatch(/videoProjectId/i)
+    expect(mockAdd).not.toHaveBeenCalled()
+  })
+
+  it('creates a clip candidate from a source asset with review-safe defaults', async () => {
+    stageFirestore({
+      youtube_source_assets: {
+        docs: {
+          'asset-1': {
+            id: 'asset-1',
+            data: {
+              orgId: 'org-1',
+              channelWorkspaceId: 'channel-1',
+              videoProjectId: 'video-1',
+              title: 'Launch interview raw footage',
+              assetType: 'raw_footage',
+              durationSeconds: 960,
+              deleted: false,
+            },
+          },
+        },
+      },
+      youtube_video_projects: {
+        docs: {
+          'video-1': {
+            id: 'video-1',
+            data: { orgId: 'org-1', channelWorkspaceId: 'channel-1', title: 'Launch', deleted: false },
+          },
+        },
+      },
+      youtube_clip_candidates: {},
+    })
+
+    const { POST } = await import('@/app/api/v1/youtube-studio/clip-candidates/route')
+    const res = await POST(new NextRequest('http://localhost/api/v1/youtube-studio/clip-candidates', {
+      method: 'POST',
+      body: JSON.stringify({
+        orgId: 'org-1',
+        sourceAssetId: 'asset-1',
+        videoProjectId: 'video-1',
+        title: ' Strong customer proof moment ',
+        summary: 'Client explains the measurable result.',
+        startSeconds: 120,
+        endSeconds: 178,
+        targetFormat: 'vertical_short',
+        score: 0.87,
+        hook: 'We cut reporting time in half.',
+        rationale: 'Clear outcome and strong hook.',
+        transcriptExcerpt: 'We cut reporting time in half after the launch.',
+        status: 'exported',
+        visibility: { showInClientPortal: true },
+        internalNotes: 'Operator should cut before the filler phrase.',
+        deleted: true,
+      }),
+    }))
+    const body = await res.json()
+
+    expect(res.status).toBe(201)
+    expect(body.data.id).toBe('new-id')
+    expect(mockAdd).toHaveBeenCalledWith(expect.objectContaining({
+      orgId: 'org-1',
+      channelWorkspaceId: 'channel-1',
+      sourceAssetId: 'asset-1',
+      videoProjectId: 'video-1',
+      title: 'Strong customer proof moment',
+      summary: 'Client explains the measurable result.',
+      startSeconds: 120,
+      endSeconds: 178,
+      targetFormat: 'vertical_short',
+      score: 0.87,
+      hook: 'We cut reporting time in half.',
+      rationale: 'Clear outcome and strong hook.',
+      transcriptExcerpt: 'We cut reporting time in half after the launch.',
+      status: 'suggested',
+      visibility: { showInClientPortal: true },
+      internalNotes: 'Operator should cut before the filler phrase.',
+      checks: {
+        rights: { status: 'warning', message: 'Rights review required before this clip can be released.' },
+        aiDisclosure: { status: 'warning', message: 'AI disclosure review required before this clip can be released.' },
+      },
+      deleted: false,
+      createdBy: 'admin-1',
+      createdByType: 'user',
+      updatedBy: 'admin-1',
+      updatedByType: 'user',
+      createdAt: 'SERVER_TS',
+      updatedAt: 'SERVER_TS',
+    }))
+  })
+
+  it.each([
+    ['invalid time range', { startSeconds: 180, endSeconds: 120 }, /endSeconds/i],
+    ['range outside source duration', { startSeconds: 900, endSeconds: 1000 }, /duration/i],
+    ['mismatched video relationship', { videoProjectId: 'video-2' }, /videoProjectId/i],
+  ])('rejects clip candidate creation with a %s', async (_label, bodyPatch, errorPattern) => {
+    stageFirestore({
+      youtube_source_assets: {
+        docs: {
+          'asset-1': {
+            id: 'asset-1',
+            data: {
+              orgId: 'org-1',
+              channelWorkspaceId: 'channel-1',
+              videoProjectId: 'video-1',
+              title: 'Launch interview raw footage',
+              assetType: 'raw_footage',
+              durationSeconds: 960,
+              deleted: false,
+            },
+          },
+        },
+      },
+      youtube_video_projects: {
+        docs: {
+          'video-2': {
+            id: 'video-2',
+            data: { orgId: 'org-1', channelWorkspaceId: 'channel-2', title: 'Other channel', deleted: false },
+          },
+        },
+      },
+      youtube_clip_candidates: {},
+    })
+
+    const { POST } = await import('@/app/api/v1/youtube-studio/clip-candidates/route')
+    const res = await POST(new NextRequest('http://localhost/api/v1/youtube-studio/clip-candidates', {
+      method: 'POST',
+      body: JSON.stringify({
+        orgId: 'org-1',
+        sourceAssetId: 'asset-1',
+        title: 'Customer proof moment',
+        startSeconds: 120,
+        endSeconds: 178,
+        ...bodyPatch,
+      }),
+    }))
+    const body = await res.json()
+
+    expect(res.status).toBe(400)
+    expect(body.error).toMatch(errorPattern)
+    expect(mockAdd).not.toHaveBeenCalled()
+  })
 })

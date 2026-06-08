@@ -4,9 +4,11 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type {
   YouTubeAnalyticsSnapshot,
   YouTubeChannelWorkspace,
+  YouTubeClipCandidate,
   YouTubePublishingPacket,
   YouTubeReleasePlan,
   YouTubeSeries,
+  YouTubeSourceAsset,
   YouTubeVideoProject,
 } from '@/lib/youtube-studio/types'
 import { YouTubeChannelCard, YouTubeVideoCard } from '@/components/youtube-studio/YouTubeStudioCards'
@@ -45,6 +47,8 @@ export function YouTubeStudioPortalWorkspace({ orgId }: YouTubeStudioPortalWorks
   const [videos, setVideos] = useState<YouTubeVideoProject[]>([])
   const [packets, setPackets] = useState<YouTubePublishingPacket[]>([])
   const [releasePlans, setReleasePlans] = useState<YouTubeReleasePlan[]>([])
+  const [sourceAssets, setSourceAssets] = useState<YouTubeSourceAsset[]>([])
+  const [clipCandidates, setClipCandidates] = useState<YouTubeClipCandidate[]>([])
   const [analytics, setAnalytics] = useState<YouTubeAnalyticsSnapshot[]>([])
   const [request, setRequest] = useState<RequestForm>(emptyRequest)
   const [reviewNotes, setReviewNotes] = useState<Record<string, string>>({})
@@ -84,6 +88,8 @@ export function YouTubeStudioPortalWorkspace({ orgId }: YouTubeStudioPortalWorks
         setVideos([])
         setPackets([])
         setReleasePlans([])
+        setSourceAssets([])
+        setClipCandidates([])
         setAnalytics([])
         setLoadNotice('')
         setActionNotice('')
@@ -96,6 +102,8 @@ export function YouTubeStudioPortalWorkspace({ orgId }: YouTubeStudioPortalWorks
       setVideos(Array.isArray(body.data?.videos) ? body.data.videos : [])
       setPackets(Array.isArray(body.data?.packets) ? body.data.packets : [])
       setReleasePlans(Array.isArray(body.data?.releasePlans) ? body.data.releasePlans : [])
+      setSourceAssets(Array.isArray(body.data?.sourceAssets) ? body.data.sourceAssets : [])
+      setClipCandidates(Array.isArray(body.data?.clipCandidates) ? body.data.clipCandidates : [])
       setAnalytics(Array.isArray(body.data?.analytics) ? body.data.analytics : [])
       if (!res.ok) {
         setLoadNotice(body.error ?? 'Could not load YouTube Studio.')
@@ -110,6 +118,8 @@ export function YouTubeStudioPortalWorkspace({ orgId }: YouTubeStudioPortalWorks
       setVideos([])
       setPackets([])
       setReleasePlans([])
+      setSourceAssets([])
+      setClipCandidates([])
       setAnalytics([])
       setLoadNotice('Could not load YouTube Studio.')
     } finally {
@@ -340,6 +350,56 @@ export function YouTubeStudioPortalWorkspace({ orgId }: YouTubeStudioPortalWorks
           </div>
 
           <div className="space-y-3">
+            <h2 className="font-headline text-xl font-semibold text-on-surface">Source assets</h2>
+            {sourceAssets.length === 0 ? (
+              <div className="pib-card-section p-5 text-sm text-on-surface-variant">No source assets are visible yet.</div>
+            ) : (
+              sourceAssets.map((asset) => (
+                <article key={asset.id ?? asset.title} className="pib-card-section space-y-3 p-4">
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <h3 className="break-words font-semibold text-on-surface">{asset.title}</h3>
+                      <p className="mt-1 text-sm text-on-surface-variant">{sourceAssetMeta(asset)}</p>
+                    </div>
+                  </div>
+                  {asset.clientNotes ? <p className="break-words text-sm text-on-surface-variant">{asset.clientNotes}</p> : null}
+                  {asset.rights?.status ? (
+                    <p className="break-words text-xs text-on-surface-variant">rights: {formatToken(asset.rights.status)}</p>
+                  ) : null}
+                </article>
+              ))
+            )}
+          </div>
+
+          <div className="space-y-3">
+            <h2 className="font-headline text-xl font-semibold text-on-surface">Clip candidates</h2>
+            {clipCandidates.length === 0 ? (
+              <div className="pib-card-section p-5 text-sm text-on-surface-variant">No clip candidates are visible yet.</div>
+            ) : (
+              clipCandidates.map((clip) => (
+                <article key={clip.id ?? `${clip.sourceAssetId}-${clip.startSeconds}`} className="pib-card-section space-y-3 p-4">
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <h3 className="break-words font-semibold text-on-surface">{clip.title}</h3>
+                      <p className="mt-1 text-sm text-on-surface-variant">{clipMeta(clip)}</p>
+                    </div>
+                  </div>
+                  {clip.summary ? <p className="break-words text-sm text-on-surface-variant">{clip.summary}</p> : null}
+                  {clip.hook ? <p className="break-words text-sm text-on-surface-variant">{clip.hook}</p> : null}
+                  {clip.transcriptExcerpt ? <p className="break-words text-xs text-on-surface-variant">{clip.transcriptExcerpt}</p> : null}
+                  <div className="grid gap-2 text-xs text-on-surface-variant sm:grid-cols-2">
+                    {clipGateEntries(clip).map(([key, check]) => (
+                      <span key={key} className="min-w-0 break-words">
+                        {formatToken(key)}: {formatToken(check?.status ?? 'not_applicable')}
+                      </span>
+                    ))}
+                  </div>
+                </article>
+              ))
+            )}
+          </div>
+
+          <div className="space-y-3">
             <h2 className="font-headline text-xl font-semibold text-on-surface">Publishing packets</h2>
             {packets.length === 0 ? (
               <div className="pib-card-section p-5 text-sm text-on-surface-variant">No publishing packets are ready for review yet.</div>
@@ -526,6 +586,23 @@ function Metric({ label, value, suffix = '' }: { label: string; value?: number; 
       {label}: {value === undefined ? 'not set' : `${value}${suffix}`}
     </span>
   )
+}
+
+function sourceAssetMeta(asset: YouTubeSourceAsset) {
+  const parts = [formatToken(asset.assetType), formatToken(asset.status)]
+  if (typeof asset.durationSeconds === 'number') parts.push(`${asset.durationSeconds}s`)
+  return parts.join(' / ')
+}
+
+function clipMeta(clip: YouTubeClipCandidate) {
+  return `${clip.startSeconds}s-${clip.endSeconds}s / ${formatToken(clip.targetFormat)} / ${formatToken(clip.status)}`
+}
+
+function clipGateEntries(clip: YouTubeClipCandidate) {
+  return Object.entries(clip.checks ?? {}) as Array<[
+    keyof YouTubeClipCandidate['checks'],
+    YouTubeClipCandidate['checks'][keyof YouTubeClipCandidate['checks']],
+  ]>
 }
 
 function formatToken(value: string) {

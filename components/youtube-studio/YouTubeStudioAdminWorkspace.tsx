@@ -10,6 +10,8 @@ import type {
   YouTubeAnalyticsSource,
   YouTubeApiProjectStatus,
   YouTubeChannelWorkspace,
+  YouTubeClipCandidate,
+  YouTubeClipTargetFormat,
   YouTubeConnectedAccountStatus,
   YouTubePublishingPacket,
   YouTubePublishingPolicy,
@@ -18,6 +20,8 @@ import type {
   YouTubeReleaseMode,
   YouTubeReleasePlan,
   YouTubeSeries,
+  YouTubeSourceAsset,
+  YouTubeSourceAssetType,
   YouTubeVideoProject,
   YouTubeVideoType,
 } from '@/lib/youtube-studio/types'
@@ -40,6 +44,24 @@ type FormState = {
   objective: string
   videoType: YouTubeVideoType
   sourceUrl: string
+  assetChannelId: string
+  assetVideoId: string
+  assetTitle: string
+  assetType: YouTubeSourceAssetType
+  assetUrl: string
+  assetDurationSeconds: string
+  assetClientNotes: string
+  assetShowInPortal: boolean
+  clipSourceAssetId: string
+  clipVideoId: string
+  clipTitle: string
+  clipStart: string
+  clipEnd: string
+  clipTargetFormat: YouTubeClipTargetFormat
+  clipSummary: string
+  clipHook: string
+  clipTranscriptExcerpt: string
+  clipShowInPortal: boolean
   jobVideoId: string
   jobSkillKey: YouTubeProductionSkillKey
   jobInputSummary: string
@@ -93,6 +115,24 @@ const emptyForm: FormState = {
   objective: '',
   videoType: 'long_form',
   sourceUrl: '',
+  assetChannelId: '',
+  assetVideoId: '',
+  assetTitle: '',
+  assetType: 'raw_footage',
+  assetUrl: '',
+  assetDurationSeconds: '',
+  assetClientNotes: '',
+  assetShowInPortal: false,
+  clipSourceAssetId: '',
+  clipVideoId: '',
+  clipTitle: '',
+  clipStart: '',
+  clipEnd: '',
+  clipTargetFormat: 'vertical_short',
+  clipSummary: '',
+  clipHook: '',
+  clipTranscriptExcerpt: '',
+  clipShowInPortal: false,
   jobVideoId: '',
   jobSkillKey: 'youtube-video-brief',
   jobInputSummary: '',
@@ -178,6 +218,25 @@ const publishingReadinessLevels: YouTubePublishingReadinessLevel[] = [
 ]
 const releaseModes: YouTubeReleaseMode[] = ['manual_handoff', 'private_api_upload', 'scheduled_api_publish']
 const publishingVisibilities: YouTubePublishingPolicy['defaultVisibility'][] = ['private', 'unlisted', 'public']
+const sourceAssetTypes: YouTubeSourceAssetType[] = [
+  'raw_footage',
+  'source_url',
+  'transcript',
+  'thumbnail',
+  'audio',
+  'caption',
+  'broll',
+  'image',
+  'document',
+  'rendered_video',
+]
+const clipTargetFormats: YouTubeClipTargetFormat[] = [
+  'vertical_short',
+  'square_short',
+  'long_form_excerpt',
+  'ad_cutdown',
+  'testimonial_cut',
+]
 
 function splitLines(value: string) {
   return value.split(/[\n,]+/).map((item) => item.trim()).filter(Boolean)
@@ -214,11 +273,15 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
   const [videos, setVideos] = useState<YouTubeVideoProject[]>([])
   const [packets, setPackets] = useState<YouTubePublishingPacket[]>([])
   const [releasePlans, setReleasePlans] = useState<YouTubeReleasePlan[]>([])
+  const [sourceAssets, setSourceAssets] = useState<YouTubeSourceAsset[]>([])
+  const [clipCandidates, setClipCandidates] = useState<YouTubeClipCandidate[]>([])
   const [jobs, setJobs] = useState<YouTubeAgentJob[]>([])
   const [analytics, setAnalytics] = useState<YouTubeAnalyticsSnapshot[]>([])
   const [form, setForm] = useState<FormState>(emptyForm)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  const [addingSourceAsset, setAddingSourceAsset] = useState(false)
+  const [creatingClipCandidate, setCreatingClipCandidate] = useState(false)
   const [creatingPacket, setCreatingPacket] = useState(false)
   const [creatingReleasePlan, setCreatingReleasePlan] = useState(false)
   const [updatingPacketId, setUpdatingPacketId] = useState<string | null>(null)
@@ -235,6 +298,15 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
   const analyticsVideoOptions = form.analyticsChannelId
     ? videos.filter((video) => video.channelWorkspaceId === form.analyticsChannelId)
     : videos
+  const assetVideoOptions = form.assetChannelId
+    ? videos.filter((video) => video.channelWorkspaceId === form.assetChannelId)
+    : videos
+  const clipVideoOptions = form.clipSourceAssetId
+    ? videos.filter((video) => {
+        const sourceAsset = sourceAssets.find((asset) => asset.id === form.clipSourceAssetId)
+        return sourceAsset ? video.channelWorkspaceId === sourceAsset.channelWorkspaceId : true
+      })
+    : videos
   const approvedPackets = packets.filter((packet) => packet.id && packet.status === 'approved')
 
   const load = useCallback(async () => {
@@ -244,21 +316,25 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
     const isCurrentRequest = () => requestId === loadRequestIdRef.current && orgId === activeOrgIdRef.current
     setLoading(true)
     try {
-      const [channelRes, seriesRes, videoRes, packetRes, releasePlanRes, jobRes, analyticsRes] = await Promise.all([
+      const [channelRes, seriesRes, videoRes, packetRes, releasePlanRes, sourceAssetRes, clipCandidateRes, jobRes, analyticsRes] = await Promise.all([
         fetch(`/api/v1/youtube-studio/channels?orgId=${encodeURIComponent(orgId)}`),
         fetch(`/api/v1/youtube-studio/series?orgId=${encodeURIComponent(orgId)}`),
         fetch(`/api/v1/youtube-studio/videos?orgId=${encodeURIComponent(orgId)}`),
         fetch(`/api/v1/youtube-studio/publish-packets?orgId=${encodeURIComponent(orgId)}`),
         fetch(`/api/v1/youtube-studio/release-plans?orgId=${encodeURIComponent(orgId)}`),
+        fetch(`/api/v1/youtube-studio/source-assets?orgId=${encodeURIComponent(orgId)}`),
+        fetch(`/api/v1/youtube-studio/clip-candidates?orgId=${encodeURIComponent(orgId)}`),
         fetch(`/api/v1/youtube-studio/agent-jobs?orgId=${encodeURIComponent(orgId)}`),
         fetch(`/api/v1/youtube-studio/analytics?orgId=${encodeURIComponent(orgId)}`),
       ])
-      const [channelBody, seriesBody, videoBody, packetBody, releasePlanBody, jobBody, analyticsBody] = await Promise.all([
+      const [channelBody, seriesBody, videoBody, packetBody, releasePlanBody, sourceAssetBody, clipCandidateBody, jobBody, analyticsBody] = await Promise.all([
         channelRes.json().catch(() => ({})),
         seriesRes.json().catch(() => ({})),
         videoRes.json().catch(() => ({})),
         packetRes.json().catch(() => ({})),
         releasePlanRes.json().catch(() => ({})),
+        sourceAssetRes.json().catch(() => ({})),
+        clipCandidateRes.json().catch(() => ({})),
         jobRes.json().catch(() => ({})),
         analyticsRes.json().catch(() => ({})),
       ])
@@ -268,9 +344,21 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
       setVideos(Array.isArray(videoBody.data?.videos) ? videoBody.data.videos : [])
       setPackets(Array.isArray(packetBody.data?.packets) ? packetBody.data.packets : [])
       setReleasePlans(Array.isArray(releasePlanBody.data?.releasePlans) ? releasePlanBody.data.releasePlans : [])
+      setSourceAssets(Array.isArray(sourceAssetBody.data?.sourceAssets) ? sourceAssetBody.data.sourceAssets : [])
+      setClipCandidates(Array.isArray(clipCandidateBody.data?.clipCandidates) ? clipCandidateBody.data.clipCandidates : [])
       setJobs(Array.isArray(jobBody.data?.jobs) ? jobBody.data.jobs : [])
       setAnalytics(Array.isArray(analyticsBody.data?.snapshots) ? analyticsBody.data.snapshots : [])
-      if (!channelRes.ok || !seriesRes.ok || !videoRes.ok || !packetRes.ok || !releasePlanRes.ok || !jobRes.ok || !analyticsRes.ok) {
+      if (
+        !channelRes.ok ||
+        !seriesRes.ok ||
+        !videoRes.ok ||
+        !packetRes.ok ||
+        !releasePlanRes.ok ||
+        !sourceAssetRes.ok ||
+        !clipCandidateRes.ok ||
+        !jobRes.ok ||
+        !analyticsRes.ok
+      ) {
         setLoadNotice('Could not load the full YouTube Studio workspace.')
       } else {
         setLoadNotice('')
@@ -282,6 +370,8 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
       setVideos([])
       setPackets([])
       setReleasePlans([])
+      setSourceAssets([])
+      setClipCandidates([])
       setJobs([])
       setAnalytics([])
       setLoadNotice('Could not load the YouTube Studio workspace.')
@@ -297,6 +387,8 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
     previousOrgIdRef.current = orgId
     setForm(emptyForm)
     setSaving(false)
+    setAddingSourceAsset(false)
+    setCreatingClipCandidate(false)
     setCreatingPacket(false)
     setCreatingReleasePlan(false)
     setUpdatingPacketId(null)
@@ -337,6 +429,37 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
       ...prev,
       analyticsVideoId: videoProjectId,
       analyticsChannelId: selectedVideo?.channelWorkspaceId ?? prev.analyticsChannelId,
+    }))
+  }
+
+  function selectAssetChannel(channelWorkspaceId: string) {
+    setForm((prev) => {
+      const selectedVideo = videos.find((video) => video.id === prev.assetVideoId)
+      const keepSelectedVideo = !channelWorkspaceId || selectedVideo?.channelWorkspaceId === channelWorkspaceId
+
+      return {
+        ...prev,
+        assetChannelId: channelWorkspaceId,
+        assetVideoId: keepSelectedVideo ? prev.assetVideoId : '',
+      }
+    })
+  }
+
+  function selectAssetVideo(videoProjectId: string) {
+    const selectedVideo = videos.find((video) => video.id === videoProjectId)
+    setForm((prev) => ({
+      ...prev,
+      assetVideoId: videoProjectId,
+      assetChannelId: selectedVideo?.channelWorkspaceId ?? prev.assetChannelId,
+    }))
+  }
+
+  function selectClipSourceAsset(sourceAssetId: string) {
+    const sourceAsset = sourceAssets.find((asset) => asset.id === sourceAssetId)
+    setForm((prev) => ({
+      ...prev,
+      clipSourceAssetId: sourceAssetId,
+      clipVideoId: sourceAsset?.videoProjectId ?? prev.clipVideoId,
     }))
   }
 
@@ -432,6 +555,8 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
         sourceUrl: '',
         jobVideoId: body.data?.id ?? prev.jobVideoId,
         packetVideoId: body.data?.id ?? prev.packetVideoId,
+        assetVideoId: body.data?.id ?? prev.assetVideoId,
+        assetChannelId: prev.assetChannelId || prev.videoChannelId,
         analyticsVideoId: body.data?.id ?? prev.analyticsVideoId,
         analyticsChannelId: prev.analyticsChannelId || prev.videoChannelId,
       }))
@@ -444,6 +569,120 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
     } finally {
       if (isCurrentMutation()) {
         setSaving(false)
+      }
+    }
+  }
+
+  async function createSourceAsset(event: React.FormEvent) {
+    event.preventDefault()
+    if (addingSourceAsset || !form.assetChannelId || !form.assetTitle.trim()) return
+    const mutationOrgId = orgId
+    const isCurrentMutation = () => mutationOrgId === activeOrgIdRef.current
+    setAddingSourceAsset(true)
+    setActionNotice('')
+    setLoadNotice('')
+    try {
+      const res = await fetch('/api/v1/youtube-studio/source-assets', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          orgId: mutationOrgId,
+          channelWorkspaceId: form.assetChannelId,
+          videoProjectId: form.assetVideoId || undefined,
+          title: form.assetTitle,
+          assetType: form.assetType,
+          sourceUrl: form.assetUrl,
+          durationSeconds: numericValue(form.assetDurationSeconds),
+          clientNotes: form.assetClientNotes,
+          visibility: { showInClientPortal: form.assetShowInPortal },
+        }),
+      })
+      const body = await res.json().catch(() => ({}))
+      if (!isCurrentMutation()) return
+      if (!res.ok) {
+        setActionNotice(body.error ?? 'Could not add source asset')
+        return
+      }
+      setForm((prev) => ({
+        ...prev,
+        assetTitle: '',
+        assetUrl: '',
+        assetDurationSeconds: '',
+        assetClientNotes: '',
+        assetShowInPortal: false,
+        clipSourceAssetId: body.data?.id ?? prev.clipSourceAssetId,
+      }))
+      setActionNotice('Source asset added.')
+      await load()
+    } catch {
+      if (isCurrentMutation()) {
+        setActionNotice('Could not add source asset')
+      }
+    } finally {
+      if (isCurrentMutation()) {
+        setAddingSourceAsset(false)
+      }
+    }
+  }
+
+  async function createClipCandidate(event: React.FormEvent) {
+    event.preventDefault()
+    if (creatingClipCandidate || !form.clipSourceAssetId || !form.clipTitle.trim()) return
+    const startSeconds = timestampToSeconds(form.clipStart)
+    const endSeconds = timestampToSeconds(form.clipEnd)
+    if (startSeconds === undefined || endSeconds === undefined) {
+      setActionNotice('Clip start and end must be valid timestamps.')
+      return
+    }
+
+    const mutationOrgId = orgId
+    const isCurrentMutation = () => mutationOrgId === activeOrgIdRef.current
+    setCreatingClipCandidate(true)
+    setActionNotice('')
+    setLoadNotice('')
+    try {
+      const res = await fetch('/api/v1/youtube-studio/clip-candidates', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          orgId: mutationOrgId,
+          sourceAssetId: form.clipSourceAssetId,
+          videoProjectId: form.clipVideoId || undefined,
+          title: form.clipTitle,
+          startSeconds,
+          endSeconds,
+          targetFormat: form.clipTargetFormat,
+          summary: form.clipSummary,
+          hook: form.clipHook,
+          transcriptExcerpt: form.clipTranscriptExcerpt,
+          visibility: { showInClientPortal: form.clipShowInPortal },
+        }),
+      })
+      const body = await res.json().catch(() => ({}))
+      if (!isCurrentMutation()) return
+      if (!res.ok) {
+        setActionNotice(body.error ?? 'Could not create clip candidate')
+        return
+      }
+      setForm((prev) => ({
+        ...prev,
+        clipTitle: '',
+        clipStart: '',
+        clipEnd: '',
+        clipSummary: '',
+        clipHook: '',
+        clipTranscriptExcerpt: '',
+        clipShowInPortal: false,
+      }))
+      setActionNotice('Clip candidate created.')
+      await load()
+    } catch {
+      if (isCurrentMutation()) {
+        setActionNotice('Could not create clip candidate')
+      }
+    } finally {
+      if (isCurrentMutation()) {
+        setCreatingClipCandidate(false)
       }
     }
   }
@@ -772,6 +1011,73 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
 
           <div className="space-y-3">
             <div className="flex flex-wrap items-center justify-between gap-2">
+              <h2 className="font-headline text-xl font-semibold text-on-surface">Source assets</h2>
+              <span className="rounded-full bg-[var(--color-surface-container-high)] px-3 py-1 text-xs font-label uppercase tracking-widest text-on-surface-variant">
+                {sourceAssets.length} asset{sourceAssets.length === 1 ? '' : 's'}
+              </span>
+            </div>
+            {sourceAssets.length === 0 ? (
+              <div className="pib-card-section p-5 text-sm text-on-surface-variant">No raw footage, transcripts, or source links captured yet.</div>
+            ) : (
+              <div className="grid gap-3">
+                {sourceAssets.map((asset) => (
+                  <article key={asset.id ?? asset.title} className="pib-card-section space-y-3 p-4">
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <h3 className="break-words font-semibold text-on-surface">{asset.title}</h3>
+                        <p className="mt-1 text-sm text-on-surface-variant">{sourceAssetMeta(asset)}</p>
+                      </div>
+                      <StatusPill status={asset.status} />
+                    </div>
+                    {asset.clientNotes ? <p className="break-words text-sm text-on-surface-variant">{asset.clientNotes}</p> : null}
+                    {asset.sourceUrl ? <p className="break-words text-xs text-on-surface-variant">{asset.sourceUrl}</p> : null}
+                    {asset.rights?.status ? (
+                      <p className="break-words text-xs text-on-surface-variant">rights: {formatToken(asset.rights.status)}</p>
+                    ) : null}
+                  </article>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div className="space-y-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <h2 className="font-headline text-xl font-semibold text-on-surface">Clip candidates</h2>
+              <span className="rounded-full bg-[var(--color-surface-container-high)] px-3 py-1 text-xs font-label uppercase tracking-widest text-on-surface-variant">
+                {clipCandidates.length} clip{clipCandidates.length === 1 ? '' : 's'}
+              </span>
+            </div>
+            {clipCandidates.length === 0 ? (
+              <div className="pib-card-section p-5 text-sm text-on-surface-variant">No clip candidates proposed yet.</div>
+            ) : (
+              <div className="grid gap-3">
+                {clipCandidates.map((clip) => (
+                  <article key={clip.id ?? `${clip.sourceAssetId}-${clip.startSeconds}`} className="pib-card-section space-y-3 p-4">
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <h3 className="break-words font-semibold text-on-surface">{clip.title}</h3>
+                        <p className="mt-1 text-sm text-on-surface-variant">{clipMeta(clip)}</p>
+                      </div>
+                      <StatusPill status={clip.status} />
+                    </div>
+                    {clip.summary ? <p className="break-words text-sm text-on-surface-variant">{clip.summary}</p> : null}
+                    {clip.hook ? <p className="break-words text-sm text-on-surface-variant">{clip.hook}</p> : null}
+                    {clip.transcriptExcerpt ? <p className="break-words text-xs text-on-surface-variant">{clip.transcriptExcerpt}</p> : null}
+                    <div className="grid gap-2 text-xs text-on-surface-variant sm:grid-cols-2">
+                      {clipGateEntries(clip).map(([key, check]) => (
+                        <span key={key} className="min-w-0 break-words">
+                          {formatToken(key)}: {formatToken(check?.status ?? 'not_applicable')}
+                        </span>
+                      ))}
+                    </div>
+                  </article>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div className="space-y-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
               <h2 className="font-headline text-xl font-semibold text-on-surface">Publishing packets</h2>
               <span className="rounded-full bg-[var(--color-surface-container-high)] px-3 py-1 text-xs font-label uppercase tracking-widest text-on-surface-variant">
                 {packets.length} packet{packets.length === 1 ? '' : 's'}
@@ -1080,6 +1386,123 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
             </button>
           </form>
 
+          <form onSubmit={createSourceAsset} className="pib-card-section space-y-4 p-5">
+            <h2 className="font-headline font-bold text-on-surface">Add source asset</h2>
+            <label className="block text-sm">
+              <span className="text-xs font-label uppercase tracking-widest text-on-surface-variant">Asset channel</span>
+              <select
+                value={form.assetChannelId}
+                onChange={(event) => selectAssetChannel(event.target.value)}
+                className="mt-1 w-full rounded-lg border border-[var(--color-outline-variant)] bg-[var(--color-surface)] px-3 py-2 text-sm"
+              >
+                <option value="">Select a channel</option>
+                {channels.map((channel) => (
+                  <option key={channel.id ?? channel.title} value={channel.id ?? ''}>{channel.title}</option>
+                ))}
+              </select>
+            </label>
+            <label className="block text-sm">
+              <span className="text-xs font-label uppercase tracking-widest text-on-surface-variant">Asset video</span>
+              <select
+                value={form.assetVideoId}
+                onChange={(event) => selectAssetVideo(event.target.value)}
+                className="mt-1 w-full rounded-lg border border-[var(--color-outline-variant)] bg-[var(--color-surface)] px-3 py-2 text-sm"
+              >
+                <option value="">Channel-level asset</option>
+                {assetVideoOptions.map((video) => (
+                  <option key={video.id ?? video.title} value={video.id ?? ''}>{video.title}</option>
+                ))}
+              </select>
+            </label>
+            <Field label="Asset title" value={form.assetTitle} onChange={(value) => update('assetTitle', value)} required />
+            <Select
+              label="Asset type"
+              value={form.assetType}
+              onChange={(value) => update('assetType', value as YouTubeSourceAssetType)}
+              options={sourceAssetTypes}
+            />
+            <Field label="Asset URL" value={form.assetUrl} onChange={(value) => update('assetUrl', value)} />
+            <Field
+              label="Duration seconds"
+              value={form.assetDurationSeconds}
+              onChange={(value) => update('assetDurationSeconds', value)}
+              type="number"
+            />
+            <TextArea label="Client asset notes" value={form.assetClientNotes} onChange={(value) => update('assetClientNotes', value)} />
+            <label className="flex items-center gap-2 text-sm text-on-surface-variant">
+              <input
+                type="checkbox"
+                checked={form.assetShowInPortal}
+                onChange={(event) => update('assetShowInPortal', event.target.checked)}
+                className="h-4 w-4"
+              />
+              Show asset in portal
+            </label>
+            <button type="submit" disabled={addingSourceAsset || !form.assetChannelId || !form.assetTitle.trim()} className="pib-btn-primary w-full">
+              {addingSourceAsset ? 'Adding...' : 'Add source asset'}
+            </button>
+          </form>
+
+          <form onSubmit={createClipCandidate} className="pib-card-section space-y-4 p-5">
+            <h2 className="font-headline font-bold text-on-surface">Create clip</h2>
+            <label className="block text-sm">
+              <span className="text-xs font-label uppercase tracking-widest text-on-surface-variant">Clip source asset</span>
+              <select
+                value={form.clipSourceAssetId}
+                onChange={(event) => selectClipSourceAsset(event.target.value)}
+                className="mt-1 w-full rounded-lg border border-[var(--color-outline-variant)] bg-[var(--color-surface)] px-3 py-2 text-sm"
+              >
+                <option value="">Select source footage</option>
+                {sourceAssets.map((asset) => (
+                  <option key={asset.id ?? asset.title} value={asset.id ?? ''}>{asset.title}</option>
+                ))}
+              </select>
+            </label>
+            <label className="block text-sm">
+              <span className="text-xs font-label uppercase tracking-widest text-on-surface-variant">Clip video</span>
+              <select
+                value={form.clipVideoId}
+                onChange={(event) => update('clipVideoId', event.target.value)}
+                className="mt-1 w-full rounded-lg border border-[var(--color-outline-variant)] bg-[var(--color-surface)] px-3 py-2 text-sm"
+              >
+                <option value="">Use source asset video</option>
+                {clipVideoOptions.map((video) => (
+                  <option key={video.id ?? video.title} value={video.id ?? ''}>{video.title}</option>
+                ))}
+              </select>
+            </label>
+            <Field label="Clip title" value={form.clipTitle} onChange={(value) => update('clipTitle', value)} required />
+            <div className="grid gap-3 sm:grid-cols-2">
+              <Field label="Start" value={form.clipStart} onChange={(value) => update('clipStart', value)} placeholder="02:00" />
+              <Field label="End" value={form.clipEnd} onChange={(value) => update('clipEnd', value)} placeholder="02:58" />
+            </div>
+            <Select
+              label="Target format"
+              value={form.clipTargetFormat}
+              onChange={(value) => update('clipTargetFormat', value as YouTubeClipTargetFormat)}
+              options={clipTargetFormats}
+            />
+            <TextArea label="Clip summary" value={form.clipSummary} onChange={(value) => update('clipSummary', value)} />
+            <Field label="Clip hook" value={form.clipHook} onChange={(value) => update('clipHook', value)} />
+            <TextArea
+              label="Clip transcript excerpt"
+              value={form.clipTranscriptExcerpt}
+              onChange={(value) => update('clipTranscriptExcerpt', value)}
+            />
+            <label className="flex items-center gap-2 text-sm text-on-surface-variant">
+              <input
+                type="checkbox"
+                checked={form.clipShowInPortal}
+                onChange={(event) => update('clipShowInPortal', event.target.checked)}
+                className="h-4 w-4"
+              />
+              Show clip in portal
+            </label>
+            <button type="submit" disabled={creatingClipCandidate || !form.clipSourceAssetId || !form.clipTitle.trim()} className="pib-btn-primary w-full">
+              {creatingClipCandidate ? 'Creating...' : 'Create clip candidate'}
+            </button>
+          </form>
+
           <form onSubmit={queueAgentJob} className="pib-card-section space-y-4 p-5">
             <h2 className="font-headline font-bold text-on-surface">Queue Hermes job</h2>
             <label className="block text-sm">
@@ -1367,6 +1790,23 @@ function releasePlanGateEntries(plan: YouTubeReleasePlan) {
   return Object.entries(plan.checks ?? {}) as Array<[
     keyof YouTubeReleasePlan['checks'],
     YouTubeReleasePlan['checks'][keyof YouTubeReleasePlan['checks']],
+  ]>
+}
+
+function sourceAssetMeta(asset: YouTubeSourceAsset) {
+  const parts = [formatToken(asset.assetType), formatToken(asset.status)]
+  if (typeof asset.durationSeconds === 'number') parts.push(`${asset.durationSeconds}s`)
+  return parts.join(' / ')
+}
+
+function clipMeta(clip: YouTubeClipCandidate) {
+  return `${clip.startSeconds}s-${clip.endSeconds}s / ${formatToken(clip.targetFormat)} / ${formatToken(clip.status)}`
+}
+
+function clipGateEntries(clip: YouTubeClipCandidate) {
+  return Object.entries(clip.checks ?? {}) as Array<[
+    keyof YouTubeClipCandidate['checks'],
+    YouTubeClipCandidate['checks'][keyof YouTubeClipCandidate['checks']],
   ]>
 }
 

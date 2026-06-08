@@ -76,6 +76,21 @@ export type YouTubeVideoStatus =
   | 'blocked'
   | 'archived'
 export type YouTubeSourceType = 'raw_footage' | 'source_url' | 'transcript' | 'research' | 'client_request' | 'manual'
+export type YouTubeSourceAssetType =
+  | 'raw_footage'
+  | 'source_url'
+  | 'transcript'
+  | 'thumbnail'
+  | 'audio'
+  | 'caption'
+  | 'broll'
+  | 'image'
+  | 'document'
+  | 'rendered_video'
+export type YouTubeSourceAssetStatus = 'intake' | 'processing' | 'ready' | 'needs_rights_review' | 'blocked' | 'archived'
+export type YouTubeSourceAssetMediaFormat = 'horizontal' | 'vertical' | 'square' | 'audio' | 'document' | 'unknown'
+export type YouTubeClipCandidateStatus = 'suggested' | 'selected' | 'rejected' | 'needs_review' | 'exported' | 'archived'
+export type YouTubeClipTargetFormat = 'vertical_short' | 'square_short' | 'long_form_excerpt' | 'ad_cutdown' | 'testimonial_cut'
 export type YouTubeGateStatus = 'pass' | 'warning' | 'block' | 'not_applicable'
 export type YouTubeProductionSkillKey =
   | 'youtube-channel-strategy'
@@ -279,6 +294,71 @@ export interface YouTubePublishingPacket {
   approvedBy?: string
   approvedAt?: unknown
   approvedSnapshotHash?: string
+  deleted: boolean
+}
+
+export interface YouTubeSourceAsset {
+  id?: string
+  orgId: string
+  channelWorkspaceId: string
+  videoProjectId?: string
+  seriesId?: string
+  title: string
+  description?: string
+  assetType: YouTubeSourceAssetType
+  status: YouTubeSourceAssetStatus
+  durationSeconds?: number
+  mediaFormat: YouTubeSourceAssetMediaFormat
+  sourceUrl?: string
+  storagePath?: string
+  transcriptText?: string
+  transcriptAssetId?: string
+  rights?: {
+    status?: 'unknown' | 'cleared' | 'needs_review' | 'blocked'
+    owner?: string
+    license?: string
+    notes?: string
+  }
+  visibility?: { showInClientPortal?: boolean; showTranscriptInPortal?: boolean }
+  internalNotes?: string
+  clientNotes?: string
+  createdAt?: unknown
+  updatedAt?: unknown
+  createdBy?: string
+  createdByType?: ActorType
+  updatedBy?: string
+  updatedByType?: ActorType
+  deleted: boolean
+}
+
+export interface YouTubeClipCandidate {
+  id?: string
+  orgId: string
+  channelWorkspaceId: string
+  videoProjectId?: string
+  sourceAssetId: string
+  title: string
+  summary?: string
+  startSeconds: number
+  endSeconds: number
+  targetFormat: YouTubeClipTargetFormat
+  status: YouTubeClipCandidateStatus
+  score?: number
+  hook?: string
+  rationale?: string
+  transcriptExcerpt?: string
+  checks: {
+    rights: YouTubeGateCheck
+    aiDisclosure: YouTubeGateCheck
+  }
+  visibility?: { showInClientPortal?: boolean }
+  internalNotes?: string
+  createdAt?: unknown
+  updatedAt?: unknown
+  createdBy?: string
+  createdByType?: ActorType
+  updatedBy?: string
+  updatedByType?: ActorType
   deleted: boolean
 }
 

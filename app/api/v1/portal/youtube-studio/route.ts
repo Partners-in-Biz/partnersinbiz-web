@@ -9,9 +9,11 @@ import { stripUndefinedDeep, YOUTUBE_COLLECTIONS } from '@/lib/youtube-studio/ap
 import {
   clientSafeYouTubeAnalyticsSnapshot,
   clientSafeYouTubeChannelWorkspace,
+  clientSafeYouTubeClipCandidate,
   clientSafeYouTubePublishingPacket,
   clientSafeYouTubeReleasePlan,
   clientSafeYouTubeSeries,
+  clientSafeYouTubeSourceAsset,
   clientSafeYouTubeVideoProject,
   sanitizeYouTubeVideoProjectInput,
   serializeYouTubeRecord,
@@ -19,9 +21,11 @@ import {
 import type {
   YouTubeAnalyticsSnapshot,
   YouTubeChannelWorkspace,
+  YouTubeClipCandidate,
   YouTubePublishingPacket,
   YouTubeReleasePlan,
   YouTubeSeries,
+  YouTubeSourceAsset,
   YouTubeVideoProject,
   YouTubeVideoStatus,
 } from '@/lib/youtube-studio/types'
@@ -166,12 +170,23 @@ export const GET = withPortalAuthAndRole('viewer', async (_req: NextRequest, _ui
   const disabled = await youtubeStudioModuleGuard(orgId)
   if (disabled) return disabled
 
-  const [channelsRaw, seriesRaw, videosRaw, packetsRaw, releasePlansRaw, analyticsRaw] = await Promise.all([
+  const [
+    channelsRaw,
+    seriesRaw,
+    videosRaw,
+    packetsRaw,
+    releasePlansRaw,
+    sourceAssetsRaw,
+    clipCandidatesRaw,
+    analyticsRaw,
+  ] = await Promise.all([
     listOrg<YouTubeChannelWorkspace>(YOUTUBE_COLLECTIONS.channels, orgId),
     listOrg<YouTubeSeries>(YOUTUBE_COLLECTIONS.series, orgId),
     listOrg<YouTubeVideoProject>(YOUTUBE_COLLECTIONS.videos, orgId),
     listOrg<YouTubePublishingPacket>(YOUTUBE_COLLECTIONS.packets, orgId),
     listOrg<YouTubeReleasePlan>(YOUTUBE_COLLECTIONS.releasePlans, orgId),
+    listOrg<YouTubeSourceAsset>(YOUTUBE_COLLECTIONS.sourceAssets, orgId),
+    listOrg<YouTubeClipCandidate>(YOUTUBE_COLLECTIONS.clipCandidates, orgId),
     listOrg<YouTubeAnalyticsSnapshot>(YOUTUBE_COLLECTIONS.analytics, orgId),
   ])
 
@@ -226,6 +241,29 @@ export const GET = withPortalAuthAndRole('viewer', async (_req: NextRequest, _ui
       plan.visibility?.showInClientPortal === true
     )
     .map(clientSafeYouTubeReleasePlan)
+  const sourceAssetsRawVisible = sourceAssetsRaw.filter((asset) =>
+    visibleChannelIds.has(asset.channelWorkspaceId) &&
+    (!asset.videoProjectId || visibleVideoIds.has(asset.videoProjectId)) &&
+    (!asset.seriesId || visibleSeriesIds.has(asset.seriesId)) &&
+    asset.visibility?.showInClientPortal === true
+  )
+  const visibleSourceAssetIds = new Set(
+    sourceAssetsRawVisible
+      .map((asset) => asset.id)
+      .filter((id): id is string => Boolean(id))
+  )
+  const sourceAssets = sourceAssetsRawVisible
+    .map(clientSafeYouTubeSourceAsset)
+    .sort((a, b) => a.title.localeCompare(b.title))
+  const clipCandidates = clipCandidatesRaw
+    .filter((clip) =>
+      visibleChannelIds.has(clip.channelWorkspaceId) &&
+      visibleSourceAssetIds.has(clip.sourceAssetId) &&
+      (!clip.videoProjectId || visibleVideoIds.has(clip.videoProjectId)) &&
+      clip.visibility?.showInClientPortal === true
+    )
+    .map(clientSafeYouTubeClipCandidate)
+    .sort((a, b) => a.startSeconds - b.startSeconds || a.title.localeCompare(b.title))
   const analytics = analyticsRaw
     .filter((snapshot) =>
       snapshot.visibility?.showInClientPortal === true &&
@@ -236,7 +274,7 @@ export const GET = withPortalAuthAndRole('viewer', async (_req: NextRequest, _ui
     .map(clientSafeYouTubeAnalyticsSnapshot)
     .sort((a, b) => b.periodEnd.localeCompare(a.periodEnd))
 
-  return apiSuccess({ channels, series, videos, packets, releasePlans, analytics })
+  return apiSuccess({ channels, series, videos, packets, releasePlans, sourceAssets, clipCandidates, analytics })
 })
 
 async function handlePortalYouTubeStudioPost(req: NextRequest, uid: string, orgId: string): Promise<Response> {

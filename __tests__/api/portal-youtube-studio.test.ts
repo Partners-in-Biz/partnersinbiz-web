@@ -8,6 +8,8 @@ const mockSeriesGet = jest.fn()
 const mockVideosGet = jest.fn()
 const mockPacketsGet = jest.fn()
 const mockReleasePlansGet = jest.fn()
+const mockSourceAssetsGet = jest.fn()
+const mockClipCandidatesGet = jest.fn()
 const mockAnalyticsGet = jest.fn()
 const mockAdd = jest.fn()
 const mockDoc = jest.fn()
@@ -51,6 +53,8 @@ type FirestoreStage = {
   videos?: FirestoreDoc[]
   packets?: FirestoreDoc[]
   releasePlans?: FirestoreDoc[]
+  sourceAssets?: FirestoreDoc[]
+  clipCandidates?: FirestoreDoc[]
   analytics?: FirestoreDoc[]
 }
 
@@ -377,6 +381,95 @@ function defaultStage(): Required<FirestoreStage> {
         },
       },
     ],
+    sourceAssets: [
+      {
+        id: 'asset-1',
+        data: {
+          orgId: 'org-1',
+          channelWorkspaceId: 'channel-1',
+          videoProjectId: 'video-1',
+          title: 'Launch interview raw footage',
+          assetType: 'raw_footage',
+          status: 'ready',
+          durationSeconds: 960,
+          mediaFormat: 'horizontal',
+          sourceUrl: 'https://client.example/raw-interview',
+          storagePath: 'gs://private-bucket/acme/raw.mp4',
+          transcriptText: 'Full internal transcript should not leak.',
+          rights: {
+            status: 'needs_review',
+            owner: 'Acme Team',
+            license: 'Client supplied footage',
+            notes: 'Operator-only rights note',
+          },
+          visibility: { showInClientPortal: true, showTranscriptInPortal: false },
+          clientNotes: 'Client supplied launch interview footage.',
+          internalNotes: 'Operator-only source asset notes',
+          createdBy: 'admin-1',
+          updatedBy: 'admin-2',
+          deleted: false,
+        },
+      },
+      {
+        id: 'asset-hidden',
+        data: {
+          orgId: 'org-1',
+          channelWorkspaceId: 'channel-1',
+          videoProjectId: 'video-1',
+          title: 'Hidden raw footage',
+          assetType: 'raw_footage',
+          status: 'ready',
+          visibility: { showInClientPortal: false },
+          deleted: false,
+        },
+      },
+    ],
+    clipCandidates: [
+      {
+        id: 'clip-1',
+        data: {
+          orgId: 'org-1',
+          channelWorkspaceId: 'channel-1',
+          videoProjectId: 'video-1',
+          sourceAssetId: 'asset-1',
+          title: 'Strong customer proof moment',
+          summary: 'Client explains the measurable result.',
+          startSeconds: 120,
+          endSeconds: 178,
+          targetFormat: 'vertical_short',
+          status: 'suggested',
+          score: 0.87,
+          hook: 'We cut reporting time in half.',
+          rationale: 'Operator-only scoring rationale',
+          transcriptExcerpt: 'We cut reporting time in half after the launch.',
+          checks: {
+            rights: { status: 'warning', message: 'Rights review required.', checkedBy: 'admin-secret' },
+            aiDisclosure: { status: 'warning', message: 'AI disclosure review required.', checkedBy: 'agent-secret' },
+          },
+          visibility: { showInClientPortal: true },
+          internalNotes: 'Operator-only clip notes',
+          createdBy: 'admin-1',
+          updatedBy: 'admin-2',
+          deleted: false,
+        },
+      },
+      {
+        id: 'clip-hidden-asset',
+        data: {
+          orgId: 'org-1',
+          channelWorkspaceId: 'channel-1',
+          videoProjectId: 'video-1',
+          sourceAssetId: 'asset-hidden',
+          title: 'Hidden source clip',
+          startSeconds: 10,
+          endSeconds: 40,
+          targetFormat: 'vertical_short',
+          status: 'suggested',
+          visibility: { showInClientPortal: true },
+          deleted: false,
+        },
+      },
+    ],
     analytics: [
       {
         id: 'snapshot-1',
@@ -445,6 +538,8 @@ function stageFirestore(overrides: FirestoreStage = {}) {
   const seriesDocs = docsById(staged.series)
   const packetDocs = docsById(staged.packets)
   const releasePlanDocs = docsById(staged.releasePlans)
+  const sourceAssetDocs = docsById(staged.sourceAssets)
+  const clipCandidateDocs = docsById(staged.clipCandidates)
   const analyticsDocs = docsById(staged.analytics)
 
   mockOrgGet.mockResolvedValue({
@@ -466,6 +561,12 @@ function stageFirestore(overrides: FirestoreStage = {}) {
   mockReleasePlansGet.mockResolvedValue({
     docs: staged.releasePlans.map((doc) => ({ id: doc.id, data: () => doc.data })),
   })
+  mockSourceAssetsGet.mockResolvedValue({
+    docs: staged.sourceAssets.map((doc) => ({ id: doc.id, data: () => doc.data })),
+  })
+  mockClipCandidatesGet.mockResolvedValue({
+    docs: staged.clipCandidates.map((doc) => ({ id: doc.id, data: () => doc.data })),
+  })
   mockAnalyticsGet.mockResolvedValue({
     docs: staged.analytics.map((doc) => ({ id: doc.id, data: () => doc.data })),
   })
@@ -481,6 +582,8 @@ function stageFirestore(overrides: FirestoreStage = {}) {
       youtube_video_projects: { docs: videoDocs, queryGet: mockVideosGet },
       youtube_publishing_packets: { docs: packetDocs, queryGet: mockPacketsGet },
       youtube_release_plans: { docs: releasePlanDocs, queryGet: mockReleasePlansGet },
+      youtube_source_assets: { docs: sourceAssetDocs, queryGet: mockSourceAssetsGet },
+      youtube_clip_candidates: { docs: clipCandidateDocs, queryGet: mockClipCandidatesGet },
       youtube_analytics_snapshots: { docs: analyticsDocs, queryGet: mockAnalyticsGet },
     }
     const collection = collections[name as keyof typeof collections]
@@ -531,12 +634,16 @@ describe('portal youtube studio API', () => {
     expect(body.data.videos.map((video: { id: string }) => video.id)).toEqual(['video-1'])
     expect(body.data.packets.map((packet: { id: string }) => packet.id)).toEqual(['packet-1'])
     expect(body.data.releasePlans.map((plan: { id: string }) => plan.id)).toEqual(['release-1'])
+    expect(body.data.sourceAssets.map((asset: { id: string }) => asset.id)).toEqual(['asset-1'])
+    expect(body.data.clipCandidates.map((clip: { id: string }) => clip.id)).toEqual(['clip-1'])
     expect(body.data.analytics.map((snapshot: { id: string }) => snapshot.id)).toEqual(['snapshot-1'])
     const channel = body.data.channels[0]
     const series = body.data.series[0]
     const video = body.data.videos[0]
     const packet = body.data.packets[0]
     const releasePlan = body.data.releasePlans[0]
+    const sourceAsset = body.data.sourceAssets[0]
+    const clipCandidate = body.data.clipCandidates[0]
     const snapshot = body.data.analytics[0]
     expect(channel).not.toHaveProperty('connectedAccountId')
     expect(channel).not.toHaveProperty('internalNotes')
@@ -665,6 +772,50 @@ describe('portal youtube studio API', () => {
     expect(releasePlan).not.toHaveProperty('executionJobId')
     expect(releasePlan).not.toHaveProperty('createdBy')
     expect(releasePlan.checks.approvedPacket).not.toHaveProperty('checkedBy')
+    expect(sourceAsset).toMatchObject({
+      id: 'asset-1',
+      orgId: 'org-1',
+      channelWorkspaceId: 'channel-1',
+      videoProjectId: 'video-1',
+      title: 'Launch interview raw footage',
+      assetType: 'raw_footage',
+      status: 'ready',
+      durationSeconds: 960,
+      mediaFormat: 'horizontal',
+      sourceUrl: 'https://client.example/raw-interview',
+      clientNotes: 'Client supplied launch interview footage.',
+      rights: { status: 'needs_review', owner: 'Acme Team', license: 'Client supplied footage' },
+    })
+    expect(sourceAsset).not.toHaveProperty('storagePath')
+    expect(sourceAsset).not.toHaveProperty('transcriptText')
+    expect(sourceAsset).not.toHaveProperty('internalNotes')
+    expect(sourceAsset).not.toHaveProperty('createdBy')
+    expect(sourceAsset.rights).not.toHaveProperty('notes')
+    expect(clipCandidate).toMatchObject({
+      id: 'clip-1',
+      orgId: 'org-1',
+      channelWorkspaceId: 'channel-1',
+      videoProjectId: 'video-1',
+      sourceAssetId: 'asset-1',
+      title: 'Strong customer proof moment',
+      summary: 'Client explains the measurable result.',
+      startSeconds: 120,
+      endSeconds: 178,
+      targetFormat: 'vertical_short',
+      status: 'suggested',
+      hook: 'We cut reporting time in half.',
+      transcriptExcerpt: 'We cut reporting time in half after the launch.',
+      checks: {
+        rights: { status: 'warning', message: 'Rights review required.' },
+        aiDisclosure: { status: 'warning', message: 'AI disclosure review required.' },
+      },
+    })
+    expect(clipCandidate).not.toHaveProperty('score')
+    expect(clipCandidate).not.toHaveProperty('rationale')
+    expect(clipCandidate).not.toHaveProperty('internalNotes')
+    expect(clipCandidate).not.toHaveProperty('createdBy')
+    expect(clipCandidate.checks.rights).not.toHaveProperty('checkedBy')
+    expect(JSON.stringify(clipCandidate)).not.toContain('Operator-only')
     expect(snapshot).toMatchObject({
       id: 'snapshot-1',
       orgId: 'org-1',
@@ -883,6 +1034,8 @@ describe('portal youtube studio API', () => {
     expect(mockVideosGet).not.toHaveBeenCalled()
     expect(mockPacketsGet).not.toHaveBeenCalled()
     expect(mockReleasePlansGet).not.toHaveBeenCalled()
+    expect(mockSourceAssetsGet).not.toHaveBeenCalled()
+    expect(mockClipCandidatesGet).not.toHaveBeenCalled()
     expect(mockAnalyticsGet).not.toHaveBeenCalled()
   })
 
