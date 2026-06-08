@@ -9,6 +9,7 @@
 **Publishing and analytics model:** `docs/superpowers/specs/2026-06-08-book-studio-v1-publishing-analytics-model.md`
 **Market evidence model:** `docs/superpowers/specs/2026-06-08-book-studio-v1-market-evidence-model.md`
 **Rights, asset, and contributor ledger model:** `docs/superpowers/specs/2026-06-08-book-studio-v1-rights-asset-contributor-ledger-model.md`
+**Metadata, discoverability, and store listing model:** `docs/superpowers/specs/2026-06-08-book-studio-v1-metadata-discoverability-listing-model.md`
 
 ## Purpose
 
@@ -36,6 +37,7 @@ The future implementation should keep the concepts separable even if it stores s
 | `bookGateProfile` | The derived mandatory gate set for the selected book family, formats, channels, ownership, and series posture. | Book family catalog, channel source keys, rights/provenance requirements, portal review rules. | A static checklist that ignores book type or channel. |
 | `bookResearchPacketLink` | The bridge from Book Studio to PiB Research evidence. | Research item, source keys, confidence labels, unresolved claims, source refresh state. | A pasted research summary with no source lineage. |
 | `bookMarketEvidencePacket` | The candidate-selection review packet that decides whether the idea can become production-selectable. | Research packet, gate profile, audience/buyer evidence, competitive shelf observations, metadata hypotheses, price/margin posture, channel fit, PiB fit, pass/warn/block decision. | A sales forecast, rank promise, automated market scrape, or competitor-copy record. |
+| `bookStoreMetadataPacket` | The versioned channel listing packet for title/subtitle, description, KDP keywords/categories, Google genres, contributors, series, identifiers, language, translated-edition metadata, source freshness, and portal listing summary. | Research packet, market evidence packet, Book Brief, rights ledger, source refresh, publishing packet, portal promotion, launch/lifecycle claims, analytics interpretation. | A keyword-stuffing prompt, category automation shortcut, copied competitor metadata record, rank promise, or direct listing mutation tool. |
 | `bookBriefVersion` | A versioned product brief describing audience, promise, scope, assumptions, outline direction, channels, decisions, and success criteria. | Research packet, gate profile, client approval artifact when promoted. | A client approval request for unsupported claims. |
 | `bookSeries` | Optional series scaffold covering volume order, continuity, shared metadata, and rollup rules. | Book projects, continuity notes, channel series warnings, analytics rollup shape. | A claim that future volumes or external series pages are approved. |
 | `bookProductionArtifact` | Versioned manuscript, proof, package, cover, asset, and export artifacts. | File checksum, editorial checks, accessibility checks, rights ledger, package manifest. | A mutable file that keeps approval after content changes. |
@@ -58,18 +60,24 @@ flowchart TD
   project --> research["bookResearchPacketLink"]
   research --> market["bookMarketEvidencePacket"]
   gates --> market
+  market --> metadata["bookStoreMetadataPacket"]
   project --> brief["bookBriefVersion"]
   project --> series["bookSeries"]
   project --> artifacts["bookProductionArtifact"]
   project --> decisions["bookDecisionLog"]
 
   market --> brief
+  metadata --> brief
   gates --> brief
   gates --> artifacts
   artifacts --> generation["bookGenerationRun"]
   artifacts --> rights["bookRightsAssetLedger"]
+  brief --> metadata
+  rights --> metadata
+  metadata --> packet["bookPublishingPacket"]
   rights --> packet["bookPublishingPacket"]
   artifacts --> packet
+  metadata --> promotion
   brief --> promotion["bookPortalPromotion"]
   artifacts --> promotion
   packet --> promotion
@@ -156,6 +164,7 @@ Analytics must distinguish report import, interpretation, reconciliation, and po
 - KDP and Google packet readiness are independent state machines.
 - Source freshness is a blocking input for upload-readiness, not an optional note.
 - Market evidence is a blocking input for Book Brief and production selection; it is not a sales forecast, rank promise, or bestseller claim.
+- Metadata/listing evidence is channel-specific, version-bound, rights-aware, and source-backed; it is not keyword stuffing, copied competitor positioning, KDP/Google flattening, or a sales/rank promise.
 - Hermes output is always artifact-linked, evaluation-linked, and reviewer-gated before it can influence a client-visible artifact.
 - Account authority is recorded as a decision posture and evidence reference; sensitive channel credentials are not stored in Book Studio V1.
 - Rights evidence is asset-specific, contributor-specific, license-scope-specific, channel-specific, territory-aware, and version-bound; it is not a project-wide boolean.
@@ -171,7 +180,7 @@ Analytics must distinguish report import, interpretation, reconciliation, and po
 | Source register item becomes stale or disputed. | Research packet, market evidence packet, Book Brief claims, publishing packet readiness, portal summaries that rely on the source. |
 | Candidate audience, buyer use case, competitor observation, category/genre, keyword, price, margin, or channel-fit evidence changes. | Market evidence decision, Book Brief approval, and affected production-selection state. |
 | Manuscript, cover, proof, EPUB, PDF, asset, or package checksum changes. | Proof approval, package approval, channel packet readiness, client approval for the old version. |
-| Book promise, audience, title, subtitle, category, keyword, or description changes. | Book Brief approval and affected publishing metadata checks. |
+| Book promise, audience, title, subtitle, category, genre, keyword, description, contributor display, series, identifier, language, or translated-edition metadata changes. | Book Brief approval, store metadata packet, publishing packet readiness, portal listing summary, launch copy, and analytics interpretation that depend on the changed metadata. |
 | Rights, public-domain, open-license, quote, image, font, template, client-owned asset, contributor assignment, AI asset, territory, format, or channel evidence changes. | Rights approval, production-start eligibility, proof approval, package QA, packet readiness, portal claims, launch copy, and analytics summaries that depend on the claim. |
 | Account authority, ownership, territory, price, royalty, or commercial model changes. | Upload-readiness, client commercial approval, analytics interpretation. |
 | AI disclosure answer changes. | Publishing packet readiness and affected channel listing notes. |
@@ -190,6 +199,8 @@ If Peet approves the V1 record and implementation planning starts, the first pla
 - A stale source blocks upload-readiness.
 - Missing or blocked market evidence prevents Book Brief promotion and production selection.
 - Market evidence cannot store rank promises, sales forecasts, copied competitor metadata, or automated scrape results as proof.
+- Metadata/listing evidence cannot store keyword stuffing, misleading categories/genres, copied competitor metadata, unsupported contributor/series/identifier state, KDP/Google flattening, rank promises, bestseller claims, or direct listing mutation as proof.
+- KDP metadata approval does not mark Google metadata approved, and the reverse.
 - Raw Hermes output, internal notes, rights uncertainty, parser errors, account details, and unreconciled costs cannot appear in portal DTOs.
 - Assets, quotes, fonts, templates, public-domain/open-licensed material, AI-generated assets, client-owned brand assets, and contributor inputs cannot advance dependent production, package, portal, launch, analytics, or handoff states without a rights-ledger pass or accepted-warning state.
 - Partial analytics imports stay warning-labeled until reconciliation is complete.

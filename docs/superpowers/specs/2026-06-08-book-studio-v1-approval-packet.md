@@ -23,6 +23,7 @@
 **Language and translation aid:** `docs/superpowers/specs/2026-06-08-book-studio-v1-language-translation-edition-model.md`
 **Production budget and capacity aid:** `docs/superpowers/specs/2026-06-08-book-studio-v1-production-budget-capacity-model.md`
 **Rights, asset, and contributor ledger aid:** `docs/superpowers/specs/2026-06-08-book-studio-v1-rights-asset-contributor-ledger-model.md`
+**Metadata, discoverability, and store listing aid:** `docs/superpowers/specs/2026-06-08-book-studio-v1-metadata-discoverability-listing-model.md`
 
 ## Purpose
 
@@ -36,7 +37,7 @@ Use the revision impact matrix when Peet approves with revisions and the affecte
 
 Use the approval decision form when the review outcome is ready to be recorded with accepted warnings, remaining blockers, source-refresh state, and a `planningAllowed` gate.
 
-The source-research baseline shows where the primary research first reached V1 approval-decision shape. The decision bundle content baseline shows the review-ready set of companion packets that shape the boundary: portal access, domain state, operator workspace, source refresh, book-family gates, market evidence, ownership/commercial governance, jurisdiction/local publisher evidence, launch/lifecycle governance, `ai-story` non-port rules, wider channels, Hermes evaluation, and production package QA. Metadata-only or wording-sync handoff edits after that baseline do not change the product boundary, but a future Phase 1 plan must still quote the current dossier commit and current `development` commit at planning time and list any content revisions after this baseline.
+The source-research baseline shows where the primary research first reached V1 approval-decision shape. The decision bundle content baseline shows the review-ready set of companion packets that shape the boundary: portal access, domain state, operator workspace, source refresh, book-family gates, market evidence, ownership/commercial governance, jurisdiction/local publisher evidence, launch/lifecycle governance, `ai-story` non-port rules, wider channels, Hermes evaluation, and production package QA. Wording-sync handoff edits after that baseline do not change the product boundary, but a future Phase 1 plan must still quote the current dossier commit and current `development` commit at planning time and list content revisions after this baseline, including the metadata/listing gate added after the original baseline.
 
 ## Recommended Approval
 
@@ -97,6 +98,12 @@ bookStudioV1Approval:
     - discoverability_metadata_hypotheses
     - price_margin_and_channel_fit_review
     - pass_warn_block_candidate_decision
+  metadataListingScope:
+    - kdp_title_subtitle_description_keywords_categories_contributors_series
+    - google_title_subtitle_description_genres_contributors_identifiers_series
+    - channel_specific_language_identifier_and_translated_edition_metadata
+    - portal_safe_listing_summary_when_reviewed
+    - no_keyword_stuffing_rank_promise_bestseller_claim_or_competitor_copy
   hermesFirstScope:
     wave1_planning_and_evidence:
       - book-niche-research
@@ -136,6 +143,7 @@ bookStudioV1Approval:
     - no_autonomous_ad_spend
     - no_automated_review_outreach
     - no_sales_forecasting_or_rank_promises_from_market_research
+    - no_runtime_metadata_optimizer_category_automation_keyword_scraping_or_listing_mutation
     - no_full_print_perfect_layout_engine
     - no_automated_export_or_file_validation_before_package_qa_is_implemented
     - no_automated_report_integrations_before_manual_import_model_is_proven
@@ -147,7 +155,7 @@ bookStudioV1Approval:
 
 Peet can use this wording if the recommended V1 is acceptable:
 
-> Approve Book Studio V1 as an internal PiB production studio with optional client review. Use KDP and Google Play Books manual-handoff as the first channel focus. Start with business nonfiction, activity or low-content print, series scaffolding, and a public-domain or companion negative-control fixture. Build admin-first records, market evidence gates, gate profiles, Research/Client Document/Project/artifact bridges, publishing packet tracking, local publisher evidence lanes, controlled Hermes skill readiness, package QA evidence, and manual analytics imports. Keep self-serve generation, public SaaS, direct publishing, account-secret custody, autonomous ads, automated review outreach, sales forecasting or rank promises from market research, full layout tooling, automated export/file validation, and automated report integrations out of V1.
+> Approve Book Studio V1 as an internal PiB production studio with optional client review. Use KDP and Google Play Books manual-handoff as the first channel focus. Start with business nonfiction, activity or low-content print, series scaffolding, and a public-domain or companion negative-control fixture. Build admin-first records, market evidence gates, metadata/listing gates, gate profiles, Research/Client Document/Project/artifact bridges, publishing packet tracking, local publisher evidence lanes, controlled Hermes skill readiness, package QA evidence, and manual analytics imports. Keep self-serve generation, public SaaS, direct publishing, account-secret custody, autonomous ads, automated review outreach, sales forecasting or rank promises from market research, full layout tooling, automated export/file validation, and automated report integrations out of V1.
 
 ## Safe Revisions Before Approval
 
@@ -157,6 +165,7 @@ Peet can use this wording if the recommended V1 is acceptable:
 | `firstPilotSet` | Remove the public-domain/companion negative-control fixture. | Faster first plan, but weaker proof that Book Studio can block attractive but unsafe projects. |
 | `firstPortalReviewArtifacts` | Start with `book_brief` only. | Safer portal scope, but clients see less of the publishing workflow in early V1. |
 | `marketEvidenceScope` | Narrow first demo to admin-only market evidence packets. | Safer portal/client scope, but candidate pass/warn/block evidence still blocks Book Brief and production selection. |
+| `metadataListingScope` | Start with KDP/Google manual-handoff metadata packets only. | Safer than live listing mutation, but Phase 1 planning still needs title/subtitle, description, category/genre, keyword, contributor, series, identifier, language, and portal-summary evidence gates. |
 | `hermesFirstScope` | Wave 1 only. | Safer first plan, but KDP/Google readiness, metadata, account authority, and generation safety checks become follow-up work. |
 | `ownershipModel` | PiB-owned books only. | Easier account governance, but weaker fit for client-owned publishing projects. |
 | `productionReadinessScope` | Limit first planning to package QA evidence only. | Safer first plan, but checksum-bound readiness, format preflight, rights/accessibility preflight, and source freshness become follow-up work. |
@@ -177,6 +186,7 @@ The future Phase 1 plan must:
 - Map every task to the selected pilot set.
 - Map evidence-sensitive tasks to the V1 evidence acceptance matrix.
 - Preserve the market evidence model rule that a candidate reaches Book Brief or production selection only after a reviewed pass/warn/block decision, and that market evidence cannot promise sales, rank, or bestseller outcomes.
+- Preserve the metadata/listing rule that KDP and Google metadata stay channel-specific, version-bound, and reviewed before packet readiness, portal listing summaries, launch copy, or analytics promotion, with no keyword stuffing, misleading category/genre choices, copied competitor copy, rank promises, bestseller claims, or unsupported contributor/series/identifier state.
 - Preserve the production budget and capacity rule that a production-selectable candidate cannot start production, incur Hermes/model spend, order proofs, make client production promises, or propose launch spend without approved or accepted-warning budget and capacity evidence.
 - Preserve the language and translation model rule that translated editions need source/target language, translation rights, translator or AI provenance, target-language quality, reading direction, metadata, identifiers, pricing/territory, channel support, disclosure, portal, and analytics gates before translated-edition production, package QA, portal proof, manual handoff, or analytics promotion.
 - Preserve the rights, asset, and contributor ledger rule that covers, images, fonts, templates, quotes, public-domain/open-licensed material, AI-generated assets, client brand assets, translators, illustrators, designers, narrators, and other contributor inputs need pass or accepted-warning evidence before dependent production start, package QA, portal proof, launch copy, analytics promotion, or manual handoff.
@@ -194,6 +204,7 @@ The future Phase 1 plan must:
 - Runtime Hermes dispatch.
 - Runtime export engines, file validators, package manifest records, or package QA automation.
 - Runtime rights ledgers, license automation, contract templates, legal-advice workflows, or contributor agreement generation.
+- Runtime metadata optimizers, listing mutation, category automation, keyword scraping, or direct KDP/Google listing updates.
 - Direct KDP, Google Play Books, Apple, Kobo, Draft2Digital, IngramSpark, ACX, Amazon Ads, or review-outreach automation.
 - Automated market scraping, sales forecasting, rank promises, bestseller claims, or competitor-copy reuse.
 - Client self-serve generation.

@@ -15,6 +15,7 @@
 **Language/translation model:** `docs/superpowers/specs/2026-06-08-book-studio-v1-language-translation-edition-model.md`
 **Production budget/capacity model:** `docs/superpowers/specs/2026-06-08-book-studio-v1-production-budget-capacity-model.md`
 **Rights/asset/contributor ledger model:** `docs/superpowers/specs/2026-06-08-book-studio-v1-rights-asset-contributor-ledger-model.md`
+**Metadata/listing model:** `docs/superpowers/specs/2026-06-08-book-studio-v1-metadata-discoverability-listing-model.md`
 
 ## Purpose
 
@@ -26,7 +27,7 @@ This report does not recheck sources by itself. It does not create runtime sourc
 
 Use this report only after Peet has approved or revised the Book Studio V1 approval record and before a Phase 1 implementation plan is written.
 
-Use it again before planning if a revision expands a source-sensitive approval field, including first channels, first pilot set, production readiness, local publisher scope, analytics scope, ownership model, or Hermes first scope.
+Use it again before planning if a revision expands a source-sensitive approval field, including first channels, first pilot set, metadata/listing scope, production readiness, local publisher scope, analytics scope, ownership model, or Hermes first scope.
 
 Do not use this report to bypass a blocker. If an official source is unavailable or contradicts the approval packet, the result is a planning blocker for the dependent claim.
 
@@ -105,6 +106,22 @@ bookStudioV1SourceRefreshReport:
         - google-metadata
         - google-content-policies
         - google-program-policies
+    metadata_listing_sources:
+      required: true
+      completed: false
+      sources:
+        - kdp-keywords-discoverability
+        - kdp-categories-discoverability
+        - kdp-metadata-guidelines
+        - kdp-description-guidelines
+        - kdp-authors-contributors
+        - kdp-series
+        - kdp-content-quality
+        - google-metadata
+        - google-add-book
+        - google-series
+        - google-isbns-identifiers
+        - google-content-policies
     production_budget_capacity_sources:
       required: true
       completed: false
@@ -670,7 +687,7 @@ bookStudioV1SourceRefreshReport:
 
 ## Required Source Groups
 
-The reviewer must check the source groups required by the final decision record. The recommended V1 approval requires nine core groups: KDP, Google Play Books, language/translation, market evidence, production budget/capacity, rights/asset/contributor, local publisher/jurisdiction, launch/lifecycle, and `ai-story`.
+The reviewer must check the source groups required by the final decision record. The recommended V1 approval requires ten core groups: KDP, Google Play Books, language/translation, market evidence, metadata/listing, production budget/capacity, rights/asset/contributor, local publisher/jurisdiction, launch/lifecycle, and `ai-story`.
 
 | Group | Source key | Source to check | Planning claim protected |
 | --- | --- | --- | --- |
@@ -713,6 +730,18 @@ The reviewer must check the source groups required by the final decision record.
 | Market evidence | `kdp-print-pricing` | `https://kdp.amazon.com/en_US/help/topic/G8BKPU9AGVZSF9QF` | Print candidate margin and negative-margin blocker evidence. |
 | Market evidence | `google-metadata` | `https://support.google.com/books/partner/answer/3237055?hl=en` | Google genre and metadata fit for candidate selection. |
 | Market evidence | `google-content-policies` | `https://support.google.com/books/partner/answer/1067634?hl=en` | Google duplicate, misleading, spam, and quality blockers for candidate selection. |
+| Metadata/listing | `kdp-keywords-discoverability` | `https://kdp.amazon.com/en_US/help/topic/G201743260` | Keyword relevance for KDP listing packets without stuffing, vague terms, competitor-name reuse, or rank promises. |
+| Metadata/listing | `kdp-categories-discoverability` | `https://kdp.amazon.com/en_US/help/topic/G200652170` | Category relevance and misleading-category blockers for KDP listing packets. |
+| Metadata/listing | `kdp-metadata-guidelines` | `https://kdp.amazon.com/en_US/help/topic/G201097560` | KDP title, subtitle, cover, category, marketplace, age, customer-experience, and metadata consistency checks. |
+| Metadata/listing | `kdp-description-guidelines` | `https://kdp.amazon.com/en_US/help/topic/G201189630` | KDP description restrictions, review/testimonial/promotion caveats, and keyword-stuffing blockers. |
+| Metadata/listing | `kdp-authors-contributors` | `https://kdp.amazon.com/en_US/help/topic/G2BWJN2BY98T5PV2` | KDP author/contributor display, pen-name, series-page, detail-page, and format-linking metadata checks. |
+| Metadata/listing | `kdp-series` | `https://kdp.amazon.com/en_US/help/topic/GMFKBUS43QQ5AJ5A` | KDP external series eligibility, low-content series constraints, and internal-series separation. |
+| Metadata/listing | `kdp-content-quality` | `https://kdp.amazon.com/en_US/help/topic/G200952510` | Misleading, low-quality, duplicate, or disappointing metadata/content fit blockers. |
+| Metadata/listing | `google-metadata` | `https://support.google.com/books/partner/answer/3237055?hl=en` | Google title, genre, identifier, contributor, primary language, and metadata completeness checks. |
+| Metadata/listing | `google-add-book` | `https://support.google.com/books/partner/answer/9261664?hl=en` | Google Book Catalog/add-book fields, contributors, genres, series, content, reviewer access, and settings. |
+| Metadata/listing | `google-series` | `https://support.google.com/books/partner/answer/11069638?hl=en` | Google series name, order, numbering, relationship type, and catalog workflow checks. |
+| Metadata/listing | `google-isbns-identifiers` | `https://support.google.com/books/partner/answer/3431108?hl=en` | Google identifier, GGKEY, print/eBook identifier, and translated-edition identifier planning. |
+| Metadata/listing | `google-content-policies` | `https://support.google.com/books/partner/answer/1067634?hl=en` | Google misleading metadata, duplicate, spam, low-quality, and confusing content blockers. |
 | Production budget/capacity | `kdp-price-book` | `https://kdp.amazon.com/en_US/help/topic/G200641280` | KDP list price, royalty option, territory, tax, fixed-price-law, and price-update budget assumptions. |
 | Production budget/capacity | `kdp-digital-book-pricing` | `https://kdp.amazon.com/en_US/help/topic/G200634500` | KDP eBook royalty, delivery cost, file-size, territory, promotional price, VAT, and price-match budget warnings. |
 | Production budget/capacity | `kdp-paperback-printing-cost` | `https://kdp.amazon.com/en_US/help/topic/G201834340` | KDP print cost, minimum list price, trim, page count, ink, paper, marketplace, and print-led margin blockers. |
@@ -784,11 +813,12 @@ A source refresh report can support `sourceRefreshRequiredBeforePlanning.complet
 6. Every `changed_non_blocking` result names any affected docs that were updated or explicitly confirms no doc update is needed.
 7. Every wider-channel source triggered by an approval revision is checked before the revised channel appears in planning.
 8. Every language/translation source triggered by translated-edition scope is checked before translation production, package QA, portal proof, manual handoff, or translated-edition analytics appears in planning.
-9. Every production budget/capacity source triggered by production-start, Hermes/model spend, proof-order, channel-economics, cost-recovery, or launch-spend scope is checked before those claims appear in planning.
-10. Local publisher sources remain separate from KDP and Google channel readiness.
-11. `ai-story-head` is treated as a prior-project baseline only, with keep/rewrite/reject classification deferred to planning.
-12. `blockersRemaining` is empty before `planningAllowedAfterRefresh` can become true.
-13. The report still excludes runtime routes, APIs, Firestore collections, UI, module toggles, Hermes runtime dispatch, direct publishing, analytics automation, budget approval workflows, cost calculators, and a Phase 1 task list.
+9. Every metadata/listing source triggered by title/subtitle, description, keyword, category, genre, contributor, series, identifier, language, translated-edition, portal summary, launch copy, or analytics-promotion scope is checked before those claims appear in planning.
+10. Every production budget/capacity source triggered by production-start, Hermes/model spend, proof-order, channel-economics, cost-recovery, or launch-spend scope is checked before those claims appear in planning.
+11. Local publisher sources remain separate from KDP and Google channel readiness.
+12. `ai-story-head` is treated as a prior-project baseline only, with keep/rewrite/reject classification deferred to planning.
+13. `blockersRemaining` is empty before `planningAllowedAfterRefresh` can become true.
+14. The report still excludes runtime routes, APIs, Firestore collections, UI, module toggles, Hermes runtime dispatch, direct publishing, analytics automation, metadata optimizers, listing mutation, budget approval workflows, cost calculators, and a Phase 1 task list.
 
 ## Devil's Advocate
 
@@ -809,6 +839,7 @@ This report does not create or approve:
 - Direct KDP, Google Play Books, Apple, Kobo, Draft2Digital, IngramSpark, ACX, Amazon Ads, or review-outreach automation.
 - Client self-serve generation.
 - Public/productized AI-book SaaS.
+- Runtime metadata optimizers, listing mutation, category automation, keyword scraping, or direct KDP/Google listing updates.
 - Automated analytics imports or report integrations.
 - Production budget ledgers, cost calculators, billing flows, or budget approval workflows.
 - A Phase 1 implementation task list.

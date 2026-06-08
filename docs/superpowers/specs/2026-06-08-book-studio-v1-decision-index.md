@@ -17,6 +17,7 @@
 **Language and translation model:** `docs/superpowers/specs/2026-06-08-book-studio-v1-language-translation-edition-model.md`
 **Production budget and capacity model:** `docs/superpowers/specs/2026-06-08-book-studio-v1-production-budget-capacity-model.md`
 **Rights, asset, and contributor ledger model:** `docs/superpowers/specs/2026-06-08-book-studio-v1-rights-asset-contributor-ledger-model.md`
+**Metadata, discoverability, and store listing model:** `docs/superpowers/specs/2026-06-08-book-studio-v1-metadata-discoverability-listing-model.md`
 
 ## Purpose
 
@@ -38,12 +39,13 @@ If Peet has 10 minutes:
 8. Review the Hermes skill contract pack if the open concern is how the first new Hermes skills stay bounded before runtime dispatch.
 9. Review the launch and lifecycle governance model if the open concern is what happens after a book is live.
 10. Review the market evidence model if the open concern is how PiB chooses book ideas worth producing before Hermes/editorial work starts.
-11. Review the editorial quality model if the open concern is how Book Studio prevents polished weak AI-assisted drafts from becoming proof, packet, portal, or publishing-ready.
-12. Review the language and translation model if the open concern is translated editions, AI translation disclosure, target-language quality, KDP Translate, or Google language metadata.
-13. Review the production budget and capacity model if the open concern is cost, production effort, Hermes/model budget, proof costs, break-even posture, or whether PiB can support the work repeatedly.
-14. Review the rights, asset, and contributor ledger model if the open concern is covers, images, fonts, quotes, public-domain material, Creative Commons assets, AI images, client brand assets, translators, illustrators, designers, narrators, or other contributor permissions.
-15. Review the mock review packet to see the operating loop in a concrete business nonfiction example.
-16. Decide whether to approve the exact wording, revise specific fields, reject the internal-studio posture, or request another design aid.
+11. Review the metadata, discoverability, and store listing model if the open concern is title, subtitle, description, keywords, categories, genres, contributors, series, identifiers, translated-edition metadata, KDP/Google listing separation, or portal listing summaries.
+12. Review the editorial quality model if the open concern is how Book Studio prevents polished weak AI-assisted drafts from becoming proof, packet, portal, or publishing-ready.
+13. Review the language and translation model if the open concern is translated editions, AI translation disclosure, target-language quality, KDP Translate, or Google language metadata.
+14. Review the production budget and capacity model if the open concern is cost, production effort, Hermes/model budget, proof costs, break-even posture, or whether PiB can support the work repeatedly.
+15. Review the rights, asset, and contributor ledger model if the open concern is covers, images, fonts, quotes, public-domain material, Creative Commons assets, AI images, client brand assets, translators, illustrators, designers, narrators, or other contributor permissions.
+16. Review the mock review packet to see the operating loop in a concrete business nonfiction example.
+17. Decide whether to approve the exact wording, revise specific fields, reject the internal-studio posture, or request another design aid.
 
 If Peet has 30 minutes:
 
@@ -75,6 +77,7 @@ If Peet has 30 minutes:
 | Source refresh contract | Before relying on KDP, Google, analytics, source freshness, or `ai-story` baseline claims. |
 | Source refresh execution report | After approval or revision, when the source-refresh contract must be run before Phase 1 planning. |
 | Market evidence model | When checking how a candidate book idea becomes pass/warn/block before Book Brief or production work starts. |
+| Metadata, discoverability, and store listing model | When checking title/subtitle, description, KDP keywords/categories, Google genres, contributors, series, identifiers, language/translation metadata, portal listing summaries, and no keyword stuffing, copied competitor copy, or rank promises. |
 | Book-family gate catalog | When deciding whether the first pilot set covers enough book types. |
 | Publishing and analytics model | When reviewing manual handoff, upload evidence, analytics confidence, and reconciliation. |
 | Ownership and commercial model | When deciding PiB-owned, client-owned, or shared ownership posture. |
@@ -118,6 +121,7 @@ Approval unlocks only a future implementation plan. That plan must:
 - preserve editorial quality and reader-experience gates before package QA, portal review, or publishing packet readiness, and
 - preserve launch/lifecycle guardrails for review compliance, price and promotion approvals, external action evidence, revision invalidation, and no automated review outreach or ad spend, and
 - preserve the market evidence rule that a candidate must pass or carry accepted warnings before Book Brief or production selection, and
+- preserve metadata/listing gates before packet readiness, portal listing summaries, launch copy, or analytics promotion, including KDP/Google channel separation, title/subtitle/description relevance, category/genre/keyword honesty, contributor/series/identifier evidence, and no keyword stuffing, copied competitor copy, or rank promises, and
 - preserve language and translation gates before any translated-edition production, package QA, portal proof, manual handoff, Kindle Translate pathway, Google translated-edition packet, or translated-edition analytics claim, and
 - preserve the production budget and capacity gate before any candidate moves from production-selectable to production-started, including human capacity, Hermes/model budget, proof costs, channel economics, and no sales/profit promises, and
 - preserve rights, asset, and contributor ledger gates before production start, package QA, portal proof, launch copy, analytics promotion, or manual handoff, including asset source, license scope, AI provenance, public-domain/open-license basis, client-owned asset approval, and contributor credit/assignment evidence, and
@@ -141,7 +145,7 @@ Approval does not unlock:
 
 If Peet accepts the recommended V1, use this:
 
-> Approve Book Studio V1 as an internal PiB production studio with optional client review. Use KDP and Google Play Books manual-handoff as the first channel focus. Start with business nonfiction, activity or low-content print, series scaffolding, and a public-domain or companion negative-control fixture. Build admin-first records, market evidence gates, gate profiles, Research/Client Document/Project/artifact bridges, publishing packet tracking, local publisher evidence lanes, controlled Hermes skill readiness, package QA evidence, and manual analytics imports. Keep self-serve generation, public SaaS, direct publishing, account-secret custody, autonomous ads, automated review outreach, sales forecasting or rank promises from market research, full layout tooling, automated export/file validation, and automated report integrations out of V1.
+> Approve Book Studio V1 as an internal PiB production studio with optional client review. Use KDP and Google Play Books manual-handoff as the first channel focus. Start with business nonfiction, activity or low-content print, series scaffolding, and a public-domain or companion negative-control fixture. Build admin-first records, market evidence gates, metadata/listing gates, gate profiles, Research/Client Document/Project/artifact bridges, publishing packet tracking, local publisher evidence lanes, controlled Hermes skill readiness, package QA evidence, and manual analytics imports. Keep self-serve generation, public SaaS, direct publishing, account-secret custody, autonomous ads, automated review outreach, sales forecasting or rank promises from market research, full layout tooling, automated export/file validation, and automated report integrations out of V1.
 
 ## Exact Revision Shape
 
@@ -157,6 +161,9 @@ bookStudioV1ApprovalRevision:
   firstPortalReviewArtifacts:
     startWith: []
   marketEvidenceScope:
+    add: []
+    remove: []
+  metadataListingScope:
     add: []
     remove: []
   hermesFirstScope:

@@ -20,6 +20,7 @@
 **Launch and lifecycle governance aid:** `docs/superpowers/specs/2026-06-08-book-studio-v1-launch-lifecycle-governance-model.md`
 **Market evidence aid:** `docs/superpowers/specs/2026-06-08-book-studio-v1-market-evidence-model.md`
 **Rights, asset, and contributor ledger aid:** `docs/superpowers/specs/2026-06-08-book-studio-v1-rights-asset-contributor-ledger-model.md`
+**Metadata, discoverability, and store listing aid:** `docs/superpowers/specs/2026-06-08-book-studio-v1-metadata-discoverability-listing-model.md`
 
 ## Purpose
 
@@ -36,7 +37,7 @@ The review has four possible outcomes:
 
 ## 30-Minute Review Agenda
 
-Before the agenda, open the decision index, approval packet, coverage audit, review scorecard, pilot product decision register, revision impact matrix, approval decision form, mock review packet, market evidence aid, package QA aid, rights/asset/contributor ledger aid, jurisdiction/local publisher aid, Hermes skill contract pack, and launch/lifecycle governance aid. The decision index answers "what should I read and what decision is needed?" The approval packet answers "what would we approve?" The coverage audit answers "which original objective requirements are covered?" The scorecard answers "which categories are pass, warn, or block?" The pilot register answers "which first book archetypes prove V1 without pretending market demand is already validated?" The market evidence aid answers "what evidence stops weak candidate ideas before Book Brief or production selection?" The revision matrix answers "what else must change if Peet approves with revisions?" The decision form answers "what exact decision record controls planning?" The source refresh execution report answers "how do we prove current official sources were checked before planning?" The mock packet answers "what would this feel like in PiB?" The package QA aid answers "what would make a book package safe enough for proof, portal review, or manual handoff?" The rights/asset/contributor ledger aid answers "what prevents covers, images, fonts, quotes, open-license material, AI images, client assets, and hired contributor work from advancing without scoped evidence?" The jurisdiction/local publisher aid answers "what local publisher evidence must stay separate from KDP/Google readiness?" The Hermes skill contract pack answers "what fields must every first skill declare before any runtime skill spec exists?" The launch/lifecycle aid answers "what happens after a book is live without drifting into review outreach, ad spend, price automation, or public launch automation?"
+Before the agenda, open the decision index, approval packet, coverage audit, review scorecard, pilot product decision register, revision impact matrix, approval decision form, mock review packet, market evidence aid, metadata/listing aid, package QA aid, rights/asset/contributor ledger aid, jurisdiction/local publisher aid, Hermes skill contract pack, and launch/lifecycle governance aid. The decision index answers "what should I read and what decision is needed?" The approval packet answers "what would we approve?" The coverage audit answers "which original objective requirements are covered?" The scorecard answers "which categories are pass, warn, or block?" The pilot register answers "which first book archetypes prove V1 without pretending market demand is already validated?" The market evidence aid answers "what evidence stops weak candidate ideas before Book Brief or production selection?" The metadata/listing aid answers "what stops title, description, category, keyword, contributor, series, identifier, or portal listing shortcuts from misleading clients or channels?" The revision matrix answers "what else must change if Peet approves with revisions?" The decision form answers "what exact decision record controls planning?" The source refresh execution report answers "how do we prove current official sources were checked before planning?" The mock packet answers "what would this feel like in PiB?" The package QA aid answers "what would make a book package safe enough for proof, portal review, or manual handoff?" The rights/asset/contributor ledger aid answers "what prevents covers, images, fonts, quotes, open-license material, AI images, client assets, and hired contributor work from advancing without scoped evidence?" The jurisdiction/local publisher aid answers "what local publisher evidence must stay separate from KDP/Google readiness?" The Hermes skill contract pack answers "what fields must every first skill declare before any runtime skill spec exists?" The launch/lifecycle aid answers "what happens after a book is live without drifting into review outreach, ad spend, price automation, or public launch automation?"
 
 ### 1. Confirm The Product Posture
 
@@ -136,7 +137,33 @@ Block state:
 
 - Production can start from shelf screenshots, search-rank assumptions, generic AI-book ideas, copied competitor positioning, or unknown/negative print margins.
 
-### 5. Confirm Portal Review Artifacts
+### 5. Confirm Metadata, Discoverability, And Store Listing Gate
+
+Review the metadata/listing posture:
+
+- KDP and Google metadata are separate channel packets, not one generic listing.
+- Title/subtitle, description, keywords, categories, genres, contributors, series, identifiers, language, translated-edition metadata, and portal listing summaries are version-bound.
+- Metadata cannot promise sales, rank, bestseller status, search placement, review outcomes, or unsupported reader results.
+
+Review questions:
+
+- Does Peet accept that metadata can block packet readiness even when the manuscript and proof look strong?
+- Should portal listing summaries appear only after reviewed metadata pass or accepted-warning state?
+- Are keyword stuffing, misleading categories/genres, copied competitor metadata, unsupported contributor/series/identifier state, and KDP/Google flattening correctly excluded?
+
+Pass state:
+
+- Peet accepts a metadata/listing gate before packet readiness, portal listing summaries, launch copy, and analytics promotion.
+
+Warning state:
+
+- One channel or metadata lane can proceed internally with owner/date warning, narrower portal wording, or a source-refresh task.
+
+Block state:
+
+- KDP metadata approval marks Google approved, Hermes picks final metadata without review, or a client-visible listing summary uses stuffing, copied competitor positioning, unsupported contributor state, or rank/sales promises.
+
+### 6. Confirm Portal Review Artifacts
 
 Review the first client-safe portal artifacts:
 
@@ -163,7 +190,7 @@ Block state:
 
 - Clients can see raw research, raw Hermes drafts, internal rights notes, or unreconciled analytics.
 
-### 6. Confirm Hermes Scope
+### 7. Confirm Hermes Scope
 
 Review the recommended Hermes posture:
 
@@ -191,7 +218,7 @@ Block state:
 
 - Runtime Hermes dispatch is approved before forbidden-action tests, output sanitizers, fixture reports, and reviewer defaults exist.
 
-### 7. Confirm Publishing Packet And Account Governance
+### 8. Confirm Publishing Packet And Account Governance
 
 Review the manual publishing packet model:
 
@@ -215,7 +242,7 @@ Block state:
 
 - The packet is marked upload-ready while files, pricing, rights, account readiness, disclosure, or source freshness are missing.
 
-### 8. Confirm Jurisdiction And Local Publisher Evidence
+### 9. Confirm Jurisdiction And Local Publisher Evidence
 
 Review the local publisher model:
 
@@ -242,7 +269,7 @@ Block state:
 
 - The packet can claim local compliance, publisher readiness, ISBN/imprint readiness, copyright registration, or legal-deposit completion without reviewed evidence.
 
-### 9. Confirm Analytics And Reporting Trust
+### 10. Confirm Analytics And Reporting Trust
 
 Review the analytics posture:
 
@@ -269,7 +296,7 @@ Block state:
 
 - Screenshots, raw imports, estimates, or unsettled reports are presented as guaranteed revenue.
 
-### 10. Confirm Rights, Asset, And Contributor Ledger
+### 11. Confirm Rights, Asset, And Contributor Ledger
 
 Review the rights-ledger posture:
 
@@ -295,7 +322,7 @@ Block state:
 
 - A proof, cover, quote, open-licensed asset, AI image, client brand asset, or contributor input advances without evidence.
 
-### 11. Confirm Production Package QA
+### 12. Confirm Production Package QA
 
 Review the production package posture:
 
@@ -331,6 +358,7 @@ This section is a future demo checklist, not a build plan. It defines what evide
 | Series scaffold | Volume order, continuity notes, shared metadata, and rollup analytics shape. | That every future series volume is already viable. |
 | Public-domain or companion negative control | Unsafe production is blocked with a clear rights/evidence explanation. | That the module can work around weak rights evidence. |
 | Hermes recommendation | A skill creates a reviewable artifact or task. | That Hermes can publish, approve, spend, message clients, or access secrets. |
+| Metadata/listing gate | KDP and Google metadata are separate, source-backed, rights-aware, and block misleading title, description, category, keyword, contributor, series, identifier, and portal-summary claims. | That better metadata can promise rank, sales, search placement, reviews, or bestseller outcomes. |
 | Rights ledger | Asset source, license scope, AI provenance, client-owned asset approval, contributor credit/assignment, and pass/warn/block state are visible before dependent states advance. | That PiB has made legal decisions or can bypass weak evidence with better generated assets. |
 | Package QA | Exact files, proof state, rights evidence, checksum binding, and invalidation behavior are visible before manual handoff. | That a local PDF or generated EPUB is automatically upload-ready. |
 | Analytics import | Source/confidence labels and reconciliation state are visible. | That partial reports equal settled revenue. |
@@ -339,7 +367,7 @@ This section is a future demo checklist, not a build plan. It defines what evide
 
 Peet can approve with this text:
 
-> Approve Book Studio V1 as an internal PiB production studio with optional client review. Use KDP and Google Play Books manual-handoff as the first channel focus. Start with business nonfiction, activity or low-content print, series scaffolding, and a public-domain or companion negative-control fixture. Build admin-first records, market evidence gates, gate profiles, Research/Client Document/Project/artifact bridges, publishing packet tracking, local publisher evidence lanes, rights/asset/contributor ledger gates, controlled Hermes skill readiness, package QA evidence, and manual analytics imports. Keep self-serve generation, public SaaS, direct publishing, account-secret custody, autonomous ads, automated review outreach, sales forecasting or rank promises from market research, full layout tooling, automated export/file validation, and automated report integrations out of V1.
+> Approve Book Studio V1 as an internal PiB production studio with optional client review. Use KDP and Google Play Books manual-handoff as the first channel focus. Start with business nonfiction, activity or low-content print, series scaffolding, and a public-domain or companion negative-control fixture. Build admin-first records, market evidence gates, metadata/listing gates, gate profiles, Research/Client Document/Project/artifact bridges, publishing packet tracking, local publisher evidence lanes, rights/asset/contributor ledger gates, controlled Hermes skill readiness, package QA evidence, and manual analytics imports. Keep self-serve generation, public SaaS, direct publishing, account-secret custody, autonomous ads, automated review outreach, sales forecasting or rank promises from market research, full layout tooling, automated export/file validation, and automated report integrations out of V1.
 
 ## Exact Revision Response
 
@@ -354,6 +382,9 @@ bookStudioV1ApprovalRevision:
     remove: []
   firstPortalReviewArtifacts:
     startWith: []
+  metadataListingScope:
+    add: []
+    remove: []
   hermesFirstScope:
     choose: wave1_only | wave1_plus_selected_wave2_docs_and_fixtures | broader_docs_only_no_runtime
   ownershipModel:
@@ -386,6 +417,7 @@ After filling this structure, check the revision impact matrix and name the affe
 - If the negative-control fixture is removed, the first implementation can pass only the happy path and still fail at the first attractive unsafe idea.
 - If portal review is treated as "show clients everything", PiB will leak uncertainty, rights risk, and raw agent output.
 - If analytics is approved as a single revenue chart, clients will be trained to trust numbers before refunds, timing lags, payment reports, and reconciliation are understood.
+- If metadata/listing is treated as a marketing shortcut, Book Studio will optimize for clicks by misleading readers, stuffing keywords, copying competitor positioning, flattening KDP/Google requirements, or promising rank/sales outcomes.
 - If Hermes runtime dispatch is approved too early, the module can create polished unsafe output faster than reviewers can catch it.
 - If package QA is treated as a file-opening check, Book Studio may hand off beautiful but unreviewed files with weak rights evidence, stale channel assumptions, or mutated post-approval content.
 - If rights evidence is reduced to a global checkbox, one weak asset, quote, font, generated image, client-owned logo, or unassigned contributor can contaminate an otherwise strong package.

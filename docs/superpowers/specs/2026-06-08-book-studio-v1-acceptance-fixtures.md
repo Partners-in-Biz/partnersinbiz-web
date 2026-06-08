@@ -12,6 +12,7 @@
 **Language and translation model:** `docs/superpowers/specs/2026-06-08-book-studio-v1-language-translation-edition-model.md`
 **Production budget and capacity model:** `docs/superpowers/specs/2026-06-08-book-studio-v1-production-budget-capacity-model.md`
 **Rights, asset, and contributor ledger model:** `docs/superpowers/specs/2026-06-08-book-studio-v1-rights-asset-contributor-ledger-model.md`
+**Metadata, discoverability, and store listing model:** `docs/superpowers/specs/2026-06-08-book-studio-v1-metadata-discoverability-listing-model.md`
 
 ## Purpose
 
@@ -39,6 +40,7 @@ These rules apply to every fixture below:
 - Any translated edition must keep source and target edition evidence separate, including language, rights, provenance, target quality, identifiers, channel support, pricing, portal, and analytics state.
 - Any production start must have approved or accepted-warning budget and capacity evidence, including human capacity, Hermes/model spend, proof costs, channel economics, and launch-spend separation.
 - Any asset, quote, font, template, public-domain/open-licensed material, AI-generated asset, client-owned brand asset, or contributor input must have rights-ledger pass or accepted-warning evidence before dependent production start, package QA, portal proof, launch copy, analytics promotion, or manual handoff.
+- Any metadata/listing claim must have reviewed or accepted-warning title/subtitle, description, KDP keyword/category, Google genre, contributor, series, identifier, language, and portal-summary evidence before packet readiness, launch copy, analytics promotion, or client-visible listing summary.
 
 Devil's advocate:
 
@@ -412,6 +414,43 @@ PiB prepares a proof that uses a cover image, an interior diagram, a quote, a fo
 - Contributor work reaches package QA or manual handoff without assignment/license and credit evidence.
 - Raw rights uncertainty or private contract detail appears in a portal artifact.
 
+## Fixture M: Metadata, Discoverability, And Store Listing Gate
+
+### Scenario
+
+PiB has a strong business nonfiction draft and proof package, but the operator wants to rush a polished store listing with aggressive title/subtitle wording, broad categories, dense KDP keywords, reused Google metadata, a series claim, and a client-facing portal listing summary.
+
+The fixture should prove that metadata can be useful marketing evidence without becoming keyword stuffing, copied competitor positioning, rank promises, unsupported contributor state, or a KDP/Google flattening shortcut.
+
+### Expected State
+
+| Area | Acceptance evidence |
+| --- | --- |
+| Title/subtitle | Current title and subtitle match manuscript, cover, proof, reader promise, and channel source rules. |
+| Description | KDP and Google description posture is reviewed separately and blocks keyword stuffing, review/testimonial claims, time-sensitive hype, and copied competitor copy. |
+| KDP keywords/categories | Keywords and categories are relevant hypotheses tied to current content, not rank/sales promises or popularity-chasing. |
+| Google genres/metadata | Google title, genre, contributor, identifier, series, and add-book fields are mapped separately from KDP metadata. |
+| Contributors | Author, translator, illustrator, editor, narrator, designer, pen name, or client-owned contributor display matches rights and contributor evidence. |
+| Series | Internal series plan is separated from KDP and Google external series eligibility. |
+| Portal | Portal sees only a reviewed listing summary or safe metadata blocker, not raw keyword experiments or internal competitor notes. |
+
+### Outcome Cases
+
+- `META-PASS-001`: business nonfiction ebook has reviewed title/subtitle, description, KDP keywords/categories, Google genre, contributor display, AI-use posture, language, identifier plan, series-not-applicable state, and portal-safe listing summary for the current file and rights scope.
+- `META-WARN-001`: KDP metadata is reviewable, but Google genre/identifier evidence is incomplete; KDP packet can continue internally while Google handoff and portal listing summary carry owner/date warning.
+- `META-WARN-002`: internal series metadata is coherent, but KDP or Google external series eligibility is unverified; portal may show only the reviewed internal series plan.
+- `META-BLOCK-001`: title, subtitle, or description promises outcomes the manuscript does not support or uses rank, sales, bestseller, testimonial, or review language.
+- `META-BLOCK-002`: keywords, categories, genres, or descriptions use stuffing, irrelevant terms, competitor names, trademark-adjacent positioning, or copied competitor metadata.
+- `META-BLOCK-003`: contributor, translator, illustrator, client brand, public-domain, open-license, AI asset, or identifier evidence is missing or inconsistent with the proposed public listing.
+
+### Failure Conditions
+
+- KDP packet readiness is treated as Google Play Books metadata readiness.
+- A portal listing summary appears before metadata has pass or accepted-warning state.
+- Metadata changes do not invalidate affected Book Brief, packet, proof, portal, launch, or analytics summaries.
+- Hermes can choose final keywords, categories, genres, contributors, series, identifiers, or disclosure answers without reviewer approval.
+- Store listing copy promises rank, sales, bestseller status, review outcomes, or search placement.
+
 ## Minimum Future Demo Set
 
 If the approval packet is accepted, a future Phase 1 implementation demo should include at least:
@@ -427,6 +466,7 @@ If the approval packet is accepted, a future Phase 1 implementation demo should 
 9. Fixture J proving translated-edition pass/warn/block before package QA, portal proof, manual handoff, or analytics promotion.
 10. Fixture K proving production budget/capacity pass/warn/block before production start, Hermes/model spend, proof orders, portal production promises, or launch-spend proposals.
 11. Fixture L proving rights, asset, and contributor ledger pass/warn/block before production start, package QA, portal proof, launch copy, analytics promotion, or manual handoff.
+12. Fixture M proving metadata/listing pass/warn/block before packet readiness, portal listing summary, launch copy, analytics promotion, or client-visible listing claims.
 
 The demo should not be accepted if it only shows:
 
@@ -439,6 +479,7 @@ The demo should not be accepted if it only shows:
 - A translated edition that bypasses language, rights, target-quality, metadata, identifier, channel, pricing, disclosure, or analytics gates.
 - A production start that bypasses budget, human capacity, Hermes/model budget, proof-cost, channel-economics, or launch-spend separation gates.
 - A proof, cover, quote, open-licensed asset, AI image, client-owned brand asset, or contributor input that bypasses rights-ledger evidence.
+- A listing packet or portal summary that bypasses metadata/listing evidence, uses keyword stuffing, copies competitor metadata, flattens KDP and Google requirements, or promises rank, bestseller status, search placement, sales, reviews, or revenue.
 
 ## Approval Gate Reminder
 

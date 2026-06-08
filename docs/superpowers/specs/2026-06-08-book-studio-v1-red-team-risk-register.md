@@ -11,6 +11,7 @@
 **Editorial quality model:** `docs/superpowers/specs/2026-06-08-book-studio-v1-editorial-quality-reader-experience-model.md`
 **Language and translation model:** `docs/superpowers/specs/2026-06-08-book-studio-v1-language-translation-edition-model.md`
 **Production budget and capacity model:** `docs/superpowers/specs/2026-06-08-book-studio-v1-production-budget-capacity-model.md`
+**Metadata, discoverability, and store listing model:** `docs/superpowers/specs/2026-06-08-book-studio-v1-metadata-discoverability-listing-model.md`
 
 ## Purpose
 
@@ -37,6 +38,7 @@ The recommended V1 stays defensible by keeping five hard boundaries:
 - Internal PiB production studio first, not public self-serve SaaS.
 - KDP and Google Play Books manual handoff first, not direct publishing automation.
 - Reviewed market evidence before production selection, not sales/rank promises or shelf screenshots.
+- Reviewed metadata/listing evidence before packet readiness, portal listing summaries, launch copy, or analytics promotion, not keyword stuffing or copied competitor positioning.
 - Reviewed production budget and capacity before production starts, not invisible human/model/proof spend.
 - Translated editions with their own language, rights, quality, metadata, identifier, channel, and analytics gates.
 - Reviewed artifact promotion to portal, not raw admin or Hermes visibility.
@@ -51,6 +53,7 @@ The recommended V1 stays defensible by keeping five hard boundaries:
 | Scope | Does V1 try to cover every channel and book family? | Phase 1 becomes KDP, Google, Apple, Kobo, D2D, Ingram, audio, visual books, ads, and reviews at once. | Approval packet narrows first channels and pilots; wider channels stay adapter research. | Block if wider channels become first-scope requirements without source refresh. |
 | Book quality | Can a polished but weak book pass? | AI produces generic content that looks complete but disappoints readers or mismatches metadata. | Editorial quality model, Research packet, Book Brief, version-bound quality lanes, proof/package evidence, and negative-control fixtures. | Warn unless first demo includes at least one quality block case. |
 | Market evidence | Can a weak idea become a production project because the shelf looks active? | Operators treat search rank, bestseller labels, review counts, competitor screenshots, or generic category activity as proof that this book will sell. | Market evidence packet, pass/warn/block candidate state, KDP/Google discoverability source refresh, no sales/rank promises, Fixture H. | Block if Book Brief or production can start without reviewed market evidence. |
+| Metadata and listing | Can store metadata optimize for clicks while misleading readers or channels? | Title/subtitle, description, KDP keywords/categories, Google genres, contributors, series, identifiers, or portal summaries use stuffing, copied competitor positioning, unsupported contributor state, KDP/Google flattening, or rank/sales promises. | Metadata/listing model, source-refresh keys, `bookStoreMetadataPacket`, portal-safe listing summary, and Fixture M. | Block if packet readiness, portal listing summary, launch copy, or analytics promotion can bypass metadata/listing pass or accepted-warning state. |
 | Production budget and capacity | Can a good candidate quietly become unaffordable or unsupportable? | Human work, Hermes/model runs, proof copies, print costs, launch spend, and review load are invisible until the project is already committed. | Production budget/capacity model, budget states, capacity lanes, Hermes run ceilings, proof-cost evidence, and `BUDGET-*` fixtures. | Block if production can start without approved or accepted-warning budget and capacity evidence. |
 | Rights and IP | Can weak rights evidence hide behind a nice cover? | Public-domain, companion, summary, quote, trademark, Creative Commons, AI image, client-owned asset, or contributor risks are treated as creative issues instead of release blockers. | Rights-first fixture, rights/asset/contributor ledger model, asset provenance gates, public-domain/companion negative control, internal-only rights notes. | Block when rights evidence is missing, stale, ambiguous, noncommercial/no-derivatives-conflicting, or unassigned for public use. |
 | KDP policy | Can the packet claim KDP readiness from memory? | Unsupported formats, misleading metadata, AI disclosure, ISBN/imprint, quality, or series rules are missed. | Source register, KDP readiness check, source freshness, manual upload checklist, packet blockers. | Block if source freshness or disclosure provenance is missing. |
@@ -82,6 +85,7 @@ The recommended V1 should be stopped or redesigned if any of these become true:
 - V1 must automate review outreach, paid ads, price changes, or public launch sends.
 - Portal users must see raw generation, raw research, internal rights notes, or unreconciled analytics.
 - Book Brief or production work can start from market screenshots, copied competitor positioning, automated market scraping, sales forecasts, rank promises, or negative/unknown print margin.
+- Packet readiness, portal listing summaries, launch copy, or analytics promotion can use keyword stuffing, misleading categories/genres, copied competitor metadata, unsupported contributor/series/identifier state, KDP/Google flattening, or rank/sales/bestseller promises.
 - Production work, Hermes/model spend, proof orders, client production promises, or launch-spend proposals can start without approved or accepted-warning production budget and capacity evidence.
 - Package QA, portal proof, or publishing packet readiness can start from a generated/assisted manuscript that has not passed editorial quality review or accepted-warning review.
 - Translated-edition production, package QA, portal proof, manual handoff, Kindle Translate pathway, Google translated-edition packet, or translated-edition analytics can bypass language, rights, provenance, target-quality, metadata, identifier, pricing/territory, channel, and disclosure gates.
@@ -107,10 +111,11 @@ Before implementation planning, Peet should be able to answer:
 2. Are KDP and Google Play Books manual handoff enough for the first channel proof?
 3. Should the negative-control rights fixture stay in the first demo set?
 4. Is the market evidence gate required before Book Brief or production selection?
-5. Is portal review limited to promoted artifact versions?
-6. Is Hermes allowed only to create reviewable artifacts, checks, and tasks?
-7. Is manual analytics import acceptable until confidence and reconciliation behavior is proven?
-8. Are the V1 deferrals acceptable: no self-serve generation, direct publishing, credential custody, automated review outreach, autonomous ads, sales/rank promises from market research, full layout tooling, or automated report integrations?
+5. Is the metadata/listing gate required before packet readiness, portal listing summaries, launch copy, and analytics promotion?
+6. Is portal review limited to promoted artifact versions?
+7. Is Hermes allowed only to create reviewable artifacts, checks, and tasks?
+8. Is manual analytics import acceptable until confidence and reconciliation behavior is proven?
+9. Are the V1 deferrals acceptable: no self-serve generation, direct publishing, credential custody, automated review outreach, autonomous ads, sales/rank promises from market research, full layout tooling, runtime listing mutation, or automated report integrations?
 
 ## Current Decision State
 
