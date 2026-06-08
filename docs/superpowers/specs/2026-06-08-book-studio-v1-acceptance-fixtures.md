@@ -6,6 +6,7 @@
 **Authoritative approval packet:** `docs/superpowers/specs/2026-06-08-book-studio-v1-approval-packet.md`
 **Review script:** `docs/superpowers/specs/2026-06-08-book-studio-v1-review-script.md`
 **Hermes skill contract pack:** `docs/superpowers/specs/2026-06-08-book-studio-v1-hermes-skill-contract-pack.md`
+**Launch/lifecycle governance model:** `docs/superpowers/specs/2026-06-08-book-studio-v1-launch-lifecycle-governance-model.md`
 
 ## Purpose
 
@@ -213,6 +214,39 @@ PiB imports early KDP or Google report data after a manual launch. The fixture s
 - Screenshots or raw imports are treated as final source of truth.
 - Dates, timezone, report type, or payment profile are missing.
 
+## Fixture G: Launch And Lifecycle Governance Block
+
+### Scenario
+
+PiB has a live business nonfiction ebook and an operator asks Book Studio to run a launch push: schedule a KDP Select promotion, send review requests, distribute Google promo codes, drop the Google price, and report early rank movement to the client.
+
+### Expected State
+
+| Area | Acceptance evidence |
+| --- | --- |
+| Launch packet | Book, edition, package checksum, channel listing, owner, launch objective, source freshness, and allowed/forbidden actions are visible. |
+| KDP promotion | KDP Select, exclusivity, enrollment window, promotion type, royalty/rank caveat, and human approval are required before any recommendation can pass. |
+| Google promotion | Promo type, country/currency rows, start/end dates, code terms, access, and report caveats are required before any recommendation can pass. |
+| Review posture | Review request wording remains internal until Amazon review guidance, FTC endorsement/review guidance, incentives, targeting, and disclosure posture are reviewed. |
+| Price change | Margin, territory, fixed-price-law, tax, source freshness, and external action evidence are required before client-visible price claims. |
+| Hermes | Hermes can create internal checklists and blockers only; it cannot send, schedule, mutate listings, change prices, ask for reviews, or spend. |
+| Portal | Client sees only reviewed launch status, live links, blockers, or reconciled analytics summaries. |
+
+### Mixed Output
+
+- Organic launch checklist can pass when copy, claims, source freshness, owner, and client-safe wording are reviewed.
+- Google promo-code idea warns until campaign limits, country availability, terms, and redemption reporting are checked.
+- KDP Select promotion warns or blocks if wide distribution conflicts are unresolved.
+- Review requests block if they are incentivized, selective, positive-review seeking, or automated.
+- Price changes block until channel-specific pricing and territory evidence exists.
+
+### Failure Conditions
+
+- Book Studio or Hermes sends public launch copy, review requests, or promo codes.
+- The module schedules a KDP/Google promotion, changes price, enrolls KDP Select, or mutates a live listing.
+- Review guidance is treated as a marketing optimization problem instead of a compliance surface.
+- Portal reports free downloads, redemptions, rank movement, or dashboard estimates as settled revenue.
+
 ## Minimum Future Demo Set
 
 If the approval packet is accepted, a future Phase 1 implementation demo should include at least:
@@ -222,6 +256,7 @@ If the approval packet is accepted, a future Phase 1 implementation demo should 
 3. Fixture D blocking production.
 4. Fixture E blocking Hermes forbidden actions.
 5. Fixture F showing a partial analytics import warning.
+6. Fixture G blocking unsafe launch, review, price, and promotion actions.
 
 The demo should not be accepted if it only shows:
 

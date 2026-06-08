@@ -9,6 +9,7 @@
 **Source refresh contract:** `docs/superpowers/specs/2026-06-08-book-studio-v1-source-refresh-contract.md`
 **Source refresh execution report:** `docs/superpowers/specs/2026-06-08-book-studio-v1-source-refresh-execution-report.md`
 **ai-story non-port checklist:** `docs/superpowers/specs/2026-06-08-book-studio-v1-ai-story-non-port-checklist.md`
+**Launch/lifecycle governance model:** `docs/superpowers/specs/2026-06-08-book-studio-v1-launch-lifecycle-governance-model.md`
 
 ## Purpose
 
@@ -547,10 +548,10 @@ These skill families stay named for future compatibility but are not part of the
 | Skill key | Current status | Reason deferred |
 | --- | --- | --- |
 | `book-production-package-qa` | deferred_contract_stub | Needs package manifests, checksum binding, proof rules, file identity, and package QA implementation boundaries first. |
-| `book-launch-plan-builder` | deferred_contract_stub | Public launch activity, review requests, client messages, ads, and budget decisions are release-sensitive. |
+| `book-launch-plan-builder` | deferred_contract_stub | Public launch activity, review requests, client messages, ads, budget decisions, price windows, and promo-code distribution are release-sensitive. Use the launch/lifecycle governance model before expanding this stub. |
 | `book-analytics-import-review` | deferred_contract_stub | Manual analytics import model exists, but runtime parser/importer work remains unapproved. |
-| `book-review-risk-monitor` | deferred_contract_stub | Review outreach and monitoring can create compliance risk if introduced before launch governance. |
-| `book-lifecycle-ops` | deferred_contract_stub | Live listing changes, price changes, revisions, and post-launch updates require approval and evidence gates. |
+| `book-review-risk-monitor` | deferred_contract_stub | Review outreach and monitoring can create compliance risk. The launch/lifecycle governance model keeps it as internal compliance review only. |
+| `book-lifecycle-ops` | deferred_contract_stub | Live listing changes, price changes, revisions, unpublish decisions, and post-launch updates require approval and evidence gates. |
 
 Deferred stubs may be expanded only through another design-only aid or through an approved implementation plan that quotes the final approval record.
 

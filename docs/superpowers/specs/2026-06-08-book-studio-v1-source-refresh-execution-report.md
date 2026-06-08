@@ -10,6 +10,7 @@
 **Jurisdiction/local publisher model:** `docs/superpowers/specs/2026-06-08-book-studio-v1-jurisdiction-local-publisher-model.md`
 **Wider channel adapter packet:** `docs/superpowers/specs/2026-06-08-book-studio-v1-wider-channel-adapter-packet.md`
 **ai-story non-port checklist:** `docs/superpowers/specs/2026-06-08-book-studio-v1-ai-story-non-port-checklist.md`
+**Launch/lifecycle governance model:** `docs/superpowers/specs/2026-06-08-book-studio-v1-launch-lifecycle-governance-model.md`
 
 ## Purpose
 
@@ -77,6 +78,21 @@ bookStudioV1SourceRefreshReport:
       completed: false
       sources:
         - ai-story-head
+    launch_lifecycle_sources:
+      required: true
+      completed: false
+      sources:
+        - kdp-select-promotions
+        - kdp-free-book-promotion
+        - kdp-merchandising-reviews
+        - kdp-customer-reviews
+        - kdp-price-book
+        - kdp-book-status-update-unpublish
+        - google-promotions-overview
+        - google-promotional-pricing
+        - google-promo-codes
+        - google-book-prices
+        - ftc-reviews-endorsements
     wider_channel_revision_sources:
       required: false
       requiredWhen: "Only when the approval decision adds Apple, Kobo, Draft2Digital, IngramSpark, audiobook, owned ISBN, or EPUB validation to first-scope planning."
@@ -186,6 +202,110 @@ bookStudioV1SourceRefreshReport:
       affectedApprovalFields: []
       affectedDocsToRevise: []
       planningImpact: planning_blocked_until_result_recorded
+    - key: kdp-select-promotions
+      url: https://kdp.amazon.com/en_US/help/topic/G200798990
+      officialSource: true
+      checkedAt: "not_recorded_yet"
+      result: not_recorded_yet
+      evidenceSummary: not_recorded_yet
+      affectedApprovalFields: []
+      affectedDocsToRevise: []
+      planningImpact: planning_blocked_until_result_recorded
+    - key: kdp-free-book-promotion
+      url: https://kdp.amazon.com/en_US/help/topic/G201298240
+      officialSource: true
+      checkedAt: "not_recorded_yet"
+      result: not_recorded_yet
+      evidenceSummary: not_recorded_yet
+      affectedApprovalFields: []
+      affectedDocsToRevise: []
+      planningImpact: planning_blocked_until_result_recorded
+    - key: kdp-merchandising-reviews
+      url: https://kdp.amazon.com/en_US/help/topic/G200673650
+      officialSource: true
+      checkedAt: "not_recorded_yet"
+      result: not_recorded_yet
+      evidenceSummary: not_recorded_yet
+      affectedApprovalFields: []
+      affectedDocsToRevise: []
+      planningImpact: planning_blocked_until_result_recorded
+    - key: kdp-customer-reviews
+      url: https://kdp.amazon.com/en_US/help/topic/G202101910
+      officialSource: true
+      checkedAt: "not_recorded_yet"
+      result: not_recorded_yet
+      evidenceSummary: not_recorded_yet
+      affectedApprovalFields: []
+      affectedDocsToRevise: []
+      planningImpact: planning_blocked_until_result_recorded
+    - key: kdp-price-book
+      url: https://kdp.amazon.com/en_US/help/topic/G200641280
+      officialSource: true
+      checkedAt: "not_recorded_yet"
+      result: not_recorded_yet
+      evidenceSummary: not_recorded_yet
+      affectedApprovalFields: []
+      affectedDocsToRevise: []
+      planningImpact: planning_blocked_until_result_recorded
+    - key: kdp-book-status-update-unpublish
+      urls:
+        - https://kdp.amazon.com/en_US/help/topic/G200627450
+        - https://kdp.amazon.com/en_US/help/topic/GBMC3A6JNGW9DU7X
+        - https://kdp.amazon.com/en_US/help/topic/G4QJH4ENN4FZRFMP
+      officialSource: true
+      checkedAt: "not_recorded_yet"
+      result: not_recorded_yet
+      evidenceSummary: not_recorded_yet
+      affectedApprovalFields: []
+      affectedDocsToRevise: []
+      planningImpact: planning_blocked_until_result_recorded
+    - key: google-promotions-overview
+      url: https://support.google.com/books/partner/answer/11098571?hl=en
+      officialSource: true
+      checkedAt: "not_recorded_yet"
+      result: not_recorded_yet
+      evidenceSummary: not_recorded_yet
+      affectedApprovalFields: []
+      affectedDocsToRevise: []
+      planningImpact: planning_blocked_until_result_recorded
+    - key: google-promotional-pricing
+      url: https://support.google.com/books/partner/answer/4566728?hl=en
+      officialSource: true
+      checkedAt: "not_recorded_yet"
+      result: not_recorded_yet
+      evidenceSummary: not_recorded_yet
+      affectedApprovalFields: []
+      affectedDocsToRevise: []
+      planningImpact: planning_blocked_until_result_recorded
+    - key: google-promo-codes
+      url: https://support.google.com/books/partner/answer/9827742?hl=en
+      officialSource: true
+      checkedAt: "not_recorded_yet"
+      result: not_recorded_yet
+      evidenceSummary: not_recorded_yet
+      affectedApprovalFields: []
+      affectedDocsToRevise: []
+      planningImpact: planning_blocked_until_result_recorded
+    - key: google-book-prices
+      url: https://support.google.com/books/partner/answer/3238849?hl=en
+      officialSource: true
+      checkedAt: "not_recorded_yet"
+      result: not_recorded_yet
+      evidenceSummary: not_recorded_yet
+      affectedApprovalFields: []
+      affectedDocsToRevise: []
+      planningImpact: planning_blocked_until_result_recorded
+    - key: ftc-reviews-endorsements
+      urls:
+        - https://www.ftc.gov/business-guidance/advertising-marketing/endorsements-influencers-reviews
+        - https://www.ftc.gov/business-guidance/resources/ftcs-endorsement-guides
+      officialSource: true
+      checkedAt: "not_recorded_yet"
+      result: not_recorded_yet
+      evidenceSummary: not_recorded_yet
+      affectedApprovalFields: []
+      affectedDocsToRevise: []
+      planningImpact: planning_blocked_until_result_recorded
     - key: south-africa-legal-deposit-faq
       url: https://www.nationalarchives.gov.za/node/475
       officialSource: true
@@ -267,7 +387,7 @@ bookStudioV1SourceRefreshReport:
 
 ## Required Source Groups
 
-The reviewer must check the source groups required by the final decision record. The recommended V1 approval requires all four core groups: KDP, Google Play Books, local publisher/jurisdiction, and `ai-story`.
+The reviewer must check the source groups required by the final decision record. The recommended V1 approval requires all five core groups: KDP, Google Play Books, local publisher/jurisdiction, launch/lifecycle, and `ai-story`.
 
 | Group | Source key | Source to check | Planning claim protected |
 | --- | --- | --- | --- |
@@ -281,6 +401,17 @@ The reviewer must check the source groups required by the final decision record.
 | Google Play Books | `google-series` | `https://support.google.com/books/partner/answer/11069638?hl=en` | Google series numbering, name matching, order, and catalog workflow. |
 | Google Play Books | `google-reports` | `https://support.google.com/books/partner/answer/9266485?hl=en` | Google earnings, sales, transaction, refund, preview, and timezone evidence. |
 | Google Play Books | `google-service-provider` | `https://support.google.com/books/partner/answer/3323299?hl=en` | Service-provider, client consent, report/payment access, and account authority assumptions. |
+| Launch/lifecycle | `kdp-select-promotions` | `https://kdp.amazon.com/en_US/help/topic/G200798990` | KDP Select, Kindle Unlimited, exclusivity, and promotion eligibility assumptions. |
+| Launch/lifecycle | `kdp-free-book-promotion` | `https://kdp.amazon.com/en_US/help/topic/G201298240` | Free Book Promotion eligibility, timing, royalty, rank, and cancellation caveats. |
+| Launch/lifecycle | `kdp-merchandising-reviews` | `https://kdp.amazon.com/en_US/help/topic/G200673650` | KDP review request, advance copy, and review-influence guardrails. |
+| Launch/lifecycle | `kdp-customer-reviews` | `https://kdp.amazon.com/en_US/help/topic/G202101910` | Customer review visibility, missing-review, violation-report, and review-transfer caveats. |
+| Launch/lifecycle | `kdp-price-book` | `https://kdp.amazon.com/en_US/help/topic/G200641280` | KDP price, royalty, tax, fixed-price-law, and price-update assumptions. |
+| Launch/lifecycle | `kdp-book-status-update-unpublish` | `https://kdp.amazon.com/en_US/help/topic/G200627450`, `https://kdp.amazon.com/en_US/help/topic/GBMC3A6JNGW9DU7X`, `https://kdp.amazon.com/en_US/help/topic/G4QJH4ENN4FZRFMP` | KDP status, update, blocked, unpublish, archive, delete, and new-edition wording. |
+| Launch/lifecycle | `google-promotions-overview` | `https://support.google.com/books/partner/answer/11098571?hl=en` | Google promotion type, country availability, access, and series-promotion assumptions. |
+| Launch/lifecycle | `google-promotional-pricing` | `https://support.google.com/books/partner/answer/4566728?hl=en` | Google promotional price date, country/currency, overlap, and CSV-row assumptions. |
+| Launch/lifecycle | `google-promo-codes` | `https://support.google.com/books/partner/answer/9827742?hl=en` | Google promo code campaign, country, code-count, terms, redemption, and report caveats. |
+| Launch/lifecycle | `google-book-prices` | `https://support.google.com/books/partner/answer/3238849?hl=en` | Google price, tax, currency, effective-date, and fixed-price-law assumptions. |
+| Launch/lifecycle | `ftc-reviews-endorsements` | `https://www.ftc.gov/business-guidance/advertising-marketing/endorsements-influencers-reviews`, `https://www.ftc.gov/business-guidance/resources/ftcs-endorsement-guides` | Review, endorsement, incentive, selective-solicitation, and disclosure guardrails. |
 | Local publisher | `south-africa-legal-deposit-faq` | `https://www.nationalarchives.gov.za/node/475` | South African legal-deposit trigger and local-publication claim. |
 | Local publisher | `south-africa-legal-deposit-act` | `https://www.nationalarchives.gov.za/sites/default/files/Legal%20Deposit%20Act.pdf` | Legal-deposit lane, dispatch timing claim, and publisher definition evidence. |
 | Local publisher | `south-africa-copyright-cipc` | `https://www.cipc.co.za/?page_id=4586` | Copyright posture, registration claim, and authorship/provenance wording. |

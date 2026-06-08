@@ -17,6 +17,7 @@
 **Jurisdiction/local publisher aid:** `docs/superpowers/specs/2026-06-08-book-studio-v1-jurisdiction-local-publisher-model.md`
 **ai-story non-port aid:** `docs/superpowers/specs/2026-06-08-book-studio-v1-ai-story-non-port-checklist.md`
 **Hermes skill contract pack:** `docs/superpowers/specs/2026-06-08-book-studio-v1-hermes-skill-contract-pack.md`
+**Launch and lifecycle governance aid:** `docs/superpowers/specs/2026-06-08-book-studio-v1-launch-lifecycle-governance-model.md`
 
 ## Purpose
 
@@ -163,6 +164,7 @@ The future Phase 1 plan must:
 - Preserve the `ai-story` non-port rule that prior standalone UX patterns can be reused only after keep/rewrite/reject classification and cannot bypass PiB org scope, Research, Client Documents, Projects/Kanban, portal gating, or Hermes skill governance.
 - Keep runtime Hermes dispatch disabled until ledgers, sanitizers, fixtures, reviewer defaults, and forbidden-action tests exist.
 - Preserve the Hermes contract pack rule that first skills are `proposed_contract_only`, cannot trigger publishing, cannot write runtime data, and must block stale-source readiness claims.
+- Preserve the launch/lifecycle rule that post-publication review requests, price changes, promotions, public sends, ad spend, listing updates, and unpublish decisions are human-approved external actions with evidence, not autonomous Book Studio or Hermes actions.
 
 ## What Remains Unapproved
 
