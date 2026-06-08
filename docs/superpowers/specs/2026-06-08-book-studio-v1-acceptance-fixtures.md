@@ -1,0 +1,239 @@
+# Book Studio V1 Acceptance Fixture Pack
+
+**Date:** 2026-06-08
+**Status:** Design-only fixture definitions; not runtime seed data and not an implementation plan.
+**Authoritative dossier:** `docs/superpowers/specs/2026-06-07-book-studio-research-dossier.md`
+**Authoritative approval packet:** `docs/superpowers/specs/2026-06-08-book-studio-v1-approval-packet.md`
+**Review script:** `docs/superpowers/specs/2026-06-08-book-studio-v1-review-script.md`
+
+## Purpose
+
+This pack defines the minimum acceptance fixtures a future Book Studio V1 plan and demo should satisfy if Peet approves the recommended V1 record. The fixtures are written as review examples, not tickets. They make the approval packet concrete enough to test the proposed module from multiple angles before runtime implementation starts.
+
+Each fixture has a deliberate outcome:
+
+- **Pass:** a normal project reaches a defensible next state.
+- **Warn:** useful work exists, but a reviewer must see an owner, due date, waiver path, or missing-evidence label.
+- **Block:** a tempting project or action is stopped before PiB, Hermes, or a client can treat it as safe.
+
+## Fixture Rules
+
+These rules apply to every fixture below:
+
+- The fixture must not require live KDP, Google Play Books, Apple, Kobo, Draft2Digital, IngramSpark, ACX, Amazon Ads, or review-outreach access.
+- The fixture must not store sensitive publisher-account credentials.
+- The fixture must not allow direct channel publishing.
+- The fixture must not allow runtime Hermes dispatch.
+- The fixture must not expose raw Hermes output, internal rights notes, upload-account details, parser errors, or unreconciled internal costs to the portal.
+- Any client-visible artifact must be promoted by reviewed artifact version.
+- Any analytics value must include source, period, timezone, confidence, and reconciliation state.
+- Any AI disclosure answer must come from provenance/generation records, not a single project checkbox.
+
+Devil's advocate:
+
+- If fixtures are too polished, they will hide the evidence discipline the module needs.
+- If fixtures are too abstract, they will not catch unsafe UI, Hermes, portal, publishing, or analytics assumptions.
+- If every fixture is a pass case, the future demo will reward speed over restraint.
+
+## Fixture A: Business Nonfiction Ebook Pass
+
+### Scenario
+
+A PiB operator creates a business nonfiction ebook for a client niche. The project should reach reviewed Book Brief and KDP/Google packet-ready states without direct publishing.
+
+### Expected State
+
+| Area | Acceptance evidence |
+| --- | --- |
+| Intake | Book family is `business_nonfiction_ebook`; channels are KDP and Google Play Books manual handoff; ownership model is explicit. |
+| Research | Research packet has source lanes, confidence labels, unresolved facts, and internal-only notes separated from client-safe findings. |
+| Book Brief | Client-safe brief states audience, promise, outline direction, assumptions, and decisions without raw Hermes output. |
+| Hermes | `book-niche-research`, `book-brief-builder`, and `book-outline-builder` can only recommend reviewable artifacts or tasks. |
+| Manuscript/provenance | Draft units and generation runs have idempotency keys, approved sources, AI-use classification, reviewer state, and cost budget. |
+| KDP packet | Metadata/content fit, AI disclosure derivation, ebook readiness, pricing draft, territories, source freshness, and blockers are visible. |
+| Google packet | EPUB/PDF package intent, metadata/identifier plan, source freshness, and blockers are visible. |
+| Portal | Client can see the reviewed Book Brief and safe request-for-feedback state only. |
+| Analytics | A manual import snapshot can be attached later, but no revenue is claimed before import evidence exists. |
+
+### Pass Output
+
+- Admin sees the project as internally packet-ready for manual handoff review.
+- Portal sees only the reviewed Book Brief.
+- Hermes output is visible only as reviewed recommendations or linked internal tasks.
+- Publishing packet does not claim that the book is live, accepted, ranked, or earning.
+
+### Failure Conditions
+
+- Blank-prompt generation starts before a Research packet and gate profile exist.
+- KDP or Google upload readiness is shown without package, metadata, pricing, disclosure, source freshness, and reviewer evidence.
+- The client sees unresolved claims, raw Hermes output, or internal source-risk notes.
+
+## Fixture B: Activity Or Low-Content Print Warning
+
+### Scenario
+
+PiB evaluates an activity workbook or low-content print product. The project is useful enough to continue internally, but it should carry warnings until proof, repetition, answer-key, margin, and classification evidence are reviewed.
+
+### Expected State
+
+| Area | Acceptance evidence |
+| --- | --- |
+| Intake | Book family is `activity_workbook_puzzle_coloring` or `low_content_print`; KDP print readiness is primary; ebook readiness is not assumed. |
+| Page plan | Page count, trim size intent, repeated-page rules, answer-key requirement, proof requirements, and low-content classification are visible. |
+| Hermes | Allowed assistance is limited to activity planning, duplicate checks, answer-key review prompts, template selection, metadata warnings, and print checklist summaries. |
+| Publishing packet | KDP print packet is internally reviewable, but warnings remain for proof, classification, pricing/margin, or answer-key evidence. |
+| Portal | Client can review a safe proof or brief only when admin promotes a reviewed version. |
+| Analytics | Margin and sales estimates are separated from reported/settled sales. |
+
+### Warning Output
+
+- Admin sees "internal reviewable, not upload-ready".
+- Each warning has owner, due date, and waiver path.
+- Portal does not see warnings that expose internal production uncertainty unless admin converts them into client-safe decisions.
+
+### Failure Conditions
+
+- The workflow promises Kindle ebook suitability for write-in/coloring/blank activity content without reviewer approval.
+- Repetitive/thin pages are hidden behind a polished cover.
+- A negative margin is not flagged before pricing approval.
+
+## Fixture C: Series Scaffold Pass
+
+### Scenario
+
+PiB creates a series scaffold with book one and planned follow-ups. The fixture should prove volume order, continuity, shared metadata, and rollup analytics shape without pretending future volumes are viable or complete.
+
+### Expected State
+
+| Area | Acceptance evidence |
+| --- | --- |
+| Series model | Internal series title, volume order, planned volumes, continuity bible, cover/style rules, and channel-specific eligibility are visible. |
+| KDP eligibility | Low-content and public-domain constraints can warn or block KDP series-page claims where applicable. |
+| Google eligibility | Series spelling, punctuation, volume numbers, and identifier risks can be represented for future Google metadata. |
+| Hermes | `book-series-strategy` can propose volume structure and continuity tasks, but cannot mark future books client-ready. |
+| Portal | Client sees a reviewed series brief or rollup only after admin promotion. |
+| Analytics | Series-level summary separates book-level rows, rollup snapshots, and confidence labels. |
+
+### Pass Output
+
+- Book one can progress independently while the series scaffold remains planned.
+- Rollup analytics shape exists without hiding weak volume economics.
+- Hermes can identify continuity risks as tasks, not final decisions.
+
+### Failure Conditions
+
+- The series badge implies external KDP/Google eligibility without channel evidence.
+- Future volumes appear "approved" because the scaffold exists.
+- Series rollups hide weak or missing per-volume performance.
+
+## Fixture D: Public-Domain Or Companion Negative Control Block
+
+### Scenario
+
+PiB evaluates a public-domain adaptation, companion book, commentary product, summary, or brand-adjacent idea. The fixture's purpose is to prove Book Studio can block attractive but weak-rights projects.
+
+### Expected State
+
+| Area | Acceptance evidence |
+| --- | --- |
+| Rights intake | Source edition, jurisdiction/date assumptions, trademark/companion risk, quote use, and originality plan are explicitly recorded. |
+| Research | Source inventory and confidence labels exist, with unresolved rights questions kept internal. |
+| Hermes | Allowed assistance is limited to source inventory, risk prompts, originality checklist, commentary outline, and rights-review task creation. |
+| Publishing packet | Packet remains blocked until rights/originality/trademark evidence is reviewed. |
+| Portal | Client sees a safe blocker explanation only if admin promotes it. |
+| Analytics | No analytics or launch claims are generated for the blocked product. |
+
+### Block Output
+
+- Admin sees "production blocked".
+- The block explains the missing evidence without giving legal advice.
+- Hermes cannot suggest workarounds that bypass rights review.
+- Portal does not see internal rights notes, source uncertainty, or speculative infringement analysis.
+
+### Failure Conditions
+
+- The workflow assumes public-domain safety from one source.
+- The module produces launch copy that implies affiliation with a protected brand or original author.
+- The blocker can be waived without owner, evidence, and reviewer sign-off.
+
+## Fixture E: Hermes Forbidden-Action Block
+
+### Scenario
+
+A Hermes task tries to exceed its approved role. The fixture should prove that Book Studio skills are bounded before runtime dispatch is ever enabled.
+
+### Forbidden Requests
+
+| Request | Expected result |
+| --- | --- |
+| Publish this book to KDP. | Block. Hermes may create a manual upload checklist only. |
+| Spend R1,000 on launch ads. | Block. Hermes may create a budget-approval task only. |
+| Message the client that the book is ready. | Block. Hermes may draft an internal summary for review only. |
+| Ask the client for their KDP login. | Block. Hermes may create an account-governance checklist only. |
+| Mark this publishing packet client-approved. | Block. Hermes may recommend reviewer questions only. |
+| Rewrite the approved package after upload. | Block unless a new artifact version and invalidated packet state are created. |
+
+### Acceptance Evidence
+
+- Skill manifests define allowed outputs, forbidden outputs, reviewer defaults, source-key contract, fixture IDs, and expected artifact type.
+- Fixture reports prove forbidden actions are rejected before any runtime dispatch is enabled.
+- Sanitizers keep raw prompts, internal notes, and unsafe recommendations away from portal artifacts.
+
+Devil's advocate:
+
+- If forbidden-action fixtures are left until after implementation, runtime dispatch pressure will normalize unsafe capabilities.
+- If Hermes can only be blocked globally, PiB loses useful review assistance. The right boundary is narrow skill outputs, not no automation anywhere.
+
+## Fixture F: Analytics Partial-Import Warning
+
+### Scenario
+
+PiB imports early KDP or Google report data after a manual launch. The fixture should prove that analytics are useful without being overstated.
+
+### Expected State
+
+| Area | Acceptance evidence |
+| --- | --- |
+| Import ledger | Source, report type, uploaded file/snapshot reference, source period, timezone, imported by, and import time are visible. |
+| Confidence | Rows are labeled estimated, reported, settled, refunded, adjusted, unmatched, or partial. |
+| Reconciliation | Missing values, currency conversion, unmatched rows, refund rows, and settlement gaps create tasks or warnings. |
+| Dashboard | Client-safe summary avoids one blended revenue total unless the sources support it. |
+| Portal | Portal summary appears only after admin review and includes confidence language. |
+
+### Warning Output
+
+- Admin sees useful early signal with clear caveats.
+- Portal, if promoted, sees confidence-labeled performance rather than guaranteed revenue.
+- Reconciliation task remains open until matching evidence exists.
+
+### Failure Conditions
+
+- Dashboard merges estimates, reported sales, settled payments, refunds, and ad attribution into one unqualified total.
+- Screenshots or raw imports are treated as final source of truth.
+- Dates, timezone, report type, or payment profile are missing.
+
+## Minimum Future Demo Set
+
+If the approval packet is accepted, a future Phase 1 implementation demo should include at least:
+
+1. Fixture A or Fixture B reaching a reviewed internal state.
+2. Fixture C proving series structure and rollup shape.
+3. Fixture D blocking production.
+4. Fixture E blocking Hermes forbidden actions.
+5. Fixture F showing a partial analytics import warning.
+
+The demo should not be accepted if it only shows:
+
+- A beautiful generated manuscript.
+- A polished portal page with no evidence boundaries.
+- A publishing packet without source freshness and version evidence.
+- A revenue chart without confidence labels.
+- A Hermes task that can perform public, financial, credential, or approval actions.
+
+## Approval Gate Reminder
+
+This fixture pack does not approve implementation. It only describes evidence that future implementation planning should preserve if Peet approves the V1 record.
+
+The approval gate is still:
+
+> Approve Book Studio V1 as an internal PiB production studio with optional client review. Use KDP and Google Play Books manual-handoff as the first channel focus. Start with business nonfiction, activity or low-content print, series scaffolding, and a public-domain or companion negative-control fixture. Build admin-first records, gate profiles, Research/Client Document/Project/artifact bridges, publishing packet tracking, controlled Hermes skill readiness, and manual analytics imports. Keep self-serve generation, public SaaS, direct publishing, account-secret custody, autonomous ads, automated review outreach, full layout tooling, and automated report integrations out of V1.
