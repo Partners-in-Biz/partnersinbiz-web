@@ -2616,4 +2616,170 @@ describe('youtube studio admin API', () => {
     expect(body.error).toMatch(/approved/i)
     expect(mockAdd).not.toHaveBeenCalled()
   })
+
+  it('sends a rendered job to portal review with sanitized output and approval gate metadata', async () => {
+    stageFirestore({
+      youtube_channel_workspaces: {
+        docs: {
+          'channel-1': {
+            id: 'channel-1',
+            data: { orgId: 'org-1', title: 'Acme', deleted: false },
+          },
+        },
+      },
+      youtube_video_projects: {
+        docs: {
+          'video-1': {
+            id: 'video-1',
+            data: { orgId: 'org-1', channelWorkspaceId: 'channel-1', title: 'Launch', visibility: { showInClientPortal: true }, deleted: false },
+          },
+        },
+      },
+      youtube_render_jobs: {
+        docs: {
+          'render-1': {
+            id: 'render-1',
+            data: {
+              orgId: 'org-1',
+              channelWorkspaceId: 'channel-1',
+              videoProjectId: 'video-1',
+              title: 'Launch final assembly',
+              renderType: 'full_video',
+              targetFormat: 'horizontal_16_9',
+              status: 'rendered',
+              versionNumber: 1,
+              timeline: [],
+              output: {},
+              checks: {
+                sourceRights: { status: 'pass', message: 'Rights cleared.' },
+                brand: { status: 'pass', message: 'Brand aligned.' },
+                captions: { status: 'warning', message: 'Captions need review.' },
+                renderQuality: { status: 'pass', message: 'Render looks stable.' },
+                clientApproval: { status: 'warning', message: 'Client review pending.' },
+              },
+              visibility: { showInClientPortal: false, showTimelineInPortal: true, showOutputsInPortal: false },
+              deleted: false,
+            },
+          },
+        },
+      },
+    })
+
+    const { PUT } = await import('@/app/api/v1/youtube-studio/render-jobs/route')
+    const res = await PUT(new NextRequest('http://localhost/api/v1/youtube-studio/render-jobs', {
+      method: 'PUT',
+      body: JSON.stringify({
+        id: 'render-1',
+        status: 'qa_review',
+        output: {
+          previewUrl: ' https://cdn.example/review.mp4 ',
+          downloadUrl: ' https://cdn.example/final.mp4 ',
+          storagePath: ' gs://private/render.mp4 ',
+          youtubeVideoId: ' youtube-secret ',
+          durationSeconds: 612,
+          renderPreset: ' h264_1080p ',
+          internalPrompt: 'operator-only output prompt',
+        },
+        checks: {
+          clientApproval: {
+            status: 'pass',
+            message: 'Client supplied approval',
+            checkedBy: 'client-supplied',
+          },
+        },
+        visibility: { showInClientPortal: false, showOutputsInPortal: false },
+        approvedBy: 'client-supplied',
+      }),
+    }))
+    const body = await res.json()
+
+    expect(res.status).toBe(200)
+    expect(body.data.id).toBe('render-1')
+    const [write, options] = mockDocSet.mock.calls[0]
+    expect(write).toMatchObject({
+      status: 'qa_review',
+      output: {
+        previewUrl: 'https://cdn.example/review.mp4',
+        downloadUrl: 'https://cdn.example/final.mp4',
+        storagePath: 'gs://private/render.mp4',
+        youtubeVideoId: 'youtube-secret',
+        durationSeconds: 612,
+        renderPreset: 'h264_1080p',
+      },
+      visibility: { showInClientPortal: true, showTimelineInPortal: true, showOutputsInPortal: true },
+      checks: {
+        clientApproval: {
+          status: 'warning',
+          message: 'Render job sent to portal review.',
+          checkedBy: 'admin-1',
+          checkedByType: 'user',
+          checkedAt: 'SERVER_TS',
+        },
+      },
+      updatedBy: 'admin-1',
+      updatedByType: 'user',
+      updatedAt: 'SERVER_TS',
+    })
+    expect(write).not.toHaveProperty('approvedBy')
+    expect(JSON.stringify(write)).not.toContain('operator-only output prompt')
+    expect(JSON.stringify(write)).not.toContain('client-supplied')
+    expect(options).toEqual({ merge: true })
+  })
+
+  it('rejects approving a render job with blocking QA gates', async () => {
+    stageFirestore({
+      youtube_channel_workspaces: {
+        docs: {
+          'channel-1': {
+            id: 'channel-1',
+            data: { orgId: 'org-1', title: 'Acme', deleted: false },
+          },
+        },
+      },
+      youtube_video_projects: {
+        docs: {
+          'video-1': {
+            id: 'video-1',
+            data: { orgId: 'org-1', channelWorkspaceId: 'channel-1', title: 'Launch', deleted: false },
+          },
+        },
+      },
+      youtube_render_jobs: {
+        docs: {
+          'render-1': {
+            id: 'render-1',
+            data: {
+              orgId: 'org-1',
+              channelWorkspaceId: 'channel-1',
+              videoProjectId: 'video-1',
+              title: 'Launch final assembly',
+              renderType: 'full_video',
+              targetFormat: 'horizontal_16_9',
+              status: 'qa_review',
+              versionNumber: 1,
+              checks: {
+                sourceRights: { status: 'pass', message: 'Rights cleared.' },
+                brand: { status: 'pass', message: 'Brand aligned.' },
+                captions: { status: 'block', message: 'Captions are missing.' },
+                renderQuality: { status: 'pass', message: 'Render looks stable.' },
+                clientApproval: { status: 'warning', message: 'Client review pending.' },
+              },
+              deleted: false,
+            },
+          },
+        },
+      },
+    })
+
+    const { PUT } = await import('@/app/api/v1/youtube-studio/render-jobs/route')
+    const res = await PUT(new NextRequest('http://localhost/api/v1/youtube-studio/render-jobs', {
+      method: 'PUT',
+      body: JSON.stringify({ id: 'render-1', status: 'approved' }),
+    }))
+    const body = await res.json()
+
+    expect(res.status).toBe(409)
+    expect(body.error).toMatch(/blocking/i)
+    expect(mockDocSet).not.toHaveBeenCalled()
+  })
 })

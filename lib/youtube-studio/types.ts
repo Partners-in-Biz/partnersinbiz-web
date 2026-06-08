@@ -478,6 +478,9 @@ export interface YouTubeRenderJob {
   internalNotes?: string
   clientNotes?: string
   executionJobId?: string
+  approvedBy?: string
+  approvedAt?: unknown
+  approvedSnapshotHash?: string
   createdAt?: unknown
   updatedAt?: unknown
   createdBy?: string

@@ -58,11 +58,13 @@ export function YouTubeStudioPortalWorkspace({ orgId }: YouTubeStudioPortalWorks
   const [reviewNotes, setReviewNotes] = useState<Record<string, string>>({})
   const [packetNotes, setPacketNotes] = useState<Record<string, string>>({})
   const [draftNotes, setDraftNotes] = useState<Record<string, string>>({})
+  const [renderNotes, setRenderNotes] = useState<Record<string, string>>({})
   const [loading, setLoading] = useState(true)
   const [submittingRequest, setSubmittingRequest] = useState(false)
   const [reviewingId, setReviewingId] = useState<string | null>(null)
   const [reviewingPacketId, setReviewingPacketId] = useState<string | null>(null)
   const [reviewingDraftId, setReviewingDraftId] = useState<string | null>(null)
+  const [reviewingRenderId, setReviewingRenderId] = useState<string | null>(null)
   const [loadNotice, setLoadNotice] = useState('')
   const [actionNotice, setActionNotice] = useState('')
   const [moduleDisabled, setModuleDisabled] = useState(false)
@@ -70,6 +72,7 @@ export function YouTubeStudioPortalWorkspace({ orgId }: YouTubeStudioPortalWorks
   const reviewingIdRef = useRef<string | null>(null)
   const reviewingPacketIdRef = useRef<string | null>(null)
   const reviewingDraftIdRef = useRef<string | null>(null)
+  const reviewingRenderIdRef = useRef<string | null>(null)
   const loadRequestIdRef = useRef(0)
 
   const apiPath = useMemo(() => scopedApiPath('/api/v1/portal/youtube-studio', { orgId }), [orgId])
@@ -149,14 +152,17 @@ export function YouTubeStudioPortalWorkspace({ orgId }: YouTubeStudioPortalWorks
     reviewingIdRef.current = null
     reviewingPacketIdRef.current = null
     reviewingDraftIdRef.current = null
+    reviewingRenderIdRef.current = null
     setRequest(emptyRequest)
     setReviewNotes({})
     setPacketNotes({})
     setDraftNotes({})
+    setRenderNotes({})
     setSubmittingRequest(false)
     setReviewingId(null)
     setReviewingPacketId(null)
     setReviewingDraftId(null)
+    setReviewingRenderId(null)
     setLoadNotice('')
     setActionNotice('')
   }, [apiPath])
@@ -306,6 +312,40 @@ export function YouTubeStudioPortalWorkspace({ orgId }: YouTubeStudioPortalWorks
       if (isCurrentMutation()) {
         reviewingDraftIdRef.current = null
         setReviewingDraftId(null)
+      }
+    }
+  }
+
+  async function saveRenderDecision(renderJobId: string, decision: 'approved' | 'changes_requested' | 'rejected') {
+    if (reviewingRenderIdRef.current) return
+    const mutationApiPath = apiPath
+    const isCurrentMutation = () => mutationApiPath === activeApiPathRef.current
+    reviewingRenderIdRef.current = renderJobId
+    setReviewingRenderId(renderJobId)
+    setActionNotice('')
+    setLoadNotice('')
+    try {
+      const res = await fetch(mutationApiPath, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ renderJobId, decision, notes: renderNotes[renderJobId] ?? '' }),
+      })
+      const body = await res.json().catch(() => ({}))
+      if (!isCurrentMutation()) return
+      if (!res.ok) {
+        setActionNotice(body.error ?? 'Could not save render decision')
+        return
+      }
+      setActionNotice('Render decision saved for the PiB team.')
+      await load()
+    } catch {
+      if (isCurrentMutation()) {
+        setActionNotice('Could not save render decision')
+      }
+    } finally {
+      if (isCurrentMutation()) {
+        reviewingRenderIdRef.current = null
+        setReviewingRenderId(null)
       }
     }
   }
@@ -579,6 +619,44 @@ export function YouTubeStudioPortalWorkspace({ orgId }: YouTubeStudioPortalWorks
                     </p>
                   ) : null}
                   {job.clientNotes ? <p className="break-words text-sm text-on-surface-variant">{job.clientNotes}</p> : null}
+                  {job.id && job.status === 'qa_review' ? (
+                    <div className="space-y-3">
+                      <textarea
+                        rows={3}
+                        disabled={reviewingRenderId === job.id}
+                        value={renderNotes[job.id] ?? ''}
+                        onChange={(event) => setRenderNotes((prev) => ({ ...prev, [job.id!]: event.target.value }))}
+                        placeholder="Render notes for PiB"
+                        className="w-full rounded-xl border border-[var(--color-pib-line)] bg-transparent p-3 text-sm"
+                      />
+                      <div className="flex flex-wrap gap-2">
+                        <button
+                          type="button"
+                          disabled={Boolean(reviewingRenderId)}
+                          onClick={() => saveRenderDecision(job.id!, 'approved')}
+                          className="pib-btn-primary text-sm"
+                        >
+                          Approve render
+                        </button>
+                        <button
+                          type="button"
+                          disabled={Boolean(reviewingRenderId)}
+                          onClick={() => saveRenderDecision(job.id!, 'changes_requested')}
+                          className="pib-btn-ghost text-sm"
+                        >
+                          Request render changes
+                        </button>
+                        <button
+                          type="button"
+                          disabled={Boolean(reviewingRenderId)}
+                          onClick={() => saveRenderDecision(job.id!, 'rejected')}
+                          className="pib-btn-ghost text-sm"
+                        >
+                          Reject render
+                        </button>
+                      </div>
+                    </div>
+                  ) : null}
                 </article>
               ))
             )}

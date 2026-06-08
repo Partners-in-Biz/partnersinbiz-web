@@ -1486,6 +1486,60 @@ describe('portal youtube studio API', () => {
   })
 
   it.each([
+    ['approved', 'approved', 'pass'],
+    ['changes_requested', 'ready_for_edit', 'warning'],
+    ['rejected', 'blocked', 'block'],
+  ])('lets a portal member write a %s decision on a visible render job', async (decision, status, approvalStatus) => {
+    const { PUT } = await import('@/app/api/v1/portal/youtube-studio/route')
+    const res = await PUT(new NextRequest('http://localhost/api/v1/portal/youtube-studio', {
+      method: 'PUT',
+      body: JSON.stringify({
+        renderJobId: 'render-1',
+        decision,
+        notes: '  Please tighten the middle section.  ',
+        status: 'cancelled',
+        approvedBy: 'client-supplied',
+        approvedSnapshotHash: 'client-supplied-hash',
+        output: { storagePath: 'gs://client-supplied-secret' },
+      }),
+    }))
+
+    expect(res.status).toBe(200)
+    expect(mockWithPortalAuthAndRole).toHaveBeenCalledWith('member')
+    expect(mockDocSet).toHaveBeenCalledTimes(1)
+    const [write, options] = mockDocSet.mock.calls[0]
+    expect(write).toMatchObject({
+      status,
+      checks: {
+        clientApproval: {
+          status: approvalStatus,
+          checkedBy: 'client-1',
+          checkedByType: 'user',
+          checkedAt: 'SERVER_TS',
+        },
+      },
+      updatedBy: 'client-1',
+      updatedByType: 'user',
+      updatedAt: 'SERVER_TS',
+    })
+    expect(write.checks.clientApproval.message).toContain('Please tighten the middle section.')
+    if (decision === 'approved') {
+      expect(write.approvedBy).toBe('client-1')
+      expect(write.approvedAt).toBe('SERVER_TS')
+      expect(write.approvedSnapshotHash).toEqual(expect.any(String))
+      expect(write.approvedSnapshotHash).not.toBe('client-supplied-hash')
+    } else {
+      expect(write).not.toHaveProperty('approvedBy')
+      expect(write).not.toHaveProperty('approvedAt')
+      expect(write).not.toHaveProperty('approvedSnapshotHash')
+    }
+    expect(options).toEqual({ merge: true })
+    expect(write).not.toHaveProperty('internalNotes')
+    expect(write).not.toHaveProperty('output')
+    expect(findUndefinedPaths(write)).toEqual([])
+  })
+
+  it.each([
     [
       'hidden',
       { orgId: 'org-1', title: 'Hidden', status: 'client_review', visibility: { showInClientPortal: false }, deleted: false },

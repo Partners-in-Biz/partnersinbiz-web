@@ -368,6 +368,34 @@ describe('YouTubeStudioPortalWorkspace module availability', () => {
     })
   })
 
+  it('sends a portal render job decision from the client workspace', async () => {
+    const fetchMock = jest.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
+      if (init?.method === 'PUT') return jsonResponse({ success: true })
+      return jsonResponse(portalData)
+    })
+    global.fetch = fetchMock as jest.Mock
+
+    render(<YouTubeStudioPortalWorkspace />)
+
+    const approveRenderButton = await screen.findByRole('button', { name: 'Approve render' })
+    fireEvent.click(approveRenderButton)
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        '/api/v1/portal/youtube-studio',
+        expect.objectContaining({ method: 'PUT' }),
+      )
+    })
+    const renderDecisionCall = fetchMock.mock.calls.find(([, init]) => (
+      init?.method === 'PUT' &&
+      String(init.body).includes('"renderJobId":"render-1"')
+    ))
+    expect(JSON.parse(String(renderDecisionCall?.[1]?.body))).toMatchObject({
+      renderJobId: 'render-1',
+      decision: 'approved',
+    })
+  })
+
   it('ignores stale portal request completions after the scoped org changes', async () => {
     let resolveRequest: (value: Response) => void = () => undefined
     const requestPromise = new Promise<Response>((resolve) => {
@@ -1325,6 +1353,92 @@ describe('YouTubeStudioPortalWorkspace module availability', () => {
     expect(JSON.parse(String(putCall?.[1]?.body))).toMatchObject({
       id: 'draft-1',
       status: 'client_review',
+    })
+  })
+
+  it('sends an admin render job to portal review', async () => {
+    const fetchMock = jest.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      if (url === '/api/v1/youtube-studio/render-jobs' && init?.method === 'PUT') {
+        return jsonResponse({ success: true, data: { id: 'render-1' } })
+      }
+      if (url.includes('/channels')) {
+        return jsonResponse({
+          success: true,
+          data: {
+            channels: [{ id: 'channel-1', title: 'Lumen Channel', status: 'active', youtubeHandle: '@lumen' }],
+          },
+        })
+      }
+      if (url.includes('/series')) return jsonResponse({ success: true, data: { series: [] } })
+      if (url.includes('/videos')) {
+        return jsonResponse({
+          success: true,
+          data: {
+            videos: [{
+              id: 'video-1',
+              channelWorkspaceId: 'channel-1',
+              title: 'Draft launch cut',
+              status: 'production',
+              objective: 'Prepare launch',
+              videoType: 'long_form',
+            }],
+          },
+        })
+      }
+      if (url.includes('/render-jobs')) {
+        return jsonResponse({
+          success: true,
+          data: {
+            renderJobs: [{
+              id: 'render-1',
+              channelWorkspaceId: 'channel-1',
+              videoProjectId: 'video-1',
+              title: 'Launch final assembly',
+              renderType: 'full_video',
+              targetFormat: 'horizontal_16_9',
+              status: 'rendered',
+              versionNumber: 1,
+              checks: {
+                sourceRights: { status: 'pass' },
+                brand: { status: 'pass' },
+                captions: { status: 'warning' },
+                renderQuality: { status: 'pass' },
+                clientApproval: { status: 'warning' },
+              },
+            }],
+          },
+        })
+      }
+      if (url.includes('/production-drafts')) return jsonResponse({ success: true, data: { productionDrafts: [] } })
+      if (url.includes('/source-assets')) return jsonResponse({ success: true, data: { sourceAssets: [] } })
+      if (url.includes('/clip-candidates')) return jsonResponse({ success: true, data: { clipCandidates: [] } })
+      if (url.includes('/publish-packets')) return jsonResponse({ success: true, data: { packets: [] } })
+      if (url.includes('/release-plans')) return jsonResponse({ success: true, data: { releasePlans: [] } })
+      if (url.includes('/agent-jobs')) return jsonResponse({ success: true, data: { jobs: [] } })
+      if (url.includes('/analytics')) return jsonResponse({ success: true, data: { snapshots: [] } })
+      return jsonResponse({ success: true })
+    })
+    global.fetch = fetchMock as jest.Mock
+
+    render(<YouTubeStudioAdminWorkspace orgId="lumen-org" orgName="Lumen" />)
+
+    const sendRenderButton = await screen.findByRole('button', { name: 'Send render to portal' })
+    fireEvent.click(sendRenderButton)
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        '/api/v1/youtube-studio/render-jobs',
+        expect.objectContaining({ method: 'PUT' }),
+      )
+    })
+    const putCall = fetchMock.mock.calls.find(([input, init]) => (
+      String(input) === '/api/v1/youtube-studio/render-jobs' &&
+      init?.method === 'PUT'
+    ))
+    expect(JSON.parse(String(putCall?.[1]?.body))).toMatchObject({
+      id: 'render-1',
+      status: 'qa_review',
     })
   })
 

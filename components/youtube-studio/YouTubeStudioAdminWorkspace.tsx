@@ -40,6 +40,7 @@ interface YouTubeStudioAdminWorkspaceProps {
 }
 
 type DraftActionStatus = Exclude<YouTubeProductionDraft['status'], 'archived'>
+type RenderActionStatus = Extract<YouTubeRenderJob['status'], 'qa_review' | 'approved' | 'blocked'>
 
 type FormState = {
   channelTitle: string
@@ -390,6 +391,7 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
   const [creatingPacket, setCreatingPacket] = useState(false)
   const [creatingReleasePlan, setCreatingReleasePlan] = useState(false)
   const [updatingDraftId, setUpdatingDraftId] = useState<string | null>(null)
+  const [updatingRenderId, setUpdatingRenderId] = useState<string | null>(null)
   const [updatingPacketId, setUpdatingPacketId] = useState<string | null>(null)
   const [queueingJob, setQueueingJob] = useState(false)
   const [importingAnalytics, setImportingAnalytics] = useState(false)
@@ -1169,6 +1171,38 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
     }
   }
 
+  async function updateRenderJobStatus(renderJobId: string | undefined, status: RenderActionStatus) {
+    if (updatingRenderId || !renderJobId) return
+    const mutationOrgId = orgId
+    const isCurrentMutation = () => mutationOrgId === activeOrgIdRef.current
+    setUpdatingRenderId(renderJobId)
+    setActionNotice('')
+    setLoadNotice('')
+    try {
+      const res = await fetch('/api/v1/youtube-studio/render-jobs', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: renderJobId, status }),
+      })
+      const body = await res.json().catch(() => ({}))
+      if (!isCurrentMutation()) return
+      if (!res.ok) {
+        setActionNotice(body.error ?? 'Could not update render job')
+        return
+      }
+      setActionNotice(renderJobStatusNotice(status))
+      await load()
+    } catch {
+      if (isCurrentMutation()) {
+        setActionNotice('Could not update render job')
+      }
+    } finally {
+      if (isCurrentMutation()) {
+        setUpdatingRenderId(null)
+      }
+    }
+  }
+
   async function createReleasePlan(event: React.FormEvent) {
     event.preventDefault()
     if (creatingReleasePlan || !form.releasePacketId) return
@@ -1548,6 +1582,40 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
                     </div>
                     {job.output?.previewUrl ? <StatusPill status="preview_ready" /> : null}
                     {job.clientNotes ? <p className="break-words text-sm text-on-surface-variant">{job.clientNotes}</p> : null}
+                    {job.id ? (
+                      <div className="flex flex-wrap gap-2">
+                        {job.status !== 'qa_review' && job.status !== 'approved' && job.status !== 'cancelled' ? (
+                          <button
+                            type="button"
+                            disabled={Boolean(updatingRenderId)}
+                            onClick={() => updateRenderJobStatus(job.id, 'qa_review')}
+                            className="pib-btn-primary text-sm"
+                          >
+                            {updatingRenderId === job.id ? 'Updating...' : 'Send render to portal'}
+                          </button>
+                        ) : null}
+                        {job.status !== 'approved' && job.status !== 'cancelled' ? (
+                          <button
+                            type="button"
+                            disabled={Boolean(updatingRenderId)}
+                            onClick={() => updateRenderJobStatus(job.id, 'approved')}
+                            className="pib-btn-ghost text-sm"
+                          >
+                            Approve render
+                          </button>
+                        ) : null}
+                        {job.status !== 'blocked' && job.status !== 'cancelled' ? (
+                          <button
+                            type="button"
+                            disabled={Boolean(updatingRenderId)}
+                            onClick={() => updateRenderJobStatus(job.id, 'blocked')}
+                            className="pib-btn-ghost text-sm"
+                          >
+                            Block render
+                          </button>
+                        ) : null}
+                      </div>
+                    ) : null}
                   </article>
                 ))}
               </div>
@@ -2531,6 +2599,12 @@ function productionDraftStatusNotice(status: DraftActionStatus) {
   if (status === 'changes_requested') return 'Production draft marked for changes.'
   if (status === 'internal_review') return 'Production draft moved to internal review.'
   return 'Production draft updated.'
+}
+
+function renderJobStatusNotice(status: RenderActionStatus) {
+  if (status === 'qa_review') return 'Render job sent to portal review.'
+  if (status === 'approved') return 'Render job approved for publishing packet assembly.'
+  return 'Render job blocked.'
 }
 
 function packetStatusNotice(status: Exclude<YouTubePublishingPacket['status'], 'published'>) {

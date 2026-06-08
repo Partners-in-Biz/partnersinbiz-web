@@ -100,6 +100,12 @@ function productionDraftDecisionStatus(decision: ClientDecision): YouTubeProduct
   return 'blocked'
 }
 
+function renderJobDecisionStatus(decision: ClientDecision): YouTubeRenderJob['status'] {
+  if (decision === 'approved') return 'approved'
+  if (decision === 'changes_requested') return 'ready_for_edit'
+  return 'blocked'
+}
+
 function packetDecisionApprovalStatus(decision: ClientDecision) {
   if (decision === 'approved') return 'pass'
   if (decision === 'changes_requested') return 'warning'
@@ -121,6 +127,15 @@ function productionDraftDecisionMessage(decision: ClientDecision, notes?: string
     : decision === 'changes_requested'
       ? 'Client requested production draft changes.'
       : 'Client rejected production draft.'
+  return notes ? `${base} ${notes}` : base
+}
+
+function renderJobDecisionMessage(decision: ClientDecision, notes?: string) {
+  const base = decision === 'approved'
+    ? 'Client approved render job.'
+    : decision === 'changes_requested'
+      ? 'Client requested render changes.'
+      : 'Client rejected render job.'
   return notes ? `${base} ${notes}` : base
 }
 
@@ -186,6 +201,35 @@ function productionDraftApprovalSnapshotHash(draft: YouTubeProductionDraft, stat
   return createHash('sha256').update(stableStringify(stripUndefinedDeep(snapshot))).digest('hex')
 }
 
+function renderJobApprovalSnapshotHash(job: YouTubeRenderJob, status: YouTubeRenderJob['status'], clientApproval: PlainRecord) {
+  const snapshot = {
+    channelWorkspaceId: job.channelWorkspaceId,
+    videoProjectId: job.videoProjectId,
+    productionDraftId: job.productionDraftId,
+    versionNumber: job.versionNumber,
+    title: job.title,
+    renderType: job.renderType,
+    targetFormat: job.targetFormat,
+    status,
+    editBrief: job.editBrief,
+    timeline: job.timeline,
+    output: {
+      previewUrl: job.output?.previewUrl,
+      downloadUrl: job.output?.downloadUrl,
+      durationSeconds: job.output?.durationSeconds,
+    },
+    checks: {
+      ...cleanBody(job.checks),
+      clientApproval: {
+        status: clientApproval.status,
+        message: clientApproval.message,
+      },
+    },
+  }
+
+  return createHash('sha256').update(stableStringify(stripUndefinedDeep(snapshot))).digest('hex')
+}
+
 function isClientDecisionOpen(video: YouTubeVideoProject): boolean {
   return (
     video.status === 'client_review' ||
@@ -200,6 +244,10 @@ function isPacketDecisionOpen(packet: YouTubePublishingPacket): boolean {
 
 function isProductionDraftDecisionOpen(draft: YouTubeProductionDraft): boolean {
   return draft.status === 'client_review'
+}
+
+function isRenderJobDecisionOpen(job: YouTubeRenderJob): boolean {
+  return job.status === 'qa_review'
 }
 
 async function loadPortalVisibleChannel(channelWorkspaceId: string, orgId: string): Promise<PortalChannelResult> {
@@ -538,6 +586,71 @@ async function handlePortalProductionDraftDecision(
   return apiSuccess({ id: productionDraftId, updated: true })
 }
 
+async function handlePortalRenderJobDecision(
+  body: PlainRecord,
+  uid: string,
+  orgId: string,
+  decision: ClientDecision,
+): Promise<Response> {
+  const renderJobId = cleanString(body.renderJobId) ?? ''
+  if (!renderJobId) return apiError('renderJobId is required', 400)
+
+  const renderRef = adminDb.collection(YOUTUBE_COLLECTIONS.renderJobs).doc(renderJobId)
+  const renderDoc = await renderRef.get()
+  if (!renderDoc.exists) return apiError('Render job not found', 404)
+
+  const renderJob = serializeYouTubeRecord<YouTubeRenderJob>(renderDoc.id, renderDoc.data()!)
+  if (renderJob.deleted === true) return apiError('Render job not found', 404)
+  if (renderJob.orgId !== orgId) return apiError('Forbidden', 403)
+  if (!isRenderJobDecisionOpen(renderJob)) return apiError('Render job is not awaiting client review', 409)
+  if (renderJob.visibility?.showInClientPortal !== true) {
+    return apiError('Render job is not visible in the client portal', 403)
+  }
+
+  const videoRef = adminDb.collection(YOUTUBE_COLLECTIONS.videos).doc(renderJob.videoProjectId)
+  const videoDoc = await videoRef.get()
+  if (!videoDoc.exists) return apiError('Video project not found', 404)
+  const video = serializeYouTubeRecord<YouTubeVideoProject>(videoDoc.id, videoDoc.data()!)
+  if (video.deleted === true) return apiError('Video project not found', 404)
+  if (video.orgId !== orgId) return apiError('Forbidden', 403)
+  if (!isPortalVisible(video)) return apiError('Render job video is not visible in the client portal', 403)
+  if (video.channelWorkspaceId !== renderJob.channelWorkspaceId) {
+    return apiError('Render job does not match the video project channel', 400)
+  }
+
+  const channelResult = await loadPortalVisibleChannel(renderJob.channelWorkspaceId, orgId)
+  if ('error' in channelResult) return channelResult.error
+
+  const notes = cleanString(body.notes)
+  const clientApproval = stripUndefinedDeep({
+    status: packetDecisionApprovalStatus(decision),
+    message: renderJobDecisionMessage(decision, notes),
+    checkedBy: uid,
+    checkedByType: 'user',
+    checkedAt: FieldValue.serverTimestamp(),
+  })
+  const status = renderJobDecisionStatus(decision)
+  const write = stripUndefinedDeep({
+    status,
+    checks: {
+      ...cleanBody(renderJob.checks),
+      clientApproval,
+    },
+    approvedBy: decision === 'approved' ? uid : undefined,
+    approvedAt: decision === 'approved' ? FieldValue.serverTimestamp() : undefined,
+    approvedSnapshotHash: decision === 'approved'
+      ? renderJobApprovalSnapshotHash(renderJob, status, clientApproval)
+      : undefined,
+    updatedBy: uid,
+    updatedByType: 'user',
+    updatedAt: FieldValue.serverTimestamp(),
+  })
+
+  await renderRef.set(write, { merge: true })
+
+  return apiSuccess({ id: renderJobId, updated: true })
+}
+
 export const PUT = withPortalAuthAndRole('member', async (req: NextRequest, uid, orgId) => {
   const disabled = await youtubeStudioModuleGuard(orgId)
   if (disabled) return disabled
@@ -550,6 +663,9 @@ export const PUT = withPortalAuthAndRole('member', async (req: NextRequest, uid,
   }
   if (cleanString(body.productionDraftId)) {
     return handlePortalProductionDraftDecision(body, uid, orgId, decision)
+  }
+  if (cleanString(body.renderJobId)) {
+    return handlePortalRenderJobDecision(body, uid, orgId, decision)
   }
 
   const id = cleanString(body.id) ?? ''
