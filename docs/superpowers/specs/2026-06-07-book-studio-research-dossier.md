@@ -4105,7 +4105,8 @@ Before implementation planning starts, the product decision should be recorded e
 - **Recommended approval:** Book Studio V1 is an internal PiB production studio with optional client review.
 - **Initial build surface:** admin org-scoped Book Studio with portal review only for approved artifacts.
 - **Initial channels:** KDP and Google Play Books readiness/manual-handoff flows.
-- **Initial book families:** narrative, nonfiction, children's/visual, activity/workbook, low-content, public-domain/companion, and audiobook as gate profiles; not all require full export tooling in Phase 1.
+- **Initial book-family coverage:** narrative, nonfiction, children's/visual, activity/workbook, low-content, public-domain/companion, and audiobook remain gate profiles; the recommended first pilot set is business nonfiction, activity/low-content print, series scaffolding, and a public-domain/companion negative-control fixture.
+- **Initial market evidence scope:** every live candidate needs reviewed market evidence before Book Brief or production selection; no automated market scraping, sales forecasts, rank promises, bestseller claims, or competitor-copy reuse.
 - **Initial Hermes scope:** enable only Wave 1 and selected Wave 2 skills after manifest/evaluation readiness. Wave 3-5 skill docs, fixtures, and manifest entries can be drafted in Phase 1, but production/packaging/launch/analytics/lifecycle dispatch should wait for the matching ledgers, sanitizers, and forbidden-action tests.
 - **Initial analytics scope:** manual import ledger, source/confidence labels, and reconciliation tasks.
 - **Explicit non-goals:** self-serve public SaaS, direct store publishing automation, autonomous ad spend, automatic review outreach, full print-perfect layout engine, automated export/file validation before package QA is implemented, automated report integrations before the manual import model is proven, and storing sensitive publishing-account secrets.
@@ -4139,7 +4140,8 @@ This packet is the short decision form Peet can approve, reject, or revise befor
 | Product posture | Internal PiB production studio with optional client review. | Keeps PiB operators accountable for source quality, rights, files, pricing, publishing accounts, and client communication while still using Hermes to speed evidence and production work. | Client-facing or public SaaS requires a separate risk pass for self-serve generation, account ownership, abuse prevention, billing, and support load. |
 | Initial channels | KDP and Google Play Books manual-handoff readiness. | These are the channels from the original request and have enough policy, file, account, and reporting complexity to prove the operating model. | A wider-channel V1 needs adapter-specific account, file, report, payment, territory, and distribution-conflict research before planning. |
 | Initial build surface | Admin org-scoped Book Studio first; portal only for approved review packets. | Admin-first matches PiB's operating model and avoids exposing raw research, internal risk notes, or unapproved generated output. | A portal-first V1 needs a stricter client-visible scope and should not include generation, publishing, account, or analytics-import controls. |
-| Initial book families | Support narrative, nonfiction, children's/visual, activity/workbook, low-content, public-domain/companion, and audiobook through gate profiles. | Gate profiles let PiB choose the right risk path before promising every format can be generated, illustrated, narrated, or exported perfectly. | Narrow to two or three families if Peet wants the first implementation plan to ship faster. |
+| Book-family coverage | Keep narrative, nonfiction, children's/visual, activity/workbook, low-content, public-domain/companion, and audiobook as gate profiles, while the first pilot set stays business nonfiction, activity/low-content print, series scaffolding, and a public-domain/companion negative-control fixture. | Gate profiles keep future compatibility without promising every format can be generated, illustrated, narrated, or exported perfectly in Phase 1. | Expanding a family into production scope requires matching rights, package, accessibility, analytics, and source-refresh evidence. |
+| Market evidence posture | Require reviewed market evidence before Book Brief or production selection. | This stops shelf screenshots, generic AI-book ideas, unsupported demand claims, copied competitor positioning, negative margin, sales forecasts, or rank promises from becoming production work. | Removing this gate means Book Studio can produce polished books that should never have entered production. |
 | Hermes posture | Build skill docs, manifests, fixtures, and evaluation records before runtime dispatch. | Agents can help with research, briefs, outlines, metadata, readiness, production, and analytics only when outputs are bounded, source-linked, and reviewable. | Runtime skill dispatch without this gate should remain out of scope for V1. |
 | Publishing posture | Prepare and track external upload packets; do not directly publish. | Store submission, pricing, account authority, and review risk remain human-controlled external acts. | Direct publishing needs a separate sanctioned API, account-authority, audit, rollback, and liability design. |
 | Analytics posture | Manual import ledger and confidence-labeled dashboards before automation. | KDP and Google data can lag, disagree, refund, and settle differently; early automation can mislead clients. | Automated report integrations should wait until the import ledger proves the mapping and reconciliation model. |
@@ -4152,10 +4154,11 @@ This approval would unlock a separate Phase 1 implementation plan. It would not 
 
 Questions to answer before writing the implementation plan:
 
-1. Should V1 start with all listed gate-profile families, or should the first implementation plan narrow to narrative/nonfiction, children's/visual, and low-content/activity books?
-2. Which client review artifacts should appear first in the portal: Book Brief, proof package, publishing packet, or analytics summary?
-3. Should the first Hermes-ready skills be limited to research/brief/outline/readiness, or should Wave 2 safety checks be drafted in the same first implementation slice?
-4. Should PiB-owned books and client-owned books share one workflow with an ownership flag, or should client-owned publishing account governance be mandatory for every client project?
+1. Is the recommended first pilot set accepted: business nonfiction, activity or low-content print, series scaffolding, and a public-domain or companion negative-control fixture?
+2. Is `marketEvidenceScope` accepted as a blocker before Book Brief or production selection, including no automated market scraping, sales forecasts, rank promises, bestseller claims, or competitor-copy reuse?
+3. Which client review artifacts should appear first in the portal: Book Brief, proof package, publishing packet, analytics summary, or a narrower subset?
+4. Should the first Hermes-ready skills be limited to research/brief/outline/readiness, or should Wave 2 safety checks be drafted in the same first implementation slice?
+5. Should PiB-owned books and client-owned books share one workflow with an ownership flag, or should client-owned publishing account governance be mandatory for every client project?
 
 ### V1 Pilot Scenario Validation Pack
 
@@ -4244,7 +4247,7 @@ What does not count as approval:
 - Agreement that the idea is interesting.
 - Approval of the research dossier as useful reading.
 - Approval of only one pilot scenario without confirming the V1 posture.
-- A request to "start building" that does not choose the product posture and first pilot set.
+- A request to "start building" that does not choose the product posture, first pilot set, market evidence scope, and channel scope.
 - A request for a visual mockup, demo copy, or client-facing explanation.
 
 The approval record should be short and explicit:
@@ -4324,7 +4327,7 @@ This map shows how the approved V1 should feel from first idea to first analytic
 
 | Step | Admin operator sees | Hermes can assist with | Client portal sees | Gate before moving on |
 | --- | --- | --- | --- | --- |
-| 0. Approval record | The approved V1 posture, first pilot set, channels, portal artifacts, Hermes scope, ownership model, and deferrals. | None. This is a human product decision. | Nothing. | Peet approval is explicit and recorded. |
+| 0. Approval record | The approved V1 posture, first pilot set, market evidence scope, channels, portal artifacts, Hermes scope, ownership model, and deferrals. | None. This is a human product decision. | Nothing. | Peet approval is explicit and recorded. |
 | 1. Book intake | Client org, owner type, book family, target audience, formats, series posture, channel targets, expected client involvement, and derived mandatory gates. | Suggest intake risks and missing decisions only after a project shell exists. | Nothing unless a reviewed brief is later published. | Book type template and mandatory gates are derived before drafting. |
 | 2. Research packet | Linked Book Research item with source lanes, findings, recommendations, confidence, and unresolved evidence gaps. | Market/niche research, source summaries, category notes, rights-risk prompts, and blocker suggestions. | Hidden by default. | Source-linked findings exist; disputed/outdated/internal-only issues block brief promotion. |
 | 3. Book Brief | Internal or client-visible brief with promise, audience, outline direction, channel plan, pilot category, assumptions, and success criteria. | Draft brief sections from approved research and identify unsupported claims. | Book Brief only when admin publishes a safe review version. | Brief is reviewed; client approval is requested only for safe packet versions. |
@@ -4525,7 +4528,7 @@ If Peet approves this:
 - The next step is a separate Phase 1 implementation plan, not immediate runtime coding.
 - That plan must quote the approved record and current dossier commit.
 - That plan must recheck the policy source register before listing tasks.
-- That plan must map every task to the selected pilot set and V1 evidence acceptance matrix.
+- That plan must map every task to the selected pilot set, market evidence gate, and V1 evidence acceptance matrix.
 
 If Peet wants changes first:
 
