@@ -4193,6 +4193,54 @@ Devil's advocate:
 - If the negative-control rights pilot is skipped, the module may look safer than it is. The first implementation plan should include at least one project that must be blocked by evidence, not only projects designed to pass.
 - If pilot selection is left vague, implementation will drift toward attractive generation features. The selected pilot set should be written into the Phase 1 plan as the reason for each template, gate, Hermes fixture, portal packet, and analytics test.
 
+### V1 Approval Record And Planning Handoff Gate
+
+This section defines the exact record that should be captured before the brainstorming phase hands off to a Phase 1 implementation plan. It prevents the plan from being written from enthusiasm, memory, or partial approval.
+
+What counts as approval:
+
+- Peet explicitly approves Book Studio V1 as an internal PiB production studio with optional client review, or explicitly chooses a different product posture.
+- Peet chooses the first pilot set, with the recommended default being business nonfiction, activity/low-content print, series scaffolding, and a public-domain/companion negative-control fixture.
+- Peet confirms KDP and Google Play Books as the first manual-handoff channel focus, or names a different first channel set.
+- Peet confirms which portal review artifacts come first: Book Brief, proof package, publishing packet, analytics summary, or a narrower subset.
+- Peet confirms Hermes scope for the first implementation plan: Wave 1 only, Wave 1 plus selected Wave 2 safety skills, or a broader skill-doc/fixture package without runtime dispatch.
+- Peet confirms whether PiB-owned and client-owned books share one workflow with an ownership flag, or whether client-owned account governance is mandatory for every client project.
+- Peet accepts the explicit V1 non-goals: no self-serve public generator, no direct store publishing automation, no autonomous ad spend, no automated review outreach, no sensitive account-secret custody, and no full print-perfect editor in Phase 1.
+
+What does not count as approval:
+
+- Agreement that the idea is interesting.
+- Approval of the research dossier as useful reading.
+- Approval of only one pilot scenario without confirming the V1 posture.
+- A request to "start building" that does not choose the product posture and first pilot set.
+- A request for a visual mockup, demo copy, or client-facing explanation.
+
+The approval record should be short and explicit:
+
+| Field | Recommended value | Why the implementation plan needs it |
+| --- | --- | --- |
+| `productPosture` | `internal_pib_production_studio_with_optional_client_review` | Drives permissions, portal visibility, Hermes safety gates, and admin-first surfaces. |
+| `firstChannels` | `kdp_manual_handoff`, `google_play_books_manual_handoff` | Defines the first packet fields, source refreshes, upload evidence, and analytics imports. |
+| `firstPilotSet` | `business_nonfiction`, `activity_low_content_print`, `series_scaffolding`, `public_domain_companion_negative_control` | Defines first templates, fixtures, test cases, and acceptance examples. |
+| `portalReviewArtifacts` | `book_brief`, `proof_package`, `publishing_packet`, `analytics_summary` with the selected first subset marked | Prevents raw internal research or unapproved generated output from becoming client-visible. |
+| `hermesFirstScope` | `wave_1_plus_selected_wave_2_safety` unless Peet narrows it | Defines which skill docs, manifests, fixture tests, and reviewer gates belong in Phase 1. |
+| `ownershipModel` | `shared_workflow_with_owner_type_and_account_governance` | Keeps PiB-owned and client-owned books compatible while preserving account authority checks. |
+| `acceptedDeferrals` | Phase 1 explicit deferrals from this dossier | Prevents implementation scope from expanding into direct publishing, ads, or full layout tooling. |
+
+Planning handoff rules:
+
+- The Phase 1 implementation plan should cite this approval record and the current dossier commit before listing tasks.
+- Source links in the policy source register must be rechecked at implementation-plan start, even if they were checked during dossier research.
+- The first plan should produce small vertical slices: module entitlement, typed records/sanitizers, admin shell, template/gate derivation, Research/Client Document/Project bridges, portal disabled-module guard, and only then packet or Hermes surfaces.
+- Every task in the first plan should point back to the selected pilot set. If a task cannot explain which selected pilot it enables, it is probably later-phase work.
+- Runtime Hermes dispatch should remain disabled until skill manifests, fixture reports, sanitizer paths, reviewer defaults, and forbidden-action tests exist for the selected skill scope.
+
+Devil's advocate:
+
+- A formal approval record can feel bureaucratic, but without it the team will quietly treat the broad dossier as permission to build everything.
+- If the approval record is too narrow, the first implementation may under-serve creative range. Keep non-selected book families as gate profiles and fixtures, not production promises.
+- If the approval record is too broad, Phase 1 will become a platform rebuild. The handoff gate should choose a learning path, not exhaust the entire book-publishing market.
+
 ## Open Product Decision
 
 The next design step depends on one product decision:
