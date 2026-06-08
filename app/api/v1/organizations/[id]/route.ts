@@ -15,6 +15,26 @@ import { syncPlatformCompanyAgreementFieldsForOrg } from '@/lib/platform-owner/r
 export const dynamic = 'force-dynamic'
 
 type RouteContext = { params: Promise<{ id: string }> }
+type UnknownRecord = Record<string, unknown>
+
+function isRecord(value: unknown): value is UnknownRecord {
+  return Boolean(value) && typeof value === 'object' && !Array.isArray(value)
+}
+
+function mergeOrganizationSettings(existingSettings: unknown, incomingSettings: unknown): UnknownRecord {
+  const existing = isRecord(existingSettings) ? existingSettings : {}
+  const incoming = isRecord(incomingSettings) ? incomingSettings : {}
+  const merged: UnknownRecord = { ...existing, ...incoming }
+
+  if (isRecord(existing.portalModules) || isRecord(incoming.portalModules)) {
+    merged.portalModules = {
+      ...(isRecord(existing.portalModules) ? existing.portalModules : {}),
+      ...(isRecord(incoming.portalModules) ? incoming.portalModules : {}),
+    }
+  }
+
+  return merged
+}
 
 export const GET = withAuth('admin', async (req, user, ctx) => {
   const { id } = await (ctx as RouteContext).params
@@ -70,10 +90,9 @@ export const PUT = withAuth('admin', async (req, user, ctx) => {
   if (body.brandProfile && typeof body.brandProfile === 'object') {
     updates.brandProfile = body.brandProfile
   }
-  if (body.settings && typeof body.settings === 'object') {
+  if (isRecord(body.settings)) {
     // Merge settings to avoid overwriting unrelated fields
-    const existingSettings = data.settings ?? {}
-    updates.settings = { ...existingSettings, ...body.settings }
+    updates.settings = mergeOrganizationSettings(data.settings, body.settings)
   }
   if (body.billingDetails && typeof body.billingDetails === 'object') {
     updates.billingDetails = mergeBillingDetailsForWrite(body.billingDetails, data.billingDetails, {
