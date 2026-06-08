@@ -4,10 +4,11 @@
 **Status:** Review aid only; not an implementation plan.
 **Authoritative packet:** `docs/superpowers/specs/2026-06-08-book-studio-v1-approval-packet.md`
 **Authoritative dossier:** `docs/superpowers/specs/2026-06-07-book-studio-research-dossier.md`
+**Concrete review aid:** `docs/superpowers/specs/2026-06-08-book-studio-v1-mock-review-packet.md`
 
 ## Purpose
 
-This script helps Peet review the proposed Book Studio V1 decision without turning the approval packet into runtime work. It should be used before any Phase 1 implementation plan is written.
+This script helps Peet review the proposed Book Studio V1 decision without turning the approval packet into runtime work. It should be used with the mock review packet before any Phase 1 implementation plan is written.
 
 The review has four possible outcomes:
 
@@ -19,6 +20,8 @@ The review has four possible outcomes:
 | Request more design detail | The decision is still unclear, but runtime implementation is not approved. | Add a design-only aid, workflow diagram, mock review packet, or deeper risk note. |
 
 ## 30-Minute Review Agenda
+
+Before the agenda, open the approval packet and the mock review packet. The approval packet answers "what would we approve?" The mock packet answers "what would this feel like in PiB?"
 
 ### 1. Confirm The Product Posture
 
