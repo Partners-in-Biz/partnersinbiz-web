@@ -11,6 +11,7 @@ import type {
   YouTubeApiProjectStatus,
   YouTubeChannelWorkspace,
   YouTubeConnectedAccountStatus,
+  YouTubePublishingPacket,
   YouTubePublishingPolicy,
   YouTubePublishingReadinessLevel,
   YouTubeProductionSkillKey,
@@ -19,7 +20,7 @@ import type {
   YouTubeVideoType,
 } from '@/lib/youtube-studio/types'
 import { YOUTUBE_PRODUCTION_SKILLS } from '@/lib/youtube-studio/skills'
-import { YouTubeChannelCard, YouTubeVideoCard } from '@/components/youtube-studio/YouTubeStudioCards'
+import { StatusPill, YouTubeChannelCard, YouTubeVideoCard } from '@/components/youtube-studio/YouTubeStudioCards'
 import { YouTubeStudioWorkspaceShell } from '@/components/youtube-studio/YouTubeStudioWorkspaceShell'
 
 interface YouTubeStudioAdminWorkspaceProps {
@@ -40,6 +41,14 @@ type FormState = {
   jobVideoId: string
   jobSkillKey: YouTubeProductionSkillKey
   jobInputSummary: string
+  packetVideoId: string
+  packetTitle: string
+  packetDescription: string
+  packetTags: string
+  packetChapters: string
+  packetMadeForKids: boolean
+  packetContainsSyntheticMedia: boolean
+  packetAiDisclosureNotes: string
   analyticsChannelId: string
   analyticsVideoId: string
   analyticsPeriodStart: string
@@ -79,6 +88,14 @@ const emptyForm: FormState = {
   jobVideoId: '',
   jobSkillKey: 'youtube-video-brief',
   jobInputSummary: '',
+  packetVideoId: '',
+  packetTitle: '',
+  packetDescription: '',
+  packetTags: '',
+  packetChapters: '',
+  packetMadeForKids: false,
+  packetContainsSyntheticMedia: false,
+  packetAiDisclosureNotes: '',
   analyticsChannelId: '',
   analyticsVideoId: '',
   analyticsPeriodStart: '',
@@ -157,15 +174,36 @@ function numericValue(value: string) {
   return Number.isFinite(parsed) && parsed >= 0 ? parsed : undefined
 }
 
+function timestampToSeconds(value: string): number | undefined {
+  const parts = value.split(':').map((part) => Number(part))
+  if (parts.some((part) => !Number.isFinite(part) || part < 0)) return undefined
+  if (parts.length === 3) return parts[0] * 3600 + parts[1] * 60 + parts[2]
+  if (parts.length === 2) return parts[0] * 60 + parts[1]
+  if (parts.length === 1) return parts[0]
+  return undefined
+}
+
+function parseChapters(value: string): YouTubePublishingPacket['chapters'] {
+  return value.split('\n').flatMap((line) => {
+    const match = line.trim().match(/^(\d+(?::\d{1,2}){0,2})\s+(.+)$/)
+    if (!match) return []
+    const startSeconds = timestampToSeconds(match[1])
+    const title = match[2].trim()
+    return startSeconds === undefined || !title ? [] : [{ startSeconds, title }]
+  })
+}
+
 export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdminWorkspaceProps) {
   const [channels, setChannels] = useState<YouTubeChannelWorkspace[]>([])
   const [series, setSeries] = useState<YouTubeSeries[]>([])
   const [videos, setVideos] = useState<YouTubeVideoProject[]>([])
+  const [packets, setPackets] = useState<YouTubePublishingPacket[]>([])
   const [jobs, setJobs] = useState<YouTubeAgentJob[]>([])
   const [analytics, setAnalytics] = useState<YouTubeAnalyticsSnapshot[]>([])
   const [form, setForm] = useState<FormState>(emptyForm)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  const [creatingPacket, setCreatingPacket] = useState(false)
   const [queueingJob, setQueueingJob] = useState(false)
   const [importingAnalytics, setImportingAnalytics] = useState(false)
   const [savingReadiness, setSavingReadiness] = useState(false)
@@ -187,17 +225,19 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
     const isCurrentRequest = () => requestId === loadRequestIdRef.current && orgId === activeOrgIdRef.current
     setLoading(true)
     try {
-      const [channelRes, seriesRes, videoRes, jobRes, analyticsRes] = await Promise.all([
+      const [channelRes, seriesRes, videoRes, packetRes, jobRes, analyticsRes] = await Promise.all([
         fetch(`/api/v1/youtube-studio/channels?orgId=${encodeURIComponent(orgId)}`),
         fetch(`/api/v1/youtube-studio/series?orgId=${encodeURIComponent(orgId)}`),
         fetch(`/api/v1/youtube-studio/videos?orgId=${encodeURIComponent(orgId)}`),
+        fetch(`/api/v1/youtube-studio/publish-packets?orgId=${encodeURIComponent(orgId)}`),
         fetch(`/api/v1/youtube-studio/agent-jobs?orgId=${encodeURIComponent(orgId)}`),
         fetch(`/api/v1/youtube-studio/analytics?orgId=${encodeURIComponent(orgId)}`),
       ])
-      const [channelBody, seriesBody, videoBody, jobBody, analyticsBody] = await Promise.all([
+      const [channelBody, seriesBody, videoBody, packetBody, jobBody, analyticsBody] = await Promise.all([
         channelRes.json().catch(() => ({})),
         seriesRes.json().catch(() => ({})),
         videoRes.json().catch(() => ({})),
+        packetRes.json().catch(() => ({})),
         jobRes.json().catch(() => ({})),
         analyticsRes.json().catch(() => ({})),
       ])
@@ -205,9 +245,10 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
       setChannels(Array.isArray(channelBody.data?.channels) ? channelBody.data.channels : [])
       setSeries(Array.isArray(seriesBody.data?.series) ? seriesBody.data.series : [])
       setVideos(Array.isArray(videoBody.data?.videos) ? videoBody.data.videos : [])
+      setPackets(Array.isArray(packetBody.data?.packets) ? packetBody.data.packets : [])
       setJobs(Array.isArray(jobBody.data?.jobs) ? jobBody.data.jobs : [])
       setAnalytics(Array.isArray(analyticsBody.data?.snapshots) ? analyticsBody.data.snapshots : [])
-      if (!channelRes.ok || !seriesRes.ok || !videoRes.ok || !jobRes.ok || !analyticsRes.ok) {
+      if (!channelRes.ok || !seriesRes.ok || !videoRes.ok || !packetRes.ok || !jobRes.ok || !analyticsRes.ok) {
         setLoadNotice('Could not load the full YouTube Studio workspace.')
       } else {
         setLoadNotice('')
@@ -217,6 +258,7 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
       setChannels([])
       setSeries([])
       setVideos([])
+      setPackets([])
       setJobs([])
       setAnalytics([])
       setLoadNotice('Could not load the YouTube Studio workspace.')
@@ -232,6 +274,7 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
     previousOrgIdRef.current = orgId
     setForm(emptyForm)
     setSaving(false)
+    setCreatingPacket(false)
     setQueueingJob(false)
     setImportingAnalytics(false)
     setSavingReadiness(false)
@@ -363,6 +406,7 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
         objective: '',
         sourceUrl: '',
         jobVideoId: body.data?.id ?? prev.jobVideoId,
+        packetVideoId: body.data?.id ?? prev.packetVideoId,
         analyticsVideoId: body.data?.id ?? prev.analyticsVideoId,
         analyticsChannelId: prev.analyticsChannelId || prev.videoChannelId,
       }))
@@ -420,6 +464,67 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
     } finally {
       if (isCurrentMutation()) {
         setSavingReadiness(false)
+      }
+    }
+  }
+
+  async function createPublishingPacket(event: React.FormEvent) {
+    event.preventDefault()
+    if (creatingPacket || !form.packetVideoId) return
+    const selectedVideo = videos.find((video) => video.id === form.packetVideoId)
+    if (!selectedVideo?.channelWorkspaceId) {
+      setActionNotice('Select a video with a channel before creating a publishing packet')
+      return
+    }
+
+    const mutationOrgId = orgId
+    const isCurrentMutation = () => mutationOrgId === activeOrgIdRef.current
+    setCreatingPacket(true)
+    setActionNotice('')
+    setLoadNotice('')
+    try {
+      const title = form.packetTitle.trim() || selectedVideo.title
+      const res = await fetch('/api/v1/youtube-studio/publish-packets', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          orgId: mutationOrgId,
+          channelWorkspaceId: selectedVideo.channelWorkspaceId,
+          videoProjectId: form.packetVideoId,
+          titleOptions: title ? [{ text: title, selected: true }] : [],
+          description: form.packetDescription,
+          tags: splitLines(form.packetTags),
+          chapters: parseChapters(form.packetChapters),
+          selfDeclaredMadeForKids: form.packetMadeForKids,
+          containsSyntheticMedia: form.packetContainsSyntheticMedia,
+          aiDisclosureNotes: form.packetAiDisclosureNotes,
+        }),
+      })
+      const body = await res.json().catch(() => ({}))
+      if (!isCurrentMutation()) return
+      if (!res.ok) {
+        setActionNotice(body.error ?? 'Could not create publishing packet')
+        return
+      }
+      setForm((prev) => ({
+        ...prev,
+        packetTitle: '',
+        packetDescription: '',
+        packetTags: '',
+        packetChapters: '',
+        packetMadeForKids: false,
+        packetContainsSyntheticMedia: false,
+        packetAiDisclosureNotes: '',
+      }))
+      setActionNotice('Private draft publishing packet created.')
+      await load()
+    } catch {
+      if (isCurrentMutation()) {
+        setActionNotice('Could not create publishing packet')
+      }
+    } finally {
+      if (isCurrentMutation()) {
+        setCreatingPacket(false)
       }
     }
   }
@@ -558,6 +663,49 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
               videos.map((video) => (
                 <YouTubeVideoCard key={video.id ?? video.title} video={video} />
               ))
+            )}
+          </div>
+
+          <div className="space-y-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <h2 className="font-headline text-xl font-semibold text-on-surface">Publishing packets</h2>
+              <span className="rounded-full bg-[var(--color-surface-container-high)] px-3 py-1 text-xs font-label uppercase tracking-widest text-on-surface-variant">
+                {packets.length} packet{packets.length === 1 ? '' : 's'}
+              </span>
+            </div>
+            {packets.length === 0 ? (
+              <div className="pib-card-section p-5 text-sm text-on-surface-variant">No private draft publishing packets yet.</div>
+            ) : (
+              <div className="grid gap-3">
+                {packets.map((packet) => (
+                  <article key={packet.id ?? `${packet.videoProjectId}-${packet.versionNumber}`} className="pib-card-section space-y-3 p-4">
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <h3 className="break-words font-semibold text-on-surface">{packetTitle(packet)}</h3>
+                        <p className="mt-1 text-sm text-on-surface-variant">
+                          Version {packet.versionNumber || 1} / {formatToken(packet.visibility)} / {packet.chapters?.length ?? 0} chapters
+                        </p>
+                      </div>
+                      <StatusPill status={packet.status} />
+                    </div>
+                    {packet.description ? (
+                      <p className="break-words text-sm text-on-surface-variant">{packet.description}</p>
+                    ) : null}
+                    <div className="flex flex-wrap gap-2">
+                      {packet.selfDeclaredMadeForKids ? <StatusPill status="made_for_kids" /> : null}
+                      {packet.containsSyntheticMedia ? <StatusPill status="synthetic_media" /> : null}
+                      {packet.tags?.slice(0, 6).map((tag) => <StatusPill key={tag} status={tag} />)}
+                    </div>
+                    <div className="grid gap-2 text-xs text-on-surface-variant sm:grid-cols-2">
+                      {packetGateEntries(packet).map(([key, check]) => (
+                        <span key={key} className="min-w-0 break-words">
+                          {formatToken(key)}: {formatToken(check?.status ?? 'not_applicable')}
+                        </span>
+                      ))}
+                    </div>
+                  </article>
+                ))}
+              </div>
             )}
           </div>
 
@@ -788,6 +936,63 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
             </button>
           </form>
 
+          <form onSubmit={createPublishingPacket} className="pib-card-section space-y-4 p-5">
+            <h2 className="font-headline font-bold text-on-surface">Create packet</h2>
+            <label className="block text-sm">
+              <span className="text-xs font-label uppercase tracking-widest text-on-surface-variant">Video</span>
+              <select
+                value={form.packetVideoId}
+                onChange={(event) => update('packetVideoId', event.target.value)}
+                className="mt-1 w-full rounded-lg border border-[var(--color-outline-variant)] bg-[var(--color-surface)] px-3 py-2 text-sm"
+              >
+                <option value="">Select a video</option>
+                {videos.map((video) => (
+                  <option key={video.id ?? video.title} value={video.id ?? ''}>{video.title}</option>
+                ))}
+              </select>
+            </label>
+            <Field label="Primary title" value={form.packetTitle} onChange={(value) => update('packetTitle', value)} />
+            <TextArea label="Description" value={form.packetDescription} onChange={(value) => update('packetDescription', value)} />
+            <TextArea
+              label="Tags"
+              value={form.packetTags}
+              onChange={(value) => update('packetTags', value)}
+              placeholder="One per line or comma-separated"
+            />
+            <TextArea
+              label="Chapters"
+              value={form.packetChapters}
+              onChange={(value) => update('packetChapters', value)}
+              placeholder="00:00 Intro"
+            />
+            <label className="flex items-center gap-2 text-sm text-on-surface-variant">
+              <input
+                type="checkbox"
+                checked={form.packetMadeForKids}
+                onChange={(event) => update('packetMadeForKids', event.target.checked)}
+                className="h-4 w-4"
+              />
+              Self-declared made for kids
+            </label>
+            <label className="flex items-center gap-2 text-sm text-on-surface-variant">
+              <input
+                type="checkbox"
+                checked={form.packetContainsSyntheticMedia}
+                onChange={(event) => update('packetContainsSyntheticMedia', event.target.checked)}
+                className="h-4 w-4"
+              />
+              Contains altered or synthetic media
+            </label>
+            <TextArea
+              label="AI disclosure notes"
+              value={form.packetAiDisclosureNotes}
+              onChange={(value) => update('packetAiDisclosureNotes', value)}
+            />
+            <button type="submit" disabled={creatingPacket || !form.packetVideoId} className="pib-btn-primary w-full">
+              {creatingPacket ? 'Creating...' : 'Create private packet'}
+            </button>
+          </form>
+
           <form onSubmit={importAnalytics} className="pib-card-section space-y-4 p-5">
             <h2 className="font-headline font-bold text-on-surface">Import analytics</h2>
             <label className="block text-sm">
@@ -913,8 +1118,19 @@ function skillLabel(key: YouTubeProductionSkillKey) {
   return YOUTUBE_PRODUCTION_SKILLS.find((skill) => skill.key === key)?.label ?? formatToken(key)
 }
 
+function packetTitle(packet: YouTubePublishingPacket) {
+  return packet.titleOptions?.find((option) => option.selected)?.text ?? packet.titleOptions?.[0]?.text ?? 'Untitled publishing packet'
+}
+
+function packetGateEntries(packet: YouTubePublishingPacket) {
+  return Object.entries(packet.checks ?? {}) as Array<[
+    keyof YouTubePublishingPacket['checks'],
+    YouTubePublishingPacket['checks'][keyof YouTubePublishingPacket['checks']],
+  ]>
+}
+
 function formatToken(value: string) {
-  return value.replace(/[-_]/g, ' ')
+  return value.replace(/([a-z])([A-Z])/g, '$1 $2').replace(/[-_]/g, ' ').toLowerCase()
 }
 
 function Field({

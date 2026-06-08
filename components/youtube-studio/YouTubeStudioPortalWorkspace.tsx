@@ -292,11 +292,48 @@ export function YouTubeStudioPortalWorkspace({ orgId }: YouTubeStudioPortalWorks
                 </YouTubeVideoCard>
               ))
             )}
-            {packets.length > 0 ? (
-              <p className="text-xs text-on-surface-variant">
-                {packets.length} publishing packet{packets.length === 1 ? '' : 's'} available for selected reviews.
-              </p>
-            ) : null}
+          </div>
+
+          <div className="space-y-3">
+            <h2 className="font-headline text-xl font-semibold text-on-surface">Publishing packets</h2>
+            {packets.length === 0 ? (
+              <div className="pib-card-section p-5 text-sm text-on-surface-variant">No publishing packets are ready for review yet.</div>
+            ) : (
+              packets.map((packet) => (
+                <article key={packet.id ?? `${packet.videoProjectId}-${packet.versionNumber}`} className="pib-card-section space-y-3 p-4">
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <h3 className="break-words font-semibold text-on-surface">{packetTitle(packet)}</h3>
+                      <p className="mt-1 text-sm text-on-surface-variant">
+                        Version {packet.versionNumber || 1} / {formatToken(packet.status)} / {formatToken(packet.visibility)}
+                      </p>
+                    </div>
+                    <span className="shrink-0 rounded-full bg-[var(--color-surface-container-high)] px-3 py-1 text-xs font-label uppercase tracking-widest text-on-surface-variant">
+                      {packet.chapters?.length ?? 0} chapters
+                    </span>
+                  </div>
+                  {packet.description ? (
+                    <p className="break-words text-sm text-on-surface-variant">{packet.description}</p>
+                  ) : null}
+                  {packet.tags?.length ? (
+                    <div className="flex flex-wrap gap-2">
+                      {packet.tags.slice(0, 8).map((tag) => (
+                        <span key={tag} className="max-w-full break-words rounded-full bg-white/[0.04] px-2 py-1 text-xs text-on-surface-variant">
+                          {tag}
+                        </span>
+                      ))}
+                    </div>
+                  ) : null}
+                  <div className="grid gap-2 text-xs text-on-surface-variant sm:grid-cols-2">
+                    {packetGateEntries(packet).map(([key, check]) => (
+                      <span key={key} className="min-w-0 break-words">
+                        {formatToken(key)}: {formatToken(check?.status ?? 'not_applicable')}
+                      </span>
+                    ))}
+                  </div>
+                </article>
+              ))
+            )}
           </div>
 
           <div className="space-y-3">
@@ -374,7 +411,18 @@ function Metric({ label, value, suffix = '' }: { label: string; value?: number; 
 }
 
 function formatToken(value: string) {
-  return value.replace(/[-_]/g, ' ')
+  return value.replace(/([a-z])([A-Z])/g, '$1 $2').replace(/[-_]/g, ' ').toLowerCase()
+}
+
+function packetTitle(packet: YouTubePublishingPacket) {
+  return packet.titleOptions?.find((option) => option.selected)?.text ?? packet.titleOptions?.[0]?.text ?? 'Publishing packet'
+}
+
+function packetGateEntries(packet: YouTubePublishingPacket) {
+  return Object.entries(packet.checks ?? {}) as Array<[
+    keyof YouTubePublishingPacket['checks'],
+    YouTubePublishingPacket['checks'][keyof YouTubePublishingPacket['checks']],
+  ]>
 }
 
 function Field({

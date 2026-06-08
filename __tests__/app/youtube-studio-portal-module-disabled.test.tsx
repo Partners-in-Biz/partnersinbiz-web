@@ -1,5 +1,5 @@
 import React from 'react'
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { YouTubeStudioAdminWorkspace } from '@/components/youtube-studio/YouTubeStudioAdminWorkspace'
 import { YouTubeStudioPortalWorkspace } from '@/components/youtube-studio/YouTubeStudioPortalWorkspace'
 
@@ -33,7 +33,29 @@ const portalData = {
         clientReview: { status: 'requested' },
       },
     ],
-    packets: [],
+    packets: [
+      {
+        id: 'packet-1',
+        videoProjectId: 'video-1',
+        versionNumber: 1,
+        status: 'client_review',
+        visibility: 'private',
+        titleOptions: [{ text: 'Launch plan', selected: true }],
+        description: 'Client-safe launch description',
+        tags: ['growth', 'retention'],
+        chapters: [{ startSeconds: 0, title: 'Intro' }],
+        checks: {
+          rights: { status: 'pass' },
+          aiDisclosure: { status: 'warning' },
+          madeForKids: { status: 'pass' },
+          metadata: { status: 'pass' },
+          thumbnail: { status: 'pass' },
+          captions: { status: 'pass' },
+          approval: { status: 'warning' },
+          connectedAccount: { status: 'pass' },
+        },
+      },
+    ],
     analytics: [],
   },
 }
@@ -97,6 +119,19 @@ describe('YouTubeStudioPortalWorkspace module availability', () => {
         expect.objectContaining({ method: 'PUT' }),
       )
     })
+  })
+
+  it('renders client-facing publishing packet summaries', async () => {
+    global.fetch = jest.fn().mockResolvedValue(jsonResponse(portalData))
+
+    render(<YouTubeStudioPortalWorkspace />)
+
+    expect(await screen.findByText('Launch plan')).toBeInTheDocument()
+    expect(screen.getByText('Client-safe launch description')).toBeInTheDocument()
+    expect(screen.getByText('growth')).toBeInTheDocument()
+    expect(screen.getByText('retention')).toBeInTheDocument()
+    expect(screen.getByText('rights: pass')).toBeInTheDocument()
+    expect(screen.getByText('connected account: pass')).toBeInTheDocument()
   })
 
   it('ignores stale portal request completions after the scoped org changes', async () => {
@@ -239,6 +274,7 @@ describe('YouTubeStudioPortalWorkspace module availability', () => {
       }
       if (url.includes('/series')) return jsonResponse({ success: true, data: { series: [] } })
       if (url.includes('/videos')) return jsonResponse({ success: true, data: { videos: [] } })
+      if (url.includes('/publish-packets')) return jsonResponse({ success: true, data: { packets: [] } })
       return jsonResponse({ success: true })
     })
     global.fetch = fetchMock as jest.Mock
@@ -252,6 +288,91 @@ describe('YouTubeStudioPortalWorkspace module availability', () => {
     expect(await screen.findAllByText('Lumen Channel')).not.toHaveLength(0)
     await waitFor(() => {
       expect(screen.queryByText('Could not load the full YouTube Studio workspace.')).not.toBeInTheDocument()
+    })
+  })
+
+  it('posts a private draft publishing packet from the admin builder', async () => {
+    const fetchMock = jest.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      if (init?.method === 'POST') return jsonResponse({ success: true, data: { id: 'packet-new' } })
+      if (url.includes('/channels')) {
+        return jsonResponse({
+          success: true,
+          data: {
+            channels: [
+              {
+                id: 'channel-1',
+                title: 'Lumen Channel',
+                status: 'active',
+                youtubeHandle: '@lumen',
+              },
+            ],
+          },
+        })
+      }
+      if (url.includes('/series')) return jsonResponse({ success: true, data: { series: [] } })
+      if (url.includes('/videos')) {
+        return jsonResponse({
+          success: true,
+          data: {
+            videos: [
+              {
+                id: 'video-1',
+                channelWorkspaceId: 'channel-1',
+                title: 'Draft launch cut',
+                status: 'production',
+                objective: 'Prepare launch',
+                videoType: 'long_form',
+              },
+            ],
+          },
+        })
+      }
+      if (url.includes('/publish-packets')) return jsonResponse({ success: true, data: { packets: [] } })
+      if (url.includes('/agent-jobs')) return jsonResponse({ success: true, data: { jobs: [] } })
+      if (url.includes('/analytics')) return jsonResponse({ success: true, data: { snapshots: [] } })
+      return jsonResponse({ success: true })
+    })
+    global.fetch = fetchMock as jest.Mock
+
+    render(<YouTubeStudioAdminWorkspace orgId="lumen-org" orgName="Lumen" />)
+
+    expect(await screen.findAllByText('Draft launch cut')).not.toHaveLength(0)
+    const createPacketButton = screen.getByRole('button', { name: 'Create private packet' })
+    const packetForm = within(createPacketButton.closest('form') as HTMLElement)
+
+    fireEvent.change(packetForm.getByLabelText('Video'), { target: { value: 'video-1' } })
+    fireEvent.change(packetForm.getByLabelText('Primary title'), { target: { value: 'Launch plan' } })
+    fireEvent.change(packetForm.getByLabelText('Description'), { target: { value: 'Client-safe launch description' } })
+    fireEvent.change(packetForm.getByLabelText('Tags'), { target: { value: 'growth, ops' } })
+    fireEvent.change(packetForm.getByLabelText('Chapters'), { target: { value: '01:05 Deep dive' } })
+    fireEvent.click(packetForm.getByLabelText('Self-declared made for kids'))
+    fireEvent.click(packetForm.getByLabelText('Contains altered or synthetic media'))
+    fireEvent.change(packetForm.getByLabelText('AI disclosure notes'), { target: { value: 'Synthetic b-roll disclosed.' } })
+    fireEvent.click(createPacketButton)
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        '/api/v1/youtube-studio/publish-packets',
+        expect.objectContaining({ method: 'POST' }),
+      )
+    })
+    const postCall = fetchMock.mock.calls.find(([input, init]) => (
+      String(input) === '/api/v1/youtube-studio/publish-packets' &&
+      init?.method === 'POST'
+    ))
+    const payload = JSON.parse(String(postCall?.[1]?.body))
+    expect(payload).toMatchObject({
+      orgId: 'lumen-org',
+      channelWorkspaceId: 'channel-1',
+      videoProjectId: 'video-1',
+      titleOptions: [{ text: 'Launch plan', selected: true }],
+      description: 'Client-safe launch description',
+      tags: ['growth', 'ops'],
+      chapters: [{ startSeconds: 65, title: 'Deep dive' }],
+      selfDeclaredMadeForKids: true,
+      containsSyntheticMedia: true,
+      aiDisclosureNotes: 'Synthetic b-roll disclosed.',
     })
   })
 
@@ -281,6 +402,7 @@ describe('YouTubeStudioPortalWorkspace module availability', () => {
       if (url.includes('/channels')) return jsonResponse({ success: true, data: { channels: [] } })
       if (url.includes('/series')) return jsonResponse({ success: true, data: { series: [] } })
       if (url.includes('/videos')) return jsonResponse({ success: true, data: { videos: [] } })
+      if (url.includes('/publish-packets')) return jsonResponse({ success: true, data: { packets: [] } })
       return jsonResponse({ success: true })
     })
     global.fetch = fetchMock as jest.Mock
@@ -288,7 +410,7 @@ describe('YouTubeStudioPortalWorkspace module availability', () => {
     const { rerender } = render(<YouTubeStudioAdminWorkspace orgId="lumen-org" orgName="Lumen" />)
 
     await waitFor(() => {
-      expect(fetchMock.mock.calls.filter(([input]) => String(input).includes('lumen-org'))).toHaveLength(5)
+      expect(fetchMock.mock.calls.filter(([input]) => String(input).includes('lumen-org'))).toHaveLength(6)
     })
 
     const channelTitleField = await screen.findByLabelText('Channel title')
@@ -332,6 +454,7 @@ describe('YouTubeStudioPortalWorkspace module availability', () => {
       if (url.includes('lumen-org') && url.includes('/channels')) return lumenChannels
       if (url.includes('lumen-org') && url.includes('/series')) return lumenSeries
       if (url.includes('lumen-org') && url.includes('/videos')) return lumenVideos
+      if (url.includes('lumen-org') && url.includes('/publish-packets')) return jsonResponse({ success: true, data: { packets: [] } })
       if (url.includes('velox-org') && url.includes('/channels')) {
         return jsonResponse({
           success: true,
@@ -348,6 +471,7 @@ describe('YouTubeStudioPortalWorkspace module availability', () => {
         })
       }
       if (url.includes('velox-org') && url.includes('/series')) return jsonResponse({ success: true, data: { series: [] } })
+      if (url.includes('velox-org') && url.includes('/publish-packets')) return jsonResponse({ success: true, data: { packets: [] } })
       if (url.includes('velox-org') && url.includes('/videos')) {
         return jsonResponse({
           success: true,
@@ -370,7 +494,7 @@ describe('YouTubeStudioPortalWorkspace module availability', () => {
 
     const { rerender } = render(<YouTubeStudioAdminWorkspace orgId="lumen-org" orgName="Lumen" />)
     await waitFor(() => {
-      expect(fetchMock.mock.calls.filter(([input]) => String(input).includes('lumen-org'))).toHaveLength(5)
+      expect(fetchMock.mock.calls.filter(([input]) => String(input).includes('lumen-org'))).toHaveLength(6)
     })
 
     rerender(<YouTubeStudioAdminWorkspace orgId="velox-org" orgName="Velox" />)
