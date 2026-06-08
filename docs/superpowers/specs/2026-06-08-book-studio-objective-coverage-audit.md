@@ -17,7 +17,7 @@
 **Operator workspace control model:** `docs/superpowers/specs/2026-06-08-book-studio-v1-operator-workspace-control-model.md`
 **Production package QA model:** `docs/superpowers/specs/2026-06-08-book-studio-v1-production-package-qa-model.md`
 **Jurisdiction and local publisher model:** `docs/superpowers/specs/2026-06-08-book-studio-v1-jurisdiction-local-publisher-model.md`
-**Decision bundle baseline:** `cf94c2a6 docs(book-studio): add v1 package qa model`
+**Decision bundle content baseline:** `ddee2021 docs(book-studio): add local publisher obligations model`
 
 ## Purpose
 
@@ -25,7 +25,7 @@ This audit maps Peet's original Book Studio objective to the current design arti
 
 This document does not authorize runtime code, Firestore collections, routes, APIs, UI, Hermes dispatch, publishing automation, or a Phase 1 implementation plan. Those stay gated until Peet explicitly approves or revises the Book Studio V1 approval record.
 
-When Phase 1 planning is approved later, quote both the source dossier commit and the latest decision bundle commit at planning time. The dossier commit identifies the source-backed research base; the decision bundle commit identifies the companion packets that constrain portal access, domain state, operator controls, Hermes evaluation, package QA, jurisdiction/local publisher evidence, and objective coverage.
+When Phase 1 planning is approved later, quote both the source dossier commit and the current `development` commit at planning time. The dossier commit identifies the source-backed research base; the current planning commit identifies the companion packets that constrain portal access, domain state, operator controls, Hermes evaluation, package QA, jurisdiction/local publisher evidence, and objective coverage. The decision bundle content baseline records the last product-boundary packet update before metadata-only handoff cleanup.
 
 ## Current Coverage Summary
 
@@ -84,7 +84,7 @@ The current research dossier contains a current-source addendum dated 2026-06-08
 Evidence rules for the next phase:
 
 - A Phase 1 implementation plan must quote the final approval record and the current dossier commit.
-- A Phase 1 implementation plan must quote the latest decision bundle commit at planning time and list any design-packet revisions after the baseline.
+- A Phase 1 implementation plan must quote the current `development` commit at planning time and list any design-packet content revisions after the baseline.
 - Any policy-dependent task must cite the source register keys it relies on.
 - Any local publisher task must cite the South African legal-deposit, ISBN/imprint, copyright, or publisher-source keys it relies on.
 - Any direct or indirect channel expansion beyond KDP/Google manual handoff requires source refresh first.

@@ -4108,7 +4108,7 @@ Before implementation planning starts, the product decision should be recorded e
 - **Initial book families:** narrative, nonfiction, children's/visual, activity/workbook, low-content, public-domain/companion, and audiobook as gate profiles; not all require full export tooling in Phase 1.
 - **Initial Hermes scope:** enable only Wave 1 and selected Wave 2 skills after manifest/evaluation readiness. Wave 3-5 skill docs, fixtures, and manifest entries can be drafted in Phase 1, but production/packaging/launch/analytics/lifecycle dispatch should wait for the matching ledgers, sanitizers, and forbidden-action tests.
 - **Initial analytics scope:** manual import ledger, source/confidence labels, and reconciliation tasks.
-- **Explicit non-goals:** self-serve public SaaS, direct store publishing automation, autonomous ad spend, automatic review outreach, full print-perfect layout engine, and storing sensitive publishing-account secrets.
+- **Explicit non-goals:** self-serve public SaaS, direct store publishing automation, autonomous ad spend, automatic review outreach, full print-perfect layout engine, automated export/file validation before package QA is implemented, automated report integrations before the manual import model is proven, and storing sensitive publishing-account secrets.
 
 If this approval packet is accepted, the next artifact should be a separate implementation plan for Phase 1. That plan should start with module entitlement, typed domain records/sanitizers, admin workspace shell, gate-profile derivation, Research/Client Document/Project bridges, and portal disabled-module guards before any manuscript generation feature.
 
@@ -4146,7 +4146,7 @@ This packet is the short decision form Peet can approve, reject, or revise befor
 
 Approval text Peet can use:
 
-> Approve Book Studio V1 as an internal PiB production studio with optional client review. Start implementation planning for admin-first KDP/Google manual-handoff workflows, book-family gate profiles, Research/Client Document/Project/artifact bridges, controlled Hermes skill readiness, publishing packet tracking, local publisher evidence lanes, package QA evidence, and manual analytics imports. Do not include self-serve client generation, public SaaS, direct store publishing, autonomous ad spend, automated review outreach, or secret/account custody in V1.
+> Approve Book Studio V1 as an internal PiB production studio with optional client review. Use KDP and Google Play Books manual-handoff as the first channel focus. Start with business nonfiction, activity or low-content print, series scaffolding, and a public-domain or companion negative-control fixture. Build admin-first records, gate profiles, Research/Client Document/Project/artifact bridges, publishing packet tracking, local publisher evidence lanes, controlled Hermes skill readiness, package QA evidence, and manual analytics imports. Keep self-serve generation, public SaaS, direct publishing, account-secret custody, autonomous ads, automated review outreach, full layout tooling, automated export/file validation, and automated report integrations out of V1.
 
 This approval would unlock a separate Phase 1 implementation plan. It would not approve runtime code yet; the implementation plan still needs to decompose the foundation into small vertical slices, define test coverage, and recheck source links at plan start.
 
@@ -4236,7 +4236,7 @@ What counts as approval:
 - Peet confirms which portal review artifacts come first: Book Brief, proof package, publishing packet, analytics summary, or a narrower subset.
 - Peet confirms Hermes scope for the first implementation plan: Wave 1 only, Wave 1 plus selected Wave 2 safety skills, or a broader skill-doc/fixture package without runtime dispatch.
 - Peet confirms whether PiB-owned and client-owned books share one workflow with an ownership flag, or whether client-owned account governance is mandatory for every client project.
-- Peet accepts the explicit V1 non-goals: no self-serve public generator, no direct store publishing automation, no autonomous ad spend, no automated review outreach, no sensitive account-secret custody, and no full print-perfect editor in Phase 1.
+- Peet accepts the explicit V1 non-goals: no self-serve public generator, no direct store publishing automation, no autonomous ad spend, no automated review outreach, no sensitive account-secret custody, no full print-perfect editor, no automated export/file validation before package QA is implemented, and no automated report integrations before the manual import model is proven.
 
 What does not count as approval:
 
@@ -4278,7 +4278,7 @@ Use this as the concise decision surface after reading the dossier. It is meant 
 
 Recommended decision:
 
-> Approve Book Studio V1 as an internal PiB production studio with optional client review. Phase 1 should focus on KDP and Google Play Books manual-handoff readiness; business nonfiction, activity/low-content print, series scaffolding, and a public-domain/companion negative-control fixture; admin-first production surfaces; controlled Hermes skill readiness; publishing packet tracking; local publisher evidence lanes; package QA evidence; and manual analytics imports. Do not include self-serve client generation, public SaaS, direct store publishing, autonomous ad spend, automated review outreach, sensitive account-secret custody, or full print-perfect editing in Phase 1.
+> Approve Book Studio V1 as an internal PiB production studio with optional client review. Use KDP and Google Play Books manual-handoff as the first channel focus. Start with business nonfiction, activity or low-content print, series scaffolding, and a public-domain or companion negative-control fixture. Build admin-first records, gate profiles, Research/Client Document/Project/artifact bridges, publishing packet tracking, local publisher evidence lanes, controlled Hermes skill readiness, package QA evidence, and manual analytics imports. Keep self-serve generation, public SaaS, direct publishing, account-secret custody, autonomous ads, automated review outreach, full layout tooling, automated export/file validation, and automated report integrations out of V1.
 
 Default approval record:
 

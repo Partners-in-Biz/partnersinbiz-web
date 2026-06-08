@@ -3,7 +3,7 @@
 **Date:** 2026-06-08
 **Status:** Approval packet only; not an implementation plan.
 **Authoritative dossier:** `docs/superpowers/specs/2026-06-07-book-studio-research-dossier.md` at commit `d7ff96d1`.
-**Decision bundle baseline:** `cf94c2a6 docs(book-studio): add v1 package qa model`.
+**Decision bundle content baseline:** `ddee2021 docs(book-studio): add local publisher obligations model`.
 **Coverage audit:** `docs/superpowers/specs/2026-06-08-book-studio-objective-coverage-audit.md`
 **Portal access aid:** `docs/superpowers/specs/2026-06-08-book-studio-v1-portal-access-promotion-model.md`
 **Production package QA aid:** `docs/superpowers/specs/2026-06-08-book-studio-v1-production-package-qa-model.md`
@@ -14,7 +14,7 @@
 
 This packet gives Peet a short decision surface for Book Studio V1. The full dossier covers research, channel constraints, book types, series, Hermes skills, publishing operations, analytics, risk, and PiB integration. This packet captures only the decision needed before a Phase 1 implementation plan can be written.
 
-The dossier commit shows where the primary research was last changed. The decision bundle baseline shows the review-ready set of companion packets that shape the boundary: portal access, domain state, operator workspace, source refresh, book-family gates, ownership/commercial governance, jurisdiction/local publisher evidence, wider channels, Hermes evaluation, and production package QA. Any later updates to these packets should be listed as decision-bundle revisions before Phase 1 planning starts.
+The dossier commit shows where the primary research was last changed. The decision bundle content baseline shows the review-ready set of companion packets that shape the boundary: portal access, domain state, operator workspace, source refresh, book-family gates, ownership/commercial governance, jurisdiction/local publisher evidence, wider channels, Hermes evaluation, and production package QA. Metadata-only handoff edits after that baseline do not change the product boundary, but a future Phase 1 plan must still quote the current `development` commit at planning time and list any content revisions after this baseline.
 
 ## Recommended Approval
 
@@ -134,7 +134,7 @@ Approval unlocks a separate Phase 1 implementation plan. It does not approve run
 The future Phase 1 plan must:
 
 - Quote the final approval record and the current dossier commit.
-- Quote the latest decision bundle commit at planning time and list any design-packet revisions after the baseline.
+- Quote the current `development` commit at planning time and list any design-packet content revisions after the baseline.
 - Recheck the policy source register before listing tasks.
 - Map every task to the selected pilot set.
 - Map evidence-sensitive tasks to the V1 evidence acceptance matrix.
