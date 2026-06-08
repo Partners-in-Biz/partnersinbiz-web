@@ -42,6 +42,7 @@ export const POST = withAuth('admin', async (req: NextRequest, user) => {
 
   const ref = await adminDb.collection(YOUTUBE_COLLECTIONS.series).add({
     ...data,
+    deleted: false,
     ...actorFields(user),
   })
 

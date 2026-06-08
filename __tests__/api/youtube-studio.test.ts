@@ -139,7 +139,7 @@ describe('youtube studio admin API', () => {
     const { POST } = await import('@/app/api/v1/youtube-studio/channels/route')
     const res = await POST(new NextRequest('http://localhost/api/v1/youtube-studio/channels', {
       method: 'POST',
-      body: JSON.stringify({ orgId: 'org-1', title: 'Acme Channel' }),
+      body: JSON.stringify({ orgId: 'org-1', title: 'Acme Channel', deleted: true }),
     }))
     const body = await res.json()
 
@@ -154,6 +154,73 @@ describe('youtube studio admin API', () => {
       updatedByType: 'user',
       createdAt: 'SERVER_TS',
       updatedAt: 'SERVER_TS',
+      deleted: false,
+    }))
+  })
+
+  it('forces new series records to active instead of deleted', async () => {
+    stageFirestore({
+      youtube_channel_workspaces: {
+        docs: {
+          'channel-1': {
+            id: 'channel-1',
+            data: { orgId: 'org-1', title: 'Acme', deleted: false },
+          },
+        },
+      },
+      youtube_series: {},
+    })
+
+    const { POST } = await import('@/app/api/v1/youtube-studio/series/route')
+    const res = await POST(new NextRequest('http://localhost/api/v1/youtube-studio/series', {
+      method: 'POST',
+      body: JSON.stringify({
+        orgId: 'org-1',
+        channelWorkspaceId: 'channel-1',
+        name: 'Growth series',
+        deleted: true,
+      }),
+    }))
+
+    expect(res.status).toBe(201)
+    expect(mockAdd).toHaveBeenCalledWith(expect.objectContaining({
+      orgId: 'org-1',
+      channelWorkspaceId: 'channel-1',
+      name: 'Growth series',
+      deleted: false,
+    }))
+  })
+
+  it('forces new video project records to active instead of deleted', async () => {
+    stageFirestore({
+      youtube_channel_workspaces: {
+        docs: {
+          'channel-1': {
+            id: 'channel-1',
+            data: { orgId: 'org-1', title: 'Acme', deleted: false },
+          },
+        },
+      },
+      youtube_video_projects: {},
+    })
+
+    const { POST } = await import('@/app/api/v1/youtube-studio/videos/route')
+    const res = await POST(new NextRequest('http://localhost/api/v1/youtube-studio/videos', {
+      method: 'POST',
+      body: JSON.stringify({
+        orgId: 'org-1',
+        channelWorkspaceId: 'channel-1',
+        title: 'Launch video',
+        deleted: true,
+      }),
+    }))
+
+    expect(res.status).toBe(201)
+    expect(mockAdd).toHaveBeenCalledWith(expect.objectContaining({
+      orgId: 'org-1',
+      channelWorkspaceId: 'channel-1',
+      title: 'Launch video',
+      deleted: false,
     }))
   })
 
@@ -461,5 +528,148 @@ describe('youtube studio admin API', () => {
     expect(body.error).toMatch(/superseded|supersedesPacketId/i)
     expect(mockBatchSet).not.toHaveBeenCalled()
     expect(mockBatchCommit).not.toHaveBeenCalled()
+  })
+
+  it('updates a publishing packet while preserving draft private constraints', async () => {
+    stageFirestore({
+      youtube_channel_workspaces: {
+        docs: {
+          'channel-1': {
+            id: 'channel-1',
+            data: { orgId: 'org-1', title: 'Acme', deleted: false },
+          },
+        },
+      },
+      youtube_video_projects: {
+        docs: {
+          'video-1': {
+            id: 'video-1',
+            data: { orgId: 'org-1', channelWorkspaceId: 'channel-1', title: 'Launch', deleted: false },
+          },
+        },
+      },
+      youtube_publishing_packets: {
+        docs: {
+          'packet-1': {
+            id: 'packet-1',
+            data: {
+              orgId: 'org-1',
+              channelWorkspaceId: 'channel-1',
+              videoProjectId: 'video-1',
+              versionNumber: 1,
+              status: 'draft',
+              visibility: 'private',
+              titleOptions: [{ text: 'Old title' }],
+              tags: ['old'],
+              chapters: [],
+              checks: {
+                rights: { status: 'warning', message: 'Rights review required.' },
+              },
+              deleted: false,
+            },
+          },
+        },
+      },
+    })
+
+    const { PUT } = await import('@/app/api/v1/youtube-studio/publish-packets/route')
+    const res = await PUT(new NextRequest('http://localhost/api/v1/youtube-studio/publish-packets', {
+      method: 'PUT',
+      body: JSON.stringify({
+        id: 'packet-1',
+        status: 'published',
+        visibility: 'public',
+        approvedBy: 'client-supplied-approver',
+        approvedAt: 'client-supplied-date',
+        approvedSnapshotHash: 'client-supplied-hash',
+        titleOptions: [{ text: ' New title ', rationale: ' Better hook ', selected: true }],
+        tags: [' growth ', '', 'ops'],
+        checks: {
+          rights: { status: 'pass', message: ' Rights cleared ', checkedBy: 'client-supplied' },
+          connectedAccount: { status: 'pass', message: { secret: 'object message' } },
+        },
+      }),
+    }))
+
+    expect(res.status).toBe(200)
+    expect(mockDocSet).toHaveBeenCalledWith(expect.objectContaining({
+      orgId: 'org-1',
+      channelWorkspaceId: 'channel-1',
+      videoProjectId: 'video-1',
+      status: 'draft',
+      visibility: 'private',
+      titleOptions: [{ text: 'New title', rationale: 'Better hook', selected: true }],
+      tags: ['growth', 'ops'],
+      deleted: false,
+      updatedBy: 'admin-1',
+      updatedByType: 'user',
+      updatedAt: 'SERVER_TS',
+    }), { merge: true })
+
+    const packetUpdate = mockDocSet.mock.calls[0][0]
+    expect(packetUpdate.approvedBy).toBeUndefined()
+    expect(packetUpdate.approvedAt).toBeUndefined()
+    expect(packetUpdate.approvedSnapshotHash).toBeUndefined()
+    expect(packetUpdate.checks.rights).toEqual({ status: 'pass', message: 'Rights cleared' })
+    expect(packetUpdate.checks.connectedAccount).toEqual({ status: 'pass', message: 'Connected account requires review before publishing.' })
+    expect(JSON.stringify(packetUpdate)).not.toContain('client-supplied')
+  })
+
+  it.each([
+    ['deleted packet', {
+      packet: { orgId: 'org-1', channelWorkspaceId: 'channel-1', videoProjectId: 'video-1', deleted: true },
+      video: { orgId: 'org-1', channelWorkspaceId: 'channel-1', deleted: false },
+    }, 404],
+    ['deleted video', {
+      packet: { orgId: 'org-1', channelWorkspaceId: 'channel-1', videoProjectId: 'video-1', deleted: false },
+      video: { orgId: 'org-1', channelWorkspaceId: 'channel-1', deleted: true },
+    }, 404],
+    ['cross-org video', {
+      packet: { orgId: 'org-1', channelWorkspaceId: 'channel-1', videoProjectId: 'video-1', deleted: false },
+      video: { orgId: 'org-2', channelWorkspaceId: 'channel-1', deleted: false },
+    }, 400],
+    ['changed video relationship', {
+      packet: { orgId: 'org-1', channelWorkspaceId: 'channel-1', videoProjectId: 'video-1', deleted: false },
+      video: { orgId: 'org-1', channelWorkspaceId: 'channel-1', deleted: false },
+      body: { videoProjectId: 'video-2' },
+    }, 400],
+  ])('rejects publishing packet updates with a %s relationship', async (_label, fixture, expectedStatus) => {
+    stageFirestore({
+      youtube_channel_workspaces: {
+        docs: {
+          'channel-1': {
+            id: 'channel-1',
+            data: { orgId: 'org-1', title: 'Acme', deleted: false },
+          },
+        },
+      },
+      youtube_video_projects: {
+        docs: {
+          'video-1': {
+            id: 'video-1',
+            data: fixture.video,
+          },
+        },
+      },
+      youtube_publishing_packets: {
+        docs: {
+          'packet-1': {
+            id: 'packet-1',
+            data: fixture.packet,
+          },
+        },
+      },
+    })
+
+    const { PUT } = await import('@/app/api/v1/youtube-studio/publish-packets/route')
+    const res = await PUT(new NextRequest('http://localhost/api/v1/youtube-studio/publish-packets', {
+      method: 'PUT',
+      body: JSON.stringify({ id: 'packet-1', titleOptions: [{ text: 'Updated' }], ...fixture.body }),
+    }))
+    const body = await res.json()
+
+    expect(res.status).toBe(expectedStatus)
+    expect(body.error).toMatch(/packet|video/i)
+    expect(mockDocSet).not.toHaveBeenCalled()
   })
 })
