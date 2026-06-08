@@ -4487,14 +4487,39 @@ Devil's advocate:
 - If the record is approved with too many first channels, the first plan will become channel research and file/account governance instead of a usable PiB production workflow.
 - If Hermes scope is broadened before evaluation fixtures and forbidden-action tests exist, the module can create polished but unsafe outputs faster than humans can review them.
 
-## Open Product Decision
+## Current Approval Decision
 
-The next design step depends on one product decision:
+The broad product-positioning question has been narrowed by the dossier, review brief, journey map, evidence matrix, and copyable approval record. The next human decision is no longer "what could Book Studio be?" It is whether Peet approves the recommended V1 approval record, revises it, or rejects the V1 posture.
 
-Should Book Studio V1 be:
+Recommended decision:
 
-1. **Internal PiB production studio with optional client review**.
-2. **Client-facing module where clients create their own books**.
-3. **Public/productized AI-book SaaS surface**.
+> Approve the copyable V1 approval record as written: Book Studio V1 is an internal PiB production studio with optional client review, focused first on KDP and Google Play Books manual handoff, business nonfiction, activity or low-content print, series scaffolding, and a public-domain or companion negative-control fixture. Phase 1 may be planned only for admin-first records, gate profiles, Research/Client Document/Project/artifact bridges, publishing packet tracking, controlled Hermes skill readiness, and manual analytics imports. Self-serve generation, public SaaS, direct publishing, account-secret custody, autonomous ads, automated review outreach, full layout tooling, and automated report integrations remain out of V1.
 
-Recommendation: choose option 1 for V1.
+If Peet approves this:
+
+- The next step is a separate Phase 1 implementation plan, not immediate runtime coding.
+- That plan must quote the approved record and current dossier commit.
+- That plan must recheck the policy source register before listing tasks.
+- That plan must map every task to the selected pilot set and V1 evidence acceptance matrix.
+
+If Peet wants changes first:
+
+- Update only the changed approval-record fields: first pilots, first portal artifacts, Hermes first scope, ownership model, first channels, or accepted deferrals.
+- Re-check any affected dossier sections for contradictions.
+- Do not start implementation planning until the revised record is explicit.
+
+If Peet rejects the recommended posture:
+
+- Stop implementation planning.
+- Reopen product positioning around either a client-facing creator module or a public/productized AI-book SaaS surface.
+- Run a separate safety, abuse, billing, account-authority, support, and portal-permission design pass before any plan.
+
+What remains unapproved right now:
+
+- No Book Studio runtime routes, records, APIs, components, or database collections.
+- No Phase 1 implementation task list.
+- No runtime Hermes dispatch.
+- No direct KDP, Google Play Books, Apple, Kobo, Draft2Digital, IngramSpark, ACX, Amazon Ads, or review-outreach automation.
+- No client self-serve generation or public SaaS surface.
+
+This means the current dossier is approval-ready for the V1 product decision, not implementation-complete.
