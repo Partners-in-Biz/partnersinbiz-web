@@ -16,12 +16,15 @@
 **Domain record/state model:** `docs/superpowers/specs/2026-06-08-book-studio-v1-domain-record-state-model.md`
 **Operator workspace control model:** `docs/superpowers/specs/2026-06-08-book-studio-v1-operator-workspace-control-model.md`
 **Production package QA model:** `docs/superpowers/specs/2026-06-08-book-studio-v1-production-package-qa-model.md`
+**Decision bundle baseline:** `cf94c2a6 docs(book-studio): add v1 package qa model`
 
 ## Purpose
 
 This audit maps Peet's original Book Studio objective to the current design artifacts. It answers one question: have the requested angles been covered well enough for a V1 product decision?
 
 This document does not authorize runtime code, Firestore collections, routes, APIs, UI, Hermes dispatch, publishing automation, or a Phase 1 implementation plan. Those stay gated until Peet explicitly approves or revises the Book Studio V1 approval record.
+
+When Phase 1 planning is approved later, quote both the source dossier commit and the latest decision bundle commit at planning time. The dossier commit identifies the source-backed research base; the decision bundle commit identifies the companion packets that constrain portal access, domain state, operator controls, Hermes evaluation, package QA, and objective coverage.
 
 ## Current Coverage Summary
 
@@ -78,6 +81,7 @@ The current research dossier contains a current-source addendum dated 2026-06-08
 Evidence rules for the next phase:
 
 - A Phase 1 implementation plan must quote the final approval record and the current dossier commit.
+- A Phase 1 implementation plan must quote the latest decision bundle commit at planning time and list any design-packet revisions after the baseline.
 - Any policy-dependent task must cite the source register keys it relies on.
 - Any direct or indirect channel expansion beyond KDP/Google manual handoff requires source refresh first.
 - Any future demo must include at least one pass case, one warning case, and one blocker case.

@@ -4,8 +4,11 @@
 **Status:** Review aid only; not an implementation plan.
 **Authoritative packet:** `docs/superpowers/specs/2026-06-08-book-studio-v1-approval-packet.md`
 **Authoritative dossier:** `docs/superpowers/specs/2026-06-07-book-studio-research-dossier.md`
+**Coverage audit:** `docs/superpowers/specs/2026-06-08-book-studio-objective-coverage-audit.md`
 **Concrete review aid:** `docs/superpowers/specs/2026-06-08-book-studio-v1-mock-review-packet.md`
 **Portal access aid:** `docs/superpowers/specs/2026-06-08-book-studio-v1-portal-access-promotion-model.md`
+**Package QA aid:** `docs/superpowers/specs/2026-06-08-book-studio-v1-production-package-qa-model.md`
+**Operator workspace aid:** `docs/superpowers/specs/2026-06-08-book-studio-v1-operator-workspace-control-model.md`
 
 ## Purpose
 
@@ -22,7 +25,7 @@ The review has four possible outcomes:
 
 ## 30-Minute Review Agenda
 
-Before the agenda, open the approval packet and the mock review packet. The approval packet answers "what would we approve?" The mock packet answers "what would this feel like in PiB?"
+Before the agenda, open the approval packet, coverage audit, mock review packet, and package QA aid. The approval packet answers "what would we approve?" The coverage audit answers "which original objective requirements are covered?" The mock packet answers "what would this feel like in PiB?" The package QA aid answers "what would make a book package safe enough for proof, portal review, or manual handoff?"
 
 ### 1. Confirm The Product Posture
 
@@ -200,6 +203,32 @@ Block state:
 
 - Screenshots, raw imports, estimates, or unsettled reports are presented as guaranteed revenue.
 
+### 8. Confirm Production Package QA
+
+Review the production package posture:
+
+- Proof, file, cover, rights, accessibility, source freshness, and checksum evidence bind approvals to one package version.
+- A PDF that opens locally is not treated as an upload-ready publishing package.
+- Package QA is a future runtime requirement, not a claim that validators or export tooling already exist.
+
+Review questions:
+
+- Can every manual-handoff claim point to exact file versions and package evidence?
+- Does a manuscript, cover, metadata, rights, AI-use, or channel-source change invalidate the affected proof, packet, or client approval?
+- Are automated export/file validators still deferred until the implementation plan explicitly scopes and tests them?
+
+Pass state:
+
+- Book Studio can say "this exact package is ready for the next human step" without implying direct publishing or blanket channel approval.
+
+Warning state:
+
+- A package is internally reviewable, but one format/channel warning needs an owner, due date, or waiver path before handoff.
+
+Block state:
+
+- Any generated file, proof, or package is marked upload-ready without exact file identity, package evidence, rights/provenance review, and channel-specific preflight.
+
 ## First Implementation Demo Evidence Peet Should Ask For Later
 
 This section is a future demo checklist, not a build plan. It defines what evidence a later Phase 1 implementation demo should show if the approval record is accepted.
@@ -210,13 +239,14 @@ This section is a future demo checklist, not a build plan. It defines what evide
 | Series scaffold | Volume order, continuity notes, shared metadata, and rollup analytics shape. | That every future series volume is already viable. |
 | Public-domain or companion negative control | Unsafe production is blocked with a clear rights/evidence explanation. | That the module can work around weak rights evidence. |
 | Hermes recommendation | A skill creates a reviewable artifact or task. | That Hermes can publish, approve, spend, message clients, or access secrets. |
+| Package QA | Exact files, proof state, rights evidence, checksum binding, and invalidation behavior are visible before manual handoff. | That a local PDF or generated EPUB is automatically upload-ready. |
 | Analytics import | Source/confidence labels and reconciliation state are visible. | That partial reports equal settled revenue. |
 
 ## Exact Approval Response
 
 Peet can approve with this text:
 
-> Approve Book Studio V1 as an internal PiB production studio with optional client review. Use KDP and Google Play Books manual-handoff as the first channel focus. Start with business nonfiction, activity or low-content print, series scaffolding, and a public-domain or companion negative-control fixture. Build admin-first records, gate profiles, Research/Client Document/Project/artifact bridges, publishing packet tracking, controlled Hermes skill readiness, and manual analytics imports. Keep self-serve generation, public SaaS, direct publishing, account-secret custody, autonomous ads, automated review outreach, full layout tooling, and automated report integrations out of V1.
+> Approve Book Studio V1 as an internal PiB production studio with optional client review. Use KDP and Google Play Books manual-handoff as the first channel focus. Start with business nonfiction, activity or low-content print, series scaffolding, and a public-domain or companion negative-control fixture. Build admin-first records, gate profiles, Research/Client Document/Project/artifact bridges, publishing packet tracking, controlled Hermes skill readiness, package QA evidence, and manual analytics imports. Keep self-serve generation, public SaaS, direct publishing, account-secret custody, autonomous ads, automated review outreach, full layout tooling, automated export/file validation, and automated report integrations out of V1.
 
 ## Exact Revision Response
 
@@ -249,3 +279,4 @@ bookStudioV1ApprovalRevision:
 - If portal review is treated as "show clients everything", PiB will leak uncertainty, rights risk, and raw agent output.
 - If analytics is approved as a single revenue chart, clients will be trained to trust numbers before refunds, timing lags, payment reports, and reconciliation are understood.
 - If Hermes runtime dispatch is approved too early, the module can create polished unsafe output faster than reviewers can catch it.
+- If package QA is treated as a file-opening check, Book Studio may hand off beautiful but unreviewed files with weak rights evidence, stale channel assumptions, or mutated post-approval content.

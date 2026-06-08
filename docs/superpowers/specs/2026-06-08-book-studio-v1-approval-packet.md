@@ -3,11 +3,17 @@
 **Date:** 2026-06-08
 **Status:** Approval packet only; not an implementation plan.
 **Authoritative dossier:** `docs/superpowers/specs/2026-06-07-book-studio-research-dossier.md` at commit `d7ff96d1`.
+**Decision bundle baseline:** `cf94c2a6 docs(book-studio): add v1 package qa model`.
+**Coverage audit:** `docs/superpowers/specs/2026-06-08-book-studio-objective-coverage-audit.md`
 **Portal access aid:** `docs/superpowers/specs/2026-06-08-book-studio-v1-portal-access-promotion-model.md`
+**Production package QA aid:** `docs/superpowers/specs/2026-06-08-book-studio-v1-production-package-qa-model.md`
+**Operator workspace aid:** `docs/superpowers/specs/2026-06-08-book-studio-v1-operator-workspace-control-model.md`
 
 ## Purpose
 
 This packet gives Peet a short decision surface for Book Studio V1. The full dossier covers research, channel constraints, book types, series, Hermes skills, publishing operations, analytics, risk, and PiB integration. This packet captures only the decision needed before a Phase 1 implementation plan can be written.
+
+The dossier commit shows where the primary research was last changed. The decision bundle baseline shows the review-ready set of companion packets that shape the boundary: portal access, domain state, operator workspace, source refresh, book-family gates, ownership/commercial governance, wider channels, Hermes evaluation, and production package QA. Any later updates to these packets should be listed as decision-bundle revisions before Phase 1 planning starts.
 
 ## Recommended Approval
 
@@ -31,6 +37,7 @@ It should not include:
 - Autonomous ad spend.
 - Automated review outreach.
 - Full print-perfect layout tooling.
+- Automated export engines, file validators, package validators, or direct upload-ready claims before package QA is implemented and reviewed.
 - Automated report integrations before the manual import model is proven.
 
 ## Copyable Approval Record
@@ -86,6 +93,7 @@ bookStudioV1Approval:
     - no_autonomous_ad_spend
     - no_automated_review_outreach
     - no_full_print_perfect_layout_engine
+    - no_automated_export_or_file_validation_before_package_qa_is_implemented
     - no_automated_report_integrations_before_manual_import_model_is_proven
 ```
 
@@ -93,7 +101,7 @@ bookStudioV1Approval:
 
 Peet can use this wording if the recommended V1 is acceptable:
 
-> Approve Book Studio V1 as an internal PiB production studio with optional client review. Use KDP and Google Play Books manual-handoff as the first channel focus. Start with business nonfiction, activity or low-content print, series scaffolding, and a public-domain or companion negative-control fixture. Build admin-first records, gate profiles, Research/Client Document/Project/artifact bridges, publishing packet tracking, controlled Hermes skill readiness, and manual analytics imports. Keep self-serve generation, public SaaS, direct publishing, account-secret custody, autonomous ads, automated review outreach, full layout tooling, and automated report integrations out of V1.
+> Approve Book Studio V1 as an internal PiB production studio with optional client review. Use KDP and Google Play Books manual-handoff as the first channel focus. Start with business nonfiction, activity or low-content print, series scaffolding, and a public-domain or companion negative-control fixture. Build admin-first records, gate profiles, Research/Client Document/Project/artifact bridges, publishing packet tracking, controlled Hermes skill readiness, package QA evidence, and manual analytics imports. Keep self-serve generation, public SaaS, direct publishing, account-secret custody, autonomous ads, automated review outreach, full layout tooling, automated export/file validation, and automated report integrations out of V1.
 
 ## Safe Revisions Before Approval
 
@@ -113,9 +121,11 @@ Approval unlocks a separate Phase 1 implementation plan. It does not approve run
 The future Phase 1 plan must:
 
 - Quote the final approval record and the current dossier commit.
+- Quote the latest decision bundle commit at planning time and list any design-packet revisions after the baseline.
 - Recheck the policy source register before listing tasks.
 - Map every task to the selected pilot set.
 - Map evidence-sensitive tasks to the V1 evidence acceptance matrix.
+- Preserve the production package QA rule that proof, file, cover, rights, accessibility, source freshness, and checksum evidence bind manual-handoff readiness to one exact package version.
 - Keep runtime Hermes dispatch disabled until ledgers, sanitizers, fixtures, reviewer defaults, and forbidden-action tests exist.
 
 ## What Remains Unapproved
@@ -123,6 +133,7 @@ The future Phase 1 plan must:
 - Book Studio runtime routes, records, APIs, components, and database collections.
 - A Phase 1 implementation task list.
 - Runtime Hermes dispatch.
+- Runtime export engines, file validators, package manifest records, or package QA automation.
 - Direct KDP, Google Play Books, Apple, Kobo, Draft2Digital, IngramSpark, ACX, Amazon Ads, or review-outreach automation.
 - Client self-serve generation.
 - Public/productized AI-book SaaS.
