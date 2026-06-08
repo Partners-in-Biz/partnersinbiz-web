@@ -6,6 +6,7 @@
 **Decision packet:** `docs/superpowers/specs/2026-06-08-book-studio-v1-approval-packet.md`
 **Ownership and commercial model:** `docs/superpowers/specs/2026-06-08-book-studio-v1-ownership-commercial-model.md`
 **Source refresh contract:** `docs/superpowers/specs/2026-06-08-book-studio-v1-source-refresh-contract.md`
+**Rights, asset, and contributor ledger model:** `docs/superpowers/specs/2026-06-08-book-studio-v1-rights-asset-contributor-ledger-model.md`
 
 ## Purpose
 
@@ -47,7 +48,7 @@ The layer should not block internal research, drafting, outlining, editing, or p
 | Legal deposit | Applicability assessment, dispatch requirement owner, deposit copies/status, date, receipt/reference, exemption note if reviewed externally. | "Local deposit evidence pending." | Public/manual-handoff claim says local obligations are complete without evidence. |
 | ISBN and imprint | ISBN source, official agency, format binding, publisher/imprint owner, platform ISBN constraints, metadata responsibility. | "ISBN/imprint decision pending." | ISBN owner, imprint, format, or platform restrictions are unclear. |
 | Copyright posture | Human authorship, AI-generated/assisted classification, contributors, copyright notice, registration limitation note, legal-review task where needed. | "Rights and authorship evidence pending." | Packet claims copyright registration, ownership, or rights clearance without reviewed evidence. |
-| Contributor authority | Ghostwriter, editor, designer, illustrator, narrator, photographer, translator, and font/asset licenses. | "Contributor evidence pending." | Public packet relies on unassigned or unlicensed contributor work. |
+| Contributor authority | Ghostwriter, editor, designer, illustrator, narrator, photographer, translator, and font/asset licenses, with detailed asset/contributor evidence handled by the standalone ledger model. | "Contributor evidence pending." | Public packet relies on unassigned or unlicensed contributor work. |
 | Tax/payment/account authority | Account owner, external readiness labels, report access, payment profile readiness, and consent artifacts. | "Account authority evidence pending." | PiB/client ownership or revenue claim conflicts with account/payment evidence. |
 | Territory and adaptation | Rights territory, target market, South African adaptation, public-domain jurisdiction assumptions, and client approval. | "Territory evidence pending." | Channel packet assumes rights or public-domain status from one jurisdiction only. |
 

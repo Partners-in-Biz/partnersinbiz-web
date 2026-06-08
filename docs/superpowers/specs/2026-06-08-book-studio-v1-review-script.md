@@ -19,6 +19,7 @@
 **Hermes skill contract pack:** `docs/superpowers/specs/2026-06-08-book-studio-v1-hermes-skill-contract-pack.md`
 **Launch and lifecycle governance aid:** `docs/superpowers/specs/2026-06-08-book-studio-v1-launch-lifecycle-governance-model.md`
 **Market evidence aid:** `docs/superpowers/specs/2026-06-08-book-studio-v1-market-evidence-model.md`
+**Rights, asset, and contributor ledger aid:** `docs/superpowers/specs/2026-06-08-book-studio-v1-rights-asset-contributor-ledger-model.md`
 
 ## Purpose
 
@@ -35,7 +36,7 @@ The review has four possible outcomes:
 
 ## 30-Minute Review Agenda
 
-Before the agenda, open the decision index, approval packet, coverage audit, review scorecard, pilot product decision register, revision impact matrix, approval decision form, mock review packet, market evidence aid, package QA aid, jurisdiction/local publisher aid, Hermes skill contract pack, and launch/lifecycle governance aid. The decision index answers "what should I read and what decision is needed?" The approval packet answers "what would we approve?" The coverage audit answers "which original objective requirements are covered?" The scorecard answers "which categories are pass, warn, or block?" The pilot register answers "which first book archetypes prove V1 without pretending market demand is already validated?" The market evidence aid answers "what evidence stops weak candidate ideas before Book Brief or production selection?" The revision matrix answers "what else must change if Peet approves with revisions?" The decision form answers "what exact decision record controls planning?" The source refresh execution report answers "how do we prove current official sources were checked before planning?" The mock packet answers "what would this feel like in PiB?" The package QA aid answers "what would make a book package safe enough for proof, portal review, or manual handoff?" The jurisdiction/local publisher aid answers "what local publisher evidence must stay separate from KDP/Google readiness?" The Hermes skill contract pack answers "what fields must every first skill declare before any runtime skill spec exists?" The launch/lifecycle aid answers "what happens after a book is live without drifting into review outreach, ad spend, price automation, or public launch automation?"
+Before the agenda, open the decision index, approval packet, coverage audit, review scorecard, pilot product decision register, revision impact matrix, approval decision form, mock review packet, market evidence aid, package QA aid, rights/asset/contributor ledger aid, jurisdiction/local publisher aid, Hermes skill contract pack, and launch/lifecycle governance aid. The decision index answers "what should I read and what decision is needed?" The approval packet answers "what would we approve?" The coverage audit answers "which original objective requirements are covered?" The scorecard answers "which categories are pass, warn, or block?" The pilot register answers "which first book archetypes prove V1 without pretending market demand is already validated?" The market evidence aid answers "what evidence stops weak candidate ideas before Book Brief or production selection?" The revision matrix answers "what else must change if Peet approves with revisions?" The decision form answers "what exact decision record controls planning?" The source refresh execution report answers "how do we prove current official sources were checked before planning?" The mock packet answers "what would this feel like in PiB?" The package QA aid answers "what would make a book package safe enough for proof, portal review, or manual handoff?" The rights/asset/contributor ledger aid answers "what prevents covers, images, fonts, quotes, open-license material, AI images, client assets, and hired contributor work from advancing without scoped evidence?" The jurisdiction/local publisher aid answers "what local publisher evidence must stay separate from KDP/Google readiness?" The Hermes skill contract pack answers "what fields must every first skill declare before any runtime skill spec exists?" The launch/lifecycle aid answers "what happens after a book is live without drifting into review outreach, ad spend, price automation, or public launch automation?"
 
 ### 1. Confirm The Product Posture
 
@@ -268,7 +269,33 @@ Block state:
 
 - Screenshots, raw imports, estimates, or unsettled reports are presented as guaranteed revenue.
 
-### 10. Confirm Production Package QA
+### 10. Confirm Rights, Asset, And Contributor Ledger
+
+Review the rights-ledger posture:
+
+- Every visible asset, quote, font, template, public-domain/open-licensed item, AI-generated asset, client-owned brand asset, and contributor input needs scoped evidence or an accepted warning before dependent states advance.
+- Evidence is version-bound and scoped to artifact, format, channel, territory, attribution, contributor credit, and public/client wording.
+- Hermes can inventory and flag issues, but cannot decide legal rights, fair use, contributor ownership, or license enforceability.
+
+Review questions:
+
+- Does Peet accept that a beautiful proof can still be blocked by weak rights, license, contributor, or client-asset evidence?
+- Should the first plan require the rights ledger before production starts, before package QA, or before portal/manual handoff?
+- Are Creative Commons, public-domain, stock, generated image, client-owned, and hired contributor inputs correctly treated as separate evidence lanes?
+
+Pass state:
+
+- Dependent production, package, portal, launch, analytics, and handoff states require a pass or accepted-warning rights-ledger state for the exact scope.
+
+Warning state:
+
+- One asset or contributor can continue internally with named owner, due date, attribution duty, expiry, territory, format, or channel limitation.
+
+Block state:
+
+- A proof, cover, quote, open-licensed asset, AI image, client brand asset, or contributor input advances without evidence.
+
+### 11. Confirm Production Package QA
 
 Review the production package posture:
 
@@ -304,6 +331,7 @@ This section is a future demo checklist, not a build plan. It defines what evide
 | Series scaffold | Volume order, continuity notes, shared metadata, and rollup analytics shape. | That every future series volume is already viable. |
 | Public-domain or companion negative control | Unsafe production is blocked with a clear rights/evidence explanation. | That the module can work around weak rights evidence. |
 | Hermes recommendation | A skill creates a reviewable artifact or task. | That Hermes can publish, approve, spend, message clients, or access secrets. |
+| Rights ledger | Asset source, license scope, AI provenance, client-owned asset approval, contributor credit/assignment, and pass/warn/block state are visible before dependent states advance. | That PiB has made legal decisions or can bypass weak evidence with better generated assets. |
 | Package QA | Exact files, proof state, rights evidence, checksum binding, and invalidation behavior are visible before manual handoff. | That a local PDF or generated EPUB is automatically upload-ready. |
 | Analytics import | Source/confidence labels and reconciliation state are visible. | That partial reports equal settled revenue. |
 
@@ -311,7 +339,7 @@ This section is a future demo checklist, not a build plan. It defines what evide
 
 Peet can approve with this text:
 
-> Approve Book Studio V1 as an internal PiB production studio with optional client review. Use KDP and Google Play Books manual-handoff as the first channel focus. Start with business nonfiction, activity or low-content print, series scaffolding, and a public-domain or companion negative-control fixture. Build admin-first records, market evidence gates, gate profiles, Research/Client Document/Project/artifact bridges, publishing packet tracking, local publisher evidence lanes, controlled Hermes skill readiness, package QA evidence, and manual analytics imports. Keep self-serve generation, public SaaS, direct publishing, account-secret custody, autonomous ads, automated review outreach, sales forecasting or rank promises from market research, full layout tooling, automated export/file validation, and automated report integrations out of V1.
+> Approve Book Studio V1 as an internal PiB production studio with optional client review. Use KDP and Google Play Books manual-handoff as the first channel focus. Start with business nonfiction, activity or low-content print, series scaffolding, and a public-domain or companion negative-control fixture. Build admin-first records, market evidence gates, gate profiles, Research/Client Document/Project/artifact bridges, publishing packet tracking, local publisher evidence lanes, rights/asset/contributor ledger gates, controlled Hermes skill readiness, package QA evidence, and manual analytics imports. Keep self-serve generation, public SaaS, direct publishing, account-secret custody, autonomous ads, automated review outreach, sales forecasting or rank promises from market research, full layout tooling, automated export/file validation, and automated report integrations out of V1.
 
 ## Exact Revision Response
 
@@ -333,6 +361,8 @@ bookStudioV1ApprovalRevision:
   jurisdictionAndLocalPublisherScope:
     add: []
     remove: []
+  rightsAssetContributorScope:
+    choose: ledger_before_production_start | ledger_before_package_qa | ledger_before_portal_or_manual_handoff
   productionReadinessScope:
     add: []
     remove: []
@@ -358,3 +388,4 @@ After filling this structure, check the revision impact matrix and name the affe
 - If analytics is approved as a single revenue chart, clients will be trained to trust numbers before refunds, timing lags, payment reports, and reconciliation are understood.
 - If Hermes runtime dispatch is approved too early, the module can create polished unsafe output faster than reviewers can catch it.
 - If package QA is treated as a file-opening check, Book Studio may hand off beautiful but unreviewed files with weak rights evidence, stale channel assumptions, or mutated post-approval content.
+- If rights evidence is reduced to a global checkbox, one weak asset, quote, font, generated image, client-owned logo, or unassigned contributor can contaminate an otherwise strong package.

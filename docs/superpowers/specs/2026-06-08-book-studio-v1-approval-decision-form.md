@@ -10,6 +10,7 @@
 **Source refresh execution report:** `docs/superpowers/specs/2026-06-08-book-studio-v1-source-refresh-execution-report.md`
 **Coverage audit:** `docs/superpowers/specs/2026-06-08-book-studio-objective-coverage-audit.md`
 **Market evidence model:** `docs/superpowers/specs/2026-06-08-book-studio-v1-market-evidence-model.md`
+**Rights, asset, and contributor ledger model:** `docs/superpowers/specs/2026-06-08-book-studio-v1-rights-asset-contributor-ledger-model.md`
 
 ## Purpose
 
@@ -45,6 +46,7 @@ bookStudioV1Decision:
     scorecard: docs/superpowers/specs/2026-06-08-book-studio-v1-approval-review-scorecard.md
     pilotRegister: docs/superpowers/specs/2026-06-08-book-studio-v1-pilot-product-decision-register.md
     marketEvidenceModel: docs/superpowers/specs/2026-06-08-book-studio-v1-market-evidence-model.md
+    rightsAssetContributorLedgerModel: docs/superpowers/specs/2026-06-08-book-studio-v1-rights-asset-contributor-ledger-model.md
     revisionImpactMatrix: docs/superpowers/specs/2026-06-08-book-studio-v1-approval-revision-impact-matrix.md
     coverageAudit: docs/superpowers/specs/2026-06-08-book-studio-objective-coverage-audit.md
   scorecardSummary:
@@ -53,6 +55,7 @@ bookStudioV1Decision:
     firstPilotSet: pass
     marketEvidenceGate: pass
     bookFamilyGateCoverage: pass
+    rightsAssetContributorLedger: pass
     hermesScope: pass
     publishingAndAccountGovernance: pass
     jurisdictionAndLocalPublisherEvidence: pass
@@ -93,10 +96,15 @@ bookStudioV1Decision:
       - isbn_imprint_source_and_owner_decision
       - copyright_posture_and_contributor_authority
       - territory_and_local_adaptation_review
+    rightsAssetContributorScope:
+      - asset_level_and_contributor_level_evidence_before_dependent_states_advance
+      - license_scope_ai_provenance_public_domain_open_license_and_client_asset_review
+      - portal_safe_rights_summaries_only
     productionReadinessScope:
       - package_qa_evidence
       - checksum_bound_package_readiness
       - format_rights_accessibility_and_source_preflight
+      - asset_and_contributor_rights_ledger_gate
     analyticsScope:
       - manual_import_ledger
       - source_confidence_labels
@@ -133,7 +141,10 @@ bookStudioV1Decision:
     requiredSourceGroups:
       - kdp_policy_and_packet_requirements
       - google_play_books_policy_and_packet_requirements
+      - language_translation_sources
       - market_evidence_selection_sources
+      - production_budget_capacity_sources
+      - rights_asset_contributor_sources
       - local_publisher_and_jurisdiction_sources
       - launch_lifecycle_sources
       - ai_story_source_baseline
@@ -150,6 +161,7 @@ bookStudioV1Decision:
     - automated_review_outreach
     - automated_export_file_validation_or_package_validator_claims_before_package_qa
     - automated_report_integrations_before_manual_import_model_is_proven
+    - runtime_rights_ledgers_license_automation_contract_templates_or_legal_advice_workflows
 ```
 
 ## Revision Record Rules
@@ -168,7 +180,8 @@ At minimum, map changes through the revision impact matrix:
 | `hermesFirstScope` | Hermes blueprint, Hermes evaluation packet, acceptance fixtures, scorecard, and coverage audit. |
 | `ownershipModel` | Ownership/commercial, jurisdiction/local publisher, publishing/analytics, and mock packet. |
 | `jurisdictionAndLocalPublisherScope` | Jurisdiction/local publisher model, source refresh contract, acceptance fixtures, and coverage audit. |
-| `productionReadinessScope` | Production package QA, mock packet, acceptance fixtures, and review script. |
+| `rightsAssetContributorScope` | Rights/asset/contributor ledger model, source refresh contract, acceptance fixtures, review script, and coverage audit. |
+| `productionReadinessScope` | Production package QA, rights/asset/contributor ledger model, mock packet, acceptance fixtures, and review script. |
 | `analyticsScope` | Publishing/analytics, mock packet, portal access, and coverage audit. |
 | `acceptedDeferrals` | Approval packet, decision index, review script, scorecard, coverage audit, and affected appendices. |
 
@@ -178,7 +191,7 @@ If an evidence update is not finished, set `planningAllowed: false`. Do not conv
 
 A valid decision record must pass these checks before a Phase 1 plan is written:
 
-1. The record names the approval packet, decision index, scorecard, pilot register, revision matrix, coverage audit, market evidence model, and reviewed `development` commit.
+1. The record names the approval packet, decision index, scorecard, pilot register, revision matrix, coverage audit, market evidence model, rights/asset/contributor ledger model, and reviewed `development` commit.
 2. The selected `decision` is one of the four allowed decision options.
 3. Every scorecard row is recorded as `pass`, `warn`, or `block`.
 4. Every warning is listed in `warningsAccepted` or converted into a changed approval field.
@@ -192,7 +205,7 @@ A valid decision record must pass these checks before a Phase 1 plan is written:
 - A decision form can become a rubber stamp if the scorecard rows are copied as pass without reviewing the evidence. The scorecard summary must reflect real review, not optimism.
 - A warning is not a small implementation issue. It is an accepted product-risk decision and must be named.
 - A blocker is not a task. If a blocker remains, the next artifact is a revised design packet or another design aid.
-- Source refresh is easy to postpone because the design packet is broad. Do not write the Phase 1 plan until source-sensitive KDP, Google, market evidence, local publisher, launch/lifecycle, and `ai-story` baseline checks are refreshed or explicitly removed from the first plan.
+- Source refresh is easy to postpone because the design packet is broad. Do not write the Phase 1 plan until source-sensitive KDP, Google, language/translation, market evidence, production budget/capacity, rights/asset/contributor, local publisher, launch/lifecycle, and `ai-story` baseline checks are refreshed or explicitly removed from the first plan.
 - `planningAllowed: true` is a strong claim. It means the approval decision, blockers, revisions, and source-refresh gate all support writing a separate Phase 1 plan.
 
 ## Explicit Exclusions
@@ -208,6 +221,7 @@ This form does not create or approve:
 - Public/productized AI-book SaaS.
 - Automated market scraping, sales forecasting, rank promises, bestseller claims, or competitor-copy reuse.
 - Automated analytics imports or report integrations.
+- Runtime rights ledgers, license automation, contract templates, or legal-advice workflows.
 - A Phase 1 implementation task list.
 
 ## Current Review State

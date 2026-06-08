@@ -7,12 +7,13 @@
 **Publishing and analytics model:** `docs/superpowers/specs/2026-06-08-book-studio-v1-publishing-analytics-model.md`
 **Domain record/state model:** `docs/superpowers/specs/2026-06-08-book-studio-v1-domain-record-state-model.md`
 **Operator workspace control model:** `docs/superpowers/specs/2026-06-08-book-studio-v1-operator-workspace-control-model.md`
+**Rights, asset, and contributor ledger model:** `docs/superpowers/specs/2026-06-08-book-studio-v1-rights-asset-contributor-ledger-model.md`
 
 ## Purpose
 
 This model defines how Book Studio V1 should treat production files before any proof, client review, publishing packet, or manual handoff can be trusted.
 
-The central rule is that a book is not "ready" because it has text, a cover, or a PDF. It is ready for the next stage only when the current artifact version has evidence for format fit, proof review, rights/provenance, accessibility, source freshness, and checksum-bound package identity.
+The central rule is that a book is not "ready" because it has text, a cover, or a PDF. It is ready for the next stage only when the current artifact version has evidence for format fit, proof review, rights/provenance, contributor authority, accessibility, source freshness, and checksum-bound package identity.
 
 This file does not create export tooling, file validators, upload paths, database records, UI components, route handlers, Hermes skills, direct publishing integrations, or a Phase 1 implementation plan.
 
@@ -24,7 +25,7 @@ This file does not create export tooling, file validators, upload paths, databas
 | Manuscript unit | A section, chapter, spread script, worksheet, puzzle set, or content block exists. | Version, owner, source basis, review state, AI-use basis, claim notes. | Final upload content by default. |
 | Interior proof | The reading or print interior can be reviewed as a coherent proof. | File reference, page/section map, editorial state, checksum, preview notes. | Upload-ready package. |
 | Cover proof | Front/back/spine or ebook cover can be reviewed. | Cover file, title/author consistency, image/font rights, print wrap notes where relevant. | Proof that metadata, rights, or channel files are ready. |
-| Asset ledger | Every image, font, quote, audio item, template, and contributor input has usage evidence. | Asset-level rights, territory, source, AI status, contributor role, unresolved warnings. | A generic "rights ok" checkbox. |
+| Asset ledger | Every image, font, quote, audio item, template, and contributor input has usage evidence. | Asset-level rights, territory, source, license scope, AI status, contributor role, unresolved warnings, and a link to the rights/asset/contributor ledger gate. | A generic "rights ok" checkbox. |
 | Package manifest | The candidate upload package is fixed to exact files and versions. | File list, checksums, formats, package date, channel intent, source freshness, reviewer state. | A direct publish command. |
 | Channel packet | A channel-specific handoff package can be reviewed. | KDP and Google evidence separated, manual instructions, account authority, metadata, pricing, disclosure. | Readiness for every channel. |
 | Portal proof | A client-safe artifact version can be reviewed. | Sanitized summary, approved excerpt/proof reference, internal notes removed, promotion state. | Raw production state mirrored to clients. |
@@ -48,7 +49,7 @@ This file does not create export tooling, file validators, upload paths, databas
 | Gate profile applied | Book family, formats, channels, ownership, series, and required evidence are selected before production. | Optional gate has owner/date/waiver path. | Drafting or package work starts from a blank prompt. |
 | Source and claim review | The content promise and factual claims have current evidence or reviewed caveats. | Non-critical assumption needs refresh before launch or client summary. | Unsupported or stale claim appears in proof, metadata, or client artifact. |
 | Manuscript review | Current manuscript/proof version is internally coherent and reviewed for scope. | Useful proof exists but needs editorial or claim cleanup. | Raw generated text is treated as final. |
-| Asset and rights review | Every asset or contributor input has evidence, territory, and AI status where relevant. | One asset has non-blocking owner/date/waiver path. | Unknown asset rights, quote rights, public-domain basis, or AI image status. |
+| Asset and rights review | Every asset or contributor input has evidence, territory, license scope, AI status, and contributor authority where relevant. | One asset has non-blocking owner/date/waiver path. | Unknown asset rights, quote rights, public-domain basis, AI image status, or contributor assignment/license. |
 | Format proof | Current proof can be reviewed in the intended format profile. | Preview has warnings that do not block internal review. | Proof missing, wrong format, broken navigation, unproofed print/fixed layout, or unusable activity content. |
 | Accessibility and reader experience | Obvious accessibility, navigation, readability, and physical-use issues have been reviewed for the chosen family. | Accessibility note is incomplete but not channel-blocking for internal review. | Visual/audio/worksheet product has no reader-experience evidence. |
 | Package manifest | Exact files, versions, checksums, date, and channel intent are captured. | Candidate package is internally reviewable but needs one file update. | Any file can change after approval without invalidation. |

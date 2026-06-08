@@ -8,6 +8,7 @@
 **Portal access model:** `docs/superpowers/specs/2026-06-08-book-studio-v1-portal-access-promotion-model.md`
 **Publishing and analytics model:** `docs/superpowers/specs/2026-06-08-book-studio-v1-publishing-analytics-model.md`
 **Market evidence model:** `docs/superpowers/specs/2026-06-08-book-studio-v1-market-evidence-model.md`
+**Rights, asset, and contributor ledger model:** `docs/superpowers/specs/2026-06-08-book-studio-v1-rights-asset-contributor-ledger-model.md`
 
 ## Purpose
 
@@ -39,7 +40,7 @@ The future implementation should keep the concepts separable even if it stores s
 | `bookSeries` | Optional series scaffold covering volume order, continuity, shared metadata, and rollup rules. | Book projects, continuity notes, channel series warnings, analytics rollup shape. | A claim that future volumes or external series pages are approved. |
 | `bookProductionArtifact` | Versioned manuscript, proof, package, cover, asset, and export artifacts. | File checksum, editorial checks, accessibility checks, rights ledger, package manifest. | A mutable file that keeps approval after content changes. |
 | `bookGenerationRun` | Provenance ledger for AI-assisted or Hermes-assisted output. | Prompt intent, source inputs, model/tool context, output artifact, reviewer decision, disclosure implications. | Raw output that can be shown directly to clients. |
-| `bookRightsAssetLedger` | Evidence ledger for images, cover assets, fonts, quotes, public-domain claims, contributors, AI assets, and territories. | Production artifacts, publishing packets, blocker decisions. | A generic "rights ok" checkbox. |
+| `bookRightsAssetLedger` | Evidence ledger for images, cover assets, fonts, quotes, public-domain/open-license claims, AI assets, client-owned assets, contributor credit, assignment/license scope, territories, formats, channels, and artifact versions. | Production artifacts, publishing packets, blocker decisions, contributor metadata, portal-safe summaries, launch/lifecycle claims. | A generic "rights ok" checkbox, legal decision engine, contract generator, or global asset library. |
 | `bookPublishingPacket` | Channel-specific manual-handoff readiness packet. | KDP packet, Google Play Books packet, metadata, files, disclosure, pricing, territories, source freshness, account authority. | A direct-publish command or credential store. |
 | `bookChannelListing` | External listing status after human upload. | Channel, external IDs, live links, review state, revision requests, listing checksum or packet version. | Proof that PiB performed the upload. |
 | `bookManualUploadEvent` | Evidence that a human operator uploaded or revised a package outside PiB. | Operator, timestamp, channel, packet version, external reference, uploaded files, review result. | An automated publishing integration. |
@@ -157,7 +158,7 @@ Analytics must distinguish report import, interpretation, reconciliation, and po
 - Market evidence is a blocking input for Book Brief and production selection; it is not a sales forecast, rank promise, or bestseller claim.
 - Hermes output is always artifact-linked, evaluation-linked, and reviewer-gated before it can influence a client-visible artifact.
 - Account authority is recorded as a decision posture and evidence reference; sensitive channel credentials are not stored in Book Studio V1.
-- Rights evidence is asset-specific and territory-aware; it is not a project-wide boolean.
+- Rights evidence is asset-specific, contributor-specific, license-scope-specific, channel-specific, territory-aware, and version-bound; it is not a project-wide boolean.
 - Analytics summaries never blend estimated, reported, settled, refunded, adjusted, or attributed values without source, period, timezone, confidence, and reconciliation state.
 - Portal module enablement controls visibility, but it does not override artifact safety or approval rules.
 - A manual upload event records what a human did outside PiB; it does not imply direct publishing automation exists.
@@ -171,7 +172,7 @@ Analytics must distinguish report import, interpretation, reconciliation, and po
 | Candidate audience, buyer use case, competitor observation, category/genre, keyword, price, margin, or channel-fit evidence changes. | Market evidence decision, Book Brief approval, and affected production-selection state. |
 | Manuscript, cover, proof, EPUB, PDF, asset, or package checksum changes. | Proof approval, package approval, channel packet readiness, client approval for the old version. |
 | Book promise, audience, title, subtitle, category, keyword, or description changes. | Book Brief approval and affected publishing metadata checks. |
-| Rights, public-domain, quote, image, font, contributor, or AI asset evidence changes. | Rights approval, proof approval, packet readiness, portal claims. |
+| Rights, public-domain, open-license, quote, image, font, template, client-owned asset, contributor assignment, AI asset, territory, format, or channel evidence changes. | Rights approval, production-start eligibility, proof approval, package QA, packet readiness, portal claims, launch copy, and analytics summaries that depend on the claim. |
 | Account authority, ownership, territory, price, royalty, or commercial model changes. | Upload-readiness, client commercial approval, analytics interpretation. |
 | AI disclosure answer changes. | Publishing packet readiness and affected channel listing notes. |
 | Store review requests a change. | Channel listing state, package version, affected portal live-status summary. |
@@ -190,6 +191,7 @@ If Peet approves the V1 record and implementation planning starts, the first pla
 - Missing or blocked market evidence prevents Book Brief promotion and production selection.
 - Market evidence cannot store rank promises, sales forecasts, copied competitor metadata, or automated scrape results as proof.
 - Raw Hermes output, internal notes, rights uncertainty, parser errors, account details, and unreconciled costs cannot appear in portal DTOs.
+- Assets, quotes, fonts, templates, public-domain/open-licensed material, AI-generated assets, client-owned brand assets, and contributor inputs cannot advance dependent production, package, portal, launch, analytics, or handoff states without a rights-ledger pass or accepted-warning state.
 - Partial analytics imports stay warning-labeled until reconciliation is complete.
 - Client approval can only apply to promoted artifact versions.
 - A manual upload event can update external status without storing store credentials or pretending PiB published directly.

@@ -11,6 +11,7 @@
 **Editorial quality model:** `docs/superpowers/specs/2026-06-08-book-studio-v1-editorial-quality-reader-experience-model.md`
 **Language and translation model:** `docs/superpowers/specs/2026-06-08-book-studio-v1-language-translation-edition-model.md`
 **Production budget and capacity model:** `docs/superpowers/specs/2026-06-08-book-studio-v1-production-budget-capacity-model.md`
+**Rights, asset, and contributor ledger model:** `docs/superpowers/specs/2026-06-08-book-studio-v1-rights-asset-contributor-ledger-model.md`
 
 ## Purpose
 
@@ -37,6 +38,7 @@ These rules apply to every fixture below:
 - Candidate selection must not use automated market scraping, sales forecasts, rank promises, bestseller claims, or competitor-copy reuse.
 - Any translated edition must keep source and target edition evidence separate, including language, rights, provenance, target quality, identifiers, channel support, pricing, portal, and analytics state.
 - Any production start must have approved or accepted-warning budget and capacity evidence, including human capacity, Hermes/model spend, proof costs, channel economics, and launch-spend separation.
+- Any asset, quote, font, template, public-domain/open-licensed material, AI-generated asset, client-owned brand asset, or contributor input must have rights-ledger pass or accepted-warning evidence before dependent production start, package QA, portal proof, launch copy, analytics promotion, or manual handoff.
 
 Devil's advocate:
 
@@ -378,6 +380,38 @@ PiB selects a low-content planner candidate after market evidence review. The op
 - Break-even language becomes a client-visible profit promise.
 - Launch spend is bundled into production approval.
 
+## Fixture L: Rights, Asset, And Contributor Ledger Gate
+
+### Scenario
+
+PiB prepares a proof that uses a cover image, an interior diagram, a quote, a font, and hired contributor input. The fixture should prove that beautiful production artifacts do not move forward unless the exact rights scope is reviewed.
+
+### Expected State
+
+| Area | Acceptance evidence |
+| --- | --- |
+| Ledger | Each visible asset and contributor input has source, owner, license/assignment, territory, format, channel, attribution, AI status, and review state. |
+| KDP/Google packet | Rights evidence is separated by channel; KDP readiness does not imply Google readiness or public marketing readiness. |
+| Public-domain/open license | Source edition, jurisdiction, Creative Commons or public-domain basis, attribution, derivative/commercial limits, and differentiation are explicit. |
+| Contributors | Illustrator, translator, ghostwriter, editor, designer, narrator, or photographer roles have credit and usage evidence. |
+| Portal | Client sees only safe action requests or reviewed blocker wording, not internal legal notes or private contracts. |
+
+### Outcome Cases
+
+- `RIGHTS-PASS-001`: business nonfiction ebook has human author agreement, edited manuscript provenance, cover image license, font license, quote permissions or removed quotes, AI-assisted-only classification, and channel-specific KDP/Google rights summary; package QA can proceed for the current version.
+- `RIGHTS-WARN-001`: stock cover image license supports ebook but print-run or merchandise use is unclear; internal proof can continue with owner/date warning, but print packet and public marketing are blocked until resolved.
+- `RIGHTS-WARN-002`: client-owned logo, author photo, or testimonial is useful but needs public-use approval; portal may show a client action request, not a publish-ready state.
+- `RIGHTS-BLOCK-001`: companion or public-domain project assumes rights from a web copy, lacks jurisdiction/source-edition evidence, and has weak differentiation; production, package QA, portal proof, and manual handoff are blocked.
+- `RIGHTS-BLOCK-002`: AI-generated cover or interior illustration lacks generation provenance, IP/customer-experience review, and disclosure basis; proof promotion, KDP/Google packet readiness, and portal summary are blocked.
+- `RIGHTS-BLOCK-003`: hired illustrator, translator, ghostwriter, narrator, or designer work has no assignment/license, credit, territory, or format evidence; dependent package and manual handoff states are blocked.
+
+### Failure Conditions
+
+- "Royalty-free" is accepted without actual license scope, attribution, territory, format, commercial, derivative, or expiry evidence.
+- Noncommercial or no-derivatives open-licensed material appears in a paid or adapted book without blocker handling.
+- Contributor work reaches package QA or manual handoff without assignment/license and credit evidence.
+- Raw rights uncertainty or private contract detail appears in a portal artifact.
+
 ## Minimum Future Demo Set
 
 If the approval packet is accepted, a future Phase 1 implementation demo should include at least:
@@ -392,6 +426,7 @@ If the approval packet is accepted, a future Phase 1 implementation demo should 
 8. Fixture I proving editorial quality pass/warn/block before package QA or portal proof.
 9. Fixture J proving translated-edition pass/warn/block before package QA, portal proof, manual handoff, or analytics promotion.
 10. Fixture K proving production budget/capacity pass/warn/block before production start, Hermes/model spend, proof orders, portal production promises, or launch-spend proposals.
+11. Fixture L proving rights, asset, and contributor ledger pass/warn/block before production start, package QA, portal proof, launch copy, analytics promotion, or manual handoff.
 
 The demo should not be accepted if it only shows:
 
@@ -403,6 +438,7 @@ The demo should not be accepted if it only shows:
 - A generated proof that bypasses editorial quality lanes.
 - A translated edition that bypasses language, rights, target-quality, metadata, identifier, channel, pricing, disclosure, or analytics gates.
 - A production start that bypasses budget, human capacity, Hermes/model budget, proof-cost, channel-economics, or launch-spend separation gates.
+- A proof, cover, quote, open-licensed asset, AI image, client-owned brand asset, or contributor input that bypasses rights-ledger evidence.
 
 ## Approval Gate Reminder
 

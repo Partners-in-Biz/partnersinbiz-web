@@ -14,6 +14,7 @@
 **Market evidence model:** `docs/superpowers/specs/2026-06-08-book-studio-v1-market-evidence-model.md`
 **Language/translation model:** `docs/superpowers/specs/2026-06-08-book-studio-v1-language-translation-edition-model.md`
 **Production budget/capacity model:** `docs/superpowers/specs/2026-06-08-book-studio-v1-production-budget-capacity-model.md`
+**Rights/asset/contributor ledger model:** `docs/superpowers/specs/2026-06-08-book-studio-v1-rights-asset-contributor-ledger-model.md`
 
 ## Purpose
 
@@ -117,6 +118,17 @@ bookStudioV1SourceRefreshReport:
         - google-book-prices
         - google-revenue-split
         - google-reports
+    rights_asset_contributor_sources:
+      required: true
+      completed: false
+      sources:
+        - kdp-content-ai-ip
+        - kdp-ip-rights-faq
+        - kdp-authors-contributors
+        - kdp-public-domain
+        - google-program-policies
+        - google-content-policies
+        - creative-commons-licenses
     local_publisher_and_jurisdiction_sources:
       required: true
       completed: false
@@ -172,6 +184,33 @@ bookStudioV1SourceRefreshReport:
         - changed_non_blocking
         - changed_blocking
         - unavailable
+      evidenceSummary: not_recorded_yet
+      affectedApprovalFields: []
+      affectedDocsToRevise: []
+      planningImpact: planning_blocked_until_result_recorded
+    - key: kdp-ip-rights-faq
+      url: https://kdp.amazon.com/en_US/help/topic/G200672400
+      officialSource: true
+      checkedAt: "not_recorded_yet"
+      result: not_recorded_yet
+      evidenceSummary: not_recorded_yet
+      affectedApprovalFields: []
+      affectedDocsToRevise: []
+      planningImpact: planning_blocked_until_result_recorded
+    - key: kdp-authors-contributors
+      url: https://kdp.amazon.com/en_US/help/topic/G2BWJN2BY98T5PV2
+      officialSource: true
+      checkedAt: "not_recorded_yet"
+      result: not_recorded_yet
+      evidenceSummary: not_recorded_yet
+      affectedApprovalFields: []
+      affectedDocsToRevise: []
+      planningImpact: planning_blocked_until_result_recorded
+    - key: kdp-public-domain
+      url: https://kdp.amazon.com/en_US/help/topic/G200743940
+      officialSource: true
+      checkedAt: "not_recorded_yet"
+      result: not_recorded_yet
       evidenceSummary: not_recorded_yet
       affectedApprovalFields: []
       affectedDocsToRevise: []
@@ -541,6 +580,15 @@ bookStudioV1SourceRefreshReport:
       affectedApprovalFields: []
       affectedDocsToRevise: []
       planningImpact: planning_blocked_until_result_recorded
+    - key: creative-commons-licenses
+      url: https://creativecommons.org/cc-licenses/
+      officialSource: true
+      checkedAt: "not_recorded_yet"
+      result: not_recorded_yet
+      evidenceSummary: not_recorded_yet
+      affectedApprovalFields: []
+      affectedDocsToRevise: []
+      planningImpact: planning_blocked_until_result_recorded
     - key: south-africa-legal-deposit-faq
       url: https://www.nationalarchives.gov.za/node/475
       officialSource: true
@@ -622,11 +670,14 @@ bookStudioV1SourceRefreshReport:
 
 ## Required Source Groups
 
-The reviewer must check the source groups required by the final decision record. The recommended V1 approval requires eight core groups: KDP, Google Play Books, language/translation, market evidence, production budget/capacity, local publisher/jurisdiction, launch/lifecycle, and `ai-story`.
+The reviewer must check the source groups required by the final decision record. The recommended V1 approval requires nine core groups: KDP, Google Play Books, language/translation, market evidence, production budget/capacity, rights/asset/contributor, local publisher/jurisdiction, launch/lifecycle, and `ai-story`.
 
 | Group | Source key | Source to check | Planning claim protected |
 | --- | --- | --- | --- |
 | KDP | `kdp-content-ai-ip` | `https://kdp.amazon.com/en_US/help/topic/G200672390` | AI disclosure, rights/IP, public-domain, companion-book, and KDP packet safety. |
+| KDP | `kdp-ip-rights-faq` | `https://kdp.amazon.com/en_US/help/topic/G200672400` | Publishing-rights documentation, prior publisher, format, territory, prior website, and rights-proof warnings. |
+| KDP | `kdp-authors-contributors` | `https://kdp.amazon.com/en_US/help/topic/G2BWJN2BY98T5PV2` | Author/contributor credit, metadata consistency, pen-name, detail-page, and series/format-linking risks. |
+| KDP | `kdp-public-domain` | `https://kdp.amazon.com/en_US/help/topic/G200743940` | Public-domain proof, source-edition, differentiation, and duplicate/free-version blockers. |
 | KDP | `kdp-keywords-discoverability` | `https://kdp.amazon.com/en_US/help/topic/G201743260` | KDP keyword relevance and market evidence discoverability hypotheses. |
 | KDP | `kdp-categories-discoverability` | `https://kdp.amazon.com/en_US/help/topic/G200652170` | KDP category relevance, shelf fit, and misleading-category blockers. |
 | KDP | `kdp-search-results` | `https://kdp.amazon.com/en_US/help/topic/GPYDJ3SECAVVPNVG` | Dynamic search-result caveats and no rank or sales promises. |
@@ -671,6 +722,13 @@ The reviewer must check the source groups required by the final decision record.
 | Production budget/capacity | `google-book-prices` | `https://support.google.com/books/partner/answer/3238849?hl=en` | Google country, currency, tax, effective-date, fixed-price-law, and payment-setting budget assumptions. |
 | Production budget/capacity | `google-revenue-split` | `https://support.google.com/books/partner/answer/9331459?hl=en` | Google revenue split by terms/country before Google margin or cost-recovery claims. |
 | Production budget/capacity | `google-reports` | `https://support.google.com/books/partner/answer/9266485?hl=en` | Google earnings, sales, refund, preview, currency, and report-type evidence for budget reconciliation. |
+| Rights/asset/contributor | `kdp-content-ai-ip` | `https://kdp.amazon.com/en_US/help/topic/G200672390` | KDP rights/IP, AI-generated assets, companion, public-domain, cover, and product-description safety. |
+| Rights/asset/contributor | `kdp-ip-rights-faq` | `https://kdp.amazon.com/en_US/help/topic/G200672400` | Publishing-rights documentation and rights-proof warnings before manual handoff. |
+| Rights/asset/contributor | `kdp-authors-contributors` | `https://kdp.amazon.com/en_US/help/topic/G2BWJN2BY98T5PV2` | Contributor credit, author metadata, and detail-page risks. |
+| Rights/asset/contributor | `kdp-public-domain` | `https://kdp.amazon.com/en_US/help/topic/G200743940` | Public-domain proof and differentiation blockers. |
+| Rights/asset/contributor | `google-program-policies` | `https://support.google.com/books/partner/answer/166501?hl=en` | Google packet policy, file, content, account contact, and rights/content policy dependencies. |
+| Rights/asset/contributor | `google-content-policies` | `https://support.google.com/books/partner/answer/1067634?hl=en` | Google misleading, duplicate, public-domain, and low-quality file blockers. |
+| Rights/asset/contributor | `creative-commons-licenses` | `https://creativecommons.org/cc-licenses/` | Open-license attribution, noncommercial, no-derivatives, share-alike, commercial, and adaptation review. |
 | Launch/lifecycle | `kdp-select-promotions` | `https://kdp.amazon.com/en_US/help/topic/G200798990` | KDP Select, Kindle Unlimited, exclusivity, and promotion eligibility assumptions. |
 | Launch/lifecycle | `kdp-free-book-promotion` | `https://kdp.amazon.com/en_US/help/topic/G201298240` | Free Book Promotion eligibility, timing, royalty, rank, and cancellation caveats. |
 | Launch/lifecycle | `kdp-merchandising-reviews` | `https://kdp.amazon.com/en_US/help/topic/G200673650` | KDP review request, advance copy, and review-influence guardrails. |

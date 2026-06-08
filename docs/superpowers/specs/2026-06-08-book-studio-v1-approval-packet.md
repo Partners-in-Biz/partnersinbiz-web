@@ -22,6 +22,7 @@
 **Market evidence aid:** `docs/superpowers/specs/2026-06-08-book-studio-v1-market-evidence-model.md`
 **Language and translation aid:** `docs/superpowers/specs/2026-06-08-book-studio-v1-language-translation-edition-model.md`
 **Production budget and capacity aid:** `docs/superpowers/specs/2026-06-08-book-studio-v1-production-budget-capacity-model.md`
+**Rights, asset, and contributor ledger aid:** `docs/superpowers/specs/2026-06-08-book-studio-v1-rights-asset-contributor-ledger-model.md`
 
 ## Purpose
 
@@ -178,6 +179,7 @@ The future Phase 1 plan must:
 - Preserve the market evidence model rule that a candidate reaches Book Brief or production selection only after a reviewed pass/warn/block decision, and that market evidence cannot promise sales, rank, or bestseller outcomes.
 - Preserve the production budget and capacity rule that a production-selectable candidate cannot start production, incur Hermes/model spend, order proofs, make client production promises, or propose launch spend without approved or accepted-warning budget and capacity evidence.
 - Preserve the language and translation model rule that translated editions need source/target language, translation rights, translator or AI provenance, target-language quality, reading direction, metadata, identifiers, pricing/territory, channel support, disclosure, portal, and analytics gates before translated-edition production, package QA, portal proof, manual handoff, or analytics promotion.
+- Preserve the rights, asset, and contributor ledger rule that covers, images, fonts, templates, quotes, public-domain/open-licensed material, AI-generated assets, client brand assets, translators, illustrators, designers, narrators, and other contributor inputs need pass or accepted-warning evidence before dependent production start, package QA, portal proof, launch copy, analytics promotion, or manual handoff.
 - Preserve the production package QA rule that proof, file, cover, rights, accessibility, source freshness, and checksum evidence bind manual-handoff readiness to one exact package version.
 - Preserve the jurisdiction/local publisher rule that KDP or Google channel readiness does not prove South African legal-deposit, ISBN/imprint, copyright, contributor-authority, or local publisher readiness.
 - Preserve the `ai-story` non-port rule that prior standalone UX patterns can be reused only after keep/rewrite/reject classification and cannot bypass PiB org scope, Research, Client Documents, Projects/Kanban, portal gating, or Hermes skill governance.
@@ -191,6 +193,7 @@ The future Phase 1 plan must:
 - A Phase 1 implementation task list.
 - Runtime Hermes dispatch.
 - Runtime export engines, file validators, package manifest records, or package QA automation.
+- Runtime rights ledgers, license automation, contract templates, legal-advice workflows, or contributor agreement generation.
 - Direct KDP, Google Play Books, Apple, Kobo, Draft2Digital, IngramSpark, ACX, Amazon Ads, or review-outreach automation.
 - Automated market scraping, sales forecasting, rank promises, bestseller claims, or competitor-copy reuse.
 - Client self-serve generation.
