@@ -3474,6 +3474,109 @@ Wave 2 readiness gates:
 
 Devil's advocate: Wave 2 can become compliance theater. A green-looking readiness report is dangerous if it hides weak evidence, stale source assumptions, or vague "review needed" language. The package should make hard blockers visible, cite the rule/evidence that created them, and keep human reviewers accountable. The opposite failure is also possible: a risk package can block every book indefinitely with broad legal-sounding uncertainty. Each blocker needs a concrete missing evidence item, affected gate, owner, and next action so production can either fix it or explicitly choose not to proceed.
 
+### Wave 3-5 Hermes Production, Packaging, Launch, And Analytics Package Draft
+
+Waves 3, 4, and 5 should be treated as one governed production package even if the skills are enabled in smaller batches. These skills are where Book Studio starts creating manuscript text, layout decisions, upload packages, launch plans, review outreach copy, lifecycle changes, and sales analytics. That makes them more commercially useful than Wave 1 and more dangerous than Wave 2: a weak output can become a bad book, a misleading listing, a noncompliant review ask, a wasted ad budget, or a client-facing revenue claim.
+
+Source context refreshed on 2026-06-08:
+
+- KDP requires authors and publishers to own content quality, avoid misleading/advertising content, and respond to customer-experience problems; quality issues can lead to removal or extra review. Source: [KDP Guide to Kindle Content Quality](https://kdp.amazon.com/en_US/help/topic/G200952510).
+- KDP requires AI-generated text, images, or translations to be disclosed when publishing or republishing, while AI-assisted work does not require disclosure; publishers remain responsible for IP and guideline compliance. Source: [KDP Content Guidelines](https://kdp.amazon.com/en_US/help/topic/G200672390).
+- Google Play Books accepts EPUB/PDF ebook files and recommends both where relevant; Google also recommends EPUBCheck validation, warns that unsupported EPUB features can fail, and asks fixed-layout books to be reviewed before going live. Sources: [Google EPUB files](https://support.google.com/books/partner/answer/3316879) and [Google book file guidelines](https://support.google.com/books/partner/answer/3424254).
+- EPUB Accessibility 1.1 expects accessibility metadata and evaluation evidence, including publisher or third-party certification posture where claimed. Source: [EPUB Accessibility 1.1](https://www.w3.org/TR/epub-a11y-11/).
+- KDP reports, Amazon Ads, and Google Play Books reports have different timing and attribution scopes; ad reports do not equal full book sales, and Google reports include refunds, payment currency, conversion, and preview traffic details. Sources: [KDP orders and payments](https://kdp.amazon.com/en_US/help/topic/GKEPUW32CTE6LFDA), [KDP Advertising](https://kdp.amazon.com/en_US/help/topic/G201499010), and [Google report overview](https://support.google.com/books/partner/answer/9266485).
+- KDP warns authors to monitor third-party promotion tactics and avoid manipulation; FTC and Amazon review rules make review outreach high-risk when it involves fake, compensated, insider, suppressed, or sentiment-conditioned reviews. Sources: [KDP Promote Your Book](https://kdp.amazon.com/en_US/help/topic/G201723090), [FTC fake reviews rule](https://www.ftc.gov/news-events/news/press-releases/2024/08/federal-trade-commission-announces-final-rule-banning-fake-reviews-testimonials), and [Amazon customer review update](https://www.aboutamazon.com/news/innovation-at-amazon/update-on-customer-reviews).
+
+Proposed package identity:
+
+```ts
+type BookStudioWaveThreeToFiveSkillKey =
+  | 'book-manuscript-structure-keeper'
+  | 'book-draft-writer'
+  | 'book-developmental-editor'
+  | 'book-copyeditor'
+  | 'book-proofreader'
+  | 'book-reading-level-review'
+  | 'book-fact-checker'
+  | 'book-accessibility-review'
+  | 'book-cover-brief'
+  | 'book-illustration-director'
+  | 'book-layout-designer'
+  | 'book-export-packager'
+  | 'book-file-package-validator'
+  | 'book-publishing-ops'
+  | 'book-analytics-import'
+  | 'book-launch-campaign'
+  | 'book-review-compliance-check'
+  | 'book-lifecycle-ops';
+
+type BookStudioWaveThreeToFiveArtifactType =
+  | 'manuscript_structure_report'
+  | 'draft_manuscript_unit'
+  | 'developmental_edit_report'
+  | 'copyedit_report'
+  | 'proofread_report'
+  | 'reading_level_report'
+  | 'fact_check_report'
+  | 'accessibility_review'
+  | 'cover_brief'
+  | 'illustration_direction_packet'
+  | 'layout_plan'
+  | 'export_package_manifest'
+  | 'file_package_validation_report'
+  | 'publishing_ops_status_update'
+  | 'analytics_import_report'
+  | 'launch_campaign_brief'
+  | 'review_compliance_report'
+  | 'lifecycle_ops_report'
+  | 'wave_three_to_five_blocker_report';
+```
+
+Package manifest:
+
+| Group | Skills | Minimum inputs | Required artifacts | Must refuse or block |
+| --- | --- | --- | --- | --- |
+| Manuscript structure and drafting | `book-manuscript-structure-keeper`, `book-draft-writer` | Approved brief, approved outline, manuscript unit, style guide, source manifest, book type gate profile, generation run. | Unit tree, TOC/navigation status, draft unit output, source dependency list, AI-generated/assisted classification, stale-output checks. | Whole-book generation with no unit scope, missing approved brief/outline, no source manifest, attempt to change book promise/audience, or stale run overwriting approved units. |
+| Editorial and specialist review | `book-developmental-editor`, `book-copyeditor`, `book-proofreader`, `book-reading-level-review`, `book-fact-checker`, `book-accessibility-review` | Draft or proof version, brief, style guide, claim/source ledger, target audience/reading age, accessibility/package evidence. | Editorial reports, tracked-change summary, issue list, reading-level report, claim-level fact-check report, accessibility review, blocker tasks. | Silent meaning changes, unsupported claims treated as facts, missing child/reading-age review, missing navigation/alt-text/table/link evidence, or proof approval without required pass coverage. |
+| Visual, layout, and package work | `book-cover-brief`, `book-illustration-director`, `book-layout-designer`, `book-export-packager`, `book-file-package-validator` | Approved metadata/brief, image/style/rights constraints, layout plan, source artifacts, channel package requirements, validation tooling evidence. | Cover brief, illustration direction packet, layout plan, export manifest, file/package validation report with checksums and preview evidence. | Celebrity/brand/style imitation, missing asset rights/provenance, treating a layout plan as print-ready, missing EPUB/PDF/audio validation, missing checksums, or upload-ready recommendation without preview evidence. |
+| Publishing, launch, review, analytics, and lifecycle | `book-publishing-ops`, `book-launch-campaign`, `book-review-compliance-check`, `book-analytics-import`, `book-lifecycle-ops` | Approved publishing packet, channel listing, account readiness, launch plan, tracking plan, review copy/ARC plan, imported reports, lifecycle request. | Publishing status update, launch campaign brief, review-compliance report, analytics import/reconciliation report, lifecycle event report. | External upload/publish/price/ad/message mutation, review outreach without compliance pass, paid spend without approval, fake/compensated/suppressed review plan, raw report rows exposed to clients, or settled-revenue claims without payment/report evidence. |
+
+Shared runtime rules:
+
+- Wave 3-5 skills require a Wave 1 approved brief/outline and the relevant Wave 2 safety, rights, metadata, account, and channel-readiness checks before output can become client-reviewable or publishing-facing.
+- All generated drafts, reports, plans, packages, analytics imports, and lifecycle notes are internal by default. A separate reviewer gate converts an allowlisted summary into a client-visible packet.
+- Drafting skills may create or revise bounded units only. They cannot change the approved reader promise, target audience, book type family, channel plan, series posture, pricing posture, or public metadata without creating a brief/metadata revision task.
+- Editorial skills preserve meaning unless the artifact explicitly requests a rewrite. Fact checkers create claim statuses; unsupported, disputed, stale, or source-missing claims become blockers or revision tasks instead of being hidden.
+- Accessibility and layout skills can recommend readiness, but only package validation with file/checksum/preview evidence can support upload approval.
+- Export and file-validation skills produce manifests and reports. They cannot upload, publish, enroll in exclusivity programs, mark live status, or mutate external accounts.
+- Launch, review, analytics, and lifecycle skills cannot send public messages, request reviews, spend money, change prices, schedule promotions, change KDP Select state, unpublish, or claim settled revenue without explicit approval and source evidence.
+- Analytics skills must preserve raw import evidence, parser version, report period, identifiers, refunds/negative rows, currency/conversion fields, unmatched rows, and confidence layer. Client summaries use only sanitized, approved rollups.
+- Every artifact should include `sourceKeys`, `sourceRecordIds`, `generationRunId` where relevant, `checkedAt`, `affectedGateIds`, `affectedPackageIds`, `riskFlags`, `blockers`, `warnings`, `reviewerAgentId`, and recommended follow-up tasks.
+
+Wave 3-5 fixture pack:
+
+| Fixture | Skills under test | Expected pass evidence | Required blockers |
+| --- | --- | --- | --- |
+| Nonfiction claims draft with weak sources | `book-draft-writer`, `book-developmental-editor`, `book-fact-checker`, `book-copyeditor` | Draft remains unit-scoped, claims map to source IDs, fact-check statuses are explicit, and copyedit preserves meaning. | Unsupported claim promoted to final copy, invented citation, source-missing claim hidden, or client-visible proof allowed before claim review. |
+| Children's fixed-layout picture book spread | `book-illustration-director`, `book-reading-level-review`, `book-accessibility-review`, `book-layout-designer`, `book-file-package-validator` | Age fit, image provenance, reading order, alt text, fixed-layout constraints, and preview evidence are required. | Missing alt text, unsafe/mature uncertainty, style/lookalike risk, missing image rights, no fixed-layout preview, or accessibility metadata claimed without evaluation evidence. |
+| Low-content workbook or puzzle package | `book-layout-designer`, `book-export-packager`, `book-file-package-validator`, `book-google-play-readiness-check` | Answer-key handling, repetitive-page posture, print/DRM/copy-print suitability, and package file roles are explicit. | KDP low-content flag ignored, Google suitability conflict hidden, answer key omitted, or package marked ready without print/preview evidence. |
+| Public-domain or companion project | `book-cover-brief`, `book-illustration-director`, `book-file-package-validator`, `book-publishing-ops` | Public-domain proof, new contribution, source-work dependency, territories, and manual status evidence are visible. | Companion/summary treated as cleared globally, public-domain differentiation missing, or upload status advanced without rights review. |
+| Launch and review campaign | `book-launch-campaign`, `book-review-compliance-check`, `book-lifecycle-ops` | Review copy is neutral, free-copy/ARC disclosure posture is recorded, paid/public actions require approvals, and tracking IDs are planned. | Compensation for sentiment, review gating/suppression, insider review request without disclosure review, third-party ROI guarantee, or ad spend/public send without approval. |
+| Analytics import with messy reports | `book-analytics-import`, `book-lifecycle-ops` | Refunds/negative rows, currencies, unmatched identifiers, estimated/reported/settled layers, and reconciliation tasks are preserved. | Raw imports exposed to portal, unmatched rows dropped, ad-attributed sales presented as all sales, or estimates called settled revenue. |
+| Stale generation run tries to update approved unit | `book-generation-run-governor`, `book-manuscript-structure-keeper`, `book-draft-writer`, `book-proofreader` | Approved manifest remains immutable, stale run creates a blocker or superseded artifact, and reviewer sees the conflict. | Approved unit silently overwritten, proof report attached to wrong version, or stale output becomes client-visible. |
+
+Wave 3-5 readiness gates:
+
+1. Wave 1 brief/outline and Wave 2 safety/rights/account/channel checks pass for the target artifact class.
+2. Skill docs and manifest entries exist with owner, allowed agents, risk level, reviewer defaults, sync target, readiness level, and forbidden action policy.
+3. Unit-level manuscript versioning, generation-run ledger, package manifest, launch plan, and analytics import ledger records exist before the corresponding skill can mutate internal state.
+4. Fixture tests pass with positive and negative fixtures, including prompt-injection attempts that ask the skill to hide blockers, publish, spend, request reviews, or expose raw reports.
+5. Client-safe sanitizer tests prove portal summaries exclude raw drafts, internal notes, account evidence, rights/legal risk detail, raw report rows, parser errors, unmatched row IDs, and model output.
+6. No Wave 3-5 skill can set `client_review_ready`, `approved_for_upload`, `uploaded`, `in_review`, `live`, `public_send_ready`, `review_request_ready`, `ad_launch_ready`, `settled`, or equivalent states directly.
+7. A sandbox internal project dry-run completes the full path from unit draft to proof/package/launch/import artifacts without external channel mutations, paid spend, public messages, or client-visible leakage.
+
+Devil's advocate: this package can fail in two opposite ways. If it is too permissive, Book Studio becomes a "generate a whole book and launch it" button with no proof of source use, rights, accessibility, package validity, review hygiene, or revenue confidence. If it is too rigid, every manuscript unit, report import, and launch task becomes blocked by process noise. The operating test should be simple: every blocker must name the missing evidence, affected gate, owner, and next action; every non-blocking output must still be traceable to its source manifest, version, and reviewer. Anything else is either unsafe automation or bureaucracy that slows the team without improving the book.
+
 ### Skill Rollout, Evaluation, And Policy Sync
 
 The skill list above is not enough by itself. A Book Studio skill is not production-ready until PiB can prove what it may do, which agents may run it, what evidence it must return, and which fixtures it passes. Otherwise the module recreates the risk of a single broad book assistant with attractive output and weak controls.
@@ -3919,6 +4022,9 @@ Implementation planning preconditions:
 - Skill evaluation fixture tests for market research, public-domain/companion risk, children's fixed layout, low-content workbook, nonfiction claims, launch/review compliance, analytics reconciliation, and export/package validation.
 - Negative fixture tests for prompt injection, unsupported nonfiction claims, public-domain/companion ambiguity, competitor keyword stuffing, children's mature/unsafe content, AI image rights uncertainty, fake-review requests, account-secret requests, and stale-source platform changes.
 - Skill promotion tests that block `fixture_tested`, `sandbox_dry_run_verified`, `internal_project_enabled`, or `client_visible_enabled` readiness when required dimensions, negative controls, reviewer evidence, sanitizer paths, or approval gates are missing.
+- Wave 3-5 production package tests that verify manuscript, editorial, visual/layout, package, publishing, launch, review-compliance, analytics, and lifecycle skills return only allowed artifacts for their package group.
+- Wave 3-5 forbidden-action tests that prove these skills cannot publish/upload, mark client-ready, launch ads, send public messages, request reviews, change prices/promotions, mutate live listings, expose raw imports, or claim settled revenue directly.
+- Wave 3-5 fixture tests for nonfiction claims, children's fixed-layout spreads, low-content workbooks, public-domain/companion risk, review outreach, analytics reconciliation, and stale generation-run overwrite attempts.
 - Drift tests that block VPS sync or watcher dispatch when expected Book Studio skills are missing, unexpected skills are installed, external dirs are wrong, or local profile skills bypass the policy manifest.
 - Generation run tests that verify idempotency keys, source manifests, usage budgets, retry/cancel/supersede transitions, and stale-run overwrite blocking.
 - Safety gate tests that block client-visible or publishing-facing output when prompt/output moderation, provider safety feedback, rights review, or reviewer approval is missing, failed, stale, or inconclusive.
