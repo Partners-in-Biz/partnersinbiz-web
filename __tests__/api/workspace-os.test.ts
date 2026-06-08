@@ -177,6 +177,7 @@ describe('workspace broker API routes', () => {
       requiredCapability: 'write',
       output: expect.objectContaining({ googleMutationPerformed: false, resultArtifactIds: [], resultArtifactUrls: [] }),
       idempotencyKey: 'idem-1',
+      requestFingerprint: expect.any(String),
       connectionId: 'conn-1',
       requester: { id: 'admin-1', type: 'admin', role: 'admin', agentId: null },
       requestedCapability: 'write',
@@ -261,6 +262,40 @@ describe('workspace broker API routes', () => {
     expect(mockWhere).toHaveBeenCalledWith('orgId', '==', 'org-1')
     expect(mockWhere).toHaveBeenCalledWith('idempotencyKey', '==', 'idem-replay')
     expect(mockAdd).not.toHaveBeenCalled()
+  })
+
+  it('rejects conflicting workspace broker idempotency-key replays without queueing a duplicate', async () => {
+    mockGet.mockResolvedValue({ docs: [
+      { id: 'job-existing', data: () => ({ orgId: 'org-1', operation: 'create_doc', status: 'awaiting_approval', idempotencyKey: 'idem-conflict', requestFingerprint: 'different-request-fingerprint', approvalRequired: true, requiredCapability: 'write', riskLevel: 'medium', output: { googleMutationPerformed: false } }) },
+    ] })
+    const { POST } = await import('@/app/api/v1/workspace-broker/docs/create/route')
+    const res = await POST(new NextRequest('http://localhost/api/v1/workspace-broker/docs/create', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'idempotency-key': 'idem-conflict' },
+      body: JSON.stringify({ orgId: 'org-1', connectionId: 'conn-1', title: 'Different brief', visibility: 'admin_agents_clients', projectId: 'project-1' }),
+    }))
+    const body = await res.json()
+
+    expect(res.status).toBe(409)
+    expect(body.error).toBe('Idempotency key was already used for a different Workspace broker request')
+    expect(mockAdd).not.toHaveBeenCalled()
+  })
+
+  it('scopes workspace broker idempotency-key checks to the requesting org', async () => {
+    mockGet.mockResolvedValue({ docs: [] })
+    mockGetDoc.mockResolvedValueOnce({ exists: true, id: 'conn-2', data: () => ({ ...approvedConnection, orgId: 'org-2' }) })
+    mockAdd.mockResolvedValue({ id: 'job-org-2' })
+    const { POST } = await import('@/app/api/v1/workspace-broker/docs/create/route')
+    const res = await POST(new NextRequest('http://localhost/api/v1/workspace-broker/docs/create', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'idempotency-key': 'shared-key' },
+      body: JSON.stringify({ orgId: 'org-2', connectionId: 'conn-2', title: 'Other org brief', visibility: 'admin_agents_clients', projectId: 'project-2' }),
+    }))
+
+    expect(res.status).toBe(202)
+    expect(mockWhere).toHaveBeenCalledWith('orgId', '==', 'org-2')
+    expect(mockWhere).toHaveBeenCalledWith('idempotencyKey', '==', 'shared-key')
+    expect(mockAdd).toHaveBeenCalledWith(expect.objectContaining({ orgId: 'org-2', idempotencyKey: 'shared-key', requestFingerprint: expect.any(String) }))
   })
 
   it('does not let create callers self-satisfy Workspace broker approval gates', async () => {

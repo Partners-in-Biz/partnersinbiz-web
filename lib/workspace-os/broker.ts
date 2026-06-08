@@ -83,6 +83,7 @@ export interface WorkspaceBrokerJobInput {
   approvalStatus?: string | null
   approvalTrusted?: boolean | null
   idempotencyKey?: string | null
+  requestFingerprint?: string | null
   now?: string | null
   input?: Record<string, unknown>
 }
@@ -140,6 +141,7 @@ export interface WorkspaceBrokerJob {
   attempts: number
   nextRunAt: string | null
   idempotencyKey: string | null
+  requestFingerprint: string | null
   requestedAt: string
   updatedAt: string
   startedAt?: string | null
@@ -220,6 +222,7 @@ export function buildWorkspaceBrokerJobInput(input: WorkspaceBrokerJobInput): Wo
     attempts: 0,
     nextRunAt: null,
     idempotencyKey: cleanString(input.idempotencyKey),
+    requestFingerprint: cleanString(input.requestFingerprint),
     requestedAt: now,
     updatedAt: now,
     startedAt: null,

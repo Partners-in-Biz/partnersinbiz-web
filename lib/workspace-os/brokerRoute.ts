@@ -1,4 +1,5 @@
 import { NextRequest } from 'next/server'
+import { createHash } from 'node:crypto'
 import { FieldValue } from 'firebase-admin/firestore'
 import type { ApiUser } from '@/lib/api/types'
 import { adminDb } from '@/lib/firebase/admin'
@@ -8,6 +9,21 @@ import { logActivity } from '@/lib/activity/log'
 import { actorRole, orgAccessError, resolveOrgId } from '@/lib/workspace-os/api'
 import { WORKSPACE_ARTIFACT_EVENT_COLLECTION, WORKSPACE_BROKER_JOB_COLLECTION, type WorkspaceBrokerOperation, buildWorkspaceBrokerJobInput, evaluateWorkspaceBrokerApproval } from '@/lib/workspace-os/broker'
 import { assertWorkspaceBrokerCreationGate, brokerGateStatus } from '@/lib/workspace-os/brokerGates'
+
+function stableNormalize(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(stableNormalize)
+  if (!value || typeof value !== 'object') return value
+  return Object.fromEntries(
+    Object.entries(value as Record<string, unknown>)
+      .sort(([left], [right]) => left.localeCompare(right))
+      .map(([key, item]) => [key, stableNormalize(item)]),
+  )
+}
+
+function workspaceBrokerRequestFingerprint(input: { orgId: string; operation: WorkspaceBrokerOperation; payload: Record<string, unknown> }): string {
+  return createHash('sha256').update(JSON.stringify(stableNormalize(input))).digest('hex')
+}
+
 export async function createBrokerJob(req: NextRequest, user: ApiUser, operation: WorkspaceBrokerOperation, extraInput: Record<string, unknown> = {}) {
   const body = (await req.json().catch(() => ({}))) as Record<string, unknown>
   const resolved = resolveOrgId(req, user, body)
@@ -16,6 +32,7 @@ export async function createBrokerJob(req: NextRequest, user: ApiUser, operation
   const orgId = resolved.orgId!
   const payload = { ...body, ...extraInput }
   const idempotencyKey = req.headers.get('idempotency-key')?.trim() || null
+  const requestFingerprint = idempotencyKey ? workspaceBrokerRequestFingerprint({ orgId, operation, payload }) : null
 
   if (idempotencyKey) {
     try {
@@ -28,6 +45,9 @@ export async function createBrokerJob(req: NextRequest, user: ApiUser, operation
       const existingDoc = existing?.docs?.[0]
       if (existingDoc) {
         const existingJob = existingDoc.data() as Record<string, unknown>
+        if (existingJob.operation !== operation || (typeof existingJob.requestFingerprint === 'string' && existingJob.requestFingerprint !== requestFingerprint)) {
+          return apiError('Idempotency key was already used for a different Workspace broker request', 409)
+        }
         const output = existingJob.output && typeof existingJob.output === 'object' && !Array.isArray(existingJob.output) ? existingJob.output as Record<string, unknown> : {}
         return apiSuccess({
           id: existingDoc.id,
@@ -53,6 +73,7 @@ export async function createBrokerJob(req: NextRequest, user: ApiUser, operation
     approvalGateTaskId: null,
     approvalStatus: null,
     idempotencyKey,
+    requestFingerprint,
     input: payload,
   })
   const decision = evaluateWorkspaceBrokerApproval({ operation, visibility: typeof payload.visibility === 'string' ? payload.visibility : null, approvalStatus: job.approvalStatus, approvalGateTaskId: job.approvalGateTaskId })
