@@ -2192,4 +2192,150 @@ describe('youtube studio admin API', () => {
     expect(body.error).toMatch(/sourceAssetIds/i)
     expect(mockAdd).not.toHaveBeenCalled()
   })
+
+  it('sends a production draft to portal review with sanitized approval gate metadata', async () => {
+    stageFirestore({
+      youtube_channel_workspaces: {
+        docs: {
+          'channel-1': {
+            id: 'channel-1',
+            data: { orgId: 'org-1', title: 'Acme', deleted: false },
+          },
+        },
+      },
+      youtube_video_projects: {
+        docs: {
+          'video-1': {
+            id: 'video-1',
+            data: { orgId: 'org-1', channelWorkspaceId: 'channel-1', title: 'Launch', visibility: { showInClientPortal: true }, deleted: false },
+          },
+        },
+      },
+      youtube_production_drafts: {
+        docs: {
+          'draft-1': {
+            id: 'draft-1',
+            data: {
+              orgId: 'org-1',
+              channelWorkspaceId: 'channel-1',
+              videoProjectId: 'video-1',
+              title: 'Launch story draft',
+              draftType: 'script',
+              status: 'draft',
+              versionNumber: 1,
+              outline: ['Hook'],
+              sourceAssetIds: [],
+              clipCandidateIds: [],
+              scenes: [],
+              checks: {
+                claims: { status: 'pass', message: 'Claims mapped.' },
+                brand: { status: 'pass', message: 'Brand aligned.' },
+                sourceEvidence: { status: 'warning', message: 'Evidence map pending.' },
+                clientApproval: { status: 'warning', message: 'Client approval required.' },
+              },
+              visibility: { showInClientPortal: false, showScriptInPortal: true, showScenesInPortal: true },
+              deleted: false,
+            },
+          },
+        },
+      },
+    })
+
+    const { PUT } = await import('@/app/api/v1/youtube-studio/production-drafts/route')
+    const res = await PUT(new NextRequest('http://localhost/api/v1/youtube-studio/production-drafts', {
+      method: 'PUT',
+      body: JSON.stringify({
+        id: 'draft-1',
+        status: 'client_review',
+        checks: {
+          clientApproval: { status: 'pass', message: 'Client supplied approval', checkedBy: 'client-supplied' },
+        },
+        approvedBy: 'client-supplied',
+        visibility: { showInClientPortal: false },
+      }),
+    }))
+    const body = await res.json()
+
+    expect(res.status).toBe(200)
+    expect(body.data.id).toBe('draft-1')
+    const [write, options] = mockDocSet.mock.calls[0]
+    expect(write).toMatchObject({
+      status: 'client_review',
+      visibility: { showInClientPortal: true, showScriptInPortal: true, showScenesInPortal: true },
+      checks: {
+        clientApproval: {
+          status: 'warning',
+          message: 'Production draft sent to portal review.',
+          checkedBy: 'admin-1',
+          checkedByType: 'user',
+          checkedAt: 'SERVER_TS',
+        },
+      },
+      updatedBy: 'admin-1',
+      updatedByType: 'user',
+      updatedAt: 'SERVER_TS',
+    })
+    expect(write).not.toHaveProperty('approvedBy')
+    expect(write.checks.clientApproval.checkedBy).not.toBe('client-supplied')
+    expect(options).toEqual({ merge: true })
+  })
+
+  it('rejects approving a production draft with blocking review gates', async () => {
+    stageFirestore({
+      youtube_channel_workspaces: {
+        docs: {
+          'channel-1': {
+            id: 'channel-1',
+            data: { orgId: 'org-1', title: 'Acme', deleted: false },
+          },
+        },
+      },
+      youtube_video_projects: {
+        docs: {
+          'video-1': {
+            id: 'video-1',
+            data: { orgId: 'org-1', channelWorkspaceId: 'channel-1', title: 'Launch', deleted: false },
+          },
+        },
+      },
+      youtube_production_drafts: {
+        docs: {
+          'draft-1': {
+            id: 'draft-1',
+            data: {
+              orgId: 'org-1',
+              channelWorkspaceId: 'channel-1',
+              videoProjectId: 'video-1',
+              title: 'Launch story draft',
+              draftType: 'script',
+              status: 'client_review',
+              versionNumber: 1,
+              outline: [],
+              sourceAssetIds: [],
+              clipCandidateIds: [],
+              scenes: [],
+              checks: {
+                claims: { status: 'block', message: 'Claim cannot be verified.' },
+                brand: { status: 'pass', message: 'Brand aligned.' },
+                sourceEvidence: { status: 'warning', message: 'Evidence pending.' },
+                clientApproval: { status: 'warning', message: 'Client review pending.' },
+              },
+              deleted: false,
+            },
+          },
+        },
+      },
+    })
+
+    const { PUT } = await import('@/app/api/v1/youtube-studio/production-drafts/route')
+    const res = await PUT(new NextRequest('http://localhost/api/v1/youtube-studio/production-drafts', {
+      method: 'PUT',
+      body: JSON.stringify({ id: 'draft-1', status: 'approved' }),
+    }))
+    const body = await res.json()
+
+    expect(res.status).toBe(409)
+    expect(body.error).toMatch(/blocking/i)
+    expect(mockDocSet).not.toHaveBeenCalled()
+  })
 })

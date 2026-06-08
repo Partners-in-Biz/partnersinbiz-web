@@ -92,6 +92,12 @@ function packetDecisionStatus(decision: ClientDecision): YouTubePublishingPacket
   return 'blocked'
 }
 
+function productionDraftDecisionStatus(decision: ClientDecision): YouTubeProductionDraft['status'] {
+  if (decision === 'approved') return 'approved'
+  if (decision === 'changes_requested') return 'changes_requested'
+  return 'blocked'
+}
+
 function packetDecisionApprovalStatus(decision: ClientDecision) {
   if (decision === 'approved') return 'pass'
   if (decision === 'changes_requested') return 'warning'
@@ -104,6 +110,15 @@ function packetDecisionMessage(decision: ClientDecision, notes?: string) {
     : decision === 'changes_requested'
       ? 'Client requested publishing packet changes.'
       : 'Client rejected publishing packet.'
+  return notes ? `${base} ${notes}` : base
+}
+
+function productionDraftDecisionMessage(decision: ClientDecision, notes?: string) {
+  const base = decision === 'approved'
+    ? 'Client approved production draft.'
+    : decision === 'changes_requested'
+      ? 'Client requested production draft changes.'
+      : 'Client rejected production draft.'
   return notes ? `${base} ${notes}` : base
 }
 
@@ -144,6 +159,31 @@ function packetApprovalSnapshotHash(packet: YouTubePublishingPacket, status: You
   return createHash('sha256').update(stableStringify(stripUndefinedDeep(snapshot))).digest('hex')
 }
 
+function productionDraftApprovalSnapshotHash(draft: YouTubeProductionDraft, status: YouTubeProductionDraft['status'], clientApproval: PlainRecord) {
+  const snapshot = {
+    channelWorkspaceId: draft.channelWorkspaceId,
+    videoProjectId: draft.videoProjectId,
+    versionNumber: draft.versionNumber,
+    title: draft.title,
+    draftType: draft.draftType,
+    status,
+    summary: draft.summary,
+    hook: draft.hook,
+    outline: draft.outline,
+    scriptText: draft.scriptText,
+    scenes: draft.scenes,
+    checks: {
+      ...cleanBody(draft.checks),
+      clientApproval: {
+        status: clientApproval.status,
+        message: clientApproval.message,
+      },
+    },
+  }
+
+  return createHash('sha256').update(stableStringify(stripUndefinedDeep(snapshot))).digest('hex')
+}
+
 function isClientDecisionOpen(video: YouTubeVideoProject): boolean {
   return (
     video.status === 'client_review' ||
@@ -154,6 +194,10 @@ function isClientDecisionOpen(video: YouTubeVideoProject): boolean {
 
 function isPacketDecisionOpen(packet: YouTubePublishingPacket): boolean {
   return packet.status === 'client_review'
+}
+
+function isProductionDraftDecisionOpen(draft: YouTubeProductionDraft): boolean {
+  return draft.status === 'client_review'
 }
 
 async function loadPortalVisibleChannel(channelWorkspaceId: string, orgId: string): Promise<PortalChannelResult> {
@@ -410,6 +454,71 @@ async function handlePortalPacketDecision(
   return apiSuccess({ id: packetId, updated: true })
 }
 
+async function handlePortalProductionDraftDecision(
+  body: PlainRecord,
+  uid: string,
+  orgId: string,
+  decision: ClientDecision,
+): Promise<Response> {
+  const productionDraftId = cleanString(body.productionDraftId) ?? ''
+  if (!productionDraftId) return apiError('productionDraftId is required', 400)
+
+  const draftRef = adminDb.collection(YOUTUBE_COLLECTIONS.productionDrafts).doc(productionDraftId)
+  const draftDoc = await draftRef.get()
+  if (!draftDoc.exists) return apiError('Production draft not found', 404)
+
+  const draft = serializeYouTubeRecord<YouTubeProductionDraft>(draftDoc.id, draftDoc.data()!)
+  if (draft.deleted === true) return apiError('Production draft not found', 404)
+  if (draft.orgId !== orgId) return apiError('Forbidden', 403)
+  if (!isProductionDraftDecisionOpen(draft)) return apiError('Production draft is not awaiting client review', 409)
+  if (draft.visibility?.showInClientPortal !== true) {
+    return apiError('Production draft is not visible in the client portal', 403)
+  }
+
+  const videoRef = adminDb.collection(YOUTUBE_COLLECTIONS.videos).doc(draft.videoProjectId)
+  const videoDoc = await videoRef.get()
+  if (!videoDoc.exists) return apiError('Video project not found', 404)
+  const video = serializeYouTubeRecord<YouTubeVideoProject>(videoDoc.id, videoDoc.data()!)
+  if (video.deleted === true) return apiError('Video project not found', 404)
+  if (video.orgId !== orgId) return apiError('Forbidden', 403)
+  if (!isPortalVisible(video)) return apiError('Production draft video is not visible in the client portal', 403)
+  if (video.channelWorkspaceId !== draft.channelWorkspaceId) {
+    return apiError('Production draft does not match the video project channel', 400)
+  }
+
+  const channelResult = await loadPortalVisibleChannel(draft.channelWorkspaceId, orgId)
+  if ('error' in channelResult) return channelResult.error
+
+  const notes = cleanString(body.notes)
+  const clientApproval = stripUndefinedDeep({
+    status: packetDecisionApprovalStatus(decision),
+    message: productionDraftDecisionMessage(decision, notes),
+    checkedBy: uid,
+    checkedByType: 'user',
+    checkedAt: FieldValue.serverTimestamp(),
+  })
+  const status = productionDraftDecisionStatus(decision)
+  const write = stripUndefinedDeep({
+    status,
+    checks: {
+      ...cleanBody(draft.checks),
+      clientApproval,
+    },
+    approvedBy: decision === 'approved' ? uid : undefined,
+    approvedAt: decision === 'approved' ? FieldValue.serverTimestamp() : undefined,
+    approvedSnapshotHash: decision === 'approved'
+      ? productionDraftApprovalSnapshotHash(draft, status, clientApproval)
+      : undefined,
+    updatedBy: uid,
+    updatedByType: 'user',
+    updatedAt: FieldValue.serverTimestamp(),
+  })
+
+  await draftRef.set(write, { merge: true })
+
+  return apiSuccess({ id: productionDraftId, updated: true })
+}
+
 export const PUT = withPortalAuthAndRole('member', async (req: NextRequest, uid, orgId) => {
   const disabled = await youtubeStudioModuleGuard(orgId)
   if (disabled) return disabled
@@ -419,6 +528,9 @@ export const PUT = withPortalAuthAndRole('member', async (req: NextRequest, uid,
   if (!decision) return apiError('decision must be approved, changes_requested, or rejected', 400)
   if (cleanString(body.packetId)) {
     return handlePortalPacketDecision(body, uid, orgId, decision)
+  }
+  if (cleanString(body.productionDraftId)) {
+    return handlePortalProductionDraftDecision(body, uid, orgId, decision)
   }
 
   const id = cleanString(body.id) ?? ''

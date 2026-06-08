@@ -407,6 +407,9 @@ export interface YouTubeProductionDraft {
   visibility?: { showInClientPortal?: boolean; showScriptInPortal?: boolean; showScenesInPortal?: boolean }
   internalNotes?: string
   clientNotes?: string
+  approvedBy?: string
+  approvedAt?: unknown
+  approvedSnapshotHash?: string
   createdAt?: unknown
   updatedAt?: unknown
   createdBy?: string

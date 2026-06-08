@@ -36,6 +36,8 @@ interface YouTubeStudioAdminWorkspaceProps {
   orgName: string
 }
 
+type DraftActionStatus = Exclude<YouTubeProductionDraft['status'], 'archived'>
+
 type FormState = {
   channelTitle: string
   youtubeHandle: string
@@ -339,6 +341,7 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
   const [creatingProductionDraft, setCreatingProductionDraft] = useState(false)
   const [creatingPacket, setCreatingPacket] = useState(false)
   const [creatingReleasePlan, setCreatingReleasePlan] = useState(false)
+  const [updatingDraftId, setUpdatingDraftId] = useState<string | null>(null)
   const [updatingPacketId, setUpdatingPacketId] = useState<string | null>(null)
   const [queueingJob, setQueueingJob] = useState(false)
   const [importingAnalytics, setImportingAnalytics] = useState(false)
@@ -481,6 +484,7 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
     setCreatingProductionDraft(false)
     setCreatingPacket(false)
     setCreatingReleasePlan(false)
+    setUpdatingDraftId(null)
     setUpdatingPacketId(null)
     setQueueingJob(false)
     setImportingAnalytics(false)
@@ -986,6 +990,38 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
     }
   }
 
+  async function updateProductionDraftStatus(draftId: string | undefined, status: DraftActionStatus) {
+    if (updatingDraftId || !draftId) return
+    const mutationOrgId = orgId
+    const isCurrentMutation = () => mutationOrgId === activeOrgIdRef.current
+    setUpdatingDraftId(draftId)
+    setActionNotice('')
+    setLoadNotice('')
+    try {
+      const res = await fetch('/api/v1/youtube-studio/production-drafts', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: draftId, status }),
+      })
+      const body = await res.json().catch(() => ({}))
+      if (!isCurrentMutation()) return
+      if (!res.ok) {
+        setActionNotice(body.error ?? 'Could not update production draft')
+        return
+      }
+      setActionNotice(productionDraftStatusNotice(status))
+      await load()
+    } catch {
+      if (isCurrentMutation()) {
+        setActionNotice('Could not update production draft')
+      }
+    } finally {
+      if (isCurrentMutation()) {
+        setUpdatingDraftId(null)
+      }
+    }
+  }
+
   async function createReleasePlan(event: React.FormEvent) {
     event.preventDefault()
     if (creatingReleasePlan || !form.releasePacketId) return
@@ -1284,6 +1320,40 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
                         </span>
                       ))}
                     </div>
+                    {draft.id ? (
+                      <div className="flex flex-wrap gap-2">
+                        {draft.status !== 'client_review' && draft.status !== 'approved' && draft.status !== 'archived' ? (
+                          <button
+                            type="button"
+                            disabled={Boolean(updatingDraftId)}
+                            onClick={() => updateProductionDraftStatus(draft.id, 'client_review')}
+                            className="pib-btn-primary text-sm"
+                          >
+                            {updatingDraftId === draft.id ? 'Updating...' : 'Send draft to portal'}
+                          </button>
+                        ) : null}
+                        {draft.status !== 'approved' && draft.status !== 'archived' ? (
+                          <button
+                            type="button"
+                            disabled={Boolean(updatingDraftId)}
+                            onClick={() => updateProductionDraftStatus(draft.id, 'approved')}
+                            className="pib-btn-ghost text-sm"
+                          >
+                            Approve draft
+                          </button>
+                        ) : null}
+                        {draft.status !== 'blocked' && draft.status !== 'archived' ? (
+                          <button
+                            type="button"
+                            disabled={Boolean(updatingDraftId)}
+                            onClick={() => updateProductionDraftStatus(draft.id, 'blocked')}
+                            className="pib-btn-ghost text-sm"
+                          >
+                            Block draft
+                          </button>
+                        ) : null}
+                      </div>
+                    ) : null}
                   </article>
                 ))}
               </div>
@@ -2134,6 +2204,15 @@ function productionDraftGateEntries(draft: YouTubeProductionDraft) {
     keyof YouTubeProductionDraft['checks'],
     YouTubeProductionDraft['checks'][keyof YouTubeProductionDraft['checks']],
   ]>
+}
+
+function productionDraftStatusNotice(status: DraftActionStatus) {
+  if (status === 'client_review') return 'Production draft sent to the client portal.'
+  if (status === 'approved') return 'Production draft approved.'
+  if (status === 'blocked') return 'Production draft blocked.'
+  if (status === 'changes_requested') return 'Production draft marked for changes.'
+  if (status === 'internal_review') return 'Production draft moved to internal review.'
+  return 'Production draft updated.'
 }
 
 function packetStatusNotice(status: Exclude<YouTubePublishingPacket['status'], 'published'>) {

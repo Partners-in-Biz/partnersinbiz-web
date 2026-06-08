@@ -55,16 +55,19 @@ export function YouTubeStudioPortalWorkspace({ orgId }: YouTubeStudioPortalWorks
   const [request, setRequest] = useState<RequestForm>(emptyRequest)
   const [reviewNotes, setReviewNotes] = useState<Record<string, string>>({})
   const [packetNotes, setPacketNotes] = useState<Record<string, string>>({})
+  const [draftNotes, setDraftNotes] = useState<Record<string, string>>({})
   const [loading, setLoading] = useState(true)
   const [submittingRequest, setSubmittingRequest] = useState(false)
   const [reviewingId, setReviewingId] = useState<string | null>(null)
   const [reviewingPacketId, setReviewingPacketId] = useState<string | null>(null)
+  const [reviewingDraftId, setReviewingDraftId] = useState<string | null>(null)
   const [loadNotice, setLoadNotice] = useState('')
   const [actionNotice, setActionNotice] = useState('')
   const [moduleDisabled, setModuleDisabled] = useState(false)
   const submittingRequestRef = useRef(false)
   const reviewingIdRef = useRef<string | null>(null)
   const reviewingPacketIdRef = useRef<string | null>(null)
+  const reviewingDraftIdRef = useRef<string | null>(null)
   const loadRequestIdRef = useRef(0)
 
   const apiPath = useMemo(() => scopedApiPath('/api/v1/portal/youtube-studio', { orgId }), [orgId])
@@ -140,12 +143,15 @@ export function YouTubeStudioPortalWorkspace({ orgId }: YouTubeStudioPortalWorks
     submittingRequestRef.current = false
     reviewingIdRef.current = null
     reviewingPacketIdRef.current = null
+    reviewingDraftIdRef.current = null
     setRequest(emptyRequest)
     setReviewNotes({})
     setPacketNotes({})
+    setDraftNotes({})
     setSubmittingRequest(false)
     setReviewingId(null)
     setReviewingPacketId(null)
+    setReviewingDraftId(null)
     setLoadNotice('')
     setActionNotice('')
   }, [apiPath])
@@ -261,6 +267,40 @@ export function YouTubeStudioPortalWorkspace({ orgId }: YouTubeStudioPortalWorks
       if (isCurrentMutation()) {
         reviewingPacketIdRef.current = null
         setReviewingPacketId(null)
+      }
+    }
+  }
+
+  async function saveDraftDecision(productionDraftId: string, decision: 'approved' | 'changes_requested' | 'rejected') {
+    if (reviewingDraftIdRef.current) return
+    const mutationApiPath = apiPath
+    const isCurrentMutation = () => mutationApiPath === activeApiPathRef.current
+    reviewingDraftIdRef.current = productionDraftId
+    setReviewingDraftId(productionDraftId)
+    setActionNotice('')
+    setLoadNotice('')
+    try {
+      const res = await fetch(mutationApiPath, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ productionDraftId, decision, notes: draftNotes[productionDraftId] ?? '' }),
+      })
+      const body = await res.json().catch(() => ({}))
+      if (!isCurrentMutation()) return
+      if (!res.ok) {
+        setActionNotice(body.error ?? 'Could not save production draft decision')
+        return
+      }
+      setActionNotice('Production draft decision saved for the PiB team.')
+      await load()
+    } catch {
+      if (isCurrentMutation()) {
+        setActionNotice('Could not save production draft decision')
+      }
+    } finally {
+      if (isCurrentMutation()) {
+        reviewingDraftIdRef.current = null
+        setReviewingDraftId(null)
       }
     }
   }
@@ -450,6 +490,44 @@ export function YouTubeStudioPortalWorkspace({ orgId }: YouTubeStudioPortalWorks
                     ))}
                   </div>
                   {draft.clientNotes ? <p className="break-words text-sm text-on-surface-variant">{draft.clientNotes}</p> : null}
+                  {draft.id && draft.status === 'client_review' ? (
+                    <div className="space-y-3">
+                      <textarea
+                        rows={3}
+                        disabled={reviewingDraftId === draft.id}
+                        value={draftNotes[draft.id] ?? ''}
+                        onChange={(event) => setDraftNotes((prev) => ({ ...prev, [draft.id!]: event.target.value }))}
+                        placeholder="Draft notes for PiB"
+                        className="w-full rounded-xl border border-[var(--color-pib-line)] bg-transparent p-3 text-sm"
+                      />
+                      <div className="flex flex-wrap gap-2">
+                        <button
+                          type="button"
+                          disabled={Boolean(reviewingDraftId)}
+                          onClick={() => saveDraftDecision(draft.id!, 'approved')}
+                          className="pib-btn-primary text-sm"
+                        >
+                          Approve draft
+                        </button>
+                        <button
+                          type="button"
+                          disabled={Boolean(reviewingDraftId)}
+                          onClick={() => saveDraftDecision(draft.id!, 'changes_requested')}
+                          className="pib-btn-ghost text-sm"
+                        >
+                          Request draft changes
+                        </button>
+                        <button
+                          type="button"
+                          disabled={Boolean(reviewingDraftId)}
+                          onClick={() => saveDraftDecision(draft.id!, 'rejected')}
+                          className="pib-btn-ghost text-sm"
+                        >
+                          Reject draft
+                        </button>
+                      </div>
+                    </div>
+                  ) : null}
                 </article>
               ))
             )}
