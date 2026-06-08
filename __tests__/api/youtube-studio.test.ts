@@ -672,4 +672,200 @@ describe('youtube studio admin API', () => {
     expect(body.error).toMatch(/packet|video/i)
     expect(mockDocSet).not.toHaveBeenCalled()
   })
+
+  it('lists agent jobs for an org with the skill contract registry', async () => {
+    stageFirestore({
+      youtube_agent_jobs: {
+        listDocs: [
+          {
+            id: 'job-b',
+            data: {
+              orgId: 'org-1',
+              videoProjectId: 'video-1',
+              skillKey: 'youtube-script-writer',
+              title: 'Script',
+              status: 'queued',
+              priority: 'normal',
+              outputArtifactIds: [],
+              reviewRequired: true,
+              visibility: 'internal',
+              linked: {},
+              deleted: false,
+            },
+          },
+          {
+            id: 'job-hidden',
+            data: {
+              orgId: 'org-1',
+              videoProjectId: 'video-1',
+              skillKey: 'youtube-video-brief',
+              title: 'Hidden',
+              status: 'cancelled',
+              priority: 'normal',
+              outputArtifactIds: [],
+              reviewRequired: true,
+              visibility: 'internal',
+              linked: {},
+              deleted: true,
+            },
+          },
+          {
+            id: 'job-a',
+            data: {
+              orgId: 'org-1',
+              videoProjectId: 'video-1',
+              skillKey: 'youtube-video-brief',
+              title: 'Brief',
+              status: 'queued',
+              priority: 'normal',
+              outputArtifactIds: [],
+              reviewRequired: true,
+              visibility: 'internal',
+              linked: {},
+              deleted: false,
+            },
+          },
+          {
+            id: 'job-other-video',
+            data: {
+              orgId: 'org-1',
+              videoProjectId: 'video-2',
+              skillKey: 'youtube-video-brief',
+              title: 'Other',
+              status: 'queued',
+              priority: 'normal',
+              outputArtifactIds: [],
+              reviewRequired: true,
+              visibility: 'internal',
+              linked: {},
+              deleted: false,
+            },
+          },
+        ],
+      },
+    })
+
+    const { GET } = await import('@/app/api/v1/youtube-studio/agent-jobs/route')
+    const res = await GET(new NextRequest('http://localhost/api/v1/youtube-studio/agent-jobs?orgId=org-1&videoProjectId=video-1'))
+    const body = await res.json()
+
+    expect(res.status).toBe(200)
+    expect(mockWhere).toHaveBeenCalledWith('orgId', '==', 'org-1')
+    expect(body.data.jobs.map((job: { id: string }) => job.id)).toEqual(['job-a', 'job-b'])
+    expect(body.data.skills.map((skill: { key: string }) => skill.key)).toContain('youtube-publish-readiness')
+  })
+
+  it('queues a video-scoped agent job with locked review and visibility fields', async () => {
+    stageFirestore({
+      youtube_channel_workspaces: {
+        docs: {
+          'channel-1': {
+            id: 'channel-1',
+            data: { orgId: 'org-1', title: 'Acme', deleted: false },
+          },
+        },
+      },
+      youtube_video_projects: {
+        docs: {
+          'video-1': {
+            id: 'video-1',
+            data: { orgId: 'org-1', channelWorkspaceId: 'channel-1', title: 'Launch', deleted: false },
+          },
+        },
+      },
+      youtube_agent_jobs: {},
+    })
+
+    const { POST } = await import('@/app/api/v1/youtube-studio/agent-jobs/route')
+    const res = await POST(new NextRequest('http://localhost/api/v1/youtube-studio/agent-jobs', {
+      method: 'POST',
+      body: JSON.stringify({
+        orgId: 'org-1',
+        videoProjectId: 'video-1',
+        skillKey: 'youtube-video-brief',
+        status: 'completed',
+        visibility: 'client_visible',
+        outputArtifactIds: ['artifact-1'],
+        reviewRequired: false,
+        deleted: true,
+        inputSummary: ' Turn the client request into a brief. ',
+      }),
+    }))
+    const body = await res.json()
+
+    expect(res.status).toBe(201)
+    expect(body.data.id).toBe('new-id')
+    expect(mockAdd).toHaveBeenCalledWith(expect.objectContaining({
+      orgId: 'org-1',
+      channelWorkspaceId: 'channel-1',
+      videoProjectId: 'video-1',
+      skillKey: 'youtube-video-brief',
+      title: 'Video brief',
+      status: 'queued',
+      priority: 'normal',
+      inputSummary: 'Turn the client request into a brief.',
+      outputArtifactIds: [],
+      reviewRequired: true,
+      visibility: 'internal',
+      createdBy: 'admin-1',
+      createdByType: 'user',
+      updatedBy: 'admin-1',
+      updatedByType: 'user',
+      createdAt: 'SERVER_TS',
+      updatedAt: 'SERVER_TS',
+      deleted: false,
+    }))
+  })
+
+  it('rejects unknown agent job skills before writing a job packet', async () => {
+    stageFirestore({})
+
+    const { POST } = await import('@/app/api/v1/youtube-studio/agent-jobs/route')
+    const res = await POST(new NextRequest('http://localhost/api/v1/youtube-studio/agent-jobs', {
+      method: 'POST',
+      body: JSON.stringify({
+        orgId: 'org-1',
+        videoProjectId: 'video-1',
+        skillKey: 'youtube-autopublish',
+      }),
+    }))
+    const body = await res.json()
+
+    expect(res.status).toBe(400)
+    expect(body.error).toMatch(/skill/i)
+    expect(mockAdd).not.toHaveBeenCalled()
+  })
+
+  it.each([
+    ['cross-org video', { orgId: 'org-2', channelWorkspaceId: 'channel-1', title: 'Other', deleted: false }, {}, /organisation/i],
+    ['mismatched channel', { orgId: 'org-1', channelWorkspaceId: 'channel-1', title: 'Launch', deleted: false }, { channelWorkspaceId: 'channel-2' }, /channelWorkspaceId/i],
+  ])('rejects agent job creation with a %s relationship', async (_label, videoData, bodyPatch, errorPattern) => {
+    stageFirestore({
+      youtube_video_projects: {
+        docs: {
+          'video-1': {
+            id: 'video-1',
+            data: videoData,
+          },
+        },
+      },
+      youtube_agent_jobs: {},
+    })
+
+    const { POST } = await import('@/app/api/v1/youtube-studio/agent-jobs/route')
+    const res = await POST(new NextRequest('http://localhost/api/v1/youtube-studio/agent-jobs', {
+      method: 'POST',
+      body: JSON.stringify({
+        orgId: 'org-1',
+        videoProjectId: 'video-1',
+        skillKey: 'youtube-video-brief',
+        ...bodyPatch,
+      }),
+    }))
+    const body = await res.json()
+
+    expect(res.status).toBe(400)
+    expect(body.error).toMatch(errorPattern)
+    expect(mockAdd).not.toHaveBeenCalled()
+  })
 })

@@ -1,7 +1,15 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
-import type { YouTubeChannelWorkspace, YouTubeSeries, YouTubeVideoProject, YouTubeVideoType } from '@/lib/youtube-studio/types'
+import type {
+  YouTubeAgentJob,
+  YouTubeChannelWorkspace,
+  YouTubeProductionSkillKey,
+  YouTubeSeries,
+  YouTubeVideoProject,
+  YouTubeVideoType,
+} from '@/lib/youtube-studio/types'
+import { YOUTUBE_PRODUCTION_SKILLS } from '@/lib/youtube-studio/skills'
 import { YouTubeChannelCard, YouTubeVideoCard } from '@/components/youtube-studio/YouTubeStudioCards'
 import { YouTubeStudioWorkspaceShell } from '@/components/youtube-studio/YouTubeStudioWorkspaceShell'
 
@@ -20,6 +28,9 @@ type FormState = {
   objective: string
   videoType: YouTubeVideoType
   sourceUrl: string
+  jobVideoId: string
+  jobSkillKey: YouTubeProductionSkillKey
+  jobInputSummary: string
 }
 
 const emptyForm: FormState = {
@@ -32,6 +43,9 @@ const emptyForm: FormState = {
   objective: '',
   videoType: 'long_form',
   sourceUrl: '',
+  jobVideoId: '',
+  jobSkillKey: 'youtube-video-brief',
+  jobInputSummary: '',
 }
 
 const videoTypes: YouTubeVideoType[] = [
@@ -56,9 +70,11 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
   const [channels, setChannels] = useState<YouTubeChannelWorkspace[]>([])
   const [series, setSeries] = useState<YouTubeSeries[]>([])
   const [videos, setVideos] = useState<YouTubeVideoProject[]>([])
+  const [jobs, setJobs] = useState<YouTubeAgentJob[]>([])
   const [form, setForm] = useState<FormState>(emptyForm)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  const [queueingJob, setQueueingJob] = useState(false)
   const [loadNotice, setLoadNotice] = useState('')
   const [actionNotice, setActionNotice] = useState('')
   const loadRequestIdRef = useRef(0)
@@ -74,21 +90,24 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
     const isCurrentRequest = () => requestId === loadRequestIdRef.current && orgId === activeOrgIdRef.current
     setLoading(true)
     try {
-      const [channelRes, seriesRes, videoRes] = await Promise.all([
+      const [channelRes, seriesRes, videoRes, jobRes] = await Promise.all([
         fetch(`/api/v1/youtube-studio/channels?orgId=${encodeURIComponent(orgId)}`),
         fetch(`/api/v1/youtube-studio/series?orgId=${encodeURIComponent(orgId)}`),
         fetch(`/api/v1/youtube-studio/videos?orgId=${encodeURIComponent(orgId)}`),
+        fetch(`/api/v1/youtube-studio/agent-jobs?orgId=${encodeURIComponent(orgId)}`),
       ])
-      const [channelBody, seriesBody, videoBody] = await Promise.all([
+      const [channelBody, seriesBody, videoBody, jobBody] = await Promise.all([
         channelRes.json().catch(() => ({})),
         seriesRes.json().catch(() => ({})),
         videoRes.json().catch(() => ({})),
+        jobRes.json().catch(() => ({})),
       ])
       if (!isCurrentRequest()) return
       setChannels(Array.isArray(channelBody.data?.channels) ? channelBody.data.channels : [])
       setSeries(Array.isArray(seriesBody.data?.series) ? seriesBody.data.series : [])
       setVideos(Array.isArray(videoBody.data?.videos) ? videoBody.data.videos : [])
-      if (!channelRes.ok || !seriesRes.ok || !videoRes.ok) {
+      setJobs(Array.isArray(jobBody.data?.jobs) ? jobBody.data.jobs : [])
+      if (!channelRes.ok || !seriesRes.ok || !videoRes.ok || !jobRes.ok) {
         setLoadNotice('Could not load the full YouTube Studio workspace.')
       } else {
         setLoadNotice('')
@@ -98,6 +117,7 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
       setChannels([])
       setSeries([])
       setVideos([])
+      setJobs([])
       setLoadNotice('Could not load the YouTube Studio workspace.')
     } finally {
       if (isCurrentRequest()) {
@@ -111,6 +131,7 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
     previousOrgIdRef.current = orgId
     setForm(emptyForm)
     setSaving(false)
+    setQueueingJob(false)
     setLoadNotice('')
     setActionNotice('')
   }, [orgId])
@@ -201,7 +222,13 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
         setActionNotice(body.error ?? 'Could not save video project')
         return
       }
-      setForm((prev) => ({ ...prev, videoTitle: '', objective: '', sourceUrl: '' }))
+      setForm((prev) => ({
+        ...prev,
+        videoTitle: '',
+        objective: '',
+        sourceUrl: '',
+        jobVideoId: body.data?.id ?? prev.jobVideoId,
+      }))
       setActionNotice('Video project saved.')
       await load()
     } catch {
@@ -211,6 +238,45 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
     } finally {
       if (isCurrentMutation()) {
         setSaving(false)
+      }
+    }
+  }
+
+  async function queueAgentJob(event: React.FormEvent) {
+    event.preventDefault()
+    if (queueingJob || !form.jobVideoId) return
+    const mutationOrgId = orgId
+    const isCurrentMutation = () => mutationOrgId === activeOrgIdRef.current
+    setQueueingJob(true)
+    setActionNotice('')
+    setLoadNotice('')
+    try {
+      const res = await fetch('/api/v1/youtube-studio/agent-jobs', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          orgId: mutationOrgId,
+          videoProjectId: form.jobVideoId,
+          skillKey: form.jobSkillKey,
+          inputSummary: form.jobInputSummary,
+        }),
+      })
+      const body = await res.json().catch(() => ({}))
+      if (!isCurrentMutation()) return
+      if (!res.ok) {
+        setActionNotice(body.error ?? 'Could not queue Hermes job')
+        return
+      }
+      setForm((prev) => ({ ...prev, jobInputSummary: '' }))
+      setActionNotice('Hermes job packet queued.')
+      await load()
+    } catch {
+      if (isCurrentMutation()) {
+        setActionNotice('Could not queue Hermes job')
+      }
+    } finally {
+      if (isCurrentMutation()) {
+        setQueueingJob(false)
       }
     }
   }
@@ -244,6 +310,40 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
               videos.map((video) => (
                 <YouTubeVideoCard key={video.id ?? video.title} video={video} />
               ))
+            )}
+          </div>
+
+          <div className="space-y-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <h2 className="font-headline text-xl font-semibold text-on-surface">Hermes production jobs</h2>
+              <span className="rounded-full bg-[var(--color-surface-container-high)] px-3 py-1 text-xs font-label uppercase tracking-widest text-on-surface-variant">
+                {jobs.length} job packet{jobs.length === 1 ? '' : 's'}
+              </span>
+            </div>
+            {jobs.length === 0 ? (
+              <div className="pib-card-section p-5 text-sm text-on-surface-variant">No Hermes production jobs queued yet.</div>
+            ) : (
+              <div className="grid gap-3">
+                {jobs.map((job) => (
+                  <article key={job.id ?? `${job.skillKey}-${job.title}`} className="pib-card-section space-y-3 p-4">
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <h3 className="break-words font-semibold text-on-surface">{job.title}</h3>
+                        <p className="mt-1 text-sm text-on-surface-variant">{skillLabel(job.skillKey)}</p>
+                      </div>
+                      <span className="shrink-0 rounded-full bg-[var(--color-surface-container-high)] px-3 py-1 text-xs font-label uppercase tracking-widest text-on-surface-variant">
+                        {formatToken(job.status)}
+                      </span>
+                    </div>
+                    {job.inputSummary ? (
+                      <p className="break-words text-sm text-on-surface-variant">{job.inputSummary}</p>
+                    ) : null}
+                    {job.blockedReason ? (
+                      <p className="break-words text-sm font-medium text-error">{job.blockedReason}</p>
+                    ) : null}
+                  </article>
+                ))}
+              </div>
             )}
           </div>
         </section>
@@ -293,10 +393,55 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
               {saving ? 'Saving...' : 'Create video project'}
             </button>
           </form>
+
+          <form onSubmit={queueAgentJob} className="pib-card-section space-y-4 p-5">
+            <h2 className="font-headline font-bold text-on-surface">Queue Hermes job</h2>
+            <label className="block text-sm">
+              <span className="text-xs font-label uppercase tracking-widest text-on-surface-variant">Video</span>
+              <select
+                value={form.jobVideoId}
+                onChange={(event) => update('jobVideoId', event.target.value)}
+                className="mt-1 w-full rounded-lg border border-[var(--color-outline-variant)] bg-[var(--color-surface)] px-3 py-2 text-sm"
+              >
+                <option value="">Select a video</option>
+                {videos.map((video) => (
+                  <option key={video.id ?? video.title} value={video.id ?? ''}>{video.title}</option>
+                ))}
+              </select>
+            </label>
+            <label className="block text-sm">
+              <span className="text-xs font-label uppercase tracking-widest text-on-surface-variant">Skill</span>
+              <select
+                value={form.jobSkillKey}
+                onChange={(event) => update('jobSkillKey', event.target.value as YouTubeProductionSkillKey)}
+                className="mt-1 w-full rounded-lg border border-[var(--color-outline-variant)] bg-[var(--color-surface)] px-3 py-2 text-sm"
+              >
+                {YOUTUBE_PRODUCTION_SKILLS.map((skill) => (
+                  <option key={skill.key} value={skill.key}>{skill.label}</option>
+                ))}
+              </select>
+            </label>
+            <TextArea
+              label="Input summary"
+              value={form.jobInputSummary}
+              onChange={(value) => update('jobInputSummary', value)}
+            />
+            <button type="submit" disabled={queueingJob || !form.jobVideoId} className="pib-btn-primary w-full">
+              {queueingJob ? 'Queueing...' : 'Queue job packet'}
+            </button>
+          </form>
         </aside>
       </div>
     </YouTubeStudioWorkspaceShell>
   )
+}
+
+function skillLabel(key: YouTubeProductionSkillKey) {
+  return YOUTUBE_PRODUCTION_SKILLS.find((skill) => skill.key === key)?.label ?? formatToken(key)
+}
+
+function formatToken(value: string) {
+  return value.replace(/[-_]/g, ' ')
 }
 
 function Field({

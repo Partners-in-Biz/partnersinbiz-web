@@ -5,6 +5,7 @@ import {
   clientSafeYouTubeVideoProject,
   defaultYouTubeApprovalPolicy,
   defaultYouTubePublishingPolicy,
+  sanitizeYouTubeAgentJobInput,
   sanitizeYouTubeChannelWorkspaceInput,
   sanitizeYouTubePublishingPolicyInput,
   sanitizeYouTubeSeriesInput,
@@ -96,6 +97,51 @@ describe('youtube studio sanitizers', () => {
         linked: { taskIds: [' task-1 ', undefined, ''] },
       })
     )
+  })
+
+  it('sanitizes agent job payloads to known skills, statuses, and links', () => {
+    const result = sanitizeYouTubeAgentJobInput({
+      orgId: ' org-1 ',
+      channelWorkspaceId: ' channel-1 ',
+      seriesId: ' series-1 ',
+      videoProjectId: ' video-1 ',
+      skillKey: 'unknown-skill',
+      title: ' Brief packet ',
+      status: 'published',
+      priority: 'urgent',
+      visibility: 'public',
+      inputSummary: ' Use the client request. ',
+      outputArtifactIds: [' artifact-1 ', '', { bad: true }],
+      linked: {
+        taskIds: 'task-1, task-2',
+        documentIds: [' doc-1 ', ''],
+        researchItemIds: [{ bad: true }, ' research-1 '],
+      },
+      reviewRequired: false,
+      deleted: true,
+    })
+
+    expect(result).toEqual({
+      orgId: 'org-1',
+      channelWorkspaceId: 'channel-1',
+      seriesId: 'series-1',
+      videoProjectId: 'video-1',
+      skillKey: 'youtube-video-brief',
+      title: 'Brief packet',
+      status: 'queued',
+      priority: 'urgent',
+      inputSummary: 'Use the client request.',
+      outputArtifactIds: ['artifact-1'],
+      reviewRequired: false,
+      visibility: 'internal',
+      linked: {
+        taskIds: ['task-1', 'task-2'],
+        documentIds: ['doc-1'],
+        researchItemIds: ['research-1'],
+      },
+      deleted: true,
+    })
+    expectNoUndefinedValues(result)
   })
 
   it('sanitizes series format and cadence to safe defaults', () => {

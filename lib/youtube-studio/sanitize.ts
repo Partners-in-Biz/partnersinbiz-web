@@ -1,4 +1,8 @@
 import type {
+  YouTubeAgentJob,
+  YouTubeAgentJobPriority,
+  YouTubeAgentJobStatus,
+  YouTubeAgentJobVisibility,
   YouTubeApprovalPolicy,
   YouTubeChannelStatus,
   YouTubeChannelWorkspace,
@@ -6,6 +10,7 @@ import type {
   YouTubeGateStatus,
   YouTubePublishingPacket,
   YouTubePublishingPolicy,
+  YouTubeProductionSkillKey,
   YouTubeSeries,
   YouTubeSeriesCadence,
   YouTubeSeriesFormat,
@@ -15,6 +20,7 @@ import type {
   YouTubeVideoStatus,
   YouTubeVideoType,
 } from './types'
+import { YOUTUBE_PRODUCTION_SKILLS } from './skills'
 
 const CHANNEL_STATUSES: YouTubeChannelStatus[] = ['setup', 'strategy', 'active', 'paused', 'blocked', 'archived']
 const SERIES_FORMATS: YouTubeSeriesFormat[] = ['shorts', 'long_form', 'podcast', 'case_study', 'tutorial', 'ads', 'mixed']
@@ -63,6 +69,17 @@ const PACKET_STATUSES: YouTubePublishingPacket['status'][] = [
   'published',
 ]
 const GATE_STATUSES: YouTubeGateStatus[] = ['pass', 'warning', 'block', 'not_applicable']
+const PRODUCTION_SKILL_KEYS = YOUTUBE_PRODUCTION_SKILLS.map((skill) => skill.key) as YouTubeProductionSkillKey[]
+const AGENT_JOB_STATUSES: YouTubeAgentJobStatus[] = [
+  'queued',
+  'running',
+  'waiting_for_review',
+  'completed',
+  'failed',
+  'cancelled',
+]
+const AGENT_JOB_PRIORITIES: YouTubeAgentJobPriority[] = ['low', 'normal', 'high', 'urgent']
+const AGENT_JOB_VISIBILITIES: YouTubeAgentJobVisibility[] = ['internal', 'client_visible']
 
 type RawInput = Record<string, unknown>
 type PacketReviewCheckKey = Exclude<keyof YouTubePublishingPacket['checks'], 'connectedAccount'>
@@ -392,6 +409,34 @@ export function sanitizeYouTubeVideoProjectInput(
       showInClientPortal: visibility.showInClientPortal !== false,
       showAnalytics: visibility.showAnalytics !== false,
       showPublishingPacket: visibility.showPublishingPacket === true,
+    },
+    deleted: input.deleted === true,
+  })
+}
+
+export function sanitizeYouTubeAgentJobInput(
+  input: RawInput
+): Omit<YouTubeAgentJob, 'id' | 'createdAt' | 'updatedAt' | 'createdBy' | 'createdByType' | 'updatedBy' | 'updatedByType'> {
+  const linked = cleanObject(input.linked)
+
+  return stripUndefinedDeep({
+    orgId: cleanString(input.orgId) ?? '',
+    channelWorkspaceId: cleanString(input.channelWorkspaceId),
+    seriesId: cleanString(input.seriesId),
+    videoProjectId: cleanString(input.videoProjectId),
+    skillKey: pick(PRODUCTION_SKILL_KEYS, input.skillKey, 'youtube-video-brief'),
+    title: cleanString(input.title) ?? 'YouTube production job',
+    status: pick(AGENT_JOB_STATUSES, input.status, 'queued'),
+    priority: pick(AGENT_JOB_PRIORITIES, input.priority, 'normal'),
+    inputSummary: cleanString(input.inputSummary),
+    outputArtifactIds: cleanStringArray(input.outputArtifactIds),
+    blockedReason: cleanString(input.blockedReason),
+    reviewRequired: cleanBoolean(input.reviewRequired) ?? true,
+    visibility: pick(AGENT_JOB_VISIBILITIES, input.visibility, 'internal'),
+    linked: {
+      taskIds: cleanStringArray(linked.taskIds),
+      documentIds: cleanStringArray(linked.documentIds),
+      researchItemIds: cleanStringArray(linked.researchItemIds),
     },
     deleted: input.deleted === true,
   })

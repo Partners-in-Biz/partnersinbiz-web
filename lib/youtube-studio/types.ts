@@ -48,6 +48,26 @@ export type YouTubeVideoStatus =
   | 'archived'
 export type YouTubeSourceType = 'raw_footage' | 'source_url' | 'transcript' | 'research' | 'client_request' | 'manual'
 export type YouTubeGateStatus = 'pass' | 'warning' | 'block' | 'not_applicable'
+export type YouTubeProductionSkillKey =
+  | 'youtube-channel-strategy'
+  | 'youtube-series-planner'
+  | 'youtube-video-brief'
+  | 'youtube-research-to-video'
+  | 'youtube-script-writer'
+  | 'youtube-clip-finder'
+  | 'youtube-shorts-packager'
+  | 'youtube-thumbnail-brief'
+  | 'youtube-title-metadata'
+  | 'youtube-captions-chapters'
+  | 'youtube-ai-disclosure-check'
+  | 'youtube-rights-check'
+  | 'youtube-publish-readiness'
+  | 'youtube-analytics-import'
+  | 'youtube-retention-review'
+  | 'youtube-next-video-brief'
+export type YouTubeAgentJobStatus = 'queued' | 'running' | 'waiting_for_review' | 'completed' | 'failed' | 'cancelled'
+export type YouTubeAgentJobPriority = 'low' | 'normal' | 'high' | 'urgent'
+export type YouTubeAgentJobVisibility = 'internal' | 'client_visible'
 
 export interface YouTubeGateCheck {
   status: YouTubeGateStatus
@@ -193,5 +213,34 @@ export interface YouTubePublishingPacket {
   approvedBy?: string
   approvedAt?: unknown
   approvedSnapshotHash?: string
+  deleted: boolean
+}
+
+export interface YouTubeAgentJob {
+  id?: string
+  orgId: string
+  channelWorkspaceId?: string
+  seriesId?: string
+  videoProjectId?: string
+  skillKey: YouTubeProductionSkillKey
+  title: string
+  status: YouTubeAgentJobStatus
+  priority: YouTubeAgentJobPriority
+  inputSummary?: string
+  outputArtifactIds: string[]
+  blockedReason?: string
+  reviewRequired: boolean
+  visibility: YouTubeAgentJobVisibility
+  linked: {
+    taskIds?: string[]
+    documentIds?: string[]
+    researchItemIds?: string[]
+  }
+  createdAt?: unknown
+  updatedAt?: unknown
+  createdBy?: string
+  createdByType?: ActorType
+  updatedBy?: string
+  updatedByType?: ActorType
   deleted: boolean
 }

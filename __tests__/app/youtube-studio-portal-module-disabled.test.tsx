@@ -287,7 +287,7 @@ describe('YouTubeStudioPortalWorkspace module availability', () => {
     const { rerender } = render(<YouTubeStudioAdminWorkspace orgId="lumen-org" orgName="Lumen" />)
 
     await waitFor(() => {
-      expect(fetchMock.mock.calls.filter(([input]) => String(input).includes('lumen-org'))).toHaveLength(3)
+      expect(fetchMock.mock.calls.filter(([input]) => String(input).includes('lumen-org'))).toHaveLength(4)
     })
 
     const channelTitleField = await screen.findByLabelText('Channel title')
@@ -369,13 +369,13 @@ describe('YouTubeStudioPortalWorkspace module availability', () => {
 
     const { rerender } = render(<YouTubeStudioAdminWorkspace orgId="lumen-org" orgName="Lumen" />)
     await waitFor(() => {
-      expect(fetchMock.mock.calls.filter(([input]) => String(input).includes('lumen-org'))).toHaveLength(3)
+      expect(fetchMock.mock.calls.filter(([input]) => String(input).includes('lumen-org'))).toHaveLength(4)
     })
 
     rerender(<YouTubeStudioAdminWorkspace orgId="velox-org" orgName="Velox" />)
 
     expect(await screen.findAllByText('Velox Channel')).not.toHaveLength(0)
-    expect(await screen.findByText('Velox launch cut')).toBeInTheDocument()
+    expect(await screen.findAllByText('Velox launch cut')).not.toHaveLength(0)
 
     await act(async () => {
       resolveLumenChannels(jsonResponse({
@@ -411,7 +411,7 @@ describe('YouTubeStudioPortalWorkspace module availability', () => {
     })
 
     expect(screen.getAllByText('Velox Channel')).not.toHaveLength(0)
-    expect(screen.getByText('Velox launch cut')).toBeInTheDocument()
+    expect(screen.getAllByText('Velox launch cut')).not.toHaveLength(0)
     expect(screen.queryByText('Lumen Channel')).not.toBeInTheDocument()
     expect(screen.queryByText('Lumen draft cut')).not.toBeInTheDocument()
   })
