@@ -4356,6 +4356,95 @@ Devil's advocate:
 - If portal review appears too early, clients will see uncertainty that PiB has not yet interpreted. If it appears too late, clients will feel excluded. The right rule is artifact promotion by reviewed packet version.
 - If analytics appears without reconciliation labels, the module will train clients to trust numbers that may later change through refunds, reporting delays, or settlement differences.
 
+### Copyable V1 Approval Record
+
+This is the smallest explicit decision record that can unlock a separate Phase 1 implementation plan. It should be copied, edited if needed, and approved by Peet before any runtime Book Studio work starts.
+
+Recommended approval record:
+
+```yaml
+bookStudioV1Approval:
+  productPosture: internal_pib_production_studio_with_optional_client_review
+  firstChannels:
+    - kdp_manual_handoff
+    - google_play_books_manual_handoff
+  firstPilotSet:
+    - business_nonfiction_ebook
+    - activity_or_low_content_print_product
+    - series_scaffolding
+    - public_domain_or_companion_negative_control_fixture
+  firstBookTypeGateProfiles:
+    - narrative_reflowable
+    - nonfiction_business_how_to
+    - activity_workbook_puzzle_coloring
+    - low_content_print
+    - children_picture_fixed_layout_fixture_only
+    - public_domain_companion_rights_first_fixture_only
+    - series_governance
+  firstPortalReviewArtifacts:
+    - book_brief
+    - proof_package_when_reviewed
+    - publishing_packet_when_reviewed
+    - analytics_summary_when_reconciled
+  hermesFirstScope:
+    wave1_planning_and_evidence:
+      - book-niche-research
+      - book-series-strategy
+      - book-brief-builder
+      - book-outline-builder
+    selectedWave2Safety:
+      - book-generation-safety-review
+      - book-metadata-optimizer
+      - book-kdp-readiness-check
+      - book-google-play-readiness-check
+      - book-publishing-account-readiness
+    wave3To5RuntimeDispatch: disabled_until_ledgers_sanitizers_fixtures_and_forbidden_action_tests_exist
+  ownershipModel: shared_workflow_with_owner_type_and_account_governance
+  analyticsScope:
+    - manual_import_ledger
+    - source_confidence_labels
+    - estimated_reported_settled_separation
+    - reconciliation_tasks
+  acceptedDeferrals:
+    - no_client_self_serve_generation
+    - no_public_saas_surface
+    - no_direct_store_publishing
+    - no_sensitive_account_secret_custody
+    - no_autonomous_ad_spend
+    - no_automated_review_outreach
+    - no_full_print_perfect_layout_engine
+    - no_automated_report_integrations_before_manual_import_model_is_proven
+```
+
+Plain-language approval Peet can send:
+
+> Approve Book Studio V1 as an internal PiB production studio with optional client review. Use KDP and Google Play Books manual-handoff as the first channel focus. Start with business nonfiction, activity or low-content print, series scaffolding, and a public-domain or companion negative-control fixture. Build admin-first records, gate profiles, Research/Client Document/Project/artifact bridges, publishing packet tracking, controlled Hermes skill readiness, and manual analytics imports. Keep self-serve generation, public SaaS, direct publishing, account-secret custody, autonomous ads, automated review outreach, full layout tooling, and automated report integrations out of V1.
+
+If Peet wants to revise the default, change only the specific fields below before implementation planning:
+
+| Field to revise | Safe alternative | What changes later |
+| --- | --- | --- |
+| `firstPilotSet` | Add `children_visual_gated_pilot`. | Implementation planning must bring asset-rights, fixed-layout proofing, image safety, and accessibility evidence earlier. |
+| `firstPilotSet` | Remove the public-domain/companion negative-control fixture. | Faster plan, but weaker proof that the module blocks legally weak projects. |
+| `firstPortalReviewArtifacts` | Start with `book_brief` only. | Portal scope becomes smaller and safer, but clients see less of the publishing workflow in early V1. |
+| `hermesFirstScope` | Wave 1 only. | Safer first plan, but readiness checks for KDP/Google, metadata, account authority, and generation safety become a separate follow-up. |
+| `ownershipModel` | PiB-owned books only. | Easier account governance, but weaker fit for client-owned publishing projects. |
+| `firstChannels` | Add Apple/Kobo/D2D/Ingram/audio. | Requires additional source refresh, account governance, file package, distribution conflict, reporting, and payment research before planning. |
+
+Approval-use rules:
+
+- The Phase 1 implementation plan should quote the final approval record and current dossier commit before listing tasks.
+- Any field left undecided should block implementation planning for the dependent surface rather than becoming an assumption.
+- If a later build request contradicts the approval record, update the approval record first, then revise the plan.
+- This record approves implementation planning only. It does not approve direct publishing, public client generation, or runtime Hermes dispatch.
+
+Devil's advocate:
+
+- A copyable approval record can make the work feel administratively heavier, but it prevents the broad dossier from turning into a vague build mandate.
+- If the record is approved without the negative-control fixture, the first implementation may look productive while never proving that Book Studio can reject a tempting unsafe project.
+- If the record is approved with too many first channels, the first plan will become channel research and file/account governance instead of a usable PiB production workflow.
+- If Hermes scope is broadened before evaluation fixtures and forbidden-action tests exist, the module can create polished but unsafe outputs faster than humans can review them.
+
 ## Open Product Decision
 
 The next design step depends on one product decision:
