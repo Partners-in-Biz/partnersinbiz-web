@@ -88,16 +88,19 @@ export async function createBrokerJob(req: NextRequest, user: ApiUser, operation
   } catch (error) {
     return apiError(error instanceof Error ? error.message : 'Workspace broker creation gate failed', brokerGateStatus(error))
   }
-  const ref = await adminDb.collection(WORKSPACE_BROKER_JOB_COLLECTION).add({
+  const jobRef = adminDb.collection(WORKSPACE_BROKER_JOB_COLLECTION).doc()
+  const eventRef = adminDb.collection(WORKSPACE_ARTIFACT_EVENT_COLLECTION).doc()
+  const batch = adminDb.batch()
+  batch.set(jobRef, {
     ...job,
     ...actorFrom(user),
     output: { googleMutationPerformed: false, resultArtifactIds: [], resultArtifactUrls: [] },
     createdAt: FieldValue.serverTimestamp(),
     updatedAt: FieldValue.serverTimestamp(),
   })
-  await adminDb.collection(WORKSPACE_ARTIFACT_EVENT_COLLECTION).add({
+  batch.set(eventRef, {
     orgId,
-    brokerJobId: ref.id,
+    brokerJobId: jobRef.id,
     operation,
     eventType: 'broker_job_queued',
     status: job.status,
@@ -113,8 +116,13 @@ export async function createBrokerJob(req: NextRequest, user: ApiUser, operation
     },
     createdAt: FieldValue.serverTimestamp(),
   })
-  logActivity({ orgId, type: 'workspace_broker_job_created', actorId: user.uid, actorName: user.uid, actorRole: actorRole(user), description: `Queued Workspace broker job: ${operation}`, entityId: ref.id, entityType: 'workspace_broker_job', entityTitle: operation }).catch(() => {})
-  return apiSuccess({ id: ref.id, approvalRequired: decision.approvalRequired, requiredCapability: job.requiredCapability, riskLevel: job.riskLevel, status: job.status, googleMutationPerformed: false }, decision.approvalRequired && !decision.approvalSatisfied ? 202 : 201)
+  try {
+    await batch.commit()
+  } catch {
+    return apiError('Could not persist Workspace broker audit event', 500)
+  }
+  logActivity({ orgId, type: 'workspace_broker_job_created', actorId: user.uid, actorName: user.uid, actorRole: actorRole(user), description: `Queued Workspace broker job: ${operation}`, entityId: jobRef.id, entityType: 'workspace_broker_job', entityTitle: operation }).catch(() => {})
+  return apiSuccess({ id: jobRef.id, approvalRequired: decision.approvalRequired, requiredCapability: job.requiredCapability, riskLevel: job.riskLevel, status: job.status, googleMutationPerformed: false }, decision.approvalRequired && !decision.approvalSatisfied ? 202 : 201)
 }
 
 export async function rejectGoogleMutation(req: NextRequest) {

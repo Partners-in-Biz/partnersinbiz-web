@@ -165,7 +165,7 @@ describe('workspace broker API routes', () => {
   it('queues gated Docs/Sheets create jobs without making Google API calls', async () => {
     mockGet.mockResolvedValue({ docs: [] })
     mockGetDoc.mockResolvedValueOnce({ exists: true, id: 'conn-1', data: () => approvedConnection })
-    mockAdd.mockResolvedValue({ id: 'job-1' })
+    generatedDocIds = ['job-1', 'event-1']
     const { POST } = await import('@/app/api/v1/workspace-broker/docs/create/route')
     const res = await POST(new NextRequest('http://localhost/api/v1/workspace-broker/docs/create', {
       method: 'POST',
@@ -177,7 +177,8 @@ describe('workspace broker API routes', () => {
     expect(res.status).toBe(202)
     expect(body.data).toMatchObject({ id: 'job-1', approvalRequired: true, googleMutationPerformed: false })
     expect(mockCollection).not.toHaveBeenCalledWith('googleapis')
-    expect(mockAdd).toHaveBeenCalledWith(expect.objectContaining({
+    expect(mockAdd).not.toHaveBeenCalled()
+    expect(mockBatchSet).toHaveBeenCalledWith(expect.objectContaining({ id: 'job-1' }), expect.objectContaining({
       orgId: 'org-1',
       operation: 'create_doc',
       status: 'awaiting_approval',
@@ -193,7 +194,7 @@ describe('workspace broker API routes', () => {
       approvalSatisfied: false,
       errors: [],
     }))
-    expect(mockAdd).toHaveBeenCalledWith(expect.objectContaining({
+    expect(mockBatchSet).toHaveBeenCalledWith(expect.objectContaining({ id: 'event-1' }), expect.objectContaining({
       orgId: 'org-1',
       brokerJobId: 'job-1',
       operation: 'create_doc',
@@ -206,6 +207,28 @@ describe('workspace broker API routes', () => {
       safeMetadata: expect.objectContaining({ approvalRequired: true, requiredCapability: 'write' }),
       createdAt: 'SERVER_TIMESTAMP',
     }))
+    expect(mockBatchCommit).toHaveBeenCalledTimes(1)
+  })
+
+  it('fails closed when broker job and audit event cannot be committed atomically', async () => {
+    mockGet.mockResolvedValue({ docs: [] })
+    mockGetDoc.mockResolvedValueOnce({ exists: true, id: 'conn-1', data: () => approvedConnection })
+    generatedDocIds = ['job-atomic', 'event-atomic']
+    mockAdd.mockResolvedValue({ id: 'legacy-add-should-not-be-used' })
+    mockBatchCommit.mockRejectedValueOnce(new Error('audit commit failed'))
+    const { POST } = await import('@/app/api/v1/workspace-broker/docs/create/route')
+    const res = await POST(new NextRequest('http://localhost/api/v1/workspace-broker/docs/create', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ orgId: 'org-1', connectionId: 'conn-1', title: 'Atomic brief', visibility: 'admin_agents_clients', projectId: 'project-1' }),
+    }))
+    const body = await res.json()
+
+    expect(res.status).toBe(500)
+    expect(body.error).toBe('Could not persist Workspace broker audit event')
+    expect(mockAdd).not.toHaveBeenCalled()
+    expect(mockBatchSet).toHaveBeenCalledTimes(2)
+    expect(mockBatchCommit).toHaveBeenCalledTimes(1)
   })
 
   it('rejects Google mutation broker job creation when the connection is missing, unapproved, unhealthy, or under-scoped', async () => {
@@ -291,7 +314,7 @@ describe('workspace broker API routes', () => {
   it('scopes workspace broker idempotency-key checks to the requesting org', async () => {
     mockGet.mockResolvedValue({ docs: [] })
     mockGetDoc.mockResolvedValueOnce({ exists: true, id: 'conn-2', data: () => ({ ...approvedConnection, orgId: 'org-2' }) })
-    mockAdd.mockResolvedValue({ id: 'job-org-2' })
+    generatedDocIds = ['job-org-2', 'event-org-2']
     const { POST } = await import('@/app/api/v1/workspace-broker/docs/create/route')
     const res = await POST(new NextRequest('http://localhost/api/v1/workspace-broker/docs/create', {
       method: 'POST',
@@ -302,13 +325,14 @@ describe('workspace broker API routes', () => {
     expect(res.status).toBe(202)
     expect(mockWhere).toHaveBeenCalledWith('orgId', '==', 'org-2')
     expect(mockWhere).toHaveBeenCalledWith('idempotencyKey', '==', 'shared-key')
-    expect(mockAdd).toHaveBeenCalledWith(expect.objectContaining({ orgId: 'org-2', idempotencyKey: 'shared-key', requestFingerprint: expect.any(String) }))
+    expect(mockAdd).not.toHaveBeenCalled()
+    expect(mockBatchSet).toHaveBeenCalledWith(expect.objectContaining({ id: 'job-org-2' }), expect.objectContaining({ orgId: 'org-2', idempotencyKey: 'shared-key', requestFingerprint: expect.any(String) }))
   })
 
   it('does not let create callers self-satisfy Workspace broker approval gates', async () => {
     mockGet.mockResolvedValue({ docs: [] })
     mockGetDoc.mockResolvedValueOnce({ exists: true, id: 'conn-1', data: () => approvedConnection })
-    mockAdd.mockResolvedValue({ id: 'job-self-approval' })
+    generatedDocIds = ['job-self-approval', 'event-self-approval']
     const { POST } = await import('@/app/api/v1/workspace-broker/docs/create/route')
     const res = await POST(new NextRequest('http://localhost/api/v1/workspace-broker/docs/create', {
       method: 'POST',
@@ -317,7 +341,8 @@ describe('workspace broker API routes', () => {
     }))
 
     expect(res.status).toBe(202)
-    expect(mockAdd).toHaveBeenCalledWith(expect.objectContaining({
+    expect(mockAdd).not.toHaveBeenCalled()
+    expect(mockBatchSet).toHaveBeenCalledWith(expect.objectContaining({ id: 'job-self-approval' }), expect.objectContaining({
       status: 'awaiting_approval',
       approvalSatisfied: false,
       approvalEvidence: { gateTaskId: null, status: null },
@@ -325,7 +350,7 @@ describe('workspace broker API routes', () => {
   })
 
   it('archives broker delete requests as approval-gated metadata jobs only', async () => {
-    mockAdd.mockResolvedValue({ id: 'job-delete' })
+    generatedDocIds = ['job-delete', 'event-delete']
     mockGet.mockResolvedValue({ docs: [] })
     mockGetDoc
       .mockResolvedValueOnce({ exists: true, id: 'artifact-1', data: () => ({ orgId: 'org-1', title: 'Plan', artifactType: 'google_doc', visibility: 'admin_agents', connectionId: 'conn-1', deleted: false }) })
@@ -335,7 +360,8 @@ describe('workspace broker API routes', () => {
 
     expect(res.status).toBe(202)
     expect(mockUpdate).not.toHaveBeenCalled()
-    expect(mockAdd).toHaveBeenCalledWith(expect.objectContaining({
+    expect(mockAdd).not.toHaveBeenCalled()
+    expect(mockBatchSet).toHaveBeenCalledWith(expect.objectContaining({ id: 'job-delete' }), expect.objectContaining({
       operation: 'request_delete',
       status: 'awaiting_approval',
       output: expect.objectContaining({ googleMutationPerformed: false, resultArtifactIds: [], resultArtifactUrls: [] }),
@@ -475,4 +501,3 @@ describe('workspace broker API routes', () => {
     expect(mockUpdate).not.toHaveBeenCalled()
   })
 })
-
