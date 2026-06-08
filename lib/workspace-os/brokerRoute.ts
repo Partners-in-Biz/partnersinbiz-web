@@ -9,6 +9,7 @@ import { logActivity } from '@/lib/activity/log'
 import { actorRole, orgAccessError, resolveOrgId } from '@/lib/workspace-os/api'
 import { WORKSPACE_ARTIFACT_EVENT_COLLECTION, WORKSPACE_BROKER_JOB_COLLECTION, type WorkspaceBrokerOperation, buildWorkspaceBrokerJobInput, evaluateWorkspaceBrokerApproval } from '@/lib/workspace-os/broker'
 import { assertWorkspaceBrokerCreationGate, brokerGateStatus } from '@/lib/workspace-os/brokerGates'
+import { assertNoRawSecrets } from '@/lib/workspace-os/common'
 
 function stableNormalize(value: unknown): unknown {
   if (Array.isArray(value)) return value.map(stableNormalize)
@@ -56,6 +57,11 @@ export async function createBrokerJob(req: NextRequest, user: ApiUser, operation
   const accessError = orgAccessError(user, resolved.orgId, resolved.mismatch)
   if (accessError) return accessError
   const orgId = resolved.orgId!
+  try {
+    assertNoRawSecrets(payload)
+  } catch (error) {
+    return apiError(error instanceof Error ? error.message : 'raw secrets are not allowed in workspace registry payload', 400)
+  }
   const idempotencyKey = req.headers.get('idempotency-key')?.trim() || null
   const requestFingerprint = idempotencyKey ? workspaceBrokerRequestFingerprint({ orgId, operation, payload }) : null
 

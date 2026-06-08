@@ -166,6 +166,42 @@ describe('Google Workspace broker executor', () => {
     }
   })
 
+  it('rejects artifact-scoped execution when the artifact was deleted after the broker job was queued', async () => {
+    for (const operation of ['permission_audit', 'inventory_refresh', 'export_pdf'] as const) {
+      jest.clearAllMocks()
+      const { drive } = setupGoogleClients()
+      mockDoc.mockReturnValue({ get: mockGetDoc, update: mockUpdateDoc })
+      if (operation === 'export_pdf') {
+        mockGetDoc
+          .mockResolvedValueOnce({ exists: true, data: () => approvedConnection })
+          .mockResolvedValueOnce({ exists: true, data: () => ({ orgId: 'org-1', title: 'Deleted plan', deleted: true, google: { fileId: 'doc-deleted' } }) })
+      } else {
+        mockGetDoc.mockResolvedValueOnce({ exists: true, data: () => ({ orgId: 'org-1', title: 'Deleted plan', deleted: true, google: { fileId: 'doc-deleted' } }) })
+      }
+
+      const { executeWorkspaceBrokerJob } = await import('@/lib/workspace-os/googleBrokerExecutor')
+      await expect(executeWorkspaceBrokerJob({
+        id: `job-deleted-${operation}`,
+        orgId: 'org-1',
+        operation,
+        status: 'queued',
+        connectionId: operation === 'export_pdf' ? 'conn-1' : null,
+        requiredCapability: operation === 'export_pdf' ? 'write' : 'read',
+        approvalRequired: operation === 'export_pdf',
+        approvalSatisfied: operation === 'export_pdf',
+        approvalStatus: operation === 'export_pdf' ? 'approved' : null,
+        approvalGateTaskId: operation === 'export_pdf' ? 'gate-export' : null,
+        approvalEvidence: operation === 'export_pdf' ? { gateTaskId: 'gate-export', status: 'approved', decidedBy: 'pip', decidedAt: '2026-06-05T10:00:00.000Z' } : { gateTaskId: null, status: null },
+        input: { artifactId: 'artifact-deleted' },
+      } as never)).rejects.toThrow('Workspace artifact is deleted')
+
+      expect(drive.files.get).not.toHaveBeenCalled()
+      expect(drive.files.export).not.toHaveBeenCalled()
+      expect(drive.permissions.list).not.toHaveBeenCalled()
+      expect(mockUpdateDoc).not.toHaveBeenCalled()
+    }
+  })
+
   it('blocks direct Google mutation executor calls without persisted approval evidence', async () => {
     const { drive } = setupGoogleClients()
     const { executeWorkspaceBrokerJob } = await import('@/lib/workspace-os/googleBrokerExecutor')

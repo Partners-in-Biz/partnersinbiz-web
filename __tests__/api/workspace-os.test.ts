@@ -450,6 +450,30 @@ describe('workspace broker API routes', () => {
     }))
   })
 
+  it('rejects broker job creation payloads that would persist raw secrets in job input', async () => {
+    const { POST } = await import('@/app/api/v1/workspace-broker/docs/create/route')
+    for (const unsafeInput of [
+      { accessToken: 'caller-token-should-not-persist' },
+      { credentialsPath: '/caller/supplied/credential/path.json' },
+    ]) {
+      mockGet.mockResolvedValue({ docs: [] })
+      mockGetDoc.mockResolvedValueOnce({ exists: true, id: 'conn-1', data: () => approvedConnection })
+      const res = await POST(new NextRequest('http://localhost/api/v1/workspace-broker/docs/create', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ orgId: 'org-1', connectionId: 'conn-1', title: 'Secret brief', ...unsafeInput }),
+      }))
+      const body = await res.json()
+
+      expect(res.status).toBe(400)
+      expect(body.error).toContain('raw secrets are not allowed')
+      expect(mockAdd).not.toHaveBeenCalled()
+      expect(mockBatchSet).not.toHaveBeenCalled()
+      expect(mockBatchCreate).not.toHaveBeenCalled()
+      jest.clearAllMocks()
+    }
+  })
+
   it('archives broker delete requests as approval-gated metadata jobs only', async () => {
     generatedDocIds = ['job-delete', 'event-delete']
     mockGet.mockResolvedValue({ docs: [] })

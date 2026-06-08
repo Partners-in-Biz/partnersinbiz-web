@@ -139,6 +139,7 @@ async function getArtifactGoogleFile(artifactId: string, purpose: string, broker
   if (!artifactSnap.exists) throw new Error(`Workspace artifact not found for ${purpose}`)
   const artifact = artifactSnap.data() as Record<string, unknown>
   if (cleanString(artifact.orgId) !== cleanString(brokerOrgId)) throw new Error('Workspace artifact orgId does not match broker job orgId')
+  if (artifact.deleted === true) throw new Error('Workspace artifact is deleted')
   const googleInfo = asRecord(artifact.google)
   const fileId = cleanString(googleInfo.fileId)
   if (!fileId) throw new Error('Workspace artifact has no Google file id')
