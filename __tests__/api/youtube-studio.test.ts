@@ -104,6 +104,18 @@ function stageFirestore(fixtures: Record<string, CollectionFixture>) {
   mockBatchCommit.mockResolvedValue(undefined)
 }
 
+function findUndefinedPaths(value: unknown, path = 'payload'): string[] {
+  if (value === undefined) return [path]
+  if (!value || typeof value !== 'object') return []
+  if (Array.isArray(value)) {
+    return value.flatMap((entry, index) => findUndefinedPaths(entry, `${path}[${index}]`))
+  }
+
+  return Object.entries(value as Record<string, unknown>).flatMap(([key, entry]) => (
+    findUndefinedPaths(entry, `${path}.${key}`)
+  ))
+}
+
 describe('youtube studio admin API', () => {
   beforeEach(() => {
     jest.clearAllMocks()
@@ -1322,6 +1334,146 @@ describe('youtube studio admin API', () => {
     }))
   })
 
+  it('queues a contextual Hermes job packet with validated YouTube artifact references', async () => {
+    stageFirestore({
+      youtube_channel_workspaces: {
+        docs: {
+          'channel-1': {
+            id: 'channel-1',
+            data: { orgId: 'org-1', title: 'Acme', deleted: false },
+          },
+        },
+      },
+      youtube_video_projects: {
+        docs: {
+          'video-1': {
+            id: 'video-1',
+            data: { orgId: 'org-1', channelWorkspaceId: 'channel-1', title: 'Launch', seriesId: 'series-1', deleted: false },
+          },
+        },
+      },
+      youtube_series: {
+        docs: {
+          'series-1': {
+            id: 'series-1',
+            data: { orgId: 'org-1', channelWorkspaceId: 'channel-1', name: 'Launch series', deleted: false },
+          },
+        },
+      },
+      youtube_source_assets: {
+        docs: {
+          'asset-1': {
+            id: 'asset-1',
+            data: { orgId: 'org-1', channelWorkspaceId: 'channel-1', videoProjectId: 'video-1', title: 'Interview', deleted: false },
+          },
+        },
+      },
+      youtube_clip_candidates: {
+        docs: {
+          'clip-1': {
+            id: 'clip-1',
+            data: { orgId: 'org-1', channelWorkspaceId: 'channel-1', videoProjectId: 'video-1', sourceAssetId: 'asset-1', title: 'Proof moment', deleted: false },
+          },
+        },
+      },
+      youtube_production_drafts: {
+        docs: {
+          'draft-1': {
+            id: 'draft-1',
+            data: { orgId: 'org-1', channelWorkspaceId: 'channel-1', videoProjectId: 'video-1', title: 'Script', status: 'approved', deleted: false },
+          },
+        },
+      },
+      youtube_render_jobs: {
+        docs: {
+          'render-1': {
+            id: 'render-1',
+            data: { orgId: 'org-1', channelWorkspaceId: 'channel-1', videoProjectId: 'video-1', productionDraftId: 'draft-1', title: 'Final render', status: 'approved', deleted: false },
+          },
+        },
+      },
+      youtube_publishing_packets: {
+        docs: {
+          'packet-1': {
+            id: 'packet-1',
+            data: { orgId: 'org-1', channelWorkspaceId: 'channel-1', videoProjectId: 'video-1', titleOptions: [{ text: 'Launch plan' }], status: 'approved', deleted: false },
+          },
+        },
+      },
+      youtube_agent_jobs: {},
+    })
+
+    const { POST } = await import('@/app/api/v1/youtube-studio/agent-jobs/route')
+    const res = await POST(new NextRequest('http://localhost/api/v1/youtube-studio/agent-jobs', {
+      method: 'POST',
+      body: JSON.stringify({
+        orgId: 'org-1',
+        videoProjectId: 'video-1',
+        seriesId: 'series-1',
+        skillKey: 'youtube-publish-readiness',
+        inputSummary: ' Check the approved render and packet before handoff. ',
+        sourceAssetIds: [' asset-1 '],
+        clipCandidateIds: [' clip-1 '],
+        productionDraftId: ' draft-1 ',
+        renderJobId: ' render-1 ',
+        publishingPacketId: ' packet-1 ',
+        linked: {
+          documentIds: [' doc-1 '],
+          sourceAssetIds: ['client-supplied-asset'],
+        },
+        inputPacket: {
+          guardrails: ['client supplied guardrail'],
+          references: { publishingPacketId: 'client-supplied-packet' },
+        },
+      }),
+    }))
+
+    expect(res.status).toBe(201)
+    expect(mockAdd).toHaveBeenCalledWith(expect.objectContaining({
+      orgId: 'org-1',
+      channelWorkspaceId: 'channel-1',
+      seriesId: 'series-1',
+      videoProjectId: 'video-1',
+      skillKey: 'youtube-publish-readiness',
+      title: 'Publish readiness',
+      status: 'queued',
+      reviewRequired: true,
+      visibility: 'internal',
+      linked: expect.objectContaining({
+        documentIds: ['doc-1'],
+        sourceAssetIds: ['asset-1'],
+        clipCandidateIds: ['clip-1'],
+        productionDraftIds: ['draft-1'],
+        renderJobIds: ['render-1'],
+        publishingPacketIds: ['packet-1'],
+      }),
+      inputPacket: expect.objectContaining({
+        skillKey: 'youtube-publish-readiness',
+        skillLabel: 'Publish readiness',
+        family: 'readiness',
+        inputSummary: 'Check the approved render and packet before handoff.',
+        requiredContext: expect.arrayContaining(['publishing packet']),
+        outputArtifacts: expect.arrayContaining(['readiness result']),
+        guardrails: expect.arrayContaining(['No autonomous public publishing.']),
+        policySourceKeys: expect.arrayContaining(['youtube_data_api_upload_private_first']),
+        references: {
+          channelWorkspaceId: 'channel-1',
+          seriesId: 'series-1',
+          videoProjectId: 'video-1',
+          sourceAssetIds: ['asset-1'],
+          clipCandidateIds: ['clip-1'],
+          productionDraftIds: ['draft-1'],
+          renderJobIds: ['render-1'],
+          publishingPacketIds: ['packet-1'],
+          analyticsSnapshotIds: [],
+        },
+      }),
+    }))
+    const [write] = mockAdd.mock.calls[0]
+    expect(JSON.stringify(write)).not.toContain('client-supplied')
+    expect(findUndefinedPaths(write)).toEqual([])
+  })
+
   it('rejects unknown agent job skills before writing a job packet', async () => {
     stageFirestore({})
 
@@ -1371,6 +1523,52 @@ describe('youtube studio admin API', () => {
 
     expect(res.status).toBe(400)
     expect(body.error).toMatch(errorPattern)
+    expect(mockAdd).not.toHaveBeenCalled()
+  })
+
+  it('rejects contextual Hermes job packets with cross-org artifact references', async () => {
+    stageFirestore({
+      youtube_video_projects: {
+        docs: {
+          'video-1': {
+            id: 'video-1',
+            data: { orgId: 'org-1', channelWorkspaceId: 'channel-1', title: 'Launch', deleted: false },
+          },
+        },
+      },
+      youtube_channel_workspaces: {
+        docs: {
+          'channel-1': {
+            id: 'channel-1',
+            data: { orgId: 'org-1', title: 'Acme', deleted: false },
+          },
+        },
+      },
+      youtube_source_assets: {
+        docs: {
+          'asset-2': {
+            id: 'asset-2',
+            data: { orgId: 'org-2', channelWorkspaceId: 'channel-1', videoProjectId: 'video-1', title: 'Other org asset', deleted: false },
+          },
+        },
+      },
+      youtube_agent_jobs: {},
+    })
+
+    const { POST } = await import('@/app/api/v1/youtube-studio/agent-jobs/route')
+    const res = await POST(new NextRequest('http://localhost/api/v1/youtube-studio/agent-jobs', {
+      method: 'POST',
+      body: JSON.stringify({
+        orgId: 'org-1',
+        videoProjectId: 'video-1',
+        skillKey: 'youtube-clip-finder',
+        sourceAssetIds: ['asset-2'],
+      }),
+    }))
+    const body = await res.json()
+
+    expect(res.status).toBe(400)
+    expect(body.error).toMatch(/source asset/i)
     expect(mockAdd).not.toHaveBeenCalled()
   })
 

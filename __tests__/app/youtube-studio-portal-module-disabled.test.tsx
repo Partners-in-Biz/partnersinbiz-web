@@ -1442,6 +1442,98 @@ describe('YouTubeStudioPortalWorkspace module availability', () => {
     })
   })
 
+  it('queues publish readiness from an admin publishing packet quick action', async () => {
+    const fetchMock = jest.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      if (url === '/api/v1/youtube-studio/agent-jobs' && init?.method === 'POST') {
+        return jsonResponse({ success: true, data: { id: 'job-1' } })
+      }
+      if (url.includes('/channels')) {
+        return jsonResponse({
+          success: true,
+          data: {
+            channels: [{ id: 'channel-1', title: 'Lumen Channel', status: 'active', youtubeHandle: '@lumen' }],
+          },
+        })
+      }
+      if (url.includes('/series')) return jsonResponse({ success: true, data: { series: [] } })
+      if (url.includes('/videos')) {
+        return jsonResponse({
+          success: true,
+          data: {
+            videos: [{
+              id: 'video-1',
+              channelWorkspaceId: 'channel-1',
+              title: 'Draft launch cut',
+              status: 'production',
+              objective: 'Prepare launch',
+              videoType: 'long_form',
+            }],
+          },
+        })
+      }
+      if (url.includes('/publish-packets')) {
+        return jsonResponse({
+          success: true,
+          data: {
+            packets: [{
+              id: 'packet-1',
+              channelWorkspaceId: 'channel-1',
+              videoProjectId: 'video-1',
+              versionNumber: 1,
+              status: 'approved',
+              visibility: 'private',
+              titleOptions: [{ text: 'Launch plan', selected: true }],
+              description: 'Client-safe launch description',
+              checks: {
+                rights: { status: 'pass' },
+                aiDisclosure: { status: 'warning' },
+                madeForKids: { status: 'pass' },
+                metadata: { status: 'pass' },
+                thumbnail: { status: 'pass' },
+                captions: { status: 'pass' },
+                approval: { status: 'pass' },
+                connectedAccount: { status: 'pass' },
+              },
+            }],
+          },
+        })
+      }
+      if (url.includes('/source-assets')) return jsonResponse({ success: true, data: { sourceAssets: [] } })
+      if (url.includes('/clip-candidates')) return jsonResponse({ success: true, data: { clipCandidates: [] } })
+      if (url.includes('/production-drafts')) return jsonResponse({ success: true, data: { productionDrafts: [] } })
+      if (url.includes('/render-jobs')) return jsonResponse({ success: true, data: { renderJobs: [] } })
+      if (url.includes('/release-plans')) return jsonResponse({ success: true, data: { releasePlans: [] } })
+      if (url.includes('/agent-jobs')) return jsonResponse({ success: true, data: { jobs: [] } })
+      if (url.includes('/analytics')) return jsonResponse({ success: true, data: { snapshots: [] } })
+      return jsonResponse({ success: true })
+    })
+    global.fetch = fetchMock as jest.Mock
+
+    render(<YouTubeStudioAdminWorkspace orgId="lumen-org" orgName="Lumen" />)
+
+    const queueButton = await screen.findByRole('button', { name: 'Queue publish readiness' })
+    fireEvent.click(queueButton)
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        '/api/v1/youtube-studio/agent-jobs',
+        expect.objectContaining({ method: 'POST' }),
+      )
+    })
+    const jobCall = fetchMock.mock.calls.find(([input, init]) => (
+      String(input) === '/api/v1/youtube-studio/agent-jobs' &&
+      init?.method === 'POST'
+    ))
+    expect(JSON.parse(String(jobCall?.[1]?.body))).toMatchObject({
+      orgId: 'lumen-org',
+      channelWorkspaceId: 'channel-1',
+      videoProjectId: 'video-1',
+      skillKey: 'youtube-publish-readiness',
+      publishingPacketId: 'packet-1',
+    })
+  })
+
   it('ignores stale admin save completions after the scoped org changes', async () => {
     let resolveSave: (value: Response) => void = () => undefined
     const savePromise = new Promise<Response>((resolve) => {

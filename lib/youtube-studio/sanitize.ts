@@ -182,6 +182,7 @@ const PACKET_STATUSES: YouTubePublishingPacket['status'][] = [
 ]
 const GATE_STATUSES: YouTubeGateStatus[] = ['pass', 'warning', 'block', 'not_applicable']
 const PRODUCTION_SKILL_KEYS = YOUTUBE_PRODUCTION_SKILLS.map((skill) => skill.key) as YouTubeProductionSkillKey[]
+const PRODUCTION_SKILL_FAMILIES = ['strategy', 'production', 'packaging', 'readiness', 'analytics'] as const
 const AGENT_JOB_STATUSES: YouTubeAgentJobStatus[] = [
   'queued',
   'running',
@@ -777,6 +778,8 @@ export function sanitizeYouTubeAgentJobInput(
   input: RawInput
 ): Omit<YouTubeAgentJob, 'id' | 'createdAt' | 'updatedAt' | 'createdBy' | 'createdByType' | 'updatedBy' | 'updatedByType'> {
   const linked = cleanObject(input.linked)
+  const inputPacket = cleanObject(input.inputPacket)
+  const references = cleanObject(inputPacket.references)
 
   return stripUndefinedDeep({
     orgId: cleanString(input.orgId) ?? '',
@@ -792,10 +795,39 @@ export function sanitizeYouTubeAgentJobInput(
     blockedReason: cleanString(input.blockedReason),
     reviewRequired: cleanBoolean(input.reviewRequired) ?? true,
     visibility: pick(AGENT_JOB_VISIBILITIES, input.visibility, 'internal'),
+    inputPacket: Object.keys(inputPacket).length
+      ? {
+          skillKey: pick(PRODUCTION_SKILL_KEYS, inputPacket.skillKey, 'youtube-video-brief'),
+          skillLabel: cleanString(inputPacket.skillLabel) ?? 'YouTube production job',
+          family: pick(PRODUCTION_SKILL_FAMILIES, inputPacket.family, 'production'),
+          inputSummary: cleanString(inputPacket.inputSummary),
+          requiredContext: cleanStringArray(inputPacket.requiredContext),
+          outputArtifacts: cleanStringArray(inputPacket.outputArtifacts),
+          guardrails: cleanStringArray(inputPacket.guardrails),
+          policySourceKeys: cleanStringArray(inputPacket.policySourceKeys),
+          references: {
+            channelWorkspaceId: cleanString(references.channelWorkspaceId),
+            seriesId: cleanString(references.seriesId),
+            videoProjectId: cleanString(references.videoProjectId),
+            sourceAssetIds: cleanStringArray(references.sourceAssetIds),
+            clipCandidateIds: cleanStringArray(references.clipCandidateIds),
+            productionDraftIds: cleanStringArray(references.productionDraftIds),
+            renderJobIds: cleanStringArray(references.renderJobIds),
+            publishingPacketIds: cleanStringArray(references.publishingPacketIds),
+            analyticsSnapshotIds: cleanStringArray(references.analyticsSnapshotIds),
+          },
+        }
+      : undefined,
     linked: {
       taskIds: cleanStringArray(linked.taskIds),
       documentIds: cleanStringArray(linked.documentIds),
       researchItemIds: cleanStringArray(linked.researchItemIds),
+      sourceAssetIds: cleanStringArray(linked.sourceAssetIds),
+      clipCandidateIds: cleanStringArray(linked.clipCandidateIds),
+      productionDraftIds: cleanStringArray(linked.productionDraftIds),
+      renderJobIds: cleanStringArray(linked.renderJobIds),
+      publishingPacketIds: cleanStringArray(linked.publishingPacketIds),
+      analyticsSnapshotIds: cleanStringArray(linked.analyticsSnapshotIds),
     },
     deleted: input.deleted === true,
   })

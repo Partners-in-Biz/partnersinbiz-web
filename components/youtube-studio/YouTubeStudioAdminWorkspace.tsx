@@ -41,6 +41,19 @@ interface YouTubeStudioAdminWorkspaceProps {
 
 type DraftActionStatus = Exclude<YouTubeProductionDraft['status'], 'archived'>
 type RenderActionStatus = Extract<YouTubeRenderJob['status'], 'qa_review' | 'approved' | 'blocked'>
+type ContextAgentJobPayload = {
+  channelWorkspaceId?: string
+  seriesId?: string
+  videoProjectId?: string
+  skillKey: YouTubeProductionSkillKey
+  inputSummary?: string
+  sourceAssetIds?: string[]
+  clipCandidateIds?: string[]
+  productionDraftId?: string
+  renderJobId?: string
+  publishingPacketId?: string
+  analyticsSnapshotId?: string
+}
 
 type FormState = {
   channelTitle: string
@@ -394,6 +407,7 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
   const [updatingRenderId, setUpdatingRenderId] = useState<string | null>(null)
   const [updatingPacketId, setUpdatingPacketId] = useState<string | null>(null)
   const [queueingJob, setQueueingJob] = useState(false)
+  const [queueingContextJobId, setQueueingContextJobId] = useState<string | null>(null)
   const [importingAnalytics, setImportingAnalytics] = useState(false)
   const [savingReadiness, setSavingReadiness] = useState(false)
   const [loadNotice, setLoadNotice] = useState('')
@@ -1355,6 +1369,41 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
     }
   }
 
+  async function queueContextAgentJob(actionId: string, payload: ContextAgentJobPayload) {
+    if (queueingContextJobId) return
+    const mutationOrgId = orgId
+    const isCurrentMutation = () => mutationOrgId === activeOrgIdRef.current
+    setQueueingContextJobId(actionId)
+    setActionNotice('')
+    setLoadNotice('')
+    try {
+      const res = await fetch('/api/v1/youtube-studio/agent-jobs', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          orgId: mutationOrgId,
+          ...payload,
+        }),
+      })
+      const body = await res.json().catch(() => ({}))
+      if (!isCurrentMutation()) return
+      if (!res.ok) {
+        setActionNotice(body.error ?? 'Could not queue Hermes job')
+        return
+      }
+      setActionNotice(`${skillLabel(payload.skillKey)} job packet queued.`)
+      await load()
+    } catch {
+      if (isCurrentMutation()) {
+        setActionNotice('Could not queue Hermes job')
+      }
+    } finally {
+      if (isCurrentMutation()) {
+        setQueueingContextJobId(null)
+      }
+    }
+  }
+
   return (
     <YouTubeStudioWorkspaceShell
       channels={channels}
@@ -1412,6 +1461,25 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
                     {asset.rights?.status ? (
                       <p className="break-words text-xs text-on-surface-variant">rights: {formatToken(asset.rights.status)}</p>
                     ) : null}
+                    {asset.id ? (
+                      <div className="flex flex-wrap gap-2">
+                        <button
+                          type="button"
+                          disabled={Boolean(queueingContextJobId)}
+                          onClick={() => queueContextAgentJob(`asset:${asset.id}:clip-finder`, {
+                            channelWorkspaceId: asset.channelWorkspaceId,
+                            seriesId: asset.seriesId,
+                            videoProjectId: asset.videoProjectId,
+                            skillKey: 'youtube-clip-finder',
+                            sourceAssetIds: [asset.id!],
+                            inputSummary: `Find usable YouTube clip candidates from ${asset.title}.`,
+                          })}
+                          className="pib-btn-ghost text-sm"
+                        >
+                          {queueingContextJobId === `asset:${asset.id}:clip-finder` ? 'Queueing...' : 'Find clips'}
+                        </button>
+                      </div>
+                    ) : null}
                   </article>
                 ))}
               </div>
@@ -1448,6 +1516,25 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
                         </span>
                       ))}
                     </div>
+                    {clip.id ? (
+                      <div className="flex flex-wrap gap-2">
+                        <button
+                          type="button"
+                          disabled={Boolean(queueingContextJobId)}
+                          onClick={() => queueContextAgentJob(`clip:${clip.id}:shorts-packager`, {
+                            channelWorkspaceId: clip.channelWorkspaceId,
+                            videoProjectId: clip.videoProjectId,
+                            skillKey: 'youtube-shorts-packager',
+                            sourceAssetIds: [clip.sourceAssetId],
+                            clipCandidateIds: [clip.id!],
+                            inputSummary: `Package ${clip.title} into a Shorts-ready brief with captions and metadata starter.`,
+                          })}
+                          className="pib-btn-ghost text-sm"
+                        >
+                          {queueingContextJobId === `clip:${clip.id}:shorts-packager` ? 'Queueing...' : 'Package short'}
+                        </button>
+                      </div>
+                    ) : null}
                   </article>
                 ))}
               </div>
@@ -1533,6 +1620,22 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
                             Block draft
                           </button>
                         ) : null}
+                        <button
+                          type="button"
+                          disabled={Boolean(queueingContextJobId)}
+                          onClick={() => queueContextAgentJob(`draft:${draft.id}:script-writer`, {
+                            channelWorkspaceId: draft.channelWorkspaceId,
+                            videoProjectId: draft.videoProjectId,
+                            skillKey: 'youtube-script-writer',
+                            sourceAssetIds: draft.sourceAssetIds,
+                            clipCandidateIds: draft.clipCandidateIds,
+                            productionDraftId: draft.id,
+                            inputSummary: `Use ${draft.title} as the reviewed production draft context for the script package.`,
+                          })}
+                          className="pib-btn-ghost text-sm"
+                        >
+                          {queueingContextJobId === `draft:${draft.id}:script-writer` ? 'Queueing...' : 'Queue script package'}
+                        </button>
                       </div>
                     ) : null}
                   </article>
@@ -1614,6 +1717,23 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
                             Block render
                           </button>
                         ) : null}
+                        <button
+                          type="button"
+                          disabled={Boolean(queueingContextJobId)}
+                          onClick={() => queueContextAgentJob(`render:${job.id}:captions-chapters`, {
+                            channelWorkspaceId: job.channelWorkspaceId,
+                            videoProjectId: job.videoProjectId,
+                            skillKey: 'youtube-captions-chapters',
+                            sourceAssetIds: job.sourceAssetIds,
+                            clipCandidateIds: job.clipCandidateIds,
+                            productionDraftId: job.productionDraftId,
+                            renderJobId: job.id,
+                            inputSummary: `Prepare captions and chapters from render job ${job.title}.`,
+                          })}
+                          className="pib-btn-ghost text-sm"
+                        >
+                          {queueingContextJobId === `render:${job.id}:captions-chapters` ? 'Queueing...' : 'Queue captions'}
+                        </button>
                       </div>
                     ) : null}
                   </article>
@@ -1691,6 +1811,20 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
                             Block packet
                           </button>
                         ) : null}
+                        <button
+                          type="button"
+                          disabled={Boolean(queueingContextJobId)}
+                          onClick={() => queueContextAgentJob(`packet:${packet.id}:publish-readiness`, {
+                            channelWorkspaceId: packet.channelWorkspaceId,
+                            videoProjectId: packet.videoProjectId,
+                            skillKey: 'youtube-publish-readiness',
+                            publishingPacketId: packet.id,
+                            inputSummary: `Check publish readiness for ${packetTitle(packet)} before manual handoff or private upload.`,
+                          })}
+                          className="pib-btn-ghost text-sm"
+                        >
+                          {queueingContextJobId === `packet:${packet.id}:publish-readiness` ? 'Queueing...' : 'Queue publish readiness'}
+                        </button>
                       </div>
                     ) : null}
                   </article>
@@ -1813,6 +1947,25 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
                             <span className="font-medium text-on-surface">{formatToken(recommendation.type)}:</span> {recommendation.summary}
                           </p>
                         ))}
+                      </div>
+                    ) : null}
+                    {snapshot.id ? (
+                      <div className="flex flex-wrap gap-2">
+                        <button
+                          type="button"
+                          disabled={Boolean(queueingContextJobId)}
+                          onClick={() => queueContextAgentJob(`analytics:${snapshot.id}:retention-review`, {
+                            channelWorkspaceId: snapshot.channelWorkspaceId,
+                            seriesId: snapshot.seriesId,
+                            videoProjectId: snapshot.videoProjectId,
+                            skillKey: 'youtube-retention-review',
+                            analyticsSnapshotId: snapshot.id,
+                            inputSummary: `Review retention and packaging opportunities for analytics period ${snapshot.periodStart} to ${snapshot.periodEnd}.`,
+                          })}
+                          className="pib-btn-ghost text-sm"
+                        >
+                          {queueingContextJobId === `analytics:${snapshot.id}:retention-review` ? 'Queueing...' : 'Queue retention review'}
+                        </button>
                       </div>
                     ) : null}
                   </article>

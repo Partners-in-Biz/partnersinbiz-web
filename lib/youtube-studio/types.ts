@@ -132,6 +132,7 @@ export type YouTubeProductionSkillKey =
 export type YouTubeAgentJobStatus = 'queued' | 'running' | 'waiting_for_review' | 'completed' | 'failed' | 'cancelled'
 export type YouTubeAgentJobPriority = 'low' | 'normal' | 'high' | 'urgent'
 export type YouTubeAgentJobVisibility = 'internal' | 'client_visible'
+export type YouTubeProductionSkillFamily = 'strategy' | 'production' | 'packaging' | 'readiness' | 'analytics'
 export type YouTubeAnalyticsSource = 'youtube_analytics_api' | 'youtube_reporting_api' | 'manual_import'
 export type YouTubeAnalyticsFreshness = 'fresh' | 'delayed' | 'partial' | 'estimated'
 export type YouTubeAnalyticsRecommendationType =
@@ -505,10 +506,37 @@ export interface YouTubeAgentJob {
   blockedReason?: string
   reviewRequired: boolean
   visibility: YouTubeAgentJobVisibility
+  inputPacket?: {
+    skillKey: YouTubeProductionSkillKey
+    skillLabel: string
+    family: YouTubeProductionSkillFamily
+    inputSummary?: string
+    requiredContext: string[]
+    outputArtifacts: string[]
+    guardrails: string[]
+    policySourceKeys: string[]
+    references: {
+      channelWorkspaceId?: string
+      seriesId?: string
+      videoProjectId?: string
+      sourceAssetIds: string[]
+      clipCandidateIds: string[]
+      productionDraftIds: string[]
+      renderJobIds: string[]
+      publishingPacketIds: string[]
+      analyticsSnapshotIds: string[]
+    }
+  }
   linked: {
     taskIds?: string[]
     documentIds?: string[]
     researchItemIds?: string[]
+    sourceAssetIds?: string[]
+    clipCandidateIds?: string[]
+    productionDraftIds?: string[]
+    renderJobIds?: string[]
+    publishingPacketIds?: string[]
+    analyticsSnapshotIds?: string[]
   }
   createdAt?: unknown
   updatedAt?: unknown

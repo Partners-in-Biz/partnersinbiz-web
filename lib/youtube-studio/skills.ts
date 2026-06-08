@@ -1,9 +1,9 @@
-import type { YouTubeProductionSkillKey } from './types'
+import type { YouTubeProductionSkillFamily, YouTubeProductionSkillKey } from './types'
 
 export type YouTubeSkillContract = {
   key: YouTubeProductionSkillKey
   label: string
-  family: 'strategy' | 'production' | 'packaging' | 'readiness' | 'analytics'
+  family: YouTubeProductionSkillFamily
   bestFor: string
   requiredContext: string[]
   outputArtifacts: string[]
