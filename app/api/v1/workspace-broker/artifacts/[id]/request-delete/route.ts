@@ -21,5 +21,5 @@ export const POST = withAuth('admin', async (req: NextRequest, user, context) =>
   const accessError = orgAccessError(user, resolved.orgId ?? artifact.orgId, resolved.mismatch)
   if (accessError) return accessError
   if (resolved.orgId && resolved.orgId !== artifact.orgId) return apiError('Forbidden', 403)
-  return createBrokerJob(req, user, 'request_delete', { artifactId: id, artifactTitle: artifact.title, artifactType: artifact.artifactType, visibility: artifact.visibility })
+  return createBrokerJob(req, user, 'request_delete', { artifactId: id, artifactTitle: artifact.title, artifactType: artifact.artifactType, visibility: artifact.visibility, connectionId: artifact.connectionId })
 })

@@ -144,13 +144,26 @@ describe('workspace artifact API routes', () => {
 })
 
 describe('workspace broker API routes', () => {
+  const approvedConnection = {
+    orgId: 'org-1',
+    provider: 'google_workspace',
+    status: 'active',
+    approvalStatus: 'approved',
+    tokenStatus: 'valid',
+    capabilityScopes: ['write'],
+    capabilities: { driveWrite: true, docsWrite: true, sheetsWrite: true },
+    deleted: false,
+  }
+
   it('queues gated Docs/Sheets create jobs without making Google API calls', async () => {
+    mockGet.mockResolvedValue({ docs: [] })
+    mockGetDoc.mockResolvedValueOnce({ exists: true, id: 'conn-1', data: () => approvedConnection })
     mockAdd.mockResolvedValue({ id: 'job-1' })
     const { POST } = await import('@/app/api/v1/workspace-broker/docs/create/route')
     const res = await POST(new NextRequest('http://localhost/api/v1/workspace-broker/docs/create', {
       method: 'POST',
       headers: { 'content-type': 'application/json', 'idempotency-key': 'idem-1' },
-      body: JSON.stringify({ orgId: 'org-1', title: 'Client-facing brief', visibility: 'admin_agents_clients', projectId: 'project-1' }),
+      body: JSON.stringify({ orgId: 'org-1', connectionId: 'conn-1', title: 'Client-facing brief', visibility: 'admin_agents_clients', projectId: 'project-1' }),
     }))
     const body = await res.json()
 
@@ -164,9 +177,10 @@ describe('workspace broker API routes', () => {
       requiredCapability: 'write',
       output: expect.objectContaining({ googleMutationPerformed: false, resultArtifactIds: [], resultArtifactUrls: [] }),
       idempotencyKey: 'idem-1',
+      connectionId: 'conn-1',
       requester: { id: 'admin-1', type: 'admin', role: 'admin', agentId: null },
       requestedCapability: 'write',
-      targetResource: expect.objectContaining({ orgId: 'org-1', projectId: 'project-1', title: 'Client-facing brief' }),
+      targetResource: expect.objectContaining({ orgId: 'org-1', connectionId: 'conn-1', projectId: 'project-1', title: 'Client-facing brief' }),
       approvalRequired: true,
       approvalSatisfied: false,
       errors: [],
@@ -184,6 +198,49 @@ describe('workspace broker API routes', () => {
       safeMetadata: expect.objectContaining({ approvalRequired: true, requiredCapability: 'write' }),
       createdAt: 'SERVER_TIMESTAMP',
     }))
+  })
+
+  it('rejects Google mutation broker job creation when the connection is missing, unapproved, unhealthy, or under-scoped', async () => {
+    const { POST } = await import('@/app/api/v1/workspace-broker/docs/create/route')
+    const cases = [
+      { name: 'missing connection', connectionId: undefined, snap: null, expected: 'Workspace broker connectionId is required for Google mutation jobs' },
+      { name: 'unapproved connection', connectionId: 'conn-paused', snap: { ...approvedConnection, status: 'paused' }, expected: 'Workspace connection must be active or approved before broker mutation jobs can be queued' },
+      { name: 'unhealthy token', connectionId: 'conn-stale', snap: { ...approvedConnection, tokenStatus: 'expired' }, expected: 'Workspace connection tokenStatus must be valid or healthy before broker mutation jobs can be queued' },
+      { name: 'under-scoped connection', connectionId: 'conn-readonly', snap: { ...approvedConnection, capabilityScopes: ['read'], capabilities: { driveRead: true, docsRead: true } }, expected: 'Workspace connection does not grant the required broker capability' },
+    ]
+
+    for (const item of cases) {
+      jest.clearAllMocks()
+      mockGet.mockResolvedValue({ docs: [] })
+      if (item.snap) mockGetDoc.mockResolvedValueOnce({ exists: true, id: item.connectionId, data: () => item.snap })
+      const res = await POST(new NextRequest('http://localhost/api/v1/workspace-broker/docs/create', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ orgId: 'org-1', connectionId: item.connectionId, title: item.name, visibility: 'admin_agents_clients', projectId: 'project-1' }),
+      }))
+      const body = await res.json()
+
+      expect(res.status).toBe(403)
+      expect(body.error).toBe(item.expected)
+      expect(mockAdd).not.toHaveBeenCalled()
+    }
+  })
+
+  it('rejects agent API broker mutation creation when the agent lacks the required capability', async () => {
+    mockUser = { uid: 'agent:unknown-agent', role: 'ai', authKind: 'agent_api_key', agentId: 'unknown-agent' }
+    mockGet.mockResolvedValue({ docs: [] })
+    mockGetDoc.mockResolvedValueOnce({ exists: true, id: 'conn-1', data: () => approvedConnection })
+    const { POST } = await import('@/app/api/v1/workspace-broker/docs/create/route')
+    const res = await POST(new NextRequest('http://localhost/api/v1/workspace-broker/docs/create', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ orgId: 'org-1', connectionId: 'conn-1', title: 'Agent doc', visibility: 'admin_agents_clients', projectId: 'project-1' }),
+    }))
+    const body = await res.json()
+
+    expect(res.status).toBe(403)
+    expect(body.error).toContain("Agent 'unknown-agent' is not allowed to perform 'write'")
+    expect(mockAdd).not.toHaveBeenCalled()
   })
 
   it('returns the existing workspace broker job when an idempotency key is replayed', async () => {
@@ -207,12 +264,14 @@ describe('workspace broker API routes', () => {
   })
 
   it('does not let create callers self-satisfy Workspace broker approval gates', async () => {
+    mockGet.mockResolvedValue({ docs: [] })
+    mockGetDoc.mockResolvedValueOnce({ exists: true, id: 'conn-1', data: () => approvedConnection })
     mockAdd.mockResolvedValue({ id: 'job-self-approval' })
     const { POST } = await import('@/app/api/v1/workspace-broker/docs/create/route')
     const res = await POST(new NextRequest('http://localhost/api/v1/workspace-broker/docs/create', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ orgId: 'org-1', title: 'Client-facing brief', visibility: 'admin_agents_clients', approvalGateTaskId: 'task-approval-1', approvalStatus: 'approved' }),
+      body: JSON.stringify({ orgId: 'org-1', connectionId: 'conn-1', title: 'Client-facing brief', visibility: 'admin_agents_clients', approvalGateTaskId: 'task-approval-1', approvalStatus: 'approved' }),
     }))
 
     expect(res.status).toBe(202)
@@ -225,7 +284,10 @@ describe('workspace broker API routes', () => {
 
   it('archives broker delete requests as approval-gated metadata jobs only', async () => {
     mockAdd.mockResolvedValue({ id: 'job-delete' })
-    mockGetDoc.mockResolvedValue({ exists: true, id: 'artifact-1', data: () => ({ orgId: 'org-1', title: 'Plan', artifactType: 'google_doc', visibility: 'admin_agents', deleted: false }) })
+    mockGet.mockResolvedValue({ docs: [] })
+    mockGetDoc
+      .mockResolvedValueOnce({ exists: true, id: 'artifact-1', data: () => ({ orgId: 'org-1', title: 'Plan', artifactType: 'google_doc', visibility: 'admin_agents', connectionId: 'conn-1', deleted: false }) })
+      .mockResolvedValueOnce({ exists: true, id: 'conn-1', data: () => ({ ...approvedConnection, capabilityScopes: ['delete'], capabilities: { driveDelete: true } }) })
     const { POST } = await import('@/app/api/v1/workspace-broker/artifacts/[id]/request-delete/route')
     const res = await POST(new NextRequest('http://localhost/api/v1/workspace-broker/artifacts/artifact-1/request-delete?orgId=org-1', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ reason: 'cleanup' }) }), { params: Promise.resolve({ id: 'artifact-1' }) })
 
@@ -371,3 +433,4 @@ describe('workspace broker API routes', () => {
     expect(mockUpdate).not.toHaveBeenCalled()
   })
 })
+
