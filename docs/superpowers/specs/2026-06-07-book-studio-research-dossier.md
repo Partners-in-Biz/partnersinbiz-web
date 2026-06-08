@@ -4285,6 +4285,46 @@ Devil's advocate:
 - A more ambitious V1 can impress in demos while quietly undermining quality, compliance, and analytics trust.
 - If the first plan does not force a negative-control blocked project, Book Studio may learn how to pass easy cases while failing to reject unsafe ones.
 
+### V1 Operating Journey Map
+
+This map shows how the approved V1 should feel from first idea to first analytics review. It is a product journey for Peet's review, not an implementation task list.
+
+| Step | Admin operator sees | Hermes can assist with | Client portal sees | Gate before moving on |
+| --- | --- | --- | --- | --- |
+| 0. Approval record | The approved V1 posture, first pilot set, channels, portal artifacts, Hermes scope, ownership model, and deferrals. | None. This is a human product decision. | Nothing. | Peet approval is explicit and recorded. |
+| 1. Book intake | Client org, owner type, book family, target audience, formats, series posture, channel targets, expected client involvement, and derived mandatory gates. | Suggest intake risks and missing decisions only after a project shell exists. | Nothing unless a reviewed brief is later published. | Book type template and mandatory gates are derived before drafting. |
+| 2. Research packet | Linked Book Research item with source lanes, findings, recommendations, confidence, and unresolved evidence gaps. | Market/niche research, source summaries, category notes, rights-risk prompts, and blocker suggestions. | Hidden by default. | Source-linked findings exist; disputed/outdated/internal-only issues block brief promotion. |
+| 3. Book Brief | Internal or client-visible brief with promise, audience, outline direction, channel plan, pilot category, assumptions, and success criteria. | Draft brief sections from approved research and identify unsupported claims. | Book Brief only when admin publishes a safe review version. | Brief is reviewed; client approval is requested only for safe packet versions. |
+| 4. Series and structure | Series record, continuity bible, volume order, manuscript/page plan, and selected template expectations. | Series strategy, outline options, continuity checks, and stale-canon warnings. | Safe series summary only when useful for approval. | Series/order/continuity decisions are recorded before production tasks depend on them. |
+| 5. Production work | Manuscript units, page plans, cover/assets, editorial passes, proof snapshots, generation runs, and Project/Kanban tasks. | Bounded drafting, metadata options, claim-check queues, proof checklists, and task summaries within the approved skill scope. | Approved excerpts/proofs only. Raw Hermes output stays hidden. | Human review, provenance, safety, rights, and editorial gates pass for the current artifact version. |
+| 6. Publishing packet | KDP/Google metadata, files, AI disclosure answers, pricing, territories, ISBN/imprint, account readiness, blockers, and upload checklist. | Readiness checks, metadata alternatives, file/package warning summaries, and blocker descriptions. | Client-safe publishing packet when admin requests review. | Packet is approved for this package version, not generally "ready to publish". |
+| 7. Manual upload tracking | Upload evidence, external IDs, store review state, revision requests, live links, and package checksum references. | Summarize status and prepare next-task recommendations. | Client-safe live/review status and links when available. | Human operator performs external upload; PiB records evidence without direct publishing automation. |
+| 8. Launch and lifecycle | Launch activities, review-compliance records, promotion windows, revision queue, and post-publication quality feedback. | Launch checklist summaries and compliance warnings only. | Safe launch status, live links, and approved client actions. | Review outreach, ads, public sends, price changes, and promotions stay approval-gated. |
+| 9. Analytics and reconciliation | Manual imports, source labels, estimated/reported/settled splits, unmatched rows, cost recovery, and series rollups. | Import summaries, reconciliation suggestions, anomaly notes, and client-safe summary drafts. | Confidence-labeled analytics summary only after admin review. | Metrics are not merged into one total unless source/confidence/reconciliation state supports it. |
+
+First-demo expectation:
+
+- The first demo should start with an approved intake and show the derived gate profile before any generated content exists.
+- It should create or link a Research item and Book Brief, then show how a Hermes task recommendation becomes a reviewable artifact rather than a client-visible draft.
+- It should show one blocker that stops progress, preferably the public-domain/companion negative-control fixture.
+- It should show a KDP/Google packet marked as packet-ready for manual upload only after package, account, pricing, rights, and source-freshness evidence exist.
+- It should show analytics as a confidence-labeled import/reconciliation surface, not as guaranteed revenue.
+
+What this journey deliberately avoids:
+
+- No blank "write me a book" prompt as the first screen.
+- No client self-serve generation.
+- No direct upload to KDP, Google, or wider channels.
+- No automatic review outreach, ads, price changes, or promotion scheduling.
+- No client-visible raw research, raw Hermes output, internal rights notes, upload-account details, or parser errors.
+
+Devil's advocate:
+
+- If the journey starts with generation, it will feel impressive while bypassing the evidence that makes the module defensible.
+- If the journey starts with compliance only, operators may see a database instead of a production system. The journey must always expose the next useful action.
+- If portal review appears too early, clients will see uncertainty that PiB has not yet interpreted. If it appears too late, clients will feel excluded. The right rule is artifact promotion by reviewed packet version.
+- If analytics appears without reconciliation labels, the module will train clients to trust numbers that may later change through refunds, reporting delays, or settlement differences.
+
 ## Open Product Decision
 
 The next design step depends on one product decision:
