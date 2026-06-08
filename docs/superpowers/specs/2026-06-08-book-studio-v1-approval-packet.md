@@ -3,6 +3,7 @@
 **Date:** 2026-06-08
 **Status:** Approval packet only; not an implementation plan.
 **Authoritative dossier:** `docs/superpowers/specs/2026-06-07-book-studio-research-dossier.md` at commit `d7ff96d1`.
+**Portal access aid:** `docs/superpowers/specs/2026-06-08-book-studio-v1-portal-access-promotion-model.md`
 
 ## Purpose
 
