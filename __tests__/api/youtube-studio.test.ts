@@ -2338,4 +2338,282 @@ describe('youtube studio admin API', () => {
     expect(body.error).toMatch(/blocking/i)
     expect(mockDocSet).not.toHaveBeenCalled()
   })
+
+  it('lists render jobs for an org and filters by video project and status', async () => {
+    stageFirestore({
+      youtube_render_jobs: {
+        listDocs: [
+          {
+            id: 'render-1',
+            data: {
+              orgId: 'org-1',
+              channelWorkspaceId: 'channel-1',
+              videoProjectId: 'video-1',
+              title: 'Launch final assembly',
+              status: 'ready_for_edit',
+              renderType: 'full_video',
+              targetFormat: 'horizontal_16_9',
+              deleted: false,
+            },
+          },
+          {
+            id: 'render-hidden',
+            data: {
+              orgId: 'org-1',
+              channelWorkspaceId: 'channel-1',
+              videoProjectId: 'video-1',
+              title: 'Deleted assembly',
+              status: 'planning',
+              renderType: 'full_video',
+              targetFormat: 'horizontal_16_9',
+              deleted: true,
+            },
+          },
+          {
+            id: 'render-other-video',
+            data: {
+              orgId: 'org-1',
+              channelWorkspaceId: 'channel-1',
+              videoProjectId: 'video-2',
+              title: 'Other assembly',
+              status: 'ready_for_edit',
+              renderType: 'short_clip',
+              targetFormat: 'vertical_9_16',
+              deleted: false,
+            },
+          },
+        ],
+      },
+    })
+
+    const { GET } = await import('@/app/api/v1/youtube-studio/render-jobs/route')
+    const res = await GET(new NextRequest('http://localhost/api/v1/youtube-studio/render-jobs?orgId=org-1&videoProjectId=video-1&status=ready_for_edit'))
+    const body = await res.json()
+
+    expect(res.status).toBe(200)
+    expect(mockWhere).toHaveBeenCalledWith('orgId', '==', 'org-1')
+    expect(body.data.renderJobs.map((job: { id: string }) => job.id)).toEqual(['render-1'])
+  })
+
+  it('creates a render job from an approved production draft with sanitized timeline, checks, and actor fields', async () => {
+    stageFirestore({
+      youtube_channel_workspaces: {
+        docs: {
+          'channel-1': {
+            id: 'channel-1',
+            data: { orgId: 'org-1', title: 'Acme', deleted: false },
+          },
+        },
+      },
+      youtube_video_projects: {
+        docs: {
+          'video-1': {
+            id: 'video-1',
+            data: { orgId: 'org-1', channelWorkspaceId: 'channel-1', title: 'Launch', deleted: false },
+          },
+        },
+      },
+      youtube_production_drafts: {
+        docs: {
+          'draft-1': {
+            id: 'draft-1',
+            data: {
+              orgId: 'org-1',
+              channelWorkspaceId: 'channel-1',
+              videoProjectId: 'video-1',
+              title: 'Launch story draft',
+              status: 'approved',
+              draftType: 'script',
+              versionNumber: 2,
+              deleted: false,
+            },
+          },
+        },
+      },
+      youtube_source_assets: {
+        docs: {
+          'asset-1': {
+            id: 'asset-1',
+            data: { orgId: 'org-1', channelWorkspaceId: 'channel-1', videoProjectId: 'video-1', title: 'Raw footage', deleted: false },
+          },
+        },
+      },
+      youtube_clip_candidates: {
+        docs: {
+          'clip-1': {
+            id: 'clip-1',
+            data: { orgId: 'org-1', channelWorkspaceId: 'channel-1', videoProjectId: 'video-1', sourceAssetId: 'asset-1', title: 'Proof clip', deleted: false },
+          },
+        },
+      },
+      youtube_render_jobs: {},
+    })
+
+    const { POST } = await import('@/app/api/v1/youtube-studio/render-jobs/route')
+    const res = await POST(new NextRequest('http://localhost/api/v1/youtube-studio/render-jobs', {
+      method: 'POST',
+      body: JSON.stringify({
+        orgId: 'org-1',
+        channelWorkspaceId: 'channel-1',
+        videoProjectId: 'video-1',
+        productionDraftId: 'draft-1',
+        title: ' Launch final assembly ',
+        renderType: 'full_video',
+        targetFormat: 'horizontal_16_9',
+        status: 'approved',
+        versionNumber: -4,
+        editBrief: ' Turn the approved draft into a final talking-head edit. ',
+        sourceAssetIds: ['asset-1', '', 'asset-1'],
+        clipCandidateIds: ['clip-1'],
+        timeline: [
+          {
+            label: ' Hook ',
+            summary: ' Open on the measurable before/after. ',
+            startSeconds: 0,
+            endSeconds: 45,
+            sourceAssetId: 'asset-1',
+            clipCandidateId: 'clip-1',
+            voiceover: ' We cut reporting time in half. ',
+            onScreenText: 'Reporting time cut in half',
+            editNotes: ' Use punch-in after the first sentence. ',
+            internalPrompt: 'operator-only timeline prompt',
+          },
+          { label: '', startSeconds: -5 },
+        ],
+        output: {
+          previewUrl: ' https://cdn.example/preview.mp4 ',
+          downloadUrl: ' https://cdn.example/download.mp4 ',
+          storagePath: ' gs://secret/render.mp4 ',
+          youtubeVideoId: ' youtube-secret ',
+          durationSeconds: 612,
+          renderPreset: ' h264_1080p ',
+        },
+        checks: {
+          sourceRights: { status: 'pass', message: ' Rights cleared. ', checkedBy: 'client-supplied' },
+          brand: { status: 'bad-status', message: { secret: true } },
+          captions: { status: 'warning', message: ' Captions need review. ' },
+          renderQuality: { status: 'pass', message: ' Review cut is stable. ' },
+          clientApproval: { status: 'pass', message: ' Client approved draft. ' },
+        },
+        visibility: { showInClientPortal: true, showTimelineInPortal: true, showOutputsInPortal: true },
+        internalNotes: 'Operator-only render notes.',
+        clientNotes: 'Client can inspect the assembly plan.',
+        executionJobId: 'renderer-job-secret',
+        deleted: true,
+      }),
+    }))
+    const body = await res.json()
+
+    expect(res.status).toBe(201)
+    expect(body.data.id).toBe('new-id')
+    expect(mockAdd).toHaveBeenCalledWith(expect.objectContaining({
+      orgId: 'org-1',
+      channelWorkspaceId: 'channel-1',
+      videoProjectId: 'video-1',
+      productionDraftId: 'draft-1',
+      title: 'Launch final assembly',
+      renderType: 'full_video',
+      targetFormat: 'horizontal_16_9',
+      status: 'planning',
+      versionNumber: 1,
+      editBrief: 'Turn the approved draft into a final talking-head edit.',
+      sourceAssetIds: ['asset-1'],
+      clipCandidateIds: ['clip-1'],
+      timeline: [{
+        label: 'Hook',
+        summary: 'Open on the measurable before/after.',
+        startSeconds: 0,
+        endSeconds: 45,
+        sourceAssetId: 'asset-1',
+        clipCandidateId: 'clip-1',
+        voiceover: 'We cut reporting time in half.',
+        onScreenText: 'Reporting time cut in half',
+        editNotes: 'Use punch-in after the first sentence.',
+      }],
+      output: {
+        previewUrl: 'https://cdn.example/preview.mp4',
+        downloadUrl: 'https://cdn.example/download.mp4',
+        storagePath: 'gs://secret/render.mp4',
+        youtubeVideoId: 'youtube-secret',
+        durationSeconds: 612,
+        renderPreset: 'h264_1080p',
+      },
+      checks: {
+        sourceRights: { status: 'pass', message: 'Rights cleared.' },
+        brand: { status: 'warning', message: 'Brand review required before this render can be client-ready.' },
+        captions: { status: 'warning', message: 'Captions need review.' },
+        renderQuality: { status: 'pass', message: 'Review cut is stable.' },
+        clientApproval: { status: 'pass', message: 'Client approved draft.' },
+      },
+      visibility: { showInClientPortal: true, showTimelineInPortal: true, showOutputsInPortal: true },
+      internalNotes: 'Operator-only render notes.',
+      clientNotes: 'Client can inspect the assembly plan.',
+      executionJobId: 'renderer-job-secret',
+      deleted: false,
+      createdBy: 'admin-1',
+      createdByType: 'user',
+      updatedBy: 'admin-1',
+      updatedByType: 'user',
+      createdAt: 'SERVER_TS',
+      updatedAt: 'SERVER_TS',
+    }))
+    expect(JSON.stringify(mockAdd.mock.calls[0][0])).not.toContain('operator-only timeline prompt')
+    expect(JSON.stringify(mockAdd.mock.calls[0][0])).not.toContain('client-supplied')
+  })
+
+  it('rejects render job creation when the production draft is not approved', async () => {
+    stageFirestore({
+      youtube_channel_workspaces: {
+        docs: {
+          'channel-1': {
+            id: 'channel-1',
+            data: { orgId: 'org-1', title: 'Acme', deleted: false },
+          },
+        },
+      },
+      youtube_video_projects: {
+        docs: {
+          'video-1': {
+            id: 'video-1',
+            data: { orgId: 'org-1', channelWorkspaceId: 'channel-1', title: 'Launch', deleted: false },
+          },
+        },
+      },
+      youtube_production_drafts: {
+        docs: {
+          'draft-1': {
+            id: 'draft-1',
+            data: {
+              orgId: 'org-1',
+              channelWorkspaceId: 'channel-1',
+              videoProjectId: 'video-1',
+              title: 'Launch story draft',
+              status: 'client_review',
+              deleted: false,
+            },
+          },
+        },
+      },
+      youtube_source_assets: {},
+      youtube_clip_candidates: {},
+      youtube_render_jobs: {},
+    })
+
+    const { POST } = await import('@/app/api/v1/youtube-studio/render-jobs/route')
+    const res = await POST(new NextRequest('http://localhost/api/v1/youtube-studio/render-jobs', {
+      method: 'POST',
+      body: JSON.stringify({
+        orgId: 'org-1',
+        channelWorkspaceId: 'channel-1',
+        videoProjectId: 'video-1',
+        productionDraftId: 'draft-1',
+        title: 'Launch final assembly',
+      }),
+    }))
+    const body = await res.json()
+
+    expect(res.status).toBe(409)
+    expect(body.error).toMatch(/approved/i)
+    expect(mockAdd).not.toHaveBeenCalled()
+  })
 })

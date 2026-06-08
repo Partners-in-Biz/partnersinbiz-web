@@ -7,6 +7,7 @@ import type {
   YouTubeClipCandidate,
   YouTubeProductionDraft,
   YouTubePublishingPacket,
+  YouTubeRenderJob,
   YouTubeReleasePlan,
   YouTubeSeries,
   YouTubeSourceAsset,
@@ -51,6 +52,7 @@ export function YouTubeStudioPortalWorkspace({ orgId }: YouTubeStudioPortalWorks
   const [sourceAssets, setSourceAssets] = useState<YouTubeSourceAsset[]>([])
   const [clipCandidates, setClipCandidates] = useState<YouTubeClipCandidate[]>([])
   const [productionDrafts, setProductionDrafts] = useState<YouTubeProductionDraft[]>([])
+  const [renderJobs, setRenderJobs] = useState<YouTubeRenderJob[]>([])
   const [analytics, setAnalytics] = useState<YouTubeAnalyticsSnapshot[]>([])
   const [request, setRequest] = useState<RequestForm>(emptyRequest)
   const [reviewNotes, setReviewNotes] = useState<Record<string, string>>({})
@@ -96,6 +98,7 @@ export function YouTubeStudioPortalWorkspace({ orgId }: YouTubeStudioPortalWorks
         setSourceAssets([])
         setClipCandidates([])
         setProductionDrafts([])
+        setRenderJobs([])
         setAnalytics([])
         setLoadNotice('')
         setActionNotice('')
@@ -111,6 +114,7 @@ export function YouTubeStudioPortalWorkspace({ orgId }: YouTubeStudioPortalWorks
       setSourceAssets(Array.isArray(body.data?.sourceAssets) ? body.data.sourceAssets : [])
       setClipCandidates(Array.isArray(body.data?.clipCandidates) ? body.data.clipCandidates : [])
       setProductionDrafts(Array.isArray(body.data?.productionDrafts) ? body.data.productionDrafts : [])
+      setRenderJobs(Array.isArray(body.data?.renderJobs) ? body.data.renderJobs : [])
       setAnalytics(Array.isArray(body.data?.analytics) ? body.data.analytics : [])
       if (!res.ok) {
         setLoadNotice(body.error ?? 'Could not load YouTube Studio.')
@@ -128,6 +132,7 @@ export function YouTubeStudioPortalWorkspace({ orgId }: YouTubeStudioPortalWorks
       setSourceAssets([])
       setClipCandidates([])
       setProductionDrafts([])
+      setRenderJobs([])
       setAnalytics([])
       setLoadNotice('Could not load YouTube Studio.')
     } finally {
@@ -534,6 +539,52 @@ export function YouTubeStudioPortalWorkspace({ orgId }: YouTubeStudioPortalWorks
           </div>
 
           <div className="space-y-3">
+            <h2 className="font-headline text-xl font-semibold text-on-surface">Render jobs</h2>
+            {renderJobs.length === 0 ? (
+              <div className="pib-card-section p-5 text-sm text-on-surface-variant">No render jobs are visible yet.</div>
+            ) : (
+              renderJobs.map((job) => (
+                <article key={job.id ?? `${job.videoProjectId}-${job.versionNumber}`} className="pib-card-section space-y-3 p-4">
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <h3 className="break-words font-semibold text-on-surface">{job.title}</h3>
+                      <p className="mt-1 text-sm text-on-surface-variant">{renderJobMeta(job)}</p>
+                    </div>
+                  </div>
+                  {job.editBrief ? <p className="break-words text-sm text-on-surface-variant">{job.editBrief}</p> : null}
+                  {job.timeline?.length ? (
+                    <div className="grid gap-2">
+                      {job.timeline.slice(0, 3).map((scene, index) => (
+                        <div key={`${scene.label}-${index}`} className="rounded-lg border border-[var(--color-pib-line)] p-3 text-sm text-on-surface-variant">
+                          <p className="font-medium text-on-surface">{renderTimelineMeta(scene)}</p>
+                          {scene.summary ? <p className="mt-1 break-words">{scene.summary}</p> : null}
+                          {scene.voiceover ? <p className="mt-1 break-words">{scene.voiceover}</p> : null}
+                          {scene.onScreenText ? <p className="mt-1 break-words">{scene.onScreenText}</p> : null}
+                          {scene.editNotes ? <p className="mt-1 break-words">{scene.editNotes}</p> : null}
+                        </div>
+                      ))}
+                    </div>
+                  ) : null}
+                  <div className="grid gap-2 text-xs text-on-surface-variant sm:grid-cols-2">
+                    {renderJobGateEntries(job).map(([key, check]) => (
+                      <span key={key} className="min-w-0 break-words">
+                        {formatToken(key)}: {formatToken(check?.status ?? 'not_applicable')}
+                      </span>
+                    ))}
+                  </div>
+                  {job.output?.previewUrl || job.output?.downloadUrl ? (
+                    <p className="break-words text-sm text-on-surface-variant">
+                      {job.output.previewUrl ? 'preview ready' : 'download ready'}
+                      {typeof job.output.durationSeconds === 'number' ? ` / ${job.output.durationSeconds}s` : ''}
+                    </p>
+                  ) : null}
+                  {job.clientNotes ? <p className="break-words text-sm text-on-surface-variant">{job.clientNotes}</p> : null}
+                </article>
+              ))
+            )}
+          </div>
+
+          <div className="space-y-3">
             <h2 className="font-headline text-xl font-semibold text-on-surface">Publishing packets</h2>
             {packets.length === 0 ? (
               <div className="pib-card-section p-5 text-sm text-on-surface-variant">No publishing packets are ready for review yet.</div>
@@ -753,6 +804,24 @@ function productionDraftGateEntries(draft: YouTubeProductionDraft) {
   return Object.entries(draft.checks ?? {}) as Array<[
     keyof YouTubeProductionDraft['checks'],
     YouTubeProductionDraft['checks'][keyof YouTubeProductionDraft['checks']],
+  ]>
+}
+
+function renderJobMeta(job: YouTubeRenderJob) {
+  return `${formatToken(job.renderType)} / ${formatToken(job.status)} / ${formatToken(job.targetFormat)}`
+}
+
+function renderTimelineMeta(scene: YouTubeRenderJob['timeline'][number]) {
+  const hasStart = typeof scene.startSeconds === 'number'
+  const hasEnd = typeof scene.endSeconds === 'number'
+  const range = hasStart && hasEnd ? `${scene.startSeconds}s-${scene.endSeconds}s` : null
+  return [scene.label, range].filter(Boolean).join(' / ')
+}
+
+function renderJobGateEntries(job: YouTubeRenderJob) {
+  return Object.entries(job.checks ?? {}) as Array<[
+    keyof YouTubeRenderJob['checks'],
+    YouTubeRenderJob['checks'][keyof YouTubeRenderJob['checks']],
   ]>
 }
 

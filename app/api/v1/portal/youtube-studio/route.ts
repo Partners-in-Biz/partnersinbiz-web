@@ -12,6 +12,7 @@ import {
   clientSafeYouTubeClipCandidate,
   clientSafeYouTubePublishingPacket,
   clientSafeYouTubeProductionDraft,
+  clientSafeYouTubeRenderJob,
   clientSafeYouTubeReleasePlan,
   clientSafeYouTubeSeries,
   clientSafeYouTubeSourceAsset,
@@ -25,6 +26,7 @@ import type {
   YouTubeClipCandidate,
   YouTubeProductionDraft,
   YouTubePublishingPacket,
+  YouTubeRenderJob,
   YouTubeReleasePlan,
   YouTubeSeries,
   YouTubeSourceAsset,
@@ -225,6 +227,7 @@ export const GET = withPortalAuthAndRole('viewer', async (_req: NextRequest, _ui
     sourceAssetsRaw,
     clipCandidatesRaw,
     productionDraftsRaw,
+    renderJobsRaw,
     analyticsRaw,
   ] = await Promise.all([
     listOrg<YouTubeChannelWorkspace>(YOUTUBE_COLLECTIONS.channels, orgId),
@@ -235,6 +238,7 @@ export const GET = withPortalAuthAndRole('viewer', async (_req: NextRequest, _ui
     listOrg<YouTubeSourceAsset>(YOUTUBE_COLLECTIONS.sourceAssets, orgId),
     listOrg<YouTubeClipCandidate>(YOUTUBE_COLLECTIONS.clipCandidates, orgId),
     listOrg<YouTubeProductionDraft>(YOUTUBE_COLLECTIONS.productionDrafts, orgId),
+    listOrg<YouTubeRenderJob>(YOUTUBE_COLLECTIONS.renderJobs, orgId),
     listOrg<YouTubeAnalyticsSnapshot>(YOUTUBE_COLLECTIONS.analytics, orgId),
   ])
 
@@ -320,6 +324,20 @@ export const GET = withPortalAuthAndRole('viewer', async (_req: NextRequest, _ui
     )
     .map(clientSafeYouTubeProductionDraft)
     .sort((a, b) => a.title.localeCompare(b.title) || b.versionNumber - a.versionNumber)
+  const visibleProductionDraftIds = new Set(
+    productionDrafts
+      .map((draft) => draft.id)
+      .filter((id): id is string => Boolean(id))
+  )
+  const renderJobs = renderJobsRaw
+    .filter((job) =>
+      visibleChannelIds.has(job.channelWorkspaceId) &&
+      visibleVideoIds.has(job.videoProjectId) &&
+      (!job.productionDraftId || visibleProductionDraftIds.has(job.productionDraftId)) &&
+      job.visibility?.showInClientPortal === true
+    )
+    .map(clientSafeYouTubeRenderJob)
+    .sort((a, b) => a.title.localeCompare(b.title) || b.versionNumber - a.versionNumber)
   const analytics = analyticsRaw
     .filter((snapshot) =>
       snapshot.visibility?.showInClientPortal === true &&
@@ -339,6 +357,7 @@ export const GET = withPortalAuthAndRole('viewer', async (_req: NextRequest, _ui
     sourceAssets,
     clipCandidates,
     productionDrafts,
+    renderJobs,
     analytics,
   })
 })

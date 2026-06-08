@@ -100,6 +100,17 @@ export type YouTubeProductionDraftStatus =
   | 'changes_requested'
   | 'blocked'
   | 'archived'
+export type YouTubeRenderJobType = 'full_video' | 'short_clip' | 'clip_pack' | 'trailer' | 'thumbnail_motion'
+export type YouTubeRenderTargetFormat = 'horizontal_16_9' | 'vertical_9_16' | 'square_1_1'
+export type YouTubeRenderJobStatus =
+  | 'planning'
+  | 'ready_for_edit'
+  | 'rendering'
+  | 'rendered'
+  | 'qa_review'
+  | 'approved'
+  | 'blocked'
+  | 'cancelled'
 export type YouTubeGateStatus = 'pass' | 'warning' | 'block' | 'not_applicable'
 export type YouTubeProductionSkillKey =
   | 'youtube-channel-strategy'
@@ -410,6 +421,63 @@ export interface YouTubeProductionDraft {
   approvedBy?: string
   approvedAt?: unknown
   approvedSnapshotHash?: string
+  createdAt?: unknown
+  updatedAt?: unknown
+  createdBy?: string
+  createdByType?: ActorType
+  updatedBy?: string
+  updatedByType?: ActorType
+  deleted: boolean
+}
+
+export interface YouTubeRenderTimelineScene {
+  label: string
+  summary?: string
+  startSeconds?: number
+  endSeconds?: number
+  sourceAssetId?: string
+  clipCandidateId?: string
+  voiceover?: string
+  onScreenText?: string
+  editNotes?: string
+}
+
+export interface YouTubeRenderOutput {
+  previewUrl?: string
+  downloadUrl?: string
+  storagePath?: string
+  youtubeVideoId?: string
+  durationSeconds?: number
+  renderPreset?: string
+}
+
+export interface YouTubeRenderJob {
+  id?: string
+  orgId: string
+  channelWorkspaceId: string
+  videoProjectId: string
+  productionDraftId?: string
+  title: string
+  renderType: YouTubeRenderJobType
+  targetFormat: YouTubeRenderTargetFormat
+  status: YouTubeRenderJobStatus
+  versionNumber: number
+  editBrief?: string
+  sourceAssetIds: string[]
+  clipCandidateIds: string[]
+  timeline: YouTubeRenderTimelineScene[]
+  output?: YouTubeRenderOutput
+  checks: {
+    sourceRights: YouTubeGateCheck
+    brand: YouTubeGateCheck
+    captions: YouTubeGateCheck
+    renderQuality: YouTubeGateCheck
+    clientApproval: YouTubeGateCheck
+  }
+  visibility?: { showInClientPortal?: boolean; showTimelineInPortal?: boolean; showOutputsInPortal?: boolean }
+  internalNotes?: string
+  clientNotes?: string
+  executionJobId?: string
   createdAt?: unknown
   updatedAt?: unknown
   createdBy?: string

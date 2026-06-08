@@ -31,6 +31,12 @@ import type {
   YouTubePublishingReadiness,
   YouTubePublishingReadinessLevel,
   YouTubeProductionSkillKey,
+  YouTubeRenderJob,
+  YouTubeRenderJobStatus,
+  YouTubeRenderJobType,
+  YouTubeRenderOutput,
+  YouTubeRenderTargetFormat,
+  YouTubeRenderTimelineScene,
   YouTubeReleaseMode,
   YouTubeReleasePlan,
   YouTubeReleasePlanStatus,
@@ -152,6 +158,18 @@ const PRODUCTION_DRAFT_STATUSES: YouTubeProductionDraftStatus[] = [
   'changes_requested',
   'blocked',
   'archived',
+]
+const RENDER_JOB_TYPES: YouTubeRenderJobType[] = ['full_video', 'short_clip', 'clip_pack', 'trailer', 'thumbnail_motion']
+const RENDER_TARGET_FORMATS: YouTubeRenderTargetFormat[] = ['horizontal_16_9', 'vertical_9_16', 'square_1_1']
+const RENDER_JOB_STATUSES: YouTubeRenderJobStatus[] = [
+  'planning',
+  'ready_for_edit',
+  'rendering',
+  'rendered',
+  'qa_review',
+  'approved',
+  'blocked',
+  'cancelled',
 ]
 const CLIENT_REVIEW_STATUSES = ['not_requested', 'requested', 'approved', 'changes_requested', 'rejected'] as const
 const PACKET_STATUSES: YouTubePublishingPacket['status'][] = [
@@ -423,6 +441,42 @@ export type ClientSafeYouTubeProductionDraft = Pick<
     claims?: ClientSafeYouTubeGateCheck
     brand?: ClientSafeYouTubeGateCheck
     sourceEvidence?: ClientSafeYouTubeGateCheck
+    clientApproval?: ClientSafeYouTubeGateCheck
+  }
+}
+
+type ClientSafeRenderTimelineScene = Pick<
+  YouTubeRenderTimelineScene,
+  'label' | 'summary' | 'startSeconds' | 'endSeconds' | 'voiceover' | 'onScreenText' | 'editNotes'
+>
+
+type ClientSafeRenderOutput = Pick<
+  YouTubeRenderOutput,
+  'previewUrl' | 'downloadUrl' | 'durationSeconds'
+>
+
+export type ClientSafeYouTubeRenderJob = Pick<
+  YouTubeRenderJob,
+  | 'id'
+  | 'orgId'
+  | 'channelWorkspaceId'
+  | 'videoProjectId'
+  | 'productionDraftId'
+  | 'title'
+  | 'renderType'
+  | 'targetFormat'
+  | 'status'
+  | 'versionNumber'
+  | 'editBrief'
+  | 'clientNotes'
+> & {
+  timeline: ClientSafeRenderTimelineScene[]
+  output?: ClientSafeRenderOutput
+  checks: {
+    sourceRights?: ClientSafeYouTubeGateCheck
+    brand?: ClientSafeYouTubeGateCheck
+    captions?: ClientSafeYouTubeGateCheck
+    renderQuality?: ClientSafeYouTubeGateCheck
     clientApproval?: ClientSafeYouTubeGateCheck
   }
 }
@@ -910,6 +964,102 @@ export function sanitizeYouTubeProductionDraftInput(
   })
 }
 
+function sanitizeRenderJobChecks(input: unknown): YouTubeRenderJob['checks'] {
+  const source = cleanObject(input)
+
+  return {
+    sourceRights: stripUndefinedDeep({
+      status: pick(GATE_STATUSES, cleanObject(source.sourceRights).status, 'warning'),
+      message: cleanString(cleanObject(source.sourceRights).message) ?? 'Source rights review required before this render can be client-ready.',
+    }),
+    brand: stripUndefinedDeep({
+      status: pick(GATE_STATUSES, cleanObject(source.brand).status, 'warning'),
+      message: cleanString(cleanObject(source.brand).message) ?? 'Brand review required before this render can be client-ready.',
+    }),
+    captions: stripUndefinedDeep({
+      status: pick(GATE_STATUSES, cleanObject(source.captions).status, 'warning'),
+      message: cleanString(cleanObject(source.captions).message) ?? 'Caption review required before this render can be client-ready.',
+    }),
+    renderQuality: stripUndefinedDeep({
+      status: pick(GATE_STATUSES, cleanObject(source.renderQuality).status, 'warning'),
+      message: cleanString(cleanObject(source.renderQuality).message) ?? 'Render quality review required before this render can be client-ready.',
+    }),
+    clientApproval: stripUndefinedDeep({
+      status: pick(GATE_STATUSES, cleanObject(source.clientApproval).status, 'warning'),
+      message: cleanString(cleanObject(source.clientApproval).message) ?? 'Client approval required before publishing or release planning.',
+    }),
+  }
+}
+
+function sanitizeRenderTimeline(input: unknown): YouTubeRenderTimelineScene[] {
+  if (!Array.isArray(input)) return []
+
+  return input.flatMap((item) => {
+    const source = cleanObject(item)
+    const label = cleanString(source.label)
+    if (!label) return []
+
+    return [stripUndefinedDeep({
+      label,
+      summary: cleanString(source.summary),
+      startSeconds: cleanNonNegativeNumber(source.startSeconds),
+      endSeconds: cleanNonNegativeNumber(source.endSeconds),
+      sourceAssetId: cleanString(source.sourceAssetId),
+      clipCandidateId: cleanString(source.clipCandidateId),
+      voiceover: cleanString(source.voiceover),
+      onScreenText: cleanString(source.onScreenText),
+      editNotes: cleanString(source.editNotes),
+    })]
+  })
+}
+
+function sanitizeRenderOutput(input: unknown): YouTubeRenderOutput | undefined {
+  const source = cleanObject(input)
+  if (!Object.keys(source).length) return undefined
+
+  return stripUndefinedDeep({
+    previewUrl: cleanString(source.previewUrl),
+    downloadUrl: cleanString(source.downloadUrl),
+    storagePath: cleanString(source.storagePath),
+    youtubeVideoId: cleanString(source.youtubeVideoId),
+    durationSeconds: cleanNonNegativeNumber(source.durationSeconds),
+    renderPreset: cleanString(source.renderPreset),
+  })
+}
+
+export function sanitizeYouTubeRenderJobInput(
+  input: RawInput
+): Omit<YouTubeRenderJob, 'id' | 'createdAt' | 'updatedAt' | 'createdBy' | 'createdByType' | 'updatedBy' | 'updatedByType'> {
+  const visibility = cleanObject(input.visibility)
+
+  return stripUndefinedDeep({
+    orgId: cleanString(input.orgId) ?? '',
+    channelWorkspaceId: cleanString(input.channelWorkspaceId) ?? '',
+    videoProjectId: cleanString(input.videoProjectId) ?? '',
+    productionDraftId: cleanString(input.productionDraftId),
+    title: cleanString(input.title) ?? 'Untitled render job',
+    renderType: pick(RENDER_JOB_TYPES, input.renderType, 'full_video'),
+    targetFormat: pick(RENDER_TARGET_FORMATS, input.targetFormat, 'horizontal_16_9'),
+    status: pick(RENDER_JOB_STATUSES, input.status, 'planning'),
+    versionNumber: cleanPositiveInteger(input.versionNumber),
+    editBrief: cleanString(input.editBrief),
+    sourceAssetIds: uniqueCleanStringArray(input.sourceAssetIds),
+    clipCandidateIds: uniqueCleanStringArray(input.clipCandidateIds),
+    timeline: sanitizeRenderTimeline(input.timeline),
+    output: sanitizeRenderOutput(input.output),
+    checks: sanitizeRenderJobChecks(input.checks),
+    visibility: {
+      showInClientPortal: visibility.showInClientPortal === true,
+      showTimelineInPortal: visibility.showTimelineInPortal === true,
+      showOutputsInPortal: visibility.showOutputsInPortal === true,
+    },
+    internalNotes: cleanString(input.internalNotes),
+    clientNotes: cleanString(input.clientNotes),
+    executionJobId: cleanString(input.executionJobId),
+    deleted: input.deleted === true,
+  })
+}
+
 function sanitizeYouTubeAnalyticsMetrics(input: unknown): YouTubeAnalyticsMetrics {
   const source = cleanObject(input)
 
@@ -1295,6 +1445,66 @@ export function clientSafeYouTubeProductionDraft(
       clientApproval: clientSafeGateCheck(checks.clientApproval),
     },
     clientNotes: cleanString(draft.clientNotes),
+  })
+}
+
+function clientSafeRenderTimelineScene(scene: unknown): ClientSafeRenderTimelineScene | undefined {
+  const source = cleanObject(scene)
+  const label = cleanString(source.label)
+  if (!label) return undefined
+
+  return stripUndefinedDeep({
+    label,
+    summary: cleanString(source.summary),
+    startSeconds: cleanNonNegativeNumber(source.startSeconds),
+    endSeconds: cleanNonNegativeNumber(source.endSeconds),
+    voiceover: cleanString(source.voiceover),
+    onScreenText: cleanString(source.onScreenText),
+    editNotes: cleanString(source.editNotes),
+  })
+}
+
+function clientSafeRenderOutput(output: unknown): ClientSafeRenderOutput | undefined {
+  const source = cleanObject(output)
+  if (!Object.keys(source).length) return undefined
+
+  const safeOutput = stripUndefinedDeep({
+    previewUrl: cleanString(source.previewUrl),
+    downloadUrl: cleanString(source.downloadUrl),
+    durationSeconds: cleanNonNegativeNumber(source.durationSeconds),
+  })
+
+  return Object.keys(safeOutput).length ? safeOutput : undefined
+}
+
+export function clientSafeYouTubeRenderJob(job: YouTubeRenderJob): ClientSafeYouTubeRenderJob {
+  const checks = cleanObject(job.checks)
+  const visibility = cleanObject(job.visibility)
+
+  return stripUndefinedDeep({
+    id: cleanString(job.id),
+    orgId: cleanString(job.orgId) ?? '',
+    channelWorkspaceId: cleanString(job.channelWorkspaceId) ?? '',
+    videoProjectId: cleanString(job.videoProjectId) ?? '',
+    productionDraftId: cleanString(job.productionDraftId),
+    title: cleanString(job.title) ?? 'Untitled render job',
+    renderType: pick(RENDER_JOB_TYPES, job.renderType, 'full_video'),
+    targetFormat: pick(RENDER_TARGET_FORMATS, job.targetFormat, 'horizontal_16_9'),
+    status: pick(RENDER_JOB_STATUSES, job.status, 'planning'),
+    versionNumber: cleanPositiveInteger(job.versionNumber),
+    editBrief: cleanString(job.editBrief),
+    timeline: visibility.showTimelineInPortal === true
+      ? (Array.isArray(job.timeline) ? job.timeline.map(clientSafeRenderTimelineScene).filter(isDefined) : [])
+      : [],
+    output: visibility.showOutputsInPortal === true ? clientSafeRenderOutput(job.output) : undefined,
+    checks: {
+      sourceRights: clientSafeGateCheck(checks.sourceRights),
+      brand: clientSafeGateCheck(checks.brand),
+      captions: clientSafeGateCheck(checks.captions),
+      renderQuality: clientSafeGateCheck(checks.renderQuality),
+      clientApproval: clientSafeGateCheck(checks.clientApproval),
+    },
+    clientNotes: cleanString(job.clientNotes),
   })
 }
 

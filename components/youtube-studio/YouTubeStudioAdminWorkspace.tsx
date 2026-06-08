@@ -19,6 +19,9 @@ import type {
   YouTubePublishingPolicy,
   YouTubePublishingReadinessLevel,
   YouTubeProductionSkillKey,
+  YouTubeRenderJob,
+  YouTubeRenderJobType,
+  YouTubeRenderTargetFormat,
   YouTubeReleaseMode,
   YouTubeReleasePlan,
   YouTubeSeries,
@@ -79,6 +82,18 @@ type FormState = {
   draftShowInPortal: boolean
   draftShowScriptInPortal: boolean
   draftShowScenesInPortal: boolean
+  renderVideoId: string
+  renderDraftId: string
+  renderTitle: string
+  renderType: YouTubeRenderJobType
+  renderTargetFormat: YouTubeRenderTargetFormat
+  renderEditBrief: string
+  renderSourceAssetIds: string
+  renderClipCandidateIds: string
+  renderTimeline: string
+  renderShowInPortal: boolean
+  renderShowTimelineInPortal: boolean
+  renderShowOutputsInPortal: boolean
   jobVideoId: string
   jobSkillKey: YouTubeProductionSkillKey
   jobInputSummary: string
@@ -163,6 +178,18 @@ const emptyForm: FormState = {
   draftShowInPortal: false,
   draftShowScriptInPortal: false,
   draftShowScenesInPortal: false,
+  renderVideoId: '',
+  renderDraftId: '',
+  renderTitle: '',
+  renderType: 'full_video',
+  renderTargetFormat: 'horizontal_16_9',
+  renderEditBrief: '',
+  renderSourceAssetIds: '',
+  renderClipCandidateIds: '',
+  renderTimeline: '',
+  renderShowInPortal: false,
+  renderShowTimelineInPortal: false,
+  renderShowOutputsInPortal: false,
   jobVideoId: '',
   jobSkillKey: 'youtube-video-brief',
   jobInputSummary: '',
@@ -276,6 +303,8 @@ const productionDraftTypes: YouTubeProductionDraftType[] = [
   'voiceover',
   'edit_notes',
 ]
+const renderJobTypes: YouTubeRenderJobType[] = ['full_video', 'short_clip', 'clip_pack', 'trailer', 'thumbnail_motion']
+const renderTargetFormats: YouTubeRenderTargetFormat[] = ['horizontal_16_9', 'vertical_9_16', 'square_1_1']
 
 function splitLines(value: string) {
   return value.split(/[\n,]+/).map((item) => item.trim()).filter(Boolean)
@@ -322,6 +351,23 @@ function parseProductionScenes(value: string): YouTubeProductionDraft['scenes'] 
   })
 }
 
+function parseRenderTimeline(value: string): YouTubeRenderJob['timeline'] {
+  return value.split('\n').flatMap((line) => {
+    const [label, start, end, summary, voiceover, onScreenText, editNotes] = line.split('|').map((part) => part.trim())
+    if (!label) return []
+
+    return [{
+      label,
+      startSeconds: timestampToSeconds(start),
+      endSeconds: timestampToSeconds(end),
+      summary,
+      voiceover,
+      onScreenText,
+      editNotes,
+    }]
+  })
+}
+
 export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdminWorkspaceProps) {
   const [channels, setChannels] = useState<YouTubeChannelWorkspace[]>([])
   const [series, setSeries] = useState<YouTubeSeries[]>([])
@@ -331,6 +377,7 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
   const [sourceAssets, setSourceAssets] = useState<YouTubeSourceAsset[]>([])
   const [clipCandidates, setClipCandidates] = useState<YouTubeClipCandidate[]>([])
   const [productionDrafts, setProductionDrafts] = useState<YouTubeProductionDraft[]>([])
+  const [renderJobs, setRenderJobs] = useState<YouTubeRenderJob[]>([])
   const [jobs, setJobs] = useState<YouTubeAgentJob[]>([])
   const [analytics, setAnalytics] = useState<YouTubeAnalyticsSnapshot[]>([])
   const [form, setForm] = useState<FormState>(emptyForm)
@@ -339,6 +386,7 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
   const [addingSourceAsset, setAddingSourceAsset] = useState(false)
   const [creatingClipCandidate, setCreatingClipCandidate] = useState(false)
   const [creatingProductionDraft, setCreatingProductionDraft] = useState(false)
+  const [creatingRenderJob, setCreatingRenderJob] = useState(false)
   const [creatingPacket, setCreatingPacket] = useState(false)
   const [creatingReleasePlan, setCreatingReleasePlan] = useState(false)
   const [updatingDraftId, setUpdatingDraftId] = useState<string | null>(null)
@@ -372,6 +420,16 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
   const draftClipCandidates = draftVideo
     ? clipCandidates.filter((clip) => !clip.videoProjectId || clip.videoProjectId === draftVideo.id)
     : clipCandidates
+  const renderVideo = videos.find((video) => video.id === form.renderVideoId)
+  const renderSourceAssets = renderVideo
+    ? sourceAssets.filter((asset) => !asset.videoProjectId || asset.videoProjectId === renderVideo.id)
+    : sourceAssets
+  const renderClipCandidates = renderVideo
+    ? clipCandidates.filter((clip) => !clip.videoProjectId || clip.videoProjectId === renderVideo.id)
+    : clipCandidates
+  const renderDrafts = renderVideo
+    ? productionDrafts.filter((draft) => draft.status === 'approved' && draft.videoProjectId === renderVideo.id)
+    : productionDrafts.filter((draft) => draft.status === 'approved')
   const approvedPackets = packets.filter((packet) => packet.id && packet.status === 'approved')
 
   const load = useCallback(async () => {
@@ -390,6 +448,7 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
         sourceAssetRes,
         clipCandidateRes,
         productionDraftRes,
+        renderJobRes,
         jobRes,
         analyticsRes,
       ] = await Promise.all([
@@ -401,6 +460,7 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
         fetch(`/api/v1/youtube-studio/source-assets?orgId=${encodeURIComponent(orgId)}`),
         fetch(`/api/v1/youtube-studio/clip-candidates?orgId=${encodeURIComponent(orgId)}`),
         fetch(`/api/v1/youtube-studio/production-drafts?orgId=${encodeURIComponent(orgId)}`),
+        fetch(`/api/v1/youtube-studio/render-jobs?orgId=${encodeURIComponent(orgId)}`),
         fetch(`/api/v1/youtube-studio/agent-jobs?orgId=${encodeURIComponent(orgId)}`),
         fetch(`/api/v1/youtube-studio/analytics?orgId=${encodeURIComponent(orgId)}`),
       ])
@@ -413,6 +473,7 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
         sourceAssetBody,
         clipCandidateBody,
         productionDraftBody,
+        renderJobBody,
         jobBody,
         analyticsBody,
       ] = await Promise.all([
@@ -424,6 +485,7 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
         sourceAssetRes.json().catch(() => ({})),
         clipCandidateRes.json().catch(() => ({})),
         productionDraftRes.json().catch(() => ({})),
+        renderJobRes.json().catch(() => ({})),
         jobRes.json().catch(() => ({})),
         analyticsRes.json().catch(() => ({})),
       ])
@@ -436,6 +498,7 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
       setSourceAssets(Array.isArray(sourceAssetBody.data?.sourceAssets) ? sourceAssetBody.data.sourceAssets : [])
       setClipCandidates(Array.isArray(clipCandidateBody.data?.clipCandidates) ? clipCandidateBody.data.clipCandidates : [])
       setProductionDrafts(Array.isArray(productionDraftBody.data?.productionDrafts) ? productionDraftBody.data.productionDrafts : [])
+      setRenderJobs(Array.isArray(renderJobBody.data?.renderJobs) ? renderJobBody.data.renderJobs : [])
       setJobs(Array.isArray(jobBody.data?.jobs) ? jobBody.data.jobs : [])
       setAnalytics(Array.isArray(analyticsBody.data?.snapshots) ? analyticsBody.data.snapshots : [])
       if (
@@ -447,6 +510,7 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
         !sourceAssetRes.ok ||
         !clipCandidateRes.ok ||
         !productionDraftRes.ok ||
+        !renderJobRes.ok ||
         !jobRes.ok ||
         !analyticsRes.ok
       ) {
@@ -464,6 +528,7 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
       setSourceAssets([])
       setClipCandidates([])
       setProductionDrafts([])
+      setRenderJobs([])
       setJobs([])
       setAnalytics([])
       setLoadNotice('Could not load the YouTube Studio workspace.')
@@ -482,6 +547,7 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
     setAddingSourceAsset(false)
     setCreatingClipCandidate(false)
     setCreatingProductionDraft(false)
+    setCreatingRenderJob(false)
     setCreatingPacket(false)
     setCreatingReleasePlan(false)
     setUpdatingDraftId(null)
@@ -555,6 +621,19 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
       clipSourceAssetId: sourceAssetId,
       clipVideoId: sourceAsset?.videoProjectId ?? prev.clipVideoId,
     }))
+  }
+
+  function selectRenderVideo(videoProjectId: string) {
+    setForm((prev) => {
+      const selectedDraft = productionDrafts.find((draft) => draft.id === prev.renderDraftId)
+      const keepDraft = !videoProjectId || selectedDraft?.videoProjectId === videoProjectId
+
+      return {
+        ...prev,
+        renderVideoId: videoProjectId,
+        renderDraftId: keepDraft ? prev.renderDraftId : '',
+      }
+    })
   }
 
   function allowedModesForReadiness(readiness: YouTubePublishingReadinessLevel): YouTubePublishingPolicy['allowedModes'] {
@@ -651,6 +730,7 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
         packetVideoId: body.data?.id ?? prev.packetVideoId,
         assetVideoId: body.data?.id ?? prev.assetVideoId,
         assetChannelId: prev.assetChannelId || prev.videoChannelId,
+        renderVideoId: body.data?.id ?? prev.renderVideoId,
         analyticsVideoId: body.data?.id ?? prev.analyticsVideoId,
         analyticsChannelId: prev.analyticsChannelId || prev.videoChannelId,
       }))
@@ -848,6 +928,73 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
     } finally {
       if (isCurrentMutation()) {
         setCreatingProductionDraft(false)
+      }
+    }
+  }
+
+  async function createRenderJob(event: React.FormEvent) {
+    event.preventDefault()
+    if (creatingRenderJob || !form.renderVideoId || !form.renderTitle.trim()) return
+    const selectedVideo = videos.find((video) => video.id === form.renderVideoId)
+    if (!selectedVideo?.channelWorkspaceId) {
+      setActionNotice('Select a video with a channel before creating a render job')
+      return
+    }
+
+    const mutationOrgId = orgId
+    const isCurrentMutation = () => mutationOrgId === activeOrgIdRef.current
+    setCreatingRenderJob(true)
+    setActionNotice('')
+    setLoadNotice('')
+    try {
+      const res = await fetch('/api/v1/youtube-studio/render-jobs', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          orgId: mutationOrgId,
+          channelWorkspaceId: selectedVideo.channelWorkspaceId,
+          videoProjectId: form.renderVideoId,
+          productionDraftId: form.renderDraftId || undefined,
+          title: form.renderTitle,
+          renderType: form.renderType,
+          targetFormat: form.renderTargetFormat,
+          editBrief: form.renderEditBrief,
+          sourceAssetIds: splitLines(form.renderSourceAssetIds),
+          clipCandidateIds: splitLines(form.renderClipCandidateIds),
+          timeline: parseRenderTimeline(form.renderTimeline),
+          visibility: {
+            showInClientPortal: form.renderShowInPortal,
+            showTimelineInPortal: form.renderShowTimelineInPortal,
+            showOutputsInPortal: form.renderShowOutputsInPortal,
+          },
+        }),
+      })
+      const body = await res.json().catch(() => ({}))
+      if (!isCurrentMutation()) return
+      if (!res.ok) {
+        setActionNotice(body.error ?? 'Could not create render job')
+        return
+      }
+      setForm((prev) => ({
+        ...prev,
+        renderTitle: '',
+        renderEditBrief: '',
+        renderSourceAssetIds: '',
+        renderClipCandidateIds: '',
+        renderTimeline: '',
+        renderShowInPortal: false,
+        renderShowTimelineInPortal: false,
+        renderShowOutputsInPortal: false,
+      }))
+      setActionNotice('Render job planned.')
+      await load()
+    } catch {
+      if (isCurrentMutation()) {
+        setActionNotice('Could not create render job')
+      }
+    } finally {
+      if (isCurrentMutation()) {
+        setCreatingRenderJob(false)
       }
     }
   }
@@ -1354,6 +1501,53 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
                         ) : null}
                       </div>
                     ) : null}
+                  </article>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div className="space-y-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <h2 className="font-headline text-xl font-semibold text-on-surface">Render jobs</h2>
+              <span className="rounded-full bg-[var(--color-surface-container-high)] px-3 py-1 text-xs font-label uppercase tracking-widest text-on-surface-variant">
+                {renderJobs.length} render{renderJobs.length === 1 ? '' : 's'}
+              </span>
+            </div>
+            {renderJobs.length === 0 ? (
+              <div className="pib-card-section p-5 text-sm text-on-surface-variant">No edit assemblies or render plans queued yet.</div>
+            ) : (
+              <div className="grid gap-3">
+                {renderJobs.map((job) => (
+                  <article key={job.id ?? `${job.videoProjectId}-${job.versionNumber}`} className="pib-card-section space-y-3 p-4">
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <h3 className="break-words font-semibold text-on-surface">{job.title}</h3>
+                        <p className="mt-1 text-sm text-on-surface-variant">{renderJobMeta(job)}</p>
+                      </div>
+                      <StatusPill status={job.status} />
+                    </div>
+                    {job.editBrief ? <p className="break-words text-sm text-on-surface-variant">{job.editBrief}</p> : null}
+                    {job.timeline?.length ? (
+                      <div className="grid gap-2">
+                        {job.timeline.slice(0, 3).map((scene, index) => (
+                          <div key={`${scene.label}-${index}`} className="rounded-lg border border-[var(--color-pib-line)] p-3 text-sm text-on-surface-variant">
+                            <p className="font-medium text-on-surface">{renderTimelineMeta(scene)}</p>
+                            {scene.summary ? <p className="mt-1 break-words">{scene.summary}</p> : null}
+                            {scene.editNotes ? <p className="mt-1 break-words">{scene.editNotes}</p> : null}
+                          </div>
+                        ))}
+                      </div>
+                    ) : null}
+                    <div className="grid gap-2 text-xs text-on-surface-variant sm:grid-cols-2">
+                      {renderJobGateEntries(job).map(([key, check]) => (
+                        <span key={key} className="min-w-0 break-words">
+                          {formatToken(key)}: {formatToken(check?.status ?? 'not_applicable')}
+                        </span>
+                      ))}
+                    </div>
+                    {job.output?.previewUrl ? <StatusPill status="preview_ready" /> : null}
+                    {job.clientNotes ? <p className="break-words text-sm text-on-surface-variant">{job.clientNotes}</p> : null}
                   </article>
                 ))}
               </div>
@@ -1882,6 +2076,112 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
             </button>
           </form>
 
+          <form onSubmit={createRenderJob} className="pib-card-section space-y-4 p-5">
+            <h2 className="font-headline font-bold text-on-surface">Create render job</h2>
+            <label className="block text-sm">
+              <span className="text-xs font-label uppercase tracking-widest text-on-surface-variant">Render video</span>
+              <select
+                value={form.renderVideoId}
+                onChange={(event) => selectRenderVideo(event.target.value)}
+                className="mt-1 w-full rounded-lg border border-[var(--color-outline-variant)] bg-[var(--color-surface)] px-3 py-2 text-sm"
+              >
+                <option value="">Select a video</option>
+                {videos.map((video) => (
+                  <option key={video.id ?? video.title} value={video.id ?? ''}>{video.title}</option>
+                ))}
+              </select>
+            </label>
+            <label className="block text-sm">
+              <span className="text-xs font-label uppercase tracking-widest text-on-surface-variant">Approved draft</span>
+              <select
+                value={form.renderDraftId}
+                onChange={(event) => update('renderDraftId', event.target.value)}
+                className="mt-1 w-full rounded-lg border border-[var(--color-outline-variant)] bg-[var(--color-surface)] px-3 py-2 text-sm"
+              >
+                <option value="">No approved draft attached</option>
+                {renderDrafts.map((draft) => (
+                  <option key={draft.id ?? draft.title} value={draft.id ?? ''}>{draft.title}</option>
+                ))}
+              </select>
+            </label>
+            <Field label="Render title" value={form.renderTitle} onChange={(value) => update('renderTitle', value)} required />
+            <Select
+              label="Render type"
+              value={form.renderType}
+              onChange={(value) => update('renderType', value as YouTubeRenderJobType)}
+              options={renderJobTypes}
+            />
+            <Select
+              label="Target format"
+              value={form.renderTargetFormat}
+              onChange={(value) => update('renderTargetFormat', value as YouTubeRenderTargetFormat)}
+              options={renderTargetFormats}
+            />
+            <TextArea label="Edit brief" value={form.renderEditBrief} onChange={(value) => update('renderEditBrief', value)} />
+            <label className="block text-sm">
+              <span className="text-xs font-label uppercase tracking-widest text-on-surface-variant">Render source assets</span>
+              <select
+                value={form.renderSourceAssetIds}
+                onChange={(event) => update('renderSourceAssetIds', event.target.value)}
+                className="mt-1 w-full rounded-lg border border-[var(--color-outline-variant)] bg-[var(--color-surface)] px-3 py-2 text-sm"
+              >
+                <option value="">No source asset selected</option>
+                {renderSourceAssets.map((asset) => (
+                  <option key={asset.id ?? asset.title} value={asset.id ?? ''}>{asset.title}</option>
+                ))}
+              </select>
+            </label>
+            <label className="block text-sm">
+              <span className="text-xs font-label uppercase tracking-widest text-on-surface-variant">Render clip candidates</span>
+              <select
+                value={form.renderClipCandidateIds}
+                onChange={(event) => update('renderClipCandidateIds', event.target.value)}
+                className="mt-1 w-full rounded-lg border border-[var(--color-outline-variant)] bg-[var(--color-surface)] px-3 py-2 text-sm"
+              >
+                <option value="">No clip selected</option>
+                {renderClipCandidates.map((clip) => (
+                  <option key={clip.id ?? clip.title} value={clip.id ?? ''}>{clip.title}</option>
+                ))}
+              </select>
+            </label>
+            <TextArea
+              label="Render timeline"
+              value={form.renderTimeline}
+              onChange={(value) => update('renderTimeline', value)}
+              placeholder="Label | start | end | summary | voiceover | on-screen text | edit notes"
+            />
+            <label className="flex items-center gap-2 text-sm text-on-surface-variant">
+              <input
+                type="checkbox"
+                checked={form.renderShowInPortal}
+                onChange={(event) => update('renderShowInPortal', event.target.checked)}
+                className="h-4 w-4"
+              />
+              Show render in portal
+            </label>
+            <label className="flex items-center gap-2 text-sm text-on-surface-variant">
+              <input
+                type="checkbox"
+                checked={form.renderShowTimelineInPortal}
+                onChange={(event) => update('renderShowTimelineInPortal', event.target.checked)}
+                className="h-4 w-4"
+              />
+              Show timeline in portal
+            </label>
+            <label className="flex items-center gap-2 text-sm text-on-surface-variant">
+              <input
+                type="checkbox"
+                checked={form.renderShowOutputsInPortal}
+                onChange={(event) => update('renderShowOutputsInPortal', event.target.checked)}
+                className="h-4 w-4"
+              />
+              Show outputs in portal
+            </label>
+            <button type="submit" disabled={creatingRenderJob || !form.renderVideoId || !form.renderTitle.trim()} className="pib-btn-primary w-full">
+              {creatingRenderJob ? 'Creating...' : 'Create render job'}
+            </button>
+          </form>
+
           <form onSubmit={queueAgentJob} className="pib-card-section space-y-4 p-5">
             <h2 className="font-headline font-bold text-on-surface">Queue Hermes job</h2>
             <label className="block text-sm">
@@ -2203,6 +2503,24 @@ function productionDraftGateEntries(draft: YouTubeProductionDraft) {
   return Object.entries(draft.checks ?? {}) as Array<[
     keyof YouTubeProductionDraft['checks'],
     YouTubeProductionDraft['checks'][keyof YouTubeProductionDraft['checks']],
+  ]>
+}
+
+function renderJobMeta(job: YouTubeRenderJob) {
+  return `${formatToken(job.renderType)} / ${formatToken(job.status)} / ${formatToken(job.targetFormat)}`
+}
+
+function renderTimelineMeta(scene: YouTubeRenderJob['timeline'][number]) {
+  const hasStart = typeof scene.startSeconds === 'number'
+  const hasEnd = typeof scene.endSeconds === 'number'
+  const range = hasStart && hasEnd ? `${scene.startSeconds}s-${scene.endSeconds}s` : null
+  return [scene.label, range].filter(Boolean).join(' / ')
+}
+
+function renderJobGateEntries(job: YouTubeRenderJob) {
+  return Object.entries(job.checks ?? {}) as Array<[
+    keyof YouTubeRenderJob['checks'],
+    YouTubeRenderJob['checks'][keyof YouTubeRenderJob['checks']],
   ]>
 }
 

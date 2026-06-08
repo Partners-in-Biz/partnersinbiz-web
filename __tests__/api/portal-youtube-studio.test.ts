@@ -11,6 +11,7 @@ const mockReleasePlansGet = jest.fn()
 const mockSourceAssetsGet = jest.fn()
 const mockClipCandidatesGet = jest.fn()
 const mockProductionDraftsGet = jest.fn()
+const mockRenderJobsGet = jest.fn()
 const mockAnalyticsGet = jest.fn()
 const mockAdd = jest.fn()
 const mockDoc = jest.fn()
@@ -57,6 +58,7 @@ type FirestoreStage = {
   sourceAssets?: FirestoreDoc[]
   clipCandidates?: FirestoreDoc[]
   productionDrafts?: FirestoreDoc[]
+  renderJobs?: FirestoreDoc[]
   analytics?: FirestoreDoc[]
 }
 
@@ -532,6 +534,75 @@ function defaultStage(): Required<FirestoreStage> {
         },
       },
     ],
+    renderJobs: [
+      {
+        id: 'render-1',
+        data: {
+          orgId: 'org-1',
+          channelWorkspaceId: 'channel-1',
+          videoProjectId: 'video-1',
+          productionDraftId: 'draft-1',
+          title: 'Launch final assembly',
+          renderType: 'full_video',
+          targetFormat: 'horizontal_16_9',
+          status: 'qa_review',
+          versionNumber: 1,
+          editBrief: 'Final talking-head edit with product overlay.',
+          sourceAssetIds: ['asset-1', 'asset-secret'],
+          clipCandidateIds: ['clip-1', 'clip-secret'],
+          timeline: [
+            {
+              label: 'Hook',
+              summary: 'Open with the measurable result.',
+              startSeconds: 0,
+              endSeconds: 45,
+              sourceAssetId: 'asset-1',
+              clipCandidateId: 'clip-1',
+              voiceover: 'We cut reporting time in half.',
+              onScreenText: 'Reporting time cut in half',
+              editNotes: 'Client-safe edit note.',
+              internalPrompt: 'Operator-only timeline prompt',
+            },
+          ],
+          output: {
+            previewUrl: 'https://cdn.example/preview.mp4',
+            downloadUrl: 'https://cdn.example/download.mp4',
+            storagePath: 'gs://private-bucket/render.mp4',
+            youtubeVideoId: 'youtube-secret',
+            durationSeconds: 612,
+            renderPreset: 'operator-only preset',
+          },
+          checks: {
+            sourceRights: { status: 'warning', message: 'Rights review required.', checkedBy: 'admin-secret' },
+            brand: { status: 'pass', message: 'Brand aligned.', checkedBy: 'agent-secret' },
+            captions: { status: 'warning', message: 'Captions need review.' },
+            renderQuality: { status: 'pass', message: 'Render looks stable.' },
+            clientApproval: { status: 'warning', message: 'Client review pending.' },
+          },
+          visibility: { showInClientPortal: true, showTimelineInPortal: true, showOutputsInPortal: true },
+          clientNotes: 'Client can inspect the edit assembly.',
+          internalNotes: 'Operator-only render notes',
+          executionJobId: 'secret-render-execution',
+          createdBy: 'admin-1',
+          updatedBy: 'admin-2',
+          deleted: false,
+        },
+      },
+      {
+        id: 'render-hidden',
+        data: {
+          orgId: 'org-1',
+          channelWorkspaceId: 'channel-1',
+          videoProjectId: 'video-1',
+          title: 'Hidden render job',
+          renderType: 'full_video',
+          targetFormat: 'horizontal_16_9',
+          status: 'planning',
+          visibility: { showInClientPortal: false },
+          deleted: false,
+        },
+      },
+    ],
     analytics: [
       {
         id: 'snapshot-1',
@@ -603,6 +674,7 @@ function stageFirestore(overrides: FirestoreStage = {}) {
   const sourceAssetDocs = docsById(staged.sourceAssets)
   const clipCandidateDocs = docsById(staged.clipCandidates)
   const productionDraftDocs = docsById(staged.productionDrafts)
+  const renderJobDocs = docsById(staged.renderJobs)
   const analyticsDocs = docsById(staged.analytics)
 
   mockOrgGet.mockResolvedValue({
@@ -633,6 +705,9 @@ function stageFirestore(overrides: FirestoreStage = {}) {
   mockProductionDraftsGet.mockResolvedValue({
     docs: staged.productionDrafts.map((doc) => ({ id: doc.id, data: () => doc.data })),
   })
+  mockRenderJobsGet.mockResolvedValue({
+    docs: staged.renderJobs.map((doc) => ({ id: doc.id, data: () => doc.data })),
+  })
   mockAnalyticsGet.mockResolvedValue({
     docs: staged.analytics.map((doc) => ({ id: doc.id, data: () => doc.data })),
   })
@@ -651,6 +726,7 @@ function stageFirestore(overrides: FirestoreStage = {}) {
       youtube_source_assets: { docs: sourceAssetDocs, queryGet: mockSourceAssetsGet },
       youtube_clip_candidates: { docs: clipCandidateDocs, queryGet: mockClipCandidatesGet },
       youtube_production_drafts: { docs: productionDraftDocs, queryGet: mockProductionDraftsGet },
+      youtube_render_jobs: { docs: renderJobDocs, queryGet: mockRenderJobsGet },
       youtube_analytics_snapshots: { docs: analyticsDocs, queryGet: mockAnalyticsGet },
     }
     const collection = collections[name as keyof typeof collections]
@@ -704,6 +780,7 @@ describe('portal youtube studio API', () => {
     expect(body.data.sourceAssets.map((asset: { id: string }) => asset.id)).toEqual(['asset-1'])
     expect(body.data.clipCandidates.map((clip: { id: string }) => clip.id)).toEqual(['clip-1'])
     expect(body.data.productionDrafts.map((draft: { id: string }) => draft.id)).toEqual(['draft-1'])
+    expect(body.data.renderJobs.map((job: { id: string }) => job.id)).toEqual(['render-1'])
     expect(body.data.analytics.map((snapshot: { id: string }) => snapshot.id)).toEqual(['snapshot-1'])
     const channel = body.data.channels[0]
     const series = body.data.series[0]
@@ -713,6 +790,7 @@ describe('portal youtube studio API', () => {
     const sourceAsset = body.data.sourceAssets[0]
     const clipCandidate = body.data.clipCandidates[0]
     const productionDraft = body.data.productionDrafts[0]
+    const renderJob = body.data.renderJobs[0]
     const snapshot = body.data.analytics[0]
     expect(channel).not.toHaveProperty('connectedAccountId')
     expect(channel).not.toHaveProperty('internalNotes')
@@ -923,6 +1001,54 @@ describe('portal youtube studio API', () => {
     expect(productionDraft.scenes[0]).not.toHaveProperty('clipCandidateIds')
     expect(JSON.stringify(productionDraft)).not.toContain('Operator-only')
     expect(JSON.stringify(productionDraft)).not.toContain('secret')
+    expect(renderJob).toMatchObject({
+      id: 'render-1',
+      orgId: 'org-1',
+      channelWorkspaceId: 'channel-1',
+      videoProjectId: 'video-1',
+      productionDraftId: 'draft-1',
+      title: 'Launch final assembly',
+      renderType: 'full_video',
+      targetFormat: 'horizontal_16_9',
+      status: 'qa_review',
+      versionNumber: 1,
+      editBrief: 'Final talking-head edit with product overlay.',
+      timeline: [{
+        label: 'Hook',
+        summary: 'Open with the measurable result.',
+        startSeconds: 0,
+        endSeconds: 45,
+        voiceover: 'We cut reporting time in half.',
+        onScreenText: 'Reporting time cut in half',
+        editNotes: 'Client-safe edit note.',
+      }],
+      output: {
+        previewUrl: 'https://cdn.example/preview.mp4',
+        downloadUrl: 'https://cdn.example/download.mp4',
+        durationSeconds: 612,
+      },
+      checks: {
+        sourceRights: { status: 'warning', message: 'Rights review required.' },
+        brand: { status: 'pass', message: 'Brand aligned.' },
+        captions: { status: 'warning', message: 'Captions need review.' },
+        renderQuality: { status: 'pass', message: 'Render looks stable.' },
+        clientApproval: { status: 'warning', message: 'Client review pending.' },
+      },
+      clientNotes: 'Client can inspect the edit assembly.',
+    })
+    expect(renderJob).not.toHaveProperty('sourceAssetIds')
+    expect(renderJob).not.toHaveProperty('clipCandidateIds')
+    expect(renderJob).not.toHaveProperty('internalNotes')
+    expect(renderJob).not.toHaveProperty('executionJobId')
+    expect(renderJob).not.toHaveProperty('createdBy')
+    expect(renderJob.timeline[0]).not.toHaveProperty('sourceAssetId')
+    expect(renderJob.timeline[0]).not.toHaveProperty('clipCandidateId')
+    expect(renderJob.output).not.toHaveProperty('storagePath')
+    expect(renderJob.output).not.toHaveProperty('youtubeVideoId')
+    expect(renderJob.output).not.toHaveProperty('renderPreset')
+    expect(renderJob.checks.sourceRights).not.toHaveProperty('checkedBy')
+    expect(JSON.stringify(renderJob)).not.toContain('Operator-only')
+    expect(JSON.stringify(renderJob)).not.toContain('secret')
     expect(snapshot).toMatchObject({
       id: 'snapshot-1',
       orgId: 'org-1',
@@ -1144,6 +1270,7 @@ describe('portal youtube studio API', () => {
     expect(mockSourceAssetsGet).not.toHaveBeenCalled()
     expect(mockClipCandidatesGet).not.toHaveBeenCalled()
     expect(mockProductionDraftsGet).not.toHaveBeenCalled()
+    expect(mockRenderJobsGet).not.toHaveBeenCalled()
     expect(mockAnalyticsGet).not.toHaveBeenCalled()
   })
 
