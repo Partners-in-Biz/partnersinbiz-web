@@ -7,6 +7,7 @@
 **Acceptance fixtures:** `docs/superpowers/specs/2026-06-08-book-studio-v1-acceptance-fixtures.md`
 **Portal access model:** `docs/superpowers/specs/2026-06-08-book-studio-v1-portal-access-promotion-model.md`
 **Domain record/state model:** `docs/superpowers/specs/2026-06-08-book-studio-v1-domain-record-state-model.md`
+**Operator workspace control model:** `docs/superpowers/specs/2026-06-08-book-studio-v1-operator-workspace-control-model.md`
 
 ## Purpose
 
@@ -15,6 +16,8 @@ This map gives Peet a fast way to review how Book Studio V1 fits into Partners i
 This file does not approve runtime code, database collections, APIs, routes, components, direct publishing, Hermes runtime dispatch, or a Phase 1 implementation plan.
 
 The companion domain record/state model names the conceptual records and state machines behind this workflow without choosing schema, route, or implementation order.
+
+The companion operator workspace control model explains how future admins should navigate these stages through safe commands, blockers, and PiB surface bridges without making a blank-prompt-first Book Studio.
 
 ## V1 System Posture
 
@@ -119,6 +122,7 @@ Peet should be able to review V1 through this sequence:
 - It does not choose a UI layout.
 - It does not define database fields or route names.
 - It does not map conceptual record families into Firestore collections or DTOs.
+- It does not define implemented admin commands, tabs, or components.
 - It does not define a Phase 1 task order.
 - It does not approve runtime Hermes dispatch.
 - It does not approve client self-serve generation.
