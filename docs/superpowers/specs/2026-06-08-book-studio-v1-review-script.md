@@ -1,0 +1,247 @@
+# Book Studio V1 Review Script
+
+**Date:** 2026-06-08
+**Status:** Review aid only; not an implementation plan.
+**Authoritative packet:** `docs/superpowers/specs/2026-06-08-book-studio-v1-approval-packet.md`
+**Authoritative dossier:** `docs/superpowers/specs/2026-06-07-book-studio-research-dossier.md`
+
+## Purpose
+
+This script helps Peet review the proposed Book Studio V1 decision without turning the approval packet into runtime work. It should be used before any Phase 1 implementation plan is written.
+
+The review has four possible outcomes:
+
+| Outcome | Meaning | Next step |
+| --- | --- | --- |
+| Approve as written | The approval packet is accepted as the V1 product boundary. | Write a separate Phase 1 implementation plan from the approval record and dossier. |
+| Approve with revisions | The V1 direction is accepted, but one or more approval fields must change. | Update the approval packet and affected dossier sections before planning. |
+| Reject internal-studio V1 | The proposed PiB internal production-studio posture is not the right first product. | Reopen product positioning around client-facing or public SaaS Book Studio. |
+| Request more design detail | The decision is still unclear, but runtime implementation is not approved. | Add a design-only aid, workflow diagram, mock review packet, or deeper risk note. |
+
+## 30-Minute Review Agenda
+
+### 1. Confirm The Product Posture
+
+Read the approval packet's recommended approval aloud:
+
+> Book Studio V1 is an internal PiB production studio with optional client review.
+
+Review questions:
+
+- Is Book Studio first a PiB-operated production workflow, not a public AI-book SaaS product?
+- Is client review optional and artifact-based, rather than self-serve generation?
+- Are admin, Research, Client Documents, Projects, artifacts, publishing packets, Hermes readiness, and analytics imports the correct first integration points?
+
+Pass state:
+
+- Peet can repeat the V1 posture in one sentence and it matches the approval packet.
+
+Block state:
+
+- The desired V1 is actually public self-serve generation, direct publishing automation, or a client-facing creator tool. That requires a different design pass.
+
+### 2. Confirm The First Channels
+
+Review the first channel scope:
+
+- Amazon KDP manual handoff.
+- Google Play Books manual handoff.
+
+Review questions:
+
+- Is manual upload evidence acceptable for V1, rather than direct API/store publishing?
+- Are wider channels such as Apple, Kobo, Draft2Digital, IngramSpark, ACX, Amazon Ads, and review outreach correctly deferred?
+- Does the first plan need a source refresh before implementation planning starts?
+
+Pass state:
+
+- KDP and Google manual packets are enough to prove the first publishing workflow.
+
+Warning state:
+
+- Peet wants one wider channel documented as future-compatible, but not built in Phase 1.
+
+Block state:
+
+- V1 must directly publish, store channel credentials, automate review outreach, or manage ad spend.
+
+### 3. Confirm The First Pilot Set
+
+Review the recommended first pilots:
+
+- Business nonfiction ebook.
+- Activity, workbook, puzzle, coloring, or low-content print product.
+- Series scaffolding.
+- Public-domain or companion negative-control fixture.
+
+Review questions:
+
+- Does this pilot set prove the PiB operating loop without starting with fixed-layout visual complexity?
+- Is the negative-control fixture valuable enough to keep, even though it slows the first plan?
+- Should children's/visual or audiobook work stay as fixture/later-phase scope rather than first implementation scope?
+
+Pass state:
+
+- Peet accepts the first pilot set as the basis for Phase 1 planning.
+
+Warning state:
+
+- Peet adds a tightly gated children's/visual fixture, but does not expect full visual book production in Phase 1.
+
+Block state:
+
+- Pilot selection stays vague, or the first scope jumps to audio/full visual publishing before the core workflow is proven.
+
+### 4. Confirm Portal Review Artifacts
+
+Review the first client-safe portal artifacts:
+
+- Book Brief.
+- Proof package when reviewed.
+- Publishing packet when reviewed.
+- Analytics summary when reconciled.
+
+Review questions:
+
+- Should the portal start with only Book Brief review, or should proof and publishing packets be planned from the start?
+- Is raw Hermes output explicitly blocked from the portal?
+- Are internal rights notes, upload-account details, parser errors, and unreconciled costs blocked from client visibility?
+
+Pass state:
+
+- The first portal surface exposes only reviewed artifact versions and a clear disabled-module state.
+
+Warning state:
+
+- Portal scope starts narrower with Book Brief only, but the approval record says proof, packet, and analytics artifacts are later within V1.
+
+Block state:
+
+- Clients can see raw research, raw Hermes drafts, internal rights notes, or unreconciled analytics.
+
+### 5. Confirm Hermes Scope
+
+Review the recommended Hermes posture:
+
+- Wave 1 planning and evidence skills: niche research, series strategy, brief builder, outline builder.
+- Selected Wave 2 safety/readiness docs and fixtures: generation safety, metadata, KDP readiness, Google readiness, publishing account readiness.
+- Runtime dispatch disabled until ledgers, sanitizers, fixtures, reviewer defaults, and forbidden-action tests exist.
+
+Review questions:
+
+- Are skills being approved as bounded docs, manifests, fixtures, and evaluation records before runtime dispatch?
+- Can every Hermes output become a reviewable artifact or task, rather than a final public action?
+- Does any proposed skill publish, spend, message clients, request secrets, mark client-ready, or bypass human review?
+
+Pass state:
+
+- Hermes can help prepare, check, summarize, and recommend, but cannot perform release-sensitive actions.
+
+Warning state:
+
+- Peet wants fewer Wave 2 skills in the first plan, but the readiness gaps are tracked as follow-up.
+
+Block state:
+
+- Runtime Hermes dispatch is approved before forbidden-action tests, output sanitizers, fixture reports, and reviewer defaults exist.
+
+### 6. Confirm Publishing Packet And Account Governance
+
+Review the manual publishing packet model:
+
+- Files, metadata, pricing, territories, ISBN/imprint, AI disclosure, source freshness, rights evidence, account authority, manual upload instructions, external status, and upload evidence.
+
+Review questions:
+
+- Does every upload-ready claim need current packet evidence?
+- Is account ownership, account used, and authority to publish tracked without storing sensitive credentials?
+- Are AI-generated versus AI-assisted disclosures derived from provenance records, not a project-level guess?
+
+Pass state:
+
+- A human can manually upload from the packet without guessing and without PiB holding sensitive channel secrets.
+
+Warning state:
+
+- A packet is internally reviewable but one channel-specific warning needs an owner, due date, or waiver path.
+
+Block state:
+
+- The packet is marked upload-ready while files, pricing, rights, account readiness, disclosure, or source freshness are missing.
+
+### 7. Confirm Analytics And Reporting Trust
+
+Review the analytics posture:
+
+- Manual import ledger.
+- Source confidence labels.
+- Estimated, reported, settled, ad-attributed, refund, adjustment, and unmatched row separation.
+- Reconciliation tasks before client-safe summaries.
+
+Review questions:
+
+- Does the dashboard avoid merging early estimates with settled revenue?
+- Can every client-facing metric answer: what source, what period, what timezone, what confidence?
+- Are KDP and Google timing differences, refunds, missing values, and payment-period differences visible as confidence or reconciliation state?
+
+Pass state:
+
+- Analytics can inform decisions without pretending early or partial data is final revenue.
+
+Warning state:
+
+- Some imports are useful but partial, and the dashboard labels them as partial.
+
+Block state:
+
+- Screenshots, raw imports, estimates, or unsettled reports are presented as guaranteed revenue.
+
+## First Implementation Demo Evidence Peet Should Ask For Later
+
+This section is a future demo checklist, not a build plan. It defines what evidence a later Phase 1 implementation demo should show if the approval record is accepted.
+
+| Demo case | Must prove | Should not prove |
+| --- | --- | --- |
+| Business nonfiction or activity project | A reviewed Book Brief and packet-ready state without direct publishing. | That AI can generate a polished book from a blank prompt. |
+| Series scaffold | Volume order, continuity notes, shared metadata, and rollup analytics shape. | That every future series volume is already viable. |
+| Public-domain or companion negative control | Unsafe production is blocked with a clear rights/evidence explanation. | That the module can work around weak rights evidence. |
+| Hermes recommendation | A skill creates a reviewable artifact or task. | That Hermes can publish, approve, spend, message clients, or access secrets. |
+| Analytics import | Source/confidence labels and reconciliation state are visible. | That partial reports equal settled revenue. |
+
+## Exact Approval Response
+
+Peet can approve with this text:
+
+> Approve Book Studio V1 as an internal PiB production studio with optional client review. Use KDP and Google Play Books manual-handoff as the first channel focus. Start with business nonfiction, activity or low-content print, series scaffolding, and a public-domain or companion negative-control fixture. Build admin-first records, gate profiles, Research/Client Document/Project/artifact bridges, publishing packet tracking, controlled Hermes skill readiness, and manual analytics imports. Keep self-serve generation, public SaaS, direct publishing, account-secret custody, autonomous ads, automated review outreach, full layout tooling, and automated report integrations out of V1.
+
+## Exact Revision Response
+
+Peet can request revisions with this structure:
+
+```yaml
+bookStudioV1ApprovalRevision:
+  firstPilotSet:
+    add: []
+    remove: []
+  firstPortalReviewArtifacts:
+    startWith: []
+  hermesFirstScope:
+    choose: wave1_only | wave1_plus_selected_wave2_docs_and_fixtures | broader_docs_only_no_runtime
+  ownershipModel:
+    choose: pib_owned_only | shared_pib_and_client_owned
+  firstChannels:
+    add: []
+    remove: []
+  acceptedDeferrals:
+    add: []
+    remove: []
+```
+
+## Devil's Advocate
+
+- If the review approves only the exciting generation parts, Book Studio will become a risky content generator rather than a production system.
+- If the review approves every possible book type and channel, Phase 1 will become channel research, file packaging, account governance, and rights complexity before proving the PiB workflow.
+- If the negative-control fixture is removed, the first implementation can pass only the happy path and still fail at the first attractive unsafe idea.
+- If portal review is treated as "show clients everything", PiB will leak uncertainty, rights risk, and raw agent output.
+- If analytics is approved as a single revenue chart, clients will be trained to trust numbers before refunds, timing lags, payment reports, and reconciliation are understood.
+- If Hermes runtime dispatch is approved too early, the module can create polished unsafe output faster than reviewers can catch it.
