@@ -2,6 +2,7 @@
 
 **Date:** 2026-06-08
 **Status:** Design/research coverage audit only; not an implementation plan.
+**Decision index:** `docs/superpowers/specs/2026-06-08-book-studio-v1-decision-index.md`
 **Authoritative dossier:** `docs/superpowers/specs/2026-06-07-book-studio-research-dossier.md`
 **Decision packet:** `docs/superpowers/specs/2026-06-08-book-studio-v1-approval-packet.md`
 **Review aid:** `docs/superpowers/specs/2026-06-08-book-studio-v1-review-script.md`
@@ -43,6 +44,7 @@ Covered now:
 - Policy/source freshness contract for KDP, Google Play Books, channel reports, account authority, Hermes source behavior, and `ai-story` as design evidence only.
 - Ownership, account authority, commercial decision states, revenue/cost separation, client approval artifacts, upload-readiness blockers, and Hermes commercial boundaries.
 - A concrete mock review packet showing admin state, client-safe portal state, Hermes recommendations, KDP/Google packet separation, series state, negative-control blocking, analytics confidence, and version invalidation.
+- A decision index that tells Peet which docs to read, what is authoritative, what is evidence-only, and which exact approval or revision response unlocks only future planning.
 - A Hermes skill evaluation packet defining per-skill input contracts, pass/warn/block cases, forbidden-action regressions, sanitizer expectations, stale-source behavior, and fixture IDs for the recommended first skill package.
 - A portal access and promotion model defining the future module switch default, disabled state, safe DTO shape, artifact promotion states, client permissions, invalidation rules, and org isolation requirements.
 - A domain record/state model defining conceptual record families, relationships, lifecycle states, packet states, analytics states, core invariants, invalidation triggers, and future test obligations without choosing schema or implementation order.

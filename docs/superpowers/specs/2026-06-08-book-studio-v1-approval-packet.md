@@ -2,6 +2,7 @@
 
 **Date:** 2026-06-08
 **Status:** Approval packet only; not an implementation plan.
+**Decision index:** `docs/superpowers/specs/2026-06-08-book-studio-v1-decision-index.md`
 **Authoritative dossier:** `docs/superpowers/specs/2026-06-07-book-studio-research-dossier.md` at commit `d7ff96d1`.
 **Decision bundle content baseline:** `ddee2021 docs(book-studio): add local publisher obligations model`.
 **Coverage audit:** `docs/superpowers/specs/2026-06-08-book-studio-objective-coverage-audit.md`

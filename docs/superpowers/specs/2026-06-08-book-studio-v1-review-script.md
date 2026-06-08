@@ -2,6 +2,7 @@
 
 **Date:** 2026-06-08
 **Status:** Review aid only; not an implementation plan.
+**Decision index:** `docs/superpowers/specs/2026-06-08-book-studio-v1-decision-index.md`
 **Authoritative packet:** `docs/superpowers/specs/2026-06-08-book-studio-v1-approval-packet.md`
 **Authoritative dossier:** `docs/superpowers/specs/2026-06-07-book-studio-research-dossier.md`
 **Coverage audit:** `docs/superpowers/specs/2026-06-08-book-studio-objective-coverage-audit.md`
@@ -26,7 +27,7 @@ The review has four possible outcomes:
 
 ## 30-Minute Review Agenda
 
-Before the agenda, open the approval packet, coverage audit, mock review packet, package QA aid, and jurisdiction/local publisher aid. The approval packet answers "what would we approve?" The coverage audit answers "which original objective requirements are covered?" The mock packet answers "what would this feel like in PiB?" The package QA aid answers "what would make a book package safe enough for proof, portal review, or manual handoff?" The jurisdiction/local publisher aid answers "what local publisher evidence must stay separate from KDP/Google readiness?"
+Before the agenda, open the decision index, approval packet, coverage audit, mock review packet, package QA aid, and jurisdiction/local publisher aid. The decision index answers "what should I read and what decision is needed?" The approval packet answers "what would we approve?" The coverage audit answers "which original objective requirements are covered?" The mock packet answers "what would this feel like in PiB?" The package QA aid answers "what would make a book package safe enough for proof, portal review, or manual handoff?" The jurisdiction/local publisher aid answers "what local publisher evidence must stay separate from KDP/Google readiness?"
 
 ### 1. Confirm The Product Posture
 
