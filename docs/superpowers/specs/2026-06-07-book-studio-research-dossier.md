@@ -4099,6 +4099,33 @@ This audit checks the dossier against the original request before any implementa
 
 Conclusion: the design dossier is approval-ready for the V1 product decision. It is not implementation-ready until Peet explicitly chooses the V1 position, source links are rechecked at plan start, and the Phase 1 implementation plan is written from this dossier rather than from memory.
 
+### V1 Decision Review Packet
+
+This packet is the short decision form Peet can approve, reject, or revise before implementation planning. It turns the dossier into a product decision, not a build order.
+
+| Decision item | Recommended answer | Why this is the safest V1 | If Peet rejects it |
+| --- | --- | --- | --- |
+| Product posture | Internal PiB production studio with optional client review. | Keeps PiB operators accountable for source quality, rights, files, pricing, publishing accounts, and client communication while still using Hermes to speed evidence and production work. | Client-facing or public SaaS requires a separate risk pass for self-serve generation, account ownership, abuse prevention, billing, and support load. |
+| Initial channels | KDP and Google Play Books manual-handoff readiness. | These are the channels from the original request and have enough policy, file, account, and reporting complexity to prove the operating model. | A wider-channel V1 needs adapter-specific account, file, report, payment, territory, and distribution-conflict research before planning. |
+| Initial build surface | Admin org-scoped Book Studio first; portal only for approved review packets. | Admin-first matches PiB's operating model and avoids exposing raw research, internal risk notes, or unapproved generated output. | A portal-first V1 needs a stricter client-visible scope and should not include generation, publishing, account, or analytics-import controls. |
+| Initial book families | Support narrative, nonfiction, children's/visual, activity/workbook, low-content, public-domain/companion, and audiobook through gate profiles. | Gate profiles let PiB choose the right risk path before promising every format can be generated, illustrated, narrated, or exported perfectly. | Narrow to two or three families if Peet wants the first implementation plan to ship faster. |
+| Hermes posture | Build skill docs, manifests, fixtures, and evaluation records before runtime dispatch. | Agents can help with research, briefs, outlines, metadata, readiness, production, and analytics only when outputs are bounded, source-linked, and reviewable. | Runtime skill dispatch without this gate should remain out of scope for V1. |
+| Publishing posture | Prepare and track external upload packets; do not directly publish. | Store submission, pricing, account authority, and review risk remain human-controlled external acts. | Direct publishing needs a separate sanctioned API, account-authority, audit, rollback, and liability design. |
+| Analytics posture | Manual import ledger and confidence-labeled dashboards before automation. | KDP and Google data can lag, disagree, refund, and settle differently; early automation can mislead clients. | Automated report integrations should wait until the import ledger proves the mapping and reconciliation model. |
+
+Approval text Peet can use:
+
+> Approve Book Studio V1 as an internal PiB production studio with optional client review. Start implementation planning for admin-first KDP/Google manual-handoff workflows, book-family gate profiles, Research/Client Document/Project/artifact bridges, controlled Hermes skill readiness, publishing packet tracking, and manual analytics imports. Do not include self-serve client generation, public SaaS, direct store publishing, autonomous ad spend, automated review outreach, or secret/account custody in V1.
+
+This approval would unlock a separate Phase 1 implementation plan. It would not approve runtime code yet; the implementation plan still needs to decompose the foundation into small vertical slices, define test coverage, and recheck source links at plan start.
+
+Questions to answer before writing the implementation plan:
+
+1. Should V1 start with all listed gate-profile families, or should the first implementation plan narrow to narrative/nonfiction, children's/visual, and low-content/activity books?
+2. Which client review artifacts should appear first in the portal: Book Brief, proof package, publishing packet, or analytics summary?
+3. Should the first Hermes-ready skills be limited to research/brief/outline/readiness, or should Wave 2 safety checks be drafted in the same first implementation slice?
+4. Should PiB-owned books and client-owned books share one workflow with an ownership flag, or should client-owned publishing account governance be mandatory for every client project?
+
 ## Open Product Decision
 
 The next design step depends on one product decision:
