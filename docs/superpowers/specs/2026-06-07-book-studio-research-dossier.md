@@ -4356,6 +4356,48 @@ Devil's advocate:
 - If portal review appears too early, clients will see uncertainty that PiB has not yet interpreted. If it appears too late, clients will feel excluded. The right rule is artifact promotion by reviewed packet version.
 - If analytics appears without reconciliation labels, the module will train clients to trust numbers that may later change through refunds, reporting delays, or settlement differences.
 
+### V1 Evidence Acceptance Matrix
+
+This matrix turns the journey above into evidence rules for Peet's review. It is not a Phase 1 implementation plan. Its job is to prevent future planning, demos, or operator workflows from confusing a good-looking screen with a defensible book-production state.
+
+Use the matrix in three places:
+
+- **During approval:** Peet can see what the proposed V1 would require before it is allowed to look "ready".
+- **During planning:** every future Phase 1 task should support at least one evidence row below or be marked later-phase.
+- **During demos/reviews:** a demo should show at least one pass, one warning, and one block so the system proves restraint, not only progress.
+
+| Workflow area | Pass evidence | Warning evidence | Block evidence | Reviewer question |
+| --- | --- | --- | --- | --- |
+| V1 approval record | Product posture, first channels, pilot set, portal artifacts, Hermes scope, ownership model, analytics scope, and deferrals are explicitly approved. | Approval is broad but one dependent choice is ambiguous; the affected surface is held out of the first plan. | "Start building" is requested without a posture, pilot set, or channel scope. | What exact decision authorizes this work? |
+| Module entitlement and portal surface | Book Studio is controlled by a future `settings.portalModules.bookStudio` switch, with missing setting defaulting visible only after approval. | Admin surface can exist while portal review remains hidden. | Portal exposes Book Studio before client-safe artifacts and disabled-module behavior exist. | Can a disabled client org see or call anything risky? |
+| Intake and gate profile | Book family, format, channel, ownership, series posture, client involvement, and mandatory gates are derived before drafting starts. | Optional add-on gates or waivers are pending but do not affect the first artifact. | A draft, cover, packet, or Hermes task starts from a blank prompt without a derived gate profile. | Which book-type rules are active and why? |
+| Research packet | Linked Research item has source lanes, findings, recommendations, confidence labels, unresolved facts, and internal visibility by default. | Some non-blocking market or pricing assumptions need stronger sources before launch approval. | Findings are missing source IDs, disputed, outdated, internal-only, or legally sensitive while a brief is being promoted. | What current evidence supports the book promise? |
+| Book Brief | Brief states audience, promise, scope, assumptions, outline direction, channels, client decisions, and success criteria; unsafe notes are removed before portal review. | Brief is internally useful but needs client wording or source tightening before approval request. | Brief asks a client to approve unsupported claims, raw Hermes output, unresolved rights risk, or internal strategy notes. | What exactly is the client approving? |
+| Hermes skill readiness | Skill has manifest entry, owner, allowed agents, expected artifacts, source-key contract, fixtures, reviewer defaults, and forbidden-action tests. | Skill docs exist but runtime dispatch is disabled while fixtures or sanitizer paths mature. | Skill can publish, spend, message clients, request secrets, mark client-ready, or bypass reviewer gates. | What can this skill never do? |
+| Generation and provenance | Generation run has idempotency key, approved sources, prompt spec, model/provider policy, cost budget, AI-use classification, output artifacts, and reviewer state. | Assisted-only work is documented but one disclosure or cost field needs review before packet use. | Output can overwrite approved versions, become client-visible, or answer KDP/Google AI disclosure without immutable provenance. | Could we prove how this artifact was made? |
+| Manuscript, proof, and package versioning | Manuscript units, proof snapshots, package manifests, checksums, editorial/claim/accessibility/link checks, and reviewer decisions bind approval to a version. | A package is internally reviewable but not yet approved for client review or manual upload. | Any file changes after approval without invalidating proof, packet, checksum, or client approval state. | Is this approval for this exact version? |
+| Assets and rights | Images, cover, fonts, audio, quotes, public-domain claims, contributor roles, territories, and AI image status have reviewed provenance evidence. | Visual/audio fixture is allowed for learning but blocked from production promises. | Unknown rights, public-domain ambiguity, companion/trademark risk, or AI asset uncertainty is hidden behind a polished proof. | What right do we have to use every asset? |
+| KDP and Google publishing packet | Channel packet has current source freshness, metadata/content fit, files, pricing, territories, ISBN/imprint/account evidence, AI disclosure, blockers, and manual upload instructions. | Packet is ready for internal review but one channel-specific warning has owner/date/waiver path. | Packet is marked upload-ready while files, account readiness, pricing, disclosure, rights, or source freshness are missing or stale. | Could an operator upload manually without guessing? |
+| Manual upload and external status | Human operator records upload evidence, external IDs, package checksum references, review state, live links, revision requests, and account used. | Store review is delayed or revision-requested, but state is tracked as channel status. | PiB claims a book is live, accepted, ranked, or earning without external evidence. | What happened outside PiB and where is the proof? |
+| Launch, reviews, and promotion | Launch activity, review-compliance records, budgets, attribution, price/promo decisions, and public copy are approval-gated. | Promotion idea exists but waits for compliance, budget, and client/internal approval. | Automated review outreach, paid activity, public sends, price changes, or ads proceed without explicit approval. | Is this launch action allowed and compliant? |
+| Analytics and reconciliation | Imports are source-labeled; estimated, reported, settled, ad-attributed, manual adjustments, unmatched rows, and client-safe summaries remain separated. | Early reports are useful but partial; the summary carries confidence and settlement caveats. | Dashboard merges estimates with settled revenue, hides refunds/unmatched rows, or presents screenshots/imports as guaranteed earnings. | What number is this, from which source, and how confident are we? |
+| Client portal promotion | Only reviewed briefs, proofs, publishing packets, live status, safe blockers, and reconciled analytics summaries are promoted by artifact version. | A client-visible artifact is safe but missing one optional context note. | Portal exposes raw research, raw Hermes output, internal rights notes, upload-account details, parser errors, or unreconciled internal costs. | What is safe for the client to see now? |
+
+Minimum first-demo evidence set:
+
+- One business nonfiction or activity/low-content project that reaches a reviewed Book Brief and packet-ready state without direct publishing.
+- One series scaffold that proves volume order, continuity notes, and rollup analytics shape without pretending later books are already viable.
+- One public-domain/companion negative-control fixture that blocks production and explains the evidence gap safely.
+- One Hermes skill recommendation that creates a reviewable artifact or task but cannot publish, approve, spend, message clients, or access secrets.
+- One analytics import snapshot that stays confidence-labeled and unreconciled until matching evidence exists.
+
+Devil's advocate:
+
+- If the matrix is treated as a checklist only, reviewers may tick boxes instead of evaluating evidence quality. Every pass should have an evidence link or artifact version.
+- If warnings never expire, they become hidden blockers. Warnings need owner, due date, and waiver path.
+- If a demo skips blocked states, it will prove only that the happy path is attractive. Book Studio must prove that it can stop unsafe work.
+- If every row must pass before any work starts, the module will feel unusable. The right rule is staged evidence: pass the row that gates the next public/client/release-sensitive action.
+
 ### Copyable V1 Approval Record
 
 This is the smallest explicit decision record that can unlock a separate Phase 1 implementation plan. It should be copied, edited if needed, and approved by Peet before any runtime Book Studio work starts.
