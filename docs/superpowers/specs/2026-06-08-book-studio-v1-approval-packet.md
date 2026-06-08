@@ -26,7 +26,7 @@ The first version should focus on:
 - Activity/workbook or low-content print products.
 - Series scaffolding.
 - A public-domain or companion negative-control fixture that proves the module can block unsafe projects.
-- Admin-first records, gate profiles, Research/Client Document/Project/artifact bridges, publishing packet tracking, controlled Hermes skill readiness, and manual analytics imports.
+- Admin-first records, gate profiles, Research/Client Document/Project/artifact bridges, publishing packet tracking, controlled Hermes skill readiness, package QA evidence, and manual analytics imports.
 
 It should not include:
 
@@ -85,6 +85,10 @@ bookStudioV1Approval:
     - source_confidence_labels
     - estimated_reported_settled_separation
     - reconciliation_tasks
+  productionReadinessScope:
+    - package_qa_evidence
+    - checksum_bound_package_readiness
+    - format_rights_accessibility_and_source_preflight
   acceptedDeferrals:
     - no_client_self_serve_generation
     - no_public_saas_surface
