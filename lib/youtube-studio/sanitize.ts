@@ -131,7 +131,9 @@ export type ClientSafeYouTubeSeries = {
 
 type ClientSafeSeriesSection = ClientSafeYouTubeSeries['episodeTemplate']['sections'][number]
 
-export type ClientSafeYouTubeGateCheck = Pick<YouTubeGateCheck, 'status' | 'message'>
+export type ClientSafeYouTubeGateCheck = Pick<YouTubeGateCheck, 'status'> & {
+  message?: string
+}
 
 export type ClientSafeYouTubePublishingPacket = Pick<
   YouTubePublishingPacket,
