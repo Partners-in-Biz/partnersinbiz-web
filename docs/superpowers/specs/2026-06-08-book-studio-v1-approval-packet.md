@@ -4,6 +4,7 @@
 **Status:** Approval packet only; not an implementation plan.
 **Decision index:** `docs/superpowers/specs/2026-06-08-book-studio-v1-decision-index.md`
 **Review scorecard:** `docs/superpowers/specs/2026-06-08-book-studio-v1-approval-review-scorecard.md`
+**Pilot product decision register:** `docs/superpowers/specs/2026-06-08-book-studio-v1-pilot-product-decision-register.md`
 **Authoritative dossier:** `docs/superpowers/specs/2026-06-07-book-studio-research-dossier.md` at commit `d7ff96d1`.
 **Decision bundle content baseline:** `ddee2021 docs(book-studio): add local publisher obligations model`.
 **Coverage audit:** `docs/superpowers/specs/2026-06-08-book-studio-objective-coverage-audit.md`
@@ -18,6 +19,8 @@
 This packet gives Peet a short decision surface for Book Studio V1. The full dossier covers research, channel constraints, book types, series, Hermes skills, publishing operations, analytics, risk, and PiB integration. This packet captures only the decision needed before a Phase 1 implementation plan can be written.
 
 Use the review scorecard when the packet feels directionally right but a pass/warn/block decision is needed for product posture, channels, pilot set, Hermes scope, publishing governance, portal exposure, analytics trust, or devil's-advocate coverage.
+
+Use the pilot product decision register when the open question is which first book archetypes should prove the module before any production project is selected.
 
 The dossier commit shows where the primary research was last changed. The decision bundle content baseline shows the review-ready set of companion packets that shape the boundary: portal access, domain state, operator workspace, source refresh, book-family gates, ownership/commercial governance, jurisdiction/local publisher evidence, `ai-story` non-port rules, wider channels, Hermes evaluation, and production package QA. Metadata-only handoff edits after that baseline do not change the product boundary, but a future Phase 1 plan must still quote the current `development` commit at planning time and list any content revisions after this baseline.
 
@@ -59,6 +62,7 @@ bookStudioV1Approval:
     - activity_or_low_content_print_product
     - series_scaffolding
     - public_domain_or_companion_negative_control_fixture
+  pilotDecisionRegister: docs/superpowers/specs/2026-06-08-book-studio-v1-pilot-product-decision-register.md
   firstBookTypeGateProfiles:
     - narrative_reflowable
     - nonfiction_business_how_to

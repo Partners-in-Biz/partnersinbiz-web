@@ -6,6 +6,7 @@
 **Decision index:** `docs/superpowers/specs/2026-06-08-book-studio-v1-decision-index.md`
 **Coverage audit:** `docs/superpowers/specs/2026-06-08-book-studio-objective-coverage-audit.md`
 **Review script:** `docs/superpowers/specs/2026-06-08-book-studio-v1-review-script.md`
+**Pilot product decision register:** `docs/superpowers/specs/2026-06-08-book-studio-v1-pilot-product-decision-register.md`
 
 ## Purpose
 
@@ -36,7 +37,7 @@ Overall decision rule:
 | --- | --- | --- | --- | --- |
 | Product posture | V1 is an internal PiB production studio with optional client review. | Peet wants more portal visibility but still accepts admin-operated production. | Peet wants public AI-book SaaS, client self-serve generation, or a creator tool as V1. | Approval packet, review script, objective coverage audit. |
 | First channel boundary | KDP and Google Play Books manual handoff are enough for first proof. | One wider channel must stay future-compatible but not built first. | Direct publishing, credential custody, automated review outreach, Amazon Ads, or wider-channel automation is required for V1. | Publishing and analytics model, source refresh contract, wider-channel adapter packet. |
-| First pilot set | Business nonfiction, activity or low-content print, series scaffolding, and a rights-first negative control are accepted. | A children's or visual fixture is added as a gated fixture only. | Pilot set is vague, visual/audio-first, or removes blocker proof without accepting weaker safety evidence. | Book-family gate catalog, acceptance fixtures, mock review packet. |
+| First pilot set | Business nonfiction, activity or low-content print, series scaffolding, and a rights-first negative control are accepted. | A children's or visual fixture is added as a gated fixture only. | Pilot set is vague, visual/audio-first, or removes blocker proof without accepting weaker safety evidence. | Pilot product decision register, book-family gate catalog, acceptance fixtures, mock review packet. |
 | Book-family gate coverage | Every important book family has a gate profile, fixture posture, or explicit deferral. | A family needs stronger future compatibility notes before planning. | A family is treated as supported without rights, format, accessibility, analytics, and channel evidence. | Book-family gate catalog, approval packet, coverage audit. |
 | Series governance | Volume order, continuity, shared metadata, release state, and rollup analytics are part of the V1 design boundary. | Series is accepted but not first demo evidence. | Series support means only naming several unrelated books as a series. | Research dossier, acceptance fixtures, domain record/state model. |
 | Hermes scope | Hermes produces bounded artifacts, checks, and recommendations; runtime dispatch stays gated. | Peet wants Wave 1 only or selected Wave 2 docs only. | Hermes can publish, approve, spend, message clients, request secrets, mark client-ready, or bypass review. | Hermes skill blueprint, Hermes skill evaluation packet, review script. |
