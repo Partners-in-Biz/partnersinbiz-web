@@ -238,4 +238,3 @@ describe('Google Workspace broker executor', () => {
     expect(drive.files.delete).toHaveBeenCalledWith({ fileId: 'folder-1' })
   })
 })
-
