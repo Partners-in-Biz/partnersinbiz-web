@@ -24,6 +24,31 @@ function workspaceBrokerRequestFingerprint(input: { orgId: string; operation: Wo
   return createHash('sha256').update(JSON.stringify(stableNormalize(input))).digest('hex')
 }
 
+function workspaceBrokerIdempotencyDocId(orgId: string, idempotencyKey: string): string {
+  return `idem_${createHash('sha256').update(`${orgId}\0${idempotencyKey}`).digest('hex')}`
+}
+
+function isAlreadyExistsError(error: unknown): boolean {
+  if (!error || typeof error !== 'object') return false
+  const record = error as Record<string, unknown>
+  return record.code === 6 || record.code === 'already-exists' || record.code === 'ALREADY_EXISTS'
+}
+
+function brokerReplayResponse(id: string, existingJob: Record<string, unknown>, operation: WorkspaceBrokerOperation, requestFingerprint: string | null) {
+  if (existingJob.operation !== operation || typeof existingJob.requestFingerprint !== 'string' || existingJob.requestFingerprint !== requestFingerprint) {
+    return apiError('Idempotency key was already used for a different Workspace broker request', 409)
+  }
+  const output = existingJob.output && typeof existingJob.output === 'object' && !Array.isArray(existingJob.output) ? existingJob.output as Record<string, unknown> : {}
+  return apiSuccess({
+    id,
+    approvalRequired: existingJob.approvalRequired === true,
+    requiredCapability: existingJob.requiredCapability,
+    riskLevel: existingJob.riskLevel,
+    status: existingJob.status,
+    googleMutationPerformed: output.googleMutationPerformed === true,
+  }, 200)
+}
+
 export async function createBrokerJob(req: NextRequest, user: ApiUser, operation: WorkspaceBrokerOperation, extraInput: Record<string, unknown> = {}) {
   const body = (await req.json().catch(() => ({}))) as Record<string, unknown>
   const resolved = resolveOrgId(req, user, body)
@@ -44,19 +69,7 @@ export async function createBrokerJob(req: NextRequest, user: ApiUser, operation
         .get()
       const existingDoc = existing?.docs?.[0]
       if (existingDoc) {
-        const existingJob = existingDoc.data() as Record<string, unknown>
-        if (existingJob.operation !== operation || (typeof existingJob.requestFingerprint === 'string' && existingJob.requestFingerprint !== requestFingerprint)) {
-          return apiError('Idempotency key was already used for a different Workspace broker request', 409)
-        }
-        const output = existingJob.output && typeof existingJob.output === 'object' && !Array.isArray(existingJob.output) ? existingJob.output as Record<string, unknown> : {}
-        return apiSuccess({
-          id: existingDoc.id,
-          approvalRequired: existingJob.approvalRequired === true,
-          requiredCapability: existingJob.requiredCapability,
-          riskLevel: existingJob.riskLevel,
-          status: existingJob.status,
-          googleMutationPerformed: output.googleMutationPerformed === true,
-        }, 200)
+        return brokerReplayResponse(existingDoc.id, existingDoc.data() as Record<string, unknown>, operation, requestFingerprint)
       }
     } catch {
       return apiError('Could not enforce Workspace broker idempotency', 500)
@@ -88,17 +101,22 @@ export async function createBrokerJob(req: NextRequest, user: ApiUser, operation
   } catch (error) {
     return apiError(error instanceof Error ? error.message : 'Workspace broker creation gate failed', brokerGateStatus(error))
   }
-  const jobRef = adminDb.collection(WORKSPACE_BROKER_JOB_COLLECTION).doc()
-  const eventRef = adminDb.collection(WORKSPACE_ARTIFACT_EVENT_COLLECTION).doc()
+  const idempotencyDocId = idempotencyKey ? workspaceBrokerIdempotencyDocId(orgId, idempotencyKey) : null
+  const jobRef = idempotencyDocId
+    ? adminDb.collection(WORKSPACE_BROKER_JOB_COLLECTION).doc(idempotencyDocId)
+    : adminDb.collection(WORKSPACE_BROKER_JOB_COLLECTION).doc()
+  const eventRef = idempotencyDocId
+    ? adminDb.collection(WORKSPACE_ARTIFACT_EVENT_COLLECTION).doc(`${idempotencyDocId}_broker_job_queued`)
+    : adminDb.collection(WORKSPACE_ARTIFACT_EVENT_COLLECTION).doc()
   const batch = adminDb.batch()
-  batch.set(jobRef, {
+  const jobData = {
     ...job,
     ...actorFrom(user),
     output: { googleMutationPerformed: false, resultArtifactIds: [], resultArtifactUrls: [] },
     createdAt: FieldValue.serverTimestamp(),
     updatedAt: FieldValue.serverTimestamp(),
-  })
-  batch.set(eventRef, {
+  }
+  const eventData = {
     orgId,
     brokerJobId: jobRef.id,
     operation,
@@ -115,10 +133,24 @@ export async function createBrokerJob(req: NextRequest, user: ApiUser, operation
       googleMutationPerformed: false,
     },
     createdAt: FieldValue.serverTimestamp(),
-  })
+  }
+  if (idempotencyKey) {
+    batch.create(jobRef, jobData)
+    batch.create(eventRef, eventData)
+  } else {
+    batch.set(jobRef, jobData)
+    batch.set(eventRef, eventData)
+  }
   try {
     await batch.commit()
-  } catch {
+  } catch (error) {
+    if (idempotencyKey && isAlreadyExistsError(error)) {
+      const existing = await jobRef.get().catch(() => null)
+      if (existing?.exists) {
+        return brokerReplayResponse(existing.id, existing.data() as Record<string, unknown>, operation, requestFingerprint)
+      }
+      return apiError('Could not enforce Workspace broker idempotency', 500)
+    }
     return apiError('Could not persist Workspace broker audit event', 500)
   }
   logActivity({ orgId, type: 'workspace_broker_job_created', actorId: user.uid, actorName: user.uid, actorRole: actorRole(user), description: `Queued Workspace broker job: ${operation}`, entityId: jobRef.id, entityType: 'workspace_broker_job', entityTitle: operation }).catch(() => {})

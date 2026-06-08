@@ -1,4 +1,5 @@
 import { NextRequest } from 'next/server'
+import { createHash } from 'node:crypto'
 
 type MockUser = { uid: string; role: 'admin' | 'client' | 'ai'; orgId?: string; orgIds?: string[]; agentId?: string; authKind?: 'session' | 'legacy_ai_key' | 'agent_api_key'; allowedOrgIds?: string[] }
 type MockHandler = (req: NextRequest, user: MockUser, ctx?: unknown) => Promise<Response>
@@ -15,9 +16,26 @@ const mockGetDoc = jest.fn()
 const mockCollection = jest.fn()
 const mockBatch = jest.fn()
 const mockBatchSet = jest.fn()
+const mockBatchCreate = jest.fn()
 const mockBatchCommit = jest.fn()
 const mockServerTimestamp = jest.fn(() => 'SERVER_TIMESTAMP')
 let generatedDocIds: string[] = []
+
+function stableNormalizeForTest(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(stableNormalizeForTest)
+  if (value && typeof value === 'object') {
+    return Object.fromEntries(Object.entries(value as Record<string, unknown>).sort(([a], [b]) => a.localeCompare(b)).map(([key, entry]) => [key, stableNormalizeForTest(entry)]))
+  }
+  return value
+}
+
+function brokerFingerprintForTest(input: { orgId: string; operation: string; payload: Record<string, unknown> }): string {
+  return createHash('sha256').update(JSON.stringify(stableNormalizeForTest(input))).digest('hex')
+}
+
+function brokerIdempotencyDocIdForTest(orgId: string, idempotencyKey: string): string {
+  return `idem_${createHash('sha256').update(`${orgId}\0${idempotencyKey}`).digest('hex')}`
+}
 
 jest.mock('@/lib/firebase/admin', () => ({ adminDb: { collection: mockCollection, batch: mockBatch } }))
 jest.mock('@/lib/api/auth', () => ({
@@ -40,7 +58,7 @@ beforeEach(() => {
   const query = { where: mockWhere, limit: jest.fn(() => query), get: mockGet }
   mockWhere.mockReturnValue(query)
   mockGetDoc.mockReset()
-  mockBatch.mockReturnValue({ set: mockBatchSet, commit: mockBatchCommit })
+  mockBatch.mockReturnValue({ set: mockBatchSet, create: mockBatchCreate, commit: mockBatchCommit })
   mockBatchCommit.mockResolvedValue(undefined)
   mockDoc.mockImplementation((id?: string) => ({ id: id ?? generatedDocIds.shift() ?? 'generated-doc', get: mockGetDoc, update: mockUpdate, set: mockSet, delete: mockDelete }))
   mockCollection.mockImplementation((name: string) => {
@@ -174,11 +192,12 @@ describe('workspace broker API routes', () => {
     }))
     const body = await res.json()
 
+    const expectedJobId = brokerIdempotencyDocIdForTest('org-1', 'idem-1')
     expect(res.status).toBe(202)
-    expect(body.data).toMatchObject({ id: 'job-1', approvalRequired: true, googleMutationPerformed: false })
+    expect(body.data).toMatchObject({ id: expectedJobId, approvalRequired: true, googleMutationPerformed: false })
     expect(mockCollection).not.toHaveBeenCalledWith('googleapis')
     expect(mockAdd).not.toHaveBeenCalled()
-    expect(mockBatchSet).toHaveBeenCalledWith(expect.objectContaining({ id: 'job-1' }), expect.objectContaining({
+    expect(mockBatchCreate).toHaveBeenCalledWith(expect.objectContaining({ id: expectedJobId }), expect.objectContaining({
       orgId: 'org-1',
       operation: 'create_doc',
       status: 'awaiting_approval',
@@ -194,9 +213,9 @@ describe('workspace broker API routes', () => {
       approvalSatisfied: false,
       errors: [],
     }))
-    expect(mockBatchSet).toHaveBeenCalledWith(expect.objectContaining({ id: 'event-1' }), expect.objectContaining({
+    expect(mockBatchCreate).toHaveBeenCalledWith(expect.objectContaining({ id: `${expectedJobId}_broker_job_queued` }), expect.objectContaining({
       orgId: 'org-1',
-      brokerJobId: 'job-1',
+      brokerJobId: expectedJobId,
       operation: 'create_doc',
       eventType: 'broker_job_queued',
       status: 'awaiting_approval',
@@ -275,15 +294,17 @@ describe('workspace broker API routes', () => {
   })
 
   it('returns the existing workspace broker job when an idempotency key is replayed', async () => {
+    const requestPayload = { orgId: 'org-1', title: 'Client-facing brief', visibility: 'admin_agents_clients', projectId: 'project-1' }
+    const requestFingerprint = brokerFingerprintForTest({ orgId: 'org-1', operation: 'create_doc', payload: { ...requestPayload } })
     mockGet.mockResolvedValue({ docs: [
-      { id: 'job-existing', data: () => ({ orgId: 'org-1', operation: 'create_doc', status: 'awaiting_approval', idempotencyKey: 'idem-replay', approvalRequired: true, requiredCapability: 'write', riskLevel: 'medium', output: { googleMutationPerformed: false } }) },
+      { id: 'job-existing', data: () => ({ orgId: 'org-1', operation: 'create_doc', status: 'awaiting_approval', idempotencyKey: 'idem-replay', requestFingerprint, approvalRequired: true, requiredCapability: 'write', riskLevel: 'medium', output: { googleMutationPerformed: false } }) },
     ] })
     mockAdd.mockResolvedValue({ id: 'job-new' })
     const { POST } = await import('@/app/api/v1/workspace-broker/docs/create/route')
     const res = await POST(new NextRequest('http://localhost/api/v1/workspace-broker/docs/create', {
       method: 'POST',
       headers: { 'content-type': 'application/json', 'idempotency-key': 'idem-replay' },
-      body: JSON.stringify({ orgId: 'org-1', title: 'Client-facing brief', visibility: 'admin_agents_clients', projectId: 'project-1' }),
+      body: JSON.stringify(requestPayload),
     }))
     const body = await res.json()
 
@@ -302,13 +323,52 @@ describe('workspace broker API routes', () => {
     const res = await POST(new NextRequest('http://localhost/api/v1/workspace-broker/docs/create', {
       method: 'POST',
       headers: { 'content-type': 'application/json', 'idempotency-key': 'idem-conflict' },
-      body: JSON.stringify({ orgId: 'org-1', connectionId: 'conn-1', title: 'Different brief', visibility: 'admin_agents_clients', projectId: 'project-1' }),
+      body: JSON.stringify({ orgId: 'org-1', connectionId: 'conn-1', title: 'Different brief', visibility: 'admin_agents_clients' }),
     }))
     const body = await res.json()
 
     expect(res.status).toBe(409)
     expect(body.error).toBe('Idempotency key was already used for a different Workspace broker request')
     expect(mockAdd).not.toHaveBeenCalled()
+  })
+
+  it('fails closed when an existing idempotency record lacks a verifiable request fingerprint', async () => {
+    mockGet.mockResolvedValue({ docs: [
+      { id: 'job-existing', data: () => ({ orgId: 'org-1', operation: 'create_doc', status: 'awaiting_approval', idempotencyKey: 'idem-missing-fingerprint', approvalRequired: true, output: { googleMutationPerformed: false } }) },
+    ] })
+    const { POST } = await import('@/app/api/v1/workspace-broker/docs/create/route')
+    const res = await POST(new NextRequest('http://localhost/api/v1/workspace-broker/docs/create', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'idempotency-key': 'idem-missing-fingerprint' },
+      body: JSON.stringify({ orgId: 'org-1', title: 'Client-facing brief', visibility: 'admin_agents_clients', projectId: 'project-1' }),
+    }))
+    const body = await res.json()
+
+    expect(res.status).toBe(409)
+    expect(body.error).toBe('Idempotency key was already used for a different Workspace broker request')
+    expect(mockBatchCreate).not.toHaveBeenCalled()
+  })
+
+  it('replays the deterministic broker job if concurrent idempotent creation already won the create precondition', async () => {
+    const requestPayload = { orgId: 'org-1', connectionId: 'conn-1', title: 'Client-facing brief', visibility: 'admin_agents_clients', projectId: 'project-1' }
+    const requestFingerprint = brokerFingerprintForTest({ orgId: 'org-1', operation: 'create_doc', payload: { ...requestPayload } })
+    mockGet.mockResolvedValue({ docs: [] })
+    mockGetDoc
+      .mockResolvedValueOnce({ exists: true, id: 'conn-1', data: () => approvedConnection })
+      .mockResolvedValueOnce({ exists: true, id: brokerIdempotencyDocIdForTest('org-1', 'idem-race'), data: () => ({ orgId: 'org-1', operation: 'create_doc', status: 'awaiting_approval', idempotencyKey: 'idem-race', requestFingerprint, approvalRequired: true, requiredCapability: 'write', riskLevel: 'medium', output: { googleMutationPerformed: false } }) })
+    mockBatchCommit.mockRejectedValueOnce({ code: 6 })
+    const { POST } = await import('@/app/api/v1/workspace-broker/docs/create/route')
+    const res = await POST(new NextRequest('http://localhost/api/v1/workspace-broker/docs/create', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'idempotency-key': 'idem-race' },
+      body: JSON.stringify(requestPayload),
+    }))
+    const body = await res.json()
+
+    expect(res.status).toBe(200)
+    expect(body.data).toMatchObject({ id: brokerIdempotencyDocIdForTest('org-1', 'idem-race'), status: 'awaiting_approval', googleMutationPerformed: false })
+    expect(mockBatchCreate).toHaveBeenCalledTimes(2)
+    expect(mockBatchCommit).toHaveBeenCalledTimes(1)
   })
 
   it('scopes workspace broker idempotency-key checks to the requesting org', async () => {
@@ -326,7 +386,8 @@ describe('workspace broker API routes', () => {
     expect(mockWhere).toHaveBeenCalledWith('orgId', '==', 'org-2')
     expect(mockWhere).toHaveBeenCalledWith('idempotencyKey', '==', 'shared-key')
     expect(mockAdd).not.toHaveBeenCalled()
-    expect(mockBatchSet).toHaveBeenCalledWith(expect.objectContaining({ id: 'job-org-2' }), expect.objectContaining({ orgId: 'org-2', idempotencyKey: 'shared-key', requestFingerprint: expect.any(String) }))
+    const expectedJobId = brokerIdempotencyDocIdForTest('org-2', 'shared-key')
+    expect(mockBatchCreate).toHaveBeenCalledWith(expect.objectContaining({ id: expectedJobId }), expect.objectContaining({ orgId: 'org-2', idempotencyKey: 'shared-key', requestFingerprint: expect.any(String) }))
   })
 
   it('does not let create callers self-satisfy Workspace broker approval gates', async () => {
