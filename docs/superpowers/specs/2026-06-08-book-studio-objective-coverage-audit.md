@@ -9,6 +9,7 @@
 **Source refresh contract:** `docs/superpowers/specs/2026-06-08-book-studio-v1-source-refresh-contract.md`
 **Ownership and commercial model:** `docs/superpowers/specs/2026-06-08-book-studio-v1-ownership-commercial-model.md`
 **Mock review packet:** `docs/superpowers/specs/2026-06-08-book-studio-v1-mock-review-packet.md`
+**Wider channel adapter packet:** `docs/superpowers/specs/2026-06-08-book-studio-v1-wider-channel-adapter-packet.md`
 
 ## Purpose
 
@@ -30,6 +31,7 @@ Covered now:
 - Policy/source freshness contract for KDP, Google Play Books, channel reports, account authority, Hermes source behavior, and `ai-story` as design evidence only.
 - Ownership, account authority, commercial decision states, revenue/cost separation, client approval artifacts, upload-readiness blockers, and Hermes commercial boundaries.
 - A concrete mock review packet showing admin state, client-safe portal state, Hermes recommendations, KDP/Google packet separation, series state, negative-control blocking, analytics confidence, and version invalidation.
+- Standalone wider-channel adapter research for Apple Books, Kobo Writing Life, Draft2Digital, IngramSpark, ACX, KDP Virtual Voice, ISBN governance, EPUB validation, distribution conflicts, Hermes boundaries, and portal-safe deferral.
 
 Not covered as approved build work:
 
@@ -43,7 +45,7 @@ Not covered as approved build work:
 
 | Original objective | Current evidence | Coverage verdict | Remaining action |
 | --- | --- | --- | --- |
-| Create books to sell on Amazon KDP, Google Books, and other channels. | The dossier covers KDP, Google Play Books, and wider channel adapters, while the approval packet narrows V1 to KDP/Google manual handoff. | Covered for V1 design; later-phase coverage exists for wider channels. | Recheck source register before implementation planning or before adding any wider first channel. |
+| Create books to sell on Amazon KDP, Google Books, and other channels. | The dossier covers KDP, Google Play Books, and wider channel adapters, while the approval packet narrows V1 to KDP/Google manual handoff. The wider-channel adapter packet extracts Apple/Kobo/D2D/Ingram/audio/ISBN/EPUB source implications into a standalone future-compatibility aid. | Covered for V1 design; later-phase coverage exists for wider channels. | Recheck source register before implementation planning or before adding any wider first channel. |
 | Do deep research into what this entails. | The dossier includes source-backed KDP/Google constraints, current-source addendum, policy source register, channel adapter research, quality gates, rights/provenance, package validation, launch, and analytics sections. The source refresh contract adds explicit stale-source blockers and source keys for KDP/Google publishing and analytics claims. | Covered for approval-stage research. | Refresh official sources before writing a Phase 1 plan and before marking any future packet upload-ready. |
 | Cover different types of books. | The dossier and approval packet define gate profiles for narrative/reflowable, business nonfiction, activity/workbook/puzzle/coloring, low-content print, children picture fixed-layout fixture, public-domain/companion rights-first fixture, and series governance. | Covered for V1 design and fixtures. | Keep non-selected book families as gate profiles or fixtures unless Peet explicitly expands the first pilot set. |
 | Support creating series. | The dossier covers internal series records, KDP/Google series constraints, continuity bibles, volume order, metadata risks, and rollup analytics. Acceptance Fixture C tests the series scaffold. | Covered for V1 design. | Do not imply external KDP/Google series eligibility without channel evidence. |
@@ -59,7 +61,7 @@ Not covered as approved build work:
 
 ## Evidence Quality Check
 
-The current research dossier contains a current-source addendum dated 2026-06-08. The source refresh contract adds a standalone evidence rule set for keeping those policy claims current. The ownership/commercial model adds the account-authority and economics review surface. The mock review packet makes the pass/warn/block operating loop concrete. Together, they are enough for a design decision today, but not enough to make future implementation or upload-ready claims without refresh and approval.
+The current research dossier contains a current-source addendum dated 2026-06-08. The source refresh contract adds a standalone evidence rule set for keeping those policy claims current. The ownership/commercial model adds the account-authority and economics review surface. The mock review packet makes the pass/warn/block operating loop concrete. The wider-channel adapter packet keeps Apple/Kobo/D2D/Ingram/audio future-compatible while preserving the KDP/Google V1 boundary. Together, they are enough for a design decision today, but not enough to make future implementation or upload-ready claims without refresh and approval.
 
 Evidence rules for the next phase:
 

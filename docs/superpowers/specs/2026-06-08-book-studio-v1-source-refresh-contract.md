@@ -5,6 +5,7 @@
 **Authoritative dossier:** `docs/superpowers/specs/2026-06-07-book-studio-research-dossier.md`
 **Decision packet:** `docs/superpowers/specs/2026-06-08-book-studio-v1-approval-packet.md`
 **Publishing and analytics model:** `docs/superpowers/specs/2026-06-08-book-studio-v1-publishing-analytics-model.md`
+**Wider channel source aid:** `docs/superpowers/specs/2026-06-08-book-studio-v1-wider-channel-adapter-packet.md`
 
 ## Purpose
 
@@ -29,6 +30,8 @@ These source keys were rechecked on 2026-06-08.
 | `google-reports` | `https://support.google.com/books/partner/answer/9266485?hl=en` | Google report availability and fields differ across earnings, sales summary, transactions, and preview traffic, with Pacific-time reporting and possible missing values. | Google analytics must preserve report type, period, timezone, missing-value state, refunds, and preview-vs-sales separation. |
 | `google-service-provider` | `https://support.google.com/books/partner/answer/3323299?hl=en` | Google distinguishes service-provider access, client consent, payments/report access, collection codes, and account participation. | Book Studio cannot assume PiB can manage client Google accounts or pull reports without explicit account authority evidence. |
 | `ai-story-head` | `https://github.com/PMStander/ai-story` at `11ef473c94f977b1dbc487f8645c4711728b6095` | The prior project remains a learning source for wizard intake, story/series flow, and KDP-oriented packaging expectations. | Treat `ai-story` as design evidence only; do not use it as a runtime dependency or migration target without a separate approval decision. |
+
+Wider-channel source keys for Apple Books, Kobo Writing Life, Draft2Digital, IngramSpark, ACX, KDP Virtual Voice, ISBN.org, and W3C EPUBCheck are separated in the wider channel adapter packet. They are future-compatibility evidence only and do not expand V1 beyond KDP and Google Play Books.
 
 ## Evidence Freshness Rules
 
