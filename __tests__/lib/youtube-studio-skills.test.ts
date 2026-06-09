@@ -12,6 +12,28 @@ describe('youtube studio production skill registry', () => {
     expect(YOUTUBE_PRODUCTION_SKILLS.every((skill) => skill.defaultReviewRequired)).toBe(true)
   })
 
+  it('documents the requested YouTube AI production workflow outputs', () => {
+    const labels = YOUTUBE_PRODUCTION_SKILLS.map((skill) => skill.label)
+
+    expect(labels).toEqual(expect.arrayContaining([
+      'Channel strategy',
+      'Video ideation',
+      'Research brief',
+      'Script drafting',
+      'Clipping plan',
+      'Caption generation',
+      'Thumbnail brief',
+      'Title/description/tags',
+      'Chapters',
+      'Compliance/readiness',
+      'Analytics diagnosis',
+      'Next-series planning',
+    ]))
+    expect(YOUTUBE_PRODUCTION_SKILLS.every((skill) => skill.outputArtifacts.length > 0)).toBe(true)
+    expect(YOUTUBE_PRODUCTION_SKILLS.every((skill) => skill.outputPersistence.match(/artifacts.*comments.*actor metadata/i))).toBe(true)
+    expect(YOUTUBE_PRODUCTION_SKILLS.every((skill) => skill.mutationPolicy.match(/Review-only/i))).toBe(true)
+  })
+
   it('anchors risky publishing and disclosure skills to explicit guardrails', () => {
     const readiness = getYouTubeSkillContract('youtube-publish-readiness')
     const disclosure = getYouTubeSkillContract('youtube-ai-disclosure-check')

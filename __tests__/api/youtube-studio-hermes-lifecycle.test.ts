@@ -156,7 +156,7 @@ describe('YouTube Studio Hermes execution lifecycle', () => {
     expect(global.fetch).toHaveBeenCalledWith('https://hermes-worker.test/v1/runs', expect.objectContaining({
       method: 'POST',
       headers: expect.objectContaining({ Authorization: 'Bearer worker-key' }),
-      body: expect.stringContaining('[YouTube Studio job job-1]'),
+      body: expect.stringContaining('All outputs will be saved with actor metadata'),
     }))
     expect(job.set).toHaveBeenCalledWith(expect.objectContaining({
       status: 'running',
@@ -171,6 +171,10 @@ describe('YouTube Studio Hermes execution lifecycle', () => {
       resourceType: 'youtube_agent_job',
       resourceId: 'job-1',
       body: expect.stringContaining('Hermes run dispatched'),
+      createdBy: 'admin-1',
+      createdByType: 'user',
+      updatedBy: 'admin-1',
+      updatedByType: 'user',
     }))
   })
 
@@ -222,6 +226,10 @@ describe('YouTube Studio Hermes execution lifecycle', () => {
       reviewState: 'pending',
       type: 'readiness_result',
       content: 'All checks prepared.',
+      createdBy: 'admin-1',
+      createdByType: 'user',
+      updatedBy: 'admin-1',
+      updatedByType: 'user',
     }))
     expect(job.set).toHaveBeenLastCalledWith(expect.objectContaining({
       status: 'waiting_for_review',

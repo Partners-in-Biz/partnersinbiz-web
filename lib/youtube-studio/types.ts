@@ -676,6 +676,8 @@ export interface YouTubeAgentJob {
     outputArtifacts: string[]
     guardrails: string[]
     policySourceKeys: string[]
+    outputPersistence?: string
+    mutationPolicy?: string
     references: {
       channelWorkspaceId?: string
       seriesId?: string

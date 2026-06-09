@@ -154,6 +154,8 @@ function buildSkillInputPacket(
     outputArtifacts: contract.outputArtifacts,
     guardrails: contract.guardrails,
     policySourceKeys: contract.policySourceKeys,
+    outputPersistence: contract.outputPersistence,
+    mutationPolicy: contract.mutationPolicy,
     references: {
       channelWorkspaceId,
       seriesId,
@@ -223,7 +225,11 @@ async function addLifecycleComment(job: LoadedJob, body: string, userId: string)
     body,
     visibility: 'internal',
     createdBy: userId,
+    createdByType: 'user',
+    updatedBy: userId,
+    updatedByType: 'user',
     createdAt: FieldValue.serverTimestamp(),
+    updatedAt: FieldValue.serverTimestamp(),
   }).catch(() => null)
 }
 
@@ -241,6 +247,7 @@ function buildHermesPrompt(job: LoadedJob): string {
     '',
     'Execute the attached YouTube Studio skill packet. Return only reviewable outputs and artifact payloads.',
     'Governance: do not publish, schedule, change visibility, approve, reject, or otherwise mutate YouTube publish state. Proposed publish-state changes must be returned as recommendations for human review.',
+    'Persistence: return artifacts/comments only. All outputs will be saved with actor metadata for human review, not silently applied.',
     '',
     JSON.stringify({
       jobId: job.id,
