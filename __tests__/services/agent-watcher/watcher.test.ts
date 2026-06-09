@@ -23,7 +23,17 @@ jest.mock('../../../services/agent-watcher/src/firestore', () => ({
 }))
 
 jest.mock('../../../services/agent-watcher/src/task-updates', () => ({
-  agentStatusUpdate: (status: string) => ({ agentStatus: status }),
+  agentStatusUpdate: (status: string) => ({
+    agentStatus: status,
+    columnId: status === 'pending'
+      ? 'todo'
+      : status === 'done'
+        ? 'review'
+        : status === 'blocked' || status === 'awaiting-input'
+          ? 'blocked'
+          : 'in_progress',
+    ...(status === 'done' ? { reviewStatus: 'pending' } : {}),
+  }),
 }))
 
 jest.mock('../../../services/agent-watcher/src/logger', () => ({
@@ -44,7 +54,15 @@ const getAgentConfigMock = getAgentConfig as jest.Mock
 const claimTaskMock = claimTask as jest.Mock
 const startHeartbeatMock = startHeartbeat as jest.Mock
 const runAndPollMock = runAndPoll as jest.Mock
-const dbMock = db as { collectionGroup?: jest.Mock }
+const dbMock = db as unknown as { collectionGroup?: jest.Mock }
+
+type FilteringQueryDoc = { ref: Record<string, unknown>; data: () => Record<string, unknown> }
+type FilteringQuery = {
+  wheres: Array<[string, string, unknown]>
+  where: jest.Mock
+  limit: jest.Mock
+  get: jest.Mock
+}
 
 function makeTaskRef(comments: Array<Record<string, unknown>> = []) {
   const update = jest.fn(async () => undefined)
@@ -65,6 +83,30 @@ function makeTaskRef(comments: Array<Record<string, unknown>> = []) {
     })),
     update,
   }
+}
+
+function makeFilteringCollectionQuery(docs: FilteringQueryDoc[]): FilteringQuery {
+  const query: FilteringQuery = {
+    wheres: [],
+    where: jest.fn(function (this: FilteringQuery, field: string, op: string, value: unknown) {
+      this.wheres.push([field, op, value])
+      return this
+    }),
+    limit: jest.fn(function (this: FilteringQuery) { return this }),
+    get: jest.fn(async function (this: FilteringQuery) {
+      const wheres = [...this.wheres]
+      this.wheres = []
+      return {
+        docs: docs.filter(doc => wheres.every(([field, op, value]) => {
+          const actual = doc.data()[field]
+          if (op === '==') return actual === value
+          if (op === 'in' && Array.isArray(value)) return value.includes(actual)
+          return true
+        })),
+      }
+    }),
+  }
+  return query
 }
 
 describe('agent watcher dispatchTask', () => {
@@ -289,12 +331,7 @@ describe('agent watcher dispatchTask', () => {
       agentReleaseStatus: 'scheduled',
       agentReleaseAt: '2026-05-26T09:30:00.000Z',
     }
-    const query = {
-      where: jest.fn(function () { return this }),
-      get: jest.fn(async () => ({
-        docs: [{ ref: taskRef, data: () => taskData }],
-      })),
-    }
+    const query = makeFilteringCollectionQuery([{ ref: taskRef, data: () => taskData }])
     dbMock.collectionGroup = jest.fn(() => query)
 
     await sweepReadyPendingTasks(Date.parse('2026-05-26T09:31:00.000Z'))
@@ -327,12 +364,7 @@ describe('agent watcher dispatchTask', () => {
       title: 'Follow-up task',
       dependsOn: ['dependency-1'],
     }
-    const query = {
-      where: jest.fn(function () { return this }),
-      get: jest.fn(async () => ({
-        docs: [{ ref: taskRef, data: () => taskData }],
-      })),
-    }
+    const query = makeFilteringCollectionQuery([{ ref: taskRef, data: () => taskData }])
     dbMock.collectionGroup = jest.fn(() => query)
 
     await sweepReadyPendingTasks()
@@ -349,6 +381,57 @@ describe('agent watcher dispatchTask', () => {
       expect.any(Function),
     )
   })
+
+  it('releases blocked tasks when dependencies clear and immediately retries pickup', async () => {
+    const dependencySnap = { exists: true, data: () => ({ agentStatus: 'done', columnId: 'review' }) }
+    const commentCollection = {
+      add: jest.fn(async () => undefined),
+      orderBy: jest.fn(() => ({
+        limit: jest.fn(() => ({
+          get: jest.fn(async () => ({ docs: [] })),
+        })),
+      })),
+    }
+    const taskRef = {
+      ...makeTaskRef(),
+      id: 'blocked-follow-up-1',
+      path: 'projects/project-1/tasks/blocked-follow-up-1',
+      parent: {
+        doc: jest.fn(() => ({ get: jest.fn(async () => dependencySnap) })),
+      },
+      collection: jest.fn(() => commentCollection),
+    }
+    const taskData = {
+      orgId: 'org-1',
+      assigneeAgentId: 'theo',
+      agentStatus: 'awaiting-input',
+      columnId: 'blocked',
+      title: 'Blocked follow-up task',
+      dependsOn: ['dependency-1'],
+    }
+    const query = makeFilteringCollectionQuery([{ ref: taskRef, data: () => taskData }])
+    dbMock.collectionGroup = jest.fn(() => query)
+
+    await sweepReadyPendingTasks()
+    await new Promise(resolve => setImmediate(resolve))
+
+    expect(query.where).toHaveBeenCalledWith('agentStatus', '==', 'awaiting-input')
+    expect(taskRef.update).toHaveBeenCalledWith(expect.objectContaining({
+      agentStatus: 'pending',
+      columnId: 'todo',
+      agentHeartbeatAt: 'DELETE_FIELD',
+    }))
+    expect(commentCollection.add).toHaveBeenCalledWith(expect.objectContaining({
+      userId: 'system:agent-watcher',
+      text: expect.stringContaining('Dependency gate cleared'),
+    }))
+    expect(claimTaskMock).toHaveBeenCalledWith(taskRef, 'theo')
+    expect(runAndPollMock).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ taskId: 'blocked-follow-up-1' }),
+      expect.any(Function),
+    )
+  })
 })
 
 describe('agent watcher dependency retry strategy', () => {
@@ -359,8 +442,14 @@ describe('agent watcher dependency retry strategy', () => {
   it('does not subscribe to broad done-task queries because periodic sweeps retry dependents', async () => {
     const queries: Array<{ wheres: Array<[string, string, unknown]>; unsubscribe: jest.Mock }> = []
     dbMock.collectionGroup = jest.fn(() => {
-      const query = {
-        wheres: [] as Array<[string, string, unknown]>,
+      type SnapshotQuery = {
+        wheres: Array<[string, string, unknown]>
+        unsubscribe: jest.Mock
+        where: (field: string, op: string, value: unknown) => SnapshotQuery
+        onSnapshot: jest.Mock
+      }
+      const query: SnapshotQuery = {
+        wheres: [],
         unsubscribe: jest.fn(),
         where(field: string, op: string, value: unknown) {
           this.wheres.push([field, op, value])

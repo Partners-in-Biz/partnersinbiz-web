@@ -15,18 +15,20 @@ import { claimReviewTask, claimTask, startHeartbeat } from './claim'
 import { runAndPoll, type TaskDispatchInput } from './hermes'
 import { logger } from './logger'
 import { agentStatusUpdate } from './task-updates'
-import { getTaskDispatchBlocker, isDependencyResolved, releaseMillis } from './eligibility'
+import { getTaskDispatchBlocker, hasPendingApprovalGate, hasPendingScheduledRelease, isDependencyResolved, releaseMillis } from './eligibility'
 
 const MAX_CONCURRENT_PER_AGENT = 5
 const READY_TASK_SWEEP_MS = 60_000
 const MAX_READY_SWEEP_DOCS = 100
 const MAX_SCHEDULED_RELEASE_SWEEP_DOCS = 100
+const MAX_DEPENDENCY_RELEASE_SWEEP_DOCS = 100
 
 const inFlight = new Set<string>()
 const perAgentInFlight = new Map<AgentId, number>()
 const deferredByAgent = new Map<AgentId, Map<string, { ref: DocumentReference; data: TaskData }>>()
 let activeAgentIds = new Set<string>(AGENT_IDS)
 let scheduledReleaseSweepDisabled = false
+let dependencyReleaseSweepDisabled = false
 
 function incAgent(agentId: AgentId): void {
   perAgentInFlight.set(agentId, (perAgentInFlight.get(agentId) ?? 0) + 1)
@@ -468,8 +470,71 @@ async function releaseDueScheduledTasks(now = Date.now()): Promise<void> {
   }
 }
 
+async function releaseDependencyClearedTasks(now = Date.now()): Promise<void> {
+  if (dependencyReleaseSweepDisabled) return
+  const chunks = chunkAgentIds(currentAgentIds())
+  for (const chunk of chunks) {
+    for (const waitingStatus of ['awaiting-input', 'blocked']) {
+      try {
+        const snap = await db
+          .collectionGroup('tasks')
+          .where('assigneeAgentId', 'in', chunk)
+          .where('agentStatus', '==', waitingStatus)
+          .where('columnId', '==', 'blocked')
+          .limit(MAX_DEPENDENCY_RELEASE_SWEEP_DOCS)
+          .get()
+
+        await Promise.all(snap.docs.map(async (doc) => {
+          const data = (doc.data() ?? {}) as TaskData
+          if (!isActiveAgentId(data.assigneeAgentId)) return
+          if (!Array.isArray(data.dependsOn) || data.dependsOn.filter(Boolean).length === 0) return
+          if (data.deleted === true || data.status === 'cancelled' || data.status === 'canceled') return
+          if (hasPendingApprovalGate(data) || hasPendingScheduledRelease(data, now)) return
+
+          const deps = await dependenciesResolved(doc.ref, data.dependsOn)
+          if (!deps.ok) return
+
+          const releasedData: TaskData = {
+            ...data,
+            agentStatus: 'pending',
+            columnId: 'todo',
+          }
+          await doc.ref.update({
+            ...agentStatusUpdate('pending'),
+            agentHeartbeatAt: FieldValue.delete(),
+            updatedAt: FieldValue.serverTimestamp(),
+          })
+          await doc.ref.collection('comments').add({
+            text: `Dependency gate cleared. All dependsOn tasks are complete; moved back to To Do for agent pickup.`,
+            userId: 'system:agent-watcher',
+            userName: 'Agent watcher',
+            userRole: 'system',
+            createdAt: FieldValue.serverTimestamp(),
+            agentPickedUp: false,
+            agentPickedUpAt: null,
+          })
+          void dispatchTask(doc.ref, releasedData)
+        }))
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err)
+        if (message.includes('FAILED_PRECONDITION')) {
+          dependencyReleaseSweepDisabled = true
+          logger.error('dependency-cleared task release sweep disabled until the tasks collection-group index exists', { error: message })
+          return
+        }
+        logger.error('dependency-cleared task release sweep failed', {
+          agents: chunk,
+          agentStatus: waitingStatus,
+          error: message,
+        })
+      }
+    }
+  }
+}
+
 export async function sweepReadyPendingTasks(now = Date.now()): Promise<void> {
   await releaseDueScheduledTasks(now)
+  await releaseDependencyClearedTasks(now)
   const chunks = chunkAgentIds(currentAgentIds())
   for (const chunk of chunks) {
     try {
