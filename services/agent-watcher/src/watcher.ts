@@ -488,6 +488,7 @@ async function releaseDependencyClearedTasks(now = Date.now()): Promise<void> {
           const data = (doc.data() ?? {}) as TaskData
           if (!isActiveAgentId(data.assigneeAgentId)) return
           if (!Array.isArray(data.dependsOn) || data.dependsOn.filter(Boolean).length === 0) return
+          if (waitingStatus === 'blocked' && typeof data.agentOutput?.summary === 'string' && data.agentOutput.summary.trim()) return
           if (data.deleted === true || data.status === 'cancelled' || data.status === 'canceled') return
           if (hasPendingApprovalGate(data) || hasPendingScheduledRelease(data, now)) return
 

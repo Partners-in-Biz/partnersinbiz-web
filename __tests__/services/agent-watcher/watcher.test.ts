@@ -432,6 +432,38 @@ describe('agent watcher dispatchTask', () => {
       expect.any(Function),
     )
   })
+
+  it('does not auto-release blocked error cards just because their dependencies are done', async () => {
+    const dependencySnap = { exists: true, data: () => ({ agentStatus: 'done', columnId: 'review' }) }
+    const taskRef = {
+      ...makeTaskRef(),
+      id: 'error-blocked-1',
+      path: 'projects/project-1/tasks/error-blocked-1',
+      parent: {
+        doc: jest.fn(() => ({ get: jest.fn(async () => dependencySnap) })),
+      },
+    }
+    const taskData = {
+      orgId: 'org-1',
+      assigneeAgentId: 'theo',
+      agentStatus: 'blocked',
+      columnId: 'blocked',
+      title: 'Errored task',
+      dependsOn: ['dependency-1'],
+      agentOutput: { summary: 'Watcher error: gateway failed' },
+    }
+    const query = makeFilteringCollectionQuery([{ ref: taskRef, data: () => taskData }])
+    dbMock.collectionGroup = jest.fn(() => query)
+
+    await sweepReadyPendingTasks()
+    await new Promise(resolve => setImmediate(resolve))
+
+    expect(taskRef.update).not.toHaveBeenCalledWith(expect.objectContaining({
+      agentStatus: 'pending',
+      columnId: 'todo',
+    }))
+    expect(claimTaskMock).not.toHaveBeenCalledWith(taskRef, 'theo')
+  })
 })
 
 describe('agent watcher dependency retry strategy', () => {
