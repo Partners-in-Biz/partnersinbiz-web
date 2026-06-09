@@ -6,7 +6,7 @@ const pushMock = jest.fn()
 const refreshMock = jest.fn()
 let mockPathname = '/portal/dashboard'
 let mockSearchParams = new URLSearchParams()
-let mockPortalModules: { mobileApps?: boolean; youtubeStudio?: boolean } | undefined
+let mockPortalModules: { mobileApps?: boolean; youtubeStudio?: boolean; bookStudio?: boolean } | undefined
 
 jest.mock('next/navigation', () => ({
   useRouter: () => ({
@@ -229,6 +229,34 @@ describe('PortalLayout mobile role switch', () => {
 
     await waitFor(() => {
       expect(screen.getAllByRole('link', { name: /YouTube Studio/ }).length).toBeGreaterThan(0)
+    })
+  })
+
+  it('hides Book Studio navigation by default until the organisation enables it', async () => {
+    render(
+      <PortalLayout>
+        <div>Portal content</div>
+      </PortalLayout>,
+    )
+
+    expect(await screen.findByText('Client portal')).toBeInTheDocument()
+
+    await waitFor(() => {
+      expect(screen.queryByRole('link', { name: /Book Studio/ })).not.toBeInTheDocument()
+    })
+  })
+
+  it('shows Book Studio navigation when the active organisation enables the module', async () => {
+    mockPortalModules = { bookStudio: true }
+
+    render(
+      <PortalLayout>
+        <div>Portal content</div>
+      </PortalLayout>,
+    )
+
+    await waitFor(() => {
+      expect(screen.getAllByRole('link', { name: /Book Studio/ }).length).toBeGreaterThan(0)
     })
   })
 

@@ -66,7 +66,7 @@ describe('portal org routes', () => {
         name: 'Client Org',
         slug: 'client-org',
         type: 'client',
-        portalModules: { mobileApps: true, youtubeStudio: true },
+        portalModules: { mobileApps: true, youtubeStudio: true, bookStudio: false },
       },
       user: { uid: 'admin-1', role: 'admin' },
     })
@@ -103,7 +103,7 @@ describe('portal org routes', () => {
         name: 'Lumen',
         slug: 'lumen-speeds',
         type: 'client',
-        portalModules: { mobileApps: false, youtubeStudio: true },
+        portalModules: { mobileApps: false, youtubeStudio: true, bookStudio: false },
       },
       user: { uid: 'admin-1', role: 'admin' },
     })
@@ -125,7 +125,7 @@ describe('portal org routes', () => {
           slug: id === 'client-a' ? 'client-a' : 'client-b',
           type: 'client',
           logoUrl: '',
-          settings: id === 'client-a' ? { portalModules: { mobileApps: false } } : {},
+          settings: id === 'client-a' ? { portalModules: { mobileApps: false } } : { portalModules: { bookStudio: true } },
         }),
       }),
     }))
@@ -143,7 +143,7 @@ describe('portal org routes', () => {
           slug: 'client-a',
           type: 'client',
           logoUrl: '',
-          portalModules: { mobileApps: false, youtubeStudio: true },
+          portalModules: { mobileApps: false, youtubeStudio: true, bookStudio: false },
         },
         {
           id: 'client-b',
@@ -151,7 +151,7 @@ describe('portal org routes', () => {
           slug: 'client-b',
           type: 'client',
           logoUrl: '',
-          portalModules: { mobileApps: true, youtubeStudio: true },
+          portalModules: { mobileApps: true, youtubeStudio: true, bookStudio: true },
         },
       ],
     })

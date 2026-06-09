@@ -113,8 +113,8 @@ describe('OrgSettingsPage folder mappings', () => {
     })
   })
 
-  it('loads and saves the Mobile Apps client portal module switch', async () => {
-    detailSettings = { portalModules: { mobileApps: false, youtubeStudio: false } }
+  it('loads and saves client portal module switches including Book Studio default-off posture', async () => {
+    detailSettings = { portalModules: { mobileApps: false, youtubeStudio: false, bookStudio: true } }
 
     render(<OrgSettingsPage />)
 
@@ -123,9 +123,12 @@ describe('OrgSettingsPage folder mappings', () => {
     expect(mobileAppsSwitch).not.toBeChecked()
     const youtubeStudioSwitch = screen.getByLabelText('YouTube Studio') as HTMLInputElement
     expect(youtubeStudioSwitch).not.toBeChecked()
+    const bookStudioSwitch = screen.getByLabelText('Book Studio') as HTMLInputElement
+    expect(bookStudioSwitch).toBeChecked()
 
     fireEvent.click(mobileAppsSwitch)
     fireEvent.click(youtubeStudioSwitch)
+    fireEvent.click(bookStudioSwitch)
     fireEvent.click(screen.getByRole('button', { name: 'Save Settings' }))
 
     await waitFor(() => {
@@ -138,6 +141,7 @@ describe('OrgSettingsPage folder mappings', () => {
           portalModules: {
             mobileApps: true,
             youtubeStudio: true,
+            bookStudio: false,
           },
         },
       })

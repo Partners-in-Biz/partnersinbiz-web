@@ -21,6 +21,7 @@ interface OrgForm {
   portalModules: Record<string, boolean>
   portalMobileApps: boolean
   portalYouTubeStudio: boolean
+  portalBookStudio: boolean
   // Email send-time optimisation
   preferredSendHourLocal: number
   preferredSendDaysOfWeek: number[]
@@ -63,7 +64,7 @@ interface OrgForm {
 const emptyForm: OrgForm = {
   name: '', website: '', description: '', industry: '', billingEmail: '',
   status: 'active', notificationEmail: '', defaultApprovalRequired: false, timezone: 'Africa/Johannesburg', currency: 'ZAR',
-  portalModules: {}, portalMobileApps: true, portalYouTubeStudio: true,
+  portalModules: {}, portalMobileApps: true, portalYouTubeStudio: true, portalBookStudio: false,
   preferredSendHourLocal: 9, preferredSendDaysOfWeek: [1, 2, 3, 4, 5], replyNotifyEmails: '',
   line1: '', line2: '', city: '', state: '', postalCode: '', country: '',
   legalName: '', tradingName: '', vatNumber: '', registrationNumber: '', taxNumber: '', phone: '',
@@ -191,6 +192,7 @@ export default function OrgSettingsPage() {
           portalModules,
           portalMobileApps: portalModules.mobileApps !== false,
           portalYouTubeStudio: portalModules.youtubeStudio !== false,
+          portalBookStudio: portalModules.bookStudio === true,
           preferredSendHourLocal:
             typeof settings.preferredSendHourLocal === 'number'
               ? settings.preferredSendHourLocal
@@ -264,6 +266,7 @@ export default function OrgSettingsPage() {
             ...form.portalModules,
             mobileApps: form.portalMobileApps,
             youtubeStudio: form.portalYouTubeStudio,
+            bookStudio: form.portalBookStudio,
           },
           replyNotifyEmails: form.replyNotifyEmails
             .split(/[\s,]+/)
@@ -662,6 +665,22 @@ export default function OrgSettingsPage() {
               <span className="block text-sm font-semibold text-on-surface">YouTube Studio</span>
               <span className="mt-1 block text-xs text-on-surface-variant">
                 Show channel video requests, draft reviews, publishing packet approvals, and client-safe YouTube analytics.
+              </span>
+            </span>
+          </label>
+          <label htmlFor="portalBookStudio" className="flex items-start gap-3 rounded-lg border border-outline-variant/60 bg-[var(--color-surface-container)]/40 p-4">
+            <input
+              id="portalBookStudio"
+              type="checkbox"
+              aria-label="Book Studio"
+              checked={form.portalBookStudio}
+              onChange={e => update('portalBookStudio', e.target.checked)}
+              className="mt-0.5 h-4 w-4 rounded border-outline text-primary"
+            />
+            <span>
+              <span className="block text-sm font-semibold text-on-surface">Book Studio</span>
+              <span className="mt-1 block text-xs text-on-surface-variant">
+                Show Book Studio in the client portal only after the approved Phase 1 runtime foundation is enabled for this organisation. Disabled is the safe default.
               </span>
             </span>
           </label>
