@@ -1569,10 +1569,20 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
           const channelSeries = series.filter((item) => item.channelWorkspaceId === channel.id)
           const channelPackets = visiblePackets.filter((packet) => itemChannelId(packet, videos) === channel.id)
           const channelAnalytics = visibleAnalytics.filter((snapshot) => itemChannelId(snapshot, videos) === channel.id)
-          const policy = channel.publishingPolicy as (YouTubePublishingPolicy & { connectedAccountStatus?: string; apiProjectStatus?: string; publishingReadiness?: string; defaultVisibility?: string }) | undefined
+          const legacyPolicy = (channel as YouTubeChannelWorkspace & {
+            publishingPolicy?: {
+              connectedAccountStatus?: string
+              apiProjectStatus?: string
+              publishingReadiness?: string
+              defaultVisibility?: string
+            }
+          }).publishingPolicy
+          const policy = channel.defaultPublishingPolicy ?? legacyPolicy as (YouTubePublishingPolicy & { defaultVisibility?: string }) | undefined
+          const readiness = channel.publishingReadiness
+          const readinessLabel = readiness?.readiness ?? legacyPolicy?.publishingReadiness ?? channel.status
           return (
             <section key={key} id={`youtube-channel-${key}`} aria-label={`${channel.title} channel detail`} className="pib-card-section space-y-4 p-5">
-              <div className="flex flex-wrap items-start justify-between gap-3"><div><p className="eyebrow">Channel detail</p><h2 className="font-headline text-xl font-semibold text-on-surface">{channel.title}</h2><p className="text-sm text-on-surface-variant">{channel.youtubeHandle ?? 'No YouTube handle'} / {formatToken(channelRiskLevel(channel))}</p></div><StatusPill status={policy?.publishingReadiness ?? channel.status} /></div>
+              <div className="flex flex-wrap items-start justify-between gap-3"><div><p className="eyebrow">Channel detail</p><h2 className="font-headline text-xl font-semibold text-on-surface">{channel.title}</h2><p className="text-sm text-on-surface-variant">{channel.youtubeHandle ?? 'No YouTube handle'} / {formatToken(channelRiskLevel(channel))}</p></div><StatusPill status={readinessLabel} /></div>
               <div className="flex flex-wrap gap-2" role="tablist" aria-label={`${channel.title} channel detail tabs`}>{channelDetailTabs.map((tab) => <button key={tab.key} type="button" onClick={() => setChannelTabs((current) => ({ ...current, [key]: tab.key }))} className={activeTab === tab.key ? 'pib-btn-primary text-sm' : 'pib-btn-ghost text-sm'}>{tab.label}</button>)}</div>
               <div className="rounded-xl border border-[var(--color-pib-line)] p-4 text-sm text-on-surface-variant">
                 {activeTab === 'strategy' ? <div className="space-y-2"><p>{channel.audienceNotes ?? 'No audience notes captured yet.'}</p><div className="flex flex-wrap gap-2">{channel.contentPillars?.map((pillar) => <StatusPill key={pillar} status={pillar} />)}</div></div> : null}
@@ -1582,7 +1592,7 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
                 {activeTab === 'approvals' ? <DetailList items={channelPackets.map((packet) => ({ id: packet.id ?? packetTitle(packet), label: `${packetTitle(packet)} packet`, detail: formatToken(packet.status) }))} empty="No approval packets for this channel." /> : null}
                 {activeTab === 'analytics' ? <DetailList items={channelAnalytics.map((item) => ({ id: item.id ?? item.periodEnd ?? 'analytics', label: item.clientSummary ?? 'Analytics snapshot', detail: `${item.periodStart ?? ''} ${item.periodEnd ?? ''}`.trim() }))} empty="No analytics imported." /> : null}
                 {activeTab === 'publishing' ? <p>Publishing settings use private-first defaults until approval gates pass.</p> : null}
-                {activeTab === 'api' ? <p>{formatToken(policy?.connectedAccountStatus ?? 'connected')} / {formatToken(policy?.apiProjectStatus ?? 'verified')}</p> : null}
+                {activeTab === 'api' ? <p>{formatToken(readiness?.accountStatus ?? legacyPolicy?.connectedAccountStatus ?? 'not_connected')} / {formatToken(readiness?.apiProjectStatus ?? legacyPolicy?.apiProjectStatus ?? 'not_configured')}</p> : null}
                 {activeTab === 'defaults' ? <p>Default visibility: {formatToken(policy?.defaultVisibility ?? 'private')}</p> : null}
                 {activeTab === 'access' ? <p>Internal admin access only. Portal access is controlled by module and asset visibility gates.</p> : null}
               </div>
@@ -1597,6 +1607,7 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
           const activeTab = videoTabs[key] ?? 'brief'
           const videoPackets = visiblePackets.filter((packet) => packet.videoProjectId === video.id)
           const videoAnalytics = visibleAnalytics.filter((snapshot) => snapshot.videoProjectId === video.id)
+          const videoActivity = (video as YouTubeVideoProject & { activity?: Array<{ type?: string; summary?: string; at?: unknown }> }).activity ?? []
           return (
             <section key={key} id={`youtube-video-${key}`} aria-label={`${video.title} video cockpit`} className="pib-card-section space-y-4 p-5">
               <div className="flex flex-wrap items-start justify-between gap-3"><div><p className="eyebrow">Video cockpit</p><h2 className="font-headline text-xl font-semibold text-on-surface">{video.title}</h2><p className="text-sm text-on-surface-variant">{formatToken(video.videoType)} / {formatToken(video.status)}</p></div><StatusPill status={video.status} /></div>
@@ -1611,7 +1622,7 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
                 {activeTab === 'review' ? <p>Review gates and approvals.</p> : null}
                 {activeTab === 'publishing' ? <DetailList items={videoPackets.map((packet) => ({ id: packet.id ?? packetTitle(packet), label: `${packetTitle(packet)} packet`, detail: formatToken(packet.status) }))} empty="No publishing packet." /> : null}
                 {activeTab === 'analytics' ? <DetailList items={videoAnalytics.map((item) => ({ id: item.id ?? item.periodEnd ?? 'analytics', label: item.clientSummary ?? 'Analytics snapshot', detail: `${item.metrics?.views ?? 0} views` }))} empty="No analytics for this video." /> : null}
-                {activeTab === 'activity' ? <DetailList items={(video.activity ?? []).map((item, index) => ({ id: `${item.type ?? 'activity'}-${index}`, label: item.summary ?? formatToken(item.type ?? 'activity'), detail: String(item.at ?? '') }))} empty="No activity timeline yet." /> : null}
+                {activeTab === 'activity' ? <DetailList items={videoActivity.map((item, index) => ({ id: `${item.type ?? 'activity'}-${index}`, label: item.summary ?? formatToken(item.type ?? 'activity'), detail: String(item.at ?? '') }))} empty="No activity timeline yet." /> : null}
               </div>
             </section>
           )
