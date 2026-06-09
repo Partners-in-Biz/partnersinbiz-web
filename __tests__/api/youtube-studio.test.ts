@@ -1934,6 +1934,155 @@ describe('youtube studio admin API', () => {
     }))
   })
 
+  it('creates a large-file source asset with storage records and processing controls without inline binaries', async () => {
+    stageFirestore({
+      youtube_channel_workspaces: {
+        docs: {
+          'channel-1': {
+            id: 'channel-1',
+            data: { orgId: 'org-1', title: 'Acme', deleted: false },
+          },
+        },
+      },
+      youtube_video_projects: {
+        docs: {
+          'video-1': {
+            id: 'video-1',
+            data: { orgId: 'org-1', channelWorkspaceId: 'channel-1', title: 'Launch', deleted: false },
+          },
+        },
+      },
+      youtube_source_assets: {},
+    })
+
+    const { POST } = await import('@/app/api/v1/youtube-studio/source-assets/route')
+    const res = await POST(new NextRequest('http://localhost/api/v1/youtube-studio/source-assets', {
+      method: 'POST',
+      body: JSON.stringify({
+        orgId: 'org-1',
+        channelWorkspaceId: 'channel-1',
+        videoProjectId: 'video-1',
+        title: ' Founder interview raw upload ',
+        assetType: 'raw_footage',
+        mediaFormat: 'horizontal',
+        storage: {
+          provider: 'firebase_storage',
+          artifactId: 'workspace-artifact-1',
+          driveFileId: 'drive-file-1',
+          storagePath: 'gs://private-youtube/org-1/raw/founder.mp4',
+          originalFilename: ' founder-interview.mp4 ',
+          mimeType: 'video/mp4',
+          sizeBytes: 12_000_000_000,
+          checksumSha256: 'abc123',
+          publicUrl: 'https://cdn.example.com/leak.mp4',
+        },
+        processing: {
+          transcode: { status: 'queued', provider: 'mux', jobId: 'transcode-1', requestedAt: '2026-06-09T10:00:00Z' },
+          proxy: { status: 'queued', provider: 'mux', targetStoragePath: 'gs://private-youtube/org-1/proxy/founder.mp4' },
+          transcript: { status: 'queued', provider: 'whisper', outputAssetId: 'transcript-asset-1', language: 'en' },
+          captions: { status: 'queued', provider: 'whisper', outputAssetId: 'caption-asset-1', format: 'srt' },
+          thumbnails: { status: 'queued', provider: 'ffmpeg', outputAssetIds: ['thumb-asset-1', '', 'thumb-asset-1'] },
+        },
+        costControls: {
+          currency: 'ZAR',
+          maxEstimatedCostCents: 15000,
+          estimatedCostCents: 9200,
+          quotaUnitsEstimated: 12,
+          budgetStatus: 'within_budget',
+        },
+        error: { code: ' ', message: ' ', retryable: true, failedAt: 'ignored' },
+      }),
+    }))
+
+    expect(res.status).toBe(201)
+    expect(mockAdd).toHaveBeenCalledWith(expect.objectContaining({
+      title: 'Founder interview raw upload',
+      storage: {
+        provider: 'firebase_storage',
+        artifactId: 'workspace-artifact-1',
+        driveFileId: 'drive-file-1',
+        storagePath: 'gs://private-youtube/org-1/raw/founder.mp4',
+        originalFilename: 'founder-interview.mp4',
+        mimeType: 'video/mp4',
+        sizeBytes: 12_000_000_000,
+        checksumSha256: 'abc123',
+      },
+      processing: {
+        transcode: { status: 'queued', provider: 'mux', jobId: 'transcode-1', requestedAt: '2026-06-09T10:00:00Z' },
+        proxy: { status: 'queued', provider: 'mux', targetStoragePath: 'gs://private-youtube/org-1/proxy/founder.mp4' },
+        transcript: { status: 'queued', provider: 'whisper', outputAssetId: 'transcript-asset-1', language: 'en' },
+        captions: { status: 'queued', provider: 'whisper', outputAssetId: 'caption-asset-1', format: 'srt' },
+        thumbnails: { status: 'queued', provider: 'ffmpeg', outputAssetIds: ['thumb-asset-1'] },
+      },
+      costControls: {
+        currency: 'ZAR',
+        maxEstimatedCostCents: 15000,
+        estimatedCostCents: 9200,
+        quotaUnitsEstimated: 12,
+        budgetStatus: 'within_budget',
+      },
+    }))
+    const [write] = mockAdd.mock.calls[0]
+    expect(JSON.stringify(write)).not.toContain('publicUrl')
+  })
+
+  it('rejects large media source assets without durable storage or Drive records', async () => {
+    stageFirestore({
+      youtube_channel_workspaces: {
+        docs: {
+          'channel-1': { id: 'channel-1', data: { orgId: 'org-1', title: 'Acme', deleted: false } },
+        },
+      },
+      youtube_source_assets: {},
+    })
+
+    const { POST } = await import('@/app/api/v1/youtube-studio/source-assets/route')
+    const res = await POST(new NextRequest('http://localhost/api/v1/youtube-studio/source-assets', {
+      method: 'POST',
+      body: JSON.stringify({
+        orgId: 'org-1',
+        channelWorkspaceId: 'channel-1',
+        title: 'Huge raw file',
+        assetType: 'raw_footage',
+        storage: { sizeBytes: 5_000_000_000 },
+      }),
+    }))
+    const body = await res.json()
+
+    expect(res.status).toBe(400)
+    expect(body.error).toMatch(/storage/i)
+    expect(mockAdd).not.toHaveBeenCalled()
+  })
+
+  it('rejects source asset payloads that try to persist inline binary media', async () => {
+    stageFirestore({
+      youtube_channel_workspaces: {
+        docs: {
+          'channel-1': { id: 'channel-1', data: { orgId: 'org-1', title: 'Acme', deleted: false } },
+        },
+      },
+      youtube_source_assets: {},
+    })
+
+    const { POST } = await import('@/app/api/v1/youtube-studio/source-assets/route')
+    const res = await POST(new NextRequest('http://localhost/api/v1/youtube-studio/source-assets', {
+      method: 'POST',
+      body: JSON.stringify({
+        orgId: 'org-1',
+        channelWorkspaceId: 'channel-1',
+        title: 'Inline binary upload',
+        assetType: 'raw_footage',
+        storage: { storagePath: 'gs://private-youtube/org-1/raw/file.mp4', sizeBytes: 5_000_000_000 },
+        binaryData: 'base64-video',
+      }),
+    }))
+    const body = await res.json()
+
+    expect(res.status).toBe(400)
+    expect(body.error).toMatch(/binary/i)
+    expect(mockAdd).not.toHaveBeenCalled()
+  })
+
   it('rejects source asset creation when the linked video belongs to another channel', async () => {
     stageFirestore({
       youtube_channel_workspaces: {
@@ -2682,10 +2831,37 @@ describe('youtube studio admin API', () => {
           previewUrl: ' https://cdn.example/preview.mp4 ',
           downloadUrl: ' https://cdn.example/download.mp4 ',
           storagePath: ' gs://secret/render.mp4 ',
+          storage: {
+            provider: 'google_drive',
+            artifactId: 'completed-video-artifact',
+            driveFileId: 'drive-render-1',
+            storagePath: 'gs://private-youtube/org-1/renders/final.mp4',
+            originalFilename: 'final-render.mp4',
+            mimeType: 'video/mp4',
+            sizeBytes: 900000000,
+          },
+          assetId: 'completed-video-asset-1',
           youtubeVideoId: ' youtube-secret ',
           durationSeconds: 612,
           renderPreset: ' h264_1080p ',
         },
+        renderEngine: {
+          provider: 'remotion',
+          jobId: 'render-engine-job-1',
+          status: 'queued',
+          requestedAt: '2026-06-09T11:00:00Z',
+          webhookUrl: 'https://renderer.example/hooks/job-1',
+          requestId: 'render-request-1',
+        },
+        completedVideoAssetId: 'completed-video-asset-1',
+        costControls: {
+          currency: 'ZAR',
+          maxEstimatedCostCents: 30000,
+          estimatedCostCents: 18000,
+          quotaUnitsEstimated: 25,
+          budgetStatus: 'near_limit',
+        },
+        error: { code: 'renderer_timeout', message: 'Renderer timed out once.', retryable: true, failedAt: '2026-06-09T11:30:00Z' },
         checks: {
           sourceRights: { status: 'pass', message: ' Rights cleared. ', checkedBy: 'client-supplied' },
           brand: { status: 'bad-status', message: { secret: true } },
@@ -2732,10 +2908,37 @@ describe('youtube studio admin API', () => {
         previewUrl: 'https://cdn.example/preview.mp4',
         downloadUrl: 'https://cdn.example/download.mp4',
         storagePath: 'gs://secret/render.mp4',
+        storage: {
+          provider: 'google_drive',
+          artifactId: 'completed-video-artifact',
+          driveFileId: 'drive-render-1',
+          storagePath: 'gs://private-youtube/org-1/renders/final.mp4',
+          originalFilename: 'final-render.mp4',
+          mimeType: 'video/mp4',
+          sizeBytes: 900000000,
+        },
+        assetId: 'completed-video-asset-1',
         youtubeVideoId: 'youtube-secret',
         durationSeconds: 612,
         renderPreset: 'h264_1080p',
       },
+      renderEngine: {
+        provider: 'remotion',
+        jobId: 'render-engine-job-1',
+        status: 'queued',
+        requestedAt: '2026-06-09T11:00:00Z',
+        webhookUrl: 'https://renderer.example/hooks/job-1',
+        requestId: 'render-request-1',
+      },
+      completedVideoAssetId: 'completed-video-asset-1',
+      costControls: {
+        currency: 'ZAR',
+        maxEstimatedCostCents: 30000,
+        estimatedCostCents: 18000,
+        quotaUnitsEstimated: 25,
+        budgetStatus: 'near_limit',
+      },
+      error: { code: 'renderer_timeout', message: 'Renderer timed out once.', retryable: true, failedAt: '2026-06-09T11:30:00Z' },
       checks: {
         sourceRights: { status: 'pass', message: 'Rights cleared.' },
         brand: { status: 'warning', message: 'Brand review required before this render can be client-ready.' },

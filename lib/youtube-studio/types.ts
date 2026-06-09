@@ -178,6 +178,71 @@ export interface YouTubeGateCheck {
   checkedAt?: unknown
 }
 
+export type YouTubeMediaStorageProvider = 'firebase_storage' | 'google_drive' | 'external_url' | 'local_sync'
+export type YouTubeMediaProcessingStatus = 'not_requested' | 'queued' | 'running' | 'completed' | 'failed' | 'blocked'
+export type YouTubeMediaBudgetStatus = 'within_budget' | 'near_limit' | 'over_limit' | 'blocked'
+
+export interface YouTubeMediaStorageRecord {
+  provider?: YouTubeMediaStorageProvider
+  artifactId?: string
+  driveFileId?: string
+  storagePath?: string
+  originalFilename?: string
+  mimeType?: string
+  sizeBytes?: number
+  checksumSha256?: string
+}
+
+export interface YouTubeMediaProcessingHook {
+  status: YouTubeMediaProcessingStatus
+  provider?: string
+  jobId?: string
+  requestedAt?: unknown
+  completedAt?: unknown
+  outputAssetId?: string
+  outputAssetIds?: string[]
+  targetStoragePath?: string
+  language?: string
+  format?: string
+  errorCode?: string
+  errorMessage?: string
+}
+
+export interface YouTubeMediaCostControls {
+  currency?: string
+  maxEstimatedCostCents?: number
+  estimatedCostCents?: number
+  actualCostCents?: number
+  quotaUnitsEstimated?: number
+  quotaUnitsUsed?: number
+  budgetStatus?: YouTubeMediaBudgetStatus
+}
+
+export interface YouTubeMediaErrorState {
+  code?: string
+  message?: string
+  retryable?: boolean
+  failedAt?: unknown
+}
+
+export interface YouTubeMediaProcessingPlan {
+  transcode?: YouTubeMediaProcessingHook
+  proxy?: YouTubeMediaProcessingHook
+  transcript?: YouTubeMediaProcessingHook
+  captions?: YouTubeMediaProcessingHook
+  thumbnails?: YouTubeMediaProcessingHook
+}
+
+export interface YouTubeRenderEngineIntegration {
+  provider?: string
+  jobId?: string
+  status?: YouTubeMediaProcessingStatus
+  requestedAt?: unknown
+  completedAt?: unknown
+  webhookUrl?: string
+  requestId?: string
+}
+
 export interface YouTubeChannelWorkspace {
   id?: string
   orgId: string
@@ -332,6 +397,10 @@ export interface YouTubeSourceAsset {
   mediaFormat: YouTubeSourceAssetMediaFormat
   sourceUrl?: string
   storagePath?: string
+  storage?: YouTubeMediaStorageRecord
+  processing?: YouTubeMediaProcessingPlan
+  costControls?: YouTubeMediaCostControls
+  error?: YouTubeMediaErrorState
   transcriptText?: string
   transcriptAssetId?: string
   rights?: {
@@ -447,6 +516,8 @@ export interface YouTubeRenderOutput {
   previewUrl?: string
   downloadUrl?: string
   storagePath?: string
+  storage?: YouTubeMediaStorageRecord
+  assetId?: string
   youtubeVideoId?: string
   durationSeconds?: number
   renderPreset?: string
@@ -468,6 +539,10 @@ export interface YouTubeRenderJob {
   clipCandidateIds: string[]
   timeline: YouTubeRenderTimelineScene[]
   output?: YouTubeRenderOutput
+  renderEngine?: YouTubeRenderEngineIntegration
+  costControls?: YouTubeMediaCostControls
+  error?: YouTubeMediaErrorState
+  completedVideoAssetId?: string
   checks: {
     sourceRights: YouTubeGateCheck
     brand: YouTubeGateCheck

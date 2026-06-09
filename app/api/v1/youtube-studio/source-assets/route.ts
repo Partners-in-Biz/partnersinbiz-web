@@ -22,6 +22,34 @@ function cleanObject(value: unknown): Record<string, unknown> {
   return value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : {}
 }
 
+const LARGE_MEDIA_ASSET_TYPES = new Set(['raw_footage', 'audio', 'broll', 'rendered_video'])
+const INLINE_BINARY_FIELDS = ['binaryData', 'fileBuffer', 'buffer', 'base64', 'contentBytes']
+const LARGE_FILE_THRESHOLD_BYTES = 100 * 1024 * 1024
+
+function hasInlineBinaryPayload(body: Record<string, unknown>) {
+  return INLINE_BINARY_FIELDS.some((field) => {
+    const value = body[field]
+    if (typeof value === 'string') return Boolean(cleanString(value))
+    if (Array.isArray(value)) return value.length > 0
+    return value !== undefined && value !== null
+  })
+}
+
+function hasDurableStorageRecord(data: Pick<YouTubeSourceAsset, 'storagePath' | 'storage' | 'sourceUrl'>) {
+  return Boolean(
+    cleanString(data.storagePath)
+    || cleanString(data.sourceUrl)
+    || cleanString(data.storage?.storagePath)
+    || cleanString(data.storage?.driveFileId)
+    || cleanString(data.storage?.artifactId),
+  )
+}
+
+function needsDurableStorageRecord(data: YouTubeSourceAsset) {
+  const sizeBytes = typeof data.storage?.sizeBytes === 'number' ? data.storage.sizeBytes : undefined
+  return LARGE_MEDIA_ASSET_TYPES.has(data.assetType) || (sizeBytes !== undefined && sizeBytes >= LARGE_FILE_THRESHOLD_BYTES)
+}
+
 export const GET = withAuth('admin', async (req, user) => {
   const url = new URL(req.url)
   const orgId = url.searchParams.get('orgId')?.trim() ?? ''
@@ -51,6 +79,7 @@ export const POST = withAuth('admin', async (req: NextRequest, user) => {
   const data = sanitizeYouTubeSourceAssetInput({ ...body, orgId })
   if (!data.channelWorkspaceId) return apiError('channelWorkspaceId is required', 400)
   if (!data.title) return apiError('title is required', 400)
+  if (hasInlineBinaryPayload(body)) return apiError('Inline binary media is not accepted; upload to storage or Drive and submit a storage record', 400)
 
   const channel = await loadScopedRecord(YOUTUBE_COLLECTIONS.channels, data.channelWorkspaceId)
   if (!channel || channel.data.deleted === true) return apiError('YouTube channel workspace not found', 404)
@@ -75,6 +104,10 @@ export const POST = withAuth('admin', async (req: NextRequest, user) => {
     if (series.data.channelWorkspaceId !== data.channelWorkspaceId) {
       return apiError('seriesId does not belong to channel workspace', 400)
     }
+  }
+
+  if (needsDurableStorageRecord(data) && !hasDurableStorageRecord(data)) {
+    return apiError('Large media source assets require a durable storage/Drive record', 400)
   }
 
   const ref = await adminDb.collection(YOUTUBE_COLLECTIONS.sourceAssets).add({

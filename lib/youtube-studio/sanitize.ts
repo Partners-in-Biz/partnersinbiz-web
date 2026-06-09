@@ -126,6 +126,26 @@ const SOURCE_ASSET_RIGHT_STATUSES: Array<NonNullable<NonNullable<YouTubeSourceAs
   'needs_review',
   'blocked',
 ]
+const MEDIA_STORAGE_PROVIDERS: Array<NonNullable<NonNullable<YouTubeSourceAsset['storage']>['provider']>> = [
+  'firebase_storage',
+  'google_drive',
+  'external_url',
+  'local_sync',
+]
+const MEDIA_PROCESSING_STATUSES: Array<NonNullable<NonNullable<NonNullable<YouTubeSourceAsset['processing']>['transcode']>['status']>> = [
+  'not_requested',
+  'queued',
+  'running',
+  'completed',
+  'failed',
+  'blocked',
+]
+const MEDIA_BUDGET_STATUSES: Array<NonNullable<NonNullable<YouTubeSourceAsset['costControls']>['budgetStatus']>> = [
+  'within_budget',
+  'near_limit',
+  'over_limit',
+  'blocked',
+]
 const CLIP_CANDIDATE_STATUSES: YouTubeClipCandidateStatus[] = [
   'suggested',
   'selected',
@@ -845,6 +865,87 @@ function sanitizeSourceAssetRights(input: unknown): YouTubeSourceAsset['rights']
   })
 }
 
+function sanitizeMediaStorage(input: unknown): YouTubeSourceAsset['storage'] | undefined {
+  const source = cleanObject(input)
+  if (!Object.keys(source).length) return undefined
+
+  return stripUndefinedDeep({
+    provider: pick(MEDIA_STORAGE_PROVIDERS, source.provider, 'firebase_storage'),
+    artifactId: cleanString(source.artifactId),
+    driveFileId: cleanString(source.driveFileId),
+    storagePath: cleanString(source.storagePath),
+    originalFilename: cleanString(source.originalFilename),
+    mimeType: cleanString(source.mimeType),
+    sizeBytes: cleanNonNegativeNumber(source.sizeBytes),
+    checksumSha256: cleanString(source.checksumSha256),
+  })
+}
+
+function sanitizeMediaProcessingHook(input: unknown): NonNullable<NonNullable<YouTubeSourceAsset['processing']>['transcode']> | undefined {
+  const source = cleanObject(input)
+  if (!Object.keys(source).length) return undefined
+
+  const outputAssetIds = uniqueCleanStringArray(source.outputAssetIds)
+
+  return stripUndefinedDeep({
+    status: pick(MEDIA_PROCESSING_STATUSES, source.status, 'queued'),
+    provider: cleanString(source.provider),
+    jobId: cleanString(source.jobId),
+    requestedAt: cleanString(source.requestedAt),
+    completedAt: cleanString(source.completedAt),
+    outputAssetId: cleanString(source.outputAssetId),
+    outputAssetIds: outputAssetIds.length ? outputAssetIds : undefined,
+    targetStoragePath: cleanString(source.targetStoragePath),
+    language: cleanString(source.language),
+    format: cleanString(source.format),
+    errorCode: cleanString(source.errorCode),
+    errorMessage: cleanString(source.errorMessage),
+  })
+}
+
+function sanitizeMediaProcessing(input: unknown): YouTubeSourceAsset['processing'] | undefined {
+  const source = cleanObject(input)
+  if (!Object.keys(source).length) return undefined
+
+  return stripUndefinedDeep({
+    transcode: sanitizeMediaProcessingHook(source.transcode),
+    proxy: sanitizeMediaProcessingHook(source.proxy),
+    transcript: sanitizeMediaProcessingHook(source.transcript),
+    captions: sanitizeMediaProcessingHook(source.captions),
+    thumbnails: sanitizeMediaProcessingHook(source.thumbnails),
+  })
+}
+
+function sanitizeMediaCostControls(input: unknown): YouTubeSourceAsset['costControls'] | undefined {
+  const source = cleanObject(input)
+  if (!Object.keys(source).length) return undefined
+
+  return stripUndefinedDeep({
+    currency: cleanString(source.currency),
+    maxEstimatedCostCents: cleanNonNegativeNumber(source.maxEstimatedCostCents),
+    estimatedCostCents: cleanNonNegativeNumber(source.estimatedCostCents),
+    actualCostCents: cleanNonNegativeNumber(source.actualCostCents),
+    quotaUnitsEstimated: cleanNonNegativeNumber(source.quotaUnitsEstimated),
+    quotaUnitsUsed: cleanNonNegativeNumber(source.quotaUnitsUsed),
+    budgetStatus: pick(MEDIA_BUDGET_STATUSES, source.budgetStatus, 'within_budget'),
+  })
+}
+
+function sanitizeMediaError(input: unknown): YouTubeSourceAsset['error'] | undefined {
+  const source = cleanObject(input)
+  if (!Object.keys(source).length) return undefined
+  const code = cleanString(source.code)
+  const message = cleanString(source.message)
+  if (!code && !message) return undefined
+
+  return stripUndefinedDeep({
+    code,
+    message,
+    retryable: cleanBoolean(source.retryable),
+    failedAt: cleanString(source.failedAt),
+  })
+}
+
 export function sanitizeYouTubeSourceAssetInput(
   input: RawInput
 ): Omit<YouTubeSourceAsset, 'id' | 'createdAt' | 'updatedAt' | 'createdBy' | 'createdByType' | 'updatedBy' | 'updatedByType'> {
@@ -863,6 +964,10 @@ export function sanitizeYouTubeSourceAssetInput(
     mediaFormat: pick(SOURCE_ASSET_MEDIA_FORMATS, input.mediaFormat, 'unknown'),
     sourceUrl: cleanString(input.sourceUrl),
     storagePath: cleanString(input.storagePath),
+    storage: sanitizeMediaStorage(input.storage),
+    processing: sanitizeMediaProcessing(input.processing),
+    costControls: sanitizeMediaCostControls(input.costControls),
+    error: sanitizeMediaError(input.error),
     transcriptText: cleanString(input.transcriptText),
     transcriptAssetId: cleanString(input.transcriptAssetId),
     rights: sanitizeSourceAssetRights(input.rights),
@@ -1053,9 +1158,26 @@ function sanitizeRenderOutput(input: unknown): YouTubeRenderOutput | undefined {
     previewUrl: cleanString(source.previewUrl),
     downloadUrl: cleanString(source.downloadUrl),
     storagePath: cleanString(source.storagePath),
+    storage: sanitizeMediaStorage(source.storage),
+    assetId: cleanString(source.assetId),
     youtubeVideoId: cleanString(source.youtubeVideoId),
     durationSeconds: cleanNonNegativeNumber(source.durationSeconds),
     renderPreset: cleanString(source.renderPreset),
+  })
+}
+
+function sanitizeRenderEngine(input: unknown): YouTubeRenderJob['renderEngine'] | undefined {
+  const source = cleanObject(input)
+  if (!Object.keys(source).length) return undefined
+
+  return stripUndefinedDeep({
+    provider: cleanString(source.provider),
+    jobId: cleanString(source.jobId),
+    status: pick(MEDIA_PROCESSING_STATUSES, source.status, 'queued'),
+    requestedAt: cleanString(source.requestedAt),
+    completedAt: cleanString(source.completedAt),
+    webhookUrl: cleanString(source.webhookUrl),
+    requestId: cleanString(source.requestId),
   })
 }
 
@@ -1079,6 +1201,10 @@ export function sanitizeYouTubeRenderJobInput(
     clipCandidateIds: uniqueCleanStringArray(input.clipCandidateIds),
     timeline: sanitizeRenderTimeline(input.timeline),
     output: sanitizeRenderOutput(input.output),
+    renderEngine: sanitizeRenderEngine(input.renderEngine),
+    completedVideoAssetId: cleanString(input.completedVideoAssetId),
+    costControls: sanitizeMediaCostControls(input.costControls),
+    error: sanitizeMediaError(input.error),
     checks: sanitizeRenderJobChecks(input.checks),
     visibility: {
       showInClientPortal: visibility.showInClientPortal === true,
