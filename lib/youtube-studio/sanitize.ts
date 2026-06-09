@@ -7,6 +7,7 @@ import type {
   YouTubeAnalyticsFreshness,
   YouTubeAnalyticsMetrics,
   YouTubeAnalyticsRecommendation,
+  YouTubeAnalyticsRecommendationActionType,
   YouTubeAnalyticsRecommendationConfidence,
   YouTubeAnalyticsRecommendationStatus,
   YouTubeAnalyticsRecommendationType,
@@ -230,6 +231,13 @@ const ANALYTICS_RECOMMENDATION_STATUSES: YouTubeAnalyticsRecommendationStatus[] 
   'rejected',
   'converted_to_task',
 ]
+const ANALYTICS_RECOMMENDATION_ACTION_TYPES: YouTubeAnalyticsRecommendationActionType[] = [
+  'task',
+  'brief',
+  'clip_idea',
+  'script_change',
+  'series_experiment',
+]
 const RELEASE_MODES: YouTubeReleaseMode[] = ['manual_handoff', 'private_api_upload', 'scheduled_api_publish']
 const RELEASE_PLAN_STATUSES: YouTubeReleasePlanStatus[] = [
   'draft',
@@ -369,7 +377,7 @@ export type ClientSafeYouTubeAnalyticsSnapshot = Pick<
   | 'metrics'
   | 'clientSummary'
 > & {
-  recommendations: Array<Pick<YouTubeAnalyticsRecommendation, 'type' | 'summary' | 'confidence' | 'status'>>
+  recommendations: Array<Pick<YouTubeAnalyticsRecommendation, 'type' | 'summary' | 'confidence' | 'status' | 'actionType'>>
 }
 
 export type ClientSafeYouTubeReleasePlan = Pick<
@@ -1220,6 +1228,89 @@ export function sanitizeYouTubeRenderJobInput(
   })
 }
 
+function sanitizeMetricTrafficSources(input: unknown): YouTubeAnalyticsMetrics['trafficSources'] {
+  if (!Array.isArray(input)) return undefined
+  const rows = input.flatMap((entry) => {
+    const source = cleanObject(entry)
+    const label = cleanString(source.source)
+    if (!label) return []
+    return [stripUndefinedDeep({
+      source: label,
+      views: cleanNonNegativeNumber(source.views),
+      watchTimeMinutes: cleanNonNegativeNumber(source.watchTimeMinutes),
+    })]
+  })
+  return rows.length ? rows : undefined
+}
+
+function sanitizeMetricAudience(input: unknown): YouTubeAnalyticsMetrics['audience'] {
+  if (!Array.isArray(input)) return undefined
+  const rows = input.flatMap((entry) => {
+    const source = cleanObject(entry)
+    const segment = cleanString(source.segment)
+    if (!segment) return []
+    return [stripUndefinedDeep({
+      segment,
+      viewerPercentage: cleanNonNegativeNumber(source.viewerPercentage),
+      views: cleanNonNegativeNumber(source.views),
+      watchTimeMinutes: cleanNonNegativeNumber(source.watchTimeMinutes),
+    })]
+  })
+  return rows.length ? rows : undefined
+}
+
+function sanitizeMetricShortsVsLongForm(input: unknown): YouTubeAnalyticsMetrics['shortsVsLongForm'] {
+  if (!Array.isArray(input)) return undefined
+  const rows = input.flatMap((entry) => {
+    const source = cleanObject(entry)
+    const videoType = pick(VIDEO_TYPES, source.videoType, undefined)
+    if (!videoType) return []
+    return [stripUndefinedDeep({
+      videoType,
+      views: cleanNonNegativeNumber(source.views),
+      watchTimeMinutes: cleanNonNegativeNumber(source.watchTimeMinutes),
+      averageViewPercentage: cleanNonNegativeNumber(source.averageViewPercentage),
+    })]
+  })
+  return rows.length ? rows : undefined
+}
+
+function sanitizeMetricSeriesTrends(input: unknown): YouTubeAnalyticsMetrics['seriesTrends'] {
+  if (!Array.isArray(input)) return undefined
+  const rows = input.flatMap((entry) => {
+    const source = cleanObject(entry)
+    const seriesId = cleanString(source.seriesId)
+    if (!seriesId) return []
+    return [stripUndefinedDeep({
+      seriesId,
+      views: cleanNonNegativeNumber(source.views),
+      watchTimeMinutes: cleanNonNegativeNumber(source.watchTimeMinutes),
+      averageViewPercentage: cleanNonNegativeNumber(source.averageViewPercentage),
+    })]
+  })
+  return rows.length ? rows : undefined
+}
+
+function sanitizeMetricVideoComparisons(input: unknown): YouTubeAnalyticsMetrics['videoComparisons'] {
+  if (!Array.isArray(input)) return undefined
+  const rows = input.flatMap((entry) => {
+    const source = cleanObject(entry)
+    const videoProjectId = cleanString(source.videoProjectId)
+    const youtubeVideoId = cleanString(source.youtubeVideoId)
+    if (!videoProjectId && !youtubeVideoId) return []
+    return [stripUndefinedDeep({
+      videoProjectId,
+      youtubeVideoId,
+      title: cleanString(source.title),
+      views: cleanNonNegativeNumber(source.views),
+      watchTimeMinutes: cleanNonNegativeNumber(source.watchTimeMinutes),
+      impressionsCtr: cleanNonNegativeNumber(source.impressionsCtr),
+      averageViewPercentage: cleanNonNegativeNumber(source.averageViewPercentage),
+    })]
+  })
+  return rows.length ? rows : undefined
+}
+
 function sanitizeYouTubeAnalyticsMetrics(input: unknown): YouTubeAnalyticsMetrics {
   const source = cleanObject(input)
 
@@ -1228,6 +1319,7 @@ function sanitizeYouTubeAnalyticsMetrics(input: unknown): YouTubeAnalyticsMetric
     watchTimeMinutes: cleanNonNegativeNumber(source.watchTimeMinutes),
     averageViewDurationSeconds: cleanNonNegativeNumber(source.averageViewDurationSeconds),
     averageViewPercentage: cleanNonNegativeNumber(source.averageViewPercentage),
+    retentionPercentage: cleanNonNegativeNumber(source.retentionPercentage),
     impressions: cleanNonNegativeNumber(source.impressions),
     impressionsCtr: cleanNonNegativeNumber(source.impressionsCtr),
     subscribersGained: cleanNonNegativeNumber(source.subscribersGained),
@@ -1235,6 +1327,11 @@ function sanitizeYouTubeAnalyticsMetrics(input: unknown): YouTubeAnalyticsMetric
     likes: cleanNonNegativeNumber(source.likes),
     comments: cleanNonNegativeNumber(source.comments),
     shares: cleanNonNegativeNumber(source.shares),
+    trafficSources: sanitizeMetricTrafficSources(source.trafficSources),
+    audience: sanitizeMetricAudience(source.audience),
+    shortsVsLongForm: sanitizeMetricShortsVsLongForm(source.shortsVsLongForm),
+    seriesTrends: sanitizeMetricSeriesTrends(source.seriesTrends),
+    videoComparisons: sanitizeMetricVideoComparisons(source.videoComparisons),
   })
 }
 
@@ -1251,6 +1348,8 @@ function sanitizeYouTubeAnalyticsRecommendations(input: unknown): YouTubeAnalyti
       summary,
       confidence: pick(ANALYTICS_RECOMMENDATION_CONFIDENCES, source.confidence, 'low'),
       status: pick(ANALYTICS_RECOMMENDATION_STATUSES, source.status, 'suggested'),
+      actionType: pick(ANALYTICS_RECOMMENDATION_ACTION_TYPES, source.actionType, undefined),
+      actionRefId: cleanString(source.actionRefId),
       taskId: cleanString(source.taskId),
       notes: cleanString(source.notes),
     })]
@@ -1675,12 +1774,13 @@ function clientSafeAnalyticsRecommendation(recommendation: unknown) {
   const summary = cleanString(source.summary)
   if (!summary) return undefined
 
-  return {
+  return stripUndefinedDeep({
     type: pick(ANALYTICS_RECOMMENDATION_TYPES, source.type, 'follow_up_video'),
     summary,
     confidence: pick(ANALYTICS_RECOMMENDATION_CONFIDENCES, source.confidence, 'low'),
     status: pick(ANALYTICS_RECOMMENDATION_STATUSES, source.status, 'suggested'),
-  }
+    actionType: pick(ANALYTICS_RECOMMENDATION_ACTION_TYPES, source.actionType, undefined),
+  })
 }
 
 export function clientSafeYouTubeAnalyticsSnapshot(

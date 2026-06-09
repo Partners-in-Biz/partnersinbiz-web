@@ -144,6 +144,12 @@ export type YouTubeAnalyticsRecommendationType =
   | 'cadence_change'
 export type YouTubeAnalyticsRecommendationConfidence = 'low' | 'medium' | 'high'
 export type YouTubeAnalyticsRecommendationStatus = 'suggested' | 'accepted' | 'rejected' | 'converted_to_task'
+export type YouTubeAnalyticsRecommendationActionType =
+  | 'task'
+  | 'brief'
+  | 'clip_idea'
+  | 'script_change'
+  | 'series_experiment'
 export type YouTubeReleaseMode = YouTubePublishingPolicy['allowedModes'][number]
 export type YouTubeReleasePlanStatus = 'draft' | 'ready' | 'scheduled' | 'published' | 'blocked' | 'cancelled'
 
@@ -164,6 +170,7 @@ export interface YouTubeAnalyticsMetrics {
   watchTimeMinutes?: number
   averageViewDurationSeconds?: number
   averageViewPercentage?: number
+  retentionPercentage?: number
   impressions?: number
   impressionsCtr?: number
   subscribersGained?: number
@@ -171,6 +178,11 @@ export interface YouTubeAnalyticsMetrics {
   likes?: number
   comments?: number
   shares?: number
+  trafficSources?: Array<{ source: string; views?: number; watchTimeMinutes?: number }>
+  audience?: Array<{ segment: string; viewerPercentage?: number; views?: number; watchTimeMinutes?: number }>
+  shortsVsLongForm?: Array<{ videoType: YouTubeVideoType; views?: number; watchTimeMinutes?: number; averageViewPercentage?: number }>
+  seriesTrends?: Array<{ seriesId: string; views?: number; watchTimeMinutes?: number; averageViewPercentage?: number }>
+  videoComparisons?: Array<{ videoProjectId?: string; youtubeVideoId?: string; title?: string; views?: number; watchTimeMinutes?: number; impressionsCtr?: number; averageViewPercentage?: number }>
 }
 
 export interface YouTubeAnalyticsRecommendation {
@@ -178,6 +190,8 @@ export interface YouTubeAnalyticsRecommendation {
   summary: string
   confidence: YouTubeAnalyticsRecommendationConfidence
   status: YouTubeAnalyticsRecommendationStatus
+  actionType?: YouTubeAnalyticsRecommendationActionType
+  actionRefId?: string
   taskId?: string
   notes?: string
 }

@@ -1274,33 +1274,46 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
     setLoadNotice('')
     try {
       const recommendationSummary = form.analyticsRecommendationSummary.trim()
-      const res = await fetch('/api/v1/youtube-studio/analytics', {
+      const endpoint = form.analyticsSource === 'youtube_analytics_api'
+        ? '/api/v1/youtube-studio/analytics/ingest'
+        : '/api/v1/youtube-studio/analytics'
+      const payload = form.analyticsSource === 'youtube_analytics_api'
+        ? {
+            orgId: mutationOrgId,
+            channelWorkspaceId: form.analyticsChannelId,
+            videoProjectId: form.analyticsVideoId || undefined,
+            periodStart: form.analyticsPeriodStart,
+            periodEnd: form.analyticsPeriodEnd,
+            showInClientPortal: form.analyticsShowInPortal,
+          }
+        : {
+            orgId: mutationOrgId,
+            channelWorkspaceId: form.analyticsChannelId,
+            videoProjectId: form.analyticsVideoId || undefined,
+            periodStart: form.analyticsPeriodStart,
+            periodEnd: form.analyticsPeriodEnd,
+            source: form.analyticsSource,
+            sourceFreshness: form.analyticsFreshness,
+            metrics: {
+              views: numericValue(form.analyticsViews),
+              watchTimeMinutes: numericValue(form.analyticsWatchTimeMinutes),
+              averageViewPercentage: numericValue(form.analyticsAverageViewPercentage),
+              impressionsCtr: numericValue(form.analyticsImpressionsCtr),
+            },
+            clientSummary: form.analyticsClientSummary,
+            recommendations: recommendationSummary
+              ? [{
+                  type: form.analyticsRecommendationType,
+                  summary: recommendationSummary,
+                  confidence: form.analyticsRecommendationConfidence,
+                }]
+              : [],
+            visibility: { showInClientPortal: form.analyticsShowInPortal },
+          }
+      const res = await fetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          orgId: mutationOrgId,
-          channelWorkspaceId: form.analyticsChannelId,
-          videoProjectId: form.analyticsVideoId || undefined,
-          periodStart: form.analyticsPeriodStart,
-          periodEnd: form.analyticsPeriodEnd,
-          source: form.analyticsSource,
-          sourceFreshness: form.analyticsFreshness,
-          metrics: {
-            views: numericValue(form.analyticsViews),
-            watchTimeMinutes: numericValue(form.analyticsWatchTimeMinutes),
-            averageViewPercentage: numericValue(form.analyticsAverageViewPercentage),
-            impressionsCtr: numericValue(form.analyticsImpressionsCtr),
-          },
-          clientSummary: form.analyticsClientSummary,
-          recommendations: recommendationSummary
-            ? [{
-                type: form.analyticsRecommendationType,
-                summary: recommendationSummary,
-                confidence: form.analyticsRecommendationConfidence,
-              }]
-            : [],
-          visibility: { showInClientPortal: form.analyticsShowInPortal },
-        }),
+        body: JSON.stringify(payload),
       })
       const body = await res.json().catch(() => ({}))
       if (!isCurrentMutation()) return
@@ -2649,7 +2662,7 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
               disabled={importingAnalytics || !form.analyticsChannelId || !form.analyticsPeriodStart || !form.analyticsPeriodEnd}
               className="pib-btn-primary w-full"
             >
-              {importingAnalytics ? 'Importing...' : 'Import snapshot'}
+              {importingAnalytics ? 'Importing...' : form.analyticsSource === 'youtube_analytics_api' ? 'Fetch from YouTube Analytics API' : 'Import snapshot'}
             </button>
           </form>
         </aside>
