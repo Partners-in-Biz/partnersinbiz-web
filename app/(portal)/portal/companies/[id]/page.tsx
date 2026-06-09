@@ -1,7 +1,7 @@
 'use client'
 export const dynamic = 'force-dynamic'
 
-import { useEffect, useState, useCallback, useMemo } from 'react'
+import { Fragment, useEffect, useState, useCallback, useMemo } from 'react'
 import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import type { Company } from '@/lib/companies/types'
@@ -97,9 +97,15 @@ type RelatedInvoice = {
   invoiceNumber?: string
   status?: string
   total?: number
+  subtotal?: number
+  taxRate?: number
+  taxAmount?: number
   currency?: string
   dueDate?: unknown
   publicToken?: string
+  notes?: string
+  lineItems?: Array<{ description?: string; quantity?: number; unitPrice?: number; amount?: number }>
+  canEdit?: boolean
   updatedAt?: unknown
 }
 
@@ -367,6 +373,20 @@ function quoteValidUntilLabel(quote: RelatedQuote) {
 
 function invoiceDueDateLabel(invoice: RelatedInvoice) {
   return dateReadinessLabel(invoice.dueDate, 'Due date not set', 'Due date needs review')
+}
+
+function dateInputValue(value: unknown): string {
+  if (!value) return ''
+  let date: Date | null = null
+  if (value instanceof Date) date = value
+  else if (typeof value === 'string') date = new Date(value)
+  else if (typeof value === 'object') {
+    const source = value as { toDate?: () => Date; seconds?: number; _seconds?: number }
+    if (typeof source.toDate === 'function') date = source.toDate()
+    else if (typeof (source.seconds ?? source._seconds) === 'number') date = new Date((source.seconds ?? source._seconds ?? 0) * 1000)
+  }
+  if (!date || Number.isNaN(date.getTime())) return ''
+  return date.toISOString().slice(0, 10)
 }
 
 function orderTitleLabel(order: RelatedOrder) {
@@ -1247,6 +1267,67 @@ function InvoicesPanel({
   invoiceError: string | null
   onCreateInvoiceFromQuote: (quote: RelatedQuote) => void
 }) {
+  const [editableInvoices, setEditableInvoices] = useState(invoices)
+  const [editingInvoiceId, setEditingInvoiceId] = useState<string | null>(null)
+  const [savingInvoiceId, setSavingInvoiceId] = useState<string | null>(null)
+  const [editError, setEditError] = useState<string | null>(null)
+  const [draftForm, setDraftForm] = useState({ dueDate: '', taxRate: '0', notes: '', description: '', quantity: '1', unitPrice: '0' })
+
+  useEffect(() => setEditableInvoices(invoices), [invoices])
+
+  function startEditingInvoice(invoice: RelatedInvoice) {
+    const firstLine = invoice.lineItems?.[0]
+    setEditingInvoiceId(invoice.id)
+    setEditError(null)
+    setDraftForm({
+      dueDate: dateInputValue(invoice.dueDate),
+      taxRate: String(invoice.taxRate ?? 0),
+      notes: invoice.notes ?? '',
+      description: firstLine?.description ?? '',
+      quantity: String(firstLine?.quantity ?? 1),
+      unitPrice: String(firstLine?.unitPrice ?? 0),
+    })
+  }
+
+  async function saveDraftInvoice(invoice: RelatedInvoice) {
+    setSavingInvoiceId(invoice.id)
+    setEditError(null)
+    const quantity = Number(draftForm.quantity) || 1
+    const unitPrice = Number(draftForm.unitPrice) || 0
+    const taxRate = Number(draftForm.taxRate) || 0
+    const lineItems = [{ description: draftForm.description.trim() || 'Invoice item', quantity, unitPrice }]
+    const res = await fetch(`/api/v1/invoices/${invoice.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        dueDate: draftForm.dueDate || null,
+        taxRate,
+        notes: draftForm.notes,
+        lineItems,
+      }),
+    })
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({})) as { error?: string }
+      setEditError(body.error ?? 'Failed to save draft invoice')
+      setSavingInvoiceId(null)
+      return
+    }
+    const subtotal = quantity * unitPrice
+    const taxAmount = subtotal * (taxRate / 100)
+    setEditableInvoices((current) => current.map((row) => row.id === invoice.id ? {
+      ...row,
+      dueDate: draftForm.dueDate || null,
+      taxRate,
+      notes: draftForm.notes,
+      lineItems: [{ ...lineItems[0], amount: subtotal }],
+      subtotal,
+      taxAmount,
+      total: subtotal + taxAmount,
+    } : row))
+    setEditingInvoiceId(null)
+    setSavingInvoiceId(null)
+  }
+
   if (invoices.length === 0) {
     const acceptedQuote = quotes.find((quote) => quote.status === 'accepted')
     return (
@@ -1330,18 +1411,60 @@ function InvoicesPanel({
             </tr>
           </thead>
           <tbody className="divide-y divide-[var(--color-pib-line)]">
-            {invoices.map((invoice) => (
-              <tr key={invoice.id} className="hover:bg-white/[0.02]">
-                <td className="px-5 py-4 font-mono">{invoice.invoiceNumber || invoice.id}</td>
-                <td className="px-5 py-4"><CompanyRecordStatusChip value={invoice.status} emptyLabel="Invoice status not set" /></td>
-                <td className="px-5 py-4 text-[var(--color-pib-text-muted)]">{invoiceTotalLabel(invoice)}</td>
-                <td className="px-5 py-4 text-[var(--color-pib-text-muted)]">{invoiceDueDateLabel(invoice)}</td>
-                <td className="px-5 py-4 text-right">
-                  <a href={`/api/v1/invoices/${invoice.id}/pdf`} target="_blank" rel="noopener noreferrer" className="text-[var(--color-accent-v2)] hover:underline">
-                    Open
-                  </a>
-                </td>
-              </tr>
+            {editableInvoices.map((invoice) => (
+              <Fragment key={invoice.id}>
+                <tr className="hover:bg-white/[0.02]">
+                  <td className="px-5 py-4 font-mono">{invoice.invoiceNumber || invoice.id}</td>
+                  <td className="px-5 py-4"><CompanyRecordStatusChip value={invoice.status} emptyLabel="Invoice status not set" /></td>
+                  <td className="px-5 py-4 text-[var(--color-pib-text-muted)]">{invoiceTotalLabel(invoice)}</td>
+                  <td className="px-5 py-4 text-[var(--color-pib-text-muted)]">{invoiceDueDateLabel(invoice)}</td>
+                  <td className="px-5 py-4 text-right">
+                    <div className="flex justify-end gap-3">
+                      {invoice.canEdit && invoice.status === 'draft' ? (
+                        <button type="button" onClick={() => startEditingInvoice(invoice)} className="text-[var(--color-accent-v2)] hover:underline">
+                          Edit draft
+                        </button>
+                      ) : null}
+                      <a href={`/api/v1/invoices/${invoice.id}/pdf`} target="_blank" rel="noopener noreferrer" className="text-[var(--color-accent-v2)] hover:underline">
+                        Open PDF
+                      </a>
+                    </div>
+                  </td>
+                </tr>
+                {editingInvoiceId === invoice.id ? (
+                  <tr key={`${invoice.id}-editor`}>
+                    <td colSpan={5} className="bg-white/[0.02] px-5 py-4">
+                      <div className="grid gap-3 sm:grid-cols-2">
+                        <label className="text-xs text-[var(--color-pib-text-muted)]">Due date
+                          <input type="date" value={draftForm.dueDate} onChange={(event) => setDraftForm((current) => ({ ...current, dueDate: event.target.value }))} className="pib-input mt-1" />
+                        </label>
+                        <label className="text-xs text-[var(--color-pib-text-muted)]">Tax rate
+                          <input type="number" min="0" max="100" value={draftForm.taxRate} onChange={(event) => setDraftForm((current) => ({ ...current, taxRate: event.target.value }))} className="pib-input mt-1" />
+                        </label>
+                        <label className="text-xs text-[var(--color-pib-text-muted)] sm:col-span-2">Line item description
+                          <input value={draftForm.description} onChange={(event) => setDraftForm((current) => ({ ...current, description: event.target.value }))} className="pib-input mt-1" />
+                        </label>
+                        <label className="text-xs text-[var(--color-pib-text-muted)]">Quantity
+                          <input type="number" min="1" value={draftForm.quantity} onChange={(event) => setDraftForm((current) => ({ ...current, quantity: event.target.value }))} className="pib-input mt-1" />
+                        </label>
+                        <label className="text-xs text-[var(--color-pib-text-muted)]">Unit price
+                          <input type="number" min="0" step="0.01" value={draftForm.unitPrice} onChange={(event) => setDraftForm((current) => ({ ...current, unitPrice: event.target.value }))} className="pib-input mt-1" />
+                        </label>
+                        <label className="text-xs text-[var(--color-pib-text-muted)] sm:col-span-2">Notes
+                          <textarea value={draftForm.notes} onChange={(event) => setDraftForm((current) => ({ ...current, notes: event.target.value }))} className="pib-textarea mt-1" rows={2} />
+                        </label>
+                      </div>
+                      {editError ? <p className="mt-3 text-xs text-red-300">{editError}</p> : null}
+                      <div className="mt-3 flex justify-end gap-2">
+                        <button type="button" onClick={() => setEditingInvoiceId(null)} className="btn-pib-secondary">Cancel</button>
+                        <button type="button" onClick={() => saveDraftInvoice(invoice)} disabled={savingInvoiceId === invoice.id} className="btn-pib-primary disabled:opacity-60">
+                          {savingInvoiceId === invoice.id ? 'Saving...' : 'Save draft invoice'}
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ) : null}
+              </Fragment>
             ))}
           </tbody>
         </table>
