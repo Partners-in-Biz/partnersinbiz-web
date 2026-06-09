@@ -1,6 +1,7 @@
 import type {
   YouTubeChannelWorkspace,
   YouTubeGateCheck,
+  YouTubePacketApprovalRecord,
   YouTubePublishingPacket,
   YouTubeReleasePlan,
   YouTubeSourceAsset,
@@ -60,8 +61,45 @@ function gateMessage(check?: YouTubeGateCheck): string {
   return check?.message || 'Check failed.'
 }
 
-function hasApprovalEvidence(packet: YouTubePublishingPacket): boolean {
+function hasLegacyApprovalEvidence(packet: YouTubePublishingPacket): boolean {
   return Boolean(packet.approvedBy && packet.approvedAt && packet.approvedSnapshotHash)
+}
+
+function hasApprovalRecordIdentity(record?: YouTubePacketApprovalRecord): boolean {
+  if (!record || typeof record !== 'object') return false
+  const approval = record as { status?: unknown; decidedBy?: unknown; decidedAt?: unknown; snapshotHash?: unknown }
+  return approval.status === 'approved'
+    && typeof approval.decidedBy === 'string'
+    && approval.decidedBy.trim().length > 0
+    && Boolean(approval.decidedAt)
+    && typeof approval.snapshotHash === 'string'
+    && approval.snapshotHash.trim().length > 0
+}
+
+function hasInternalApprovalEvidence(packet: YouTubePublishingPacket): boolean {
+  if (hasApprovalRecordIdentity(packet.approvalState?.internalApproval)) return true
+  return hasLegacyApprovalEvidence(packet)
+}
+
+function hasClientApprovalEvidence(packet: YouTubePublishingPacket): boolean {
+  if (hasApprovalRecordIdentity(packet.approvalState?.clientApproval)) return true
+  return !packet.approvalState && hasLegacyApprovalEvidence(packet)
+}
+
+function openChangeRequests(packet: YouTubePublishingPacket): boolean {
+  if (packet.approvalState?.changeRequestStatus === 'open') return true
+  return (packet.changeRequests ?? []).some((request) => request.status === 'open')
+}
+
+function immutableAuditPresent(packet: YouTubePublishingPacket): boolean {
+  if ((packet.immutableAuditRecordIds ?? []).length > 0) return true
+  return !packet.approvalState && hasLegacyApprovalEvidence(packet)
+}
+
+function publishLockReasons(packet: YouTubePublishingPacket): string[] {
+  const lock = packet.approvalState?.publishLock
+  if (!lock?.locked) return []
+  return lock.reasons?.length ? lock.reasons : ['Approval lock is active.']
 }
 
 function videoAssetUrl(videoAsset?: YouTubeSourceAsset | null): string | undefined {
@@ -103,8 +141,26 @@ export function evaluateYouTubePublishReadiness(input: EvaluateInput): YouTubePu
 
   if (packet.deleted === true) blockers.push('Publishing packet is deleted.')
   if (packet.status !== 'approved') blockers.push('Publishing packet must be approved before YouTube upload.')
-  if (!hasApprovalEvidence(packet)) {
+  if (packet.isLatestVersion === false || packet.supersededByPacketId) {
+    blockers.push('Publishing packet is not the latest version for this video project.')
+  }
+  if (!packet.approvalState && !hasLegacyApprovalEvidence(packet)) {
     blockers.push('Publishing packet approval evidence is required before YouTube upload.')
+  }
+  if (!hasInternalApprovalEvidence(packet)) {
+    blockers.push('Internal publishing approval with approver identity is required before YouTube upload.')
+  }
+  if (!hasClientApprovalEvidence(packet)) {
+    blockers.push('Client publishing approval with approver identity is required before YouTube upload.')
+  }
+  if (openChangeRequests(packet)) {
+    blockers.push('Open publishing packet change requests must be resolved before YouTube upload.')
+  }
+  for (const reason of publishLockReasons(packet)) {
+    blockers.push(`Publishing packet publish lock is active: ${reason}`)
+  }
+  if (!immutableAuditPresent(packet)) {
+    blockers.push('Immutable publishing packet audit record is required before YouTube upload.')
   }
 
   for (const key of PACKET_CHECK_KEYS) {

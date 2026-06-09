@@ -28,7 +28,11 @@ jest.mock('@/lib/api/platformAdmin', () => ({
 }))
 
 jest.mock('firebase-admin/firestore', () => ({
-  FieldValue: { serverTimestamp: () => 'SERVER_TS' },
+  FieldValue: {
+    serverTimestamp: () => 'SERVER_TS',
+    arrayUnion: (...items: unknown[]) => ({ __op: 'arrayUnion', items }),
+    increment: (value: number) => ({ __op: 'increment', value }),
+  },
 }))
 
 type FirestoreDoc = {
@@ -920,6 +924,38 @@ describe('youtube studio admin API', () => {
       checkedBy: 'admin-1',
       checkedByType: 'user',
       checkedAt: 'SERVER_TS',
+    })
+    expect(packetUpdate.approvalState).toMatchObject({
+      internalStatus: 'approved',
+      clientStatus: 'approved',
+      changeRequestStatus: 'none',
+      internalApproval: {
+        status: 'approved',
+        decidedBy: 'admin-1',
+        decidedByType: 'user',
+        decidedAt: 'SERVER_TS',
+      },
+      clientApproval: {
+        status: 'approved',
+        decidedBy: 'admin-1',
+        decidedByType: 'user',
+        decidedAt: 'SERVER_TS',
+      },
+      publishLock: { locked: false, reasons: [] },
+    })
+    expect(packetUpdate.immutableAuditRecordIds).toMatchObject({
+      __op: 'arrayUnion',
+      items: [expect.stringMatching(/^packet-1:v1:approved:/)],
+    })
+    expect(packetUpdate.auditTrail).toMatchObject({
+      __op: 'arrayUnion',
+      items: [expect.objectContaining({
+        event: 'packet_approved',
+        immutable: true,
+        actorId: 'admin-1',
+        actorType: 'user',
+        packetVersionNumber: 1,
+      })],
     })
   })
 

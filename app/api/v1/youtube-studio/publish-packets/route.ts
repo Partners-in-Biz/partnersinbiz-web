@@ -14,7 +14,7 @@ import {
   YOUTUBE_COLLECTIONS,
 } from '@/lib/youtube-studio/api'
 import { serializeYouTubeRecord } from '@/lib/youtube-studio/sanitize'
-import type { YouTubeGateCheck, YouTubePublishingPacket } from '@/lib/youtube-studio/types'
+import type { ActorType, YouTubeGateCheck, YouTubePublishingPacket } from '@/lib/youtube-studio/types'
 
 export const dynamic = 'force-dynamic'
 
@@ -253,6 +253,87 @@ function approvalSnapshotHash(packet: Partial<YouTubePublishingPacket>) {
   return createHash('sha256').update(stableStringify(stripUndefinedDeep(snapshot))).digest('hex')
 }
 
+function actorTypeFor(user: Parameters<typeof updateActorFields>[0]): ActorType {
+  return user.role === 'ai' ? 'agent' : 'user'
+}
+
+function defaultApprovalState(lockReasons: string[] = []): YouTubePublishingPacket['approvalState'] {
+  return {
+    internalStatus: 'not_requested',
+    clientStatus: 'not_requested',
+    changeRequestStatus: 'none',
+    publishLock: {
+      locked: lockReasons.length > 0,
+      reasons: lockReasons,
+      lockedAt: lockReasons.length > 0 ? FieldValue.serverTimestamp() : undefined,
+      lockedBy: lockReasons.length > 0 ? 'system' : undefined,
+      lockedByType: lockReasons.length > 0 ? 'agent' : undefined,
+    },
+  }
+}
+
+function approvedApprovalState(
+  user: Parameters<typeof updateActorFields>[0],
+  snapshotHash: string,
+): YouTubePublishingPacket['approvalState'] {
+  const approvedAt = FieldValue.serverTimestamp()
+  const approval = {
+    status: 'approved' as const,
+    decidedBy: user.uid,
+    decidedByType: actorTypeFor(user),
+    decidedAt: approvedAt,
+    snapshotHash,
+  }
+
+  return {
+    internalStatus: 'approved',
+    clientStatus: 'approved',
+    changeRequestStatus: 'none',
+    internalApproval: approval,
+    clientApproval: approval,
+    publishLock: { locked: false, reasons: [] },
+  }
+}
+
+function approvalAuditEvent(
+  user: Parameters<typeof updateActorFields>[0],
+  packetId: string,
+  versionNumber: number,
+  snapshotHash: string,
+) {
+  const auditRecordId = `${packetId}:v${versionNumber}:approved:${snapshotHash.slice(0, 12)}`
+  return {
+    auditRecordId,
+    event: 'packet_approved',
+    message: 'Publishing packet approved with internal and client approval identity.',
+    at: FieldValue.serverTimestamp(),
+    actorId: user.uid,
+    actorType: actorTypeFor(user),
+    packetVersionNumber: versionNumber,
+    immutable: true,
+  }
+}
+
+function changeRequestFromBody(
+  body: Record<string, unknown>,
+  user: Parameters<typeof updateActorFields>[0],
+  versionNumber: number,
+) {
+  const source = cleanObject(body.changeRequest)
+  const reason = cleanString(source.reason)
+  const requestedChanges = cleanStringArray(source.requestedChanges)
+  if (!reason && requestedChanges.length === 0) return undefined
+  return {
+    id: `change-request-v${versionNumber}-${Date.now()}`,
+    status: 'open' as const,
+    requestedBy: user.uid,
+    requestedByType: actorTypeFor(user),
+    requestedAt: FieldValue.serverTimestamp(),
+    reason,
+    requestedChanges,
+  }
+}
+
 function cleanTitleOptions(value: unknown): YouTubePublishingPacket['titleOptions'] {
   if (!Array.isArray(value)) return []
 
@@ -325,8 +406,9 @@ export const POST = withAuth('admin', async (req: NextRequest, user) => {
   }
 
   const supersedesPacketId = cleanString(body.supersedesPacketId)
+  let superseded: Awaited<ReturnType<typeof loadScopedRecord>> | null = null
   if (supersedesPacketId) {
-    const superseded = await loadScopedRecord(YOUTUBE_COLLECTIONS.packets, supersedesPacketId)
+    superseded = await loadScopedRecord(YOUTUBE_COLLECTIONS.packets, supersedesPacketId)
     if (!superseded || superseded.data.deleted === true) return apiError('Superseded publishing packet not found', 404)
     if (superseded.data.orgId !== orgId) return apiError('supersedesPacketId does not belong to organisation', 400)
     if (superseded.data.videoProjectId !== videoProjectId) {
@@ -334,6 +416,8 @@ export const POST = withAuth('admin', async (req: NextRequest, user) => {
     }
   }
 
+  const packetRef = adminDb.collection(YOUTUBE_COLLECTIONS.packets).doc()
+  const batch = adminDb.batch()
   const packet = stripUndefinedDeep({
     orgId,
     channelWorkspaceId,
@@ -342,6 +426,7 @@ export const POST = withAuth('admin', async (req: NextRequest, user) => {
       ? Math.max(1, Math.floor(body.versionNumber))
       : 1,
     supersedesPacketId,
+    isLatestVersion: true,
     status: 'draft',
     titleOptions: cleanTitleOptions(body.titleOptions),
     description: cleanString(body.description),
@@ -356,13 +441,33 @@ export const POST = withAuth('admin', async (req: NextRequest, user) => {
     containsSyntheticMedia: typeof body.containsSyntheticMedia === 'boolean' ? body.containsSyntheticMedia : undefined,
     aiDisclosureNotes: cleanString(body.aiDisclosureNotes),
     checks: checksForChannel(channel.data),
+    approvalState: defaultApprovalState(['Publishing packet is a draft and cannot be published.']),
+    changeRequests: [],
+    auditTrail: [{
+      event: 'packet_created',
+      message: 'Publishing packet version created.',
+      at: FieldValue.serverTimestamp(),
+      actorId: user.uid,
+      actorType: actorTypeFor(user),
+      packetVersionNumber: typeof body.versionNumber === 'number' && Number.isFinite(body.versionNumber)
+        ? Math.max(1, Math.floor(body.versionNumber))
+        : 1,
+      immutable: true,
+      auditRecordId: `${packetRef.id}:created`,
+    }],
+    immutableAuditRecordIds: [`${packetRef.id}:created`],
     deleted: false,
     ...actorFields(user),
   })
-
-  const packetRef = adminDb.collection(YOUTUBE_COLLECTIONS.packets).doc()
-  const batch = adminDb.batch()
   batch.set(packetRef, packet)
+  if (supersedesPacketId && superseded) {
+    batch.set(superseded.ref, {
+      isLatestVersion: false,
+      supersededByPacketId: packetRef.id,
+      approvalState: defaultApprovalState(['Publishing packet has been superseded by a newer version.']),
+      ...updateActorFields(user),
+    }, { merge: true })
+  }
   batch.set(video.ref, {
     publishPacketId: packetRef.id,
     ...updateActorFields(user),
@@ -438,6 +543,10 @@ export const PUT = withAuth('admin', async (req: NextRequest, user) => {
       return apiError('Publishing packet has blocking checks and cannot be approved', 409)
     }
   }
+  const changeRequest = changeRequestFromBody(body, user, versionNumber)
+  if (status === 'approved' && changeRequest) {
+    return apiError('Publishing packet cannot be approved while a change request is being opened', 409)
+  }
 
   const packet = stripUndefinedDeep({
     orgId,
@@ -445,6 +554,7 @@ export const PUT = withAuth('admin', async (req: NextRequest, user) => {
     videoProjectId,
     versionNumber,
     supersedesPacketId,
+    isLatestVersion: loaded.data.isLatestVersion !== false,
     status,
     titleOptions: cleanTitleOptions(valueFromPatch(body, loaded.data, 'titleOptions')),
     description: cleanString(valueFromPatch(body, loaded.data, 'description')),
@@ -468,9 +578,34 @@ export const PUT = withAuth('admin', async (req: NextRequest, user) => {
     deleted: false,
     ...updateActorFields(user),
   })
+  const approvalHash = status === 'approved'
+    ? approvalSnapshotHash(packet as Partial<YouTubePublishingPacket>)
+    : undefined
+  const auditEvent = approvalHash ? approvalAuditEvent(user, id, versionNumber, approvalHash) : undefined
   const write = stripUndefinedDeep({
     ...packet,
-    approvedSnapshotHash: status === 'approved' ? approvalSnapshotHash(packet as Partial<YouTubePublishingPacket>) : undefined,
+    approvedSnapshotHash: approvalHash,
+    approvalState: status === 'approved'
+      ? approvedApprovalState(user, approvalHash ?? '')
+      : changeRequest
+        ? {
+          internalStatus: 'changes_requested',
+          clientStatus: 'changes_requested',
+          changeRequestStatus: 'open',
+          publishLock: {
+            locked: true,
+            reasons: ['Publishing packet has an open change request.'],
+            lockedAt: FieldValue.serverTimestamp(),
+            lockedBy: user.uid,
+            lockedByType: actorTypeFor(user),
+          },
+        }
+        : loaded.data.approvalState ?? defaultApprovalState(status === 'draft'
+          ? ['Publishing packet is a draft and cannot be published.']
+          : ['Publishing packet is not fully approved.']),
+    changeRequests: changeRequest ? FieldValue.arrayUnion(changeRequest) : loaded.data.changeRequests,
+    auditTrail: auditEvent ? FieldValue.arrayUnion(auditEvent) : loaded.data.auditTrail,
+    immutableAuditRecordIds: auditEvent ? FieldValue.arrayUnion(auditEvent.auditRecordId) : loaded.data.immutableAuditRecordIds,
   })
 
   await loaded.ref.set(write, { merge: true })

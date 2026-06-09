@@ -79,6 +79,28 @@ function packet(overrides: Partial<YouTubePublishingPacket> = {}): YouTubePublis
     approvedBy: 'admin-1',
     approvedAt: 'date',
     approvedSnapshotHash: 'hash',
+    approvalState: {
+      internalStatus: 'approved',
+      clientStatus: 'approved',
+      changeRequestStatus: 'none',
+      internalApproval: {
+        status: 'approved',
+        decidedBy: 'admin-1',
+        decidedByType: 'user',
+        decidedAt: 'date',
+        snapshotHash: 'hash',
+      },
+      clientApproval: {
+        status: 'approved',
+        decidedBy: 'client-1',
+        decidedByType: 'user',
+        decidedAt: 'date',
+        snapshotHash: 'hash',
+      },
+      publishLock: { locked: false, reasons: [] },
+    },
+    immutableAuditRecordIds: ['audit-1'],
+    isLatestVersion: true,
     deleted: false,
     ...overrides,
   }
@@ -142,6 +164,8 @@ describe('youtube studio production publishing integration guards', () => {
         approvedBy: undefined,
         approvedAt: undefined,
         approvedSnapshotHash: undefined,
+        approvalState: undefined,
+        immutableAuditRecordIds: [],
         checks: { ...packet().checks, rights: { status: 'block', message: 'Rights missing' } },
       }),
       releasePlan: releasePlan(),
@@ -153,6 +177,47 @@ describe('youtube studio production publishing integration guards', () => {
       'Publishing packet approval evidence is required before YouTube upload.',
       'Publishing packet check rights is blocking: Rights missing',
     ]))
+  })
+
+  it('hard-blocks new approval schema packets without client and internal approval identity', () => {
+    const result = evaluateYouTubePublishReadiness({
+      channel: channel(),
+      packet: packet({
+        approvedBy: undefined,
+        approvedAt: undefined,
+        approvedSnapshotHash: undefined,
+        approvalState: {
+          internalStatus: 'pending',
+          clientStatus: 'changes_requested',
+          changeRequestStatus: 'open',
+          publishLock: { locked: true, reasons: ['Client requested title changes.'] },
+        },
+        immutableAuditRecordIds: [],
+      }),
+      releasePlan: releasePlan(),
+      videoAsset,
+    })
+
+    expect(result.ready).toBe(false)
+    expect(result.blockers).toEqual(expect.arrayContaining([
+      'Internal publishing approval with approver identity is required before YouTube upload.',
+      'Client publishing approval with approver identity is required before YouTube upload.',
+      'Open publishing packet change requests must be resolved before YouTube upload.',
+      'Publishing packet publish lock is active: Client requested title changes.',
+      'Immutable publishing packet audit record is required before YouTube upload.',
+    ]))
+  })
+
+  it('blocks superseded packet versions even when legacy approval fields are present', () => {
+    const result = evaluateYouTubePublishReadiness({
+      channel: channel(),
+      packet: packet({ isLatestVersion: false, supersededByPacketId: 'packet-2' }),
+      releasePlan: releasePlan(),
+      videoAsset,
+    })
+
+    expect(result.ready).toBe(false)
+    expect(result.blockers).toContain('Publishing packet is not the latest version for this video project.')
   })
 
   it('blocks quota-limited channels before attempting the YouTube Data API upload', () => {

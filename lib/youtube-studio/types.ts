@@ -373,6 +373,60 @@ export interface YouTubeVideoProject {
   deleted: boolean
 }
 
+export type YouTubePacketApprovalStatus = 'not_requested' | 'pending' | 'approved' | 'changes_requested' | 'rejected'
+
+export interface YouTubePacketApprovalRecord {
+  status: YouTubePacketApprovalStatus
+  decidedBy?: string
+  decidedByType?: ActorType
+  decidedByName?: string
+  decidedAt?: unknown
+  notes?: string
+  snapshotHash?: string
+}
+
+export interface YouTubePacketChangeRequest {
+  id?: string
+  status: 'open' | 'resolved' | 'rejected' | 'cancelled'
+  requestedBy?: string
+  requestedByType?: ActorType
+  requestedByName?: string
+  requestedAt?: unknown
+  resolvedBy?: string
+  resolvedByType?: ActorType
+  resolvedAt?: unknown
+  reason?: string
+  requestedChanges?: string[]
+}
+
+export interface YouTubePacketPublishLock {
+  locked: boolean
+  reasons: string[]
+  lockedAt?: unknown
+  lockedBy?: string
+  lockedByType?: ActorType
+}
+
+export interface YouTubePacketApprovalState {
+  internalStatus: YouTubePacketApprovalStatus
+  clientStatus: YouTubePacketApprovalStatus
+  changeRequestStatus: 'none' | 'open' | 'resolved'
+  internalApproval?: YouTubePacketApprovalRecord
+  clientApproval?: YouTubePacketApprovalRecord
+  publishLock?: YouTubePacketPublishLock
+}
+
+export interface YouTubePacketAuditEvent {
+  event: string
+  message: string
+  at?: unknown
+  actorId?: string
+  actorType?: ActorType
+  packetVersionNumber?: number
+  immutable?: boolean
+  auditRecordId?: string
+}
+
 export interface YouTubePublishingPacket {
   id?: string
   orgId: string
@@ -380,6 +434,8 @@ export interface YouTubePublishingPacket {
   videoProjectId: string
   versionNumber: number
   supersedesPacketId?: string
+  supersededByPacketId?: string
+  isLatestVersion?: boolean
   status: 'draft' | 'internal_review' | 'client_review' | 'approved' | 'blocked' | 'published'
   titleOptions: Array<{ text: string; rationale?: string; selected?: boolean }>
   description?: string
@@ -406,6 +462,10 @@ export interface YouTubePublishingPacket {
   approvedBy?: string
   approvedAt?: unknown
   approvedSnapshotHash?: string
+  approvalState?: YouTubePacketApprovalState
+  changeRequests?: YouTubePacketChangeRequest[]
+  auditTrail?: YouTubePacketAuditEvent[]
+  immutableAuditRecordIds?: string[]
   deleted: boolean
 }
 
