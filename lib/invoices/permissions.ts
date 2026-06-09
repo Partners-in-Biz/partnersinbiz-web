@@ -27,9 +27,9 @@ export function canEditInvoiceDraft(user: InvoiceActor | null | undefined, invoi
   return creatorUid(invoice) === user.uid
 }
 
-export function decorateInvoiceEditCapability<T extends InvoiceLike>(
+export function decorateInvoiceEditCapability<T extends object>(
   invoice: T,
   user: InvoiceActor | null | undefined,
 ): T & { canEdit: boolean } {
-  return { ...invoice, canEdit: canEditInvoiceDraft(user, invoice) }
+  return { ...invoice, canEdit: canEditInvoiceDraft(user, invoice as InvoiceLike) }
 }
