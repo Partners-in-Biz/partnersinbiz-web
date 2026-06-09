@@ -190,6 +190,71 @@ describe('Admin company command center page', () => {
     )
   })
 
+  it('keeps CRM company document rows in the admin workspace instead of switching to the client portal workspace', async () => {
+    ;(global.fetch as jest.Mock).mockImplementation((input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url === '/api/v1/admin/crm/companies/company-1/command-center?orgSlug=acme-client&limit=100') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            data: {
+              company: {
+                id: 'company-1',
+                orgId: 'pib-platform-owner',
+                name: 'Elemental',
+                linkedOrgId: 'elemental-org',
+                lifecycleStage: 'customer',
+              },
+              linkedWorkspace: { id: 'elemental-org', orgId: 'elemental-org', slug: 'elemental-sustainability', orgSlug: 'elemental-sustainability', name: 'Elemental Sustainability' },
+              summary: {
+                contacts: 0,
+                deals: 0,
+                projects: 0,
+                documents: 1,
+                serviceWorkspaces: 0,
+                relationships: 0,
+                quotes: 0,
+                invoices: 0,
+                orders: 0,
+                shipments: 0,
+                inventoryItems: 0,
+                activities: 0,
+              },
+              analytics: { riskSignals: [] },
+              contacts: [],
+              deals: [],
+              projects: [],
+              documents: [{ id: 'doc-1', title: 'Elemental proposal', type: 'sales_proposal', status: 'client_review' }],
+              serviceWorkspaces: [],
+              relationships: [],
+              quotes: [],
+              invoices: [],
+              orders: [],
+              shipments: [],
+              inventoryItems: [],
+              activities: [],
+            },
+          }),
+        } as Response)
+      }
+
+      return Promise.resolve({
+        ok: false,
+        json: async () => ({ error: `Unexpected request: ${url}` }),
+      } as Response)
+    })
+
+    render(<AdminCompanyCommandCenterPage />)
+
+    expect(await screen.findByText('Admin company command center')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('tab', { name: /Documents/i }))
+
+    expect(screen.getByRole('link', { name: 'Open Elemental proposal from Elemental admin command center' })).toHaveAttribute(
+      'href',
+      '/admin/org/acme-client/documents/doc-1',
+    )
+  })
+
   it('turns clear admin company analytics risk into a portal review action', async () => {
     render(<AdminCompanyCommandCenterPage />)
 

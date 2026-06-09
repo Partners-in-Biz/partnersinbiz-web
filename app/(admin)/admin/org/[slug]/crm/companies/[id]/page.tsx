@@ -221,6 +221,7 @@ function AdminRowsPanel({
   tab,
   rows,
   companyName,
+  adminOrgSlug,
   portalHref,
   portalPathFor,
   onReviewOverview,
@@ -228,6 +229,7 @@ function AdminRowsPanel({
   tab: CompanyTab
   rows: Row[]
   companyName: string
+  adminOrgSlug: string
   portalHref: string
   portalPathFor: (path: string) => string
   onReviewOverview: () => void
@@ -253,6 +255,9 @@ function AdminRowsPanel({
       filteredEmptyLabel={`No matching ${lowerLabel}. Try clearing the search, status, or history filter.`}
       title={(row) => rowTitle(row, tab)}
       hrefFor={(row) => {
+        if (tab === 'documents' && row.id) {
+          return `/admin/org/${encodeURIComponent(adminOrgSlug)}/documents/${encodeURIComponent(row.id)}`
+        }
         const href = rowHref(row, tab)
         return href ? portalPathFor(href) : undefined
       }}
@@ -422,6 +427,7 @@ export default function AdminCompanyCommandCenterPage() {
             tab={tab}
             rows={rowsFor(center, tab)}
             companyName={company.name}
+            adminOrgSlug={slug}
             portalHref={portalCompanyHref}
             portalPathFor={portalPathFor}
             onReviewOverview={() => setTab('overview')}
