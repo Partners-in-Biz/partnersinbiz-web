@@ -598,6 +598,10 @@ function pick<T extends string>(values: readonly T[], input: unknown, fallback: 
   return values.includes(input as T) ? input as T : fallback
 }
 
+function pickOptional<T extends string>(values: readonly T[], input: unknown): T | undefined {
+  return values.includes(input as T) ? input as T : undefined
+}
+
 export function defaultYouTubeApprovalPolicy(): YouTubeApprovalPolicy {
   return {
     requireInternalBriefApproval: true,
@@ -1263,7 +1267,7 @@ function sanitizeMetricShortsVsLongForm(input: unknown): YouTubeAnalyticsMetrics
   if (!Array.isArray(input)) return undefined
   const rows = input.flatMap((entry) => {
     const source = cleanObject(entry)
-    const videoType = pick(VIDEO_TYPES, source.videoType, undefined)
+    const videoType = pickOptional(VIDEO_TYPES, source.videoType)
     if (!videoType) return []
     return [stripUndefinedDeep({
       videoType,
@@ -1348,7 +1352,7 @@ function sanitizeYouTubeAnalyticsRecommendations(input: unknown): YouTubeAnalyti
       summary,
       confidence: pick(ANALYTICS_RECOMMENDATION_CONFIDENCES, source.confidence, 'low'),
       status: pick(ANALYTICS_RECOMMENDATION_STATUSES, source.status, 'suggested'),
-      actionType: pick(ANALYTICS_RECOMMENDATION_ACTION_TYPES, source.actionType, undefined),
+      actionType: pickOptional(ANALYTICS_RECOMMENDATION_ACTION_TYPES, source.actionType),
       actionRefId: cleanString(source.actionRefId),
       taskId: cleanString(source.taskId),
       notes: cleanString(source.notes),
@@ -1779,7 +1783,7 @@ function clientSafeAnalyticsRecommendation(recommendation: unknown) {
     summary,
     confidence: pick(ANALYTICS_RECOMMENDATION_CONFIDENCES, source.confidence, 'low'),
     status: pick(ANALYTICS_RECOMMENDATION_STATUSES, source.status, 'suggested'),
-    actionType: pick(ANALYTICS_RECOMMENDATION_ACTION_TYPES, source.actionType, undefined),
+    actionType: pickOptional(ANALYTICS_RECOMMENDATION_ACTION_TYPES, source.actionType),
   })
 }
 

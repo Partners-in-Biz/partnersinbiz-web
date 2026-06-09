@@ -66,14 +66,14 @@ export const POST = withAuth('admin', async (req: NextRequest, user) => {
     if (!video || video.data.deleted === true) return apiError('Video project not found', 404)
     if (video.data.orgId !== orgId) return apiError('videoProjectId does not belong to organisation', 400)
     if (video.data.channelWorkspaceId !== channelWorkspaceId) return apiError('videoProjectId does not belong to channel workspace', 400)
-    selectedVideo = { id: video.id, ...(video.data as YouTubeVideoProject) }
+    selectedVideo = { id: video.id, ...(video.data as unknown as YouTubeVideoProject) }
   }
 
   const tokens = await loadConnectedYouTubeTokens(orgId, cleanString(channel.data.connectedAccountId))
   if (!tokens) return apiError('Connected active YouTube account with encrypted OAuth tokens is required', 400)
 
   const videos = (await listByOrg(YOUTUBE_COLLECTIONS.videos, orgId))
-    .map((doc) => ({ id: doc.id, ...(doc.data() as YouTubeVideoProject) }))
+    .map((doc) => ({ id: doc.id, ...(doc.data() as unknown as YouTubeVideoProject) }))
     .filter((video) => video.channelWorkspaceId === channelWorkspaceId && video.deleted !== true && typeof video.youtubeVideoId === 'string' && video.youtubeVideoId.trim())
 
   try {

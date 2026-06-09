@@ -1951,7 +1951,11 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
                       <Metric label="Views" value={snapshot.metrics?.views} />
                       <Metric label="Watch min" value={snapshot.metrics?.watchTimeMinutes} />
                       <Metric label="Avg viewed" value={snapshot.metrics?.averageViewPercentage} suffix="%" />
+                      <Metric label="Retention" value={snapshot.metrics?.retentionPercentage} suffix="%" />
                       <Metric label="CTR" value={snapshot.metrics?.impressionsCtr} suffix="%" />
+                      <Metric label="Traffic sources" value={snapshot.metrics?.trafficSources?.length} />
+                      <Metric label="Audience segments" value={snapshot.metrics?.audience?.length} />
+                      <Metric label="Compared videos" value={snapshot.metrics?.videoComparisons?.length} />
                     </div>
                     {snapshot.recommendations?.length ? (
                       <div className="space-y-2">

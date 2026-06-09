@@ -73,8 +73,8 @@ function weightedAverage(rows: ParsedReportRow[], key: string, weightKey = 'view
   return totalWeight > 0 ? Number((weighted / totalWeight).toFixed(2)) : undefined
 }
 
-function compactMetricRow<T extends Record<string, unknown>>(row: T): T {
-  return Object.fromEntries(Object.entries(row).filter(([, value]) => value !== undefined && value !== '')) as T
+function compactMetricRow<T extends Record<string, unknown>>(row: T): Partial<T> {
+  return Object.fromEntries(Object.entries(row).filter(([, value]) => value !== undefined && value !== '')) as Partial<T>
 }
 
 export function buildYouTubeAnalyticsSnapshotFromApiReports(args: {
@@ -95,7 +95,7 @@ export function buildYouTubeAnalyticsSnapshotFromApiReports(args: {
   const retentionRows = parseReportRows(args.retentionReport ?? {})
   const retentionPercentage = weightedAverage(retentionRows, 'audienceWatchRatio', 'elapsedVideoTimeRatio')
     ?? weightedAverage(retentionRows, 'relativeRetentionPerformance', 'elapsedVideoTimeRatio')
-  const metrics: YouTubeAnalyticsMetrics = compactMetricRow({
+  const metrics = compactMetricRow({
     views: sum(summaryRows, 'views') ?? numberValue(first.views),
     watchTimeMinutes: sum(summaryRows, 'estimatedMinutesWatched') ?? numberValue(first.estimatedMinutesWatched),
     averageViewDurationSeconds: weightedAverage(summaryRows, 'averageViewDuration') ?? numberValue(first.averageViewDuration),
@@ -170,7 +170,7 @@ export function buildYouTubeAnalyticsSnapshotFromApiReports(args: {
         averageViewPercentage: numberValue(row.averageViewPercentage),
       })]
     }),
-  })
+  }) as YouTubeAnalyticsMetrics
 
   return {
     orgId: args.request.orgId,
@@ -183,10 +183,10 @@ export function buildYouTubeAnalyticsSnapshotFromApiReports(args: {
     source: 'youtube_analytics_api',
     sourceFreshness: 'delayed',
     metrics,
-    dimensions: compactMetricRow({
+    dimensions: Object.fromEntries(Object.entries({
       youtubeChannelId: args.request.youtubeChannelId,
       youtubeVideoId: args.request.youtubeVideoId,
-    }),
+    }).filter(([, value]) => typeof value === 'string' && value.trim())) as Record<string, string>,
     recommendations: buildAnalyticsRecommendations(metrics),
     clientSummary: buildClientSummary(metrics, args.request.periodStart, args.request.periodEnd),
     visibility: { showInClientPortal: false },
@@ -205,7 +205,8 @@ export function buildAnalyticsRecommendations(metrics: YouTubeAnalyticsMetrics):
       actionType: 'task',
     })
   }
-  if ((metrics.averageViewPercentage ?? metrics.retentionPercentage ?? 100) < 35) {
+  const retentionSignal = metrics.retentionPercentage ?? metrics.averageViewPercentage
+  if ((retentionSignal ?? 100) < 35) {
     recommendations.push({
       type: 'retitle',
       summary: 'Weak retention: revise the hook and first script section for the next cut.',
@@ -267,9 +268,12 @@ function youtubeOAuthClient(accessToken?: string, refreshToken?: string | null) 
   return oauth
 }
 
-async function queryReport(auth: ReturnType<typeof youtubeOAuthClient>, params: Record<string, string>): Promise<YouTubeAnalyticsReport> {
+type ReportQueryParams = Record<string, string | undefined>
+
+async function queryReport(auth: ReturnType<typeof youtubeOAuthClient>, params: ReportQueryParams): Promise<YouTubeAnalyticsReport> {
   const analytics = google.youtubeAnalytics({ version: 'v2', auth })
-  const response = await analytics.reports.query(params)
+  const query = Object.fromEntries(Object.entries(params).filter(([, value]) => typeof value === 'string' && value.trim())) as Record<string, string>
+  const response = await analytics.reports.query(query)
   return response.data as YouTubeAnalyticsReport
 }
 
@@ -293,7 +297,7 @@ export async function fetchYouTubeAnalyticsApiSnapshot(request: YouTubeAnalytics
       ...base,
       ...comparisonFilters,
       metrics: 'views,estimatedMinutesWatched,averageViewDuration,averageViewPercentage,impressions,impressionClickThroughRate,subscribersGained,subscribersLost,likes,comments,shares',
-      dimensions: videoFilter ? 'video' : undefined as unknown as string,
+      dimensions: videoFilter ? 'video' : undefined,
     }),
     queryReport(auth, {
       ...base,
