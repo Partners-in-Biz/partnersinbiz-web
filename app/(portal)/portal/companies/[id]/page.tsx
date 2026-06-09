@@ -58,9 +58,14 @@ type RelatedProject = {
 
 type RelatedDocument = {
   id: string
+  orgId?: string
   title?: string
   status?: string
   type?: string
+  linked?: {
+    clientOrgId?: string
+    companyId?: string
+  }
   updatedAt?: unknown
 }
 
@@ -286,6 +291,20 @@ function documentStatusLabel(document: RelatedDocument) {
 
 function documentUpdatedLabel(document: RelatedDocument) {
   return dateReadinessLabel(document.updatedAt, 'Document update time not captured', 'Document update date needs review')
+}
+
+function documentDirection(document: RelatedDocument, company: Company): 'sent' | 'received' | 'linked' {
+  if (document.orgId && document.orgId === company.orgId) return 'sent'
+  if (document.orgId && company.linkedOrgId && document.orgId === company.linkedOrgId) return 'received'
+  if (document.linked?.clientOrgId && document.linked.clientOrgId === company.orgId) return 'received'
+  return 'linked'
+}
+
+function documentDirectionLabel(document: RelatedDocument, company: Company) {
+  const direction = documentDirection(document, company)
+  if (direction === 'sent') return 'Sent'
+  if (direction === 'received') return 'Received'
+  return 'Linked'
 }
 
 function relationshipTargetLabel(relationship: RelatedRelationship) {
@@ -1034,6 +1053,14 @@ function DocumentsPanel({
       </CompanyRecordEmptyPanel>
     )
   }
+  const documentDirectionCounts = documents.reduce(
+    (counts, document) => {
+      const direction = documentDirection(document, company)
+      counts[direction] += 1
+      return counts
+    },
+    { sent: 0, received: 0, linked: 0 },
+  )
   return (
     <div className="space-y-3">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
@@ -1054,6 +1081,19 @@ function DocumentsPanel({
         </button>
       </div>
       {documentError ? <p className="text-xs text-red-300">{documentError}</p> : null}
+      <div className="grid gap-3 sm:grid-cols-3">
+        {[
+          { label: 'Sent', value: documentDirectionCounts.sent, help: `Created from ${company.name}'s workspace` },
+          { label: 'Received', value: documentDirectionCounts.received, help: 'Created from the linked workspace' },
+          { label: 'Linked', value: documentDirectionCounts.linked, help: 'Attached by relationship or company link' },
+        ].map((item) => (
+          <div key={item.label} className="rounded-2xl border border-[var(--color-pib-line)] bg-white/[0.03] px-4 py-3">
+            <p className="eyebrow !text-[9px]">{item.label}</p>
+            <p className="mt-1 font-display text-2xl text-[var(--color-pib-text)]">{item.value}</p>
+            <p className="mt-1 text-[11px] text-[var(--color-pib-text-muted)]">{item.help}</p>
+          </div>
+        ))}
+      </div>
       <CompanyRowsPanel
         rows={documents}
         emptyIcon="description"
@@ -1063,6 +1103,7 @@ function DocumentsPanel({
         searchPlaceholder="Search documents..."
         hrefFor={(row) => scopedWorkspaceHref(`/portal/documents/${row.id}`)}
         metaFor={(row) => [
+          documentDirectionLabel(row as RelatedDocument, company),
           documentTypeLabel(row as RelatedDocument),
           documentStatusLabel(row as RelatedDocument),
           documentUpdatedLabel(row as RelatedDocument),
@@ -1267,13 +1308,15 @@ function InvoicesPanel({
   invoiceError: string | null
   onCreateInvoiceFromQuote: (quote: RelatedQuote) => void
 }) {
-  const [editableInvoices, setEditableInvoices] = useState(invoices)
+  const [invoiceEdits, setInvoiceEdits] = useState<Record<string, Partial<RelatedInvoice>>>({})
   const [editingInvoiceId, setEditingInvoiceId] = useState<string | null>(null)
   const [savingInvoiceId, setSavingInvoiceId] = useState<string | null>(null)
   const [editError, setEditError] = useState<string | null>(null)
   const [draftForm, setDraftForm] = useState({ dueDate: '', taxRate: '0', notes: '', description: '', quantity: '1', unitPrice: '0' })
-
-  useEffect(() => setEditableInvoices(invoices), [invoices])
+  const editableInvoices = useMemo(
+    () => invoices.map((invoice) => ({ ...invoice, ...(invoiceEdits[invoice.id] ?? {}) })),
+    [invoiceEdits, invoices],
+  )
 
   function startEditingInvoice(invoice: RelatedInvoice) {
     const firstLine = invoice.lineItems?.[0]
@@ -1314,16 +1357,18 @@ function InvoicesPanel({
     }
     const subtotal = quantity * unitPrice
     const taxAmount = subtotal * (taxRate / 100)
-    setEditableInvoices((current) => current.map((row) => row.id === invoice.id ? {
-      ...row,
-      dueDate: draftForm.dueDate || null,
-      taxRate,
-      notes: draftForm.notes,
-      lineItems: [{ ...lineItems[0], amount: subtotal }],
-      subtotal,
-      taxAmount,
-      total: subtotal + taxAmount,
-    } : row))
+    setInvoiceEdits((current) => ({
+      ...current,
+      [invoice.id]: {
+        dueDate: draftForm.dueDate || null,
+        taxRate,
+        notes: draftForm.notes,
+        lineItems: [{ ...lineItems[0], amount: subtotal }],
+        subtotal,
+        taxAmount,
+        total: subtotal + taxAmount,
+      },
+    }))
     setEditingInvoiceId(null)
     setSavingInvoiceId(null)
   }

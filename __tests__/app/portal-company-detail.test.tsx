@@ -803,6 +803,83 @@ describe('Portal company detail page', () => {
     expect(screen.queryAllByText('-')).toHaveLength(0)
   })
 
+  it('lets the creator edit a draft invoice from the company Billing invoices tab', async () => {
+    global.fetch = jest.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      if (url === '/api/v1/crm/custom-fields?resource=company') {
+        return Promise.resolve({ ok: true, json: async () => ({ data: { definitions: [] } }) } as Response)
+      }
+      if (url === '/api/v1/crm/companies/company-1') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ success: true, data: { company: { id: 'company-1', orgId: 'org-1', name: 'Acme Holdings', lifecycleStage: 'customer' } } }),
+        } as Response)
+      }
+      if (url === '/api/v1/crm/companies/company-1/command-center?limit=100') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            success: true,
+            data: {
+              summary: {},
+              analytics: {},
+              contacts: [],
+              deals: [],
+              quotes: [],
+              invoices: [
+                {
+                  id: 'invoice-draft-1',
+                  invoiceNumber: 'INV-DRAFT-001',
+                  status: 'draft',
+                  currency: 'ZAR',
+                  taxRate: 15,
+                  notes: 'Initial terms',
+                  lineItems: [{ description: 'Growth retainer', quantity: 1, unitPrice: 1200 }],
+                  canEdit: true,
+                },
+                { id: 'invoice-sent-1', invoiceNumber: 'INV-SENT-001', status: 'sent', canEdit: false },
+              ],
+              projects: [],
+              serviceWorkspaces: [],
+              relationships: [],
+              documents: [],
+              orders: [],
+              shipments: [],
+              inventoryItems: [],
+              activities: [],
+            },
+          }),
+        } as Response)
+      }
+      if (url === '/api/v1/invoices/invoice-draft-1' && init?.method === 'PATCH') {
+        return Promise.resolve({ ok: true, json: async () => ({ success: true, data: { id: 'invoice-draft-1' } }) } as Response)
+      }
+      return Promise.reject(new Error(`Unexpected fetch: ${url}`))
+    }) as jest.Mock
+
+    render(<CompanyDetailPage />)
+
+    await screen.findByRole('heading', { name: 'Acme Holdings' })
+    await selectCompanyTab(/Invoices/i)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Edit draft' }))
+    fireEvent.change(screen.getByLabelText(/Line item description/i), { target: { value: 'Updated growth retainer' } })
+    fireEvent.change(screen.getByLabelText(/Unit price/i), { target: { value: '1500' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Save draft invoice' }))
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith('/api/v1/invoices/invoice-draft-1', expect.objectContaining({ method: 'PATCH' }))
+    })
+    const patchCall = (global.fetch as jest.Mock).mock.calls.find(([url, init]) => url === '/api/v1/invoices/invoice-draft-1' && init?.method === 'PATCH')
+    expect(JSON.parse(patchCall[1].body)).toMatchObject({
+      taxRate: 15,
+      notes: 'Initial terms',
+      lineItems: [{ description: 'Updated growth retainer', quantity: 1, unitPrice: 1500 }],
+    })
+    expect(screen.queryByRole('button', { name: 'Save draft invoice' })).not.toBeInTheDocument()
+    expect(screen.getByText('R 1 725')).toBeInTheDocument()
+  })
+
   it('names malformed linked-record dates on company detail as cleanup work', async () => {
     global.fetch = jest.fn((input: RequestInfo | URL) => {
       const url = String(input)

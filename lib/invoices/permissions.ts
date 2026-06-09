@@ -1,6 +1,4 @@
-import type { ApiUser } from '@/lib/api/types'
-
-export type InvoiceActor = Pick<ApiUser, 'uid' | 'role'>
+export type InvoiceActor = { uid: string; role?: unknown }
 
 type InvoiceLike = {
   status?: unknown

@@ -124,11 +124,26 @@ function rowTitle(row: Row, tab: CompanyTab) {
   return row.id
 }
 
-function rowMeta(row: Row, tab: CompanyTab) {
+function linkedValue(row: Row, key: string) {
+  const linked = row.linked
+  return linked && typeof linked === 'object' && !Array.isArray(linked)
+    ? (linked as Record<string, unknown>)[key]
+    : undefined
+}
+
+function documentDirectionLabel(row: Row, company?: Company) {
+  if (!company) return 'Linked'
+  if (row.orgId && row.orgId === company.orgId) return 'Sent'
+  if (row.orgId && company.linkedOrgId && row.orgId === company.linkedOrgId) return 'Received'
+  if (linkedValue(row, 'clientOrgId') === company.orgId) return 'Received'
+  return 'Linked'
+}
+
+function rowMeta(row: Row, tab: CompanyTab, company?: Company) {
   if (tab === 'contacts') return [String(row.email ?? ''), String(row.phone ?? '')]
   if (tab === 'deals') return [formatCurrency(row.value, String(row.currency ?? 'ZAR')), String(row.stageId ?? '')]
   if (tab === 'projects') return [String(row.description ?? ''), formatDate(row.updatedAt)]
-  if (tab === 'documents') return [String(row.type ?? ''), formatDate(row.updatedAt)]
+  if (tab === 'documents') return [documentDirectionLabel(row, company), String(row.type ?? ''), formatDate(row.updatedAt)]
   if (tab === 'services') return [String(row.serviceType ?? ''), String(row.visibility ?? '')]
   if (tab === 'relationships') return [String(row.relationshipType ?? ''), Array.isArray(row.sharedCapabilities) ? row.sharedCapabilities.join(', ') : '']
   if (tab === 'quotes' || tab === 'invoices') return [formatCurrency(row.total, String(row.currency ?? 'ZAR')), formatDate(row.validUntil ?? row.dueDate)]
@@ -220,6 +235,7 @@ function AdminRowsEmptyState({
 function AdminRowsPanel({
   tab,
   rows,
+  company,
   companyName,
   adminOrgSlug,
   portalHref,
@@ -228,6 +244,7 @@ function AdminRowsPanel({
 }: {
   tab: CompanyTab
   rows: Row[]
+  company: Company
   companyName: string
   adminOrgSlug: string
   portalHref: string
@@ -262,7 +279,7 @@ function AdminRowsPanel({
         return href ? portalPathFor(href) : undefined
       }}
       rowAriaLabel={(_row, title) => `Open ${title} from ${companyName} admin command center`}
-      metaFor={(row) => rowMeta(row, tab)}
+      metaFor={(row) => rowMeta(row, tab, tab === 'documents' ? company : undefined)}
       enableFilters={filterable}
       searchPlaceholder={tab === 'projects' ? 'Search projects...' : 'Search documents...'}
       statusEmptyLabel="-"
