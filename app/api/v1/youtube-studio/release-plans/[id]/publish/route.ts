@@ -120,20 +120,6 @@ export const POST = withAuth('admin', async (req: NextRequest, user, ctx: Params
 
   const options = buildYouTubeUploadOptions({ packet, releasePlan, videoAsset })
   const accountId = channel.connectedAccountId!
-  await releaseRef.set(stripUndefinedDeep({
-    status: 'scheduled',
-    publishAttemptCount: FieldValue.increment(1),
-    lastPublishAttemptAt: FieldValue.serverTimestamp(),
-    publishAuditTrail: FieldValue.arrayUnion({
-      event: 'upload_started',
-      message: 'YouTube Data API upload started after all readiness gates passed.',
-      quotaUnits: YOUTUBE_UPLOAD_QUOTA_UNITS,
-      at: FieldValue.serverTimestamp(),
-      actorId: user.uid,
-      actorType: user.role === 'ai' ? 'agent' : 'user',
-    }),
-    ...updateActorFields(user),
-  }), { merge: true })
 
   try {
     const { provider, accountId: resolvedAccountId } = await resolveProvider({
@@ -143,6 +129,21 @@ export const POST = withAuth('admin', async (req: NextRequest, user, ctx: Params
       content: { text: options.text },
     }, orgId, 'youtube')
     if (!resolvedAccountId) return apiError('No active connected YouTube account for this organisation', 409)
+
+    await releaseRef.set(stripUndefinedDeep({
+      status: 'scheduled',
+      publishAttemptCount: FieldValue.increment(1),
+      lastPublishAttemptAt: FieldValue.serverTimestamp(),
+      publishAuditTrail: FieldValue.arrayUnion({
+        event: 'upload_started',
+        message: 'YouTube Data API upload started after all readiness gates passed.',
+        quotaUnits: YOUTUBE_UPLOAD_QUOTA_UNITS,
+        at: FieldValue.serverTimestamp(),
+        actorId: user.uid,
+        actorType: user.role === 'ai' ? 'agent' : 'user',
+      }),
+      ...updateActorFields(user),
+    }), { merge: true })
 
     const published = await publishWithOneRefresh({ provider, options, accountId: resolvedAccountId, orgId })
     const externalYouTubeVideoId = published.platformPostId

@@ -1641,6 +1641,7 @@ describe('YouTubeStudioPortalWorkspace module availability', () => {
             videos: [
               {
                 id: 'video-2',
+                channelWorkspaceId: 'channel-2',
                 title: 'Velox launch cut',
                 status: 'production',
                 objective: 'Produce the launch video',

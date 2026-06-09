@@ -11,6 +11,9 @@ const mockDocSet = jest.fn()
 const mockBatch = jest.fn()
 const mockBatchSet = jest.fn()
 const mockBatchCommit = jest.fn()
+const mockResolveProvider = jest.fn()
+const mockRefreshAccountToken = jest.fn()
+const mockMarkAccountTokenExpired = jest.fn()
 
 type MockAuthHandler = (req: NextRequest, user: ApiUser, context?: unknown) => Promise<Response>
 
@@ -25,6 +28,12 @@ jest.mock('@/lib/api/auth', () => ({
 
 jest.mock('@/lib/api/platformAdmin', () => ({
   canAccessOrg: jest.fn(() => true),
+}))
+
+jest.mock('@/lib/social/account-resolver', () => ({
+  resolveProvider: mockResolveProvider,
+  refreshAccountToken: mockRefreshAccountToken,
+  markAccountTokenExpired: mockMarkAccountTokenExpired,
 }))
 
 jest.mock('firebase-admin/firestore', () => ({
@@ -1353,7 +1362,7 @@ describe('youtube studio admin API', () => {
       channelWorkspaceId: 'channel-1',
       videoProjectId: 'video-1',
       skillKey: 'youtube-video-brief',
-      title: 'Video brief',
+      title: 'Research brief',
       status: 'queued',
       priority: 'normal',
       inputSummary: 'Turn the client request into a brief.',
@@ -1471,7 +1480,7 @@ describe('youtube studio admin API', () => {
       seriesId: 'series-1',
       videoProjectId: 'video-1',
       skillKey: 'youtube-publish-readiness',
-      title: 'Publish readiness',
+      title: 'Compliance/readiness',
       status: 'queued',
       reviewRequired: true,
       visibility: 'internal',
@@ -1485,7 +1494,7 @@ describe('youtube studio admin API', () => {
       }),
       inputPacket: expect.objectContaining({
         skillKey: 'youtube-publish-readiness',
-        skillLabel: 'Publish readiness',
+        skillLabel: 'Compliance/readiness',
         family: 'readiness',
         inputSummary: 'Check the approved render and packet before handoff.',
         requiredContext: expect.arrayContaining(['publishing packet']),
@@ -3161,6 +3170,87 @@ describe('youtube studio admin API', () => {
     expect(JSON.stringify(write)).not.toContain('operator-only output prompt')
     expect(JSON.stringify(write)).not.toContain('client-supplied')
     expect(options).toEqual({ merge: true })
+  })
+
+  it('does not mark a release scheduled or upload_started when no active YouTube account resolves', async () => {
+    const releaseSet = jest.fn().mockResolvedValue(undefined)
+    const providerPublish = jest.fn()
+    mockResolveProvider.mockResolvedValue({ provider: { publishPost: providerPublish }, accountId: undefined })
+    stageFirestore({
+      youtube_release_plans: {
+        docs: {
+          'release-1': {
+            id: 'release-1',
+            set: releaseSet,
+            data: {
+              orgId: 'org-1', channelWorkspaceId: 'channel-1', videoProjectId: 'video-1', publishingPacketId: 'packet-1',
+              mode: 'scheduled_api_publish', status: 'ready', uploadPrivacyStatus: 'private', targetVisibility: 'public',
+              scheduledPublishAt: '2026-06-20T10:00:00Z',
+              checks: { approvedPacket: { status: 'pass', message: 'ok' }, connectedAccount: { status: 'pass', message: 'ok' }, privateFirst: { status: 'pass', message: 'ok' } },
+              deleted: false,
+            },
+          },
+        },
+      },
+      youtube_publishing_packets: {
+        docs: {
+          'packet-1': {
+            id: 'packet-1',
+            data: {
+              orgId: 'org-1', channelWorkspaceId: 'channel-1', videoProjectId: 'video-1', status: 'approved',
+              titleOptions: [{ text: 'Launch plan', selected: true }], description: 'Launch description', tags: [],
+              videoAssetId: 'asset-1', selfDeclaredMadeForKids: false,
+              checks: { rights: { status: 'pass', message: 'ok' }, aiDisclosure: { status: 'pass', message: 'ok' }, madeForKids: { status: 'pass', message: 'ok' }, metadata: { status: 'pass', message: 'ok' }, thumbnail: { status: 'pass', message: 'ok' }, captions: { status: 'pass', message: 'ok' }, approval: { status: 'pass', message: 'ok' }, connectedAccount: { status: 'pass', message: 'ok' } },
+              approvalState: {
+                internalStatus: 'approved', clientStatus: 'approved', changeRequestStatus: 'none',
+                internalApproval: { status: 'approved', decidedBy: 'admin-1', decidedAt: 'date', snapshotHash: 'hash' },
+                clientApproval: { status: 'approved', decidedBy: 'client-1', decidedAt: 'date', snapshotHash: 'hash' },
+                publishLock: { locked: false, reasons: [] },
+              },
+              immutableAuditRecordIds: ['audit-1'], isLatestVersion: true, deleted: false,
+            },
+          },
+        },
+      },
+      youtube_channel_workspaces: {
+        docs: {
+          'channel-1': {
+            id: 'channel-1',
+            data: {
+              orgId: 'org-1', title: 'Acme', status: 'active', connectedAccountId: 'account-1',
+              publishingReadiness: { accountStatus: 'connected', apiProjectStatus: 'verified', readiness: 'scheduled_publish_ready', allowedModes: ['scheduled_api_publish'], quotaUnitsRemaining: 1600 },
+              deleted: false,
+            },
+          },
+        },
+      },
+      youtube_source_assets: {
+        docs: {
+          'asset-1': {
+            id: 'asset-1',
+            data: { orgId: 'org-1', channelWorkspaceId: 'channel-1', videoProjectId: 'video-1', title: 'Final video', assetType: 'rendered_video', status: 'ready', sourceUrl: 'https://cdn.example.com/final.mp4', deleted: false },
+          },
+        },
+      },
+    })
+
+    const { POST } = await import('@/app/api/v1/youtube-studio/release-plans/[id]/publish/route')
+    const res = await POST(new NextRequest('http://localhost/api/v1/youtube-studio/release-plans/release-1/publish', {
+      method: 'POST',
+      body: JSON.stringify({ orgId: 'org-1' }),
+    }), { params: Promise.resolve({ id: 'release-1' }) })
+    const body = await res.json()
+
+    expect(res.status).toBe(409)
+    expect(body.error).toMatch(/No active connected YouTube account/i)
+    expect(providerPublish).not.toHaveBeenCalled()
+    expect(releaseSet).not.toHaveBeenCalledWith(expect.objectContaining({
+      status: 'scheduled',
+      publishAuditTrail: expect.objectContaining({
+        items: expect.arrayContaining([expect.objectContaining({ event: 'upload_started' })]),
+      }),
+    }), expect.anything())
+    expect(mockBatchCommit).not.toHaveBeenCalled()
   })
 
   it('rejects approving a render job with blocking QA gates', async () => {
