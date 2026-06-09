@@ -118,6 +118,7 @@ export function workspaceNav(slug: string): NavItem[] {
     { label: 'Projects',  href: `/admin/org/${slug}/projects`,   icon: 'rocket_launch', group: 'work' },
     { label: 'Documents', href: `/admin/org/${slug}/documents`, icon: 'description', group: 'work' },
     { label: 'Research', href: `/admin/org/${slug}/research`, icon: 'travel_explore', group: 'work' },
+    { label: 'Book Studio', href: `/admin/org/${slug}/book-studio`, icon: 'auto_stories', group: 'work', activePatterns: [`/admin/org/${slug}/book-studio`] },
     { label: 'Mobile Apps', href: `/admin/org/${slug}/mobile-apps`, icon: 'smartphone', group: 'work' },
     { label: 'YouTube Studio', href: `/admin/org/${slug}/youtube-studio`, icon: 'smart_display', group: 'work' },
     {
