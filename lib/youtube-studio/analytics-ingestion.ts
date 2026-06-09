@@ -226,7 +226,7 @@ export function buildAnalyticsRecommendations(metrics: YouTubeAnalyticsMetrics):
       actionType: 'clip_idea',
     })
   }
-  if ((metrics.seriesTrends?.length ?? 0) >= 2) {
+  if ((metrics.seriesTrends?.length ?? 0) > 0) {
     recommendations.push({
       type: 'series_change',
       summary: 'Series-level signal detected: brief a follow-up episode or series experiment from the strongest trend.',
@@ -235,7 +235,7 @@ export function buildAnalyticsRecommendations(metrics: YouTubeAnalyticsMetrics):
       actionType: 'series_experiment',
     })
   }
-  if (!recommendations.length && (metrics.views ?? 0) > 0) {
+  if ((metrics.views ?? 0) > 0) {
     recommendations.push({
       type: 'follow_up_video',
       summary: 'Package the strongest topic into a next-video brief while the signal is fresh.',

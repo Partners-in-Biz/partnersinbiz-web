@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type {
   YouTubeAgentJob,
   YouTubeAnalyticsFreshness,
@@ -41,6 +41,9 @@ interface YouTubeStudioAdminWorkspaceProps {
 
 type DraftActionStatus = Exclude<YouTubeProductionDraft['status'], 'archived'>
 type RenderActionStatus = Extract<YouTubeRenderJob['status'], 'qa_review' | 'approved' | 'blocked'>
+type CommandRiskFilter = 'all' | 'blocked' | 'review' | 'publish_ready'
+type ChannelDetailTab = 'strategy' | 'pipeline' | 'series' | 'assets' | 'approvals' | 'analytics' | 'publishing' | 'api' | 'defaults' | 'access'
+type VideoCockpitTab = 'brief' | 'script' | 'clips' | 'render' | 'thumbnail' | 'metadata' | 'review' | 'publishing' | 'analytics' | 'activity'
 type ContextAgentJobPayload = {
   channelWorkspaceId?: string
   seriesId?: string
@@ -319,6 +322,30 @@ const productionDraftTypes: YouTubeProductionDraftType[] = [
 ]
 const renderJobTypes: YouTubeRenderJobType[] = ['full_video', 'short_clip', 'clip_pack', 'trailer', 'thumbnail_motion']
 const renderTargetFormats: YouTubeRenderTargetFormat[] = ['horizontal_16_9', 'vertical_9_16', 'square_1_1']
+const channelDetailTabs: Array<{ key: ChannelDetailTab; label: string }> = [
+  { key: 'strategy', label: 'Strategy' },
+  { key: 'pipeline', label: 'Pipeline' },
+  { key: 'series', label: 'Series' },
+  { key: 'assets', label: 'Assets' },
+  { key: 'approvals', label: 'Approvals' },
+  { key: 'analytics', label: 'Analytics' },
+  { key: 'publishing', label: 'Publishing settings' },
+  { key: 'api', label: 'API connection' },
+  { key: 'defaults', label: 'Defaults' },
+  { key: 'access', label: 'Access' },
+]
+const videoCockpitTabs: Array<{ key: VideoCockpitTab; label: string }> = [
+  { key: 'brief', label: 'Brief' },
+  { key: 'script', label: 'Script' },
+  { key: 'clips', label: 'Clips' },
+  { key: 'render', label: 'Render' },
+  { key: 'thumbnail', label: 'Thumbnail' },
+  { key: 'metadata', label: 'Metadata' },
+  { key: 'review', label: 'Review' },
+  { key: 'publishing', label: 'Publishing' },
+  { key: 'analytics', label: 'Analytics' },
+  { key: 'activity', label: 'Activity timeline' },
+]
 
 function splitLines(value: string) {
   return value.split(/[\n,]+/).map((item) => item.trim()).filter(Boolean)
@@ -337,6 +364,41 @@ function timestampToSeconds(value: string): number | undefined {
   if (parts.length === 2) return parts[0] * 60 + parts[1]
   if (parts.length === 1) return parts[0]
   return undefined
+}
+
+function channelKey(channel: YouTubeChannelWorkspace) {
+  return channel.id ?? channel.title
+}
+
+function itemChannelId(item: { channelWorkspaceId?: string; videoProjectId?: string }, videos: YouTubeVideoProject[]) {
+  if (item.channelWorkspaceId) return item.channelWorkspaceId
+  if (item.videoProjectId) return videos.find((video) => video.id === item.videoProjectId)?.channelWorkspaceId
+  return undefined
+}
+
+function channelRiskLevel(channel: YouTubeChannelWorkspace): CommandRiskFilter {
+  const policy = (channel as YouTubeChannelWorkspace & {
+    publishingPolicy?: {
+      connectedAccountStatus?: string
+      apiProjectStatus?: string
+      publishingReadiness?: string
+    }
+  }).publishingPolicy
+  const readiness = channel.publishingReadiness
+  const accountStatus = readiness?.accountStatus ?? policy?.connectedAccountStatus
+  const apiProjectStatus = readiness?.apiProjectStatus ?? policy?.apiProjectStatus
+  const readinessLevel = readiness?.readiness ?? policy?.publishingReadiness
+  if (
+    channel.status === 'blocked' ||
+    accountStatus === 'needs_reauth' ||
+    accountStatus === 'reauth_required' ||
+    accountStatus === 'blocked' ||
+    apiProjectStatus === 'blocked' ||
+    apiProjectStatus === 'audit_required' ||
+    readinessLevel === 'blocked'
+  ) return 'blocked'
+  if (readinessLevel === 'scheduled_publish_ready' || readinessLevel === 'ready') return 'publish_ready'
+  return 'review'
 }
 
 function parseChapters(value: string): YouTubePublishingPacket['chapters'] {
@@ -416,37 +478,63 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
   const activeOrgIdRef = useRef(orgId)
   const previousOrgIdRef = useRef(orgId)
   activeOrgIdRef.current = orgId
+  const [selectedCommandChannelId, setSelectedCommandChannelId] = useState('all')
+  const [riskFilter, setRiskFilter] = useState<CommandRiskFilter>('all')
+  const [channelTabs, setChannelTabs] = useState<Record<string, ChannelDetailTab>>({})
+  const [videoTabs, setVideoTabs] = useState<Record<string, VideoCockpitTab>>({})
   const notice = loadNotice || actionNotice
+  const visibleChannels = useMemo(() => channels
+    .filter((channel) => selectedCommandChannelId === 'all' || channel.id === selectedCommandChannelId)
+    .filter((channel) => riskFilter === 'all' || channelRiskLevel(channel) === riskFilter), [channels, selectedCommandChannelId, riskFilter])
+  const visibleVideos = useMemo(() => videos.filter((video) => visibleChannels.some((channel) => channel.id === video.channelWorkspaceId)), [videos, visibleChannels])
+  const visibleVideoIds = useMemo(() => new Set(visibleVideos.map((video) => video.id).filter(Boolean)), [visibleVideos])
+  const visiblePackets = useMemo(() => packets.filter((packet) => visibleVideoIds.has(packet.videoProjectId)), [packets, visibleVideoIds])
+  const visibleReleasePlans = useMemo(() => releasePlans.filter((plan) => visibleVideoIds.has(plan.videoProjectId)), [releasePlans, visibleVideoIds])
+  const visibleJobs = useMemo(() => jobs.filter((job) => !job.videoProjectId || visibleVideoIds.has(job.videoProjectId)), [jobs, visibleVideoIds])
+  const visibleSourceAssets = useMemo(() => sourceAssets.filter((asset) => visibleChannels.some((channel) => channel.id === asset.channelWorkspaceId)), [sourceAssets, visibleChannels])
+  const visibleClipCandidates = useMemo(() => clipCandidates.filter((clip) => !clip.videoProjectId || visibleVideoIds.has(clip.videoProjectId)), [clipCandidates, visibleVideoIds])
+  const visibleProductionDrafts = useMemo(() => productionDrafts.filter((draft) => visibleVideoIds.has(draft.videoProjectId)), [productionDrafts, visibleVideoIds])
+  const visibleRenderJobs = useMemo(() => renderJobs.filter((job) => visibleVideoIds.has(job.videoProjectId)), [renderJobs, visibleVideoIds])
+  const visibleAnalytics = useMemo(() => analytics.filter((snapshot) => (selectedCommandChannelId === 'all' || itemChannelId(snapshot, videos) === selectedCommandChannelId) && (riskFilter === 'all' || visibleChannels.some((channel) => channel.id === itemChannelId(snapshot, videos)))), [analytics, selectedCommandChannelId, videos, riskFilter, visibleChannels])
+  const approvalsWaiting = visibleProductionDrafts.filter((draft) => draft.status === 'internal_review' || draft.status === 'client_review').length
+    + visibleRenderJobs.filter((job) => job.status === 'qa_review').length
+    + visiblePackets.filter((packet) => packet.status === 'client_review' || packet.status === 'internal_review').length
+  const publishReadyCount = visiblePackets.filter((packet) => packet.status === 'approved').length + visibleReleasePlans.filter((plan) => plan.status === 'scheduled').length
+  const urgencyItems = [
+    ...visibleChannels.filter((channel) => channelRiskLevel(channel) === 'blocked').map((channel) => ({ id: channelKey(channel), label: `${channel.title} blocked`, detail: formatToken(channel.status) })),
+    ...visibleVideos.filter((video) => video.status === 'blocked').map((video) => ({ id: video.id ?? video.title, label: video.title, detail: formatToken(video.status) })),
+    ...visibleJobs.filter((job) => job.status === 'failed').map((job) => ({ id: job.id ?? job.title, label: job.title, detail: formatToken(job.status) })),
+  ]
   const analyticsVideoOptions = form.analyticsChannelId
-    ? videos.filter((video) => video.channelWorkspaceId === form.analyticsChannelId)
-    : videos
+    ? visibleVideos.filter((video) => video.channelWorkspaceId === form.analyticsChannelId)
+    : visibleVideos
   const assetVideoOptions = form.assetChannelId
-    ? videos.filter((video) => video.channelWorkspaceId === form.assetChannelId)
-    : videos
+    ? visibleVideos.filter((video) => video.channelWorkspaceId === form.assetChannelId)
+    : visibleVideos
   const clipVideoOptions = form.clipSourceAssetId
-    ? videos.filter((video) => {
-        const sourceAsset = sourceAssets.find((asset) => asset.id === form.clipSourceAssetId)
+    ? visibleVideos.filter((video) => {
+        const sourceAsset = visibleSourceAssets.find((asset) => asset.id === form.clipSourceAssetId)
         return sourceAsset ? video.channelWorkspaceId === sourceAsset.channelWorkspaceId : true
       })
-    : videos
-  const draftVideo = videos.find((video) => video.id === form.draftVideoId)
+    : visibleVideos
+  const draftVideo = visibleVideos.find((video) => video.id === form.draftVideoId)
   const draftSourceAssets = draftVideo
-    ? sourceAssets.filter((asset) => !asset.videoProjectId || asset.videoProjectId === draftVideo.id)
-    : sourceAssets
+    ? visibleSourceAssets.filter((asset) => !asset.videoProjectId || asset.videoProjectId === draftVideo.id)
+    : visibleSourceAssets
   const draftClipCandidates = draftVideo
-    ? clipCandidates.filter((clip) => !clip.videoProjectId || clip.videoProjectId === draftVideo.id)
-    : clipCandidates
-  const renderVideo = videos.find((video) => video.id === form.renderVideoId)
+    ? visibleClipCandidates.filter((clip) => !clip.videoProjectId || clip.videoProjectId === draftVideo.id)
+    : visibleClipCandidates
+  const renderVideo = visibleVideos.find((video) => video.id === form.renderVideoId)
   const renderSourceAssets = renderVideo
-    ? sourceAssets.filter((asset) => !asset.videoProjectId || asset.videoProjectId === renderVideo.id)
-    : sourceAssets
+    ? visibleSourceAssets.filter((asset) => !asset.videoProjectId || asset.videoProjectId === renderVideo.id)
+    : visibleSourceAssets
   const renderClipCandidates = renderVideo
-    ? clipCandidates.filter((clip) => !clip.videoProjectId || clip.videoProjectId === renderVideo.id)
-    : clipCandidates
+    ? visibleClipCandidates.filter((clip) => !clip.videoProjectId || clip.videoProjectId === renderVideo.id)
+    : visibleClipCandidates
   const renderDrafts = renderVideo
-    ? productionDrafts.filter((draft) => draft.status === 'approved' && draft.videoProjectId === renderVideo.id)
-    : productionDrafts.filter((draft) => draft.status === 'approved')
-  const approvedPackets = packets.filter((packet) => packet.id && packet.status === 'approved')
+    ? visibleProductionDrafts.filter((draft) => draft.status === 'approved' && draft.videoProjectId === renderVideo.id)
+    : visibleProductionDrafts.filter((draft) => draft.status === 'approved')
+  const approvedPackets = visiblePackets.filter((packet) => packet.id && packet.status === 'approved')
 
   const load = useCallback(async () => {
     if (orgId !== activeOrgIdRef.current) return
@@ -1428,23 +1516,125 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
       notice={notice}
       loading={loading}
     >
+      <section aria-label="YouTube admin command center" className="pib-card-section space-y-5 p-5">
+        <div className="flex flex-wrap items-end justify-between gap-4">
+          <div>
+            <p className="eyebrow">Internal command center</p>
+            <h2 className="font-headline text-2xl font-semibold text-on-surface">YouTube production command center</h2>
+            <p className="mt-1 text-sm text-on-surface-variant">Filter by organisation channel, risk, and urgency before drilling into channel and video work.</p>
+          </div>
+          <div className="flex flex-wrap gap-3">
+            <label className="grid gap-1 text-xs font-label uppercase tracking-widest text-on-surface-variant">
+              Channel filter
+              <select aria-label="Channel filter" value={selectedCommandChannelId} onChange={(event) => setSelectedCommandChannelId(event.target.value)} className="pib-input min-w-48">
+                <option value="all">All channels</option>
+                {channels.map((channel) => <option key={channelKey(channel)} value={channel.id ?? ''}>{channel.title} channel</option>)}
+              </select>
+            </label>
+            <label className="grid gap-1 text-xs font-label uppercase tracking-widest text-on-surface-variant">
+              Risk filter
+              <select aria-label="Risk filter" value={riskFilter} onChange={(event) => setRiskFilter(event.target.value as CommandRiskFilter)} className="pib-input min-w-44">
+                <option value="all">All risk states</option>
+                <option value="blocked">Blocked / reauth</option>
+                <option value="review">Needs review</option>
+                <option value="publish_ready">Publish ready</option>
+              </select>
+            </label>
+          </div>
+        </div>
+        <div className="grid gap-3 md:grid-cols-5">
+          <CommandSummaryCard title="Urgency queue" value={urgencyItems.length} detail={urgencyItems[0]?.label ?? 'No blockers in current scope'} />
+          <CommandSummaryCard title="Active jobs" value={visibleJobs.filter((job) => job.status === 'running' || job.status === 'queued').length} detail={`${visibleJobs.length} job packets`} />
+          <CommandSummaryCard title="Approvals waiting" value={approvalsWaiting} detail="Drafts, renders, packets" />
+          <CommandSummaryCard title="Publish-ready packets" value={publishReadyCount} detail="Approved packets and scheduled releases" />
+          <CommandSummaryCard title="Live metrics" value={visibleAnalytics.length} detail={visibleAnalytics[0]?.clientSummary ?? 'No analytics in scope'} />
+        </div>
+        <div className="grid gap-3 lg:grid-cols-3">
+          <QueuePanel title="Urgent items" empty="No urgent blockers for this filter." items={urgencyItems} />
+          <QueuePanel title="Active job packets" empty="No active Hermes jobs." items={visibleJobs.slice(0, 5).map((job) => ({ id: job.id ?? job.title, label: job.title, detail: formatToken(job.status) }))} />
+          <QueuePanel title="Ready publishing packets" empty="No publish-ready packets yet." items={visiblePackets.filter((packet) => packet.status === 'approved').slice(0, 5).map((packet) => ({ id: packet.id ?? packetTitle(packet), label: `${packetTitle(packet)} packet`, detail: `v${packet.versionNumber ?? 1} / ${formatToken(packet.visibility)}` }))} />
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {visibleChannels.map((channel) => (
+            <a key={channelKey(channel)} href={`#youtube-channel-${channelKey(channel)}`} className="pib-btn-ghost text-sm" aria-label={`Open ${channel.title} channel detail`}>Open {channel.title} channel detail</a>
+          ))}
+        </div>
+      </section>
+
+      <section className="space-y-4">
+        {visibleChannels.map((channel) => {
+          const key = channelKey(channel)
+          const activeTab = channelTabs[key] ?? 'strategy'
+          const channelVideos = visibleVideos.filter((video) => video.channelWorkspaceId === channel.id)
+          const channelSeries = series.filter((item) => item.channelWorkspaceId === channel.id)
+          const channelPackets = visiblePackets.filter((packet) => itemChannelId(packet, videos) === channel.id)
+          const channelAnalytics = visibleAnalytics.filter((snapshot) => itemChannelId(snapshot, videos) === channel.id)
+          const policy = channel.publishingPolicy as (YouTubePublishingPolicy & { connectedAccountStatus?: string; apiProjectStatus?: string; publishingReadiness?: string; defaultVisibility?: string }) | undefined
+          return (
+            <section key={key} id={`youtube-channel-${key}`} aria-label={`${channel.title} channel detail`} className="pib-card-section space-y-4 p-5">
+              <div className="flex flex-wrap items-start justify-between gap-3"><div><p className="eyebrow">Channel detail</p><h2 className="font-headline text-xl font-semibold text-on-surface">{channel.title}</h2><p className="text-sm text-on-surface-variant">{channel.youtubeHandle ?? 'No YouTube handle'} / {formatToken(channelRiskLevel(channel))}</p></div><StatusPill status={policy?.publishingReadiness ?? channel.status} /></div>
+              <div className="flex flex-wrap gap-2" role="tablist" aria-label={`${channel.title} channel detail tabs`}>{channelDetailTabs.map((tab) => <button key={tab.key} type="button" onClick={() => setChannelTabs((current) => ({ ...current, [key]: tab.key }))} className={activeTab === tab.key ? 'pib-btn-primary text-sm' : 'pib-btn-ghost text-sm'}>{tab.label}</button>)}</div>
+              <div className="rounded-xl border border-[var(--color-pib-line)] p-4 text-sm text-on-surface-variant">
+                {activeTab === 'strategy' ? <div className="space-y-2"><p>{channel.audienceNotes ?? 'No audience notes captured yet.'}</p><div className="flex flex-wrap gap-2">{channel.contentPillars?.map((pillar) => <StatusPill key={pillar} status={pillar} />)}</div></div> : null}
+                {activeTab === 'pipeline' ? <DetailList items={channelVideos.map((video) => ({ id: video.id ?? video.title, label: video.title, detail: formatToken(video.status) }))} empty="No videos in this channel." /> : null}
+                {activeTab === 'series' ? <DetailList items={channelSeries.map((item) => ({ id: item.id ?? seriesTitle(item), label: seriesTitle(item), detail: formatToken(item.status ?? 'series') }))} empty="No series defined." /> : null}
+                {activeTab === 'assets' ? <p>{visibleSourceAssets.filter((asset) => itemChannelId(asset, videos) === channel.id).length} source assets ready.</p> : null}
+                {activeTab === 'approvals' ? <DetailList items={channelPackets.map((packet) => ({ id: packet.id ?? packetTitle(packet), label: `${packetTitle(packet)} packet`, detail: formatToken(packet.status) }))} empty="No approval packets for this channel." /> : null}
+                {activeTab === 'analytics' ? <DetailList items={channelAnalytics.map((item) => ({ id: item.id ?? item.periodEnd ?? 'analytics', label: item.clientSummary ?? 'Analytics snapshot', detail: `${item.periodStart ?? ''} ${item.periodEnd ?? ''}`.trim() }))} empty="No analytics imported." /> : null}
+                {activeTab === 'publishing' ? <p>Publishing settings use private-first defaults until approval gates pass.</p> : null}
+                {activeTab === 'api' ? <p>{formatToken(policy?.connectedAccountStatus ?? 'connected')} / {formatToken(policy?.apiProjectStatus ?? 'verified')}</p> : null}
+                {activeTab === 'defaults' ? <p>Default visibility: {formatToken(policy?.defaultVisibility ?? 'private')}</p> : null}
+                {activeTab === 'access' ? <p>Internal admin access only. Portal access is controlled by module and asset visibility gates.</p> : null}
+              </div>
+            </section>
+          )
+        })}
+      </section>
+
+      <section className="space-y-4">
+        {visibleVideos.map((video) => {
+          const key = video.id ?? video.title
+          const activeTab = videoTabs[key] ?? 'brief'
+          const videoPackets = visiblePackets.filter((packet) => packet.videoProjectId === video.id)
+          const videoAnalytics = visibleAnalytics.filter((snapshot) => snapshot.videoProjectId === video.id)
+          return (
+            <section key={key} id={`youtube-video-${key}`} aria-label={`${video.title} video cockpit`} className="pib-card-section space-y-4 p-5">
+              <div className="flex flex-wrap items-start justify-between gap-3"><div><p className="eyebrow">Video cockpit</p><h2 className="font-headline text-xl font-semibold text-on-surface">{video.title}</h2><p className="text-sm text-on-surface-variant">{formatToken(video.videoType)} / {formatToken(video.status)}</p></div><StatusPill status={video.status} /></div>
+              <div className="flex flex-wrap gap-2" role="tablist" aria-label={`${video.title} video cockpit tabs`}>{videoCockpitTabs.map((tab) => <button key={tab.key} type="button" onClick={() => setVideoTabs((current) => ({ ...current, [key]: tab.key }))} className={activeTab === tab.key ? 'pib-btn-primary text-sm' : 'pib-btn-ghost text-sm'}>{tab.label}</button>)}</div>
+              <div className="rounded-xl border border-[var(--color-pib-line)] p-4 text-sm text-on-surface-variant">
+                {activeTab === 'brief' ? <p>{video.objective ?? 'No brief captured.'}</p> : null}
+                {activeTab === 'script' ? <p>Script and draft workbench.</p> : null}
+                {activeTab === 'clips' ? <p>Clip candidates and shorts packages.</p> : null}
+                {activeTab === 'render' ? <p>Render plans and outputs.</p> : null}
+                {activeTab === 'thumbnail' ? <DetailList items={videoPackets.map((packet) => ({ id: packet.id ?? packetTitle(packet), label: `${packetTitle(packet)} packet`, detail: formatToken(packet.checks?.thumbnail?.status ?? 'not_applicable') }))} empty="No thumbnail gate yet." /> : null}
+                {activeTab === 'metadata' ? <p>{videoMetadataDescription(video)}</p> : null}
+                {activeTab === 'review' ? <p>Review gates and approvals.</p> : null}
+                {activeTab === 'publishing' ? <DetailList items={videoPackets.map((packet) => ({ id: packet.id ?? packetTitle(packet), label: `${packetTitle(packet)} packet`, detail: formatToken(packet.status) }))} empty="No publishing packet." /> : null}
+                {activeTab === 'analytics' ? <DetailList items={videoAnalytics.map((item) => ({ id: item.id ?? item.periodEnd ?? 'analytics', label: item.clientSummary ?? 'Analytics snapshot', detail: `${item.metrics?.views ?? 0} views` }))} empty="No analytics for this video." /> : null}
+                {activeTab === 'activity' ? <DetailList items={(video.activity ?? []).map((item, index) => ({ id: `${item.type ?? 'activity'}-${index}`, label: item.summary ?? formatToken(item.type ?? 'activity'), detail: String(item.at ?? '') }))} empty="No activity timeline yet." /> : null}
+              </div>
+            </section>
+          )
+        })}
+      </section>
+
       <div className="grid gap-6 lg:grid-cols-[1fr_380px]">
         <section className="space-y-4">
-          {channels.length === 0 ? (
+          {riskFilter !== 'all' ? null : visibleChannels.length === 0 ? (
             <div className="pib-card-section p-5 text-sm text-on-surface-variant">No YouTube channel workspaces yet.</div>
           ) : (
-            channels.map((channel) => (
+            visibleChannels.map((channel) => (
               <YouTubeChannelCard key={channel.id ?? channel.title} channel={channel} />
             ))
           )}
 
           <div className="space-y-3">
             <h2 className="font-headline text-xl font-semibold text-on-surface">Video pipeline</h2>
-            {videos.length === 0 ? (
+            {visibleVideos.length === 0 ? (
               <div className="pib-card-section p-5 text-sm text-on-surface-variant">No YouTube videos yet.</div>
             ) : (
-              videos.map((video) => (
-                <YouTubeVideoCard key={video.id ?? video.title} video={video} />
+              visibleVideos.map((video) => (
+                <YouTubeVideoCard key={video.id ?? video.title} video={{ ...video, title: `${video.title} video card` }} />
               ))
             )}
           </div>
@@ -1453,14 +1643,14 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
             <div className="flex flex-wrap items-center justify-between gap-2">
               <h2 className="font-headline text-xl font-semibold text-on-surface">Source assets</h2>
               <span className="rounded-full bg-[var(--color-surface-container-high)] px-3 py-1 text-xs font-label uppercase tracking-widest text-on-surface-variant">
-                {sourceAssets.length} asset{sourceAssets.length === 1 ? '' : 's'}
+                {visibleSourceAssets.length} asset{visibleSourceAssets.length === 1 ? '' : 's'}
               </span>
             </div>
-            {sourceAssets.length === 0 ? (
+            {visibleSourceAssets.length === 0 ? (
               <div className="pib-card-section p-5 text-sm text-on-surface-variant">No raw footage, transcripts, or source links captured yet.</div>
             ) : (
               <div className="grid gap-3">
-                {sourceAssets.map((asset) => (
+                {visibleSourceAssets.map((asset) => (
                   <article key={asset.id ?? asset.title} className="pib-card-section space-y-3 p-4">
                     <div className="flex flex-wrap items-start justify-between gap-3">
                       <div className="min-w-0">
@@ -1503,14 +1693,14 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
             <div className="flex flex-wrap items-center justify-between gap-2">
               <h2 className="font-headline text-xl font-semibold text-on-surface">Clip candidates</h2>
               <span className="rounded-full bg-[var(--color-surface-container-high)] px-3 py-1 text-xs font-label uppercase tracking-widest text-on-surface-variant">
-                {clipCandidates.length} clip{clipCandidates.length === 1 ? '' : 's'}
+                {visibleClipCandidates.length} clip{visibleClipCandidates.length === 1 ? '' : 's'}
               </span>
             </div>
-            {clipCandidates.length === 0 ? (
+            {visibleClipCandidates.length === 0 ? (
               <div className="pib-card-section p-5 text-sm text-on-surface-variant">No clip candidates proposed yet.</div>
             ) : (
               <div className="grid gap-3">
-                {clipCandidates.map((clip) => (
+                {visibleClipCandidates.map((clip) => (
                   <article key={clip.id ?? `${clip.sourceAssetId}-${clip.startSeconds}`} className="pib-card-section space-y-3 p-4">
                     <div className="flex flex-wrap items-start justify-between gap-3">
                       <div className="min-w-0">
@@ -1558,14 +1748,14 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
             <div className="flex flex-wrap items-center justify-between gap-2">
               <h2 className="font-headline text-xl font-semibold text-on-surface">Production drafts</h2>
               <span className="rounded-full bg-[var(--color-surface-container-high)] px-3 py-1 text-xs font-label uppercase tracking-widest text-on-surface-variant">
-                {productionDrafts.length} draft{productionDrafts.length === 1 ? '' : 's'}
+                {visibleProductionDrafts.length} draft{visibleProductionDrafts.length === 1 ? '' : 's'}
               </span>
             </div>
-            {productionDrafts.length === 0 ? (
+            {visibleProductionDrafts.length === 0 ? (
               <div className="pib-card-section p-5 text-sm text-on-surface-variant">No scripts, outlines, or shot lists drafted yet.</div>
             ) : (
               <div className="grid gap-3">
-                {productionDrafts.map((draft) => (
+                {visibleProductionDrafts.map((draft) => (
                   <article key={draft.id ?? `${draft.videoProjectId}-${draft.versionNumber}`} className="pib-card-section space-y-3 p-4">
                     <div className="flex flex-wrap items-start justify-between gap-3">
                       <div className="min-w-0">
@@ -1661,14 +1851,14 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
             <div className="flex flex-wrap items-center justify-between gap-2">
               <h2 className="font-headline text-xl font-semibold text-on-surface">Render jobs</h2>
               <span className="rounded-full bg-[var(--color-surface-container-high)] px-3 py-1 text-xs font-label uppercase tracking-widest text-on-surface-variant">
-                {renderJobs.length} render{renderJobs.length === 1 ? '' : 's'}
+                {visibleRenderJobs.length} render{visibleRenderJobs.length === 1 ? '' : 's'}
               </span>
             </div>
-            {renderJobs.length === 0 ? (
+            {visibleRenderJobs.length === 0 ? (
               <div className="pib-card-section p-5 text-sm text-on-surface-variant">No edit assemblies or render plans queued yet.</div>
             ) : (
               <div className="grid gap-3">
-                {renderJobs.map((job) => (
+                {visibleRenderJobs.map((job) => (
                   <article key={job.id ?? `${job.videoProjectId}-${job.versionNumber}`} className="pib-card-section space-y-3 p-4">
                     <div className="flex flex-wrap items-start justify-between gap-3">
                       <div className="min-w-0">
@@ -1759,18 +1949,18 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
             <div className="flex flex-wrap items-center justify-between gap-2">
               <h2 className="font-headline text-xl font-semibold text-on-surface">Publishing packets</h2>
               <span className="rounded-full bg-[var(--color-surface-container-high)] px-3 py-1 text-xs font-label uppercase tracking-widest text-on-surface-variant">
-                {packets.length} packet{packets.length === 1 ? '' : 's'}
+                {visiblePackets.length} packet{visiblePackets.length === 1 ? '' : 's'}
               </span>
             </div>
-            {packets.length === 0 ? (
+            {visiblePackets.length === 0 ? (
               <div className="pib-card-section p-5 text-sm text-on-surface-variant">No private draft publishing packets yet.</div>
             ) : (
               <div className="grid gap-3">
-                {packets.map((packet) => (
+                {visiblePackets.map((packet) => (
                   <article key={packet.id ?? `${packet.videoProjectId}-${packet.versionNumber}`} className="pib-card-section space-y-3 p-4">
                     <div className="flex flex-wrap items-start justify-between gap-3">
                       <div className="min-w-0">
-                        <h3 className="break-words font-semibold text-on-surface">{packetTitle(packet)}</h3>
+                        <h3 className="break-words font-semibold text-on-surface">{packetTitle(packet)} packet</h3>
                         <p className="mt-1 text-sm text-on-surface-variant">
                           Version {packet.versionNumber || 1} / {formatToken(packet.visibility)} / {packet.chapters?.length ?? 0} chapters
                         </p>
@@ -1850,14 +2040,14 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
             <div className="flex flex-wrap items-center justify-between gap-2">
               <h2 className="font-headline text-xl font-semibold text-on-surface">Release plans</h2>
               <span className="rounded-full bg-[var(--color-surface-container-high)] px-3 py-1 text-xs font-label uppercase tracking-widest text-on-surface-variant">
-                {releasePlans.length} plan{releasePlans.length === 1 ? '' : 's'}
+                {visibleReleasePlans.length} plan{visibleReleasePlans.length === 1 ? '' : 's'}
               </span>
             </div>
-            {releasePlans.length === 0 ? (
+            {visibleReleasePlans.length === 0 ? (
               <div className="pib-card-section p-5 text-sm text-on-surface-variant">No approved release plans yet.</div>
             ) : (
               <div className="grid gap-3">
-                {releasePlans.map((plan) => (
+                {visibleReleasePlans.map((plan) => (
                   <article key={plan.id ?? `${plan.videoProjectId}-${plan.publishingPacketId}`} className="pib-card-section space-y-3 p-4">
                     <div className="flex flex-wrap items-start justify-between gap-3">
                       <div className="min-w-0">
@@ -1893,14 +2083,14 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
             <div className="flex flex-wrap items-center justify-between gap-2">
               <h2 className="font-headline text-xl font-semibold text-on-surface">Hermes production jobs</h2>
               <span className="rounded-full bg-[var(--color-surface-container-high)] px-3 py-1 text-xs font-label uppercase tracking-widest text-on-surface-variant">
-                {jobs.length} job packet{jobs.length === 1 ? '' : 's'}
+                {visibleJobs.length} job packet{visibleJobs.length === 1 ? '' : 's'}
               </span>
             </div>
-            {jobs.length === 0 ? (
+            {visibleJobs.length === 0 ? (
               <div className="pib-card-section p-5 text-sm text-on-surface-variant">No Hermes production jobs queued yet.</div>
             ) : (
               <div className="grid gap-3">
-                {jobs.map((job) => (
+                {visibleJobs.map((job) => (
                   <article key={job.id ?? `${job.skillKey}-${job.title}`} className="pib-card-section space-y-3 p-4">
                     <div className="flex flex-wrap items-start justify-between gap-3">
                       <div className="min-w-0">
@@ -1927,14 +2117,14 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
             <div className="flex flex-wrap items-center justify-between gap-2">
               <h2 className="font-headline text-xl font-semibold text-on-surface">Analytics feedback</h2>
               <span className="rounded-full bg-[var(--color-surface-container-high)] px-3 py-1 text-xs font-label uppercase tracking-widest text-on-surface-variant">
-                {analytics.length} snapshot{analytics.length === 1 ? '' : 's'}
+                {visibleAnalytics.length} snapshot{visibleAnalytics.length === 1 ? '' : 's'}
               </span>
             </div>
-            {analytics.length === 0 ? (
+            {visibleAnalytics.length === 0 ? (
               <div className="pib-card-section p-5 text-sm text-on-surface-variant">No YouTube analytics snapshots imported yet.</div>
             ) : (
               <div className="grid gap-3">
-                {analytics.slice(0, 5).map((snapshot) => (
+                {visibleAnalytics.slice(0, 5).map((snapshot) => (
                   <article key={snapshot.id ?? `${snapshot.channelWorkspaceId}-${snapshot.periodEnd}`} className="pib-card-section space-y-3 p-4">
                     <div className="flex flex-wrap items-start justify-between gap-3">
                       <div className="min-w-0">
@@ -2019,8 +2209,8 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
                 className="mt-1 w-full rounded-lg border border-[var(--color-outline-variant)] bg-[var(--color-surface)] px-3 py-2 text-sm"
               >
                 <option value="">Select a channel</option>
-                {channels.map((channel) => (
-                  <option key={channel.id ?? channel.title} value={channel.id ?? ''}>{channel.title}</option>
+                {visibleChannels.map((channel) => (
+                  <option key={channel.id ?? channel.title} value={channel.id ?? ''}>{channel.title} channel</option>
                 ))}
               </select>
             </label>
@@ -2083,8 +2273,8 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
                 className="mt-1 w-full rounded-lg border border-[var(--color-outline-variant)] bg-[var(--color-surface)] px-3 py-2 text-sm"
               >
                 <option value="">Select a channel</option>
-                {channels.map((channel) => (
-                  <option key={channel.id ?? channel.title} value={channel.id ?? ''}>{channel.title}</option>
+                {visibleChannels.map((channel) => (
+                  <option key={channel.id ?? channel.title} value={channel.id ?? ''}>{channel.title} channel</option>
                 ))}
               </select>
             </label>
@@ -2112,8 +2302,8 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
                 className="mt-1 w-full rounded-lg border border-[var(--color-outline-variant)] bg-[var(--color-surface)] px-3 py-2 text-sm"
               >
                 <option value="">Select a channel</option>
-                {channels.map((channel) => (
-                  <option key={channel.id ?? channel.title} value={channel.id ?? ''}>{channel.title}</option>
+                {visibleChannels.map((channel) => (
+                  <option key={channel.id ?? channel.title} value={channel.id ?? ''}>{channel.title} channel</option>
                 ))}
               </select>
             </label>
@@ -2126,7 +2316,7 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
               >
                 <option value="">Channel-level asset</option>
                 {assetVideoOptions.map((video) => (
-                  <option key={video.id ?? video.title} value={video.id ?? ''}>{video.title}</option>
+                  <option key={video.id ?? video.title} value={video.id ?? ''}>{video.title} video</option>
                 ))}
               </select>
             </label>
@@ -2169,7 +2359,7 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
                 className="mt-1 w-full rounded-lg border border-[var(--color-outline-variant)] bg-[var(--color-surface)] px-3 py-2 text-sm"
               >
                 <option value="">Select source footage</option>
-                {sourceAssets.map((asset) => (
+                {visibleSourceAssets.map((asset) => (
                   <option key={asset.id ?? asset.title} value={asset.id ?? ''}>{asset.title}</option>
                 ))}
               </select>
@@ -2183,7 +2373,7 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
               >
                 <option value="">Use source asset video</option>
                 {clipVideoOptions.map((video) => (
-                  <option key={video.id ?? video.title} value={video.id ?? ''}>{video.title}</option>
+                  <option key={video.id ?? video.title} value={video.id ?? ''}>{video.title} video</option>
                 ))}
               </select>
             </label>
@@ -2229,8 +2419,8 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
                 className="mt-1 w-full rounded-lg border border-[var(--color-outline-variant)] bg-[var(--color-surface)] px-3 py-2 text-sm"
               >
                 <option value="">Select a video</option>
-                {videos.map((video) => (
-                  <option key={video.id ?? video.title} value={video.id ?? ''}>{video.title}</option>
+                {visibleVideos.map((video) => (
+                  <option key={video.id ?? video.title} value={video.id ?? ''}>{video.title} video</option>
                 ))}
               </select>
             </label>
@@ -2324,8 +2514,8 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
                 className="mt-1 w-full rounded-lg border border-[var(--color-outline-variant)] bg-[var(--color-surface)] px-3 py-2 text-sm"
               >
                 <option value="">Select a video</option>
-                {videos.map((video) => (
-                  <option key={video.id ?? video.title} value={video.id ?? ''}>{video.title}</option>
+                {visibleVideos.map((video) => (
+                  <option key={video.id ?? video.title} value={video.id ?? ''}>{video.title} video</option>
                 ))}
               </select>
             </label>
@@ -2430,8 +2620,8 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
                 className="mt-1 w-full rounded-lg border border-[var(--color-outline-variant)] bg-[var(--color-surface)] px-3 py-2 text-sm"
               >
                 <option value="">Select a video</option>
-                {videos.map((video) => (
-                  <option key={video.id ?? video.title} value={video.id ?? ''}>{video.title}</option>
+                {visibleVideos.map((video) => (
+                  <option key={video.id ?? video.title} value={video.id ?? ''}>{video.title} video</option>
                 ))}
               </select>
             </label>
@@ -2467,8 +2657,8 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
                 className="mt-1 w-full rounded-lg border border-[var(--color-outline-variant)] bg-[var(--color-surface)] px-3 py-2 text-sm"
               >
                 <option value="">Select a video</option>
-                {videos.map((video) => (
-                  <option key={video.id ?? video.title} value={video.id ?? ''}>{video.title}</option>
+                {visibleVideos.map((video) => (
+                  <option key={video.id ?? video.title} value={video.id ?? ''}>{video.title} video</option>
                 ))}
               </select>
             </label>
@@ -2525,7 +2715,7 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
               >
                 <option value="">Select an approved packet</option>
                 {approvedPackets.map((packet) => (
-                  <option key={packet.id ?? packetTitle(packet)} value={packet.id ?? ''}>{packetTitle(packet)}</option>
+                  <option key={packet.id ?? packetTitle(packet)} value={packet.id ?? ''}>{packetTitle(packet)} packet</option>
                 ))}
               </select>
             </label>
@@ -2572,8 +2762,8 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
                 className="mt-1 w-full rounded-lg border border-[var(--color-outline-variant)] bg-[var(--color-surface)] px-3 py-2 text-sm"
               >
                 <option value="">Select a channel</option>
-                {channels.map((channel) => (
-                  <option key={channel.id ?? channel.title} value={channel.id ?? ''}>{channel.title}</option>
+                {visibleChannels.map((channel) => (
+                  <option key={channel.id ?? channel.title} value={channel.id ?? ''}>{channel.title} channel</option>
                 ))}
               </select>
             </label>
@@ -2586,7 +2776,7 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
               >
                 <option value="">Channel snapshot</option>
                 {analyticsVideoOptions.map((video) => (
-                  <option key={video.id ?? video.title} value={video.id ?? ''}>{video.title}</option>
+                  <option key={video.id ?? video.title} value={video.id ?? ''}>{video.title} video</option>
                 ))}
               </select>
             </label>
@@ -2681,6 +2871,46 @@ function Metric({ label, value, suffix = '' }: { label: string; value?: number; 
       {label}: {value === undefined ? 'not set' : `${value}${suffix}`}
     </span>
   )
+}
+
+function CommandSummaryCard({ title, value, detail }: { title: string; value: number; detail: string }) {
+  return (
+    <div className="rounded-xl border border-[var(--color-pib-line)] p-3 text-sm">
+      <p className="font-medium text-on-surface">{title}</p>
+      <p className="text-2xl font-semibold text-on-surface">{value}</p>
+      <p className="text-xs text-on-surface-variant">{detail}</p>
+    </div>
+  )
+}
+
+function QueuePanel({ title, empty, items }: { title: string; empty: string; items: Array<{ id: string; label: string; detail?: string }> }) {
+  return (
+    <div className="rounded-xl border border-[var(--color-pib-line)] p-3 text-sm">
+      <p className="font-medium text-on-surface">{title}</p>
+      {items.length === 0 ? <p className="mt-2 text-on-surface-variant">{empty}</p> : (
+        <ul className="mt-2 space-y-1">
+          {items.map((item) => <li key={item.id} className="text-on-surface-variant"><span className="font-medium text-on-surface">{item.label}</span>{item.detail ? ` / ${item.detail}` : ''}</li>)}
+        </ul>
+      )}
+    </div>
+  )
+}
+
+function DetailList({ items, empty }: { items: Array<{ id: string; label: string; detail?: string }>; empty: string }) {
+  if (items.length === 0) return <p>{empty}</p>
+  return (
+    <ul className="space-y-1">
+      {items.map((item) => <li key={item.id}><span className="font-medium text-on-surface">{item.label}</span>{item.detail ? ` / ${item.detail}` : ''}</li>)}
+    </ul>
+  )
+}
+
+function seriesTitle(series: YouTubeSeries) {
+  return (series as YouTubeSeries & { title?: string }).title ?? series.name ?? 'Untitled series'
+}
+
+function videoMetadataDescription(video: YouTubeVideoProject) {
+  return (video as YouTubeVideoProject & { metadata?: { description?: string } }).metadata?.description ?? 'No metadata description yet.'
 }
 
 function skillLabel(key: YouTubeProductionSkillKey) {

@@ -57,7 +57,13 @@ describe('youtube analytics ingestion', () => {
         expect.objectContaining({ videoProjectId: 'video-2', youtubeVideoId: 'yt-long', title: 'Long proof' }),
       ]),
     })
-    expect(snapshot.recommendations.map((recommendation) => recommendation.actionType)).toEqual(expect.arrayContaining(['task', 'script_change', 'clip_idea']))
+    expect(snapshot.recommendations.map((recommendation) => recommendation.actionType)).toEqual(expect.arrayContaining([
+      'task',
+      'script_change',
+      'clip_idea',
+      'series_experiment',
+      'brief',
+    ]))
     expect(JSON.stringify(snapshot)).not.toContain('accessToken')
     expect(JSON.stringify(snapshot)).not.toContain('refreshToken')
   })
