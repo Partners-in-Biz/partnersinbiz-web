@@ -254,9 +254,34 @@ function AdminRowsPanel({
   const filterable = tab === 'projects' || tab === 'documents'
   const label = EMPTY_TAB_LABELS[tab] ?? 'Records'
   const lowerLabel = label.toLowerCase()
+  const documentDirectionCounts = tab === 'documents'
+    ? rows.reduce(
+      (counts, row) => {
+        const direction = documentDirectionLabel(row, company).toLowerCase() as 'sent' | 'received' | 'linked'
+        counts[direction] += 1
+        return counts
+      },
+      { sent: 0, received: 0, linked: 0 },
+    )
+    : null
 
   return (
-    <CompanyRowsPanel
+    <div className="space-y-3">
+      {documentDirectionCounts && rows.length > 0 ? (
+        <div className="grid gap-3 sm:grid-cols-3">
+          {[
+            { label: 'Sent', value: documentDirectionCounts.sent },
+            { label: 'Received', value: documentDirectionCounts.received },
+            { label: 'Linked', value: documentDirectionCounts.linked },
+          ].map((item) => (
+            <div key={item.label} className="rounded-2xl border border-[var(--color-pib-line)] bg-white/[0.03] px-4 py-3">
+              <p className="eyebrow !text-[9px]">{item.label}</p>
+              <p className="mt-1 font-display text-2xl text-[var(--color-pib-text)]">{item.value}</p>
+            </div>
+          ))}
+        </div>
+      ) : null}
+      <CompanyRowsPanel
       rows={rows}
       emptyIcon="hub"
       emptyLabel={`${label} not linked yet`}
@@ -285,6 +310,7 @@ function AdminRowsPanel({
       statusEmptyLabel="-"
       linkedRow
     />
+    </div>
   )
 }
 
@@ -443,6 +469,7 @@ export default function AdminCompanyCommandCenterPage() {
           <AdminRowsPanel
             tab={tab}
             rows={rowsFor(center, tab)}
+            company={company}
             companyName={company.name}
             adminOrgSlug={slug}
             portalHref={portalCompanyHref}
