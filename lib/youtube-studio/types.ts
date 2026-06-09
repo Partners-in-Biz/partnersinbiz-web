@@ -147,6 +147,18 @@ export type YouTubeAnalyticsRecommendationStatus = 'suggested' | 'accepted' | 'r
 export type YouTubeReleaseMode = YouTubePublishingPolicy['allowedModes'][number]
 export type YouTubeReleasePlanStatus = 'draft' | 'ready' | 'scheduled' | 'published' | 'blocked' | 'cancelled'
 
+export interface YouTubePublishAuditEvent {
+  event: 'readiness_blocked' | 'upload_started' | 'upload_succeeded' | 'upload_failed' | 'manual_handoff_required'
+  message: string
+  at?: unknown
+  actorId?: string
+  actorType?: ActorType
+  externalYouTubeVideoId?: string
+  retryable?: boolean
+  errorType?: string
+  quotaUnits?: number
+}
+
 export interface YouTubeAnalyticsMetrics {
   views?: number
   watchTimeMinutes?: number
@@ -665,6 +677,12 @@ export interface YouTubeReleasePlan {
   publicSummary?: string
   internalNotes?: string
   executionJobId?: string
+  externalYouTubeVideoId?: string
+  externalYouTubeUrl?: string
+  publishAttemptCount?: number
+  lastPublishAttemptAt?: unknown
+  lastPublishError?: string
+  publishAuditTrail?: YouTubePublishAuditEvent[]
   checks: {
     approvedPacket: YouTubeGateCheck
     connectedAccount: YouTubeGateCheck

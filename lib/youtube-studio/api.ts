@@ -17,6 +17,7 @@ export const YOUTUBE_COLLECTIONS = {
   productionDrafts: 'youtube_production_drafts',
   renderJobs: 'youtube_render_jobs',
   agentJobs: 'youtube_agent_jobs',
+  agentArtifacts: 'youtube_agent_job_artifacts',
   analytics: 'youtube_analytics_snapshots',
 } as const
 

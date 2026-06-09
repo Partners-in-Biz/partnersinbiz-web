@@ -383,6 +383,8 @@ export type ClientSafeYouTubeReleasePlan = Pick<
   | 'status'
   | 'targetVisibility'
   | 'scheduledPublishAt'
+  | 'externalYouTubeVideoId'
+  | 'externalYouTubeUrl'
   | 'publicSummary'
 > & {
   checks: {
@@ -1493,6 +1495,8 @@ export function clientSafeYouTubeReleasePlan(plan: YouTubeReleasePlan): ClientSa
     status: pick(RELEASE_PLAN_STATUSES, plan.status, 'draft'),
     targetVisibility: pick(PUBLISHING_VISIBILITIES, plan.targetVisibility, 'private'),
     scheduledPublishAt: cleanString(plan.scheduledPublishAt),
+    externalYouTubeVideoId: cleanString(plan.externalYouTubeVideoId),
+    externalYouTubeUrl: cleanString(plan.externalYouTubeUrl),
     publicSummary: cleanString(plan.publicSummary),
     checks: {
       approvedPacket: clientSafeGateCheck(checks.approvedPacket),

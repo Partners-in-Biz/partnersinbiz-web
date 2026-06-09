@@ -1,5 +1,6 @@
 import { NextRequest } from 'next/server'
 import { adminDb } from '@/lib/firebase/admin'
+import { FieldValue } from 'firebase-admin/firestore'
 import { withAuth } from '@/lib/api/auth'
 import { apiError, apiSuccess } from '@/lib/api/response'
 import {
@@ -7,6 +8,7 @@ import {
   ensureOrgAccess,
   listByOrg,
   loadScopedRecord,
+  updateActorFields,
   YOUTUBE_COLLECTIONS,
 } from '@/lib/youtube-studio/api'
 import { getYouTubeSkillContract, YOUTUBE_PRODUCTION_SKILLS, type YouTubeSkillContract } from '@/lib/youtube-studio/skills'
@@ -166,6 +168,202 @@ function buildSkillInputPacket(
   }
 }
 
+type LoadedJob = {
+  id: string
+  ref: { set: (patch: Record<string, unknown>, options?: { merge: boolean }) => Promise<unknown> }
+  data: Record<string, unknown>
+}
+
+type HermesWorkerResponse = {
+  runId: string
+  raw: Record<string, unknown>
+}
+
+const TERMINAL_CALLBACK_STATUSES = new Set(['completed', 'failed', 'cancelled', 'canceled', 'error'])
+
+function joinUrl(base: string, path: string): string {
+  return `${base.replace(/\/+$/, '')}${path.startsWith('/') ? path : `/${path}`}`
+}
+
+function getHermesWorkerConfig(): { runsUrl: string; apiKey?: string } | null {
+  const configuredUrl = cleanString(process.env.YOUTUBE_STUDIO_HERMES_WORKER_URL)
+    ?? cleanString(process.env.HERMES_RUNS_URL)
+    ?? cleanString(process.env.HERMES_API_BASE_URL)
+  if (!configuredUrl) return null
+
+  const runsUrl = configuredUrl.endsWith('/v1/runs') ? configuredUrl : joinUrl(configuredUrl, '/v1/runs')
+  return {
+    runsUrl,
+    apiKey: cleanString(process.env.YOUTUBE_STUDIO_HERMES_WORKER_KEY) ?? cleanString(process.env.HERMES_API_KEY),
+  }
+}
+
+function extractRunId(payload: Record<string, unknown>): string | undefined {
+  return cleanString(payload.runId) ?? cleanString(payload.run_id) ?? cleanString(payload.id)
+}
+
+function appendStatusHistory(job: Record<string, unknown>, entry: Record<string, unknown>) {
+  const current = Array.isArray(job.statusHistory) ? job.statusHistory : []
+  return current.concat({ ...entry, at: FieldValue.serverTimestamp() }).slice(-50)
+}
+
+function linkedPublishingPacketIds(job: Record<string, unknown>): string[] {
+  const linked = cleanObject(job.linked)
+  const packetIds = cleanStringArray(linked.publishingPacketIds)
+  const inputPacket = cleanObject(job.inputPacket)
+  const references = cleanObject(inputPacket.references)
+  return Array.from(new Set(packetIds.concat(cleanStringArray(references.publishingPacketIds))))
+}
+
+async function addLifecycleComment(job: LoadedJob, body: string, userId: string) {
+  await adminDb.collection('comments').add({
+    orgId: job.data.orgId,
+    resourceType: 'youtube_agent_job',
+    resourceId: job.id,
+    body,
+    visibility: 'internal',
+    createdBy: userId,
+    createdAt: FieldValue.serverTimestamp(),
+  }).catch(() => null)
+}
+
+async function loadJobForAction(orgId: string, jobId: string): Promise<LoadedJob | { error: Response }> {
+  const loaded = await loadScopedRecord(YOUTUBE_COLLECTIONS.agentJobs, jobId)
+  if (!loaded || loaded.data.deleted === true) return { error: apiError('YouTube agent job not found', 404) }
+  if (loaded.data.orgId !== orgId) return { error: apiError('YouTube agent job does not belong to organisation', 400) }
+  return loaded as LoadedJob
+}
+
+function buildHermesPrompt(job: LoadedJob): string {
+  const packet = cleanObject(job.data.inputPacket)
+  return [
+    `[YouTube Studio job ${job.id}] ${cleanString(job.data.title) ?? 'Execute YouTube production skill'}`,
+    '',
+    'Execute the attached YouTube Studio skill packet. Return only reviewable outputs and artifact payloads.',
+    'Governance: do not publish, schedule, change visibility, approve, reject, or otherwise mutate YouTube publish state. Proposed publish-state changes must be returned as recommendations for human review.',
+    '',
+    JSON.stringify({
+      jobId: job.id,
+      orgId: job.data.orgId,
+      channelWorkspaceId: job.data.channelWorkspaceId,
+      videoProjectId: job.data.videoProjectId,
+      skillKey: job.data.skillKey,
+      inputPacket: packet,
+    }),
+  ].join('\n')
+}
+
+async function dispatchHermesRun(job: LoadedJob): Promise<HermesWorkerResponse | { error: Response }> {
+  const cfg = getHermesWorkerConfig()
+  if (!cfg) return { error: apiError('Hermes worker dispatch is not configured', 503) }
+
+  const res = await fetch(cfg.runsUrl, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      ...(cfg.apiKey ? { Authorization: `Bearer ${cfg.apiKey}` } : {}),
+    },
+    body: JSON.stringify({
+      input: buildHermesPrompt(job),
+      metadata: {
+        source: 'youtube-studio',
+        orgId: job.data.orgId,
+        jobId: job.id,
+        skillKey: job.data.skillKey,
+        channelWorkspaceId: job.data.channelWorkspaceId,
+        videoProjectId: job.data.videoProjectId,
+      },
+    }),
+  })
+
+  const text = await res.text()
+  let payload: Record<string, unknown> = {}
+  if (text) {
+    try {
+      payload = JSON.parse(text) as Record<string, unknown>
+    } catch {
+      payload = { raw: text }
+    }
+  }
+  if (!res.ok) return { error: apiError(`Hermes worker dispatch failed with ${res.status}`, 502) }
+
+  const runId = extractRunId(payload)
+  if (!runId) return { error: apiError('Hermes worker did not return a run id', 502) }
+  return { runId, raw: payload }
+}
+
+async function stopHermesRun(runId: string) {
+  const cfg = getHermesWorkerConfig()
+  if (!cfg) return
+  await fetch(joinUrl(cfg.runsUrl, `${encodeURIComponent(runId)}/stop`), {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      ...(cfg.apiKey ? { Authorization: `Bearer ${cfg.apiKey}` } : {}),
+    },
+  }).catch(() => null)
+}
+
+function cleanOutputArtifact(value: unknown): Record<string, unknown>[] {
+  if (!Array.isArray(value)) return []
+  return value.flatMap((entry) => {
+    const artifact = cleanObject(entry)
+    const type = cleanString(artifact.type) ?? cleanString(artifact.kind)
+    if (!type) return []
+    return [{
+      type,
+      label: cleanString(artifact.label) ?? type,
+      content: artifact.content ?? artifact.markdown ?? artifact.text ?? artifact.data ?? '',
+      sourceUrl: cleanString(artifact.sourceUrl),
+      storagePath: cleanString(artifact.storagePath),
+    }]
+  })
+}
+
+function normalizeReviewableOutput(raw: unknown) {
+  const output = typeof raw === 'string' ? { summary: raw } : cleanObject(raw)
+  const summary = cleanString(output.summary) ?? cleanString(output.message) ?? cleanString(output.text)
+  const hasPublishMutationProposal = Boolean(output.publishState || output.publishPatch || output.releasePlanPatch || output.publishingPacketPatch)
+  return {
+    ...output,
+    summary,
+    publishStateMutationBlocked: hasPublishMutationProposal,
+    governance: {
+      publishStateMutationBlocked: hasPublishMutationProposal,
+      reason: hasPublishMutationProposal
+        ? 'Skill output proposed publish-state changes. They were captured for review and not applied to linked packets, release plans, schedules, approvals, or visibility.'
+        : 'Skill output captured as reviewable output only.',
+    },
+  }
+}
+
+async function ingestReviewableArtifacts(job: LoadedJob, output: Record<string, unknown>, userId: string): Promise<string[]> {
+  const artifacts = cleanOutputArtifact(output.artifacts)
+  const ids: string[] = []
+  for (const artifact of artifacts) {
+    const ref = await adminDb.collection(YOUTUBE_COLLECTIONS.agentArtifacts).add({
+      orgId: job.data.orgId,
+      channelWorkspaceId: job.data.channelWorkspaceId,
+      videoProjectId: job.data.videoProjectId,
+      jobId: job.id,
+      skillKey: job.data.skillKey,
+      reviewState: 'pending',
+      visibility: 'internal',
+      linked: { publishingPacketIds: linkedPublishingPacketIds(job) },
+      ...artifact,
+      createdBy: userId,
+      createdByType: 'user',
+      updatedBy: userId,
+      updatedByType: 'user',
+      createdAt: FieldValue.serverTimestamp(),
+      updatedAt: FieldValue.serverTimestamp(),
+      deleted: false,
+    })
+    ids.push(ref.id)
+  }
+  return ids
+}
+
 export const GET = withAuth('admin', async (req, user) => {
   const url = new URL(req.url)
   const orgId = url.searchParams.get('orgId')?.trim() ?? ''
@@ -275,4 +473,119 @@ export const POST = withAuth('admin', async (req: NextRequest, user) => {
   })
 
   return apiSuccess({ id: ref.id }, 201)
+})
+
+export const PUT = withAuth('admin', async (req: NextRequest, user) => {
+  const body = cleanObject(await req.json().catch(() => ({})))
+  const orgId = cleanString(body.orgId) ?? ''
+  const jobId = cleanString(body.jobId) ?? cleanString(body.id) ?? ''
+  const action = cleanString(body.action) ?? ''
+  const denied = await ensureOrgAccess(user, orgId)
+  if (denied) return denied
+  if (!jobId) return apiError('jobId is required', 400)
+
+  const loaded = await loadJobForAction(orgId, jobId)
+  if ('error' in loaded) return loaded.error
+  const job = loaded
+
+  if (action === 'dispatch' || action === 'retry') {
+    const dispatch = await dispatchHermesRun(job)
+    if ('error' in dispatch) return dispatch.error
+    const retryCount = action === 'retry' ? Number(job.data.retryCount ?? 0) + 1 : Number(job.data.retryCount ?? 0)
+    const patch = {
+      status: 'running',
+      hermesRunId: dispatch.runId,
+      agentConversationId: dispatch.runId,
+      hermesDispatchResponse: dispatch.raw,
+      agentHeartbeatAt: FieldValue.serverTimestamp(),
+      lifecycleState: 'dispatched',
+      statusHistory: appendStatusHistory(job.data, { status: 'running', action, runId: dispatch.runId, actorId: user.uid }),
+      retryCount,
+      ...(action === 'retry' ? { outputArtifactIds: [], reviewableOutput: null, blockedReason: null } : {}),
+      ...updateActorFields(user),
+    }
+    await job.ref.set(patch, { merge: true })
+    await addLifecycleComment(job, `Hermes run dispatched (${dispatch.runId}) for YouTube packet job.`, user.uid)
+    return apiSuccess({ id: job.id, status: 'running', runId: dispatch.runId })
+  }
+
+  if (action === 'callback') {
+    const callbackRunId = cleanString(body.runId) ?? cleanString(body.run_id)
+    const existingRunId = cleanString(job.data.hermesRunId) ?? cleanString(job.data.agentConversationId)
+    if (existingRunId && callbackRunId && existingRunId !== callbackRunId) {
+      return apiError('Callback runId does not match active Hermes run', 409)
+    }
+
+    const rawStatus = (cleanString(body.status) ?? 'running').toLowerCase()
+    const normalizedStatus = rawStatus === 'canceled' || rawStatus === 'cancelled'
+      ? 'cancelled'
+      : rawStatus === 'error'
+        ? 'failed'
+        : rawStatus
+    if (!isJobStatus(normalizedStatus)) return apiError('Unsupported Hermes callback status', 400)
+
+    if (normalizedStatus === 'completed') {
+      const reviewableOutput = normalizeReviewableOutput(body.output ?? body.result ?? body.summary)
+      const artifactIds = await ingestReviewableArtifacts(job, reviewableOutput, user.uid)
+      const nextStatus: YouTubeAgentJobStatus = job.data.reviewRequired === false ? 'completed' : 'waiting_for_review'
+      const patch = {
+        status: nextStatus,
+        outputArtifactIds: artifactIds,
+        reviewableOutput,
+        agentHeartbeatAt: FieldValue.serverTimestamp(),
+        completedAt: FieldValue.serverTimestamp(),
+        lifecycleState: nextStatus === 'completed' ? 'completed' : 'awaiting_review',
+        statusHistory: appendStatusHistory(job.data, { status: nextStatus, action: 'callback', runId: callbackRunId, actorId: user.uid }),
+        ...updateActorFields(user),
+      }
+      await job.ref.set(patch, { merge: true })
+      await addLifecycleComment(job, `Hermes run ${callbackRunId ?? existingRunId ?? ''} completed; output captured for review.`, user.uid)
+      return apiSuccess({ id: job.id, status: nextStatus, outputArtifactIds: artifactIds })
+    }
+
+    if (normalizedStatus === 'failed' || normalizedStatus === 'cancelled') {
+      const blockedReason = cleanString(body.error) ?? cleanString(body.reason) ?? cleanString(body.message)
+      const patch = {
+        status: normalizedStatus,
+        blockedReason,
+        agentHeartbeatAt: FieldValue.serverTimestamp(),
+        lifecycleState: normalizedStatus,
+        statusHistory: appendStatusHistory(job.data, { status: normalizedStatus, action: 'callback', runId: callbackRunId, actorId: user.uid, blockedReason }),
+        ...updateActorFields(user),
+      }
+      await job.ref.set(patch, { merge: true })
+      await addLifecycleComment(job, `Hermes run ${callbackRunId ?? existingRunId ?? ''} ${normalizedStatus}${blockedReason ? `: ${blockedReason}` : ''}.`, user.uid)
+      return apiSuccess({ id: job.id, status: normalizedStatus })
+    }
+
+    const patch = {
+      status: normalizedStatus,
+      agentHeartbeatAt: FieldValue.serverTimestamp(),
+      lifecycleState: body.heartbeat === true || !TERMINAL_CALLBACK_STATUSES.has(rawStatus) ? 'heartbeat' : normalizedStatus,
+      statusMessage: cleanString(body.message),
+      statusHistory: appendStatusHistory(job.data, { status: normalizedStatus, action: 'heartbeat', runId: callbackRunId, actorId: user.uid }),
+      ...updateActorFields(user),
+    }
+    await job.ref.set(patch, { merge: true })
+    return apiSuccess({ id: job.id, status: normalizedStatus })
+  }
+
+  if (action === 'cancel') {
+    const runId = cleanString(job.data.hermesRunId) ?? cleanString(job.data.agentConversationId)
+    if (runId) await stopHermesRun(runId)
+    const reason = cleanString(body.reason) ?? 'Cancelled by operator'
+    const patch = {
+      status: 'cancelled',
+      blockedReason: reason,
+      cancelledAt: FieldValue.serverTimestamp(),
+      lifecycleState: 'cancelled',
+      statusHistory: appendStatusHistory(job.data, { status: 'cancelled', action: 'cancel', runId, actorId: user.uid, blockedReason: reason }),
+      ...updateActorFields(user),
+    }
+    await job.ref.set(patch, { merge: true })
+    await addLifecycleComment(job, `Hermes run ${runId ?? ''} cancelled: ${reason}.`, user.uid)
+    return apiSuccess({ id: job.id, status: 'cancelled' })
+  }
+
+  return apiError('Unsupported YouTube agent job lifecycle action', 400)
 })
