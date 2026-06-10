@@ -50,6 +50,9 @@ const nextConfig = {
       { source: '/admin/properties/new', destination: '/portal/properties/new', permanent: false },
       { source: '/admin/properties/:id/connections', destination: '/portal/properties/:id/connections', permanent: false },
       { source: '/admin/properties/:path*', destination: '/portal/properties/:path*', permanent: false },
+      // P2 marketing convergence: portal is the only marketing workspace
+      { source: '/admin/marketing', destination: '/portal/marketing', permanent: false },
+      { source: '/admin/marketing/:path*', destination: '/portal/marketing/:path*', permanent: false },
     ]
   },
 }
