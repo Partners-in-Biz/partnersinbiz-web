@@ -40,6 +40,11 @@ const nextConfig = {
       // P2 capture-sources convergence: portal is the only capture-sources workspace
       { source: '/admin/capture-sources', destination: '/portal/capture-sources', permanent: false },
       { source: '/admin/capture-sources/:path*', destination: '/portal/capture-sources', permanent: false },
+      // P2 documents convergence: portal is the only documents workspace
+      { source: '/admin/documents', destination: '/portal/documents', permanent: false },
+      { source: '/admin/documents/new', destination: '/portal/documents', permanent: false },
+      { source: '/admin/documents/:id/preview', destination: '/portal/documents/:id', permanent: false },
+      { source: '/admin/documents/:path*', destination: '/portal/documents/:path*', permanent: false },
     ]
   },
 }
