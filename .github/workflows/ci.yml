@@ -30,26 +30,13 @@ jobs:
         run: npm ci
 
       - name: Lint
-        id: lint
-        continue-on-error: true
         run: npm run lint
 
       - name: Quality ratchet
-        id: ratchet
-        continue-on-error: true
         run: npm run lint:ratchet
 
       - name: Typecheck
-        id: typecheck
-        continue-on-error: true
         run: npm run typecheck
 
       - name: Test
-        id: jest
-        continue-on-error: true
         run: npm test
-
-      - name: Report temporary quality gate status
-        if: steps.lint.outcome == 'failure' || steps.ratchet.outcome == 'failure' || steps.typecheck.outcome == 'failure' || steps.jest.outcome == 'failure'
-        run: |
-          echo "::warning::Quality checks are running in CI but are temporarily non-blocking while Milestone 0 repairs test mocks and Milestone 2 establishes the lint/typecheck ratchets."

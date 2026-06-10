@@ -48,7 +48,7 @@ export async function POST(req: NextRequest, context: RouteContext): Promise<Nex
 
   // Parse body — JSON or form-encoded.
   const ct = req.headers.get('content-type') ?? ''
-  let topics: Record<string, boolean> = {}
+  const topics: Record<string, boolean> = {}
   let frequency: FrequencyChoice | undefined
   let unsubscribeAll = false
 

@@ -30,7 +30,7 @@ export const GET = withAuth('client', async (req: NextRequest, user: ApiUser) =>
 
   // Org-specific templates from Firestore
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  let query: any = adminDb.collection('email_templates').where('orgId', '==', orgId)
+  const query: any = adminDb.collection('email_templates').where('orgId', '==', orgId)
   const snap = await query.get()
   const orgTemplates = snap.docs
     // eslint-disable-next-line @typescript-eslint/no-explicit-any

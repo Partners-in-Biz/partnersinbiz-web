@@ -30,7 +30,7 @@ interface EventPayload {
 const SESSION_TIMEOUT_MS = 30 * 60 * 1000
 
 let _config: Config | null = null
-let _queue: EventPayload[] = []
+const _queue: EventPayload[] = []
 let _flushTimer: ReturnType<typeof setTimeout> | null = null
 let _userId: string | null = null
 
