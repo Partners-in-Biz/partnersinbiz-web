@@ -29,8 +29,8 @@ export default function BroadcastDetailPage({ params }: { params: Promise<{ id: 
     <BroadcastEditor
       id={id}
       initial={broadcast}
-      onBack={() => router.push('/admin/broadcasts')}
-      onDeleted={() => router.push('/admin/broadcasts')}
+      onBack={() => router.push('/portal/broadcasts')}
+      onDeleted={() => router.push('/portal/broadcasts')}
     />
   )
 }

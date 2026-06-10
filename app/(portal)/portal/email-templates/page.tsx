@@ -121,7 +121,7 @@ export default function EmailTemplatesPage() {
       })
       const body = await res.json()
       if (res.ok && body?.data?.id) {
-        router.push(`/admin/email-templates/${body.data.id}`)
+        router.push(`/portal/email-templates/${body.data.id}`)
       }
     } finally {
       setCreating(false)
@@ -136,7 +136,7 @@ export default function EmailTemplatesPage() {
     })
     const body = await res.json()
     if (res.ok && body?.data?.id) {
-      router.push(`/admin/email-templates/${body.data.id}`)
+      router.push(`/portal/email-templates/${body.data.id}`)
     }
   }
 
@@ -221,7 +221,7 @@ export default function EmailTemplatesPage() {
                       </button>
                     ) : (
                       <Link
-                        href={`/admin/email-templates/${t.id}`}
+                        href={`/portal/email-templates/${t.id}`}
                         className="px-3 py-1.5 text-xs rounded-md bg-primary text-on-primary font-medium"
                       >
                         Edit

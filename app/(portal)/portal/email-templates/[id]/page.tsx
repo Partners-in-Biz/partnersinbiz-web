@@ -45,7 +45,7 @@ export default function EmailTemplateEditorPage({ params }: { params: Promise<{ 
           <h2 className="text-lg font-semibold mb-2">Could not load template</h2>
           <p className="text-sm text-on-surface-variant mb-4">{error ?? 'Unknown error'}</p>
           <button
-            onClick={() => router.push('/admin/email-templates')}
+            onClick={() => router.push('/portal/email-templates')}
             className="px-4 py-2 rounded-lg bg-primary text-on-primary text-sm"
           >
             Back to templates

@@ -35,7 +35,7 @@ export default function SequenceDetailPage({ params }: { params: Promise<{ id: s
   }, [orgs, search, selectedOrgId])
 
   const sequencesHref = useMemo(
-    () => appendQueryParams('/admin/sequences', {
+    () => appendQueryParams('/portal/sequences', {
       orgId: orgScope.orgId,
       orgSlug: orgScope.orgSlug,
       org: orgScope.orgSlug,
