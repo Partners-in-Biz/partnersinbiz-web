@@ -3,7 +3,7 @@ import path from 'path'
 const nextConfig = {
   allowedDevOrigins: ['127.0.0.1'],
   turbopack: {
-    root: path.resolve(process.cwd()),
+    root: path.resolve(__dirname, '../..'),
   },
   transpilePackages: ['@partnersinbiz/analytics-js'],
   serverExternalPackages: ['@react-pdf/renderer'],
@@ -28,6 +28,11 @@ const nextConfig = {
       // P1.2 org/clients convergence: admin/clients folds into admin/organizations
       { source: '/admin/clients', destination: '/admin/organizations', permanent: false },
       { source: '/admin/clients/:path*', destination: '/admin/organizations/:path*', permanent: false },
+      // P2 documents convergence: portal is the only documents workspace
+      { source: '/admin/documents', destination: '/portal/documents', permanent: false },
+      { source: '/admin/documents/new', destination: '/portal/documents', permanent: false },
+      { source: '/admin/documents/:id/preview', destination: '/portal/documents/:id', permanent: false },
+      { source: '/admin/documents/:path*', destination: '/portal/documents/:path*', permanent: false },
     ]
   },
 }
