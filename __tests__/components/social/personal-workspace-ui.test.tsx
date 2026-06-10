@@ -46,7 +46,7 @@ describe('personal workspace social UI', () => {
   it('links to the personal workspace from My workspaces', async () => {
     render(<WorkspacesPage />)
 
-    const link = await screen.findByRole('link', { name: /personal marketing/i })
+    const link = await screen.findByRole('link', { name: /personal workspace/i })
     expect(link).toHaveAttribute('href', '/portal/personal/marketing')
     expect(await screen.findByText('Acme')).toBeInTheDocument()
   })

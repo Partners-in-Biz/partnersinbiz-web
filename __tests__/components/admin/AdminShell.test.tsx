@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { fireEvent, render, screen } from '@testing-library/react'
 import { AdminShell } from '@/components/admin/AdminShell'
 
 let mockPathname = '/admin'
@@ -64,12 +64,12 @@ describe('AdminShell message drawer coordination', () => {
     }))
   })
 
-  it('opens the mobile sidebar expanded even when the saved desktop preference is collapsed', async () => {
+  it('opens the mobile sidebar expanded even when the saved desktop preference is collapsed', () => {
     localStorage.setItem('sidebar_collapsed', 'true')
 
     render(<AdminShell userEmail="peet@example.com" userUid="user_1"><main>Dashboard</main></AdminShell>)
 
-    await waitFor(() => expect(screen.getByTestId('admin-sidebar')).toHaveAttribute('data-collapsed', 'true'))
+    expect(screen.getByTestId('admin-sidebar')).toHaveAttribute('data-collapsed', 'true')
 
     fireEvent.click(screen.getByRole('button', { name: 'Open sidebar' }))
 

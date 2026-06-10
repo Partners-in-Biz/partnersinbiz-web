@@ -63,12 +63,8 @@ beforeEach(() => {
 })
 
 describe('PortalIntegrationsPage', () => {
-  async function renderPortalIntegrationsPage() {
-    render(await PortalIntegrationsPage({ searchParams: Promise.resolve({}) }))
-  }
-
   it('renders CRM integrations as an import operations command center', async () => {
-    await renderPortalIntegrationsPage()
+    render(<PortalIntegrationsPage />)
 
     expect(await screen.findByText('Integration command center')).toBeInTheDocument()
     expect(screen.getByText('Connected sources')).toBeInTheDocument()
@@ -105,7 +101,7 @@ describe('PortalIntegrationsPage', () => {
       return Promise.resolve({ ok: true, json: () => Promise.resolve({ data: [] }) })
     })
 
-    await renderPortalIntegrationsPage()
+    render(<PortalIntegrationsPage />)
 
     expect(await screen.findByRole('heading', { name: 'No connected CRM sources yet.' })).toBeInTheDocument()
     expect(screen.getByText('Connect the first source so a CEO can see where contacts come from, whether imports are healthy, and which employees own the next follow-up.')).toBeInTheDocument()
@@ -116,7 +112,7 @@ describe('PortalIntegrationsPage', () => {
   })
 
   it('names provider setup choices by action and current selection state', async () => {
-    await renderPortalIntegrationsPage()
+    render(<PortalIntegrationsPage />)
 
     const mailchimp = await screen.findByRole('button', { name: 'Choose Mailchimp CRM source setup' })
     expect(mailchimp).toHaveAttribute('aria-pressed', 'false')
@@ -175,7 +171,7 @@ describe('PortalIntegrationsPage', () => {
       return Promise.resolve({ ok: true, json: () => Promise.resolve({ data: [] }) })
     })
 
-    await renderPortalIntegrationsPage()
+    render(<PortalIntegrationsPage />)
 
     expect(await screen.findByText('Integration name missing')).toBeInTheDocument()
 

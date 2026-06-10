@@ -52,7 +52,6 @@ describe('CommentComposer context references', () => {
     await waitFor(() => expect(onSubmit).toHaveBeenCalledWith(
       'Please line this up with the launch work.',
       [expect.objectContaining({ type: 'project', id: 'project-1', label: 'Launch Project' })],
-      false,
     ))
   })
 })
