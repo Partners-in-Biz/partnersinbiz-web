@@ -43,7 +43,7 @@ export default function RepliesPage() {
       topic: encodeURIComponent(suggestion.topic),
       draft: encodeURIComponent(suggestion.draftReply),
     })
-    router.push(`/admin/social/compose?${params.toString()}`)
+    router.push(`/portal/social/compose?${params.toString()}`)
   }
 
   return (

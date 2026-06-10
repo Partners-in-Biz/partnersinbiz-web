@@ -905,7 +905,7 @@ export default function DesignPage() {
                 {exporting ? 'Exporting...' : 'Export PNG'}
               </button>
               <button
-                onClick={() => router.push('/admin/social/compose')}
+                onClick={() => router.push('/portal/social/compose')}
                 className="pib-btn-primary text-sm px-4 py-2 bg-amber-500 hover:bg-amber-600"
               >
                 Use in Post

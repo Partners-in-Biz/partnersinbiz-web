@@ -50,6 +50,11 @@ const nextConfig = {
       { source: '/admin/properties/new', destination: '/portal/properties/new', permanent: false },
       { source: '/admin/properties/:id/connections', destination: '/portal/properties/:id/connections', permanent: false },
       { source: '/admin/properties/:path*', destination: '/portal/properties/:path*', permanent: false },
+      // P2 social convergence: portal is the only social workspace
+      { source: '/admin/social/qa/:id', destination: '/portal/social/review/:id', permanent: false },
+      { source: '/admin/social/qa', destination: '/portal/social/review', permanent: false },
+      { source: '/admin/social', destination: '/portal/social', permanent: false },
+      { source: '/admin/social/:path*', destination: '/portal/social/:path*', permanent: false },
     ]
   },
 }
