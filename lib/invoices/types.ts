@@ -140,6 +140,8 @@ export interface Invoice {
   // --- Payment / public-view fields (optional, populated on status transitions)
   /** 32-char hex token granting anonymous access to the invoice view page */
   publicToken?: string
+  /** Dedicated revocable token granting anonymous access to the invoice PDF HTML route */
+  pdfShareToken?: string
   /** Timestamp of first public view (set once) */
   firstViewedAt?: Timestamp | null
   /** Timestamp of most recent public view */
