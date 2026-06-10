@@ -31,6 +31,9 @@ const nextConfig = {
       // P2 research convergence: portal is the only research workspace
       { source: '/admin/research', destination: '/portal/research', permanent: false },
       { source: '/admin/research/:path*', destination: '/portal/research/:path*', permanent: false },
+      // P2 communications convergence: portal is the only communications workspace
+      { source: '/admin/communications', destination: '/portal/communications', permanent: false },
+      { source: '/admin/communications/:path*', destination: '/portal/communications/:path*', permanent: false },
     ]
   },
 }
