@@ -1,0 +1,43 @@
+# Portal-First Convergence Tracker
+
+**Status:** Phase 0 complete — Phase 1 in progress
+**Spec:** [portal-first-convergence-spec.md](system-designs/portal-first-convergence-spec.md)
+**Last updated:** 2026-06-10
+
+---
+
+## Tracking Table
+
+| Section | Verdict | Phase | Branch/PR | Parity Checklist | Status | Date |
+|---|---|---|---|---|---|---|
+| `organizations`, `org` | KEEP | — | — | — | ✅ Keep | — |
+| `platform-members`, `platform-users` | KEEP | — | — | — | ✅ Keep | — |
+| `agents`, `mission-control`, `skill-lab` | KEEP | — | — | — | ✅ Keep | — |
+| `analytics` | SPLIT | Ph3 | — | — | ⏳ Pending | — |
+| `settings`, `updates`, `knowledge` | KEEP | — | — | — | ✅ Keep | — |
+| `support` | KEEP | — | — | — | ✅ Keep | — |
+| `finance` | SPLIT | Ph3 | — | — | ⏳ Pending | — |
+| `invoicing`, `quotes` | MOVE | Ph3 | — | — | ⏳ Pending | — |
+| `crm` / `clients` | MERGE | Ph1 | — | — | 🔄 In Progress | 2026-06-10 |
+| `campaigns` | MERGE | Ph2 | — | — | ⏳ Pending | — |
+| `email`, `email-analytics`, `email-templates`, `email-preferences`, `sequences`, `broadcasts` | MERGE | Ph2 | — | — | ⏳ Pending | — |
+| `marketing`, `social` | MERGE | Ph2 | — | — | ⏳ Pending | — |
+| `seo`, `geo-seo` | MERGE | Ph2 | — | — | ⏳ Pending | — |
+| `briefings` | MERGE | Ph2 | — | — | ⏳ Pending | — |
+| `projects` | MERGE | Ph2 | — | — | ⏳ Pending | — |
+| `documents`, `communications`, `capture-sources`, `properties`, `reports`, `research` | MERGE | Ph2 | — | — | ⏳ Pending | — |
+| `intelligence`, `loop-engine` | VERIFY-THEN-MOVE | Ph3 | — | — | ⏳ Pending | — |
+| `dashboard`, `page.tsx` | KEEP (rebuild last) | Ph4 | — | — | ⏳ Pending | — |
+
+---
+
+## Phase Status
+
+| Phase | Description | Status |
+|---|---|---|
+| Phase 0 | Safety rails (CI gate, cross-tenant tests, tracker, linkedOrgId) | ✅ Complete |
+| Phase 1 | Prove pattern on CRM | 🔄 In Progress |
+| Phase 2 | Long tail of MERGEs | ⏳ Pending |
+| Phase 3 | MOVEs and SPLITs | ⏳ Pending |
+| Phase 4 | Shrink admin | ⏳ Pending |
+| Phase 5 | VPS / agent side | ⏳ Pending |
