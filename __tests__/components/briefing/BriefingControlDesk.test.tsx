@@ -1482,6 +1482,37 @@ describe('BriefingControlDesk', () => {
     })
   })
 
+  it('keeps the Briefings command desk usable without horizontal overflow on mobile', async () => {
+    render(<BriefingControlDesk mode="portal" />)
+
+    expect(await screen.findByText('Briefings control desk')).toBeInTheDocument()
+    expect((await screen.findAllByText('Theo completed work - review required')).length).toBeGreaterThan(0)
+
+    const columns = screen.getByLabelText('Briefing control desk columns')
+    expect(columns).toHaveClass('min-w-0')
+    expect(columns).toHaveClass('xl:grid-cols-[280px_minmax(0,1fr)_420px]')
+
+    expect(screen.getByLabelText('Workflow lanes')).toHaveClass('min-w-0')
+    expect(screen.getByLabelText('Briefing card lane')).toHaveClass('min-w-0')
+    expect(screen.getByLabelText('Selected briefing action panel')).toHaveClass('min-w-0')
+    expect(screen.getByLabelText('Selected briefing action panel')).toHaveClass('max-xl:order-1')
+    expect(screen.getByLabelText('Briefing card lane')).toHaveClass('max-xl:order-2')
+
+    expect(screen.getByTestId('selected-briefing-title')).toHaveClass('break-words')
+    expect(screen.getAllByTestId('briefing-card-title')[0]).toHaveClass('break-words')
+
+    const sourceActionControls = [
+      screen.getByRole('button', { name: /^approve$/i }),
+      screen.getByRole('button', { name: /send back to agent/i }),
+    ]
+
+    sourceActionControls.forEach((control) => {
+      expect(control).toHaveClass('min-w-0')
+      expect(control).toHaveClass('whitespace-normal')
+      expect(control).toHaveClass('w-full')
+    })
+  })
+
   it('renders Agent Learning Review proposals with skill, wiki, task links and no automatic rewrite guard', async () => {
     render(<BriefingControlDesk mode="portal" />)
 
