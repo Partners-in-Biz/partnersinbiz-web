@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server'
-import { createHash } from 'crypto'
+import { createHash, timingSafeEqual } from 'crypto'
 import { FieldValue } from 'firebase-admin/firestore'
 import { adminAuth, adminDb } from '@/lib/firebase/admin'
 import { apiError, apiErrorFromException } from './response'
@@ -8,6 +8,15 @@ import { canAccessOrg } from './platformAdmin'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type RouteHandler = (req: NextRequest, user: ApiUser, context?: any) => Promise<Response>
+
+function constantTimeStringEqual(candidate: string, expected: string | undefined): boolean {
+  const expectedValue = expected ?? ''
+  if (!expectedValue) return false
+
+  const candidateHash = createHash('sha256').update(candidate).digest()
+  const expectedHash = createHash('sha256').update(expectedValue).digest()
+  return timingSafeEqual(candidateHash, expectedHash)
+}
 
 /**
  * Wraps an API route handler with authentication and role enforcement.
@@ -74,7 +83,7 @@ async function _resolveUser(req: NextRequest): Promise<ApiUser | null> {
 
     // 1. Check for AI_API_KEY
     const aiKey = process.env.AI_API_KEY
-    if (aiKey && token === aiKey) {
+    if (constantTimeStringEqual(token, aiKey)) {
       return { uid: 'ai-agent', role: 'ai', authKind: 'legacy_ai_key' }
     }
 

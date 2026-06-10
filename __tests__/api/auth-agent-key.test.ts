@@ -4,7 +4,17 @@ import { NextRequest } from 'next/server'
 const mockVerifyIdToken = jest.fn()
 const mockVerifySessionCookie = jest.fn()
 const mockApiKeyUpdate = jest.fn()
+const mockTimingSafeEqual = jest.fn()
 let mockApiKeyDocs: Array<{ id: string; data: () => Record<string, unknown>; ref: { update: jest.Mock } }> = []
+
+jest.mock('crypto', () => {
+  const actual = jest.requireActual('crypto')
+  return {
+    ...actual,
+    timingSafeEqual: (...args: Parameters<typeof actual.timingSafeEqual>) =>
+      mockTimingSafeEqual(...args),
+  }
+})
 
 jest.mock('@/lib/firebase/admin', () => ({
   adminAuth: {
@@ -82,6 +92,31 @@ describe('agent API key auth', () => {
       permissions: [{ resource: 'ads', actions: ['read', 'write', 'spend'] }],
     }))
     expect(mockApiKeyUpdate).toHaveBeenCalledWith(expect.objectContaining({ lastUsedAt: expect.anything() }))
+  })
+
+  it('uses a timing-safe comparison for the legacy AI_API_KEY path', async () => {
+    const actualCrypto = jest.requireActual('crypto')
+    mockTimingSafeEqual.mockImplementation(actualCrypto.timingSafeEqual)
+
+    const { resolveUser } = await import('@/lib/api/auth')
+    const user = await resolveUser(makeReq('legacy-shared-key'))
+
+    expect(user).toEqual(expect.objectContaining({
+      uid: 'ai-agent',
+      role: 'ai',
+      authKind: 'legacy_ai_key',
+    }))
+    expect(mockTimingSafeEqual).toHaveBeenCalled()
+  })
+
+  it('rejects short mismatched legacy AI_API_KEY bearers without throwing', async () => {
+    const actualCrypto = jest.requireActual('crypto')
+    mockTimingSafeEqual.mockImplementation(actualCrypto.timingSafeEqual)
+
+    const { resolveUser } = await import('@/lib/api/auth')
+
+    await expect(resolveUser(makeReq('short'))).resolves.toBeNull()
+    expect(mockTimingSafeEqual).toHaveBeenCalled()
   })
 
   it('rejects revoked and expired agent API keys', async () => {
