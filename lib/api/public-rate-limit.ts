@@ -23,11 +23,17 @@ export async function enforcePublicRateLimit(
     message?: string
   },
 ) {
-  const limit = await checkAndIncrementRateLimit({
-    key: input.key,
-    limit: input.limit,
-    windowMs: input.windowMs,
-  })
+  let limit
+  try {
+    limit = await checkAndIncrementRateLimit({
+      key: input.key,
+      limit: input.limit,
+      windowMs: input.windowMs,
+    })
+  } catch (error) {
+    console.warn('[public-rate-limit] limiter unavailable; allowing request', error)
+    return null
+  }
 
   if (!limit.allowed) {
     return apiError(input.message ?? 'Too many requests. Try again later.', 429, {

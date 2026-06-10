@@ -41,12 +41,6 @@ export async function POST(req: NextRequest) {
   }
 
   const normalizedEmail = body.email.toLowerCase()
-  const ipLimited = await enforcePublicRateLimit(req, {
-    key: `magic_link_ip:${publicRequestIp(req)}`,
-    limit: 10,
-    windowMs: 15 * 60 * 1000,
-  })
-  if (ipLimited) return ipLimited
 
   const limit = await checkAndIncrementRateLimit({
     key: `magic_link:${normalizedEmail}`,
@@ -56,6 +50,12 @@ export async function POST(req: NextRequest) {
   if (!limit.allowed) {
     return apiError('Too many sign-in requests. Try again in a few minutes.', 429)
   }
+  const ipLimited = await enforcePublicRateLimit(req, {
+    key: `magic_link_ip:${publicRequestIp(req)}`,
+    limit: 10,
+    windowMs: 15 * 60 * 1000,
+  })
+  if (ipLimited) return ipLimited
 
   const { token } = await createMagicLink({
     email: normalizedEmail,
