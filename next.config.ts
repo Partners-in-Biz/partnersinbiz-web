@@ -19,6 +19,12 @@ const nextConfig = {
     return [
       { source: '/discover', destination: '/work', permanent: true },
       { source: '/products', destination: '/services/web-applications', permanent: true },
+      // P1.1 CRM convergence: admin top-level CRM → portal (portal is the only CRM workspace)
+      { source: '/admin/crm', destination: '/portal/crm', permanent: false },
+      { source: '/admin/crm/contacts/:path*', destination: '/portal/contacts/:path*', permanent: false },
+      { source: '/admin/crm/contacts', destination: '/portal/contacts', permanent: false },
+      { source: '/admin/crm/pipeline', destination: '/portal/deals', permanent: false },
+      { source: '/admin/crm/:path*', destination: '/portal/crm', permanent: false },
     ]
   },
 }
