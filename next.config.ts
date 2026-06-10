@@ -50,6 +50,9 @@ const nextConfig = {
       { source: '/admin/properties/new', destination: '/portal/properties/new', permanent: false },
       { source: '/admin/properties/:id/connections', destination: '/portal/properties/:id/connections', permanent: false },
       { source: '/admin/properties/:path*', destination: '/portal/properties/:path*', permanent: false },
+      // P2 geo-seo convergence: portal is the only geo-seo workspace
+      { source: '/admin/geo-seo', destination: '/portal/geo-seo', permanent: false },
+      { source: '/admin/geo-seo/:path*', destination: '/portal/geo-seo/:path*', permanent: false },
     ]
   },
 }
