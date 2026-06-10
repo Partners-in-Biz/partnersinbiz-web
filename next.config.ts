@@ -56,6 +56,9 @@ const nextConfig = {
       // P2 marketing convergence: portal is the only marketing workspace
       { source: '/admin/marketing', destination: '/portal/marketing', permanent: false },
       { source: '/admin/marketing/:path*', destination: '/portal/marketing/:path*', permanent: false },
+      // P2 briefings convergence: portal is the only briefings workspace
+      { source: '/admin/briefings', destination: '/portal/briefings', permanent: false },
+      { source: '/admin/briefings/:path*', destination: '/portal/briefings/:path*', permanent: false },
     ]
   },
 }
