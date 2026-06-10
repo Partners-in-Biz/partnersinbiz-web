@@ -45,6 +45,11 @@ const nextConfig = {
       { source: '/admin/documents/new', destination: '/portal/documents', permanent: false },
       { source: '/admin/documents/:id/preview', destination: '/portal/documents/:id', permanent: false },
       { source: '/admin/documents/:path*', destination: '/portal/documents/:path*', permanent: false },
+      // P2 properties convergence: portal is the only properties workspace
+      { source: '/admin/properties', destination: '/portal/properties', permanent: false },
+      { source: '/admin/properties/new', destination: '/portal/properties/new', permanent: false },
+      { source: '/admin/properties/:id/connections', destination: '/portal/properties/:id/connections', permanent: false },
+      { source: '/admin/properties/:path*', destination: '/portal/properties/:path*', permanent: false },
     ]
   },
 }

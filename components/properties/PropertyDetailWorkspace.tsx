@@ -1,6 +1,4 @@
-// app/(admin)/admin/properties/[id]/page.tsx
 'use client'
-export const dynamic = 'force-dynamic'
 
 import { useEffect, useRef, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
@@ -1007,7 +1005,11 @@ function PlaceholderTab({ label }: { label: string }) {
 
 // ── Page ──────────────────────────────────────────────────────────────────
 
-export default function PropertyDetailPage() {
+interface PropertyDetailWorkspaceProps {
+  backHref?: string
+}
+
+export function PropertyDetailWorkspace({ backHref = '/portal/properties' }: PropertyDetailWorkspaceProps) {
   const { id } = useParams<{ id: string }>()
   const router = useRouter()
   const [property, setProperty] = useState<Property | null>(null)
@@ -1018,8 +1020,8 @@ export default function PropertyDetailPage() {
     fetch(`/api/v1/properties/${id}`)
       .then(r => { if (!r.ok) throw new Error('not found'); return r.json() })
       .then(body => { setProperty(body.data); setLoading(false) })
-      .catch(() => { setLoading(false); router.push('/admin/properties') })
-  }, [id, router])
+      .catch(() => { setLoading(false); router.push(backHref) })
+  }, [id, router, backHref])
 
   if (loading) return (
     <div className="max-w-4xl mx-auto space-y-4">
@@ -1036,7 +1038,7 @@ export default function PropertyDetailPage() {
       {/* Header */}
       <div className="flex items-center gap-3">
         <button
-          onClick={() => router.push('/admin/properties')}
+          onClick={() => router.push(backHref)}
           className="text-on-surface-variant hover:text-on-surface text-sm"
         >
           ← Properties
