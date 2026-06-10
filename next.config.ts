@@ -50,6 +50,7 @@ const nextConfig = {
       { source: '/admin/properties/new', destination: '/portal/properties/new', permanent: false },
       { source: '/admin/properties/:id/connections', destination: '/portal/properties/:id/connections', permanent: false },
       { source: '/admin/properties/:path*', destination: '/portal/properties/:path*', permanent: false },
+<<<<<<< HEAD
       // P2 geo-seo convergence: portal is the only geo-seo workspace
       { source: '/admin/geo-seo', destination: '/portal/geo-seo', permanent: false },
       { source: '/admin/geo-seo/:path*', destination: '/portal/geo-seo/:path*', permanent: false },
@@ -88,6 +89,16 @@ const nextConfig = {
       { source: '/admin/social/qa', destination: '/portal/social/review', permanent: false },
       { source: '/admin/social', destination: '/portal/social', permanent: false },
       { source: '/admin/social/:path*', destination: '/portal/social/:path*', permanent: false },
+      // P2 campaigns convergence: portal is the only campaigns workspace
+      { source: '/admin/campaigns', destination: '/portal/campaigns', permanent: false },
+      { source: '/admin/campaigns/:id/blogs', destination: '/portal/campaigns/:id', permanent: false },
+      { source: '/admin/campaigns/:id/brand', destination: '/portal/campaigns/:id', permanent: false },
+      { source: '/admin/campaigns/:id/calendar', destination: '/portal/campaigns/:id', permanent: false },
+      { source: '/admin/campaigns/:id/research', destination: '/portal/campaigns/:id', permanent: false },
+      { source: '/admin/campaigns/:id/settings', destination: '/portal/campaigns/:id', permanent: false },
+      { source: '/admin/campaigns/:id/social', destination: '/portal/campaigns/:id', permanent: false },
+      { source: '/admin/campaigns/:id/videos', destination: '/portal/campaigns/:id', permanent: false },
+      { source: '/admin/campaigns/:path*', destination: '/portal/campaigns/:path*', permanent: false },
     ]
   },
 }
