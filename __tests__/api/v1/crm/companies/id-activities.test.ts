@@ -2,8 +2,6 @@
  * Tests for GET /api/v1/crm/companies/:id/activities
  * (A1 W3-K — linked activities endpoint)
  */
-import { NextRequest } from 'next/server'
-
 jest.mock('@/lib/firebase/admin', () => ({
   adminAuth: { verifySessionCookie: jest.fn() },
   adminDb: { collection: jest.fn() },
@@ -32,6 +30,7 @@ jest.mock('@/lib/companies/store', () => ({
 import { adminAuth, adminDb } from '@/lib/firebase/admin'
 import { loadCompany } from '@/lib/companies/store'
 import { seedOrgMember, callAsMember } from '../../../../helpers/crm'
+import { installPortalAuthCollectionMock, makeFirestoreDoc, makeFirestoreQuery } from '../../../../helpers/firebase-admin'
 import { uidFor, buildCompany } from './_fixtures'
 
 const AI_API_KEY = 'test-ai-key-id-activities'
@@ -45,38 +44,10 @@ function stageAuth(
   activityDocs: Array<{ id: string; data: Record<string, unknown> }> = [],
 ) {
   ;(adminAuth.verifySessionCookie as jest.Mock).mockResolvedValue({ uid: member.uid })
-  ;(adminDb.collection as jest.Mock).mockImplementation((name: string) => {
-    if (name === 'users') {
-      return {
-        doc: () => ({
-          get: () => Promise.resolve({ exists: true, data: () => ({ activeOrgId: member.orgId }) }),
-        }),
-      }
-    }
-    if (name === 'orgMembers') {
-      return {
-        doc: () => ({
-          get: () => Promise.resolve({ exists: true, data: () => member }),
-        }),
-      }
-    }
-    if (name === 'organizations') {
-      return {
-        doc: () => ({
-          get: () => Promise.resolve({ exists: true, data: () => ({ settings: { permissions: {} } }) }),
-        }),
-      }
-    }
-    if (name === 'activities') {
-      const docs = activityDocs.map((a) => ({ id: a.id, data: () => a.data }))
-      return {
-        where: jest.fn().mockReturnThis(),
-        orderBy: jest.fn().mockReturnThis(),
-        limit: jest.fn().mockReturnThis(),
-        get: jest.fn().mockResolvedValue({ docs }),
-      }
-    }
-    return { doc: () => ({ get: () => Promise.resolve({ exists: false }) }) }
+  installPortalAuthCollectionMock(adminDb.collection as jest.Mock, member, {
+    collections: {
+      activities: makeFirestoreQuery(activityDocs.map((activity) => makeFirestoreDoc(activity.id, activity.data))),
+    },
   })
 }
 

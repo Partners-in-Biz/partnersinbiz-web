@@ -38,7 +38,8 @@ jest.mock('@/lib/companies/store', () => ({
 import { adminAuth, adminDb } from '@/lib/firebase/admin'
 import { getStorage } from 'firebase-admin/storage'
 import * as companiesStore from '@/lib/companies/store'
-import { seedOrgMember, callAsMember } from '../../../../helpers/crm'
+import { seedOrgMember } from '../../../../helpers/crm'
+import { installPortalAuthCollectionMock } from '../../../../helpers/firebase-admin'
 import { buildCompany, uidFor } from './_fixtures'
 
 const AI_API_KEY = 'test-ai-key-logo'
@@ -51,30 +52,7 @@ function stageAuth(
   member: { uid: string; orgId: string; role: string; firstName?: string; lastName?: string },
 ) {
   ;(adminAuth.verifySessionCookie as jest.Mock).mockResolvedValue({ uid: member.uid })
-  ;(adminDb.collection as jest.Mock).mockImplementation((name: string) => {
-    if (name === 'users') {
-      return {
-        doc: () => ({
-          get: () => Promise.resolve({ exists: true, data: () => ({ activeOrgId: member.orgId }) }),
-        }),
-      }
-    }
-    if (name === 'orgMembers') {
-      return {
-        doc: () => ({
-          get: () => Promise.resolve({ exists: true, data: () => member }),
-        }),
-      }
-    }
-    if (name === 'organizations') {
-      return {
-        doc: () => ({
-          get: () => Promise.resolve({ exists: true, data: () => ({ settings: { permissions: {} } }) }),
-        }),
-      }
-    }
-    return { doc: () => ({ get: () => Promise.resolve({ exists: false }) }) }
-  })
+  installPortalAuthCollectionMock(adminDb.collection as jest.Mock, member)
 }
 
 function makeBucket(overrides: Partial<{
@@ -109,8 +87,6 @@ function makeFormDataRequest(
   const formData = new FormData()
   const blob = new Blob([fileContent], { type: fileType })
   formData.append('file', blob, fileName)
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
-  const { NextRequest } = require('next/server')
   return new NextRequest(`http://localhost${url}`, {
     method: 'POST',
     headers: new Headers({
@@ -208,8 +184,6 @@ describe('POST /api/v1/crm/companies/:id/upload-logo', () => {
     const blob = new Blob([largeContent], { type: 'image/png' })
     formData.append('file', blob, 'big.png')
 
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
-    const { NextRequest } = require('next/server')
     const req = new NextRequest('http://localhost/api/v1/crm/companies/co-size/upload-logo', {
       method: 'POST',
       headers: new Headers({ cookie: `__session=test-session-${member.uid}` }),

@@ -12,7 +12,7 @@ jest.mock('@/lib/webhooks/dispatch', () => ({ dispatchWebhook: jest.fn().mockRes
 
 import { adminAuth, adminDb } from '@/lib/firebase/admin'
 import { seedOrgMember, callAsMember } from '../../../../helpers/crm'
-import { Timestamp } from 'firebase-admin/firestore'
+import { makePortalAuthCollections, makeMissingDocCollection } from '../../../../helpers/firebase-admin'
 
 const AI_API_KEY = 'test-ai-key-migrate'
 process.env.AI_API_KEY = AI_API_KEY
@@ -49,29 +49,9 @@ function stageAuth(
   const batchCommit = opts.capturedBatchCommit ?? jest.fn().mockResolvedValue(undefined)
   ;(adminDb.batch as jest.Mock).mockReturnValue({ update: batchUpdate, commit: batchCommit })
 
+  const authCollections = makePortalAuthCollections(member)
   ;(adminDb.collection as jest.Mock).mockImplementation((name: string) => {
-    // ── auth layers ──
-    if (name === 'users') {
-      return {
-        doc: () => ({
-          get: () => Promise.resolve({ exists: true, data: () => ({ activeOrgId: member.orgId }) }),
-        }),
-      }
-    }
-    if (name === 'orgMembers') {
-      return {
-        doc: () => ({
-          get: () => Promise.resolve({ exists: true, data: () => member }),
-        }),
-      }
-    }
-    if (name === 'organizations') {
-      return {
-        doc: () => ({
-          get: () => Promise.resolve({ exists: true, data: () => ({ settings: { permissions: {} } }) }),
-        }),
-      }
-    }
+    if (name in authCollections) return authCollections[name as keyof typeof authCollections]
 
     // ── contacts collection ──
     if (name === 'contacts') {
@@ -122,7 +102,7 @@ function stageAuth(
       return { doc: docFn, where: whereFn, ...chainable }
     }
 
-    return { doc: () => ({ get: () => Promise.resolve({ exists: false }) }) }
+    return makeMissingDocCollection()
   })
 }
 
