@@ -1,6 +1,6 @@
 # Portal-First Convergence Tracker
 
-**Status:** Phase 0 complete — Phase 1 in progress
+**Status:** Phase 0 complete — Phase 1 complete (pending Peet review gate before Phase 2)
 **Spec:** [portal-first-convergence-spec.md](system-designs/portal-first-convergence-spec.md)
 **Last updated:** 2026-06-10
 
@@ -18,7 +18,8 @@
 | `support` | KEEP | — | — | — | ✅ Keep | — |
 | `finance` | SPLIT | Ph3 | — | — | ⏳ Pending | — |
 | `invoicing`, `quotes` | MOVE | Ph3 | — | — | ⏳ Pending | — |
-| `crm` / `clients` | MERGE | Ph1 | — | — | 🔄 In Progress | 2026-06-10 |
+| `crm` (contacts, pipeline) | MERGE | Ph1 | `9ec6829e` | ✅ All passed | ✅ Done | 2026-06-10 |
+| `clients` (platform orgs) | ⚠️ STOP — see note | Ph1 | — | — | 🔴 Needs Peet decision | 2026-06-10 |
 | `campaigns` | MERGE | Ph2 | — | — | ⏳ Pending | — |
 | `email`, `email-analytics`, `email-templates`, `email-preferences`, `sequences`, `broadcasts` | MERGE | Ph2 | — | — | ⏳ Pending | — |
 | `marketing`, `social` | MERGE | Ph2 | — | — | ⏳ Pending | — |
@@ -36,7 +37,7 @@
 | Phase | Description | Status |
 |---|---|---|
 | Phase 0 | Safety rails (CI gate, cross-tenant tests, tracker, linkedOrgId) | ✅ Complete |
-| Phase 1 | Prove pattern on CRM | 🔄 In Progress |
+| Phase 1 | Prove pattern on CRM | 🔴 Pending Peet review gate + `admin/clients` decision |
 | Phase 2 | Long tail of MERGEs | ⏳ Pending |
 | Phase 3 | MOVEs and SPLITs | ⏳ Pending |
 | Phase 4 | Shrink admin | ⏳ Pending |
