@@ -16,6 +16,9 @@ jest.mock('@/lib/ads/providers/meta', () => ({
     customAudienceCRUD: jest.fn(),
   },
 }))
+jest.mock('@/lib/ads/activity', () => ({
+  logCustomAudienceActivity: jest.fn().mockResolvedValue(undefined),
+}))
 
 const store = jest.requireMock('@/lib/ads/custom-audiences/store')
 const helpers = jest.requireMock('@/lib/ads/api-helpers')
@@ -139,7 +142,7 @@ describe('POST /api/v1/ads/custom-audiences', () => {
     const res = await POST(
       new Request('http://x', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'X-Org-Id': 'org_1', 'Content-Type': 'application/json' },
         body: JSON.stringify({ input: {} }),
       }) as any,
       { uid: 'u1' } as any,

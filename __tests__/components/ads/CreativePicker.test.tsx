@@ -1,7 +1,7 @@
 /**
  * @jest-environment jsdom
  */
-import { render, screen, fireEvent, waitFor, act } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor, within } from '@testing-library/react'
 import '@testing-library/jest-dom'
 import { CreativePicker } from '@/components/ads/CreativePicker'
 
@@ -31,7 +31,9 @@ describe('CreativePicker', () => {
     render(<CreativePicker open orgId="org_1" onSelect={() => {}} onClose={() => {}} />)
     await waitFor(() => expect(screen.getByText('Hero')).toBeInTheDocument())
     expect(screen.getByText('Banner')).toBeInTheDocument()
-    expect(screen.getByText(/Library \(2\)/)).toBeInTheDocument()
+    const libraryTab = screen.getByRole('tab', { name: /Library\s*2/ })
+    expect(libraryTab).toHaveAttribute('aria-selected', 'true')
+    expect(within(libraryTab).getByText('2')).toBeInTheDocument()
   })
 
   it('single mode replaces selection on click', async () => {
