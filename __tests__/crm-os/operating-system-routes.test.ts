@@ -85,7 +85,7 @@ jest.mock('@/lib/commerce/store', () => ({
 
 jest.mock('@/lib/crm/reconcile-links', () => ({
   reconcileCrmLinks: (...args: unknown[]) => mockReconcileLinks(...args),
-}), { virtual: true })
+}))
 
 jest.mock('@/lib/crm/os-dashboard', () => ({
   buildCrmOsDashboard: (...args: unknown[]) => mockBuildCrmOsDashboard(...args),
