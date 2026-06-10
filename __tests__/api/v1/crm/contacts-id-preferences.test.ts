@@ -19,6 +19,7 @@ import { adminAuth, adminDb } from '@/lib/firebase/admin'
 import { getContactPreferences, setContactPreferences } from '@/lib/preferences/store'
 import { seedOrgMember, callAsMember, callAsAgent } from '../../../helpers/crm'
 import type { ContactPreferences } from '@/lib/preferences/types'
+import { makePortalAuthCollections } from '../../../helpers/firebase-admin'
 
 const AI_API_KEY = 'test-ai-key-prefs'
 process.env.AI_API_KEY = AI_API_KEY
@@ -50,7 +51,9 @@ function stageAuth(
   },
 ) {
   ;(adminAuth.verifySessionCookie as jest.Mock).mockResolvedValue({ uid: member.uid })
+  const authCollections = makePortalAuthCollections(member)
   ;(adminDb.collection as jest.Mock).mockImplementation((name: string) => {
+    if (name in authCollections) return authCollections[name as keyof typeof authCollections]
     if (name === 'users') {
       return {
         doc: () => ({

@@ -47,24 +47,42 @@ export function makeMissingDocCollection() {
 }
 
 export function makePortalAuthCollections(member: PortalMember, opts: PortalCollectionOptions = {}) {
+  return makePortalAuthCollectionsForMembers([member], opts)
+}
+
+export function makePortalAuthCollectionsForMembers(members: PortalMember[], opts: PortalCollectionOptions = {}) {
   const permissions = opts.permissions ?? {}
-  const orgMemberDoc = makeFirestoreDoc(`${member.orgId}_${member.uid}`, member)
+  const orgMemberDocs = members.map((member) => makeFirestoreDoc(`${member.orgId}_${member.uid}`, member))
+  const memberByUid = new Map(members.map((member) => [member.uid, member]))
+  const memberByDocId = new Map(members.map((member) => [`${member.orgId}_${member.uid}`, member]))
 
   return {
     users: {
-      doc: jest.fn(() => ({
+      doc: jest.fn((uid: string) => ({
         get: jest.fn(async () => ({
-          exists: true,
-          data: () => ({ activeOrgId: member.orgId }),
+          exists: memberByUid.has(uid),
+          data: () => {
+            const member = memberByUid.get(uid)
+            return member ? { activeOrgId: member.orgId } : undefined
+          },
         })),
       })),
     },
     orgMembers: {
-      doc: jest.fn(() => ({
-        get: jest.fn(async () => ({ exists: true, data: () => member })),
+      doc: jest.fn((id: string) => ({
+        get: jest.fn(async () => ({
+          exists: memberByDocId.has(id),
+          data: () => memberByDocId.get(id),
+        })),
       })),
-      where: jest.fn(() => ({
-        get: jest.fn(async () => ({ docs: [orgMemberDoc] })),
+      where: jest.fn((field: string, op: string, value: unknown) => ({
+        get: jest.fn(async () => ({
+          docs: orgMemberDocs.filter((doc) => {
+            const data = doc.data()
+            if (op !== '==') return true
+            return data[field] === value
+          }),
+        })),
       })),
     },
     organizations: {

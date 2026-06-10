@@ -52,6 +52,7 @@ import { adminAuth, adminDb } from '@/lib/firebase/admin'
 import * as pipelineStore from '@/lib/pipelines/store'
 import { uidFor } from './pipelines/_fixtures'
 import { seedOrgMember, callAsMember } from '../../../helpers/crm'
+import { makePortalAuthCollectionsForMembers } from '../../../helpers/firebase-admin'
 
 process.env.SESSION_COOKIE_NAME = '__session'
 
@@ -98,8 +99,10 @@ function buildCollectionMock(opts: {
   actor: typeof adminA
   capturedDocSet?: jest.Mock
 } = { actor: adminA }) {
-  const { actor, capturedDocSet } = opts
+  const { capturedDocSet } = opts
+  const authCollections = makePortalAuthCollectionsForMembers([adminA, adminB])
   return (name: string) => {
+    if (name in authCollections) return authCollections[name as keyof typeof authCollections]
     if (name === 'orgMembers') {
       return {
         doc: (key: string) => ({
