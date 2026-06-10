@@ -83,6 +83,11 @@ const nextConfig = {
       // P2 seo convergence: portal is the only seo workspace
       { source: '/admin/seo', destination: '/portal/seo', permanent: false },
       { source: '/admin/seo/:path*', destination: '/portal/seo/:path*', permanent: false },
+      // P2 social convergence: portal is the only social workspace
+      { source: '/admin/social/qa/:id', destination: '/portal/social/review/:id', permanent: false },
+      { source: '/admin/social/qa', destination: '/portal/social/review', permanent: false },
+      { source: '/admin/social', destination: '/portal/social', permanent: false },
+      { source: '/admin/social/:path*', destination: '/portal/social/:path*', permanent: false },
     ]
   },
 }
