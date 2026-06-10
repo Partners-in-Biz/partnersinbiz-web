@@ -37,6 +37,9 @@ const nextConfig = {
       // P2 reports convergence: portal is the only reports workspace
       { source: '/admin/reports', destination: '/portal/reports', permanent: false },
       { source: '/admin/reports/:path*', destination: '/portal/reports/:path*', permanent: false },
+      // P2 capture-sources convergence: portal is the only capture-sources workspace
+      { source: '/admin/capture-sources', destination: '/portal/capture-sources', permanent: false },
+      { source: '/admin/capture-sources/:path*', destination: '/portal/capture-sources', permanent: false },
     ]
   },
 }
