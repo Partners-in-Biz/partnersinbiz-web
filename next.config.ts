@@ -25,6 +25,9 @@ const nextConfig = {
       { source: '/admin/crm/contacts', destination: '/portal/contacts', permanent: false },
       { source: '/admin/crm/pipeline', destination: '/portal/deals', permanent: false },
       { source: '/admin/crm/:path*', destination: '/portal/crm', permanent: false },
+      // P1.2 org/clients convergence: admin/clients folds into admin/organizations
+      { source: '/admin/clients', destination: '/admin/organizations', permanent: false },
+      { source: '/admin/clients/:path*', destination: '/admin/organizations/:path*', permanent: false },
     ]
   },
 }

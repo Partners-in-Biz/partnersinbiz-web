@@ -19,7 +19,7 @@
 | `finance` | SPLIT | Ph3 | — | — | ⏳ Pending | — |
 | `invoicing`, `quotes` | MOVE | Ph3 | — | — | ⏳ Pending | — |
 | `crm` (contacts, pipeline) | MERGE | Ph1 | `9ec6829e` | ✅ All passed | ✅ Done | 2026-06-10 |
-| `clients` (platform orgs) | ⚠️ STOP — see note | Ph1 | — | — | 🔴 Needs Peet decision | 2026-06-10 |
+| `clients` (platform orgs) | FOLD → admin/organizations | Ph1 | TBD | ✅ All passed | ✅ Done | 2026-06-10 |
 | `campaigns` | MERGE | Ph2 | — | — | ⏳ Pending | — |
 | `email`, `email-analytics`, `email-templates`, `email-preferences`, `sequences`, `broadcasts` | MERGE | Ph2 | — | — | ⏳ Pending | — |
 | `marketing`, `social` | MERGE | Ph2 | — | — | ⏳ Pending | — |
@@ -37,7 +37,7 @@
 | Phase | Description | Status |
 |---|---|---|
 | Phase 0 | Safety rails (CI gate, cross-tenant tests, tracker, linkedOrgId) | ✅ Complete |
-| Phase 1 | Prove pattern on CRM | 🔴 Pending Peet review gate + `admin/clients` decision |
+| Phase 1 | Prove pattern on CRM + fold admin/clients → admin/organizations | ✅ Complete |
 | Phase 2 | Long tail of MERGEs | ⏳ Pending |
 | Phase 3 | MOVEs and SPLITs | ⏳ Pending |
 | Phase 4 | Shrink admin | ⏳ Pending |

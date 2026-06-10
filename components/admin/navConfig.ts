@@ -19,7 +19,7 @@ export const OPERATOR_NAV: NavItem[] = [
   { label: 'Updates',      href: '/admin/updates',      icon: 'new_releases', group: 'work' },
   { label: 'Loop Engine',  href: '/admin/loop-engine',  icon: 'all_inclusive', group: 'work' },
   { label: 'Briefings',    href: '/admin/briefings',    icon: 'team_dashboard', group: 'work' },
-  { label: 'Clients',      href: '/admin/clients',      icon: 'groups', group: 'work', activePatterns: ['/admin/organizations'] },
+  { label: 'Organisations', href: '/admin/organizations', icon: 'groups', group: 'work', activePatterns: ['/admin/clients'] },
   { label: 'Pipeline',     href: '/admin/crm/contacts', icon: 'view_kanban', group: 'work', activePatterns: ['/admin/crm'] },
   {
     label: 'Marketing',
@@ -56,7 +56,7 @@ export const OPERATOR_NAV_TOPBAR: NavItem[] = [
   { label: 'Updates',  href: '/admin/updates',      icon: 'new_releases' },
   { label: 'Loop Engine', href: '/admin/loop-engine', icon: 'all_inclusive' },
   { label: 'Briefings', href: '/admin/briefings', icon: 'team_dashboard' },
-  { label: 'Clients',  href: '/admin/clients',      icon: 'groups', activePatterns: ['/admin/organizations'] },
+  { label: 'Organisations', href: '/admin/organizations', icon: 'groups', activePatterns: ['/admin/clients'] },
   { label: 'Pipeline', href: '/admin/crm/contacts', icon: 'view_kanban', activePatterns: ['/admin/crm'] },
   {
     label: 'Marketing', href: '/admin/marketing', icon: 'campaign',
