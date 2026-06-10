@@ -111,7 +111,7 @@ function NewSprintForm() {
         setSubmitting(false)
         return
       }
-      router.push(`/admin/seo/sprints/${json.data.id}/settings?welcome=1`)
+      router.push(`/portal/seo/sprints/${json.data.id}/settings?welcome=1`)
     } catch (e) {
       setError((e as Error).message)
       setSubmitting(false)

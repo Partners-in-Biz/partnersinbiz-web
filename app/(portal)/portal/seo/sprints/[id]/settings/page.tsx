@@ -371,7 +371,7 @@ export default function SettingsTab() {
             onClick={async () => {
               if (!confirm('Archive this sprint?')) return
               await fetch(`/api/v1/seo/sprints/${id}/archive`, { method: 'POST' })
-              window.location.href = '/admin/seo'
+              window.location.href = '/portal/seo'
             }}
             className="inline-flex items-center justify-center gap-2 rounded-full border border-red-500/35 px-4 py-2 text-xs font-semibold text-red-300 transition hover:bg-red-500/10"
           >
