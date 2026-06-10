@@ -4,6 +4,7 @@ import { FieldValue } from 'firebase-admin/firestore'
 import { getResendClient, FROM_ADDRESS } from '@/lib/email/resend'
 import { PIB_PLATFORM_ORG_ID } from '@/lib/platform/constants'
 import { fireTrigger } from '@/lib/automations/trigger'
+import { enforcePublicRateLimit, publicRequestIp, publicRateLimitHash } from '@/lib/api/public-rate-limit'
 
 function isValidEmail(email: string) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
@@ -21,8 +22,25 @@ function escapeHtml(str: string): string {
 }
 
 export async function POST(request: NextRequest) {
+  // PUBLIC: website project enquiry form.
   const body = await request.json()
   const { name, email, company, projectType, details, userId, phone, website } = body
+  const ip = publicRequestIp(request)
+  const ipLimited = await enforcePublicRateLimit(request, {
+    key: `enquiry_submit:${ip}`,
+    limit: 10,
+    windowMs: 60 * 60 * 1000,
+  })
+  if (ipLimited) return ipLimited
+
+  if (typeof email === 'string' && email.trim()) {
+    const emailLimited = await enforcePublicRateLimit(request, {
+      key: `enquiry_email:${publicRateLimitHash(email.trim().toLowerCase())}`,
+      limit: 5,
+      windowMs: 60 * 60 * 1000,
+    })
+    if (emailLimited) return emailLimited
+  }
 
   if (!name?.trim()) return NextResponse.json({ error: 'Name is required' }, { status: 400 })
   if (!email?.trim()) return NextResponse.json({ error: 'Email is required' }, { status: 400 })

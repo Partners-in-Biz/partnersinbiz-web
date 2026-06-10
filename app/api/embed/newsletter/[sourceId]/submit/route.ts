@@ -1,6 +1,6 @@
 // app/api/embed/newsletter/[sourceId]/submit/route.ts
 //
-// Public alias for /api/v1/capture-sources/[id]/submit. Keeps the embed
+// PUBLIC: public alias for /api/v1/capture-sources/[id]/submit. Keeps the embed
 // widget URLs in a clearly "public-shaped" namespace.
 
 import { NextRequest } from 'next/server'

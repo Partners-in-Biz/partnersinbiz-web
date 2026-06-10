@@ -6,6 +6,15 @@ import { encryptCredentials } from '@/lib/integrations/crypto'
 
 export const dynamic = 'force-dynamic'
 
+function timestampToMillis(value: unknown): number | null {
+  if (!value || typeof value !== 'object') return null
+  const timestamp = value as { toMillis?: () => number; toDate?: () => Date; seconds?: number; _seconds?: number }
+  if (typeof timestamp.toMillis === 'function') return timestamp.toMillis()
+  if (typeof timestamp.toDate === 'function') return timestamp.toDate().getTime()
+  const seconds = timestamp.seconds ?? timestamp._seconds
+  return typeof seconds === 'number' ? seconds * 1000 : null
+}
+
 export async function GET(req: NextRequest) {
   const u = new URL(req.url)
   const code = u.searchParams.get('code')
@@ -18,6 +27,21 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ success: false, error: 'bad state' }, { status: 400 })
   }
   if (!parsed.sprintId) return NextResponse.json({ success: false, error: 'no sprintId' }, { status: 400 })
+
+  const stateRef = adminDb.collection('gsc_oauth_states').doc(state)
+  const stateSnap = await stateRef.get()
+  if (!stateSnap.exists) return NextResponse.json({ success: false, error: 'invalid state' }, { status: 400 })
+  const stateData = stateSnap.data() ?? {}
+  const expiresAt = timestampToMillis(stateData.expiresAt)
+  if (
+    stateData.consumedAt ||
+    stateData.sprintId !== parsed.sprintId ||
+    stateData.uid !== parsed.uid ||
+    !expiresAt ||
+    expiresAt < Date.now()
+  ) {
+    return NextResponse.json({ success: false, error: 'invalid state' }, { status: 400 })
+  }
 
   // Need orgId to encrypt
   const sprintSnap = await adminDb.collection('seo_sprints').doc(parsed.sprintId).get()
@@ -47,6 +71,7 @@ export async function GET(req: NextRequest) {
       'integrations.gsc.connectedAt': FieldValue.serverTimestamp(),
       'integrations.gsc.scopes': tokens.scope ? tokens.scope.split(' ') : [],
     })
+  await stateRef.update({ consumedAt: FieldValue.serverTimestamp() })
 
   const base = process.env.NEXT_PUBLIC_BASE_URL ?? 'https://partnersinbiz.online'
   return NextResponse.redirect(`${base}/admin/seo/sprints/${parsed.sprintId}/settings?gsc=connected`)

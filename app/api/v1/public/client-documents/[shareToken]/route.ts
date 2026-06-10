@@ -6,15 +6,23 @@ import { CLIENT_DOCUMENTS_COLLECTION } from '@/lib/client-documents/store'
 import { stripPrivateDocumentFields } from '@/lib/client-documents/public'
 import type { ClientDocument } from '@/lib/client-documents/types'
 import { adminDb } from '@/lib/firebase/admin'
+import { enforcePublicRateLimit, publicRequestIp, publicRateLimitHash } from '@/lib/api/public-rate-limit'
 
 export const dynamic = 'force-dynamic'
 
 type RouteContext = { params: Promise<{ shareToken: string }> }
 
-export async function GET(_req: NextRequest, context: RouteContext): Promise<NextResponse> {
+export async function GET(req: NextRequest, context: RouteContext): Promise<NextResponse> {
   try {
     const { shareToken } = await context.params
+    // PUBLIC: published client-document share link.
     if (!shareToken || shareToken.length < 8) return apiError('Invalid share token', 400)
+    const limited = await enforcePublicRateLimit(req, {
+      key: `public_doc:${publicRateLimitHash(shareToken)}:${publicRequestIp(req)}`,
+      limit: 120,
+      windowMs: 60 * 60 * 1000,
+    })
+    if (limited) return limited
 
     const snap = await adminDb
       .collection(CLIENT_DOCUMENTS_COLLECTION)

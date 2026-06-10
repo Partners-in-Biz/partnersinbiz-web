@@ -14,6 +14,7 @@ import {
   setContactPreferences,
 } from '@/lib/preferences/store'
 import { FREQUENCY_CHOICES, type FrequencyChoice } from '@/lib/preferences/types'
+import { enforcePublicRateLimit, publicRequestIp, publicRateLimitHash } from '@/lib/api/public-rate-limit'
 
 export const dynamic = 'force-dynamic'
 
@@ -33,6 +34,14 @@ function redirect(token: string, params: Record<string, string>): NextResponse {
 
 export async function POST(req: NextRequest, context: RouteContext): Promise<NextResponse> {
   const { token } = await context.params
+  // PUBLIC: contact preferences save endpoint protected by signed unsubscribe token.
+  const limited = await enforcePublicRateLimit(req, {
+    key: `preferences:${publicRateLimitHash(token)}:${publicRequestIp(req)}`,
+    limit: 20,
+    windowMs: 60 * 60 * 1000,
+  })
+  if (limited) return limited
+
   const verified = verifyUnsubscribeToken(token)
   if (!verified.ok) return redirect(token, { error: 'invalid-token' })
   const contactId = verified.contactId

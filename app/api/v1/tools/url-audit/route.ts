@@ -10,6 +10,7 @@ function getRequestIp(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
+  // PUBLIC: lightweight URL audit tool with existing durable rate limit.
   let body: { url?: unknown; kind?: unknown }
   try {
     body = await req.json()

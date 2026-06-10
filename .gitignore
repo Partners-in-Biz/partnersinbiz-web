@@ -46,6 +46,7 @@ next-env.d.ts
 
 # local tooling
 .codex-tmp/
+tmp/
 .agents/
 .claude/*
 # but DO version the agent skill definitions — Hermes, CI, and the team

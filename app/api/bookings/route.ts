@@ -3,6 +3,7 @@ import { adminDb } from '@/lib/firebase/admin'
 import { FieldValue } from 'firebase-admin/firestore'
 import { createCalendarEvent } from '@/lib/google/calendar'
 import { getResendClient, FROM_ADDRESS } from '@/lib/email/resend'
+import { enforcePublicRateLimit, publicRequestIp, publicRateLimitHash } from '@/lib/api/public-rate-limit'
 
 function isValidEmail(e: string) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e)
@@ -21,8 +22,25 @@ function formatDisplay(date: string, time: string) {
 }
 
 export async function POST(request: NextRequest) {
+  // PUBLIC: website booking request form.
   const body = await request.json()
   const { name, email, date, time, company, brief } = body
+  const ip = publicRequestIp(request)
+  const ipLimited = await enforcePublicRateLimit(request, {
+    key: `booking_submit:${ip}`,
+    limit: 10,
+    windowMs: 60 * 60 * 1000,
+  })
+  if (ipLimited) return ipLimited
+
+  if (typeof email === 'string' && email.trim()) {
+    const emailLimited = await enforcePublicRateLimit(request, {
+      key: `booking_email:${publicRateLimitHash(email.trim().toLowerCase())}`,
+      limit: 5,
+      windowMs: 60 * 60 * 1000,
+    })
+    if (emailLimited) return emailLimited
+  }
 
   if (!name?.trim()) return NextResponse.json({ error: 'Name is required' }, { status: 400 })
   if (!email?.trim() || !isValidEmail(email)) return NextResponse.json({ error: 'Valid email is required' }, { status: 400 })

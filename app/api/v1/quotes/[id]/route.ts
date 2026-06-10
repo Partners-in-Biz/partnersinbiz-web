@@ -5,6 +5,7 @@ import { adminDb } from '@/lib/firebase/admin'
 import { withCrmAuth, type CrmAuthContext } from '@/lib/auth/crm-middleware'
 import { apiSuccess, apiError } from '@/lib/api/response'
 import { generateInvoiceNumber } from '@/lib/invoices/invoice-number'
+import { generateInvoicePdfShareToken } from '@/lib/invoices/share-token'
 import { dispatchWebhook } from '@/lib/webhooks/dispatch'
 import { notifyQuoteAccepted } from '@/lib/notifications/client-acceptance'
 import { loadCompany } from '@/lib/companies/store'
@@ -161,6 +162,7 @@ async function handleQuoteUpdate(
       claimToken: before.claimToken,
       claimStatus: before.claimStatus,
       invoiceNumber,
+      pdfShareToken: generateInvoicePdfShareToken(),
       status: 'draft' as const,
       issueDate: FieldValue.serverTimestamp(),
       dueDate: null,

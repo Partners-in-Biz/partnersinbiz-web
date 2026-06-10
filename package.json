@@ -7,6 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
+    "lint:ratchet": "node scripts/check-quality-ratchet.mjs",
+    "typecheck": "NODE_OPTIONS=--max-old-space-size=8192 tsc --noEmit --pretty false",
     "check:email-deliverability-env": "node scripts/check-email-deliverability-env.mjs",
     "test": "jest",
     "test:watch": "jest --watch"

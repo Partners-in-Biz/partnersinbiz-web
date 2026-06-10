@@ -7,6 +7,7 @@ import {
   createPlatformLeadForClaim,
 } from '@/lib/claimable-relationships/store'
 import type { ClaimableRelationship } from '@/lib/claimable-relationships/types'
+import { enforcePublicRateLimit, publicRequestIp, publicRateLimitHash } from '@/lib/api/public-rate-limit'
 
 export const dynamic = 'force-dynamic'
 
@@ -155,9 +156,16 @@ async function createOrResolveClaimUser(req: NextRequest, input: {
   return { uid: created.uid, fromSession: false }
 }
 
-export async function GET(_req: NextRequest, ctx: RouteContext) {
+export async function GET(req: NextRequest, ctx: RouteContext) {
   const { claimToken } = await ctx.params
   if (!claimToken || claimToken.length < 12) return apiError('Invalid claim token', 400)
+  // PUBLIC: claim invitation preview protected by claim token.
+  const limited = await enforcePublicRateLimit(req, {
+    key: `claim_view:${publicRateLimitHash(claimToken)}:${publicRequestIp(req)}`,
+    limit: 120,
+    windowMs: 60 * 60 * 1000,
+  })
+  if (limited) return limited
 
   const relationship = await loadRelationship(claimToken)
   if (!relationship) return apiError('Claim not found', 404)
@@ -180,6 +188,12 @@ export async function GET(_req: NextRequest, ctx: RouteContext) {
 export async function POST(req: NextRequest, ctx: RouteContext) {
   const { claimToken } = await ctx.params
   if (!claimToken || claimToken.length < 12) return apiError('Invalid claim token', 400)
+  const claimLimited = await enforcePublicRateLimit(req, {
+    key: `claim_submit:${publicRateLimitHash(claimToken)}:${publicRequestIp(req)}`,
+    limit: 20,
+    windowMs: 60 * 60 * 1000,
+  })
+  if (claimLimited) return claimLimited
 
   const loaded = await loadRelationship(claimToken)
   if (!loaded) return apiError('Claim not found', 404)
@@ -188,6 +202,14 @@ export async function POST(req: NextRequest, ctx: RouteContext) {
 
   const body = await req.json().catch(() => ({}))
   const email = normalizeEmail(typeof body.email === 'string' ? body.email : relationship.recipientEmail)
+  if (email) {
+    const emailLimited = await enforcePublicRateLimit(req, {
+      key: `claim_submit_email:${publicRateLimitHash(claimToken)}:${publicRateLimitHash(email)}`,
+      limit: 10,
+      windowMs: 60 * 60 * 1000,
+    })
+    if (emailLimited) return emailLimited
+  }
   const displayName = typeof body.displayName === 'string' && body.displayName.trim()
     ? body.displayName.trim()
     : relationship.recipientName || email

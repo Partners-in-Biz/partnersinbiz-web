@@ -1,6 +1,6 @@
 // app/api/v1/capture-sources/[id]/progressive/route.ts
 //
-// PUBLIC endpoint — no auth.
+// PUBLIC: capture-source progressive profiling endpoint, no auth.
 //
 // Drives the multi-step / progressive-profiling flow for a capture source.
 // Body: { submissionId?: string, email: string, step: number, data?: object,

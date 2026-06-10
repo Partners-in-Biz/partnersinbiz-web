@@ -3,6 +3,7 @@ import { adminDb } from '@/lib/firebase/admin'
 import { FieldValue } from 'firebase-admin/firestore'
 import { getResendClient, FROM_ADDRESS } from '@/lib/email/resend'
 import type { AthleetSubmission } from '@/lib/onboarding/types'
+import { enforcePublicRateLimit, publicRequestIp, publicRateLimitHash } from '@/lib/api/public-rate-limit'
 
 function isValidEmail(email: string) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
@@ -20,7 +21,22 @@ function escapeHtml(str: string): string {
 const ALLOWED_PRODUCTS = ['athleet-management']
 
 export async function POST(request: NextRequest) {
+  // PUBLIC: Athleet onboarding/order intake form.
   const body = await request.json() as Partial<AthleetSubmission>
+  const ipLimited = await enforcePublicRateLimit(request, {
+    key: `onboarding_submit:${publicRequestIp(request)}`,
+    limit: 10,
+    windowMs: 60 * 60 * 1000,
+  })
+  if (ipLimited) return ipLimited
+  if (body.adminEmail?.trim()) {
+    const emailLimited = await enforcePublicRateLimit(request, {
+      key: `onboarding_email:${publicRateLimitHash(body.adminEmail.trim().toLowerCase())}`,
+      limit: 5,
+      windowMs: 60 * 60 * 1000,
+    })
+    if (emailLimited) return emailLimited
+  }
 
   // ── Validate ──────────────────────────────────────────────────────────────
   if (!body.product || !ALLOWED_PRODUCTS.includes(body.product)) {

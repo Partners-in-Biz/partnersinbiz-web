@@ -10,6 +10,7 @@ export const dynamic = 'force-dynamic'
 type RouteContext = { params: Promise<{ editShareToken: string }> }
 
 export async function POST(req: NextRequest, ctx: RouteContext): Promise<NextResponse> {
+  // PUBLIC: edit-share access-code verification, rate-limited per token and IP.
   const { editShareToken } = await ctx.params
   const { code } = (await req.json().catch(() => ({}))) as { code?: string }
   if (!code) return apiError('Code required', 400)

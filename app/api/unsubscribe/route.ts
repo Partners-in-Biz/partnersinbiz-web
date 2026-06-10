@@ -4,6 +4,7 @@ import { adminDb } from '@/lib/firebase/admin'
 import { verifyUnsubscribeToken } from '@/lib/email/unsubscribeToken'
 import { syncUnsubscribeToIntegrations } from '@/lib/crm/integrations/syncOptOut'
 import { addSuppression } from '@/lib/email/suppressions'
+import { enforcePublicRateLimit, publicRequestIp, publicRateLimitHash } from '@/lib/api/public-rate-limit'
 
 type UnsubResult =
   | { ok: false; status: 400 | 404; heading: string; message: string }
@@ -151,6 +152,28 @@ async function performUnsubscribe(token: string | null): Promise<UnsubResult> {
 
 export async function GET(req: NextRequest) {
   const token = req.nextUrl.searchParams.get('token')
+  // PUBLIC: one-click/browser unsubscribe endpoint protected by signed token.
+  const limited = await enforcePublicRateLimit(req, {
+    key: `unsubscribe_ip:${publicRequestIp(req)}`,
+    limit: 120,
+    windowMs: 60 * 60 * 1000,
+  })
+  if (limited) return new NextResponse(unsubscribePage('Too many requests', 'Please try again later.'), {
+    status: 429,
+    headers: { 'Content-Type': 'text/html; charset=utf-8' },
+  })
+  if (token) {
+    const tokenLimited = await enforcePublicRateLimit(req, {
+      key: `unsubscribe:${publicRateLimitHash(token)}`,
+      limit: 20,
+      windowMs: 60 * 60 * 1000,
+    })
+    if (tokenLimited) return new NextResponse(unsubscribePage('Too many requests', 'Please try again later.'), {
+      status: 429,
+      headers: { 'Content-Type': 'text/html; charset=utf-8' },
+    })
+  }
+
   const result = await performUnsubscribe(token)
 
   if (!result.ok) {
@@ -192,6 +215,12 @@ export async function POST(req: NextRequest) {
   // Token can arrive via query string (?token=...) — our links already have
   // it there — or in the request body as form data.
   let token = req.nextUrl.searchParams.get('token')
+  const limited = await enforcePublicRateLimit(req, {
+    key: `unsubscribe_ip:${publicRequestIp(req)}`,
+    limit: 120,
+    windowMs: 60 * 60 * 1000,
+  })
+  if (limited) return NextResponse.json({ success: false, error: 'Too many requests' }, { status: 429 })
 
   if (!token) {
     const contentType = req.headers.get('content-type') ?? ''
@@ -207,6 +236,15 @@ export async function POST(req: NextRequest) {
     } catch {
       // Best-effort body parse — fall through with token=null.
     }
+  }
+
+  if (token) {
+    const tokenLimited = await enforcePublicRateLimit(req, {
+      key: `unsubscribe:${publicRateLimitHash(token)}`,
+      limit: 20,
+      windowMs: 60 * 60 * 1000,
+    })
+    if (tokenLimited) return NextResponse.json({ success: false, error: 'Too many requests' }, { status: 429 })
   }
 
   const result = await performUnsubscribe(token)

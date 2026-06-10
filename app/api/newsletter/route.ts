@@ -60,6 +60,7 @@ function htmlResponse(): string {
 
 export async function POST(req: NextRequest) {
   try {
+    // PUBLIC: newsletter signup form, rate-limited per IP.
     const ip = clientIp(req)
     const allowed = await checkFormRateLimit('newsletter', ip, 5)
     if (!allowed) {
