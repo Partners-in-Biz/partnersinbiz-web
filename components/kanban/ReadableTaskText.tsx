@@ -49,7 +49,7 @@ function stripPrefix(text: string): string {
 
 function sentenceEnd(text: string, start: number): number {
   const match = text.slice(start).match(/[.!?](\s|$)/)
-  return match ? start + match.index + 1 : text.length
+  return match ? start + (match.index ?? 0) + 1 : text.length
 }
 
 function extractBlocks(text: string): DetailBlock[] {
