@@ -77,6 +77,9 @@ const nextConfig = {
       // P2 broadcasts convergence
       { source: '/admin/broadcasts', destination: '/portal/broadcasts', permanent: false },
       { source: '/admin/broadcasts/:path*', destination: '/portal/broadcasts/:path*', permanent: false },
+      // P2 projects convergence: portal is the only projects workspace
+      { source: '/admin/projects', destination: '/portal/projects', permanent: false },
+      { source: '/admin/projects/:projectId', destination: '/portal/projects/:projectId', permanent: false },
     ]
   },
 }
