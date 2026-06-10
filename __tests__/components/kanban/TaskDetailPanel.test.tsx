@@ -247,6 +247,26 @@ describe('TaskDetailPanel', () => {
     expect(screen.getByRole('button', { name: /unblock/i })).toBeInTheDocument()
   })
 
+  it('formats long blocker descriptions with a plain-language summary before technical details', async () => {
+    renderPanel({
+      task: {
+        ...task,
+        title: 'SEO blocker for Partners in Biz Sprint',
+        description: 'Site: partnersinbiz.online. Task id: jOPA3L2acx3GvY6Vyllb. Task type: SEO blocker. Issue: Google Search Console validation failed because a reported 404 URL still needs exact export evidence before Theo can safely fix redirects or sitemap entries. Verification: robots.txt, sitemap.xml, and sampled sitemap URLs are 200. How to fix: export the affected URL list from GSC and attach screenshots. Proof needed: exact URL export and screenshot of validation details. After resolved: tell Silas exact affected URL evidence is attached and ready for implementation routing. https://partnersinbiz.online/admin/seo',
+      },
+    })
+
+    await waitFor(() => expect(screen.queryByText('Loading comments...')).not.toBeInTheDocument())
+
+    const summary = screen.getByText('What this means')
+    const technical = screen.getByText('Technical details')
+    expect(summary.compareDocumentPosition(technical) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(screen.getAllByText(/Google Search Console validation failed/i).length).toBeGreaterThan(0)
+    expect(screen.getByText('Site')).toBeInTheDocument()
+    expect(screen.getAllByText(/partnersinbiz\.online/).length).toBeGreaterThan(0)
+    expect(screen.getByRole('link', { name: 'https://partnersinbiz.online/admin/seo' })).toHaveAttribute('href', 'https://partnersinbiz.online/admin/seo')
+  })
+
   it('calls the unblock endpoint and reports dependency-gated failures instead of silently failing', async () => {
     ;(global.fetch as jest.Mock)
       .mockResolvedValueOnce({ json: () => Promise.resolve({ success: true, data: [] }) })

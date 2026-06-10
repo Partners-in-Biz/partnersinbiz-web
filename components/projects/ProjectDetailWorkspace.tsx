@@ -8,6 +8,7 @@ import { scopedPortalPath, type PortalOrgRouteScope } from '@/lib/portal/scoped-
 import { KanbanBoard } from '@/components/kanban/KanbanBoard'
 import { TaskDetailPanel } from '@/components/kanban/TaskDetailPanel'
 import { TaskComposer } from '@/components/kanban/TaskComposer'
+import { getTaskStateStyle } from '@/components/kanban/taskStateStyles'
 import UnifiedChat from '@/components/chat/UnifiedChat'
 import { ProjectBoardSummary } from '@/components/projects/ProjectBoardSummary'
 import { ProjectDocsPanel, projectDocContent, type ProjectDoc } from '@/components/projects/ProjectDocsPanel'
@@ -602,6 +603,8 @@ export function ProjectDetailWorkspace({
             <div className="flex-1 overflow-auto rounded-[var(--radius-btn)] border border-[var(--color-card-border)]">
               <div className="space-y-2 p-2 md:hidden" data-testid={mode === 'portal' ? 'portal-mobile-task-list' : undefined}>
                 {sortedListTasks.map(task => {
+                  const stateStyle = getTaskStateStyle(task)
+                  const stageLabel = columns.find(c => c.id === task.columnId)?.name ?? task.columnId
                   const assigneeIds = task.assigneeIds?.length ? task.assigneeIds : task.assigneeId ? [task.assigneeId] : []
                   const people = [
                     ...assigneeIds.map(id => memberLabel(members.find(member => member.userId === id))),
@@ -612,15 +615,17 @@ export function ProjectDetailWorkspace({
                       key={task.id}
                       type="button"
                       onClick={() => setSelectedTask(task)}
-                      className="w-full rounded-[var(--radius-card)] border border-[var(--color-card-border)] bg-[var(--color-card)] p-3 text-left shadow-sm transition-colors hover:border-[var(--color-accent-v2)]"
+                      data-state-tone={stateStyle.tone}
+                      className="w-full rounded-[var(--radius-card)] border border-[var(--color-card-border)] p-3 text-left shadow-sm transition-colors hover:border-[var(--color-accent-v2)]"
+                      style={{ background: stateStyle.tint, borderLeft: `4px solid ${stateStyle.railColor}` }}
                     >
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0">
                           <p className="truncate text-sm font-semibold text-on-surface">{task.title}</p>
                           <p className="mt-1 truncate text-[11px] text-on-surface-variant">{people}</p>
                         </div>
-                        <span className="shrink-0 rounded-full border border-[var(--color-card-border)] bg-[var(--color-surface-container)] px-2 py-1 text-[10px] text-on-surface-variant">
-                          {columns.find(c => c.id === task.columnId)?.name ?? task.columnId}
+                        <span className={`shrink-0 rounded-full border px-2 py-1 text-[10px] font-label uppercase tracking-wide ${stateStyle.pillClassName}`}>
+                          {stageLabel}
                         </span>
                       </div>
                       <div className="mt-3 flex items-center gap-2 text-[11px] text-on-surface-variant">

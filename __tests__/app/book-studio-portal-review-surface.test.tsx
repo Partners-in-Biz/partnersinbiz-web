@@ -23,8 +23,9 @@ describe('BookStudioPortalWorkspace', () => {
 
     expect(await screen.findByText('Book Studio is not enabled for this portal.')).toBeInTheDocument()
     expect(screen.getByText('Your PiB team controls when a client-safe book review packet becomes available.')).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: /generate/i })).not.toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: /publish/i })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /generate book/i })).toBeDisabled()
+    expect(screen.getByRole('button', { name: /publish to stores/i })).toBeDisabled()
+    expect(screen.getByRole('button', { name: /connect marketplace credentials/i })).toBeDisabled()
     expect(screen.queryByRole('button', { name: /approve packet/i })).not.toBeInTheDocument()
   })
 
@@ -68,14 +69,14 @@ describe('BookStudioPortalWorkspace', () => {
     render(<BookStudioPortalWorkspace orgId="client-org" />)
 
     expect(await screen.findByRole('heading', { name: 'Book Studio review' })).toBeInTheDocument()
-    expect(screen.getByText('Ocean Growth Playbook')).toBeInTheDocument()
+    expect(await screen.findByText('Ocean Growth Playbook')).toBeInTheDocument()
     expect(screen.getByText('KDP paperback proof v1')).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Cover proof' })).toHaveAttribute('href', 'https://example.com/cover.pdf')
     expect(screen.getByRole('button', { name: 'Approve packet' })).toBeDisabled()
     expect(screen.getByText('Approval opens only after PiB requests review for a client-safe packet.')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Generate book' })).toBeDisabled()
-    expect(screen.getByRole('button', { name: 'Publish to stores' })).toBeDisabled()
-    expect(screen.getByRole('button', { name: 'Connect marketplace credentials' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: /generate book/i })).toBeDisabled()
+    expect(screen.getByRole('button', { name: /publish to stores/i })).toBeDisabled()
+    expect(screen.getByRole('button', { name: /connect marketplace credentials/i })).toBeDisabled()
 
     await waitFor(() => {
       expect(global.fetch).toHaveBeenCalledWith('/api/v1/portal/book-studio?orgId=client-org')

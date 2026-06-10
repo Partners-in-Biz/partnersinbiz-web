@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import type { AgentTaskCard } from '@/lib/agent-board/types'
 import { buildBlockedTaskRecovery } from '@/lib/projects/blockerRecovery'
+import { ReadableTaskText } from '@/components/kanban/ReadableTaskText'
 
 const AGENT_COLORS: Record<string, string> = {
   pip: 'bg-amber-400/15 text-amber-200 border border-amber-400/30',
@@ -144,7 +145,7 @@ export function TaskDetailModal({ task, onClose, onRefresh, slug }: Props) {
         <section className="mt-4">
           <h3 className="text-xs font-medium uppercase tracking-wider text-on-surface-variant">Input spec</h3>
           {task.agentInputSpec ? (
-            <p className="mt-1.5 text-sm text-on-surface-variant whitespace-pre-wrap">{task.agentInputSpec}</p>
+            <ReadableTaskText text={task.agentInputSpec} className="mt-1.5 text-sm text-on-surface-variant" />
           ) : (
             <p className="mt-1.5 text-sm text-on-surface-variant/60 italic">(no input spec)</p>
           )}
@@ -153,7 +154,7 @@ export function TaskDetailModal({ task, onClose, onRefresh, slug }: Props) {
         <section className="mt-4">
           <h3 className="text-xs font-medium uppercase tracking-wider text-on-surface-variant">Output</h3>
           {task.agentOutputSummary ? (
-            <p className="mt-1.5 text-sm text-on-surface-variant whitespace-pre-wrap">{task.agentOutputSummary}</p>
+            <ReadableTaskText text={task.agentOutputSummary} className="mt-1.5 text-sm text-on-surface-variant" />
           ) : (
             <p className="mt-1.5 text-sm text-on-surface-variant/60 italic">(no output yet)</p>
           )}

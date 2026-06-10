@@ -23,6 +23,7 @@ import {
 import { CSS } from '@dnd-kit/utilities'
 import { formatTaskDate, formatTaskDateTime, timestampToDate } from '@/lib/tasks/dateTimeDisplay'
 import { buildBlockedTaskRecovery } from '@/lib/projects/blockerRecovery'
+import { getTaskStateStyle } from './taskStateStyles'
 import type { AgentMember, Column, Task, TeamMember } from './types'
 
 interface KanbanBoardProps {
@@ -153,6 +154,7 @@ function TaskCard({
   isDragging?: boolean
 }) {
   const priority = PRIORITY_STYLES[task.priority ?? 'medium']
+  const stateStyle = getTaskStateStyle(task)
   const attachmentCount = task.attachments?.length ?? 0
   const dueLabel = formatTaskDate(task.dueDate)
   const releaseLabel = task.agentReleaseStatus === 'scheduled' ? formatTaskDateTime(task.agentReleaseAt) : ''
@@ -169,10 +171,12 @@ function TaskCard({
   return (
     <div
       onClick={onClick}
+      data-state-tone={stateStyle.tone}
       className="pib-card cursor-pointer select-none transition-all duration-150 hover:border-[var(--color-accent-v2)]"
       style={{
         opacity: isDragging ? 0.5 : 1,
-        borderLeft: `3px solid ${priority.color}`,
+        borderLeft: `4px solid ${stateStyle.railColor}`,
+        background: stateStyle.tint,
         padding: '12px',
       }}
     >
@@ -204,6 +208,9 @@ function TaskCard({
           style={{ background: `${priority.color}20`, color: priority.color }}
         >
           {priority.label}
+        </span>
+        <span className={`text-[9px] font-label uppercase tracking-wide px-1.5 py-0.5 rounded border ${stateStyle.pillClassName}`}>
+          {stateStyle.label}
         </span>
         {task.labels?.slice(0, 2).map(l => (
           <span key={l} className="text-[9px] px-1.5 py-0.5 rounded bg-surface-container text-on-surface-variant">
