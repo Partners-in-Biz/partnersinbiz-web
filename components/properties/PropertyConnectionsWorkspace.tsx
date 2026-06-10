@@ -1,11 +1,4 @@
-// app/(admin)/admin/properties/[id]/connections/page.tsx
-//
-// Admin shell for the integration connections of a single property. Shows
-// every supported provider, current status, last pull, and an action button
-// (Connect / Reconnect / Pull now / Disconnect).
-
 'use client'
-export const dynamic = 'force-dynamic'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useParams, useSearchParams } from 'next/navigation'
@@ -85,7 +78,11 @@ function StatusPill({ status }: { status: Connection['status'] | 'not_connected'
   )
 }
 
-export default function ConnectionsPage() {
+interface PropertyConnectionsWorkspaceProps {
+  backHref?: string
+}
+
+export function PropertyConnectionsWorkspace({ backHref = '/portal/properties' }: PropertyConnectionsWorkspaceProps) {
   const params = useParams<{ id: string }>()
   const search = useSearchParams()
   const propertyId = params.id
@@ -172,7 +169,7 @@ export default function ConnectionsPage() {
     <div className="space-y-6">
       <header className="flex items-end justify-between gap-6">
         <div>
-          <Link href={`/admin/properties/${propertyId}`} className="text-xs uppercase tracking-[0.3em] text-white/40 hover:text-white/70 transition-colors">
+          <Link href={`${backHref}/${propertyId}`} className="text-xs uppercase tracking-[0.3em] text-white/40 hover:text-white/70 transition-colors">
             ← Back to property
           </Link>
           <h1 className="mt-2 text-3xl font-display">Connections</h1>

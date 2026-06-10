@@ -5,7 +5,7 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import type { PropertyType, PropertyStatus } from '@/lib/properties/types'
 
-export default function NewPropertyPage() {
+export default function PortalNewPropertyPage() {
   const router = useRouter()
   const [orgs, setOrgs] = useState<Array<{ id: string; name: string }>>([])
   const [saving, setSaving] = useState(false)
@@ -38,9 +38,9 @@ export default function NewPropertyPage() {
       })
       const body = await res.json()
       if (!res.ok) throw new Error(body.error ?? 'Creation failed')
-      router.push(`/admin/properties/${body.data.id}`)
-    } catch (e: any) {
-      setError(e.message)
+      router.push(`/portal/properties/${body.data.id}`)
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : 'Creation failed')
       setSaving(false)
     }
   }
@@ -48,7 +48,7 @@ export default function NewPropertyPage() {
   return (
     <div className="max-w-xl mx-auto space-y-6">
       <div className="flex items-center gap-3">
-        <button onClick={() => router.push('/admin/properties')} className="text-on-surface-variant hover:text-on-surface text-sm">
+        <button onClick={() => router.push('/portal/properties')} className="text-on-surface-variant hover:text-on-surface text-sm">
           ← Properties
         </button>
         <h1 className="text-xl font-headline font-bold text-on-surface">New Property</h1>
