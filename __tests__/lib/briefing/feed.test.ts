@@ -1275,7 +1275,7 @@ describe('briefing feed', () => {
     expect(adminFeed.items[0]).toMatchObject({
       priority: 'critical',
       requiresAction: true,
-      source: { type: 'seo-task', id: 'seo-task-1', url: '/admin/seo/sprints/sprint-1/tasks?task=seo-task-1' },
+      source: { type: 'seo-task', id: 'seo-task-1', url: 'https://partnersinbiz.online/admin/seo/sprints/sprint-1/tasks?task=seo-task-1' },
       title: 'Blocked SEO task: Fix sitemap canonical drift',
       actor: { id: 'system', type: 'system' },
       context: {
