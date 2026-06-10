@@ -53,6 +53,9 @@ const nextConfig = {
       // P2 geo-seo convergence: portal is the only geo-seo workspace
       { source: '/admin/geo-seo', destination: '/portal/geo-seo', permanent: false },
       { source: '/admin/geo-seo/:path*', destination: '/portal/geo-seo/:path*', permanent: false },
+      // P2 marketing convergence: portal is the only marketing workspace
+      { source: '/admin/marketing', destination: '/portal/marketing', permanent: false },
+      { source: '/admin/marketing/:path*', destination: '/portal/marketing/:path*', permanent: false },
     ]
   },
 }
