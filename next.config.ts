@@ -50,6 +50,9 @@ const nextConfig = {
       { source: '/admin/properties/new', destination: '/portal/properties/new', permanent: false },
       { source: '/admin/properties/:id/connections', destination: '/portal/properties/:id/connections', permanent: false },
       { source: '/admin/properties/:path*', destination: '/portal/properties/:path*', permanent: false },
+      // P2 briefings convergence: portal is the only briefings workspace
+      { source: '/admin/briefings', destination: '/portal/briefings', permanent: false },
+      { source: '/admin/briefings/:path*', destination: '/portal/briefings/:path*', permanent: false },
     ]
   },
 }
