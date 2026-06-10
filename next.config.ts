@@ -80,6 +80,9 @@ const nextConfig = {
       // P2 projects convergence: portal is the only projects workspace
       { source: '/admin/projects', destination: '/portal/projects', permanent: false },
       { source: '/admin/projects/:projectId', destination: '/portal/projects/:projectId', permanent: false },
+      // P2 seo convergence: portal is the only seo workspace
+      { source: '/admin/seo', destination: '/portal/seo', permanent: false },
+      { source: '/admin/seo/:path*', destination: '/portal/seo/:path*', permanent: false },
     ]
   },
 }
