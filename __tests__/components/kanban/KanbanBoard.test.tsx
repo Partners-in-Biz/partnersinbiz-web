@@ -120,4 +120,36 @@ describe('KanbanBoard task cards', () => {
     expect(scope.getByText(/Unblock:/)).toBeInTheDocument()
     expect(scope.getAllByText(/client confirmation/i).length).toBeGreaterThan(0)
   })
+
+  it('uses task state rather than priority for the card rail and tint', () => {
+    render(
+      <KanbanBoard
+        columns={[
+          { id: 'todo', name: 'To Do', color: '#64748b', order: 1 },
+          { id: 'in_progress', name: 'In Progress', color: '#60a5fa', order: 2 },
+          { id: 'blocked', name: 'Blocked', color: '#ef4444', order: 3 },
+          { id: 'review', name: 'Review', color: '#a855f7', order: 4 },
+          { id: 'done', name: 'Done', color: '#22c55e', order: 5 },
+        ]}
+        tasks={[
+          { ...task, id: 'todo-task', title: 'Todo task', columnId: 'todo', priority: 'urgent' },
+          { ...task, id: 'working-task', title: 'Working task', columnId: 'in_progress', agentStatus: 'in-progress', priority: 'low' },
+          { ...task, id: 'blocked-task', title: 'Blocked task state', columnId: 'todo', agentStatus: 'awaiting-input', priority: 'low' },
+          { ...task, id: 'review-task', title: 'Review task', columnId: 'review', agentStatus: 'done', priority: 'low' },
+          { ...task, id: 'done-task', title: 'Done task', columnId: 'done', priority: 'urgent' },
+        ]}
+        onTaskMove={jest.fn()}
+        onTaskClick={jest.fn()}
+        onAddTask={jest.fn()}
+      />,
+    )
+
+    expect(screen.getByText('Todo task').closest('.pib-card')).toHaveAttribute('data-state-tone', 'todo')
+    expect(screen.getByText('Working task').closest('.pib-card')).toHaveAttribute('data-state-tone', 'in-progress')
+    expect(screen.getByText('Blocked task state').closest('.pib-card')).toHaveAttribute('data-state-tone', 'blocked')
+    expect(screen.getByText('Review task').closest('.pib-card')).toHaveAttribute('data-state-tone', 'review')
+    expect(screen.getByText('Done task').closest('.pib-card')).toHaveAttribute('data-state-tone', 'done')
+    expect(screen.getByText('Blocked task state').closest('.pib-card')).toHaveStyle({ borderLeftColor: '#ef4444' })
+    expect(screen.getByText('Done task').closest('.pib-card')).toHaveStyle({ borderLeftColor: '#22c55e' })
+  })
 })
