@@ -30,5 +30,5 @@ export default function SequencesPage() {
     }
   }, [orgs, search, selectedOrgId])
 
-  return <SequencesWorkspace surface="admin" orgScope={orgScope} />
+  return <SequencesWorkspace surface="portal" orgScope={orgScope} />
 }

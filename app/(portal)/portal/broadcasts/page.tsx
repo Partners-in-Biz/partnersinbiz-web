@@ -39,7 +39,7 @@ export default function BroadcastsPage() {
     })
     const body = await res.json()
     if (res.ok && body.data?.id) {
-      router.push(`/admin/broadcasts/${body.data.id}`)
+      router.push(`/portal/broadcasts/${body.data.id}`)
     }
   }
 
@@ -98,7 +98,7 @@ export default function BroadcastsPage() {
             return (
               <Link
                 key={b.id}
-                href={`/admin/broadcasts/${b.id}`}
+                href={`/portal/broadcasts/${b.id}`}
                 className="flex items-center justify-between p-4 rounded-xl bg-surface-container hover:bg-surface-container-high transition-colors"
               >
                 <div className="min-w-0">

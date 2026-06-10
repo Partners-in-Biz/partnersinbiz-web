@@ -50,6 +50,24 @@ const nextConfig = {
       { source: '/admin/properties/new', destination: '/portal/properties/new', permanent: false },
       { source: '/admin/properties/:id/connections', destination: '/portal/properties/:id/connections', permanent: false },
       { source: '/admin/properties/:path*', destination: '/portal/properties/:path*', permanent: false },
+      // P2 email cluster convergence: portal is the only email workspace
+      { source: '/admin/email', destination: '/portal/email', permanent: false },
+      { source: '/admin/email/:path*', destination: '/portal/email', permanent: false },
+      // P2 email-analytics convergence
+      { source: '/admin/email-analytics', destination: '/portal/email-analytics', permanent: false },
+      { source: '/admin/email-analytics/:path*', destination: '/portal/email-analytics/:path*', permanent: false },
+      // P2 email-preferences convergence
+      { source: '/admin/email-preferences', destination: '/portal/email-preferences', permanent: false },
+      { source: '/admin/email-preferences/:path*', destination: '/portal/email-preferences/:path*', permanent: false },
+      // P2 email-templates convergence
+      { source: '/admin/email-templates', destination: '/portal/email-templates', permanent: false },
+      { source: '/admin/email-templates/:path*', destination: '/portal/email-templates/:path*', permanent: false },
+      // P2 sequences convergence
+      { source: '/admin/sequences', destination: '/portal/sequences', permanent: false },
+      { source: '/admin/sequences/:path*', destination: '/portal/sequences/:path*', permanent: false },
+      // P2 broadcasts convergence
+      { source: '/admin/broadcasts', destination: '/portal/broadcasts', permanent: false },
+      { source: '/admin/broadcasts/:path*', destination: '/portal/broadcasts/:path*', permanent: false },
     ]
   },
 }
