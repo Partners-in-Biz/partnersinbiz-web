@@ -22,6 +22,7 @@ jest.mock('firebase-admin/firestore', () => ({
 
 import { NextRequest } from 'next/server'
 import { adminAuth, adminDb } from '@/lib/firebase/admin'
+import { installPortalAuthCollectionMock } from '../../../../helpers/firebase-admin'
 
 const member = { uid: 'uid-1', orgId: 'org-1', role: 'member' }
 
@@ -38,23 +39,8 @@ function portalRequest(url: string, init?: RequestInit) {
 
 function stagePortalAuth(collectionOverrides: Record<string, unknown> = {}) {
   ;(adminAuth.verifySessionCookie as jest.Mock).mockResolvedValue({ uid: member.uid })
-  ;(adminDb.collection as jest.Mock).mockImplementation((name: string) => {
-    if (collectionOverrides[name]) return collectionOverrides[name]
-    if (name === 'users') {
-      return {
-        doc: () => ({
-          get: () => Promise.resolve({ exists: true, data: () => ({ activeOrgId: member.orgId }) }),
-        }),
-      }
-    }
-    if (name === 'orgMembers') {
-      return {
-        doc: () => ({
-          get: () => Promise.resolve({ exists: true, data: () => member }),
-        }),
-      }
-    }
-    return { doc: () => ({ get: () => Promise.resolve({ exists: false }) }) }
+  installPortalAuthCollectionMock(adminDb.collection as jest.Mock, member, {
+    collections: collectionOverrides,
   })
 }
 
