@@ -20,12 +20,12 @@ jest.mock('@/lib/auth/portal-middleware', () => ({
     (req: NextRequest) => handler(req, 'uid-1', req.nextUrl.searchParams.get('orgId') || 'org-1', 'viewer'),
 }))
 
-function stageCollections(settings: Record<string, unknown> = {}) {
+function stageCollections(settings: Record<string, unknown> = {}, docs: Array<{ id: string; data: () => Record<string, unknown> }> = []) {
   mockOrgGet.mockResolvedValue({
     exists: true,
     data: () => ({ settings }),
   })
-  mockBookStudioGet.mockResolvedValue({ docs: [] })
+  mockBookStudioGet.mockResolvedValue({ docs })
   mockCollection.mockImplementation((name: string) => {
     if (name === 'organizations') return { doc: () => ({ get: mockOrgGet }) }
     if (name === 'book_studio_projects') {
@@ -63,5 +63,64 @@ describe('GET /api/v1/portal/book-studio', () => {
     expect(res.status).toBe(200)
     expect(mockBookStudioGet).toHaveBeenCalledTimes(1)
     expect(body.data).toMatchObject({ projects: [], portalModule: 'bookStudio' })
+  })
+
+  it('returns sanitized review packets and gates for the portal review surface', async () => {
+    stageCollections(
+      { portalModules: { bookStudio: true } },
+      [
+        {
+          id: 'book-1',
+          data: () => ({
+            title: 'Ocean Growth Playbook',
+            status: 'client_review',
+            stage: 'publishing_packet',
+            reviewStatus: 'awaiting_client_review',
+            nextAction: 'Review the packet.',
+            safeSummary: 'Client-safe summary.',
+            reviewPackets: [
+              {
+                id: 'packet-1',
+                title: 'KDP proof',
+                status: 'client_review',
+                summary: 'Check the PDF.',
+                artifacts: [
+                  { label: 'Cover proof', href: 'https://example.com/cover.pdf' },
+                  { label: 'Missing link' },
+                ],
+              },
+            ],
+            gates: [{ id: 'release', label: 'Human release review', status: 'blocked' }],
+          }),
+        },
+      ],
+    )
+
+    const { GET } = await import('@/app/api/v1/portal/book-studio/route')
+    const res = await GET(new NextRequest('http://localhost/api/v1/portal/book-studio'))
+    const body = await res.json()
+
+    expect(res.status).toBe(200)
+    expect(body.data.projects).toEqual([
+      {
+        id: 'book-1',
+        title: 'Ocean Growth Playbook',
+        status: 'client_review',
+        stage: 'publishing_packet',
+        reviewStatus: 'awaiting_client_review',
+        nextAction: 'Review the packet.',
+        safeSummary: 'Client-safe summary.',
+        reviewPackets: [
+          {
+            id: 'packet-1',
+            title: 'KDP proof',
+            status: 'client_review',
+            summary: 'Check the PDF.',
+            artifacts: [{ label: 'Cover proof', href: 'https://example.com/cover.pdf' }],
+          },
+        ],
+        gates: [{ id: 'release', label: 'Human release review', status: 'blocked' }],
+      },
+    ])
   })
 })

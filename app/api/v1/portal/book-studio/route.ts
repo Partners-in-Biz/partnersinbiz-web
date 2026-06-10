@@ -7,6 +7,50 @@ import { isPortalModuleEnabled } from '@/lib/organizations/portal-modules'
 
 export const dynamic = 'force-dynamic'
 
+function safeString(value: unknown, fallback = '') {
+  return typeof value === 'string' && value.trim() ? value : fallback
+}
+
+function safeArtifacts(value: unknown) {
+  if (!Array.isArray(value)) return []
+  return value
+    .map((artifact) => {
+      if (!artifact || typeof artifact !== 'object') return null
+      const record = artifact as Record<string, unknown>
+      const label = safeString(record.label, 'Open artifact')
+      const href = safeString(record.href)
+      if (!href) return null
+      return { label, href }
+    })
+    .filter(Boolean)
+}
+
+function safeReviewPackets(value: unknown) {
+  if (!Array.isArray(value)) return []
+  return value.map((packet, index) => {
+    const record = packet && typeof packet === 'object' ? (packet as Record<string, unknown>) : {}
+    return {
+      id: safeString(record.id, `packet-${index + 1}`),
+      title: safeString(record.title, 'Review packet'),
+      status: safeString(record.status, 'draft'),
+      summary: safeString(record.summary),
+      artifacts: safeArtifacts(record.artifacts),
+    }
+  })
+}
+
+function safeGates(value: unknown) {
+  if (!Array.isArray(value)) return []
+  return value.map((gate, index) => {
+    const record = gate && typeof gate === 'object' ? (gate as Record<string, unknown>) : {}
+    return {
+      id: safeString(record.id, `gate-${index + 1}`),
+      label: safeString(record.label, 'Quality gate'),
+      status: safeString(record.status, 'not_started'),
+    }
+  })
+}
+
 async function bookStudioModuleGuard(orgId: string) {
   const orgSnap = await adminDb.collection('organizations').doc(orgId).get()
   if (!orgSnap.exists) return apiError('Organisation not found', 404)
@@ -29,8 +73,14 @@ export const GET = withPortalAuthAndRole('viewer', async (_req: NextRequest, _ui
     const data = doc.data()
     return {
       id: doc.id,
-      title: typeof data.title === 'string' ? data.title : 'Untitled book project',
-      status: typeof data.status === 'string' ? data.status : 'draft',
+      title: safeString(data.title, 'Untitled book project'),
+      status: safeString(data.status, 'draft'),
+      stage: safeString(data.stage),
+      reviewStatus: safeString(data.reviewStatus),
+      nextAction: safeString(data.nextAction),
+      safeSummary: safeString(data.safeSummary),
+      reviewPackets: safeReviewPackets(data.reviewPackets),
+      gates: safeGates(data.gates),
     }
   })
 
