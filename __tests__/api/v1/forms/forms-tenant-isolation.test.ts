@@ -47,6 +47,7 @@ jest.mock('firebase-admin/firestore', () => ({
 
 import { adminAuth, adminDb } from '@/lib/firebase/admin'
 import { seedOrgMember, callAsMember, callAsAgent } from '../../../helpers/crm'
+import { makePortalAuthCollectionsForMembers } from '../../../helpers/firebase-admin'
 
 const AI_API_KEY = 'test-ai-key'
 process.env.AI_API_KEY = AI_API_KEY
@@ -138,6 +139,7 @@ const subRouteCtx = (id: string, subId: string) => ({ params: Promise.resolve({ 
  * would return docs for both orgs, causing isolation tests to fail.
  */
 function setupIsolationFixtures() {
+  const authCollections = makePortalAuthCollectionsForMembers([memberA, adminA, memberB])
   const captured = {
     formAdds:       [] as Array<Record<string, unknown>>,
     formUpdates:    [] as Array<Record<string, unknown>>,
@@ -156,49 +158,7 @@ function setupIsolationFixtures() {
 
   ;(adminDb.collection as jest.Mock).mockImplementation((name: string) => {
 
-    // ── users ──────────────────────────────────────────────────────────────
-    if (name === 'users') {
-      return {
-        doc: (uid: string) => ({
-          get: () => Promise.resolve({
-            exists: true,
-            data: () => ({
-              activeOrgId:
-                uid === memberA.uid || uid === adminA.uid ? 'org-a' : 'org-b',
-            }),
-          }),
-        }),
-      }
-    }
-
-    // ── orgMembers ─────────────────────────────────────────────────────────
-    if (name === 'orgMembers') {
-      return {
-        doc: (id: string) => ({
-          get: () => Promise.resolve({
-            exists: true,
-            data: () => (
-              id === `org-a_${memberA.uid}` ? memberA :
-              id === `org-a_${adminA.uid}`  ? adminA  :
-              id === `org-b_${memberB.uid}` ? memberB :
-              { uid: id.split('_')[1], firstName: 'X', lastName: 'Y' }
-            ),
-          }),
-        }),
-      }
-    }
-
-    // ── organizations ──────────────────────────────────────────────────────
-    if (name === 'organizations') {
-      return {
-        doc: () => ({
-          get: () => Promise.resolve({
-            exists: true,
-            data: () => ({ settings: { permissions: {} } }),
-          }),
-        }),
-      }
-    }
+    if (name in authCollections) return authCollections[name as keyof typeof authCollections]
 
     // ── forms ──────────────────────────────────────────────────────────────
     if (name === 'forms') {

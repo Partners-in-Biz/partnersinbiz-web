@@ -47,6 +47,14 @@ jest.mock('@/lib/client-documents/taskGeneration', () => ({
   generateApprovedDocumentProjectTasks: mockGenerateApprovedDocumentProjectTasks,
 }))
 
+jest.mock('@/lib/client-documents/notifications', () => ({
+  sendDocumentApprovedEmail: jest.fn().mockResolvedValue(undefined),
+}))
+
+jest.mock('@/lib/notifications/client-acceptance', () => ({
+  notifyClientDocumentAccepted: jest.fn().mockResolvedValue({ notified: 0, emailsQueued: 0 }),
+}))
+
 const clientUser = { uid: 'client-1', role: 'client' as const, orgId: 'org-1' }
 const aiUser = { uid: 'ai-agent', role: 'ai' as const }
 
@@ -84,8 +92,10 @@ describe('client document approvals API', () => {
       id: 'doc-1',
       data: () => ({
         orgId: 'org-1',
+        status: 'client_review',
         approvalMode: 'operational',
         latestPublishedVersionId: 'version-1',
+        linked: { clientOrgId: 'org-1' },
         deleted: false,
       }),
     })
@@ -129,8 +139,10 @@ describe('client document approvals API', () => {
       id: 'doc-1',
       data: () => ({
         orgId: 'org-1',
+        status: 'client_review',
         approvalMode: 'formal_acceptance',
         latestPublishedVersionId: 'version-1',
+        linked: { clientOrgId: 'org-1' },
         deleted: false,
       }),
     })
@@ -149,7 +161,9 @@ describe('client document approvals API', () => {
       id: 'doc-1',
       data: () => ({
         orgId: 'org-1',
+        status: 'client_review',
         approvalMode: 'operational',
+        linked: { clientOrgId: 'org-1' },
         deleted: false,
       }),
     })
@@ -168,14 +182,17 @@ describe('client document approvals API', () => {
       id: 'doc-1',
       data: () => ({
         orgId: 'org-1',
+        status: 'client_review',
         approvalMode: 'formal_acceptance',
         latestPublishedVersionId: 'version-1',
+        linked: { clientOrgId: 'org-1' },
         deleted: false,
       }),
     })
 
     const { POST } = await import('@/app/api/v1/client-documents/[id]/accept/route')
     const req = jsonRequest('http://localhost/api/v1/client-documents/doc-1/accept', {
+      companyName: 'Client Co',
       checkboxText: 'I accept this proposal.',
     })
     const res = await POST(req, clientUser, { params: Promise.resolve({ id: 'doc-1' }) })
@@ -190,8 +207,10 @@ describe('client document approvals API', () => {
       id: 'doc-1',
       data: () => ({
         orgId: 'org-1',
+        status: 'client_review',
         approvalMode: 'formal_acceptance',
         latestPublishedVersionId: 'version-1',
+        linked: { clientOrgId: 'org-1' },
         deleted: false,
       }),
     })
@@ -261,9 +280,10 @@ describe('client document approvals API', () => {
       id: 'doc-1',
       data: () => ({
         orgId: 'org-1',
+        status: 'client_review',
         approvalMode: 'formal_acceptance',
         latestPublishedVersionId: 'version-1',
-        linked: { companyId: 'company-1' },
+        linked: { companyId: 'company-1', clientOrgId: 'org-1' },
         deleted: false,
       }),
     })
