@@ -601,7 +601,7 @@ export function ProjectDetailWorkspace({
             </div>
           ) : viewMode === 'list' ? (
             <div className="flex-1 overflow-auto rounded-[var(--radius-btn)] border border-[var(--color-card-border)]">
-              <div className="space-y-2 p-2 md:hidden" data-testid={mode === 'portal' ? 'portal-mobile-task-list' : undefined}>
+              <div className="space-y-2 p-2 md:hidden" data-testid={mode === 'portal' ? 'portal-mobile-task-list' : 'admin-mobile-task-list'}>
                 {sortedListTasks.map(task => {
                   const stateStyle = getTaskStateStyle(task)
                   const stageLabel = columns.find(c => c.id === task.columnId)?.name ?? task.columnId
@@ -650,18 +650,26 @@ export function ProjectDetailWorkspace({
                 </thead>
                 <tbody>
                   {sortedListTasks.map(task => {
+                    const stateStyle = getTaskStateStyle(task)
+                    const stageLabel = columns.find(c => c.id === task.columnId)?.name ?? task.columnId
                     const assigneeIds = task.assigneeIds?.length ? task.assigneeIds : task.assigneeId ? [task.assigneeId] : []
                     return (
                       <tr
                         key={task.id}
                         onClick={() => setSelectedTask(task)}
-                        className="cursor-pointer border-b border-[var(--color-card-border)] bg-[var(--color-card)] hover:bg-[var(--color-surface-container)]"
+                        data-state-tone={stateStyle.tone}
+                        className="cursor-pointer border-b border-[var(--color-card-border)] hover:bg-[var(--color-surface-container)]"
+                        style={{ background: stateStyle.tint, boxShadow: `inset 4px 0 0 ${stateStyle.railColor}` }}
                       >
                         <td className="px-4 py-3">
                           <p className="font-medium text-on-surface">{task.title}</p>
                           {task.labels?.length ? <p className="mt-1 text-xs text-on-surface-variant">{task.labels.join(', ')}</p> : null}
                         </td>
-                        <td className="px-4 py-3 text-on-surface-variant">{columns.find(c => c.id === task.columnId)?.name ?? task.columnId}</td>
+                        <td className="px-4 py-3 text-on-surface-variant">
+                          <span className={`inline-flex rounded-full border px-2 py-1 text-[10px] font-label uppercase tracking-wide ${stateStyle.pillClassName}`}>
+                            {stageLabel}
+                          </span>
+                        </td>
                         <td className="px-4 py-3 text-on-surface-variant">
                           {[
                             ...assigneeIds.map(id => memberLabel(members.find(member => member.userId === id))),

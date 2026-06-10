@@ -599,8 +599,9 @@ describe('Admin project docs and settings tabs', () => {
     await waitFor(() => expect(screen.getAllByText('Tighten mobile project board').length).toBeGreaterThan(0))
     expect(screen.queryByTestId('kanban-board')).not.toBeInTheDocument()
     expect(screen.getAllByText('Due').length).toBeGreaterThan(0)
-    expect(screen.getByText('Resolve production blocker').closest('button')).toHaveAttribute('data-state-tone', 'blocked')
-    expect(screen.getByText('Latest task should float up').closest('button')).toHaveAttribute('data-state-tone', 'review')
+    const mobileList = screen.getByTestId('admin-mobile-task-list')
+    expect(within(mobileList).getByText('Resolve production blocker').closest('button')).toHaveAttribute('data-state-tone', 'blocked')
+    expect(within(mobileList).getByText('Latest task should float up').closest('button')).toHaveAttribute('data-state-tone', 'review')
   })
 
   it('colour-codes desktop list rows by task state while preserving labels', async () => {
@@ -609,12 +610,13 @@ describe('Admin project docs and settings tabs', () => {
     fireEvent.click(screen.getByRole('button', { name: /list/i }))
 
     await waitFor(() => expect(screen.getByRole('button', { name: /Latest first/i })).toHaveAttribute('aria-pressed', 'true'))
-    expect(screen.getByText('Resolve production blocker').closest('tr')).toHaveAttribute('data-state-tone', 'blocked')
-    expect(screen.getByText('Latest task should float up').closest('tr')).toHaveAttribute('data-state-tone', 'review')
-    expect(screen.getByText('Completed task with stale blocked label').closest('tr')).toHaveAttribute('data-state-tone', 'done')
-    expect(screen.getAllByText('Blocked').length).toBeGreaterThan(0)
-    expect(screen.getAllByText('Review').length).toBeGreaterThan(0)
-    expect(screen.getAllByText('Done').length).toBeGreaterThan(0)
+    const table = screen.getByRole('table')
+    expect(within(table).getByText('Resolve production blocker').closest('tr')).toHaveAttribute('data-state-tone', 'blocked')
+    expect(within(table).getByText('Latest task should float up').closest('tr')).toHaveAttribute('data-state-tone', 'review')
+    expect(within(table).getByText('Completed task with stale blocked label').closest('tr')).toHaveAttribute('data-state-tone', 'done')
+    expect(within(table).getAllByText('Blocked').length).toBeGreaterThan(0)
+    expect(within(table).getAllByText('Review').length).toBeGreaterThan(0)
+    expect(within(table).getAllByText('Done').length).toBeGreaterThan(0)
   })
 
   it('keeps live kanban task changes that arrive before the REST fallback finishes', async () => {
