@@ -50,6 +50,9 @@ const nextConfig = {
       { source: '/admin/properties/new', destination: '/portal/properties/new', permanent: false },
       { source: '/admin/properties/:id/connections', destination: '/portal/properties/:id/connections', permanent: false },
       { source: '/admin/properties/:path*', destination: '/portal/properties/:path*', permanent: false },
+      // P2 projects convergence: portal is the only projects workspace
+      { source: '/admin/projects', destination: '/portal/projects', permanent: false },
+      { source: '/admin/projects/:projectId', destination: '/portal/projects/:projectId', permanent: false },
     ]
   },
 }
