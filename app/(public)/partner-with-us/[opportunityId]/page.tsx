@@ -52,7 +52,7 @@ export default async function PartnerOpportunityPage({ params }: PageProps) {
         <div className="container-pib">
           <Link href="/partner-with-us" prefetch={false} className="inline-flex items-center gap-2 rounded-full border border-yellow-300/30 px-4 py-2 text-sm text-yellow-50/80 transition hover:border-yellow-200 hover:bg-yellow-300/10">
             <span className="material-symbols-outlined text-base">arrow_back</span>
-            All opportunities
+            All ventures
           </Link>
         </div>
       </section>
@@ -68,17 +68,82 @@ export default async function PartnerOpportunityPage({ params }: PageProps) {
             </Reveal>
             <Reveal delay={80} eager>
               <h1 className="mt-6 font-display text-5xl leading-[0.95] tracking-tight text-yellow-50 md:text-7xl">
-                {opportunity.title}
+                {opportunity.venture}
               </h1>
             </Reveal>
+            <Reveal delay={120} eager>
+              <p className="mt-4 text-base font-semibold uppercase tracking-wide text-yellow-300/90">{opportunity.tagline}</p>
+            </Reveal>
             <Reveal delay={160} eager>
-              <p className="mt-8 max-w-3xl text-lg leading-relaxed text-yellow-50/75 md:text-xl">
-                {opportunity.detail}
+              <p className="mt-6 max-w-3xl text-lg leading-relaxed text-yellow-50/75 md:text-xl">
+                {opportunity.pitch}
               </p>
             </Reveal>
 
+            {opportunity.liveUrl && (
+              <Reveal delay={220} eager>
+                <a
+                  href={opportunity.liveUrl}
+                  target={opportunity.liveUrl.startsWith('http') ? '_blank' : undefined}
+                  rel={opportunity.liveUrl.startsWith('http') ? 'noopener noreferrer' : undefined}
+                  className="mt-8 inline-flex items-center gap-2 rounded-full bg-yellow-300 px-6 py-3 text-sm font-semibold text-black transition hover:bg-yellow-200"
+                >
+                  {opportunity.liveLabel ?? 'See it live'}
+                  <span className="material-symbols-outlined text-base">open_in_new</span>
+                </a>
+              </Reveal>
+            )}
+
+            <Reveal delay={260} eager>
+              <div className="mt-8 grid gap-3 sm:grid-cols-2">
+                {opportunity.stats.map((stat) => (
+                  <div key={stat.label} className="rounded-2xl border border-yellow-300/20 bg-black/25 p-4">
+                    <p className="text-xs uppercase tracking-wide text-yellow-300/80">{stat.label}</p>
+                    <p className="mt-1 text-sm font-semibold text-yellow-50">{stat.value}</p>
+                  </div>
+                ))}
+              </div>
+            </Reveal>
+
+            <div className="mt-12 rounded-[2rem] border border-yellow-300/25 bg-yellow-300/10 p-6 md:p-8">
+              <p className="eyebrow text-yellow-200">What is already built</p>
+              <ul className="mt-5 grid gap-3">
+                {opportunity.whatsBuilt.map((item) => (
+                  <li key={item} className="flex gap-3 rounded-2xl border border-yellow-300/20 bg-black/25 p-4 text-sm leading-relaxed text-yellow-50/75">
+                    <span className="material-symbols-outlined mt-0.5 text-base text-yellow-300">check_circle</span>
+                    <span>{item}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            <div className="mt-10 grid gap-5 md:grid-cols-2">
+              <div className="rounded-[2rem] border border-yellow-300/25 bg-yellow-300/10 p-6">
+                <p className="eyebrow text-yellow-200">Where you come in</p>
+                <ol className="mt-5 grid gap-3">
+                  {opportunity.whatYouDo.map((item, index) => (
+                    <li key={item} className="flex gap-3 rounded-2xl border border-yellow-300/20 bg-black/25 p-4 text-sm leading-relaxed text-yellow-50/75">
+                      <span className="font-mono text-yellow-300">0{index + 1}</span>
+                      <span>{item}</span>
+                    </li>
+                  ))}
+                </ol>
+              </div>
+              <div className="rounded-[2rem] border border-yellow-300/25 bg-yellow-300/10 p-6">
+                <p className="eyebrow text-yellow-200">What you get</p>
+                <ul className="mt-5 grid gap-3">
+                  {opportunity.whatYouGet.map((item) => (
+                    <li key={item} className="flex gap-3 rounded-2xl border border-yellow-300/20 bg-black/25 p-4 text-sm leading-relaxed text-yellow-50/75">
+                      <span className="material-symbols-outlined mt-0.5 text-base text-yellow-300">handshake</span>
+                      <span>{item}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+
             <div className="mt-10 grid gap-5">
-              <InfoCard title="Who this is for" body={opportunity.audience} icon="groups" />
+              <InfoCard title="Who this is for" body={opportunity.partnerProfile} icon="groups" />
               <InfoCard title="Commercial conversation" body={opportunity.commercialModel} icon="handshake" />
               <InfoCard title="Proof and review material" body={opportunity.proofNeeded} icon="fact_check" />
               <InfoCard title="Sites, links, and login details" body={opportunity.reviewerAccess} icon="lock" />

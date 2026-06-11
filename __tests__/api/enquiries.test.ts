@@ -167,7 +167,7 @@ describe('POST /api/enquiries', () => {
       interest: expect.objectContaining({
         type: 'partner-opportunity',
         opportunityId: 'athleet-club-growth',
-        opportunityTitle: 'Athleet club growth partner',
+        opportunityTitle: 'Athleet — club growth partner',
         consent: true,
         source: '/partner-with-us/athleet-club-growth',
         accessHandoff: 'secure_handoff_needed',
@@ -175,7 +175,7 @@ describe('POST /api/enquiries', () => {
     }))
     expect(mockContactsAdd).toHaveBeenCalledWith(expect.objectContaining({
       tags: ['enquiry', 'partner-opportunity', 'opportunity:athleet-club-growth'],
-      notes: expect.stringContaining('Opportunity: Athleet club growth partner (athleet-club-growth)'),
+      notes: expect.stringContaining('Opportunity: Athleet — club growth partner (athleet-club-growth)'),
     }))
   })
 
