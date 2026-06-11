@@ -178,6 +178,7 @@ project task assigned to Pip:
 
 - `assigneeAgentId: "pip"`
 - `agentStatus: "pending"`
+- `agentEffort: "high"` for orchestration/research-heavy runs unless the work is routine
 - `source: "seo-run-orchestration"`
 - `agentInput.context.orchestrationMode: "pip-orchestrator"`
 - `agentInput.context.queuedSeoTaskIds: [...]`
@@ -185,6 +186,10 @@ project task assigned to Pip:
 That project task is what the VPS `agent-watcher` dispatches to Hermes. Do not treat
 `queued` as dispatched unless the response has `agentHandoff` or the relevant
 `seo_tasks` have `agentProjectTaskId`.
+
+The watcher now injects project context and dependency summaries into dispatch
+prompts, but SEO orchestration tasks should still keep `agentInput.context`
+specific enough to map the wrapper task back to the source `seo_tasks`.
 
 ### Closing SEO handoff project tasks
 

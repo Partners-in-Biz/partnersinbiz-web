@@ -325,10 +325,10 @@ Body:
 
 Required: `title`. Defaults: `status='todo'`, `priority='normal'`, `tags=[]`. If `assignedTo` set, notifies assignee.
 
-**Agent dispatch fields also work on standalone tasks** — `assigneeAgentId`, `agentStatus`, `agentInput`, `agentOutput`, `dependsOn` all accepted with the same shape as project-nested tasks. See the "Agent dispatch fields" section under project-nested tasks for the full schema. Use standalone tasks when there's no specific project in scope (e.g. chatting from the org-level Agent tab); use project-nested tasks when working inside a specific project's Agent tab.
+**Agent dispatch fields also work on standalone tasks** — `assigneeAgentId`, `agentStatus`, `agentInput`, `agentEffort`, `agentModel`, `agentOutput`, and `dependsOn` are accepted with the same shape as project-nested tasks. See the "Agent dispatch fields" section under project-nested tasks for the full schema. Use standalone tasks when there's no specific project in scope (e.g. chatting from the org-level Agent tab); use project-nested tasks when working inside a specific project's Agent tab.
 
 #### `GET/PUT/DELETE /tasks/[id]` — auth: admin
-PUT updatable: `title`, `description`, `status`, `priority`, `dueDate`, `assignedTo`, `projectId`, `contactId`, `dealId`, `tags`, plus agent dispatch fields (`assigneeAgentId`, `agentStatus`, `agentInput`, `agentOutput`, `dependsOn`, `agentHeartbeatAt:true` sentinel). Transition to `done` sets `completedAt`.
+PUT updatable: `title`, `description`, `status`, `priority`, `dueDate`, `assignedTo`, `projectId`, `contactId`, `dealId`, `tags`, plus agent dispatch fields (`assigneeAgentId`, `agentStatus`, `agentInput`, `agentEffort`, `agentModel`, `agentOutput`, `dependsOn`, `agentHeartbeatAt:true` sentinel). Transition to `done` sets `completedAt`.
 
 #### `POST /tasks/[id]/complete` — auth: admin
 Sets `status='done'`, `completedAt`. Dispatches `task.completed`.
