@@ -18,6 +18,7 @@ describe('public sitemap', () => {
         `${SITE.url}/book-a-call`,
         `${SITE.url}/faq`,
         `${SITE.url}/properties`,
+        `${SITE.url}/partner-with-us`,
       ])
     )
     expect(urls).not.toContain(`${SITE.url}/products`)

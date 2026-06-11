@@ -152,6 +152,41 @@ export default function HomePage() {
         </Marquee>
       </section>
 
+      {/* PARTNER WITH US */}
+      <section className="section border-b border-yellow-300/20 bg-[linear-gradient(135deg,rgba(250,204,21,0.16),rgba(120,53,15,0.12),transparent)]">
+        <div className="container-pib">
+          <Reveal>
+            <Link
+              href="/partner-with-us"
+              prefetch={false}
+              className="group grid gap-8 overflow-hidden rounded-[2rem] border border-yellow-300/30 bg-yellow-300/10 p-6 shadow-[0_0_70px_rgba(250,204,21,0.10)] transition hover:border-yellow-200/70 md:grid-cols-12 md:p-10"
+            >
+              <div className="md:col-span-7">
+                <p className="eyebrow mb-5 text-yellow-200">Partner with us</p>
+                <h2 className="font-display text-4xl leading-tight text-yellow-50 md:text-6xl">
+                  Regional operators and ground sellers wanted.
+                </h2>
+                <p className="mt-6 max-w-2xl text-yellow-50/75">
+                  Apply for the first two venture lanes: I am Ballito regional coupon partnerships and Athleet sales partnerships for wrestling clubs, sports clubs, and local circles.
+                </p>
+              </div>
+              <div className="grid gap-3 md:col-span-5">
+                {['I am Ballito · regional coupon partners', 'Athleet · club and community sales', 'Yellow draft page live on development'].map((item) => (
+                  <div key={item} className="rounded-2xl border border-yellow-300/25 bg-black/25 p-4 text-sm text-yellow-50/80">
+                    <span className="material-symbols-outlined mr-2 align-middle text-base text-yellow-300">check</span>
+                    {item}
+                  </div>
+                ))}
+                <span className="mt-2 inline-flex items-center gap-2 text-sm font-medium text-yellow-200 group-hover:text-yellow-100">
+                  Open partner applications
+                  <span className="material-symbols-outlined text-base">arrow_outward</span>
+                </span>
+              </div>
+            </Link>
+          </Reveal>
+        </div>
+      </section>
+
       {/* SERVICES */}
       <section className="section">
         <div className="container-pib">
