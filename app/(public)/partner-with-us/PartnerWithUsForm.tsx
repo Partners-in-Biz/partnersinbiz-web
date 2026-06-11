@@ -23,6 +23,9 @@ const DEFAULT_OPPORTUNITY: SelectedOpportunity = {
   sourcePath: '/partner-with-us',
 }
 
+const INPUT_CLASS =
+  'rounded-xl border border-[var(--color-pib-line-strong)] bg-[var(--color-pib-surface)] px-4 py-3 text-[var(--color-pib-text)] outline-none transition placeholder:text-[var(--color-pib-text-faint)] focus:border-[var(--color-pib-accent)]'
+
 export default function PartnerWithUsForm({ opportunity = DEFAULT_OPPORTUNITY }: { opportunity?: SelectedOpportunity }) {
   const [status, setStatus] = useState<Status>('idle')
   const [error, setError] = useState('')
@@ -109,29 +112,29 @@ export default function PartnerWithUsForm({ opportunity = DEFAULT_OPPORTUNITY }:
 
   if (status === 'success') {
     return (
-      <div className="rounded-[2rem] border border-yellow-300/40 bg-yellow-300/10 p-8 shadow-[0_0_60px_rgba(250,204,21,0.16)]">
-        <p className="eyebrow mb-3 text-yellow-200">Interest registered</p>
-        <h2 className="font-display text-3xl text-yellow-50">Thanks — we’ll review this exact opportunity and come back to you.</h2>
-        <p className="mt-4 text-sm leading-relaxed text-yellow-50/75">
-          We captured your interest in {opportunity.title}. If real login details are needed, we’ll arrange a secure handoff instead of using this public form.
+      <div className="bento-card p-8">
+        <p className="eyebrow mb-4">Interest registered</p>
+        <h2 className="text-2xl font-display text-[var(--color-pib-text)]">
+          Thanks — we’ll review this exact opportunity and come back to you.
+        </h2>
+        <p className="mt-4 text-sm leading-relaxed text-[var(--color-pib-text-muted)]">
+          We captured your interest in {opportunity.title}. If real login details are needed, we’ll arrange a secure
+          handoff instead of using this public form.
         </p>
       </div>
     )
   }
 
   return (
-    <form onSubmit={submit} className="rounded-[2rem] border border-yellow-300/40 bg-yellow-300/10 p-6 shadow-[0_0_70px_rgba(250,204,21,0.14)] md:p-8">
-      <p className="eyebrow mb-3 text-yellow-200">Register interest</p>
-      <h2 className="font-display text-3xl text-yellow-50">{opportunity.title}</h2>
-      <p className="mt-3 text-sm leading-relaxed text-yellow-50/70">
-        Capture enough detail for a useful follow-up. Public links and demo credentials are fine; never paste real passwords here.
+    <form onSubmit={submit} className="bento-card p-6 md:p-8">
+      <p className="eyebrow mb-4">Register interest</p>
+      <h2 className="text-2xl font-display leading-tight text-[var(--color-pib-text)]">{opportunity.title}</h2>
+      <p className="mt-3 text-sm leading-relaxed text-[var(--color-pib-text-muted)]">
+        Capture enough detail for a useful follow-up. Public links and demo credentials are fine; never paste real
+        passwords here.
       </p>
 
       <div className="mt-8 grid gap-4">
-        <div className="rounded-2xl border border-yellow-300/20 bg-black/25 p-4 text-sm text-yellow-50/75">
-          Selected opportunity: <strong className="text-yellow-100">{opportunity.title}</strong>
-        </div>
-
         <div className="grid gap-4 md:grid-cols-2">
           <Field label="Name" value={form.name} onChange={(value) => update('name', value)} required />
           <Field label="Email" type="email" value={form.email} onChange={(value) => update('email', value)} required />
@@ -139,25 +142,30 @@ export default function PartnerWithUsForm({ opportunity = DEFAULT_OPPORTUNITY }:
 
         <div className="grid gap-4 md:grid-cols-2">
           <Field label="Phone / WhatsApp optional" value={form.phone} onChange={(value) => update('phone', value)} />
-          <Field label="Company / location optional" value={form.companyLocation} onChange={(value) => update('companyLocation', value)} placeholder="Company, town, region, club network..." />
+          <Field
+            label="Company / location optional"
+            value={form.companyLocation}
+            onChange={(value) => update('companyLocation', value)}
+            placeholder="Company, town, region, club network..."
+          />
         </div>
 
-        <label className="grid gap-2 text-sm text-yellow-50/80">
+        <label className="grid gap-2 text-sm text-[var(--color-pib-text-muted)]">
           Useful sites or links optional
           <input
             value={form.links}
             onChange={(event) => update('links', event.target.value)}
             placeholder="Public website, club page, group, demo URL, LinkedIn, portfolio..."
-            className="rounded-2xl border border-yellow-300/30 bg-black/40 px-4 py-3 text-yellow-50 outline-none placeholder:text-yellow-50/35 focus:border-yellow-200"
+            className={INPUT_CLASS}
           />
         </label>
 
-        <label className="grid gap-2 text-sm text-yellow-50/80">
+        <label className="grid gap-2 text-sm text-[var(--color-pib-text-muted)]">
           Reviewer access handoff
           <select
             value={form.accessHandoff}
             onChange={(event) => update('accessHandoff', event.target.value)}
-            className="rounded-2xl border border-yellow-300/30 bg-black/40 px-4 py-3 text-yellow-50 outline-none focus:border-yellow-200"
+            className={INPUT_CLASS}
           >
             {ACCESS_HANDOFF_OPTIONS.map((option) => (
               <option key={option.value} value={option.value}>{option.label}</option>
@@ -165,7 +173,7 @@ export default function PartnerWithUsForm({ opportunity = DEFAULT_OPPORTUNITY }:
           </select>
         </label>
 
-        <label className="grid gap-2 text-sm text-yellow-50/80">
+        <label className="grid gap-2 text-sm text-[var(--color-pib-text-muted)]">
           Notes
           <textarea
             value={form.notes}
@@ -173,25 +181,25 @@ export default function PartnerWithUsForm({ opportunity = DEFAULT_OPPORTUNITY }:
             required
             rows={5}
             placeholder="Tell us what you can unlock, where, who you can reach, and what kind of partnership you want."
-            className="resize-none rounded-2xl border border-yellow-300/30 bg-black/40 px-4 py-3 text-yellow-50 outline-none placeholder:text-yellow-50/35 focus:border-yellow-200"
+            className={`resize-none ${INPUT_CLASS}`}
           />
         </label>
 
-        <label className="flex gap-3 rounded-2xl border border-yellow-300/20 bg-black/25 p-4 text-sm leading-relaxed text-yellow-50/75">
+        <label className="flex gap-3 rounded-xl border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] p-4 text-sm leading-relaxed text-[var(--color-pib-text-muted)]">
           <input
             type="checkbox"
             checked={form.consent}
             onChange={(event) => update('consent', event.target.checked)}
             required
-            className="mt-1 h-4 w-4 accent-yellow-300"
+            className="mt-1 h-4 w-4 accent-[var(--color-pib-accent)]"
           />
           <span>I agree that Partners in Biz can contact me about this opportunity and store this interest request for follow-up.</span>
         </label>
       </div>
 
-      {status === 'error' && <p className="mt-4 text-sm text-red-200">{error}</p>}
+      {status === 'error' && <p className="mt-4 text-sm text-red-400">{error}</p>}
 
-      <button type="submit" disabled={status === 'loading'} className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-full bg-yellow-300 px-6 py-3 text-sm font-semibold text-black transition hover:bg-yellow-200 disabled:cursor-not-allowed disabled:opacity-70">
+      <button type="submit" disabled={status === 'loading'} className="btn-pib-accent mt-6 w-full justify-center disabled:cursor-not-allowed disabled:opacity-70">
         {status === 'loading' ? 'Registering...' : 'Register interest'}
         <span className="material-symbols-outlined text-base">send</span>
       </button>
@@ -215,7 +223,7 @@ function Field({
   required?: boolean
 }) {
   return (
-    <label className="grid gap-2 text-sm text-yellow-50/80">
+    <label className="grid gap-2 text-sm text-[var(--color-pib-text-muted)]">
       {label}
       <input
         type={type}
@@ -223,7 +231,7 @@ function Field({
         onChange={(event) => onChange(event.target.value)}
         placeholder={placeholder}
         required={required}
-        className="rounded-2xl border border-yellow-300/30 bg-black/40 px-4 py-3 text-yellow-50 outline-none placeholder:text-yellow-50/35 focus:border-yellow-200"
+        className={INPUT_CLASS}
       />
     </label>
   )
