@@ -117,6 +117,8 @@ describe('POST /api/enquiries', () => {
       company: 'Test Company',
       phone: '067 000 0000',
       website: 'https://example.com',
+      projectType: 'web',
+      interest: null,
       status: 'new',
     }))
     expect(mockContactsAdd).toHaveBeenCalledWith(expect.objectContaining({
@@ -138,6 +140,64 @@ describe('POST /api/enquiries', () => {
       contactId: 'test-contact-id',
       contactEmail: 'test@example.com',
     })
+  })
+
+  it('stores structured partner-opportunity interest data for follow-up', async () => {
+    const req = makeRequest({
+      ...validBody,
+      projectType: 'partnership',
+      details: 'Opportunity: Athleet club growth partner (athleet-club-growth)',
+      interest: {
+        type: 'partner-opportunity',
+        opportunityId: 'athleet-club-growth',
+        opportunityTitle: 'Athleet club growth partner',
+        notes: 'I can introduce ten wrestling clubs.',
+        consent: true,
+        source: '/partner-with-us/athleet-club-growth',
+        links: 'https://example.com/club-profile',
+        accessHandoff: 'secure_handoff_needed',
+      },
+    })
+
+    const res = await POST(req)
+
+    expect(res.status).toBe(201)
+    expect(mockEnquiriesAdd).toHaveBeenCalledWith(expect.objectContaining({
+      projectType: 'partnership',
+      interest: expect.objectContaining({
+        type: 'partner-opportunity',
+        opportunityId: 'athleet-club-growth',
+        opportunityTitle: 'Athleet club growth partner',
+        consent: true,
+        source: '/partner-with-us/athleet-club-growth',
+        accessHandoff: 'secure_handoff_needed',
+      }),
+    }))
+    expect(mockContactsAdd).toHaveBeenCalledWith(expect.objectContaining({
+      tags: ['enquiry', 'partner-opportunity', 'opportunity:athleet-club-growth'],
+      notes: expect.stringContaining('Opportunity: Athleet club growth partner (athleet-club-growth)'),
+    }))
+  })
+
+  it('rejects partner-opportunity interest without consent', async () => {
+    const req = makeRequest({
+      ...validBody,
+      projectType: 'partnership',
+      details: 'Opportunity: Athleet club growth partner (athleet-club-growth)',
+      interest: {
+        type: 'partner-opportunity',
+        opportunityId: 'athleet-club-growth',
+        opportunityTitle: 'Athleet club growth partner',
+        consent: false,
+        source: '/partner-with-us/athleet-club-growth',
+      },
+    })
+
+    const res = await POST(req)
+
+    expect(res.status).toBe(400)
+    const body = await res.json()
+    expect(body.error).toMatch(/consent/i)
   })
 
   it('sends both admin notification and submitter acknowledgement emails', async () => {
