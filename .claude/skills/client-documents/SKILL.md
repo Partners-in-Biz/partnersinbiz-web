@@ -10,7 +10,7 @@ Use this whenever Peet asks for a proposal, spec, strategy document, sign-off, r
 ## What This Is
 
 `client_documents` are the collaboration and approval layer between PiB and clients. They live at:
-- Admin view: `https://partnersinbiz.online/admin/documents/[id]`
+- Admin view: `https://partnersinbiz.online/portal/documents/[id]`
 - Org-scoped admin: `https://partnersinbiz.online/admin/org/[slug]/documents/[id]`
 - Client portal: `https://partnersinbiz.online/portal/documents/[id]`
 - Public share page: `https://partnersinbiz.online/d/[shareToken]` (only after publish)
@@ -315,7 +315,7 @@ When a shared spec has client feedback:
    }
    ```
 7. **Return to Peet:**
-   - Admin URL: `https://partnersinbiz.online/admin/documents/[id]`
+   - Admin URL: `https://partnersinbiz.online/portal/documents/[id]`
    - Summary of `blocks_publish` assumptions that must be resolved before you can publish
    - Never publish without Peet's explicit instruction
 8. **Publish/send to client:** only after blockers are resolved and Peet approves, call `POST /api/v1/client-documents/[id]/publish`. This moves the document to `client_review` and enables share. For system clients, verify both the PiB CRM company Documents tab and the client/org Documents list.

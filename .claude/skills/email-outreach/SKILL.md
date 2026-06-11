@@ -80,7 +80,7 @@ Additional current email utility routes:
 The newer Communications surface is the operational inbox and campaign layer for WhatsApp, SMS, email, in-app, Messenger, and Instagram. Use it for human/agent customer conversations, queue assignment, approved reply drafting, WhatsApp-style templates, and cross-channel communication analytics. Use the older `/broadcasts`, `/sequences`, `/email`, and `/sms` routes below for dedicated email/SMS marketing automation.
 
 UI routes:
-- `/admin/communications`
+- `/portal/communications`
 - `/portal/communications`
 
 Channels: `whatsapp`, `sms`, `email`, `in_app`, `messenger`, `instagram`.
@@ -1032,7 +1032,7 @@ The broadcast cron's main loop now drains `broadcast_recipients` after the main 
   - `bounce-reply` — adds soft-bounce suppression, marks `contact.bouncedAt`
   - `unsubscribe-reply` — full unsub + permanent manual-unsub suppression + pause all enrollments
   - `unknown` — log + notify admins via `org.settings.replyNotifyEmails`
-- **Admin UI:** `/admin/email/inbound` list + detail with intent badges.
+- **Admin UI:** `/portal/email` list + detail with intent badges.
 
 **Config required:** Create a Resend Route in dashboard forwarding inbound `reply.<sending-domain>` to `https://partnersinbiz.online/api/v1/email/inbound-webhook`. Set sequence/broadcast `replyTo` to that address.
 

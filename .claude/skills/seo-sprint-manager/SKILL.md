@@ -48,10 +48,10 @@ Loop C generates work weekly. The sprint never "ends" until archived.
 
 | Audience | URL | What's there |
 |---|---|---|
-| Admin (operator mode) | `/admin/seo` | Index of all sprints across all clients + presence pill + "+ New Sprint" |
+| Admin (operator mode) | `/portal/seo` | Index of all sprints across all clients + presence pill + "+ New Sprint" |
 | Admin (workspace mode) | `/admin/org/[slug]/seo` | Per-client SEO landing — redirects to the active sprint cockpit, or shows "+ Create sprint" CTA if none exists. Also rendered in the sidebar as a collapsible **SEO Sprint** section with links to all 9 cockpit tabs. |
-| Admin sprint cockpit | `/admin/seo/sprints/[id]` | Today / Tasks / Keywords / Backlinks / Content / Audits / Optimizations / Health / Settings |
-| Admin tools (standalone) | `/admin/seo/tools` | Run any of the 13 in-house SEO tools by hand |
+| Admin sprint cockpit | `/portal/seo/sprints/[id]` | Today / Tasks / Keywords / Backlinks / Content / Audits / Optimizations / Health / Settings |
+| Admin tools (standalone) | `/portal/seo/tools` | Run any of the 13 in-house SEO tools by hand |
 | Client portal | `/portal/seo` | Hero dashboard for single-sprint clients (day-of-90, progress, top movers, recent wins, deep links). Multi-sprint clients see a card list. |
 | Public audit share | `/seo-audit/[token]` | Read-only audit snapshot the admin can hand to a client |
 
@@ -477,7 +477,7 @@ All writes include `createdBy`, `createdByType` (`user|agent|system`), `updatedB
 
 If the cron has been failing or GSC tokens expired, sprint health will show
 `integrations.gsc.tokenStatus = 'expired'`. Surface this as: "GSC connection expired
-for [client] — needs reconnect at /admin/seo/sprints/[id]/settings".
+for [client] — needs reconnect at /portal/seo/sprints/[id]/settings".
 
 ## Client Document Handoff
 

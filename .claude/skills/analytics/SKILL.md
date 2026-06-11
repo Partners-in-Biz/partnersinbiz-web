@@ -297,18 +297,18 @@ Events queue locally and flush:
 
 ## Admin UI
 
-Located at `/admin/analytics/`:
+Located at `/portal/analytics/`:
 
 | Route | Description |
 |-------|-------------|
-| `/admin/analytics/events` | Events table with property/event/date filters |
-| `/admin/analytics/sessions` | Sessions list with user/device/UTM columns |
-| `/admin/analytics/sessions/[id]` | Session detail — metadata grid + event timeline |
-| `/admin/analytics/funnels` | Funnel list, create form, inline results |
-| `/admin/analytics/users` | Users list with event counts + first/last seen |
-| `/admin/analytics/users/[distinctId]` | Full event timeline for one user |
-| `/admin/analytics/retention` | Cohort retention heatmap (day/week granularity) |
-| `/admin/analytics/live` | Real-time event feed (polls every 5s, last 5 min) |
+| `/portal/analytics/events` | Events table with property/event/date filters |
+| `/portal/analytics/sessions` | Sessions list with user/device/UTM columns |
+| `/portal/analytics/sessions/[id]` | Session detail — metadata grid + event timeline |
+| `/portal/analytics/funnels` | Funnel list, create form, inline results |
+| `/portal/analytics/users` | Users list with event counts + first/last seen |
+| `/portal/analytics/users/[distinctId]` | Full event timeline for one user |
+| `/portal/analytics/retention` | Cohort retention heatmap (day/week granularity) |
+| `/portal/analytics/live` | Real-time event feed (polls every 5s, last 5 min) |
 
 ---
 

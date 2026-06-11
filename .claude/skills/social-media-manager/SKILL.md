@@ -1445,7 +1445,7 @@ Initiates an OAuth flow. **This endpoint redirects the browser to the platform's
 
 Query params:
 - `orgId` — org to connect the account to
-- `redirectUrl` — where to redirect after callback (default: `/admin/social`)
+- `redirectUrl` — where to redirect after callback (default: `/portal/social`)
 
 **Platform notes:**
 - `twitter` — Uses OAuth 2.0 with PKCE. Users connect via the OAuth flow like other platforms.

@@ -405,7 +405,7 @@ Response:
 { "items": [
     { "id": "inbox_X", "itemType": "mention", "resourceType": "invoice", "resourceId": "inv_xyz",
       "title": "Pip mentioned you", "body": "Client wants to extend due date...",
-      "priority": "normal", "link": "/admin/invoices/inv_xyz", "createdAt": "..." }
+      "priority": "normal", "link": "/portal/invoicing/inv_xyz", "createdAt": "..." }
   ],
   "nextCursor": "2026-04-15T09:00:00Z" }
 ```

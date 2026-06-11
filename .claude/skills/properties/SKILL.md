@@ -547,11 +547,11 @@ Redirect the admin user to `authorizeUrl` in their browser.
 This is the OAuth redirect target. The platform handles CSRF state validation, code exchange,
 and credential persistence. On success, redirects to:
 ```
-/admin/properties/:id/connections?provider=<provider>&result=ok
+/portal/properties/:id/connections?provider=<provider>&result=ok
 ```
 On error:
 ```
-/admin/properties/:id/connections?provider=<provider>&result=error&msg=<reason>
+/portal/properties/:id/connections?provider=<provider>&result=error&msg=<reason>
 ```
 
 The state token is a 48-char hex nonce, stored in Firestore with a 10-minute TTL.
