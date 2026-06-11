@@ -12,6 +12,7 @@ import { resumeCampaign as googleResumeCampaign } from '@/lib/ads/providers/goog
 import { logCampaignActivity } from '@/lib/ads/activity'
 import { notifyCampaignLaunched } from '@/lib/ads/notifications'
 import type { ApiUser } from '@/lib/api/types'
+import { requireApprovedCampaignForAdsAction } from '@/lib/ads/approval-gates'
 
 export const POST = withAuth(
   'admin',
@@ -24,6 +25,8 @@ export const POST = withAuth(
     const { id } = await ctxParams.params
     const campaign = await getCampaign(id)
     if (!campaign || campaign.orgId !== orgId) return apiError('Campaign not found', 404)
+    const approvalError = requireApprovedCampaignForAdsAction(campaign, 'launch')
+    if (approvalError) return apiError(approvalError, 403)
 
     // Set status ACTIVE locally first
     await updateCampaign(id, { status: 'ACTIVE' })

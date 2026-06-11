@@ -41,9 +41,14 @@ describe('ads campaign workspace reuse', () => {
   it('renders portal and admin ads campaign details through the same workspace component', () => {
     const portal = readAppFile('app/(portal)/portal/ads/campaigns/[id]/page.tsx')
     const admin = readAppFile('app/(admin)/admin/org/[slug]/ads/campaigns/[id]/page.tsx')
+    const detailWorkspace = readAppFile('components/ads/AdCampaignDetailWorkspace.tsx')
 
     expect(portal).toContain('@/components/ads/AdCampaignDetailWorkspace')
     expect(admin).toContain('@/components/ads/AdCampaignDetailWorkspace')
+    expect(detailWorkspace).toContain('Unified Ads command center')
+    expect(detailWorkspace).toContain('Projects/Kanban handoff links')
+    expect(detailWorkspace).toContain('Provider errors')
+    expect(detailWorkspace).toContain('Spend/readiness')
     expect(portal).not.toMatch(/Awaiting your approval|Ad sets ·/)
     expect(admin).not.toMatch(/Awaiting client review|Ad sets \(/)
   })

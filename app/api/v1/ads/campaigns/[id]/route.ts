@@ -16,6 +16,11 @@ import {
 import type { UpdateAdCampaignInput } from '@/lib/ads/types'
 import { logCampaignActivity } from '@/lib/ads/activity'
 import type { ApiUser } from '@/lib/api/types'
+import {
+  findUntrustedApprovalOverride,
+  approvalOverrideErrorMessage,
+  requireApprovedCampaignForAdsAction,
+} from '@/lib/ads/approval-gates'
 
 export const GET = withAuth(
   'admin',
@@ -44,6 +49,8 @@ export const PATCH = withAuth(
     if (!campaign || campaign.orgId !== orgId) return apiError('Campaign not found', 404)
 
     const patch = (await req.json()) as UpdateAdCampaignInput
+    const approvalOverridePath = findUntrustedApprovalOverride(patch)
+    if (approvalOverridePath) return apiError(approvalOverrideErrorMessage(approvalOverridePath), 400)
     await updateCampaign(id, patch)
 
     const warnings: string[] = []
@@ -137,6 +144,8 @@ export const DELETE = withAuth(
     const { id } = await ctxParams.params
     const campaign = await getCampaign(id)
     if (!campaign || campaign.orgId !== orgId) return apiError('Campaign not found', 404)
+    const approvalError = requireApprovedCampaignForAdsAction(campaign, 'delete')
+    if (approvalError) return apiError(approvalError, 403)
     const capabilityError = enforceAgentCapability(user, 'delete', req)
     if (capabilityError) return capabilityError
 
