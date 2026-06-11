@@ -28,9 +28,6 @@ export const POST = withAuth(
     const approvalError = requireApprovedCampaignForAdsAction(campaign, 'launch')
     if (approvalError) return apiError(approvalError, 403)
 
-    // Set status ACTIVE locally first
-    await updateCampaign(id, { status: 'ACTIVE' })
-
     if (campaign.platform === 'tiktok') {
       const tiktokData = (campaign.providerData as Record<string, unknown>)?.tiktok as Record<string, unknown> | undefined
       const campaignId = typeof tiktokData?.campaignId === 'string' ? tiktokData.campaignId : undefined
@@ -95,6 +92,8 @@ export const POST = withAuth(
         await setCampaignMetaId(id, result.metaCampaignId)
       }
     }
+
+    await updateCampaign(id, { status: 'ACTIVE' })
 
     const actor = {
       id: (user as { uid?: string }).uid ?? 'unknown',

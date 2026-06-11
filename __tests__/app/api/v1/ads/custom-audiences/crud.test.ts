@@ -15,10 +15,14 @@ jest.mock('@/lib/ads/providers/meta', () => ({
     customAudienceCRUD: jest.fn(),
   },
 }))
+jest.mock('@/lib/ads/campaigns/store', () => ({
+  getCampaign: jest.fn(),
+}))
 
 const store = jest.requireMock('@/lib/ads/custom-audiences/store')
 const helpers = jest.requireMock('@/lib/ads/api-helpers')
 const metaMock = jest.requireMock('@/lib/ads/providers/meta')
+const campaignStore = jest.requireMock('@/lib/ads/campaigns/store')
 
 beforeEach(() => jest.clearAllMocks())
 
@@ -39,8 +43,20 @@ const baseCtx = {
   connection: { id: 'conn_1' },
 }
 
+const approvedCampaign = {
+  id: 'cmp_1',
+  orgId: 'org_1',
+  reviewState: 'approved',
+  approvedAt: { seconds: 1 },
+  approvedBy: 'approver_1',
+}
+
 function makeReq(orgId = 'org_1', extra?: RequestInit) {
   return new Request('http://x', { headers: { 'X-Org-Id': orgId }, ...extra }) as any
+}
+
+function makeDeleteReq(orgId = 'org_1') {
+  return new Request('http://x?approvalCampaignId=cmp_1', { headers: { 'X-Org-Id': orgId } }) as any
 }
 
 describe('GET /api/v1/ads/custom-audiences/[id]', () => {
@@ -106,11 +122,12 @@ describe('PATCH /api/v1/ads/custom-audiences/[id]', () => {
 describe('DELETE /api/v1/ads/custom-audiences/[id]', () => {
   it('does best-effort Meta delete then deletes locally', async () => {
     store.getCustomAudience.mockResolvedValueOnce(baseCA)
+    campaignStore.getCampaign.mockResolvedValueOnce(approvedCampaign)
     helpers.requireMetaContext.mockResolvedValueOnce(baseCtx)
     metaMock.metaProvider.customAudienceCRUD.mockResolvedValueOnce({ success: true })
     store.deleteCustomAudience.mockResolvedValueOnce(undefined)
 
-    const res = await DELETE(makeReq(), {} as any, { params: Promise.resolve({ id: 'ca_1' }) })
+    const res = await DELETE(makeDeleteReq(), {} as any, { params: Promise.resolve({ id: 'ca_1' }) })
     const body = await res.json()
     expect(res.status).toBe(200)
     expect(body.data.deleted).toBe(true)
@@ -123,9 +140,10 @@ describe('DELETE /api/v1/ads/custom-audiences/[id]', () => {
   it('deletes locally even when no metaCaId is set', async () => {
     const caWithoutMeta = { ...baseCA, providerData: { meta: {} } }
     store.getCustomAudience.mockResolvedValueOnce(caWithoutMeta)
+    campaignStore.getCampaign.mockResolvedValueOnce(approvedCampaign)
     store.deleteCustomAudience.mockResolvedValueOnce(undefined)
 
-    const res = await DELETE(makeReq(), {} as any, { params: Promise.resolve({ id: 'ca_1' }) })
+    const res = await DELETE(makeDeleteReq(), {} as any, { params: Promise.resolve({ id: 'ca_1' }) })
     const body = await res.json()
     expect(res.status).toBe(200)
     expect(body.data.deleted).toBe(true)

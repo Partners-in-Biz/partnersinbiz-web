@@ -5,6 +5,7 @@ import { POST as launchPOST } from '@/app/api/v1/ads/campaigns/[id]/launch/route
 import { POST as pausePOST } from '@/app/api/v1/ads/campaigns/[id]/pause/route'
 
 jest.mock('@/lib/api/auth', () => ({ withAuth: (_r: string, h: any) => h }))
+jest.mock('@/lib/api/capabilityGate', () => ({ enforceAgentCapability: jest.fn(() => null) }))
 
 jest.mock('@/lib/ads/campaigns/store', () => ({
   listCampaigns: jest.fn(),
@@ -17,6 +18,7 @@ jest.mock('@/lib/ads/campaigns/store', () => ({
 
 jest.mock('@/lib/ads/api-helpers', () => ({
   requireMetaContext: jest.fn(),
+  resolveGoogleAdsCustomerContext: jest.fn(),
 }))
 
 jest.mock('@/lib/ads/providers/meta', () => ({
@@ -91,6 +93,9 @@ const linkedinCampaign = {
   name: 'LinkedIn Campaign Group',
   status: 'DRAFT',
   objective: 'BRAND_AWARENESS',
+  reviewState: 'approved',
+  approvedAt: { seconds: 1 },
+  approvedBy: 'approver_1',
   providerData: {
     linkedin: { campaignGroupUrn: 'urn:li:sponsoredCampaignGroup:98765', liStatus: 'DRAFT' },
   },

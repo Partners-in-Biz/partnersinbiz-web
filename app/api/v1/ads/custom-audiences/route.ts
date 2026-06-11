@@ -403,11 +403,13 @@ export const POST = withAuth('admin', async (req: NextRequest, user) => {
   // ─── Meta branch (existing, unchanged) ────────────────────────────────────
   const ctx = await requireMetaContext(req)
   if (ctx instanceof Response) return ctx
-  const body = rawBody as { input?: CreateAdCustomAudienceInput & { approvalCampaignId?: string } }
-  const { approvalCampaignId: _approvalCampaignId, ...audienceInput } = body.input ?? {}
-  if (!audienceInput.name || !audienceInput.type || !audienceInput.source) {
+  const body = rawBody as { input?: Partial<CreateAdCustomAudienceInput> & { approvalCampaignId?: string } }
+  const audienceInputCandidate = { ...(body.input ?? {}) }
+  delete audienceInputCandidate.approvalCampaignId
+  if (!audienceInputCandidate.name || !audienceInputCandidate.type || !audienceInputCandidate.source) {
     return apiError('Missing required fields: name, type, source', 400)
   }
+  const audienceInput = audienceInputCandidate as CreateAdCustomAudienceInput
 
   // Phase 4: local create first (with status BUILDING for upload-pending types)
   const initialStatus: AdCustomAudienceStatus = 'BUILDING'

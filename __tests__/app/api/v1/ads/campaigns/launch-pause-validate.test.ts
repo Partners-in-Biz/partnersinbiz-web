@@ -4,6 +4,7 @@ import { POST as pausePOST } from '@/app/api/v1/ads/campaigns/[id]/pause/route'
 import { POST as validatePOST } from '@/app/api/v1/ads/campaigns/[id]/validate/route'
 
 jest.mock('@/lib/api/auth', () => ({ withAuth: (_r: string, h: any) => h }))
+jest.mock('@/lib/api/capabilityGate', () => ({ enforceAgentCapability: jest.fn(() => null) }))
 jest.mock('@/lib/ads/campaigns/store', () => ({
   getCampaign: jest.fn(),
   updateCampaign: jest.fn(),
@@ -32,6 +33,9 @@ const baseCampaign = {
   name: 'Test',
   status: 'DRAFT',
   providerData: {},
+  reviewState: 'approved',
+  approvedAt: { seconds: 1 },
+  approvedBy: 'approver_1',
 }
 
 const baseCtx = {
@@ -88,6 +92,16 @@ describe('POST /api/v1/ads/campaigns/[id]/launch', () => {
 
     await launchPOST(makeReq(), {} as any, { params: Promise.resolve({ id: 'cmp_1' }) })
     expect(store.setCampaignMetaId).not.toHaveBeenCalled()
+  })
+
+  it('does not mark campaign ACTIVE when provider readiness fails first', async () => {
+    store.getCampaign.mockResolvedValueOnce(baseCampaign)
+    helpers.requireMetaContext.mockResolvedValueOnce(new Response(JSON.stringify({ success: false }), { status: 404 }))
+
+    const res = await launchPOST(makeReq(), {} as any, { params: Promise.resolve({ id: 'cmp_1' }) })
+
+    expect(res.status).toBe(404)
+    expect(store.updateCampaign).not.toHaveBeenCalledWith('cmp_1', { status: 'ACTIVE' })
   })
 
   it('returns 404 when campaign belongs to different org', async () => {

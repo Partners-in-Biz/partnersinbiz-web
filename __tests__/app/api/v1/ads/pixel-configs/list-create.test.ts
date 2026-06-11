@@ -7,8 +7,13 @@ jest.mock('@/lib/ads/pixel-configs/store', () => ({
   createPixelConfig: jest.fn(),
   setPlatformCapiToken: jest.fn(),
 }))
+jest.mock('@/lib/ads/campaigns/store', () => ({
+  getCampaign: jest.fn(),
+}))
+jest.mock('@/lib/api/capabilityGate', () => ({ enforceAgentCapability: jest.fn(() => null) }))
 
 const store = jest.requireMock('@/lib/ads/pixel-configs/store')
+const campaignStore = jest.requireMock('@/lib/ads/campaigns/store')
 
 beforeEach(() => jest.clearAllMocks())
 
@@ -24,6 +29,14 @@ const baseConfig = {
   createdBy: 'u1',
   createdAt: { toDate: () => new Date() },
   updatedAt: { toDate: () => new Date() },
+}
+
+const approvedCampaign = {
+  id: 'cmp_1',
+  orgId: 'org_1',
+  reviewState: 'approved',
+  approvedAt: { seconds: 1 },
+  approvedBy: 'approver_1',
 }
 
 describe('GET /api/v1/ads/pixel-configs', () => {
@@ -77,6 +90,7 @@ describe('GET /api/v1/ads/pixel-configs', () => {
 
 describe('POST /api/v1/ads/pixel-configs', () => {
   it('creates config and calls setPlatformCapiToken for plaintext token', async () => {
+    campaignStore.getCampaign.mockResolvedValueOnce(approvedCampaign)
     store.createPixelConfig.mockResolvedValueOnce(baseConfig)
     store.setPlatformCapiToken.mockResolvedValue(undefined)
 
@@ -85,6 +99,7 @@ describe('POST /api/v1/ads/pixel-configs', () => {
         method: 'POST',
         headers: { 'X-Org-Id': 'org_1', 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          approvalCampaignId: 'cmp_1',
           input: {
             name: 'My Pixel Config',
             eventMappings: [],
@@ -105,12 +120,14 @@ describe('POST /api/v1/ads/pixel-configs', () => {
     expect(body.data?.meta?.capiTokenEnc).toBeUndefined()
   })
 
-  it('returns 400 when name is missing', async () => {
+  it('returns 400 when name is missing after approval gate passes', async () => {
+    campaignStore.getCampaign.mockResolvedValueOnce(approvedCampaign)
     const res = await POST(
       new Request('http://x', {
         method: 'POST',
         headers: { 'X-Org-Id': 'org_1', 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          approvalCampaignId: 'cmp_1',
           input: { eventMappings: [], meta: { pixelId: 'px_111' } },
         }),
       }) as any,
