@@ -62,6 +62,12 @@ jest.mock('@/components/ads/CommentThread', () => ({
 
 function activityCollection(name: string) {
   if (name === 'users') return { doc: mockUserDoc }
+  if (name === 'ad_connections') {
+    return {
+      doc: () => ({ get: async () => ({ exists: false }) }),
+      where: () => ({ get: async () => ({ docs: [] }) }),
+    }
+  }
   if (name !== 'activity') return { doc: () => ({ get: async () => ({ exists: false }) }) }
 
   const chain = {
