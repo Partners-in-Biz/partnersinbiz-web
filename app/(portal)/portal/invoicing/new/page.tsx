@@ -150,7 +150,7 @@ function NewInvoiceForm() {
       })
       const body = await res.json()
       if (!res.ok) throw new Error(body.error ?? 'Failed to create invoice')
-      router.push(`/admin/invoicing/${body.data.id}`)
+      router.push(`/portal/invoicing/${body.data.id}`)
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Failed to create invoice')
       setSaving(false)

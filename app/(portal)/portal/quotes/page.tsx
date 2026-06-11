@@ -91,7 +91,7 @@ export default function QuotesPage() {
           <h1 className="text-2xl font-headline font-bold text-on-surface">Quotes</h1>
           <p className="text-sm text-on-surface-variant mt-0.5">{loading ? '—' : `${quotes.length} quotes`}</p>
         </div>
-        <Link href="/admin/quotes/new" className="pib-btn-primary text-sm font-label">+ New Quote</Link>
+        <Link href="/portal/quotes/new" className="pib-btn-primary text-sm font-label">+ New Quote</Link>
       </div>
 
       {/* Filters */}
@@ -129,7 +129,7 @@ export default function QuotesPage() {
         ) : filtered.length === 0 ? (
           <div className="py-10 text-center">
             <p className="text-on-surface-variant text-sm">No quotes found.</p>
-            <Link href="/admin/quotes/new" className="text-sm mt-2 inline-block" style={{ color: 'var(--color-accent-v2)' }}>
+            <Link href="/portal/quotes/new" className="text-sm mt-2 inline-block" style={{ color: 'var(--color-accent-v2)' }}>
               Create your first quote →
             </Link>
           </div>
@@ -157,7 +157,7 @@ export default function QuotesPage() {
                     <p className="text-sm text-on-surface-variant">{formatDate(q.validUntil)}</p>
                   </div>
                   <div className="col-span-1 flex justify-end">
-                    <Link href={`/admin/quotes/${q.id}`} className="text-[10px] font-label uppercase tracking-wide" style={{ color: 'var(--color-accent-v2)' }}>
+                    <Link href={`/portal/quotes/${q.id}`} className="text-[10px] font-label uppercase tracking-wide" style={{ color: 'var(--color-accent-v2)' }}>
                       View →
                     </Link>
                   </div>

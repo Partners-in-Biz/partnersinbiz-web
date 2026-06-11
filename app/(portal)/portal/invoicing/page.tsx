@@ -76,7 +76,7 @@ export default function InvoicingPage() {
           <h1 className="text-2xl font-headline font-bold text-on-surface">Invoicing</h1>
           <p className="text-sm text-on-surface-variant mt-0.5">{loading ? '—' : `${invoices.length} invoices`}</p>
         </div>
-        <Link href="/admin/invoicing/new" className="pib-btn-primary text-sm font-label">
+        <Link href="/portal/invoicing/new" className="pib-btn-primary text-sm font-label">
           + New Invoice
         </Link>
       </div>
@@ -138,7 +138,7 @@ export default function InvoicingPage() {
         ) : filtered.length === 0 ? (
           <div className="py-10 text-center">
             <p className="text-on-surface-variant text-sm">No invoices found.</p>
-            <Link href="/admin/invoicing/new" className="text-sm mt-2 inline-block" style={{ color: 'var(--color-accent-v2)' }}>
+            <Link href="/portal/invoicing/new" className="text-sm mt-2 inline-block" style={{ color: 'var(--color-accent-v2)' }}>
               Create your first invoice →
             </Link>
           </div>
@@ -166,7 +166,7 @@ export default function InvoicingPage() {
                     <p className="text-sm text-on-surface-variant">{formatDate(inv.dueDate)}</p>
                   </div>
                   <div className="col-span-1 flex justify-end">
-                    <Link href={`/admin/invoicing/${inv.id}`} className="text-[10px] font-label uppercase tracking-wide" style={{ color: 'var(--color-accent-v2)' }}>
+                    <Link href={`/portal/invoicing/${inv.id}`} className="text-[10px] font-label uppercase tracking-wide" style={{ color: 'var(--color-accent-v2)' }}>
                       View →
                     </Link>
                   </div>

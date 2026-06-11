@@ -100,7 +100,7 @@ export default function InvoiceDetailPage() {
     const res = await fetch(`/api/v1/invoices/${id}/duplicate`, { method: 'POST' })
     if (res.ok) {
       const body = await res.json()
-      router.push(`/admin/invoicing/${body.data.id}`)
+      router.push(`/portal/invoicing/${body.data.id}`)
     } else {
       setDuplicating(false)
     }
@@ -148,7 +148,7 @@ export default function InvoiceDetailPage() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
-          <Link href="/admin/invoicing" className="text-xs text-on-surface-variant hover:text-on-surface transition-colors">← Invoicing</Link>
+          <Link href="/portal/invoicing" className="text-xs text-on-surface-variant hover:text-on-surface transition-colors">← Invoicing</Link>
           <h1 className="text-2xl font-headline font-bold text-on-surface mt-1">{invoice.invoiceNumber}</h1>
         </div>
         <div className="flex items-center gap-2 flex-wrap">

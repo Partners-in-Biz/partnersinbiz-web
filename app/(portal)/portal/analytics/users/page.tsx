@@ -67,7 +67,7 @@ export default function AnalyticsUsersPage() {
               {users.map(u => (
                 <tr key={u.distinctId} className="border-b border-[var(--color-card-border)] hover:bg-surface-variant/30 transition-colors">
                   <td className="p-3 font-mono text-xs">
-                    <Link href={`/admin/analytics/users/${encodeURIComponent(u.distinctId)}?propertyId=${encodeURIComponent(propertyId)}`}
+                    <Link href={`/portal/analytics/users/${encodeURIComponent(u.distinctId)}?propertyId=${encodeURIComponent(propertyId)}`}
                       className="text-amber-400 hover:underline">
                       {u.distinctId.slice(0, 16)}…
                     </Link>

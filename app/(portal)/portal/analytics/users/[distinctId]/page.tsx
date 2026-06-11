@@ -42,14 +42,14 @@ export default function UserTimelinePage() {
 
   if (notFound) return (
     <div className="p-6">
-      <Link href="/admin/analytics/users" className="pib-btn-secondary mb-6 inline-block">← Back</Link>
+      <Link href="/portal/analytics/users" className="pib-btn-secondary mb-6 inline-block">← Back</Link>
       <p className="text-on-surface-variant">User not found.</p>
     </div>
   )
 
   return (
     <div className="p-6 space-y-6">
-      <Link href="/admin/analytics/users" className="pib-btn-secondary inline-block">← Users</Link>
+      <Link href="/portal/analytics/users" className="pib-btn-secondary inline-block">← Users</Link>
       <div>
         <h1 className="text-2xl font-headline font-bold text-on-surface">User Timeline</h1>
         <p className="text-on-surface-variant text-sm font-mono mt-1">{distinctId}</p>

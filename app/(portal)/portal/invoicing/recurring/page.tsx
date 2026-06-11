@@ -64,7 +64,7 @@ export default function RecurringSchedulesPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <Link href="/admin/invoicing" className="text-xs text-on-surface-variant hover:text-on-surface transition-colors">← Invoicing</Link>
+          <Link href="/portal/invoicing" className="text-xs text-on-surface-variant hover:text-on-surface transition-colors">← Invoicing</Link>
           <h1 className="text-2xl font-headline font-bold text-on-surface mt-1">Recurring Schedules</h1>
         </div>
         <div className="flex gap-2">
@@ -99,7 +99,7 @@ export default function RecurringSchedulesPage() {
                     {s.status}
                   </span>
                   <div>
-                    <Link href={`/admin/invoicing/${s.invoiceId}`} className="text-sm font-medium text-on-surface hover:underline">
+                    <Link href={`/portal/invoicing/${s.invoiceId}`} className="text-sm font-medium text-on-surface hover:underline">
                       Invoice ↗
                     </Link>
                     <p className="text-xs text-on-surface-variant">{INTERVAL_LABELS[s.interval] ?? s.interval} · Next: {formatDate(s.nextDueAt)}</p>

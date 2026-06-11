@@ -103,7 +103,7 @@ export default function AnalyticsEventsPage() {
               {events.map(ev => (
                 <tr
                   key={ev.id}
-                  onClick={() => router.push(`/admin/analytics/sessions/${ev.sessionId}`)}
+                  onClick={() => router.push(`/portal/analytics/sessions/${ev.sessionId}`)}
                   className="border-b border-[var(--color-outline-variant)] hover:bg-[var(--color-surface-container)] cursor-pointer"
                 >
                   <td className="px-3 py-2 text-on-surface-variant">{formatTs(ev.serverTime)}</td>

@@ -104,7 +104,7 @@ export default function SessionsPage() {
               {sessions.map(s => (
                 <tr
                   key={s.id}
-                  onClick={() => router.push(`/admin/analytics/sessions/${s.id}`)}
+                  onClick={() => router.push(`/portal/analytics/sessions/${s.id}`)}
                   className="border-b border-[var(--color-outline-variant)] hover:bg-[var(--color-surface-container)] cursor-pointer"
                 >
                   <td className="px-3 py-2 text-on-surface-variant">{formatTs(s.startedAt)}</td>

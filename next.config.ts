@@ -50,7 +50,6 @@ const nextConfig = {
       { source: '/admin/properties/new', destination: '/portal/properties/new', permanent: false },
       { source: '/admin/properties/:id/connections', destination: '/portal/properties/:id/connections', permanent: false },
       { source: '/admin/properties/:path*', destination: '/portal/properties/:path*', permanent: false },
-<<<<<<< HEAD
       // P2 geo-seo convergence: portal is the only geo-seo workspace
       { source: '/admin/geo-seo', destination: '/portal/geo-seo', permanent: false },
       { source: '/admin/geo-seo/:path*', destination: '/portal/geo-seo/:path*', permanent: false },
@@ -99,6 +98,21 @@ const nextConfig = {
       { source: '/admin/campaigns/:id/social', destination: '/portal/campaigns/:id', permanent: false },
       { source: '/admin/campaigns/:id/videos', destination: '/portal/campaigns/:id', permanent: false },
       { source: '/admin/campaigns/:path*', destination: '/portal/campaigns/:path*', permanent: false },
+      // P3 intelligence convergence: nav hub — all destinations now in portal
+      { source: '/admin/intelligence', destination: '/portal', permanent: false },
+      { source: '/admin/intelligence/:path*', destination: '/portal', permanent: false },
+      // P3 finance convergence: hub redirects to portal payments
+      { source: '/admin/finance', destination: '/portal/payments', permanent: false },
+      { source: '/admin/finance/:path*', destination: '/portal/payments', permanent: false },
+      // P3 analytics convergence: per-org analytics → portal
+      { source: '/admin/analytics', destination: '/portal/analytics', permanent: false },
+      { source: '/admin/analytics/:path*', destination: '/portal/analytics/:path*', permanent: false },
+      // P3 invoicing convergence: portal is the only invoicing workspace
+      { source: '/admin/invoicing', destination: '/portal/invoicing', permanent: false },
+      { source: '/admin/invoicing/:path*', destination: '/portal/invoicing/:path*', permanent: false },
+      // P3 quotes convergence: portal is the only quotes workspace
+      { source: '/admin/quotes', destination: '/portal/quotes', permanent: false },
+      { source: '/admin/quotes/:path*', destination: '/portal/quotes/:path*', permanent: false },
     ]
   },
 }

@@ -125,7 +125,7 @@ function NewQuoteForm() {
       })
       const body = await res.json()
       if (!res.ok) throw new Error(body.error ?? 'Failed to create quote')
-      router.push(`/admin/quotes/${body.data.id}`)
+      router.push(`/portal/quotes/${body.data.id}`)
     } catch (err: any) {
       setError(err.message)
       setSaving(false)

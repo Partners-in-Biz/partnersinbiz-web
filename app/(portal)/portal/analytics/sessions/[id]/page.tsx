@@ -45,7 +45,7 @@ export default function SessionDetailPage() {
     fetch(`/api/v1/analytics/sessions/${id}`)
       .then(r => { if (!r.ok) throw new Error('not found'); return r.json() })
       .then(body => { setData(body.data); setLoading(false) })
-      .catch(() => { setLoading(false); router.push('/admin/analytics/sessions') })
+      .catch(() => { setLoading(false); router.push('/portal/analytics/sessions') })
   }, [id, router])
 
   if (loading) return <div className="pib-skeleton h-40 rounded-xl max-w-4xl mx-auto" />
@@ -56,7 +56,7 @@ export default function SessionDetailPage() {
   return (
     <div className="max-w-4xl mx-auto space-y-6">
       <div className="flex items-center gap-3">
-        <button onClick={() => router.push('/admin/analytics/sessions')} className="text-on-surface-variant hover:text-on-surface text-sm">
+        <button onClick={() => router.push('/portal/analytics/sessions')} className="text-on-surface-variant hover:text-on-surface text-sm">
           ← Sessions
         </button>
         <span className="text-on-surface-variant">/</span>

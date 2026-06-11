@@ -104,7 +104,7 @@ export default function QuoteDetailPage() {
     })
     if (res.ok) {
       const body = await res.json()
-      router.push(`/admin/invoicing/${body.data.invoiceId}`)
+      router.push(`/portal/invoicing/${body.data.invoiceId}`)
     }
     setConverting(false)
   }
@@ -119,7 +119,7 @@ export default function QuoteDetailPage() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
-          <Link href="/admin/quotes" className="text-xs text-on-surface-variant hover:text-on-surface transition-colors">← Quotes</Link>
+          <Link href="/portal/quotes" className="text-xs text-on-surface-variant hover:text-on-surface transition-colors">← Quotes</Link>
           <h1 className="text-2xl font-headline font-bold text-on-surface mt-1">{quote.quoteNumber}</h1>
         </div>
         <span className="text-[10px] font-label uppercase tracking-wide px-2 py-1 rounded-full self-start sm:self-auto" style={{ background: `${status.color}20`, color: status.color }}>
@@ -197,7 +197,7 @@ export default function QuoteDetailPage() {
         <div className="pib-card bg-purple-500/10 border-purple-500/20">
           <p className="text-sm text-on-surface">
             This quote was converted to an invoice.{' '}
-            <Link href={`/admin/invoicing/${quote.convertedInvoiceId}`} style={{ color: 'var(--color-accent-v2)' }}>
+            <Link href={`/portal/invoicing/${quote.convertedInvoiceId}`} style={{ color: 'var(--color-accent-v2)' }}>
               View Invoice →
             </Link>
           </p>
