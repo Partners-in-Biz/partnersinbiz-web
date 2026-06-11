@@ -1,4 +1,5 @@
 import type { ContextReference } from '@/lib/context-references/types'
+import type { AgentEffort, AgentModel } from '@/lib/agents/runRouting'
 
 export type ProjectStatus = 'active' | 'on_hold' | 'completed' | 'archived'
 export type TaskPriority = 'urgent' | 'high' | 'medium' | 'low'
@@ -129,6 +130,8 @@ export interface Task {
   reviewerAgentId?: AgentId | null
   reviewStatus?: 'pending' | 'in-progress' | 'approved' | 'changes-requested' | null
   riskLevel?: 'low' | 'medium' | 'high' | 'critical'
+  agentEffort?: AgentEffort | null
+  agentModel?: AgentModel | null
   requiredCapability?: string | null
   requestedByAgentId?: AgentId | null
   approvalGateTaskId?: string | null

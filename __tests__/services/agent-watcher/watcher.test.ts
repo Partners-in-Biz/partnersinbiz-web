@@ -54,7 +54,7 @@ const getAgentConfigMock = getAgentConfig as jest.Mock
 const claimTaskMock = claimTask as jest.Mock
 const startHeartbeatMock = startHeartbeat as jest.Mock
 const runAndPollMock = runAndPoll as jest.Mock
-const dbMock = db as unknown as { collectionGroup?: jest.Mock }
+const dbMock = db as unknown as { collectionGroup?: jest.Mock; collection?: jest.Mock }
 
 type FilteringQueryDoc = { ref: Record<string, unknown>; data: () => Record<string, unknown> }
 type FilteringQuery = {
@@ -215,6 +215,8 @@ describe('agent watcher dispatchTask', () => {
         },
       },
       riskLevel: 'critical',
+      agentEffort: 'high',
+      agentModel: 'claude-sonnet-4-6',
       requiredCapability: 'deploy',
       requestedByAgentId: 'pip',
       expectedArtifacts: ['pull_request', 'preview_url', 'test_report'],
@@ -235,9 +237,67 @@ describe('agent watcher dispatchTask', () => {
           approvalGateTaskId: 'gate-1',
           sourceResearchItemId: 'research-1',
         }),
+        agentEffort: 'high',
+        agentModel: 'claude-sonnet-4-6',
       }),
       expect.any(Function),
     )
+  })
+
+  it('injects project docs and dependency outputs into the dispatch prompt', async () => {
+    const dependencySnap = {
+      exists: true,
+      data: () => ({
+        title: 'Research baseline',
+        agentStatus: 'done',
+        columnId: 'review',
+        agentOutput: { summary: 'Competitor research says lead with proof.' },
+      }),
+    }
+    const taskRef = {
+      ...makeTaskRef(),
+      parent: {
+        doc: jest.fn(() => ({ get: jest.fn(async () => dependencySnap) })),
+      },
+    }
+    const docsGet = jest.fn(async () => ({
+      empty: false,
+      docs: [
+        { id: 'doc-1', data: () => ({ title: 'Approved spec', type: 'requirements' }) },
+      ],
+    }))
+    const docsCollection = {
+      orderBy: jest.fn(() => ({
+        limit: jest.fn(() => ({ get: docsGet })),
+      })),
+    }
+    dbMock.collection = jest.fn(() => ({
+      doc: jest.fn(() => ({
+        get: jest.fn(async () => ({
+          exists: true,
+          data: () => ({ name: 'Launch project', brief: 'Approved project brief.' }),
+        })),
+        collection: jest.fn(() => docsCollection),
+      })),
+    }))
+
+    await dispatchTask(taskRef as never, {
+      orgId: 'org-1',
+      projectId: 'project-1',
+      assigneeAgentId: 'theo',
+      agentStatus: 'pending',
+      columnId: 'todo',
+      agentInput: { spec: 'Implement next step' },
+      dependsOn: ['dep-1'],
+    })
+
+    const spec = runAndPollMock.mock.calls[0][1].spec as string
+    expect(spec).toContain('Project context:')
+    expect(spec).toContain('Launch project')
+    expect(spec).toContain('Approved spec (id: doc-1, type: requirements)')
+    expect(spec).toContain('Dependency outputs:')
+    expect(spec).toContain('Competitor research says lead with proof.')
+    expect(spec).toContain('/api/v1/agent/project/project-1')
   })
 
   it('marks failed Hermes runs blocked while preserving the live run id and stopping the heartbeat', async () => {

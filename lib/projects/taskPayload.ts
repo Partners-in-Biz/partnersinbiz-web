@@ -1,4 +1,5 @@
 import { isValidAgentId } from '@/lib/agents/types'
+import { cleanAgentEffort, cleanAgentModel, VALID_AGENT_EFFORTS, VALID_AGENT_MODELS } from '@/lib/agents/runRouting'
 import { columnForAgentStatus } from '@/lib/tasks/agentState'
 import type { AgentStatus } from '@/lib/tasks/types'
 
@@ -50,6 +51,8 @@ export const TASK_SOURCE_LINKAGE_FIELDS = [
   'approvalGateTaskId',
   'sourceResearchItemId',
   'riskLevel',
+  'agentEffort',
+  'agentModel',
   'requiredCapability',
   'requestedByAgentId',
   'expectedArtifacts',
@@ -94,6 +97,24 @@ function cleanRequiredCapability(value: unknown): PayloadResult<string | null> {
   return { ok: true, value: cleaned }
 }
 
+function cleanRunEffort(value: unknown): PayloadResult<string | null> {
+  if (value === undefined || value === null || value === '') return { ok: true, value: null }
+  const cleaned = cleanAgentEffort(value)
+  if (!cleaned) {
+    return { ok: false, error: `Invalid agentEffort; expected one of ${VALID_AGENT_EFFORTS.join(' | ')}`, status: 400 }
+  }
+  return { ok: true, value: cleaned }
+}
+
+function cleanRunModel(value: unknown): PayloadResult<string | null> {
+  if (value === undefined || value === null || value === '') return { ok: true, value: null }
+  const cleaned = cleanAgentModel(value)
+  if (!cleaned) {
+    return { ok: false, error: `Invalid agentModel; expected one of ${VALID_AGENT_MODELS.join(' | ')}`, status: 400 }
+  }
+  return { ok: true, value: cleaned }
+}
+
 function cleanAgentContext(value: unknown): Record<string, unknown> | null {
   if (!isRecord(value)) return null
   const out: Record<string, unknown> = { ...value }
@@ -133,6 +154,18 @@ function applyProvenanceFields(
     if (!capability.ok) return { ok: false, error: capability.error, status: capability.status }
     if (capability.value) target.requiredCapability = capability.value
   }
+  if (source.agentEffort !== undefined) {
+    const effort = cleanRunEffort(source.agentEffort)
+    if (!effort.ok) return { ok: false, error: effort.error, status: effort.status }
+    if (effort.value) target.agentEffort = effort.value
+    else target.agentEffort = null
+  }
+  if (source.agentModel !== undefined) {
+    const model = cleanRunModel(source.agentModel)
+    if (!model.ok) return { ok: false, error: model.error, status: model.status }
+    if (model.value) target.agentModel = model.value
+    else target.agentModel = null
+  }
   if (source.requestedByAgentId !== undefined) {
     const requestedBy = cleanAgentId(source.requestedByAgentId, 'requestedByAgentId')
     if (!requestedBy.ok) return { ok: false, error: requestedBy.error, status: requestedBy.status }
@@ -146,6 +179,8 @@ function applyProvenanceFields(
     if (
       field in target
       || field === 'riskLevel'
+      || field === 'agentEffort'
+      || field === 'agentModel'
       || field === 'requiredCapability'
       || field === 'requestedByAgentId'
       || field === 'expectedArtifacts'

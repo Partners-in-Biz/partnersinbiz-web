@@ -2,6 +2,7 @@
 // Types for the standalone tasks module (personal + cross-project tasks).
 
 import type { ContextReference } from '@/lib/context-references/types'
+import type { AgentEffort, AgentModel } from '@/lib/agents/runRouting'
 
 export type TaskStatus = 'todo' | 'in_progress' | 'done' | 'cancelled'
 export type TaskPriority = 'low' | 'normal' | 'high' | 'urgent'
@@ -83,6 +84,8 @@ export interface Task {
   reviewerAgentId?: AgentId | null
   reviewStatus?: 'pending' | 'in-progress' | 'approved' | 'changes-requested' | null
   riskLevel?: 'low' | 'medium' | 'high' | 'critical'
+  agentEffort?: AgentEffort | null
+  agentModel?: AgentModel | null
   requiredCapability?: string | null
   requestedByAgentId?: AgentId | null
   approvalGateTaskId?: string | null
@@ -127,6 +130,8 @@ export interface TaskInput {
   reviewerAgentId?: AgentId | null
   reviewStatus?: 'pending' | 'in-progress' | 'approved' | 'changes-requested' | null
   riskLevel?: 'low' | 'medium' | 'high' | 'critical'
+  agentEffort?: AgentEffort | null
+  agentModel?: AgentModel | null
   requiredCapability?: string | null
   requestedByAgentId?: AgentId | null
   approvalGateTaskId?: string | null

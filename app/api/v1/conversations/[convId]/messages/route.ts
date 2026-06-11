@@ -21,6 +21,7 @@ import {
 } from '@/lib/conversations/conversations'
 import { createHermesRun } from '@/lib/hermes/server'
 import { getAgentDecryptedKey } from '@/lib/agents/team'
+import { cleanAgentEffort, VALID_AGENT_EFFORTS, type AgentEffort } from '@/lib/agents/runRouting'
 import { buildAttachedContextBlock, resolveContextReferences } from '@/lib/context-references/registry'
 import {
   contextReferenceKey,
@@ -97,6 +98,14 @@ function sanitizeSlashCommand(value: unknown): SlashCommandPayload | null {
     executorKind: definition.executorKind,
     args,
   }
+}
+
+function parseReasoningDirective(value: string): { content: string; agentEffort: AgentEffort | null } {
+  const match = value.match(/^\s*\/reasoning\s+([a-z]+)\b\s*/i)
+  if (!match) return { content: value, agentEffort: null }
+  const effort = cleanAgentEffort(match[1])
+  if (!effort) return { content: value, agentEffort: null }
+  return { content: value.slice(match[0].length).trim(), agentEffort: effort }
 }
 
 function mergeContextReferenceSeeds(...groups: ContextReferenceSeed[][]): ContextReferenceSeed[] {
@@ -214,7 +223,15 @@ export const POST = withAuth(
     const body = await req.json().catch(() => null)
     if (!body || typeof body !== 'object') return apiError('Invalid JSON body', 400)
 
-    const content = typeof body.content === 'string' ? body.content.trim() : ''
+    const rawContent = typeof body.content === 'string' ? body.content.trim() : ''
+    const reasoningDirective = parseReasoningDirective(rawContent)
+    const content = reasoningDirective.content
+    const rawEffort = (body as Record<string, unknown>).agentEffort
+    const requestedEffort = cleanAgentEffort(rawEffort)
+    if (rawEffort !== undefined && rawEffort !== null && rawEffort !== '' && !requestedEffort) {
+      return apiError(`Invalid agentEffort; expected one of ${VALID_AGENT_EFFORTS.join(' | ')}`, 400)
+    }
+    const agentEffort = reasoningDirective.agentEffort ?? requestedEffort
     const attachments = sanitizeAttachments((body as Record<string, unknown>).attachments)
     const slashCommand = sanitizeSlashCommand((body as Record<string, unknown>).slashCommand)
     if (!content && attachments.length === 0) return apiError('content or attachments are required', 400)
@@ -246,6 +263,7 @@ export const POST = withAuth(
       ...(attachments.length > 0 ? { attachments } : {}),
       ...(resolvedContextRefs.length > 0 ? { contextRefs: resolvedContextRefs } : {}),
       ...(slashCommand ? { slashCommand } : {}),
+      ...(agentEffort ? { agentEffort } : {}),
       authorKind: 'user',
       authorId: user.uid,
       authorDisplayName,
@@ -279,6 +297,7 @@ export const POST = withAuth(
         authorId: agentId,
         authorDisplayName: agentData.name,
         dispatchAgentId: agentId,
+        ...(agentEffort ? { agentEffort } : {}),
         status: 'pending',
       })
 
@@ -331,6 +350,7 @@ export const POST = withAuth(
       const runResult = await createHermesRun(agentLink, user.uid, {
         prompt: hermesInput,
         conversation_id: convId,
+        ...(agentEffort ? { reasoning_effort: agentEffort } : {}),
         metadata: {
           conversationId: convId,
           messageId: assistantMessage.id,
@@ -339,6 +359,7 @@ export const POST = withAuth(
           requestedAgentIds: conversation.orchestration?.requestedAgentIds ?? conversation.participantAgentIds,
           orchestrationMode: conversation.orchestration?.mode ?? (conversation.participantAgentIds.length > 1 ? 'pip-orchestrator' : 'direct'),
           source: 'pib-unified-chat',
+          ...(agentEffort ? { agentEffort } : {}),
           ...(resolvedContextRefs.length > 0 ? { contextRefs: resolvedContextRefs } : {}),
           ...(slashCommand ? { slashCommand } : {}),
         },

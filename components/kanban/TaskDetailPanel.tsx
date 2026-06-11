@@ -5,6 +5,7 @@ import { useRouter, usePathname } from 'next/navigation'
 import { uploadTaskFile } from './TaskComposer'
 import { ContextReferenceChips } from '@/components/context-references/ContextReferenceChips'
 import { ContextReferencePicker } from '@/components/context-references/ContextReferencePicker'
+import { AGENT_EFFORT_OPTIONS, AGENT_MODEL_OPTIONS, type AgentEffort, type AgentModel } from '@/lib/agents/runRouting'
 import { buildBlockedTaskRecovery } from '@/lib/projects/blockerRecovery'
 import { ReadableTaskText } from './ReadableTaskText'
 import type { ContextReference } from '@/lib/context-references/types'
@@ -153,6 +154,8 @@ export function TaskDetailPanel({ task, columnName, projectId, orgId, members = 
   const [contextRefs, setContextRefs] = useState<ContextReference[]>(task?.contextRefs ?? [])
   const [reviewerIds, setReviewerIds] = useState<string[]>(task?.reviewerIds ?? [])
   const [reviewerAgentId, setReviewerAgentId] = useState<AgentId | ''>((task?.reviewerAgentId as AgentId | null) ?? '')
+  const [agentEffort, setAgentEffort] = useState<AgentEffort | ''>((task?.agentEffort as AgentEffort | null) ?? '')
+  const [agentModel, setAgentModel] = useState<AgentModel | ''>((task?.agentModel as AgentModel | null) ?? '')
   const [dueDate, setDueDate] = useState(dateInputValue(task?.dueDate))
   const [startDate, setStartDate] = useState(dateInputValue(task?.startDate))
   const [agentReleaseAt, setAgentReleaseAt] = useState(dateTimeInputValue(task?.agentReleaseAt))
@@ -194,6 +197,8 @@ export function TaskDetailPanel({ task, columnName, projectId, orgId, members = 
     setCommentContextRefs([])
     setReviewerIds(task?.reviewerIds ?? [])
     setReviewerAgentId((task?.reviewerAgentId as AgentId | null) ?? '')
+    setAgentEffort((task?.agentEffort as AgentEffort | null) ?? '')
+    setAgentModel((task?.agentModel as AgentModel | null) ?? '')
     setDueDate(dateInputValue(task?.dueDate))
     setStartDate(dateInputValue(task?.startDate))
     setAgentReleaseAt(dateTimeInputValue(task?.agentReleaseAt))
@@ -272,6 +277,8 @@ export function TaskDetailPanel({ task, columnName, projectId, orgId, members = 
       contextRefs,
       reviewerIds,
       reviewerAgentId: reviewerAgentId || null,
+      agentEffort: agentId && agentEffort ? agentEffort : null,
+      agentModel: agentId && agentModel ? agentModel : null,
       dueDate: dueDate || null,
       startDate: startDate || null,
       agentReleaseAt: hasReleaseDate ? releaseDate!.toISOString() : null,
@@ -983,6 +990,34 @@ export function TaskDetailPanel({ task, columnName, projectId, orgId, members = 
             )}
             {!hideAgentSection && assigneeAgentId && (
               <div className="mt-3 rounded-[var(--radius-btn)] border border-[var(--color-card-border)] bg-[var(--color-card)] p-3 space-y-2">
+                <div className="grid gap-2 sm:grid-cols-2">
+                  <label className="space-y-1">
+                    <span className="block text-[9px] font-label uppercase tracking-widest text-on-surface-variant">Effort</span>
+                    <select
+                      value={agentEffort}
+                      onChange={e => { setAgentEffort(e.target.value as AgentEffort | ''); setEditing(true) }}
+                      className="w-full rounded-[var(--radius-btn)] border border-[var(--color-card-border)] bg-[var(--color-surface-container)] px-2 py-2 text-xs text-on-surface focus:border-[var(--color-accent-v2)] focus:outline-none"
+                    >
+                      <option value="">Auto</option>
+                      {AGENT_EFFORT_OPTIONS.map(option => (
+                        <option key={option.value} value={option.value}>{option.label}</option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="space-y-1">
+                    <span className="block text-[9px] font-label uppercase tracking-widest text-on-surface-variant">Model</span>
+                    <select
+                      value={agentModel}
+                      onChange={e => { setAgentModel(e.target.value as AgentModel | ''); setEditing(true) }}
+                      className="w-full rounded-[var(--radius-btn)] border border-[var(--color-card-border)] bg-[var(--color-surface-container)] px-2 py-2 text-xs text-on-surface focus:border-[var(--color-accent-v2)] focus:outline-none"
+                    >
+                      <option value="">Auto</option>
+                      {AGENT_MODEL_OPTIONS.map(option => (
+                        <option key={option.value} value={option.value}>{option.label}</option>
+                      ))}
+                    </select>
+                  </label>
+                </div>
                 <div className="flex items-center justify-between gap-2">
                   <p className="text-[9px] font-label uppercase tracking-widest text-on-surface-variant">Scheduled release</p>
                   {task.agentReleaseStatus === 'scheduled' && Boolean(task.agentReleaseAt) && (

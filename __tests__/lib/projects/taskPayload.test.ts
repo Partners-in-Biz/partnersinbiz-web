@@ -198,6 +198,8 @@ describe('project task payload helpers', () => {
             },
           },
           riskLevel: 'critical',
+          agentEffort: 'high',
+          agentModel: 'claude-sonnet-4-6',
           requiredCapability: 'deploy',
           requestedByAgentId: 'pip',
           expectedArtifacts: ['pull_request', 'deployment_url', 'test_report'],
@@ -218,6 +220,8 @@ describe('project task payload helpers', () => {
         reviewerIds: ['reviewer-1'],
         reviewerAgentId: 'qa-release',
         riskLevel: 'critical',
+        agentEffort: 'high',
+        agentModel: 'claude-sonnet-4-6',
         requiredCapability: 'deploy',
         requestedByAgentId: 'pip',
         expectedArtifacts: ['pull_request', 'deployment_url', 'test_report'],
@@ -236,6 +240,40 @@ describe('project task payload helpers', () => {
           otherContext: { keep: true },
         },
       })
+    })
+
+    it('accepts and clears agent effort/model overrides on update', () => {
+      const setResult = buildProjectTaskUpdateData({
+        agentEffort: 'xhigh',
+        agentModel: 'gpt-5.5',
+      })
+      expect(setResult.ok).toBe(true)
+      if (!setResult.ok) return
+      expect(setResult.value).toEqual({
+        agentEffort: 'xhigh',
+        agentModel: 'gpt-5.5',
+      })
+
+      const clearResult = buildProjectTaskUpdateData({
+        agentEffort: '',
+        agentModel: null,
+      })
+      expect(clearResult.ok).toBe(true)
+      if (!clearResult.ok) return
+      expect(clearResult.value).toEqual({
+        agentEffort: null,
+        agentModel: null,
+      })
+    })
+
+    it('rejects unknown agent effort/model overrides', () => {
+      const effort = buildProjectTaskCreateData({ title: 'Bad effort', agentEffort: 'maximum' }, 'project-1', 'org-1')
+      expect(effort.ok).toBe(false)
+      if (!effort.ok) expect(effort.error).toMatch(/Invalid agentEffort/)
+
+      const model = buildProjectTaskCreateData({ title: 'Bad model', agentModel: 'glm-4.7' }, 'project-1', 'org-1')
+      expect(model.ok).toBe(false)
+      if (!model.ok) expect(model.error).toMatch(/Invalid agentModel/)
     })
 
     it('CREATE: explicit gated agentStatus controls the starting column', () => {

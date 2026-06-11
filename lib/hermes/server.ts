@@ -210,6 +210,8 @@ export async function createHermesRun(link: HermesProfileLink, requestedBy: stri
     hermesRunId,
     requestedBy,
     prompt: request.prompt,
+    ...(request.model ? { model: request.model } : {}),
+    ...(request.reasoning_effort ? { reasoningEffort: request.reasoning_effort } : {}),
     status: payload.status ?? 'submitted',
     response: data,
     createdAt: FieldValue.serverTimestamp(),

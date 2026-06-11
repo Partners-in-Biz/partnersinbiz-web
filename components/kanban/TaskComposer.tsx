@@ -3,6 +3,7 @@
 import { useMemo, useRef, useState } from 'react'
 import VoiceInputButton from '@/components/chat/VoiceInputButton'
 import { ContextReferencePicker } from '@/components/context-references/ContextReferencePicker'
+import { AGENT_EFFORT_OPTIONS, AGENT_MODEL_OPTIONS, type AgentEffort, type AgentModel } from '@/lib/agents/runRouting'
 import type { ContextReference } from '@/lib/context-references/types'
 import type { AgentId, AgentMember, Attachment, ChecklistItem, Column, Task, TeamMember } from './types'
 
@@ -108,6 +109,8 @@ export function TaskComposer({ open, column, projectId, orgId, members, agents =
   const [dependsOn, setDependsOn] = useState<string[]>([])
   const [reviewerIds, setReviewerIds] = useState<string[]>([])
   const [reviewerAgentId, setReviewerAgentId] = useState<AgentId | ''>('')
+  const [agentEffort, setAgentEffort] = useState<AgentEffort | ''>('')
+  const [agentModel, setAgentModel] = useState<AgentModel | ''>('')
   const [checklistText, setChecklistText] = useState('')
   const [files, setFiles] = useState<File[]>([])
   const [dragging, setDragging] = useState(false)
@@ -157,6 +160,8 @@ export function TaskComposer({ open, column, projectId, orgId, members, agents =
     setDependsOn([])
     setReviewerIds([])
     setReviewerAgentId('')
+    setAgentEffort('')
+    setAgentModel('')
     setChecklistText('')
     setFiles([])
     setError(null)
@@ -220,6 +225,8 @@ export function TaskComposer({ open, column, projectId, orgId, members, agents =
         dependsOn,
         reviewerIds,
         reviewerAgentId: reviewerAgentId || null,
+        agentEffort: agentId && agentEffort ? agentEffort : null,
+        agentModel: agentId && agentModel ? agentModel : null,
         dueDate: dueDate || null,
         startDate: startDate || null,
         estimateMinutes: Number.isFinite(estimate) && estimate > 0 ? Math.round(estimate * 60) : null,
@@ -530,6 +537,36 @@ export function TaskComposer({ open, column, projectId, orgId, members, agents =
                     />
                     <span className="material-symbols-outlined text-[16px] text-on-surface-variant">hub</span>
                     <span className="min-w-0 flex-1 truncate text-sm text-on-surface">Pip orchestration</span>
+                  </label>
+                </div>
+              )}
+              {!hideAgentSection && assigneeAgentId && assignmentMode !== 'people' && (
+                <div className="mt-3 grid gap-2 rounded-md border border-[var(--color-card-border)] bg-[var(--color-card)] p-3 sm:grid-cols-2">
+                  <label className="space-y-1">
+                    <span className="block text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Effort</span>
+                    <select
+                      value={agentEffort}
+                      onChange={(event) => setAgentEffort(event.target.value as AgentEffort | '')}
+                      className="w-full rounded-md border border-[var(--color-card-border)] bg-[var(--color-surface-container)] px-2 py-2 text-xs text-on-surface focus:border-[var(--color-accent-v2)] focus:outline-none"
+                    >
+                      <option value="">Auto</option>
+                      {AGENT_EFFORT_OPTIONS.map((option) => (
+                        <option key={option.value} value={option.value}>{option.label}</option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="space-y-1">
+                    <span className="block text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Model</span>
+                    <select
+                      value={agentModel}
+                      onChange={(event) => setAgentModel(event.target.value as AgentModel | '')}
+                      className="w-full rounded-md border border-[var(--color-card-border)] bg-[var(--color-surface-container)] px-2 py-2 text-xs text-on-surface focus:border-[var(--color-accent-v2)] focus:outline-none"
+                    >
+                      <option value="">Auto</option>
+                      {AGENT_MODEL_OPTIONS.map((option) => (
+                        <option key={option.value} value={option.value}>{option.label}</option>
+                      ))}
+                    </select>
                   </label>
                 </div>
               )}

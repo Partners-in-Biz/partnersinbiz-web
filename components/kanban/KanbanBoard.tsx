@@ -275,6 +275,11 @@ function TaskCard({
                   {AGENT_STATUS_STYLE[task.agentStatus].label}
                 </span>
               )}
+              {task.agentEffort && (
+                <span className="rounded bg-white/10 px-1.5 py-0.5 text-[9px] font-label uppercase tracking-wide text-on-surface-variant">
+                  {task.agentEffort}
+                </span>
+              )}
             </span>
           )}
         </div>

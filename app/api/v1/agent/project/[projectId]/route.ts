@@ -58,6 +58,7 @@ export const GET = withAuth('admin', async (req: NextRequest, user, ctx) => {
   const documents = docsSnapshot.docs.map(doc => {
     const data = doc.data()
     return {
+      id: doc.id,
       title: data.title ?? '',
       content: data.content ?? '',
       type: data.type ?? 'notes',
@@ -85,6 +86,8 @@ export const GET = withAuth('admin', async (req: NextRequest, user, ctx) => {
       status: data.status ?? data.columnId ?? '',
       assigneeAgentId: data.assigneeAgentId ?? null,
       agentStatus: data.agentStatus ?? null,
+      agentEffort: data.agentEffort ?? null,
+      agentModel: data.agentModel ?? null,
       agentInput: data.agentInput ?? null,
       agentOutput: data.agentOutput ?? null,
       dependsOn: Array.isArray(data.dependsOn) ? data.dependsOn : [],

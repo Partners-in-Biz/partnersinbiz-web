@@ -3,6 +3,7 @@
 import { FormEvent, KeyboardEvent, useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 import type { ChatEvent } from '@/lib/hermes/types'
 import { AGENT_IDS, type AgentSkillPolicyState } from '@/lib/agents/types'
+import { AGENT_EFFORT_OPTIONS, type AgentEffort } from '@/lib/agents/runRouting'
 import {
   extractCurrentPageContextCommand,
   filterContextReferenceMentionOptions,
@@ -191,6 +192,7 @@ export default function UnifiedChat({
   const [selectedSlashCommand, setSelectedSlashCommand] = useState<SlashCommandDefinition | null>(null)
   const [contextSearchResults, setContextSearchResults] = useState<ContextReference[]>([])
   const [contextSearchLoading, setContextSearchLoading] = useState(false)
+  const [agentEffort, setAgentEffort] = useState<AgentEffort | ''>('')
 
   // Agent map for looking up colorKey / iconKey for bubbles
   const [agentMap, setAgentMap] = useState<Record<AgentId, AgentTeamDoc>>({} as Record<AgentId, AgentTeamDoc>)
@@ -1118,6 +1120,7 @@ export default function UnifiedChat({
           ...(uploadedAttachments.length > 0 ? { attachments: uploadedAttachments } : {}),
           ...(refsForSend.length > 0 ? { contextRefs: refsForSend } : {}),
           ...(slashPayload ? { slashCommand: slashPayload } : {}),
+          ...(agentEffort ? { agentEffort } : {}),
           status: 'completed',
           createdAt: { seconds: nowSec },
         }
@@ -1144,6 +1147,7 @@ export default function UnifiedChat({
             attachments: uploadedAttachments,
             contextRefs: refsForSend,
             ...(slashPayload ? { slashCommand: slashPayload } : {}),
+            ...(agentEffort ? { agentEffort } : {}),
           }),
         })
         const body = await res.json()
@@ -1178,6 +1182,7 @@ export default function UnifiedChat({
       activeId,
       input,
       attachments,
+      agentEffort,
       sending,
       contextRefs,
       pinCurrentPageContext,
@@ -1770,6 +1775,25 @@ export default function UnifiedChat({
               onTranscript={addVoiceTranscriptToComposer}
               className="self-end"
             />
+
+            {allowAgentParticipants && (
+              <label className="self-end">
+                <span className="sr-only">Thinking effort</span>
+                <select
+                  value={agentEffort}
+                  onChange={(event) => setAgentEffort(event.target.value as AgentEffort | '')}
+                  disabled={sending}
+                  title="Thinking effort"
+                  aria-label="Thinking effort"
+                  className="h-9 rounded-full border border-[var(--color-card-border)] bg-white/[0.04] px-2 text-[11px] text-on-surface-variant outline-none transition-colors hover:bg-white/[0.08] hover:text-on-surface focus:border-primary disabled:opacity-40"
+                >
+                  <option value="">Auto</option>
+                  {AGENT_EFFORT_OPTIONS.map((option) => (
+                    <option key={option.value} value={option.value}>{option.label}</option>
+                  ))}
+                </select>
+              </label>
+            )}
 
             <textarea
               ref={composerRef}
