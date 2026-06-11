@@ -60,6 +60,7 @@ const nextConfig = {
       { source: '/admin/briefings', destination: '/portal/briefings', permanent: false },
       { source: '/admin/briefings/:path*', destination: '/portal/briefings/:path*', permanent: false },
       // P2 email cluster convergence: portal is the only email workspace
+      { source: '/admin/email/inbound', destination: '/portal/email/inbound', permanent: false },
       { source: '/admin/email', destination: '/portal/email', permanent: false },
       { source: '/admin/email/:path*', destination: '/portal/email', permanent: false },
       // P2 email-analytics convergence

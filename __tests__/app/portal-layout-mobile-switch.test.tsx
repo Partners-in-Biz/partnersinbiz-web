@@ -1,6 +1,6 @@
 import React from 'react'
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
-import PortalLayout from '@/app/(portal)/layout'
+import PortalLayout from '@/app/(portal)/PortalLayoutClient'
 
 const pushMock = jest.fn()
 const refreshMock = jest.fn()

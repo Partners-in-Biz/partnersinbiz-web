@@ -116,6 +116,13 @@ function activeRelationshipsFor(company: Company, relationships: BusinessRelatio
   ))
 }
 
+// SANCTIONED CROSS-ORG READ (portal-first convergence spec §7.2).
+// This module is the only place allowed to read across org boundaries:
+// a company command center may aggregate counts/statuses from the org the
+// company is LINKED to (company.linkedOrgId) and from active business
+// relationships — never raw records from unrelated orgs. Any new cross-org
+// read elsewhere in the codebase is a spec violation; add it here or stop
+// and ask.
 function documentCandidateOrgIds(company: Company, relationships: BusinessRelationship[] = []): string[] {
   const activeRelationships = activeRelationshipsFor(company, relationships)
   const orgIds = new Set<string>([company.orgId])

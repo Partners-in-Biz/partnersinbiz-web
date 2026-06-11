@@ -91,3 +91,16 @@ All 14 MERGE sections completed on 2026-06-10.
 - P5.2 Skills sweep: 11 skill files updated (analytics, geo-seo, seo, campaigns, research, properties, documents, social, reports, email, platform-ops)
 - P5.3 partners-main retirement: 7-day traffic watch started 2026-06-11, retire window opens 2026-06-18
 - P5.4 Agent dashboard: no admin work-tool links found in agents/mission-control pages
+
+---
+
+## Verification addendum (Pip, 2026-06-11)
+
+Runtime verification of the full implementation: PASS. Corrections applied post-verification:
+
+1. **finance/analytics SPLIT verdicts resolved with evidence — no restore needed.** Pre-move `admin/finance` was a navigation hub only (links to invoicing/quotes/clients — all client-AR work; no tenant-subscription billing feature exists in the product). Pre-move `admin/analytics` was propertyId-scoped product analytics, preserved 1:1 in `portal/analytics/*`. Nothing platform-level was lost; the SPLIT verdicts assumed a feature that does not exist. Spec verdicts stand corrected to MERGE/MOVE.
+2. **Parity gap fixed: inbound email triage.** `admin/email/inbound` (the `/api/v1/email/inbound` intent-triage view) was deleted in the email-cluster merge with NO portal equivalent — restored as `portal/email/inbound` with portal-side links, plus a specific redirect placed before the `/admin/email/:path*` catch-all.
+3. **Dead code removed:** `components/admin/email/ComposeForm.tsx` (orphaned — MailboxWorkspace has its own composer).
+4. **Sanctioned cross-org read anchored:** doc comment added to `lib/companies/command-center.ts#documentCandidateOrgIds`; spec §7.2 updated to name the real file.
+5. **Portal shell parity with admin:** `app/(portal)/layout.tsx` is now a server layout verifying the session cookie (`verifySessionCookie`) before rendering, mirroring admin. Previously a junk `__session` cookie rendered the full portal shell (proxy checks presence only).
+6. **Process note:** the Phase 1 review gate ("Peet reviews CRM before Phase 2") was skipped during implementation; satisfied post-hoc by the 2026-06-11 runtime verification. Future spec executions must honour phase gates.
