@@ -265,6 +265,34 @@ describe('UnifiedChat context references', () => {
     }))
   })
 
+  it('places thinking effort beside the current-page control instead of inside the input pill', async () => {
+    render(
+      <UnifiedChat
+        orgId="org-1"
+        currentUserUid="user-1"
+        currentUserDisplayName="Peet"
+        currentPageContext={{
+          type: 'contact',
+          id: 'contact-1',
+          orgId: 'org-1',
+          origin: 'current_page',
+          href: '/admin/crm/contacts/contact-1',
+        }}
+      />,
+    )
+
+    await screen.findByPlaceholderText('Send a message')
+
+    const contextToolbar = screen.getByTestId('chat-context-toolbar')
+    const currentPageButton = screen.getByRole('button', { name: /Use current page/ })
+    const thinkingEffort = screen.getByLabelText('Thinking effort')
+    const inputPill = screen.getByTestId('chat-input-pill')
+
+    expect(contextToolbar).toContainElement(currentPageButton)
+    expect(contextToolbar).toContainElement(thinkingEffort)
+    expect(inputPill).not.toContainElement(thinkingEffort)
+  })
+
   it('treats the exact current-page phrase as a pin-only command', async () => {
     render(
       <UnifiedChat
