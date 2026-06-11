@@ -1,5 +1,7 @@
 import { notFound, redirect } from 'next/navigation'
 import { listCampaigns } from '@/lib/ads/campaigns/store'
+import { listConnections } from '@/lib/ads/connections/store'
+import { summarizeAdConnections } from '@/lib/ads/provider-display'
 import { AdCampaignsWorkspace } from '@/components/ads/AdCampaignsWorkspace'
 import { BulkApproveButton } from '@/components/ads/BulkApproveButton'
 import {
@@ -29,7 +31,10 @@ export default async function PortalAdsListPage({
     )
   }
 
-  const campaigns = await listCampaigns({ orgId: user.orgId })
+  const [campaigns, connections] = await Promise.all([
+    listCampaigns({ orgId: user.orgId }),
+    listConnections({ orgId: user.orgId }),
+  ])
   const awaiting = campaigns.filter((c) => c.reviewState === 'awaiting')
 
   return (
@@ -37,6 +42,7 @@ export default async function PortalAdsListPage({
       surface="portal"
       title=""
       campaigns={campaigns}
+      connectionSummaries={summarizeAdConnections(connections)}
       campaignHref={(campaign) => scopedPortalHref(`/portal/ads/campaigns/${campaign.id}`, scope)}
       bulkReviewAction={
         awaiting.length > 0 ? <BulkApproveButton count={awaiting.length} orgId={scope.orgId} /> : null

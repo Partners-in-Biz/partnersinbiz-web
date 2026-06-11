@@ -20,7 +20,7 @@ export default function PortalAdsLayout({ children }: { children: React.ReactNod
           </Link>
           <h1 className="mt-1 text-2xl font-semibold text-[var(--color-pib-text)]">Ads</h1>
           <p className="text-sm text-[var(--color-pib-text-muted)]">
-            Your live Meta ad campaigns and any drafts awaiting your review.
+            Your multi-platform ad campaigns and any drafts awaiting your review.
           </p>
         </div>
         <Link
