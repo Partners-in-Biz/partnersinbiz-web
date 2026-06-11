@@ -185,9 +185,14 @@ export const POST = withAuth('admin', async (req: NextRequest, user) => {
   const copy = extractCopy(source)
   const landingUrl = cleanString(source.landingUrl) ?? cleanString(source.destinationUrl) ?? cleanString(source.url)
   const utm = normalizeUtm(source.utm ?? source.utmDefaults)
+  const videoCoverUrl = cleanString(source.videoCoverUrl) ?? cleanString(source.coverUrl) ?? (creativeType === 'video' ? cleanString(asset?.mediaUrl) : undefined)
 
   if (!asset || !creativeType || !sourceUrl || !storagePath || !mimeType || typeof fileSize !== 'number' || !copy || !landingUrl || Object.keys(utm).length === 0) {
     return apiError('Missing required approved source fields: asset, copy, landingUrl, UTM snapshot, sourceUrl, storagePath, mimeType, fileSize', 400)
+  }
+
+  if (creativeType === 'video' && (typeof asset.duration !== 'number' || !videoCoverUrl)) {
+    return apiError('Missing required approved video metadata: duration and videoCoverUrl', 400)
   }
 
   const input: CreateAdCreativeInput = {
@@ -244,7 +249,7 @@ export const POST = withAuth('admin', async (req: NextRequest, user) => {
     landingUrl,
     utmDefaults: utm,
     thumbnailUrl: cleanString(source.thumbnailUrl) ?? (creativeType === 'image' ? sourceUrl : undefined),
-    videoCoverUrl: cleanString(source.videoCoverUrl) ?? cleanString(source.coverUrl) ?? (creativeType === 'video' ? cleanString(asset.mediaUrl) : undefined),
+    videoCoverUrl,
     placementSuitability: jsonObjectOrArray(source.placementSuitability),
     specValidation: jsonObjectOrArray(source.specValidation),
   }

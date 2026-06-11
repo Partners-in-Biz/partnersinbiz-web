@@ -37,6 +37,8 @@ const baseCreative = {
   mimeType: 'image/jpeg',
   fileSize: 250_000,
   status: 'READY',
+  approvalStatus: 'approved',
+  approvalTaskId: 'task_approved',
   platformRefs: {},
 }
 
@@ -103,5 +105,27 @@ describe('POST /api/v1/ads/creatives/[id]/sync/[platform]', () => {
       { params: Promise.resolve({ id: 'crv_1', platform: 'meta' }) },
     )
     expect(res.status).toBe(404)
+  })
+
+  it('blocks approved-looking creatives when paid-media approval evidence is absent before provider sync', async () => {
+    store.getCreative.mockResolvedValueOnce({
+      ...baseCreative,
+      approvalStatus: 'draft',
+      approvalTaskId: undefined,
+      approvalDocumentId: undefined,
+      approvalCommentId: undefined,
+    })
+
+    const res = await POST(
+      makeReq(),
+      {} as any,
+      { params: Promise.resolve({ id: 'crv_1', platform: 'meta' }) },
+    )
+    const body = await res.json()
+
+    expect(res.status).toBe(403)
+    expect(body.error).toMatch(/approval evidence/i)
+    expect(helpers.requireMetaContext).not.toHaveBeenCalled()
+    expect(registryMock.getProvider).not.toHaveBeenCalled()
   })
 })

@@ -175,4 +175,94 @@ describe('POST /api/v1/ads/creatives/import', () => {
     expect(body.error).toMatch(/required/i)
     expect(mockCreateCreative).not.toHaveBeenCalled()
   })
+
+  it('imports approved video assets with duration and video-cover metadata preserved in the immutable snapshot', async () => {
+    mockCollection.mockImplementationOnce((collectionName: string) => ({
+      doc: jest.fn(() => ({
+        get: jest.fn(async () => ({
+          exists: collectionName === 'social_posts',
+          id: 'post_1',
+          data: () => ({
+            ...approvedSocialPost,
+            videoCoverUrl: 'https://cdn.example.com/video-cover.jpg',
+            thumbnailUrl: 'https://cdn.example.com/video-thumb.jpg',
+            media: [
+              {
+                type: 'video',
+                name: 'Launch video',
+                url: 'https://cdn.example.com/launch.mp4',
+                storagePath: 'orgs/org_1/social/post_1/launch.mp4',
+                mimeType: 'video/mp4',
+                fileSize: 9_999_999,
+                width: 1080,
+                height: 1920,
+                duration: 27,
+              },
+            ],
+          }),
+        })),
+      })),
+    }))
+
+    const res = await POST(request({ sourceType: 'social_post', sourceId: 'post_1' }), { uid: 'theo' } as any)
+
+    expect(res.status).toBe(201)
+    expect(mockCreateCreative).toHaveBeenCalledWith(expect.objectContaining({
+      input: expect.objectContaining({
+        type: 'video',
+        name: 'Launch video',
+        duration: 27,
+        thumbnailUrl: 'https://cdn.example.com/video-thumb.jpg',
+        videoCoverUrl: 'https://cdn.example.com/video-cover.jpg',
+        landingUrl: 'https://example.com/offer',
+        utmDefaults: { source: 'linkedin', campaign: 'launch' },
+        source: expect.objectContaining({
+          snapshot: expect.objectContaining({
+            copy: 'Approved caption',
+            landingUrl: 'https://example.com/offer',
+            utm: { source: 'linkedin', campaign: 'launch' },
+            asset: expect.objectContaining({
+              type: 'video',
+              sourceUrl: 'https://cdn.example.com/launch.mp4',
+              storagePath: 'orgs/org_1/social/post_1/launch.mp4',
+              mimeType: 'video/mp4',
+              fileSize: 9_999_999,
+              duration: 27,
+            }),
+          }),
+        }),
+      }),
+    }))
+  })
+
+  it('blocks approved video imports when duration or video-cover metadata is missing', async () => {
+    mockCollection.mockImplementationOnce((collectionName: string) => ({
+      doc: jest.fn(() => ({
+        get: jest.fn(async () => ({
+          exists: collectionName === 'social_posts',
+          id: 'post_1',
+          data: () => ({
+            ...approvedSocialPost,
+            videoCoverUrl: '',
+            media: [
+              {
+                type: 'video',
+                url: 'https://cdn.example.com/launch.mp4',
+                storagePath: 'orgs/org_1/social/post_1/launch.mp4',
+                mimeType: 'video/mp4',
+                fileSize: 9_999_999,
+              },
+            ],
+          }),
+        })),
+      })),
+    }))
+
+    const res = await POST(request({ sourceType: 'social_post', sourceId: 'post_1' }), { uid: 'theo' } as any)
+    const body = await res.json()
+
+    expect(res.status).toBe(400)
+    expect(body.error).toMatch(/video metadata/i)
+    expect(mockCreateCreative).not.toHaveBeenCalled()
+  })
 })

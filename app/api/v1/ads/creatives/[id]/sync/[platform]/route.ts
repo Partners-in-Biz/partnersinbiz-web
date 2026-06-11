@@ -30,6 +30,10 @@ export const POST = withAuth(
       return apiError(`Platform ${platform} sync not implemented yet`, 501)
     }
 
+    if (c.approvalStatus !== 'approved' || (!c.approvalTaskId && !c.approvalDocumentId && !c.approvalCommentId)) {
+      return apiError('Creative must have approved paid-media approval evidence before platform sync', 403)
+    }
+
     const ctx = await requireMetaContext(req)
     if (ctx instanceof Response) return ctx
 

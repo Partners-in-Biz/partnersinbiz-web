@@ -64,6 +64,17 @@ describe('syncImageCreative', () => {
       }),
     ).rejects.toThrow(/syncImageCreative called with type video/)
   })
+
+  it('blocks provider sync when required image fields are missing', async () => {
+    await expect(
+      syncImageCreative({
+        adAccountId: 'a',
+        accessToken: 't',
+        creative: makeImageCreative({ sourceUrl: '' }),
+      }),
+    ).rejects.toThrow(/missing sourceUrl, mimeType, or fileSize/)
+    expect(upload.uploadImageFromUrl).not.toHaveBeenCalled()
+  })
 })
 
 describe('syncVideoCreative', () => {
@@ -74,7 +85,7 @@ describe('syncVideoCreative', () => {
     const r = await syncVideoCreative({
       adAccountId: '99',
       accessToken: 'EAAO',
-      creative: makeImageCreative({ type: 'video', mimeType: 'video/mp4', sourceUrl: 'https://storage/v.mp4' }),
+      creative: makeImageCreative({ type: 'video', mimeType: 'video/mp4', sourceUrl: 'https://storage/v.mp4', duration: 30 }),
     })
     expect(r.metaCreativeId).toBe('video_42')
     expect((global.fetch as jest.Mock).mock.calls[1][0]).toContain('act_99/advideos')
@@ -88,9 +99,20 @@ describe('syncVideoCreative', () => {
       syncVideoCreative({
         adAccountId: 'act_1',
         accessToken: 't',
-        creative: makeImageCreative({ type: 'video', mimeType: 'video/mp4' }),
+        creative: makeImageCreative({ type: 'video', mimeType: 'video/mp4', duration: 30 }),
       }),
     ).rejects.toThrow(/Bad video/)
+  })
+
+  it('blocks provider sync when required video metadata is missing', async () => {
+    await expect(
+      syncVideoCreative({
+        adAccountId: 'act_1',
+        accessToken: 't',
+        creative: makeImageCreative({ type: 'video', mimeType: 'video/mp4', duration: undefined }),
+      }),
+    ).rejects.toThrow(/missing sourceUrl, mimeType, fileSize, or duration/)
+    expect(global.fetch).not.toHaveBeenCalled()
   })
 })
 
@@ -135,7 +157,7 @@ describe('ensureSynced', () => {
       orgId: 'org_1',
       adAccountId: 'act_42',
       accessToken: 't',
-      creative: makeImageCreative({ type: 'video', mimeType: 'video/mp4', sourceUrl: 'https://x/v.mp4' }),
+      creative: makeImageCreative({ type: 'video', mimeType: 'video/mp4', sourceUrl: 'https://x/v.mp4', duration: 30 }),
     })
     expect(r.metaCreativeId).toBe('video_999')
     expect(store.setPlatformRef).toHaveBeenCalled()

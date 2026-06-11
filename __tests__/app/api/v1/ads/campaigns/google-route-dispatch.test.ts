@@ -247,7 +247,7 @@ describe('DELETE /api/v1/ads/campaigns/[id] — Google dispatch', () => {
 
 describe('POST /api/v1/ads/campaigns/[id]/launch — Google dispatch', () => {
   it('blocks launch when persisted campaign approval evidence is missing', async () => {
-    store.getCampaign.mockResolvedValueOnce(approvedGoogleCampaign)
+    store.getCampaign.mockResolvedValueOnce(googleCampaign)
 
     const res = await launchPOST(
       new Request('http://x', { method: 'POST', headers: { 'X-Org-Id': 'org-1' } }) as any,
