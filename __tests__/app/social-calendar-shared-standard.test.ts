@@ -9,7 +9,6 @@ function readRoute(relativePath: string) {
 
 describe('social calendar shared workspace standard', () => {
   const routes = [
-    'app/(admin)/admin/social/calendar/page.tsx',
     'app/(portal)/portal/social/calendar/page.tsx',
   ]
 

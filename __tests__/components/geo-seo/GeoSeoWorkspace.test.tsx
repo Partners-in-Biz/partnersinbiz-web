@@ -26,7 +26,7 @@ describe('GeoSeoWorkspace', () => {
     expect(screen.getByText((_, element) => element?.textContent === 'Audit needs-review')).toBeInTheDocument()
     expect(screen.getByText((_, element) => element?.textContent === 'Report draft')).toBeInTheDocument()
     expect(screen.getByText('+8 pts')).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: /Open workspace/i })).toHaveAttribute('href', '/admin/geo-seo/workspaces/geo-1')
+    expect(screen.getByRole('link', { name: /Open workspace/i })).toHaveAttribute('href', '/portal/geo-seo/workspaces/geo-1')
   })
 
   it('preserves CRM source-company and linked-organisation context in the banner and links', () => {

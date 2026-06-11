@@ -604,7 +604,8 @@ function adminSourceHref(item: BriefingCard) {
   if (item.source.type === 'campaign') return `/portal/campaigns/${encodeURIComponent(item.source.id)}`
   if (item.source.type === 'form-submission') {
     const formId = item.context.formId
-    if (formId) return `/portal/capture-sources/${encodeURIComponent(formId)}/submissions/${encodeURIComponent(item.source.id)}`
+    // No submissions detail page exists yet (tracked in convergence tracker); land on the capture-sources workspace.
+    if (formId) return `/portal/capture-sources?formId=${encodeURIComponent(formId)}`
     return item.source.url || null
   }
   if (item.source.type === 'enquiry') return item.source.url || `/admin/briefings?source=enquiry&id=${encodeURIComponent(item.source.id)}`

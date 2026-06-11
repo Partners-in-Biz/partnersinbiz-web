@@ -10,18 +10,15 @@ function source(relativePath: string) {
 describe('properties shared workspace standard', () => {
   it('keeps admin and portal property routes on one shared workspace surface', () => {
     const sharedWorkspacePath = path.join(root, 'components/properties/PropertiesWorkspace.tsx')
-    const adminRoute = source('app/(admin)/admin/properties/page.tsx')
     const portalRoute = source('app/(portal)/portal/properties/page.tsx')
 
     expect(existsSync(sharedWorkspacePath)).toBe(true)
     expect(source('components/properties/PropertiesWorkspace.tsx')).toContain('export function PropertiesWorkspace')
 
-    expect(adminRoute).toContain('@/components/properties/PropertiesWorkspace')
-    expect(adminRoute).toContain('surface="admin"')
     expect(portalRoute).toContain('@/components/properties/PropertiesWorkspace')
     expect(portalRoute).toContain('surface="portal"')
 
-    for (const route of [adminRoute, portalRoute]) {
+    for (const route of [portalRoute]) {
       expect(route).not.toContain('const STATUS_MAP')
       expect(route).not.toContain('function Skeleton')
       expect(route).not.toContain('interface PortalProperty')

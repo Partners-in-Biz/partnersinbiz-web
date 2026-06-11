@@ -50,7 +50,7 @@ describe('MailboxDrawer', () => {
     fireEvent.click(action)
 
     expect(await screen.findByRole('complementary', { name: 'Email mailbox' })).toBeInTheDocument()
-    expect(screen.getByTitle('Email mailbox')).toHaveAttribute('src', '/admin/email/mailbox?compact=1')
+    expect(screen.getByTitle('Email mailbox')).toHaveAttribute('src', '/portal/email?compact=1')
   })
 
   it('notifies the shell when email is opened so mobile navigation can close', async () => {

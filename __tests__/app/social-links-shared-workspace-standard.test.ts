@@ -9,7 +9,6 @@ function source(file: string) {
 
 describe('social links shared workspace standard', () => {
   const routes = [
-    'app/(admin)/admin/social/links/page.tsx',
     'app/(portal)/portal/social/links/page.tsx',
   ]
 

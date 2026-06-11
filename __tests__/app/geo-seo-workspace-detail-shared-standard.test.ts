@@ -11,14 +11,13 @@ describe('GEO SEO workspace detail shared standard', () => {
   it('keeps admin, admin-org, and portal workspace detail routes as shared detail adapters', () => {
     const sharedDetail = read('components/geo-seo/GeoSeoWorkspaceDetail.tsx')
     const dataLoader = read('lib/geo-seo/workspaces.ts')
-    const adminGlobalRoute = read('app/(admin)/admin/geo-seo/workspaces/[id]/page.tsx')
     const adminOrgRoute = read('app/(admin)/admin/org/[slug]/geo-seo/workspaces/[id]/page.tsx')
     const portalRoute = read('app/(portal)/portal/geo-seo/workspaces/[id]/page.tsx')
 
     expect(sharedDetail).toContain('export function GeoSeoWorkspaceDetail')
     expect(dataLoader).toContain('export async function loadGeoSeoWorkspace')
 
-    for (const route of [adminGlobalRoute, adminOrgRoute, portalRoute]) {
+    for (const route of [adminOrgRoute, portalRoute]) {
       expect(route).toContain("@/components/geo-seo/GeoSeoWorkspaceDetail")
       expect(route).toContain('loadGeoSeoWorkspace')
       expect(route).toContain('<GeoSeoWorkspaceDetail')
@@ -27,7 +26,6 @@ describe('GEO SEO workspace detail shared standard', () => {
       expect(route).not.toContain('Client report actions gated')
     }
 
-    expect(adminGlobalRoute).toContain('backHref="/admin/geo-seo"')
     expect(adminOrgRoute).toContain('surface="admin"')
     expect(adminOrgRoute).toContain('backHref={`/admin/org/${encodeURIComponent(slug)}/geo-seo`}')
     expect(portalRoute).toContain('surface="portal"')

@@ -19,7 +19,6 @@ describe('shared timestamp format standard', () => {
     expect(source('lib/format/timestamp.ts')).toContain('export function fmtTimestamp')
 
     const consumers = [
-      'app/(admin)/admin/crm/contacts/[id]/page.tsx',
       'app/(portal)/portal/contacts/[id]/page.tsx',
       'app/(portal)/portal/dashboard/page.tsx',
       'app/(portal)/portal/deals/[id]/page.tsx',
