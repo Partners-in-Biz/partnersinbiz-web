@@ -60,9 +60,9 @@ describe('project detail shared workspace standard', () => {
 
     expect(workspace).toContain('settingsSourceCompanyId')
     expect(workspace).toContain('sourceCompanyId: cleanSourceCompanyId || undefined')
-    expect(workspace).toContain('companyIds: cleanAdditionalCompanyIds')
+    expect(workspace).toContain('companyIds: cleanCompanyIds')
     expect(workspace).toContain('sourceContactId: cleanSourceContactId || undefined')
-    expect(workspace).toContain('contactIds: cleanAdditionalContactIds')
+    expect(workspace).toContain('contactIds: cleanContactIds')
     expect(settingsPanel).toContain('CRM relationships')
     expect(settingsPanel).toContain('Primary company')
     expect(settingsPanel).toContain('Additional company links')

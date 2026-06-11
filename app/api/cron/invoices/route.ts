@@ -4,6 +4,7 @@ import { FieldValue, Timestamp } from 'firebase-admin/firestore'
 import { adminDb } from '@/lib/firebase/admin'
 import { apiSuccess, apiError } from '@/lib/api/response'
 import { generateInvoiceNumber } from '@/lib/invoices/invoice-number'
+import { generateInvoicePdfShareToken } from '@/lib/invoices/share-token'
 import { calculateNextDueAt, RecurrenceInterval } from '@/lib/invoices/recurring'
 import { dispatchWebhook } from '@/lib/webhooks/dispatch'
 
@@ -54,6 +55,7 @@ export async function GET(req: NextRequest) {
       const invoiceDoc = {
         orgId: template.orgId,
         invoiceNumber,
+        pdfShareToken: generateInvoicePdfShareToken(),
         status: 'draft' as const,
         issueDate: FieldValue.serverTimestamp(),
         dueDate,
@@ -143,7 +145,7 @@ export async function GET(req: NextRequest) {
               type: 'invoice.overdue',
               title: 'Invoice overdue',
               body: `Invoice ${invoiceNumber} is past its due date`,
-              link: `/admin/invoices/${doc.id}`,
+              link: `/portal/invoicing/${doc.id}`,
               status: 'unread',
               priority: 'high',
               createdAt: FieldValue.serverTimestamp(),

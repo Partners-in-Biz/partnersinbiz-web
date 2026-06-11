@@ -213,6 +213,56 @@ describe('Admin contact detail page', () => {
     expect(headerEmailLink).toHaveAttribute('href', '/admin/email/compose?to=jane%40example.com&contactId=contact-1&orgId=org-1')
   })
 
+  it('hides decorative icons from admin header profile-completion commands', async () => {
+    contactOverride = { email: '', phone: '', company: '', companyId: '', companyName: '' }
+
+    render(<AdminContactDetailPage />)
+
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { name: 'Jane Client' })).toBeInTheDocument()
+    })
+
+    const addEmail = screen.getByRole('button', { name: 'Add email for Jane Client from contact command center' })
+    const addPhone = screen.getByRole('button', { name: 'Add phone for Jane Client from contact command center' })
+    const addCompany = screen.getByRole('button', { name: 'Add company for Jane Client from contact command center' })
+
+    expect(addEmail.querySelector('.material-symbols-outlined')).toHaveAttribute('aria-hidden', 'true')
+    expect(addPhone.querySelector('.material-symbols-outlined')).toHaveAttribute('aria-hidden', 'true')
+    expect(addCompany.querySelector('.material-symbols-outlined')).toHaveAttribute('aria-hidden', 'true')
+  })
+
+  it('hides decorative command-center metric icons from admin contact status cards', async () => {
+    render(<AdminContactDetailPage />)
+
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { name: 'Jane Client' })).toBeInTheDocument()
+    })
+
+    const commandCenter = screen.getByRole('banner')
+    const metricIcons = Array.from(commandCenter.querySelectorAll('.pib-card .material-symbols-outlined'))
+      .filter((icon) => !icon.closest('a,button'))
+      .filter((icon) => ['fact_check', 'moving', 'schedule', 'mail', 'hub'].includes(icon.textContent?.trim() ?? ''))
+
+    expect(metricIcons).toHaveLength(5)
+    metricIcons.forEach((icon) => {
+      expect(icon).toHaveAttribute('aria-hidden', 'true')
+    })
+  })
+
+  it('keeps the admin header call action contextual and free of decorative icon text', async () => {
+    contactOverride = { phone: '+27115550123' }
+
+    render(<AdminContactDetailPage />)
+
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { name: 'Jane Client' })).toBeInTheDocument()
+    })
+
+    const headerCallLink = screen.getByRole('link', { name: 'Call Jane Client from contact command center' })
+    expect(headerCallLink).toHaveAttribute('href', 'tel:+27115550123')
+    expect(screen.queryByRole('link', { name: 'call Call' })).not.toBeInTheDocument()
+  })
+
   it('keeps the admin contact edit command name free of decorative icon text', async () => {
     render(<AdminContactDetailPage />)
 

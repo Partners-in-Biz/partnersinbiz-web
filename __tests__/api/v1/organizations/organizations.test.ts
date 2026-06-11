@@ -9,6 +9,7 @@ import { DELETE as removeMember } from '@/app/api/v1/organizations/[id]/members/
 import { POST as linkClient } from '@/app/api/v1/organizations/[id]/link-client/route'
 import { GET as getOrgAccounts } from '@/app/api/v1/organizations/[id]/accounts/route'
 import { provisionFullClientOnVps } from '@/lib/client-provisioning/vps'
+import { adminAuth } from '@/lib/firebase/admin'
 
 jest.mock('firebase-admin/firestore', () => ({
   FieldValue: {
@@ -58,6 +59,10 @@ function adminReq(method = 'GET', body?: unknown, url = 'http://localhost/api/v1
     headers: { authorization: `Bearer ${AI_KEY}`, 'x-org-id': 'default' },
     body: body ? JSON.stringify(body) : undefined,
   })
+}
+
+function routeCtx(params: Record<string, string> = { id: 'org-1' }) {
+  return { params: Promise.resolve(params) }
 }
 
 describe('GET /api/v1/organizations', () => {
@@ -178,7 +183,7 @@ describe('GET /api/v1/organizations/[id]', () => {
   })
 
   it('returns org details', async () => {
-    const res = await getById(adminReq('GET'), { params: Promise.resolve({ id: 'org-1' }) } as any)
+    const res = await getById(adminReq('GET'), routeCtx())
     expect(res.status).toBe(200)
     const body = await res.json()
     expect(body.data.name).toBe('Lumen')
@@ -186,13 +191,12 @@ describe('GET /api/v1/organizations/[id]', () => {
 
   it('returns 404 when org does not exist', async () => {
     mockDocGet.mockResolvedValue({ exists: false })
-    const res = await getById(adminReq('GET'), { params: Promise.resolve({ id: 'ghost' }) } as any)
+    const res = await getById(adminReq('GET'), routeCtx())
     expect(res.status).toBe(404)
   })
 
   it('returns 403 for a client user who is not a member', async () => {
     // Simulate: session cookie resolves to a client user not in the members array
-    const { adminAuth, adminDb } = require('@/lib/firebase/admin')
     ;(adminAuth.verifySessionCookie as jest.Mock).mockResolvedValueOnce({ uid: 'client-user' })
     const userDocGet = jest.fn().mockResolvedValue({ exists: true, data: () => ({ role: 'client' }) })
     const orgDocGet = jest.fn().mockResolvedValue({
@@ -221,7 +225,7 @@ describe('GET /api/v1/organizations/[id]', () => {
     const req = new NextRequest('http://localhost/api/v1/organizations/org-1', {
       headers: { cookie: '__session=fake-session-cookie' },
     })
-    const res = await getById(req, { params: Promise.resolve({ id: 'org-1' }) } as any)
+    const res = await getById(req, routeCtx())
     expect(res.status).toBe(403)
   })
 })
@@ -249,11 +253,61 @@ describe('PUT /api/v1/organizations/[id]', () => {
   })
 
   it('updates org and returns 200', async () => {
-    const res = await PUT(adminReq('PUT', { name: 'Lumen Updated' }), { params: Promise.resolve({ id: 'org-1' }) } as any)
+    const res = await PUT(adminReq('PUT', { name: 'Lumen Updated' }), routeCtx())
     expect(res.status).toBe(200)
     const body = await res.json()
     expect(body.data.updated).toBe(true)
     expect(mockUpdate).toHaveBeenCalledWith(expect.objectContaining({ updatedAt: expect.anything() }))
+  })
+
+  it('merges portal module settings without dropping unrelated settings or modules', async () => {
+    mockDocGet.mockResolvedValue({
+      exists: true,
+      id: 'org-1',
+      data: () => ({
+        name: 'Lumen',
+        slug: 'lumen',
+        active: true,
+        members: [{ userId: 'ai-agent', role: 'owner' }],
+        description: '',
+        logoUrl: '',
+        website: '',
+        createdBy: 'ai-agent',
+        linkedClientId: '',
+        settings: {
+          timezone: 'Africa/Johannesburg',
+          currency: 'ZAR',
+          preferredSendHourLocal: 8,
+          portalModules: {
+            youtubeStudio: false,
+            betaReports: true,
+          },
+        },
+      }),
+    })
+
+    const res = await PUT(adminReq('PUT', {
+      settings: {
+        notificationEmail: 'ops@lumen.test',
+        portalModules: {
+          mobileApps: false,
+        },
+      },
+    }), routeCtx())
+
+    expect(res.status).toBe(200)
+    const update = mockUpdate.mock.calls[0][0]
+    expect(update.settings).toEqual({
+      timezone: 'Africa/Johannesburg',
+      currency: 'ZAR',
+      preferredSendHourLocal: 8,
+      notificationEmail: 'ops@lumen.test',
+      portalModules: {
+        youtubeStudio: false,
+        betaReports: true,
+        mobileApps: false,
+      },
+    })
   })
 
   it('deep-merges whitelisted agreement billing details without accepting unsafe nested fields', async () => {
@@ -285,7 +339,7 @@ describe('PUT /api/v1/organizations/[id]', () => {
         invoiceInstructions: 'Use PO.',
         unknownNested: 'do-not-store',
       },
-    }), { params: Promise.resolve({ id: 'org-1' }) } as any)
+    }), routeCtx())
 
     expect(res.status).toBe(200)
     const update = mockUpdate.mock.calls[0][0]
@@ -307,7 +361,7 @@ describe('PUT /api/v1/organizations/[id]', () => {
 
   it('returns 404 when org does not exist', async () => {
     mockDocGet.mockResolvedValue({ exists: false })
-    const res = await PUT(adminReq('PUT', { name: 'X' }), { params: Promise.resolve({ id: 'ghost' }) } as any)
+    const res = await PUT(adminReq('PUT', { name: 'X' }), routeCtx())
     expect(res.status).toBe(404)
   })
 })
@@ -334,14 +388,14 @@ describe('DELETE /api/v1/organizations/[id]', () => {
   })
 
   it('soft-deletes org and returns 200', async () => {
-    const res = await DELETE(adminReq('DELETE'), { params: Promise.resolve({ id: 'org-1' }) } as any)
+    const res = await DELETE(adminReq('DELETE'), routeCtx())
     expect(res.status).toBe(200)
     expect(mockUpdate).toHaveBeenCalledWith(expect.objectContaining({ active: false }))
   })
 
   it('returns 404 when org does not exist', async () => {
     mockDocGet.mockResolvedValue({ exists: false })
-    const res = await DELETE(adminReq('DELETE'), { params: Promise.resolve({ id: 'ghost' }) } as any)
+    const res = await DELETE(adminReq('DELETE'), routeCtx())
     expect(res.status).toBe(404)
   })
 })
@@ -398,7 +452,7 @@ describe('POST /api/v1/organizations/[id]/members', () => {
         accessScope: 'projects',
         accessNotes: 'Delivery contact',
       }),
-      { params: Promise.resolve({ id: 'org-1' }) } as any,
+      routeCtx(),
     )
     expect(res.status).toBe(201)
     const body = await res.json()
@@ -448,7 +502,7 @@ describe('POST /api/v1/organizations/[id]/members', () => {
 
     const res = await addMember(
       adminReq('POST', { email: 'staff@example.com', role: 'admin' }),
-      { params: Promise.resolve({ id: 'org-1' }) } as any,
+      routeCtx(),
     )
 
     expect(res.status).toBe(201)
@@ -469,7 +523,7 @@ describe('POST /api/v1/organizations/[id]/members', () => {
     })
     const res = await addMember(
       adminReq('POST', { email: 'owner@example.com', role: 'member' }),
-      { params: Promise.resolve({ id: 'org-1' }) } as any,
+      routeCtx(),
     )
     expect(res.status).toBe(409)
   })
@@ -477,7 +531,7 @@ describe('POST /api/v1/organizations/[id]/members', () => {
   it('returns 400 when email is missing', async () => {
     const res = await addMember(
       adminReq('POST', {}),
-      { params: Promise.resolve({ id: 'org-1' }) } as any,
+      routeCtx(),
     )
     expect(res.status).toBe(400)
   })
@@ -486,7 +540,7 @@ describe('POST /api/v1/organizations/[id]/members', () => {
     mockUserQueryGet.mockResolvedValue({ empty: true, docs: [] })
     const res = await addMember(
       adminReq('POST', { email: 'ghost@example.com', role: 'member' }),
-      { params: Promise.resolve({ id: 'org-1' }) } as any,
+      routeCtx(),
     )
     expect(res.status).toBe(404)
   })
@@ -495,7 +549,7 @@ describe('POST /api/v1/organizations/[id]/members', () => {
     mockDocGet.mockResolvedValue({ exists: false })
     const res = await addMember(
       adminReq('POST', { email: 'new@example.com' }),
-      { params: Promise.resolve({ id: 'ghost' }) } as any,
+      routeCtx(),
     )
     expect(res.status).toBe(404)
   })
@@ -538,7 +592,7 @@ describe('GET /api/v1/organizations/[id]/members/client', () => {
 
   it('searches existing client users and excludes current org members', async () => {
     const req = adminReq('GET', undefined, 'http://localhost/api/v1/organizations/org-1/members/client?q=jane')
-    const res = await searchClientMembers(req, { params: Promise.resolve({ id: 'org-1' }) } as any)
+    const res = await searchClientMembers(req, routeCtx())
 
     expect(res.status).toBe(200)
     const body = await res.json()
@@ -609,7 +663,7 @@ describe('POST /api/v1/organizations/[id]/members/client', () => {
         accessScope: 'billing',
         accessNotes: 'Reviews invoices and proposals',
       }, 'http://localhost/api/v1/organizations/org-1/members/client'),
-      { params: Promise.resolve({ id: 'org-1' }) } as any,
+      routeCtx(),
     )
 
     expect(res.status).toBe(201)
@@ -665,7 +719,7 @@ describe('POST /api/v1/organizations/[id]/members/client', () => {
   it('defaults existing client additions to member role', async () => {
     const res = await addClientMember(
       adminReq('POST', { uid: 'client-1' }, 'http://localhost/api/v1/organizations/org-1/members/client'),
-      { params: Promise.resolve({ id: 'org-1' }) } as any,
+      routeCtx(),
     )
 
     expect(res.status).toBe(201)
@@ -676,7 +730,7 @@ describe('POST /api/v1/organizations/[id]/members/client', () => {
   it('rejects invalid existing client roles', async () => {
     const res = await addClientMember(
       adminReq('POST', { uid: 'client-1', role: 'owner' }, 'http://localhost/api/v1/organizations/org-1/members/client'),
-      { params: Promise.resolve({ id: 'org-1' }) } as any,
+      routeCtx(),
     )
 
     expect(res.status).toBe(400)
@@ -694,7 +748,7 @@ describe('POST /api/v1/organizations/[id]/members/client', () => {
 
     const res = await addClientMember(
       adminReq('POST', { uid: 'admin-1' }, 'http://localhost/api/v1/organizations/org-1/members/client'),
-      { params: Promise.resolve({ id: 'org-1' }) } as any,
+      routeCtx(),
     )
 
     expect(res.status).toBe(400)
@@ -713,7 +767,6 @@ describe('POST /api/v1/organizations/[id]/create-login', () => {
 
   beforeEach(() => {
     jest.clearAllMocks()
-    const { adminAuth } = require('@/lib/firebase/admin')
 
     mockOrgGet.mockResolvedValue({
       exists: true,
@@ -753,7 +806,7 @@ describe('POST /api/v1/organizations/[id]/create-login', () => {
         accessScope: 'all',
         accessNotes: 'Primary client sponsor',
       }),
-      { params: Promise.resolve({ id: 'org-1' }) } as any,
+      routeCtx(),
     )
 
     expect(res.status).toBe(201)
@@ -785,7 +838,6 @@ describe('POST /api/v1/organizations/[id]/create-login', () => {
   })
 
   it('returns 409 when the auth user already belongs to the organisation', async () => {
-    const { adminAuth } = require('@/lib/firebase/admin')
     mockOrgGet.mockResolvedValue({
       exists: true,
       id: 'org-1',
@@ -799,7 +851,7 @@ describe('POST /api/v1/organizations/[id]/create-login', () => {
 
     const res = await createLogin(
       adminReq('POST', { email: 'owner@example.com', name: 'Existing User', role: 'member' }),
-      { params: Promise.resolve({ id: 'org-1' }) } as any,
+      routeCtx(),
     )
 
     expect(res.status).toBe(409)
@@ -856,7 +908,7 @@ describe('DELETE /api/v1/organizations/[id]/members/[userId]', () => {
   it('removes a member and returns 200', async () => {
     const res = await removeMember(
       adminReq('DELETE'),
-      { params: Promise.resolve({ id: 'org-1', userId: 'member-to-remove' }) } as any,
+      routeCtx({ id: 'org-1', userId: 'member-to-remove' }),
     )
     expect(res.status).toBe(200)
     const body = await res.json()
@@ -891,7 +943,7 @@ describe('DELETE /api/v1/organizations/[id]/members/[userId]', () => {
 
     const res = await removeMember(
       adminReq('DELETE'),
-      { params: Promise.resolve({ id: 'org-1', userId: 'ai-agent' }) } as any,
+      routeCtx({ id: 'org-1', userId: 'ai-agent' }),
     )
 
     expect(res.status).toBe(200)
@@ -905,7 +957,7 @@ describe('DELETE /api/v1/organizations/[id]/members/[userId]', () => {
   it('cleans a stale user-org link when the embedded org member is already gone', async () => {
     const res = await removeMember(
       adminReq('DELETE'),
-      { params: Promise.resolve({ id: 'org-1', userId: 'non-member' }) } as any,
+      routeCtx({ id: 'org-1', userId: 'non-member' }),
     )
     expect(res.status).toBe(200)
     const body = await res.json()
@@ -935,7 +987,7 @@ describe('DELETE /api/v1/organizations/[id]/members/[userId]', () => {
     })
     const res = await removeMember(
       adminReq('DELETE'),
-      { params: Promise.resolve({ id: 'org-1', userId: 'non-member' }) } as any,
+      routeCtx({ id: 'org-1', userId: 'non-member' }),
     )
     expect(res.status).toBe(404)
   })
@@ -944,7 +996,7 @@ describe('DELETE /api/v1/organizations/[id]/members/[userId]', () => {
     mockOrgGet.mockResolvedValue({ exists: false })
     const res = await removeMember(
       adminReq('DELETE'),
-      { params: Promise.resolve({ id: 'ghost', userId: 'anyone' }) } as any,
+      routeCtx({ id: 'ghost', userId: 'anyone' }),
     )
     expect(res.status).toBe(404)
   })
@@ -979,7 +1031,7 @@ describe('POST /api/v1/organizations/[id]/link-client', () => {
   it('links a client and returns 200', async () => {
     const res = await linkClient(
       adminReq('POST', { clientId: 'client-1' }),
-      { params: Promise.resolve({ id: 'org-1' }) } as any,
+      routeCtx(),
     )
     expect(res.status).toBe(200)
     const body = await res.json()
@@ -991,7 +1043,7 @@ describe('POST /api/v1/organizations/[id]/link-client', () => {
   it('returns 400 when clientId is missing', async () => {
     const res = await linkClient(
       adminReq('POST', {}),
-      { params: Promise.resolve({ id: 'org-1' }) } as any,
+      routeCtx(),
     )
     expect(res.status).toBe(400)
   })
@@ -1000,7 +1052,7 @@ describe('POST /api/v1/organizations/[id]/link-client', () => {
     mockClientGet.mockResolvedValue({ exists: false })
     const res = await linkClient(
       adminReq('POST', { clientId: 'ghost-client' }),
-      { params: Promise.resolve({ id: 'org-1' }) } as any,
+      routeCtx(),
     )
     expect(res.status).toBe(404)
   })
@@ -1009,7 +1061,7 @@ describe('POST /api/v1/organizations/[id]/link-client', () => {
     mockOrgGet.mockResolvedValue({ exists: false })
     const res = await linkClient(
       adminReq('POST', { clientId: 'client-1' }),
-      { params: Promise.resolve({ id: 'ghost' }) } as any,
+      routeCtx(),
     )
     expect(res.status).toBe(404)
   })
@@ -1026,7 +1078,7 @@ describe('POST /api/v1/organizations/[id]/link-client', () => {
     })
     const res = await linkClient(
       adminReq('POST', { clientId: 'client-1' }),
-      { params: Promise.resolve({ id: 'org-1' }) } as any,
+      routeCtx(),
     )
     expect(res.status).toBe(200)
     const body = await res.json()
@@ -1045,7 +1097,7 @@ describe('POST /api/v1/organizations/[id]/link-client', () => {
     })
     const res = await linkClient(
       adminReq('POST', { clientId: 'client-1' }),
-      { params: Promise.resolve({ id: 'org-1' }) } as any,
+      routeCtx(),
     )
     expect(res.status).toBe(409)
   })
@@ -1090,7 +1142,7 @@ describe('GET /api/v1/organizations/[id]/accounts', () => {
   it('returns social accounts for the org and strips encryptedTokens', async () => {
     const res = await getOrgAccounts(
       adminReq('GET'),
-      { params: Promise.resolve({ id: 'org-1' }) } as any,
+      routeCtx(),
     )
     expect(res.status).toBe(200)
     const body = await res.json()
@@ -1104,7 +1156,7 @@ describe('GET /api/v1/organizations/[id]/accounts', () => {
     mockOrgGet.mockResolvedValue({ exists: false })
     const res = await getOrgAccounts(
       adminReq('GET'),
-      { params: Promise.resolve({ id: 'ghost' }) } as any,
+      routeCtx(),
     )
     expect(res.status).toBe(404)
   })
@@ -1113,7 +1165,7 @@ describe('GET /api/v1/organizations/[id]/accounts', () => {
     mockAccountsGet.mockResolvedValue({ docs: [] })
     const res = await getOrgAccounts(
       adminReq('GET'),
-      { params: Promise.resolve({ id: 'org-1' }) } as any,
+      routeCtx(),
     )
     expect(res.status).toBe(200)
     const body = await res.json()
@@ -1124,7 +1176,7 @@ describe('GET /api/v1/organizations/[id]/accounts', () => {
   it('preserves platform and displayName fields while stripping encryptedTokens', async () => {
     const res = await getOrgAccounts(
       adminReq('GET'),
-      { params: Promise.resolve({ id: 'org-1' }) } as any,
+      routeCtx(),
     )
     const body = await res.json()
     expect(body.data[0].platform).toBe('twitter')

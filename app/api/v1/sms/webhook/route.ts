@@ -9,7 +9,8 @@
  *   From, To, Body, MessageSid, NumSegments, AccountSid, FromCountry, …
  *
  * Behaviour per message:
- *   1. Verify Twilio signature (skip-with-warning if TWILIO_AUTH_TOKEN unset).
+ *   1. Verify Twilio signature (fail closed in production if
+ *      TWILIO_AUTH_TOKEN is unset; skip-with-warning outside production).
  *   2. Persist an `sms` doc (direction: 'inbound', status: 'delivered').
  *   3. Match the From phone to a contact via `phone` field; if found, set
  *      the contactId on the doc.
@@ -63,6 +64,10 @@ function xmlResponse(body: string, status = 200): NextResponse {
     status,
     headers: { 'Content-Type': 'text/xml; charset=utf-8' },
   })
+}
+
+function requiresTwilioAuthToken(): boolean {
+  return process.env.VERCEL_ENV === 'production' || process.env.NODE_ENV === 'production'
 }
 
 const STOP_KEYWORDS = new Set([
@@ -183,7 +188,7 @@ async function notifyAdminsOfReply(args: {
       <p><strong>SMS reply</strong> from <code>${args.fromPhone}</code></p>
       <pre style="white-space:pre-wrap;font:13px/1.4 monospace;background:#f5f5f5;padding:12px;border-radius:6px">${snippet
         .replace(/[<>&]/g, (c) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;' }[c] ?? c))}</pre>
-      ${args.contactId ? `<p><a href="${baseUrl}/admin/crm/contacts/${args.contactId}">View contact</a></p>` : ''}
+      ${args.contactId ? `<p><a href="${baseUrl}/portal/crm/contacts/${args.contactId}">View contact</a></p>` : ''}
       <p style="font-size:11px;color:#888">Twilio SID: ${args.twilioSid}</p>
     `
 
@@ -244,11 +249,15 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       console.warn('[sms/webhook] Twilio signature verification failed')
       return xmlResponse(twiml(), 403)
     }
+  } else if (requiresTwilioAuthToken()) {
+    // eslint-disable-next-line no-console
+    console.error('[sms/webhook] TWILIO_AUTH_TOKEN is not set — rejecting production webhook')
+    return xmlResponse(twiml(), 403)
   } else if (!missingTokenWarned) {
     missingTokenWarned = true
     // eslint-disable-next-line no-console
     console.warn(
-      '[sms/webhook] TWILIO_AUTH_TOKEN is not set — accepting unsigned webhooks. Set this in production.',
+      '[sms/webhook] TWILIO_AUTH_TOKEN is not set — accepting unsigned webhooks outside production. Set this in production.',
     )
   }
 

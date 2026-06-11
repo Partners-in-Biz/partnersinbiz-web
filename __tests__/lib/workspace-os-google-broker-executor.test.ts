@@ -41,13 +41,24 @@ function setupGoogleClients() {
   return { drive, docs, sheets }
 }
 
+const approvedConnection = {
+  orgId: 'org-1',
+  provider: 'google_workspace',
+  status: 'active',
+  approvalStatus: 'approved',
+  tokenStatus: 'valid',
+  capabilityScopes: ['write'],
+  capabilities: { driveWrite: true, docsWrite: true, sheetsWrite: true },
+  deleted: false,
+}
+
 beforeEach(() => {
   jest.resetModules()
   jest.clearAllMocks()
   process.env.GOOGLE_WORKSPACE_CREDS_JSON_PATH = '/approved/workspace-sa.json'
   mockDoc.mockReturnValue({ get: mockGetDoc, update: mockUpdateDoc })
   mockCollection.mockImplementation((name: string) => {
-    if (name !== 'workspace_artifacts') throw new Error(`Unexpected collection: ${name}`)
+    if (!['workspace_artifacts', 'workspace_connections'].includes(name)) throw new Error(`Unexpected collection: ${name}`)
     return { add: mockAdd, doc: mockDoc }
   })
 })
@@ -58,6 +69,7 @@ describe('Google Workspace broker executor', () => {
     drive.files.get.mockResolvedValueOnce({ data: { parents: ['root'] } })
     drive.files.update.mockResolvedValueOnce({ data: { id: 'sheet-1', parents: ['folder-1'] } })
     sheets.spreadsheets.create.mockResolvedValueOnce({ data: { spreadsheetId: 'sheet-1', spreadsheetUrl: 'https://docs.google.com/spreadsheets/d/sheet-1/edit' } })
+    mockGetDoc.mockResolvedValueOnce({ exists: true, data: () => approvedConnection })
     mockAdd.mockResolvedValueOnce({ id: 'artifact-sheet-1' })
 
     const { executeWorkspaceBrokerJob } = await import('@/lib/workspace-os/googleBrokerExecutor')
@@ -66,6 +78,7 @@ describe('Google Workspace broker executor', () => {
       orgId: 'org-1',
       operation: 'create_sheet',
       status: 'queued',
+      connectionId: 'conn-1',
       requiredCapability: 'write',
       approvalStatus: 'approved',
       approvalGateTaskId: 'gate-1',
@@ -122,7 +135,13 @@ describe('Google Workspace broker executor', () => {
       jest.clearAllMocks()
       const { drive } = setupGoogleClients()
       mockDoc.mockReturnValue({ get: mockGetDoc, update: mockUpdateDoc })
-      mockGetDoc.mockResolvedValueOnce({ exists: true, data: () => ({ orgId: 'org-other', title: 'Other tenant plan', google: { fileId: 'doc-other' } }) })
+      if (operation === 'export_pdf') {
+        mockGetDoc
+          .mockResolvedValueOnce({ exists: true, data: () => approvedConnection })
+          .mockResolvedValueOnce({ exists: true, data: () => ({ orgId: 'org-other', title: 'Other tenant plan', google: { fileId: 'doc-other' } }) })
+      } else {
+        mockGetDoc.mockResolvedValueOnce({ exists: true, data: () => ({ orgId: 'org-other', title: 'Other tenant plan', google: { fileId: 'doc-other' } }) })
+      }
 
       const { executeWorkspaceBrokerJob } = await import('@/lib/workspace-os/googleBrokerExecutor')
       await expect(executeWorkspaceBrokerJob({
@@ -130,6 +149,7 @@ describe('Google Workspace broker executor', () => {
         orgId: 'org-1',
         operation,
         status: 'queued',
+        connectionId: operation === 'export_pdf' ? 'conn-1' : null,
         requiredCapability: operation === 'export_pdf' ? 'write' : 'read',
         approvalRequired: operation === 'export_pdf',
         approvalSatisfied: operation === 'export_pdf',
@@ -138,6 +158,42 @@ describe('Google Workspace broker executor', () => {
         approvalEvidence: operation === 'export_pdf' ? { gateTaskId: 'gate-export', status: 'approved', decidedBy: 'pip', decidedAt: '2026-06-05T10:00:00.000Z' } : { gateTaskId: null, status: null },
         input: { artifactId: 'artifact-other' },
       } as never)).rejects.toThrow('Workspace artifact orgId does not match broker job orgId')
+
+      expect(drive.files.get).not.toHaveBeenCalled()
+      expect(drive.files.export).not.toHaveBeenCalled()
+      expect(drive.permissions.list).not.toHaveBeenCalled()
+      expect(mockUpdateDoc).not.toHaveBeenCalled()
+    }
+  })
+
+  it('rejects artifact-scoped execution when the artifact was deleted after the broker job was queued', async () => {
+    for (const operation of ['permission_audit', 'inventory_refresh', 'export_pdf'] as const) {
+      jest.clearAllMocks()
+      const { drive } = setupGoogleClients()
+      mockDoc.mockReturnValue({ get: mockGetDoc, update: mockUpdateDoc })
+      if (operation === 'export_pdf') {
+        mockGetDoc
+          .mockResolvedValueOnce({ exists: true, data: () => approvedConnection })
+          .mockResolvedValueOnce({ exists: true, data: () => ({ orgId: 'org-1', title: 'Deleted plan', deleted: true, google: { fileId: 'doc-deleted' } }) })
+      } else {
+        mockGetDoc.mockResolvedValueOnce({ exists: true, data: () => ({ orgId: 'org-1', title: 'Deleted plan', deleted: true, google: { fileId: 'doc-deleted' } }) })
+      }
+
+      const { executeWorkspaceBrokerJob } = await import('@/lib/workspace-os/googleBrokerExecutor')
+      await expect(executeWorkspaceBrokerJob({
+        id: `job-deleted-${operation}`,
+        orgId: 'org-1',
+        operation,
+        status: 'queued',
+        connectionId: operation === 'export_pdf' ? 'conn-1' : null,
+        requiredCapability: operation === 'export_pdf' ? 'write' : 'read',
+        approvalRequired: operation === 'export_pdf',
+        approvalSatisfied: operation === 'export_pdf',
+        approvalStatus: operation === 'export_pdf' ? 'approved' : null,
+        approvalGateTaskId: operation === 'export_pdf' ? 'gate-export' : null,
+        approvalEvidence: operation === 'export_pdf' ? { gateTaskId: 'gate-export', status: 'approved', decidedBy: 'pip', decidedAt: '2026-06-05T10:00:00.000Z' } : { gateTaskId: null, status: null },
+        input: { artifactId: 'artifact-deleted' },
+      } as never)).rejects.toThrow('Workspace artifact is deleted')
 
       expect(drive.files.get).not.toHaveBeenCalled()
       expect(drive.files.export).not.toHaveBeenCalled()
@@ -168,10 +224,35 @@ describe('Google Workspace broker executor', () => {
     expect(mockGoogleAuth).not.toHaveBeenCalled()
   })
 
+  it('blocks direct Google mutation execution when the persisted connection is not approved and healthy', async () => {
+    const { drive } = setupGoogleClients()
+    mockGetDoc.mockResolvedValueOnce({ exists: true, data: () => ({ ...approvedConnection, status: 'paused' }) })
+
+    const { executeWorkspaceBrokerJob } = await import('@/lib/workspace-os/googleBrokerExecutor')
+    await expect(executeWorkspaceBrokerJob({
+      id: 'job-paused-connection',
+      orgId: 'org-1',
+      operation: 'create_doc',
+      status: 'queued',
+      connectionId: 'conn-paused',
+      requiredCapability: 'write',
+      approvalRequired: true,
+      approvalSatisfied: true,
+      approvalStatus: 'approved',
+      approvalGateTaskId: 'gate-connection',
+      approvalEvidence: { gateTaskId: 'gate-connection', status: 'approved', decidedBy: 'pip', decidedAt: '2026-06-05T10:00:00.000Z' },
+      input: { title: 'Paused connection doc' },
+    } as never)).rejects.toThrow('Workspace connection must be active or approved before broker mutation jobs can be queued')
+
+    expect(drive.files.create).not.toHaveBeenCalled()
+    expect(mockGoogleAuth).not.toHaveBeenCalled()
+  })
+
   it('rolls back created Google files when PiB artifact linking fails', async () => {
     const { drive } = setupGoogleClients()
     drive.files.create.mockResolvedValueOnce({ data: { id: 'folder-1', name: 'Evidence', mimeType: 'application/vnd.google-apps.folder', webViewLink: 'https://drive.google.com/drive/folders/folder-1', parents: ['parent-1'] } })
     drive.files.delete.mockResolvedValueOnce({ data: {} })
+    mockGetDoc.mockResolvedValueOnce({ exists: true, data: () => approvedConnection })
     mockAdd.mockRejectedValueOnce(new Error('metadata link failed'))
 
     const { executeWorkspaceBrokerJob } = await import('@/lib/workspace-os/googleBrokerExecutor')
@@ -180,6 +261,7 @@ describe('Google Workspace broker executor', () => {
       orgId: 'org-1',
       operation: 'create_folder',
       status: 'queued',
+      connectionId: 'conn-1',
       requiredCapability: 'write',
       approvalRequired: true,
       approvalSatisfied: true,

@@ -1,6 +1,6 @@
 // app/api/v1/capture-sources/[id]/submit/route.ts
 //
-// PUBLIC endpoint — no auth.
+// PUBLIC: capture-source embed submit endpoint, no auth.
 //
 // Accepts a JSON body { email, data?, referer? } and:
 //   1. Finds the capture source by id (404 if missing / soft-deleted / inactive)

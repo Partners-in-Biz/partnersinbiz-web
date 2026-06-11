@@ -3,6 +3,7 @@ import { withCrmAuth } from '@/lib/auth/crm-middleware'
 import { apiSuccess, apiError } from '@/lib/api/response'
 import { adminDb } from '@/lib/firebase/admin'
 import { loadCompany } from '@/lib/companies/store'
+import { decorateInvoiceEditCapability } from '@/lib/invoices/permissions'
 
 export const dynamic = 'force-dynamic'
 
@@ -54,5 +55,5 @@ export const GET = withCrmAuth<RouteCtx>('viewer', async (req, ctx, routeCtx) =>
     .sort((a, b) => timeValue(b.updatedAt ?? b.createdAt ?? b.issueDate) - timeValue(a.updatedAt ?? a.createdAt ?? a.issueDate))
     .slice(0, limit)
 
-  return apiSuccess({ invoices })
+  return apiSuccess({ invoices: invoices.map((invoice) => decorateInvoiceEditCapability(invoice, ctx.user ?? null)) })
 })

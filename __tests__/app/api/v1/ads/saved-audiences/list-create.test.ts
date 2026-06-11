@@ -116,7 +116,7 @@ describe('POST /api/v1/ads/saved-audiences', () => {
     const res = await POST(
       new Request('http://x', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'X-Org-Id': 'org_1', 'Content-Type': 'application/json' },
         body: JSON.stringify({ input: {} }),
       }) as any,
       { uid: 'u1' } as any,

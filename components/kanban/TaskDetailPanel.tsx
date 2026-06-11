@@ -6,6 +6,7 @@ import { uploadTaskFile } from './TaskComposer'
 import { ContextReferenceChips } from '@/components/context-references/ContextReferenceChips'
 import { ContextReferencePicker } from '@/components/context-references/ContextReferencePicker'
 import { buildBlockedTaskRecovery } from '@/lib/projects/blockerRecovery'
+import { ReadableTaskText } from './ReadableTaskText'
 import type { ContextReference } from '@/lib/context-references/types'
 import type { AgentId, AgentMember, Attachment, ChecklistItem, Task, TeamMember } from './types'
 
@@ -757,12 +758,12 @@ export function TaskDetailPanel({ task, columnName, projectId, orgId, members = 
                 placeholder="Add a description..."
               />
             ) : (
-              <p
+              <div
                 className="text-sm text-on-surface-variant cursor-pointer hover:text-on-surface transition-colors min-h-8"
                 onClick={() => setEditing(true)}
               >
-                {task.description || <span className="italic opacity-50">Add a description...</span>}
-              </p>
+                <ReadableTaskText text={task.description} empty={<span className="italic opacity-50">Add a description...</span>} />
+              </div>
             )}
           </div>
 
@@ -1418,7 +1419,9 @@ export function TaskDetailPanel({ task, columnName, projectId, orgId, members = 
                     </div>
 
                     {/* Comment text */}
-                    <p className="text-on-surface-variant ml-7 leading-snug">{comment.text}</p>
+                    <div className="text-on-surface-variant ml-7 leading-snug">
+                      <ReadableTaskText text={comment.text} compact />
+                    </div>
                     <div className="ml-7 mt-1">
                       <ContextReferenceChips refs={comment.contextRefs ?? []} compact />
                     </div>

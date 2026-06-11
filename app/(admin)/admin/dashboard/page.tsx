@@ -317,7 +317,7 @@ function WorkLane({
 
 function SoftwareBuildEmptyIndicator({ activeCount }: { activeCount: number }) {
   if (activeCount > 0) return null
-  const specHref = `/admin/documents/new?orgId=${encodeURIComponent(PIB_PLATFORM_ORG_ID)}&type=build_spec&title=${encodeURIComponent('PiB Platform Build Spec — Next Approved Sprint')}`
+  const specHref = `/portal/documents/new?orgId=${encodeURIComponent(PIB_PLATFORM_ORG_ID)}&type=build_spec&title=${encodeURIComponent('PiB Platform Build Spec — Next Approved Sprint')}`
   return (
     <div className="rounded-lg border border-amber-400/30 bg-amber-500/10 p-4 text-sm text-amber-50">
       <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
@@ -335,7 +335,7 @@ function SoftwareBuildEmptyIndicator({ activeCount }: { activeCount: number }) {
             Create gated build spec
             <span className="material-symbols-outlined text-[15px]">arrow_forward</span>
           </Link>
-          <Link href="/admin/projects" className="inline-flex items-center gap-2 rounded-[var(--radius-btn)] border border-amber-300/40 px-3 py-2 text-xs font-label uppercase tracking-wide text-amber-100 hover:border-amber-200">
+          <Link href="/portal/projects" className="inline-flex items-center gap-2 rounded-[var(--radius-btn)] border border-amber-300/40 px-3 py-2 text-xs font-label uppercase tracking-wide text-amber-100 hover:border-amber-200">
             Open Projects/Kanban
           </Link>
         </div>
@@ -528,10 +528,10 @@ export default function MissionControlDashboard() {
       <PageHeader
         eyebrow="Admin / Dashboard"
         title="Operating dashboard"
-        description="A project-led view of client health, live agent work, approvals, and recent platform movement."
+        description="Platform control plane — agent work, client health, approvals, and platform movement."
         actions={(
           <>
-            <DashboardQuickLink href="/admin/projects" icon="folder_managed" label="Projects" />
+            <DashboardQuickLink href="/portal/projects" icon="folder_managed" label="Projects" />
             <DashboardQuickLink href={agentBoardHref} icon="view_kanban" label="Agent board" />
           </>
         )}
@@ -694,7 +694,7 @@ export default function MissionControlDashboard() {
                     key={approval.id}
                     title={approval.content ?? 'Approval required'}
                     meta={`${approval.orgName ?? 'Organisation'} · ${approval.platform ?? 'approval'} · ${formatRelative(approval.scheduledAt)}`}
-                    href="/admin/social/queue"
+                    href="/portal/social/review"
                     color={WORK_LANES[2].color}
                     icon={WORK_LANES[2].icon}
                   />

@@ -4,6 +4,7 @@ import { adminDb } from '@/lib/firebase/admin'
 import { withAuth } from '@/lib/api/auth'
 import { apiSuccess, apiError } from '@/lib/api/response'
 import { generateInvoiceNumber } from '@/lib/invoices/invoice-number'
+import { generateInvoicePdfShareToken } from '@/lib/invoices/share-token'
 import { dispatchWebhook } from '@/lib/webhooks/dispatch'
 import { logActivity } from '@/lib/activity/log'
 import { canAccessOrg, restrictedAdminOrgIds } from '@/lib/api/platformAdmin'
@@ -352,6 +353,7 @@ export const POST = withAuth('client', async (req, user) => {
     issuerOrgId: sourceOrgId,
     billingOrgId,
     invoiceNumber,
+    pdfShareToken: generateInvoicePdfShareToken(),
     status: 'draft' as const,
     issueDate: FieldValue.serverTimestamp(),
     dueDate: cleanString(body.dueDate) ? new Date(cleanString(body.dueDate)) : null,

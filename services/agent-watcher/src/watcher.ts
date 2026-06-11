@@ -15,12 +15,13 @@ import { claimReviewTask, claimTask, startHeartbeat } from './claim'
 import { runAndPoll, type TaskDispatchInput } from './hermes'
 import { logger } from './logger'
 import { agentStatusUpdate } from './task-updates'
-import { getTaskDispatchBlocker, isDependencyResolved, releaseMillis } from './eligibility'
+import { getTaskDispatchBlocker, hasPendingApprovalGate, hasPendingScheduledRelease, isDependencyResolved, releaseMillis } from './eligibility'
 
 const MAX_CONCURRENT_PER_AGENT = 5
 const READY_TASK_SWEEP_MS = 60_000
 const MAX_READY_SWEEP_DOCS = 100
 const MAX_SCHEDULED_RELEASE_SWEEP_DOCS = 100
+const MAX_DEPENDENCY_RELEASE_SWEEP_DOCS = 100
 
 const inFlight = new Set<string>()
 const perAgentInFlight = new Map<AgentId, number>()
@@ -468,8 +469,99 @@ async function releaseDueScheduledTasks(now = Date.now()): Promise<void> {
   }
 }
 
+async function releaseDependencyClearedDocs(
+  docs: Array<{ ref: DocumentReference; data: () => Record<string, unknown> | undefined }>,
+  waitingStatus: string,
+  now: number,
+  allowedAgentIds?: readonly string[],
+): Promise<void> {
+  await Promise.all(docs.map(async (doc) => {
+    const data = (doc.data() ?? {}) as TaskData
+    if (!isActiveAgentId(data.assigneeAgentId)) return
+    if (allowedAgentIds && !allowedAgentIds.includes(data.assigneeAgentId)) return
+    if (data.columnId !== 'blocked') return
+    if (!Array.isArray(data.dependsOn) || data.dependsOn.filter(Boolean).length === 0) return
+    if (waitingStatus === 'blocked' && typeof data.agentOutput?.summary === 'string' && data.agentOutput.summary.trim()) return
+    if (data.deleted === true || data.status === 'cancelled' || data.status === 'canceled') return
+    if (hasPendingApprovalGate(data) || hasPendingScheduledRelease(data, now)) return
+
+    const deps = await dependenciesResolved(doc.ref, data.dependsOn)
+    if (!deps.ok) return
+
+    const releasedData: TaskData = {
+      ...data,
+      agentStatus: 'pending',
+      columnId: 'todo',
+    }
+    await doc.ref.update({
+      ...agentStatusUpdate('pending'),
+      agentHeartbeatAt: FieldValue.delete(),
+      updatedAt: FieldValue.serverTimestamp(),
+    })
+    await doc.ref.collection('comments').add({
+      text: `Dependency gate cleared. All dependsOn tasks are complete; moved back to To Do for agent pickup.`,
+      userId: 'system:agent-watcher',
+      userName: 'Agent watcher',
+      userRole: 'system',
+      createdAt: FieldValue.serverTimestamp(),
+      agentPickedUp: false,
+      agentPickedUpAt: null,
+    })
+    void dispatchTask(doc.ref, releasedData)
+  }))
+}
+
+async function releaseDependencyClearedTasks(now = Date.now()): Promise<void> {
+  const chunks = chunkAgentIds(currentAgentIds())
+  for (const chunk of chunks) {
+    for (const waitingStatus of ['awaiting-input', 'blocked']) {
+      try {
+        const snap = await db
+          .collectionGroup('tasks')
+          .where('assigneeAgentId', 'in', chunk)
+          .where('agentStatus', '==', waitingStatus)
+          .where('columnId', '==', 'blocked')
+          .limit(MAX_DEPENDENCY_RELEASE_SWEEP_DOCS)
+          .get()
+
+        await releaseDependencyClearedDocs(snap.docs, waitingStatus, now)
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err)
+        if (message.includes('FAILED_PRECONDITION')) {
+          logger.warn('dependency-cleared indexed sweep unavailable; falling back to agentStatus-only scan', {
+            agents: chunk,
+            agentStatus: waitingStatus,
+            error: message,
+          })
+          try {
+            const fallbackSnap = await db
+              .collectionGroup('tasks')
+              .where('agentStatus', '==', waitingStatus)
+              .limit(MAX_DEPENDENCY_RELEASE_SWEEP_DOCS)
+              .get()
+            await releaseDependencyClearedDocs(fallbackSnap.docs, waitingStatus, now, chunk)
+          } catch (fallbackErr) {
+            logger.error('dependency-cleared task fallback release sweep failed', {
+              agents: chunk,
+              agentStatus: waitingStatus,
+              error: fallbackErr instanceof Error ? fallbackErr.message : String(fallbackErr),
+            })
+          }
+          continue
+        }
+        logger.error('dependency-cleared task release sweep failed', {
+          agents: chunk,
+          agentStatus: waitingStatus,
+          error: message,
+        })
+      }
+    }
+  }
+}
+
 export async function sweepReadyPendingTasks(now = Date.now()): Promise<void> {
   await releaseDueScheduledTasks(now)
+  await releaseDependencyClearedTasks(now)
   const chunks = chunkAgentIds(currentAgentIds())
   for (const chunk of chunks) {
     try {

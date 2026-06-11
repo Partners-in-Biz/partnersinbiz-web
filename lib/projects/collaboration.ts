@@ -132,7 +132,10 @@ export function filterInternalItemsForProjectAccess<T extends object>(
   canViewInternal: boolean,
 ): T[] {
   if (canViewInternal) return items
-  return items.filter((item) => (item as { internalOnly?: unknown }).internalOnly !== true)
+  return items.filter((item) => {
+    const data = item as { internalOnly?: unknown; visibility?: unknown }
+    return data.internalOnly !== true && cleanString(data.visibility) !== 'internal'
+  })
 }
 
 function cleanStringArray(value: unknown): string[] {

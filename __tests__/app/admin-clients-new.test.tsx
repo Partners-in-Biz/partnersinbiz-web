@@ -1,6 +1,7 @@
 import React from 'react'
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
-import NewClientPage from '@/app/(admin)/admin/clients/new/page'
+// admin/clients/new now redirects to admin/organizations/new — test the canonical page
+import NewClientPage from '@/app/(admin)/admin/organizations/new/page'
 
 const push = jest.fn()
 

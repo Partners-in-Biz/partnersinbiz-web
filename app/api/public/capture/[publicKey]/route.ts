@@ -1,7 +1,7 @@
 /**
  * POST /api/public/capture/[publicKey]
  *
- * Public, unauthenticated contact capture endpoint. Each org provisions one
+ * PUBLIC: unauthenticated contact capture endpoint. Each org provisions one
  * or more CaptureSources; the source's `publicKey` is the only auth — rotating
  * the key kills any deployed widgets / integrations using it.
  *

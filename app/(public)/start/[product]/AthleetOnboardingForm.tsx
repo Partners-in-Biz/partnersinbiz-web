@@ -186,7 +186,7 @@ function Step2({ d, set }: { d: typeof INITIAL; set: (k: keyof typeof INITIAL, v
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
         <Field label="Logo URL">
           <TextInput name="logoUrl" value={d.logoUrl} onChange={v => set('logoUrl', v)} placeholder="https://..." />
-          <p className="text-white/25 text-xs font-body mt-1">Leave blank — we'll upload your logo during setup.</p>
+          <p className="text-white/25 text-xs font-body mt-1">Leave blank — we&apos;ll upload your logo during setup.</p>
         </Field>
         <Field label="Hero Background Video URL">
           <TextInput name="heroVideoUrl" value={d.heroVideoUrl} onChange={v => set('heroVideoUrl', v)} placeholder="https://..." />

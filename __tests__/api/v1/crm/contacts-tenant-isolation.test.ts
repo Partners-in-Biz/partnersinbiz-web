@@ -7,6 +7,7 @@ jest.mock('@/lib/firebase/admin', () => ({
 
 import { adminAuth, adminDb } from '@/lib/firebase/admin'
 import { seedOrgMember, seedContact, callAsMember, callAsAgent } from '../../../helpers/crm'
+import { makePortalAuthCollectionsForMembers } from '../../../helpers/firebase-admin'
 
 const AI_API_KEY = 'test-ai-key'
 process.env.AI_API_KEY = AI_API_KEY
@@ -50,7 +51,9 @@ function setupIsolationFixtures(perms: Record<string, unknown> = { membersCanDel
     commit: jest.fn().mockResolvedValue(undefined),
   })
 
+  const authCollections = makePortalAuthCollectionsForMembers([memberA, memberB], { permissions: perms })
   ;(adminDb.collection as jest.Mock).mockImplementation((name: string) => {
+    if (name in authCollections) return authCollections[name as keyof typeof authCollections]
     if (name === 'users') {
       return {
         doc: (uid: string) => ({

@@ -109,7 +109,7 @@ export function BroadcastAnalyticsWorkspace({
   const backHref =
     surface === 'portal'
       ? scopedPortalPath('/portal/email-analytics', orgScope)
-      : '/admin/email-analytics'
+      : '/portal/email-analytics'
   const shellClass =
     surface === 'portal'
       ? 'mx-auto max-w-5xl space-y-6'

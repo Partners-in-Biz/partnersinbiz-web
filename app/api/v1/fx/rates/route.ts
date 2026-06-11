@@ -1,9 +1,10 @@
 // GET /api/v1/fx/rates?date=YYYY-MM-DD
 // Returns the cached FX-to-ZAR doc for a given date (today by default).
-// Public read — rates are not sensitive and clients may need them in portal.
+// PUBLIC: rates are not sensitive and clients may need them in portal.
 
 import { NextRequest, NextResponse } from 'next/server'
 import { getFxDoc } from '@/lib/fx/rates'
+import { enforcePublicRateLimit, publicRequestIp } from '@/lib/api/public-rate-limit'
 
 export const dynamic = 'force-dynamic'
 
@@ -15,6 +16,13 @@ export async function GET(req: NextRequest) {
   if (!DATE_RE.test(date)) {
     return NextResponse.json({ error: 'date must be YYYY-MM-DD' }, { status: 400 })
   }
+  const limited = await enforcePublicRateLimit(req, {
+    key: `fx_rates:${date}:${publicRequestIp(req)}`,
+    limit: 120,
+    windowMs: 60 * 60 * 1000,
+  })
+  if (limited) return limited
+
   try {
     const doc = await getFxDoc(date)
     return NextResponse.json({

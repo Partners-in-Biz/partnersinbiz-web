@@ -136,7 +136,7 @@ export const POST = withAuth('client', withTenant(async (req, user, orgId, conte
     body: newStatus === 'scheduled'
       ? `${displayName} approved and scheduled the post for publishing.`
       : `${displayName} approved the post — ready to publish.`,
-    link: `/admin/social`,
+    link: `/portal/social`,
     data: { postId: id, orgId, newStatus },
     priority: 'high',
     status: 'unread',
@@ -150,7 +150,7 @@ export const POST = withAuth('client', withTenant(async (req, user, orgId, conte
     Promise.all(emails.map(email => sendEmail({
       to: email,
       subject: `✅ Social post approved by ${displayName} (${orgId})`,
-      html: `<p><strong>${displayName}</strong> has approved a social post for org <strong>${orgId}</strong>.</p><p>New status: <strong>${newStatus}</strong></p><p><a href="https://partnersinbiz.online/admin/social">View in admin</a></p>`,
+      html: `<p><strong>${displayName}</strong> has approved a social post for org <strong>${orgId}</strong>.</p><p>New status: <strong>${newStatus}</strong></p><p><a href="https://partnersinbiz.online/portal/social">View in admin</a></p>`,
     })))
   ).catch(() => {})
 

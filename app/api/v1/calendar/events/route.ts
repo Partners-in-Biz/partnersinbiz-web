@@ -227,7 +227,7 @@ export const POST = withAuth(
         type: 'calendar.event.assigned',
         title: 'Calendar event assigned to you',
         body: `"${title}" — starts ${body.startAt}`,
-        link: `/admin/calendar/${docRef.id}`,
+        link: `/portal/dashboard`,
         status: 'unread',
         priority: 'normal',
         createdAt: FieldValue.serverTimestamp(),

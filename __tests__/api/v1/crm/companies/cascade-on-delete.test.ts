@@ -5,8 +5,6 @@
  * companyId: 'co-test'. Calls DELETE and verifies all 17 records had
  * companyId + companyName cleared via FieldValue.delete() (unlinked, not deleted).
  */
-import { NextRequest } from 'next/server'
-
 jest.mock('@/lib/firebase/admin', () => ({
   adminAuth: { verifySessionCookie: jest.fn() },
   adminDb: { collection: jest.fn(), batch: jest.fn() },
@@ -30,6 +28,7 @@ jest.mock('firebase-admin/firestore', () => {
 
 import { adminAuth, adminDb } from '@/lib/firebase/admin'
 import { seedOrgMember, callAsMember } from '../../../../helpers/crm'
+import { makeMissingDocCollection, makePortalAuthCollections } from '../../../../helpers/firebase-admin'
 import { buildCompany, uidFor } from './_fixtures'
 
 const AI_API_KEY = 'test-ai-key-cascade'
@@ -41,7 +40,7 @@ process.env.SESSION_COOKIE_NAME = '__session'
 const ORG_ID = 'org-cascade'
 const COMPANY_ID = 'co-test'
 
-function makeDocWithCompany(id: string, coll: string) {
+function makeDocWithCompany(id: string) {
   return {
     id,
     ref: { id, update: jest.fn().mockResolvedValue(undefined) },
@@ -104,28 +103,9 @@ function stageAuth(
   const companySnap = buildCompany({ id: COMPANY_ID, orgId: ORG_ID, name: 'Test Company' })
   const companyUpdateFn = jest.fn().mockResolvedValue(undefined)
 
+  const authCollections = makePortalAuthCollections(member)
   ;(adminDb.collection as jest.Mock).mockImplementation((name: string) => {
-    if (name === 'users') {
-      return {
-        doc: () => ({
-          get: () => Promise.resolve({ exists: true, data: () => ({ activeOrgId: ORG_ID }) }),
-        }),
-      }
-    }
-    if (name === 'orgMembers') {
-      return {
-        doc: () => ({
-          get: () => Promise.resolve({ exists: true, data: () => member }),
-        }),
-      }
-    }
-    if (name === 'organizations') {
-      return {
-        doc: () => ({
-          get: () => Promise.resolve({ exists: true, data: () => ({ settings: { permissions: {} } }) }),
-        }),
-      }
-    }
+    if (name in authCollections) return authCollections[name as keyof typeof authCollections]
     if (name === 'companies') {
       return {
         doc: (id?: string) => ({
@@ -146,7 +126,7 @@ function stageAuth(
 
     // Linked collections — return docs with companyId
     if (name === 'contacts') {
-      const docs = contactIds.map(id => makeDocWithCompany(id, 'contacts'))
+      const docs = contactIds.map(id => makeDocWithCompany(id))
       let paged = false
       const batchMock = makeBatchForCollection('contacts')
       return {
@@ -162,7 +142,7 @@ function stageAuth(
       }
     }
     if (name === 'deals') {
-      const docs = dealIds.map(id => makeDocWithCompany(id, 'deals'))
+      const docs = dealIds.map(id => makeDocWithCompany(id))
       let paged = false
       const batchMock = makeBatchForCollection('deals')
       return {
@@ -178,7 +158,7 @@ function stageAuth(
       }
     }
     if (name === 'quotes') {
-      const docs = quoteIds.map(id => makeDocWithCompany(id, 'quotes'))
+      const docs = quoteIds.map(id => makeDocWithCompany(id))
       let paged = false
       const batchMock = makeBatchForCollection('quotes')
       return {
@@ -194,7 +174,7 @@ function stageAuth(
       }
     }
     if (name === 'activities') {
-      const docs = activityIds.map(id => makeDocWithCompany(id, 'activities'))
+      const docs = activityIds.map(id => makeDocWithCompany(id))
       let paged = false
       const batchMock = makeBatchForCollection('activities')
       return {
@@ -210,7 +190,7 @@ function stageAuth(
       }
     }
 
-    return { doc: () => ({ get: () => Promise.resolve({ exists: false }) }) }
+    return makeMissingDocCollection()
   })
 
   return { companyUpdateFn }
@@ -264,16 +244,9 @@ describe('DELETE cascade: clears companyId+companyName from related collections'
     const batchUpdateFn = jest.fn((ref, data) => capturedBatchUpdates.push({ ref, data }))
     const batchCommitFn = jest.fn().mockResolvedValue(undefined)
 
+    const authCollections = makePortalAuthCollections(member)
     ;(adminDb.collection as jest.Mock).mockImplementation((name: string) => {
-      if (name === 'users') {
-        return { doc: () => ({ get: () => Promise.resolve({ exists: true, data: () => ({ activeOrgId: ORG_ID }) }) }) }
-      }
-      if (name === 'orgMembers') {
-        return { doc: () => ({ get: () => Promise.resolve({ exists: true, data: () => member }) }) }
-      }
-      if (name === 'organizations') {
-        return { doc: () => ({ get: () => Promise.resolve({ exists: true, data: () => ({ settings: { permissions: {} } }) }) }) }
-      }
+      if (name in authCollections) return authCollections[name as keyof typeof authCollections]
       if (name === 'companies') {
         const co = buildCompany({ id: COMPANY_ID, orgId: ORG_ID })
         return {
@@ -307,7 +280,7 @@ describe('DELETE cascade: clears companyId+companyName from related collections'
           },
         }
       }
-      return { doc: () => ({ get: () => Promise.resolve({ exists: false }) }) }
+      return makeMissingDocCollection()
     })
 
     ;(adminDb.batch as jest.Mock).mockReturnValue({

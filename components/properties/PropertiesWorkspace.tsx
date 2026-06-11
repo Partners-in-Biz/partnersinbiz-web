@@ -178,7 +178,7 @@ function PropertyCard({
 
   return (
     <Link
-      href={`/admin/properties/${property.id}`}
+      href={`/portal/properties/${property.id}`}
       className="block rounded-lg transition-colors hover:bg-white/[0.03] focus:outline-none focus:ring-2 focus:ring-[var(--color-pib-accent)] focus:ring-offset-2 focus:ring-offset-[var(--color-pib-bg)]"
       aria-label={`Open property ${property.name}`}
     >
@@ -307,7 +307,7 @@ export function PropertiesWorkspace({ surface }: PropertiesWorkspaceProps) {
           </p>
         </div>
         {isAdmin ? (
-          <Link href="/admin/properties/new" className="pib-btn-primary text-sm font-label self-start md:self-auto">
+          <Link href="/portal/properties/new" className="pib-btn-primary text-sm font-label self-start md:self-auto">
             + New Property
           </Link>
         ) : null}
@@ -345,7 +345,7 @@ export function PropertiesWorkspace({ surface }: PropertiesWorkspaceProps) {
           <h2 className="font-display text-2xl mt-4">{isAdmin && orgFilter ? 'No properties yet.' : 'No properties yet'}</h2>
           <p className="text-sm text-[var(--color-pib-text-muted)] max-w-md mx-auto mt-2">{emptyCopy}</p>
           {isAdmin && orgFilter ? (
-            <Link href="/admin/properties/new" className="btn-pib-secondary inline-flex mt-5">
+            <Link href="/portal/properties/new" className="btn-pib-secondary inline-flex mt-5">
               Create property
             </Link>
           ) : null}

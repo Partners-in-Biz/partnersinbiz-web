@@ -154,7 +154,7 @@ export const POST = withAuth('client', withTenant(async (req, user, orgId, conte
       type: 'social_post_commented',
       title: `New comment on social post`,
       body: `${displayName}: "${text.trim().slice(0, 120)}"`,
-      link: `/admin/social`,
+      link: `/portal/social`,
       data: { postId: id, orgId, commentId: commentRef.id },
       priority: 'normal',
       status: 'unread',

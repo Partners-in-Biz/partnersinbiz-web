@@ -136,14 +136,14 @@ export function AnalyticsPropertyPicker({
       <div className="flex items-center gap-2">
         {selectedProperty ? (
           <Link
-            href={`/admin/properties/${selectedProperty.id}`}
+            href={`/portal/properties/${selectedProperty.id}`}
             className="pib-btn-secondary text-xs font-label whitespace-nowrap"
           >
             Property setup
           </Link>
         ) : (
           <Link
-            href="/admin/properties"
+            href="/portal/properties"
             className="pib-btn-secondary text-xs font-label whitespace-nowrap"
           >
             Properties

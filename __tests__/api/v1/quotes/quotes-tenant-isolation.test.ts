@@ -36,6 +36,7 @@ jest.mock('firebase-admin/firestore', () => ({
 import { adminAuth, adminDb } from '@/lib/firebase/admin'
 import { dispatchWebhook } from '@/lib/webhooks/dispatch'
 import { seedOrgMember, callAsMember, callAsAgent } from '../../../helpers/crm'
+import { makePortalAuthCollections, makePortalAuthCollectionsForMembers } from '../../../helpers/firebase-admin'
 
 const AI_API_KEY = 'test-ai-key'
 process.env.AI_API_KEY = AI_API_KEY
@@ -103,6 +104,7 @@ const routeCtx = (id: string) => ({ params: Promise.resolve({ id }) })
  * would return docs for both orgs, causing isolation tests to fail.
  */
 function setupIsolationFixtures() {
+  const authCollections = makePortalAuthCollectionsForMembers([memberA, adminA, memberB, viewerA])
   const captured = {
     quoteAdds:    [] as Array<Record<string, unknown>>,
     quoteSets:    [] as Array<Record<string, unknown>>,
@@ -129,40 +131,7 @@ function setupIsolationFixtures() {
 
   ;(adminDb.collection as jest.Mock).mockImplementation((name: string) => {
 
-    // ── users ──────────────────────────────────────────────────────────────
-    if (name === 'users') {
-      return {
-        doc: (uid: string) => ({
-          get: () => Promise.resolve({
-            exists: true,
-            data: () => ({
-              activeOrgId:
-                uid === memberA.uid || uid === adminA.uid || uid === viewerA.uid
-                  ? 'org-a'
-                  : 'org-b',
-            }),
-          }),
-        }),
-      }
-    }
-
-    // ── orgMembers ─────────────────────────────────────────────────────────
-    if (name === 'orgMembers') {
-      return {
-        doc: (id: string) => ({
-          get: () => Promise.resolve({
-            exists: true,
-            data: () => (
-              id === `org-a_${memberA.uid}` ? memberA :
-              id === `org-a_${adminA.uid}`  ? adminA  :
-              id === `org-b_${memberB.uid}` ? memberB :
-              id === `org-a_${viewerA.uid}` ? viewerA :
-              { uid: id.split('_')[1], firstName: 'X', lastName: 'Y' }
-            ),
-          }),
-        }),
-      }
-    }
+    if (name === 'users' || name === 'orgMembers') return authCollections[name]
 
     // ── organizations ──────────────────────────────────────────────────────
     if (name === 'organizations') {
@@ -382,12 +351,10 @@ describe('cross-tenant isolation: quotes routes', () => {
     })
 
     const sentQuote = { ...quoteA, status: 'sent' }
+    const authCollections = makePortalAuthCollections(memberA)
 
     ;(adminDb.collection as jest.Mock).mockImplementation((name: string) => {
-      if (name === 'users')
-        return { doc: (_uid: string) => ({ get: () => Promise.resolve({ exists: true, data: () => ({ activeOrgId: 'org-a' }) }) }) }
-      if (name === 'orgMembers')
-        return { doc: () => ({ get: () => Promise.resolve({ exists: true, data: () => memberA }) }) }
+      if (name === 'users' || name === 'orgMembers') return authCollections[name]
       if (name === 'organizations')
         return {
           doc: () => ({ get: () => Promise.resolve({ exists: true, data: () => ({ name: 'Org A Corp', settings: { permissions: {}, currency: 'ZAR' }, billingDetails: {} }) }) }),
@@ -454,12 +421,10 @@ describe('cross-tenant isolation: quotes routes', () => {
     const acceptedQuote = { ...quoteA, status: 'accepted', convertedInvoiceId: null }
     let capturedQuoteUpdate: Record<string, unknown> = {}
     let capturedInvoiceAdd: Record<string, unknown> = {}
+    const authCollections = makePortalAuthCollections(memberA)
 
     ;(adminDb.collection as jest.Mock).mockImplementation((name: string) => {
-      if (name === 'users')
-        return { doc: (uid: string) => ({ get: () => Promise.resolve({ exists: true, data: () => ({ activeOrgId: 'org-a' }) }) }) }
-      if (name === 'orgMembers')
-        return { doc: () => ({ get: () => Promise.resolve({ exists: true, data: () => memberA }) }) }
+      if (name === 'users' || name === 'orgMembers') return authCollections[name]
       if (name === 'organizations')
         return {
           doc: () => ({ get: () => Promise.resolve({ exists: true, data: () => ({ name: 'Org A Corp', settings: { permissions: {}, currency: 'ZAR' }, billingDetails: {} }) }) }),

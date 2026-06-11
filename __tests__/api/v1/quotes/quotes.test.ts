@@ -17,6 +17,7 @@ import { adminAuth, adminDb } from '@/lib/firebase/admin'
 import { dispatchWebhook } from '@/lib/webhooks/dispatch'
 import { loadCompany } from '@/lib/companies/store'
 import { seedOrgMember, callAsMember, callAsAgent } from '../../../helpers/crm'
+import { makePortalAuthCollections } from '../../../helpers/firebase-admin'
 
 const AI_API_KEY = 'test-ai-key'
 process.env.AI_API_KEY = AI_API_KEY
@@ -36,6 +37,7 @@ function stageAuth(
   },
 ) {
   ;(adminAuth.verifySessionCookie as jest.Mock).mockResolvedValue({ uid: member.uid })
+  const authCollections = makePortalAuthCollections(member)
 
   // Mock runTransaction for atomic quote numbering
   ;(adminDb.runTransaction as jest.Mock).mockImplementation(async (cb: (tx: any) => Promise<unknown>) => {
@@ -48,18 +50,7 @@ function stageAuth(
   })
 
   ;(adminDb.collection as jest.Mock).mockImplementation((name: string) => {
-    if (name === 'users')
-      return {
-        doc: () => ({
-          get: () => Promise.resolve({ exists: true, data: () => ({ activeOrgId: member.orgId }) }),
-        }),
-      }
-    if (name === 'orgMembers')
-      return {
-        doc: () => ({
-          get: () => Promise.resolve({ exists: true, data: () => member }),
-        }),
-      }
+    if (name === 'users' || name === 'orgMembers') return authCollections[name]
     if (name === 'organizations')
       return {
         doc: (orgId: string) => ({

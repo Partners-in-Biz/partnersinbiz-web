@@ -1,8 +1,6 @@
 import { NextRequest } from 'next/server'
 
-const mockGet = jest.fn()
 const mockSet = jest.fn()
-const mockDoc = jest.fn()
 const mockCollection = jest.fn()
 
 jest.mock('@/lib/firebase/admin', () => ({
@@ -17,21 +15,93 @@ jest.mock('firebase-admin/firestore', () => ({
   FieldValue: { serverTimestamp: () => 'SERVER_TS' },
 }))
 
+type ProfileMember = {
+  uid: string
+  orgId: string
+  role?: string
+  firstName?: string
+  lastName?: string
+  jobTitle?: string
+  phone?: string
+  avatarUrl?: string
+  profileBannerDismissed?: boolean
+}
+
+function installProfileCollections({
+  userData = { activeOrgId: 'org-1' },
+  members = [],
+  orgData = { members: [] },
+}: {
+  userData?: Record<string, unknown> | null
+  members?: ProfileMember[]
+  orgData?: Record<string, unknown>
+} = {}) {
+  const memberByDocId = new Map(members.map((member) => [`${member.orgId}_${member.uid}`, member]))
+  const memberDocs = members.map((member) => ({
+    id: `${member.orgId}_${member.uid}`,
+    data: () => member,
+  }))
+
+  mockCollection.mockImplementation((name: string) => {
+    if (name === 'users') {
+      return {
+        doc: jest.fn(() => ({
+          get: jest.fn(async () => ({
+            exists: Boolean(userData),
+            data: () => userData ?? undefined,
+          })),
+        })),
+      }
+    }
+
+    if (name === 'orgMembers') {
+      return {
+        doc: jest.fn((id: string) => ({
+          get: jest.fn(async () => ({
+            exists: memberByDocId.has(id),
+            data: () => memberByDocId.get(id),
+          })),
+          set: mockSet,
+        })),
+        where: jest.fn((field: string, op: string, value: unknown) => ({
+          get: jest.fn(async () => ({
+            docs: memberDocs.filter((doc) => {
+              const data = doc.data()
+              if (op !== '==') return true
+              return data[field as keyof ProfileMember] === value
+            }),
+          })),
+        })),
+      }
+    }
+
+    if (name === 'organizations') {
+      return {
+        doc: jest.fn(() => ({
+          get: jest.fn(async () => ({
+            exists: true,
+            data: () => orgData,
+          })),
+        })),
+      }
+    }
+
+    return {
+      doc: jest.fn(() => ({
+        get: jest.fn(async () => ({ exists: false })),
+      })),
+    }
+  })
+}
+
 beforeEach(() => {
   jest.clearAllMocks()
-  mockDoc.mockReturnValue({ get: mockGet, set: mockSet })
-  mockCollection.mockReturnValue({ doc: mockDoc })
+  mockSet.mockResolvedValue(undefined)
 })
 
 describe('GET /api/v1/portal/settings/profile', () => {
   it('returns empty profile when no orgMembers doc exists', async () => {
-    // users doc
-    mockGet
-      .mockResolvedValueOnce({ exists: true, data: () => ({ activeOrgId: 'org-1' }) })
-      // orgMembers doc
-      .mockResolvedValueOnce({ exists: false })
-      // organization fallback role lookup
-      .mockResolvedValueOnce({ exists: true, data: () => ({ members: [] }) })
+    installProfileCollections({ members: [], orgData: { members: [] } })
 
     const { GET } = await import('@/app/api/v1/portal/settings/profile/route')
     const req = new NextRequest('http://localhost/api/v1/portal/settings/profile', {
@@ -44,12 +114,21 @@ describe('GET /api/v1/portal/settings/profile', () => {
   })
 
   it('returns profile fields when doc exists', async () => {
-    mockGet
-      .mockResolvedValueOnce({ exists: true, data: () => ({ activeOrgId: 'org-1' }) })
-      .mockResolvedValueOnce({
-        exists: true,
-        data: () => ({ firstName: 'Peet', lastName: 'Stander', jobTitle: 'CEO', phone: '', avatarUrl: '', role: 'owner', profileBannerDismissed: false }),
-      })
+    installProfileCollections({
+      members: [
+        {
+          uid: 'uid-1',
+          orgId: 'org-1',
+          firstName: 'Peet',
+          lastName: 'Stander',
+          jobTitle: 'CEO',
+          phone: '',
+          avatarUrl: '',
+          role: 'owner',
+          profileBannerDismissed: false,
+        },
+      ],
+    })
 
     const { GET } = await import('@/app/api/v1/portal/settings/profile/route')
     const req = new NextRequest('http://localhost/api/v1/portal/settings/profile', {
@@ -64,11 +143,7 @@ describe('GET /api/v1/portal/settings/profile', () => {
 
 describe('PATCH /api/v1/portal/settings/profile', () => {
   it('upserts profile and returns updated fields', async () => {
-    mockGet
-      .mockResolvedValueOnce({ exists: true, data: () => ({ activeOrgId: 'org-1' }) })
-      // existingDoc read for role
-      .mockResolvedValueOnce({ exists: true, data: () => ({ role: 'owner' }) })
-    mockSet.mockResolvedValue(undefined)
+    installProfileCollections({ members: [{ uid: 'uid-1', orgId: 'org-1', role: 'owner' }] })
 
     const { PATCH } = await import('@/app/api/v1/portal/settings/profile/route')
     const req = new NextRequest('http://localhost/api/v1/portal/settings/profile', {
@@ -85,7 +160,7 @@ describe('PATCH /api/v1/portal/settings/profile', () => {
   })
 
   it('returns 400 when firstName is missing and banner not being dismissed', async () => {
-    mockGet.mockResolvedValueOnce({ exists: true, data: () => ({ activeOrgId: 'org-1' }) })
+    installProfileCollections({ members: [{ uid: 'uid-1', orgId: 'org-1', role: 'member' }] })
 
     const { PATCH } = await import('@/app/api/v1/portal/settings/profile/route')
     const req = new NextRequest('http://localhost/api/v1/portal/settings/profile', {
@@ -98,11 +173,7 @@ describe('PATCH /api/v1/portal/settings/profile', () => {
   })
 
   it('allows empty firstName when profileBannerDismissed is true', async () => {
-    mockGet
-      .mockResolvedValueOnce({ exists: true, data: () => ({ activeOrgId: 'org-1' }) })
-      // existingDoc read for role
-      .mockResolvedValueOnce({ exists: true, data: () => ({ role: 'member' }) })
-    mockSet.mockResolvedValue(undefined)
+    installProfileCollections({ members: [{ uid: 'uid-1', orgId: 'org-1', role: 'member' }] })
 
     const { PATCH } = await import('@/app/api/v1/portal/settings/profile/route')
     const req = new NextRequest('http://localhost/api/v1/portal/settings/profile', {

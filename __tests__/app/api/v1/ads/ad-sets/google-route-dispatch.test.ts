@@ -19,6 +19,10 @@ jest.mock('@/lib/ads/campaigns/store', () => ({
 
 jest.mock('@/lib/ads/api-helpers', () => ({
   requireMetaContext: jest.fn(),
+  resolveGoogleAdsCustomerContext: jest.fn((conn) => ({
+    customerId: conn.defaultAdAccountId,
+    loginCustomerId: conn.meta?.google?.loginCustomerId,
+  })),
 }))
 
 jest.mock('@/lib/ads/providers/meta', () => ({
@@ -49,6 +53,7 @@ jest.mock('@/lib/ads/connections/store', () => ({
     id: 'conn_g1',
     orgId: 'org-1',
     platform: 'google',
+    defaultAdAccountId: '1234567890',
     accessTokenEnc: { iv: 'iv', tag: 'tag', data: 'data' },
     meta: { google: { loginCustomerId: '1234567890' } },
   }),

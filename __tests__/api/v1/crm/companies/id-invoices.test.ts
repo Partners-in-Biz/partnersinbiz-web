@@ -27,40 +27,22 @@ jest.mock('@/lib/companies/store', () => ({
 import { adminAuth, adminDb } from '@/lib/firebase/admin'
 import * as companiesStore from '@/lib/companies/store'
 import { seedOrgMember, callAsMember } from '../../../../helpers/crm'
+import { installPortalAuthCollectionMock, makeFirestoreDoc, makeFirestoreQuery } from '../../../../helpers/firebase-admin'
 import { buildCompany, uidFor } from './_fixtures'
 
 const AI_API_KEY = 'test-ai-key-id-invoices'
 process.env.AI_API_KEY = AI_API_KEY
 process.env.SESSION_COOKIE_NAME = '__session'
 
-function makeInvoiceDoc(id: string, data: Record<string, unknown>) {
-  return { id, data: () => data }
-}
-
 function stageAuth(
   member: { uid: string; orgId: string; role: string; firstName?: string; lastName?: string },
   invoices: Array<{ id: string; data: Record<string, unknown> }> = [],
 ) {
   ;(adminAuth.verifySessionCookie as jest.Mock).mockResolvedValue({ uid: member.uid })
-  ;(adminDb.collection as jest.Mock).mockImplementation((name: string) => {
-    if (name === 'users') {
-      return { doc: () => ({ get: () => Promise.resolve({ exists: true, data: () => ({ activeOrgId: member.orgId }) }) }) }
-    }
-    if (name === 'orgMembers') {
-      return { doc: () => ({ get: () => Promise.resolve({ exists: true, data: () => member }) }) }
-    }
-    if (name === 'organizations') {
-      return { doc: () => ({ get: () => Promise.resolve({ exists: true, data: () => ({ settings: { permissions: {} } }) }) }) }
-    }
-    if (name === 'invoices') {
-      const docs = invoices.map((invoice) => makeInvoiceDoc(invoice.id, invoice.data))
-      return {
-        where: jest.fn().mockReturnThis(),
-        limit: jest.fn().mockReturnThis(),
-        get: jest.fn().mockResolvedValue({ docs }),
-      }
-    }
-    return { doc: () => ({ get: () => Promise.resolve({ exists: false }) }) }
+  installPortalAuthCollectionMock(adminDb.collection as jest.Mock, member, {
+    collections: {
+      invoices: makeFirestoreQuery(invoices.map((invoice) => makeFirestoreDoc(invoice.id, invoice.data))),
+    },
   })
 }
 

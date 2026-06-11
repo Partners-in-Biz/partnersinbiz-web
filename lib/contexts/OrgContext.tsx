@@ -51,6 +51,7 @@ export function OrgProvider({ children }: { children: ReactNode }) {
       if (stored) {
         const parsed = JSON.parse(stored) as { id: string; name: string }
         if (parsed.id) {
+          // localStorage rehydration is intentionally a one-time client sync.
           setSelectedOrgId(parsed.id)
           setOrgName(parsed.name ?? '')
         }

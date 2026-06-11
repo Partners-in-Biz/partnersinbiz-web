@@ -1,7 +1,7 @@
 ---
 name: content-engine
 description: |
-  End-to-end content engine for any PiB client. Produces a research dossier, brand identity lock, 12-week calendar, blog posts (with AI-generated bodies), 12 weeks of multi-platform social posts, hero images, and 6 short-form videos in 3 formats each (vertical Reel, 16:9 YouTube, 15s Stories) — all written directly into the Partners in Biz platform as a `campaign` that the client can review, approve, or request changes on at `/portal/campaigns/[id]`. The agent / operator monitors progress and approves at `/admin/campaigns/[id]`. A public read-only sales preview is available at `/c/[shareToken]`.
+  End-to-end content engine for any PiB client. Produces a research dossier, brand identity lock, 12-week calendar, blog posts (with AI-generated bodies), 12 weeks of multi-platform social posts, hero images, and 6 short-form videos in 3 formats each (vertical Reel, 16:9 YouTube, 15s Stories) — all written directly into the Partners in Biz platform as a `campaign` that the client can review, approve, or request changes on at `/portal/campaigns/[id]`. The agent / operator monitors progress and approves at `/portal/campaigns/[id]`. A public read-only sales preview is available at `/c/[shareToken]`.
 
   Replaces the old `client-content-engine` skill which wrote to a separate Vercel preview site with localStorage approve buttons. Now there is one source of truth (Firestore via the PiB API), real audit logs, real tenant scoping, and shared records with the seo-sprint-manager skill.
 
@@ -21,7 +21,7 @@ Take a PiB client from a research brief to ~75 production assets, all written in
 - **Hero images + social card backgrounds** — uploaded via `/social/media/upload`, attached to the right blogs / posts
 
 After the run, the agent prints:
-- The campaign cockpit URL (`/admin/campaigns/[id]`) for ops
+- The campaign cockpit URL (`/portal/campaigns/[id]`) for ops
 - The client portal URL (`/portal/campaigns/[id]`) for the client
 - The public share URL (`/c/[shareToken]`) for sales pitches
 
@@ -235,12 +235,12 @@ The admin marketing-preview UI (Research / Blog Posts / Instagram / Reels
 
 ```
 /admin/org/[slug]/social                       campaign index for the client
-/admin/org/[slug]/social/[campaignId]          drill-in (replaces /admin/campaigns/[id])
+/admin/org/[slug]/social/[campaignId]          drill-in (replaces /portal/campaigns/[id])
 /admin/org/[slug]/social/[campaignId]/blog/[blogId]   inline-comment + WYSIWYG-edit blog detail
 ```
 
 Use these in run-summary output and end-of-run handoff messages instead of
-the older flat `/admin/campaigns/[id]/...` paths — the org-scoped route
+the older flat `/portal/campaigns/[id]/...` paths — the org-scoped route
 applies the client's brand colours to the chrome.
 
 ## How this composes with seo-sprint-manager

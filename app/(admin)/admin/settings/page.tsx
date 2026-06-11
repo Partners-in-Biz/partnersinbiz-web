@@ -71,7 +71,7 @@ function ChannelSwitch({
 const PLATFORM_ITEMS = [
   { label: 'Platform Users', desc: 'Manage admin and operator user accounts', href: '/admin/platform-users', superAdminOnly: true },
   { label: 'Platform Members', desc: 'View client logins and linked client accounts', href: '/admin/platform-members', superAdminOnly: true },
-  { label: 'Communications', desc: 'Inspect channel readiness, queues, routing, and customer messaging operations', href: '/admin/communications' },
+  { label: 'Communications', desc: 'Inspect channel readiness, queues, routing, and customer messaging operations', href: '/portal/communications' },
   { label: 'API Keys', desc: 'Manage API keys for AI agents and integrations', href: '/admin/settings/api-keys' },
 ]
 
@@ -264,7 +264,7 @@ export default function SettingsPage() {
             {session?.role ?? 'Admin'}
           </span>
         </div>
-        <Link href="/admin/email/mailbox" className="flex items-center justify-between px-4 py-3 hover:bg-[var(--color-row-hover)] transition-colors">
+        <Link href="/portal/email" className="flex items-center justify-between px-4 py-3 hover:bg-[var(--color-row-hover)] transition-colors">
           <div>
             <p className="text-sm font-medium text-on-surface">Internal mailbox</p>
             <p className="text-xs text-on-surface-variant mt-0.5">Link Gmail or SMTP/IMAP and send mail from your admin profile.</p>

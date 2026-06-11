@@ -1,10 +1,11 @@
 import { resolveShortCode, trackClick } from '@/lib/links/shorten'
+import { enforcePublicRateLimit, publicRequestIp } from '@/lib/api/public-rate-limit'
 
 export const dynamic = 'force-dynamic'
 
 /**
  * GET /l/[code]
- * Public redirect endpoint — no authentication required
+ * PUBLIC: redirect endpoint, no authentication required.
  * Looks up the short code, tracks the click, and redirects
  */
 export async function GET(
@@ -20,6 +21,12 @@ export async function GET(
       headers: { Location: '/' },
     })
   }
+  const limited = await enforcePublicRateLimit(req, {
+    key: `shortlink:${code}:${publicRequestIp(req)}`,
+    limit: 120,
+    windowMs: 60 * 60 * 1000,
+  })
+  if (limited) return limited
 
   const resolved = await resolveShortCode(code)
   if (!resolved) {

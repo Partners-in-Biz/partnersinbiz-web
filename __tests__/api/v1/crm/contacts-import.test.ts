@@ -18,6 +18,7 @@ jest.mock('firebase-admin/firestore', () => ({
 import { adminAuth, adminDb } from '@/lib/firebase/admin'
 import { POST } from '@/app/api/v1/crm/contacts/import/route'
 import { seedOrgMember, callAsMember } from '../../../helpers/crm'
+import { makePortalAuthCollections } from '../../../helpers/firebase-admin'
 
 const AI_API_KEY = 'test-ai-key-abc'
 process.env.AI_API_KEY = AI_API_KEY
@@ -39,6 +40,7 @@ function stageAuthWithBatch(
   const batchCommit = jest.fn().mockResolvedValue(undefined)
 
   ;(adminAuth.verifySessionCookie as jest.Mock).mockResolvedValue({ uid: member.uid })
+  const authCollections = makePortalAuthCollections(member)
 
   // Override adminDb.batch for this call
   ;(adminDb.batch as jest.Mock).mockReturnValue({
@@ -48,6 +50,7 @@ function stageAuthWithBatch(
   })
 
   ;(adminDb.collection as jest.Mock).mockImplementation((name: string) => {
+    if (name in authCollections) return authCollections[name as keyof typeof authCollections]
     if (name === 'users') {
       return {
         doc: () => ({
@@ -158,8 +161,10 @@ function setupLegacyMocks(orgId = 'org-1') {
 
   const member = seedOrgMember(orgId, 'uid-legacy', { role: 'member' })
   ;(adminAuth.verifySessionCookie as jest.Mock).mockResolvedValue({ uid: member.uid })
+  const authCollections = makePortalAuthCollections(member)
 
   ;(adminDb.collection as jest.Mock).mockImplementation((name: string) => {
+    if (name in authCollections) return authCollections[name as keyof typeof authCollections]
     if (name === 'users') {
       return {
         doc: () => ({

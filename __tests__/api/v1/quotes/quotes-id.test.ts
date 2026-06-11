@@ -22,6 +22,7 @@ import { dispatchWebhook } from '@/lib/webhooks/dispatch'
 import { generateInvoiceNumber } from '@/lib/invoices/invoice-number'
 import { loadCompany } from '@/lib/companies/store'
 import { seedOrgMember, callAsMember, callAsAgent } from '../../../helpers/crm'
+import { makePortalAuthCollections } from '../../../helpers/firebase-admin'
 import { FieldValue } from 'firebase-admin/firestore'
 
 const AI_API_KEY = 'test-ai-key'
@@ -83,6 +84,7 @@ function stageAuth(
   },
 ) {
   ;(adminAuth.verifySessionCookie as jest.Mock).mockResolvedValue({ uid: member.uid })
+  const authCollections = makePortalAuthCollections(member)
 
   ;(adminDb.runTransaction as jest.Mock).mockImplementation(
     async (cb: (tx: any) => Promise<unknown>) => {
@@ -99,19 +101,7 @@ function stageAuth(
   const capturedAdd = opts?.invoiceCapture?.capturedAdd ?? jest.fn().mockResolvedValue({ id: 'inv-new' })
 
   ;(adminDb.collection as jest.Mock).mockImplementation((name: string) => {
-    if (name === 'users')
-      return {
-        doc: () => ({
-          get: () => Promise.resolve({ exists: true, data: () => ({ activeOrgId: member.orgId }) }),
-        }),
-      }
-
-    if (name === 'orgMembers')
-      return {
-        doc: () => ({
-          get: () => Promise.resolve({ exists: true, data: () => member }),
-        }),
-      }
+    if (name === 'users' || name === 'orgMembers') return authCollections[name]
 
     if (name === 'organizations')
       return {
@@ -419,20 +409,10 @@ describe('PATCH /api/v1/quotes/:id — status transitions', () => {
 
   it('PATCH always writes updatedByRef and updatedAt', async () => {
     const member = seedOrgMember('org-1', 'uid-m', { role: 'member', firstName: 'Jane', lastName: 'Doe' })
+    const authCollections = makePortalAuthCollections(member)
     let capturedPatch: Record<string, unknown> = {}
     ;(adminDb.collection as jest.Mock).mockImplementation((name: string) => {
-      if (name === 'users')
-        return {
-          doc: () => ({
-            get: () => Promise.resolve({ exists: true, data: () => ({ activeOrgId: 'org-1' }) }),
-          }),
-        }
-      if (name === 'orgMembers')
-        return {
-          doc: () => ({
-            get: () => Promise.resolve({ exists: true, data: () => member }),
-          }),
-        }
+      if (name === 'users' || name === 'orgMembers') return authCollections[name]
       if (name === 'organizations')
         return {
           doc: () => ({

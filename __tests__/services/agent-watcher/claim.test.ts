@@ -49,6 +49,7 @@ describe('agent watcher stale task sweeper', () => {
 
     const query = {
       where: jest.fn().mockReturnThis(),
+      limit: jest.fn().mockReturnThis(),
       get: jest.fn(async () => ({
         empty: false,
         docs: [

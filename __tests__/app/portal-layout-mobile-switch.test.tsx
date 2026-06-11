@@ -1,12 +1,12 @@
 import React from 'react'
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
-import PortalLayout from '@/app/(portal)/layout'
+import PortalLayout from '@/app/(portal)/PortalLayoutClient'
 
 const pushMock = jest.fn()
 const refreshMock = jest.fn()
 let mockPathname = '/portal/dashboard'
 let mockSearchParams = new URLSearchParams()
-let mockPortalModules: { mobileApps?: boolean } | undefined
+let mockPortalModules: { mobileApps?: boolean; youtubeStudio?: boolean; bookStudio?: boolean } | undefined
 
 jest.mock('next/navigation', () => ({
   useRouter: () => ({
@@ -206,6 +206,60 @@ describe('PortalLayout mobile role switch', () => {
     })
   })
 
+  it('keeps Mobile Apps visible when the active organisation enables the module', async () => {
+    mockPortalModules = { mobileApps: true }
+
+    render(
+      <PortalLayout>
+        <div>Portal content</div>
+      </PortalLayout>,
+    )
+
+    await waitFor(() => {
+      expect(screen.getAllByRole('link', { name: /Mobile Apps/ }).length).toBeGreaterThan(0)
+    })
+  })
+
+  it('keeps YouTube Studio visible when no portal module setting is stored', async () => {
+    render(
+      <PortalLayout>
+        <div>Portal content</div>
+      </PortalLayout>,
+    )
+
+    await waitFor(() => {
+      expect(screen.getAllByRole('link', { name: /YouTube Studio/ }).length).toBeGreaterThan(0)
+    })
+  })
+
+  it('hides Book Studio navigation by default until the organisation enables it', async () => {
+    render(
+      <PortalLayout>
+        <div>Portal content</div>
+      </PortalLayout>,
+    )
+
+    expect(await screen.findByText('Client portal')).toBeInTheDocument()
+
+    await waitFor(() => {
+      expect(screen.queryByRole('link', { name: /Book Studio/ })).not.toBeInTheDocument()
+    })
+  })
+
+  it('shows Book Studio navigation when the active organisation enables the module', async () => {
+    mockPortalModules = { bookStudio: true }
+
+    render(
+      <PortalLayout>
+        <div>Portal content</div>
+      </PortalLayout>,
+    )
+
+    await waitFor(() => {
+      expect(screen.getAllByRole('link', { name: /Book Studio/ }).length).toBeGreaterThan(0)
+    })
+  })
+
   it('hides Mobile Apps navigation when the active organisation disables the module', async () => {
     mockPortalModules = { mobileApps: false }
 
@@ -219,6 +273,22 @@ describe('PortalLayout mobile role switch', () => {
 
     await waitFor(() => {
       expect(screen.queryByRole('link', { name: /Mobile Apps/ })).not.toBeInTheDocument()
+    })
+  })
+
+  it('hides YouTube Studio navigation when the active organisation disables the module', async () => {
+    mockPortalModules = { youtubeStudio: false }
+
+    render(
+      <PortalLayout>
+        <div>Portal content</div>
+      </PortalLayout>,
+    )
+
+    expect(await screen.findByText('Client portal')).toBeInTheDocument()
+
+    await waitFor(() => {
+      expect(screen.queryByRole('link', { name: /YouTube Studio/ })).not.toBeInTheDocument()
     })
   })
 })

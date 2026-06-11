@@ -12,14 +12,14 @@ function wantsHtml(req: NextRequest) {
 }
 
 function sprintRunRedirect(req: NextRequest, sprintId: string) {
-  const fallback = new URL(`/admin/seo/sprints/${sprintId}`, req.nextUrl.origin)
+  const fallback = new URL(`/portal/seo/sprints/${sprintId}`, req.nextUrl.origin)
   const referer = req.headers.get('referer')
   let target = fallback
 
   if (referer) {
     try {
       const refererUrl = new URL(referer)
-      if (refererUrl.origin === req.nextUrl.origin && refererUrl.pathname.startsWith(`/admin/seo/sprints/${sprintId}`)) {
+      if (refererUrl.origin === req.nextUrl.origin && refererUrl.pathname.startsWith(`/portal/seo/sprints/${sprintId}`)) {
         target = refererUrl
       }
     } catch {

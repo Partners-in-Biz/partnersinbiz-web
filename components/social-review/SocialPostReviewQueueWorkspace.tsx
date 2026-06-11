@@ -138,7 +138,7 @@ export function SocialPostReviewQueueWorkspace({ surface }: SocialPostReviewQueu
   const buildPostHref = useCallback(
     (postId: string) => {
       if (surface === 'portal') return scopedPortalPath(`/portal/social/review/${postId}`, orgScope)
-      return `/admin/social/qa/${postId}`
+      return `/portal/social/review/${postId}`
     },
     [orgScope, surface],
   )

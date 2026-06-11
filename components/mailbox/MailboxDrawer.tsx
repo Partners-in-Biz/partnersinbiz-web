@@ -114,7 +114,7 @@ export function MailboxDrawer({ onOpen }: MailboxDrawerProps) {
                 <p className="truncate text-xs text-[var(--color-pib-text-muted)]">Mailbox</p>
               </div>
               <a
-                href="/admin/email/mailbox"
+                href="/portal/email"
                 className="hidden sm:inline-flex rounded-lg border border-[var(--color-pib-line)] px-3 py-1.5 text-xs text-[var(--color-pib-text-muted)] transition-colors hover:bg-white/[0.05] hover:text-[var(--color-pib-text)]"
               >
                 Full view
@@ -130,7 +130,7 @@ export function MailboxDrawer({ onOpen }: MailboxDrawerProps) {
             </div>
             <iframe
               title="Email mailbox"
-              src="/admin/email/mailbox?compact=1"
+              src="/portal/email?compact=1"
               className="min-h-0 flex-1 border-0 bg-[var(--color-pib-bg)]"
             />
           </aside>

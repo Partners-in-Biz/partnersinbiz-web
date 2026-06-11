@@ -55,11 +55,11 @@ export function cleanIsoString(value: unknown, field: string): string | null {
 }
 
 export function assertNoRawSecrets(input: unknown): void {
-  const forbidden = new Set(['clientSecret', 'client_secret', 'refreshToken', 'refresh_token', 'accessToken', 'access_token', 'privateKey', 'private_key', 'serviceAccountJson', 'keyJson', 'password', 'secret'])
+  const forbidden = new Set(['clientSecret', 'client_secret', 'refreshToken', 'refresh_token', 'accessToken', 'access_token', 'privateKey', 'private_key', 'serviceAccountJson', 'keyJson', 'credentialsPath', 'credentials_path', 'credentialPath', 'keyFile', 'key_file', 'password', 'secret'])
   const visit = (value: unknown, path: string[] = []) => {
     if (!value || typeof value !== 'object') return
     for (const [key, child] of Object.entries(value as Record<string, unknown>)) {
-      if (forbidden.has(key)) throw new Error(`raw secrets are not allowed in workspace connection registry (${[...path, key].join('.')})`)
+      if (forbidden.has(key)) throw new Error(`raw secrets are not allowed in workspace registry payload (${[...path, key].join('.')})`)
       visit(child, [...path, key])
     }
   }

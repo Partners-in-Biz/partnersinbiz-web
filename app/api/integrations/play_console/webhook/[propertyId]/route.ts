@@ -16,6 +16,7 @@
  */
 import { NextRequest, NextResponse } from 'next/server'
 import { getAdapterOrThrow } from '@/lib/integrations/registry'
+import { enforcePublicRateLimit, publicRequestIp } from '@/lib/api/public-rate-limit'
 // Side-effect import to register the play_console adapter.
 import '@/lib/integrations/play_console'
 
@@ -25,8 +26,14 @@ type RouteContext = { params: Promise<{ propertyId: string }> }
 
 export async function POST(req: NextRequest, ctx: RouteContext) {
   const { propertyId } = await ctx.params
+  const limited = await enforcePublicRateLimit(req, {
+    key: `play_console_rtdn:${propertyId}:${publicRequestIp(req)}`,
+    limit: 240,
+    windowMs: 60 * 60 * 1000,
+  })
+  if (limited) return limited
 
-  // Optional shared-secret check.
+  // PUBLIC: Google Play RTDN webhook. Production fails closed unless shared-secret verification is configured.
   const expectedToken = process.env.RTDN_SHARED_SECRET
   if (expectedToken) {
     const token = req.nextUrl.searchParams.get('token')
@@ -34,6 +41,9 @@ export async function POST(req: NextRequest, ctx: RouteContext) {
       // Return 200 anyway so a probing scanner can't enumerate URLs.
       return NextResponse.json({ received: true, verified: false }, { status: 200 })
     }
+  } else if (process.env.VERCEL_ENV === 'production' || process.env.NODE_ENV === 'production') {
+    console.error('[play_console webhook] RTDN_SHARED_SECRET is not set — rejecting production webhook')
+    return NextResponse.json({ received: false, verified: false }, { status: 403 })
   }
 
   let rawBody = ''

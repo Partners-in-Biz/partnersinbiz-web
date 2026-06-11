@@ -61,7 +61,7 @@ export const GET = withAuth('admin', async (req: NextRequest, user: ApiUser) => 
       type: 'contact',
       title: d.name,
       subtitle: d.company || d.email,
-      url: `/admin/crm/contacts/${d.id}`,
+      url: `/portal/crm/contacts/${d.id}`,
     }))
 
   // Search projects: match on name, description
@@ -131,7 +131,7 @@ export const GET = withAuth('admin', async (req: NextRequest, user: ApiUser) => 
       const slug = d.orgId ? orgSlugMap.get(d.orgId) : undefined
       const url = slug
         ? `/admin/org/${slug}/projects/${d.id}`
-        : `/admin/projects/${d.id}`
+        : `/portal/projects/${d.id}`
       return {
         id: d.id,
         type: 'project',
@@ -147,7 +147,7 @@ export const GET = withAuth('admin', async (req: NextRequest, user: ApiUser) => 
       const slug = d.orgId ? orgSlugMap.get(d.orgId) : undefined
       const url = slug
         ? `/admin/org/${slug}/projects/${d.projectId}?task=${d.id}`
-        : `/admin/projects/${d.projectId}?task=${d.id}`
+        : `/portal/projects/${d.projectId}?task=${d.id}`
       return {
         id: d.id,
         type: 'task',
@@ -178,7 +178,7 @@ export const GET = withAuth('admin', async (req: NextRequest, user: ApiUser) => 
       type: 'invoice',
       title: d.invoiceNumber,
       subtitle: `${d.currency} ${d.total?.toLocaleString() ?? '0'}`,
-      url: `/admin/invoicing/${d.id}`,
+      url: `/portal/invoicing/${d.id}`,
     }))
 
   // Combine all results

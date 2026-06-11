@@ -1,7 +1,8 @@
 /**
- * GET /api/v1/social/ai/image-templates — Get predefined social media image templates
+ * GET /api/v1/social/ai/image-templates — authenticated social tooling templates.
  */
 import { apiSuccess } from '@/lib/api/response'
+import { withAuth } from '@/lib/api/auth'
 import { NextResponse } from 'next/server'
 
 export const dynamic = 'force-dynamic'
@@ -82,6 +83,6 @@ const TEMPLATES: ImageTemplate[] = [
   },
 ]
 
-export const GET = async (): Promise<NextResponse> => {
+export const GET = withAuth('client', async (): Promise<NextResponse> => {
   return apiSuccess(TEMPLATES)
-}
+})

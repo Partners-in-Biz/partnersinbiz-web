@@ -51,6 +51,7 @@ describe('portal org routes', () => {
           slug: 'client-org',
           type: 'client',
           logoUrl: '/logo.png',
+          settings: {},
         }),
       }),
     })
@@ -60,7 +61,13 @@ describe('portal org routes', () => {
 
     expect(res.status).toBe(200)
     await expect(res.json()).resolves.toMatchObject({
-      org: { id: 'client-org', name: 'Client Org', slug: 'client-org', type: 'client' },
+      org: {
+        id: 'client-org',
+        name: 'Client Org',
+        slug: 'client-org',
+        type: 'client',
+        portalModules: { mobileApps: true, youtubeStudio: true, bookStudio: false },
+      },
       user: { uid: 'admin-1', role: 'admin' },
     })
   })
@@ -80,6 +87,7 @@ describe('portal org routes', () => {
           slug: id === 'lumen-org' ? 'lumen-speeds' : 'partners-in-biz',
           type: id === 'lumen-org' ? 'client' : 'platform_owner',
           logoUrl: '',
+          settings: id === 'lumen-org' ? { portalModules: { mobileApps: false } } : {},
         }),
       }),
     }))
@@ -90,7 +98,13 @@ describe('portal org routes', () => {
     expect(res.status).toBe(200)
     expect(mockCanUsePortalOrg).toHaveBeenCalledWith('admin-1', expect.objectContaining({ role: 'admin' }), 'lumen-org')
     await expect(res.json()).resolves.toMatchObject({
-      org: { id: 'lumen-org', name: 'Lumen', slug: 'lumen-speeds', type: 'client' },
+      org: {
+        id: 'lumen-org',
+        name: 'Lumen',
+        slug: 'lumen-speeds',
+        type: 'client',
+        portalModules: { mobileApps: false, youtubeStudio: true, bookStudio: false },
+      },
       user: { uid: 'admin-1', role: 'admin' },
     })
   })
@@ -111,6 +125,7 @@ describe('portal org routes', () => {
           slug: id === 'client-a' ? 'client-a' : 'client-b',
           type: 'client',
           logoUrl: '',
+          settings: id === 'client-a' ? { portalModules: { mobileApps: false } } : { portalModules: { bookStudio: true } },
         }),
       }),
     }))
@@ -122,8 +137,22 @@ describe('portal org routes', () => {
     await expect(res.json()).resolves.toEqual({
       activeOrgId: 'client-b',
       orgs: [
-        { id: 'client-a', name: 'Client A', slug: 'client-a', type: 'client', logoUrl: '' },
-        { id: 'client-b', name: 'Client B', slug: 'client-b', type: 'client', logoUrl: '' },
+        {
+          id: 'client-a',
+          name: 'Client A',
+          slug: 'client-a',
+          type: 'client',
+          logoUrl: '',
+          portalModules: { mobileApps: false, youtubeStudio: true, bookStudio: false },
+        },
+        {
+          id: 'client-b',
+          name: 'Client B',
+          slug: 'client-b',
+          type: 'client',
+          logoUrl: '',
+          portalModules: { mobileApps: true, youtubeStudio: true, bookStudio: true },
+        },
       ],
     })
   })

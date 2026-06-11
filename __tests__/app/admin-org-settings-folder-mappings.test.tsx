@@ -93,24 +93,42 @@ describe('OrgSettingsPage folder mappings', () => {
         String(url) === '/api/v1/workspace-connections' && init?.method === 'POST',
       )
       expect(post).toBeTruthy()
-      expect(JSON.parse(post![1].body as string)).toMatchObject({
-        connectionKey: 'google-workspace-drive-docs-sheets',
+      const payload = JSON.parse(post![1].body as string)
+      expect(payload).toMatchObject({
+        connectionKey: 'google-workspace-drive-docs-sheets-gmail-calendar',
         connectionType: 'user_oauth',
         tokenStatus: 'needs_authorization',
+        capabilityScopes: ['drive.read', 'drive.write', 'docs.write', 'sheets.write', 'gmail.read', 'gmail.send', 'calendar.events'],
+        riskLevel: 'high',
       })
+      expect(payload.scopes).toEqual(expect.arrayContaining([
+        expect.objectContaining({ scope: 'https://www.googleapis.com/auth/drive.file', classification: 'sensitive' }),
+        expect.objectContaining({ scope: 'https://www.googleapis.com/auth/gmail.send', classification: 'restricted' }),
+        expect.objectContaining({ scope: 'https://www.googleapis.com/auth/calendar.events', classification: 'sensitive' }),
+      ]))
+      expect(screen.getByRole('link', { name: /Authorize Google Workspace/i })).toHaveAttribute(
+        'href',
+        '/api/v1/workspace-connections/google/authorize?orgId=org_1&connectionKey=google-workspace-drive-docs-sheets-gmail-calendar&returnTo=%2Fadmin%2Forg%2Facme-client%2Fsettings',
+      )
     })
   })
 
-  it('loads and saves the Mobile Apps client portal module switch', async () => {
-    detailSettings = { portalModules: { mobileApps: false } }
+  it('loads and saves client portal module switches including Book Studio default-off posture', async () => {
+    detailSettings = { portalModules: { mobileApps: false, youtubeStudio: false, bookStudio: true } }
 
     render(<OrgSettingsPage />)
 
     await waitFor(() => expect(screen.getByText('Client portal modules')).toBeInTheDocument())
     const mobileAppsSwitch = screen.getByLabelText('Mobile Apps') as HTMLInputElement
     expect(mobileAppsSwitch).not.toBeChecked()
+    const youtubeStudioSwitch = screen.getByLabelText('YouTube Studio') as HTMLInputElement
+    expect(youtubeStudioSwitch).not.toBeChecked()
+    const bookStudioSwitch = screen.getByLabelText('Book Studio') as HTMLInputElement
+    expect(bookStudioSwitch).toBeChecked()
 
     fireEvent.click(mobileAppsSwitch)
+    fireEvent.click(youtubeStudioSwitch)
+    fireEvent.click(bookStudioSwitch)
     fireEvent.click(screen.getByRole('button', { name: 'Save Settings' }))
 
     await waitFor(() => {
@@ -122,6 +140,8 @@ describe('OrgSettingsPage folder mappings', () => {
         settings: {
           portalModules: {
             mobileApps: true,
+            youtubeStudio: true,
+            bookStudio: false,
           },
         },
       })

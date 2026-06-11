@@ -31,6 +31,14 @@ export interface PublishOptions {
   altTexts?: string[]
   replyToId?: string
   title?: string
+  privacyStatus?: 'private' | 'unlisted' | 'public'
+  targetVisibility?: 'private' | 'unlisted' | 'public'
+  tags?: string[]
+  categoryId?: string
+  publishAt?: string
+  selfDeclaredMadeForKids?: boolean
+  containsSyntheticMedia?: boolean
+  aiDisclosureNotes?: string
 }
 
 export abstract class SocialProvider {
@@ -77,7 +85,8 @@ export abstract class SocialProvider {
   abstract refreshToken(): Promise<ProviderCredentials | null>
 
   /** Get analytics for a specific post */
-  async getAnalytics(_platformPostId: string): Promise<AnalyticsData | null> {
+  async getAnalytics(platformPostId: string): Promise<AnalyticsData | null> {
+    void platformPostId
     // Default: not supported. Platforms override when available.
     return null
   }

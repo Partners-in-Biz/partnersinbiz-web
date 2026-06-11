@@ -4,6 +4,7 @@ import { adminDb } from '@/lib/firebase/admin'
 import { WORKSPACE_ARTIFACT_COLLECTION, normalizeWorkspaceArtifactInput } from '@/lib/workspace-os/artifacts'
 import { asRecord, cleanString } from '@/lib/workspace-os/common'
 import { canExecuteWorkspaceBrokerJob, type WorkspaceBrokerJob, type WorkspaceBrokerOperation } from '@/lib/workspace-os/broker'
+import { assertWorkspaceBrokerExecutionGate } from '@/lib/workspace-os/brokerGates'
 
 const GOOGLE_DOC_MIME = 'application/vnd.google-apps.document'
 const GOOGLE_SHEET_MIME = 'application/vnd.google-apps.spreadsheet'
@@ -138,6 +139,7 @@ async function getArtifactGoogleFile(artifactId: string, purpose: string, broker
   if (!artifactSnap.exists) throw new Error(`Workspace artifact not found for ${purpose}`)
   const artifact = artifactSnap.data() as Record<string, unknown>
   if (cleanString(artifact.orgId) !== cleanString(brokerOrgId)) throw new Error('Workspace artifact orgId does not match broker job orgId')
+  if (artifact.deleted === true) throw new Error('Workspace artifact is deleted')
   const googleInfo = asRecord(artifact.google)
   const fileId = cleanString(googleInfo.fileId)
   if (!fileId) throw new Error('Workspace artifact has no Google file id')
@@ -241,6 +243,7 @@ export async function executeWorkspaceBrokerJob(job: WorkspaceBrokerJob & { id?:
   if (GOOGLE_MUTATION_OPERATIONS.has(job.operation)) {
     const executionGate = canExecuteWorkspaceBrokerJob(job)
     if (!executionGate.ok) throw new Error(executionGate.reason === 'approval_required' ? 'Workspace broker approval evidence is required before execution' : 'Workspace broker job is not ready for execution')
+    await assertWorkspaceBrokerExecutionGate(job)
   }
   requiredEnvCredentialPath()
   const input = asRecord(job.input)

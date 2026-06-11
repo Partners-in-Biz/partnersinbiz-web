@@ -7,6 +7,7 @@ jest.mock('@/lib/firebase/admin', () => ({
 
 import { adminAuth, adminDb } from '@/lib/firebase/admin'
 import { seedOrgMember, callAsMember, callAsAgent } from '../../../helpers/crm'
+import { makePortalAuthCollections } from '../../../helpers/firebase-admin'
 
 const AI_API_KEY = 'test-ai-key-abc'
 process.env.AI_API_KEY = AI_API_KEY
@@ -38,7 +39,9 @@ function stageAuth(
   opts?: { existingActivities?: ActivityFixture[] },
 ) {
   ;(adminAuth.verifySessionCookie as jest.Mock).mockResolvedValue({ uid: member.uid })
+  const authCollections = makePortalAuthCollections(member, { permissions: perms })
   ;(adminDb.collection as jest.Mock).mockImplementation((name: string) => {
+    if (name in authCollections) return authCollections[name as keyof typeof authCollections]
     if (name === 'users') return { doc: () => ({ get: () => Promise.resolve({ exists: true, data: () => ({ activeOrgId: member.orgId }) }) }) }
     if (name === 'orgMembers') return { doc: () => ({ get: () => Promise.resolve({ exists: true, data: () => member }) }) }
     if (name === 'organizations') return { doc: () => ({ get: () => Promise.resolve({ exists: true, data: () => ({ settings: { permissions: perms } }) }) }) }
@@ -120,7 +123,9 @@ describe('GET /api/v1/crm/activities', () => {
     const member = seedOrgMember('org-1', 'uid-1', { role: 'member' })
     const chain = buildQueryChain([])
     ;(adminAuth.verifySessionCookie as jest.Mock).mockResolvedValue({ uid: member.uid })
+    const authCollections = makePortalAuthCollections(member)
     ;(adminDb.collection as jest.Mock).mockImplementation((name: string) => {
+      if (name in authCollections) return authCollections[name as keyof typeof authCollections]
       if (name === 'users') return { doc: () => ({ get: () => Promise.resolve({ exists: true, data: () => ({ activeOrgId: member.orgId }) }) }) }
       if (name === 'orgMembers') return { doc: () => ({ get: () => Promise.resolve({ exists: true, data: () => member }) }) }
       if (name === 'organizations') return { doc: () => ({ get: () => Promise.resolve({ exists: true, data: () => ({ settings: { permissions: {} } }) }) }) }
@@ -138,7 +143,9 @@ describe('GET /api/v1/crm/activities', () => {
     const member = seedOrgMember('org-1', 'uid-1', { role: 'member' })
     const chain = buildQueryChain([])
     ;(adminAuth.verifySessionCookie as jest.Mock).mockResolvedValue({ uid: member.uid })
+    const authCollections = makePortalAuthCollections(member)
     ;(adminDb.collection as jest.Mock).mockImplementation((name: string) => {
+      if (name in authCollections) return authCollections[name as keyof typeof authCollections]
       if (name === 'users') return { doc: () => ({ get: () => Promise.resolve({ exists: true, data: () => ({ activeOrgId: member.orgId }) }) }) }
       if (name === 'orgMembers') return { doc: () => ({ get: () => Promise.resolve({ exists: true, data: () => member }) }) }
       if (name === 'organizations') return { doc: () => ({ get: () => Promise.resolve({ exists: true, data: () => ({ settings: { permissions: {} } }) }) }) }
@@ -152,23 +159,24 @@ describe('GET /api/v1/crm/activities', () => {
     expect(chain.where).toHaveBeenCalledWith('contactId', '==', 'c99')
   })
 
-  it('uses ctx.orgId (not ?orgId= param) for tenant isolation', async () => {
+  it('rejects an inaccessible orgId query param before listing activities', async () => {
     const member = seedOrgMember('org-1', 'uid-1', { role: 'member' })
     const chain = buildQueryChain([])
     ;(adminAuth.verifySessionCookie as jest.Mock).mockResolvedValue({ uid: member.uid })
+    const authCollections = makePortalAuthCollections(member)
     ;(adminDb.collection as jest.Mock).mockImplementation((name: string) => {
+      if (name in authCollections) return authCollections[name as keyof typeof authCollections]
       if (name === 'users') return { doc: () => ({ get: () => Promise.resolve({ exists: true, data: () => ({ activeOrgId: member.orgId }) }) }) }
       if (name === 'orgMembers') return { doc: () => ({ get: () => Promise.resolve({ exists: true, data: () => member }) }) }
       if (name === 'organizations') return { doc: () => ({ get: () => Promise.resolve({ exists: true, data: () => ({ settings: { permissions: {} } }) }) }) }
       if (name === 'activities') return chain
       return { doc: () => ({ get: () => Promise.resolve({ exists: false }) }) }
     })
-    // Pass a different orgId in query param — should be ignored; ctx.orgId (org-1) used instead
+    // Pass a different orgId in query param — the auth layer must reject it before the route queries activities.
     const req = callAsMember(member, 'GET', '/api/v1/crm/activities?orgId=org-EVIL')
     const { GET } = await import('@/app/api/v1/crm/activities/route')
     const res = await GET(req)
-    expect(res.status).toBe(200)
-    expect(chain.where).toHaveBeenCalledWith('orgId', '==', 'org-1')
+    expect(res.status).toBe(403)
     expect(chain.where).not.toHaveBeenCalledWith('orgId', '==', 'org-EVIL')
   })
 })

@@ -25,7 +25,7 @@ function appBaseUrl(req: NextRequest): string {
 }
 
 function adminConnectionsUrl(req: NextRequest, propertyId: string, provider: string, ok: boolean, msg?: string) {
-  const url = new URL(`/admin/properties/${propertyId}/connections`, appBaseUrl(req))
+  const url = new URL(`/portal/properties/${propertyId}/connections`, appBaseUrl(req))
   url.searchParams.set('provider', provider)
   url.searchParams.set('result', ok ? 'ok' : 'error')
   if (msg) url.searchParams.set('msg', msg.slice(0, 200))

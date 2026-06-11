@@ -1,5 +1,5 @@
 /**
- * GET /api/v1/public/campaigns/[shareToken]  — public read-only campaign.
+ * GET /api/v1/public/campaigns/[shareToken]  — PUBLIC: read-only campaign share link.
  *
  * No auth. Looks up by shareToken; only returns when shareEnabled === true
  * and the campaign is not deleted. Strips internal-only audit fields.
@@ -8,6 +8,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { adminDb } from '@/lib/firebase/admin'
 import { apiSuccess, apiError } from '@/lib/api/response'
 import { buildCampaignAssets } from '@/app/api/v1/campaigns/[id]/assets/route'
+import { enforcePublicRateLimit, publicRequestIp, publicRateLimitHash } from '@/lib/api/public-rate-limit'
 
 export const dynamic = 'force-dynamic'
 
@@ -38,6 +39,12 @@ export async function GET(req: NextRequest, context: Params): Promise<NextRespon
     if (!shareToken || shareToken.length < 8) {
       return apiError('Invalid share token', 400)
     }
+    const limited = await enforcePublicRateLimit(req, {
+      key: `public_campaign:${publicRateLimitHash(shareToken)}:${publicRequestIp(req)}`,
+      limit: 120,
+      windowMs: 60 * 60 * 1000,
+    })
+    if (limited) return limited
 
     const snap = await adminDb
       .collection('campaigns')

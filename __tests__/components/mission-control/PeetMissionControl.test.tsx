@@ -91,12 +91,15 @@ const agentTasks = [
   { id: 'risk-1', title: 'Blocked: controlled send needs exact Peet approval wording', assigneeAgentId: 'nora', agentStatus: 'awaiting-input', columnId: 'blocked', priority: 'urgent', href: '/admin/projects/p0hFCZE3d4koqIrAaS1c?task=risk-1' },
 ]
 
+const generatedAt = '2026-06-04T09:00:00.000Z'
+const generatedAtLabel = `Generated ${new Date(generatedAt).toLocaleString('en-ZA', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}`
+
 beforeEach(() => {
   jest.useFakeTimers().setSystemTime(new Date('2026-06-04T09:15:00.000Z'))
   global.fetch = jest.fn(async (input: RequestInfo | URL) => {
     const url = String(input)
     if (url.startsWith('/api/v1/briefings/feed')) {
-      return { ok: true, json: async () => ({ data: { items: feedItems, total: feedItems.length, hasMore: false, generatedAt: '2026-06-04T09:00:00.000Z' } }) } as Response
+      return { ok: true, json: async () => ({ data: { items: feedItems, total: feedItems.length, hasMore: false, generatedAt } }) } as Response
     }
     if (url.startsWith('/api/v1/admin/agent-tasks')) {
       return { ok: true, json: async () => ({ data: { items: agentTasks } }) } as Response
@@ -117,7 +120,7 @@ describe('PeetMissionControl', () => {
     expect(await screen.findByRole('heading', { name: 'Peet Mission Control' })).toBeInTheDocument()
     expect(screen.getByText('Internal development only')).toBeInTheDocument()
 
-    await screen.findByText('Generated 04 Jun, 09:00')
+    await screen.findByText(generatedAtLabel)
     const kpis = screen.getByLabelText('Mission Control KPI snapshot')
     expect(within(kpis).getByText('5')).toBeInTheDocument()
     expect(within(kpis).getByText('Live cards')).toBeInTheDocument()
@@ -162,7 +165,7 @@ describe('PeetMissionControl', () => {
     render(<PeetMissionControl />)
 
     expect(await screen.findByText(/Mission Control briefing data may be stale/i)).toBeInTheDocument()
-    expect(screen.getAllByText(/Generated 04 Jun, 09:00/i).length).toBeGreaterThanOrEqual(1)
+    expect(screen.getAllByText(new RegExp(generatedAtLabel, 'i')).length).toBeGreaterThanOrEqual(1)
   })
 
   it('warns when the briefing generatedAt timestamp is missing', async () => {

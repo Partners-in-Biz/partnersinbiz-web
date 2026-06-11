@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { adminDb } from '@/lib/firebase/admin'
 import type { PropertyConfig } from '@/lib/properties/types'
+import { enforcePublicRateLimit, publicRequestIp, publicRateLimitHash } from '@/lib/api/public-rate-limit'
 
 export const dynamic = 'force-dynamic'
 
@@ -12,6 +13,21 @@ export async function GET(
 ): Promise<NextResponse> {
   const { id } = await ctx.params
   const ingestKey = req.headers.get('x-pib-ingest-key')
+  // PUBLIC: property runtime config lookup protected by per-property ingest key.
+  const ipLimited = await enforcePublicRateLimit(req, {
+    key: `property_config:${id}:${publicRequestIp(req)}`,
+    limit: 120,
+    windowMs: 60 * 60 * 1000,
+  })
+  if (ipLimited) return ipLimited
+  if (ingestKey) {
+    const keyLimited = await enforcePublicRateLimit(req, {
+      key: `property_config_key:${id}:${publicRateLimitHash(ingestKey)}`,
+      limit: 240,
+      windowMs: 60 * 60 * 1000,
+    })
+    if (keyLimited) return keyLimited
+  }
 
   if (!ingestKey) {
     return NextResponse.json(

@@ -98,7 +98,7 @@ function sourceHref(item: BriefingCard) {
     }) as Record<string, unknown> | undefined
     if (typeof linkedEvidence?.href === 'string') return linkedEvidence.href
   }
-  return item.source?.url || '/admin/briefings'
+  return item.source?.url || '/portal/briefings'
 }
 
 function generatedAtStatus(value?: string | null, now = Date.now()) {
@@ -117,7 +117,7 @@ function generatedAtStatus(value?: string | null, now = Date.now()) {
 }
 
 function taskHref(task: AgentTask) {
-  return task.href || '/admin/projects'
+  return task.href || '/portal/projects'
 }
 
 function includesAny(value: string, needles: string[]) {
@@ -270,7 +270,7 @@ function AgentLearningDashboard({ items, metrics }: { items: BriefingCard[]; met
             Shows reviewable evidence that the PiB operating system is learning: no automatic skill/wiki rewrite, just source-backed improvements Peet can inspect.
           </p>
         </div>
-        <Link href="/admin/briefings?source=agent-learning-review" className="pib-btn-secondary self-start">Open learning reviews</Link>
+        <Link href="/portal/briefings?source=agent-learning-review" className="pib-btn-secondary self-start">Open learning reviews</Link>
       </div>
       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
         {metrics.map(metric => {
@@ -369,8 +369,8 @@ export function PeetMissionControl() {
         meta={<span className="rounded-full border border-amber-400/30 bg-amber-500/10 px-3 py-1 text-amber-100">Internal development only</span>}
         actions={(
           <>
-            <Link href="/admin/briefings" className="pib-btn-secondary">Open Control Desk</Link>
-            <Link href="/admin/projects" className="pib-btn-primary">Open Projects</Link>
+            <Link href="/portal/briefings" className="pib-btn-secondary">Open Control Desk</Link>
+            <Link href="/portal/projects" className="pib-btn-primary">Open Projects</Link>
           </>
         )}
       />

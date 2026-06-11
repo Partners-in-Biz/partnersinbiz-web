@@ -85,7 +85,7 @@ jest.mock('@/lib/commerce/store', () => ({
 
 jest.mock('@/lib/crm/reconcile-links', () => ({
   reconcileCrmLinks: (...args: unknown[]) => mockReconcileLinks(...args),
-}), { virtual: true })
+}))
 
 jest.mock('@/lib/crm/os-dashboard', () => ({
   buildCrmOsDashboard: (...args: unknown[]) => mockBuildCrmOsDashboard(...args),
@@ -123,7 +123,11 @@ beforeEach(() => {
 
 describe('CRM OS route contracts', () => {
   it('returns a company command-center aggregate', async () => {
-    mockBuildCompanyCommandCenter.mockResolvedValue({ summary: { projects: 1 }, projects: [{ id: 'project-1' }] })
+    mockBuildCompanyCommandCenter.mockResolvedValue({
+      summary: { projects: 1 },
+      projects: [{ id: 'project-1' }],
+      invoices: [],
+    })
     const { GET } = await import('@/app/api/v1/crm/companies/[id]/command-center/route')
 
     const res = await GET(request('GET', '/api/v1/crm/companies/company-1/command-center'), routeCtx())

@@ -15,6 +15,6 @@ describe('agent watcher config', () => {
     expect(normalizeEnabledAgentIds([
       { id: 'bad id', data: { enabled: true } },
       { id: 'disabled', data: { enabled: false } },
-    ])).toEqual(['ads', 'data', 'docs', 'maya', 'nora', 'pip', 'qa-release', 'sage', 'seo', 'support', 'theo'])
+    ])).toEqual(['ads', 'data', 'docs', 'maya', 'nora', 'pip', 'qa-release', 'sage', 'seo', 'support', 'theo', 'sales'])
   })
 })

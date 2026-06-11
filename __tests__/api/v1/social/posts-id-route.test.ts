@@ -1,5 +1,6 @@
 import { NextRequest } from 'next/server'
 import { adminAuth } from '@/lib/firebase/admin'
+import { installPortalAuthCollectionMock } from '../../../helpers/firebase-admin'
 
 const mockCollection = jest.fn()
 const mockPostGet = jest.fn()
@@ -43,23 +44,20 @@ describe('GET /api/v1/social/posts/:id', () => {
       }),
     })
 
-    mockCollection.mockImplementation((name: string) => {
-      if (name === 'users') {
-        return {
+    installPortalAuthCollectionMock(mockCollection, { uid: 'client-1', orgId: 'org-1', role: 'member' }, {
+      collections: {
+        users: {
           doc: () => ({
             get: mockUserGet,
           }),
-        }
-      }
-      if (name === 'social_posts') {
-        return {
+        },
+        social_posts: {
           doc: (id: string) => ({
             id,
             get: mockPostGet,
           }),
-        }
-      }
-      throw new Error(`Unexpected collection ${name}`)
+        },
+      },
     })
   })
 

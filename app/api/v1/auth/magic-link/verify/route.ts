@@ -23,14 +23,29 @@ import { NextRequest, NextResponse } from 'next/server'
 import { adminAuth } from '@/lib/firebase/admin'
 import { consumeMagicLink } from '@/lib/client-documents/magicLink'
 import { findOrCreateGuestUser } from '@/lib/auth/guestUser'
+import { enforcePublicRateLimit, publicRequestIp, publicRateLimitHash } from '@/lib/api/public-rate-limit'
 
 export const dynamic = 'force-dynamic'
 
 export async function GET(req: NextRequest) {
+  // PUBLIC: magic-link email callback that consumes a single-use token.
   const token = req.nextUrl.searchParams.get('token')
   if (!token) {
     return NextResponse.redirect(new URL('/auth/magic-link/error?reason=missing_token', req.url))
   }
+  const ipLimited = await enforcePublicRateLimit(req, {
+    key: `magic_link_verify:${publicRequestIp(req)}`,
+    limit: 30,
+    windowMs: 15 * 60 * 1000,
+  })
+  if (ipLimited) return ipLimited
+
+  const tokenLimited = await enforcePublicRateLimit(req, {
+    key: `magic_link_verify_token:${publicRateLimitHash(token)}`,
+    limit: 5,
+    windowMs: 15 * 60 * 1000,
+  })
+  if (tokenLimited) return tokenLimited
 
   const result = await consumeMagicLink(token)
   if (!result.ok) {

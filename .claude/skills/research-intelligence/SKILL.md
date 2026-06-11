@@ -22,8 +22,8 @@ Authentication:
 - Agents acting with Peet/admin access may create and edit Research. Client users may view and comment only on visible records.
 
 UI routes:
-- `/admin/research`
-- `/admin/research/[id]`
+- `/portal/research`
+- `/portal/research/[id]`
 - `/admin/org/[slug]/research`
 - `/admin/org/[slug]/research/[id]`
 - `/portal/research`

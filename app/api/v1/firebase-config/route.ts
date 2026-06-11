@@ -1,18 +1,26 @@
 /**
- * /api/v1/firebase-config — return the public Firebase web config.
+ * /api/v1/firebase-config — PUBLIC: return the public Firebase web config.
  *
  * Used by `firebase-messaging-sw.js` so we don't have to hardcode keys into
  * the service worker file. Everything returned here is already shipped to the
  * browser via NEXT_PUBLIC_* envs, so this endpoint adds no new sensitivity —
  * but it centralises the values and keeps the SW cache-friendly.
  */
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { getPublicFirebaseConfig } from '@/lib/firebase/publicConfig'
+import { enforcePublicRateLimit, publicRequestIp } from '@/lib/api/public-rate-limit'
 
-export const dynamic = 'force-static'
+export const dynamic = 'force-dynamic'
 export const revalidate = 3600
 
-export async function GET() {
+export async function GET(req: NextRequest) {
+  const limited = await enforcePublicRateLimit(req, {
+    key: `firebase_config:${publicRequestIp(req)}`,
+    limit: 120,
+    windowMs: 60 * 60 * 1000,
+  })
+  if (limited) return limited
+
   return NextResponse.json(
     {
       success: true,

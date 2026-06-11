@@ -38,7 +38,7 @@ export function SprintCard({ sprint }: { sprint: any }) {
       <div className="flex items-start justify-between">
         <div>
           <h3 className="font-semibold text-base leading-tight">
-            <Link href={`/admin/seo/sprints/${sprint.id}`} className="hover:underline">
+            <Link href={`/portal/seo/sprints/${sprint.id}`} className="hover:underline">
               {sprint.siteName}
             </Link>
           </h3>
@@ -54,7 +54,7 @@ export function SprintCard({ sprint }: { sprint: any }) {
       </div>
       <div className="flex flex-wrap items-center gap-2">
         <Link
-          href={`/admin/seo/sprints/${sprint.id}`}
+          href={`/portal/seo/sprints/${sprint.id}`}
           className="pib-btn-secondary !px-3 !py-1.5 text-xs"
         >
           <span className="material-symbols-outlined text-base">open_in_new</span>

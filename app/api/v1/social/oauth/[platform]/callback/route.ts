@@ -27,7 +27,7 @@ export async function GET(req: NextRequest) {
   const error = url.searchParams.get('error')
 
   // Default redirect on failure
-  let redirectUrl = '/admin/social'
+  let redirectUrl = '/portal/social'
 
   try {
     // Handle platform-side errors

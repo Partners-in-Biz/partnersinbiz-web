@@ -437,10 +437,24 @@ export default function UnifiedChat({
     return () => window.clearInterval(interval)
   }, [activeConversation?.participantAgentIds?.length, activeId, loadMessages])
 
-  // Auto-scroll on new messages
+  // Auto-scroll on new messages. Run after the browser has laid out the loaded
+  // message list so returning to an existing chat lands at the latest message,
+  // not at the top with a stale pre-layout scrollHeight.
   useEffect(() => {
-    if (messagesContainerRef.current) {
-      messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight
+    const container = messagesContainerRef.current
+    if (!container) return
+
+    const scrollToLatest = () => {
+      container.scrollTop = container.scrollHeight
+    }
+
+    scrollToLatest()
+    const frameId = window.requestAnimationFrame(scrollToLatest)
+    const timeoutId = window.setTimeout(scrollToLatest, 0)
+
+    return () => {
+      window.cancelAnimationFrame(frameId)
+      window.clearTimeout(timeoutId)
     }
   }, [messages])
 

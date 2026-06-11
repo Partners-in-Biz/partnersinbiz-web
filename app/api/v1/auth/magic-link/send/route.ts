@@ -19,6 +19,7 @@ import { createMagicLink } from '@/lib/client-documents/magicLink'
 import { buildMagicLinkEmail } from '@/lib/email/templates/magic-link'
 import { sendEmail } from '@/lib/email/send'
 import { checkAndIncrementRateLimit } from '@/lib/rateLimit'
+import { enforcePublicRateLimit, publicRequestIp } from '@/lib/api/public-rate-limit'
 import type { MagicLink } from '@/lib/client-documents/types'
 
 export const dynamic = 'force-dynamic'
@@ -49,6 +50,12 @@ export async function POST(req: NextRequest) {
   if (!limit.allowed) {
     return apiError('Too many sign-in requests. Try again in a few minutes.', 429)
   }
+  const ipLimited = await enforcePublicRateLimit(req, {
+    key: `magic_link_ip:${publicRequestIp(req)}`,
+    limit: 10,
+    windowMs: 15 * 60 * 1000,
+  })
+  if (ipLimited) return ipLimited
 
   const { token } = await createMagicLink({
     email: normalizedEmail,

@@ -1,11 +1,13 @@
 import { FieldValue } from 'firebase-admin/firestore'
 import { adminDb } from '@/lib/firebase/admin'
 import { withAuth } from '@/lib/api/auth'
-import { apiSuccess } from '@/lib/api/response'
+import { apiError, apiSuccess } from '@/lib/api/response'
 import { notifyInvoiceSent } from '@/lib/notifications/notify'
 import { logActivity } from '@/lib/activity/log'
 import { tryAttributeInvoicePaid } from '@/lib/email-analytics/attribution-hooks'
 import { requireInvoiceAccess } from '@/lib/invoices/access'
+import { canEditInvoiceDraft } from '@/lib/invoices/permissions'
+
 
 export const dynamic = 'force-dynamic'
 
@@ -18,11 +20,14 @@ export const GET = withAuth('client', async (_req, user, ctx) => {
   return apiSuccess({ id: access.snap.id, ...access.data })
 })
 
-export const PATCH = withAuth('admin', async (req, user, ctx) => {
+export const PATCH = withAuth('client', async (req, user, ctx) => {
   const { id } = await (ctx as RouteContext).params
   const body = (await req.json().catch(() => ({}))) as Record<string, unknown>
   const access = await requireInvoiceAccess(user, id)
   if (!access.ok) return access.response
+  if (!canEditInvoiceDraft(user, access.data)) {
+    return apiError('Only admins or the creator of a draft invoice can edit it', 403)
+  }
   const ref = access.ref
   const doc = access.snap
 

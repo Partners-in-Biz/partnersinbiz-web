@@ -79,6 +79,98 @@ describe('UnifiedChat upload and finalize error handling', () => {
   })
 })
 
+describe('UnifiedChat message scrolling', () => {
+  let originalRequestAnimationFrame: typeof window.requestAnimationFrame
+  let originalCancelAnimationFrame: typeof window.cancelAnimationFrame
+  let originalScrollHeightDescriptor: PropertyDescriptor | undefined
+  let layoutSettled = false
+
+  beforeEach(() => {
+    originalRequestAnimationFrame = window.requestAnimationFrame
+    originalCancelAnimationFrame = window.cancelAnimationFrame
+    originalScrollHeightDescriptor = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'scrollHeight')
+    layoutSettled = false
+    window.requestAnimationFrame = jest.fn((callback: FrameRequestCallback) => {
+      layoutSettled = true
+      callback(0)
+      return 1
+    })
+    window.cancelAnimationFrame = jest.fn()
+
+    Object.defineProperty(HTMLElement.prototype, 'scrollHeight', {
+      configurable: true,
+      get() {
+        return this.getAttribute('aria-label') === 'Conversation messages' && layoutSettled ? 1200 : 0
+      },
+    })
+
+    global.fetch = jest.fn(async (input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url.includes('/visible-agents')) return jsonResponse({ data: [] })
+      if (url.startsWith('/api/v1/conversations?')) {
+        return jsonResponse({ data: { conversations: [baseConversation] } })
+      }
+      if (url === '/api/v1/conversations/conv-1/messages') {
+        return jsonResponse({
+          data: {
+            messages: [
+              {
+                id: 'msg-old',
+                conversationId: 'conv-1',
+                role: 'user',
+                content: 'First message',
+                authorKind: 'user',
+                authorId: 'user-1',
+                authorDisplayName: 'Peet',
+                status: 'completed',
+                createdAt: '2026-06-08T09:00:00.000Z',
+              },
+              {
+                id: 'msg-latest',
+                conversationId: 'conv-1',
+                role: 'assistant',
+                content: 'Latest message',
+                authorKind: 'agent',
+                authorId: 'pip',
+                authorDisplayName: 'Pip',
+                status: 'completed',
+                createdAt: '2026-06-08T09:05:00.000Z',
+              },
+            ],
+          },
+        })
+      }
+      throw new Error(`Unhandled fetch: ${url}`)
+    })
+  })
+
+  afterEach(() => {
+    window.requestAnimationFrame = originalRequestAnimationFrame
+    window.cancelAnimationFrame = originalCancelAnimationFrame
+    if (originalScrollHeightDescriptor) {
+      Object.defineProperty(HTMLElement.prototype, 'scrollHeight', originalScrollHeightDescriptor)
+    } else {
+      delete (HTMLElement.prototype as unknown as { scrollHeight?: number }).scrollHeight
+    }
+  })
+
+  it('waits for the loaded conversation layout before scrolling to the latest message', async () => {
+    render(
+      <UnifiedChat
+        orgId="org-1"
+        currentUserUid="user-1"
+        currentUserDisplayName="Peet"
+      />,
+    )
+
+    await screen.findByText('Latest message')
+    const log = screen.getByRole('log', { name: 'Conversation messages' })
+
+    await waitFor(() => expect(window.requestAnimationFrame).toHaveBeenCalled())
+    expect(log.scrollTop).toBe(1200)
+  })
+})
+
 describe('UnifiedChat context references', () => {
   let mockFetch: jest.Mock
   let conversation: typeof baseConversation

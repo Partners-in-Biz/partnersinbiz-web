@@ -57,7 +57,10 @@ export class YouTubeProvider extends SocialProvider {
   private async uploadVideo(options: PublishOptions): Promise<PublishResult> {
     const title = options.title || options.text.split('\n')[0].slice(0, 100) || 'Untitled'
     const description = options.text || ''
-    const tags = (description.match(/#(\w+)/g) ?? []).map(t => t.slice(1))
+    const tags = options.tags?.length
+      ? options.tags
+      : (description.match(/#(\w+)/g) ?? []).map(t => t.slice(1))
+    const privacyStatus = options.privacyStatus ?? 'private'
 
     // Step 1: Initiate resumable upload
     const metadata = {
@@ -65,11 +68,12 @@ export class YouTubeProvider extends SocialProvider {
         title,
         description,
         tags,
-        categoryId: '22', // "People & Blogs" — sensible default
+        categoryId: options.categoryId ?? '22', // "People & Blogs" — sensible default
       },
       status: {
-        privacyStatus: 'public', // can be overridden per-post
-        selfDeclaredMadeForKids: false,
+        privacyStatus,
+        selfDeclaredMadeForKids: options.selfDeclaredMadeForKids ?? false,
+        ...(options.publishAt ? { publishAt: options.publishAt } : {}),
       },
     }
 

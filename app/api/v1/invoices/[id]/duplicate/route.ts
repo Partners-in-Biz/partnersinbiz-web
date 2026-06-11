@@ -4,6 +4,7 @@ import { adminDb } from '@/lib/firebase/admin'
 import { withAuth } from '@/lib/api/auth'
 import { apiSuccess, apiError } from '@/lib/api/response'
 import { generateInvoiceNumber } from '@/lib/invoices/invoice-number'
+import { generateInvoicePdfShareToken } from '@/lib/invoices/share-token'
 import { requireInvoiceAccess } from '@/lib/invoices/access'
 
 export const dynamic = 'force-dynamic'
@@ -33,6 +34,7 @@ export const POST = withAuth('admin', async (_req: NextRequest, user, ctx) => {
   const doc = {
     orgId: source.orgId,
     invoiceNumber,
+    pdfShareToken: generateInvoicePdfShareToken(),
     status: 'draft' as const,
     issueDate: FieldValue.serverTimestamp(),
     dueDate,

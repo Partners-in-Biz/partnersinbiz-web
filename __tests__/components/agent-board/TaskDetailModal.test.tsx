@@ -65,4 +65,25 @@ describe('Agent board TaskDetailModal', () => {
     })
     expect(onRefresh).toHaveBeenCalled()
   })
+
+  it('formats blocked standalone output with a plain-language summary and readable details', () => {
+    render(
+      <TaskDetailModal
+        task={{
+          ...blockedTask,
+          agentOutputSummary: 'Blocked: Site: partnersinbiz.online. Task id: jOPA3L2acx3GvY6Vyllb. Issue: Peet cannot read the mobile blocker note because it is one dense paragraph. Verification: screenshot IMG_3286.png shows the problem. How to fix: split the note into summary and technical details. Proof needed: mobile screenshot. After resolved: tell Theo mobile blocker notes are readable.',
+        }}
+        onClose={jest.fn()}
+        onRefresh={jest.fn()}
+        slug="partners-in-biz"
+      />,
+    )
+
+    const summary = screen.getByText('What this means')
+    const technical = screen.getByText('Technical details')
+    expect(summary.compareDocumentPosition(technical) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(screen.getAllByText(/Peet cannot read the mobile blocker note/i).length).toBeGreaterThan(0)
+    expect(screen.getAllByText(/Proof needed/i).length).toBeGreaterThan(0)
+    expect(screen.getAllByText(/mobile screenshot/i).length).toBeGreaterThan(0)
+  })
 })

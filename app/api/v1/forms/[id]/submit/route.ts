@@ -1,5 +1,5 @@
 /**
- * POST /api/v1/forms/:slug/submit — PUBLIC endpoint, no auth.
+ * POST /api/v1/forms/:slug/submit — PUBLIC: hosted form submission endpoint, no auth.
  *
  * Flow:
  *   1. Resolve form by (orgId + slug + active=true). orgId comes from ?orgId=

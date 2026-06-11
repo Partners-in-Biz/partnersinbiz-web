@@ -68,11 +68,11 @@ SEO ownership for v1 remains Sage/SEO specialist. Maya can write positioning, se
 ## Suggested PiB module shape
 
 Admin routes:
-- `/admin/geo-seo`
+- `/portal/geo-seo`
 - `/admin/org/[slug]/geo-seo`
-- `/admin/geo-seo/workspaces/[id]`
-- `/admin/geo-seo/audits/[id]`
-- `/admin/geo-seo/reports/[id]`
+- `/portal/geo-seo/workspaces/[id]`
+- `/portal/geo-seo/audits/[id]`
+- `/portal/geo-seo/reports/[id]`
 
 Client portal routes:
 - `/portal/geo-seo`

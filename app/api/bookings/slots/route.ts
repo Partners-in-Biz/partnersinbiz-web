@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { adminDb } from '@/lib/firebase/admin'
 import { getFreeBusy } from '@/lib/google/calendar'
+import { enforcePublicRateLimit, publicRequestIp } from '@/lib/api/public-rate-limit'
 
 const SLOT_INTERVAL = 30
 const BUSINESS_START = 9
@@ -29,10 +30,17 @@ function overlaps(slot: { start: Date; end: Date }, busy: { start: string; end: 
 }
 
 export async function GET(request: NextRequest) {
+  // PUBLIC: website booking availability lookup.
   const date = request.nextUrl.searchParams.get('date')
   if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
     return NextResponse.json({ error: 'date is required (YYYY-MM-DD)' }, { status: 400 })
   }
+  const limited = await enforcePublicRateLimit(request, {
+    key: `booking_slots:${date}:${publicRequestIp(request)}`,
+    limit: 60,
+    windowMs: 15 * 60 * 1000,
+  })
+  if (limited) return limited
 
   // Reject weekends
   const dow = new Date(`${date}T12:00:00Z`).getUTCDay()

@@ -36,6 +36,18 @@ export const CONTEXT_REFERENCE_MENTION_OPTIONS: ContextReferenceMentionOption[] 
   { type: 'campaign', namespace: 'campaigns', label: 'Campaigns' },
   { type: 'email', namespace: 'emails', label: 'Emails' },
   { type: 'support', namespace: 'support', label: 'Support' },
+  { type: 'deal', namespace: 'deals', label: 'Deals' },
+  { type: 'invoice', namespace: 'invoices', label: 'Invoices' },
+  { type: 'quote', namespace: 'quotes', label: 'Quotes' },
+  { type: 'property', namespace: 'properties', label: 'Properties' },
+  { type: 'seo_sprint', namespace: 'seosprints', label: 'SEO sprints' },
+  { type: 'workspace_folder', namespace: 'workspacefolders', label: 'Workspace folders' },
+  { type: 'workspace_artifact', namespace: 'workspaceartifacts', label: 'Workspace artifacts' },
+  { type: 'workspace_connection', namespace: 'workspaceconnections', label: 'Workspace connections' },
+  { type: 'workspace_broker_job', namespace: 'brokerjobs', label: 'Workspace broker jobs' },
+  { type: 'file', namespace: 'files', label: 'Files' },
+  { type: 'report', namespace: 'reports', label: 'Reports' },
+  { type: 'calendar_event', namespace: 'events', label: 'Calendar events' },
 ]
 
 export function filterContextReferenceMentionOptions(query: string): ContextReferenceMentionOption[] {

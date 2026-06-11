@@ -49,7 +49,7 @@ export const POST = withAuth('admin', async (_req, user, context) => {
     type: 'expense.submitted',
     title: 'Expense submitted for approval',
     body: `${existing.category} — ${amountLabel}${existing.vendor ? ` @ ${existing.vendor}` : ''}`,
-    link: `/admin/expenses/${id}`,
+    link: `/portal/payments?expense=${id}`,
     data: { expenseId: id, submittedBy: existing.userId },
     priority: 'normal',
     status: 'unread',

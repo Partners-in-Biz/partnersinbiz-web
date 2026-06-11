@@ -100,3 +100,31 @@ describe('GET /api/v1/portal/mobile-apps', () => {
     expect(mockMobileAppsGet).not.toHaveBeenCalled()
   })
 })
+
+describe('PUT /api/v1/portal/mobile-apps', () => {
+  beforeEach(() => {
+    jest.clearAllMocks()
+    jest.resetModules()
+    stageCollections()
+  })
+
+  it('blocks portal Mobile Apps feedback updates when the organisation disables the module', async () => {
+    stageCollections({ portalModules: { mobileApps: false } })
+
+    const { PUT } = await import('@/app/api/v1/portal/mobile-apps/route')
+    const res = await PUT(new NextRequest('http://localhost/api/v1/portal/mobile-apps', {
+      method: 'PUT',
+      body: JSON.stringify({ id: 'app-1', clientNotes: 'Looks good' }),
+    }))
+    const body = await res.json()
+
+    expect(res.status).toBe(403)
+    expect(body).toMatchObject({
+      success: false,
+      moduleDisabled: true,
+      module: 'mobileApps',
+    })
+    expect(mockCollection).not.toHaveBeenCalledWith('mobile_apps')
+    expect(mockMobileAppsGet).not.toHaveBeenCalled()
+  })
+})

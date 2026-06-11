@@ -71,7 +71,7 @@ export const POST = withAuth('admin', async (req, user, ctx) => {
       type: 'invoice.proof_uploaded',
       title: 'Payment proof uploaded',
       body: `Invoice ${invoiceNumber} is awaiting confirmation`,
-      link: `/admin/invoices/${id}`,
+      link: `/portal/invoicing/${id}`,
       status: 'unread',
       priority: 'high',
       createdAt: FieldValue.serverTimestamp(),

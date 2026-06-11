@@ -117,7 +117,7 @@ export const POST = withAuth('client', async (req: NextRequest, user, ctx) => {
         type: 'task.assigned',
         title: 'Task assigned to you',
         body: String(doc.title),
-        link: `/admin/projects/${projectId}?task=${ref.id}`,
+        link: `/portal/projects/${projectId}?task=${ref.id}`,
         data: { projectId, taskId: ref.id },
         status: 'unread',
         priority: notificationPriority(doc.priority),
