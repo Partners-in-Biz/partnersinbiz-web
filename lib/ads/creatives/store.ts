@@ -23,10 +23,39 @@ export async function createCreative(args: {
   const id = args.id ?? `crv_${crypto.randomBytes(8).toString('hex')}`
   const now = Timestamp.now()
 
+  let versionGroupId = id
+  let versionNumber = 1
+
+  if (args.input.supersedes) {
+    const previousRef = adminDb.collection(COLLECTION).doc(args.input.supersedes)
+    const previousSnap = await previousRef.get()
+    if (!previousSnap.exists) {
+      throw new Error('Superseded creative not found')
+    }
+
+    const previous = previousSnap.data() as AdCreative
+    if (previous.orgId !== args.orgId) {
+      throw new Error('Cannot supersede creative outside the active org')
+    }
+
+    versionGroupId = previous.versionGroupId ?? previous.id
+    versionNumber = (previous.versionNumber ?? 1) + 1
+
+    await previousRef.update({
+      isLatest: false,
+      updatedAt: now,
+    })
+  }
+
   const doc: AdCreative = {
     ...args.input,
     id,
     orgId: args.orgId,
+    sourceOrgId: args.input.sourceOrgId ?? args.orgId,
+    approvalStatus: args.input.approvalStatus ?? 'draft',
+    versionGroupId,
+    versionNumber,
+    isLatest: true,
     platformRefs: {},
     createdBy: args.createdBy,
     createdAt: now,

@@ -6,6 +6,7 @@ const mockCanUsePortalOrg = jest.fn()
 const mockResolvePortalActiveOrgId = jest.fn()
 const mockListCampaigns = jest.fn()
 const mockGetCampaign = jest.fn()
+const mockListConnections = jest.fn()
 const mockListAdSets = jest.fn()
 const mockListAds = jest.fn()
 const mockGetAd = jest.fn()
@@ -37,6 +38,10 @@ jest.mock('@/lib/portal/org-access', () => ({
 jest.mock('@/lib/ads/campaigns/store', () => ({
   listCampaigns: (...args: unknown[]) => mockListCampaigns(...args),
   getCampaign: (...args: unknown[]) => mockGetCampaign(...args),
+}))
+
+jest.mock('@/lib/ads/connections/store', () => ({
+  listConnections: (...args: unknown[]) => mockListConnections(...args),
 }))
 
 jest.mock('@/lib/ads/adsets/store', () => ({
@@ -117,6 +122,7 @@ describe('portal ads org scope', () => {
       }),
     })
     mockCollection.mockImplementation(activityCollection)
+    mockListConnections.mockResolvedValue([])
     mockListCampaigns.mockResolvedValue([
       {
         id: 'ad-campaign-1',

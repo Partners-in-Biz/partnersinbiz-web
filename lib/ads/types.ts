@@ -268,12 +268,89 @@ export type AdCreativeStatus =
   | 'FAILED'      // probe/preview failed
   | 'ARCHIVED'    // soft-deleted
 
+export type AdCreativeSourceType =
+  | 'direct_upload'
+  | 'content_asset'
+  | 'content_package'
+  | 'social_post'
+  | 'campaign_asset'
+  | 'client_document'
+  | 'research_item'
+
+export type AdCreativeApprovalStatus =
+  | 'draft'
+  | 'pending_review'
+  | 'approved'
+  | 'changes_requested'
+  | 'rejected'
+
+export interface AdCreativeUtmDefaults {
+  source?: string
+  medium?: string
+  campaign?: string
+  content?: string
+  term?: string
+}
+
+export interface AdCreativePlacementSuitability {
+  platform: AdPlatform
+  placement: string
+  status: 'suitable' | 'warning' | 'blocked' | 'unknown'
+  reason?: string
+  checkedAt?: Timestamp
+}
+
+export interface AdCreativeSpecValidationCheck {
+  key: string
+  status: 'pass' | 'warning' | 'fail'
+  message?: string
+}
+
+export interface AdCreativeSpecValidation {
+  status: 'valid' | 'warning' | 'invalid' | 'not_checked'
+  checkedAt?: Timestamp
+  checks: AdCreativeSpecValidationCheck[]
+}
+
+export interface AdCreativeUsageBacklink {
+  adId?: string
+  adSetId?: string
+  campaignId?: string
+  platform?: AdPlatform
+  attachedAt?: Timestamp
+}
+
 export interface PlatformCreativeRef {
   /** Platform-side creative id. For Meta images this is the image_hash. For videos, video_id. */
   creativeId: string
   /** Optional content hash for change detection. */
   hash?: string
   syncedAt: Timestamp
+}
+
+export interface AdCreativeImportedSource {
+  type: AdCreativeSourceType
+  id: string
+  collection: string
+  assetIndex?: number
+  approvedAt?: Timestamp | string | null
+  approvedBy?: string | null
+  snapshot: {
+    copy: string
+    landingUrl: string
+    utm: Record<string, string>
+    asset: {
+      type: AdCreativeType
+      name: string
+      sourceUrl: string
+      storagePath: string
+      mimeType: string
+      fileSize: number
+      width?: number
+      height?: number
+      duration?: number
+    }
+  }
 }
 
 export interface AdCreative {
@@ -296,6 +373,36 @@ export interface AdCreative {
   status: AdCreativeStatus
   /** Brand copy attached to the creative — optional, can be overridden per-ad. */
   copy?: Partial<AdCopy>
+  /** Immutable source lineage and approved content/campaign snapshot for imported assets. */
+  source?: AdCreativeImportedSource
+  sourceType?: AdCreativeSourceType
+  sourceId?: string
+  sourceVersionId?: string
+  sourceOrgId?: string
+  projectId?: string
+  /** Paid-media approval state and durable approval references. */
+  approvalStatus?: AdCreativeApprovalStatus
+  approvalTaskId?: string
+  approvalDocumentId?: string
+  approvalVersionId?: string
+  approvalCommentId?: string
+  /** Package-level visual defaults used by pickers and provider adapters. */
+  thumbnailUrl?: string
+  videoCoverUrl?: string
+  /** Default destination and UTM snapshot for ads cloned from this immutable version. */
+  landingUrl?: string
+  utmDefaults?: AdCreativeUtmDefaults
+  /** Provider/placement suitability and spec validation captured for this exact version. */
+  placementSuitability?: AdCreativePlacementSuitability[]
+  specValidation?: AdCreativeSpecValidation
+  /** Immutable creative package version chain. */
+  versionGroupId: string
+  versionNumber: number
+  supersedes?: string
+  changeSummary?: string
+  isLatest: boolean
+  /** Ads/campaigns that consumed this creative version. */
+  usageBacklinks?: AdCreativeUsageBacklink[]
   /** Cross-platform sync state. Each provider gets a slot; Meta is the only one populated in Phase 3. */
   platformRefs: {
     meta?: PlatformCreativeRef
@@ -325,6 +432,9 @@ export type CreateAdCreativeInput = Omit<
   | 'archivedAt'
   | 'previewUrl'
   | 'lastError'
+  | 'versionGroupId'
+  | 'versionNumber'
+  | 'isLatest'
 >
 
 export type UpdateAdCreativeInput = Partial<

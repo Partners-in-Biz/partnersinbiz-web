@@ -59,6 +59,10 @@ export const POST = withAuth('admin', async (req: NextRequest, user) => {
     )
   }
 
+  if (body.sourceOrgId && body.sourceOrgId !== orgId) {
+    return apiError('sourceOrgId must match X-Org-Id for creative imports', 400)
+  }
+
   const input: CreateAdCreativeInput = {
     type: body.type,
     name: body.name,
@@ -71,13 +75,40 @@ export const POST = withAuth('admin', async (req: NextRequest, user) => {
     duration: body.duration,
     status: 'READY',
     copy: body.copy,
+    sourceType: body.sourceType,
+    sourceId: body.sourceId,
+    sourceVersionId: body.sourceVersionId,
+    sourceOrgId: body.sourceOrgId ?? orgId,
+    projectId: body.projectId,
+    approvalStatus: body.approvalStatus,
+    approvalTaskId: body.approvalTaskId,
+    approvalDocumentId: body.approvalDocumentId,
+    approvalVersionId: body.approvalVersionId,
+    approvalCommentId: body.approvalCommentId,
+    thumbnailUrl: body.thumbnailUrl,
+    videoCoverUrl: body.videoCoverUrl,
+    landingUrl: body.landingUrl,
+    utmDefaults: body.utmDefaults,
+    placementSuitability: body.placementSuitability,
+    specValidation: body.specValidation,
+    supersedes: body.supersedes,
+    changeSummary: body.changeSummary,
+    usageBacklinks: body.usageBacklinks,
   }
 
-  const created = await createCreative({
-    orgId,
-    createdBy: (user as { uid?: string }).uid ?? 'unknown',
-    input,
-  })
+  try {
+    const created = await createCreative({
+      orgId,
+      createdBy: (user as { uid?: string }).uid ?? 'unknown',
+      input,
+    })
 
-  return apiSuccess(created, 201)
+    return apiSuccess(created, 201)
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Failed to create creative'
+    if (message.includes('Superseded creative') || message.includes('outside the active org')) {
+      return apiError(message, 400)
+    }
+    throw err
+  }
 })

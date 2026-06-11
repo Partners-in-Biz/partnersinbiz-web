@@ -86,4 +86,45 @@ describe('CreativePicker', () => {
       expect(screen.getByText(/No creatives yet/)).toBeInTheDocument(),
     )
   })
+
+  it('imports an approved source package and makes it selectable from the library', async () => {
+    ;(global.fetch as jest.Mock)
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ success: true, data: [] }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          success: true,
+          data: { id: 'crv_imported', name: 'Approved social hero', type: 'image', width: 1200, height: 628 },
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          success: true,
+          data: [{ id: 'crv_imported', name: 'Approved social hero', type: 'image', width: 1200, height: 628 }],
+        }),
+      })
+
+    const onSelect = jest.fn()
+    render(<CreativePicker open orgId="org_1" onSelect={onSelect} onClose={() => {}} />)
+
+    await waitFor(() => expect(screen.getByText(/No creatives yet/)).toBeInTheDocument())
+    fireEvent.click(screen.getByRole('tab', { name: /Import approved/i }))
+    fireEvent.change(screen.getByLabelText(/Source ID/i), { target: { value: 'post_1' } })
+    fireEvent.click(screen.getByRole('button', { name: /Import into Ads/i }))
+
+    await waitFor(() => expect(screen.getByText('Approved social hero')).toBeInTheDocument())
+    expect(global.fetch).toHaveBeenCalledWith('/api/v1/ads/creatives/import', expect.objectContaining({
+      method: 'POST',
+      headers: expect.objectContaining({ 'X-Org-Id': 'org_1' }),
+      body: JSON.stringify({ sourceType: 'social_post', sourceId: 'post_1', assetIndex: 0 }),
+    }))
+
+    fireEvent.click(screen.getByText('Approved social hero').closest('button')!)
+    fireEvent.click(screen.getByRole('button', { name: /Use this/i }))
+    expect(onSelect).toHaveBeenCalledWith(['crv_imported'])
+  })
 })
