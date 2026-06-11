@@ -7,9 +7,11 @@ import { GoogleConnectionsPanel } from '@/components/ads/GoogleConnectionsPanel'
 import type { AdConnection } from '@/lib/ads/types'
 
 const refresh = jest.fn()
+let mockSearchParamsValue = ''
 
 jest.mock('next/navigation', () => ({
   useRouter: () => ({ refresh }),
+  useSearchParams: () => new URLSearchParams(mockSearchParamsValue),
 }))
 
 const GOOGLE_CONNECTION: AdConnection = {
@@ -26,6 +28,32 @@ const GOOGLE_CONNECTION: AdConnection = {
 describe('GoogleConnectionsPanel', () => {
   beforeEach(() => {
     jest.resetAllMocks()
+    mockSearchParamsValue = ''
+  })
+
+  it('shows Google OAuth callback account-selection status from the URL', () => {
+    mockSearchParamsValue = 'status=connected&provider=google&needsAccountSelection=1&connectionId=conn_google_1'
+
+    render(<GoogleConnectionsPanel orgSlug="acme" orgId="org_1" connections={[{ ...GOOGLE_CONNECTION, defaultAdAccountId: undefined }]} />)
+
+    expect(screen.getByText('Google Ads connected. Select a Customer ID to finish account setup.')).toBeInTheDocument()
+  })
+
+  it('does not show a Google callback notice for another provider callback', () => {
+    mockSearchParamsValue = 'status=error&provider=meta&connectionId=conn_meta_1&needsAccountSelection=1&message=oauth_failed'
+
+    render(<GoogleConnectionsPanel orgSlug="acme" orgId="org_1" connections={[{ ...GOOGLE_CONNECTION, defaultAdAccountId: undefined }]} />)
+
+    expect(screen.queryByText(/Google Ads connection failed/)).not.toBeInTheDocument()
+    expect(screen.queryByText('Google Ads connected. Select a Customer ID to finish account setup.')).not.toBeInTheDocument()
+  })
+
+  it('does not show a Google callback notice for account selection without provider=google', () => {
+    mockSearchParamsValue = 'status=connected&needsAccountSelection=1&connectionId=conn_meta_1'
+
+    render(<GoogleConnectionsPanel orgSlug="acme" orgId="org_1" connections={[{ ...GOOGLE_CONNECTION, defaultAdAccountId: undefined }]} />)
+
+    expect(screen.queryByText('Google Ads connected. Select a Customer ID to finish account setup.')).not.toBeInTheDocument()
   })
 
   it('confirms Google Ads disconnects inside the page', async () => {

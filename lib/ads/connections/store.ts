@@ -13,6 +13,7 @@ interface CreateArgs {
   userId: string
   scopes: string[]
   accessToken: string
+  refreshToken?: string
   expiresInSeconds: number
   adAccounts: AdAccount[]
   tokenType?: 'user' | 'system'
@@ -22,6 +23,9 @@ export async function createConnection(args: CreateArgs): Promise<AdConnection> 
   const id = `conn_${crypto.randomBytes(8).toString('hex')}`
   const now = Timestamp.now()
   const accessTokenEnc = encryptToken(args.accessToken, args.orgId)
+  const refreshTokenEnc = args.refreshToken
+    ? encryptToken(args.refreshToken, args.orgId)
+    : undefined
   const expiresAt = Timestamp.fromMillis(Date.now() + args.expiresInSeconds * 1000)
 
   const doc: AdConnection = {
@@ -34,6 +38,7 @@ export async function createConnection(args: CreateArgs): Promise<AdConnection> 
     adAccounts: args.adAccounts,
     tokenType: args.tokenType ?? 'user',
     accessTokenEnc,
+    ...(refreshTokenEnc ? { refreshTokenEnc } : {}),
     expiresAt,
     createdAt: now,
     updatedAt: now,

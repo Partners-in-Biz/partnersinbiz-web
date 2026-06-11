@@ -43,10 +43,19 @@ interface GoogleOAuthEnv {
 }
 
 function readOAuthEnv(): GoogleOAuthEnv | null {
-  const clientId = process.env.GOOGLE_OAUTH_CLIENT_ID?.trim()
-  const clientSecret = process.env.GOOGLE_OAUTH_CLIENT_SECRET?.trim()
-  if (!clientId || !clientSecret) return null
-  return { clientId, clientSecret }
+  const oauthClientId = process.env.GOOGLE_OAUTH_CLIENT_ID?.trim()
+  const oauthClientSecret = process.env.GOOGLE_OAUTH_CLIENT_SECRET?.trim()
+  if (oauthClientId && oauthClientSecret) {
+    return { clientId: oauthClientId, clientSecret: oauthClientSecret }
+  }
+
+  const adsClientId = process.env.GOOGLE_ADS_CLIENT_ID?.trim()
+  const adsClientSecret = process.env.GOOGLE_ADS_CLIENT_SECRET?.trim()
+  if (adsClientId && adsClientSecret) {
+    return { clientId: adsClientId, clientSecret: adsClientSecret }
+  }
+
+  return null
 }
 
 /** Read the platform-wide developer token. Required on every Ads API call. */
