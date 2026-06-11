@@ -74,5 +74,5 @@ export async function GET(req: NextRequest) {
   await stateRef.update({ consumedAt: FieldValue.serverTimestamp() })
 
   const base = process.env.NEXT_PUBLIC_BASE_URL ?? 'https://partnersinbiz.online'
-  return NextResponse.redirect(`${base}/admin/seo/sprints/${parsed.sprintId}/settings?gsc=connected`)
+  return NextResponse.redirect(`${base}/portal/seo/sprints/${parsed.sprintId}/settings?gsc=connected`)
 }

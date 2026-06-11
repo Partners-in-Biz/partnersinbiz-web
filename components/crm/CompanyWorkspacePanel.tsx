@@ -77,7 +77,7 @@ function adminActions(workspace: LinkedWorkspace): WorkspaceAction[] {
       title: 'Reports',
       description: 'Client reporting and performance review workspace.',
       icon: 'bar_chart',
-      href: `/admin/reports?orgId=${workspaceId}`,
+      href: `/portal/reports?orgId=${workspaceId}`,
     },
     {
       title: 'Projects',

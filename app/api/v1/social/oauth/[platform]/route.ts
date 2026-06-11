@@ -23,7 +23,7 @@ export const GET = withAuth('client', withTenant(async (req: NextRequest, user, 
   const url = new URL(req.url)
   const rawPlatform = url.pathname.split('/').slice(-1)[0]
   const platform = (rawPlatform === 'x' ? 'twitter' : rawPlatform) as SocialPlatformType
-  const redirectUrl = url.searchParams.get('redirectUrl') ?? '/admin/social'
+  const redirectUrl = url.searchParams.get('redirectUrl') ?? '/portal/social'
   const accountScope = url.searchParams.get('scope') === PERSONAL_SCOPE ? PERSONAL_SCOPE : 'org'
   const linkedinMode: LinkedInOAuthMode =
     platform === 'linkedin' && url.searchParams.get('linkedinMode') === 'organization'

@@ -264,7 +264,7 @@ export function ComposeForm() {
       })
       const body = await res.json()
       if (!res.ok) throw new Error(body.error ?? 'Failed')
-      router.push('/admin/email')
+      router.push('/portal/email')
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Something went wrong')
     } finally {
@@ -392,7 +392,7 @@ export function ComposeForm() {
         </button>
         <button
           type="button"
-          onClick={() => router.push('/admin/email')}
+          onClick={() => router.push('/portal/email')}
           className="px-6 py-2 text-sm font-label text-on-surface-variant border border-outline-variant hover:text-on-surface transition-colors"
         >
           Cancel

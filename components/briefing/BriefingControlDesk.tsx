@@ -436,19 +436,19 @@ function sourceHref(item: BriefingCard, mode: Mode, portalScope?: PortalOrgRoute
     const contentId = encodeURIComponent(item.source.id)
     if (sprintId) {
       return mode === 'admin'
-        ? `/admin/seo/sprints/${encodeURIComponent(sprintId)}/content?content=${contentId}`
+        ? `/portal/seo/sprints/${encodeURIComponent(sprintId)}/content?content=${contentId}`
         : portalSourceHref(`/portal/seo/sprints/${encodeURIComponent(sprintId)}/content?content=${contentId}`, portalScope)
     }
     return mode === 'admin'
-      ? `/admin/seo?content=${contentId}`
+      ? `/portal/seo?content=${contentId}`
       : portalSourceHref(`/portal/seo?content=${contentId}`, portalScope)
   }
   if (item.source.type === 'seo-task') {
     if (mode !== 'admin') return null
     const sprintId = item.context.seoSprintId
     const taskId = encodeURIComponent(item.source.id)
-    if (sprintId) return `/admin/seo/sprints/${encodeURIComponent(sprintId)}/tasks?task=${taskId}`
-    return `/admin/seo?task=${taskId}`
+    if (sprintId) return `/portal/seo/sprints/${encodeURIComponent(sprintId)}/tasks?task=${taskId}`
+    return `/portal/seo?task=${taskId}`
   }
   if (mode === 'admin') return item.source.url || null
   if (item.source.url?.startsWith('/portal')) return portalSourceHref(item.source.url, portalScope)
@@ -598,13 +598,13 @@ function adminSourceHref(item: BriefingCard) {
   if (item.source.type === 'expense') return `/admin/finance?expense=${encodeURIComponent(item.source.id)}`
   if (item.source.type === 'ad-campaign') {
     if (item.context.orgSlug) return `/admin/org/${encodeURIComponent(item.context.orgSlug)}/ads/campaigns/${encodeURIComponent(item.source.id)}`
-    return `/admin/marketing?adCampaign=${encodeURIComponent(item.source.id)}`
+    return `/portal/marketing?adCampaign=${encodeURIComponent(item.source.id)}`
   }
   if (item.source.type === 'broadcast') return `/admin/broadcasts/${encodeURIComponent(item.source.id)}`
-  if (item.source.type === 'campaign') return `/admin/campaigns/${encodeURIComponent(item.source.id)}`
+  if (item.source.type === 'campaign') return `/portal/campaigns/${encodeURIComponent(item.source.id)}`
   if (item.source.type === 'form-submission') {
     const formId = item.context.formId
-    if (formId) return `/admin/forms/${encodeURIComponent(formId)}/submissions/${encodeURIComponent(item.source.id)}`
+    if (formId) return `/portal/capture-sources/${encodeURIComponent(formId)}/submissions/${encodeURIComponent(item.source.id)}`
     return item.source.url || null
   }
   if (item.source.type === 'enquiry') return item.source.url || `/admin/briefings?source=enquiry&id=${encodeURIComponent(item.source.id)}`
@@ -612,32 +612,32 @@ function adminSourceHref(item: BriefingCard) {
     return item.source.url || `/admin/social/inbox?item=${encodeURIComponent(item.source.id)}`
   }
   if (item.source.type === 'mailbox-message') {
-    return `/admin/email/mailbox?message=${encodeURIComponent(item.source.id)}`
+    return `/portal/email?message=${encodeURIComponent(item.source.id)}`
   }
   if (item.source.type === 'seo-content') {
     const sprintId = item.context.seoSprintId
     const contentId = encodeURIComponent(item.source.id)
-    if (sprintId) return `/admin/seo/sprints/${encodeURIComponent(sprintId)}/content?content=${contentId}`
-    return `/admin/seo?content=${contentId}`
+    if (sprintId) return `/portal/seo/sprints/${encodeURIComponent(sprintId)}/content?content=${contentId}`
+    return `/portal/seo?content=${contentId}`
   }
   if (item.source.type === 'seo-task') {
     const sprintId = item.context.seoSprintId
     const taskId = encodeURIComponent(item.source.id)
-    if (sprintId) return `/admin/seo/sprints/${encodeURIComponent(sprintId)}/tasks?task=${taskId}`
-    return `/admin/seo?task=${taskId}`
+    if (sprintId) return `/portal/seo/sprints/${encodeURIComponent(sprintId)}/tasks?task=${taskId}`
+    return `/portal/seo?task=${taskId}`
   }
   if (item.context.conversationId) {
     const query = `convId=${encodeURIComponent(item.context.conversationId)}`
     if (item.context.orgSlug) return `/admin/org/${item.context.orgSlug}/messages?${query}`
-    return `/admin/communications?${query}`
+    return `/portal/communications?${query}`
   }
   if (item.source.type === 'social-post') {
-    if (socialActionStage(item) === 'qa') return `/admin/social/qa/${encodeURIComponent(item.source.id)}`
+    if (socialActionStage(item) === 'qa') return `/portal/social/qa/${encodeURIComponent(item.source.id)}`
     if (item.context.orgSlug) return `/admin/org/${item.context.orgSlug}/social/${encodeURIComponent(item.source.id)}`
-    return `/admin/social?postId=${encodeURIComponent(item.source.id)}`
+    return `/portal/social?postId=${encodeURIComponent(item.source.id)}`
   }
-  if (item.context.contactId) return `/admin/crm/contacts/${encodeURIComponent(item.context.contactId)}`
-  if (item.context.dealId) return `/admin/crm/pipeline?dealId=${encodeURIComponent(item.context.dealId)}`
+  if (item.context.contactId) return `/portal/crm/contacts/${encodeURIComponent(item.context.contactId)}`
+  if (item.context.dealId) return `/portal/deals?dealId=${encodeURIComponent(item.context.dealId)}`
   if (item.source.type === 'report' && item.source.url) return item.source.url
   return item.source.url || null
 }

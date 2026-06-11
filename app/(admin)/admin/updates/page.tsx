@@ -35,7 +35,7 @@ export const ADMIN_UPDATE_AREAS: UpdateArea[] = [
     eyebrow: 'Daily command desk',
     icon: 'team_dashboard',
     summary: 'A single place to see urgent cards, route decisions, open evidence, assign agents, and turn platform signals into follow-up work.',
-    href: '/admin/briefings',
+    href: '/portal/briefings',
     hrefLabel: 'Open Briefings',
     steps: [
       'Start here each morning and scan the urgent and unread cards first.',
@@ -69,7 +69,7 @@ export const ADMIN_UPDATE_AREAS: UpdateArea[] = [
     eyebrow: 'Client-specific operations',
     icon: 'business_center',
     summary: 'Each client workspace has clearer admin routes for overview, projects, documents, research, marketing, messages, reports, team, billing, and settings.',
-    href: '/admin/clients',
+    href: '/admin/organizations',
     hrefLabel: 'Choose Client',
     steps: [
       'Open Clients, choose the workspace, then use the left navigation inside that client.',
@@ -86,7 +86,7 @@ export const ADMIN_UPDATE_AREAS: UpdateArea[] = [
     eyebrow: 'Execution bus',
     icon: 'rocket_launch',
     summary: 'Projects and task boards are the durable handoff layer for specs, approvals, specialist execution, blockers, evidence, and review.',
-    href: '/admin/projects',
+    href: '/portal/projects',
     hrefLabel: 'Open Projects',
     steps: [
       'Create or open the owning project before assigning specialist work.',
@@ -103,7 +103,7 @@ export const ADMIN_UPDATE_AREAS: UpdateArea[] = [
     eyebrow: 'Specs and client-facing output',
     icon: 'description',
     summary: 'Documents are the polish and approval surface for specs, reports, revisions, handover packs, and other structured outputs.',
-    href: '/admin/documents',
+    href: '/portal/documents',
     hrefLabel: 'Open Documents',
     steps: [
       'Draft the spec or output as a document when it needs review, approval, or client-facing polish.',
@@ -120,7 +120,7 @@ export const ADMIN_UPDATE_AREAS: UpdateArea[] = [
     eyebrow: 'Evidence layer',
     icon: 'travel_explore',
     summary: 'Research pages collect source-backed intelligence and can be promoted into documents or tasks when the recommendation is ready to execute.',
-    href: '/admin/research',
+    href: '/portal/research',
     hrefLabel: 'Open Research',
     steps: [
       'Use research items for raw findings, citations, competitor notes, and strategic recommendations.',
@@ -137,7 +137,7 @@ export const ADMIN_UPDATE_AREAS: UpdateArea[] = [
     eyebrow: 'Growth execution',
     icon: 'campaign',
     summary: 'Marketing is grouped into content, campaigns, social, email, SEO, and capture-source surfaces so operators can move from plan to queue to performance.',
-    href: '/admin/marketing',
+    href: '/portal/marketing',
     hrefLabel: 'Open Marketing',
     steps: [
       'Use the Marketing hub to choose the right channel surface.',

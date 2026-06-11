@@ -390,7 +390,7 @@ async function writeSuiteNotifications(input: {
         type: `project.${input.eventType}`,
         title: cleanString(setting.title) || `${itemLabel} ${actionLabel}`,
         body,
-        link: `/admin/projects/${input.projectId}?suite=${input.type}&item=${input.itemId}`,
+        link: `/portal/projects/${input.projectId}?suite=${input.type}&item=${input.itemId}`,
         data: {
           projectId: input.projectId,
           itemType: input.type,

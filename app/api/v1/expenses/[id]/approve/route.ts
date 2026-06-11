@@ -85,7 +85,7 @@ export const POST = withAuth('admin', async (req, user, context) => {
     body: isApprove
       ? `${existing.category} — ${amountLabel} approved`
       : `${existing.category} — ${amountLabel} rejected${body.note ? `: ${body.note}` : ''}`,
-    link: `/admin/expenses/${id}`,
+    link: `/portal/payments?expense=${id}`,
     data: { expenseId: id, reviewedBy: user.uid, note: body.note ?? null },
     priority: 'normal',
     status: 'unread',

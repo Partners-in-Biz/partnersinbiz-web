@@ -44,7 +44,7 @@ export function geoSeoDateLabel(value: string | null | undefined) {
 }
 
 function workspaceHref(workspaceId: string, surface: 'admin' | 'portal', basePath?: string, orgScope?: PortalOrgRouteScope) {
-  const path = `${basePath || (surface === 'portal' ? '/portal/geo-seo' : '/admin/geo-seo')}/workspaces/${encodeURIComponent(workspaceId)}`
+  const path = `${basePath || '/portal/geo-seo'}/workspaces/${encodeURIComponent(workspaceId)}`
   return surface === 'portal' ? scopedPortalPath(path, orgScope || {}) : path
 }
 

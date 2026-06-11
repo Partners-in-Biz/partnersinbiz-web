@@ -138,7 +138,7 @@ export function CommunicationsConsole({
 
   const canLoad = Boolean(activeOrgId) && (mode === 'admin' || portalOrgReady)
   const marketingHref = mode === 'admin'
-    ? '/admin/marketing'
+    ? '/portal/marketing'
     : scopedPortalPath('/portal/marketing', { ...sourceContext, orgId: activeOrgId, orgSlug: requestedOrgSlug })
 
   useEffect(() => {

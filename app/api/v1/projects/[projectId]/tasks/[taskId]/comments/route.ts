@@ -140,7 +140,7 @@ export const POST = withAuth('client', async (req: NextRequest, user, ctx) => {
     const notificationOrgId = projectDoc.data()?.orgId
     const viewUrl = typeof notificationOrgId === 'string'
       ? await adminProjectTaskLink({ db: adminDb, orgId: notificationOrgId, projectId, taskId })
-      : `/admin/projects?projectId=${encodeURIComponent(projectId)}&taskId=${encodeURIComponent(taskId)}`
+      : `/portal/projects?projectId=${encodeURIComponent(projectId)}&taskId=${encodeURIComponent(taskId)}`
 
     notifyNewComment({
       commentText: text.trim(),

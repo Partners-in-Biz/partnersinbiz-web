@@ -310,7 +310,7 @@ function SequencesTab({ property, onUpdate }: { property: Property; onUpdate: (u
         <p className="text-xs text-on-surface-variant">{stepCount} step{stepCount === 1 ? '' : 's'}</p>
         <div className="flex gap-2">
           <Link
-            href={`/admin/sequences/${linkedId}`}
+            href={`/portal/sequences/${linkedId}`}
             className="pib-btn-secondary text-xs font-label"
           >
             Open sequence →
@@ -733,10 +733,10 @@ function PropertyAnalyticsTab({ property }: { property: Property }) {
       <div className="pib-card p-4">
         <p className="text-xs text-on-surface-variant font-label mb-3">Quick links</p>
         <div className="flex flex-wrap gap-2">
-          <Link href={`/admin/analytics/events?propertyId=${encodeURIComponent(propertyId)}`} className="pib-btn-secondary text-xs font-label">Open Events</Link>
-          <Link href={`/admin/analytics/sessions?propertyId=${encodeURIComponent(propertyId)}`} className="pib-btn-secondary text-xs font-label">Open Sessions</Link>
-          <Link href={`/admin/analytics/live?propertyId=${encodeURIComponent(propertyId)}`} className="pib-btn-secondary text-xs font-label">Open Live</Link>
-          <Link href={`/admin/analytics/users?propertyId=${encodeURIComponent(propertyId)}`} className="pib-btn-secondary text-xs font-label">Open Users</Link>
+          <Link href={`/portal/analytics/events?propertyId=${encodeURIComponent(propertyId)}`} className="pib-btn-secondary text-xs font-label">Open Events</Link>
+          <Link href={`/portal/analytics/sessions?propertyId=${encodeURIComponent(propertyId)}`} className="pib-btn-secondary text-xs font-label">Open Sessions</Link>
+          <Link href={`/portal/analytics/live?propertyId=${encodeURIComponent(propertyId)}`} className="pib-btn-secondary text-xs font-label">Open Live</Link>
+          <Link href={`/portal/analytics/users?propertyId=${encodeURIComponent(propertyId)}`} className="pib-btn-secondary text-xs font-label">Open Users</Link>
         </div>
       </div>
     </div>

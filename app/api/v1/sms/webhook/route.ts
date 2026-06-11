@@ -188,7 +188,7 @@ async function notifyAdminsOfReply(args: {
       <p><strong>SMS reply</strong> from <code>${args.fromPhone}</code></p>
       <pre style="white-space:pre-wrap;font:13px/1.4 monospace;background:#f5f5f5;padding:12px;border-radius:6px">${snippet
         .replace(/[<>&]/g, (c) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;' }[c] ?? c))}</pre>
-      ${args.contactId ? `<p><a href="${baseUrl}/admin/crm/contacts/${args.contactId}">View contact</a></p>` : ''}
+      ${args.contactId ? `<p><a href="${baseUrl}/portal/crm/contacts/${args.contactId}">View contact</a></p>` : ''}
       <p style="font-size:11px;color:#888">Twilio SID: ${args.twilioSid}</p>
     `
 

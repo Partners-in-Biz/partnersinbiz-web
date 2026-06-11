@@ -81,7 +81,7 @@ export function SequenceAnalyticsWorkspace({
   const backHref =
     surface === 'portal'
       ? scopedPortalPath('/portal/email-analytics', orgScope)
-      : '/admin/email-analytics'
+      : '/portal/email-analytics'
 
   const shellClass =
     surface === 'portal'

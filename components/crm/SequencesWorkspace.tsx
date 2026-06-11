@@ -138,12 +138,12 @@ function scopedAdminPath(path: string, orgScope: PortalOrgRouteScope) {
 }
 
 function sequenceNewPath(surface: SequenceSurface) {
-  return surface === 'admin' ? '/admin/sequences/new' : '/portal/settings/sequences/new'
+  return surface === 'admin' ? '/portal/sequences/new' : '/portal/settings/sequences/new'
 }
 
 function sequenceEditPath(surface: SequenceSurface, id: string) {
   return surface === 'admin'
-    ? `/admin/sequences/${id}`
+    ? `/portal/sequences/${id}`
     : `/portal/settings/sequences/${id}/edit`
 }
 

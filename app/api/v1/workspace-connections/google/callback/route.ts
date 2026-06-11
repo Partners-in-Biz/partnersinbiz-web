@@ -32,7 +32,7 @@ type WorkspaceGoogleState = {
 }
 
 function safeReturnPath(value?: string | null) {
-  if (!value || !value.startsWith('/') || value.startsWith('//')) return '/admin/email/mailbox'
+  if (!value || !value.startsWith('/') || value.startsWith('//')) return '/portal/email'
   return value
 }
 

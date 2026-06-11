@@ -394,7 +394,7 @@ function broadcastAnalyticsHref(
   if (surface === 'portal') {
     return scopedPortalPath(`/portal/email-analytics/broadcasts/${broadcastId}`, orgScope)
   }
-  return `/admin/email-analytics/broadcasts/${broadcastId}`
+  return `/portal/email-analytics/broadcasts/${broadcastId}`
 }
 
 function BroadcastsTab({
@@ -486,14 +486,14 @@ function sequenceAnalyticsHref(
   if (surface === 'portal') {
     return scopedPortalPath(`/portal/email-analytics/sequences/${sequenceId}`, orgScope)
   }
-  return `/admin/email-analytics/sequences/${sequenceId}`
+  return `/portal/email-analytics/sequences/${sequenceId}`
 }
 
 function sequenceManagementHref(surface: EmailAnalyticsSurface, orgScope: PortalOrgRouteScope): string {
   if (surface === 'portal') {
     return scopedPortalPath('/portal/settings/sequences', orgScope)
   }
-  return '/admin/sequences'
+  return '/portal/sequences'
 }
 
 function SequencesTab({

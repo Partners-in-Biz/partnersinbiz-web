@@ -47,7 +47,7 @@ function formatDate(value: unknown) {
   return new Intl.DateTimeFormat('en-ZA', { dateStyle: 'medium', timeStyle: 'short' }).format(date)
 }
 
-export function ResearchDetailClient({ id, mode, basePath, documentsBasePath = '/admin/documents', orgId }: Props) {
+export function ResearchDetailClient({ id, mode, basePath, documentsBasePath = '/portal/documents', orgId }: Props) {
   const [item, setItem] = useState<ResearchItem | null>(null)
   const [sources, setSources] = useState<ResearchSource[]>([])
   const [comments, setComments] = useState<Comment[]>([])

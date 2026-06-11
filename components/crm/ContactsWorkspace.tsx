@@ -256,7 +256,7 @@ export function ContactsWorkspace({
 
   const contactHref = useCallback((id: string, suffix = '') => {
     const encodedId = encodeURIComponent(id)
-    if (isAdmin) return `/admin/crm/contacts/${encodedId}${suffix}`
+    if (isAdmin) return `/portal/crm/contacts/${encodedId}${suffix}`
     return scopedPortalPath(`/portal/contacts/${encodedId}${suffix}`, routeScope)
   }, [isAdmin, routeScope])
 

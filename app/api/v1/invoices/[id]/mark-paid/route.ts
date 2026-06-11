@@ -105,7 +105,7 @@ export const PATCH = withAuth('admin', async (req, user, ctx) => {
       type: 'invoice.paid',
       title: 'Invoice paid',
       body: `Invoice ${invoiceNumber} was marked paid`,
-      link: `/admin/invoices/${id}`,
+      link: `/portal/invoicing/${id}`,
       status: 'unread',
       priority: 'normal',
       createdAt: FieldValue.serverTimestamp(),

@@ -317,7 +317,7 @@ function WorkLane({
 
 function SoftwareBuildEmptyIndicator({ activeCount }: { activeCount: number }) {
   if (activeCount > 0) return null
-  const specHref = `/admin/documents/new?orgId=${encodeURIComponent(PIB_PLATFORM_ORG_ID)}&type=build_spec&title=${encodeURIComponent('PiB Platform Build Spec — Next Approved Sprint')}`
+  const specHref = `/portal/documents/new?orgId=${encodeURIComponent(PIB_PLATFORM_ORG_ID)}&type=build_spec&title=${encodeURIComponent('PiB Platform Build Spec — Next Approved Sprint')}`
   return (
     <div className="rounded-lg border border-amber-400/30 bg-amber-500/10 p-4 text-sm text-amber-50">
       <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">

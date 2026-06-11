@@ -56,7 +56,7 @@ export const POST = withAuth('admin', async (req, user, context) => {
     type: 'task.assigned',
     title: 'Task assigned to you',
     body: `"${existing.title}" — due ${existing.dueDate ?? 'no date'}`,
-    link: `/admin/tasks/${id}`,
+    link: `/portal/projects?task=${id}`,
     status: 'unread',
     priority: existing.priority,
     createdAt: FieldValue.serverTimestamp(),

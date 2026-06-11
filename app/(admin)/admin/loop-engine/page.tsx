@@ -65,8 +65,8 @@ export default function AdminLoopEnginePage() {
             </p>
           </div>
           <div className="flex flex-wrap gap-3">
-            <Link href="/admin/projects" className="pib-btn-secondary text-sm">Open Projects</Link>
-            <Link href="/admin/briefings" className="pib-btn-primary text-sm">Open Briefings</Link>
+            <Link href="/portal/projects" className="pib-btn-secondary text-sm">Open Projects</Link>
+            <Link href="/portal/briefings" className="pib-btn-primary text-sm">Open Briefings</Link>
           </div>
         </div>
       </header>

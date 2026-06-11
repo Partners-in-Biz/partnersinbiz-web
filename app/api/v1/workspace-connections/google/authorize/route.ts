@@ -34,7 +34,7 @@ export const GET = withAuth('admin', async (req: NextRequest, user) => {
   const emailAddress = normalizeEmail(url.searchParams.get('emailAddress'))
   const displayName = (url.searchParams.get('displayName') ?? '').trim()
   const connectionKey = (url.searchParams.get('connectionKey') ?? UNIFIED_GOOGLE_WORKSPACE_CONNECTION_KEY).trim()
-  const returnTo = url.searchParams.get('returnTo') ?? '/admin/email/mailbox'
+  const returnTo = url.searchParams.get('returnTo') ?? '/portal/email'
   const appBase = appBaseUrl(req.url)
   const redirectUri = `${appBase}/api/v1/workspace-connections/google/callback`
 

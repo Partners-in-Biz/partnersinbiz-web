@@ -145,7 +145,7 @@ export async function GET(req: NextRequest) {
               type: 'invoice.overdue',
               title: 'Invoice overdue',
               body: `Invoice ${invoiceNumber} is past its due date`,
-              link: `/admin/invoices/${doc.id}`,
+              link: `/portal/invoicing/${doc.id}`,
               status: 'unread',
               priority: 'high',
               createdAt: FieldValue.serverTimestamp(),

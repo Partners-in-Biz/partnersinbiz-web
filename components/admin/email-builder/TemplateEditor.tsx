@@ -334,7 +334,7 @@ export default function TemplateEditor({ template }: Props) {
     <div className="flex flex-col h-[calc(100vh-3rem)]">
       {/* Top bar */}
       <div className="flex items-center gap-3 px-4 py-3 border-b border-outline-variant bg-surface-container">
-        <button onClick={() => router.push('/admin/email-templates')} className="text-sm text-on-surface-variant hover:text-on-surface">← Back</button>
+        <button onClick={() => router.push('/portal/email-templates')} className="text-sm text-on-surface-variant hover:text-on-surface">← Back</button>
         <div className="flex-1 flex items-center gap-2">
           <input
             value={name}
