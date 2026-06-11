@@ -16,7 +16,13 @@ export interface AdProvider {
   exchangeCodeForToken(args: {
     code: string
     redirectUri: string
-  }): Promise<{ accessToken: string; expiresInSeconds: number; userId?: string }>
+  }): Promise<{
+    accessToken: string
+    expiresInSeconds: number
+    userId?: string
+    refreshToken?: string
+    scopes?: string[]
+  }>
   /**
    * For Meta: exchange short-lived → long-lived (~60d) via `fb_exchange_token`.
    * Providers that don't have a long-lived swap return the input unchanged.

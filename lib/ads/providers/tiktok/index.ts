@@ -25,7 +25,9 @@ export const tiktokProvider: AdProvider = {
     const t = await exchangeCode({ authCode: code })
     return {
       accessToken: t.accessToken,
+      refreshToken: t.refreshToken,
       expiresInSeconds: t.expiresInSeconds,
+      scopes: t.scope,
     }
   },
 
