@@ -53,6 +53,7 @@
 | Phase 3 | MOVEs and SPLITs | ✅ Complete — `b70e09d5` |
 | Phase 4 | Shrink admin | ✅ Complete — `dbd3b61f` |
 | Phase 5 | VPS / agent side | ⚡ In progress — skills done (`a72bcec0`), partners-main 7-day watch started 2026-06-11 |
+| Phase 6 | Deep URL sweep — all app/component/API stale admin paths | ✅ Complete — `3661dc87` (2026-06-11) |
 
 ---
 
