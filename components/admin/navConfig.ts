@@ -12,42 +12,19 @@ export interface NavItem {
   activePatterns?: string[]
 }
 
-// ── Operator nav ────────────────────────────────────────────────────────────
+// ── Operator nav (platform control plane only) ──────────────────────────────
+// Work tools (briefings, CRM, marketing, documents, research, invoicing, analytics)
+// have all moved to the portal. Admin nav shows only platform management.
 
 export const OPERATOR_NAV: NavItem[] = [
   { label: 'Home',         href: '/admin/dashboard',    icon: 'space_dashboard', group: 'work' },
   { label: 'Updates',      href: '/admin/updates',      icon: 'new_releases', group: 'work' },
   { label: 'Loop Engine',  href: '/admin/loop-engine',  icon: 'all_inclusive', group: 'work' },
-  { label: 'Briefings',    href: '/admin/briefings',    icon: 'team_dashboard', group: 'work' },
   { label: 'Organisations', href: '/admin/organizations', icon: 'groups', group: 'work', activePatterns: ['/admin/clients'] },
-  { label: 'Pipeline',     href: '/admin/crm/contacts', icon: 'view_kanban', group: 'work', activePatterns: ['/admin/crm'] },
-  {
-    label: 'Marketing',
-    href: '/admin/marketing',
-    icon: 'campaign',
-    group: 'data',
-    activePatterns: ['/admin/communications', '/admin/social', '/admin/campaigns', '/admin/broadcasts', '/admin/email', '/admin/sequences', '/admin/seo', '/admin/capture-sources'],
-  },
-  {
-    label: 'Intelligence',
-    href: '/admin/intelligence',
-    icon: 'analytics',
-    group: 'data',
-    activePatterns: ['/admin/analytics', '/admin/properties', '/admin/reports', '/admin/research', '/admin/email-analytics'],
-  },
-  {
-    label: 'Finance',
-    href: '/admin/finance',
-    icon: 'receipt_long',
-    group: 'comms',
-    activePatterns: ['/admin/invoicing', '/admin/quotes'],
-  },
-  { label: 'Documents', href: '/admin/documents', icon: 'description', group: 'work' },
-  { label: 'Research', href: '/admin/research', icon: 'travel_explore', group: 'data' },
+  { label: 'Agents',   href: '/admin/agents',   icon: 'group_work', group: 'work' },
+  { label: 'Skill Lab', href: '/admin/skill-lab', icon: 'science', group: 'data' },
   { label: 'Knowledge', href: '/admin/knowledge', icon: 'menu_book', group: 'data' },
   { label: 'Support',   href: '/admin/support',   icon: 'support_agent', group: 'comms' },
-  { label: 'Agents',   href: '/admin/agents',   icon: 'group_work', group: 'comms' },
-  { label: 'Skill Lab', href: '/admin/skill-lab', icon: 'science', group: 'comms' },
   { label: 'Settings', href: '/admin/settings', icon: 'settings', group: 'comms', activePatterns: ['/admin/platform-users', '/admin/platform-members'] },
 ]
 
@@ -55,49 +32,11 @@ export const OPERATOR_NAV_TOPBAR: NavItem[] = [
   { label: 'Home',     href: '/admin/dashboard',    icon: 'space_dashboard' },
   { label: 'Updates',  href: '/admin/updates',      icon: 'new_releases' },
   { label: 'Loop Engine', href: '/admin/loop-engine', icon: 'all_inclusive' },
-  { label: 'Briefings', href: '/admin/briefings', icon: 'team_dashboard' },
   { label: 'Organisations', href: '/admin/organizations', icon: 'groups', activePatterns: ['/admin/clients'] },
-  { label: 'Pipeline', href: '/admin/crm/contacts', icon: 'view_kanban', activePatterns: ['/admin/crm'] },
-  {
-    label: 'Marketing', href: '/admin/marketing', icon: 'campaign',
-    children: [
-      { label: 'Marketing hub', href: '/admin/marketing' },
-      { label: 'Communications', href: '/admin/communications' },
-      { label: 'Social',        href: '/admin/social' },
-      { label: 'Campaigns',     href: '/admin/campaigns' },
-      { label: 'Email',         href: '/admin/email' },
-      { label: 'Internal mailbox', href: '/admin/email/mailbox' },
-      { label: 'Sequences',     href: '/admin/sequences' },
-      { label: 'SEO',           href: '/admin/seo' },
-    ],
-    activePatterns: ['/admin/communications', '/admin/social', '/admin/campaigns', '/admin/broadcasts', '/admin/email', '/admin/sequences', '/admin/seo', '/admin/capture-sources'],
-  },
-  {
-    label: 'Intelligence', href: '/admin/intelligence', icon: 'analytics',
-    children: [
-      { label: 'Intelligence hub', href: '/admin/intelligence' },
-      { label: 'Analytics',        href: '/admin/analytics' },
-      { label: 'Properties',       href: '/admin/properties' },
-      { label: 'Reports',          href: '/admin/reports' },
-      { label: 'Research',         href: '/admin/research' },
-      { label: 'Email analytics',  href: '/admin/email-analytics' },
-    ],
-    activePatterns: ['/admin/analytics', '/admin/properties', '/admin/reports', '/admin/research', '/admin/email-analytics'],
-  },
-  {
-    label: 'Finance', href: '/admin/finance', icon: 'receipt_long',
-    children: [
-      { label: 'Finance hub', href: '/admin/finance' },
-      { label: 'Invoices',    href: '/admin/invoicing' },
-      { label: 'Recurring',   href: '/admin/invoicing/recurring' },
-      { label: 'Quotes',      href: '/admin/quotes' },
-    ],
-    activePatterns: ['/admin/invoicing', '/admin/quotes'],
-  },
-  { label: 'Knowledge', href: '/admin/knowledge', icon: 'menu_book' },
-  { label: 'Support',  href: '/admin/support',  icon: 'support_agent' },
   { label: 'Agents',   href: '/admin/agents',   icon: 'group_work' },
   { label: 'Skill Lab', href: '/admin/skill-lab', icon: 'science' },
+  { label: 'Knowledge', href: '/admin/knowledge', icon: 'menu_book' },
+  { label: 'Support',  href: '/admin/support',  icon: 'support_agent' },
   {
     label: 'Settings', href: '/admin/settings', icon: 'settings',
     children: [
@@ -151,7 +90,7 @@ export function workspaceNav(slug: string): NavItem[] {
     },
     { label: 'Wiki', href: `/admin/org/${slug}/wiki`, icon: 'menu_book', group: 'data' },
     { label: 'Team',     href: `/admin/org/${slug}/team`,     icon: 'groups', group: 'comms' },
-    { label: 'Billing',  href: `/admin/org/${slug}/billing`,  icon: 'payments', group: 'comms', activePatterns: ['/admin/invoicing', '/admin/quotes'] },
+    { label: 'Billing',  href: `/admin/org/${slug}/billing`,  icon: 'payments', group: 'comms' },
     { label: 'Settings', href: `/admin/org/${slug}/settings`, icon: 'settings', group: 'comms' },
   ]
 }
