@@ -7,7 +7,6 @@ function source(relativePath: string) {
 
 describe('email analytics shared dashboard standard', () => {
   it('keeps admin and portal email analytics on shared dashboard components instead of admin-owned UI', () => {
-    const adminPage = source('app/(admin)/admin/email-analytics/page.tsx')
     const portalPage = source('app/(portal)/portal/email-analytics/page.tsx')
     const portalClientPath = path.join(
       process.cwd(),
@@ -21,9 +20,7 @@ describe('email analytics shared dashboard standard', () => {
 
     expect(existsSync(sharedDashboardPath)).toBe(true)
     expect(existsSync(sharedChartsPath)).toBe(true)
-    expect(adminPage).toContain('@/components/email-analytics/EmailAnalyticsDashboard')
     expect(portalPage).toContain('@/components/email-analytics/EmailAnalyticsDashboard')
-    expect(adminPage).not.toContain('@/components/admin/email-analytics')
     expect(portalPage).not.toContain('@/components/admin/email-analytics')
     expect(portalPage).not.toContain('./EmailAnalyticsClient')
     expect(existsSync(portalClientPath)).toBe(false)

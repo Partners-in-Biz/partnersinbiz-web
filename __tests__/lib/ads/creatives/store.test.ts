@@ -182,4 +182,133 @@ describe('creatives store', () => {
     expect(list2).toHaveLength(1)
     expect(list2[0].name).toBe('Org 2 Creative')
   })
+
+  it('roundtrips source lineage, approval, placement, UTM, version, and backlink metadata', async () => {
+    const creative = await createCreative({
+      orgId: 'org_1',
+      createdBy: 'u1',
+      input: {
+        ...BASE_INPUT,
+        status: 'READY',
+        sourceType: 'client_document',
+        sourceId: 'doc_1',
+        sourceVersionId: 'ver_1',
+        sourceOrgId: 'org_1',
+        projectId: 'project_1',
+        approvalStatus: 'approved',
+        approvalTaskId: 'task_approval',
+        approvalDocumentId: 'doc_approval',
+        thumbnailUrl: 'https://cdn.example.com/thumb.jpg',
+        videoCoverUrl: 'https://cdn.example.com/cover.jpg',
+        landingUrl: 'https://example.com/landing',
+        utmDefaults: {
+          source: 'meta',
+          medium: 'paid_social',
+          campaign: 'brand_launch_202606',
+          content: 'meta_feed_angle_v1_image',
+          term: 'warm_audience',
+        },
+        placementSuitability: [
+          {
+            platform: 'meta',
+            placement: 'feed',
+            status: 'suitable',
+            checkedAt: { seconds: 1747000000, nanoseconds: 0 } as any,
+          },
+        ],
+        specValidation: {
+          status: 'valid',
+          checkedAt: { seconds: 1747000000, nanoseconds: 0 } as any,
+          checks: [{ key: 'aspect_ratio', status: 'pass' }],
+        },
+        usageBacklinks: [
+          { adId: 'ad_1', adSetId: 'adset_1', campaignId: 'camp_1', platform: 'meta' },
+        ],
+      },
+    })
+
+    const fetched = await getCreative(creative.id)
+    expect(fetched).toMatchObject({
+      sourceType: 'client_document',
+      sourceId: 'doc_1',
+      sourceVersionId: 'ver_1',
+      sourceOrgId: 'org_1',
+      projectId: 'project_1',
+      approvalStatus: 'approved',
+      approvalTaskId: 'task_approval',
+      approvalDocumentId: 'doc_approval',
+      thumbnailUrl: 'https://cdn.example.com/thumb.jpg',
+      videoCoverUrl: 'https://cdn.example.com/cover.jpg',
+      landingUrl: 'https://example.com/landing',
+      versionNumber: 1,
+      isLatest: true,
+    })
+    expect(fetched?.versionGroupId).toBe(fetched?.id)
+    expect(fetched?.utmDefaults?.medium).toBe('paid_social')
+    expect(fetched?.placementSuitability?.[0]?.placement).toBe('feed')
+    expect(fetched?.specValidation?.checks?.[0]?.status).toBe('pass')
+    expect(fetched?.usageBacklinks?.[0]?.adId).toBe('ad_1')
+  })
+
+  it('creates tenant-scoped immutable version chains without mutating prior version content', async () => {
+    const v1 = await createCreative({
+      orgId: 'org_1',
+      createdBy: 'u1',
+      input: {
+        ...BASE_INPUT,
+        status: 'READY',
+        sourceType: 'content_package',
+        sourceId: 'pkg_1',
+        sourceVersionId: 'pkg_ver_1',
+        sourceOrgId: 'org_1',
+        approvalStatus: 'approved',
+        landingUrl: 'https://example.com/v1',
+      },
+    })
+
+    const v2 = await createCreative({
+      orgId: 'org_1',
+      createdBy: 'u2',
+      input: {
+        ...BASE_INPUT,
+        name: 'Hero Banner v2',
+        status: 'READY',
+        sourceType: 'content_package',
+        sourceId: 'pkg_1',
+        sourceVersionId: 'pkg_ver_2',
+        sourceOrgId: 'org_1',
+        approvalStatus: 'approved',
+        landingUrl: 'https://example.com/v2',
+        supersedes: v1.id,
+        changeSummary: 'Updated paid-media CTA.',
+      },
+    })
+
+    const fetchedV1 = await getCreative(v1.id)
+    const fetchedV2 = await getCreative(v2.id)
+
+    expect(fetchedV1?.landingUrl).toBe('https://example.com/v1')
+    expect(fetchedV1?.isLatest).toBe(false)
+    expect(fetchedV2?.versionGroupId).toBe(v1.id)
+    expect(fetchedV2?.versionNumber).toBe(2)
+    expect(fetchedV2?.supersedes).toBe(v1.id)
+    expect(fetchedV2?.isLatest).toBe(true)
+    expect(fetchedV2?.changeSummary).toBe('Updated paid-media CTA.')
+  })
+
+  it('rejects superseding a creative from another tenant', async () => {
+    const otherTenant = await createCreative({
+      orgId: 'org_2',
+      createdBy: 'u2',
+      input: { ...BASE_INPUT, status: 'READY' },
+    })
+
+    await expect(
+      createCreative({
+        orgId: 'org_1',
+        createdBy: 'u1',
+        input: { ...BASE_INPUT, status: 'READY', supersedes: otherTenant.id },
+      }),
+    ).rejects.toThrow('Cannot supersede creative outside the active org')
+  })
 })

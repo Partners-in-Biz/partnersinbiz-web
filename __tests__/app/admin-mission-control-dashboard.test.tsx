@@ -215,8 +215,8 @@ describe('Mission control dashboard', () => {
     expect(screen.getByText('No active software build tickets')).toBeInTheDocument()
     expect(screen.getByText(/no pending or in-progress Theo build tickets/i)).toBeInTheDocument()
     expect(screen.getByText(/0 active \/ 2 total/i)).toBeInTheDocument()
-    expect(screen.getByText('Create gated build spec').closest('a')).toHaveAttribute('href', expect.stringContaining('/admin/documents/new?orgId=pib-platform-owner&type=build_spec'))
-    expect(screen.getByText('Open Projects/Kanban').closest('a')).toHaveAttribute('href', '/admin/projects')
+    expect(screen.getByText('Create gated build spec').closest('a')).toHaveAttribute('href', expect.stringContaining('/portal/documents/new?orgId=pib-platform-owner&type=build_spec'))
+    expect(screen.getByText('Open Projects/Kanban').closest('a')).toHaveAttribute('href', '/portal/projects')
   })
 
   it('has excellent empty and error states', async () => {

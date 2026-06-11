@@ -595,7 +595,7 @@ describe('project suite API', () => {
       type: 'project.suite_updated',
       title: 'Milestone changes',
       body: 'Launch readiness',
-      link: '/admin/projects/project-1?suite=milestone&item=milestone-1',
+      link: '/portal/projects/project-1?suite=milestone&item=milestone-1',
       data: expect.objectContaining({
         projectId: 'project-1',
         itemType: 'milestone',

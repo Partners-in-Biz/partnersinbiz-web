@@ -4,9 +4,15 @@ import { apiSuccess, apiError } from '@/lib/api/response'
 import { enforceAgentCapability } from '@/lib/api/capabilityGate'
 import { listBudgets, createBudget } from '@/lib/ads/budgets/store'
 import type { BudgetScope, CreateBudgetInput } from '@/lib/ads/budgets/types'
+import { getCampaign } from '@/lib/ads/campaigns/store'
 import type { AdPlatform } from '@/lib/ads/types'
 import { isAdPlatform } from '@/lib/ads/types'
 import type { ApiUser } from '@/lib/api/types'
+import {
+  approvalOverrideErrorMessage,
+  findUntrustedApprovalOverride,
+  requireApprovedCampaignForAdsAction,
+} from '@/lib/ads/approval-gates'
 
 export const dynamic = 'force-dynamic'
 
@@ -39,6 +45,16 @@ export const POST = withAuth('admin', async (req: NextRequest, user: ApiUser) =>
   if (!body.input) return apiError('Missing input', 400)
   if (!body.input.name || !body.input.scope || !body.input.period || !body.input.capCents) {
     return apiError('Missing required fields: name, scope, period, capCents', 400)
+  }
+  const approvalOverridePath = findUntrustedApprovalOverride(body)
+  if (approvalOverridePath) return apiError(approvalOverrideErrorMessage(approvalOverridePath), 400)
+
+  if (body.input.scope === 'campaign') {
+    if (!body.input.campaignId) return apiError('Campaign-scoped budgets require campaignId', 400)
+    const campaign = await getCampaign(body.input.campaignId)
+    if (!campaign || campaign.orgId !== orgId) return apiError('Campaign not found', 404)
+    const approvalError = requireApprovedCampaignForAdsAction(campaign, 'budget')
+    if (approvalError) return apiError(approvalError, 403)
   }
   try {
     const budget = await createBudget({

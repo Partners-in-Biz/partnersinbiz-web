@@ -12,6 +12,7 @@ import { resumeCampaign as googleResumeCampaign } from '@/lib/ads/providers/goog
 import { logCampaignActivity } from '@/lib/ads/activity'
 import { notifyCampaignLaunched } from '@/lib/ads/notifications'
 import type { ApiUser } from '@/lib/api/types'
+import { requireApprovedCampaignForAdsAction } from '@/lib/ads/approval-gates'
 
 export const POST = withAuth(
   'admin',
@@ -24,9 +25,8 @@ export const POST = withAuth(
     const { id } = await ctxParams.params
     const campaign = await getCampaign(id)
     if (!campaign || campaign.orgId !== orgId) return apiError('Campaign not found', 404)
-
-    // Set status ACTIVE locally first
-    await updateCampaign(id, { status: 'ACTIVE' })
+    const approvalError = requireApprovedCampaignForAdsAction(campaign, 'launch')
+    if (approvalError) return apiError(approvalError, 403)
 
     if (campaign.platform === 'tiktok') {
       const tiktokData = (campaign.providerData as Record<string, unknown>)?.tiktok as Record<string, unknown> | undefined
@@ -92,6 +92,8 @@ export const POST = withAuth(
         await setCampaignMetaId(id, result.metaCampaignId)
       }
     }
+
+    await updateCampaign(id, { status: 'ACTIVE' })
 
     const actor = {
       id: (user as { uid?: string }).uid ?? 'unknown',

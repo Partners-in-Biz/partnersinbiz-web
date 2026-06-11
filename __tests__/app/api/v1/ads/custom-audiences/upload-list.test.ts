@@ -14,10 +14,14 @@ jest.mock('@/lib/ads/providers/meta', () => ({
     customAudienceCRUD: jest.fn(),
   },
 }))
+jest.mock('@/lib/ads/campaigns/store', () => ({
+  getCampaign: jest.fn(),
+}))
 
 const store = jest.requireMock('@/lib/ads/custom-audiences/store')
 const helpers = jest.requireMock('@/lib/ads/api-helpers')
 const metaMock = jest.requireMock('@/lib/ads/providers/meta')
+const campaignStore = jest.requireMock('@/lib/ads/campaigns/store')
 
 beforeEach(() => jest.clearAllMocks())
 
@@ -38,11 +42,20 @@ const baseCtx = {
   connection: { id: 'conn_1' },
 }
 
+const approvedCampaign = {
+  id: 'cmp_1',
+  orgId: 'org_1',
+  reviewState: 'approved',
+  approvedAt: { seconds: 1 },
+  approvedBy: 'approver_1',
+}
+
 function makeCsvFormData(csv: string, columns = ['EMAIL']) {
   const file = new Blob([csv], { type: 'text/csv' })
   const form = new FormData()
   form.append('file', file, 'list.csv')
   form.append('columns', JSON.stringify(columns))
+  form.append('approvalCampaignId', 'cmp_1')
   return form
 }
 
@@ -60,6 +73,7 @@ describe('POST /api/v1/ads/custom-audiences/[id]/upload-list', () => {
     store.getCustomAudience
       .mockResolvedValueOnce(baseCA)
       .mockResolvedValueOnce({ ...baseCA, status: 'BUILDING' })
+    campaignStore.getCampaign.mockResolvedValueOnce(approvedCampaign)
     helpers.requireMetaContext.mockResolvedValueOnce(baseCtx)
     metaMock.metaProvider.customAudienceCRUD.mockResolvedValueOnce({ numReceived: 2 })
     store.updateCustomAudience.mockResolvedValueOnce(undefined)
@@ -108,6 +122,7 @@ describe('POST /api/v1/ads/custom-audiences/[id]/upload-list', () => {
 
   it('returns 400 when audience is not yet synced to Meta', async () => {
     store.getCustomAudience.mockResolvedValueOnce({ ...baseCA, providerData: { meta: {} } })
+    campaignStore.getCampaign.mockResolvedValueOnce(approvedCampaign)
     const csv = 'EMAIL\ntest@example.com\n'
     const res = await POST(
       makeFormReq('org_1', makeCsvFormData(csv)),
@@ -121,11 +136,13 @@ describe('POST /api/v1/ads/custom-audiences/[id]/upload-list', () => {
 
   it('returns 400 when columns are invalid', async () => {
     store.getCustomAudience.mockResolvedValueOnce(baseCA)
+    campaignStore.getCampaign.mockResolvedValueOnce(approvedCampaign)
     helpers.requireMetaContext.mockResolvedValueOnce(baseCtx)
     const csv = 'EMAIL\ntest@example.com\n'
     const form = new FormData()
     form.append('file', new Blob([csv], { type: 'text/csv' }), 'list.csv')
     form.append('columns', JSON.stringify(['INVALID_COL']))
+    form.append('approvalCampaignId', 'cmp_1')
 
     const res = await POST(
       makeFormReq('org_1', form),

@@ -9,7 +9,6 @@ describe('campaigns shared workspace standard', () => {
   it('keeps portal and admin org campaign routes thin and shares the campaign workspace surface', () => {
     const portalRoute = source('app/(portal)/portal/campaigns/page.tsx')
     const adminOrgRoute = source('app/(admin)/admin/org/[slug]/campaigns/page.tsx')
-    const adminGlobalRoute = source('app/(admin)/admin/campaigns/page.tsx')
     const sharedWorkspacePath = path.join(process.cwd(), 'components/campaigns/CampaignsWorkspace.tsx')
     const sharedRequestPanelPath = path.join(process.cwd(), 'components/campaigns/CampaignRequestPanel.tsx')
 
@@ -34,9 +33,5 @@ describe('campaigns shared workspace standard', () => {
     expect(adminOrgRoute).not.toContain('function EmailCampaignCard')
     expect(adminOrgRoute).not.toContain('function MiniStat')
 
-    expect(adminGlobalRoute).toContain('@/components/campaigns/CampaignsWorkspace')
-    expect(adminGlobalRoute).toContain("visibleSections={['content']}")
-    expect(adminGlobalRoute).not.toContain('CampaignProgramCard')
-    expect(adminGlobalRoute).not.toContain('grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3')
   })
 })

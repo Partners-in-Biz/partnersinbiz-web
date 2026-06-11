@@ -6,6 +6,7 @@ const mockCanUsePortalOrg = jest.fn()
 const mockResolvePortalActiveOrgId = jest.fn()
 const mockListCampaigns = jest.fn()
 const mockGetCampaign = jest.fn()
+const mockListConnections = jest.fn()
 const mockListAdSets = jest.fn()
 const mockListAds = jest.fn()
 const mockGetAd = jest.fn()
@@ -39,6 +40,10 @@ jest.mock('@/lib/ads/campaigns/store', () => ({
   getCampaign: (...args: unknown[]) => mockGetCampaign(...args),
 }))
 
+jest.mock('@/lib/ads/connections/store', () => ({
+  listConnections: (...args: unknown[]) => mockListConnections(...args),
+}))
+
 jest.mock('@/lib/ads/adsets/store', () => ({
   listAdSets: (...args: unknown[]) => mockListAdSets(...args),
 }))
@@ -62,6 +67,12 @@ jest.mock('@/components/ads/CommentThread', () => ({
 
 function activityCollection(name: string) {
   if (name === 'users') return { doc: mockUserDoc }
+  if (name === 'ad_connections') {
+    return {
+      doc: () => ({ get: async () => ({ exists: false }) }),
+      where: () => ({ get: async () => ({ docs: [] }) }),
+    }
+  }
   if (name !== 'activity') return { doc: () => ({ get: async () => ({ exists: false }) }) }
 
   const chain = {
@@ -111,6 +122,7 @@ describe('portal ads org scope', () => {
       }),
     })
     mockCollection.mockImplementation(activityCollection)
+    mockListConnections.mockResolvedValue([])
     mockListCampaigns.mockResolvedValue([
       {
         id: 'ad-campaign-1',

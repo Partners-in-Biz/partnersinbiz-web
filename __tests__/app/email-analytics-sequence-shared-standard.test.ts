@@ -13,7 +13,6 @@ describe('sequence analytics shared workspace standard', () => {
       repoRoot,
       'components/email-analytics/SequenceAnalyticsWorkspace.tsx',
     )
-    const adminRoute = source('app/(admin)/admin/email-analytics/sequences/[id]/page.tsx')
     const portalRoute = source('app/(portal)/portal/email-analytics/sequences/[id]/page.tsx')
 
     expect(existsSync(sharedWorkspacePath)).toBe(true)
@@ -21,10 +20,9 @@ describe('sequence analytics shared workspace standard', () => {
       'export function SequenceAnalyticsWorkspace',
     )
 
-    expect(adminRoute).toContain('@/components/email-analytics/SequenceAnalyticsWorkspace')
     expect(portalRoute).toContain('@/components/email-analytics/SequenceAnalyticsWorkspace')
 
-    for (const route of [adminRoute, portalRoute]) {
+    for (const route of [portalRoute]) {
       expect(route).not.toContain('function Kpi')
       expect(route).not.toContain('function Section')
       expect(route).not.toContain('function Empty')

@@ -8,6 +8,12 @@ import { META_ADS_SCOPES } from '@/lib/ads/providers/meta/constants'
 
 const STATE_COLLECTION = 'ad_oauth_states'
 
+function resolveScopes(platform: string, tokenScopes?: string[]): string[] {
+  if (tokenScopes?.length) return tokenScopes
+  if (platform === 'meta') return Array.from(META_ADS_SCOPES)
+  return []
+}
+
 function redirect(args: {
   appBase: string
   orgSlug?: string | null
@@ -36,7 +42,7 @@ export async function GET(
   }
 
   const url = new URL(req.url)
-  const code = url.searchParams.get('code')
+  const code = url.searchParams.get('code') ?? url.searchParams.get('auth_code')
   const state = url.searchParams.get('state')
   const errorParam = url.searchParams.get('error')
 
@@ -81,8 +87,9 @@ export async function GET(
       orgId: sd.orgId,
       platform,
       userId: short.userId ?? 'unknown',
-      scopes: platform === 'meta' ? Array.from(META_ADS_SCOPES) : [],
+      scopes: resolveScopes(platform, short.scopes),
       accessToken: long.accessToken,
+      refreshToken: short.refreshToken,
       expiresInSeconds: long.expiresInSeconds,
       adAccounts,
     })

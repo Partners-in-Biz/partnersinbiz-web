@@ -2,6 +2,8 @@
 import Link from 'next/link'
 import { resolveOrgIdBySlug } from '@/lib/organizations/resolve-by-slug'
 import { listCampaigns } from '@/lib/ads/campaigns/store'
+import { listConnections } from '@/lib/ads/connections/store'
+import { summarizeAdConnections } from '@/lib/ads/provider-display'
 import { AdCampaignsWorkspace } from '@/components/ads/AdCampaignsWorkspace'
 
 interface Params {
@@ -18,7 +20,10 @@ export default async function CampaignsListPage({
   if (!orgId) {
     return <div className="text-white/60">Org not found.</div>
   }
-  const campaigns = await listCampaigns({ orgId })
+  const [campaigns, connections] = await Promise.all([
+    listCampaigns({ orgId }),
+    listConnections({ orgId }),
+  ])
 
   return (
     <AdCampaignsWorkspace
@@ -26,6 +31,7 @@ export default async function CampaignsListPage({
       title="Campaigns"
       description={`${campaigns.length} total - create, launch, pause, and review paid campaigns for this client.`}
       campaigns={campaigns}
+      connectionSummaries={summarizeAdConnections(connections)}
       campaignHref={(campaign) => `/admin/org/${slug}/ads/campaigns/${campaign.id}`}
       actions={
         <Link

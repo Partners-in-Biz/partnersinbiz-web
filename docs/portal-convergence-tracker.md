@@ -104,3 +104,16 @@ Runtime verification of the full implementation: PASS. Corrections applied post-
 4. **Sanctioned cross-org read anchored:** doc comment added to `lib/companies/command-center.ts#documentCandidateOrgIds`; spec §7.2 updated to name the real file.
 5. **Portal shell parity with admin:** `app/(portal)/layout.tsx` is now a server layout verifying the session cookie (`verifySessionCookie`) before rendering, mirroring admin. Previously a junk `__session` cookie rendered the full portal shell (proxy checks presence only).
 6. **Process note:** the Phase 1 review gate ("Peet reviews CRM before Phase 2") was skipped during implementation; satisfied post-hoc by the 2026-06-11 runtime verification. Future spec executions must honour phase gates.
+
+## Verification addendum 2 (Pip, 2026-06-11) — CI gate restored to green
+
+The Quality gate had been red since Phase 2 (run history: 6ef96868, db31d0f3, ce9d9fda all failures) — the migration left ~38 suites broken. Repaired:
+
+- **19 shared-standard convention tests**: removed references to deleted admin top-level routes (guards retained for portal + admin/org/[slug] staff windows).
+- **7 orphaned admin-page tests deleted** (portal twins already covered): contact-detail, contacts-page, crm-pipeline, email-mailbox, campaign-detail-cockpit, social-overview, ComposeForm.
+- **Parity gap fixed: document creation.** `admin/documents/new` (rich type-picker: research/spec/change-request guidance) had no portal equivalent — created `portal/documents/new` (active-org from /api/v1/portal/org, query-param prefill preserved); redirect now targets it; test re-pointed as `portal-documents-new.test.tsx`.
+- **navConfig test rewritten** to lock the new contract: operator topbar = control-plane only, no admin work-tool URLs.
+- **P6 sweep produced two phantom links, both fixed in source:** `marketingHubConfig.ts` `/portal/crm/contacts` → `/portal/contacts`; `BriefingControlDesk.tsx` form-submission link → `/portal/capture-sources?formId=…` (NOTE: a submissions *detail* page has never existed — the old `/admin/forms/...` deep-link was phantom since birth. Backlog: build a submissions detail view or in-workspace drawer).
+- **Codebase-wide phantom-link sweep** (every static `/portal/...` literal checked against real routes): zero remaining.
+- **Time-bomb fixture defused:** `portal-contacts-page.test.tsx` hardcoded `lastContactedAt: 2026-05-28`, which crossed the 14-day staleness threshold on 2026-06-11 — replaced with relative date.
+- **URL-expectation drift updated** in: loop-engine, mission-control, marketingHubConfig, GeoSeoWorkspace, CompanyWorkspacePanel, MailboxDrawer, BriefingControlDesk, sprint-run-route (redirect is deliberately portal-only now), project-suite (notification links → /portal/projects/[projectId]).

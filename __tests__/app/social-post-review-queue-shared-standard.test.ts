@@ -9,7 +9,6 @@ function source(file: string) {
 
 describe('social post review queue shared standard', () => {
   const routes = [
-    'app/(admin)/admin/social/qa/page.tsx',
     'app/(portal)/portal/social/review/page.tsx',
   ]
 

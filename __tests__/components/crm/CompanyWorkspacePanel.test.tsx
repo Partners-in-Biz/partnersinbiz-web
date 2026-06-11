@@ -17,7 +17,7 @@ describe('CompanyWorkspacePanel', () => {
     expect(screen.getByRole('link', { name: 'Open social workspace for Lumen' })).toHaveAttribute('href', '/admin/org/lumen-speeds/social')
     expect(screen.getByRole('link', { name: 'Open ads workspace for Lumen' })).toHaveAttribute('href', '/admin/org/lumen-speeds/ads/campaigns')
     expect(screen.getByRole('link', { name: 'Open research workspace for Lumen' })).toHaveAttribute('href', '/admin/org/lumen-speeds/research')
-    expect(screen.getByRole('link', { name: 'Open reports workspace for Lumen' })).toHaveAttribute('href', '/admin/reports?orgId=client-org')
+    expect(screen.getByRole('link', { name: 'Open reports workspace for Lumen' })).toHaveAttribute('href', '/portal/reports?orgId=client-org')
     expect(screen.getByRole('link', { name: 'Open projects workspace for Lumen' })).toHaveAttribute('href', '/admin/org/lumen-speeds/projects')
     expect(screen.getByRole('link', { name: 'Open documents workspace for Lumen' })).toHaveAttribute('href', '/admin/org/lumen-speeds/documents')
   })

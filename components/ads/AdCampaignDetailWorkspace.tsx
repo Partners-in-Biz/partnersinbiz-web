@@ -102,6 +102,85 @@ function MaybeLink({
   )
 }
 
+function AdsCommandCenter({
+  campaign,
+  adSets,
+  ads,
+  backHref,
+  surface,
+}: {
+  campaign: AdCampaign
+  adSets: AdSet[]
+  ads: Ad[]
+  backHref: string
+  surface: 'admin' | 'portal'
+}) {
+  const approved = campaign.reviewState === 'approved' && campaign.approvedAt && campaign.approvedBy
+  const providerErrors = Array.isArray((campaign as unknown as { providerErrors?: unknown[] }).providerErrors)
+    ? ((campaign as unknown as { providerErrors: unknown[] }).providerErrors.length)
+    : 0
+  const recommendations = [
+    approved ? 'Launch controls are unlocked by persisted approval evidence.' : 'Keep launch, spend, audience, pixel, and delete actions locked until approval is recorded.',
+    adSets.length === 0 ? 'Add at least one audience/ad set before launch readiness review.' : 'Review audience/ad set targeting before launch.',
+    ads.length === 0 ? 'Attach creatives before spend is enabled.' : 'Check creative coverage and destination URLs.',
+  ]
+
+  const cards = [
+    { label: 'Campaigns', value: campaign.status.toLowerCase(), detail: campaign.name },
+    { label: 'Creatives', value: String(ads.length), detail: ads.length ? 'Creative assets linked to this campaign' : 'No creatives linked yet' },
+    { label: 'Audiences', value: String(adSets.length), detail: adSets.length ? 'Audience/ad set groups ready for review' : 'Audience setup required' },
+    { label: 'Approvals', value: approved ? 'approved' : campaign.reviewState ?? 'draft', detail: approved ? 'Persisted approval evidence present' : 'Sensitive actions remain locked' },
+    { label: 'Spend/readiness', value: approved && adSets.length > 0 && ads.length > 0 ? 'ready' : 'blocked', detail: 'Budget, launch, audience, pixel, and destructive controls use server-side gates' },
+    { label: 'Provider errors', value: String(providerErrors), detail: providerErrors ? 'Review provider sync errors before launch' : 'No provider errors recorded' },
+  ]
+
+  return (
+    <section className="rounded-xl border border-[var(--color-pib-line)] bg-[var(--color-pib-panel)] p-4">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <h2 className="text-sm font-semibold text-[var(--color-pib-text)]">Unified Ads command center</h2>
+          <p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">
+            One control surface for campaigns, creatives, audiences, approvals, spend readiness, provider errors, and Projects/Kanban handoff links.
+          </p>
+        </div>
+        <MaybeLink
+          href={backHref}
+          className="text-xs font-medium text-[var(--color-pib-accent)] hover:underline"
+        >
+          Campaign workspace
+        </MaybeLink>
+      </div>
+
+      <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        {cards.map((card) => (
+          <div key={card.label} className="rounded-lg border border-[var(--color-pib-line)] p-3">
+            <div className="text-[10px] uppercase tracking-wide text-[var(--color-pib-text-muted)]">{card.label}</div>
+            <div className="mt-1 text-sm font-semibold text-[var(--color-pib-text)]">{card.value}</div>
+            <p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">{card.detail}</p>
+          </div>
+        ))}
+      </div>
+
+      <div className="mt-4 grid gap-3 lg:grid-cols-2">
+        <div className="rounded-lg border border-[var(--color-pib-line)] p-3">
+          <div className="text-[10px] uppercase tracking-wide text-[var(--color-pib-text-muted)]">Recommendations</div>
+          <ul className="mt-2 space-y-1 text-xs text-[var(--color-pib-text-muted)]">
+            {recommendations.map((recommendation) => <li key={recommendation}>{recommendation}</li>)}
+          </ul>
+        </div>
+        <div className="rounded-lg border border-[var(--color-pib-line)] p-3">
+          <div className="text-[10px] uppercase tracking-wide text-[var(--color-pib-text-muted)]">Projects/Kanban handoff links</div>
+          <p className="mt-2 text-xs text-[var(--color-pib-text-muted)]">
+            {surface === 'admin'
+              ? 'Use the linked project task to hand off launch readiness, provider errors, approval blockers, and spend changes.'
+              : 'Partners in Biz tracks launch readiness and follow-up tasks in Projects/Kanban after portal approval.'}
+          </p>
+        </div>
+      </div>
+    </section>
+  )
+}
+
 export function AdCampaignDetailWorkspace({
   surface,
   campaign,
@@ -143,6 +222,14 @@ export function AdCampaignDetailWorkspace({
       </header>
 
       <ReviewStatePanel surface={surface} campaign={campaign} reviewActions={reviewActions} />
+
+      <AdsCommandCenter
+        campaign={campaign}
+        adSets={adSets}
+        ads={ads}
+        backHref={backHref}
+        surface={surface}
+      />
 
       <section>
         <h2 className="eyebrow !text-[10px] mb-2">Ad sets · {adSets.length}</h2>

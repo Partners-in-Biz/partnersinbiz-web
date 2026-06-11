@@ -2612,7 +2612,7 @@ describe('BriefingControlDesk', () => {
     fireEvent.click(await screen.findByRole('button', { name: /Blocked SEO task: Fix sitemap canonical drift/i }))
 
     expect(screen.getByText('Fix sitemap canonical drift (seo-task-1)')).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: /open source/i })).toHaveAttribute('href', '/admin/seo/sprints/sprint-1/tasks?task=seo-task-1')
+    expect(screen.getByRole('link', { name: /open source/i })).toHaveAttribute('href', '/portal/seo/sprints/sprint-1/tasks?task=seo-task-1')
     expect(screen.getByRole('button', { name: /execute SEO task/i })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /complete SEO task/i })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /skip SEO task/i })).toBeDisabled()
@@ -2766,7 +2766,7 @@ describe('BriefingControlDesk', () => {
     fireEvent.click(await screen.findByRole('button', { name: /New form submission from Ava Owner/i }))
 
     expect(screen.getByText('Ava Owner (contact-1)')).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: /open source/i })).toHaveAttribute('href', '/admin/forms/form-1/submissions/submission-1')
+    expect(screen.getByRole('link', { name: /open source/i })).toHaveAttribute('href', '/portal/capture-sources?formId=form-1')
     expect(screen.getByRole('button', { name: /mark submission read/i })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /archive submission/i })).toBeInTheDocument()
 

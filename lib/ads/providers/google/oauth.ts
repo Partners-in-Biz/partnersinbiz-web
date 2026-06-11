@@ -12,9 +12,19 @@ import { GOOGLE_ADS_SCOPES_FOR_ADS_MODULE } from './constants'
 // only need to import from one place.
 export { GOOGLE_ADS_SCOPES_FOR_ADS_MODULE } from './constants'
 
-function requireEnv(name: string): string {
-  const v = process.env[name]?.trim()
-  if (!v) throw new Error(`Missing env var: ${name}`)
+function requireOAuthClientId(): string {
+  const oauthClientId = process.env.GOOGLE_OAUTH_CLIENT_ID?.trim()
+  const oauthClientSecret = process.env.GOOGLE_OAUTH_CLIENT_SECRET?.trim()
+  const adsClientId = process.env.GOOGLE_ADS_CLIENT_ID?.trim()
+  const adsClientSecret = process.env.GOOGLE_ADS_CLIENT_SECRET?.trim()
+
+  const v = oauthClientId && oauthClientSecret
+    ? oauthClientId
+    : adsClientId && adsClientSecret
+      ? adsClientId
+      : undefined
+
+  if (!v) throw new Error(`Missing env var pair: GOOGLE_OAUTH_CLIENT_ID/GOOGLE_OAUTH_CLIENT_SECRET or GOOGLE_ADS_CLIENT_ID/GOOGLE_ADS_CLIENT_SECRET`)
   return v
 }
 
@@ -25,7 +35,7 @@ export function buildAdsAuthorizeUrl(args: {
 }): string {
   // Same env var the analytics adapter reads — see
   // `lib/integrations/google_ads/oauth.ts` `readOAuthEnv()`.
-  const clientId = requireEnv('GOOGLE_OAUTH_CLIENT_ID')
+  const clientId = requireOAuthClientId()
   const u = new URL('https://accounts.google.com/o/oauth2/v2/auth')
   u.searchParams.set('client_id', clientId)
   u.searchParams.set('redirect_uri', args.redirectUri)

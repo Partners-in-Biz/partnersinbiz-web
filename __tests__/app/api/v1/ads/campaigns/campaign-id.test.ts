@@ -2,6 +2,7 @@
 import { GET, PATCH, DELETE } from '@/app/api/v1/ads/campaigns/[id]/route'
 
 jest.mock('@/lib/api/auth', () => ({ withAuth: (_r: string, h: any) => h }))
+jest.mock('@/lib/api/capabilityGate', () => ({ enforceAgentCapability: jest.fn(() => null) }))
 jest.mock('@/lib/ads/campaigns/store', () => ({
   getCampaign: jest.fn(),
   updateCampaign: jest.fn(),
@@ -30,6 +31,13 @@ const baseCampaign = {
   name: 'Test',
   status: 'DRAFT',
   providerData: {},
+}
+
+const approvedCampaign = {
+  ...baseCampaign,
+  reviewState: 'approved',
+  approvedAt: { seconds: 1, nanoseconds: 0 },
+  approvedBy: 'client_1',
 }
 
 const baseCtx = {
@@ -142,8 +150,18 @@ describe('PATCH /api/v1/ads/campaigns/[id]', () => {
 })
 
 describe('DELETE /api/v1/ads/campaigns/[id]', () => {
-  it('deletes campaign locally and returns {deleted: true}', async () => {
+  it('blocks destructive campaign delete when persisted approval evidence is missing', async () => {
     store.getCampaign.mockResolvedValueOnce(baseCampaign)
+    const res = await DELETE(makeReq(), {} as any, { params: Promise.resolve({ id: 'cmp_1' }) })
+    const body = await res.json()
+
+    expect(res.status).toBe(403)
+    expect(body.error).toMatch(/persisted approval evidence/i)
+    expect(store.deleteCampaign).not.toHaveBeenCalled()
+  })
+
+  it('deletes an approved campaign locally and returns {deleted: true}', async () => {
+    store.getCampaign.mockResolvedValueOnce(approvedCampaign)
     store.deleteCampaign.mockResolvedValueOnce(undefined)
     const res = await DELETE(makeReq(), {} as any, { params: Promise.resolve({ id: 'cmp_1' }) })
     const body = await res.json()
@@ -153,7 +171,7 @@ describe('DELETE /api/v1/ads/campaigns/[id]', () => {
   })
 
   it('best-effort calls Meta delete when metaId is set', async () => {
-    const campaignWithMeta = { ...baseCampaign, providerData: { meta: { id: 'meta_123' } } }
+    const campaignWithMeta = { ...approvedCampaign, providerData: { meta: { id: 'meta_123' } } }
     store.getCampaign.mockResolvedValueOnce(campaignWithMeta)
     store.deleteCampaign.mockResolvedValueOnce(undefined)
     helpers.requireMetaContext.mockResolvedValueOnce(baseCtx)
@@ -168,7 +186,7 @@ describe('DELETE /api/v1/ads/campaigns/[id]', () => {
   })
 
   it('still deletes locally even when Meta delete throws', async () => {
-    const campaignWithMeta = { ...baseCampaign, providerData: { meta: { id: 'meta_123' } } }
+    const campaignWithMeta = { ...approvedCampaign, providerData: { meta: { id: 'meta_123' } } }
     store.getCampaign.mockResolvedValueOnce(campaignWithMeta)
     store.deleteCampaign.mockResolvedValueOnce(undefined)
     helpers.requireMetaContext.mockResolvedValueOnce(baseCtx)

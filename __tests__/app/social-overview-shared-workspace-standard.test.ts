@@ -9,7 +9,6 @@ function source(file: string) {
 
 describe('social overview shared workspace standard', () => {
   const routes = [
-    'app/(admin)/admin/social/page.tsx',
     'app/(admin)/admin/org/[slug]/social/page.tsx',
     'app/(portal)/portal/social/page.tsx',
   ]

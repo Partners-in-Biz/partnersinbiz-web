@@ -58,7 +58,7 @@ describe('Portal contacts page', () => {
             assignedTo: 'sales-lead-1',
             assignedToRef: { uid: 'sales-lead-1', displayName: 'Ava Owner' },
             tags: [],
-            lastContactedAt: '2026-05-28T08:00:00.000Z',
+            lastContactedAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
           },
         ]
         return Promise.resolve({
@@ -772,7 +772,7 @@ describe('Portal contacts page', () => {
                 assignedTo: 'sales-lead-1',
                 assignedToRef: { uid: 'sales-lead-1', displayName: 'Ava Owner' },
                 tags: [],
-                lastContactedAt: '2026-05-28T08:00:00.000Z',
+                lastContactedAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
               },
             ],
           }),

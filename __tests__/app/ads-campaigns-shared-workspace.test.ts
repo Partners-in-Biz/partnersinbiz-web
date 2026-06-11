@@ -22,12 +22,33 @@ describe('ads campaign workspace reuse', () => {
     expect(admin).not.toMatch(/STATUS_TINT/)
   })
 
+  it('keeps the shared ads workspace provider-neutral and connection-aware', () => {
+    const portalLayout = readAppFile('app/(portal)/portal/ads/layout.tsx')
+    const adminCampaigns = readAppFile('app/(admin)/admin/org/[slug]/ads/campaigns/page.tsx')
+    const portalCampaigns = readAppFile('app/(portal)/portal/ads/page.tsx')
+    const workspace = readAppFile('components/ads/AdCampaignsWorkspace.tsx')
+
+    expect(portalLayout).toContain('multi-platform ad campaigns')
+    expect(portalLayout).not.toContain('live Meta ad campaigns')
+    expect(adminCampaigns).toContain('listConnections')
+    expect(portalCampaigns).toContain('listConnections')
+    expect(workspace).toContain('connectionSummaries')
+    expect(workspace).toContain('Connected account')
+    expect(workspace).toContain('No matching connection')
+    expect(workspace).toContain('Account not selected')
+  })
+
   it('renders portal and admin ads campaign details through the same workspace component', () => {
     const portal = readAppFile('app/(portal)/portal/ads/campaigns/[id]/page.tsx')
     const admin = readAppFile('app/(admin)/admin/org/[slug]/ads/campaigns/[id]/page.tsx')
+    const detailWorkspace = readAppFile('components/ads/AdCampaignDetailWorkspace.tsx')
 
     expect(portal).toContain('@/components/ads/AdCampaignDetailWorkspace')
     expect(admin).toContain('@/components/ads/AdCampaignDetailWorkspace')
+    expect(detailWorkspace).toContain('Unified Ads command center')
+    expect(detailWorkspace).toContain('Projects/Kanban handoff links')
+    expect(detailWorkspace).toContain('Provider errors')
+    expect(detailWorkspace).toContain('Spend/readiness')
     expect(portal).not.toMatch(/Awaiting your approval|Ad sets ·/)
     expect(admin).not.toMatch(/Awaiting client review|Ad sets \(/)
   })

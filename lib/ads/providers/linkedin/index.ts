@@ -10,6 +10,11 @@ import type { AdAccount } from '@/lib/ads/types'
 import { buildAuthorizeUrl, exchangeCode, refreshToken } from './oauth'
 import { listAdAccounts as listLinkedinAdAccounts } from './accounts'
 
+function normalizeScope(scope?: string): string[] | undefined {
+  if (!scope) return undefined
+  return scope.split(/[\s,]+/).map((s) => s.trim()).filter(Boolean)
+}
+
 export const linkedinProvider: AdProvider = {
   platform: 'linkedin',
 
@@ -21,7 +26,9 @@ export const linkedinProvider: AdProvider = {
     const t = await exchangeCode({ code, redirectUri })
     return {
       accessToken: t.accessToken,
+      refreshToken: t.refreshToken,
       expiresInSeconds: t.expiresInSeconds,
+      scopes: normalizeScope(t.scope),
       // LinkedIn issues 60-day tokens directly on initial exchange — no swap needed,
       // and there's no member-URN-by-token endpoint usable in this scope.
     }

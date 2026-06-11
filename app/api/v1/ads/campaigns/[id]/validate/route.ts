@@ -16,9 +16,6 @@ export const POST = withAuth(
     const campaign = await getCampaign(id)
     if (!campaign || campaign.orgId !== orgId) return apiError('Campaign not found', 404)
 
-    const ctx = await requireMetaContext(req)
-    if (ctx instanceof Response) return ctx
-
     const metaId = (campaign.providerData?.meta as { id?: string } | undefined)?.id
     if (!metaId) {
       // Not yet pushed to Meta — nothing to validate against
@@ -27,6 +24,9 @@ export const POST = withAuth(
         warnings: ['Campaign not yet pushed to Meta — nothing to validate against'],
       })
     }
+
+    const ctx = await requireMetaContext(req)
+    if (ctx instanceof Response) return ctx
 
     try {
       await metaValidateCampaign({

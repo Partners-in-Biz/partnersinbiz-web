@@ -45,12 +45,12 @@ describe('POST /api/v1/seo/sprints/[id]/run', () => {
   it('redirects browser form submissions back to the sprint page instead of showing raw JSON', async () => {
     const res = await POST(makeReq({
       accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-      referer: 'http://localhost/admin/seo/sprints/sprint-1/tasks',
+      referer: 'http://localhost/portal/seo/sprints/sprint-1/tasks',
     }), {
       params: Promise.resolve({ id: 'sprint-1' }),
     })
 
     expect(res.status).toBe(303)
-    expect(res.headers.get('location')).toBe('http://localhost/admin/seo/sprints/sprint-1/tasks?seoRun=done')
+    expect(res.headers.get('location')).toBe('http://localhost/portal/seo/sprints/sprint-1/tasks?seoRun=done')
   })
 })

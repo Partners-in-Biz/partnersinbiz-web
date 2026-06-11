@@ -110,6 +110,104 @@ describe('POST /api/v1/ads/creatives', () => {
     )
   })
 
+  it('passes source lineage, approval, landing, UTM, placement validation, and version fields to create', async () => {
+    store.createCreative.mockResolvedValueOnce({
+      ...baseCreative,
+      sourceType: 'content_package',
+      sourceId: 'pkg_1',
+      sourceVersionId: 'pkg_ver_1',
+      sourceOrgId: 'org_1',
+      projectId: 'project_1',
+      approvalStatus: 'approved',
+      thumbnailUrl: 'https://cdn.example.com/thumb.jpg',
+      landingUrl: 'https://example.com/landing',
+      versionGroupId: 'crv_1',
+      versionNumber: 1,
+      isLatest: true,
+    })
+
+    const res = await POST(
+      new Request('http://x', {
+        method: 'POST',
+        headers: { 'X-Org-Id': 'org_1', 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'image',
+          name: 'Hero',
+          sourceUrl: 'https://storage.googleapis.com/bucket/file.jpg',
+          storagePath: 'orgs/org_1/ad_creatives/crv_1/source.jpg',
+          mimeType: 'image/jpeg',
+          fileSize: 250_000,
+          sourceType: 'content_package',
+          sourceId: 'pkg_1',
+          sourceVersionId: 'pkg_ver_1',
+          sourceOrgId: 'org_1',
+          projectId: 'project_1',
+          approvalStatus: 'approved',
+          approvalTaskId: 'task_approval',
+          thumbnailUrl: 'https://cdn.example.com/thumb.jpg',
+          videoCoverUrl: 'https://cdn.example.com/cover.jpg',
+          landingUrl: 'https://example.com/landing',
+          utmDefaults: { source: 'meta', medium: 'paid_social', campaign: 'brand_launch_202606' },
+          placementSuitability: [{ platform: 'meta', placement: 'feed', status: 'suitable' }],
+          specValidation: { status: 'valid', checks: [{ key: 'aspect_ratio', status: 'pass' }] },
+          supersedes: 'crv_old',
+          changeSummary: 'Updated CTA',
+          usageBacklinks: [{ adId: 'ad_1', campaignId: 'camp_1', platform: 'meta' }],
+        }),
+      }) as any,
+      { uid: 'u1' } as any,
+      {} as any,
+    )
+
+    expect(res.status).toBe(201)
+    expect(store.createCreative).toHaveBeenCalledWith(
+      expect.objectContaining({
+        orgId: 'org_1',
+        input: expect.objectContaining({
+          sourceType: 'content_package',
+          sourceId: 'pkg_1',
+          sourceVersionId: 'pkg_ver_1',
+          sourceOrgId: 'org_1',
+          projectId: 'project_1',
+          approvalStatus: 'approved',
+          approvalTaskId: 'task_approval',
+          thumbnailUrl: 'https://cdn.example.com/thumb.jpg',
+          videoCoverUrl: 'https://cdn.example.com/cover.jpg',
+          landingUrl: 'https://example.com/landing',
+          utmDefaults: expect.objectContaining({ medium: 'paid_social' }),
+          placementSuitability: [expect.objectContaining({ placement: 'feed' })],
+          specValidation: expect.objectContaining({ status: 'valid' }),
+          supersedes: 'crv_old',
+          changeSummary: 'Updated CTA',
+          usageBacklinks: [expect.objectContaining({ adId: 'ad_1' })],
+        }),
+      }),
+    )
+  })
+
+  it('rejects sourceOrgId that does not match X-Org-Id', async () => {
+    const res = await POST(
+      new Request('http://x', {
+        method: 'POST',
+        headers: { 'X-Org-Id': 'org_1', 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'image',
+          name: 'Hero',
+          sourceUrl: 'https://storage.googleapis.com/bucket/file.jpg',
+          storagePath: 'orgs/org_1/ad_creatives/crv_1/source.jpg',
+          mimeType: 'image/jpeg',
+          fileSize: 250_000,
+          sourceOrgId: 'org_2',
+        }),
+      }) as any,
+      { uid: 'u1' } as any,
+      {} as any,
+    )
+
+    expect(res.status).toBe(400)
+    expect(store.createCreative).not.toHaveBeenCalled()
+  })
+
   it('returns 400 when required fields are missing', async () => {
     const res = await POST(
       new Request('http://x', {

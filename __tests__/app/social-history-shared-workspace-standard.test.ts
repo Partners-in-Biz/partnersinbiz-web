@@ -9,7 +9,6 @@ function source(file: string) {
 
 describe('social history shared workspace standard', () => {
   const routes = [
-    'app/(admin)/admin/social/history/page.tsx',
     'app/(portal)/portal/social/history/page.tsx',
   ]
 

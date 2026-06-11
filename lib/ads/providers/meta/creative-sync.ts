@@ -18,6 +18,9 @@ export async function syncImageCreative(args: {
     // Allow carousel_card here since each card is an image at Meta's level
     throw new Error(`syncImageCreative called with type ${args.creative.type}`)
   }
+  if (!args.creative.sourceUrl || !args.creative.mimeType || !args.creative.fileSize) {
+    throw new Error('Meta image creative sync blocked: missing sourceUrl, mimeType, or fileSize')
+  }
   const hash = await uploadImageFromUrl({
     adAccountId: args.adAccountId,
     accessToken: args.accessToken,
@@ -37,6 +40,9 @@ export async function syncVideoCreative(args: {
 }): Promise<{ metaCreativeId: string }> {
   if (args.creative.type !== 'video') {
     throw new Error(`syncVideoCreative called with type ${args.creative.type}`)
+  }
+  if (!args.creative.sourceUrl || !args.creative.mimeType || !args.creative.fileSize || !args.creative.duration) {
+    throw new Error('Meta video creative sync blocked: missing sourceUrl, mimeType, fileSize, or duration')
   }
 
   // 1. Download bytes from Firebase Storage

@@ -2,7 +2,14 @@
 import { NextRequest } from 'next/server'
 import { withAuth } from '@/lib/api/auth'
 import { apiSuccess, apiError } from '@/lib/api/response'
+import { enforceAgentCapability } from '@/lib/api/capabilityGate'
 import { listPixelConfigs, createPixelConfig, setPlatformCapiToken } from '@/lib/ads/pixel-configs/store'
+import { getCampaign } from '@/lib/ads/campaigns/store'
+import {
+  approvalOverrideErrorMessage,
+  findUntrustedApprovalOverride,
+  requireApprovedCampaignForAdsAction,
+} from '@/lib/ads/approval-gates'
 import type { AdPixelConfig, AdPlatform, CreateAdPixelConfigInput } from '@/lib/ads/types'
 
 const PLATFORMS: AdPlatform[] = ['meta', 'google', 'linkedin', 'tiktok']
@@ -18,6 +25,13 @@ function stripSecrets(config: AdPixelConfig): AdPixelConfig {
     }
   }
   return copy
+}
+
+async function requirePixelApprovalCampaign(orgId: string, approvalCampaignId?: string | null) {
+  if (!approvalCampaignId) return 'Pixel actions require approvalCampaignId for persisted campaign approval evidence'
+  const campaign = await getCampaign(approvalCampaignId)
+  if (!campaign || campaign.orgId !== orgId) return 'Campaign not found'
+  return requireApprovedCampaignForAdsAction(campaign, 'pixel')
 }
 
 export const GET = withAuth('admin', async (req: NextRequest) => {
@@ -36,6 +50,7 @@ export const POST = withAuth('admin', async (req: NextRequest, user) => {
   if (!orgId) return apiError('Missing X-Org-Id header', 400)
 
   const body = (await req.json()) as {
+    approvalCampaignId?: string
     input?: CreateAdPixelConfigInput & {
       meta?: { capiToken?: string; [k: string]: unknown }
       google?: { capiToken?: string; [k: string]: unknown }
@@ -43,6 +58,16 @@ export const POST = withAuth('admin', async (req: NextRequest, user) => {
       tiktok?: { capiToken?: string; [k: string]: unknown }
     }
   }
+
+  const approvalOverridePath = findUntrustedApprovalOverride(body)
+  if (approvalOverridePath) return apiError(approvalOverrideErrorMessage(approvalOverridePath), 400)
+
+  const approvalError = await requirePixelApprovalCampaign(orgId, body.approvalCampaignId)
+  if (approvalError === 'Campaign not found') return apiError(approvalError, 404)
+  if (approvalError) return apiError(approvalError, 403)
+
+  const capabilityError = enforceAgentCapability(user, 'spend', req, body as Record<string, unknown>)
+  if (capabilityError) return capabilityError
 
   if (!body.input?.name) {
     return apiError('Missing required field: name', 400)

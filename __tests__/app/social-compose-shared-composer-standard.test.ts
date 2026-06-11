@@ -9,7 +9,6 @@ function source(file: string) {
 
 describe('social compose shared composer standard', () => {
   const routes = [
-    'app/(admin)/admin/social/compose/page.tsx',
     'app/(portal)/portal/social/compose/page.tsx',
     'app/(portal)/portal/personal/social/compose/page.tsx',
   ]

@@ -10,6 +10,12 @@ import { logCustomAudienceActivity } from '@/lib/ads/activity'
 import { adminDb } from '@/lib/firebase/admin'
 import { Timestamp } from 'firebase-admin/firestore'
 import { getConnection, decryptAccessToken } from '@/lib/ads/connections/store'
+import { getCampaign } from '@/lib/ads/campaigns/store'
+import {
+  approvalOverrideErrorMessage,
+  findUntrustedApprovalOverride,
+  requireApprovedCampaignForAdsAction,
+} from '@/lib/ads/approval-gates'
 import { readDeveloperToken } from '@/lib/integrations/google_ads/oauth'
 import crypto from 'crypto'
 
@@ -38,6 +44,21 @@ export const POST = withAuth('admin', async (req: NextRequest, user) => {
   } catch {
     return apiError('Invalid JSON body', 400)
   }
+
+  const approvalOverridePath = findUntrustedApprovalOverride(rawBody)
+  if (approvalOverridePath) return apiError(approvalOverrideErrorMessage(approvalOverridePath), 400)
+
+  const approvalCampaignId =
+    typeof rawBody.approvalCampaignId === 'string'
+      ? rawBody.approvalCampaignId
+      : typeof (rawBody.input as { approvalCampaignId?: unknown } | undefined)?.approvalCampaignId === 'string'
+        ? ((rawBody.input as { approvalCampaignId: string }).approvalCampaignId)
+        : undefined
+  if (!approvalCampaignId) return apiError('Audience creation requires approvalCampaignId for persisted campaign approval evidence', 400)
+  const approvalCampaign = await getCampaign(approvalCampaignId)
+  if (!approvalCampaign || approvalCampaign.orgId !== orgId) return apiError('Campaign not found', 404)
+  const approvalError = requireApprovedCampaignForAdsAction(approvalCampaign, 'audience')
+  if (approvalError) return apiError(approvalError, 403)
 
   // ─── Google branch ────────────────────────────────────────────────────────
   if (rawBody.platform === 'google') {
@@ -382,10 +403,13 @@ export const POST = withAuth('admin', async (req: NextRequest, user) => {
   // ─── Meta branch (existing, unchanged) ────────────────────────────────────
   const ctx = await requireMetaContext(req)
   if (ctx instanceof Response) return ctx
-  const body = rawBody as { input?: CreateAdCustomAudienceInput }
-  if (!body.input?.name || !body.input?.type || !body.input?.source) {
+  const body = rawBody as { input?: Partial<CreateAdCustomAudienceInput> & { approvalCampaignId?: string } }
+  const audienceInputCandidate = { ...(body.input ?? {}) }
+  delete audienceInputCandidate.approvalCampaignId
+  if (!audienceInputCandidate.name || !audienceInputCandidate.type || !audienceInputCandidate.source) {
     return apiError('Missing required fields: name, type, source', 400)
   }
+  const audienceInput = audienceInputCandidate as CreateAdCustomAudienceInput
 
   // Phase 4: local create first (with status BUILDING for upload-pending types)
   const initialStatus: AdCustomAudienceStatus = 'BUILDING'
@@ -393,7 +417,7 @@ export const POST = withAuth('admin', async (req: NextRequest, user) => {
     orgId: ctx.orgId,
     createdBy: (user as { uid?: string }).uid ?? 'unknown',
     platform: 'meta',
-    input: { ...body.input, status: initialStatus },
+    input: { ...audienceInput, status: initialStatus } as CreateAdCustomAudienceInput,
   })
 
   // Meta sync (non-CUSTOMER_LIST creates immediately; CUSTOMER_LIST needs upload step)

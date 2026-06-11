@@ -2,13 +2,21 @@
 import { NextRequest } from 'next/server'
 import { withAuth } from '@/lib/api/auth'
 import { apiSuccess, apiError } from '@/lib/api/response'
+import { enforceAgentCapability } from '@/lib/api/capabilityGate'
 import { getCustomAudience, updateCustomAudience, deleteCustomAudience } from '@/lib/ads/custom-audiences/store'
 import { requireMetaContext, resolveGoogleAdsCustomerContext } from '@/lib/ads/api-helpers'
 import { metaProvider } from '@/lib/ads/providers/meta'
 import type { UpdateAdCustomAudienceInput } from '@/lib/ads/types'
 import { logCustomAudienceActivity } from '@/lib/ads/activity'
 import { getConnection, decryptAccessToken } from '@/lib/ads/connections/store'
+import { getCampaign } from '@/lib/ads/campaigns/store'
 import { readDeveloperToken } from '@/lib/integrations/google_ads/oauth'
+import type { ApiUser } from '@/lib/api/types'
+import {
+  approvalOverrideErrorMessage,
+  findUntrustedApprovalOverride,
+  requireApprovedCampaignForAdsAction,
+} from '@/lib/ads/approval-gates'
 
 export const GET = withAuth(
   'admin',
@@ -46,13 +54,37 @@ export const PATCH = withAuth(
 
 export const DELETE = withAuth(
   'admin',
-  async (req: NextRequest, user: unknown, ctxParams: { params: Promise<{ id: string }> }) => {
+  async (req: NextRequest, user: ApiUser, ctxParams: { params: Promise<{ id: string }> }) => {
     const orgId = req.headers.get('X-Org-Id')
     if (!orgId) return apiError('Missing X-Org-Id header', 400)
 
     const { id } = await ctxParams.params
     const ca = await getCustomAudience(id)
     if (!ca || ca.orgId !== orgId) return apiError('Custom audience not found', 404)
+
+    let body: Record<string, unknown> = {}
+    try {
+      body = (await req.json()) as Record<string, unknown>
+    } catch {
+      body = {}
+    }
+    const approvalOverridePath = findUntrustedApprovalOverride(body)
+    if (approvalOverridePath) return apiError(approvalOverrideErrorMessage(approvalOverridePath), 400)
+
+    const approvalCampaignId =
+      typeof body.approvalCampaignId === 'string'
+        ? body.approvalCampaignId
+        : new URL(req.url).searchParams.get('approvalCampaignId')
+    if (!approvalCampaignId) {
+      return apiError('Audience delete requires approvalCampaignId for persisted campaign approval evidence', 400)
+    }
+    const approvalCampaign = await getCampaign(approvalCampaignId)
+    if (!approvalCampaign || approvalCampaign.orgId !== orgId) return apiError('Campaign not found', 404)
+    const approvalError = requireApprovedCampaignForAdsAction(approvalCampaign, 'delete')
+    if (approvalError) return apiError(approvalError, 403)
+
+    const capabilityError = enforceAgentCapability(user, 'delete', req, body)
+    if (capabilityError) return capabilityError
 
     // Best-effort provider delete first
     if (ca.platform === 'linkedin') {

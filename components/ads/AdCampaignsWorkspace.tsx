@@ -1,11 +1,13 @@
 import type { ReactNode } from 'react'
 import Link from 'next/link'
 import type { AdCampaign } from '@/lib/ads/types'
+import { adPlatformLabel, type AdConnectionSummary } from '@/lib/ads/provider-display'
 
 type AdCampaignsWorkspaceProps = {
   surface: 'admin' | 'portal'
   campaigns: AdCampaign[]
   campaignHref: (campaign: AdCampaign) => string
+  connectionSummaries?: Partial<Record<AdCampaign['platform'], AdConnectionSummary>>
   title?: string
   description?: string
   actions?: ReactNode
@@ -40,10 +42,12 @@ function CampaignRow({
   campaign,
   href,
   highlight,
+  connectionSummary,
 }: {
   campaign: AdCampaign
   href: string
   highlight?: boolean
+  connectionSummary?: AdConnectionSummary
 }) {
   const budget =
     currency(campaign.dailyBudget) ?? currency(campaign.lifetimeBudget)
@@ -52,6 +56,17 @@ function CampaignRow({
     : campaign.lifetimeBudget != null
       ? `${budget} lifetime`
       : null
+
+  const providerLabel = connectionSummary?.providerLabel ?? adPlatformLabel(campaign.platform)
+  const accountStatus = connectionSummary?.accountStatus
+  const accountStatusLabel = accountStatus === 'ready'
+    ? 'Connected account'
+    : accountStatus === 'account_not_selected'
+      ? 'Account not selected'
+      : accountStatus === 'not_connected'
+        ? 'No matching connection'
+        : null
+  const accountLabel = connectionSummary?.accountLabel ?? campaign.adAccountId
 
   return (
     <li
@@ -68,7 +83,8 @@ function CampaignRow({
             {campaign.name}
           </div>
           <div className="mt-0.5 text-xs text-[var(--color-pib-text-muted)]">
-            {campaign.objective.toLowerCase()} · {campaign.adAccountId}
+            {campaign.objective.toLowerCase()} · {providerLabel} · {accountLabel}
+            {accountStatusLabel ? ` · ${accountStatusLabel}` : ''}
             {budgetLabel ? ` · ${budgetLabel}` : ''}
           </div>
         </div>
@@ -96,6 +112,7 @@ export function AdCampaignsWorkspace({
   surface,
   campaigns,
   campaignHref,
+  connectionSummaries,
   title = 'Campaigns',
   description,
   actions,
@@ -151,6 +168,7 @@ export function AdCampaignsWorkspace({
                     key={campaign.id}
                     campaign={campaign}
                     href={campaignHref(campaign)}
+                    connectionSummary={connectionSummaries?.[campaign.platform]}
                     highlight
                   />
                 ))}
@@ -167,6 +185,7 @@ export function AdCampaignsWorkspace({
                     key={campaign.id}
                     campaign={campaign}
                     href={campaignHref(campaign)}
+                    connectionSummary={connectionSummaries?.[campaign.platform]}
                   />
                 ))}
               </ul>

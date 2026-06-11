@@ -4,9 +4,26 @@ import { apiSuccess, apiError } from '@/lib/api/response'
 import { enforceAgentCapability } from '@/lib/api/capabilityGate'
 import { getBudget, updateBudget, archiveBudget, listEvents } from '@/lib/ads/budgets/store'
 import type { UpdateBudgetInput } from '@/lib/ads/budgets/types'
+import { getCampaign } from '@/lib/ads/campaigns/store'
 import type { ApiUser } from '@/lib/api/types'
+import {
+  approvalOverrideErrorMessage,
+  findUntrustedApprovalOverride,
+  requireApprovedCampaignForAdsAction,
+} from '@/lib/ads/approval-gates'
 
 export const dynamic = 'force-dynamic'
+
+async function requireBudgetCampaignApproval(
+  existing: { scope?: string; campaignId?: string; orgId: string },
+  action: 'budget' | 'delete',
+) {
+  if (existing.scope !== 'campaign') return null
+  if (!existing.campaignId) return 'Campaign-scoped budgets require campaignId'
+  const campaign = await getCampaign(existing.campaignId)
+  if (!campaign || campaign.orgId !== existing.orgId) return 'Campaign not found'
+  return requireApprovedCampaignForAdsAction(campaign, action)
+}
 
 export const GET = withAuth(
   'admin',
@@ -31,6 +48,11 @@ export const PATCH = withAuth(
     if (!existing || existing.orgId !== orgId) return apiError('Budget not found', 404)
     let body: UpdateBudgetInput
     try { body = (await req.json()) as UpdateBudgetInput } catch { return apiError('Invalid JSON body', 400) }
+    const approvalOverridePath = findUntrustedApprovalOverride(body)
+    if (approvalOverridePath) return apiError(approvalOverrideErrorMessage(approvalOverridePath), 400)
+    const approvalError = await requireBudgetCampaignApproval(existing, 'budget')
+    if (approvalError === 'Campaign not found') return apiError(approvalError, 404)
+    if (approvalError) return apiError(approvalError, 403)
     const capabilityError = enforceAgentCapability(user, 'spend', req, body as Record<string, unknown>)
     if (capabilityError) return capabilityError
     try {
@@ -51,6 +73,9 @@ export const DELETE = withAuth(
     const { id } = await ctx.params
     const existing = await getBudget(id)
     if (!existing || existing.orgId !== orgId) return apiError('Budget not found', 404)
+    const approvalError = await requireBudgetCampaignApproval(existing, 'delete')
+    if (approvalError === 'Campaign not found') return apiError(approvalError, 404)
+    if (approvalError) return apiError(approvalError, 403)
     const capabilityError = enforceAgentCapability(user, 'delete', req)
     if (capabilityError) return capabilityError
     await archiveBudget(id)

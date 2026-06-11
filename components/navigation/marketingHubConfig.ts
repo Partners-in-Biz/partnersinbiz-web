@@ -328,7 +328,7 @@ export function buildMarketingHubProps(config: MarketingHubSurface): HubPageProp
         section('Audience and setup', [
           {
             label: 'Contacts',
-            href: orgQueryPath(slug, '/portal/crm/contacts'),
+            href: orgQueryPath(slug, '/portal/contacts'),
             icon: 'contacts',
             description: 'Manage leads, prospects, clients, tags, and lifecycle stages.',
             eyebrow: 'Audience',

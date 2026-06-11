@@ -13,7 +13,7 @@
 //   - Connection with defaultAdAccountId → status pill + disconnect button
 //
 import { useEffect, useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import type { AdConnection } from '@/lib/ads/types'
 
 interface Props {
@@ -42,6 +42,19 @@ function getCustomerId(conn: AdConnection | undefined): string | undefined {
 
 export function GoogleConnectionsPanel({ orgSlug, orgId, connections }: Props) {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const callbackStatus = searchParams.get('status')
+  const callbackProvider = searchParams.get('provider')
+  const callbackMessage = searchParams.get('message')
+  const needsAccountSelection = searchParams.get('needsAccountSelection') === '1'
+  const isGoogleCallback = callbackProvider === 'google'
+  const callbackNotice = isGoogleCallback
+    ? callbackStatus === 'connected' && needsAccountSelection
+      ? 'Google Ads connected. Select a Customer ID to finish account setup.'
+      : callbackStatus === 'error'
+        ? `Google Ads connection failed: ${callbackMessage ?? 'unknown_error'}`
+        : null
+    : null
   const [googleDisconnected, setGoogleDisconnected] = useState(false)
   const google = googleDisconnected ? undefined : connections.find((c) => c.platform === 'google')
   const loginCustomerId = getLoginCustomerId(google)
@@ -210,15 +223,15 @@ export function GoogleConnectionsPanel({ orgSlug, orgId, connections }: Props) {
         </div>
       )}
 
-      {(message || actionError) && (
+      {(callbackNotice || message || actionError) && (
         <div
           className={`mb-4 rounded-lg border px-4 py-3 text-sm ${
-            actionError
+            actionError || (isGoogleCallback && callbackStatus === 'error')
               ? 'border-red-400/30 bg-red-400/10 text-red-200'
               : 'border-emerald-400/30 bg-emerald-400/10 text-emerald-200'
           }`}
         >
-          {actionError ?? message}
+          {actionError ?? callbackNotice ?? message}
         </div>
       )}
 

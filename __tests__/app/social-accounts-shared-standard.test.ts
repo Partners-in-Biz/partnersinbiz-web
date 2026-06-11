@@ -9,7 +9,6 @@ function readRoute(relativePath: string) {
 
 describe('social accounts shared manager standard', () => {
   const routes = [
-    'app/(admin)/admin/social/accounts/page.tsx',
     'app/(portal)/portal/social/accounts/page.tsx',
   ]
 
@@ -19,15 +18,4 @@ describe('social accounts shared manager standard', () => {
     expect(source).toContain("@/components/social/SocialAccountsManager")
   })
 
-  it('keeps the admin accounts route as a thin adapter', () => {
-    const source = readRoute('app/(admin)/admin/social/accounts/page.tsx')
-
-    expect(source).not.toMatch(/const PLATFORM_ICONS/)
-    expect(source).not.toMatch(/const PLATFORM_LABELS/)
-    expect(source).not.toMatch(/function PlatformBadge/)
-    expect(source).not.toMatch(/function SubAccountRow/)
-    expect(source).not.toMatch(/function PlatformCard/)
-    expect(source).not.toMatch(/function PickerModal/)
-    expect(source).not.toMatch(/function BlueskyForm/)
-  })
 })

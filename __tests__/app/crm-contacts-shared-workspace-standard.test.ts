@@ -9,10 +9,9 @@ function source(relativePath: string): string {
 
 describe('CRM contacts shared workspace standard', () => {
   it('keeps admin and portal contact list routes as adapters over the shared workspace', () => {
-    const adminSource = source('app/(admin)/admin/crm/contacts/page.tsx')
     const portalSource = source('app/(portal)/portal/contacts/page.tsx')
 
-    for (const routeSource of [adminSource, portalSource]) {
+    for (const routeSource of [portalSource]) {
       expect(routeSource).toContain("@/components/crm/ContactsWorkspace")
       expect(routeSource).not.toContain('function StageBadge')
       expect(routeSource).not.toContain('function TypeBadge')
@@ -27,13 +26,12 @@ describe('CRM contacts shared workspace standard', () => {
 
   it('keeps contact creation and editing on the shared CRM contact form', () => {
     const sharedFormPath = path.join(repoRoot, 'components/crm/ContactForm.tsx')
-    const adminContactDetail = source('app/(admin)/admin/crm/contacts/[id]/page.tsx')
     const portalCompanyDetail = source('app/(portal)/portal/companies/[id]/page.tsx')
     const sharedContactsWorkspace = source('components/crm/ContactsWorkspace.tsx')
 
     expect(fs.existsSync(sharedFormPath)).toBe(true)
 
-    for (const routeSource of [adminContactDetail, portalCompanyDetail, sharedContactsWorkspace]) {
+    for (const routeSource of [portalCompanyDetail, sharedContactsWorkspace]) {
       expect(routeSource).toContain('@/components/crm/ContactForm')
       expect(routeSource).not.toContain('@/components/admin/crm/ContactForm')
     }

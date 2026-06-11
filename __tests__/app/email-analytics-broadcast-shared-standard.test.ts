@@ -11,7 +11,6 @@ describe('email analytics broadcast detail shared standard', () => {
       process.cwd(),
       'components/email-analytics/BroadcastAnalyticsWorkspace.tsx',
     )
-    const adminRoute = source('app/(admin)/admin/email-analytics/broadcasts/[id]/page.tsx')
     const portalRoutePath = path.join(
       process.cwd(),
       'app/(portal)/portal/email-analytics/broadcasts/[id]/page.tsx',
@@ -27,14 +26,9 @@ describe('email analytics broadcast detail shared standard', () => {
     expect(shared).toContain('scopedApiPath')
     expect(shared).toContain('scopedPortalPath')
 
-    expect(adminRoute).toContain('@/components/email-analytics/BroadcastAnalyticsWorkspace')
     expect(portalRoute).toContain('@/components/email-analytics/BroadcastAnalyticsWorkspace')
     expect(portalRoute).toContain('searchParams')
     expect(portalRoute).toContain('surface="portal"')
 
-    expect(adminRoute).not.toContain('function Kpi')
-    expect(adminRoute).not.toContain('function Section')
-    expect(adminRoute).not.toContain('function Empty')
-    expect(adminRoute).not.toContain('function pct')
   })
 })

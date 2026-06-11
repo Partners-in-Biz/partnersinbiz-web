@@ -106,6 +106,13 @@ const googleCampaign = {
   },
 }
 
+const approvedGoogleCampaign = {
+  ...googleCampaign,
+  reviewState: 'approved',
+  approvedAt: { seconds: 1, nanoseconds: 0 },
+  approvedBy: 'client-1',
+}
+
 // ── POST /api/v1/ads/campaigns — Google create ────────────────────────────────
 
 describe('POST /api/v1/ads/campaigns — Google dispatch', () => {
@@ -204,7 +211,7 @@ describe('PATCH /api/v1/ads/campaigns/[id] — Google dispatch', () => {
 
 describe('DELETE /api/v1/ads/campaigns/[id] — Google dispatch', () => {
   it('calls googleRemoveCampaign before local delete when resourceName exists', async () => {
-    store.getCampaign.mockResolvedValueOnce(googleCampaign)
+    store.getCampaign.mockResolvedValueOnce(approvedGoogleCampaign)
     store.deleteCampaign.mockResolvedValueOnce(undefined)
 
     const res = await DELETE(
@@ -222,7 +229,7 @@ describe('DELETE /api/v1/ads/campaigns/[id] — Google dispatch', () => {
   })
 
   it('still deletes locally even when Google remove throws', async () => {
-    store.getCampaign.mockResolvedValueOnce(googleCampaign)
+    store.getCampaign.mockResolvedValueOnce(approvedGoogleCampaign)
     store.deleteCampaign.mockResolvedValueOnce(undefined)
     googleCampaigns.removeCampaign.mockRejectedValueOnce(new Error('Google down'))
 
@@ -239,10 +246,26 @@ describe('DELETE /api/v1/ads/campaigns/[id] — Google dispatch', () => {
 // ── POST /api/v1/ads/campaigns/[id]/launch — Google resume ───────────────────
 
 describe('POST /api/v1/ads/campaigns/[id]/launch — Google dispatch', () => {
-  it('calls googleResumeCampaign and sets status ACTIVE for Google campaign', async () => {
-    const afterUpdate = { ...googleCampaign, status: 'ACTIVE' }
+  it('blocks launch when persisted campaign approval evidence is missing', async () => {
+    store.getCampaign.mockResolvedValueOnce(googleCampaign)
+
+    const res = await launchPOST(
+      new Request('http://x', { method: 'POST', headers: { 'X-Org-Id': 'org-1' } }) as any,
+      { uid: 'u1' } as any,
+      { params: Promise.resolve({ id: 'cmp_g1' }) },
+    )
+    const body = await res.json()
+
+    expect(res.status).toBe(403)
+    expect(body.error).toMatch(/persisted approval evidence/i)
+    expect(store.updateCampaign).not.toHaveBeenCalled()
+    expect(googleCampaigns.resumeCampaign).not.toHaveBeenCalled()
+  })
+
+  it('calls googleResumeCampaign and sets status ACTIVE for an approved Google campaign', async () => {
+    const afterUpdate = { ...approvedGoogleCampaign, status: 'ACTIVE' }
     store.getCampaign
-      .mockResolvedValueOnce(googleCampaign)
+      .mockResolvedValueOnce(approvedGoogleCampaign)
       .mockResolvedValueOnce(afterUpdate)
     store.updateCampaign.mockResolvedValueOnce(undefined)
 

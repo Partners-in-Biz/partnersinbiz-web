@@ -24,10 +24,15 @@ export function CreativePicker({
   onSelect,
   onClose,
 }: Props) {
-  const [tab, setTab] = useState<'library' | 'upload'>('library')
+  const [tab, setTab] = useState<'library' | 'upload' | 'import'>('library')
   const [creatives, setCreatives] = useState<AdCreative[]>([])
   const [loading, setLoading] = useState(false)
   const [selected, setSelected] = useState<string[]>([])
+  const [importSourceType, setImportSourceType] = useState<'content_asset' | 'social_post' | 'campaign_asset'>('social_post')
+  const [importSourceId, setImportSourceId] = useState('')
+  const [importAssetIndex, setImportAssetIndex] = useState(0)
+  const [importing, setImporting] = useState(false)
+  const [importError, setImportError] = useState<string | null>(null)
 
   useEffect(() => {
     if (!open || tab !== 'library') return
@@ -52,6 +57,39 @@ export function CreativePicker({
     }
   }
 
+  async function importApprovedCreative() {
+    const sourceId = importSourceId.trim()
+    if (!sourceId) {
+      setImportError('Source ID is required')
+      return
+    }
+
+    setImporting(true)
+    setImportError(null)
+    try {
+      const response = await fetch('/api/v1/ads/creatives/import', {
+        method: 'POST',
+        headers: { 'X-Org-Id': orgId, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          sourceType: importSourceType,
+          sourceId,
+          assetIndex: importAssetIndex,
+        }),
+      })
+      const body = await response.json()
+      if (!body.success) {
+        setImportError(body.error ?? 'Import failed')
+        return
+      }
+      const imported = body.data as AdCreative
+      setCreatives((prev) => [imported, ...prev.filter((item) => item.id !== imported.id)])
+      setSelected([imported.id])
+      setTab('library')
+    } finally {
+      setImporting(false)
+    }
+  }
+
   return (
     <div
       role="dialog"
@@ -73,10 +111,11 @@ export function CreativePicker({
           className="mt-4"
           ariaLabel="Creative picker source"
           value={tab}
-          onValueChange={(value) => setTab(value as 'library' | 'upload')}
+          onValueChange={(value) => setTab(value as 'library' | 'upload' | 'import')}
           tabs={[
             { value: 'library', label: 'Library', badge: creatives.length },
             { value: 'upload', label: 'Upload new' },
+            { value: 'import', label: 'Import approved' },
           ]}
         />
 
@@ -129,6 +168,54 @@ export function CreativePicker({
                 setTab('library')
               }}
             />
+          )}
+
+          {tab === 'import' && (
+            <div className="space-y-4 rounded border border-white/10 p-4">
+              <p className="text-sm text-white/60">
+                Import only approved content, social, or campaign assets. Ads stores an immutable approved copy, landing URL, UTM snapshot, and source refs.
+              </p>
+              <label className="block text-sm">
+                Source type
+                <select
+                  className="pib-input mt-1 w-full"
+                  value={importSourceType}
+                  onChange={(event) => setImportSourceType(event.target.value as typeof importSourceType)}
+                >
+                  <option value="social_post">Social post</option>
+                  <option value="content_asset">Content asset</option>
+                  <option value="campaign_asset">Campaign asset</option>
+                </select>
+              </label>
+              <label className="block text-sm">
+                Source ID
+                <input
+                  className="pib-input mt-1 w-full"
+                  value={importSourceId}
+                  onChange={(event) => setImportSourceId(event.target.value)}
+                  placeholder="Approved source record ID"
+                />
+              </label>
+              <label className="block text-sm">
+                Asset index
+                <input
+                  className="pib-input mt-1 w-full"
+                  type="number"
+                  min={0}
+                  value={importAssetIndex}
+                  onChange={(event) => setImportAssetIndex(Math.max(0, Number(event.target.value) || 0))}
+                />
+              </label>
+              {importError && <p className="text-sm text-red-300">{importError}</p>}
+              <button
+                type="button"
+                className="btn-pib-accent text-sm"
+                disabled={importing}
+                onClick={importApprovedCreative}
+              >
+                {importing ? 'Importing…' : 'Import into Ads'}
+              </button>
+            </div>
           )}
         </div>
 

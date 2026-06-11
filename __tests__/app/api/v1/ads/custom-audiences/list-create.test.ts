@@ -19,10 +19,14 @@ jest.mock('@/lib/ads/providers/meta', () => ({
 jest.mock('@/lib/ads/activity', () => ({
   logCustomAudienceActivity: jest.fn().mockResolvedValue(undefined),
 }))
+jest.mock('@/lib/ads/campaigns/store', () => ({
+  getCampaign: jest.fn(),
+}))
 
 const store = jest.requireMock('@/lib/ads/custom-audiences/store')
 const helpers = jest.requireMock('@/lib/ads/api-helpers')
 const metaMock = jest.requireMock('@/lib/ads/providers/meta')
+const campaignStore = jest.requireMock('@/lib/ads/campaigns/store')
 
 beforeEach(() => jest.clearAllMocks())
 
@@ -41,6 +45,14 @@ const baseCA = {
   status: 'BUILDING',
   platform: 'meta',
   providerData: { meta: { customAudienceId: 'meta_ca_1' } },
+}
+
+const approvedCampaign = {
+  id: 'cmp_1',
+  orgId: 'org_1',
+  reviewState: 'approved',
+  approvedAt: { seconds: 1 },
+  approvedBy: 'approver_1',
 }
 
 describe('GET /api/v1/ads/custom-audiences', () => {
@@ -93,6 +105,7 @@ describe('GET /api/v1/ads/custom-audiences', () => {
 describe('POST /api/v1/ads/custom-audiences', () => {
   it('creates audience and syncs to Meta', async () => {
     helpers.requireMetaContext.mockResolvedValueOnce(baseConn)
+    campaignStore.getCampaign.mockResolvedValueOnce(approvedCampaign)
     store.createCustomAudience.mockResolvedValueOnce(baseCA)
     metaMock.metaProvider.customAudienceCRUD.mockResolvedValueOnce({ metaCaId: 'meta_ca_1' })
     store.setCustomAudienceMetaId.mockResolvedValueOnce(undefined)
@@ -103,6 +116,7 @@ describe('POST /api/v1/ads/custom-audiences', () => {
         method: 'POST',
         headers: { 'X-Org-Id': 'org_1', 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          approvalCampaignId: 'cmp_1',
           input: {
             name: 'My Audience',
             type: 'CUSTOMER_LIST',
@@ -123,7 +137,6 @@ describe('POST /api/v1/ads/custom-audiences', () => {
   })
 
   it('returns 400 when required fields are missing', async () => {
-    helpers.requireMetaContext.mockResolvedValueOnce(baseConn)
     const res = await POST(
       new Request('http://x', {
         method: 'POST',
@@ -136,14 +149,22 @@ describe('POST /api/v1/ads/custom-audiences', () => {
     expect(res.status).toBe(400)
   })
 
-  it('short-circuits when requireMetaContext returns Response', async () => {
+  it('short-circuits when requireMetaContext returns Response after approval gate passes', async () => {
     const errRes = new Response(JSON.stringify({ success: false, error: 'no conn' }), { status: 404 })
+    campaignStore.getCampaign.mockResolvedValueOnce(approvedCampaign)
     helpers.requireMetaContext.mockResolvedValueOnce(errRes)
     const res = await POST(
       new Request('http://x', {
         method: 'POST',
         headers: { 'X-Org-Id': 'org_1', 'Content-Type': 'application/json' },
-        body: JSON.stringify({ input: {} }),
+        body: JSON.stringify({
+          approvalCampaignId: 'cmp_1',
+          input: {
+            name: 'My Audience',
+            type: 'CUSTOMER_LIST',
+            source: { kind: 'CUSTOMER_LIST', csvStoragePath: 'orgs/org_1/uploads/list.csv', hashCount: 0, uploadedAt: null },
+          },
+        }),
       }) as any,
       { uid: 'u1' } as any,
       {} as any,
@@ -153,6 +174,7 @@ describe('POST /api/v1/ads/custom-audiences', () => {
 
   it('returns 500 when Meta sync fails', async () => {
     helpers.requireMetaContext.mockResolvedValueOnce(baseConn)
+    campaignStore.getCampaign.mockResolvedValueOnce(approvedCampaign)
     store.createCustomAudience.mockResolvedValueOnce(baseCA)
     metaMock.metaProvider.customAudienceCRUD.mockRejectedValueOnce(new Error('Meta API error'))
 
@@ -161,6 +183,7 @@ describe('POST /api/v1/ads/custom-audiences', () => {
         method: 'POST',
         headers: { 'X-Org-Id': 'org_1', 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          approvalCampaignId: 'cmp_1',
           input: {
             name: 'My Audience',
             type: 'CUSTOMER_LIST',
