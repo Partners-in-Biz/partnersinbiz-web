@@ -37,6 +37,7 @@ import { apiSuccess, apiError } from '@/lib/api/response'
 import { lastActorFrom } from '@/lib/api/actor'
 import { logActivity } from '@/lib/activity/log'
 import type { ApiUser } from '@/lib/api/types'
+import { validateOutboundLinks } from '@/lib/social/outbound-link-validation'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
@@ -245,6 +246,19 @@ export const POST = withAuth(
 
       for (let i = 0; i < allPosts.length; i++) {
         const p = allPosts[i]
+        const contentText = typeof p.content === 'string' ? p.content : p.content?.text
+        if (contentText) {
+          const linkValidation = await validateOutboundLinks(contentText)
+          if (!linkValidation.valid) {
+            skipped.push({
+              postId: p.id,
+              platform: p.platforms?.[0] ?? p.platform,
+              reason: linkValidation.errors.map(e => e.message).join('; '),
+            })
+            continue
+          }
+        }
+
         const slot = slots[i]
         const ts = Timestamp.fromDate(slot.date)
         const postRef = adminDb.collection('social_posts').doc(p.id)
