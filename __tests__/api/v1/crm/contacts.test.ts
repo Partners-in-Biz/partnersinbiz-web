@@ -186,6 +186,26 @@ describe('POST /api/v1/crm/contacts', () => {
     expect(body.data.id).toBe('auto-id-123')
   })
 
+  it('defaults a new contact owner to the creating member when assignedTo is blank', async () => {
+    const member = seedOrgMember('org-owner-default', 'uid-owner-default', { role: 'member', firstName: 'Owner', lastName: 'Default' })
+    const captured = jest.fn().mockResolvedValue(undefined)
+    stageAuth(member, {}, { capturedDocSet: captured })
+
+    const req = callAsMember(member, 'POST', '/api/v1/crm/contacts', {
+      ...validContact,
+      assignedTo: '',
+    })
+    const { POST } = await import('@/app/api/v1/crm/contacts/route')
+    const res = await POST(req)
+
+    expect(res.status).toBe(201)
+    const writtenData = captured.mock.calls[0][0]
+    expect(writtenData.assignedTo).toBe('uid-owner-default')
+    expect(writtenData.assignedToRef.uid).toBe('uid-owner-default')
+    expect(writtenData.assignedToRef.displayName).toBe('Owner Default')
+    expect(writtenData.allowedUserIds).toContain('uid-owner-default')
+  })
+
   it('returns 400 when name is missing', async () => {
     const member = seedOrgMember('org-test', 'uid-member', { role: 'member' })
     stageAuth(member)

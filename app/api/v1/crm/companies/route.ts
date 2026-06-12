@@ -23,6 +23,15 @@ import { applyPostFilterSearch } from '@/lib/companies/filters'
 import type { Company, CompanyInput, CompanyListParams } from '@/lib/companies/types'
 import { getDefinitionsForResource } from '@/lib/customFields/store'
 import { validateCustomFields } from '@/lib/customFields/validation'
+import {
+  crmActorUid,
+  type AssignableCrmRecord,
+  crmRecordAssignedToUid,
+  crmRecordCompanyIds,
+  filterCrmRowsForActor,
+  isCrmPrivilegedActor,
+  normalizeAllowedUserIds,
+} from '@/lib/crm/assignment-access'
 
 // ── GET ─────────────────────────────────────────────────────────────────────────
 
@@ -63,6 +72,22 @@ export const GET = withCrmAuth('viewer', async (req, ctx) => {
     let companies: Company[] = snapshot.docs
       .map((doc) => ({ ...(doc.data() as Company), id: doc.id }))
       .filter((company) => company.deleted !== true)
+
+    if (!isCrmPrivilegedActor(ctx)) {
+      const directCompanies = filterCrmRowsForActor(ctx, companies)
+      const visibleIds = new Set(directCompanies.map((company) => company.id))
+      const actorUid = crmActorUid(ctx)
+      const contactsSnap = await adminDb.collection('contacts')
+        .where('orgId', '==', ctx.orgId)
+        .limit(1000)
+        .get()
+      for (const doc of contactsSnap.docs) {
+        const contact = { id: doc.id, ...doc.data() } as AssignableCrmRecord
+        if (contact.deleted === true || !crmRecordAssignedToUid(contact, actorUid)) continue
+        for (const companyId of crmRecordCompanyIds(contact)) visibleIds.add(companyId)
+      }
+      companies = companies.filter((company) => visibleIds.has(company.id))
+    }
 
     if (params.industry) {
       companies = companies.filter((company) => company.industry === params.industry)
@@ -163,7 +188,22 @@ export const POST = withCrmAuth('member', async (req, ctx) => {
     if (!accountManagerRef) return apiError('accountManagerUid does not belong to this workspace', 400)
   }
 
+  const ownerUidInput = typeof body.ownerUid === 'string' ? body.ownerUid.trim() : ''
+  const ownerUid = ownerUidInput || ctx.actor.uid
+  let ownerRef = ctx.actor
+  if (ownerUid !== ctx.actor.uid) {
+    const resolvedOwnerRef = await loadMemberRef(ctx.orgId, ownerUid)
+    if (!resolvedOwnerRef) return apiError('ownerUid does not belong to this workspace', 400)
+    ownerRef = resolvedOwnerRef
+  }
+
   const sanitized = sanitizeCompanyForWrite(body)
+  const allowedUserIds = normalizeAllowedUserIds((body as Record<string, unknown>).allowedUserIds)
+  for (const uid of [body.accountManagerUid, ownerUid]) {
+    if (typeof uid === 'string' && uid.trim() && !allowedUserIds.includes(uid.trim())) {
+      allowedUserIds.push(uid.trim())
+    }
+  }
 
   // Custom field validation (best-effort — Firestore outage must not block core write)
   if (body.customFields !== undefined && body.customFields !== null) {
@@ -183,8 +223,9 @@ export const POST = withCrmAuth('member', async (req, ctx) => {
     orgId: ctx.orgId,
     ...sanitized,
     accountManagerRef,
-    ownerUid: body.ownerUid ?? ctx.actor.uid,
-    ownerRef: ctx.actor,
+    ...(allowedUserIds.length > 0 ? { allowedUserIds } : {}),
+    ownerUid,
+    ownerRef,
     createdBy: ctx.isAgent ? undefined : ctx.actor.uid,
     createdByRef: ctx.actor,
     updatedBy: ctx.isAgent ? undefined : ctx.actor.uid,

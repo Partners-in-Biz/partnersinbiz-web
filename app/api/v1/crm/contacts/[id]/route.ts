@@ -21,6 +21,14 @@ import { loadCompany } from '@/lib/companies/store'
 import { normalizeAgreementRoles, sanitizeContactForWrite } from '@/lib/crm/contacts'
 import { getDefinitionsForResource } from '@/lib/customFields/store'
 import { validateCustomFields } from '@/lib/customFields/validation'
+import {
+  crmActorCanReadRecord,
+  crmRecordCompanyIds,
+  isCrmPrivilegedActor,
+  loadCompanyAssignmentMap,
+  normalizeAllowedUserIds,
+  normalizeAllowedUserPatch,
+} from '@/lib/crm/assignment-access'
 
 type RouteCtx = { params: Promise<{ id: string }> }
 
@@ -84,7 +92,13 @@ export const GET = withCrmAuth<RouteCtx>(
     const snap = await docRef.get()
     if (!snap.exists) return apiError('Contact not found', 404)
     const data = snap.data()!
-    if (data.orgId !== ctx.orgId) return apiError('Contact not found', 404)
+    if (data.orgId !== ctx.orgId || data.deleted === true) return apiError('Contact not found', 404)
+    if (!isCrmPrivilegedActor(ctx)) {
+      const companies = await loadCompanyAssignmentMap(ctx.orgId, crmRecordCompanyIds(data))
+      if (!crmActorCanReadRecord(ctx, { id: snap.id, ...data }, { companies })) {
+        return apiError('Contact not found', 404)
+      }
+    }
     return apiSuccess({ contact: { id: snap.id, ...data } })
   },
 )
@@ -104,7 +118,13 @@ async function handleUpdate(
   const snap = await docRef.get()
   if (!snap.exists) return apiError('Contact not found', 404)
   const existing = snap.data()!
-  if (existing.orgId !== ctx.orgId) return apiError('Contact not found', 404)
+  if (existing.orgId !== ctx.orgId || existing.deleted === true) return apiError('Contact not found', 404)
+  if (!isCrmPrivilegedActor(ctx)) {
+    const companies = await loadCompanyAssignmentMap(ctx.orgId, crmRecordCompanyIds(existing))
+    if (!crmActorCanReadRecord(ctx, { id, ...existing }, { companies })) {
+      return apiError('Contact not found', 404)
+    }
+  }
 
   const actorRef = ctx.actor
   const agreementRoles = normalizeAgreementRoles(body.agreementRoles)
@@ -123,8 +143,16 @@ async function handleUpdate(
   // Resolve assignedToRef when assignedTo changes (uses tolerant resolveMemberRef — never throws)
   if (typeof body.assignedTo === 'string' && body.assignedTo !== '') {
     patch.assignedToRef = await resolveMemberRef(ctx.orgId, body.assignedTo)
+    const allowedUserIds = normalizeAllowedUserPatch(body.allowedUserIds) ?? normalizeAllowedUserIds(existing.allowedUserIds)
+    if (!allowedUserIds.includes(body.assignedTo)) allowedUserIds.push(body.assignedTo)
+    patch.allowedUserIds = allowedUserIds
   } else if (body.assignedTo === '') {
     patch.assignedToRef = FieldValue.delete()
+  }
+
+  const allowedUserPatch = normalizeAllowedUserPatch(body.allowedUserIds)
+  if (allowedUserPatch !== null) {
+    patch.allowedUserIds = allowedUserPatch
   }
 
   // Resolve companyId wiring (hybrid model — existing company string field untouched)

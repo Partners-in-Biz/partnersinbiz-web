@@ -82,6 +82,7 @@ export interface Company {
   parentCompanyName?: string // display cache for readable hierarchy links
   accountManagerUid?: string
   accountManagerRef?: MemberRef
+  allowedUserIds?: string[]
   // Health & custom
   healthScore?: number    // 0-100, nullable until A6 lifecycle automation
   customFields?: Record<string, unknown>  // A2 will add definitions
@@ -114,5 +115,5 @@ export interface CompanyListParams {
   orderBy?: 'createdAt-desc' | 'name-asc' | 'updatedAt-desc'
 }
 
-export const COMPANY_BULK_FIELDS = ['accountManagerUid', 'ownerUid', 'tags', 'tier', 'lifecycleStage', 'industry', 'size'] as const
+export const COMPANY_BULK_FIELDS = ['accountManagerUid', 'ownerUid', 'allowedUserIds', 'tags', 'tier', 'lifecycleStage', 'industry', 'size'] as const
 export type CompanyBulkField = typeof COMPANY_BULK_FIELDS[number]

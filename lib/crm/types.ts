@@ -60,6 +60,7 @@ export interface Contact {
   tags: string[]
   notes: string
   assignedTo: string
+  allowedUserIds?: string[]
   subscribedAt: Timestamp | null
   unsubscribedAt: Timestamp | null
   bouncedAt: Timestamp | null
@@ -136,6 +137,7 @@ export interface Deal {
   updatedByRef?: MemberRef
   ownerUid?: string
   ownerRef?: MemberRef
+  allowedUserIds?: string[]
   contactId: string
   title: string
   value: number

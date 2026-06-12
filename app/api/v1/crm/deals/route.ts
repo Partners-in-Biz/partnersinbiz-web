@@ -15,6 +15,16 @@ import { getDefinitionsForResource } from '@/lib/customFields/store'
 import { validateCustomFields } from '@/lib/customFields/validation'
 import { loadPipeline, getDefaultPipelineForOrg } from '@/lib/pipelines/store'
 import { normalizeDealCommercialFields } from '@/lib/crm/deals'
+import {
+  crmActorCanReadRecord,
+  crmRecordCompanyIds,
+  crmRecordContactIds,
+  filterCrmRowsForActor,
+  isCrmPrivilegedActor,
+  loadCompanyAssignmentMap,
+  loadContactAssignmentMap,
+  normalizeAllowedUserIds,
+} from '@/lib/crm/assignment-access'
 
 async function deriveCompanyFromContact(contactId: string, orgId: string): Promise<{ companyId?: string; companyName?: string }> {
   try {
@@ -42,15 +52,29 @@ export const GET = withCrmAuth('viewer', async (req, ctx) => {
   const limit = Math.min(parseInt(searchParams.get('limit') ?? '100'), 500)
   const page = Math.max(parseInt(searchParams.get('page') ?? '1'), 1)
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const query: any = adminDb.collection('deals').where('orgId', '==', orgId)
+  const query = adminDb.collection('deals').where('orgId', '==', orgId)
 
   const snapshot = await query.limit(1000).get()
 
   let deals: Deal[] = snapshot.docs
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    .map((doc: any) => ({ id: doc.id, ...doc.data() }))
+    .map((doc): Deal => ({ ...(doc.data() as Deal), id: doc.id }))
     .filter((d: Deal) => d.deleted !== true)
+
+  if (!isCrmPrivilegedActor(ctx)) {
+    const contacts = await loadContactAssignmentMap(orgId, deals.flatMap((deal) => crmRecordContactIds(deal)))
+    const companyIds = new Set<string>()
+    for (const deal of deals) {
+      for (const companyId of crmRecordCompanyIds(deal)) companyIds.add(companyId)
+      for (const contactId of crmRecordContactIds(deal)) {
+        const contact = contacts.get(contactId)
+        for (const companyId of crmRecordCompanyIds(contact)) companyIds.add(companyId)
+      }
+    }
+    const companies = await loadCompanyAssignmentMap(orgId, companyIds)
+    deals = filterCrmRowsForActor(ctx, deals, { contacts, companies })
+  }
+
+  deals = deals
     .filter((d: Deal) => !pipelineId || d.pipelineId === pipelineId)
     .filter((d: Deal) => !stageId || d.stageId === stageId)
     .filter((d: Deal) => !contactId || d.contactId === contactId)
@@ -85,6 +109,14 @@ export const POST = withCrmAuth('member', async (req, ctx) => {
   if (!body.contactId?.trim()) return apiError('contactId is required', 400)
   const dealTitle = body.title.trim()
   const contactId = body.contactId.trim()
+  const contactSnap = await adminDb.collection('contacts').doc(contactId).get()
+  if (!contactSnap.exists) return apiError('Contact not found', 404)
+  const contactForAccess = { ...(contactSnap.data() as Contact), id: contactSnap.id }
+  if (contactForAccess.orgId !== ctx.orgId || contactForAccess.deleted === true) return apiError('Contact not found', 404)
+  if (!isCrmPrivilegedActor(ctx)) {
+    const companies = await loadCompanyAssignmentMap(ctx.orgId, crmRecordCompanyIds(contactForAccess))
+    if (!crmActorCanReadRecord(ctx, contactForAccess, { companies })) return apiError('Contact not found', 404)
+  }
   const currency = body.currency ?? 'ZAR'
   if (!VALID_CURRENCIES.includes(currency)) return apiError('Invalid currency — use USD, EUR, or ZAR', 400)
   const value = typeof body.value === 'number' ? body.value : 0
@@ -122,6 +154,10 @@ export const POST = withCrmAuth('member', async (req, ctx) => {
   if (typeof body.ownerUid === 'string' && body.ownerUid !== '') {
     ownerRef = await resolveMemberRef(ctx.orgId, body.ownerUid)
   }
+  const allowedUserIds = normalizeAllowedUserIds(body.allowedUserIds)
+  if (typeof body.ownerUid === 'string' && body.ownerUid.trim() && !allowedUserIds.includes(body.ownerUid.trim())) {
+    allowedUserIds.push(body.ownerUid.trim())
+  }
 
   const dealData: Record<string, unknown> = {
     orgId: ctx.orgId,
@@ -136,6 +172,7 @@ export const POST = withCrmAuth('member', async (req, ctx) => {
     deleted: false,
     ownerUid: typeof body.ownerUid === 'string' && body.ownerUid !== '' ? body.ownerUid : undefined,
     ownerRef,
+    ...(allowedUserIds.length > 0 ? { allowedUserIds } : {}),
     createdBy: ctx.isAgent ? undefined : ctx.actor.uid,
     createdByRef: actorRef,
     updatedBy: ctx.isAgent ? undefined : ctx.actor.uid,

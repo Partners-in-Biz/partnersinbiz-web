@@ -23,6 +23,13 @@ import { loadCompany } from '@/lib/companies/store'
 import { cleanContactString, normalizeAgreementRoles } from '@/lib/crm/contacts'
 import { getDefinitionsForResource } from '@/lib/customFields/store'
 import { validateCustomFields } from '@/lib/customFields/validation'
+import {
+  filterCrmRowsForActor,
+  isCrmPrivilegedActor,
+  loadCompanyAssignmentMap,
+  normalizeAllowedUserIds,
+  crmRecordCompanyIds,
+} from '@/lib/crm/assignment-access'
 
 const VALID_STAGES: ContactStage[] = [
   'new', 'contacted', 'replied', 'demo', 'proposal', 'won', 'lost',
@@ -117,9 +124,17 @@ export const GET = withCrmAuth('viewer', async (req, ctx) => {
     .get()
 
   let contacts: Contact[] = snapshot.docs
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    .map((doc: any) => ({ id: doc.id, ...doc.data() }))
+    .map((doc): Contact => ({ ...(doc.data() as Contact), id: doc.id }))
     .filter((c: Contact) => c.orgId === orgId && c.deleted !== true)
+
+  if (!isCrmPrivilegedActor(ctx)) {
+    const companyIds = new Set<string>()
+    for (const contact of contacts) {
+      for (const companyId of crmRecordCompanyIds(contact)) companyIds.add(companyId)
+    }
+    const companies = await loadCompanyAssignmentMap(orgId, companyIds)
+    contacts = filterCrmRowsForActor(ctx, contacts, { companies })
+  }
 
   if (capturedFromId) {
     contacts = contacts.filter((c) => c.capturedFromId === capturedFromId)
@@ -179,11 +194,15 @@ export const POST = withCrmAuth('member', async (req, ctx) => {
     : ''
 
   const actorRef = ctx.actor
+  const requestedAssignedTo = typeof body.assignedTo === 'string' ? body.assignedTo.trim() : ''
+  const assignedToUid = requestedAssignedTo || ctx.actor.uid
+  const allowedUserIds = normalizeAllowedUserIds(bodyRaw.allowedUserIds)
+  if (assignedToUid && !allowedUserIds.includes(assignedToUid)) allowedUserIds.push(assignedToUid)
 
-  // Resolve assignedToRef when assignedTo is provided (mirrors PATCH handler logic)
+  // Default the contact owner to the creator unless the caller explicitly assigns another owner.
   let assignedToRef: import('@/lib/orgMembers/memberRef').MemberRef | undefined
-  if (typeof body.assignedTo === 'string' && body.assignedTo !== '') {
-    assignedToRef = await resolveMemberRef(ctx.orgId, body.assignedTo)
+  if (assignedToUid) {
+    assignedToRef = assignedToUid === ctx.actor.uid ? actorRef : await resolveMemberRef(ctx.orgId, assignedToUid)
   }
 
   // Resolve companyId → companyName cache lookup (hybrid model — company string untouched)
@@ -219,7 +238,8 @@ export const POST = withCrmAuth('member', async (req, ctx) => {
     stage: body.stage ?? 'new',
     tags: body.tags ?? [],
     notes: body.notes?.trim() ?? '',
-    assignedTo: body.assignedTo ?? '',
+    assignedTo: assignedToUid,
+    ...(allowedUserIds.length > 0 ? { allowedUserIds } : {}),
     assignedToRef,  // may be undefined; sanitize step will strip
     companyId: resolvedCompanyId,     // undefined if not provided; sanitize strips
     companyName: resolvedCompanyName, // undefined if not provided; sanitize strips

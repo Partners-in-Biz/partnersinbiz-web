@@ -29,6 +29,13 @@ import { adminDb } from '@/lib/firebase/admin'
 import { withCrmAuth } from '@/lib/auth/crm-middleware'
 import { apiSuccess, apiError } from '@/lib/api/response'
 import { COMPANY_BULK_FIELDS } from '@/lib/companies/types'
+import { loadMemberRef } from '@/lib/companies/store'
+import {
+  crmActorCanReadRecord,
+  isCrmPrivilegedActor,
+  normalizeAllowedUserIds,
+  normalizeAllowedUserPatch,
+} from '@/lib/crm/assignment-access'
 
 const MAX_IDS = 200
 const IN_CHUNK = 30
@@ -78,9 +85,57 @@ export const POST = withCrmAuth('member', async (req, ctx) => {
 
   // Build the update payload
   const updateData: Record<string, unknown> = {}
+  const assignmentUids = new Set<string>()
 
   for (const key of patchKeys) {
+    if (key === 'accountManagerUid') {
+      const uid = typeof patchObj.accountManagerUid === 'string' ? patchObj.accountManagerUid.trim() : ''
+      updateData.accountManagerUid = uid
+      if (uid) {
+        const ref = await loadMemberRef(ctx.orgId, uid)
+        if (!ref) return apiError('accountManagerUid does not belong to this workspace', 400)
+        updateData.accountManagerRef = ref
+        assignmentUids.add(uid)
+      } else {
+        updateData.accountManagerRef = FieldValue.delete()
+      }
+      continue
+    }
+
+    if (key === 'ownerUid') {
+      const uid = typeof patchObj.ownerUid === 'string' ? patchObj.ownerUid.trim() : ''
+      updateData.ownerUid = uid
+      if (uid) {
+        const ref = await loadMemberRef(ctx.orgId, uid)
+        if (!ref) return apiError('ownerUid does not belong to this workspace', 400)
+        updateData.ownerRef = ref
+        assignmentUids.add(uid)
+      } else {
+        updateData.ownerRef = FieldValue.delete()
+      }
+      continue
+    }
+
+    if (key === 'allowedUserIds') {
+      const allowedUserIds = normalizeAllowedUserPatch(patchObj.allowedUserIds)
+      if (allowedUserIds === null) return apiError('allowedUserIds must be an array of user IDs', 400)
+      updateData.allowedUserIds = allowedUserIds
+      continue
+    }
+
     updateData[key] = patchObj[key]
+  }
+
+  if (assignmentUids.size > 0) {
+    if (Array.isArray(updateData.allowedUserIds)) {
+      const allowedUserIds = normalizeAllowedUserIds(updateData.allowedUserIds)
+      for (const uid of assignmentUids) {
+        if (!allowedUserIds.includes(uid)) allowedUserIds.push(uid)
+      }
+      updateData.allowedUserIds = allowedUserIds
+    } else {
+      updateData.allowedUserIds = FieldValue.arrayUnion(...Array.from(assignmentUids))
+    }
   }
 
   // Attribution
@@ -121,6 +176,10 @@ export const POST = withCrmAuth('member', async (req, ctx) => {
         continue
       }
       if (data.deleted === true) { batchSkipped++; continue }
+      if (!isCrmPrivilegedActor(ctx) && !crmActorCanReadRecord(ctx, { id, ...data })) {
+        batchSkipped++
+        continue
+      }
 
       batch.update(snap.ref, sanitized)
       inBatch++
