@@ -4,6 +4,7 @@
 import { withCrmAuth } from '@/lib/auth/crm-middleware'
 import { apiSuccess, apiError } from '@/lib/api/response'
 import { listEnrollments } from '@/lib/sequences/enrollment'
+import { getSequence } from '@/lib/sequences/store'
 
 export const dynamic = 'force-dynamic'
 
@@ -16,7 +17,22 @@ export const GET = withCrmAuth<RouteCtx>('member', async (_req, ctx, routeCtx) =
 
   try {
     const enrollments = await listEnrollments(ctx.orgId, { contactId: id })
-    return apiSuccess({ enrollments })
+
+    // Enrich with sequence names — enrollment docs only store sequenceId, but
+    // the contact panel needs a human-readable label per row.
+    const sequenceIds = [...new Set(enrollments.map((e) => e.sequenceId).filter(Boolean))]
+    const names = new Map<string, string>()
+    await Promise.all(sequenceIds.map(async (sequenceId) => {
+      const sequence = await getSequence(ctx.orgId, sequenceId)
+      if (sequence?.name) names.set(sequenceId, sequence.name)
+    }))
+
+    return apiSuccess({
+      enrollments: enrollments.map((e) => ({
+        ...e,
+        sequenceName: names.get(e.sequenceId) ?? '',
+      })),
+    })
   } catch (err) {
     console.error('[contact-enrollments-list-error]', err)
     return apiError('Internal Server Error', 500)
