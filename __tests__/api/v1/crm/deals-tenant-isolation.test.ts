@@ -41,7 +41,7 @@ jest.mock('@/lib/pipelines/store', () => ({
 }))
 
 import { adminAuth, adminDb } from '@/lib/firebase/admin'
-import { seedOrgMember, seedDeal, callAsMember, callAsAgent } from '../../../helpers/crm'
+import { seedOrgMember, seedContact, seedDeal, callAsMember, callAsAgent } from '../../../helpers/crm'
 
 const AI_API_KEY = 'test-ai-key'
 process.env.AI_API_KEY = AI_API_KEY
@@ -51,7 +51,8 @@ const memberA = seedOrgMember('org-a', 'uid-a', { role: 'member', firstName: 'A'
 const memberB = seedOrgMember('org-b', 'uid-b', { role: 'member', firstName: 'B', lastName: 'B' })
 const adminA = seedOrgMember('org-a', 'uid-admin-a', { role: 'admin', firstName: 'Adm', lastName: 'A' })
 
-const dealA = seedDeal('org-a', { id: 'a1', title: 'Deal A', pipelineId: 'pl-default', stageId: 'discovery', value: 100 })
+const contactA = seedContact('org-a', { id: 'c1', name: 'Contact A', ownerUid: memberA.uid, ownerRef: memberA.ref })
+const dealA = seedDeal('org-a', { id: 'a1', contactId: contactA.id, title: 'Deal A', pipelineId: 'pl-default', stageId: 'discovery', value: 100, ownerUid: memberA.uid, ownerRef: memberA.ref })
 const dealB = seedDeal('org-b', { id: 'b1', title: 'Deal B', pipelineId: 'pl-default', stageId: 'discovery', value: 200 })
 
 /**
@@ -163,6 +164,18 @@ function setupIsolationFixtures(perms: Record<string, unknown> = {}) {
           update: jest.fn((data: Record<string, unknown>) => {
             captured.updateCalls.push(data)
             return Promise.resolve()
+          }),
+        })),
+      }
+    }
+    if (name === 'contacts') {
+      return {
+        doc: jest.fn().mockImplementation((id?: string) => ({
+          id: id ?? 'auto-id',
+          get: () => Promise.resolve({
+            exists: id === contactA.id,
+            id: id ?? 'auto-id',
+            data: () => (id === contactA.id ? contactA : undefined),
           }),
         })),
       }

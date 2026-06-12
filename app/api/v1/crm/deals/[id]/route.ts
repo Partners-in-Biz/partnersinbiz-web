@@ -19,6 +19,16 @@ import { getDefinitionsForResource } from '@/lib/customFields/store'
 import { validateCustomFields } from '@/lib/customFields/validation'
 import { loadPipeline } from '@/lib/pipelines/store'
 import type { Contact, Currency } from '@/lib/crm/types'
+import {
+  crmActorCanReadRecord,
+  crmRecordCompanyIds,
+  crmRecordContactIds,
+  isCrmPrivilegedActor,
+  loadCompanyAssignmentMap,
+  loadContactAssignmentMap,
+  normalizeAllowedUserIds,
+  normalizeAllowedUserPatch,
+} from '@/lib/crm/assignment-access'
 
 async function deriveCompanyFromContact(contactId: string, orgId: string): Promise<{ companyId?: string; companyName?: string }> {
   try {
@@ -47,6 +57,15 @@ export const GET = withCrmAuth<RouteCtx>('viewer', async (_req, ctx, routeCtx) =
   if (!snap.exists) return apiError('Deal not found', 404)
   const data = snap.data()!
   if (data.orgId !== ctx.orgId || data.deleted === true) return apiError('Deal not found', 404)
+  if (!isCrmPrivilegedActor(ctx)) {
+    const contacts = await loadContactAssignmentMap(ctx.orgId, crmRecordContactIds(data))
+    const companyIds = new Set(crmRecordCompanyIds(data))
+    for (const contactId of crmRecordContactIds(data)) {
+      for (const companyId of crmRecordCompanyIds(contacts.get(contactId))) companyIds.add(companyId)
+    }
+    const companies = await loadCompanyAssignmentMap(ctx.orgId, companyIds)
+    if (!crmActorCanReadRecord(ctx, { id, ...data }, { contacts, companies })) return apiError('Deal not found', 404)
+  }
   return apiSuccess({ deal: { id, ...data } })
 })
 
@@ -64,7 +83,16 @@ async function handleDealUpdate(
   const snap = await ref.get()
   if (!snap.exists) return apiError('Deal not found', 404)
   const before = snap.data()!
-  if (before.orgId !== ctx.orgId) return apiError('Deal not found', 404)
+  if (before.orgId !== ctx.orgId || before.deleted === true) return apiError('Deal not found', 404)
+  if (!isCrmPrivilegedActor(ctx)) {
+    const contacts = await loadContactAssignmentMap(ctx.orgId, crmRecordContactIds(before))
+    const companyIds = new Set(crmRecordCompanyIds(before))
+    for (const contactId of crmRecordContactIds(before)) {
+      for (const companyId of crmRecordCompanyIds(contacts.get(contactId))) companyIds.add(companyId)
+    }
+    const companies = await loadCompanyAssignmentMap(ctx.orgId, companyIds)
+    if (!crmActorCanReadRecord(ctx, { id, ...before }, { contacts, companies })) return apiError('Deal not found', 404)
+  }
 
   const body = await req.json()
 
@@ -101,10 +129,27 @@ async function handleDealUpdate(
     if (newOwnerUid !== '') {
       ownerRef = await resolveMemberRef(ctx.orgId, newOwnerUid)
       patch.ownerRef = ownerRef
+      const allowedUserIds = normalizeAllowedUserPatch(body.allowedUserIds) ?? normalizeAllowedUserIds(before.allowedUserIds)
+      if (!allowedUserIds.includes(newOwnerUid)) allowedUserIds.push(newOwnerUid)
+      patch.allowedUserIds = allowedUserIds
     } else {
       // Unassign — explicitly clear ownerRef in Firestore
       patch.ownerRef = FieldValue.delete()
     }
+  }
+
+  const allowedUserPatch = normalizeAllowedUserPatch(body.allowedUserIds)
+  if (allowedUserPatch !== null) {
+    patch.allowedUserIds = allowedUserPatch
+  }
+
+  if (body.contactId && body.contactId !== before.contactId && !isCrmPrivilegedActor(ctx)) {
+    const contactSnap = await adminDb.collection('contacts').doc(body.contactId).get()
+    if (!contactSnap.exists) return apiError('Contact not found', 404)
+    const contact = { ...(contactSnap.data() as Contact), id: contactSnap.id }
+    if (contact.orgId !== ctx.orgId || contact.deleted === true) return apiError('Contact not found', 404)
+    const companies = await loadCompanyAssignmentMap(ctx.orgId, crmRecordCompanyIds(contact))
+    if (!crmActorCanReadRecord(ctx, contact, { companies })) return apiError('Contact not found', 404)
   }
 
   // contactId changed AND user didn't explicitly set companyId — auto-repopulate

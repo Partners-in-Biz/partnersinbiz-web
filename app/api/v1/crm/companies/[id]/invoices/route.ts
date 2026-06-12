@@ -4,6 +4,7 @@ import { apiSuccess, apiError } from '@/lib/api/response'
 import { adminDb } from '@/lib/firebase/admin'
 import { loadCompany } from '@/lib/companies/store'
 import { decorateInvoiceEditCapability } from '@/lib/invoices/permissions'
+import { crmActorCanReadCompanyRecord } from '@/lib/crm/assignment-access'
 
 export const dynamic = 'force-dynamic'
 
@@ -29,7 +30,7 @@ function timeValue(value: unknown): number {
 export const GET = withCrmAuth<RouteCtx>('viewer', async (req, ctx, routeCtx) => {
   const { id: companyId } = await routeCtx!.params
   const company = await loadCompany(companyId, ctx.orgId)
-  if (!company) return apiError('Not found', 404)
+  if (!company || !(await crmActorCanReadCompanyRecord(ctx, companyId, company.data))) return apiError('Not found', 404)
 
   const url = new URL(req.url)
   const limit = Math.min(parseInt(url.searchParams.get('limit') ?? '50'), 200)

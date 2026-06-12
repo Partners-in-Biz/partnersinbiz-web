@@ -114,6 +114,13 @@ function stageAuth(
         get: companiesBehavior.list ?? (() => Promise.resolve({ docs: [] })),
       }
     }
+    if (name === 'contacts') {
+      return {
+        where: jest.fn().mockReturnThis(),
+        limit: jest.fn().mockReturnThis(),
+        get: jest.fn().mockResolvedValue({ docs: [] }),
+      }
+    }
     return { doc: () => ({ get: () => Promise.resolve({ exists: false }) }) }
   })
 }
@@ -140,7 +147,7 @@ describe('GET /api/v1/crm/companies', () => {
   it('returns list of companies', async () => {
     const uid = uidFor('viewer2')
     const member = seedOrgMember('org-a', uid, { role: 'viewer' })
-    const co = buildCompany({ id: 'co1', orgId: 'org-a', name: 'Acme' })
+    const co = buildCompany({ id: 'co1', orgId: 'org-a', name: 'Acme', ownerUid: uid })
     stageAuth(member, {}, {
       list: () => Promise.resolve({ docs: [{ id: 'co1', data: () => co }] }),
     })
@@ -156,8 +163,8 @@ describe('GET /api/v1/crm/companies', () => {
   it('lists companies without requiring composite-index orderBy shapes', async () => {
     const uid = uidFor('viewer-index-safe')
     const member = seedOrgMember('org-index-safe', uid, { role: 'viewer' })
-    const visible = buildCompany({ id: 'co-visible', orgId: 'org-index-safe', name: 'Visible Co' })
-    const legacyNoDeleted = buildCompany({ id: 'co-legacy', orgId: 'org-index-safe', name: 'Legacy Co' })
+    const visible = buildCompany({ id: 'co-visible', orgId: 'org-index-safe', name: 'Visible Co', ownerUid: uid })
+    const legacyNoDeleted = buildCompany({ id: 'co-legacy', orgId: 'org-index-safe', name: 'Legacy Co', ownerUid: uid })
     delete (legacyNoDeleted as { deleted?: boolean }).deleted
     const deleted = buildCompany({ id: 'co-deleted', orgId: 'org-index-safe', name: 'Deleted Co', deleted: true })
 
@@ -194,6 +201,13 @@ describe('GET /api/v1/crm/companies', () => {
           }),
         }
         return query
+      }
+      if (name === 'contacts') {
+        return {
+          where: jest.fn().mockReturnThis(),
+          limit: jest.fn().mockReturnThis(),
+          get: jest.fn().mockResolvedValue({ docs: [] }),
+        }
       }
       return { doc: () => ({ get: () => Promise.resolve({ exists: false }) }) }
     })
@@ -264,6 +278,47 @@ describe('POST /api/v1/crm/companies', () => {
     const body = await res.json()
     expect(body.success).toBe(true)
     expect(body.data.company.id).toBe('auto-co-id')
+  })
+
+  it('defaults a new company owner to the creating member', async () => {
+    const uid = uidFor('company-owner-default')
+    const member = seedOrgMember('org-company-owner-default', uid, { role: 'member', firstName: 'Company', lastName: 'Owner' })
+    const captured = jest.fn().mockResolvedValue(undefined)
+    stageAuth(member, {}, { capturedDocSet: captured })
+
+    const req = callAsMember(member, 'POST', '/api/v1/crm/companies', { name: 'Owner Default Co' })
+    const { POST } = await import('@/app/api/v1/crm/companies/route')
+    const res = await POST(req)
+
+    expect(res.status).toBe(201)
+    const written = captured.mock.calls[0][0]
+    expect(written.ownerUid).toBe(uid)
+    expect(written.ownerRef.uid).toBe(uid)
+    expect(written.ownerRef.displayName).toBe('Company Owner')
+    expect(written.allowedUserIds).toContain(uid)
+  })
+
+  it('uses the instructed ownerUid and ownerRef when creating a company for another member', async () => {
+    const uid = uidFor('company-owner-creator')
+    const ownerUid = uidFor('company-owner-target')
+    const member = seedOrgMember('org-company-owner-target', uid, { role: 'member', firstName: 'Creator', lastName: 'User' })
+    const captured = jest.fn().mockResolvedValue(undefined)
+    stageAuth(member, {}, { capturedDocSet: captured })
+    const { loadMemberRef } = await import('@/lib/companies/store')
+    ;(loadMemberRef as jest.Mock).mockResolvedValueOnce({ uid: ownerUid, displayName: 'Target Owner', kind: 'human' })
+
+    const req = callAsMember(member, 'POST', '/api/v1/crm/companies', {
+      name: 'Instructed Owner Co',
+      ownerUid,
+    })
+    const { POST } = await import('@/app/api/v1/crm/companies/route')
+    const res = await POST(req)
+
+    expect(res.status).toBe(201)
+    const written = captured.mock.calls[0][0]
+    expect(written.ownerUid).toBe(ownerUid)
+    expect(written.ownerRef).toMatchObject({ uid: ownerUid, displayName: 'Target Owner' })
+    expect(written.allowedUserIds).toContain(ownerUid)
   })
 
   it('returns 400 when name is missing', async () => {

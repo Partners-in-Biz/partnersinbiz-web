@@ -23,6 +23,11 @@ import {
 } from '@/lib/companies/store'
 import { getDefinitionsForResource } from '@/lib/customFields/store'
 import { validateCustomFields } from '@/lib/customFields/validation'
+import {
+  crmActorCanReadCompanyRecord,
+  normalizeAllowedUserIds,
+  normalizeAllowedUserPatch,
+} from '@/lib/crm/assignment-access'
 
 type RouteCtx = { params: Promise<{ id: string }> }
 
@@ -33,7 +38,7 @@ export const GET = withCrmAuth<RouteCtx>(
   async (_req, ctx, routeCtx) => {
     const { id } = await routeCtx!.params
     const loaded = await loadCompany(id, ctx.orgId)
-    if (!loaded) return apiError('Company not found', 404)
+    if (!loaded || !(await crmActorCanReadCompanyRecord(ctx, id, loaded.data))) return apiError('Company not found', 404)
     return apiSuccess({ company: loaded.data })
   },
 )
@@ -57,7 +62,7 @@ async function handleUpdate(
   if (Object.keys(body).length === 0) return apiError('Empty body', 400)
 
   const loaded = await loadCompany(id, ctx.orgId)
-  if (!loaded) return apiError('Company not found', 404)
+  if (!loaded || !(await crmActorCanReadCompanyRecord(ctx, id, loaded.data))) return apiError('Company not found', 404)
 
   // Validate parent chain if changing
   if ('parentCompanyId' in body && body.parentCompanyId) {
@@ -79,6 +84,19 @@ async function handleUpdate(
   }
 
   const sanitized = sanitizeCompanyForWrite(body)
+  const allowedUserPatch = normalizeAllowedUserPatch(body.allowedUserIds)
+  if (body.allowedUserIds !== undefined && allowedUserPatch === null) {
+    return apiError('allowedUserIds must be an array of user IDs', 400)
+  }
+  const nextAllowedUserIds = allowedUserPatch ?? normalizeAllowedUserIds(loaded.data.allowedUserIds)
+  for (const uid of [body.accountManagerUid, body.ownerUid]) {
+    if (typeof uid === 'string' && uid.trim() && !nextAllowedUserIds.includes(uid.trim())) {
+      nextAllowedUserIds.push(uid.trim())
+    }
+  }
+  if (body.allowedUserIds !== undefined || typeof body.accountManagerUid === 'string' || typeof body.ownerUid === 'string') {
+    sanitized.allowedUserIds = nextAllowedUserIds
+  }
 
   // Custom field validation (best-effort — Firestore outage must not block core write)
   if (body.customFields !== undefined && body.customFields !== null) {

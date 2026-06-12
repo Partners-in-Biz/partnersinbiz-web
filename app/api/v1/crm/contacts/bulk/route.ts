@@ -29,6 +29,13 @@ import { withCrmAuth } from '@/lib/auth/crm-middleware'
 import { resolveMemberRef, FORMER_MEMBER_REF } from '@/lib/orgMembers/memberRef'
 import { apiSuccess, apiError } from '@/lib/api/response'
 import type { ContactStage, ContactType } from '@/lib/crm/types'
+import {
+  crmActorCanReadRecord,
+  crmRecordCompanyIds,
+  isCrmPrivilegedActor,
+  loadCompanyAssignmentMap,
+  normalizeAllowedUserPatch,
+} from '@/lib/crm/assignment-access'
 
 const VALID_CONTACT_STAGES: readonly ContactStage[] = [
   'new',
@@ -76,7 +83,7 @@ export const POST = withCrmAuth('member', async (req, ctx) => {
 
   // ── Delete action — mutually exclusive with all other patch fields ─────────
   if (patch.delete === true) {
-    if (patch.assignedTo !== undefined || patch.stage !== undefined || patch.type !== undefined || patch.tags !== undefined) {
+    if (patch.assignedTo !== undefined || patch.allowedUserIds !== undefined || patch.stage !== undefined || patch.type !== undefined || patch.tags !== undefined) {
       return apiError('patch.delete cannot be combined with other patch fields', 400)
     }
 
@@ -90,6 +97,18 @@ export const POST = withCrmAuth('member', async (req, ctx) => {
       const docs = await Promise.all(
         chunk.map((id) => adminDb.collection('contacts').doc(id).get()),
       )
+      const companyIds = new Set<string>()
+      if (!isCrmPrivilegedActor(ctx)) {
+        for (const snap of docs) {
+          if (!snap.exists) continue
+          const data = snap.data()!
+          if (data.orgId !== ctx.orgId || data.deleted === true) continue
+          for (const companyId of crmRecordCompanyIds(data)) companyIds.add(companyId)
+        }
+      }
+      const companies = !isCrmPrivilegedActor(ctx)
+        ? await loadCompanyAssignmentMap(ctx.orgId, companyIds)
+        : new Map()
 
       const batch = adminDb.batch()
       let inBatch = 0
@@ -103,6 +122,10 @@ export const POST = withCrmAuth('member', async (req, ctx) => {
         const data = snap.data()!
         if (data.orgId !== ctx.orgId) { skipped.push(id); continue }
         if (data.deleted === true) { skipped.push(id); continue }
+        if (!isCrmPrivilegedActor(ctx) && !crmActorCanReadRecord(ctx, { id, ...data }, { companies })) {
+          skipped.push(id)
+          continue
+        }
 
         batch.update(snap.ref, {
           deleted: true,
@@ -132,12 +155,19 @@ export const POST = withCrmAuth('member', async (req, ctx) => {
 
   if (typeof patch.assignedTo === 'string') {
     updateData.assignedTo = patch.assignedTo
+    const allowedUserIds = normalizeAllowedUserPatch(patch.allowedUserIds) ?? []
     if (patch.assignedTo !== '') {
       // resolveMemberRef is tolerant — returns FORMER_MEMBER_REF on missing uid
       updateData.assignedToRef = await resolveMemberRef(ctx.orgId, patch.assignedTo)
+      if (!allowedUserIds.includes(patch.assignedTo)) allowedUserIds.push(patch.assignedTo)
     } else {
       updateData.assignedToRef = FieldValue.delete()
     }
+    if (allowedUserIds.length > 0 || patch.allowedUserIds !== undefined) updateData.allowedUserIds = allowedUserIds
+  } else if (patch.allowedUserIds !== undefined) {
+    const allowedUserIds = normalizeAllowedUserPatch(patch.allowedUserIds)
+    if (allowedUserIds === null) return apiError('allowedUserIds must be an array of user IDs', 400)
+    updateData.allowedUserIds = allowedUserIds
   }
 
   if (typeof patch.stage === 'string') {
@@ -204,6 +234,18 @@ export const POST = withCrmAuth('member', async (req, ctx) => {
     const docs = await Promise.all(
       chunk.map((id) => adminDb.collection('contacts').doc(id).get()),
     )
+    const companyIds = new Set<string>()
+    if (!isCrmPrivilegedActor(ctx)) {
+      for (const snap of docs) {
+        if (!snap.exists) continue
+        const data = snap.data()!
+        if (data.orgId !== ctx.orgId || data.deleted === true) continue
+        for (const companyId of crmRecordCompanyIds(data)) companyIds.add(companyId)
+      }
+    }
+    const companies = !isCrmPrivilegedActor(ctx)
+      ? await loadCompanyAssignmentMap(ctx.orgId, companyIds)
+      : new Map()
 
     const batch = adminDb.batch()
     let inBatch = 0
@@ -217,6 +259,10 @@ export const POST = withCrmAuth('member', async (req, ctx) => {
       const data = snap.data()!
       if (data.orgId !== ctx.orgId) { skipped.push(id); continue }
       if (data.deleted === true) { skipped.push(id); continue }
+      if (!isCrmPrivilegedActor(ctx) && !crmActorCanReadRecord(ctx, { id, ...data }, { companies })) {
+        skipped.push(id)
+        continue
+      }
 
       const docUpdate = { ...sanitized }
       if (tagsFieldValue !== null) {
