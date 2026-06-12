@@ -1,7 +1,10 @@
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import PortalContactsPage from '@/app/(portal)/portal/contacts/page'
+import { doc, onSnapshot } from 'firebase/firestore'
 
 let mockSearchParams = new URLSearchParams()
+let liveContactSnapshot: ((snap: unknown) => void) | null = null
+const unsubscribeLiveContact = jest.fn()
 
 jest.mock('next/navigation', () => ({
   useSearchParams: () => mockSearchParams,
@@ -14,10 +17,24 @@ jest.mock('next/link', () => ({
   ),
 }))
 
+jest.mock('firebase/firestore', () => ({
+  doc: jest.fn((...segments: unknown[]) => segments),
+  onSnapshot: jest.fn((_ref, onNext) => {
+    liveContactSnapshot = onNext
+    return unsubscribeLiveContact
+  }),
+}))
+
+jest.mock('@/lib/firebase/config', () => ({
+  getClientDb: jest.fn(() => ({})),
+}))
+
 describe('Portal contacts page', () => {
   beforeEach(() => {
     jest.clearAllMocks()
     mockSearchParams = new URLSearchParams()
+    liveContactSnapshot = null
+    unsubscribeLiveContact.mockClear()
     global.fetch = jest.fn((input: RequestInfo | URL) => {
       const url = String(input)
       if (url.startsWith('/api/v1/crm/contacts')) {
@@ -92,6 +109,69 @@ describe('Portal contacts page', () => {
       }
       return Promise.reject(new Error(`Unexpected fetch: ${url}`))
     }) as jest.Mock
+  })
+
+  it('refreshes visible contacts when the Firestore live update changes', async () => {
+    let liveUpdateArrived = false
+    global.fetch = jest.fn((input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url.startsWith('/api/v1/crm/contacts')) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            data: [
+              {
+                id: 'contact-initial',
+                orgId: 'org-1',
+                name: 'Initial Contact',
+                email: 'initial@example.com',
+                company: 'Initial Co',
+                type: 'lead',
+                stage: 'new',
+                tags: [],
+                lastContactedAt: null,
+              },
+              ...(liveUpdateArrived ? [{
+                id: 'contact-live',
+                orgId: 'org-1',
+                name: 'Live Added Contact',
+                email: 'live@example.com',
+                company: 'Live Co',
+                type: 'prospect',
+                stage: 'contacted',
+                tags: [],
+                lastContactedAt: null,
+              }] : []),
+            ],
+            meta: { orgId: 'org-1', total: liveUpdateArrived ? 2 : 1, page: 1, limit: 50 },
+          }),
+        } as Response)
+      }
+      if (url.startsWith('/api/v1/portal/settings/team')) {
+        return Promise.resolve({ ok: true, json: async () => ({ members: [] }) } as Response)
+      }
+      if (url.startsWith('/api/v1/crm/saved-views')) {
+        return Promise.resolve({ ok: true, json: async () => ({ data: [] }) } as Response)
+      }
+      return Promise.reject(new Error(`Unexpected fetch: ${url}`))
+    }) as jest.Mock
+
+    render(<PortalContactsPage />)
+
+    expect(await screen.findByRole('link', { name: 'Open contact Initial Contact' })).toBeInTheDocument()
+    await waitFor(() => expect(onSnapshot).toHaveBeenCalled())
+    expect(doc).toHaveBeenCalledWith(expect.anything(), 'organizations', 'org-1', 'crm_live_updates', 'contacts')
+
+    act(() => {
+      liveContactSnapshot?.({})
+    })
+    liveUpdateArrived = true
+    act(() => {
+      liveContactSnapshot?.({})
+    })
+
+    expect(await screen.findByRole('link', { name: 'Open contact Live Added Contact' })).toBeInTheDocument()
+    expect((global.fetch as jest.Mock).mock.calls.filter(([url]) => String(url).startsWith('/api/v1/crm/contacts'))).toHaveLength(2)
   })
 
   it('surfaces unowned contacts as a portal accountability lens', async () => {

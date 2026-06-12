@@ -28,6 +28,7 @@ import {
   normalizeAllowedUserIds,
   normalizeAllowedUserPatch,
 } from '@/lib/crm/assignment-access'
+import { safeTouchCrmLiveUpdate } from '@/lib/crm/live-updates'
 
 type RouteCtx = { params: Promise<{ id: string }> }
 
@@ -131,6 +132,7 @@ async function handleUpdate(
   )
 
   await loaded.ref.update(toWrite)
+  await safeTouchCrmLiveUpdate(ctx.orgId, 'companies', 'company.updated')
 
   return apiSuccess({ company: { ...loaded.data, ...toWrite, id } })
 }
@@ -166,6 +168,7 @@ export const DELETE = withCrmAuth<RouteCtx>(
       Object.entries(softDeletePatch).filter(([, v]) => v !== undefined),
     )
     await loaded.ref.update(toWrite)
+    await safeTouchCrmLiveUpdate(ctx.orgId, 'companies', 'company.deleted')
 
     // Cascade: clear companyId + companyName from related collections
     // Best-effort — failures are logged but do NOT fail the response

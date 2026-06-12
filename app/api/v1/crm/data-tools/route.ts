@@ -7,6 +7,8 @@ import { sanitizeCompanyForWrite } from '@/lib/companies/store'
 import type { CompanyInput } from '@/lib/companies/types'
 import { sanitizeContactForWrite } from '@/lib/crm/contacts'
 import { canAccessModule, recordScopeFor } from '@/lib/orgMembers/access-policy'
+import { isCrmLiveEntity } from '@/lib/crm/live-update-keys'
+import { safeTouchCrmLiveUpdate } from '@/lib/crm/live-updates'
 
 export const dynamic = 'force-dynamic'
 
@@ -129,6 +131,9 @@ export const POST = withAuth('admin', async (req, user) => {
       }
       await adminDb.collection(config.collection).add(Object.fromEntries(Object.entries(toWrite).filter(([, value]) => value !== undefined)))
       createdCount += 1
+    }
+    if (createdCount > 0 && isCrmLiveEntity(config.key)) {
+      await safeTouchCrmLiveUpdate(orgId, config.key, `${config.key}.data_tools_import`)
     }
     return apiSuccess({ resource: config.key, dryRun: false, createdCount, updateCount: 0 })
   }

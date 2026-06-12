@@ -29,6 +29,7 @@ export interface ApiMeta {
   total: number
   page: number
   limit: number
+  orgId?: string
 }
 
 export interface ApiResponse<T = unknown> {

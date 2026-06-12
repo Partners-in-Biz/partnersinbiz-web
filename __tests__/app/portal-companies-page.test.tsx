@@ -1,9 +1,12 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import CompaniesPage from '@/app/(portal)/portal/companies/page'
+import { doc, onSnapshot } from 'firebase/firestore'
 
 const mockPush = jest.fn()
 const mockReplace = jest.fn()
 let mockSearchParams = new URLSearchParams()
+let liveCompanySnapshot: ((snap: unknown) => void) | null = null
+const unsubscribeLiveCompany = jest.fn()
 
 jest.mock('next/navigation', () => ({
   useRouter: () => ({ push: mockPush, replace: mockReplace }),
@@ -17,10 +20,24 @@ jest.mock('next/link', () => ({
   ),
 }))
 
+jest.mock('firebase/firestore', () => ({
+  doc: jest.fn((...segments: unknown[]) => segments),
+  onSnapshot: jest.fn((_ref, onNext) => {
+    liveCompanySnapshot = onNext
+    return unsubscribeLiveCompany
+  }),
+}))
+
+jest.mock('@/lib/firebase/config', () => ({
+  getClientDb: jest.fn(() => ({})),
+}))
+
 describe('Portal companies page', () => {
   beforeEach(() => {
     jest.clearAllMocks()
     mockSearchParams = new URLSearchParams()
+    liveCompanySnapshot = null
+    unsubscribeLiveCompany.mockClear()
     global.fetch = jest.fn((input: RequestInfo | URL) => {
       const url = String(input)
       if (url === '/api/v1/crm/companies' || url.startsWith('/api/v1/crm/companies?')) {
@@ -61,6 +78,61 @@ describe('Portal companies page', () => {
       }
       return Promise.reject(new Error(`Unexpected fetch: ${url}`))
     }) as jest.Mock
+  })
+
+  it('refreshes visible companies when the Firestore live update changes', async () => {
+    let liveUpdateArrived = false
+    global.fetch = jest.fn((input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url === '/api/v1/crm/companies') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            data: {
+              orgId: 'org-1',
+              companies: [
+                {
+                  id: 'company-initial',
+                  orgId: 'org-1',
+                  name: 'Initial Account',
+                  lifecycleStage: 'lead',
+                  tags: [],
+                  createdAt: null,
+                  updatedAt: null,
+                },
+                ...(liveUpdateArrived ? [{
+                  id: 'company-live',
+                  orgId: 'org-1',
+                  name: 'Live Added Account',
+                  lifecycleStage: 'prospect',
+                  tags: [],
+                  createdAt: null,
+                  updatedAt: null,
+                }] : []),
+              ],
+            },
+          }),
+        } as Response)
+      }
+      return Promise.reject(new Error(`Unexpected fetch: ${url}`))
+    }) as jest.Mock
+
+    render(<CompaniesPage />)
+
+    expect(await screen.findByText('Initial Account')).toBeInTheDocument()
+    await waitFor(() => expect(onSnapshot).toHaveBeenCalled())
+    expect(doc).toHaveBeenCalledWith(expect.anything(), 'organizations', 'org-1', 'crm_live_updates', 'companies')
+
+    act(() => {
+      liveCompanySnapshot?.({})
+    })
+    liveUpdateArrived = true
+    act(() => {
+      liveCompanySnapshot?.({})
+    })
+
+    expect(await screen.findByText('Live Added Account')).toBeInTheDocument()
+    expect(global.fetch).toHaveBeenCalledTimes(2)
   })
 
   it('preserves company workspace scope across account list, links, row actions, filters, and bulk updates', async () => {

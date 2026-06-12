@@ -29,6 +29,7 @@ import {
   normalizeAllowedUserIds,
   normalizeAllowedUserPatch,
 } from '@/lib/crm/assignment-access'
+import { safeTouchCrmLiveUpdate } from '@/lib/crm/live-updates'
 
 type RouteCtx = { params: Promise<{ id: string }> }
 
@@ -203,6 +204,7 @@ async function handleUpdate(
   )
 
   await docRef.update(sanitized)
+  await safeTouchCrmLiveUpdate(ctx.orgId, 'contacts', 'contact.updated')
 
   try {
     await dispatchWebhook(ctx.orgId, 'contact.updated', { id, ...body, updatedByRef: actorRef })
@@ -290,6 +292,7 @@ export const DELETE = withCrmAuth<RouteCtx>(
       Object.entries(softDeletePatch).filter(([, v]) => v !== undefined),
     )
     await docRef.update(sanitized)
+    await safeTouchCrmLiveUpdate(ctx.orgId, 'contacts', 'contact.deleted')
 
     logActivity({
       orgId: ctx.orgId,

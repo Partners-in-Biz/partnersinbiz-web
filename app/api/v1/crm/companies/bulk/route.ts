@@ -36,6 +36,7 @@ import {
   normalizeAllowedUserIds,
   normalizeAllowedUserPatch,
 } from '@/lib/crm/assignment-access'
+import { safeTouchCrmLiveUpdate } from '@/lib/crm/live-updates'
 
 const MAX_IDS = 200
 const IN_CHUNK = 30
@@ -203,6 +204,10 @@ export const POST = withCrmAuth('member', async (req, ctx) => {
       }
     }
     skipped += batchSkipped
+  }
+
+  if (updated > 0) {
+    await safeTouchCrmLiveUpdate(ctx.orgId, 'companies', 'companies.bulk_updated')
   }
 
   return apiSuccess({ updated, skipped })

@@ -42,6 +42,7 @@ import {
   normalizeAllowedUserIds,
   type AssignableCrmRecord,
 } from '@/lib/crm/assignment-access'
+import { safeTouchCrmLiveUpdate } from '@/lib/crm/live-updates'
 
 const MAX_ROWS = 5000
 const BATCH_CHUNK = 400
@@ -448,6 +449,13 @@ export const POST = withCrmAuth('member', async (req, ctx) => {
       }
     }
     await batch.commit()
+  }
+
+  if (toCreate.length > 0 || toUpdate.length > 0) {
+    await safeTouchCrmLiveUpdate(orgId, 'contacts', 'contacts.imported')
+  }
+  if (newCompanyPlans.length > 0) {
+    await safeTouchCrmLiveUpdate(orgId, 'companies', 'companies.imported')
   }
 
   // Bump source counter by `created` only — folded into a final batch write.

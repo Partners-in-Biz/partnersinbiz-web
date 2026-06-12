@@ -30,6 +30,7 @@ import {
   normalizeAllowedUserIds,
   crmRecordCompanyIds,
 } from '@/lib/crm/assignment-access'
+import { safeTouchCrmLiveUpdate } from '@/lib/crm/live-updates'
 
 const VALID_STAGES: ContactStage[] = [
   'new', 'contacted', 'replied', 'demo', 'proposal', 'won', 'lost',
@@ -169,7 +170,7 @@ export const GET = withCrmAuth('viewer', async (req, ctx) => {
 
   const total = contacts.length
   const offset = (page - 1) * limit
-  return apiSuccess(contacts.slice(offset, offset + limit), 200, { total, page, limit })
+  return apiSuccess(contacts.slice(offset, offset + limit), 200, { total, page, limit, orgId })
 })
 
 export const POST = withCrmAuth('member', async (req, ctx) => {
@@ -280,6 +281,7 @@ export const POST = withCrmAuth('member', async (req, ctx) => {
 
   const docRef = adminDb.collection('contacts').doc()
   await docRef.set(sanitized)
+  await safeTouchCrmLiveUpdate(orgId, 'contacts', 'contact.created')
 
   try {
     await dispatchWebhook(orgId, 'contact.created', {

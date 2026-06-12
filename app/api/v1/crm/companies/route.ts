@@ -32,6 +32,7 @@ import {
   isCrmPrivilegedActor,
   normalizeAllowedUserIds,
 } from '@/lib/crm/assignment-access'
+import { safeTouchCrmLiveUpdate } from '@/lib/crm/live-updates'
 
 // ── GET ─────────────────────────────────────────────────────────────────────────
 
@@ -157,7 +158,7 @@ export const GET = withCrmAuth('viewer', async (req, ctx) => {
     const page = companies.slice(start, start + limit)
     const nextCursor = start + limit < companies.length ? page[page.length - 1]?.id : undefined
 
-    return apiSuccess({ companies: page, nextCursor })
+    return apiSuccess({ companies: page, nextCursor, orgId: ctx.orgId })
   } catch (err) {
     return apiErrorFromException(err)
   }
@@ -248,6 +249,7 @@ export const POST = withCrmAuth('member', async (req, ctx) => {
 
   const docRef = adminDb.collection('companies').doc()
   await docRef.set(toWrite)
+  await safeTouchCrmLiveUpdate(ctx.orgId, 'companies', 'company.created')
 
   return apiSuccess({ company: { ...toWrite, id: docRef.id } }, 201)
 })

@@ -36,6 +36,7 @@ import {
   loadCompanyAssignmentMap,
   normalizeAllowedUserPatch,
 } from '@/lib/crm/assignment-access'
+import { safeTouchCrmLiveUpdate } from '@/lib/crm/live-updates'
 
 const VALID_CONTACT_STAGES: readonly ContactStage[] = [
   'new',
@@ -145,6 +146,10 @@ export const POST = withCrmAuth('member', async (req, ctx) => {
           failed.push(...batchIds)
         }
       }
+    }
+
+    if (updated.length > 0) {
+      await safeTouchCrmLiveUpdate(ctx.orgId, 'contacts', 'contacts.bulk_deleted')
     }
 
     return apiSuccess({ updated: updated.length, skipped: skipped.length, failed })
@@ -286,6 +291,10 @@ export const POST = withCrmAuth('member', async (req, ctx) => {
         failed.push(...batchIds)
       }
     }
+  }
+
+  if (updated.length > 0) {
+    await safeTouchCrmLiveUpdate(ctx.orgId, 'contacts', 'contacts.bulk_updated')
   }
 
   return apiSuccess({ updated: updated.length, skipped: skipped.length, failed })
