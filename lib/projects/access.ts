@@ -2,7 +2,7 @@ import type { DocumentData, DocumentSnapshot } from 'firebase-admin/firestore'
 import { adminDb } from '@/lib/firebase/admin'
 import type { ApiUser } from '@/lib/api/types'
 import { canAccessOrg, isSuperAdmin } from '@/lib/api/platformAdmin'
-import { resolveProjectAccessForUser } from '@/lib/projects/collaboration'
+import { legacyProjectPolicyAllows, resolveProjectAccessForUser } from '@/lib/projects/collaboration'
 
 export type ProjectAccessResult =
   | { ok: true; doc: DocumentSnapshot<DocumentData>; projectAccess: Awaited<ReturnType<typeof resolveProjectAccessForUser>> }
@@ -19,6 +19,7 @@ export function canAccessProject(user: ApiUser, data: DocumentData): boolean {
   if (isSuperAdmin(user)) return true
 
   const ids = projectOrgIds(data)
+  if (!legacyProjectPolicyAllows(user, data)) return false
   return ids.some((id) => canAccessOrg(user, id))
 }
 

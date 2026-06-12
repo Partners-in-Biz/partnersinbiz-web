@@ -7,6 +7,14 @@ import { adminDb } from '@/lib/firebase/admin'
 import { withCrmAuth } from '@/lib/auth/crm-middleware'
 import { apiSuccess, apiErrorFromException } from '@/lib/api/response'
 import type { Deal } from '@/lib/crm/types'
+import {
+  crmRecordCompanyIds,
+  crmRecordContactIds,
+  filterCrmRowsForActor,
+  isCrmPrivilegedActor,
+  loadCompanyAssignmentMap,
+  loadContactAssignmentMap,
+} from '@/lib/crm/assignment-access'
 
 export const dynamic = 'force-dynamic'
 
@@ -81,8 +89,20 @@ export const GET = withCrmAuth('member', async (_req, ctx) => {
       .limit(2000)
       .get()
 
-    const deals = snap.docs
+    let deals = snap.docs
       .map((d) => ({ id: d.id, ...d.data() })) as Deal[]
+    if (!isCrmPrivilegedActor(ctx)) {
+      const contacts = await loadContactAssignmentMap(orgId, deals.flatMap((deal) => crmRecordContactIds(deal)))
+      const companyIds = new Set<string>()
+      for (const deal of deals) {
+        for (const companyId of crmRecordCompanyIds(deal)) companyIds.add(companyId)
+        for (const contactId of crmRecordContactIds(deal)) {
+          for (const companyId of crmRecordCompanyIds(contacts.get(contactId))) companyIds.add(companyId)
+        }
+      }
+      const companies = await loadCompanyAssignmentMap(orgId, companyIds)
+      deals = filterCrmRowsForActor(ctx, deals, { contacts, companies })
+    }
 
     // Classify open deals — same heuristic as dashboard
     const open = deals.filter((d) => d.deleted !== true && !d.lostReason && (d.probability ?? 50) < 100)

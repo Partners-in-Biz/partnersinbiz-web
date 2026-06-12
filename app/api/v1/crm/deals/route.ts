@@ -150,13 +150,18 @@ export const POST = withCrmAuth('member', async (req, ctx) => {
   const actorRef: MemberRef = ctx.actor
 
   // PR 3 pattern 3: ownerRef on POST when ownerUid present
+  const requestedOwnerUid = typeof body.ownerUid === 'string' ? body.ownerUid.trim() : ''
+  const ownerUid = requestedOwnerUid || (!isCrmPrivilegedActor(ctx) ? ctx.actor.uid : '')
   let ownerRef: MemberRef | undefined
-  if (typeof body.ownerUid === 'string' && body.ownerUid !== '') {
-    ownerRef = await resolveMemberRef(ctx.orgId, body.ownerUid)
+  if (ownerUid) {
+    if (!isCrmPrivilegedActor(ctx) && ownerUid !== ctx.actor.uid) {
+      return apiError('You can only assign deals to yourself with your current CRM access', 403)
+    }
+    ownerRef = ownerUid === ctx.actor.uid ? ctx.actor : await resolveMemberRef(ctx.orgId, ownerUid)
   }
   const allowedUserIds = normalizeAllowedUserIds(body.allowedUserIds)
-  if (typeof body.ownerUid === 'string' && body.ownerUid.trim() && !allowedUserIds.includes(body.ownerUid.trim())) {
-    allowedUserIds.push(body.ownerUid.trim())
+  if (ownerUid && !allowedUserIds.includes(ownerUid)) {
+    allowedUserIds.push(ownerUid)
   }
 
   const dealData: Record<string, unknown> = {
@@ -170,7 +175,7 @@ export const POST = withCrmAuth('member', async (req, ctx) => {
     expectedCloseDate: body.expectedCloseDate ?? null,
     notes: typeof body.notes === 'string' ? body.notes.trim() : '',
     deleted: false,
-    ownerUid: typeof body.ownerUid === 'string' && body.ownerUid !== '' ? body.ownerUid : undefined,
+    ownerUid: ownerUid || undefined,
     ownerRef,
     ...(allowedUserIds.length > 0 ? { allowedUserIds } : {}),
     createdBy: ctx.isAgent ? undefined : ctx.actor.uid,

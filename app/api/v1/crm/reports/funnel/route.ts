@@ -7,6 +7,12 @@ import { adminDb } from '@/lib/firebase/admin'
 import { withCrmAuth } from '@/lib/auth/crm-middleware'
 import { apiSuccess, apiErrorFromException } from '@/lib/api/response'
 import type { Contact, ContactType, ContactStage } from '@/lib/crm/types'
+import {
+  crmRecordCompanyIds,
+  filterCrmRowsForActor,
+  isCrmPrivilegedActor,
+  loadCompanyAssignmentMap,
+} from '@/lib/crm/assignment-access'
 
 export const dynamic = 'force-dynamic'
 
@@ -21,9 +27,17 @@ export const GET = withCrmAuth('member', async (_req, ctx) => {
       .where('orgId', '==', orgId)
       .get()
 
-    const contacts = snap.docs
+    let contacts = snap.docs
       .map((d) => ({ id: d.id, ...d.data() }) as Contact)
       .filter((contact) => contact.deleted !== true)
+    if (!isCrmPrivilegedActor(ctx)) {
+      const companyIds = new Set<string>()
+      for (const contact of contacts) {
+        for (const companyId of crmRecordCompanyIds(contact)) companyIds.add(companyId)
+      }
+      const companies = await loadCompanyAssignmentMap(orgId, companyIds)
+      contacts = filterCrmRowsForActor(ctx, contacts, { companies })
+    }
 
     // Group by type
     const byType: Record<ContactType | 'other', number> = {

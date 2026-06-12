@@ -1,3 +1,5 @@
+import type { MemberAccessPolicy } from '@/lib/orgMembers/access-policy'
+
 export type ApiRole = 'admin' | 'client' | 'ai'
 export type ApiAuthKind = 'session' | 'firebase' | 'legacy_ai_key' | 'agent_api_key'
 
@@ -20,6 +22,7 @@ export interface ApiUser {
   // Empty/undefined = super admin (no restriction). Non-empty = restricted to
   // these org ids (plus their home orgId).
   allowedOrgIds?: string[]
+  memberAccessPolicy?: MemberAccessPolicy
 }
 
 export interface ApiMeta {

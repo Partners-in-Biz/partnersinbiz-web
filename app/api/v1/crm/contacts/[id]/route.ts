@@ -142,6 +142,9 @@ async function handleUpdate(
 
   // Resolve assignedToRef when assignedTo changes (uses tolerant resolveMemberRef — never throws)
   if (typeof body.assignedTo === 'string' && body.assignedTo !== '') {
+    if (!isCrmPrivilegedActor(ctx) && body.assignedTo !== ctx.actor.uid) {
+      return apiError('You can only assign contacts to yourself with your current CRM access', 403)
+    }
     patch.assignedToRef = await resolveMemberRef(ctx.orgId, body.assignedTo)
     const allowedUserIds = normalizeAllowedUserPatch(body.allowedUserIds) ?? normalizeAllowedUserIds(existing.allowedUserIds)
     if (!allowedUserIds.includes(body.assignedTo)) allowedUserIds.push(body.assignedTo)
@@ -266,7 +269,13 @@ export const DELETE = withCrmAuth<RouteCtx>(
     const snap = await docRef.get()
     if (!snap.exists) return apiError('Contact not found', 404)
     const existing = snap.data()!
-    if (existing.orgId !== ctx.orgId) return apiError('Contact not found', 404)
+    if (existing.orgId !== ctx.orgId || existing.deleted === true) return apiError('Contact not found', 404)
+    if (!isCrmPrivilegedActor(ctx)) {
+      const companies = await loadCompanyAssignmentMap(ctx.orgId, crmRecordCompanyIds(existing))
+      if (!crmActorCanReadRecord(ctx, { id, ...existing }, { companies })) {
+        return apiError('Contact not found', 404)
+      }
+    }
 
     const actorRef = ctx.actor
 

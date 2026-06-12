@@ -1,8 +1,10 @@
 import type { ReactNode } from 'react'
+import { canAccessModule, type MemberAccessPolicy } from '@/lib/orgMembers/access-policy'
 
 type TeamAccessMember = {
   role?: string | null
   accessScope?: string | null
+  accessPolicy?: MemberAccessPolicy | null
 }
 
 type TeamAccessGovernancePanelProps = {
@@ -27,7 +29,9 @@ function MetricCard({ label, children }: { label: string; children: ReactNode })
 
 export function getTeamAccessGovernanceCounts(members: TeamAccessMember[]) {
   const adminCount = members.filter((member) => member.role === 'owner' || member.role === 'admin').length
-  const crmCoverageCount = members.filter((member) => member.accessScope === 'crm').length
+  const crmCoverageCount = members.filter((member) => (
+    member.accessPolicy ? canAccessModule(member.accessPolicy, 'crm') : member.accessScope === 'crm'
+  )).length
   const reviewerCount = members.filter((member) => member.role === 'viewer' || member.accessScope === 'readonly').length
 
   return {

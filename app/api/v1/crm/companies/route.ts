@@ -184,11 +184,17 @@ export const POST = withCrmAuth('member', async (req, ctx) => {
   // Validate account manager belongs to this org + resolve ref snapshot
   let accountManagerRef = undefined
   if (body.accountManagerUid) {
+    if (!isCrmPrivilegedActor(ctx) && body.accountManagerUid !== ctx.actor.uid) {
+      return apiError('You can only assign companies to yourself with your current CRM access', 403)
+    }
     accountManagerRef = await loadMemberRef(ctx.orgId, body.accountManagerUid)
     if (!accountManagerRef) return apiError('accountManagerUid does not belong to this workspace', 400)
   }
 
   const ownerUidInput = typeof body.ownerUid === 'string' ? body.ownerUid.trim() : ''
+  if (!isCrmPrivilegedActor(ctx) && ownerUidInput && ownerUidInput !== ctx.actor.uid) {
+    return apiError('You can only own companies assigned to yourself with your current CRM access', 403)
+  }
   const ownerUid = ownerUidInput || ctx.actor.uid
   let ownerRef = ctx.actor
   if (ownerUid !== ctx.actor.uid) {

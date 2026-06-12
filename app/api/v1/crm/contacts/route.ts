@@ -195,6 +195,9 @@ export const POST = withCrmAuth('member', async (req, ctx) => {
 
   const actorRef = ctx.actor
   const requestedAssignedTo = typeof body.assignedTo === 'string' ? body.assignedTo.trim() : ''
+  if (!isCrmPrivilegedActor(ctx) && requestedAssignedTo && requestedAssignedTo !== ctx.actor.uid) {
+    return apiError('You can only assign contacts to yourself with your current CRM access', 403)
+  }
   const assignedToUid = requestedAssignedTo || ctx.actor.uid
   const allowedUserIds = normalizeAllowedUserIds(bodyRaw.allowedUserIds)
   if (assignedToUid && !allowedUserIds.includes(assignedToUid)) allowedUserIds.push(assignedToUid)

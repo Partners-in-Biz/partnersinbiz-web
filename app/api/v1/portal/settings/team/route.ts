@@ -4,6 +4,10 @@ import { withPortalAuthAndRole } from '@/lib/auth/portal-middleware'
 import { adminDb } from '@/lib/firebase/admin'
 import { apiErrorFromException } from '@/lib/api/response'
 import type { OrgMember, OrgRole } from '@/lib/organizations/types'
+import {
+  accessSummaryForPolicy,
+  resolveMemberAccessPolicy,
+} from '@/lib/orgMembers/access-policy'
 
 export const dynamic = 'force-dynamic'
 
@@ -36,6 +40,13 @@ export const GET = withPortalAuthAndRole('viewer', async (_req: NextRequest, _ui
         const userData = userDoc?.data() ?? {}
         const displayName = (member.displayName || userData.displayName || '') as string
         const fallback = splitName(displayName)
+        const role = member.role as OrgRole
+        const accessScope = (profileData.accessScope as string | undefined) ?? member.accessScope ?? ''
+        const accessPolicy = resolveMemberAccessPolicy({
+          role,
+          accessScope,
+          accessPolicy: profileData.accessPolicy ?? member.accessPolicy,
+        })
 
         return {
           uid,
@@ -43,9 +54,11 @@ export const GET = withPortalAuthAndRole('viewer', async (_req: NextRequest, _ui
           lastName: ((profileData.lastName as string | undefined) ?? fallback.lastName) || '',
           jobTitle: (profileData.jobTitle as string | undefined) ?? '',
           department: (profileData.department as string | undefined) ?? '',
-          accessScope: (profileData.accessScope as string | undefined) ?? '',
+          accessScope,
+          accessPolicy,
+          accessSummary: accessSummaryForPolicy(accessPolicy),
           avatarUrl: ((profileData.avatarUrl as string | undefined) ?? member.photoURL ?? (userData.photoURL as string | undefined)) || '',
-          role: member.role as OrgRole,
+          role,
         }
       }))
 
@@ -62,6 +75,12 @@ export const GET = withPortalAuthAndRole('viewer', async (_req: NextRequest, _ui
       const userData = userDoc?.data() ?? {}
       const displayName = (userData.displayName as string | undefined) ?? ''
       const fallback = splitName(displayName)
+      const role = data.role as OrgRole
+      const accessPolicy = resolveMemberAccessPolicy({
+        role,
+        accessScope: data.accessScope,
+        accessPolicy: data.accessPolicy,
+      })
 
       return {
         uid,
@@ -70,8 +89,10 @@ export const GET = withPortalAuthAndRole('viewer', async (_req: NextRequest, _ui
         jobTitle: (data.jobTitle as string) ?? '',
         department: (data.department as string) ?? '',
         accessScope: (data.accessScope as string) ?? '',
+        accessPolicy,
+        accessSummary: accessSummaryForPolicy(accessPolicy),
         avatarUrl: ((data.avatarUrl as string | undefined) ?? (userData.photoURL as string | undefined)) || '',
-        role: data.role as OrgRole,
+        role,
       }
     }))
 

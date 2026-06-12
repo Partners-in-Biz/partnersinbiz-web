@@ -7,6 +7,7 @@ import { apiError, apiErrorFromException } from '@/lib/api/response'
 import { getResendClient, FROM_ADDRESS } from '@/lib/email/resend'
 import { ROLE_RANK } from '@/lib/orgMembers/types'
 import type { OrgRole } from '@/lib/organizations/types'
+import { policyFromAccessScope } from '@/lib/orgMembers/access-policy'
 
 export const dynamic = 'force-dynamic'
 
@@ -38,6 +39,7 @@ export const POST = withPortalAuthAndRole('admin', async (req: NextRequest, _uid
     const accessScope = ACCESS_SCOPES.includes(requestedAccessScope as typeof ACCESS_SCOPES[number])
       ? requestedAccessScope
       : 'all'
+    const accessPolicy = policyFromAccessScope(accessScope, 'member')
 
     if (!email || !email.includes('@')) {
       return apiError('Valid email is required', 400)
@@ -101,6 +103,7 @@ export const POST = withPortalAuthAndRole('admin', async (req: NextRequest, _uid
         ...(jobTitle ? { jobTitle } : {}),
         ...(department ? { department } : {}),
         ...(accessScope !== 'all' ? { accessScope } : {}),
+        accessPolicy,
       }),
       updatedAt: FieldValue.serverTimestamp(),
     })
@@ -117,6 +120,7 @@ export const POST = withPortalAuthAndRole('admin', async (req: NextRequest, _uid
           jobTitle,
           department,
           accessScope,
+          accessPolicy,
           inviteNote,
           phone: '',
           avatarUrl: '',

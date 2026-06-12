@@ -6,6 +6,8 @@ import { withPortalAuth } from '@/lib/auth/portal-middleware'
 import { adminDb } from '@/lib/firebase/admin'
 import { canUsePortalOrg, resolvePortalActiveOrgId } from '@/lib/portal/org-access'
 import { resolvePortalModules } from '@/lib/organizations/portal-modules'
+import { resolveMemberAccessPolicy } from '@/lib/orgMembers/access-policy'
+import type { OrgRole } from '@/lib/organizations/types'
 
 export const dynamic = 'force-dynamic'
 
@@ -41,6 +43,16 @@ export const GET = withPortalAuth(async (req: NextRequest, uid: string) => {
 
   const org = orgDoc.data()!
   const user = resolved.userData
+  const memberSnap = await adminDb.collection('orgMembers').doc(`${orgId}_${uid}`).get()
+  const memberData = memberSnap.exists ? memberSnap.data() ?? {} : {}
+  const orgMembers = Array.isArray(org.members) ? org.members as Array<{ userId?: string; uid?: string; role?: OrgRole; accessScope?: unknown; accessPolicy?: unknown }> : []
+  const memberFallback = orgMembers.find((member) => (member.userId || member.uid) === uid)
+  const memberRole = (memberData.role as OrgRole | undefined) ?? memberFallback?.role
+  const accessPolicy = resolveMemberAccessPolicy({
+    role: memberRole ?? 'viewer',
+    accessScope: memberData.accessScope ?? memberFallback?.accessScope,
+    accessPolicy: memberData.accessPolicy ?? memberFallback?.accessPolicy,
+  })
 
   return NextResponse.json({
     org: {
@@ -62,6 +74,8 @@ export const GET = withPortalAuth(async (req: NextRequest, uid: string) => {
       name: user.name ?? '',
       email: user.email ?? '',
       role: user.role ?? 'client',
+      memberRole: memberRole ?? null,
+      accessPolicy,
     },
   })
 })

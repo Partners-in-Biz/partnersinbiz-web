@@ -4,22 +4,16 @@ export const dynamic = 'force-dynamic'
 import { useEffect, useMemo, useState } from 'react'
 import { useParams } from 'next/navigation'
 import type { CaptureSource } from '@/lib/crm/captureSources'
+import {
+  parseCsv,
+  rowsFromCsv,
+  type ParsedContactImportRow,
+} from '@/lib/crm/csv-import'
 
 interface OrganizationSummary {
   id: string
   slug: string
   name: string
-}
-
-interface ParsedRow {
-  email: string
-  name?: string
-  firstName?: string
-  lastName?: string
-  company?: string
-  phone?: string
-  tags?: string[]
-  notes?: string
 }
 
 interface InvalidRow {
@@ -33,140 +27,6 @@ interface ImportResult {
   skipped: number
   invalidRows: InvalidRow[]
   previewSample?: Array<Record<string, unknown>>
-}
-
-// ── CSV parsing ─────────────────────────────────────────────────────────────
-//
-// Minimal RFC-4180-ish parser. Handles:
-//   - Quoted fields with commas inside
-//   - Escaped quotes ("") inside quoted fields
-//   - CRLF, LF, or CR line endings
-//
-// Doesn't handle: semicolon-separated locales, BOM-stripping (we strip BOM
-// at the start manually), 8-bit MBCS encodings.
-
-function parseCsv(text: string): string[][] {
-  // Strip UTF-8 BOM if present
-  const src = text.charCodeAt(0) === 0xfeff ? text.slice(1) : text
-
-  const rows: string[][] = []
-  let row: string[] = []
-  let field = ''
-  let inQuotes = false
-  let i = 0
-
-  while (i < src.length) {
-    const ch = src[i]
-
-    if (inQuotes) {
-      if (ch === '"') {
-        if (src[i + 1] === '"') {
-          field += '"'
-          i += 2
-          continue
-        }
-        inQuotes = false
-        i++
-        continue
-      }
-      field += ch
-      i++
-      continue
-    }
-
-    if (ch === '"') {
-      inQuotes = true
-      i++
-      continue
-    }
-    if (ch === ',') {
-      row.push(field)
-      field = ''
-      i++
-      continue
-    }
-    if (ch === '\r' || ch === '\n') {
-      row.push(field)
-      field = ''
-      // Don't push empty lines
-      if (row.length > 1 || row[0] !== '') rows.push(row)
-      row = []
-      // Skip a paired \n after \r
-      if (ch === '\r' && src[i + 1] === '\n') i += 2
-      else i++
-      continue
-    }
-    field += ch
-    i++
-  }
-
-  // Tail
-  if (field.length > 0 || row.length > 0) {
-    row.push(field)
-    if (row.length > 1 || row[0] !== '') rows.push(row)
-  }
-
-  return rows
-}
-
-const HEADER_ALIASES: Record<string, keyof ParsedRow> = {
-  email: 'email',
-  'e-mail': 'email',
-  name: 'name',
-  fullname: 'name',
-  'full name': 'name',
-  firstname: 'firstName',
-  'first name': 'firstName',
-  first_name: 'firstName',
-  lastname: 'lastName',
-  'last name': 'lastName',
-  last_name: 'lastName',
-  surname: 'lastName',
-  company: 'company',
-  organization: 'company',
-  organisation: 'company',
-  phone: 'phone',
-  tel: 'phone',
-  telephone: 'phone',
-  mobile: 'phone',
-  tags: 'tags',
-  notes: 'notes',
-  note: 'notes',
-}
-
-function normalizeHeader(h: string): keyof ParsedRow | null {
-  const key = h.trim().toLowerCase()
-  return HEADER_ALIASES[key] ?? null
-}
-
-function rowsFromCsv(grid: string[][]): ParsedRow[] {
-  if (grid.length === 0) return []
-  const header = grid[0]
-  const colMap: Array<keyof ParsedRow | null> = header.map(normalizeHeader)
-
-  const out: ParsedRow[] = []
-  for (let r = 1; r < grid.length; r++) {
-    const cols = grid[r]
-    if (cols.every((c) => c.trim() === '')) continue
-    const row: ParsedRow = { email: '' }
-    for (let c = 0; c < cols.length; c++) {
-      const key = colMap[c]
-      if (!key) continue
-      const value = cols[c]
-      if (key === 'tags') {
-        const tags = value
-          .split(/[,;]/)
-          .map((t) => t.trim())
-          .filter(Boolean)
-        if (tags.length) row.tags = tags
-      } else {
-        const v = value.trim()
-        if (v) (row as unknown as Record<string, unknown>)[key] = v
-      }
-    }
-    out.push(row)
-  }
-  return out
 }
 
 // ── Component ───────────────────────────────────────────────────────────────
@@ -183,7 +43,7 @@ export default function CaptureSourceImportPage() {
   const [selectedSourceId, setSelectedSourceId] = useState<string>('')
   const [defaultTagsRaw, setDefaultTagsRaw] = useState('')
   const [fileName, setFileName] = useState<string>('')
-  const [rows, setRows] = useState<ParsedRow[]>([])
+  const [rows, setRows] = useState<ParsedContactImportRow[]>([])
   const [parseError, setParseError] = useState<string | null>(null)
 
   const [validating, setValidating] = useState(false)
@@ -267,13 +127,12 @@ export default function CaptureSourceImportPage() {
   async function callImport(dryRun: boolean): Promise<ImportResult | null> {
     if (!orgId) return null
     const payload = {
-      orgId,
       capturedFromId: selectedSourceId || undefined,
       defaultTags: defaultTags.length ? defaultTags : undefined,
       rows,
       dryRun,
     }
-    const res = await fetch('/api/v1/crm/contacts/import', {
+    const res = await fetch(`/api/v1/crm/contacts/import?orgId=${encodeURIComponent(orgId)}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),

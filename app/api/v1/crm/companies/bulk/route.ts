@@ -90,6 +90,9 @@ export const POST = withCrmAuth('member', async (req, ctx) => {
   for (const key of patchKeys) {
     if (key === 'accountManagerUid') {
       const uid = typeof patchObj.accountManagerUid === 'string' ? patchObj.accountManagerUid.trim() : ''
+      if (!isCrmPrivilegedActor(ctx) && uid && uid !== ctx.actor.uid) {
+        return apiError('You can only assign companies to yourself with your current CRM access', 403)
+      }
       updateData.accountManagerUid = uid
       if (uid) {
         const ref = await loadMemberRef(ctx.orgId, uid)
@@ -104,6 +107,9 @@ export const POST = withCrmAuth('member', async (req, ctx) => {
 
     if (key === 'ownerUid') {
       const uid = typeof patchObj.ownerUid === 'string' ? patchObj.ownerUid.trim() : ''
+      if (!isCrmPrivilegedActor(ctx) && uid && uid !== ctx.actor.uid) {
+        return apiError('You can only own companies assigned to yourself with your current CRM access', 403)
+      }
       updateData.ownerUid = uid
       if (uid) {
         const ref = await loadMemberRef(ctx.orgId, uid)

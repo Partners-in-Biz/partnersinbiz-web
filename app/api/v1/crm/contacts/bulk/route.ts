@@ -26,7 +26,7 @@
 import { FieldValue } from 'firebase-admin/firestore'
 import { adminDb } from '@/lib/firebase/admin'
 import { withCrmAuth } from '@/lib/auth/crm-middleware'
-import { resolveMemberRef, FORMER_MEMBER_REF } from '@/lib/orgMembers/memberRef'
+import { resolveMemberRef } from '@/lib/orgMembers/memberRef'
 import { apiSuccess, apiError } from '@/lib/api/response'
 import type { ContactStage, ContactType } from '@/lib/crm/types'
 import {
@@ -154,6 +154,9 @@ export const POST = withCrmAuth('member', async (req, ctx) => {
   const updateData: Record<string, unknown> = {}
 
   if (typeof patch.assignedTo === 'string') {
+    if (!isCrmPrivilegedActor(ctx) && patch.assignedTo && patch.assignedTo !== ctx.actor.uid) {
+      return apiError('You can only assign contacts to yourself with your current CRM access', 403)
+    }
     updateData.assignedTo = patch.assignedTo
     const allowedUserIds = normalizeAllowedUserPatch(patch.allowedUserIds) ?? []
     if (patch.assignedTo !== '') {

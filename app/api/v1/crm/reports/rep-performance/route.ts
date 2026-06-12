@@ -8,6 +8,14 @@ import { withCrmAuth } from '@/lib/auth/crm-middleware'
 import { apiSuccess, apiErrorFromException } from '@/lib/api/response'
 import type { Deal, Activity, Contact } from '@/lib/crm/types'
 import type { MemberRef } from '@/lib/orgMembers/memberRef'
+import {
+  crmRecordCompanyIds,
+  crmRecordContactIds,
+  filterCrmRowsForActor,
+  isCrmPrivilegedActor,
+  loadCompanyAssignmentMap,
+  loadContactAssignmentMap,
+} from '@/lib/crm/assignment-access'
 
 export const dynamic = 'force-dynamic'
 
@@ -23,6 +31,7 @@ interface RepRow {
 }
 
 type ContactRecord = Contact & { deleted?: boolean }
+type ActivityRecord = Activity & { deleted?: boolean }
 
 function repKey(ref: MemberRef | undefined, uid: string | undefined): { uid: string; displayName: string } {
   if (ref?.uid) return { uid: ref.uid, displayName: ref.displayName || ref.uid }
@@ -71,9 +80,40 @@ export const GET = withCrmAuth('member', async (_req, ctx) => {
     ])
 
     const rows = new Map<string, RepRow>()
-    const deals = dealsSnap.docs
+    let deals = dealsSnap.docs
       .map((doc) => ({ id: doc.id, ...doc.data() }) as Deal)
       .filter((deal) => deal.deleted !== true)
+    let activities = activitiesSnap.docs
+      .map((doc) => ({ id: doc.id, ...doc.data() }) as ActivityRecord)
+      .filter((activity) => activity.deleted !== true)
+    let contacts = contactsSnap.docs
+      .map((doc) => ({ id: doc.id, ...doc.data() }) as ContactRecord)
+      .filter((contact) => contact.deleted !== true)
+
+    if (!isCrmPrivilegedActor(ctx)) {
+      const contactIds = new Set<string>()
+      const companyIds = new Set<string>()
+      for (const deal of deals) {
+        for (const contactId of crmRecordContactIds(deal)) contactIds.add(contactId)
+        for (const companyId of crmRecordCompanyIds(deal)) companyIds.add(companyId)
+      }
+      for (const activity of activities) {
+        for (const contactId of crmRecordContactIds(activity)) contactIds.add(contactId)
+        for (const companyId of crmRecordCompanyIds(activity)) companyIds.add(companyId)
+      }
+      for (const contact of contacts) {
+        contactIds.add(contact.id)
+        for (const companyId of crmRecordCompanyIds(contact)) companyIds.add(companyId)
+      }
+      const contactMap = await loadContactAssignmentMap(ctx.orgId, contactIds)
+      for (const contact of contactMap.values()) {
+        for (const companyId of crmRecordCompanyIds(contact)) companyIds.add(companyId)
+      }
+      const companies = await loadCompanyAssignmentMap(ctx.orgId, companyIds)
+      deals = filterCrmRowsForActor(ctx, deals, { contacts: contactMap, companies })
+      activities = filterCrmRowsForActor(ctx, activities, { contacts: contactMap, companies })
+      contacts = filterCrmRowsForActor(ctx, contacts, { companies })
+    }
 
     for (const deal of deals) {
       const rep = repKey(deal.ownerRef, deal.ownerUid ?? deal.createdBy)
@@ -90,9 +130,6 @@ export const GET = withCrmAuth('member', async (_req, ctx) => {
       }
     }
 
-    const activities = activitiesSnap.docs
-      .map((doc) => ({ id: doc.id, ...doc.data() }) as Activity)
-
     for (const activity of activities) {
       const rep = repKey(activity.createdByRef, activity.createdBy)
       const row = ensureRow(rows, rep.uid, rep.displayName)
@@ -108,9 +145,6 @@ export const GET = withCrmAuth('member', async (_req, ctx) => {
       }))
       .sort((a, b) => b.wonValue - a.wonValue || b.openValue - a.openValue || b.activities - a.activities)
 
-    const contacts = contactsSnap.docs
-      .map((doc) => ({ id: doc.id, ...doc.data() }) as ContactRecord)
-      .filter((contact) => contact.deleted !== true)
     const totalContacts = contacts.length
     const unassignedContacts = contacts.filter((contact) => !hasContactOwner(contact)).length
     const contactOwnerCoverage = totalContacts > 0

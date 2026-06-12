@@ -13,6 +13,16 @@ import { withCrmAuth } from '@/lib/auth/crm-middleware'
 import { apiSuccess, apiError } from '@/lib/api/response'
 import { loadCompany } from '@/lib/companies/store'
 import type { ActivityType, Contact } from '@/lib/crm/types'
+import {
+  crmActorCanReadRecord,
+  crmActorCanReadCompanyRecord,
+  crmRecordCompanyIds,
+  crmRecordContactIds,
+  filterCrmRowsForActor,
+  isCrmPrivilegedActor,
+  loadCompanyAssignmentMap,
+  loadContactAssignmentMap,
+} from '@/lib/crm/assignment-access'
 
 /**
  * Best-effort: resolve companyId from a contact's companyId field.
@@ -46,6 +56,12 @@ const VALID_TYPES: ActivityType[] = [
   'stage_change', 'sequence_enrolled', 'sequence_completed',
 ]
 
+type ActivityRow = Record<string, unknown> & {
+  id: string
+  deleted?: boolean
+  createdAt?: unknown
+}
+
 export const GET = withCrmAuth('viewer', async (req, ctx) => {
   const { searchParams } = new URL(req.url)
   const contactId = searchParams.get('contactId') ?? undefined
@@ -64,7 +80,6 @@ export const GET = withCrmAuth('viewer', async (req, ctx) => {
         .slice(0, 10)
     : []
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let query: any = adminDb.collection('activities').where('orgId', '==', ctx.orgId)
   if (contactId) query = query.where('contactId', '==', contactId)
   if (typeFilters.length === 1) {
@@ -81,12 +96,21 @@ export const GET = withCrmAuth('viewer', async (req, ctx) => {
   query = query.orderBy('createdAt', 'desc').limit(limit).offset(offset)
 
   const snap = await query.get()
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const activities = snap.docs
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    .map((d: any) => ({ id: d.id, ...d.data() }))
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let activities: ActivityRow[] = snap.docs
+    .map((d: any) => ({ id: d.id, ...d.data() }) as ActivityRow)
     .filter((a: any) => a.deleted !== true)
+  if (!isCrmPrivilegedActor(ctx)) {
+    const contacts = await loadContactAssignmentMap(ctx.orgId, activities.flatMap((activity) => crmRecordContactIds(activity)))
+    const companyIds = new Set<string>()
+    for (const activity of activities) {
+      for (const companyId of crmRecordCompanyIds(activity)) companyIds.add(companyId)
+      for (const linkedContactId of crmRecordContactIds(activity)) {
+        for (const companyId of crmRecordCompanyIds(contacts.get(linkedContactId))) companyIds.add(companyId)
+      }
+    }
+    const companies = await loadCompanyAssignmentMap(ctx.orgId, companyIds)
+    activities = filterCrmRowsForActor(ctx, activities, { contacts, companies })
+  }
   return apiSuccess({ activities, page, limit })
 })
 
@@ -107,6 +131,14 @@ export const POST = withCrmAuth('member', async (req, ctx) => {
   const actorRef = ctx.actor
 
   const contactId = body.contactId.trim()
+  const contactSnap = await adminDb.collection('contacts').doc(contactId).get()
+  if (!contactSnap.exists) return apiError('Contact not found', 404)
+  const contact = { ...(contactSnap.data() as Contact), id: contactSnap.id }
+  if (contact.orgId !== ctx.orgId || contact.deleted === true) return apiError('Contact not found', 404)
+  if (!isCrmPrivilegedActor(ctx)) {
+    const companies = await loadCompanyAssignmentMap(ctx.orgId, crmRecordCompanyIds(contact))
+    if (!crmActorCanReadRecord(ctx, contact, { companies })) return apiError('Contact not found', 404)
+  }
 
   // Derive companyId from the linked contact (best-effort, never blocks)
   let resolvedCompanyId: string | undefined
@@ -114,6 +146,9 @@ export const POST = withCrmAuth('member', async (req, ctx) => {
     // Explicit override — validate it belongs to this org
     const loaded = await loadCompany(body.companyId.trim(), ctx.orgId)
     if (!loaded) return apiError('Invalid companyId', 400)
+    if (!isCrmPrivilegedActor(ctx) && !(await crmActorCanReadCompanyRecord(ctx, body.companyId.trim(), loaded.data))) {
+      return apiError('Invalid companyId', 400)
+    }
     resolvedCompanyId = body.companyId.trim()
   } else {
     const derived = await deriveCompanyFromContact(contactId, ctx.orgId)

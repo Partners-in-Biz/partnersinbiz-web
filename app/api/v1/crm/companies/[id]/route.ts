@@ -17,7 +17,6 @@ import {
   loadCompany,
   sanitizeCompanyForWrite,
   validateParentChain,
-  validateAccountManager,
   clearCompanyIdOnCollection,
   loadMemberRef,
 } from '@/lib/companies/store'
@@ -25,6 +24,7 @@ import { getDefinitionsForResource } from '@/lib/customFields/store'
 import { validateCustomFields } from '@/lib/customFields/validation'
 import {
   crmActorCanReadCompanyRecord,
+  isCrmPrivilegedActor,
   normalizeAllowedUserIds,
   normalizeAllowedUserPatch,
 } from '@/lib/crm/assignment-access'
@@ -63,6 +63,9 @@ async function handleUpdate(
 
   const loaded = await loadCompany(id, ctx.orgId)
   if (!loaded || !(await crmActorCanReadCompanyRecord(ctx, id, loaded.data))) return apiError('Company not found', 404)
+  if (typeof body.ownerUid === 'string' && body.ownerUid.trim() && !isCrmPrivilegedActor(ctx) && body.ownerUid.trim() !== ctx.actor.uid) {
+    return apiError('You can only own companies assigned to yourself with your current CRM access', 403)
+  }
 
   // Validate parent chain if changing
   if ('parentCompanyId' in body && body.parentCompanyId) {
@@ -77,6 +80,9 @@ async function handleUpdate(
       // Explicit unset — clear both fields below via sanitized + FieldValue.delete on ref
       accountManagerRefPatch = { accountManagerRef: (await import('firebase-admin/firestore')).FieldValue.delete() }
     } else if (body.accountManagerUid) {
+      if (!isCrmPrivilegedActor(ctx) && body.accountManagerUid !== ctx.actor.uid) {
+        return apiError('You can only assign companies to yourself with your current CRM access', 403)
+      }
       const ref = await loadMemberRef(ctx.orgId, body.accountManagerUid as string)
       if (!ref) return apiError('accountManagerUid does not belong to this workspace', 400)
       accountManagerRefPatch = { accountManagerRef: ref }
@@ -147,7 +153,7 @@ export const DELETE = withCrmAuth<RouteCtx>(
     const { id } = await routeCtx!.params
 
     const loaded = await loadCompany(id, ctx.orgId)
-    if (!loaded) return apiError('Company not found', 404)
+    if (!loaded || !(await crmActorCanReadCompanyRecord(ctx, id, loaded.data))) return apiError('Company not found', 404)
 
     // Soft delete
     const softDeletePatch: Record<string, unknown> = {

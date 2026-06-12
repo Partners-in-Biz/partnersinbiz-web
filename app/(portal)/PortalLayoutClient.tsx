@@ -18,6 +18,13 @@ import { MessageDrawer } from '@/components/chat/MessageDrawer'
 import { detectCurrentPageContext } from '@/lib/context-references/route-context'
 import { PIB_PLATFORM_ORG_ID } from '@/lib/platform/constants'
 import { resolvePortalModules, type PortalModules } from '@/lib/organizations/portal-modules'
+import {
+  FULL_ACCESS_POLICY,
+  canAccessModule,
+  normalizeMemberAccessPolicy,
+  type MemberAccessPolicy,
+  type WorkspaceModuleKey,
+} from '@/lib/orgMembers/access-policy'
 
 const PORTAL_MATERIAL_SYMBOLS =
   'https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap'
@@ -110,6 +117,22 @@ const NAV_LINKS: NavItem[] = [
   { href: '/portal/wiki',      label: 'Wiki',      icon: 'menu_book',       group: 'data' },
   { href: '/portal/payments', label: 'Billing', icon: 'payments', group: 'comms' },
 ]
+
+const NAV_MODULES: Partial<Record<string, WorkspaceModuleKey>> = {
+  '/portal/projects': 'projects',
+  '/portal/documents': 'documents',
+  '/portal/research': 'research',
+  '/portal/mobile-apps': 'mobileApps',
+  '/portal/youtube-studio': 'youtubeStudio',
+  '/portal/book-studio': 'bookStudio',
+  '/portal/crm': 'crm',
+  '/portal/marketing': 'marketing',
+  '/portal/messages': 'messages',
+  '/portal/email': 'email',
+  '/portal/reports': 'reports',
+  '/portal/properties': 'properties',
+  '/portal/payments': 'billing',
+}
 
 const GROUP_LABELS: Record<NavItem['group'], string> = {
   work: 'Workspace',
@@ -230,6 +253,7 @@ function PortalLayoutContent({ children }: { children: React.ReactNode }) {
   const [userRole, setUserRole] = useState('')
   const [orgSwitching, setOrgSwitching] = useState(false)
   const [memberRole, setMemberRole] = useState<string | null>(null)
+  const [memberAccessPolicy, setMemberAccessPolicy] = useState<MemberAccessPolicy>(() => FULL_ACCESS_POLICY)
   const [profileName, setProfileName] = useState('')
 
   // Restore persisted preferences
@@ -278,6 +302,8 @@ function PortalLayoutContent({ children }: { children: React.ReactNode }) {
               if (d?.org?.type) setActiveOrgType(d.org.type)
               if (d?.org) setPortalModules(resolvePortalModules({ portalModules: d.org.portalModules }))
               if (d?.user?.role) setUserRole(d.user.role)
+              if (d?.user?.memberRole) setMemberRole(d.user.memberRole)
+              if (d?.user?.accessPolicy) setMemberAccessPolicy(normalizeMemberAccessPolicy(d.user.accessPolicy))
             })
             .catch(() => {})
           fetch('/api/v1/portal/orgs')
@@ -418,6 +444,8 @@ function PortalLayoutContent({ children }: { children: React.ReactNode }) {
       : path
 
   const visibleNavLinks = NAV_LINKS.filter((item) => {
+    const moduleKey = NAV_MODULES[item.href]
+    if (moduleKey && !canAccessModule(memberAccessPolicy, moduleKey)) return false
     if (item.href === '/portal/mobile-apps') return portalModules.mobileApps
     if (item.href === '/portal/youtube-studio') return portalModules.youtubeStudio
     if (item.href === '/portal/book-studio') return portalModules.bookStudio
