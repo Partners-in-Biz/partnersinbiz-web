@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server'
 
 const mockEnquiriesAdd = jest.fn()
 const mockContactsAdd = jest.fn()
+const mockContactsGet = jest.fn()
 const mockCollection = jest.fn()
 const mockEmailSend = jest.fn()
 const mockFireTrigger = jest.fn()
@@ -48,11 +49,17 @@ describe('POST /api/enquiries', () => {
     jest.clearAllMocks()
     mockEnquiriesAdd.mockResolvedValue({ id: 'test-enquiry-id' })
     mockContactsAdd.mockResolvedValue({ id: 'test-contact-id' })
+    mockContactsGet.mockResolvedValue({ empty: true, docs: [] })
     mockEmailSend.mockResolvedValue({ id: 'email-id' })
     mockFireTrigger.mockResolvedValue(undefined)
     mockCollection.mockImplementation((name: string) => {
       if (name === 'enquiries') return { add: mockEnquiriesAdd }
-      if (name === 'contacts') return { add: mockContactsAdd }
+      if (name === 'contacts') {
+        const query = { where: jest.fn(), limit: jest.fn(), get: mockContactsGet }
+        query.where.mockReturnValue(query)
+        query.limit.mockReturnValue(query)
+        return { add: mockContactsAdd, where: query.where }
+      }
       return { add: jest.fn() }
     })
   })
@@ -235,6 +242,52 @@ describe('POST /api/enquiries', () => {
     expect(res.status).toBe(400)
     const body = await res.json()
     expect(body.error).toMatch(/area/i)
+  })
+
+  it('reuses an existing CRM contact instead of duplicating on repeat submission', async () => {
+    const mockUpdate = jest.fn().mockResolvedValue(undefined)
+    mockContactsGet.mockResolvedValue({
+      empty: false,
+      docs: [{
+        id: 'existing-contact-id',
+        data: () => ({
+          tags: ['enquiry', 'newsletter'],
+          notes: 'Original note',
+          name: 'Existing Name',
+          phone: '',
+          company: '',
+          website: '',
+        }),
+        ref: { update: mockUpdate },
+      }],
+    })
+
+    const req = makeRequest({
+      ...validBody,
+      projectType: 'partnership',
+      details: 'Opportunity: Athleet club growth partner (athleet-club-growth)',
+      interest: {
+        type: 'partner-opportunity',
+        opportunityId: 'athleet-club-growth',
+        opportunityTitle: 'Athleet club growth partner',
+        notes: 'Second submission.',
+        consent: true,
+        source: '/partner-with-us/athleet-club-growth',
+      },
+    })
+
+    const res = await POST(req)
+
+    expect(res.status).toBe(201)
+    expect(mockContactsAdd).not.toHaveBeenCalled()
+    expect(mockFireTrigger).not.toHaveBeenCalled()
+    expect(mockUpdate).toHaveBeenCalledWith(expect.objectContaining({
+      tags: expect.arrayContaining(['enquiry', 'newsletter', 'partner-opportunity', 'opportunity:athleet-club-growth']),
+      notes: expect.stringContaining('Original note'),
+      name: 'Existing Name',
+      phone: '067 000 0000',
+    }))
+    expect(mockUpdate.mock.calls[0][0].notes).toContain('Opportunity: Athleet — club growth partner (athleet-club-growth)')
   })
 
   it('rejects partner-opportunity interest without consent', async () => {
