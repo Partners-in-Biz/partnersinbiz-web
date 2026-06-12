@@ -1004,8 +1004,11 @@ export default function PortalContactDetailPage() {
       })
       const body = await res.json()
       if (!res.ok) throw new Error((body as { error?: string }).error ?? 'Enrollment failed')
-      const newEnrollment = (body as { data?: EnrollmentRecord }).data ?? (body as EnrollmentRecord)
-      setEnrollments((prev) => [newEnrollment, ...prev])
+      // apiSuccess envelope: { success, data: { enrollment } } — unwrap both layers.
+      const payload = (body as { data?: unknown }).data ?? body
+      const newEnrollment = ((payload as { enrollment?: EnrollmentRecord }).enrollment ?? payload) as EnrollmentRecord
+      const sequenceName = sequences.find((s) => s.id === enrollingSequenceId)?.name ?? ''
+      setEnrollments((prev) => [{ ...newEnrollment, sequenceName: newEnrollment.sequenceName || sequenceName }, ...prev])
       setShowEnrollModal(false)
     } catch (err) {
       setEnrollError(err instanceof Error ? err.message : 'Enrollment failed')
@@ -1016,7 +1019,10 @@ export default function PortalContactDetailPage() {
 
   async function handleUnenroll(enrollmentId: string) {
     const enrollment = enrollments.find((e) => e.id === enrollmentId)
-    if (!enrollment?.sequenceId) return
+    if (!enrollment?.sequenceId) {
+      setUnenrollError('This enrollment record is incomplete — refresh the page and try again.')
+      return
+    }
     setUnenrollError('')
     try {
       const res = await fetch(contactApiPath(`/api/v1/crm/sequences/${enrollment.sequenceId}/enrollments/${enrollmentId}`), {
