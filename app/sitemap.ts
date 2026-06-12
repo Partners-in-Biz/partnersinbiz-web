@@ -4,6 +4,7 @@ import { POSTS } from '@/lib/content/posts'
 import { listLiveSlugs } from '@/lib/content/posts-firestore'
 import { PUBLISHED_CAMPAIGN_INSIGHT_SLUGS } from '@/lib/seo/published-insights'
 import { PUBLIC_TOOLS } from '@/lib/tools/catalog'
+import { PARTNER_OPPORTUNITIES } from '@/lib/partner-opportunities'
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const staticLastModified = new Date('2026-06-01')
@@ -20,6 +21,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     '/tools',
     '/pricing',
     '/properties',
+    '/partner-with-us',
     '/faq',
     '/book-a-call',
     '/start-a-project',
@@ -42,6 +44,11 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     lastModified: staticLastModified,
   }))
 
+  const partnerOpportunities: MetadataRoute.Sitemap = PARTNER_OPPORTUNITIES.map((opportunity) => ({
+    url: `${SITE.url}${opportunity.href}`,
+    lastModified: staticLastModified,
+  }))
+
   const insights: MetadataRoute.Sitemap = POSTS.map((p) => ({
     url: `${SITE.url}/insights/${p.slug}`,
     lastModified: new Date(p.dateModified ?? p.datePublished),
@@ -58,5 +65,5 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       lastModified: campaignLastModified,
     }))
 
-  return [...staticPages, ...services, ...work, ...tools, ...insights, ...publishedCampaignInsights]
+  return [...staticPages, ...services, ...work, ...tools, ...partnerOpportunities, ...insights, ...publishedCampaignInsights]
 }

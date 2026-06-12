@@ -54,4 +54,35 @@ describe('agent watcher Hermes dispatch', () => {
       spec: 'Do the work',
     })).resolves.toEqual({ runId: 'run-failed-1', output: null, error: 'boom' })
   })
+
+  it('sends effort and model overrides as top-level run fields', async () => {
+    let postedBody: Record<string, unknown> | null = null
+    global.fetch = jest.fn(async (url: string | URL, init?: RequestInit) => {
+      const urlText = String(url)
+      if (urlText.endsWith('/v1/runs')) {
+        postedBody = JSON.parse(String(init?.body ?? '{}')) as Record<string, unknown>
+        return new Response(JSON.stringify({ id: 'run-routed-1' }), { status: 200 })
+      }
+      return new Response(JSON.stringify({ status: 'completed', output: 'done' }), { status: 200 })
+    }) as unknown as typeof fetch
+
+    await expect(runAndPoll(cfg, {
+      taskId: 'task-1',
+      orgId: 'org-1',
+      agentId: 'theo',
+      spec: 'Do the work',
+      agentEffort: 'high',
+      agentModel: 'claude-sonnet-4-6',
+    })).resolves.toEqual({ runId: 'run-routed-1', output: 'done', error: null })
+
+    expect(postedBody).toEqual(expect.objectContaining({
+      reasoning_effort: 'high',
+      model: 'claude-sonnet-4-6',
+      metadata: expect.objectContaining({
+        taskId: 'task-1',
+        orgId: 'org-1',
+        agentId: 'theo',
+      }),
+    }))
+  })
 })

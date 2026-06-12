@@ -42,6 +42,7 @@ export interface HermesRunRequest {
   prompt: string
   conversation_id?: string
   model?: string
+  reasoning_effort?: string
   provider?: string
   temperature?: number
   max_tokens?: number

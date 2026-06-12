@@ -74,6 +74,8 @@ interface TaskData {
   agentReleaseStatus?: string
   agentReleasedAt?: unknown
   riskLevel?: string
+  agentEffort?: string
+  agentModel?: string
   requiredCapability?: string
   requestedByAgentId?: string
   expectedArtifacts?: string[]
@@ -160,6 +162,87 @@ function formatTaskComments(comments: TaskComment[]): string {
     .join('\n')
 }
 
+function truncatePromptText(value: string, max = 1_600): string {
+  const clean = value.trim()
+  if (clean.length <= max) return clean
+  return `${clean.slice(0, max - 1).trimEnd()}…`
+}
+
+async function buildProjectDispatchContext(
+  taskRef: DocumentReference,
+  taskData: TaskData,
+): Promise<string> {
+  const projectId = taskData.projectId?.trim()
+  if (!projectId) return ''
+
+  const lines: string[] = []
+  try {
+    const projectDoc = await db.collection('projects').doc(projectId).get()
+    const project = projectDoc.exists ? projectDoc.data() as Record<string, unknown> | undefined : undefined
+    lines.push('Project context:')
+    lines.push(`- projectId: ${projectId}`)
+    if (typeof project?.name === 'string' && project.name.trim()) lines.push(`- name: ${project.name.trim()}`)
+    if (typeof project?.status === 'string' && project.status.trim()) lines.push(`- status: ${project.status.trim()}`)
+    const brief = typeof project?.brief === 'string' && project.brief.trim()
+      ? project.brief
+      : typeof project?.description === 'string' ? project.description : ''
+    if (brief.trim()) lines.push(`- brief: ${truncatePromptText(brief, 900)}`)
+
+    const docsSnap = await db
+      .collection('projects')
+      .doc(projectId)
+      .collection('docs')
+      .orderBy('createdAt', 'desc')
+      .limit(12)
+      .get()
+    if (!docsSnap.empty) {
+      lines.push('- docs:')
+      docsSnap.docs.forEach((doc) => {
+        const data = doc.data()
+        const title = typeof data.title === 'string' && data.title.trim() ? data.title.trim() : 'Untitled doc'
+        const type = typeof data.type === 'string' && data.type.trim() ? data.type.trim() : 'notes'
+        lines.push(`  - ${title} (id: ${doc.id}, type: ${type})`)
+      })
+    }
+  } catch (err) {
+    logger.warn('failed to load project dispatch context', {
+      taskId: taskRef.id,
+      projectId,
+      error: err instanceof Error ? err.message : String(err),
+    })
+  }
+
+  const deps = taskData.dependsOn?.filter(Boolean) ?? []
+  if (deps.length > 0) {
+    const depLines: string[] = []
+    for (const depId of deps) {
+      try {
+        const depSnap = await taskRef.parent.doc(depId).get()
+        if (!depSnap.exists) continue
+        const dep = depSnap.data() as TaskData
+        const summary = dep.agentOutput?.summary?.trim()
+        if (!summary) continue
+        const title = dep.title?.trim() || depId
+        depLines.push(`- ${title} (${depId}): ${truncatePromptText(summary)}`)
+      } catch (err) {
+        logger.warn('failed to load dependency summary for dispatch prompt', {
+          taskId: taskRef.id,
+          dependencyId: depId,
+          error: err instanceof Error ? err.message : String(err),
+        })
+      }
+    }
+    if (depLines.length > 0) {
+      lines.push('Dependency outputs:')
+      lines.push(...depLines)
+    }
+  }
+
+  if (lines.length === 0) return ''
+  lines.push(`Before starting, fetch full project context from GET /api/v1/agent/project/${projectId} and use it as the source of truth for docs, task outputs, and comments.`)
+  return lines.join('\n')
+}
+
 async function loadRecentTaskComments(taskRef: DocumentReference, limit = 8): Promise<TaskComment[]> {
   const maybeCollection = (taskRef as unknown as { collection?: (name: string) => unknown }).collection
   if (typeof maybeCollection !== 'function') return []
@@ -240,9 +323,12 @@ export async function dispatchTask(taskRef: DocumentReference, taskData: TaskDat
 
     const baseSpec = taskData.agentInput?.spec?.trim() || taskData.title || `Task ${taskId}`
     const commentBlock = formatTaskComments(await loadRecentTaskComments(taskRef))
-    const spec = commentBlock
-      ? `${baseSpec}\n\nRecent task comments / revision notes:\n${commentBlock}`
-      : baseSpec
+    const projectContextBlock = await buildProjectDispatchContext(taskRef, taskData)
+    const spec = [
+      baseSpec,
+      projectContextBlock,
+      commentBlock ? `Recent task comments / revision notes:\n${commentBlock}` : '',
+    ].filter(Boolean).join('\n\n')
     const dispatchInput: TaskDispatchInput = {
       taskId,
       orgId: taskData.orgId ?? '',
@@ -258,6 +344,8 @@ export async function dispatchTask(taskRef: DocumentReference, taskData: TaskDat
         ...(Array.isArray(taskData.expectedArtifacts) ? { expectedArtifacts: taskData.expectedArtifacts } : {}),
       },
       constraints: taskData.agentInput?.constraints,
+      agentEffort: taskData.agentEffort ?? null,
+      agentModel: taskData.agentModel ?? null,
     }
 
     // Callback: fires as soon as the Hermes run is created (before polling completes).
@@ -352,7 +440,7 @@ async function addAgentReviewComment(taskRef: DocumentReference, agentId: AgentI
 }
 
 function reviewFailed(output: string): boolean {
-  return /\b(changes[_ -]?requested|fail(?:ed)?|reject(?:ed)?|not approved)\b/i.test(output)
+  return /^\s*(CHANGES[_ -]?REQUESTED|REJECTED|NOT[_ -]?APPROVED)\b/i.test(output)
 }
 
 function reviewApproved(output: string): boolean {
@@ -394,6 +482,7 @@ async function dispatchReview(taskRef: DocumentReference, taskData: TaskData): P
       spec,
       context: { reviewTask: true, projectId: taskData.projectId ?? null },
       constraints: ['Be strict. If changes are needed, start with CHANGES_REQUESTED and explain exactly what to fix.'],
+      agentEffort: 'medium',
     })
     const output = (result.error ? `Reviewer error: ${result.error}` : result.output ?? '').slice(0, 4_000)
     if (result.error || reviewFailed(output) || !reviewApproved(output)) {

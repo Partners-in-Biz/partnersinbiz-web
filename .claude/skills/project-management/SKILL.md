@@ -199,6 +199,8 @@ Tasks can be assigned to a named agent in the Partners-in-Biz team (Pip, Theo, M
   "title": "Build /pricing page",
   "assigneeAgentId": "pip",
   "agentInput": { "spec": "Build a /pricing page using the existing design system" },
+  "agentEffort": "high",
+  "agentModel": "claude-sonnet-4-6",
   "dependsOn": ["task_abc123"]
 }
 ```
@@ -208,8 +210,11 @@ Tasks can be assigned to a named agent in the Partners-in-Biz team (Pip, Theo, M
   - **Revision/requeue rule:** if an agent task in `done`, `blocked`, or `awaiting-input` is moved back to `columnId:'todo'` without an explicit `agentStatus`, the task PATCH route requeues it automatically: `agentStatus:'pending'`, `reviewStatus:'changes-requested'`, and stale `agentOutput`/conversation/heartbeat fields cleared. Humans should still add a task comment first with the requested changes; the watcher injects recent task comments into the retry prompt so the agent sees the review note.
   - **Approval-gated task gotcha:** `POST /projects/[projectId]/tasks` currently resets agent-assigned tasks to `agentStatus='pending'` even when the create payload includes `agentStatus:'awaiting-input'`. If you are creating future/approval-gated agent tasks, immediately `PATCH /projects/[projectId]/tasks/[taskId]` with `{ "agentStatus": "awaiting-input" }` after creation, then verify with `GET /projects/[projectId]/tasks` before telling Peet the tasks are gated. Otherwise the watcher can pick them up too early.
 - **`agentInput`** — `{ spec: string, context?: object, constraints?: string[] }`. `spec` is required.
+- **`agentEffort`** — optional per-run thinking level: `minimal` | `low` | `medium` | `high` | `xhigh` (or omit/null for profile default). Set this explicitly when fanning out agent work: research/architecture/spec/ambiguous debugging = `high`; broad implementation = `high` when risky or `medium` when straightforward; QA/review/release checks = `medium`; routine cleanup/status/reporting = `low`; emergency or deeply ambiguous platform debugging = `xhigh`.
+- **`agentModel`** — optional allowlisted model override: `claude-sonnet-4-6`, `gpt-5.5`, `gpt-5.4`, `gpt-5.4-mini`, or `gpt-5.3-codex-spark`. Prefer omitting this unless Peet or the task explicitly needs a model. If you set it, choose Claude for writing/review/judgment-heavy work and GPT/Codex for code execution where the profile is already configured for it.
 - **`agentOutput`** — written when the agent completes: `{ summary: string, artifacts?: [{ type, ref, label? }], completedAt }`. `artifacts.type` is `url` | `file` | `commit` | `message-thread` | `doc`.
 - **`dependsOn`** — array of task IDs that must reach `agentStatus='done'` before this one becomes eligible for pickup.
+- **Dependency context now travels with the dispatch.** The watcher injects project name/brief, project doc titles/IDs, `agentOutput.summary` from each `dependsOn` task, recent task comments, and a standing instruction to fetch `GET /api/v1/agent/project/[projectId]` before starting.
 - **`agentHeartbeatAt: true`** — pass this sentinel on PATCH to bump the heartbeat to "now" (used while an agent is actively working).
 
 ### Self-dispatch pattern
@@ -277,6 +282,8 @@ Returns everything an agent needs to work on a project in one call:
     "columnId": "review",
     "status": "in_progress",
     "assigneeAgentId": "theo",
+    "agentEffort": "high",
+    "agentModel": "claude-sonnet-4-6",
     "agentStatus": "done",
     "agentInput": { "spec": "...", "context": {} },
     "agentOutput": { "summary": "...", "artifacts": [{ "type": "commit", "ref": "abc123" }] },
@@ -318,10 +325,10 @@ Body:
 
 Required: `title`. Defaults: `status='todo'`, `priority='normal'`, `tags=[]`. If `assignedTo` set, notifies assignee.
 
-**Agent dispatch fields also work on standalone tasks** — `assigneeAgentId`, `agentStatus`, `agentInput`, `agentOutput`, `dependsOn` all accepted with the same shape as project-nested tasks. See the "Agent dispatch fields" section under project-nested tasks for the full schema. Use standalone tasks when there's no specific project in scope (e.g. chatting from the org-level Agent tab); use project-nested tasks when working inside a specific project's Agent tab.
+**Agent dispatch fields also work on standalone tasks** — `assigneeAgentId`, `agentStatus`, `agentInput`, `agentEffort`, `agentModel`, `agentOutput`, and `dependsOn` are accepted with the same shape as project-nested tasks. See the "Agent dispatch fields" section under project-nested tasks for the full schema. Use standalone tasks when there's no specific project in scope (e.g. chatting from the org-level Agent tab); use project-nested tasks when working inside a specific project's Agent tab.
 
 #### `GET/PUT/DELETE /tasks/[id]` — auth: admin
-PUT updatable: `title`, `description`, `status`, `priority`, `dueDate`, `assignedTo`, `projectId`, `contactId`, `dealId`, `tags`, plus agent dispatch fields (`assigneeAgentId`, `agentStatus`, `agentInput`, `agentOutput`, `dependsOn`, `agentHeartbeatAt:true` sentinel). Transition to `done` sets `completedAt`.
+PUT updatable: `title`, `description`, `status`, `priority`, `dueDate`, `assignedTo`, `projectId`, `contactId`, `dealId`, `tags`, plus agent dispatch fields (`assigneeAgentId`, `agentStatus`, `agentInput`, `agentEffort`, `agentModel`, `agentOutput`, `dependsOn`, `agentHeartbeatAt:true` sentinel). Transition to `done` sets `completedAt`.
 
 #### `POST /tasks/[id]/complete` — auth: admin
 Sets `status='done'`, `completedAt`. Dispatches `task.completed`.

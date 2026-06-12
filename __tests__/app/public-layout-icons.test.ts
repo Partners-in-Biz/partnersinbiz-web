@@ -85,4 +85,34 @@ describe('public layout icon subset', () => {
       expect(materialSymbolNames).toContain(iconName)
     }
   })
+
+  it('loads every Material Symbol used by the partner-with-us pages', () => {
+    const materialSymbolNames = readPublicMaterialSymbolNames()
+
+    const catalogSource = readFileSync(
+      path.join(process.cwd(), 'lib/partner-opportunities.ts'),
+      'utf8'
+    )
+    const catalogIcons = Array.from(
+      catalogSource.matchAll(/icon:\s*'([^']+)'/g),
+      match => match[1]
+    )
+    expect(catalogIcons.length).toBeGreaterThan(0)
+
+    const pageIcons = [
+      'app/(public)/partner-with-us/page.tsx',
+      'app/(public)/partner-with-us/[opportunityId]/page.tsx',
+      'app/(public)/partner-with-us/PartnerWithUsForm.tsx',
+    ].flatMap(file =>
+      readLiteralMaterialSymbols(readFileSync(path.join(process.cwd(), file), 'utf8'))
+    )
+    expect(pageIcons.length).toBeGreaterThan(0)
+
+    const fitIcons = ['hub', 'verified', 'lock']
+    const infoCardIcons = ['groups', 'payments', 'fact_check', 'lock']
+
+    for (const iconName of [...catalogIcons, ...pageIcons, ...fitIcons, ...infoCardIcons]) {
+      expect(materialSymbolNames).toContain(iconName)
+    }
+  })
 })

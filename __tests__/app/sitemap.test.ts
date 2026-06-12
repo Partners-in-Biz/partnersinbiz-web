@@ -18,6 +18,10 @@ describe('public sitemap', () => {
         `${SITE.url}/book-a-call`,
         `${SITE.url}/faq`,
         `${SITE.url}/properties`,
+        `${SITE.url}/partner-with-us`,
+        `${SITE.url}/partner-with-us/ballito-regional-coupon-partner`,
+        `${SITE.url}/partner-with-us/athleet-club-growth`,
+        `${SITE.url}/partner-with-us/local-growth-scout`,
       ])
     )
     expect(urls).not.toContain(`${SITE.url}/products`)

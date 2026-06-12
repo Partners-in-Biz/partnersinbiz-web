@@ -1,4 +1,5 @@
 import type { ContextReference } from '@/lib/context-references/types'
+import type { AgentEffort, AgentModel } from '@/lib/agents/runRouting'
 
 export interface Attachment {
   id?: string
@@ -77,6 +78,8 @@ export interface Task {
   reviewStatus?: 'pending' | 'in-progress' | 'approved' | 'changes-requested' | null
   approvalStatus?: 'pending' | 'approved' | 'rejected' | 'denied' | null
   riskLevel?: 'low' | 'medium' | 'high' | 'critical'
+  agentEffort?: AgentEffort | null
+  agentModel?: AgentModel | null
   requiredCapability?: string | null
   requestedByAgentId?: AgentId | null
   approvalGateTaskId?: string | null

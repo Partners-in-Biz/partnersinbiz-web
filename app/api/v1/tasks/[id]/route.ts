@@ -11,6 +11,7 @@ import { withAuth } from '@/lib/api/auth'
 import { lastActorFrom } from '@/lib/api/actor'
 import { apiSuccess, apiError } from '@/lib/api/response'
 import { logActivity } from '@/lib/activity/log'
+import { cleanAgentEffort, cleanAgentModel, VALID_AGENT_EFFORTS, VALID_AGENT_MODELS } from '@/lib/agents/runRouting'
 import {
   VALID_TASK_STATUSES,
   VALID_TASK_PRIORITIES,
@@ -77,6 +78,8 @@ const UPDATABLE_FIELDS = [
   'agentStatus',
   'agentInput',
   'agentOutput',
+  'agentEffort',
+  'agentModel',
   'agentConversationId',
   'dependsOn',
 ] as const
@@ -124,6 +127,16 @@ export const PUT = withAuth('admin', async (req, user, context) => {
       return apiError(`Invalid agentStatus; expected one of ${VALID_AGENT_STATUSES.join(' | ')}`)
     }
   }
+  if (body.agentEffort !== undefined && body.agentEffort !== null && body.agentEffort !== '') {
+    if (!cleanAgentEffort(body.agentEffort)) {
+      return apiError(`Invalid agentEffort; expected one of ${VALID_AGENT_EFFORTS.join(' | ')}`)
+    }
+  }
+  if (body.agentModel !== undefined && body.agentModel !== null && body.agentModel !== '') {
+    if (!cleanAgentModel(body.agentModel)) {
+      return apiError(`Invalid agentModel; expected one of ${VALID_AGENT_MODELS.join(' | ')}`)
+    }
+  }
   if (body.agentInput !== undefined && body.agentInput !== null) {
     const ai = body.agentInput as Record<string, unknown>
     if (typeof ai !== 'object' || Array.isArray(ai) || typeof ai.spec !== 'string' || !ai.spec.trim()) {
@@ -143,6 +156,12 @@ export const PUT = withAuth('admin', async (req, user, context) => {
   const updates: Record<string, unknown> = {}
   for (const key of UPDATABLE_FIELDS) {
     if (body[key] !== undefined) updates[key] = body[key]
+  }
+  if (body.agentEffort !== undefined) {
+    updates.agentEffort = cleanAgentEffort(body.agentEffort) ?? null
+  }
+  if (body.agentModel !== undefined) {
+    updates.agentModel = cleanAgentModel(body.agentModel) ?? null
   }
 
   const relationshipInput = relationshipInputFrom(body)

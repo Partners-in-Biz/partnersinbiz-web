@@ -6,7 +6,7 @@ import type { AgentConfig } from './config'
 import { logger } from './logger'
 
 const POLL_INTERVAL_MS = 2_000
-const RUN_TIMEOUT_MS = 30 * 60 * 1_000
+const DEFAULT_RUN_TIMEOUT_MS = 90 * 60 * 1_000
 const MAX_NOT_FOUND_POLLS = 3
 
 const TERMINAL_STATUSES = new Set(['completed', 'failed', 'succeeded', 'success', 'error', 'cancelled', 'canceled'])
@@ -25,6 +25,13 @@ export interface TaskDispatchInput {
   spec: string
   context?: Record<string, unknown>
   constraints?: string[]
+  agentEffort?: string | null
+  agentModel?: string | null
+}
+
+function runTimeoutMs(): number {
+  const raw = Number(process.env.HERMES_RUN_TIMEOUT_MS)
+  return Number.isFinite(raw) && raw >= 5 * 60 * 1_000 ? raw : DEFAULT_RUN_TIMEOUT_MS
 }
 
 function joinUrl(base: string, path: string): string {
@@ -75,6 +82,8 @@ async function postRun(cfg: AgentConfig, input: TaskDispatchInput): Promise<{ ru
   const url = joinUrl(cfg.baseUrl, '/v1/runs')
   const body = {
     input: `[Task ${input.taskId}] ${input.spec}`,
+    ...(input.agentEffort ? { reasoning_effort: input.agentEffort } : {}),
+    ...(input.agentModel ? { model: input.agentModel } : {}),
     metadata: {
       taskId: input.taskId,
       orgId: input.orgId,
@@ -116,12 +125,13 @@ async function postRun(cfg: AgentConfig, input: TaskDispatchInput): Promise<{ ru
 
 async function pollRun(cfg: AgentConfig, runId: string, signal: { aborted: boolean }): Promise<Record<string, unknown>> {
   const url = joinUrl(cfg.baseUrl, `/v1/runs/${encodeURIComponent(runId)}`)
-  const deadline = Date.now() + RUN_TIMEOUT_MS
+  const timeoutMs = runTimeoutMs()
+  const deadline = Date.now() + timeoutMs
   let notFoundPolls = 0
 
   while (!signal.aborted) {
     if (Date.now() > deadline) {
-      throw new Error(`Hermes run ${runId} timed out after ${Math.round(RUN_TIMEOUT_MS / 1000)}s`)
+      throw new Error(`Hermes run ${runId} timed out after ${Math.round(timeoutMs / 1000)}s`)
     }
 
     let res: Response
