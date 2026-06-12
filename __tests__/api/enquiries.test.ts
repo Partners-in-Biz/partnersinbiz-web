@@ -179,6 +179,64 @@ describe('POST /api/enquiries', () => {
     }))
   })
 
+  it('stores the requested area for area-claim opportunities and tags the contact with it', async () => {
+    const req = makeRequest({
+      ...validBody,
+      projectType: 'partnership',
+      details: 'Opportunity: Local coupon platform — own your area (local-area-coupon-partner)',
+      interest: {
+        type: 'partner-opportunity',
+        opportunityId: 'local-area-coupon-partner',
+        opportunityTitle: 'Local coupon platform — own your area',
+        notes: 'I run the community Facebook group for the area.',
+        consent: true,
+        source: '/partner-with-us/local-area-coupon-partner',
+        requestedArea: 'Hartbeespoort & Schoemansville',
+      },
+    })
+
+    const res = await POST(req)
+
+    expect(res.status).toBe(201)
+    expect(mockEnquiriesAdd).toHaveBeenCalledWith(expect.objectContaining({
+      interest: expect.objectContaining({
+        opportunityId: 'local-area-coupon-partner',
+        requestedArea: 'Hartbeespoort & Schoemansville',
+      }),
+    }))
+    expect(mockContactsAdd).toHaveBeenCalledWith(expect.objectContaining({
+      tags: [
+        'enquiry',
+        'partner-opportunity',
+        'opportunity:local-area-coupon-partner',
+        'area:hartbeespoort-schoemansville',
+      ],
+      notes: expect.stringContaining('Requested area: Hartbeespoort & Schoemansville'),
+    }))
+  })
+
+  it('rejects an area-claim opportunity submission without a requested area', async () => {
+    const req = makeRequest({
+      ...validBody,
+      projectType: 'partnership',
+      details: 'Opportunity: Local coupon platform — own your area (local-area-coupon-partner)',
+      interest: {
+        type: 'partner-opportunity',
+        opportunityId: 'local-area-coupon-partner',
+        opportunityTitle: 'Local coupon platform — own your area',
+        notes: 'Interested.',
+        consent: true,
+        source: '/partner-with-us/local-area-coupon-partner',
+      },
+    })
+
+    const res = await POST(req)
+
+    expect(res.status).toBe(400)
+    const body = await res.json()
+    expect(body.error).toMatch(/area/i)
+  })
+
   it('rejects partner-opportunity interest without consent', async () => {
     const req = makeRequest({
       ...validBody,

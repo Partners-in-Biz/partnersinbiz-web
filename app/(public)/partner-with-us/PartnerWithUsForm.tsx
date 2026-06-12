@@ -27,6 +27,7 @@ const INPUT_CLASS =
   'rounded-xl border border-[var(--color-pib-line-strong)] bg-[var(--color-pib-surface)] px-4 py-3 text-[var(--color-pib-text)] outline-none transition placeholder:text-[var(--color-pib-text-faint)] focus:border-[var(--color-pib-accent)]'
 
 export default function PartnerWithUsForm({ opportunity = DEFAULT_OPPORTUNITY }: { opportunity?: SelectedOpportunity }) {
+  const claimPrompt = PARTNER_OPPORTUNITIES.find((entry) => entry.id === opportunity.id)?.claimPrompt
   const [status, setStatus] = useState<Status>('idle')
   const [error, setError] = useState('')
   const [form, setForm] = useState({
@@ -34,6 +35,7 @@ export default function PartnerWithUsForm({ opportunity = DEFAULT_OPPORTUNITY }:
     email: '',
     phone: '',
     companyLocation: '',
+    requestedArea: '',
     links: '',
     accessHandoff: ACCESS_HANDOFF_OPTIONS[0].value,
     notes: '',
@@ -54,6 +56,7 @@ export default function PartnerWithUsForm({ opportunity = DEFAULT_OPPORTUNITY }:
       email: form.email.trim(),
       phone: form.phone.trim(),
       companyLocation: form.companyLocation.trim(),
+      requestedArea: form.requestedArea.trim(),
       links: form.links.trim(),
       notes: form.notes.trim(),
     }
@@ -62,6 +65,7 @@ export default function PartnerWithUsForm({ opportunity = DEFAULT_OPPORTUNITY }:
       `Partner With Us interest`,
       `Opportunity: ${opportunity.title} (${opportunity.id})`,
       `Source page: ${opportunity.sourcePath}`,
+      normalized.requestedArea ? `Requested area: ${normalized.requestedArea}` : null,
       normalized.companyLocation ? `Company / location: ${normalized.companyLocation}` : null,
       normalized.phone ? `Phone / WhatsApp: ${normalized.phone}` : null,
       normalized.links ? `Useful links: ${normalized.links}` : null,
@@ -94,6 +98,7 @@ export default function PartnerWithUsForm({ opportunity = DEFAULT_OPPORTUNITY }:
             source: opportunity.sourcePath,
             links: normalized.links,
             accessHandoff: form.accessHandoff,
+            requestedArea: normalized.requestedArea,
           },
         }),
       })
@@ -118,8 +123,10 @@ export default function PartnerWithUsForm({ opportunity = DEFAULT_OPPORTUNITY }:
           Thanks — we’ll review this exact opportunity and come back to you.
         </h2>
         <p className="mt-4 text-sm leading-relaxed text-[var(--color-pib-text-muted)]">
-          We captured your interest in {opportunity.title}. If real login details are needed, we’ll arrange a secure
-          handoff instead of using this public form.
+          We captured your interest in {opportunity.title}
+          {form.requestedArea.trim() ? ` for ${form.requestedArea.trim()}` : ''}. We’ll check area availability and
+          fit, then come back to you. If real login details are needed, we’ll arrange a secure handoff instead of using
+          this public form.
         </p>
       </div>
     )
@@ -139,6 +146,16 @@ export default function PartnerWithUsForm({ opportunity = DEFAULT_OPPORTUNITY }:
           <Field label="Name" value={form.name} onChange={(value) => update('name', value)} required />
           <Field label="Email" type="email" value={form.email} onChange={(value) => update('email', value)} required />
         </div>
+
+        {claimPrompt && (
+          <Field
+            label={claimPrompt.label}
+            value={form.requestedArea}
+            onChange={(value) => update('requestedArea', value)}
+            placeholder={claimPrompt.placeholder}
+            required
+          />
+        )}
 
         <div className="grid gap-4 md:grid-cols-2">
           <Field label="Phone / WhatsApp optional" value={form.phone} onChange={(value) => update('phone', value)} />

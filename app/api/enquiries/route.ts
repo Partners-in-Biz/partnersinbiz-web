@@ -36,6 +36,7 @@ function normalizeInterest(value: unknown) {
     source: safeString(input.source, 300),
     links: safeString(input.links, 1000),
     accessHandoff: safeString(input.accessHandoff, 80),
+    requestedArea: safeString(input.requestedArea, 200),
   }
 }
 
@@ -107,6 +108,13 @@ export async function POST(request: NextRequest) {
       )
     }
     normalizedInterest.opportunityTitle = opportunity.title
+
+    if (opportunity.claimPrompt && !normalizedInterest.requestedArea) {
+      return NextResponse.json(
+        { error: 'Please specify the area you want to claim' },
+        { status: 400 }
+      )
+    }
   }
 
   const docRef = await adminDb.collection('enquiries').add({
@@ -126,11 +134,19 @@ export async function POST(request: NextRequest) {
 
   // Also create a CRM contact for this lead — scoped to the PIB platform org
   // (PIB-internal enquiries land in the platform-owner org's CRM).
+  const areaSlug = normalizedInterest?.requestedArea
+    ? normalizedInterest.requestedArea.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 60)
+    : ''
   const contactTags = normalizedInterest
-    ? ['enquiry', 'partner-opportunity', `opportunity:${normalizedInterest.opportunityId}`]
+    ? [
+        'enquiry',
+        'partner-opportunity',
+        `opportunity:${normalizedInterest.opportunityId}`,
+        ...(areaSlug ? [`area:${areaSlug}`] : []),
+      ]
     : ['enquiry']
   const contactNotes = normalizedInterest
-    ? `Enquiry ID: ${docRef.id}\nOpportunity: ${normalizedInterest.opportunityTitle} (${normalizedInterest.opportunityId})\nSource: ${normalizedInterest.source || 'Not provided'}\nAccess handoff: ${normalizedInterest.accessHandoff || 'Not provided'}`
+    ? `Enquiry ID: ${docRef.id}\nOpportunity: ${normalizedInterest.opportunityTitle} (${normalizedInterest.opportunityId})${normalizedInterest.requestedArea ? `\nRequested area: ${normalizedInterest.requestedArea}` : ''}\nSource: ${normalizedInterest.source || 'Not provided'}\nAccess handoff: ${normalizedInterest.accessHandoff || 'Not provided'}`
     : `Enquiry ID: ${docRef.id}`
 
   const contactRef = await adminDb.collection('contacts').add({

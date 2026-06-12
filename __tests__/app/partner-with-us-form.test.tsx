@@ -56,6 +56,7 @@ describe('PartnerWithUsForm', () => {
         source: '/partner-with-us/athleet-club-growth',
         links: 'https://example.com/club-profile',
         accessHandoff: 'demo_credentials',
+        requestedArea: '',
       },
     })
     expect(await screen.findByText(/Interest registered/i)).toBeInTheDocument()
