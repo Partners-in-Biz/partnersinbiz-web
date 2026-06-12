@@ -10,7 +10,7 @@ import PartnerWithUsForm from './PartnerWithUsForm'
 export const metadata: Metadata = {
   title: 'Partner with us | Real ventures, open for partners',
   description:
-    'Partner in the ventures we build and run: I am Ballito, Athleet, and our productized growth services. Bring a region, a sport network, or a client book — the products are live.',
+    'Partner in the ventures we build and run: claim your town on our area-exclusive coupon platform (I am Ballito is the live example), grow Athleet, or sell our growth services. The products are live.',
   alternates: { canonical: '/partner-with-us' },
   openGraph: {
     title: 'Partner with us — Partners in Biz ventures',
@@ -68,9 +68,9 @@ export default function PartnerWithUsPage() {
           </Reveal>
           <Reveal delay={160} eager>
             <p className="mt-8 max-w-2xl text-lg md:text-xl text-[var(--color-pib-text-muted)] text-pretty leading-snug">
-              Partners in Biz builds and operates its own products — a live local commerce platform, a sports club SaaS,
-              and a productized growth service. Each one has room for the right partner: businesses and individuals who
-              bring a region, a network, or a client book and want to share in what it grows into.
+              Partners in Biz builds and operates its own products — an area-exclusive local commerce platform, a sports
+              club SaaS, and a productized growth service. Each one has room for the right partner: businesses and
+              individuals who bring an area, a network, or a client book and want to share in what it grows into.
             </p>
           </Reveal>
           <Reveal delay={240} eager>
@@ -80,7 +80,7 @@ export default function PartnerWithUsPage() {
                 <span className="material-symbols-outlined text-base">arrow_downward</span>
               </a>
               <Link href={featured.href} prefetch={false} className="btn-pib-secondary">
-                Explore {featured.venture}
+                Claim your area
                 <span className="material-symbols-outlined text-base">arrow_outward</span>
               </Link>
             </div>

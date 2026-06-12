@@ -24,63 +24,73 @@ export type PartnerOpportunity = {
   reviewerAccess: string
   points: string[]
   nextSteps: string[]
+  claimPrompt?: {
+    label: string
+    placeholder: string
+  }
   href: string
 }
 
 export const PARTNER_OPPORTUNITIES: PartnerOpportunity[] = [
   {
-    id: 'ballito-regional-coupon-partner',
-    venture: 'I am Ballito',
-    title: 'I am Ballito — regional venture partner',
+    id: 'local-area-coupon-partner',
+    venture: 'I am [Your Town]',
+    title: 'Local coupon platform — own your area',
     eyebrow: 'Local commerce platform',
     icon: 'public',
-    tagline: 'Your Dolphin Coast, in your pocket.',
+    tagline: 'One area. One partner. That area is yours.',
     summary:
-      'A live, two-sided loyalty and coupon platform for Ballito and the Dolphin Coast. Locals install it in two taps, collect stamps that count across the whole town, and redeem coupons at the till. We are opening it to partners who can own merchant growth in a region — starting with Ballito, then town by town.',
+      'The platform behind I am Ballito — a two-sided loyalty and coupon app for a whole town — is open to partners area by area. Pick your town or region; if you are the first qualified partner to claim it, it is exclusively yours: your merchants, your community, your share of the growth. I am Ballito is the live example of what your area gets.',
     pitch:
-      'I am Ballito is a finished, live product — not an idea looking for funding. Locals and visitors install it straight from the browser (no app store), browse the businesses around them, save coupons, and collect stamps on one passport that works at every participating merchant: coffee on Monday, ice cream on Wednesday, both count. Businesses list themselves, run their own coupons and stamp cards, and redeem at the till with a phone or iPad — no hardware. The platform, billing, compliance, and admin layer are built and running. What it needs now is what software cannot do: someone who knows the town, can walk into real businesses, and can sign the first wave of merchants. That is the partnership — own a defined region and grow it.',
+      'I am Ballito is not the product — it is the first area. The product is a finished local commerce platform that can launch any town as “I am [Your Town]”: locals install it straight from the browser in two taps (no app store), collect stamps on one passport that works across every participating merchant, and redeem coupons at the till from a phone or iPad — no hardware. Merchants run their own offers; billing, compliance, admin, and editorial tooling are all built and running. We open exactly one partnership per area. Claim Ballito, Umhlanga, Hartbeespoort, Stellenbosch, or your own town, pass the fit review, and no one else can have it — you sign the merchants and own the local relationships, we run the platform behind you.',
     liveUrl: 'https://iam-ballito-pwa.vercel.app',
-    liveLabel: 'Browse the live app',
+    liveLabel: 'See the live example: I am Ballito',
     stats: [
-      { label: 'Status', value: 'Live and feature-complete' },
+      { label: 'Territory', value: 'Exclusive — one partner per area' },
+      { label: 'Live example', value: 'I am Ballito (Dolphin Coast)' },
       { label: 'Merchant plans', value: 'Free / R299 / R599 p.m.' },
       { label: 'Install', value: 'Two taps — no app store' },
-      { label: 'Compliance', value: 'POPIA by design' },
     ],
     whatsBuilt: [
+      'The whole platform launches per area under its own “I am [Your Town]” identity — same engine, your community, your brand presence.',
       'Installable PWA: two taps to the home screen on Android, a guided add on iPhone — no app store between us and a feature update.',
-      'Cross-merchant stamp passport: one loyalty card for the whole town, with rewards that stack across cafés, salons, restaurants, and shops.',
-      'Town-wide coupon feed with three till-side redemption mechanisms: rotating PIN/QR, scan-the-till QR, and cashier-scans-customer.',
+      'Cross-merchant stamp passport: one loyalty card for the whole area, with rewards that stack across cafés, salons, restaurants, and shops.',
+      'Area-wide coupon feed with three till-side redemption mechanisms: rotating PIN/QR, scan-the-till QR, and cashier-scans-customer.',
       'Full merchant self-service: listing editor, three-step coupon wizard, stamp cards, staff seats, and a redemption console that runs on any phone.',
       'Tiered subscriptions (Free, Pro R299/mo, Premium R599/mo) with Paystack billing and limits enforced on the server, not just in the UI.',
-      'Push campaigns, merchant analytics, a platform admin layer, and an editorial CMS publishing a weekly “What’s on in Ballito” digest.',
+      'Push campaigns, merchant analytics, a platform admin layer, and an editorial CMS publishing a weekly “What’s on” digest for your area.',
       'POPIA-compliant by default: unbundled consent at sign-up, an immutable consent ledger, and built-in data export and deletion.',
     ],
     partnerProfile:
-      'Regional operators, community connectors, local media owners, chamber and network members — people who can walk into real businesses and open a practical conversation. For new regions beyond Ballito: anyone who knows their town well enough to sign its first ten merchants.',
+      'Regional operators, community connectors, local media owners, chamber and network members — anyone who knows their town well enough to sign its first ten merchants. If you can open doors on your main road — cafés, salons, gyms, retailers — this is your lane.',
     whatYouDo: [
-      'Recruit and onboard merchants in a defined town or region.',
-      'Own the local relationships, offer quality, and coupon momentum.',
-      'Feed the editorial side with what is actually on in town.',
+      'Claim a defined town, suburb cluster, or region and recruit its merchants.',
+      'Own the local relationships, offer quality, and coupon momentum in your area.',
+      'Feed the editorial side with what is actually on in your town.',
     ],
     whatYouGet: [
+      'Exclusive rights to your area — once it is claimed and terms are agreed, we do not sign anyone else there.',
       'A finished platform to sell — no build cost, no app-store overhead, and updates that ship to every user instantly.',
-      'A share in your region’s merchant subscription growth, structured as a revenue-share once territory and responsibilities are agreed.',
+      'A share in your area’s merchant subscription growth, structured as a revenue-share once territory and responsibilities are agreed.',
       'Platform, billing, compliance, and support stay on us — you focus on merchants and community.',
     ],
     commercialModel:
-      'Revenue-share on regional merchant subscriptions, agreed after a fit review. We do not publish income promises on this page — terms follow region, responsibilities, and proof.',
+      'Exclusive area partnership with revenue-share on merchant subscriptions, agreed after a fit review. One partner per area — the first qualified claim secures it. We do not publish income promises on this page; terms follow area size, responsibilities, and proof.',
     proofNeeded:
-      'Area knowledge, merchant relationships, examples of local pages/groups/sites you can access, and any demo-only credentials where a reviewer needs to inspect a non-public asset.',
+      'The exact area you want to claim, your local knowledge and merchant relationships, examples of local pages/groups/sites you can access, and any demo-only credentials where a reviewer needs to inspect a non-public asset.',
     reviewerAccess:
       'Share public links freely. If a reviewer needs login access, provide demo credentials only or request a secure handoff. Do not paste real passwords into the public form.',
-    points: ['Own a defined region', 'Merchant acquisition', 'Share in subscription growth'],
+    points: ['Exclusive area rights', 'Merchant acquisition', 'Share in subscription growth'],
     nextSteps: [
-      'Register interest for the region you can cover',
-      'PiB reviews fit, conflicts, and territory',
-      'If promising, we agree terms and a protected handoff for demos or real access',
+      'Claim the exact area you want — town, suburb cluster, or region',
+      'We check availability and review fit; areas go to the first qualified partner',
+      'If the area is free and you are a fit, it is reserved for you while we agree terms',
     ],
-    href: '/partner-with-us/ballito-regional-coupon-partner',
+    claimPrompt: {
+      label: 'Area you want to claim',
+      placeholder: 'e.g. Umhlanga, Hartbeespoort, Stellenbosch — be specific',
+    },
+    href: '/partner-with-us/local-area-coupon-partner',
   },
   {
     id: 'athleet-club-growth',
