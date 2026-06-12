@@ -149,34 +149,57 @@ export async function POST(request: NextRequest) {
     ? `Enquiry ID: ${docRef.id}\nOpportunity: ${normalizedInterest.opportunityTitle} (${normalizedInterest.opportunityId})${normalizedInterest.requestedArea ? `\nRequested area: ${normalizedInterest.requestedArea}` : ''}\nSource: ${normalizedInterest.source || 'Not provided'}\nAccess handoff: ${normalizedInterest.accessHandoff || 'Not provided'}`
     : `Enquiry ID: ${docRef.id}`
 
-  const contactRef = await adminDb.collection('contacts').add({
-    orgId: PIB_PLATFORM_ORG_ID,
-    capturedFromId: '',
-    name: normalizedName,
-    email: normalizedEmail,
-    company: normalizedCompany,
-    phone: normalizedPhone,
-    website: normalizedWebsite,
-    source: 'form',
-    type: 'lead',
-    stage: 'new',
-    tags: contactTags,
-    notes: contactNotes,
-    assignedTo: '',
-    deleted: false,
-    subscribedAt: FieldValue.serverTimestamp(),
-    unsubscribedAt: null,
-    bouncedAt: null,
-    createdAt: FieldValue.serverTimestamp(),
-    updatedAt: FieldValue.serverTimestamp(),
-    lastContactedAt: null,
-  })
+  // Find-or-create: same orgId + email reuses the existing contact (matches
+  // the public-capture dedupe behaviour) so repeat submitters don't duplicate.
+  const existingSnap = await adminDb.collection('contacts')
+    .where('orgId', '==', PIB_PLATFORM_ORG_ID)
+    .where('email', '==', normalizedEmail)
+    .limit(1)
+    .get()
 
-  await fireTrigger('contact.created', {
-    orgId: PIB_PLATFORM_ORG_ID,
-    contactId: contactRef.id,
-    contactEmail: normalizedEmail,
-  })
+  if (!existingSnap.empty) {
+    const existingDoc = existingSnap.docs[0]
+    const existing = existingDoc.data() as { tags?: string[]; notes?: string; name?: string; phone?: string; company?: string; website?: string }
+    const mergedTags = Array.from(new Set([...(existing.tags ?? []), ...contactTags]))
+    await existingDoc.ref.update({
+      tags: mergedTags,
+      notes: existing.notes ? `${existing.notes}\n\n${contactNotes}` : contactNotes,
+      name: existing.name || normalizedName,
+      phone: existing.phone || normalizedPhone,
+      company: existing.company || normalizedCompany,
+      website: existing.website || normalizedWebsite,
+      updatedAt: FieldValue.serverTimestamp(),
+    })
+  } else {
+    const contactRef = await adminDb.collection('contacts').add({
+      orgId: PIB_PLATFORM_ORG_ID,
+      capturedFromId: '',
+      name: normalizedName,
+      email: normalizedEmail,
+      company: normalizedCompany,
+      phone: normalizedPhone,
+      website: normalizedWebsite,
+      source: 'form',
+      type: 'lead',
+      stage: 'new',
+      tags: contactTags,
+      notes: contactNotes,
+      assignedTo: '',
+      deleted: false,
+      subscribedAt: FieldValue.serverTimestamp(),
+      unsubscribedAt: null,
+      bouncedAt: null,
+      createdAt: FieldValue.serverTimestamp(),
+      updatedAt: FieldValue.serverTimestamp(),
+      lastContactedAt: null,
+    })
+
+    await fireTrigger('contact.created', {
+      orgId: PIB_PLATFORM_ORG_ID,
+      contactId: contactRef.id,
+      contactEmail: normalizedEmail,
+    })
+  }
 
   // Notification email — fire-and-forget; failure must not break form submission
   try {
