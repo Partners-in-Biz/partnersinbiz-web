@@ -16,6 +16,7 @@ import {
 import type { SocialPlatformType } from '@/lib/social/providers'
 import { hasFinalApproval } from '@/lib/social/scheduling'
 import { validatePublishReadyText } from '@/lib/social/publish-text'
+import { validateOutboundLinks } from '@/lib/social/outbound-link-validation'
 import crypto from 'crypto'
 
 /** Backoff schedule in seconds: 1min, 5min, 15min, 1hr */
@@ -167,6 +168,16 @@ export async function processQueue(): Promise<QueueProcessResult> {
       result.errors.push({ postId: entry.postId, error: message })
       continue
     }
+
+    const linkValidation = await validateOutboundLinks(publishText.text)
+    if (!linkValidation.valid) {
+      const message = linkValidation.errors.map(e => e.message).join('; ')
+      await failQueueEntry(lockRef, entry, message)
+      result.failed++
+      result.errors.push({ postId: entry.postId, error: message })
+      continue
+    }
+
     const text = publishText.text
 
     try {

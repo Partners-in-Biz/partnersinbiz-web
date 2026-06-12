@@ -16,6 +16,7 @@ import {
 import { logAudit } from '@/lib/social/audit'
 import { hasFinalApproval } from '@/lib/social/scheduling'
 import { validatePublishReadyText } from '@/lib/social/publish-text'
+import { validateOutboundLinks } from '@/lib/social/outbound-link-validation'
 
 export const dynamic = 'force-dynamic'
 
@@ -43,6 +44,12 @@ export const POST = withAuth('client', withTenant(async (_req: NextRequest, user
   if (!publishText.valid) {
     return apiError(`Post is not publish-ready: ${publishText.errors.map(e => e.message).join('; ')}`, 400)
   }
+
+  const linkValidation = await validateOutboundLinks(publishText.text)
+  if (!linkValidation.valid) {
+    return apiError(`Post is not publish-ready: ${linkValidation.errors.map(e => e.message).join('; ')}`, 400)
+  }
+
   const text = publishText.text
 
   const mediaUrls: string[] | undefined = Array.isArray(post.media) && post.media.length > 0

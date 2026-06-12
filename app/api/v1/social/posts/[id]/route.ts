@@ -9,6 +9,7 @@ import { withAuth } from '@/lib/api/auth'
 import { withTenant } from '@/lib/api/tenant'
 import { apiSuccess, apiError } from '@/lib/api/response'
 import { validatePostContent } from '@/lib/social/validation'
+import { validateOutboundLinks } from '@/lib/social/outbound-link-validation'
 import { logAudit } from '@/lib/social/audit'
 import { logActivity } from '@/lib/activity/log'
 import type { SocialPostCategory } from '@/lib/social/types'
@@ -145,6 +146,16 @@ export const PUT = withAuth('admin', withTenant(async (req, user, orgId, context
     }
     if (!(await hasActivePublishAccount(proposedPost, orgId))) {
       return apiError('Connect an active social account before scheduling this post', 400)
+    }
+
+    const proposedContentText = typeof proposedPost.content === 'string'
+      ? proposedPost.content
+      : proposedPost.content?.text
+    if (proposedContentText) {
+      const linkValidation = await validateOutboundLinks(proposedContentText)
+      if (!linkValidation.valid) {
+        return apiError(`Validation failed: ${linkValidation.errors.map(e => e.message).join('; ')}`, 400)
+      }
     }
   }
 
