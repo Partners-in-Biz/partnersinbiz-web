@@ -208,7 +208,7 @@ export const GET = withAuth('client', async (req, user) => {
         .filter((invoice) => !sharedOnly || Boolean(invoice.claimableRelationshipId))
         .sort((a, b) => createdAtMillis(b.createdAt) - createdAtMillis(a.createdAt))
         .slice(0, 50)
-      return apiSuccess(invoices)
+      return apiSuccess(invoices.map((invoice) => decorateInvoicePortalCapabilities(invoice, user)))
     }
     query = query.where(orgField, '==', requestedOrgId)
   } else {
@@ -248,7 +248,7 @@ export const GET = withAuth('client', async (req, user) => {
     .sort((a, b) => createdAtMillis(b.createdAt) - createdAtMillis(a.createdAt))
     .slice(0, 50)
 
-  return apiSuccess(invoices)
+  return apiSuccess(invoices.map((invoice) => decorateInvoicePortalCapabilities(invoice, user)))
 })
 
 export const POST = withAuth('client', async (req, user) => {

@@ -14,6 +14,7 @@ import { createFulfillmentForAcceptedQuote } from '@/lib/commerce/quote-fulfillm
 import type { Quote } from '@/lib/quotes/types'
 import type { MemberRef } from '@/lib/orgMembers/memberRef'
 import type { Contact } from '@/lib/crm/types'
+import { decorateQuotePortalCapabilities, sanitizeQuotePortalPatch } from '@/lib/billing/portal-permissions'
 
 async function deriveCompanyFromContact(contactId: string, orgId: string): Promise<{ companyId?: string; companyName?: string }> {
   try {
@@ -77,7 +78,7 @@ export const GET = withCrmAuth<RouteCtx>('viewer', async (_req, ctx, routeCtx) =
   const { id } = await routeCtx!.params
   const r = await loadQuote(id, ctx)
   if (!r.ok) return apiError(r.error, r.status)
-  return apiSuccess({ quote: { ...r.data, id } })
+  return apiSuccess({ quote: decorateQuotePortalCapabilities({ ...r.data, id }, r.access) })
 })
 
 // ---------------------------------------------------------------------------
@@ -105,15 +106,6 @@ async function handleQuoteUpdate(
   const before = r.data
   const sourceOrgId = before.sourceOrgId || before.orgId
   const recipientOrgId = before.recipientOrgId || before.targetOrgId
-  const recipientOnly = r.access === 'recipient'
-
-  if (recipientOnly) {
-    const requestedStatus = typeof body.status === 'string' ? body.status : ''
-    const onlyStatus = Object.keys(body).every((key) => key === 'status')
-    if (!onlyStatus || !['accepted', 'declined', 'rejected'].includes(requestedStatus)) {
-      return apiError('Recipients can only accept or decline received quotes', 403)
-    }
-  }
 
   // -------------------------------------------------------------------------
   // SPECIAL PATH: convert-to-invoice
@@ -208,8 +200,12 @@ async function handleQuoteUpdate(
   // REGULAR PATH: status update + other field updates
   // -------------------------------------------------------------------------
 
+  const sanitizedPatch = sanitizeQuotePortalPatch(r.access, before, body)
+  if (!sanitizedPatch.ok) return apiError(sanitizedPatch.error, sanitizedPatch.status)
+  const allowedBody = sanitizedPatch.patch
+
   // Empty-body guard: at least one editable field must be present
-  const hasEditable = EDITABLE_FIELDS.some((f) => body[f] !== undefined)
+  const hasEditable = Object.keys(allowedBody).length > 0
   if (!hasEditable) return apiError('No editable fields supplied', 400)
 
   const patch: Record<string, unknown> = {
@@ -224,27 +220,27 @@ async function handleQuoteUpdate(
 
   // Apply allowlisted editable fields from body
   for (const field of EDITABLE_FIELDS) {
-    if (body[field] !== undefined) {
-      patch[field] = body[field]
+    if (allowedBody[field] !== undefined) {
+      patch[field] = allowedBody[field]
     }
   }
 
   // Company association handling
   // Explicit clear: { companyId: '' } → remove both fields via FieldValue.delete()
-  if (typeof body.companyId === 'string' && body.companyId === '') {
+  if (typeof allowedBody.companyId === 'string' && allowedBody.companyId === '') {
     patch.companyId = FieldValue.delete()
     patch.companyName = FieldValue.delete()
-  } else if (typeof body.companyId === 'string' && body.companyId) {
+  } else if (typeof allowedBody.companyId === 'string' && allowedBody.companyId) {
     // Explicit set: validate and stamp companyName
-    const loaded = await loadCompany(body.companyId, sourceOrgId)
+    const loaded = await loadCompany(allowedBody.companyId, sourceOrgId)
     if (!loaded) return apiError('Invalid companyId', 400)
-    patch.companyId = body.companyId
-    patch.sourceCompanyId = body.companyId
+    patch.companyId = allowedBody.companyId
+    patch.sourceCompanyId = allowedBody.companyId
     patch.companyName = loaded.data.name
-  } else if (typeof body.contactId === 'string' && body.contactId && body.contactId !== before.contactId) {
+  } else if (typeof allowedBody.contactId === 'string' && allowedBody.contactId && allowedBody.contactId !== before.contactId) {
     // contactId changed: re-derive company from new contact
-    patch.sourceContactId = body.contactId
-    const derived = await deriveCompanyFromContact(body.contactId, sourceOrgId)
+    patch.sourceContactId = allowedBody.contactId
+    const derived = await deriveCompanyFromContact(allowedBody.contactId, sourceOrgId)
     if (derived.companyId) {
       patch.companyId = derived.companyId
       patch.sourceCompanyId = derived.companyId
@@ -253,7 +249,7 @@ async function handleQuoteUpdate(
   }
 
   const fromStatus = before.status
-  const toStatus = typeof body.status === 'string' ? body.status : undefined
+  const toStatus = typeof allowedBody.status === 'string' ? allowedBody.status : undefined
   const statusChanged = toStatus !== undefined && toStatus !== fromStatus
 
   // Side effects on status transitions

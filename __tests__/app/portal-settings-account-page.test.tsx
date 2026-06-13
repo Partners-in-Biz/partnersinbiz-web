@@ -33,6 +33,17 @@ describe('Portal account settings page', () => {
     expect(within(commandCenter).getByText('Password recovery ready')).toBeInTheDocument()
     expect(within(commandCenter).getAllByText('Workspace independent')).toHaveLength(2)
     expect(within(commandCenter).getByText(/hello@partnersinbiz\.online/)).toBeInTheDocument()
+    expect(within(commandCenter).getByTestId('account-readiness-login-email')).toHaveClass('pib-stat-card')
+    expect(within(commandCenter).getByTestId('account-readiness-recovery')).toHaveClass('pib-stat-card')
+    expect(within(commandCenter).getByTestId('account-readiness-scope')).toHaveClass('pib-stat-card')
+  })
+
+  it('uses shared PiB section and button primitives for credential controls', () => {
+    render(<AccountSettingsPage />)
+
+    expect(screen.getByTestId('account-login-panel')).toHaveClass('pib-card-section')
+    expect(screen.getByTestId('account-password-panel')).toHaveClass('pib-card-section')
+    expect(screen.getByRole('button', { name: 'Send password reset email' })).toHaveClass('pib-btn-primary')
   })
 
   it('sends password reset email through Firebase auth', async () => {

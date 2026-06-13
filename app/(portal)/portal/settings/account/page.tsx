@@ -6,12 +6,22 @@ import { useState } from 'react'
 import { sendPasswordResetEmail } from 'firebase/auth'
 import { getClientAuth } from '@/lib/firebase/config'
 
-function SecurityMetric({ label, value, detail }: { label: string; value: string; detail: string }) {
+function SecurityMetric({
+  label,
+  value,
+  detail,
+  testId,
+}: {
+  label: string
+  value: string
+  detail: string
+  testId: string
+}) {
   return (
-    <div className="rounded-lg border border-[var(--color-pib-border)] bg-[var(--color-pib-surface-soft)] p-4">
-      <p className="text-sm font-semibold text-[var(--color-pib-text)]">{value}</p>
-      <p className="mt-1 text-[10px] font-mono uppercase tracking-widest text-[var(--color-pib-text-muted)]">{label}</p>
-      <p className="mt-3 text-xs leading-5 text-[var(--color-pib-text-muted)]">{detail}</p>
+    <div data-testid={testId} className="pib-stat-card min-w-0 space-y-2 p-4">
+      <p className="truncate text-sm font-semibold text-[var(--color-pib-text)]" title={value}>{value}</p>
+      <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">{label}</p>
+      <p className="text-xs leading-5 text-[var(--color-pib-text-muted)]">{detail}</p>
     </div>
   )
 }
@@ -64,23 +74,26 @@ export default function AccountSettingsPage() {
                 This is the personal credential layer behind CRM ownership, approvals, billing reviews, and client conversations.
               </p>
             </div>
-            <div className="rounded-lg border border-[var(--color-pib-border)] bg-[var(--color-pib-surface-soft)] px-4 py-3 text-sm text-[var(--color-pib-text-muted)]">
+            <div className="pib-card-section px-4 py-3 text-sm text-[var(--color-pib-text-muted)]">
               Workspace independent
             </div>
           </div>
 
           <div className="grid gap-3 md:grid-cols-3">
             <SecurityMetric
+              testId="account-readiness-login-email"
               label="Login email"
               value={loginStatus}
               detail={`${emailDisplay} is the account identity used for portal access and CRM attribution.`}
             />
             <SecurityMetric
+              testId="account-readiness-recovery"
               label="Recovery"
               value={recoveryStatus}
               detail={email ? 'Password reset can be triggered without changing workspace data.' : 'Add a login email before password recovery can be sent.'}
             />
             <SecurityMetric
+              testId="account-readiness-scope"
               label="Scope"
               value="Workspace independent"
               detail="Credential changes stay separate from company workspaces, CRM records, and client data."
@@ -90,44 +103,50 @@ export default function AccountSettingsPage() {
       </section>
 
       <div className="grid gap-5 lg:grid-cols-2">
-        <section className="pib-card space-y-3">
-          <div>
-            <p className="eyebrow !text-[10px]">Login identity</p>
-            <h2 className="mt-2 text-lg font-semibold text-[var(--color-pib-text)]">Login email</h2>
+        <section data-testid="account-login-panel" className="pib-card-section">
+          <div className="pib-card-section-header">
+            <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Login identity</p>
           </div>
-          <div className="rounded-lg border border-[var(--color-pib-border)] bg-[var(--color-pib-surface-soft)] p-4">
-            <p className="break-all text-sm font-medium text-[var(--color-pib-text)]">{emailDisplay}</p>
-            <p className="mt-2 text-xs leading-5 text-[var(--color-pib-text-muted)]">
-              Read-only. Managed by your account provider so CRM ownership remains tied to a verified identity.
-            </p>
+          <div className="space-y-3 p-5">
+            <h2 className="text-lg font-semibold text-[var(--color-pib-text)]">Login email</h2>
+            <div className="pib-stat-card min-w-0 space-y-2 p-4">
+              <p className="truncate text-sm font-semibold text-[var(--color-pib-text)]" title={emailDisplay}>{emailDisplay}</p>
+              <p className="text-xs leading-5 text-[var(--color-pib-text-muted)]">
+                Read-only. Managed by your account provider so CRM ownership remains tied to a verified identity.
+              </p>
+            </div>
           </div>
         </section>
 
-        <section className="pib-card space-y-4">
-          <div>
-            <p className="eyebrow !text-[10px]">Credential recovery</p>
-            <h2 className="mt-2 text-lg font-semibold text-[var(--color-pib-text)]">Password</h2>
-            <p className="mt-2 text-sm text-[var(--color-pib-text-muted)]">
-              Send a reset link when account ownership needs to be recovered without changing any CRM workspace settings.
-            </p>
+        <section data-testid="account-password-panel" className="pib-card-section">
+          <div className="pib-card-section-header">
+            <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Credential recovery</p>
           </div>
-          {resetSent ? (
-            <p className="rounded-lg border border-[var(--color-pib-border)] bg-[var(--color-pib-surface-soft)] p-4 text-sm text-[var(--color-pib-accent)]">
-              Password reset email sent to {email}.
-            </p>
-          ) : (
-            <>
-              <button
-                type="button"
-                onClick={handlePasswordReset}
-                disabled={resetting || !email}
-                className="inline-flex w-full items-center justify-center rounded-lg border border-[var(--color-pib-border)] bg-[var(--color-pib-accent)] px-4 py-3 text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
-              >
-                {resetting ? 'Sending...' : 'Send password reset email'}
-              </button>
-              {resetError && <p className="text-xs text-red-400 mt-1">{resetError}</p>}
-            </>
-          )}
+          <div className="space-y-4 p-5">
+            <div>
+              <h2 className="text-lg font-semibold text-[var(--color-pib-text)]">Password</h2>
+              <p className="mt-2 text-sm text-[var(--color-pib-text-muted)]">
+                Send a reset link when account ownership needs to be recovered without changing any CRM workspace settings.
+              </p>
+            </div>
+            {resetSent ? (
+              <p className="pib-card-section p-4 text-sm text-[var(--color-pib-accent)]" role="status">
+                Password reset email sent to {email}.
+              </p>
+            ) : (
+              <>
+                <button
+                  type="button"
+                  onClick={handlePasswordReset}
+                  disabled={resetting || !email}
+                  className="pib-btn-primary w-full justify-center disabled:opacity-60 sm:w-auto"
+                >
+                  {resetting ? 'Sending...' : 'Send password reset email'}
+                </button>
+                {resetError && <p className="text-xs text-red-400 mt-1" role="alert">{resetError}</p>}
+              </>
+            )}
+          </div>
         </section>
       </div>
     </div>

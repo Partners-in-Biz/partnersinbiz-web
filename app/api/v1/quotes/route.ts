@@ -15,6 +15,7 @@ import {
 import type { Quote } from '@/lib/quotes/types'
 import type { Contact, DealLineItem } from '@/lib/crm/types'
 import type { LineItem } from '@/lib/invoices/types'
+import { decorateQuotePortalCapabilities, type QuoteAccessKind } from '@/lib/billing/portal-permissions'
 
 async function deriveCompanyFromContact(contactId: string, orgId: string): Promise<{ companyId?: string; companyName?: string }> {
   try {
@@ -69,6 +70,15 @@ function ctxCanAccessOrg(ctx: CrmAuthContext, orgId: string): boolean {
     orgId: ctx.user.orgId,
     allowedOrgIds: ctx.user.allowedOrgIds,
   }, orgId)
+}
+
+function accessForQuoteInContext(ctx: CrmAuthContext, quote: Quote): QuoteAccessKind {
+  const sourceOrgId = quote.sourceOrgId || quote.orgId
+  const recipientOrgId = quote.recipientOrgId || quote.targetOrgId
+  if (sourceOrgId && ctxCanAccessOrg(ctx, sourceOrgId)) return 'sender'
+  if (recipientOrgId && ctxCanAccessOrg(ctx, recipientOrgId)) return 'recipient'
+  if (!quote.sourceOrgId && !quote.recipientOrgId && quote.orgId && ctxCanAccessOrg(ctx, quote.orgId)) return 'legacy'
+  return null
 }
 
 async function getOrgData(orgId: string): Promise<Record<string, unknown> | null> {
@@ -133,7 +143,9 @@ export const GET = withCrmAuth('viewer', async (req: NextRequest, ctx) => {
     .sort((a, b) => createdAtMillis(b.createdAt ?? b.issueDate) - createdAtMillis(a.createdAt ?? a.issueDate))
     .slice(0, 50)
 
-  return apiSuccess({ quotes })
+  return apiSuccess({
+    quotes: quotes.map((quote) => decorateQuotePortalCapabilities(quote, accessForQuoteInContext(ctx, quote))),
+  })
 })
 
 /** Map DealLineItem[] → quote LineItem[] */
