@@ -34,11 +34,11 @@ export async function GET(req: NextRequest) {
     // Handle platform-side errors
     if (error) {
       const errorDesc = url.searchParams.get('error_description') ?? error
-      return NextResponse.redirect(new URL(`${redirectUrl}?status=error&message=${encodeURIComponent(errorDesc)}`, url.origin))
+      return NextResponse.redirect(new URL(buildOAuthRedirectPath(redirectUrl, { status: 'error', message: errorDesc }), url.origin))
     }
 
     if (!code || !stateToken) {
-      return NextResponse.redirect(new URL(`${redirectUrl}?status=error&message=Missing+code+or+state`, url.origin))
+      return NextResponse.redirect(new URL(buildOAuthRedirectPath(redirectUrl, { status: 'error', message: 'Missing code or state' }), url.origin))
     }
 
     // Decode and verify state
