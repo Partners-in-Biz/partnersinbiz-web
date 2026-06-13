@@ -50,6 +50,7 @@ export async function loadGeoSeoWorkspaces(orgId?: string | null): Promise<GeoSe
   if (orgId) query = query.where('orgId', '==', orgId)
   const snap = await query.get()
   return snap.docs
+    .filter((doc) => doc.data().deleted !== true)
     .map((doc) => mapGeoSeoWorkspace(doc.id, doc.data()))
     .sort((a, b) => (b.lastAuditAt || '').localeCompare(a.lastAuditAt || ''))
 }

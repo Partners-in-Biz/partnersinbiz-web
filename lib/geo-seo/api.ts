@@ -245,10 +245,7 @@ async function createLinkedSeoTask(args: {
     return apiError('GEO findings may bridge to SEO Sprint Manager only for classic SEO remediation criteria: rankings, clicks, impressions, keyword movement, organic traffic, technical crawlability, indexability, GSC/Bing/PageSpeed, or backlink execution.', 400)
   }
   const bridge = seoBridgeSource(args.body)
-  const sprintId = cleanString(fieldFrom(bridge, 'seoSprintId'))
-    || cleanString(args.body.seoSprintId)
-    || cleanString(args.body.linkedSeoSprintId)
-    || cleanString(args.workspace?.linkedSeoSprintId)
+  const sprintId = resolveSeoSprintId(args.body, args.workspace)
   if (!sprintId) return apiError('seoSprintId is required when bridgeToSeoSprint is requested for a GEO finding', 400)
   const sprintSnap = await adminDb.collection('seo_sprints').doc(sprintId).get()
   if (!sprintSnap.exists) return apiError('Linked SEO sprint not found', 404)
@@ -297,6 +294,104 @@ async function validateProjectTaskTarget(projectId: string, orgId: string) {
   return null
 }
 
+function resolveSeoSprintId(body: Record<string, unknown>, workspace?: Record<string, unknown> | null): string {
+  const bridge = seoBridgeSource(body)
+  return cleanString(fieldFrom(bridge, 'seoSprintId'))
+    || cleanString(body.seoSprintId)
+    || cleanString(body.linkedSeoSprintId)
+    || cleanString(workspace?.linkedSeoSprintId)
+}
+
+function resolveProjectTaskProjectId(body: Record<string, unknown>, workspace?: Record<string, unknown> | null): string {
+  const taskInput = projectTaskSource(body)
+  return cleanString(fieldFrom(taskInput, 'projectId'))
+    || cleanString(body.projectId)
+    || cleanString(workspace?.projectId)
+}
+
+async function validateSeoBridgeTarget(body: Record<string, unknown>, orgId: string, workspace?: Record<string, unknown> | null) {
+  if (!requestedSeoBridge(body)) return null
+  if (!classicSeoBridgeCriteria(body)) {
+    return apiError('GEO findings may bridge to SEO Sprint Manager only for classic SEO remediation criteria: rankings, clicks, impressions, keyword movement, organic traffic, technical crawlability, indexability, GSC/Bing/PageSpeed, or backlink execution.', 400)
+  }
+  const sprintId = resolveSeoSprintId(body, workspace)
+  if (!sprintId) return apiError('seoSprintId is required when bridgeToSeoSprint is requested for a GEO finding', 400)
+  const sprintSnap = await adminDb.collection('seo_sprints').doc(sprintId).get()
+  if (!sprintSnap.exists) return apiError('Linked SEO sprint not found', 404)
+  const sprint = sprintSnap.data() ?? {}
+  if (sprint.orgId !== orgId || sprint.deleted === true) return apiError('Linked SEO sprint not found', 404)
+  return null
+}
+
+async function validateProjectTaskHandoff(args: {
+  body: Record<string, unknown>
+  orgId: string
+  findingId: string
+  workspace?: Record<string, unknown> | null
+  linkedSeoTaskId?: string | null
+}) {
+  if (!requestedProjectTask(args.body)) return null
+  const projectId = resolveProjectTaskProjectId(args.body, args.workspace)
+  if (!projectId) return apiError('projectId is required when createProjectTask is requested for a GEO finding', 400)
+  const projectTargetError = await validateProjectTaskTarget(projectId, args.orgId)
+  if (projectTargetError) return projectTargetError
+
+  const taskInput = projectTaskSource(args.body)
+  const linkage = sourceLinkage(args.body, args.findingId, args.workspace)
+  const title = cleanString(fieldFrom(taskInput, 'title')) || cleanString(args.body.title) || `Resolve GEO finding ${args.findingId}`
+  const description = cleanString(fieldFrom(taskInput, 'description'))
+    || cleanString(args.body.recommendation)
+    || cleanString(args.body.description)
+    || 'Resolve the linked GEO SEO finding and attach evidence.'
+  const existingAgentInput = isPlainRecord(fieldFrom(taskInput, 'agentInput'))
+    ? fieldFrom(taskInput, 'agentInput') as Record<string, unknown>
+    : {}
+  const existingContext = isPlainRecord(existingAgentInput.context) ? existingAgentInput.context : {}
+  const built = buildProjectTaskCreateData({
+    ...taskInput,
+    ...linkage,
+    title,
+    description,
+    priority: cleanString(fieldFrom(taskInput, 'priority')) || cleanString(args.body.priority) || 'medium',
+    labels: Array.from(new Set([
+      'geo-seo',
+      'geo-finding',
+      ...cleanStringList(fieldFrom(taskInput, 'labels')),
+    ])),
+    assigneeAgentId: cleanString(fieldFrom(taskInput, 'assigneeAgentId')) || cleanString(args.body.assigneeAgentId) || 'seo',
+    reviewerAgentId: cleanString(fieldFrom(taskInput, 'reviewerAgentId')) || linkage.reviewerAgentId || 'qa-release',
+    riskLevel: cleanString(fieldFrom(taskInput, 'riskLevel')) || cleanString(linkage.riskLevel) || 'medium',
+    requiredCapability: cleanString(fieldFrom(taskInput, 'requiredCapability')) || cleanString(linkage.requiredCapability) || 'geo_seo',
+    expectedArtifacts: cleanStringList(fieldFrom(taskInput, 'expectedArtifacts')).length
+      ? cleanStringList(fieldFrom(taskInput, 'expectedArtifacts'))
+      : (Array.isArray(linkage.expectedArtifacts) ? linkage.expectedArtifacts : ['geo_record_update', 'evidence_link', 'completion_note']),
+    ...(args.linkedSeoTaskId ? { linkedSeoTaskId: args.linkedSeoTaskId, seoTaskId: args.linkedSeoTaskId } : {}),
+    agentInput: {
+      ...existingAgentInput,
+      spec: cleanString(existingAgentInput.spec) || description,
+      context: {
+        ...existingContext,
+        ...linkage,
+        ...(args.linkedSeoTaskId ? { linkedSeoTaskId: args.linkedSeoTaskId, seoTaskId: args.linkedSeoTaskId } : {}),
+      },
+    },
+  }, projectId, args.orgId)
+  return built.ok ? null : apiError(built.error, built.status ?? 400)
+}
+
+async function validateGeoFindingSideEffects(args: {
+  body: Record<string, unknown>
+  orgId: string
+  findingId: string
+  workspace?: Record<string, unknown> | null
+}) {
+  const seoBridgeError = await validateSeoBridgeTarget(args.body, args.orgId, args.workspace)
+  if (seoBridgeError) return seoBridgeError
+  const projectTaskError = await validateProjectTaskHandoff(args)
+  if (projectTaskError) return projectTaskError
+  return null
+}
+
 async function createLinkedProjectTask(args: {
   body: Record<string, unknown>
   orgId: string
@@ -308,9 +403,7 @@ async function createLinkedProjectTask(args: {
 }): Promise<string | null | Response> {
   if (!requestedProjectTask(args.body)) return null
   const taskInput = projectTaskSource(args.body)
-  const projectId = cleanString(fieldFrom(taskInput, 'projectId'))
-    || cleanString(args.body.projectId)
-    || cleanString(args.workspace?.projectId)
+  const projectId = resolveProjectTaskProjectId(args.body, args.workspace)
   if (!projectId) return apiError('projectId is required when createProjectTask is requested for a GEO finding', 400)
   const projectTargetError = await validateProjectTaskTarget(projectId, args.orgId)
   if (projectTargetError) return projectTargetError
@@ -432,21 +525,32 @@ export function createGeoSeoCollectionHandlers(config: GeoSeoCollectionConfig) {
     const missing = validateRequired(body, config.required)
     if (missing) return apiError(missing, 400)
 
-    const workspace = config.collection === 'geo_findings' ? await workspaceFor(body, org.orgId) : null
-    const seoBridgePreflight = config.collection === 'geo_findings' && requestedSeoBridge(body) && !classicSeoBridgeCriteria(body)
-    if (seoBridgePreflight) {
-      return apiError('GEO findings may bridge to SEO Sprint Manager only for classic SEO remediation criteria: rankings, clicks, impressions, keyword movement, organic traffic, technical crawlability, indexability, GSC/Bing/PageSpeed, or backlink execution.', 400)
-    }
-
     const payload = payloadFor(config, body)
-    const ref = await adminDb.collection(config.collection).add({
-      ...payload,
-      orgId: org.orgId,
-      deleted: false,
-      createdAt: FieldValue.serverTimestamp(),
-      updatedAt: FieldValue.serverTimestamp(),
-      ...actorFrom(user),
-    })
+    const workspace = config.collection === 'geo_findings' ? await workspaceFor(body, org.orgId) : null
+    const collection = adminDb.collection(config.collection)
+    let ref: FirebaseFirestore.DocumentReference
+    if (config.collection === 'geo_findings') {
+      ref = collection.doc()
+      const sideEffectError = await validateGeoFindingSideEffects({ body, orgId: org.orgId, findingId: ref.id, workspace })
+      if (sideEffectError) return sideEffectError
+      await ref.set({
+        ...payload,
+        orgId: org.orgId,
+        deleted: false,
+        createdAt: FieldValue.serverTimestamp(),
+        updatedAt: FieldValue.serverTimestamp(),
+        ...actorFrom(user),
+      })
+    } else {
+      ref = await collection.add({
+        ...payload,
+        orgId: org.orgId,
+        deleted: false,
+        createdAt: FieldValue.serverTimestamp(),
+        updatedAt: FieldValue.serverTimestamp(),
+        ...actorFrom(user),
+      })
+    }
 
     let linkedSeoTaskId: string | null = null
     let projectTaskId: string | null = null

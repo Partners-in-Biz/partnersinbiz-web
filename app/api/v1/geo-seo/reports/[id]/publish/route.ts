@@ -1,9 +1,9 @@
 import { NextRequest } from 'next/server'
 
 import { withAuth } from '@/lib/api/auth'
-import { resolveOrgScope } from '@/lib/api/orgScope'
 import { apiError, apiSuccess } from '@/lib/api/response'
 import type { ApiUser } from '@/lib/api/types'
+import { resolveStrictGeoOrg } from '@/lib/geo-seo/api'
 import { publishGeoReport } from '@/lib/geo-seo/reports'
 
 export const dynamic = 'force-dynamic'
@@ -15,15 +15,12 @@ export const POST = withAuth('admin', async (req: NextRequest, user: ApiUser, ct
   const body = await req.json().catch(() => ({}))
   if (!body || typeof body !== 'object' || Array.isArray(body)) return apiError('Invalid JSON', 400)
 
-  const requestedOrgId = typeof body.orgId === 'string'
-    ? body.orgId
-    : req.headers.get('X-Org-Id')
-  const scope = resolveOrgScope(user, requestedOrgId)
-  if (!scope.ok) return apiError(scope.error, scope.status)
+  const org = resolveStrictGeoOrg(req, user, body as Record<string, unknown>)
+  if (org.ok === false) return org.response
 
   const result = await publishGeoReport({
     reportId: id,
-    orgId: scope.orgId,
+    orgId: org.orgId,
     approvalEvidenceId: typeof body.approvalEvidenceId === 'string' ? body.approvalEvidenceId : undefined,
     approvedBy: typeof body.approvedBy === 'string' ? body.approvedBy : undefined,
     user,

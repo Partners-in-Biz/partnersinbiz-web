@@ -176,6 +176,8 @@ describe('GEO SEO namespace tenant-safe record APIs', () => {
       })
       .mockResolvedValueOnce({ exists: true, id: 'sprint-1', data: () => ({ orgId: 'pib-platform-owner', deleted: false }) })
       .mockResolvedValueOnce({ exists: true, id: 'project-1', data: () => ({ orgId: 'pib-platform-owner', deleted: false }) })
+      .mockResolvedValueOnce({ exists: true, id: 'sprint-1', data: () => ({ orgId: 'pib-platform-owner', deleted: false }) })
+      .mockResolvedValueOnce({ exists: true, id: 'project-1', data: () => ({ orgId: 'pib-platform-owner', deleted: false }) })
     const { POST } = await import('@/app/api/v1/geo-seo/findings/route')
 
     const res = await POST(new NextRequest('http://localhost/api/v1/geo-seo/findings', {
@@ -195,14 +197,14 @@ describe('GEO SEO namespace tenant-safe record APIs', () => {
     const body = await res.json()
 
     expect(res.status).toBe(201)
-    expect(body.data).toEqual({ id: 'created-1', linkedSeoTaskId: 'doc-1', projectTaskId: 'project-task-1' })
+    expect(body.data).toEqual({ id: 'doc-1', linkedSeoTaskId: 'doc-1', projectTaskId: 'project-task-1' })
     expect(mockCollection).toHaveBeenCalledWith('seo_tasks')
     expect(mockCollection).toHaveBeenCalledWith('projects')
     expect(mockSet).toHaveBeenCalledWith(expect.objectContaining({
       source: 'geo_finding',
       geoWorkspaceId: 'ws-1',
       geoAuditId: 'audit-1',
-      geoFindingId: 'created-1',
+      geoFindingId: 'doc-1',
       sourceDocumentId: 'doc-1',
       sourceDocumentSectionId: 'workspace-bridge-section',
       sourceSpecVersion: 'v1',
@@ -218,7 +220,7 @@ describe('GEO SEO namespace tenant-safe record APIs', () => {
       reviewerAgentId: 'qa-release',
       geoWorkspaceId: 'ws-1',
       geoAuditId: 'audit-1',
-      geoFindingId: 'created-1',
+      geoFindingId: 'doc-1',
       seoTaskId: 'doc-1',
       linkedSeoTaskId: 'doc-1',
       sourceDocumentId: 'doc-1',
@@ -278,6 +280,7 @@ describe('GEO SEO namespace tenant-safe record APIs', () => {
     expect(body.error).toMatch(/Project not found/)
     expect(mockSubCollection).not.toHaveBeenCalledWith('tasks')
     expect(mockSet).not.toHaveBeenCalled()
+    expect(mockAdd).not.toHaveBeenCalled()
   })
 
   it('enforces tenant ownership when reading and updating individual GEO records', async () => {
