@@ -25,6 +25,8 @@ description: >
   "webhook delivery", "webhook history", "test webhook", "replay failed webhook",
   "disable webhook", "agent manifest", "agent skills", "agent skill policy",
   "Hermes profile", "Hermes run", "Hermes job", "agent logs", "agent files",
+  "loop engine", "self-improvement loop", "agent evolution review",
+  "business insight review", "proactive insight", "loop run telemetry",
   "what can the agent do", "leave a comment",
   "@mention teammate", "activity feed", "audit log", "recent activity", "platform users",
   "add staff", "invite admin", "super admin", "allowedOrgIds", "restrict admin access",
@@ -247,6 +249,40 @@ Briefings aggregate current account/project/CRM/document/social/support signals 
 
 Recent guardrail: urgent `task.agent_done` notification cards can be review work even when the task is already done. Inspect the source task state before calling something blocked; for project tasks, `columnId=done`, `agentStatus=done`, and `reviewStatus=approved` means the action is review/open-source, not unblock.
 
+### Loop Engine self-improvement and business insight review
+
+Use this section when Peet asks whether the agents are self-improving, whether the system is being proactive, or whether business insight gaps are being surfaced.
+
+The active review loops are:
+
+- `agent-evolution-review` — turns repeated agent blockers, rework, stale instructions, and review failures into evidence-backed learning proposals.
+- `business-insight-review` — turns commercial, operational, and data-quality signals into internal insight cards/tasks before Peet has to inspect every workstream manually.
+
+Loop Engine routes:
+
+| Method | Path | Auth | Use |
+|---|---|---|---|
+| POST | `/admin/loop-engine/evaluate` | admin/ai | Evaluate a loop manually. Use dry-run first; set `persist` and `persistReviewTasks` only when review task creation is intended. |
+| GET | `/admin/loop-engine/runs` | admin/ai | List recent org-scoped `loop_engine_runs`; use these records as evidence for candidates, actions, telemetry, and skipped reasons. |
+| POST | `/projects/[projectId]/tasks/[taskId]/business-insight-action` | client/admin/ai with project access | Convert an approved `business-insight-review` task into tracked internal action work. |
+| GET | `/api/cron/loop-review` | cron/admin | Scheduled loop-review worker; persists `loop_engine_runs` and conservative review task drafts. |
+
+Business insight signal sources include CRM contacts/deals, capture sources, SEO sprints, ad campaigns, social posts/inbox, invoices, support tickets, reports, projects, agent outputs, previous `loop_engine_runs`, and client document review state.
+
+Client document business metrics are:
+
+- `client_documents_waiting_for_review` — `client_review` documents older than 7 days.
+- `client_documents_changes_requested` — documents currently in `changes_requested`.
+- `client_documents_blocking_publish_assumptions` — documents with open `blocks_publish` assumptions.
+
+Guardrails:
+
+- These loops may read, draft, create internal tasks, and report. They must not automatically rewrite skills/wiki/prompts/runtime config, message clients, publish content, change spend, approve finance, or change client-visible document access.
+- Preserve approval gates from the loop registry: `human-review`, `client-visible`, `public-publishing`, `paid-spend`, and `finance`.
+- Exact agent model/token/cost/duration evidence must come from existing task/run telemetry. Never estimate token/cost numbers; when telemetry is absent, record a tooling-gap instead of inventing data.
+- Agent learning proposals need source task/run ids, repeated pattern counts, reviewer context, proposed instruction change, and validation plan before any skill or wiki update.
+- Business insight proposals need source item ids, metric snapshot, opportunity/risk hypothesis, owner, recommended next action, and approval requirement.
+
 ### Platform utility and cron routes
 
 These routes are cross-cutting infrastructure. Use them for platform health, setup, session-safe public metadata, push-token registration, and scheduled workers.
@@ -275,6 +311,7 @@ Current cron routes:
 | GET | `/api/cron/conversation-runs` | Unified chat/Hermes run finalization. |
 | GET | `/api/cron/crm-integrations` | CRM integration syncs. |
 | GET | `/api/cron/integrations` | Generic property/integration dispatch. |
+| GET | `/api/cron/loop-review` | Scheduled agent-evolution and business-insight review loop. |
 | GET | `/api/cron/project-playbooks` | Scheduled project playbook jobs. |
 | GET | `/api/cron/reports` | Scheduled report generation/sending. |
 | GET | `/api/cron/seo-daily` | SEO daily loop. |

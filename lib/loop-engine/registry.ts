@@ -290,7 +290,7 @@ export const LOOP_REGISTRY: LoopRegistryEntry[] = [
       kind: 'cron',
       description: 'Daily or weekly review of commercial, operational, and data-quality signals across active workstreams.',
     },
-    dataSources: ['briefing feed', 'CRM contacts/deals', 'capture sources', 'SEO sprints', 'ad campaigns', 'social posts/inbox', 'invoices', 'support tickets', 'reports', 'projects', 'agent outputs'],
+    dataSources: ['briefing feed', 'CRM contacts/deals', 'capture sources', 'SEO sprints', 'ad campaigns', 'social posts/inbox', 'invoices', 'support tickets', 'reports', 'projects', 'client documents', 'agent outputs'],
     allowedActions: ['read', 'draft', 'task-create', 'report'],
     approvalGates: ['human-review', 'client-visible', 'public-publishing', 'paid-spend', 'finance'],
     evidenceRequirements: ['Source item ids', 'metric snapshot', 'opportunity/risk hypothesis', 'owner', 'recommended next action', 'approval requirement'],

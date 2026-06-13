@@ -111,6 +111,20 @@ For SEO blockers, the SEO module now creates/reuses the client SEO project, crea
 the project task, and notifies matching admins automatically when the SEO task is
 marked `blocked`. The agent remains responsible for writing a useful blocker reason.
 
+## Business Insight Review Tasks
+
+The Loop Engine creates conservative internal project tasks for `business-insight-review` findings. These tasks identify a growth gap, commercial risk, operational blocker, or missing-data issue and preserve approval gates for anything risky.
+
+When handling one:
+
+1. Inspect `metadata.businessInsightReview`, `agentInput.context.businessInsightReview`, or `agentOutput.businessInsightReview` for the source metric, evidence, owner, and required approval gate.
+2. Confirm the task is internally approved before turning it into execution work.
+3. Use `POST /projects/[projectId]/tasks/[taskId]/business-insight-action` to convert an approved review task into tracked action work.
+4. Keep side effects gated: do not message clients, publish content, approve documents, change ad spend, alter finance records, or rewrite runtime/skill config from the review task itself.
+5. Close the action only with evidence: linked source items, baseline/latest metric when measurable, owner, result, and any remaining blocker.
+
+Document-related insight tasks can come from `client_documents_waiting_for_review`, `client_documents_changes_requested`, and `client_documents_blocking_publish_assumptions`. Use the `client-documents` skill to inspect the document and preserve `linked.projectId`.
+
 ## Collaboration primitives
 
 - **Idempotency** on `POST /projects`, `POST /tasks`, `POST /time-entries`, `POST /time-entries/start`, `POST /calendar/events`
