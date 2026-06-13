@@ -181,6 +181,12 @@ describe('syncGmailMailboxAccount', () => {
     const result = await syncGmailMailboxAccount({ orgId: 'org-1', uid: 'uid-1', accountId: 'acct-1' })
 
     expect(result.ok).toBe(true)
+    const messageListUrls = (global.fetch as jest.Mock).mock.calls.map(([url]) => String(url)).filter((url) => url.includes('/messages?'))
+    expect(messageListUrls).toEqual(expect.arrayContaining([
+      expect.stringContaining('q=in%3Ainbox+newer_than%3A30d'),
+      expect.stringContaining('q=in%3Asent+newer_than%3A30d'),
+    ]))
+    expect(messageListUrls.every((url) => url.includes('maxResults=100'))).toBe(true)
     expect(encryptCredentials).toHaveBeenCalledWith(expect.objectContaining({ accessToken: 'fresh-token', refreshToken: 'refresh-token' }), 'org-1')
     expect(accounts[0].data.googleEnc).toMatchObject({ credentials: expect.objectContaining({ accessToken: 'fresh-token' }) })
     expect(accounts[0].data.status).toBe('connected')

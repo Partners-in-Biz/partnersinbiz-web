@@ -185,8 +185,16 @@ export function MailboxWorkspace({ surface, showCloseAction = false, onClose }: 
     const body = await res.json()
     if (!res.ok) throw new Error(body.error ?? 'Could not load messages')
     const list = body.data?.messages ?? []
+    const freshness = body.data?.freshness
     setMessages(list)
     setSelectedId((current) => current && list.some((item: MailboxMessageSafe) => item.id === current) ? current : list[0]?.id ?? null)
+    if (options.refresh) {
+      const attempted = Number(freshness?.attempted ?? 0)
+      const failed = Number(freshness?.failed ?? 0)
+      if (attempted > 0 && failed > 0) setNotice(`Refresh attempted ${attempted} Gmail account${attempted === 1 ? '' : 's'}; ${failed} need attention.`)
+      else if (attempted > 0) setNotice(`Mailbox refreshed from ${attempted} Gmail account${attempted === 1 ? '' : 's'}.`)
+      else setNotice('Mailbox refreshed. No connected Google accounts needed a provider sync.')
+    }
     setLoading(false)
   }
 
@@ -534,7 +542,7 @@ export function MailboxWorkspace({ surface, showCloseAction = false, onClose }: 
                 <div className="flex items-center gap-2">
                   <span className={`w-2 h-2 rounded-full ${message.read ? 'bg-transparent' : 'bg-[var(--color-pib-accent)]'}`} />
                   <p className="font-medium truncate flex-1">{folder === 'sent' || folder === 'drafts' ? message.to.join(', ') || 'No recipient' : message.from}</p>
-                  <span className="text-[10px] text-[var(--color-pib-text-muted)]">{formatDate(message.createdAt)}</span>
+                  <span className="text-[10px] text-[var(--color-pib-text-muted)]">{formatDate(messageDate(message))}</span>
                 </div>
                 <p className="text-sm truncate mt-1">{message.subject || '(no subject)'}</p>
           <p className="text-xs text-[var(--color-pib-text-muted)] truncate mt-1">
@@ -942,6 +950,10 @@ function ServerFields({ title, prefix, form, setForm }: { title: string; prefix:
       <Field label="Password" value={String(form[key('Password')])} onChange={(v) => setForm((f) => ({ ...f, [key('Password')]: v }))} type="password" />
     </div>
   )
+}
+
+function messageDate(message: MailboxMessageSafe) {
+  return message.receivedAt ?? message.sentAt ?? message.createdAt
 }
 
 function formatDate(value: string | null) {
