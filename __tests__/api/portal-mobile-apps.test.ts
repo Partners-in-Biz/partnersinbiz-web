@@ -200,3 +200,47 @@ describe('PUT /api/v1/portal/mobile-apps', () => {
     expect(mockMobileAppsGet).not.toHaveBeenCalled()
   })
 })
+
+describe('POST /api/v1/portal/mobile-apps', () => {
+  beforeEach(() => {
+    jest.clearAllMocks()
+    jest.resetModules()
+    stageCollections()
+  })
+
+  it('creates an org-scoped mobile app placeholder when a client links the first profile from the portal', async () => {
+    const { POST } = await import('@/app/api/v1/portal/mobile-apps/route')
+    const res = await POST(new NextRequest('http://localhost/api/v1/portal/mobile-apps', {
+      method: 'POST',
+      body: JSON.stringify({
+        orgId: 'org-other-ignored',
+        appName: 'Client App Android',
+        platform: 'android',
+        profileLink: {
+          type: 'developer_account',
+          label: 'Google Play developer account',
+          accountId: 'dev-123',
+        },
+      }),
+    }))
+    const body = await res.json()
+
+    expect(res.status).toBe(201)
+    expect(body.data).toMatchObject({ id: 'app-new', created: true })
+    expect(mockMobileAppAdd).toHaveBeenCalledWith(expect.objectContaining({
+      orgId: 'org-1',
+      name: 'Client App Android',
+      platform: 'android',
+      status: 'planned',
+      profileLinks: [expect.objectContaining({
+        type: 'developer_account',
+        label: 'Google Play developer account',
+        accountId: 'dev-123',
+        status: 'linked',
+        linkedBy: 'uid-1',
+      })],
+      createdBy: 'uid-1',
+      createdByType: 'user',
+    }))
+  })
+})
