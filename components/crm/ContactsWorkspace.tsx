@@ -16,6 +16,7 @@ import {
   type DuplicateGroup,
 } from '@/components/crm/ContactDuplicateCommandCenter'
 import { useOrg } from '@/lib/contexts/OrgContext'
+import { useCrmLiveRefresh } from '@/lib/crm/use-crm-live-refresh'
 import { scopedApiPath, scopedPortalPath, type PortalOrgRouteScope } from '@/lib/portal/scoped-routing'
 
 type SearchParamReader = {
@@ -33,6 +34,7 @@ const TYPES = ['lead', 'prospect', 'client', 'churned']
 
 interface Contact {
   id: string
+  orgId?: string
   name: string
   email: string
   phone?: string
@@ -280,7 +282,9 @@ export function ContactsWorkspace({
         throw new Error(body.error ?? 'Contacts could not be loaded')
       }
       const body = await res.json()
-      setContacts(body.data ?? [])
+      const nextContacts = body.data ?? []
+      setContacts(nextContacts)
+      setContactOrgId(body.meta?.orgId ?? nextContacts.find((contact: Contact) => contact.orgId)?.orgId ?? scopedOrgId ?? '')
       setContactsError('')
     } catch (err) {
       setContacts([])
@@ -288,11 +292,18 @@ export function ContactsWorkspace({
     } finally {
       setLoading(false)
     }
-  }, [apiScope, canLoadContacts, search, stageFilter, typeFilter])
+  }, [apiScope, canLoadContacts, scopedOrgId, search, stageFilter, typeFilter])
 
   useEffect(() => {
     fetchContacts()
   }, [fetchContacts])
+
+  useCrmLiveRefresh({
+    orgId: scopedOrgId || contactOrgId,
+    entity: 'contacts',
+    enabled: canLoadContacts,
+    onRefresh: fetchContacts,
+  })
 
   // Load team members once
   useEffect(() => {

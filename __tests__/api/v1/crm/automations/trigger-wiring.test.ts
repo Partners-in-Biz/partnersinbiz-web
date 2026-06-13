@@ -145,13 +145,16 @@ function setupOrgAuth(opts: {
     if (name === 'contacts') {
       const updateFn = opts.capturedContactUpdate ?? jest.fn().mockResolvedValue(undefined)
       const setFn = opts.capturedContactSet ?? jest.fn().mockResolvedValue(undefined)
+      const contactData = opts.contact === undefined
+        ? { orgId: MEMBER.orgId, name: 'Wiring Contact' }
+        : opts.contact?.data
       return {
         doc: jest.fn().mockReturnValue({
           id: opts.contact?.id ?? 'contact-wiring',
           get: jest.fn().mockResolvedValue({
-            exists: opts.contact != null,
+            exists: opts.contact !== null,
             id: opts.contact?.id ?? 'contact-wiring',
-            data: () => opts.contact?.data ?? {},
+            data: () => contactData ?? {},
           }),
           update: updateFn,
           set: setFn,

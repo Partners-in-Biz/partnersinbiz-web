@@ -26,7 +26,7 @@
 import { FieldValue } from 'firebase-admin/firestore'
 import { adminDb } from '@/lib/firebase/admin'
 import { withCrmAuth } from '@/lib/auth/crm-middleware'
-import { resolveMemberRef, FORMER_MEMBER_REF } from '@/lib/orgMembers/memberRef'
+import { resolveMemberRef } from '@/lib/orgMembers/memberRef'
 import { apiSuccess, apiError } from '@/lib/api/response'
 import type { ContactStage, ContactType } from '@/lib/crm/types'
 import {
@@ -36,6 +36,7 @@ import {
   loadCompanyAssignmentMap,
   normalizeAllowedUserPatch,
 } from '@/lib/crm/assignment-access'
+import { safeTouchCrmLiveUpdate } from '@/lib/crm/live-updates'
 
 const VALID_CONTACT_STAGES: readonly ContactStage[] = [
   'new',
@@ -147,6 +148,10 @@ export const POST = withCrmAuth('member', async (req, ctx) => {
       }
     }
 
+    if (updated.length > 0) {
+      await safeTouchCrmLiveUpdate(ctx.orgId, 'contacts', 'contacts.bulk_deleted')
+    }
+
     return apiSuccess({ updated: updated.length, skipped: skipped.length, failed })
   }
 
@@ -154,6 +159,9 @@ export const POST = withCrmAuth('member', async (req, ctx) => {
   const updateData: Record<string, unknown> = {}
 
   if (typeof patch.assignedTo === 'string') {
+    if (!isCrmPrivilegedActor(ctx) && patch.assignedTo && patch.assignedTo !== ctx.actor.uid) {
+      return apiError('You can only assign contacts to yourself with your current CRM access', 403)
+    }
     updateData.assignedTo = patch.assignedTo
     const allowedUserIds = normalizeAllowedUserPatch(patch.allowedUserIds) ?? []
     if (patch.assignedTo !== '') {
@@ -283,6 +291,10 @@ export const POST = withCrmAuth('member', async (req, ctx) => {
         failed.push(...batchIds)
       }
     }
+  }
+
+  if (updated.length > 0) {
+    await safeTouchCrmLiveUpdate(ctx.orgId, 'contacts', 'contacts.bulk_updated')
   }
 
   return apiSuccess({ updated: updated.length, skipped: skipped.length, failed })

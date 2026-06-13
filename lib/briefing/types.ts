@@ -31,6 +31,7 @@ export type BriefingSourceType =
   | 'project'              // Projects/Kanban tasks
   | 'task'                 // Task events (created, updated, moved, completed)
   | 'agent-learning-review' // Weekly agent learning items linking proposed skill/wiki/task follow-ups for review
+  | 'business-insight-review' // Proactive business gap/risk/opportunity review cards with internal-only recommendations
   | 'comment'              // Comments on tasks, documents, conversations
   | 'agent-output'         // Agent completion summaries and artifacts
   | 'agent-run'            // Live Hermes agent run status and approval prompts

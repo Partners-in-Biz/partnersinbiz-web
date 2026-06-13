@@ -4,7 +4,7 @@ import type { ApiUser } from '@/lib/api/types'
 import { canAccessOrg } from '@/lib/api/platformAdmin'
 import { withBriefingCardContract } from './cardContract'
 import type { BriefingCard, BriefingCardAction, BriefingCardStateStatus, BriefingPriority, BriefingResponse, BriefingSourceAdapter, BriefingSourceItem, BriefingSourceType } from './types'
-import { activityAdapter, adCampaignAdapter, agentLearningReviewAdapter, agentOutputAdapter, agentRunAdapter, approvalAdapter, bookingAdapter, broadcastAdapter, calendarEventAdapter, campaignAdapter, clientDocumentAdapter, commentAdapter, contactAdapter, dealAdapter, enquiryAdapter, expenseAdapter, formSubmissionAdapter, inventoryItemAdapter, invoiceAdapter, mailboxMessageAdapter, notificationAdapter, orderAdapter, projectAdapter, quoteAdapter, reportAdapter, seoContentAdapter, seoTaskAdapter, shipmentAdapter, socialInboxAdapter, socialPostAdapter, supportTicketAdapter, taskAdapter, workspaceBrokerJobAdapter } from './index'
+import { activityAdapter, adCampaignAdapter, agentLearningReviewAdapter, agentOutputAdapter, agentRunAdapter, approvalAdapter, bookingAdapter, broadcastAdapter, businessInsightReviewAdapter, calendarEventAdapter, campaignAdapter, clientDocumentAdapter, commentAdapter, contactAdapter, dealAdapter, enquiryAdapter, expenseAdapter, formSubmissionAdapter, inventoryItemAdapter, invoiceAdapter, mailboxMessageAdapter, notificationAdapter, orderAdapter, projectAdapter, quoteAdapter, reportAdapter, seoContentAdapter, seoTaskAdapter, shipmentAdapter, socialInboxAdapter, socialPostAdapter, supportTicketAdapter, taskAdapter, workspaceBrokerJobAdapter } from './index'
 import { comparePriority, formatTimeAgo, normalizeTimestamp, priorityRequiresAction } from './utils'
 
 const PLATFORM_ORG_ID = 'pib-platform-owner'
@@ -598,7 +598,7 @@ export async function buildBriefingFeed(user: ApiUser, options: BriefingFeedOpti
 
   const include = (source: BriefingSourceType) => !options.sourceType || options.sourceType === 'all' || options.sourceType === source
 
-  if (include('task') || include('agent-output') || include('agent-learning-review')) {
+  if (include('task') || include('agent-output') || include('agent-learning-review') || include('business-insight-review')) {
     const docs = await fetchTaskDocs(scopedOrgIds)
     for (const doc of docs) {
       const data = normalizeDoc(doc)
@@ -615,6 +615,10 @@ export async function buildBriefingFeed(user: ApiUser, options: BriefingFeedOpti
       }
       if (include('agent-learning-review')) {
         const item = toItemSafe(agentLearningReviewAdapter, enriched, doc.id)
+        if (item) items.push(decorate(item, orgs))
+      }
+      if (include('business-insight-review')) {
+        const item = toItemSafe(businessInsightReviewAdapter, enriched, doc.id)
         if (item) items.push(decorate(item, orgs))
       }
     }

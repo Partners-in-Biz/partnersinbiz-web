@@ -124,6 +124,80 @@ describe('withCrmAuth — cookie path', () => {
     expect(ctx.actor.uid).toBe(UID)
     expect(ctx.actor.kind).toBe('human')
     expect(ctx.permissions.membersCanDeleteContacts).toBe(true)
+    expect(ctx.uid).toBe(UID)
+    expect(ctx.accessPolicy.modules.crm).toBe(true)
+    expect(ctx.accessPolicy.recordScopes.crm).toBe('all')
+  })
+
+  it('derives member CRM policy from legacy accessScope', async () => {
+    ;(adminAuth.verifySessionCookie as jest.Mock).mockResolvedValue({ uid: UID })
+    setupCollections({
+      user: { activeOrgId: ORG_ID },
+      member: { orgId: ORG_ID, uid: UID, role: 'member', accessScope: 'crm' },
+      org: { settings: { permissions: {} } },
+    })
+    const handler = jest.fn().mockResolvedValue(new Response('ok', { status: 200 }))
+    const route = withCrmAuth('member', handler)
+    const res = await route(makeReq({ cookie: '__session=valid' }))
+
+    expect(res.status).toBe(200)
+    const ctx = handler.mock.calls[0][1]
+    expect(ctx.accessPolicy.preset).toBe('crm_sales')
+    expect(ctx.accessPolicy.modules.crm).toBe(true)
+    expect(ctx.accessPolicy.modules.projects).toBe(false)
+    expect(ctx.accessPolicy.recordScopes.crm).toBe('owned_or_linked')
+  })
+
+  it('403s before the handler when the CRM module is disabled', async () => {
+    ;(adminAuth.verifySessionCookie as jest.Mock).mockResolvedValue({ uid: UID })
+    setupCollections({
+      user: { activeOrgId: ORG_ID },
+      member: {
+        orgId: ORG_ID,
+        uid: UID,
+        role: 'member',
+        accessPolicy: {
+          preset: 'custom',
+          modules: { crm: false, projects: true },
+          recordScopes: { crm: 'owned_or_linked', projects: 'owned_or_linked' },
+        },
+      },
+      org: { settings: { permissions: {} } },
+    })
+    const handler = jest.fn()
+    const route = withCrmAuth('viewer', handler)
+    const res = await route(makeReq({ cookie: '__session=valid' }))
+
+    expect(res.status).toBe(403)
+    expect(handler).not.toHaveBeenCalled()
+    expect((await res.json()).error).toMatch(/CRM/i)
+  })
+
+  it('honors owner-narrowed admin CRM policies', async () => {
+    ;(adminAuth.verifySessionCookie as jest.Mock).mockResolvedValue({ uid: UID })
+    setupCollections({
+      user: { activeOrgId: ORG_ID },
+      member: {
+        orgId: ORG_ID,
+        uid: UID,
+        role: 'admin',
+        accessPolicy: {
+          preset: 'custom',
+          modules: { crm: true, projects: false },
+          recordScopes: { crm: 'owned_or_linked', projects: 'owned_or_linked' },
+        },
+      },
+      org: { settings: { permissions: {} } },
+    })
+    const handler = jest.fn().mockResolvedValue(new Response('ok', { status: 200 }))
+    const route = withCrmAuth('member', handler)
+    const res = await route(makeReq({ cookie: '__session=valid' }))
+
+    expect(res.status).toBe(200)
+    const ctx = handler.mock.calls[0][1]
+    expect(ctx.role).toBe('admin')
+    expect(ctx.accessPolicy.modules.projects).toBe(false)
+    expect(ctx.accessPolicy.recordScopes.crm).toBe('owned_or_linked')
   })
 
   it('allows a platform admin to use client CRM only through explicit org membership', async () => {
@@ -239,6 +313,8 @@ describe('withCrmAuth — Bearer path', () => {
     expect(ctx.actor.uid).toBe('agent:pip')
     expect(ctx.actor.kind).toBe('agent')
     expect(ctx.permissions.membersCanDeleteContacts).toBe(false)
+    expect(ctx.accessPolicy.modules.crm).toBe(true)
+    expect(ctx.accessPolicy.recordScopes.crm).toBe('all')
   })
 
   it('bypasses every minRole including owner', async () => {

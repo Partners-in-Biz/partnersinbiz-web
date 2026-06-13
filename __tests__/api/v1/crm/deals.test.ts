@@ -64,7 +64,11 @@ function setupDefaultPipelineMock(orgId = 'org-test', pipelineId = DEFAULT_PIPEL
 function stageAuth(
   member: { uid: string; orgId: string; role: string; firstName?: string; lastName?: string },
   perms: Record<string, unknown> = {},
-  opts?: { capturedDealSet?: jest.Mock; existingDeals?: Array<{ id: string; data: Record<string, unknown> }> },
+  opts?: {
+    capturedDealSet?: jest.Mock
+    existingDeals?: Array<{ id: string; data: Record<string, unknown> }>
+    contactData?: Record<string, unknown> | null
+  },
 ) {
   ;(adminAuth.verifySessionCookie as jest.Mock).mockResolvedValue({ uid: member.uid })
   ;(adminDb.collection as jest.Mock).mockImplementation((name: string) => {
@@ -74,6 +78,21 @@ function stageAuth(
       where: () => ({ get: () => Promise.resolve({ docs: [{ data: () => ({ orgId: member.orgId, uid: member.uid, role: member.role }) }] }) }),
     }
     if (name === 'organizations') return { doc: () => ({ get: () => Promise.resolve({ exists: true, data: () => ({ settings: { permissions: perms } }) }) }) }
+    if (name === 'contacts') {
+      const contactData = opts?.contactData !== undefined
+        ? opts.contactData
+        : { orgId: member.orgId, name: 'Test Contact' }
+      return {
+        doc: jest.fn((id: string) => ({
+          id,
+          get: jest.fn().mockResolvedValue(
+            contactData
+              ? { exists: true, id, data: () => contactData }
+              : { exists: false, id, data: () => undefined },
+          ),
+        })),
+      }
+    }
     if (name === 'deals') {
       const setFn = opts?.capturedDealSet ?? jest.fn().mockResolvedValue(undefined)
       const docs = (opts?.existingDeals ?? []).map(d => ({ id: d.id, data: () => d.data, ref: { id: d.id } }))
@@ -409,6 +428,12 @@ describe('POST /api/v1/crm/deals', () => {
         where: () => ({ get: () => Promise.resolve({ docs: [{ data: () => ({ orgId: 'org-1', uid: member.uid, role: member.role }) }] }) }),
       }
       if (name === 'organizations') return { doc: () => ({ get: () => Promise.resolve({ exists: true, data: () => ({ settings: { permissions: {} } }) }) }) }
+      if (name === 'contacts') return {
+        doc: jest.fn((id: string) => ({
+          id,
+          get: () => Promise.resolve({ exists: true, id, data: () => ({ orgId: 'org-1', name: 'Test Contact' }) }),
+        })),
+      }
       if (name === 'deals') return {
         doc: jest.fn().mockReturnValue({ id: 'deal-x', set: captured }),
       }
@@ -839,7 +864,7 @@ describe('POST deals with company derivation', () => {
     expect(data.companyName).toBe('Explicit Corp')
   })
 
-  it('contact lookup failure does not 500 — companyId not set on deal', async () => {
+  it('contact lookup failure fails closed without writing a deal', async () => {
     const member = seedOrgMember('org-1', 'uid-1', { role: 'member' })
     const captured = jest.fn().mockResolvedValue(undefined)
     ;(adminAuth.verifySessionCookie as jest.Mock).mockResolvedValue({ uid: member.uid })
@@ -862,9 +887,10 @@ describe('POST deals with company derivation', () => {
     })
     const { POST } = await import('@/app/api/v1/crm/deals/route')
     const res = await POST(req)
-    expect(res.status).toBe(201)
-    const data = captured.mock.calls[0][0]
-    expect(data.companyId).toBeUndefined()
+    expect(res.status).toBe(500)
+    const body = await res.json()
+    expect(body.error).toMatch(/contact lookup failed/i)
+    expect(captured).not.toHaveBeenCalled()
   })
 })
 

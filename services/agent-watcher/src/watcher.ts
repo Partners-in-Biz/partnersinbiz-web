@@ -14,6 +14,7 @@ import { AGENT_IDS, getAgentConfig, loadEnabledAgentIds, type AgentId } from './
 import { claimReviewTask, claimTask, startHeartbeat } from './claim'
 import { runAndPoll, type TaskDispatchInput } from './hermes'
 import { logger } from './logger'
+import type { AgentRunTelemetry } from './run-telemetry'
 import { agentStatusUpdate } from './task-updates'
 import { getTaskDispatchBlocker, hasPendingApprovalGate, hasPendingScheduledRelease, isDependencyResolved, releaseMillis } from './eligibility'
 
@@ -79,6 +80,115 @@ interface TaskData {
   requiredCapability?: string
   requestedByAgentId?: string
   expectedArtifacts?: string[]
+}
+
+function safeDocKey(value: string): string {
+  return value.replace(/\//g, '-')
+}
+
+function fallbackTelemetry(input: TaskDispatchInput): AgentRunTelemetry {
+  return {
+    model: input.agentModel ?? null,
+    reasoningEffort: input.agentEffort ?? null,
+    inputTokens: null,
+    outputTokens: null,
+    reasoningTokens: null,
+    totalTokens: null,
+    costUsd: null,
+    durationMs: null,
+    retryCount: 0,
+    toolCallCount: null,
+    tokenSource: 'unavailable',
+    costSource: 'unavailable',
+    exactTokenUsageAvailable: false,
+    exactCostAvailable: false,
+    exactUsageAvailable: false,
+    missing: ['token_usage', 'cost_usd'],
+  }
+}
+
+async function persistAgentDispatchRun(input: {
+  taskRef: DocumentReference
+  taskData: TaskData
+  agentId: AgentId
+  runId: string | null
+  telemetry: AgentRunTelemetry
+  error: string | null
+}): Promise<void> {
+  if (!input.runId) return
+  try {
+    const runId = `agent-task-dispatch:${safeDocKey(input.taskRef.id)}:${safeDocKey(input.runId)}`
+    const status = input.error ? 'failed' : 'executed'
+    await db.collection('loop_engine_runs').doc(runId).set({
+      id: runId,
+      loopId: 'agent-task-dispatch',
+      loopName: 'Agent Task Dispatch',
+      orgId: input.taskData.orgId ?? '',
+      projectId: input.taskData.projectId ?? null,
+      status,
+      dryRun: false,
+      riskLevel: input.taskData.riskLevel ?? 'medium',
+      ownerAgentId: input.agentId,
+      reviewerAgentId: input.taskData.reviewerAgentId ?? 'qa-release',
+      trigger: { kind: 'task', ref: input.taskRef.id, source: 'agent-watcher' },
+      candidateSummary: `Agent watcher dispatched task ${input.taskRef.id} to ${input.agentId}.`,
+      candidates: [{
+        id: input.taskRef.id,
+        type: 'task',
+        title: input.taskData.title ?? input.taskRef.id,
+        orgId: input.taskData.orgId ?? null,
+        projectId: input.taskData.projectId ?? null,
+        taskId: input.taskRef.id,
+      }],
+      readinessResults: [],
+      proposedActions: [],
+      executedActions: [],
+      approvalGates: [],
+      evidence: [{
+        type: 'source',
+        label: 'Task',
+        ref: input.taskRef.id,
+        summary: input.taskData.title ?? input.taskRef.id,
+      }],
+      observability: {
+        lastMeaningfulAction: input.error ? `Hermes run failed: ${input.error}` : 'Hermes run completed and returned output.',
+        noOpStreak: input.error ? 1 : 0,
+        verificationFailures: input.error ? [input.error] : [],
+        budgetStatus: 'within-budget',
+        needsHumanJudgment: !input.telemetry.exactUsageAvailable,
+        progressSignal: input.error ? 'blocked' : 'advanced',
+      },
+      usage: input.telemetry,
+      runtime: {
+        source: 'agent-watcher',
+        taskId: input.taskRef.id,
+        agentId: input.agentId,
+        runId: input.runId,
+        model: input.telemetry.model,
+        reasoningEffort: input.telemetry.reasoningEffort,
+        requiresExactModelTelemetry: true,
+        exactTokenUsageAvailable: input.telemetry.exactTokenUsageAvailable,
+        exactCostAvailable: input.telemetry.exactCostAvailable,
+        exactUsageAvailable: input.telemetry.exactUsageAvailable,
+      },
+      telemetry: {
+        ...input.telemetry,
+        source: 'agent-watcher',
+        requiresExactModelTelemetry: true,
+      },
+      createdAt: FieldValue.serverTimestamp(),
+      updatedAt: FieldValue.serverTimestamp(),
+      updatedBy: 'agent-watcher',
+      updatedByType: 'system',
+    }, { merge: true })
+  } catch (err) {
+    logger.warn('failed to persist agent dispatch loop-run telemetry', {
+      taskId: input.taskRef.id,
+      agentId: input.agentId,
+      runId: input.runId,
+      error: err instanceof Error ? err.message : String(err),
+    })
+  }
 }
 
 function deferTask(agentId: AgentId, taskRef: DocumentReference, taskData: TaskData): void {
@@ -371,8 +481,17 @@ export async function dispatchTask(taskRef: DocumentReference, taskData: TaskDat
     logger.info('dispatching task to Hermes', { taskId, agentId, orgId: dispatchInput.orgId })
     const result = await runAndPoll(cfg, dispatchInput, onRunCreated)
     activeRunId = result.runId ?? activeRunId
+    const telemetry = result.telemetry ?? fallbackTelemetry(dispatchInput)
     stopHeartbeat?.()
     stopHeartbeat = null
+    await persistAgentDispatchRun({
+      taskRef,
+      taskData,
+      agentId,
+      runId: activeRunId,
+      telemetry,
+      error: result.error,
+    })
 
     if (result.error) {
       logger.warn('Hermes run failed — marking blocked', { taskId, agentId, error: result.error })
@@ -381,6 +500,7 @@ export async function dispatchTask(taskRef: DocumentReference, taskData: TaskDat
         ...(activeRunId ? { agentConversationId: activeRunId } : {}),
         agentOutput: {
           summary: `Watcher error: ${result.error}`,
+          telemetry,
           completedAt: FieldValue.serverTimestamp(),
         },
         updatedAt: FieldValue.serverTimestamp(),
@@ -394,6 +514,7 @@ export async function dispatchTask(taskRef: DocumentReference, taskData: TaskDat
       ...(activeRunId ? { agentConversationId: activeRunId } : {}),
       agentOutput: {
         summary,
+        telemetry,
         completedAt: FieldValue.serverTimestamp(),
       },
       updatedAt: FieldValue.serverTimestamp(),

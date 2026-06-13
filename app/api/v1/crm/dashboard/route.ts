@@ -6,7 +6,15 @@
 import { adminDb } from '@/lib/firebase/admin'
 import { withCrmAuth } from '@/lib/auth/crm-middleware'
 import { apiSuccess, apiErrorFromException } from '@/lib/api/response'
-import type { Deal } from '@/lib/crm/types'
+import type { Activity, Deal } from '@/lib/crm/types'
+import {
+  crmRecordCompanyIds,
+  crmRecordContactIds,
+  filterCrmRowsForActor,
+  isCrmPrivilegedActor,
+  loadCompanyAssignmentMap,
+  loadContactAssignmentMap,
+} from '@/lib/crm/assignment-access'
 
 export const dynamic = 'force-dynamic'
 
@@ -45,8 +53,30 @@ export const GET = withCrmAuth('member', async (_req, ctx) => {
         .get(),
     ])
 
-    const deals = (dealsSnap.docs.map((d) => ({ id: d.id, ...d.data() })) as Array<Deal & { deleted?: boolean }>)
+    let deals = (dealsSnap.docs.map((d) => ({ id: d.id, ...d.data() })) as Array<Deal & { deleted?: boolean }>)
       .filter((d) => d.deleted !== true)
+    let activities = (activitiesSnap.docs.map((d): DashboardActivity => ({ id: d.id, ...d.data() })) as Array<Activity & DashboardActivity>)
+      .filter((activity) => activity.deleted !== true)
+
+    if (!isCrmPrivilegedActor(ctx)) {
+      const contactIds = new Set<string>()
+      const companyIds = new Set<string>()
+      for (const deal of deals) {
+        for (const contactId of crmRecordContactIds(deal)) contactIds.add(contactId)
+        for (const companyId of crmRecordCompanyIds(deal)) companyIds.add(companyId)
+      }
+      for (const activity of activities) {
+        for (const contactId of crmRecordContactIds(activity)) contactIds.add(contactId)
+        for (const companyId of crmRecordCompanyIds(activity)) companyIds.add(companyId)
+      }
+      const contacts = await loadContactAssignmentMap(orgId, contactIds)
+      for (const contact of contacts.values()) {
+        for (const companyId of crmRecordCompanyIds(contact)) companyIds.add(companyId)
+      }
+      const companies = await loadCompanyAssignmentMap(orgId, companyIds)
+      deals = filterCrmRowsForActor(ctx, deals, { contacts, companies })
+      activities = filterCrmRowsForActor(ctx, activities, { contacts, companies })
+    }
 
     // Classify deals using probability heuristic:
     //   - probability === 100 → won
@@ -74,8 +104,7 @@ export const GET = withCrmAuth('member', async (_req, ctx) => {
       .sort((a, b) => (b.value ?? 0) - (a.value ?? 0))
       .slice(0, 5)
 
-    const recentActivities = activitiesSnap.docs
-      .map((d): DashboardActivity => ({ id: d.id, ...d.data() }))
+    const recentActivities = activities
       .sort((a, b) => (toDate(b.createdAt)?.getTime() ?? 0) - (toDate(a.createdAt)?.getTime() ?? 0))
       .slice(0, 10)
 

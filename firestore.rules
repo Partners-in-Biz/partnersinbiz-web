@@ -13,6 +13,13 @@ service cloud.firestore {
           && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.clientId == clientId;
     }
 
+    function isOrgMember(orgId) {
+      return request.auth != null && (
+        isAdmin() ||
+        exists(/databases/$(database)/documents/orgMembers/$(orgId + "_" + request.auth.uid))
+      );
+    }
+
     // ── Users ────────────────────────────────────────────────────────────────
     match /users/{uid} {
       allow read: if request.auth != null
@@ -141,6 +148,11 @@ service cloud.firestore {
          resource.data.members.hasAny([{ userId: request.auth.uid, role: 'admin' }])));
       allow delete: if request.auth != null &&
         resource.data.members.hasAny([{ userId: request.auth.uid, role: 'owner' }]);
+
+      match /crm_live_updates/{entity} {
+        allow read: if isOrgMember(orgId);
+        allow write: if false;
+      }
     }
 
     // ──────────────────────────────────────────────────────────────────────────

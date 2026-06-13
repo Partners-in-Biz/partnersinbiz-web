@@ -242,6 +242,32 @@ describe('project task payload helpers', () => {
       })
     })
 
+    it('CREATE: accepts conservative loop review task capabilities', () => {
+      const business = buildProjectTaskCreateData({
+        title: 'Business Insight: lead gap',
+        assigneeAgentId: 'pip',
+        agentStatus: 'done',
+        requiredCapability: 'business-insight-review',
+      }, 'project-1', 'org-1')
+      const evolution = buildProjectTaskCreateData({
+        title: 'Agent Evolution Review: missing context',
+        assigneeAgentId: 'pip',
+        agentStatus: 'done',
+        requiredCapability: 'agent-evolution-review',
+      }, 'project-1', 'org-1')
+
+      expect(business.ok).toBe(true)
+      if (!business.ok) return
+      expect(business.value.requiredCapability).toBe('business-insight-review')
+      expect(business.value.columnId).toBe('review')
+      expect(business.value.reviewStatus).toBe('pending')
+      expect(evolution.ok).toBe(true)
+      if (!evolution.ok) return
+      expect(evolution.value.requiredCapability).toBe('agent-evolution-review')
+      expect(evolution.value.columnId).toBe('review')
+      expect(evolution.value.reviewStatus).toBe('pending')
+    })
+
     it('accepts and clears agent effort/model overrides on update', () => {
       const setResult = buildProjectTaskUpdateData({
         agentEffort: 'xhigh',

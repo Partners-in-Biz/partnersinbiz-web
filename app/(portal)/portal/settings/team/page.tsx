@@ -8,6 +8,14 @@ import { MemberRow } from '@/components/settings/MemberRow'
 import { TeamAccessGovernancePanel } from '@/components/settings/TeamAccessGovernancePanel'
 import { scopedApiPath, scopeFromSearchParams } from '@/lib/portal/scoped-routing'
 import type { OrgRole } from '@/lib/organizations/types'
+import {
+  WORKSPACE_MODULE_KEYS,
+  accessSummaryForPolicy,
+  normalizeMemberAccessPolicy,
+  type MemberAccessPolicy,
+  type RecordScope,
+  type WorkspaceModuleKey,
+} from '@/lib/orgMembers/access-policy'
 
 interface Member {
   uid: string
@@ -16,6 +24,8 @@ interface Member {
   jobTitle: string
   department?: string
   accessScope?: string
+  accessPolicy?: MemberAccessPolicy
+  accessSummary?: string
   avatarUrl: string
   role: OrgRole
 }
@@ -34,6 +44,26 @@ function InviteField({ id, label, children }: { id: string; label: string; child
       {children}
     </div>
   )
+}
+
+const MODULE_LABELS: Record<WorkspaceModuleKey, string> = {
+  crm: 'CRM',
+  projects: 'Projects',
+  documents: 'Documents',
+  marketing: 'Marketing',
+  messages: 'Messages',
+  email: 'Email',
+  reports: 'Reports',
+  research: 'Research',
+  properties: 'Properties',
+  billing: 'Billing',
+  mobileApps: 'Mobile Apps',
+  youtubeStudio: 'YouTube Studio',
+  bookStudio: 'Book Studio',
+}
+
+function memberDisplayName(member: Pick<Member, 'uid' | 'firstName' | 'lastName'>) {
+  return [member.firstName, member.lastName].filter(Boolean).join(' ') || member.uid
 }
 
 export default function TeamPage() {
@@ -55,6 +85,11 @@ export default function TeamPage() {
   const [pendingRemoveMember, setPendingRemoveMember] = useState<Member | null>(null)
   const [removingUid, setRemovingUid] = useState<string | null>(null)
   const [removeError, setRemoveError] = useState('')
+  const [editingAccessMember, setEditingAccessMember] = useState<Member | null>(null)
+  const [accessDraft, setAccessDraft] = useState<MemberAccessPolicy | null>(null)
+  const [accessLoading, setAccessLoading] = useState(false)
+  const [accessSaving, setAccessSaving] = useState(false)
+  const [accessError, setAccessError] = useState('')
 
   const loadTeamMembers = useCallback(() => (
     fetch(teamEndpoint('/api/v1/portal/settings/team')).then(r => r.ok ? r.json() : null).then(d => {
@@ -102,6 +137,70 @@ export default function TeamPage() {
     if (res.ok) {
       setMembers(prev => prev.map(m => m.uid === uid ? { ...m, role: newRole } : m))
     }
+  }
+
+  async function handleEditAccess(member: Member) {
+    setEditingAccessMember(member)
+    setAccessDraft(member.accessPolicy ? normalizeMemberAccessPolicy(member.accessPolicy) : null)
+    setAccessError('')
+    setAccessLoading(true)
+    const res = await fetch(teamEndpoint(`/api/v1/portal/settings/team/${member.uid}/access`))
+    if (res.ok) {
+      const body = await res.json().catch(() => ({}))
+      if (body.accessPolicy) setAccessDraft(normalizeMemberAccessPolicy(body.accessPolicy))
+    } else {
+      const body = await res.json().catch(() => ({}))
+      setAccessError(body.error ?? 'Failed to load access settings.')
+    }
+    setAccessLoading(false)
+  }
+
+  function updateAccessDraft(mutator: (policy: MemberAccessPolicy) => MemberAccessPolicy) {
+    setAccessDraft(prev => {
+      const base = normalizeMemberAccessPolicy(prev ?? { preset: 'custom', modules: {}, recordScopes: {} })
+      return normalizeMemberAccessPolicy({ ...mutator(base), preset: 'custom' })
+    })
+  }
+
+  function toggleModule(moduleKey: WorkspaceModuleKey) {
+    updateAccessDraft(policy => ({
+      ...policy,
+      modules: { ...policy.modules, [moduleKey]: !policy.modules[moduleKey] },
+    }))
+  }
+
+  function setRecordScope(moduleKey: 'crm' | 'projects', scope: RecordScope) {
+    updateAccessDraft(policy => ({
+      ...policy,
+      recordScopes: { ...policy.recordScopes, [moduleKey]: scope },
+    }))
+  }
+
+  async function handleSaveAccess() {
+    if (!editingAccessMember || !accessDraft) return
+    setAccessSaving(true)
+    setAccessError('')
+    const nextPolicy = normalizeMemberAccessPolicy({ ...accessDraft, preset: 'custom' })
+    const res = await fetch(teamEndpoint(`/api/v1/portal/settings/team/${editingAccessMember.uid}/access`), {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ accessPolicy: nextPolicy }),
+    })
+    const body = await res.json().catch(() => ({}))
+    if (res.ok) {
+      const savedPolicy = normalizeMemberAccessPolicy(body.accessPolicy ?? nextPolicy)
+      const accessSummary = body.accessSummary ?? accessSummaryForPolicy(savedPolicy)
+      setMembers(prev => prev.map(member => member.uid === editingAccessMember.uid ? {
+        ...member,
+        accessPolicy: savedPolicy,
+        accessSummary,
+      } : member))
+      setEditingAccessMember(null)
+      setAccessDraft(null)
+    } else {
+      setAccessError(body.error ?? 'Failed to save access settings.')
+    }
+    setAccessSaving(false)
   }
 
   async function handleInvite(e: FormEvent) {
@@ -195,10 +294,129 @@ export default function TeamPage() {
                 setRemoveError('')
               }}
               onRoleChange={handleRoleChange}
+              onEditAccess={() => handleEditAccess(m)}
             />
           ))
         )}
       </section>
+
+      {editingAccessMember && (
+        <section
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="team-access-drawer-title"
+          className="fixed inset-y-0 right-0 z-50 flex w-full max-w-xl flex-col border-l border-[var(--color-pib-line)] bg-[var(--color-pib-bg)] p-5 shadow-2xl"
+        >
+          <div className="flex items-start justify-between gap-4 border-b border-[var(--color-pib-line)] pb-4">
+            <div>
+              <p className="eyebrow !text-[10px]">Team member access</p>
+              <h2 id="team-access-drawer-title" className="mt-1 font-display text-xl text-[var(--color-pib-text)]">
+                Edit access for {memberDisplayName(editingAccessMember)}
+              </h2>
+              <p className="mt-1 text-sm text-[var(--color-pib-text-muted)]">
+                {editingAccessMember.jobTitle || editingAccessMember.role}
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                setEditingAccessMember(null)
+                setAccessDraft(null)
+                setAccessError('')
+              }}
+              aria-label="Close access editor"
+              className="grid h-9 w-9 place-items-center rounded-lg text-[var(--color-pib-text-muted)] hover:bg-white/[0.05] hover:text-[var(--color-pib-text)]"
+            >
+              <span className="material-symbols-outlined text-[18px]" aria-hidden="true">close</span>
+            </button>
+          </div>
+
+          <div className="min-h-0 flex-1 overflow-y-auto py-5">
+            {accessLoading || !accessDraft ? (
+              <div className="space-y-3">
+                <div className="pib-skeleton h-12" />
+                <div className="pib-skeleton h-48" />
+              </div>
+            ) : (
+              <div className="space-y-5">
+                <div className="grid gap-2 sm:grid-cols-2">
+                  {WORKSPACE_MODULE_KEYS.map(moduleKey => (
+                    <label
+                      key={moduleKey}
+                      className="flex items-center justify-between gap-3 rounded-lg border border-[var(--color-pib-line)] bg-white/[0.03] px-3 py-2 text-sm text-[var(--color-pib-text)]"
+                    >
+                      <span>{MODULE_LABELS[moduleKey]}</span>
+                      <input
+                        type="checkbox"
+                        checked={accessDraft.modules[moduleKey]}
+                        onChange={() => toggleModule(moduleKey)}
+                        className="h-4 w-4 accent-[var(--color-pib-accent)]"
+                      />
+                    </label>
+                  ))}
+                </div>
+
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <InviteField id="team-access-crm-scope" label="CRM record scope">
+                    <select
+                      id="team-access-crm-scope"
+                      value={accessDraft.recordScopes.crm}
+                      onChange={e => setRecordScope('crm', e.target.value as RecordScope)}
+                      className="pib-select"
+                      disabled={!accessDraft.modules.crm}
+                    >
+                      <option value="owned_or_linked">Owned or linked records</option>
+                      <option value="all">All CRM records</option>
+                    </select>
+                  </InviteField>
+                  <InviteField id="team-access-projects-scope" label="Projects record scope">
+                    <select
+                      id="team-access-projects-scope"
+                      value={accessDraft.recordScopes.projects}
+                      onChange={e => setRecordScope('projects', e.target.value as RecordScope)}
+                      className="pib-select"
+                      disabled={!accessDraft.modules.projects}
+                    >
+                      <option value="owned_or_linked">Owned or linked projects</option>
+                      <option value="all">All projects</option>
+                    </select>
+                  </InviteField>
+                </div>
+              </div>
+            )}
+
+            {accessError && (
+              <p className="mt-4 rounded-lg border border-red-400/20 bg-red-400/10 px-3 py-2 text-sm text-red-100">
+                {accessError}
+              </p>
+            )}
+          </div>
+
+          <div className="flex items-center justify-end gap-2 border-t border-[var(--color-pib-line)] pt-4">
+            <button
+              type="button"
+              onClick={() => {
+                setEditingAccessMember(null)
+                setAccessDraft(null)
+                setAccessError('')
+              }}
+              className="btn-pib-secondary text-sm"
+              disabled={accessSaving}
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={handleSaveAccess}
+              className="btn-pib-accent text-sm"
+              disabled={accessSaving || accessLoading || !accessDraft}
+            >
+              <span className="material-symbols-outlined text-[16px]" aria-hidden="true">save</span>
+              {accessSaving ? 'Saving...' : 'Save access'}
+            </button>
+          </div>
+        </section>
+      )}
 
       {pendingRemoveMember && (
         <section

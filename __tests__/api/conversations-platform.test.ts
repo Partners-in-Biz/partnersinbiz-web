@@ -50,8 +50,9 @@ beforeEach(() => {
   mockListConversations.mockResolvedValue([{ id: 'conv-1', orgId: 'pib-platform-owner' }])
 
   const usersById: Record<string, Record<string, unknown>> = {
-    'admin-1': { role: 'admin', email: 'peet@example.com', displayName: 'Peet' },
-    'admin-2': { role: 'admin', email: 'ops@example.com', displayName: 'Ops' },
+    'admin-1': { role: 'admin', orgId: 'pib-platform-owner', allowedOrgIds: [], email: 'peet@example.com', displayName: 'Peet' },
+    'admin-2': { role: 'admin', orgId: 'pib-platform-owner', allowedOrgIds: [], email: 'ops@example.com', displayName: 'Ops' },
+    'restricted-admin': { role: 'admin', orgId: 'pib-platform-owner', allowedOrgIds: ['org-1'], email: 'restricted@example.com', displayName: 'Restricted' },
     'client-1': { role: 'client', email: 'client@example.com', displayName: 'Client' },
   }
 
@@ -64,7 +65,7 @@ beforeEach(() => {
         where: () => ({
           get: async () => ({
             docs: Object.entries(usersById)
-              .filter(([, data]) => data.role === 'admin' && !data.orgId)
+              .filter(([, data]) => data.role === 'admin')
               .map(([id, data]) => ({ id, data: () => data })),
           }),
         }),
@@ -166,6 +167,53 @@ describe('platform-scoped unified conversations', () => {
     }))
   })
 
+  it('lets a client start a conversation with platform super admins even when admin records have the platform orgId', async () => {
+    mockUser = { uid: 'client-1', role: 'client', orgId: 'org-1' }
+    const { POST } = await import('@/app/api/v1/conversations/route')
+
+    const res = await POST(new NextRequest('http://localhost/api/v1/conversations', {
+      method: 'POST',
+      body: JSON.stringify({
+        orgId: 'org-1',
+        participants: [{ kind: 'user', uid: 'admin-1' }],
+      }),
+    }))
+
+    expect(res.status).toBe(201)
+    expect(mockCreateConversation).toHaveBeenCalledWith(expect.objectContaining({
+      orgId: 'org-1',
+      startedBy: 'client-1',
+      participants: expect.arrayContaining([
+        expect.objectContaining({ kind: 'user', uid: 'client-1' }),
+        expect.objectContaining({ kind: 'user', uid: 'admin-1', role: 'admin' }),
+      ]),
+    }))
+  })
+
+  it('lets a super admin start an agent conversation inside a client portal org without client membership', async () => {
+    mockUser = { uid: 'admin-1', role: 'admin', orgId: 'pib-platform-owner', allowedOrgIds: [] }
+    const { POST } = await import('@/app/api/v1/conversations/route')
+
+    const res = await POST(new NextRequest('http://localhost/api/v1/conversations', {
+      method: 'POST',
+      body: JSON.stringify({
+        orgId: 'org-1',
+        participants: [{ kind: 'agent', agentId: 'pip' }],
+        title: 'Client portal agent handoff',
+      }),
+    }))
+
+    expect(res.status).toBe(201)
+    expect(mockCreateConversation).toHaveBeenCalledWith(expect.objectContaining({
+      orgId: 'org-1',
+      startedBy: 'admin-1',
+      participants: expect.arrayContaining([
+        expect.objectContaining({ kind: 'user', uid: 'admin-1' }),
+        expect.objectContaining({ kind: 'agent', agentId: 'pip' }),
+      ]),
+    }))
+  })
+
   it('returns platform admins as people for the top-level participant picker', async () => {
     const { GET } = await import('@/app/api/v1/orgs/[orgId]/contacts/route')
 
@@ -178,6 +226,25 @@ describe('platform-scoped unified conversations', () => {
     expect(body.data).toEqual([
       expect.objectContaining({ uid: 'admin-2', role: 'admin', email: 'ops@example.com' }),
     ])
+  })
+
+  it('returns only unrestricted platform super admins as PiB people when their user doc stores the platform orgId', async () => {
+    mockUser = { uid: 'client-1', role: 'client', orgId: 'org-1' }
+    const { GET } = await import('@/app/api/v1/orgs/[orgId]/contacts/route')
+
+    const res = await GET(new NextRequest('http://localhost/api/v1/orgs/org-1/contacts'), {
+      params: Promise.resolve({ orgId: 'org-1' }),
+    })
+
+    expect(res.status).toBe(200)
+    const body = await readJson(res)
+    expect(body.data).toEqual(expect.arrayContaining([
+      expect.objectContaining({ uid: 'admin-1', role: 'admin', email: 'peet@example.com' }),
+      expect.objectContaining({ uid: 'admin-2', email: 'ops@example.com' }),
+    ]))
+    expect(body.data).not.toEqual(expect.arrayContaining([
+      expect.objectContaining({ uid: 'restricted-admin' }),
+    ]))
   })
 
   it('returns linked orgMember profiles when embedded organisation members are missing', async () => {

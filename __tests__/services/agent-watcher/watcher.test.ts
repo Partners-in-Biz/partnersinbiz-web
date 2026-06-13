@@ -112,12 +112,35 @@ function makeFilteringCollectionQuery(docs: FilteringQueryDoc[]): FilteringQuery
 describe('agent watcher dispatchTask', () => {
   beforeEach(() => {
     jest.clearAllMocks()
+    dbMock.collection = undefined
     getAgentConfigMock.mockResolvedValue({ enabled: true, baseUrl: 'https://hermes.local', apiKey: 'secret' })
     claimTaskMock.mockResolvedValue(true)
     startHeartbeatMock.mockReturnValue(jest.fn())
     runAndPollMock.mockImplementation(async (_cfg, _input, onRunCreated) => {
       await onRunCreated('run-live-1')
-      return { runId: 'run-live-1', output: 'done summary', error: null }
+      return {
+        runId: 'run-live-1',
+        output: 'done summary',
+        error: null,
+        telemetry: {
+          model: null,
+          reasoningEffort: null,
+          inputTokens: null,
+          outputTokens: null,
+          reasoningTokens: null,
+          totalTokens: null,
+          costUsd: null,
+          durationMs: 10,
+          retryCount: 0,
+          toolCallCount: null,
+          tokenSource: 'unavailable',
+          costSource: 'unavailable',
+          exactTokenUsageAvailable: false,
+          exactCostAvailable: false,
+          exactUsageAvailable: false,
+          missing: ['token_usage', 'cost_usd'],
+        },
+      }
     })
   })
 
@@ -166,6 +189,100 @@ describe('agent watcher dispatchTask', () => {
       agentConversationId: 'run-live-1',
       agentOutput: expect.objectContaining({ summary: 'done summary' }),
     }))
+  })
+
+  it('persists exact Hermes run telemetry on the task output and loop run ledger', async () => {
+    const taskRef = makeTaskRef()
+    const loopRunSet = jest.fn(async () => undefined)
+    const loopRunDoc = jest.fn(() => ({ set: loopRunSet }))
+    dbMock.collection = jest.fn((name: string) => {
+      if (name !== 'loop_engine_runs') throw new Error(`Unexpected collection ${name}`)
+      return { doc: loopRunDoc }
+    })
+    runAndPollMock.mockImplementation(async (_cfg, _input, onRunCreated) => {
+      await onRunCreated('run-metered-1')
+      return {
+        runId: 'run-metered-1',
+        output: 'done summary',
+        error: null,
+        telemetry: {
+          model: 'openai/gpt-5.1',
+          reasoningEffort: 'high',
+          inputTokens: 1200,
+          outputTokens: 320,
+          reasoningTokens: 280,
+          totalTokens: 1800,
+          costUsd: 0.0425,
+          durationMs: 3456,
+          retryCount: 0,
+          toolCallCount: null,
+          tokenSource: 'upstream',
+          costSource: 'upstream',
+          exactTokenUsageAvailable: true,
+          exactCostAvailable: true,
+          exactUsageAvailable: true,
+          missing: [],
+        },
+      }
+    })
+
+    await dispatchTask(taskRef as never, {
+      orgId: 'org-1',
+      projectId: 'project-1',
+      assigneeAgentId: 'theo',
+      reviewerAgentId: 'qa-release',
+      agentStatus: 'pending',
+      columnId: 'todo',
+      title: 'Ship telemetry',
+      agentEffort: 'high',
+      agentModel: 'openai/gpt-5.1',
+      riskLevel: 'high',
+    })
+
+    expect(taskRef.update).toHaveBeenLastCalledWith(expect.objectContaining({
+      agentStatus: 'done',
+      agentConversationId: 'run-metered-1',
+      agentOutput: expect.objectContaining({
+        summary: 'done summary',
+        telemetry: expect.objectContaining({
+          model: 'openai/gpt-5.1',
+          inputTokens: 1200,
+          outputTokens: 320,
+          reasoningTokens: 280,
+          totalTokens: 1800,
+          costUsd: 0.0425,
+          exactUsageAvailable: true,
+        }),
+      }),
+    }))
+    expect(loopRunDoc).toHaveBeenCalledWith('agent-task-dispatch:task-1:run-metered-1')
+    expect(loopRunSet).toHaveBeenCalledWith(expect.objectContaining({
+      loopId: 'agent-task-dispatch',
+      orgId: 'org-1',
+      projectId: 'project-1',
+      status: 'executed',
+      usage: expect.objectContaining({
+        inputTokens: 1200,
+        outputTokens: 320,
+        reasoningTokens: 280,
+        totalTokens: 1800,
+        costUsd: 0.0425,
+        durationMs: 3456,
+      }),
+      runtime: expect.objectContaining({
+        source: 'agent-watcher',
+        taskId: 'task-1',
+        agentId: 'theo',
+        runId: 'run-metered-1',
+        model: 'openai/gpt-5.1',
+        requiresExactModelTelemetry: true,
+      }),
+      telemetry: expect.objectContaining({
+        tokenSource: 'upstream',
+        costSource: 'upstream',
+        exactUsageAvailable: true,
+      }),
+    }), { merge: true })
   })
 
   it('includes recent task comments in the dispatched prompt', async () => {

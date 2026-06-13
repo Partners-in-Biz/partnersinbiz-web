@@ -4,6 +4,7 @@
  */
 import type { AgentConfig } from './config'
 import { logger } from './logger'
+import { buildAgentRunTelemetry, type AgentRunTelemetry } from './run-telemetry'
 
 const POLL_INTERVAL_MS = 2_000
 const DEFAULT_RUN_TIMEOUT_MS = 90 * 60 * 1_000
@@ -16,6 +17,7 @@ export interface RunResult {
   runId: string | null
   output: string | null
   error: string | null
+  telemetry: AgentRunTelemetry
 }
 
 export interface TaskDispatchInput {
@@ -198,9 +200,19 @@ export async function runAndPoll(
 ): Promise<RunResult> {
   const signal = { aborted: false }
   let capturedRunId: string | null = null
+  let createdPayload: Record<string, unknown> | null = null
+  const startedAtMs = Date.now()
+  const telemetry = (finalPayload?: Record<string, unknown> | null) => buildAgentRunTelemetry({
+    requestedModel: input.agentModel,
+    requestedReasoningEffort: input.agentEffort,
+    startedAtMs,
+    completedAtMs: Date.now(),
+    payloads: [finalPayload, createdPayload],
+  })
   try {
-    const { runId } = await postRun(cfg, input)
+    const { runId, data } = await postRun(cfg, input)
     capturedRunId = runId
+    createdPayload = data
     logger.info('Hermes run created', { taskId: input.taskId, runId, agentId: input.agentId })
 
     // Notify caller of runId immediately so it can persist agentConversationId before polling.
@@ -218,11 +230,11 @@ export async function runAndPoll(
     const final = await pollRun(cfg, runId, signal)
     const status = extractStatus(final)
     if (FAILURE_STATUSES.has(status)) {
-      return { runId: capturedRunId, output: null, error: extractError(final) }
+      return { runId: capturedRunId, output: null, error: extractError(final), telemetry: telemetry(final) }
     }
-    return { runId: capturedRunId, output: extractOutput(final), error: null }
+    return { runId: capturedRunId, output: extractOutput(final), error: null, telemetry: telemetry(final) }
   } catch (err) {
     signal.aborted = true
-    return { runId: capturedRunId, output: null, error: err instanceof Error ? err.message : String(err) }
+    return { runId: capturedRunId, output: null, error: err instanceof Error ? err.message : String(err), telemetry: telemetry(null) }
   }
 }

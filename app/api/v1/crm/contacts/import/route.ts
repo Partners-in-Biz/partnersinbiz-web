@@ -34,6 +34,15 @@ import { FieldValue } from 'firebase-admin/firestore'
 import { adminDb } from '@/lib/firebase/admin'
 import { withCrmAuth } from '@/lib/auth/crm-middleware'
 import { apiSuccess, apiError } from '@/lib/api/response'
+import {
+  crmActorCanReadRecord,
+  crmRecordCompanyIds,
+  isCrmPrivilegedActor,
+  loadCompanyAssignmentMap,
+  normalizeAllowedUserIds,
+  type AssignableCrmRecord,
+} from '@/lib/crm/assignment-access'
+import { safeTouchCrmLiveUpdate } from '@/lib/crm/live-updates'
 
 const MAX_ROWS = 5000
 const BATCH_CHUNK = 400
@@ -62,6 +71,20 @@ interface NormalizedRow {
   phone: string
   tags: string[]
   notes: string
+}
+
+type ExistingContact = {
+  id: string
+  ref: FirebaseFirestore.DocumentReference
+  data: AssignableCrmRecord & { tags?: unknown }
+  tags: string[]
+}
+
+type CompanyPlan = {
+  id: string
+  ref: FirebaseFirestore.DocumentReference
+  name: string
+  create: boolean
 }
 
 function isValidEmail(e: string) {
@@ -95,6 +118,55 @@ function deriveName(row: ImportRow): string {
   return combined
 }
 
+function companyKey(value: string): string {
+  return value.trim().toLowerCase()
+}
+
+async function buildCompanyPlans(orgId: string, rows: NormalizedRow[]): Promise<{
+  byName: Map<string, CompanyPlan>
+  preview: { upsert: number; linked: number; skipped: number }
+}> {
+  const names = Array.from(new Set(rows.map((row) => row.company.trim()).filter(Boolean)))
+  const byName = new Map<string, CompanyPlan>()
+  if (names.length === 0) return { byName, preview: { upsert: 0, linked: 0, skipped: 0 } }
+
+  const companiesSnap = await adminDb.collection('companies')
+    .where('orgId', '==', orgId)
+    .limit(1000)
+    .get()
+  for (const doc of companiesSnap.docs) {
+    const data = doc.data() ?? {}
+    if (data.deleted === true) continue
+    const name = typeof data.name === 'string' ? data.name.trim() : ''
+    if (!name) continue
+    byName.set(companyKey(name), { id: doc.id, ref: doc.ref, name, create: false })
+  }
+
+  let upsert = 0
+  let linked = 0
+  for (const name of names) {
+    const key = companyKey(name)
+    const existing = byName.get(key)
+    if (existing) {
+      linked += 1
+      continue
+    }
+    const ref = adminDb.collection('companies').doc()
+    byName.set(key, {
+      id: ref.id,
+      ref,
+      name,
+      create: true,
+    })
+    upsert += 1
+  }
+
+  return {
+    byName,
+    preview: { upsert, linked, skipped: 0 },
+  }
+}
+
 export const POST = withCrmAuth('member', async (req, ctx) => {
   const body = await req.json().catch(() => null) as
     | {
@@ -124,6 +196,7 @@ export const POST = withCrmAuth('member', async (req, ctx) => {
   const dryRun = body.dryRun === true
 
   const actorRef = ctx.actor
+  const restrictedRecords = !isCrmPrivilegedActor(ctx)
 
   // Resolve capture source autoTags (and confirm same org). If the source
   // doesn't belong to the org, we silently ignore it (don't apply autoTags
@@ -199,20 +272,15 @@ export const POST = withCrmAuth('member', async (req, ctx) => {
 
   // Look up existing contacts in the org by email. Firestore `in` queries
   // accept up to 30 values per query, so we chunk.
-  const emailToExisting = new Map<
-    string,
-    { id: string; ref: FirebaseFirestore.DocumentReference; tags: string[] }
-  >()
+  const emailToExisting = new Map<string, ExistingContact>()
   const emails = normalized.map((n) => n.email)
   const IN_CHUNK = 30
   for (let i = 0; i < emails.length; i += IN_CHUNK) {
     const slice = emails.slice(i, i + IN_CHUNK)
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const snap = await (adminDb.collection('contacts') as any)
       .where('orgId', '==', orgId)
       .where('email', 'in', slice)
       .get()
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     for (const doc of snap.docs as any[]) {
       const data = doc.data() ?? {}
       if (data.deleted === true) continue
@@ -221,9 +289,21 @@ export const POST = withCrmAuth('member', async (req, ctx) => {
       emailToExisting.set(email, {
         id: doc.id,
         ref: doc.ref,
+        data: { id: doc.id, ...data } as AssignableCrmRecord & { tags?: unknown },
         tags: Array.isArray(data.tags) ? data.tags : [],
       })
     }
+  }
+
+  const companyPlan = await buildCompanyPlans(orgId, normalized)
+
+  let existingCompaniesForAccess = new Map<string, AssignableCrmRecord>()
+  if (restrictedRecords) {
+    const companyIds = new Set<string>()
+    for (const existing of emailToExisting.values()) {
+      for (const companyId of crmRecordCompanyIds(existing.data)) companyIds.add(companyId)
+    }
+    existingCompaniesForAccess = await loadCompanyAssignmentMap(orgId, companyIds)
   }
 
   // Partition into create-vs-update plans
@@ -232,17 +312,24 @@ export const POST = withCrmAuth('member', async (req, ctx) => {
     row: NormalizedRow
     ref: FirebaseFirestore.DocumentReference
     mergedTags: string[]
+    company?: CompanyPlan
   }> = []
+  let accessSkipped = 0
 
   for (const row of normalized) {
     const existing = emailToExisting.get(row.email)
+    const linkedCompany = row.company ? companyPlan.byName.get(companyKey(row.company)) : undefined
     if (existing) {
-      const mergedTags = uniqueTags(existing.tags, row.tags)
-      // Skip the write if no new tags were added.
-      if (mergedTags.length === existing.tags.length) {
+      if (restrictedRecords && !crmActorCanReadRecord(ctx, existing.data, { companies: existingCompaniesForAccess })) {
+        accessSkipped += 1
         continue
       }
-      toUpdate.push({ row, ref: existing.ref, mergedTags })
+      const mergedTags = uniqueTags(existing.tags, row.tags)
+      // Skip the write if no new tags were added.
+      if (mergedTags.length === existing.tags.length && !linkedCompany) {
+        continue
+      }
+      toUpdate.push({ row, ref: existing.ref, mergedTags, company: linkedCompany })
     } else {
       toCreate.push(row)
     }
@@ -252,8 +339,9 @@ export const POST = withCrmAuth('member', async (req, ctx) => {
     return apiSuccess({
       created: toCreate.length,
       updated: toUpdate.length,
-      skipped: invalidRows.length,
+      skipped: invalidRows.length + accessSkipped,
       invalidRows,
+      companyPreview: companyPlan.preview,
       previewSample: normalized.slice(0, 4).map((r) => ({
         index: r.index,
         email: r.email,
@@ -270,22 +358,46 @@ export const POST = withCrmAuth('member', async (req, ctx) => {
   // Commit in chunks of BATCH_CHUNK writes per batch.
   const contactsCol = adminDb.collection('contacts')
   type Op =
+    | { kind: 'company'; ref: FirebaseFirestore.DocumentReference; company: CompanyPlan }
     | { kind: 'create'; ref: FirebaseFirestore.DocumentReference; row: NormalizedRow }
-    | { kind: 'update'; ref: FirebaseFirestore.DocumentReference; mergedTags: string[] }
+    | { kind: 'update'; ref: FirebaseFirestore.DocumentReference; row: NormalizedRow; mergedTags: string[]; company?: CompanyPlan }
   const ops: Op[] = []
 
+  const newCompanyPlans = Array.from(companyPlan.byName.values()).filter((company) => company.create)
+  for (const company of newCompanyPlans) {
+    ops.push({ kind: 'company', ref: company.ref, company })
+  }
   for (const row of toCreate) {
     ops.push({ kind: 'create', ref: contactsCol.doc(), row })
   }
   for (const upd of toUpdate) {
-    ops.push({ kind: 'update', ref: upd.ref, mergedTags: upd.mergedTags })
+    ops.push({ kind: 'update', ref: upd.ref, row: upd.row, mergedTags: upd.mergedTags, company: upd.company })
   }
 
   for (let i = 0; i < ops.length; i += BATCH_CHUNK) {
     const slice = ops.slice(i, i + BATCH_CHUNK)
     const batch = adminDb.batch()
     for (const op of slice) {
-      if (op.kind === 'create') {
+      if (op.kind === 'company') {
+        const companyData = {
+          orgId,
+          name: op.company.name,
+          source: 'import',
+          ownerUid: restrictedRecords ? ctx.actor.uid : undefined,
+          ownerRef: restrictedRecords ? actorRef : undefined,
+          allowedUserIds: restrictedRecords ? [ctx.actor.uid] : undefined,
+          createdBy: ctx.isAgent ? undefined : ctx.actor.uid,
+          createdByRef: actorRef,
+          updatedBy: ctx.isAgent ? undefined : ctx.actor.uid,
+          updatedByRef: actorRef,
+          createdAt: FieldValue.serverTimestamp(),
+          updatedAt: FieldValue.serverTimestamp(),
+          deleted: false,
+        }
+        batch.set(op.ref, Object.fromEntries(Object.entries(companyData).filter(([, v]) => v !== undefined)))
+      } else if (op.kind === 'create') {
+        const linkedCompany = op.row.company ? companyPlan.byName.get(companyKey(op.row.company)) : undefined
+        const allowedUserIds = restrictedRecords ? normalizeAllowedUserIds([ctx.actor.uid]) : []
         const data = {
           orgId,
           capturedFromId: effectiveCapturedFromId,
@@ -299,7 +411,12 @@ export const POST = withCrmAuth('member', async (req, ctx) => {
           stage: 'new' as const,
           tags: op.row.tags,
           notes: op.row.notes,
-          assignedTo: '',
+          assignedTo: restrictedRecords ? ctx.actor.uid : '',
+          assignedToRef: restrictedRecords ? actorRef : undefined,
+          ...(allowedUserIds.length > 0 ? { allowedUserIds } : {}),
+          companyId: linkedCompany?.id,
+          companyName: linkedCompany?.name,
+          companyLinks: linkedCompany ? [{ companyId: linkedCompany.id, companyName: linkedCompany.name, primary: true }] : undefined,
           deleted: false,
           subscribedAt: FieldValue.serverTimestamp(),
           unsubscribedAt: null,
@@ -317,6 +434,12 @@ export const POST = withCrmAuth('member', async (req, ctx) => {
       } else {
         const updatePatch: Record<string, unknown> = {
           tags: op.mergedTags,
+          ...(op.company ? {
+            company: op.company.name,
+            companyId: op.company.id,
+            companyName: op.company.name,
+            companyLinks: [{ companyId: op.company.id, companyName: op.company.name, primary: true }],
+          } : {}),
           updatedBy: ctx.isAgent ? undefined : ctx.actor.uid,
           updatedByRef: actorRef,
           updatedAt: FieldValue.serverTimestamp(),
@@ -326,6 +449,13 @@ export const POST = withCrmAuth('member', async (req, ctx) => {
       }
     }
     await batch.commit()
+  }
+
+  if (toCreate.length > 0 || toUpdate.length > 0) {
+    await safeTouchCrmLiveUpdate(orgId, 'contacts', 'contacts.imported')
+  }
+  if (newCompanyPlans.length > 0) {
+    await safeTouchCrmLiveUpdate(orgId, 'companies', 'companies.imported')
   }
 
   // Bump source counter by `created` only — folded into a final batch write.
@@ -346,7 +476,8 @@ export const POST = withCrmAuth('member', async (req, ctx) => {
   return apiSuccess({
     created: toCreate.length,
     updated: toUpdate.length,
-    skipped: invalidRows.length,
+    skipped: invalidRows.length + accessSkipped,
     invalidRows,
+    companyPreview: companyPlan.preview,
   })
 })

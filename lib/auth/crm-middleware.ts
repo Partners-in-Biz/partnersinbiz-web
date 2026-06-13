@@ -10,6 +10,12 @@ import {
   type MemberRef,
 } from '@/lib/orgMembers/memberRef'
 import { canUsePortalOrg, resolvePortalActiveOrgId } from '@/lib/portal/org-access'
+import {
+  FULL_ACCESS_POLICY,
+  canAccessModule,
+  resolveMemberAccessPolicy,
+  type MemberAccessPolicy,
+} from '@/lib/orgMembers/access-policy'
 
 export type CrmRole = OrgRole | 'system'
 
@@ -25,10 +31,12 @@ export interface OrgPermissions {
 
 export interface CrmAuthContext {
   orgId: string
+  uid?: string
   actor: MemberRef
   role: CrmRole
   isAgent: boolean
   permissions: OrgPermissions
+  accessPolicy: MemberAccessPolicy
   user?: {
     uid: string
     role?: string
@@ -53,7 +61,7 @@ function apiError(message: string, status: number): Response {
 
 async function loadOrgPermissions(orgId: string): Promise<{
   permissions: OrgPermissions
-  members: Array<{ userId: string; role: OrgRole }> | null
+  members: Array<{ userId: string; role: OrgRole; accessScope?: unknown; accessPolicy?: unknown }> | null
   exists: boolean
 }> {
   const orgDoc = await adminDb.collection('organizations').doc(orgId).get()
@@ -108,10 +116,12 @@ export function withCrmAuth<RouteCtx = unknown>(
       const actor = agentUser ? agentRefFor(agentUser.agentId) : AGENT_PIP_REF
       const ctx: CrmAuthContext = {
         orgId,
+        uid: actor.uid,
         actor,
         role: 'system',
         isAgent: true,
         permissions,
+        accessPolicy: FULL_ACCESS_POLICY,
         user: {
           uid: actor.uid,
           role: 'ai',
@@ -157,10 +167,14 @@ export function withCrmAuth<RouteCtx = unknown>(
     const memberSnap = await adminDb.collection('orgMembers').doc(`${orgId}_${uid}`).get()
     let role: OrgRole | null = null
     let actor: MemberRef | null = null
+    let accessScope: unknown
+    let storedAccessPolicy: unknown
     if (memberSnap.exists) {
       const m = memberSnap.data() ?? {}
       role = (m.role as OrgRole) ?? null
       actor = buildHumanRef(uid, m)
+      accessScope = m.accessScope
+      storedAccessPolicy = m.accessPolicy
     }
 
     const { permissions, members } = await loadOrgPermissions(orgId)
@@ -170,18 +184,26 @@ export function withCrmAuth<RouteCtx = unknown>(
       if (fallback) {
         role = fallback.role
         actor = { uid, displayName: uid, kind: 'human' }
+        accessScope = fallback.accessScope
+        storedAccessPolicy = fallback.accessPolicy
       }
     }
 
     if (!role || !actor) return apiError('Workspace membership not found', 403)
     if (rankOf(role) < rankOf(minRole)) return apiError('Insufficient permissions', 403)
+    const accessPolicy = resolveMemberAccessPolicy({ role, accessScope, accessPolicy: storedAccessPolicy })
+    if (!canAccessModule(accessPolicy, 'crm')) {
+      return apiError('CRM module access is disabled for this team member', 403)
+    }
 
     const ctx: CrmAuthContext = {
       orgId,
+      uid,
       actor,
       role,
       isAgent: false,
       permissions,
+      accessPolicy,
       user: {
         uid,
         role: typeof userData.role === 'string' ? userData.role : undefined,

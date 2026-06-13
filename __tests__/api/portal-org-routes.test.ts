@@ -32,6 +32,13 @@ beforeEach(() => {
   mockCollection.mockImplementation((name: string) => {
     if (name === 'users') return { doc: mockUserDoc }
     if (name === 'organizations') return { doc: mockOrgDoc }
+    if (name === 'orgMembers') {
+      return {
+        doc: jest.fn(() => ({
+          get: jest.fn(async () => ({ exists: false, data: () => undefined })),
+        })),
+      }
+    }
     throw new Error(`Unexpected collection: ${name}`)
   })
 })

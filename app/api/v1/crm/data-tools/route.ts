@@ -3,6 +3,12 @@ import { withAuth } from '@/lib/api/auth'
 import { canAccessOrg } from '@/lib/api/platformAdmin'
 import { apiError, apiSuccess } from '@/lib/api/response'
 import { adminDb } from '@/lib/firebase/admin'
+import { sanitizeCompanyForWrite } from '@/lib/companies/store'
+import type { CompanyInput } from '@/lib/companies/types'
+import { sanitizeContactForWrite } from '@/lib/crm/contacts'
+import { canAccessModule, recordScopeFor } from '@/lib/orgMembers/access-policy'
+import { isCrmLiveEntity } from '@/lib/crm/live-update-keys'
+import { safeTouchCrmLiveUpdate } from '@/lib/crm/live-updates'
 
 export const dynamic = 'force-dynamic'
 
@@ -60,6 +66,12 @@ function parseBodyRows(body: Record<string, unknown>): DataRow[] {
     : []
 }
 
+function sanitizeImportRow(resource: ResourceName, row: DataRow): DataRow {
+  if (resource === 'companies') return sanitizeCompanyForWrite(row as Partial<CompanyInput>) as DataRow
+  if (resource === 'contacts') return sanitizeContactForWrite(row) as DataRow
+  return row
+}
+
 export const GET = withAuth('admin', async (req, user) => {
   const url = new URL(req.url)
   const config = resourceConfig(url.searchParams.get('resource'))
@@ -81,9 +93,13 @@ export const POST = withAuth('admin', async (req, user) => {
   const orgId = cleanString((body as Record<string, unknown>).orgId) || user.orgId
   if (!orgId) return apiError('orgId is required', 400)
   if (!canAccessOrg(user, orgId)) return apiError('Forbidden', 403)
+  if (!canAccessModule(user.memberAccessPolicy, 'crm')) return apiError('CRM module access is disabled for this team member', 403)
 
   const action = cleanString((body as Record<string, unknown>).action) || 'dedupe'
   if (action === 'import') {
+    if (config.key !== 'companies' && config.key !== 'contacts') {
+      return apiError('CRM data imports are only supported for companies and contacts', 400)
+    }
     const rows = parseBodyRows(body as Record<string, unknown>)
     const dryRun = (body as Record<string, unknown>).dryRun !== false
     if (!dryRun && (body as Record<string, unknown>).approved !== true) {
@@ -94,15 +110,30 @@ export const POST = withAuth('admin', async (req, user) => {
     }
 
     let createdCount = 0
+    const scopedRecords = recordScopeFor(user.memberAccessPolicy, 'crm') === 'owned_or_linked'
     for (const row of rows) {
-      await adminDb.collection(config.collection).add({
-        ...row,
+      const sanitized = sanitizeImportRow(config.key, row)
+      const ownership = scopedRecords && user.uid
+        ? config.key === 'companies'
+          ? { ownerUid: user.uid, allowedUserIds: [user.uid] }
+          : { assignedTo: user.uid, allowedUserIds: [user.uid] }
+        : {}
+      const toWrite = {
+        ...sanitized,
+        ...ownership,
         [config.orgField]: orgId,
+        source: config.key === 'contacts' ? 'import' : sanitized.source,
+        createdBy: user.role === 'ai' ? undefined : user.uid,
+        updatedBy: user.role === 'ai' ? undefined : user.uid,
         createdAt: FieldValue.serverTimestamp(),
         updatedAt: FieldValue.serverTimestamp(),
         deleted: false,
-      })
+      }
+      await adminDb.collection(config.collection).add(Object.fromEntries(Object.entries(toWrite).filter(([, value]) => value !== undefined)))
       createdCount += 1
+    }
+    if (createdCount > 0 && isCrmLiveEntity(config.key)) {
+      await safeTouchCrmLiveUpdate(orgId, config.key, `${config.key}.data_tools_import`)
     }
     return apiSuccess({ resource: config.key, dryRun: false, createdCount, updateCount: 0 })
   }

@@ -12,6 +12,7 @@ import { CompaniesTable } from '@/components/crm/CompaniesTable'
 import { CompanyFiltersBar } from '@/components/crm/CompanyFiltersBar'
 import { companyAccountOwnerUid, companyHasAccountOwner } from '@/lib/companies/ownership'
 import type { Company, CompanyListParams } from '@/lib/companies/types'
+import { useCrmLiveRefresh } from '@/lib/crm/use-crm-live-refresh'
 import { scopedApiPath, scopedPortalPath, scopeFromSearchParams } from '@/lib/portal/scoped-routing'
 
 // ── Companies list page ───────────────────────────────────────────────────────
@@ -79,6 +80,7 @@ export default function CompaniesPage() {
   const companyPortalPath = useCallback((path: string) => scopedPortalPath(path, orgScope), [orgScope])
 
   const [companies, setCompanies] = useState<Company[]>([])
+  const [liveOrgId, setLiveOrgId] = useState(() => orgScope.orgId ?? orgScope.id ?? '')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
@@ -167,8 +169,12 @@ export default function CompaniesPage() {
 
   // ── Fetch companies ────────────────────────────────────────────────────────
 
-  const fetchCompanies = useCallback(async (params: CompanyListParams) => {
-    setLoading(true)
+  const fetchCompanies = useCallback(async (
+    params: CompanyListParams,
+    options: { showSpinner?: boolean } = {},
+  ) => {
+    const showSpinner = options.showSpinner ?? true
+    if (showSpinner) setLoading(true)
     setError(null)
     try {
       const query = new URLSearchParams()
@@ -187,19 +193,27 @@ export default function CompaniesPage() {
         throw new Error(body.error ?? `HTTP ${res.status}`)
       }
       const body = await res.json()
-      setCompanies(body.data?.companies ?? [])
+      const nextCompanies = body.data?.companies ?? []
+      setCompanies(nextCompanies)
+      setLiveOrgId(body.data?.orgId ?? nextCompanies.find((company: Company) => company.orgId)?.orgId ?? orgScope.orgId ?? orgScope.id ?? '')
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Failed to load companies'
       setError(msg)
     } finally {
-      setLoading(false)
+      if (showSpinner) setLoading(false)
     }
-  }, [companyApiPath])
+  }, [companyApiPath, orgScope.id, orgScope.orgId])
 
   // Fetch on mount and when filters change
   useEffect(() => {
     fetchCompanies(filters)
   }, [fetchCompanies, filters])
+
+  useCrmLiveRefresh({
+    orgId: liveOrgId,
+    entity: 'companies',
+    onRefresh: () => fetchCompanies(filters, { showSpinner: false }),
+  })
 
   // ── Filter change → update URL + re-fetch ─────────────────────────────────
 

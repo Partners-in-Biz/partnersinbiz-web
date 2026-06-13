@@ -32,6 +32,7 @@ import {
   isCrmPrivilegedActor,
   normalizeAllowedUserIds,
 } from '@/lib/crm/assignment-access'
+import { safeTouchCrmLiveUpdate } from '@/lib/crm/live-updates'
 
 // ── GET ─────────────────────────────────────────────────────────────────────────
 
@@ -134,10 +135,14 @@ export const GET = withCrmAuth('viewer', async (req, ctx) => {
     const toMillis = (value: unknown): number => {
       if (!value) return 0
       if (value instanceof Date) return value.getTime()
-      const maybeTimestamp = value as { toDate?: () => Date; _seconds?: number; seconds?: number }
-      if (typeof maybeTimestamp.toDate === 'function') return maybeTimestamp.toDate().getTime()
+      const maybeTimestamp = value as { toDate?: () => Date; _seconds?: number; seconds?: number; _nanoseconds?: number; nanoseconds?: number }
       const seconds = maybeTimestamp._seconds ?? maybeTimestamp.seconds
-      return typeof seconds === 'number' ? seconds * 1000 : 0
+      if (typeof seconds === 'number') {
+        const nanos = maybeTimestamp._nanoseconds ?? maybeTimestamp.nanoseconds ?? 0
+        return (seconds * 1000) + (typeof nanos === 'number' ? Math.floor(nanos / 1_000_000) : 0)
+      }
+      if (typeof maybeTimestamp.toDate === 'function') return maybeTimestamp.toDate().getTime()
+      return 0
     }
 
     companies = [...companies].sort((a, b) => {
@@ -157,7 +162,7 @@ export const GET = withCrmAuth('viewer', async (req, ctx) => {
     const page = companies.slice(start, start + limit)
     const nextCursor = start + limit < companies.length ? page[page.length - 1]?.id : undefined
 
-    return apiSuccess({ companies: page, nextCursor })
+    return apiSuccess({ companies: page, nextCursor, orgId: ctx.orgId })
   } catch (err) {
     return apiErrorFromException(err)
   }
@@ -184,11 +189,17 @@ export const POST = withCrmAuth('member', async (req, ctx) => {
   // Validate account manager belongs to this org + resolve ref snapshot
   let accountManagerRef = undefined
   if (body.accountManagerUid) {
+    if (!isCrmPrivilegedActor(ctx) && body.accountManagerUid !== ctx.actor.uid) {
+      return apiError('You can only assign companies to yourself with your current CRM access', 403)
+    }
     accountManagerRef = await loadMemberRef(ctx.orgId, body.accountManagerUid)
     if (!accountManagerRef) return apiError('accountManagerUid does not belong to this workspace', 400)
   }
 
   const ownerUidInput = typeof body.ownerUid === 'string' ? body.ownerUid.trim() : ''
+  if (!isCrmPrivilegedActor(ctx) && ownerUidInput && ownerUidInput !== ctx.actor.uid) {
+    return apiError('You can only own companies assigned to yourself with your current CRM access', 403)
+  }
   const ownerUid = ownerUidInput || ctx.actor.uid
   let ownerRef = ctx.actor
   if (ownerUid !== ctx.actor.uid) {
@@ -242,6 +253,7 @@ export const POST = withCrmAuth('member', async (req, ctx) => {
 
   const docRef = adminDb.collection('companies').doc()
   await docRef.set(toWrite)
+  await safeTouchCrmLiveUpdate(ctx.orgId, 'companies', 'company.created')
 
   return apiSuccess({ company: { ...toWrite, id: docRef.id } }, 201)
 })

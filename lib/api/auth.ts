@@ -5,8 +5,9 @@ import { adminAuth, adminDb } from '@/lib/firebase/admin'
 import { apiError, apiErrorFromException } from './response'
 import type { ApiPermission, ApiRole, ApiUser } from './types'
 import { canAccessOrg } from './platformAdmin'
+import { resolveMemberAccessPolicy, type MemberAccessPolicy } from '@/lib/orgMembers/access-policy'
+import type { OrgRole } from '@/lib/organizations/types'
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 type RouteHandler = (req: NextRequest, user: ApiUser, context?: any) => Promise<Response>
 
 function constantTimeStringEqual(candidate: string, expected: string | undefined): boolean {
@@ -28,9 +29,7 @@ function constantTimeStringEqual(candidate: string, expected: string | undefined
  *
  * Role hierarchy: ai/admin satisfy any role; client only satisfies "client"
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function withAuth(requiredRole: 'admin' | 'client', handler: RouteHandler): any {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   return async (req: NextRequest, context?: any): Promise<Response> => {
     let user: ApiUser | null
     try {
@@ -195,7 +194,7 @@ export async function resolveAgentApiKeyUser(rawKey: string): Promise<ApiUser | 
 
 async function getUserExtrasFromFirestore(
   uid: string,
-): Promise<{ role: ApiRole; orgId?: string; orgIds?: string[]; allowedOrgIds?: string[] }> {
+): Promise<{ role: ApiRole; orgId?: string; orgIds?: string[]; allowedOrgIds?: string[]; memberAccessPolicy?: MemberAccessPolicy }> {
   const doc = await adminDb.collection('users').doc(uid).get()
   if (!doc.exists) return { role: 'client' }
   const data = doc.data() ?? {}
@@ -208,5 +207,22 @@ async function getUserExtrasFromFirestore(
   const allowedOrgIds = Array.isArray(data.allowedOrgIds)
     ? (data.allowedOrgIds.filter((v: unknown) => typeof v === 'string' && v.length > 0) as string[])
     : undefined
-  return { role: validRole, orgId, orgIds: orgIds.length > 0 ? orgIds : undefined, allowedOrgIds }
+  const activeOrgId = typeof data.activeOrgId === 'string' && data.activeOrgId ? data.activeOrgId : orgId
+  const memberAccessPolicy = activeOrgId ? await loadMemberAccessPolicy(uid, activeOrgId) : undefined
+  return { role: validRole, orgId, orgIds: orgIds.length > 0 ? orgIds : undefined, allowedOrgIds, memberAccessPolicy }
+}
+
+async function loadMemberAccessPolicy(uid: string, orgId: string): Promise<MemberAccessPolicy | undefined> {
+  try {
+    const memberDoc = await adminDb.collection('orgMembers').doc(`${orgId}_${uid}`).get()
+    if (!memberDoc.exists) return undefined
+    const data = memberDoc.data() ?? {}
+    return resolveMemberAccessPolicy({
+      role: (data.role as OrgRole | undefined) ?? 'viewer',
+      accessScope: data.accessScope,
+      accessPolicy: data.accessPolicy,
+    })
+  } catch {
+    return undefined
+  }
 }

@@ -127,6 +127,9 @@ async function handleDealUpdate(
 
   if (ownerChanged) {
     if (newOwnerUid !== '') {
+      if (!isCrmPrivilegedActor(ctx) && newOwnerUid !== ctx.actor.uid) {
+        return apiError('You can only assign deals to yourself with your current CRM access', 403)
+      }
       ownerRef = await resolveMemberRef(ctx.orgId, newOwnerUid)
       patch.ownerRef = ownerRef
       const allowedUserIds = normalizeAllowedUserPatch(body.allowedUserIds) ?? normalizeAllowedUserIds(before.allowedUserIds)
@@ -502,6 +505,15 @@ export const DELETE = withCrmAuth<RouteCtx>('admin', async (_req, ctx, routeCtx)
   if (!snap.exists) return apiError('Deal not found', 404)
   const data = snap.data()!
   if (data.orgId !== ctx.orgId) return apiError('Deal not found', 404)
+  if (!isCrmPrivilegedActor(ctx)) {
+    const contacts = await loadContactAssignmentMap(ctx.orgId, crmRecordContactIds(data))
+    const companyIds = new Set(crmRecordCompanyIds(data))
+    for (const contactId of crmRecordContactIds(data)) {
+      for (const companyId of crmRecordCompanyIds(contacts.get(contactId))) companyIds.add(companyId)
+    }
+    const companies = await loadCompanyAssignmentMap(ctx.orgId, companyIds)
+    if (!crmActorCanReadRecord(ctx, { id, ...data }, { contacts, companies })) return apiError('Deal not found', 404)
+  }
 
   // PR 3 pattern 1: use ctx.actor directly
   const actorRef: MemberRef = ctx.actor

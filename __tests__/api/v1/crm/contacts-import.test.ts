@@ -29,7 +29,15 @@ process.env.SESSION_COOKIE_NAME = '__session'
 // ---------------------------------------------------------------------------
 
 function stageAuthWithBatch(
-  member: { uid: string; orgId: string; role: string; firstName?: string; lastName?: string },
+  member: {
+    uid: string
+    orgId: string
+    role: string
+    firstName?: string
+    lastName?: string
+    accessScope?: string
+    accessPolicy?: Record<string, unknown>
+  },
   opts?: {
     captureSourceId?: string
     existingContactsByEmail?: Record<string, { id: string; data: Record<string, unknown> }>
@@ -117,6 +125,19 @@ function stageAuthWithBatch(
               data: () => ({}),
             }),
         }),
+      }
+    }
+    if (name === 'companies') {
+      return {
+        where: jest.fn().mockReturnValue({
+          limit: jest.fn().mockReturnValue({
+            get: jest.fn().mockResolvedValue({ docs: [] }),
+          }),
+        }),
+        doc: jest.fn().mockImplementation((id?: string) => ({
+          id: id ?? `company-${Math.random().toString(36).slice(2, 8)}`,
+          get: jest.fn().mockResolvedValue({ exists: false }),
+        })),
       }
     }
     return { doc: () => ({ get: () => Promise.resolve({ exists: false }) }) }
@@ -239,6 +260,19 @@ function setupLegacyMocks(orgId = 'org-1') {
         }),
       }
     }
+    if (name === 'companies') {
+      return {
+        where: jest.fn().mockReturnValue({
+          limit: jest.fn().mockReturnValue({
+            get: jest.fn().mockResolvedValue({ docs: [] }),
+          }),
+        }),
+        doc: jest.fn().mockImplementation((id?: string) => ({
+          id: id ?? `company-${Math.random().toString(36).slice(2, 8)}`,
+          get: jest.fn().mockResolvedValue({ exists: false }),
+        })),
+      }
+    }
     return {}
   })
 
@@ -345,13 +379,16 @@ describe('POST /api/v1/crm/contacts/import', () => {
     expect(body.data.updated).toBe(0)
 
     const sets = state.batches.flatMap((b) => b.set.mock.calls)
-    expect(sets).toHaveLength(1)
-    const [, payload] = sets[0]
+    const contactSets = sets.filter(([, payload]) => payload.email !== undefined)
+    expect(contactSets).toHaveLength(1)
+    const [, payload] = contactSets[0]
     expect(payload).toMatchObject({
       orgId: 'org-1',
       email: 'new@example.com',
       name: 'New',
       company: 'Acme',
+      companyId: expect.any(String),
+      companyName: 'Acme',
       phone: '555',
       source: 'import',
       type: 'lead',
@@ -548,5 +585,72 @@ describe('POST /api/v1/crm/contacts/import — attribution', () => {
     })
     const res = await POST(req)
     expect(res.status).toBe(403)
+  })
+
+  it('assigns newly imported contacts to restricted CRM users', async () => {
+    const member = {
+      ...seedOrgMember('org-1', 'uid-restricted', { role: 'member', firstName: 'Riley', lastName: 'Rep' }),
+      accessScope: 'crm',
+    }
+    const { batchSetCalls } = stageAuthWithBatch(member)
+    const req = callAsMember(member, 'POST', '/api/v1/crm/contacts/import', {
+      rows: [{ email: 'owned@example.com', name: 'Owned Contact' }],
+    })
+
+    const res = await POST(req)
+    expect(res.status).toBe(200)
+
+    const contactWrite = batchSetCalls.find((call) => call.data.email === 'owned@example.com')
+    expect(contactWrite?.data).toMatchObject({
+      assignedTo: 'uid-restricted',
+      assignedToRef: expect.objectContaining({ uid: 'uid-restricted', displayName: 'Riley Rep' }),
+      allowedUserIds: ['uid-restricted'],
+    })
+  })
+
+  it('skips existing contacts outside a restricted user record scope', async () => {
+    const member = {
+      ...seedOrgMember('org-1', 'uid-restricted', { role: 'member' }),
+      accessScope: 'crm',
+    }
+    const { batchUpdateCalls } = stageAuthWithBatch(member, {
+      existingContactsByEmail: {
+        'hidden@example.com': {
+          id: 'hidden-contact',
+          data: { orgId: 'org-1', email: 'hidden@example.com', tags: ['old'], assignedTo: 'uid-other' },
+        },
+      },
+    })
+    const req = callAsMember(member, 'POST', '/api/v1/crm/contacts/import', {
+      rows: [{ email: 'hidden@example.com', tags: ['fresh'] }],
+    })
+
+    const res = await POST(req)
+    const body = await res.json()
+
+    expect(res.status).toBe(200)
+    expect(body.data.created).toBe(0)
+    expect(body.data.updated).toBe(0)
+    expect(body.data.skipped).toBe(1)
+    expect(batchUpdateCalls).toHaveLength(0)
+  })
+
+  it('previews company upserts for contact imports with company names', async () => {
+    const member = seedOrgMember('org-1', 'uid-1', { role: 'member' })
+    stageAuthWithBatch(member)
+    const req = callAsMember(member, 'POST', '/api/v1/crm/contacts/import', {
+      dryRun: true,
+      rows: [{ email: 'company@example.com', name: 'Company Contact', company: 'Acme Corp' }],
+    })
+
+    const res = await POST(req)
+    const body = await res.json()
+
+    expect(res.status).toBe(200)
+    expect(body.data.companyPreview).toEqual({
+      upsert: 1,
+      linked: 0,
+      skipped: 0,
+    })
   })
 })

@@ -2,6 +2,7 @@ import { FieldValue } from 'firebase-admin/firestore'
 import { adminDb } from '@/lib/firebase/admin'
 import type { ApiUser } from '@/lib/api/types'
 import { canAccessOrg, isSuperAdmin } from '@/lib/api/platformAdmin'
+import { canAccessModule, recordScopeFor } from '@/lib/orgMembers/access-policy'
 
 export const PROJECT_MEMBER_ROLES = ['owner', 'manager', 'contributor', 'reviewer', 'viewer'] as const
 export type ProjectMemberRole = (typeof PROJECT_MEMBER_ROLES)[number]
@@ -157,6 +158,25 @@ function hasOverlap(left: string[], right: string[]): boolean {
   return left.some((item) => right.includes(item))
 }
 
+function userLinkedToProjectFallback(user: ApiUser, data: Record<string, unknown>): boolean {
+  const uid = cleanString(user.uid)
+  if (!uid) return false
+  if (cleanString(data.ownerUid) === uid) return true
+  if (cleanString(data.createdBy) === uid) return true
+  if (cleanString(data.managerUid) === uid) return true
+  if (cleanString(data.assignedTo) === uid) return true
+  return cleanStringArray(data.allowedUserIds).includes(uid) ||
+    cleanStringArray(data.memberUids).includes(uid) ||
+    cleanStringArray(data.projectMemberUids).includes(uid)
+}
+
+export function legacyProjectPolicyAllows(user: ApiUser, data: Record<string, unknown>): boolean {
+  if (user.role === 'ai' || isSuperAdmin(user)) return true
+  if (!canAccessModule(user.memberAccessPolicy, 'projects')) return false
+  if (recordScopeFor(user.memberAccessPolicy, 'projects') === 'all') return true
+  return userLinkedToProjectFallback(user, data)
+}
+
 export function filterProjectItemsForAccess<T extends object>(
   items: T[],
   input: { projectAccess?: ProjectAccessContext | null; user?: Pick<ApiUser, 'uid' | 'orgId' | 'orgIds' | 'allowedOrgIds' | 'role'> },
@@ -231,6 +251,7 @@ export async function ensureProjectOwnerMembership(input: {
 export function legacyProjectAccessForUser(user: ApiUser, data: Record<string, unknown>): ProjectAccessContext | null {
   if (user.role === 'ai') return { role: 'owner', source: 'ai', canViewInternal: true }
   if (isSuperAdmin(user)) return { role: 'owner', source: 'super_admin', canViewInternal: true }
+  if (!legacyProjectPolicyAllows(user, data)) return null
   const ids = projectOrgIds(data)
   if (!ids.some((id) => canAccessOrg(user, id))) return null
   const canViewInternal = userCanViewInternalProjectItems(user, data)

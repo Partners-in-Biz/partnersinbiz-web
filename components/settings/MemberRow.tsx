@@ -2,6 +2,7 @@
 'use client'
 
 import type { OrgRole } from '@/lib/organizations/types'
+import type { MemberAccessPolicy } from '@/lib/orgMembers/access-policy'
 
 interface MemberRowProps {
   uid: string
@@ -10,12 +11,15 @@ interface MemberRowProps {
   jobTitle: string
   department?: string
   accessScope?: string
+  accessPolicy?: MemberAccessPolicy
+  accessSummary?: string
   avatarUrl: string
   role: OrgRole
   viewerRole: OrgRole
   isSelf: boolean
   onRemove: (uid: string) => void
   onRoleChange: (uid: string, newRole: OrgRole) => void
+  onEditAccess?: (uid: string) => void
 }
 
 const ROLE_COLORS: Record<OrgRole, string> = {
@@ -27,11 +31,13 @@ const ROLE_COLORS: Record<OrgRole, string> = {
 
 const ROLE_RANK: Record<OrgRole, number> = { owner: 4, admin: 3, member: 2, viewer: 1 }
 
-export function MemberRow({ uid, firstName, lastName, jobTitle, department, accessScope, avatarUrl, role, viewerRole, isSelf, onRemove, onRoleChange }: MemberRowProps) {
+export function MemberRow({ uid, firstName, lastName, jobTitle, department, accessScope, accessSummary, avatarUrl, role, viewerRole, isSelf, onRemove, onRoleChange, onEditAccess }: MemberRowProps) {
   const displayName = [firstName, lastName].filter(Boolean).join(' ') || uid
   const initials = [firstName[0], lastName[0]].filter(Boolean).join('').toUpperCase() || '?'
   const canRemove = !isSelf && ROLE_RANK[viewerRole] >= 3 && role !== 'owner'
   const canChangeRole = !isSelf && viewerRole === 'owner' && role !== 'owner'
+  const canEditAccess = !isSelf && viewerRole === 'owner' && role !== 'owner' && Boolean(onEditAccess)
+  const accessLabel = accessSummary || accessScope
 
   return (
     <div className="flex items-center gap-4 px-5 py-4 border-b border-[var(--color-pib-line)] last:border-0">
@@ -47,9 +53,9 @@ export function MemberRow({ uid, firstName, lastName, jobTitle, department, acce
       <div className="flex-1 min-w-0">
         <p className="text-sm font-medium truncate">{displayName}</p>
         {jobTitle && <p className="text-xs text-[var(--color-pib-text-muted)] truncate">{jobTitle}</p>}
-        {(department || accessScope) && (
+        {(department || accessLabel) && (
           <p className="text-[11px] text-[var(--color-pib-text-muted)] truncate">
-            {[department, accessScope].filter(Boolean).join(' · ')}
+            {[department, accessLabel].filter(Boolean).join(' · ')}
           </p>
         )}
       </div>
@@ -69,6 +75,19 @@ export function MemberRow({ uid, firstName, lastName, jobTitle, department, acce
           <option value="member">Member</option>
           <option value="viewer">Viewer</option>
         </select>
+      )}
+
+      {canEditAccess && (
+        <button
+          onClick={() => onEditAccess?.(uid)}
+          title={`Edit access for ${displayName}`}
+          aria-label={`Edit access for ${displayName}`}
+          className="text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-accent)] transition-colors p-1"
+        >
+          <span className="material-symbols-outlined text-[18px]" aria-hidden="true">
+            tune
+          </span>
+        </button>
       )}
 
       {canRemove && (

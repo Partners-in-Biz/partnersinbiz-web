@@ -88,7 +88,44 @@ describe('GET /api/v1/portal/settings/team', () => {
     expect(body.members[0].uid).toBe('uid-owner')
     expect(body.members[0].firstName).toBe('Peet')
     expect(body.members[0].role).toBe('owner')
+    expect(body.members[0].accessPolicy.modules.crm).toBe(true)
+    expect(body.members[0].accessPolicy.recordScopes.crm).toBe('all')
+    expect(body.members[0].accessSummary).toMatch(/Full workspace access/i)
     expect(mockWhere).not.toHaveBeenCalled()
+  })
+
+  it('returns access summaries derived from legacy accessScope values', async () => {
+    mockGet
+      .mockResolvedValueOnce({
+        exists: true,
+        data: () => ({
+          members: [
+            { userId: 'uid-sales', role: 'member', accessScope: 'crm' },
+          ],
+        }),
+      })
+      .mockResolvedValueOnce({
+        exists: true,
+        data: () => ({ firstName: 'Sam', lastName: 'Sales', accessScope: 'crm', role: 'member' }),
+      })
+      .mockResolvedValueOnce({
+        exists: true,
+        data: () => ({ displayName: 'Sam Sales', photoURL: '' }),
+      })
+
+    const { GET } = await import('@/app/api/v1/portal/settings/team/route')
+    const req = new NextRequest('http://localhost/api/v1/portal/settings/team', {
+      headers: { Cookie: '__session=valid' },
+    })
+    const res = await GET(req)
+    const body = await res.json()
+
+    expect(res.status).toBe(200)
+    expect(body.members[0].accessPolicy.preset).toBe('crm_sales')
+    expect(body.members[0].accessPolicy.modules.crm).toBe(true)
+    expect(body.members[0].accessPolicy.modules.projects).toBe(false)
+    expect(body.members[0].accessPolicy.recordScopes.crm).toBe('owned_or_linked')
+    expect(body.members[0].accessSummary).toMatch(/CRM/i)
   })
 
   it('falls back to orgMembers when organization members are missing', async () => {
@@ -191,6 +228,104 @@ describe('PATCH /api/v1/portal/settings/team/[uid]/role', () => {
   })
 })
 
+describe('GET/PATCH /api/v1/portal/settings/team/[uid]/access', () => {
+  it('returns a normalized owner-managed access policy for a member', async () => {
+    mockGet.mockResolvedValueOnce({
+      exists: true,
+      data: () => ({ role: 'member', accessScope: 'crm' }),
+    })
+
+    const { GET } = await import('@/app/api/v1/portal/settings/team/[uid]/access/route')
+    const req = new NextRequest('http://localhost/api/v1/portal/settings/team/uid-target/access', {
+      headers: { Cookie: '__session=valid' },
+    })
+    const res = await GET(req, { params: Promise.resolve({ uid: 'uid-target' }) })
+    const body = await res.json()
+
+    expect(res.status).toBe(200)
+    expect(body.uid).toBe('uid-target')
+    expect(body.accessPolicy.preset).toBe('crm_sales')
+    expect(body.accessPolicy.modules.crm).toBe(true)
+    expect(body.accessPolicy.modules.projects).toBe(false)
+    expect(body.accessSummary).toMatch(/CRM/i)
+  })
+
+  it('updates accessPolicy in orgMembers and organizations.members[]', async () => {
+    mockGet
+      .mockResolvedValueOnce({
+        exists: true,
+        data: () => ({ role: 'member', accessScope: 'crm' }),
+      })
+      .mockResolvedValueOnce({
+        exists: true,
+        data: () => ({ members: [{ userId: 'uid-target', role: 'member', accessScope: 'crm' }] }),
+      })
+    mockBatchCommit.mockResolvedValue(undefined)
+
+    const { PATCH } = await import('@/app/api/v1/portal/settings/team/[uid]/access/route')
+    const req = new NextRequest('http://localhost/api/v1/portal/settings/team/uid-target/access', {
+      method: 'PATCH',
+      headers: { Cookie: '__session=valid', 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        accessPolicy: {
+          preset: 'custom',
+          modules: { crm: true, projects: false, reports: true },
+          recordScopes: { crm: 'owned_or_linked', projects: 'owned_or_linked' },
+        },
+      }),
+    })
+    const res = await PATCH(req, { params: Promise.resolve({ uid: 'uid-target' }) })
+    const body = await res.json()
+
+    expect(res.status).toBe(200)
+    expect(body.accessPolicy.preset).toBe('custom')
+    expect(body.accessPolicy.modules.projects).toBe(false)
+    expect(mockBatchSet).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        accessPolicy: expect.objectContaining({
+          preset: 'custom',
+          modules: expect.objectContaining({ crm: true, projects: false, reports: true }),
+          recordScopes: expect.objectContaining({ crm: 'owned_or_linked' }),
+        }),
+      }),
+      { merge: true },
+    )
+    expect(mockBatchUpdate).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        members: [
+          expect.objectContaining({
+            userId: 'uid-target',
+            accessPolicy: expect.objectContaining({
+              preset: 'custom',
+              modules: expect.objectContaining({ crm: true, projects: false }),
+            }),
+          }),
+        ],
+      }),
+    )
+  })
+
+  it('prevents changing the workspace owner access policy', async () => {
+    mockGet.mockResolvedValueOnce({
+      exists: true,
+      data: () => ({ role: 'owner' }),
+    })
+
+    const { PATCH } = await import('@/app/api/v1/portal/settings/team/[uid]/access/route')
+    const req = new NextRequest('http://localhost/api/v1/portal/settings/team/uid-owner/access', {
+      method: 'PATCH',
+      headers: { Cookie: '__session=valid', 'Content-Type': 'application/json' },
+      body: JSON.stringify({ accessPolicy: { modules: { crm: false } } }),
+    })
+    const res = await PATCH(req, { params: Promise.resolve({ uid: 'uid-owner' }) })
+
+    expect(res.status).toBe(403)
+    expect(mockBatchSet).not.toHaveBeenCalled()
+  })
+})
+
 describe('POST /api/v1/portal/settings/team/invite', () => {
   it('stores role, job title, department, access scope, and invite note', async () => {
     ;(adminAuth.getUserByEmail as jest.Mock).mockRejectedValueOnce(new Error('missing'))
@@ -226,6 +361,11 @@ describe('POST /api/v1/portal/settings/team/invite', () => {
         jobTitle: 'Sales Manager',
         department: 'Sales',
         accessScope: 'crm',
+        accessPolicy: expect.objectContaining({
+          preset: 'crm_sales',
+          modules: expect.objectContaining({ crm: true, projects: false }),
+          recordScopes: expect.objectContaining({ crm: 'owned_or_linked' }),
+        }),
         inviteNote: 'Please manage new leads.',
       }),
       { merge: true },
@@ -238,6 +378,10 @@ describe('POST /api/v1/portal/settings/team/invite', () => {
           jobTitle: 'Sales Manager',
           department: 'Sales',
           accessScope: 'crm',
+          accessPolicy: expect.objectContaining({
+            preset: 'crm_sales',
+            modules: expect.objectContaining({ crm: true, projects: false }),
+          }),
         }),
       }),
     }))

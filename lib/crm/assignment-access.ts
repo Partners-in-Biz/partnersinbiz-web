@@ -1,5 +1,6 @@
 import { adminDb } from '@/lib/firebase/admin'
 import type { CrmAuthContext } from '@/lib/auth/crm-middleware'
+import { recordScopeFor } from '@/lib/orgMembers/access-policy'
 
 type AssignmentRef = { uid?: unknown }
 
@@ -13,6 +14,11 @@ export type AssignableCrmRecord = {
   ownerRef?: AssignmentRef
   accountManagerUid?: unknown
   accountManagerRef?: AssignmentRef
+  createdBy?: unknown
+  createdByRef?: AssignmentRef
+  linkedUserId?: unknown
+  memberUid?: unknown
+  memberRef?: AssignmentRef
   allowedUserIds?: unknown
   assignedUserIds?: unknown
   companyId?: unknown
@@ -29,11 +35,14 @@ export type CrmAssignmentMaps = {
 }
 
 export function isCrmPrivilegedActor(ctx: CrmAuthContext): boolean {
-  return ctx.isAgent || ctx.role === 'system' || ctx.role === 'owner' || ctx.role === 'admin'
+  return ctx.isAgent ||
+    ctx.role === 'system' ||
+    ctx.role === 'owner' ||
+    recordScopeFor(ctx.accessPolicy, 'crm') === 'all'
 }
 
 export function crmActorUid(ctx: CrmAuthContext): string {
-  return ctx.user?.uid || ctx.actor.uid || ''
+  return ctx.uid || ctx.user?.uid || ctx.actor.uid || ''
 }
 
 function stringValue(value: unknown): string {
@@ -66,6 +75,11 @@ export function crmRecordAssignedToUid(record: AssignableCrmRecord | null | unde
     record.ownerRef?.uid,
     record.accountManagerUid,
     record.accountManagerRef?.uid,
+    record.createdBy,
+    record.createdByRef?.uid,
+    record.linkedUserId,
+    record.memberUid,
+    record.memberRef?.uid,
   ]
 
   if (directValues.some((value) => stringValue(value) === uid)) return true

@@ -2,6 +2,7 @@
 
 import type { Timestamp } from 'firebase-admin/firestore'
 import type { PortalModules } from '@/lib/organizations/portal-modules'
+import type { MemberAccessPolicy } from '@/lib/orgMembers/access-policy'
 
 // ── Org Type & Status ─────────────────────────────────────────────────────
 
@@ -115,6 +116,7 @@ export interface OrgMember {
   jobTitle?: string
   department?: string
   accessScope?: 'all' | 'crm' | 'marketing' | 'projects' | 'billing' | 'readonly'
+  accessPolicy?: MemberAccessPolicy
   accessNotes?: string
 }
 

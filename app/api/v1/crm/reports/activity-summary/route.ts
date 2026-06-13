@@ -8,8 +8,18 @@ import { withCrmAuth } from '@/lib/auth/crm-middleware'
 import { apiSuccess, apiErrorFromException } from '@/lib/api/response'
 import type { Activity } from '@/lib/crm/types'
 import { NextRequest } from 'next/server'
+import {
+  crmRecordCompanyIds,
+  crmRecordContactIds,
+  filterCrmRowsForActor,
+  isCrmPrivilegedActor,
+  loadCompanyAssignmentMap,
+  loadContactAssignmentMap,
+} from '@/lib/crm/assignment-access'
 
 export const dynamic = 'force-dynamic'
+
+type ActivityRow = Activity & { deleted?: boolean }
 
 function toDate(ts: Activity['createdAt']): Date | null {
   if (!ts) return null
@@ -40,8 +50,23 @@ export const GET = withCrmAuth('member', async (req: NextRequest, ctx) => {
       .limit(2000)
       .get()
 
-    const activities = (snap.docs
-      .map((d) => ({ id: d.id, ...d.data() })) as Activity[])
+    let activityRows = (snap.docs
+      .map((d) => ({ id: d.id, ...d.data() })) as ActivityRow[])
+      .filter((activity) => activity.deleted !== true)
+    if (!isCrmPrivilegedActor(ctx)) {
+      const contacts = await loadContactAssignmentMap(orgId, activityRows.flatMap((activity) => crmRecordContactIds(activity)))
+      const companyIds = new Set<string>()
+      for (const activity of activityRows) {
+        for (const companyId of crmRecordCompanyIds(activity)) companyIds.add(companyId)
+        for (const contactId of crmRecordContactIds(activity)) {
+          for (const companyId of crmRecordCompanyIds(contacts.get(contactId))) companyIds.add(companyId)
+        }
+      }
+      const companies = await loadCompanyAssignmentMap(orgId, companyIds)
+      activityRows = filterCrmRowsForActor(ctx, activityRows, { contacts, companies })
+    }
+
+    const activities = activityRows
       .map((activity) => ({ activity, createdAt: toDate(activity.createdAt) }))
       .filter(({ createdAt }) => createdAt !== null && createdAt >= since)
 

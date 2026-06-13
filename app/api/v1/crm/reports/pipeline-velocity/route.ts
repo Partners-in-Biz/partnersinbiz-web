@@ -7,6 +7,14 @@ import { adminDb } from '@/lib/firebase/admin'
 import { withCrmAuth } from '@/lib/auth/crm-middleware'
 import { apiSuccess, apiErrorFromException } from '@/lib/api/response'
 import type { Deal, DealStageHistoryEntry } from '@/lib/crm/types'
+import {
+  crmRecordCompanyIds,
+  crmRecordContactIds,
+  filterCrmRowsForActor,
+  isCrmPrivilegedActor,
+  loadCompanyAssignmentMap,
+  loadContactAssignmentMap,
+} from '@/lib/crm/assignment-access'
 
 export const dynamic = 'force-dynamic'
 
@@ -58,9 +66,21 @@ export const GET = withCrmAuth('member', async (_req, ctx) => {
     const now = new Date()
     const accumulators = new Map<string, StageVelocityAccumulator>()
 
-    const deals = snap.docs
+    let deals = snap.docs
       .map((doc) => ({ id: doc.id, ...doc.data() }) as Deal)
       .filter((deal) => deal.deleted !== true)
+    if (!isCrmPrivilegedActor(ctx)) {
+      const contacts = await loadContactAssignmentMap(ctx.orgId, deals.flatMap((deal) => crmRecordContactIds(deal)))
+      const companyIds = new Set<string>()
+      for (const deal of deals) {
+        for (const companyId of crmRecordCompanyIds(deal)) companyIds.add(companyId)
+        for (const contactId of crmRecordContactIds(deal)) {
+          for (const companyId of crmRecordCompanyIds(contacts.get(contactId))) companyIds.add(companyId)
+        }
+      }
+      const companies = await loadCompanyAssignmentMap(ctx.orgId, companyIds)
+      deals = filterCrmRowsForActor(ctx, deals, { contacts, companies })
+    }
 
     for (const deal of deals) {
       if (!deal.pipelineId || !deal.stageId) continue

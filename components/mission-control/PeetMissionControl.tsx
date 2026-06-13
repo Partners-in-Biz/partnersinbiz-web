@@ -32,6 +32,7 @@ type AgentTask = {
 
 
 type LearningEvidence = { label: string; href?: string; type?: string }
+type BusinessInsightEvidence = { label: string; value?: string; href?: string; type?: string }
 
 type LearningDashboardMetric = {
   key: string
@@ -160,6 +161,10 @@ function isLearningItem(item: BriefingCard) {
   return item.source?.type === 'agent-learning-review' || Boolean(agentLearningReviewMetadata(item)?.reviewGate)
 }
 
+function isBusinessInsightItem(item: BriefingCard) {
+  return item.source?.type === 'business-insight-review' || Boolean(businessInsightReviewMetadata(item)?.reviewGate)
+}
+
 function normalizeEvidenceList(value: unknown): LearningEvidence[] {
   if (!Array.isArray(value)) return []
   return value.flatMap((entry): LearningEvidence[] => {
@@ -179,8 +184,33 @@ function normalizeEvidenceList(value: unknown): LearningEvidence[] {
   })
 }
 
+function normalizeBusinessInsightEvidence(value: unknown): BusinessInsightEvidence[] {
+  if (!Array.isArray(value)) return []
+  return value.flatMap((entry): BusinessInsightEvidence[] => {
+    if (typeof entry === 'string') {
+      const label = entry.trim()
+      return label ? [{ label }] : []
+    }
+    if (!entry || typeof entry !== 'object' || Array.isArray(entry)) return []
+    const record = entry as Record<string, unknown>
+    const label = asText(record.label) || asText(record.title) || asText(record.metric) || asText(record.name)
+    if (!label) return []
+    return [{
+      label,
+      value: typeof record.value === 'number' ? String(record.value) : asText(record.value) || asText(record.summary) || undefined,
+      href: asText(record.href) || asText(record.url) || undefined,
+      type: asText(record.type) || asText(record.kind) || undefined,
+    }]
+  })
+}
+
 function agentLearningReviewMetadata(item: BriefingCard): Record<string, unknown> | null {
   const raw = item.metadata?.agentLearningReview
+  return raw && typeof raw === 'object' && !Array.isArray(raw) ? raw as Record<string, unknown> : null
+}
+
+function businessInsightReviewMetadata(item: BriefingCard): Record<string, unknown> | null {
+  const raw = item.metadata?.businessInsightReview
   return raw && typeof raw === 'object' && !Array.isArray(raw) ? raw as Record<string, unknown> : null
 }
 
@@ -199,6 +229,39 @@ function learningDashboardMetrics(items: BriefingCard[]): LearningDashboardMetri
     { key: 'newSopsProposed', label: 'New SOPs proposed', icon: 'rule', detail: 'New runbooks or templates proposed for approval.', items: collect('newSopsProposed') },
     { key: 'knowledgeCaptured', label: 'Client/project knowledge captured', icon: 'menu_book', detail: 'Durable wiki, project, or client context added.', items: collect('knowledgeCaptured') },
   ]
+}
+
+function businessInsightScore(item: BriefingCard): number {
+  const metadata = businessInsightReviewMetadata(item)
+  const score = metadata?.score
+  if (!score || typeof score !== 'object' || Array.isArray(score)) return 0
+  const total = (score as Record<string, unknown>).total
+  return typeof total === 'number' && Number.isFinite(total) ? total : 0
+}
+
+function businessInsightLane(item: BriefingCard): string {
+  const lane = asText(businessInsightReviewMetadata(item)?.lane)
+  return lane ? lane.toUpperCase() : 'GENERAL'
+}
+
+function businessInsightImpact(item: BriefingCard): string {
+  const impact = businessInsightReviewMetadata(item)?.businessImpact
+  if (impact && typeof impact === 'object' && !Array.isArray(impact)) {
+    return asText((impact as Record<string, unknown>).estimateLabel) || 'Business impact needs review'
+  }
+  return 'Business impact needs review'
+}
+
+function businessInsightRecommendation(item: BriefingCard): string {
+  const recommendation = businessInsightReviewMetadata(item)?.recommendation
+  if (recommendation && typeof recommendation === 'object' && !Array.isArray(recommendation)) {
+    return asText((recommendation as Record<string, unknown>).nextAction) || item.summary || 'Review source evidence'
+  }
+  return item.summary || 'Review source evidence'
+}
+
+function businessInsightEvidence(item: BriefingCard): BusinessInsightEvidence[] {
+  return normalizeBusinessInsightEvidence(businessInsightReviewMetadata(item)?.evidence)
 }
 
 function isFollowUp(task: AgentTask) {
@@ -302,6 +365,65 @@ function AgentLearningDashboard({ items, metrics }: { items: BriefingCard[]; met
   )
 }
 
+function BusinessInsightDashboard({ items }: { items: BriefingCard[] }) {
+  if (items.length === 0) return null
+  const ordered = [...items].sort((a, b) => businessInsightScore(b) - businessInsightScore(a))
+  const top = ordered[0]
+  const lanes = Array.from(items.reduce((map, item) => {
+    const lane = businessInsightLane(item)
+    map.set(lane, (map.get(lane) ?? 0) + 1)
+    return map
+  }, new Map<string, number>()))
+
+  return (
+    <Surface className="p-4 sm:p-5 lg:col-span-2" aria-label="Business Insights dashboard">
+      <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Business intelligence</p>
+          <h2 className="mt-1 text-lg font-headline font-bold text-on-surface">Business Insights dashboard</h2>
+          <p className="mt-2 max-w-3xl text-xs leading-5 text-on-surface-variant">
+            Proactive growth, risk, follow-up, and missing-data cards surfaced from briefing evidence. Review stays internal until an explicit approval gate is satisfied.
+          </p>
+        </div>
+        <Link href="/portal/briefings?source=business-insight-review" className="pib-btn-secondary self-start">Open insight reviews</Link>
+      </div>
+      <div className="grid gap-3 lg:grid-cols-[0.75fr_1.25fr]">
+        <div className="rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)]/70 p-4">
+          <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Insight lanes</p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            {lanes.map(([lane, count]) => (
+              <span key={lane} className="inline-flex items-center gap-2 rounded-full bg-[var(--color-surface-container)] px-3 py-1 text-xs font-medium text-on-surface">
+                <span>{lane}</span>
+                <span className="text-on-surface-variant">{count}</span>
+              </span>
+            ))}
+          </div>
+          <p className="mt-4 text-xs leading-5 text-on-surface-variant">{items.length} proactive insight{items.length === 1 ? '' : 's'} waiting for review.</p>
+        </div>
+        <Link href={sourceHref(top)} className="group rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)]/70 p-4 transition-colors hover:border-[var(--color-pib-accent)]/50">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Highest impact</p>
+              <p className="mt-2 text-sm font-semibold text-on-surface group-hover:text-[var(--color-pib-accent-hover)]">{top.title}</p>
+            </div>
+            <span className="rounded-full bg-[var(--color-pib-accent-soft)] px-2 py-1 text-xs font-medium text-[var(--color-pib-accent)]">Score {businessInsightScore(top)}</span>
+          </div>
+          <p className="mt-3 text-xs leading-5 text-on-surface-variant">{businessInsightImpact(top)}</p>
+          <p className="mt-2 text-xs font-medium text-[var(--color-pib-accent)]">{businessInsightRecommendation(top)}</p>
+          <div className="mt-3 space-y-1">
+            {businessInsightEvidence(top).slice(0, 3).map((row, index) => (
+              <p key={`${top.id}-evidence-${index}`} className="flex min-w-0 items-center gap-2 text-xs font-medium text-on-surface">
+                <span className="truncate">{row.label}</span>
+                {row.value ? <span className="shrink-0 text-on-surface-variant">{row.value}</span> : null}
+              </p>
+            ))}
+          </div>
+        </Link>
+      </div>
+    </Surface>
+  )
+}
+
 function KpiTile({ label, value, detail, icon }: { label: string; value: number | string; detail: string; icon: string }) {
   return (
     <Surface className="p-4">
@@ -356,6 +478,7 @@ export function PeetMissionControl() {
   const outputs = useMemo(() => data.items.filter(isAgentOutput), [data.items])
   const learningItems = useMemo(() => data.items.filter(isLearningItem), [data.items])
   const learningMetrics = useMemo(() => learningDashboardMetrics(learningItems), [learningItems])
+  const businessInsights = useMemo(() => data.items.filter(isBusinessInsightItem), [data.items])
   const decisions = useMemo(() => data.items.filter(item => asText(item.metadata?.decision) || includesAny(item.title, ['approved', 'decision', 'choice'])), [data.items])
   const followUps = useMemo(() => data.tasks.filter(isFollowUp), [data.tasks])
   const generatedStatus = useMemo(() => generatedAtStatus(data.generatedAt), [data.generatedAt])
@@ -388,10 +511,12 @@ export function PeetMissionControl() {
         <KpiTile label="Client risks" value={risks.length} icon="report" detail="Blocked, risk, and closed-gate cards that need attention." />
         <KpiTile label="Follow-ups" value={followUps.length} icon="task_alt" detail="Open project or agent tasks Peet can inspect next." />
         <KpiTile label="Agent learning" value={learningItems.length} icon="school" detail="Reviewable learning cards with skill, SOP, blocker, and knowledge evidence." />
+        <KpiTile label="Business insights" value={businessInsights.length} icon="monitoring" detail="Proactive commercial, growth, risk, and missing-data cards surfaced from evidence." />
       </section>
 
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
         <AgentLearningDashboard items={learningItems} metrics={learningMetrics} />
+        <BusinessInsightDashboard items={businessInsights} />
         <Surface className="p-4 sm:p-5">
           <SectionTitle eyebrow="Decisions" title="Today’s decisions" count={decisions.length} />
           {decisions.length === 0 ? <EmptyCard label="No explicit decision cards found yet today." /> : (

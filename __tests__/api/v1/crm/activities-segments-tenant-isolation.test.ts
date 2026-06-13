@@ -192,9 +192,17 @@ function setupIsolationFixtures() {
         }),
       }
       return {
-        doc: jest.fn().mockReturnValue({
-          get: () => Promise.resolve({ exists: false }),
-        }),
+        doc: jest.fn((id: string) => ({
+          get: () => Promise.resolve({
+            exists: id === 'c1' || id === 'con-a' || id === 'con-b',
+            id,
+            data: () => (
+              id === 'con-b'
+                ? contactB
+                : { ...contactA, id, orgId: 'org-a' }
+            ),
+          }),
+        })),
         ...query,
       }
     }

@@ -1,5 +1,5 @@
 import '@testing-library/jest-dom'
-import { render, screen, waitFor, within } from '@testing-library/react'
+import { act, render, screen, waitFor, within } from '@testing-library/react'
 import { PeetMissionControl } from '@/components/mission-control/PeetMissionControl'
 
 jest.mock('next/link', () => {
@@ -74,6 +74,29 @@ const feedItems = [
     occurredAt: '2026-06-04T08:50:00.000Z',
   },
   {
+    id: 'business-insight-review:crm-gap',
+    orgId: 'pib-platform-owner',
+    priority: 'needs-peet',
+    title: 'Business Insight: Three high-intent CRM leads have no owner',
+    summary: 'Potential response-time revenue leakage. Assign Blake to triage the leads and create a follow-up task.',
+    source: { type: 'business-insight-review', id: 'crm-gap', url: '/admin/projects/growth-project?taskId=task-insight-1' },
+    actor: { id: 'pip', name: 'Pip', role: 'orchestrator' },
+    context: { orgId: 'pib-platform-owner', orgName: 'Partners in Biz', taskId: 'task-insight-1' },
+    metadata: {
+      businessInsightReview: {
+        reviewGate: 'internal-proposals-only',
+        lane: 'crm',
+        insightKind: 'follow-up-gap',
+        businessImpact: { estimateLabel: 'Potential response-time revenue leakage', confidence: 78 },
+        evidence: [{ label: 'High-intent leads without owner', value: '3' }],
+        recommendation: { nextAction: 'Assign Blake to triage the leads and create a follow-up task.', ownerAgentId: 'sales', approvalGate: 'human-review' },
+        score: { total: 77 },
+        suppressionKey: 'crm:unowned-high-intent-leads:pib-platform-owner',
+      },
+    },
+    occurredAt: '2026-06-04T08:55:00.000Z',
+  },
+  {
     id: 'task:blocker',
     orgId: 'pib-platform-owner',
     priority: 'client-risk',
@@ -113,19 +136,31 @@ afterEach(() => {
   jest.restoreAllMocks()
 })
 
+async function renderMissionControl() {
+  let result: ReturnType<typeof render> | null = null
+  await act(async () => {
+    result = render(<PeetMissionControl />)
+    await Promise.resolve()
+    await Promise.resolve()
+    await Promise.resolve()
+  })
+  return result as ReturnType<typeof render>
+}
+
 describe('PeetMissionControl', () => {
   it('combines today decisions, approvals, revenue, client risks, agent outputs, follow-ups, and KPI snapshot', async () => {
-    render(<PeetMissionControl />)
+    await renderMissionControl()
 
     expect(await screen.findByRole('heading', { name: 'Peet Mission Control' })).toBeInTheDocument()
     expect(screen.getByText('Internal development only')).toBeInTheDocument()
 
     await screen.findByText(generatedAtLabel)
     const kpis = screen.getByLabelText('Mission Control KPI snapshot')
-    expect(within(kpis).getByText('5')).toBeInTheDocument()
+    expect(within(kpis).getByText('6')).toBeInTheDocument()
     expect(within(kpis).getByText('Live cards')).toBeInTheDocument()
     expect(within(kpis).getAllByText('2').length).toBeGreaterThanOrEqual(1)
     expect(within(kpis).getByText('Follow-ups')).toBeInTheDocument()
+    expect(within(kpis).getByText('Business insights')).toBeInTheDocument()
 
     expect(screen.getByRole('heading', { name: 'Today’s decisions' })).toBeInTheDocument()
     const decisionLink = screen.getByRole('link', { name: /Approve internal readiness and property-network preparation only/i })
@@ -149,12 +184,18 @@ describe('PeetMissionControl', () => {
     expect(within(learningDashboard).getByText('Blocked tasks prevented')).toBeInTheDocument()
     expect(within(learningDashboard).getByText('New SOPs proposed')).toBeInTheDocument()
     expect(within(learningDashboard).getByText('Client/project knowledge captured')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Business Insights dashboard' })).toBeInTheDocument()
+    const businessInsightDashboard = screen.getByLabelText('Business Insights dashboard')
+    expect(within(businessInsightDashboard).getByText('CRM')).toBeInTheDocument()
+    expect(within(businessInsightDashboard).getByText('Potential response-time revenue leakage')).toBeInTheDocument()
+    expect(within(businessInsightDashboard).getByText('Assign Blake to triage the leads and create a follow-up task.')).toBeInTheDocument()
+    expect(within(businessInsightDashboard).getByText('High-intent leads without owner')).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: 'Follow-ups' })).toBeInTheDocument()
     expect(screen.getByText('Follow up: create Choice C approval packet')).toBeInTheDocument()
   })
 
   it('fetches the platform scoped briefing and task feeds', async () => {
-    render(<PeetMissionControl />)
+    await renderMissionControl()
     await waitFor(() => expect(global.fetch).toHaveBeenCalledTimes(2))
     expect(global.fetch).toHaveBeenCalledWith(expect.stringContaining('/api/v1/briefings/feed?orgId=pib-platform-owner'))
     expect(global.fetch).toHaveBeenCalledWith(expect.stringContaining('/api/v1/admin/agent-tasks?orgId=pib-platform-owner'))
@@ -162,7 +203,7 @@ describe('PeetMissionControl', () => {
 
   it('warns when the briefing generatedAt timestamp is older than 30 minutes', async () => {
     jest.useFakeTimers().setSystemTime(new Date('2026-06-04T09:45:01.000Z'))
-    render(<PeetMissionControl />)
+    await renderMissionControl()
 
     expect(await screen.findByText(/Mission Control briefing data may be stale/i)).toBeInTheDocument()
     expect(screen.getAllByText(new RegExp(generatedAtLabel, 'i')).length).toBeGreaterThanOrEqual(1)
@@ -180,7 +221,7 @@ describe('PeetMissionControl', () => {
       throw new Error(`Unexpected fetch ${url}`)
     })
 
-    render(<PeetMissionControl />)
+    await renderMissionControl()
 
     expect(await screen.findByText(/Mission Control briefing data may be stale/i)).toBeInTheDocument()
     expect(screen.getAllByText(/No valid generatedAt timestamp/i).length).toBeGreaterThanOrEqual(1)
@@ -198,7 +239,7 @@ describe('PeetMissionControl', () => {
       throw new Error(`Unexpected fetch ${url}`)
     })
 
-    render(<PeetMissionControl />)
+    await renderMissionControl()
 
     expect(await screen.findByText(/Mission Control briefing data may be stale/i)).toBeInTheDocument()
     expect(screen.getAllByText(/No valid generatedAt timestamp/i).length).toBeGreaterThanOrEqual(1)

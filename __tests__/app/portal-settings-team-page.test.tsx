@@ -87,6 +87,12 @@ describe('TeamPage', () => {
                   jobTitle: 'Operations lead',
                   avatarUrl: '',
                   role: 'owner',
+                  accessSummary: 'Full workspace access',
+                  accessPolicy: {
+                    preset: 'full',
+                    modules: { crm: true, projects: true },
+                    recordScopes: { crm: 'all', projects: 'all' },
+                  },
                 },
                 {
                   uid: 'sales-rep',
@@ -95,6 +101,12 @@ describe('TeamPage', () => {
                   jobTitle: 'Sales rep',
                   avatarUrl: '',
                   role: 'member',
+                  accessSummary: 'CRM - owned or linked records',
+                  accessPolicy: {
+                    preset: 'crm_sales',
+                    modules: { crm: true, projects: false, reports: true },
+                    recordScopes: { crm: 'owned_or_linked', projects: 'owned_or_linked' },
+                  },
                 },
               ],
             }),
@@ -152,6 +164,114 @@ describe('TeamPage', () => {
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledWith('/api/v1/portal/settings/team/sales-rep?orgId=org-1', { method: 'DELETE' })
     })
+  })
+
+  it('lets an owner edit member module access from a scoped drawer', async () => {
+    mockSearchParams = new URLSearchParams({ orgId: 'org-1', orgSlug: 'lumen-speeds' })
+
+    fetchMock.mockImplementation((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      if (url === '/api/v1/portal/settings/team?orgId=org-1') {
+        return Promise.resolve({
+          ok: true,
+          json: () =>
+            Promise.resolve({
+              members: [
+                {
+                  uid: 'current-admin',
+                  firstName: 'Mandy',
+                  lastName: 'Manager',
+                  jobTitle: 'Operations lead',
+                  avatarUrl: '',
+                  role: 'owner',
+                  accessSummary: 'Full workspace access',
+                  accessPolicy: {
+                    preset: 'full',
+                    modules: { crm: true, projects: true, reports: true },
+                    recordScopes: { crm: 'all', projects: 'all' },
+                  },
+                },
+                {
+                  uid: 'sales-rep',
+                  firstName: 'Sam',
+                  lastName: 'Sales',
+                  jobTitle: 'Sales rep',
+                  avatarUrl: '',
+                  role: 'member',
+                  accessSummary: 'CRM - owned or linked records',
+                  accessPolicy: {
+                    preset: 'crm_sales',
+                    modules: { crm: true, projects: false, reports: true },
+                    recordScopes: { crm: 'owned_or_linked', projects: 'owned_or_linked' },
+                  },
+                },
+              ],
+            }),
+        })
+      }
+      if (url === '/api/v1/portal/settings/profile?orgId=org-1') {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve({ profile: { role: 'owner' } }) })
+      }
+      if (url === '/api/v1/portal/org') {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve({ user: { uid: 'current-admin' } }) })
+      }
+      if (url === '/api/v1/portal/settings/team/sales-rep/access?orgId=org-1' && !init) {
+        return Promise.resolve({
+          ok: true,
+          json: () =>
+            Promise.resolve({
+              uid: 'sales-rep',
+              accessPolicy: {
+                preset: 'crm_sales',
+                modules: { crm: true, projects: false, reports: true },
+                recordScopes: { crm: 'owned_or_linked', projects: 'owned_or_linked' },
+              },
+            }),
+        })
+      }
+      if (url === '/api/v1/portal/settings/team/sales-rep/access?orgId=org-1' && init?.method === 'PATCH') {
+        return Promise.resolve({
+          ok: true,
+          json: () =>
+            Promise.resolve({
+              uid: 'sales-rep',
+              accessPolicy: {
+                preset: 'custom',
+                modules: { crm: true, projects: true, reports: true },
+                recordScopes: { crm: 'owned_or_linked', projects: 'owned_or_linked' },
+              },
+              accessSummary: 'CRM, Projects, Reports - owned or linked records',
+            }),
+        })
+      }
+      return Promise.reject(new Error(`Unexpected fetch: ${url}`))
+    })
+
+    render(<TeamPage />)
+
+    expect(await screen.findByText('Sam Sales')).toBeInTheDocument()
+    expect(screen.getByText('CRM - owned or linked records')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Edit access for Sam Sales' }))
+
+    const drawer = await screen.findByRole('dialog', { name: 'Edit access for Sam Sales' })
+    expect(await within(drawer).findByRole('checkbox', { name: 'CRM' })).toBeChecked()
+    const projectsCheckbox = await within(drawer).findByRole('checkbox', { name: 'Projects' })
+    expect(projectsCheckbox).not.toBeChecked()
+
+    fireEvent.click(projectsCheckbox)
+    fireEvent.click(within(drawer).getByRole('button', { name: 'Save access' }))
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        '/api/v1/portal/settings/team/sales-rep/access?orgId=org-1',
+        expect.objectContaining({
+          method: 'PATCH',
+          body: expect.stringContaining('"projects":true'),
+        }),
+      )
+    })
+    expect(await screen.findByText('CRM, Projects, Reports - owned or linked records')).toBeInTheDocument()
   })
 
   it('names team administration controls for employee-scale CRM work', async () => {
