@@ -23,6 +23,10 @@ interface Invoice {
   dueDate?: any
   paidAt?: any
   sentAt?: any
+  canEdit?: boolean
+  canSend?: boolean
+  canCancel?: boolean
+  canMarkPaid?: boolean
 }
 
 const CURRENCY_LOCALES: Record<string, string> = { USD: 'en-US', EUR: 'de-DE', ZAR: 'en-ZA' }
@@ -242,20 +246,22 @@ export default function InvoiceDetailPage() {
 
       {/* Actions */}
       {invoice.status !== 'paid' && invoice.status !== 'cancelled' && (
-        <div className="flex gap-2 flex-wrap">
-          {invoice.status === 'draft' && (
-            <button onClick={() => updateStatus('sent')} disabled={updating} className="pib-btn-primary font-label">
-              Mark as Sent
+        <div className="flex flex-wrap gap-2 justify-end">
+          {invoice.canEdit && invoice.status === 'draft' && (
+            <Link href="/portal/invoicing" className="pib-btn-secondary text-xs font-label">
+              Edit Draft
+            </Link>
+          )}
+          {invoice.canSend && invoice.status === 'draft' && (
+            <button onClick={() => updateStatus('sent')} disabled={updating} className="pib-btn-primary text-xs font-label disabled:opacity-50">
+              {updating ? 'Updating…' : 'Mark Sent'}
             </button>
           )}
-          {['sent', 'viewed', 'overdue'].includes(invoice.status) && (
-            <button onClick={() => updateStatus('paid')} disabled={updating} className="pib-btn-primary font-label">
-              Mark as Paid
+          {invoice.canCancel && (
+            <button onClick={() => updateStatus('cancelled')} disabled={updating} className="pib-btn-secondary text-xs font-label disabled:opacity-50">
+              {updating ? 'Updating…' : 'Cancel Invoice'}
             </button>
           )}
-          <button onClick={() => updateStatus('cancelled')} disabled={updating} className="pib-btn-secondary font-label text-sm">
-            Cancel Invoice
-          </button>
         </div>
       )}
 
