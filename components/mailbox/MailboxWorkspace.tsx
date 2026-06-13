@@ -639,6 +639,27 @@ function ComposerPanel({
   onDraft: () => void
   onTemplate: (templateId: string) => void
 }) {
+  const datalistId = 'mailbox-recipient-suggestions'
+
+  function appendRecipient(field: 'to' | 'cc' | 'bcc', email: string) {
+    setCompose((current) => {
+      const existing = current[field].split(',').map((part) => part.trim()).filter(Boolean)
+      if (!existing.some((item) => item.toLowerCase() === email.toLowerCase())) existing.push(email)
+      return { ...current, [field]: existing.join(', ') }
+    })
+  }
+
+  async function addAttachments(files: FileList | null) {
+    if (!files?.length) return
+    const converted = await Promise.all(Array.from(files).slice(0, 5).map(async (file) => ({
+      name: file.name,
+      contentType: file.type || 'application/octet-stream',
+      sizeBytes: file.size,
+      contentBase64: await fileToBase64(file),
+    })))
+    setCompose((current) => ({ ...current, attachments: [...current.attachments, ...converted].slice(0, 5) }))
+  }
+
   return (
     <form onSubmit={(e) => { e.preventDefault(); void onSend() }} className="flex h-full min-h-[560px] flex-col">
       <div className="flex items-center justify-between gap-3 border-b border-[var(--color-pib-line)] px-5 py-4">
@@ -658,11 +679,16 @@ function ComposerPanel({
               <option value="">Choose sending account</option>
               {accounts.map((account) => <option key={account.id} value={account.id}>{account.emailAddress}</option>)}
             </select>
-            <input value={compose.to} onChange={(e) => setCompose((c) => ({ ...c, to: e.target.value }))} placeholder="To" className="pib-input" />
+            <input list={datalistId} value={compose.to} onChange={(e) => setCompose((c) => ({ ...c, to: e.target.value }))} placeholder="To" className="pib-input" />
           </div>
+          <datalist id={datalistId}>
+            {recipientSuggestions.map((recipient) => (
+              <option key={recipient.id} value={recipient.email}>{recipient.label}{recipient.detail ? ` · ${recipient.detail}` : ''}</option>
+            ))}
+          </datalist>
           <div className="mt-2 grid gap-2 md:grid-cols-2">
-            <input value={compose.cc} onChange={(e) => setCompose((c) => ({ ...c, cc: e.target.value }))} placeholder="Cc" className="pib-input" />
-            <input value={compose.bcc} onChange={(e) => setCompose((c) => ({ ...c, bcc: e.target.value }))} placeholder="Bcc" className="pib-input" />
+            <input list={datalistId} value={compose.cc} onChange={(e) => setCompose((c) => ({ ...c, cc: e.target.value }))} placeholder="Cc" className="pib-input" />
+            <input list={datalistId} value={compose.bcc} onChange={(e) => setCompose((c) => ({ ...c, bcc: e.target.value }))} placeholder="Bcc" className="pib-input" />
           </div>
           <input value={compose.subject} onChange={(e) => setCompose((c) => ({ ...c, subject: e.target.value }))} placeholder="Subject" className="pib-input mt-2 w-full" />
           <RichComposer
