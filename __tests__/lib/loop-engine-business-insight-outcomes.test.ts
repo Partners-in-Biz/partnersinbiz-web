@@ -533,4 +533,151 @@ describe('business insight outcome measurement', () => {
       }),
     }), { merge: true })
   })
+
+  it('refreshes supported invoice metrics before measuring due actions that do not have a latest value yet', async () => {
+    mockGet.mockResolvedValue({
+      docs: [
+        actionDoc('action-1', {
+          orgId: 'pib-platform-owner',
+          projectId: 'growth-project',
+          title: 'Act on insight: overdue invoices',
+          labels: ['business-insight-action'],
+          metadata: {
+            businessInsightAction: {
+              sourceReviewTaskId: 'review-task-1',
+              measurementStatus: 'pending',
+              baseline: {
+                metric: 'invoices_overdue_value',
+                value: 12_000,
+                capturedAt: '2026-06-13T12:00:00.000Z',
+              },
+              target: {
+                expectedDirection: 'decrease',
+                reviewAfterAt: '2026-06-20T12:00:00.000Z',
+              },
+            },
+          },
+        }),
+      ],
+    })
+    mockCollection.mockImplementation((collectionName: string) => {
+      const docs = collectionName === 'invoices'
+        ? [
+          {
+            id: 'invoice-1',
+            data: () => ({
+              orgId: 'pib-platform-owner',
+              invoiceNumber: 'INV-001',
+              status: 'overdue',
+              total: 5_000,
+              currency: 'ZAR',
+            }),
+          },
+        ]
+        : []
+      const metricQuery = { where: mockMetricWhere, limit: mockMetricLimit, get: jest.fn().mockResolvedValue({ docs }) }
+      metricQuery.where.mockReturnValue(metricQuery)
+      metricQuery.limit.mockReturnValue(metricQuery)
+      return metricQuery
+    })
+
+    const { measureBusinessInsightOutcomes } = await import('@/lib/loop-engine/business-insight-outcomes')
+    const result = await measureBusinessInsightOutcomes({
+      orgId: 'pib-platform-owner',
+      now: new Date('2026-06-21T09:00:00.000Z'),
+    })
+
+    expect(result.measured).toBe(1)
+    expect(result.outcomes[0]).toEqual(expect.objectContaining({
+      status: 'improved',
+      baselineValue: 12_000,
+      currentValue: 5_000,
+      delta: -7_000,
+    }))
+    expect(mockCollection).toHaveBeenCalledWith('invoices')
+    expect(mockSet).toHaveBeenCalledWith(expect.objectContaining({
+      metadata: expect.objectContaining({
+        businessInsightAction: expect.objectContaining({
+          latest: expect.objectContaining({
+            value: 5_000,
+            capturedAt: '2026-06-21T09:00:00.000Z',
+            source: 'invoice-business-signals',
+          }),
+          measurementStatus: 'improved',
+        }),
+      }),
+    }), { merge: true })
+  })
+
+  it('refreshes supported project-risk metrics before measuring due actions that do not have a latest value yet', async () => {
+    mockGet
+      .mockResolvedValueOnce({
+        docs: [
+          actionDoc('action-1', {
+            orgId: 'pib-platform-owner',
+            projectId: 'growth-project',
+            title: 'Act on insight: blocked launch',
+            labels: ['business-insight-action'],
+            metadata: {
+              businessInsightAction: {
+                sourceReviewTaskId: 'review-task-1',
+                suppressionKey: 'project-risk:pib-platform-owner:source-task-1',
+                measurementStatus: 'pending',
+                baseline: {
+                  metric: 'high_risk_blocked_task',
+                  value: 1,
+                  capturedAt: '2026-06-13T12:00:00.000Z',
+                },
+                target: {
+                  expectedDirection: 'decrease',
+                  reviewAfterAt: '2026-06-20T12:00:00.000Z',
+                },
+                sourceLinks: [
+                  { type: 'task', id: 'source-task-1', href: '/admin/projects/growth-project?task=source-task-1', label: 'Blocked launch' },
+                ],
+              },
+            },
+          }),
+        ],
+      })
+      .mockResolvedValueOnce({
+        docs: [
+          actionDoc('source-task-1', {
+            orgId: 'pib-platform-owner',
+            projectId: 'growth-project',
+            title: 'Blocked launch',
+            agentStatus: 'done',
+            priority: 'urgent',
+            riskLevel: 'critical',
+          }),
+        ],
+      })
+
+    const { measureBusinessInsightOutcomes } = await import('@/lib/loop-engine/business-insight-outcomes')
+    const result = await measureBusinessInsightOutcomes({
+      orgId: 'pib-platform-owner',
+      now: new Date('2026-06-21T09:00:00.000Z'),
+    })
+
+    expect(result.measured).toBe(1)
+    expect(result.outcomes[0]).toEqual(expect.objectContaining({
+      status: 'improved',
+      baselineValue: 1,
+      currentValue: 0,
+      delta: -1,
+    }))
+    expect(mockCollectionGroup).toHaveBeenCalledWith('tasks')
+    expect(mockSet).toHaveBeenCalledWith(expect.objectContaining({
+      metadata: expect.objectContaining({
+        businessInsightAction: expect.objectContaining({
+          latest: expect.objectContaining({
+            value: 0,
+            capturedAt: '2026-06-21T09:00:00.000Z',
+            source: 'project-business-signals',
+          }),
+          measurementStatus: 'improved',
+        }),
+      }),
+    }), { merge: true })
+  })
 })

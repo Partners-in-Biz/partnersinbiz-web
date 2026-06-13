@@ -6,6 +6,7 @@ import {
   shouldSuppressBusinessInsight,
   type BusinessInsightKind,
 } from './scoring'
+import type { LoopApprovalGate } from './registry'
 
 type SourceWindow = {
   from: string
@@ -54,6 +55,7 @@ export type BusinessInsightSignal = {
   risk: number
   ownerAgentId?: string
   ownerRole?: string
+  approvalGate?: LoopApprovalGate
   nextAction: string
   suppressionKey: string
   sourceLinks: SourceLink[]
@@ -275,7 +277,7 @@ function buildBusinessInsightDraft(input: ConservativeReviewEvaluatorInput, sign
         ownerAgentId: signal.ownerAgentId,
         ownerRole: signal.ownerRole,
         createsTask: true,
-        approvalGate: 'human-review',
+        approvalGate: signal.approvalGate ?? 'human-review',
       },
       score: {
         ...score.normalized,

@@ -319,6 +319,47 @@ describe('live loop review signal collector', () => {
     ])
   })
 
+  it('merges invoice business insight signals into the live review collection', async () => {
+    mockGet.mockResolvedValue({ docs: [] })
+    mockCollection.mockImplementation((collectionName: string) => {
+      const docs = collectionName === 'invoices'
+        ? [
+          {
+            id: 'invoice-1',
+            data: () => ({
+              orgId: 'pib-platform-owner',
+              invoiceNumber: 'INV-001',
+              status: 'overdue',
+              total: 9_000,
+              currency: 'ZAR',
+            }),
+          },
+        ]
+        : []
+      const sourceQuery = { where: mockCrmWhere, limit: mockCrmLimit, get: jest.fn().mockResolvedValue({ docs }) }
+      sourceQuery.where.mockReturnValue(sourceQuery)
+      sourceQuery.limit.mockReturnValue(sourceQuery)
+      return sourceQuery
+    })
+
+    const { collectLoopReviewSignals } = await import('@/lib/loop-engine/live-signal-collector')
+    const result = await collectLoopReviewSignals({
+      orgId: 'pib-platform-owner',
+      limit: 25,
+      now: new Date('2026-06-13T00:00:00.000Z'),
+    })
+
+    expect(mockCollection).toHaveBeenCalledWith('invoices')
+    expect(result.businessSignals).toEqual([
+      expect.objectContaining({
+        lane: 'invoice',
+        metric: 'invoices_overdue_value',
+        value: 9_000,
+        suppressionKey: 'invoice:overdue-value:pib-platform-owner',
+      }),
+    ])
+  })
+
   it('surfaces loop runs that are near or over budget as agent evolution signals', async () => {
     mockGet.mockResolvedValue({ docs: [] })
     mockCollection.mockImplementation((collectionName: string) => {
@@ -379,5 +420,87 @@ describe('live loop review signal collector', () => {
       }),
     ])
     expect(result.scanned).toBe(2)
+  })
+
+  it('surfaces expensive and missing loop-run usage telemetry as agent evolution signals', async () => {
+    mockGet.mockResolvedValue({ docs: [] })
+    mockCollection.mockImplementation((collectionName: string) => {
+      const docs = collectionName === 'loop_engine_runs'
+        ? [
+          {
+            id: 'agent-evolution-review:expensive-2026-06-13',
+            data: () => ({
+              orgId: 'pib-platform-owner',
+              loopId: 'agent-evolution-review',
+              loopName: 'Agent Evolution Review Loop',
+              status: 'executed',
+              observability: {
+                budgetStatus: 'within-budget',
+                progressSignal: 'advanced',
+                usage: {
+                  inputTokens: 110_000,
+                  outputTokens: 12_000,
+                  totalTokens: 122_000,
+                  costUsd: 18.25,
+                  durationMs: 2_100_000,
+                  model: 'claude-sonnet-4-6',
+                  reasoningEffort: 'high',
+                  retryCount: 4,
+                },
+              },
+              updatedAt: '2026-06-13T08:00:00.000Z',
+            }),
+          },
+          {
+            id: 'business-insight-review:missing-2026-06-13',
+            data: () => ({
+              orgId: 'pib-platform-owner',
+              loopId: 'business-insight-review',
+              loopName: 'Business Insight Review Loop',
+              status: 'executed',
+              observability: {
+                budgetStatus: 'within-budget',
+                progressSignal: 'advanced',
+              },
+              updatedAt: '2026-06-13T09:00:00.000Z',
+            }),
+          },
+        ]
+        : []
+      const sourceQuery = { where: mockCrmWhere, limit: mockCrmLimit, get: jest.fn().mockResolvedValue({ docs }) }
+      sourceQuery.where.mockReturnValue(sourceQuery)
+      sourceQuery.limit.mockReturnValue(sourceQuery)
+      return sourceQuery
+    })
+
+    const { collectLoopReviewSignals } = await import('@/lib/loop-engine/live-signal-collector')
+    const result = await collectLoopReviewSignals({
+      orgId: 'pib-platform-owner',
+      limit: 25,
+      now: new Date('2026-06-13T12:00:00.000Z'),
+    })
+
+    expect(result.agentSignals).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        id: 'loop-telemetry-agent-evolution-review-expensive-2026-06-13',
+        category: 'tooling-gap',
+        targetSurface: 'loop:agent-evolution-review',
+        title: 'Agent Evolution Review Loop needs usage telemetry review',
+        summary: expect.stringContaining('122000 tokens'),
+        source: expect.objectContaining({
+          type: 'loop-run',
+          id: 'agent-evolution-review:expensive-2026-06-13',
+        }),
+      }),
+      expect.objectContaining({
+        id: 'loop-telemetry-business-insight-review-missing-2026-06-13',
+        category: 'tooling-gap',
+        targetSurface: 'loop:business-insight-review',
+        title: 'Business Insight Review Loop is missing usage telemetry',
+        summary: expect.stringContaining('did not persist token, cost, or duration telemetry'),
+      }),
+    ]))
+    expect(result.agentSignals.find((signal) => signal.id === 'loop-telemetry-agent-evolution-review-expensive-2026-06-13')?.summary)
+      .toEqual(expect.stringContaining('$18.25'))
   })
 })

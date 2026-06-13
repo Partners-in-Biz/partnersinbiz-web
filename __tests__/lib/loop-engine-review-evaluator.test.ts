@@ -183,4 +183,51 @@ describe('conservative loop review evaluator', () => {
 
     expect(drafts).toEqual([])
   })
+
+  it('preserves finance approval gates on invoice business insight drafts', () => {
+    const drafts = buildConservativeReviewTaskDrafts({
+      orgId: 'pib-platform-owner',
+      projectId: 'growth-project',
+      sourceWindow: {
+        from: '2026-06-06T00:00:00.000Z',
+        to: '2026-06-13T00:00:00.000Z',
+      },
+      agentSignals: [],
+      businessSignals: [
+        {
+          id: 'invoice-overdue-value-pib-platform-owner',
+          lane: 'invoice',
+          insightKind: 'risk',
+          summary: '9000 overdue invoice value needs finance review',
+          impactEstimate: 'Cash-flow and client-account risk from overdue invoices',
+          metric: 'invoices_overdue_value',
+          value: 9000,
+          impact: 90,
+          urgency: 92,
+          confidence: 88,
+          actionability: 84,
+          risk: 34,
+          ownerAgentId: 'pip',
+          ownerRole: 'finance',
+          approvalGate: 'finance',
+          nextAction: 'Review overdue invoices and create internal finance follow-up.',
+          suppressionKey: 'invoice:overdue-value:pib-platform-owner',
+          sourceLinks: [{ type: 'invoice', id: 'invoice-1', href: '/admin/invoicing/invoice-1', label: 'INV-001' }],
+          evidence: [{ label: 'Overdue invoice value', value: 9000 }],
+          blocksActiveCommercialLoop: true,
+          hasNewSourceItem: true,
+        },
+      ],
+      existingSuppressionKeys: [],
+    })
+
+    expect(drafts).toHaveLength(1)
+    expect(drafts[0].metadata.businessInsightReview).toMatchObject({
+      lane: 'invoice',
+      recommendation: {
+        ownerRole: 'finance',
+        approvalGate: 'finance',
+      },
+    })
+  })
 })

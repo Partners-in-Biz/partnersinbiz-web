@@ -1,6 +1,7 @@
 import { adminDb } from '@/lib/firebase/admin'
 import { collectAdsBusinessInsightSignals } from './ads-business-signals'
 import { collectCrmBusinessInsightSignals } from './crm-business-signals'
+import { collectInvoiceBusinessInsightSignals } from './invoice-business-signals'
 import { collectSeoBusinessInsightSignals } from './seo-business-signals'
 import { collectSocialBusinessInsightSignals } from './social-business-signals'
 import { collectSupportBusinessInsightSignals } from './support-business-signals'
@@ -41,6 +42,14 @@ function cleanString(value: unknown): string | null {
 function cleanStringArray(value: unknown): string[] {
   if (!Array.isArray(value)) return []
   return value.map(cleanString).filter((item): item is string => Boolean(item))
+}
+
+function cleanNumber(value: unknown): number | null {
+  return typeof value === 'number' && Number.isFinite(value) ? value : null
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value && typeof value === 'object' && !Array.isArray(value))
 }
 
 function boundedLimit(value: unknown): number {
@@ -180,6 +189,167 @@ function agentSignalForLoopBudgetRun(doc: LoopRunDoc, data: Record<string, unkno
   }
 }
 
+function recordAt(source: Record<string, unknown>, key: string): Record<string, unknown> | null {
+  const value = source[key]
+  return isRecord(value) ? value : null
+}
+
+function firstString(sources: Array<Record<string, unknown> | null>, keys: string[]): string | null {
+  for (const source of sources) {
+    if (!source) continue
+    for (const key of keys) {
+      const value = cleanString(source[key])
+      if (value) return value
+    }
+  }
+  return null
+}
+
+function firstNumber(sources: Array<Record<string, unknown> | null>, keys: string[]): number | null {
+  for (const source of sources) {
+    if (!source) continue
+    for (const key of keys) {
+      const value = cleanNumber(source[key])
+      if (value !== null) return value
+    }
+  }
+  return null
+}
+
+function loopRunTelemetrySources(data: Record<string, unknown>): Array<Record<string, unknown> | null> {
+  const observability = recordAt(data, 'observability')
+  const result = recordAt(data, 'result')
+  return [
+    recordAt(data, 'usage'),
+    recordAt(data, 'telemetry'),
+    recordAt(data, 'metrics'),
+    recordAt(data, 'runtime'),
+    observability ? recordAt(observability, 'usage') : null,
+    observability ? recordAt(observability, 'telemetry') : null,
+    observability ? recordAt(observability, 'runtime') : null,
+    result ? recordAt(result, 'usage') : null,
+    result ? recordAt(result, 'telemetry') : null,
+    data,
+  ]
+}
+
+function loopRunTelemetry(data: Record<string, unknown>): {
+  inputTokens: number | null
+  outputTokens: number | null
+  reasoningTokens: number | null
+  totalTokens: number | null
+  costUsd: number | null
+  durationMs: number | null
+  retryCount: number | null
+  toolCallCount: number | null
+  model: string | null
+  reasoningEffort: string | null
+  hasAny: boolean
+} {
+  const sources = loopRunTelemetrySources(data)
+  const inputTokens = firstNumber(sources, ['inputTokens', 'promptTokens', 'input_tokens', 'prompt_tokens'])
+  const outputTokens = firstNumber(sources, ['outputTokens', 'completionTokens', 'output_tokens', 'completion_tokens'])
+  const reasoningTokens = firstNumber(sources, ['reasoningTokens', 'reasoning_tokens'])
+  const directTotal = firstNumber(sources, ['totalTokens', 'total_tokens', 'tokensTotal', 'tokenCount', 'tokens'])
+  const summedTotal = [inputTokens, outputTokens, reasoningTokens]
+    .filter((value): value is number => value !== null)
+    .reduce((sum, value) => sum + value, 0)
+  const costUsd = firstNumber(sources, ['costUsd', 'totalCostUsd', 'estimatedCostUsd', 'usdCost', 'cost'])
+    ?? (firstNumber(sources, ['costCents', 'totalCostCents']) !== null
+      ? (firstNumber(sources, ['costCents', 'totalCostCents']) as number) / 100
+      : null)
+  const durationMs = firstNumber(sources, ['durationMs', 'totalDurationMs', 'elapsedMs', 'latencyMs'])
+    ?? (firstNumber(sources, ['durationSeconds', 'elapsedSeconds']) !== null
+      ? (firstNumber(sources, ['durationSeconds', 'elapsedSeconds']) as number) * 1000
+      : null)
+  const retryCount = firstNumber(sources, ['retryCount', 'retries', 'attempts'])
+  const toolCallCount = firstNumber(sources, ['toolCallCount', 'toolCalls'])
+  const model = firstString(sources, ['model', 'agentModel'])
+  const reasoningEffort = firstString(sources, ['reasoningEffort', 'reasoning_effort', 'agentEffort'])
+  const totalTokens = directTotal ?? (summedTotal > 0 ? summedTotal : null)
+  const hasAny = totalTokens !== null || costUsd !== null || durationMs !== null
+
+  return {
+    inputTokens,
+    outputTokens,
+    reasoningTokens,
+    totalTokens,
+    costUsd,
+    durationMs,
+    retryCount,
+    toolCallCount,
+    model,
+    reasoningEffort,
+    hasAny,
+  }
+}
+
+function minutesLabel(durationMs: number): string {
+  const minutes = Math.round(durationMs / 60_000)
+  return `${minutes}m`
+}
+
+function agentSignalForLoopTelemetryRun(doc: LoopRunDoc, data: Record<string, unknown>): AgentEvolutionSignal | null {
+  const loopId = cleanString(data.loopId) ?? doc.id.split(':')[0] ?? 'unknown-loop'
+  const loopName = cleanString(data.loopName) ?? loopId
+  const status = cleanString(data.status)
+  const occurredAt = cleanString(data.updatedAt) ?? cleanString(data.createdAt)
+  const telemetry = loopRunTelemetry(data)
+  const isTrackedReviewLoop = loopId === 'agent-evolution-review' || loopId === 'business-insight-review'
+  const isTerminalRun = status === 'executed' || status === 'failed' || status === 'awaiting_approval' || status === 'proposed' || status === 'evaluated'
+
+  if (!telemetry.hasAny && (!isTrackedReviewLoop || !isTerminalRun)) return null
+
+  const highTokens = (telemetry.totalTokens ?? 0) >= 100_000
+  const highCost = (telemetry.costUsd ?? 0) >= 10
+  const longDuration = (telemetry.durationMs ?? 0) >= 30 * 60_000
+  const repeatedRetries = (telemetry.retryCount ?? 0) >= 3
+  if (telemetry.hasAny && !highTokens && !highCost && !longDuration && !repeatedRetries) return null
+
+  const missing = !telemetry.hasAny
+  const summaryParts = missing
+    ? [`Loop run ${doc.id} did not persist token, cost, or duration telemetry.`]
+    : [
+      `Loop run ${doc.id} persisted usage telemetry.`,
+      telemetry.totalTokens !== null ? `${telemetry.totalTokens} tokens.` : null,
+      telemetry.costUsd !== null ? `$${telemetry.costUsd.toFixed(2)} cost.` : null,
+      telemetry.durationMs !== null ? `${minutesLabel(telemetry.durationMs)} duration.` : null,
+      telemetry.model ? `Model: ${telemetry.model}.` : null,
+      telemetry.reasoningEffort ? `Reasoning effort: ${telemetry.reasoningEffort}.` : null,
+      telemetry.retryCount !== null ? `${telemetry.retryCount} retries.` : null,
+      telemetry.toolCallCount !== null ? `${telemetry.toolCallCount} tool calls.` : null,
+    ]
+
+  const severity = missing
+    ? 74
+    : Math.max(
+      highCost ? 88 : 0,
+      highTokens ? 84 : 0,
+      longDuration ? 80 : 0,
+      repeatedRetries ? 78 : 0,
+      72,
+    )
+
+  return {
+    id: `loop-telemetry-${slug(doc.id)}`,
+    category: 'tooling-gap',
+    targetSurface: `loop:${loopId}`,
+    title: missing ? `${loopName} is missing usage telemetry` : `${loopName} needs usage telemetry review`,
+    summary: summaryParts.filter(Boolean).join(' '),
+    severity,
+    confidence: missing ? 72 : 84,
+    easeOfFix: missing ? 78 : 70,
+    risk: missing ? 26 : highCost ? 42 : 34,
+    source: {
+      type: 'loop-run',
+      id: doc.id,
+      href: `/admin/loop-engine/runs?run=${encodeURIComponent(doc.id)}`,
+      label: loopName,
+    },
+    occurredAt: occurredAt ?? undefined,
+  }
+}
+
 function businessSignalForTask(
   doc: TaskDoc,
   data: Record<string, unknown>,
@@ -266,6 +436,8 @@ export async function collectLoopReviewSignals(input: LoopReviewSignalCollection
     if (data.deleted === true) continue
     const signal = agentSignalForLoopBudgetRun(doc, data)
     if (signal) agentSignals.push(signal)
+    const telemetrySignal = agentSignalForLoopTelemetryRun(doc, data)
+    if (telemetrySignal) agentSignals.push(telemetrySignal)
   }
   for (const doc of docs) {
     const data = doc.data()
@@ -306,11 +478,18 @@ export async function collectLoopReviewSignals(input: LoopReviewSignalCollection
     limit,
     now,
   })
+  const invoiceCollection = await collectInvoiceBusinessInsightSignals({
+    orgId: input.orgId,
+    existingSuppressionKeys: [...existingSuppressionKeys],
+    limit,
+    now,
+  })
   businessSignals.push(...crmCollection.signals)
   businessSignals.push(...supportCollection.signals)
   businessSignals.push(...socialCollection.signals)
   businessSignals.push(...adsCollection.signals)
   businessSignals.push(...seoCollection.signals)
+  businessSignals.push(...invoiceCollection.signals)
 
   return {
     scanned: snap.docs.length +
@@ -322,7 +501,8 @@ export async function collectLoopReviewSignals(input: LoopReviewSignalCollection
       adsCollection.connectionsScanned +
       adsCollection.campaignsScanned +
       seoCollection.tasksScanned +
-      seoCollection.sprintsScanned,
+      seoCollection.sprintsScanned +
+      invoiceCollection.invoicesScanned,
     sourceWindow: window,
     agentSignals,
     businessSignals,
