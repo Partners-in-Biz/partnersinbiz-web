@@ -177,9 +177,10 @@ export function MailboxWorkspace({ surface, showCloseAction = false, onClose }: 
     if (!compose.accountId && list[0]?.id) setCompose((prev) => ({ ...prev, accountId: list[0].id }))
   }
 
-  async function loadMessages() {
+  async function loadMessages(options: { refresh?: boolean } = {}) {
     setLoading(true)
     const params = new URLSearchParams({ folder, accountId, q })
+    if (options.refresh) params.set('refresh', '1')
     const res = await fetch(`${config.messagesEndpoint}?${params.toString()}`)
     const body = await res.json()
     if (!res.ok) throw new Error(body.error ?? 'Could not load messages')
@@ -398,6 +399,10 @@ export function MailboxWorkspace({ surface, showCloseAction = false, onClose }: 
           </div>
         </div>
         <div className="flex flex-wrap gap-2">
+          <button type="button" className="btn-pib-secondary" onClick={() => loadMessages({ refresh: true }).catch((err) => { setError(err.message); setLoading(false) })}>
+            <span className="material-symbols-outlined text-[18px]">sync</span>
+            Refresh mail
+          </button>
           <button type="button" className="btn-pib-secondary" onClick={() => setShowAccount((v) => !v)}>
             <span className="material-symbols-outlined text-[18px]">add_link</span>
             Link account

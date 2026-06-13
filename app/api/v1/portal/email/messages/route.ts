@@ -61,8 +61,9 @@ export const GET = withPortalAuthAndRole('viewer', async (req: NextRequest, uid:
     const accountId = searchParams.get('accountId')
     const q = (searchParams.get('q') ?? '').trim().toLowerCase()
     const limit = Math.min(Math.max(Number(searchParams.get('limit') ?? 50), 1), 100)
+    const forceRefresh = searchParams.get('refresh') === '1' || searchParams.get('refresh') === 'true'
 
-    const freshness = await ensureFreshGoogleMailboxData(orgId, uid, accountId)
+    const freshness = await ensureFreshGoogleMailboxData(orgId, uid, accountId, forceRefresh)
 
     let query = adminDb.collection('mailbox_messages').where('orgId', '==', orgId).where('uid', '==', uid) as FirebaseFirestore.Query
     if (accountId && accountId !== 'all') query = query.where('accountId', '==', accountId)
