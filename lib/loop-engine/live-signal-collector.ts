@@ -216,6 +216,28 @@ function firstNumber(sources: Array<Record<string, unknown> | null>, keys: strin
   return null
 }
 
+function firstBool(sources: Array<Record<string, unknown> | null>, keys: string[]): boolean | null {
+  for (const source of sources) {
+    if (!source) continue
+    for (const key of keys) {
+      const value = source[key]
+      if (typeof value === 'boolean') return value
+    }
+  }
+  return null
+}
+
+function firstStringArray(sources: Array<Record<string, unknown> | null>, keys: string[]): string[] {
+  for (const source of sources) {
+    if (!source) continue
+    for (const key of keys) {
+      const value = cleanStringArray(source[key])
+      if (value.length > 0) return value
+    }
+  }
+  return []
+}
+
 function loopRunTelemetrySources(data: Record<string, unknown>): Array<Record<string, unknown> | null> {
   const observability = recordAt(data, 'observability')
   const result = recordAt(data, 'result')
@@ -244,6 +266,13 @@ function loopRunTelemetry(data: Record<string, unknown>): {
   toolCallCount: number | null
   model: string | null
   reasoningEffort: string | null
+  tokenSource: string | null
+  costSource: string | null
+  exactTokenUsageAvailable: boolean | null
+  exactCostAvailable: boolean | null
+  exactUsageAvailable: boolean | null
+  requiresExactModelTelemetry: boolean
+  missing: string[]
   hasAny: boolean
 } {
   const sources = loopRunTelemetrySources(data)
@@ -266,6 +295,13 @@ function loopRunTelemetry(data: Record<string, unknown>): {
   const toolCallCount = firstNumber(sources, ['toolCallCount', 'toolCalls'])
   const model = firstString(sources, ['model', 'agentModel'])
   const reasoningEffort = firstString(sources, ['reasoningEffort', 'reasoning_effort', 'agentEffort'])
+  const tokenSource = firstString(sources, ['tokenSource', 'token_source'])
+  const costSource = firstString(sources, ['costSource', 'cost_source'])
+  const exactTokenUsageAvailable = firstBool(sources, ['exactTokenUsageAvailable', 'exact_token_usage_available'])
+  const exactCostAvailable = firstBool(sources, ['exactCostAvailable', 'exact_cost_available'])
+  const exactUsageAvailable = firstBool(sources, ['exactUsageAvailable', 'exact_usage_available'])
+  const requiresExactModelTelemetry = firstBool(sources, ['requiresExactModelTelemetry', 'requires_exact_model_telemetry']) === true
+  const missing = firstStringArray(sources, ['missing', 'missingTelemetry', 'missing_telemetry'])
   const totalTokens = directTotal ?? (summedTotal > 0 ? summedTotal : null)
   const hasAny = totalTokens !== null || costUsd !== null || durationMs !== null
 
@@ -280,6 +316,13 @@ function loopRunTelemetry(data: Record<string, unknown>): {
     toolCallCount,
     model,
     reasoningEffort,
+    tokenSource,
+    costSource,
+    exactTokenUsageAvailable,
+    exactCostAvailable,
+    exactUsageAvailable,
+    requiresExactModelTelemetry,
+    missing,
     hasAny,
   }
 }
@@ -304,11 +347,27 @@ function agentSignalForLoopTelemetryRun(doc: LoopRunDoc, data: Record<string, un
   const highCost = (telemetry.costUsd ?? 0) >= 10
   const longDuration = (telemetry.durationMs ?? 0) >= 30 * 60_000
   const repeatedRetries = (telemetry.retryCount ?? 0) >= 3
-  if (telemetry.hasAny && !highTokens && !highCost && !longDuration && !repeatedRetries) return null
+  const missingExactModelUsage = telemetry.requiresExactModelTelemetry && (
+    telemetry.exactTokenUsageAvailable === false ||
+    telemetry.exactCostAvailable === false ||
+    telemetry.tokenSource === 'unavailable' ||
+    telemetry.costSource === 'unavailable'
+  )
+  if (telemetry.hasAny && !missingExactModelUsage && !highTokens && !highCost && !longDuration && !repeatedRetries) return null
 
   const missing = !telemetry.hasAny
   const summaryParts = missing
     ? [`Loop run ${doc.id} did not persist token, cost, or duration telemetry.`]
+    : missingExactModelUsage
+      ? [
+        `Loop run ${doc.id} persisted duration telemetry, but exact token/cost telemetry was unavailable from the upstream runtime.`,
+        telemetry.model ? `Model: ${telemetry.model}.` : null,
+        telemetry.reasoningEffort ? `Reasoning effort: ${telemetry.reasoningEffort}.` : null,
+        telemetry.tokenSource ? `Token source: ${telemetry.tokenSource}.` : null,
+        telemetry.costSource ? `Cost source: ${telemetry.costSource}.` : null,
+        telemetry.missing.length ? `Missing: ${telemetry.missing.join(', ')}.` : null,
+        telemetry.durationMs !== null ? `${minutesLabel(telemetry.durationMs)} duration.` : null,
+      ]
     : [
       `Loop run ${doc.id} persisted usage telemetry.`,
       telemetry.totalTokens !== null ? `${telemetry.totalTokens} tokens.` : null,
@@ -322,6 +381,8 @@ function agentSignalForLoopTelemetryRun(doc: LoopRunDoc, data: Record<string, un
 
   const severity = missing
     ? 74
+    : missingExactModelUsage
+      ? 76
     : Math.max(
       highCost ? 88 : 0,
       highTokens ? 84 : 0,
@@ -334,12 +395,16 @@ function agentSignalForLoopTelemetryRun(doc: LoopRunDoc, data: Record<string, un
     id: `loop-telemetry-${slug(doc.id)}`,
     category: 'tooling-gap',
     targetSurface: `loop:${loopId}`,
-    title: missing ? `${loopName} is missing usage telemetry` : `${loopName} needs usage telemetry review`,
+    title: missing
+      ? `${loopName} is missing usage telemetry`
+      : missingExactModelUsage
+        ? `${loopName} is missing exact model usage telemetry`
+        : `${loopName} needs usage telemetry review`,
     summary: summaryParts.filter(Boolean).join(' '),
     severity,
-    confidence: missing ? 72 : 84,
-    easeOfFix: missing ? 78 : 70,
-    risk: missing ? 26 : highCost ? 42 : 34,
+    confidence: missing ? 72 : missingExactModelUsage ? 82 : 84,
+    easeOfFix: missing || missingExactModelUsage ? 78 : 70,
+    risk: missing ? 26 : missingExactModelUsage ? 32 : highCost ? 42 : 34,
     source: {
       type: 'loop-run',
       id: doc.id,

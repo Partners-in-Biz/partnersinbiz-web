@@ -503,4 +503,71 @@ describe('live loop review signal collector', () => {
     expect(result.agentSignals.find((signal) => signal.id === 'loop-telemetry-agent-evolution-review-expensive-2026-06-13')?.summary)
       .toEqual(expect.stringContaining('$18.25'))
   })
+
+  it('surfaces agent task runs whose upstream runtime did not expose exact model token or cost telemetry', async () => {
+    mockGet.mockResolvedValue({ docs: [] })
+    mockCollection.mockImplementation((collectionName: string) => {
+      const docs = collectionName === 'loop_engine_runs'
+        ? [
+          {
+            id: 'agent-task-dispatch:task-1:run-unmetered-1',
+            data: () => ({
+              orgId: 'pib-platform-owner',
+              loopId: 'agent-task-dispatch',
+              loopName: 'Agent Task Dispatch',
+              status: 'executed',
+              usage: {
+                durationMs: 54_000,
+                retryCount: 0,
+              },
+              runtime: {
+                source: 'agent-watcher',
+                taskId: 'task-1',
+                agentId: 'theo',
+                runId: 'run-unmetered-1',
+                model: 'claude-sonnet-4-6',
+                reasoningEffort: 'medium',
+                requiresExactModelTelemetry: true,
+              },
+              telemetry: {
+                tokenSource: 'unavailable',
+                costSource: 'unavailable',
+                exactTokenUsageAvailable: false,
+                exactCostAvailable: false,
+                exactUsageAvailable: false,
+                missing: ['token_usage', 'cost_usd'],
+              },
+              updatedAt: '2026-06-13T10:00:00.000Z',
+            }),
+          },
+        ]
+        : []
+      const sourceQuery = { where: mockCrmWhere, limit: mockCrmLimit, get: jest.fn().mockResolvedValue({ docs }) }
+      sourceQuery.where.mockReturnValue(sourceQuery)
+      sourceQuery.limit.mockReturnValue(sourceQuery)
+      return sourceQuery
+    })
+
+    const { collectLoopReviewSignals } = await import('@/lib/loop-engine/live-signal-collector')
+    const result = await collectLoopReviewSignals({
+      orgId: 'pib-platform-owner',
+      limit: 25,
+      now: new Date('2026-06-13T12:00:00.000Z'),
+    })
+
+    expect(result.agentSignals).toEqual([
+      expect.objectContaining({
+        id: 'loop-telemetry-agent-task-dispatch-task-1-run-unmetered-1',
+        category: 'tooling-gap',
+        targetSurface: 'loop:agent-task-dispatch',
+        title: 'Agent Task Dispatch is missing exact model usage telemetry',
+        summary: expect.stringContaining('exact token/cost telemetry was unavailable'),
+        source: expect.objectContaining({
+          type: 'loop-run',
+          id: 'agent-task-dispatch:task-1:run-unmetered-1',
+        }),
+      }),
+    ])
+    expect(result.agentSignals[0].summary).toEqual(expect.stringContaining('Model: claude-sonnet-4-6.'))
+  })
 })

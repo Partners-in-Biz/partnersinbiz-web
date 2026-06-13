@@ -34,7 +34,7 @@ describe('agent watcher Hermes dispatch', () => {
       events.push('callback-done')
     })
 
-    expect(result).toEqual({ runId: 'run-live-1', output: 'finished', error: null })
+    expect(result).toMatchObject({ runId: 'run-live-1', output: 'finished', error: null })
     expect(events).toEqual(['post', 'callback:run-live-1', 'callback-done', 'poll:true'])
   })
 
@@ -52,7 +52,7 @@ describe('agent watcher Hermes dispatch', () => {
       orgId: 'org-1',
       agentId: 'theo',
       spec: 'Do the work',
-    })).resolves.toEqual({ runId: 'run-failed-1', output: null, error: 'boom' })
+    })).resolves.toMatchObject({ runId: 'run-failed-1', output: null, error: 'boom' })
   })
 
   it('sends effort and model overrides as top-level run fields', async () => {
@@ -73,7 +73,7 @@ describe('agent watcher Hermes dispatch', () => {
       spec: 'Do the work',
       agentEffort: 'high',
       agentModel: 'claude-sonnet-4-6',
-    })).resolves.toEqual({ runId: 'run-routed-1', output: 'done', error: null })
+    })).resolves.toMatchObject({ runId: 'run-routed-1', output: 'done', error: null })
 
     expect(postedBody).toEqual(expect.objectContaining({
       reasoning_effort: 'high',
@@ -84,5 +84,94 @@ describe('agent watcher Hermes dispatch', () => {
         agentId: 'theo',
       }),
     }))
+  })
+
+  it('returns exact upstream model token and cost telemetry from terminal Hermes payloads', async () => {
+    global.fetch = jest.fn(async (url: string | URL) => {
+      const urlText = String(url)
+      if (urlText.endsWith('/v1/runs')) {
+        return new Response(JSON.stringify({ id: 'run-metered-1', model: 'openai/gpt-5.1' }), { status: 200 })
+      }
+      return new Response(JSON.stringify({
+        status: 'completed',
+        output: 'done',
+        model: 'openai/gpt-5.1',
+        usage: {
+          input_tokens: 1200,
+          output_tokens: 320,
+          total_tokens: 1800,
+          output_tokens_details: {
+            reasoning_tokens: 280,
+          },
+        },
+        billing: {
+          cost_usd: 0.0425,
+        },
+      }), { status: 200 })
+    }) as unknown as typeof fetch
+
+    await expect(runAndPoll(cfg, {
+      taskId: 'task-1',
+      orgId: 'org-1',
+      agentId: 'theo',
+      spec: 'Do the work',
+      agentModel: 'openai/gpt-5.1',
+      agentEffort: 'high',
+    })).resolves.toMatchObject({
+      runId: 'run-metered-1',
+      output: 'done',
+      error: null,
+      telemetry: {
+        model: 'openai/gpt-5.1',
+        reasoningEffort: 'high',
+        inputTokens: 1200,
+        outputTokens: 320,
+        reasoningTokens: 280,
+        totalTokens: 1800,
+        costUsd: 0.0425,
+        tokenSource: 'upstream',
+        costSource: 'upstream',
+        exactTokenUsageAvailable: true,
+        exactCostAvailable: true,
+        exactUsageAvailable: true,
+      },
+    })
+  })
+
+  it('marks exact token and cost telemetry unavailable when Hermes does not expose usage', async () => {
+    global.fetch = jest.fn(async (url: string | URL) => {
+      const urlText = String(url)
+      if (urlText.endsWith('/v1/runs')) {
+        return new Response(JSON.stringify({ id: 'run-unmetered-1' }), { status: 200 })
+      }
+      return new Response(JSON.stringify({ status: 'completed', output: 'done' }), { status: 200 })
+    }) as unknown as typeof fetch
+
+    await expect(runAndPoll(cfg, {
+      taskId: 'task-1',
+      orgId: 'org-1',
+      agentId: 'theo',
+      spec: 'Do the work',
+      agentModel: 'claude-sonnet-4-6',
+      agentEffort: 'medium',
+    })).resolves.toMatchObject({
+      runId: 'run-unmetered-1',
+      output: 'done',
+      error: null,
+      telemetry: {
+        model: 'claude-sonnet-4-6',
+        reasoningEffort: 'medium',
+        inputTokens: null,
+        outputTokens: null,
+        totalTokens: null,
+        costUsd: null,
+        tokenSource: 'unavailable',
+        costSource: 'unavailable',
+        exactTokenUsageAvailable: false,
+        exactCostAvailable: false,
+        exactUsageAvailable: false,
+        missing: expect.arrayContaining(['token_usage', 'cost_usd']),
+      },
+    })
   })
 })
