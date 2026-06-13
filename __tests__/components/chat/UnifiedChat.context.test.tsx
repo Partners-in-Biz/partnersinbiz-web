@@ -596,6 +596,54 @@ describe('UnifiedChat context references', () => {
     })
   })
 
+  it('accepts dropped image files into the existing attachment preview before send', async () => {
+    render(
+      <UnifiedChat
+        orgId="org-1"
+        currentUserUid="user-1"
+        currentUserDisplayName="Peet"
+      />,
+    )
+
+    await screen.findByPlaceholderText('Send a message')
+    const dropZone = screen.getByTestId('chat-input-drop-zone')
+    const image = new File(['image'], 'wireframe.png', { type: 'image/png' })
+
+    fireEvent.drop(dropZone, {
+      dataTransfer: {
+        files: [image],
+        items: [{ kind: 'file', type: 'image/png' }],
+      },
+    })
+
+    expect(await screen.findByText('wireframe.png')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Send message' })).not.toBeDisabled()
+  })
+
+  it('rejects unsupported dropped files before they enter the attachment preview', async () => {
+    render(
+      <UnifiedChat
+        orgId="org-1"
+        currentUserUid="user-1"
+        currentUserDisplayName="Peet"
+      />,
+    )
+
+    await screen.findByPlaceholderText('Send a message')
+    const dropZone = screen.getByTestId('chat-input-drop-zone')
+    const script = new File(['alert(1)'], 'payload.js', { type: 'application/javascript' })
+
+    fireEvent.drop(dropZone, {
+      dataTransfer: {
+        files: [script],
+        items: [{ kind: 'file', type: 'application/javascript' }],
+      },
+    })
+
+    expect(screen.queryByText('payload.js')).not.toBeInTheDocument()
+    expect(await screen.findByText('Unsupported file type: payload.js')).toBeInTheDocument()
+  })
+
   it('keeps loaded messages in a scrollable log and scrolls to the latest message', async () => {
     Object.defineProperty(HTMLElement.prototype, 'scrollHeight', {
       configurable: true,

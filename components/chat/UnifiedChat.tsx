@@ -1,6 +1,6 @@
 'use client'
 
-import { FormEvent, KeyboardEvent, useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
+import { DragEvent, FormEvent, KeyboardEvent, useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 import type { ChatEvent } from '@/lib/hermes/types'
 import { AGENT_IDS, type AgentSkillPolicyState } from '@/lib/agents/types'
 import { AGENT_EFFORT_OPTIONS, type AgentEffort } from '@/lib/agents/runRouting'
@@ -76,6 +76,39 @@ export interface UnifiedChatProps {
 const POLL_INTERVAL = 1500
 const MAX_RUN_POLL_ATTEMPTS = Math.ceil((90 * 60 * 1000) / POLL_INTERVAL)
 const HUMAN_CHAT_REFRESH_INTERVAL = 3000
+const MAX_ATTACHMENT_BYTES = 10 * 1024 * 1024
+const MAX_PENDING_ATTACHMENTS = 5
+const ALLOWED_ATTACHMENT_MIME = new Set([
+  'image/jpeg',
+  'image/png',
+  'image/gif',
+  'image/webp',
+  'application/pdf',
+  'text/plain',
+  'text/markdown',
+  'text/csv',
+  'application/json',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+])
+
+function validateConversationAttachment(file: File): string | null {
+  const type = (file.type || 'application/octet-stream').toLowerCase()
+  if (!ALLOWED_ATTACHMENT_MIME.has(type)) return `Unsupported file type: ${file.name}`
+  if (file.size > MAX_ATTACHMENT_BYTES) return `File too large: ${file.name} (max 10MB)`
+  return null
+}
+
+function splitValidConversationAttachments(files: File[]): { validFiles: File[]; errors: string[] } {
+  const validFiles: File[] = []
+  const errors: string[] = []
+  for (const file of files) {
+    const error = validateConversationAttachment(file)
+    if (error) errors.push(error)
+    else validFiles.push(file)
+  }
+  return { validFiles, errors }
+}
 
 export function formatConversationAttachmentUploadError(error: unknown, fileName: string): string {
   const raw = error instanceof Error ? error.message : String(error || '')
@@ -227,6 +260,7 @@ export default function UnifiedChat({
 
   // Attachment state
   const [attachments, setAttachments] = useState<File[]>([])
+  const [draggingAttachments, setDraggingAttachments] = useState(false)
   const fileInputRef = useRef<HTMLInputElement | null>(null)
   const attachmentInputId = useId()
 
@@ -865,6 +899,50 @@ export default function UnifiedChat({
       composerRef.current?.setSelectionRange(next.caret, next.caret)
     })
   }, [input, slashPrompt])
+
+  const addPendingAttachments = useCallback((files: File[]) => {
+    if (files.length === 0) return
+    const { validFiles, errors } = splitValidConversationAttachments(files)
+    setError(errors[0] ?? null)
+    if (validFiles.length === 0) return
+    const openSlots = Math.max(0, MAX_PENDING_ATTACHMENTS - attachments.length)
+    if (openSlots === 0) {
+      setError(`You can attach up to ${MAX_PENDING_ATTACHMENTS} files at a time.`)
+      return
+    }
+    if (validFiles.length > openSlots) {
+      setError(`Only ${openSlots} more attachment${openSlots === 1 ? '' : 's'} can be added.`)
+    }
+    setAttachments((prev) => [...prev, ...validFiles.slice(0, openSlots)].slice(0, MAX_PENDING_ATTACHMENTS))
+  }, [attachments.length])
+
+  const dataTransferHasFiles = useCallback((dataTransfer: DataTransfer): boolean => {
+    if ((dataTransfer.files?.length ?? 0) > 0) return true
+    return Array.from(dataTransfer.types ?? []).includes('Files')
+  }, [])
+
+  const handleAttachmentDrop = useCallback((event: DragEvent<HTMLFormElement>) => {
+    if (!dataTransferHasFiles(event.dataTransfer)) return
+    event.preventDefault()
+    event.stopPropagation()
+    setDraggingAttachments(false)
+    if (sending) return
+    addPendingAttachments(Array.from(event.dataTransfer.files ?? []))
+  }, [addPendingAttachments, dataTransferHasFiles, sending])
+
+  const handleAttachmentDragOver = useCallback((event: DragEvent<HTMLFormElement>) => {
+    if (!dataTransferHasFiles(event.dataTransfer)) return
+    event.preventDefault()
+    event.stopPropagation()
+    if (sending) return
+    event.dataTransfer.dropEffect = 'copy'
+    setDraggingAttachments(true)
+  }, [dataTransferHasFiles, sending])
+
+  const handleAttachmentDragLeave = useCallback((event: DragEvent<HTMLFormElement>) => {
+    if (event.currentTarget.contains(event.relatedTarget as Node | null)) return
+    setDraggingAttachments(false)
+  }, [])
 
   // ── Rename conversation ───────────────────────────────────────────────────
   const renameConversation = useCallback(async (convId: string, title: string) => {
@@ -1576,7 +1654,14 @@ export default function UnifiedChat({
         {/* Input */}
         <form
           onSubmit={send}
-          className="shrink-0 min-w-0 flex flex-col gap-2 border-t border-[var(--color-card-border)] p-3"
+          onDrop={handleAttachmentDrop}
+          onDragOver={handleAttachmentDragOver}
+          onDragLeave={handleAttachmentDragLeave}
+          data-testid="chat-input-drop-zone"
+          className={[
+            'shrink-0 min-w-0 flex flex-col gap-2 border-t border-[var(--color-card-border)] p-3 transition-colors',
+            draggingAttachments ? 'bg-primary/10 ring-1 ring-primary/35' : '',
+          ].join(' ')}
         >
           {(currentPageContext || contextRefs.length > 0 || allowAgentParticipants) && (
             <div data-testid="chat-context-toolbar" className="flex items-center justify-between gap-2">
@@ -1767,8 +1852,7 @@ export default function UnifiedChat({
               className="sr-only"
               tabIndex={-1}
               onChange={(e) => {
-                const files = Array.from(e.target.files ?? [])
-                setAttachments((prev) => [...prev, ...files].slice(0, 5))
+                addPendingAttachments(Array.from(e.target.files ?? []))
                 e.target.value = ''
               }}
             />
