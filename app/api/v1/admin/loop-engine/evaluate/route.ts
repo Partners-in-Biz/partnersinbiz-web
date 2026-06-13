@@ -84,6 +84,7 @@ const BUSINESS_SIGNAL_LANES = new Set([
   'social',
   'support',
   'invoice',
+  'documents',
   'project',
   'agent-output',
   'data-quality',

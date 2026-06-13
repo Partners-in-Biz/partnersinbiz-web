@@ -42,7 +42,7 @@ export type AgentEvolutionSignal = {
 
 export type BusinessInsightSignal = {
   id: string
-  lane: 'crm' | 'seo' | 'ads' | 'social' | 'support' | 'invoice' | 'project' | 'agent-output' | 'data-quality'
+  lane: 'crm' | 'seo' | 'ads' | 'social' | 'support' | 'invoice' | 'documents' | 'project' | 'agent-output' | 'data-quality'
   insightKind: BusinessInsightKind
   summary: string
   impactEstimate: string

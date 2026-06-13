@@ -360,6 +360,47 @@ describe('live loop review signal collector', () => {
     ])
   })
 
+  it('merges document business insight signals into the live review collection', async () => {
+    mockGet.mockResolvedValue({ docs: [] })
+    mockCollection.mockImplementation((collectionName: string) => {
+      const docs = collectionName === 'client_documents'
+        ? [
+          {
+            id: 'doc-1',
+            data: () => ({
+              orgId: 'pib-platform-owner',
+              title: 'Launch approval',
+              status: 'client_review',
+              approvalMode: 'operational',
+              updatedAt: '2026-06-01T09:00:00.000Z',
+            }),
+          },
+        ]
+        : []
+      const sourceQuery = { where: mockCrmWhere, limit: mockCrmLimit, get: jest.fn().mockResolvedValue({ docs }) }
+      sourceQuery.where.mockReturnValue(sourceQuery)
+      sourceQuery.limit.mockReturnValue(sourceQuery)
+      return sourceQuery
+    })
+
+    const { collectLoopReviewSignals } = await import('@/lib/loop-engine/live-signal-collector')
+    const result = await collectLoopReviewSignals({
+      orgId: 'pib-platform-owner',
+      limit: 25,
+      now: new Date('2026-06-13T00:00:00.000Z'),
+    })
+
+    expect(mockCollection).toHaveBeenCalledWith('client_documents')
+    expect(result.businessSignals).toEqual([
+      expect.objectContaining({
+        lane: 'documents',
+        metric: 'client_documents_waiting_for_review',
+        value: 1,
+        suppressionKey: 'documents:waiting-for-review:pib-platform-owner',
+      }),
+    ])
+  })
+
   it('surfaces loop runs that are near or over budget as agent evolution signals', async () => {
     mockGet.mockResolvedValue({ docs: [] })
     mockCollection.mockImplementation((collectionName: string) => {

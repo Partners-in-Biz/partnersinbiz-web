@@ -186,4 +186,57 @@ describe('POST /api/v1/admin/loop-engine/evaluate', () => {
       }),
     }), { merge: true })
   })
+
+  it('accepts document business insight signals from explicit evaluation requests', async () => {
+    const { POST } = await import('@/app/api/v1/admin/loop-engine/evaluate/route')
+
+    const res = await POST(new NextRequest('http://localhost/api/v1/admin/loop-engine/evaluate', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        orgId: 'pib-platform-owner',
+        projectId: 'documents-project',
+        loopId: 'business-insight-review',
+        dryRun: true,
+        persist: false,
+        persistReviewTasks: true,
+        sourceWindow: {
+          from: '2026-06-06T00:00:00.000Z',
+          to: '2026-06-13T00:00:00.000Z',
+        },
+        businessSignals: [
+          {
+            id: 'documents-waiting-review-pib-platform-owner',
+            lane: 'documents',
+            insightKind: 'stale-work',
+            summary: '1 client document is waiting for review',
+            impactEstimate: 'Client-facing delivery risk from a stale review document',
+            metric: 'client_documents_waiting_for_review',
+            value: 1,
+            impact: 74,
+            urgency: 78,
+            confidence: 82,
+            actionability: 84,
+            risk: 22,
+            ownerAgentId: 'docs',
+            ownerRole: 'documents',
+            approvalGate: 'client-visible',
+            nextAction: 'Review the stale client document and create internal unblock work.',
+            suppressionKey: 'documents:waiting-for-review:pib-platform-owner',
+            sourceLinks: [{ type: 'client-document', id: 'doc-1', href: '/portal/documents/doc-1', label: 'Launch approval' }],
+            evidence: [{ label: 'Client-review documents older than 7 days', value: 1 }],
+            hasNewSourceItem: true,
+          },
+        ],
+      }),
+    }))
+    const body = await res.json()
+
+    expect(res.status).toBe(200)
+    expect(body.data.reviewDrafts).toHaveLength(1)
+    expect(body.data.reviewDrafts[0].metadata.businessInsightReview).toMatchObject({
+      lane: 'documents',
+      recommendation: expect.objectContaining({ approvalGate: 'client-visible' }),
+    })
+  })
 })

@@ -2,6 +2,7 @@ import { FieldValue } from 'firebase-admin/firestore'
 import { adminDb } from '@/lib/firebase/admin'
 import { refreshAdsBusinessInsightMetric, type AdsBusinessMetricSnapshot } from './ads-business-signals'
 import { refreshCrmBusinessInsightMetric, type CrmBusinessMetricSnapshot } from './crm-business-signals'
+import { refreshDocumentBusinessInsightMetric, type DocumentBusinessMetricSnapshot } from './document-business-signals'
 import { refreshInvoiceBusinessInsightMetric, type InvoiceBusinessMetricSnapshot } from './invoice-business-signals'
 import { refreshSeoBusinessInsightMetric, type SeoBusinessMetricSnapshot } from './seo-business-signals'
 import { refreshSocialBusinessInsightMetric, type SocialBusinessMetricSnapshot } from './social-business-signals'
@@ -45,6 +46,7 @@ type RefreshedBusinessMetricSnapshot =
   | SocialBusinessMetricSnapshot
   | SupportBusinessMetricSnapshot
   | InvoiceBusinessMetricSnapshot
+  | DocumentBusinessMetricSnapshot
   | ProjectBusinessMetricSnapshot
 
 export type BusinessInsightOutcomeStatus = 'improved' | 'regressed' | 'unchanged'
@@ -255,6 +257,8 @@ async function refreshKnownBusinessInsightMetric(input: {
   if (adsMetric) return adsMetric
   const invoiceMetric = await refreshInvoiceBusinessInsightMetric(input)
   if (invoiceMetric) return invoiceMetric
+  const documentMetric = await refreshDocumentBusinessInsightMetric(input)
+  if (documentMetric) return documentMetric
   return refreshSeoBusinessInsightMetric(input)
 }
 
