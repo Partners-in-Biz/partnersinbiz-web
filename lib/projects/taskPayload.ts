@@ -42,6 +42,8 @@ const VALID_AGENT_CAPABILITIES = [
   'quality-assurance',
   'research-recommendation-followup',
   'research-intelligence',
+  'agent-evolution-review',
+  'business-insight-review',
 ] as const
 
 export const TASK_SOURCE_LINKAGE_FIELDS = [

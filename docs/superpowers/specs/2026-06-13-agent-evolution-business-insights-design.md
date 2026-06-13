@@ -414,4 +414,6 @@ This gives Peet the practical benefit of the Fable-style self-improving workflow
 - Added task-backed `business-insight-review` briefing source support.
 - Added Mission Control business insight KPI and dashboard visibility.
 - Added a pure conservative evaluator that turns supplied agent/business signal snapshots into internal review task drafts with `metadata.agentEvolutionReview` and `metadata.businessInsightReview`.
-- Still pending: admin/cron persistence wiring that collects live signals and writes approved internal task drafts, accepted-insight conversion workflow, and before/after outcome measurement.
+- Added idempotent internal review-task persistence for conservative drafts in `lib/loop-engine/review-task-persistence.ts`.
+- Extended `POST /api/v1/admin/loop-engine/evaluate` so explicit supplied `agentSignals` / `businessSignals` can return review drafts and, when `persistReviewTasks` is true, write deterministic internal project review tasks.
+- Still pending: cron/live-signal collection, accepted-insight conversion workflow, and before/after outcome measurement.
