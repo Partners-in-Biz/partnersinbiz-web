@@ -7,6 +7,8 @@ const mockProjectDoc = jest.fn()
 const mockTaskCollection = jest.fn()
 const mockTaskDoc = jest.fn()
 const mockSet = jest.fn()
+const mockRunDoc = jest.fn()
+const mockRunSet = jest.fn()
 
 jest.mock('firebase-admin/firestore', () => ({
   FieldValue: { serverTimestamp: jest.fn(() => 'server-timestamp') },
@@ -28,6 +30,8 @@ beforeEach(() => {
   jest.clearAllMocks()
   delete process.env.CRON_SECRET
   mockSet.mockResolvedValue(undefined)
+  mockRunSet.mockResolvedValue(undefined)
+  mockRunDoc.mockImplementation((runId: string) => ({ id: runId, set: mockRunSet }))
   mockTaskDoc.mockImplementation((taskId: string) => ({ id: taskId, set: mockSet }))
   mockTaskCollection.mockImplementation((collectionName: string) => {
     if (collectionName !== 'tasks') throw new Error(`Unexpected nested collection ${collectionName}`)
@@ -35,8 +39,9 @@ beforeEach(() => {
   })
   mockProjectDoc.mockImplementation((projectId: string) => ({ id: projectId, collection: mockTaskCollection }))
   mockCollection.mockImplementation((collectionName: string) => {
-    if (collectionName !== 'projects') throw new Error(`Unexpected collection ${collectionName}`)
-    return { doc: mockProjectDoc }
+    if (collectionName === 'projects') return { doc: mockProjectDoc }
+    if (collectionName === 'loop_engine_runs') return { doc: mockRunDoc }
+    throw new Error(`Unexpected collection ${collectionName}`)
   })
   mockCollectLoopReviewSignals.mockResolvedValue({
     scanned: 1,
@@ -110,6 +115,24 @@ describe('GET /api/cron/loop-review', () => {
       reviewStatus: 'pending',
       metadata: expect.objectContaining({
         businessInsightReview: expect.objectContaining({ type: 'business-insight-review' }),
+      }),
+    }), { merge: true })
+    expect(mockRunSet).toHaveBeenCalledWith(expect.objectContaining({
+      loopId: 'business-insight-review',
+      status: 'executed',
+      usage: expect.objectContaining({
+        durationMs: expect.any(Number),
+        retryCount: 0,
+        toolCallCount: 0,
+      }),
+      runtime: expect.objectContaining({
+        source: 'loop-review-cron',
+        mode: 'collect',
+        scanned: 1,
+        agentSignalCount: 0,
+        businessSignalCount: 1,
+        reviewDraftCount: 1,
+        persistedReviewTaskCount: 1,
       }),
     }), { merge: true })
   })

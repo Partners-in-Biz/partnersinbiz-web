@@ -8,6 +8,7 @@ import { evaluateLoopRun } from '@/lib/loop-engine/executor'
 import { buildConservativeReviewTaskDrafts, type AgentEvolutionSignal, type BusinessInsightSignal } from '@/lib/loop-engine/review-evaluator'
 import { persistConservativeReviewTaskDrafts } from '@/lib/loop-engine/review-task-persistence'
 import type { LoopRunCandidate, LoopRunTrigger } from '@/lib/loop-engine/runs'
+import type { LoopApprovalGate } from '@/lib/loop-engine/registry'
 
 export const dynamic = 'force-dynamic'
 
@@ -97,6 +98,17 @@ const BUSINESS_INSIGHT_KINDS = new Set([
   'follow-up-gap',
 ])
 
+const LOOP_APPROVAL_GATES = new Set<LoopApprovalGate>([
+  'client-visible',
+  'public-publishing',
+  'paid-spend',
+  'production-deploy',
+  'finance',
+  'secret-config',
+  'destructive-data',
+  'human-review',
+])
+
 function cleanSourceLink(value: unknown): AgentEvolutionSignal['source'] | null {
   if (!isRecord(value)) return null
   const type = cleanString(value.type)
@@ -171,6 +183,7 @@ function cleanBusinessSignals(value: unknown): BusinessInsightSignal[] {
     const nextAction = cleanString(signal.nextAction)
     const suppressionKey = cleanString(signal.suppressionKey)
     const sourceLinks = cleanSourceLinks(signal.sourceLinks)
+    const approvalGate = cleanString(signal.approvalGate)
     if (
       !id
       || !lane
@@ -200,6 +213,9 @@ function cleanBusinessSignals(value: unknown): BusinessInsightSignal[] {
       risk: cleanNumber(signal.risk),
       ownerAgentId: cleanString(signal.ownerAgentId) ?? undefined,
       ownerRole: cleanString(signal.ownerRole) ?? undefined,
+      approvalGate: approvalGate && LOOP_APPROVAL_GATES.has(approvalGate as LoopApprovalGate)
+        ? approvalGate as LoopApprovalGate
+        : undefined,
       nextAction,
       suppressionKey,
       sourceLinks,
@@ -210,6 +226,48 @@ function cleanBusinessSignals(value: unknown): BusinessInsightSignal[] {
       hasReviewerStatusChange: signal.hasReviewerStatusChange === true,
     }]
   })
+}
+
+function loopRunTelemetry(input: {
+  source: string
+  startedAtMs: number
+  startedAt: string
+  candidateCount: number
+  proposedActionCount: number
+  executedActionCount: number
+  reviewDraftCount: number
+  persistedReviewTaskCount: number
+  skippedReviewTaskCount: number
+}) {
+  const completedAtMs = Date.now()
+  const durationMs = Math.max(0, completedAtMs - input.startedAtMs)
+  const completedAt = new Date(completedAtMs).toISOString()
+  return {
+    usage: {
+      durationMs,
+      retryCount: 0,
+      toolCallCount: 0,
+    },
+    runtime: {
+      source: input.source,
+      startedAt: input.startedAt,
+      completedAt,
+      durationMs,
+      candidateCount: input.candidateCount,
+      proposedActionCount: input.proposedActionCount,
+      executedActionCount: input.executedActionCount,
+      reviewDraftCount: input.reviewDraftCount,
+      persistedReviewTaskCount: input.persistedReviewTaskCount,
+      skippedReviewTaskCount: input.skippedReviewTaskCount,
+    },
+    telemetry: {
+      source: input.source,
+      startedAt: input.startedAt,
+      completedAt,
+      durationMs,
+      operationCount: input.candidateCount + input.reviewDraftCount + input.persistedReviewTaskCount,
+    },
+  }
 }
 
 function cleanTrigger(value: unknown): LoopRunTrigger | undefined {
@@ -225,6 +283,8 @@ function cleanTrigger(value: unknown): LoopRunTrigger | undefined {
 }
 
 export const POST = withAuth('admin', async (req: NextRequest, user) => {
+  const startedAtMs = Date.now()
+  const startedAt = new Date(startedAtMs).toISOString()
   const body = await req.json().catch(() => ({})) as Record<string, unknown>
   const orgId = cleanString(body.orgId) ?? req.headers.get('x-org-id')
   const loopId = cleanString(body.loopId)
@@ -245,14 +305,6 @@ export const POST = withAuth('admin', async (req: NextRequest, user) => {
     idempotencyKey: cleanString(body.idempotencyKey) ?? undefined,
   })
 
-  if (persist) {
-    await adminDb.collection('loop_engine_runs').doc(run.id).set({
-      ...run,
-      createdAt: FieldValue.serverTimestamp(),
-      updatedAt: FieldValue.serverTimestamp(),
-    }, { merge: true })
-  }
-
   const projectId = cleanString(body.projectId)
   const reviewDrafts = buildConservativeReviewTaskDrafts({
     orgId,
@@ -270,6 +322,25 @@ export const POST = withAuth('admin', async (req: NextRequest, user) => {
       createdByType: user.role === 'ai' ? 'agent' : 'user',
     })
     : { created: [], skipped: [] }
+
+  if (persist) {
+    await adminDb.collection('loop_engine_runs').doc(run.id).set({
+      ...run,
+      ...loopRunTelemetry({
+        source: 'admin-loop-engine-evaluate',
+        startedAtMs,
+        startedAt,
+        candidateCount: run.candidates.length,
+        proposedActionCount: run.proposedActions.length,
+        executedActionCount: run.executedActions.length,
+        reviewDraftCount: reviewDrafts.length,
+        persistedReviewTaskCount: reviewTaskPersistence.created.length,
+        skippedReviewTaskCount: reviewTaskPersistence.skipped.length,
+      }),
+      createdAt: FieldValue.serverTimestamp(),
+      updatedAt: FieldValue.serverTimestamp(),
+    }, { merge: true })
+  }
 
   return apiSuccess({ run, persisted: persist, reviewDrafts, reviewTaskPersistence })
 })
