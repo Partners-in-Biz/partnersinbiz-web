@@ -390,7 +390,7 @@ The first implementation is complete when:
 
 1. Should `business-insight-review` cards be internal-only at first, or should selected accepted insights later appear in client portals?
 2. Which owner agents should map to each lane by default: CRM/sales, SEO, ads, social, support, finance, projects?
-3. Should accepted business insights create tasks automatically, or require a human click to convert to task in V1?
+3. Should accepted business insights create tasks automatically, or require a human click to convert to task in V1? Current implementation requires a review-approved task plus explicit conversion action.
 4. How aggressive should daily cadence be for active client accounts versus weekly cadence for dormant accounts?
 
 ## Recommendation
@@ -417,4 +417,5 @@ This gives Peet the practical benefit of the Fable-style self-improving workflow
 - Added idempotent internal review-task persistence for conservative drafts in `lib/loop-engine/review-task-persistence.ts`.
 - Extended `POST /api/v1/admin/loop-engine/evaluate` so explicit supplied `agentSignals` / `businessSignals` can return review drafts and, when `persistReviewTasks` is true, write deterministic internal project review tasks.
 - Added a cron-compatible live internal task signal collector in `lib/loop-engine/live-signal-collector.ts` plus `GET /api/cron/loop-review`, which mines repeated agent blockers and high-risk blocked project work, then optionally persists review-gated internal tasks.
-- Still pending: richer CRM/SEO/ads/social/support signal adapters, accepted-insight conversion workflow, and before/after outcome measurement.
+- Added approved business-insight conversion support in `lib/loop-engine/business-insight-conversion.ts` plus `POST /api/v1/projects/[projectId]/tasks/[taskId]/business-insight-action`, creating internal follow-up tasks with baseline outcome metadata.
+- Still pending: richer CRM/SEO/ads/social/support signal adapters and automated before/after outcome measurement.
