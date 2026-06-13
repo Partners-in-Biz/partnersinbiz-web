@@ -416,4 +416,5 @@ This gives Peet the practical benefit of the Fable-style self-improving workflow
 - Added a pure conservative evaluator that turns supplied agent/business signal snapshots into internal review task drafts with `metadata.agentEvolutionReview` and `metadata.businessInsightReview`.
 - Added idempotent internal review-task persistence for conservative drafts in `lib/loop-engine/review-task-persistence.ts`.
 - Extended `POST /api/v1/admin/loop-engine/evaluate` so explicit supplied `agentSignals` / `businessSignals` can return review drafts and, when `persistReviewTasks` is true, write deterministic internal project review tasks.
-- Still pending: cron/live-signal collection, accepted-insight conversion workflow, and before/after outcome measurement.
+- Added a cron-compatible live internal task signal collector in `lib/loop-engine/live-signal-collector.ts` plus `GET /api/cron/loop-review`, which mines repeated agent blockers and high-risk blocked project work, then optionally persists review-gated internal tasks.
+- Still pending: richer CRM/SEO/ads/social/support signal adapters, accepted-insight conversion workflow, and before/after outcome measurement.
