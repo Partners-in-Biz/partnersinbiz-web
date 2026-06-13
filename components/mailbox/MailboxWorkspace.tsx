@@ -624,6 +624,7 @@ function ComposerPanel({
   accounts,
   compose,
   setCompose,
+  recipientSuggestions,
   onClose,
   onSend,
   onDraft,
@@ -632,6 +633,7 @@ function ComposerPanel({
   accounts: MailboxAccountSafe[]
   compose: ComposeState
   setCompose: Dispatch<SetStateAction<ComposeState>>
+  recipientSuggestions: RecipientSuggestion[]
   onClose: () => void
   onSend: () => void
   onDraft: () => void
