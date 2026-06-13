@@ -14,6 +14,7 @@ import {
   ensurePlatformCompanyForOrg,
   resolvePlatformOwnerOrgId,
 } from '@/lib/platform-owner/relationships'
+import { decorateInvoicePortalCapabilities } from '@/lib/billing/portal-permissions'
 
 export const dynamic = 'force-dynamic'
 
