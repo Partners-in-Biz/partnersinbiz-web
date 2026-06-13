@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server'
 
 const mockCollectLoopReviewSignals = jest.fn()
+const mockMeasureBusinessInsightOutcomes = jest.fn()
 const mockCollection = jest.fn()
 const mockProjectDoc = jest.fn()
 const mockTaskCollection = jest.fn()
@@ -13,6 +14,10 @@ jest.mock('firebase-admin/firestore', () => ({
 
 jest.mock('@/lib/loop-engine/live-signal-collector', () => ({
   collectLoopReviewSignals: (...args: unknown[]) => mockCollectLoopReviewSignals(...args),
+}))
+
+jest.mock('@/lib/loop-engine/business-insight-outcomes', () => ({
+  measureBusinessInsightOutcomes: (...args: unknown[]) => mockMeasureBusinessInsightOutcomes(...args),
 }))
 
 jest.mock('@/lib/firebase/admin', () => ({
@@ -61,6 +66,12 @@ beforeEach(() => {
     ],
     existingSuppressionKeys: [],
   })
+  mockMeasureBusinessInsightOutcomes.mockResolvedValue({
+    scanned: 2,
+    measured: 1,
+    skipped: [{ taskId: 'not-due', reason: 'not-due' }],
+    outcomes: [{ taskId: 'action-1', projectId: 'growth-project', status: 'improved' }],
+  })
 })
 
 describe('GET /api/cron/loop-review', () => {
@@ -101,5 +112,29 @@ describe('GET /api/cron/loop-review', () => {
         businessInsightReview: expect.objectContaining({ type: 'business-insight-review' }),
       }),
     }), { merge: true })
+  })
+
+  it('can run outcome measurement without collecting new review signals', async () => {
+    const { GET } = await import('@/app/api/cron/loop-review/route')
+
+    const res = await GET(new NextRequest('http://localhost/api/cron/loop-review?orgId=pib-platform-owner&projectId=growth-project&mode=measure&limit=10', {
+      headers: { 'x-vercel-cron': '1' },
+    }))
+    const body = await res.json()
+
+    expect(res.status).toBe(200)
+    expect(mockCollectLoopReviewSignals).not.toHaveBeenCalled()
+    expect(mockMeasureBusinessInsightOutcomes).toHaveBeenCalledWith(expect.objectContaining({
+      orgId: 'pib-platform-owner',
+      projectId: 'growth-project',
+      limit: 10,
+    }))
+    expect(body.data).toMatchObject({
+      mode: 'measure',
+      outcomeMeasurement: {
+        scanned: 2,
+        measured: 1,
+      },
+    })
   })
 })

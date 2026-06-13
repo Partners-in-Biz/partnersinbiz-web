@@ -1,5 +1,6 @@
 import { NextRequest } from 'next/server'
 import { apiError, apiSuccess } from '@/lib/api/response'
+import { measureBusinessInsightOutcomes } from '@/lib/loop-engine/business-insight-outcomes'
 import { collectLoopReviewSignals } from '@/lib/loop-engine/live-signal-collector'
 import { buildConservativeReviewTaskDrafts } from '@/lib/loop-engine/review-evaluator'
 import { persistConservativeReviewTaskDrafts } from '@/lib/loop-engine/review-task-persistence'
@@ -27,6 +28,12 @@ function queryLimit(req: NextRequest): number {
   return Math.max(1, Math.min(250, Math.floor(requested)))
 }
 
+function mode(req: NextRequest): 'collect' | 'measure' | 'both' {
+  const requested = cleanString(req.nextUrl.searchParams.get('mode'))
+  if (requested === 'measure' || requested === 'both') return requested
+  return 'collect'
+}
+
 export async function GET(req: NextRequest) {
   if (!authorized(req)) return apiError('Unauthorized', 401)
 
@@ -35,6 +42,21 @@ export async function GET(req: NextRequest) {
 
   const projectId = cleanString(req.nextUrl.searchParams.get('projectId'))
   const persist = cleanBool(req.nextUrl.searchParams.get('persist'))
+  const runMode = mode(req)
+  const outcomeMeasurement = runMode === 'measure' || runMode === 'both'
+    ? await measureBusinessInsightOutcomes({
+      orgId,
+      projectId,
+      limit: queryLimit(req),
+    })
+    : null
+  if (runMode === 'measure') {
+    return apiSuccess({
+      mode: runMode,
+      outcomeMeasurement,
+    })
+  }
+
   const collection = await collectLoopReviewSignals({
     orgId,
     projectId,
@@ -58,6 +80,7 @@ export async function GET(req: NextRequest) {
     : { created: [], skipped: [] }
 
   return apiSuccess({
+    mode: runMode,
     scanned: collection.scanned,
     sourceWindow: collection.sourceWindow,
     agentSignalCount: collection.agentSignals.length,
@@ -66,5 +89,6 @@ export async function GET(req: NextRequest) {
     persisted: persist,
     reviewDrafts,
     reviewTaskPersistence,
+    outcomeMeasurement,
   })
 }
