@@ -277,4 +277,45 @@ describe('live loop review signal collector', () => {
       }),
     ])
   })
+
+  it('merges SEO business insight signals into the live review collection', async () => {
+    mockGet.mockResolvedValue({ docs: [] })
+    mockCollection.mockImplementation((collectionName: string) => {
+      const docs = collectionName === 'seo_tasks'
+        ? [
+          {
+            id: 'task-1',
+            data: () => ({
+              orgId: 'pib-platform-owner',
+              sprintId: 'sprint-1',
+              title: 'Fix indexing blocker',
+              status: 'blocked',
+            }),
+          },
+        ]
+        : []
+      const sourceQuery = { where: mockCrmWhere, limit: mockCrmLimit, get: jest.fn().mockResolvedValue({ docs }) }
+      sourceQuery.where.mockReturnValue(sourceQuery)
+      sourceQuery.limit.mockReturnValue(sourceQuery)
+      return sourceQuery
+    })
+
+    const { collectLoopReviewSignals } = await import('@/lib/loop-engine/live-signal-collector')
+    const result = await collectLoopReviewSignals({
+      orgId: 'pib-platform-owner',
+      limit: 25,
+      now: new Date('2026-06-13T00:00:00.000Z'),
+    })
+
+    expect(mockCollection).toHaveBeenCalledWith('seo_tasks')
+    expect(mockCollection).toHaveBeenCalledWith('seo_sprints')
+    expect(result.businessSignals).toEqual([
+      expect.objectContaining({
+        lane: 'seo',
+        metric: 'seo_blocked_tasks',
+        value: 1,
+        suppressionKey: 'seo:blocked-tasks:pib-platform-owner',
+      }),
+    ])
+  })
 })
