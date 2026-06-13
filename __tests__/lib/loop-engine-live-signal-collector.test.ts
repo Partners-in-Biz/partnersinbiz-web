@@ -198,4 +198,43 @@ describe('live loop review signal collector', () => {
       }),
     ])
   })
+
+  it('merges social business insight signals into the live review collection', async () => {
+    mockGet.mockResolvedValue({ docs: [] })
+    mockCollection.mockImplementation((collectionName: string) => {
+      const docs = collectionName === 'social_posts'
+        ? [
+          {
+            id: 'post-1',
+            data: () => ({
+              orgId: 'pib-platform-owner',
+              status: 'failed',
+              platform: 'linkedin',
+            }),
+          },
+        ]
+        : []
+      const sourceQuery = { where: mockCrmWhere, limit: mockCrmLimit, get: jest.fn().mockResolvedValue({ docs }) }
+      sourceQuery.where.mockReturnValue(sourceQuery)
+      sourceQuery.limit.mockReturnValue(sourceQuery)
+      return sourceQuery
+    })
+
+    const { collectLoopReviewSignals } = await import('@/lib/loop-engine/live-signal-collector')
+    const result = await collectLoopReviewSignals({
+      orgId: 'pib-platform-owner',
+      limit: 25,
+      now: new Date('2026-06-13T00:00:00.000Z'),
+    })
+
+    expect(mockCollection).toHaveBeenCalledWith('social_posts')
+    expect(result.businessSignals).toEqual([
+      expect.objectContaining({
+        lane: 'social',
+        metric: 'failed_social_posts',
+        value: 1,
+        suppressionKey: 'social:failed-posts:pib-platform-owner',
+      }),
+    ])
+  })
 })

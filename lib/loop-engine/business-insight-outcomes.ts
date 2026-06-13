@@ -1,6 +1,7 @@
 import { FieldValue } from 'firebase-admin/firestore'
 import { adminDb } from '@/lib/firebase/admin'
 import { refreshCrmBusinessInsightMetric, type CrmBusinessMetricSnapshot } from './crm-business-signals'
+import { refreshSocialBusinessInsightMetric, type SocialBusinessMetricSnapshot } from './social-business-signals'
 import { refreshSupportBusinessInsightMetric, type SupportBusinessMetricSnapshot } from './support-business-signals'
 
 type TaskDoc = {
@@ -12,7 +13,7 @@ type TaskDoc = {
   }
 }
 
-type RefreshedBusinessMetricSnapshot = CrmBusinessMetricSnapshot | SupportBusinessMetricSnapshot
+type RefreshedBusinessMetricSnapshot = CrmBusinessMetricSnapshot | SocialBusinessMetricSnapshot | SupportBusinessMetricSnapshot
 
 export type BusinessInsightOutcomeStatus = 'improved' | 'regressed' | 'unchanged'
 
@@ -130,7 +131,9 @@ async function refreshKnownBusinessInsightMetric(input: {
 }): Promise<RefreshedBusinessMetricSnapshot | null> {
   const crmMetric = await refreshCrmBusinessInsightMetric(input)
   if (crmMetric) return crmMetric
-  return refreshSupportBusinessInsightMetric(input)
+  const supportMetric = await refreshSupportBusinessInsightMetric(input)
+  if (supportMetric) return supportMetric
+  return refreshSocialBusinessInsightMetric(input)
 }
 
 export async function measureBusinessInsightOutcomes(

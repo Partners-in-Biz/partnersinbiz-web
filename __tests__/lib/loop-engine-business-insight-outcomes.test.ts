@@ -313,4 +313,77 @@ describe('business insight outcome measurement', () => {
       }),
     }), { merge: true })
   })
+
+  it('refreshes supported social metrics before measuring due actions that do not have a latest value yet', async () => {
+    mockGet.mockResolvedValue({
+      docs: [
+        actionDoc('action-1', {
+          orgId: 'pib-platform-owner',
+          projectId: 'growth-project',
+          title: 'Act on insight: failed social posts',
+          labels: ['business-insight-action'],
+          metadata: {
+            businessInsightAction: {
+              sourceReviewTaskId: 'review-task-1',
+              measurementStatus: 'pending',
+              baseline: {
+                metric: 'failed_social_posts',
+                value: 2,
+                capturedAt: '2026-06-13T12:00:00.000Z',
+              },
+              target: {
+                expectedDirection: 'decrease',
+                reviewAfterAt: '2026-06-20T12:00:00.000Z',
+              },
+            },
+          },
+        }),
+      ],
+    })
+    mockCollection.mockImplementation((collectionName: string) => {
+      const docs = collectionName === 'social_posts'
+        ? [
+          {
+            id: 'post-1',
+            data: () => ({
+              orgId: 'pib-platform-owner',
+              status: 'failed',
+              platform: 'linkedin',
+            }),
+          },
+        ]
+        : []
+      const metricQuery = { where: mockMetricWhere, limit: mockMetricLimit, get: jest.fn().mockResolvedValue({ docs }) }
+      metricQuery.where.mockReturnValue(metricQuery)
+      metricQuery.limit.mockReturnValue(metricQuery)
+      return metricQuery
+    })
+
+    const { measureBusinessInsightOutcomes } = await import('@/lib/loop-engine/business-insight-outcomes')
+    const result = await measureBusinessInsightOutcomes({
+      orgId: 'pib-platform-owner',
+      now: new Date('2026-06-21T09:00:00.000Z'),
+    })
+
+    expect(result.measured).toBe(1)
+    expect(result.outcomes[0]).toEqual(expect.objectContaining({
+      status: 'improved',
+      baselineValue: 2,
+      currentValue: 1,
+      delta: -1,
+    }))
+    expect(mockCollection).toHaveBeenCalledWith('social_posts')
+    expect(mockSet).toHaveBeenCalledWith(expect.objectContaining({
+      metadata: expect.objectContaining({
+        businessInsightAction: expect.objectContaining({
+          latest: expect.objectContaining({
+            value: 1,
+            capturedAt: '2026-06-21T09:00:00.000Z',
+            source: 'social-business-signals',
+          }),
+          measurementStatus: 'improved',
+        }),
+      }),
+    }), { merge: true })
+  })
 })
