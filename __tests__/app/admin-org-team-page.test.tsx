@@ -189,7 +189,7 @@ it('submits the selected existing client and role', async () => {
       role: 'admin',
       jobTitle: '',
       department: '',
-      accessScope: 'all',
+      accessScope: 'none',
       accessNotes: '',
     })
   })
@@ -210,7 +210,7 @@ it('submits the selected existing PiB member and role', async () => {
       role: 'admin',
       jobTitle: '',
       department: '',
-      accessScope: 'all',
+      accessScope: 'none',
       accessNotes: '',
     })
   })
