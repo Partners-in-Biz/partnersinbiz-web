@@ -1,4 +1,5 @@
 import { adminDb } from '@/lib/firebase/admin'
+import { collectCrmBusinessInsightSignals } from './crm-business-signals'
 import type { AgentEvolutionSignal, BusinessInsightSignal } from './review-evaluator'
 
 type TaskDoc = {
@@ -211,9 +212,16 @@ export async function collectLoopReviewSignals(input: LoopReviewSignalCollection
     const businessSignal = businessSignalForTask(doc, data, projectId, existingSuppressionKeys)
     if (businessSignal) businessSignals.push(businessSignal)
   }
+  const crmCollection = await collectCrmBusinessInsightSignals({
+    orgId: input.orgId,
+    existingSuppressionKeys: [...existingSuppressionKeys],
+    limit,
+    now,
+  })
+  businessSignals.push(...crmCollection.signals)
 
   return {
-    scanned: snap.docs.length,
+    scanned: snap.docs.length + crmCollection.contactsScanned + crmCollection.dealsScanned,
     sourceWindow: window,
     agentSignals,
     businessSignals,

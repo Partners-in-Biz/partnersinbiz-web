@@ -1,10 +1,17 @@
 const mockCollectionGroup = jest.fn()
+const mockCollection = jest.fn()
 const mockWhere = jest.fn()
 const mockLimit = jest.fn()
 const mockGet = jest.fn()
+const mockCrmWhere = jest.fn()
+const mockCrmLimit = jest.fn()
+const mockCrmGet = jest.fn()
 
 jest.mock('@/lib/firebase/admin', () => ({
-  adminDb: { collectionGroup: mockCollectionGroup },
+  adminDb: {
+    collectionGroup: mockCollectionGroup,
+    collection: mockCollection,
+  },
 }))
 
 function taskDoc(id: string, data: Record<string, unknown>, projectId = 'growth-project') {
@@ -21,6 +28,11 @@ beforeEach(() => {
   mockCollectionGroup.mockReturnValue(query)
   mockWhere.mockReturnValue(query)
   mockLimit.mockReturnValue(query)
+  const crmQuery = { where: mockCrmWhere, limit: mockCrmLimit, get: mockCrmGet }
+  mockCollection.mockReturnValue(crmQuery)
+  mockCrmWhere.mockReturnValue(crmQuery)
+  mockCrmLimit.mockReturnValue(crmQuery)
+  mockCrmGet.mockResolvedValue({ docs: [] })
 })
 
 describe('live loop review signal collector', () => {
@@ -103,5 +115,47 @@ describe('live loop review signal collector', () => {
       }),
     ])
     expect(result.existingSuppressionKeys).toEqual(['project-risk:pib-platform-owner:review-task-1'])
+  })
+
+  it('merges CRM business insight signals into the live review collection', async () => {
+    mockGet.mockResolvedValue({ docs: [] })
+    mockCollection.mockImplementation((collectionName: string) => {
+      const docs = collectionName === 'contacts'
+        ? [
+          {
+            id: 'contact-1',
+            data: () => ({
+              orgId: 'pib-platform-owner',
+              name: 'Warm Lead',
+              type: 'lead',
+              stage: 'new',
+              leadScore: 91,
+            }),
+          },
+        ]
+        : []
+      const crmQuery = { where: mockCrmWhere, limit: mockCrmLimit, get: jest.fn().mockResolvedValue({ docs }) }
+      crmQuery.where.mockReturnValue(crmQuery)
+      crmQuery.limit.mockReturnValue(crmQuery)
+      return crmQuery
+    })
+
+    const { collectLoopReviewSignals } = await import('@/lib/loop-engine/live-signal-collector')
+    const result = await collectLoopReviewSignals({
+      orgId: 'pib-platform-owner',
+      limit: 25,
+      now: new Date('2026-06-13T00:00:00.000Z'),
+    })
+
+    expect(mockCollection).toHaveBeenCalledWith('contacts')
+    expect(mockCollection).toHaveBeenCalledWith('deals')
+    expect(result.businessSignals).toEqual([
+      expect.objectContaining({
+        lane: 'crm',
+        metric: 'unowned_high_intent_leads',
+        value: 1,
+        suppressionKey: 'crm:unowned-high-intent-leads:pib-platform-owner',
+      }),
+    ])
   })
 })

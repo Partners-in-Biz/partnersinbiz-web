@@ -1,5 +1,6 @@
 import { FieldValue } from 'firebase-admin/firestore'
 import { adminDb } from '@/lib/firebase/admin'
+import { refreshCrmBusinessInsightMetric, type CrmBusinessMetricSnapshot } from './crm-business-signals'
 
 type TaskDoc = {
   id: string
@@ -122,6 +123,7 @@ export async function measureBusinessInsightOutcomes(
   input: MeasureBusinessInsightOutcomesInput,
 ): Promise<MeasureBusinessInsightOutcomesResult> {
   const now = input.now ?? new Date()
+  const refreshedMetricCache = new Map<string, Promise<CrmBusinessMetricSnapshot | null>>()
   const snap = await adminDb.collectionGroup('tasks')
     .where('orgId', '==', input.orgId)
     .limit(boundedLimit(input.limit))
@@ -135,7 +137,7 @@ export async function measureBusinessInsightOutcomes(
     const projectId = cleanString(task.projectId) ?? projectIdFromPath(doc.ref?.path)
     if (input.projectId && projectId !== input.projectId) continue
 
-    const action = actionData(task)
+    let action = actionData(task)
     if (!action) {
       skipped.push(skip(doc.id, 'not-business-insight-action'))
       continue
@@ -150,10 +152,31 @@ export async function measureBusinessInsightOutcomes(
     }
 
     const baseline = nestedRecord(action, 'baseline')
-    const latest = nestedRecord(action, 'latest')
+    let latest = nestedRecord(action, 'latest')
     const target = nestedRecord(action, 'target')
     const baselineValue = cleanNumber(baseline.value)
-    const currentValue = cleanNumber(latest.value)
+    const metric = cleanString(baseline.metric)
+    let currentValue = cleanNumber(latest.value)
+    if (currentValue === null && metric) {
+      const cacheKey = `${input.orgId}:${metric}`
+      if (!refreshedMetricCache.has(cacheKey)) {
+        refreshedMetricCache.set(cacheKey, refreshCrmBusinessInsightMetric({
+          orgId: input.orgId,
+          metric,
+          limit: input.limit,
+          now,
+        }))
+      }
+      const refreshed = await refreshedMetricCache.get(cacheKey)
+      if (refreshed) {
+        latest = refreshed
+        action = {
+          ...action,
+          latest,
+        }
+        currentValue = refreshed.value
+      }
+    }
     if (baselineValue === null) {
       skipped.push(skip(doc.id, 'missing-baseline-value'))
       continue
@@ -188,7 +211,7 @@ export async function measureBusinessInsightOutcomes(
             currentValue,
             delta,
             expectedDirection: cleanString(target.expectedDirection),
-            metric: cleanString(baseline.metric),
+            metric,
             latestCapturedAt: cleanString(latest.capturedAt),
             latestSource: cleanString(latest.source),
             measuredAt: FieldValue.serverTimestamp(),
