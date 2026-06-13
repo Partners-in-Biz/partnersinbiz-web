@@ -133,7 +133,6 @@ const CLASSIC_SEO_CATEGORIES = new Set([
   'pagespeed',
   'core_web_vitals',
   'schema',
-  'content',
   'keyword',
   'keywords',
   'backlink',
