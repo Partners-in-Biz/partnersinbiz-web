@@ -13,6 +13,7 @@ interface MobileAppListProps {
   showListingDetails?: boolean
   showReleaseNotes?: boolean
   renderActions?: (app: MobileAppRecord) => ReactNode
+  renderEmptyAction?: () => ReactNode
   renderFooter?: (app: MobileAppRecord) => ReactNode
 }
 

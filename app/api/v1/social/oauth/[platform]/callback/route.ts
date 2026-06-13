@@ -50,24 +50,24 @@ export async function GET(req: NextRequest) {
       platform === 'linkedin' && stateData.linkedinMode === 'organization'
         ? 'organization'
         : 'personal'
-    redirectUrl = savedRedirect ?? redirectUrl
+    redirectUrl = sanitizeOAuthRedirectPath(savedRedirect ?? redirectUrl)
 
     // Verify state in Firestore
     const stateDoc = await adminDb.collection('social_oauth_states').doc(nonce).get()
     if (!stateDoc.exists) {
-      return NextResponse.redirect(new URL(`${redirectUrl}?status=error&message=Invalid+or+expired+state`, url.origin))
+      return NextResponse.redirect(new URL(buildOAuthRedirectPath(redirectUrl, { status: 'error', message: 'Invalid or expired state' }), url.origin))
     }
 
     const stateRecord = stateDoc.data()!
     if (stateRecord.platform !== platform || stateRecord.orgId !== orgId) {
-      return NextResponse.redirect(new URL(`${redirectUrl}?status=error&message=State+mismatch`, url.origin))
+      return NextResponse.redirect(new URL(buildOAuthRedirectPath(redirectUrl, { status: 'error', message: 'State mismatch' }), url.origin))
     }
 
     // Check expiry
     const expiresAt = stateRecord.expiresAt?.toDate?.() ?? new Date(0)
     if (expiresAt < new Date()) {
       await adminDb.collection('social_oauth_states').doc(nonce).delete()
-      return NextResponse.redirect(new URL(`${redirectUrl}?status=error&message=OAuth+state+expired`, url.origin))
+      return NextResponse.redirect(new URL(buildOAuthRedirectPath(redirectUrl, { status: 'error', message: 'OAuth state expired' }), url.origin))
     }
 
     // Retrieve PKCE code_verifier if stored
@@ -80,7 +80,7 @@ export async function GET(req: NextRequest) {
     const config = getOAuthConfig(platform, { linkedinMode })
     const clientCreds = getClientCredentials(platform, { linkedinMode })
     if (!config || !clientCreds) {
-      return NextResponse.redirect(new URL(`${redirectUrl}?status=error&message=Platform+not+configured`, url.origin))
+      return NextResponse.redirect(new URL(buildOAuthRedirectPath(redirectUrl, { status: 'error', message: 'Platform not configured' }), url.origin))
     }
 
     const callbackUrl = getCallbackUrl(platform)
@@ -149,7 +149,7 @@ export async function GET(req: NextRequest) {
       })
       if (options.length === 0) {
         return NextResponse.redirect(
-          new URL(`${redirectUrl}?status=error&message=${encodeURIComponent('No Facebook accounts found')}`, url.origin).toString()
+          new URL(buildOAuthRedirectPath(redirectUrl, { status: 'error', message: 'No Facebook accounts found' }), url.origin).toString()
         )
       }
       return writePendingAndRedirect(options, platform, orgId, nonce, redirectUrl, url.origin, accountScope, ownerUid)
@@ -180,7 +180,7 @@ export async function GET(req: NextRequest) {
       }))
       if (options.length === 0) {
         return NextResponse.redirect(
-          new URL(`${redirectUrl}?status=error&message=${encodeURIComponent('No LinkedIn accounts found')}`, url.origin).toString()
+          new URL(buildOAuthRedirectPath(redirectUrl, { status: 'error', message: 'No LinkedIn accounts found' }), url.origin).toString()
         )
       }
       return writePendingAndRedirect(options, platform, orgId, nonce, redirectUrl, url.origin, accountScope, ownerUid)
@@ -299,13 +299,13 @@ export async function GET(req: NextRequest) {
     })
 
     return NextResponse.redirect(
-      new URL(`${redirectUrl}?status=success&platform=${platform}&account=${accountId}`, url.origin),
+      new URL(buildOAuthRedirectPath(redirectUrl, { status: 'success', platform, account: accountId }), url.origin),
     )
   } catch (err) {
     console.error(`OAuth callback error for ${platform}:`, err)
     const message = err instanceof Error ? err.message : 'Unknown error'
     return NextResponse.redirect(
-      new URL(`${redirectUrl}?status=error&message=${encodeURIComponent(message)}`, url.origin),
+      new URL(buildOAuthRedirectPath(redirectUrl, { status: 'error', message }), url.origin),
     )
   }
 }

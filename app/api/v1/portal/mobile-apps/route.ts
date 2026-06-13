@@ -4,9 +4,49 @@ import { adminDb } from '@/lib/firebase/admin'
 import { apiError, apiSuccess } from '@/lib/api/response'
 import { withPortalAuthAndRole } from '@/lib/auth/portal-middleware'
 import { clientSafeMobileApp, serializeMobileApp } from '@/lib/mobile-apps/sanitize'
+import type { MobileAppPlatform, MobileAppProfileLink, MobileAppProfileLinkType } from '@/lib/mobile-apps/types'
 import { isPortalModuleEnabled } from '@/lib/organizations/portal-modules'
 
 export const dynamic = 'force-dynamic'
+
+const PROFILE_LINK_TYPES: MobileAppProfileLinkType[] = ['developer_account', 'store_account', 'analytics', 'support', 'other']
+const PLATFORMS: MobileAppPlatform[] = ['ios', 'android', 'huawei', 'web', 'other']
+
+function cleanString(value: unknown): string | undefined {
+  return typeof value === 'string' && value.trim() ? value.trim() : undefined
+}
+
+function cleanProfileLink(value: unknown, uid: string): MobileAppProfileLink | null {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null
+  const input = value as Record<string, unknown>
+  const label = cleanString(input.label)
+  if (!label) return null
+  const type = PROFILE_LINK_TYPES.includes(input.type as MobileAppProfileLinkType)
+    ? input.type as MobileAppProfileLinkType
+    : 'other'
+  const platform = PLATFORMS.includes(input.platform as MobileAppPlatform)
+    ? input.platform as MobileAppPlatform
+    : undefined
+
+  return {
+    id: cleanString(input.id) ?? `link-${Date.now()}`,
+    type,
+    label,
+    ...(platform ? { platform } : {}),
+    ...(cleanString(input.url) ? { url: cleanString(input.url) } : {}),
+    ...(cleanString(input.accountId) ? { accountId: cleanString(input.accountId) } : {}),
+    ...(cleanString(input.notes) ? { notes: cleanString(input.notes) } : {}),
+    status: 'linked',
+    linkedBy: uid,
+    linkedByType: 'user',
+    linkedAt: new Date().toISOString(),
+  }
+}
+
+function withProfileLink(existing: MobileAppProfileLink[] | undefined, link: MobileAppProfileLink | null) {
+  if (!link) return existing
+  return [...(Array.isArray(existing) ? existing : []), link]
+}
 
 async function mobileAppsModuleGuard(orgId: string) {
   const orgDoc = await adminDb.collection('organizations').doc(orgId).get()
@@ -52,7 +92,8 @@ export const PUT = withPortalAuthAndRole('member', async (req: NextRequest, uid,
   if (app.orgId !== orgId) return apiError('Forbidden', 403)
 
   const listing = app.listing ?? {}
-  await ref.set({
+  const profileLink = cleanProfileLink(body.profileLink, uid)
+  const update: Record<string, unknown> = {
     clientNotes: typeof body.clientNotes === 'string' ? body.clientNotes.trim() : app.clientNotes ?? '',
     listing: {
       ...listing,
@@ -61,7 +102,48 @@ export const PUT = withPortalAuthAndRole('member', async (req: NextRequest, uid,
     updatedBy: uid,
     updatedByType: 'user',
     updatedAt: FieldValue.serverTimestamp(),
-  }, { merge: true })
+  }
+  const profileLinks = withProfileLink(app.profileLinks, profileLink)
+  if (profileLinks) update.profileLinks = profileLinks
+
+  await ref.set(update, { merge: true })
 
   return apiSuccess({ id: appId, updated: true })
+})
+
+export const POST = withPortalAuthAndRole('member', async (req: NextRequest, uid, orgId) => {
+  const disabled = await mobileAppsModuleGuard(orgId)
+  if (disabled) return disabled
+
+  const body = await req.json().catch(() => ({}))
+  const appName = cleanString(body.appName) ?? cleanString(body.name)
+  if (!appName) return apiError('appName is required', 400)
+
+  const profileLink = cleanProfileLink(body.profileLink, uid)
+  if (!profileLink) return apiError('profileLink.label is required', 400)
+
+  const platform = PLATFORMS.includes(body.platform as MobileAppPlatform)
+    ? body.platform as MobileAppPlatform
+    : profileLink.platform ?? 'other'
+
+  const created = await adminDb.collection('mobile_apps').add({
+    orgId,
+    name: appName,
+    platform,
+    status: 'planned',
+    visibility: {
+      showInClientPortal: true,
+      showAnalytics: true,
+      showReleaseNotes: true,
+    },
+    profileLinks: [profileLink],
+    createdBy: uid,
+    createdByType: 'user',
+    createdAt: FieldValue.serverTimestamp(),
+    updatedBy: uid,
+    updatedByType: 'user',
+    updatedAt: FieldValue.serverTimestamp(),
+  })
+
+  return apiSuccess({ id: created.id, created: true }, 201)
 })

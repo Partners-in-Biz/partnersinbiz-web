@@ -6,7 +6,10 @@ import { notifyInvoiceSent } from '@/lib/notifications/notify'
 import { logActivity } from '@/lib/activity/log'
 import { tryAttributeInvoicePaid } from '@/lib/email-analytics/attribution-hooks'
 import { requireInvoiceAccess } from '@/lib/invoices/access'
-import { canEditInvoiceDraft } from '@/lib/invoices/permissions'
+import {
+  decorateInvoicePortalCapabilities,
+  sanitizeInvoicePortalPatch,
+} from '@/lib/billing/portal-permissions'
 
 
 export const dynamic = 'force-dynamic'
@@ -17,7 +20,7 @@ export const GET = withAuth('client', async (_req, user, ctx) => {
   const { id } = await (ctx as RouteContext).params
   const access = await requireInvoiceAccess(user, id)
   if (!access.ok) return access.response
-  return apiSuccess({ id: access.snap.id, ...access.data })
+  return apiSuccess(decorateInvoicePortalCapabilities({ id: access.snap.id, ...access.data }, user))
 })
 
 export const PATCH = withAuth('client', async (req, user, ctx) => {

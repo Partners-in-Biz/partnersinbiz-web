@@ -15,7 +15,7 @@ import type {
 } from '@/lib/youtube-studio/types'
 import { YouTubeChannelCard, YouTubeVideoCard } from '@/components/youtube-studio/YouTubeStudioCards'
 import { YouTubeStudioWorkspaceShell } from '@/components/youtube-studio/YouTubeStudioWorkspaceShell'
-import { scopedApiPath } from '@/lib/portal/scoped-routing'
+import { appendQueryParams, scopedApiPath } from '@/lib/portal/scoped-routing'
 
 interface YouTubeStudioPortalWorkspaceProps {
   orgId?: string | null
@@ -76,6 +76,10 @@ export function YouTubeStudioPortalWorkspace({ orgId }: YouTubeStudioPortalWorks
   const loadRequestIdRef = useRef(0)
 
   const apiPath = useMemo(() => scopedApiPath('/api/v1/portal/youtube-studio', { orgId }), [orgId])
+  const youtubeOAuthHref = useMemo(() => {
+    const redirectUrl = appendQueryParams('/portal/youtube-studio', { orgId })
+    return appendQueryParams('/api/v1/social/oauth/youtube', { redirectUrl, orgId })
+  }, [orgId])
   const activeApiPathRef = useRef(apiPath)
   const previousApiPathRef = useRef(apiPath)
   activeApiPathRef.current = apiPath
@@ -820,28 +824,40 @@ export function YouTubeStudioPortalWorkspace({ orgId }: YouTubeStudioPortalWorks
           </div>
         </section>
 
-        <form onSubmit={submitRequest} className="pib-card-section h-fit space-y-4 p-5 lg:sticky lg:top-6">
-          <h2 className="font-headline font-bold text-on-surface">Request a video</h2>
-          <label className="block text-sm">
-            <span className="text-xs font-label uppercase tracking-widest text-on-surface-variant">Channel</span>
-            <select
-              value={request.channelWorkspaceId}
-              onChange={(event) => update('channelWorkspaceId', event.target.value)}
-              className="mt-1 w-full rounded-lg border border-[var(--color-outline-variant)] bg-[var(--color-surface)] px-3 py-2 text-sm"
-            >
-              <option value="">Select a channel</option>
-              {channels.map((channel) => (
-                <option key={channel.id ?? channel.title} value={channel.id ?? ''}>{channel.title}</option>
-              ))}
-            </select>
-          </label>
-          <Field label="Video title" value={request.title} onChange={(value) => update('title', value)} required />
-          <TextArea label="Objective" value={request.objective} onChange={(value) => update('objective', value)} />
-          <Field label="Source URL" value={request.sourceUrl} onChange={(value) => update('sourceUrl', value)} />
-          <button type="submit" disabled={submittingRequest || !request.channelWorkspaceId || !request.title.trim()} className="pib-btn-primary w-full">
-            {submittingRequest ? 'Sending...' : 'Send request'}
-          </button>
-        </form>
+        <aside className="h-fit space-y-4 lg:sticky lg:top-6">
+          <div className="pib-card-section space-y-3 p-5">
+            <h2 className="font-headline font-bold text-on-surface">Link your channel</h2>
+            <p className="text-sm text-on-surface-variant">
+              Connects through the existing social-account OAuth flow and returns here after YouTube authorises the channel.
+            </p>
+            <a href={youtubeOAuthHref} className="pib-btn-primary w-full justify-center text-center">
+              Link YouTube channel
+            </a>
+          </div>
+
+          <form onSubmit={submitRequest} className="pib-card-section space-y-4 p-5">
+            <h2 className="font-headline font-bold text-on-surface">Request a video</h2>
+            <label className="block text-sm">
+              <span className="text-xs font-label uppercase tracking-widest text-on-surface-variant">Channel</span>
+              <select
+                value={request.channelWorkspaceId}
+                onChange={(event) => update('channelWorkspaceId', event.target.value)}
+                className="mt-1 w-full rounded-lg border border-[var(--color-outline-variant)] bg-[var(--color-surface)] px-3 py-2 text-sm"
+              >
+                <option value="">Select a channel</option>
+                {channels.map((channel) => (
+                  <option key={channel.id ?? channel.title} value={channel.id ?? ''}>{channel.title}</option>
+                ))}
+              </select>
+            </label>
+            <Field label="Video title" value={request.title} onChange={(value) => update('title', value)} required />
+            <TextArea label="Objective" value={request.objective} onChange={(value) => update('objective', value)} />
+            <Field label="Source URL" value={request.sourceUrl} onChange={(value) => update('sourceUrl', value)} />
+            <button type="submit" disabled={submittingRequest || !request.channelWorkspaceId || !request.title.trim()} className="pib-btn-primary w-full">
+              {submittingRequest ? 'Sending...' : 'Send request'}
+            </button>
+          </form>
+        </aside>
       </div>
     </YouTubeStudioWorkspaceShell>
   )
