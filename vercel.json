@@ -1,4 +1,9 @@
 {
-  "crons": [],
+  "crons": [
+    {
+      "path": "/api/cron/loop-review?orgId=pib-platform-owner&persist=1&mode=collect",
+      "schedule": "0 */6 * * *"
+    }
+  ],
   "ignoreCommand": "node scripts/vercel-ignore-build.mjs"
 }

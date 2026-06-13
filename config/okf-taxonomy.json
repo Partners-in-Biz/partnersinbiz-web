@@ -1,0 +1,100 @@
+{
+  "version": "2026-06-13.v1",
+  "okfTarget": "v0.1",
+  "canonicalTypes": [
+    "Decision",
+    "Runbook",
+    "Incident",
+    "Project Note",
+    "Client Knowledge",
+    "Research Note",
+    "Session Log",
+    "Hot Cache",
+    "Reference",
+    "Source"
+  ],
+  "aliases": {
+    "decision": "Decision",
+    "runbook": "Runbook",
+    "incident": "Incident",
+    "project": "Project Note",
+    "plan": "Project Note",
+    "spec": "Project Note",
+    "implementation": "Project Note",
+    "handoff": "Project Note",
+    "client": "Client Knowledge",
+    "client-knowledge": "Client Knowledge",
+    "research": "Research Note",
+    "research-note": "Research Note",
+    "log": "Session Log",
+    "session": "Session Log",
+    "session-log": "Session Log",
+    "hot": "Hot Cache",
+    "hot-cache": "Hot Cache",
+    "reference": "Reference",
+    "source": "Source",
+    "source-ledger": "Source"
+  },
+  "recommendedFields": [
+    "title",
+    "description",
+    "timestamp",
+    "tags",
+    "domain",
+    "visibility",
+    "status",
+    "source_of_truth"
+  ],
+  "allowedExtensionFields": [
+    "resource",
+    "ownerAgent",
+    "orgId",
+    "clientOrgId",
+    "companyId",
+    "projectId",
+    "taskId",
+    "documentId",
+    "documentVersionId",
+    "researchItemId",
+    "approvalTaskId",
+    "approval_state",
+    "confidence",
+    "last_verified",
+    "supersedes",
+    "deprecated_by",
+    "evidence"
+  ],
+  "visibilityValues": [
+    "internal",
+    "restricted",
+    "client_visible",
+    "public",
+    "sensitive"
+  ],
+  "statusValues": [
+    "draft",
+    "active",
+    "review",
+    "approved",
+    "superseded",
+    "deprecated",
+    "archived"
+  ],
+  "approvalStateValues": [
+    "not_required",
+    "required",
+    "pending",
+    "approved",
+    "rejected",
+    "changes_requested"
+  ],
+  "confidenceValues": [
+    "unknown",
+    "low",
+    "medium",
+    "high",
+    "verified"
+  ],
+  "platformParentOrgIds": ["pib-platform-owner"],
+  "reservedFilenames": ["index.md", "log.md"]
+}

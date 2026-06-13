@@ -53,6 +53,11 @@ describe('Portal profile settings page', () => {
     expect(within(commandCenter).getByText('CEO')).toBeInTheDocument()
     expect(within(commandCenter).getByText('+27 82 000 0000')).toBeInTheDocument()
     expect(within(commandCenter).getByText('CRM ownership ready')).toBeInTheDocument()
+
+    expect(within(commandCenter).getByTestId('profile-readiness-ready-fields')).toHaveClass('pib-stat-card')
+    expect(within(commandCenter).getByTestId('profile-readiness-name')).toHaveClass('pib-stat-card')
+    expect(within(commandCenter).getByTestId('profile-readiness-title')).toHaveClass('pib-stat-card')
+    expect(within(commandCenter).getByTestId('profile-readiness-contact')).toHaveClass('pib-stat-card')
   })
 
   it('saves profile changes through the portal route', async () => {

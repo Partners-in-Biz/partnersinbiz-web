@@ -510,6 +510,16 @@ function PortalLayoutContent({ children }: { children: React.ReactNode }) {
               <span className="pill !text-[10px] !py-0.5 !px-2">{portalWorkspaceLabel}</span>
             </Link>
 
+            <button
+              type="button"
+              onClick={() => router.back()}
+              aria-label="Go back"
+              title="Go back"
+              className="hidden sm:inline-flex h-8 w-8 items-center justify-center rounded-lg text-[var(--color-pib-text-muted)] transition-colors hover:bg-white/[0.05] hover:text-[var(--color-pib-text)]"
+            >
+              <span className="material-symbols-outlined text-[18px]" aria-hidden="true">arrow_back</span>
+            </button>
+
             <div className="w-px h-5 bg-[var(--color-pib-line)] shrink-0 hidden md:block" />
 
             {/* Nav — scrollable */}
@@ -878,6 +888,15 @@ function PortalLayoutContent({ children }: { children: React.ReactNode }) {
             <span className="block w-4 h-[1.5px] bg-[var(--color-pib-text-muted)]" />
             <span className="block w-4 h-[1.5px] bg-[var(--color-pib-text-muted)]" />
             <span className="block w-4 h-[1.5px] bg-[var(--color-pib-text-muted)]" />
+          </button>
+          <button
+            type="button"
+            onClick={() => router.back()}
+            aria-label="Go back"
+            title="Go back"
+            className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-[var(--color-pib-text-muted)] transition-colors hover:bg-white/[0.05] hover:text-[var(--color-pib-text)]"
+          >
+            <span className="material-symbols-outlined text-[18px]" aria-hidden="true">arrow_back</span>
           </button>
           <span className="eyebrow !text-[10px]">Client portal</span>
           <span className="hidden sm:inline w-1 h-1 rounded-full bg-[var(--color-pib-line-strong)]" />

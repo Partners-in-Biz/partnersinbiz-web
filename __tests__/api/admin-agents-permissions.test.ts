@@ -81,6 +81,45 @@ describe('admin agent permissions', () => {
     expect(mockListAgents).toHaveBeenCalled()
   })
 
+  it('enriches the agent list with live runtime model summaries', async () => {
+    mockListAgents.mockResolvedValue([
+      {
+        agentId: 'pip',
+        name: 'Pip',
+        role: 'Orchestrator',
+        persona: 'Routes work.',
+        defaultModel: 'gpt-5.5 / glm-4.7',
+        iconKey: 'smart_toy',
+        colorKey: 'sky',
+        enabled: true,
+        baseUrl: 'https://pip.test',
+        apiKey: 'masked',
+      },
+    ])
+    mockCallAgentPath.mockResolvedValueOnce({
+      response: { ok: true, status: 200 },
+      data: {
+        config: {
+          model: { provider: 'openai-codex', default: 'gpt-5.5' },
+          fallback_providers: [{ provider: 'anthropic', model: 'claude-sonnet-4-6' }],
+        },
+      },
+    })
+
+    const { GET } = await import('@/app/api/v1/admin/agents/route')
+    const res = await GET(new NextRequest('http://localhost/api/v1/admin/agents'))
+
+    expect(res.status).toBe(200)
+    const body = await readJson(res)
+    expect(body.data[0].runtimeModel).toMatchObject({
+      source: 'live_config',
+      label: 'openai-codex / gpt-5.5 → anthropic / claude-sonnet-4-6',
+      staleRegistry: true,
+      registryDefaultModel: 'gpt-5.5 / glm-4.7',
+    })
+    expect(mockCallAgentPath).toHaveBeenCalledWith('pip', '/admin/config', undefined)
+  })
+
   it('rejects restricted admins creating agents', async () => {
     mockUser = { uid: 'admin-1', role: 'admin', allowedOrgIds: ['org-a'] }
     const { POST } = await import('@/app/api/v1/admin/agents/route')

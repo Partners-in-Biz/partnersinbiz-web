@@ -11,13 +11,29 @@ import { apiError, apiSuccess } from '@/lib/api/response'
 import { callAgentPath, createAgent, listAgents } from '@/lib/agents/team'
 import { isValidAgentId } from '@/lib/agents/types'
 import { normalizeAgentRegistryInput } from '@/lib/agents/registry'
+import { buildRuntimeModelSummary } from '@/lib/agents/runtime-config'
 import { isSuperAdmin } from '@/lib/api/platformAdmin'
 
 export const dynamic = 'force-dynamic'
 
 export const GET = withAuth('admin', async () => {
   const agents = await listAgents()
-  return apiSuccess(agents)
+  const enriched = await Promise.all(agents.map(async (agent) => {
+    let liveConfig: unknown = null
+    try {
+      const { response, data } = await callAgentPath(agent.agentId, '/admin/config')
+      if (response.ok) liveConfig = data
+    } catch {
+      // Live config is best-effort on the grid. Fall back to registry labels
+      // rather than failing the whole admin Agents page when one sidecar is down.
+    }
+
+    return {
+      ...agent,
+      runtimeModel: buildRuntimeModelSummary(agent, liveConfig),
+    }
+  }))
+  return apiSuccess(enriched)
 })
 
 export const POST = withAuth('admin', async (req: NextRequest, user) => {

@@ -4,6 +4,7 @@ import PortalLayout from '@/app/(portal)/PortalLayoutClient'
 
 const pushMock = jest.fn()
 const refreshMock = jest.fn()
+const backMock = jest.fn()
 let mockPathname = '/portal/dashboard'
 let mockSearchParams = new URLSearchParams()
 let mockPortalModules: { mobileApps?: boolean; youtubeStudio?: boolean; bookStudio?: boolean } | undefined
@@ -12,6 +13,7 @@ jest.mock('next/navigation', () => ({
   useRouter: () => ({
     push: pushMock,
     refresh: refreshMock,
+    back: backMock,
   }),
   usePathname: () => mockPathname,
   useSearchParams: () => mockSearchParams,
@@ -163,6 +165,19 @@ describe('PortalLayout mobile role switch', () => {
       )
     })
     expect(screen.queryByText('Admin')).not.toBeInTheDocument()
+  })
+
+  it('shows a navbar back button that returns to the previous portal page', async () => {
+    render(
+      <PortalLayout>
+        <div>Portal content</div>
+      </PortalLayout>,
+    )
+
+    const backButton = await screen.findByRole('button', { name: 'Go back' })
+    fireEvent.click(backButton)
+
+    expect(backMock).toHaveBeenCalledTimes(1)
   })
 
   it('keeps CRM company workspace scope on portal shell navigation', async () => {

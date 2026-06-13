@@ -136,21 +136,21 @@ export default function ProfilePage() {
           </div>
 
           <div className="grid gap-3 md:grid-cols-4">
-            <div className="rounded-lg border border-[var(--color-pib-border)] bg-[var(--color-pib-surface-soft)] p-4">
+            <div data-testid="profile-readiness-ready-fields" className="pib-stat-card min-w-0 space-y-2 p-4">
               <p className="text-2xl font-semibold text-[var(--color-pib-text)]">{readyFields} ready fields</p>
-              <p className="mt-2 text-xs leading-5 text-[var(--color-pib-text-muted)]">Name, title, and contact coverage.</p>
+              <p className="text-xs leading-5 text-[var(--color-pib-text-muted)]">Name, title, and contact coverage.</p>
             </div>
-            <div className="rounded-lg border border-[var(--color-pib-border)] bg-[var(--color-pib-surface-soft)] p-4">
-              <p className="text-sm font-semibold text-[var(--color-pib-text)]">{fullName(profile)}</p>
-              <p className="mt-2 text-xs leading-5 text-[var(--color-pib-text-muted)]">Displayed on CRM records and comments.</p>
+            <div data-testid="profile-readiness-name" className="pib-stat-card min-w-0 space-y-2 p-4">
+              <p className="truncate text-sm font-semibold text-[var(--color-pib-text)]" title={fullName(profile)}>{fullName(profile)}</p>
+              <p className="text-xs leading-5 text-[var(--color-pib-text-muted)]">Displayed on CRM records and comments.</p>
             </div>
-            <div className="rounded-lg border border-[var(--color-pib-border)] bg-[var(--color-pib-surface-soft)] p-4">
-              <p className="text-sm font-semibold text-[var(--color-pib-text)]">{profile.jobTitle || 'Job title missing'}</p>
-              <p className="mt-2 text-xs leading-5 text-[var(--color-pib-text-muted)]">{ownershipState}</p>
+            <div data-testid="profile-readiness-title" className="pib-stat-card min-w-0 space-y-2 p-4">
+              <p className="truncate text-sm font-semibold text-[var(--color-pib-text)]" title={profile.jobTitle || 'Job title missing'}>{profile.jobTitle || 'Job title missing'}</p>
+              <p className="text-xs leading-5 text-[var(--color-pib-text-muted)]">{ownershipState}</p>
             </div>
-            <div className="rounded-lg border border-[var(--color-pib-border)] bg-[var(--color-pib-surface-soft)] p-4">
-              <p className="text-sm font-semibold text-[var(--color-pib-text)]">{contactState}</p>
-              <p className="mt-2 text-xs leading-5 text-[var(--color-pib-text-muted)]">Used when CRM work needs a direct internal contact.</p>
+            <div data-testid="profile-readiness-contact" className="pib-stat-card min-w-0 space-y-2 p-4">
+              <p className="truncate text-sm font-semibold text-[var(--color-pib-text)]" title={contactState}>{contactState}</p>
+              <p className="text-xs leading-5 text-[var(--color-pib-text-muted)]">Used when CRM work needs a direct internal contact.</p>
             </div>
           </div>
         </div>

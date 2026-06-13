@@ -32,6 +32,16 @@ export interface AgentTeamDoc {
     appliedBy?: string | null
     driftStatus?: 'unknown' | 'in_sync' | 'drifted' | 'not_applied'
   }
+  runtimeModel?: {
+    source: 'live_config' | 'registry'
+    label: string
+    primaryProvider?: string
+    primaryModel?: string
+    fallbackProvider?: string
+    fallbackModel?: string
+    registryDefaultModel?: string
+    staleRegistry: boolean
+  }
   responsibilities: string[]
   skills: string[]
   cronWatchLoops: string[]
@@ -74,6 +84,9 @@ export function AgentCard({ agent, onClick, healthStatus = 'loading' }: AgentCar
   const borderClass = COLOR_BORDER[agent.colorKey] ?? 'border-white/20'
   const iconClass   = COLOR_ICON_BG[agent.colorKey] ?? 'bg-white/10 text-on-surface-variant'
   const pill        = HEALTH_PILL[healthStatus]
+  const runtimeModel = agent.runtimeModel
+  const modelLabel = runtimeModel?.label || agent.defaultModel
+  const modelSourceLabel = runtimeModel?.source === 'live_config' ? 'Live config' : 'Registry'
 
   return (
     <button
@@ -116,14 +129,26 @@ export function AgentCard({ agent, onClick, healthStatus = 'loading' }: AgentCar
       )}
 
       {/* Footer row */}
-      <div className="mt-3 flex items-center gap-2">
-        <span className="text-[10px] font-mono text-on-surface-variant/60 truncate">
-          {agent.defaultModel}
-        </span>
-        <span className="text-on-surface-variant/30 text-[10px]">·</span>
-        <span className={`text-[10px] font-label ${agent.enabled ? 'text-emerald-400/80' : 'text-on-surface-variant/40'}`}>
-          {agent.enabled ? 'active' : 'disabled'}
-        </span>
+      <div className="mt-3 space-y-1.5">
+        <div className="flex items-center gap-2 min-w-0">
+          <span className="text-[10px] font-mono text-on-surface-variant/80 truncate" title={modelLabel}>
+            {modelLabel}
+          </span>
+          <span className="text-on-surface-variant/30 text-[10px]">·</span>
+          <span className={`text-[10px] font-label ${agent.enabled ? 'text-emerald-400/80' : 'text-on-surface-variant/40'}`}>
+            {agent.enabled ? 'active' : 'disabled'}
+          </span>
+        </div>
+        <div className="flex items-center gap-1.5 flex-wrap">
+          <span className={`rounded-full px-1.5 py-0.5 text-[9px] font-label uppercase tracking-wide ${runtimeModel?.source === 'live_config' ? 'bg-sky-500/10 text-sky-300' : 'bg-white/10 text-on-surface-variant'}`}>
+            {modelSourceLabel}
+          </span>
+          {runtimeModel?.staleRegistry && (
+            <span className="rounded-full bg-amber-500/10 px-1.5 py-0.5 text-[9px] font-label uppercase tracking-wide text-amber-300" title={`Stored registry label: ${runtimeModel.registryDefaultModel ?? agent.defaultModel}`}>
+              Registry stale
+            </span>
+          )}
+        </div>
       </div>
     </button>
   )

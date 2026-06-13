@@ -78,6 +78,11 @@ describe('Portal organisation settings page', () => {
     expect(within(commandCenter).getByText('Client Legal Pty Ltd')).toBeInTheDocument()
     expect(within(commandCenter).getByText('accounts@client.example')).toBeInTheDocument()
     expect(within(commandCenter).getByText('Owner Person')).toBeInTheDocument()
+
+    expect(within(commandCenter).getByTestId('organisation-readiness-ready-areas')).toHaveClass('pib-stat-card')
+    expect(within(commandCenter).getByTestId('organisation-readiness-legal-identity')).toHaveClass('pib-stat-card')
+    expect(within(commandCenter).getByTestId('organisation-readiness-billing-contact')).toHaveClass('pib-stat-card')
+    expect(within(commandCenter).getByTestId('organisation-readiness-agreement-owner')).toHaveClass('pib-stat-card')
   })
 
   it('saves organisation detail changes back to the portal route', async () => {
