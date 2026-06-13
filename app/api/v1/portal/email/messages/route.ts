@@ -27,6 +27,33 @@ async function defaultAccount(orgId: string, uid: string) {
   return accounts[0] ?? null
 }
 
+function isStaleSync(lastSyncAt: string | null): boolean {
+  if (!lastSyncAt) return true
+  const lastSyncMs = new Date(lastSyncAt).getTime()
+  return !Number.isFinite(lastSyncMs) || Date.now() - lastSyncMs > 5 * 60 * 1000
+}
+
+async function ensureFreshGoogleMailboxData(orgId: string, uid: string, accountId: string | null) {
+  const snap = await adminDb.collection('mailbox_accounts').where('orgId', '==', orgId).where('uid', '==', uid).get()
+  const accounts = snap.docs
+    .filter((doc) => !doc.data().deletedAt)
+    .map((doc) => ({ id: doc.id, data: doc.data() }))
+    .filter(({ data }) => data.provider === 'google' && data.status === 'connected' && data.googleEnc)
+    .filter(({ id, data }) => (!accountId || accountId === 'all' || id === accountId) && isStaleSync(toIso(data.lastSyncAt)))
+    .slice(0, 3)
+
+  const results = await Promise.all(accounts.map(({ id }) => syncGmailMailboxAccount({
+    orgId,
+    uid,
+    accountId: id,
+    mode: 'incremental',
+    maxResults: 80,
+  }).catch((error) => ({ ok: false, error: error instanceof Error ? error.message : 'Mailbox sync failed' }))))
+
+  const failed = results.filter((result) => !result.ok)
+  return { attempted: accounts.length, failed: failed.length }
+}
+
 export const GET = withPortalAuthAndRole('viewer', async (req: NextRequest, uid: string, orgId: string) => {
   try {
     const { searchParams } = new URL(req.url)
@@ -34,6 +61,8 @@ export const GET = withPortalAuthAndRole('viewer', async (req: NextRequest, uid:
     const accountId = searchParams.get('accountId')
     const q = (searchParams.get('q') ?? '').trim().toLowerCase()
     const limit = Math.min(Math.max(Number(searchParams.get('limit') ?? 50), 1), 100)
+
+    const freshness = await ensureFreshGoogleMailboxData(orgId, uid, accountId)
 
     let query = adminDb.collection('mailbox_messages').where('orgId', '==', orgId).where('uid', '==', uid) as FirebaseFirestore.Query
     if (accountId && accountId !== 'all') query = query.where('accountId', '==', accountId)
