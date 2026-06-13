@@ -449,9 +449,11 @@ function PortalLayoutContent({ children }: { children: React.ReactNode }) {
         )
       : path
 
+  const canManageTeamSettings = memberRole === 'owner' || memberRole === 'admin'
   const visibleNavLinks = NAV_LINKS.filter((item) => {
     const moduleKey = NAV_MODULES[item.href]
     if (moduleKey && !canAccessModule(memberAccessPolicy, moduleKey)) return false
+    if (item.href === '/portal/settings/team' && !canManageTeamSettings) return false
     if (item.href === '/portal/mobile-apps') return portalModules.mobileApps
     if (item.href === '/portal/youtube-studio') return portalModules.youtubeStudio
     if (item.href === '/portal/book-studio') return portalModules.bookStudio

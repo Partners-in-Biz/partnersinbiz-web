@@ -254,6 +254,23 @@ export default function TeamPage() {
     )
   }
 
+  if (!canInvite) {
+    return (
+      <div className="max-w-3xl space-y-4">
+        <header>
+          <p className="eyebrow">Workspace settings</p>
+          <h1 className="pib-page-title mt-2">Team</h1>
+        </header>
+        <section className="pib-card space-y-2">
+          <h2 className="text-lg font-semibold">Owner or admin access required</h2>
+          <p className="text-sm text-[var(--color-pib-text-muted)]">
+            Team roles and workspace access can only be managed by workspace owners and admins.
+          </p>
+        </section>
+      </div>
+    )
+  }
+
   return (
     <div className="max-w-4xl space-y-6">
       <header>
