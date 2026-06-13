@@ -341,21 +341,21 @@ export default function OrganizationSettingsPage() {
           </div>
 
           <div className="grid gap-3 md:grid-cols-4">
-            <div className="rounded-lg border border-[var(--color-pib-border)] bg-[var(--color-pib-surface-soft)] p-4">
+            <div data-testid="organisation-readiness-ready-areas" className="pib-stat-card min-w-0 space-y-2 p-4">
               <p className="text-2xl font-semibold text-[var(--color-pib-text)]">{readyAreas} ready areas</p>
-              <p className="mt-2 text-xs leading-5 text-[var(--color-pib-text-muted)]">Legal, billing, signatory, and accounts readiness.</p>
+              <p className="text-xs leading-5 text-[var(--color-pib-text-muted)]">Legal, billing, signatory, and accounts readiness.</p>
             </div>
-            <div className="rounded-lg border border-[var(--color-pib-border)] bg-[var(--color-pib-surface-soft)] p-4">
-              <p className="text-sm font-semibold text-[var(--color-pib-text)]">{legalIdentity}</p>
-              <p className="mt-2 text-xs leading-5 text-[var(--color-pib-text-muted)]">Legal identity used on agreements and client records.</p>
+            <div data-testid="organisation-readiness-legal-identity" className="pib-stat-card min-w-0 space-y-2 p-4">
+              <p className="truncate text-sm font-semibold text-[var(--color-pib-text)]" title={legalIdentity}>{legalIdentity}</p>
+              <p className="text-xs leading-5 text-[var(--color-pib-text-muted)]">Legal identity used on agreements and client records.</p>
             </div>
-            <div className="rounded-lg border border-[var(--color-pib-border)] bg-[var(--color-pib-surface-soft)] p-4">
-              <p className="text-sm font-semibold text-[var(--color-pib-text)]">{billingContact}</p>
-              <p className="mt-2 text-xs leading-5 text-[var(--color-pib-text-muted)]">Billing destination for accepted proposals and invoices.</p>
+            <div data-testid="organisation-readiness-billing-contact" className="pib-stat-card min-w-0 space-y-2 p-4">
+              <p className="truncate text-sm font-semibold text-[var(--color-pib-text)]" title={billingContact}>{billingContact}</p>
+              <p className="text-xs leading-5 text-[var(--color-pib-text-muted)]">Billing destination for accepted proposals and invoices.</p>
             </div>
-            <div className="rounded-lg border border-[var(--color-pib-border)] bg-[var(--color-pib-surface-soft)] p-4">
-              <p className="text-sm font-semibold text-[var(--color-pib-text)]">{agreementOwner}</p>
-              <p className="mt-2 text-xs leading-5 text-[var(--color-pib-text-muted)]">{invoicePolicy}</p>
+            <div data-testid="organisation-readiness-agreement-owner" className="pib-stat-card min-w-0 space-y-2 p-4">
+              <p className="truncate text-sm font-semibold text-[var(--color-pib-text)]" title={agreementOwner}>{agreementOwner}</p>
+              <p className="text-xs leading-5 text-[var(--color-pib-text-muted)]">{invoicePolicy}</p>
             </div>
           </div>
         </div>
