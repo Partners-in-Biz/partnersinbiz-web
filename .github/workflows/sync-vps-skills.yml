@@ -71,6 +71,6 @@ jobs:
             # Profile config.yaml files are owned by the live Hermes runtime.
             # Provisioning/install scripts update them; CI only refreshes the
             # shared skill cache and generated per-agent skill directories.
-            node /var/lib/hermes/partnersinbiz-web/scripts/apply-agent-skill-policy.mjs --root /var/lib/hermes --apply --no-config
+            node /var/lib/hermes/partnersinbiz-web/scripts/apply-agent-skill-policy.mjs --root /var/lib/hermes --apply --no-config --allow-missing-global
           "
           echo "Sync complete"

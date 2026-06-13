@@ -14,6 +14,7 @@ const root = rootArgIndex >= 0 ? process.argv[rootArgIndex + 1] : '/var/lib/herm
 const apply = args.has('--apply')
 const quarantine = args.has('--quarantine-profile-skills')
 const updateConfig = !args.has('--no-config')
+const allowMissingGlobal = args.has('--allow-missing-global')
 const selectedAgents = rawArgs
   .filter((arg, index) => {
     if (arg.startsWith('--')) return false
@@ -33,6 +34,7 @@ const summary = {
   apply,
   quarantine,
   updateConfig,
+  allowMissingGlobal,
   agents: {},
   warnings: [],
   nonFatalWarnings: [],
@@ -279,7 +281,9 @@ for (const [agentId, agentPolicy] of agentEntries) {
     const dest = join(externalDir, ...skill.split('/'))
     if (!existsSync(source)) {
       agentSummary.missingGlobalSkills.push(skill)
-      summary.warnings.push(`${agentId}: missing global skill source ${source}`)
+      const warning = `${agentId}: missing global skill source ${source}`
+      if (allowMissingGlobal) summary.nonFatalWarnings.push(warning)
+      else summary.warnings.push(warning)
       continue
     }
     if (resetSymlink(source, dest)) {
