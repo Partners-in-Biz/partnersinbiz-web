@@ -318,4 +318,66 @@ describe('live loop review signal collector', () => {
       }),
     ])
   })
+
+  it('surfaces loop runs that are near or over budget as agent evolution signals', async () => {
+    mockGet.mockResolvedValue({ docs: [] })
+    mockCollection.mockImplementation((collectionName: string) => {
+      const docs = collectionName === 'loop_engine_runs'
+        ? [
+          {
+            id: 'business-insight-review:daily-2026-06-13',
+            data: () => ({
+              orgId: 'pib-platform-owner',
+              loopId: 'business-insight-review',
+              loopName: 'Business Insight Review Loop',
+              decision: 'Produced many review candidates.',
+              observability: {
+                budgetStatus: 'near-limit',
+                lastMeaningfulAction: 'Evaluated 14 source adapters.',
+                noOpStreak: 0,
+                verificationFailures: ['ads: missing account context'],
+              },
+              updatedAt: '2026-06-13T08:00:00.000Z',
+            }),
+          },
+          {
+            id: 'lead-response:healthy',
+            data: () => ({
+              orgId: 'pib-platform-owner',
+              loopId: 'lead-response',
+              loopName: 'Lead Response Loop',
+              observability: { budgetStatus: 'within-budget' },
+            }),
+          },
+        ]
+        : []
+      const sourceQuery = { where: mockCrmWhere, limit: mockCrmLimit, get: jest.fn().mockResolvedValue({ docs }) }
+      sourceQuery.where.mockReturnValue(sourceQuery)
+      sourceQuery.limit.mockReturnValue(sourceQuery)
+      return sourceQuery
+    })
+
+    const { collectLoopReviewSignals } = await import('@/lib/loop-engine/live-signal-collector')
+    const result = await collectLoopReviewSignals({
+      orgId: 'pib-platform-owner',
+      limit: 25,
+      now: new Date('2026-06-13T12:00:00.000Z'),
+    })
+
+    expect(mockCollection).toHaveBeenCalledWith('loop_engine_runs')
+    expect(result.agentSignals).toEqual([
+      expect.objectContaining({
+        id: 'loop-budget-business-insight-review-daily-2026-06-13',
+        category: 'tooling-gap',
+        targetSurface: 'loop:business-insight-review',
+        title: 'Business Insight Review Loop is near-limit',
+        summary: expect.stringContaining('near-limit'),
+        source: expect.objectContaining({
+          type: 'loop-run',
+          id: 'business-insight-review:daily-2026-06-13',
+        }),
+      }),
+    ])
+    expect(result.scanned).toBe(2)
+  })
 })

@@ -12,6 +12,11 @@ type TaskDoc = {
   ref?: { path?: string }
 }
 
+type LoopRunDoc = {
+  id: string
+  data: () => Record<string, unknown>
+}
+
 export type LoopReviewSignalCollectionInput = {
   orgId: string
   projectId?: string | null
@@ -78,6 +83,10 @@ function taskHref(projectId: string | null, taskId: string): string {
   return projectId ? `/admin/projects/${projectId}?task=${taskId}` : `/admin/agent/board?task=${taskId}`
 }
 
+function slug(value: string): string {
+  return value.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'signal'
+}
+
 function riskScore(data: Record<string, unknown>): number {
   const riskLevel = cleanString(data.riskLevel)
   const priority = cleanString(data.priority)
@@ -127,6 +136,47 @@ function agentSignalForTask(doc: TaskDoc, data: Record<string, unknown>, project
       label: title,
     },
     occurredAt: updatedAt ?? undefined,
+  }
+}
+
+function agentSignalForLoopBudgetRun(doc: LoopRunDoc, data: Record<string, unknown>): AgentEvolutionSignal | null {
+  const observability = data.observability
+  if (!observability || typeof observability !== 'object' || Array.isArray(observability)) return null
+
+  const budgetStatus = cleanString((observability as Record<string, unknown>).budgetStatus)
+  if (budgetStatus !== 'near-limit' && budgetStatus !== 'exceeded') return null
+
+  const loopId = cleanString(data.loopId) ?? doc.id.split(':')[0] ?? 'unknown-loop'
+  const loopName = cleanString(data.loopName) ?? loopId
+  const lastMeaningfulAction = cleanString((observability as Record<string, unknown>).lastMeaningfulAction)
+  const verificationFailures = cleanStringArray((observability as Record<string, unknown>).verificationFailures)
+  const noOpStreak = typeof (observability as Record<string, unknown>).noOpStreak === 'number'
+    ? (observability as Record<string, unknown>).noOpStreak as number
+    : 0
+  const occurredAt = cleanString(data.updatedAt) ?? cleanString(data.createdAt)
+
+  return {
+    id: `loop-budget-${slug(doc.id)}`,
+    category: 'tooling-gap',
+    targetSurface: `loop:${loopId}`,
+    title: `${loopName} is ${budgetStatus}`,
+    summary: [
+      `Loop run ${doc.id} reported budgetStatus=${budgetStatus}.`,
+      lastMeaningfulAction ? `Last action: ${lastMeaningfulAction}.` : null,
+      verificationFailures.length ? `${verificationFailures.length} verification failure${verificationFailures.length === 1 ? '' : 's'} recorded.` : null,
+      noOpStreak > 0 ? `No-op streak: ${noOpStreak}.` : null,
+    ].filter(Boolean).join(' '),
+    severity: budgetStatus === 'exceeded' ? 90 : 76,
+    confidence: budgetStatus === 'exceeded' ? 86 : 78,
+    easeOfFix: 72,
+    risk: budgetStatus === 'exceeded' ? 42 : 30,
+    source: {
+      type: 'loop-run',
+      id: doc.id,
+      href: `/admin/loop-engine/runs?run=${encodeURIComponent(doc.id)}`,
+      label: loopName,
+    },
+    occurredAt: occurredAt ?? undefined,
   }
 }
 
@@ -193,6 +243,10 @@ export async function collectLoopReviewSignals(input: LoopReviewSignalCollection
     .where('orgId', '==', input.orgId)
     .limit(limit)
     .get() as { docs: TaskDoc[] }
+  const loopRunSnap = await adminDb.collection('loop_engine_runs')
+    .where('orgId', '==', input.orgId)
+    .limit(limit)
+    .get() as { docs: LoopRunDoc[] }
 
   const docs = snap.docs.filter((doc) => {
     const data = doc.data()
@@ -207,6 +261,12 @@ export async function collectLoopReviewSignals(input: LoopReviewSignalCollection
 
   const agentSignals: AgentEvolutionSignal[] = []
   const businessSignals: BusinessInsightSignal[] = []
+  for (const doc of loopRunSnap.docs) {
+    const data = doc.data()
+    if (data.deleted === true) continue
+    const signal = agentSignalForLoopBudgetRun(doc, data)
+    if (signal) agentSignals.push(signal)
+  }
   for (const doc of docs) {
     const data = doc.data()
     if (data.deleted === true) continue
@@ -254,6 +314,7 @@ export async function collectLoopReviewSignals(input: LoopReviewSignalCollection
 
   return {
     scanned: snap.docs.length +
+      loopRunSnap.docs.length +
       crmCollection.contactsScanned +
       crmCollection.dealsScanned +
       supportCollection.ticketsScanned +
