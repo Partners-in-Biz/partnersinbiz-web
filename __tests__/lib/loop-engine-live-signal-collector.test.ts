@@ -158,4 +158,44 @@ describe('live loop review signal collector', () => {
       }),
     ])
   })
+
+  it('merges support business insight signals into the live review collection', async () => {
+    mockGet.mockResolvedValue({ docs: [] })
+    mockCollection.mockImplementation((collectionName: string) => {
+      const docs = collectionName === 'support_tickets'
+        ? [
+          {
+            id: 'ticket-1',
+            data: () => ({
+              orgId: 'pib-platform-owner',
+              subject: 'Checkout is broken',
+              status: 'waiting_on_us',
+              priority: 'urgent',
+            }),
+          },
+        ]
+        : []
+      const sourceQuery = { where: mockCrmWhere, limit: mockCrmLimit, get: jest.fn().mockResolvedValue({ docs }) }
+      sourceQuery.where.mockReturnValue(sourceQuery)
+      sourceQuery.limit.mockReturnValue(sourceQuery)
+      return sourceQuery
+    })
+
+    const { collectLoopReviewSignals } = await import('@/lib/loop-engine/live-signal-collector')
+    const result = await collectLoopReviewSignals({
+      orgId: 'pib-platform-owner',
+      limit: 25,
+      now: new Date('2026-06-13T00:00:00.000Z'),
+    })
+
+    expect(mockCollection).toHaveBeenCalledWith('support_tickets')
+    expect(result.businessSignals).toEqual([
+      expect.objectContaining({
+        lane: 'support',
+        metric: 'urgent_support_needs_reply',
+        value: 1,
+        suppressionKey: 'support:urgent-needs-reply:pib-platform-owner',
+      }),
+    ])
+  })
 })

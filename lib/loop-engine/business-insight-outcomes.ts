@@ -1,6 +1,7 @@
 import { FieldValue } from 'firebase-admin/firestore'
 import { adminDb } from '@/lib/firebase/admin'
 import { refreshCrmBusinessInsightMetric, type CrmBusinessMetricSnapshot } from './crm-business-signals'
+import { refreshSupportBusinessInsightMetric, type SupportBusinessMetricSnapshot } from './support-business-signals'
 
 type TaskDoc = {
   id: string
@@ -10,6 +11,8 @@ type TaskDoc = {
     set?: (data: Record<string, unknown>, options?: { merge: boolean }) => Promise<unknown>
   }
 }
+
+type RefreshedBusinessMetricSnapshot = CrmBusinessMetricSnapshot | SupportBusinessMetricSnapshot
 
 export type BusinessInsightOutcomeStatus = 'improved' | 'regressed' | 'unchanged'
 
@@ -119,11 +122,22 @@ function skip(taskId: string, reason: BusinessInsightOutcomeSkip['reason']): Bus
   return { taskId, reason }
 }
 
+async function refreshKnownBusinessInsightMetric(input: {
+  orgId: string
+  metric: string
+  limit?: number
+  now: Date
+}): Promise<RefreshedBusinessMetricSnapshot | null> {
+  const crmMetric = await refreshCrmBusinessInsightMetric(input)
+  if (crmMetric) return crmMetric
+  return refreshSupportBusinessInsightMetric(input)
+}
+
 export async function measureBusinessInsightOutcomes(
   input: MeasureBusinessInsightOutcomesInput,
 ): Promise<MeasureBusinessInsightOutcomesResult> {
   const now = input.now ?? new Date()
-  const refreshedMetricCache = new Map<string, Promise<CrmBusinessMetricSnapshot | null>>()
+  const refreshedMetricCache = new Map<string, Promise<RefreshedBusinessMetricSnapshot | null>>()
   const snap = await adminDb.collectionGroup('tasks')
     .where('orgId', '==', input.orgId)
     .limit(boundedLimit(input.limit))
@@ -160,7 +174,7 @@ export async function measureBusinessInsightOutcomes(
     if (currentValue === null && metric) {
       const cacheKey = `${input.orgId}:${metric}`
       if (!refreshedMetricCache.has(cacheKey)) {
-        refreshedMetricCache.set(cacheKey, refreshCrmBusinessInsightMetric({
+        refreshedMetricCache.set(cacheKey, refreshKnownBusinessInsightMetric({
           orgId: input.orgId,
           metric,
           limit: input.limit,
