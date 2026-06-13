@@ -604,7 +604,18 @@ function MessagePane({
           <IconButton title="Delete" icon="delete" onClick={onDelete} />
         </div>
       </div>
-      <div className="flex-1 overflow-y-auto p-6 text-sm leading-7 whitespace-pre-wrap">{message.bodyText}</div>
+      <div className="flex-1 overflow-y-auto p-6 text-sm leading-7 whitespace-pre-wrap">
+        {message.attachments.length ? (
+          <div className="mb-5 flex flex-wrap gap-2 whitespace-normal">
+            {message.attachments.map((attachment) => (
+              <span key={`${attachment.name}-${attachment.sizeBytes}`} className="rounded-full border border-[var(--color-pib-line)] px-3 py-1 text-xs text-[var(--color-pib-text-muted)]">
+                {attachment.name} · {formatBytes(attachment.sizeBytes)}
+              </span>
+            ))}
+          </div>
+        ) : null}
+        {message.bodyText}
+      </div>
     </>
   )
 }
