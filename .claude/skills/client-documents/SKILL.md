@@ -149,6 +149,18 @@ internal_draft → internal_review → client_review → changes_requested → a
 
 Research reports follow the same status flow, but keep them internal unless Peet has approved client visibility and the report has passed the research checklist: source ledger is safe to expose, confidence/assumptions are explicit, sensitive internal notes are removed, recommendations do not imply unapproved spend/publishing/implementation, and the linked `research_item` visibility is appropriate.
 
+## Document Business Insight Signals
+
+Client documents now feed the `business-insight-review` loop. Treat these as proactive business signals, not just document statuses:
+
+| Metric | Trigger | Agent action |
+|---|---|---|
+| `client_documents_waiting_for_review` | A document sits in `client_review` for 7+ days. | Check owner/client follow-up state, create internal unblock work when needed, and preserve the client-visible approval gate. |
+| `client_documents_changes_requested` | A document is in `changes_requested`. | Read comments/suggestions, draft the revision plan, and link work back to the document/project. |
+| `client_documents_blocking_publish_assumptions` | A document has open `blocks_publish` assumptions. | Resolve or escalate the blocker before anyone asks to publish, send, or approve the document. |
+
+Loop-generated document insight tasks are internal by default and carry `requiredCapability: "business-insight-review"`. Do not publish, send, approve, accept, countersign, change sharing, or message the client from these tasks without explicit approval. If an approved insight should become execution work, convert it through the project task action route and keep the document linked through `linked.projectId`.
+
 ---
 
 ## Full API Reference

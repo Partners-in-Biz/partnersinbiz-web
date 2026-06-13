@@ -75,6 +75,7 @@ describe('loop engine registry', () => {
       'SEO sprints',
       'ad campaigns',
       'support tickets',
+      'client documents',
       'agent outputs',
     ]))
     expect(insightLoop?.evidenceRequirements.join(' ')).toMatch(/metric snapshot/i)
