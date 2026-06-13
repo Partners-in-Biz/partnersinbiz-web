@@ -44,9 +44,10 @@ const ROLE_OPTIONS: Array<{ value: OrgMember['role']; label: string; description
   { value: 'viewer', label: 'Viewer', description: 'Read-only client portal access' },
 ]
 
-type AccessScope = 'all' | 'crm' | 'marketing' | 'projects' | 'billing' | 'readonly'
+type AccessScope = 'none' | 'all' | 'crm' | 'marketing' | 'projects' | 'billing' | 'readonly'
 
 const ACCESS_SCOPE_OPTIONS: Array<{ value: AccessScope; label: string }> = [
+  { value: 'none', label: 'No workspace areas yet' },
   { value: 'all', label: 'All workspace areas' },
   { value: 'crm', label: 'CRM and contacts' },
   { value: 'marketing', label: 'Marketing and content' },
@@ -56,7 +57,7 @@ const ACCESS_SCOPE_OPTIONS: Array<{ value: AccessScope; label: string }> = [
 ]
 
 function accessScopeLabel(value?: AccessScope) {
-  return ACCESS_SCOPE_OPTIONS.find((option) => option.value === value)?.label ?? 'All workspace areas'
+  return ACCESS_SCOPE_OPTIONS.find((option) => option.value === value)?.label ?? 'No workspace areas yet'
 }
 
 function Skeleton({ className = '' }: { className?: string }) {
@@ -290,7 +291,7 @@ export default function TeamPage() {
   const [createRole, setCreateRole] = useState('member')
   const [createJobTitle, setCreateJobTitle] = useState('')
   const [createDepartment, setCreateDepartment] = useState('')
-  const [createAccessScope, setCreateAccessScope] = useState<AccessScope>('all')
+  const [createAccessScope, setCreateAccessScope] = useState<AccessScope>('none')
   const [createAccessNotes, setCreateAccessNotes] = useState('')
   const [createError, setCreateError] = useState<string | null>(null)
   const [setupLink, setSetupLink] = useState<string | null>(null)
@@ -302,7 +303,7 @@ export default function TeamPage() {
   const [clientRole, setClientRole] = useState('member')
   const [clientJobTitle, setClientJobTitle] = useState('')
   const [clientDepartment, setClientDepartment] = useState('')
-  const [clientAccessScope, setClientAccessScope] = useState<AccessScope>('all')
+  const [clientAccessScope, setClientAccessScope] = useState<AccessScope>('none')
   const [clientAccessNotes, setClientAccessNotes] = useState('')
   const [clientCandidates, setClientCandidates] = useState<ClientCandidate[]>([])
   const [clientDropdownOpen, setClientDropdownOpen] = useState(false)
@@ -317,7 +318,7 @@ export default function TeamPage() {
   const [addRole, setAddRole] = useState('member')
   const [addJobTitle, setAddJobTitle] = useState('')
   const [addDepartment, setAddDepartment] = useState('')
-  const [addAccessScope, setAddAccessScope] = useState<AccessScope>('all')
+  const [addAccessScope, setAddAccessScope] = useState<AccessScope>('none')
   const [addAccessNotes, setAddAccessNotes] = useState('')
   const [addError, setAddError] = useState<string | null>(null)
   const [platformUsers, setPlatformUsers] = useState<PlatformUser[]>([])
@@ -464,7 +465,7 @@ export default function TeamPage() {
       setCreateRole('member')
       setCreateJobTitle('')
       setCreateDepartment('')
-      setCreateAccessScope('all')
+      setCreateAccessScope('none')
       setCreateAccessNotes('')
     } catch (e) {
       setCreateError(e instanceof Error ? e.message : 'An error occurred')
@@ -507,7 +508,7 @@ export default function TeamPage() {
       setAddRole('member')
       setAddJobTitle('')
       setAddDepartment('')
-      setAddAccessScope('all')
+      setAddAccessScope('none')
       setAddAccessNotes('')
     } catch (e) {
       setAddError(e instanceof Error ? e.message : 'An error occurred')
@@ -549,7 +550,7 @@ export default function TeamPage() {
       setClientRole('member')
       setClientJobTitle('')
       setClientDepartment('')
-      setClientAccessScope('all')
+      setClientAccessScope('none')
       setClientAccessNotes('')
       setClientCandidates([])
       setClientDropdownOpen(false)
@@ -583,6 +584,37 @@ export default function TeamPage() {
       setMembers(
         members.map((m) => (
           m.userId === userId ? { ...m, role: newRole as OrgMember['role'] } : m
+        )),
+      )
+    } catch (e) {
+      setUpdatingError(e instanceof Error ? e.message : 'An error occurred')
+    } finally {
+      setUpdatingRole(null)
+    }
+  }
+
+  const handleChangeAccessScope = async (userId: string, accessScope: AccessScope) => {
+    if (!org) return
+
+    try {
+      setUpdatingError(null)
+      setUpdatingRole(userId)
+
+      const res = await fetch(`/api/v1/organizations/${org.id}/members/${userId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ accessScope }),
+      })
+
+      const body = await res.json()
+
+      if (!res.ok) {
+        throw new Error(body.error || 'Failed to update access scope')
+      }
+
+      setMembers(
+        members.map((m) => (
+          m.userId === userId ? { ...m, accessScope } : m
         )),
       )
     } catch (e) {
@@ -1050,8 +1082,24 @@ export default function TeamPage() {
                       </div>
                     </td>
                     <td className="py-3 px-3">
-                      <div className="max-w-[190px] text-sm">
-                        <p className="text-on-surface-variant">{accessScopeLabel(member.accessScope)}</p>
+                      <div className="max-w-[220px] text-sm">
+                        {member.role !== 'owner' ? (
+                          <select
+                            value={member.accessScope ?? 'none'}
+                            onChange={(e) => handleChangeAccessScope(member.userId, e.target.value as AccessScope)}
+                            disabled={updatingRole === member.userId}
+                            aria-label={`Change access for ${member.displayName || member.email || member.userId}`}
+                            className="w-full rounded-md border border-[var(--color-outline)] bg-[var(--color-surface)] px-2 py-1 text-xs text-on-surface-variant"
+                          >
+                            {ACCESS_SCOPE_OPTIONS.map((option) => (
+                              <option key={option.value} value={option.value}>
+                                {option.label}
+                              </option>
+                            ))}
+                          </select>
+                        ) : (
+                          <p className="text-on-surface-variant">{accessScopeLabel(member.accessScope)}</p>
+                        )}
                         {member.accessNotes && (
                           <p className="mt-0.5 truncate text-xs text-on-surface-variant/70">{member.accessNotes}</p>
                         )}

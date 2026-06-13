@@ -57,7 +57,7 @@ async function loadMemberAccess(orgId: string, targetUid: string) {
 }
 
 export const GET = withPortalAuthAndRole(
-  'owner',
+  'admin',
   async (_req: NextRequest, _uid: string, orgId: string, _role: OrgRole, { params }: RouteCtx) => {
     try {
       const { uid: targetUid } = await params
@@ -78,7 +78,7 @@ export const GET = withPortalAuthAndRole(
 )
 
 export const PATCH = withPortalAuthAndRole(
-  'owner',
+  'admin',
   async (req: NextRequest, _uid: string, orgId: string, _role: OrgRole, { params }: RouteCtx) => {
     try {
       const { uid: targetUid } = await params

@@ -115,7 +115,7 @@ export interface OrgMember {
   invitedBy?: string
   jobTitle?: string
   department?: string
-  accessScope?: 'all' | 'crm' | 'marketing' | 'projects' | 'billing' | 'readonly'
+  accessScope?: 'none' | 'all' | 'crm' | 'marketing' | 'projects' | 'billing' | 'readonly'
   accessPolicy?: MemberAccessPolicy
   accessNotes?: string
 }

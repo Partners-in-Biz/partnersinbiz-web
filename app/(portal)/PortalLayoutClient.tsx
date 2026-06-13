@@ -19,7 +19,6 @@ import { detectCurrentPageContext } from '@/lib/context-references/route-context
 import { PIB_PLATFORM_ORG_ID } from '@/lib/platform/constants'
 import { resolvePortalModules, type PortalModules } from '@/lib/organizations/portal-modules'
 import {
-  FULL_ACCESS_POLICY,
   canAccessModule,
   normalizeMemberAccessPolicy,
   type MemberAccessPolicy,
@@ -100,6 +99,13 @@ const NAV_LINKS: NavItem[] = [
     icon: 'mail',
     group: 'comms',
     activePatterns: ['/portal/email-domains', '/portal/email-analytics'],
+  },
+  {
+    href: '/portal/settings/team',
+    label: 'Settings',
+    icon: 'settings',
+    group: 'comms',
+    activePatterns: ['/portal/settings'],
   },
   {
     href: '/portal/reports',
@@ -253,7 +259,7 @@ function PortalLayoutContent({ children }: { children: React.ReactNode }) {
   const [userRole, setUserRole] = useState('')
   const [orgSwitching, setOrgSwitching] = useState(false)
   const [memberRole, setMemberRole] = useState<string | null>(null)
-  const [memberAccessPolicy, setMemberAccessPolicy] = useState<MemberAccessPolicy>(() => FULL_ACCESS_POLICY)
+  const [memberAccessPolicy, setMemberAccessPolicy] = useState<MemberAccessPolicy>(() => normalizeMemberAccessPolicy(null))
   const [profileName, setProfileName] = useState('')
 
   // Restore persisted preferences

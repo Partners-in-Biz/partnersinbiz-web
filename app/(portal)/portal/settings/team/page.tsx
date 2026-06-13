@@ -77,7 +77,7 @@ export default function TeamPage() {
   const [inviteRole, setInviteRole] = useState<Exclude<OrgRole, 'owner'>>('member')
   const [inviteJobTitle, setInviteJobTitle] = useState('')
   const [inviteDepartment, setInviteDepartment] = useState('')
-  const [inviteAccessScope, setInviteAccessScope] = useState('all')
+  const [inviteAccessScope, setInviteAccessScope] = useState('none')
   const [inviteNote, setInviteNote] = useState('')
   const [inviting, setInviting] = useState(false)
   const [inviteError, setInviteError] = useState('')
@@ -225,7 +225,7 @@ export default function TeamPage() {
       setInviteRole('member')
       setInviteJobTitle('')
       setInviteDepartment('')
-      setInviteAccessScope('all')
+      setInviteAccessScope('none')
       setInviteNote('')
       setInviteSent(true)
       loadTeamMembers()
@@ -540,6 +540,7 @@ export default function TeamPage() {
                   onChange={e => setInviteAccessScope(e.target.value)}
                   className="pib-select"
                 >
+                  <option value="none">No workspace areas yet</option>
                   <option value="all">All workspace areas</option>
                   <option value="crm">CRM and sales</option>
                   <option value="marketing">Marketing</option>

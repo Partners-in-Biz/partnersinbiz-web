@@ -1,4 +1,4 @@
-export const ACCESS_SCOPE_OPTIONS = ['all', 'crm', 'marketing', 'projects', 'billing', 'readonly'] as const
+export const ACCESS_SCOPE_OPTIONS = ['none', 'all', 'crm', 'marketing', 'projects', 'billing', 'readonly'] as const
 
 export type AccessScope = (typeof ACCESS_SCOPE_OPTIONS)[number]
 
@@ -12,7 +12,7 @@ export type MemberMetadata = {
 export function parseMemberMetadata(body: Record<string, unknown>): MemberMetadata {
   const accessScope = typeof body.accessScope === 'string' && ACCESS_SCOPE_OPTIONS.includes(body.accessScope as AccessScope)
     ? body.accessScope as AccessScope
-    : 'all'
+    : 'none'
 
   return {
     jobTitle: cleanOptionalString(body.jobTitle),
