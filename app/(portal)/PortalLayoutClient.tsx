@@ -911,7 +911,6 @@ function PortalLayoutContent({ children }: { children: React.ReactNode }) {
                 className="hidden md:flex items-center gap-1.5 px-2.5 h-8 rounded-lg text-xs text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] hover:bg-white/[0.05] transition-colors"
               >
                 <span className="material-symbols-outlined text-[18px]">person</span>
-                <span className="hidden lg:inline">Admin</span>
               </Link>
             )}
             <NotificationBell />
