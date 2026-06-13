@@ -217,6 +217,12 @@ export function MailboxWorkspace({ surface, showCloseAction = false, onClose }: 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [folder, accountId, q])
 
+  useEffect(() => {
+    if (!showComposer || recipientSuggestions.length > 0) return
+    loadRecipientSuggestions().catch((err) => setError(err.message))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showComposer])
+
   const selected = useMemo(() => messages.find((item) => item.id === selectedId) ?? null, [messages, selectedId])
   const unread = messages.filter((item) => !item.read).length
   const defaultAccountId = compose.accountId || accounts.find((account) => account.isDefault)?.id || accounts[0]?.id || ''
@@ -526,7 +532,9 @@ export function MailboxWorkspace({ surface, showCloseAction = false, onClose }: 
                   <span className="text-[10px] text-[var(--color-pib-text-muted)]">{formatDate(message.createdAt)}</span>
                 </div>
                 <p className="text-sm truncate mt-1">{message.subject || '(no subject)'}</p>
-                <p className="text-xs text-[var(--color-pib-text-muted)] truncate mt-1">{message.snippet}</p>
+          <p className="text-xs text-[var(--color-pib-text-muted)] truncate mt-1">
+            {message.attachments.length ? `${message.snippet} · ${message.attachments.length} attachment${message.attachments.length === 1 ? '' : 's'}` : message.snippet}
+          </p>
               </button>
             ))}
           </div>
@@ -538,6 +546,7 @@ export function MailboxWorkspace({ surface, showCloseAction = false, onClose }: 
               accounts={accounts}
               compose={compose}
               setCompose={setCompose}
+              recipientSuggestions={recipientSuggestions}
               onClose={() => setShowComposer(false)}
               onSend={() => submitCompose('send')}
               onDraft={() => submitCompose('draft')}
