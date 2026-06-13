@@ -18,6 +18,7 @@ const MAILBOX_CONFIG: Record<MailboxSurface, {
   accountsEndpoint: string
   messagesEndpoint: string
   googleAuthorizeEndpoint: string
+  recipientsEndpoint: string
   googleConnectionCopy: string
 }> = {
   admin: {
@@ -26,6 +27,7 @@ const MAILBOX_CONFIG: Record<MailboxSurface, {
     accountsEndpoint: '/api/v1/admin/mailbox/accounts',
     messagesEndpoint: '/api/v1/admin/mailbox/messages',
     googleAuthorizeEndpoint: '/api/v1/admin/mailbox/google/authorize',
+    recipientsEndpoint: '',
     googleConnectionCopy: 'Continue with Google to approve mailbox access. PiB stores the OAuth token on your admin profile after Google returns you here.',
   },
   portal: {
@@ -34,6 +36,7 @@ const MAILBOX_CONFIG: Record<MailboxSurface, {
     accountsEndpoint: '/api/v1/portal/email/accounts',
     messagesEndpoint: '/api/v1/portal/email/messages',
     googleAuthorizeEndpoint: '/api/v1/portal/email/google/authorize',
+    recipientsEndpoint: '/api/v1/portal/email/recipients',
     googleConnectionCopy: 'Continue with Google to approve mailbox access. PiB stores the OAuth token on this workspace profile after Google returns you here.',
   },
 }
@@ -87,6 +90,21 @@ type AccountForm = {
   imapPassword: string
 }
 
+type ComposeAttachment = {
+  name: string
+  contentType: string
+  contentBase64: string
+  sizeBytes: number
+}
+
+type RecipientSuggestion = {
+  id: string
+  type: 'contact' | 'company'
+  label: string
+  email: string
+  detail?: string
+}
+
 type ComposeState = {
   accountId: string
   to: string
@@ -95,6 +113,7 @@ type ComposeState = {
   subject: string
   bodyText: string
   bodyHtml: string
+  attachments: ComposeAttachment[]
 }
 
 const emptyAccountForm: AccountForm = {
@@ -119,6 +138,7 @@ const emptyCompose: ComposeState = {
   subject: '',
   bodyText: '',
   bodyHtml: '',
+  attachments: [],
 }
 
 function htmlToText(html: string): string {
@@ -143,6 +163,7 @@ export function MailboxWorkspace({ surface, showCloseAction = false, onClose }: 
   const [showComposer, setShowComposer] = useState(false)
   const [accountForm, setAccountForm] = useState<AccountForm>(emptyAccountForm)
   const [compose, setCompose] = useState<ComposeState>(emptyCompose)
+  const [recipientSuggestions, setRecipientSuggestions] = useState<RecipientSuggestion[]>([])
   const [notice, setNotice] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [syncingAccountId, setSyncingAccountId] = useState<string | null>(null)
@@ -166,6 +187,14 @@ export function MailboxWorkspace({ surface, showCloseAction = false, onClose }: 
     setMessages(list)
     setSelectedId((current) => current && list.some((item: MailboxMessageSafe) => item.id === current) ? current : list[0]?.id ?? null)
     setLoading(false)
+  }
+
+  async function loadRecipientSuggestions() {
+    if (!config.recipientsEndpoint) return
+    const res = await fetch(`${config.recipientsEndpoint}?limit=50`)
+    const body = await res.json()
+    if (!res.ok) throw new Error(body.error ?? 'Could not load recipient suggestions')
+    setRecipientSuggestions(body.data?.recipients ?? [])
   }
 
   useEffect(() => {

@@ -75,8 +75,8 @@ export const GET = withPortalAuthAndRole('viewer', async (req: NextRequest, uid:
         [message.subject, message.from, message.accountEmail, message.snippet, ...message.to].some((value) => value.toLowerCase().includes(q)),
       )
     }
-    messages.sort((a, b) => new Date(b.createdAt ?? 0).getTime() - new Date(a.createdAt ?? 0).getTime())
-    return apiSuccess({ messages: messages.slice(0, limit) })
+    messages.sort((a, b) => new Date(b.receivedAt ?? b.sentAt ?? b.createdAt ?? 0).getTime() - new Date(a.receivedAt ?? a.sentAt ?? a.createdAt ?? 0).getTime())
+    return apiSuccess({ messages: messages.slice(0, limit), freshness })
   } catch (err) {
     return apiErrorFromException(err)
   }
@@ -95,6 +95,9 @@ export const POST = withPortalAuthAndRole('member', async (req: NextRequest, uid
     const subject = typeof body.subject === 'string' ? body.subject.trim() : ''
     const bodyText = typeof body.bodyText === 'string' ? body.bodyText.trim() : ''
     const bodyHtml = typeof body.bodyHtml === 'string' ? body.bodyHtml : undefined
+    const attachmentResult = sanitizeMailboxAttachments(body.attachments)
+    if (attachmentResult.error) return apiError(attachmentResult.error, 400)
+    const attachments = attachmentResult.attachments
     if (action === 'send' && to.length === 0) return apiError('At least one recipient is required', 400)
     if (!subject && !bodyText) return apiError('Subject or body is required', 400)
 
@@ -111,6 +114,7 @@ export const POST = withPortalAuthAndRole('member', async (req: NextRequest, uid
         subject,
         bodyText,
         ...(bodyHtml ? { bodyHtml } : {}),
+        attachments,
         actorId: uid,
         actorType: 'user',
         approvalGateTaskId: typeof body.approvalGateTaskId === 'string' ? body.approvalGateTaskId : undefined,
@@ -142,6 +146,7 @@ export const POST = withPortalAuthAndRole('member', async (req: NextRequest, uid
       subject,
       bodyText,
       ...(bodyHtml ? { bodyHtml } : {}),
+      attachments: attachments.map(({ contentBase64: _contentBase64, ...attachment }) => attachment),
       snippet: bodyText.replace(/\s+/g, ' ').slice(0, 180),
       createdAt: now,
       updatedAt: now,
