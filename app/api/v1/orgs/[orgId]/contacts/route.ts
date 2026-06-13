@@ -17,6 +17,7 @@ import { withAuth } from '@/lib/api/auth'
 import { resolveOrgScope } from '@/lib/api/orgScope'
 import { apiSuccess, apiError } from '@/lib/api/response'
 import { PIB_PLATFORM_ORG_ID } from '@/lib/platform/constants'
+import { isSuperAdmin } from '@/lib/api/platformAdmin'
 import type { Organization, OrgMember, OrgRole } from '@/lib/organizations/types'
 import type { ApiUser } from '@/lib/api/types'
 
@@ -83,8 +84,10 @@ async function listPlatformAdmins(): Promise<ContactEntry[]> {
   return superAdminSnap.docs
     .filter((d) => {
       const data = d.data()
-      const orgId = data.orgId
-      return orgId === undefined || orgId === null || orgId === ''
+      const allowedOrgIds = Array.isArray(data.allowedOrgIds)
+        ? data.allowedOrgIds.filter((value: unknown): value is string => typeof value === 'string' && value.length > 0)
+        : undefined
+      return isSuperAdmin({ uid: d.id, role: data.role as 'admin', allowedOrgIds })
     })
     .map((d) => {
       const data = d.data()

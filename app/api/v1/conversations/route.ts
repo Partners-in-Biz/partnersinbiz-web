@@ -19,6 +19,7 @@ import {
 } from '@/lib/conversations/conversations'
 import { resolveContextReferences } from '@/lib/context-references/registry'
 import { sanitizeContextReferenceSeeds } from '@/lib/context-references/types'
+import { isSuperAdmin } from '@/lib/api/platformAdmin'
 import type { AgentId, Participant, Conversation, ConversationScope } from '@/lib/conversations/types'
 import type { ApiUser } from '@/lib/api/types'
 
@@ -67,8 +68,10 @@ export const POST = withAuth(
       const adminsSnap = await adminDb.collection('users').where('role', '==', 'admin').get()
       adminsSnap.docs.forEach((doc) => {
         const data = doc.data()
-        const adminOrgId = data.orgId
-        if (adminOrgId === undefined || adminOrgId === null || adminOrgId === '') {
+        const allowedOrgIds = Array.isArray(data.allowedOrgIds)
+          ? data.allowedOrgIds.filter((value: unknown): value is string => typeof value === 'string' && value.length > 0)
+          : undefined
+        if (isSuperAdmin({ uid: doc.id, role: data.role as 'admin', allowedOrgIds })) {
           platformAdminUids.add(doc.id)
         }
       })
