@@ -1,4 +1,5 @@
 import { adminDb } from '@/lib/firebase/admin'
+import { collectAdsBusinessInsightSignals } from './ads-business-signals'
 import { collectCrmBusinessInsightSignals } from './crm-business-signals'
 import { collectSocialBusinessInsightSignals } from './social-business-signals'
 import { collectSupportBusinessInsightSignals } from './support-business-signals'
@@ -232,16 +233,25 @@ export async function collectLoopReviewSignals(input: LoopReviewSignalCollection
     limit,
     now,
   })
+  const adsCollection = await collectAdsBusinessInsightSignals({
+    orgId: input.orgId,
+    existingSuppressionKeys: [...existingSuppressionKeys],
+    limit,
+    now,
+  })
   businessSignals.push(...crmCollection.signals)
   businessSignals.push(...supportCollection.signals)
   businessSignals.push(...socialCollection.signals)
+  businessSignals.push(...adsCollection.signals)
 
   return {
     scanned: snap.docs.length +
       crmCollection.contactsScanned +
       crmCollection.dealsScanned +
       supportCollection.ticketsScanned +
-      socialCollection.postsScanned,
+      socialCollection.postsScanned +
+      adsCollection.connectionsScanned +
+      adsCollection.campaignsScanned,
     sourceWindow: window,
     agentSignals,
     businessSignals,

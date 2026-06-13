@@ -1,5 +1,6 @@
 import { FieldValue } from 'firebase-admin/firestore'
 import { adminDb } from '@/lib/firebase/admin'
+import { refreshAdsBusinessInsightMetric, type AdsBusinessMetricSnapshot } from './ads-business-signals'
 import { refreshCrmBusinessInsightMetric, type CrmBusinessMetricSnapshot } from './crm-business-signals'
 import { refreshSocialBusinessInsightMetric, type SocialBusinessMetricSnapshot } from './social-business-signals'
 import { refreshSupportBusinessInsightMetric, type SupportBusinessMetricSnapshot } from './support-business-signals'
@@ -13,7 +14,11 @@ type TaskDoc = {
   }
 }
 
-type RefreshedBusinessMetricSnapshot = CrmBusinessMetricSnapshot | SocialBusinessMetricSnapshot | SupportBusinessMetricSnapshot
+type RefreshedBusinessMetricSnapshot =
+  | AdsBusinessMetricSnapshot
+  | CrmBusinessMetricSnapshot
+  | SocialBusinessMetricSnapshot
+  | SupportBusinessMetricSnapshot
 
 export type BusinessInsightOutcomeStatus = 'improved' | 'regressed' | 'unchanged'
 
@@ -133,7 +138,9 @@ async function refreshKnownBusinessInsightMetric(input: {
   if (crmMetric) return crmMetric
   const supportMetric = await refreshSupportBusinessInsightMetric(input)
   if (supportMetric) return supportMetric
-  return refreshSocialBusinessInsightMetric(input)
+  const socialMetric = await refreshSocialBusinessInsightMetric(input)
+  if (socialMetric) return socialMetric
+  return refreshAdsBusinessInsightMetric(input)
 }
 
 export async function measureBusinessInsightOutcomes(

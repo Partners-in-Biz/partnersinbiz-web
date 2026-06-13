@@ -237,4 +237,44 @@ describe('live loop review signal collector', () => {
       }),
     ])
   })
+
+  it('merges ads business insight signals into the live review collection', async () => {
+    mockGet.mockResolvedValue({ docs: [] })
+    mockCollection.mockImplementation((collectionName: string) => {
+      const docs = collectionName === 'ad_connections'
+        ? [
+          {
+            id: 'conn-1',
+            data: () => ({
+              orgId: 'pib-platform-owner',
+              platform: 'google',
+              status: 'error',
+            }),
+          },
+        ]
+        : []
+      const sourceQuery = { where: mockCrmWhere, limit: mockCrmLimit, get: jest.fn().mockResolvedValue({ docs }) }
+      sourceQuery.where.mockReturnValue(sourceQuery)
+      sourceQuery.limit.mockReturnValue(sourceQuery)
+      return sourceQuery
+    })
+
+    const { collectLoopReviewSignals } = await import('@/lib/loop-engine/live-signal-collector')
+    const result = await collectLoopReviewSignals({
+      orgId: 'pib-platform-owner',
+      limit: 25,
+      now: new Date('2026-06-13T00:00:00.000Z'),
+    })
+
+    expect(mockCollection).toHaveBeenCalledWith('ad_connections')
+    expect(mockCollection).toHaveBeenCalledWith('ad_campaigns')
+    expect(result.businessSignals).toEqual([
+      expect.objectContaining({
+        lane: 'ads',
+        metric: 'ads_connections_unhealthy',
+        value: 1,
+        suppressionKey: 'ads:connections-unhealthy:pib-platform-owner',
+      }),
+    ])
+  })
 })
