@@ -237,6 +237,19 @@ describe('YouTubeStudioPortalWorkspace module availability', () => {
     })
   })
 
+  it('links clients to the org-scoped YouTube OAuth flow from YouTube Studio', async () => {
+    global.fetch = jest.fn().mockResolvedValue(jsonResponse(portalData))
+
+    render(<YouTubeStudioPortalWorkspace orgId="lumen-org" />)
+
+    const link = await screen.findByRole('link', { name: 'Link YouTube channel' })
+    expect(link).toHaveAttribute(
+      'href',
+      '/api/v1/social/oauth/youtube?redirectUrl=%2Fportal%2Fyoutube-studio%3ForgId%3Dlumen-org&orgId=lumen-org',
+    )
+    expect(screen.getByText('Connects through the existing social-account OAuth flow and returns here after YouTube authorises the channel.')).toBeInTheDocument()
+  })
+
   it('renders client-facing publishing packet summaries', async () => {
     global.fetch = jest.fn().mockResolvedValue(jsonResponse(portalData))
 
