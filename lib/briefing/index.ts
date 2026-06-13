@@ -11,6 +11,7 @@ export * from './cardContract'
 // Adapters
 export { taskAdapter, projectAdapter } from './adapters/taskAdapter'
 export { agentLearningReviewAdapter } from './adapters/agentLearningReviewAdapter'
+export { businessInsightReviewAdapter } from './adapters/businessInsightReviewAdapter'
 export { commentAdapter } from './adapters/commentAdapter'
 export { agentOutputAdapter } from './adapters/agentOutputAdapter'
 export { agentRunAdapter } from './adapters/agentRunAdapter'
@@ -43,6 +44,7 @@ export { formSubmissionAdapter } from './adapters/formSubmissionAdapter'
 import type { BriefingSourceAdapter, BriefingSourceType } from './types'
 import { taskAdapter, projectAdapter } from './adapters/taskAdapter'
 import { agentLearningReviewAdapter } from './adapters/agentLearningReviewAdapter'
+import { businessInsightReviewAdapter } from './adapters/businessInsightReviewAdapter'
 import { commentAdapter } from './adapters/commentAdapter'
 import { agentOutputAdapter } from './adapters/agentOutputAdapter'
 import { agentRunAdapter } from './adapters/agentRunAdapter'
@@ -79,6 +81,7 @@ export const SOURCE_ADAPTERS: Record<BriefingSourceType, BriefingSourceAdapter> 
   task: taskAdapter,
   project: projectAdapter,
   'agent-learning-review': agentLearningReviewAdapter,
+  'business-insight-review': businessInsightReviewAdapter,
   comment: commentAdapter,
   'agent-output': agentOutputAdapter,
   'agent-run': agentRunAdapter,

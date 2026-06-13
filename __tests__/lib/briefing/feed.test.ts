@@ -153,6 +153,65 @@ describe('briefing feed', () => {
     }))
   })
 
+  it('surfaces task-backed business insight review cards by source type', async () => {
+    collections.organizations = [makeDoc('pib-platform-owner', { name: 'Partners in Biz', slug: 'partners-in-biz' })]
+    collectionGroups.tasks = [
+      makeDoc('task-insight-1', {
+        orgId: 'pib-platform-owner',
+        projectId: 'growth-project',
+        title: 'Investigate unowned high-intent leads',
+        columnId: 'review',
+        agentStatus: 'done',
+        reviewStatus: 'pending',
+        assigneeAgentId: 'pip',
+        updatedAt: '2026-06-13T09:30:00.000Z',
+        metadata: {
+          businessInsightReview: {
+            type: 'business-insight-review',
+            lane: 'crm',
+            insightKind: 'follow-up-gap',
+            summary: 'Three high-intent CRM leads have no owner or next action.',
+            businessImpact: { estimateLabel: 'Potential response-time revenue leakage', confidence: 78 },
+            sourceLinks: [{ type: 'contact', id: 'contact-1', href: '/admin/crm/contacts/contact-1', label: 'Contact 1' }],
+            evidence: [{ label: 'High-intent leads without owner', value: 3 }],
+            recommendation: {
+              nextAction: 'Assign Blake to triage the leads and create a follow-up task.',
+              ownerAgentId: 'sales',
+              createsTask: true,
+              approvalGate: 'human-review',
+            },
+            score: { total: 77 },
+            suppressionKey: 'crm:unowned-high-intent-leads:pib-platform-owner',
+            reviewStatus: 'pending',
+          },
+        },
+      }, 'projects/growth-project/tasks/task-insight-1'),
+    ]
+
+    const { buildBriefingFeed } = await import('@/lib/briefing/feed')
+    const feed = await buildBriefingFeed(
+      { uid: 'admin-1', role: 'admin', allowedOrgIds: ['pib-platform-owner'] },
+      { limit: 10, sourceType: 'business-insight-review' },
+    )
+
+    expect(feed.items).toHaveLength(1)
+    expect(feed.items[0]).toMatchObject({
+      source: { type: 'business-insight-review' },
+      priority: 'needs-peet',
+      title: 'Business Insight: Three high-intent CRM leads have no owner or next action.',
+      context: {
+        orgId: 'pib-platform-owner',
+        projectId: 'growth-project',
+        taskId: 'task-insight-1',
+      },
+    })
+    expect(feed.items[0].metadata?.businessInsightReview).toMatchObject({
+      lane: 'crm',
+      suppressionKey: 'crm:unowned-high-intent-leads:pib-platform-owner',
+    })
+    expect(feed.items[0].safetyGate?.sideEffectAllowed).toBe(false)
+  })
+
   it('falls back to direct nested task and Firebase Auth lookups for readable labels', async () => {
     const { adminAuth } = await import('@/lib/firebase/admin')
     ;(adminAuth.getUsers as jest.Mock).mockResolvedValueOnce({

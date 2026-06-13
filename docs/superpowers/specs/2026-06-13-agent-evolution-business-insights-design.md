@@ -404,3 +404,13 @@ Build the model-agnostic PiB loop first:
 5. Keep durable learning writes inside the existing review-gated Hermes Dreaming pattern.
 
 This gives Peet the practical benefit of the Fable-style self-improving workflow without depending on Fable 5 or any single vendor-specific agent runtime.
+
+## Implementation Progress
+
+2026-06-13:
+
+- Implemented planned Loop Registry entries for `agent-evolution-review` and `business-insight-review`.
+- Added deterministic scoring and suppression helpers for agent evolution and business insight candidates.
+- Added task-backed `business-insight-review` briefing source support.
+- Added Mission Control business insight KPI and dashboard visibility.
+- Still pending: conservative evaluator that mines live signals into internal tasks/cards, accepted-insight conversion workflow, and before/after outcome measurement.

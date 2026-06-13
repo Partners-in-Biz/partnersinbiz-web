@@ -11,6 +11,8 @@ describe('loop engine registry', () => {
       'approval-gate',
       'seo-to-crm-acquisition',
       'lead-response',
+      'agent-evolution-review',
+      'business-insight-review',
     ]))
 
     const approvalLoop = getLoopById('approval-gate')
@@ -33,7 +35,51 @@ describe('loop engine registry', () => {
       'approval-gate',
       'seo-to-crm-acquisition',
       'lead-response',
+      'business-insight-review',
     ]))
+  })
+
+  it('defines guarded self-improvement and business-insight loops', () => {
+    const evolutionLoop = getLoopById('agent-evolution-review')
+    expect(evolutionLoop).toEqual(expect.objectContaining({
+      name: 'Agent Evolution Review Loop',
+      status: 'planned',
+      ownerAgentId: 'pip',
+      reviewerAgentId: 'qa-release',
+      riskLevel: 'high',
+      allowedActions: expect.arrayContaining(['read', 'draft', 'task-create', 'report']),
+      approvalGates: ['human-review'],
+    }))
+    expect(evolutionLoop?.dataSources).toEqual(expect.arrayContaining([
+      'agent runs',
+      'review status',
+      'agent output',
+      'skill policy',
+    ]))
+    expect(evolutionLoop?.evidenceRequirements.join(' ')).toMatch(/repeated pattern/i)
+    expect(evolutionLoop?.loopContract.verificationSignals.join(' ')).toMatch(/before\/after/i)
+    expect(evolutionLoop?.loopContract.stopCondition).toMatch(/review card|task/i)
+
+    const insightLoop = getLoopById('business-insight-review')
+    expect(insightLoop).toEqual(expect.objectContaining({
+      name: 'Business Insight Review Loop',
+      status: 'planned',
+      ownerAgentId: 'pip',
+      reviewerAgentId: 'nora',
+      riskLevel: 'high',
+      allowedActions: expect.arrayContaining(['read', 'draft', 'task-create', 'report']),
+      approvalGates: expect.arrayContaining(['human-review', 'client-visible', 'public-publishing', 'paid-spend', 'finance']),
+    }))
+    expect(insightLoop?.dataSources).toEqual(expect.arrayContaining([
+      'CRM contacts/deals',
+      'SEO sprints',
+      'ad campaigns',
+      'support tickets',
+      'agent outputs',
+    ]))
+    expect(insightLoop?.evidenceRequirements.join(' ')).toMatch(/metric snapshot/i)
+    expect(insightLoop?.loopContract.noProgressPolicy).toMatch(/suppress/i)
+    expect(insightLoop?.positioning.buyerValue).toMatch(/proactive/i)
   })
 })
 
