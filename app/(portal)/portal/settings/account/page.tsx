@@ -76,10 +76,10 @@ export default function AccountSettingsPage() {
     <div className="space-y-8">
       <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <p className="eyebrow">CRM settings</p>
+          <p className="eyebrow">Portal settings</p>
           <h1 className="pib-page-title mt-2">Account settings</h1>
           <p className="mt-2 max-w-3xl text-sm text-[var(--color-pib-text-muted)]">
-            Keep login ownership and password recovery clear before the team grows around shared CRM work.
+            Manage your login identity and password recovery without changing workspace, CRM, or client data.
           </p>
         </div>
       </div>
