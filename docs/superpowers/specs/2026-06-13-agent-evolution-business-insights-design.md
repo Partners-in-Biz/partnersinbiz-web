@@ -413,4 +413,5 @@ This gives Peet the practical benefit of the Fable-style self-improving workflow
 - Added deterministic scoring and suppression helpers for agent evolution and business insight candidates.
 - Added task-backed `business-insight-review` briefing source support.
 - Added Mission Control business insight KPI and dashboard visibility.
-- Still pending: conservative evaluator that mines live signals into internal tasks/cards, accepted-insight conversion workflow, and before/after outcome measurement.
+- Added a pure conservative evaluator that turns supplied agent/business signal snapshots into internal review task drafts with `metadata.agentEvolutionReview` and `metadata.businessInsightReview`.
+- Still pending: admin/cron persistence wiring that collects live signals and writes approved internal task drafts, accepted-insight conversion workflow, and before/after outcome measurement.
