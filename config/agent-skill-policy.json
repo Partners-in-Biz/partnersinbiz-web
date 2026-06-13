@@ -643,6 +643,258 @@
       ],
       "riskLevel": "medium",
       "syncTarget": "vps"
+    },
+    "research/last30days": {
+      "ownerAgentId": "sage",
+      "allowedAgentIds": [
+        "ads",
+        "maya",
+        "pip",
+        "sage",
+        "seo"
+      ],
+      "riskLevel": "medium",
+      "syncTarget": "vps"
+    },
+    "research/open-notebook": {
+      "ownerAgentId": "sage",
+      "allowedAgentIds": [
+        "docs",
+        "maya",
+        "pip",
+        "sage",
+        "seo",
+        "theo"
+      ],
+      "riskLevel": "high",
+      "syncTarget": "vps"
+    },
+    "platform/headroom": {
+      "ownerAgentId": "theo",
+      "allowedAgentIds": [
+        "data",
+        "pip",
+        "qa-release",
+        "theo"
+      ],
+      "riskLevel": "high",
+      "syncTarget": "vps"
+    },
+    "agent-skills/api-and-interface-design": {
+      "ownerAgentId": "theo",
+      "allowedAgentIds": [
+        "qa-release",
+        "theo"
+      ],
+      "riskLevel": "medium",
+      "syncTarget": "vps"
+    },
+    "agent-skills/browser-testing-with-devtools": {
+      "ownerAgentId": "theo",
+      "allowedAgentIds": [
+        "qa-release",
+        "theo"
+      ],
+      "riskLevel": "medium",
+      "syncTarget": "vps"
+    },
+    "agent-skills/ci-cd-and-automation": {
+      "ownerAgentId": "theo",
+      "allowedAgentIds": [
+        "qa-release",
+        "theo"
+      ],
+      "riskLevel": "medium",
+      "syncTarget": "vps"
+    },
+    "agent-skills/code-review-and-quality": {
+      "ownerAgentId": "theo",
+      "allowedAgentIds": [
+        "qa-release",
+        "theo"
+      ],
+      "riskLevel": "medium",
+      "syncTarget": "vps"
+    },
+    "agent-skills/code-simplification": {
+      "ownerAgentId": "theo",
+      "allowedAgentIds": [
+        "qa-release",
+        "theo"
+      ],
+      "riskLevel": "medium",
+      "syncTarget": "vps"
+    },
+    "agent-skills/context-engineering": {
+      "ownerAgentId": "theo",
+      "allowedAgentIds": [
+        "qa-release",
+        "theo"
+      ],
+      "riskLevel": "medium",
+      "syncTarget": "vps"
+    },
+    "agent-skills/debugging-and-error-recovery": {
+      "ownerAgentId": "theo",
+      "allowedAgentIds": [
+        "qa-release",
+        "theo"
+      ],
+      "riskLevel": "medium",
+      "syncTarget": "vps"
+    },
+    "agent-skills/deprecation-and-migration": {
+      "ownerAgentId": "theo",
+      "allowedAgentIds": [
+        "qa-release",
+        "theo"
+      ],
+      "riskLevel": "medium",
+      "syncTarget": "vps"
+    },
+    "agent-skills/documentation-and-adrs": {
+      "ownerAgentId": "theo",
+      "allowedAgentIds": [
+        "qa-release",
+        "theo"
+      ],
+      "riskLevel": "medium",
+      "syncTarget": "vps"
+    },
+    "agent-skills/doubt-driven-development": {
+      "ownerAgentId": "theo",
+      "allowedAgentIds": [
+        "qa-release",
+        "theo"
+      ],
+      "riskLevel": "medium",
+      "syncTarget": "vps"
+    },
+    "agent-skills/frontend-ui-engineering": {
+      "ownerAgentId": "theo",
+      "allowedAgentIds": [
+        "qa-release",
+        "theo"
+      ],
+      "riskLevel": "medium",
+      "syncTarget": "vps"
+    },
+    "agent-skills/git-workflow-and-versioning": {
+      "ownerAgentId": "theo",
+      "allowedAgentIds": [
+        "qa-release",
+        "theo"
+      ],
+      "riskLevel": "medium",
+      "syncTarget": "vps"
+    },
+    "agent-skills/idea-refine": {
+      "ownerAgentId": "theo",
+      "allowedAgentIds": [
+        "qa-release",
+        "theo"
+      ],
+      "riskLevel": "medium",
+      "syncTarget": "vps"
+    },
+    "agent-skills/incremental-implementation": {
+      "ownerAgentId": "theo",
+      "allowedAgentIds": [
+        "qa-release",
+        "theo"
+      ],
+      "riskLevel": "medium",
+      "syncTarget": "vps"
+    },
+    "agent-skills/interview-me": {
+      "ownerAgentId": "theo",
+      "allowedAgentIds": [
+        "qa-release",
+        "theo"
+      ],
+      "riskLevel": "medium",
+      "syncTarget": "vps"
+    },
+    "agent-skills/observability-and-instrumentation": {
+      "ownerAgentId": "theo",
+      "allowedAgentIds": [
+        "qa-release",
+        "theo"
+      ],
+      "riskLevel": "medium",
+      "syncTarget": "vps"
+    },
+    "agent-skills/performance-optimization": {
+      "ownerAgentId": "theo",
+      "allowedAgentIds": [
+        "qa-release",
+        "theo"
+      ],
+      "riskLevel": "medium",
+      "syncTarget": "vps"
+    },
+    "agent-skills/planning-and-task-breakdown": {
+      "ownerAgentId": "theo",
+      "allowedAgentIds": [
+        "qa-release",
+        "theo"
+      ],
+      "riskLevel": "medium",
+      "syncTarget": "vps"
+    },
+    "agent-skills/security-and-hardening": {
+      "ownerAgentId": "theo",
+      "allowedAgentIds": [
+        "qa-release",
+        "theo"
+      ],
+      "riskLevel": "medium",
+      "syncTarget": "vps"
+    },
+    "agent-skills/shipping-and-launch": {
+      "ownerAgentId": "theo",
+      "allowedAgentIds": [
+        "qa-release",
+        "theo"
+      ],
+      "riskLevel": "medium",
+      "syncTarget": "vps"
+    },
+    "agent-skills/source-driven-development": {
+      "ownerAgentId": "theo",
+      "allowedAgentIds": [
+        "qa-release",
+        "theo"
+      ],
+      "riskLevel": "medium",
+      "syncTarget": "vps"
+    },
+    "agent-skills/spec-driven-development": {
+      "ownerAgentId": "theo",
+      "allowedAgentIds": [
+        "qa-release",
+        "theo"
+      ],
+      "riskLevel": "medium",
+      "syncTarget": "vps"
+    },
+    "agent-skills/test-driven-development": {
+      "ownerAgentId": "theo",
+      "allowedAgentIds": [
+        "qa-release",
+        "theo"
+      ],
+      "riskLevel": "medium",
+      "syncTarget": "vps"
+    },
+    "agent-skills/using-agent-skills": {
+      "ownerAgentId": "theo",
+      "allowedAgentIds": [
+        "qa-release",
+        "theo"
+      ],
+      "riskLevel": "medium",
+      "syncTarget": "vps"
     }
   },
   "agents": {
@@ -683,7 +935,10 @@
         "research-intelligence",
         "seo-sprint-manager",
         "social-media-manager",
-        "support-manager"
+        "support-manager",
+        "research/last30days",
+        "research/open-notebook",
+        "platform/headroom"
       ],
       "globalSkills": [
         "autonomous-ai-agents/hermes-agent"
@@ -786,7 +1041,33 @@
         "software-development/systematic-debugging",
         "software-development/test-driven-development",
         "software-development/writing-plans",
-        "support-manager"
+        "support-manager",
+        "research/open-notebook",
+        "platform/headroom",
+        "agent-skills/api-and-interface-design",
+        "agent-skills/browser-testing-with-devtools",
+        "agent-skills/ci-cd-and-automation",
+        "agent-skills/code-review-and-quality",
+        "agent-skills/code-simplification",
+        "agent-skills/context-engineering",
+        "agent-skills/debugging-and-error-recovery",
+        "agent-skills/deprecation-and-migration",
+        "agent-skills/documentation-and-adrs",
+        "agent-skills/doubt-driven-development",
+        "agent-skills/frontend-ui-engineering",
+        "agent-skills/git-workflow-and-versioning",
+        "agent-skills/idea-refine",
+        "agent-skills/incremental-implementation",
+        "agent-skills/interview-me",
+        "agent-skills/observability-and-instrumentation",
+        "agent-skills/performance-optimization",
+        "agent-skills/planning-and-task-breakdown",
+        "agent-skills/security-and-hardening",
+        "agent-skills/shipping-and-launch",
+        "agent-skills/source-driven-development",
+        "agent-skills/spec-driven-development",
+        "agent-skills/test-driven-development",
+        "agent-skills/using-agent-skills"
       ],
       "globalSkills": [
         "autonomous-ai-agents/codex",
@@ -870,7 +1151,9 @@
         "marketing/ads-photoshoot",
         "project-management",
         "research-intelligence",
-        "social-media-manager"
+        "social-media-manager",
+        "research/last30days",
+        "research/open-notebook"
       ],
       "globalSkills": [
         "creative/creative-ideation",
@@ -940,7 +1223,9 @@
         "project-management",
         "properties",
         "research-intelligence",
-        "seo-sprint-manager"
+        "seo-sprint-manager",
+        "research/last30days",
+        "research/open-notebook"
       ],
       "globalSkills": [
         "note-taking/obsidian",
@@ -1095,7 +1380,8 @@
         "marketing/ads-tiktok",
         "marketing/ads-youtube",
         "project-management",
-        "research-intelligence"
+        "research-intelligence",
+        "research/last30days"
       ],
       "globalSkills": [
         "productivity/google-workspace"
@@ -1188,7 +1474,32 @@
         "software-development/code-review",
         "software-development/requesting-code-review",
         "software-development/systematic-debugging",
-        "support-manager"
+        "support-manager",
+        "platform/headroom",
+        "agent-skills/api-and-interface-design",
+        "agent-skills/browser-testing-with-devtools",
+        "agent-skills/ci-cd-and-automation",
+        "agent-skills/code-review-and-quality",
+        "agent-skills/code-simplification",
+        "agent-skills/context-engineering",
+        "agent-skills/debugging-and-error-recovery",
+        "agent-skills/deprecation-and-migration",
+        "agent-skills/documentation-and-adrs",
+        "agent-skills/doubt-driven-development",
+        "agent-skills/frontend-ui-engineering",
+        "agent-skills/git-workflow-and-versioning",
+        "agent-skills/idea-refine",
+        "agent-skills/incremental-implementation",
+        "agent-skills/interview-me",
+        "agent-skills/observability-and-instrumentation",
+        "agent-skills/performance-optimization",
+        "agent-skills/planning-and-task-breakdown",
+        "agent-skills/security-and-hardening",
+        "agent-skills/shipping-and-launch",
+        "agent-skills/source-driven-development",
+        "agent-skills/spec-driven-development",
+        "agent-skills/test-driven-development",
+        "agent-skills/using-agent-skills"
       ],
       "globalSkills": [
         "github/codebase-inspection",
@@ -1328,7 +1639,8 @@
         "platform-ops",
         "project-management",
         "properties",
-        "research-intelligence"
+        "research-intelligence",
+        "platform/headroom"
       ],
       "globalSkills": [
         "data-science/jupyter-live-kernel",
@@ -1397,7 +1709,8 @@
         "platform-ops",
         "project-management",
         "properties",
-        "research-intelligence"
+        "research-intelligence",
+        "research/open-notebook"
       ],
       "globalSkills": [
         "productivity/google-workspace",
@@ -1472,7 +1785,9 @@
         "project-management",
         "properties",
         "research-intelligence",
-        "seo-sprint-manager"
+        "seo-sprint-manager",
+        "research/last30days",
+        "research/open-notebook"
       ],
       "globalSkills": [
         "productivity/google-workspace",

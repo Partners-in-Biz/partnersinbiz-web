@@ -92,7 +92,15 @@ function resetManagedGlobalSkillRoots(externalDir) {
     if (entry.name === 'partnersinbiz') continue
     const entryPath = join(externalDir, entry.name)
     logAction(`remove generated global skill root ${entryPath}`)
-    if (apply) rmSync(entryPath, { recursive: true, force: true })
+    if (apply) {
+      try {
+        rmSync(entryPath, { recursive: true, force: true })
+      } catch (error) {
+        if (error?.code !== 'EACCES') throw error
+        summary.nonFatalWarnings.push(`kept locked generated global skill root ${entryPath}`)
+        logAction(`keep locked generated global skill root ${entryPath}`)
+      }
+    }
   }
 }
 
