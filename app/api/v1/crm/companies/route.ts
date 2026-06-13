@@ -135,10 +135,14 @@ export const GET = withCrmAuth('viewer', async (req, ctx) => {
     const toMillis = (value: unknown): number => {
       if (!value) return 0
       if (value instanceof Date) return value.getTime()
-      const maybeTimestamp = value as { toDate?: () => Date; _seconds?: number; seconds?: number }
-      if (typeof maybeTimestamp.toDate === 'function') return maybeTimestamp.toDate().getTime()
+      const maybeTimestamp = value as { toDate?: () => Date; _seconds?: number; seconds?: number; _nanoseconds?: number; nanoseconds?: number }
       const seconds = maybeTimestamp._seconds ?? maybeTimestamp.seconds
-      return typeof seconds === 'number' ? seconds * 1000 : 0
+      if (typeof seconds === 'number') {
+        const nanos = maybeTimestamp._nanoseconds ?? maybeTimestamp.nanoseconds ?? 0
+        return (seconds * 1000) + (typeof nanos === 'number' ? Math.floor(nanos / 1_000_000) : 0)
+      }
+      if (typeof maybeTimestamp.toDate === 'function') return maybeTimestamp.toDate().getTime()
+      return 0
     }
 
     companies = [...companies].sort((a, b) => {

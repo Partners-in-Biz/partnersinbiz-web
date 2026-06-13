@@ -163,8 +163,25 @@ describe('GET /api/v1/crm/companies', () => {
   it('lists companies without requiring composite-index orderBy shapes', async () => {
     const uid = uidFor('viewer-index-safe')
     const member = seedOrgMember('org-index-safe', uid, { role: 'viewer' })
-    const visible = buildCompany({ id: 'co-visible', orgId: 'org-index-safe', name: 'Visible Co', ownerUid: uid })
-    const legacyNoDeleted = buildCompany({ id: 'co-legacy', orgId: 'org-index-safe', name: 'Legacy Co', ownerUid: uid })
+    const sameSerializedTimestamp = (toDateMillis: number) => ({
+      seconds: 1000,
+      nanoseconds: 0,
+      toDate: () => new Date(toDateMillis),
+    }) as never
+    const visible = buildCompany({
+      id: 'co-visible',
+      orgId: 'org-index-safe',
+      name: 'Visible Co',
+      ownerUid: uid,
+      createdAt: sameSerializedTimestamp(1000),
+    })
+    const legacyNoDeleted = buildCompany({
+      id: 'co-legacy',
+      orgId: 'org-index-safe',
+      name: 'Legacy Co',
+      ownerUid: uid,
+      createdAt: sameSerializedTimestamp(2000),
+    })
     delete (legacyNoDeleted as { deleted?: boolean }).deleted
     const deleted = buildCompany({ id: 'co-deleted', orgId: 'org-index-safe', name: 'Deleted Co', deleted: true })
 
