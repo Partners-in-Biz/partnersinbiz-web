@@ -156,7 +156,24 @@ describe('GEO SEO namespace tenant-safe record APIs', () => {
 
   it('creates linked Projects/Kanban and SEO Sprint tasks for classic SEO GEO findings', async () => {
     mockGetDoc
-      .mockResolvedValueOnce({ exists: true, id: 'ws-1', data: () => ({ orgId: 'pib-platform-owner', projectId: 'project-1', linkedSeoSprintId: 'sprint-1', sourceDocumentId: 'doc-1', sourceSpecVersion: 'v1', approvalGateTaskId: 'gate-1', deleted: false }) })
+      .mockResolvedValueOnce({
+        exists: true,
+        id: 'ws-1',
+        data: () => ({
+          orgId: 'pib-platform-owner',
+          projectId: 'project-1',
+          linkedSeoSprintId: 'sprint-1',
+          sourceDocumentId: 'doc-1',
+          sourceDocumentSectionId: 'workspace-bridge-section',
+          sourceSpecVersion: 'v1',
+          approvalGateTaskId: 'gate-1',
+          riskLevel: 'critical',
+          requiredCapability: 'seo',
+          reviewerAgentId: 'qa-release',
+          expectedArtifacts: ['workspace-artifact'],
+          deleted: false,
+        }),
+      })
       .mockResolvedValueOnce({ exists: true, id: 'sprint-1', data: () => ({ orgId: 'pib-platform-owner', deleted: false }) })
       .mockResolvedValueOnce({ exists: true, id: 'project-1', data: () => ({ orgId: 'pib-platform-owner', deleted: false }) })
     const { POST } = await import('@/app/api/v1/geo-seo/findings/route')
@@ -171,11 +188,6 @@ describe('GEO SEO namespace tenant-safe record APIs', () => {
         title: 'Core Web Vitals regression',
         category: 'technical',
         description: 'LCP regression is hurting organic clicks and rankings.',
-        sourceDocumentSectionId: 'bridge-rules',
-        riskLevel: 'high',
-        requiredCapability: 'seo',
-        reviewerAgentId: 'qa-release',
-        expectedArtifacts: ['seo_task_update', 'project_task_evidence'],
         bridgeToSeoSprint: true,
         createProjectTask: true,
       }),
@@ -192,10 +204,13 @@ describe('GEO SEO namespace tenant-safe record APIs', () => {
       geoAuditId: 'audit-1',
       geoFindingId: 'created-1',
       sourceDocumentId: 'doc-1',
+      sourceDocumentSectionId: 'workspace-bridge-section',
       sourceSpecVersion: 'v1',
       approvalGateTaskId: 'gate-1',
+      riskLevel: 'critical',
       requiredCapability: 'seo',
-      expectedArtifacts: ['seo_task_update', 'project_task_evidence'],
+      reviewerAgentId: 'qa-release',
+      expectedArtifacts: ['workspace-artifact'],
     }))
     expect(mockSet).toHaveBeenCalledWith(expect.objectContaining({
       projectId: 'project-1',
@@ -207,12 +222,12 @@ describe('GEO SEO namespace tenant-safe record APIs', () => {
       seoTaskId: 'doc-1',
       linkedSeoTaskId: 'doc-1',
       sourceDocumentId: 'doc-1',
-      sourceDocumentSectionId: 'bridge-rules',
+      sourceDocumentSectionId: 'workspace-bridge-section',
       sourceSpecVersion: 'v1',
       approvalGateTaskId: 'gate-1',
-      riskLevel: 'high',
+      riskLevel: 'critical',
       requiredCapability: 'seo',
-      expectedArtifacts: ['seo_task_update', 'project_task_evidence'],
+      expectedArtifacts: ['workspace-artifact'],
     }))
   })
 
@@ -226,7 +241,7 @@ describe('GEO SEO namespace tenant-safe record APIs', () => {
         orgId: 'pib-platform-owner',
         workspaceId: 'ws-1',
         title: 'Improve AI answer citability',
-        category: 'citability',
+        category: 'content',
         description: 'Add concise answer evidence for AI recommendation visibility.',
         bridgeToSeoSprint: true,
         seoSprintId: 'sprint-1',

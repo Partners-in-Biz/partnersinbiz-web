@@ -35,6 +35,15 @@ describe('Portal email page', () => {
           json: async () => ({ data: { messages: [] } }),
         } as Response)
       }
+      if (url === '/api/v1/portal/email/recipients?limit=50') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ data: { recipients: [
+            { id: 'contact-1', type: 'contact', label: 'Jane Client', email: 'jane@example.com', detail: 'Acme' },
+            { id: 'company-1:Billing email', type: 'company', label: 'Acme Ltd', email: 'accounts@example.com', detail: 'Billing email' },
+          ] } }),
+        } as Response)
+      }
       return Promise.reject(new Error(`Unexpected fetch: ${url}`))
     }) as jest.Mock
   })
@@ -60,6 +69,9 @@ describe('Portal email page', () => {
     expect(screen.getByLabelText('URL to link')).toHaveValue('https://')
     expect(screen.getByRole('button', { name: 'Apply link to email body' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Cancel email link insert' })).toBeInTheDocument()
+    expect(await screen.findByRole('button', { name: /Jane Client · jane@example.com/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Acme Ltd · accounts@example.com/i })).toBeInTheDocument()
+    expect(screen.getByText('Attach files')).toBeInTheDocument()
 
     promptSpy.mockRestore()
   })

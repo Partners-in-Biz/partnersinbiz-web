@@ -198,21 +198,38 @@ async function workspaceFor(body: Record<string, unknown>, orgId: string): Promi
   return { id: workspaceId, ...data }
 }
 
+function firstCleanString(...values: unknown[]): string | undefined {
+  for (const value of values) {
+    const cleaned = cleanString(value)
+    if (cleaned) return cleaned
+  }
+  return undefined
+}
+
+function firstCleanStringList(...values: unknown[]): string[] | undefined {
+  for (const value of values) {
+    const cleaned = cleanStringList(value)
+    if (cleaned.length) return cleaned
+  }
+  return undefined
+}
+
 function sourceLinkage(body: Record<string, unknown>, findingId: string, workspace?: Record<string, unknown> | null) {
   return stripUndefined({
-    sourceDocumentId: cleanString(body.sourceDocumentId) || cleanString(workspace?.sourceDocumentId) || undefined,
-    sourceDocumentSectionId: cleanString(body.sourceDocumentSectionId) || undefined,
-    sourceSpecVersion: cleanString(body.sourceSpecVersion) || cleanString(workspace?.sourceSpecVersion) || undefined,
-    approvalGateTaskId: cleanString(body.approvalGateTaskId) || cleanString(workspace?.approvalGateTaskId) || undefined,
-    sourceResearchItemId: cleanString(body.sourceResearchItemId) || undefined,
-    geoWorkspaceId: cleanString(body.workspaceId) || cleanString(workspace?.id) || undefined,
-    geoAuditId: cleanString(body.auditId) || cleanString(body.sourceAuditId) || undefined,
+    sourceDocumentId: firstCleanString(body.sourceDocumentId, workspace?.sourceDocumentId),
+    sourceDocumentSectionId: firstCleanString(body.sourceDocumentSectionId, workspace?.sourceDocumentSectionId),
+    sourceSpecVersion: firstCleanString(body.sourceSpecVersion, workspace?.sourceSpecVersion),
+    approvalGateTaskId: firstCleanString(body.approvalGateTaskId, workspace?.approvalGateTaskId),
+    sourceResearchItemId: firstCleanString(body.sourceResearchItemId, workspace?.sourceResearchItemId),
+    geoWorkspaceId: firstCleanString(body.workspaceId, workspace?.id),
+    geoAuditId: firstCleanString(body.auditId, body.sourceAuditId),
     geoFindingId: findingId,
-    seoSprintId: cleanString(body.seoSprintId) || cleanString(body.linkedSeoSprintId) || cleanString(workspace?.linkedSeoSprintId) || undefined,
-    riskLevel: cleanString(body.riskLevel) || undefined,
-    requiredCapability: cleanString(body.requiredCapability) || undefined,
-    requestedByAgentId: cleanString(body.requestedByAgentId) || undefined,
-    expectedArtifacts: cleanStringList(body.expectedArtifacts).length ? cleanStringList(body.expectedArtifacts) : undefined,
+    seoSprintId: firstCleanString(body.seoSprintId, body.linkedSeoSprintId, workspace?.linkedSeoSprintId),
+    riskLevel: firstCleanString(body.riskLevel, workspace?.riskLevel),
+    requiredCapability: firstCleanString(body.requiredCapability, workspace?.requiredCapability),
+    reviewerAgentId: firstCleanString(body.reviewerAgentId, workspace?.reviewerAgentId),
+    requestedByAgentId: firstCleanString(body.requestedByAgentId, workspace?.requestedByAgentId),
+    expectedArtifacts: firstCleanStringList(body.expectedArtifacts, workspace?.expectedArtifacts),
   })
 }
 
@@ -262,7 +279,7 @@ async function createLinkedSeoTask(args: {
     approvalGateTaskId: linkage.approvalGateTaskId,
     riskLevel: linkage.riskLevel,
     requiredCapability: linkage.requiredCapability || 'seo',
-    reviewerAgentId: cleanString(args.body.reviewerAgentId) || 'qa-release',
+    reviewerAgentId: linkage.reviewerAgentId || 'qa-release',
     expectedArtifacts: linkage.expectedArtifacts || ['seo_task_update', 'evidence_link'],
     deleted: false,
     createdAt: FieldValue.serverTimestamp(),
@@ -321,7 +338,7 @@ async function createLinkedProjectTask(args: {
       ...cleanStringList(fieldFrom(taskInput, 'labels')),
     ])),
     assigneeAgentId: cleanString(fieldFrom(taskInput, 'assigneeAgentId')) || cleanString(args.body.assigneeAgentId) || 'seo',
-    reviewerAgentId: cleanString(fieldFrom(taskInput, 'reviewerAgentId')) || cleanString(args.body.reviewerAgentId) || 'qa-release',
+    reviewerAgentId: cleanString(fieldFrom(taskInput, 'reviewerAgentId')) || linkage.reviewerAgentId || 'qa-release',
     riskLevel: cleanString(fieldFrom(taskInput, 'riskLevel')) || cleanString(linkage.riskLevel) || 'medium',
     requiredCapability: cleanString(fieldFrom(taskInput, 'requiredCapability')) || cleanString(linkage.requiredCapability) || 'geo_seo',
     expectedArtifacts: cleanStringList(fieldFrom(taskInput, 'expectedArtifacts')).length

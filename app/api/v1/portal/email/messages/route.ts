@@ -33,13 +33,13 @@ function isStaleSync(lastSyncAt: string | null): boolean {
   return !Number.isFinite(lastSyncMs) || Date.now() - lastSyncMs > 5 * 60 * 1000
 }
 
-async function ensureFreshGoogleMailboxData(orgId: string, uid: string, accountId: string | null) {
+async function ensureFreshGoogleMailboxData(orgId: string, uid: string, accountId: string | null, forceRefresh = false) {
   const snap = await adminDb.collection('mailbox_accounts').where('orgId', '==', orgId).where('uid', '==', uid).get()
   const accounts = snap.docs
     .filter((doc) => !doc.data().deletedAt)
     .map((doc) => ({ id: doc.id, data: doc.data() }))
     .filter(({ data }) => data.provider === 'google' && data.status === 'connected' && data.googleEnc)
-    .filter(({ id, data }) => (!accountId || accountId === 'all' || id === accountId) && isStaleSync(toIso(data.lastSyncAt)))
+    .filter(({ id, data }) => (!accountId || accountId === 'all' || id === accountId) && (forceRefresh || isStaleSync(toIso(data.lastSyncAt))))
     .slice(0, 3)
 
   const results = await Promise.all(accounts.map(({ id }) => syncGmailMailboxAccount({
@@ -47,7 +47,7 @@ async function ensureFreshGoogleMailboxData(orgId: string, uid: string, accountI
     uid,
     accountId: id,
     mode: 'incremental',
-    maxResults: 80,
+    maxResults: forceRefresh ? 160 : 80,
   }).catch((error) => ({ ok: false, error: error instanceof Error ? error.message : 'Mailbox sync failed' }))))
 
   const failed = results.filter((result) => !result.ok)
@@ -147,7 +147,7 @@ export const POST = withPortalAuthAndRole('member', async (req: NextRequest, uid
       subject,
       bodyText,
       ...(bodyHtml ? { bodyHtml } : {}),
-      attachments: attachments.map(({ contentBase64: _contentBase64, ...attachment }) => attachment),
+      attachments: attachments.map((attachment) => ({ name: attachment.name, contentType: attachment.contentType, sizeBytes: attachment.sizeBytes })),
       snippet: bodyText.replace(/\s+/g, ' ').slice(0, 180),
       createdAt: now,
       updatedAt: now,

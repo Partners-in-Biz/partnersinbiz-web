@@ -196,7 +196,7 @@ async function writeSentMessage(input: SendMailboxMessageInput, account: Mailbox
     subject: input.subject,
     bodyText: input.bodyText,
     ...(input.bodyHtml ? { bodyHtml: input.bodyHtml } : {}),
-    attachments: (input.attachments ?? []).map(({ contentBase64: _contentBase64, ...attachment }) => attachment),
+    attachments: (input.attachments ?? []).map((attachment) => ({ name: attachment.name, contentType: attachment.contentType, sizeBytes: attachment.sizeBytes })),
     snippet: snippet(input.bodyText),
     provider,
     providerMessageId: providerMessageId ?? null,

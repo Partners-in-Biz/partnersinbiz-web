@@ -1,5 +1,6 @@
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import { GeoSeoWorkspace, type GeoSeoWorkspaceRecord } from '@/components/geo-seo/GeoSeoWorkspace'
+import { GeoSeoWorkspaceDetail } from '@/components/geo-seo/GeoSeoWorkspaceDetail'
 
 const workspace: GeoSeoWorkspaceRecord = {
   id: 'geo-1',
@@ -56,6 +57,25 @@ describe('GeoSeoWorkspace', () => {
 
     expect(screen.getByText('Client report actions gated')).toBeInTheDocument()
     expect(screen.getByText(/Share, publish, and client-visible report actions require explicit approval/i)).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Publish report/i })).not.toBeInTheDocument()
+  })
+
+  it('preserves Marketing Hub, source-company, linked-org, and workspace context on detail pages', () => {
+    render(
+      <GeoSeoWorkspaceDetail
+        surface="admin"
+        workspace={{ ...workspace, sourceCompanyName: 'Lumen CRM' }}
+        orgScope={{ orgId: 'linked-org', orgSlug: 'lumen-speeds', sourceCompanyName: 'Lumen CRM' }}
+        backHref="/admin/org/lumen-speeds/geo-seo"
+      />,
+    )
+
+    const breadcrumbs = screen.getByRole('navigation', { name: 'GEO SEO workspace breadcrumbs' })
+    expect(within(breadcrumbs).getByRole('link', { name: 'Marketing Hub' })).toHaveAttribute('href', '/admin')
+    expect(within(breadcrumbs).getByRole('link', { name: 'GEO SEO' })).toHaveAttribute('href', '/admin/org/lumen-speeds/geo-seo')
+    expect(within(breadcrumbs).getByText('Lumen CRM → lumen-speeds')).toBeInTheDocument()
+    expect(within(breadcrumbs).getByText('Lumen Speeds')).toBeInTheDocument()
+    expect(screen.getByText('Lumen CRM is linked to lumen-speeds')).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /Publish report/i })).not.toBeInTheDocument()
   })
 })

@@ -688,14 +688,30 @@ function ComposerPanel({
           </div>
           <datalist id={datalistId}>
             {recipientSuggestions.map((recipient) => (
-              <option key={recipient.id} value={recipient.email}>{recipient.label}{recipient.detail ? ` · ${recipient.detail}` : ''}</option>
+              <option key={`${recipient.type}-${recipient.id}-${recipient.email}`} value={recipient.email} label={`${recipient.label}${recipient.detail ? ` · ${recipient.detail}` : ''}`} />
             ))}
           </datalist>
+          {recipientSuggestions.length ? (
+            <div className="mt-2 flex flex-wrap gap-2">
+              {recipientSuggestions.slice(0, 8).map((recipient) => (
+                <button
+                  key={`${recipient.type}-${recipient.id}-${recipient.email}-chip`}
+                  type="button"
+                  onClick={() => appendRecipient('to', recipient.email)}
+                  className="rounded-full border border-[var(--color-pib-line)] px-3 py-1 text-xs text-[var(--color-pib-text-muted)] hover:border-[var(--color-pib-accent)]/60 hover:text-[var(--color-pib-text)]"
+                  title={recipient.detail || recipient.type}
+                >
+                  {recipient.label} · {recipient.email}
+                </button>
+              ))}
+            </div>
+          ) : null}
           <div className="mt-2 grid gap-2 md:grid-cols-2">
             <input list={datalistId} value={compose.cc} onChange={(e) => setCompose((c) => ({ ...c, cc: e.target.value }))} placeholder="Cc" className="pib-input" />
             <input list={datalistId} value={compose.bcc} onChange={(e) => setCompose((c) => ({ ...c, bcc: e.target.value }))} placeholder="Bcc" className="pib-input" />
           </div>
           <input value={compose.subject} onChange={(e) => setCompose((c) => ({ ...c, subject: e.target.value }))} placeholder="Subject" className="pib-input mt-2 w-full" />
+          <AttachmentPicker attachments={compose.attachments} onAdd={addAttachments} onRemove={(index) => setCompose((c) => ({ ...c, attachments: c.attachments.filter((_, i) => i !== index) }))} />
           <RichComposer
             value={compose.bodyHtml}
             onChange={(bodyHtml) => setCompose((c) => ({ ...c, bodyHtml, bodyText: htmlToText(bodyHtml) }))}
@@ -835,6 +851,65 @@ function RichComposer({ value, onChange }: { value: string; onChange: (html: str
       />
     </div>
   )
+}
+
+function AttachmentPicker({
+  attachments,
+  onAdd,
+  onRemove,
+}: {
+  attachments: ComposeAttachment[]
+  onAdd: (files: FileList | null) => void | Promise<void>
+  onRemove: (index: number) => void
+}) {
+  return (
+    <div className="mt-3 rounded-lg border border-[var(--color-pib-line)] bg-white/[0.02] px-3 py-3">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <p className="eyebrow !text-[10px]">Attachments</p>
+          <p className="text-xs text-[var(--color-pib-text-muted)]">Up to 5 files, 10 MB total.</p>
+        </div>
+        <label className="btn-pib-secondary cursor-pointer text-xs">
+          <span className="material-symbols-outlined text-[16px]">attach_file</span>
+          Attach files
+          <input type="file" multiple className="sr-only" onChange={(event) => { void onAdd(event.target.files); event.currentTarget.value = '' }} />
+        </label>
+      </div>
+      {attachments.length ? (
+        <div className="mt-3 flex flex-wrap gap-2">
+          {attachments.map((attachment, index) => (
+            <span key={`${attachment.name}-${index}`} className="inline-flex items-center gap-2 rounded-full border border-[var(--color-pib-line)] px-3 py-1 text-xs text-[var(--color-pib-text-muted)]">
+              {attachment.name} · {formatBytes(attachment.sizeBytes)}
+              <button type="button" onClick={() => onRemove(index)} className="text-[var(--color-pib-text-muted)] hover:text-red-200" aria-label={`Remove ${attachment.name}`}>
+                ×
+              </button>
+            </span>
+          ))}
+        </div>
+      ) : null}
+    </div>
+  )
+}
+
+function fileToBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve(String(reader.result ?? ''))
+    reader.onerror = () => reject(reader.error ?? new Error('Could not read attachment'))
+    reader.readAsDataURL(file)
+  })
+}
+
+function formatBytes(value: number) {
+  if (!Number.isFinite(value) || value <= 0) return '0 B'
+  const units = ['B', 'KB', 'MB', 'GB']
+  let size = value
+  let unit = 0
+  while (size >= 1024 && unit < units.length - 1) {
+    size /= 1024
+    unit += 1
+  }
+  return `${size >= 10 || unit === 0 ? size.toFixed(0) : size.toFixed(1)} ${units[unit]}`
 }
 
 function IconButton({ title, icon, onClick }: { title: string; icon: string; onClick: () => void }) {
