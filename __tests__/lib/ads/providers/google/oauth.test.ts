@@ -9,6 +9,7 @@ describe('Google Ads OAuth (ads module wrapper)', () => {
     // Same env var the analytics adapter reads — see
     // `lib/integrations/google_ads/oauth.ts` `readOAuthEnv()`.
     process.env.GOOGLE_OAUTH_CLIENT_ID = 'test-client-id'
+    process.env.GOOGLE_OAUTH_CLIENT_SECRET = 'test-client-secret'
   })
 
   it('exports the adwords scope', () => {

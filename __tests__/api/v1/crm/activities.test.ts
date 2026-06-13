@@ -57,7 +57,9 @@ function stageAuth(
     }
     if (name === 'organizations') return { doc: () => ({ get: () => Promise.resolve({ exists: true, data: () => ({ settings: { permissions: perms } }) }) }) }
     if (name === 'contacts') {
-      const cd = opts?.contactData !== undefined ? opts.contactData : null
+      const cd = opts?.contactData !== undefined
+        ? opts.contactData
+        : { orgId: member.orgId, name: 'Test Contact' }
       return {
         doc: () => ({
           get: () =>
@@ -200,8 +202,10 @@ describe('POST /api/v1/crm/activities — companyId wiring (A1 W3-K)', () => {
   it('uses explicit body.companyId override when provided and valid', async () => {
     const member = seedOrgMember('org-cid', 'uid-cid-2', { role: 'member' })
     const captured = jest.fn().mockResolvedValue({ id: 'act-cid-2' })
-    // No contact data — override should come from explicit body field
-    stageAuth(member, {}, { capturedActivityAdd: captured, contactData: null })
+    stageAuth(member, {}, {
+      capturedActivityAdd: captured,
+      contactData: { orgId: 'org-cid', name: 'No Company Contact' },
+    })
     ;(loadCompany as jest.Mock).mockResolvedValue({ data: { id: 'co-explicit', orgId: 'org-cid', name: 'Explicit Corp', tags: [], notes: '', createdAt: null, updatedAt: null } })
 
     const req = callAsMember(member, 'POST', '/api/v1/crm/activities', {
@@ -216,7 +220,7 @@ describe('POST /api/v1/crm/activities — companyId wiring (A1 W3-K)', () => {
 
   it('returns 400 when explicit body.companyId is invalid or cross-tenant', async () => {
     const member = seedOrgMember('org-cid', 'uid-cid-3', { role: 'member' })
-    stageAuth(member, {}, { contactData: null })
+    stageAuth(member, {}, { contactData: { orgId: 'org-cid', name: 'Bad Company Contact' } })
     ;(loadCompany as jest.Mock).mockResolvedValue(null)  // cross-tenant / not found
 
     const req = callAsMember(member, 'POST', '/api/v1/crm/activities', {

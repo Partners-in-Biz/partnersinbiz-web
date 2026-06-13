@@ -109,7 +109,13 @@ export const POST = withCrmAuth('member', async (req, ctx) => {
   if (!body.contactId?.trim()) return apiError('contactId is required', 400)
   const dealTitle = body.title.trim()
   const contactId = body.contactId.trim()
-  const contactSnap = await adminDb.collection('contacts').doc(contactId).get()
+  let contactSnap: { exists: boolean; id: string; data: () => unknown }
+  try {
+    contactSnap = await adminDb.collection('contacts').doc(contactId).get()
+  } catch (err) {
+    console.error('deal-contact-validation-failed', err)
+    return apiError('Contact lookup failed', 500)
+  }
   if (!contactSnap.exists) return apiError('Contact not found', 404)
   const contactForAccess = { ...(contactSnap.data() as Contact), id: contactSnap.id }
   if (contactForAccess.orgId !== ctx.orgId || contactForAccess.deleted === true) return apiError('Contact not found', 404)

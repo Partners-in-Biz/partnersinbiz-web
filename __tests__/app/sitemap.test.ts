@@ -1,4 +1,5 @@
 import sitemap from '@/app/sitemap'
+import { PARTNER_OPPORTUNITIES } from '@/lib/partner-opportunities'
 import { SITE } from '@/lib/seo/site'
 
 describe('public sitemap', () => {
@@ -19,9 +20,7 @@ describe('public sitemap', () => {
         `${SITE.url}/faq`,
         `${SITE.url}/properties`,
         `${SITE.url}/partner-with-us`,
-        `${SITE.url}/partner-with-us/ballito-regional-coupon-partner`,
-        `${SITE.url}/partner-with-us/athleet-club-growth`,
-        `${SITE.url}/partner-with-us/local-growth-scout`,
+        ...PARTNER_OPPORTUNITIES.map((opportunity) => `${SITE.url}${opportunity.href}`),
       ])
     )
     expect(urls).not.toContain(`${SITE.url}/products`)

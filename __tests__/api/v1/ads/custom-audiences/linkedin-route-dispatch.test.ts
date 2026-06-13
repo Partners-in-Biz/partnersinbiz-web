@@ -45,6 +45,15 @@ jest.mock('@/lib/ads/custom-audiences/store', () => ({
     updatedAt: { seconds: 1000000, nanoseconds: 0 },
   }),
 }))
+jest.mock('@/lib/ads/campaigns/store', () => ({
+  getCampaign: jest.fn().mockResolvedValue({
+    id: 'cmp-approved',
+    orgId: 'org-001',
+    reviewState: 'approved',
+    approvedAt: { seconds: 1000000, nanoseconds: 0 },
+    approvedBy: 'approver-001',
+  }),
+}))
 
 // ─── LinkedIn connection helpers ──────────────────────────────────────────────
 jest.mock('@/lib/ads/connections/store', () => ({
@@ -122,7 +131,7 @@ function makeReq(body: object) {
   return new Request('http://x/api/v1/ads/custom-audiences', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'X-Org-Id': 'org-001' },
-    body: JSON.stringify(body),
+    body: JSON.stringify({ approvalCampaignId: 'cmp-approved', ...body }),
   }) as any
 }
 
