@@ -10,6 +10,9 @@
   --color-pib-text-faint: #4A4A52;
   --color-pib-line: rgba(255, 255, 255, 0.08);
   --color-pib-line-strong: rgba(255, 255, 255, 0.16);
+  --color-pib-border: var(--color-pib-line);
+  --color-pib-surface-muted: rgba(255, 255, 255, 0.035);
+  --color-pib-surface-soft: rgba(255, 255, 255, 0.04);
   --color-pib-accent: #F5A623;
   --color-pib-accent-hover: #FFB840;
   --color-pib-accent-soft: rgba(245, 166, 35, 0.12);
