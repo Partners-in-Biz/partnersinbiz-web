@@ -14,7 +14,7 @@ export interface NavItem {
 
 // ── Operator nav (platform control plane only) ──────────────────────────────
 // Top-level admin navigation shows only PiB operator control-plane routes.
-// Workspace links stay on admin/org routes so operators do not fall into portal self-service.
+// Workspace links stay on admin/org routes so operators do not fall into client-facing portal flows.
 
 export const OPERATOR_NAV: NavItem[] = [
   { label: 'Home',         href: '/admin/dashboard',    icon: 'space_dashboard', group: 'work' },
