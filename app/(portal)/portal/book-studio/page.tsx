@@ -3,7 +3,7 @@ import { BookStudioPortalWorkspace } from '@/components/book-studio/BookStudioPo
 export const dynamic = 'force-dynamic'
 
 interface BookStudioPortalPageProps {
-  searchParams?: Promise<{ orgId?: string }> | { orgId?: string }
+  searchParams?: Promise<{ orgId?: string }>
 }
 
 export default async function BookStudioPortalPage({ searchParams }: BookStudioPortalPageProps) {

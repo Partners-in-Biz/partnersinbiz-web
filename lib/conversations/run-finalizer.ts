@@ -3,7 +3,14 @@ import { adminDb } from '@/lib/firebase/admin'
 import { getAgentDecryptedKey } from '@/lib/agents/team'
 import type { AgentId, AgentTeamDoc } from '@/lib/agents/types'
 import { callHermesJson, HERMES_RUNS_COLLECTION } from '@/lib/hermes/server'
-import type { ChatEvent, HermesProfileLink } from '@/lib/hermes/types'
+import type { ChatEvent, ChatUiAction, HermesProfileLink, RichMessagePart } from '@/lib/hermes/types'
+import {
+  dedupeStructured,
+  richPartsFromEvents,
+  richPartsFromPayload,
+  uiActionsFromEvents,
+  uiActionsFromPayload,
+} from '@/lib/hermes/rich-messages'
 import {
   CONVERSATION_RUN_LOOKUP_GRACE_MS,
   CONVERSATION_RUN_LOST_ERROR,
@@ -33,6 +40,8 @@ export interface ConversationRunFinalizeResult {
   hermesStatus?: string
   httpStatus?: number
   alreadyFinal?: boolean
+  richParts?: RichMessagePart[]
+  uiActions?: ChatUiAction[]
 }
 
 export interface PendingConversationRun {
@@ -173,6 +182,24 @@ export function extractOutputFromEvents(events: ChatEvent[] = []): string {
     })
     .join('')
     .trim()
+}
+
+function richMessagePatchFromRun(data: unknown, events: ChatEvent[] = []): {
+  richParts?: RichMessagePart[]
+  uiActions?: ChatUiAction[]
+} {
+  const richParts = dedupeStructured([
+    ...richPartsFromPayload(data),
+    ...richPartsFromEvents(events),
+  ])
+  const uiActions = dedupeStructured([
+    ...uiActionsFromPayload(data),
+    ...uiActionsFromEvents(events),
+  ])
+  return {
+    ...(richParts.length > 0 ? { richParts } : {}),
+    ...(uiActions.length > 0 ? { uiActions } : {}),
+  }
 }
 
 function isCompletedStatus(status: string): boolean {
@@ -321,52 +348,61 @@ export async function finalizeConversationRun(input: {
       extractHermesRunOutput(data) ||
       extractOutputFromEvents(events) ||
       'Agent completed but returned no text output.'
+    const richPatch = richMessagePatchFromRun(data, events)
     await msgRef.update({
       content: output,
       status: 'completed',
       runId,
       error: FieldValue.delete(),
       ...(events.length > 0 ? { events } : {}),
+      ...richPatch,
     })
     await updateRunDoc(msgData.runDocId, runId, {
       status: 'completed',
       response: data,
       output,
       error: FieldValue.delete(),
+      ...richPatch,
     })
     await touchConversation(input.convId, output, 'assistant')
-    return { status: 'completed', content: output, runId, hermesStatus }
+    return { status: 'completed', content: output, runId, hermesStatus, ...richPatch }
   }
 
   if (isFailedStatus(hermesStatus)) {
     const error = extractHermesRunError(data) ?? `Run ${hermesStatus}`
+    const richPatch = richMessagePatchFromRun(data, events)
     await msgRef.update({
       content: error,
       status: 'failed',
       error,
       runId,
       ...(events.length > 0 ? { events } : {}),
+      ...richPatch,
     })
     await updateRunDoc(msgData.runDocId, runId, {
       status: hermesStatus,
       response: data,
       error,
+      ...richPatch,
     })
     await touchConversation(input.convId, `[run ${hermesStatus}] ${error}`, 'assistant')
-    return { status: 'failed', content: error, error, runId, hermesStatus }
+    return { status: 'failed', content: error, error, runId, hermesStatus, ...richPatch }
   }
 
   if (isWaitingForApprovalStatus(hermesStatus)) {
+    const richPatch = richMessagePatchFromRun(data, events)
     await msgRef.update({
       status: 'waiting_approval',
       runId,
       ...(events.length > 0 ? { events } : {}),
+      ...richPatch,
     })
     await updateRunDoc(msgData.runDocId, runId, {
       status: hermesStatus,
       response: data,
+      ...richPatch,
     })
-    return { status: 'waiting_approval', runId, hermesStatus }
+    return { status: 'waiting_approval', runId, hermesStatus, ...richPatch }
   }
 
   if (ageMs > CONVERSATION_RUN_STALE_TIMEOUT_MS) {

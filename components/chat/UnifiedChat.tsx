@@ -1,7 +1,7 @@
 'use client'
 
 import { DragEvent, FormEvent, KeyboardEvent, useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
-import type { ChatEvent } from '@/lib/hermes/types'
+import type { ChatEvent, ChatUiAction, RichMessagePart } from '@/lib/hermes/types'
 import { AGENT_IDS, type AgentSkillPolicyState } from '@/lib/agents/types'
 import { AGENT_EFFORT_OPTIONS, type AgentEffort } from '@/lib/agents/runRouting'
 import {
@@ -181,6 +181,18 @@ function tsSeconds(ts: ConversationMessage['createdAt']): number {
   if (typeof ts === 'string') return Date.parse(ts) / 1000
   return (ts as { seconds?: number; _seconds?: number }).seconds ??
     (ts as { seconds?: number; _seconds?: number })._seconds ?? 0
+}
+
+function appendRichItems<T>(current: T[] | undefined, incoming: T[] | undefined): T[] | undefined {
+  if (!incoming?.length) return current
+  const merged = [...(current ?? []), ...incoming]
+  const seen = new Set<string>()
+  return merged.filter((item) => {
+    const key = JSON.stringify(item)
+    if (seen.has(key)) return false
+    seen.add(key)
+    return true
+  })
 }
 
 function contextChipLabel(ref: ContextReference | ContextReferenceSeed): string {
@@ -541,6 +553,21 @@ export default function UnifiedChat({
             ...prev,
             [msgId]: [...(prev[msgId] ?? []), data],
           }))
+          const richParts = Array.isArray(data.richParts) ? data.richParts as RichMessagePart[] : []
+          const uiActions = Array.isArray(data.uiActions) ? data.uiActions as ChatUiAction[] : []
+          if (richParts.length > 0 || uiActions.length > 0) {
+            setMessages((prev) =>
+              prev.map((m) =>
+                m.id === msgId
+                  ? {
+                      ...m,
+                      richParts: appendRichItems(m.richParts, richParts),
+                      uiActions: appendRichItems(m.uiActions, uiActions),
+                    }
+                  : m,
+              ),
+            )
+          }
           if (data.event === 'assistant.text_delta' && data.delta) {
             setMessages((prev) =>
               prev.map((m) =>
@@ -764,6 +791,55 @@ export default function UnifiedChat({
       }
     },
     [approvalPending, activeId, pollFinalize, startEventStream],
+  )
+
+  const handleUiAction = useCallback(
+    async (message: ConversationMessage, action: ChatUiAction) => {
+      const actionType = String(action.type).toLowerCase()
+      if (actionType === 'open' || actionType === 'download' || actionType === 'copy') return
+
+      const runId = message.runId
+      if (!runId) {
+        setError('This action is missing the Hermes run id.')
+        return
+      }
+
+      const candidateAgentId = message.dispatchAgentId ?? message.authorId ?? initialAgentId ?? 'pip'
+      const agentId: AgentId = AGENT_IDS.includes(candidateAgentId as AgentId)
+        ? candidateAgentId as AgentId
+        : 'pip'
+
+      try {
+        const endpoint = typeof action.endpoint === 'string' && action.endpoint.startsWith('/api/')
+          ? action.endpoint
+          : `/api/v1/admin/agents/${agentId}/runs/${encodeURIComponent(runId)}/actions`
+        const res = await fetch(endpoint, {
+          method: action.method && ['POST', 'PUT', 'PATCH'].includes(action.method) ? action.method : 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            actionId: action.actionId ?? action.id,
+            type: actionType,
+            value: action.value,
+            payload: action.payload,
+          }),
+        })
+        if (!res.ok) {
+          const body = await readApiResponse(res)
+          throw new Error(typeof body.error === 'string' ? body.error : `action failed: ${res.status}`)
+        }
+
+        setMessages((prev) =>
+          prev.map((m) => (m.id === message.id ? { ...m, status: 'pending' } : m)),
+        )
+        if (activeId) {
+          startEventStream(message.id, runId, agentId)
+          pollFinalize(activeId, message.id, runId, agentId)
+        }
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Action failed')
+      }
+    },
+    [activeId, initialAgentId, pollFinalize, startEventStream],
   )
 
   const addSelectionToComposer = useCallback((selectedText: string) => {
@@ -1598,6 +1674,7 @@ export default function UnifiedChat({
                         : undefined
                     }
                     onQuoteSelection={addSelectionToComposer}
+                    onUiAction={handleUiAction}
                   />
 
                   {/* Approval card */}

@@ -20,7 +20,7 @@ export default async function PortalGeoSeoPage({
   searchParams,
 }: {
   searchParams?: Promise<PortalGeoSeoSearchParams>
-} = {}) {
+}) {
   const params = await searchParams
   const scope = {
     orgId: clean(params?.orgId),

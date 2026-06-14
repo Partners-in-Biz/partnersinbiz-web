@@ -173,4 +173,69 @@ describe('MessageBubble', () => {
     expect(screen.getByText('SVG card')).toBeInTheDocument()
     expect(screen.queryByText(/<svg width/)).not.toBeInTheDocument()
   })
+
+  it('renders structured rich parts and dispatches UI actions from the message payload', () => {
+    const handleAction = jest.fn()
+    const Bubble = MessageBubble as any
+
+    render(
+      <Bubble
+        currentUserUid="user-1"
+        onUiAction={handleAction}
+        message={{
+          id: 'msg-1',
+          conversationId: 'conv-1',
+          role: 'assistant',
+          content: 'Fallback text',
+          authorKind: 'agent',
+          authorId: 'pip',
+          authorDisplayName: 'Pip',
+          status: 'completed',
+          richParts: [
+            { type: 'markdown', content: '### Launch plan\n- **Approve** final copy' },
+            { type: 'code', language: 'ts', code: 'const ready = true' },
+            {
+              type: 'table',
+              caption: 'Channel mix',
+              columns: ['Channel', 'Status'],
+              rows: [['Email', 'Ready'], ['LinkedIn', 'Draft']],
+            },
+            { type: 'image', url: 'https://cdn.example.com/ad.png', alt: 'Ad preview', caption: 'Primary ad' },
+            { type: 'file', url: 'https://cdn.example.com/brief.pdf', name: 'Launch brief.pdf', sizeBytes: 2048 },
+            { type: 'status', title: 'Checks passed', status: 'completed', body: 'All assets are ready.' },
+            { type: 'approval', actionId: 'approval-1', title: 'Approve publish?', choices: ['once', 'deny'] },
+            { type: 'clarify', actionId: 'clarify-tone', question: 'Which tone should I use?', choices: ['Direct', 'Warm'] },
+            {
+              type: 'model_picker',
+              actionId: 'model-depth',
+              title: 'Choose model depth',
+              models: [{ id: 'deep', label: 'Deep review' }],
+            },
+          ],
+          uiActions: [
+            { id: 'approve-once', actionId: 'approval-1', type: 'approve', label: 'Allow once', value: 'once' },
+            { id: 'choose-direct', actionId: 'clarify-tone', type: 'choose', label: 'Direct', value: 'Direct' },
+            { id: 'open-brief', type: 'open', label: 'Open brief', url: 'https://cdn.example.com/brief.pdf' },
+          ],
+        }}
+      />,
+    )
+
+    expect(screen.getByRole('heading', { name: 'Launch plan' })).toBeInTheDocument()
+    expect(screen.getByText('const ready = true')).toBeInTheDocument()
+    expect(screen.getByText('Channel mix')).toBeInTheDocument()
+    expect(screen.getByRole('columnheader', { name: 'Channel' })).toBeInTheDocument()
+    expect(screen.getByRole('img', { name: 'Ad preview' })).toHaveAttribute('src', 'https://cdn.example.com/ad.png')
+    expect(screen.getByRole('link', { name: /Launch brief\.pdf/i })).toHaveAttribute('href', 'https://cdn.example.com/brief.pdf')
+    expect(screen.getByText('Checks passed')).toBeInTheDocument()
+    expect(screen.getByText('Approve publish?')).toBeInTheDocument()
+    expect(screen.getByText('Which tone should I use?')).toBeInTheDocument()
+    expect(screen.getByText('Choose model depth')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Allow once' }))
+    expect(handleAction).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'msg-1' }),
+      expect.objectContaining({ id: 'approve-once', type: 'approve', value: 'once' }),
+    )
+  })
 })

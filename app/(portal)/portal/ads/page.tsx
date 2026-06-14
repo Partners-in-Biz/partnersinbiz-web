@@ -17,7 +17,7 @@ export default async function PortalAdsListPage({
   searchParams,
 }: {
   searchParams?: Promise<PortalAdsSearchParams>
-} = {}) {
+}) {
   const params = await searchParams
   const scope = scopeFromSearchParams(params)
   const user = await resolvePortalAdsUser(scope.orgId)

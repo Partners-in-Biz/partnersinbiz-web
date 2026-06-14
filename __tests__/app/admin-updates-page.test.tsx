@@ -1,6 +1,6 @@
 import React from 'react'
 import { render, screen } from '@testing-library/react'
-import AdminUpdatesPage, { ADMIN_UPDATE_AREAS, FUTURE_UPDATE_COUNCIL_STANDARD } from '@/app/(admin)/admin/updates/page'
+import AdminUpdatesPage from '@/app/(admin)/admin/updates/page'
 import { OPERATOR_NAV, OPERATOR_NAV_TOPBAR } from '@/components/admin/navConfig'
 
 jest.mock('next/link', () => {
@@ -16,18 +16,28 @@ describe('Admin updates page', () => {
     expect(screen.getByRole('heading', { name: /what changed and where to go/i })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: /start at dashboard/i })).toHaveAttribute('href', '/admin/dashboard')
 
-    expect(screen.getByRole('heading', { name: FUTURE_UPDATE_COUNCIL_STANDARD.title })).toBeInTheDocument()
-    expect(screen.getByText(FUTURE_UPDATE_COUNCIL_STANDARD.summary)).toBeInTheDocument()
-    expect(screen.getByText(FUTURE_UPDATE_COUNCIL_STANDARD.criteria[0])).toBeInTheDocument()
-    expect(screen.getByText(FUTURE_UPDATE_COUNCIL_STANDARD.entryFields[3])).toBeInTheDocument()
-    expect(screen.getByText(FUTURE_UPDATE_COUNCIL_STANDARD.councilChecks[0])).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Future updates council standard' })).toBeInTheDocument()
+    expect(screen.getByText(/Future entries on this page should be added when the council view/i)).toBeInTheDocument()
+    expect(screen.getByText(/Add the update when it changes where admins should go/i)).toBeInTheDocument()
+    expect(screen.getByText(/Council view: relevant specialist perspectives/i)).toBeInTheDocument()
+    expect(screen.getByText(/Future update entries are internal planning guidance/i)).toBeInTheDocument()
 
-    for (const area of ADMIN_UPDATE_AREAS) {
-      expect(screen.getByRole('heading', { name: area.title })).toBeInTheDocument()
-      expect(screen.getByRole('link', { name: new RegExp(area.hrefLabel, 'i') })).toHaveAttribute('href', area.href)
-      expect(screen.getByText(area.steps[0])).toBeInTheDocument()
-      expect(screen.getByText(area.checks[0])).toBeInTheDocument()
+    for (const title of [
+      'Mission Control and briefings',
+      'Admin dashboard',
+      'Organisation admin command pages',
+      'Projects, Kanban, and agent tasks',
+      'Documents and approvals',
+      'Research and intelligence',
+      'Marketing, SEO, and social',
+      'Agents, skills, and automation',
+      'Settings, users, and access',
+    ]) {
+      expect(screen.getByRole('heading', { name: title })).toBeInTheDocument()
     }
+    expect(screen.getByRole('link', { name: /open agents/i })).toHaveAttribute('href', '/admin/agents')
+    expect(screen.getByText(/Check agent health before assigning urgent work/i)).toBeInTheDocument()
+    expect(screen.getByText(/Skill policy or config changes are sensitive/i)).toBeInTheDocument()
   })
 
   it('exposes Updates in the admin sidebar and topbar navigation', () => {

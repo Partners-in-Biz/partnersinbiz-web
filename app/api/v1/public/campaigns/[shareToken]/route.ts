@@ -7,7 +7,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { adminDb } from '@/lib/firebase/admin'
 import { apiSuccess, apiError } from '@/lib/api/response'
-import { buildCampaignAssets } from '@/app/api/v1/campaigns/[id]/assets/route'
+import { buildCampaignAssets } from '@/lib/campaigns/assets'
 import { enforcePublicRateLimit, publicRequestIp, publicRateLimitHash } from '@/lib/api/public-rate-limit'
 
 export const dynamic = 'force-dynamic'

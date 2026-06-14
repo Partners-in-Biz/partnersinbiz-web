@@ -142,4 +142,64 @@ describe('POST /api/v1/conversations/[convId]/messages/[msgId]/finalize', () => 
       error: expect.stringContaining('agent gateway lost this run'),
     }))
   })
+
+  it('persists completed Hermes rich parts and UI actions alongside fallback text', async () => {
+    const events: ChatEvent[] = [
+      {
+        event: 'message.rich',
+        timestamp: 1000,
+        richParts: [
+          { type: 'status', title: 'Live checks passed', status: 'completed', body: 'Preview is ready.' },
+        ],
+        uiActions: [
+          { id: 'open-preview', type: 'open', label: 'Open preview', url: 'https://preview.example.com' },
+        ],
+      },
+    ]
+    mockCallHermesJson.mockResolvedValue({
+      response: { ok: true },
+      data: {
+        status: 'completed',
+        output: {
+          text: 'Ready for review.',
+          rich_parts: [
+            { type: 'markdown', content: '### Ready\n- Preview deployed' },
+            {
+              type: 'table',
+              columns: ['Check', 'Result'],
+              rows: [['Build', 'Passed']],
+            },
+          ],
+          ui_actions: [
+            { id: 'copy-summary', type: 'copy', label: 'Copy summary', value: 'Ready for review.' },
+          ],
+        },
+      },
+    })
+
+    const res = await callFinalize({ runId: 'run-rich', agentId: 'pip', events })
+    const body = await res.json()
+
+    expect(res.status).toBe(200)
+    expect(body.data.status).toBe('completed')
+    expect(mockMessageUpdate).toHaveBeenCalledWith(expect.objectContaining({
+      content: 'Ready for review.',
+      status: 'completed',
+      runId: 'run-rich',
+      events,
+      richParts: [
+        { type: 'markdown', content: '### Ready\n- Preview deployed' },
+        {
+          type: 'table',
+          columns: ['Check', 'Result'],
+          rows: [['Build', 'Passed']],
+        },
+        { type: 'status', title: 'Live checks passed', status: 'completed', body: 'Preview is ready.' },
+      ],
+      uiActions: [
+        { id: 'copy-summary', type: 'copy', label: 'Copy summary', value: 'Ready for review.' },
+        { id: 'open-preview', type: 'open', label: 'Open preview', url: 'https://preview.example.com' },
+      ],
+    }))
+  })
 })

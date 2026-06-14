@@ -49,6 +49,94 @@ export interface HermesRunRequest {
   metadata?: Record<string, unknown>
 }
 
+export type RichMessagePartType =
+  | 'markdown'
+  | 'code'
+  | 'table'
+  | 'image'
+  | 'gallery'
+  | 'file'
+  | 'audio'
+  | 'video'
+  | 'tool_output'
+  | 'status'
+  | 'approval'
+  | 'clarify'
+  | 'model_picker'
+
+export type RichMessageChoice = string | {
+  id?: string
+  label?: string
+  value?: string
+  [key: string]: unknown
+}
+
+export type RichModelOption = {
+  id: string
+  label?: string
+  provider?: string
+  description?: string
+  [key: string]: unknown
+}
+
+export type RichMessagePart = {
+  type: RichMessagePartType | string
+  id?: string
+  title?: string
+  content?: string
+  markdown?: string
+  code?: string
+  language?: string
+  caption?: string
+  columns?: string[]
+  rows?: unknown[][]
+  images?: Array<{ url: string; alt?: string; caption?: string; [key: string]: unknown }>
+  url?: string
+  alt?: string
+  name?: string
+  mimeType?: string
+  sizeBytes?: number
+  tool?: string
+  output?: string
+  stdout?: string
+  stderr?: string
+  status?: string
+  tone?: string
+  body?: string
+  actionId?: string
+  question?: string
+  choices?: RichMessageChoice[]
+  models?: RichModelOption[]
+  providers?: string[]
+  [key: string]: unknown
+}
+
+export type ChatUiActionType =
+  | 'approve'
+  | 'deny'
+  | 'choose'
+  | 'retry'
+  | 'stop'
+  | 'open'
+  | 'copy'
+  | 'download'
+  | 'custom'
+
+export type ChatUiAction = {
+  id: string
+  type: ChatUiActionType | string
+  label: string
+  actionId?: string
+  value?: unknown
+  url?: string
+  endpoint?: string
+  method?: string
+  payload?: Record<string, unknown>
+  disabled?: boolean
+  variant?: 'primary' | 'secondary' | 'danger' | 'ghost' | string
+  [key: string]: unknown
+}
+
 export type ChatEvent = {
   event?: string
   tool?: string
@@ -71,4 +159,8 @@ export type ChatEvent = {
   error?: boolean | string
   choices?: string[]
   todos?: unknown[]
+  actionId?: string
+  richParts?: RichMessagePart[]
+  uiActions?: ChatUiAction[]
+  raw?: Record<string, unknown>
 }

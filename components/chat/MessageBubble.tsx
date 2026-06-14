@@ -3,7 +3,7 @@
 /* eslint-disable @next/next/no-img-element -- Conversation attachments use arbitrary Firebase Storage URLs. */
 
 import { useEffect, useRef, useState, type ReactNode } from 'react'
-import type { ChatEvent } from '@/lib/hermes/types'
+import type { ChatEvent, ChatUiAction, RichMessagePart } from '@/lib/hermes/types'
 import type { ContextReference } from '@/lib/context-references/types'
 import type { SlashCommandPayload } from '@/lib/chat/slash-commands'
 import { copyToClipboard } from '@/lib/utils/clipboard'
@@ -21,6 +21,8 @@ export interface ConversationMessage {
   status?: string
   error?: string
   events?: unknown[]
+  richParts?: RichMessagePart[]
+  uiActions?: ChatUiAction[]
   toolName?: string
   authorKind: 'user' | 'agent' | 'system'
   authorId: string
@@ -57,6 +59,7 @@ interface MessageBubbleProps {
   liveEvents?: ChatEvent[]
   onStopRun?: () => void
   onQuoteSelection?: (text: string) => void
+  onUiAction?: (message: ConversationMessage, action: ChatUiAction) => void | Promise<void>
 }
 
 function initials(name: string): string {
@@ -451,6 +454,239 @@ export function ChatMessageContent({ content }: { content: string }) {
   return <div className="space-y-1 [&>:first-child]:mt-0 [&>:last-child]:mb-0">{renderMarkdownBlocks(content)}</div>
 }
 
+function partContent(part: RichMessagePart): string {
+  return part.content ?? part.markdown ?? part.body ?? part.question ?? ''
+}
+
+function choiceLabel(choice: NonNullable<RichMessagePart['choices']>[number]): string {
+  return typeof choice === 'string'
+    ? choice
+    : choice.label ?? choice.value ?? choice.id ?? 'Option'
+}
+
+function RichChoices({ choices }: { choices?: RichMessagePart['choices'] }) {
+  if (!choices?.length) return null
+  return (
+    <div className="mt-2 flex flex-wrap gap-1.5">
+      {choices.map((choice, index) => (
+        <span key={`${choiceLabel(choice)}-${index}`} className="rounded-md border border-white/10 bg-white/[0.06] px-2 py-1 text-[11px] text-on-surface-variant">
+          {choiceLabel(choice)}
+        </span>
+      ))}
+    </div>
+  )
+}
+
+function RichMessagePartView({ part }: { part: RichMessagePart }) {
+  const type = String(part.type).toLowerCase()
+  if (type === 'markdown') {
+    return <ChatMessageContent content={partContent(part)} />
+  }
+  if (type === 'code') {
+    return <CodeBlock language={part.language ?? ''} code={part.code ?? partContent(part)} />
+  }
+  if (type === 'table') {
+    const rows = Array.isArray(part.rows) ? part.rows : []
+    const columns = Array.isArray(part.columns) ? part.columns : []
+    return (
+      <div className="my-2 overflow-hidden rounded-xl border border-white/10 bg-black/20">
+        {part.caption && <div className="border-b border-white/10 px-3 py-2 text-xs font-semibold text-on-surface">{part.caption}</div>}
+        <div className="overflow-x-auto">
+          <table className="min-w-full border-collapse text-left text-xs">
+            {columns.length > 0 && (
+              <thead className="bg-white/[0.06] text-on-surface">
+                <tr>
+                  {columns.map((column) => (
+                    <th key={column} scope="col" className="border-b border-white/10 px-3 py-2 font-semibold">
+                      {column}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+            )}
+            <tbody className="text-on-surface-variant">
+              {rows.map((row, rowIndex) => (
+                <tr key={rowIndex} className="border-b border-white/5 last:border-b-0">
+                  {row.map((cell, cellIndex) => (
+                    <td key={cellIndex} className="px-3 py-2 align-top">
+                      {String(cell ?? '')}
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    )
+  }
+  if (type === 'image' && part.url) {
+    return (
+      <figure className="my-2 overflow-hidden rounded-xl border border-white/10 bg-black/20">
+        <img src={part.url} alt={part.alt ?? part.caption ?? part.name ?? 'Rich image'} className="max-h-72 w-full object-cover" />
+        {part.caption && <figcaption className="px-3 py-2 text-xs text-on-surface-variant">{part.caption}</figcaption>}
+      </figure>
+    )
+  }
+  if (type === 'gallery' && part.images?.length) {
+    return (
+      <div className="my-2 grid grid-cols-2 gap-2">
+        {part.images.map((image, index) => (
+          <figure key={`${image.url}-${index}`} className="overflow-hidden rounded-xl border border-white/10 bg-black/20">
+            <img src={image.url} alt={image.alt ?? image.caption ?? `Gallery image ${index + 1}`} className="h-36 w-full object-cover" />
+            {image.caption && <figcaption className="px-2 py-1.5 text-[11px] text-on-surface-variant">{image.caption}</figcaption>}
+          </figure>
+        ))}
+      </div>
+    )
+  }
+  if ((type === 'file' || type === 'audio' || type === 'video') && part.url) {
+    if (type === 'audio') {
+      return (
+        <div className="my-2 rounded-xl border border-white/10 bg-black/20 p-3">
+          {part.name && <p className="mb-2 text-xs font-medium text-on-surface">{part.name}</p>}
+          <audio controls src={part.url} className="w-full" />
+        </div>
+      )
+    }
+    if (type === 'video') {
+      return (
+        <div className="my-2 overflow-hidden rounded-xl border border-white/10 bg-black/20">
+          <video controls src={part.url} className="max-h-80 w-full" />
+          {part.name && <p className="px-3 py-2 text-xs text-on-surface-variant">{part.name}</p>}
+        </div>
+      )
+    }
+    return (
+      <a href={part.url} target="_blank" rel="noreferrer" className="my-2 flex items-center gap-2 rounded-xl border border-white/15 bg-black/10 px-3 py-2 text-xs transition hover:border-primary/70">
+        <span className="material-symbols-outlined text-[16px]">attach_file</span>
+        <span className="min-w-0 flex-1 truncate">{part.name ?? part.title ?? 'File'}</span>
+        {typeof part.sizeBytes === 'number' && <span className="shrink-0 opacity-60">{formatBytes(part.sizeBytes)}</span>}
+      </a>
+    )
+  }
+  if (type === 'tool_output') {
+    const text = [part.output, part.stdout, part.stderr].filter(Boolean).join('\n')
+    return (
+      <div className="my-2 overflow-hidden rounded-xl border border-primary/20 bg-black/35">
+        <div className="border-b border-white/10 px-3 py-2 text-[11px] font-label uppercase tracking-wide text-primary">
+          {part.tool ?? part.title ?? 'Tool output'}
+        </div>
+        {text && <pre className="max-h-72 overflow-auto whitespace-pre-wrap break-words p-3 font-mono text-xs text-on-surface-variant [overflow-wrap:anywhere]">{text}</pre>}
+      </div>
+    )
+  }
+  if (type === 'status' || type === 'approval' || type === 'clarify' || type === 'model_picker') {
+    const title = type === 'clarify'
+      ? part.question
+      : type === 'model_picker'
+        ? part.title ?? 'Choose model'
+        : part.title ?? part.status ?? 'Status'
+    return (
+      <div className="my-2 rounded-xl border border-white/10 bg-white/[0.045] px-3 py-2">
+        {title && <p className="text-sm font-semibold text-on-surface">{title}</p>}
+        {part.body && <p className="mt-1 text-xs leading-relaxed text-on-surface-variant">{part.body}</p>}
+        {type === 'model_picker' && part.models?.length ? (
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            {part.models.map((model) => (
+              <span key={model.id} className="rounded-md border border-white/10 bg-black/20 px-2 py-1 text-[11px] text-on-surface-variant">
+                {model.label ?? model.id}
+              </span>
+            ))}
+          </div>
+        ) : (
+          <RichChoices choices={part.choices} />
+        )}
+      </div>
+    )
+  }
+  return partContent(part) ? <ChatMessageContent content={partContent(part)} /> : null
+}
+
+function RichMessageParts({ parts }: { parts?: RichMessagePart[] }) {
+  if (!parts?.length) return null
+  return (
+    <div className="mt-2 space-y-2 whitespace-normal">
+      {parts.map((part, index) => (
+        <RichMessagePartView key={part.id ?? `${part.type}-${index}`} part={part} />
+      ))}
+    </div>
+  )
+}
+
+function actionClasses(action: ChatUiAction): string {
+  const type = String(action.type).toLowerCase()
+  if (type === 'deny' || action.variant === 'danger') {
+    return 'border-red-500/30 bg-red-500/10 text-red-200 hover:bg-red-500/20'
+  }
+  if (type === 'approve' || action.variant === 'primary') {
+    return 'border-emerald-500/30 bg-emerald-500/10 text-emerald-200 hover:bg-emerald-500/20'
+  }
+  return 'border-white/10 bg-white/[0.06] text-on-surface hover:border-primary/50 hover:bg-white/[0.09]'
+}
+
+function RichActionBar({
+  actions,
+  message,
+  onUiAction,
+}: {
+  actions?: ChatUiAction[]
+  message: ConversationMessage
+  onUiAction?: (message: ConversationMessage, action: ChatUiAction) => void | Promise<void>
+}) {
+  if (!actions?.length) return null
+  const handleAction = async (action: ChatUiAction) => {
+    if (action.disabled) return
+    if (action.type === 'copy') {
+      const text = typeof action.value === 'string' ? action.value : message.content
+      if (text) await copyToClipboard(text)
+    }
+    await onUiAction?.(message, action)
+  }
+
+  return (
+    <div className="mt-2 flex flex-wrap gap-2 whitespace-normal">
+      {actions.map((action) => {
+        const type = String(action.type).toLowerCase()
+        const className = [
+          'inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs font-medium transition disabled:cursor-not-allowed disabled:opacity-50',
+          actionClasses(action),
+        ].join(' ')
+        if ((type === 'open' || type === 'download') && action.url) {
+          return (
+            <a
+              key={action.id}
+              href={action.url}
+              target="_blank"
+              rel="noreferrer"
+              download={type === 'download' ? true : undefined}
+              onClick={() => { void onUiAction?.(message, action) }}
+              className={className}
+            >
+              <span aria-hidden="true" className="material-symbols-outlined text-[14px]">{type === 'download' ? 'download' : 'open_in_new'}</span>
+              {action.label}
+            </a>
+          )
+        }
+        return (
+          <button
+            key={action.id}
+            type="button"
+            disabled={action.disabled}
+            onClick={() => { void handleAction(action) }}
+            className={className}
+          >
+            <span aria-hidden="true" className="material-symbols-outlined text-[14px]">
+              {type === 'copy' ? 'content_copy' : type === 'retry' ? 'refresh' : type === 'stop' ? 'stop_circle' : type === 'deny' ? 'block' : 'check_circle'}
+            </span>
+            {action.label}
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
 function copyableText(message: ConversationMessage): string {
   return message.content || message.error || ''
 }
@@ -463,6 +699,7 @@ export default function MessageBubble({
   liveEvents = [],
   onStopRun,
   onQuoteSelection,
+  onUiAction,
 }: MessageBubbleProps) {
   const [previewAttachment, setPreviewAttachment] = useState<ConversationAttachment | null>(null)
   const [copied, setCopied] = useState(false)
@@ -682,7 +919,9 @@ export default function MessageBubble({
                 className="max-w-full overflow-hidden rounded-2xl rounded-br-md px-4 py-2.5 text-[15px] lg:text-sm whitespace-pre-wrap break-words [overflow-wrap:anywhere] bg-[var(--color-card-active,rgba(255,255,255,0.08))] lg:bg-primary lg:text-on-primary text-on-surface"
               >
               <ChatMessageContent content={m.content} />
+              <RichMessageParts parts={m.richParts} />
               {attachmentList}
+              <RichActionBar actions={m.uiActions} message={m} onUiAction={onUiAction} />
               </div>
             </div>
             <div className="flex justify-end">{copyAction}</div>
@@ -901,7 +1140,9 @@ export default function MessageBubble({
               <span className="opacity-70 italic">Paused — awaiting tool approval…</span>
             )}
             <ChatMessageContent content={m.content || (isFailed && m.error) || ''} />
+            <RichMessageParts parts={m.richParts} />
             {attachmentList}
+            <RichActionBar actions={m.uiActions} message={m} onUiAction={onUiAction} />
           </div>
         </div>
         {copyAction}
@@ -910,5 +1151,3 @@ export default function MessageBubble({
     </div>
   )
 }
-
-

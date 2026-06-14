@@ -17,6 +17,7 @@ import {
   type SegmentCommandFocus,
 } from '@/components/crm/SegmentCommandCenter'
 import { scopedApiPath, scopeFromSearchParams } from '@/lib/portal/scoped-routing'
+import { extractSegmentsList } from '@/lib/segments/extractSegmentsList'
 
 const STAGES = ['', 'new', 'contacted', 'replied', 'demo', 'proposal', 'won', 'lost']
 const TYPES = ['', 'lead', 'prospect', 'client', 'churned']
@@ -49,16 +50,6 @@ interface FormState {
   source: string
   behavioral: BehavioralRule[]
   engagement: EngagementScoreRule | null
-}
-
-export function extractSegmentsList(body: unknown): Segment[] {
-  if (!body || typeof body !== 'object') return []
-  const data = (body as { data?: unknown }).data
-  if (Array.isArray(data)) return data as Segment[]
-  if (data && typeof data === 'object' && Array.isArray((data as { segments?: unknown }).segments)) {
-    return (data as { segments: Segment[] }).segments
-  }
-  return []
 }
 
 const EMPTY_FORM: FormState = {
@@ -139,7 +130,7 @@ export default function PortalSegmentsPage() {
       if (!res.ok) {
         throw new Error(typeof body?.error === 'string' ? body.error : `Failed to load segments (${res.status})`)
       }
-      const list = extractSegmentsList(body)
+      const list = extractSegmentsList<Segment>(body)
       setSegments(list)
       setCounts({})
       // Lazy count resolution

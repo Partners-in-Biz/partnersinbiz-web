@@ -1,5 +1,6 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
-import PortalSegmentsPage, { extractSegmentsList } from '@/app/(portal)/portal/segments/page'
+import PortalSegmentsPage from '@/app/(portal)/portal/segments/page'
+import { extractSegmentsList } from '@/lib/segments/extractSegmentsList'
 
 const fetchMock = jest.fn()
 let mockSearchParams = new URLSearchParams()

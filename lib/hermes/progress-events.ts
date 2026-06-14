@@ -1,4 +1,10 @@
 import type { ChatEvent } from './types'
+import {
+  dedupeStructured,
+  normalizeUiActions,
+  richPayloadFromRecord,
+  sanitizeStructuredPayload,
+} from './rich-messages'
 
 const encoder = new TextEncoder()
 
@@ -18,6 +24,35 @@ function rawString(value: unknown): string | undefined {
   return typeof value === 'string' ? value : undefined
 }
 
+function choicesFromUnknown(value: unknown): string[] {
+  return Array.isArray(value)
+    ? value
+      .map((choice) => {
+        if (typeof choice === 'string') return choice
+        const record = asRecord(choice)
+        return cleanString(record.label) ?? cleanString(record.text) ?? cleanString(record.name) ?? cleanString(record.value)
+      })
+      .filter((choice): choice is string => Boolean(choice))
+    : []
+}
+
+function modelChoices(value: unknown): Array<{ id: string; label: string; provider?: string }> {
+  return Array.isArray(value)
+    ? value
+      .map((model) => {
+        const record = asRecord(model)
+        const id = cleanString(record.id) ?? cleanString(record.model) ?? cleanString(record.value)
+        if (!id) return null
+        return {
+          id,
+          label: cleanString(record.label) ?? cleanString(record.name) ?? id,
+          ...(cleanString(record.provider) ? { provider: cleanString(record.provider) } : {}),
+        }
+      })
+      .filter((model): model is { id: string; label: string; provider?: string } => Boolean(model))
+    : []
+}
+
 function numericTimestamp(value: unknown): number {
   if (typeof value === 'number' && Number.isFinite(value)) return value
   return Date.now() / 1000
@@ -34,15 +69,19 @@ export function normalizeHermesEvent(input: unknown, fallbackRunId?: string): Ch
   const outputText = cleanString(raw.output) ?? cleanString(raw.result) ?? cleanString(raw.content)
   const stdout = cleanString(raw.stdout)
   const stderr = cleanString(raw.stderr)
+  const actionId = cleanString(raw.action_id) ?? cleanString(raw.actionId)
   const exitCode = typeof raw.exit_code === 'number'
     ? raw.exit_code
     : typeof raw.exitCode === 'number'
       ? raw.exitCode
       : undefined
+  const richPayload = richPayloadFromRecord(raw)
+  const rawPayload = sanitizeStructuredPayload(raw)
   const base: ChatEvent = {
     event: rawEvent,
     ...(runId ? { runId, run_id: runId } : {}),
     timestamp,
+    ...(actionId ? { actionId } : {}),
     ...(tool ? { tool } : {}),
     ...(preview ? { preview } : {}),
     ...(inputText ? { input: inputText } : {}),
@@ -50,6 +89,8 @@ export function normalizeHermesEvent(input: unknown, fallbackRunId?: string): Ch
     ...(stdout ? { stdout } : {}),
     ...(stderr ? { stderr } : {}),
     ...(typeof exitCode === 'number' ? { exitCode } : {}),
+    ...richPayload,
+    ...(rawPayload ? { raw: rawPayload } : {}),
   }
 
   if (rawEvent === 'message.delta') {
@@ -62,10 +103,93 @@ export function normalizeHermesEvent(input: unknown, fallbackRunId?: string): Ch
   }
 
   if (rawEvent === 'approval.request') {
+    const choices = Array.isArray(raw.choices) ? raw.choices.map(String) : ['once', 'session', 'always', 'deny']
+    const approvalActionId = actionId ?? `${runId ?? 'run'}:approval`
     return [{
       ...base,
       event: 'approval.required',
-      choices: Array.isArray(raw.choices) ? raw.choices.map(String) : ['once', 'session', 'always', 'deny'],
+      choices,
+      richParts: dedupeStructured([
+        ...(base.richParts ?? []),
+        {
+          type: 'approval',
+          actionId: approvalActionId,
+          title: cleanString(raw.title) ?? 'Waiting for approval',
+          body: cleanString(raw.reason) ?? cleanString(raw.description) ?? preview,
+          choices,
+        },
+      ]),
+      uiActions: dedupeStructured([
+        ...(base.uiActions ?? []),
+        ...choices.map((choice) => ({
+          id: `${approvalActionId}:${choice}`,
+          type: choice === 'deny' ? 'deny' : 'approve',
+          label: choice === 'deny' ? 'Deny' : choice === 'once' ? 'Allow once' : choice === 'always' ? 'Allow always' : `Allow ${choice}`,
+          value: choice,
+          actionId: approvalActionId,
+        })),
+      ]),
+    }]
+  }
+
+  if (rawEvent === 'clarify.request') {
+    const clarifyActionId = actionId ?? `${runId ?? 'run'}:clarify`
+    const question = rawString(raw.question) ?? rawString(raw.prompt) ?? rawString(raw.content) ?? preview ?? 'Clarification needed'
+    const choices = choicesFromUnknown(raw.choices)
+    return [{
+      ...base,
+      event: 'clarify.required',
+      preview: question,
+      richParts: dedupeStructured([
+        ...(base.richParts ?? []),
+        {
+          type: 'clarify',
+          actionId: clarifyActionId,
+          question,
+          ...(choices.length > 0 ? { choices } : {}),
+        },
+      ]),
+      uiActions: dedupeStructured([
+        ...(base.uiActions ?? []),
+        ...choices.map((choice, index) => ({
+          id: `${clarifyActionId}:${index}`,
+          type: 'choose',
+          label: choice,
+          value: choice,
+          actionId: clarifyActionId,
+        })),
+      ]),
+    }]
+  }
+
+  if (rawEvent === 'model_picker.request' || rawEvent === 'model-picker.request') {
+    const pickerActionId = actionId ?? `${runId ?? 'run'}:model`
+    const models = modelChoices(raw.models ?? raw.choices)
+    const generatedActions = models.map((model) => ({
+      id: `${pickerActionId}:${model.id}`,
+      type: 'choose',
+      label: model.label,
+      value: model.id,
+      actionId: pickerActionId,
+    }))
+    return [{
+      ...base,
+      event: 'model_picker.required',
+      preview: cleanString(raw.title) ?? 'Choose model',
+      richParts: dedupeStructured([
+        ...(base.richParts ?? []),
+        {
+          type: 'model_picker',
+          actionId: pickerActionId,
+          title: cleanString(raw.title) ?? 'Choose model',
+          models,
+        },
+      ]),
+      uiActions: dedupeStructured([
+        ...(base.uiActions ?? []),
+        ...normalizeUiActions(raw.buttons),
+        ...generatedActions,
+      ]),
     }]
   }
 

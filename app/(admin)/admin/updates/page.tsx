@@ -29,7 +29,7 @@ type FutureUpdateCouncilStandard = {
   councilChecks: string[]
 }
 
-export const ADMIN_UPDATE_AREAS: UpdateArea[] = [
+const ADMIN_UPDATE_AREAS: UpdateArea[] = [
   {
     title: 'Mission Control and briefings',
     eyebrow: 'Daily command desk',
@@ -191,7 +191,7 @@ const RELEASE_NOTES = [
   'This is an internal admin page; it does not send messages, publish content, spend budget, deploy code, or change client records by itself.',
 ]
 
-export const FUTURE_UPDATE_COUNCIL_STANDARD: FutureUpdateCouncilStandard = {
+const FUTURE_UPDATE_COUNCIL_STANDARD: FutureUpdateCouncilStandard = {
   title: 'Future updates council standard',
   summary: 'Future entries on this page should be added when the council view is that a platform change materially affects operator workflow, client delivery, evidence standards, approvals, or strategic risk.',
   criteria: [
