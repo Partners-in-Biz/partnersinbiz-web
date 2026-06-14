@@ -3,6 +3,7 @@
 import { useCallback, useMemo } from 'react'
 import { useParams } from 'next/navigation'
 import { OrgThemedFrame } from '@/components/admin/OrgThemedFrame'
+import { AdminOperatorGate } from '@/components/admin/AdminOperatorGate'
 import SocialOverviewWorkspace, { type SocialOverviewAction } from '@/components/social/SocialOverviewWorkspace'
 import { useOrg } from '@/lib/contexts/OrgContext'
 import { appendQueryParams } from '@/lib/portal/scoped-routing'
@@ -77,18 +78,24 @@ export default function OrgSocialIndexPage() {
           </section>
         </div>
       ) : (
-        <SocialOverviewWorkspace
-          surface="admin"
-          eyebrow="Workspace / Social"
-          title={`${resolvedOrgName || 'Client'} social`}
-          description={`Monitor posts, account health, approvals, and publishing activity for ${resolvedOrgName || 'this client'}.`}
-          postsLimit={200}
-          buildApiPath={buildApiPath}
-          primaryAction={primaryAction}
-          quickActions={quickActions}
-          showInboxCount
-          showRecentPosts
-        />
+        <div className="mx-auto max-w-7xl space-y-6">
+          <AdminOperatorGate
+            title="Social workspace is operator-led"
+            body="Use this admin surface to compose, inspect, and queue internal social work. Publishing, scheduling, and client-visible approvals must be released only through approved Projects/Kanban gates."
+          />
+          <SocialOverviewWorkspace
+            surface="admin"
+            eyebrow="Workspace / Social"
+            title={`${resolvedOrgName || 'Client'} social`}
+            description={`Operator command center for posts, account health, approvals, and gated publishing activity for ${resolvedOrgName || 'this client'}.`}
+            postsLimit={200}
+            buildApiPath={buildApiPath}
+            primaryAction={primaryAction}
+            quickActions={quickActions}
+            showInboxCount
+            showRecentPosts
+          />
+        </div>
       )}
     </OrgThemedFrame>
   )

@@ -7,6 +7,7 @@ import {
   CampaignsWorkspace,
   type CampaignWorkspaceRecord,
 } from '@/components/campaigns/CampaignsWorkspace'
+import { AdminOperatorGate } from '@/components/admin/AdminOperatorGate'
 import { QuickEmailCampaignCreator } from './QuickEmailCampaignCreator'
 
 export const dynamic = 'force-dynamic'
@@ -63,7 +64,15 @@ export default async function CampaignsPage({ params }: { params: Promise<{ slug
       broadcasts={broadcasts}
       adCampaigns={adCampaigns}
       requests={requests}
-      workflowPanel={<QuickEmailCampaignCreator orgId={orgId} slug={slug} />}
+      workflowPanel={(
+        <>
+          <AdminOperatorGate
+            title="Campaign workspace is operator-led"
+            body="This admin view stages content, email, broadcasts, and paid campaign work for PiB operators. Public publishing, contact messaging, and paid launches must stay behind Projects/Kanban approval gates."
+          />
+          <QuickEmailCampaignCreator orgId={orgId} slug={slug} />
+        </>
+      )}
       actions={
         <>
           <Link href="/admin/campaigns" className="pib-btn-secondary">

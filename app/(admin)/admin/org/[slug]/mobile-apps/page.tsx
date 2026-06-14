@@ -1,6 +1,7 @@
 import { notFound } from 'next/navigation'
 import { adminDb } from '@/lib/firebase/admin'
 import { MobileAppsAdminWorkspace } from '@/components/mobile-apps/MobileAppsAdminWorkspace'
+import { AdminOperatorGate } from '@/components/admin/AdminOperatorGate'
 
 export const dynamic = 'force-dynamic'
 
@@ -18,5 +19,13 @@ export default async function AdminOrgMobileAppsPage({ params }: { params: Promi
   const org = orgDoc.data() ?? {}
   const orgName = typeof org.name === 'string' && org.name.trim() ? org.name.trim() : slug
 
-  return <MobileAppsAdminWorkspace orgId={orgDoc.id} orgName={orgName} />
+  return (
+    <div className="space-y-6">
+      <AdminOperatorGate
+        title="Mobile app visibility is approval-gated"
+        body="Use this admin workspace for app inventory, ASO notes, release status, and internal access. App Store/Play Store release changes and client-visible portal exposure require approved Projects/Kanban gates."
+      />
+      <MobileAppsAdminWorkspace orgId={orgDoc.id} orgName={orgName} />
+    </div>
+  )
 }

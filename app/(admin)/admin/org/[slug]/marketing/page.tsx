@@ -3,6 +3,7 @@
 import { useParams } from 'next/navigation'
 import { HubPage } from '@/components/navigation/HubPage'
 import { buildMarketingHubProps } from '@/components/navigation/marketingHubConfig'
+import { AdminOperatorGate } from '@/components/admin/AdminOperatorGate'
 
 export const dynamic = 'force-dynamic'
 

@@ -4,6 +4,7 @@ export const dynamic = 'force-dynamic'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { EmailCampaignDetailWorkspace } from '@/components/campaigns/EmailCampaignDetailWorkspace'
+import { AdminOperatorGate } from '@/components/admin/AdminOperatorGate'
 import { EMPTY_STATS, type Campaign, type CampaignStatus } from '@/lib/campaigns/types'
 import type { Sequence } from '@/lib/sequences/types'
 import type { EmailDomain } from '@/lib/email/domains'
@@ -349,6 +350,10 @@ export default function CampaignDetailPage() {
           </span>
         )}
       </div>
+      <AdminOperatorGate
+        title="Email campaign launch is approval-gated"
+        body="Use this admin view to configure the draft campaign, evidence, domains, audience, and sequence. Enrolling contacts or sending messages requires an approved Projects/Kanban gate before execution."
+      />
       <div className="flex flex-wrap gap-2">
         {editable && (
           <>
@@ -362,11 +367,11 @@ export default function CampaignDetailPage() {
             </button>
             <button
               type="button"
-              onClick={() => setPendingAction('launch')}
-              disabled={launching || saving}
-              className="btn-pib-accent !py-2 !px-3 !text-xs disabled:opacity-50"
+              disabled
+              className="btn-pib-accent !py-2 !px-3 !text-xs disabled:cursor-not-allowed disabled:opacity-50"
+              title="Campaign launch requires an approved Projects/Kanban gate before client-visible sending."
             >
-              {launching ? 'Launching...' : 'Launch'}
+              Approval gate required
             </button>
           </>
         )}
@@ -389,8 +394,8 @@ export default function CampaignDetailPage() {
             Enroll {audienceSize} contact{audienceSize === 1 ? '' : 's'} and start sending?
           </p>
           <div className="flex gap-2">
-            <button type="button" onClick={performLaunch} className="btn-pib-accent !py-1.5 !px-2 !text-xs">
-              Start sending
+            <button type="button" disabled className="btn-pib-accent !py-1.5 !px-2 !text-xs disabled:cursor-not-allowed disabled:opacity-50" title="Start sending requires an approved Projects/Kanban gate.">
+              Approval gate required
             </button>
             <button
               type="button"

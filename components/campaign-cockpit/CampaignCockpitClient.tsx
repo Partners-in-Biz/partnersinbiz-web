@@ -7,6 +7,7 @@ import Link from 'next/link'
 import { AssetGrid } from '@/components/campaign-cockpit/AssetGrid'
 import { BlogPreviewCard, type PreviewBrand } from '@/components/campaign-preview'
 import { PageTabs } from '@/components/ui/AppFoundation'
+import { AdminOperatorGate } from '@/components/admin/AdminOperatorGate'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnyObj = any
@@ -62,7 +63,7 @@ export interface CampaignCockpitClientProps {
   backHref: string
   backLabel: string
   basePath: string
-  assetApprovalMode?: 'direct' | 'client'
+  assetApprovalMode?: 'direct' | 'client' | 'gated'
   showClientBlogApprovals?: boolean
   apiPaths?: {
     approveAll: string
@@ -100,6 +101,7 @@ export function CampaignCockpitClient({
 
   const split = useMemo(() => splitAssets(assets), [assets])
   const totalAwaiting = (assets?.meta?.byStatus?.pending_approval ?? 0) as number
+  const operatorGated = assetApprovalMode === 'gated'
 
   const setTab = (key: TabKey) => {
     const params = new URLSearchParams(search.toString())
@@ -182,25 +184,41 @@ export function CampaignCockpitClient({
                 Public preview ↗
               </a>
             )}
-            <button
-              type="button"
-              onClick={() => {
-                setApproveAllStatus(null)
-                setApproveAllError(null)
-                setShowApproveAllConfirm(true)
-              }}
-              disabled={approving || totalAwaiting === 0}
-              className="text-sm font-label px-4 py-2 rounded-md transition-opacity disabled:opacity-40"
-              style={{
-                background: 'var(--org-accent, var(--color-pib-accent))',
-                color: '#000',
-              }}
-            >
-              {approving ? 'Approving…' : `Approve all awaiting assets (${totalAwaiting})`}
-            </button>
+            {operatorGated ? (
+              <button
+                type="button"
+                disabled
+                className="rounded-md border border-amber-400/40 px-4 py-2 text-sm font-label text-amber-700 opacity-80"
+              >
+                Approval gate required
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => {
+                  setApproveAllStatus(null)
+                  setApproveAllError(null)
+                  setShowApproveAllConfirm(true)
+                }}
+                disabled={approving || totalAwaiting === 0}
+                className="text-sm font-label px-4 py-2 rounded-md transition-opacity disabled:opacity-40"
+                style={{
+                  background: 'var(--org-accent, var(--color-pib-accent))',
+                  color: '#000',
+                }}
+              >
+                {approving ? 'Approving…' : `Approve all awaiting assets (${totalAwaiting})`}
+              </button>
+            )}
           </div>
         </div>
-        {(showApproveAllConfirm || approveAllStatus || approveAllError) && (
+        {operatorGated ? (
+          <AdminOperatorGate
+            title="Campaign cockpit is approval-gated"
+            body="Operators can inspect drafts, evidence, comments, and readiness here. Approving all assets, publishing blogs, scheduling social posts, or exposing client-visible changes must be cleared through Projects/Kanban first."
+          />
+        ) : null}
+        {(showApproveAllConfirm || approveAllStatus || approveAllError) && !operatorGated && (
           <div className="mt-4 max-w-xl">
             {showApproveAllConfirm && (
               <div
@@ -642,7 +660,7 @@ function PlatformPanel({
   brand: PreviewBrand | undefined
   campaignId: string
   empty: React.ReactNode
-  approvalMode: 'direct' | 'client'
+  approvalMode: 'direct' | 'client' | 'gated'
 }) {
   const total = social.length + blogs.length + videos.length
   if (total === 0) {
@@ -660,7 +678,8 @@ function PlatformPanel({
       blogs={blogs}
       videos={videos}
       filter={filter}
-      approvalMode={approvalMode}
+      approvalMode={approvalMode === 'gated' ? 'direct' : approvalMode}
+      readonly={approvalMode === 'gated'}
     />
   )
 }

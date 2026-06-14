@@ -39,24 +39,24 @@ describe('marketing hub config', () => {
     const workspace = buildMarketingHubProps({ surface: 'admin-org', slug: 'lumen-speeds' })
     const hrefs = actionMap(workspace.sections)
 
-    expect(workspace.primaryAction?.href).toBe('/portal/social/compose?org=lumen-speeds')
-    expect(hrefs.get('Compose')).toBe('/portal/social/compose?org=lumen-speeds')
-    expect(hrefs.get('Calendar')).toBe('/portal/social/calendar?org=lumen-speeds')
-    expect(hrefs.get('History')).toBe('/portal/social/history?org=lumen-speeds')
-    expect(hrefs.get('Queue')).toBe('/portal/social/queue?org=lumen-speeds')
-    expect(hrefs.get('Accounts')).toBe('/portal/social/accounts?org=lumen-speeds')
-    expect(hrefs.get('Links')).toBe('/portal/social/links?org=lumen-speeds')
-    expect(hrefs.get('Email')).toBe('/portal/email?org=lumen-speeds')
-    expect(hrefs.get('Email analytics')).toBe('/portal/email-analytics?org=lumen-speeds')
-    expect(hrefs.get('Sequences')).toBe('/portal/sequences?org=lumen-speeds')
-    expect(hrefs.get('Contacts')).toBe('/portal/contacts?org=lumen-speeds')
+    expect(workspace.primaryAction?.href).toBe('/admin/org/lumen-speeds/social/standalone')
+    expect(hrefs.get('Compose')).toBe('/admin/org/lumen-speeds/social/standalone')
+    expect(hrefs.get('Calendar')).toBe('/admin/org/lumen-speeds/social')
+    expect(hrefs.get('History')).toBe('/admin/org/lumen-speeds/social')
+    expect(hrefs.get('Queue')).toBe('/admin/org/lumen-speeds/social')
+    expect(hrefs.get('Accounts')).toBe('/admin/org/lumen-speeds/social')
+    expect(hrefs.get('Links')).toBe('/admin/org/lumen-speeds/social')
+    expect(hrefs.get('Email')).toBe('/admin/org/lumen-speeds/messages')
+    expect(hrefs.get('Email analytics')).toBe('/admin/org/lumen-speeds/messages')
+    expect(hrefs.get('Sequences')).toBe('/admin/org/lumen-speeds/capture-sources')
+    expect(hrefs.get('Contacts')).toBe('/admin/org/lumen-speeds/capture-sources')
 
     const actions = workspace.sections.flatMap((section) => section.actions)
+    expect(workspace.eyebrow).toBe('Internal operator surface')
+    expect(workspace.description).toContain('admin routes')
     for (const action of actions) {
-      expect(action.href).not.toBe('/portal/marketing')
-      if (action.href.startsWith('/admin/') && !action.href.startsWith('/admin/org/lumen-speeds/')) {
-        expect(action.href).toContain('?org=lumen-speeds')
-      }
+      expect(action.href).not.toContain('/portal/')
+      expect(action.href).toMatch(/^\/admin\/org\/lumen-speeds\//)
     }
   })
 

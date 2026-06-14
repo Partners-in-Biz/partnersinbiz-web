@@ -51,7 +51,7 @@ type FormState = {
 const emptyForm: FormState = {
   name: '', platform: 'ios', status: 'planned', appStoreUrl: '', playStoreUrl: '', packageName: '', bundleId: '', developerName: '', supportUrl: '', privacyPolicyUrl: '', websiteUrl: '',
   title: '', subtitle: '', shortDescription: '', longDescription: '', keywords: '', category: '', targetAudience: '', asoNotes: '', iconUrl: '', screenshotUrls: '',
-  installs: '', activeUsers: '', averageRating: '', reviewCount: '', currentVersion: '', upcomingVersion: '', releaseNotes: '', submissionStatus: '', accessStatus: 'unknown', accessNotes: '', internalNotes: '', clientNotes: '', showInClientPortal: true,
+  installs: '', activeUsers: '', averageRating: '', reviewCount: '', currentVersion: '', upcomingVersion: '', releaseNotes: '', submissionStatus: '', accessStatus: 'unknown', accessNotes: '', internalNotes: '', clientNotes: '', showInClientPortal: false,
 }
 
 function lines(value?: string[]) { return Array.isArray(value) ? value.join('\n') : '' }
@@ -266,7 +266,16 @@ export function MobileAppsAdminWorkspace({ orgId, orgName }: MobileAppsAdminWork
           <TextArea label="Internal access notes" value={form.accessNotes} onChange={v => update('accessNotes', v)} rows={3} />
           <TextArea label="Internal notes" value={form.internalNotes} onChange={v => update('internalNotes', v)} rows={3} />
           <TextArea label="Client-visible notes" value={form.clientNotes} onChange={v => update('clientNotes', v)} rows={3} />
-          <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={form.showInClientPortal} onChange={e => update('showInClientPortal', e.target.checked)} /> Show in client portal</label>
+          <label className="flex items-start gap-2 text-sm text-on-surface-variant">
+            <input
+              type="checkbox"
+              checked={form.showInClientPortal}
+              disabled
+              onChange={e => update('showInClientPortal', e.target.checked)}
+              title="Client portal exposure requires an approved Projects/Kanban gate."
+            />
+            <span>Client portal exposure locked until approval gate is recorded</span>
+          </label>
           <button type="submit" disabled={saving || !form.name.trim()} className="pib-btn-primary w-full">{saving ? 'Saving…' : 'Save mobile app'}</button>
         </form>
       </div>

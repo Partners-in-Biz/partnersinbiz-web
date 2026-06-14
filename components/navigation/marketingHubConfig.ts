@@ -10,10 +10,6 @@ function orgPath(slug: string, path: string) {
   return `/admin/org/${encodeURIComponent(slug)}${path}`
 }
 
-function orgQueryPath(slug: string, path: string) {
-  return `${path}${path.includes('?') ? '&' : '?'}org=${encodeURIComponent(slug)}`
-}
-
 function section(title: string, actions: HubAction[]): HubSection {
   return { title, actions }
 }
@@ -190,12 +186,12 @@ export function buildMarketingHubProps(config: MarketingHubSurface): HubPageProp
     const { slug } = config
 
     return {
-      eyebrow: 'Client workspace',
+      eyebrow: 'Internal operator surface',
       title: 'Marketing',
-      description: 'Brand, campaign, social, email, SEO, and lead-capture work for this client.',
+      description: 'Internal admin routes for this client: growth operators can run brand, campaign, social, email, SEO, GEO, and lead-capture work without leaking into portal navigation.',
       primaryAction: {
         label: 'Compose post',
-        href: orgQueryPath(slug, '/portal/social/compose'),
+        href: orgPath(slug, '/social/standalone'),
         icon: 'edit_square',
         description: 'Create a social post.',
       },
@@ -247,42 +243,42 @@ export function buildMarketingHubProps(config: MarketingHubSurface): HubPageProp
           },
           {
             label: 'Compose',
-            href: orgQueryPath(slug, '/portal/social/compose'),
+            href: orgPath(slug, '/social/standalone'),
             icon: 'edit_square',
             description: 'Draft and schedule posts for connected platforms.',
             eyebrow: 'Create',
           },
           {
             label: 'Calendar',
-            href: orgQueryPath(slug, '/portal/social/calendar'),
+            href: orgPath(slug, '/social'),
             icon: 'calendar_month',
             description: 'See scheduled and planned posts across channels.',
             eyebrow: 'Schedule',
           },
           {
             label: 'History',
-            href: orgQueryPath(slug, '/portal/social/history'),
+            href: orgPath(slug, '/social'),
             icon: 'history',
             description: 'Review published, failed, and cancelled social posts.',
             eyebrow: 'Archive',
           },
           {
             label: 'Queue',
-            href: orgQueryPath(slug, '/portal/social/queue'),
+            href: orgPath(slug, '/social'),
             icon: 'pending_actions',
             description: 'Work through publishing, approval, and retry queues.',
             eyebrow: 'Ops',
           },
           {
             label: 'Accounts',
-            href: orgQueryPath(slug, '/portal/social/accounts'),
+            href: orgPath(slug, '/social'),
             icon: 'hub',
             description: 'Connect and troubleshoot social accounts.',
             eyebrow: 'Connect',
           },
           {
             label: 'Links',
-            href: orgQueryPath(slug, '/portal/social/links'),
+            href: orgPath(slug, '/social'),
             icon: 'link',
             description: 'Manage link-in-bio and campaign link surfaces.',
             eyebrow: 'Profile',
@@ -291,21 +287,21 @@ export function buildMarketingHubProps(config: MarketingHubSurface): HubPageProp
         section('Email and capture', [
           {
             label: 'Email',
-            href: orgQueryPath(slug, '/portal/email'),
+            href: orgPath(slug, '/messages'),
             icon: 'mail',
             description: 'Manage client email drafts, scheduled sends, broadcasts, and failures.',
             eyebrow: 'Comms',
           },
           {
             label: 'Email analytics',
-            href: orgQueryPath(slug, '/portal/email-analytics'),
+            href: orgPath(slug, '/messages'),
             icon: 'query_stats',
             description: 'Review email delivery, opens, clicks, and source performance.',
             eyebrow: 'Reporting',
           },
           {
             label: 'Sequences',
-            href: orgQueryPath(slug, '/portal/sequences'),
+            href: orgPath(slug, '/capture-sources'),
             icon: 'route',
             description: 'Maintain client nurture journeys.',
             eyebrow: 'Journey',
@@ -328,14 +324,14 @@ export function buildMarketingHubProps(config: MarketingHubSurface): HubPageProp
         section('Audience and setup', [
           {
             label: 'Contacts',
-            href: orgQueryPath(slug, '/portal/contacts'),
+            href: orgPath(slug, '/capture-sources'),
             icon: 'contacts',
             description: 'Manage leads, prospects, clients, tags, and lifecycle stages.',
             eyebrow: 'Audience',
           },
           {
             label: 'Communications',
-            href: orgQueryPath(slug, '/portal/communications'),
+            href: orgPath(slug, '/messages'),
             icon: 'forum',
             description: 'Manage conversations, campaign replies, templates, queues, and channel health.',
             eyebrow: 'Comms',

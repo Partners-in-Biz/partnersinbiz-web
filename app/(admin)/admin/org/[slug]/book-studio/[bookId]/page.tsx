@@ -1,6 +1,7 @@
 import { notFound } from 'next/navigation'
 import { adminDb } from '@/lib/firebase/admin'
 import { BookStudioAdminWorkspace, type BookStudioProject } from '@/components/book-studio/BookStudioAdminWorkspace'
+import { AdminOperatorGate } from '@/components/admin/AdminOperatorGate'
 
 export const dynamic = 'force-dynamic'
 
@@ -30,5 +31,13 @@ export default async function AdminOrgBookStudioDetailPage({ params }: { params:
     ],
   }
 
-  return <BookStudioAdminWorkspace orgId={orgDoc.id} orgName={orgName} orgSlug={slug} projects={[project]} />
+  return (
+    <div className="space-y-6">
+      <AdminOperatorGate
+        title="Book project release is approval-gated"
+        body="Inspect this book project as an operator workspace. Publishing packets, external uploads, and client-visible release actions remain locked until evidence and release-review gates pass."
+      />
+      <BookStudioAdminWorkspace orgId={orgDoc.id} orgName={orgName} orgSlug={slug} projects={[project]} />
+    </div>
+  )
 }

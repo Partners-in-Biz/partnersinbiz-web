@@ -816,7 +816,7 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
           objective: form.objective,
           videoType: form.videoType,
           source: { intakeType: form.sourceUrl ? 'source_url' : 'manual', sourceUrl: form.sourceUrl },
-          visibility: { showInClientPortal: true },
+          visibility: { showInClientPortal: false },
         }),
       })
       const body = await res.json().catch(() => ({}))

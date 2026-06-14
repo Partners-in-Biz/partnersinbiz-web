@@ -23,7 +23,7 @@ export type GeoSeoWorkspaceRecord = {
 
 type GeoSeoWorkspaceProps = {
   workspaces: GeoSeoWorkspaceRecord[]
-  surface?: 'admin' | 'portal'
+  surface?: 'admin' | 'admin-org' | 'portal'
   orgScope?: PortalOrgRouteScope
   basePath?: string
   emptyActionHref?: string
@@ -43,7 +43,7 @@ export function geoSeoDateLabel(value: string | null | undefined) {
   return value ? new Date(value).toLocaleDateString('en-ZA') : 'Not scheduled'
 }
 
-function workspaceHref(workspaceId: string, surface: 'admin' | 'portal', basePath?: string, orgScope?: PortalOrgRouteScope) {
+function workspaceHref(workspaceId: string, surface: 'admin' | 'admin-org' | 'portal', basePath?: string, orgScope?: PortalOrgRouteScope) {
   const path = `${basePath || '/portal/geo-seo'}/workspaces/${encodeURIComponent(workspaceId)}`
   return surface === 'portal' ? scopedPortalPath(path, orgScope || {}) : path
 }
@@ -62,10 +62,12 @@ export function GeoSeoWorkspace({
     <div className="space-y-6">
       <header className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <p className="pib-label mb-2">Marketing Hub sibling service</p>
+          <p className="pib-label mb-2">{surface === 'admin-org' ? 'Internal operator surface' : 'Marketing Hub sibling service'}</p>
           <h1 className="pib-page-title">GEO SEO Manager</h1>
           <p className="pib-page-sub max-w-3xl">
-            AI search visibility operating system for workspaces, audits, answer-engine readiness, and approval-gated client reporting.
+            {surface === 'admin-org'
+              ? 'Internal AI search visibility operations for this client. Workspace reads are scoped by the resolved organisation and reports stay gated before client visibility.'
+              : 'AI search visibility operating system for workspaces, audits, answer-engine readiness, and approval-gated client reporting.'}
           </p>
         </div>
         <div className="flex flex-wrap gap-2 text-xs text-[var(--color-pib-text-muted)]">
