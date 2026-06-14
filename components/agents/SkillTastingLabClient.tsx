@@ -500,7 +500,7 @@ export default function SkillTastingLabClient() {
         <div>
           <h2 className="text-sm font-semibold text-on-surface">Agent Learning Review schedule</h2>
           <p className="mt-1 text-xs text-on-surface-variant">
-            This schedules the PiB “scan → stage → review” loop under Pip. Pick whether it runs for the system as a whole or one client organisation. Runs only create reviewable proposals/tasks; they do not mutate skills, publish, send, spend, bill, deploy, or change secrets.
+            This schedules the PiB “scan → stage → review” loop under Pip. Pick whether it runs for the system as a whole or a scoped organisation being administered. Runs only create reviewable proposals/tasks; they do not mutate skills, publish, send, spend, bill, deploy, or change secrets.
           </p>
         </div>
         <div className="grid gap-3 lg:grid-cols-[180px_minmax(0,1fr)_260px] lg:items-end">
@@ -508,11 +508,11 @@ export default function SkillTastingLabClient() {
             <span className="text-[10px] font-label uppercase tracking-wide text-on-surface-variant">Scope</span>
             <select className="pib-input w-full text-sm" value={learningScope} onChange={(e) => setLearningScope(e.target.value as 'system' | 'client')}>
               <option value="system">System / PiB parent</option>
-              <option value="client">Client organisation</option>
+              <option value="client">Scoped organisation</option>
             </select>
           </label>
           <label className="space-y-1.5">
-            <span className="text-[10px] font-label uppercase tracking-wide text-on-surface-variant">Organisation</span>
+            <span className="text-[10px] font-label uppercase tracking-wide text-on-surface-variant">Scoped organisation</span>
             <select className="pib-input w-full text-sm" value={learningOrgId} onChange={(e) => setLearningOrgId(e.target.value)} disabled={learningScope === 'system'}>
               {organizations.map((org) => (
                 <option key={org.id} value={org.id}>{org.name} ({org.id})</option>

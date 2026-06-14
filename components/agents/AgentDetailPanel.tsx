@@ -764,6 +764,10 @@ export function AgentDetailPanel({ agent, onClose, onSaved, canEdit = false }: A
         </button>
       </div>
 
+      <div className="border-b border-white/10 px-6 py-3 text-xs leading-5 text-on-surface-variant">
+        Only super admins can edit live agent configuration. Secrets remain redacted; config, env, file, cron, and runtime operations stay behind admin approval gates.
+      </div>
+
       <PageTabs
         className="shrink-0 border-x-0 border-t-0 px-4 py-2"
         ariaLabel="Agent detail tabs"
@@ -1576,7 +1580,7 @@ export function AgentDetailPanel({ agent, onClose, onSaved, canEdit = false }: A
                         {envSaving ? 'Saving...' : 'Save'}
                       </button>
                     </div>
-                    <p className="text-[10px] text-on-surface-variant/60">Values stay redacted after saving. Saving restarts this agent on the VPS.</p>
+                    <p className="text-[10px] text-on-surface-variant/60">Secrets remain redacted after saving. Saving restarts this agent on the VPS and must stay inside the approved runtime/config gate.</p>
                   </form>
                 )}
 

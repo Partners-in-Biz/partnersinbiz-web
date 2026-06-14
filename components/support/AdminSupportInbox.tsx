@@ -118,10 +118,10 @@ export function AdminSupportInbox() {
     <div className="space-y-6">
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <p className="eyebrow">Client support</p>
+          <p className="eyebrow">Support Operations</p>
           <h1 className="pib-page-title mt-2">Support Inbox</h1>
           <p className="pib-page-sub max-w-2xl">
-            Async client support tickets with a chat-like thread and room for Hermes-assisted triage.
+            Administer scoped support tickets with audit-safe status, priority, operator reply, and Hermes-assisted triage controls.
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -243,7 +243,7 @@ export function AdminSupportInbox() {
                       className="pib-input min-h-24 resize-y"
                       value={reply}
                       onChange={(event) => setReply(event.target.value)}
-                      placeholder="Reply to the client..."
+                      placeholder="Draft an operator reply for this support thread..."
                     />
                     <div className="mt-3 flex justify-end">
                       <button
@@ -253,7 +253,7 @@ export function AdminSupportInbox() {
                         className="btn-pib-accent disabled:cursor-not-allowed disabled:opacity-45"
                       >
                         <span className="material-symbols-outlined text-[18px]">send</span>
-                        Send reply
+                        Send operator reply
                       </button>
                     </div>
                   </div>
@@ -262,7 +262,7 @@ export function AdminSupportInbox() {
                 <aside className="border-t border-[var(--color-pib-line)] p-4 lg:border-l lg:border-t-0">
                   <h3 className="text-sm font-semibold">Hermes triage</h3>
                   <p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">
-                    Internal only for now. Add a summary or suggested response before client-facing automation is enabled.
+                    Internal operator notes only. Add a summary or suggested response before any client-visible automation is separately approved.
                   </p>
                   <textarea
                     className="pib-input mt-4 min-h-40 resize-y text-sm"

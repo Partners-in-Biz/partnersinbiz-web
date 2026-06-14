@@ -165,7 +165,7 @@ export default function AgentsBoardClient() {
           </p>
           <h1 className="text-2xl font-headline font-bold text-on-surface">Agent Team</h1>
           <p className="text-sm text-on-surface-variant mt-1">
-            Manage the specialist agents that serve your clients. New agents are provisioned through Pip automatically.
+            Administer the specialist agents, runtime profiles, skill policy, health, logs, and gated configuration used by PiB operators. Client organisations only appear as scoped records being administered.
           </p>
         </div>
         <div className="flex items-center gap-2 shrink-0">

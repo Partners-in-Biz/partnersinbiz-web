@@ -10,15 +10,29 @@ jest.mock('next/link', () => {
   }
 })
 
+jest.mock('@/lib/firebase/admin', () => ({
+  adminDb: {
+    collection: () => ({
+      where: () => ({
+        orderBy: () => ({
+          limit: () => ({
+            get: async () => ({ docs: [] }),
+          }),
+        }),
+      }),
+    }),
+  },
+}))
+
 describe('Admin loop engine page', () => {
-  it('renders the loop registry, task readiness explainer, and approval gates', () => {
-    render(<AdminLoopEnginePage />)
+  it('renders the loop registry, task readiness explainer, and approval gates', async () => {
+    render(await AdminLoopEnginePage())
 
     expect(screen.getByRole('heading', { name: /loop engine/i })).toBeInTheDocument()
     expect(screen.getByText(/design loops that prompt agents/i)).toBeInTheDocument()
     expect(screen.getByText(/no-progress detection/i)).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: /open projects/i })).toHaveAttribute('href', '/portal/projects')
-    expect(screen.getByRole('link', { name: /open briefings/i })).toHaveAttribute('href', '/portal/briefings')
+    expect(screen.getByRole('link', { name: /open admin projects/i })).toHaveAttribute('href', '/admin/projects')
+    expect(screen.getByRole('link', { name: /open admin briefings/i })).toHaveAttribute('href', '/admin/briefings')
 
     expect(screen.getByRole('heading', { name: /full-loop execution layer/i })).toBeInTheDocument()
     expect(screen.getByText(/dry-run-first API/i)).toBeInTheDocument()
