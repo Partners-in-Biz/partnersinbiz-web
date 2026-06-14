@@ -215,6 +215,9 @@ export function ResearchDetailClient({ id, mode, basePath, documentsBasePath = '
           <Link href={basePath} className="text-sm text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-accent)]">Research</Link>
           <h1 className="pib-page-title mt-2">{item.title}</h1>
           <p className="pib-page-sub mt-2 max-w-3xl">{item.summary || 'Structured findings, evidence, and recommendations for this client workspace.'}</p>
+          <p className="mt-2 max-w-3xl text-sm text-[var(--color-pib-text-muted)]">
+            Research remains internal while visibility is internal. Convert to a client document draft or mark client-visible only when notes and sources are safe for client review.
+          </p>
         </div>
         {mode === 'admin' && (
           <div className="flex flex-wrap gap-2">
@@ -228,7 +231,7 @@ export function ResearchDetailClient({ id, mode, basePath, documentsBasePath = '
             </button>
             <button type="button" className="btn-pib-accent" onClick={() => openResearchReport('edit')}>
               <span className="material-symbols-outlined text-base">description</span>
-              {item.linked.documentIds?.length ? 'Open Report' : 'Create Report'}
+              {item.linked.documentIds?.length ? 'Open client document draft' : 'Create client document draft'}
             </button>
           </div>
         )}
@@ -240,7 +243,7 @@ export function ResearchDetailClient({ id, mode, basePath, documentsBasePath = '
       <section className="grid gap-4 md:grid-cols-4">
         <div className="bento-card"><p className="eyebrow !text-[9px]">Kind</p><p className="mt-2 font-display text-xl">{label(item.kind)}</p></div>
         <div className="bento-card"><p className="eyebrow !text-[9px]">Status</p><p className="mt-2 font-display text-xl">{label(item.status)}</p></div>
-        <div className="bento-card"><p className="eyebrow !text-[9px]">Visibility</p><p className="mt-2 font-display text-xl">{label(item.visibility)}</p></div>
+        <div className="bento-card"><p className="eyebrow !text-[9px]">Visibility</p><p className="mt-2 font-display text-xl">{label(item.visibility)}</p><p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">{item.visibility === 'client_visible' ? 'Client-visible research: verify confidential notes are removed.' : 'Internal only'}</p></div>
         <div className="bento-card"><p className="eyebrow !text-[9px]">Obsidian</p><p className="mt-2 font-display text-xl">{item.obsidian?.exported ? 'Exported' : 'Not exported'}</p></div>
       </section>
 

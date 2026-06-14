@@ -13,9 +13,9 @@ export default function ClientWikiPage() {
       <KnowledgeBrowser
         scope="agent"
         agent={slug}
-        eyebrow="Client workspace"
+        eyebrow="Internal agent knowledge base"
         title="Client Wiki"
-        description="The client-specific Markdown wiki from the shared Obsidian vault. Updates here are saved back to the Hermes knowledge vault for agents and Obsidian to pick up."
+        description="Internal agent knowledge base for this client workspace. Updates are saved to the Hermes knowledge vault for agents and Obsidian; this is not a client-facing approval or publishing surface."
       />
     </OrgThemedFrame>
   )

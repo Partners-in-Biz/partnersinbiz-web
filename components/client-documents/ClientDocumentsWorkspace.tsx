@@ -188,7 +188,7 @@ export function ClientDocumentsWorkspace({ surface, orgSlug = '' }: ClientDocume
         title={surface === 'admin' ? 'Client Documents' : 'Your documents'}
         description={
           surface === 'admin'
-            ? 'Proposals, specs, strategies, and reports for this client. Use the tabs to move between active review states.'
+            ? 'Internal drafting/review workspace for proposals, specs, strategies, and reports. Client-visible only after approval gate, explicit send for client review, or share settings are enabled.'
             : 'Proposals, specs, strategies, and reports shared with you by Partners in Biz.'
         }
         actions={surface === 'admin' ? (

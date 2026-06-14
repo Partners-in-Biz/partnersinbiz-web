@@ -11,9 +11,9 @@ export default function OrgIntelligencePage() {
 
   return (
     <HubPage
-      eyebrow="Client workspace"
-      title="Reports"
-      description="Client performance, activity, analytics, properties, and reporting shortcuts."
+      eyebrow="Internal intelligence"
+      title="Intelligence"
+      description="Internal performance, activity, analytics, properties, and reporting shortcuts. Any client-visible report still requires a document/review approval gate before sharing or publishing."
       primaryAction={{
         label: 'Open activity',
         href: `/admin/org/${slug}/activity`,
@@ -42,7 +42,7 @@ export default function OrgIntelligencePage() {
               label: 'Reports',
               href: `/admin/reports?orgSlug=${encodeURIComponent(slug)}`,
               icon: 'monitoring',
-              description: 'Open generated performance reports and shareable outputs.',
+              description: 'Open generated performance reports and approved deliverable drafts.',
               eyebrow: 'Monthly',
             },
           ],

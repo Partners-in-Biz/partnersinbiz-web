@@ -27,7 +27,7 @@ export default function OrgResearchPage() {
         <ResearchListClient
           mode="admin"
           title="Research"
-          description="Working intelligence for this client: evidence, findings, recommendations, comments, and Obsidian export state."
+          description="Internal working intelligence for this client: evidence, findings, recommendations, comments, and Obsidian export state. Keep visibility internal until the evidence is safe for client review."
           basePath={`/admin/org/${slug}/research`}
           orgId={org?.id}
           orgName={org?.name}

@@ -118,7 +118,7 @@ export function ResearchListClient({ mode, title, description, basePath, orgId, 
           <input
             value={newTitle}
             onChange={(event) => setNewTitle(event.target.value)}
-            placeholder="New research title"
+            placeholder="Internal research note title"
             className="pib-input"
           />
           <button type="button" onClick={createResearch} disabled={!newTitle.trim() || creating} className="btn-pib-accent disabled:opacity-50">
