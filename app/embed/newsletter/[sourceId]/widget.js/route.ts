@@ -640,7 +640,8 @@ export async function GET(req: NextRequest, context: Params) {
       style: {
         position: 'fixed', inset: '0', background: 'rgba(0,0,0,0.55)',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
-        padding: '16px', zIndex: String(Z),
+        padding: '12px', zIndex: String(Z),
+        overflowX: 'hidden', overflowY: 'auto',
         animation: 'pibLcFadeIn 200ms ease-out both'
       }
     });
@@ -648,7 +649,10 @@ export async function GET(req: NextRequest, context: Params) {
       className: 'pib-lc-card',
       style: buildContainerStyles({
         width: '100%',
-        maxWidth: '460px',
+        maxWidth: 'min(460px, calc(100vw - 24px))',
+        maxHeight: 'calc(100dvh - 24px)',
+        overflowY: 'auto',
+        overflowX: 'hidden',
         boxShadow: '0 20px 50px rgba(0,0,0,0.25)',
         animation: 'pibLcPop 240ms cubic-bezier(.2,.9,.3,1.2) both'
       })
@@ -703,11 +707,11 @@ export async function GET(req: NextRequest, context: Params) {
   // ─── slide-in toast ─────────────────────────────────────────────────────
   function positionStyles(pos){
     pos = pos || 'bottom-right';
-    var out = { position: 'fixed', zIndex: String(Z), maxWidth: '320px' };
-    if (pos === 'bottom-right') { out.bottom = '20px'; out.right = '20px'; }
-    else if (pos === 'bottom-left') { out.bottom = '20px'; out.left = '20px'; }
-    else if (pos === 'top-right') { out.top = '20px'; out.right = '20px'; }
-    else if (pos === 'top-left') { out.top = '20px'; out.left = '20px'; }
+    var out = { position: 'fixed', zIndex: String(Z), maxWidth: 'calc(100vw - 24px)' };
+    if (pos === 'bottom-right') { out.bottom = '12px'; out.right = '12px'; }
+    else if (pos === 'bottom-left') { out.bottom = '12px'; out.left = '12px'; }
+    else if (pos === 'top-right') { out.top = '12px'; out.right = '12px'; }
+    else if (pos === 'top-left') { out.top = '12px'; out.left = '12px'; }
     else if (pos === 'center') {
       out.top = '50%'; out.left = '50%';
       out.transform = 'translate(-50%, -50%)';
@@ -723,7 +727,10 @@ export async function GET(req: NextRequest, context: Params) {
       className: 'pib-lc-slide',
       style: Object.assign(
         buildContainerStyles({
-          width: '320px',
+          width: 'min(320px, calc(100vw - 24px))',
+          maxHeight: 'calc(100dvh - 24px)',
+          overflowY: 'auto',
+          overflowX: 'hidden',
           boxShadow: '0 14px 36px rgba(0,0,0,0.22)',
           padding: '20px',
           transition: 'transform 320ms cubic-bezier(.2,.9,.3,1.05), opacity 240ms ease-out',

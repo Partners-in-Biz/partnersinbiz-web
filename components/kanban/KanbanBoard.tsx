@@ -326,7 +326,7 @@ function KanbanColumn({
   const { setNodeRef, isOver } = useDroppable({ id: column.id })
 
   return (
-    <div className="flex flex-col w-72 shrink-0">
+    <div className="flex w-[min(18rem,calc(100vw-2rem))] shrink-0 flex-col">
       {/* Column header */}
       <div className="flex items-center justify-between mb-3 px-1">
         <div className="flex items-center gap-2">
@@ -510,7 +510,11 @@ export function KanbanBoard({
         </div>
       )}
 
-      <div className="flex gap-4 overflow-x-auto pb-4" style={{ minHeight: 500 }}>
+      <div
+        data-testid="kanban-board-scroll"
+        className="flex min-w-0 max-w-full touch-pan-x gap-4 overflow-x-auto overscroll-x-contain pb-4"
+        style={{ minHeight: 500 }}
+      >
         {sortedColumns.map(column => (
           <KanbanColumn
             key={column.id}

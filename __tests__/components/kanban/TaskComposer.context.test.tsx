@@ -37,6 +37,31 @@ beforeEach(() => {
 })
 
 describe('TaskComposer context references', () => {
+  it('keeps the task dialog constrained and scrollable on narrow mobile screens', () => {
+    render(
+      <TaskComposer
+        open
+        column={{ id: 'todo', name: 'To do', color: '#60a5fa', order: 1 }}
+        projectId="project-1"
+        orgId="org-1"
+        members={[]}
+        agents={[]}
+        existingTasks={[]}
+        onClose={jest.fn()}
+        onCreated={jest.fn()}
+      />,
+    )
+
+    const dialog = screen.getByRole('dialog', { name: /new project task/i })
+    expect(dialog).toHaveClass('min-w-0', 'max-w-[calc(100vw-1rem)]')
+    expect(screen.getByTestId('task-composer-body')).toHaveClass('min-w-0', 'overflow-x-hidden')
+    expect(screen.getByText('Upload images, videos, documents')).toHaveClass('break-words')
+
+    const footer = screen.getByTestId('task-composer-footer')
+    expect(footer).toHaveClass('flex-col-reverse', 'sm:flex-row')
+    expect(screen.getByRole('button', { name: 'Create task' })).toHaveClass('w-full', 'sm:w-auto')
+  })
+
   it('attaches selected context refs to the created task payload', async () => {
     const onCreated = jest.fn()
     render(

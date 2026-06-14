@@ -90,7 +90,7 @@ type PageTabsProps = {
 
 export function PageTabs({ tabs, value, onValueChange, ariaLabel = 'Page tabs', variant = 'segmented', className }: PageTabsProps) {
   return (
-    <div role="tablist" aria-label={ariaLabel} className={cn('pib-tabs', variant === 'segmented' && 'pib-tabs-segmented', className)}>
+    <div role="tablist" aria-label={ariaLabel} className={cn('pib-tabs min-w-0 max-w-full overflow-x-auto', variant === 'segmented' && 'pib-tabs-segmented', className)}>
       {tabs.map((tab) => {
         const selected = tab.value === value
         return (
@@ -130,7 +130,7 @@ type PageLinkTabsProps = {
 
 export function PageLinkTabs({ tabs, activeValue, ariaLabel = 'Page tabs', variant = 'segmented', className }: PageLinkTabsProps) {
   return (
-    <nav role="tablist" aria-label={ariaLabel} className={cn('pib-tabs', variant === 'segmented' && 'pib-tabs-segmented', className)}>
+    <nav role="tablist" aria-label={ariaLabel} className={cn('pib-tabs min-w-0 max-w-full overflow-x-auto', variant === 'segmented' && 'pib-tabs-segmented', className)}>
       {tabs.map((tab) => {
         const selected = tab.value === activeValue
         return (

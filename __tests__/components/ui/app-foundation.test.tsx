@@ -74,6 +74,28 @@ describe('app-wide UI foundation primitives', () => {
     expect(onValueChange).not.toHaveBeenCalledWith('archive')
   })
 
+  it('keeps standalone tablists from widening the mobile viewport', () => {
+    render(
+      <PageTabs
+        ariaLabel="Project detail tabs"
+        value="kanban"
+        tabs={[
+          { label: 'Kanban', value: 'kanban', icon: 'view_kanban' },
+          { label: 'Documents', value: 'docs', icon: 'description' },
+          { label: 'Planning', value: 'plan', icon: 'calendar_month' },
+          { label: 'People and access', value: 'people', icon: 'groups' },
+          { label: 'Settings and controls', value: 'settings', icon: 'tune' },
+        ]}
+      />,
+    )
+
+    expect(screen.getByRole('tablist', { name: 'Project detail tabs' })).toHaveClass(
+      'min-w-0',
+      'max-w-full',
+      'overflow-x-auto',
+    )
+  })
+
   it('provides matching link tabs for route-backed filters', () => {
     render(
       <PageLinkTabs

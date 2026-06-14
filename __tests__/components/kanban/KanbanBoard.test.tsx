@@ -50,6 +50,29 @@ function expectBefore(firstText: string, secondText: string) {
 }
 
 describe('KanbanBoard task cards', () => {
+  it('keeps kanban column overflow inside the board scroller on small screens', () => {
+    render(
+      <KanbanBoard
+        columns={[
+          { id: 'todo', name: 'To Do', color: '#60a5fa', order: 1 },
+          { id: 'in_progress', name: 'In Progress', color: '#f59e0b', order: 2 },
+          { id: 'done', name: 'Done', color: '#22c55e', order: 3 },
+        ]}
+        tasks={[task]}
+        onTaskMove={jest.fn()}
+        onTaskClick={jest.fn()}
+        onAddTask={jest.fn()}
+      />,
+    )
+
+    expect(screen.getByTestId('kanban-board-scroll')).toHaveClass(
+      'min-w-0',
+      'max-w-full',
+      'overflow-x-auto',
+      'overscroll-x-contain',
+    )
+  })
+
   it('shows latest tasks first by default and can toggle back to manual order', () => {
     render(
       <KanbanBoard

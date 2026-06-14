@@ -196,7 +196,6 @@ export function LeadCaptureEmbedForm(props: Props) {
         }, 1200)
       }
     } catch (err) {
-      // eslint-disable-next-line no-console
       console.error('[lead-capture] submit error', err)
       setError('Network error — please try again.')
     } finally {
@@ -207,19 +206,22 @@ export function LeadCaptureEmbedForm(props: Props) {
   const containerStyle: React.CSSProperties = {
     background: theme.backgroundColor || '#ffffff',
     color: theme.textColor || '#111827',
-    padding: '24px',
+    padding: 'clamp(16px, 5vw, 24px)',
     borderRadius: `${theme.borderRadius || 12}px`,
     fontFamily: '-apple-system, BlinkMacSystemFont, Segoe UI, Arial, sans-serif',
     fontSize: '15px',
     lineHeight: 1.5,
-    maxWidth: '460px',
+    width: '100%',
+    maxWidth: 'min(460px, calc(100vw - 24px))',
     margin: '0 auto',
     boxShadow: '0 2px 10px rgba(0,0,0,0.06)',
     boxSizing: 'border-box',
+    overflowX: 'hidden',
   }
 
   const inputStyle: React.CSSProperties = {
     width: '100%',
+    maxWidth: '100%',
     padding: '10px 12px',
     border: '1px solid rgba(0,0,0,0.18)',
     borderRadius: '8px',

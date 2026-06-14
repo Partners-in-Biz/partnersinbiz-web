@@ -576,7 +576,7 @@ export function ProjectDetailWorkspace({
         <>
           <ProjectBoardSummary tasks={tasks} columns={columns} />
 
-          <div className="mb-3 flex shrink-0 items-center justify-between gap-3 overflow-x-auto md:mb-4">
+          <div className="mb-3 flex min-w-0 max-w-full shrink-0 items-center justify-between gap-3 overflow-x-auto md:mb-4">
             <div className="inline-flex shrink-0 rounded-md border border-[var(--color-card-border)] bg-[var(--color-card)] p-1">
               {(['board', 'list'] as const).map(mode => (
                 <button
@@ -632,13 +632,15 @@ export function ProjectDetailWorkspace({
 
           {/* Board */}
           {loading ? (
-            <div className="flex gap-4 overflow-x-auto">
-              {DEFAULT_COLUMNS.map(c => (
-                <div key={c.id} className="w-72 shrink-0 space-y-2">
-                  <Skeleton className="h-6 w-24" />
-                  {[1,2,3].map(i => <Skeleton key={i} className="h-20" />)}
-                </div>
-              ))}
+            <div className="min-w-0 max-w-full overflow-x-auto">
+              <div className="flex gap-4">
+                {DEFAULT_COLUMNS.map(c => (
+                  <div key={c.id} className="w-72 shrink-0 space-y-2">
+                    <Skeleton className="h-6 w-24" />
+                    {[1,2,3].map(i => <Skeleton key={i} className="h-20" />)}
+                  </div>
+                ))}
+              </div>
             </div>
           ) : viewMode === 'list' ? (
             <div className="flex-1 overflow-auto rounded-[var(--radius-btn)] border border-[var(--color-card-border)]">
@@ -727,7 +729,7 @@ export function ProjectDetailWorkspace({
               </table>
             </div>
           ) : (
-            <div className="flex-1 overflow-auto">
+            <div className="min-w-0 flex-1 overflow-hidden">
               <KanbanBoard
                 columns={columns}
                 tasks={tasks}
