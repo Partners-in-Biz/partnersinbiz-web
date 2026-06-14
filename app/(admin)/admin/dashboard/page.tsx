@@ -393,7 +393,7 @@ function OrganisationCard({ org, tasks, approvals }: { org: OrgSummary; tasks: A
         <div className="flex items-start justify-between gap-4">
           <div className="min-w-0">
             <h3 className="truncate text-base font-headline font-semibold leading-snug text-on-surface group-hover/card:text-[var(--color-pib-accent-hover)]">{org.name}</h3>
-            <p className="mt-1 text-xs text-on-surface-variant">{org.type ?? 'client'} · {org.status ?? 'active'}</p>
+            <p className="mt-1 text-xs text-on-surface-variant">{org.type ?? 'organisation'} · {org.status ?? 'active'}</p>
           </div>
           <StatusPill tone={needsAttention ? 'warn' : activeTasks > 0 ? 'accent' : 'success'} dot>
             {statusLabel}
@@ -529,7 +529,7 @@ export default function MissionControlDashboard() {
       <PageHeader
         eyebrow="Admin / Dashboard"
         title="Operating dashboard"
-        description="Platform control plane — agent work, client health, approvals, and platform movement."
+        description="PiB operator control plane — agent work, selected-organisation health, approvals, and platform movement."
         actions={(
           <>
             <DashboardQuickLink href={platformProjectsHref} icon="folder_managed" label="Projects" />
@@ -551,7 +551,7 @@ export default function MissionControlDashboard() {
       />
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <MetricCard label="Clients" value={visibleOrgs.length} icon="groups" detail="Active client workspaces across the platform." />
+        <MetricCard label="Organisations" value={visibleOrgs.length} icon="groups" detail="Active selected-organisation command surfaces across the platform." />
         <MetricCard label="Active tasks" value={activeTasks.length} icon="task_alt" detail="Queued or moving agent and delivery tasks." />
         <MetricCard label="Approvals" value={data.approvals.length} icon="rate_review" tone={dashboardTone(data.approvals.length, true)} detail="Human review items waiting in the queue." />
         <MetricCard label="At risk" value={riskTasks.length} icon="report" tone={riskTasks.length > 0 ? 'warn' : 'success'} detail="Blocked or awaiting-input work that needs attention." />
@@ -566,11 +566,11 @@ export default function MissionControlDashboard() {
       {dashboardView === 'overview' ? (
         <>
           <section className="space-y-4">
-            <SectionHeader title="Client workspaces" eyebrow="Portfolio" action={<Link href="/admin/clients" className="inline-flex items-center gap-1 text-xs font-label uppercase tracking-wide text-[var(--color-accent-v2)]">Manage clients <span className="material-symbols-outlined text-[15px]">arrow_forward</span></Link>} />
+            <SectionHeader title="Organisation command surfaces" eyebrow="Portfolio" action={<Link href="/admin/organizations" className="inline-flex items-center gap-1 text-xs font-label uppercase tracking-wide text-[var(--color-accent-v2)]">Manage organisations <span className="material-symbols-outlined text-[15px]">arrow_forward</span></Link>} />
             {loading ? (
               <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3"><Skeleton className="h-48 rounded-lg" /><Skeleton className="h-48 rounded-lg" /><Skeleton className="h-48 rounded-lg" /></div>
             ) : visibleOrgs.length === 0 ? (
-              <EmptyState title="No active organisations" body="Create or activate a client organisation and its command card will appear here." />
+              <EmptyState title="No active organisations" body="Create or activate an organisation and its admin command card will appear here." />
             ) : (
               <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
                 {visibleOrgs.map(org => (

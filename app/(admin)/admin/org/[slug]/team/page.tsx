@@ -39,16 +39,16 @@ interface ClientCandidate {
 }
 
 const ROLE_OPTIONS: Array<{ value: OrgMember['role']; label: string; description: string }> = [
-  { value: 'admin', label: 'Admin', description: 'Can manage this client workspace' },
-  { value: 'member', label: 'Member', description: 'Can work inside the selected org workspace' },
-  { value: 'viewer', label: 'Viewer', description: 'Read-only selected org workspace access' },
+  { value: 'admin', label: 'Admin', description: 'PiB operator access for this selected org' },
+  { value: 'member', label: 'Member', description: 'Can work inside the selected org command surface' },
+  { value: 'viewer', label: 'Viewer', description: 'Read-only selected org command-surface access' },
 ]
 
 type AccessScope = 'none' | 'all' | 'crm' | 'marketing' | 'projects' | 'billing' | 'readonly'
 
 const ACCESS_SCOPE_OPTIONS: Array<{ value: AccessScope; label: string }> = [
-  { value: 'none', label: 'No workspace areas yet' },
-  { value: 'all', label: 'All workspace areas' },
+  { value: 'none', label: 'No selected-org areas yet' },
+  { value: 'all', label: 'All selected-org areas' },
   { value: 'crm', label: 'CRM and contacts' },
   { value: 'marketing', label: 'Marketing and content' },
   { value: 'projects', label: 'Projects and delivery' },
@@ -57,7 +57,7 @@ const ACCESS_SCOPE_OPTIONS: Array<{ value: AccessScope; label: string }> = [
 ]
 
 function accessScopeLabel(value?: AccessScope) {
-  return ACCESS_SCOPE_OPTIONS.find((option) => option.value === value)?.label ?? 'No workspace areas yet'
+  return ACCESS_SCOPE_OPTIONS.find((option) => option.value === value)?.label ?? 'No selected-org areas yet'
 }
 
 function Skeleton({ className = '' }: { className?: string }) {
@@ -693,7 +693,7 @@ export default function TeamPage() {
             <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">
               Invites & Access
             </p>
-            <h2 className="mt-1 text-lg font-headline font-semibold text-on-surface">Add people to this workspace</h2>
+            <h2 className="mt-1 text-lg font-headline font-semibold text-on-surface">Add people to this selected org</h2>
             <p className="mt-1 max-w-2xl text-sm text-on-surface-variant">
               Create a new client login, attach an existing client account, or grant a PiB staff member explicit access to this selected org.
             </p>
@@ -887,7 +887,7 @@ export default function TeamPage() {
             <InviteCard
               icon={<FiUserCheck aria-hidden="true" className="h-4 w-4" />}
               title="Add existing PiB member"
-              description="Searches platform staff accounts and grants explicit access to this selected client org workspace."
+              description="Searches platform staff accounts and grants explicit PiB operator access to this selected org."
             >
               <form onSubmit={handleAddMember} className="space-y-3">
                 <label className="block">

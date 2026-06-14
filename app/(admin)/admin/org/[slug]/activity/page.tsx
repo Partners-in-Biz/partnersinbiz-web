@@ -143,7 +143,7 @@ export default function ActivityPage() {
       <div className="border-b border-outline-variant px-6 py-4">
         <h1 className="font-headline text-xl font-bold text-on-surface">Activity Log</h1>
         <p className="text-sm text-on-surface-variant mt-1">
-          Track all account activity, approvals, and events
+          Track selected-org account activity, approvals, and internal operator events
         </p>
       </div>
 
@@ -167,7 +167,7 @@ export default function ActivityPage() {
             // Empty state
             <div className="text-center py-12">
               <p className="text-on-surface-variant text-sm">
-                No activity yet for this workspace.
+                No selected-org activity yet.
               </p>
             </div>
           ) : (

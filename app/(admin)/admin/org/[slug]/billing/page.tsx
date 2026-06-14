@@ -129,8 +129,8 @@ export default function BillingPage() {
         setOrgId(foundOrg.id)
         setIsPlatformBilling(platformBilling)
 
-        // Client workspaces list invoices received by that client.
-        // The PiB billing workspace lists PiB-issued invoices, then the API
+        // Selected client orgs list invoices received by that org.
+        // The PiB platform-owner billing surface lists PiB-issued invoices, then the API
         // filters restricted admins by their allowed recipient client orgs.
         const invoicesRes = await fetch(invoiceListUrlForOrg(foundOrg, slug), { headers: { 'X-Org-Id': foundOrg.id, 'X-Org-Slug': slug } })
         if (invoicesRes.ok) {
@@ -163,9 +163,9 @@ export default function BillingPage() {
   return (
     <div className="space-y-6 max-w-5xl mx-auto">
       <PageHeader
-        eyebrow="Workspace / Billing"
+        eyebrow="Admin org / Billing"
         title="Billing"
-        description="Invoice pipeline, outstanding balances, and paid revenue for this workspace."
+        description="Invoice pipeline, outstanding balances, and paid revenue for this selected org."
         actions={(
           <Link
             href={newInvoiceHref}
@@ -245,7 +245,7 @@ export default function BillingPage() {
           <EmptyState
             icon="receipt_long"
             title="No invoices yet"
-            description="Create the first invoice for this workspace when billing is ready."
+            description="Create the first invoice for this selected org when billing is ready."
             action={(
               <Link
                 href={newInvoiceHref}

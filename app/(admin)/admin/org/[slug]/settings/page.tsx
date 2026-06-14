@@ -648,7 +648,7 @@ export default function OrgSettingsPage() {
             <span>
               <span className="block text-sm font-semibold text-on-surface">Mobile Apps</span>
               <span className="mt-1 block text-xs text-on-surface-variant">
-                Show App Store and Google Play review links, release notes, and app feedback tools in the client portal.
+                Show App Store and Google Play review links, release notes, and app feedback tools for this selected org only after PiB operator review.
               </span>
             </span>
           </label>
@@ -680,7 +680,7 @@ export default function OrgSettingsPage() {
             <span>
               <span className="block text-sm font-semibold text-on-surface">Book Studio</span>
               <span className="mt-1 block text-xs text-on-surface-variant">
-                Show Book Studio in the client portal only after the approved Phase 1 runtime foundation is enabled for this organisation. Disabled is the safe default.
+                Expose Book Studio for this selected org only after the approved Phase 1 runtime foundation is enabled. Disabled is the safe default.
               </span>
             </span>
           </label>

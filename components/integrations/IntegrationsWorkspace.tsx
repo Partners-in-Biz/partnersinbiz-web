@@ -17,8 +17,12 @@ interface CampaignSummary {
   status: string
 }
 
+type IntegrationsSurface = 'admin' | 'portal'
+
 interface IntegrationsWorkspaceProps {
+  surface?: IntegrationsSurface
   orgId?: string
+  orgSlug?: string
   orgName?: string
 }
 
@@ -202,12 +206,14 @@ function AddIntegrationForm({
   entry,
   orgId,
   integrationsEndpoint,
+  tenantHeaders,
   onCreated,
   onCancel,
 }: {
   entry: ProviderRegistryEntry
   orgId?: string
   integrationsEndpoint: string
+  tenantHeaders?: Record<string, string>
   onCreated: (i: PublicCrmIntegrationView) => void
   onCancel: () => void
 }) {
@@ -223,7 +229,7 @@ function AddIntegrationForm({
     try {
       const res = await fetch(integrationsEndpoint, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { ...(tenantHeaders ?? {}), 'Content-Type': 'application/json' },
         body: JSON.stringify({
           provider: entry.provider,
           name: name.trim(),
@@ -316,6 +322,7 @@ function IntegrationCard({
   campaigns,
   integrationEndpoint,
   integrationSyncEndpoint,
+  tenantHeaders,
   onUpdated,
   onDeleted,
 }: {
@@ -323,6 +330,7 @@ function IntegrationCard({
   campaigns: CampaignSummary[]
   integrationEndpoint: (id: string) => string
   integrationSyncEndpoint: (id: string) => string
+  tenantHeaders?: Record<string, string>
   onUpdated: (i: PublicCrmIntegrationView) => void
   onDeleted: (id: string) => void
 }) {
@@ -345,7 +353,7 @@ function IntegrationCard({
     try {
       const res = await fetch(integrationEndpoint(integration.id), {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { ...(tenantHeaders ?? {}), 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
       })
       const json = await res.json()
@@ -365,7 +373,7 @@ function IntegrationCard({
     setSyncing(true)
     setError(null)
     try {
-      const res = await fetch(integrationSyncEndpoint(integration.id), { method: 'POST' })
+      const res = await fetch(integrationSyncEndpoint(integration.id), { method: 'POST', ...(tenantHeaders ? { headers: tenantHeaders } : {}) })
       const json = await res.json()
       if (!res.ok) {
         setError(json.error ?? 'Sync failed')
@@ -390,7 +398,7 @@ function IntegrationCard({
     setBusy(true)
     setError(null)
     try {
-      const res = await fetch(integrationEndpoint(integration.id), { method: 'DELETE' })
+      const res = await fetch(integrationEndpoint(integration.id), { method: 'DELETE', ...(tenantHeaders ? { headers: tenantHeaders } : {}) })
       if (!res.ok) {
         const body = await res.json().catch(() => ({}))
         setError(body.error ?? 'Failed to delete')
@@ -678,8 +686,14 @@ function IntegrationCard({
   )
 }
 
-export function IntegrationsWorkspace({ orgId, orgName }: IntegrationsWorkspaceProps) {
+export function IntegrationsWorkspace({ surface = 'portal', orgId, orgSlug, orgName }: IntegrationsWorkspaceProps) {
   const scopedOrgId = orgId?.trim() || undefined
+  const tenantHeaders = useMemo<Record<string, string> | undefined>(() => {
+    if (!scopedOrgId) return undefined
+    const headers: Record<string, string> = { 'X-Org-Id': scopedOrgId }
+    if (orgSlug) headers['X-Org-Slug'] = orgSlug
+    return headers
+  }, [orgSlug, scopedOrgId])
   const [integrations, setIntegrations] = useState<PublicCrmIntegrationView[]>([])
   const [campaigns, setCampaigns] = useState<CampaignSummary[]>([])
   const [loading, setLoading] = useState(true)
@@ -704,22 +718,22 @@ export function IntegrationsWorkspace({ orgId, orgName }: IntegrationsWorkspaceP
 
   const loadIntegrations = useCallback(() => {
     setLoading(true)
-    fetch(integrationsEndpoint)
+    fetch(integrationsEndpoint, tenantHeaders ? { headers: tenantHeaders } : undefined)
       .then((r) => r.json())
       .then((body) => setIntegrations((body.data ?? []) as PublicCrmIntegrationView[]))
       .catch(() => {})
       .finally(() => setLoading(false))
-  }, [integrationsEndpoint])
+  }, [integrationsEndpoint, tenantHeaders])
 
   const loadCampaigns = useCallback(() => {
-    fetch(campaignsEndpoint)
+    fetch(campaignsEndpoint, tenantHeaders ? { headers: tenantHeaders } : undefined)
       .then((r) => r.json())
       .then((body) => {
         const list = (body.data ?? []) as Array<{ id: string; name: string; status: string }>
         setCampaigns(list.map((c) => ({ id: c.id, name: c.name, status: c.status })))
       })
       .catch(() => {})
-  }, [campaignsEndpoint])
+  }, [campaignsEndpoint, tenantHeaders])
 
   useEffect(() => {
     const handle = window.setTimeout(() => {
@@ -771,10 +785,10 @@ export function IntegrationsWorkspace({ orgId, orgName }: IntegrationsWorkspaceP
   return (
     <div className="space-y-8">
       <header>
-        <p className="eyebrow">{orgName || 'CRM'}</p>
+        <p className="eyebrow">{surface === 'admin' ? 'Admin org integrations' : (orgName || 'CRM')}</p>
         <h1 className="pib-page-title mt-2">Integration command center</h1>
         <p className="pib-page-sub max-w-2xl">
-          Monitor every external system that feeds your CRM. Keep imports healthy, credentials current, contacts tagged, and nurture routing intentional.
+          Monitor every external system feeding the selected org CRM. Keep imports healthy, credentials current, contacts tagged, and nurture routing intentional for PiB operators.
         </p>
       </header>
 
@@ -846,6 +860,7 @@ export function IntegrationsWorkspace({ orgId, orgName }: IntegrationsWorkspaceP
           entry={addingEntry}
           orgId={scopedOrgId}
           integrationsEndpoint={integrationsEndpoint}
+          tenantHeaders={tenantHeaders}
           onCreated={handleCreated}
           onCancel={() => setAddingProvider(null)}
         />
@@ -916,6 +931,7 @@ export function IntegrationsWorkspace({ orgId, orgName }: IntegrationsWorkspaceP
                 campaigns={campaigns}
                 integrationEndpoint={integrationEndpoint}
                 integrationSyncEndpoint={integrationSyncEndpoint}
+                tenantHeaders={tenantHeaders}
                 onUpdated={handleUpdated}
                 onDeleted={handleDeleted}
               />

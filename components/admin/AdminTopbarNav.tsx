@@ -136,7 +136,7 @@ export function AdminTopbarNav({ userEmail, userUid, orgId, messageAction }: Adm
   const selectedOrg = routeOrg ?? orgs.find((o) => o.id === selectedOrgId)
   const isWorkspaceMode = !!selectedOrg
   const isPlatformWorkspace = selectedOrg?.type === 'platform_owner' || selectedOrg?.id === PIB_PLATFORM_ORG_ID
-  const workspaceLabel = isPlatformWorkspace ? 'Platform' : 'Client'
+  const workspaceLabel = isPlatformWorkspace ? 'Platform admin' : 'Org admin'
   const navItems = isWorkspaceMode ? workspaceNav(selectedOrg.slug) : OPERATOR_NAV_TOPBAR
 
   const initials = userEmail.split(/[.\s@]/).filter(Boolean).slice(0, 2).map((s) => s[0]?.toUpperCase()).join('')

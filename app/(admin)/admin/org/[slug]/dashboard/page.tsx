@@ -95,42 +95,39 @@ export default function OrgDashboard() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    Promise.all([
-      fetch(`/api/v1/organizations`)
-        .then(r => r.json())
-        .then(body => {
-          const org = ((body.data ?? []) as OrganizationSummary[]).find((o) => o.slug === slug)
-          if (org) {
-            setOrgName(org.name?.trim() || '')
-            return org.id
-          }
-          return null
-        }),
-      fetch(`/api/v1/projects?view=received&orgSlug=${encodeURIComponent(slug)}`)
-        .then(r => r.json())
-        .then(body => {
-          setProjects(body.data ?? [])
-        }),
-    ])
-      .then(([fetchedOrgId]) => {
-        if (fetchedOrgId) {
-          const { from, to } = todayRange()
-          const orgQs = `orgId=${encodeURIComponent(fetchedOrgId)}`
-          return Promise.all([
-            fetch(`/api/v1/social/stats?${orgQs}`, { headers: { 'X-Org-Id': fetchedOrgId, 'X-Org-Slug': slug } })
-              .then(r => r.json())
-              .then(body => setSocialStats(body.data ?? null))
-              .catch(() => {}),
-            fetch(`/api/v1/social/posts?${orgQs}&from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}&limit=50`, { headers: { 'X-Org-Id': fetchedOrgId, 'X-Org-Slug': slug } })
-              .then(r => r.json())
-              .then(body => {
-                const posts = ((body.data ?? []) as ScheduledContentPost[])
-                  .filter((post) => ['scheduled', 'approved', 'pending_approval', 'client_review', 'qa_review'].includes(post.status ?? ''))
-                setScheduledPosts(posts)
-              })
-              .catch(() => {}),
-          ])
-        }
+    fetch(`/api/v1/organizations`)
+      .then(r => r.json())
+      .then(body => {
+        const org = ((body.data ?? []) as OrganizationSummary[]).find((o) => o.slug === slug)
+        if (!org) return null
+        setOrgName(org.name?.trim() || '')
+        return org.id
+      })
+      .then((fetchedOrgId) => {
+        if (!fetchedOrgId) return undefined
+        const headers = { 'X-Org-Id': fetchedOrgId, 'X-Org-Slug': slug }
+        const orgQs = `orgId=${encodeURIComponent(fetchedOrgId)}`
+        const { from, to } = todayRange()
+        return Promise.all([
+          fetch(`/api/v1/projects?view=received&${orgQs}`, { headers })
+            .then(r => r.json())
+            .then(body => {
+              setProjects(body.data ?? [])
+            })
+            .catch(() => {}),
+          fetch(`/api/v1/social/stats?${orgQs}`, { headers })
+            .then(r => r.json())
+            .then(body => setSocialStats(body.data ?? null))
+            .catch(() => {}),
+          fetch(`/api/v1/social/posts?${orgQs}&from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}&limit=50`, { headers })
+            .then(r => r.json())
+            .then(body => {
+              const posts = ((body.data ?? []) as ScheduledContentPost[])
+                .filter((post) => ['scheduled', 'approved', 'pending_approval', 'client_review', 'qa_review'].includes(post.status ?? ''))
+              setScheduledPosts(posts)
+            })
+            .catch(() => {}),
+        ])
       })
       .catch(() => {})
       .finally(() => setLoading(false))
@@ -164,12 +161,12 @@ export default function OrgDashboard() {
   return (
     <div className="space-y-6 max-w-6xl mx-auto">
       <PageHeader
-        eyebrow="Workspace"
+        eyebrow="Admin org dashboard"
         title={`${getGreeting()} — ${displayOrgName}`}
         description={new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
         actions={(
           <Link href={`/admin/org/${slug}/projects`} className="pib-btn-primary text-sm font-label">
-            + New Project
+            + New operator project
           </Link>
         )}
         className="capitalize"
@@ -233,13 +230,13 @@ export default function OrgDashboard() {
             </div>
           ) : projects.length === 0 ? (
             <div className="py-8 text-center">
-              <p className="text-on-surface-variant text-sm">No projects yet.</p>
+              <p className="text-on-surface-variant text-sm">No selected-org projects yet.</p>
               <Link
                 href={`/admin/org/${slug}/projects`}
                 className="text-sm mt-2 inline-block"
                 style={{ color: 'var(--color-accent-v2)' }}
               >
-                Create the first one →
+                Create the first operator project →
               </Link>
             </div>
           ) : (
