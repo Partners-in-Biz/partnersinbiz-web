@@ -281,11 +281,11 @@ export default function PlatformMembersPage() {
       })
       const body = await res.json()
       if (!res.ok) {
-        setCreateError(body?.error ?? 'Failed to add platform member')
+        setCreateError(body?.error ?? 'Failed to add portal login')
         return
       }
 
-      setNotice(`Member created for ${createEmail.trim()}.`)
+      setNotice(`Portal login created for ${createEmail.trim()}.`)
       setCreateName('')
       setCreateEmail('')
       setCreateOrgId('')
@@ -294,7 +294,7 @@ export default function PlatformMembersPage() {
       setShowCreate(false)
       await load()
     } catch (err) {
-      setCreateError(err instanceof Error ? err.message : 'Failed to add platform member')
+      setCreateError(err instanceof Error ? err.message : 'Failed to add portal login')
     } finally {
       setCreating(false)
     }
@@ -307,9 +307,9 @@ export default function PlatformMembersPage() {
           <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant mb-1">
             Settings / Platform
           </p>
-          <h1 className="text-2xl font-headline font-bold text-on-surface">Platform Members</h1>
+          <h1 className="text-2xl font-headline font-bold text-on-surface">Client Portal Access</h1>
           <p className="text-sm text-on-surface-variant mt-0.5">
-            Client portal logins and the client accounts each person is linked to.
+            Platform-admin controls for client portal logins, account links, role changes, resets, and access removal.
           </p>
         </div>
         <div className="flex flex-wrap gap-2 self-start md:self-auto">
@@ -317,7 +317,7 @@ export default function PlatformMembersPage() {
             onClick={() => setShowCreate((value) => !value)}
             className="pib-btn-primary text-sm font-label"
           >
-            {showCreate ? 'Cancel' : '+ Add member'}
+            {showCreate ? 'Cancel' : '+ Add portal login'}
           </button>
           <Link href="/admin/settings" className="pib-btn-ghost text-sm font-label">
             Back to settings
@@ -386,7 +386,7 @@ export default function PlatformMembersPage() {
             </label>
             <label className="block">
               <span className="text-xs font-label uppercase tracking-wide text-on-surface-variant">
-                Workspace role
+                Client portal role
               </span>
               <select
                 value={createRole}
@@ -422,7 +422,7 @@ export default function PlatformMembersPage() {
               disabled={creating || createPassword.length < 8}
               className="pib-btn-primary text-sm font-label"
             >
-              {creating ? 'Adding...' : 'Add member'}
+              {creating ? 'Adding...' : 'Add portal login'}
             </button>
           </div>
         </form>
@@ -430,7 +430,7 @@ export default function PlatformMembersPage() {
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
         <div className="pib-card p-4">
-          <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Client logins</p>
+          <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Portal logins</p>
           <p className="text-2xl font-headline font-bold text-on-surface mt-1">{members.length}</p>
         </div>
         <div className="pib-card p-4">

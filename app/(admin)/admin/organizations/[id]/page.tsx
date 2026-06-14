@@ -135,20 +135,25 @@ export default function OrganizationDetailPage({ params }: { params: Promise<{ i
     <div className="space-y-6 max-w-2xl mx-auto">
       {/* Breadcrumb */}
       <div className="text-xs text-on-surface-variant font-label uppercase tracking-wide">
-        <Link href="/admin/organizations" className="hover:text-on-surface">Organisations</Link>
+        <Link href="/admin/organizations" className="hover:text-on-surface">Client Workspaces</Link>
         <span className="mx-2">/</span>
         <span className="truncate">{org.name}</span>
       </div>
 
       {/* Heading */}
       <div className="flex items-center justify-between gap-4">
-        <h1 className="text-2xl font-headline font-bold text-on-surface truncate">{org.name}</h1>
+        <div className="min-w-0">
+          <h1 className="text-2xl font-headline font-bold text-on-surface truncate">{org.name}</h1>
+          <p className="text-sm text-on-surface-variant mt-1">
+            Platform-admin organisation record for client workspace provisioning, billing controls, and operational status.
+          </p>
+        </div>
         {org.slug && (
           <Link
             href={`/admin/org/${org.slug}/dashboard`}
             className="pib-btn-secondary text-xs font-label shrink-0"
           >
-            Open workspace ↗
+            Open admin workspace ↗
           </Link>
         )}
       </div>
@@ -164,7 +169,7 @@ export default function OrganizationDetailPage({ params }: { params: Promise<{ i
 
         {/* Details Card */}
         <div className="pib-card space-y-4">
-          <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Organisation Details</p>
+          <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Client Workspace Details</p>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
@@ -201,7 +206,7 @@ export default function OrganizationDetailPage({ params }: { params: Promise<{ i
 
         {/* Billing & Plan Card */}
         <div className="pib-card space-y-4">
-          <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Billing & Plan</p>
+          <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Billing & Plan Controls</p>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
@@ -248,7 +253,7 @@ export default function OrganizationDetailPage({ params }: { params: Promise<{ i
         {/* Actions */}
         <div className="flex gap-3 pt-2">
           <button type="submit" disabled={saving} className="pib-btn-primary">
-            {saving ? 'Saving...' : 'Save Changes'}
+            {saving ? 'Saving...' : 'Save platform record'}
           </button>
           <button
             type="button"

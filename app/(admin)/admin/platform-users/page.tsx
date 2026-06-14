@@ -61,9 +61,14 @@ function ScopeBadge({ user }: { user: PlatformUser }) {
       className="text-[10px] font-label uppercase tracking-wide px-2 py-0.5 rounded-full"
       style={{ background: 'rgba(37, 99, 235, 0.15)', color: '#2563eb' }}
     >
-      {user.allowedOrgIds.length} org{user.allowedOrgIds.length === 1 ? '' : 's'}
+      Restricted admin
     </span>
   )
+}
+
+function adminScopeLabel(user: PlatformUser) {
+  if (user.isSuperAdmin) return 'allowedOrgIds: [] means global access'
+  return `allowedOrgIds: ${user.allowedOrgIds.length} client org${user.allowedOrgIds.length === 1 ? '' : 's'}`
 }
 
 export default function PlatformUsersPage() {
@@ -309,9 +314,9 @@ export default function PlatformUsersPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-headline font-bold text-on-surface">Platform Users</h1>
+          <h1 className="text-2xl font-headline font-bold text-on-surface">Platform Admin Users</h1>
           <p className="text-sm text-on-surface-variant mt-0.5">
-            Internal Partners in Biz staff. Each user can be granted access to specific client organisations.
+            Staff accounts for PiB operators. Super admins have global platform access; restricted admins are limited by allowedOrgIds.
           </p>
         </div>
         <button
@@ -374,7 +379,7 @@ export default function PlatformUsersPage() {
               className="w-4 h-4"
             />
             <span className="text-sm text-on-surface">
-              <strong>Super admin</strong> — full access to every organisation
+              <strong>Super admin</strong> — full platform-admin access to every client workspace. The API stores this as an empty allowedOrgIds list.
             </span>
           </label>
 
@@ -382,7 +387,7 @@ export default function PlatformUsersPage() {
             <div>
               <div className="flex items-center justify-between mb-2">
                 <span className="text-xs font-label uppercase tracking-wide text-on-surface-variant">
-                  Organisations they can manage
+                  allowedOrgIds for this restricted admin
                 </span>
                 <div className="flex gap-2 text-xs">
                   <button
@@ -487,6 +492,9 @@ export default function PlatformUsersPage() {
                         <ScopeBadge user={u} />
                       </div>
                       <p className="text-xs text-on-surface-variant truncate">{u.email}</p>
+                      <p className="text-[11px] text-on-surface-variant/70 mt-0.5 font-mono">
+                        {adminScopeLabel(u)}
+                      </p>
                       {u.lastSignInTime ? (
                         <p className="text-[11px] text-on-surface-variant/60 mt-0.5">
                           Last login: {new Date(u.lastSignInTime).toLocaleString()}
@@ -617,7 +625,7 @@ export default function PlatformUsersPage() {
                         className="w-4 h-4"
                       />
                       <span className="text-sm text-on-surface">
-                        <strong>Super admin</strong> — full access to every organisation
+                        <strong>Super admin</strong> — full platform-admin access to every client workspace. Save with allowedOrgIds as an empty list.
                       </span>
                     </label>
 
@@ -625,7 +633,7 @@ export default function PlatformUsersPage() {
                       <div>
                         <div className="flex items-center justify-between mb-2">
                           <span className="text-xs font-label uppercase tracking-wide text-on-surface-variant">
-                            Organisations
+                            allowedOrgIds for this restricted admin
                           </span>
                           <div className="flex gap-2 text-xs">
                             <button

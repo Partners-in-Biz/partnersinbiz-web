@@ -39,7 +39,7 @@ export default function NewOrganizationPage() {
 
     const name = formData.name.trim()
     if (!name) {
-      setError('Organisation name is required before a client workspace can be created.')
+      setError('Client workspace name is required before this platform provisioning operation can run.')
       setLoading(false)
       return
     }
@@ -69,13 +69,13 @@ export default function NewOrganizationPage() {
       const data = await response.json()
 
       if (!response.ok) {
-        setError(data.error || 'Failed to create client')
+        setError(data.error || 'Failed to provision client workspace')
         return
       }
 
       router.push('/admin/organizations')
     } catch {
-      setError('An error occurred while creating the client')
+      setError('An error occurred while provisioning the client workspace')
     } finally {
       setLoading(false)
     }
@@ -87,11 +87,16 @@ export default function NewOrganizationPage() {
       <div className="text-xs text-on-surface-variant font-label uppercase tracking-wide">
         <Link href="/admin/organizations" className="hover:text-on-surface">Organisations</Link>
         <span className="mx-2">/</span>
-        <span>New Client</span>
+        <span>Provision Client Workspace</span>
       </div>
 
       {/* Heading */}
-      <h1 className="text-2xl font-headline font-bold text-on-surface">New Client</h1>
+      <div>
+        <h1 className="text-2xl font-headline font-bold text-on-surface">Provision Client Workspace</h1>
+        <p className="text-sm text-on-surface-variant mt-1">
+          Platform-admin operation: creates a client organisation record and optional Cowork/Hermes workspace scaffolding.
+        </p>
+      </div>
 
       {/* Form */}
       <form onSubmit={handleSubmit} noValidate className="space-y-4">
@@ -105,12 +110,12 @@ export default function NewOrganizationPage() {
         {/* Company Details Card */}
         <div className="pib-card space-y-4">
           <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">
-            Company Details
+            Client Workspace Details
           </p>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label htmlFor="name" className="pib-label">Organisation Name *</label>
+              <label htmlFor="name" className="pib-label">Client workspace name *</label>
               <input id="name" type="text" name="name" required value={formData.name} onChange={handleChange} placeholder="e.g. Acme Inc" className="pib-input" />
             </div>
             <div>
@@ -157,7 +162,7 @@ export default function NewOrganizationPage() {
         {/* Billing & Plan Card */}
         <div className="pib-card space-y-4">
           <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">
-            Billing & Plan
+            Billing & Plan Controls
           </p>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -181,7 +186,7 @@ export default function NewOrganizationPage() {
         {/* Cowork & Hermes Card */}
         <div className="pib-card space-y-4">
           <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">
-            Cowork & Hermes Setup
+            Cowork & Hermes Provisioning
           </p>
 
           <label className="flex items-start gap-3 text-sm text-on-surface">
@@ -193,7 +198,7 @@ export default function NewOrganizationPage() {
               className="mt-1"
             />
             <span>
-              <span className="block font-medium">Create full client workspace</span>
+              <span className="block font-medium">Provision full client workspace</span>
               <span className="block text-xs text-on-surface-variant">
                 Creates the VPS Cowork folder, Obsidian agent domain, wiki/log/raw folders,
                 project instructions, Hermes profile, SOUL.md, and global Cowork mapping.
@@ -202,7 +207,7 @@ export default function NewOrganizationPage() {
           </label>
 
           <div>
-            <label htmlFor="agentName" className="pib-label">Agent Name</label>
+            <label htmlFor="agentName" className="pib-label">Agent profile name</label>
             <input
               id="agentName"
               type="text"
@@ -218,7 +223,7 @@ export default function NewOrganizationPage() {
         {/* Actions */}
         <div className="flex gap-3 pt-2">
           <button type="submit" disabled={loading} className="pib-btn-primary">
-            {loading ? 'Creating...' : 'Create Client'}
+            {loading ? 'Provisioning...' : 'Provision client workspace'}
           </button>
           <Link href="/admin/organizations" className="pib-btn-secondary">
             Cancel
