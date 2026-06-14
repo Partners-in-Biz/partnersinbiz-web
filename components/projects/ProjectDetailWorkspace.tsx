@@ -77,6 +77,7 @@ const DEFAULT_COLUMNS: Column[] = [
   { id: 'review',      name: 'Review',      color: '#c084fc',                 order: 4 },
   { id: 'done',        name: 'Done',        color: '#4ade80',                 order: 5 },
 ]
+const TASK_REFRESH_INTERVAL_MS = 10000
 
 function Skeleton({ className = '' }: { className?: string }) {
   return <div className={`pib-skeleton ${className}`} />
@@ -230,6 +231,18 @@ export function ProjectDetailWorkspace({
     setTargetOrgId(project.clientOrgId ?? project.orgId ?? '')
   }, [project])
 
+  const refreshTasks = useCallback(async ({ preserveLiveChanges = false }: { preserveLiveChanges?: boolean } = {}) => {
+    const res = await fetch(`/api/v1/projects/${projectId}/tasks`)
+    const body = await res.json()
+    const nextTasks = (body.data ?? []) as Task[]
+    setTasks(prev => preserveLiveChanges ? mergeLiveTasks(nextTasks, prev) : nextTasks)
+    setSelectedTask(prev => {
+      if (!prev) return prev
+      const freshTask = nextTasks.find(task => task.id === prev.id)
+      return freshTask ?? prev
+    })
+  }, [projectId])
+
   useEffect(() => {
     // Project + docs: one-shot fetch
     Promise.all([
@@ -250,14 +263,35 @@ export function ProjectDetailWorkspace({
       setSettingsAdditionalContactIds(normalizeRelationshipIds(pBody.data?.contactIds, [primaryContactId]))
       setLoading(false)
     }).catch(() => setLoading(false))
+  }, [projectId])
 
-    // Initial tasks load via REST — always reliable regardless of client auth
-    fetch(`/api/v1/projects/${projectId}/tasks`).then(r => r.json())
-      .then(body => setTasks(prev => mergeLiveTasks(body.data ?? [], prev)))
-      .catch(() => {})
+  useEffect(() => {
+    let cancelled = false
+    let refreshInFlight = false
 
-    // Live patches via Firestore — only applies incremental changes on top of
-    // REST data, so if the listener fails or has no auth the board still shows.
+    const refresh = async (options?: { preserveLiveChanges?: boolean }) => {
+      if (cancelled || refreshInFlight) return
+      refreshInFlight = true
+      try {
+        await refreshTasks(options)
+      } catch {
+        // Keep the last known board state if the REST fallback misses a tick.
+      } finally {
+        refreshInFlight = false
+      }
+    }
+
+    // Initial tasks load via REST — always reliable regardless of client auth.
+    // Preserve any listener events that win the race before the first REST response returns.
+    refresh({ preserveLiveChanges: true })
+
+    // Poll as a safety net for browsers/sessions where the Firestore listener is denied,
+    // disconnected, or not delivering changes; this keeps the open Kanban board moving.
+    const refreshInterval = window.setInterval(() => {
+      refresh()
+    }, TASK_REFRESH_INTERVAL_MS)
+
+    // Live patches via Firestore — applies incremental changes immediately when available.
     const unsubscribe = onSnapshot(
       collection(getClientDb(), 'projects', projectId, 'tasks'),
       (snap) => {
@@ -272,10 +306,17 @@ export function ProjectDetailWorkspace({
           }
         })
       },
-      () => {} // silent fail — REST data already loaded
+      (error) => {
+        console.warn('Project task live listener unavailable; using REST refresh fallback.', error)
+      },
     )
-    return () => unsubscribe()
-  }, [projectId])
+
+    return () => {
+      cancelled = true
+      window.clearInterval(refreshInterval)
+      unsubscribe()
+    }
+  }, [projectId, refreshTasks])
 
   useEffect(() => {
     if (!isAdmin) return
