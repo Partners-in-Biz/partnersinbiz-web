@@ -19,13 +19,13 @@ const TYPES: TypeMeta[] = [
   {
     type: 'CUSTOMER_LIST',
     label: 'Customer list',
-    description: 'Upload a CSV of email addresses or phone numbers. PiB hashes client-side; raw PII never leaves your browser.',
+    description: 'Upload a CSV of email addresses or phone numbers. PiB hashes in the admin browser; raw PII is not stored in PiB.',
     icon: '📋',
   },
   {
     type: 'WEBSITE',
     label: 'Website visitors',
-    description: 'Target people who visited specific URLs on your site within a retention window. Requires Meta Pixel.',
+    description: 'Target people who visited specific client URLs within a retention window. Requires the Meta Pixel.',
     icon: '🌐',
   },
   {
@@ -43,7 +43,7 @@ const TYPES: TypeMeta[] = [
   {
     type: 'ENGAGEMENT',
     label: 'Engagement',
-    description: 'Reach people who engaged with your Facebook Page, videos, lead forms, or events.',
+    description: 'Reach people who engaged with the client Facebook Page, videos, lead forms, or events.',
     icon: '💬',
   },
 ]

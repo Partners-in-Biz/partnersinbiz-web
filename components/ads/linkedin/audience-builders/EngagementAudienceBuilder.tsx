@@ -79,7 +79,7 @@ export function LinkedinEngagementAudienceBuilder({ orgId, onCreated, onCancel }
       <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/5 p-4 text-sm">
         <p className="font-medium text-emerald-300">Engagement audience created</p>
         <p className="mt-1 text-xs text-white/60">
-          LinkedIn will populate this audience based on engagement with your company page.
+          LinkedIn will populate this audience based on engagement with the client company page.
         </p>
         <div className="flex gap-2 mt-3">
           <button type="button" className="btn-pib-ghost text-xs" onClick={reset}>
@@ -132,7 +132,7 @@ export function LinkedinEngagementAudienceBuilder({ orgId, onCreated, onCancel }
           disabled={state === 'submitting'}
         />
         <span className="text-xs text-white/40 mt-1 block">
-          Format: urn:li:organization:&#123;id&#125; — your LinkedIn company page URN
+          Format: urn:li:organization:&#123;id&#125; — client LinkedIn company page URN
         </span>
       </label>
 

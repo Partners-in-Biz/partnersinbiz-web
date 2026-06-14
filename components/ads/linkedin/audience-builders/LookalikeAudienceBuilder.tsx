@@ -98,7 +98,7 @@ export function LinkedinLookalikeAudienceBuilder({ orgId, onCreated, onCancel }:
       <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/5 p-4 text-sm">
         <p className="font-medium text-emerald-300">Lookalike audience created</p>
         <p className="mt-1 text-xs text-white/60">
-          LinkedIn will build a lookalike audience from your source segment.
+          LinkedIn will build a lookalike audience from the client source segment.
         </p>
         <div className="flex gap-2 mt-3">
           <button type="button" className="btn-pib-ghost text-xs" onClick={reset}>

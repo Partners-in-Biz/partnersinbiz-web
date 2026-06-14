@@ -125,7 +125,7 @@ export function CreativePicker({
               <p className="text-sm text-white/40">Loading…</p>
             ) : creatives.length === 0 ? (
               <p className="text-sm text-white/40">
-                No creatives yet. Use the Upload tab to add your first.
+                No creatives yet. Use the Upload tab to add approved operator assets.
               </p>
             ) : (
               <div className="grid grid-cols-3 gap-3" role="list">
@@ -173,7 +173,7 @@ export function CreativePicker({
           {tab === 'import' && (
             <div className="space-y-4 rounded border border-white/10 p-4">
               <p className="text-sm text-white/60">
-                Import only approved content, social, or campaign assets. Ads stores an immutable approved copy, landing URL, UTM snapshot, and source refs.
+                Import only approved content, social, or campaign assets. Ads stores an immutable approved copy, landing URL, UTM snapshot, and source refs; import does not authorize paid spend.
               </p>
               <label className="block text-sm">
                 Source type

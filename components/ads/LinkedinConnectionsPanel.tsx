@@ -272,7 +272,7 @@ export function LinkedinConnectionsPanel({ orgSlug, orgId, connections }: Props)
           )}
           {!accountsLoading && !accountsError && accounts.length === 0 && (
             <p className="text-xs text-white/40">
-              No ad accounts found. Confirm your LinkedIn account has access to a
+              No ad accounts found. Confirm the connected LinkedIn account has access to a
               LinkedIn Marketing API ad account.
             </p>
           )}

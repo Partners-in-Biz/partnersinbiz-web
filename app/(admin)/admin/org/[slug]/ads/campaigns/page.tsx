@@ -29,7 +29,7 @@ export default async function CampaignsListPage({
     <AdCampaignsWorkspace
       surface="admin"
       title="Campaigns"
-      description={`${campaigns.length} total - create, launch, pause, and review paid campaigns for this client.`}
+      description={`${campaigns.length} total - create, review, pause, and approval-gate paid campaigns for this client. Launches require recorded client approval.`}
       campaigns={campaigns}
       connectionSummaries={summarizeAdConnections(connections)}
       campaignHref={(campaign) => `/admin/org/${slug}/ads/campaigns/${campaign.id}`}
@@ -48,7 +48,7 @@ export default async function CampaignsListPage({
           href={`/admin/org/${slug}/ads/campaigns/new`}
           className="btn-pib-accent text-sm"
         >
-          Build your first campaign
+          Create an admin draft campaign
         </Link>
       }
     />

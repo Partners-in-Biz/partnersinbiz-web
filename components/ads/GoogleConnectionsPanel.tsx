@@ -292,7 +292,7 @@ export function GoogleConnectionsPanel({ orgSlug, orgId, connections }: Props) {
           )}
           {!customersLoading && !customersError && customers.length === 0 && (
             <p className="text-xs text-white/40">
-              No accessible customers found. Confirm your Google account has access
+              No accessible customers found. Confirm the connected Google account has access
               to a Google Ads account.
             </p>
           )}

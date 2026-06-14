@@ -34,7 +34,7 @@ export default async function AudiencesPage({ params }: { params: Promise<Params
         <div className="rounded-lg border border-dashed border-white/10 p-8 text-center">
           <p className="text-white/60">No custom audiences yet.</p>
           <Link href={`/admin/org/${slug}/ads/audiences/new`} className="mt-3 inline-block text-sm text-[#F5A623] underline">
-            Build your first audience →
+            Create an admin audience draft →
           </Link>
         </div>
       ) : (

@@ -56,7 +56,7 @@ export default async function InsightsRollupPage({ params }: { params: Promise<P
           Active campaigns ({campaigns.length})
         </h2>
         {campaigns.length === 0 ? (
-          <p className="mt-2 text-sm text-white/40">No active campaigns. Launch one from the Campaigns tab.</p>
+          <p className="mt-2 text-sm text-white/40">No active campaigns. Client-approved campaigns can be launched from the admin Campaigns tab after spend gates pass.</p>
         ) : (
           <ul className="mt-2 divide-y divide-white/5 rounded border border-white/10">
             {campaigns.map((c) => (

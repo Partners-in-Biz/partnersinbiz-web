@@ -23,7 +23,7 @@ export default async function OfflineConversionsPage({ params }: { params: Promi
       <header>
         <h1 className="text-2xl font-semibold">Offline Conversions</h1>
         <p className="text-sm text-white/50">
-          Upload a CSV of offline conversion events to reconcile against your Conversion Actions.
+          Upload an operator-vetted CSV of offline conversion events to reconcile against the client Conversion Actions.
         </p>
       </header>
       <OfflineBatchesListClient

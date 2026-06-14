@@ -32,7 +32,7 @@ interface Step3State {
 // Shopping uses SALES as the primary objective; TRAFFIC as fallback
 const OBJECTIVES: { value: AdObjective; label: string; description: string }[] = [
   { value: 'SALES', label: 'Sales', description: 'Optimise for purchases and conversions (recommended for Shopping)' },
-  { value: 'TRAFFIC', label: 'Traffic', description: 'Drive clicks to your product pages' },
+  { value: 'TRAFFIC', label: 'Traffic', description: 'Drive clicks to client product pages' },
 ]
 
 const STEP_LABELS = ['Basics', 'Merchant Center', 'Ad Group']
@@ -421,7 +421,7 @@ export function ShoppingCampaignBuilder({ orgId, orgSlug, onCancel }: Props) {
           <div className="rounded border border-white/10 bg-white/[0.02] p-4 text-sm text-white/50">
             <p>
               Shopping campaigns use <strong className="text-white/70">Product ads</strong> —
-              Google automatically pulls product titles, images, and prices from your Merchant
+              Google automatically pulls product titles, images, and prices from the client Merchant
               Center feed. No ad creative assets are required.
             </p>
           </div>

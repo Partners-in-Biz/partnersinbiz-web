@@ -22,7 +22,7 @@ const PLATFORM_OPTIONS: { value: Platform; label: string; description?: string }
   { value: 'meta', label: 'Meta (Facebook / Instagram)' },
   { value: 'google-search', label: 'Google Search' },
   { value: 'google-display', label: 'Google Display' },
-  { value: 'google-shopping', label: 'Google Shopping', description: 'Shopping ads from your Merchant Center product feed.' },
+  { value: 'google-shopping', label: 'Google Shopping', description: 'Shopping ads from the client Merchant Center product feed.' },
   { value: 'linkedin', label: 'LinkedIn', description: 'Sponsored Content, Text Ads, and Message Ads on LinkedIn.' },
   { value: 'tiktok', label: 'TikTok', description: 'In-Feed Ads, TopView, and Spark Ads on TikTok.' },
 ]

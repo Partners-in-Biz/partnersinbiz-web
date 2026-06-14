@@ -90,7 +90,7 @@ export function ConversionActionsClient({ orgSlug, orgId, initialActions }: Prop
               className="mt-3 text-sm text-[#F5A623] underline"
               onClick={() => setShowForm(true)}
             >
-              Create your first conversion action →
+              Create an admin conversion action →
             </button>
           )}
         </div>

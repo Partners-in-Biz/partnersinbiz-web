@@ -138,7 +138,7 @@ export function CustomerListBuilder({ orgId, onComplete, onCancel }: Props) {
       <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/5 p-4 text-sm">
         <p className="font-medium text-emerald-300">Custom audience created</p>
         <p className="mt-1 text-xs text-white/60">
-          {state.ca.name} — Meta is matching your list. Refresh size after a few minutes.
+          {state.ca.name} — Meta is matching the approved list. Refresh size after a few minutes.
         </p>
         <button className="btn-pib-ghost mt-3 text-xs" onClick={reset}>
           Create another

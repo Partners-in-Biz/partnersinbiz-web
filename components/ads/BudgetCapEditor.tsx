@@ -156,6 +156,10 @@ export function BudgetCapEditor({
         </div>
       )}
 
+      <div className="rounded border border-amber-300/20 bg-amber-400/10 px-4 py-3 text-sm text-amber-100">
+        Admin guardrail only: creating or increasing a cap does not approve new paid spend. Campaign launch and spend changes still require recorded approval evidence.
+      </div>
+
       {/* Name */}
       <label className="block text-sm">
         <span className="font-medium">Name *</span>
