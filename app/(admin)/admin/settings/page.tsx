@@ -71,7 +71,7 @@ function ChannelSwitch({
 const PLATFORM_ITEMS = [
   { label: 'Platform Users', desc: 'Manage admin and operator user accounts', href: '/admin/platform-users', superAdminOnly: true },
   { label: 'Platform Members', desc: 'View client logins and linked client accounts', href: '/admin/platform-members', superAdminOnly: true },
-  { label: 'Communications', desc: 'Inspect channel readiness, queues, routing, and customer messaging operations', href: '/portal/communications' },
+  { label: 'Communications', desc: 'Inspect operator support queues, routing, and customer messaging operations', href: '/admin/support' },
   { label: 'API Keys', desc: 'Manage API keys for AI agents and integrations', href: '/admin/settings/api-keys' },
 ]
 
@@ -264,10 +264,10 @@ export default function SettingsPage() {
             {session?.role ?? 'Admin'}
           </span>
         </div>
-        <Link href="/portal/email" className="flex items-center justify-between px-4 py-3 hover:bg-[var(--color-row-hover)] transition-colors">
+        <Link href="/admin/settings#integrations" className="flex items-center justify-between px-4 py-3 hover:bg-[var(--color-row-hover)] transition-colors">
           <div>
-            <p className="text-sm font-medium text-on-surface">Internal mailbox</p>
-            <p className="text-xs text-on-surface-variant mt-0.5">Link Gmail or SMTP/IMAP and send mail from your admin profile.</p>
+            <p className="text-sm font-medium text-on-surface">Internal email operations</p>
+            <p className="text-xs text-on-surface-variant mt-0.5">Review the admin integration status for email services before changing mailbox configuration.</p>
           </div>
           <span style={{ color: 'var(--color-accent-v2)' }}>→</span>
         </Link>
@@ -360,7 +360,7 @@ export default function SettingsPage() {
       </div>
 
       {/* Integrations */}
-      <div className="pib-card-section">
+      <div id="integrations" className="pib-card-section">
         <div className="pib-card-section-header">
           <span className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">
             Integrations

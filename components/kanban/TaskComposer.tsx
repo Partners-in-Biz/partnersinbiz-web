@@ -16,6 +16,7 @@ interface TaskComposerProps {
   agents?: AgentMember[]
   existingTasks?: Task[]
   hideAgentSection?: boolean
+  surface?: 'admin' | 'portal'
   onClose: () => void
   onCreated: (task: Task) => void
 }
@@ -93,7 +94,7 @@ export async function uploadTaskFile(file: File, projectId: string, orgId?: stri
   }
 }
 
-export function TaskComposer({ open, column, projectId, orgId, members, agents = [], existingTasks = [], hideAgentSection = false, onClose, onCreated }: TaskComposerProps) {
+export function TaskComposer({ open, column, projectId, orgId, members, agents = [], existingTasks = [], hideAgentSection = false, surface = 'portal', onClose, onCreated }: TaskComposerProps) {
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
   const [priority, setPriority] = useState<(typeof PRIORITIES)[number]>('medium')
@@ -119,6 +120,7 @@ export function TaskComposer({ open, column, projectId, orgId, members, agents =
   const mouseDownOnBackdrop = useRef(false)
 
   const canSave = title.trim().length > 0 && !saving
+  const isAdminSurface = surface === 'admin'
   const selectedMembers = useMemo(
     () => members.filter((member) => assigneeIds.includes(member.userId)),
     [assigneeIds, members],
@@ -269,7 +271,7 @@ export function TaskComposer({ open, column, projectId, orgId, members, agents =
             <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">
               {column.name}
             </p>
-            <h2 className="text-lg font-headline font-bold text-on-surface">New task</h2>
+            <h2 className="text-lg font-headline font-bold text-on-surface">{isAdminSurface ? 'New operator task' : 'New project task'}</h2>
           </div>
           <button
             type="button"
@@ -286,13 +288,13 @@ export function TaskComposer({ open, column, projectId, orgId, members, agents =
             <input
               value={title}
               onChange={(event) => setTitle(event.target.value)}
-              placeholder="Task title"
+              placeholder={isAdminSurface ? 'Operator task title' : 'Project task title'}
               className="w-full rounded-md border border-[var(--color-card-border)] bg-[var(--color-card)] px-4 py-3 text-lg font-headline font-bold text-on-surface placeholder:text-on-surface-variant focus:border-[var(--color-accent-v2)] focus:outline-none"
               autoFocus
             />
             <div className="space-y-2">
               <div className="flex items-center justify-between gap-3">
-                <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Description</p>
+                <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">{isAdminSurface ? 'Operator brief' : 'Description'}</p>
                 <VoiceInputButton
                   disabled={saving}
                   onTranscript={addVoiceTranscriptToDescription}
@@ -302,7 +304,7 @@ export function TaskComposer({ open, column, projectId, orgId, members, agents =
               <textarea
                 value={description}
                 onChange={(event) => setDescription(event.target.value)}
-                placeholder="Description, goals, acceptance criteria, blockers..."
+                placeholder={isAdminSurface ? 'Internal admin note, goals, acceptance criteria, blockers...' : 'Description, goals, acceptance criteria, blockers...'}
                 rows={7}
                 className="w-full resize-y rounded-md border border-[var(--color-card-border)] bg-[var(--color-card)] px-4 py-3 text-sm leading-relaxed text-on-surface placeholder:text-on-surface-variant focus:border-[var(--color-accent-v2)] focus:outline-none"
               />
@@ -442,19 +444,19 @@ export function TaskComposer({ open, column, projectId, orgId, members, agents =
             </label>
 
             <div>
-              <p className="mb-2 text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Context</p>
+              <p className="mb-2 text-[10px] font-label uppercase tracking-widest text-on-surface-variant">{isAdminSurface ? 'Admin context' : 'Context'}</p>
               <ContextReferencePicker
                 orgId={orgId}
                 projectId={projectId}
                 value={contextRefs}
                 onChange={setContextRefs}
-                inputLabel="Add task context reference"
+                inputLabel={isAdminSurface ? 'Add admin task context reference' : 'Add task context reference'}
                 compact
               />
             </div>
 
             <div>
-              <p className="mb-2 text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Assignment</p>
+              <p className="mb-2 text-[10px] font-label uppercase tracking-widest text-on-surface-variant">{isAdminSurface ? 'Operator assignment' : 'Assignment'}</p>
               {!hideAgentSection && (
                 <div className="mb-2 grid grid-cols-3 gap-1 rounded-md border border-[var(--color-card-border)] bg-[var(--color-card)] p-1">
                   {(['people', 'agent', 'orchestration'] as const).map((mode) => (

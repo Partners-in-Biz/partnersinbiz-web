@@ -117,11 +117,11 @@ export default function OrgDashboard() {
           const { from, to } = todayRange()
           const orgQs = `orgId=${encodeURIComponent(fetchedOrgId)}`
           return Promise.all([
-            fetch(`/api/v1/social/stats?${orgQs}`)
+            fetch(`/api/v1/social/stats?${orgQs}`, { headers: { 'X-Org-Id': fetchedOrgId, 'X-Org-Slug': slug } })
               .then(r => r.json())
               .then(body => setSocialStats(body.data ?? null))
               .catch(() => {}),
-            fetch(`/api/v1/social/posts?${orgQs}&from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}&limit=50`)
+            fetch(`/api/v1/social/posts?${orgQs}&from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}&limit=50`, { headers: { 'X-Org-Id': fetchedOrgId, 'X-Org-Slug': slug } })
               .then(r => r.json())
               .then(body => {
                 const posts = ((body.data ?? []) as ScheduledContentPost[])
@@ -338,11 +338,11 @@ export default function OrgDashboard() {
         <div className="flex flex-wrap gap-2">
           {[
             { label: 'Projects',     href: `/admin/org/${slug}/projects` },
-            { label: 'Social Queue', href: `/admin/social/queue?org=${encodeURIComponent(slug)}` },
-            { label: 'Compose Post', href: `/admin/social/compose?org=${encodeURIComponent(slug)}` },
+            { label: 'Social Queue', href: `/admin/org/${slug}/social` },
+            { label: 'Compose Post', href: `/admin/org/${slug}/social/standalone` },
             { label: 'Team',         href: `/admin/org/${slug}/team` },
             { label: 'Billing',      href: `/admin/org/${slug}/billing` },
-            { label: 'Analytics',    href: `/admin/social/analytics?org=${encodeURIComponent(slug)}` },
+            { label: 'Analytics',    href: `/admin/org/${slug}/dashboard?panel=analytics` },
           ].map(a => (
             <Link key={a.href} href={a.href} className="pib-btn-secondary text-xs font-label">{a.label}</Link>
           ))}

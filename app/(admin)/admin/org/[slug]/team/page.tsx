@@ -40,8 +40,8 @@ interface ClientCandidate {
 
 const ROLE_OPTIONS: Array<{ value: OrgMember['role']; label: string; description: string }> = [
   { value: 'admin', label: 'Admin', description: 'Can manage this client workspace' },
-  { value: 'member', label: 'Member', description: 'Can work inside the client portal' },
-  { value: 'viewer', label: 'Viewer', description: 'Read-only client portal access' },
+  { value: 'member', label: 'Member', description: 'Can work inside the selected org workspace' },
+  { value: 'viewer', label: 'Viewer', description: 'Read-only selected org workspace access' },
 ]
 
 type AccessScope = 'none' | 'all' | 'crm' | 'marketing' | 'projects' | 'billing' | 'readonly'
@@ -368,7 +368,7 @@ export default function TeamPage() {
         setClientSearchLoading(true)
         const res = await fetch(
           `/api/v1/organizations/${org.id}/members/client?q=${encodeURIComponent(q)}`,
-          { signal: controller.signal },
+          { signal: controller.signal, headers: { 'X-Org-Id': org.id, 'X-Org-Slug': slug } },
         )
         const body = await res.json()
         if (!res.ok) throw new Error(body.error || 'Failed to search clients')
@@ -386,7 +386,7 @@ export default function TeamPage() {
       controller.abort()
       window.clearTimeout(timer)
     }
-  }, [org, clientSearch, clientUid])
+  }, [org, clientSearch, clientUid, slug])
 
   // Load organization and members
   useEffect(() => {
@@ -407,7 +407,7 @@ export default function TeamPage() {
         setOrg(foundOrg)
 
         // Fetch members
-        const membersRes = await fetch(`/api/v1/organizations/${foundOrg.id}/members`)
+        const membersRes = await fetch(`/api/v1/organizations/${foundOrg.id}/members`, { headers: { 'X-Org-Id': foundOrg.id, 'X-Org-Slug': slug } })
         if (!membersRes.ok) throw new Error('Failed to fetch members')
 
         const membersBody = await membersRes.json()
@@ -433,7 +433,7 @@ export default function TeamPage() {
     try {
       const res = await fetch(`/api/v1/organizations/${org.id}/create-login`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'X-Org-Id': org.id, 'X-Org-Slug': slug },
         body: JSON.stringify({
           email: createEmail,
           name: createName,
@@ -484,7 +484,7 @@ export default function TeamPage() {
 
       const res = await fetch(`/api/v1/organizations/${org.id}/members`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'X-Org-Id': org.id, 'X-Org-Slug': slug },
         body: JSON.stringify({
           email: addEmail,
           role: addRole,
@@ -527,7 +527,7 @@ export default function TeamPage() {
 
       const res = await fetch(`/api/v1/organizations/${org.id}/members/client`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'X-Org-Id': org.id, 'X-Org-Slug': slug },
         body: JSON.stringify({
           uid: clientUid,
           role: clientRole,
@@ -570,7 +570,7 @@ export default function TeamPage() {
 
       const res = await fetch(`/api/v1/organizations/${org.id}/members/${userId}`, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'X-Org-Id': org.id, 'X-Org-Slug': slug },
         body: JSON.stringify({ role: newRole }),
       })
 
@@ -602,7 +602,7 @@ export default function TeamPage() {
 
       const res = await fetch(`/api/v1/organizations/${org.id}/members/${userId}`, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'X-Org-Id': org.id, 'X-Org-Slug': slug },
         body: JSON.stringify({ accessScope }),
       })
 
@@ -630,6 +630,7 @@ export default function TeamPage() {
     try {
       const res = await fetch(`/api/v1/organizations/${org.id}/members/${userId}`, {
         method: 'DELETE',
+        headers: { 'X-Org-Id': org.id, 'X-Org-Slug': slug },
       })
 
       const body = await res.json()
@@ -694,7 +695,7 @@ export default function TeamPage() {
             </p>
             <h2 className="mt-1 text-lg font-headline font-semibold text-on-surface">Add people to this workspace</h2>
             <p className="mt-1 max-w-2xl text-sm text-on-surface-variant">
-              Create a new client login, attach an existing client account, or grant a PiB staff member explicit portal access.
+              Create a new client login, attach an existing client account, or grant a PiB staff member explicit access to this selected org.
             </p>
           </div>
           <div className="grid gap-4 p-5 xl:grid-cols-3">
@@ -886,7 +887,7 @@ export default function TeamPage() {
             <InviteCard
               icon={<FiUserCheck aria-hidden="true" className="h-4 w-4" />}
               title="Add existing PiB member"
-              description="Searches platform staff accounts and grants explicit access to this client portal workspace."
+              description="Searches platform staff accounts and grants explicit access to this selected client org workspace."
             >
               <form onSubmit={handleAddMember} className="space-y-3">
                 <label className="block">

@@ -76,13 +76,13 @@ describe('Admin company command center page', () => {
     fireEvent.click(screen.getByRole('tab', { name: /Contacts/i }))
 
     expect(screen.getByText('Contacts not linked yet')).toBeInTheDocument()
-    expect(screen.getByText('Start account context from the client workspace')).toBeInTheDocument()
+    expect(screen.getByText('Review selected-org context from the admin workspace')).toBeInTheDocument()
     expect(
       screen.getByText(
-        'No contacts are linked to Acme Holdings yet. Review the company overview or open the portal workspace so relationship ownership, email history, and pipeline handoffs stop living outside CRM.',
+        'No contacts are linked to Acme Holdings yet. Review the company overview or open the selected client org dashboard so relationship ownership, email history, and pipeline handoffs stay visible to PiB operators.',
       ),
     ).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: 'Open portal workspace for Acme Holdings' })).toHaveAttribute('href', '/portal/companies/company-1')
+    expect(screen.getByRole('link', { name: 'Open selected org dashboard for Acme Holdings' })).toHaveAttribute('href', '/admin/org/acme-client/dashboard')
 
     fireEvent.click(screen.getByRole('button', { name: 'Review overview for Acme Holdings' }))
 
@@ -180,13 +180,13 @@ describe('Admin company command center page', () => {
     fireEvent.click(screen.getByRole('tab', { name: /Contacts/i }))
     expect(screen.getByRole('link', { name: 'Open Ava Buyer from Acme Holdings admin command center' })).toHaveAttribute(
       'href',
-      '/portal/contacts/contact-1?orgId=client-org&orgSlug=lumen-speeds&sourceCompanyId=company-1&sourceCompanyName=Acme+Holdings',
+      '/admin/org/acme-client/crm/companies/company-1?tab=contacts&record=contact-1',
     )
 
     fireEvent.click(screen.getByRole('tab', { name: /Deals/i }))
     expect(screen.getByRole('link', { name: 'Open Growth Retainer from Acme Holdings admin command center' })).toHaveAttribute(
       'href',
-      '/portal/deals/deal-1?orgId=client-org&orgSlug=lumen-speeds&sourceCompanyId=company-1&sourceCompanyName=Acme+Holdings',
+      '/admin/org/acme-client/crm/companies/company-1?tab=deals&record=deal-1',
     )
   })
 
@@ -267,10 +267,10 @@ describe('Admin company command center page', () => {
     expect(screen.getByText('Keep leadership risk reviewable')).toBeInTheDocument()
     expect(
       screen.getByText(
-        'No active risk signals are flagged for Acme Holdings. Review the portal workspace so finance, delivery, and relationship risk stay visible before the account surprises leadership.',
+        'No active risk signals are flagged for Acme Holdings. Review the selected client org dashboard so finance, delivery, and relationship risk stays visible to PiB operators before the account surprises leadership.',
       ),
     ).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: 'Open portal risk review for Acme Holdings' })).toHaveAttribute('href', '/portal/companies/company-1')
+    expect(screen.getByRole('link', { name: 'Open admin risk review for Acme Holdings' })).toHaveAttribute('href', '/admin/org/acme-client/dashboard')
   })
 
   it('surfaces linked organisation workspace actions from the admin CRM company route', async () => {
@@ -330,9 +330,9 @@ describe('Admin company command center page', () => {
     render(<AdminCompanyCommandCenterPage />)
 
     expect(await screen.findByText('Admin company command center')).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: /Portal view/ })).toHaveAttribute(
+    expect(screen.getByRole('link', { name: /Org dashboard/ })).toHaveAttribute(
       'href',
-      '/portal/companies/company-1?orgId=client-org&orgSlug=lumen-speeds&sourceCompanyId=company-1&sourceCompanyName=Lumen',
+      '/admin/org/acme-client/dashboard',
     )
 
     fireEvent.click(screen.getByRole('tab', { name: 'Workspace' }))

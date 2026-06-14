@@ -13,8 +13,8 @@ export interface NavItem {
 }
 
 // ── Operator nav (platform control plane only) ──────────────────────────────
-// Work tools (briefings, CRM, marketing, documents, research, invoicing, analytics)
-// have all moved to the portal. Admin nav shows only platform management.
+// Top-level admin navigation shows only PiB operator control-plane routes.
+// Workspace links stay on admin/org routes so operators do not fall into portal self-service.
 
 export const OPERATOR_NAV: NavItem[] = [
   { label: 'Home',         href: '/admin/dashboard',    icon: 'space_dashboard', group: 'work' },
@@ -69,15 +69,10 @@ export function workspaceNav(slug: string): NavItem[] {
         `/admin/org/${slug}/brand`,
         `/admin/org/${slug}/social`,
         `/admin/org/${slug}/campaigns`,
-        '/portal/communications',
         `/admin/org/${slug}/seo`,
         `/admin/org/${slug}/capture-sources`,
         `/admin/org/${slug}/integrations`,
         `/admin/org/${slug}/email-domains`,
-        '/portal/social',
-        '/portal/email',
-        '/portal/sequences',
-        '/portal/seo',
       ],
     },
     { label: 'Messages', href: `/admin/org/${slug}/messages`, icon: 'forum', group: 'work' },
@@ -86,7 +81,7 @@ export function workspaceNav(slug: string): NavItem[] {
       href: `/admin/org/${slug}/intelligence`,
       icon: 'analytics',
       group: 'data',
-      activePatterns: [`/admin/org/${slug}/activity`, '/portal/analytics', '/portal/properties', '/portal/reports'],
+      activePatterns: [`/admin/org/${slug}/activity`, `/admin/org/${slug}/geo-seo`],
     },
     { label: 'Wiki', href: `/admin/org/${slug}/wiki`, icon: 'menu_book', group: 'data' },
     { label: 'Team',     href: `/admin/org/${slug}/team`,     icon: 'groups', group: 'comms' },

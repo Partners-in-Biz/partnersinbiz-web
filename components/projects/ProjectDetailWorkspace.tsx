@@ -732,7 +732,7 @@ export function ProjectDetailWorkspace({
         <div className="flex min-h-0 flex-1 flex-col overflow-hidden -mx-4 -my-8 md:mx-0 md:my-0 h-[calc(100dvh-56px)] lg:h-[calc(100dvh-120px)]">
           <div className="mb-4 hidden shrink-0 rounded-[var(--radius-card)] border border-[var(--color-card-border)] bg-[var(--color-card)] p-5 shadow-sm lg:block">
             <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant mb-1">
-              Project / Agent chat
+              {isAdmin ? 'Operator task-bus chat' : 'Project / Agent chat'}
             </p>
             <h2 className="text-2xl font-headline font-bold text-on-surface">Project chat</h2>
             <p className="text-sm text-on-surface-variant mt-1">
@@ -836,6 +836,7 @@ export function ProjectDetailWorkspace({
           members={members}
           agents={agents}
           hideAgentSection={mode === 'portal'}
+          surface={isAdmin ? 'admin' : 'portal'}
           onClose={() => setSelectedTask(null)}
           onUpdate={handleTaskUpdate}
           onDelete={handleTaskDelete}
@@ -850,6 +851,7 @@ export function ProjectDetailWorkspace({
         agents={agents}
         existingTasks={tasks}
         hideAgentSection={mode === 'portal'}
+        surface={isAdmin ? 'admin' : 'portal'}
         onClose={() => setShowNewTask(null)}
         onCreated={handleTaskCreated}
       />

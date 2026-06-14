@@ -132,7 +132,7 @@ export default function BillingPage() {
         // Client workspaces list invoices received by that client.
         // The PiB billing workspace lists PiB-issued invoices, then the API
         // filters restricted admins by their allowed recipient client orgs.
-        const invoicesRes = await fetch(invoiceListUrlForOrg(foundOrg, slug))
+        const invoicesRes = await fetch(invoiceListUrlForOrg(foundOrg, slug), { headers: { 'X-Org-Id': foundOrg.id, 'X-Org-Slug': slug } })
         if (invoicesRes.ok) {
           const invoicesData = await invoicesRes.json()
           setInvoices(invoicesData.data ?? [])

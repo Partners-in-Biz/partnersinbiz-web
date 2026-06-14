@@ -28,7 +28,8 @@ describe('OrgSettingsPage folder mappings', () => {
       if (url === '/api/v1/workspace-connections?orgId=org_1') {
         return Promise.resolve({ ok: true, json: async () => ({ data: [] }) } as Response)
       }
-      if (url === '/api/v1/workspace-folders?orgId=org_1' && !init) {
+      if (url === '/api/v1/workspace-folders?orgId=org_1') {
+        expect(init?.headers).toEqual(expect.objectContaining({ 'X-Org-Id': 'org_1', 'X-Org-Slug': 'acme-client' }))
         return Promise.resolve({
           ok: true,
           json: async () => ({

@@ -102,17 +102,17 @@ export default function ActivityPage() {
   const slug = params.slug as string
   const [events, setEvents] = useState<ActivityEvent[]>([])
   const [loading, setLoading] = useState(true)
-  const [orgId, setOrgId] = useState<string | null>(null)
 
   useEffect(() => {
     // Fetch org ID, then activity
-    fetch(`/api/v1/organizations?slug=${slug}`)
+    fetch('/api/v1/organizations')
       .then(r => r.json())
       .then(body => {
-        const org = body.data?.[0]
+        const org = Array.isArray(body.data) ? body.data.find((item: { slug?: string }) => item.slug === slug) : null
         if (org) {
-          setOrgId(org.id)
-          return fetch(`/api/v1/activity?orgId=${org.id}&limit=50`)
+          return fetch(`/api/v1/activity?orgId=${encodeURIComponent(org.id)}&limit=50`, {
+            headers: { 'X-Org-Id': org.id, 'X-Org-Slug': slug },
+          })
             .then(r => r.json())
             .then(body => {
               setEvents(body.data ?? [])
@@ -185,7 +185,7 @@ export default function ActivityPage() {
 
                 {/* Events */}
                 <div className="space-y-3">
-                  {grouped[groupLabel].map((event, idx) => (
+                  {grouped[groupLabel].map((event) => (
                     <div
                       key={event.id}
                       className="pib-card p-4 flex gap-4 border-l-2"

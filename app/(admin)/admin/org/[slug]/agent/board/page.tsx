@@ -162,9 +162,9 @@ export default function AgentBoardPage() {
     <div className="flex flex-col gap-4 p-6">
       <header className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-medium text-on-surface">Agent Board</h1>
+          <h1 className="text-2xl font-medium text-on-surface">Agent task-bus board</h1>
           <p className="text-sm text-on-surface-variant mt-1">
-            Every task across <span className="font-medium">{data?.orgName ?? slug}</span> that has an agent assigned —
+            Operator-only view of every task across <span className="font-medium">{data?.orgName ?? slug}</span> that has an agent assigned —
             both project-nested and standalone. Grouped by agent status.
           </p>
         </div>

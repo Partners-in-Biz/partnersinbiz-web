@@ -410,7 +410,7 @@ export function ProjectsWorkspace({ mode, orgSlug = '', orgScope = {} }: Project
   return (
     <div className={isAdmin ? 'space-y-6 max-w-5xl mx-auto' : 'space-y-6'}>
       <PageHeader
-        eyebrow={isAdmin ? 'Workspace / Projects' : 'Client workspace / Projects'}
+        eyebrow={isAdmin ? 'Admin task bus / Projects' : 'Client workspace / Projects'}
         title="Projects"
         description={isAdmin ? 'Kanban-led delivery spaces for client and platform work. Switch between board and list views without leaving the workspace.' : 'Follow active work, timelines, and task progress without exposing internal admin controls.'}
         actions={showForm ? null : (
@@ -425,7 +425,7 @@ export function ProjectsWorkspace({ mode, orgSlug = '', orgScope = {} }: Project
               onClick={() => setShowForm(true)}
               className="pib-btn-primary text-sm font-label"
             >
-              {isAdmin ? '+ New Project' : 'Request project'}
+              {isAdmin ? 'Create operator project' : 'Request project'}
             </button>
           </>
         )}

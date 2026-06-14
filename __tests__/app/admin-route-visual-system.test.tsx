@@ -101,7 +101,10 @@ describe('admin route visual system adoption', () => {
 
     await waitFor(() => expect(screen.getByText('INV-PIB')).toBeInTheDocument())
 
-    expect(global.fetch).toHaveBeenCalledWith('/api/v1/invoices?view=received&billingOrgId=pib-platform-owner')
+    expect(global.fetch).toHaveBeenCalledWith(
+      '/api/v1/invoices?view=received&billingOrgId=pib-platform-owner',
+      expect.objectContaining({ headers: expect.objectContaining({ 'X-Org-Id': 'pib-platform-owner', 'X-Org-Slug': 'partners-in-biz' }) }),
+    )
     expect(screen.getByRole('link', { name: '+ New Invoice' })).toHaveAttribute('href', '/admin/invoicing/new')
   })
 })

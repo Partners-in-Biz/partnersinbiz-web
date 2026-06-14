@@ -4,7 +4,7 @@ export const dynamic = 'force-dynamic'
 import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { PIB_PLATFORM_ORG_ID } from '@/lib/platform/constants'
-import { resolvePlatformAgentBoardHref } from '@/lib/admin/dashboard-links'
+import { resolvePlatformAgentBoardHref, resolvePlatformOrgAdminHref } from '@/lib/admin/dashboard-links'
 import { PageHeader, PageTabs, Surface, StatusPill } from '@/components/ui/AppFoundation'
 
 type OrgSummary = {
@@ -143,7 +143,7 @@ function healthTone(health: Health | null, error: string | null) {
 }
 
 function orgDashboardHref(org: Pick<OrgSummary, 'slug'>) {
-  return org.slug ? `/admin/org/${org.slug}/dashboard` : '/admin/clients'
+  return org.slug ? `/admin/org/${org.slug}/dashboard` : '/admin/organizations'
 }
 
 function clientOrgs(orgs: OrgSummary[]) {
@@ -315,9 +315,8 @@ function WorkLane({
   )
 }
 
-function SoftwareBuildEmptyIndicator({ activeCount }: { activeCount: number }) {
+function SoftwareBuildEmptyIndicator({ activeCount, specHref, projectsHref }: { activeCount: number; specHref: string; projectsHref: string }) {
   if (activeCount > 0) return null
-  const specHref = `/portal/documents/new?orgId=${encodeURIComponent(PIB_PLATFORM_ORG_ID)}&type=build_spec&title=${encodeURIComponent('PiB Platform Build Spec — Next Approved Sprint')}`
   return (
     <div className="rounded-lg border border-amber-400/30 bg-amber-500/10 p-4 text-sm text-amber-50">
       <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
@@ -335,7 +334,7 @@ function SoftwareBuildEmptyIndicator({ activeCount }: { activeCount: number }) {
             Create gated build spec
             <span className="material-symbols-outlined text-[15px]">arrow_forward</span>
           </Link>
-          <Link href="/portal/projects" className="inline-flex items-center gap-2 rounded-[var(--radius-btn)] border border-amber-300/40 px-3 py-2 text-xs font-label uppercase tracking-wide text-amber-100 hover:border-amber-200">
+          <Link href={projectsHref} className="inline-flex items-center gap-2 rounded-[var(--radius-btn)] border border-amber-300/40 px-3 py-2 text-xs font-label uppercase tracking-wide text-amber-100 hover:border-amber-200">
             Open Projects/Kanban
           </Link>
         </div>
@@ -520,6 +519,8 @@ export default function MissionControlDashboard() {
     [softwareBuildTasks],
   )
   const agentBoardHref = useMemo(() => resolvePlatformAgentBoardHref(data.orgs), [data.orgs])
+  const platformProjectsHref = useMemo(() => resolvePlatformOrgAdminHref(data.orgs, 'projects'), [data.orgs])
+  const platformDocumentsNewHref = useMemo(() => resolvePlatformOrgAdminHref(data.orgs, 'documents/new'), [data.orgs])
 
   if (!hydrated) return <DashboardLoadingShell />
 
@@ -531,7 +532,7 @@ export default function MissionControlDashboard() {
         description="Platform control plane — agent work, client health, approvals, and platform movement."
         actions={(
           <>
-            <DashboardQuickLink href="/portal/projects" icon="folder_managed" label="Projects" />
+            <DashboardQuickLink href={platformProjectsHref} icon="folder_managed" label="Projects" />
             <DashboardQuickLink href={agentBoardHref} icon="view_kanban" label="Agent board" />
           </>
         )}
@@ -631,7 +632,7 @@ export default function MissionControlDashboard() {
                   eyebrow="Theo / parent PiB workspace"
                   action={<span className="rounded-full bg-[var(--color-surface-container)] px-2 py-1 text-[10px] font-label uppercase tracking-wide text-on-surface-variant">{activeSoftwareBuildTasks.length} active / {softwareBuildTasks.length} total</span>}
                 />
-                <SoftwareBuildEmptyIndicator activeCount={activeSoftwareBuildTasks.length} />
+                <SoftwareBuildEmptyIndicator activeCount={activeSoftwareBuildTasks.length} specHref={platformDocumentsNewHref} projectsHref={platformProjectsHref} />
                 <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
                   {SOFTWARE_BUILD_LANES.map((lane) => {
                     const laneTasks = softwareBuildTasks.filter(task => softwareBuildLane(task) === lane.id)
@@ -694,7 +695,7 @@ export default function MissionControlDashboard() {
                     key={approval.id}
                     title={approval.content ?? 'Approval required'}
                     meta={`${approval.orgName ?? 'Organisation'} · ${approval.platform ?? 'approval'} · ${formatRelative(approval.scheduledAt)}`}
-                    href="/portal/social/review"
+                    href={agentBoardHref}
                     color={WORK_LANES[2].color}
                     icon={WORK_LANES[2].icon}
                   />

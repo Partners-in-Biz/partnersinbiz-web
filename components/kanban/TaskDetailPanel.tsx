@@ -31,6 +31,7 @@ interface TaskDetailPanelProps {
   members?: TeamMember[]
   agents?: AgentMember[]
   hideAgentSection?: boolean
+  surface?: 'admin' | 'portal'
   onClose: () => void
   onUpdate: (taskId: string, updates: Partial<Task>) => Promise<void>
   onDelete: (taskId: string) => Promise<void>
@@ -138,7 +139,7 @@ function isAgentStale(heartbeatAt: unknown, staleMinutes = 5): boolean {
   return Date.now() - ms > staleMinutes * 60 * 1000
 }
 
-export function TaskDetailPanel({ task, columnName, projectId, orgId, members = [], agents = [], hideAgentSection = false, onClose, onUpdate, onDelete }: TaskDetailPanelProps) {
+export function TaskDetailPanel({ task, columnName, projectId, orgId, members = [], agents = [], hideAgentSection = false, surface = 'portal', onClose, onUpdate, onDelete }: TaskDetailPanelProps) {
   const router = useRouter()
   const pathname = usePathname()
   // Extract org slug from current URL: /admin/org/[slug]/...
@@ -183,6 +184,7 @@ export function TaskDetailPanel({ task, columnName, projectId, orgId, members = 
   const [approvalGateBusy, setApprovalGateBusy] = useState<'approve' | 'reject' | null>(null)
   const [approvalGateError, setApprovalGateError] = useState<string | null>(null)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const isAdminSurface = surface === 'admin'
 
   useEffect(() => {
     setEditing(false)
@@ -755,21 +757,21 @@ export function TaskDetailPanel({ task, columnName, projectId, orgId, members = 
 
           {/* Description */}
           <div>
-            <p className="text-[9px] font-label uppercase tracking-widest text-on-surface-variant mb-2">Description</p>
+            <p className="text-[9px] font-label uppercase tracking-widest text-on-surface-variant mb-2">{isAdminSurface ? 'Operator brief' : 'Description'}</p>
             {editing ? (
               <textarea
                 value={description}
                 onChange={e => setDescription(e.target.value)}
                 className="w-full text-sm text-on-surface bg-[var(--color-card)] border border-[var(--color-card-border)] rounded-[var(--radius-btn)] p-3 resize-none focus:outline-none focus:border-[var(--color-accent-v2)] min-h-24"
                 rows={4}
-                placeholder="Add a description..."
+                placeholder={isAdminSurface ? 'Add an internal admin note...' : 'Add a description...'}
               />
             ) : (
               <div
                 className="text-sm text-on-surface-variant cursor-pointer hover:text-on-surface transition-colors min-h-8"
                 onClick={() => setEditing(true)}
               >
-                <ReadableTaskText text={task.description} empty={<span className="italic opacity-50">Add a description...</span>} />
+                <ReadableTaskText text={task.description} empty={<span className="italic opacity-50">{isAdminSurface ? 'Add an internal admin note...' : 'Add a description...'}</span>} />
               </div>
             )}
           </div>
@@ -867,7 +869,7 @@ export function TaskDetailPanel({ task, columnName, projectId, orgId, members = 
           </div>
 
           <div>
-            <p className="text-[9px] font-label uppercase tracking-widest text-on-surface-variant mb-2">Context</p>
+            <p className="text-[9px] font-label uppercase tracking-widest text-on-surface-variant mb-2">{isAdminSurface ? 'Admin context' : 'Context'}</p>
             <ContextReferencePicker
               orgId={orgId}
               projectId={projectId}
@@ -876,13 +878,13 @@ export function TaskDetailPanel({ task, columnName, projectId, orgId, members = 
                 setContextRefs(refs)
                 setEditing(true)
               }}
-              inputLabel="Add task context reference"
+              inputLabel={isAdminSurface ? 'Add admin task context reference' : 'Add task context reference'}
               compact
             />
           </div>
 
           <div>
-            <p className="text-[9px] font-label uppercase tracking-widest text-on-surface-variant mb-2">Assignment</p>
+            <p className="text-[9px] font-label uppercase tracking-widest text-on-surface-variant mb-2">{isAdminSurface ? 'Operator assignment' : 'Assignment'}</p>
             {!hideAgentSection && (
               <div className="mb-2 grid grid-cols-3 gap-1 rounded-[var(--radius-btn)] border border-[var(--color-card-border)] bg-[var(--color-card)] p-1">
                 {(['people', 'agent', 'orchestration'] as const).map((mode) => (
@@ -1407,7 +1409,7 @@ export function TaskDetailPanel({ task, columnName, projectId, orgId, members = 
 
           {/* Comments section divider */}
           <div className="border-t border-[var(--color-outline-variant)] mt-4 pt-4">
-            <p className="text-[9px] font-label uppercase tracking-widest text-on-surface-variant mb-3">Comments</p>
+            <p className="text-[9px] font-label uppercase tracking-widest text-on-surface-variant mb-3">{isAdminSurface ? 'Operator comments' : 'Comments'}</p>
 
             {/* Comments list */}
             {loadingComments ? (
@@ -1470,7 +1472,7 @@ export function TaskDetailPanel({ task, columnName, projectId, orgId, members = 
               <div className="flex gap-2">
                 <input
                   type="text"
-                  placeholder="Type a comment..."
+                  placeholder={isAdminSurface ? 'Internal admin note...' : 'Type a comment...'}
                   value={commentText}
                   onChange={e => setCommentText(e.target.value)}
                   onKeyDown={e => {
@@ -1496,7 +1498,7 @@ export function TaskDetailPanel({ task, columnName, projectId, orgId, members = 
                   projectId={projectId}
                   value={commentContextRefs}
                   onChange={setCommentContextRefs}
-                  inputLabel="Add task comment context reference"
+                  inputLabel={isAdminSurface ? 'Add admin comment context reference' : 'Add task comment context reference'}
                   placeholder="@contacts: @projects: @tasks:"
                   disabled={submittingComment}
                   compact
