@@ -82,6 +82,22 @@ X-Org-Id: <ORG_ID>
 
 You may pass `orgId` in the query/body instead of `X-Org-Id`, but do not send conflicting org values.
 
+### Active PiB agent workspace
+
+The generic writable agent workspace is:
+
+- Shared Drive: `PIB Shared Drive` (`0AMIddYkNl52sUk9PVA`)
+- Folder: `PiB Agent Service Workspace` (`1bCGS5zntv2VEbDdZx0hVf-QrVCv3kvp8`)
+- Service account: `workspace-agent@partners-in-biz-85059.iam.gserviceaccount.com`
+- Folder role: `fileOrganizer`
+
+Use folder ID `1bCGS5zntv2VEbDdZx0hVf-QrVCv3kvp8` for generic agent-generated Drive artifacts
+when a more specific client folder has not been provided.
+
+Do **not** target service-account uploads at `root` or an ordinary My Drive folder. Google blocks
+service-account root/My Drive uploads with: `Service Accounts do not have storage quota`. Use a
+Shared Drive folder or domain-wide delegation.
+
 ---
 
 ### `drive_list` — list files in a folder
@@ -322,16 +338,18 @@ Response:
 
 ## Auth Model
 
-**Current state: platform endpoints are implemented; credential and folder setup may still be incomplete.**
+**Current state: platform endpoints, credentials, and the generic Shared Drive target are active.**
 
 Auth flows as follows:
 
 - **Mac / Claude Code sessions:** service account JSON at `~/.config/gcloud/workspace-sa.json` is picked up by the PiB API. Agents never hold Drive credentials directly.
-- **VPS (Hermes):** service account JSON at `/etc/hermes/google-drive-sa.json` (mode 600), used by `rclone` for direct Drive mounts and by the PiB API proxy when the VPS calls platform endpoints.
+- **VPS (Hermes):** service account JSON at `/etc/hermes/google-drive-sa.json` (mode 600), used by `rclone` for direct Drive access and by the PiB API proxy when the VPS calls platform endpoints.
 - **All agent calls go through the PiB platform:** `Bearer $AI_API_KEY` → `https://partnersinbiz.online/api/v1/google/...` → PiB API authenticates to Drive using the stored service account. Agents never handle OAuth tokens directly.
 - **Env vars:** use `GOOGLE_WORKSPACE_CREDS_JSON_PATH` for Mac/VPS file paths and `GOOGLE_WORKSPACE_CREDS_JSON` for Vercel/serverless raw service-account JSON. Do not point Vercel at `/etc/hermes/...`; that file exists only on the VPS.
 
-The service account must be granted access to specific client folders only — never the entire Drive. Share each `My Drive/Clients/<Client>/` root folder with the service account email. This is the least-privilege posture.
+The service account must be granted access to specific client folders only — never the entire Drive.
+For generic agent work, use `PiB Agent Service Workspace` in the Shared Drive. For client work, share
+the specific client folder or campaign folder with the service account email. This is the least-privilege posture.
 
 ---
 
@@ -399,8 +417,9 @@ Maya is asked to "create a Black Friday social pack for Loyalty Plus":
 
 Hermes agents on `hermes-vps-01` (Helsinki, Hetzner CX23) access the same Drive via two paths:
 
-- **PiB API proxy** — agents call `https://partnersinbiz.online/api/v1/google/...` with `Bearer $AI_API_KEY` exactly as Mac-side agents do. Same auth, same endpoints. Preferred for standard operations once the production runtime has `GOOGLE_WORKSPACE_CREDS_JSON` or `GOOGLE_WORKSPACE_CREDS_JSON_PATH`.
+- **PiB API proxy** — agents call `https://partnersinbiz.online/api/v1/google/...` with `Bearer $AI_API_KEY` exactly as Mac-side agents do. Same auth, same endpoints. Preferred for standard operations; production has `GOOGLE_WORKSPACE_CREDS_JSON` configured.
 - **`rclone` remote** — VPS `gdrive:` is configured for the `hermes` user and can upload/read Drive files directly. Use this for VPS-local binary artifacts when the API proxy is blocked by missing Vercel Google credentials or when uploading large files from `/var/lib/hermes/outputs`.
+- **Service-account `rclone` backend** — use the configless Drive backend with `/etc/hermes/google-drive-sa.json` and root folder `1bCGS5zntv2VEbDdZx0hVf-QrVCv3kvp8` when you need service-account CRUD from the VPS.
 
 Both paths should target the same Drive workspace, but they use different credentials. Do not assume the
 PiB API proxy is live just because `rclone` works, and do not assume the `hermes` user can use a root-only
@@ -424,6 +443,27 @@ The verified 2026-06-15 system video path is:
 ```text
 gdrive:PiB Agent Research/outputs/pib-system-video-2026-06-15/partners-in-biz-system.mp4
 ```
+
+For service-account CRUD from the VPS as `hermes`:
+
+```bash
+remote=':drive,service_account_file=/etc/hermes/google-drive-sa.json,root_folder_id=1bCGS5zntv2VEbDdZx0hVf-QrVCv3kvp8:'
+
+# Create
+sudo -u hermes rclone copyto /tmp/artifact.txt "${remote}artifact.txt" --drive-use-trash=true
+
+# Read
+sudo -u hermes rclone cat "${remote}artifact.txt"
+
+# Update/overwrite
+sudo -u hermes rclone copyto /tmp/artifact-v2.txt "${remote}artifact.txt" --drive-use-trash=true
+
+# Delete means trash for this Shared Drive folder role. Permanent hard-delete can require manager rights.
+sudo -u hermes rclone deletefile "${remote}artifact.txt" --drive-use-trash=true
+```
+
+Verified from the VPS on 2026-06-15 as `hermes`: create readback `create-v1`, update readback
+`update-v2`, and delete/trash confirmation `ok`.
 
 ---
 
