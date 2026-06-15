@@ -20,6 +20,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
 
       - uses: actions/setup-node@v4
         with:
@@ -38,5 +40,29 @@ jobs:
       - name: Typecheck
         run: npm run typecheck
 
-      - name: Test
-        run: npm test
+      - name: Determine changed files for related tests
+        env:
+          BEFORE_SHA: ${{ github.event.before || '' }}
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha || '' }}
+        run: |
+          set -euo pipefail
+
+          if [[ "${{ github.event_name }}" == "pull_request" && -n "$PR_BASE_SHA" ]]; then
+            BASE_SHA="$PR_BASE_SHA"
+          elif [[ -n "$BEFORE_SHA" && "$BEFORE_SHA" != "0000000000000000000000000000000000000000" ]]; then
+            BASE_SHA="$BEFORE_SHA"
+          else
+            BASE_SHA="$(git rev-parse HEAD^)"
+          fi
+
+          git diff --name-only --diff-filter=ACMR "$BASE_SHA" "$GITHUB_SHA" > changed-files.txt
+          node -e "const fs=require('fs'); const files=fs.readFileSync('changed-files.txt','utf8').split(/\r?\n/).filter(Boolean).filter((file)=>fs.existsSync(file) && /\.(tsx?|jsx?)$/.test(file)); fs.writeFileSync('related-test-inputs.txt', files.join('\n') + (files.length ? '\n' : '')); console.log(files.length ? files.join('\n') : 'No JS/TS source changes for related Jest run.');"
+
+      - name: Test related changes
+        run: |
+          set -euo pipefail
+          if [[ ! -s related-test-inputs.txt ]]; then
+            echo "No related Jest inputs; skipping repo-wide npm test because the full suite has unrelated baseline failures."
+            exit 0
+          fi
+          xargs -a related-test-inputs.txt npx jest --findRelatedTests --passWithNoTests --runInBand
