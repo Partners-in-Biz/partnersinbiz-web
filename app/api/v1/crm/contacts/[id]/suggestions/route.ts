@@ -13,6 +13,8 @@ import { adminDb } from '@/lib/firebase/admin'
 
 export const dynamic = 'force-dynamic'
 
+type RouteCtx = { params: Promise<{ id: string }> }
+
 interface Suggestion {
   action: string
   reason: string
@@ -22,14 +24,10 @@ interface Suggestion {
 async function handler(
   _req: NextRequest,
   ctx: CrmAuthContext,
-  routeCtx?: { params?: Promise<{ id: string }> | { id: string } },
+  routeCtx?: RouteCtx,
 ): Promise<Response> {
   const { orgId } = ctx
-
-  // Resolve params (Next.js 15 params is a Promise)
-  const params = routeCtx?.params
-  const resolvedParams = params instanceof Promise ? await params : params
-  const contactId = resolvedParams?.id
+  const { id: contactId } = await routeCtx!.params
 
   if (!contactId) return apiError('Contact ID is required', 400)
 
@@ -111,4 +109,4 @@ async function handler(
   return apiSuccess({ suggestions })
 }
 
-export const GET = withCrmAuth('member', handler)
+export const GET = withCrmAuth<RouteCtx>('member', handler)

@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import MessageBubble from '@/components/chat/MessageBubble'
 
 function closestMessageGroup(element: Element): HTMLElement | null {
@@ -237,5 +237,79 @@ describe('MessageBubble', () => {
       expect.objectContaining({ id: 'msg-1' }),
       expect.objectContaining({ id: 'approve-once', type: 'approve', value: 'once' }),
     )
+  })
+
+  it('renders a rich JSON content envelope instead of showing raw JSON text', async () => {
+    const handleAction = jest.fn()
+    const Bubble = MessageBubble as any
+    Object.defineProperty(document, 'execCommand', {
+      configurable: true,
+      value: jest.fn(() => true),
+    })
+    const richJsonText = JSON.stringify({
+      rich_parts: [
+        { type: 'markdown', content: '### PiB Rich Chat Contract Smoke Test\nThis should render as markdown.' },
+        {
+          type: 'status_card',
+          title: 'Rich chat contract smoke test',
+          status: 'ready_for_review',
+          body: 'No external action was performed.',
+        },
+      ],
+      ui_actions: [
+        { id: 'copy-summary', type: 'copy', label: 'Copy summary', value: 'PIB rich chat smoke test' },
+      ],
+    }, null, 2)
+
+    render(
+      <Bubble
+        currentUserUid="user-1"
+        onUiAction={handleAction}
+        message={{
+          id: 'msg-json',
+          conversationId: 'conv-1',
+          role: 'assistant',
+          content: richJsonText,
+          authorKind: 'agent',
+          authorId: 'pip',
+          authorDisplayName: 'Pip',
+          status: 'completed',
+        }}
+      />,
+    )
+
+    expect(screen.getByRole('heading', { name: 'PiB Rich Chat Contract Smoke Test' })).toBeInTheDocument()
+    expect(screen.getByText('Rich chat contract smoke test')).toBeInTheDocument()
+    expect(screen.getByText('No external action was performed.')).toBeInTheDocument()
+    expect(screen.queryByText(/"rich_parts"/)).not.toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Copy summary' }))
+    await waitFor(() => {
+      expect(handleAction).toHaveBeenCalledWith(
+        expect.objectContaining({ id: 'msg-json' }),
+        expect.objectContaining({ id: 'copy-summary', type: 'copy', value: 'PIB rich chat smoke test' }),
+      )
+    })
+  })
+
+  it('hides incomplete streamed rich JSON envelopes instead of printing raw fragments', () => {
+    render(
+      <MessageBubble
+        currentUserUid="user-1"
+        message={{
+          id: 'msg-streaming-json',
+          conversationId: 'conv-1',
+          role: 'assistant',
+          content: '{\n  "rich_parts": [\n    { "type": "markdown", "content": "### Streaming',
+          authorKind: 'agent',
+          authorId: 'pip',
+          authorDisplayName: 'Pip',
+          status: 'streaming',
+        }}
+      />,
+    )
+
+    expect(screen.queryByText(/"rich_parts"/)).not.toBeInTheDocument()
+    expect(screen.getByText('Waiting for agent activity...')).toBeInTheDocument()
   })
 })

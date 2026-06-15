@@ -185,16 +185,18 @@ export function extractOutputFromEvents(events: ChatEvent[] = []): string {
     .trim()
 }
 
-function richMessagePatchFromRun(data: unknown, events: ChatEvent[] = []): {
+function richMessagePatchFromRun(data: unknown, events: ChatEvent[] = [], output?: string): {
   richParts?: RichMessagePart[]
   uiActions?: ChatUiAction[]
 } {
   const richParts = dedupeStructured([
     ...richPartsFromPayload(data),
+    ...richPartsFromPayload(output),
     ...richPartsFromEvents(events),
   ])
   const uiActions = dedupeStructured([
     ...uiActionsFromPayload(data),
+    ...uiActionsFromPayload(output),
     ...uiActionsFromEvents(events),
   ])
   return {
@@ -364,7 +366,7 @@ export async function finalizeConversationRun(input: {
       extractHermesRunOutput(data) ||
       extractOutputFromEvents(events) ||
       'Agent completed but returned no text output.'
-    const richPatch = richMessagePatchFromRun(data, events)
+    const richPatch = richMessagePatchFromRun(data, events, rawOutput)
     const outputIsStructuredJson = isRichPayloadText(rawOutput)
     const output = outputIsStructuredJson ? '' : rawOutput
     const previewOutput = output || richPreviewFromParts(richPatch.richParts) || 'Agent returned a rich response.'

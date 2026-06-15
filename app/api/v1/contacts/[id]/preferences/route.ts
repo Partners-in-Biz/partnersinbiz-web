@@ -11,6 +11,7 @@ import { withCrmAuth } from '@/lib/auth/crm-middleware'
 import { apiSuccess, apiError } from '@/lib/api/response'
 import { getContactPreferences, setContactPreferences } from '@/lib/preferences/store'
 import { FREQUENCY_CHOICES } from '@/lib/preferences/types'
+import type { NextRequest } from 'next/server'
 
 export const dynamic = 'force-dynamic'
 
@@ -26,7 +27,7 @@ async function loadContact(id: string, ctxOrgId: string) {
   return { ok: true as const, ref, data }
 }
 
-export const GET = withCrmAuth<RouteCtx>('viewer', async (_req, ctx, routeCtx) => {
+const getPreferences = withCrmAuth<RouteCtx>('viewer', async (_req, ctx, routeCtx) => {
   const { id } = await routeCtx!.params
   const r = await loadContact(id, ctx.orgId)
   if (!r.ok) return apiError(r.error, r.status)
@@ -34,7 +35,7 @@ export const GET = withCrmAuth<RouteCtx>('viewer', async (_req, ctx, routeCtx) =
   return apiSuccess(prefs)
 })
 
-export const PUT = withCrmAuth<RouteCtx>('member', async (req, ctx, routeCtx) => {
+const updatePreferences = withCrmAuth<RouteCtx>('member', async (req, ctx, routeCtx) => {
   const { id } = await routeCtx!.params
   const r = await loadContact(id, ctx.orgId)
   if (!r.ok) return apiError(r.error, r.status)
@@ -70,3 +71,11 @@ export const PUT = withCrmAuth<RouteCtx>('member', async (req, ctx, routeCtx) =>
   })
   return apiSuccess(next)
 })
+
+export function GET(req: NextRequest, routeCtx: RouteCtx) {
+  return getPreferences(req, routeCtx)
+}
+
+export function PUT(req: NextRequest, routeCtx: RouteCtx) {
+  return updatePreferences(req, routeCtx)
+}

@@ -4,6 +4,12 @@
 
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import type { ChatEvent, ChatUiAction, RichMessagePart } from '@/lib/hermes/types'
+import {
+  dedupeStructured,
+  isRichPayloadText,
+  richPartsFromPayload,
+  uiActionsFromPayload,
+} from '@/lib/hermes/rich-messages'
 import type { ContextReference } from '@/lib/context-references/types'
 import type { SlashCommandPayload } from '@/lib/chat/slash-commands'
 import { copyToClipboard } from '@/lib/utils/clipboard'
@@ -691,6 +697,41 @@ function copyableText(message: ConversationMessage): string {
   return message.content || message.error || ''
 }
 
+function canRenderRichContentEnvelope(message: ConversationMessage): boolean {
+  return message.authorKind === 'agent' || message.role === 'assistant' || message.authorKind === 'system'
+}
+
+function looksLikeRichContentEnvelope(value: string): boolean {
+  const trimmed = value.trim()
+  const candidate = trimmed.replace(/^```(?:json)?\s*/i, '').trim()
+  if (!candidate.startsWith('{')) return false
+  return /"(rich_parts|richParts|ui_actions|uiActions)"/.test(candidate)
+}
+
+function resolvedMessage(message: ConversationMessage): ConversationMessage {
+  if (!canRenderRichContentEnvelope(message)) return message
+  const hasCompleteEnvelope = isRichPayloadText(message.content)
+  if (!hasCompleteEnvelope && !looksLikeRichContentEnvelope(message.content)) return message
+  const richParts = hasCompleteEnvelope
+    ? dedupeStructured([
+        ...(message.richParts ?? []),
+        ...richPartsFromPayload(message.content),
+      ])
+    : message.richParts ?? []
+  const uiActions = hasCompleteEnvelope
+    ? dedupeStructured([
+        ...(message.uiActions ?? []),
+        ...uiActionsFromPayload(message.content),
+      ])
+    : message.uiActions ?? []
+  return {
+    ...message,
+    content: '',
+    ...(richParts.length > 0 ? { richParts } : {}),
+    ...(uiActions.length > 0 ? { uiActions } : {}),
+  }
+}
+
 export default function MessageBubble({
   message: m,
   currentUserUid,
@@ -701,6 +742,7 @@ export default function MessageBubble({
   onQuoteSelection,
   onUiAction,
 }: MessageBubbleProps) {
+  const renderedMessage = resolvedMessage(m)
   const [previewAttachment, setPreviewAttachment] = useState<ConversationAttachment | null>(null)
   const [copied, setCopied] = useState(false)
   const [selectionAction, setSelectionAction] = useState<{
@@ -715,7 +757,7 @@ export default function MessageBubble({
   const isWaiting = m.status === 'waiting_approval'
   const isFailed = m.status === 'failed'
   const elapsed = useElapsed(isPending || isWaiting)
-  const textToCopy = copyableText(m)
+  const textToCopy = copyableText(renderedMessage)
 
   const copyMessage = async () => {
     if (!textToCopy.trim()) return
@@ -918,10 +960,10 @@ export default function MessageBubble({
                 onMouseUp={handleTextSelection}
                 className="max-w-full overflow-hidden rounded-2xl rounded-br-md px-4 py-2.5 text-[15px] lg:text-sm whitespace-pre-wrap break-words [overflow-wrap:anywhere] bg-[var(--color-card-active,rgba(255,255,255,0.08))] lg:bg-primary lg:text-on-primary text-on-surface"
               >
-              <ChatMessageContent content={m.content} />
-              <RichMessageParts parts={m.richParts} />
+              <ChatMessageContent content={renderedMessage.content} />
+              <RichMessageParts parts={renderedMessage.richParts} />
               {attachmentList}
-              <RichActionBar actions={m.uiActions} message={m} onUiAction={onUiAction} />
+              <RichActionBar actions={renderedMessage.uiActions} message={renderedMessage} onUiAction={onUiAction} />
               </div>
             </div>
             <div className="flex justify-end">{copyAction}</div>
@@ -1133,16 +1175,16 @@ export default function MessageBubble({
                   ].join(' ')
             }
           >
-            {isPending && !m.content && (
+            {isPending && !renderedMessage.content && (
               <span className="opacity-40 italic text-xs">Waiting for agent activity...</span>
             )}
-            {isWaiting && !m.content && (
+            {isWaiting && !renderedMessage.content && (
               <span className="opacity-70 italic">Paused — awaiting tool approval…</span>
             )}
-            <ChatMessageContent content={m.content || (isFailed && m.error) || ''} />
-            <RichMessageParts parts={m.richParts} />
+            <ChatMessageContent content={renderedMessage.content || (isFailed && renderedMessage.error) || ''} />
+            <RichMessageParts parts={renderedMessage.richParts} />
             {attachmentList}
-            <RichActionBar actions={m.uiActions} message={m} onUiAction={onUiAction} />
+            <RichActionBar actions={renderedMessage.uiActions} message={renderedMessage} onUiAction={onUiAction} />
           </div>
         </div>
         {copyAction}

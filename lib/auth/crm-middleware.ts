@@ -87,6 +87,14 @@ function agentRefFor(agentId: string | undefined): MemberRef {
   }
 }
 
+export function withCrmAuth(
+  minRole: Exclude<CrmRole, 'system'>,
+  handler: CrmRouteHandler,
+): (req: NextRequest) => Promise<Response>
+export function withCrmAuth<RouteCtx>(
+  minRole: Exclude<CrmRole, 'system'>,
+  handler: CrmRouteHandler<RouteCtx>,
+): (req: NextRequest, routeCtx: RouteCtx) => Promise<Response>
 export function withCrmAuth<RouteCtx = unknown>(
   minRole: Exclude<CrmRole, 'system'>,
   handler: CrmRouteHandler<RouteCtx>,

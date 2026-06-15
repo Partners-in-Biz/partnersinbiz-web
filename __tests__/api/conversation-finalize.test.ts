@@ -262,4 +262,52 @@ describe('POST /api/v1/conversations/[convId]/messages/[msgId]/finalize', () => 
       'assistant',
     )
   })
+
+  it('extracts rich parts from streamed JSON deltas when the run has no output field', async () => {
+    const richJsonText = JSON.stringify({
+      rich_parts: [
+        { type: 'markdown', content: '### Streamed rich payload\nThis should be stored as rich content.' },
+        {
+          type: 'table',
+          columns: ['Check', 'Status'],
+          rows: [['Stream parser', 'Ready']],
+        },
+      ],
+      ui_actions: [
+        { id: 'copy-stream', type: 'copy', label: 'Copy streamed summary', value: 'Streamed rich payload' },
+      ],
+    }, null, 2)
+    const events: ChatEvent[] = [
+      { event: 'assistant.text_delta', delta: richJsonText.slice(0, 80), timestamp: 1000 },
+      { event: 'assistant.text_delta', delta: richJsonText.slice(80), timestamp: 1001 },
+    ]
+
+    mockCallHermesJson.mockResolvedValue({
+      response: { ok: true },
+      data: { status: 'completed' },
+    })
+
+    const res = await callFinalize({ runId: 'run-streamed-json-rich', agentId: 'pip', events })
+    const body = await res.json()
+
+    expect(res.status).toBe(200)
+    expect(body.data.status).toBe('completed')
+    expect(mockMessageUpdate).toHaveBeenCalledWith(expect.objectContaining({
+      content: '',
+      status: 'completed',
+      runId: 'run-streamed-json-rich',
+      events,
+      richParts: [
+        { type: 'markdown', content: '### Streamed rich payload\nThis should be stored as rich content.' },
+        {
+          type: 'table',
+          columns: ['Check', 'Status'],
+          rows: [['Stream parser', 'Ready']],
+        },
+      ],
+      uiActions: [
+        { id: 'copy-stream', type: 'copy', label: 'Copy streamed summary', value: 'Streamed rich payload' },
+      ],
+    }))
+  })
 })
