@@ -201,7 +201,7 @@ export const GET = withAuth('client', async (req, user) => {
   let orgAccessFilter: string[] | null = null
 
   if (user.role === 'client') {
-    const requestedOrgId = searchParams.get('orgId') ?? user.orgId ?? user.orgIds?.[0]
+    const requestedOrgId = searchParams.get('orgId') ?? user.activeOrgId ?? user.orgId ?? user.orgIds?.[0]
     if (!requestedOrgId || !canAccessOrg(user, requestedOrgId)) return apiSuccess([])
     if (view === 'received') {
       const invoices = (await loadReceivedInvoicesForOrg(requestedOrgId))

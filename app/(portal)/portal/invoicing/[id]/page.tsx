@@ -1,9 +1,10 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { INTERVAL_LABELS, RecurrenceInterval } from '@/lib/invoices/recurring'
+import { scopedApiPath, scopedPortalPath, scopeFromSearchParams } from '@/lib/portal/scoped-routing'
 
 type InvoiceStatus = 'draft' | 'sent' | 'viewed' | 'paid' | 'overdue' | 'cancelled'
 
@@ -117,6 +118,7 @@ export default function InvoiceDetailPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const id = params.id as string
+  const orgScope = useMemo(() => scopeFromSearchParams(searchParams), [searchParams])
 
   const [invoice, setInvoice] = useState<Invoice | null>(null)
   const [loading, setLoading] = useState(true)
@@ -134,8 +136,8 @@ export default function InvoiceDetailPage() {
 
   useEffect(() => {
     Promise.all([
-      fetch(`/api/v1/invoices/${id}`).then(r => r.json()),
-      fetch(`/api/v1/recurring-schedules?status=all`).then(r => r.json()),
+      fetch(scopedApiPath(`/api/v1/invoices/${id}`, orgScope)).then(r => r.json()),
+      fetch(scopedApiPath('/api/v1/recurring-schedules?status=all', orgScope)).then(r => r.json()),
     ]).then(([invoiceBody, schedulesBody]) => {
       const nextInvoice = invoiceBody.data as Invoice | null
       setInvoice(nextInvoice)
@@ -147,12 +149,12 @@ export default function InvoiceDetailPage() {
       if (match) setSchedule(match)
       setLoading(false)
     }).catch(() => setLoading(false))
-  }, [id, searchParams])
+  }, [id, orgScope, searchParams])
 
   async function updateStatus(status: InvoiceStatus) {
     if (!invoice) return
     setUpdating(true)
-    const res = await fetch(`/api/v1/invoices/${id}`, {
+    const res = await fetch(scopedApiPath(`/api/v1/invoices/${id}`, orgScope), {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ status }),
@@ -170,7 +172,7 @@ export default function InvoiceDetailPage() {
     if (!invoice) return
     const patch = draftPatchFromForm(draftForm)
     setSavingDraft(true)
-    const res = await fetch(`/api/v1/invoices/${id}`, {
+    const res = await fetch(scopedApiPath(`/api/v1/invoices/${id}`, orgScope), {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(patch),
@@ -184,10 +186,10 @@ export default function InvoiceDetailPage() {
 
   async function handleDuplicate() {
     setDuplicating(true)
-    const res = await fetch(`/api/v1/invoices/${id}/duplicate`, { method: 'POST' })
+    const res = await fetch(scopedApiPath(`/api/v1/invoices/${id}/duplicate`, orgScope), { method: 'POST' })
     if (res.ok) {
       const body = await res.json()
-      router.push(`/portal/invoicing/${body.data.id}`)
+      router.push(scopedPortalPath(`/portal/invoicing/${body.data.id}`, orgScope))
     } else {
       setDuplicating(false)
     }
@@ -200,7 +202,7 @@ export default function InvoiceDetailPage() {
   async function handleCreateRecurring() {
     if (!recurringStartDate) return
     setSavingRecurring(true)
-    const res = await fetch(`/api/v1/invoices/${id}/recurring`, {
+    const res = await fetch(scopedApiPath(`/api/v1/invoices/${id}/recurring`, orgScope), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -220,7 +222,7 @@ export default function InvoiceDetailPage() {
   async function handleCancelRecurring() {
     if (!schedule) return
     setSavingRecurring(true)
-    const res = await fetch(`/api/v1/invoices/${id}/recurring`, { method: 'DELETE' })
+    const res = await fetch(scopedApiPath(`/api/v1/invoices/${id}/recurring`, orgScope), { method: 'DELETE' })
     if (res.ok) setSchedule(null)
     setSavingRecurring(false)
   }
@@ -235,7 +237,7 @@ export default function InvoiceDetailPage() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
-          <Link href="/portal/invoicing" className="text-xs text-on-surface-variant hover:text-on-surface transition-colors">← Invoicing</Link>
+          <Link href={scopedPortalPath('/portal/invoicing', orgScope)} className="text-xs text-on-surface-variant hover:text-on-surface transition-colors">← Invoicing</Link>
           <h1 className="text-2xl font-headline font-bold text-on-surface mt-1">{invoice.invoiceNumber}</h1>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
@@ -243,7 +245,7 @@ export default function InvoiceDetailPage() {
             {status.label}
           </span>
           <a
-            href={`/api/v1/invoices/${id}/pdf`}
+            href={scopedApiPath(`/api/v1/invoices/${id}/pdf`, orgScope)}
             target="_blank"
             rel="noopener noreferrer"
             className="pib-btn-secondary text-sm font-label"

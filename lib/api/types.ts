@@ -16,6 +16,10 @@ export interface ApiUser {
   apiKeyId?: string
   permissions?: ApiPermission[]
   orgId?: string
+  // The organisation currently selected in the portal switcher. This is the
+  // default tenant scope for client portal reads/writes when no explicit
+  // orgId query/header is supplied.
+  activeOrgId?: string
   // All orgs this client belongs to. Falls back to [orgId] for existing users.
   orgIds?: string[]
   // Platform-admin org restriction. Only meaningful when role === 'admin'.

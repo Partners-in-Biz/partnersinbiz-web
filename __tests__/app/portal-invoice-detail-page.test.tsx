@@ -74,4 +74,60 @@ describe('InvoiceDetailPage', () => {
       lineItems: [{ description: 'Updated development', quantity: 12, unitPrice: 375 }],
     })
   })
+
+  it('keeps invoice detail actions scoped to the selected organisation query', async () => {
+    mockSearchParams = new URLSearchParams('edit=draft&orgId=course-digs&orgSlug=course-digs')
+    fetchMock.mockImplementation((url: string, init?: RequestInit) => {
+      if (url === '/api/v1/invoices/invoice-draft-1?orgId=course-digs') {
+        if (init?.method === 'PATCH') {
+          return Promise.resolve({ ok: true, json: async () => ({ success: true, data: { id: 'invoice-draft-1' } }) })
+        }
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            data: {
+              id: 'invoice-draft-1',
+              invoiceNumber: 'COU-003',
+              orgId: 'course-digs',
+              status: 'draft',
+              total: 4200,
+              subtotal: 4200,
+              taxRate: 0,
+              taxAmount: 0,
+              currency: 'ZAR',
+              notes: 'Initial invoice',
+              lineItems: [{ description: 'Development', quantity: 12, unitPrice: 350, amount: 4200 }],
+              canEdit: true,
+            },
+          }),
+        })
+      }
+      if (url === '/api/v1/recurring-schedules?status=all&orgId=course-digs') {
+        return Promise.resolve({ ok: true, json: async () => ({ data: [] }) })
+      }
+      return Promise.reject(new Error(`Unexpected fetch: ${url}`))
+    })
+
+    render(<InvoiceDetailPage />)
+
+    expect(await screen.findByRole('heading', { name: 'COU-003' })).toBeInTheDocument()
+    expect(fetchMock).toHaveBeenCalledWith('/api/v1/invoices/invoice-draft-1?orgId=course-digs')
+    expect(screen.getByRole('link', { name: '← Invoicing' })).toHaveAttribute(
+      'href',
+      '/portal/invoicing?orgId=course-digs&orgSlug=course-digs',
+    )
+    expect(screen.getByRole('link', { name: '📄 Download PDF' })).toHaveAttribute(
+      'href',
+      '/api/v1/invoices/invoice-draft-1/pdf?orgId=course-digs',
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: 'Save draft invoice' }))
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        '/api/v1/invoices/invoice-draft-1?orgId=course-digs',
+        expect.objectContaining({ method: 'PATCH' }),
+      )
+    })
+  })
 })

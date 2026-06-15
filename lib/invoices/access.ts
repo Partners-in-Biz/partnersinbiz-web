@@ -27,6 +27,9 @@ export async function requireInvoiceAccess(
   const data = snap.data() ?? {}
   const orgIds = [data.orgId, data.sourceOrgId, data.recipientOrgId, data.targetOrgId]
     .filter((value): value is string => typeof value === 'string' && value.length > 0)
+  if (user.role === 'client' && user.activeOrgId && !orgIds.includes(user.activeOrgId)) {
+    return { ok: false, response: apiError('Invoice not found', 404) }
+  }
   if (!orgIds.some((orgId) => canAccessOrg(user, orgId))) {
     return { ok: false, response: apiError('Forbidden', 403) }
   }
