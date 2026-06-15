@@ -47,6 +47,7 @@ type Activity = {
   note?: string
   description?: string
   entityTitle?: string
+  metadata?: Record<string, unknown> | null
   createdAt?: string | null
 }
 
@@ -200,6 +201,220 @@ function taskMeta(task: AgentTask) {
   const project = task.projectName ?? 'No project title'
   const assignee = task.assigneeAgentId ?? 'agent'
   return `${project} · ${assignee} · ${status} · ${formatRelative(task.updatedAt ?? task.createdAt)}`
+}
+
+function percent(value: number, total: number) {
+  if (total <= 0) return 0
+  return Math.max(0, Math.min(100, Math.round((value / total) * 100)))
+}
+
+function includesTerm(value: string | undefined | null, terms: string[]) {
+  const haystack = (value ?? '').toLowerCase()
+  return terms.some(term => haystack.includes(term))
+}
+
+function activityTitle(activity: Activity) {
+  return activity.note ?? activity.description ?? activity.entityTitle ?? activity.type ?? 'Activity'
+}
+
+function completedTasks(tasks: AgentTask[]) {
+  return tasks.filter(task => task.columnId === 'done' || task.agentStatus === 'done')
+}
+
+function InsightEmptyState({ title, body }: { title: string; body: string }) {
+  return (
+    <div className="rounded-lg border border-dashed border-[var(--color-card-border)] bg-[var(--color-surface-container)]/35 p-4 text-sm">
+      <p className="font-label uppercase tracking-wide text-on-surface">{title}</p>
+      <p className="mt-1 text-xs leading-5 text-on-surface-variant">{body}</p>
+    </div>
+  )
+}
+
+function InsightCard({
+  title,
+  eyebrow,
+  value,
+  detail,
+  explanation,
+  children,
+}: {
+  title: string
+  eyebrow: string
+  value: string
+  detail: string
+  explanation: string
+  children?: React.ReactNode
+}) {
+  return (
+    <Surface className="p-4 sm:p-5">
+      <div className="flex items-start justify-between gap-4">
+        <div className="min-w-0">
+          <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">{eyebrow}</p>
+          <h3 className="mt-1 text-base font-headline font-bold text-on-surface">{title}</h3>
+        </div>
+        <span className="shrink-0 rounded-full border border-[var(--color-pib-accent)]/20 bg-[var(--color-pib-accent-soft)] px-3 py-1 text-sm font-semibold text-[var(--color-pib-accent)]">{value}</span>
+      </div>
+      <p className="mt-3 text-sm leading-6 text-on-surface">{detail}</p>
+      <p className="mt-2 rounded-lg border border-[var(--color-card-border)] bg-[var(--color-surface-container)]/35 p-3 text-xs leading-5 text-on-surface-variant">
+        Explainability: {explanation}
+      </p>
+      {children ? <div className="mt-4 space-y-2">{children}</div> : null}
+    </Surface>
+  )
+}
+
+function MiniProgress({ value, label }: { value: number; label: string }) {
+  return (
+    <div>
+      <div className="mb-1 flex items-center justify-between gap-3 text-[11px] text-on-surface-variant">
+        <span>{label}</span>
+        <span>{value}%</span>
+      </div>
+      <div className="h-2 overflow-hidden rounded-full bg-white/[0.06]">
+        <div className="h-full rounded-full bg-[var(--color-pib-accent)]" style={{ width: `${value}%` }} />
+      </div>
+    </div>
+  )
+}
+
+function EvidenceList({ items, emptyTitle, emptyBody }: { items: Array<{ id: string; title: string; href?: string; meta?: string }>; emptyTitle: string; emptyBody: string }) {
+  if (items.length === 0) return <InsightEmptyState title={emptyTitle} body={emptyBody} />
+  return (
+    <div className="space-y-2">
+      {items.slice(0, 4).map(item => item.href ? (
+        <Link key={item.id} href={item.href} className="block rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)]/70 p-3 text-sm font-medium text-on-surface transition-colors hover:border-[var(--color-pib-accent)]/50">
+          {item.title}
+          {item.meta ? <span className="mt-1 block text-xs font-normal text-on-surface-variant">{item.meta}</span> : null}
+        </Link>
+      ) : (
+        <div key={item.id} className="rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)]/70 p-3 text-sm font-medium text-on-surface">
+          {item.title}
+          {item.meta ? <span className="mt-1 block text-xs font-normal text-on-surface-variant">{item.meta}</span> : null}
+        </div>
+      ))}
+    </div>
+  )
+}
+
+function OperatorInsightDashboards({
+  orgs,
+  tasks,
+  approvals,
+  activity,
+}: {
+  orgs: OrgSummary[]
+  tasks: AgentTask[]
+  approvals: Approval[]
+  activity: Activity[]
+}) {
+  const completed = completedTasks(tasks)
+  const active = tasks.filter(task => ACTIVE_STATUSES.has(task.agentStatus ?? ''))
+  const blocked = tasks.filter(task => RISK_STATUSES.has(task.agentStatus ?? '') || task.columnId === 'blocked')
+  const experimentSignals = [
+    ...tasks.filter(task => includesTerm(`${task.title} ${task.projectName ?? ''}`, ['experiment', 'test', 'variant', 'ab test', 'a/b'])).map(task => ({ id: task.id, title: task.title, href: task.href, meta: taskMeta(task) })),
+    ...activity.filter(item => includesTerm(`${activityTitle(item)} ${item.type ?? ''}`, ['experiment', 'test', 'variant', 'ab test', 'a/b'])).map(item => ({ id: item.id, title: activityTitle(item), meta: `${item.type ?? 'activity'} · ${formatRelative(item.createdAt)}` })),
+  ]
+  const compoundingSignals = completed.slice(0, 3).map(task => ({ id: task.id, title: task.title, href: task.href, meta: taskMeta(task) }))
+  const progress = percent(completed.length, tasks.length)
+  const consistency = percent(active.length + completed.length + Math.max(0, orgs.length - blocked.length), Math.max(1, tasks.length + orgs.length))
+  const pressure = blocked.length + approvals.length
+  const energyLabel = pressure >= 4 ? 'Strained' : active.length > completed.length ? 'Building' : completed.length > 0 ? 'Settled' : 'Quiet'
+  const bottleneckItems = [
+    ...blocked.map(task => ({ id: task.id, title: task.title, href: task.href, meta: taskMeta(task) })),
+    ...approvals.map(item => ({ id: item.id, title: item.content ?? 'Approval required', meta: `${item.orgName ?? 'Organisation'} · ${item.platform ?? 'approval'}` })),
+  ]
+  const nextActions = bottleneckItems.length > 0
+    ? bottleneckItems
+    : active.length > 0
+      ? active.map(task => ({ id: task.id, title: `Advance ${task.title}`, href: task.href, meta: taskMeta(task) }))
+      : orgs.length > 0
+        ? orgs.slice(0, 3).map(org => ({ id: org.id, title: `Review ${org.name} command surface`, href: orgDashboardHref(org), meta: `${org.status ?? 'active'} · ${org.memberCount ?? 0} team members` }))
+        : []
+  const moodTrend = [
+    { label: 'Active load', value: active.length },
+    { label: 'Blocked load', value: blocked.length },
+    { label: 'Completed signal', value: completed.length },
+    { label: 'Approval load', value: approvals.length },
+  ]
+
+  return (
+    <section className="space-y-4" aria-label="Derived operator insight dashboards">
+      <SectionHeader title="Derived operator insight dashboards" eyebrow="Explainable signals" />
+      <div className="grid gap-4 lg:grid-cols-2 xl:grid-cols-3">
+        <InsightCard
+          eyebrow="Consistency"
+          title="Consistency dashboard"
+          value={`${consistency}%`}
+          detail="Compares active/completed task momentum against blocked work and visible client command surfaces."
+          explanation="Calculated from queued/in-progress/completed tasks, blocked or awaiting-input tasks, and active organisation count. It does not infer hidden work outside these feeds."
+        >
+          <MiniProgress value={consistency} label="Operating rhythm" />
+        </InsightCard>
+
+        <InsightCard
+          eyebrow="Goal progress"
+          title="Goal progress dashboard"
+          value={`${progress}%`}
+          detail={`${completed.length} of ${tasks.length} tracked agent tasks are completed or in done.`}
+          explanation="Progress is completed tracked tasks divided by all loaded agent tasks. Review-column done tasks are counted as complete only when task status or column indicates done."
+        >
+          <MiniProgress value={progress} label="Tracked delivery progress" />
+        </InsightCard>
+
+        <InsightCard
+          eyebrow="Energy / mood"
+          title="Energy and mood trends"
+          value={energyLabel}
+          detail="Shows the current operating feel from workload pressure, blocked work, approvals, and completed movement."
+          explanation="This is a derived label, not a sentiment model: pressure equals blocked plus approval items; active and completed counts decide whether the day is building, settled, quiet, or strained."
+        >
+          <div className="grid grid-cols-2 gap-2">
+            {moodTrend.map(row => <div key={row.label} className="rounded-lg bg-[var(--color-surface-container)]/45 p-3"><p className="text-lg font-bold text-on-surface">{row.value}</p><p className="text-[10px] uppercase tracking-wide text-on-surface-variant">{row.label}</p></div>)}
+          </div>
+        </InsightCard>
+
+        <InsightCard
+          eyebrow="Bottlenecks"
+          title="Bottlenecks dashboard"
+          value={String(bottleneckItems.length)}
+          detail="Surfaces blocked work and human approvals that can slow delivery."
+          explanation="A bottleneck is any task marked blocked/awaiting-input or any pending approval loaded from the approval feed."
+        >
+          <EvidenceList items={bottleneckItems} emptyTitle="No bottlenecks found" emptyBody="Blocked tasks and approval waits will appear here when the loaded feeds contain them." />
+        </InsightCard>
+
+        <InsightCard
+          eyebrow="Experiments"
+          title="Experiments dashboard"
+          value={String(experimentSignals.length)}
+          detail="Collects experiment/test signals from task titles, project titles, and activity labels."
+          explanation="Experiment detection is keyword-based on loaded dashboard feeds: experiment, test, variant, A/B, or ab test. It avoids inventing campaign results when no explicit experiment signal exists."
+        >
+          <EvidenceList items={experimentSignals} emptyTitle="No experiment signals" emptyBody="Create or label tasks/activities with experiment, test, variant, or A/B and they will show here." />
+        </InsightCard>
+
+        <InsightCard
+          eyebrow="Compounding gains"
+          title="Compounding gains dashboard"
+          value={String(compoundingSignals.length)}
+          detail="Highlights completed work that can accumulate into reusable platform progress."
+          explanation="Uses completed/done tasks as durable gain evidence. It does not count draft, blocked, or approval-waiting tasks as gains."
+        >
+          <EvidenceList items={compoundingSignals} emptyTitle="No completed gains yet" emptyBody="Completed agent tasks will appear here as compounding platform evidence." />
+        </InsightCard>
+
+        <InsightCard
+          eyebrow="Next best actions"
+          title="Next best actions dashboard"
+          value={String(nextActions.length)}
+          detail="Prioritises unblock/review actions first, then active work, then client command-surface review."
+          explanation="Ranking is deterministic: bottlenecks first, active tasks second, organisation review third. No hidden scoring or LLM inference is used."
+        >
+          <EvidenceList items={nextActions} emptyTitle="No next actions available" emptyBody="When tasks, approvals, or organisations load, the highest-priority follow-up will appear here." />
+        </InsightCard>
+      </div>
+    </section>
+  )
 }
 
 function MetricCard({
@@ -551,7 +766,7 @@ export default function MissionControlDashboard() {
       />
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <MetricCard label="Organisations" value={visibleOrgs.length} icon="groups" detail="Active selected-organisation command surfaces across the platform." />
+        <MetricCard label="Clients" value={visibleOrgs.length} icon="groups" detail="Active selected-organisation command surfaces across the platform." />
         <MetricCard label="Active tasks" value={activeTasks.length} icon="task_alt" detail="Queued or moving agent and delivery tasks." />
         <MetricCard label="Approvals" value={data.approvals.length} icon="rate_review" tone={dashboardTone(data.approvals.length, true)} detail="Human review items waiting in the queue." />
         <MetricCard label="At risk" value={riskTasks.length} icon="report" tone={riskTasks.length > 0 ? 'warn' : 'success'} detail="Blocked or awaiting-input work that needs attention." />
@@ -566,7 +781,7 @@ export default function MissionControlDashboard() {
       {dashboardView === 'overview' ? (
         <>
           <section className="space-y-4">
-            <SectionHeader title="Organisation command surfaces" eyebrow="Portfolio" action={<Link href="/admin/organizations" className="inline-flex items-center gap-1 text-xs font-label uppercase tracking-wide text-[var(--color-accent-v2)]">Manage organisations <span className="material-symbols-outlined text-[15px]">arrow_forward</span></Link>} />
+            <SectionHeader title="Client workspaces" eyebrow="Portfolio" action={<Link href="/admin/organizations" className="inline-flex items-center gap-1 text-xs font-label uppercase tracking-wide text-[var(--color-accent-v2)]">Manage organisations <span className="material-symbols-outlined text-[15px]">arrow_forward</span></Link>} />
             {loading ? (
               <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3"><Skeleton className="h-48 rounded-lg" /><Skeleton className="h-48 rounded-lg" /><Skeleton className="h-48 rounded-lg" /></div>
             ) : visibleOrgs.length === 0 ? (
@@ -579,6 +794,8 @@ export default function MissionControlDashboard() {
               </div>
             )}
           </section>
+
+          <OperatorInsightDashboards orgs={visibleOrgs} tasks={data.tasks} approvals={data.approvals} activity={data.activity} />
 
           <div className="grid gap-4 lg:grid-cols-[minmax(0,1.2fr)_minmax(320px,0.8fr)]">
             <Surface className="p-4 sm:p-5">

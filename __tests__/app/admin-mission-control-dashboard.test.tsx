@@ -219,6 +219,76 @@ describe('Mission control dashboard', () => {
     expect(screen.getByText('Open Projects/Kanban').closest('a')).toHaveAttribute('href', '/admin/org/partners-in-biz/projects')
   })
 
+  it('renders explainable operator insight dashboards with empty states and next best actions', async () => {
+    global.fetch = jest.fn((input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url === '/api/v1/organizations') {
+        return Promise.resolve({ ok: true, json: async () => ({ data: [
+          { id: 'org-1', name: 'Acme Co', slug: 'acme', status: 'active', type: 'client', memberCount: 3 },
+        ] }) } as Response)
+      }
+      if (url === '/api/v1/admin/agent-tasks?orgId=pib-platform-owner&assigneeAgentId=theo') {
+        return Promise.resolve({ ok: true, json: async () => ({ data: { cards: [
+          { id: 'task-active', orgId: 'org-1', title: 'Run landing page experiment', projectName: 'Growth Sprint', assigneeAgentId: 'theo', agentStatus: 'in-progress', href: '/admin/org/acme/projects/growth?task=task-active' },
+          { id: 'task-blocked', orgId: 'org-1', title: 'Waiting on approval evidence', projectName: 'Growth Sprint', assigneeAgentId: 'theo', agentStatus: 'awaiting-input', columnId: 'blocked', href: '/admin/org/acme/projects/growth?task=task-blocked' },
+          { id: 'task-done', orgId: 'org-1', title: 'Completed analytics cleanup', projectName: 'Growth Sprint', assigneeAgentId: 'theo', agentStatus: 'done', columnId: 'done', href: '/admin/org/acme/projects/growth?task=task-done' },
+        ] } }) } as Response)
+      }
+      if (url === '/api/v1/social/posts/pending?limit=12') {
+        return Promise.resolve({ ok: true, json: async () => ({ data: [
+          { id: 'approval-1', orgId: 'org-1', orgName: 'Acme Co', platform: 'linkedin', content: 'Approve test results post' },
+        ] }) } as Response)
+      }
+      if (url === '/api/v1/dashboard/activity?limit=12') {
+        return Promise.resolve({ ok: true, json: async () => ({ data: [] }) } as Response)
+      }
+      if (url === '/api/v1/health') {
+        return Promise.resolve({ ok: true, json: async () => ({ success: true, data: { ok: true, services: { firestore: 'ok' } } }) } as Response)
+      }
+      return Promise.resolve({ ok: true, json: async () => ({ data: [] }) } as Response)
+    }) as jest.Mock
+
+    render(<MissionControlDashboard />)
+
+    await waitFor(() => expect(screen.getByText('Derived operator insight dashboards')).toBeInTheDocument())
+
+    expect(screen.getByText('Consistency dashboard')).toBeInTheDocument()
+    expect(screen.getByText('Goal progress dashboard')).toBeInTheDocument()
+    expect(screen.getByText('Energy and mood trends')).toBeInTheDocument()
+    expect(screen.getByText('Bottlenecks dashboard')).toBeInTheDocument()
+    expect(screen.getByText('Experiments dashboard')).toBeInTheDocument()
+    expect(screen.getByText('Compounding gains dashboard')).toBeInTheDocument()
+    expect(screen.getByText('Next best actions dashboard')).toBeInTheDocument()
+    expect(screen.getAllByText(/Explainability:/).length).toBeGreaterThanOrEqual(7)
+    expect(screen.getAllByText('Run landing page experiment').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Waiting on approval evidence').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Completed analytics cleanup').length).toBeGreaterThan(0)
+  })
+
+  it('renders empty states for derived insight dashboards when no source signals exist', async () => {
+    global.fetch = jest.fn((input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url === '/api/v1/organizations') {
+        return Promise.resolve({ ok: true, json: async () => ({ data: [
+          { id: 'org-1', name: 'Acme Co', slug: 'acme', status: 'active', type: 'client', memberCount: 3 },
+        ] }) } as Response)
+      }
+      if (url === '/api/v1/health') {
+        return Promise.resolve({ ok: true, json: async () => ({ success: true, data: { ok: true, services: { firestore: 'ok' } } }) } as Response)
+      }
+      return Promise.resolve({ ok: true, json: async () => ({ data: [] }) } as Response)
+    }) as jest.Mock
+
+    render(<MissionControlDashboard />)
+
+    await waitFor(() => expect(screen.getByText('Derived operator insight dashboards')).toBeInTheDocument())
+
+    expect(screen.getByText('No bottlenecks found')).toBeInTheDocument()
+    expect(screen.getByText('No experiment signals')).toBeInTheDocument()
+    expect(screen.getByText('No completed gains yet')).toBeInTheDocument()
+    expect(screen.getAllByText('Review Acme Co command surface').length).toBeGreaterThan(0)
+  })
+
   it('has excellent empty and error states', async () => {
     global.fetch = jest.fn((input: RequestInfo | URL) => {
       const url = String(input)
