@@ -49,6 +49,22 @@ function expectBefore(firstText: string, secondText: string) {
   expect(first.compareDocumentPosition(second) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
 }
 
+function dispatchBoardPointerEvent(
+  element: HTMLElement,
+  type: 'pointerdown' | 'pointermove' | 'pointerup',
+  options: { button?: number; clientX: number; pointerId?: number; pointerType?: string },
+) {
+  const event = new MouseEvent(type, {
+    bubbles: true,
+    button: options.button ?? 0,
+    cancelable: true,
+    clientX: options.clientX,
+  })
+  Object.defineProperty(event, 'pointerId', { value: options.pointerId ?? 1 })
+  Object.defineProperty(event, 'pointerType', { value: options.pointerType ?? 'mouse' })
+  fireEvent(element, event)
+}
+
 describe('KanbanBoard task cards', () => {
   it('keeps kanban column overflow inside the board scroller on small screens', () => {
     render(
@@ -71,6 +87,31 @@ describe('KanbanBoard task cards', () => {
       'overflow-x-auto',
       'overscroll-x-contain',
     )
+  })
+
+  it('lets desktop users drag empty board space horizontally without using the bottom scrollbar', () => {
+    render(
+      <KanbanBoard
+        columns={[
+          { id: 'backlog', name: 'Backlog', color: '#64748b', order: 1 },
+          { id: 'todo', name: 'To Do', color: '#60a5fa', order: 2 },
+          { id: 'review', name: 'Review', color: '#a855f7', order: 3 },
+        ]}
+        tasks={[]}
+        onTaskMove={jest.fn()}
+        onTaskClick={jest.fn()}
+        onAddTask={jest.fn()}
+      />,
+    )
+
+    const scroller = screen.getByTestId('kanban-board-scroll')
+    scroller.scrollLeft = 25
+
+    dispatchBoardPointerEvent(scroller, 'pointerdown', { button: 0, clientX: 500 })
+    dispatchBoardPointerEvent(scroller, 'pointermove', { clientX: 430 })
+    dispatchBoardPointerEvent(scroller, 'pointerup', { clientX: 430 })
+
+    expect(scroller.scrollLeft).toBe(95)
   })
 
   it('shows latest tasks first by default and can toggle back to manual order', () => {

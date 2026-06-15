@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback, useEffect, useRef, type PointerEvent as ReactPointerEvent } from 'react'
 import {
   DndContext,
   DragOverlay,
@@ -296,6 +296,7 @@ function SortableTaskCard({ task, members, agents, onClick }: { task: Task; memb
   return (
     <div
       ref={setNodeRef}
+      data-kanban-card="true"
       style={{ transform: CSS.Transform.toString(transform), transition }}
       {...attributes}
       {...listeners}
@@ -391,6 +392,12 @@ export function KanbanBoard({
   const [tasks, setTasks] = useState(initialTasks)
   const [activeTask, setActiveTask] = useState<Task | null>(null)
   const [internalSortMode, setInternalSortMode] = useState<'latest' | 'manual'>('latest')
+  const boardPanRef = useRef({
+    active: false,
+    pointerId: -1,
+    startScrollLeft: 0,
+    startX: 0,
+  })
   const sortMode = controlledSortMode ?? internalSortMode
 
   useEffect(() => {
@@ -488,6 +495,44 @@ export function KanbanBoard({
     await onTaskMove(movedTask.id, targetColumnId, newOrder)
   }
 
+  function canPanBoardFromTarget(target: EventTarget | null) {
+    if (!(target instanceof HTMLElement)) return true
+    return !target.closest('[data-kanban-card], button, a, input, textarea, select, [role="button"]')
+  }
+
+  function handleBoardPointerDown(event: ReactPointerEvent<HTMLDivElement>) {
+    if ((typeof event.button === 'number' && event.button !== 0) || !canPanBoardFromTarget(event.target)) return
+
+    boardPanRef.current = {
+      active: true,
+      pointerId: event.pointerId,
+      startScrollLeft: event.currentTarget.scrollLeft,
+      startX: event.clientX,
+    }
+    event.currentTarget.setPointerCapture?.(event.pointerId)
+  }
+
+  function handleBoardPointerMove(event: ReactPointerEvent<HTMLDivElement>) {
+    const pan = boardPanRef.current
+    if (!pan.active || pan.pointerId !== event.pointerId) return
+
+    event.preventDefault()
+    event.currentTarget.scrollLeft = pan.startScrollLeft + (pan.startX - event.clientX)
+  }
+
+  function endBoardPan(event: ReactPointerEvent<HTMLDivElement>) {
+    const pan = boardPanRef.current
+    if (!pan.active || pan.pointerId !== event.pointerId) return
+
+    event.currentTarget.releasePointerCapture?.(event.pointerId)
+    boardPanRef.current = {
+      active: false,
+      pointerId: -1,
+      startScrollLeft: 0,
+      startX: 0,
+    }
+  }
+
   return (
     <DndContext
       sensors={sensors}
@@ -512,7 +557,11 @@ export function KanbanBoard({
 
       <div
         data-testid="kanban-board-scroll"
-        className="flex min-w-0 max-w-full touch-pan-x gap-4 overflow-x-auto overscroll-x-contain pb-4"
+        onPointerDown={handleBoardPointerDown}
+        onPointerMove={handleBoardPointerMove}
+        onPointerUp={endBoardPan}
+        onPointerCancel={endBoardPan}
+        className="flex min-w-0 max-w-full cursor-grab touch-pan-x gap-4 overflow-x-auto overscroll-x-contain pb-4 active:cursor-grabbing"
         style={{ minHeight: 500 }}
       >
         {sortedColumns.map(column => (
