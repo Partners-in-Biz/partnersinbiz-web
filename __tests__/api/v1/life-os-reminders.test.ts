@@ -45,7 +45,7 @@ beforeEach(() => {
 
   mockReminderAdd.mockResolvedValue({ id: 'reminder-1' })
   mockReminderSet.mockResolvedValue(undefined)
-  mockReminderDoc.mockReturnValue({ set: mockReminderSet })
+  mockReminderDoc.mockReturnValue({ get: jest.fn().mockResolvedValue({ exists: false }), set: mockReminderSet })
   mockReminderGet.mockResolvedValue(docs([
     { id: 'reminder-existing', data: { orgId: 'org-1', ownerId: 'user-1', kind: 'daily-check-in', status: 'scheduled', scheduledFor: '2026-06-15T07:30:00.000+02:00' } },
   ]))
@@ -130,6 +130,43 @@ describe('Life OS reminders API route', () => {
       scheduledFor: '2026-06-15T07:30:00.000+02:00',
     }), { merge: true })
     expect(body.data.created).toHaveLength(1)
+  })
+
+  it('does not overwrite an existing reminder when scheduling is replayed', async () => {
+    const existingGet = jest.fn().mockResolvedValue({
+      exists: true,
+      data: () => ({
+        orgId: 'org-1',
+        ownerId: 'user-1',
+        kind: 'daily-check-in',
+        status: 'sent',
+        scheduledFor: '2026-06-15T07:30:00.000+02:00',
+        createdAt: '2026-06-15T04:00:00.000Z',
+      }),
+    })
+    mockReminderDoc.mockReturnValueOnce({ get: existingGet, set: mockReminderSet })
+    const { POST } = await import('@/app/api/v1/life-os/reminders/route')
+
+    const res = await POST(new NextRequest('http://localhost/api/v1/life-os/reminders', {
+      method: 'POST',
+      body: JSON.stringify({
+        orgId: 'org-1',
+        candidates: [{
+          kind: 'daily-check-in',
+          title: 'Daily check-in',
+          body: 'Capture today.',
+          localDate: '2026-06-15',
+          preferredTime: '07:30',
+          timezone: 'Africa/Johannesburg',
+          target: { type: 'life-os-check-in', id: '2026-06-15' },
+        }],
+      }),
+    }))
+    const body = await res.json()
+
+    expect(res.status).toBe(201)
+    expect(mockReminderSet).not.toHaveBeenCalled()
+    expect(body.data.created[0]).toMatchObject({ id: 'org-1:user-1:daily-check-in:2026-06-15:07:30:life-os-check-in:2026-06-15', status: 'sent' })
   })
 
   it('refuses cross-owner preference access and does not schedule without opt-in consent', async () => {

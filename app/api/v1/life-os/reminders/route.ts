@@ -112,19 +112,25 @@ export const POST = withAuth('client', async (req, user) => {
       ownerId,
       timezone: candidate.timezone || preferences.quietHours.timezone,
     }))
-    const dueResults = candidates.map((candidate) => evaluateReminderDue(candidate, preferences, now))
-    const allowedCandidates = candidates.filter((_, index) => {
-      const reason = dueResults[index].reason
-      return reason !== 'consent-required' && reason !== 'kind-disabled' && reason !== 'notification-channel-disabled'
-    })
-    const suppressed = candidates
-      .map((candidate, index) => ({ kind: candidate.kind, target: candidate.target, reason: dueResults[index].reason }))
-      .filter((item) => item.reason === 'consent-required' || item.reason === 'kind-disabled' || item.reason === 'notification-channel-disabled')
-    const reminders = allowedCandidates.map((candidate) => buildReminderRecord(candidate, preferences, now))
     const created = []
+    const suppressed = []
 
-    for (const reminder of reminders) {
-      await remindersCollection().doc(reminder.id).set(reminder, { merge: true })
+    for (const candidate of candidates) {
+      const due = evaluateReminderDue(candidate, preferences, now)
+      if (!due.due) {
+        suppressed.push({ kind: candidate.kind, target: candidate.target, reason: due.reason })
+        continue
+      }
+
+      const reminder = buildReminderRecord(candidate, preferences, now)
+      const ref = remindersCollection().doc(reminder.id)
+      const existing = await ref.get()
+      if (existing.exists) {
+        created.push({ id: reminder.id, ...existing.data() })
+        continue
+      }
+
+      await ref.set(reminder, { merge: true })
       created.push(reminder)
     }
 

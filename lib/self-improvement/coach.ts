@@ -286,18 +286,32 @@ function buildEscalatedWorkflow(input: CoachWorkflowInput, safetyBoundary: Coach
 }
 
 function buildSafetyScanText(input: CoachWorkflowInput) {
-  return extractText(input).join('\n')
-}
-
-function extractText(value: unknown, seen = new WeakSet<object>()): string[] {
-  if (typeof value === 'string') return [value]
-  if (typeof value !== 'object' || value === null) return []
-  if (seen.has(value)) return []
-  seen.add(value)
-
-  if (Array.isArray(value)) return value.flatMap((item) => extractText(item, seen))
-
-  return Object.values(value as Record<string, unknown>).flatMap((item) => extractText(item, seen))
+  const plan = input.plan
+  return [
+    input.userMessage,
+    plan?.vision.title,
+    ...(plan?.vision.domains ?? []),
+    plan?.reviewProgress.nextReviewPrompt,
+    ...(plan?.activeQuarterlyOutcomes.map((item) => item.title) ?? []),
+    ...(plan?.activeWeeklyCommitments.map((item) => item.title) ?? []),
+    ...(plan?.activeDailyActions.map((item) => item.title) ?? []),
+    ...(input.dailyCheckIns ?? []).flatMap((item) => [
+      ...item.wins,
+      ...item.misses,
+      ...item.lessons,
+      ...item.blockers,
+      ...item.priorities,
+      ...item.nextExperiments,
+    ]),
+    ...(input.weeklyReviews ?? []).flatMap((item) => [
+      ...item.wins,
+      ...item.misses,
+      ...item.lessons,
+      ...item.blockers,
+      ...item.priorities,
+      ...item.nextExperiments,
+    ]),
+  ].filter((item): item is string => Boolean(item?.trim())).join('\n')
 }
 
 function latest<T>(items: T[], timeOf: (item: T) => string, limit: number) {
