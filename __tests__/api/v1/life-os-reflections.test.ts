@@ -79,6 +79,10 @@ describe('Life OS reflection API routes', () => {
     expect(mockCheckInAdd).toHaveBeenCalledWith(expect.objectContaining({
       orgId: 'org-1',
       ownerId: 'user-1',
+      safetyCopy: expect.objectContaining({
+        disclosure: expect.stringContaining('medical, mental-health, crisis, legal, financial'),
+        consent: expect.stringContaining('only after consent'),
+      }),
       type: 'daily',
       dashboardSignals: expect.objectContaining({ winCount: 1, missCount: 1 }),
       coachContext: expect.objectContaining({ nextCoachPrompt: expect.any(String) }),
@@ -117,6 +121,10 @@ describe('Life OS reflection API routes', () => {
     expect(mockReviewAdd).toHaveBeenCalledWith(expect.objectContaining({
       orgId: 'org-1',
       ownerId: 'user-1',
+      safetyCopy: expect.objectContaining({
+        disclosure: expect.stringContaining('medical, mental-health, crisis, legal, financial'),
+        consent: expect.stringContaining('only after consent'),
+      }),
       periodType: 'weekly',
       dashboardSignals: expect.objectContaining({ lessonCount: 1, experimentCount: 1 }),
       coachContext: expect.objectContaining({ nextCoachPrompt: expect.any(String) }),

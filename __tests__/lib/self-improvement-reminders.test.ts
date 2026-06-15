@@ -49,7 +49,8 @@ describe('Life OS reminder infrastructure', () => {
     })
 
     const quietHours = buildReminderPreferences({ orgId: 'org-1', ownerId: 'user-1', optedIn: true })
-    expect(evaluateReminderDue(candidate, quietHours, '2026-06-15T04:30:00.000Z')).toMatchObject({
+    const quietCandidate = { ...candidate, preferredTime: '06:00' }
+    expect(evaluateReminderDue(quietCandidate, quietHours, '2026-06-15T04:30:00.000Z')).toMatchObject({
       due: false,
       reason: 'quiet-hours',
       nextEligibleAt: '2026-06-15T07:00:00.000+02:00',

@@ -133,8 +133,6 @@ export function evaluateReminderDue(candidate: ReminderCandidate, preferences: R
     }
   }
 
-  if (Date.parse(now) < Date.parse(scheduledFor)) return { due: false, reason: 'not-yet-due', scheduledFor }
-
   return { due: true, scheduledFor }
 }
 

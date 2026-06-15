@@ -42,8 +42,8 @@ function cleanLimit(value: string | null) {
   return Math.min(Math.floor(parsed), 200)
 }
 
-function canAccessOwner(user: { uid: string; role?: string }, ownerId: string) {
-  return ownerId === user.uid || user.role === 'admin' || user.role === 'super_admin'
+function canAccessOwner(user: { uid: string }, ownerId: string) {
+  return ownerId === user.uid
 }
 
 function mergePreferenceInput(existing: ReminderPreferences, body: ReminderPreferencesInput): ReminderPreferencesInput {

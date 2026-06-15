@@ -42,6 +42,10 @@ describe('Life OS AI coach API route', () => {
       ownerId: 'user-1',
       workflow: expect.objectContaining({
         safetyBoundary: expect.objectContaining({ level: 'none' }),
+        boundaryCopy: expect.objectContaining({
+          role: expect.stringContaining('not therapy, medical care, crisis support, legal advice, or financial advice'),
+          emergency: expect.stringContaining('contact local emergency services or a trusted person now'),
+        }),
         obstacleDiagnosis: expect.objectContaining({ primaryObstacle: 'meetings started too early' }),
         promptGuardrails: expect.objectContaining({ mustNot: expect.arrayContaining(['diagnose medical or mental-health conditions']) }),
       }),
