@@ -14,6 +14,7 @@ import {
   buildWeeklyReview,
   summarizeReflectionInsights,
 } from '@/lib/self-improvement/reflections'
+import { buildAiCoachWorkflow } from '@/lib/self-improvement/coach'
 import {
   buildLifeExperiment,
   completeLifeExperiment,
@@ -125,6 +126,14 @@ export function LifeOsPlanningWorkbench() {
     }, '2026-06-21T17:00:00.000Z')
   }, [])
   const experimentSummary = useMemo(() => summarizeExperimentLoop([experiment]), [experiment])
+  const coachWorkflow = useMemo(() => buildAiCoachWorkflow({
+    orgId: 'pib-platform-owner',
+    ownerId: 'demo-user',
+    plan,
+    dailyCheckIns: [dailyCheckIn],
+    weeklyReviews: [weeklyReview],
+    userMessage: 'Help me choose the next smallest useful step without shame.',
+  }), [dailyCheckIn, plan, weeklyReview])
 
   function saveQuarterTitle() {
     setPlan((current) => updatePlanningItemTitle(current, 'quarterlyOutcome', quarter.id, quarterTitle))
@@ -299,9 +308,34 @@ export function LifeOsPlanningWorkbench() {
           ]}
         />
         <article className="rounded-2xl border border-indigo-100 bg-indigo-50 p-4">
-          <p className="text-xs font-semibold uppercase tracking-wide text-indigo-700">AI coach context</p>
-          <h2 className="mt-2 text-lg font-semibold text-indigo-950">{dailyCheckIn.coachContext.emotionalTone}</h2>
-          <p className="mt-2 text-sm leading-6 text-indigo-950">{dailyCheckIn.coachContext.nextCoachPrompt}</p>
+          <p className="text-xs font-semibold uppercase tracking-wide text-indigo-700">AI coach workflow</p>
+          <h2 className="mt-2 text-lg font-semibold text-indigo-950">{coachWorkflow.context.identityDirection}</h2>
+          <div className="mt-3 space-y-3 text-sm leading-6 text-indigo-950">
+            <section>
+              <p className="font-semibold">Prompt guardrails</p>
+              <p>{coachWorkflow.promptGuardrails.system}</p>
+            </section>
+            <section>
+              <p className="font-semibold">Plan suggestions</p>
+              <p>{coachWorkflow.planSuggestions[0]?.suggestedAction}</p>
+            </section>
+            <section>
+              <p className="font-semibold">Obstacle diagnosis</p>
+              <p>{coachWorkflow.obstacleDiagnosis.likelyPattern}</p>
+            </section>
+            <section>
+              <p className="font-semibold">Reflection summary</p>
+              <p>{coachWorkflow.reflectionSummary.split('\n')[0]}</p>
+            </section>
+            <section>
+              <p className="font-semibold">Experiment recommendations</p>
+              <p>{coachWorkflow.experimentRecommendations[0]?.nextAction}</p>
+            </section>
+            <section>
+              <p className="font-semibold">Safety boundaries</p>
+              <p>{coachWorkflow.safetyBoundary.message}</p>
+            </section>
+          </div>
           <p className="mt-4 text-xs font-semibold uppercase tracking-wide text-indigo-700">Insights dashboard signals</p>
           <p className="mt-2 text-sm text-indigo-950">
             {insightSummary.totalWins} wins · {insightSummary.totalMisses} misses · {insightSummary.totalLessons} lessons · {insightSummary.totalBlockers} blockers · energy {insightSummary.averageEnergy}/5 · mood {insightSummary.averageMood}/5
