@@ -14,6 +14,11 @@ import {
   buildWeeklyReview,
   summarizeReflectionInsights,
 } from '@/lib/self-improvement/reflections'
+import {
+  buildLifeExperiment,
+  completeLifeExperiment,
+  summarizeExperimentLoop,
+} from '@/lib/self-improvement/experiments'
 
 const starterPlan = {
   id: 'vision-founder-life-os',
@@ -94,6 +99,32 @@ export function LifeOsPlanningWorkbench() {
     nextExperiments: ['ten-minute recovery habit before the first meeting'],
   }, '2026-06-21T17:00:00.000Z'), [])
   const insightSummary = useMemo(() => summarizeReflectionInsights([dailyCheckIn], [weeklyReview]), [dailyCheckIn, weeklyReview])
+  const experiment = useMemo(() => {
+    const planned = buildLifeExperiment({
+      orgId: 'pib-platform-owner',
+      ownerId: 'demo-user',
+      title: 'Morning recovery cue',
+      hypothesis: 'If recovery moves before the first meeting, the habit will survive late-day fatigue.',
+      startDate: '2026-06-15',
+      endDate: '2026-06-21',
+      linkedGoalId: 'quarter-operating-rhythm',
+      linkedActionIds: ['action-close-loop'],
+      actions: ['Put walking shoes by the desk', 'Take a ten-minute walk before the first meeting'],
+      evidence: ['4 morning walks completed', 'Energy average holds at 4/5'],
+      successCriteria: ['Complete 4 morning walks', 'Keep energy average at or above 4'],
+    }, '2026-06-15T08:00:00.000Z')
+
+    return completeLifeExperiment(planned, {
+      result: {
+        summary: 'Morning recovery worked better than the previous evening cue, but meeting-heavy days still need a smaller fallback.',
+        evidence: ['4 morning walks completed', '2 days used the ten-minute version', 'Energy average held at 4/5'],
+        metricDeltas: [{ metric: 'recovery_walks', baseline: 1, latest: 4, direction: 'up' }],
+      },
+      decision: 'iterate',
+      decidedAt: '2026-06-21T17:00:00.000Z',
+    }, '2026-06-21T17:00:00.000Z')
+  }, [])
+  const experimentSummary = useMemo(() => summarizeExperimentLoop([experiment]), [experiment])
 
   function saveQuarterTitle() {
     setPlan((current) => updatePlanningItemTitle(current, 'quarterlyOutcome', quarter.id, quarterTitle))
@@ -279,6 +310,30 @@ export function LifeOsPlanningWorkbench() {
         </article>
       </div>
 
+      <article className="rounded-2xl border border-cyan-100 bg-cyan-50 p-4">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wide text-cyan-700">Experiment loop</p>
+            <h2 className="mt-2 text-lg font-semibold text-cyan-950">{experiment.title}</h2>
+            <p className="mt-2 text-sm leading-6 text-cyan-950">Hypothesis: {experiment.hypothesis}</p>
+            <p className="mt-1 text-sm text-cyan-900">Duration: {experiment.startDate} → {experiment.endDate} · {experiment.durationDays} days</p>
+          </div>
+          <div className="rounded-2xl bg-white px-4 py-3 text-sm text-cyan-950">
+            <p>{experimentSummary.activeExperiments} active · {experimentSummary.completedExperiments} completed</p>
+            <p>Decision: {experiment.decision ? experiment.decision.charAt(0).toUpperCase() + experiment.decision.slice(1) : 'Pending'}</p>
+          </div>
+        </div>
+        <div className="mt-4 grid gap-3 lg:grid-cols-3">
+          <ExperimentList title="Actions" items={experiment.actions} />
+          <ExperimentList title="Evidence" items={experiment.result?.evidence ?? experiment.evidencePlan} />
+          <ExperimentList title="Result" items={[experiment.result?.summary ?? 'Collect evidence before deciding.']} />
+        </div>
+        <div className="mt-4 rounded-2xl border border-cyan-200 bg-white p-3 text-sm text-cyan-950">
+          <p className="font-semibold">Adaptation suggestion: {experiment.adaptationSuggestions[0]?.suggestedChange}</p>
+          <p className="mt-1 text-cyan-800">{experimentSummary.nextAdaptationPrompt}</p>
+        </div>
+      </article>
+
       <div className="rounded-2xl border border-slate-200 bg-slate-950 p-4 text-white">
         <p className="text-xs font-semibold uppercase tracking-wide text-emerald-300">Reviewable progress</p>
         <p className="mt-2 text-sm leading-6 text-slate-200">{plan.reviewProgress.nextReviewPrompt}</p>
@@ -287,6 +342,19 @@ export function LifeOsPlanningWorkbench() {
         ) : null}
       </div>
     </section>
+  )
+}
+
+function ExperimentList({ title, items }: { title: string; items: string[] }) {
+  return (
+    <div className="rounded-2xl bg-white p-3">
+      <p className="text-xs font-semibold uppercase tracking-wide text-cyan-700">{title}</p>
+      <ul className="mt-2 space-y-1 text-sm leading-6 text-cyan-950">
+        {items.map((item) => (
+          <li key={item}>{title}: {item}</li>
+        ))}
+      </ul>
+    </div>
   )
 }
 
