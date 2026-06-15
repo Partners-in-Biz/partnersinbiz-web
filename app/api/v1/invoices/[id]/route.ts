@@ -15,17 +15,19 @@ export const dynamic = 'force-dynamic'
 
 type RouteContext = { params: Promise<{ id: string }> }
 
-export const GET = withAuth('client', async (_req, user, ctx) => {
+export const GET = withAuth('client', async (req, user, ctx) => {
   const { id } = await (ctx as RouteContext).params
-  const access = await requireInvoiceAccess(user, id)
+  const requestedOrgId = new URL(req.url).searchParams.get('orgId')
+  const access = await requireInvoiceAccess(user, id, requestedOrgId)
   if (!access.ok) return access.response
   return apiSuccess(decorateInvoicePortalCapabilities({ id: access.snap.id, ...access.data }, user))
 })
 
 export const PATCH = withAuth('client', async (req, user, ctx) => {
   const { id } = await (ctx as RouteContext).params
+  const requestedOrgId = new URL(req.url).searchParams.get('orgId')
   const body = (await req.json().catch(() => ({}))) as Record<string, unknown>
-  const access = await requireInvoiceAccess(user, id)
+  const access = await requireInvoiceAccess(user, id, requestedOrgId)
   if (!access.ok) return access.response
   const sanitized = sanitizeInvoicePortalPatch(user, access.data, body)
   if (!sanitized.ok) {
