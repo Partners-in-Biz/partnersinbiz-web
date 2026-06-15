@@ -6,6 +6,7 @@ import { isClientVisibleClientDocument } from '@/lib/client-documents/access'
 import { CLIENT_DOCUMENTS_COLLECTION } from '@/lib/client-documents/store'
 import type { ClientDocument } from '@/lib/client-documents/types'
 import { adminDb } from '@/lib/firebase/admin'
+import { runWithFirestoreReadAudit } from '@/lib/firebase/read-audit'
 import { PIB_PLATFORM_ORG_ID } from '@/lib/platform/constants'
 
 export const dynamic = 'force-dynamic'
@@ -19,15 +20,19 @@ export const GET = withPortalAuthAndRole('viewer', async (_req: NextRequest, _ui
     return docsSnap.docs.map((doc) => ({ id: doc.id, ...doc.data() } as ClientDocument))
   }
 
-  const documents = await listForOrg(orgId)
-  if (orgId !== PIB_PLATFORM_ORG_ID) {
-    const platformDocuments = await listForOrg(PIB_PLATFORM_ORG_ID)
-    documents.push(...platformDocuments.filter((doc) => doc.linked?.clientOrgId === orgId))
-  }
+  const count = await runWithFirestoreReadAudit('api/v1/portal/documents/count', async () => {
+    const documents = await listForOrg(orgId)
+    if (orgId !== PIB_PLATFORM_ORG_ID) {
+      const platformDocuments = await listForOrg(PIB_PLATFORM_ORG_ID)
+      documents.push(...platformDocuments.filter((doc) => doc.linked?.clientOrgId === orgId))
+    }
 
-  const count = documents.filter((doc) => (
-    doc.deleted !== true && isClientVisibleClientDocument(doc)
-  )).length
+    return documents.filter((doc) => (
+      doc.deleted !== true && isClientVisibleClientDocument(doc)
+    )).length
+  })
 
-  return apiSuccess({ count })
+  const response = apiSuccess({ count })
+  response.headers.set('Cache-Control', 'private, max-age=300')
+  return response
 })

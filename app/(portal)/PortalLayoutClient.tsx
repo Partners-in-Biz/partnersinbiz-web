@@ -35,6 +35,8 @@ import {
 
 const PORTAL_MATERIAL_SYMBOLS =
   'https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap'
+const DOCUMENT_BADGE_REFRESH_MS = 15 * 60_000
+const DOCUMENT_BADGE_CACHE_TTL_MS = 5 * 60_000
 
 interface NavItem {
   href: string
@@ -164,6 +166,34 @@ interface PortalOrgOption {
   logoUrl: string
   portalModules?: PortalModules
   modulePolicies?: OrganizationModulePolicies
+}
+
+function documentBadgeCacheKey(orgId?: string | null) {
+  return `pib_document_count:${orgId || 'active'}`
+}
+
+function readCachedDocumentCount(orgId?: string | null): number | null {
+  if (typeof window === 'undefined') return null
+  try {
+    const raw = window.localStorage.getItem(documentBadgeCacheKey(orgId))
+    if (!raw) return null
+    const cached = JSON.parse(raw) as { count?: unknown; cachedAt?: unknown }
+    if (typeof cached.count !== 'number' || typeof cached.cachedAt !== 'number') return null
+    if (Date.now() - cached.cachedAt > DOCUMENT_BADGE_CACHE_TTL_MS) return null
+    return cached.count
+  } catch {
+    return null
+  }
+}
+
+function writeCachedDocumentCount(orgId: string | null | undefined, count: number) {
+  if (typeof window === 'undefined') return
+  try {
+    window.localStorage.setItem(
+      documentBadgeCacheKey(orgId),
+      JSON.stringify({ count, cachedAt: Date.now() }),
+    )
+  } catch {}
 }
 
 function active(pathname: string, item: NavItem) {
@@ -389,11 +419,23 @@ function PortalLayoutContent({ children }: { children: React.ReactNode }) {
     setDrawerOpen(false)
   }, [pathname])
 
-  // Document badge — refresh on mount, on route change, and every 60s.
+  // Document badge: refresh sparingly because the count endpoint scans Firestore documents.
   useEffect(() => {
     if (checking) return
     let cancelled = false
-    async function refresh() {
+    let inFlight = false
+    const cached = readCachedDocumentCount(requestedOrgId)
+    if (cached !== null) setDocumentCount(cached)
+
+    async function refresh({ force = false }: { force?: boolean } = {}) {
+      if (cancelled || inFlight) return
+      if (!force && document.visibilityState !== 'visible') return
+      const cachedCount = readCachedDocumentCount(requestedOrgId)
+      if (!force && cachedCount !== null) {
+        setDocumentCount(cachedCount)
+        return
+      }
+      inFlight = true
       try {
         const res = await fetch(requestedOrgId
           ? `/api/v1/portal/documents/count?orgId=${encodeURIComponent(requestedOrgId)}`
@@ -401,13 +443,31 @@ function PortalLayoutContent({ children }: { children: React.ReactNode }) {
         if (!res.ok) return
         const body = await res.json()
         const count = body?.data?.count ?? 0
-        if (!cancelled) setDocumentCount(typeof count === 'number' ? count : 0)
-      } catch {}
+        if (typeof count === 'number') {
+          writeCachedDocumentCount(requestedOrgId, count)
+          if (!cancelled) setDocumentCount(count)
+        }
+      } catch {
+      } finally {
+        inFlight = false
+      }
     }
-    refresh()
-    const id = window.setInterval(refresh, 60_000)
-    return () => { cancelled = true; window.clearInterval(id) }
-  }, [checking, pathname, requestedOrgId])
+    refresh({ force: cached === null })
+    const id = window.setInterval(() => {
+      refresh().catch(() => {})
+    }, DOCUMENT_BADGE_REFRESH_MS)
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') refresh().catch(() => {})
+    }
+    window.addEventListener('focus', handleVisibility)
+    document.addEventListener('visibilitychange', handleVisibility)
+    return () => {
+      cancelled = true
+      window.clearInterval(id)
+      window.removeEventListener('focus', handleVisibility)
+      document.removeEventListener('visibilitychange', handleVisibility)
+    }
+  }, [checking, requestedOrgId])
 
   function toggleCollapsed() {
     setCollapsed(prev => {

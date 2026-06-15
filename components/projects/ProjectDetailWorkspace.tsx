@@ -77,7 +77,7 @@ const DEFAULT_COLUMNS: Column[] = [
   { id: 'review',      name: 'Review',      color: '#c084fc',                 order: 4 },
   { id: 'done',        name: 'Done',        color: '#4ade80',                 order: 5 },
 ]
-const TASK_REFRESH_INTERVAL_MS = 10000
+const TASK_REFRESH_INTERVAL_MS = 60_000
 
 function Skeleton({ className = '' }: { className?: string }) {
   return <div className={`pib-skeleton ${className}`} />
@@ -268,9 +268,12 @@ export function ProjectDetailWorkspace({
   useEffect(() => {
     let cancelled = false
     let refreshInFlight = false
+    let listenerHealthy = false
 
     const refresh = async (options?: { preserveLiveChanges?: boolean }) => {
       if (cancelled || refreshInFlight) return
+      if (!options?.preserveLiveChanges && listenerHealthy) return
+      if (!options?.preserveLiveChanges && document.visibilityState !== 'visible') return
       refreshInFlight = true
       try {
         await refreshTasks(options)
@@ -295,6 +298,7 @@ export function ProjectDetailWorkspace({
     const unsubscribe = onSnapshot(
       collection(getClientDb(), 'projects', projectId, 'tasks'),
       (snap) => {
+        listenerHealthy = true
         snap.docChanges().forEach(change => {
           const taskData = { id: change.doc.id, ...change.doc.data() } as Task
           if (change.type === 'added' || change.type === 'modified') {
@@ -307,6 +311,7 @@ export function ProjectDetailWorkspace({
         })
       },
       (error) => {
+        listenerHealthy = false
         console.warn('Project task live listener unavailable; using REST refresh fallback.', error)
       },
     )

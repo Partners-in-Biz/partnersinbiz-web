@@ -465,13 +465,47 @@ export async function findPendingConversationRuns(input: {
   const messageScanLimit = input.messageScanLimit ?? 20
   const maxRuns = input.maxRuns ?? 25
 
+  const candidates: PendingConversationRun[] = []
+  try {
+    const messagesSnap = await adminDb
+      .collectionGroup('messages')
+      .where('status', 'in', ['pending', 'streaming'])
+      .limit(maxRuns)
+      .get()
+
+    for (const msgDoc of messagesSnap.docs) {
+      const convId = msgDoc.ref.parent.parent?.id
+      if (!convId) continue
+      const data = msgDoc.data()
+      const runId = cleanString(data.runId)
+      if (!runId) continue
+
+      const agentId = resolveAgentId(undefined, data)
+      if (!agentId) continue
+
+      candidates.push({
+        convId,
+        msgId: msgDoc.id,
+        runId,
+        agentId,
+        createdAtMs: createdAtToMillis(data.createdAt),
+        events: Array.isArray(data.events) ? data.events as ChatEvent[] : [],
+      })
+    }
+
+    return candidates
+      .sort((a, b) => a.createdAtMs - b.createdAtMs)
+      .slice(0, maxRuns)
+  } catch (err) {
+    console.warn('[conversation-run-pending-query-fallback]', err)
+  }
+
   const convSnap = await adminDb
     .collection(CONVERSATIONS_COLLECTION)
     .orderBy('updatedAt', 'desc')
     .limit(conversationLimit)
     .get()
 
-  const candidates: PendingConversationRun[] = []
   await Promise.all(convSnap.docs.map(async (convDoc) => {
     const messagesSnap = await convDoc.ref
       .collection('messages')

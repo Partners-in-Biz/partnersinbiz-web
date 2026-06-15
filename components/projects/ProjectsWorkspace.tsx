@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { collection, onSnapshot, query, where } from 'firebase/firestore'
 import { getClientDb } from '@/lib/firebase/config'
 import { CrossProjectBoard } from '@/components/projects/CrossProjectBoard'
@@ -54,7 +54,7 @@ const PROJECT_VIEW_TABS = [
   { value: 'active', label: 'Active' },
   { value: 'archive', label: 'Archive' },
 ]
-const PROJECT_REFRESH_INTERVAL_MS = 10000
+const PROJECT_REFRESH_INTERVAL_MS = 60_000
 
 function isHistoricalProject(project: Project): boolean {
   return project.archived === true || project.status?.trim().toLowerCase() === 'completed'
@@ -132,6 +132,7 @@ export function ProjectsWorkspace({ mode, orgSlug = '', orgScope = {} }: Project
   const [formLoading, setFormLoading] = useState(false)
   const [formError, setFormError] = useState<string | null>(null)
   const [canRequestProject, setCanRequestProject] = useState(true)
+  const liveProjectListenerHealthy = useRef(false)
 
   const listUrl = useMemo(
     () => receivedProjectsUrl({ mode, orgSlug, orgScope, projectView }),
@@ -174,6 +175,8 @@ export function ProjectsWorkspace({ mode, orgSlug = '', orgScope = {} }: Project
     let cancelled = false
     const refresh = async (options?: { showSpinner?: boolean }) => {
       if (cancelled) return
+      if (!options?.showSpinner && document.visibilityState !== 'visible') return
+      if (!options?.showSpinner && mode === 'admin' && liveProjectListenerHealthy.current) return
       await loadProjects(options)
     }
 
@@ -188,7 +191,7 @@ export function ProjectsWorkspace({ mode, orgSlug = '', orgScope = {} }: Project
       cancelled = true
       window.clearInterval(interval)
     }
-  }, [loadProjects])
+  }, [loadProjects, mode])
 
   const liveOrgId = useMemo(() => projects.find(project => project.orgId)?.orgId, [projects])
 
@@ -197,6 +200,7 @@ export function ProjectsWorkspace({ mode, orgSlug = '', orgScope = {} }: Project
     const unsubscribe = onSnapshot(
       query(collection(getClientDb(), 'projects'), where('orgId', '==', liveOrgId)),
       (snap) => {
+        liveProjectListenerHealthy.current = true
         snap.docChanges().forEach(change => {
           if (change.type === 'removed') {
             setProjects(prev => prev.filter(project => project.id !== change.doc.id))
@@ -218,9 +222,14 @@ export function ProjectsWorkspace({ mode, orgSlug = '', orgScope = {} }: Project
           })
         })
       },
-      () => {},
+      () => {
+        liveProjectListenerHealthy.current = false
+      },
     )
-    return () => unsubscribe()
+    return () => {
+      liveProjectListenerHealthy.current = false
+      unsubscribe()
+    }
   }, [liveOrgId, mode, projectView])
 
   useEffect(() => {
