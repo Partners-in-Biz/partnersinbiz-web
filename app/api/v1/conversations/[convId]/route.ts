@@ -8,6 +8,8 @@
 import { NextRequest } from 'next/server'
 import { withAuth } from '@/lib/api/auth'
 import { apiSuccess, apiError } from '@/lib/api/response'
+import { canAccessOrg } from '@/lib/api/platformAdmin'
+import { logActivity } from '@/lib/activity/log'
 import {
   deleteConversation,
   getConversation,
@@ -83,10 +85,21 @@ export const DELETE = withAuth(
     const conversation = await getConversation(convId)
     if (!conversation) return apiError('Conversation not found', 404)
 
-    if (!canAccess(user, conversation.participantUids)) {
+    if (!canAccess(user, conversation.participantUids) || !canAccessOrg(user, conversation.orgId)) {
       return apiError('Forbidden', 403)
     }
 
+    await logActivity({
+      orgId: conversation.orgId,
+      type: 'conversation_deleted',
+      actorId: user.uid,
+      actorName: user.uid,
+      actorRole: user.role === 'ai' ? 'ai' : 'admin',
+      description: `Deleted conversation ${convId}`,
+      entityId: convId,
+      entityType: 'conversation',
+      entityTitle: conversation.title,
+    })
     await deleteConversation(convId)
     return apiSuccess({ id: convId })
   },

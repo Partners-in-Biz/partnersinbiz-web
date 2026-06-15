@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server'
 
 const mockListMetrics = jest.fn()
+const mockLogActivity = jest.fn()
 
 type MockPortalRoleHandler = (
   req: NextRequest,
@@ -16,6 +17,10 @@ jest.mock('@/lib/auth/portal-middleware', () => ({
 
 jest.mock('@/lib/metrics/query', () => ({
   listMetrics: (...args: unknown[]) => mockListMetrics(...args),
+}))
+
+jest.mock('@/lib/activity/log', () => ({
+  logActivity: (...args: unknown[]) => mockLogActivity(...args),
 }))
 
 beforeEach(() => {
@@ -46,6 +51,13 @@ describe('GET /api/v1/portal/data-export', () => {
     expect(res.status).toBe(200)
     expect(mockListMetrics).toHaveBeenCalledWith({ orgId: 'lumen-org', from: '2026-05-01', to: '2026-06-01' })
     expect(body.orgId).toBe('lumen-org')
+    expect(mockLogActivity).toHaveBeenCalledWith(expect.objectContaining({
+      orgId: 'lumen-org',
+      type: 'portal_data_exported',
+      actorId: 'uid-1',
+      entityType: 'metrics_export',
+    }))
+    expect(res.headers.get('cache-control')).toBe('private, no-store')
     expect(res.headers.get('content-disposition')).toContain('pib-metrics-lumen-org-2026-05-01-to-2026-06-01.json')
   })
 })

@@ -6,6 +6,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { withPortalAuthAndRole } from '@/lib/auth/portal-middleware'
 import { listMetrics } from '@/lib/metrics/query'
+import { logActivity } from '@/lib/activity/log'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
@@ -21,7 +22,7 @@ function csvEscape(v: unknown): string {
   return s
 }
 
-export const GET = withPortalAuthAndRole('viewer', async (req: NextRequest, _uid: string, orgId: string) => {
+export const GET = withPortalAuthAndRole('viewer', async (req: NextRequest, uid: string, orgId: string, role: string) => {
   const url = new URL(req.url)
   const format = (url.searchParams.get('format') ?? 'json').toLowerCase()
   const today = new Date().toISOString().slice(0, 10)
@@ -36,6 +37,16 @@ export const GET = withPortalAuthAndRole('viewer', async (req: NextRequest, _uid
 
   const rows = await listMetrics({ orgId, from, to })
 
+  await logActivity({
+    orgId,
+    type: 'portal_data_exported',
+    actorId: uid,
+    actorName: uid,
+    actorRole: role === 'admin' || role === 'ai' ? role : 'client',
+    description: `Exported portal metrics data (${format}, ${from} to ${to})`,
+    entityType: 'metrics_export',
+  })
+
   const filename = `pib-metrics-${orgId}-${from}-to-${to}.${format === 'csv' ? 'csv' : 'json'}`
 
   if (format === 'csv') {
@@ -49,6 +60,7 @@ export const GET = withPortalAuthAndRole('viewer', async (req: NextRequest, _uid
       headers: {
         'content-type': 'text/csv; charset=utf-8',
         'content-disposition': `attachment; filename="${filename}"`,
+        'cache-control': 'private, no-store',
       },
     })
   }
@@ -58,6 +70,7 @@ export const GET = withPortalAuthAndRole('viewer', async (req: NextRequest, _uid
     headers: {
       'content-type': 'application/json; charset=utf-8',
       'content-disposition': `attachment; filename="${filename}"`,
+      'cache-control': 'private, no-store',
     },
   })
 })

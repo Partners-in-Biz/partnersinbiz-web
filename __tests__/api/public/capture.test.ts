@@ -142,7 +142,7 @@ describe('POST /api/public/capture/[publicKey]', () => {
     mockExistingContactLookup(null)
     mockAdd.mockResolvedValueOnce({ id: 'contact-new' })
 
-    const res = await POST(makeReq({ email: 'jane@x.com', name: 'Jane Doe', tags: ['promo'] }), params)
+    const res = await POST(makeReq({ email: 'jane@x.com', name: 'Jane Doe', tags: ['promo'], consent: true }), params)
     expect(res.status).toBe(201)
 
     // Tags should merge (de-duped)
@@ -158,6 +158,14 @@ describe('POST /api/public/capture/[publicKey]', () => {
         type: 'lead',
         stage: 'new',
         tags: expect.arrayContaining(['leads', 'promo']),
+        marketingConsent: true,
+        consentAt: expect.anything(),
+        consentMetadata: expect.objectContaining({
+          consentGiven: true,
+          consentSourceId: 'src-1',
+          consentCapturedVia: 'public-capture-form',
+          consentIp: '1.2.3.4',
+        }),
       })
     )
   })
@@ -166,7 +174,7 @@ describe('POST /api/public/capture/[publicKey]', () => {
     mockSourceLookup(enabledSource)
     mockExistingContactLookup({ id: 'contact-existing', tags: ['existing'] })
 
-    const res = await POST(makeReq({ email: 'jane@x.com', tags: ['new-tag'] }), params)
+    const res = await POST(makeReq({ email: 'jane@x.com', tags: ['new-tag'], consent: true }), params)
     expect(res.status).toBe(200)
     const body = await res.json()
     expect(body.data.deduped).toBe(true)
@@ -176,6 +184,11 @@ describe('POST /api/public/capture/[publicKey]', () => {
     const updateCall = mockUpdate.mock.calls.find((c) => c[0]?.tags)
     expect(updateCall).toBeDefined()
     expect(updateCall![0].tags).toEqual(expect.arrayContaining(['existing', 'leads', 'new-tag']))
+    expect(updateCall![0]).toEqual(expect.objectContaining({
+      marketingConsent: true,
+      consentAt: expect.anything(),
+      consentMetadata: expect.objectContaining({ consentGiven: true, consentSourceId: 'src-1' }),
+    }))
   })
 
   it('does not log an activity for deduped existing contacts', async () => {

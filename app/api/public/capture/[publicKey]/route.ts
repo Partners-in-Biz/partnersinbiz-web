@@ -144,6 +144,15 @@ export async function POST(req: NextRequest, context: Params) {
     typeof body.notes === 'string' ? body.notes.trim() : '',
     metaSummary ? `Submitted: ${metaSummary}` : '',
   ].filter(Boolean).join('\n\n')
+  const consentGiven = body.consent === true
+  const consentMetadata = {
+    consentRequired: !!source.consentRequired,
+    consentGiven,
+    consentSourceId: source.id,
+    consentSourceName: source.name,
+    consentCapturedVia: 'public-capture-form',
+    consentIp: ip,
+  }
 
   // ── 4. Find-or-create the Contact ──────────────────────────────────────────
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -165,6 +174,11 @@ export async function POST(req: NextRequest, context: Params) {
       tags: mergedTags,
       lastContactedAt: FieldValue.serverTimestamp(),
       updatedAt: FieldValue.serverTimestamp(),
+      ...(consentGiven ? {
+        marketingConsent: true,
+        consentAt: FieldValue.serverTimestamp(),
+        consentMetadata,
+      } : {}),
     })
   } else {
     isNew = true
@@ -184,6 +198,9 @@ export async function POST(req: NextRequest, context: Params) {
       assignedTo: '',
       deleted: false,
       subscribedAt: FieldValue.serverTimestamp(),
+      marketingConsent: consentGiven,
+      consentAt: consentGiven ? FieldValue.serverTimestamp() : null,
+      consentMetadata,
       unsubscribedAt: null,
       bouncedAt: null,
       createdAt: FieldValue.serverTimestamp(),
