@@ -276,6 +276,7 @@
         "docs",
         "maya",
         "nora",
+        "pip",
         "qa-release",
         "sales",
         "theo"
@@ -912,6 +913,7 @@
         "crm-sales",
         "data-analyst",
         "evidence-ledger",
+        "google-workspace",
         "platform-ops",
         "project-management",
         "properties",
@@ -929,6 +931,7 @@
         "crm-sales",
         "data-analyst",
         "evidence-ledger",
+        "google-workspace",
         "platform-ops",
         "project-management",
         "properties",

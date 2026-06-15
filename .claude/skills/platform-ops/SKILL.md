@@ -402,6 +402,12 @@ Use this route for platform-mediated Obsidian/wiki persistence. For client-agent
 
 Use Workspace Broker when the agent needs the platform to create/copy/export Google workspace assets on behalf of the authenticated user/org.
 
+For direct service-account Drive/Docs/Sheets work, use the `google-workspace` skill and the
+`/google/drive/*`, `/google/docs/create`, and `/google/sheets/*` proxy endpoints. Use Workspace
+Broker when you need a durable broker job, approval/review trail, or workspace artifact record;
+use the direct Google proxy for straightforward list/upload/download/share/search/doc/sheet calls
+that already have the required PiB auth and org scope.
+
 | Method | Path | Auth | Use |
 |---|---|---|---|
 | POST | `/workspace-broker/docs/create` | admin | Create a Google Doc and record a broker job. |
