@@ -9,6 +9,7 @@ import { listMetrics } from '@/lib/metrics/query'
 import { logActivity } from '@/lib/activity/log'
 import { buildLifeOsExport, deleteOrAnonymiseLifeOsUserData, requestLifeOsDelete } from '@/lib/privacy/life-os-user-data'
 import { FirestoreLifeOsUserDataStore } from '@/lib/privacy/life-os-user-data-firestore'
+import { apiErrorFromException, apiSuccess } from '@/lib/api/response'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
@@ -38,6 +39,12 @@ export const GET = withPortalAuthAndRole('viewer', async (req: NextRequest, uid:
   if (!DATE_RE.test(to)) to = today
 
   const rows = await listMetrics({ orgId, from, to })
+  const lifeOsStore = new FirestoreLifeOsUserDataStore()
+  const lifeOsExport = await buildLifeOsExport(lifeOsStore, {
+    orgId,
+    ownerUid: uid,
+    actorUid: uid,
+  })
 
   await logActivity({
     orgId,
@@ -67,7 +74,14 @@ export const GET = withPortalAuthAndRole('viewer', async (req: NextRequest, uid:
     })
   }
 
-  return new NextResponse(JSON.stringify({ orgId, from, to, count: rows.length, rows }, null, 2), {
+  return new NextResponse(JSON.stringify({
+    orgId,
+    from,
+    to,
+    count: rows.length,
+    rows,
+    lifeOs: lifeOsExport.lifeOs,
+  }, null, 2), {
     status: 200,
     headers: {
       'content-type': 'application/json; charset=utf-8',
@@ -75,4 +89,45 @@ export const GET = withPortalAuthAndRole('viewer', async (req: NextRequest, uid:
       'cache-control': 'private, no-store',
     },
   })
+})
+
+
+export const POST = withPortalAuthAndRole('viewer', async (_req: NextRequest, uid: string, orgId: string, role: string) => {
+  try {
+    const store = new FirestoreLifeOsUserDataStore()
+    const request = await requestLifeOsDelete(store, { orgId, ownerUid: uid, actorUid: uid })
+    await logActivity({
+      orgId,
+      type: 'portal_life_os_delete_requested',
+      actorId: uid,
+      actorName: uid,
+      actorRole: role === 'admin' || role === 'ai' ? role : 'client',
+      description: 'Requested Life OS personal data deletion',
+      entityType: 'life_os_privacy_request',
+      entityId: request.auditId,
+    })
+    return apiSuccess({ status: 'requested', ...request }, 202)
+  } catch (err) {
+    return apiErrorFromException(err)
+  }
+})
+
+export const DELETE = withPortalAuthAndRole('viewer', async (_req: NextRequest, uid: string, orgId: string, role: string) => {
+  try {
+    const store = new FirestoreLifeOsUserDataStore()
+    const report = await deleteOrAnonymiseLifeOsUserData(store, { orgId, ownerUid: uid, actorUid: uid })
+    await logActivity({
+      orgId,
+      type: 'portal_life_os_deleted',
+      actorId: uid,
+      actorName: uid,
+      actorRole: role === 'admin' || role === 'ai' ? role : 'client',
+      description: `Deleted/anonymised Life OS personal data (${report.totals.deleted} deleted, ${report.totals.anonymised} anonymised)`,
+      entityType: 'life_os_privacy_request',
+      entityId: report.auditId,
+    })
+    return apiSuccess(report)
+  } catch (err) {
+    return apiErrorFromException(err)
+  }
 })
