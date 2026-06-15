@@ -4,7 +4,8 @@ import { apiError, apiSuccess } from '@/lib/api/response'
 import { canAccessOrg } from '@/lib/api/platformAdmin'
 import {
   buildReminderPreferences,
-  buildReminderSchedule,
+  buildReminderRecord,
+  evaluateReminderDue,
   preferenceId,
   type ReminderCandidate,
   type ReminderPreferences,
@@ -43,6 +44,7 @@ export const GET = withAuth('client', async (req, user) => {
 
   if (!orgId) return apiError('orgId is required; pass it as a query param')
   if (!canAccessOrg(user, orgId)) return apiError('Forbidden', 403)
+  if (ownerId !== user.uid) return apiError('Forbidden', 403)
 
   const preferences = await loadPreferences(orgId, ownerId)
   let query = remindersCollection().where('orgId', '==', orgId)
