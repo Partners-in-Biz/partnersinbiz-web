@@ -1,3 +1,5 @@
+import { lifeOsReflectionSafetyCopy, type LifeOsReflectionSafetyCopy } from '@/lib/self-improvement/safety-copy'
+
 export type ReflectionType = 'daily' | 'weekly'
 
 export interface ReflectionInput {
@@ -40,17 +42,9 @@ export interface ReflectionCoachContext {
   nextCoachPrompt: string
 }
 
-export interface ReflectionSafetyCopy {
-  disclosure: string
-  consent: string
-  crisis: string
-}
+export type ReflectionSafetyCopy = LifeOsReflectionSafetyCopy
 
-export const LIFE_OS_REFLECTION_SAFETY_COPY: ReflectionSafetyCopy = {
-  disclosure: 'Life OS reflections and AI coaching are not medical, mental-health, crisis, legal, financial, or other professional advice.',
-  consent: 'Personal reflection data is stored only after consent and remains scoped to the selected organisation and owner.',
-  crisis: 'If this is urgent or you may harm yourself or someone else, contact local emergency services or a trusted professional now.',
-}
+export const LIFE_OS_REFLECTION_SAFETY_COPY: ReflectionSafetyCopy = lifeOsReflectionSafetyCopy
 
 export interface DailyCheckInRecord {
   id: string
@@ -66,6 +60,7 @@ export interface DailyCheckInRecord {
   blockers: string[]
   priorities: string[]
   nextExperiments: string[]
+  safetyCopy: ReflectionSafetyCopy
   coachContext: ReflectionCoachContext
   dashboardSignals: ReflectionDashboardSignals
   createdAt: string
@@ -88,6 +83,7 @@ export interface WeeklyReviewRecord {
   blockers: string[]
   priorities: string[]
   nextExperiments: string[]
+  safetyCopy: ReflectionSafetyCopy
   coachContext: ReflectionCoachContext
   dashboardSignals: ReflectionDashboardSignals
   createdAt: string
@@ -181,6 +177,7 @@ function normalizeReflectionInput(input: ReflectionInput) {
 
   return {
     ...normalized,
+    safetyCopy: LIFE_OS_REFLECTION_SAFETY_COPY,
     dashboardSignals: buildDashboardSignals(normalized),
     coachContext: buildCoachContext(normalized),
   }

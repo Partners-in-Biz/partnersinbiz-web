@@ -1,5 +1,6 @@
 import type { GoalBreakdownPlan } from '@/lib/self-improvement/planning'
 import type { DailyCheckInRecord, WeeklyReviewRecord } from '@/lib/self-improvement/reflections'
+import { lifeOsCoachBoundaryCopy, type LifeOsCoachBoundaryCopy } from '@/lib/self-improvement/safety-copy'
 
 type SafetyLevel = 'none' | 'medical' | 'mental-health' | 'crisis'
 type ResponseMode = 'normal-coaching' | 'refer-to-professional' | 'support-with-referral' | 'crisis-support'
@@ -89,6 +90,7 @@ export interface AiCoachWorkflow {
   reflectionSummary: string
   experimentRecommendations: CoachExperiment[]
   safetyBoundary: CoachSafetyBoundary
+  boundaryCopy: LifeOsCoachBoundaryCopy
 }
 
 const crisisPattern = /\b(kill myself|suicide|suicidal|end my life|hurt myself|self[- ]?harm|do not feel safe|don't feel safe|not safe|harm myself|want to die|can't go on|cannot go on|overdose|cut myself)\b/i
@@ -214,6 +216,7 @@ export function buildAiCoachWorkflow(input: CoachWorkflowInput): AiCoachWorkflow
     reflectionSummary: safetyBoundary.escalate ? safetyBoundary.message : context.reflectionSummary.summaryText,
     experimentRecommendations,
     safetyBoundary,
+    boundaryCopy: lifeOsCoachBoundaryCopy,
   }
 }
 
@@ -278,6 +281,7 @@ function buildEscalatedWorkflow(input: CoachWorkflowInput, safetyBoundary: Coach
     reflectionSummary: summary,
     experimentRecommendations: [],
     safetyBoundary,
+    boundaryCopy: lifeOsCoachBoundaryCopy,
   }
 }
 

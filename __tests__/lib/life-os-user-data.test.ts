@@ -118,6 +118,7 @@ describe('Life OS user export/delete privacy helpers', () => {
     })
 
     const request = await requestLifeOsDelete(store, { orgId: 'org-1', ownerUid: 'uid-1', actorUid: 'uid-1', requestedAt: '2026-06-15T09:00:00.000Z' })
+    store.updated = []
     const report = await deleteOrAnonymiseLifeOsUserData(store, { orgId: 'org-1', ownerUid: 'uid-1', actorUid: 'uid-1', requestedAt: '2026-06-15T09:05:00.000Z' })
 
     expect(request.auditId).toBe('life_os_privacy_audits-created')
@@ -129,11 +130,12 @@ describe('Life OS user export/delete privacy helpers', () => {
     ])
     expect(store.updated.map((entry) => `${entry.collection}/${entry.id}`).sort()).toEqual([
       'hermes_conversations/conversation-1',
+      'life_os_privacy_audits/old-audit-1',
       'life_os_profiles/profile-1',
     ])
     expect(store.records.life_os_profiles.find((candidate) => candidate.id === 'profile-other')).toBeTruthy()
     expect(store.records.life_os_check_ins.find((candidate) => candidate.id === 'check-in-other-org')).toBeTruthy()
-    expect(report.totals).toMatchObject({ deleted: 4, anonymised: 2 })
+    expect(report.totals).toMatchObject({ deleted: 4, anonymised: 3 })
     expect(JSON.stringify(store.created)).not.toContain('private coaching prompt')
     expect(JSON.stringify(store.created)).not.toContain('private coach message')
     expect(store.created.every((entry) => entry.collection === 'life_os_privacy_audits')).toBe(true)

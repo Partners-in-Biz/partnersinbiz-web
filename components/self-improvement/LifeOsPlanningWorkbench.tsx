@@ -180,6 +180,13 @@ export function LifeOsPlanningWorkbench() {
         </div>
       </div>
 
+      <aside className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-950">
+        <p className="text-xs font-semibold uppercase tracking-wide text-amber-700">Reflection privacy and safety</p>
+        <p className="mt-2 font-semibold">{dailyCheckIn.safetyCopy.disclosure}</p>
+        <p className="mt-1">{dailyCheckIn.safetyCopy.consent}</p>
+        <p className="mt-1">{dailyCheckIn.safetyCopy.pressure}</p>
+      </aside>
+
       <div className="grid gap-4 lg:grid-cols-4">
         <article className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
           <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Long-term vision</p>
@@ -334,6 +341,9 @@ export function LifeOsPlanningWorkbench() {
             <section>
               <p className="font-semibold">Safety boundaries</p>
               <p>{coachWorkflow.safetyBoundary.message}</p>
+              <p className="mt-2">{coachWorkflow.boundaryCopy.role}</p>
+              <p className="mt-2">{coachWorkflow.boundaryCopy.emergency}</p>
+              <p className="mt-2">{coachWorkflow.boundaryCopy.scope}</p>
             </section>
           </div>
           <p className="mt-4 text-xs font-semibold uppercase tracking-wide text-indigo-700">Insights dashboard signals</p>
