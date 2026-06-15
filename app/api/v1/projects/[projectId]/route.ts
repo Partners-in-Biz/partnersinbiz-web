@@ -29,6 +29,20 @@ type ProjectStatus = (typeof VALID_STATUSES)[number]
 
 type LinkSafetyUser = Parameters<typeof canAccessOrg>[0]
 
+function normalizeProjectTargetDate(value: unknown): string | null | undefined {
+  if (value === undefined) return undefined
+  if (value === null) return null
+  if (typeof value !== 'string') return undefined
+
+  const trimmed = value.trim()
+  if (!trimmed) return null
+
+  const parsed = Date.parse(trimmed)
+  if (Number.isNaN(parsed)) return undefined
+
+  return trimmed
+}
+
 async function loadOwnedCrmRecord(collection: 'companies' | 'contacts', id: string, orgId: string) {
   const snap = await adminDb.collection(collection).doc(id).get()
   if (!snap.exists) return null
@@ -103,6 +117,12 @@ export const PATCH = withAuth('client', async (req: NextRequest, user, ctx) => {
 
   if (body.brief !== undefined) {
     updates.brief = body.brief
+  }
+
+  if (body.targetDate !== undefined || body.dueDate !== undefined) {
+    const nextTargetDate = normalizeProjectTargetDate(body.targetDate !== undefined ? body.targetDate : body.dueDate)
+    if (nextTargetDate === undefined) return apiError('Invalid targetDate', 400)
+    updates.targetDate = nextTargetDate
   }
 
   const orgId = access.doc.data()?.orgId as string | undefined
