@@ -150,7 +150,7 @@ describe('portal org routes', () => {
           slug: 'client-a',
           type: 'client',
           logoUrl: '',
-          portalModules: { mobileApps: false, youtubeStudio: true, bookStudio: false },
+          portalModules: { mobileApps: false, youtubeStudio: true, bookStudio: false, firstRunFlow: false },
         },
         {
           id: 'client-b',
@@ -158,7 +158,7 @@ describe('portal org routes', () => {
           slug: 'client-b',
           type: 'client',
           logoUrl: '',
-          portalModules: { mobileApps: true, youtubeStudio: true, bookStudio: true },
+          portalModules: { mobileApps: true, youtubeStudio: true, bookStudio: true, firstRunFlow: false },
         },
       ],
     })

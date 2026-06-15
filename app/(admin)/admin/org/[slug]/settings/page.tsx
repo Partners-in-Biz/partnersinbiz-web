@@ -22,6 +22,7 @@ interface OrgForm {
   portalMobileApps: boolean
   portalYouTubeStudio: boolean
   portalBookStudio: boolean
+  portalFirstRunFlow: boolean
   // Email send-time optimisation
   preferredSendHourLocal: number
   preferredSendDaysOfWeek: number[]
@@ -64,7 +65,7 @@ interface OrgForm {
 const emptyForm: OrgForm = {
   name: '', website: '', description: '', industry: '', billingEmail: '',
   status: 'active', notificationEmail: '', defaultApprovalRequired: false, timezone: 'Africa/Johannesburg', currency: 'ZAR',
-  portalModules: {}, portalMobileApps: true, portalYouTubeStudio: true, portalBookStudio: false,
+  portalModules: {}, portalMobileApps: true, portalYouTubeStudio: true, portalBookStudio: false, portalFirstRunFlow: false,
   preferredSendHourLocal: 9, preferredSendDaysOfWeek: [1, 2, 3, 4, 5], replyNotifyEmails: '',
   line1: '', line2: '', city: '', state: '', postalCode: '', country: '',
   legalName: '', tradingName: '', vatNumber: '', registrationNumber: '', taxNumber: '', phone: '',
@@ -193,6 +194,7 @@ export default function OrgSettingsPage() {
           portalMobileApps: portalModules.mobileApps !== false,
           portalYouTubeStudio: portalModules.youtubeStudio !== false,
           portalBookStudio: portalModules.bookStudio === true,
+          portalFirstRunFlow: portalModules.firstRunFlow === true,
           preferredSendHourLocal:
             typeof settings.preferredSendHourLocal === 'number'
               ? settings.preferredSendHourLocal
@@ -267,6 +269,7 @@ export default function OrgSettingsPage() {
             mobileApps: form.portalMobileApps,
             youtubeStudio: form.portalYouTubeStudio,
             bookStudio: form.portalBookStudio,
+            firstRunFlow: form.portalFirstRunFlow,
           },
           replyNotifyEmails: form.replyNotifyEmails
             .split(/[\s,]+/)
@@ -681,6 +684,22 @@ export default function OrgSettingsPage() {
               <span className="block text-sm font-semibold text-on-surface">Book Studio</span>
               <span className="mt-1 block text-xs text-on-surface-variant">
                 Expose Book Studio for this selected org only after the approved Phase 1 runtime foundation is enabled. Disabled is the safe default.
+              </span>
+            </span>
+          </label>
+          <label htmlFor="portalFirstRunFlow" className="flex items-start gap-3 rounded-lg border border-outline-variant/60 bg-[var(--color-surface-container)]/40 p-4">
+            <input
+              id="portalFirstRunFlow"
+              type="checkbox"
+              aria-label="First-run setup"
+              checked={form.portalFirstRunFlow}
+              onChange={e => update('portalFirstRunFlow', e.target.checked)}
+              className="mt-0.5 h-4 w-4 rounded border-outline text-primary"
+            />
+            <span>
+              <span className="block text-sm font-semibold text-on-surface">First-run setup</span>
+              <span className="mt-1 block text-xs text-on-surface-variant">
+                Enable the consent-gated first-run flow that stores personal operating context on the org member profile. Disabled is the safe default.
               </span>
             </span>
           </label>
