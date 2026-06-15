@@ -11,6 +11,7 @@ export function resolveGoogleWorkspaceOrg(
 ): { orgId: string; response?: never } | { orgId?: never; response: Response } {
   const resolved = resolveOrgId(req, user, body)
   const accessError = orgAccessError(user, resolved.orgId, resolved.mismatch, resolved)
+ 
   if (accessError) return { response: accessError }
   return { orgId: resolved.orgId! }
 }
