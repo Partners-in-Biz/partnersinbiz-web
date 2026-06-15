@@ -1,7 +1,15 @@
 import React from 'react'
 import { render, screen, within } from '@testing-library/react'
+import { readFileSync } from 'fs'
+import * as path from 'path'
 import { BookStudioAdminWorkspace } from '@/components/book-studio/BookStudioAdminWorkspace'
 import { workspaceNav } from '@/components/admin/navConfig'
+
+const root = process.cwd()
+
+function source(file: string) {
+  return readFileSync(path.join(root, file), 'utf8')
+}
 
 describe('BookStudioAdminWorkspace admin command center', () => {
   it('adds Book Studio to org workspace navigation with nested route activity', () => {
@@ -14,6 +22,23 @@ describe('BookStudioAdminWorkspace admin command center', () => {
       group: 'work',
     })
     expect(item?.activePatterns).toContain('/admin/org/partners/book-studio')
+  })
+
+  it('uses governance controls for the top-level selected-org Book Studio route', () => {
+    const route = source('app/(admin)/admin/org/[slug]/book-studio/page.tsx')
+    const governance = source('components/book-studio/AdminBookStudioGovernanceWorkspace.tsx')
+    const sharedPolicyControls = source('components/admin-governance/OrganizationModulePolicyControls.tsx')
+
+    expect(route).toContain('AdminBookStudioGovernanceWorkspace')
+    expect(route).not.toContain('BookStudioAdminWorkspace')
+    expect(governance).toContain('Book Studio governance')
+    expect(governance).toContain('Who can use Book Studio')
+    expect(governance).toContain('Default Book Studio templates plus organisation custom templates')
+    expect(governance).toContain('What book owners control inside a book project')
+    expect(governance).toContain('OrganizationModulePolicyRoleGrid')
+    expect(sharedPolicyControls).toContain('Owner')
+    expect(sharedPolicyControls).toContain('Admin')
+    expect(sharedPolicyControls).toContain('Member')
   })
 
   it('renders the stage rail, approval gates, safe actions, and empty state without enabling forbidden actions', () => {

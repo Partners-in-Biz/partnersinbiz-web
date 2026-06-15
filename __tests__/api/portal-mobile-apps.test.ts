@@ -199,6 +199,27 @@ describe('PUT /api/v1/portal/mobile-apps', () => {
     expect(mockCollection).not.toHaveBeenCalledWith('mobile_apps')
     expect(mockMobileAppsGet).not.toHaveBeenCalled()
   })
+
+  it('blocks profile linking when the organisation role policy denies store-link access', async () => {
+    stageCollections({
+      modulePolicies: {
+        mobileApps: {
+          actions: {
+            storeLinks: { owner: true, admin: true, member: false },
+          },
+        },
+      },
+    })
+
+    const { PUT } = await import('@/app/api/v1/portal/mobile-apps/route')
+    const res = await PUT(new NextRequest('http://localhost/api/v1/portal/mobile-apps', {
+      method: 'PUT',
+      body: JSON.stringify({ id: 'app-1', profileLink: { label: 'Store account' } }),
+    }))
+
+    expect(res.status).toBe(403)
+    expect(mockMobileAppSet).not.toHaveBeenCalled()
+  })
 })
 
 describe('POST /api/v1/portal/mobile-apps', () => {
@@ -242,5 +263,29 @@ describe('POST /api/v1/portal/mobile-apps', () => {
       createdBy: 'uid-1',
       createdByType: 'user',
     }))
+  })
+
+  it('blocks new mobile app placeholders when the organisation role policy denies create access', async () => {
+    stageCollections({
+      modulePolicies: {
+        mobileApps: {
+          actions: {
+            create: { owner: true, admin: true, member: false },
+          },
+        },
+      },
+    })
+
+    const { POST } = await import('@/app/api/v1/portal/mobile-apps/route')
+    const res = await POST(new NextRequest('http://localhost/api/v1/portal/mobile-apps', {
+      method: 'POST',
+      body: JSON.stringify({
+        appName: 'Client App Android',
+        profileLink: { label: 'Google Play developer account' },
+      }),
+    }))
+
+    expect(res.status).toBe(403)
+    expect(mockMobileAppAdd).not.toHaveBeenCalled()
   })
 })

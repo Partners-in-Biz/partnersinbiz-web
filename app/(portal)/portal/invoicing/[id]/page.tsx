@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { useParams, useRouter } from 'next/navigation'
+import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { INTERVAL_LABELS, RecurrenceInterval } from '@/lib/invoices/recurring'
 
@@ -27,6 +27,15 @@ interface Invoice {
   canSend?: boolean
   canCancel?: boolean
   canMarkPaid?: boolean
+}
+
+type DraftForm = {
+  dueDate: string
+  taxRate: string
+  notes: string
+  description: string
+  quantity: string
+  unitPrice: string
 }
 
 const CURRENCY_LOCALES: Record<string, string> = { USD: 'en-US', EUR: 'de-DE', ZAR: 'en-ZA' }
@@ -55,6 +64,50 @@ function formatDate(ts: any) {
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
 }
 
+function dateInputValue(value: unknown): string {
+  if (!value) return ''
+  const candidate = value as { _seconds?: number; seconds?: number }
+  const d = candidate._seconds || candidate.seconds
+    ? new Date((candidate._seconds ?? candidate.seconds ?? 0) * 1000)
+    : new Date(value as string)
+  if (Number.isNaN(d.getTime())) return ''
+  return d.toISOString().slice(0, 10)
+}
+
+function firstLineForm(invoice?: Invoice | null): DraftForm {
+  const first = invoice?.lineItems?.[0]
+  return {
+    dueDate: dateInputValue(invoice?.dueDate),
+    taxRate: String(invoice?.taxRate ?? 0),
+    notes: invoice?.notes ?? '',
+    description: first?.description ?? '',
+    quantity: String(first?.quantity ?? 1),
+    unitPrice: String(first?.unitPrice ?? 0),
+  }
+}
+
+function draftPatchFromForm(form: DraftForm) {
+  const quantity = Number(form.quantity) || 1
+  const unitPrice = Number(form.unitPrice) || 0
+  const taxRate = Number(form.taxRate) || 0
+  const subtotal = quantity * unitPrice
+  const taxAmount = subtotal * (taxRate / 100)
+  return {
+    dueDate: form.dueDate || null,
+    taxRate,
+    notes: form.notes,
+    lineItems: [{
+      description: form.description.trim() || 'Billing item',
+      quantity,
+      unitPrice,
+      amount: subtotal,
+    }],
+    subtotal,
+    taxAmount,
+    total: subtotal + taxAmount,
+  }
+}
+
 function Skeleton({ className = '' }: { className?: string }) {
   return <div className={`pib-skeleton ${className}`} />
 }
@@ -62,11 +115,15 @@ function Skeleton({ className = '' }: { className?: string }) {
 export default function InvoiceDetailPage() {
   const params = useParams()
   const router = useRouter()
+  const searchParams = useSearchParams()
   const id = params.id as string
 
   const [invoice, setInvoice] = useState<Invoice | null>(null)
   const [loading, setLoading] = useState(true)
   const [updating, setUpdating] = useState(false)
+  const [editingDraft, setEditingDraft] = useState(false)
+  const [savingDraft, setSavingDraft] = useState(false)
+  const [draftForm, setDraftForm] = useState<DraftForm>(firstLineForm())
   const [duplicating, setDuplicating] = useState(false)
   const [schedule, setSchedule] = useState<{ id: string; status: string; interval: string; nextDueAt: any } | null>(null)
   const [showRecurringForm, setShowRecurringForm] = useState(false)
@@ -80,12 +137,17 @@ export default function InvoiceDetailPage() {
       fetch(`/api/v1/invoices/${id}`).then(r => r.json()),
       fetch(`/api/v1/recurring-schedules?status=all`).then(r => r.json()),
     ]).then(([invoiceBody, schedulesBody]) => {
-      setInvoice(invoiceBody.data)
+      const nextInvoice = invoiceBody.data as Invoice | null
+      setInvoice(nextInvoice)
+      if (nextInvoice?.canEdit && nextInvoice.status === 'draft' && searchParams.get('edit') === 'draft') {
+        setDraftForm(firstLineForm(nextInvoice))
+        setEditingDraft(true)
+      }
       const match = (schedulesBody.data ?? []).find((s: any) => s.invoiceId === id && s.status !== 'cancelled')
       if (match) setSchedule(match)
       setLoading(false)
     }).catch(() => setLoading(false))
-  }, [id])
+  }, [id, searchParams])
 
   async function updateStatus(status: InvoiceStatus) {
     if (!invoice) return
@@ -97,6 +159,27 @@ export default function InvoiceDetailPage() {
     })
     if (res.ok) setInvoice(prev => prev ? { ...prev, status } : prev)
     setUpdating(false)
+  }
+
+  function startDraftEdit() {
+    setDraftForm(firstLineForm(invoice))
+    setEditingDraft(true)
+  }
+
+  async function saveDraftInvoice() {
+    if (!invoice) return
+    const patch = draftPatchFromForm(draftForm)
+    setSavingDraft(true)
+    const res = await fetch(`/api/v1/invoices/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(patch),
+    })
+    if (res.ok) {
+      setInvoice(prev => prev ? { ...prev, ...patch } : prev)
+      setEditingDraft(false)
+    }
+    setSavingDraft(false)
   }
 
   async function handleDuplicate() {
@@ -248,9 +331,9 @@ export default function InvoiceDetailPage() {
       {invoice.status !== 'paid' && invoice.status !== 'cancelled' && (
         <div className="flex flex-wrap gap-2 justify-end">
           {invoice.canEdit && invoice.status === 'draft' && (
-            <Link href="/portal/invoicing" className="pib-btn-secondary text-xs font-label">
-              Edit Draft
-            </Link>
+            <button onClick={startDraftEdit} className="pib-btn-secondary text-xs font-label">
+              Edit draft invoice
+            </button>
           )}
           {invoice.canSend && invoice.status === 'draft' && (
             <button onClick={() => updateStatus('sent')} disabled={updating} className="pib-btn-primary text-xs font-label disabled:opacity-50">
@@ -262,6 +345,77 @@ export default function InvoiceDetailPage() {
               {updating ? 'Updating…' : 'Cancel Invoice'}
             </button>
           )}
+        </div>
+      )}
+
+      {editingDraft && invoice.canEdit && invoice.status === 'draft' && (
+        <div className="pib-card space-y-4">
+          <div>
+            <p className="text-sm font-medium text-on-surface">Draft invoice editor</p>
+            <p className="text-xs text-on-surface-variant mt-0.5">Update the editable draft fields before sending this invoice.</p>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <label className="text-xs text-on-surface-variant">Due date
+              <input
+                type="date"
+                value={draftForm.dueDate}
+                onChange={(event) => setDraftForm((current) => ({ ...current, dueDate: event.target.value }))}
+                className="pib-input mt-1 w-full"
+              />
+            </label>
+            <label className="text-xs text-on-surface-variant">Tax rate
+              <input
+                type="number"
+                min="0"
+                max="100"
+                value={draftForm.taxRate}
+                onChange={(event) => setDraftForm((current) => ({ ...current, taxRate: event.target.value }))}
+                className="pib-input mt-1 w-full"
+              />
+            </label>
+            <label className="text-xs text-on-surface-variant sm:col-span-2">Line item description
+              <input
+                value={draftForm.description}
+                onChange={(event) => setDraftForm((current) => ({ ...current, description: event.target.value }))}
+                className="pib-input mt-1 w-full"
+              />
+            </label>
+            <label className="text-xs text-on-surface-variant">Quantity
+              <input
+                type="number"
+                min="1"
+                value={draftForm.quantity}
+                onChange={(event) => setDraftForm((current) => ({ ...current, quantity: event.target.value }))}
+                className="pib-input mt-1 w-full"
+              />
+            </label>
+            <label className="text-xs text-on-surface-variant">Unit price
+              <input
+                type="number"
+                min="0"
+                step="0.01"
+                value={draftForm.unitPrice}
+                onChange={(event) => setDraftForm((current) => ({ ...current, unitPrice: event.target.value }))}
+                className="pib-input mt-1 w-full"
+              />
+            </label>
+            <label className="text-xs text-on-surface-variant sm:col-span-2">Notes
+              <textarea
+                value={draftForm.notes}
+                onChange={(event) => setDraftForm((current) => ({ ...current, notes: event.target.value }))}
+                className="pib-textarea mt-1 w-full"
+                rows={2}
+              />
+            </label>
+          </div>
+          <div className="flex justify-end gap-2">
+            <button type="button" onClick={() => setEditingDraft(false)} className="pib-btn-secondary text-sm font-label">
+              Cancel
+            </button>
+            <button type="button" onClick={saveDraftInvoice} disabled={savingDraft} className="pib-btn-primary text-sm font-label disabled:opacity-60">
+              {savingDraft ? 'Saving...' : 'Save draft invoice'}
+            </button>
+          </div>
         </div>
       )}
 

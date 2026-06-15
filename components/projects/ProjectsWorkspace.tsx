@@ -8,6 +8,7 @@ import { ProjectListCard } from '@/components/projects/ProjectListCard'
 import { ProjectPortfolioReportPanel } from '@/components/projects/ProjectPortfolioReportPanel'
 import { EmptyState, PageHeader, PageTabs, Surface } from '@/components/ui/AppFoundation'
 import { appendQueryParams, scopedApiPath, scopedPortalPath, type PortalOrgRouteScope } from '@/lib/portal/scoped-routing'
+import { canRolePerformModuleAction, resolveOrganizationModulePolicies } from '@/lib/organizations/module-policies'
 import type { BoardTask } from '@/components/projects/CrossProjectBoard'
 
 type ProjectsWorkspaceMode = 'admin' | 'portal'
@@ -130,6 +131,7 @@ export function ProjectsWorkspace({ mode, orgSlug = '', orgScope = {} }: Project
   const [formStatus, setFormStatus] = useState('discovery')
   const [formLoading, setFormLoading] = useState(false)
   const [formError, setFormError] = useState<string | null>(null)
+  const [canRequestProject, setCanRequestProject] = useState(true)
 
   const listUrl = useMemo(
     () => receivedProjectsUrl({ mode, orgSlug, orgScope, projectView }),
@@ -224,6 +226,34 @@ export function ProjectsWorkspace({ mode, orgSlug = '', orgScope = {} }: Project
   useEffect(() => {
     setFilter('all')
   }, [projectView])
+
+  useEffect(() => {
+    if (mode === 'portal' && !canRequestProject) setShowForm(false)
+  }, [canRequestProject, mode])
+
+  useEffect(() => {
+    if (mode !== 'portal') {
+      setCanRequestProject(true)
+      return
+    }
+
+    let cancelled = false
+    fetch(scopedApiPath('/api/v1/portal/org', { orgId: orgScope.orgId, id: orgScope.id }))
+      .then((res) => res.ok ? res.json() : null)
+      .then((body) => {
+        if (cancelled || !body?.org) return
+        const policies = resolveOrganizationModulePolicies({ modulePolicies: body.org.modulePolicies })
+        const role = body.user?.memberRole ?? body.user?.role
+        setCanRequestProject(canRolePerformModuleAction(policies, 'projects', 'create', role))
+      })
+      .catch(() => {
+        if (!cancelled) setCanRequestProject(true)
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [mode, orgScope.id, orgScope.orgId])
 
   const filtered = useMemo(
     () => projects.filter((project) => {
@@ -326,6 +356,11 @@ export function ProjectsWorkspace({ mode, orgSlug = '', orgScope = {} }: Project
   const handleCreateProject = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!formName.trim()) return
+    if (mode === 'portal' && !canRequestProject) {
+      setFormError('Project requests are disabled for your organisation role.')
+      setShowForm(false)
+      return
+    }
 
     try {
       setFormError(null)
@@ -421,12 +456,14 @@ export function ProjectsWorkspace({ mode, orgSlug = '', orgScope = {} }: Project
               onValueChange={(value) => setActiveSection(value as WorkspaceSection)}
               tabs={WORKSPACE_TABS}
             />
-            <button
-              onClick={() => setShowForm(true)}
-              className="pib-btn-primary text-sm font-label"
-            >
-              {isAdmin ? 'Create operator project' : 'Request project'}
-            </button>
+            {(isAdmin || canRequestProject) ? (
+              <button
+                onClick={() => setShowForm(true)}
+                className="pib-btn-primary text-sm font-label"
+              >
+                {isAdmin ? 'Create operator project' : 'Request project'}
+              </button>
+            ) : null}
           </>
         )}
       />

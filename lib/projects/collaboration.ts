@@ -172,6 +172,7 @@ function userLinkedToProjectFallback(user: ApiUser, data: Record<string, unknown
 
 export function legacyProjectPolicyAllows(user: ApiUser, data: Record<string, unknown>): boolean {
   if (user.role === 'ai' || isSuperAdmin(user)) return true
+  if (!user.memberAccessPolicy) return true
   if (!canAccessModule(user.memberAccessPolicy, 'projects')) return false
   if (recordScopeFor(user.memberAccessPolicy, 'projects') === 'all') return true
   return userLinkedToProjectFallback(user, data)

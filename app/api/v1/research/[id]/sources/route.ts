@@ -9,6 +9,7 @@ import {
   getResearchItem,
   listResearchSources,
 } from '@/lib/research/store'
+import { assertUserCanPerformOrganizationModuleAction } from '@/lib/organizations/module-policy-access'
 
 export const dynamic = 'force-dynamic'
 
@@ -29,10 +30,18 @@ export const GET = withAuth('admin', async (_req: NextRequest, user: ApiUser, ct
   return apiSuccess(await listResearchSources(id))
 })
 
-export const POST = withAuth('admin', async (req: NextRequest, user: ApiUser, ctx: RouteContext) => {
+export const POST = withAuth('client', async (req: NextRequest, user: ApiUser, ctx: RouteContext) => {
   const { id } = await ctx.params
   const access = await assertAccess(id, user)
   if (!access.ok) return access.response
+  const sourceAccess = await assertUserCanPerformOrganizationModuleAction(
+    user,
+    access.item.orgId,
+    'research',
+    'evidenceSources',
+    'Research source changes are disabled for your organisation role',
+  )
+  if (!sourceAccess.ok) return apiError(sourceAccess.error, sourceAccess.status)
   const body = await req.json().catch(() => null)
   if (!body || typeof body !== 'object' || Array.isArray(body)) return apiError('Invalid JSON', 400)
   const title = typeof body.title === 'string' ? body.title.trim() : ''

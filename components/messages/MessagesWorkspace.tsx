@@ -19,6 +19,10 @@ interface MessagesWorkspaceProps {
   initialRunId?: string
   initialTaskId?: string
   initialTaskTitle?: string
+  allowStartConversations?: boolean
+  allowSendMessages?: boolean
+  allowAgentParticipants?: boolean
+  allowArchiveConversations?: boolean
 }
 
 const SURFACE_COPY: Record<MessagesSurface, {
@@ -51,6 +55,10 @@ export function MessagesWorkspace({
   initialRunId,
   initialTaskId,
   initialTaskTitle,
+  allowStartConversations = true,
+  allowSendMessages = true,
+  allowAgentParticipants,
+  allowArchiveConversations = true,
 }: MessagesWorkspaceProps) {
   const [showIntro, setShowIntro] = useState(true)
   const copy = SURFACE_COPY[surface]
@@ -109,7 +117,10 @@ export function MessagesWorkspace({
           orgName={orgName}
           initialConvId={initialConvId}
           allowDeleteConversations={isAdmin}
-          allowAgentParticipants={isAdmin || userRole === 'admin'}
+          allowAgentParticipants={allowAgentParticipants ?? (isAdmin || userRole === 'admin')}
+          allowStartConversations={allowStartConversations}
+          allowSendMessages={allowSendMessages}
+          allowArchiveConversations={allowArchiveConversations}
         />
       </section>
     </div>

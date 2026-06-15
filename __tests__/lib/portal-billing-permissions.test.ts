@@ -53,6 +53,27 @@ describe('portal billing permissions', () => {
     })
   })
 
+  it('allows invoice status-only changes between non-paid states but still blocks paid from generic portal patches', () => {
+    const invoice = { status: 'sent', createdByRef: { uid: 'member-1' } }
+
+    expect(sanitizeInvoicePortalPatch(actor, invoice, { status: 'overdue' })).toEqual({
+      ok: true,
+      patch: { status: 'overdue' },
+    })
+    expect(sanitizeInvoicePortalPatch(actor, invoice, { status: 'draft' })).toEqual({
+      ok: true,
+      patch: { status: 'draft' },
+    })
+    expect(sanitizeInvoicePortalPatch(actor, { status: 'paid', createdByRef: { uid: 'member-1' } }, { status: 'sent' })).toMatchObject({
+      ok: false,
+      status: 403,
+    })
+    expect(sanitizeInvoicePortalPatch(actor, invoice, { status: 'paid' })).toMatchObject({
+      ok: false,
+      status: 403,
+    })
+  })
+
   it('allows sender-side draft quote editing and sending, while recipient users may only accept or decline sent quotes', () => {
     const senderQuote = { status: 'draft' }
     expect(quotePortalCapabilities('sender', senderQuote)).toMatchObject({

@@ -65,6 +65,27 @@ describe('GET /api/v1/portal/book-studio', () => {
     expect(body.data).toMatchObject({ projects: [], portalModule: 'bookStudio' })
   })
 
+  it('blocks Book Studio when the organisation role policy denies visibility', async () => {
+    stageCollections({
+      portalModules: { bookStudio: true },
+      modulePolicies: {
+        bookStudio: {
+          actions: {
+            visibility: { owner: true, admin: true, member: false },
+          },
+        },
+      },
+    })
+
+    const { GET } = await import('@/app/api/v1/portal/book-studio/route')
+    const res = await GET(new NextRequest('http://localhost/api/v1/portal/book-studio'))
+    const body = await res.json()
+
+    expect(res.status).toBe(403)
+    expect(body).toMatchObject({ success: false, moduleDisabled: true, module: 'bookStudio' })
+    expect(mockBookStudioGet).not.toHaveBeenCalled()
+  })
+
   it('returns sanitized review packets and gates for the portal review surface', async () => {
     stageCollections(
       { portalModules: { bookStudio: true } },
@@ -122,5 +143,43 @@ describe('GET /api/v1/portal/book-studio', () => {
         gates: [{ id: 'release', label: 'Human release review', status: 'blocked' }],
       },
     ])
+  })
+
+  it('filters review packets and gates when the organisation role policy denies those views', async () => {
+    stageCollections(
+      {
+        portalModules: { bookStudio: true },
+        modulePolicies: {
+          bookStudio: {
+            actions: {
+              publishingPackets: { owner: true, admin: true, member: false },
+              approvalGates: { owner: true, admin: true, member: false },
+            },
+          },
+        },
+      },
+      [
+        {
+          id: 'book-1',
+          data: () => ({
+            title: 'Ocean Growth Playbook',
+            status: 'client_review',
+            reviewPackets: [{ id: 'packet-1', title: 'KDP proof', status: 'client_review' }],
+            gates: [{ id: 'release', label: 'Human release review', status: 'blocked' }],
+          }),
+        },
+      ],
+    )
+
+    const { GET } = await import('@/app/api/v1/portal/book-studio/route')
+    const res = await GET(new NextRequest('http://localhost/api/v1/portal/book-studio'))
+    const body = await res.json()
+
+    expect(res.status).toBe(200)
+    expect(body.data.projects[0]).toMatchObject({
+      id: 'book-1',
+      reviewPackets: [],
+      gates: [],
+    })
   })
 })

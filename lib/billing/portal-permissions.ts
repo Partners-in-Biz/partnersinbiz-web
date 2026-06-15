@@ -39,6 +39,16 @@ const INVOICE_DRAFT_FIELDS = new Set([
   'companyId',
 ])
 
+const PORTAL_INVOICE_STATUS_OPTIONS = new Set([
+  'draft',
+  'sent',
+  'viewed',
+  'payment_pending_verification',
+  'partially_paid',
+  'overdue',
+  'cancelled',
+])
+
 const QUOTE_DRAFT_FIELDS = new Set([
   'notes',
   'validUntil',
@@ -114,7 +124,10 @@ export function sanitizeInvoicePortalPatch(
     if (requestedStatus === 'paid') {
       return { ok: false, status: 403, error: 'Use the payment-proof or mark-paid workflow to change invoice payment state' }
     }
-    if (status === 'draft' && (requestedStatus === 'sent' || requestedStatus === 'cancelled') && canEdit) {
+    if (!actor || status === 'paid') {
+      return { ok: false, status: 403, error: 'This invoice status change is not permitted from the portal' }
+    }
+    if (PORTAL_INVOICE_STATUS_OPTIONS.has(requestedStatus)) {
       return { ok: true, patch: { status: requestedStatus } }
     }
     return { ok: false, status: 403, error: 'This invoice status change is not permitted from the portal' }

@@ -1,6 +1,7 @@
 import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { adminAuth, adminDb } from '@/lib/firebase/admin'
+import { AdminMessagesGovernanceWorkspace } from '@/components/messages/AdminMessagesGovernanceWorkspace'
 import { MessagesWorkspace } from '@/components/messages/MessagesWorkspace'
 
 interface PageProps {
@@ -16,6 +17,11 @@ export default async function MessagesPage({ params, searchParams }: PageProps) 
   const initialRunId = typeof sp.runId === 'string' ? sp.runId : undefined
   const initialTaskId = typeof sp.taskId === 'string' ? sp.taskId : undefined
   const initialTaskTitle = typeof sp.taskTitle === 'string' ? sp.taskTitle : undefined
+  const shouldOpenConversationWorkspace = Boolean(initialConvId || initialAgentId || initialRunId || initialTaskId)
+
+  if (!shouldOpenConversationWorkspace) {
+    return <AdminMessagesGovernanceWorkspace orgSlug={slug} />
+  }
 
   // Auth — same pattern as WorkspaceLayout
   const cookieStore = await cookies()

@@ -5,6 +5,7 @@
   --color-pib-bg: #0A0A0B;
   --color-pib-surface: #141416;
   --color-pib-surface-2: #1C1C20;
+  --color-pib-card: #141416;
   --color-pib-text: #EDEDED;
   --color-pib-text-muted: #8B8B92;
   --color-pib-text-faint: #4A4A52;
@@ -613,6 +614,18 @@
     background-repeat: no-repeat;
     background-position: right 0.85rem center;
     padding-right: 2rem;
+  }
+  select option,
+  select optgroup {
+    background: var(--color-pib-card);
+    color: var(--color-pib-text);
+  }
+  select option:checked {
+    background: var(--color-pib-accent);
+    color: #050505;
+  }
+  select option:disabled {
+    color: var(--color-pib-text-muted);
   }
   .pib-label {
     display: block;

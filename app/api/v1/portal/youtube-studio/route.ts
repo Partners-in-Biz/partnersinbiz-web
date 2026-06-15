@@ -4,6 +4,10 @@ import { FieldValue } from 'firebase-admin/firestore'
 import { adminDb } from '@/lib/firebase/admin'
 import { apiError, apiSuccess } from '@/lib/api/response'
 import { withPortalAuthAndRole } from '@/lib/auth/portal-middleware'
+import {
+  canRolePerformModuleAction,
+  resolveOrganizationModulePolicies,
+} from '@/lib/organizations/module-policies'
 import { isPortalModuleEnabled } from '@/lib/organizations/portal-modules'
 import { stripUndefinedDeep, YOUTUBE_COLLECTIONS } from '@/lib/youtube-studio/api'
 import {
@@ -50,14 +54,38 @@ function cleanBody(value: unknown): PlainRecord {
   return value && typeof value === 'object' && !Array.isArray(value) ? value as PlainRecord : {}
 }
 
-async function youtubeStudioModuleGuard(orgId: string) {
+function youtubeStudioCapabilities(settings: unknown, role: unknown) {
+  const policies = resolveOrganizationModulePolicies(settings)
+  return {
+    canCreate: canRolePerformModuleAction(policies, 'youtubeStudio', 'create', role),
+    canReviewApprovals: canRolePerformModuleAction(policies, 'youtubeStudio', 'publishApprovals', role),
+    canViewSourceAssets: canRolePerformModuleAction(policies, 'youtubeStudio', 'sourceAssets', role),
+    canUseProductionJobs: canRolePerformModuleAction(policies, 'youtubeStudio', 'productionJobs', role),
+  }
+}
+
+async function youtubeStudioModuleGuard(orgId: string, role: unknown, actionId = 'visibility') {
   const orgDoc = await adminDb.collection('organizations').doc(orgId).get()
   if (!orgDoc.exists) return apiError('Organisation not found', 404)
-  if (!isPortalModuleEnabled(orgDoc.data()?.settings, 'youtubeStudio')) {
+  const settings = orgDoc.data()?.settings
+  if (!isPortalModuleEnabled(settings, 'youtubeStudio')) {
     return apiError('YouTube Studio module is disabled for this client portal', 403, {
       moduleDisabled: true,
       module: 'youtubeStudio',
     })
+  }
+  const policies = resolveOrganizationModulePolicies(settings)
+  if (!canRolePerformModuleAction(policies, 'youtubeStudio', actionId, role)) {
+    return apiError(
+      actionId === 'visibility'
+        ? 'YouTube Studio module is disabled for your organisation role'
+        : 'YouTube Studio action is disabled for your organisation role',
+      403,
+      {
+        moduleDisabled: actionId === 'visibility',
+        module: 'youtubeStudio',
+      },
+    )
   }
   return null
 }
@@ -262,9 +290,11 @@ async function loadPortalVisibleChannel(channelWorkspaceId: string, orgId: strin
   return { channel }
 }
 
-export const GET = withPortalAuthAndRole('viewer', async (_req: NextRequest, _uid, orgId) => {
-  const disabled = await youtubeStudioModuleGuard(orgId)
+export const GET = withPortalAuthAndRole('viewer', async (_req: NextRequest, _uid, orgId, role) => {
+  const disabled = await youtubeStudioModuleGuard(orgId, role)
   if (disabled) return disabled
+  const orgDoc = await adminDb.collection('organizations').doc(orgId).get()
+  const capabilities = youtubeStudioCapabilities(orgDoc.data()?.settings, role)
 
   const [
     channelsRaw,
@@ -402,16 +432,17 @@ export const GET = withPortalAuthAndRole('viewer', async (_req: NextRequest, _ui
     videos,
     packets,
     releasePlans,
-    sourceAssets,
-    clipCandidates,
-    productionDrafts,
-    renderJobs,
+    sourceAssets: capabilities.canViewSourceAssets ? sourceAssets : [],
+    clipCandidates: capabilities.canViewSourceAssets ? clipCandidates : [],
+    productionDrafts: capabilities.canUseProductionJobs ? productionDrafts : [],
+    renderJobs: capabilities.canUseProductionJobs ? renderJobs : [],
     analytics,
+    capabilities,
   })
 })
 
-async function handlePortalYouTubeStudioPost(req: NextRequest, uid: string, orgId: string): Promise<Response> {
-  const disabled = await youtubeStudioModuleGuard(orgId)
+async function handlePortalYouTubeStudioPost(req: NextRequest, uid: string, orgId: string, role: unknown): Promise<Response> {
+  const disabled = await youtubeStudioModuleGuard(orgId, role, 'create')
   if (disabled) return disabled
 
   const body = cleanBody(await req.json().catch(() => ({})))
@@ -651,8 +682,8 @@ async function handlePortalRenderJobDecision(
   return apiSuccess({ id: renderJobId, updated: true })
 }
 
-export const PUT = withPortalAuthAndRole('member', async (req: NextRequest, uid, orgId) => {
-  const disabled = await youtubeStudioModuleGuard(orgId)
+export const PUT = withPortalAuthAndRole('member', async (req: NextRequest, uid, orgId, role) => {
+  const disabled = await youtubeStudioModuleGuard(orgId, role, 'publishApprovals')
   if (disabled) return disabled
 
   const body = cleanBody(await req.json().catch(() => ({})))

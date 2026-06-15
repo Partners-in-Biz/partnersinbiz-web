@@ -14,6 +14,9 @@ const mockVersionDoc = jest.fn()
 const mockVersionUpdate = jest.fn()
 const mockVersionSet = jest.fn()
 const mockVersionsGet = jest.fn()
+let organizationSettings: Record<string, unknown>
+let organizationMembers: Array<Record<string, unknown>>
+let orgMemberRoles: Record<string, string>
 
 jest.mock('firebase-admin/firestore', () => ({
   FieldValue: {
@@ -89,6 +92,12 @@ function makeDocumentRef(id = 'doc-1') {
 
 beforeEach(() => {
   jest.clearAllMocks()
+  organizationSettings = {}
+  organizationMembers = [
+    { userId: 'client-1', role: 'member' },
+    { userId: 'client-2', role: 'member' },
+  ]
+  orgMemberRoles = {}
   mockBatchCommit.mockResolvedValue(undefined)
   mockDocUpdate.mockResolvedValue(undefined)
   mockTransactionUpdate.mockReturnValue(undefined)
@@ -106,9 +115,43 @@ beforeEach(() => {
 
   mockWhere.mockReturnValue(query)
   mockQueryGet.mockResolvedValue({ docs: [] })
-  mockCollection.mockReturnValue({
-    doc: jest.fn(() => documentRef),
-    where: mockWhere,
+  mockCollection.mockImplementation((name: string) => {
+    if (name === 'organizations') {
+      return {
+        doc: jest.fn((id: string) => ({
+          id,
+          get: jest.fn().mockResolvedValue({
+            exists: true,
+            id,
+            data: () => ({
+              id,
+              members: organizationMembers,
+              settings: organizationSettings,
+            }),
+          }),
+        })),
+        where: mockWhere,
+      }
+    }
+
+    if (name === 'orgMembers') {
+      return {
+        doc: jest.fn((id: string) => ({
+          id,
+          get: jest.fn().mockResolvedValue(
+            orgMemberRoles[id]
+              ? { exists: true, id, data: () => ({ role: orgMemberRoles[id] }) }
+              : { exists: false, id, data: () => undefined },
+          ),
+        })),
+        where: mockWhere,
+      }
+    }
+
+    return {
+      doc: jest.fn(() => documentRef),
+      where: mockWhere,
+    }
   })
 })
 
@@ -313,7 +356,16 @@ describe('client documents API', () => {
     expect(mockBatchSet).not.toHaveBeenCalled()
   })
 
-  it('blocks clients from creating documents', async () => {
+  it('blocks client document creation when the organisation policy denies their role', async () => {
+    organizationSettings = {
+      modulePolicies: {
+        documents: {
+          actions: {
+            create: { owner: true, admin: true, member: false },
+          },
+        },
+      },
+    }
     const { POST } = await import('@/app/api/v1/client-documents/route')
     const req = jsonRequest('http://localhost/api/v1/client-documents', {
       orgId: 'org-1',
@@ -325,6 +377,29 @@ describe('client documents API', () => {
 
     expect(res.status).toBe(403)
     expect(mockBatchSet).not.toHaveBeenCalled()
+  })
+
+  it('allows client org members to create documents when the organisation policy permits it', async () => {
+    organizationSettings = {
+      modulePolicies: {
+        documents: {
+          actions: {
+            create: { owner: true, admin: true, member: true },
+          },
+        },
+      },
+    }
+    const { POST } = await import('@/app/api/v1/client-documents/route')
+    const req = jsonRequest('http://localhost/api/v1/client-documents', {
+      orgId: 'org-1',
+      title: 'Client-authored proposal',
+      type: 'sales_proposal',
+    })
+
+    const res = await POST(req, clientUser)
+
+    expect(res.status).toBe(201)
+    expect(mockBatchSet).toHaveBeenCalledTimes(2)
   })
 
   it('allows internal drafts without orgId for internal actors', async () => {

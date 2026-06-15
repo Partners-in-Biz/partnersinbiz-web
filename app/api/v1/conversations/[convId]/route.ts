@@ -15,6 +15,7 @@ import {
   getConversation,
   patchConversation,
 } from '@/lib/conversations/conversations'
+import { assertUserCanPerformOrganizationModuleAction } from '@/lib/organizations/module-policy-access'
 import type { ApiUser } from '@/lib/api/types'
 
 export const dynamic = 'force-dynamic'
@@ -64,6 +65,16 @@ export const PATCH = withAuth(
     if (body.archived !== undefined) {
       if (typeof body.archived !== 'boolean') return apiError('archived must be a boolean', 400)
       patch.archived = body.archived
+    }
+    if (patch.archived === true) {
+      const archiveAccess = await assertUserCanPerformOrganizationModuleAction(
+        user,
+        conversation.orgId,
+        'messages',
+        'archive',
+        'Conversation archive is disabled for your organisation role',
+      )
+      if (!archiveAccess.ok) return apiError(archiveAccess.error, archiveAccess.status)
     }
 
     if (Object.keys(patch).length === 0) {

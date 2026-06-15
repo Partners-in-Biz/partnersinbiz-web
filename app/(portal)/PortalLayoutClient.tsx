@@ -15,12 +15,20 @@ import { SettingsNav } from '@/components/settings/SettingsNav'
 import { SupportDrawer } from '@/components/support/SupportDrawer'
 import { NotificationBell } from '@/components/crm/NotificationBell'
 import { MessageDrawer } from '@/components/chat/MessageDrawer'
+import { ThemedSelect } from '@/components/ui/ThemedSelect'
 import { detectCurrentPageContext } from '@/lib/context-references/route-context'
 import { PIB_PLATFORM_ORG_ID } from '@/lib/platform/constants'
 import { resolvePortalModules, type PortalModules } from '@/lib/organizations/portal-modules'
 import {
+  canRoleUseModule,
+  isOrganizationModulePolicyKey,
+  resolveOrganizationModulePolicies,
+  type OrganizationModulePolicies,
+} from '@/lib/organizations/module-policies'
+import {
   canAccessModule,
   normalizeMemberAccessPolicy,
+  resolveMemberAccessPolicy,
   type MemberAccessPolicy,
   type WorkspaceModuleKey,
 } from '@/lib/orgMembers/access-policy'
@@ -155,6 +163,7 @@ interface PortalOrgOption {
   type?: string
   logoUrl: string
   portalModules?: PortalModules
+  modulePolicies?: OrganizationModulePolicies
 }
 
 function active(pathname: string, item: NavItem) {
@@ -177,6 +186,26 @@ function scopedPortalHref(
   if (sourceCompanyId) params.set('sourceCompanyId', sourceCompanyId)
   if (sourceCompanyName) params.set('sourceCompanyName', sourceCompanyName)
   return `${path}${path.includes('?') ? '&' : '?'}${params.toString()}`
+}
+
+type PortalUserPayload = {
+  role?: unknown
+  memberRole?: unknown
+  accessPolicy?: unknown
+  accessScope?: unknown
+}
+
+function portalRole(value: unknown): Parameters<typeof resolveMemberAccessPolicy>[0]['role'] {
+  return value === 'owner' || value === 'admin' || value === 'member' || value === 'system' ? value : 'member'
+}
+
+function resolvePortalAccessPolicy(user: unknown): MemberAccessPolicy {
+  const payload = user && typeof user === 'object' ? user as PortalUserPayload : {}
+  return resolveMemberAccessPolicy({
+    role: portalRole(payload.memberRole ?? payload.role),
+    accessPolicy: payload.accessPolicy,
+    accessScope: payload.accessScope,
+  })
 }
 
 function NavLink({ item, pathname, collapsed }: { item: NavItem; pathname: string; collapsed?: boolean }) {
@@ -256,6 +285,7 @@ function PortalLayoutContent({ children }: { children: React.ReactNode }) {
   const [activeOrgSlug, setActiveOrgSlug] = useState('')
   const [activeOrgType, setActiveOrgType] = useState('')
   const [portalModules, setPortalModules] = useState<PortalModules>(() => resolvePortalModules(undefined))
+  const [modulePolicies, setModulePolicies] = useState<OrganizationModulePolicies>(() => resolveOrganizationModulePolicies(undefined))
   const [userRole, setUserRole] = useState('')
   const [orgSwitching, setOrgSwitching] = useState(false)
   const [memberRole, setMemberRole] = useState<string | null>(null)
@@ -306,10 +336,13 @@ function PortalLayoutContent({ children }: { children: React.ReactNode }) {
               if (d?.org?.id) setActiveOrgId(d.org.id)
               if (d?.org?.slug) setActiveOrgSlug(d.org.slug)
               if (d?.org?.type) setActiveOrgType(d.org.type)
-              if (d?.org) setPortalModules(resolvePortalModules({ portalModules: d.org.portalModules }))
+              if (d?.org) {
+                setPortalModules(resolvePortalModules({ portalModules: d.org.portalModules }))
+                setModulePolicies(resolveOrganizationModulePolicies({ modulePolicies: d.org.modulePolicies }))
+              }
               if (d?.user?.role) setUserRole(d.user.role)
               if (d?.user?.memberRole) setMemberRole(d.user.memberRole)
-              if (d?.user?.accessPolicy) setMemberAccessPolicy(normalizeMemberAccessPolicy(d.user.accessPolicy))
+              if (d?.user) setMemberAccessPolicy(resolvePortalAccessPolicy(d.user))
             })
             .catch(() => {})
           fetch('/api/v1/portal/orgs')
@@ -325,6 +358,7 @@ function PortalLayoutContent({ children }: { children: React.ReactNode }) {
               if (activeOrg?.slug) setActiveOrgSlug(activeOrg.slug)
               if (activeOrg?.type) setActiveOrgType(activeOrg.type)
               if (activeOrg?.portalModules) setPortalModules(resolvePortalModules({ portalModules: activeOrg.portalModules }))
+              if (activeOrg?.modulePolicies) setModulePolicies(resolveOrganizationModulePolicies({ modulePolicies: activeOrg.modulePolicies }))
               if (requestedOrgId && d?.activeOrgId !== requestedOrgId) {
                 fetch('/api/v1/portal/active-org', {
                   method: 'POST',
@@ -340,7 +374,7 @@ function PortalLayoutContent({ children }: { children: React.ReactNode }) {
               if (d?.profile?.firstName) {
                 setProfileName(`${d.profile.firstName} ${d.profile.lastName ?? ''}`.trim())
               }
-              if (d?.profile?.role) setMemberRole(d.profile.role)
+              if (d?.profile?.role) setMemberRole((current) => current ?? d.profile.role)
             })
             .catch(() => {})
         }
@@ -406,6 +440,7 @@ function PortalLayoutContent({ children }: { children: React.ReactNode }) {
         setActiveOrgSlug(switched.slug)
         setActiveOrgType(switched.type ?? '')
         if (switched.portalModules) setPortalModules(resolvePortalModules({ portalModules: switched.portalModules }))
+        if (switched.modulePolicies) setModulePolicies(resolveOrganizationModulePolicies({ modulePolicies: switched.modulePolicies }))
       }
       if (requestedOrgId) {
         router.push(scopedPortalHref(pathname, orgId, switched?.slug ?? ''))
@@ -453,6 +488,7 @@ function PortalLayoutContent({ children }: { children: React.ReactNode }) {
   const visibleNavLinks = NAV_LINKS.filter((item) => {
     const moduleKey = NAV_MODULES[item.href]
     if (moduleKey && !canAccessModule(memberAccessPolicy, moduleKey)) return false
+    if (isOrganizationModulePolicyKey(moduleKey) && !canRoleUseModule(modulePolicies, moduleKey, memberRole || userRole)) return false
     if (item.href === '/portal/settings/team' && !canManageTeamSettings) return false
     if (item.href === '/portal/mobile-apps') return portalModules.mobileApps
     if (item.href === '/portal/youtube-studio') return portalModules.youtubeStudio
@@ -800,24 +836,17 @@ function PortalLayoutContent({ children }: { children: React.ReactNode }) {
                 <label htmlFor="portal-workspace-switcher" className="eyebrow !text-[10px] px-1 mb-2 block">
                   Workspace
                 </label>
-                <div className="relative">
-                  <select
-                    id="portal-workspace-switcher"
-                    value={activeOrgId}
-                    onChange={(event) => handleOrgSwitch(event.target.value)}
-                    disabled={orgSwitching}
-                    className="w-full appearance-none rounded-lg border border-[var(--color-pib-line)] bg-white/[0.02] px-3 py-2 pr-9 text-sm text-[var(--color-pib-text)] outline-none transition-colors hover:bg-white/[0.04] focus:border-[var(--color-pib-accent)] disabled:opacity-60"
-                  >
-                    {workspaceOptions.map(org => (
-                      <option key={org.id} value={org.id}>
-                        {org.name}
-                      </option>
-                    ))}
-                  </select>
-                  <span className="pointer-events-none material-symbols-outlined absolute right-2.5 top-1/2 -translate-y-1/2 text-[18px] text-[var(--color-pib-text-muted)]">
-                    expand_more
-                  </span>
-                </div>
+                <ThemedSelect
+                  id="portal-workspace-switcher"
+                  ariaLabel="Switch portal workspace"
+                  value={activeOrgId}
+                  options={workspaceOptions.map(org => ({ value: org.id, label: org.name }))}
+                  onValueChange={handleOrgSwitch}
+                  disabled={orgSwitching}
+                  className="w-full"
+                  buttonClassName="w-full"
+                  menuClassName="bg-[var(--color-pib-surface)] text-[var(--color-pib-text)]"
+                />
               </div>
             )}
           </div>

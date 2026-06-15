@@ -26,12 +26,17 @@ describe('admin knowledge and deliverable surfaces', () => {
 
   it('labels research admin surfaces as internal working intelligence before client-visible conversion', () => {
     const listPage = source('app/(admin)/admin/org/[slug]/research/page.tsx')
-    const listClient = source('components/research/ResearchListClient.tsx')
+    const governanceWorkspace = source('components/research/AdminResearchGovernanceWorkspace.tsx')
     const detailClient = source('components/research/ResearchDetailClient.tsx')
 
-    expect(listPage).toContain('Internal working intelligence')
-    expect(listClient).toContain('Internal research note')
-    expect(listClient).toContain('visibility: \'internal\'')
+    expect(listPage).toContain('AdminResearchGovernanceWorkspace')
+    expect(listPage).not.toContain('ResearchListClient')
+    expect(governanceWorkspace).toContain('Research governance')
+    expect(governanceWorkspace).toContain('Who can use research')
+    expect(governanceWorkspace).toContain('Default research types plus organisation custom types')
+    expect(governanceWorkspace).toContain('What research owners control inside a research item')
+    expect(governanceWorkspace).toContain('Convert research to client documents')
+    expect(governanceWorkspace).toContain('Mark research client-visible')
     expect(detailClient).toContain('Research remains internal')
     expect(detailClient).toContain('Create client document draft')
     expect(detailClient).toContain('Client-visible research')

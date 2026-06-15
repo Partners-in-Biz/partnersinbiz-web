@@ -19,6 +19,7 @@ import {
 import { canAccessProject } from '@/lib/projects/access'
 import { ensureProjectOwnerMembership } from '@/lib/projects/collaboration'
 import { normalizeProjectLinks, pickProjectLinkFields, type ProjectLinkSet } from '@/lib/client-documents/linkedValidation'
+import { assertUserCanPerformOrganizationModuleAction } from '@/lib/organizations/module-policy-access'
 
 const VALID_STATUSES = [
   'discovery',
@@ -312,7 +313,7 @@ export const POST = withAuth('client', async (req: NextRequest, user: ApiUser) =
   }
 
   let orgId = user.role === 'client'
-    ? user.orgId ?? ''
+    ? cleanString(body.orgId) || (user.orgId ?? '')
     : cleanString(body.orgId) || cleanString(body.clientOrgId) || cleanString(body.clientId)
 
   // If orgSlug is provided, look up the org by slug and get its ID
@@ -335,6 +336,18 @@ export const POST = withAuth('client', async (req: NextRequest, user: ApiUser) =
   if (!canAccessOrg(user, orgId)) {
     return apiError('Forbidden', 403)
   }
+  const orgDoc = await adminDb.collection('organizations').doc(orgId).get()
+  if (!orgDoc.exists) return apiError('Organization not found', 404)
+  const orgData = orgDoc.data() ?? {}
+  const createAccess = await assertUserCanPerformOrganizationModuleAction(
+    user,
+    orgId,
+    'projects',
+    'create',
+    'Project creation is disabled for your organisation role',
+    orgData,
+  )
+  if (!createAccess.ok) return apiError(createAccess.error, createAccess.status)
 
   const claimableProject = hasClaimableTarget(body)
   const platformIssuedProject = !claimableProject && (user.role === 'admin' || user.role === 'ai')
@@ -352,7 +365,7 @@ export const POST = withAuth('client', async (req: NextRequest, user: ApiUser) =
     return apiError('recipientEmail is required for CRM project sharing', 400)
   }
   const recipientOrgDoc = platformIssuedProject && recipientOrgId
-    ? await adminDb.collection('organizations').doc(recipientOrgId).get()
+    ? (recipientOrgId === orgId ? orgDoc : await adminDb.collection('organizations').doc(recipientOrgId).get())
     : null
   const recipientOrg = recipientOrgDoc?.exists ? recipientOrgDoc.data() ?? {} : {}
   const platformCompany = platformIssuedProject && recipientOrgId

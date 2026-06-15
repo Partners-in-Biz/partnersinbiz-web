@@ -11,6 +11,10 @@ import { CLIENT_DOCUMENTS_COLLECTION } from '@/lib/client-documents/store'
 import type { DocumentApproval } from '@/lib/client-documents/types'
 import { adminDb } from '@/lib/firebase/admin'
 import { notifyClientDocumentAccepted } from '@/lib/notifications/client-acceptance'
+import {
+  assertUserCanPerformOrganizationModuleAction,
+  clientLinkedOrgIdForUser,
+} from '@/lib/organizations/module-policy-access'
 
 export const dynamic = 'force-dynamic'
 
@@ -34,6 +38,17 @@ export const POST = withAuth('client', async (req: NextRequest, user: ApiUser, c
   if (!access.ok) return access.response
 
   const document = access.document
+  const approvalPolicyOrgId = clientLinkedOrgIdForUser(document.linked, user, document.orgId)
+  if (approvalPolicyOrgId) {
+    const approvalAccess = await assertUserCanPerformOrganizationModuleAction(
+      user,
+      approvalPolicyOrgId,
+      'documents',
+      'reviewApproval',
+      'Document approval is disabled for your organisation role',
+    )
+    if (!approvalAccess.ok) return apiError(approvalAccess.error, approvalAccess.status)
+  }
   if (document.approvalMode !== 'operational') return apiError('Document does not use operational approval', 400)
   if (!document.latestPublishedVersionId) return apiError('Publish a version before approval', 400)
 

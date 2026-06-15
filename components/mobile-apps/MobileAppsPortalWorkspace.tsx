@@ -15,6 +15,20 @@ type ProfileLinkForm = {
   notes: string
 }
 
+type MobileAppCapabilities = {
+  canCreate: boolean
+  canEdit: boolean
+  canManageStoreLinks: boolean
+  canViewAnalytics: boolean
+}
+
+const defaultCapabilities: MobileAppCapabilities = {
+  canCreate: true,
+  canEdit: true,
+  canManageStoreLinks: true,
+  canViewAnalytics: true,
+}
+
 const initialLinkForm: ProfileLinkForm = {
   appName: '',
   platform: 'android',
@@ -47,6 +61,7 @@ export function MobileAppsPortalWorkspace() {
   const [savingLink, setSavingLink] = useState(false)
   const [notice, setNotice] = useState('')
   const [moduleDisabled, setModuleDisabled] = useState(false)
+  const [capabilities, setCapabilities] = useState<MobileAppCapabilities>(defaultCapabilities)
 
   async function load() {
     const res = await fetch('/api/v1/portal/mobile-apps')
@@ -59,6 +74,12 @@ export function MobileAppsPortalWorkspace() {
     }
     setModuleDisabled(false)
     setApps(Array.isArray(body.data?.apps) ? body.data.apps : [])
+    setCapabilities({
+      canCreate: body.data?.capabilities?.canCreate !== false,
+      canEdit: body.data?.capabilities?.canEdit !== false,
+      canManageStoreLinks: body.data?.capabilities?.canManageStoreLinks !== false,
+      canViewAnalytics: body.data?.capabilities?.canViewAnalytics !== false,
+    })
     setLoading(false)
   }
 
@@ -74,6 +95,7 @@ export function MobileAppsPortalWorkspace() {
   }
 
   function startFeedback(app: MobileAppRecord) {
+    if (!capabilities.canEdit) return
     setEditingId(app.id ?? null)
     setClientNotes(app.clientNotes ?? '')
     setClientFeedback(app.listing?.clientFeedback ?? '')
@@ -81,6 +103,7 @@ export function MobileAppsPortalWorkspace() {
   }
 
   function startLink(app?: MobileAppRecord) {
+    if (!capabilities.canManageStoreLinks || (!app && !capabilities.canCreate)) return
     setLinkingAppId(app?.id ?? 'new')
     setLinkForm({
       ...initialLinkForm,
@@ -92,6 +115,10 @@ export function MobileAppsPortalWorkspace() {
 
   async function saveFeedback() {
     if (!editingId) return
+    if (!capabilities.canEdit) {
+      setNotice('Mobile app feedback is disabled for your organisation role.')
+      return
+    }
     const res = await fetch('/api/v1/portal/mobile-apps', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
@@ -110,6 +137,14 @@ export function MobileAppsPortalWorkspace() {
   async function saveLinkedProfile() {
     if (savingLink) return
     const isNewApp = linkingAppId === 'new'
+    if (isNewApp && !capabilities.canCreate) {
+      setNotice('Mobile app creation is disabled for your organisation role.')
+      return
+    }
+    if (!capabilities.canManageStoreLinks) {
+      setNotice('Mobile app profile links are disabled for your organisation role.')
+      return
+    }
     if (isNewApp && !linkForm.appName.trim()) {
       setNotice('Add an app name before linking a profile/account.')
       return
@@ -267,7 +302,7 @@ export function MobileAppsPortalWorkspace() {
         showListingDetails
         showReleaseNotes
         renderEmptyAction={() => (
-          linkingAppId === 'new' ? renderLinkForm(true) : (
+          !capabilities.canCreate || !capabilities.canManageStoreLinks ? null : linkingAppId === 'new' ? renderLinkForm(true) : (
             <button type="button" onClick={() => startLink()} className="pib-btn-primary text-sm">
               Connect or link a profile/account
             </button>
@@ -290,9 +325,11 @@ export function MobileAppsPortalWorkspace() {
                 Support
               </a>
             )}
-            <button type="button" onClick={() => startLink(app)} className="pib-btn-ghost text-sm">
-              Connect or link a profile/account
-            </button>
+            {capabilities.canManageStoreLinks && (
+              <button type="button" onClick={() => startLink(app)} className="pib-btn-ghost text-sm">
+                Connect or link a profile/account
+              </button>
+            )}
           </>
         )}
         renderFooter={(app) => (
@@ -314,7 +351,7 @@ export function MobileAppsPortalWorkspace() {
             ) : null}
             {linkingAppId === app.id ? renderLinkForm(false) : null}
             {app.clientNotes && <p className="rounded-2xl bg-white/[0.04] p-3 text-sm">{app.clientNotes}</p>}
-            {editingId === app.id ? (
+            {capabilities.canEdit && editingId === app.id ? (
               <div className="space-y-3 rounded-2xl border border-[var(--color-pib-line)] p-3">
                 <label className="block text-sm">
                   <span className="eyebrow !text-[10px]">Notes for PiB</span>
@@ -343,11 +380,11 @@ export function MobileAppsPortalWorkspace() {
                   </button>
                 </div>
               </div>
-            ) : (
+            ) : capabilities.canEdit ? (
               <button type="button" onClick={() => startFeedback(app)} className="pib-btn-ghost text-sm">
                 Leave feedback / request changes
               </button>
-            )}
+            ) : null}
           </>
         )}
       />

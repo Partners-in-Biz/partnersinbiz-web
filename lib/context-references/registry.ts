@@ -82,6 +82,11 @@ const COLLECTION_BY_TYPE: Partial<Record<ContextReferenceType, string>> = {
   calendar_event: 'calendar_events',
 }
 
+const SEARCH_SCAN_LIMIT_BY_TYPE: Partial<Record<ContextReferenceType, number>> = {
+  contact: 500,
+  company: 500,
+}
+
 function clean(value: unknown, max = 260): string {
   if (typeof value === 'number' && Number.isFinite(value)) return String(value)
   return typeof value === 'string' ? value.trim().replace(/\s+/g, ' ').slice(0, max) : ''
@@ -91,6 +96,17 @@ function nestedClean(value: unknown, key: string, max = 260): string {
   return value && typeof value === 'object' && !Array.isArray(value)
     ? clean((value as Record<string, unknown>)[key], max)
     : ''
+}
+
+function contactDisplayName(data: RawDoc): string {
+  const firstName = clean(data.firstName) || clean(data.givenName)
+  const lastName = clean(data.lastName) || clean(data.familyName) || clean(data.surname)
+  const partsName = [firstName, lastName].filter(Boolean).join(' ')
+  return clean(data.name) ||
+    clean(data.fullName) ||
+    clean(data.displayName) ||
+    partsName ||
+    clean(data.email)
 }
 
 function compactSummary(parts: Array<unknown>, max = MAX_CONTEXT_SUMMARY_CHARS): string {
@@ -242,11 +258,21 @@ function matchesQuery(data: RawDoc, q: string): boolean {
     data.fileName,
     data.originalName,
     data.displayName,
+    data.fullName,
+    data.firstName,
+    data.lastName,
+    data.givenName,
+    data.familyName,
+    data.surname,
     data.operation,
     nestedClean(data.input, 'title'),
     nestedClean(data.google, 'url'),
     data.email,
     data.company,
+    data.companyName,
+    data.jobTitle,
+    data.phone,
+    data.website,
     data.sku,
     data.description,
     data.summary,
@@ -320,13 +346,17 @@ async function resolveCrm(type: 'contact' | 'company', input: ResolverInput): Pr
     type,
     id: doc.id,
     orgId,
-    label: clean(data.name) || clean(data.companyName) || input.seed.label || doc.id,
+    label: type === 'contact'
+      ? contactDisplayName(data) || input.seed.label || doc.id
+      : clean(data.name) || clean(data.companyName) || clean(data.displayName) || input.seed.label || doc.id,
     origin: origin(input.seed),
     href: href(type, doc.id, data, input.seed.href),
     summary: compactSummary([
       data.email,
       data.phone,
       data.company,
+      data.companyName,
+      data.jobTitle,
       data.website,
       data.status ? `status: ${clean(data.status)}` : '',
       data.notes,
@@ -562,7 +592,8 @@ function refFromSearchRow(
   if (type === 'support' && user.role === 'client' && clean(data.createdBy) !== user.uid) return null
   if (type === 'workspace_artifact' && user.role === 'client' && (clean(data.visibility) !== 'admin_agents_clients' || clean(data.lifecycleStatus) !== 'client_visible')) return null
 
-  const label = clean(data.name) ||
+  const label = type === 'contact' ? contactDisplayName(data) : ''
+  const fallbackLabel = clean(data.name) ||
     clean(data.title) ||
     clean(data.subject) ||
     clean(data.invoiceNumber) ||
@@ -579,7 +610,7 @@ function refFromSearchRow(
     type,
     id,
     orgId,
-    label,
+    label: label || fallbackLabel,
     origin: 'mention',
     href: href(type, id, data),
     summary: compactSummary([
@@ -596,6 +627,11 @@ function refFromSearchRow(
       data.clientName,
       data.contactName,
       data.address,
+      data.company,
+      data.companyName,
+      data.jobTitle,
+      data.phone,
+      data.website,
       data.description,
       data.summary,
       data.notes,
@@ -683,7 +719,7 @@ export async function searchContextReferences(input: SearchContextReferencesInpu
 
   const collection = COLLECTION_BY_TYPE[type]
   if (!collection) return []
-  const docs = await queryByOrg(collection, input.orgId, 80)
+  const docs = await queryByOrg(collection, input.orgId, SEARCH_SCAN_LIMIT_BY_TYPE[type] ?? 80)
   return docs
     .map((doc) => refFromSearchDoc(type, doc, input.user))
     .filter((ref): ref is ContextReference => Boolean(ref))

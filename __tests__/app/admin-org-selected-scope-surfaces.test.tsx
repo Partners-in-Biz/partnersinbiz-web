@@ -149,6 +149,8 @@ describe('selected client-org admin command surfaces', () => {
     const emailDomains = routeSource('app/(admin)/admin/org/[slug]/email-domains/page.tsx')
 
     expect(dashboard).toContain('eyebrow="Admin org dashboard"')
+    expect(dashboard).toContain('pib-card-section p-5')
+    expect(dashboard).not.toContain('border border-[var(--color-outline)] bg-[var(--color-surface-container)]/50')
     expect(activity).toContain('No selected-org activity yet.')
     expect(settings).toContain('selected org')
     expect(settings).not.toContain('client portal')

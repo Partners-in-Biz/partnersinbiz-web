@@ -31,6 +31,7 @@ import {
 } from '@/lib/context-references/types'
 import { councilModeGuidanceLines, getSlashCommandByToken, slashCommandInstruction, type SlashCommandPayload } from '@/lib/chat/slash-commands'
 import { buildAgentSkillsPromptBlock } from '@/lib/chat/agent-skills'
+import { assertUserCanPerformOrganizationModuleAction } from '@/lib/organizations/module-policy-access'
 import type { HermesProfileLink } from '@/lib/hermes/types'
 import type { ApiUser } from '@/lib/api/types'
 import type { AgentTeamDoc } from '@/lib/agents/types'
@@ -219,6 +220,14 @@ export const POST = withAuth(
     if (!canAccess(user, conversation.participantUids)) {
       return apiError('Forbidden', 403)
     }
+    const replyAccess = await assertUserCanPerformOrganizationModuleAction(
+      user,
+      conversation.orgId,
+      'messages',
+      'reply',
+      'Conversation replies are disabled for your organisation role',
+    )
+    if (!replyAccess.ok) return apiError(replyAccess.error, replyAccess.status)
 
     const body = await req.json().catch(() => null)
     if (!body || typeof body !== 'object') return apiError('Invalid JSON body', 400)

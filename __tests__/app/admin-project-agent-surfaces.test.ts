@@ -30,7 +30,7 @@ describe('admin project and agent operator surfaces', () => {
     expect(composer).toContain('Operator task title')
     expect(composer).toContain('Operator assignment')
     expect(composer).toContain('Admin context')
-    expect(composer).toContain('Project task title')
+    expect(composer).toContain('Task title')
   })
 
   it('labels admin agent assignment, comments, and project context links as internal operator controls', () => {

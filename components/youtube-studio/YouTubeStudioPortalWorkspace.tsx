@@ -28,6 +28,20 @@ type RequestForm = {
   sourceUrl: string
 }
 
+type YouTubeStudioCapabilities = {
+  canCreate: boolean
+  canReviewApprovals: boolean
+  canViewSourceAssets: boolean
+  canUseProductionJobs: boolean
+}
+
+const defaultCapabilities: YouTubeStudioCapabilities = {
+  canCreate: true,
+  canReviewApprovals: true,
+  canViewSourceAssets: true,
+  canUseProductionJobs: true,
+}
+
 const emptyRequest: RequestForm = {
   channelWorkspaceId: '',
   title: '',
@@ -68,6 +82,7 @@ export function YouTubeStudioPortalWorkspace({ orgId }: YouTubeStudioPortalWorks
   const [loadNotice, setLoadNotice] = useState('')
   const [actionNotice, setActionNotice] = useState('')
   const [moduleDisabled, setModuleDisabled] = useState(false)
+  const [capabilities, setCapabilities] = useState<YouTubeStudioCapabilities>(defaultCapabilities)
   const submittingRequestRef = useRef(false)
   const reviewingIdRef = useRef<string | null>(null)
   const reviewingPacketIdRef = useRef<string | null>(null)
@@ -123,6 +138,12 @@ export function YouTubeStudioPortalWorkspace({ orgId }: YouTubeStudioPortalWorks
       setProductionDrafts(Array.isArray(body.data?.productionDrafts) ? body.data.productionDrafts : [])
       setRenderJobs(Array.isArray(body.data?.renderJobs) ? body.data.renderJobs : [])
       setAnalytics(Array.isArray(body.data?.analytics) ? body.data.analytics : [])
+      setCapabilities({
+        canCreate: body.data?.capabilities?.canCreate !== false,
+        canReviewApprovals: body.data?.capabilities?.canReviewApprovals !== false,
+        canViewSourceAssets: body.data?.capabilities?.canViewSourceAssets !== false,
+        canUseProductionJobs: body.data?.capabilities?.canUseProductionJobs !== false,
+      })
       if (!res.ok) {
         setLoadNotice(body.error ?? 'Could not load YouTube Studio.')
       } else {
@@ -184,6 +205,10 @@ export function YouTubeStudioPortalWorkspace({ orgId }: YouTubeStudioPortalWorks
 
   async function submitRequest(event: React.FormEvent) {
     event.preventDefault()
+    if (!capabilities.canCreate) {
+      setActionNotice('YouTube video requests are disabled for your organisation role.')
+      return
+    }
     if (submittingRequestRef.current || !request.channelWorkspaceId || !request.title.trim()) return
     const mutationApiPath = apiPath
     const isCurrentMutation = () => mutationApiPath === activeApiPathRef.current
@@ -219,6 +244,10 @@ export function YouTubeStudioPortalWorkspace({ orgId }: YouTubeStudioPortalWorks
   }
 
   async function saveDecision(videoId: string, decision: 'approved' | 'changes_requested' | 'rejected') {
+    if (!capabilities.canReviewApprovals) {
+      setActionNotice('YouTube review decisions are disabled for your organisation role.')
+      return
+    }
     if (reviewingIdRef.current) return
     const mutationApiPath = apiPath
     const isCurrentMutation = () => mutationApiPath === activeApiPathRef.current
@@ -253,6 +282,10 @@ export function YouTubeStudioPortalWorkspace({ orgId }: YouTubeStudioPortalWorks
   }
 
   async function savePacketDecision(packetId: string, decision: 'approved' | 'changes_requested' | 'rejected') {
+    if (!capabilities.canReviewApprovals) {
+      setActionNotice('YouTube publishing approvals are disabled for your organisation role.')
+      return
+    }
     if (reviewingPacketIdRef.current) return
     const mutationApiPath = apiPath
     const isCurrentMutation = () => mutationApiPath === activeApiPathRef.current
@@ -287,6 +320,10 @@ export function YouTubeStudioPortalWorkspace({ orgId }: YouTubeStudioPortalWorks
   }
 
   async function saveDraftDecision(productionDraftId: string, decision: 'approved' | 'changes_requested' | 'rejected') {
+    if (!capabilities.canReviewApprovals) {
+      setActionNotice('YouTube production approvals are disabled for your organisation role.')
+      return
+    }
     if (reviewingDraftIdRef.current) return
     const mutationApiPath = apiPath
     const isCurrentMutation = () => mutationApiPath === activeApiPathRef.current
@@ -321,6 +358,10 @@ export function YouTubeStudioPortalWorkspace({ orgId }: YouTubeStudioPortalWorks
   }
 
   async function saveRenderDecision(renderJobId: string, decision: 'approved' | 'changes_requested' | 'rejected') {
+    if (!capabilities.canReviewApprovals) {
+      setActionNotice('YouTube render approvals are disabled for your organisation role.')
+      return
+    }
     if (reviewingRenderIdRef.current) return
     const mutationApiPath = apiPath
     const isCurrentMutation = () => mutationApiPath === activeApiPathRef.current
@@ -400,7 +441,7 @@ export function YouTubeStudioPortalWorkspace({ orgId }: YouTubeStudioPortalWorks
             ) : (
               videos.map((video) => (
                 <YouTubeVideoCard key={video.id ?? video.title} video={video}>
-                  {video.id && isClientReviewOpen(video) ? (
+                  {capabilities.canReviewApprovals && video.id && isClientReviewOpen(video) ? (
                     <div className="w-full space-y-3">
                       <textarea
                         rows={3}
@@ -539,7 +580,7 @@ export function YouTubeStudioPortalWorkspace({ orgId }: YouTubeStudioPortalWorks
                     ))}
                   </div>
                   {draft.clientNotes ? <p className="break-words text-sm text-on-surface-variant">{draft.clientNotes}</p> : null}
-                  {draft.id && draft.status === 'client_review' ? (
+                  {capabilities.canReviewApprovals && draft.id && draft.status === 'client_review' ? (
                     <div className="space-y-3">
                       <textarea
                         rows={3}
@@ -623,7 +664,7 @@ export function YouTubeStudioPortalWorkspace({ orgId }: YouTubeStudioPortalWorks
                     </p>
                   ) : null}
                   {job.clientNotes ? <p className="break-words text-sm text-on-surface-variant">{job.clientNotes}</p> : null}
-                  {job.id && job.status === 'qa_review' ? (
+                  {capabilities.canReviewApprovals && job.id && job.status === 'qa_review' ? (
                     <div className="space-y-3">
                       <textarea
                         rows={3}
@@ -703,7 +744,7 @@ export function YouTubeStudioPortalWorkspace({ orgId }: YouTubeStudioPortalWorks
                       </span>
                     ))}
                   </div>
-                  {packet.id && packet.status === 'client_review' ? (
+                  {capabilities.canReviewApprovals && packet.id && packet.status === 'client_review' ? (
                     <div className="space-y-3">
                       <textarea
                         rows={3}
@@ -835,6 +876,7 @@ export function YouTubeStudioPortalWorkspace({ orgId }: YouTubeStudioPortalWorks
             </a>
           </div>
 
+          {capabilities.canCreate ? (
           <form onSubmit={submitRequest} className="pib-card-section space-y-4 p-5">
             <h2 className="font-headline font-bold text-on-surface">Request a video</h2>
             <label className="block text-sm">
@@ -857,6 +899,11 @@ export function YouTubeStudioPortalWorkspace({ orgId }: YouTubeStudioPortalWorks
               {submittingRequest ? 'Sending...' : 'Send request'}
             </button>
           </form>
+          ) : (
+            <div className="pib-card-section p-5 text-sm text-on-surface-variant">
+              YouTube video requests are disabled for your organisation role.
+            </div>
+          )}
         </aside>
       </div>
     </YouTubeStudioWorkspaceShell>

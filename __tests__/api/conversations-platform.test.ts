@@ -18,6 +18,7 @@ const mockResolveVisibleAgents = jest.fn()
 let mockUser: MockUser = { uid: 'admin-1', role: 'admin' }
 let organizationMembers: Array<{ userId: string; role: string }> = []
 let orgMemberRows: Array<{ id: string; data: Record<string, unknown> }> = []
+let organizationSettings: Record<string, unknown> = {}
 
 jest.mock('@/lib/firebase/admin', () => ({
   adminDb: { collection: mockCollection },
@@ -44,6 +45,7 @@ beforeEach(() => {
     { userId: 'admin-2', role: 'member' },
   ]
   orgMemberRows = []
+  organizationSettings = {}
   mockOrgChatConfigGet.mockResolvedValue({ exists: false, data: () => ({}) })
   mockResolveVisibleAgents.mockReturnValue(['pip', 'theo', 'maya', 'sage', 'nora', 'ads', 'qa-release', 'support', 'data', 'docs', 'seo'])
   mockCreateConversation.mockImplementation(async (input) => ({ id: 'conv-1', ...input }))
@@ -88,6 +90,7 @@ beforeEach(() => {
             exists: orgId === 'pib-platform-owner' || orgId === 'org-1',
             data: () => ({
               members: organizationMembers,
+              settings: organizationSettings,
             }),
           }),
         }),
@@ -95,6 +98,12 @@ beforeEach(() => {
     }
     if (name === 'orgMembers') {
       return {
+        doc: (id: string) => ({
+          get: async () => {
+            const row = orgMemberRows.find((entry) => entry.id === id)
+            return { exists: Boolean(row), data: () => row?.data ?? {} }
+          },
+        }),
         where: (field: string, _op: string, value: string) => ({
           get: async () => ({
             docs: orgMemberRows
@@ -165,6 +174,31 @@ describe('platform-scoped unified conversations', () => {
         expect.objectContaining({ kind: 'user', uid: 'admin-2' }),
       ]),
     }))
+  })
+
+  it('blocks client conversation starts when the messages start policy denies their org role', async () => {
+    mockUser = { uid: 'client-1', role: 'client', orgId: 'org-1', orgIds: ['org-1'] }
+    organizationSettings = {
+      modulePolicies: {
+        messages: {
+          actions: {
+            start: { owner: true, admin: true, member: false },
+          },
+        },
+      },
+    }
+    const { POST } = await import('@/app/api/v1/conversations/route')
+
+    const res = await POST(new NextRequest('http://localhost/api/v1/conversations', {
+      method: 'POST',
+      body: JSON.stringify({
+        orgId: 'org-1',
+        participants: [{ kind: 'user', uid: 'admin-1' }],
+      }),
+    }))
+
+    expect(res.status).toBe(403)
+    expect(mockCreateConversation).not.toHaveBeenCalled()
   })
 
   it('lets a client start a conversation with platform super admins even when admin records have the platform orgId', async () => {

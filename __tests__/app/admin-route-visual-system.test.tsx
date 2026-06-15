@@ -1,5 +1,5 @@
 import React from 'react'
-import { render, screen, waitFor } from '@testing-library/react'
+import { fireEvent, render, screen, within, waitFor } from '@testing-library/react'
 import OrgDocumentsPage from '@/app/(admin)/admin/org/[slug]/documents/page'
 import BillingPage from '@/app/(admin)/admin/org/[slug]/billing/page'
 
@@ -58,14 +58,24 @@ describe('admin route visual system adoption', () => {
     mockFetchForVisualRoutes()
   })
 
-  it('renders client documents with shared PageHeader and tab primitives', async () => {
+  it('renders selected-org documents as an admin governance surface', () => {
     const { container } = render(<OrgDocumentsPage />)
 
-    await waitFor(() => expect(screen.getByText('Launch spec')).toBeInTheDocument())
-
     expect(container.querySelector('.pib-page-header')).toBeInTheDocument()
-    expect(container.querySelector('.pib-tabs')).toBeInTheDocument()
-    expect(container.querySelector('.pib-tab-active')).toHaveTextContent(/All/i)
+    expect(screen.getByRole('heading', { name: 'Document governance' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Who can use documents' })).toBeInTheDocument()
+    expect(screen.queryByTestId('document-index')).not.toBeInTheDocument()
+
+    for (const rowId of ['documents-tab-visibility', 'create-new-documents', 'edit-document-drafts', 'send-for-review-or-approval', 'create-share-links', 'archive-or-delete-documents']) {
+      const row = screen.getByTestId(`document-permission-${rowId}`)
+      expect(within(row).getByRole('checkbox', { name: 'Owner' })).toBeInTheDocument()
+      expect(within(row).getByRole('checkbox', { name: 'Admin' })).toBeInTheDocument()
+      expect(within(row).getByRole('checkbox', { name: 'Member' })).toBeInTheDocument()
+    }
+
+    fireEvent.change(screen.getByPlaceholderText('Custom template'), { target: { value: 'Board pack' } })
+    fireEvent.click(screen.getByRole('button', { name: /add/i }))
+    expect(screen.getByText('Board pack')).toBeInTheDocument()
   })
 
   it('renders billing with shared PageHeader, Surface table, StatusPill, and empty-state-compatible primitives', async () => {

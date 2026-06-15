@@ -20,6 +20,7 @@ import {
 import { resolveContextReferences } from '@/lib/context-references/registry'
 import { sanitizeContextReferenceSeeds } from '@/lib/context-references/types'
 import { isSuperAdmin } from '@/lib/api/platformAdmin'
+import { assertUserCanPerformOrganizationModuleAction } from '@/lib/organizations/module-policy-access'
 import type { AgentId, Participant, Conversation, ConversationScope } from '@/lib/conversations/types'
 import type { ApiUser } from '@/lib/api/types'
 
@@ -41,6 +42,14 @@ export const POST = withAuth(
     // Scope check
     const scope = resolveOrgScope(user, orgId)
     if (!scope.ok) return apiError(scope.error, scope.status)
+    const startAccess = await assertUserCanPerformOrganizationModuleAction(
+      user,
+      scope.orgId,
+      'messages',
+      'start',
+      'Conversation starts are disabled for your organisation role',
+    )
+    if (!startAccess.ok) return apiError(startAccess.error, startAccess.status)
 
     // Participants validation
     if (!Array.isArray(body.participants)) {

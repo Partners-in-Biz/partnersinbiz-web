@@ -1,9 +1,11 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
+import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import { PageTabs } from '@/components/ui/AppFoundation'
-import { scopedApiPath, scopeFromSearchParams } from '@/lib/portal/scoped-routing'
+import { ThemedSelect } from '@/components/ui/ThemedSelect'
+import { scopedApiPath, scopedPortalPath, scopeFromSearchParams } from '@/lib/portal/scoped-routing'
 
 type BillingTab = 'invoices' | 'quotes'
 type InvoiceStatus = 'draft' | 'sent' | 'viewed' | 'payment_pending_verification' | 'paid' | 'partially_paid' | 'overdue' | 'cancelled'
@@ -40,6 +42,16 @@ const INVOICE_STATUS_PILL: Record<string, string> = {
   overdue: 'pib-pill pib-pill-danger',
   cancelled: 'pib-pill',
 }
+
+const INVOICE_STATUS_OPTIONS: InvoiceStatus[] = [
+  'draft',
+  'sent',
+  'viewed',
+  'payment_pending_verification',
+  'partially_paid',
+  'overdue',
+  'cancelled',
+]
 
 const QUOTE_STATUS_PILL: Record<string, string> = {
   draft: 'pib-pill',
@@ -87,6 +99,7 @@ export default function PaymentsPage() {
   const [invoices, setInvoices] = useState<Invoice[]>([])
   const [quotes, setQuotes] = useState<Quote[]>([])
   const [loading, setLoading] = useState(true)
+  const [updatingInvoiceId, setUpdatingInvoiceId] = useState<string | null>(null)
   const [updatingQuoteId, setUpdatingQuoteId] = useState<string | null>(null)
   const workspaceLabel = orgScope.sourceCompanyName ? `${orgScope.sourceCompanyName} workspace` : 'Active workspace'
   const billingApiPath = useMemo(
@@ -152,6 +165,23 @@ export default function PaymentsPage() {
       }
     } finally {
       setUpdatingQuoteId(null)
+    }
+  }
+
+  async function updateInvoiceStatus(invoiceId: string, status: InvoiceStatus) {
+    if (status === 'paid') return
+    setUpdatingInvoiceId(invoiceId)
+    try {
+      const res = await fetch(scopedApiPath(`/api/v1/invoices/${invoiceId}`, orgScope), {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status }),
+      })
+      if (res.ok) {
+        setInvoices(prev => prev.map(invoice => invoice.id === invoiceId ? { ...invoice, status } : invoice))
+      }
+    } finally {
+      setUpdatingInvoiceId(null)
     }
   }
 
@@ -223,11 +253,54 @@ export default function PaymentsPage() {
             <div className="divide-y divide-[var(--color-pib-line)]">
               {invoices.map((invoice) => (
                 <div key={invoice.id} className="grid grid-cols-2 md:grid-cols-12 gap-3 md:gap-4 items-center px-5 py-4 hover:bg-[var(--color-pib-surface-2)] transition-colors">
-                  <div className="col-span-2 md:col-span-3"><p className="font-mono text-sm">{invoice.invoiceNumber}</p></div>
+                  <div className="col-span-2 md:col-span-3">
+                    {invoice.status === 'draft' ? (
+                      <Link
+                        href={scopedPortalPath(`/portal/invoicing/${invoice.id}?edit=draft`, orgScope)}
+                        className="font-mono text-sm text-[var(--color-pib-accent-hover)] transition-colors hover:text-[var(--color-pib-accent)] hover:underline"
+                        aria-label={`Edit draft invoice ${invoice.invoiceNumber}`}
+                      >
+                        {invoice.invoiceNumber}
+                      </Link>
+                    ) : (
+                      <p className="font-mono text-sm">{invoice.invoiceNumber}</p>
+                    )}
+                  </div>
                   <div className="md:col-span-2"><p className="text-sm text-[var(--color-pib-text-muted)]">{formatDate(invoice.issueDate)}</p></div>
                   <div className="md:col-span-2"><p className="text-sm text-[var(--color-pib-text-muted)]">{formatDate(invoice.dueDate)}</p></div>
                   <div className="md:col-span-2"><p className="text-sm font-display text-lg">{formatCurrency(invoice.total ?? 0, invoice.currency ?? 'ZAR')}</p></div>
-                  <div className="col-span-2 md:col-span-2"><span className={INVOICE_STATUS_PILL[invoice.status] ?? 'pib-pill'}><span className="w-1.5 h-1.5 rounded-full bg-current" />{label(invoice.status)}</span></div>
+                  <div className="col-span-2 md:col-span-2">
+                    {invoice.status === 'paid' ? (
+                      <span className={INVOICE_STATUS_PILL[invoice.status] ?? 'pib-pill'}>
+                        <span className="w-1.5 h-1.5 rounded-full bg-current" />
+                        {label(invoice.status)}
+                      </span>
+                    ) : (
+                      <ThemedSelect
+                        ariaLabel={`Change status for invoice ${invoice.invoiceNumber}`}
+                        value={invoice.status}
+                        options={INVOICE_STATUS_OPTIONS.map((status) => ({ value: status, label: label(status) }))}
+                        onValueChange={(status) => updateInvoiceStatus(invoice.id, status as InvoiceStatus)}
+                        disabled={updatingInvoiceId === invoice.id}
+                        buttonTestId={`invoice-status-pill-${invoice.invoiceNumber}`}
+                        buttonChrome="custom"
+                        className="w-fit"
+                        buttonClassName={[
+                          INVOICE_STATUS_PILL[invoice.status] ?? 'pib-pill',
+                          'inline-flex h-7 items-center justify-between gap-1.5 pr-1 transition-colors focus:border-[var(--color-pib-accent)] focus:outline-none disabled:cursor-not-allowed',
+                          updatingInvoiceId === invoice.id ? 'opacity-60' : '',
+                        ].join(' ')}
+                        valueClassName="inline-flex items-center gap-1.5"
+                        menuClassName="min-w-max bg-[var(--color-pib-surface)] text-[var(--color-pib-text)]"
+                        renderValue={() => (
+                          <>
+                            <span className="w-1.5 h-1.5 rounded-full bg-current" />
+                            {label(invoice.status)}
+                          </>
+                        )}
+                      />
+                    )}
+                  </div>
                   <div className="col-span-2 md:col-span-1 flex md:justify-end">
                     <a href={scopedApiPath(`/api/v1/invoices/${invoice.id}/pdf`, orgScope)} target="_blank" rel="noopener noreferrer" className="text-xs text-[var(--color-pib-accent-hover)] hover:text-[var(--color-pib-accent)] inline-flex items-center gap-1 font-mono uppercase tracking-widest" aria-label={`Download ${invoice.invoiceNumber} PDF`}>
                       PDF

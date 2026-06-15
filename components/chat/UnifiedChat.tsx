@@ -69,6 +69,9 @@ export interface UnifiedChatProps {
   autoCreateTitle?: string
   allowDeleteConversations?: boolean
   allowAgentParticipants?: boolean
+  allowStartConversations?: boolean
+  allowSendMessages?: boolean
+  allowArchiveConversations?: boolean
   currentPageContext?: ContextReferenceSeed | null
   compact?: boolean
 }
@@ -219,6 +222,9 @@ export default function UnifiedChat({
   autoCreateTitle,
   allowDeleteConversations = false,
   allowAgentParticipants = true,
+  allowStartConversations = true,
+  allowSendMessages = true,
+  allowArchiveConversations = true,
   currentPageContext,
   compact = false,
 }: UnifiedChatProps) {
@@ -304,6 +310,7 @@ export default function UnifiedChat({
     () => conversations.find((c) => c.id === activeId) ?? null,
     [conversations, activeId],
   )
+  const canUseComposer = allowSendMessages && (Boolean(activeConversation) || allowStartConversations)
   const contextTypeOptions = useMemo(
     () => (contextTypePrompt ? filterContextReferenceMentionOptions(contextTypePrompt.query) : []),
     [contextTypePrompt],
@@ -363,6 +370,7 @@ export default function UnifiedChat({
         !activeId &&
         list.length === 0 &&
         autoCreateScopedConversation &&
+        allowStartConversations &&
         initialAgentId &&
         scope &&
         scopeRefId &&
@@ -400,6 +408,7 @@ export default function UnifiedChat({
     activeId,
     initialConvId,
     autoCreateScopedConversation,
+    allowStartConversations,
     initialAgentId,
     scope,
     scopeRefId,
@@ -1038,6 +1047,7 @@ export default function UnifiedChat({
   // ── Archive conversation ──────────────────────────────────────────────────
   const archiveConversation = useCallback(
     async (convId: string) => {
+      if (!allowArchiveConversations) return
       setMenuOpenId(null)
       setMenuPosition(null)
       setConversations((prev) => prev.filter((c) => c.id !== convId))
@@ -1048,7 +1058,7 @@ export default function UnifiedChat({
         body: JSON.stringify({ archived: true }),
       }).catch(() => {})
     },
-    [activeId],
+    [activeId, allowArchiveConversations],
   )
 
   // ── Delete conversation ──────────────────────────────────────────────────
@@ -1128,6 +1138,10 @@ export default function UnifiedChat({
   // ── Create new conversation (from modal) ──────────────────────────────────
   const handleCreateConversation = useCallback(async () => {
     if (creatingConv) return
+    if (!allowStartConversations) {
+      setError('Starting new conversations is disabled for your organisation role.')
+      return
+    }
     setCreatingConv(true)
     setError(null)
     try {
@@ -1169,14 +1183,18 @@ export default function UnifiedChat({
     } finally {
       setCreatingConv(false)
     }
-  }, [creatingConv, newParticipants, newTitle, newScope, orgId, projectId, scope, scopeRefId, contextRefs])
+  }, [allowStartConversations, creatingConv, newParticipants, newTitle, newScope, orgId, projectId, scope, scopeRefId, contextRefs])
 
   // ── Send message ──────────────────────────────────────────────────────────
   const send = useCallback(
     async (e: FormEvent) => {
-      e.preventDefault()
-      if ((!input.trim() && attachments.length === 0) || sending) return
-      setError(null)
+	      e.preventDefault()
+	      if ((!input.trim() && attachments.length === 0) || sending) return
+	      if (!allowSendMessages) {
+	        setError('Replies are disabled for your organisation role.')
+	        return
+	      }
+	      setError(null)
       setSending(true)
       let convId = activeId
 
@@ -1210,10 +1228,13 @@ export default function UnifiedChat({
           }
         }
 
-        // Auto-create a conversation if none selected.
-        let createdWithAgent = false
-        if (!convId) {
-          const participants = allowAgentParticipants
+	        // Auto-create a conversation if none selected.
+	        let createdWithAgent = false
+	        if (!convId) {
+	          if (!allowStartConversations) {
+	            throw new Error('Starting new conversations is disabled for your organisation role.')
+	          }
+	          const participants = allowAgentParticipants
             ? [{ kind: 'agent' as const, agentId: 'pip' as const }]
             : []
           const payload: Record<string, unknown> = {
@@ -1340,8 +1361,10 @@ export default function UnifiedChat({
       sending,
       contextRefs,
       pinCurrentPageContext,
-      allowAgentParticipants,
-      orgId,
+	      allowAgentParticipants,
+	      allowStartConversations,
+	      allowSendMessages,
+	      orgId,
       currentUserUid,
       currentUserDisplayName,
       scope,
@@ -1387,8 +1410,15 @@ export default function UnifiedChat({
       >
         <button
           type="button"
-          onClick={() => setShowNewModal(true)}
-          className="rounded-lg bg-primary px-3 py-2 text-sm font-medium text-on-primary hover:opacity-90 flex items-center justify-center gap-1.5"
+          onClick={() => {
+            if (!allowStartConversations) {
+              setError('Starting new conversations is disabled for your organisation role.')
+              return
+            }
+            setShowNewModal(true)
+          }}
+          disabled={!allowStartConversations}
+          className="rounded-lg bg-primary px-3 py-2 text-sm font-medium text-on-primary hover:opacity-90 flex items-center justify-center gap-1.5 disabled:cursor-not-allowed disabled:opacity-45"
         >
           <span className="material-symbols-outlined text-[16px]">add</span>
           New conversation
@@ -1399,7 +1429,7 @@ export default function UnifiedChat({
         <div className="flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto">
           {conversations.length === 0 && (
             <div className="text-xs text-on-surface-variant px-2 py-3">
-              No conversations yet. Start one.
+              {allowStartConversations ? 'No conversations yet. Start one.' : 'No conversations yet.'}
             </div>
           )}
           {conversations.filter((c) => !c.archived).map((c) => (
@@ -1496,14 +1526,16 @@ export default function UnifiedChat({
             <span className="material-symbols-outlined text-[14px]">edit</span>
             Rename
           </button>
-          <button
-            type="button"
-            className="w-full text-left px-3 py-2 text-xs text-red-400 hover:bg-[var(--color-card-hover,rgba(255,255,255,0.06))] flex items-center gap-2"
-            onClick={() => archiveConversation(menuOpenId)}
-          >
-            <span className="material-symbols-outlined text-[14px]">archive</span>
-            Archive
-          </button>
+          {allowArchiveConversations && (
+            <button
+              type="button"
+              className="w-full text-left px-3 py-2 text-xs text-red-400 hover:bg-[var(--color-card-hover,rgba(255,255,255,0.06))] flex items-center gap-2"
+              onClick={() => archiveConversation(menuOpenId)}
+            >
+              <span className="material-symbols-outlined text-[14px]">archive</span>
+              Archive
+            </button>
+          )}
           {allowDeleteConversations && (
             <button
               type="button"
@@ -1588,18 +1620,20 @@ export default function UnifiedChat({
                       <span className="material-symbols-outlined text-[16px]">edit</span>
                       Rename
                     </button>
-                    <button
-                      type="button"
-                      className="w-full text-left px-3 py-2 text-sm text-red-400 hover:bg-[var(--color-card-hover,rgba(255,255,255,0.06))] flex items-center gap-2"
-                      onClick={() => {
-                        setHeaderMenuOpen(false)
-                        archiveConversation(activeConversation.id)
-                        setMobilePane('list')
-                      }}
-                    >
-                      <span className="material-symbols-outlined text-[16px]">archive</span>
-                      Archive
-                    </button>
+                    {allowArchiveConversations && (
+                      <button
+                        type="button"
+                        className="w-full text-left px-3 py-2 text-sm text-red-400 hover:bg-[var(--color-card-hover,rgba(255,255,255,0.06))] flex items-center gap-2"
+                        onClick={() => {
+                          setHeaderMenuOpen(false)
+                          archiveConversation(activeConversation.id)
+                          setMobilePane('list')
+                        }}
+                      >
+                        <span className="material-symbols-outlined text-[16px]">archive</span>
+                        Archive
+                      </button>
+                    )}
                     {allowDeleteConversations && (
                       <button
                         type="button"
@@ -1640,8 +1674,8 @@ export default function UnifiedChat({
           {!loading && messages.length === 0 && (
             <div className="text-sm text-on-surface-variant py-8 text-center">
               {activeConversation
-                ? 'No messages yet. Send one below.'
-                : 'Select or create a conversation to get started.'}
+                ? allowSendMessages ? 'No messages yet. Send one below.' : 'No messages yet.'
+                : allowStartConversations ? 'Select or create a conversation to get started.' : 'Select a conversation to view messages.'}
             </div>
           )}
 
@@ -1751,7 +1785,7 @@ export default function UnifiedChat({
                         setError(err instanceof Error ? err.message : 'Failed to attach current page')
                       })
                     }}
-                    disabled={sending || contextRefs.some((ref) => contextReferenceKey(ref) === contextReferenceKey(currentPageContext))}
+                    disabled={!canUseComposer || sending || contextRefs.some((ref) => contextReferenceKey(ref) === contextReferenceKey(currentPageContext))}
                     title="Use current page as context"
                     className="inline-flex h-7 items-center gap-1.5 rounded-full border border-[var(--color-card-border)] bg-white/[0.04] px-2.5 text-[11px] font-medium text-on-surface-variant transition-colors hover:bg-white/[0.08] hover:text-on-surface disabled:opacity-45"
                   >
@@ -1787,7 +1821,7 @@ export default function UnifiedChat({
                   <select
                     value={agentEffort}
                     onChange={(event) => setAgentEffort(event.target.value as AgentEffort | '')}
-                    disabled={sending}
+                    disabled={!canUseComposer || sending}
                     title="Thinking effort"
                     aria-label="Thinking effort"
                     className="h-7 rounded-full border border-[var(--color-card-border)] bg-white/[0.04] px-2.5 text-[11px] font-medium text-on-surface-variant outline-none transition-colors hover:bg-white/[0.08] hover:text-on-surface focus:border-primary disabled:opacity-40"
@@ -1935,11 +1969,11 @@ export default function UnifiedChat({
             />
             {/* Attach */}
             <label
-              htmlFor={sending ? undefined : attachmentInputId}
+              htmlFor={!canUseComposer || sending ? undefined : attachmentInputId}
               role="button"
-              tabIndex={sending ? -1 : 0}
+              tabIndex={!canUseComposer || sending ? -1 : 0}
               onKeyDown={(e: KeyboardEvent<HTMLLabelElement>) => {
-                if (sending) return
+                if (!canUseComposer || sending) return
                 if (e.key === 'Enter' || e.key === ' ') {
                   e.preventDefault()
                   fileInputRef.current?.click()
@@ -1947,14 +1981,14 @@ export default function UnifiedChat({
               }}
               title={activeConversation ? 'Attach file' : 'Attach file and start a new conversation'}
               aria-label="Attach file"
-              aria-disabled={sending}
+              aria-disabled={!canUseComposer || sending}
               className="self-end flex items-center justify-center w-9 h-9 rounded-full text-on-surface-variant hover:text-on-surface hover:bg-white/[0.08] transition-colors aria-disabled:opacity-40 shrink-0 cursor-pointer aria-disabled:cursor-not-allowed"
             >
               <span className="material-symbols-outlined text-[20px]">attach_file</span>
             </label>
 
             <VoiceInputButton
-              disabled={sending || !activeConversation}
+              disabled={!allowSendMessages || sending || !activeConversation}
               onTranscript={addVoiceTranscriptToComposer}
               className="self-end"
             />
@@ -1982,13 +2016,15 @@ export default function UnifiedChat({
                 }
               }}
               placeholder={
-                activeConversation
-                  ? 'Send a message'
-                  : allowAgentParticipants
-                    ? 'Message Pip'
-                    : 'Create or select a conversation first'
+                !allowSendMessages
+                  ? 'Replies disabled for your role'
+                  : activeConversation
+                    ? 'Send a message'
+                    : allowStartConversations
+                      ? allowAgentParticipants ? 'Message Pip' : 'Create or select a conversation first'
+                      : 'Select a conversation first'
               }
-              disabled={sending}
+              disabled={!canUseComposer || sending}
               rows={1}
               className={[
                 'min-h-[40px] max-h-[160px] min-w-0 flex-1 resize-none bg-transparent px-1 py-2 text-[15px] placeholder:text-on-surface-variant disabled:opacity-60 focus:outline-none',
@@ -1997,7 +2033,7 @@ export default function UnifiedChat({
             />
             <button
               type="submit"
-              disabled={sending || (!input.trim() && attachments.length === 0)}
+              disabled={!canUseComposer || sending || (!input.trim() && attachments.length === 0)}
               aria-label="Send message"
               className={[
                 'self-end flex items-center justify-center w-9 h-9 rounded-full bg-primary text-on-primary disabled:opacity-40 hover:opacity-90 transition-opacity shrink-0',
@@ -2101,7 +2137,7 @@ export default function UnifiedChat({
               <button
                 type="button"
                 onClick={handleCreateConversation}
-                disabled={creatingConv || newParticipants.length === 0}
+                disabled={!allowStartConversations || creatingConv || newParticipants.length === 0}
                 className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-on-primary disabled:opacity-50 hover:opacity-90"
               >
                 {creatingConv ? 'Creating…' : 'Start conversation'}

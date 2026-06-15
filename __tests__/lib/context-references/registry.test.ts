@@ -44,9 +44,13 @@ interface MockQuery {
 
 function queryFor(docs: MockDoc[]): MockQuery {
   const query = {} as MockQuery
+  let maxDocs = docs.length
   query.where = jest.fn<MockQuery, [string, string, string]>(() => query)
-  query.limit = jest.fn<MockQuery, [number]>(() => query)
-  query.get = jest.fn<Promise<{ docs: MockDoc[] }>, []>(async () => ({ docs }))
+  query.limit = jest.fn<MockQuery, [number]>((limit: number) => {
+    maxDocs = limit
+    return query
+  })
+  query.get = jest.fn<Promise<{ docs: MockDoc[] }>, []>(async () => ({ docs: docs.slice(0, maxDocs) }))
   query.doc = jest.fn<MockDocHandle, [string]>((id: string) => ({
     get: jest.fn<Promise<MockDoc | MissingDoc>, []>(async () => docs.find((item) => item.id === id) ?? { id, exists: false, data: () => ({}) }),
     collection: jest.fn<MockQuery, [string]>(() => queryFor([])),
@@ -65,6 +69,21 @@ beforeEach(() => {
           email: 'jane@example.com',
           company: 'Client Co',
           notes: 'Interested in launch planning.',
+          deleted: false,
+        }),
+        ...Array.from({ length: 90 }, (_, index) => doc(`contact-filler-${index}`, {
+          orgId: 'org-1',
+          name: `Filler Contact ${index}`,
+          email: `filler-${index}@example.com`,
+          deleted: false,
+        })),
+        doc('contact-split-name', {
+          orgId: 'org-1',
+          firstName: 'Pieter',
+          lastName: 'Goosen',
+          email: 'pieter.goosen@example.com',
+          company: 'Prospect Co',
+          type: 'prospect',
           deleted: false,
         }),
         doc('other-contact', {
@@ -285,6 +304,36 @@ describe('context reference registry', () => {
       user: { uid: 'client-1', role: 'client', orgId: 'org-1', orgIds: ['org-1'], authKind: 'session' },
     })).resolves.toEqual([
       expect.objectContaining({ type: 'contact', id: 'contact-1', label: 'Jane Client' }),
+    ])
+  })
+
+  it('searches CRM contacts by split first and last name fields', async () => {
+    const { resolveContextReferences, searchContextReferences } = await import('@/lib/context-references/registry')
+    const user = { uid: 'client-1', role: 'client' as const, orgId: 'org-1', orgIds: ['org-1'], authKind: 'session' as const }
+
+    await expect(searchContextReferences({
+      type: 'contact',
+      query: 'piet',
+      orgId: 'org-1',
+      limit: 8,
+      user,
+    })).resolves.toEqual([
+      expect.objectContaining({
+        type: 'contact',
+        id: 'contact-split-name',
+        label: 'Pieter Goosen',
+        summary: expect.stringContaining('pieter.goosen@example.com'),
+      }),
+    ])
+
+    await expect(resolveContextReferences([
+      { type: 'contacts', id: 'contact-split-name', orgId: 'org-1', origin: 'mention' },
+    ], user, 'org-1')).resolves.toEqual([
+      expect.objectContaining({
+        type: 'contact',
+        id: 'contact-split-name',
+        label: 'Pieter Goosen',
+      }),
     ])
   })
 

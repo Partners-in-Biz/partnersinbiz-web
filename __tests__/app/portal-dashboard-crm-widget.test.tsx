@@ -172,6 +172,76 @@ describe('Portal dashboard CRM widget', () => {
     expect(dealActivity).toHaveAttribute('href', '/portal/deals/deal-1')
   })
 
+  it('treats dashboard payloads without connection arrays as empty instead of crashing', async () => {
+    global.fetch = jest.fn((input: RequestInfo | URL) => {
+      const url = String(input)
+
+      if (url === '/api/v1/portal/org') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ org: { id: 'org-1', name: 'Acme Board', slug: 'acme-board' } }),
+        } as Response)
+      }
+
+      if (url === '/api/v1/portal/dashboard') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            kpis: {
+              total_revenue: 0,
+              mrr: 0,
+              arr: 0,
+              active_subs: 0,
+              ad_revenue: 0,
+              iap_revenue: 0,
+              installs: 0,
+              sessions: 0,
+              outstanding: 0,
+              invoiced_revenue_paid: 0,
+              deltas: {},
+            },
+            period: { start: '2026-05-01', end: '2026-05-31' },
+          }),
+        } as Response)
+      }
+
+      if (url === '/api/v1/crm/dashboard') {
+        return Promise.resolve({ ok: true, json: async () => ({ success: true, data: {} }) } as Response)
+      }
+
+      if (url.startsWith('/api/v1/projects')) {
+        return Promise.resolve({ ok: true, json: async () => ({ data: [] }) } as Response)
+      }
+
+      if (url.startsWith('/api/v1/social/stats')) {
+        return Promise.resolve({ ok: true, json: async () => ({ data: null }) } as Response)
+      }
+
+      if (url.startsWith('/api/v1/social/posts')) {
+        return Promise.resolve({ ok: true, json: async () => ({ data: [] }) } as Response)
+      }
+
+      if (url === '/api/v1/crm/contacts?limit=1') {
+        return Promise.resolve({ ok: true, json: async () => ({ meta: { total: 0 }, data: [] }) } as Response)
+      }
+
+      if (url.startsWith('/api/v1/campaigns')) {
+        return Promise.resolve({ ok: true, json: async () => ({ data: [] }) } as Response)
+      }
+
+      if (url === '/api/v1/crm/capture-sources') {
+        return Promise.resolve({ ok: true, json: async () => ({ data: [] }) } as Response)
+      }
+
+      return Promise.reject(new Error(`Unexpected fetch: ${url}`))
+    }) as jest.Mock
+
+    render(<PortalDashboard />)
+
+    expect(await screen.findByText('No data yet.')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /Manage properties/ })).toHaveAttribute('href', '/portal/properties')
+  })
+
   it('keeps dashboard API calls and marketing links scoped when opened from a CRM company workspace', async () => {
     mockSearchParams = new URLSearchParams({ orgId: 'lumen-org', orgSlug: 'lumen-speeds' })
     global.fetch = jest.fn((input: RequestInfo | URL) => {

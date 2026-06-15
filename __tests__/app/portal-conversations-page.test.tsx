@@ -23,8 +23,32 @@ jest.mock('@/lib/firebase/config', () => ({
 
 jest.mock('@/components/chat/UnifiedChat', () => ({
   __esModule: true,
-  default: ({ initialConvId, orgId, orgName }: { initialConvId?: string; orgId: string; orgName?: string }) => (
-    <div data-testid="unified-chat" data-conv-id={initialConvId ?? ''} data-org-id={orgId}>
+  default: ({
+    initialConvId,
+    orgId,
+    orgName,
+    allowStartConversations,
+    allowSendMessages,
+    allowAgentParticipants,
+    allowArchiveConversations,
+  }: {
+    initialConvId?: string
+    orgId: string
+    orgName?: string
+    allowStartConversations?: boolean
+    allowSendMessages?: boolean
+    allowAgentParticipants?: boolean
+    allowArchiveConversations?: boolean
+  }) => (
+    <div
+      data-testid="unified-chat"
+      data-conv-id={initialConvId ?? ''}
+      data-org-id={orgId}
+      data-allow-start={String(allowStartConversations)}
+      data-allow-send={String(allowSendMessages)}
+      data-allow-agent={String(allowAgentParticipants)}
+      data-allow-archive={String(allowArchiveConversations)}
+    >
       {orgName}
     </div>
   ),
@@ -46,8 +70,21 @@ describe('ConversationsPage', () => {
       const url = String(input)
       if (url === '/api/v1/portal/org?orgId=lumen-org') {
         return jsonResponse({
-          org: { id: 'lumen-org', name: 'Lumen' },
-          user: { uid: 'user-1', name: 'Peet', email: 'peet@example.com', role: 'client' },
+          org: {
+            id: 'lumen-org',
+            name: 'Lumen',
+            modulePolicies: {
+              messages: {
+                actions: {
+                  start: { owner: true, admin: true, member: false },
+                  reply: { owner: true, admin: true, member: false },
+                  agentHandoff: { owner: true, admin: true, member: false },
+                  archive: { owner: true, admin: true, member: false },
+                },
+              },
+            },
+          },
+          user: { uid: 'user-1', name: 'Peet', email: 'peet@example.com', role: 'client', memberRole: 'member' },
         })
       }
       if (url === '/api/v1/portal/org') {
@@ -82,6 +119,10 @@ describe('ConversationsPage', () => {
     })
     expect(chat).toHaveAttribute('data-org-id', 'lumen-org')
     expect(chat).toHaveAttribute('data-conv-id', 'conv-1')
+    expect(chat).toHaveAttribute('data-allow-start', 'false')
+    expect(chat).toHaveAttribute('data-allow-send', 'false')
+    expect(chat).toHaveAttribute('data-allow-agent', 'false')
+    expect(chat).toHaveAttribute('data-allow-archive', 'false')
     expect(screen.getByText('Lumen workspace')).toBeInTheDocument()
   })
 

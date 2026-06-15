@@ -6,6 +6,7 @@ import { withPortalAuth } from '@/lib/auth/portal-middleware'
 import { adminDb } from '@/lib/firebase/admin'
 import { canUsePortalOrg, resolvePortalActiveOrgId } from '@/lib/portal/org-access'
 import { resolvePortalModules } from '@/lib/organizations/portal-modules'
+import { resolveOrganizationModulePolicies } from '@/lib/organizations/module-policies'
 import { resolveMemberAccessPolicy } from '@/lib/orgMembers/access-policy'
 import type { OrgRole } from '@/lib/organizations/types'
 
@@ -68,6 +69,7 @@ export const GET = withPortalAuth(async (req: NextRequest, uid: string) => {
       plan: org.plan ?? 'starter',
       status: org.status ?? 'active',
       portalModules: resolvePortalModules(org.settings),
+      modulePolicies: resolveOrganizationModulePolicies(org.settings),
     },
     user: {
       uid,

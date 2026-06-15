@@ -92,6 +92,50 @@ describe('PortalResearchPage company workspace scope', () => {
     )
   })
 
+  it('hides portal research creation when the organisation policy denies the member role', async () => {
+    global.fetch = jest.fn((input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url === '/api/v1/portal/org?orgId=lumen-org') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            org: {
+              id: 'lumen-org',
+              name: 'Lumen',
+              modulePolicies: {
+                research: {
+                  actions: {
+                    create: { owner: true, admin: true, member: false },
+                  },
+                },
+              },
+            },
+            user: { role: 'client', memberRole: 'member' },
+          }),
+        } as Response)
+      }
+      if (url === '/api/v1/portal/research?orgId=lumen-org') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ data: [] }),
+        } as Response)
+      }
+      return Promise.resolve({
+        ok: true,
+        json: async () => ({ data: [] }),
+      } as Response)
+    }) as jest.Mock
+
+    await act(async () => {
+      render(<PortalResearchPage />)
+      await Promise.resolve()
+      await Promise.resolve()
+    })
+
+    expect(await screen.findByText('Research creation is disabled for your organisation role.')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /new research/i })).not.toBeInTheDocument()
+  })
+
   it('keeps portal research detail APIs and back links scoped to the company workspace', () => {
     const route = source('app/(portal)/portal/research/[id]/page.tsx')
     const client = source('components/research/ResearchDetailClient.tsx')

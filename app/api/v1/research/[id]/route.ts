@@ -9,6 +9,7 @@ import {
   getResearchItem,
   updateResearchItem,
 } from '@/lib/research/store'
+import { assertUserCanPerformOrganizationModuleAction } from '@/lib/organizations/module-policy-access'
 
 export const dynamic = 'force-dynamic'
 
@@ -29,7 +30,7 @@ export const GET = withAuth('admin', async (_req: NextRequest, user: ApiUser, ct
   return apiSuccess(loaded.item)
 })
 
-export const PATCH = withAuth('admin', async (req: NextRequest, user: ApiUser, ctx: RouteContext) => {
+export const PATCH = withAuth('client', async (req: NextRequest, user: ApiUser, ctx: RouteContext) => {
   const { id } = await ctx.params
   const loaded = await loadAccessibleResearch(id, user)
   if (!loaded.ok) return loaded.response
@@ -37,14 +38,34 @@ export const PATCH = withAuth('admin', async (req: NextRequest, user: ApiUser, c
   const body = await req.json().catch(() => null)
   if (!body || typeof body !== 'object' || Array.isArray(body)) return apiError('Invalid JSON', 400)
 
+  const actionId = body.visibility === 'client_visible' ? 'clientVisible' : 'edit'
+  const editAccess = await assertUserCanPerformOrganizationModuleAction(
+    user,
+    loaded.item.orgId,
+    'research',
+    actionId,
+    actionId === 'clientVisible'
+      ? 'Client-visible research changes are disabled for your organisation role'
+      : 'Research editing is disabled for your organisation role',
+  )
+  if (!editAccess.ok) return apiError(editAccess.error, editAccess.status)
+
   await updateResearchItem(id, body, user)
   return apiSuccess({ id })
 })
 
-export const DELETE = withAuth('admin', async (_req: NextRequest, user: ApiUser, ctx: RouteContext) => {
+export const DELETE = withAuth('client', async (_req: NextRequest, user: ApiUser, ctx: RouteContext) => {
   const { id } = await ctx.params
   const loaded = await loadAccessibleResearch(id, user)
   if (!loaded.ok) return loaded.response
+  const deleteAccess = await assertUserCanPerformOrganizationModuleAction(
+    user,
+    loaded.item.orgId,
+    'research',
+    'archiveDelete',
+    'Research archive/delete is disabled for your organisation role',
+  )
+  if (!deleteAccess.ok) return apiError(deleteAccess.error, deleteAccess.status)
 
   await archiveResearchItem(id, user)
   return apiSuccess({ id, deleted: true })

@@ -5,6 +5,10 @@ import { apiError, apiSuccess } from '@/lib/api/response'
 import { withPortalAuthAndRole } from '@/lib/auth/portal-middleware'
 import { clientSafeMobileApp, serializeMobileApp } from '@/lib/mobile-apps/sanitize'
 import type { MobileAppPlatform, MobileAppProfileLink, MobileAppProfileLinkType } from '@/lib/mobile-apps/types'
+import {
+  canRolePerformModuleAction,
+  resolveOrganizationModulePolicies,
+} from '@/lib/organizations/module-policies'
 import { isPortalModuleEnabled } from '@/lib/organizations/portal-modules'
 
 export const dynamic = 'force-dynamic'
@@ -14,6 +18,20 @@ const PLATFORMS: MobileAppPlatform[] = ['ios', 'android', 'huawei', 'web', 'othe
 
 function cleanString(value: unknown): string | undefined {
   return typeof value === 'string' && value.trim() ? value.trim() : undefined
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === 'object' && !Array.isArray(value)
+}
+
+function mobileAppCapabilities(settings: unknown, role: unknown) {
+  const policies = resolveOrganizationModulePolicies(settings)
+  return {
+    canCreate: canRolePerformModuleAction(policies, 'mobileApps', 'create', role),
+    canEdit: canRolePerformModuleAction(policies, 'mobileApps', 'edit', role),
+    canManageStoreLinks: canRolePerformModuleAction(policies, 'mobileApps', 'storeLinks', role),
+    canViewAnalytics: canRolePerformModuleAction(policies, 'mobileApps', 'analytics', role),
+  }
 }
 
 function cleanProfileLink(value: unknown, uid: string): MobileAppProfileLink | null {
@@ -48,21 +66,37 @@ function withProfileLink(existing: MobileAppProfileLink[] | undefined, link: Mob
   return [...(Array.isArray(existing) ? existing : []), link]
 }
 
-async function mobileAppsModuleGuard(orgId: string) {
+async function mobileAppsModuleGuard(orgId: string, role: unknown, actionId = 'visibility') {
   const orgDoc = await adminDb.collection('organizations').doc(orgId).get()
   if (!orgDoc.exists) return apiError('Organisation not found', 404)
-  if (!isPortalModuleEnabled(orgDoc.data()?.settings, 'mobileApps')) {
+  const settings = orgDoc.data()?.settings
+  if (!isPortalModuleEnabled(settings, 'mobileApps')) {
     return apiError('Mobile Apps module is disabled for this client portal', 403, {
       moduleDisabled: true,
       module: 'mobileApps',
     })
   }
+  const policies = resolveOrganizationModulePolicies(settings)
+  if (!canRolePerformModuleAction(policies, 'mobileApps', actionId, role)) {
+    return apiError(
+      actionId === 'visibility'
+        ? 'Mobile Apps module is disabled for your organisation role'
+        : 'Mobile Apps action is disabled for your organisation role',
+      403,
+      {
+        moduleDisabled: actionId === 'visibility',
+        module: 'mobileApps',
+      },
+    )
+  }
   return null
 }
 
-export const GET = withPortalAuthAndRole('viewer', async (_req: NextRequest, _uid, orgId) => {
-  const disabled = await mobileAppsModuleGuard(orgId)
+export const GET = withPortalAuthAndRole('viewer', async (_req: NextRequest, _uid, orgId, role) => {
+  const disabled = await mobileAppsModuleGuard(orgId, role)
   if (disabled) return disabled
+  const orgDoc = await adminDb.collection('organizations').doc(orgId).get()
+  const capabilities = mobileAppCapabilities(orgDoc.data()?.settings, role)
 
   const snap = await adminDb
     .collection('mobile_apps')
@@ -74,14 +108,14 @@ export const GET = withPortalAuthAndRole('viewer', async (_req: NextRequest, _ui
     .filter((app) => app.visibility?.showInClientPortal !== false)
     .sort((a, b) => String(a.name ?? '').localeCompare(String(b.name ?? '')))
 
-  return apiSuccess({ apps })
+  return apiSuccess({ apps, capabilities })
 })
 
-export const PUT = withPortalAuthAndRole('member', async (req: NextRequest, uid, orgId) => {
-  const disabled = await mobileAppsModuleGuard(orgId)
+export const PUT = withPortalAuthAndRole('member', async (req: NextRequest, uid, orgId, role) => {
+  const body = await req.json().catch(() => ({}))
+  const disabled = await mobileAppsModuleGuard(orgId, role, isRecord(body.profileLink) ? 'storeLinks' : 'edit')
   if (disabled) return disabled
 
-  const body = await req.json().catch(() => ({}))
   const appId = typeof body.id === 'string' ? body.id.trim() : ''
   if (!appId) return apiError('id is required', 400)
 
@@ -111,11 +145,11 @@ export const PUT = withPortalAuthAndRole('member', async (req: NextRequest, uid,
   return apiSuccess({ id: appId, updated: true })
 })
 
-export const POST = withPortalAuthAndRole('member', async (req: NextRequest, uid, orgId) => {
-  const disabled = await mobileAppsModuleGuard(orgId)
+export const POST = withPortalAuthAndRole('member', async (req: NextRequest, uid, orgId, role) => {
+  const body = await req.json().catch(() => ({}))
+  const disabled = await mobileAppsModuleGuard(orgId, role, 'create')
   if (disabled) return disabled
 
-  const body = await req.json().catch(() => ({}))
   const appName = cleanString(body.appName) ?? cleanString(body.name)
   if (!appName) return apiError('appName is required', 400)
 

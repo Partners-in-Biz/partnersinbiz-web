@@ -129,7 +129,25 @@ export function normalizeMemberAccessPolicy(value: unknown): MemberAccessPolicy 
 export function defaultAccessPolicyFor(role: RoleWithSystem, accessScope?: unknown): MemberAccessPolicy {
   if (role === 'system' || role === 'owner' || role === 'admin') return FULL_ACCESS_POLICY
 
-  const scope = typeof accessScope === 'string' ? accessScope.trim() as LegacyAccessScope : 'none'
+  const rawScope = typeof accessScope === 'string' ? accessScope.trim() : ''
+  if (!rawScope) {
+    return role === 'viewer'
+      ? policy({
+          preset: 'reviewer',
+          modules: {
+            crm: true,
+            projects: true,
+            documents: true,
+            reports: true,
+            research: true,
+            properties: true,
+          },
+          recordScopes: { crm: 'owned_or_linked', projects: 'owned_or_linked' },
+        })
+      : FULL_ACCESS_POLICY
+  }
+
+  const scope = rawScope as LegacyAccessScope
   if (scope === 'all') return FULL_ACCESS_POLICY
   if (scope === 'crm') {
     return policy({

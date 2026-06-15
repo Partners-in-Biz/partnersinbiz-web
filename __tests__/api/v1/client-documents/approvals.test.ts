@@ -7,6 +7,9 @@ const mockBatchSet = jest.fn()
 const mockBatchUpdate = jest.fn()
 const mockBatchCommit = jest.fn()
 const mockGenerateApprovedDocumentProjectTasks = jest.fn()
+let organizationSettings: Record<string, unknown>
+let organizationMembers: Array<Record<string, unknown>>
+let orgMemberRoles: Record<string, string>
 
 jest.mock('firebase-admin/firestore', () => ({
   FieldValue: {
@@ -68,6 +71,9 @@ function jsonRequest(url: string, body: unknown, headers: Record<string, string>
 
 beforeEach(() => {
   jest.clearAllMocks()
+  organizationSettings = {}
+  organizationMembers = [{ userId: 'client-1', role: 'member' }]
+  orgMemberRoles = {}
   mockDocumentGet.mockReset()
   mockBatchCommit.mockResolvedValue(undefined)
   mockGenerateApprovedDocumentProjectTasks.mockResolvedValue({ ok: true, projectId: 'project-1', tasks: [], createdTaskIds: [] })
@@ -82,7 +88,38 @@ beforeEach(() => {
     collection: jest.fn(() => approvalsCollection),
   }
 
-  mockCollection.mockReturnValue({ doc: jest.fn(() => documentRef) })
+  mockCollection.mockImplementation((name: string) => {
+    if (name === 'client_documents') return { doc: jest.fn(() => documentRef) }
+    if (name === 'organizations') {
+      return {
+        doc: jest.fn((id: string) => ({
+          id,
+          get: jest.fn().mockResolvedValue({
+            exists: true,
+            id,
+            data: () => ({
+              id,
+              members: organizationMembers,
+              settings: organizationSettings,
+            }),
+          }),
+        })),
+      }
+    }
+    if (name === 'orgMembers') {
+      return {
+        doc: jest.fn((id: string) => ({
+          id,
+          get: jest.fn().mockResolvedValue(
+            orgMemberRoles[id]
+              ? { exists: true, id, data: () => ({ role: orgMemberRoles[id] }) }
+              : { exists: false, id, data: () => undefined },
+          ),
+        })),
+      }
+    }
+    return { doc: jest.fn(() => documentRef) }
+  })
 })
 
 describe('client document approvals API', () => {
@@ -176,6 +213,38 @@ describe('client document approvals API', () => {
     expect(mockBatchSet).not.toHaveBeenCalled()
   })
 
+  it('blocks operational approval when the organisation policy denies the client role', async () => {
+    organizationSettings = {
+      modulePolicies: {
+        documents: {
+          actions: {
+            reviewApproval: { owner: true, admin: true, member: false },
+          },
+        },
+      },
+    }
+    mockDocumentGet.mockResolvedValueOnce({
+      exists: true,
+      id: 'doc-1',
+      data: () => ({
+        orgId: 'org-1',
+        status: 'client_review',
+        approvalMode: 'operational',
+        latestPublishedVersionId: 'version-1',
+        linked: { clientOrgId: 'org-1' },
+        deleted: false,
+      }),
+    })
+
+    const { POST } = await import('@/app/api/v1/client-documents/[id]/approve/route')
+    const req = jsonRequest('http://localhost/api/v1/client-documents/doc-1/approve', {})
+    const res = await POST(req, clientUser, { params: Promise.resolve({ id: 'doc-1' }) })
+
+    expect(res.status).toBe(403)
+    expect(mockBatchSet).not.toHaveBeenCalled()
+    expect(mockBatchUpdate).not.toHaveBeenCalled()
+  })
+
   it('requires typed name for formal acceptance', async () => {
     mockDocumentGet.mockResolvedValueOnce({
       exists: true,
@@ -199,6 +268,42 @@ describe('client document approvals API', () => {
 
     expect(res.status).toBe(400)
     expect(mockBatchSet).not.toHaveBeenCalled()
+  })
+
+  it('blocks formal acceptance when the organisation policy denies the client role', async () => {
+    organizationSettings = {
+      modulePolicies: {
+        documents: {
+          actions: {
+            reviewApproval: { owner: true, admin: true, member: false },
+          },
+        },
+      },
+    }
+    mockDocumentGet.mockResolvedValueOnce({
+      exists: true,
+      id: 'doc-1',
+      data: () => ({
+        orgId: 'org-1',
+        status: 'client_review',
+        approvalMode: 'formal_acceptance',
+        latestPublishedVersionId: 'version-1',
+        linked: { clientOrgId: 'org-1' },
+        deleted: false,
+      }),
+    })
+
+    const { POST } = await import('@/app/api/v1/client-documents/[id]/accept/route')
+    const req = jsonRequest('http://localhost/api/v1/client-documents/doc-1/accept', {
+      actorName: 'Client Owner',
+      typedName: 'Client Owner',
+      checkboxText: 'I accept this proposal.',
+    })
+    const res = await POST(req, clientUser, { params: Promise.resolve({ id: 'doc-1' }) })
+
+    expect(res.status).toBe(403)
+    expect(mockBatchSet).not.toHaveBeenCalled()
+    expect(mockBatchUpdate).not.toHaveBeenCalled()
   })
 
   it('records formal acceptance with typed name and snapshots', async () => {
@@ -272,6 +377,34 @@ describe('client document approvals API', () => {
     const companyDoc = jest.fn(() => ({ get: companyGet }))
     mockCollection.mockImplementation((name: string) => {
       if (name === 'client_documents') return { doc: jest.fn(() => documentDoc) }
+      if (name === 'organizations') {
+        return {
+          doc: jest.fn((id: string) => ({
+            id,
+            get: jest.fn().mockResolvedValue({
+              exists: true,
+              id,
+              data: () => ({
+                id,
+                members: organizationMembers,
+                settings: organizationSettings,
+              }),
+            }),
+          })),
+        }
+      }
+      if (name === 'orgMembers') {
+        return {
+          doc: jest.fn((id: string) => ({
+            id,
+            get: jest.fn().mockResolvedValue(
+              orgMemberRoles[id]
+                ? { exists: true, id, data: () => ({ role: orgMemberRoles[id] }) }
+                : { exists: false, id, data: () => undefined },
+            ),
+          })),
+        }
+      }
       if (name === 'companies') return { doc: companyDoc }
       throw new Error(`Unexpected collection: ${name}`)
     })

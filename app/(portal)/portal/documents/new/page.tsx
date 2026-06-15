@@ -5,6 +5,10 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { CLIENT_DOCUMENT_TEMPLATES } from '@/lib/client-documents/templates'
 import type { ClientDocumentType } from '@/lib/client-documents/types'
+import {
+  canRolePerformModuleAction,
+  resolveOrganizationModulePolicies,
+} from '@/lib/organizations/module-policies'
 
 const TYPE_OPTIONS = CLIENT_DOCUMENT_TEMPLATES.map((template) => ({
   value: template.type,
@@ -15,6 +19,18 @@ const TYPE_OPTIONS = CLIENT_DOCUMENT_TEMPLATES.map((template) => ({
 function initialDocumentQuery() {
   if (typeof window === 'undefined') return new URLSearchParams()
   return new URLSearchParams(window.location.search)
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === 'object' && !Array.isArray(value)
+}
+
+function canCreateDocumentFromPortalBody(body: Record<string, unknown>) {
+  const org = isRecord(body.org) ? body.org : isRecord(body.data) && isRecord(body.data.org) ? body.data.org : {}
+  const user = isRecord(body.user) ? body.user : isRecord(body.data) && isRecord(body.data.user) ? body.data.user : {}
+  const policies = resolveOrganizationModulePolicies({ modulePolicies: org.modulePolicies })
+  const role = user.memberRole ?? user.role
+  return canRolePerformModuleAction(policies, 'documents', 'create', role)
 }
 
 export default function PortalNewDocumentPage() {
@@ -29,6 +45,7 @@ export default function PortalNewDocumentPage() {
     TYPE_OPTIONS.some(option => option.value === initialType) ? initialType as ClientDocumentType : 'sales_proposal'
   )
   const [submitting, setSubmitting] = useState(false)
+  const [canCreateDocument, setCanCreateDocument] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   const selectedTemplate = CLIENT_DOCUMENT_TEMPLATES.find((t) => t.type === type)
@@ -43,6 +60,9 @@ export default function PortalNewDocumentPage() {
           setOrgId(org.id)
           setOrgName(typeof org.name === 'string' ? org.name : '')
         }
+        if (body && typeof body === 'object' && !Array.isArray(body)) {
+          setCanCreateDocument(canCreateDocumentFromPortalBody(body as Record<string, unknown>))
+        }
       })
       .catch(() => {})
   }, [])
@@ -50,6 +70,10 @@ export default function PortalNewDocumentPage() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!orgId || !title.trim()) return
+    if (!canCreateDocument) {
+      setError('Document creation is disabled for your organisation role.')
+      return
+    }
     setSubmitting(true)
     setError(null)
     try {
@@ -110,6 +134,7 @@ export default function PortalNewDocumentPage() {
             onChange={(e) => setTitle(e.target.value)}
             placeholder="e.g. Acme Corp — Sales Proposal Q3 2026"
             required
+            disabled={!canCreateDocument}
             className="w-full rounded border border-[var(--color-outline)] bg-[var(--color-surface-variant)] px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-[var(--color-pib-accent)]"
           />
         </div>
@@ -123,6 +148,7 @@ export default function PortalNewDocumentPage() {
             id="type"
             value={type}
             onChange={(e) => setType(e.target.value as ClientDocumentType)}
+            disabled={!canCreateDocument}
             className="w-full rounded border border-[var(--color-outline)] bg-[var(--color-surface-variant)] px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-[var(--color-pib-accent)]"
           >
             {TYPE_OPTIONS.map((o) => (
@@ -164,11 +190,16 @@ export default function PortalNewDocumentPage() {
         {error && (
           <p className="rounded bg-red-900/30 px-3 py-2 text-sm text-red-400">{error}</p>
         )}
+        {!canCreateDocument && !error && (
+          <p className="rounded border border-[var(--color-outline)] bg-[var(--color-surface-variant)] px-3 py-2 text-sm text-on-surface-variant">
+            Document creation is disabled for your organisation role.
+          </p>
+        )}
 
         <div className="flex items-center gap-3 pt-1">
           <button
             type="submit"
-            disabled={submitting || !orgId || !title.trim()}
+            disabled={submitting || !orgId || !title.trim() || !canCreateDocument}
             className="btn-primary rounded px-5 py-2 text-sm font-medium disabled:opacity-50"
           >
             {submitting ? 'Creating…' : 'Create document'}

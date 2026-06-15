@@ -1,4 +1,5 @@
 // lib/invoices/invoice-number.ts
+import type * as FirebaseFirestore from 'firebase-admin/firestore'
 import { adminDb } from '@/lib/firebase/admin'
 
 /**
@@ -6,24 +7,61 @@ import { adminDb } from '@/lib/firebase/admin'
  * Format: CLI-001 (first 3 letters of client name, uppercase, then sequential number)
  * Example: "Lumen Digital" → LUM-001, LUM-002, etc.
  *
- * Uses a counter document at organizations/{orgId}/counters/invoices to prevent
- * duplicate numbers under concurrent requests (duplicate + cron firing simultaneously).
+ * Uses a prefix-specific counter document at
+ * organizations/{orgId}/counters/invoices_{PREFIX}. That keeps COU-001,
+ * AHS-001, etc. independent while still preventing duplicates for the same
+ * prefix under concurrent requests.
  */
-export async function generateInvoiceNumber(orgId: string, clientName: string): Promise<string> {
-  // Build prefix from first 3 letters of client name (uppercase, alpha only)
+function invoicePrefix(clientName: string): string {
   const alphaOnly = clientName.replace(/[^a-zA-Z]/g, '')
-  const prefix = (alphaOnly.length >= 3 ? alphaOnly.slice(0, 3) : alphaOnly.padEnd(3, 'X')).toUpperCase()
+  return (alphaOnly.length >= 3 ? alphaOnly.slice(0, 3) : alphaOnly.padEnd(3, 'X')).toUpperCase()
+}
+
+function counterIdForPrefix(prefix: string): string {
+  return `invoices_${prefix}`
+}
+
+function invoiceSequenceForPrefix(invoiceNumber: unknown, prefix: string): number {
+  if (typeof invoiceNumber !== 'string') return 0
+  const match = invoiceNumber.match(new RegExp(`^${prefix}-(\\d+)$`))
+  return match ? Number(match[1]) || 0 : 0
+}
+
+async function highestExistingSequenceForPrefix(
+  orgId: string,
+  prefix: string,
+  tx?: FirebaseFirestore.Transaction,
+): Promise<number> {
+  const query = adminDb.collection('invoices').where('orgId', '==', orgId)
+  const snap = tx ? await tx.get(query) : await query.get()
+  return snap.docs.reduce((max, doc) => {
+    const sequence = invoiceSequenceForPrefix(doc.data()?.invoiceNumber, prefix)
+    return Math.max(max, sequence)
+  }, 0)
+}
+
+function counterCount(snap: FirebaseFirestore.DocumentSnapshot): number {
+  if (!snap.exists) return 0
+  const count = snap.data()?.count
+  return typeof count === 'number' && Number.isFinite(count) ? count : 0
+}
+
+export async function generateInvoiceNumber(orgId: string, clientName: string): Promise<string> {
+  const prefix = invoicePrefix(clientName)
 
   const counterRef = adminDb
     .collection('organizations')
     .doc(orgId)
     .collection('counters')
-    .doc('invoices')
+    .doc(counterIdForPrefix(prefix))
 
   const count = await adminDb.runTransaction(async (tx) => {
     const snap = await tx.get(counterRef)
-    const next = snap.exists ? (snap.data()!.count as number) + 1 : 1
-    tx.set(counterRef, { count: next }, { merge: true })
+    const current = snap.exists
+      ? counterCount(snap)
+      : await highestExistingSequenceForPrefix(orgId, prefix, tx)
+    const next = current + 1
+    tx.set(counterRef, { count: next, prefix }, { merge: true })
     return next
   })
 
@@ -35,17 +73,19 @@ export async function generateInvoiceNumber(orgId: string, clientName: string): 
  * Reads the current counter without incrementing — safe to call without side effects.
  */
 export async function previewNextInvoiceNumber(orgId: string, clientName: string): Promise<string> {
-  const alphaOnly = clientName.replace(/[^a-zA-Z]/g, '')
-  const prefix = (alphaOnly.length >= 3 ? alphaOnly.slice(0, 3) : alphaOnly.padEnd(3, 'X')).toUpperCase()
+  const prefix = invoicePrefix(clientName)
 
   const counterRef = adminDb
     .collection('organizations')
     .doc(orgId)
     .collection('counters')
-    .doc('invoices')
+    .doc(counterIdForPrefix(prefix))
 
   const snap = await counterRef.get()
-  const next = snap.exists ? (snap.data()!.count as number) + 1 : 1
+  const current = snap.exists
+    ? counterCount(snap)
+    : await highestExistingSequenceForPrefix(orgId, prefix)
+  const next = current + 1
 
   return `${prefix}-${String(next).padStart(3, '0')}`
 }

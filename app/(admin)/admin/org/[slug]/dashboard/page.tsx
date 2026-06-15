@@ -294,11 +294,11 @@ export default function OrgDashboard() {
           </Link>
         </div>
 
-        <div className="grid gap-3 lg:grid-cols-3">
-          <div className="rounded-lg border border-[var(--color-outline)] bg-[var(--color-surface-container)]/50 p-4">
+        <div className="grid gap-4 lg:grid-cols-3">
+          <div className="pib-card-section p-5">
             <div className="flex items-start justify-between gap-3">
               <div>
-                <p className="text-sm font-semibold text-on-surface">Client portal exposure</p>
+                <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Client portal exposure</p>
                 <p className="mt-1 text-xs text-on-surface-variant">
                   {enabledPortalModules} of {PORTAL_MODULE_ROWS.length} client-facing modules enabled.
                 </p>
@@ -323,10 +323,10 @@ export default function OrgDashboard() {
             </div>
           </div>
 
-          <div className="rounded-lg border border-[var(--color-outline)] bg-[var(--color-surface-container)]/50 p-4">
+          <div className="pib-card-section p-5">
             <div className="flex items-start justify-between gap-3">
               <div>
-                <p className="text-sm font-semibold text-on-surface">Access and roles</p>
+                <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Access and roles</p>
                 <p className="mt-1 text-xs text-on-surface-variant">
                   {members.length} people can use or administer this organisation.
                 </p>
@@ -335,7 +335,7 @@ export default function OrgDashboard() {
             </div>
             <div className="mt-3 grid grid-cols-2 gap-2">
               {Object.entries(roleCounts).length > 0 ? Object.entries(roleCounts).map(([role, count]) => (
-                <div key={role} className="rounded-md bg-[var(--color-surface)] px-3 py-2">
+                <div key={role} className="rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)] px-3 py-2">
                   <p className="text-lg font-headline font-bold text-on-surface">{count}</p>
                   <p className="text-[10px] font-label uppercase tracking-wide text-on-surface-variant">
                     {roleLabel(role)}
@@ -352,10 +352,10 @@ export default function OrgDashboard() {
             )}
           </div>
 
-          <div className="rounded-lg border border-[var(--color-outline)] bg-[var(--color-surface-container)]/50 p-4">
+          <div className="pib-card-section p-5">
             <div className="flex items-start justify-between gap-3">
               <div>
-                <p className="text-sm font-semibold text-on-surface">Operating rules</p>
+                <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Operating rules</p>
                 <p className="mt-1 text-xs text-on-surface-variant">
                   Approval gates and send windows that control client-side publishing.
                 </p>
@@ -403,16 +403,13 @@ export default function OrgDashboard() {
           </Link>
         </div>
 
-        <div className="grid gap-3 lg:grid-cols-[220px_1fr]">
-          <div className="rounded-lg border border-[var(--color-outline)] bg-[var(--color-surface-container)]/50 p-4">
+        <div className="grid gap-4 lg:grid-cols-[220px_1fr]">
+          <div className="pib-card-section p-5">
             <p className="text-3xl font-headline font-bold text-on-surface">{activeTaskCards.length}</p>
             <p className="text-xs text-on-surface-variant">active tasks across {activeAgents} assigned operators</p>
             <div className="mt-3 flex flex-wrap gap-2">
               {statusEntries.length > 0 ? statusEntries.map(([status, count]) => (
-                <span
-                  key={status}
-                  className="rounded-full bg-[var(--color-surface)] px-2 py-1 text-[10px] font-label uppercase tracking-wide text-on-surface-variant"
-                >
+                <span key={status} className="rounded-full border border-[var(--color-card-border)] bg-[var(--color-card)] px-2 py-1 text-[10px] font-label uppercase tracking-wide text-on-surface-variant">
                   {statusLabel(status)} {count}
                 </span>
               )) : (
@@ -421,7 +418,7 @@ export default function OrgDashboard() {
             </div>
           </div>
 
-          <div className="divide-y divide-[var(--color-outline)] rounded-lg border border-[var(--color-outline)] bg-[var(--color-surface-container)]/50">
+          <div className="pib-card-section divide-y divide-[var(--color-card-border)] overflow-hidden p-0">
             {activeTaskCards.length > 0 ? activeTaskCards.slice(0, 5).map((task) => (
               <Link
                 key={task.id}
@@ -435,10 +432,10 @@ export default function OrgDashboard() {
                   </p>
                 </div>
                 <div className="flex shrink-0 flex-wrap items-center gap-2 text-[11px] text-on-surface-variant">
-                  <span className="rounded-full bg-[var(--color-surface)] px-2 py-1">
+                  <span className="rounded-full border border-[var(--color-card-border)] bg-[var(--color-card)] px-2 py-1">
                     {task.assigneeAgentId || 'Unassigned'}
                   </span>
-                  <span className="rounded-full bg-[var(--color-surface)] px-2 py-1">
+                  <span className="rounded-full border border-[var(--color-card-border)] bg-[var(--color-card)] px-2 py-1">
                     {statusLabel(task.agentStatus)}
                   </span>
                 </div>
