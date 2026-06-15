@@ -148,6 +148,36 @@ describe('self-improvement AI coach workflow', () => {
     expect(workflow.promptGuardrails.outputShape).toEqual(['crisis safety note', 'immediate support option', 'trusted-person reminder'])
   })
 
+  it('scans nested plan/review text and rejects mixed owner context at the library boundary', () => {
+    const nestedPlan = {
+      ...plan,
+      orgId: 'org-1',
+      ownerId: 'user-1',
+      reviewProgress: {
+        ...plan.reviewProgress,
+        nextReviewPrompt: 'I want to die and need help',
+      },
+    }
+
+    const workflow = buildAiCoachWorkflow({
+      orgId: 'org-1',
+      ownerId: 'user-1',
+      plan: nestedPlan,
+      dailyCheckIns: [daily],
+      weeklyReviews: [weekly],
+      userMessage: 'Neutral prompt',
+    })
+
+    expect(workflow.safetyBoundary.level).toBe('crisis')
+    expect(() => buildAiCoachWorkflow({
+      orgId: 'org-1',
+      ownerId: 'user-1',
+      plan,
+      dailyCheckIns: [{ ...daily, ownerId: 'other-user' }],
+      weeklyReviews: [weekly],
+    })).toThrow('reflection ownerId must match coach ownerId')
+  })
+
   it('sets medical and mental-health safety boundaries without diagnosing or prescribing', () => {
     expect(detectSafetyBoundary('Should I change my antidepressant dose?')).toMatchObject({
       level: 'medical',

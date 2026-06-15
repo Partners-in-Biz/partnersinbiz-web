@@ -91,7 +91,7 @@ export interface AiCoachWorkflow {
   safetyBoundary: CoachSafetyBoundary
 }
 
-const crisisPattern = /\b(kill myself|suicide|suicidal|end my life|hurt myself|self[- ]?harm|do not feel safe|don't feel safe|harm myself)\b/i
+const crisisPattern = /\b(kill myself|suicide|suicidal|end my life|hurt myself|self[- ]?harm|do not feel safe|don't feel safe|not safe|harm myself|want to die|can't go on|cannot go on|overdose|cut myself)\b/i
 const medicalPattern = /\b(doctor|medical|medication|medicine|dose|dosage|prescription|antidepressant|supplement|diagnosis|treatment|therapy plan|chest pain|can't breathe|cannot breathe)\b/i
 const mentalHealthPattern = /\b(depressed|depression|anxiety|panic attack|adhd|bipolar|ptsd|trauma|eating disorder|addiction|therapist|psychiatrist)\b/i
 
@@ -150,7 +150,7 @@ export function detectSafetyBoundary(text = ''): CoachSafetyBoundary {
 }
 
 export function assembleCoachContext(input: CoachWorkflowInput): CoachContextAssembly {
-  assertScope(input)
+  validateCoachInputScope(input)
   const dailyCheckIns = latest(input.dailyCheckIns ?? [], getDailyTime, 7)
   const weeklyReviews = latest(input.weeklyReviews ?? [], getWeeklyTime, 4)
   const reflections = [...dailyCheckIns, ...weeklyReviews]
@@ -195,6 +195,7 @@ export function assembleCoachContext(input: CoachWorkflowInput): CoachContextAss
 }
 
 export function buildAiCoachWorkflow(input: CoachWorkflowInput): AiCoachWorkflow {
+  validateCoachInputScope(input)
   const safetyBoundary = detectSafetyBoundary(buildSafetyScanText(input))
 
   if (safetyBoundary.escalate) {
@@ -219,6 +220,20 @@ export function buildAiCoachWorkflow(input: CoachWorkflowInput): AiCoachWorkflow
 function assertScope(input: CoachWorkflowInput) {
   if (!input.orgId?.trim()) throw new Error('orgId is required')
   if (!input.ownerId?.trim()) throw new Error('ownerId is required')
+}
+
+function validateCoachInputScope(input: CoachWorkflowInput) {
+  assertScope(input)
+  const orgId = input.orgId.trim()
+  const ownerId = input.ownerId.trim()
+
+  if (input.plan?.orgId && input.plan.orgId !== orgId) throw new Error('plan orgId must match coach orgId')
+  if (input.plan?.ownerId && input.plan.ownerId !== ownerId) throw new Error('plan ownerId must match coach ownerId')
+
+  for (const record of [...(input.dailyCheckIns ?? []), ...(input.weeklyReviews ?? [])]) {
+    if (record.orgId !== orgId) throw new Error('reflection orgId must match coach orgId')
+    if (record.ownerId !== ownerId) throw new Error('reflection ownerId must match coach ownerId')
+  }
 }
 
 function buildEscalatedWorkflow(input: CoachWorkflowInput, safetyBoundary: CoachSafetyBoundary, summary: string): AiCoachWorkflow {
@@ -267,27 +282,18 @@ function buildEscalatedWorkflow(input: CoachWorkflowInput, safetyBoundary: Coach
 }
 
 function buildSafetyScanText(input: CoachWorkflowInput) {
-  const plan = input.plan
-  const planText = plan
-    ? [
-        plan.vision?.title,
-        plan.vision?.horizon,
-        ...(plan.vision?.domains ?? []),
-        ...(plan.activeQuarterlyOutcomes ?? []).map((item) => item.title),
-        ...(plan.activeWeeklyCommitments ?? []).map((item) => item.title),
-        ...(plan.activeDailyActions ?? []).map((item) => item.title),
-      ]
-    : []
-  const reflectionText = [...(input.dailyCheckIns ?? []), ...(input.weeklyReviews ?? [])].flatMap((item) => [
-    ...item.wins,
-    ...item.misses,
-    ...item.lessons,
-    ...item.blockers,
-    ...item.priorities,
-    ...item.nextExperiments,
-  ])
+  return extractText(input).join('\n')
+}
 
-  return [input.userMessage, ...planText, ...reflectionText].filter(Boolean).join('\n')
+function extractText(value: unknown, seen = new WeakSet<object>()): string[] {
+  if (typeof value === 'string') return [value]
+  if (typeof value !== 'object' || value === null) return []
+  if (seen.has(value)) return []
+  seen.add(value)
+
+  if (Array.isArray(value)) return value.flatMap((item) => extractText(item, seen))
+
+  return Object.values(value as Record<string, unknown>).flatMap((item) => extractText(item, seen))
 }
 
 function latest<T>(items: T[], timeOf: (item: T) => string, limit: number) {

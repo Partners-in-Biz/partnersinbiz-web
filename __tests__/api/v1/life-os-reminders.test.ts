@@ -5,9 +5,12 @@ const mockPreferencesDoc = jest.fn()
 const mockPreferencesGet = jest.fn()
 const mockPreferencesSet = jest.fn()
 const mockReminderAdd = jest.fn()
+const mockReminderDoc = jest.fn()
+const mockReminderSet = jest.fn()
 const mockReminderGet = jest.fn()
 const mockReminderWhere = jest.fn()
 const mockReminderOrderBy = jest.fn()
+const mockReminderLimit = jest.fn()
 
 const mockUser = { uid: 'user-1', role: 'admin' as const, orgId: 'org-1' }
 type MockAuthHandler = (req: NextRequest, user: typeof mockUser, ctx?: unknown) => unknown
@@ -41,15 +44,18 @@ beforeEach(() => {
   mockPreferencesDoc.mockReturnValue({ get: mockPreferencesGet, set: mockPreferencesSet })
 
   mockReminderAdd.mockResolvedValue({ id: 'reminder-1' })
+  mockReminderSet.mockResolvedValue(undefined)
+  mockReminderDoc.mockReturnValue({ set: mockReminderSet })
   mockReminderGet.mockResolvedValue(docs([
     { id: 'reminder-existing', data: { orgId: 'org-1', ownerId: 'user-1', kind: 'daily-check-in', status: 'scheduled', scheduledFor: '2026-06-15T07:30:00.000+02:00' } },
   ]))
-  mockReminderOrderBy.mockReturnValue({ get: mockReminderGet })
-  mockReminderWhere.mockReturnValue({ where: mockReminderWhere, orderBy: mockReminderOrderBy, get: mockReminderGet })
+  mockReminderLimit.mockReturnValue({ get: mockReminderGet })
+  mockReminderOrderBy.mockReturnValue({ limit: mockReminderLimit, get: mockReminderGet })
+  mockReminderWhere.mockReturnValue({ where: mockReminderWhere, orderBy: mockReminderOrderBy, limit: mockReminderLimit, get: mockReminderGet })
 
   mockCollection.mockImplementation((name: string) => {
     if (name === 'life_os_reminder_preferences') return { doc: mockPreferencesDoc }
-    if (name === 'life_os_reminders') return { add: mockReminderAdd, where: mockReminderWhere }
+    if (name === 'life_os_reminders') return { add: mockReminderAdd, doc: mockReminderDoc, where: mockReminderWhere }
     throw new Error(`Unexpected collection ${name}`)
   })
 })

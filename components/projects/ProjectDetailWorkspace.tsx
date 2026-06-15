@@ -38,7 +38,7 @@ interface Project {
   status?: string
   columns: Column[]
 }
-interface CurrentUser { uid: string; displayName: string }
+interface CurrentUser { uid: string; displayName: string; role?: string; isSuperAdmin?: boolean }
 interface OrganizationOption { id: string; name: string; slug?: string; type?: string; status?: string }
 type TaskListSort = 'latest' | 'due'
 type ProjectTab = 'kanban' | 'plan' | 'docs' | 'agent' | 'settings'
@@ -319,7 +319,6 @@ export function ProjectDetailWorkspace({
   }, [projectId, refreshTasks])
 
   useEffect(() => {
-    if (!isAdmin) return
     let cancelled = false
     fetch('/api/auth/verify')
       .then(async (res) => {
@@ -332,7 +331,12 @@ export function ProjectDetailWorkspace({
           (typeof body?.email === 'string' && body.email.trim()) ||
           uid
         if (!cancelled) {
-          setCurrentUser({ uid, displayName })
+          setCurrentUser({
+            uid,
+            displayName,
+            role: typeof body?.role === 'string' ? body.role : undefined,
+            isSuperAdmin: body?.isSuperAdmin === true,
+          })
           setUserLoadError(null)
         }
       })
@@ -340,7 +344,7 @@ export function ProjectDetailWorkspace({
         if (!cancelled) setUserLoadError(err instanceof Error ? err.message : 'User load failed')
       })
     return () => { cancelled = true }
-  }, [isAdmin])
+  }, [])
 
   useEffect(() => {
     if (!deepLinkedTaskId) return
@@ -526,6 +530,8 @@ export function ProjectDetailWorkspace({
   const visibleTabs = isAdmin ? PROJECT_TABS : PROJECT_TABS.filter(tab => tab.id !== 'agent')
   const selectedColumn = columns.find(c => c.id === selectedTask?.columnId)
   const composerColumn = columns.find(c => c.id === showNewTask) ?? null
+  const canUseAgentAssignments = isAdmin || currentUser?.isSuperAdmin === true || currentUser?.role === 'admin' || currentUser?.role === 'ai'
+  const hideAgentAssignmentControls = !canUseAgentAssignments
   const sortedListTasks = [...tasks].sort((a, b) => {
     if (taskListSort === 'latest') {
       const latestA = timestampToMillis(a.createdAt) || timestampToMillis(a.updatedAt) || a.order || 0
@@ -878,7 +884,7 @@ export function ProjectDetailWorkspace({
           orgId={project?.orgId}
           members={members}
           agents={agents}
-          hideAgentSection={mode === 'portal'}
+          hideAgentSection={hideAgentAssignmentControls}
           surface={isAdmin ? 'admin' : 'portal'}
           onClose={() => setSelectedTask(null)}
           onUpdate={handleTaskUpdate}
@@ -893,7 +899,7 @@ export function ProjectDetailWorkspace({
         members={members}
         agents={agents}
         existingTasks={tasks}
-        hideAgentSection={mode === 'portal'}
+        hideAgentSection={hideAgentAssignmentControls}
         surface={isAdmin ? 'admin' : 'portal'}
         onClose={() => setShowNewTask(null)}
         onCreated={handleTaskCreated}
