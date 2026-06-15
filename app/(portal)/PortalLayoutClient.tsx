@@ -46,7 +46,6 @@ const NAV_LINKS: NavItem[] = [
   { href: '/portal/mobile-apps', label: 'Mobile Apps', icon: 'smartphone', group: 'work' },
   { href: '/portal/youtube-studio', label: 'YouTube Studio', icon: 'smart_display', group: 'work' },
   { href: '/portal/book-studio', label: 'Book Studio', icon: 'auto_stories', group: 'work' },
-  { href: '/portal/first-run', label: 'First-run', icon: 'flag_circle', group: 'work' },
   {
     href: '/portal/crm',
     label: 'CRM',
@@ -458,7 +457,6 @@ function PortalLayoutContent({ children }: { children: React.ReactNode }) {
     if (item.href === '/portal/mobile-apps') return portalModules.mobileApps
     if (item.href === '/portal/youtube-studio') return portalModules.youtubeStudio
     if (item.href === '/portal/book-studio') return portalModules.bookStudio
-    if (item.href === '/portal/first-run') return portalModules.firstRunFlow
     return true
   })
   const navWithBadges: NavItem[] = visibleNavLinks.map((item) => {

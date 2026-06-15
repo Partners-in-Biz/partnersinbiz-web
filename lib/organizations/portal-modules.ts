@@ -1,4 +1,4 @@
-export type PortalModuleKey = 'mobileApps' | 'youtubeStudio' | 'bookStudio' | 'firstRunFlow'
+export type PortalModuleKey = 'mobileApps' | 'youtubeStudio' | 'bookStudio'
 
 export type PortalModules = Record<PortalModuleKey, boolean>
 
@@ -6,7 +6,6 @@ export const DEFAULT_PORTAL_MODULES: PortalModules = {
   mobileApps: true,
   youtubeStudio: true,
   bookStudio: false,
-  firstRunFlow: false,
 }
 
 type OrgSettingsLike = {
@@ -19,7 +18,6 @@ export function resolvePortalModules(settings: OrgSettingsLike): PortalModules {
     mobileApps: stored.mobileApps !== false,
     youtubeStudio: stored.youtubeStudio !== false,
     bookStudio: stored.bookStudio === true,
-    firstRunFlow: stored.firstRunFlow === true,
   }
 }
 

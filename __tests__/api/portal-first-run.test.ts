@@ -3,7 +3,8 @@ import { NextRequest } from 'next/server'
 const mockCollection = jest.fn()
 const mockOrgGet = jest.fn()
 const mockMemberGet = jest.fn()
-const mockMemberSet = jest.fn()
+const mockProfileGet = jest.fn()
+const mockProfileSet = jest.fn()
 
 type MockPortalRoleHandler = (
   req: NextRequest,
@@ -26,18 +27,22 @@ jest.mock('firebase-admin/firestore', () => ({
 }))
 
 function stageCollections({
-  portalModules = {},
+  features = {},
   member = {},
+  profile = null,
 }: {
-  portalModules?: Record<string, boolean>
+  features?: Record<string, boolean>
   member?: Record<string, unknown>
+  profile?: Record<string, unknown> | null
 } = {}) {
-  mockOrgGet.mockResolvedValue({ exists: true, data: () => ({ settings: { portalModules } }) })
+  mockOrgGet.mockResolvedValue({ exists: true, data: () => ({ settings: { features } }) })
   mockMemberGet.mockResolvedValue({ exists: true, data: () => member })
-  mockMemberSet.mockResolvedValue(undefined)
+  mockProfileGet.mockResolvedValue({ exists: Boolean(profile), data: () => profile ?? undefined })
+  mockProfileSet.mockResolvedValue(undefined)
   mockCollection.mockImplementation((name: string) => {
     if (name === 'organizations') return { doc: () => ({ get: mockOrgGet }) }
-    if (name === 'orgMembers') return { doc: () => ({ get: mockMemberGet, set: mockMemberSet }) }
+    if (name === 'orgMembers') return { doc: () => ({ get: mockMemberGet }) }
+    if (name === 'life_os_profiles') return { doc: () => ({ get: mockProfileGet, set: mockProfileSet }) }
     throw new Error(`Unexpected collection: ${name}`)
   })
 }
@@ -45,11 +50,12 @@ function stageCollections({
 beforeEach(() => {
   jest.clearAllMocks()
   jest.resetModules()
+  process.env.LIFE_OS_ENABLED = 'true'
   stageCollections()
 })
 
 describe('portal first-run feature gate', () => {
-  it('blocks reads and writes when the first-run portal module is disabled', async () => {
+  it('blocks reads and writes when the approved Life OS feature flag is disabled', async () => {
     const { GET, PATCH } = await import('@/app/api/v1/portal/first-run/route')
 
     const getRes = await GET(new NextRequest('http://localhost/api/v1/portal/first-run'))
@@ -61,11 +67,23 @@ describe('portal first-run feature gate', () => {
 
     expect(getRes.status).toBe(403)
     expect(patchRes.status).toBe(403)
-    expect(mockMemberSet).not.toHaveBeenCalled()
+    expect(mockProfileSet).not.toHaveBeenCalled()
+  })
+
+  it('blocks reads when the environment kill switch is off even if org settings are enabled', async () => {
+    process.env.LIFE_OS_ENABLED = 'false'
+    stageCollections({ features: { lifeOs: true } })
+
+    const { GET } = await import('@/app/api/v1/portal/first-run/route')
+    const res = await GET(new NextRequest('http://localhost/api/v1/portal/first-run'))
+
+    expect(res.status).toBe(403)
+    expect(mockProfileGet).not.toHaveBeenCalled()
+    expect(mockProfileSet).not.toHaveBeenCalled()
   })
 
   it('returns safe first-run defaults when the feature flag is enabled', async () => {
-    stageCollections({ portalModules: { firstRunFlow: true }, member: { firstName: 'Peet', lastName: 'Stander' } })
+    stageCollections({ features: { lifeOs: true }, member: { firstName: 'Peet', lastName: 'Stander' } })
 
     const { GET } = await import('@/app/api/v1/portal/first-run/route')
     const res = await GET(new NextRequest('http://localhost/api/v1/portal/first-run'))
@@ -73,7 +91,7 @@ describe('portal first-run feature gate', () => {
 
     expect(res.status).toBe(200)
     expect(body.data).toMatchObject({
-      portalModule: 'firstRunFlow',
+      portalModule: 'lifeOs',
       firstRun: {
         completed: false,
         identity: { preferredName: 'Peet Stander' },
@@ -88,7 +106,7 @@ describe('portal first-run feature gate', () => {
   })
 
   it('sanitizes and persists identity, values, domains, constraints, goals, baseline, and consent settings', async () => {
-    stageCollections({ portalModules: { firstRunFlow: true }, member: { role: 'owner' } })
+    stageCollections({ features: { lifeOs: true }, member: { role: 'owner' } })
 
     const { PATCH } = await import('@/app/api/v1/portal/first-run/route')
     const res = await PATCH(new NextRequest('http://localhost/api/v1/portal/first-run', {
@@ -106,11 +124,11 @@ describe('portal first-run feature gate', () => {
     }))
 
     expect(res.status).toBe(200)
-    expect(mockMemberSet).toHaveBeenCalledWith(
+    expect(mockProfileSet).toHaveBeenCalledWith(
       expect.objectContaining({
         orgId: 'org-1',
-        uid: 'uid-1',
-        firstRunFlow: expect.objectContaining({
+        ownerUid: 'uid-1',
+        firstRun: expect.objectContaining({
           completed: true,
           identity: { preferredName: 'Peet', pronouns: 'he/him', location: 'Ballito' },
           values: ['freedom', 'family'],
@@ -129,7 +147,7 @@ describe('portal first-run feature gate', () => {
   })
 
   it('requires explicit storage consent before persisting first-run answers', async () => {
-    stageCollections({ portalModules: { firstRunFlow: true } })
+    stageCollections({ features: { lifeOs: true } })
 
     const { PATCH } = await import('@/app/api/v1/portal/first-run/route')
     const res = await PATCH(new NextRequest('http://localhost/api/v1/portal/first-run', {
@@ -139,6 +157,6 @@ describe('portal first-run feature gate', () => {
     }))
 
     expect(res.status).toBe(400)
-    expect(mockMemberSet).not.toHaveBeenCalled()
+    expect(mockProfileSet).not.toHaveBeenCalled()
   })
 })

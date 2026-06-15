@@ -4,7 +4,6 @@ import { FieldValue } from 'firebase-admin/firestore'
 import { apiError, apiErrorFromException, apiSuccess } from '@/lib/api/response'
 import { withPortalAuthAndRole } from '@/lib/auth/portal-middleware'
 import { adminDb } from '@/lib/firebase/admin'
-import { isPortalModuleEnabled } from '@/lib/organizations/portal-modules'
 
 export const dynamic = 'force-dynamic'
 
@@ -142,13 +141,22 @@ function cleanPayload(body: unknown, member: RecordLike) {
 }
 
 async function firstRunModuleGuard(orgId: string) {
+  if (process.env.LIFE_OS_ENABLED !== 'true') {
+    return apiError('Life OS is disabled by the environment feature flag', 403, {
+      moduleDisabled: true,
+      module: 'lifeOs',
+    })
+  }
+
   const orgSnap = await adminDb.collection('organizations').doc(orgId).get()
   if (!orgSnap.exists) return apiError('Organisation not found', 404)
   const org = orgSnap.data() ?? {}
-  if (!isPortalModuleEnabled(org.settings, 'firstRunFlow')) {
+  const settings = asRecord(org.settings)
+  const features = asRecord(settings.features)
+  if (features.lifeOs !== true) {
     return apiError('First-run setup is disabled for this client portal', 403, {
       moduleDisabled: true,
-      module: 'firstRunFlow',
+      module: 'lifeOs',
     })
   }
   return null
@@ -161,9 +169,11 @@ export const GET = withPortalAuthAndRole('viewer', async (_req: NextRequest, uid
 
     const memberSnap = await adminDb.collection('orgMembers').doc(`${orgId}_${uid}`).get()
     const member = memberSnap.exists ? (memberSnap.data() ?? {}) : {}
+    const profileSnap = await adminDb.collection('life_os_profiles').doc(`${orgId}_${uid}`).get()
+    const profile = profileSnap.exists ? (profileSnap.data() ?? {}) : {}
     return apiSuccess({
-      portalModule: 'firstRunFlow',
-      firstRun: cleanExistingFirstRun(member.firstRunFlow, member),
+      portalModule: 'lifeOs',
+      firstRun: cleanExistingFirstRun(profile.firstRun, member),
     })
   } catch (err) {
     return apiErrorFromException(err)
@@ -175,28 +185,29 @@ export const PATCH = withPortalAuthAndRole('viewer', async (req: NextRequest, ui
     const guard = await firstRunModuleGuard(orgId)
     if (guard) return guard
 
-    const memberRef = adminDb.collection('orgMembers').doc(`${orgId}_${uid}`)
-    const memberSnap = await memberRef.get()
+    const memberSnap = await adminDb.collection('orgMembers').doc(`${orgId}_${uid}`).get()
     const member = memberSnap.exists ? (memberSnap.data() ?? {}) : {}
+    const profileRef = adminDb.collection('life_os_profiles').doc(`${orgId}_${uid}`)
+    const profileSnap = await profileRef.get()
     const body = await req.json().catch(() => ({}))
-    const firstRunFlow = cleanPayload(body, member)
+    const firstRun = cleanPayload(body, member)
 
-    if (!firstRunFlow.privacy.consentToStore) {
+    if (!firstRun.privacy.consentToStore) {
       return apiError('Storage consent is required before saving first-run answers', 400)
     }
 
-    await memberRef.set(
+    await profileRef.set(
       {
         orgId,
-        uid,
-        firstRunFlow,
+        ownerUid: uid,
+        firstRun,
         updatedAt: FieldValue.serverTimestamp(),
-        ...(!memberSnap.exists ? { createdAt: FieldValue.serverTimestamp() } : {}),
+        ...(!profileSnap.exists ? { createdAt: FieldValue.serverTimestamp() } : {}),
       },
       { merge: true },
     )
 
-    return apiSuccess({ portalModule: 'firstRunFlow', firstRun: firstRunFlow })
+    return apiSuccess({ portalModule: 'lifeOs', firstRun })
   } catch (err) {
     return apiErrorFromException(err)
   }
