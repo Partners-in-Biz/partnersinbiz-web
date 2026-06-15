@@ -9,6 +9,11 @@ import {
   updatePlanningItemTitle,
   type GoalBreakdownPlan,
 } from '@/lib/self-improvement/planning'
+import {
+  buildDailyCheckIn,
+  buildWeeklyReview,
+  summarizeReflectionInsights,
+} from '@/lib/self-improvement/reflections'
 
 const starterPlan = {
   id: 'vision-founder-life-os',
@@ -61,6 +66,34 @@ export function LifeOsPlanningWorkbench() {
     () => `${Math.round(plan.reviewProgress.completionRate * 100)}% complete`,
     [plan.reviewProgress.completionRate],
   )
+  const dailyCheckIn = useMemo(() => buildDailyCheckIn({
+    orgId: 'pib-platform-owner',
+    ownerId: 'demo-user',
+    localDate: '2026-06-17',
+    wins: ['Protected a deep-work block', 'Closed one open loop with evidence'],
+    misses: ['Evening walk slipped'],
+    lessons: ['Reviewing blockers before noon protects the day'],
+    energy: 3,
+    mood: 4,
+    blockers: ['context switching'],
+    priorities: ['finish the review flow'],
+    nextExperiments: ['move the walk to a morning cue'],
+  }, '2026-06-17T08:00:00.000Z'), [])
+  const weeklyReview = useMemo(() => buildWeeklyReview({
+    orgId: 'pib-platform-owner',
+    ownerId: 'demo-user',
+    weekStart: '2026-06-15',
+    weekEnd: '2026-06-21',
+    wins: ['Two protected maker blocks'],
+    misses: ['Recovery habit was too late in the day'],
+    lessons: ['Morning cues survive client escalations better than evening plans'],
+    energy: 4,
+    mood: 4,
+    blockers: ['late-day fatigue'],
+    priorities: ['keep maker mornings', 'restart recovery habit'],
+    nextExperiments: ['ten-minute recovery habit before the first meeting'],
+  }, '2026-06-21T17:00:00.000Z'), [])
+  const insightSummary = useMemo(() => summarizeReflectionInsights([dailyCheckIn], [weeklyReview]), [dailyCheckIn, weeklyReview])
 
   function saveQuarterTitle() {
     setPlan((current) => updatePlanningItemTitle(current, 'quarterlyOutcome', quarter.id, quarterTitle))
@@ -208,6 +241,44 @@ export function LifeOsPlanningWorkbench() {
         </article>
       </div>
 
+      <div className="grid gap-4 lg:grid-cols-3">
+        <ReflectionCard
+          title="Daily check-in"
+          eyebrow="Today capture"
+          items={[
+            `Wins: ${dailyCheckIn.wins.join('; ')}`,
+            `Misses: ${dailyCheckIn.misses.join('; ')}`,
+            `Lessons: ${dailyCheckIn.lessons.join('; ')}`,
+            `Energy ${dailyCheckIn.energy}/5 · Mood ${dailyCheckIn.mood}/5`,
+            `Blockers: ${dailyCheckIn.blockers.join('; ')}`,
+            `Priorities: ${dailyCheckIn.priorities.join('; ')}`,
+            `Next experiments: ${dailyCheckIn.nextExperiments.join('; ')}`,
+          ]}
+        />
+        <ReflectionCard
+          title="Weekly review"
+          eyebrow="Review ritual"
+          items={[
+            weeklyReview.summary,
+            `Wins: ${weeklyReview.wins.join('; ')}`,
+            `Misses: ${weeklyReview.misses.join('; ')}`,
+            `Lessons: ${weeklyReview.lessons.join('; ')}`,
+            `Blockers: ${weeklyReview.blockers.join('; ')}`,
+            `Next experiments: ${weeklyReview.nextExperiments.join('; ')}`,
+          ]}
+        />
+        <article className="rounded-2xl border border-indigo-100 bg-indigo-50 p-4">
+          <p className="text-xs font-semibold uppercase tracking-wide text-indigo-700">AI coach context</p>
+          <h2 className="mt-2 text-lg font-semibold text-indigo-950">{dailyCheckIn.coachContext.emotionalTone}</h2>
+          <p className="mt-2 text-sm leading-6 text-indigo-950">{dailyCheckIn.coachContext.nextCoachPrompt}</p>
+          <p className="mt-4 text-xs font-semibold uppercase tracking-wide text-indigo-700">Insights dashboard signals</p>
+          <p className="mt-2 text-sm text-indigo-950">
+            {insightSummary.totalWins} wins · {insightSummary.totalMisses} misses · {insightSummary.totalLessons} lessons · {insightSummary.totalBlockers} blockers · energy {insightSummary.averageEnergy}/5 · mood {insightSummary.averageMood}/5
+          </p>
+          <p className="mt-2 text-sm text-indigo-950">Active experiments: {insightSummary.activeExperiments.join('; ')}</p>
+        </article>
+      </div>
+
       <div className="rounded-2xl border border-slate-200 bg-slate-950 p-4 text-white">
         <p className="text-xs font-semibold uppercase tracking-wide text-emerald-300">Reviewable progress</p>
         <p className="mt-2 text-sm leading-6 text-slate-200">{plan.reviewProgress.nextReviewPrompt}</p>
@@ -216,6 +287,20 @@ export function LifeOsPlanningWorkbench() {
         ) : null}
       </div>
     </section>
+  )
+}
+
+function ReflectionCard({ title, eyebrow, items }: { title: string; eyebrow: string; items: string[] }) {
+  return (
+    <article className="rounded-2xl border border-slate-200 bg-white p-4">
+      <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{eyebrow}</p>
+      <h2 className="mt-2 text-lg font-semibold text-slate-950">{title}</h2>
+      <ul className="mt-3 space-y-2 text-sm leading-6 text-slate-700">
+        {items.map((item) => (
+          <li key={item}>{item}</li>
+        ))}
+      </ul>
+    </article>
   )
 }
 
