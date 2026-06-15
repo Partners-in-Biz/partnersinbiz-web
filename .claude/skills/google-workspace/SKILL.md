@@ -399,10 +399,31 @@ Maya is asked to "create a Black Friday social pack for Loyalty Plus":
 
 Hermes agents on `hermes-vps-01` (Helsinki, Hetzner CX23) access the same Drive via two paths:
 
-- **`rclone` mount** — service account JSON at `/etc/hermes/google-drive-sa.json`; provides a filesystem-like interface to Drive. Use for bulk operations or when an agent needs to read Drive content without going through the PiB API.
-- **PiB API proxy** — agents call `https://partnersinbiz.online/api/v1/google/...` with `Bearer $AI_API_KEY` exactly as Mac-side agents do. Same auth, same endpoints. Preferred for all standard operations.
+- **PiB API proxy** — agents call `https://partnersinbiz.online/api/v1/google/...` with `Bearer $AI_API_KEY` exactly as Mac-side agents do. Same auth, same endpoints. Preferred for standard operations once the production runtime has `GOOGLE_WORKSPACE_CREDS_JSON` or `GOOGLE_WORKSPACE_CREDS_JSON_PATH`.
+- **`rclone` remote** — VPS `gdrive:` is configured for the `hermes` user and can upload/read Drive files directly. Use this for VPS-local binary artifacts when the API proxy is blocked by missing Vercel Google credentials or when uploading large files from `/var/lib/hermes/outputs`.
 
-Both paths give the same view of `My Drive/Clients/`. The service account JSON is the credential in both cases.
+Both paths should target the same Drive workspace, but they use different credentials. Do not assume the
+PiB API proxy is live just because `rclone` works, and do not assume the `hermes` user can use a root-only
+rclone config. Verify from the agent user:
+
+```bash
+sudo -iu hermes bash -lc 'rclone about gdrive: >/dev/null && echo gdrive-ok'
+```
+
+For a VPS-local artifact upload:
+
+```bash
+sudo -iu hermes bash -lc '
+  rclone copyto /var/lib/hermes/outputs/<run>/<file> "gdrive:PiB Agent Research/outputs/<run>/<file>"
+  rclone link "gdrive:PiB Agent Research/outputs/<run>/<file>"
+'
+```
+
+The verified 2026-06-15 system video path is:
+
+```text
+gdrive:PiB Agent Research/outputs/pib-system-video-2026-06-15/partners-in-biz-system.mp4
+```
 
 ---
 
@@ -482,6 +503,15 @@ rclone config create gdrive drive \
 ```
 
 Test: `rclone ls gdrive:Clients/Loyalty\ Plus/01_brand/`
+
+If `root` has a working `gdrive:` remote but `hermes` does not, copy only the rclone config file into
+the hermes account with locked-down permissions:
+
+```bash
+install -d -m 700 -o hermes -g hermes /var/lib/hermes/.config/rclone
+install -m 600 -o hermes -g hermes /root/.config/rclone/rclone.conf /var/lib/hermes/.config/rclone/rclone.conf
+sudo -iu hermes bash -lc 'rclone about gdrive:'
+```
 
 ### Step 8 — Smoke test
 
