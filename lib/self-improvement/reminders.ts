@@ -121,6 +121,7 @@ export function evaluateReminderDue(candidate: ReminderCandidate, preferences: R
   if (!preferences.channels.inApp && !preferences.channels.push && !preferences.channels.email) {
     return { due: false, reason: 'notification-channel-disabled', scheduledFor }
   }
+  if (Date.parse(now) < Date.parse(scheduledFor)) return { due: false, reason: 'not-yet-due', scheduledFor }
 
   const localNow = getLocalParts(now, preferences.quietHours.timezone)
   if (isQuietTime(localNow.timeMinutes, preferences.quietHours)) {
