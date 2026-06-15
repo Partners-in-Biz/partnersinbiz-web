@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { adminDb } from '@/lib/firebase/admin'
 import { FieldValue } from 'firebase-admin/firestore'
-import { createCalendarEvent } from '@/lib/google/calendar'
 import { getResendClient, FROM_ADDRESS } from '@/lib/email/resend'
 import { enforcePublicRateLimit, publicRequestIp, publicRateLimitHash } from '@/lib/api/public-rate-limit'
+import { fulfillConfirmedBooking } from '@/lib/bookings/fulfillment'
 
 function isValidEmail(e: string) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e)
@@ -58,24 +58,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'This slot was just taken — please choose another.' }, { status: 409 })
   }
 
-  // Google Calendar event — failure is non-fatal
-  let googleEventId = ''
-  let meetLink = ''
-  let calendarError = ''
-  try {
-    const result = await createCalendarEvent({
-      name: name.trim(),
-      email: email.trim().toLowerCase(),
-      date,
-      time,
-    })
-    googleEventId = result.eventId
-    meetLink = result.meetLink
-  } catch (err) {
-    calendarError = err instanceof Error ? err.message : String(err)
-    console.error('[bookings] Google Calendar event failed:', calendarError)
-  }
-
   const docRef = await adminDb.collection('bookings').add({
     name: name.trim(),
     email: email.trim().toLowerCase(),
@@ -85,11 +67,28 @@ export async function POST(request: NextRequest) {
     time,
     durationMins: 20,
     timezone: 'Africa/Johannesburg',
-    googleEventId,
-    meetLink,
+    googleEventId: '',
+    meetLink: '',
     status: 'confirmed',
+    fulfillmentStatus: 'pending',
     createdAt: FieldValue.serverTimestamp(),
   })
+
+  const fulfillment = await fulfillConfirmedBooking({
+    id: docRef.id,
+    name: name.trim(),
+    email: email.trim().toLowerCase(),
+    company: company?.trim() ?? '',
+    brief: brief?.trim() ?? '',
+    date,
+    time,
+    durationMins: 20,
+    timezone: 'Africa/Johannesburg',
+  }, { sendGoogleUpdates: 'all' })
+
+  const googleEventId = fulfillment.googleEventId ?? ''
+  const meetLink = fulfillment.meetLink ?? ''
+  const calendarError = fulfillment.errors.find((error) => error.startsWith('google_calendar:'))?.replace(/^google_calendar:\s*/, '') ?? ''
 
   const { displayDate, displayTime } = formatDisplay(date, time)
   const adminEmail = process.env.ADMIN_EMAIL || 'peet.stander@partnersinbiz.online'

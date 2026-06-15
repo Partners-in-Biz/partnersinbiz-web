@@ -37,10 +37,12 @@ export interface CalendarEventResult {
 }
 
 export async function createCalendarEvent(booking: {
+  id?: string
   name: string
   email: string
   date: string
   time: string
+  sendUpdates?: 'all' | 'none'
 }): Promise<CalendarEventResult> {
   const calendarId = process.env.GOOGLE_CALENDAR_ID
   if (!calendarId) throw new Error('GOOGLE_CALENDAR_ID not set')
@@ -52,20 +54,23 @@ export async function createCalendarEvent(booking: {
   const startDt = `${booking.date}T${pad(hour)}:${pad(minute)}:00`
   const endTotalMins = hour * 60 + minute + DURATION_MINS
   const endDt = `${booking.date}T${pad(Math.floor(endTotalMins / 60))}:${pad(endTotalMins % 60)}:00`
+  const requestId = (booking.id ? `pib-booking-${booking.id}` : `pib-${booking.date}-${booking.time}-${booking.email}`)
+    .replace(/[^a-zA-Z0-9_-]/g, '-')
+    .slice(0, 96)
 
   const event = await cal.events.insert({
     calendarId,
-    sendUpdates: 'all',
+    sendUpdates: booking.sendUpdates ?? 'all',
     conferenceDataVersion: 1,
     requestBody: {
       summary: `Intro Call — ${booking.name}`,
-      description: `20-min intro call booked via partnersinbiz.online\n\nClient: ${booking.name}\nEmail: ${booking.email}`,
+      description: `20-min intro call booked via partnersinbiz.online\n\nClient: ${booking.name}\nEmail: ${booking.email}${booking.id ? `\nBooking ID: ${booking.id}` : ''}`,
       start: { dateTime: startDt, timeZone: TIMEZONE },
       end: { dateTime: endDt, timeZone: TIMEZONE },
       attendees: [{ email: booking.email, displayName: booking.name }],
       conferenceData: {
         createRequest: {
-          requestId: `pib-${booking.date}-${booking.time}-${Date.now()}`,
+          requestId,
           conferenceSolutionKey: { type: 'hangoutsMeet' },
         },
       },
