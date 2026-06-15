@@ -7,6 +7,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { withPortalAuthAndRole } from '@/lib/auth/portal-middleware'
 import { listMetrics } from '@/lib/metrics/query'
 import { logActivity } from '@/lib/activity/log'
+import { buildLifeOsExport, deleteOrAnonymiseLifeOsUserData, requestLifeOsDelete } from '@/lib/privacy/life-os-user-data'
+import { FirestoreLifeOsUserDataStore } from '@/lib/privacy/life-os-user-data-firestore'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
