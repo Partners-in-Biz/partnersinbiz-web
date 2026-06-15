@@ -146,9 +146,6 @@ export function AdminSidebar({ open = false, onClose, collapsed = false, onToggl
                   </span>
                 )}
               </div>
-              <span className={['ml-auto pill !text-[10px] !py-0.5 !px-2', isWorkspaceMode ? 'pill-accent' : ''].join(' ')}>
-                {isWorkspaceMode ? workspaceLabel : 'Admin'}
-              </span>
             </>
           )}
         </div>
