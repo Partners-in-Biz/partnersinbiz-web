@@ -34,6 +34,7 @@ describe('AdCampaignAdminActions', () => {
         orgSlug="acme"
         campaignId="camp_1"
         status="DRAFT"
+        reviewState="approved"
       />,
     )
 
@@ -41,6 +42,24 @@ describe('AdCampaignAdminActions', () => {
 
     expect(await screen.findByRole('alert')).toHaveTextContent('Launch blocked by validation')
     expect(alertSpy).not.toHaveBeenCalled()
+  })
+
+  it('keeps launch locked until client approval evidence is present', () => {
+    render(
+      <AdCampaignAdminActions
+        orgId="org_1"
+        orgSlug="acme"
+        campaignId="camp_1"
+        status="DRAFT"
+      />,
+    )
+
+    const launch = screen.getByRole('button', { name: 'Launch campaign camp_1' })
+    expect(launch).toBeDisabled()
+    expect(screen.getByText(/client approval is recorded/i)).toBeInTheDocument()
+
+    fireEvent.click(launch)
+    expect(global.fetch).not.toHaveBeenCalled()
   })
 
   it('submits for client review through an in-page confirmation', async () => {

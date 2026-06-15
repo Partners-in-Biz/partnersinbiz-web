@@ -35,7 +35,7 @@ const DEFAULT_RSA: RsaAssets = {
 }
 
 const OBJECTIVES: { value: AdObjective; label: string; description: string }[] = [
-  { value: 'TRAFFIC', label: 'Traffic', description: 'Drive clicks to your website' },
+  { value: 'TRAFFIC', label: 'Traffic', description: 'Drive clicks to the client website' },
   { value: 'AWARENESS', label: 'Awareness', description: 'Maximise impressions and reach' },
   { value: 'LEADS', label: 'Leads', description: 'Collect leads from interested users' },
   { value: 'SALES', label: 'Sales', description: 'Optimise for purchases and conversions' },

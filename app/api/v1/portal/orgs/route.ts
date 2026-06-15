@@ -7,6 +7,7 @@ import { withPortalAuth } from '@/lib/auth/portal-middleware'
 import { adminDb } from '@/lib/firebase/admin'
 import { choosePortalActiveOrgId, getPortalOrgIdsForUser } from '@/lib/portal/org-access'
 import { resolvePortalModules } from '@/lib/organizations/portal-modules'
+import { resolveOrganizationModulePolicies } from '@/lib/organizations/module-policies'
 
 export const dynamic = 'force-dynamic'
 
@@ -32,6 +33,7 @@ export const GET = withPortalAuth(async (_req: NextRequest, uid: string) => {
       type: (d.data()!.type as string) ?? 'client',
       logoUrl: (d.data()!.logoUrl as string) ?? '',
       portalModules: resolvePortalModules(d.data()!.settings),
+      modulePolicies: resolveOrganizationModulePolicies(d.data()!.settings),
     }))
 
   const loadedOrgIds = orgs.map((org) => org.id)

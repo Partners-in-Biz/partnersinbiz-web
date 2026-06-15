@@ -10,7 +10,11 @@ import { CommentComposer } from '@/components/inline-comments/CommentComposer'
 import type { AnchorTarget } from '@/components/inline-comments/types'
 import type { ClientDocument, ClientDocumentVersion, DocumentComment } from '@/lib/client-documents/types'
 import type { ContextReference } from '@/lib/context-references/types'
-import { scopedPortalPath, scopeFromSearchParams } from '@/lib/portal/scoped-routing'
+import {
+  canRolePerformModuleAction,
+  resolveOrganizationModulePolicies,
+} from '@/lib/organizations/module-policies'
+import { scopedApiPath, scopedPortalPath, scopeFromSearchParams } from '@/lib/portal/scoped-routing'
 
 interface Props {
   params: Promise<{ id: string }>
@@ -21,14 +25,29 @@ type PendingAnchor =
   | { kind: 'image'; mediaUrl: string; blockId: string | null }
   | { kind: 'general' }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === 'object' && !Array.isArray(value)
+}
+
+function canReviewApprovalFromPortalBody(body: Record<string, unknown>) {
+  const org = isRecord(body.org) ? body.org : isRecord(body.data) && isRecord(body.data.org) ? body.data.org : {}
+  const user = isRecord(body.user) ? body.user : isRecord(body.data) && isRecord(body.data.user) ? body.data.user : {}
+  const policies = resolveOrganizationModulePolicies({ modulePolicies: org.modulePolicies })
+  const role = user.memberRole ?? user.role
+  return canRolePerformModuleAction(policies, 'documents', 'reviewApproval', role)
+}
+
 export default function PortalDocumentDetail({ params }: Props) {
   const { id } = use(params)
   const searchParams = useSearchParams()
-  const documentsHref = scopedPortalPath('/portal/documents', scopeFromSearchParams(searchParams))
+  const portalScope = scopeFromSearchParams(searchParams)
+  const documentsHref = scopedPortalPath('/portal/documents', portalScope)
+  const orgEndpoint = scopedApiPath('/api/v1/portal/org', portalScope)
   const [doc, setDoc] = useState<ClientDocument | null>(null)
   const [version, setVersion] = useState<ClientDocumentVersion | null>(null)
   const [comments, setComments] = useState<DocumentComment[]>([])
   const [loading, setLoading] = useState(true)
+  const [canReviewApproval, setCanReviewApproval] = useState(true)
   const [showApproveModal, setShowApproveModal] = useState(false)
   const [typedName, setTypedName] = useState('')
   const [agreed, setAgreed] = useState(false)
@@ -53,15 +72,22 @@ export default function PortalDocumentDetail({ params }: Props) {
   useEffect(() => {
     async function load() {
       try {
-        const [docRes, versionsRes, commentsRes] = await Promise.all([
+        const orgPolicyRequest = fetch(orgEndpoint)
+          .then((res) => (res.ok ? res.json() : null))
+          .catch(() => null)
+        const [docRes, versionsRes, commentsRes, orgPolicyBody] = await Promise.all([
           fetch(`/api/v1/client-documents/${id}`),
           fetch(`/api/v1/client-documents/${id}/versions`),
           fetch(`/api/v1/client-documents/${id}/comments`),
+          orgPolicyRequest,
         ])
 
         const docData = await docRes.json()
         const versionsData = await versionsRes.json()
         const commentsData = await commentsRes.json()
+        if (isRecord(orgPolicyBody)) {
+          setCanReviewApproval(canReviewApprovalFromPortalBody(orgPolicyBody))
+        }
 
         const document: ClientDocument = docData.data ?? docData
         setDoc(document)
@@ -81,7 +107,7 @@ export default function PortalDocumentDetail({ params }: Props) {
       }
     }
     load()
-  }, [id])
+  }, [id, orgEndpoint])
 
   const handleRequestTextComment = useCallback((anchor: { text: string; blockId: string | null }) => {
     setPendingAnchor({ kind: 'text', text: anchor.text, blockId: anchor.blockId })
@@ -155,7 +181,7 @@ export default function PortalDocumentDetail({ params }: Props) {
   }
 
   async function handleApprove() {
-    if (!doc) return
+    if (!doc || !canReviewApproval) return
     if (doc.approvalMode === 'formal_acceptance') {
       setShowApproveModal(true)
       return
@@ -175,7 +201,7 @@ export default function PortalDocumentDetail({ params }: Props) {
   }
 
   async function handleFormalAccept() {
-    if (!typedName.trim() || !agreed || approving) return
+    if (!typedName.trim() || !agreed || approving || !canReviewApproval) return
     setApproving(true)
     try {
       await fetch(`/api/v1/client-documents/${id}/accept`, {
@@ -219,7 +245,7 @@ export default function PortalDocumentDetail({ params }: Props) {
   }
 
   const canComment = doc.clientPermissions.canComment
-  const canApprove = doc.clientPermissions.canApprove && doc.status === 'client_review' && !approved
+  const canApprove = canReviewApproval && doc.clientPermissions.canApprove && doc.status === 'client_review' && !approved
 
   const composerAnchor: AnchorTarget | null = !pendingAnchor
     ? null

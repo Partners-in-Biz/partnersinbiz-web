@@ -110,7 +110,7 @@ export function BudgetDetailClient({ budget, events, orgSlug }: Props) {
           currentSpendPercent: json.data?.currentSpendPercent ?? 0,
         }))
         setConfirmAction(null)
-        setActionMsg('Budget period reset. Spend tracking is back at 0.')
+        setActionMsg('Budget period reset. Spend tracking is back at 0; this does not approve additional paid spend.')
       } else {
         setActionError(json.error ?? 'Budget reset failed')
       }
@@ -192,8 +192,8 @@ export function BudgetDetailClient({ budget, events, orgSlug }: Props) {
               </h2>
               <p id="budget-detail-confirm-description" className="text-sm text-white/65">
                 {confirmAction === 'reset'
-                  ? `Spend tracking restarts at 0 for the current ${currentBudget.period} period. Historical budget events stay in PiB.`
-                  : `This removes ${currentBudget.name} from active pacing controls. Historical spend and events stay in PiB.`}
+                  ? `Spend tracking restarts at 0 for the current ${currentBudget.period} period. Historical budget events stay in PiB; this does not approve additional paid spend.`
+                  : `This removes ${currentBudget.name} from active admin pacing controls. Historical spend and events stay in PiB; this does not approve or increase paid spend.`}
               </p>
             </div>
             <div className="flex shrink-0 gap-2">

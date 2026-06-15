@@ -76,6 +76,15 @@ describe('portal document detail scoped routing', () => {
           json: async () => ({ data: [] }),
         } as Response)
       }
+      if (url === '/api/v1/portal/org?orgId=lumen-org') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            org: { id: 'lumen-org', name: 'Lumen Speeds', modulePolicies: {} },
+            user: { role: 'client', memberRole: 'member' },
+          }),
+        } as Response)
+      }
       return Promise.reject(new Error(`Unexpected fetch: ${url}`))
     }) as jest.Mock
 
@@ -89,6 +98,78 @@ describe('portal document detail scoped routing', () => {
       '/portal/documents?orgId=lumen-org&orgSlug=lumen-speeds&sourceCompanyId=company-1&sourceCompanyName=Lumen',
     )
     expect(screen.queryByRole('link', { name: 'arrow_back Back to Documents' })).not.toBeInTheDocument()
+  })
+
+  it('hides document approval when the active organisation policy denies member review approval', async () => {
+    mockSearchParams = new URLSearchParams({
+      orgId: 'lumen-org',
+      orgSlug: 'lumen-speeds',
+    })
+    global.fetch = jest.fn((input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url === '/api/v1/client-documents/doc-lumen') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            data: {
+              id: 'doc-lumen',
+              orgId: 'lumen-org',
+              title: 'Lumen proposal',
+              type: 'sales_proposal',
+              status: 'client_review',
+              currentVersionId: 'version-1',
+              approvalMode: 'operational',
+              linked: {},
+              clientPermissions: {
+                canComment: false,
+                canApprove: true,
+              },
+            },
+          }),
+        } as Response)
+      }
+      if (url === '/api/v1/client-documents/doc-lumen/versions') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            data: [{ id: 'version-1', documentId: 'doc-lumen', status: 'published', blocks: [] }],
+          }),
+        } as Response)
+      }
+      if (url === '/api/v1/client-documents/doc-lumen/comments') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ data: [] }),
+        } as Response)
+      }
+      if (url === '/api/v1/portal/org?orgId=lumen-org') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            org: {
+              id: 'lumen-org',
+              name: 'Lumen Speeds',
+              modulePolicies: {
+                documents: {
+                  actions: {
+                    reviewApproval: { owner: true, admin: true, member: false },
+                  },
+                },
+              },
+            },
+            user: { role: 'client', memberRole: 'member' },
+          }),
+        } as Response)
+      }
+      return Promise.reject(new Error(`Unexpected fetch: ${url}`))
+    }) as jest.Mock
+
+    await act(async () => {
+      render(<PortalDocumentDetail params={Promise.resolve({ id: 'doc-lumen' })} />)
+    })
+
+    expect(await screen.findByText('Document rendered')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Approve Document/i })).not.toBeInTheDocument()
   })
 
   it('keeps the not-found document handoff scoped with a clean command name', async () => {

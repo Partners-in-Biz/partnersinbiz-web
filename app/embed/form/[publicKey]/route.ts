@@ -114,7 +114,8 @@ function render(host){
     cb.style.cssText='margin:0 8px 0 0;vertical-align:middle;';
     var cl=D.createElement('label');
     cl.style.cssText='display:block;font-size:13px;color:#374151;margin:0 0 14px 0;font-family:inherit;line-height:1.4;';
-    cl.appendChild(cb);cl.appendChild(D.createTextNode('I agree to receive emails about '+C.name+'.'));
+    cl.appendChild(cb);cl.appendChild(D.createTextNode('I agree to receive emails about '+C.name+' and understand that Partners in Biz will process my details under its privacy policy. '));
+    var pl=D.createElement('a');pl.href='${API_BASE}/privacy-policy';pl.target='_blank';pl.rel='noopener noreferrer';pl.textContent='Privacy policy';pl.style.cssText='color:#111;text-decoration:underline;';cl.appendChild(pl);
     f.appendChild(cl);
   }
   var btn=D.createElement('button');btn.type='submit';btn.textContent='Submit';

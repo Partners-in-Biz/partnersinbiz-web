@@ -15,7 +15,7 @@ export default async function MerchantCenterPage({ params }: { params: Promise<P
       <header>
         <h1 className="text-2xl font-semibold">Google Merchant Center</h1>
         <p className="text-sm text-white/50">
-          Connect your Merchant Center account to enable Google Shopping campaigns.
+          Connect the client Merchant Center account to enable Google Shopping campaigns. Admin setup only; campaign spend remains approval-gated.
         </p>
       </header>
       <MerchantCenterPanel orgSlug={slug} orgId={orgId} />

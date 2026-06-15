@@ -1,4 +1,5 @@
 import { Timestamp } from 'firebase-admin/firestore'
+import { serializeMailboxAttachments } from './attachments'
 import type { MailboxAccountSafe, MailboxFolder, MailboxMessageSafe } from './types'
 
 export function toIso(value: unknown): string | null {
@@ -76,6 +77,7 @@ export function serializeMessage(id: string, data: Record<string, unknown>): Mai
     subject: String(data.subject ?? ''),
     bodyText,
     bodyHtml: typeof data.bodyHtml === 'string' ? data.bodyHtml : undefined,
+    attachments: serializeMailboxAttachments(data.attachments),
     snippet: String(data.snippet ?? bodyText.replace(/\s+/g, ' ').slice(0, 180)),
     providerMessageId: typeof data.providerMessageId === 'string' ? data.providerMessageId : null,
     threadId: typeof data.threadId === 'string' ? data.threadId : null,

@@ -5,6 +5,7 @@ import { useParams } from 'next/navigation'
 import Link from 'next/link'
 import { AssetGrid } from '@/components/campaign-cockpit/AssetGrid'
 import { OrgThemedFrame, useOrgBrand } from '@/components/admin/OrgThemedFrame'
+import { AdminOperatorGate } from '@/components/admin/AdminOperatorGate'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type PostRow = any
@@ -83,6 +84,11 @@ function Standalone({
         </p>
       </header>
 
+      <AdminOperatorGate
+        title="Standalone social publishing is approval-gated"
+        body="Standalone posts can be reviewed here by PiB operators, but approve, schedule, and publish controls stay locked until a Projects/Kanban approval gate is recorded."
+      />
+
       {loading ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
           {[1, 2, 3].map(i => (
@@ -103,6 +109,7 @@ function Standalone({
           blogs={[]}
           videos={[]}
           filter="social"
+          readonly
         />
       )}
     </div>

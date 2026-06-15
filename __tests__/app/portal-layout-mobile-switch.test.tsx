@@ -1,5 +1,7 @@
 import React from 'react'
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { readFileSync } from 'fs'
+import * as path from 'path'
 import PortalLayout from '@/app/(portal)/PortalLayoutClient'
 
 const pushMock = jest.fn()
@@ -8,6 +10,28 @@ const backMock = jest.fn()
 let mockPathname = '/portal/dashboard'
 let mockSearchParams = new URLSearchParams()
 let mockPortalModules: { mobileApps?: boolean; youtubeStudio?: boolean; bookStudio?: boolean } | undefined
+let mockModulePolicies: Record<string, unknown> | undefined
+let mockMemberRole: string | null
+let mockAccessPolicy: unknown
+const fullAccessPolicy = {
+  preset: 'full',
+  modules: {
+    crm: true,
+    projects: true,
+    documents: true,
+    marketing: true,
+    messages: true,
+    email: true,
+    reports: true,
+    research: true,
+    properties: true,
+    billing: true,
+    mobileApps: true,
+    youtubeStudio: true,
+    bookStudio: true,
+  },
+  recordScopes: { crm: 'all', projects: 'all' },
+}
 
 jest.mock('next/navigation', () => ({
   useRouter: () => ({
@@ -80,6 +104,10 @@ function hasHiddenAncestor(element: HTMLElement) {
   return false
 }
 
+function routeSource(relativePath: string) {
+  return readFileSync(path.join(process.cwd(), relativePath), 'utf8')
+}
+
 describe('PortalLayout mobile role switch', () => {
   beforeEach(() => {
     localStorage.clear()
@@ -87,14 +115,17 @@ describe('PortalLayout mobile role switch', () => {
     mockPathname = '/portal/dashboard'
     mockSearchParams = new URLSearchParams()
     mockPortalModules = undefined
+    mockModulePolicies = undefined
+    mockMemberRole = 'admin'
+    mockAccessPolicy = fullAccessPolicy
     global.fetch = jest.fn((input: RequestInfo | URL) => {
       const url = String(input)
       if (url === '/api/v1/portal/org') {
         return Promise.resolve({
           ok: true,
           json: async () => ({
-            org: { id: 'org-acme', slug: 'acme', name: 'Acme Growth', type: 'client', portalModules: mockPortalModules },
-            user: { role: 'admin' },
+            org: { id: 'org-acme', slug: 'acme', name: 'Acme Growth', type: 'client', portalModules: mockPortalModules, modulePolicies: mockModulePolicies },
+            user: { role: 'admin', memberRole: mockMemberRole, accessPolicy: mockAccessPolicy },
           }),
         } as Response)
       }
@@ -102,8 +133,8 @@ describe('PortalLayout mobile role switch', () => {
         return Promise.resolve({
           ok: true,
           json: async () => ({
-            org: { id: 'lumen-org', slug: 'lumen-speeds', name: 'Lumen', type: 'client', portalModules: mockPortalModules },
-            user: { role: 'admin' },
+            org: { id: 'lumen-org', slug: 'lumen-speeds', name: 'Lumen', type: 'client', portalModules: mockPortalModules, modulePolicies: mockModulePolicies },
+            user: { role: 'admin', memberRole: mockMemberRole, accessPolicy: mockAccessPolicy },
           }),
         } as Response)
       }
@@ -112,7 +143,7 @@ describe('PortalLayout mobile role switch', () => {
           ok: true,
           json: async () => ({
             activeOrgId: 'org-acme',
-            orgs: [{ id: 'org-acme', slug: 'acme', name: 'Acme Growth', type: 'client' }],
+            orgs: [{ id: 'org-acme', slug: 'acme', name: 'Acme Growth', type: 'client', modulePolicies: mockModulePolicies }],
           }),
         } as Response)
       }
@@ -165,6 +196,23 @@ describe('PortalLayout mobile role switch', () => {
       )
     })
     expect(screen.queryByText('Admin')).not.toBeInTheDocument()
+  })
+
+  it('uses the person icon for every client-side admin-view switch control', () => {
+    const source = routeSource('app/(portal)/PortalLayoutClient.tsx')
+
+    expect(source).toContain('Switch to admin view')
+    expect(source.match(/>\s*person\s*<\/span>/g)?.length).toBeGreaterThanOrEqual(5)
+  })
+
+  it('keeps the portal workspace switcher dark instead of browser-white', () => {
+    const source = routeSource('app/(portal)/PortalLayoutClient.tsx')
+
+    expect(source).toContain('id="portal-workspace-switcher"')
+    expect(source).toContain('<ThemedSelect')
+    expect(source).toContain('ariaLabel="Switch portal workspace"')
+    expect(source).toContain('menuClassName="bg-[var(--color-pib-surface)] text-[var(--color-pib-text)]"')
+    expect(source).not.toContain('<select\n                    id="portal-workspace-switcher"')
   })
 
   it('shows a navbar back button that returns to the previous portal page', async () => {
@@ -288,6 +336,48 @@ describe('PortalLayout mobile role switch', () => {
 
     await waitFor(() => {
       expect(screen.queryByRole('link', { name: /Mobile Apps/ })).not.toBeInTheDocument()
+    })
+  })
+
+  it('hides module navigation when organisation governance denies the current member role', async () => {
+    mockMemberRole = 'member'
+    mockModulePolicies = {
+      projects: {
+        actions: {
+          visibility: { owner: true, admin: true, member: false },
+        },
+      },
+    }
+
+    render(
+      <PortalLayout>
+        <div>Portal content</div>
+      </PortalLayout>,
+    )
+
+    await waitFor(() => {
+      expect(screen.queryByText('Projects')).not.toBeInTheDocument()
+      expect(screen.getByText('Documents')).toBeInTheDocument()
+    })
+  })
+
+  it('keeps normal portal modules visible for admins when no explicit access policy is stored', async () => {
+    mockAccessPolicy = undefined
+
+    render(
+      <PortalLayout>
+        <div>Portal content</div>
+      </PortalLayout>,
+    )
+
+    await waitFor(() => {
+      expect(screen.getByText('Projects')).toBeInTheDocument()
+      expect(screen.getByText('Documents')).toBeInTheDocument()
+      expect(screen.getByText('CRM')).toBeInTheDocument()
+      expect(screen.getByText('Marketing')).toBeInTheDocument()
+      expect(screen.getByText('Messages')).toBeInTheDocument()
+      expect(screen.getByText('Mobile Apps')).toBeInTheDocument()
+      expect(screen.getByText('YouTube Studio')).toBeInTheDocument()
     })
   })
 

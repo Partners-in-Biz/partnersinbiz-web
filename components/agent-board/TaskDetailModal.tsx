@@ -173,7 +173,7 @@ export function TaskDetailModal({ task, onClose, onRefresh, slug }: Props) {
                   title="Move back to To Do and let it be tried again"
                 >
                   <span className="material-symbols-outlined text-[12px]" aria-hidden="true">replay</span>
-                  {retrying ? 'Trying...' : 'Try again'}
+                  {retrying ? 'Trying...' : 'Operator retry'}
                 </button>
               )}
             </div>
@@ -191,7 +191,7 @@ export function TaskDetailModal({ task, onClose, onRefresh, slug }: Props) {
 
         {task.projectId && task.projectName && (
           <section className="mt-4 text-sm text-on-surface-variant">
-            Project:{' '}
+            Admin project context:{' '}
             <Link
               href={`/admin/org/${slug}/projects/${task.projectId}`}
               className="text-amber-200 hover:underline"

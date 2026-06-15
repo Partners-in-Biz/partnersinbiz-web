@@ -15,13 +15,20 @@ import { SettingsNav } from '@/components/settings/SettingsNav'
 import { SupportDrawer } from '@/components/support/SupportDrawer'
 import { NotificationBell } from '@/components/crm/NotificationBell'
 import { MessageDrawer } from '@/components/chat/MessageDrawer'
+import { ThemedSelect } from '@/components/ui/ThemedSelect'
 import { detectCurrentPageContext } from '@/lib/context-references/route-context'
 import { PIB_PLATFORM_ORG_ID } from '@/lib/platform/constants'
 import { resolvePortalModules, type PortalModules } from '@/lib/organizations/portal-modules'
 import {
-  FULL_ACCESS_POLICY,
+  canRoleUseModule,
+  isOrganizationModulePolicyKey,
+  resolveOrganizationModulePolicies,
+  type OrganizationModulePolicies,
+} from '@/lib/organizations/module-policies'
+import {
   canAccessModule,
   normalizeMemberAccessPolicy,
+  resolveMemberAccessPolicy,
   type MemberAccessPolicy,
   type WorkspaceModuleKey,
 } from '@/lib/orgMembers/access-policy'
@@ -35,7 +42,6 @@ interface NavItem {
   icon: string
   group: 'work' | 'data' | 'comms'
   activePatterns?: string[]
-  badge?: number
 }
 
 const NAV_LINKS: NavItem[] = [
@@ -102,6 +108,13 @@ const NAV_LINKS: NavItem[] = [
     activePatterns: ['/portal/email-domains', '/portal/email-analytics'],
   },
   {
+    href: '/portal/settings/team',
+    label: 'Settings',
+    icon: 'settings',
+    group: 'comms',
+    activePatterns: ['/portal/settings'],
+  },
+  {
     href: '/portal/reports',
     label: 'Reports',
     icon: 'analytics',
@@ -149,6 +162,7 @@ interface PortalOrgOption {
   type?: string
   logoUrl: string
   portalModules?: PortalModules
+  modulePolicies?: OrganizationModulePolicies
 }
 
 function active(pathname: string, item: NavItem) {
@@ -173,13 +187,32 @@ function scopedPortalHref(
   return `${path}${path.includes('?') ? '&' : '?'}${params.toString()}`
 }
 
+type PortalUserPayload = {
+  role?: unknown
+  memberRole?: unknown
+  accessPolicy?: unknown
+  accessScope?: unknown
+}
+
+function portalRole(value: unknown): Parameters<typeof resolveMemberAccessPolicy>[0]['role'] {
+  return value === 'owner' || value === 'admin' || value === 'member' || value === 'system' ? value : 'member'
+}
+
+function resolvePortalAccessPolicy(user: unknown): MemberAccessPolicy {
+  const payload = user && typeof user === 'object' ? user as PortalUserPayload : {}
+  return resolveMemberAccessPolicy({
+    role: portalRole(payload.memberRole ?? payload.role),
+    accessPolicy: payload.accessPolicy,
+    accessScope: payload.accessScope,
+  })
+}
+
 function NavLink({ item, pathname, collapsed }: { item: NavItem; pathname: string; collapsed?: boolean }) {
   const on = active(pathname, item)
-  const badge = item.badge && item.badge > 0 ? item.badge : null
   return (
     <Link
       href={item.href}
-      title={collapsed && badge ? `${item.label} — ${badge} unread` : collapsed ? item.label : undefined}
+      title={collapsed ? item.label : undefined}
       className={[
         'relative flex items-center rounded-lg text-sm transition-all duration-150',
         collapsed ? 'justify-center px-0 py-2.5' : 'gap-3 px-3 py-2',
@@ -192,14 +225,6 @@ function NavLink({ item, pathname, collapsed }: { item: NavItem; pathname: strin
         {item.icon}
       </span>
       {!collapsed && <span className="font-medium flex-1">{item.label}</span>}
-      {badge !== null && !collapsed && (
-        <span className="text-[10px] font-mono px-1.5 py-0.5 rounded-full bg-[var(--color-pib-accent)] text-black font-semibold leading-none">
-          {badge > 99 ? '99+' : badge}
-        </span>
-      )}
-      {badge !== null && collapsed && (
-        <span className="absolute top-1 right-1 w-1.5 h-1.5 rounded-full bg-[var(--color-pib-accent)]" />
-      )}
     </Link>
   )
 }
@@ -244,16 +269,16 @@ function PortalLayoutContent({ children }: { children: React.ReactNode }) {
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [collapsed, setCollapsed]   = useState(false)
   const [layoutMode, setLayoutMode] = useState<LayoutMode>('sidebar')
-  const [documentCount, setDocumentCount] = useState(0)
   const [orgs, setOrgs] = useState<PortalOrgOption[]>([])
   const [activeOrgId, setActiveOrgId] = useState('')
   const [activeOrgSlug, setActiveOrgSlug] = useState('')
   const [activeOrgType, setActiveOrgType] = useState('')
   const [portalModules, setPortalModules] = useState<PortalModules>(() => resolvePortalModules(undefined))
+  const [modulePolicies, setModulePolicies] = useState<OrganizationModulePolicies>(() => resolveOrganizationModulePolicies(undefined))
   const [userRole, setUserRole] = useState('')
   const [orgSwitching, setOrgSwitching] = useState(false)
   const [memberRole, setMemberRole] = useState<string | null>(null)
-  const [memberAccessPolicy, setMemberAccessPolicy] = useState<MemberAccessPolicy>(() => FULL_ACCESS_POLICY)
+  const [memberAccessPolicy, setMemberAccessPolicy] = useState<MemberAccessPolicy>(() => normalizeMemberAccessPolicy(null))
   const [profileName, setProfileName] = useState('')
 
   // Restore persisted preferences
@@ -300,10 +325,13 @@ function PortalLayoutContent({ children }: { children: React.ReactNode }) {
               if (d?.org?.id) setActiveOrgId(d.org.id)
               if (d?.org?.slug) setActiveOrgSlug(d.org.slug)
               if (d?.org?.type) setActiveOrgType(d.org.type)
-              if (d?.org) setPortalModules(resolvePortalModules({ portalModules: d.org.portalModules }))
+              if (d?.org) {
+                setPortalModules(resolvePortalModules({ portalModules: d.org.portalModules }))
+                setModulePolicies(resolveOrganizationModulePolicies({ modulePolicies: d.org.modulePolicies }))
+              }
               if (d?.user?.role) setUserRole(d.user.role)
               if (d?.user?.memberRole) setMemberRole(d.user.memberRole)
-              if (d?.user?.accessPolicy) setMemberAccessPolicy(normalizeMemberAccessPolicy(d.user.accessPolicy))
+              if (d?.user) setMemberAccessPolicy(resolvePortalAccessPolicy(d.user))
             })
             .catch(() => {})
           fetch('/api/v1/portal/orgs')
@@ -319,6 +347,7 @@ function PortalLayoutContent({ children }: { children: React.ReactNode }) {
               if (activeOrg?.slug) setActiveOrgSlug(activeOrg.slug)
               if (activeOrg?.type) setActiveOrgType(activeOrg.type)
               if (activeOrg?.portalModules) setPortalModules(resolvePortalModules({ portalModules: activeOrg.portalModules }))
+              if (activeOrg?.modulePolicies) setModulePolicies(resolveOrganizationModulePolicies({ modulePolicies: activeOrg.modulePolicies }))
               if (requestedOrgId && d?.activeOrgId !== requestedOrgId) {
                 fetch('/api/v1/portal/active-org', {
                   method: 'POST',
@@ -334,7 +363,7 @@ function PortalLayoutContent({ children }: { children: React.ReactNode }) {
               if (d?.profile?.firstName) {
                 setProfileName(`${d.profile.firstName} ${d.profile.lastName ?? ''}`.trim())
               }
-              if (d?.profile?.role) setMemberRole(d.profile.role)
+              if (d?.profile?.role) setMemberRole((current) => current ?? d.profile.role)
             })
             .catch(() => {})
         }
@@ -348,26 +377,6 @@ function PortalLayoutContent({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     setDrawerOpen(false)
   }, [pathname])
-
-  // Document badge — refresh on mount, on route change, and every 60s.
-  useEffect(() => {
-    if (checking) return
-    let cancelled = false
-    async function refresh() {
-      try {
-        const res = await fetch(requestedOrgId
-          ? `/api/v1/portal/documents/count?orgId=${encodeURIComponent(requestedOrgId)}`
-          : '/api/v1/portal/documents/count')
-        if (!res.ok) return
-        const body = await res.json()
-        const count = body?.data?.count ?? 0
-        if (!cancelled) setDocumentCount(typeof count === 'number' ? count : 0)
-      } catch {}
-    }
-    refresh()
-    const id = window.setInterval(refresh, 60_000)
-    return () => { cancelled = true; window.clearInterval(id) }
-  }, [checking, pathname, requestedOrgId])
 
   function toggleCollapsed() {
     setCollapsed(prev => {
@@ -400,6 +409,7 @@ function PortalLayoutContent({ children }: { children: React.ReactNode }) {
         setActiveOrgSlug(switched.slug)
         setActiveOrgType(switched.type ?? '')
         if (switched.portalModules) setPortalModules(resolvePortalModules({ portalModules: switched.portalModules }))
+        if (switched.modulePolicies) setModulePolicies(resolveOrganizationModulePolicies({ modulePolicies: switched.modulePolicies }))
       }
       if (requestedOrgId) {
         router.push(scopedPortalHref(pathname, orgId, switched?.slug ?? ''))
@@ -443,24 +453,27 @@ function PortalLayoutContent({ children }: { children: React.ReactNode }) {
         )
       : path
 
+  const canManageTeamSettings = memberRole === 'owner' || memberRole === 'admin'
   const visibleNavLinks = NAV_LINKS.filter((item) => {
     const moduleKey = NAV_MODULES[item.href]
     if (moduleKey && !canAccessModule(memberAccessPolicy, moduleKey)) return false
+    if (isOrganizationModulePolicyKey(moduleKey) && !canRoleUseModule(modulePolicies, moduleKey, memberRole || userRole)) return false
+    if (item.href === '/portal/settings/team' && !canManageTeamSettings) return false
     if (item.href === '/portal/mobile-apps') return portalModules.mobileApps
     if (item.href === '/portal/youtube-studio') return portalModules.youtubeStudio
     if (item.href === '/portal/book-studio') return portalModules.bookStudio
     return true
   })
-  const navWithBadges: NavItem[] = visibleNavLinks.map((item) => {
+  const navItems: NavItem[] = visibleNavLinks.map((item) => {
     const href = requestedOrgId
       ? scopedShellHref(item.href)
       : item.href
-    return item.href === '/portal/documents' ? { ...item, href, badge: documentCount } : { ...item, href }
+    return { ...item, href }
   })
 
   const grouped = (['work', 'data', 'comms'] as const).map(g => ({
     group: g,
-    items: navWithBadges.filter(n => n.group === g),
+    items: navItems.filter(n => n.group === g),
   }))
   const requestedWorkspaceOption: PortalOrgOption | null = activeOrgId && orgName && !orgs.some(org => org.id === activeOrgId)
     ? {
@@ -524,7 +537,7 @@ function PortalLayoutContent({ children }: { children: React.ReactNode }) {
 
             {/* Nav — scrollable */}
             <nav className="hidden md:flex items-center gap-0.5 overflow-x-auto scrollbar-none flex-1 min-w-0">
-              {navWithBadges.map(item => {
+              {navItems.map(item => {
                 const on = active(pathname, item)
                 return (
                   <Link
@@ -541,11 +554,6 @@ function PortalLayoutContent({ children }: { children: React.ReactNode }) {
                       {item.icon}
                     </span>
                     <span className="hidden lg:inline font-medium">{item.label}</span>
-                    {item.badge && item.badge > 0 && (
-                      <span className="text-[10px] font-mono px-1.5 py-0.5 rounded-full bg-[var(--color-pib-accent)] text-black font-semibold leading-none">
-                        {item.badge > 99 ? '99+' : item.badge}
-                      </span>
-                    )}
                   </Link>
                 )
               })}
@@ -616,7 +624,7 @@ function PortalLayoutContent({ children }: { children: React.ReactNode }) {
           <div className="md:hidden fixed inset-0 z-40 flex flex-col">
             <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={() => setDrawerOpen(false)} />
             <div className="relative z-10 mt-14 bg-[var(--color-pib-bg)] border-b border-[var(--color-pib-line)] p-4 flex flex-col gap-1 max-h-[80vh] overflow-y-auto">
-              {navWithBadges.map(item => {
+              {navItems.map(item => {
                 const on = active(pathname, item)
                 return (
                   <Link
@@ -631,11 +639,6 @@ function PortalLayoutContent({ children }: { children: React.ReactNode }) {
                   >
                     <span className="material-symbols-outlined text-[18px] opacity-70">{item.icon}</span>
                     <span className="flex-1">{item.label}</span>
-                    {item.badge && item.badge > 0 && (
-                      <span className="text-[10px] font-mono px-1.5 py-0.5 rounded-full bg-[var(--color-pib-accent)] text-black font-semibold leading-none">
-                        {item.badge > 99 ? '99+' : item.badge}
-                      </span>
-                    )}
                   </Link>
                 )
               })}
@@ -792,24 +795,17 @@ function PortalLayoutContent({ children }: { children: React.ReactNode }) {
                 <label htmlFor="portal-workspace-switcher" className="eyebrow !text-[10px] px-1 mb-2 block">
                   Workspace
                 </label>
-                <div className="relative">
-                  <select
-                    id="portal-workspace-switcher"
-                    value={activeOrgId}
-                    onChange={(event) => handleOrgSwitch(event.target.value)}
-                    disabled={orgSwitching}
-                    className="w-full appearance-none rounded-lg border border-[var(--color-pib-line)] bg-white/[0.02] px-3 py-2 pr-9 text-sm text-[var(--color-pib-text)] outline-none transition-colors hover:bg-white/[0.04] focus:border-[var(--color-pib-accent)] disabled:opacity-60"
-                  >
-                    {workspaceOptions.map(org => (
-                      <option key={org.id} value={org.id}>
-                        {org.name}
-                      </option>
-                    ))}
-                  </select>
-                  <span className="pointer-events-none material-symbols-outlined absolute right-2.5 top-1/2 -translate-y-1/2 text-[18px] text-[var(--color-pib-text-muted)]">
-                    expand_more
-                  </span>
-                </div>
+                <ThemedSelect
+                  id="portal-workspace-switcher"
+                  ariaLabel="Switch portal workspace"
+                  value={activeOrgId}
+                  options={workspaceOptions.map(org => ({ value: org.id, label: org.name }))}
+                  onValueChange={handleOrgSwitch}
+                  disabled={orgSwitching}
+                  className="w-full"
+                  buttonClassName="w-full"
+                  menuClassName="bg-[var(--color-pib-surface)] text-[var(--color-pib-text)]"
+                />
               </div>
             )}
           </div>
@@ -827,7 +823,7 @@ function PortalLayoutContent({ children }: { children: React.ReactNode }) {
         ) : (
           <nav className={['flex-1 overflow-y-auto py-4', collapsed ? 'px-2 space-y-1' : 'px-3 space-y-5'].join(' ')}>
             {collapsed
-              ? navWithBadges.map(item => <NavLink key={item.href} item={item} pathname={pathname} collapsed />)
+              ? navItems.map(item => <NavLink key={item.href} item={item} pathname={pathname} collapsed />)
               : grouped.map(({ group, items }) => (
                   <div key={group} className="space-y-1">
                     <p className="eyebrow !text-[10px] px-3 mb-2">{GROUP_LABELS[group]}</p>
@@ -911,7 +907,6 @@ function PortalLayoutContent({ children }: { children: React.ReactNode }) {
                 className="hidden md:flex items-center gap-1.5 px-2.5 h-8 rounded-lg text-xs text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] hover:bg-white/[0.05] transition-colors"
               >
                 <span className="material-symbols-outlined text-[18px]">person</span>
-                <span className="hidden lg:inline">Admin</span>
               </Link>
             )}
             <NotificationBell />

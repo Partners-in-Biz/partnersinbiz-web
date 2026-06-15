@@ -27,6 +27,8 @@ describe('GEO SEO workspace detail shared standard', () => {
     }
 
     expect(adminOrgRoute).toContain('surface="admin"')
+    expect(adminOrgRoute).toContain('orgScope={orgScope}')
+    expect(adminOrgRoute).toContain('sourceCompanyName: workspace.sourceCompanyName || undefined')
     expect(adminOrgRoute).toContain('backHref={`/admin/org/${encodeURIComponent(slug)}/geo-seo`}')
     expect(portalRoute).toContain('surface="portal"')
     expect(portalRoute).toContain('scopedPortalPath')

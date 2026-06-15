@@ -9,6 +9,7 @@ import {
   listResearchItems,
   validateResearchFilters,
 } from '@/lib/research/store'
+import { assertUserCanPerformOrganizationModuleAction } from '@/lib/organizations/module-policy-access'
 
 export const dynamic = 'force-dynamic'
 
@@ -23,13 +24,21 @@ export const GET = withAuth('admin', async (req: NextRequest, user: ApiUser) => 
   return apiSuccess(items)
 })
 
-export const POST = withAuth('admin', async (req: NextRequest, user: ApiUser) => {
+export const POST = withAuth('client', async (req: NextRequest, user: ApiUser) => {
   const body = await req.json().catch(() => null)
   if (!body || typeof body !== 'object' || Array.isArray(body)) return apiError('Invalid JSON', 400)
 
   const requestedOrgId = typeof body.orgId === 'string' ? body.orgId.trim() : null
   const scope = resolveOrgScope(user, requestedOrgId)
   if (!scope.ok) return apiError(scope.error, scope.status)
+  const createAccess = await assertUserCanPerformOrganizationModuleAction(
+    user,
+    scope.orgId,
+    'research',
+    'create',
+    'Research creation is disabled for your organisation role',
+  )
+  if (!createAccess.ok) return apiError(createAccess.error, createAccess.status)
 
   const title = typeof body.title === 'string' ? body.title.trim() : ''
   if (!title) return apiError('title is required', 400)

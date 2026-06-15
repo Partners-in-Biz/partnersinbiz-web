@@ -126,6 +126,57 @@ const EMPTY_CRM_DASHBOARD: CrmDashboardData = {
   topOpenDeals: [],
 }
 
+const EMPTY_KPIS: Kpis = {
+  total_revenue: 0,
+  mrr: 0,
+  arr: 0,
+  active_subs: 0,
+  ad_revenue: 0,
+  iap_revenue: 0,
+  installs: 0,
+  sessions: 0,
+  outstanding: 0,
+  invoiced_revenue_paid: 0,
+  deltas: {},
+}
+
+function numberValue(value: unknown): number {
+  return typeof value === 'number' && Number.isFinite(value) ? value : 0
+}
+
+function normalizeKpis(input: unknown): Kpis {
+  const data = input && typeof input === 'object' ? input as Partial<Kpis> : {}
+
+  return {
+    total_revenue: numberValue(data.total_revenue),
+    mrr: numberValue(data.mrr),
+    arr: numberValue(data.arr),
+    active_subs: numberValue(data.active_subs),
+    ad_revenue: numberValue(data.ad_revenue),
+    iap_revenue: numberValue(data.iap_revenue),
+    installs: numberValue(data.installs),
+    sessions: numberValue(data.sessions),
+    outstanding: numberValue(data.outstanding),
+    invoiced_revenue_paid: numberValue(data.invoiced_revenue_paid),
+    deltas: data.deltas && typeof data.deltas === 'object' ? data.deltas : {},
+  }
+}
+
+function normalizeDashboardPayload(body: unknown): DashboardData | null {
+  if (!body || typeof body !== 'object') return null
+  const payload = body as { data?: unknown; ok?: boolean }
+  if (payload.ok === false) return null
+  const source = ((payload.data && typeof payload.data === 'object') ? payload.data : payload) as Partial<DashboardData>
+
+  return {
+    kpis: normalizeKpis(source.kpis ?? EMPTY_KPIS),
+    period: source.period ?? { start: '', end: '' },
+    properties: Array.isArray(source.properties) ? source.properties : [],
+    connections: Array.isArray(source.connections) ? source.connections : [],
+    reports: Array.isArray(source.reports) ? source.reports : [],
+  }
+}
+
 function normalizeCrmDashboardPayload(body: unknown): CrmDashboardData | null {
   const payload = body as { success?: boolean; data?: Partial<CrmDashboardData> } | Partial<CrmDashboardData> | null
   if (!payload) return null
@@ -324,9 +375,9 @@ export default function PortalDashboard() {
 
   useEffect(() => {
     fetch(scopedApi('/api/v1/portal/dashboard'))
-      .then((r) => r.json())
+      .then(async (r) => (r.ok ? normalizeDashboardPayload(await r.json().catch(() => null)) : null))
       .then((b) => { setData(b); setLoading(false) })
-      .catch(() => setLoading(false))
+      .catch(() => { setData(null); setLoading(false) })
   }, [scopedApi])
 
   useEffect(() => {

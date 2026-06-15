@@ -99,7 +99,7 @@ export function AffinityPicker({ orgId }: Props) {
       <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/5 p-4 text-sm">
         <p className="font-medium text-emerald-300">Affinity audience saved</p>
         <p className="mt-1 text-xs text-white/60">
-          You can now target this affinity segment in your Google ad sets.
+          This affinity segment is now available for admin-built Google ad sets.
         </p>
         <button type="button" className="btn-pib-ghost mt-3 text-xs" onClick={reset}>
           Add another
@@ -137,7 +137,7 @@ export function AffinityPicker({ orgId }: Props) {
 
         <div className="mt-2 max-h-64 overflow-y-auto rounded border border-white/10">
           {filtered.length === 0 ? (
-            <p className="px-4 py-3 text-sm text-white/40">No categories match your filter.</p>
+            <p className="px-4 py-3 text-sm text-white/40">No categories match the admin filter.</p>
           ) : (
             filtered.map((a) => (
               <label

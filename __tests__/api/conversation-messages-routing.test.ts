@@ -16,6 +16,8 @@ const mockCreateHermesRun = jest.fn()
 const mockGetAgentDecryptedKey = jest.fn()
 
 let mockUser: MockUser = { uid: 'client-1', role: 'client' }
+let organizationSettings: Record<string, unknown> = {}
+let organizationMembers: Array<{ userId: string; role: string }> = []
 
 jest.mock('@/lib/firebase/admin', () => ({
   adminDb: { collection: mockCollection },
@@ -46,6 +48,8 @@ beforeEach(() => {
   jest.resetModules()
   jest.clearAllMocks()
   mockUser = { uid: 'client-1', role: 'client' }
+  organizationSettings = {}
+  organizationMembers = [{ userId: 'client-1', role: 'member' }]
 
   mockCollection.mockImplementation((name: string) => {
     if (name === 'users') {
@@ -58,6 +62,26 @@ beforeEach(() => {
               email: `${uid}@example.com`,
             }),
           }),
+        }),
+      }
+    }
+    if (name === 'organizations') {
+      return {
+        doc: (orgId: string) => ({
+          get: async () => ({
+            exists: orgId === 'org-1' || orgId === 'pib-platform-owner',
+            data: () => ({
+              members: organizationMembers,
+              settings: organizationSettings,
+            }),
+          }),
+        }),
+      }
+    }
+    if (name === 'orgMembers') {
+      return {
+        doc: (_id: string) => ({
+          get: async () => ({ exists: false, data: () => undefined }),
         }),
       }
     }
@@ -155,6 +179,35 @@ describe('unified conversation message routing', () => {
     const body = await readJson(res)
     expect(body.data.message.id).toBe('msg-1')
     expect(body.data.assistantMessage).toBeUndefined()
+  })
+
+  it('blocks client replies when the messages reply policy denies their org role', async () => {
+    organizationSettings = {
+      modulePolicies: {
+        messages: {
+          actions: {
+            reply: { owner: true, admin: true, member: false },
+          },
+        },
+      },
+    }
+    mockGetConversation.mockResolvedValue({
+      id: 'conv-1',
+      orgId: 'org-1',
+      participantUids: ['client-1', 'admin-1'],
+      participantAgentIds: [],
+      participants: [
+        { kind: 'user', uid: 'client-1', role: 'client', displayName: 'Client User' },
+        { kind: 'user', uid: 'admin-1', role: 'admin', displayName: 'Admin User' },
+      ],
+    })
+    const { POST } = await import('@/app/api/v1/conversations/[convId]/messages/route')
+
+    const res = await POST(req(), { params: Promise.resolve({ convId: 'conv-1' }) })
+
+    expect(res.status).toBe(403)
+    expect(mockCreateMessage).not.toHaveBeenCalled()
+    expect(mockCreateHermesRun).not.toHaveBeenCalled()
   })
 
   it('still dispatches an agent run when an agent participant is present', async () => {

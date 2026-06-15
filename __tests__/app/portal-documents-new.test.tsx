@@ -64,4 +64,33 @@ describe('new client document type picker copy', () => {
     expect(screen.getByLabelText('Document type')).toHaveValue('build_spec')
     expect(screen.getByRole('heading', { name: 'Website/App Build Spec' })).toBeInTheDocument()
   })
+
+  it('disables document creation when the organisation policy denies the member role', async () => {
+    window.history.pushState({}, '', '/portal/documents/new?title=Blocked%20proposal')
+    global.fetch = jest.fn().mockResolvedValue({
+      json: async () => ({
+        org: {
+          id: 'org-1',
+          name: 'Partners in Biz',
+          slug: 'partners',
+          modulePolicies: {
+            documents: {
+              actions: {
+                create: { owner: true, admin: true, member: false },
+              },
+            },
+          },
+        },
+        user: { role: 'client', memberRole: 'member' },
+      }),
+    }) as jest.Mock
+
+    render(<NewDocumentPage />)
+    await screen.findByText('Partners in Biz')
+
+    expect(screen.getByText('Document creation is disabled for your organisation role.')).toBeInTheDocument()
+    expect(screen.getByLabelText('Title')).toBeDisabled()
+    expect(screen.getByLabelText('Document type')).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Create document' })).toBeDisabled()
+  })
 })

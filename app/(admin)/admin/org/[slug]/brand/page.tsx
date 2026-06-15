@@ -58,7 +58,7 @@ export default function BrandPage() {
         const summary = ((listBody.data ?? []) as OrganizationSummary[]).find((org) => org.slug === slug)
         if (!summary) throw new Error('Organization not found')
 
-        const detailRes = await fetch(`/api/v1/organizations/${summary.id}`)
+        const detailRes = await fetch(`/api/v1/organizations/${summary.id}`, { headers: { 'X-Org-Id': summary.id, 'X-Org-Slug': slug } })
         const detailBody = await detailRes.json().catch(() => ({}))
         if (!detailRes.ok || !detailBody.data) {
           throw new Error(detailBody.error ?? 'Failed to fetch organization details')
@@ -90,7 +90,7 @@ export default function BrandPage() {
 
     const res = await fetch(`/api/v1/organizations/${pageData.org.id}`, {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'X-Org-Id': pageData.org.id, 'X-Org-Slug': slug },
       body: JSON.stringify({ brandProfile, settings: { brandColors } }),
     })
     const body = await res.json().catch(() => ({}))
@@ -107,7 +107,7 @@ export default function BrandPage() {
     form.append('relatedToType', 'organization')
     form.append('relatedToId', pageData.org.id)
 
-    const res = await fetch('/api/v1/upload', { method: 'POST', body: form })
+    const res = await fetch('/api/v1/upload', { method: 'POST', headers: { 'X-Org-Id': pageData.org.id, 'X-Org-Slug': slug }, body: form })
     const body = await res.json().catch(() => ({}))
     if (!res.ok || !body.data?.url) throw new Error(body.error ?? 'Upload failed')
     return body.data.url as string

@@ -7,7 +7,7 @@ import { generateReport, listReports } from '@/lib/reports/generate'
 import { lastCompletedMonth, monthPeriod } from '@/lib/reports/snapshot'
 import type { ReportType } from '@/lib/reports/types'
 import { adminDb } from '@/lib/firebase/admin'
-import { canAccessOrg } from '@/lib/api/platformAdmin'
+import { resolveOrgScope } from '@/lib/api/orgScope'
 import { analyticsPropertyErrorResponse, requireAnalyticsProperty } from '@/lib/analytics/property-access'
 
 export const dynamic = 'force-dynamic'
@@ -15,9 +15,9 @@ export const maxDuration = 60
 
 export const GET = withAuth('admin', async (req: NextRequest, user) => {
   const url = new URL(req.url)
-  const orgId = url.searchParams.get('orgId')
-  if (!orgId) return NextResponse.json({ error: 'orgId required' }, { status: 400 })
-  if (!canAccessOrg(user, orgId)) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  const scope = resolveOrgScope(user, url.searchParams.get('orgId'))
+  if (!scope.ok) return NextResponse.json({ error: scope.error }, { status: scope.status })
+  const orgId = scope.orgId
   const limit = Math.max(1, Math.min(100, parseInt(url.searchParams.get('limit') ?? '24', 10)))
   const reports = await listReports(orgId, limit)
   return NextResponse.json({ ok: true, reports })
@@ -37,14 +37,14 @@ interface CreateBody {
 
 export const POST = withAuth('admin', async (req: NextRequest, user) => {
   const body = (await req.json().catch(() => ({}))) as CreateBody
-  if (!body.orgId) {
-    return NextResponse.json({ error: 'orgId required' }, { status: 400 })
-  }
-  if (!canAccessOrg(user, body.orgId)) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  const requestedOrgId = typeof body.orgId === 'string' && body.orgId.trim() ? body.orgId.trim() : null
+  const scope = resolveOrgScope(user, requestedOrgId)
+  if (!scope.ok) return NextResponse.json({ error: scope.error }, { status: scope.status })
+  const orgId = scope.orgId
 
   if (body.propertyId) {
     try {
-      await requireAnalyticsProperty(user, { propertyId: body.propertyId, orgId: body.orgId })
+      await requireAnalyticsProperty(user, { propertyId: body.propertyId, orgId })
     } catch (err) {
       const propertyError = analyticsPropertyErrorResponse(err)
       if (propertyError) return propertyError
@@ -53,7 +53,7 @@ export const POST = withAuth('admin', async (req: NextRequest, user) => {
   }
 
   // Resolve org timezone (default UTC).
-  const orgDoc = await adminDb.collection('organizations').doc(body.orgId).get()
+  const orgDoc = await adminDb.collection('organizations').doc(orgId).get()
   const tz = ((orgDoc.data() as { timezone?: string } | undefined)?.timezone) ?? 'UTC'
 
   const period = body.start && body.end
@@ -63,7 +63,7 @@ export const POST = withAuth('admin', async (req: NextRequest, user) => {
       : lastCompletedMonth(tz)
 
   const report = await generateReport({
-    orgId: body.orgId,
+    orgId,
     type: body.type ?? 'monthly',
     period,
     generatedBy: 'admin',

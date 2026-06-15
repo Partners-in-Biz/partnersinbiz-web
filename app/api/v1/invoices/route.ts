@@ -14,6 +14,7 @@ import {
   ensurePlatformCompanyForOrg,
   resolvePlatformOwnerOrgId,
 } from '@/lib/platform-owner/relationships'
+import { decorateInvoicePortalCapabilities } from '@/lib/billing/portal-permissions'
 
 export const dynamic = 'force-dynamic'
 
@@ -200,14 +201,14 @@ export const GET = withAuth('client', async (req, user) => {
   let orgAccessFilter: string[] | null = null
 
   if (user.role === 'client') {
-    const requestedOrgId = searchParams.get('orgId') ?? user.orgId ?? user.orgIds?.[0]
+    const requestedOrgId = searchParams.get('orgId') ?? user.activeOrgId ?? user.orgId ?? user.orgIds?.[0]
     if (!requestedOrgId || !canAccessOrg(user, requestedOrgId)) return apiSuccess([])
     if (view === 'received') {
       const invoices = (await loadReceivedInvoicesForOrg(requestedOrgId))
         .filter((invoice) => !sharedOnly || Boolean(invoice.claimableRelationshipId))
         .sort((a, b) => createdAtMillis(b.createdAt) - createdAtMillis(a.createdAt))
         .slice(0, 50)
-      return apiSuccess(invoices)
+      return apiSuccess(invoices.map((invoice) => decorateInvoicePortalCapabilities(invoice, user)))
     }
     query = query.where(orgField, '==', requestedOrgId)
   } else {
@@ -247,7 +248,7 @@ export const GET = withAuth('client', async (req, user) => {
     .sort((a, b) => createdAtMillis(b.createdAt) - createdAtMillis(a.createdAt))
     .slice(0, 50)
 
-  return apiSuccess(invoices)
+  return apiSuccess(invoices.map((invoice) => decorateInvoicePortalCapabilities(invoice, user)))
 })
 
 export const POST = withAuth('client', async (req, user) => {

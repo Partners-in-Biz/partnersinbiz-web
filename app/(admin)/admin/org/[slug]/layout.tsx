@@ -29,14 +29,8 @@ export default async function WorkspaceLayout({ children, params }: WorkspaceLay
   const orgSnap = await adminDb.collection('organizations').where('slug', '==', slug).get()
   if (orgSnap.empty) redirect('/admin/dashboard')
 
-  const org = { id: orgSnap.docs[0].id, ...orgSnap.docs[0].data() }
-
-  // Check access: admins can see all, clients must be a member
-  if (role !== 'admin') {
-    const members = (org as any).members ?? []
-    const isMember = members.some((m: any) => m.userId === uid)
-    if (!isMember) redirect('/admin/dashboard')
-  }
+  // Admin command surfaces are operator-only. Client members use the portal routes.
+  if (role !== 'admin') redirect('/admin/dashboard')
 
   return <>{children}</>
 }

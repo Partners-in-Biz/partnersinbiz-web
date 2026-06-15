@@ -4,6 +4,10 @@ import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import type { ResearchItem, ResearchKind, ResearchStatus, ResearchVisibility } from '@/lib/research/types'
 import { RESEARCH_KINDS, RESEARCH_STATUSES, RESEARCH_VISIBILITIES } from '@/lib/research/types'
+import {
+  canRolePerformModuleAction,
+  resolveOrganizationModulePolicies,
+} from '@/lib/organizations/module-policies'
 
 type OrgOption = { id: string; name: string; slug?: string }
 
@@ -16,6 +20,7 @@ type Props = {
   orgName?: string
   orgs?: OrgOption[]
   itemHref?: (item: ResearchItem) => string
+  createdItemHref?: (id: string) => string
 }
 
 function label(value: string) {
@@ -29,11 +34,24 @@ function formatDate(value: unknown) {
   return new Intl.DateTimeFormat('en-ZA', { day: '2-digit', month: 'short', year: 'numeric' }).format(date)
 }
 
-export function ResearchListClient({ mode, title, description, basePath, orgId, orgName, orgs = [], itemHref }: Props) {
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === 'object' && !Array.isArray(value)
+}
+
+function canCreateResearchFromPortalBody(body: Record<string, unknown>) {
+  const org = isRecord(body.org) ? body.org : {}
+  const user = isRecord(body.user) ? body.user : {}
+  const policies = resolveOrganizationModulePolicies({ modulePolicies: org.modulePolicies })
+  const role = user.memberRole ?? user.role
+  return canRolePerformModuleAction(policies, 'research', 'create', role)
+}
+
+export function ResearchListClient({ mode, title, description, basePath, orgId, orgName, orgs = [], itemHref, createdItemHref }: Props) {
   const [activeOrgId, setActiveOrgId] = useState(orgId ?? orgs[0]?.id ?? '')
   const [items, setItems] = useState<ResearchItem[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [canCreateResearch, setCanCreateResearch] = useState(mode === 'admin')
   const [status, setStatus] = useState<ResearchStatus | 'all'>('all')
   const [kind, setKind] = useState<ResearchKind | 'all'>('all')
   const [visibility, setVisibility] = useState<ResearchVisibility | 'all'>('all')
@@ -76,8 +94,37 @@ export function ResearchListClient({ mode, title, description, basePath, orgId, 
     return () => { cancelled = true }
   }, [activeOrgId, mode, query])
 
+  useEffect(() => {
+    if (mode !== 'portal') {
+      setCanCreateResearch(true)
+      return
+    }
+
+    let cancelled = false
+    const portalOrgPath = activeOrgId
+      ? `/api/v1/portal/org?orgId=${encodeURIComponent(activeOrgId)}`
+      : '/api/v1/portal/org'
+    fetch(portalOrgPath)
+      .then((res) => res.json())
+      .then((body) => {
+        if (cancelled) return
+        if (body && typeof body === 'object' && !Array.isArray(body)) {
+          setCanCreateResearch(canCreateResearchFromPortalBody(body as Record<string, unknown>))
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setCanCreateResearch(false)
+      })
+
+    return () => { cancelled = true }
+  }, [activeOrgId, mode])
+
   async function createResearch() {
     if (!newTitle.trim() || !activeOrgId || creating) return
+    if (!canCreateResearch) {
+      setError('Research creation is disabled for your organisation role.')
+      return
+    }
     setCreating(true)
     setError('')
     try {
@@ -95,7 +142,7 @@ export function ResearchListClient({ mode, title, description, basePath, orgId, 
       const body = await res.json().catch(() => null)
       if (!res.ok) throw new Error(body?.error ?? 'Could not create research')
       const id = body?.data?.id
-      if (id) window.location.href = `${basePath}/${id}`
+      if (id) window.location.href = createdItemHref?.(id) ?? `${basePath}/${id}`
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not create research')
     } finally {
@@ -113,12 +160,12 @@ export function ResearchListClient({ mode, title, description, basePath, orgId, 
         </div>
       </header>
 
-      {mode === 'admin' && (
+      {(mode === 'admin' || canCreateResearch) && (
         <section className="bento-card grid gap-3 md:grid-cols-[1fr_auto]">
           <input
             value={newTitle}
             onChange={(event) => setNewTitle(event.target.value)}
-            placeholder="New research title"
+            placeholder={mode === 'admin' ? 'Internal research note title' : 'Research note title'}
             className="pib-input"
           />
           <button type="button" onClick={createResearch} disabled={!newTitle.trim() || creating} className="btn-pib-accent disabled:opacity-50">
@@ -126,6 +173,11 @@ export function ResearchListClient({ mode, title, description, basePath, orgId, 
             New Research
           </button>
         </section>
+      )}
+      {mode === 'portal' && !canCreateResearch && (
+        <div className="rounded-md border border-[var(--color-border)] bg-black/10 px-4 py-3 text-sm text-[var(--color-pib-text-muted)]">
+          Research creation is disabled for your organisation role.
+        </div>
       )}
 
       <section className="bento-card grid gap-3 md:grid-cols-5">

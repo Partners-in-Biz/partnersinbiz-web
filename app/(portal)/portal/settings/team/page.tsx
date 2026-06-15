@@ -77,7 +77,7 @@ export default function TeamPage() {
   const [inviteRole, setInviteRole] = useState<Exclude<OrgRole, 'owner'>>('member')
   const [inviteJobTitle, setInviteJobTitle] = useState('')
   const [inviteDepartment, setInviteDepartment] = useState('')
-  const [inviteAccessScope, setInviteAccessScope] = useState('all')
+  const [inviteAccessScope, setInviteAccessScope] = useState('none')
   const [inviteNote, setInviteNote] = useState('')
   const [inviting, setInviting] = useState(false)
   const [inviteError, setInviteError] = useState('')
@@ -225,7 +225,7 @@ export default function TeamPage() {
       setInviteRole('member')
       setInviteJobTitle('')
       setInviteDepartment('')
-      setInviteAccessScope('all')
+      setInviteAccessScope('none')
       setInviteNote('')
       setInviteSent(true)
       loadTeamMembers()
@@ -250,6 +250,23 @@ export default function TeamPage() {
       <div className="space-y-3">
         <div className="pib-skeleton h-24" />
         <div className="pib-skeleton h-48" />
+      </div>
+    )
+  }
+
+  if (!canInvite) {
+    return (
+      <div className="max-w-3xl space-y-4">
+        <header>
+          <p className="eyebrow">Workspace settings</p>
+          <h1 className="pib-page-title mt-2">Team</h1>
+        </header>
+        <section className="pib-card space-y-2">
+          <h2 className="text-lg font-semibold">Owner or admin access required</h2>
+          <p className="text-sm text-[var(--color-pib-text-muted)]">
+            Team roles and workspace access can only be managed by workspace owners and admins.
+          </p>
+        </section>
       </div>
     )
   }
@@ -540,6 +557,7 @@ export default function TeamPage() {
                   onChange={e => setInviteAccessScope(e.target.value)}
                   className="pib-select"
                 >
+                  <option value="none">No workspace areas yet</option>
                   <option value="all">All workspace areas</option>
                   <option value="crm">CRM and sales</option>
                   <option value="marketing">Marketing</option>

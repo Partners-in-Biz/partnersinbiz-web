@@ -99,7 +99,7 @@ function sourceHref(item: BriefingCard) {
     }) as Record<string, unknown> | undefined
     if (typeof linkedEvidence?.href === 'string') return linkedEvidence.href
   }
-  return item.source?.url || '/portal/briefings'
+  return item.source?.url || '/admin/briefings'
 }
 
 function generatedAtStatus(value?: string | null, now = Date.now()) {
@@ -118,7 +118,7 @@ function generatedAtStatus(value?: string | null, now = Date.now()) {
 }
 
 function taskHref(task: AgentTask) {
-  return task.href || '/portal/projects'
+  return task.href || '/admin/projects'
 }
 
 function includesAny(value: string, needles: string[]) {
@@ -227,7 +227,7 @@ function learningDashboardMetrics(items: BriefingCard[]): LearningDashboardMetri
     { key: 'staleInstructionsFound', label: 'Stale instructions found', icon: 'manage_search', detail: 'Old SOPs or guidance flagged for review.', items: collect('staleInstructionsFound') },
     { key: 'blockedTasksPrevented', label: 'Blocked tasks prevented', icon: 'lock_open', detail: 'Blockers avoided by better routing, dependencies, or gates.', items: collect('blockedTasksPrevented') },
     { key: 'newSopsProposed', label: 'New SOPs proposed', icon: 'rule', detail: 'New runbooks or templates proposed for approval.', items: collect('newSopsProposed') },
-    { key: 'knowledgeCaptured', label: 'Client/project knowledge captured', icon: 'menu_book', detail: 'Durable wiki, project, or client context added.', items: collect('knowledgeCaptured') },
+    { key: 'knowledgeCaptured', label: 'Org/project knowledge captured', icon: 'menu_book', detail: 'Durable wiki, project, or scoped organisation context added.', items: collect('knowledgeCaptured') },
   ]
 }
 
@@ -333,7 +333,7 @@ function AgentLearningDashboard({ items, metrics }: { items: BriefingCard[]; met
             Shows reviewable evidence that the PiB operating system is learning: no automatic skill/wiki rewrite, just source-backed improvements Peet can inspect.
           </p>
         </div>
-        <Link href="/portal/briefings?source=agent-learning-review" className="pib-btn-secondary self-start">Open learning reviews</Link>
+        <Link href="/admin/briefings?source=agent-learning-review" className="pib-btn-secondary self-start">Open learning reviews</Link>
       </div>
       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
         {metrics.map(metric => {
@@ -385,7 +385,7 @@ function BusinessInsightDashboard({ items }: { items: BriefingCard[] }) {
             Proactive growth, risk, follow-up, and missing-data cards surfaced from briefing evidence. Review stays internal until an explicit approval gate is satisfied.
           </p>
         </div>
-        <Link href="/portal/briefings?source=business-insight-review" className="pib-btn-secondary self-start">Open insight reviews</Link>
+        <Link href="/admin/briefings?source=business-insight-review" className="pib-btn-secondary self-start">Open insight reviews</Link>
       </div>
       <div className="grid gap-3 lg:grid-cols-[0.75fr_1.25fr]">
         <div className="rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)]/70 p-4">
@@ -488,12 +488,12 @@ export function PeetMissionControl() {
       <PageHeader
         eyebrow="Admin / Mission Control"
         title="Peet Mission Control"
-        description="A top-level internal command page for today’s decisions, approvals, revenue cards, client risks, agent outputs, follow-ups, and KPI snapshot."
+        description="A top-level internal operator command page for today’s decisions, approvals, revenue cards, scoped org risks, agent outputs, follow-ups, and KPI snapshot."
         meta={<span className="rounded-full border border-amber-400/30 bg-amber-500/10 px-3 py-1 text-amber-100">Internal development only</span>}
         actions={(
           <>
-            <Link href="/portal/briefings" className="pib-btn-secondary">Open Control Desk</Link>
-            <Link href="/portal/projects" className="pib-btn-primary">Open Projects</Link>
+            <Link href="/admin/briefings" className="pib-btn-secondary">Open admin Control Desk</Link>
+            <Link href="/admin/projects" className="pib-btn-primary">Open admin Projects</Link>
           </>
         )}
       />
@@ -508,7 +508,7 @@ export function PeetMissionControl() {
       <section aria-label="Mission Control KPI snapshot" className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <KpiTile label="Live cards" value={data.items.length} icon="dashboard" detail={loading ? 'Loading briefing feed…' : generatedStatus.detail} />
         <KpiTile label="Approvals" value={approvals.length} icon="verified_user" detail="Human decisions and gated actions separated from execution." />
-        <KpiTile label="Client risks" value={risks.length} icon="report" detail="Blocked, risk, and closed-gate cards that need attention." />
+        <KpiTile label="Scoped org risks" value={risks.length} icon="report" detail="Blocked, risk, and closed-gate cards that need operator attention." />
         <KpiTile label="Follow-ups" value={followUps.length} icon="task_alt" detail="Open project or agent tasks Peet can inspect next." />
         <KpiTile label="Agent learning" value={learningItems.length} icon="school" detail="Reviewable learning cards with skill, SOP, blocker, and knowledge evidence." />
         <KpiTile label="Business insights" value={businessInsights.length} icon="monitoring" detail="Proactive commercial, growth, risk, and missing-data cards surfaced from evidence." />
@@ -543,8 +543,8 @@ export function PeetMissionControl() {
         </Surface>
 
         <Surface className="p-4 sm:p-5">
-          <SectionTitle eyebrow="Risk" title="Client risks" count={risks.length} />
-          <BriefingList items={risks} empty="No client risk cards found in the current briefing feed." />
+          <SectionTitle eyebrow="Risk" title="Scoped org risks" count={risks.length} />
+          <BriefingList items={risks} empty="No scoped organisation risk cards found in the current briefing feed." />
         </Surface>
 
         <Surface className="p-4 sm:p-5">

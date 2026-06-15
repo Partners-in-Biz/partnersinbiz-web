@@ -77,7 +77,7 @@ export function AdminSidebar({ open = false, onClose, collapsed = false, onToggl
   const workspaceSlug = routeOrgSlug ?? selectedOrg?.slug
   const isWorkspaceMode = !!workspaceSlug
   const isPlatformWorkspace = selectedOrg?.type === 'platform_owner' || selectedOrg?.id === PIB_PLATFORM_ORG_ID
-  const workspaceLabel = isPlatformWorkspace ? 'Platform' : 'Client'
+  const workspaceLabel = isPlatformWorkspace ? 'Platform admin' : 'Org admin'
 
   const navItems = isWorkspaceMode ? workspaceNav(workspaceSlug) : OPERATOR_NAV
   const groupedNav = (['work', 'data', 'comms'] as const).map((group) => ({
@@ -146,9 +146,6 @@ export function AdminSidebar({ open = false, onClose, collapsed = false, onToggl
                   </span>
                 )}
               </div>
-              <span className={['ml-auto pill !text-[10px] !py-0.5 !px-2', isWorkspaceMode ? 'pill-accent' : ''].join(' ')}>
-                {isWorkspaceMode ? workspaceLabel : 'Admin'}
-              </span>
             </>
           )}
         </div>
@@ -202,7 +199,7 @@ export function AdminSidebar({ open = false, onClose, collapsed = false, onToggl
         {/* Navigation */}
         {!collapsed && (
           <div className="px-3 pt-3 pb-1">
-            <p className="eyebrow !text-[9px] px-2 mb-2">{isWorkspaceMode ? `${workspaceLabel} view` : 'Navigation'}</p>
+            <p className="eyebrow !text-[9px] px-2 mb-2">{isWorkspaceMode ? `${workspaceLabel} navigation` : 'Navigation'}</p>
           </div>
         )}
         <nav className={['flex-1 space-y-1', collapsed ? 'px-2 pt-3' : 'px-3'].join(' ')}>

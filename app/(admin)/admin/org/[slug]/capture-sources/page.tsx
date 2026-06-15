@@ -25,6 +25,7 @@ export default async function AdminOrgCaptureSourcesPage({ params }: { params: P
       orgName={orgName}
       importHref={`/admin/org/${encodedSlug}/capture-sources/import`}
       sequenceNewHref={`/admin/sequences?org=${encodedSlug}`}
+      surface="admin-org"
     />
   )
 }

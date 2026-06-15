@@ -142,4 +142,172 @@ describe('POST /api/v1/conversations/[convId]/messages/[msgId]/finalize', () => 
       error: expect.stringContaining('agent gateway lost this run'),
     }))
   })
+
+  it('persists completed Hermes rich parts and UI actions alongside fallback text', async () => {
+    const events: ChatEvent[] = [
+      {
+        event: 'message.rich',
+        timestamp: 1000,
+        richParts: [
+          { type: 'status', title: 'Live checks passed', status: 'completed', body: 'Preview is ready.' },
+        ],
+        uiActions: [
+          { id: 'open-preview', type: 'open', label: 'Open preview', url: 'https://preview.example.com' },
+        ],
+      },
+    ]
+    mockCallHermesJson.mockResolvedValue({
+      response: { ok: true },
+      data: {
+        status: 'completed',
+        output: {
+          text: 'Ready for review.',
+          rich_parts: [
+            { type: 'markdown', content: '### Ready\n- Preview deployed' },
+            {
+              type: 'table',
+              columns: ['Check', 'Result'],
+              rows: [['Build', 'Passed']],
+            },
+          ],
+          ui_actions: [
+            { id: 'copy-summary', type: 'copy', label: 'Copy summary', value: 'Ready for review.' },
+          ],
+        },
+      },
+    })
+
+    const res = await callFinalize({ runId: 'run-rich', agentId: 'pip', events })
+    const body = await res.json()
+
+    expect(res.status).toBe(200)
+    expect(body.data.status).toBe('completed')
+    expect(mockMessageUpdate).toHaveBeenCalledWith(expect.objectContaining({
+      content: 'Ready for review.',
+      status: 'completed',
+      runId: 'run-rich',
+      events,
+      richParts: [
+        { type: 'markdown', content: '### Ready\n- Preview deployed' },
+        {
+          type: 'table',
+          columns: ['Check', 'Result'],
+          rows: [['Build', 'Passed']],
+        },
+        { type: 'status', title: 'Live checks passed', status: 'completed', body: 'Preview is ready.' },
+      ],
+      uiActions: [
+        { id: 'copy-summary', type: 'copy', label: 'Copy summary', value: 'Ready for review.' },
+        { id: 'open-preview', type: 'open', label: 'Open preview', url: 'https://preview.example.com' },
+      ],
+    }))
+  })
+
+  it('extracts rich parts from JSON text output instead of persisting raw JSON in the chat bubble', async () => {
+    const richJsonText = JSON.stringify({
+      rich_parts: [
+        { type: 'markdown', content: '### PIB rich chat smoke test\nThis should render as markdown.' },
+        {
+          type: 'status_card',
+          title: 'Rich chat contract smoke test',
+          status: 'ready_for_review',
+          body: 'No external action was performed.',
+        },
+      ],
+      ui_actions: [
+        { id: 'copy-summary', type: 'copy', label: 'Copy summary', value: 'PIB rich chat smoke test' },
+      ],
+    }, null, 2)
+
+    mockCallHermesJson.mockResolvedValue({
+      response: { ok: true },
+      data: {
+        status: 'completed',
+        output: {
+          content: richJsonText,
+        },
+      },
+    })
+
+    const res = await callFinalize({ runId: 'run-json-rich', agentId: 'pip', events: [] })
+    const body = await res.json()
+
+    expect(res.status).toBe(200)
+    expect(body.data.status).toBe('completed')
+    expect(mockMessageUpdate).toHaveBeenCalledWith(expect.objectContaining({
+      content: '',
+      status: 'completed',
+      runId: 'run-json-rich',
+      richParts: [
+        { type: 'markdown', content: '### PIB rich chat smoke test\nThis should render as markdown.' },
+        {
+          type: 'status',
+          title: 'Rich chat contract smoke test',
+          status: 'ready_for_review',
+          body: 'No external action was performed.',
+        },
+      ],
+      uiActions: [
+        { id: 'copy-summary', type: 'copy', label: 'Copy summary', value: 'PIB rich chat smoke test' },
+      ],
+    }))
+    expect(mockTouchConversation).toHaveBeenCalledWith(
+      'conv-1',
+      expect.stringContaining('PIB rich chat smoke test'),
+      'assistant',
+    )
+    expect(mockTouchConversation).not.toHaveBeenCalledWith(
+      'conv-1',
+      expect.stringContaining('"rich_parts"'),
+      'assistant',
+    )
+  })
+
+  it('extracts rich parts from streamed JSON deltas when the run has no output field', async () => {
+    const richJsonText = JSON.stringify({
+      rich_parts: [
+        { type: 'markdown', content: '### Streamed rich payload\nThis should be stored as rich content.' },
+        {
+          type: 'table',
+          columns: ['Check', 'Status'],
+          rows: [['Stream parser', 'Ready']],
+        },
+      ],
+      ui_actions: [
+        { id: 'copy-stream', type: 'copy', label: 'Copy streamed summary', value: 'Streamed rich payload' },
+      ],
+    }, null, 2)
+    const events: ChatEvent[] = [
+      { event: 'assistant.text_delta', delta: richJsonText.slice(0, 80), timestamp: 1000 },
+      { event: 'assistant.text_delta', delta: richJsonText.slice(80), timestamp: 1001 },
+    ]
+
+    mockCallHermesJson.mockResolvedValue({
+      response: { ok: true },
+      data: { status: 'completed' },
+    })
+
+    const res = await callFinalize({ runId: 'run-streamed-json-rich', agentId: 'pip', events })
+    const body = await res.json()
+
+    expect(res.status).toBe(200)
+    expect(body.data.status).toBe('completed')
+    expect(mockMessageUpdate).toHaveBeenCalledWith(expect.objectContaining({
+      content: '',
+      status: 'completed',
+      runId: 'run-streamed-json-rich',
+      events,
+      richParts: [
+        { type: 'markdown', content: '### Streamed rich payload\nThis should be stored as rich content.' },
+        {
+          type: 'table',
+          columns: ['Check', 'Status'],
+          rows: [['Stream parser', 'Ready']],
+        },
+      ],
+      uiActions: [
+        { id: 'copy-stream', type: 'copy', label: 'Copy streamed summary', value: 'Streamed rich payload' },
+      ],
+    }))
+  })
 })

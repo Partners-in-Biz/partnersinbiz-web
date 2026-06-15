@@ -235,7 +235,7 @@ export function ExperimentsListClient({ experiments, orgSlug }: Props) {
               href={`/admin/org/${orgSlug}/ads/experiments/new`}
               className="mt-3 inline-block text-sm text-[#F5A623] underline"
             >
-              Create your first experiment →
+              Create an admin experiment draft →
             </Link>
           )}
         </div>

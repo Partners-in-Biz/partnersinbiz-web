@@ -16,7 +16,7 @@ export default function TermsOfServicePage() {
           <h1 className="font-headline text-6xl md:text-[6.5rem] leading-[0.9] font-bold tracking-tighter mb-10">
             TERMS OF<br />SERVICE
           </h1>
-          <p className="font-body text-white/40 text-sm">Last updated: March 2026</p>
+          <p className="font-body text-white/40 text-sm">Last updated: June 2026</p>
         </div>
       </header>
 
@@ -85,7 +85,24 @@ export default function TermsOfServicePage() {
           </div>
 
           <div className="glass-card p-8 rounded-2xl">
-            <h2 className="font-headline text-2xl font-bold text-white mb-4">7. Limitation of Liability</h2>
+            <h2 className="font-headline text-2xl font-bold text-white mb-4">7. AI, Safety, and Professional Advice Boundaries</h2>
+            <p className="mb-4">
+              Partners in Biz may provide AI-assisted drafts, summaries, research, recommendations, and automation support. AI outputs are tools for review, not final professional judgement. You remain responsible for reviewing, approving, and lawfully using outputs before they are published, sent to customers, used for paid spend, or relied on for business decisions.
+            </p>
+            <p>
+              Our services are not medical, mental-health, legal, tax, investment, or emergency services. Do not use the platform for diagnosis, treatment, crisis response, or decisions that require a licensed professional. If a matter could affect health, safety, legal rights, regulated finance, or emergency response, seek qualified professional help.
+            </p>
+          </div>
+
+          <div className="glass-card p-8 rounded-2xl">
+            <h2 className="font-headline text-2xl font-bold text-white mb-4">8. Access Controls and Auditability</h2>
+            <p>
+              You must use only accounts and organisations you are authorised to access. We may log portal activity, exports, deletions, approvals, messages, and administrative changes for security, support, dispute resolution, and compliance. Attempts to bypass organisation scoping, impersonate another user, scrape private data, or remove audit evidence may lead to suspension or termination.
+            </p>
+          </div>
+
+          <div className="glass-card p-8 rounded-2xl">
+            <h2 className="font-headline text-2xl font-bold text-white mb-4">9. Limitation of Liability</h2>
             <p className="mb-4">
               To the maximum extent permitted by law, Partners in Biz&apos;s total liability for any claim arising out of or relating to these terms or our services shall not exceed the total fees paid by you in the three months preceding the claim.
             </p>
@@ -95,21 +112,21 @@ export default function TermsOfServicePage() {
           </div>
 
           <div className="glass-card p-8 rounded-2xl">
-            <h2 className="font-headline text-2xl font-bold text-white mb-4">8. Termination</h2>
+            <h2 className="font-headline text-2xl font-bold text-white mb-4">10. Termination</h2>
             <p>
               Either party may terminate an engagement with 30 days&apos; written notice. You remain responsible for payment of all work completed up to the date of termination. Provisions relating to IP ownership, confidentiality, and limitation of liability survive termination.
             </p>
           </div>
 
           <div className="glass-card p-8 rounded-2xl">
-            <h2 className="font-headline text-2xl font-bold text-white mb-4">9. Governing Law</h2>
+            <h2 className="font-headline text-2xl font-bold text-white mb-4">11. Governing Law</h2>
             <p>
               These terms are governed by the laws of England and Wales. Any disputes arising from or related to these terms shall be subject to the exclusive jurisdiction of the courts of England and Wales.
             </p>
           </div>
 
           <div className="glass-card p-8 rounded-2xl">
-            <h2 className="font-headline text-2xl font-bold text-white mb-4">10. Contact</h2>
+            <h2 className="font-headline text-2xl font-bold text-white mb-4">12. Contact</h2>
             <p>
               For any questions regarding these terms, contact Partners in Biz at{' '}
               <a href="mailto:peet.stander@partnersinbiz.online" className="text-white hover:text-white/70 transition-opacity underline underline-offset-4">

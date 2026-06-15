@@ -3,7 +3,15 @@ import { adminDb } from '@/lib/firebase/admin'
 import { getAgentDecryptedKey } from '@/lib/agents/team'
 import type { AgentId, AgentTeamDoc } from '@/lib/agents/types'
 import { callHermesJson, HERMES_RUNS_COLLECTION } from '@/lib/hermes/server'
-import type { ChatEvent, HermesProfileLink } from '@/lib/hermes/types'
+import type { ChatEvent, ChatUiAction, HermesProfileLink, RichMessagePart } from '@/lib/hermes/types'
+import {
+  dedupeStructured,
+  richPartsFromEvents,
+  richPartsFromPayload,
+  isRichPayloadText,
+  uiActionsFromEvents,
+  uiActionsFromPayload,
+} from '@/lib/hermes/rich-messages'
 import {
   CONVERSATION_RUN_LOOKUP_GRACE_MS,
   CONVERSATION_RUN_LOST_ERROR,
@@ -33,6 +41,8 @@ export interface ConversationRunFinalizeResult {
   hermesStatus?: string
   httpStatus?: number
   alreadyFinal?: boolean
+  richParts?: RichMessagePart[]
+  uiActions?: ChatUiAction[]
 }
 
 export interface PendingConversationRun {
@@ -173,6 +183,41 @@ export function extractOutputFromEvents(events: ChatEvent[] = []): string {
     })
     .join('')
     .trim()
+}
+
+function richMessagePatchFromRun(data: unknown, events: ChatEvent[] = [], output?: string): {
+  richParts?: RichMessagePart[]
+  uiActions?: ChatUiAction[]
+} {
+  const richParts = dedupeStructured([
+    ...richPartsFromPayload(data),
+    ...richPartsFromPayload(output),
+    ...richPartsFromEvents(events),
+  ])
+  const uiActions = dedupeStructured([
+    ...uiActionsFromPayload(data),
+    ...uiActionsFromPayload(output),
+    ...uiActionsFromEvents(events),
+  ])
+  return {
+    ...(richParts.length > 0 ? { richParts } : {}),
+    ...(uiActions.length > 0 ? { uiActions } : {}),
+  }
+}
+
+function richPreviewFromParts(parts: RichMessagePart[] = []): string | null {
+  for (const part of parts) {
+    const candidate =
+      typeof part.content === 'string' ? part.content
+        : typeof part.markdown === 'string' ? part.markdown
+          : typeof part.title === 'string' ? part.title
+            : typeof part.question === 'string' ? part.question
+              : typeof part.body === 'string' ? part.body
+                : null
+    const text = cleanString(candidate)
+    if (text) return text
+  }
+  return null
 }
 
 function isCompletedStatus(status: string): boolean {
@@ -317,56 +362,68 @@ export async function finalizeConversationRun(input: {
   const hermesStatus = normalizeHermesRunStatus(data)
 
   if (isCompletedStatus(hermesStatus)) {
-    const output =
+    const rawOutput =
       extractHermesRunOutput(data) ||
       extractOutputFromEvents(events) ||
       'Agent completed but returned no text output.'
+    const richPatch = richMessagePatchFromRun(data, events, rawOutput)
+    const outputIsStructuredJson = isRichPayloadText(rawOutput)
+    const output = outputIsStructuredJson ? '' : rawOutput
+    const previewOutput = output || richPreviewFromParts(richPatch.richParts) || 'Agent returned a rich response.'
     await msgRef.update({
       content: output,
       status: 'completed',
       runId,
       error: FieldValue.delete(),
       ...(events.length > 0 ? { events } : {}),
+      ...richPatch,
     })
     await updateRunDoc(msgData.runDocId, runId, {
       status: 'completed',
       response: data,
-      output,
+      output: previewOutput,
       error: FieldValue.delete(),
+      ...richPatch,
     })
-    await touchConversation(input.convId, output, 'assistant')
-    return { status: 'completed', content: output, runId, hermesStatus }
+    await touchConversation(input.convId, previewOutput, 'assistant')
+    return { status: 'completed', content: output, runId, hermesStatus, ...richPatch }
   }
 
   if (isFailedStatus(hermesStatus)) {
     const error = extractHermesRunError(data) ?? `Run ${hermesStatus}`
+    const richPatch = richMessagePatchFromRun(data, events)
     await msgRef.update({
       content: error,
       status: 'failed',
       error,
       runId,
       ...(events.length > 0 ? { events } : {}),
+      ...richPatch,
     })
     await updateRunDoc(msgData.runDocId, runId, {
       status: hermesStatus,
       response: data,
       error,
+      ...richPatch,
     })
     await touchConversation(input.convId, `[run ${hermesStatus}] ${error}`, 'assistant')
-    return { status: 'failed', content: error, error, runId, hermesStatus }
+    return { status: 'failed', content: error, error, runId, hermesStatus, ...richPatch }
   }
 
   if (isWaitingForApprovalStatus(hermesStatus)) {
+    const richPatch = richMessagePatchFromRun(data, events)
     await msgRef.update({
       status: 'waiting_approval',
       runId,
       ...(events.length > 0 ? { events } : {}),
+      ...richPatch,
     })
     await updateRunDoc(msgData.runDocId, runId, {
       status: hermesStatus,
       response: data,
+      ...richPatch,
     })
-    return { status: 'waiting_approval', runId, hermesStatus }
+    return { status: 'waiting_approval', runId, hermesStatus, ...richPatch }
   }
 
   if (ageMs > CONVERSATION_RUN_STALE_TIMEOUT_MS) {
@@ -408,13 +465,47 @@ export async function findPendingConversationRuns(input: {
   const messageScanLimit = input.messageScanLimit ?? 20
   const maxRuns = input.maxRuns ?? 25
 
+  const candidates: PendingConversationRun[] = []
+  try {
+    const messagesSnap = await adminDb
+      .collectionGroup('messages')
+      .where('status', 'in', ['pending', 'streaming'])
+      .limit(maxRuns)
+      .get()
+
+    for (const msgDoc of messagesSnap.docs) {
+      const convId = msgDoc.ref.parent.parent?.id
+      if (!convId) continue
+      const data = msgDoc.data()
+      const runId = cleanString(data.runId)
+      if (!runId) continue
+
+      const agentId = resolveAgentId(undefined, data)
+      if (!agentId) continue
+
+      candidates.push({
+        convId,
+        msgId: msgDoc.id,
+        runId,
+        agentId,
+        createdAtMs: createdAtToMillis(data.createdAt),
+        events: Array.isArray(data.events) ? data.events as ChatEvent[] : [],
+      })
+    }
+
+    return candidates
+      .sort((a, b) => a.createdAtMs - b.createdAtMs)
+      .slice(0, maxRuns)
+  } catch (err) {
+    console.warn('[conversation-run-pending-query-fallback]', err)
+  }
+
   const convSnap = await adminDb
     .collection(CONVERSATIONS_COLLECTION)
     .orderBy('updatedAt', 'desc')
     .limit(conversationLimit)
     .get()
 
-  const candidates: PendingConversationRun[] = []
   await Promise.all(convSnap.docs.map(async (convDoc) => {
     const messagesSnap = await convDoc.ref
       .collection('messages')

@@ -3,6 +3,7 @@ import * as tls from 'node:tls'
 import { FieldValue } from 'firebase-admin/firestore'
 import { adminDb } from '@/lib/firebase/admin'
 import { decryptCredentials, type EncryptedCredentials } from '@/lib/integrations/crypto'
+import type { MailboxAttachmentStored } from '@/lib/mailbox/attachments'
 
 const GMAIL_SEND_ENDPOINT = 'https://gmail.googleapis.com/gmail/v1/users/me/messages/send'
 const REFRESH_SKEW_MS = 2 * 60 * 1000
@@ -48,6 +49,7 @@ export type SendMailboxMessageInput = {
   subject: string
   bodyText: string
   bodyHtml?: string
+  attachments?: MailboxAttachmentStored[]
   approvalGateTaskId?: string
   actorId?: string
   actorType?: 'user' | 'agent' | 'system'
@@ -63,6 +65,7 @@ export type SmtpSend = (
     subject: string
     text: string
     html?: string
+    attachments?: MailboxAttachmentStored[]
   },
 ) => Promise<{ messageId?: string; response?: string }>
 
@@ -90,20 +93,10 @@ function base64Url(value: string): string {
   return Buffer.from(value, 'utf8').toString('base64url')
 }
 
-function buildRawEmail(input: SendMailboxMessageInput, from: string): string {
-  const headers = [
-    `From: ${encodeHeader(from)}`,
-    `To: ${normalizeList(input.to).map(encodeHeader).join(', ')}`,
-    ...(normalizeList(input.cc).length ? [`Cc: ${normalizeList(input.cc).map(encodeHeader).join(', ')}`] : []),
-    ...(normalizeList(input.bcc).length ? [`Bcc: ${normalizeList(input.bcc).map(encodeHeader).join(', ')}`] : []),
-    `Subject: ${encodeHeader(input.subject)}`,
-    'MIME-Version: 1.0',
-  ]
-
+function buildBodyPart(input: SendMailboxMessageInput, boundarySeed: string): string[] {
   if (input.bodyHtml) {
-    const boundary = `pib-mailbox-${Date.now()}`
+    const boundary = `${boundarySeed}-alt`
     return [
-      ...headers,
       `Content-Type: multipart/alternative; boundary="${boundary}"`,
       '',
       `--${boundary}`,
@@ -118,16 +111,56 @@ function buildRawEmail(input: SendMailboxMessageInput, from: string): string {
       input.bodyHtml,
       `--${boundary}--`,
       '',
-    ].join('\r\n')
+    ]
   }
 
   return [
-    ...headers,
     'Content-Type: text/plain; charset="UTF-8"',
     'Content-Transfer-Encoding: 8bit',
     '',
     input.bodyText,
-  ].join('\r\n')
+  ]
+}
+
+function buildAttachmentPart(attachment: MailboxAttachmentStored): string[] {
+  const filename = encodeHeader(attachment.name)
+  return [
+    `Content-Type: ${attachment.contentType}; name="${filename}"`,
+    `Content-Disposition: attachment; filename="${filename}"`,
+    'Content-Transfer-Encoding: base64',
+    '',
+    attachment.contentBase64.replace(/(.{76})/g, '$1\r\n').trim(),
+  ]
+}
+
+function buildRawEmail(input: SendMailboxMessageInput, from: string): string {
+  const headers = [
+    `From: ${encodeHeader(from)}`,
+    `To: ${normalizeList(input.to).map(encodeHeader).join(', ')}`,
+    ...(normalizeList(input.cc).length ? [`Cc: ${normalizeList(input.cc).map(encodeHeader).join(', ')}`] : []),
+    ...(normalizeList(input.bcc).length ? [`Bcc: ${normalizeList(input.bcc).map(encodeHeader).join(', ')}`] : []),
+    `Subject: ${encodeHeader(input.subject)}`,
+    'MIME-Version: 1.0',
+  ]
+
+  const attachments = input.attachments ?? []
+  const boundarySeed = `pib-mailbox-${Date.now()}`
+  if (attachments.length) {
+    const boundary = `${boundarySeed}-mixed`
+    const parts = [
+      ...headers,
+      `Content-Type: multipart/mixed; boundary="${boundary}"`,
+      '',
+      `--${boundary}`,
+      ...buildBodyPart(input, boundarySeed),
+      ...attachments.flatMap((attachment) => [`--${boundary}`, ...buildAttachmentPart(attachment)]),
+      `--${boundary}--`,
+      '',
+    ]
+    return parts.join('\r\n')
+  }
+
+  return [...headers, ...buildBodyPart(input, boundarySeed)].join('\r\n')
 }
 
 async function writeAudit(input: SendMailboxMessageInput, patch: Record<string, unknown>) {
@@ -163,6 +196,7 @@ async function writeSentMessage(input: SendMailboxMessageInput, account: Mailbox
     subject: input.subject,
     bodyText: input.bodyText,
     ...(input.bodyHtml ? { bodyHtml: input.bodyHtml } : {}),
+    attachments: (input.attachments ?? []).map((attachment) => ({ name: attachment.name, contentType: attachment.contentType, sizeBytes: attachment.sizeBytes })),
     snippet: snippet(input.bodyText),
     provider,
     providerMessageId: providerMessageId ?? null,
@@ -208,7 +242,7 @@ function hasFreshAccessToken(credentials: GoogleCredentials | null): credentials
   return Boolean(credentials?.accessToken && Number(credentials.expiresAt ?? 0) > Date.now() + REFRESH_SKEW_MS)
 }
 
-function buildSmtpRaw(message: { from: string; to: string[]; cc: string[]; bcc: string[]; subject: string; text: string; html?: string }): string {
+function buildSmtpRaw(message: { from: string; to: string[]; cc: string[]; bcc: string[]; subject: string; text: string; html?: string; attachments?: MailboxAttachmentStored[] }): string {
   return buildRawEmail({
     orgId: '',
     uid: '',
@@ -220,6 +254,7 @@ function buildSmtpRaw(message: { from: string; to: string[]; cc: string[]; bcc: 
     subject: message.subject,
     bodyText: message.text,
     ...(message.html ? { bodyHtml: message.html } : {}),
+    attachments: message.attachments ?? [],
   }, message.from)
 }
 
@@ -304,7 +339,7 @@ export async function sendMailboxMessage(
 
   if (input.dryRun) {
     const provider = account.provider === 'google' ? 'google' : 'smtp'
-    await writeAudit(input, { action: 'send_dry_run', provider, recipientCount: to.length })
+    await writeAudit(input, { action: 'send_dry_run', provider, recipientCount: to.length, attachmentCount: input.attachments?.length ?? 0 })
     return { ok: true, dryRun: true, provider }
   }
 
@@ -349,6 +384,7 @@ export async function sendMailboxMessage(
       subject: input.subject,
       text: input.bodyText,
       ...(input.bodyHtml ? { html: input.bodyHtml } : {}),
+      attachments: input.attachments ?? [],
     })
     const messageId = await writeSentMessage(input, account, 'smtp', sent.messageId, null)
     await writeAudit(input, { action: 'send_success', provider: 'smtp', providerMessageId: sent.messageId ?? null, smtpResponse: sent.response ?? null, mailboxMessageId: messageId })

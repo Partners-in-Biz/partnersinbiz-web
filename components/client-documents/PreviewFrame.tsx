@@ -48,7 +48,7 @@ export function PreviewFrame({
                 rel="noopener noreferrer"
                 className="inline-flex min-h-10 max-w-full items-center justify-center rounded-full bg-[var(--color-pib-accent)] px-4 py-2 text-xs font-semibold uppercase tracking-wider text-black hover:bg-[var(--color-pib-accent-hover)]"
               >
-                Open public share →
+                Client-facing share link →
               </Link>
             )}
           </div>

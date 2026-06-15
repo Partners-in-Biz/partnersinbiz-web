@@ -3,6 +3,10 @@ import { NextRequest } from 'next/server'
 import { withPortalAuthAndRole } from '@/lib/auth/portal-middleware'
 import { apiError, apiSuccess } from '@/lib/api/response'
 import { adminDb } from '@/lib/firebase/admin'
+import {
+  canRolePerformModuleAction,
+  resolveOrganizationModulePolicies,
+} from '@/lib/organizations/module-policies'
 import { isPortalModuleEnabled } from '@/lib/organizations/portal-modules'
 
 export const dynamic = 'force-dynamic'
@@ -51,7 +55,16 @@ function safeGates(value: unknown) {
   })
 }
 
-async function bookStudioModuleGuard(orgId: string) {
+function bookStudioCapabilities(settings: unknown, role: unknown) {
+  const policies = resolveOrganizationModulePolicies(settings)
+  return {
+    canViewApprovalGates: canRolePerformModuleAction(policies, 'bookStudio', 'approvalGates', role),
+    canViewPublishingPackets: canRolePerformModuleAction(policies, 'bookStudio', 'publishingPackets', role),
+    canViewEvidenceRights: canRolePerformModuleAction(policies, 'bookStudio', 'evidenceRights', role),
+  }
+}
+
+async function bookStudioModuleGuard(orgId: string, role: unknown) {
   const orgSnap = await adminDb.collection('organizations').doc(orgId).get()
   if (!orgSnap.exists) return apiError('Organisation not found', 404)
   const org = orgSnap.data() ?? {}
@@ -61,13 +74,22 @@ async function bookStudioModuleGuard(orgId: string) {
       module: 'bookStudio',
     })
   }
+  const policies = resolveOrganizationModulePolicies(org.settings)
+  if (!canRolePerformModuleAction(policies, 'bookStudio', 'visibility', role)) {
+    return apiError('Book Studio module is disabled for your organisation role', 403, {
+      moduleDisabled: true,
+      module: 'bookStudio',
+    })
+  }
   return null
 }
 
-export const GET = withPortalAuthAndRole('viewer', async (_req: NextRequest, _uid: string, orgId: string) => {
-  const guard = await bookStudioModuleGuard(orgId)
+export const GET = withPortalAuthAndRole('viewer', async (_req: NextRequest, _uid: string, orgId: string, role) => {
+  const guard = await bookStudioModuleGuard(orgId, role)
   if (guard) return guard
 
+  const orgSnap = await adminDb.collection('organizations').doc(orgId).get()
+  const capabilities = bookStudioCapabilities(orgSnap.data()?.settings, role)
   const snap = await adminDb.collection('book_studio_projects').where('orgId', '==', orgId).get()
   const projects = snap.docs.map((doc: { id: string; data: () => Record<string, unknown> }) => {
     const data = doc.data()
@@ -79,10 +101,10 @@ export const GET = withPortalAuthAndRole('viewer', async (_req: NextRequest, _ui
       reviewStatus: safeString(data.reviewStatus),
       nextAction: safeString(data.nextAction),
       safeSummary: safeString(data.safeSummary),
-      reviewPackets: safeReviewPackets(data.reviewPackets),
-      gates: safeGates(data.gates),
+      reviewPackets: capabilities.canViewPublishingPackets ? safeReviewPackets(data.reviewPackets) : [],
+      gates: capabilities.canViewApprovalGates ? safeGates(data.gates) : [],
     }
   })
 
-  return apiSuccess({ portalModule: 'bookStudio', projects })
+  return apiSuccess({ portalModule: 'bookStudio', projects, capabilities })
 })

@@ -27,7 +27,7 @@ export default async function PortalSeoIndex({
   searchParams,
 }: {
   searchParams?: Promise<PortalSeoSearchParams>
-} = {}) {
+}) {
   const params = await searchParams
   const scope = scopeFromSearchParams(params)
   const user = await resolvePortalSeoUser(scope.orgId)

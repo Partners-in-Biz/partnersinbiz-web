@@ -32,6 +32,11 @@ async function isAuthenticatedInvoiceViewer(req: NextRequest, invoiceData: Invoi
     invoiceData.recipientOrgId,
     invoiceData.targetOrgId,
   ].filter((value): value is string => typeof value === 'string' && value.length > 0)
+  const requestedOrgId = new URL(req.url).searchParams.get('orgId')?.trim()
+
+  if (requestedOrgId) {
+    return orgIds.includes(requestedOrgId) && canAccessOrg(user, requestedOrgId)
+  }
 
   return orgIds.some((orgId) => canAccessOrg(user, orgId))
 }

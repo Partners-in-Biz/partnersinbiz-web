@@ -194,7 +194,7 @@ export async function resolveAgentApiKeyUser(rawKey: string): Promise<ApiUser | 
 
 async function getUserExtrasFromFirestore(
   uid: string,
-): Promise<{ role: ApiRole; orgId?: string; orgIds?: string[]; allowedOrgIds?: string[]; memberAccessPolicy?: MemberAccessPolicy }> {
+): Promise<{ role: ApiRole; orgId?: string; activeOrgId?: string; orgIds?: string[]; allowedOrgIds?: string[]; memberAccessPolicy?: MemberAccessPolicy }> {
   const doc = await adminDb.collection('users').doc(uid).get()
   if (!doc.exists) return { role: 'client' }
   const data = doc.data() ?? {}
@@ -209,7 +209,7 @@ async function getUserExtrasFromFirestore(
     : undefined
   const activeOrgId = typeof data.activeOrgId === 'string' && data.activeOrgId ? data.activeOrgId : orgId
   const memberAccessPolicy = activeOrgId ? await loadMemberAccessPolicy(uid, activeOrgId) : undefined
-  return { role: validRole, orgId, orgIds: orgIds.length > 0 ? orgIds : undefined, allowedOrgIds, memberAccessPolicy }
+  return { role: validRole, orgId, activeOrgId, orgIds: orgIds.length > 0 ? orgIds : undefined, allowedOrgIds, memberAccessPolicy }
 }
 
 async function loadMemberAccessPolicy(uid: string, orgId: string): Promise<MemberAccessPolicy | undefined> {

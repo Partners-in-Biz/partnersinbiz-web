@@ -10,6 +10,10 @@ import { CLIENT_DOCUMENTS_COLLECTION } from '@/lib/client-documents/store'
 import type { DocumentApproval } from '@/lib/client-documents/types'
 import { adminDb } from '@/lib/firebase/admin'
 import { notifyClientDocumentAccepted } from '@/lib/notifications/client-acceptance'
+import {
+  assertUserCanPerformOrganizationModuleAction,
+  clientLinkedOrgIdForUser,
+} from '@/lib/organizations/module-policy-access'
 
 export const dynamic = 'force-dynamic'
 
@@ -74,6 +78,17 @@ export const POST = withAuth('client', async (req: NextRequest, user: ApiUser, c
   const document = access.document
   if (user.role !== 'client') {
     return apiError('Only a client user can formally accept on behalf of the client organisation. Use the countersign route for the Partners in Biz signature.', 403)
+  }
+  const approvalPolicyOrgId = clientLinkedOrgIdForUser(document.linked, user, document.orgId)
+  if (approvalPolicyOrgId) {
+    const approvalAccess = await assertUserCanPerformOrganizationModuleAction(
+      user,
+      approvalPolicyOrgId,
+      'documents',
+      'reviewApproval',
+      'Document acceptance is disabled for your organisation role',
+    )
+    if (!approvalAccess.ok) return apiError(approvalAccess.error, approvalAccess.status)
   }
   if (document.approvalMode !== 'formal_acceptance') return apiError('Document does not use formal acceptance', 400)
   if (!document.latestPublishedVersionId) return apiError('Publish a version before acceptance', 400)

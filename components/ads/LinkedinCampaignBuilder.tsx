@@ -57,7 +57,7 @@ interface Props {
 
 const OBJECTIVES: { value: AdObjective; label: string; description: string }[] = [
   { value: 'AWARENESS', label: 'Awareness', description: 'Maximise impressions and reach' },
-  { value: 'TRAFFIC', label: 'Traffic', description: 'Drive clicks to your website or landing page' },
+  { value: 'TRAFFIC', label: 'Traffic', description: 'Drive clicks to the client website or landing page' },
   { value: 'ENGAGEMENT', label: 'Engagement', description: 'Grow followers and drive interactions' },
   { value: 'LEADS', label: 'Leads', description: 'Collect leads via LinkedIn Lead Gen Forms' },
   { value: 'SALES', label: 'Sales', description: 'Optimise for purchases and conversions' },

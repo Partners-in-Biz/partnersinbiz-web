@@ -18,5 +18,5 @@ export default async function AdminOrgEmailDomainsPage({ params }: { params: Pro
   const org = orgDoc.data() ?? {}
   const orgName = typeof org.name === 'string' && org.name.trim() ? org.name.trim() : slug
 
-  return <EmailDomainsWorkspace orgId={orgDoc.id} orgName={orgName} />
+  return <EmailDomainsWorkspace surface="admin" orgId={orgDoc.id} orgSlug={slug} orgName={orgName} />
 }

@@ -18,5 +18,5 @@ export default async function AdminOrgIntegrationsPage({ params }: { params: Pro
   const org = orgDoc.data() ?? {}
   const orgName = typeof org.name === 'string' && org.name.trim() ? org.name.trim() : slug
 
-  return <IntegrationsWorkspace orgId={orgDoc.id} orgName={orgName} />
+  return <IntegrationsWorkspace surface="admin" orgId={orgDoc.id} orgSlug={slug} orgName={orgName} />
 }

@@ -36,7 +36,7 @@ export function MemberRow({ uid, firstName, lastName, jobTitle, department, acce
   const initials = [firstName[0], lastName[0]].filter(Boolean).join('').toUpperCase() || '?'
   const canRemove = !isSelf && ROLE_RANK[viewerRole] >= 3 && role !== 'owner'
   const canChangeRole = !isSelf && viewerRole === 'owner' && role !== 'owner'
-  const canEditAccess = !isSelf && viewerRole === 'owner' && role !== 'owner' && Boolean(onEditAccess)
+  const canEditAccess = !isSelf && ROLE_RANK[viewerRole] >= 3 && role !== 'owner' && Boolean(onEditAccess)
   const accessLabel = accessSummary || accessScope
 
   return (

@@ -158,14 +158,14 @@ export default function OrgSettingsPage() {
       setOrgId(org.id)
       setOrgName(org.name ?? '')
 
-      const detailRes = await fetch(`/api/v1/organizations/${org.id}`)
+      const detailRes = await fetch(`/api/v1/organizations/${org.id}`, { headers: { 'X-Org-Id': org.id, 'X-Org-Slug': slug } })
       const detailBody = await detailRes.json()
       const d = detailBody.data
-      const folderRes = await fetch(`/api/v1/workspace-folders?orgId=${encodeURIComponent(org.id)}`)
+      const folderRes = await fetch(`/api/v1/workspace-folders?orgId=${encodeURIComponent(org.id)}`, { headers: { 'X-Org-Id': org.id, 'X-Org-Slug': slug } })
       const folderBody = await folderRes.json().catch(() => ({ data: { folders: [] } }))
       const folders = Array.isArray(folderBody.data?.folders) ? folderBody.data.folders : []
       setFolderMappings(folders)
-      const connectionRes = await fetch(`/api/v1/workspace-connections?orgId=${encodeURIComponent(org.id)}`)
+      const connectionRes = await fetch(`/api/v1/workspace-connections?orgId=${encodeURIComponent(org.id)}`, { headers: { 'X-Org-Id': org.id, 'X-Org-Slug': slug } })
       const connectionBody = await connectionRes.json().catch(() => ({ data: [] }))
       setWorkspaceConnections(Array.isArray(connectionBody.data) ? connectionBody.data : [])
       if (d) {
@@ -247,7 +247,7 @@ export default function OrgSettingsPage() {
 
     await fetch(`/api/v1/organizations/${orgId}`, {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'X-Org-Id': orgId, 'X-Org-Slug': slug },
       body: JSON.stringify({
         name: form.name,
         website: form.website,
@@ -328,7 +328,7 @@ export default function OrgSettingsPage() {
   async function handleFolderResync(folder: WorkspaceFolderWithId) {
     setResyncingFolderId(folder.id)
     setFolderNotice('')
-    const res = await fetch(`/api/v1/workspace-folders/${folder.id}/resync?orgId=${encodeURIComponent(orgId)}`, { method: 'POST' })
+    const res = await fetch(`/api/v1/workspace-folders/${folder.id}/resync?orgId=${encodeURIComponent(orgId)}`, { method: 'POST', headers: { 'X-Org-Id': orgId, 'X-Org-Slug': slug } })
     const body = await res.json().catch(() => ({}))
     setFolderNotice(body.data?.message ?? body.error ?? 'Resync request recorded.')
     setResyncingFolderId(null)
@@ -345,7 +345,7 @@ export default function OrgSettingsPage() {
 
   async function refreshWorkspaceConnections(currentOrgId = orgId) {
     if (!currentOrgId) return
-    const res = await fetch(`/api/v1/workspace-connections?orgId=${encodeURIComponent(currentOrgId)}`)
+    const res = await fetch(`/api/v1/workspace-connections?orgId=${encodeURIComponent(currentOrgId)}`, { headers: { 'X-Org-Id': currentOrgId, 'X-Org-Slug': slug } })
     const body = await res.json().catch(() => ({ data: [] }))
     setWorkspaceConnections(Array.isArray(body.data) ? body.data : [])
   }
@@ -359,7 +359,7 @@ export default function OrgSettingsPage() {
       for (const oauth of missing) {
         const res = await fetch('/api/v1/workspace-connections', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', 'X-Org-Id': orgId, 'X-Org-Slug': slug },
           body: JSON.stringify({
             orgId,
             connectionKey: oauth.key,
@@ -648,7 +648,7 @@ export default function OrgSettingsPage() {
             <span>
               <span className="block text-sm font-semibold text-on-surface">Mobile Apps</span>
               <span className="mt-1 block text-xs text-on-surface-variant">
-                Show App Store and Google Play review links, release notes, and app feedback tools in the client portal.
+                Show App Store and Google Play review links, release notes, and app feedback tools for this selected org only after PiB operator review.
               </span>
             </span>
           </label>
@@ -680,7 +680,7 @@ export default function OrgSettingsPage() {
             <span>
               <span className="block text-sm font-semibold text-on-surface">Book Studio</span>
               <span className="mt-1 block text-xs text-on-surface-variant">
-                Show Book Studio in the client portal only after the approved Phase 1 runtime foundation is enabled for this organisation. Disabled is the safe default.
+                Expose Book Studio for this selected org only after the approved Phase 1 runtime foundation is enabled. Disabled is the safe default.
               </span>
             </span>
           </label>

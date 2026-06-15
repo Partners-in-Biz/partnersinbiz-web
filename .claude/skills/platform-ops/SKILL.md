@@ -402,6 +402,12 @@ Use this route for platform-mediated Obsidian/wiki persistence. For client-agent
 
 Use Workspace Broker when the agent needs the platform to create/copy/export Google workspace assets on behalf of the authenticated user/org.
 
+For direct service-account Drive/Docs/Sheets work, use the `google-workspace` skill and the
+`/google/drive/*`, `/google/docs/create`, and `/google/sheets/*` proxy endpoints. Use Workspace
+Broker when you need a durable broker job, approval/review trail, or workspace artifact record;
+use the direct Google proxy for straightforward list/upload/download/share/search/doc/sheet calls
+that already have the required PiB auth and org scope.
+
 | Method | Path | Auth | Use |
 |---|---|---|---|
 | POST | `/workspace-broker/docs/create` | admin | Create a Google Doc and record a broker job. |
@@ -744,11 +750,19 @@ These routes back the in-app admin/client/agent chat surface. They are distinct 
 | PATCH | `/conversations/[convId]/context` | participant or admin/ai | Add/remove/clear structured context references. Body action is `add`, `remove`, or `clear`. |
 | POST | `/conversations/[convId]/messages/[msgId]/finalize` | participant or admin/ai | Poll Hermes and write a run result back into the pending assistant message. Requires `runId` and `agentId`. |
 | POST | `/conversations/[convId]/messages/[msgId]/stop` | admin | Stop an in-flight agent run through the agent gateway and mark the message failed. |
+| POST | `/admin/agents/[agentId]/runs/[runId]/actions` | admin | Send a rich-message action back to a Hermes run. Approval/denial reuses the run approval endpoint; clarify/model-picker/choose/retry/open/copy/download/custom actions are proxied to the run actions endpoint. |
 
 Conversation participant rules:
 - Client callers may start conversations only with people in their org or platform admins.
 - Admin/AI callers may include visible agents. When multiple agents are selected, Pip is inserted as orchestrator when available.
 - Client org context and attached context refs are injected into the Hermes prompt. Do not manually paste unrelated client context into a conversation.
+
+Rich chat output contract:
+- Hermes events and final run payloads may include `richParts`/`rich_parts` and `uiActions`/`ui_actions`. The PiB chat normalizer and finalizer preserve those fields instead of flattening them into text.
+- Supported `richParts` include `markdown`, `code`, `table`, `image`, `gallery`, `file`, `audio`, `video`, `tool_output`, `status`, `approval`, `clarify`, and `model_picker`.
+- Supported `uiActions` include `approve`, `deny`, `choose`, `retry`, `stop`, `open`, `copy`, `download`, and `custom`. Prefer stable `id` plus `action_id`/`actionId` values so the web UI can round-trip choices to Hermes.
+- Telegram inline keyboards are adapter-specific; the web chat equivalent is a `uiActions` array. If a Hermes payload only contains a Telegram-style `reply_markup.inline_keyboard`, PiB will derive button actions as a fallback, but agents should emit web-native `uiActions` when possible.
+- For approval, clarify, and model picker prompts, send a visible rich part and matching actions. The in-app UI renders those controls in `MessageBubble` and posts the chosen action through the admin agent run action route.
 
 #### Context reference search
 

@@ -8,11 +8,14 @@
 import { NextRequest } from 'next/server'
 import { withAuth } from '@/lib/api/auth'
 import { apiSuccess, apiError } from '@/lib/api/response'
+import { canAccessOrg } from '@/lib/api/platformAdmin'
+import { logActivity } from '@/lib/activity/log'
 import {
   deleteConversation,
   getConversation,
   patchConversation,
 } from '@/lib/conversations/conversations'
+import { assertUserCanPerformOrganizationModuleAction } from '@/lib/organizations/module-policy-access'
 import type { ApiUser } from '@/lib/api/types'
 
 export const dynamic = 'force-dynamic'
@@ -63,6 +66,16 @@ export const PATCH = withAuth(
       if (typeof body.archived !== 'boolean') return apiError('archived must be a boolean', 400)
       patch.archived = body.archived
     }
+    if (patch.archived === true) {
+      const archiveAccess = await assertUserCanPerformOrganizationModuleAction(
+        user,
+        conversation.orgId,
+        'messages',
+        'archive',
+        'Conversation archive is disabled for your organisation role',
+      )
+      if (!archiveAccess.ok) return apiError(archiveAccess.error, archiveAccess.status)
+    }
 
     if (Object.keys(patch).length === 0) {
       return apiError('Nothing to update — supply title and/or archived', 400)
@@ -83,10 +96,21 @@ export const DELETE = withAuth(
     const conversation = await getConversation(convId)
     if (!conversation) return apiError('Conversation not found', 404)
 
-    if (!canAccess(user, conversation.participantUids)) {
+    if (!canAccess(user, conversation.participantUids) || !canAccessOrg(user, conversation.orgId)) {
       return apiError('Forbidden', 403)
     }
 
+    await logActivity({
+      orgId: conversation.orgId,
+      type: 'conversation_deleted',
+      actorId: user.uid,
+      actorName: user.uid,
+      actorRole: user.role === 'ai' ? 'ai' : 'admin',
+      description: `Deleted conversation ${convId}`,
+      entityId: convId,
+      entityType: 'conversation',
+      entityTitle: conversation.title,
+    })
     await deleteConversation(convId)
     return apiSuccess({ id: convId })
   },

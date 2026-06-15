@@ -297,11 +297,11 @@ export async function syncGmailMailboxAccount(input: GmailMailboxSyncInput): Pro
   const accessToken = refreshed.accessToken
   credentials = refreshed
 
-  const maxResults = Math.min(Math.max(Number(input.maxResults ?? (input.mode === 'backfill' ? 100 : 25)), 1), 500)
-  const perFolder = Math.max(1, Math.ceil(maxResults / 2))
+  const maxResults = Math.min(Math.max(Number(input.maxResults ?? (input.mode === 'backfill' ? 200 : 100)), 1), 500)
+  const currentMailboxWindow = input.mode === 'backfill' ? '' : ' newer_than:30d'
   const [inboxIds, sentIds] = await Promise.all([
-    listGmailMessageIds(accessToken, 'in:inbox', perFolder),
-    listGmailMessageIds(accessToken, 'in:sent', perFolder),
+    listGmailMessageIds(accessToken, `in:inbox${currentMailboxWindow}`, maxResults),
+    listGmailMessageIds(accessToken, `in:sent${currentMailboxWindow}`, maxResults),
   ])
   if (!inboxIds || !sentIds) return markNeedsReconnect(accountRef, 'Google mailbox sync failed; reconnect this mailbox if the problem persists')
 

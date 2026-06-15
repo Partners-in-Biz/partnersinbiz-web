@@ -16,6 +16,7 @@ interface TaskComposerProps {
   agents?: AgentMember[]
   existingTasks?: Task[]
   hideAgentSection?: boolean
+  surface?: 'admin' | 'portal'
   onClose: () => void
   onCreated: (task: Task) => void
 }
@@ -93,7 +94,7 @@ export async function uploadTaskFile(file: File, projectId: string, orgId?: stri
   }
 }
 
-export function TaskComposer({ open, column, projectId, orgId, members, agents = [], existingTasks = [], hideAgentSection = false, onClose, onCreated }: TaskComposerProps) {
+export function TaskComposer({ open, column, projectId, orgId, members, agents = [], existingTasks = [], hideAgentSection = false, surface = 'portal', onClose, onCreated }: TaskComposerProps) {
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
   const [priority, setPriority] = useState<(typeof PRIORITIES)[number]>('medium')
@@ -119,6 +120,8 @@ export function TaskComposer({ open, column, projectId, orgId, members, agents =
   const mouseDownOnBackdrop = useRef(false)
 
   const canSave = title.trim().length > 0 && !saving
+  const isAdminSurface = surface === 'admin'
+  const dialogTitle = isAdminSurface ? 'New operator task' : 'New project task'
   const selectedMembers = useMemo(
     () => members.filter((member) => assigneeIds.includes(member.userId)),
     [assigneeIds, members],
@@ -255,21 +258,24 @@ export function TaskComposer({ open, column, projectId, orgId, members, agents =
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center px-4 py-6"
+      className="fixed inset-0 z-50 flex items-end justify-center overflow-hidden px-2 py-2 sm:items-center sm:px-4 sm:py-6"
       onMouseDown={(e) => { mouseDownOnBackdrop.current = e.target === e.currentTarget }}
       onClick={() => { if (mouseDownOnBackdrop.current) onClose() }}
     >
       <div className="absolute inset-0 bg-black/70" />
       <section
-        className="relative flex max-h-[92vh] w-full max-w-4xl flex-col overflow-hidden rounded-lg border border-[var(--color-card-border)] bg-[var(--color-sidebar)] shadow-2xl"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="task-composer-title"
+        className="relative flex max-h-[calc(100dvh-1rem)] w-full min-w-0 max-w-[calc(100vw-1rem)] flex-col overflow-hidden rounded-lg border border-[var(--color-card-border)] bg-[var(--color-sidebar)] shadow-2xl sm:max-h-[92dvh] md:max-w-4xl"
         onClick={(event) => event.stopPropagation()}
       >
-        <header className="flex items-center justify-between gap-4 border-b border-[var(--color-card-border)] px-5 py-4">
-          <div>
+        <header className="flex items-center justify-between gap-4 border-b border-[var(--color-card-border)] px-4 py-3 sm:px-5 sm:py-4">
+          <div className="min-w-0">
             <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">
               {column.name}
             </p>
-            <h2 className="text-lg font-headline font-bold text-on-surface">New task</h2>
+            <h2 id="task-composer-title" className="truncate text-lg font-headline font-bold text-on-surface">{dialogTitle}</h2>
           </div>
           <button
             type="button"
@@ -281,18 +287,18 @@ export function TaskComposer({ open, column, projectId, orgId, members, agents =
           </button>
         </header>
 
-        <div className="grid flex-1 gap-0 overflow-y-auto lg:grid-cols-[1fr_320px]">
-          <div className="space-y-4 p-5">
+        <div data-testid="task-composer-body" className="grid min-h-0 min-w-0 flex-1 gap-0 overflow-x-hidden overflow-y-auto overscroll-contain lg:grid-cols-[minmax(0,1fr)_320px]">
+          <div className="min-w-0 space-y-4 p-4 sm:p-5">
             <input
               value={title}
               onChange={(event) => setTitle(event.target.value)}
-              placeholder="Task title"
-              className="w-full rounded-md border border-[var(--color-card-border)] bg-[var(--color-card)] px-4 py-3 text-lg font-headline font-bold text-on-surface placeholder:text-on-surface-variant focus:border-[var(--color-accent-v2)] focus:outline-none"
+              placeholder={isAdminSurface ? 'Operator task title' : 'Task title'}
+              className="w-full min-w-0 rounded-md border border-[var(--color-card-border)] bg-[var(--color-card)] px-4 py-3 text-lg font-headline font-bold text-on-surface placeholder:text-on-surface-variant focus:border-[var(--color-accent-v2)] focus:outline-none"
               autoFocus
             />
             <div className="space-y-2">
-              <div className="flex items-center justify-between gap-3">
-                <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Description</p>
+              <div className="flex min-w-0 items-center justify-between gap-3">
+                <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">{isAdminSurface ? 'Operator brief' : 'Description'}</p>
                 <VoiceInputButton
                   disabled={saving}
                   onTranscript={addVoiceTranscriptToDescription}
@@ -302,9 +308,9 @@ export function TaskComposer({ open, column, projectId, orgId, members, agents =
               <textarea
                 value={description}
                 onChange={(event) => setDescription(event.target.value)}
-                placeholder="Description, goals, acceptance criteria, blockers..."
+                placeholder={isAdminSurface ? 'Internal admin note, goals, acceptance criteria, blockers...' : 'Description, goals, acceptance criteria, blockers...'}
                 rows={7}
-                className="w-full resize-y rounded-md border border-[var(--color-card-border)] bg-[var(--color-card)] px-4 py-3 text-sm leading-relaxed text-on-surface placeholder:text-on-surface-variant focus:border-[var(--color-accent-v2)] focus:outline-none"
+                className="w-full min-w-0 resize-y rounded-md border border-[var(--color-card-border)] bg-[var(--color-card)] px-4 py-3 text-sm leading-relaxed text-on-surface placeholder:text-on-surface-variant focus:border-[var(--color-accent-v2)] focus:outline-none"
               />
             </div>
 
@@ -315,7 +321,7 @@ export function TaskComposer({ open, column, projectId, orgId, members, agents =
                 onChange={(event) => setChecklistText(event.target.value)}
                 placeholder="One item per line"
                 rows={4}
-                className="w-full resize-y rounded-md border border-[var(--color-card-border)] bg-[var(--color-card)] px-4 py-3 text-sm text-on-surface placeholder:text-on-surface-variant focus:border-[var(--color-accent-v2)] focus:outline-none"
+                className="w-full min-w-0 resize-y rounded-md border border-[var(--color-card-border)] bg-[var(--color-card)] px-4 py-3 text-sm text-on-surface placeholder:text-on-surface-variant focus:border-[var(--color-accent-v2)] focus:outline-none"
               />
             </div>
 
@@ -330,14 +336,14 @@ export function TaskComposer({ open, column, projectId, orgId, members, agents =
                   setDragging(false)
                   addFiles(event.dataTransfer.files)
                 }}
-                className="flex min-h-32 cursor-pointer flex-col items-center justify-center rounded-lg border border-dashed px-4 py-6 text-center transition-colors"
+                className="flex min-h-32 min-w-0 cursor-pointer flex-col items-center justify-center rounded-lg border border-dashed px-4 py-6 text-center transition-colors"
                 style={{
                   borderColor: dragging ? 'var(--color-accent-v2)' : 'var(--color-card-border)',
                   background: dragging ? 'color-mix(in oklab, var(--color-accent-v2) 8%, transparent)' : 'var(--color-card)',
                 }}
               >
                 <span className="material-symbols-outlined text-[28px] text-on-surface-variant">cloud_upload</span>
-                <span className="mt-2 text-sm text-on-surface">Upload images, videos, documents</span>
+                <span className="mt-2 max-w-full break-words text-sm text-on-surface">Upload images, videos, documents</span>
                 <span className="mt-1 text-xs text-on-surface-variant">Firebase Storage</span>
                 <input
                   type="file"
@@ -353,7 +359,7 @@ export function TaskComposer({ open, column, projectId, orgId, members, agents =
               {files.length > 0 && (
                 <div className="mt-3 grid gap-2 sm:grid-cols-2">
                   {files.map((file, index) => (
-                    <div key={`${file.name}-${index}`} className="flex items-center gap-2 rounded-md border border-[var(--color-card-border)] bg-[var(--color-card)] p-2">
+                    <div key={`${file.name}-${index}`} className="flex min-w-0 items-center gap-2 rounded-md border border-[var(--color-card-border)] bg-[var(--color-card)] p-2">
                       <span className="material-symbols-outlined text-[18px] text-on-surface-variant">
                         {fileKind(file) === 'image' ? 'image' : fileKind(file) === 'video' ? 'movie' : 'attach_file'}
                       </span>
@@ -376,16 +382,16 @@ export function TaskComposer({ open, column, projectId, orgId, members, agents =
             </div>
           </div>
 
-          <aside className="space-y-5 border-t border-[var(--color-card-border)] p-5 lg:border-l lg:border-t-0">
+          <aside className="min-w-0 space-y-5 border-t border-[var(--color-card-border)] p-4 sm:p-5 lg:border-l lg:border-t-0">
             <div>
               <p className="mb-2 text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Priority</p>
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid min-w-0 grid-cols-2 gap-2">
                 {PRIORITIES.map((item) => (
                   <button
                     key={item}
                     type="button"
                     onClick={() => setPriority(item)}
-                    className={`rounded-md border px-3 py-2 text-xs font-label capitalize transition-colors ${
+                    className={`min-w-0 rounded-md border px-3 py-2 text-xs font-label capitalize transition-colors ${
                       priority === item
                         ? 'border-[var(--color-accent-v2)] bg-[var(--color-accent-v2)] text-black'
                         : 'border-[var(--color-card-border)] text-on-surface-variant hover:text-on-surface'
@@ -397,23 +403,23 @@ export function TaskComposer({ open, column, projectId, orgId, members, agents =
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
-              <label className="space-y-1">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <label className="min-w-0 space-y-1">
                 <span className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Start</span>
                 <input
                   type="date"
                   value={startDate}
                   onChange={(event) => setStartDate(event.target.value)}
-                  className="w-full rounded-md border border-[var(--color-card-border)] bg-[var(--color-card)] px-3 py-2 text-sm text-on-surface focus:border-[var(--color-accent-v2)] focus:outline-none"
+                  className="w-full min-w-0 rounded-md border border-[var(--color-card-border)] bg-[var(--color-card)] px-3 py-2 text-sm text-on-surface focus:border-[var(--color-accent-v2)] focus:outline-none"
                 />
               </label>
-              <label className="space-y-1">
+              <label className="min-w-0 space-y-1">
                 <span className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Due</span>
                 <input
                   type="date"
                   value={dueDate}
                   onChange={(event) => setDueDate(event.target.value)}
-                  className="w-full rounded-md border border-[var(--color-card-border)] bg-[var(--color-card)] px-3 py-2 text-sm text-on-surface focus:border-[var(--color-accent-v2)] focus:outline-none"
+                  className="w-full min-w-0 rounded-md border border-[var(--color-card-border)] bg-[var(--color-card)] px-3 py-2 text-sm text-on-surface focus:border-[var(--color-accent-v2)] focus:outline-none"
                 />
               </label>
             </div>
@@ -427,7 +433,7 @@ export function TaskComposer({ open, column, projectId, orgId, members, agents =
                 value={estimateHours}
                 onChange={(event) => setEstimateHours(event.target.value)}
                 placeholder="Hours"
-                className="w-full rounded-md border border-[var(--color-card-border)] bg-[var(--color-card)] px-3 py-2 text-sm text-on-surface placeholder:text-on-surface-variant focus:border-[var(--color-accent-v2)] focus:outline-none"
+                className="w-full min-w-0 rounded-md border border-[var(--color-card-border)] bg-[var(--color-card)] px-3 py-2 text-sm text-on-surface placeholder:text-on-surface-variant focus:border-[var(--color-accent-v2)] focus:outline-none"
               />
             </label>
 
@@ -437,26 +443,26 @@ export function TaskComposer({ open, column, projectId, orgId, members, agents =
                 value={labels}
                 onChange={(event) => setLabels(event.target.value)}
                 placeholder="design, blocked, client"
-                className="w-full rounded-md border border-[var(--color-card-border)] bg-[var(--color-card)] px-3 py-2 text-sm text-on-surface placeholder:text-on-surface-variant focus:border-[var(--color-accent-v2)] focus:outline-none"
+                className="w-full min-w-0 rounded-md border border-[var(--color-card-border)] bg-[var(--color-card)] px-3 py-2 text-sm text-on-surface placeholder:text-on-surface-variant focus:border-[var(--color-accent-v2)] focus:outline-none"
               />
             </label>
 
             <div>
-              <p className="mb-2 text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Context</p>
+              <p className="mb-2 text-[10px] font-label uppercase tracking-widest text-on-surface-variant">{isAdminSurface ? 'Admin context' : 'Context'}</p>
               <ContextReferencePicker
                 orgId={orgId}
                 projectId={projectId}
                 value={contextRefs}
                 onChange={setContextRefs}
-                inputLabel="Add task context reference"
+                inputLabel={isAdminSurface ? 'Add admin task context reference' : 'Add task context reference'}
                 compact
               />
             </div>
 
             <div>
-              <p className="mb-2 text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Assignment</p>
+              <p className="mb-2 text-[10px] font-label uppercase tracking-widest text-on-surface-variant">{isAdminSurface ? 'Operator assignment' : 'Assignment'}</p>
               {!hideAgentSection && (
-                <div className="mb-2 grid grid-cols-3 gap-1 rounded-md border border-[var(--color-card-border)] bg-[var(--color-card)] p-1">
+                <div className="mb-2 grid grid-cols-1 gap-1 rounded-md border border-[var(--color-card-border)] bg-[var(--color-card)] p-1 sm:grid-cols-3">
                   {(['people', 'agent', 'orchestration'] as const).map((mode) => (
                     <button
                       key={mode}
@@ -547,7 +553,7 @@ export function TaskComposer({ open, column, projectId, orgId, members, agents =
                     <select
                       value={agentEffort}
                       onChange={(event) => setAgentEffort(event.target.value as AgentEffort | '')}
-                      className="w-full rounded-md border border-[var(--color-card-border)] bg-[var(--color-surface-container)] px-2 py-2 text-xs text-on-surface focus:border-[var(--color-accent-v2)] focus:outline-none"
+                      className="w-full min-w-0 rounded-md border border-[var(--color-card-border)] bg-[var(--color-surface-container)] px-2 py-2 text-xs text-on-surface focus:border-[var(--color-accent-v2)] focus:outline-none"
                     >
                       <option value="">Auto</option>
                       {AGENT_EFFORT_OPTIONS.map((option) => (
@@ -560,7 +566,7 @@ export function TaskComposer({ open, column, projectId, orgId, members, agents =
                     <select
                       value={agentModel}
                       onChange={(event) => setAgentModel(event.target.value as AgentModel | '')}
-                      className="w-full rounded-md border border-[var(--color-card-border)] bg-[var(--color-surface-container)] px-2 py-2 text-xs text-on-surface focus:border-[var(--color-accent-v2)] focus:outline-none"
+                      className="w-full min-w-0 rounded-md border border-[var(--color-card-border)] bg-[var(--color-surface-container)] px-2 py-2 text-xs text-on-surface focus:border-[var(--color-accent-v2)] focus:outline-none"
                     >
                       <option value="">Auto</option>
                       {AGENT_MODEL_OPTIONS.map((option) => (
@@ -643,11 +649,11 @@ export function TaskComposer({ open, column, projectId, orgId, members, agents =
 
         {error && <p className="border-t border-[var(--color-card-border)] px-5 py-3 text-xs text-[#ef4444]">{error}</p>}
 
-        <footer className="flex items-center justify-end gap-2 border-t border-[var(--color-card-border)] px-5 py-4">
-          <button type="button" onClick={() => { reset(); onClose() }} disabled={saving} className="pib-btn-secondary text-sm font-label">
+        <footer data-testid="task-composer-footer" className="flex flex-col-reverse items-stretch justify-end gap-2 border-t border-[var(--color-card-border)] px-5 py-4 sm:flex-row sm:items-center">
+          <button type="button" onClick={() => { reset(); onClose() }} disabled={saving} className="pib-btn-secondary w-full text-sm font-label sm:w-auto">
             Cancel
           </button>
-          <button type="button" onClick={handleSubmit} disabled={!canSave} className="pib-btn-primary text-sm font-label disabled:cursor-not-allowed disabled:opacity-50">
+          <button type="button" onClick={handleSubmit} disabled={!canSave} className="pib-btn-primary w-full text-sm font-label disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto">
             {saving ? 'Creating...' : 'Create task'}
           </button>
         </footer>

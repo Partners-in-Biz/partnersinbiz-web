@@ -7,7 +7,7 @@ export default async function LegacyContentCampaignsRedirect({
   searchParams,
 }: {
   searchParams?: Promise<LegacyCampaignRedirectSearchParams>
-} = {}) {
+}) {
   const params = await searchParams
   redirect(legacyCampaignRedirectPath('/portal/campaigns', params))
 }

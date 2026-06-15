@@ -145,6 +145,35 @@ describe('sendMailboxMessage', () => {
     expect(audits[0].data).toMatchObject({ action: 'send_success', provider: 'google', providerMessageId: 'gmail-sent-1' })
   })
 
+  it('includes sanitized attachments in Gmail MIME payload and stores only attachment metadata', async () => {
+    const accounts: Doc[] = [{ id: 'acct-1', data: { orgId: 'org-1', uid: 'uid-1', provider: 'google', status: 'connected', emailAddress: 'me@example.com', googleEnc: { credentials: { accessToken: 'token', expiresAt: Date.now() + 600_000 } } } }]
+    const messages: Doc[] = []
+    stageCollections(accounts, messages)
+    global.fetch = jest.fn(async (_url: string, init?: RequestInit) => {
+      const raw = JSON.parse(String(init?.body)).raw
+      const mime = Buffer.from(raw, 'base64url').toString('utf8')
+      expect(mime).toContain('Content-Type: multipart/mixed;')
+      expect(mime).toContain('Content-Disposition: attachment; filename="brief.txt"')
+      expect(mime).toContain(Buffer.from('Attachment body').toString('base64'))
+      return { ok: true, json: async () => ({ id: 'gmail-sent-attachment', threadId: 'thread-attach' }) }
+    }) as unknown as typeof fetch
+
+    const { sendMailboxMessage } = await import('@/lib/mailbox/sendBridge')
+    const result = await sendMailboxMessage({
+      orgId: 'org-1',
+      uid: 'uid-1',
+      accountId: 'acct-1',
+      approved: true,
+      to: ['client@example.com'],
+      subject: 'With attachment',
+      bodyText: 'See attached',
+      attachments: [{ name: 'brief.txt', contentType: 'text/plain', sizeBytes: 15, contentBase64: Buffer.from('Attachment body').toString('base64') }],
+    })
+
+    expect(result).toMatchObject({ ok: true, provider: 'google', providerMessageId: 'gmail-sent-attachment' })
+    expect(messages[0].data.attachments).toEqual([{ name: 'brief.txt', contentType: 'text/plain', sizeBytes: 15 }])
+  })
+
   it('sends through configured SMTP account when SMTP credentials are present', async () => {
     const accounts: Doc[] = [{ id: 'acct-1', data: { orgId: 'org-1', uid: 'uid-1', provider: 'smtp_imap', status: 'connected', emailAddress: 'me@example.com', smtpEnc: { credentials: { host: 'smtp.example.com', port: 465, username: 'me@example.com', password: 'secret', secure: true } } } }]
     const messages: Doc[] = []

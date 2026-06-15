@@ -13,6 +13,7 @@ interface MobileAppListProps {
   showListingDetails?: boolean
   showReleaseNotes?: boolean
   renderActions?: (app: MobileAppRecord) => ReactNode
+  renderEmptyAction?: () => ReactNode
   renderFooter?: (app: MobileAppRecord) => ReactNode
 }
 
@@ -69,6 +70,7 @@ export function MobileAppList({
   showListingDetails = false,
   showReleaseNotes = false,
   renderActions,
+  renderEmptyAction,
   renderFooter,
 }: MobileAppListProps) {
   if (apps.length === 0) {
@@ -77,6 +79,7 @@ export function MobileAppList({
         <span className="material-symbols-outlined text-4xl text-[var(--color-pib-accent)]">smartphone</span>
         <h2 className="mt-3 font-headline text-xl font-bold">{emptyTitle}</h2>
         <p className="mt-2 text-sm text-[var(--color-pib-text-muted)]">{emptyDescription}</p>
+        {renderEmptyAction ? <div className="mt-5">{renderEmptyAction()}</div> : null}
       </div>
     )
   }

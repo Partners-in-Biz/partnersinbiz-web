@@ -1,6 +1,22 @@
 export type MobileAppPlatform = 'ios' | 'android' | 'huawei' | 'web' | 'other'
 export type MobileAppStatus = 'planned' | 'live' | 'paused' | 'deprecated'
 export type MobileAppAccessStatus = 'unknown' | 'no_access' | 'invited' | 'active' | 'blocked'
+export type MobileAppProfileLinkType = 'developer_account' | 'store_account' | 'analytics' | 'support' | 'other'
+export type MobileAppProfileLinkStatus = 'linked' | 'pending' | 'needs_review' | 'blocked'
+
+export interface MobileAppProfileLink {
+  id?: string
+  type: MobileAppProfileLinkType
+  label: string
+  platform?: MobileAppPlatform
+  url?: string
+  accountId?: string
+  notes?: string
+  status: MobileAppProfileLinkStatus
+  linkedBy?: string
+  linkedByType?: 'user' | 'agent' | 'system'
+  linkedAt?: unknown
+}
 
 export interface MobileAppListing {
   title?: string
@@ -69,6 +85,7 @@ export interface MobileAppRecord {
   analyticsSnapshot?: MobileAppAnalyticsSnapshot
   releaseManagement?: MobileAppReleaseManagement
   access?: MobileAppAccess
+  profileLinks?: MobileAppProfileLink[]
   internalNotes?: string
   clientNotes?: string
   visibility?: {

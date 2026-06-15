@@ -1,5 +1,6 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
-import MigrateCompaniesPage, { ExistingCompanyReviewLink } from '@/app/(portal)/portal/companies/migrate/page'
+import MigrateCompaniesPage from '@/app/(portal)/portal/companies/migrate/page'
+import { ExistingCompanyReviewLink } from '@/components/crm/ExistingCompanyReviewLink'
 
 let mockSearchParams = new URLSearchParams()
 

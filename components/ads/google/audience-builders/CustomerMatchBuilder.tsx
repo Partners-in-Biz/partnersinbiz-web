@@ -72,7 +72,7 @@ export function CustomerMatchBuilder({ orgId }: Props) {
       <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/5 p-4 text-sm">
         <p className="font-medium text-emerald-300">Customer Match audience created</p>
         <p className="mt-1 text-xs text-white/60">
-          Google is processing your list. Members upload will reflect in the audience once matched.
+          Google is processing the approved list. Members upload will reflect in the audience once matched.
         </p>
         <button type="button" className="btn-pib-ghost mt-3 text-xs" onClick={reset}>
           Create another

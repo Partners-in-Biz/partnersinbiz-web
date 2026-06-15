@@ -28,7 +28,7 @@ export type AccessPolicyPreset =
   | 'reviewer'
   | 'custom'
 
-export type LegacyAccessScope = 'all' | 'crm' | 'marketing' | 'projects' | 'billing' | 'readonly'
+export type LegacyAccessScope = 'none' | 'all' | 'crm' | 'marketing' | 'projects' | 'billing' | 'readonly'
 
 export interface MemberAccessPolicy {
   preset: AccessPolicyPreset
@@ -129,7 +129,26 @@ export function normalizeMemberAccessPolicy(value: unknown): MemberAccessPolicy 
 export function defaultAccessPolicyFor(role: RoleWithSystem, accessScope?: unknown): MemberAccessPolicy {
   if (role === 'system' || role === 'owner' || role === 'admin') return FULL_ACCESS_POLICY
 
-  const scope = typeof accessScope === 'string' ? accessScope.trim() as LegacyAccessScope : 'all'
+  const rawScope = typeof accessScope === 'string' ? accessScope.trim() : ''
+  if (!rawScope) {
+    return role === 'viewer'
+      ? policy({
+          preset: 'reviewer',
+          modules: {
+            crm: true,
+            projects: true,
+            documents: true,
+            reports: true,
+            research: true,
+            properties: true,
+          },
+          recordScopes: { crm: 'owned_or_linked', projects: 'owned_or_linked' },
+        })
+      : FULL_ACCESS_POLICY
+  }
+
+  const scope = rawScope as LegacyAccessScope
+  if (scope === 'all') return FULL_ACCESS_POLICY
   if (scope === 'crm') {
     return policy({
       preset: 'crm_sales',
@@ -173,7 +192,11 @@ export function defaultAccessPolicyFor(role: RoleWithSystem, accessScope?: unkno
     })
   }
 
-  return FULL_ACCESS_POLICY
+  return policy({
+    preset: 'custom',
+    modules: {},
+    recordScopes: { crm: 'owned_or_linked', projects: 'owned_or_linked' },
+  })
 }
 
 export function resolveMemberAccessPolicy(input: {
@@ -224,6 +247,6 @@ export function policyFromAccessScope(accessScope?: unknown, role: RoleWithSyste
 }
 
 function normalizePolicyOrFull(value: MemberAccessPolicy | unknown): MemberAccessPolicy {
-  if (!value || typeof value !== 'object') return FULL_ACCESS_POLICY
+  if (!value || typeof value !== 'object') return normalizeMemberAccessPolicy(null)
   return normalizeMemberAccessPolicy(value)
 }

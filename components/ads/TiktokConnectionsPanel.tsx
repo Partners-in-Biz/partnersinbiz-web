@@ -265,7 +265,7 @@ export function TiktokConnectionsPanel({ orgSlug, orgId, connections }: Props) {
           )}
           {!accountsLoading && !accountsError && accounts.length === 0 && (
             <p className="text-xs text-white/40">
-              No advertisers found. Confirm your TikTok account has access to a
+              No advertisers found. Confirm the connected TikTok account has access to a
               TikTok For Business Marketing API ad account.
             </p>
           )}

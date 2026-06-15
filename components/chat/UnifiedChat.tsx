@@ -1,7 +1,7 @@
 'use client'
 
-import { FormEvent, KeyboardEvent, useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
-import type { ChatEvent } from '@/lib/hermes/types'
+import { DragEvent, FormEvent, KeyboardEvent, useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
+import type { ChatEvent, ChatUiAction, RichMessagePart } from '@/lib/hermes/types'
 import { AGENT_IDS, type AgentSkillPolicyState } from '@/lib/agents/types'
 import { AGENT_EFFORT_OPTIONS, type AgentEffort } from '@/lib/agents/runRouting'
 import {
@@ -69,6 +69,9 @@ export interface UnifiedChatProps {
   autoCreateTitle?: string
   allowDeleteConversations?: boolean
   allowAgentParticipants?: boolean
+  allowStartConversations?: boolean
+  allowSendMessages?: boolean
+  allowArchiveConversations?: boolean
   currentPageContext?: ContextReferenceSeed | null
   compact?: boolean
 }
@@ -76,6 +79,39 @@ export interface UnifiedChatProps {
 const POLL_INTERVAL = 1500
 const MAX_RUN_POLL_ATTEMPTS = Math.ceil((90 * 60 * 1000) / POLL_INTERVAL)
 const HUMAN_CHAT_REFRESH_INTERVAL = 3000
+const MAX_ATTACHMENT_BYTES = 10 * 1024 * 1024
+const MAX_PENDING_ATTACHMENTS = 5
+const ALLOWED_ATTACHMENT_MIME = new Set([
+  'image/jpeg',
+  'image/png',
+  'image/gif',
+  'image/webp',
+  'application/pdf',
+  'text/plain',
+  'text/markdown',
+  'text/csv',
+  'application/json',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+])
+
+function validateConversationAttachment(file: File): string | null {
+  const type = (file.type || 'application/octet-stream').toLowerCase()
+  if (!ALLOWED_ATTACHMENT_MIME.has(type)) return `Unsupported file type: ${file.name}`
+  if (file.size > MAX_ATTACHMENT_BYTES) return `File too large: ${file.name} (max 10MB)`
+  return null
+}
+
+function splitValidConversationAttachments(files: File[]): { validFiles: File[]; errors: string[] } {
+  const validFiles: File[] = []
+  const errors: string[] = []
+  for (const file of files) {
+    const error = validateConversationAttachment(file)
+    if (error) errors.push(error)
+    else validFiles.push(file)
+  }
+  return { validFiles, errors }
+}
 
 export function formatConversationAttachmentUploadError(error: unknown, fileName: string): string {
   const raw = error instanceof Error ? error.message : String(error || '')
@@ -150,6 +186,18 @@ function tsSeconds(ts: ConversationMessage['createdAt']): number {
     (ts as { seconds?: number; _seconds?: number })._seconds ?? 0
 }
 
+function appendRichItems<T>(current: T[] | undefined, incoming: T[] | undefined): T[] | undefined {
+  if (!incoming?.length) return current
+  const merged = [...(current ?? []), ...incoming]
+  const seen = new Set<string>()
+  return merged.filter((item) => {
+    const key = JSON.stringify(item)
+    if (seen.has(key)) return false
+    seen.add(key)
+    return true
+  })
+}
+
 function contextChipLabel(ref: ContextReference | ContextReferenceSeed): string {
   return ref.label?.trim() || `${ref.type}:${ref.id}`
 }
@@ -174,6 +222,9 @@ export default function UnifiedChat({
   autoCreateTitle,
   allowDeleteConversations = false,
   allowAgentParticipants = true,
+  allowStartConversations = true,
+  allowSendMessages = true,
+  allowArchiveConversations = true,
   currentPageContext,
   compact = false,
 }: UnifiedChatProps) {
@@ -227,6 +278,7 @@ export default function UnifiedChat({
 
   // Attachment state
   const [attachments, setAttachments] = useState<File[]>([])
+  const [draggingAttachments, setDraggingAttachments] = useState(false)
   const fileInputRef = useRef<HTMLInputElement | null>(null)
   const attachmentInputId = useId()
 
@@ -258,6 +310,7 @@ export default function UnifiedChat({
     () => conversations.find((c) => c.id === activeId) ?? null,
     [conversations, activeId],
   )
+  const canUseComposer = allowSendMessages && (Boolean(activeConversation) || allowStartConversations)
   const contextTypeOptions = useMemo(
     () => (contextTypePrompt ? filterContextReferenceMentionOptions(contextTypePrompt.query) : []),
     [contextTypePrompt],
@@ -317,6 +370,7 @@ export default function UnifiedChat({
         !activeId &&
         list.length === 0 &&
         autoCreateScopedConversation &&
+        allowStartConversations &&
         initialAgentId &&
         scope &&
         scopeRefId &&
@@ -354,6 +408,7 @@ export default function UnifiedChat({
     activeId,
     initialConvId,
     autoCreateScopedConversation,
+    allowStartConversations,
     initialAgentId,
     scope,
     scopeRefId,
@@ -507,6 +562,21 @@ export default function UnifiedChat({
             ...prev,
             [msgId]: [...(prev[msgId] ?? []), data],
           }))
+          const richParts = Array.isArray(data.richParts) ? data.richParts as RichMessagePart[] : []
+          const uiActions = Array.isArray(data.uiActions) ? data.uiActions as ChatUiAction[] : []
+          if (richParts.length > 0 || uiActions.length > 0) {
+            setMessages((prev) =>
+              prev.map((m) =>
+                m.id === msgId
+                  ? {
+                      ...m,
+                      richParts: appendRichItems(m.richParts, richParts),
+                      uiActions: appendRichItems(m.uiActions, uiActions),
+                    }
+                  : m,
+              ),
+            )
+          }
           if (data.event === 'assistant.text_delta' && data.delta) {
             setMessages((prev) =>
               prev.map((m) =>
@@ -732,6 +802,55 @@ export default function UnifiedChat({
     [approvalPending, activeId, pollFinalize, startEventStream],
   )
 
+  const handleUiAction = useCallback(
+    async (message: ConversationMessage, action: ChatUiAction) => {
+      const actionType = String(action.type).toLowerCase()
+      if (actionType === 'open' || actionType === 'download' || actionType === 'copy') return
+
+      const runId = message.runId
+      if (!runId) {
+        setError('This action is missing the Hermes run id.')
+        return
+      }
+
+      const candidateAgentId = message.dispatchAgentId ?? message.authorId ?? initialAgentId ?? 'pip'
+      const agentId: AgentId = AGENT_IDS.includes(candidateAgentId as AgentId)
+        ? candidateAgentId as AgentId
+        : 'pip'
+
+      try {
+        const endpoint = typeof action.endpoint === 'string' && action.endpoint.startsWith('/api/')
+          ? action.endpoint
+          : `/api/v1/admin/agents/${agentId}/runs/${encodeURIComponent(runId)}/actions`
+        const res = await fetch(endpoint, {
+          method: action.method && ['POST', 'PUT', 'PATCH'].includes(action.method) ? action.method : 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            actionId: action.actionId ?? action.id,
+            type: actionType,
+            value: action.value,
+            payload: action.payload,
+          }),
+        })
+        if (!res.ok) {
+          const body = await readApiResponse(res)
+          throw new Error(typeof body.error === 'string' ? body.error : `action failed: ${res.status}`)
+        }
+
+        setMessages((prev) =>
+          prev.map((m) => (m.id === message.id ? { ...m, status: 'pending' } : m)),
+        )
+        if (activeId) {
+          startEventStream(message.id, runId, agentId)
+          pollFinalize(activeId, message.id, runId, agentId)
+        }
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Action failed')
+      }
+    },
+    [activeId, initialAgentId, pollFinalize, startEventStream],
+  )
+
   const addSelectionToComposer = useCallback((selectedText: string) => {
     const cleaned = selectedText.trim()
     if (!cleaned) return
@@ -866,6 +985,50 @@ export default function UnifiedChat({
     })
   }, [input, slashPrompt])
 
+  const addPendingAttachments = useCallback((files: File[]) => {
+    if (files.length === 0) return
+    const { validFiles, errors } = splitValidConversationAttachments(files)
+    setError(errors[0] ?? null)
+    if (validFiles.length === 0) return
+    const openSlots = Math.max(0, MAX_PENDING_ATTACHMENTS - attachments.length)
+    if (openSlots === 0) {
+      setError(`You can attach up to ${MAX_PENDING_ATTACHMENTS} files at a time.`)
+      return
+    }
+    if (validFiles.length > openSlots) {
+      setError(`Only ${openSlots} more attachment${openSlots === 1 ? '' : 's'} can be added.`)
+    }
+    setAttachments((prev) => [...prev, ...validFiles.slice(0, openSlots)].slice(0, MAX_PENDING_ATTACHMENTS))
+  }, [attachments.length])
+
+  const dataTransferHasFiles = useCallback((dataTransfer: DataTransfer): boolean => {
+    if ((dataTransfer.files?.length ?? 0) > 0) return true
+    return Array.from(dataTransfer.types ?? []).includes('Files')
+  }, [])
+
+  const handleAttachmentDrop = useCallback((event: DragEvent<HTMLFormElement>) => {
+    if (!dataTransferHasFiles(event.dataTransfer)) return
+    event.preventDefault()
+    event.stopPropagation()
+    setDraggingAttachments(false)
+    if (sending) return
+    addPendingAttachments(Array.from(event.dataTransfer.files ?? []))
+  }, [addPendingAttachments, dataTransferHasFiles, sending])
+
+  const handleAttachmentDragOver = useCallback((event: DragEvent<HTMLFormElement>) => {
+    if (!dataTransferHasFiles(event.dataTransfer)) return
+    event.preventDefault()
+    event.stopPropagation()
+    if (sending) return
+    event.dataTransfer.dropEffect = 'copy'
+    setDraggingAttachments(true)
+  }, [dataTransferHasFiles, sending])
+
+  const handleAttachmentDragLeave = useCallback((event: DragEvent<HTMLFormElement>) => {
+    if (event.currentTarget.contains(event.relatedTarget as Node | null)) return
+    setDraggingAttachments(false)
+  }, [])
+
   // ── Rename conversation ───────────────────────────────────────────────────
   const renameConversation = useCallback(async (convId: string, title: string) => {
     const trimmed = title.trim()
@@ -884,6 +1047,7 @@ export default function UnifiedChat({
   // ── Archive conversation ──────────────────────────────────────────────────
   const archiveConversation = useCallback(
     async (convId: string) => {
+      if (!allowArchiveConversations) return
       setMenuOpenId(null)
       setMenuPosition(null)
       setConversations((prev) => prev.filter((c) => c.id !== convId))
@@ -894,7 +1058,7 @@ export default function UnifiedChat({
         body: JSON.stringify({ archived: true }),
       }).catch(() => {})
     },
-    [activeId],
+    [activeId, allowArchiveConversations],
   )
 
   // ── Delete conversation ──────────────────────────────────────────────────
@@ -974,6 +1138,10 @@ export default function UnifiedChat({
   // ── Create new conversation (from modal) ──────────────────────────────────
   const handleCreateConversation = useCallback(async () => {
     if (creatingConv) return
+    if (!allowStartConversations) {
+      setError('Starting new conversations is disabled for your organisation role.')
+      return
+    }
     setCreatingConv(true)
     setError(null)
     try {
@@ -1015,14 +1183,18 @@ export default function UnifiedChat({
     } finally {
       setCreatingConv(false)
     }
-  }, [creatingConv, newParticipants, newTitle, newScope, orgId, projectId, scope, scopeRefId, contextRefs])
+  }, [allowStartConversations, creatingConv, newParticipants, newTitle, newScope, orgId, projectId, scope, scopeRefId, contextRefs])
 
   // ── Send message ──────────────────────────────────────────────────────────
   const send = useCallback(
     async (e: FormEvent) => {
-      e.preventDefault()
-      if ((!input.trim() && attachments.length === 0) || sending) return
-      setError(null)
+	      e.preventDefault()
+	      if ((!input.trim() && attachments.length === 0) || sending) return
+	      if (!allowSendMessages) {
+	        setError('Replies are disabled for your organisation role.')
+	        return
+	      }
+	      setError(null)
       setSending(true)
       let convId = activeId
 
@@ -1056,10 +1228,13 @@ export default function UnifiedChat({
           }
         }
 
-        // Auto-create a conversation if none selected.
-        let createdWithAgent = false
-        if (!convId) {
-          const participants = allowAgentParticipants
+	        // Auto-create a conversation if none selected.
+	        let createdWithAgent = false
+	        if (!convId) {
+	          if (!allowStartConversations) {
+	            throw new Error('Starting new conversations is disabled for your organisation role.')
+	          }
+	          const participants = allowAgentParticipants
             ? [{ kind: 'agent' as const, agentId: 'pip' as const }]
             : []
           const payload: Record<string, unknown> = {
@@ -1186,8 +1361,10 @@ export default function UnifiedChat({
       sending,
       contextRefs,
       pinCurrentPageContext,
-      allowAgentParticipants,
-      orgId,
+	      allowAgentParticipants,
+	      allowStartConversations,
+	      allowSendMessages,
+	      orgId,
       currentUserUid,
       currentUserDisplayName,
       scope,
@@ -1233,8 +1410,15 @@ export default function UnifiedChat({
       >
         <button
           type="button"
-          onClick={() => setShowNewModal(true)}
-          className="rounded-lg bg-primary px-3 py-2 text-sm font-medium text-on-primary hover:opacity-90 flex items-center justify-center gap-1.5"
+          onClick={() => {
+            if (!allowStartConversations) {
+              setError('Starting new conversations is disabled for your organisation role.')
+              return
+            }
+            setShowNewModal(true)
+          }}
+          disabled={!allowStartConversations}
+          className="rounded-lg bg-primary px-3 py-2 text-sm font-medium text-on-primary hover:opacity-90 flex items-center justify-center gap-1.5 disabled:cursor-not-allowed disabled:opacity-45"
         >
           <span className="material-symbols-outlined text-[16px]">add</span>
           New conversation
@@ -1245,7 +1429,7 @@ export default function UnifiedChat({
         <div className="flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto">
           {conversations.length === 0 && (
             <div className="text-xs text-on-surface-variant px-2 py-3">
-              No conversations yet. Start one.
+              {allowStartConversations ? 'No conversations yet. Start one.' : 'No conversations yet.'}
             </div>
           )}
           {conversations.filter((c) => !c.archived).map((c) => (
@@ -1342,14 +1526,16 @@ export default function UnifiedChat({
             <span className="material-symbols-outlined text-[14px]">edit</span>
             Rename
           </button>
-          <button
-            type="button"
-            className="w-full text-left px-3 py-2 text-xs text-red-400 hover:bg-[var(--color-card-hover,rgba(255,255,255,0.06))] flex items-center gap-2"
-            onClick={() => archiveConversation(menuOpenId)}
-          >
-            <span className="material-symbols-outlined text-[14px]">archive</span>
-            Archive
-          </button>
+          {allowArchiveConversations && (
+            <button
+              type="button"
+              className="w-full text-left px-3 py-2 text-xs text-red-400 hover:bg-[var(--color-card-hover,rgba(255,255,255,0.06))] flex items-center gap-2"
+              onClick={() => archiveConversation(menuOpenId)}
+            >
+              <span className="material-symbols-outlined text-[14px]">archive</span>
+              Archive
+            </button>
+          )}
           {allowDeleteConversations && (
             <button
               type="button"
@@ -1434,18 +1620,20 @@ export default function UnifiedChat({
                       <span className="material-symbols-outlined text-[16px]">edit</span>
                       Rename
                     </button>
-                    <button
-                      type="button"
-                      className="w-full text-left px-3 py-2 text-sm text-red-400 hover:bg-[var(--color-card-hover,rgba(255,255,255,0.06))] flex items-center gap-2"
-                      onClick={() => {
-                        setHeaderMenuOpen(false)
-                        archiveConversation(activeConversation.id)
-                        setMobilePane('list')
-                      }}
-                    >
-                      <span className="material-symbols-outlined text-[16px]">archive</span>
-                      Archive
-                    </button>
+                    {allowArchiveConversations && (
+                      <button
+                        type="button"
+                        className="w-full text-left px-3 py-2 text-sm text-red-400 hover:bg-[var(--color-card-hover,rgba(255,255,255,0.06))] flex items-center gap-2"
+                        onClick={() => {
+                          setHeaderMenuOpen(false)
+                          archiveConversation(activeConversation.id)
+                          setMobilePane('list')
+                        }}
+                      >
+                        <span className="material-symbols-outlined text-[16px]">archive</span>
+                        Archive
+                      </button>
+                    )}
                     {allowDeleteConversations && (
                       <button
                         type="button"
@@ -1486,8 +1674,8 @@ export default function UnifiedChat({
           {!loading && messages.length === 0 && (
             <div className="text-sm text-on-surface-variant py-8 text-center">
               {activeConversation
-                ? 'No messages yet. Send one below.'
-                : 'Select or create a conversation to get started.'}
+                ? allowSendMessages ? 'No messages yet. Send one below.' : 'No messages yet.'
+                : allowStartConversations ? 'Select or create a conversation to get started.' : 'Select a conversation to view messages.'}
             </div>
           )}
 
@@ -1520,6 +1708,7 @@ export default function UnifiedChat({
                         : undefined
                     }
                     onQuoteSelection={addSelectionToComposer}
+                    onUiAction={handleUiAction}
                   />
 
                   {/* Approval card */}
@@ -1576,7 +1765,14 @@ export default function UnifiedChat({
         {/* Input */}
         <form
           onSubmit={send}
-          className="shrink-0 min-w-0 flex flex-col gap-2 border-t border-[var(--color-card-border)] p-3"
+          onDrop={handleAttachmentDrop}
+          onDragOver={handleAttachmentDragOver}
+          onDragLeave={handleAttachmentDragLeave}
+          data-testid="chat-input-drop-zone"
+          className={[
+            'shrink-0 min-w-0 flex flex-col gap-2 border-t border-[var(--color-card-border)] p-3 transition-colors',
+            draggingAttachments ? 'bg-primary/10 ring-1 ring-primary/35' : '',
+          ].join(' ')}
         >
           {(currentPageContext || contextRefs.length > 0 || allowAgentParticipants) && (
             <div data-testid="chat-context-toolbar" className="flex items-center justify-between gap-2">
@@ -1589,7 +1785,7 @@ export default function UnifiedChat({
                         setError(err instanceof Error ? err.message : 'Failed to attach current page')
                       })
                     }}
-                    disabled={sending || contextRefs.some((ref) => contextReferenceKey(ref) === contextReferenceKey(currentPageContext))}
+                    disabled={!canUseComposer || sending || contextRefs.some((ref) => contextReferenceKey(ref) === contextReferenceKey(currentPageContext))}
                     title="Use current page as context"
                     className="inline-flex h-7 items-center gap-1.5 rounded-full border border-[var(--color-card-border)] bg-white/[0.04] px-2.5 text-[11px] font-medium text-on-surface-variant transition-colors hover:bg-white/[0.08] hover:text-on-surface disabled:opacity-45"
                   >
@@ -1625,7 +1821,7 @@ export default function UnifiedChat({
                   <select
                     value={agentEffort}
                     onChange={(event) => setAgentEffort(event.target.value as AgentEffort | '')}
-                    disabled={sending}
+                    disabled={!canUseComposer || sending}
                     title="Thinking effort"
                     aria-label="Thinking effort"
                     className="h-7 rounded-full border border-[var(--color-card-border)] bg-white/[0.04] px-2.5 text-[11px] font-medium text-on-surface-variant outline-none transition-colors hover:bg-white/[0.08] hover:text-on-surface focus:border-primary disabled:opacity-40"
@@ -1767,18 +1963,17 @@ export default function UnifiedChat({
               className="sr-only"
               tabIndex={-1}
               onChange={(e) => {
-                const files = Array.from(e.target.files ?? [])
-                setAttachments((prev) => [...prev, ...files].slice(0, 5))
+                addPendingAttachments(Array.from(e.target.files ?? []))
                 e.target.value = ''
               }}
             />
             {/* Attach */}
             <label
-              htmlFor={sending ? undefined : attachmentInputId}
+              htmlFor={!canUseComposer || sending ? undefined : attachmentInputId}
               role="button"
-              tabIndex={sending ? -1 : 0}
+              tabIndex={!canUseComposer || sending ? -1 : 0}
               onKeyDown={(e: KeyboardEvent<HTMLLabelElement>) => {
-                if (sending) return
+                if (!canUseComposer || sending) return
                 if (e.key === 'Enter' || e.key === ' ') {
                   e.preventDefault()
                   fileInputRef.current?.click()
@@ -1786,14 +1981,14 @@ export default function UnifiedChat({
               }}
               title={activeConversation ? 'Attach file' : 'Attach file and start a new conversation'}
               aria-label="Attach file"
-              aria-disabled={sending}
+              aria-disabled={!canUseComposer || sending}
               className="self-end flex items-center justify-center w-9 h-9 rounded-full text-on-surface-variant hover:text-on-surface hover:bg-white/[0.08] transition-colors aria-disabled:opacity-40 shrink-0 cursor-pointer aria-disabled:cursor-not-allowed"
             >
               <span className="material-symbols-outlined text-[20px]">attach_file</span>
             </label>
 
             <VoiceInputButton
-              disabled={sending || !activeConversation}
+              disabled={!allowSendMessages || sending || !activeConversation}
               onTranscript={addVoiceTranscriptToComposer}
               className="self-end"
             />
@@ -1821,13 +2016,15 @@ export default function UnifiedChat({
                 }
               }}
               placeholder={
-                activeConversation
-                  ? 'Send a message'
-                  : allowAgentParticipants
-                    ? 'Message Pip'
-                    : 'Create or select a conversation first'
+                !allowSendMessages
+                  ? 'Replies disabled for your role'
+                  : activeConversation
+                    ? 'Send a message'
+                    : allowStartConversations
+                      ? allowAgentParticipants ? 'Message Pip' : 'Create or select a conversation first'
+                      : 'Select a conversation first'
               }
-              disabled={sending}
+              disabled={!canUseComposer || sending}
               rows={1}
               className={[
                 'min-h-[40px] max-h-[160px] min-w-0 flex-1 resize-none bg-transparent px-1 py-2 text-[15px] placeholder:text-on-surface-variant disabled:opacity-60 focus:outline-none',
@@ -1836,7 +2033,7 @@ export default function UnifiedChat({
             />
             <button
               type="submit"
-              disabled={sending || (!input.trim() && attachments.length === 0)}
+              disabled={!canUseComposer || sending || (!input.trim() && attachments.length === 0)}
               aria-label="Send message"
               className={[
                 'self-end flex items-center justify-center w-9 h-9 rounded-full bg-primary text-on-primary disabled:opacity-40 hover:opacity-90 transition-opacity shrink-0',
@@ -1940,7 +2137,7 @@ export default function UnifiedChat({
               <button
                 type="button"
                 onClick={handleCreateConversation}
-                disabled={creatingConv || newParticipants.length === 0}
+                disabled={!allowStartConversations || creatingConv || newParticipants.length === 0}
                 className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-on-primary disabled:opacity-50 hover:opacity-90"
               >
                 {creatingConv ? 'Creating…' : 'Start conversation'}

@@ -197,13 +197,14 @@ describe('PortalLayout chat drawer', () => {
       </PortalLayout>,
     )
 
-    const switcher = await screen.findByLabelText('Workspace')
+    const switcher = await screen.findByRole('button', { name: 'Switch portal workspace' })
 
     await waitFor(() => {
-      expect(switcher).toHaveValue('lumen-org')
+      expect(switcher).toHaveTextContent('Lumen')
     })
 
-    expect(screen.getByRole('option', { name: 'Lumen' })).toBeInTheDocument()
+    fireEvent.click(switcher)
+    expect(screen.getByRole('option', { name: 'Lumen' })).toHaveAttribute('aria-selected', 'true')
     expect(screen.getByRole('link', { name: /Marketing/ })).toHaveAttribute(
       'href',
       '/portal/marketing?orgId=lumen-org&orgSlug=lumen-speeds',

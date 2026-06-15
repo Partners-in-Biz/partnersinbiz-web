@@ -22,7 +22,7 @@ export function LinkedinAppAudienceInfoCard({ onSwitchToCustomerList, onCancel }
         <ol className="list-decimal list-inside space-y-2 text-sm text-white/70">
           <li>
             Create a{' '}
-            <strong className="text-white">Customer List</strong> audience seeded by your app
+            <strong className="text-white">Customer List</strong> audience seeded by the client app
             analytics events (export user emails or phone hashes).
           </li>
           <li>

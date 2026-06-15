@@ -37,7 +37,7 @@ const SUBTYPES: SubtypeTile[] = [
   {
     value: 'ENGAGEMENT',
     label: 'Engagement',
-    description: 'Target visitors, followers, or video viewers of your company page.',
+    description: 'Target visitors, followers, or video viewers of the client company page.',
   },
   {
     value: 'APP',

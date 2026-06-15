@@ -22,6 +22,14 @@ function sourceCompanyName(workspace: GeoSeoWorkspaceRecord, orgScope?: PortalOr
   return orgScope?.sourceCompanyName?.trim() || workspace.sourceCompanyName?.trim() || null
 }
 
+function linkedOrgName(workspace: GeoSeoWorkspaceRecord, orgScope?: PortalOrgRouteScope) {
+  return orgScope?.orgSlug?.trim() || orgScope?.orgId?.trim() || workspace.orgId?.trim() || 'linked organisation workspace'
+}
+
+function sourceToLinkedLabel(sourceName: string | null, targetName: string) {
+  return sourceName ? `${sourceName} → ${targetName}` : targetName
+}
+
 function detailRows(workspace: GeoSeoWorkspaceRecord) {
   return [
     { label: 'Workspace state', value: geoSeoLabel(workspace.status, 'draft') },
@@ -41,12 +49,24 @@ export function GeoSeoWorkspaceDetail({
 }: GeoSeoWorkspaceDetailProps) {
   const title = workspaceTitle(workspace)
   const sourceName = sourceCompanyName(workspace, orgScope)
+  const targetName = linkedOrgName(workspace, orgScope)
+  const sourceLinkedLabel = sourceToLinkedLabel(sourceName, targetName)
   const delta = geoSeoScoreDelta(workspace)
   const score = typeof workspace.currentGeoScore === 'number' ? workspace.currentGeoScore : null
   const isPortal = surface === 'portal'
 
   return (
     <div className="space-y-6">
+      <nav aria-label="GEO SEO workspace breadcrumbs" className="flex flex-wrap items-center gap-2 text-sm text-[var(--color-pib-text-muted)]">
+        <Link href={isPortal ? '/portal' : '/admin'} className="hover:text-[var(--color-pib-text)]">Marketing Hub</Link>
+        <span aria-hidden="true">/</span>
+        <Link href={backHref} className="hover:text-[var(--color-pib-text)]">GEO SEO</Link>
+        <span aria-hidden="true">/</span>
+        <span className="font-semibold text-[var(--color-pib-text)]">{sourceLinkedLabel}</span>
+        <span aria-hidden="true">/</span>
+        <span className="font-semibold text-[var(--color-pib-text)]">{title}</span>
+      </nav>
+
       <Link href={backHref} className="pib-btn-secondary inline-flex text-sm">
         Back to GEO SEO
       </Link>
@@ -75,9 +95,11 @@ export function GeoSeoWorkspaceDetail({
       {sourceName && (
         <section className="pib-card border-[var(--color-pib-accent)]/40 bg-[var(--color-pib-accent-soft)]/10 p-4" aria-label="CRM company workspace context">
           <p className="eyebrow !text-[10px]">Opened from CRM company</p>
-          <h2 className="mt-1 text-base font-semibold text-[var(--color-pib-text)]">{sourceName}</h2>
+          <h2 className="mt-1 text-base font-semibold text-[var(--color-pib-text)]">
+            {sourceName} is linked to {targetName}
+          </h2>
           <p className="mt-1 text-sm leading-6 text-[var(--color-pib-text-muted)]">
-            This detail page stays in the linked organisation workspace while keeping the CRM company context available for relationship history and handoffs.
+            This detail page stays in the linked organisation workspace while keeping the CRM company context available for relationship history, breadcrumbs, and handoffs.
           </p>
         </section>
       )}

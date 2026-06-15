@@ -6,13 +6,14 @@ function source(relativePath: string) {
 }
 
 describe('youtube studio shared workspace standard', () => {
-  it('keeps portal and admin routes thin and shares YouTube Studio workspaces', () => {
+  it('keeps portal on the YouTube Studio workspace and top-level admin on governance controls', () => {
     const adminRoute = source('app/(admin)/admin/org/[slug]/youtube-studio/page.tsx')
     const portalRoute = source('app/(portal)/portal/youtube-studio/page.tsx')
 
-    expect(adminRoute).toContain('@/components/youtube-studio/YouTubeStudioAdminWorkspace')
-    expect(adminRoute).toContain('adminDb')
-    expect(adminRoute).toContain('orgId={orgDoc.id}')
+    expect(adminRoute).toContain('@/components/youtube-studio/AdminYouTubeStudioGovernanceWorkspace')
+    expect(adminRoute).toContain('<AdminYouTubeStudioGovernanceWorkspace')
+    expect(adminRoute).not.toContain('@/components/youtube-studio/YouTubeStudioAdminWorkspace')
+    expect(adminRoute).not.toContain('adminDb')
     expect(adminRoute).not.toContain('videos.map')
     expect(adminRoute).not.toContain('function Field')
 
@@ -22,12 +23,22 @@ describe('youtube studio shared workspace standard', () => {
     expect(portalRoute).not.toContain('videos.map')
 
     const adminWorkspace = source('components/youtube-studio/YouTubeStudioAdminWorkspace.tsx')
+    const adminGovernance = source('components/youtube-studio/AdminYouTubeStudioGovernanceWorkspace.tsx')
+    const sharedPolicyControls = source('components/admin-governance/OrganizationModulePolicyControls.tsx')
     const portalWorkspace = source('components/youtube-studio/YouTubeStudioPortalWorkspace.tsx')
     const shell = source('components/youtube-studio/YouTubeStudioWorkspaceShell.tsx')
     const cards = source('components/youtube-studio/YouTubeStudioCards.tsx')
 
     expect(shell).toContain('export function YouTubeStudioWorkspaceShell')
     expect(cards).toContain('export function YouTubeVideoCard')
+    expect(adminGovernance).toContain('YouTube Studio governance')
+    expect(adminGovernance).toContain('Who can use YouTube Studio')
+    expect(adminGovernance).toContain('Default YouTube Studio templates plus organisation custom templates')
+    expect(adminGovernance).toContain('What owners control inside a channel or video project')
+    expect(adminGovernance).toContain('OrganizationModulePolicyRoleGrid')
+    expect(sharedPolicyControls).toContain('Owner')
+    expect(sharedPolicyControls).toContain('Admin')
+    expect(sharedPolicyControls).toContain('Member')
     expect(adminWorkspace).toContain('@/components/youtube-studio/YouTubeStudioWorkspaceShell')
     expect(adminWorkspace).toContain('@/lib/youtube-studio/skills')
     expect(adminWorkspace).toContain('/api/v1/youtube-studio/agent-jobs')

@@ -87,6 +87,34 @@ beforeEach(() => {
 })
 
 describe('GEO SEO report Client Document workflow', () => {
+  it('requires strict X-Org-Id on report draft and publish routes before any write', async () => {
+    const [{ POST: draftReport }, { POST: publishReport }] = await Promise.all([
+      import('@/app/api/v1/geo-seo/audits/[id]/report/route'),
+      import('@/app/api/v1/geo-seo/reports/[id]/publish/route'),
+    ])
+
+    const missingHeader = await draftReport(
+      new NextRequest('http://localhost/api/v1/geo-seo/audits/audit-1/report', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ orgId: 'pib-platform-owner' }),
+      }),
+      aiUser,
+      { params: Promise.resolve({ id: 'audit-1' }) },
+    )
+    const mismatchedBody = await publishReport(
+      jsonRequest('http://localhost/api/v1/geo-seo/reports/report-1/publish', { orgId: 'other-org' }),
+      aiUser,
+      { params: Promise.resolve({ id: 'report-1' }) },
+    )
+
+    expect(missingHeader.status).toBe(400)
+    expect(mismatchedBody.status).toBe(400)
+    expect(mockDocGet).not.toHaveBeenCalled()
+    expect(mockBatchSet).not.toHaveBeenCalled()
+    expect(mockTransactionUpdate).not.toHaveBeenCalled()
+  })
+
   it('creates an internal Client Document draft from a GEO audit and preserves provenance links', async () => {
     mockDocGet.mockResolvedValue({
       exists: true,

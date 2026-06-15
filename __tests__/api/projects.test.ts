@@ -22,6 +22,8 @@ const mockOrgLimit = jest.fn()
 const mockOrgGet = jest.fn()
 const mockOrgDoc = jest.fn()
 const mockOrgDocGet = jest.fn()
+const mockOrgMemberDoc = jest.fn()
+const mockOrgMemberGet = jest.fn()
 const mockProjectWhere = jest.fn()
 const mockProjectOrderBy = jest.fn()
 const mockProjectGet = jest.fn()
@@ -74,6 +76,8 @@ beforeEach(() => {
     exists: true,
     data: () => ({ name: 'Covalonic' }),
   })
+  mockOrgMemberDoc.mockReturnValue({ get: mockOrgMemberGet })
+  mockOrgMemberGet.mockResolvedValue({ exists: false, data: () => undefined })
 
   const scopedProjectQuery = {
     get: mockProjectGet,
@@ -126,6 +130,7 @@ beforeEach(() => {
 
   mockCollection.mockImplementation((name: string) => {
     if (name === 'organizations') return { where: mockOrgWhere, doc: mockOrgDoc }
+    if (name === 'orgMembers') return { doc: mockOrgMemberDoc }
     if (name === 'projects') return projectCollection
     if (name === 'projectMembers') return { doc: mockProjectMemberDoc }
     if (name === 'projectOrganizations') return { doc: mockProjectOrganizationDoc }
@@ -291,6 +296,43 @@ describe('GET /api/v1/projects', () => {
 })
 
 describe('POST /api/v1/projects', () => {
+  it('blocks client project requests when organisation governance denies create for their role', async () => {
+    mockUser = { uid: 'client-1', role: 'client', orgId: 'client-org' }
+    mockOrgDocGet.mockResolvedValue({
+      exists: true,
+      data: () => ({
+        name: 'Client Org',
+        members: [{ userId: 'client-1', role: 'member' }],
+        settings: {
+          modulePolicies: {
+            projects: {
+              actions: {
+                create: { owner: true, admin: true, member: false },
+              },
+            },
+          },
+        },
+      }),
+    })
+
+    const { POST } = await import('@/app/api/v1/projects/route')
+    const req = new NextRequest('http://localhost/api/v1/projects', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        name: 'Member requested project',
+        status: 'discovery',
+      }),
+    })
+
+    const res = await POST(req)
+    const body = await res.json()
+
+    expect(res.status).toBe(403)
+    expect(body.error).toMatch(/Project creation is disabled/i)
+    expect(mockAdd).not.toHaveBeenCalled()
+  })
+
   it('creates a PiB-sourced project for a selected client workspace', async () => {
     mockOrgGet.mockResolvedValue({
       empty: false,
@@ -473,7 +515,7 @@ describe('POST /api/v1/projects', () => {
 
 describe('PATCH /api/v1/projects/[projectId]', () => {
   it('updates normalized project company/contact links without fanning out claim tokens', async () => {
-    mockUser = { uid: 'admin-1', role: 'admin', orgId: 'platform', allowedOrgIds: ['platform', 'recipient-org'] }
+    mockUser = { uid: 'admin-1', role: 'admin', orgId: 'platform' }
     mockProjectGetById.mockResolvedValue({
       exists: true,
       id: 'project-1',

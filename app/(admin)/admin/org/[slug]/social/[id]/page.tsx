@@ -47,7 +47,7 @@ export default async function OrgSocialCampaignPage({
         backHref={`/admin/org/${slug}/social`}
         backLabel={orgName || 'All campaigns'}
         basePath={`/admin/org/${slug}/social/${id}`}
-        assetApprovalMode="direct"
+        assetApprovalMode="gated"
       />
     </CampaignCockpitFrame>
   )

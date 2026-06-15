@@ -17,7 +17,7 @@ export const POST = withAuth('admin', async (req: NextRequest, user, context) =>
   const connection = serializeWorkspaceConnection(doc.id, doc.data() ?? {})
   if (connection.deleted === true) return apiError('Workspace connection not found', 404)
   const resolved = resolveOrgId(req, user)
-  const accessError = orgAccessError(user, resolved.orgId ?? connection.orgId, resolved.mismatch)
+  const accessError = orgAccessError(user, resolved.orgId ?? connection.orgId, resolved.mismatch, resolved)
   if (accessError) return accessError
   if (resolved.orgId && resolved.orgId !== connection.orgId) return apiError('Forbidden', 403)
   const reconnectInstructions = connection.reconnectInstructions || 'Reconnect this Workspace connection through the approved Google OAuth/service-account runbook. Raw tokens are never returned by the API.'

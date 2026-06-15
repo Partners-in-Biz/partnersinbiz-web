@@ -70,8 +70,8 @@ function ChannelSwitch({
 
 const PLATFORM_ITEMS = [
   { label: 'Platform Users', desc: 'Manage admin and operator user accounts', href: '/admin/platform-users', superAdminOnly: true },
-  { label: 'Platform Members', desc: 'View client logins and linked client accounts', href: '/admin/platform-members', superAdminOnly: true },
-  { label: 'Communications', desc: 'Inspect channel readiness, queues, routing, and customer messaging operations', href: '/portal/communications' },
+  { label: 'Platform Members', desc: 'Audit portal access records and linked organisation accounts', href: '/admin/platform-members', superAdminOnly: true },
+  { label: 'Communications', desc: 'Inspect operator support queues, routing, and customer messaging operations', href: '/admin/support' },
   { label: 'API Keys', desc: 'Manage API keys for AI agents and integrations', href: '/admin/settings/api-keys' },
 ]
 
@@ -134,7 +134,7 @@ export default function SettingsPage() {
         )
         if (!cancelled) setNotificationPrefs(Object.fromEntries(preferenceEntries))
       } catch {
-        if (!cancelled) setNotificationError('Could not load client notification preferences.')
+        if (!cancelled) setNotificationError('Could not load organisation notification preferences.')
       } finally {
         if (!cancelled) setNotificationLoading(false)
       }
@@ -264,10 +264,10 @@ export default function SettingsPage() {
             {session?.role ?? 'Admin'}
           </span>
         </div>
-        <Link href="/portal/email" className="flex items-center justify-between px-4 py-3 hover:bg-[var(--color-row-hover)] transition-colors">
+        <Link href="/admin/settings#integrations" className="flex items-center justify-between px-4 py-3 hover:bg-[var(--color-row-hover)] transition-colors">
           <div>
-            <p className="text-sm font-medium text-on-surface">Internal mailbox</p>
-            <p className="text-xs text-on-surface-variant mt-0.5">Link Gmail or SMTP/IMAP and send mail from your admin profile.</p>
+            <p className="text-sm font-medium text-on-surface">Internal email operations</p>
+            <p className="text-xs text-on-surface-variant mt-0.5">Review the admin integration status for email services before changing mailbox configuration.</p>
           </div>
           <span style={{ color: 'var(--color-accent-v2)' }}>→</span>
         </Link>
@@ -281,7 +281,7 @@ export default function SettingsPage() {
               Device push notifications
             </span>
             <p className="text-xs text-on-surface-variant mt-1 normal-case tracking-normal">
-              Enable browser push delivery on this device before choosing which client alerts can use push.
+              Enable browser push delivery on this device before choosing which organisation-alert lanes can use push.
             </p>
           </div>
         </div>
@@ -294,10 +294,10 @@ export default function SettingsPage() {
         <div className="pib-card-section-header">
           <div>
             <span className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">
-              Client notification preferences
+              Organisation alert preferences
             </span>
             <p className="text-xs text-on-surface-variant mt-1 normal-case tracking-normal">
-              Choose which client workspaces can send you in-app/push alerts and email notifications.
+              Choose which admin organisation alert lanes can send you in-app/push alerts and email notifications.
             </p>
           </div>
         </div>
@@ -313,13 +313,13 @@ export default function SettingsPage() {
         )}
         <div className="px-4 py-3">
           {notificationLoading ? (
-            <p className="text-sm text-on-surface-variant">Loading client notification settings…</p>
+            <p className="text-sm text-on-surface-variant">Loading organisation alert settings…</p>
           ) : clientOrgs.length === 0 ? (
-            <p className="text-sm text-on-surface-variant">No client workspaces are available for notification preferences.</p>
+            <p className="text-sm text-on-surface-variant">No organisations are available for notification preferences.</p>
           ) : (
             <div className="overflow-hidden rounded-xl border border-[var(--color-card-border)]">
               <div className="grid grid-cols-12 gap-3 border-b border-[var(--color-card-border)] bg-[var(--color-surface-container)] px-4 py-2">
-                <span className="col-span-6 text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Client workspace</span>
+                <span className="col-span-6 text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Organisation</span>
                 <span className="col-span-3 text-center text-[10px] font-label uppercase tracking-widest text-on-surface-variant">In-app / push</span>
                 <span className="col-span-3 text-center text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Email</span>
               </div>
@@ -360,7 +360,7 @@ export default function SettingsPage() {
       </div>
 
       {/* Integrations */}
-      <div className="pib-card-section">
+      <div id="integrations" className="pib-card-section">
         <div className="pib-card-section-header">
           <span className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">
             Integrations

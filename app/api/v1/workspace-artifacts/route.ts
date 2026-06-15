@@ -10,7 +10,7 @@ export const dynamic = 'force-dynamic'
 export const GET = withAuth('client', async (req: NextRequest, user) => {
   const { searchParams } = new URL(req.url)
   const resolved = resolveOrgId(req, user)
-  const accessError = orgAccessError(user, resolved.orgId, resolved.mismatch)
+  const accessError = orgAccessError(user, resolved.orgId, resolved.mismatch, resolved)
   if (accessError) return accessError
   const orgId = resolved.orgId!
   const snapshot = await adminDb.collection(WORKSPACE_ARTIFACT_COLLECTION).where('orgId', '==', orgId).get()

@@ -7,6 +7,10 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { auth, getClientAuth } from '@/lib/firebase/config'
 import UnifiedChat from '@/components/chat/UnifiedChat'
 import { scopedApiPath, scopeFromSearchParams } from '@/lib/portal/scoped-routing'
+import {
+  canRolePerformModuleAction,
+  resolveOrganizationModulePolicies,
+} from '@/lib/organizations/module-policies'
 
 interface OrgInfo {
   id: string
@@ -18,6 +22,38 @@ interface UserInfo {
   name: string
   email: string
   role: string
+  memberRole?: string | null
+}
+
+interface MessageCapabilities {
+  canStart: boolean
+  canReply: boolean
+  canUseAgentHandoff: boolean
+  canArchive: boolean
+}
+
+const DEFAULT_MESSAGE_CAPABILITIES: MessageCapabilities = {
+  canStart: true,
+  canReply: true,
+  canUseAgentHandoff: true,
+  canArchive: true,
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === 'object' && !Array.isArray(value)
+}
+
+function messageCapabilitiesFromPortalBody(body: Record<string, unknown>): MessageCapabilities {
+  const org = isRecord(body.org) ? body.org : {}
+  const user = isRecord(body.user) ? body.user : {}
+  const policies = resolveOrganizationModulePolicies({ modulePolicies: org.modulePolicies })
+  const role = user.memberRole ?? user.role
+  return {
+    canStart: canRolePerformModuleAction(policies, 'messages', 'start', role),
+    canReply: canRolePerformModuleAction(policies, 'messages', 'reply', role),
+    canUseAgentHandoff: canRolePerformModuleAction(policies, 'messages', 'agentHandoff', role),
+    canArchive: canRolePerformModuleAction(policies, 'messages', 'archive', role),
+  }
 }
 
 export default function ConversationsPage() {
@@ -28,6 +64,7 @@ export default function ConversationsPage() {
   const initialConvId = searchParams.get('convId') ?? undefined
   const [org, setOrg] = useState<OrgInfo | null>(null)
   const [user, setUser] = useState<UserInfo | null>(null)
+  const [capabilities, setCapabilities] = useState<MessageCapabilities>(DEFAULT_MESSAGE_CAPABILITIES)
   const [checking, setChecking] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const workspaceLabel = orgScope.sourceCompanyName ? `${orgScope.sourceCompanyName} workspace` : 'Active workspace'
@@ -51,11 +88,13 @@ export default function ConversationsPage() {
             .then((body) => {
               if (cancelled) return
               setOrg({ id: body.org.id, name: body.org.name })
+              setCapabilities(messageCapabilitiesFromPortalBody(body))
               setUser({
                 uid: firebaseUser.uid,
                 name: body.user?.name || firebaseUser.displayName || firebaseUser.email?.split('@')[0] || firebaseUser.uid,
                 email: body.user?.email || firebaseUser.email || '',
                 role: body.user?.role || 'client',
+                memberRole: body.user?.memberRole ?? null,
               })
               setChecking(false)
             })
@@ -128,7 +167,10 @@ export default function ConversationsPage() {
         currentUserDisplayName={user.name}
         orgName={org.name}
         initialConvId={initialConvId}
-        allowAgentParticipants={user.role === 'admin'}
+        allowAgentParticipants={capabilities.canUseAgentHandoff}
+        allowStartConversations={capabilities.canStart}
+        allowSendMessages={capabilities.canReply}
+        allowArchiveConversations={capabilities.canArchive}
       />
     </div>
   )

@@ -38,7 +38,7 @@ interface Project {
   status?: string
   columns: Column[]
 }
-interface CurrentUser { uid: string; displayName: string }
+interface CurrentUser { uid: string; displayName: string; role?: string; isSuperAdmin?: boolean }
 interface OrganizationOption { id: string; name: string; slug?: string; type?: string; status?: string }
 type TaskListSort = 'latest' | 'due'
 type ProjectTab = 'kanban' | 'plan' | 'docs' | 'agent' | 'settings'
@@ -77,6 +77,7 @@ const DEFAULT_COLUMNS: Column[] = [
   { id: 'review',      name: 'Review',      color: '#c084fc',                 order: 4 },
   { id: 'done',        name: 'Done',        color: '#4ade80',                 order: 5 },
 ]
+const TASK_REFRESH_INTERVAL_MS = 60_000
 
 function Skeleton({ className = '' }: { className?: string }) {
   return <div className={`pib-skeleton ${className}`} />
@@ -230,6 +231,18 @@ export function ProjectDetailWorkspace({
     setTargetOrgId(project.clientOrgId ?? project.orgId ?? '')
   }, [project])
 
+  const refreshTasks = useCallback(async ({ preserveLiveChanges = false }: { preserveLiveChanges?: boolean } = {}) => {
+    const res = await fetch(`/api/v1/projects/${projectId}/tasks`)
+    const body = await res.json()
+    const nextTasks = (body.data ?? []) as Task[]
+    setTasks(prev => preserveLiveChanges ? mergeLiveTasks(nextTasks, prev) : nextTasks)
+    setSelectedTask(prev => {
+      if (!prev) return prev
+      const freshTask = nextTasks.find(task => task.id === prev.id)
+      return freshTask ?? prev
+    })
+  }, [projectId])
+
   useEffect(() => {
     // Project + docs: one-shot fetch
     Promise.all([
@@ -250,17 +263,42 @@ export function ProjectDetailWorkspace({
       setSettingsAdditionalContactIds(normalizeRelationshipIds(pBody.data?.contactIds, [primaryContactId]))
       setLoading(false)
     }).catch(() => setLoading(false))
+  }, [projectId])
 
-    // Initial tasks load via REST — always reliable regardless of client auth
-    fetch(`/api/v1/projects/${projectId}/tasks`).then(r => r.json())
-      .then(body => setTasks(prev => mergeLiveTasks(body.data ?? [], prev)))
-      .catch(() => {})
+  useEffect(() => {
+    let cancelled = false
+    let refreshInFlight = false
+    let listenerHealthy = false
 
-    // Live patches via Firestore — only applies incremental changes on top of
-    // REST data, so if the listener fails or has no auth the board still shows.
+    const refresh = async (options?: { preserveLiveChanges?: boolean }) => {
+      if (cancelled || refreshInFlight) return
+      if (!options?.preserveLiveChanges && listenerHealthy) return
+      if (!options?.preserveLiveChanges && document.visibilityState !== 'visible') return
+      refreshInFlight = true
+      try {
+        await refreshTasks(options)
+      } catch {
+        // Keep the last known board state if the REST fallback misses a tick.
+      } finally {
+        refreshInFlight = false
+      }
+    }
+
+    // Initial tasks load via REST — always reliable regardless of client auth.
+    // Preserve any listener events that win the race before the first REST response returns.
+    refresh({ preserveLiveChanges: true })
+
+    // Poll as a safety net for browsers/sessions where the Firestore listener is denied,
+    // disconnected, or not delivering changes; this keeps the open Kanban board moving.
+    const refreshInterval = window.setInterval(() => {
+      refresh()
+    }, TASK_REFRESH_INTERVAL_MS)
+
+    // Live patches via Firestore — applies incremental changes immediately when available.
     const unsubscribe = onSnapshot(
       collection(getClientDb(), 'projects', projectId, 'tasks'),
       (snap) => {
+        listenerHealthy = true
         snap.docChanges().forEach(change => {
           const taskData = { id: change.doc.id, ...change.doc.data() } as Task
           if (change.type === 'added' || change.type === 'modified') {
@@ -272,13 +310,20 @@ export function ProjectDetailWorkspace({
           }
         })
       },
-      () => {} // silent fail — REST data already loaded
+      (error) => {
+        listenerHealthy = false
+        console.warn('Project task live listener unavailable; using REST refresh fallback.', error)
+      },
     )
-    return () => unsubscribe()
-  }, [projectId])
+
+    return () => {
+      cancelled = true
+      window.clearInterval(refreshInterval)
+      unsubscribe()
+    }
+  }, [projectId, refreshTasks])
 
   useEffect(() => {
-    if (!isAdmin) return
     let cancelled = false
     fetch('/api/auth/verify')
       .then(async (res) => {
@@ -291,7 +336,12 @@ export function ProjectDetailWorkspace({
           (typeof body?.email === 'string' && body.email.trim()) ||
           uid
         if (!cancelled) {
-          setCurrentUser({ uid, displayName })
+          setCurrentUser({
+            uid,
+            displayName,
+            role: typeof body?.role === 'string' ? body.role : undefined,
+            isSuperAdmin: body?.isSuperAdmin === true,
+          })
           setUserLoadError(null)
         }
       })
@@ -299,7 +349,7 @@ export function ProjectDetailWorkspace({
         if (!cancelled) setUserLoadError(err instanceof Error ? err.message : 'User load failed')
       })
     return () => { cancelled = true }
-  }, [isAdmin])
+  }, [])
 
   useEffect(() => {
     if (!deepLinkedTaskId) return
@@ -485,6 +535,8 @@ export function ProjectDetailWorkspace({
   const visibleTabs = isAdmin ? PROJECT_TABS : PROJECT_TABS.filter(tab => tab.id !== 'agent')
   const selectedColumn = columns.find(c => c.id === selectedTask?.columnId)
   const composerColumn = columns.find(c => c.id === showNewTask) ?? null
+  const canUseAgentAssignments = isAdmin || currentUser?.isSuperAdmin === true || currentUser?.role === 'admin' || currentUser?.role === 'ai'
+  const hideAgentAssignmentControls = !canUseAgentAssignments
   const sortedListTasks = [...tasks].sort((a, b) => {
     if (taskListSort === 'latest') {
       const latestA = timestampToMillis(a.createdAt) || timestampToMillis(a.updatedAt) || a.order || 0
@@ -535,7 +587,7 @@ export function ProjectDetailWorkspace({
         <>
           <ProjectBoardSummary tasks={tasks} columns={columns} />
 
-          <div className="mb-3 flex shrink-0 items-center justify-between gap-3 overflow-x-auto md:mb-4">
+          <div className="mb-3 flex min-w-0 max-w-full shrink-0 items-center justify-between gap-3 overflow-x-auto md:mb-4">
             <div className="inline-flex shrink-0 rounded-md border border-[var(--color-card-border)] bg-[var(--color-card)] p-1">
               {(['board', 'list'] as const).map(mode => (
                 <button
@@ -591,13 +643,15 @@ export function ProjectDetailWorkspace({
 
           {/* Board */}
           {loading ? (
-            <div className="flex gap-4 overflow-x-auto">
-              {DEFAULT_COLUMNS.map(c => (
-                <div key={c.id} className="w-72 shrink-0 space-y-2">
-                  <Skeleton className="h-6 w-24" />
-                  {[1,2,3].map(i => <Skeleton key={i} className="h-20" />)}
-                </div>
-              ))}
+            <div className="min-w-0 max-w-full overflow-x-auto">
+              <div className="flex gap-4">
+                {DEFAULT_COLUMNS.map(c => (
+                  <div key={c.id} className="w-72 shrink-0 space-y-2">
+                    <Skeleton className="h-6 w-24" />
+                    {[1,2,3].map(i => <Skeleton key={i} className="h-20" />)}
+                  </div>
+                ))}
+              </div>
             </div>
           ) : viewMode === 'list' ? (
             <div className="flex-1 overflow-auto rounded-[var(--radius-btn)] border border-[var(--color-card-border)]">
@@ -686,7 +740,7 @@ export function ProjectDetailWorkspace({
               </table>
             </div>
           ) : (
-            <div className="flex-1 overflow-auto">
+            <div className="min-w-0 flex-1 overflow-hidden">
               <KanbanBoard
                 columns={columns}
                 tasks={tasks}
@@ -732,7 +786,7 @@ export function ProjectDetailWorkspace({
         <div className="flex min-h-0 flex-1 flex-col overflow-hidden -mx-4 -my-8 md:mx-0 md:my-0 h-[calc(100dvh-56px)] lg:h-[calc(100dvh-120px)]">
           <div className="mb-4 hidden shrink-0 rounded-[var(--radius-card)] border border-[var(--color-card-border)] bg-[var(--color-card)] p-5 shadow-sm lg:block">
             <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant mb-1">
-              Project / Agent chat
+              {isAdmin ? 'Operator task-bus chat' : 'Project / Agent chat'}
             </p>
             <h2 className="text-2xl font-headline font-bold text-on-surface">Project chat</h2>
             <p className="text-sm text-on-surface-variant mt-1">
@@ -835,7 +889,8 @@ export function ProjectDetailWorkspace({
           orgId={project?.orgId}
           members={members}
           agents={agents}
-          hideAgentSection={mode === 'portal'}
+          hideAgentSection={hideAgentAssignmentControls}
+          surface={isAdmin ? 'admin' : 'portal'}
           onClose={() => setSelectedTask(null)}
           onUpdate={handleTaskUpdate}
           onDelete={handleTaskDelete}
@@ -849,7 +904,8 @@ export function ProjectDetailWorkspace({
         members={members}
         agents={agents}
         existingTasks={tasks}
-        hideAgentSection={mode === 'portal'}
+        hideAgentSection={hideAgentAssignmentControls}
+        surface={isAdmin ? 'admin' : 'portal'}
         onClose={() => setShowNewTask(null)}
         onCreated={handleTaskCreated}
       />

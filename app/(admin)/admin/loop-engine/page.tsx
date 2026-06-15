@@ -146,8 +146,8 @@ export default async function AdminLoopEnginePage() {
             </p>
           </div>
           <div className="flex flex-wrap gap-3">
-            <Link href="/portal/projects" className="pib-btn-secondary text-sm">Open Projects</Link>
-            <Link href="/portal/briefings" className="pib-btn-primary text-sm">Open Briefings</Link>
+            <Link href="/admin/projects" className="pib-btn-secondary text-sm">Open admin Projects</Link>
+            <Link href="/admin/briefings" className="pib-btn-primary text-sm">Open admin Briefings</Link>
           </div>
         </div>
       </header>
@@ -349,7 +349,7 @@ export default async function AdminLoopEnginePage() {
               <p className="mt-1 text-sm text-[var(--color-pib-text-muted)]">{loop.lastDecision}</p>
             </div>
             <div className="mt-3 rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-3">
-              <p className="text-sm font-semibold text-[var(--color-pib-text)]">Buyer-facing value</p>
+              <p className="text-sm font-semibold text-[var(--color-pib-text)]">Operator-facing value</p>
               <p className="mt-1 text-sm text-[var(--color-pib-text-muted)]">{loop.positioning.buyerValue}</p>
             </div>
             {loop.approvalGates.length > 0 ? (

@@ -18,6 +18,7 @@ const MAILBOX_CONFIG: Record<MailboxSurface, {
   accountsEndpoint: string
   messagesEndpoint: string
   googleAuthorizeEndpoint: string
+  recipientsEndpoint: string
   googleConnectionCopy: string
 }> = {
   admin: {
@@ -26,6 +27,7 @@ const MAILBOX_CONFIG: Record<MailboxSurface, {
     accountsEndpoint: '/api/v1/admin/mailbox/accounts',
     messagesEndpoint: '/api/v1/admin/mailbox/messages',
     googleAuthorizeEndpoint: '/api/v1/admin/mailbox/google/authorize',
+    recipientsEndpoint: '',
     googleConnectionCopy: 'Continue with Google to approve mailbox access. PiB stores the OAuth token on your admin profile after Google returns you here.',
   },
   portal: {
@@ -34,6 +36,7 @@ const MAILBOX_CONFIG: Record<MailboxSurface, {
     accountsEndpoint: '/api/v1/portal/email/accounts',
     messagesEndpoint: '/api/v1/portal/email/messages',
     googleAuthorizeEndpoint: '/api/v1/portal/email/google/authorize',
+    recipientsEndpoint: '/api/v1/portal/email/recipients',
     googleConnectionCopy: 'Continue with Google to approve mailbox access. PiB stores the OAuth token on this workspace profile after Google returns you here.',
   },
 }
@@ -87,6 +90,21 @@ type AccountForm = {
   imapPassword: string
 }
 
+type ComposeAttachment = {
+  name: string
+  contentType: string
+  contentBase64: string
+  sizeBytes: number
+}
+
+type RecipientSuggestion = {
+  id: string
+  type: 'contact' | 'company'
+  label: string
+  email: string
+  detail?: string
+}
+
 type ComposeState = {
   accountId: string
   to: string
@@ -95,6 +113,7 @@ type ComposeState = {
   subject: string
   bodyText: string
   bodyHtml: string
+  attachments: ComposeAttachment[]
 }
 
 const emptyAccountForm: AccountForm = {
@@ -119,6 +138,7 @@ const emptyCompose: ComposeState = {
   subject: '',
   bodyText: '',
   bodyHtml: '',
+  attachments: [],
 }
 
 function htmlToText(html: string): string {
@@ -143,6 +163,7 @@ export function MailboxWorkspace({ surface, showCloseAction = false, onClose }: 
   const [showComposer, setShowComposer] = useState(false)
   const [accountForm, setAccountForm] = useState<AccountForm>(emptyAccountForm)
   const [compose, setCompose] = useState<ComposeState>(emptyCompose)
+  const [recipientSuggestions, setRecipientSuggestions] = useState<RecipientSuggestion[]>([])
   const [notice, setNotice] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [syncingAccountId, setSyncingAccountId] = useState<string | null>(null)
@@ -156,16 +177,33 @@ export function MailboxWorkspace({ surface, showCloseAction = false, onClose }: 
     if (!compose.accountId && list[0]?.id) setCompose((prev) => ({ ...prev, accountId: list[0].id }))
   }
 
-  async function loadMessages() {
+  async function loadMessages(options: { refresh?: boolean } = {}) {
     setLoading(true)
     const params = new URLSearchParams({ folder, accountId, q })
+    if (options.refresh) params.set('refresh', '1')
     const res = await fetch(`${config.messagesEndpoint}?${params.toString()}`)
     const body = await res.json()
     if (!res.ok) throw new Error(body.error ?? 'Could not load messages')
     const list = body.data?.messages ?? []
+    const freshness = body.data?.freshness
     setMessages(list)
     setSelectedId((current) => current && list.some((item: MailboxMessageSafe) => item.id === current) ? current : list[0]?.id ?? null)
+    if (options.refresh) {
+      const attempted = Number(freshness?.attempted ?? 0)
+      const failed = Number(freshness?.failed ?? 0)
+      if (attempted > 0 && failed > 0) setNotice(`Refresh attempted ${attempted} Gmail account${attempted === 1 ? '' : 's'}; ${failed} need attention.`)
+      else if (attempted > 0) setNotice(`Mailbox refreshed from ${attempted} Gmail account${attempted === 1 ? '' : 's'}.`)
+      else setNotice('Mailbox refreshed. No connected Google accounts needed a provider sync.')
+    }
     setLoading(false)
+  }
+
+  async function loadRecipientSuggestions() {
+    if (!config.recipientsEndpoint) return
+    const res = await fetch(`${config.recipientsEndpoint}?limit=50`)
+    const body = await res.json()
+    if (!res.ok) throw new Error(body.error ?? 'Could not load recipient suggestions')
+    setRecipientSuggestions(body.data?.recipients ?? [])
   }
 
   useEffect(() => {
@@ -187,6 +225,12 @@ export function MailboxWorkspace({ surface, showCloseAction = false, onClose }: 
     })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [folder, accountId, q])
+
+  useEffect(() => {
+    if (!showComposer || recipientSuggestions.length > 0) return
+    loadRecipientSuggestions().catch((err) => setError(err.message))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showComposer])
 
   const selected = useMemo(() => messages.find((item) => item.id === selectedId) ?? null, [messages, selectedId])
   const unread = messages.filter((item) => !item.read).length
@@ -363,6 +407,10 @@ export function MailboxWorkspace({ surface, showCloseAction = false, onClose }: 
           </div>
         </div>
         <div className="flex flex-wrap gap-2">
+          <button type="button" className="btn-pib-secondary" onClick={() => loadMessages({ refresh: true }).catch((err) => { setError(err.message); setLoading(false) })}>
+            <span className="material-symbols-outlined text-[18px]">sync</span>
+            Refresh mail
+          </button>
           <button type="button" className="btn-pib-secondary" onClick={() => setShowAccount((v) => !v)}>
             <span className="material-symbols-outlined text-[18px]">add_link</span>
             Link account
@@ -494,10 +542,12 @@ export function MailboxWorkspace({ surface, showCloseAction = false, onClose }: 
                 <div className="flex items-center gap-2">
                   <span className={`w-2 h-2 rounded-full ${message.read ? 'bg-transparent' : 'bg-[var(--color-pib-accent)]'}`} />
                   <p className="font-medium truncate flex-1">{folder === 'sent' || folder === 'drafts' ? message.to.join(', ') || 'No recipient' : message.from}</p>
-                  <span className="text-[10px] text-[var(--color-pib-text-muted)]">{formatDate(message.createdAt)}</span>
+                  <span className="text-[10px] text-[var(--color-pib-text-muted)]">{formatDate(messageDate(message))}</span>
                 </div>
                 <p className="text-sm truncate mt-1">{message.subject || '(no subject)'}</p>
-                <p className="text-xs text-[var(--color-pib-text-muted)] truncate mt-1">{message.snippet}</p>
+          <p className="text-xs text-[var(--color-pib-text-muted)] truncate mt-1">
+            {message.attachments.length ? `${message.snippet} · ${message.attachments.length} attachment${message.attachments.length === 1 ? '' : 's'}` : message.snippet}
+          </p>
               </button>
             ))}
           </div>
@@ -509,6 +559,7 @@ export function MailboxWorkspace({ surface, showCloseAction = false, onClose }: 
               accounts={accounts}
               compose={compose}
               setCompose={setCompose}
+              recipientSuggestions={recipientSuggestions}
               onClose={() => setShowComposer(false)}
               onSend={() => submitCompose('send')}
               onDraft={() => submitCompose('draft')}
@@ -566,7 +617,18 @@ function MessagePane({
           <IconButton title="Delete" icon="delete" onClick={onDelete} />
         </div>
       </div>
-      <div className="flex-1 overflow-y-auto p-6 text-sm leading-7 whitespace-pre-wrap">{message.bodyText}</div>
+      <div className="flex-1 overflow-y-auto p-6 text-sm leading-7 whitespace-pre-wrap">
+        {message.attachments.length ? (
+          <div className="mb-5 flex flex-wrap gap-2 whitespace-normal">
+            {message.attachments.map((attachment) => (
+              <span key={`${attachment.name}-${attachment.sizeBytes}`} className="rounded-full border border-[var(--color-pib-line)] px-3 py-1 text-xs text-[var(--color-pib-text-muted)]">
+                {attachment.name} · {formatBytes(attachment.sizeBytes)}
+              </span>
+            ))}
+          </div>
+        ) : null}
+        {message.bodyText}
+      </div>
     </>
   )
 }
@@ -575,6 +637,7 @@ function ComposerPanel({
   accounts,
   compose,
   setCompose,
+  recipientSuggestions,
   onClose,
   onSend,
   onDraft,
@@ -583,11 +646,33 @@ function ComposerPanel({
   accounts: MailboxAccountSafe[]
   compose: ComposeState
   setCompose: Dispatch<SetStateAction<ComposeState>>
+  recipientSuggestions: RecipientSuggestion[]
   onClose: () => void
   onSend: () => void
   onDraft: () => void
   onTemplate: (templateId: string) => void
 }) {
+  const datalistId = 'mailbox-recipient-suggestions'
+
+  function appendRecipient(field: 'to' | 'cc' | 'bcc', email: string) {
+    setCompose((current) => {
+      const existing = current[field].split(',').map((part) => part.trim()).filter(Boolean)
+      if (!existing.some((item) => item.toLowerCase() === email.toLowerCase())) existing.push(email)
+      return { ...current, [field]: existing.join(', ') }
+    })
+  }
+
+  async function addAttachments(files: FileList | null) {
+    if (!files?.length) return
+    const converted = await Promise.all(Array.from(files).slice(0, 5).map(async (file) => ({
+      name: file.name,
+      contentType: file.type || 'application/octet-stream',
+      sizeBytes: file.size,
+      contentBase64: await fileToBase64(file),
+    })))
+    setCompose((current) => ({ ...current, attachments: [...current.attachments, ...converted].slice(0, 5) }))
+  }
+
   return (
     <form onSubmit={(e) => { e.preventDefault(); void onSend() }} className="flex h-full min-h-[560px] flex-col">
       <div className="flex items-center justify-between gap-3 border-b border-[var(--color-pib-line)] px-5 py-4">
@@ -607,13 +692,34 @@ function ComposerPanel({
               <option value="">Choose sending account</option>
               {accounts.map((account) => <option key={account.id} value={account.id}>{account.emailAddress}</option>)}
             </select>
-            <input value={compose.to} onChange={(e) => setCompose((c) => ({ ...c, to: e.target.value }))} placeholder="To" className="pib-input" />
+            <input list={datalistId} value={compose.to} onChange={(e) => setCompose((c) => ({ ...c, to: e.target.value }))} placeholder="To" className="pib-input" />
           </div>
+          <datalist id={datalistId}>
+            {recipientSuggestions.map((recipient) => (
+              <option key={`${recipient.type}-${recipient.id}-${recipient.email}`} value={recipient.email} label={`${recipient.label}${recipient.detail ? ` · ${recipient.detail}` : ''}`} />
+            ))}
+          </datalist>
+          {recipientSuggestions.length ? (
+            <div className="mt-2 flex flex-wrap gap-2">
+              {recipientSuggestions.slice(0, 8).map((recipient) => (
+                <button
+                  key={`${recipient.type}-${recipient.id}-${recipient.email}-chip`}
+                  type="button"
+                  onClick={() => appendRecipient('to', recipient.email)}
+                  className="rounded-full border border-[var(--color-pib-line)] px-3 py-1 text-xs text-[var(--color-pib-text-muted)] hover:border-[var(--color-pib-accent)]/60 hover:text-[var(--color-pib-text)]"
+                  title={recipient.detail || recipient.type}
+                >
+                  {recipient.label} · {recipient.email}
+                </button>
+              ))}
+            </div>
+          ) : null}
           <div className="mt-2 grid gap-2 md:grid-cols-2">
-            <input value={compose.cc} onChange={(e) => setCompose((c) => ({ ...c, cc: e.target.value }))} placeholder="Cc" className="pib-input" />
-            <input value={compose.bcc} onChange={(e) => setCompose((c) => ({ ...c, bcc: e.target.value }))} placeholder="Bcc" className="pib-input" />
+            <input list={datalistId} value={compose.cc} onChange={(e) => setCompose((c) => ({ ...c, cc: e.target.value }))} placeholder="Cc" className="pib-input" />
+            <input list={datalistId} value={compose.bcc} onChange={(e) => setCompose((c) => ({ ...c, bcc: e.target.value }))} placeholder="Bcc" className="pib-input" />
           </div>
           <input value={compose.subject} onChange={(e) => setCompose((c) => ({ ...c, subject: e.target.value }))} placeholder="Subject" className="pib-input mt-2 w-full" />
+          <AttachmentPicker attachments={compose.attachments} onAdd={addAttachments} onRemove={(index) => setCompose((c) => ({ ...c, attachments: c.attachments.filter((_, i) => i !== index) }))} />
           <RichComposer
             value={compose.bodyHtml}
             onChange={(bodyHtml) => setCompose((c) => ({ ...c, bodyHtml, bodyText: htmlToText(bodyHtml) }))}
@@ -755,6 +861,65 @@ function RichComposer({ value, onChange }: { value: string; onChange: (html: str
   )
 }
 
+function AttachmentPicker({
+  attachments,
+  onAdd,
+  onRemove,
+}: {
+  attachments: ComposeAttachment[]
+  onAdd: (files: FileList | null) => void | Promise<void>
+  onRemove: (index: number) => void
+}) {
+  return (
+    <div className="mt-3 rounded-lg border border-[var(--color-pib-line)] bg-white/[0.02] px-3 py-3">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <p className="eyebrow !text-[10px]">Attachments</p>
+          <p className="text-xs text-[var(--color-pib-text-muted)]">Up to 5 files, 10 MB total.</p>
+        </div>
+        <label className="btn-pib-secondary cursor-pointer text-xs">
+          <span className="material-symbols-outlined text-[16px]">attach_file</span>
+          Attach files
+          <input type="file" multiple className="sr-only" onChange={(event) => { void onAdd(event.target.files); event.currentTarget.value = '' }} />
+        </label>
+      </div>
+      {attachments.length ? (
+        <div className="mt-3 flex flex-wrap gap-2">
+          {attachments.map((attachment, index) => (
+            <span key={`${attachment.name}-${index}`} className="inline-flex items-center gap-2 rounded-full border border-[var(--color-pib-line)] px-3 py-1 text-xs text-[var(--color-pib-text-muted)]">
+              {attachment.name} · {formatBytes(attachment.sizeBytes)}
+              <button type="button" onClick={() => onRemove(index)} className="text-[var(--color-pib-text-muted)] hover:text-red-200" aria-label={`Remove ${attachment.name}`}>
+                ×
+              </button>
+            </span>
+          ))}
+        </div>
+      ) : null}
+    </div>
+  )
+}
+
+function fileToBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve(String(reader.result ?? ''))
+    reader.onerror = () => reject(reader.error ?? new Error('Could not read attachment'))
+    reader.readAsDataURL(file)
+  })
+}
+
+function formatBytes(value: number) {
+  if (!Number.isFinite(value) || value <= 0) return '0 B'
+  const units = ['B', 'KB', 'MB', 'GB']
+  let size = value
+  let unit = 0
+  while (size >= 1024 && unit < units.length - 1) {
+    size /= 1024
+    unit += 1
+  }
+  return `${size >= 10 || unit === 0 ? size.toFixed(0) : size.toFixed(1)} ${units[unit]}`
+}
+
 function IconButton({ title, icon, onClick }: { title: string; icon: string; onClick: () => void }) {
   return (
     <button type="button" className="flex h-9 w-9 items-center justify-center rounded-lg border border-[var(--color-pib-line)] text-[var(--color-pib-text-muted)] hover:bg-white/[0.04] hover:text-[var(--color-pib-text)]" title={title} onClick={onClick}>
@@ -785,6 +950,10 @@ function ServerFields({ title, prefix, form, setForm }: { title: string; prefix:
       <Field label="Password" value={String(form[key('Password')])} onChange={(v) => setForm((f) => ({ ...f, [key('Password')]: v }))} type="password" />
     </div>
   )
+}
+
+function messageDate(message: MailboxMessageSafe) {
+  return message.receivedAt ?? message.sentAt ?? message.createdAt
 }
 
 function formatDate(value: string | null) {

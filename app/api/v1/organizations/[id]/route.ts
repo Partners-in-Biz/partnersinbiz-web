@@ -10,6 +10,7 @@ import { apiSuccess, apiError } from '@/lib/api/response'
 import { slugify, isMember, isOwnerOrAdmin, isOwner } from '@/lib/organizations/helpers'
 import { canAccessOrg } from '@/lib/api/platformAdmin'
 import { mergeBillingDetailsForWrite } from '@/lib/organizations/billing-details'
+import { mergeOrganizationModulePolicySettings } from '@/lib/organizations/module-policies'
 import { syncPlatformCompanyAgreementFieldsForOrg } from '@/lib/platform-owner/relationships'
 
 export const dynamic = 'force-dynamic'
@@ -31,6 +32,9 @@ function mergeOrganizationSettings(existingSettings: unknown, incomingSettings: 
       ...(isRecord(existing.portalModules) ? existing.portalModules : {}),
       ...(isRecord(incoming.portalModules) ? incoming.portalModules : {}),
     }
+  }
+  if (isRecord(existing.modulePolicies) || isRecord(incoming.modulePolicies)) {
+    merged.modulePolicies = mergeOrganizationModulePolicySettings(existing.modulePolicies, incoming.modulePolicies)
   }
 
   return merged

@@ -2,6 +2,7 @@
 
 import type { Timestamp } from 'firebase-admin/firestore'
 import type { PortalModules } from '@/lib/organizations/portal-modules'
+import type { OrganizationModulePolicies } from '@/lib/organizations/module-policies'
 import type { MemberAccessPolicy } from '@/lib/orgMembers/access-policy'
 
 // ── Org Type & Status ─────────────────────────────────────────────────────
@@ -90,6 +91,7 @@ export interface OrgSettings {
   defaultApprovalRequired: boolean  // social posts need client approval by default
   notificationEmail: string
   portalModules?: Partial<PortalModules>
+  modulePolicies?: Partial<OrganizationModulePolicies>
   brandColors?: {
     primary: string
     secondary: string
@@ -115,7 +117,7 @@ export interface OrgMember {
   invitedBy?: string
   jobTitle?: string
   department?: string
-  accessScope?: 'all' | 'crm' | 'marketing' | 'projects' | 'billing' | 'readonly'
+  accessScope?: 'none' | 'all' | 'crm' | 'marketing' | 'projects' | 'billing' | 'readonly'
   accessPolicy?: MemberAccessPolicy
   accessNotes?: string
 }

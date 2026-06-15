@@ -1253,6 +1253,35 @@ describe('portal youtube studio API', () => {
     expect(body.data.analytics).toEqual([])
   })
 
+  it('filters source assets and production jobs when the organisation role policy denies those views', async () => {
+    stageFirestore({
+      settings: {
+        modulePolicies: {
+          youtubeStudio: {
+            actions: {
+              sourceAssets: { owner: true, admin: true, member: false },
+              productionJobs: { owner: true, admin: true, member: false },
+            },
+          },
+        },
+      },
+    })
+
+    const { GET } = await import('@/app/api/v1/portal/youtube-studio/route')
+    const res = await GET(new NextRequest('http://localhost/api/v1/portal/youtube-studio'))
+    const body = await res.json()
+
+    expect(res.status).toBe(200)
+    expect(body.data.sourceAssets).toEqual([])
+    expect(body.data.clipCandidates).toEqual([])
+    expect(body.data.productionDrafts).toEqual([])
+    expect(body.data.renderJobs).toEqual([])
+    expect(body.data.capabilities).toMatchObject({
+      canViewSourceAssets: false,
+      canUseProductionJobs: false,
+    })
+  })
+
   it('blocks access when the org disables YouTube Studio before querying YouTube collections', async () => {
     stageFirestore({ settings: { portalModules: { youtubeStudio: false } } })
 
@@ -1320,6 +1349,29 @@ describe('portal youtube studio API', () => {
     expect(findUndefinedPaths(write)).toEqual([])
   })
 
+  it('blocks client video requests when the organisation role policy denies create access', async () => {
+    stageFirestore({
+      settings: {
+        modulePolicies: {
+          youtubeStudio: {
+            actions: {
+              create: { owner: true, admin: true, member: false },
+            },
+          },
+        },
+      },
+    })
+
+    const { POST } = await import('@/app/api/v1/portal/youtube-studio/route')
+    const res = await POST(new NextRequest('http://localhost/api/v1/portal/youtube-studio', {
+      method: 'POST',
+      body: JSON.stringify({ channelWorkspaceId: 'channel-1', title: 'New FAQ video' }),
+    }))
+
+    expect(res.status).toBe(403)
+    expect(mockAdd).not.toHaveBeenCalled()
+  })
+
   it.each([
     [
       'hidden',
@@ -1380,6 +1432,29 @@ describe('portal youtube studio API', () => {
     expect(options).toEqual({ merge: true })
     expect(write).not.toHaveProperty('internalNotes')
     expect(findUndefinedPaths(write)).toEqual([])
+  })
+
+  it('blocks client review decisions when the organisation role policy denies publish approvals', async () => {
+    stageFirestore({
+      settings: {
+        modulePolicies: {
+          youtubeStudio: {
+            actions: {
+              publishApprovals: { owner: true, admin: true, member: false },
+            },
+          },
+        },
+      },
+    })
+
+    const { PUT } = await import('@/app/api/v1/portal/youtube-studio/route')
+    const res = await PUT(new NextRequest('http://localhost/api/v1/portal/youtube-studio', {
+      method: 'PUT',
+      body: JSON.stringify({ id: 'video-1', decision: 'approved' }),
+    }))
+
+    expect(res.status).toBe(403)
+    expect(mockDocSet).not.toHaveBeenCalled()
   })
 
   it.each([

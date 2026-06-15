@@ -1,5 +1,5 @@
 import { adminDb } from '@/lib/firebase/admin'
-import { buildCampaignAssets } from '@/app/api/v1/campaigns/[id]/assets/route'
+import { buildCampaignAssets } from '@/lib/campaigns/assets'
 import { serializeForClient } from './serialize'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

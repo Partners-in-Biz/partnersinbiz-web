@@ -310,6 +310,70 @@ describe('PUT /api/v1/organizations/[id]', () => {
     })
   })
 
+  it('merges module policy settings without dropping other modules or actions', async () => {
+    mockDocGet.mockResolvedValue({
+      exists: true,
+      id: 'org-1',
+      data: () => ({
+        name: 'Lumen',
+        slug: 'lumen',
+        active: true,
+        members: [{ userId: 'ai-agent', role: 'owner' }],
+        description: '',
+        logoUrl: '',
+        website: '',
+        createdBy: 'ai-agent',
+        linkedClientId: '',
+        settings: {
+          timezone: 'Africa/Johannesburg',
+          modulePolicies: {
+            projects: {
+              actions: {
+                visibility: { owner: true, admin: true, member: true },
+                create: { owner: true, admin: true, member: false },
+              },
+            },
+            messages: {
+              actions: {
+                visibility: { owner: true, admin: true, member: true },
+              },
+            },
+          },
+        },
+      }),
+    })
+
+    const res = await PUT(adminReq('PUT', {
+      settings: {
+        modulePolicies: {
+          projects: {
+            actions: {
+              visibility: { owner: true, admin: true, member: false },
+            },
+            customItems: [{ id: 'retainer', label: 'Retainer', description: 'Recurring delivery workspace.' }],
+          },
+        },
+      },
+    }), routeCtx())
+
+    expect(res.status).toBe(200)
+    const update = mockUpdate.mock.calls[0][0]
+    expect(update.settings.modulePolicies).toEqual({
+      projects: {
+        actions: {
+          visibility: { owner: true, admin: true, member: false },
+          create: { owner: true, admin: true, member: false },
+        },
+        customItems: [{ id: 'retainer', label: 'Retainer', description: 'Recurring delivery workspace.' }],
+      },
+      messages: {
+        actions: {
+          visibility: { owner: true, admin: true, member: true },
+        },
+      },
+    })
+  })
+
   it('deep-merges whitelisted agreement billing details without accepting unsafe nested fields', async () => {
     mockDocGet.mockResolvedValue({
       exists: true,

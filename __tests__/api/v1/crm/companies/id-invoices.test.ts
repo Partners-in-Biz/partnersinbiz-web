@@ -42,6 +42,7 @@ function stageAuth(
   installPortalAuthCollectionMock(adminDb.collection as jest.Mock, member, {
     collections: {
       invoices: makeFirestoreQuery(invoices.map((invoice) => makeFirestoreDoc(invoice.id, invoice.data))),
+      contacts: makeFirestoreQuery([]),
     },
   })
 }
@@ -52,7 +53,7 @@ describe('GET /api/v1/crm/companies/:id/invoices', () => {
   beforeEach(() => jest.clearAllMocks())
 
   it('returns invoices linked by company id and recipient org fallback', async () => {
-    const member = seedOrgMember('pib-platform-owner', uidFor('viewer'), { role: 'viewer' })
+    const member = seedOrgMember('pib-platform-owner', uidFor('viewer'), { role: 'owner' })
     const company = {
       ...buildCompany({ id: 'co-1', orgId: 'pib-platform-owner' }),
       linkedOrgId: 'client-org',

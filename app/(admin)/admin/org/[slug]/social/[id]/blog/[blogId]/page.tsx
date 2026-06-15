@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { OrgThemedFrame, useOrgBrand } from '@/components/admin/OrgThemedFrame'
+import { AdminOperatorGate } from '@/components/admin/AdminOperatorGate'
 import { CampaignBlogDetailWorkspace } from '@/components/campaign-blog-detail/CampaignBlogDetailWorkspace'
 import { useCampaignBlogDetail } from '@/components/campaign-blog-detail/useCampaignBlogDetail'
 
@@ -131,16 +132,12 @@ function Detail({
       backLabel={orgName ? `${orgName} - Blog Posts` : 'Blog Posts'}
       statusLabel={isPublished ? 'Published' : 'Awaiting Review'}
       canComment={!isPublished}
-      helper={
-        !isPublished ? (
-          <p>
-            <strong>Highlight any text</strong> to leave an inline comment,{' '}
-            <strong>click an image</strong> to comment on it, or{' '}
-            <strong>click &quot;Edit body&quot;</strong> to make changes yourself. Agents and the writer see
-            exactly what you flagged or changed.
-          </p>
-        ) : null
-      }
+      helper={(
+        <AdminOperatorGate
+          title="Blog publishing is approval-gated"
+          body="Use this admin view to inspect copy, save internal edits, and leave comments. Publishing to public insights or scheduling a client-visible release requires an approved Projects/Kanban gate first."
+        />
+      )}
       canEdit={!isPublished && !!blog?.draftPostId}
       editLabel="Edit body"
       saveBusy={actionBusy === 'save'}
@@ -150,12 +147,11 @@ function Detail({
       approval={{
         visible: !isPublished,
         title: 'Ready to ship?',
-        noCommentsCopy: 'Approve to publish, or highlight text / click an image to leave inline feedback.',
+        noCommentsCopy: 'Leave comments or internal edits here. Publishing is locked until the approval gate is recorded.',
         commentsCopy: count =>
-          `${count} comment${count === 1 ? '' : 's'} pending. Approve to publish anyway, or wait for the writer to address them.`,
-        busy: actionBusy === 'approve',
-        buttonLabel: publishDate =>
-          scheduledForFuture(publishDate) ? `Schedule for ${publishDate}` : 'Approve & publish',
+          `${count} comment${count === 1 ? '' : 's'} pending. Resolve feedback, then clear the Projects/Kanban approval gate before publishing.`,
+        disabled: true,
+        buttonLabel: 'Approval gate required',
         busyLabel: publishDate => (scheduledForFuture(publishDate) ? 'Scheduling...' : 'Publishing...'),
         publishDate: {
           label: 'Publish date',

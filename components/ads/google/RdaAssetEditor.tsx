@@ -511,7 +511,7 @@ export function RdaAssetEditor({ value, onChange, disabled = false }: Props) {
               maxLength={30}
               onChange={(e) => onChange({ ...value, businessName: e.target.value })}
               disabled={disabled}
-              placeholder="Your Business Name"
+              placeholder="Client Business Name"
               aria-label="Business name"
             />
           </label>

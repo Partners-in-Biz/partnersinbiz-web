@@ -22,6 +22,7 @@ interface CaptureSourcesWorkspaceProps {
   orgName?: string
   importHref?: string
   sequenceNewHref?: string
+  surface?: 'portal' | 'admin-org'
 }
 
 const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL ?? 'https://partnersinbiz.online'
@@ -142,6 +143,14 @@ function scopedUrl(path: string, orgId?: string, params?: Record<string, string>
   return query ? `${path}?${query}` : path
 }
 
+function scopedHeaders(orgId?: string, contentType = false) {
+  const cleanOrgId = orgId?.trim()
+  return {
+    ...(contentType ? { 'Content-Type': 'application/json' } : {}),
+    ...(cleanOrgId ? { 'X-Org-Id': cleanOrgId } : {}),
+  }
+}
+
 function sourceDisplayName(source: CaptureSource) {
   return source.name?.trim() || 'Capture source name missing'
 }
@@ -150,6 +159,7 @@ function SourceCard({
   source,
   campaigns,
   sequences,
+  orgId,
   sourceEndpoint,
   sequenceNewHref,
   initiallyExpanded,
@@ -159,6 +169,7 @@ function SourceCard({
   source: CaptureSource
   campaigns: CampaignSummary[]
   sequences: SequenceSummary[]
+  orgId?: string
   sourceEndpoint: (id: string) => string
   sequenceNewHref: string
   initiallyExpanded: boolean
@@ -187,7 +198,7 @@ function SourceCard({
     try {
       const res = await fetch(sourceEndpoint(source.id), {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: scopedHeaders(orgId, true),
         body: JSON.stringify(body),
       })
       const json = await res.json()
@@ -253,7 +264,7 @@ function SourceCard({
     setBusy(true)
     setError(null)
     try {
-      const res = await fetch(sourceEndpoint(source.id), { method: 'DELETE' })
+      const res = await fetch(sourceEndpoint(source.id), { method: 'DELETE', headers: scopedHeaders(orgId) })
       if (!res.ok) {
         const body = await res.json().catch(() => ({}))
         setError(body.error ?? 'Failed to delete')
@@ -666,6 +677,7 @@ export function CaptureSourcesWorkspace({
   orgName,
   importHref = '/portal/capture-sources/import',
   sequenceNewHref = '/portal/settings/sequences/new',
+  surface = 'portal',
 }: CaptureSourcesWorkspaceProps) {
   const scopedOrgId = orgId?.trim() || undefined
   const [sources, setSources] = useState<CaptureSource[]>([])
@@ -701,7 +713,7 @@ export function CaptureSourcesWorkspace({
   const loadSources = useCallback(() => {
     setLoading(true)
     setLoadError(null)
-    fetch(sourcesEndpoint)
+    fetch(sourcesEndpoint, { headers: scopedHeaders(scopedOrgId) })
       .then(async (r) => {
         const body = await r.json().catch(() => ({}))
         if (!r.ok) {
@@ -715,20 +727,20 @@ export function CaptureSourcesWorkspace({
         setLoadError(err instanceof Error ? err.message : 'Failed to load capture sources')
       })
       .finally(() => setLoading(false))
-  }, [sourcesEndpoint])
+  }, [scopedOrgId, sourcesEndpoint])
 
   const loadCampaigns = useCallback(() => {
-    fetch(campaignsEndpoint)
+    fetch(campaignsEndpoint, { headers: scopedHeaders(scopedOrgId) })
       .then((r) => r.json())
       .then((body) => {
         const list = (body.data ?? []) as Array<{ id: string; name: string; status: string }>
         setCampaigns(list.map((c) => ({ id: c.id, name: c.name, status: c.status })))
       })
       .catch(() => {})
-  }, [campaignsEndpoint])
+  }, [campaignsEndpoint, scopedOrgId])
 
   const loadSequences = useCallback(() => {
-    fetch(sequencesEndpoint)
+    fetch(sequencesEndpoint, { headers: scopedHeaders(scopedOrgId) })
       .then((r) => r.json())
       .then((body) => {
         const raw = body.data?.sequences ?? body.data ?? []
@@ -744,7 +756,7 @@ export function CaptureSourcesWorkspace({
         )
       })
       .catch(() => {})
-  }, [sequencesEndpoint])
+  }, [scopedOrgId, sequencesEndpoint])
 
   useEffect(() => {
     loadSources()
@@ -789,7 +801,7 @@ export function CaptureSourcesWorkspace({
     try {
       const res = await fetch(sourcesEndpoint, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: scopedHeaders(scopedOrgId, true),
         body: JSON.stringify({
           name,
           type: newType,
@@ -842,7 +854,9 @@ export function CaptureSourcesWorkspace({
           <p className="eyebrow">{orgName || 'CRM'}</p>
           <h1 className="pib-page-title mt-2">Capture command center</h1>
           <p className="pib-page-sub max-w-2xl">
-            Manage every path that feeds contacts into the CRM, from embedded forms to partner APIs and CSV imports. Keep each channel measurable, tagged, and ready for follow-up.
+            {surface === 'admin-org'
+              ? 'Internal operator surface for this client: manage every path that feeds contacts into the CRM while every read and write carries explicit organisation scope.'
+              : 'Manage every path that feeds contacts into the CRM, from embedded forms to partner APIs and CSV imports. Keep each channel measurable, tagged, and ready for follow-up.'}
           </p>
         </div>
         <Link
@@ -1035,6 +1049,7 @@ export function CaptureSourcesWorkspace({
               source={s}
               campaigns={campaigns}
               sequences={sequences}
+              orgId={scopedOrgId}
               sourceEndpoint={sourceEndpoint}
               sequenceNewHref={sequenceNewHref}
               initiallyExpanded={expandedIds.has(s.id)}

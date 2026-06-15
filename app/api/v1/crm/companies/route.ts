@@ -14,7 +14,6 @@ import { adminDb } from '@/lib/firebase/admin'
 import { withCrmAuth } from '@/lib/auth/crm-middleware'
 import { apiSuccess, apiError, apiErrorFromException } from '@/lib/api/response'
 import {
-  loadCompany,
   sanitizeCompanyForWrite,
   validateParentChain,
   loadMemberRef,
@@ -257,6 +256,3 @@ export const POST = withCrmAuth('member', async (req, ctx) => {
 
   return apiSuccess({ company: { ...toWrite, id: docRef.id } }, 201)
 })
-
-// Prevent unused import warning — loadCompany is used by other route files in this module
-export { loadCompany }

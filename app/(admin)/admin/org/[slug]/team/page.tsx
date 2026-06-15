@@ -39,15 +39,16 @@ interface ClientCandidate {
 }
 
 const ROLE_OPTIONS: Array<{ value: OrgMember['role']; label: string; description: string }> = [
-  { value: 'admin', label: 'Admin', description: 'Can manage this client workspace' },
-  { value: 'member', label: 'Member', description: 'Can work inside the client portal' },
-  { value: 'viewer', label: 'Viewer', description: 'Read-only client portal access' },
+  { value: 'admin', label: 'Admin', description: 'PiB operator access for this selected org' },
+  { value: 'member', label: 'Member', description: 'Can work inside the selected org command surface' },
+  { value: 'viewer', label: 'Viewer', description: 'Read-only selected org command-surface access' },
 ]
 
-type AccessScope = 'all' | 'crm' | 'marketing' | 'projects' | 'billing' | 'readonly'
+type AccessScope = 'none' | 'all' | 'crm' | 'marketing' | 'projects' | 'billing' | 'readonly'
 
 const ACCESS_SCOPE_OPTIONS: Array<{ value: AccessScope; label: string }> = [
-  { value: 'all', label: 'All workspace areas' },
+  { value: 'none', label: 'No selected-org areas yet' },
+  { value: 'all', label: 'All selected-org areas' },
   { value: 'crm', label: 'CRM and contacts' },
   { value: 'marketing', label: 'Marketing and content' },
   { value: 'projects', label: 'Projects and delivery' },
@@ -56,7 +57,7 @@ const ACCESS_SCOPE_OPTIONS: Array<{ value: AccessScope; label: string }> = [
 ]
 
 function accessScopeLabel(value?: AccessScope) {
-  return ACCESS_SCOPE_OPTIONS.find((option) => option.value === value)?.label ?? 'All workspace areas'
+  return ACCESS_SCOPE_OPTIONS.find((option) => option.value === value)?.label ?? 'No selected-org areas yet'
 }
 
 function Skeleton({ className = '' }: { className?: string }) {
@@ -290,7 +291,7 @@ export default function TeamPage() {
   const [createRole, setCreateRole] = useState('member')
   const [createJobTitle, setCreateJobTitle] = useState('')
   const [createDepartment, setCreateDepartment] = useState('')
-  const [createAccessScope, setCreateAccessScope] = useState<AccessScope>('all')
+  const [createAccessScope, setCreateAccessScope] = useState<AccessScope>('none')
   const [createAccessNotes, setCreateAccessNotes] = useState('')
   const [createError, setCreateError] = useState<string | null>(null)
   const [setupLink, setSetupLink] = useState<string | null>(null)
@@ -302,7 +303,7 @@ export default function TeamPage() {
   const [clientRole, setClientRole] = useState('member')
   const [clientJobTitle, setClientJobTitle] = useState('')
   const [clientDepartment, setClientDepartment] = useState('')
-  const [clientAccessScope, setClientAccessScope] = useState<AccessScope>('all')
+  const [clientAccessScope, setClientAccessScope] = useState<AccessScope>('none')
   const [clientAccessNotes, setClientAccessNotes] = useState('')
   const [clientCandidates, setClientCandidates] = useState<ClientCandidate[]>([])
   const [clientDropdownOpen, setClientDropdownOpen] = useState(false)
@@ -317,7 +318,7 @@ export default function TeamPage() {
   const [addRole, setAddRole] = useState('member')
   const [addJobTitle, setAddJobTitle] = useState('')
   const [addDepartment, setAddDepartment] = useState('')
-  const [addAccessScope, setAddAccessScope] = useState<AccessScope>('all')
+  const [addAccessScope, setAddAccessScope] = useState<AccessScope>('none')
   const [addAccessNotes, setAddAccessNotes] = useState('')
   const [addError, setAddError] = useState<string | null>(null)
   const [platformUsers, setPlatformUsers] = useState<PlatformUser[]>([])
@@ -367,7 +368,7 @@ export default function TeamPage() {
         setClientSearchLoading(true)
         const res = await fetch(
           `/api/v1/organizations/${org.id}/members/client?q=${encodeURIComponent(q)}`,
-          { signal: controller.signal },
+          { signal: controller.signal, headers: { 'X-Org-Id': org.id, 'X-Org-Slug': slug } },
         )
         const body = await res.json()
         if (!res.ok) throw new Error(body.error || 'Failed to search clients')
@@ -385,7 +386,7 @@ export default function TeamPage() {
       controller.abort()
       window.clearTimeout(timer)
     }
-  }, [org, clientSearch, clientUid])
+  }, [org, clientSearch, clientUid, slug])
 
   // Load organization and members
   useEffect(() => {
@@ -406,7 +407,7 @@ export default function TeamPage() {
         setOrg(foundOrg)
 
         // Fetch members
-        const membersRes = await fetch(`/api/v1/organizations/${foundOrg.id}/members`)
+        const membersRes = await fetch(`/api/v1/organizations/${foundOrg.id}/members`, { headers: { 'X-Org-Id': foundOrg.id, 'X-Org-Slug': slug } })
         if (!membersRes.ok) throw new Error('Failed to fetch members')
 
         const membersBody = await membersRes.json()
@@ -432,7 +433,7 @@ export default function TeamPage() {
     try {
       const res = await fetch(`/api/v1/organizations/${org.id}/create-login`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'X-Org-Id': org.id, 'X-Org-Slug': slug },
         body: JSON.stringify({
           email: createEmail,
           name: createName,
@@ -464,7 +465,7 @@ export default function TeamPage() {
       setCreateRole('member')
       setCreateJobTitle('')
       setCreateDepartment('')
-      setCreateAccessScope('all')
+      setCreateAccessScope('none')
       setCreateAccessNotes('')
     } catch (e) {
       setCreateError(e instanceof Error ? e.message : 'An error occurred')
@@ -483,7 +484,7 @@ export default function TeamPage() {
 
       const res = await fetch(`/api/v1/organizations/${org.id}/members`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'X-Org-Id': org.id, 'X-Org-Slug': slug },
         body: JSON.stringify({
           email: addEmail,
           role: addRole,
@@ -507,7 +508,7 @@ export default function TeamPage() {
       setAddRole('member')
       setAddJobTitle('')
       setAddDepartment('')
-      setAddAccessScope('all')
+      setAddAccessScope('none')
       setAddAccessNotes('')
     } catch (e) {
       setAddError(e instanceof Error ? e.message : 'An error occurred')
@@ -526,7 +527,7 @@ export default function TeamPage() {
 
       const res = await fetch(`/api/v1/organizations/${org.id}/members/client`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'X-Org-Id': org.id, 'X-Org-Slug': slug },
         body: JSON.stringify({
           uid: clientUid,
           role: clientRole,
@@ -549,7 +550,7 @@ export default function TeamPage() {
       setClientRole('member')
       setClientJobTitle('')
       setClientDepartment('')
-      setClientAccessScope('all')
+      setClientAccessScope('none')
       setClientAccessNotes('')
       setClientCandidates([])
       setClientDropdownOpen(false)
@@ -569,7 +570,7 @@ export default function TeamPage() {
 
       const res = await fetch(`/api/v1/organizations/${org.id}/members/${userId}`, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'X-Org-Id': org.id, 'X-Org-Slug': slug },
         body: JSON.stringify({ role: newRole }),
       })
 
@@ -592,12 +593,44 @@ export default function TeamPage() {
     }
   }
 
+  const handleChangeAccessScope = async (userId: string, accessScope: AccessScope) => {
+    if (!org) return
+
+    try {
+      setUpdatingError(null)
+      setUpdatingRole(userId)
+
+      const res = await fetch(`/api/v1/organizations/${org.id}/members/${userId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', 'X-Org-Id': org.id, 'X-Org-Slug': slug },
+        body: JSON.stringify({ accessScope }),
+      })
+
+      const body = await res.json()
+
+      if (!res.ok) {
+        throw new Error(body.error || 'Failed to update access scope')
+      }
+
+      setMembers(
+        members.map((m) => (
+          m.userId === userId ? { ...m, accessScope } : m
+        )),
+      )
+    } catch (e) {
+      setUpdatingError(e instanceof Error ? e.message : 'An error occurred')
+    } finally {
+      setUpdatingRole(null)
+    }
+  }
+
   const handleRemoveMember = async (userId: string) => {
     if (!org || !confirm('Are you sure you want to remove this member?')) return
 
     try {
       const res = await fetch(`/api/v1/organizations/${org.id}/members/${userId}`, {
         method: 'DELETE',
+        headers: { 'X-Org-Id': org.id, 'X-Org-Slug': slug },
       })
 
       const body = await res.json()
@@ -660,9 +693,9 @@ export default function TeamPage() {
             <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">
               Invites & Access
             </p>
-            <h2 className="mt-1 text-lg font-headline font-semibold text-on-surface">Add people to this workspace</h2>
+            <h2 className="mt-1 text-lg font-headline font-semibold text-on-surface">Add people to this selected org</h2>
             <p className="mt-1 max-w-2xl text-sm text-on-surface-variant">
-              Create a new client login, attach an existing client account, or grant a PiB staff member explicit portal access.
+              Create a new client login, attach an existing client account, or grant a PiB staff member explicit access to this selected org.
             </p>
           </div>
           <div className="grid gap-4 p-5 xl:grid-cols-3">
@@ -854,7 +887,7 @@ export default function TeamPage() {
             <InviteCard
               icon={<FiUserCheck aria-hidden="true" className="h-4 w-4" />}
               title="Add existing PiB member"
-              description="Searches platform staff accounts and grants explicit access to this client portal workspace."
+              description="Searches platform staff accounts and grants explicit PiB operator access to this selected org."
             >
               <form onSubmit={handleAddMember} className="space-y-3">
                 <label className="block">
@@ -1050,8 +1083,24 @@ export default function TeamPage() {
                       </div>
                     </td>
                     <td className="py-3 px-3">
-                      <div className="max-w-[190px] text-sm">
-                        <p className="text-on-surface-variant">{accessScopeLabel(member.accessScope)}</p>
+                      <div className="max-w-[220px] text-sm">
+                        {member.role !== 'owner' ? (
+                          <select
+                            value={member.accessScope ?? 'none'}
+                            onChange={(e) => handleChangeAccessScope(member.userId, e.target.value as AccessScope)}
+                            disabled={updatingRole === member.userId}
+                            aria-label={`Change access for ${member.displayName || member.email || member.userId}`}
+                            className="w-full rounded-md border border-[var(--color-outline)] bg-[var(--color-surface)] px-2 py-1 text-xs text-on-surface-variant"
+                          >
+                            {ACCESS_SCOPE_OPTIONS.map((option) => (
+                              <option key={option.value} value={option.value}>
+                                {option.label}
+                              </option>
+                            ))}
+                          </select>
+                        ) : (
+                          <p className="text-on-surface-variant">{accessScopeLabel(member.accessScope)}</p>
+                        )}
                         {member.accessNotes && (
                           <p className="mt-0.5 truncate text-xs text-on-surface-variant/70">{member.accessNotes}</p>
                         )}

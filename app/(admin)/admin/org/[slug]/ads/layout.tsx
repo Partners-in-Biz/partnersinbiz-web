@@ -24,6 +24,12 @@ export default async function AdsAdminLayout({
         <Link href={`/admin/org/${slug}/ads/budgets`}>Budgets</Link>
         <Link href={`/admin/org/${slug}/ads/experiments`}>Experiments</Link>
       </nav>
+      <section className="mb-6 rounded-2xl border border-amber-300/20 bg-amber-400/10 p-4 text-sm text-amber-50">
+        <p className="font-semibold">Admin ads command centre</p>
+        <p className="mt-1 text-amber-100/80">
+          These routes are for Partners in Biz operators. Client review happens in the portal, and paid-spend, launch, destructive, and provider-sync actions stay behind recorded approval gates.
+        </p>
+      </section>
       {children}
     </div>
   )

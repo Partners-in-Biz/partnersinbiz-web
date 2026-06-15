@@ -59,4 +59,120 @@ describe('normalizeHermesEvent', () => {
       durationMs: 127,
     })
   })
+
+  it('preserves rich message parts, UI actions, and raw structured payloads', () => {
+    const events = normalizeHermesEvent({
+      event: 'message.rich',
+      run_id: 'run_1',
+      timestamp: 123,
+      rich_parts: [
+        { type: 'markdown', content: '### Launch plan\n- **Approve** final copy' },
+        {
+          type: 'table',
+          caption: 'Channel mix',
+          columns: ['Channel', 'Status'],
+          rows: [['Email', 'Ready']],
+        },
+        {
+          type: 'gallery',
+          images: [
+            { url: 'https://cdn.example.com/ad-1.png', alt: 'Ad concept' },
+          ],
+        },
+      ],
+      ui_actions: [
+        { id: 'copy-summary', type: 'copy', label: 'Copy summary', value: 'Launch plan' },
+        { id: 'open-asset', type: 'open', label: 'Open asset', url: 'https://app.example.com/assets/1' },
+      ],
+      telegram: {
+        parse_mode: 'MarkdownV2',
+        reply_markup: { inline_keyboard: [[{ text: 'Approve', callback_data: 'approve:run_1' }]] },
+      },
+    })
+
+    expect(events).toHaveLength(1)
+    expect(events[0]).toMatchObject({
+      event: 'message.rich',
+      runId: 'run_1',
+      richParts: [
+        { type: 'markdown', content: '### Launch plan\n- **Approve** final copy' },
+        {
+          type: 'table',
+          caption: 'Channel mix',
+          columns: ['Channel', 'Status'],
+          rows: [['Email', 'Ready']],
+        },
+        {
+          type: 'gallery',
+          images: [
+            { url: 'https://cdn.example.com/ad-1.png', alt: 'Ad concept' },
+          ],
+        },
+      ],
+      uiActions: [
+        { id: 'copy-summary', type: 'copy', label: 'Copy summary', value: 'Launch plan' },
+        { id: 'open-asset', type: 'open', label: 'Open asset', url: 'https://app.example.com/assets/1' },
+      ],
+      raw: {
+        telegram: {
+          parse_mode: 'MarkdownV2',
+          reply_markup: { inline_keyboard: [[{ text: 'Approve', callback_data: 'approve:run_1' }]] },
+        },
+      },
+    })
+  })
+
+  it('normalizes clarify and model picker events into rich parts and choose actions', () => {
+    const clarifyEvents = normalizeHermesEvent({
+      event: 'clarify.request',
+      run_id: 'run_1',
+      action_id: 'clarify-tone',
+      question: 'Which tone should I use?',
+      choices: ['Direct', 'Warm'],
+    })
+    const modelEvents = normalizeHermesEvent({
+      event: 'model_picker.request',
+      run_id: 'run_1',
+      action_id: 'model-depth',
+      title: 'Choose model depth',
+      models: [
+        { id: 'fast', label: 'Fast' },
+        { id: 'deep', label: 'Deep' },
+      ],
+    })
+
+    expect(clarifyEvents[0]).toMatchObject({
+      event: 'clarify.required',
+      richParts: [
+        {
+          type: 'clarify',
+          actionId: 'clarify-tone',
+          question: 'Which tone should I use?',
+          choices: ['Direct', 'Warm'],
+        },
+      ],
+      uiActions: [
+        { id: 'clarify-tone:0', type: 'choose', label: 'Direct', value: 'Direct', actionId: 'clarify-tone' },
+        { id: 'clarify-tone:1', type: 'choose', label: 'Warm', value: 'Warm', actionId: 'clarify-tone' },
+      ],
+    })
+    expect(modelEvents[0]).toMatchObject({
+      event: 'model_picker.required',
+      richParts: [
+        {
+          type: 'model_picker',
+          actionId: 'model-depth',
+          title: 'Choose model depth',
+          models: [
+            { id: 'fast', label: 'Fast' },
+            { id: 'deep', label: 'Deep' },
+          ],
+        },
+      ],
+      uiActions: [
+        { id: 'model-depth:fast', type: 'choose', label: 'Fast', value: 'fast', actionId: 'model-depth' },
+        { id: 'model-depth:deep', type: 'choose', label: 'Deep', value: 'deep', actionId: 'model-depth' },
+      ],
+    })
+  })
 })

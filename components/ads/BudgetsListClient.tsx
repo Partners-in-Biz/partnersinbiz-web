@@ -147,7 +147,7 @@ export function BudgetsListClient({ budgets, orgSlug }: Props) {
                 Archive budget {confirmArchive.name} for {orgSlug}?
               </h2>
               <p id="budget-archive-description" className="text-sm text-white/65">
-                This removes {confirmArchive.name} from active budget pacing. Historical spend and alerts stay in PiB.
+                This removes {confirmArchive.name} from active admin budget pacing. Historical spend and alerts stay in PiB; it does not approve or increase paid spend.
               </p>
             </div>
             <div className="flex shrink-0 gap-2">
@@ -181,7 +181,7 @@ export function BudgetsListClient({ budgets, orgSlug }: Props) {
               href={`/admin/org/${orgSlug}/ads/budgets/new`}
               className="mt-3 inline-block text-sm text-[#F5A623] underline"
             >
-              Create your first budget →
+              Create an admin budget guardrail →
             </Link>
           )}
         </div>

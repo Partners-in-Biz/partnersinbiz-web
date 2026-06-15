@@ -651,6 +651,44 @@ describe('Admin project docs and settings tabs', () => {
     expect(screen.getByText('Live kanban task survives fallback')).toBeInTheDocument()
   })
 
+  it('polls project detail tasks so an open Kanban reflects moves when Firestore is quiet', async () => {
+    jest.useFakeTimers()
+    let taskCalls = 0
+    global.fetch = jest.fn((input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url === '/api/v1/projects/project-1') {
+        return Promise.resolve({ ok: true, json: async () => ({ data: { id: 'project-1', orgId: 'org-acme', name: 'Client Website', description: 'Initial board description', brief: 'Existing project brief', status: 'development', columns: [] } }) } as Response)
+      }
+      if (url === '/api/v1/projects/project-1/docs') {
+        return Promise.resolve({ ok: true, json: async () => ({ data: [] }) } as Response)
+      }
+      if (url === '/api/v1/projects/project-1/tasks') {
+        taskCalls += 1
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            data: taskCalls === 1
+              ? [{ id: 'task-moving', title: 'Move me live', columnId: 'todo', order: 1 }]
+              : [{ id: 'task-moving', title: 'Move me live after poll', columnId: 'review', agentStatus: 'done', order: 1 }],
+          }),
+        } as Response)
+      }
+      return Promise.resolve({ ok: true, json: async () => ({ data: [] }) } as Response)
+    }) as jest.Mock
+
+    render(<ProjectDetailPage />)
+
+    await waitFor(() => expect(screen.getByText('Move me live')).toBeInTheDocument())
+
+    await act(async () => {
+      jest.advanceTimersByTime(10000)
+    })
+
+    await waitFor(() => expect(screen.getByText('Move me live after poll')).toBeInTheDocument())
+    await waitFor(() => expect(taskCalls).toBeGreaterThanOrEqual(2))
+    jest.useRealTimers()
+  })
+
   it('deduplicates a created task when the Firestore listener wins the race before POST returns', async () => {
     render(<ProjectDetailPage />)
 

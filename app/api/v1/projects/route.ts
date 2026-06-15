@@ -11,6 +11,7 @@ import { apiSuccess, apiError } from '@/lib/api/response'
 import type { ApiUser } from '@/lib/api/types'
 import { logActivity } from '@/lib/activity/log'
 import { canAccessOrg, restrictedAdminOrgIds } from '@/lib/api/platformAdmin'
+import { resolveOrgScope } from '@/lib/api/orgScope'
 import { ensureClaimableRelationship } from '@/lib/claimable-relationships/store'
 import {
   ensurePlatformCompanyForOrg,
@@ -19,6 +20,7 @@ import {
 import { canAccessProject } from '@/lib/projects/access'
 import { ensureProjectOwnerMembership } from '@/lib/projects/collaboration'
 import { normalizeProjectLinks, pickProjectLinkFields, type ProjectLinkSet } from '@/lib/client-documents/linkedValidation'
+import { assertUserCanPerformOrganizationModuleAction } from '@/lib/organizations/module-policy-access'
 
 const VALID_STATUSES = [
   'discovery',
@@ -237,8 +239,9 @@ export const GET = withAuth('client', async (req: NextRequest, user: ApiUser) =>
   let query: FirebaseFirestore.Query = adminDb.collection('projects')
 
   if (user.role === 'client') {
-    const orgId = searchParams.get('orgId') ?? user.orgId
-    if (!orgId || !canAccessOrg(user, orgId)) return apiSuccess([])
+    const scope = resolveOrgScope(user, searchParams.get('orgId'))
+    if (!scope.ok) return apiSuccess([])
+    const orgId = scope.orgId
     if (view === 'received' || view === 'shared') {
       const projects = (await loadClientVisibleProjectsForOrg(orgId))
         .filter((project) => !sharedOnly || Boolean(project.claimableRelationshipId))
@@ -311,9 +314,15 @@ export const POST = withAuth('client', async (req: NextRequest, user: ApiUser) =
     return apiError('Invalid status')
   }
 
-  let orgId = user.role === 'client'
-    ? user.orgId ?? ''
-    : cleanString(body.orgId) || cleanString(body.clientOrgId) || cleanString(body.clientId)
+  const requestedOrgId = user.role === 'client'
+    ? cleanString(body.orgId) || null
+    : cleanString(body.orgId) || cleanString(body.clientOrgId) || cleanString(body.clientId) || null
+  let orgId = ''
+  if (requestedOrgId || user.role === 'client') {
+    const projectScope = resolveOrgScope(user, requestedOrgId)
+    if (!projectScope.ok) return apiError(projectScope.error, projectScope.status)
+    orgId = projectScope.orgId
+  }
 
   // If orgSlug is provided, look up the org by slug and get its ID
   const orgSlugInput = cleanString(body.orgSlug)
@@ -335,6 +344,18 @@ export const POST = withAuth('client', async (req: NextRequest, user: ApiUser) =
   if (!canAccessOrg(user, orgId)) {
     return apiError('Forbidden', 403)
   }
+  const orgDoc = await adminDb.collection('organizations').doc(orgId).get()
+  if (!orgDoc.exists) return apiError('Organization not found', 404)
+  const orgData = orgDoc.data() ?? {}
+  const createAccess = await assertUserCanPerformOrganizationModuleAction(
+    user,
+    orgId,
+    'projects',
+    'create',
+    'Project creation is disabled for your organisation role',
+    orgData,
+  )
+  if (!createAccess.ok) return apiError(createAccess.error, createAccess.status)
 
   const claimableProject = hasClaimableTarget(body)
   const platformIssuedProject = !claimableProject && (user.role === 'admin' || user.role === 'ai')
@@ -352,7 +373,7 @@ export const POST = withAuth('client', async (req: NextRequest, user: ApiUser) =
     return apiError('recipientEmail is required for CRM project sharing', 400)
   }
   const recipientOrgDoc = platformIssuedProject && recipientOrgId
-    ? await adminDb.collection('organizations').doc(recipientOrgId).get()
+    ? (recipientOrgId === orgId ? orgDoc : await adminDb.collection('organizations').doc(recipientOrgId).get())
     : null
   const recipientOrg = recipientOrgDoc?.exists ? recipientOrgDoc.data() ?? {} : {}
   const platformCompany = platformIssuedProject && recipientOrgId

@@ -11,6 +11,8 @@ const TYPE_OPTIONS: Array<{ value: ClientDocumentType; label: string }> = CLIENT
   (t) => ({ value: t.type, label: t.label })
 )
 
+type OrganizationSummary = { id: string; name?: string; slug?: string }
+
 export default function OrgNewDocumentPage() {
   const router = useRouter()
   const params = useParams<{ slug: string }>()
@@ -28,12 +30,11 @@ export default function OrgNewDocumentPage() {
   useEffect(() => {
     fetch('/api/v1/organizations')
       .then((r) => r.json())
-      .then((body) => {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const org = (body.data ?? []).find((o: any) => o.slug === slug)
+      .then((body: { data?: OrganizationSummary[] }) => {
+        const org = (body.data ?? []).find((o) => o.slug === slug)
         if (org) {
           setOrgId(org.id)
-          setOrgName(org.name)
+          setOrgName(org.name ?? '')
         }
       })
       .catch(() => {})
@@ -78,6 +79,9 @@ export default function OrgNewDocumentPage() {
             <p className="text-xs uppercase tracking-[0.18em] text-on-surface-variant">{orgName}</p>
           )}
           <h1 className="text-2xl font-semibold">New Document</h1>
+          <p className="text-sm text-on-surface-variant">
+            Creates an internal draft for PiB drafting/review. It is not sent to the client, published, or shared until a separate approval/client-review gate is used.
+          </p>
         </header>
 
         <form

@@ -4,7 +4,7 @@ export const dynamic = 'force-dynamic'
 import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { PIB_PLATFORM_ORG_ID } from '@/lib/platform/constants'
-import { resolvePlatformAgentBoardHref } from '@/lib/admin/dashboard-links'
+import { resolvePlatformAgentBoardHref, resolvePlatformOrgAdminHref } from '@/lib/admin/dashboard-links'
 import { PageHeader, PageTabs, Surface, StatusPill } from '@/components/ui/AppFoundation'
 
 type OrgSummary = {
@@ -47,6 +47,7 @@ type Activity = {
   note?: string
   description?: string
   entityTitle?: string
+  metadata?: Record<string, unknown> | null
   createdAt?: string | null
 }
 
@@ -143,7 +144,7 @@ function healthTone(health: Health | null, error: string | null) {
 }
 
 function orgDashboardHref(org: Pick<OrgSummary, 'slug'>) {
-  return org.slug ? `/admin/org/${org.slug}/dashboard` : '/admin/clients'
+  return org.slug ? `/admin/org/${org.slug}/dashboard` : '/admin/organizations'
 }
 
 function clientOrgs(orgs: OrgSummary[]) {
@@ -200,6 +201,220 @@ function taskMeta(task: AgentTask) {
   const project = task.projectName ?? 'No project title'
   const assignee = task.assigneeAgentId ?? 'agent'
   return `${project} · ${assignee} · ${status} · ${formatRelative(task.updatedAt ?? task.createdAt)}`
+}
+
+function percent(value: number, total: number) {
+  if (total <= 0) return 0
+  return Math.max(0, Math.min(100, Math.round((value / total) * 100)))
+}
+
+function includesTerm(value: string | undefined | null, terms: string[]) {
+  const haystack = (value ?? '').toLowerCase()
+  return terms.some(term => haystack.includes(term))
+}
+
+function activityTitle(activity: Activity) {
+  return activity.note ?? activity.description ?? activity.entityTitle ?? activity.type ?? 'Activity'
+}
+
+function completedTasks(tasks: AgentTask[]) {
+  return tasks.filter(task => task.columnId === 'done' || task.agentStatus === 'done')
+}
+
+function InsightEmptyState({ title, body }: { title: string; body: string }) {
+  return (
+    <div className="rounded-lg border border-dashed border-[var(--color-card-border)] bg-[var(--color-surface-container)]/35 p-4 text-sm">
+      <p className="font-label uppercase tracking-wide text-on-surface">{title}</p>
+      <p className="mt-1 text-xs leading-5 text-on-surface-variant">{body}</p>
+    </div>
+  )
+}
+
+function InsightCard({
+  title,
+  eyebrow,
+  value,
+  detail,
+  explanation,
+  children,
+}: {
+  title: string
+  eyebrow: string
+  value: string
+  detail: string
+  explanation: string
+  children?: React.ReactNode
+}) {
+  return (
+    <Surface className="p-4 sm:p-5">
+      <div className="flex items-start justify-between gap-4">
+        <div className="min-w-0">
+          <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">{eyebrow}</p>
+          <h3 className="mt-1 text-base font-headline font-bold text-on-surface">{title}</h3>
+        </div>
+        <span className="shrink-0 rounded-full border border-[var(--color-pib-accent)]/20 bg-[var(--color-pib-accent-soft)] px-3 py-1 text-sm font-semibold text-[var(--color-pib-accent)]">{value}</span>
+      </div>
+      <p className="mt-3 text-sm leading-6 text-on-surface">{detail}</p>
+      <p className="mt-2 rounded-lg border border-[var(--color-card-border)] bg-[var(--color-surface-container)]/35 p-3 text-xs leading-5 text-on-surface-variant">
+        Explainability: {explanation}
+      </p>
+      {children ? <div className="mt-4 space-y-2">{children}</div> : null}
+    </Surface>
+  )
+}
+
+function MiniProgress({ value, label }: { value: number; label: string }) {
+  return (
+    <div>
+      <div className="mb-1 flex items-center justify-between gap-3 text-[11px] text-on-surface-variant">
+        <span>{label}</span>
+        <span>{value}%</span>
+      </div>
+      <div className="h-2 overflow-hidden rounded-full bg-white/[0.06]">
+        <div className="h-full rounded-full bg-[var(--color-pib-accent)]" style={{ width: `${value}%` }} />
+      </div>
+    </div>
+  )
+}
+
+function EvidenceList({ items, emptyTitle, emptyBody }: { items: Array<{ id: string; title: string; href?: string; meta?: string }>; emptyTitle: string; emptyBody: string }) {
+  if (items.length === 0) return <InsightEmptyState title={emptyTitle} body={emptyBody} />
+  return (
+    <div className="space-y-2">
+      {items.slice(0, 4).map(item => item.href ? (
+        <Link key={item.id} href={item.href} className="block rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)]/70 p-3 text-sm font-medium text-on-surface transition-colors hover:border-[var(--color-pib-accent)]/50">
+          {item.title}
+          {item.meta ? <span className="mt-1 block text-xs font-normal text-on-surface-variant">{item.meta}</span> : null}
+        </Link>
+      ) : (
+        <div key={item.id} className="rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)]/70 p-3 text-sm font-medium text-on-surface">
+          {item.title}
+          {item.meta ? <span className="mt-1 block text-xs font-normal text-on-surface-variant">{item.meta}</span> : null}
+        </div>
+      ))}
+    </div>
+  )
+}
+
+function OperatorInsightDashboards({
+  orgs,
+  tasks,
+  approvals,
+  activity,
+}: {
+  orgs: OrgSummary[]
+  tasks: AgentTask[]
+  approvals: Approval[]
+  activity: Activity[]
+}) {
+  const completed = completedTasks(tasks)
+  const active = tasks.filter(task => ACTIVE_STATUSES.has(task.agentStatus ?? ''))
+  const blocked = tasks.filter(task => RISK_STATUSES.has(task.agentStatus ?? '') || task.columnId === 'blocked')
+  const experimentSignals = [
+    ...tasks.filter(task => includesTerm(`${task.title} ${task.projectName ?? ''}`, ['experiment', 'test', 'variant', 'ab test', 'a/b'])).map(task => ({ id: task.id, title: task.title, href: task.href, meta: taskMeta(task) })),
+    ...activity.filter(item => includesTerm(`${activityTitle(item)} ${item.type ?? ''}`, ['experiment', 'test', 'variant', 'ab test', 'a/b'])).map(item => ({ id: item.id, title: activityTitle(item), meta: `${item.type ?? 'activity'} · ${formatRelative(item.createdAt)}` })),
+  ]
+  const compoundingSignals = completed.slice(0, 3).map(task => ({ id: task.id, title: task.title, href: task.href, meta: taskMeta(task) }))
+  const progress = percent(completed.length, tasks.length)
+  const consistency = percent(active.length + completed.length + Math.max(0, orgs.length - blocked.length), Math.max(1, tasks.length + orgs.length))
+  const pressure = blocked.length + approvals.length
+  const energyLabel = pressure >= 4 ? 'Strained' : active.length > completed.length ? 'Building' : completed.length > 0 ? 'Settled' : 'Quiet'
+  const bottleneckItems = [
+    ...blocked.map(task => ({ id: task.id, title: task.title, href: task.href, meta: taskMeta(task) })),
+    ...approvals.map(item => ({ id: item.id, title: item.content ?? 'Approval required', meta: `${item.orgName ?? 'Organisation'} · ${item.platform ?? 'approval'}` })),
+  ]
+  const nextActions = bottleneckItems.length > 0
+    ? bottleneckItems
+    : active.length > 0
+      ? active.map(task => ({ id: task.id, title: `Advance ${task.title}`, href: task.href, meta: taskMeta(task) }))
+      : orgs.length > 0
+        ? orgs.slice(0, 3).map(org => ({ id: org.id, title: `Review ${org.name} command surface`, href: orgDashboardHref(org), meta: `${org.status ?? 'active'} · ${org.memberCount ?? 0} team members` }))
+        : []
+  const moodTrend = [
+    { label: 'Active load', value: active.length },
+    { label: 'Blocked load', value: blocked.length },
+    { label: 'Completed signal', value: completed.length },
+    { label: 'Approval load', value: approvals.length },
+  ]
+
+  return (
+    <section className="space-y-4" aria-label="Derived operator insight dashboards">
+      <SectionHeader title="Derived operator insight dashboards" eyebrow="Explainable signals" />
+      <div className="grid gap-4 lg:grid-cols-2 xl:grid-cols-3">
+        <InsightCard
+          eyebrow="Consistency"
+          title="Consistency dashboard"
+          value={`${consistency}%`}
+          detail="Compares active/completed task momentum against blocked work and visible client command surfaces."
+          explanation="Calculated from queued/in-progress/completed tasks, blocked or awaiting-input tasks, and active organisation count. It does not infer hidden work outside these feeds."
+        >
+          <MiniProgress value={consistency} label="Operating rhythm" />
+        </InsightCard>
+
+        <InsightCard
+          eyebrow="Goal progress"
+          title="Goal progress dashboard"
+          value={`${progress}%`}
+          detail={`${completed.length} of ${tasks.length} tracked agent tasks are completed or in done.`}
+          explanation="Progress is completed tracked tasks divided by all loaded agent tasks. Review-column done tasks are counted as complete only when task status or column indicates done."
+        >
+          <MiniProgress value={progress} label="Tracked delivery progress" />
+        </InsightCard>
+
+        <InsightCard
+          eyebrow="Energy / mood"
+          title="Energy and mood trends"
+          value={energyLabel}
+          detail="Shows the current operating feel from workload pressure, blocked work, approvals, and completed movement."
+          explanation="This is a derived label, not a sentiment model: pressure equals blocked plus approval items; active and completed counts decide whether the day is building, settled, quiet, or strained."
+        >
+          <div className="grid grid-cols-2 gap-2">
+            {moodTrend.map(row => <div key={row.label} className="rounded-lg bg-[var(--color-surface-container)]/45 p-3"><p className="text-lg font-bold text-on-surface">{row.value}</p><p className="text-[10px] uppercase tracking-wide text-on-surface-variant">{row.label}</p></div>)}
+          </div>
+        </InsightCard>
+
+        <InsightCard
+          eyebrow="Bottlenecks"
+          title="Bottlenecks dashboard"
+          value={String(bottleneckItems.length)}
+          detail="Surfaces blocked work and human approvals that can slow delivery."
+          explanation="A bottleneck is any task marked blocked/awaiting-input or any pending approval loaded from the approval feed."
+        >
+          <EvidenceList items={bottleneckItems} emptyTitle="No bottlenecks found" emptyBody="Blocked tasks and approval waits will appear here when the loaded feeds contain them." />
+        </InsightCard>
+
+        <InsightCard
+          eyebrow="Experiments"
+          title="Experiments dashboard"
+          value={String(experimentSignals.length)}
+          detail="Collects experiment/test signals from task titles, project titles, and activity labels."
+          explanation="Experiment detection is keyword-based on loaded dashboard feeds: experiment, test, variant, A/B, or ab test. It avoids inventing campaign results when no explicit experiment signal exists."
+        >
+          <EvidenceList items={experimentSignals} emptyTitle="No experiment signals" emptyBody="Create or label tasks/activities with experiment, test, variant, or A/B and they will show here." />
+        </InsightCard>
+
+        <InsightCard
+          eyebrow="Compounding gains"
+          title="Compounding gains dashboard"
+          value={String(compoundingSignals.length)}
+          detail="Highlights completed work that can accumulate into reusable platform progress."
+          explanation="Uses completed/done tasks as durable gain evidence. It does not count draft, blocked, or approval-waiting tasks as gains."
+        >
+          <EvidenceList items={compoundingSignals} emptyTitle="No completed gains yet" emptyBody="Completed agent tasks will appear here as compounding platform evidence." />
+        </InsightCard>
+
+        <InsightCard
+          eyebrow="Next best actions"
+          title="Next best actions dashboard"
+          value={String(nextActions.length)}
+          detail="Prioritises unblock/review actions first, then active work, then client command-surface review."
+          explanation="Ranking is deterministic: bottlenecks first, active tasks second, organisation review third. No hidden scoring or LLM inference is used."
+        >
+          <EvidenceList items={nextActions} emptyTitle="No next actions available" emptyBody="When tasks, approvals, or organisations load, the highest-priority follow-up will appear here." />
+        </InsightCard>
+      </div>
+    </section>
+  )
 }
 
 function MetricCard({
@@ -315,9 +530,8 @@ function WorkLane({
   )
 }
 
-function SoftwareBuildEmptyIndicator({ activeCount }: { activeCount: number }) {
+function SoftwareBuildEmptyIndicator({ activeCount, specHref, projectsHref }: { activeCount: number; specHref: string; projectsHref: string }) {
   if (activeCount > 0) return null
-  const specHref = `/portal/documents/new?orgId=${encodeURIComponent(PIB_PLATFORM_ORG_ID)}&type=build_spec&title=${encodeURIComponent('PiB Platform Build Spec — Next Approved Sprint')}`
   return (
     <div className="rounded-lg border border-amber-400/30 bg-amber-500/10 p-4 text-sm text-amber-50">
       <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
@@ -335,7 +549,7 @@ function SoftwareBuildEmptyIndicator({ activeCount }: { activeCount: number }) {
             Create gated build spec
             <span className="material-symbols-outlined text-[15px]">arrow_forward</span>
           </Link>
-          <Link href="/portal/projects" className="inline-flex items-center gap-2 rounded-[var(--radius-btn)] border border-amber-300/40 px-3 py-2 text-xs font-label uppercase tracking-wide text-amber-100 hover:border-amber-200">
+          <Link href={projectsHref} className="inline-flex items-center gap-2 rounded-[var(--radius-btn)] border border-amber-300/40 px-3 py-2 text-xs font-label uppercase tracking-wide text-amber-100 hover:border-amber-200">
             Open Projects/Kanban
           </Link>
         </div>
@@ -394,7 +608,7 @@ function OrganisationCard({ org, tasks, approvals }: { org: OrgSummary; tasks: A
         <div className="flex items-start justify-between gap-4">
           <div className="min-w-0">
             <h3 className="truncate text-base font-headline font-semibold leading-snug text-on-surface group-hover/card:text-[var(--color-pib-accent-hover)]">{org.name}</h3>
-            <p className="mt-1 text-xs text-on-surface-variant">{org.type ?? 'client'} · {org.status ?? 'active'}</p>
+            <p className="mt-1 text-xs text-on-surface-variant">{org.type ?? 'organisation'} · {org.status ?? 'active'}</p>
           </div>
           <StatusPill tone={needsAttention ? 'warn' : activeTasks > 0 ? 'accent' : 'success'} dot>
             {statusLabel}
@@ -520,6 +734,8 @@ export default function MissionControlDashboard() {
     [softwareBuildTasks],
   )
   const agentBoardHref = useMemo(() => resolvePlatformAgentBoardHref(data.orgs), [data.orgs])
+  const platformProjectsHref = useMemo(() => resolvePlatformOrgAdminHref(data.orgs, 'projects'), [data.orgs])
+  const platformDocumentsNewHref = useMemo(() => resolvePlatformOrgAdminHref(data.orgs, 'documents/new'), [data.orgs])
 
   if (!hydrated) return <DashboardLoadingShell />
 
@@ -528,10 +744,10 @@ export default function MissionControlDashboard() {
       <PageHeader
         eyebrow="Admin / Dashboard"
         title="Operating dashboard"
-        description="Platform control plane — agent work, client health, approvals, and platform movement."
+        description="PiB operator control plane — agent work, selected-organisation health, approvals, and platform movement."
         actions={(
           <>
-            <DashboardQuickLink href="/portal/projects" icon="folder_managed" label="Projects" />
+            <DashboardQuickLink href={platformProjectsHref} icon="folder_managed" label="Projects" />
             <DashboardQuickLink href={agentBoardHref} icon="view_kanban" label="Agent board" />
           </>
         )}
@@ -550,7 +766,7 @@ export default function MissionControlDashboard() {
       />
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <MetricCard label="Clients" value={visibleOrgs.length} icon="groups" detail="Active client workspaces across the platform." />
+        <MetricCard label="Clients" value={visibleOrgs.length} icon="groups" detail="Active selected-organisation command surfaces across the platform." />
         <MetricCard label="Active tasks" value={activeTasks.length} icon="task_alt" detail="Queued or moving agent and delivery tasks." />
         <MetricCard label="Approvals" value={data.approvals.length} icon="rate_review" tone={dashboardTone(data.approvals.length, true)} detail="Human review items waiting in the queue." />
         <MetricCard label="At risk" value={riskTasks.length} icon="report" tone={riskTasks.length > 0 ? 'warn' : 'success'} detail="Blocked or awaiting-input work that needs attention." />
@@ -565,11 +781,11 @@ export default function MissionControlDashboard() {
       {dashboardView === 'overview' ? (
         <>
           <section className="space-y-4">
-            <SectionHeader title="Client workspaces" eyebrow="Portfolio" action={<Link href="/admin/clients" className="inline-flex items-center gap-1 text-xs font-label uppercase tracking-wide text-[var(--color-accent-v2)]">Manage clients <span className="material-symbols-outlined text-[15px]">arrow_forward</span></Link>} />
+            <SectionHeader title="Client workspaces" eyebrow="Portfolio" action={<Link href="/admin/organizations" className="inline-flex items-center gap-1 text-xs font-label uppercase tracking-wide text-[var(--color-accent-v2)]">Manage organisations <span className="material-symbols-outlined text-[15px]">arrow_forward</span></Link>} />
             {loading ? (
               <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3"><Skeleton className="h-48 rounded-lg" /><Skeleton className="h-48 rounded-lg" /><Skeleton className="h-48 rounded-lg" /></div>
             ) : visibleOrgs.length === 0 ? (
-              <EmptyState title="No active organisations" body="Create or activate a client organisation and its command card will appear here." />
+              <EmptyState title="No active organisations" body="Create or activate an organisation and its admin command card will appear here." />
             ) : (
               <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
                 {visibleOrgs.map(org => (
@@ -578,6 +794,8 @@ export default function MissionControlDashboard() {
               </div>
             )}
           </section>
+
+          <OperatorInsightDashboards orgs={visibleOrgs} tasks={data.tasks} approvals={data.approvals} activity={data.activity} />
 
           <div className="grid gap-4 lg:grid-cols-[minmax(0,1.2fr)_minmax(320px,0.8fr)]">
             <Surface className="p-4 sm:p-5">
@@ -631,7 +849,7 @@ export default function MissionControlDashboard() {
                   eyebrow="Theo / parent PiB workspace"
                   action={<span className="rounded-full bg-[var(--color-surface-container)] px-2 py-1 text-[10px] font-label uppercase tracking-wide text-on-surface-variant">{activeSoftwareBuildTasks.length} active / {softwareBuildTasks.length} total</span>}
                 />
-                <SoftwareBuildEmptyIndicator activeCount={activeSoftwareBuildTasks.length} />
+                <SoftwareBuildEmptyIndicator activeCount={activeSoftwareBuildTasks.length} specHref={platformDocumentsNewHref} projectsHref={platformProjectsHref} />
                 <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
                   {SOFTWARE_BUILD_LANES.map((lane) => {
                     const laneTasks = softwareBuildTasks.filter(task => softwareBuildLane(task) === lane.id)
@@ -694,7 +912,7 @@ export default function MissionControlDashboard() {
                     key={approval.id}
                     title={approval.content ?? 'Approval required'}
                     meta={`${approval.orgName ?? 'Organisation'} · ${approval.platform ?? 'approval'} · ${formatRelative(approval.scheduledAt)}`}
-                    href="/portal/social/review"
+                    href={agentBoardHref}
                     color={WORK_LANES[2].color}
                     icon={WORK_LANES[2].icon}
                   />

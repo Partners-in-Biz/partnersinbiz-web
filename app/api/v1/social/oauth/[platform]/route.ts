@@ -13,6 +13,7 @@ import { withTenant } from '@/lib/api/tenant'
 import { apiError } from '@/lib/api/response'
 import { adminDb } from '@/lib/firebase/admin'
 import { getOAuthConfig, getClientCredentials, getCallbackUrl } from '@/lib/social/oauth-config'
+import { sanitizeOAuthRedirectPath } from '@/lib/social/oauth-redirect'
 import type { LinkedInOAuthMode } from '@/lib/social/oauth-config'
 import type { SocialPlatformType } from '@/lib/social/providers/types'
 import { Timestamp } from 'firebase-admin/firestore'
@@ -23,7 +24,7 @@ export const GET = withAuth('client', withTenant(async (req: NextRequest, user, 
   const url = new URL(req.url)
   const rawPlatform = url.pathname.split('/').slice(-1)[0]
   const platform = (rawPlatform === 'x' ? 'twitter' : rawPlatform) as SocialPlatformType
-  const redirectUrl = url.searchParams.get('redirectUrl') ?? '/portal/social'
+  const redirectUrl = sanitizeOAuthRedirectPath(url.searchParams.get('redirectUrl') ?? '/portal/social')
   const accountScope = url.searchParams.get('scope') === PERSONAL_SCOPE ? PERSONAL_SCOPE : 'org'
   const linkedinMode: LinkedInOAuthMode =
     platform === 'linkedin' && url.searchParams.get('linkedinMode') === 'organization'

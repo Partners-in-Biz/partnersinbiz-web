@@ -58,7 +58,11 @@ describe('portal org routes', () => {
           slug: 'client-org',
           type: 'client',
           logoUrl: '/logo.png',
-          settings: {},
+          settings: {
+            modulePolicies: {
+              projects: { actions: { visibility: { owner: true, admin: true, member: false } } },
+            },
+          },
         }),
       }),
     })
@@ -74,6 +78,13 @@ describe('portal org routes', () => {
         slug: 'client-org',
         type: 'client',
         portalModules: { mobileApps: true, youtubeStudio: true, bookStudio: false },
+        modulePolicies: expect.objectContaining({
+          projects: expect.objectContaining({
+            actions: expect.objectContaining({
+              visibility: { owner: true, admin: true, member: false },
+            }),
+          }),
+        }),
       },
       user: { uid: 'admin-1', role: 'admin' },
     })
@@ -132,7 +143,14 @@ describe('portal org routes', () => {
           slug: id === 'client-a' ? 'client-a' : 'client-b',
           type: 'client',
           logoUrl: '',
-          settings: id === 'client-a' ? { portalModules: { mobileApps: false } } : { portalModules: { bookStudio: true } },
+          settings: id === 'client-a'
+            ? {
+                portalModules: { mobileApps: false },
+                modulePolicies: {
+                  messages: { actions: { visibility: { owner: true, admin: false, member: false } } },
+                },
+              }
+            : { portalModules: { bookStudio: true } },
         }),
       }),
     }))
@@ -151,6 +169,13 @@ describe('portal org routes', () => {
           type: 'client',
           logoUrl: '',
           portalModules: { mobileApps: false, youtubeStudio: true, bookStudio: false },
+          modulePolicies: expect.objectContaining({
+            messages: expect.objectContaining({
+              actions: expect.objectContaining({
+                visibility: { owner: true, admin: false, member: false },
+              }),
+            }),
+          }),
         },
         {
           id: 'client-b',
@@ -159,6 +184,7 @@ describe('portal org routes', () => {
           type: 'client',
           logoUrl: '',
           portalModules: { mobileApps: true, youtubeStudio: true, bookStudio: true },
+          modulePolicies: expect.any(Object),
         },
       ],
     })

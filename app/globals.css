@@ -5,11 +5,15 @@
   --color-pib-bg: #0A0A0B;
   --color-pib-surface: #141416;
   --color-pib-surface-2: #1C1C20;
+  --color-pib-card: #141416;
   --color-pib-text: #EDEDED;
   --color-pib-text-muted: #8B8B92;
   --color-pib-text-faint: #4A4A52;
   --color-pib-line: rgba(255, 255, 255, 0.08);
   --color-pib-line-strong: rgba(255, 255, 255, 0.16);
+  --color-pib-border: var(--color-pib-line);
+  --color-pib-surface-muted: rgba(255, 255, 255, 0.035);
+  --color-pib-surface-soft: rgba(255, 255, 255, 0.04);
   --color-pib-accent: #F5A623;
   --color-pib-accent-hover: #FFB840;
   --color-pib-accent-soft: rgba(245, 166, 35, 0.12);
@@ -122,15 +126,22 @@
 
 @layer base {
   html {
+    width: 100%;
+    max-width: 100%;
     color-scheme: dark;
     scroll-behavior: smooth;
+    overflow-x: clip;
   }
   body {
+    width: 100%;
+    max-width: 100%;
     background: var(--color-pib-bg);
     color: var(--color-pib-text);
     font-family: var(--font-sans);
     text-rendering: optimizeLegibility;
     -webkit-font-smoothing: antialiased;
+    min-width: 0;
+    overflow-x: clip;
   }
   ::selection {
     background: var(--color-pib-accent);
@@ -177,6 +188,12 @@
 
   /* Section + page rhythm */
   .container-pib { @apply max-w-[1320px] mx-auto px-6 md:px-10 lg:px-14; }
+
+  .pib-app-shell *,
+  .pib-app-shell *::before,
+  .pib-app-shell *::after {
+    min-width: 0;
+  }
 
   /* Editorial display heading clamp */
   .h-display {
@@ -598,6 +615,18 @@
     background-position: right 0.85rem center;
     padding-right: 2rem;
   }
+  select option,
+  select optgroup {
+    background: var(--color-pib-card);
+    color: var(--color-pib-text);
+  }
+  select option:checked {
+    background: var(--color-pib-accent);
+    color: #050505;
+  }
+  select option:disabled {
+    color: var(--color-pib-text-muted);
+  }
   .pib-label {
     display: block;
     font-size: 0.7rem;
@@ -691,7 +720,9 @@
   .pib-app-shell-main {
     flex: 1 1 auto;
     min-height: 0;
+    min-width: 0;
     overflow-y: auto;
+    overflow-x: hidden;
     padding: var(--pib-shell-gutter);
   }
   .pib-page-header {
@@ -721,7 +752,10 @@
   }
   .pib-tabs {
     display: inline-flex;
-    min-width: max-content;
+    min-width: 0;
+    max-width: 100%;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
     align-items: center;
     gap: 0.25rem;
     border-bottom: 1px solid var(--color-pib-line);
@@ -734,6 +768,7 @@
     background: rgba(255, 255, 255, 0.025);
   }
   .pib-tab {
+    flex: 0 0 auto;
     min-height: var(--pib-control-height);
     display: inline-flex;
     align-items: center;
@@ -855,10 +890,12 @@
     align-items: flex-end;
     justify-content: center;
     background: rgba(0, 0, 0, 0.58);
-    padding: 0.5rem;
+    overflow-x: hidden;
+    padding: 0.75rem;
   }
   .pib-dialog-drawer {
     width: var(--pib-dialog-width);
+    min-width: 0;
     max-height: min(88vh, 54rem);
     display: flex;
     flex-direction: column;
@@ -880,6 +917,8 @@
     gap: 1rem;
     padding: 1rem 1.25rem;
     border-color: var(--color-pib-line);
+    min-width: 0;
+    flex-wrap: wrap;
   }
   .pib-dialog-header { border-bottom-width: 1px; }
   .pib-dialog-footer { border-top-width: 1px; }
@@ -897,6 +936,7 @@
     flex: 1 1 auto;
     min-height: 0;
     overflow-y: auto;
+    overflow-x: hidden;
     padding: 1.25rem;
   }
   .pib-dialog-close {

@@ -13,6 +13,7 @@ interface Props {
 
 export function AdCampaignAdminActions({ orgId, orgSlug, campaignId, status, reviewState }: Props) {
   const router = useRouter()
+  const launchApproved = reviewState === 'approved'
   const [busy, setBusy] = useState<'launch' | 'pause' | 'delete' | 'submit' | null>(null)
   const [confirmAction, setConfirmAction] = useState<'delete' | 'submit' | null>(null)
   const [actionError, setActionError] = useState<string | null>(null)
@@ -152,12 +153,13 @@ export function AdCampaignAdminActions({ orgId, orgSlug, campaignId, status, rev
         )}
         {status !== 'ACTIVE' ? (
           <button
-            className="btn-pib-accent text-sm"
+            className="btn-pib-accent text-sm disabled:cursor-not-allowed disabled:opacity-45"
             onClick={() => call('launch')}
-            disabled={busy !== null}
+            disabled={busy !== null || !launchApproved}
             aria-label={`Launch campaign ${campaignId}`}
+            title={launchApproved ? 'Launch approved campaign' : 'Launch locked until client approval is recorded'}
           >
-            {busy === 'launch' ? 'Launching...' : 'Launch'}
+            {busy === 'launch' ? 'Launching...' : launchApproved ? 'Launch approved campaign' : 'Launch locked'}
           </button>
         ) : (
           <button
@@ -168,6 +170,11 @@ export function AdCampaignAdminActions({ orgId, orgSlug, campaignId, status, rev
           >
             {busy === 'pause' ? 'Pausing...' : 'Pause'}
           </button>
+        )}
+        {status !== 'ACTIVE' && !launchApproved && (
+          <p className="basis-full text-right text-xs text-amber-200/75">
+            Launch and paid-spend controls stay locked until client approval is recorded in the portal.
+          </p>
         )}
         <button
           className="btn-pib-ghost text-sm text-red-300"

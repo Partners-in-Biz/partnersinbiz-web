@@ -34,7 +34,6 @@ function adminOrgPath(slug: string, path = '') {
 
 function adminActions(workspace: LinkedWorkspace): WorkspaceAction[] {
   const slug = workspace.slug
-  const workspaceId = encodeURIComponent(workspace.id)
 
   return [
     {
@@ -75,9 +74,9 @@ function adminActions(workspace: LinkedWorkspace): WorkspaceAction[] {
     },
     {
       title: 'Reports',
-      description: 'Client reporting and performance review workspace.',
+      description: 'Operator reporting and performance review for this selected client org.',
       icon: 'bar_chart',
-      href: `/portal/reports?orgId=${workspaceId}`,
+      href: adminOrgPath(slug, '/dashboard?panel=reports'),
     },
     {
       title: 'Projects',
@@ -251,8 +250,8 @@ export function CompanyWorkspacePanel({ companyName, companyId, mode, workspace 
         icon: 'menu_book',
       },
       {
-        title: 'Client workspace gate',
-        description: 'Link or create an organisation before client-delivery work such as campaigns, SEO, social, ads, wiki, and reports.',
+        title: 'Organisation control gate',
+        description: 'Link or create an organisation before delivery work such as campaigns, SEO, social, ads, wiki, and reports.',
         icon: 'approval_delegation',
       },
     ]
@@ -264,7 +263,7 @@ export function CompanyWorkspacePanel({ companyName, companyId, mode, workspace 
           <p className="eyebrow mt-4 !text-[10px] text-amber-200">Lead workspace</p>
           <h2 className="mt-2 font-display text-xl text-[var(--color-pib-text)]">CRM-only company workspace</h2>
           <p className="mx-auto mt-3 max-w-2xl text-sm leading-6 text-[var(--color-pib-text-muted)]">
-            {companyName} is available as a CRM company, but it is not linked to a client organisation workspace yet. Keep pre-client context here; convert or link the organisation before running client-delivery work.
+            {companyName} is available as a CRM company, but it is not linked to a selected organisation command surface yet. Keep pre-client context here; convert or link the organisation before running delivery work.
           </p>
         </div>
         <div className="grid gap-3 md:grid-cols-3">
@@ -284,7 +283,7 @@ export function CompanyWorkspacePanel({ companyName, companyId, mode, workspace 
     ? { ...workspace, sourceCompanyId: companyId, sourceCompanyName: companyName }
     : workspace
   const actions = mode === 'portal' ? portalActions(workspaceScope) : adminActions(workspace)
-  const eyebrow = mode === 'portal' ? 'Linked organisation workspace' : 'Organisation workspace'
+  const eyebrow = mode === 'portal' ? 'Linked organisation workspace' : 'Operator organisation workspace'
   const dashboardHref = mode === 'portal'
     ? scopedPortalPath('/portal/dashboard', workspaceScope)
     : adminOrgPath(workspace.slug, '/dashboard')
@@ -297,7 +296,9 @@ export function CompanyWorkspacePanel({ companyName, companyId, mode, workspace 
             <p className="eyebrow !text-[10px]">{eyebrow}</p>
             <h2 className="mt-2 text-2xl font-semibold text-[var(--color-pib-text)]">{workspace.name} workspace</h2>
             <p className="mt-2 max-w-3xl text-sm leading-6 text-[var(--color-pib-text-muted)]">
-              Run the client organisation work from this CRM company record. Work opened here stays inside the linked organisation workspace.
+              {mode === 'portal'
+                ? 'Run the client organisation work from this CRM company record. Work opened here stays inside the linked organisation workspace.'
+                : 'Run PiB operator work for this selected client org. Links stay inside the admin command surface with the slug scope visible in the URL.'}
             </p>
           </div>
           <Link

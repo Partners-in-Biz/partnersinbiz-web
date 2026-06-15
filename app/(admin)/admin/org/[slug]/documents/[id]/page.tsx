@@ -13,6 +13,8 @@ import {
 import { ShareSettingsPanel } from '@/components/client-documents/share/ShareSettingsPanel'
 import type { ClientDocument, ClientDocumentVersion, DocumentComment } from '@/lib/client-documents/types'
 
+type OrganizationSummary = { id: string; slug?: string }
+
 const STATUS_PILL: Record<string, string> = {
   internal_draft: 'bg-gray-700 text-gray-100',
   internal_review: 'bg-amber-700 text-amber-50',
@@ -55,9 +57,8 @@ export default function OrgDocumentDetailPage() {
   useEffect(() => {
     fetch('/api/v1/organizations')
       .then((r) => r.json())
-      .then((body) => {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const org = (body.data ?? []).find((o: any) => o.slug === slug)
+      .then((body: { data?: OrganizationSummary[] }) => {
+        const org = (body.data ?? []).find((o) => o.slug === slug)
         if (org) setOrgId(org.id)
       })
       .catch(() => {})
@@ -115,7 +116,9 @@ export default function OrgDocumentDetailPage() {
   }
 
   async function handlePublish() {
-    if (document && getClientVisibleOrgIds(document).length > 1) {
+    if (!document) return
+    const clientVisibleOrgCount = getClientVisibleOrgIds(document).length
+    if (clientVisibleOrgCount > 1) {
       const confirmed = window.confirm(
         'Client-visible warning: this document is linked to more than one client organisation. Publish only if each organisation should be able to see it.',
       )
@@ -124,7 +127,14 @@ export default function OrgDocumentDetailPage() {
 
     setPublishing(true)
     try {
-      await fetch(`/api/v1/client-documents/${id}/publish`, { method: 'POST' })
+      const publishBody = clientVisibleOrgCount > 1
+        ? { acknowledgeMultiOrgPublish: true }
+        : {}
+      await fetch(`/api/v1/client-documents/${id}/publish`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(publishBody),
+      })
       await load()
     } finally {
       setPublishing(false)
@@ -180,6 +190,10 @@ export default function OrgDocumentDetailPage() {
               {readable(document.status)}
             </span>
 
+            <span className="hidden max-w-xs text-[11px] leading-4 text-on-surface-variant xl:inline">
+              Admin drafting/review. Client-visible changes require the send-for-review or share gate.
+            </span>
+
             <Link
               href={`/admin/org/${slug}/documents/${id}/preview`}
               className="inline-flex items-center gap-2 rounded-md border border-[var(--color-pib-line)] px-3 py-1.5 text-xs font-semibold uppercase tracking-wider text-[var(--color-pib-text)] hover:bg-[var(--color-pib-surface-2)]"
@@ -193,7 +207,7 @@ export default function OrgDocumentDetailPage() {
                 disabled={publishing}
                 className="shrink-0 rounded bg-[var(--color-pib-accent)] px-3 py-1.5 text-xs font-medium text-black disabled:opacity-50"
               >
-                {publishing ? 'Publishing…' : 'Publish'}
+                {publishing ? 'Sending…' : 'Send for client review'}
               </button>
             )}
 

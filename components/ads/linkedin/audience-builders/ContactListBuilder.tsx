@@ -73,7 +73,7 @@ export function LinkedinContactListBuilder({ orgId, onCreated, onCancel }: Props
           </p>
         )}
         <p className="text-xs text-white/60">
-          Upload your CSV contact list via the audience detail page to populate this audience.
+          Upload the approved CSV contact list via the audience detail page to populate this audience.
         </p>
         <div className="flex gap-2 mt-3">
           <button type="button" className="btn-pib-ghost text-xs" onClick={reset}>
@@ -128,7 +128,7 @@ export function LinkedinContactListBuilder({ orgId, onCreated, onCancel }: Props
       </label>
 
       <div className="rounded border border-blue-500/20 bg-blue-500/5 p-3 text-xs text-blue-300">
-        After creating the audience, upload your CSV contact list (emails or phone hashes) from the
+        After creating the audience, upload the approved CSV contact list (emails or phone hashes) from the
         audience detail page.
       </div>
 

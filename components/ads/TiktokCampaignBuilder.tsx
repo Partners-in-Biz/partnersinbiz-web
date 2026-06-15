@@ -82,7 +82,7 @@ interface Props {
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const OBJECTIVES: { value: TkObjective; label: string; description: string; defaultOptGoal: TkOptimizationGoal }[] = [
-  { value: 'TRAFFIC', label: 'Traffic', description: 'Drive clicks to your website or app', defaultOptGoal: 'CLICK' },
+  { value: 'TRAFFIC', label: 'Traffic', description: 'Drive clicks to the client website or app', defaultOptGoal: 'CLICK' },
   { value: 'LEADS', label: 'Leads', description: 'Collect leads via TikTok Instant Form', defaultOptGoal: 'LEAD_GENERATION' },
   { value: 'SALES', label: 'Sales', description: 'Optimise for purchases and conversions', defaultOptGoal: 'CONVERT' },
   { value: 'AWARENESS', label: 'Awareness', description: 'Maximise impressions and reach', defaultOptGoal: 'REACH' },
@@ -708,7 +708,7 @@ export function TiktokCampaignBuilder({ orgId, orgSlug, currency = 'USD', initia
                 value={step3.adText}
                 maxLength={100}
                 onChange={(e) => setStep3((s) => ({ ...s, adText: e.target.value }))}
-                placeholder="Your ad copy (max 100 characters)"
+                placeholder="Client ad copy (max 100 characters)"
                 aria-label="Ad text"
               />
             </label>
@@ -754,7 +754,7 @@ export function TiktokCampaignBuilder({ orgId, orgSlug, currency = 'USD', initia
               className={inputCls}
               value={step3.displayName}
               onChange={(e) => setStep3((s) => ({ ...s, displayName: e.target.value }))}
-              placeholder="Your brand name on TikTok"
+              placeholder="Client brand name on TikTok"
               aria-label="Display name"
             />
           </label>
@@ -774,7 +774,7 @@ export function TiktokCampaignBuilder({ orgId, orgSlug, currency = 'USD', initia
             <div className="mt-2 rounded border border-white/10 bg-white/[0.02] p-3 text-xs text-white/50">
               <p className="font-medium text-white/70 mb-1">Phase 2 — manual asset ID</p>
               <p>
-                Upload your image in TikTok Ads Manager and paste the asset ID here. Phase
+                Upload the approved image in TikTok Ads Manager and paste the asset ID here. Phase
                 3 will replace this with a native Creative Sync upload step.
               </p>
             </div>

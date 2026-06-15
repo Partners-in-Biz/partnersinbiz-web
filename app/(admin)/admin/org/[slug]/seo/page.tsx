@@ -43,7 +43,7 @@ export default async function OrgSeoPage({ params }: { params: Promise<{ slug: s
       singleSprintStats={singleSprintStats}
       sprintBasePath="/admin/seo/sprints"
       emptyTitle="SEO Sprint"
-      emptyDescription={`Start a 90-day structured SEO sprint for ${orgName}. It will seed daily work, surface keyword movement, and keep progress visible in the client workspace.`}
+      emptyDescription={`Start a 90-day structured SEO sprint for ${orgName}. It will seed daily work, surface keyword movement, and keep progress visible in the selected-org command center.`}
       emptyAction={{
         label: 'Create SEO sprint',
         href: `/admin/seo/sprints/new?orgId=${encodeURIComponent(orgId)}&clientId=${encodeURIComponent(orgId)}&siteName=${encodeURIComponent(orgName)}`,

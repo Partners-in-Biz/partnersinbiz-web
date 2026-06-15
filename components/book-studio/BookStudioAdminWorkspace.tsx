@@ -159,14 +159,19 @@ export function BookStudioAdminWorkspace({ orgId, orgName, orgSlug, projects = [
           </div>
 
           <Surface header={<h2 className="text-lg font-semibold">Stage rail</h2>}>
-            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-              {stages.map((stage) => (
-                <div key={stage.id} className="rounded-2xl border border-[var(--color-pib-border)] p-4">
-                  <h3 className="font-semibold text-[var(--color-pib-text)]">{stage.label}</h3>
-                  <p className="mt-2 text-sm text-[var(--color-pib-text-muted)]">{stage.description}</p>
-                </div>
+            <ol className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+              {stages.map((stage, index) => (
+                <li key={stage.id} className="rounded-[var(--radius-lg-card)] bg-[var(--color-pib-surface-muted)] p-4">
+                  <div className="flex items-center gap-3">
+                    <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[var(--color-pib-accent-soft)] text-xs font-semibold text-[var(--color-pib-accent-text)]">
+                      {index + 1}
+                    </span>
+                    <h3 className="font-semibold text-[var(--color-pib-text)]">{stage.label}</h3>
+                  </div>
+                  <p className="mt-3 text-sm text-[var(--color-pib-text-muted)]">{stage.description}</p>
+                </li>
               ))}
-            </div>
+            </ol>
           </Surface>
 
           {projects.length === 0 ? (

@@ -37,7 +37,7 @@ const DEFAULT_RDA: RdaAssets = {
 
 const OBJECTIVES: { value: AdObjective; label: string; description: string }[] = [
   { value: 'AWARENESS', label: 'Awareness', description: 'Maximise impressions and reach across the Display Network' },
-  { value: 'TRAFFIC', label: 'Traffic', description: 'Drive clicks to your website' },
+  { value: 'TRAFFIC', label: 'Traffic', description: 'Drive clicks to the client website' },
   { value: 'LEADS', label: 'Leads', description: 'Collect leads from interested users' },
   { value: 'SALES', label: 'Sales', description: 'Optimise for purchases and conversions' },
 ]

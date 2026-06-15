@@ -7,7 +7,7 @@ export default function AgentRedirect() {
   const params = useParams()
   const slug = params?.slug as string
   useEffect(() => {
-    if (slug) router.replace(`/admin/org/${slug}/messages`)
+    if (slug) router.replace(`/admin/org/${slug}/agent/board`)
   }, [slug, router])
-  return <div className="p-8 text-[var(--color-pib-text-muted)]">Redirecting to Messages…</div>
+  return <div className="p-8 text-[var(--color-pib-text-muted)]">Redirecting to Agent Board…</div>
 }

@@ -61,18 +61,42 @@ My Drive/
 
 ### Discovering or creating a client folder
 
-1. Call `drive_search` with `q: "name='<Client Name>' and mimeType='application/vnd.google-apps.folder'"` to find the root.
+1. Call `drive_search` with `q: "<Client Name>"` and a known parent `folderId` when available to find the root.
 2. If it exists, use the returned folder ID for all child operations.
-3. If it doesn't exist, call `drive_upload` with `mimeType: 'application/vnd.google-apps.folder'` to create the root, then repeat for each of the four sub-folders.
+3. If it does not exist, ask Peet/operator for the correct client folder or create folders through Workspace Broker (`POST /workspace-broker/folders/create`) when that task is approved. Do not try to create folders with `drive_upload`; the direct upload endpoint uploads files only.
 4. Always use the folder **ID** (not the path string) for subsequent operations — paths are not stable across renames.
 
 ---
 
 ## Operations
 
-These are the tool contracts agents call once the Google Workspace integration is wired. Each
-operation maps to a future endpoint under `https://partnersinbiz.online/api/v1/google/`. Until the
-endpoints are implemented (see Operator Setup below), operations return `501 Not Implemented`.
+These are the tool contracts agents call through the PiB platform proxy. The direct proxy endpoints
+are implemented in `partnersinbiz-web` on `development` as of 2026-06-15.
+
+All calls require normal PiB API auth plus an org scope:
+
+```bash
+Authorization: Bearer $AI_API_KEY
+X-Org-Id: <ORG_ID>
+```
+
+You may pass `orgId` in the query/body instead of `X-Org-Id`, but do not send conflicting org values.
+
+### Active PiB agent workspace
+
+The generic writable agent workspace is:
+
+- Shared Drive: `PIB Shared Drive` (`0AMIddYkNl52sUk9PVA`)
+- Folder: `PiB Agent Service Workspace` (`1bCGS5zntv2VEbDdZx0hVf-QrVCv3kvp8`)
+- Service account: `workspace-agent@partners-in-biz-85059.iam.gserviceaccount.com`
+- Folder role: `fileOrganizer`
+
+Use folder ID `1bCGS5zntv2VEbDdZx0hVf-QrVCv3kvp8` for generic agent-generated Drive artifacts
+when a more specific client folder has not been provided.
+
+Do **not** target service-account uploads at `root` or an ordinary My Drive folder. Google blocks
+service-account root/My Drive uploads with: `Service Accounts do not have storage quota`. Use a
+Shared Drive folder or domain-wide delegation.
 
 ---
 
@@ -81,24 +105,29 @@ endpoints are implemented (see Operator Setup below), operations return `501 Not
 ```bash
 curl -X GET \
   -H "Authorization: Bearer $AI_API_KEY" \
+  -H "X-Org-Id: <ORG_ID>" \
   "https://partnersinbiz.online/api/v1/google/drive/list?folderId=<FOLDER_ID>&pageSize=50"
 ```
 
 Query params:
-- `folderId` (required) — Drive folder ID, or `root` for top-level
-- `mimeType` — filter by MIME type (e.g. `image/png`, `video/mp4`)
+- `orgId` or `X-Org-Id` (required)
+- `folderId` (required) — Drive folder ID. Prefer explicit shared client folder IDs.
 - `pageSize` — default 50, max 200
 - `pageToken` — cursor for next page
+- `includeFolders` — `true` to include folders; otherwise folders are hidden
 
 Response:
 ```json
 {
-  "files": [
-    { "id": "1abc...", "name": "logo-v3.png", "mimeType": "image/png",
-      "size": 204800, "webViewLink": "https://drive.google.com/...",
-      "modifiedTime": "2026-05-13T10:00:00Z" }
-  ],
-  "nextPageToken": "token_abc"
+  "success": true,
+  "data": {
+    "files": [
+      { "id": "1abc...", "name": "logo-v3.png", "mimeType": "image/png",
+        "size": "204800", "webViewLink": "https://drive.google.com/...",
+        "modifiedTime": "2026-05-13T10:00:00Z", "parents": ["folder_abc"] }
+    ],
+    "nextPageToken": "token_abc"
+  }
 }
 ```
 
@@ -109,6 +138,7 @@ Response:
 ```bash
 curl -X POST \
   -H "Authorization: Bearer $AI_API_KEY" \
+  -H "X-Org-Id: <ORG_ID>" \
   -F "file=@/path/to/file.png" \
   -F "folderId=<FOLDER_ID>" \
   -F "name=logo-v3.png" \
@@ -119,19 +149,29 @@ Fields (multipart/form-data):
 - `file` (required) — binary file, max 5 GB
 - `folderId` (required) — destination folder ID
 - `name` — override filename; defaults to original filename
-- `description` — optional Drive file description
+- `mimeType` — override MIME type; defaults to uploaded file type or `application/octet-stream`
+
+JSON upload is also supported for small generated text artifacts:
+```json
+{ "orgId": "org_abc", "folderId": "folder_abc", "name": "notes.txt", "mimeType": "text/plain", "content": "hello" }
+```
+Use `contentBase64` instead of `content` when binary bytes must travel through JSON.
 
 Response (201):
 ```json
 {
-  "id": "1abc...",
-  "name": "logo-v3.png",
-  "webViewLink": "https://drive.google.com/file/d/1abc.../view",
-  "webContentLink": "https://drive.google.com/uc?id=1abc..."
+  "success": true,
+  "data": {
+    "id": "1abc...",
+    "name": "logo-v3.png",
+    "mimeType": "image/png",
+    "webViewLink": "https://drive.google.com/file/d/1abc.../view",
+    "parents": ["folder_abc"]
+  }
 }
 ```
 
-Use `webViewLink` for sharing with humans. Use `webContentLink` for programmatic download.
+Use `webViewLink` for sharing with humans. Use `drive_download` for programmatic download.
 
 ---
 
@@ -140,13 +180,14 @@ Use `webViewLink` for sharing with humans. Use `webContentLink` for programmatic
 ```bash
 curl -X GET \
   -H "Authorization: Bearer $AI_API_KEY" \
+  -H "X-Org-Id: <ORG_ID>" \
   "https://partnersinbiz.online/api/v1/google/drive/download?fileId=<FILE_ID>" \
   -o output.png
 ```
 
 Query params:
 - `fileId` (required)
-- `mimeType` — for Google Workspace files (Docs/Sheets/Slides), specify export MIME: `application/pdf`, `text/plain`, etc.
+- `exportMimeType` — for Google Workspace files (Docs/Sheets/Slides), specify export MIME: `application/pdf`, `text/plain`, etc.
 
 Response: raw binary stream with appropriate `Content-Type`.
 
@@ -158,29 +199,30 @@ Response: raw binary stream with appropriate `Content-Type`.
 curl -X POST \
   -H "Authorization: Bearer $AI_API_KEY" \
   -H "Content-Type: application/json" \
+  -H "X-Org-Id: <ORG_ID>" \
   -d '{
     "fileId": "1abc...",
-    "email": "client@example.com",
+    "emailAddress": "client@example.com",
     "role": "reader",
-    "sendNotification": true,
-    "message": "Here is your brand kit — let me know if anything needs adjusting."
+    "sendNotificationEmail": true
   }' \
   "https://partnersinbiz.online/api/v1/google/drive/share"
 ```
 
 Body fields:
 - `fileId` (required)
-- `email` (required) — recipient email
-- `role` (required) — `reader` | `commenter` | `writer`
-- `sendNotification` — default `true`; set `false` to share silently
-- `message` — optional email message body
+- `emailAddress` (required) — recipient email
+- `type` — `user` or `group`; defaults to `user`
+- `role` — `reader` | `commenter` | `writer`; defaults to `reader`
+- `sendNotificationEmail` — default `false`; set `true` to notify
 
 Response:
 ```json
-{ "permissionId": "perm_abc", "webViewLink": "https://drive.google.com/file/d/1abc.../view" }
+{ "success": true, "data": { "id": "perm_abc", "type": "user", "role": "reader", "emailAddress": "client@example.com" } }
 ```
 
-Return `webViewLink` to the user or attach to the kanban task as an artifact.
+The proxy deliberately rejects `type: "anyone"` public shares. Share folders or files only with
+explicit users/groups unless Peet approves a different route.
 
 ---
 
@@ -189,14 +231,16 @@ Return `webViewLink` to the user or attach to the kanban task as an artifact.
 ```bash
 curl -X GET \
   -H "Authorization: Bearer $AI_API_KEY" \
-  "https://partnersinbiz.online/api/v1/google/drive/search?q=brand+kit&clientFolder=Loyalty+Plus"
+  -H "X-Org-Id: <ORG_ID>" \
+  "https://partnersinbiz.online/api/v1/google/drive/search?q=brand+kit&folderId=<FOLDER_ID>"
 ```
 
 Query params:
+- `orgId` or `X-Org-Id` (required)
 - `q` (required) — search string (searches filename and full text)
-- `clientFolder` — restrict to a client's root folder by name
-- `mimeType` — filter results by MIME type
-- `pageSize` — default 20, max 100
+- `folderId` — restrict to a known shared folder ID
+- `pageSize` — default 50, max 200
+- `pageToken` — cursor for next page
 
 Response: same shape as `drive_list`.
 
@@ -204,15 +248,16 @@ The `q` param is forwarded to the Drive API's `fullText contains` + `name contai
 
 ---
 
-### `docs_create` — create a new Google Doc from markdown
+### `docs_create` — create a new Google Doc with optional content
 
 ```bash
 curl -X POST \
   -H "Authorization: Bearer $AI_API_KEY" \
   -H "Content-Type: application/json" \
+  -H "X-Org-Id: <ORG_ID>" \
   -d '{
     "title": "Q3 Strategy Report — Loyalty Plus",
-    "markdown": "# Q3 Strategy\n\n## Goals\n...",
+    "content": "# Q3 Strategy\n\n## Goals\n...",
     "folderId": "<FOLDER_ID>"
   }' \
   "https://partnersinbiz.online/api/v1/google/docs/create"
@@ -220,17 +265,17 @@ curl -X POST \
 
 Body:
 - `title` (required)
-- `markdown` (required) — converted server-side to Docs native format
-- `folderId` — where to place the Doc; defaults to root
+- `content` — optional plain text inserted at the top of the document
+- `folderId` — where to place the Doc; if omitted, Google creates it in the service-account default root
 
 Response (201):
 ```json
-{ "docId": "1xyz...", "title": "Q3 Strategy Report — Loyalty Plus",
-  "webViewLink": "https://docs.google.com/document/d/1xyz.../edit" }
+{ "success": true, "data": { "documentId": "1xyz...", "title": "Q3 Strategy Report — Loyalty Plus",
+  "webViewLink": "https://docs.google.com/document/d/1xyz.../edit" } }
 ```
 
 Use this when a deliverable is best consumed as a living Google Doc rather than a PDF. For
-static exports, generate the Doc then use `drive_download` with `mimeType: application/pdf`.
+static exports, generate the Doc then use `drive_download` with `exportMimeType=application/pdf`.
 
 ---
 
@@ -240,6 +285,7 @@ static exports, generate the Doc then use `drive_download` with `mimeType: appli
 curl -X POST \
   -H "Authorization: Bearer $AI_API_KEY" \
   -H "Content-Type: application/json" \
+  -H "X-Org-Id: <ORG_ID>" \
   -d '{
     "spreadsheetId": "1abc...",
     "range": "Sheet1",
@@ -255,7 +301,7 @@ Body:
 
 Response:
 ```json
-{ "updatedRange": "Sheet1!A10:E10", "updatedRows": 1 }
+{ "success": true, "data": { "spreadsheetId": "1abc...", "updates": { "updatedRange": "Sheet1!A10:E10", "updatedRows": 1 } } }
 ```
 
 ---
@@ -265,6 +311,7 @@ Response:
 ```bash
 curl -X GET \
   -H "Authorization: Bearer $AI_API_KEY" \
+  -H "X-Org-Id: <ORG_ID>" \
   "https://partnersinbiz.online/api/v1/google/sheets/read?spreadsheetId=1abc...&range=Sheet1!A1:E20"
 ```
 
@@ -275,10 +322,15 @@ Query params:
 Response:
 ```json
 {
-  "values": [
-    ["Date", "Client", "Asset", "Status", "Drive URL"],
-    ["2026-05-13", "Loyalty Plus", "Black Friday Pack", "Done", "https://drive.google.com/..."]
-  ]
+  "success": true,
+  "data": {
+    "spreadsheetId": "1abc...",
+    "range": "Sheet1!A1:E20",
+    "values": [
+      ["Date", "Client", "Asset", "Status", "Drive URL"],
+      ["2026-05-13", "Loyalty Plus", "Black Friday Pack", "Done", "https://drive.google.com/..."]
+    ]
+  }
 }
 ```
 
@@ -286,16 +338,18 @@ Response:
 
 ## Auth Model
 
-**Current state: NOT YET WIRED.** See Operator Setup at the bottom of this file.
+**Current state: platform endpoints, credentials, and the generic Shared Drive target are active.**
 
-When implemented, auth flows as follows:
+Auth flows as follows:
 
 - **Mac / Claude Code sessions:** service account JSON at `~/.config/gcloud/workspace-sa.json` is picked up by the PiB API. Agents never hold Drive credentials directly.
-- **VPS (Hermes):** service account JSON at `/etc/hermes/google-drive-sa.json` (mode 600), used by `rclone` for direct Drive mounts and by the PiB API proxy when the VPS calls platform endpoints.
+- **VPS (Hermes):** service account JSON at `/etc/hermes/google-drive-sa.json` (mode 600), used by `rclone` for direct Drive access and by the PiB API proxy when the VPS calls platform endpoints.
 - **All agent calls go through the PiB platform:** `Bearer $AI_API_KEY` → `https://partnersinbiz.online/api/v1/google/...` → PiB API authenticates to Drive using the stored service account. Agents never handle OAuth tokens directly.
-- **Env var:** `GOOGLE_WORKSPACE_CREDS_JSON_PATH` — absolute path to the service account JSON. Set in `.env.local` on Mac and in Vercel environment variables for the `partnersinbiz-web` project.
+- **Env vars:** use `GOOGLE_WORKSPACE_CREDS_JSON_PATH` for Mac/VPS file paths and `GOOGLE_WORKSPACE_CREDS_JSON` for Vercel/serverless raw service-account JSON. Do not point Vercel at `/etc/hermes/...`; that file exists only on the VPS.
 
-The service account must be granted access to specific client folders only — never the entire Drive. Share each `My Drive/Clients/<Client>/` root folder with the service account email. This is the least-privilege posture.
+The service account must be granted access to specific client folders only — never the entire Drive.
+For generic agent work, use `PiB Agent Service Workspace` in the Shared Drive. For client work, share
+the specific client folder or campaign folder with the service account email. This is the least-privilege posture.
 
 ---
 
@@ -347,11 +401,11 @@ Maya is asked to "create a Black Friday social pack for Loyalty Plus":
 
 1. **Generate assets** — Maya calls `higgsfield-generate` or `higgsfield-product-photoshoot` to produce 5 image variants.
 
-2. **Find the client folder** — call `drive_search` with `q: "name='Loyalty Plus' and mimeType='application/vnd.google-apps.folder'"`. If none found, create the folder hierarchy under `My Drive/Clients/Loyalty Plus/`.
+2. **Find the client folder** — call `drive_search` with `q: "Loyalty Plus"` and a known parent folder ID if available. If none is found, ask Peet/operator for the correct shared folder or create it through Workspace Broker with approval.
 
 3. **Upload each image** — call `drive_upload` once per image, targeting `Clients/Loyalty Plus/02_marketing/black-friday-2026/` by folder ID.
 
-4. **Share with client** — call `drive_share` on the campaign sub-folder (not individual files) with `email: <client email>`, `role: 'reader'`, `sendNotification: true`. One share link covers the whole campaign folder.
+4. **Share with client** — call `drive_share` on the campaign sub-folder (not individual files) with `emailAddress: <client email>`, `role: 'reader'`, `sendNotificationEmail: true`. One share permission covers the whole campaign folder.
 
 5. **Write back to kanban** — PATCH the task with `agentStatus: 'done'` and `agentOutput.artifacts` containing all 5 Drive view URLs. Include the folder share link as an additional artifact labeled "Campaign folder — Loyalty Plus Black Friday".
 
@@ -359,20 +413,64 @@ Maya is asked to "create a Black Friday social pack for Loyalty Plus":
 
 ---
 
-## VPS-Side Access (when wired)
+## VPS-Side Access
 
 Hermes agents on `hermes-vps-01` (Helsinki, Hetzner CX23) access the same Drive via two paths:
 
-- **`rclone` mount** — service account JSON at `/etc/hermes/google-drive-sa.json`; provides a filesystem-like interface to Drive. Use for bulk operations or when an agent needs to read Drive content without going through the PiB API.
-- **PiB API proxy** — agents call `https://partnersinbiz.online/api/v1/google/...` with `Bearer $AI_API_KEY` exactly as Mac-side agents do. Same auth, same endpoints. Preferred for all standard operations.
+- **PiB API proxy** — agents call `https://partnersinbiz.online/api/v1/google/...` with `Bearer $AI_API_KEY` exactly as Mac-side agents do. Same auth, same endpoints. Preferred for standard operations; production has `GOOGLE_WORKSPACE_CREDS_JSON` configured.
+- **`rclone` remote** — VPS `gdrive:` is configured for the `hermes` user and can upload/read Drive files directly. Use this for VPS-local binary artifacts when the API proxy is blocked by missing Vercel Google credentials or when uploading large files from `/var/lib/hermes/outputs`.
+- **Service-account `rclone` backend** — use the configless Drive backend with `/etc/hermes/google-drive-sa.json` and root folder `1bCGS5zntv2VEbDdZx0hVf-QrVCv3kvp8` when you need service-account CRUD from the VPS.
 
-Both paths give the same view of `My Drive/Clients/`. The service account JSON is the credential in both cases.
+Both paths should target the same Drive workspace, but they use different credentials. Do not assume the
+PiB API proxy is live just because `rclone` works, and do not assume the `hermes` user can use a root-only
+rclone config. Verify from the agent user:
+
+```bash
+sudo -iu hermes bash -lc 'rclone about gdrive: >/dev/null && echo gdrive-ok'
+```
+
+For a VPS-local artifact upload:
+
+```bash
+sudo -iu hermes bash -lc '
+  rclone copyto /var/lib/hermes/outputs/<run>/<file> "gdrive:PiB Agent Research/outputs/<run>/<file>"
+  rclone link "gdrive:PiB Agent Research/outputs/<run>/<file>"
+'
+```
+
+The verified 2026-06-15 system video path is:
+
+```text
+gdrive:PiB Agent Research/outputs/pib-system-video-2026-06-15/partners-in-biz-system.mp4
+```
+
+For service-account CRUD from the VPS as `hermes`:
+
+```bash
+remote=':drive,service_account_file=/etc/hermes/google-drive-sa.json,root_folder_id=1bCGS5zntv2VEbDdZx0hVf-QrVCv3kvp8:'
+
+# Create
+sudo -u hermes rclone copyto /tmp/artifact.txt "${remote}artifact.txt" --drive-use-trash=true
+
+# Read
+sudo -u hermes rclone cat "${remote}artifact.txt"
+
+# Update/overwrite
+sudo -u hermes rclone copyto /tmp/artifact-v2.txt "${remote}artifact.txt" --drive-use-trash=true
+
+# Delete means trash for this Shared Drive folder role. Permanent hard-delete can require manager rights.
+sudo -u hermes rclone deletefile "${remote}artifact.txt" --drive-use-trash=true
+```
+
+Verified from the VPS on 2026-06-15 as `hermes`: create readback `create-v1`, update readback
+`update-v2`, and delete/trash confirmation `ok`.
 
 ---
 
-## Operator Setup — Wire Drive When Ready
+## Operator Setup — Finish Credential Activation
 
-**Not yet implemented.** Follow these steps when Peet is ready to activate the integration.
+The PiB API routes are implemented. Follow these steps to activate real Drive access if they have
+not already been completed.
 
 ### Step 1 — GCP project
 
@@ -422,28 +520,20 @@ On Mac (`.env.local`):
 GOOGLE_WORKSPACE_CREDS_JSON_PATH=/Users/peetstander/.config/gcloud/workspace-sa.json
 ```
 
-On Vercel (use `printf` — avoid trailing newline):
+On VPS profile/service env:
 ```bash
-printf "%s" "/etc/hermes/google-drive-sa.json" | vercel env add GOOGLE_WORKSPACE_CREDS_JSON_PATH production
+GOOGLE_WORKSPACE_CREDS_JSON_PATH=/etc/hermes/google-drive-sa.json
 ```
 
-### Step 7 — Implement the API endpoints
+On Vercel, store the raw JSON as a secret env var:
+```bash
+printf "%s" "$(cat /secure/path/workspace-sa.json)" | vercel env add GOOGLE_WORKSPACE_CREDS_JSON preview
+printf "%s" "$(cat /secure/path/workspace-sa.json)" | vercel env add GOOGLE_WORKSPACE_CREDS_JSON production
+```
 
-Create `app/api/v1/google/` route handlers in `partnersinbiz-web`:
-- `drive/list/route.ts`
-- `drive/upload/route.ts`
-- `drive/download/route.ts`
-- `drive/share/route.ts`
-- `drive/search/route.ts`
-- `docs/create/route.ts`
-- `sheets/append/route.ts`
-- `sheets/read/route.ts`
+Use `vercel env ls` to verify the variable name exists. The value is encrypted and should not be printed.
 
-Each handler authenticates the caller via `Bearer $AI_API_KEY` (existing `resolveUser` middleware),
-then forwards to the Drive/Docs/Sheets API using the `GOOGLE_WORKSPACE_CREDS_JSON_PATH` credential.
-Use the `googleapis` npm package (`google-auth-library` + `@googleapis/drive`).
-
-### Step 8 — Configure rclone on VPS (optional but recommended)
+### Step 7 — Configure rclone on VPS (optional but recommended)
 
 ```bash
 # On hermes-vps-01
@@ -454,19 +544,30 @@ rclone config create gdrive drive \
 
 Test: `rclone ls gdrive:Clients/Loyalty\ Plus/01_brand/`
 
-### Step 9 — Smoke test
+If `root` has a working `gdrive:` remote but `hermes` does not, copy only the rclone config file into
+the hermes account with locked-down permissions:
+
+```bash
+install -d -m 700 -o hermes -g hermes /var/lib/hermes/.config/rclone
+install -m 600 -o hermes -g hermes /root/.config/rclone/rclone.conf /var/lib/hermes/.config/rclone/rclone.conf
+sudo -iu hermes bash -lc 'rclone about gdrive:'
+```
+
+### Step 8 — Smoke test
 
 ```bash
 # Upload a test file
 curl -X POST -H "Authorization: Bearer $AI_API_KEY" \
+  -H "X-Org-Id: <ORG_ID>" \
   -F "file=@/tmp/test.txt" \
-  -F "folderId=root" \
+  -F "folderId=<SHARED_FOLDER_ID>" \
   -F "name=drive-integration-test.txt" \
   "https://partnersinbiz.online/api/v1/google/drive/upload"
 
-# List root
+# List the same shared folder
 curl -H "Authorization: Bearer $AI_API_KEY" \
-  "https://partnersinbiz.online/api/v1/google/drive/list?folderId=root"
+  -H "X-Org-Id: <ORG_ID>" \
+  "https://partnersinbiz.online/api/v1/google/drive/list?folderId=<SHARED_FOLDER_ID>"
 ```
 
 If both return 200, the integration is live. Delete the test file and update this section.

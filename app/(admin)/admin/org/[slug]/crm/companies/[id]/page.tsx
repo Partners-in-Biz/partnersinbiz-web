@@ -11,7 +11,6 @@ import { CompanyRowsPanel } from '@/components/crm/CompanyRowsPanel'
 import { CompanyTabsBar, type CompanyTab } from '@/components/crm/CompanyTabsBar'
 import { CompanyWorkspacePanel, type LinkedWorkspace } from '@/components/crm/CompanyWorkspacePanel'
 import { EntityScopedChat } from '@/components/crm/EntityScopedChat'
-import { scopedPortalPath } from '@/lib/portal/scoped-routing'
 
 type Row = { id: string; [key: string]: unknown }
 type CommandCenter = {
@@ -154,22 +153,16 @@ function rowMeta(row: Row, tab: CompanyTab, company?: Company) {
   return []
 }
 
-function scopedPortalCompanyPath(path: string, company: Company, workspace?: LinkedWorkspace | null) {
-  if (!workspace) return path
-  return scopedPortalPath(path, {
-    orgId: workspace.orgId || workspace.id,
-    orgSlug: workspace.orgSlug || workspace.slug,
-    sourceCompanyId: company.id,
-    sourceCompanyName: company.name,
-  })
-}
-
-function rowHref(row: Row, tab: CompanyTab) {
+function adminCompanyRecordHref(row: Row, tab: CompanyTab, adminOrgSlug: string, companyId: string) {
   if (!row.id) return null
-  if (tab === 'contacts') return `/portal/contacts/${row.id}`
-  if (tab === 'deals') return `/portal/deals/${row.id}`
-  if (tab === 'documents') return `/portal/documents/${row.id}`
-  if (tab === 'projects') return `/portal/projects/${row.id}`
+  const encodedSlug = encodeURIComponent(adminOrgSlug)
+  const encodedCompanyId = encodeURIComponent(companyId)
+  const encodedRecordId = encodeURIComponent(row.id)
+  if (tab === 'contacts' || tab === 'deals') {
+    return `/admin/org/${encodedSlug}/crm/companies/${encodedCompanyId}?tab=${encodeURIComponent(tab)}&record=${encodedRecordId}`
+  }
+  if (tab === 'projects') return `/admin/org/${encodedSlug}/projects/${encodedRecordId}`
+  if (tab === 'documents') return `/admin/org/${encodedSlug}/documents/${encodedRecordId}`
   return null
 }
 
@@ -192,22 +185,22 @@ function AdminRowsEmptyState({
   label,
   lowerLabel,
   companyName,
-  portalHref,
+  adminOrgDashboardHref,
   onReviewOverview,
 }: {
   label: string
   lowerLabel: string
   companyName: string
-  portalHref: string
+  adminOrgDashboardHref: string
   onReviewOverview: () => void
 }) {
   return (
     <div className="bento-card p-8 text-center">
       <span className="material-symbols-outlined text-4xl text-amber-200">hub</span>
       <p className="eyebrow mt-4 !text-[10px] text-amber-200">{label} not linked yet</p>
-      <h2 className="mt-2 font-display text-xl text-[var(--color-pib-text)]">Start account context from the client workspace</h2>
+      <h2 className="mt-2 font-display text-xl text-[var(--color-pib-text)]">Review selected-org context from the admin workspace</h2>
       <p className="mx-auto mt-3 max-w-2xl text-sm leading-6 text-[var(--color-pib-text-muted)]">
-        No {lowerLabel} are linked to {companyName} yet. Review the company overview or open the portal workspace so relationship ownership, email history, and pipeline handoffs stop living outside CRM.
+        No {lowerLabel} are linked to {companyName} yet. Review the company overview or open the selected client org dashboard so relationship ownership, email history, and pipeline handoffs stay visible to PiB operators.
       </p>
       <div className="mt-5 flex flex-wrap justify-center gap-2">
         <button
@@ -220,12 +213,12 @@ function AdminRowsEmptyState({
           Review overview
         </button>
         <Link
-          href={portalHref}
-          aria-label={`Open portal workspace for ${companyName}`}
+          href={adminOrgDashboardHref}
+          aria-label={`Open selected org dashboard for ${companyName}`}
           className="btn-pib-primary inline-flex items-center gap-1.5"
         >
           <span aria-hidden="true" className="material-symbols-outlined text-[16px]">open_in_new</span>
-          Open portal workspace
+          Open org dashboard
         </Link>
       </div>
     </div>
@@ -238,8 +231,7 @@ function AdminRowsPanel({
   company,
   companyName,
   adminOrgSlug,
-  portalHref,
-  portalPathFor,
+  adminOrgDashboardHref,
   onReviewOverview,
 }: {
   tab: CompanyTab
@@ -247,8 +239,7 @@ function AdminRowsPanel({
   company: Company
   companyName: string
   adminOrgSlug: string
-  portalHref: string
-  portalPathFor: (path: string) => string
+  adminOrgDashboardHref: string
   onReviewOverview: () => void
 }) {
   const filterable = tab === 'projects' || tab === 'documents'
@@ -290,18 +281,14 @@ function AdminRowsPanel({
           label={label}
           lowerLabel={lowerLabel}
           companyName={companyName}
-          portalHref={portalHref}
+          adminOrgDashboardHref={adminOrgDashboardHref}
           onReviewOverview={onReviewOverview}
         />
       )}
       filteredEmptyLabel={`No matching ${lowerLabel}. Try clearing the search, status, or history filter.`}
       title={(row) => rowTitle(row, tab)}
       hrefFor={(row) => {
-        if (tab === 'documents' && row.id) {
-          return `/admin/org/${encodeURIComponent(adminOrgSlug)}/documents/${encodeURIComponent(row.id)}`
-        }
-        const href = rowHref(row, tab)
-        return href ? portalPathFor(href) : undefined
+        return adminCompanyRecordHref(row, tab, adminOrgSlug, company.id) ?? undefined
       }}
       rowAriaLabel={(_row, title) => `Open ${title} from ${companyName} admin command center`}
       metaFor={(row) => rowMeta(row, tab, tab === 'documents' ? company : undefined)}
@@ -361,15 +348,14 @@ export default function AdminCompanyCommandCenterPage() {
         <p className="mt-3 text-sm text-[var(--color-pib-text-muted)]">{error ?? 'Company not found.'}</p>
         <Link href={`/admin/org/${slug}/dashboard`} className="btn-pib-secondary mt-5 inline-flex items-center gap-1.5">
           <span className="material-symbols-outlined text-sm">arrow_back</span>
-          Client dashboard
+          Admin org dashboard
         </Link>
       </div>
     )
   }
 
   const company = center.company
-  const portalPathFor = (path: string) => scopedPortalCompanyPath(path, company, center.linkedWorkspace)
-  const portalCompanyHref = portalPathFor(`/portal/companies/${id}`)
+  const adminOrgDashboardHref = `/admin/org/${encodeURIComponent(slug)}/dashboard`
 
   return (
     <div className="space-y-6">
@@ -378,7 +364,7 @@ export default function AdminCompanyCommandCenterPage() {
         className="inline-flex items-center gap-1 text-xs text-[var(--color-pib-text-muted)] transition-colors hover:text-[var(--color-pib-text)]"
       >
         <span className="material-symbols-outlined text-sm">arrow_back</span>
-        Client workspace
+        Admin org workspace
       </Link>
 
       <div className="bento-card p-5">
@@ -407,9 +393,9 @@ export default function AdminCompanyCommandCenterPage() {
             </div>
           </div>
           <div className="flex flex-wrap gap-2">
-            <Link href={portalCompanyHref} className="btn-pib-secondary inline-flex items-center gap-1.5">
+            <Link href={adminOrgDashboardHref} className="btn-pib-secondary inline-flex items-center gap-1.5">
               <span className="material-symbols-outlined text-[16px]">visibility</span>
-              Portal view
+              Org dashboard
             </Link>
             <button type="button" onClick={() => void load()} className="btn-pib-primary inline-flex items-center gap-1.5">
               <span className="material-symbols-outlined text-[16px]">refresh</span>
@@ -439,12 +425,12 @@ export default function AdminCompanyCommandCenterPage() {
             analytics={center.analytics}
             summary={center.summary}
             companyName={company.name}
-            hrefForTab={(targetTab) => portalPathFor(`/portal/companies/${id}?tab=${targetTab}`)}
-            riskClearActionHref={portalCompanyHref}
-            riskClearActionLabel="Open portal risk review"
-            riskClearActionAriaLabel={`Open portal risk review for ${company.name}`}
+            hrefForTab={(targetTab) => `/admin/org/${encodeURIComponent(slug)}/crm/companies/${encodeURIComponent(id)}?tab=${encodeURIComponent(targetTab)}`}
+            riskClearActionHref={adminOrgDashboardHref}
+            riskClearActionLabel="Open admin risk review"
+            riskClearActionAriaLabel={`Open admin risk review for ${company.name}`}
             riskClearActionIcon="open_in_new"
-            riskClearBody={`No active risk signals are flagged for ${company.name}. Review the portal workspace so finance, delivery, and relationship risk stay visible before the account surprises leadership.`}
+            riskClearBody={`No active risk signals are flagged for ${company.name}. Review the selected client org dashboard so finance, delivery, and relationship risk stays visible to PiB operators before the account surprises leadership.`}
           />
         )}
         {tab === 'workspace' && (
@@ -472,8 +458,7 @@ export default function AdminCompanyCommandCenterPage() {
             company={company}
             companyName={company.name}
             adminOrgSlug={slug}
-            portalHref={portalCompanyHref}
-            portalPathFor={portalPathFor}
+            adminOrgDashboardHref={adminOrgDashboardHref}
             onReviewOverview={() => setTab('overview')}
           />
         )}

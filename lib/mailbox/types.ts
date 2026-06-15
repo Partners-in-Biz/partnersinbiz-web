@@ -50,6 +50,11 @@ export interface MailboxMessageSafe {
   subject: string
   bodyText: string
   bodyHtml?: string
+  attachments: Array<{
+    name: string
+    contentType: string
+    sizeBytes: number
+  }>
   snippet: string
   providerMessageId?: string | null
   threadId?: string | null

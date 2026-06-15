@@ -1,6 +1,6 @@
 import { notFound } from 'next/navigation'
 import { adminDb } from '@/lib/firebase/admin'
-import { buildCampaignAssets } from '@/app/api/v1/campaigns/[id]/assets/route'
+import { buildCampaignAssets } from '@/lib/campaigns/assets'
 import { serializeForClient } from '@/lib/campaigns/serialize'
 import { AssetGrid } from '@/components/campaign-cockpit/AssetGrid'
 

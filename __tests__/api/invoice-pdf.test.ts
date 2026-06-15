@@ -145,4 +145,52 @@ describe('GET /api/v1/invoices/[id]/pdf', () => {
     expect(mockCheckAndIncrementRateLimit).not.toHaveBeenCalled()
     expect(mockGenerateInvoiceHtml).toHaveBeenCalled()
   })
+
+  it('keeps authenticated PDF access constrained to the selected orgId query', async () => {
+    mockResolveUser.mockResolvedValueOnce({ uid: 'client-1', role: 'client', orgIds: ['home-org', 'course-digs'] })
+    mockCanAccessOrg.mockImplementationOnce((_user, orgId) => orgId === 'course-digs')
+    mockInvoiceGet.mockResolvedValueOnce(invoiceSnap({
+      invoiceNumber: 'COU-003',
+      orgId: 'pib-platform-owner',
+      recipientOrgId: 'course-digs',
+      pdfShareToken: 'pdf-token-123',
+    }))
+
+    const { GET } = await import('@/app/api/v1/invoices/[id]/pdf/route')
+    const res = await GET(makeReq('http://localhost/api/v1/invoices/invoice-1/pdf?orgId=course-digs'), makeCtx())
+
+    expect(res.status).toBe(200)
+    expect(mockCheckAndIncrementRateLimit).not.toHaveBeenCalled()
+  })
+
+  it('rejects authenticated PDF access when selected orgId does not match the invoice scope', async () => {
+    mockResolveUser.mockResolvedValueOnce({ uid: 'client-1', role: 'client', orgIds: ['home-org', 'course-digs'] })
+    mockInvoiceGet.mockResolvedValueOnce(invoiceSnap({
+      invoiceNumber: 'COU-003',
+      orgId: 'pib-platform-owner',
+      recipientOrgId: 'course-digs',
+      pdfShareToken: 'pdf-token-123',
+    }))
+
+    const { GET } = await import('@/app/api/v1/invoices/[id]/pdf/route')
+    const res = await GET(makeReq('http://localhost/api/v1/invoices/invoice-1/pdf?orgId=home-org'), makeCtx())
+
+    expect(res.status).toBe(403)
+    expect(mockGenerateInvoiceHtml).not.toHaveBeenCalled()
+  })
+
+  it('does not let a matching orgId query replace the required anonymous PDF share token', async () => {
+    mockInvoiceGet.mockResolvedValueOnce(invoiceSnap({
+      invoiceNumber: 'COU-003',
+      orgId: 'pib-platform-owner',
+      recipientOrgId: 'course-digs',
+      pdfShareToken: 'pdf-token-123',
+    }))
+
+    const { GET } = await import('@/app/api/v1/invoices/[id]/pdf/route')
+    const res = await GET(makeReq('http://localhost/api/v1/invoices/invoice-1/pdf?orgId=course-digs'), makeCtx())
+
+    expect(res.status).toBe(403)
+    expect(mockGenerateInvoiceHtml).not.toHaveBeenCalled()
+  })
 })

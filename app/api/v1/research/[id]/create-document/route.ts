@@ -13,17 +13,26 @@ import {
   listResearchSources,
   updateResearchItem,
 } from '@/lib/research/store'
+import { assertUserCanPerformOrganizationModuleAction } from '@/lib/organizations/module-policy-access'
 
 export const dynamic = 'force-dynamic'
 
 type RouteContext = { params: Promise<{ id: string }> }
 
-export const POST = withAuth('admin', async (_req: NextRequest, user: ApiUser, ctx: RouteContext) => {
+export const POST = withAuth('client', async (_req: NextRequest, user: ApiUser, ctx: RouteContext) => {
   const { id } = await ctx.params
   const item = await getResearchItem(id)
   if (!item) return apiError('Research item not found', 404)
   const scope = resolveOrgScope(user, item.orgId)
   if (!scope.ok) return apiError(scope.error, scope.status)
+  const convertAccess = await assertUserCanPerformOrganizationModuleAction(
+    user,
+    item.orgId,
+    'research',
+    'convertToDocuments',
+    'Converting research to documents is disabled for your organisation role',
+  )
+  if (!convertAccess.ok) return apiError(convertAccess.error, convertAccess.status)
 
   const sources = await listResearchSources(id)
   const blocks = serializeBlocksForFirestore(blocksFromResearchItem(item, sources))

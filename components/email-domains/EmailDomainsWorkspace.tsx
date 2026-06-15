@@ -1,10 +1,14 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useMemo, useState, useCallback } from 'react'
 import type { EmailDomain, EmailDomainStatus, EmailDomainDnsRecord } from '@/lib/email/domains'
 
+type EmailDomainsSurface = 'admin' | 'portal'
+
 interface EmailDomainsWorkspaceProps {
+  surface?: EmailDomainsSurface
   orgId?: string
+  orgSlug?: string
   orgName?: string
 }
 
@@ -120,11 +124,13 @@ function DnsRecordsTable({ records }: { records: EmailDomainDnsRecord[] }) {
 function DomainCard({
   domain,
   domainEndpoint,
+  tenantHeaders,
   onRefreshed,
   onDeleted,
 }: {
   domain: EmailDomain
   domainEndpoint: (id: string) => string
+  tenantHeaders?: Record<string, string>
   onRefreshed: (d: EmailDomain) => void
   onDeleted: (id: string) => void
 }) {
@@ -138,7 +144,7 @@ function DomainCard({
     setRefreshing(true)
     setError(null)
     try {
-      const res = await fetch(domainEndpoint(domain.id))
+      const res = await fetch(domainEndpoint(domain.id), tenantHeaders ? { headers: tenantHeaders } : undefined)
       const body = await res.json()
       if (!res.ok) {
         setError(body.error ?? 'Failed to refresh')
@@ -156,7 +162,7 @@ function DomainCard({
     setDeleting(true)
     setError(null)
     try {
-      const res = await fetch(domainEndpoint(domain.id), { method: 'DELETE' })
+      const res = await fetch(domainEndpoint(domain.id), { method: 'DELETE', ...(tenantHeaders ? { headers: tenantHeaders } : {}) })
       if (!res.ok) {
         const body = await res.json().catch(() => ({}))
         setError(body.error ?? 'Failed to delete')
@@ -281,9 +287,15 @@ function DomainCard({
   )
 }
 
-export function EmailDomainsWorkspace({ orgId, orgName }: EmailDomainsWorkspaceProps) {
+export function EmailDomainsWorkspace({ surface = 'portal', orgId, orgSlug, orgName }: EmailDomainsWorkspaceProps) {
   const scopedOrgId = orgId?.trim() || undefined
   const emailDomainsEndpoint = scopedUrl('/api/v1/email/domains', scopedOrgId)
+  const tenantHeaders = useMemo<Record<string, string> | undefined>(() => {
+    if (!scopedOrgId) return undefined
+    const headers: Record<string, string> = { 'X-Org-Id': scopedOrgId }
+    if (orgSlug) headers['X-Org-Slug'] = orgSlug
+    return headers
+  }, [orgSlug, scopedOrgId])
   const domainEndpoint = useCallback(
     (id: string) => scopedUrl(`/api/v1/email/domains/${id}`, scopedOrgId),
     [scopedOrgId],
@@ -297,14 +309,14 @@ export function EmailDomainsWorkspace({ orgId, orgName }: EmailDomainsWorkspaceP
 
   const loadDomains = useCallback(() => {
     setLoading(true)
-    fetch(emailDomainsEndpoint)
+    fetch(emailDomainsEndpoint, tenantHeaders ? { headers: tenantHeaders } : undefined)
       .then((r) => r.json())
       .then((body) => {
         setDomains((body.data ?? []) as EmailDomain[])
       })
       .catch(() => {})
       .finally(() => setLoading(false))
-  }, [emailDomainsEndpoint])
+  }, [emailDomainsEndpoint, tenantHeaders])
 
   useEffect(() => {
     loadDomains()
@@ -319,7 +331,7 @@ export function EmailDomainsWorkspace({ orgId, orgName }: EmailDomainsWorkspaceP
     try {
       const res = await fetch(emailDomainsEndpoint, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { ...(tenantHeaders ?? {}), 'Content-Type': 'application/json' },
         body: JSON.stringify({
           name,
           ...(scopedOrgId ? { orgId: scopedOrgId } : {}),
@@ -350,11 +362,11 @@ export function EmailDomainsWorkspace({ orgId, orgName }: EmailDomainsWorkspaceP
   return (
     <div className="space-y-10">
       <header>
-        <p className="eyebrow">{orgName || 'Sender setup'}</p>
+        <p className="eyebrow">{surface === 'admin' ? 'Admin org sender domains' : (orgName || 'Sender setup')}</p>
         <h1 className="pib-page-title mt-2">Email Domains</h1>
         <p className="pib-page-sub max-w-2xl">
-          Verify a domain you own to send campaigns from your own brand. Until verified,
-          campaigns fall back to the shared partnersinbiz.online domain.
+          Verify selected-org sending domains for PiB operator-managed campaigns. Until verified,
+          campaign sends stay on the shared partnersinbiz.online domain.
         </p>
       </header>
 
@@ -402,6 +414,7 @@ export function EmailDomainsWorkspace({ orgId, orgName }: EmailDomainsWorkspaceP
               key={domain.id}
               domain={domain}
               domainEndpoint={domainEndpoint}
+              tenantHeaders={tenantHeaders}
               onRefreshed={handleRefreshed}
               onDeleted={handleDeleted}
             />

@@ -11,7 +11,7 @@ export const dynamic = 'force-dynamic'
 const ASSIGNABLE_ROLES: OrgRole[] = ['admin', 'member', 'viewer']
 
 export const PATCH = withPortalAuthAndRole(
-  'owner',
+  'admin',
   async (req: NextRequest, _uid: string, orgId: string, _role: OrgRole, { params }: { params: Promise<{ uid: string }> }) => {
     try {
       const { uid: targetUid } = await params

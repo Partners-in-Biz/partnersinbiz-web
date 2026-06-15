@@ -19,6 +19,7 @@ export default function PortalResearchPage() {
       basePath="/portal/research"
       orgId={orgScope.orgId ?? undefined}
       itemHref={(item) => scopedPortalPath(`/portal/research/${item.id}`, orgScope)}
+      createdItemHref={(id) => scopedPortalPath(`/portal/research/${id}`, orgScope)}
     />
   )
 }

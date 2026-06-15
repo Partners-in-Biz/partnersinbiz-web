@@ -18,6 +18,7 @@ import type {
   DocumentTheme,
 } from '@/lib/client-documents/types'
 import { adminDb } from '@/lib/firebase/admin'
+import { assertUserCanPerformOrganizationModuleAction } from '@/lib/organizations/module-policy-access'
 import type { Organization } from '@/lib/organizations/types'
 import { PIB_PLATFORM_ORG_ID } from '@/lib/platform/constants'
 
@@ -172,13 +173,11 @@ export const GET = withAuth('client', async (req: NextRequest, user: ApiUser) =>
   }
 
   async function listForOrg(orgId: string): Promise<Array<ClientDocument & { id: string }>> {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let query: any = adminDb.collection(CLIENT_DOCUMENTS_COLLECTION).where('orgId', '==', orgId)
     if (status) query = query.where('status', '==', status)
     if (type) query = query.where('type', '==', type)
     const snap = await query.get()
     return snap.docs
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       .map((doc: any) => ({ id: doc.id, ...doc.data() } as ClientDocument & { id: string }))
       .filter((doc: ClientDocument & { id: string }) => doc.deleted !== true)
   }
@@ -206,7 +205,7 @@ export const GET = withAuth('client', async (req: NextRequest, user: ApiUser) =>
   return apiSuccess(documents)
 })
 
-export const POST = withAuth('admin', async (req: NextRequest, user: ApiUser) => {
+export const POST = withAuth('client', async (req: NextRequest, user: ApiUser) => {
   const body = await req.json().catch(() => null)
   if (!body || typeof body !== 'object') return apiError('Invalid JSON', 400)
 
@@ -218,13 +217,22 @@ export const POST = withAuth('admin', async (req: NextRequest, user: ApiUser) =>
   }
 
   let orgId: string | undefined
-  if (body.orgId !== undefined) {
-    const requestedOrgId = typeof body.orgId === 'string' ? body.orgId.trim() : null
+  const requestedOrgId = typeof body.orgId === 'string' && body.orgId.trim() ? body.orgId.trim() : null
+  if (requestedOrgId || user.role === 'client') {
     const scope = resolveOrgScope(user, requestedOrgId)
     if (!scope.ok) return apiError(scope.error, scope.status)
     orgId = scope.orgId
-  } else if (user.role === 'client') {
-    return apiError('orgId is required for client users', 400)
+  }
+
+  if (orgId) {
+    const createAccess = await assertUserCanPerformOrganizationModuleAction(
+      user,
+      orgId,
+      'documents',
+      'create',
+      'Document creation is disabled for your organisation role',
+    )
+    if (!createAccess.ok) return apiError(createAccess.error, createAccess.status)
   }
 
   let linked: ClientDocumentLinkSet = {}

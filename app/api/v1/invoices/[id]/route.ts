@@ -4,37 +4,42 @@ import { withAuth } from '@/lib/api/auth'
 import { apiError, apiSuccess } from '@/lib/api/response'
 import { notifyInvoiceSent } from '@/lib/notifications/notify'
 import { logActivity } from '@/lib/activity/log'
-import { tryAttributeInvoicePaid } from '@/lib/email-analytics/attribution-hooks'
 import { requireInvoiceAccess } from '@/lib/invoices/access'
-import { canEditInvoiceDraft } from '@/lib/invoices/permissions'
+import {
+  decorateInvoicePortalCapabilities,
+  sanitizeInvoicePortalPatch,
+} from '@/lib/billing/portal-permissions'
 
 
 export const dynamic = 'force-dynamic'
 
 type RouteContext = { params: Promise<{ id: string }> }
 
-export const GET = withAuth('client', async (_req, user, ctx) => {
+export const GET = withAuth('client', async (req, user, ctx) => {
   const { id } = await (ctx as RouteContext).params
-  const access = await requireInvoiceAccess(user, id)
+  const requestedOrgId = new URL(req.url).searchParams.get('orgId')
+  const access = await requireInvoiceAccess(user, id, requestedOrgId)
   if (!access.ok) return access.response
-  return apiSuccess({ id: access.snap.id, ...access.data })
+  return apiSuccess(decorateInvoicePortalCapabilities({ id: access.snap.id, ...access.data }, user))
 })
 
 export const PATCH = withAuth('client', async (req, user, ctx) => {
   const { id } = await (ctx as RouteContext).params
+  const requestedOrgId = new URL(req.url).searchParams.get('orgId')
   const body = (await req.json().catch(() => ({}))) as Record<string, unknown>
-  const access = await requireInvoiceAccess(user, id)
+  const access = await requireInvoiceAccess(user, id, requestedOrgId)
   if (!access.ok) return access.response
-  if (!canEditInvoiceDraft(user, access.data)) {
-    return apiError('Only admins or the creator of a draft invoice can edit it', 403)
+  const sanitized = sanitizeInvoicePortalPatch(user, access.data, body)
+  if (!sanitized.ok) {
+    return apiError(sanitized.error, sanitized.status)
   }
   const ref = access.ref
   const doc = access.snap
 
   // Recalculate totals if line items changed
-  let updates: Record<string, unknown> = { ...body, updatedAt: FieldValue.serverTimestamp() }
-  if (Array.isArray(body.lineItems)) {
-    const lineItems = body.lineItems.map((item) => {
+  let updates: Record<string, unknown> = { ...sanitized.patch, updatedAt: FieldValue.serverTimestamp() }
+  if (Array.isArray(sanitized.patch.lineItems)) {
+    const lineItems = sanitized.patch.lineItems.map((item) => {
       const source = item && typeof item === 'object' ? item as Record<string, unknown> : {}
       const quantity = Number(source.quantity)
       const unitPrice = Number(source.unitPrice)
@@ -44,17 +49,12 @@ export const PATCH = withAuth('client', async (req, user, ctx) => {
       }
     })
     const subtotal = lineItems.reduce((sum, item) => sum + item.amount, 0)
-    const taxRate = Number(body.taxRate ?? doc.data()?.taxRate ?? 0)
+    const taxRate = Number(sanitized.patch.taxRate ?? doc.data()?.taxRate ?? 0)
     const taxAmount = subtotal * (taxRate / 100)
     updates = { ...updates, lineItems, subtotal, taxRate, taxAmount, total: subtotal + taxAmount }
   }
 
-  // Handle status transitions
-  const flippedToPaid = body.status === 'paid' && doc.data()?.status !== 'paid'
-  if (flippedToPaid) {
-    updates.paidAt = FieldValue.serverTimestamp()
-  }
-  if (body.status === 'sent' && doc.data()?.status === 'draft') {
+  if (sanitized.patch.status === 'sent' && doc.data()?.status === 'draft') {
     updates.sentAt = FieldValue.serverTimestamp()
   }
 
@@ -75,30 +75,17 @@ export const PATCH = withAuth('client', async (req, user, ctx) => {
     }).catch(() => {})
   }
 
-  // Best-effort revenue attribution when an invoice flips to paid via PATCH.
-  if (flippedToPaid) {
-    const data = doc.data() ?? {}
-    await tryAttributeInvoicePaid({
-      orgId: typeof data.orgId === 'string' ? data.orgId : null,
-      contactId: typeof data.contactId === 'string' ? data.contactId : null,
-      invoiceId: id,
-      amount:
-        typeof body.paidAmount === 'number'
-          ? body.paidAmount
-          : typeof data.total === 'number'
-            ? data.total
-            : 0,
-      currency: typeof data.currency === 'string' ? data.currency : 'ZAR',
-    })
-  }
+  // Best-effort revenue attribution for invoice payment changes remains on the
+  // dedicated payment routes. Generic portal PATCH deliberately cannot mark an
+  // invoice paid because that bypasses proof/confirmation audit gates.
 
   // Send invoice notification if transitioning to sent
-  if (body.status === 'sent' && doc.data()?.status === 'draft') {
+  if (sanitized.patch.status === 'sent' && doc.data()?.status === 'draft') {
     notifyInvoiceSent(id).catch(() => {})
   }
 
   // Log activity event for invoice sent (fire and forget)
-  if (body.status === 'sent' && doc.data()?.status === 'draft') {
+  if (sanitized.patch.status === 'sent' && doc.data()?.status === 'draft') {
     const orgId = doc.data()?.orgId
     if (orgId) {
       const actorName = user.uid === 'ai-agent'

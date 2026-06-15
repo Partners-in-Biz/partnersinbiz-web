@@ -6,17 +6,20 @@ function source(relativePath: string) {
 }
 
 describe('youtube studio real route wrappers', () => {
-  it('keeps the admin org route thin and mounted to the admin workspace', () => {
+  it('keeps the admin org route thin and mounted to governance controls', () => {
     const adminRoute = source('app/(admin)/admin/org/[slug]/youtube-studio/page.tsx')
+    const adminGovernance = source('components/youtube-studio/AdminYouTubeStudioGovernanceWorkspace.tsx')
 
-    expect(adminRoute).toContain('@/components/youtube-studio/YouTubeStudioAdminWorkspace')
-    expect(adminRoute).toContain('adminDb')
-    expect(adminRoute).toContain('notFound()')
-    expect(adminRoute).toContain('orgId={orgDoc.id}')
-    expect(adminRoute).toContain('orgName={orgName}')
+    expect(adminRoute).toContain('@/components/youtube-studio/AdminYouTubeStudioGovernanceWorkspace')
+    expect(adminRoute).toContain('orgSlug={slug}')
+    expect(adminRoute).not.toContain('@/components/youtube-studio/YouTubeStudioAdminWorkspace')
+    expect(adminRoute).not.toContain('adminDb')
+    expect(adminRoute).not.toContain('notFound()')
     expect(adminRoute).not.toContain('YouTubeStudioPlaceholder')
     expect(adminRoute).not.toContain('videos.map')
     expect(adminRoute).not.toContain('function Field')
+    expect(adminGovernance).toContain('YouTube Studio governance')
+    expect(adminGovernance).toContain('Who can use YouTube Studio')
   })
 
   it('keeps the portal route thin and delegates disabled-module handling to the workspace API flow', () => {

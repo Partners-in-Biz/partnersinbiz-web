@@ -40,7 +40,7 @@ export default async function PortalCampaignsIndex({
   searchParams,
 }: {
   searchParams?: Promise<PortalCampaignSearchParams>
-} = {}) {
+}) {
   const params = await searchParams
   const scope = scopeFromSearchParams(params)
   const user = await resolvePortalCampaignUser(scope.orgId)

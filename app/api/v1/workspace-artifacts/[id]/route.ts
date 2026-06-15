@@ -21,7 +21,7 @@ export const GET = withAuth('client', async (req: NextRequest, user, context) =>
   const { artifact } = await loadArtifact(id)
   if (!artifact || artifact.deleted === true) return apiError('Workspace artifact not found', 404)
   const resolved = resolveOrgId(req, user)
-  const accessError = orgAccessError(user, resolved.orgId ?? artifact.orgId, resolved.mismatch)
+  const accessError = orgAccessError(user, resolved.orgId ?? artifact.orgId, resolved.mismatch, resolved)
   if (accessError) return accessError
   if ((resolved.orgId && resolved.orgId !== artifact.orgId) || !canReadWorkspaceArtifact(artifact, user)) return apiError('Forbidden', 403)
   return apiSuccess(artifact)
@@ -32,7 +32,7 @@ export const PATCH = withAuth('admin', async (req: NextRequest, user, context) =
   const { ref, artifact } = await loadArtifact(id)
   if (!artifact || artifact.deleted === true) return apiError('Workspace artifact not found', 404)
   const resolved = resolveOrgId(req, user)
-  const accessError = orgAccessError(user, resolved.orgId ?? artifact.orgId, resolved.mismatch)
+  const accessError = orgAccessError(user, resolved.orgId ?? artifact.orgId, resolved.mismatch, resolved)
   if (accessError) return accessError
   if (resolved.orgId && resolved.orgId !== artifact.orgId) return apiError('Forbidden', 403)
   const body = (await req.json()) as Record<string, unknown>
@@ -47,7 +47,7 @@ export const DELETE = withAuth('admin', async (req: NextRequest, user, context) 
   const { ref, artifact } = await loadArtifact(id)
   if (!artifact || artifact.deleted === true) return apiError('Workspace artifact not found', 404)
   const resolved = resolveOrgId(req, user)
-  const accessError = orgAccessError(user, resolved.orgId ?? artifact.orgId, resolved.mismatch)
+  const accessError = orgAccessError(user, resolved.orgId ?? artifact.orgId, resolved.mismatch, resolved)
   if (accessError) return accessError
   if (resolved.orgId && resolved.orgId !== artifact.orgId) return apiError('Forbidden', 403)
   await ref.update({ lifecycleStatus: 'archived', deleted: true, ...lastActorFrom(user) })

@@ -82,7 +82,7 @@ export function CustomSegmentBuilder({ orgId }: Props) {
       <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/5 p-4 text-sm">
         <p className="font-medium text-emerald-300">Custom segment audience created</p>
         <p className="mt-1 text-xs text-white/60">
-          Google Ads will target users based on your {segmentType.toLowerCase()} signals.
+          Google Ads will target users based on the client {segmentType.toLowerCase()} signals.
         </p>
         <button type="button" className="btn-pib-ghost mt-3 text-xs" onClick={reset}>
           Create another

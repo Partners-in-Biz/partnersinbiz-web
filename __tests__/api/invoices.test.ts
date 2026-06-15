@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server'
 
-type MockUser = { uid: string; role: 'admin' | 'client'; orgId?: string; allowedOrgIds?: string[] }
+type MockUser = { uid: string; role: 'admin' | 'client'; orgId?: string; activeOrgId?: string; orgIds?: string[]; allowedOrgIds?: string[] }
 type MockHandler = (req: NextRequest, user: MockUser, ctx?: unknown) => Promise<Response>
 
 const mockCollection = jest.fn()
@@ -279,6 +279,24 @@ describe('GET /api/v1/invoices', () => {
     expect(mockInvoiceWhere).toHaveBeenCalledWith('recipientOrgId', '==', 'recipient-org')
     const body = await res.json()
     expect(body.data.map((invoice: { id: string }) => invoice.id)).toEqual(['received'])
+  })
+
+  it('defaults client received invoices to the selected active portal organisation', async () => {
+    mockUser = { uid: 'client-1', role: 'client', orgId: 'home-org', activeOrgId: 'selected-org', orgIds: ['home-org', 'selected-org'] }
+    mockInvoiceGet.mockResolvedValue({
+      docs: [
+        { id: 'selected-received', data: () => ({ recipientOrgId: 'selected-org', invoiceNumber: 'INV-002', createdAt: { seconds: 20 } }) },
+      ],
+    })
+
+    const { GET } = await import('@/app/api/v1/invoices/route')
+    const req = new NextRequest('http://localhost/api/v1/invoices?view=received')
+    const res = await GET(req)
+
+    expect(res.status).toBe(200)
+    expect(mockInvoiceWhere).toHaveBeenCalledWith('recipientOrgId', '==', 'selected-org')
+    const body = await res.json()
+    expect(body.data.map((invoice: { id: string }) => invoice.id)).toEqual(['selected-received'])
   })
 })
 

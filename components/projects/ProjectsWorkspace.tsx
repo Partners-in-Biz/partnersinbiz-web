@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { collection, onSnapshot, query, where } from 'firebase/firestore'
 import { getClientDb } from '@/lib/firebase/config'
 import { CrossProjectBoard } from '@/components/projects/CrossProjectBoard'
@@ -8,6 +8,7 @@ import { ProjectListCard } from '@/components/projects/ProjectListCard'
 import { ProjectPortfolioReportPanel } from '@/components/projects/ProjectPortfolioReportPanel'
 import { EmptyState, PageHeader, PageTabs, Surface } from '@/components/ui/AppFoundation'
 import { appendQueryParams, scopedApiPath, scopedPortalPath, type PortalOrgRouteScope } from '@/lib/portal/scoped-routing'
+import { canRolePerformModuleAction, resolveOrganizationModulePolicies } from '@/lib/organizations/module-policies'
 import type { BoardTask } from '@/components/projects/CrossProjectBoard'
 
 type ProjectsWorkspaceMode = 'admin' | 'portal'
@@ -53,7 +54,7 @@ const PROJECT_VIEW_TABS = [
   { value: 'active', label: 'Active' },
   { value: 'archive', label: 'Archive' },
 ]
-const PROJECT_REFRESH_INTERVAL_MS = 10000
+const PROJECT_REFRESH_INTERVAL_MS = 60_000
 
 function isHistoricalProject(project: Project): boolean {
   return project.archived === true || project.status?.trim().toLowerCase() === 'completed'
@@ -130,6 +131,8 @@ export function ProjectsWorkspace({ mode, orgSlug = '', orgScope = {} }: Project
   const [formStatus, setFormStatus] = useState('discovery')
   const [formLoading, setFormLoading] = useState(false)
   const [formError, setFormError] = useState<string | null>(null)
+  const [canRequestProject, setCanRequestProject] = useState(true)
+  const liveProjectListenerHealthy = useRef(false)
 
   const listUrl = useMemo(
     () => receivedProjectsUrl({ mode, orgSlug, orgScope, projectView }),
@@ -172,6 +175,8 @@ export function ProjectsWorkspace({ mode, orgSlug = '', orgScope = {} }: Project
     let cancelled = false
     const refresh = async (options?: { showSpinner?: boolean }) => {
       if (cancelled) return
+      if (!options?.showSpinner && document.visibilityState !== 'visible') return
+      if (!options?.showSpinner && mode === 'admin' && liveProjectListenerHealthy.current) return
       await loadProjects(options)
     }
 
@@ -186,7 +191,7 @@ export function ProjectsWorkspace({ mode, orgSlug = '', orgScope = {} }: Project
       cancelled = true
       window.clearInterval(interval)
     }
-  }, [loadProjects])
+  }, [loadProjects, mode])
 
   const liveOrgId = useMemo(() => projects.find(project => project.orgId)?.orgId, [projects])
 
@@ -195,6 +200,7 @@ export function ProjectsWorkspace({ mode, orgSlug = '', orgScope = {} }: Project
     const unsubscribe = onSnapshot(
       query(collection(getClientDb(), 'projects'), where('orgId', '==', liveOrgId)),
       (snap) => {
+        liveProjectListenerHealthy.current = true
         snap.docChanges().forEach(change => {
           if (change.type === 'removed') {
             setProjects(prev => prev.filter(project => project.id !== change.doc.id))
@@ -216,14 +222,47 @@ export function ProjectsWorkspace({ mode, orgSlug = '', orgScope = {} }: Project
           })
         })
       },
-      () => {},
+      () => {
+        liveProjectListenerHealthy.current = false
+      },
     )
-    return () => unsubscribe()
+    return () => {
+      liveProjectListenerHealthy.current = false
+      unsubscribe()
+    }
   }, [liveOrgId, mode, projectView])
 
   useEffect(() => {
     setFilter('all')
   }, [projectView])
+
+  useEffect(() => {
+    if (mode === 'portal' && !canRequestProject) setShowForm(false)
+  }, [canRequestProject, mode])
+
+  useEffect(() => {
+    if (mode !== 'portal') {
+      setCanRequestProject(true)
+      return
+    }
+
+    let cancelled = false
+    fetch(scopedApiPath('/api/v1/portal/org', { orgId: orgScope.orgId, id: orgScope.id }))
+      .then((res) => res.ok ? res.json() : null)
+      .then((body) => {
+        if (cancelled || !body?.org) return
+        const policies = resolveOrganizationModulePolicies({ modulePolicies: body.org.modulePolicies })
+        const role = body.user?.memberRole ?? body.user?.role
+        setCanRequestProject(canRolePerformModuleAction(policies, 'projects', 'create', role))
+      })
+      .catch(() => {
+        if (!cancelled) setCanRequestProject(true)
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [mode, orgScope.id, orgScope.orgId])
 
   const filtered = useMemo(
     () => projects.filter((project) => {
@@ -326,6 +365,11 @@ export function ProjectsWorkspace({ mode, orgSlug = '', orgScope = {} }: Project
   const handleCreateProject = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!formName.trim()) return
+    if (mode === 'portal' && !canRequestProject) {
+      setFormError('Project requests are disabled for your organisation role.')
+      setShowForm(false)
+      return
+    }
 
     try {
       setFormError(null)
@@ -410,7 +454,7 @@ export function ProjectsWorkspace({ mode, orgSlug = '', orgScope = {} }: Project
   return (
     <div className={isAdmin ? 'space-y-6 max-w-5xl mx-auto' : 'space-y-6'}>
       <PageHeader
-        eyebrow={isAdmin ? 'Workspace / Projects' : 'Client workspace / Projects'}
+        eyebrow={isAdmin ? 'Admin task bus / Projects' : 'Client workspace / Projects'}
         title="Projects"
         description={isAdmin ? 'Kanban-led delivery spaces for client and platform work. Switch between board and list views without leaving the workspace.' : 'Follow active work, timelines, and task progress without exposing internal admin controls.'}
         actions={showForm ? null : (
@@ -421,12 +465,14 @@ export function ProjectsWorkspace({ mode, orgSlug = '', orgScope = {} }: Project
               onValueChange={(value) => setActiveSection(value as WorkspaceSection)}
               tabs={WORKSPACE_TABS}
             />
-            <button
-              onClick={() => setShowForm(true)}
-              className="pib-btn-primary text-sm font-label"
-            >
-              {isAdmin ? '+ New Project' : 'Request project'}
-            </button>
+            {(isAdmin || canRequestProject) ? (
+              <button
+                onClick={() => setShowForm(true)}
+                className="pib-btn-primary text-sm font-label"
+              >
+                {isAdmin ? 'Create operator project' : 'Request project'}
+              </button>
+            ) : null}
           </>
         )}
       />

@@ -66,12 +66,15 @@ export default function OrganizationsPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-headline font-bold text-on-surface">Organisations</h1>
+          <h1 className="text-2xl font-headline font-bold text-on-surface">Client Workspaces</h1>
           <p className="text-sm text-on-surface-variant mt-0.5">
-            {loading ? '—' : `${activeCount} active of ${orgs.length} total`}
+            Platform-admin operations for client organisations, workspace provisioning, and operational status.
+          </p>
+          <p className="text-xs text-on-surface-variant/70 mt-1">
+            {loading ? '—' : `${activeCount} active of ${orgs.length} client workspaces`}
           </p>
         </div>
-        <Link href="/admin/organizations/new" className="pib-btn-primary text-sm font-label">+ New Client</Link>
+        <Link href="/admin/organizations/new" className="pib-btn-primary text-sm font-label">+ Provision client workspace</Link>
       </div>
 
       {/* Search */}
@@ -89,7 +92,7 @@ export default function OrganizationsPage() {
         <div className="grid grid-cols-12 gap-4 px-5 py-3 border-b border-[var(--color-card-border)]">
           <p className="col-span-5 text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Name</p>
           <p className="col-span-2 text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Status</p>
-          <p className="col-span-2 text-[10px] font-label uppercase tracking-widest text-on-surface-variant text-center sm:text-left">Members</p>
+          <p className="col-span-2 text-[10px] font-label uppercase tracking-widest text-on-surface-variant text-center sm:text-left">Portal access</p>
           <p className="col-span-3 text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Actions</p>
         </div>
 
@@ -128,7 +131,7 @@ export default function OrganizationsPage() {
                 <div className="col-span-2 flex justify-center sm:justify-start">
                   <p className="text-sm text-on-surface-variant text-center sm:text-left">
                     <span className="sm:hidden">{org.memberCount}</span>
-                    <span className="hidden sm:inline">{org.memberCount} member{org.memberCount !== 1 ? 's' : ''}</span>
+                    <span className="hidden sm:inline">{org.memberCount} portal login{org.memberCount !== 1 ? 's' : ''}</span>
                   </p>
                 </div>
                 {/* Actions */}
@@ -136,7 +139,7 @@ export default function OrganizationsPage() {
                   <Link
                     href={`/admin/org/${org.slug}/dashboard`}
                     className="pib-btn-secondary text-xs font-label !px-2 sm:!px-4"
-                    title="Open"
+                    title="Open admin workspace"
                   >
                     <span className="sm:hidden">↗</span>
                     <span className="hidden sm:inline">Open</span>
@@ -144,10 +147,10 @@ export default function OrganizationsPage() {
                   <Link
                     href={`/admin/organizations/${org.id}`}
                     className="pib-btn-secondary text-xs font-label !px-2 sm:!px-4"
-                    title="Edit"
+                    title="Edit platform record"
                   >
                     <span className="sm:hidden">✎</span>
-                    <span className="hidden sm:inline">Edit</span>
+                    <span className="hidden sm:inline">Admin edit</span>
                   </Link>
                 </div>
               </div>

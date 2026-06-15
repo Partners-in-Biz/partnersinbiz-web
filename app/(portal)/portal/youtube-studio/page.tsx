@@ -15,7 +15,7 @@ export default async function PortalYouTubeStudioPage({
   searchParams,
 }: {
   searchParams?: Promise<PortalYouTubeStudioSearchParams>
-} = {}) {
+}) {
   const params = await searchParams
   const orgId = firstSearchParam(params?.orgId)
 

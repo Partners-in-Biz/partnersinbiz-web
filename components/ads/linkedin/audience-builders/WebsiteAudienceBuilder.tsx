@@ -101,7 +101,7 @@ export function LinkedinWebsiteAudienceBuilder({ orgId, onCreated, onCancel }: P
       <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/5 p-4 text-sm">
         <p className="font-medium text-emerald-300">Website audience created</p>
         <p className="mt-1 text-xs text-white/60">
-          LinkedIn will begin populating this audience as visitors match your rules.
+          LinkedIn will begin populating this audience as visitors match the admin-defined client rules.
         </p>
         <div className="flex gap-2 mt-3">
           <button type="button" className="btn-pib-ghost text-xs" onClick={reset}>
@@ -154,7 +154,7 @@ export function LinkedinWebsiteAudienceBuilder({ orgId, onCreated, onCancel }: P
           inputMode="numeric"
           disabled={state === 'submitting'}
         />
-        <span className="text-xs text-white/40 mt-1 block">Numeric ID from your LinkedIn Insight Tag</span>
+        <span className="text-xs text-white/40 mt-1 block">Numeric ID from the client LinkedIn Insight Tag</span>
       </label>
 
       <div className="space-y-3">

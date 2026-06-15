@@ -22,17 +22,29 @@ describe('Portal account settings page', () => {
     sendPasswordResetEmailMock.mockReset()
   })
 
-  it('summarizes account security readiness before credential controls', () => {
+  it('summarizes account access readiness before credential controls', () => {
     render(<AccountSettingsPage />)
 
-    const commandCenter = screen.getByRole('region', { name: 'Account security command center' })
+    const accountOverview = screen.getByRole('region', { name: 'Account access overview' })
 
-    expect(commandCenter).toBeInTheDocument()
-    expect(within(commandCenter).getByRole('heading', { name: 'Account security command center' })).toBeInTheDocument()
-    expect(within(commandCenter).getByText('Login verified')).toBeInTheDocument()
-    expect(within(commandCenter).getByText('Password recovery ready')).toBeInTheDocument()
-    expect(within(commandCenter).getAllByText('Workspace independent')).toHaveLength(2)
-    expect(within(commandCenter).getByText(/hello@partnersinbiz\.online/)).toBeInTheDocument()
+    expect(accountOverview).toBeInTheDocument()
+    expect(within(accountOverview).getByRole('heading', { name: 'Account access overview' })).toBeInTheDocument()
+    expect(within(accountOverview).getByText('hello@partnersinbiz.online')).toBeInTheDocument()
+    expect(within(accountOverview).getByText('Password recovery ready')).toBeInTheDocument()
+    expect(within(accountOverview).getAllByText('Workspace independent')).toHaveLength(2)
+    expect(within(accountOverview).queryByText('Account security command center')).not.toBeInTheDocument()
+    expect(within(accountOverview).queryByText('Login verified')).not.toBeInTheDocument()
+    expect(within(accountOverview).getByTestId('account-readiness-login-email')).toHaveClass('pib-card-section-row')
+    expect(within(accountOverview).getByTestId('account-readiness-recovery')).toHaveClass('pib-card-section-row')
+    expect(within(accountOverview).getByTestId('account-readiness-scope')).toHaveClass('pib-card-section-row')
+  })
+
+  it('uses shared PiB section and button primitives for credential controls', () => {
+    render(<AccountSettingsPage />)
+
+    expect(screen.getByTestId('account-login-panel')).toHaveClass('pib-card-section')
+    expect(screen.getByTestId('account-password-panel')).toHaveClass('pib-card-section')
+    expect(screen.getByRole('button', { name: 'Send password reset email' })).toHaveClass('pib-btn-primary')
   })
 
   it('sends password reset email through Firebase auth', async () => {

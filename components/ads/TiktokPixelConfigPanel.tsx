@@ -98,7 +98,7 @@ export function TiktokPixelConfigPanel({
           aria-label="TikTok Pixel ID"
         />
         <p className="text-xs text-white/40">
-          Found in TikTok Events Manager → Data Sources → your pixel → Settings.
+          Found in TikTok Events Manager → Data Sources → client pixel → Settings.
         </p>
       </div>
 
@@ -121,7 +121,7 @@ export function TiktokPixelConfigPanel({
           aria-label="Events API Token"
         />
         <p className="text-xs text-white/40">
-          Generate in TikTok Events Manager → your pixel → Settings → Generate Token.
+          Generate in TikTok Events Manager → client pixel → Settings → Generate Token.
           Token is encrypted before storage and never returned in plaintext.
         </p>
       </div>

@@ -51,7 +51,7 @@ export default async function OrgPreviewPage({
     blocks: deserializeBlocksFromFirestore(versionData.blocks),
   } as ClientDocumentVersion
 
-  const versionLabel = `${doc.status === 'internal_draft' ? 'Draft' : doc.status} · v${version.versionNumber}`
+  const versionLabel = `Admin preview only · ${doc.status === 'internal_draft' ? 'Draft' : doc.status} · v${version.versionNumber}`
   const shareUrl = doc.shareEnabled && doc.shareToken
     ? `${process.env.NEXT_PUBLIC_APP_URL}/d/${doc.shareToken}`
     : undefined

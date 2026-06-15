@@ -216,6 +216,7 @@ describe('agent skill policy manifest', () => {
       'partnersinbiz/project-management',
       'partnersinbiz/properties',
       'partnersinbiz/research-intelligence',
+      'partnersinbiz/research/open-notebook',
       'productivity/google-workspace',
       'productivity/powerpoint',
     ])
