@@ -250,8 +250,8 @@ export function CompanyWorkspacePanel({ companyName, companyId, mode, workspace 
         icon: 'menu_book',
       },
       {
-        title: 'Client workspace gate',
-        description: 'Link or create an organisation before client-delivery work such as campaigns, SEO, social, ads, wiki, and reports.',
+        title: 'Organisation control gate',
+        description: 'Link or create an organisation before delivery work such as campaigns, SEO, social, ads, wiki, and reports.',
         icon: 'approval_delegation',
       },
     ]
@@ -263,7 +263,7 @@ export function CompanyWorkspacePanel({ companyName, companyId, mode, workspace 
           <p className="eyebrow mt-4 !text-[10px] text-amber-200">Lead workspace</p>
           <h2 className="mt-2 font-display text-xl text-[var(--color-pib-text)]">CRM-only company workspace</h2>
           <p className="mx-auto mt-3 max-w-2xl text-sm leading-6 text-[var(--color-pib-text-muted)]">
-            {companyName} is available as a CRM company, but it is not linked to a client organisation workspace yet. Keep pre-client context here; convert or link the organisation before running client-delivery work.
+            {companyName} is available as a CRM company, but it is not linked to a selected organisation command surface yet. Keep pre-client context here; convert or link the organisation before running delivery work.
           </p>
         </div>
         <div className="grid gap-3 md:grid-cols-3">

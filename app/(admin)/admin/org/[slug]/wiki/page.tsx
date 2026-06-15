@@ -4,7 +4,7 @@ import { useParams } from 'next/navigation'
 import { OrgThemedFrame } from '@/components/admin/OrgThemedFrame'
 import { KnowledgeBrowser } from '@/components/knowledge/KnowledgeBrowser'
 
-export default function ClientWikiPage() {
+export default function OrgWikiPage() {
   const params = useParams<{ slug: string }>()
   const slug = params.slug
 
@@ -14,8 +14,8 @@ export default function ClientWikiPage() {
         scope="agent"
         agent={slug}
         eyebrow="Internal agent knowledge base"
-        title="Client Wiki"
-        description="Internal agent knowledge base for this client workspace. Updates are saved to the Hermes knowledge vault for agents and Obsidian; this is not a client-facing approval or publishing surface."
+        title="Operator Wiki"
+        description="Internal agent knowledge base for this selected organisation. Updates are saved to the Hermes knowledge vault for agents and Obsidian; this is not a client-facing approval or publishing surface."
       />
     </OrgThemedFrame>
   )

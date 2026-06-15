@@ -189,7 +189,7 @@ export function MobileAppsAdminWorkspace({ orgId, orgName }: MobileAppsAdminWork
     if (!app.id) return
     await fetch(`/api/v1/mobile-apps/${app.id}`, { method: 'DELETE' })
     await loadApps(orgId)
-    setNotice('Mobile app archived from the client portal.')
+    setNotice('Mobile app archived from portal exposure.')
   }
 
   return (

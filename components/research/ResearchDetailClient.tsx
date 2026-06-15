@@ -214,7 +214,7 @@ export function ResearchDetailClient({ id, mode, basePath, documentsBasePath = '
         <div>
           <Link href={basePath} className="text-sm text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-accent)]">Research</Link>
           <h1 className="pib-page-title mt-2">{item.title}</h1>
-          <p className="pib-page-sub mt-2 max-w-3xl">{item.summary || 'Structured findings, evidence, and recommendations for this client workspace.'}</p>
+          <p className="pib-page-sub mt-2 max-w-3xl">{item.summary || 'Structured findings, evidence, and recommendations for this selected organisation command surface.'}</p>
           <p className="mt-2 max-w-3xl text-sm text-[var(--color-pib-text-muted)]">
             Research remains internal while visibility is internal. Convert to a client document draft or mark client-visible only when notes and sources are safe for client review.
           </p>

@@ -155,7 +155,7 @@ export function ClientDocumentsWorkspace({ surface, orgSlug = '' }: ClientDocume
       {
         creatorCompanyName: 'Partners in Biz',
         creatorContactName: document.createdByType === 'agent' ? 'Pip' : 'PiB team',
-        recipientCompanyName: orgName || 'Client workspace',
+        recipientCompanyName: orgName || 'Selected organisation',
         recipientContactName: 'Client team',
       },
     ]),
@@ -184,8 +184,8 @@ export function ClientDocumentsWorkspace({ surface, orgSlug = '' }: ClientDocume
   const content = (
     <div className={surface === 'admin' ? 'space-y-8' : 'space-y-10'}>
       <PageHeader
-        eyebrow={surface === 'admin' ? orgName || 'Client workspace' : 'Client workspace / Documents'}
-        title={surface === 'admin' ? 'Client Documents' : 'Your documents'}
+        eyebrow={surface === 'admin' ? orgName || 'Selected organisation' : 'Client workspace / Documents'}
+        title={surface === 'admin' ? 'Documents control desk' : 'Your documents'}
         description={
           surface === 'admin'
             ? 'Internal drafting/review workspace for proposals, specs, strategies, and reports. Client-visible only after approval gate, explicit send for client review, or share settings are enabled.'

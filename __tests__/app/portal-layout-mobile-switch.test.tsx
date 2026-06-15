@@ -1,5 +1,7 @@
 import React from 'react'
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { readFileSync } from 'fs'
+import * as path from 'path'
 import PortalLayout from '@/app/(portal)/PortalLayoutClient'
 
 const pushMock = jest.fn()
@@ -8,6 +10,25 @@ const backMock = jest.fn()
 let mockPathname = '/portal/dashboard'
 let mockSearchParams = new URLSearchParams()
 let mockPortalModules: { mobileApps?: boolean; youtubeStudio?: boolean; bookStudio?: boolean } | undefined
+const fullAccessPolicy = {
+  preset: 'full',
+  modules: {
+    crm: true,
+    projects: true,
+    documents: true,
+    marketing: true,
+    messages: true,
+    email: true,
+    reports: true,
+    research: true,
+    properties: true,
+    billing: true,
+    mobileApps: true,
+    youtubeStudio: true,
+    bookStudio: true,
+  },
+  recordScopes: { crm: 'all', projects: 'all' },
+}
 
 jest.mock('next/navigation', () => ({
   useRouter: () => ({
@@ -80,6 +101,10 @@ function hasHiddenAncestor(element: HTMLElement) {
   return false
 }
 
+function routeSource(relativePath: string) {
+  return readFileSync(path.join(process.cwd(), relativePath), 'utf8')
+}
+
 describe('PortalLayout mobile role switch', () => {
   beforeEach(() => {
     localStorage.clear()
@@ -94,7 +119,7 @@ describe('PortalLayout mobile role switch', () => {
           ok: true,
           json: async () => ({
             org: { id: 'org-acme', slug: 'acme', name: 'Acme Growth', type: 'client', portalModules: mockPortalModules },
-            user: { role: 'admin' },
+            user: { role: 'admin', accessPolicy: fullAccessPolicy },
           }),
         } as Response)
       }
@@ -103,7 +128,7 @@ describe('PortalLayout mobile role switch', () => {
           ok: true,
           json: async () => ({
             org: { id: 'lumen-org', slug: 'lumen-speeds', name: 'Lumen', type: 'client', portalModules: mockPortalModules },
-            user: { role: 'admin' },
+            user: { role: 'admin', accessPolicy: fullAccessPolicy },
           }),
         } as Response)
       }
@@ -165,6 +190,14 @@ describe('PortalLayout mobile role switch', () => {
       )
     })
     expect(screen.queryByText('Admin')).not.toBeInTheDocument()
+  })
+
+  it('uses the shield icon for every admin-view switch control', () => {
+    const source = routeSource('app/(portal)/PortalLayoutClient.tsx')
+
+    expect(source).toContain('Switch to admin view')
+    expect(source.match(/>\s*shield\s*<\/span>/g)?.length).toBeGreaterThanOrEqual(5)
+    expect(source).not.toMatch(/>\s*person\s*<\/span>/)
   })
 
   it('shows a navbar back button that returns to the previous portal page', async () => {

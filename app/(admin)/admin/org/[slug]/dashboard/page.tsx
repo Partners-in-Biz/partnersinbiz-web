@@ -38,6 +38,45 @@ interface OrganizationSummary {
   name?: string
 }
 
+interface OrganizationSettings {
+  portalModules?: Partial<Record<'mobileApps' | 'youtubeStudio' | 'bookStudio', boolean>>
+  defaultApprovalRequired?: boolean
+  timezone?: string
+  preferredSendHourLocal?: number
+  preferredSendDaysOfWeek?: number[]
+  replyNotifyEmails?: string[]
+}
+
+interface OrganizationDetail {
+  id: string
+  name?: string
+  settings?: OrganizationSettings
+}
+
+interface OrganizationMember {
+  userId?: string
+  displayName?: string
+  email?: string
+  role?: string
+  accessScope?: string
+}
+
+interface AgentTaskCard {
+  id: string
+  title: string
+  assigneeAgentId?: string | null
+  agentStatus?: string | null
+  projectName?: string | null
+  href?: string | null
+  updatedAt?: string | null
+}
+
+interface AgentTasksResponse {
+  total?: number
+  byStatus?: Record<string, number>
+  cards?: AgentTaskCard[]
+}
+
 const PLATFORM_COLORS: Record<string, string> = {
   twitter: '#000000', x: '#000000',
   linkedin: '#0A66C2', facebook: '#1877F2',
@@ -84,6 +123,30 @@ function todayRange(): { from: string; to: string } {
   return { from: from.toISOString(), to: to.toISOString() }
 }
 
+const PORTAL_MODULE_ROWS = [
+  { key: 'mobileApps', label: 'Mobile Apps' },
+  { key: 'youtubeStudio', label: 'YouTube Studio' },
+  { key: 'bookStudio', label: 'Book Studio' },
+] as const
+
+const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+
+function titleCase(value: string) {
+  return value.replace(/[-_]/g, ' ').replace(/\b\w/g, (letter) => letter.toUpperCase())
+}
+
+function roleLabel(role?: string) {
+  return role ? titleCase(role) : 'Unknown'
+}
+
+function statusLabel(status?: string | null) {
+  return status ? titleCase(status) : 'Unassigned'
+}
+
+function normaliseScope(scope?: string) {
+  return scope ? titleCase(scope) : 'Default workspace access'
+}
+
 export default function OrgDashboard() {
   const params = useParams()
   const slug = params.slug as string
@@ -91,6 +154,9 @@ export default function OrgDashboard() {
   const [projects, setProjects] = useState<Project[]>([])
   const [socialStats, setSocialStats] = useState<SocialStats | null>(null)
   const [scheduledPosts, setScheduledPosts] = useState<ScheduledContentPost[]>([])
+  const [orgDetail, setOrgDetail] = useState<OrganizationDetail | null>(null)
+  const [members, setMembers] = useState<OrganizationMember[]>([])
+  const [agentTasks, setAgentTasks] = useState<AgentTasksResponse | null>(null)
   const [orgName, setOrgName] = useState('')
   const [loading, setLoading] = useState(true)
 
@@ -109,6 +175,24 @@ export default function OrgDashboard() {
         const orgQs = `orgId=${encodeURIComponent(fetchedOrgId)}`
         const { from, to } = todayRange()
         return Promise.all([
+          fetch(`/api/v1/organizations/${encodeURIComponent(fetchedOrgId)}`, { headers })
+            .then(r => r.json())
+            .then(body => {
+              setOrgDetail(body.data ?? body.organization ?? body.org ?? null)
+            })
+            .catch(() => {}),
+          fetch(`/api/v1/organizations/${encodeURIComponent(fetchedOrgId)}/members`, { headers })
+            .then(r => r.json())
+            .then(body => {
+              setMembers(body.data ?? body.members ?? [])
+            })
+            .catch(() => {}),
+          fetch(`/api/v1/admin/agent-tasks?${orgQs}`, { headers })
+            .then(r => r.json())
+            .then(body => {
+              setAgentTasks(body.data ?? body)
+            })
+            .catch(() => {}),
           fetch(`/api/v1/projects?view=received&${orgQs}`, { headers })
             .then(r => r.json())
             .then(body => {
@@ -135,6 +219,29 @@ export default function OrgDashboard() {
 
   const activeProjects = projects.filter(p => p.status === 'active' || p.status === 'in_progress')
   const displayOrgName = orgName || slug.replace(/-/g, ' ')
+  const settings = orgDetail?.settings ?? {}
+  const portalModules = PORTAL_MODULE_ROWS.map((module) => ({
+    ...module,
+    enabled: settings.portalModules?.[module.key] !== false,
+  }))
+  const enabledPortalModules = portalModules.filter((module) => module.enabled).length
+  const roleCounts = members.reduce<Record<string, number>>((counts, member) => {
+    const role = member.role || 'unknown'
+    counts[role] = (counts[role] ?? 0) + 1
+    return counts
+  }, {})
+  const accessScopes = Array.from(new Set(members.map((member) => normaliseScope(member.accessScope)))).slice(0, 4)
+  const sendDays = settings.preferredSendDaysOfWeek?.length
+    ? settings.preferredSendDaysOfWeek.map((day) => DAY_LABELS[day] ?? String(day)).join(', ')
+    : 'No send-day rule set'
+  const sendHour = typeof settings.preferredSendHourLocal === 'number'
+    ? `${String(settings.preferredSendHourLocal).padStart(2, '0')}:00`
+    : 'No default send hour'
+  const approvalGateLabel = settings.defaultApprovalRequired === true ? 'Required' : 'Optional'
+  const taskCards = agentTasks?.cards ?? []
+  const activeTaskCards = taskCards.filter((task) => !['done', 'completed', 'cancelled'].includes((task.agentStatus ?? '').toLowerCase()))
+  const activeAgents = new Set(activeTaskCards.map((task) => task.assigneeAgentId).filter(Boolean)).size
+  const statusEntries = Object.entries(agentTasks?.byStatus ?? {}).filter(([, count]) => count > 0)
 
   // Social post status donut data
   const statusDonut = socialStats ? [
@@ -171,6 +278,179 @@ export default function OrgDashboard() {
         )}
         className="capitalize"
       />
+
+      <section className="space-y-4">
+        <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
+          <div>
+            <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">
+              Admin control plane
+            </p>
+            <h2 className="mt-1 text-xl font-headline font-bold text-on-surface">
+              Control what the selected organisation can access and when work ships.
+            </h2>
+          </div>
+          <Link href={`/admin/org/${slug}/settings`} className="pib-btn-secondary text-xs font-label">
+            Configure controls
+          </Link>
+        </div>
+
+        <div className="grid gap-3 lg:grid-cols-3">
+          <div className="rounded-lg border border-[var(--color-outline)] bg-[var(--color-surface-container)]/50 p-4">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="text-sm font-semibold text-on-surface">Client portal exposure</p>
+                <p className="mt-1 text-xs text-on-surface-variant">
+                  {enabledPortalModules} of {PORTAL_MODULE_ROWS.length} client-facing modules enabled.
+                </p>
+              </div>
+              <span className="material-symbols-outlined text-[20px] text-on-surface-variant">visibility</span>
+            </div>
+            <div className="mt-3 space-y-2">
+              {portalModules.map((module) => (
+                <div key={module.key} className="flex items-center justify-between gap-3 text-xs">
+                  <span className="text-on-surface">{module.label}</span>
+                  <span
+                    className={`rounded-full px-2 py-0.5 font-label uppercase tracking-wide ${
+                      module.enabled
+                        ? 'bg-emerald-500/15 text-emerald-300'
+                        : 'bg-[var(--color-surface-container-high)] text-on-surface-variant'
+                    }`}
+                  >
+                    {module.enabled ? 'Enabled' : 'Hidden'}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="rounded-lg border border-[var(--color-outline)] bg-[var(--color-surface-container)]/50 p-4">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="text-sm font-semibold text-on-surface">Access and roles</p>
+                <p className="mt-1 text-xs text-on-surface-variant">
+                  {members.length} people can use or administer this organisation.
+                </p>
+              </div>
+              <span className="material-symbols-outlined text-[20px] text-on-surface-variant">groups</span>
+            </div>
+            <div className="mt-3 grid grid-cols-2 gap-2">
+              {Object.entries(roleCounts).length > 0 ? Object.entries(roleCounts).map(([role, count]) => (
+                <div key={role} className="rounded-md bg-[var(--color-surface)] px-3 py-2">
+                  <p className="text-lg font-headline font-bold text-on-surface">{count}</p>
+                  <p className="text-[10px] font-label uppercase tracking-wide text-on-surface-variant">
+                    {roleLabel(role)}
+                  </p>
+                </div>
+              )) : (
+                <p className="col-span-2 text-xs text-on-surface-variant">No member roster loaded yet.</p>
+              )}
+            </div>
+            {accessScopes.length > 0 && (
+              <p className="mt-3 text-xs text-on-surface-variant">
+                Scopes: {accessScopes.join(', ')}
+              </p>
+            )}
+          </div>
+
+          <div className="rounded-lg border border-[var(--color-outline)] bg-[var(--color-surface-container)]/50 p-4">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="text-sm font-semibold text-on-surface">Operating rules</p>
+                <p className="mt-1 text-xs text-on-surface-variant">
+                  Approval gates and send windows that control client-side publishing.
+                </p>
+              </div>
+              <span className="material-symbols-outlined text-[20px] text-on-surface-variant">rule_settings</span>
+            </div>
+            <dl className="mt-3 space-y-2 text-xs">
+              <div className="flex items-center justify-between gap-3">
+                <dt className="text-on-surface-variant">Approval gate</dt>
+                <dd className="font-medium text-on-surface">{approvalGateLabel}</dd>
+              </div>
+              <div className="flex items-center justify-between gap-3">
+                <dt className="text-on-surface-variant">Send window</dt>
+                <dd className="font-medium text-on-surface">{sendHour}</dd>
+              </div>
+              <div className="flex items-center justify-between gap-3">
+                <dt className="text-on-surface-variant">Send days</dt>
+                <dd className="text-right font-medium text-on-surface">{sendDays}</dd>
+              </div>
+              <div className="flex items-center justify-between gap-3">
+                <dt className="text-on-surface-variant">Timezone</dt>
+                <dd className="text-right font-medium text-on-surface">{settings.timezone || 'Default timezone'}</dd>
+              </div>
+              <div className="flex items-center justify-between gap-3">
+                <dt className="text-on-surface-variant">Reply alerts</dt>
+                <dd className="font-medium text-on-surface">{settings.replyNotifyEmails?.length ?? 0}</dd>
+              </div>
+            </dl>
+          </div>
+        </div>
+      </section>
+
+      <section className="space-y-4">
+        <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
+          <div>
+            <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">
+              Live operator workload
+            </p>
+            <h2 className="mt-1 text-lg font-headline font-bold text-on-surface">
+              Who is working on what right now
+            </h2>
+          </div>
+          <Link href={`/admin/org/${slug}/agent/board`} className="pib-btn-secondary text-xs font-label">
+            Open agent board
+          </Link>
+        </div>
+
+        <div className="grid gap-3 lg:grid-cols-[220px_1fr]">
+          <div className="rounded-lg border border-[var(--color-outline)] bg-[var(--color-surface-container)]/50 p-4">
+            <p className="text-3xl font-headline font-bold text-on-surface">{activeTaskCards.length}</p>
+            <p className="text-xs text-on-surface-variant">active tasks across {activeAgents} assigned operators</p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              {statusEntries.length > 0 ? statusEntries.map(([status, count]) => (
+                <span
+                  key={status}
+                  className="rounded-full bg-[var(--color-surface)] px-2 py-1 text-[10px] font-label uppercase tracking-wide text-on-surface-variant"
+                >
+                  {statusLabel(status)} {count}
+                </span>
+              )) : (
+                <span className="text-xs text-on-surface-variant">No active status counts yet.</span>
+              )}
+            </div>
+          </div>
+
+          <div className="divide-y divide-[var(--color-outline)] rounded-lg border border-[var(--color-outline)] bg-[var(--color-surface-container)]/50">
+            {activeTaskCards.length > 0 ? activeTaskCards.slice(0, 5).map((task) => (
+              <Link
+                key={task.id}
+                href={task.href || `/admin/org/${slug}/agent/board`}
+                className="flex flex-col gap-2 px-4 py-3 transition-colors hover:bg-[var(--color-row-hover)] md:flex-row md:items-center md:justify-between"
+              >
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-semibold text-on-surface">{task.title}</p>
+                  <p className="truncate text-xs text-on-surface-variant">
+                    {task.projectName || 'No linked project'}
+                  </p>
+                </div>
+                <div className="flex shrink-0 flex-wrap items-center gap-2 text-[11px] text-on-surface-variant">
+                  <span className="rounded-full bg-[var(--color-surface)] px-2 py-1">
+                    {task.assigneeAgentId || 'Unassigned'}
+                  </span>
+                  <span className="rounded-full bg-[var(--color-surface)] px-2 py-1">
+                    {statusLabel(task.agentStatus)}
+                  </span>
+                </div>
+              </Link>
+            )) : (
+              <div className="px-4 py-6 text-sm text-on-surface-variant">
+                No active operator work is assigned to this organisation yet.
+              </div>
+            )}
+          </div>
+        </div>
+      </section>
 
       {/* ── Stat Cards ── */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
