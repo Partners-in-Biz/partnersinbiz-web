@@ -129,7 +129,6 @@ export async function searchDriveFiles(input: {
     pageSize: pageSize(input.pageSize),
     pageToken: cleanString(input.pageToken) ?? undefined,
     fields: `nextPageToken, files(${DRIVE_FILE_FIELDS})`,
-    orderBy: 'folder,name',
     supportsAllDrives: true,
     includeItemsFromAllDrives: true,
   })
