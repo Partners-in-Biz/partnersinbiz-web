@@ -6,6 +6,10 @@ import { buildDailyCheckIn, type DailyCheckInInput, type DailyCheckInRecord } fr
 
 export const dynamic = 'force-dynamic'
 
+function canAccessOwner(user: { uid: string; role?: string }, ownerId: string) {
+  return ownerId === user.uid || user.role === 'admin' || user.role === 'super_admin'
+}
+
 export const GET = withAuth('client', async (req, user) => {
   const { searchParams } = new URL(req.url)
   const orgId = searchParams.get('orgId')?.trim()
@@ -14,6 +18,7 @@ export const GET = withAuth('client', async (req, user) => {
 
   if (!orgId) return apiError('orgId is required; pass it as a query param')
   if (!canAccessOrg(user, orgId)) return apiError('Forbidden', 403)
+  if (ownerId && !canAccessOwner(user, ownerId)) return apiError('Forbidden', 403)
 
   let query = adminDb.collection('life_os_check_ins').where('orgId', '==', orgId)
   if (ownerId) query = query.where('ownerId', '==', ownerId)
@@ -31,6 +36,7 @@ export const POST = withAuth('client', async (req, user) => {
   const orgId = body.orgId?.trim()
   if (!orgId) return apiError('orgId is required')
   if (!canAccessOrg(user, orgId)) return apiError('Forbidden', 403)
+  if (body.ownerId?.trim() && !canAccessOwner(user, body.ownerId.trim())) return apiError('Forbidden', 403)
 
   try {
     const checkIn = buildDailyCheckIn({

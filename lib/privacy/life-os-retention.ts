@@ -67,15 +67,24 @@ export const LIFE_OS_RETENTION_RULES = {
 } as const
 
 const LIFE_OS_PURGE_COLLECTIONS = [
+  'life_os_goals',
+  'life_os_plans',
+  'life_os_actions',
+  'life_os_habits',
+  'life_os_habit_check_ins',
   'life_os_check_ins',
   'life_os_reviews',
+  'life_os_coach_contexts',
+  'life_os_coach_interactions',
   'life_os_experiments',
   'life_os_reminder_preferences',
+  'life_os_dashboard_signals',
   'hermes_conversation_messages',
 ] as const
 
 const LIFE_OS_ANONYMISE_COLLECTIONS = [
   'life_os_profiles',
+  'life_os_privacy_audits',
   'hermes_conversations',
 ] as const
 

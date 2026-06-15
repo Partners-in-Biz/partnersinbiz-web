@@ -9,11 +9,20 @@ import {
 
 const LIFE_OS_TOP_LEVEL_COLLECTIONS = [
   'life_os_profiles',
+  'life_os_goals',
+  'life_os_plans',
+  'life_os_actions',
+  'life_os_habits',
+  'life_os_habit_check_ins',
   'life_os_check_ins',
   'life_os_reviews',
+  'life_os_coach_contexts',
+  'life_os_coach_interactions',
   'life_os_experiments',
   'life_os_reminder_preferences',
   'life_os_reminders',
+  'life_os_dashboard_signals',
+  'life_os_privacy_audits',
   'hermes_conversations',
 ] as const
 
