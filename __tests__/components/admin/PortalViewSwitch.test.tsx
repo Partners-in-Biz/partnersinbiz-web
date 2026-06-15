@@ -27,7 +27,7 @@ describe('PortalViewSwitch', () => {
     })
 
     render(<PortalViewSwitch orgId="client-org" />)
-    fireEvent.click(await screen.findByRole('button', { name: /portal view/i }))
+    fireEvent.click(await screen.findByRole('button', { name: /open client portal as admin/i }))
 
     await waitFor(() => {
       expect(global.fetch).toHaveBeenNthCalledWith(2, '/api/v1/portal/active-org', {
@@ -40,6 +40,19 @@ describe('PortalViewSwitch', () => {
     })
   })
 
+  it('uses the shield icon for admin-side portal switch controls', async () => {
+    ;(global.fetch as jest.Mock).mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ orgs: [{ id: 'client-org' }] }),
+    })
+
+    render(<PortalViewSwitch orgId="client-org" iconOnly />)
+
+    const button = await screen.findByRole('button', { name: /open client portal as admin/i })
+    expect(button).toHaveTextContent('shield')
+    expect(button).not.toHaveTextContent('open_in_new')
+  })
+
   it('does not render when the user is not an org member', async () => {
     ;(global.fetch as jest.Mock).mockResolvedValueOnce({
       ok: true,
@@ -50,7 +63,7 @@ describe('PortalViewSwitch', () => {
 
     await waitFor(() => {
       expect(global.fetch).toHaveBeenCalledWith('/api/v1/portal/orgs')
-      expect(screen.queryByRole('button', { name: /portal view/i })).not.toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: /open client portal as admin/i })).not.toBeInTheDocument()
     })
     expect(mockPush).not.toHaveBeenCalled()
   })
@@ -65,7 +78,7 @@ describe('PortalViewSwitch', () => {
     })
 
     render(<PortalViewSwitch orgId="client-org" />)
-    fireEvent.click(await screen.findByRole('button', { name: /portal view/i }))
+    fireEvent.click(await screen.findByRole('button', { name: /open client portal as admin/i }))
 
     expect(await screen.findByText('You do not have access to this organisation')).toBeInTheDocument()
     expect(mockPush).not.toHaveBeenCalled()

@@ -192,12 +192,11 @@ describe('PortalLayout mobile role switch', () => {
     expect(screen.queryByText('Admin')).not.toBeInTheDocument()
   })
 
-  it('uses the shield icon for every admin-view switch control', () => {
+  it('uses the person icon for every client-side admin-view switch control', () => {
     const source = routeSource('app/(portal)/PortalLayoutClient.tsx')
 
     expect(source).toContain('Switch to admin view')
-    expect(source.match(/>\s*shield\s*<\/span>/g)?.length).toBeGreaterThanOrEqual(5)
-    expect(source).not.toMatch(/>\s*person\s*<\/span>/)
+    expect(source.match(/>\s*person\s*<\/span>/g)?.length).toBeGreaterThanOrEqual(5)
   })
 
   it('shows a navbar back button that returns to the previous portal page', async () => {
