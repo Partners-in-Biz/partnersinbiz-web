@@ -217,13 +217,11 @@ export const POST = withAuth('client', async (req: NextRequest, user: ApiUser) =
   }
 
   let orgId: string | undefined
-  if (body.orgId !== undefined) {
-    const requestedOrgId = typeof body.orgId === 'string' ? body.orgId.trim() : null
+  const requestedOrgId = typeof body.orgId === 'string' && body.orgId.trim() ? body.orgId.trim() : null
+  if (requestedOrgId || user.role === 'client') {
     const scope = resolveOrgScope(user, requestedOrgId)
     if (!scope.ok) return apiError(scope.error, scope.status)
     orgId = scope.orgId
-  } else if (user.role === 'client') {
-    return apiError('orgId is required for client users', 400)
   }
 
   if (orgId) {

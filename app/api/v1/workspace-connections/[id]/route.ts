@@ -21,7 +21,7 @@ export const GET = withAuth('admin', async (req: NextRequest, user, context) => 
   const { connection } = await loadConnection(id)
   if (!connection || connection.deleted === true) return apiError('Workspace connection not found', 404)
   const resolved = resolveOrgId(req, user)
-  const accessError = orgAccessError(user, resolved.orgId ?? connection.orgId, resolved.mismatch)
+  const accessError = orgAccessError(user, resolved.orgId ?? connection.orgId, resolved.mismatch, resolved)
   if (accessError) return accessError
   if (resolved.orgId && resolved.orgId !== connection.orgId) return apiError('Forbidden', 403)
   return apiSuccess(connection)
@@ -32,7 +32,7 @@ export const PATCH = withAuth('admin', async (req: NextRequest, user, context) =
   const { ref, connection } = await loadConnection(id)
   if (!connection || connection.deleted === true) return apiError('Workspace connection not found', 404)
   const resolved = resolveOrgId(req, user)
-  const accessError = orgAccessError(user, resolved.orgId ?? connection.orgId, resolved.mismatch)
+  const accessError = orgAccessError(user, resolved.orgId ?? connection.orgId, resolved.mismatch, resolved)
   if (accessError) return accessError
   if (resolved.orgId && resolved.orgId !== connection.orgId) return apiError('Forbidden', 403)
   const body = (await req.json()) as Record<string, unknown>
@@ -47,7 +47,7 @@ export const DELETE = withAuth('admin', async (req: NextRequest, user, context) 
   const { ref, connection } = await loadConnection(id)
   if (!connection || connection.deleted === true) return apiError('Workspace connection not found', 404)
   const resolved = resolveOrgId(req, user)
-  const accessError = orgAccessError(user, resolved.orgId ?? connection.orgId, resolved.mismatch)
+  const accessError = orgAccessError(user, resolved.orgId ?? connection.orgId, resolved.mismatch, resolved)
   if (accessError) return accessError
   if (resolved.orgId && resolved.orgId !== connection.orgId) return apiError('Forbidden', 403)
   await ref.update({ status: 'retired', deleted: true, ...lastActorFrom(user) })

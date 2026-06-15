@@ -13,7 +13,7 @@ export const dynamic = 'force-dynamic'
 export const GET = withAuth('admin', async (req: NextRequest, user) => {
   const { searchParams } = new URL(req.url)
   const resolved = resolveOrgId(req, user)
-  const accessError = orgAccessError(user, resolved.orgId, resolved.mismatch)
+  const accessError = orgAccessError(user, resolved.orgId, resolved.mismatch, resolved)
   if (accessError) return accessError
   const orgId = resolved.orgId!
   const snapshot = await adminDb.collection(WORKSPACE_CONNECTION_COLLECTION).where('orgId', '==', orgId).get()
@@ -28,7 +28,7 @@ export const GET = withAuth('admin', async (req: NextRequest, user) => {
 export const POST = withAuth('admin', async (req: NextRequest, user) => {
   const body = (await req.json()) as Record<string, unknown>
   const resolved = resolveOrgId(req, user, body)
-  const accessError = orgAccessError(user, resolved.orgId, resolved.mismatch)
+  const accessError = orgAccessError(user, resolved.orgId, resolved.mismatch, resolved)
   if (accessError) return accessError
   const orgId = resolved.orgId!
   let connection

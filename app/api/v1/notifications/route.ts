@@ -8,6 +8,7 @@ import { FieldValue } from 'firebase-admin/firestore'
 import { adminDb } from '@/lib/firebase/admin'
 import { withAuth } from '@/lib/api/auth'
 import { apiSuccess, apiError } from '@/lib/api/response'
+import { resolveOrgScope } from '@/lib/api/orgScope'
 import { actorFrom } from '@/lib/api/actor'
 import {
   VALID_NOTIFICATION_PRIORITIES,
@@ -22,10 +23,11 @@ export const dynamic = 'force-dynamic'
 const DEFAULT_LIMIT = 50
 const MAX_LIMIT = 200
 
-export const GET = withAuth('admin', async (req) => {
+export const GET = withAuth('admin', async (req, user) => {
   const { searchParams } = new URL(req.url)
-  const orgId = searchParams.get('orgId')
-  if (!orgId) return apiError('orgId is required', 400)
+  const scope = resolveOrgScope(user, searchParams.get('orgId'))
+  if (!scope.ok) return apiError(scope.error, scope.status)
+  const orgId = scope.orgId
 
   const statusParam = searchParams.get('status') ?? 'unread'
   const userId = searchParams.get('userId')
@@ -84,7 +86,9 @@ export const GET = withAuth('admin', async (req) => {
 export const POST = withAuth('admin', async (req, user) => {
   const body = await req.json().catch(() => ({}))
 
-  if (!body.orgId) return apiError('orgId is required', 400)
+  const requestedOrgId = typeof body.orgId === 'string' && body.orgId.trim() ? body.orgId.trim() : null
+  const scope = resolveOrgScope(user, requestedOrgId)
+  if (!scope.ok) return apiError(scope.error, scope.status)
   if (!body.type) return apiError('type is required', 400)
   if (!body.title) return apiError('title is required', 400)
 
@@ -105,7 +109,7 @@ export const POST = withAuth('admin', async (req, user) => {
   }
 
   const doc = {
-    orgId: String(body.orgId),
+    orgId: scope.orgId,
     userId: body.userId ?? null,
     agentId: body.agentId ?? null,
     type: String(body.type),

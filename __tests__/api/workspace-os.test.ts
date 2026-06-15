@@ -519,9 +519,7 @@ describe('workspace broker API routes', () => {
     expect(mockBatchCreate).not.toHaveBeenCalled()
   })
 
-  it('ignores caller body orgId when queueing artifact broker jobs and uses the artifact org', async () => {
-    generatedDocIds = ['job-artifact-org', 'event-artifact-org']
-    mockGet.mockResolvedValue({ docs: [] })
+  it('rejects caller body orgId mismatches when queueing artifact broker jobs', async () => {
     mockGetDoc.mockResolvedValueOnce({ exists: true, id: 'artifact-org', data: () => ({ orgId: 'org-1', title: 'Org Locked', artifactType: 'google_doc', visibility: 'admin_agents', connectionId: 'conn-org', deleted: false }) })
     const { POST } = await import('@/app/api/v1/workspace-broker/artifacts/[id]/permission-audit/route')
     const res = await POST(new NextRequest('http://localhost/api/v1/workspace-broker/artifacts/artifact-org/permission-audit', {
@@ -530,13 +528,8 @@ describe('workspace broker API routes', () => {
       body: JSON.stringify({ orgId: 'org-2', reason: 'attempted cross-org queue' }),
     }), { params: Promise.resolve({ id: 'artifact-org' }) })
 
-    expect(res.status).toBe(201)
-    expect(mockBatchSet).toHaveBeenCalledWith(expect.objectContaining({ id: 'job-artifact-org' }), expect.objectContaining({
-      orgId: 'org-1',
-      operation: 'permission_audit',
-      input: expect.objectContaining({ orgId: 'org-1', artifactId: 'artifact-org', connectionId: 'conn-org' }),
-      targetResource: expect.objectContaining({ orgId: 'org-1', artifactId: 'artifact-org', connectionId: 'conn-org' }),
-    }))
+    expect([400, 403]).toContain(res.status)
+    expect(mockBatchSet).not.toHaveBeenCalled()
   })
 
   it.each([

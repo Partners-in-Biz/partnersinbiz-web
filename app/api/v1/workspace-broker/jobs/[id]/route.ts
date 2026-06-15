@@ -18,7 +18,7 @@ export const GET = withAuth('admin', async (req: NextRequest, user, context) => 
   const job = { id: doc.id, ...(doc.data() as Record<string, unknown>) } as Record<string, unknown> & { id: string; orgId?: string }
   const resolved = resolveOrgId(req, user)
   const jobOrgId = typeof job.orgId === 'string' ? job.orgId : null
-  const accessError = orgAccessError(user, resolved.orgId ?? jobOrgId, resolved.mismatch)
+  const accessError = orgAccessError(user, resolved.orgId ?? jobOrgId, resolved.mismatch, resolved)
   if (accessError) return accessError
   if (resolved.orgId && resolved.orgId !== jobOrgId) return apiError('Forbidden', 403)
   return apiSuccess(job)
@@ -33,7 +33,7 @@ export const PATCH = withAuth('admin', async (req: NextRequest, user, context) =
   const job = { id: doc.id, ...(doc.data() as Record<string, unknown>) } as Record<string, unknown> & { id: string; orgId?: string; output?: Record<string, unknown> }
   const resolved = resolveOrgId(req, user)
   const jobOrgId = typeof job.orgId === 'string' ? job.orgId : null
-  const accessError = orgAccessError(user, resolved.orgId ?? jobOrgId, resolved.mismatch)
+  const accessError = orgAccessError(user, resolved.orgId ?? jobOrgId, resolved.mismatch, resolved)
   if (accessError) return accessError
   if (resolved.orgId && resolved.orgId !== jobOrgId) return apiError('Forbidden', 403)
 

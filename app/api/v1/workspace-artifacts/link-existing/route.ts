@@ -13,7 +13,7 @@ export const dynamic = 'force-dynamic'
 export const POST = withAuth('admin', async (req: NextRequest, user) => {
   const body = (await req.json()) as Record<string, unknown>
   const resolved = resolveOrgId(req, user, body)
-  const accessError = orgAccessError(user, resolved.orgId, resolved.mismatch)
+  const accessError = orgAccessError(user, resolved.orgId, resolved.mismatch, resolved)
   if (accessError) return accessError
   const orgId = resolved.orgId!
   let artifact

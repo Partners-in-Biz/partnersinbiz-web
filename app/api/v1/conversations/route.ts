@@ -36,11 +36,11 @@ export const POST = withAuth(
     const body = await req.json().catch(() => null)
     if (!body || typeof body !== 'object') return apiError('Invalid JSON body', 400)
 
-    const orgId = typeof body.orgId === 'string' ? body.orgId.trim() : ''
-    if (!orgId) return apiError('orgId is required', 400)
+    const requestedOrgId = typeof body.orgId === 'string' && body.orgId.trim() ? body.orgId.trim() : null
 
-    // Scope check
-    const scope = resolveOrgScope(user, orgId)
+    // Scope check. Client callers may omit orgId and use their selected active workspace;
+    // admin/AI callers remain explicit through resolveOrgScope.
+    const scope = resolveOrgScope(user, requestedOrgId)
     if (!scope.ok) return apiError(scope.error, scope.status)
     const startAccess = await assertUserCanPerformOrganizationModuleAction(
       user,

@@ -22,6 +22,7 @@ import { Timestamp } from 'firebase-admin/firestore'
 import { adminDb } from '@/lib/firebase/admin'
 import { withAuth } from '@/lib/api/auth'
 import { apiSuccess, apiError } from '@/lib/api/response'
+import { resolveOrgScope } from '@/lib/api/orgScope'
 import type { InboxItem } from '@/lib/inbox/types'
 import type { ApiUser } from '@/lib/api/types'
 
@@ -312,8 +313,9 @@ async function fetchOverdueInvoices(ctx: FetchContext, limit: number): Promise<I
 
 export const GET = withAuth('admin', async (req, user) => {
   const { searchParams } = new URL(req.url)
-  const orgId = searchParams.get('orgId')
-  if (!orgId) return apiError('orgId is required', 400)
+  const orgScope = resolveOrgScope(user, searchParams.get('orgId'))
+  if (!orgScope.ok) return apiError(orgScope.error, orgScope.status)
+  const orgId = orgScope.orgId
 
   const scopeRaw = (searchParams.get('for') ?? 'me') as ForScope
   const scope: ForScope = scopeRaw === 'agent' || scopeRaw === 'all' ? scopeRaw : 'me'

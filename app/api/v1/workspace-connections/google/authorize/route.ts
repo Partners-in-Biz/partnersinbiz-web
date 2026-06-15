@@ -27,7 +27,7 @@ export const GET = withAuth('admin', async (req: NextRequest, user) => {
 
   const url = new URL(req.url)
   const resolved = resolveOrgId(req, user)
-  const accessError = orgAccessError(user, resolved.orgId, resolved.mismatch)
+  const accessError = orgAccessError(user, resolved.orgId, resolved.mismatch, resolved)
   if (accessError) return accessError
   const orgId = resolved.orgId!
   const uid = user.uid

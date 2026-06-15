@@ -13,7 +13,7 @@ export async function loadWorkspaceArtifactForBroker(req: NextRequest, user: Api
   if (artifact.deleted === true) return { response: apiError('Workspace artifact not found', 404) }
 
   const resolved = resolveOrgId(req, user)
-  const accessError = orgAccessError(user, resolved.orgId ?? artifact.orgId, resolved.mismatch)
+  const accessError = orgAccessError(user, resolved.orgId ?? artifact.orgId, resolved.mismatch, resolved)
   if (accessError) return { response: accessError }
   if (resolved.orgId && resolved.orgId !== artifact.orgId) return { response: apiError('Forbidden', 403) }
 
