@@ -35,8 +35,6 @@ import {
 
 const PORTAL_MATERIAL_SYMBOLS =
   'https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap'
-const DOCUMENT_BADGE_REFRESH_MS = 15 * 60_000
-const DOCUMENT_BADGE_CACHE_TTL_MS = 5 * 60_000
 
 interface NavItem {
   href: string
@@ -44,7 +42,6 @@ interface NavItem {
   icon: string
   group: 'work' | 'data' | 'comms'
   activePatterns?: string[]
-  badge?: number
 }
 
 const NAV_LINKS: NavItem[] = [
@@ -168,34 +165,6 @@ interface PortalOrgOption {
   modulePolicies?: OrganizationModulePolicies
 }
 
-function documentBadgeCacheKey(orgId?: string | null) {
-  return `pib_document_count:${orgId || 'active'}`
-}
-
-function readCachedDocumentCount(orgId?: string | null): number | null {
-  if (typeof window === 'undefined') return null
-  try {
-    const raw = window.localStorage.getItem(documentBadgeCacheKey(orgId))
-    if (!raw) return null
-    const cached = JSON.parse(raw) as { count?: unknown; cachedAt?: unknown }
-    if (typeof cached.count !== 'number' || typeof cached.cachedAt !== 'number') return null
-    if (Date.now() - cached.cachedAt > DOCUMENT_BADGE_CACHE_TTL_MS) return null
-    return cached.count
-  } catch {
-    return null
-  }
-}
-
-function writeCachedDocumentCount(orgId: string | null | undefined, count: number) {
-  if (typeof window === 'undefined') return
-  try {
-    window.localStorage.setItem(
-      documentBadgeCacheKey(orgId),
-      JSON.stringify({ count, cachedAt: Date.now() }),
-    )
-  } catch {}
-}
-
 function active(pathname: string, item: NavItem) {
   const hrefPath = item.href.split('?')[0] ?? item.href
   if (pathname === hrefPath || pathname.startsWith(hrefPath + '/')) return true
@@ -240,11 +209,10 @@ function resolvePortalAccessPolicy(user: unknown): MemberAccessPolicy {
 
 function NavLink({ item, pathname, collapsed }: { item: NavItem; pathname: string; collapsed?: boolean }) {
   const on = active(pathname, item)
-  const badge = item.badge && item.badge > 0 ? item.badge : null
   return (
     <Link
       href={item.href}
-      title={collapsed && badge ? `${item.label} — ${badge} unread` : collapsed ? item.label : undefined}
+      title={collapsed ? item.label : undefined}
       className={[
         'relative flex items-center rounded-lg text-sm transition-all duration-150',
         collapsed ? 'justify-center px-0 py-2.5' : 'gap-3 px-3 py-2',
@@ -257,14 +225,6 @@ function NavLink({ item, pathname, collapsed }: { item: NavItem; pathname: strin
         {item.icon}
       </span>
       {!collapsed && <span className="font-medium flex-1">{item.label}</span>}
-      {badge !== null && !collapsed && (
-        <span className="text-[10px] font-mono px-1.5 py-0.5 rounded-full bg-[var(--color-pib-accent)] text-black font-semibold leading-none">
-          {badge > 99 ? '99+' : badge}
-        </span>
-      )}
-      {badge !== null && collapsed && (
-        <span className="absolute top-1 right-1 w-1.5 h-1.5 rounded-full bg-[var(--color-pib-accent)]" />
-      )}
     </Link>
   )
 }
@@ -309,7 +269,6 @@ function PortalLayoutContent({ children }: { children: React.ReactNode }) {
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [collapsed, setCollapsed]   = useState(false)
   const [layoutMode, setLayoutMode] = useState<LayoutMode>('sidebar')
-  const [documentCount, setDocumentCount] = useState(0)
   const [orgs, setOrgs] = useState<PortalOrgOption[]>([])
   const [activeOrgId, setActiveOrgId] = useState('')
   const [activeOrgSlug, setActiveOrgSlug] = useState('')
@@ -419,56 +378,6 @@ function PortalLayoutContent({ children }: { children: React.ReactNode }) {
     setDrawerOpen(false)
   }, [pathname])
 
-  // Document badge: refresh sparingly because the count endpoint scans Firestore documents.
-  useEffect(() => {
-    if (checking) return
-    let cancelled = false
-    let inFlight = false
-    const cached = readCachedDocumentCount(requestedOrgId)
-    if (cached !== null) setDocumentCount(cached)
-
-    async function refresh({ force = false }: { force?: boolean } = {}) {
-      if (cancelled || inFlight) return
-      if (!force && document.visibilityState !== 'visible') return
-      const cachedCount = readCachedDocumentCount(requestedOrgId)
-      if (!force && cachedCount !== null) {
-        setDocumentCount(cachedCount)
-        return
-      }
-      inFlight = true
-      try {
-        const res = await fetch(requestedOrgId
-          ? `/api/v1/portal/documents/count?orgId=${encodeURIComponent(requestedOrgId)}`
-          : '/api/v1/portal/documents/count')
-        if (!res.ok) return
-        const body = await res.json()
-        const count = body?.data?.count ?? 0
-        if (typeof count === 'number') {
-          writeCachedDocumentCount(requestedOrgId, count)
-          if (!cancelled) setDocumentCount(count)
-        }
-      } catch {
-      } finally {
-        inFlight = false
-      }
-    }
-    refresh({ force: cached === null })
-    const id = window.setInterval(() => {
-      refresh().catch(() => {})
-    }, DOCUMENT_BADGE_REFRESH_MS)
-    const handleVisibility = () => {
-      if (document.visibilityState === 'visible') refresh().catch(() => {})
-    }
-    window.addEventListener('focus', handleVisibility)
-    document.addEventListener('visibilitychange', handleVisibility)
-    return () => {
-      cancelled = true
-      window.clearInterval(id)
-      window.removeEventListener('focus', handleVisibility)
-      document.removeEventListener('visibilitychange', handleVisibility)
-    }
-  }, [checking, requestedOrgId])
-
   function toggleCollapsed() {
     setCollapsed(prev => {
       localStorage.setItem('portal_sidebar_collapsed', String(!prev))
@@ -555,16 +464,16 @@ function PortalLayoutContent({ children }: { children: React.ReactNode }) {
     if (item.href === '/portal/book-studio') return portalModules.bookStudio
     return true
   })
-  const navWithBadges: NavItem[] = visibleNavLinks.map((item) => {
+  const navItems: NavItem[] = visibleNavLinks.map((item) => {
     const href = requestedOrgId
       ? scopedShellHref(item.href)
       : item.href
-    return item.href === '/portal/documents' ? { ...item, href, badge: documentCount } : { ...item, href }
+    return { ...item, href }
   })
 
   const grouped = (['work', 'data', 'comms'] as const).map(g => ({
     group: g,
-    items: navWithBadges.filter(n => n.group === g),
+    items: navItems.filter(n => n.group === g),
   }))
   const requestedWorkspaceOption: PortalOrgOption | null = activeOrgId && orgName && !orgs.some(org => org.id === activeOrgId)
     ? {
@@ -628,7 +537,7 @@ function PortalLayoutContent({ children }: { children: React.ReactNode }) {
 
             {/* Nav — scrollable */}
             <nav className="hidden md:flex items-center gap-0.5 overflow-x-auto scrollbar-none flex-1 min-w-0">
-              {navWithBadges.map(item => {
+              {navItems.map(item => {
                 const on = active(pathname, item)
                 return (
                   <Link
@@ -645,11 +554,6 @@ function PortalLayoutContent({ children }: { children: React.ReactNode }) {
                       {item.icon}
                     </span>
                     <span className="hidden lg:inline font-medium">{item.label}</span>
-                    {item.badge && item.badge > 0 && (
-                      <span className="text-[10px] font-mono px-1.5 py-0.5 rounded-full bg-[var(--color-pib-accent)] text-black font-semibold leading-none">
-                        {item.badge > 99 ? '99+' : item.badge}
-                      </span>
-                    )}
                   </Link>
                 )
               })}
@@ -720,7 +624,7 @@ function PortalLayoutContent({ children }: { children: React.ReactNode }) {
           <div className="md:hidden fixed inset-0 z-40 flex flex-col">
             <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={() => setDrawerOpen(false)} />
             <div className="relative z-10 mt-14 bg-[var(--color-pib-bg)] border-b border-[var(--color-pib-line)] p-4 flex flex-col gap-1 max-h-[80vh] overflow-y-auto">
-              {navWithBadges.map(item => {
+              {navItems.map(item => {
                 const on = active(pathname, item)
                 return (
                   <Link
@@ -735,11 +639,6 @@ function PortalLayoutContent({ children }: { children: React.ReactNode }) {
                   >
                     <span className="material-symbols-outlined text-[18px] opacity-70">{item.icon}</span>
                     <span className="flex-1">{item.label}</span>
-                    {item.badge && item.badge > 0 && (
-                      <span className="text-[10px] font-mono px-1.5 py-0.5 rounded-full bg-[var(--color-pib-accent)] text-black font-semibold leading-none">
-                        {item.badge > 99 ? '99+' : item.badge}
-                      </span>
-                    )}
                   </Link>
                 )
               })}
@@ -924,7 +823,7 @@ function PortalLayoutContent({ children }: { children: React.ReactNode }) {
         ) : (
           <nav className={['flex-1 overflow-y-auto py-4', collapsed ? 'px-2 space-y-1' : 'px-3 space-y-5'].join(' ')}>
             {collapsed
-              ? navWithBadges.map(item => <NavLink key={item.href} item={item} pathname={pathname} collapsed />)
+              ? navItems.map(item => <NavLink key={item.href} item={item} pathname={pathname} collapsed />)
               : grouped.map(({ group, items }) => (
                   <div key={group} className="space-y-1">
                     <p className="eyebrow !text-[10px] px-3 mb-2">{GROUP_LABELS[group]}</p>
