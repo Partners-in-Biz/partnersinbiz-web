@@ -40,6 +40,18 @@ export interface ReflectionCoachContext {
   nextCoachPrompt: string
 }
 
+export interface ReflectionSafetyCopy {
+  disclosure: string
+  consent: string
+  crisis: string
+}
+
+export const LIFE_OS_REFLECTION_SAFETY_COPY: ReflectionSafetyCopy = {
+  disclosure: 'Life OS reflections and AI coaching are not medical, mental-health, crisis, legal, financial, or other professional advice.',
+  consent: 'Personal reflection data is stored only after consent and remains scoped to the selected organisation and owner.',
+  crisis: 'If this is urgent or you may harm yourself or someone else, contact local emergency services or a trusted professional now.',
+}
+
 export interface DailyCheckInRecord {
   id: string
   type: 'daily'
