@@ -1,6 +1,6 @@
 import { FieldValue } from 'firebase-admin/firestore'
-import { google } from 'googleapis'
 import { adminDb } from '@/lib/firebase/admin'
+import { buildGoogleWorkspaceClients, type GoogleWorkspaceClients } from '@/lib/google-workspace/client'
 import { WORKSPACE_ARTIFACT_COLLECTION, normalizeWorkspaceArtifactInput } from '@/lib/workspace-os/artifacts'
 import { asRecord, cleanString } from '@/lib/workspace-os/common'
 import { canExecuteWorkspaceBrokerJob, type WorkspaceBrokerJob, type WorkspaceBrokerOperation } from '@/lib/workspace-os/broker'
@@ -20,38 +20,7 @@ export interface WorkspaceBrokerExecutionResult {
   output: Record<string, unknown>
 }
 
-type DriveClient = ReturnType<typeof google.drive>
-type DocsClient = ReturnType<typeof google.docs>
-type SheetsClient = ReturnType<typeof google.sheets>
-
-interface GoogleWorkspaceClients {
-  drive: DriveClient
-  docs: DocsClient
-  sheets: SheetsClient
-}
-
-function requiredEnvCredentialPath(): string {
-  const credentialPath = cleanString(process.env.GOOGLE_WORKSPACE_CREDS_JSON_PATH)
-  if (!credentialPath) throw new Error('GOOGLE_WORKSPACE_CREDS_JSON_PATH is not configured')
-  return credentialPath
-}
-
-async function buildGoogleWorkspaceClients(): Promise<GoogleWorkspaceClients> {
-  const keyFile = requiredEnvCredentialPath()
-  const auth = new google.auth.GoogleAuth({
-    keyFile,
-    scopes: [
-      'https://www.googleapis.com/auth/drive',
-      'https://www.googleapis.com/auth/documents',
-      'https://www.googleapis.com/auth/spreadsheets',
-    ],
-  })
-  return {
-    drive: google.drive({ version: 'v3', auth }),
-    docs: google.docs({ version: 'v1', auth }),
-    sheets: google.sheets({ version: 'v4', auth }),
-  }
-}
+type DriveClient = GoogleWorkspaceClients['drive']
 
 function inputTitle(input: Record<string, unknown>, fallback: string): string {
   return cleanString(input.title) ?? cleanString(input.name) ?? fallback
@@ -245,7 +214,6 @@ export async function executeWorkspaceBrokerJob(job: WorkspaceBrokerJob & { id?:
     if (!executionGate.ok) throw new Error(executionGate.reason === 'approval_required' ? 'Workspace broker approval evidence is required before execution' : 'Workspace broker job is not ready for execution')
     await assertWorkspaceBrokerExecutionGate(job)
   }
-  requiredEnvCredentialPath()
   const input = asRecord(job.input)
   const clients = await buildGoogleWorkspaceClients()
   const createdFileIds: string[] = []
