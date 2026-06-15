@@ -1,11 +1,27 @@
 // __tests__/lib/orgScope.test.ts
 import { resolveOrgScope } from '@/lib/api/orgScope'
+import {
+  SELECTED_ORG_CONTEXT_AUDIT_MAP,
+  resolveSelectedOrgContext,
+} from '@/lib/api/selectedOrgContext'
 import type { ApiUser } from '@/lib/api/types'
 import { isSuperAdmin, isRestrictedAdmin } from '@/lib/api/platformAdmin'
 
 describe('resolveOrgScope', () => {
   describe('client role', () => {
-    it('forces orgId to user.orgId when no override is supplied', () => {
+    it('prefers activeOrgId over user.orgId when no override is supplied', () => {
+      const user: ApiUser = {
+        uid: 'u1',
+        role: 'client',
+        orgId: 'default-org',
+        activeOrgId: 'selected-org',
+        orgIds: ['default-org', 'selected-org'],
+      }
+      const r = resolveOrgScope(user, null)
+      expect(r).toEqual({ ok: true, orgId: 'selected-org' })
+    })
+
+    it('falls back to user.orgId when no active org is selected', () => {
       const user: ApiUser = { uid: 'u1', role: 'client', orgId: 'org-a' }
       const r = resolveOrgScope(user, null)
       expect(r).toEqual({ ok: true, orgId: 'org-a' })
@@ -105,6 +121,80 @@ describe('resolveOrgScope', () => {
       const user: ApiUser = { uid: 'ai-agent', role: 'ai' }
       expect(resolveOrgScope(user, 'org-z')).toEqual({ ok: true, orgId: 'org-z' })
     })
+  })
+})
+
+
+
+describe('resolveSelectedOrgContext', () => {
+  it('returns selected-org-aware client context when activeOrgId differs from the default org', () => {
+    const result = resolveSelectedOrgContext({
+      uid: 'u1',
+      role: 'client',
+      orgId: 'default-org',
+      activeOrgId: 'selected-org',
+      orgIds: ['default-org', 'selected-org'],
+    })
+
+    expect(result).toEqual({
+      ok: true,
+      orgId: 'selected-org',
+      source: 'activeOrgId',
+      selectedOrgId: 'selected-org',
+      defaultOrgId: 'default-org',
+      accessibleOrgIds: ['default-org', 'selected-org'],
+    })
+  })
+
+  it('ignores an inaccessible activeOrgId and falls back to the default org', () => {
+    const result = resolveSelectedOrgContext({
+      uid: 'u1',
+      role: 'client',
+      orgId: 'default-org',
+      activeOrgId: 'other-org',
+      orgIds: ['default-org'],
+    })
+
+    expect(result).toEqual({
+      ok: true,
+      orgId: 'default-org',
+      source: 'defaultOrgId',
+      selectedOrgId: 'other-org',
+      defaultOrgId: 'default-org',
+      accessibleOrgIds: ['default-org'],
+    })
+  })
+
+  it('keeps admin workspace context explicit instead of silently falling back', () => {
+    const result = resolveSelectedOrgContext({ uid: 'admin', role: 'admin', orgId: 'pib-platform-owner' })
+
+    expect(result).toEqual({
+      ok: false,
+      status: 400,
+      error: 'orgId is required (admin role must scope explicitly)',
+    })
+  })
+})
+
+describe('selected organisation context audit map', () => {
+  it('classifies required rollout surfaces', () => {
+    expect(SELECTED_ORG_CONTEXT_AUDIT_MAP).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ surface: 'agent-chat-and-runs', classification: 'selected-org-aware' }),
+        expect.objectContaining({ surface: 'projects-kanban', classification: 'selected-org-aware' }),
+        expect.objectContaining({ surface: 'client-documents', classification: 'selected-org-aware' }),
+        expect.objectContaining({ surface: 'workspace-files-artifacts', classification: 'selected-org-aware' }),
+        expect.objectContaining({ surface: 'briefings-inbox-notifications', classification: 'selected-org-aware' }),
+        expect.objectContaining({ surface: 'reports-dashboards', classification: 'selected-org-aware' }),
+        expect.objectContaining({ surface: 'support', classification: 'selected-org-aware' }),
+        expect.objectContaining({ surface: 'social-content-seo-ads', classification: 'selected-org-aware' }),
+        expect.objectContaining({ surface: 'research-intelligence', classification: 'selected-org-aware' }),
+        expect.objectContaining({ surface: 'crm-company-contact-deal-views', classification: 'CRM-scoped' }),
+        expect.objectContaining({ surface: 'crm-company-invoices', classification: 'CRM-scoped' }),
+        expect.objectContaining({ surface: 'platform-admin-settings', classification: 'intentionally global' }),
+        expect.objectContaining({ surface: 'public-tokenized-links', classification: 'not applicable' }),
+      ]),
+    )
   })
 })
 

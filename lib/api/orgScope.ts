@@ -13,6 +13,7 @@
 
 import type { ApiUser } from './types'
 import { canAccessOrg } from './platformAdmin'
+import { resolveSelectedOrgContext } from './selectedOrgContext'
 import { PIB_PLATFORM_ORG_ID } from '@/lib/platform/constants'
 
 export interface OrgScopeOk {
@@ -53,17 +54,7 @@ export function resolveOrgScope(user: ApiUser, requestedOrgId: string | null): O
     return { ok: true, orgId: requestedOrgId }
   }
 
-  // Client: can access any org in their orgIds list.
-  const userOrgIds = user.orgIds?.length ? user.orgIds : (user.orgId ? [user.orgId] : [])
-  if (!userOrgIds.length) {
-    return {
-      ok: false,
-      status: 403,
-      error: 'No organisation membership — ask your account owner to invite you.',
-    }
-  }
-  if (requestedOrgId && !userOrgIds.includes(requestedOrgId)) {
-    return { ok: false, status: 403, error: 'You do not have access to this organisation' }
-  }
-  return { ok: true, orgId: requestedOrgId || userOrgIds[0] }
+  const selectedContext = resolveSelectedOrgContext(user, requestedOrgId)
+  if (!selectedContext.ok) return selectedContext
+  return { ok: true, orgId: selectedContext.orgId }
 }
