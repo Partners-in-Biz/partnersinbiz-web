@@ -18,9 +18,9 @@ export const POST = withAuth('admin', async (req: NextRequest, user) => {
   const permission = await shareDriveFile({
     fileId,
     type,
-    emailAddress: optionalString(body.emailAddress),
+    emailAddress: optionalString(body.emailAddress) ?? optionalString(body.email),
     role: optionalString(body.role),
-    sendNotificationEmail: parseBoolean(body.sendNotificationEmail) ?? false,
+    sendNotificationEmail: parseBoolean(body.sendNotificationEmail) ?? parseBoolean(body.sendNotification) ?? false,
   })
   return apiSuccess(permission)
 })

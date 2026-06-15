@@ -16,7 +16,7 @@ export const POST = withAuth('admin', async (req: NextRequest, user) => {
   const doc = await createGoogleDoc({
     title,
     folderId: optionalString(body.folderId),
-    content: optionalString(body.content),
+    content: optionalString(body.markdown) ?? optionalString(body.content),
   })
   return apiSuccess(doc, 201)
 })

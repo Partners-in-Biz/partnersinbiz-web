@@ -98,7 +98,7 @@ describe('Google Workspace proxy routes', () => {
     const ok = await POST(new NextRequest('http://localhost/api/v1/google/drive/share', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ orgId: 'org-1', fileId: 'file-1', emailAddress: 'client@example.com', role: 'writer' }),
+      body: JSON.stringify({ orgId: 'org-1', fileId: 'file-1', email: 'client@example.com', role: 'writer', sendNotification: true }),
     }))
     const blocked = await POST(new NextRequest('http://localhost/api/v1/google/drive/share', {
       method: 'POST',
@@ -109,7 +109,7 @@ describe('Google Workspace proxy routes', () => {
     expect(ok.status).toBe(200)
     expect(blocked.status).toBe(400)
     expect(mockShareDriveFile).toHaveBeenCalledTimes(1)
-    expect(mockShareDriveFile).toHaveBeenCalledWith(expect.objectContaining({ fileId: 'file-1', emailAddress: 'client@example.com', role: 'writer' }))
+    expect(mockShareDriveFile).toHaveBeenCalledWith(expect.objectContaining({ fileId: 'file-1', emailAddress: 'client@example.com', role: 'writer', sendNotificationEmail: true }))
   })
 
   it('searches Drive with a query and optional folder scope', async () => {
@@ -129,7 +129,7 @@ describe('Google Workspace proxy routes', () => {
     const res = await POST(new NextRequest('http://localhost/api/v1/google/docs/create', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ orgId: 'org-1', folderId: 'folder-1', title: 'Runbook', content: 'Initial notes' }),
+      body: JSON.stringify({ orgId: 'org-1', folderId: 'folder-1', title: 'Runbook', markdown: 'Initial notes' }),
     }))
 
     expect(res.status).toBe(201)
