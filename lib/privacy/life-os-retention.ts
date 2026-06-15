@@ -213,7 +213,10 @@ export async function runLifeOsRetention(store: LifeOsRetentionStore, options: L
   if (deletionEligible) {
     for (const collection of LIFE_OS_ANONYMISE_COLLECTIONS) {
       for (const record of recordsByCollection[collection] ?? []) {
-        if (isScopedPersonalRecord(record, orgId, ownerUid) && !record.data.anonymised) {
+        const eligibleProfile = collection === 'life_os_profiles'
+          && isOlderThan(record.data.deletionRequestedAt, nowMs, LIFE_OS_RETENTION_RULES.deletionRequest.graceDays)
+        const eligibleConversation = collection === 'hermes_conversations'
+        if (isScopedPersonalRecord(record, orgId, ownerUid) && !record.data.anonymised && (eligibleProfile || eligibleConversation)) {
           candidates.push({ collection, record, action: 'anonymise' })
         }
       }

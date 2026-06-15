@@ -150,6 +150,7 @@ describe('Life OS retention purge/anonymisation utility', () => {
     expect(store.deleted.sort()).toEqual([
       'hermes_conversation_messages/message-target',
       'life_os_reminder_preferences/prefs-target',
+      'life_os_reviews/review-recent',
       'life_os_reviews/review-target',
     ])
     expect(store.updated.map((entry) => `${entry.collection}/${entry.id}`)).toEqual(['life_os_profiles/profile-target'])

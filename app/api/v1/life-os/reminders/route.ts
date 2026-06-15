@@ -36,23 +36,42 @@ async function loadPreferences(orgId: string, ownerId: string, now = new Date().
   return buildReminderPreferences({ orgId, ownerId }, now)
 }
 
+function cleanLimit(value: string | null) {
+  const parsed = Number(value ?? 100)
+  if (!Number.isFinite(parsed) || parsed < 1) return 100
+  return Math.min(Math.floor(parsed), 200)
+}
+
+function canAccessOwner(user: { uid: string; role?: string }, ownerId: string) {
+  return ownerId === user.uid || user.role === 'admin' || user.role === 'super_admin'
+}
+
+function mergePreferenceInput(existing: ReminderPreferences, body: ReminderPreferencesInput): ReminderPreferencesInput {
+  return {
+    orgId: existing.orgId,
+    ownerId: existing.ownerId,
+    optedIn: body.optedIn ?? existing.optedIn,
+    channels: { ...existing.channels, ...body.channels },
+    quietHours: { ...existing.quietHours, ...body.quietHours },
+    enabledKinds: body.enabledKinds ?? existing.enabledKinds,
+  }
+}
+
 export const GET = withAuth('client', async (req, user) => {
   const { searchParams } = new URL(req.url)
   const orgId = searchParams.get('orgId')?.trim()
   const ownerId = searchParams.get('ownerId')?.trim() || user.uid
-  const limit = Math.min(Number(searchParams.get('limit') ?? 100), 200)
+  const limit = cleanLimit(searchParams.get('limit'))
 
   if (!orgId) return apiError('orgId is required; pass it as a query param')
   if (!canAccessOrg(user, orgId)) return apiError('Forbidden', 403)
-  if (ownerId !== user.uid) return apiError('Forbidden', 403)
+  if (!canAccessOwner(user, ownerId)) return apiError('Forbidden', 403)
 
   const preferences = await loadPreferences(orgId, ownerId)
   let query = remindersCollection().where('orgId', '==', orgId)
   query = query.where('ownerId', '==', ownerId)
-  const snapshot = await query.orderBy('scheduledFor', 'asc').get()
-  const reminders = snapshot.docs
-    .map((doc) => ({ id: doc.id, ...doc.data() }) as ReminderRecord)
-    .slice(0, limit)
+  const snapshot = await query.orderBy('scheduledFor', 'asc').limit(limit).get()
+  const reminders = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }) as ReminderRecord)
 
   return apiSuccess({ preferences, reminders }, 200, { total: reminders.length, page: 1, limit })
 })
@@ -63,10 +82,12 @@ export const PATCH = withAuth('client', async (req, user) => {
   const ownerId = body.ownerId?.trim() || user.uid
   if (!orgId) return apiError('orgId is required')
   if (!canAccessOrg(user, orgId)) return apiError('Forbidden', 403)
+  if (!canAccessOwner(user, ownerId)) return apiError('Forbidden', 403)
 
   try {
     const now = new Date().toISOString()
-    const preferences = buildReminderPreferences({ ...body, orgId, ownerId }, now)
+    const existing = await loadPreferences(orgId, ownerId, now)
+    const preferences = buildReminderPreferences(mergePreferenceInput(existing, { ...body, orgId, ownerId }), now)
     await preferencesCollection().doc(preferences.id).set(preferences, { merge: true })
     return apiSuccess(preferences)
   } catch (error) {
@@ -80,6 +101,7 @@ export const POST = withAuth('client', async (req, user) => {
   const ownerId = body.ownerId?.trim() || user.uid
   if (!orgId) return apiError('orgId is required')
   if (!canAccessOrg(user, orgId)) return apiError('Forbidden', 403)
+  if (!canAccessOwner(user, ownerId)) return apiError('Forbidden', 403)
 
   try {
     const now = new Date().toISOString()
@@ -90,15 +112,23 @@ export const POST = withAuth('client', async (req, user) => {
       ownerId,
       timezone: candidate.timezone || preferences.quietHours.timezone,
     }))
-    const reminders = buildReminderSchedule(candidates, preferences, now)
+    const dueResults = candidates.map((candidate) => evaluateReminderDue(candidate, preferences, now))
+    const allowedCandidates = candidates.filter((_, index) => {
+      const reason = dueResults[index].reason
+      return reason !== 'consent-required' && reason !== 'kind-disabled' && reason !== 'notification-channel-disabled'
+    })
+    const suppressed = candidates
+      .map((candidate, index) => ({ kind: candidate.kind, target: candidate.target, reason: dueResults[index].reason }))
+      .filter((item) => item.reason === 'consent-required' || item.reason === 'kind-disabled' || item.reason === 'notification-channel-disabled')
+    const reminders = allowedCandidates.map((candidate) => buildReminderRecord(candidate, preferences, now))
     const created = []
 
     for (const reminder of reminders) {
-      const doc = await remindersCollection().add(reminder)
-      created.push({ ...reminder, id: doc.id })
+      await remindersCollection().doc(reminder.id).set(reminder, { merge: true })
+      created.push(reminder)
     }
 
-    return apiSuccess({ created }, 201, { total: created.length, page: 1, limit: created.length })
+    return apiSuccess({ created, suppressed }, 201, { total: created.length, page: 1, limit: created.length })
   } catch (error) {
     return apiError(error instanceof Error ? error.message : 'Invalid reminder schedule payload')
   }
