@@ -2,6 +2,9 @@ import { NextRequest } from 'next/server'
 
 const mockListMetrics = jest.fn()
 const mockLogActivity = jest.fn()
+const mockBuildLifeOsExport = jest.fn()
+const mockRequestLifeOsDelete = jest.fn()
+const mockDeleteOrAnonymiseLifeOsUserData = jest.fn()
 
 type MockPortalRoleHandler = (
   req: NextRequest,
