@@ -202,4 +202,64 @@ describe('POST /api/v1/conversations/[convId]/messages/[msgId]/finalize', () => 
       ],
     }))
   })
+
+  it('extracts rich parts from JSON text output instead of persisting raw JSON in the chat bubble', async () => {
+    const richJsonText = JSON.stringify({
+      rich_parts: [
+        { type: 'markdown', content: '### PIB rich chat smoke test\nThis should render as markdown.' },
+        {
+          type: 'status_card',
+          title: 'Rich chat contract smoke test',
+          status: 'ready_for_review',
+          body: 'No external action was performed.',
+        },
+      ],
+      ui_actions: [
+        { id: 'copy-summary', type: 'copy', label: 'Copy summary', value: 'PIB rich chat smoke test' },
+      ],
+    }, null, 2)
+
+    mockCallHermesJson.mockResolvedValue({
+      response: { ok: true },
+      data: {
+        status: 'completed',
+        output: {
+          content: richJsonText,
+        },
+      },
+    })
+
+    const res = await callFinalize({ runId: 'run-json-rich', agentId: 'pip', events: [] })
+    const body = await res.json()
+
+    expect(res.status).toBe(200)
+    expect(body.data.status).toBe('completed')
+    expect(mockMessageUpdate).toHaveBeenCalledWith(expect.objectContaining({
+      content: '',
+      status: 'completed',
+      runId: 'run-json-rich',
+      richParts: [
+        { type: 'markdown', content: '### PIB rich chat smoke test\nThis should render as markdown.' },
+        {
+          type: 'status',
+          title: 'Rich chat contract smoke test',
+          status: 'ready_for_review',
+          body: 'No external action was performed.',
+        },
+      ],
+      uiActions: [
+        { id: 'copy-summary', type: 'copy', label: 'Copy summary', value: 'PIB rich chat smoke test' },
+      ],
+    }))
+    expect(mockTouchConversation).toHaveBeenCalledWith(
+      'conv-1',
+      expect.stringContaining('PIB rich chat smoke test'),
+      'assistant',
+    )
+    expect(mockTouchConversation).not.toHaveBeenCalledWith(
+      'conv-1',
+      expect.stringContaining('"rich_parts"'),
+      'assistant',
+    )
+  })
 })

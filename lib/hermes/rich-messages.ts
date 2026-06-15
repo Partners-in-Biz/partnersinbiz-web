@@ -120,7 +120,7 @@ function normalizeRichPart(value: unknown): RichMessagePart | null {
   if (!record) return null
   const type = cleanString(record.type) ?? cleanString(record.kind)
   if (!type) return null
-  const normalizedType = type.toLowerCase()
+  const normalizedType = normalizeRichPartType(type)
   const actionId = cleanString(record.actionId) ?? cleanString(record.action_id)
   const known = [
     'type',
@@ -228,6 +228,14 @@ function normalizeRichPart(value: unknown): RichMessagePart | null {
   return part
 }
 
+function normalizeRichPartType(type: string): string {
+  const normalized = type.toLowerCase().replace(/-/g, '_')
+  if (normalized === 'status_card' || normalized === 'statuscard') return 'status'
+  if (normalized === 'model_picker' || normalized === 'modelpicker') return 'model_picker'
+  if (normalized === 'tool_output' || normalized === 'tooloutput') return 'tool_output'
+  return normalized
+}
+
 export function normalizeRichParts(value: unknown): RichMessagePart[] {
   const values = Array.isArray(value) ? value : asRecord(value) ? [value] : []
   return values.map(normalizeRichPart).filter((part): part is RichMessagePart => Boolean(part))
@@ -304,6 +312,8 @@ export function richPartsFromPayload(value: unknown, depth = 0): RichMessagePart
   if (depth > 5 || value == null) return []
   const record = asRecord(value)
   if (!record) {
+    const textPayload = richRecordFromText(value)
+    if (textPayload) return richPartsFromPayload(textPayload, depth + 1)
     return Array.isArray(value) ? value.flatMap((item) => richPartsFromPayload(item, depth + 1)) : []
   }
 
@@ -320,6 +330,8 @@ export function uiActionsFromPayload(value: unknown, depth = 0): ChatUiAction[] 
   if (depth > 5 || value == null) return []
   const record = asRecord(value)
   if (!record) {
+    const textPayload = richRecordFromText(value)
+    if (textPayload) return uiActionsFromPayload(textPayload, depth + 1)
     return Array.isArray(value) ? value.flatMap((item) => uiActionsFromPayload(item, depth + 1)) : []
   }
 
@@ -364,4 +376,31 @@ export function richPayloadFromRecord(record: PlainRecord): Pick<ChatEvent, 'ric
     ...(richParts.length > 0 ? { richParts } : {}),
     ...(uiActions.length > 0 ? { uiActions } : {}),
   }
+}
+
+function unfenceJsonText(text: string): string {
+  const trimmed = text.trim()
+  const fenced = trimmed.match(/^```(?:json)?\s*([\s\S]*?)\s*```$/i)
+  return fenced?.[1]?.trim() ?? trimmed
+}
+
+export function richRecordFromText(value: unknown): PlainRecord | null {
+  const text = rawString(value)
+  if (!text) return null
+  const candidate = unfenceJsonText(text)
+  if (!candidate.startsWith('{') || !candidate.endsWith('}')) return null
+  try {
+    const parsed = JSON.parse(candidate)
+    const record = asRecord(parsed)
+    if (!record) return null
+    const richParts = normalizeRichParts(record.richParts ?? record.rich_parts)
+    const uiActions = normalizeUiActions(record.uiActions ?? record.ui_actions ?? record.actions)
+    return richParts.length > 0 || uiActions.length > 0 ? record : null
+  } catch {
+    return null
+  }
+}
+
+export function isRichPayloadText(value: unknown): boolean {
+  return Boolean(richRecordFromText(value))
 }

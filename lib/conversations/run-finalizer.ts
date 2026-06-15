@@ -8,6 +8,7 @@ import {
   dedupeStructured,
   richPartsFromEvents,
   richPartsFromPayload,
+  isRichPayloadText,
   uiActionsFromEvents,
   uiActionsFromPayload,
 } from '@/lib/hermes/rich-messages'
@@ -202,6 +203,21 @@ function richMessagePatchFromRun(data: unknown, events: ChatEvent[] = []): {
   }
 }
 
+function richPreviewFromParts(parts: RichMessagePart[] = []): string | null {
+  for (const part of parts) {
+    const candidate =
+      typeof part.content === 'string' ? part.content
+        : typeof part.markdown === 'string' ? part.markdown
+          : typeof part.title === 'string' ? part.title
+            : typeof part.question === 'string' ? part.question
+              : typeof part.body === 'string' ? part.body
+                : null
+    const text = cleanString(candidate)
+    if (text) return text
+  }
+  return null
+}
+
 function isCompletedStatus(status: string): boolean {
   return ['completed', 'complete', 'succeeded', 'success', 'done', 'finished'].includes(status)
 }
@@ -344,11 +360,14 @@ export async function finalizeConversationRun(input: {
   const hermesStatus = normalizeHermesRunStatus(data)
 
   if (isCompletedStatus(hermesStatus)) {
-    const output =
+    const rawOutput =
       extractHermesRunOutput(data) ||
       extractOutputFromEvents(events) ||
       'Agent completed but returned no text output.'
     const richPatch = richMessagePatchFromRun(data, events)
+    const outputIsStructuredJson = isRichPayloadText(rawOutput)
+    const output = outputIsStructuredJson ? '' : rawOutput
+    const previewOutput = output || richPreviewFromParts(richPatch.richParts) || 'Agent returned a rich response.'
     await msgRef.update({
       content: output,
       status: 'completed',
@@ -360,11 +379,11 @@ export async function finalizeConversationRun(input: {
     await updateRunDoc(msgData.runDocId, runId, {
       status: 'completed',
       response: data,
-      output,
+      output: previewOutput,
       error: FieldValue.delete(),
       ...richPatch,
     })
-    await touchConversation(input.convId, output, 'assistant')
+    await touchConversation(input.convId, previewOutput, 'assistant')
     return { status: 'completed', content: output, runId, hermesStatus, ...richPatch }
   }
 
