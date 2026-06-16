@@ -28,6 +28,19 @@ export type BookStudioStatus =
 
 export type BookStudioGateStatus = 'pass' | 'warning' | 'block' | 'not_applicable' | 'missing_evidence'
 export type BookStudioChannel = 'kdp' | 'google_play_books' | 'apple_books' | 'kobo' | 'draft2digital' | 'ingram' | 'acx' | 'manual_handoff' | 'local_publisher'
+export type BookStudioBridgeLinkType = 'research' | 'client_document' | 'project_task' | 'artifact' | 'evidence' | 'approval'
+
+export type BookStudioBridgeLink = {
+  id?: string
+  type: BookStudioBridgeLinkType
+  label: string
+  ref: string
+  href?: string
+  status?: string
+  version?: string
+  checksum?: string
+  requiredForApproval?: boolean
+}
 
 export type BookStudioRecord = {
   id?: string
@@ -42,6 +55,7 @@ export type BookStudioRecord = {
   safeSummary?: string
   nextAction?: string
   deleted?: boolean
+  bridgeLinks?: BookStudioBridgeLink[]
   [key: string]: unknown
 }
 

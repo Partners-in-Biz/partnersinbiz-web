@@ -46,11 +46,18 @@ describe('BookStudioAdminWorkspace admin command center', () => {
 
     const commandCenter = screen.getByRole('region', { name: 'Book Studio admin command center' })
     for (const stage of ['Intake', 'Research', 'Brief', 'Quality gates', 'Publishing packet', 'Manual upload/review', 'Analytics/reconciliation']) {
-      expect(within(commandCenter).getByText(stage)).toBeInTheDocument()
+      expect(within(commandCenter).getAllByText(stage).length).toBeGreaterThanOrEqual(1)
     }
 
     expect(screen.getByText('No active Book Studio projects yet')).toBeInTheDocument()
     expect(screen.getByText('Create or link a gated Project/Kanban task before production work starts.')).toBeInTheDocument()
+    expect(screen.getByText('Bridge flows for durable evidence')).toBeInTheDocument()
+    expect(screen.getByText('Client Documents')).toBeInTheDocument()
+    expect(screen.getByText(/approval snapshots, and sourceSpecVersion/)).toBeInTheDocument()
+    expect(screen.getByText('Projects/Kanban')).toBeInTheDocument()
+    expect(screen.getByText(/approvalGateTaskId, dependent task IDs/)).toBeInTheDocument()
+    expect(screen.getByText('Artifact links')).toBeInTheDocument()
+    expect(screen.getByText(/href\/checksum\/version references/)).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Direct store publishing disabled' })).toBeDisabled()
     expect(screen.getByRole('button', { name: 'Automated marketplace integrations disabled' })).toBeDisabled()
     expect(screen.getByRole('button', { name: 'Ad spend and review outreach disabled' })).toBeDisabled()

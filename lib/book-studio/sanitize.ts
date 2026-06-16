@@ -1,4 +1,4 @@
-import type { BookStudioChannel, BookStudioGateStatus, BookStudioRecord, BookStudioResourceConfig, BookStudioResourceKey, BookStudioStage, BookStudioStatus } from './types'
+import type { BookStudioBridgeLinkType, BookStudioChannel, BookStudioGateStatus, BookStudioRecord, BookStudioResourceConfig, BookStudioResourceKey, BookStudioStage, BookStudioStatus } from './types'
 
 export const BOOK_STUDIO_RESOURCES: Record<BookStudioResourceKey, BookStudioResourceConfig> = {
   projects: { collection: 'book_studio_projects', label: 'book project', titleField: 'title', defaultStatus: 'draft' },
@@ -19,6 +19,7 @@ const CHANNELS: BookStudioChannel[] = ['kdp', 'google_play_books', 'apple_books'
 const APPROVAL_STATUSES = ['not_requested', 'requested', 'approved', 'changes_requested', 'rejected', 'blocked'] as const
 const RIGHTS_STATUSES = ['unknown', 'needs_review', 'cleared', 'blocked', 'licensed', 'public_domain', 'owned'] as const
 const ANALYTICS_SOURCES = ['manual_import', 'kdp_report', 'google_play_books_report', 'apple_books_report', 'kobo_report', 'draft2digital_report', 'ingram_report', 'local_publisher_report'] as const
+const BRIDGE_LINK_TYPES: BookStudioBridgeLinkType[] = ['research', 'client_document', 'project_task', 'artifact', 'evidence', 'approval']
 const FORBIDDEN_KEYS = new Set([
   'marketplaceCredential',
   'marketplaceCredentials',
@@ -149,6 +150,27 @@ function cleanArtifactLinks(value: unknown) {
   return links.length ? links : undefined
 }
 
+function cleanBridgeLinks(value: unknown) {
+  if (!Array.isArray(value)) return undefined
+  const links = value.map((item) => {
+    const source = cleanObject(item)
+    const ref = cleanString(source.ref ?? source.id ?? source.resourceId ?? source.documentId ?? source.taskId)
+    if (!ref) return null
+    return compact({
+      id: cleanString(source.id),
+      type: pick(source.type ?? source.resourceType, BRIDGE_LINK_TYPES, 'artifact'),
+      label: cleanString(source.label) ?? cleanString(source.title) ?? 'Linked evidence',
+      ref,
+      href: cleanUrl(source.href ?? source.url),
+      status: cleanString(source.status),
+      version: cleanString(source.version ?? source.sourceSpecVersion),
+      checksum: cleanString(source.checksum),
+      requiredForApproval: cleanBoolean(source.requiredForApproval ?? source.blocksApproval),
+    })
+  }).filter(Boolean)
+  return links.length ? links : undefined
+}
+
 function cleanGates(value: unknown) {
   if (!Array.isArray(value)) return undefined
   const gates = value.map((item, index) => {
@@ -264,6 +286,7 @@ export function sanitizeBookStudioRecordInput(resource: BookStudioResourceKey, i
     audience: cleanString(source.audience),
     bookType: cleanString(source.bookType),
     artifactLinks: cleanArtifactLinks(source.artifactLinks ?? source.artifacts),
+    bridgeLinks: cleanBridgeLinks(source.bridgeLinks ?? source.links),
     href: cleanUrl(source.href ?? source.url),
     gates: cleanGates(source.gates ?? source.approvalGates),
     rightsLedger: cleanRightsLedger(source.rightsLedger ?? source.rights),
@@ -272,6 +295,10 @@ export function sanitizeBookStudioRecordInput(resource: BookStudioResourceKey, i
     analyticsSnapshot: cleanAnalyticsSnapshot(source.analyticsSnapshot ?? source.analytics),
     approvalState: cleanApprovalState(source.approvalState),
     evidenceIds: cleanStringArray(source.evidenceIds),
+    researchItemIds: cleanStringArray(source.researchItemIds),
+    clientDocumentIds: cleanStringArray(source.clientDocumentIds ?? source.documentIds),
+    projectTaskIds: cleanStringArray(source.projectTaskIds ?? source.taskIds),
+    artifactIds: cleanStringArray(source.artifactIds),
     sourceDocumentId: cleanString(source.sourceDocumentId),
     sourceSpecVersion: cleanString(source.sourceSpecVersion),
     approvalGateTaskId: cleanString(source.approvalGateTaskId),

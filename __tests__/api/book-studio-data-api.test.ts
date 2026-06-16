@@ -90,6 +90,10 @@ describe('Book Studio data/API model', () => {
       internalNotes: 'operator-only',
       sourceDocumentId: 'doc-1',
       approvalGateTaskId: 'gate-task-1',
+      researchItemIds: ['research-1', ''],
+      clientDocumentIds: ['client-doc-1'],
+      projectTaskIds: ['task-1'],
+      artifactIds: ['artifact-1'],
       linked: {
         projectId: 'project-1',
         sourceDocumentId: 'doc-linked-should-not-persist',
@@ -99,6 +103,12 @@ describe('Book Studio data/API model', () => {
         nested: { clientSecret: 'secret' },
       },
       safeSummary: '<b>client safe</b>',
+      bridgeLinks: [
+        { type: 'research', ref: 'research-1', label: 'Research item', href: 'https://partnersinbiz.online/admin/research/research-1', requiredForApproval: true },
+        { type: 'client_document', documentId: 'doc-1', title: 'Approval packet', url: 'javascript:alert(1)', accessToken: 'hide' },
+        { type: 'bad-type', ref: 'artifact-1', label: 'Artifact fallback' },
+        { type: 'project_task', label: 'Missing ref' },
+      ],
       artifactLinks: [
         { label: 'Cover PDF', href: 'https://drive.google.com/file/d/cover', internalNotes: 'hide' },
         { label: 'Bad JS', href: 'javascript:alert(1)' },
@@ -116,6 +126,15 @@ describe('Book Studio data/API model', () => {
       artifactLinks: [{ label: 'Cover PDF', href: 'https://drive.google.com/file/d/cover' }],
       gates: [{ id: 'rights', label: 'Rights', status: 'pass' }],
       rightsLedger: { status: 'cleared', sourceUrls: ['https://example.com/source'] },
+      bridgeLinks: [
+        { type: 'research', label: 'Research item', ref: 'research-1', href: 'https://partnersinbiz.online/admin/research/research-1', requiredForApproval: true },
+        { type: 'client_document', label: 'Approval packet', ref: 'doc-1' },
+        { type: 'artifact', label: 'Artifact fallback', ref: 'artifact-1' },
+      ],
+      researchItemIds: ['research-1'],
+      clientDocumentIds: ['client-doc-1'],
+      projectTaskIds: ['task-1'],
+      artifactIds: ['artifact-1'],
       sourceDocumentId: 'doc-1',
       approvalGateTaskId: 'gate-task-1',
     })
@@ -128,6 +147,7 @@ describe('Book Studio data/API model', () => {
     expect(JSON.stringify(sanitized)).not.toContain('submit_to_store')
     expect(JSON.stringify(sanitized)).not.toContain('clientSecret')
     expect(JSON.stringify(sanitized)).not.toContain('doc-linked-should-not-persist')
+    expect(JSON.stringify(sanitized)).not.toContain('accessToken')
     expect(JSON.stringify(sanitized)).not.toContain('javascript:')
 
     const packet = sanitizeBookStudioRecordInput('publishing-packets', {
