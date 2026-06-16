@@ -31,9 +31,6 @@ export const GET = withAuth('admin', async (req: NextRequest) => {
 })
 
 export const POST = withAuth('admin', async (req: NextRequest, user) => {
-  const ctx = await requireMetaContext(req)
-  if (ctx instanceof Response) return ctx
-
   const body = (await req.json()) as {
     input?: Omit<CreateAdSetInput, 'adAccountId'>
     platform?: AdPlatform
@@ -63,13 +60,20 @@ export const POST = withAuth('admin', async (req: NextRequest, user) => {
     return apiError('Missing required fields: name, campaignId', 400)
   }
 
+  const orgId = req.headers.get('X-Org-Id')
+  if (!orgId) return apiError('Missing X-Org-Id header', 400)
+
   // Validate parent campaign exists and belongs to the same org
   const campaign = await getCampaign(body.input.campaignId)
-  if (!campaign || campaign.orgId !== ctx.orgId) {
+  if (!campaign || campaign.orgId !== orgId) {
     return apiError('Campaign not found', 404)
   }
 
   const platform: AdPlatform = body.platform ?? campaign.platform ?? 'meta'
+
+  // Resolve context for the TARGET platform (see campaigns route note).
+  const ctx = await requireMetaContext(req, platform)
+  if (ctx instanceof Response) return ctx
 
   const adSet = await createAdSet({
     orgId: ctx.orgId,

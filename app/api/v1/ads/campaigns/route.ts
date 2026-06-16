@@ -27,9 +27,6 @@ export const GET = withAuth('admin', async (req: NextRequest) => {
 })
 
 export const POST = withAuth('admin', async (req: NextRequest, user) => {
-  const ctx = await requireMetaContext(req)
-  if (ctx instanceof Response) return ctx
-
   const body = (await req.json()) as {
     input?: Omit<CreateAdCampaignInput, 'adAccountId'>
     platform?: AdPlatform
@@ -75,6 +72,12 @@ export const POST = withAuth('admin', async (req: NextRequest, user) => {
   }
 
   const platform: AdPlatform = body.platform ?? 'meta'
+
+  // Resolve the connection context for the TARGET platform (not hardcoded
+  // Meta) — otherwise a Google/LinkedIn/TikTok-only org fails with
+  // "No meta connection for this org" before it can create its campaign.
+  const ctx = await requireMetaContext(req, platform)
+  if (ctx instanceof Response) return ctx
 
   const campaign = await createCampaign({
     orgId: ctx.orgId,
