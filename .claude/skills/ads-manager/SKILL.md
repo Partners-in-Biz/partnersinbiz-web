@@ -105,6 +105,28 @@ PATCH /api/v1/ads/tiktok/connections/[id]/account            { "selectedAdvertis
 
 Meta: account ready immediately after callback — no picker step needed.
 
+**Google connect — use the Google-namespaced OAuth routes** (the admin UI does this):
+```
+POST  /api/v1/ads/google/oauth/authorize                     — returns { authorizeUrl }
+GET   /api/v1/ads/google/oauth/callback                      — handled automatically
+GET   /api/v1/ads/google/customers?connectionId=...          — picker (existing accounts)
+PATCH /api/v1/ads/google/connections/[id]/customer           — select the customer/MCC
+```
+The generic `POST /api/v1/ads/connections/google/authorize` also works (the
+`googleProvider` is wired, not a stub), but the Google-namespaced routes are
+canonical because they surface developer-token/customer errors to the operator.
+
+**Create a NEW subaccount under the MCC** (when the client's account does not
+exist yet — `customers:createCustomerClient`, distinct from the discovery picker):
+```
+POST  /api/v1/ads/google/connections/[id]/create-client
+      { "descriptiveName": "AHS Law", "currencyCode": "ZAR", "timeZone": "Africa/Johannesburg", "managerCustomerId"?: "..." }
+      → { resourceName, customerId, managerCustomerId }
+```
+`managerCustomerId` defaults to the connection's `loginCustomerId` / selected
+customer. After creation, select the returned `customerId` via the customer PATCH
+above. Requires a connected MCC + a developer token with write access.
+
 ---
 
 ## 2. Campaign Hierarchy
