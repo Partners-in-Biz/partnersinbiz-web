@@ -29,7 +29,10 @@ export const GOOGLE_AUTHORIZE_ENDPOINT =
 export const GOOGLE_TOKEN_ENDPOINT = 'https://oauth2.googleapis.com/token'
 export const GOOGLE_REVOKE_ENDPOINT = 'https://oauth2.googleapis.com/revoke'
 
-export const GOOGLE_ADS_API_BASE = 'https://googleads.googleapis.com/v17'
+// Pinned API version. v17–v19 were sunset by Google (return 404); v20+ are
+// live. Bump this (and re-verify GAQL field shapes in the mappers) before the
+// pinned version reaches its own sunset date.
+export const GOOGLE_ADS_API_BASE = 'https://googleads.googleapis.com/v21'
 
 export const GOOGLE_ADS_SCOPES = [
   'https://www.googleapis.com/auth/adwords',

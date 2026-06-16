@@ -20,4 +20,4 @@ export const GOOGLE_ADS_SCOPES_FOR_ADS_MODULE = [...GOOGLE_ADS_SCOPES]
 export const GOOGLE_ADS_REDIRECT_PATH = '/api/v1/ads/google/oauth/callback'
 
 /** Google Ads API version pinned by the analytics adapter base URL. */
-export const GOOGLE_ADS_API_VERSION = 'v17'
+export const GOOGLE_ADS_API_VERSION = 'v21'
