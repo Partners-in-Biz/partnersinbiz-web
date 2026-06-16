@@ -129,16 +129,15 @@ export const POST = withAuth('admin', async (req: NextRequest) => {
 
       const updated = await updateKeyword(kw.id, {
         providerData: {
-          ...(kw.providerData ?? {}),
           google: {
-            ...((kw.providerData as Record<string, unknown>)?.google as
-              | Record<string, unknown>
-              | undefined ?? {}),
-            criterionResourceName: result.resourceName,
-            googleCriterionId: result.id,
+            // adGroupCriteria resource name (positive keyword or ad-group negative)
+            keywordResourceName: result.resourceName,
+            ...(kw.providerData?.google?.cpcBidMicros
+              ? { cpcBidMicros: kw.providerData.google.cpcBidMicros }
+              : {}),
           },
         },
-      } as Parameters<typeof updateKeyword>[1])
+      })
       return apiSuccess({ keyword: updated })
     }
 
