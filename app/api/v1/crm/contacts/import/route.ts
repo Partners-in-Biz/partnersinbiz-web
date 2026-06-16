@@ -379,13 +379,16 @@ export const POST = withCrmAuth('member', async (req, ctx) => {
     const batch = adminDb.batch()
     for (const op of slice) {
       if (op.kind === 'company') {
+        const allowedUserIds = normalizeAllowedUserIds([ctx.actor.uid])
         const companyData = {
           orgId,
           name: op.company.name,
           source: 'import',
-          ownerUid: restrictedRecords ? ctx.actor.uid : undefined,
-          ownerRef: restrictedRecords ? actorRef : undefined,
-          allowedUserIds: restrictedRecords ? [ctx.actor.uid] : undefined,
+          assignedTo: ctx.actor.uid,
+          assignedToRef: actorRef,
+          ownerUid: ctx.actor.uid,
+          ownerRef: actorRef,
+          allowedUserIds,
           createdBy: ctx.isAgent ? undefined : ctx.actor.uid,
           createdByRef: actorRef,
           updatedBy: ctx.isAgent ? undefined : ctx.actor.uid,
@@ -397,7 +400,7 @@ export const POST = withCrmAuth('member', async (req, ctx) => {
         batch.set(op.ref, Object.fromEntries(Object.entries(companyData).filter(([, v]) => v !== undefined)))
       } else if (op.kind === 'create') {
         const linkedCompany = op.row.company ? companyPlan.byName.get(companyKey(op.row.company)) : undefined
-        const allowedUserIds = restrictedRecords ? normalizeAllowedUserIds([ctx.actor.uid]) : []
+        const allowedUserIds = normalizeAllowedUserIds([ctx.actor.uid])
         const data = {
           orgId,
           capturedFromId: effectiveCapturedFromId,
@@ -411,8 +414,10 @@ export const POST = withCrmAuth('member', async (req, ctx) => {
           stage: 'new' as const,
           tags: op.row.tags,
           notes: op.row.notes,
-          assignedTo: restrictedRecords ? ctx.actor.uid : '',
-          assignedToRef: restrictedRecords ? actorRef : undefined,
+          assignedTo: ctx.actor.uid,
+          assignedToRef: actorRef,
+          ownerUid: ctx.actor.uid,
+          ownerRef: actorRef,
           ...(allowedUserIds.length > 0 ? { allowedUserIds } : {}),
           companyId: linkedCompany?.id,
           companyName: linkedCompany?.name,
