@@ -1418,31 +1418,32 @@ describe('BriefingControlDesk', () => {
     expect(screen.getByText('State: Needs action')).toBeInTheDocument()
     expect(screen.getByText('Review pending')).toBeInTheDocument()
     expect(screen.getByText('Next action: review the evidence, then approve the work or reject it back to the assigned agent.')).toBeInTheDocument()
-    expect(screen.getByText('Internal review actions')).toBeInTheDocument()
+    expect(screen.getByText('Safe moves')).toBeInTheDocument()
     expect(screen.queryByText('Phase 2 actions')).not.toBeInTheDocument()
     expect(screen.getByText('Release actions are disabled until Quinn signs off the review gate.')).toBeInTheDocument()
     expect(screen.getByText('Open build evidence')).toBeInTheDocument()
     expect(screen.getByText(/Read the verified internal evidence before deciding\./)).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /approve internal review/i })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /request internal changes/i })).toBeInTheDocument()
+    expect(screen.getAllByRole('button', { name: /^approve$/i }).length).toBeGreaterThan(0)
+    expect(screen.getByRole('button', { name: /^send back$/i })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /snooze internal review item/i })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /create follow-up task/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /create follow-up/i })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /ask theo to triage/i })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /create routed theo task/i })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /link existing task/i })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /assign theo/i })).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: /open evidence/i })).toHaveAttribute('href', 'https://partnersinbiz.online/admin/projects/project-1?taskId=task-1')
-    expect(screen.getByRole('button', { name: /copy exact ask/i })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /copy full briefing/i })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /copy agent handoff/i })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /copy blocker summary/i })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /copy evidence links/i })).toBeInTheDocument()
+    expect(screen.getAllByRole('link', { name: /view evidence/i }).at(-1)).toHaveAttribute('href', 'https://partnersinbiz.online/admin/projects/project-1?taskId=task-1')
+    fireEvent.click(screen.getByText('Secondary actions and routing notes'))
+    expect(screen.getByRole('button', { name: /copy ask/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /copy brief/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /copy handoff/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /copy blocker/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /copy evidence/i })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: /chat about this with theo/i })).toHaveAttribute('href', '/admin/org/client-one/messages?agent=theo&projectId=project-1&taskId=task-1&briefingId=task%3Aitem-1')
-    expect(screen.getByRole('button', { name: /convert to crm activity unavailable/i })).toBeDisabled()
+    expect(screen.getByRole('button', { name: /log to crm unavailable/i })).toBeDisabled()
     expect(screen.getByText('CRM conversion unavailable: this card needs a linked contact or deal first. Open the source to link CRM context, or create a follow-up task before converting.')).toBeInTheDocument()
     expect(screen.getByText(/Usable alternatives for this card: create follow-up task, ask Theo to triage, link existing task, create routed Theo task, open evidence\./)).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /approval gates stay explicit/i })).toBeDisabled()
-    expect(screen.getByText(/production deploys, external sends, public publishing, paid spend, finance changes, secret\/config changes, destructive actions require a separate explicit approval/i)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /approval still required/i })).toBeDisabled()
+    expect(screen.getByText(/Peet must still explicitly approve production deploys, external sends, public publishing, paid spend, finance changes, secret\/config changes, destructive actions/i)).toBeInTheDocument()
   })
 
   it('filters unavailable alternatives for cards without a project scope', async () => {
@@ -1463,13 +1464,14 @@ describe('BriefingControlDesk', () => {
     fireEvent.click(await screen.findByRole('button', { name: /Document pending approval: Growth plan/i }))
 
     expect(screen.getByLabelText('Internal review action controls')).toHaveClass('grid-cols-1')
-    expect(screen.getByLabelText('Copy and chat context controls')).toHaveClass('grid-cols-1')
+    fireEvent.click(screen.getByText('Secondary actions and routing notes'))
+    expect(screen.getByLabelText('Copy or ask an agent controls')).toHaveClass('grid-cols-1')
 
     const longControls = [
       screen.getByRole('button', { name: /ask theo to triage unavailable/i }),
       screen.getByRole('button', { name: /create routed theo task unavailable/i }),
       screen.getByRole('button', { name: /link existing task unavailable/i }),
-      screen.getByRole('button', { name: /convert to crm activity unavailable/i }),
+      screen.getByRole('button', { name: /log to crm unavailable/i }),
       screen.getByRole('link', { name: /chat about this with theo/i }),
     ]
 
@@ -1485,7 +1487,7 @@ describe('BriefingControlDesk', () => {
   it('keeps the Briefings command desk usable without horizontal overflow on mobile', async () => {
     render(<BriefingControlDesk mode="portal" />)
 
-    expect(await screen.findByText('Briefings control desk')).toBeInTheDocument()
+    expect(await screen.findByText('Briefings Mission Control')).toBeInTheDocument()
     expect((await screen.findAllByText('Theo completed work - review required')).length).toBeGreaterThan(0)
 
     const columns = screen.getByLabelText('Briefing control desk columns')
@@ -1502,7 +1504,7 @@ describe('BriefingControlDesk', () => {
     expect(screen.getAllByTestId('briefing-card-title')[0]).toHaveClass('break-words')
 
     const sourceActionControls = [
-      screen.getByRole('button', { name: /^approve$/i }),
+      screen.getAllByRole('button', { name: /^approve$/i })[0],
       screen.getByRole('button', { name: /send back to agent/i }),
     ]
 
@@ -1532,11 +1534,12 @@ describe('BriefingControlDesk', () => {
     render(<BriefingControlDesk mode="portal" />)
 
     expect((await screen.findAllByText('Theo completed work - review required')).length).toBeGreaterThan(0)
-    fireEvent.click(screen.getByRole('button', { name: /copy exact ask/i }))
+    fireEvent.click(screen.getByText('Secondary actions and routing notes'))
+    fireEvent.click(screen.getByRole('button', { name: /copy ask/i }))
     await waitFor(() => expect(writeText).toHaveBeenCalledWith(expect.stringContaining('Ask: Theo completed work - review required')))
     expect(writeText).toHaveBeenLastCalledWith(expect.stringContaining('Project: Launch site (project-1)'))
 
-    fireEvent.click(screen.getByRole('button', { name: /copy evidence links/i }))
+    fireEvent.click(screen.getByRole('button', { name: /copy evidence/i }))
     await waitFor(() => expect(writeText).toHaveBeenLastCalledWith(expect.stringContaining('Development preview: https://partnersinbiz.online/admin/projects/project-1?taskId=task-1')))
 
     fireEvent.click(screen.getByRole('button', { name: /ask theo to triage/i }))
@@ -1568,7 +1571,7 @@ describe('BriefingControlDesk', () => {
     render(<BriefingControlDesk mode="portal" />)
 
     expect((await screen.findAllByText('Theo completed work - review required')).length).toBeGreaterThan(0)
-    fireEvent.click(screen.getByRole('button', { name: /create follow-up task/i }))
+    fireEvent.click(screen.getByRole('button', { name: /create follow-up/i }))
 
     await waitFor(() => {
       expect(global.fetch).toHaveBeenCalledWith('/api/v1/briefings/items/task%3Aitem-1/actions', expect.objectContaining({
@@ -1616,7 +1619,7 @@ describe('BriefingControlDesk', () => {
     fireEvent.click(await screen.findByRole('button', { name: /Follow up with Ava Owner/i }))
     expect(screen.getByText('State: Needs action')).toBeInTheDocument()
     expect(screen.getByText('Next action: convert this signal into a CRM activity or schedule the next follow-up task.')).toBeInTheDocument()
-    fireEvent.click(screen.getByRole('button', { name: /convert to crm activity/i }))
+    fireEvent.click(screen.getByRole('button', { name: /log to crm/i }))
 
     await waitFor(() => {
       expect(global.fetch).toHaveBeenCalledWith('/api/v1/briefings/items/activity%3Aactivity-1/actions', expect.objectContaining({
@@ -1640,7 +1643,7 @@ describe('BriefingControlDesk', () => {
   it('renders a portal control desk with source-aware task actions', async () => {
     render(<BriefingControlDesk mode="portal" />)
 
-    expect(await screen.findByText('Briefings control desk')).toBeInTheDocument()
+    expect(await screen.findByText('Briefings Mission Control')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /live off/i })).toBeInTheDocument()
     expect((await screen.findAllByText('Theo completed work - review required')).length).toBeGreaterThan(0)
     expect(screen.getAllByText('Client One').length).toBeGreaterThan(0)
@@ -1659,19 +1662,19 @@ describe('BriefingControlDesk', () => {
     expect(screen.getByRole('link', { name: 'doc-123' })).toHaveAttribute('href', '/admin/documents/doc-123')
     expect(screen.getByText('Blocker: production deploy remains separately gated.')).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /^unblock$/i })).not.toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /^approve$/i })).toBeInTheDocument()
+    expect(screen.getAllByRole('button', { name: /^approve$/i }).length).toBeGreaterThan(0)
     expect(screen.getByRole('button', { name: /send back to agent/i })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /snooze internal review item/i })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /create follow-up task/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /create follow-up/i })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /assign theo/i })).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: /open evidence/i })).toHaveAttribute('href', 'https://partnersinbiz.online/admin/projects/project-1?taskId=task-1')
+    expect(screen.getAllByRole('link', { name: /view evidence/i }).at(-1)).toHaveAttribute('href', 'https://partnersinbiz.online/admin/projects/project-1?taskId=task-1')
     expect(screen.getByLabelText('Mission Control decision routing')).toHaveTextContent('Approve')
-    expect(screen.getByLabelText('Mission Control decision routing')).toHaveTextContent('Reject')
+    expect(screen.getByLabelText('Mission Control decision routing')).toHaveTextContent('Send back')
     expect(screen.getByLabelText('Mission Control decision routing')).toHaveTextContent('Snooze')
-    expect(screen.getByLabelText('Mission Control decision routing')).toHaveTextContent('Create task')
+    expect(screen.getByLabelText('Mission Control decision routing')).toHaveTextContent('Create follow-up')
     expect(screen.getByLabelText('Mission Control decision routing')).toHaveTextContent('Assign agent')
-    expect(screen.getByLabelText('Mission Control decision routing')).toHaveTextContent('Open evidence')
-    expect(screen.getByText(/production deploys, external sends, public publishing, paid spend, finance changes, secret\/config changes, destructive actions require a separate explicit approval/i)).toBeInTheDocument()
+    expect(screen.getByLabelText('Mission Control decision routing')).toHaveTextContent('View evidence')
+    expect(screen.getByText(/Peet must still explicitly approve production deploys, external sends, public publishing, paid spend, finance changes, secret\/config changes, destructive actions/i)).toBeInTheDocument()
   })
 
   it('renders portal briefings as an active-workspace CRM account pulse', async () => {
@@ -1715,29 +1718,29 @@ describe('BriefingControlDesk', () => {
   it('maps admin command cards into workflow lanes with action-focused counters', async () => {
     render(<BriefingControlDesk mode="admin" />)
 
-    expect(await screen.findByText('Briefings control desk')).toBeInTheDocument()
+    expect(await screen.findByText('Briefings Mission Control')).toBeInTheDocument()
     for (const label of [
-      'Action required',
-      'Input blocker',
-      'Approval needed',
-      'Agent review',
-      'Follow-ups due',
-      'Client/account risk',
-      'In progress',
-      'Recently completed',
+      'Needs Peet',
+      'Waiting on input',
+      'Needs approval',
+      'Review agent work',
+      'Follow up',
+      'Account risk',
+      'Moving',
+      'Done recently',
     ]) {
       expect(screen.getByLabelText(`Summary counter: ${label}`)).toBeInTheDocument()
     }
 
     expect(screen.getByText('Workflow lanes')).toBeInTheDocument()
-    for (const lane of ['Decide', 'Approve', 'Unblock', 'Follow up', 'Review agent work', 'FYI/evidence']) {
+    for (const lane of ['Needs a call', 'Needs approval', 'Blocked', 'Follow up', 'Check agent work', 'FYI']) {
       expect(screen.getByRole('button', { name: new RegExp(`${lane} workflow lane`, 'i') })).toBeInTheDocument()
     }
 
-    fireEvent.click(screen.getByRole('button', { name: /approve workflow lane/i }))
+    fireEvent.click(screen.getByRole('button', { name: /needs approval workflow lane/i }))
     expect((await screen.findAllByText('Document pending approval: Growth plan')).length).toBeGreaterThan(0)
 
-    fireEvent.click(screen.getByRole('button', { name: /review agent work workflow lane/i }))
+    fireEvent.click(screen.getByRole('button', { name: /check agent work workflow lane/i }))
     expect((await screen.findAllByText('Theo completed work - review required')).length).toBeGreaterThan(0)
     expect(screen.getByText('Weekly Agent Learning Review - Theo')).toBeInTheDocument()
     expect(screen.getAllByLabelText(/Software build evidence for Theo completed work/i).length).toBeGreaterThan(0)

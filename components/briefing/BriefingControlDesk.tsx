@@ -1059,11 +1059,11 @@ const WORKSPACE_OPERATIONS_KEY = 'workspace-operations'
 
 const MISSION_CONTROL_DECISION_ROUTES = [
   { decision: 'Approve', route: 'Approves internal review, document, social-review, agent-run, or workspace-gate records only.' },
-  { decision: 'Reject', route: 'Routes changes back to the source task, document, social item, agent run, or workspace gate.' },
+  { decision: 'Send back', route: 'Returns the item with direction for the owner or agent.' },
   { decision: 'Snooze', route: 'Updates the briefing state for 24 hours without touching the source record.' },
-  { decision: 'Create task', route: 'Creates an internal Projects/Kanban follow-up linked to the briefing source and evidence.' },
+  { decision: 'Create follow-up', route: 'Creates a linked internal task with the briefing context attached.' },
   { decision: 'Assign agent', route: 'Assigns the linked project task to the selected specialist agent; unavailable without a project task.' },
-  { decision: 'Open evidence', route: 'Opens the evidence or source link read-only; it never changes client or production state.' },
+  { decision: 'View evidence', route: 'Opens evidence or source context only. Nothing changes.' },
 ]
 
 const MISSION_CONTROL_APPROVAL_GATES = [
@@ -1079,23 +1079,23 @@ const MISSION_CONTROL_APPROVAL_GATES = [
 type WorkflowLaneId = 'all' | 'decide' | 'approve' | 'unblock' | 'follow-up' | 'agent-review' | 'fyi-evidence'
 
 const WORKFLOW_LANES: Array<{ id: WorkflowLaneId; label: string; icon: string; description: string }> = [
-  { id: 'decide', label: 'Decide', icon: 'rule', description: 'Business decisions, quotes, finance choices, and account-risk calls.' },
-  { id: 'approve', label: 'Approve', icon: 'approval', description: 'Explicit approval gates for documents, campaigns, spends, runs, and brokered side effects.' },
-  { id: 'unblock', label: 'Unblock', icon: 'lock_open', description: 'Cards paused because an account owner, client input, or internal reviewer is blocking progress.' },
-  { id: 'follow-up', label: 'Follow up', icon: 'follow_the_signs', description: 'Messages, inboxes, CRM touches, support replies, forms, bookings, and overdue relationship actions.' },
-  { id: 'agent-review', label: 'Review agent work', icon: 'smart_toy', description: 'Agent outputs, learning proposals, build evidence, and run approvals that need human review.' },
-  { id: 'fyi-evidence', label: 'FYI/evidence', icon: 'fact_check', description: 'Progress, completed work, shipments, reports, and source-backed evidence for internal review.' },
+  { id: 'decide', label: 'Needs a call', icon: 'rule', description: 'Quotes, finance choices, account-risk calls, and business decisions Peet must make.' },
+  { id: 'approve', label: 'Needs approval', icon: 'approval', description: 'Documents, campaigns, spend, runs, or workspace jobs waiting for explicit approval.' },
+  { id: 'unblock', label: 'Blocked', icon: 'lock_open', description: 'Work paused until Peet, a client, or an internal reviewer gives input.' },
+  { id: 'follow-up', label: 'Follow up', icon: 'follow_the_signs', description: 'Replies, CRM touches, support, forms, bookings, inboxes, and relationship next steps.' },
+  { id: 'agent-review', label: 'Check agent work', icon: 'smart_toy', description: 'Agent outputs, learning proposals, build evidence, and run approvals needing review.' },
+  { id: 'fyi-evidence', label: 'FYI', icon: 'fact_check', description: 'Progress, completed work, reports, shipments, and evidence Peet may want to scan.' },
 ]
 
 const SUMMARY_COUNTER_DEFS = [
-  { id: 'needsPeet', label: 'Action required', icon: 'person_alert', color: 'var(--color-accent-v2)' },
-  { id: 'blockedByPeet', label: 'Input blocker', icon: 'front_hand', color: '#f97316' },
-  { id: 'approvalNeeded', label: 'Approval needed', icon: 'approval', color: '#f59e0b' },
-  { id: 'agentReview', label: 'Agent review', icon: 'smart_toy', color: '#4ade80' },
-  { id: 'followUpsDue', label: 'Follow-ups due', icon: 'forward_to_inbox', color: '#60a5fa' },
-  { id: 'clientRisk', label: 'Client/account risk', icon: 'release_alert', color: '#ef4444' },
-  { id: 'inProgress', label: 'In progress', icon: 'progress_activity', color: '#38bdf8' },
-  { id: 'recentlyCompleted', label: 'Recently completed', icon: 'task_alt', color: '#a78bfa' },
+  { id: 'needsPeet', label: 'Needs Peet', icon: 'person_alert', color: 'var(--color-accent-v2)' },
+  { id: 'blockedByPeet', label: 'Waiting on input', icon: 'front_hand', color: '#f97316' },
+  { id: 'approvalNeeded', label: 'Needs approval', icon: 'approval', color: '#f59e0b' },
+  { id: 'agentReview', label: 'Review agent work', icon: 'smart_toy', color: '#4ade80' },
+  { id: 'followUpsDue', label: 'Follow up', icon: 'forward_to_inbox', color: '#60a5fa' },
+  { id: 'clientRisk', label: 'Account risk', icon: 'release_alert', color: '#ef4444' },
+  { id: 'inProgress', label: 'Moving', icon: 'progress_activity', color: '#38bdf8' },
+  { id: 'recentlyCompleted', label: 'Done recently', icon: 'task_alt', color: '#a78bfa' },
 ] as const
 
 function cleanText(value: unknown): string {
@@ -1358,6 +1358,30 @@ export function BriefingControlDesk({ mode, portalScope }: { mode: Mode; portalS
     inProgress: pulseScopedItems.filter(isInProgressItem).length,
     recentlyCompleted: pulseScopedItems.filter(isRecentlyCompletedItem).length,
   }), [pulseScopedItems])
+
+  const missionRoutes = useMemo(() => [
+    {
+      id: 'peet',
+      label: 'Needs Peet',
+      count: pulseScopedItems.filter((item) => item.requiresAction || isApprovalNeededItem(item) || isBlockedByPeetItem(item) || workflowLaneForItem(item) === 'decide').length,
+      description: 'Only Peet can decide, approve, unblock, or send back.',
+      icon: 'person_alert',
+    },
+    {
+      id: 'agent',
+      label: 'Agent lane',
+      count: pulseScopedItems.filter(isAgentReviewItem).length,
+      description: 'Review agent output, evidence, runs, and handoffs.',
+      icon: 'smart_toy',
+    },
+    {
+      id: 'fyi',
+      label: 'FYI / evidence',
+      count: pulseScopedItems.filter((item) => workflowLaneForItem(item) === 'fyi-evidence' || item.priority === 'progress' || item.priority === 'fyi').length,
+      description: 'Read-only progress, evidence, and completed signals.',
+      icon: 'fact_check',
+    },
+  ], [pulseScopedItems])
 
   function selectWorkflowLane(laneId: WorkflowLaneId) {
     setWorkflowLane(laneId)
@@ -2638,25 +2662,36 @@ export function BriefingControlDesk({ mode, portalScope }: { mode: Mode; portalS
   return (
     <div className="min-h-screen bg-page text-on-surface">
       <div className="mx-auto flex w-full max-w-[1500px] flex-col gap-5 px-4 py-5 sm:px-6 lg:px-8">
-        <section className="relative overflow-hidden rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)] p-5 shadow-[var(--shadow-card)]">
+        <section className="relative overflow-hidden rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)] p-4 shadow-[var(--shadow-card)]">
           <span className="absolute inset-y-0 left-0 w-1.5 bg-[var(--color-accent-v2)]" aria-hidden="true" />
-          <div className="grid gap-5 lg:grid-cols-[minmax(0,1.4fr)_minmax(420px,0.8fr)] lg:items-end">
+          <div className="grid gap-4 lg:grid-cols-[minmax(0,0.95fr)_minmax(520px,1.05fr)] lg:items-center">
             <div className="pl-2">
-              <p className="eyebrow !text-[10px] text-brand">{mode === 'admin' ? 'Admin / Control Desk' : 'Workspace / Control Desk'}</p>
-              <h1 className="mt-2 max-w-4xl font-display text-4xl font-semibold text-on-surface sm:text-5xl">Briefings control desk</h1>
-              <p className="mt-3 max-w-3xl text-sm leading-6 text-on-surface-variant">
-                Live operations across projects, blockers, agent output, approvals, notifications, activity, documents, and reports. Work from the card, then jump to the exact source when deeper context is needed.
+              <p className="eyebrow !text-[10px] text-brand">{mode === 'admin' ? 'Admin / Mission Control' : 'Workspace / Mission Control'}</p>
+              <h1 className="mt-1 max-w-4xl font-display text-3xl font-semibold text-on-surface sm:text-4xl">Briefings Mission Control</h1>
+              <p className="mt-2 max-w-3xl text-sm leading-6 text-on-surface-variant">
+                One place to see what needs Peet, what is blocked, and what can safely move without opening every task.
               </p>
             </div>
-            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-              {SUMMARY_COUNTER_DEFS.map((stat) => (
-                <div key={stat.id} aria-label={`Summary counter: ${stat.label}`} className="rounded-lg border border-[var(--color-card-border)] bg-[var(--color-surface-container)] p-3">
-                  <span className="material-symbols-outlined text-[18px]" style={{ color: stat.color }} aria-hidden="true">{stat.icon}</span>
-                  <p className="mt-2 text-2xl font-semibold text-on-surface">{topStats[stat.id]}</p>
-                  <p className="text-xs text-on-surface-variant">{stat.label}</p>
+            <div className="grid gap-2 sm:grid-cols-3" aria-label="Mission Control routing summary">
+              {missionRoutes.map((route) => (
+                <div key={route.id} className="rounded-lg border border-[var(--color-card-border)] bg-[var(--color-surface-container)] p-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="material-symbols-outlined text-[18px] text-brand" aria-hidden="true">{route.icon}</span>
+                    <span className="text-2xl font-semibold text-on-surface">{route.count}</span>
+                  </div>
+                  <p className="mt-2 text-sm font-semibold text-on-surface">{route.label}</p>
+                  <p className="mt-1 text-xs leading-5 text-on-surface-variant">{route.description}</p>
                 </div>
               ))}
             </div>
+          </div>
+          <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-8" aria-label="Mission Control detail counters">
+            {SUMMARY_COUNTER_DEFS.map((stat) => (
+              <div key={stat.id} aria-label={`Summary counter: ${stat.label}`} className="rounded-md border border-[var(--color-card-border)] bg-black/10 px-2 py-2">
+                <p className="text-lg font-semibold text-on-surface">{topStats[stat.id]}</p>
+                <p className="text-[11px] leading-4 text-on-surface-variant">{stat.label}</p>
+              </div>
+            ))}
           </div>
         </section>
 
@@ -2807,9 +2842,9 @@ export function BriefingControlDesk({ mode, portalScope }: { mode: Mode; portalS
 
             <div aria-label="Live briefing cards" className="min-h-0 flex-1 space-y-3 xl:overflow-y-auto xl:pr-2">
               {loading ? (
-                <div className="rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)] p-6 text-sm text-on-surface-variant">Loading live control desk...</div>
+                <div className="rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)] p-6 text-sm text-on-surface-variant">Loading live briefings…</div>
               ) : items.length === 0 ? (
-                <div className="rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)] p-6 text-sm text-on-surface-variant">No matching cards are active. Marked reviewed and snoozed cards stay out of this live view until they return.</div>
+                <div className="rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)] p-6 text-sm text-on-surface-variant">No matching cards right now. Reviewed and snoozed cards stay out of Mission Control until they return.</div>
               ) : (
                 items.map((item) => (
                   <button
@@ -2822,7 +2857,7 @@ export function BriefingControlDesk({ mode, portalScope }: { mode: Mode; portalS
                     <div className="flex flex-wrap items-center gap-2">
                       <span className={`rounded-full border px-2.5 py-1 text-xs font-semibold ${priorityClass(item.priority)}`}>{PRIORITY_LABELS[item.priority]}</span>
                       <span className="rounded-full border border-[var(--color-card-border)] bg-[var(--color-surface-container)] px-2.5 py-1 text-xs text-on-surface-variant">{sourceLabel(item)}</span>
-                      {item.requiresAction ? <span className="rounded-full border border-[var(--color-accent-v2)]/35 bg-[var(--color-accent-subtle)] px-2.5 py-1 text-xs text-[var(--color-accent-text)]">Action</span> : null}
+                      {item.requiresAction ? <span className="rounded-full border border-[var(--color-accent-v2)]/35 bg-[var(--color-accent-subtle)] px-2.5 py-1 text-xs text-[var(--color-accent-text)]">Needs Peet</span> : null}
                       <span className="ml-auto text-xs text-on-surface-variant">{item.timeAgo}</span>
                     </div>
                     <h2 data-testid="briefing-card-title" className="mt-3 break-words text-lg font-semibold leading-snug text-on-surface">{item.title}</h2>
@@ -2877,7 +2912,7 @@ export function BriefingControlDesk({ mode, portalScope }: { mode: Mode; portalS
           </div>
 
           <aside aria-label="Selected briefing action panel" className="min-w-0 rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)] p-4 max-xl:order-1 sm:p-5 xl:sticky xl:top-4 xl:h-[calc(100vh-2rem)] xl:overflow-y-auto">
-            <p className="eyebrow !text-[10px] text-brand">Action panel</p>
+            <p className="eyebrow !text-[10px] text-brand">Peet’s next move</p>
             {selected ? (
               <div className="mt-4 space-y-5">
                 <div>
@@ -2972,8 +3007,8 @@ export function BriefingControlDesk({ mode, portalScope }: { mode: Mode; portalS
 
                 <div className="rounded-lg border border-white/10 bg-white/[0.03] p-3">
                   <div className="flex items-center justify-between gap-3">
-                    <p className="text-xs font-semibold uppercase tracking-[0.16em] text-brand">Internal review actions</p>
-                    <span className="rounded-full border border-emerald-300/30 bg-emerald-300/10 px-2 py-1 text-[11px] text-emerald-100">Safe controls only</span>
+                    <p className="text-xs font-semibold uppercase tracking-[0.16em] text-brand">Safe moves</p>
+                    <span className="rounded-full border border-emerald-300/30 bg-emerald-300/10 px-2 py-1 text-[11px] text-emerald-100">No external side effects</span>
                   </div>
                   {selected.disabledReason ? (
                     <div className="mt-3 rounded-lg border border-amber-300/25 bg-amber-300/10 p-3 text-xs leading-5 text-amber-100">
@@ -2993,21 +3028,21 @@ export function BriefingControlDesk({ mode, portalScope }: { mode: Mode; portalS
                     </div>
                   ) : null}
                   <div className={ACTION_CONTROL_GRID_CLASS} aria-label="Internal review action controls">
-                    <button className={ACTION_CONTROL_CLASS} type="button" onClick={() => approvePhase2Item(selected)} disabled={!!busyAction} aria-label="Approve internal review">
+                    <button className={ACTION_CONTROL_CLASS} type="button" onClick={() => approvePhase2Item(selected)} disabled={!!busyAction} aria-label="Approve">
                       <span className={ACTION_CONTROL_ICON_CLASS} aria-hidden="true">verified</span>
-                      <ActionControlLabel>Approve internal review</ActionControlLabel>
+                      <ActionControlLabel>Approve</ActionControlLabel>
                     </button>
-                    <button className={ACTION_CONTROL_CLASS} type="button" onClick={() => rejectPhase2Item(selected)} disabled={!!busyAction || (canSocialPostAct(selected) && !!socialActionStage(selected) && !socialChangeText.trim())} aria-label="Request internal changes">
+                    <button className={ACTION_CONTROL_CLASS} type="button" onClick={() => rejectPhase2Item(selected)} disabled={!!busyAction || (canSocialPostAct(selected) && !!socialActionStage(selected) && !socialChangeText.trim())} aria-label="Send back">
                       <span className={ACTION_CONTROL_ICON_CLASS} aria-hidden="true">assignment_return</span>
-                      <ActionControlLabel>Request internal changes</ActionControlLabel>
+                      <ActionControlLabel>Send back</ActionControlLabel>
                     </button>
                     <button className={ACTION_CONTROL_CLASS} type="button" onClick={() => setItemState(selected, 'snoozed')} disabled={!!busyAction} aria-label="Snooze internal review item">
                       <span className={ACTION_CONTROL_ICON_CLASS} aria-hidden="true">snooze</span>
-                      <ActionControlLabel>Snooze</ActionControlLabel>
+                      <ActionControlLabel>Snooze 24h</ActionControlLabel>
                     </button>
                     <button className={ACTION_CONTROL_CLASS} type="button" onClick={() => createPhase2Task(selected)} disabled={!!busyAction || !(selected.context.projectId || selected.context.orgId || selected.orgId)}>
                       <span className={ACTION_CONTROL_ICON_CLASS} aria-hidden="true">add_task</span>
-                      <ActionControlLabel>Create follow-up task</ActionControlLabel>
+                      <ActionControlLabel>Create follow-up</ActionControlLabel>
                     </button>
                     <button className={ACTION_CONTROL_CLASS} type="button" onClick={() => createRoutedBriefingTask(selected, 'ask-specialist-triage')} disabled={!selected.context.projectId} aria-label={selected.context.projectId ? `Ask ${phase2AgentLabel(selected)} to triage` : `Ask ${phase2AgentLabel(selected)} to triage unavailable`} title={!selected.context.projectId ? 'Requires a linked project before routing to a specialist.' : undefined}>
                       <span className={ACTION_CONTROL_ICON_CLASS} aria-hidden="true">support_agent</span>
@@ -3035,23 +3070,23 @@ export function BriefingControlDesk({ mode, portalScope }: { mode: Mode; portalS
                     {evidenceHref(selected, mode, portalScope) ? (
                       <a className={ACTION_CONTROL_LINK_CLASS} href={evidenceHref(selected, mode, portalScope) ?? undefined} target="_blank" rel="noopener noreferrer">
                         <span className={ACTION_CONTROL_ICON_CLASS} aria-hidden="true">fact_check</span>
-                        <ActionControlLabel>Open evidence</ActionControlLabel>
+                        <ActionControlLabel>View evidence</ActionControlLabel>
                       </a>
                     ) : (
-                      <button className={ACTION_CONTROL_CLASS} type="button" disabled title="No evidence link is available on this briefing." aria-label="Open evidence unavailable">
+                      <button className={ACTION_CONTROL_CLASS} type="button" disabled title="No evidence link is available on this briefing." aria-label="View evidence unavailable">
                         <span className={ACTION_CONTROL_ICON_CLASS} aria-hidden="true">fact_check</span>
-                        <ActionControlLabel>Open evidence unavailable</ActionControlLabel>
+                        <ActionControlLabel>View evidence unavailable</ActionControlLabel>
                       </button>
                     )}
                     {canConvertToCrmActivity(selected) ? (
                       <button className={ACTION_CONTROL_CLASS} type="button" onClick={() => convertToCrmActivity(selected)} disabled={!!busyAction}>
                         <span className={ACTION_CONTROL_ICON_CLASS} aria-hidden="true">add_notes</span>
-                        <ActionControlLabel>Convert to CRM activity</ActionControlLabel>
+                        <ActionControlLabel>Log to CRM</ActionControlLabel>
                       </button>
                     ) : (
-                      <button className={ACTION_CONTROL_CLASS} type="button" disabled aria-label="Convert to CRM activity unavailable">
+                      <button className={ACTION_CONTROL_CLASS} type="button" disabled aria-label="Log to CRM unavailable">
                         <span className={ACTION_CONTROL_ICON_CLASS} aria-hidden="true">add_notes</span>
-                        <ActionControlLabel>Convert to CRM activity unavailable</ActionControlLabel>
+                        <ActionControlLabel>Log to CRM unavailable</ActionControlLabel>
                       </button>
                     )}
                   </div>
@@ -3059,55 +3094,60 @@ export function BriefingControlDesk({ mode, portalScope }: { mode: Mode; portalS
                   {phase2UnavailableActionCopy(selected) ? <p className="mt-2 text-xs text-on-surface-variant">{phase2UnavailableActionCopy(selected)}</p> : null}
                   {crmUnavailableCopy(selected) ? <p className="mt-2 text-xs text-on-surface-variant">{crmUnavailableCopy(selected)}</p> : null}
                   <p className="mt-2 text-xs text-on-surface-variant">Usable alternatives for this card: {phase2UsableAlternatives(selected, mode, portalScope).join(', ')}.</p>
-                  <div className="mt-3 rounded-lg border border-white/10 bg-white/[0.03] p-3">
-                    <p className="text-[10px] font-label uppercase tracking-[0.16em] text-on-surface-variant">Copy and chat context</p>
-                    <div className={ACTION_CONTEXT_GRID_CLASS} aria-label="Copy and chat context controls">
-                      <button className={ACTION_CONTROL_CLASS} type="button" onClick={() => copyBriefingAction(selected, 'exact-ask')} disabled={!!busyAction}>
-                        <span className={ACTION_CONTROL_ICON_CLASS} aria-hidden="true">content_copy</span>
-                        <ActionControlLabel>Copy exact ask</ActionControlLabel>
-                      </button>
-                      <button className={ACTION_CONTROL_CLASS} type="button" onClick={() => copyBriefingAction(selected, 'full-briefing')} disabled={!!busyAction}>
-                        <span className={ACTION_CONTROL_ICON_CLASS} aria-hidden="true">description</span>
-                        <ActionControlLabel>Copy full briefing</ActionControlLabel>
-                      </button>
-                      <button className={ACTION_CONTROL_CLASS} type="button" onClick={() => copyBriefingAction(selected, 'agent-handoff')} disabled={!!busyAction}>
-                        <span className={ACTION_CONTROL_ICON_CLASS} aria-hidden="true">quick_reference</span>
-                        <ActionControlLabel>Copy agent handoff</ActionControlLabel>
-                      </button>
-                      <button className={ACTION_CONTROL_CLASS} type="button" onClick={() => copyBriefingAction(selected, 'blocker-summary')} disabled={!!busyAction}>
-                        <span className={ACTION_CONTROL_ICON_CLASS} aria-hidden="true">front_hand</span>
-                        <ActionControlLabel>Copy blocker summary</ActionControlLabel>
-                      </button>
-                      <button className={ACTION_CONTROL_CLASS} type="button" onClick={() => copyBriefingAction(selected, 'evidence-links')} disabled={!!busyAction}>
-                        <span className={ACTION_CONTROL_ICON_CLASS} aria-hidden="true">link</span>
-                        <ActionControlLabel>Copy evidence links</ActionControlLabel>
-                      </button>
-                      <a className={ACTION_CONTROL_LINK_CLASS} href={briefingChatHref(selected)}>
-                        <span className={ACTION_CONTROL_ICON_CLASS} aria-hidden="true">chat</span>
-                        <ActionControlLabel>Chat about this with {phase2AgentLabel(selected)}</ActionControlLabel>
-                      </a>
-                    </div>
-                  </div>
-                  <div className="mt-3 rounded-lg border border-amber-300/25 bg-amber-300/10 p-3">
-                    <button className={ACTION_CONTROL_CLASS} type="button" disabled aria-label="Approval gates stay explicit">
-                      <span className={ACTION_CONTROL_ICON_CLASS} aria-hidden="true">lock</span>
-                      <ActionControlLabel>Approval gates stay explicit</ActionControlLabel>
-                    </button>
-                    <p className="mt-2 text-xs leading-5 text-amber-100">
-                      Mission Control can route decisions, but {MISSION_CONTROL_APPROVAL_GATES.join(', ')} require a separate explicit approval before any side effect.
-                    </p>
-                  </div>
-                  <div className="mt-3 rounded-lg border border-white/10 bg-white/[0.03] p-3" aria-label="Mission Control decision routing">
-                    <p className="text-[10px] font-label uppercase tracking-[0.16em] text-on-surface-variant">Decision routing</p>
-                    <dl className="mt-2 space-y-2 text-xs leading-5 text-on-surface-variant">
-                      {MISSION_CONTROL_DECISION_ROUTES.map((row) => (
-                        <div key={row.decision} className="grid gap-1 sm:grid-cols-[96px_minmax(0,1fr)]">
-                          <dt className="font-semibold text-on-surface">{row.decision}</dt>
-                          <dd>{row.route}</dd>
+                  <details className="mt-3 rounded-lg border border-white/10 bg-white/[0.03] p-3">
+                    <summary className="cursor-pointer text-[10px] font-label uppercase tracking-[0.16em] text-brand">Secondary actions and routing notes</summary>
+                    <div className="mt-3 space-y-3">
+                      <div>
+                        <p className="text-[10px] font-label uppercase tracking-[0.16em] text-on-surface-variant">Copy or ask an agent</p>
+                        <div className={ACTION_CONTEXT_GRID_CLASS} aria-label="Copy or ask an agent controls">
+                          <button className={ACTION_CONTROL_CLASS} type="button" onClick={() => copyBriefingAction(selected, 'exact-ask')} disabled={!!busyAction}>
+                            <span className={ACTION_CONTROL_ICON_CLASS} aria-hidden="true">content_copy</span>
+                            <ActionControlLabel>Copy ask</ActionControlLabel>
+                          </button>
+                          <button className={ACTION_CONTROL_CLASS} type="button" onClick={() => copyBriefingAction(selected, 'full-briefing')} disabled={!!busyAction}>
+                            <span className={ACTION_CONTROL_ICON_CLASS} aria-hidden="true">description</span>
+                            <ActionControlLabel>Copy brief</ActionControlLabel>
+                          </button>
+                          <button className={ACTION_CONTROL_CLASS} type="button" onClick={() => copyBriefingAction(selected, 'agent-handoff')} disabled={!!busyAction}>
+                            <span className={ACTION_CONTROL_ICON_CLASS} aria-hidden="true">quick_reference</span>
+                            <ActionControlLabel>Copy handoff</ActionControlLabel>
+                          </button>
+                          <button className={ACTION_CONTROL_CLASS} type="button" onClick={() => copyBriefingAction(selected, 'blocker-summary')} disabled={!!busyAction}>
+                            <span className={ACTION_CONTROL_ICON_CLASS} aria-hidden="true">front_hand</span>
+                            <ActionControlLabel>Copy blocker</ActionControlLabel>
+                          </button>
+                          <button className={ACTION_CONTROL_CLASS} type="button" onClick={() => copyBriefingAction(selected, 'evidence-links')} disabled={!!busyAction}>
+                            <span className={ACTION_CONTROL_ICON_CLASS} aria-hidden="true">link</span>
+                            <ActionControlLabel>Copy evidence</ActionControlLabel>
+                          </button>
+                          <a className={ACTION_CONTROL_LINK_CLASS} href={briefingChatHref(selected)}>
+                            <span className={ACTION_CONTROL_ICON_CLASS} aria-hidden="true">chat</span>
+                            <ActionControlLabel>Chat about this with {phase2AgentLabel(selected)}</ActionControlLabel>
+                          </a>
                         </div>
-                      ))}
-                    </dl>
-                  </div>
+                      </div>
+                      <div className="rounded-lg border border-amber-300/25 bg-amber-300/10 p-3">
+                        <button className={ACTION_CONTROL_CLASS} type="button" disabled aria-label="Approval still required">
+                          <span className={ACTION_CONTROL_ICON_CLASS} aria-hidden="true">lock</span>
+                          <ActionControlLabel>Approval still required</ActionControlLabel>
+                        </button>
+                        <p className="mt-2 text-xs leading-5 text-amber-100">
+                          Mission Control can prepare the route. Peet must still explicitly approve {MISSION_CONTROL_APPROVAL_GATES.join(', ')}.
+                        </p>
+                      </div>
+                      <div className="rounded-lg border border-white/10 bg-white/[0.03] p-3" aria-label="Mission Control decision routing">
+                        <p className="text-[10px] font-label uppercase tracking-[0.16em] text-on-surface-variant">Decision routing</p>
+                        <dl className="mt-2 space-y-2 text-xs leading-5 text-on-surface-variant">
+                          {MISSION_CONTROL_DECISION_ROUTES.map((row) => (
+                            <div key={row.decision} className="grid gap-1 sm:grid-cols-[112px_minmax(0,1fr)]">
+                              <dt className="font-semibold text-on-surface">{row.decision}</dt>
+                              <dd>{row.route}</dd>
+                            </div>
+                          ))}
+                        </dl>
+                      </div>
+                    </div>
+                  </details>
                 </div>
 
                 <div className={ACTION_CONTROL_GRID_CLASS} aria-label="Source action controls">
