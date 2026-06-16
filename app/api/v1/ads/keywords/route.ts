@@ -5,8 +5,13 @@
 import { NextRequest } from 'next/server'
 import { withAuth } from '@/lib/api/auth'
 import { apiSuccess, apiError } from '@/lib/api/response'
-import { createKeyword, listKeywords } from '@/lib/ads/keywords/store'
+import { createKeyword, listKeywords, updateKeyword } from '@/lib/ads/keywords/store'
 import type { AdKeywordMatchType } from '@/lib/ads/providers/google/mappers'
+import { getAdSet } from '@/lib/ads/adsets/store'
+import { getConnection, decryptAccessToken } from '@/lib/ads/connections/store'
+import { readDeveloperToken } from '@/lib/integrations/google_ads/oauth'
+import { resolveGoogleAdsCustomerContext } from '@/lib/ads/api-helpers'
+import { addKeyword, addAdGroupNegativeKeyword } from '@/lib/ads/providers/google/keywords'
 
 export const dynamic = 'force-dynamic'
 
@@ -75,6 +80,68 @@ export const POST = withAuth('admin', async (req: NextRequest) => {
       negativeKeyword,
       cpcBidMicros,
     })
+
+    // Push to Google Ads when the parent ad set is a Google ad group. Without
+    // this the canonical record exists but the keyword never serves. Mirrors
+    // the Google dispatch in the ads/ad-sets routes.
+    const adSet = await getAdSet(body.adSetId)
+    if (adSet?.platform === 'google') {
+      const conn = await getConnection({ orgId, platform: 'google' })
+      if (!conn) return apiError('No Google Ads connection for org', 400)
+      const accessToken = decryptAccessToken(conn)
+      const developerToken = readDeveloperToken()
+      if (!developerToken) return apiError('Google Ads developer token not configured', 500)
+      const customerCtx = resolveGoogleAdsCustomerContext(conn)
+      if (customerCtx instanceof Response) return customerCtx
+      const { customerId, loginCustomerId } = customerCtx
+
+      const googleAdSetData = (adSet.providerData as Record<string, unknown>)?.google as
+        | Record<string, unknown>
+        | undefined
+      const adGroupResourceName =
+        typeof googleAdSetData?.adGroupResourceName === 'string'
+          ? googleAdSetData.adGroupResourceName
+          : undefined
+      if (!adGroupResourceName) {
+        return apiError('Parent ad set has no Google ad group resource name', 400)
+      }
+
+      const matchType = body.matchType as AdKeywordMatchType
+      const result = negativeKeyword
+        ? await addAdGroupNegativeKeyword({
+            customerId,
+            accessToken,
+            developerToken,
+            loginCustomerId,
+            adGroupResourceName,
+            text: body.text,
+            matchType,
+          })
+        : await addKeyword({
+            customerId,
+            accessToken,
+            developerToken,
+            loginCustomerId,
+            adGroupResourceName,
+            text: body.text,
+            matchType,
+          })
+
+      const updated = await updateKeyword(kw.id, {
+        providerData: {
+          ...(kw.providerData ?? {}),
+          google: {
+            ...((kw.providerData as Record<string, unknown>)?.google as
+              | Record<string, unknown>
+              | undefined ?? {}),
+            criterionResourceName: result.resourceName,
+            googleCriterionId: result.id,
+          },
+        },
+      } as Parameters<typeof updateKeyword>[1])
+      return apiSuccess({ keyword: updated })
+    }
+
     return apiSuccess({ keyword: kw })
   } catch (err) {
     return apiError((err as Error).message ?? 'Create keyword failed', 500)

@@ -48,11 +48,89 @@ export function buildAdsAuthorizeUrl(args: {
   return u.toString()
 }
 
-// Re-export the analytics adapter's OAuth functions under ads-module names.
-// Note: the analytics adapter exports `refreshAccessToken` (not
-// `refreshToken`), so we alias it here as `refreshAdsToken`.
-export {
-  completeOAuth as exchangeAdsCode,
-  refreshAccessToken as refreshAdsToken,
-  revokeToken as revokeAdsToken,
+// `revokeToken` takes a single token string and has no shape mismatch with
+// the ads module's needs, so we re-export it directly.
+export { revokeToken as revokeAdsToken } from '@/lib/integrations/google_ads/oauth'
+
+import {
+  exchangeCodeForTokens,
+  refreshAccessToken,
 } from '@/lib/integrations/google_ads/oauth'
+
+function requireOAuthEnvPair(): { clientId: string; clientSecret: string } {
+  const oauthClientId = process.env.GOOGLE_OAUTH_CLIENT_ID?.trim()
+  const oauthClientSecret = process.env.GOOGLE_OAUTH_CLIENT_SECRET?.trim()
+  if (oauthClientId && oauthClientSecret) {
+    return { clientId: oauthClientId, clientSecret: oauthClientSecret }
+  }
+  const adsClientId = process.env.GOOGLE_ADS_CLIENT_ID?.trim()
+  const adsClientSecret = process.env.GOOGLE_ADS_CLIENT_SECRET?.trim()
+  if (adsClientId && adsClientSecret) {
+    return { clientId: adsClientId, clientSecret: adsClientSecret }
+  }
+  throw new Error(
+    'Missing env var: GOOGLE_OAUTH_CLIENT_ID/GOOGLE_OAUTH_CLIENT_SECRET or GOOGLE_ADS_CLIENT_ID/GOOGLE_ADS_CLIENT_SECRET',
+  )
+}
+
+/**
+ * Exchange an authorization code for tokens, shaped to the AdProvider
+ * `exchangeCodeForToken` contract. Wraps the analytics adapter's
+ * `exchangeCodeForTokens` so the ads + analytics modules sign the swap
+ * identically and cannot drift.
+ */
+export async function exchangeAdsCodeForToken(args: {
+  code: string
+  redirectUri: string
+}): Promise<{
+  accessToken: string
+  expiresInSeconds: number
+  refreshToken?: string
+  scopes?: string[]
+}> {
+  const { clientId, clientSecret } = requireOAuthEnvPair()
+  const tokens = await exchangeCodeForTokens({
+    code: args.code,
+    redirectUri: args.redirectUri,
+    clientId,
+    clientSecret,
+  })
+  if (!tokens) throw new Error('Google token exchange failed')
+  const scopes =
+    typeof tokens.scope === 'string' && tokens.scope.trim().length > 0
+      ? tokens.scope.trim().split(/\s+/)
+      : undefined
+  return {
+    accessToken: tokens.access_token,
+    expiresInSeconds: tokens.expires_in ?? 3600,
+    refreshToken: tokens.refresh_token,
+    scopes,
+  }
+}
+
+/**
+ * Mint a fresh access token from a stored refresh token, shaped to the
+ * AdProvider `refreshToken` contract.
+ */
+export async function refreshAdsAccessToken(args: {
+  refreshToken: string
+}): Promise<{
+  accessToken: string
+  expiresInSeconds: number
+  refreshToken?: string
+}> {
+  const { clientId, clientSecret } = requireOAuthEnvPair()
+  const tokens = await refreshAccessToken({
+    refreshToken: args.refreshToken,
+    clientId,
+    clientSecret,
+  })
+  if (!tokens) throw new Error('Google token refresh failed')
+  return {
+    accessToken: tokens.access_token,
+    expiresInSeconds: tokens.expires_in ?? 3600,
+    // Google does not re-issue a refresh token on refresh; carry the existing
+    // one forward so the connection keeps a usable refresh token.
+    refreshToken: tokens.refresh_token ?? args.refreshToken,
+  }
+}
