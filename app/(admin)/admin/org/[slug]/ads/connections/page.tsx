@@ -21,8 +21,28 @@ export default async function ConnectionsPage({
     return <div className="text-white/60">Org not found.</div>
   }
   const connections = await listConnections({ orgId })
-  // Strip secrets before passing to the client components
-  const safe = connections.map(({ accessTokenEnc, refreshTokenEnc, ...rest }) => rest as any)
+  // Strip secrets AND serialize Firestore Timestamps to plain values before
+  // passing to the client components. Server Components can only hand plain
+  // objects to Client Components — a raw Firestore Timestamp (a class instance)
+  // throws "Only plain objects can be passed…" at render time, which is why
+  // this page crashed once a connection (with createdAt/updatedAt/expiresAt
+  // timestamps) existed. The connection panels don't read these fields.
+  const toMillis = (t: unknown): number | null => {
+    if (t && typeof (t as { toMillis?: () => number }).toMillis === 'function') {
+      return (t as { toMillis: () => number }).toMillis()
+    }
+    const s = (t as { _seconds?: number })?._seconds
+    return typeof s === 'number' ? s * 1000 : null
+  }
+  const safe = connections.map(
+    ({ accessTokenEnc, refreshTokenEnc, createdAt, updatedAt, expiresAt, ...rest }) =>
+      ({
+        ...rest,
+        createdAt: toMillis(createdAt),
+        updatedAt: toMillis(updatedAt),
+        expiresAt: toMillis(expiresAt),
+      }) as any,
+  )
   return (
     <div className="space-y-4">
       <ConnectionsPanel orgSlug={slug} orgId={orgId} connections={safe} />
