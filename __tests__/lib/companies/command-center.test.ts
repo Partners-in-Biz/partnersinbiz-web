@@ -28,4 +28,16 @@ describe('company command center matching', () => {
       linked: { clientOrgId: 'client-org' },
     }, company)).toBe(true)
   })
+
+  it('matches contacts by secondary company links', () => {
+    expect(matchesCompany({
+      id: 'contact-1',
+      orgId: 'pib-platform-owner',
+      companyId: 'primary-company',
+      companyLinks: [
+        { companyId: 'primary-company', companyName: 'Primary Co', primary: true },
+        { companyId: 'company-1', companyName: 'Client One', relationshipType: 'client_member' },
+      ],
+    }, company)).toBe(true)
+  })
 })
