@@ -49,6 +49,13 @@ const defaultGates: BookStudioGate[] = [
   { id: 'release-review', label: 'Human release review', status: 'blocked', owner: 'Quinn', evidence: [] },
 ]
 
+const bridgeFlows = [
+  { label: 'Research', description: 'Link Research items with provenance, confidence, unknowns, source URLs, and decision-log refs before an idea advances.' },
+  { label: 'Client Documents', description: 'Attach specs, review packets, approval snapshots, and sourceSpecVersion so client-safe decisions survive beyond chat.' },
+  { label: 'Projects/Kanban', description: 'Carry approvalGateTaskId, dependent task IDs, reviewer agent, expected artifacts, and evidence comments on the delivery board.' },
+  { label: 'Artifact links', description: 'Store manuscripts, covers, exports, package assets, and evidence as href/checksum/version references; never store credentials or raw secret payloads.' },
+]
+
 function slugFromName(value: string) {
   const slug = value.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
   return slug || 'workspace'
@@ -186,6 +193,17 @@ export function BookStudioAdminWorkspace({ orgId, orgName, orgSlug, projects = [
               {projects.map((project) => <ProjectCard key={project.id} project={project} />)}
             </div>
           )}
+
+          <Surface header={<h2 className="text-lg font-semibold">Bridge flows for durable evidence</h2>}>
+            <div className="grid gap-3 md:grid-cols-2">
+              {bridgeFlows.map((flow) => (
+                <div key={flow.label} className="rounded-2xl border border-[var(--color-pib-border)] p-4">
+                  <strong>{flow.label}</strong>
+                  <p className="mt-2 text-sm text-[var(--color-pib-text-muted)]">{flow.description}</p>
+                </div>
+              ))}
+            </div>
+          </Surface>
 
           <Surface header={<h2 className="text-lg font-semibold">Disabled external actions</h2>}>
             <div className="flex flex-wrap gap-2">

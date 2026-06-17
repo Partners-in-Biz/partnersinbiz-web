@@ -87,7 +87,7 @@ export function TaskDetailModal({ task, onClose, onRefresh, slug }: Props) {
 
   if (!task) return null
 
-  const statusLabel = task.agentStatus ? STATUS_LABELS[task.agentStatus] ?? task.agentStatus : 'No status'
+  const statusLabel = blockerRecovery?.needsPeet ? 'Needs Peet' : task.agentStatus ? STATUS_LABELS[task.agentStatus] ?? task.agentStatus : 'No status'
   const canRetry = task.source === 'standalone' && Boolean(blockerRecovery?.isBlocked)
 
   const handleRetryTask = async () => {
@@ -163,20 +163,26 @@ export function TaskDetailModal({ task, onClose, onRefresh, slug }: Props) {
         {blockerRecovery?.isBlocked && (
           <section className="mt-4 rounded-md border border-orange-500/25 bg-orange-500/5 p-3 text-xs text-on-surface-variant">
             <div className="flex items-center justify-between gap-2">
-              <h3 className="text-[10px] font-medium uppercase tracking-wider text-orange-300">Unblock guidance</h3>
+              <div>
+                <h3 className="text-[10px] font-medium uppercase tracking-wider text-orange-300">{blockerRecovery.needsPeet ? 'Needs Peet' : 'Unblock guidance'}</h3>
+                <p className="mt-1 text-[11px] leading-4 text-orange-100/80">Exact blocker: {blockerRecovery.blockingReason}</p>
+              </div>
               {canRetry && (
                 <button
                   type="button"
                   onClick={handleRetryTask}
                   disabled={retrying}
                   className="inline-flex items-center gap-1 rounded bg-orange-500/20 px-2 py-1 text-[10px] font-medium uppercase tracking-wide text-orange-300 transition hover:bg-orange-500/30 disabled:opacity-40"
-                  title="Move back to To Do and let it be tried again"
+                  title="Use the safe continue path only after the listed approval/input and proof are present"
                 >
-                  <span className="material-symbols-outlined text-[12px]" aria-hidden="true">replay</span>
-                  {retrying ? 'Trying...' : 'Operator retry'}
+                  <span className="material-symbols-outlined text-[12px]" aria-hidden="true">lock_open</span>
+                  {retrying ? 'Trying...' : blockerRecovery.continueActionLabel}
                 </button>
               )}
             </div>
+            <p className="mt-2 rounded border border-orange-500/15 bg-black/10 p-2 text-[11px] leading-4 text-orange-100/80">
+              Safe continue path: do not bypass approval gates. Production deploys, client-visible sends/publishing, paid spend, finance, secrets/config, and destructive actions still require explicit approval evidence.
+            </p>
             <div className="mt-2 space-y-1.5">
               <p><span className="text-on-surface">What is wrong:</span> {blockerRecovery.whatIsWrong}</p>
               <p><span className="text-on-surface">Who/what can unblock:</span> {blockerRecovery.whoCanUnblock}</p>

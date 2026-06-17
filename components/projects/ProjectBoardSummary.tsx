@@ -100,7 +100,7 @@ export function getProjectBoardSummary(tasks: Task[], columns: BoardColumnLike[]
     { key: 'done', label: 'Actually done', value: done, icon: 'task_alt', tone: '#4ade80', helper: `${boardDone} in Done · ${agentDone} agent-done`, ariaLabel: 'Done task count' },
     { key: 'open', label: 'Still open', value: open, icon: 'radio_button_unchecked', tone: '#60a5fa', helper: 'Excludes Done, completed, and agent-done', ariaLabel: 'Open task count' },
     { key: 'in_progress', label: 'In progress', value: inProgress, icon: 'autorenew', tone: 'var(--color-accent-v2)', helper: 'Cards sitting in In Progress', ariaLabel: 'In progress task count' },
-    { key: 'blocked', label: 'Blocked now', value: blocked, icon: 'block', tone: '#ef4444', helper: 'Active blocked/waiting only', ariaLabel: 'Blocked task count' },
+    { key: 'blocked', label: 'Needs Peet', value: blocked, icon: 'person_alert', tone: '#ef4444', helper: 'Active blocked/waiting on approval/input', ariaLabel: 'Needs Peet task count' },
     { key: 'review', label: 'Needs review', value: review, icon: 'rate_review', tone: '#c084fc', helper: 'Review column not already done', ariaLabel: 'Review task count' },
   ]
 

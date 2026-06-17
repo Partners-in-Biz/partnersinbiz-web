@@ -10,7 +10,8 @@
 
 import type { BriefingSourceAdapter, BriefingPriority } from '../types'
 import { getSoftwareBuildEvidenceRows } from '@/lib/software-build-evidence'
-import { normalizeActor, hashSourceDocument, extractSafeExcerpt, extractMultiFieldExcerpt, normalizeTimestamp, extractOrgId, extractProjectId, extractTaskId, generateSourceUrl, comparePriority, priorityRequiresAction } from '../utils'
+import { buildBlockedTaskRecovery } from '@/lib/projects/blockerRecovery'
+import { normalizeActor, hashSourceDocument, extractSafeExcerpt, extractMultiFieldExcerpt, normalizeTimestamp, extractOrgId, extractProjectId, generateSourceUrl } from '../utils'
 
 /**
  * Project/Task Firestore document shape.
@@ -175,11 +176,12 @@ export const taskAdapter: BriefingSourceAdapter<TaskDocument> = {
     const agentId = doc.assigneeAgentId
 
     if (doc.agentStatus === 'blocked') {
-      return `Blocked: ${doc.title}`
+      const recovery = buildBlockedTaskRecovery(doc)
+      return recovery.needsPeet ? `Needs Peet: ${doc.title}` : `Blocked: ${doc.title}`
     }
 
     if (doc.agentStatus === 'awaiting-input') {
-      return `Awaiting Input: ${doc.title}`
+      return `Needs Peet: ${doc.title}`
     }
 
     if (doc.requiresApproval === true && (!doc.approvalStatus || doc.approvalStatus === 'pending')) {
@@ -269,6 +271,9 @@ export const taskAdapter: BriefingSourceAdapter<TaskDocument> = {
    */
   extractMetadata(doc: TaskDocument, _docId: string): Record<string, unknown> | null {
     const softwareBuildEvidence = getSoftwareBuildEvidenceRows(doc)
+    const blockerRecovery = (doc.agentStatus === 'blocked' || doc.agentStatus === 'awaiting-input' || doc.columnId === 'blocked')
+      ? buildBlockedTaskRecovery(doc)
+      : null
 
     return {
       columnId: doc.columnId,
@@ -281,6 +286,13 @@ export const taskAdapter: BriefingSourceAdapter<TaskDocument> = {
       assigneeId: doc.assigneeId,
       hasDependencies: Array.isArray(doc.dependsOn) && doc.dependsOn.length > 0,
       softwareBuildEvidence: softwareBuildEvidence.length ? softwareBuildEvidence : undefined,
+      ...(blockerRecovery
+        ? {
+            needsPeet: blockerRecovery.needsPeet,
+            blockingReason: blockerRecovery.blockingReason,
+            safeContinuePath: `${blockerRecovery.continueActionLabel}: add the required evidence/comment in the task drawer, then use the safe continue/unblock action. Approval gates for deploys, sends, paid spend, finance, secrets, and destructive actions stay closed until explicitly approved.`,
+          }
+        : {}),
     }
   },
 

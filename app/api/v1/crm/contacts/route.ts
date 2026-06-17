@@ -243,8 +243,10 @@ export const POST = withCrmAuth('member', async (req, ctx) => {
     tags: body.tags ?? [],
     notes: body.notes?.trim() ?? '',
     assignedTo: assignedToUid,
+    ownerUid: assignedToUid,
     ...(allowedUserIds.length > 0 ? { allowedUserIds } : {}),
     assignedToRef,  // may be undefined; sanitize step will strip
+    ownerRef: assignedToRef, // keep briefings/ownership filters aligned with assignment
     companyId: resolvedCompanyId,     // undefined if not provided; sanitize strips
     companyName: resolvedCompanyName, // undefined if not provided; sanitize strips
     companyLinks: normalizedCompanyLinks.length > 0 ? normalizedCompanyLinks : undefined,

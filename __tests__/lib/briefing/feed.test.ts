@@ -108,7 +108,7 @@ describe('briefing feed', () => {
 
     expect(feed.total).toBeGreaterThanOrEqual(2)
     expect(feed.items[0]).toMatchObject({ priority: 'critical', source: { type: 'comment' } })
-    expect(feed.items.some((item) => item.title === 'Awaiting Input: Ship briefing page')).toBe(true)
+    expect(feed.items.some((item) => item.title === 'Needs Peet: Ship briefing page')).toBe(true)
     const commentItem = feed.items.find((item) => item.source.type === 'comment')
     expect(commentItem).toMatchObject({
       title: 'Comment on Ship briefing page',

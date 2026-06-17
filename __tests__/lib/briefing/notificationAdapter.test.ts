@@ -50,4 +50,37 @@ describe('notificationAdapter', () => {
 
     expect(item.priority).toBe('fyi')
   })
+
+  it('turns stalled agent-task notifications into Needs Peet briefing/inbox items with exact blocker metadata', () => {
+    const item = notificationAdapter.toItem({
+      id: 'notification-3',
+      orgId: 'pib-platform-owner',
+      userId: 'peet',
+      agentId: 'theo',
+      type: 'task.agent_needs_input',
+      title: 'Theo needs Peet to continue',
+      body: 'Exact blocker: release approval is missing. Proof needed: approval comment. Message for agent: continue after approval.',
+      link: '/admin/org/partners-in-biz/projects/project-1?task=task-1',
+      status: 'unread',
+      priority: 'normal',
+      data: {
+        projectId: 'project-1',
+        taskId: 'task-1',
+        blockerReason: 'release approval is missing',
+        safeContinuePath: 'Approve in task drawer after evidence is attached.',
+      },
+      createdAt: '2026-06-05T17:28:00.000Z',
+    }, 'notification-3')
+
+    expect(item).toMatchObject({
+      priority: 'needs-peet',
+      title: 'Needs Peet: Theo needs Peet to continue',
+      summary: expect.stringContaining('release approval is missing'),
+      metadata: expect.objectContaining({
+        blockerReason: 'release approval is missing',
+        safeContinuePath: 'Approve in task drawer after evidence is attached.',
+      }),
+      context: expect.objectContaining({ projectId: 'project-1', taskId: 'task-1' }),
+    })
+  })
 })

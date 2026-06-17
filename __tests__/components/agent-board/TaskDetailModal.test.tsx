@@ -51,10 +51,11 @@ describe('Agent board TaskDetailModal', () => {
       />,
     )
 
-    expect(screen.getByText('Unblock guidance')).toBeInTheDocument()
+    expect(screen.getAllByText('Needs Peet').length).toBeGreaterThan(0)
     expect(screen.getAllByText(/Waiting on Peet approval/i).length).toBeGreaterThan(0)
+    expect(screen.getByText(/safe continue path/i)).toBeInTheDocument()
 
-    fireEvent.click(screen.getByRole('button', { name: 'Operator retry' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Approve / continue safely' }))
 
     await waitFor(() => {
       expect(global.fetch).toHaveBeenCalledWith('/api/v1/tasks/standalone-blocked', {

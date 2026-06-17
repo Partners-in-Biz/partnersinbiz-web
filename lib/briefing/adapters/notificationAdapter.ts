@@ -90,6 +90,29 @@ function activityFollowUpIntent(doc: ActivityDocument): string | null {
   return null
 }
 
+function isAgentNeedsInputNotification(doc: NotificationDocument): boolean {
+  const type = doc.type.toLowerCase()
+  const haystack = `${doc.title} ${doc.body ?? ''} ${cleanString(doc.data?.blockerReason) ?? ''}`.toLowerCase()
+  return type.includes('agent_needs_input')
+    || type.includes('agent_blocked')
+    || type.includes('awaiting_input')
+    || haystack.includes('needs peet')
+    || haystack.includes('exact blocker')
+}
+
+function notificationBlockerReason(doc: NotificationDocument): string | null {
+  return cleanString(doc.data?.blockerReason)
+    ?? cleanString(doc.data?.blockingReason)
+    ?? cleanString(doc.data?.reason)
+    ?? cleanString(doc.body)
+}
+
+function safeContinuePath(doc: NotificationDocument): string | null {
+  return cleanString(doc.data?.safeContinuePath)
+    ?? cleanString(doc.data?.continuePath)
+    ?? 'Open the linked task, add the missing approval/input evidence, then use the task drawer continue/unblock action.'
+}
+
 function actorRoleFromActivity(doc: ActivityDocument): 'admin' | 'client' | 'ai' | 'system' {
   if (doc.actorRole === 'admin' || doc.actorRole === 'client' || doc.actorRole === 'ai' || doc.actorRole === 'system') return doc.actorRole
   const refRole = doc.createdByRef?.role
@@ -131,6 +154,10 @@ export const notificationAdapter: BriefingSourceAdapter<NotificationDocument> = 
 
   extractPriority(doc: NotificationDocument): BriefingPriority {
     const type = doc.type.toLowerCase()
+
+    if (isAgentNeedsInputNotification(doc)) {
+      return 'needs-peet'
+    }
 
     // Agent task done notifications are review-level even when the original task was urgent.
     if (type.includes('task.agent_done') || type.includes('agent_done')) {
@@ -231,6 +258,9 @@ export const notificationAdapter: BriefingSourceAdapter<NotificationDocument> = 
   },
 
   extractTitle(doc: NotificationDocument): string {
+    if (isAgentNeedsInputNotification(doc)) {
+      return doc.title.startsWith('Needs Peet:') ? doc.title : `Needs Peet: ${doc.title}`
+    }
     return doc.title
   },
 
@@ -280,6 +310,12 @@ export const notificationAdapter: BriefingSourceAdapter<NotificationDocument> = 
       status: doc.status,
       link: doc.link,
       hasData: doc.data !== null,
+      ...(isAgentNeedsInputNotification(doc)
+        ? {
+            blockerReason: notificationBlockerReason(doc),
+            safeContinuePath: safeContinuePath(doc),
+          }
+        : {}),
     }
   },
 

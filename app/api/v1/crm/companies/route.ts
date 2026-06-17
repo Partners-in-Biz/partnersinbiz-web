@@ -234,6 +234,8 @@ export const POST = withCrmAuth('member', async (req, ctx) => {
     ...sanitized,
     accountManagerRef,
     ...(allowedUserIds.length > 0 ? { allowedUserIds } : {}),
+    assignedTo: ownerUid,
+    assignedToRef: ownerRef,
     ownerUid,
     ownerRef,
     createdBy: ctx.isAgent ? undefined : ctx.actor.uid,

@@ -44,6 +44,7 @@ describe('admin project and agent operator surfaces', () => {
     expect(detailPanel).toContain('Internal admin note')
     expect(detailPanel).toContain('Admin context')
     expect(modal).toContain('Admin project context')
-    expect(modal).toContain('Operator retry')
+    expect(modal).toContain('safe continue path')
+    expect(modal).toContain('continueActionLabel')
   })
 })
