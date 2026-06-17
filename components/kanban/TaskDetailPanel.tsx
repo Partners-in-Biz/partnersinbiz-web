@@ -1053,7 +1053,9 @@ export function TaskDetailPanel({ task, columnName, projectId, orgId, members = 
                 'done':           { label: 'Done',      className: 'bg-emerald-500/20 text-emerald-400' },
                 'blocked':        { label: 'Blocked',   className: 'bg-red-500/20 text-red-400' },
               }
-              const style = STATUS_STYLE[task.agentStatus] ?? { label: task.agentStatus, className: 'bg-white/10 text-on-surface-variant' }
+              const style = blockerRecovery.needsPeet
+                ? { label: 'Needs Peet', className: 'bg-orange-500/20 text-orange-300' }
+                : STATUS_STYLE[task.agentStatus] ?? { label: task.agentStatus, className: 'bg-white/10 text-on-surface-variant' }
               const stale = (task.agentStatus === 'in-progress' || task.agentStatus === 'picked-up') && isAgentStale(task.agentHeartbeatAt, 5)
               const agentName = task.assigneeAgentId ? (task.assigneeAgentId.charAt(0).toUpperCase() + task.assigneeAgentId.slice(1)) : 'Agent'
               return (
@@ -1163,20 +1165,27 @@ export function TaskDetailPanel({ task, columnName, projectId, orgId, members = 
                   {blockerRecovery.isBlocked && (
                     <div className="rounded border border-orange-500/25 bg-orange-500/5 p-3 text-xs text-on-surface-variant space-y-2">
                       <div className="flex items-center justify-between gap-2">
-                        <p className="text-[10px] font-label uppercase tracking-widest text-orange-300">Unblock guidance</p>
+                        <div>
+                          <p className="text-[10px] font-label uppercase tracking-widest text-orange-300">{blockerRecovery.needsPeet ? 'Needs Peet' : 'Unblock guidance'}</p>
+                          <p className="mt-1 text-[11px] leading-4 text-orange-100/80">Exact blocker: {blockerRecovery.blockingReason}</p>
+                        </div>
                         {blockerRecovery.canShowUnblockAction && (
                           <button
                             type="button"
                             onClick={handleUnblockTask}
                             disabled={unblocking}
+                            aria-label={`Unblock: ${blockerRecovery.continueActionLabel}`}
                             className="inline-flex items-center gap-1 text-[10px] font-label uppercase tracking-wide px-2 py-1 rounded bg-orange-500/20 text-orange-300 hover:bg-orange-500/30 disabled:opacity-40 transition-colors"
-                            title="Clear the blocked state once approval/input is satisfied"
+                            title="Clear the blocked state only once the listed approval/input and proof are satisfied"
                           >
                             <span className="material-symbols-outlined text-[12px]">lock_open</span>
-                            {unblocking ? 'Unblocking…' : 'Unblock'}
+                            {unblocking ? 'Unblocking…' : blockerRecovery.continueActionLabel}
                           </button>
                         )}
                       </div>
+                      <p className="rounded border border-orange-500/15 bg-black/10 p-2 text-[11px] leading-4 text-orange-100/80">
+                        Safe continue path: do not bypass approval gates. Production deploys, client-visible sends/publishing, paid spend, finance, secrets/config, and destructive actions still require explicit approval evidence.
+                      </p>
                       <p><span className="text-on-surface">What is wrong:</span> {blockerRecovery.whatIsWrong}</p>
                       <p><span className="text-on-surface">Who/what can unblock:</span> {blockerRecovery.whoCanUnblock}</p>
                       <p><span className="text-on-surface">Proof needed:</span> {blockerRecovery.requiredEvidence}</p>

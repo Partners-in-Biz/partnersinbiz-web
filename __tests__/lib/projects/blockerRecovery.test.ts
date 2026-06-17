@@ -49,6 +49,22 @@ describe('blocked task recovery helpers', () => {
     expect(recovery.messageForAgent).toContain('retry deployment verification')
   })
 
+  it('marks human approval/input stalls as Needs Peet with the exact blocking reason and safe continue copy', () => {
+    const recovery = buildBlockedTaskRecovery({
+      ...baseTask,
+      agentStatus: 'awaiting-input',
+      columnId: 'blocked',
+      agentOutput: {
+        summary: 'Blocked: Needs Peet approval before production deploy. Exact blocker: release approval is missing. Proof needed: approval comment on the task. Message for agent: continue only after approved.',
+      },
+    }, [])
+
+    expect(recovery.needsPeet).toBe(true)
+    expect(recovery.blockingReason).toBe('release approval is missing')
+    expect(recovery.continueActionLabel).toBe('Approve / continue safely')
+    expect(recovery.messageForAgent).toContain('continue only after approved')
+  })
+
   it('allows confirmation unblock only after dependencies and approval gates are satisfied', () => {
     const task = { ...baseTask, dependsOn: ['dep-1'], approvalGateTaskId: 'gate-1' }
 

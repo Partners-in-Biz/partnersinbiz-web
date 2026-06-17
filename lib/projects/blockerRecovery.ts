@@ -5,7 +5,7 @@ export type BlockerTaskLike = {
   agentStatus?: string | null
   assigneeAgentId?: string | null
   agentInput?: { spec?: string; context?: Record<string, unknown> } | null
-  agentOutput?: { summary?: string; [key: string]: unknown } | null
+  agentOutput?: { summary?: string } | null
   dependsOn?: string[]
   approvalGateTaskId?: string | null
   reviewStatus?: string | null
@@ -27,6 +27,9 @@ export type BlockedTaskRecovery = {
   requiredEvidence: string
   messageForAgent: string
   canShowUnblockAction: boolean
+  needsPeet: boolean
+  blockingReason: string
+  continueActionLabel: string
 }
 
 export type DependencyStatus = {
@@ -109,6 +112,31 @@ function inferAgentMessage(text: string): string {
   ]) ?? 'Comment with what changed, who approved it, and any evidence link or attachment so the agent can safely continue.'
 }
 
+function inferBlockingReason(text: string): string {
+  return firstMatch(text, [
+    /exact blocker\s*:\s*([^\n.]+)/i,
+    /blocking reason\s*:\s*([^\n.]+)/i,
+    /blocked because\s*([^\n.]+)/i,
+    /cannot continue (?:because|until)\s*([^\n.]+)/i,
+    /waiting on\s+([^\n.]+)/i,
+    /awaiting\s+([^\n.]+)/i,
+  ]) ?? sentenceContaining(text, /approval|input|missing|waiting|awaiting|cannot continue|blocked/i) ?? text
+}
+
+function needsPeetAttention(text: string, task: BlockerTaskLike): boolean {
+  const haystack = `${text} ${(task.labels ?? []).join(' ')} ${task.agentStatus ?? ''} ${task.reviewStatus ?? ''}`
+  if (/\bpeet\b/i.test(haystack)) return true
+  if (task.agentStatus === 'awaiting-input') return true
+  if (/approval|sign[- ]?off|human input|missing input|authorised user|requires confirmation|waiting on/i.test(haystack)) return true
+  return false
+}
+
+function continueActionLabel(needsPeet: boolean, text: string): string {
+  if (!needsPeet) return 'Continue'
+  if (/approval|approve|sign[- ]?off/i.test(text)) return 'Approve / continue safely'
+  return 'Provide input / continue safely'
+}
+
 function canShowUnblockAction(text: string, task: BlockerTaskLike): boolean {
   if (task.agentStatus === 'awaiting-input') return true
   if (task.reviewStatus === 'pending') return true
@@ -123,6 +151,8 @@ export function buildBlockedTaskRecovery(task: BlockerTaskLike, comments: Blocke
     ?? ''
   const fallback = task.agentInput?.spec ? `The agent could not continue this task. Original request: ${task.agentInput.spec}` : 'The agent could not continue until the blocker is resolved.'
   const guidance = normalize(sourceText || fallback)
+  const peetAttention = needsPeetAttention(guidance, task)
+  const blockingReason = inferBlockingReason(guidance)
 
   return {
     isBlocked,
@@ -132,6 +162,9 @@ export function buildBlockedTaskRecovery(task: BlockerTaskLike, comments: Blocke
     requiredEvidence: inferEvidence(guidance),
     messageForAgent: inferAgentMessage(guidance),
     canShowUnblockAction: isBlocked && canShowUnblockAction(guidance, task),
+    needsPeet: isBlocked && peetAttention,
+    blockingReason,
+    continueActionLabel: continueActionLabel(peetAttention, guidance),
   }
 }
 

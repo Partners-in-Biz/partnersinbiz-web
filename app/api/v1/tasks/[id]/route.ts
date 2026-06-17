@@ -35,6 +35,7 @@ import {
   RESOURCE_RELATIONSHIP_STRING_FIELDS,
   normalizeResourceRelationshipLinks,
 } from '@/lib/client-documents/linkedValidation'
+import { buildBlockedTaskRecovery } from '@/lib/projects/blockerRecovery'
 
 export const dynamic = 'force-dynamic'
 
@@ -231,6 +232,36 @@ export const PUT = withAuth('admin', async (req, user, context) => {
         link: `/portal/projects?task=${id}`,
         status: 'unread',
         priority: (finalUpdates.priority as string | undefined) ?? existing.priority ?? 'medium',
+        snoozedUntil: null,
+        readAt: null,
+        createdAt: FieldValue.serverTimestamp(),
+      }).catch(() => {})
+    }
+  }
+
+  const agentJustNeedsInput = (finalUpdates.agentStatus === 'awaiting-input' || finalUpdates.agentStatus === 'blocked')
+    && finalUpdates.agentStatus !== existing.agentStatus
+  if (agentJustNeedsInput && existing.orgId) {
+    const reporterId = typeof existing.createdBy === 'string' ? existing.createdBy : null
+    const agentId = typeof finalUpdates.assigneeAgentId === 'string' ? finalUpdates.assigneeAgentId : typeof existing.assigneeAgentId === 'string' ? existing.assigneeAgentId : 'agent'
+    const recovery = buildBlockedTaskRecovery({ ...existing, ...finalUpdates, id })
+    if (reporterId && reporterId !== user.uid) {
+      adminDb.collection('notifications').add({
+        orgId: existing.orgId,
+        userId: reporterId,
+        agentId,
+        type: 'task.agent_needs_input',
+        title: `${agentId.charAt(0).toUpperCase() + agentId.slice(1)} needs Peet to continue`,
+        body: `Exact blocker: ${recovery.blockingReason}. Proof needed: ${recovery.requiredEvidence}. Message for agent: ${recovery.messageForAgent}`,
+        link: `/portal/projects?task=${id}`,
+        data: {
+          taskId: id,
+          taskTitle: (finalUpdates.title as string | undefined) ?? existing.title ?? 'Task',
+          blockerReason: recovery.blockingReason,
+          safeContinuePath: `${recovery.continueActionLabel}: add approval/input evidence in the task drawer, then use the safe continue/unblock action.`,
+        },
+        status: 'unread',
+        priority: 'high',
         snoozedUntil: null,
         readAt: null,
         createdAt: FieldValue.serverTimestamp(),

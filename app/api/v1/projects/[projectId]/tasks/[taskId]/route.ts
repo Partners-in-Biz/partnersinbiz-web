@@ -11,6 +11,7 @@ import {
 } from '@/lib/projects/taskPayload'
 import { logActivity } from '@/lib/activity/log'
 import { adminProjectTaskLink } from '@/lib/projects/links'
+import { buildBlockedTaskRecovery } from '@/lib/projects/blockerRecovery'
 import { resolveContextReferences } from '@/lib/context-references/registry'
 import { sanitizeContextReferenceSeeds, type ContextReference } from '@/lib/context-references/types'
 
@@ -103,6 +104,39 @@ export const PATCH = withAuth('client', async (req: NextRequest, user, ctx) => {
         data: { projectId, taskId },
         status: 'unread',
         priority: notificationPriority(existing.priority),
+        snoozedUntil: null,
+        readAt: null,
+        createdAt: FieldValue.serverTimestamp(),
+      }).catch(() => {})
+    }
+  }
+
+  const agentJustNeedsInput = (updateValue.agentStatus === 'awaiting-input' || updateValue.agentStatus === 'blocked')
+    && updateValue.agentStatus !== existing.agentStatus
+  if (agentJustNeedsInput && projectOrgId) {
+    const reporterId = typeof existing.reporterId === 'string' ? existing.reporterId : typeof existing.createdBy === 'string' ? existing.createdBy : null
+    const agentId = typeof updateValue.assigneeAgentId === 'string' ? updateValue.assigneeAgentId : typeof existing.assigneeAgentId === 'string' ? existing.assigneeAgentId : 'agent'
+    const nextTask = { ...existing, ...updateValue, id: taskId }
+    const recovery = buildBlockedTaskRecovery(nextTask)
+    const link = await adminProjectTaskLink({ db: adminDb, orgId: projectOrgId, projectId, taskId })
+    if (reporterId && reporterId !== user.uid) {
+      adminDb.collection('notifications').add({
+        orgId: projectOrgId,
+        userId: reporterId,
+        agentId,
+        type: 'task.agent_needs_input',
+        title: `${agentId.charAt(0).toUpperCase() + agentId.slice(1)} needs Peet to continue`,
+        body: `Exact blocker: ${recovery.blockingReason}. Proof needed: ${recovery.requiredEvidence}. Message for agent: ${recovery.messageForAgent}`,
+        link,
+        data: {
+          projectId,
+          taskId,
+          taskTitle: String(existing.title ?? 'Task'),
+          blockerReason: recovery.blockingReason,
+          safeContinuePath: `${recovery.continueActionLabel}: add approval/input evidence in the task drawer, then use the safe continue/unblock action.`,
+        },
+        status: 'unread',
+        priority: 'high',
         snoozedUntil: null,
         readAt: null,
         createdAt: FieldValue.serverTimestamp(),
