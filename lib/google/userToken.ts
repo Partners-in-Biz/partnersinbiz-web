@@ -50,12 +50,14 @@ function parseScopes(scope?: string): string[] {
 export async function findDefaultGoogleAccountId(orgId: string, uid: string): Promise<string | null> {
   const snap = await adminDb
     .collection('mailbox_accounts')
+    .where('orgId', '==', orgId)
+    .where('uid', '==', uid)
     .where('provider', '==', 'google')
     .get()
   if (snap.empty) return null
   const rows = (snap.docs as Array<{ id: string; data: () => GoogleAccountDoc }>)
     .map((d) => ({ id: d.id, data: d.data() }))
-    .filter((r) => r.data.orgId === orgId && r.data.uid === uid && !r.data.deletedAt)
+    .filter((r) => !r.data.deletedAt)
   if (rows.length === 0) return null
   const def = rows.find((r) => r.data.isDefault === true)
   return (def ?? rows[0]).id
