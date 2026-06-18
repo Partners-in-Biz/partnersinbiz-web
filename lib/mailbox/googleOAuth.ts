@@ -13,6 +13,10 @@ export const GOOGLE_WORKSPACE_DRIVE_DOCS_SHEETS_SCOPES = [
   'https://www.googleapis.com/auth/spreadsheets',
 ] as const
 
+export const GOOGLE_WORKSPACE_DRIVE_READ_SCOPES = [
+  'https://www.googleapis.com/auth/drive.metadata.readonly',
+] as const
+
 export const GOOGLE_WORKSPACE_GMAIL_SCOPES = [
   'https://www.googleapis.com/auth/gmail.readonly',
   'https://www.googleapis.com/auth/gmail.send',
@@ -33,6 +37,7 @@ export const LEGACY_GOOGLE_WORKSPACE_CONNECTION_KEY = 'google-workspace-drive-do
 export const UNIFIED_GOOGLE_WORKSPACE_SCOPES = [
   ...GOOGLE_OPENID_SCOPES,
   ...GOOGLE_WORKSPACE_DRIVE_DOCS_SHEETS_SCOPES,
+  ...GOOGLE_WORKSPACE_DRIVE_READ_SCOPES,
   ...GOOGLE_WORKSPACE_GMAIL_SCOPES,
   ...GOOGLE_WORKSPACE_CALENDAR_SCOPES,
 ] as const
