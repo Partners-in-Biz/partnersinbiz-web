@@ -81,7 +81,13 @@ export class InstagramProvider extends SocialProvider {
     const containerJson = await containerResponse.json() as { id: string }
     if (!containerJson?.id) throw new Error('Instagram API returned unexpected response: ' + JSON.stringify(containerJson))
 
-    // Step 2: Publish the container
+    // Step 2: Video containers are asynchronous. Publishing before Meta marks
+    // them FINISHED returns code 9007 ("Media ID is not available").
+    if (isVideo) {
+      await this.waitForContainerReady(containerJson.id)
+    }
+
+    // Step 3: Publish the container
     const mediaId = await this.publishContainer(containerJson.id)
 
     return {
@@ -121,6 +127,9 @@ export class InstagramProvider extends SocialProvider {
 
       const itemJson = await itemResponse.json() as { id: string }
       if (!itemJson?.id) throw new Error('Instagram API returned unexpected carousel item response: ' + JSON.stringify(itemJson))
+      if (isVideo) {
+        await this.waitForContainerReady(itemJson.id)
+      }
       childIds.push(itemJson.id)
     }
 
@@ -151,6 +160,30 @@ export class InstagramProvider extends SocialProvider {
       platformPostId: mediaId,
       platformPostUrl: `https://www.instagram.com/p/${mediaId}/`,
     }
+  }
+
+  private async waitForContainerReady(containerId: string, attemptsLeft = 20): Promise<void> {
+    const statusUrl = `${this.graphApiBase}/${containerId}?fields=status_code`
+    const response = await fetch(statusUrl, {
+      headers: { Authorization: `Bearer ${this.credentials.accessToken}` },
+    })
+    if (!response.ok) {
+      const errText = await response.text()
+      throw new Error(`Instagram API container status error ${response.status}: ${errText}`)
+    }
+
+    const statusJson = await response.json() as { status_code?: string; status?: string }
+    const status = statusJson.status_code ?? statusJson.status
+    if (status === 'FINISHED') return
+    if (status === 'ERROR' || status === 'EXPIRED') {
+      throw new Error(`Instagram media container ${containerId} is ${status}`)
+    }
+    if (attemptsLeft <= 1) {
+      throw new Error(`Instagram media container ${containerId} was not ready before publish timeout; last status: ${status ?? 'unknown'}`)
+    }
+
+    await new Promise(resolve => setTimeout(resolve, 5000))
+    await this.waitForContainerReady(containerId, attemptsLeft - 1)
   }
 
   private async publishContainer(containerId: string): Promise<string> {

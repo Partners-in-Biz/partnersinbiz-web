@@ -96,4 +96,44 @@ describe('InstagramProvider', () => {
       expect.objectContaining({ method: 'POST' }),
     )
   })
+
+  it('checks a video container is finished before publishing it', async () => {
+    const fetchMock = jest
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ id: 'video-container-1' }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ status_code: 'FINISHED' }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ id: 'ig-media-1' }),
+      })
+    global.fetch = fetchMock as unknown as typeof fetch
+
+    const provider = new InstagramProvider({
+      accessToken: 'page-token',
+      personUrn: '17841448015964001',
+      instanceUrl: 'https://graph.facebook.com/v25.0',
+    })
+
+    await provider.publishPost({
+      text: 'Video post',
+      mediaUrls: ['https://cdn.example.com/video.mp4'],
+    })
+
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      2,
+      'https://graph.facebook.com/v25.0/video-container-1?fields=status_code',
+      { headers: { Authorization: 'Bearer page-token' } },
+    )
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      3,
+      'https://graph.facebook.com/v25.0/17841448015964001/media_publish',
+      expect.objectContaining({ method: 'POST' }),
+    )
+  })
 })
