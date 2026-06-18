@@ -28,8 +28,8 @@ export function TodayBand({ status, meetings, loading, mode }: Props) {
   if (status !== 'connected') {
     const href =
       mode === 'admin'
-        ? '/api/v1/admin/mailbox/google/authorize'
-        : '/api/v1/portal/email/google/authorize'
+        ? '/api/v1/admin/mailbox/google/authorize?scope=workspace&returnTo=/admin/briefings'
+        : '/api/v1/portal/email/google/authorize?scope=workspace&returnTo=/portal/briefings'
     const label =
       status === 'needs_reconnect' ? 'Reconnect Google Calendar' : 'Connect Google Calendar'
     return (

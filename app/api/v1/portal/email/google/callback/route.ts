@@ -21,11 +21,13 @@ type MailboxGoogleState = {
   emailAddress?: string
   displayName?: string
   redirectUri: string
+  returnTo?: string
   expiresAt?: { toMillis: () => number }
 }
 
-function redirectToEmail(req: NextRequest, status: 'connected' | 'error', message?: string) {
-  const url = new URL(`${appBaseUrl(req.url)}/portal/email`)
+function redirectToEmail(req: NextRequest, status: 'connected' | 'error', message?: string, returnTo?: string) {
+  const path = returnTo && returnTo.startsWith('/') ? returnTo : '/portal/email'
+  const url = new URL(`${appBaseUrl(req.url)}${path}`)
   url.searchParams.set('emailStatus', status)
   if (message) url.searchParams.set('message', message)
   return NextResponse.redirect(url.toString(), { status: 302 })
@@ -118,5 +120,5 @@ export async function GET(req: NextRequest) {
     })
   }
 
-  return redirectToEmail(req, 'connected')
+  return redirectToEmail(req, 'connected', undefined, stateData.returnTo)
 }

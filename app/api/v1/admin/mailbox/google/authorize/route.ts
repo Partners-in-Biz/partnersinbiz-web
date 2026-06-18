@@ -5,8 +5,10 @@ import { withAuth } from '@/lib/api/auth'
 import { apiError } from '@/lib/api/response'
 import { adminDb } from '@/lib/firebase/admin'
 import {
+  MAILBOX_GOOGLE_SCOPES,
   MAILBOX_GOOGLE_STATE_COLLECTION,
   MAILBOX_GOOGLE_STATE_TTL_MINUTES,
+  UNIFIED_GOOGLE_WORKSPACE_SCOPES,
   appBaseUrl,
   buildMailboxGoogleAuthorizeUrl,
   readMailboxGoogleOAuthEnv,
@@ -25,6 +27,11 @@ export const GET = withAuth('admin', async (req: NextRequest, user) => {
   const uid = user.uid
   const emailAddress = normalizeEmail(url.searchParams.get('emailAddress'))
   const displayName = (url.searchParams.get('displayName') ?? '').trim()
+  const scopes = url.searchParams.get('scope') === 'workspace'
+    ? UNIFIED_GOOGLE_WORKSPACE_SCOPES
+    : MAILBOX_GOOGLE_SCOPES
+  const returnToParam = url.searchParams.get('returnTo')?.trim() || ''
+  const returnTo = returnToParam.startsWith('/') ? returnToParam : '/admin/email/mailbox'
   const state = crypto.randomBytes(16).toString('hex')
   const appBase = appBaseUrl(req.url)
   const redirectUri = `${appBase}/api/v1/admin/mailbox/google/callback`
@@ -36,7 +43,7 @@ export const GET = withAuth('admin', async (req: NextRequest, user) => {
     emailAddress,
     displayName,
     redirectUri,
-    returnTo: '/admin/email/mailbox',
+    returnTo,
     createdAt: Timestamp.now(),
     expiresAt: Timestamp.fromMillis(Date.now() + MAILBOX_GOOGLE_STATE_TTL_MINUTES * 60_000),
   })
@@ -46,5 +53,6 @@ export const GET = withAuth('admin', async (req: NextRequest, user) => {
     redirectUri,
     state,
     emailAddress,
+    scopes,
   }), { status: 302 })
 })

@@ -82,3 +82,36 @@ describe('getFreshGoogleAccessToken', () => {
     expect(result).toMatchObject({ ok: false, notConnected: true })
   })
 })
+
+describe('googleAccountHasScopes', () => {
+  const CAL_EVENTS = 'https://www.googleapis.com/auth/calendar.events'
+  const CAL_FULL = 'https://www.googleapis.com/auth/calendar'
+  const DRIVE_META_RO = 'https://www.googleapis.com/auth/drive.metadata.readonly'
+  const DRIVE_FULL = 'https://www.googleapis.com/auth/drive'
+  const DRIVE_RO = 'https://www.googleapis.com/auth/drive.readonly'
+
+  it('matches when the exact required scope is granted', async () => {
+    const { googleAccountHasScopes } = await import('@/lib/google/userToken')
+    expect(googleAccountHasScopes([CAL_EVENTS], [CAL_EVENTS])).toBe(true)
+  })
+
+  it('treats full calendar scope as satisfying calendar.events', async () => {
+    const { googleAccountHasScopes } = await import('@/lib/google/userToken')
+    expect(googleAccountHasScopes([CAL_FULL], [CAL_EVENTS])).toBe(true)
+  })
+
+  it('treats full drive scope as satisfying drive.metadata.readonly', async () => {
+    const { googleAccountHasScopes } = await import('@/lib/google/userToken')
+    expect(googleAccountHasScopes([DRIVE_FULL], [DRIVE_META_RO])).toBe(true)
+  })
+
+  it('treats drive.readonly as satisfying drive.metadata.readonly', async () => {
+    const { googleAccountHasScopes } = await import('@/lib/google/userToken')
+    expect(googleAccountHasScopes([DRIVE_RO], [DRIVE_META_RO])).toBe(true)
+  })
+
+  it('returns false when neither the scope nor a broader parent is granted', async () => {
+    const { googleAccountHasScopes } = await import('@/lib/google/userToken')
+    expect(googleAccountHasScopes(['https://www.googleapis.com/auth/gmail.readonly'], [CAL_EVENTS])).toBe(false)
+  })
+})

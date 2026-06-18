@@ -5,8 +5,10 @@ import { withPortalAuthAndRole } from '@/lib/auth/portal-middleware'
 import { apiError } from '@/lib/api/response'
 import { adminDb } from '@/lib/firebase/admin'
 import {
+  MAILBOX_GOOGLE_SCOPES,
   MAILBOX_GOOGLE_STATE_COLLECTION,
   MAILBOX_GOOGLE_STATE_TTL_MINUTES,
+  UNIFIED_GOOGLE_WORKSPACE_SCOPES,
   appBaseUrl,
   buildMailboxGoogleAuthorizeUrl,
   readMailboxGoogleOAuthEnv,
@@ -22,6 +24,14 @@ export const GET = withPortalAuthAndRole('member', async (req: NextRequest, uid:
   const url = new URL(req.url)
   const emailAddress = normalizeEmail(url.searchParams.get('emailAddress'))
   const displayName = (url.searchParams.get('displayName') ?? '').trim()
+  // `scope=workspace` requests the full Gmail + Drive + Calendar scope set so
+  // one consent grants everything the Mission Control cockpit needs. Plain
+  // email-connect (no param) stays Gmail-only.
+  const scopes = url.searchParams.get('scope') === 'workspace'
+    ? UNIFIED_GOOGLE_WORKSPACE_SCOPES
+    : MAILBOX_GOOGLE_SCOPES
+  // Optional post-OAuth landing page (e.g. back to /portal/briefings).
+  const returnTo = url.searchParams.get('returnTo')?.trim() || ''
   const state = crypto.randomBytes(16).toString('hex')
   const appBase = appBaseUrl(req.url)
   const redirectUri = `${appBase}/api/v1/portal/email/google/callback`
@@ -33,6 +43,7 @@ export const GET = withPortalAuthAndRole('member', async (req: NextRequest, uid:
     emailAddress,
     displayName,
     redirectUri,
+    returnTo: returnTo.startsWith('/') ? returnTo : '',
     createdAt: Timestamp.now(),
     expiresAt: Timestamp.fromMillis(Date.now() + MAILBOX_GOOGLE_STATE_TTL_MINUTES * 60_000),
   })
@@ -42,5 +53,6 @@ export const GET = withPortalAuthAndRole('member', async (req: NextRequest, uid:
     redirectUri,
     state,
     emailAddress,
+    scopes,
   }), { status: 302 })
 })
