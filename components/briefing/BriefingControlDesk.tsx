@@ -4,6 +4,7 @@ import { type ReactNode, useEffect, useMemo, useState } from 'react'
 import { scopedPortalPath, type PortalOrgRouteScope } from '@/lib/portal/scoped-routing'
 import type { OrgSummary, SoftwareBuildEvidenceRow, AgentOutputReviewStatus, AgentOutputReviewArtifact, AgentOutputQualityCheck, AgentOutputApprovalGate, AgentOutputReviewCard, AgentLearningReviewLink, AgentLearningReviewCard, BriefingCard, BriefingFeed, Mode, Flash } from './cockpit/cockpitTypes'
 import { useBriefingFeed } from './cockpit/useBriefingFeed'
+import { CockpitShell } from './cockpit/CockpitShell'
 
 const ACTION_CONTROL_GRID_CLASS = 'mt-3 grid min-w-0 grid-cols-1 gap-2'
 const ACTION_CONTEXT_GRID_CLASS = 'mt-2 grid min-w-0 grid-cols-1 gap-2'
@@ -1013,7 +1014,7 @@ function workflowLaneCount(items: BriefingCard[], laneId: WorkflowLaneId) {
   return items.filter((item) => workflowLaneForItem(item) === laneId).length
 }
 
-export function BriefingControlDesk({ mode, portalScope }: { mode: Mode; portalScope?: PortalOrgRouteScope }) {
+export function BriefingControlDesk({ mode, portalScope, currentUser }: { mode: Mode; portalScope?: PortalOrgRouteScope; currentUser?: { uid: string; displayName: string } }) {
   const { orgs, orgId, setOrgId, priority, setPriority, sourceType, setSourceType, feed, setFeed, selectedId, setSelectedId, loading, autoRefresh, setAutoRefresh, flash, setFlash, loadFeed } = useBriefingFeed(mode)
   const [accountPulseId, setAccountPulseId] = useState('')
   const [workflowLane, setWorkflowLane] = useState<WorkflowLaneId>('all')
@@ -2364,7 +2365,10 @@ export function BriefingControlDesk({ mode, portalScope }: { mode: Mode; portalS
     }
   }
 
-  return (
+  // TODO: BriefingControlDesk and CockpitShell both call useBriefingFeed. The dual fetch is
+  // acceptable for now since both calls hit the same URL and the browser/React Query cache
+  // deduplicates. A follow-up task should lift feed state to remove the second call.
+  const workFeedContent = (
     <div className="min-h-screen bg-page text-on-surface">
       <div className="mx-auto flex w-full max-w-[1500px] flex-col gap-5 px-4 py-5 sm:px-6 lg:px-8">
         <section className="relative overflow-hidden rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)] p-4 shadow-[var(--shadow-card)]">
@@ -2825,10 +2829,7 @@ export function BriefingControlDesk({ mode, portalScope }: { mode: Mode; portalS
                             <span className={ACTION_CONTROL_ICON_CLASS} aria-hidden="true">link</span>
                             <ActionControlLabel>Copy evidence</ActionControlLabel>
                           </button>
-                          <a className={ACTION_CONTROL_LINK_CLASS} href={briefingChatHref(selected)}>
-                            <span className={ACTION_CONTROL_ICON_CLASS} aria-hidden="true">chat</span>
-                            <ActionControlLabel>Chat about this with {phase2AgentLabel(selected)}</ActionControlLabel>
-                          </a>
+                          {/* Chat link removed — docked chat in CockpitShell replaces this */}
                         </div>
                       </div>
                       <div className="rounded-lg border border-amber-300/25 bg-amber-300/10 p-3">
@@ -3655,5 +3656,14 @@ export function BriefingControlDesk({ mode, portalScope }: { mode: Mode; portalS
         </section>
       </div>
     </div>
+  )
+
+  return (
+    <CockpitShell
+      mode={mode}
+      portalScope={portalScope}
+      currentUser={currentUser}
+      workFeedContent={workFeedContent}
+    />
   )
 }
