@@ -158,7 +158,33 @@ async function markNeedsReconnect(accountRef: FirebaseFirestore.DocumentReferenc
   )
 }
 
+// Broader Google scopes satisfy narrower ones. A user who granted full
+// `calendar` access has implicitly granted `calendar.events`; full `drive`
+// covers every drive.* sub-scope. Google's consent screen often grants the
+// broad scope, so an exact-string check would wrongly report "needs reconnect".
+const SCOPE_IMPLICATIONS: Record<string, string[]> = {
+  'https://www.googleapis.com/auth/calendar': [
+    'https://www.googleapis.com/auth/calendar.events',
+    'https://www.googleapis.com/auth/calendar.events.readonly',
+    'https://www.googleapis.com/auth/calendar.readonly',
+  ],
+  'https://www.googleapis.com/auth/drive': [
+    'https://www.googleapis.com/auth/drive.file',
+    'https://www.googleapis.com/auth/drive.metadata.readonly',
+    'https://www.googleapis.com/auth/drive.metadata',
+    'https://www.googleapis.com/auth/drive.readonly',
+  ],
+  'https://www.googleapis.com/auth/drive.readonly': [
+    'https://www.googleapis.com/auth/drive.metadata.readonly',
+    'https://www.googleapis.com/auth/drive.metadata',
+  ],
+}
+
 export function googleAccountHasScopes(granted: string[], required: string[]): boolean {
   const set = new Set(granted)
+  // Expand granted scopes with everything they imply.
+  for (const g of granted) {
+    for (const implied of SCOPE_IMPLICATIONS[g] ?? []) set.add(implied)
+  }
   return required.every((s) => set.has(s))
 }
