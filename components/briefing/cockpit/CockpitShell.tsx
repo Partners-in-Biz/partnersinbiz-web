@@ -15,6 +15,7 @@ import { DockedChat } from './DockedChat'
 import type { Mode } from './cockpitTypes'
 import type { MailItem } from './useUnreadEmail'
 import type { PortalOrgRouteScope } from '@/lib/portal/scoped-routing'
+import type { ContextReferenceSeed } from '@/lib/context-references/types'
 
 export type CockpitShellProps = {
   mode: Mode
@@ -75,25 +76,30 @@ export function CockpitShell({ mode, portalScope, currentUser, workFeedContent }
   // Segment tabs.
   const [segment, setSegment] = useState<'work' | 'inbox' | 'drive'>('work')
 
-  // Pre-filled chat prompts. DockedChat does not consume this yet (MVP) — a
-  // follow-up wires it into UnifiedChat's currentPageContext.
-  const [, setPendingChatPrompt] = useState<string | null>(null)
+  // Collapsible Pip chat panel.
+  const [showChat, setShowChat] = useState(false)
+  const [chatContextSeed, setChatContextSeed] = useState<ContextReferenceSeed | null>(null)
 
   const handleBriefMe = () => {
     const topItems = (feed?.items ?? [])
       .slice(0, 5)
       .map((c) => `• ${c.title}`)
       .join('\n')
-    setPendingChatPrompt(
-      `Brief me on the current state of operations. Here's a quick summary:\n${topItems}\n\nWhat should I prioritise?`,
-    )
+    setChatContextSeed({
+      type: 'report',
+      id: `cockpit:${orgId || 'all'}`,
+      label: `Mission Control — ${topItems || 'current operations'}`,
+    })
+    setShowChat(true)
   }
 
   const handleAskPipReply = (mail: MailItem) => {
-    setPendingChatPrompt(
-      `Please draft a reply to this email from ${mail.from}: "${mail.subject}". The snippet is: "${mail.snippet}"`,
-    )
-    setSegment('work')
+    setChatContextSeed({
+      type: 'email',
+      id: mail.id,
+      label: `Email from ${mail.from}: "${mail.subject}"`,
+    })
+    setShowChat(true)
   }
 
   // Self-contained Snapshot (mirrors BriefingControlDesk.createSnapshot).
@@ -122,7 +128,7 @@ export function CockpitShell({ mode, portalScope, currentUser, workFeedContent }
   const resolvedChatOrgId = orgId || (mode === 'portal' ? portalScope?.orgId ?? '' : '')
 
   return (
-    <div className="flex flex-col" style={{ height: 'calc(100dvh - 64px)' }}>
+    <div className="flex h-full flex-col">
       {/* HEADER */}
       <div className="flex shrink-0 items-center gap-3 border-b border-[var(--color-card-border)] bg-[var(--color-card)] px-4 py-2">
         <span className="inline-block h-2 w-2 animate-pulse rounded-full bg-green-500" aria-hidden="true" />
@@ -154,6 +160,18 @@ export function CockpitShell({ mode, portalScope, currentUser, workFeedContent }
             refresh
           </span>{' '}
           {snapshotting ? 'Saving…' : 'Snapshot'}
+        </button>
+        <button
+          onClick={() => setShowChat((v) => !v)}
+          title={showChat ? 'Hide Pip chat' : 'Open Pip chat'}
+          className={`flex items-center gap-1 rounded-lg px-2.5 py-1 text-xs transition-colors ${
+            showChat
+              ? 'bg-[var(--color-pib-accent)]/20 text-[var(--color-pib-accent)]'
+              : 'text-on-surface-variant hover:text-on-surface'
+          }`}
+        >
+          <span className="material-symbols-outlined text-[15px]" aria-hidden="true">smart_toy</span>
+          Pip
         </button>
       </div>
 
@@ -236,14 +254,18 @@ export function CockpitShell({ mode, portalScope, currentUser, workFeedContent }
           </div>
         </div>
 
-        {/* DOCKED CHAT */}
-        <div className="hidden w-[320px] shrink-0 border-l border-[var(--color-card-border)] lg:block">
-          <DockedChat
-            orgId={resolvedChatOrgId}
-            currentUserUid={currentUserUid}
-            currentUserDisplayName={currentUser?.displayName ?? ''}
-          />
-        </div>
+        {/* DOCKED CHAT — collapsible, open via Pip button in header or "Brief me" */}
+        {showChat && (
+          <div className="w-[320px] shrink-0 border-l border-[var(--color-card-border)]">
+            <DockedChat
+              orgId={resolvedChatOrgId}
+              currentUserUid={currentUserUid}
+              currentUserDisplayName={currentUser?.displayName ?? ''}
+              contextSeed={chatContextSeed}
+              onClose={() => setShowChat(false)}
+            />
+          </div>
+        )}
       </div>
     </div>
   )

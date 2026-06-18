@@ -4,7 +4,7 @@ type CountItem = { label: string; value: number; color: string; icon: string }
 
 export function PulseGrid({ counts }: { counts: CountItem[] }) {
   return (
-    <div className="grid grid-cols-4 gap-2 lg:grid-cols-8">
+    <div className="grid grid-cols-4 gap-2">
       {counts.map((item) => (
         <div
           key={item.label}
