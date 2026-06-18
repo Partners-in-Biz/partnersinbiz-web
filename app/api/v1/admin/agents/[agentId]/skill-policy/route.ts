@@ -110,8 +110,10 @@ export const POST = withAuth('admin', async (req: NextRequest, user, ctx) => {
   let body: Record<string, unknown> = {}
   try { body = await req.json() as Record<string, unknown> } catch { body = {} }
   const applyConfig = body.applyConfig !== false
-  const capabilityError = enforceAgentCapability(user, 'access_secret', req, body)
-  if (capabilityError) return capabilityError
+  if (applyConfig) {
+    const capabilityError = enforceAgentCapability(user, 'access_secret', req, body)
+    if (capabilityError) return capabilityError
+  }
 
   try {
     let configApplied = false
