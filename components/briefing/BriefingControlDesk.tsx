@@ -1,9 +1,10 @@
 'use client'
 
-import { type ReactNode, useCallback, useEffect, useMemo, useState } from 'react'
+import { type ReactNode, useEffect, useMemo, useState } from 'react'
 import { scopedPortalPath, type PortalOrgRouteScope } from '@/lib/portal/scoped-routing'
+import type { OrgSummary, SoftwareBuildEvidenceRow, AgentOutputReviewStatus, AgentOutputReviewArtifact, AgentOutputQualityCheck, AgentOutputApprovalGate, AgentOutputReviewCard, AgentLearningReviewLink, AgentLearningReviewCard, BriefingCard, BriefingFeed, Mode, Flash } from './cockpit/cockpitTypes'
+import { useBriefingFeed } from './cockpit/useBriefingFeed'
 
-const BRIEFING_AUTO_REFRESH_MS = 5 * 60_000
 const ACTION_CONTROL_GRID_CLASS = 'mt-3 grid min-w-0 grid-cols-1 gap-2'
 const ACTION_CONTEXT_GRID_CLASS = 'mt-2 grid min-w-0 grid-cols-1 gap-2'
 const ACTION_CONTROL_CLASS = 'pib-btn-secondary min-w-0 w-full items-start justify-start whitespace-normal rounded-lg px-3 py-2 text-left text-xs leading-4'
@@ -19,215 +20,6 @@ function ActionControlLabel({ children }: { children: ReactNode }) {
   )
 }
 
-interface OrgSummary {
-  id: string
-  name: string
-  slug?: string
-}
-
-interface SoftwareBuildEvidenceRow {
-  kind: 'commit' | 'verification' | 'link' | 'document' | 'blocker'
-  label: string
-  value: string
-  href?: string
-}
-
-type AgentOutputReviewStatus = 'pass' | 'warning' | 'blocked'
-
-interface AgentOutputReviewArtifact {
-  type: string
-  label: string
-  ref: string
-  href?: string
-}
-
-interface AgentOutputQualityCheck {
-  label: string
-  status: AgentOutputReviewStatus
-  detail: string
-}
-
-interface AgentOutputApprovalGate {
-  label: string
-  status: AgentOutputReviewStatus
-  value: string
-  href?: string
-}
-
-interface AgentOutputReviewCard {
-  summary: string
-  evidence: SoftwareBuildEvidenceRow[]
-  artifacts: AgentOutputReviewArtifact[]
-  qualityChecks: AgentOutputQualityCheck[]
-  approvalGates: AgentOutputApprovalGate[]
-  nextAction: string
-}
-
-interface AgentLearningReviewLink {
-  label: string
-  href: string
-  type: string
-}
-
-interface AgentLearningReviewCard {
-  automationGuard: string
-  skillLinks: AgentLearningReviewLink[]
-  wikiLinks: AgentLearningReviewLink[]
-  taskLinks: AgentLearningReviewLink[]
-  proposedChanges: string[]
-  sourceDocumentId?: string | null
-  approvalGateTaskId?: string | null
-}
-
-interface BriefingCard {
-  id: string
-  orgId: string
-  priority: 'critical' | 'needs-peet' | 'client-risk' | 'review' | 'progress' | 'fyi'
-  title: string
-  summary: string
-  excerpt?: string | null
-  timeAgo?: string
-  requiresAction?: boolean
-  source: { type: string; id: string; url?: string }
-  actor: { id: string; name?: string | null; role?: string; type?: string }
-  context: {
-    orgId: string
-    orgName?: string | null
-    orgSlug?: string | null
-    companyId?: string | null
-    companyName?: string | null
-    projectId?: string | null
-    projectName?: string | null
-    taskId?: string | null
-    taskTitle?: string | null
-    documentId?: string | null
-    documentTitle?: string | null
-    conversationId?: string | null
-    conversationTitle?: string | null
-    contactId?: string | null
-    contactName?: string | null
-    dealId?: string | null
-    dealTitle?: string | null
-    reportId?: string | null
-    reportTitle?: string | null
-    bookingId?: string | null
-    bookingName?: string | null
-    supportTicketId?: string | null
-    supportTicketSubject?: string | null
-    invoiceId?: string | null
-    invoiceNumber?: string | null
-    quoteId?: string | null
-    quoteNumber?: string | null
-    orderId?: string | null
-    orderTitle?: string | null
-    inventoryItemId?: string | null
-    inventoryItemName?: string | null
-    shipmentId?: string | null
-    shipmentTrackingNumber?: string | null
-    expenseId?: string | null
-    expenseCategory?: string | null
-    seoContentId?: string | null
-    seoContentTitle?: string | null
-    seoTaskId?: string | null
-    seoTaskTitle?: string | null
-    seoSprintId?: string | null
-    adCampaignId?: string | null
-    adCampaignName?: string | null
-    broadcastId?: string | null
-    broadcastName?: string | null
-    campaignId?: string | null
-    campaignName?: string | null
-    enquiryId?: string | null
-    enquiryName?: string | null
-    formId?: string | null
-    formSubmissionId?: string | null
-    formName?: string | null
-    socialInboxId?: string | null
-    socialInboxFrom?: string | null
-    socialPostId?: string | null
-    mailboxMessageId?: string | null
-    mailboxFrom?: string | null
-    mailboxSubject?: string | null
-    agentRunId?: string | null
-    agentProfile?: string | null
-    workspaceBrokerJobId?: string | null
-    workspaceBrokerOperation?: string | null
-    workspaceArtifactId?: string | null
-    workspaceArtifactTitle?: string | null
-    calendarEventId?: string | null
-    calendarEventTitle?: string | null
-  }
-  metadata?: Record<string, unknown> | null
-  decisionRequest?: {
-    prompt: string
-    scope: 'internal' | 'client' | 'prospect' | 'public'
-    source: string
-    reason?: string | null
-  } | null
-  options?: Array<{
-    id: string
-    label: string
-    description?: string | null
-    recommended?: boolean
-    disabled?: boolean
-    disabledReason?: string | null
-  }> | null
-  recommendedOption?: { id: string; label: string } | null
-  inputTarget?: {
-    action: string
-    resourceType: string
-    resourceId: string
-    orgId?: string | null
-    method?: 'state' | 'route' | 'copy' | 'chat'
-  } | null
-  afterSubmit?: {
-    consequence: string
-    releasesAgentId?: string | null
-    createsAuditTrail?: boolean
-    nextStatus?: string | null
-  } | null
-  agentHandoff?: {
-    targetAgentId?: string | null
-    sourceTaskId?: string | null
-    sourceProjectId?: string | null
-    summary: string
-    context?: Record<string, unknown> | null
-  } | null
-  safetyGate?: {
-    level: string
-    summary: string
-    sideEffectAllowed: boolean
-    requiresApproval: boolean
-    gatedActions?: string[]
-  } | null
-  disabledReason?: string | null
-  nearestValidActions?: Array<{
-    action: string
-    label: string
-    reason?: string | null
-    href?: string
-  }> | null
-  userState?: {
-    status?: 'active' | 'read' | 'handled' | 'snoozed' | 'rejected' | 'approved' | 'pending-review' | 'follow-up-created'
-    note?: string | null
-    snoozedUntil?: string | null
-    approvalState?: string | null
-    approvalCopy?: string | null
-    sideEffectPerformed?: false
-  } | null
-  occurredAt: string
-}
-
-interface BriefingFeed {
-  items: BriefingCard[]
-  total: number
-  hasMore: boolean
-  generatedAt: string
-}
-
-type Mode = 'admin' | 'portal'
-type Flash = { kind: 'ok' | 'error'; message: string } | null
-
 const PRIORITIES = [
   { value: 'all', label: 'All priorities', icon: 'select_all' },
   { value: 'critical', label: 'Blocked', icon: 'priority_high' },
@@ -237,8 +29,6 @@ const PRIORITIES = [
   { value: 'progress', label: 'In motion', icon: 'motion_photos_auto' },
   { value: 'fyi', label: 'Changed', icon: 'history' },
 ]
-
-const BRIEFING_CONTROL_DESK_LIMIT = '300'
 
 const SOURCES = [
   { value: 'all', label: 'All sources' },
@@ -1224,17 +1014,10 @@ function workflowLaneCount(items: BriefingCard[], laneId: WorkflowLaneId) {
 }
 
 export function BriefingControlDesk({ mode, portalScope }: { mode: Mode; portalScope?: PortalOrgRouteScope }) {
-  const [orgs, setOrgs] = useState<OrgSummary[]>([])
-  const [orgId, setOrgId] = useState('')
+  const { orgs, orgId, setOrgId, priority, setPriority, sourceType, setSourceType, feed, setFeed, selectedId, setSelectedId, loading, autoRefresh, setAutoRefresh, flash, setFlash, loadFeed } = useBriefingFeed(mode)
   const [accountPulseId, setAccountPulseId] = useState('')
-  const [priority, setPriority] = useState('all')
-  const [sourceType, setSourceType] = useState('all')
   const [workflowLane, setWorkflowLane] = useState<WorkflowLaneId>('all')
-  const [feed, setFeed] = useState<BriefingFeed | null>(null)
-  const [selectedId, setSelectedId] = useState<string | null>(null)
-  const [loading, setLoading] = useState(true)
   const [snapshotting, setSnapshotting] = useState(false)
-  const [autoRefresh, setAutoRefresh] = useState(false)
   const [replyText, setReplyText] = useState('')
   const [socialChangeText, setSocialChangeText] = useState('')
   const [followUpText, setFollowUpText] = useState('')
@@ -1252,88 +1035,10 @@ export function BriefingControlDesk({ mode, portalScope }: { mode: Mode; portalS
   const [decisionOtherText, setDecisionOtherText] = useState<Record<string, string>>({})
   const [adCampaignChangeText, setAdCampaignChangeText] = useState('')
   const [busyAction, setBusyAction] = useState<string | null>(null)
-  const [flash, setFlash] = useState<Flash>(null)
-
-  useEffect(() => {
-    let cancelled = false
-    ;(async () => {
-      try {
-        if (mode === 'portal') {
-          const res = await fetch('/api/v1/portal/org')
-          const body = await res.json()
-          if (!res.ok) throw new Error(body.error || 'Workspace lookup failed')
-          const org = body.org
-          if (cancelled) return
-          if (org?.id) {
-            setOrgId(org.id)
-            setOrgs([{ id: org.id, name: org.name || 'Current workspace', slug: org.slug }])
-          } else {
-            setOrgs([])
-          }
-          return
-        }
-
-        const res = await fetch('/api/v1/organizations')
-        const body = await res.json()
-        const rows = (body.data ?? body.organizations ?? body.orgs ?? []) as OrgSummary[]
-        if (cancelled) return
-        setOrgs(rows)
-      } catch {
-        if (cancelled) return
-        setOrgs([])
-        if (mode === 'portal') setLoading(false)
-      }
-    })()
-    return () => { cancelled = true }
-  }, [mode])
 
   useEffect(() => {
     setAccountPulseId('')
   }, [mode, orgId])
-
-  const query = useMemo(() => {
-    const params = new URLSearchParams()
-    if (orgId) params.set('orgId', orgId)
-    if (priority !== 'all') params.set('priority', priority)
-    if (sourceType !== 'all') params.set('sourceType', sourceType)
-    params.set('limit', BRIEFING_CONTROL_DESK_LIMIT)
-    return params.toString()
-  }, [orgId, priority, sourceType])
-
-  const loadFeed = useCallback(async ({ quiet = false }: { quiet?: boolean } = {}) => {
-    if (mode === 'portal' && !orgId) return
-    if (!quiet) setLoading(true)
-    try {
-      const res = await fetch(`/api/v1/briefings/feed?${query}`)
-      const body = await res.json()
-      if (!res.ok) throw new Error(body.error || 'Briefing feed failed')
-      const data = (body.data ?? body) as BriefingFeed
-      setFeed(data)
-      setSelectedId((current) => current && data.items.some((item) => item.id === current) ? current : data.items[0]?.id ?? null)
-      setFlash(null)
-    } catch (err) {
-      setFlash({ kind: 'error', message: err instanceof Error ? err.message : 'Briefing feed failed' })
-      if (!quiet) setFeed({ items: [], total: 0, hasMore: false, generatedAt: new Date().toISOString() })
-    } finally {
-      if (!quiet) setLoading(false)
-    }
-  }, [mode, orgId, query])
-
-  useEffect(() => {
-    if (mode === 'portal' && !orgId) return
-    loadFeed()
-  }, [loadFeed, mode, orgId])
-
-  useEffect(() => {
-    if (!autoRefresh) return
-    if (mode === 'portal' && !orgId) return
-    const timer = window.setInterval(() => {
-      if (document.visibilityState === 'visible') {
-        loadFeed({ quiet: true })
-      }
-    }, BRIEFING_AUTO_REFRESH_MS)
-    return () => window.clearInterval(timer)
-  }, [autoRefresh, loadFeed, mode, orgId])
 
   const allItems = useMemo(() => feed?.items ?? [], [feed?.items])
   const pulseScopedItems = useMemo(() => {
