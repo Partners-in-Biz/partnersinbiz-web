@@ -820,15 +820,6 @@ function briefingCopyText(item: BriefingCard, kind: 'exact-ask' | 'full-briefing
   return [...context, 'Evidence:', ...briefingEvidenceLines(item)].join('\n')
 }
 
-function briefingChatHref(item: BriefingCard) {
-  const slug = item.context.orgSlug || item.orgId || item.context.orgId
-  const params = new URLSearchParams()
-  params.set('agent', phase2AgentId(item))
-  if (item.context.projectId) params.set('projectId', item.context.projectId)
-  if (item.context.taskId) params.set('taskId', item.context.taskId)
-  params.set('briefingId', item.id)
-  return `/admin/org/${encodeURIComponent(slug)}/messages?${params.toString()}`
-}
 
 function defaultSnoozeDate() {
   return new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
