@@ -1,3 +1,5 @@
+import { cookies } from 'next/headers'
+import { adminAuth } from '@/lib/firebase/admin'
 import { BriefingControlDesk } from '@/components/briefing/BriefingControlDesk'
 import { scopeFromSearchParams } from '@/lib/portal/scoped-routing'
 
@@ -15,11 +17,24 @@ function toUrlSearchParams(params?: PageSearchParams | null) {
   return searchParams
 }
 
+async function getCurrentUser() {
+  const c = await cookies()
+  const sc = c.get(process.env.SESSION_COOKIE_NAME ?? '__session')?.value
+  if (!sc) return undefined
+  try {
+    const d = await adminAuth.verifySessionCookie(sc, true)
+    return { uid: d.uid, displayName: (d.name as string) ?? (d.email as string) ?? d.uid }
+  } catch {
+    return undefined
+  }
+}
+
 export default async function PortalBriefingsPage({
   searchParams,
 }: {
   searchParams?: Promise<PageSearchParams>
 }) {
   const routeScope = scopeFromSearchParams(toUrlSearchParams(await searchParams))
-  return <BriefingControlDesk mode="portal" portalScope={routeScope} />
+  const currentUser = await getCurrentUser()
+  return <BriefingControlDesk mode="portal" portalScope={routeScope} currentUser={currentUser} />
 }
