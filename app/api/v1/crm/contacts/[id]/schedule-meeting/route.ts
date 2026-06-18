@@ -10,10 +10,22 @@ import { adminDb } from '@/lib/firebase/admin'
 import { withCrmAuth } from '@/lib/auth/crm-middleware'
 import { apiError, apiSuccess } from '@/lib/api/response'
 import type { CalendarAssignee } from '@/lib/calendar/types'
+import { getFreshGoogleAccessToken, googleAccountHasScopes } from '@/lib/google/userToken'
 
 export const dynamic = 'force-dynamic'
 
 type RouteCtx = { params: Promise<{ id: string }> }
+
+type CreatedGoogleCalendarEvent = {
+  id?: string
+  htmlLink?: string
+  hangoutLink?: string
+  conferenceData?: {
+    entryPoints?: Array<{ entryPointType?: string; uri?: string }>
+  }
+}
+
+const GOOGLE_CALENDAR_EVENTS_SCOPE = 'https://www.googleapis.com/auth/calendar.events'
 
 function cleanString(value: unknown): string {
   return typeof value === 'string' ? value.trim() : ''
@@ -40,6 +52,77 @@ function parseAssignee(value: unknown): CalendarAssignee | null {
   const id = cleanString(input.id)
   if ((type !== 'user' && type !== 'agent') || !id) return null
   return { type, id }
+}
+
+function googleMeetUrl(event: CreatedGoogleCalendarEvent): string {
+  return (
+    cleanString(event.hangoutLink) ||
+    cleanString(event.conferenceData?.entryPoints?.find((entry) => entry.entryPointType === 'video')?.uri)
+  )
+}
+
+async function createGoogleCalendarEvent(input: {
+  orgId: string
+  uid: string
+  title: string
+  description: string
+  start: Date
+  end: Date
+  timezone: string
+  contactName: string
+  contactEmail: string
+  reminderMinutesBefore: number[]
+}): Promise<
+  | { ok: true; googleEvent: CreatedGoogleCalendarEvent; accountId: string; accountEmail: string }
+  | { ok: false; status: number; error: string }
+> {
+  const token = await getFreshGoogleAccessToken({ orgId: input.orgId, uid: input.uid })
+  if (!token.ok) {
+    return {
+      ok: false,
+      status: 409,
+      error: token.notConnected
+        ? 'Google Calendar is not connected for this profile'
+        : `Google Calendar needs reconnect: ${token.reason}`,
+    }
+  }
+  if (!googleAccountHasScopes(token.scopes, [GOOGLE_CALENDAR_EVENTS_SCOPE])) {
+    return {
+      ok: false,
+      status: 409,
+      error: 'Google Calendar needs reconnect with calendar.events permission before CRM meetings can be scheduled',
+    }
+  }
+
+  const googleBody = {
+    summary: input.title,
+    description: input.description || `CRM meeting with ${input.contactName}`,
+    start: { dateTime: input.start.toISOString(), timeZone: input.timezone },
+    end: { dateTime: input.end.toISOString(), timeZone: input.timezone },
+    attendees: [{ displayName: input.contactName, email: input.contactEmail }],
+    reminders: {
+      useDefault: input.reminderMinutesBefore.length === 0,
+      overrides: input.reminderMinutesBefore.map((minutes) => ({ method: 'popup', minutes })),
+    },
+    conferenceData: {
+      createRequest: {
+        requestId: `crm-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`,
+        conferenceSolutionKey: { type: 'hangoutsMeet' },
+      },
+    },
+  }
+
+  const params = new URLSearchParams({ conferenceDataVersion: '1', sendUpdates: 'all' })
+  const googleRes = await fetch(`https://www.googleapis.com/calendar/v3/calendars/primary/events?${params.toString()}`, {
+    method: 'POST',
+    headers: { authorization: `Bearer ${token.accessToken}`, 'content-type': 'application/json' },
+    body: JSON.stringify(googleBody),
+  })
+  if (!googleRes.ok) {
+    return { ok: false, status: 502, error: 'Google Calendar event creation failed' }
+  }
+  const googleEvent = (await googleRes.json()) as CreatedGoogleCalendarEvent
+  return { ok: true, googleEvent, accountId: token.accountId, accountEmail: token.emailAddress }
 }
 
 export const POST = withCrmAuth<RouteCtx>(
@@ -74,12 +157,38 @@ export const POST = withCrmAuth<RouteCtx>(
     const title = cleanString(body.title) || `Meeting with ${contactName}`
     const description = cleanString(body.description)
     const timezone = cleanString(body.timezone) || 'Africa/Johannesburg'
-    const location = cleanString(body.location)
-    const meetingUrl = cleanString(body.meetingUrl)
+    let location = cleanString(body.location)
+    let meetingUrl = cleanString(body.meetingUrl)
+    let googleEventId = ''
+    let googleHtmlLink = ''
+    let googleAccountId = ''
+    let googleAccountEmail = ''
     const reminderMinutesBefore = parseReminderMinutes(body.reminderMinutesBefore)
     const assignedTo =
       parseAssignee(body.assignedTo) ??
       (ctx.actor.uid ? { type: ctx.actor.kind === 'agent' ? 'agent' : 'user', id: ctx.actor.uid } : null)
+
+    if (!meetingUrl && !ctx.isAgent && ctx.uid) {
+      const googleCreate = await createGoogleCalendarEvent({
+        orgId: ctx.orgId,
+        uid: ctx.uid,
+        title,
+        description,
+        start,
+        end,
+        timezone,
+        contactName,
+        contactEmail,
+        reminderMinutesBefore,
+      })
+      if (!googleCreate.ok) return apiError(googleCreate.error, googleCreate.status)
+      googleEventId = cleanString(googleCreate.googleEvent.id)
+      googleHtmlLink = cleanString(googleCreate.googleEvent.htmlLink)
+      googleAccountId = googleCreate.accountId
+      googleAccountEmail = googleCreate.accountEmail
+      meetingUrl = googleMeetUrl(googleCreate.googleEvent)
+      if (!location && meetingUrl) location = 'Google Meet'
+    }
 
     const eventRef = adminDb.collection('calendar_events').doc()
     const activityRef = adminDb.collection('activities').doc()
@@ -100,6 +209,16 @@ export const POST = withCrmAuth<RouteCtx>(
       assignedTo,
       reminderMinutesBefore,
       recurrence: null,
+      ...(googleEventId
+        ? {
+            googleEventId,
+            googleCalendarId: 'primary',
+            googleAccountId,
+            googleAccountEmail,
+            googleHtmlLink,
+            googleSyncedAt: FieldValue.serverTimestamp(),
+          }
+        : {}),
       createdBy: ctx.actor.uid ?? 'system',
       createdByType: ctx.actor.kind === 'agent' ? 'agent' : 'user',
       createdByRef: ctx.actor,
@@ -120,6 +239,9 @@ export const POST = withCrmAuth<RouteCtx>(
         timezone,
         location,
         meetingUrl,
+        googleEventId: googleEventId || null,
+        googleHtmlLink: googleHtmlLink || null,
+        googleAccountEmail: googleAccountEmail || null,
       },
       createdBy: ctx.actor.uid,
       createdByRef: ctx.actor,
