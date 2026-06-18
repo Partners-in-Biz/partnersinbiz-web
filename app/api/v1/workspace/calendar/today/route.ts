@@ -34,14 +34,37 @@ export async function GET(req: Request) {
     }
 
     const now = new Date()
-    const y = new Intl.DateTimeFormat('en-CA', { timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit' }).format(now)
-    const timeMin = `${y}T00:00:00`
-    const timeMax = `${y}T23:59:59`
+    // Get today's date string in the requested timezone (YYYY-MM-DD)
+    const localDate = new Intl.DateTimeFormat('en-CA', { timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit' }).format(now)
+
+    // Compute UTC timestamps for start and end of today in the requested timezone.
+    // Strategy: find the UTC offset by comparing what a Date looks like in the target
+    // timezone vs UTC, then shift accordingly.
+    function getUTCOffsetMs(date: Date, timezone: string): number {
+      const parts = new Intl.DateTimeFormat('en-US', {
+        timeZone: timezone,
+        year: 'numeric', month: '2-digit', day: '2-digit',
+        hour: '2-digit', minute: '2-digit', second: '2-digit',
+        hour12: false,
+      }).formatToParts(date)
+      const get = (type: string) => Number(parts.find(p => p.type === type)?.value ?? '0')
+      const h = get('hour')
+      const localUTC = Date.UTC(get('year'), get('month') - 1, get('day'), h === 24 ? 0 : h, get('minute'), get('second'))
+      return localUTC - date.getTime()
+    }
+
+    // Approximate reference: midnight UTC for this date string
+    const approxMidnight = new Date(`${localDate}T00:00:00Z`)
+    const offsetMs = getUTCOffsetMs(approxMidnight, tz)
+    // Actual UTC time corresponding to 00:00:00 in tz
+    const dayStartUTC = new Date(approxMidnight.getTime() - offsetMs)
+    const dayEndUTC = new Date(dayStartUTC.getTime() + 24 * 60 * 60 * 1000 - 1000)
+
     const params = new URLSearchParams({
       singleEvents: 'true',
       orderBy: 'startTime',
-      timeMin: new Date(`${timeMin}Z`).toISOString(),
-      timeMax: new Date(`${timeMax}Z`).toISOString(),
+      timeMin: dayStartUTC.toISOString(),
+      timeMax: dayEndUTC.toISOString(),
       timeZone: tz,
       maxResults: '20',
     })
