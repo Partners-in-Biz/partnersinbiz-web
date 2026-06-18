@@ -34,7 +34,7 @@ export function DrivePanel({ status, files, loading }: Props) {
       <div className="p-4 text-sm text-on-surface-variant">
         Reconnect Google to enable Drive.{' '}
         <a
-          href="/portal/email/google/authorize"
+          href="/api/v1/portal/email/google/authorize"
           className="text-[var(--color-pib-accent)] hover:underline"
         >
           Reconnect
@@ -47,7 +47,7 @@ export function DrivePanel({ status, files, loading }: Props) {
       <div className="p-4 text-sm text-on-surface-variant">
         No Google account connected.{' '}
         <a
-          href="/portal/email/google/authorize"
+          href="/api/v1/portal/email/google/authorize"
           className="text-[var(--color-pib-accent)] hover:underline"
         >
           Connect Google
