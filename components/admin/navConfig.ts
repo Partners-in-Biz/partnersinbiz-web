@@ -17,9 +17,10 @@ export interface NavItem {
 // Workspace links stay on admin/org routes so operators do not fall into client-facing portal flows.
 
 export const OPERATOR_NAV: NavItem[] = [
-  { label: 'Home',         href: '/admin/dashboard',    icon: 'space_dashboard', group: 'work' },
-  { label: 'Updates',      href: '/admin/updates',      icon: 'new_releases', group: 'work' },
-  { label: 'Loop Engine',  href: '/admin/loop-engine',  icon: 'all_inclusive', group: 'work' },
+  { label: 'Home',            href: '/admin/dashboard',    icon: 'space_dashboard', group: 'work' },
+  { label: 'Mission Control', href: '/admin/briefings',    icon: 'crisis_alert',    group: 'work' },
+  { label: 'Updates',         href: '/admin/updates',      icon: 'new_releases',    group: 'work' },
+  { label: 'Loop Engine',     href: '/admin/loop-engine',  icon: 'all_inclusive',   group: 'work' },
   { label: 'Organisations', href: '/admin/organizations', icon: 'groups', group: 'work', activePatterns: ['/admin/organizations'] },
   { label: 'Agents',   href: '/admin/agents',   icon: 'group_work', group: 'work' },
   { label: 'Skill Lab', href: '/admin/skill-lab', icon: 'science', group: 'data' },
@@ -29,9 +30,10 @@ export const OPERATOR_NAV: NavItem[] = [
 ]
 
 export const OPERATOR_NAV_TOPBAR: NavItem[] = [
-  { label: 'Home',     href: '/admin/dashboard',    icon: 'space_dashboard' },
-  { label: 'Updates',  href: '/admin/updates',      icon: 'new_releases' },
-  { label: 'Loop Engine', href: '/admin/loop-engine', icon: 'all_inclusive' },
+  { label: 'Home',            href: '/admin/dashboard',    icon: 'space_dashboard' },
+  { label: 'Mission Control', href: '/admin/briefings',    icon: 'crisis_alert' },
+  { label: 'Updates',         href: '/admin/updates',      icon: 'new_releases' },
+  { label: 'Loop Engine',     href: '/admin/loop-engine',  icon: 'all_inclusive' },
   { label: 'Organisations', href: '/admin/organizations', icon: 'groups', activePatterns: ['/admin/organizations'] },
   { label: 'Agents',   href: '/admin/agents',   icon: 'group_work' },
   { label: 'Skill Lab', href: '/admin/skill-lab', icon: 'science' },

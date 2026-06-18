@@ -75,6 +75,17 @@ describe('TwitterProvider publishPost with mediaUrls', () => {
     const tweetBody = JSON.parse(mockFetch.mock.calls[0][1].body)
     expect(tweetBody.media).toBeUndefined()
   })
+
+  it('fails fast with a clear setup error when an OAuth 2 account tries to upload media', async () => {
+    const oauth2Provider = new TwitterProvider({ accessToken: 'oauth2-user-token' })
+
+    await expect(oauth2Provider.publishPost({
+      text: 'Image post',
+      mediaUrls: ['https://storage.googleapis.com/bucket/photo.jpg'],
+    })).rejects.toThrow('Twitter/X media upload requires OAuth 1.0a credentials or an OAuth 2 token with media upload support')
+
+    expect(mockFetch).not.toHaveBeenCalled()
+  })
 })
 
 describe('TwitterProvider publishThread with mediaUrls', () => {

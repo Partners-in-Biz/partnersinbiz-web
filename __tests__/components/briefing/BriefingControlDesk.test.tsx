@@ -1438,7 +1438,7 @@ describe('BriefingControlDesk', () => {
     expect(screen.getByRole('button', { name: /copy handoff/i })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /copy blocker/i })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /copy evidence/i })).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: /chat about this with theo/i })).toHaveAttribute('href', '/admin/org/client-one/messages?agent=theo&projectId=project-1&taskId=task-1&briefingId=task%3Aitem-1')
+    // Chat link removed — docked chat in CockpitShell replaces the briefingChatHref link-out
     expect(screen.getByRole('button', { name: /log to crm unavailable/i })).toBeDisabled()
     expect(screen.getByText('CRM conversion unavailable: this card needs a linked contact or deal first. Open the source to link CRM context, or create a follow-up task before converting.')).toBeInTheDocument()
     expect(screen.getByText(/Usable alternatives for this card: create follow-up task, ask Theo to triage, link existing task, create routed Theo task, open evidence\./)).toBeInTheDocument()
@@ -1467,12 +1467,12 @@ describe('BriefingControlDesk', () => {
     fireEvent.click(screen.getByText('Secondary actions and routing notes'))
     expect(screen.getByLabelText('Copy or ask an agent controls')).toHaveClass('grid-cols-1')
 
+    // Chat link removed — docked chat in CockpitShell replaces briefingChatHref
     const longControls = [
       screen.getByRole('button', { name: /ask theo to triage unavailable/i }),
       screen.getByRole('button', { name: /create routed theo task unavailable/i }),
       screen.getByRole('button', { name: /link existing task unavailable/i }),
       screen.getByRole('button', { name: /log to crm unavailable/i }),
-      screen.getByRole('link', { name: /chat about this with theo/i }),
     ]
 
     longControls.forEach((control) => {
@@ -2221,7 +2221,10 @@ describe('BriefingControlDesk', () => {
       }
       if (url.startsWith('/api/v1/briefings/feed')) {
         feedCalls += 1
-        if (feedCalls > 1) {
+        // BriefingControlDesk + CockpitShell each call useBriefingFeed, so allow the first 2
+        // calls to return data (initial load). Hang from the 3rd call onwards to simulate a
+        // stuck refresh — this is what the test is actually exercising.
+        if (feedCalls > 2) {
           return new Promise<Response>(() => {})
         }
         return {
@@ -2233,6 +2236,13 @@ describe('BriefingControlDesk', () => {
         return {
           ok: true,
           json: async () => ({ data: { id: 'activity-note-1' } }),
+        } as Response
+      }
+      // CockpitShell hooks — return empty responses so they don't throw
+      if (url.startsWith('/api/v1/workspace/calendar/today') || url.startsWith('/api/v1/workspace/drive/recent') || url.startsWith('/api/v1/portal/email/messages')) {
+        return {
+          ok: true,
+          json: async () => ({ data: { items: [], messages: [], files: [], total: 0 } }),
         } as Response
       }
       throw new Error(`Unexpected fetch ${url}`)

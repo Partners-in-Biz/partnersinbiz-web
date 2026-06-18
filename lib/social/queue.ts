@@ -17,6 +17,7 @@ import type { SocialPlatformType } from '@/lib/social/providers'
 import { hasFinalApproval } from '@/lib/social/scheduling'
 import { validatePublishReadyText } from '@/lib/social/publish-text'
 import { validateOutboundLinks } from '@/lib/social/outbound-link-validation'
+import { notifySocialPublishFailure } from '@/lib/social/publish-failure-alerts'
 import crypto from 'crypto'
 
 /** Backoff schedule in seconds: 1min, 5min, 15min, 1hr */
@@ -217,6 +218,13 @@ export async function processQueue(): Promise<QueueProcessResult> {
       if (attempts >= maxAttempts) {
         await adminDb.collection('social_posts').doc(entry.postId).update({ status: 'failed', error: message, updatedAt: FieldValue.serverTimestamp() })
         await lockRef.update({ status: 'failed', lockedBy: null, lockedAt: null, completedAt: FieldValue.serverTimestamp(), attempts, lastAttemptAt: FieldValue.serverTimestamp(), error: message })
+        await notifySocialPublishFailure({
+          orgId: post.orgId ?? entry.orgId,
+          postId: entry.postId,
+          platform: post.platform ?? entry.platform ?? 'unknown',
+          campaignId: post.campaignId ?? entry.campaignId ?? null,
+          error: message,
+        })
       } else {
         const backoff = getBackoffSeconds(attempts - 1)
         const nextRetry = Timestamp.fromMillis(Date.now() + backoff * 1000)
@@ -235,6 +243,13 @@ async function failQueueEntry(lockRef: FirebaseFirestore.DocumentReference, entr
   if (attempts >= maxAttempts) {
     await adminDb.collection('social_posts').doc(entry.postId).update({ status: 'failed', error, updatedAt: FieldValue.serverTimestamp() })
     await lockRef.update({ status: 'failed', lockedBy: null, lockedAt: null, completedAt: FieldValue.serverTimestamp(), attempts, error })
+    await notifySocialPublishFailure({
+      orgId: entry.orgId,
+      postId: entry.postId,
+      platform: entry.platform ?? 'unknown',
+      campaignId: entry.campaignId ?? null,
+      error,
+    })
   } else {
     const backoff = getBackoffSeconds(attempts - 1)
     const nextRetry = Timestamp.fromMillis(Date.now() + backoff * 1000)

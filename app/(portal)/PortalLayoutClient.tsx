@@ -259,6 +259,7 @@ function PortalLayoutContent({ children }: { children: React.ReactNode }) {
   const requestedSourceCompanyName = searchParams.get('sourceCompanyName')?.trim() ?? ''
   const isEmailRoute = pathname === '/portal/email' || pathname.startsWith('/portal/email/')
   const isMessagesRoute = pathname === '/portal/messages' || pathname.startsWith('/portal/messages/')
+  const isCockpitRoute = pathname === '/portal/briefings' || pathname.startsWith('/portal/briefings/')
   const isWorkspaceRoute = isEmailRoute || isMessagesRoute
 
   const [email, setEmail]       = useState('')
@@ -663,12 +664,14 @@ function PortalLayoutContent({ children }: { children: React.ReactNode }) {
           </div>
         )}
 
-        <main className={isWorkspaceRoute
+        <main className={isCockpitRoute
+          ? 'flex-1 min-h-0 overflow-hidden w-full max-w-none'
+          : isWorkspaceRoute
           ? 'flex-1 min-h-0 overflow-hidden px-3 md:px-5 py-4 w-full max-w-none'
           : 'flex-1 overflow-y-auto px-4 md:px-8 py-8 max-w-[1400px] mx-auto w-full'
         }>{children}</main>
 
-        {!isWorkspaceRoute && (
+        {!isWorkspaceRoute && !isCockpitRoute && (
           <footer className="px-4 md:px-8 py-6 border-t border-[var(--color-pib-line)] text-[var(--color-pib-text-muted)] text-xs flex flex-wrap items-center justify-between gap-3">
             <span>© {new Date().getFullYear()} Partners in Biz · Pretoria</span>
             <div className="flex items-center gap-4">
@@ -926,12 +929,14 @@ function PortalLayoutContent({ children }: { children: React.ReactNode }) {
           </div>
         </header>
 
-        <main className={isWorkspaceRoute
+        <main className={isCockpitRoute
+          ? 'flex-1 min-h-0 overflow-hidden w-full max-w-none'
+          : isWorkspaceRoute
           ? 'flex-1 min-h-0 overflow-hidden px-3 md:px-5 py-4 w-full max-w-none'
           : 'flex-1 overflow-y-auto px-4 md:px-8 py-8 max-w-[1400px] mx-auto w-full'
         }>{children}</main>
 
-        {!isWorkspaceRoute && (
+        {!isWorkspaceRoute && !isCockpitRoute && (
           <footer className="px-4 md:px-8 py-6 border-t border-[var(--color-pib-line)] text-[var(--color-pib-text-muted)] text-xs flex flex-wrap items-center justify-between gap-3">
             <span>© {new Date().getFullYear()} Partners in Biz · Pretoria</span>
             <div className="flex items-center gap-4">

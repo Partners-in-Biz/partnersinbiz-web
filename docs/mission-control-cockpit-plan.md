@@ -1,0 +1,1 @@
+/Users/peetstander/Cowork/Cowork/agents/partners/wiki/mission-control-cockpit-plan.md

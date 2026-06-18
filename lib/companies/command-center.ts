@@ -149,6 +149,14 @@ function matchesAnyArray(value: unknown, allowed: Set<string>): boolean {
   return rowIdList(value).some((entry) => allowed.has(entry))
 }
 
+function matchesCompanyLinks(value: unknown, allowed: Set<string>): boolean {
+  if (!Array.isArray(value)) return false
+  return value.some((link) => {
+    if (!link || typeof link !== 'object') return false
+    return matchesAny((link as { companyId?: unknown }).companyId, allowed)
+  })
+}
+
 function recordValue(value: unknown): Record<string, unknown> {
   return value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : {}
 }
@@ -185,6 +193,7 @@ function linksCompanyByFields(
 
   if (scalarFields.some((value) => matchesAny(value, companyIds))) return true
   if (arrayFields.some((value) => matchesAnyArray(value, companyIds))) return true
+  if (matchesCompanyLinks(row.companyLinks, companyIds)) return true
   if (relationshipIds.size > 0 && matchesAny(row.relationshipId, relationshipIds)) return true
 
   if (orgIds.size > 0) {

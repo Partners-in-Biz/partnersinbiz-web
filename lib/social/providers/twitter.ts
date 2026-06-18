@@ -123,7 +123,14 @@ export class TwitterProvider extends SocialProvider {
     return 'image/jpeg'
   }
 
+  private ensureMediaUploadSupported(): void {
+    if (this.useOAuth2) {
+      throw new Error('Twitter/X media upload requires OAuth 1.0a credentials or an OAuth 2 token with media upload support. Text-only publishing can continue, but media posts need the account connection/app scopes reviewed before retrying.')
+    }
+  }
+
   private async uploadImageFromUrl(imageUrl: string, mimeType: string): Promise<string> {
+    this.ensureMediaUploadSupported()
     const UPLOAD_URL = 'https://upload.twitter.com/1.1/media/upload.json'
     const res = await fetch(imageUrl)
     if (!res.ok) throw new Error(`Failed to download image: ${res.status}`)
@@ -143,6 +150,7 @@ export class TwitterProvider extends SocialProvider {
   }
 
   private async uploadVideoFromUrl(videoUrl: string, mimeType: string): Promise<string> {
+    this.ensureMediaUploadSupported()
     const UPLOAD_URL = 'https://upload.twitter.com/1.1/media/upload.json'
     const res = await fetch(videoUrl)
     if (!res.ok) throw new Error(`Failed to download video: ${res.status}`)
