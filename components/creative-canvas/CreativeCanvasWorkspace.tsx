@@ -139,6 +139,13 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
   const [activityMessage, setActivityMessage] = useState('')
   const [exportTarget, setExportTarget] = useState<CreativeCanvasExport['target']>('campaign_asset')
   const [latestRun, setLatestRun] = useState<{ id: string; status: string; nodeId?: string } | null>(null)
+  const [runOutputKind, setRunOutputKind] = useState('image')
+  const [runAspectRatio, setRunAspectRatio] = useState('1:1')
+  const [runDurationSeconds, setRunDurationSeconds] = useState(5)
+  const [runVariantCount, setRunVariantCount] = useState(1)
+  const [runStylePreset, setRunStylePreset] = useState('cinematic_product')
+  const [runCameraMotion, setRunCameraMotion] = useState('none')
+  const [runNegativePrompt, setRunNegativePrompt] = useState('')
 
   const activeCanvas = useMemo(
     () => canvases.find((canvas) => canvas.id === activeCanvasId) ?? canvases[0],
@@ -346,6 +353,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
   const queueRun = async () => {
     if (!activeCanvas?.id || !selectedNodeId) return
 
+    const selectedEdit = selectedCanvasNode?.edit
     const query = resolvedOrgId ? `?orgId=${encodeURIComponent(resolvedOrgId)}` : ''
     const response = await fetch(`/api/v1/creative-canvas/${activeCanvas.id}/runs${query}`, {
       method: 'POST',
@@ -354,11 +362,22 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
         canvasId: activeCanvas.id,
         nodeId: selectedNodeId,
         providerKey: 'higgsfield',
+        model: selectedCanvasNode?.provider?.model,
         input: {
           promptSummary: 'Generate a reviewable creative asset from the active canvas node.',
           sourceNodeIds: selectedNodeId ? [selectedNodeId] : [],
           sourceArtifactIds: [],
           format: 'internal_draft',
+          outputKind: selectedEdit?.outputKind ?? runOutputKind,
+          operation: selectedEdit?.operation,
+          aspectRatio: runAspectRatio,
+          durationSeconds: runDurationSeconds,
+          variantCount: runVariantCount,
+          stylePreset: runStylePreset,
+          cameraMotion: selectedEdit?.motion?.mode && selectedEdit.motion.mode !== 'none'
+            ? selectedEdit.motion.mode
+            : runCameraMotion,
+          negativePrompt: runNegativePrompt,
         },
       }),
     })
@@ -527,6 +546,104 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
             <p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">
               Queue Higgsfield, copy, document, and review work from prompt/model nodes while keeping approval gates intact.
             </p>
+            <div className="mt-3 grid grid-cols-2 gap-2">
+              <label className="text-xs font-medium text-[var(--color-pib-text-muted)]" htmlFor="creative-canvas-output-kind">
+                Output kind
+                <select
+                  id="creative-canvas-output-kind"
+                  value={runOutputKind}
+                  onChange={(event) => setRunOutputKind(event.target.value)}
+                  className="mt-1 w-full rounded-lg border border-[var(--color-pib-line)] bg-white px-2 py-1.5 text-xs text-[var(--color-pib-text)]"
+                >
+                  <option value="image">Image</option>
+                  <option value="video">Video</option>
+                  <option value="campaign_asset">Campaign asset</option>
+                  <option value="social_post_draft">Social draft</option>
+                  <option value="youtube_render">YouTube render</option>
+                  <option value="book_artifact">Book artifact</option>
+                </select>
+              </label>
+              <label className="text-xs font-medium text-[var(--color-pib-text-muted)]" htmlFor="creative-canvas-aspect-ratio">
+                Aspect ratio
+                <select
+                  id="creative-canvas-aspect-ratio"
+                  value={runAspectRatio}
+                  onChange={(event) => setRunAspectRatio(event.target.value)}
+                  className="mt-1 w-full rounded-lg border border-[var(--color-pib-line)] bg-white px-2 py-1.5 text-xs text-[var(--color-pib-text)]"
+                >
+                  <option value="1:1">1:1</option>
+                  <option value="4:5">4:5</option>
+                  <option value="9:16">9:16</option>
+                  <option value="16:9">16:9</option>
+                </select>
+              </label>
+              <label className="text-xs font-medium text-[var(--color-pib-text-muted)]" htmlFor="creative-canvas-duration">
+                Duration seconds
+                <input
+                  id="creative-canvas-duration"
+                  type="number"
+                  min={0}
+                  max={60}
+                  value={runDurationSeconds}
+                  onChange={(event) => setRunDurationSeconds(Math.max(0, Number(event.target.value) || 0))}
+                  className="mt-1 w-full rounded-lg border border-[var(--color-pib-line)] bg-white px-2 py-1.5 text-xs text-[var(--color-pib-text)]"
+                />
+              </label>
+              <label className="text-xs font-medium text-[var(--color-pib-text-muted)]" htmlFor="creative-canvas-variants">
+                Variants
+                <input
+                  id="creative-canvas-variants"
+                  type="number"
+                  min={1}
+                  max={8}
+                  value={runVariantCount}
+                  onChange={(event) => setRunVariantCount(Math.min(8, Math.max(1, Number(event.target.value) || 1)))}
+                  className="mt-1 w-full rounded-lg border border-[var(--color-pib-line)] bg-white px-2 py-1.5 text-xs text-[var(--color-pib-text)]"
+                />
+              </label>
+              <label className="text-xs font-medium text-[var(--color-pib-text-muted)]" htmlFor="creative-canvas-style-preset">
+                Style preset
+                <select
+                  id="creative-canvas-style-preset"
+                  value={runStylePreset}
+                  onChange={(event) => setRunStylePreset(event.target.value)}
+                  className="mt-1 w-full rounded-lg border border-[var(--color-pib-line)] bg-white px-2 py-1.5 text-xs text-[var(--color-pib-text)]"
+                >
+                  <option value="cinematic_product">Cinematic product</option>
+                  <option value="ugc_social">UGC social</option>
+                  <option value="editorial">Editorial</option>
+                  <option value="clean_studio">Clean studio</option>
+                  <option value="brand_realism">Brand realism</option>
+                </select>
+              </label>
+              <label className="text-xs font-medium text-[var(--color-pib-text-muted)]" htmlFor="creative-canvas-camera-motion">
+                Camera motion
+                <select
+                  id="creative-canvas-camera-motion"
+                  value={runCameraMotion}
+                  onChange={(event) => setRunCameraMotion(event.target.value)}
+                  className="mt-1 w-full rounded-lg border border-[var(--color-pib-line)] bg-white px-2 py-1.5 text-xs text-[var(--color-pib-text)]"
+                >
+                  <option value="none">None</option>
+                  <option value="camera_push">Camera push</option>
+                  <option value="camera_pull">Camera pull</option>
+                  <option value="pan">Pan</option>
+                  <option value="orbit">Orbit</option>
+                  <option value="dolly">Dolly</option>
+                  <option value="handheld">Handheld</option>
+                </select>
+              </label>
+              <label className="col-span-2 text-xs font-medium text-[var(--color-pib-text-muted)]" htmlFor="creative-canvas-negative-prompt">
+                Negative prompt
+                <input
+                  id="creative-canvas-negative-prompt"
+                  value={runNegativePrompt}
+                  onChange={(event) => setRunNegativePrompt(event.target.value)}
+                  className="mt-1 w-full rounded-lg border border-[var(--color-pib-line)] bg-white px-2 py-1.5 text-xs text-[var(--color-pib-text)]"
+                  placeholder="Avoid blur, distortion, off-brand elements"
+                />
+              </label>
+            </div>
             {mode === 'admin' ? (
               <div className="mt-3 flex flex-wrap gap-2">
                 <button

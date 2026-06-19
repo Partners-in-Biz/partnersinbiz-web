@@ -41,6 +41,14 @@ describe('creative canvas runs', () => {
         sourceNodeIds: ['source-1'],
         sourceArtifactIds: ['artifact-1'],
         aspectRatio: '1:1',
+        outputKind: 'video',
+        operation: 'video_motion',
+        variantCount: 3,
+        seed: 'launch-seed-1',
+        stylePreset: 'cinematic_product',
+        cameraMotion: 'camera_push',
+        negativePrompt: 'blurry, distorted hands',
+        durationSeconds: 6,
       },
       provenance: {
         syntheticMedia: true,
@@ -62,6 +70,16 @@ describe('creative canvas runs', () => {
         model: 'nano_banana_flash',
         promptStored: 'summary',
         syntheticMedia: true,
+      }),
+      input: expect.objectContaining({
+        outputKind: 'video',
+        operation: 'video_motion',
+        variantCount: 3,
+        seed: 'launch-seed-1',
+        stylePreset: 'cinematic_product',
+        cameraMotion: 'camera_push',
+        negativePrompt: 'blurry, distorted hands',
+        durationSeconds: 6,
       }),
     }))
     expect(run).toMatchObject({ id: 'run-1', status: 'queued', providerKey: 'higgsfield' })
@@ -88,6 +106,13 @@ describe('creative canvas runs', () => {
         promptSummary: 'Create a launch image',
         sourceNodeIds: ['source-1'],
         sourceArtifactIds: ['artifact-1'],
+        outputKind: 'video',
+        operation: 'video_motion',
+        aspectRatio: '9:16',
+        durationSeconds: 6,
+        variantCount: 2,
+        stylePreset: 'cinematic_product',
+        cameraMotion: 'camera_push',
       },
       provenance: {
         generatedBy: 'agent',
@@ -108,6 +133,15 @@ describe('creative canvas runs', () => {
         canvasId: 'canvas-1',
         runId: 'run-1',
         expectedArtifacts: ['creative_canvas_output'],
+        generationSettings: {
+          outputKind: 'video',
+          operation: 'video_motion',
+          aspectRatio: '9:16',
+          durationSeconds: 6,
+          variantCount: 2,
+          stylePreset: 'cinematic_product',
+          cameraMotion: 'camera_push',
+        },
       },
     })
     expect(task.description).toContain('Do not publish, schedule, share, launch ads, or expose outputs to clients.')

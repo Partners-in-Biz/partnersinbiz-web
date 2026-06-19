@@ -185,6 +185,38 @@ describe('CreativeCanvasWorkspace', () => {
     })
   })
 
+  it('queues Higgsfield runs with selected generation settings', async () => {
+    render(<CreativeCanvasWorkspace mode="admin" orgId="org-1" />)
+
+    await screen.findByText('Launch Canvas')
+    fireEvent.click(screen.getByRole('button', { name: /add model node/i }))
+    fireEvent.change(screen.getByLabelText(/output kind/i), { target: { value: 'video' } })
+    fireEvent.change(screen.getByLabelText(/aspect ratio/i), { target: { value: '9:16' } })
+    fireEvent.change(screen.getByLabelText(/duration seconds/i), { target: { value: '6' } })
+    fireEvent.change(screen.getByLabelText(/variants/i), { target: { value: '3' } })
+    fireEvent.change(screen.getByLabelText(/style preset/i), { target: { value: 'cinematic_product' } })
+    fireEvent.change(screen.getByLabelText(/camera motion/i), { target: { value: 'camera_push' } })
+    fireEvent.change(screen.getByLabelText(/negative prompt/i), { target: { value: 'blurry, distorted hands' } })
+    fireEvent.click(screen.getByRole('button', { name: /queue run/i }))
+
+    await screen.findByText(/run queued: run-1/i)
+    const runCall = fetchMock.mock.calls.find(([url, init]) =>
+      String(url).endsWith('/runs?orgId=org-1') && init?.method === 'POST'
+    )
+    expect(JSON.parse(runCall?.[1]?.body as string)).toMatchObject({
+      providerKey: 'higgsfield',
+      input: {
+        outputKind: 'video',
+        aspectRatio: '9:16',
+        durationSeconds: 6,
+        variantCount: 3,
+        stylePreset: 'cinematic_product',
+        cameraMotion: 'camera_push',
+        negativePrompt: 'blurry, distorted hands',
+      },
+    })
+  })
+
   it('renders visual reference previews for source nodes', async () => {
     fetchMock.mockImplementation(async (input: RequestInfo | URL) => {
       const url = String(input)

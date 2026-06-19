@@ -8,6 +8,8 @@ import {
 import type {
   CreativeCanvas,
   CreativeCanvasActor,
+  CreativeCanvasEditMotionMode,
+  CreativeCanvasEditOperation,
   CreativeCanvasNode,
   CreativeCanvasOutputKind,
   CreativeCanvasProviderKey,
@@ -37,6 +39,15 @@ function cleanStringArray(value: unknown): string[] {
     : []
 }
 
+function cleanOptionalNumber(value: unknown): number | undefined {
+  return typeof value === 'number' && Number.isFinite(value) ? value : undefined
+}
+
+function cleanPositiveInteger(value: unknown, max: number): number | undefined {
+  if (typeof value !== 'number' || !Number.isFinite(value)) return undefined
+  return Math.min(max, Math.max(1, Math.round(value)))
+}
+
 function cleanAgentId(actor: CreativeCanvasActor): string | undefined {
   if (actor.type !== 'agent') return undefined
   return actor.uid.replace(/^agent:/, '') || undefined
@@ -49,6 +60,21 @@ function serializeRun(id: string, data: CreativeCanvasRun): CreativeCanvasRun & 
 function enumOutputKind(value: unknown): CreativeCanvasOutputKind {
   const allowed: CreativeCanvasOutputKind[] = ['image', 'video', 'audio', 'caption', 'copy', 'blog_draft', 'document_block', 'book_artifact', 'youtube_render', 'campaign_asset', 'social_post_draft']
   return allowed.includes(value as CreativeCanvasOutputKind) ? value as CreativeCanvasOutputKind : 'image'
+}
+
+function optionalOutputKind(value: unknown): CreativeCanvasOutputKind | undefined {
+  const allowed: CreativeCanvasOutputKind[] = ['image', 'video', 'audio', 'caption', 'copy', 'blog_draft', 'document_block', 'book_artifact', 'youtube_render', 'campaign_asset', 'social_post_draft']
+  return allowed.includes(value as CreativeCanvasOutputKind) ? value as CreativeCanvasOutputKind : undefined
+}
+
+function optionalEditOperation(value: unknown): CreativeCanvasEditOperation | undefined {
+  const allowed: CreativeCanvasEditOperation[] = ['inpaint', 'outpaint', 'style_transfer', 'object_replace', 'background_replace', 'video_motion', 'variation', 'upscale']
+  return allowed.includes(value as CreativeCanvasEditOperation) ? value as CreativeCanvasEditOperation : undefined
+}
+
+function optionalCameraMotion(value: unknown): CreativeCanvasEditMotionMode | undefined {
+  const allowed: CreativeCanvasEditMotionMode[] = ['none', 'camera_push', 'camera_pull', 'pan', 'orbit', 'dolly', 'handheld']
+  return allowed.includes(value as CreativeCanvasEditMotionMode) ? value as CreativeCanvasEditMotionMode : undefined
 }
 
 function safeHttpUrl(value: unknown, field: string): string | undefined {
@@ -142,6 +168,7 @@ export async function createCreativeCanvasRun(
   if (!provider) throw new Error(`Unsupported creative canvas provider: ${providerKey}`)
 
   const model = cleanString(body.model)
+  const durationSeconds = cleanOptionalNumber(runInput.durationSeconds)
   const payload: CreativeCanvasRun = {
     orgId: requiredString(orgId, 'orgId'),
     canvasId: requiredString(body.canvasId, 'canvasId'),
@@ -155,9 +182,16 @@ export async function createCreativeCanvasRun(
       sourceArtifactIds: cleanStringArray(runInput.sourceArtifactIds),
       format: cleanString(runInput.format),
       aspectRatio: cleanString(runInput.aspectRatio),
-      durationSeconds: typeof runInput.durationSeconds === 'number' && Number.isFinite(runInput.durationSeconds)
-        ? Math.max(0, runInput.durationSeconds)
+      durationSeconds: durationSeconds !== undefined
+        ? Math.max(0, durationSeconds)
         : undefined,
+      outputKind: optionalOutputKind(runInput.outputKind),
+      operation: optionalEditOperation(runInput.operation),
+      variantCount: cleanPositiveInteger(runInput.variantCount, 8),
+      seed: cleanString(runInput.seed),
+      stylePreset: cleanString(runInput.stylePreset),
+      cameraMotion: optionalCameraMotion(runInput.cameraMotion),
+      negativePrompt: cleanString(runInput.negativePrompt),
     },
     provenance: {
       generatedBy: actor.type,

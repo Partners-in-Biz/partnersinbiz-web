@@ -291,6 +291,13 @@ export interface CreativeCanvasRun {
     format?: string
     aspectRatio?: string
     durationSeconds?: number
+    outputKind?: CreativeCanvasOutputKind
+    operation?: CreativeCanvasEditOperation
+    variantCount?: number
+    seed?: string
+    stylePreset?: string
+    cameraMotion?: CreativeCanvasEditMotionMode
+    negativePrompt?: string
   }
   output?: {
     outputNodeId?: string

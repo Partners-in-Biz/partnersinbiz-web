@@ -18,6 +18,17 @@ export interface CreativeCanvasAgentTaskDraft {
     promptSummary?: string
     sourceNodeIds: string[]
     sourceArtifactIds: string[]
+    generationSettings: {
+      outputKind?: string
+      operation?: string
+      aspectRatio?: string
+      durationSeconds?: number
+      variantCount?: number
+      seed?: string
+      stylePreset?: string
+      cameraMotion?: string
+      negativePrompt?: string
+    }
     expectedArtifacts: string[]
     guardrails: string[]
   }
@@ -57,6 +68,17 @@ export function buildCreativeCanvasAgentTask(
       promptSummary: run.input.promptSummary,
       sourceNodeIds: run.input.sourceNodeIds,
       sourceArtifactIds: run.input.sourceArtifactIds,
+      generationSettings: {
+        outputKind: run.input.outputKind,
+        operation: run.input.operation,
+        aspectRatio: run.input.aspectRatio,
+        durationSeconds: run.input.durationSeconds,
+        variantCount: run.input.variantCount,
+        seed: run.input.seed,
+        stylePreset: run.input.stylePreset,
+        cameraMotion: run.input.cameraMotion,
+        negativePrompt: run.input.negativePrompt,
+      },
       expectedArtifacts: ['creative_canvas_output'],
       guardrails: [
         'internal_output_only',
