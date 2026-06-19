@@ -126,6 +126,8 @@ Each document version is an ordered array of `DocumentBlock` objects. Fill `cont
 | `faq` | `{ items: [{q, a}] }` | Native `<details>` accordion |
 | `comparison` | `{ headers: string[], rows: [{label, values: (string\|boolean)[]}], highlightCol?: number }` | Highlight column tinted accent; boolean cells render as check/cross icons |
 
+> ⚠️ **Match the content shape exactly — the wrong shape crashes the whole document, it does not degrade gracefully.** The renderer maps `content` straight onto React children, so handing a block an unexpected object/array throws React error #31 ("Objects are not valid as a React child") and the *entire* document page renders "Document not found" / blank for both admin and client. Most common footguns: `risk` must be `string[]` (NOT `[{severity, item}]`), `timeline` must be `{ phases: [...] }` (NOT `[{phase, detail}]`), `approval`/`terms`/`hero`/`summary`/`problem` must be plain `string` (NOT objects), `metrics` must be `{ items: [...] }` with `value`/`target` as **strings** not integers. When copying blocks from an older document version, re-validate every shape against this table — older drafts may use shapes a newer renderer rejects.
+
 **Display motion options (optional):** `none` | `reveal` | `sticky` | `counter` | `timeline`
 - Use `reveal` on most prose/list blocks (fade-and-slide on scroll into view)
 - Use `counter` on `metrics` blocks (animates numeric values from 0 → target on scroll)
