@@ -51,6 +51,24 @@ beforeEach(() => {
         }),
       }
     }
+    if (url.endsWith('/runs?orgId=org-1') && init?.method === 'POST') {
+      return {
+        ok: true,
+        json: async () => ({
+          success: true,
+          data: { run: { id: 'run-1', status: 'queued', nodeId: 'model-node-1' } },
+        }),
+      }
+    }
+    if (url.includes('/runs/run-1/complete') && init?.method === 'PUT') {
+      return {
+        ok: true,
+        json: async () => ({
+          success: true,
+          data: { run: { id: 'run-1', status: 'completed' }, outputNode: { id: 'output-1' } },
+        }),
+      }
+    }
 
     return {
       ok: true,
@@ -135,6 +153,23 @@ describe('CreativeCanvasWorkspace', () => {
     expect(JSON.parse(exportCall?.[1]?.body as string)).toMatchObject({
       nodeId: expect.stringMatching(/^output-node-/),
       target: 'campaign_asset',
+    })
+  })
+
+  it('queues a run and ingests the completed output', async () => {
+    render(<CreativeCanvasWorkspace mode="admin" orgId="org-1" />)
+
+    await screen.findByText('Launch Canvas')
+    fireEvent.click(screen.getByRole('button', { name: /add model node/i }))
+    fireEvent.click(screen.getByRole('button', { name: /queue run/i }))
+
+    expect(await screen.findByText(/run queued: run-1/i)).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: /ingest run output/i }))
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith('/api/v1/creative-canvas/canvas-1/runs/run-1/complete?orgId=org-1', expect.objectContaining({
+        method: 'PUT',
+      }))
     })
   })
 })

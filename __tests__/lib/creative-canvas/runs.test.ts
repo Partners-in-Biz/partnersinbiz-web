@@ -1,4 +1,7 @@
 const mockAdd = jest.fn()
+const mockDoc = jest.fn()
+const mockDocGet = jest.fn()
+const mockDocUpdate = jest.fn()
 const mockCollection = jest.fn()
 
 jest.mock('@/lib/firebase/admin', () => ({
@@ -10,14 +13,18 @@ jest.mock('firebase-admin/firestore', () => ({
 }))
 
 import { buildCreativeCanvasAgentTask } from '@/lib/creative-canvas/agent-bridge'
-import { createCreativeCanvasRun } from '@/lib/creative-canvas/runs'
+import {
+  completeCreativeCanvasRun,
+  createCreativeCanvasRun,
+} from '@/lib/creative-canvas/runs'
 import type { CreativeCanvas } from '@/lib/creative-canvas/types'
 
 const ACTOR = { uid: 'agent:maya', type: 'agent' as const }
 
 beforeEach(() => {
   jest.clearAllMocks()
-  mockCollection.mockReturnValue({ add: mockAdd })
+  mockDoc.mockReturnValue({ get: mockDocGet, update: mockDocUpdate })
+  mockCollection.mockReturnValue({ add: mockAdd, doc: mockDoc })
 })
 
 describe('creative canvas runs', () => {
@@ -104,5 +111,98 @@ describe('creative canvas runs', () => {
       },
     })
     expect(task.description).toContain('Do not publish, schedule, share, launch ads, or expose outputs to clients.')
+  })
+
+  it('completes a run by attaching a reviewed output node to the canvas', async () => {
+    mockDocGet
+      .mockResolvedValueOnce({
+        exists: true,
+        id: 'run-1',
+        data: () => ({
+          orgId: 'org-1',
+          canvasId: 'canvas-1',
+          nodeId: 'model-1',
+          providerKey: 'higgsfield',
+          model: 'nano_banana_flash',
+          status: 'queued',
+          input: { sourceNodeIds: ['source-1'], sourceArtifactIds: ['artifact-1'] },
+          provenance: {
+            generatedBy: 'agent',
+            agentId: 'maya',
+            model: 'nano_banana_flash',
+            promptStored: 'summary',
+            syntheticMedia: true,
+          },
+        }),
+      })
+      .mockResolvedValueOnce({
+        exists: true,
+        id: 'canvas-1',
+        data: () => ({
+          orgId: 'org-1',
+          title: 'Launch Canvas',
+          purpose: 'Launch',
+          activeVersion: 3,
+          deleted: false,
+          nodes: [
+            { id: 'model-1', orgId: 'org-1', type: 'model', title: 'Higgsfield', position: { x: 0, y: 0 }, data: {} },
+          ],
+          edges: [],
+        }),
+      })
+
+    const result = await completeCreativeCanvasRun('run-1', 'org-1', {
+      outputNodeId: 'output-1',
+      output: {
+        kind: 'image',
+        url: 'https://cdn.example.com/output.png',
+        thumbnailUrl: 'https://cdn.example.com/thumb.png',
+        textPreview: 'Launch hero',
+        rawProviderJobId: 'hf-job-1',
+      },
+      provenance: {
+        providerJobId: 'hf-job-1',
+        costUnits: 12,
+        costLabel: 'higgsfield_credits',
+      },
+    }, ACTOR)
+
+    expect(mockCollection).toHaveBeenCalledWith('creative_canvas_runs')
+    expect(mockCollection).toHaveBeenCalledWith('creative_canvases')
+    expect(mockDocUpdate).toHaveBeenCalledWith(expect.objectContaining({
+      status: 'completed',
+      output: expect.objectContaining({
+        outputNodeId: 'output-1',
+        url: 'https://cdn.example.com/output.png',
+        rawProviderJobId: 'hf-job-1',
+      }),
+      provenance: expect.objectContaining({
+        providerJobId: 'hf-job-1',
+        costUnits: 12,
+        costLabel: 'higgsfield_credits',
+      }),
+      updatedAt: 'SERVER_TIMESTAMP',
+    }))
+    expect(mockDocUpdate).toHaveBeenCalledWith(expect.objectContaining({
+      activeVersion: 4,
+      nodes: expect.arrayContaining([
+        expect.objectContaining({
+          id: 'output-1',
+          type: 'output',
+          output: expect.objectContaining({ kind: 'image', textPreview: 'Launch hero' }),
+          review: expect.objectContaining({
+            status: 'needed',
+            syntheticMediaDisclosure: true,
+            rightsStatus: 'needs_review',
+            brandStatus: 'needs_review',
+          }),
+        }),
+      ]),
+      edges: expect.arrayContaining([
+        expect.objectContaining({ sourceNodeId: 'model-1', targetNodeId: 'output-1' }),
+      ]),
+    }))
+    expect(result.run.status).toBe('completed')
+    expect(result.outputNode?.id).toBe('output-1')
   })
 })

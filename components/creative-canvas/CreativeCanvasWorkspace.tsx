@@ -128,6 +128,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
   const [commentBody, setCommentBody] = useState('')
   const [activityMessage, setActivityMessage] = useState('')
   const [exportTarget, setExportTarget] = useState<CreativeCanvasExport['target']>('campaign_asset')
+  const [latestRun, setLatestRun] = useState<{ id: string; status: string; nodeId?: string } | null>(null)
 
   const activeCanvas = useMemo(
     () => canvases.find((canvas) => canvas.id === activeCanvasId) ?? canvases[0],
@@ -333,7 +334,44 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
         },
       }),
     })
-    setActivityMessage(response.ok ? 'Run queued for agent review' : 'Run queue failed')
+    if (!response.ok) {
+      setActivityMessage('Run queue failed')
+      return
+    }
+    const payload = await response.json().catch(() => null) as { data?: { run?: { id?: string; status?: string; nodeId?: string } } } | null
+    const run = payload?.data?.run
+    if (run?.id) {
+      setLatestRun({ id: run.id, status: run.status ?? 'queued', nodeId: run.nodeId })
+      setActivityMessage(`Run queued: ${run.id}`)
+    } else {
+      setActivityMessage('Run queued for agent review')
+    }
+  }
+
+  const ingestRunOutput = async () => {
+    if (!activeCanvas?.id || !latestRun?.id) return
+
+    const query = resolvedOrgId ? `?orgId=${encodeURIComponent(resolvedOrgId)}` : ''
+    const response = await fetch(`/api/v1/creative-canvas/${activeCanvas.id}/runs/${latestRun.id}/complete${query}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        outputNodeId: `${latestRun.nodeId ?? selectedNodeId ?? 'run'}-output`,
+        output: {
+          kind: 'image',
+          textPreview: 'Provider output ready for review',
+        },
+        provenance: {
+          costLabel: 'provider_reported',
+        },
+      }),
+    })
+    if (response.ok) {
+      setLatestRun((current) => current ? { ...current, status: 'completed' } : current)
+      setActivityMessage(`Run completed: ${latestRun.id}`)
+    } else {
+      setActivityMessage('Run output ingest failed')
+    }
   }
 
   const exportDraft = async () => {
@@ -462,14 +500,24 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
               Queue Higgsfield, copy, document, and review work from prompt/model nodes while keeping approval gates intact.
             </p>
             {mode === 'admin' ? (
-              <button
-                type="button"
-                onClick={queueRun}
-                disabled={!selectedNodeId}
-                className="mt-3 rounded-lg border border-[var(--color-pib-line)] px-3 py-2 text-xs font-semibold text-[var(--color-pib-text)] disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                Queue run
-              </button>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={queueRun}
+                  disabled={!selectedNodeId}
+                  className="rounded-lg border border-[var(--color-pib-line)] px-3 py-2 text-xs font-semibold text-[var(--color-pib-text)] disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  Queue run
+                </button>
+                <button
+                  type="button"
+                  onClick={ingestRunOutput}
+                  disabled={!latestRun?.id}
+                  className="rounded-lg border border-[var(--color-pib-line)] px-3 py-2 text-xs font-semibold text-[var(--color-pib-text)] disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  Ingest run output
+                </button>
+              </div>
             ) : null}
           </div>
 
