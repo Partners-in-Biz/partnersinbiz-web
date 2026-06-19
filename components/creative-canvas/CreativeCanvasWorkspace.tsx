@@ -16,6 +16,7 @@ import type {
   CreativeCanvasEdge,
   CreativeCanvasNode,
   CreativeCanvasNodeType,
+  CreativeCanvasVersion,
 } from '@/lib/creative-canvas/types'
 
 type CreativeCanvasMode = 'admin' | 'portal'
@@ -29,6 +30,13 @@ interface CreativeCanvasApiListResponse {
   success?: boolean
   data?: {
     canvases?: CreativeCanvas[]
+  }
+}
+
+interface CreativeCanvasVersionApiResponse {
+  success?: boolean
+  data?: {
+    versions?: Array<CreativeCanvasVersion & { id?: string }>
   }
 }
 
@@ -115,6 +123,9 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
   const [error, setError] = useState('')
   const [saving, setSaving] = useState(false)
   const [saveMessage, setSaveMessage] = useState('')
+  const [versions, setVersions] = useState<Array<CreativeCanvasVersion & { id?: string }>>([])
+  const [commentBody, setCommentBody] = useState('')
+  const [activityMessage, setActivityMessage] = useState('')
 
   const activeCanvas = useMemo(
     () => canvases.find((canvas) => canvas.id === activeCanvasId) ?? canvases[0],
@@ -122,6 +133,23 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
   )
 
   const resolvedOrgId = orgId ?? activeCanvas?.orgId ?? ''
+  const selectedCanvasNode = useMemo(() => {
+    const flowNode = nodes[0]
+    return flowNode?.data?.canvasNode as CreativeCanvasNode | undefined
+  }, [nodes])
+
+  const selectedNodeId = selectedCanvasNode?.id
+
+  const loadVersions = useCallback(async (canvasId: string, canvasOrgId: string) => {
+    if (!canvasId || !canvasOrgId) {
+      setVersions([])
+      return
+    }
+
+    const response = await fetch(`/api/v1/creative-canvas/${canvasId}/versions?orgId=${encodeURIComponent(canvasOrgId)}`)
+    const payload = (await response.json()) as CreativeCanvasVersionApiResponse
+    setVersions(payload.data?.versions ?? [])
+  }, [])
 
   useEffect(() => {
     let cancelled = false
@@ -142,6 +170,11 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
         setActiveCanvasId(firstCanvas?.id ?? '')
         setNodes((firstCanvas?.nodes ?? []).map(toFlowNode))
         setEdges((firstCanvas?.edges ?? []).map(toFlowEdge))
+        if (firstCanvas?.id) {
+          await loadVersions(firstCanvas.id, orgId ?? firstCanvas.orgId)
+        } else {
+          setVersions([])
+        }
       } catch {
         if (!cancelled) {
           setError('Creative Canvas could not load.')
@@ -158,7 +191,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
     return () => {
       cancelled = true
     }
-  }, [orgId])
+  }, [loadVersions, orgId])
 
   const onConnect = useCallback((connection: Connection) => {
     setEdges((currentEdges) => addEdge(connection, currentEdges))
@@ -211,11 +244,100 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
       }
 
       setSaveMessage('Graph saved')
+      await loadVersions(activeCanvas.id, resolvedOrgId || activeCanvas.orgId)
     } catch {
       setSaveMessage('Graph save failed')
     } finally {
       setSaving(false)
     }
+  }
+
+  const postComment = async () => {
+    if (!activeCanvas?.id || !commentBody.trim()) return
+
+    const query = resolvedOrgId ? `?orgId=${encodeURIComponent(resolvedOrgId)}` : ''
+    const response = await fetch(`/api/v1/creative-canvas/${activeCanvas.id}/comments${query}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        nodeId: selectedNodeId,
+        body: commentBody,
+        visibility: mode === 'portal' ? 'admin_agents_clients' : 'admin_agents',
+      }),
+    })
+
+    if (response.ok) {
+      setActivityMessage('Comment added')
+      setCommentBody('')
+    } else {
+      setActivityMessage('Comment failed')
+    }
+  }
+
+  const attachSampleOutput = async () => {
+    if (!activeCanvas?.id || !selectedNodeId) return
+
+    const query = resolvedOrgId ? `?orgId=${encodeURIComponent(resolvedOrgId)}` : ''
+    const response = await fetch(`/api/v1/creative-canvas/${activeCanvas.id}/nodes/${selectedNodeId}/output${query}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        kind: 'image',
+        textPreview: 'Review-ready creative output',
+        review: {
+          status: 'needed',
+          rightsStatus: 'needs_review',
+          brandStatus: 'needs_review',
+          syntheticMediaDisclosure: true,
+        },
+      }),
+    })
+    setActivityMessage(response.ok ? 'Output attached for review' : 'Output attach failed')
+  }
+
+  const markReviewPassed = async () => {
+    if (!activeCanvas?.id || !selectedNodeId) return
+
+    const query = resolvedOrgId ? `?orgId=${encodeURIComponent(resolvedOrgId)}` : ''
+    const response = await fetch(`/api/v1/creative-canvas/${activeCanvas.id}/nodes/${selectedNodeId}/review${query}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        status: 'passed',
+        rightsStatus: 'cleared',
+        brandStatus: 'passed',
+        syntheticMediaDisclosure: true,
+      }),
+    })
+    setActivityMessage(response.ok ? 'Review gate passed' : 'Review update failed')
+  }
+
+  const queueRun = async () => {
+    if (!activeCanvas?.id || !selectedNodeId) return
+
+    const query = resolvedOrgId ? `?orgId=${encodeURIComponent(resolvedOrgId)}` : ''
+    const response = await fetch(`/api/v1/creative-canvas/${activeCanvas.id}/runs${query}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        canvasId: activeCanvas.id,
+        nodeId: selectedNodeId,
+        providerKey: 'higgsfield',
+        input: {
+          promptSummary: 'Generate a reviewable creative asset from the active canvas node.',
+          sourceNodeIds: selectedNodeId ? [selectedNodeId] : [],
+          sourceArtifactIds: [],
+          format: 'internal_draft',
+        },
+      }),
+    })
+    setActivityMessage(response.ok ? 'Run queued for agent review' : 'Run queue failed')
+  }
+
+  const exportDraft = async () => {
+    if (!activeCanvas?.id) return
+
+    setActivityMessage('Exports stay draft-only until approval gates pass')
   }
 
   if (loading) {
@@ -328,14 +450,116 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
             <p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">
               Queue Higgsfield, copy, document, and review work from prompt/model nodes while keeping approval gates intact.
             </p>
+            {mode === 'admin' ? (
+              <button
+                type="button"
+                onClick={queueRun}
+                disabled={!selectedNodeId}
+                className="mt-3 rounded-lg border border-[var(--color-pib-line)] px-3 py-2 text-xs font-semibold text-[var(--color-pib-text)] disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                Queue run
+              </button>
+            ) : null}
           </div>
 
-            <div>
-              <h3 className="text-sm font-semibold text-[var(--color-pib-text)]">Run history</h3>
-              <div className="mt-2 rounded-lg border border-dashed border-[var(--color-pib-line)] p-3 text-xs text-[var(--color-pib-text-muted)]">
-                Runs will appear here after an agent or provider job is queued.
-              </div>
+          <div>
+            <h3 className="text-sm font-semibold text-[var(--color-pib-text)]">Run history</h3>
+            <div className="mt-2 rounded-lg border border-dashed border-[var(--color-pib-line)] p-3 text-xs text-[var(--color-pib-text-muted)]">
+              Runs will appear here after an agent or provider job is queued.
             </div>
+          </div>
+
+          <div>
+            <h3 className="text-sm font-semibold text-[var(--color-pib-text)]">Versions</h3>
+            <div className="mt-2 space-y-2">
+              {versions.length ? versions.map((version) => (
+                <div
+                  key={version.id ?? version.version}
+                  className="rounded-lg border border-[var(--color-pib-line)] px-3 py-2 text-xs text-[var(--color-pib-text-muted)]"
+                >
+                  <span className="font-semibold text-[var(--color-pib-text)]">Version {version.version}</span>
+                  <span className="block">{version.reason ?? 'graph snapshot'}</span>
+                </div>
+              )) : (
+                <p className="rounded-lg border border-dashed border-[var(--color-pib-line)] px-3 py-2 text-xs text-[var(--color-pib-text-muted)]">
+                  Saved graph snapshots will appear here.
+                </p>
+              )}
+            </div>
+          </div>
+
+          <div>
+            <h3 className="text-sm font-semibold text-[var(--color-pib-text)]">Comments</h3>
+            <label className="mt-2 block text-xs font-medium text-[var(--color-pib-text-muted)]" htmlFor="creative-canvas-comment">
+              Comment body
+            </label>
+            <textarea
+              id="creative-canvas-comment"
+              value={commentBody}
+              onChange={(event) => setCommentBody(event.target.value)}
+              rows={3}
+              className="mt-1 w-full rounded-lg border border-[var(--color-pib-line)] bg-white px-3 py-2 text-sm text-[var(--color-pib-text)]"
+              placeholder="Add a note for agents, reviewers, or the client"
+            />
+            <button
+              type="button"
+              onClick={postComment}
+              disabled={!activeCanvas?.id || !commentBody.trim()}
+              className="mt-2 rounded-lg border border-[var(--color-pib-line)] px-3 py-2 text-xs font-semibold text-[var(--color-pib-text)] disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              Add comment
+            </button>
+          </div>
+
+          <div>
+            <h3 className="text-sm font-semibold text-[var(--color-pib-text)]">Output attachment</h3>
+            <p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">
+              Attach generated media, copy, blog blocks, book artifacts, or campaign assets back onto the selected node.
+            </p>
+            <button
+              type="button"
+              onClick={attachSampleOutput}
+              disabled={!selectedNodeId}
+              className="mt-2 rounded-lg border border-[var(--color-pib-line)] px-3 py-2 text-xs font-semibold text-[var(--color-pib-text)] disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              Attach output
+            </button>
+          </div>
+
+          <div>
+            <h3 className="text-sm font-semibold text-[var(--color-pib-text)]">Review gate</h3>
+            <p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">
+              Rights, brand, and synthetic-media disclosure must pass before client-visible or downstream export use.
+            </p>
+            <button
+              type="button"
+              onClick={markReviewPassed}
+              disabled={!selectedNodeId}
+              className="mt-2 rounded-lg border border-[var(--color-pib-line)] px-3 py-2 text-xs font-semibold text-[var(--color-pib-text)] disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              Mark review passed
+            </button>
+          </div>
+
+          <div>
+            <h3 className="text-sm font-semibold text-[var(--color-pib-text)]">Exports</h3>
+            <p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">
+              Draft adapters route reviewed outputs into social, documents, campaigns, YouTube Studio, Book Studio, and artifacts.
+            </p>
+            <button
+              type="button"
+              onClick={exportDraft}
+              className="mt-2 rounded-lg border border-[var(--color-pib-line)] px-3 py-2 text-xs font-semibold text-[var(--color-pib-text)]"
+            >
+              Prepare draft export
+            </button>
+          </div>
+
+          {activityMessage ? (
+            <p className="rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] px-3 py-2 text-xs text-[var(--color-pib-text-muted)]">
+              {activityMessage}
+            </p>
+          ) : null}
 
           <div>
             <h3 className="text-sm font-semibold text-[var(--color-pib-text)]">Nodes</h3>
