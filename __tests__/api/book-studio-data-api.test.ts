@@ -160,8 +160,10 @@ describe('Book Studio data/API model', () => {
       projectId: 'book-1',
       title: 'KDP packet',
       channel: 'kdp',
-      status: 'published',
+      status: 'ready_for_human_review',
+      publishingReadinessStatus: 'approved_for_manual_next_step',
       metadata: { title: 'Reader title', keywords: ['Growth', ''] },
+      packageManifest: { status: 'needs_review', files: [{ label: 'Safe file', href: 'https://example.com/file.pdf' }] },
       approvalState: { status: 'approved', snapshotHash: 'abc123', approvedBy: 'peet' },
     }, 'pib-platform-owner')
     expect(packet).toMatchObject({
@@ -169,9 +171,21 @@ describe('Book Studio data/API model', () => {
       projectId: 'book-1',
       title: 'KDP packet',
       channel: 'kdp',
-      status: 'draft',
+      status: 'ready_for_human_review',
+      publishingReadinessStatus: 'approved_for_manual_next_step',
       metadata: { title: 'Reader title', keywords: ['Growth'] },
+      packageManifest: { status: 'needs_review', files: [{ label: 'Safe file', href: 'https://example.com/file.pdf' }] },
       approvalState: { status: 'approved', snapshotHash: 'abc123' },
+    })
+
+    expect(sanitizeBookStudioRecordInput('decision-logs', {
+      decision: 'Manual publishing packet review',
+      status: 'approved_for_manual_next_step',
+      publishNow: true,
+      marketplaceCredential: 'secret',
+    }, 'pib-platform-owner')).toMatchObject({
+      status: 'approved_for_manual_next_step',
+      decision: 'Manual publishing packet review',
     })
 
     expect(serializeBookStudioRecord('record-1', { ...sanitized, deleted: false })).toMatchObject({ id: 'record-1', orgId: 'pib-platform-owner' })

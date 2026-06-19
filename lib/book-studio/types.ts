@@ -19,11 +19,15 @@ export type BookStudioStage =
   | 'analytics_reconciliation'
 
 export type BookStudioStatus =
+  | 'not_started'
   | 'draft'
   | 'internal_review'
   | 'client_review'
   | 'approved'
+  | 'needs_review'
   | 'blocked'
+  | 'ready_for_human_review'
+  | 'approved_for_manual_next_step'
   | 'archived'
 
 export type BookStudioGateStatus = 'pass' | 'warning' | 'block' | 'not_applicable' | 'missing_evidence'

@@ -15,6 +15,19 @@ function safeString(value: unknown, fallback = '') {
   return typeof value === 'string' && value.trim() ? value : fallback
 }
 
+function safeHttpUrl(value: unknown) {
+  const href = safeString(value).trim()
+  if (!href) return ''
+  try {
+    const parsed = new URL(href)
+    if (!['http:', 'https:'].includes(parsed.protocol)) return ''
+    if (parsed.username || parsed.password) return ''
+    return parsed.href
+  } catch {
+    return ''
+  }
+}
+
 function safeArtifacts(value: unknown) {
   if (!Array.isArray(value)) return []
   return value
@@ -22,7 +35,7 @@ function safeArtifacts(value: unknown) {
       if (!artifact || typeof artifact !== 'object') return null
       const record = artifact as Record<string, unknown>
       const label = safeString(record.label, 'Open artifact')
-      const href = safeString(record.href)
+      const href = safeHttpUrl(record.href)
       if (!href) return null
       return { label, href }
     })
