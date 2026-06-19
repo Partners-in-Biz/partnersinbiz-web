@@ -217,6 +217,10 @@ describe('agent skill policy manifest', () => {
       'partnersinbiz/properties',
       'partnersinbiz/research-intelligence',
       'partnersinbiz/research/open-notebook',
+      'higgsfield-generate',
+      'higgsfield-marketplace-cards',
+      'higgsfield-product-photoshoot',
+      'higgsfield-soul-id',
       'productivity/google-workspace',
       'productivity/powerpoint',
     ])

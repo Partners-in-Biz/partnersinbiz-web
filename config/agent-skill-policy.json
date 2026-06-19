@@ -284,6 +284,82 @@
       "riskLevel": "high",
       "syncTarget": "vps"
     },
+    "higgsfield-generate": {
+      "ownerAgentId": "maya",
+      "allowedAgentIds": [
+        "pip",
+        "theo",
+        "maya",
+        "sage",
+        "nora",
+        "ads",
+        "qa-release",
+        "support",
+        "data",
+        "docs",
+        "seo",
+        "sales"
+      ],
+      "riskLevel": "high",
+      "syncTarget": "vps"
+    },
+    "higgsfield-marketplace-cards": {
+      "ownerAgentId": "maya",
+      "allowedAgentIds": [
+        "pip",
+        "theo",
+        "maya",
+        "sage",
+        "nora",
+        "ads",
+        "qa-release",
+        "support",
+        "data",
+        "docs",
+        "seo",
+        "sales"
+      ],
+      "riskLevel": "high",
+      "syncTarget": "vps"
+    },
+    "higgsfield-product-photoshoot": {
+      "ownerAgentId": "maya",
+      "allowedAgentIds": [
+        "pip",
+        "theo",
+        "maya",
+        "sage",
+        "nora",
+        "ads",
+        "qa-release",
+        "support",
+        "data",
+        "docs",
+        "seo",
+        "sales"
+      ],
+      "riskLevel": "high",
+      "syncTarget": "vps"
+    },
+    "higgsfield-soul-id": {
+      "ownerAgentId": "maya",
+      "allowedAgentIds": [
+        "pip",
+        "theo",
+        "maya",
+        "sage",
+        "nora",
+        "ads",
+        "qa-release",
+        "support",
+        "data",
+        "docs",
+        "seo",
+        "sales"
+      ],
+      "riskLevel": "critical",
+      "syncTarget": "vps"
+    },
     "marketing/ads": {
       "ownerAgentId": "ads",
       "allowedAgentIds": [
