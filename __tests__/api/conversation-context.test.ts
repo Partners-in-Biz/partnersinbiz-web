@@ -154,6 +154,69 @@ describe('conversation message context dispatch', () => {
     }))
   })
 
+  it('includes recent prior conversation messages in the Hermes prompt for continuity', async () => {
+    mockGetConversation.mockResolvedValue({
+      id: 'conv-1',
+      orgId: 'pib-platform-owner',
+      participantUids: ['admin-1'],
+      participantAgentIds: ['pip'],
+      participants: [
+        { kind: 'user', uid: 'admin-1', role: 'admin', displayName: 'Peet' },
+        { kind: 'agent', agentId: 'pip', name: 'Pip' },
+      ],
+      contextRefs: [],
+    })
+    mockResolveContextReferences.mockResolvedValue([])
+    mockBuildAttachedContextBlock.mockReturnValue('')
+    mockListMessages.mockResolvedValue([
+      {
+        id: 'old-user-1',
+        conversationId: 'conv-1',
+        role: 'user',
+        content: 'Please create a 30 second UGC video for Partners in Biz.',
+        authorKind: 'user',
+        authorId: 'admin-1',
+        authorDisplayName: 'Peet',
+        status: 'completed',
+      },
+      {
+        id: 'old-assistant-1',
+        conversationId: 'conv-1',
+        role: 'assistant',
+        content: 'I made a brand quote video, not a UGC creator video.',
+        authorKind: 'agent',
+        authorId: 'maya',
+        authorDisplayName: 'Maya',
+        status: 'completed',
+      },
+      {
+        id: 'msg-1',
+        conversationId: 'conv-1',
+        role: 'user',
+        content: 'It is for Velox',
+        authorKind: 'user',
+        authorId: 'admin-1',
+        authorDisplayName: 'Peet',
+        status: 'completed',
+      },
+    ])
+
+    const { POST } = await import('@/app/api/v1/conversations/[convId]/messages/route')
+    const req = new NextRequest('http://localhost/api/v1/conversations/conv-1/messages', {
+      method: 'POST',
+      body: JSON.stringify({ content: 'It is for Velox' }),
+    })
+
+    const res = await POST(req, { params: Promise.resolve({ convId: 'conv-1' }) })
+
+    expect(res.status).toBe(201)
+    const prompt = mockCreateHermesRun.mock.calls[0][2].prompt as string
+    expect(prompt).toContain('[Recent conversation history')
+    expect(prompt).toContain('Peet (user): Please create a 30 second UGC video for Partners in Biz.')
+    expect(prompt).toContain('Maya (assistant): I made a brand quote video, not a UGC creator video.')
+    expect(prompt).toContain('It is for Velox')
+  })
+
   it('sanitizes slash command metadata and prepends it to Hermes input', async () => {
     mockGetConversation.mockResolvedValue({
       id: 'conv-1',
