@@ -9,10 +9,12 @@ import type {
   CreativeCanvasActor,
   CreativeCanvasGraph,
   CreativeCanvasStatus,
+  CreativeCanvasVersion,
   CreativeCanvasVisibility,
 } from './types'
 
 export const CREATIVE_CANVAS_COLLECTION = 'creative_canvases'
+export const CREATIVE_CANVAS_VERSION_COLLECTION = 'creative_canvas_versions'
 
 type CanvasDoc = Record<string, unknown>
 
@@ -42,6 +44,26 @@ function serializeCreativeCanvas(id: string, data: CanvasDoc): CreativeCanvas & 
     deleted: data.deleted === true,
     nodes: Array.isArray(data.nodes) ? data.nodes as CreativeCanvas['nodes'] : [],
     edges: Array.isArray(data.edges) ? data.edges as CreativeCanvas['edges'] : [],
+  }
+}
+
+function buildVersionSnapshot(
+  canvasId: string,
+  orgId: string,
+  graph: CreativeCanvasGraph,
+  version: number,
+  actor: CreativeCanvasActor,
+): CreativeCanvasVersion {
+  return {
+    orgId,
+    canvasId,
+    version,
+    nodes: graph.nodes,
+    edges: graph.edges,
+    createdBy: actor.uid,
+    createdByType: actor.type,
+    createdAt: FieldValue.serverTimestamp(),
+    reason: 'graph_save',
   }
 }
 
@@ -117,6 +139,7 @@ export async function updateCreativeCanvasGraph(
     updatedAt: FieldValue.serverTimestamp(),
   }
   await adminDb.collection(CREATIVE_CANVAS_COLLECTION).doc(id).update(patch)
+  await adminDb.collection(CREATIVE_CANVAS_VERSION_COLLECTION).add(buildVersionSnapshot(id, orgId, graph, nextVersion, actor))
   return {
     ...current,
     ...patch,

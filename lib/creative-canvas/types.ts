@@ -180,6 +180,47 @@ export interface CreativeCanvasGraph {
   edges: CreativeCanvasEdge[]
 }
 
+export interface CreativeCanvasVersion {
+  id?: string
+  orgId: string
+  canvasId: string
+  version: number
+  nodes: CreativeCanvasNode[]
+  edges: CreativeCanvasEdge[]
+  createdAt?: unknown
+  createdBy: string
+  createdByType: CreativeCanvasActorType
+  reason?: string
+}
+
+export interface CreativeCanvasComment {
+  id?: string
+  orgId: string
+  canvasId: string
+  nodeId?: string
+  body: string
+  visibility: CreativeCanvasVisibility
+  resolved: boolean
+  createdAt?: unknown
+  createdBy: string
+  createdByType: CreativeCanvasActorType
+  updatedAt?: unknown
+}
+
+export type CreativeCanvasOutputPatch = Pick<NonNullable<CreativeCanvasNode['output']>, 'kind'> &
+  Partial<Omit<NonNullable<CreativeCanvasNode['output']>, 'kind'>> & {
+    review?: CreativeCanvasReviewPatch
+  }
+
+export interface CreativeCanvasReviewPatch {
+  status?: CreativeCanvasReviewStatus
+  approvalGateTaskId?: string
+  requiredReviewerAgentId?: string
+  syntheticMediaDisclosure?: boolean
+  rightsStatus?: CreativeCanvasRightsStatus
+  brandStatus?: CreativeCanvasBrandStatus
+}
+
 export interface CreativeCanvasRun {
   id?: string
   orgId: string
