@@ -9,6 +9,7 @@ import type {
   CreativeCanvasNodeType,
   CreativeCanvasOutputKind,
   CreativeCanvasProviderKey,
+  CreativeCanvasReferenceRole,
   CreativeCanvasReviewStatus,
   CreativeCanvasRightsStatus,
   CreativeCanvasSourceKind,
@@ -18,6 +19,7 @@ import type {
 
 const NODE_TYPES: CreativeCanvasNodeType[] = ['source', 'brief', 'prompt', 'model', 'edit', 'review', 'output']
 const SOURCE_KINDS: CreativeCanvasSourceKind[] = ['brand_kit', 'upload', 'url', 'research_item', 'client_document', 'campaign', 'social_post', 'youtube_asset', 'book_studio_record', 'workspace_artifact']
+const REFERENCE_ROLES: CreativeCanvasReferenceRole[] = ['general', 'product', 'person', 'character', 'style', 'background', 'logo', 'mask', 'motion']
 const PROVIDER_KEYS: CreativeCanvasProviderKey[] = ['higgsfield', 'xai', 'manual_upload', 'text_generation', 'document_generation', 'agent_task']
 const OUTPUT_KINDS: CreativeCanvasOutputKind[] = ['image', 'video', 'audio', 'caption', 'copy', 'blog_draft', 'document_block', 'book_artifact', 'youtube_render', 'campaign_asset', 'social_post_draft']
 const REVIEW_STATUSES: CreativeCanvasReviewStatus[] = ['not_required', 'needed', 'passed', 'warning', 'blocked']
@@ -47,6 +49,10 @@ function enumValue<T extends string>(value: unknown, allowed: readonly T[], fall
 
 function cleanNumber(value: unknown, fallback: number): number {
   return typeof value === 'number' && Number.isFinite(value) ? value : fallback
+}
+
+function cleanOptionalNumber(value: unknown): number | undefined {
+  return typeof value === 'number' && Number.isFinite(value) ? value : undefined
 }
 
 function cleanBoolean(value: unknown): boolean | undefined {
@@ -151,7 +157,13 @@ function sanitizeNode(raw: unknown, orgId: string): CreativeCanvasNode {
       kind: enumValue(source.kind, SOURCE_KINDS, 'upload'),
       refId: cleanString(source.refId),
       url: cleanHttpUrl(source.url, `node ${id} source.url`),
+      thumbnailUrl: cleanHttpUrl(source.thumbnailUrl, `node ${id} source.thumbnailUrl`),
+      previewUrl: cleanHttpUrl(source.previewUrl, `node ${id} source.previewUrl`),
+      storagePath: cleanString(source.storagePath),
       mimeType: cleanString(source.mimeType),
+      altText: cleanString(source.altText),
+      referenceRole: enumValue(source.referenceRole, REFERENCE_ROLES, 'general'),
+      weight: cleanOptionalNumber(source.weight),
     }
   }
 

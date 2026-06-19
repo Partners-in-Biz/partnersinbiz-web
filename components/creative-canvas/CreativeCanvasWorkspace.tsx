@@ -60,6 +60,7 @@ const palette: Array<{ type: CreativeCanvasNodeType; label: string; description:
 ]
 
 function toFlowNode(node: CreativeCanvasNode): Node {
+  const previewUrl = node.source?.thumbnailUrl ?? node.source?.previewUrl ?? node.output?.thumbnailUrl ?? node.output?.url
   return {
     id: node.id,
     type: 'default',
@@ -67,6 +68,13 @@ function toFlowNode(node: CreativeCanvasNode): Node {
     data: {
       label: (
         <div className="min-w-36">
+          {previewUrl ? (
+            <img
+              src={previewUrl}
+              alt={`Reference preview: ${node.source?.altText ?? node.title}`}
+              className="mb-2 h-20 w-full rounded-md object-cover"
+            />
+          ) : null}
           <p className="text-[10px] font-semibold uppercase tracking-normal text-[var(--color-pib-text-muted)]">
             {nodeTypeLabels[node.type]}
           </p>
@@ -211,6 +219,14 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
       title,
       position: { x: 80 + nextNumber * 40, y: 90 + nextNumber * 28 },
       data: { createdFrom: 'creative_canvas_palette' },
+      source: type === 'source'
+        ? {
+            kind: 'upload',
+            referenceRole: 'general',
+            weight: 1,
+            altText: title,
+          }
+        : undefined,
       review: type === 'review'
         ? {
             status: 'needed',
@@ -653,6 +669,18 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
                       {canvasNode?.title ?? node.id}
                     </span>
                     <span>{canvasNode?.type ?? 'source'}</span>
+                    {canvasNode?.source?.referenceRole ? (
+                      <span className="ml-2">
+                        {canvasNode.source.referenceRole} / {canvasNode.source.weight ?? 1}
+                      </span>
+                    ) : null}
+                    {canvasNode?.source?.thumbnailUrl || canvasNode?.source?.previewUrl ? (
+                      <img
+                        src={canvasNode.source.thumbnailUrl ?? canvasNode.source.previewUrl}
+                        alt={`Reference preview: ${canvasNode.source.altText ?? canvasNode.title}`}
+                        className="mt-2 h-24 w-full rounded-md object-cover"
+                      />
+                    ) : null}
                   </div>
                 )
               }) : (

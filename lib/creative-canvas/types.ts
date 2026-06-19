@@ -35,6 +35,17 @@ export type CreativeCanvasSourceKind =
   | 'book_studio_record'
   | 'workspace_artifact'
 
+export type CreativeCanvasReferenceRole =
+  | 'general'
+  | 'product'
+  | 'person'
+  | 'character'
+  | 'style'
+  | 'background'
+  | 'logo'
+  | 'mask'
+  | 'motion'
+
 export type CreativeCanvasProviderKey =
   | 'higgsfield'
   | 'xai'
@@ -138,7 +149,13 @@ export interface CreativeCanvasNode {
     kind: CreativeCanvasSourceKind
     refId?: string
     url?: string
+    thumbnailUrl?: string
+    previewUrl?: string
+    storagePath?: string
     mimeType?: string
+    altText?: string
+    referenceRole?: CreativeCanvasReferenceRole
+    weight?: number
   }
   provider?: {
     key: CreativeCanvasProviderKey

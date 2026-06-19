@@ -172,4 +172,54 @@ describe('CreativeCanvasWorkspace', () => {
       }))
     })
   })
+
+  it('renders visual reference previews for source nodes', async () => {
+    fetchMock.mockImplementation(async (input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url.includes('/versions')) {
+        return { ok: true, json: async () => ({ success: true, data: { versions: [] } }) }
+      }
+      return {
+        ok: true,
+        json: async () => ({
+          success: true,
+          data: {
+            canvases: [{
+              id: 'canvas-1',
+              orgId: 'org-1',
+              title: 'Reference Canvas',
+              purpose: 'Product reference',
+              status: 'draft',
+              activeVersion: 1,
+              nodes: [{
+                id: 'source-1',
+                orgId: 'org-1',
+                type: 'source',
+                title: 'Product bottle',
+                position: { x: 0, y: 0 },
+                data: {},
+                source: {
+                  kind: 'upload',
+                  thumbnailUrl: 'https://cdn.example.com/product-thumb.png',
+                  previewUrl: 'https://cdn.example.com/product.png',
+                  altText: 'Red product bottle',
+                  referenceRole: 'product',
+                  weight: 0.8,
+                },
+              }],
+              edges: [],
+            }],
+          },
+        }),
+      }
+    })
+
+    render(<CreativeCanvasWorkspace mode="admin" orgId="org-1" />)
+
+    expect(await screen.findByAltText('Reference preview: Red product bottle')).toHaveAttribute(
+      'src',
+      'https://cdn.example.com/product-thumb.png',
+    )
+    expect(screen.getByText('product / 0.8')).toBeInTheDocument()
+  })
 })
