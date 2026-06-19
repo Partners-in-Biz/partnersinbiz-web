@@ -412,11 +412,7 @@ function PortalLayoutContent({ children }: { children: React.ReactNode }) {
         if (switched.portalModules) setPortalModules(resolvePortalModules({ portalModules: switched.portalModules }))
         if (switched.modulePolicies) setModulePolicies(resolveOrganizationModulePolicies({ modulePolicies: switched.modulePolicies }))
       }
-      if (requestedOrgId) {
-        router.push(scopedPortalHref(pathname, orgId, switched?.slug ?? ''))
-      } else {
-        router.refresh()
-      }
+      router.push(scopedPortalHref(pathname, orgId, switched?.slug ?? ''))
     } finally {
       setOrgSwitching(false)
     }
