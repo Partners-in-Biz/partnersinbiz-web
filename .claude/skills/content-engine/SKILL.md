@@ -365,6 +365,17 @@ Next step: <human> reviews at <admin cockpit url>, approves or requests changes.
 Approved assets schedule into the platform's social queue and SEO publish flow automatically.
 ```
 
+## Quality gate before sharing a campaign preview
+
+Before handing a campaign URL to Peet/client/operator, verify the public or admin preview itself, not just API counts:
+
+1. Open the share/admin URL and confirm the visible cards show the correct client brand name/avatar, not `yourbrand`, `Your Brand`, or `NO IMAGE` placeholders.
+2. If using `campaign.brandIdentity` directly in the public `/c/[shareToken]` preview, include both content-engine fields and preview-card aliases: `name`, `logoUrl`, `palette.bg`, `palette.accent`, `palette.alert`, `palette.text`, plus the usual `background/surface/accent/text` keys. Otherwise the preview chrome falls back to generic placeholders.
+3. Do not create social-post records that are only Higgsfield prompts/scripts unless the campaign is explicitly a prompt-pack deliverable. For reviewable content, each social/video record must have final media attached or be clearly held outside the campaign.
+4. For video campaigns, `content` should be clean publish/review copy, not a pasted prompt dump. Keep Higgsfield prompts in a document/manifest, comment, or wiki note.
+5. If avoiding Higgsfield credit spend, use existing approved media or deterministic screenshot/app-demo videos from real client screenshots; still upload through `/social/media/upload` and attach `media[0].type = 'video'`, `url`, `urlYoutube`, and `urlStories`.
+6. Verify `/campaigns/[id]/assets` after repair: expected video count, zero empty-media social stragglers, all assets still in draft/review state unless approval covers scheduling/publishing.
+
 ## Critical Lessons (from the real run — preserved verbatim)
 
 These are the gotchas that cost real time on the AHS Law run. Don't repeat them.
