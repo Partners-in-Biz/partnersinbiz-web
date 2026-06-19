@@ -417,6 +417,94 @@ describe('agent watcher dispatchTask', () => {
     expect(spec).toContain('/api/v1/agent/project/project-1')
   })
 
+  it('marks human approval/input stalls as Needs Peet instead of silently completing the task', async () => {
+    const taskRef = makeTaskRef()
+    const notificationsSet = jest.fn(async () => undefined)
+    const notificationsDoc = jest.fn(() => ({ set: notificationsSet }))
+    dbMock.collection = jest.fn((name: string) => {
+      if (name === 'loop_engine_runs') return { doc: jest.fn(() => ({ set: jest.fn(async () => undefined) })) }
+      if (name === 'notifications') return { doc: notificationsDoc }
+      throw new Error(`Unexpected collection ${name}`)
+    })
+    runAndPollMock.mockImplementation(async (_cfg, _input, onRunCreated) => {
+      await onRunCreated('run-needs-peet-1')
+      return {
+        runId: 'run-needs-peet-1',
+        output: 'Cannot continue until Peet approves the production deploy. Exact blocker: release approval is missing. Proof needed: approval comment on this task. Message for agent: continue only after approved.',
+        error: null,
+      }
+    })
+
+    await dispatchTask(taskRef as never, {
+      orgId: 'org-1',
+      projectId: 'project-1',
+      assigneeAgentId: 'theo',
+      agentStatus: 'pending',
+      columnId: 'todo',
+      title: 'Deploy verified build',
+      createdBy: 'peet-user-1',
+      requiredCapability: 'production-deploy',
+    } as never)
+
+    expect(taskRef.update).toHaveBeenLastCalledWith(expect.objectContaining({
+      agentStatus: 'awaiting-input',
+      columnId: 'blocked',
+      agentConversationId: 'run-needs-peet-1',
+      agentOutput: expect.objectContaining({
+        summary: expect.stringContaining('Cannot continue until Peet approves'),
+        needsPeet: true,
+        blockingReason: 'release approval is missing',
+        safeContinuePath: expect.stringContaining('Do not bypass approval gates'),
+      }),
+    }))
+    expect(notificationsDoc).toHaveBeenCalledWith('agent-needs-peet-org-1-task-1')
+    expect(notificationsSet).toHaveBeenCalledWith(expect.objectContaining({
+      orgId: 'org-1',
+      userId: 'peet-user-1',
+      agentId: 'theo',
+      type: 'task.agent_needs_input',
+      title: 'Needs Peet: Theo cannot continue',
+      body: expect.stringContaining('Exact blocker: release approval is missing'),
+      link: '/admin/projects/project-1?taskId=task-1',
+      data: expect.objectContaining({
+        blockerReason: 'release approval is missing',
+        requiredCapability: 'production-deploy',
+        safeContinuePath: expect.stringContaining('approval/input evidence'),
+      }),
+      priority: 'urgent',
+      status: 'unread',
+    }), { merge: true })
+  })
+
+  it('does not treat routine approval-gate guardrail copy as a stall when the task actually completed', async () => {
+    const taskRef = makeTaskRef()
+    runAndPollMock.mockImplementation(async (_cfg, _input, onRunCreated) => {
+      await onRunCreated('run-complete-guardrail-1')
+      return {
+        runId: 'run-complete-guardrail-1',
+        output: 'Implemented and verified on development. No production deployment without explicit release approval.',
+        error: null,
+      }
+    })
+
+    await dispatchTask(taskRef as never, {
+      orgId: 'org-1',
+      projectId: 'project-1',
+      assigneeAgentId: 'theo',
+      agentStatus: 'pending',
+      columnId: 'todo',
+      title: 'Implement development fix',
+    })
+
+    expect(taskRef.update).toHaveBeenLastCalledWith(expect.objectContaining({
+      agentStatus: 'done',
+      columnId: 'review',
+      agentOutput: expect.objectContaining({
+        summary: expect.stringContaining('Implemented and verified'),
+      }),
+    }))
+  })
+
   it('marks failed Hermes runs blocked while preserving the live run id and stopping the heartbeat', async () => {
     const taskRef = makeTaskRef()
     const stopHeartbeat = jest.fn()
