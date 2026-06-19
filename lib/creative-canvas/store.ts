@@ -8,11 +8,20 @@ import type {
   CreativeCanvas,
   CreativeCanvasActor,
   CreativeCanvasGraph,
+  CreativeCanvasStatus,
+  CreativeCanvasVisibility,
 } from './types'
 
 export const CREATIVE_CANVAS_COLLECTION = 'creative_canvases'
 
 type CanvasDoc = Record<string, unknown>
+
+const CANVAS_STATUSES: CreativeCanvasStatus[] = ['draft', 'internal_review', 'client_review', 'approved', 'archived']
+const VISIBILITIES: CreativeCanvasVisibility[] = ['admin_agents', 'admin_agents_clients']
+
+function enumPatchValue<T extends string>(value: unknown, allowed: readonly T[], fallback: T): T {
+  return allowed.includes(value as T) ? value as T : fallback
+}
 
 function serializeCreativeCanvas(id: string, data: CanvasDoc): CreativeCanvas & { id: string } {
   return {
@@ -79,8 +88,8 @@ export async function updateCreativeCanvas(
   const patch = {
     title: typeof source.title === 'string' && source.title.trim() ? source.title.trim() : current.title,
     purpose: typeof source.purpose === 'string' ? source.purpose.trim() : current.purpose,
-    status: typeof source.status === 'string' ? source.status : current.status,
-    visibility: typeof source.visibility === 'string' ? source.visibility : current.visibility,
+    status: enumPatchValue(source.status, CANVAS_STATUSES, current.status),
+    visibility: enumPatchValue(source.visibility, VISIBILITIES, current.visibility),
     updatedBy: actor.uid,
     updatedByType: actor.type,
     updatedAt: FieldValue.serverTimestamp(),
