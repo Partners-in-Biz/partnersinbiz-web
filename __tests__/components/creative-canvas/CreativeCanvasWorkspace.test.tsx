@@ -119,6 +119,18 @@ describe('CreativeCanvasWorkspace', () => {
     })
   })
 
+  it('adds an edit node with mask and inpainting controls', async () => {
+    render(<CreativeCanvasWorkspace mode="admin" orgId="org-1" />)
+
+    await screen.findByText('Launch Canvas')
+    fireEvent.click(screen.getByRole('button', { name: /add edit node/i }))
+
+    expect(await screen.findByText(/edit node/i)).toBeInTheDocument()
+    expect(screen.getByText('Edit controls')).toBeInTheDocument()
+    expect(screen.getAllByText('inpaint / image')[0]).toBeInTheDocument()
+    expect(screen.getByText('Mask: not attached')).toBeInTheDocument()
+  })
+
   it('loads versions and posts comments for the active canvas', async () => {
     render(<CreativeCanvasWorkspace mode="admin" orgId="org-1" />)
 

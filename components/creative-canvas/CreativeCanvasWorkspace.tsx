@@ -55,6 +55,7 @@ const palette: Array<{ type: CreativeCanvasNodeType; label: string; description:
   { type: 'source', label: 'Source', description: 'Brand assets, uploads, research, URLs' },
   { type: 'prompt', label: 'Prompt', description: 'Generation brief, style, and constraints' },
   { type: 'model', label: 'Model', description: 'Higgsfield or agent-backed generation' },
+  { type: 'edit', label: 'Edit', description: 'Inpaint, masks, style transfer, and motion' },
   { type: 'review', label: 'Review', description: 'Brand, rights, and approval gate' },
   { type: 'output', label: 'Output', description: 'Draft image, video, copy, blog, book asset' },
 ]
@@ -97,6 +98,7 @@ function toCanvasNode(node: Node, orgId: string): CreativeCanvasNode {
     data: canvasNode?.data ?? {},
     source: canvasNode?.source,
     provider: canvasNode?.provider,
+    edit: canvasNode?.edit,
     review: canvasNode?.review,
     output: canvasNode?.output,
   }
@@ -225,6 +227,16 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
             referenceRole: 'general',
             weight: 1,
             altText: title,
+          }
+        : undefined,
+      edit: type === 'edit'
+        ? {
+            operation: 'inpaint',
+            prompt: 'Describe the edit',
+            references: [],
+            strength: 0.65,
+            motion: { mode: 'none' },
+            outputKind: 'image',
           }
         : undefined,
       review: type === 'review'
@@ -537,6 +549,28 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
             ) : null}
           </div>
 
+          {selectedCanvasNode?.edit ? (
+            <div>
+              <h3 className="text-sm font-semibold text-[var(--color-pib-text)]">Edit controls</h3>
+              <div className="mt-2 space-y-2 rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] p-3 text-xs text-[var(--color-pib-text-muted)]">
+                <p className="font-semibold text-[var(--color-pib-text)]">
+                  {selectedCanvasNode.edit.operation} / {selectedCanvasNode.edit.outputKind ?? 'image'}
+                </p>
+                <p>
+                  Mask: {selectedCanvasNode.edit.mask?.url || selectedCanvasNode.edit.mask?.sourceNodeId ? 'attached' : 'not attached'}
+                </p>
+                <p>
+                  Strength: {selectedCanvasNode.edit.strength ?? 0.65} / Motion: {selectedCanvasNode.edit.motion?.mode ?? 'none'}
+                </p>
+                {selectedCanvasNode.edit.references?.length ? (
+                  <p>{selectedCanvasNode.edit.references.length} reference inputs</p>
+                ) : (
+                  <p>No reference inputs linked yet</p>
+                )}
+              </div>
+            </div>
+          ) : null}
+
           <div>
             <h3 className="text-sm font-semibold text-[var(--color-pib-text)]">Run history</h3>
             <div className="mt-2 rounded-lg border border-dashed border-[var(--color-pib-line)] p-3 text-xs text-[var(--color-pib-text-muted)]">
@@ -673,6 +707,14 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
                       <span className="ml-2">
                         {canvasNode.source.referenceRole} / {canvasNode.source.weight ?? 1}
                       </span>
+                    ) : null}
+                    {canvasNode?.edit ? (
+                      <span className="ml-2">
+                        {canvasNode.edit.operation} / {canvasNode.edit.outputKind ?? 'image'}
+                      </span>
+                    ) : null}
+                    {canvasNode?.edit?.mask ? (
+                      <span className="ml-2">mask attached</span>
                     ) : null}
                     {canvasNode?.source?.thumbnailUrl || canvasNode?.source?.previewUrl ? (
                       <img

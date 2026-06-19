@@ -131,6 +131,73 @@ describe('creative canvas sanitizers', () => {
     ).toThrow('node source-1 source.thumbnailUrl must be a safe http(s) URL')
   })
 
+  it('keeps edit masks, references, strength, motion, and output intent', () => {
+    const graph = sanitizeCreativeCanvasGraph({
+      nodes: [{
+        id: 'edit-1',
+        type: 'edit',
+        title: 'Studio background edit',
+        position: { x: 120, y: 80 },
+        data: {},
+        edit: {
+          operation: 'inpaint',
+          prompt: 'Replace background with a clean studio set',
+          mask: {
+            sourceNodeId: 'mask-source',
+            url: 'https://cdn.example.com/mask.png',
+            storagePath: 'org-1/masks/mask.png',
+            invert: false,
+          },
+          references: [
+            { sourceNodeId: 'source-1', role: 'style', weight: 0.6 },
+            { sourceNodeId: 'product-1', role: 'product', weight: 0.9 },
+          ],
+          strength: 0.65,
+          motion: { mode: 'camera_push', durationSeconds: 5 },
+          outputKind: 'image',
+        },
+      }],
+      edges: [],
+    }, 'org-1')
+
+    expect(graph.nodes[0].edit).toMatchObject({
+      operation: 'inpaint',
+      prompt: 'Replace background with a clean studio set',
+      mask: {
+        sourceNodeId: 'mask-source',
+        url: 'https://cdn.example.com/mask.png',
+        storagePath: 'org-1/masks/mask.png',
+        invert: false,
+      },
+      references: [
+        { sourceNodeId: 'source-1', role: 'style', weight: 0.6 },
+        { sourceNodeId: 'product-1', role: 'product', weight: 0.9 },
+      ],
+      strength: 0.65,
+      motion: { mode: 'camera_push', durationSeconds: 5 },
+      outputKind: 'image',
+    })
+  })
+
+  it('rejects unsafe edit mask urls', () => {
+    expect(() =>
+      sanitizeCreativeCanvasGraph({
+        nodes: [{
+          id: 'edit-1',
+          type: 'edit',
+          title: 'Edit',
+          position: { x: 0, y: 0 },
+          data: {},
+          edit: {
+            operation: 'inpaint',
+            mask: { url: 'javascript:alert(1)' },
+          },
+        }],
+        edges: [],
+      }, 'org-1'),
+    ).toThrow('node edit-1 edit.mask.url must be a safe http(s) URL')
+  })
+
   it('rejects graph edges that point to missing nodes', () => {
     expect(() =>
       sanitizeCreativeCanvasGraph({

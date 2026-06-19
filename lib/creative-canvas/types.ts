@@ -74,6 +74,23 @@ export type CreativeCanvasGeneratedBy = 'user' | 'agent' | 'provider' | 'system'
 export type CreativeCanvasRunStatus = 'queued' | 'running' | 'waiting_for_review' | 'completed' | 'failed' | 'cancelled'
 export type CreativeCanvasPromptStorage = 'none' | 'summary' | 'full_internal'
 export type CreativeCanvasProviderRiskLevel = 'low' | 'medium' | 'high' | 'critical'
+export type CreativeCanvasEditOperation =
+  | 'inpaint'
+  | 'outpaint'
+  | 'style_transfer'
+  | 'object_replace'
+  | 'background_replace'
+  | 'video_motion'
+  | 'variation'
+  | 'upscale'
+export type CreativeCanvasEditMotionMode =
+  | 'none'
+  | 'camera_push'
+  | 'camera_pull'
+  | 'pan'
+  | 'orbit'
+  | 'dolly'
+  | 'handheld'
 
 export type CreativeCanvasProviderCapability =
   | 'generate_image'
@@ -161,6 +178,27 @@ export interface CreativeCanvasNode {
     key: CreativeCanvasProviderKey
     model?: string
     mode?: string
+  }
+  edit?: {
+    operation: CreativeCanvasEditOperation
+    prompt?: string
+    mask?: {
+      sourceNodeId?: string
+      url?: string
+      storagePath?: string
+      invert?: boolean
+    }
+    references?: Array<{
+      sourceNodeId: string
+      role: CreativeCanvasReferenceRole
+      weight?: number
+    }>
+    strength?: number
+    motion?: {
+      mode: CreativeCanvasEditMotionMode
+      durationSeconds?: number
+    }
+    outputKind?: CreativeCanvasOutputKind
   }
   review?: {
     status: CreativeCanvasReviewStatus

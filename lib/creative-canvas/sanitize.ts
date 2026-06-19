@@ -3,6 +3,8 @@ import type {
   CreativeCanvasActorType,
   CreativeCanvasBrandStatus,
   CreativeCanvasEdge,
+  CreativeCanvasEditMotionMode,
+  CreativeCanvasEditOperation,
   CreativeCanvasGraph,
   CreativeCanvasInput,
   CreativeCanvasNode,
@@ -28,6 +30,8 @@ const BRAND_STATUSES: CreativeCanvasBrandStatus[] = ['unknown', 'passed', 'needs
 const CANVAS_STATUSES: CreativeCanvasStatus[] = ['draft', 'internal_review', 'client_review', 'approved', 'archived']
 const VISIBILITIES: CreativeCanvasVisibility[] = ['admin_agents', 'admin_agents_clients']
 const ACTOR_TYPES: CreativeCanvasActorType[] = ['user', 'agent', 'system']
+const EDIT_OPERATIONS: CreativeCanvasEditOperation[] = ['inpaint', 'outpaint', 'style_transfer', 'object_replace', 'background_replace', 'video_motion', 'variation', 'upscale']
+const EDIT_MOTION_MODES: CreativeCanvasEditMotionMode[] = ['none', 'camera_push', 'camera_pull', 'pan', 'orbit', 'dolly', 'handheld']
 
 function asRecord(value: unknown): Record<string, unknown> {
   return value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : {}
@@ -128,6 +132,7 @@ function sanitizeNode(raw: unknown, orgId: string): CreativeCanvasNode {
   const position = asRecord(node.position)
   const source = asRecord(node.source)
   const provider = asRecord(node.provider)
+  const edit = asRecord(node.edit)
   const review = asRecord(node.review)
   const output = asRecord(node.output)
   const size = asRecord(node.size)
@@ -173,6 +178,54 @@ function sanitizeNode(raw: unknown, orgId: string): CreativeCanvasNode {
       model: cleanString(provider.model),
       mode: cleanString(provider.mode),
     }
+  }
+
+  if (Object.keys(edit).length) {
+    const mask = asRecord(edit.mask)
+    const motion = asRecord(edit.motion)
+    type EditReference = NonNullable<NonNullable<CreativeCanvasNode['edit']>['references']>[number]
+    const references = Array.isArray(edit.references)
+      ? edit.references
+        .map((reference) => {
+          const rawReference = asRecord(reference)
+          const sourceNodeId = cleanString(rawReference.sourceNodeId)
+          if (!sourceNodeId) return undefined
+          const cleanReference: EditReference = {
+            sourceNodeId,
+            role: enumValue(rawReference.role, REFERENCE_ROLES, 'general'),
+          }
+          const weight = cleanOptionalNumber(rawReference.weight)
+          if (weight !== undefined) cleanReference.weight = weight
+          return cleanReference
+        })
+        .filter((reference): reference is EditReference => Boolean(reference))
+      : []
+
+    const sanitizedEdit: NonNullable<CreativeCanvasNode['edit']> = {
+      operation: enumValue(edit.operation, EDIT_OPERATIONS, 'inpaint'),
+      prompt: cleanString(edit.prompt),
+      references,
+      strength: cleanOptionalNumber(edit.strength),
+      outputKind: enumValue(edit.outputKind, OUTPUT_KINDS, 'image'),
+    }
+
+    if (Object.keys(mask).length) {
+      sanitizedEdit.mask = {
+        sourceNodeId: cleanString(mask.sourceNodeId),
+        url: cleanHttpUrl(mask.url, `node ${id} edit.mask.url`),
+        storagePath: cleanString(mask.storagePath),
+        invert: cleanBoolean(mask.invert),
+      }
+    }
+
+    if (Object.keys(motion).length) {
+      sanitizedEdit.motion = {
+        mode: enumValue(motion.mode, EDIT_MOTION_MODES, 'none'),
+        durationSeconds: cleanOptionalNumber(motion.durationSeconds),
+      }
+    }
+
+    sanitized.edit = sanitizedEdit
   }
 
   if (Object.keys(review).length) {
