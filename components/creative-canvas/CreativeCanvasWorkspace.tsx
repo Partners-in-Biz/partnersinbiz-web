@@ -14,6 +14,7 @@ import {
 import type {
   CreativeCanvas,
   CreativeCanvasEdge,
+  CreativeCanvasExport,
   CreativeCanvasNode,
   CreativeCanvasNodeType,
   CreativeCanvasVersion,
@@ -126,6 +127,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
   const [versions, setVersions] = useState<Array<CreativeCanvasVersion & { id?: string }>>([])
   const [commentBody, setCommentBody] = useState('')
   const [activityMessage, setActivityMessage] = useState('')
+  const [exportTarget, setExportTarget] = useState<CreativeCanvasExport['target']>('campaign_asset')
 
   const activeCanvas = useMemo(
     () => canvases.find((canvas) => canvas.id === activeCanvasId) ?? canvases[0],
@@ -335,9 +337,18 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
   }
 
   const exportDraft = async () => {
-    if (!activeCanvas?.id) return
+    if (!activeCanvas?.id || !selectedNodeId) return
 
-    setActivityMessage('Exports stay draft-only until approval gates pass')
+    const query = resolvedOrgId ? `?orgId=${encodeURIComponent(resolvedOrgId)}` : ''
+    const response = await fetch(`/api/v1/creative-canvas/${activeCanvas.id}/exports/draft${query}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        nodeId: selectedNodeId,
+        target: exportTarget,
+      }),
+    })
+    setActivityMessage(response.ok ? 'Draft export prepared' : 'Draft export failed')
   }
 
   if (loading) {
@@ -546,10 +557,28 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
             <p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">
               Draft adapters route reviewed outputs into social, documents, campaigns, YouTube Studio, Book Studio, and artifacts.
             </p>
+            <label className="mt-2 block text-xs font-medium text-[var(--color-pib-text-muted)]" htmlFor="creative-canvas-export-target">
+              Export target
+            </label>
+            <select
+              id="creative-canvas-export-target"
+              value={exportTarget}
+              onChange={(event) => setExportTarget(event.target.value as CreativeCanvasExport['target'])}
+              className="mt-1 w-full rounded-lg border border-[var(--color-pib-line)] bg-white px-3 py-2 text-xs text-[var(--color-pib-text)]"
+            >
+              <option value="campaign_asset">Campaign asset</option>
+              <option value="social_draft">Social draft</option>
+              <option value="client_document">Client document / blog</option>
+              <option value="research">Research</option>
+              <option value="youtube_studio">YouTube Studio</option>
+              <option value="book_studio">Book Studio</option>
+              <option value="workspace_artifact">Workspace artifact</option>
+            </select>
             <button
               type="button"
               onClick={exportDraft}
-              className="mt-2 rounded-lg border border-[var(--color-pib-line)] px-3 py-2 text-xs font-semibold text-[var(--color-pib-text)]"
+              disabled={!selectedNodeId}
+              className="mt-2 rounded-lg border border-[var(--color-pib-line)] px-3 py-2 text-xs font-semibold text-[var(--color-pib-text)] disabled:cursor-not-allowed disabled:opacity-50"
             >
               Prepare draft export
             </button>

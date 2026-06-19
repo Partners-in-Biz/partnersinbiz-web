@@ -42,6 +42,15 @@ beforeEach(() => {
         }),
       }
     }
+    if (url.includes('/exports/draft') && init?.method === 'POST') {
+      return {
+        ok: true,
+        json: async () => ({
+          success: true,
+          data: { exportId: 'export-1', draft: { target: 'campaign_asset', status: 'internal_draft' } },
+        }),
+      }
+    }
 
     return {
       ok: true,
@@ -107,6 +116,25 @@ describe('CreativeCanvasWorkspace', () => {
       expect(fetchMock).toHaveBeenCalledWith('/api/v1/creative-canvas/canvas-1/comments?orgId=org-1', expect.objectContaining({
         method: 'POST',
       }))
+    })
+  })
+
+  it('prepares a generic draft export from an output node', async () => {
+    render(<CreativeCanvasWorkspace mode="admin" orgId="org-1" />)
+
+    await screen.findByText('Launch Canvas')
+    fireEvent.click(screen.getByRole('button', { name: /add output node/i }))
+    fireEvent.click(screen.getByRole('button', { name: /prepare draft export/i }))
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith('/api/v1/creative-canvas/canvas-1/exports/draft?orgId=org-1', expect.objectContaining({
+        method: 'POST',
+      }))
+    })
+    const exportCall = fetchMock.mock.calls.find(([url]) => String(url).includes('/exports/draft'))
+    expect(JSON.parse(exportCall?.[1]?.body as string)).toMatchObject({
+      nodeId: expect.stringMatching(/^output-node-/),
+      target: 'campaign_asset',
     })
   })
 })
