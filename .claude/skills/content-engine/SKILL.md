@@ -64,7 +64,7 @@ Run them in order. Phases 3–6 inside the production day can run heavily in par
 | **2. Master plan** | Brand identity lock + pillars + 12-week calendar | `PATCH /campaigns/[id]` with `{ brandIdentity, pillars, calendar }` | [`references/02-master-plan.md`](references/02-master-plan.md) |
 | **3. Parallel writing wave** | Dispatch 8 blog writers + 6 video composers + social writer | `seo_content` + `seo_drafts` + `social_posts` (all with `campaignId`) | [`references/03-parallel-agents.md`](references/03-parallel-agents.md) |
 | **4. Image generation** | Imagen 4.0 + master style suffix | `/social/media/upload` → URLs attached to posts/blogs | [`references/04-image-generation.md`](references/04-image-generation.md) |
-| **5. Video production** | HyperFrames + ffmpeg + procedural music — runs LOCALLY | `/social/media/upload` × 3 → single `social_post` with multi-format `media[0]` | [`references/05-video-production.md`](references/05-video-production.md) |
+| **5. Video production** | HyperFrames + ffmpeg + procedural music by default; Higgsfield CLI optional for UGC/cinematic/product-demo clips when authenticated — runs LOCALLY | `/social/media/upload` × 3 → single `social_post` with multi-format `media[0]` | [`references/05-video-production.md`](references/05-video-production.md) |
 | **6. Social card backgrounds** | Reusable card images | `/social/media/upload` → URLs referenced on relevant posts | (covered in master plan) |
 | **7. Preview** | Public share URL: `https://partnersinbiz.online/c/[shareToken]` | (no work — already live the moment the campaign exists) | (this file) |
 | **8. Final summary** | Print campaign cockpit + portal + share URLs and asset counts | (stdout) | (this file) |
@@ -307,6 +307,27 @@ A realistic single-day run looks like:
 - **Hour 6**: Phase 7 — print the share URL. Phase 8 summary. Done.
 
 Spend most of your active time on Phase 3's prompts (the agent briefs determine quality) and on Phase 2's brand lock (the review UI mockups depend on it).
+
+## Higgsfield creative generation option
+
+Use Higgsfield through the CLI, not MCP, for Hermes/Codex/OpenClaw-style agent work. Official Higgsfield docs say the CLI path is preferred for Hermes; MCP remains possible for connector-style clients but is not required for this content-engine pipeline.
+
+Current runtime rule:
+- If `higgsfield account status` succeeds, Phase 5 may use Higgsfield for UGC ads, product demos, cinematic image-to-video, Soul character continuity, viral clip generation, and virality prediction.
+- If Higgsfield is not authenticated, do not block the campaign. Produce Higgsfield-ready prompt packs and continue with the deterministic HyperFrames/ffmpeg video route.
+- Every generated Higgsfield asset is still work-in-progress until uploaded through `/social/media/upload` and attached to the campaign social post. The PiB platform remains the source of truth.
+- Do not publish, schedule, client-send, or launch ads from Higgsfield output without the normal approval gate.
+
+Useful CLI checks:
+
+```bash
+which higgsfield
+higgsfield --version
+higgsfield account status
+higgsfield model list
+```
+
+Official skills discovered from `higgsfield-ai/skills`: `higgsfield-generate`, `higgsfield-product-photoshoot`, `higgsfield-marketplace-cards`, and `higgsfield-soul-id`. In PiB campaign work, prefer `higgsfield-generate` for videos/UGC/virality, `higgsfield-product-photoshoot` for hero and ad images, and `higgsfield-soul-id` only when approved reference photos exist.
 
 ## Bundled Scripts (use these — don't rewrite)
 
