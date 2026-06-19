@@ -39,6 +39,12 @@ const FORBIDDEN_KEYS = new Set([
   'categoryAutomationJobId',
   'internalNotes',
   'privateNotes',
+  'rawPrompt',
+  'rawOutput',
+  'rawHermesOutput',
+  'unsafeRecommendation',
+  'unsupportedClaim',
+  'parserError',
 ])
 
 function normalizedKey(value: string): string {

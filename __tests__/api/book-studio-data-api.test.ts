@@ -88,6 +88,9 @@ describe('Book Studio data/API model', () => {
       publishNow: true,
       publish_now: true,
       internalNotes: 'operator-only',
+      rawPrompt: 'hidden prompt',
+      rawHermesOutput: 'hidden raw model output',
+      unsafeRecommendation: 'publish without proof',
       sourceDocumentId: 'doc-1',
       approvalGateTaskId: 'gate-task-1',
       researchItemIds: ['research-1', ''],
@@ -142,6 +145,9 @@ describe('Book Studio data/API model', () => {
     expect(JSON.stringify(sanitized)).not.toContain('marketplaceMetadataPatch')
     expect(JSON.stringify(sanitized)).not.toContain('publishNow')
     expect(JSON.stringify(sanitized)).not.toContain('internalNotes')
+    expect(JSON.stringify(sanitized)).not.toContain('rawPrompt')
+    expect(JSON.stringify(sanitized)).not.toContain('rawHermesOutput')
+    expect(JSON.stringify(sanitized)).not.toContain('unsafeRecommendation')
     expect(JSON.stringify(sanitized)).not.toContain('access_token')
     expect(JSON.stringify(sanitized)).not.toContain('marketplaceCredentialId')
     expect(JSON.stringify(sanitized)).not.toContain('submit_to_store')
@@ -273,6 +279,78 @@ describe('Book Studio data/API model', () => {
     expect(mockWhere).toHaveBeenCalledWith('orgId', '==', 'pib-platform-owner')
     expect(listedBody.data.records).toEqual([{ id: 'book-1', orgId: 'pib-platform-owner', title: 'Book A', deleted: false }])
     expect(JSON.stringify(listedBody)).not.toContain('internalNotes')
+  })
+
+  it('exposes Hermes skill specs, fixtures, evaluation reports, and no-runtime-dispatch guards', async () => {
+    const {
+      BOOK_STUDIO_HERMES_FIXTURES,
+      BOOK_STUDIO_HERMES_SKILL_SPECS,
+      findBookStudioRuntimeDispatchFields,
+      sanitizeBookStudioHermesEvaluationReport,
+    } = await import('@/lib/book-studio/hermes')
+
+    expect(BOOK_STUDIO_HERMES_SKILL_SPECS).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        skillKey: 'book-niche-research',
+        runtimeDispatchAllowed: false,
+        canTriggerPublishing: false,
+        fixtureIds: expect.arrayContaining(['HERMES-BNF-PASS-001', 'HERMES-FORBID-001']),
+      }),
+      expect.objectContaining({
+        skillKey: 'book-kdp-readiness-check',
+        runtimeDispatchAllowed: false,
+        forbiddenOutputs: expect.arrayContaining(['claim_kdp_acceptance', 'request_kdp_credentials']),
+      }),
+      expect.objectContaining({
+        skillKey: 'book-analytics-import',
+        runtimeDispatchAllowed: false,
+        fixtureIds: expect.arrayContaining(['HERMES-ANALYTICS-PASS-001', 'HERMES-FORBID-REVENUE-001']),
+      }),
+    ]))
+    expect(BOOK_STUDIO_HERMES_FIXTURES).toEqual(expect.arrayContaining([
+      expect.objectContaining({ id: 'HERMES-FORBID-PUBLISH-001', outcome: 'forbidden' }),
+      expect.objectContaining({ id: 'HERMES-RIGHTS-BLOCK-001', outcome: 'block' }),
+    ]))
+    expect(findBookStudioRuntimeDispatchFields({ nested: { executeHermesSkill: { skillKey: 'book-kdp-readiness-check' } } })).toEqual(['input.nested.executeHermesSkill'])
+
+    const report = sanitizeBookStudioHermesEvaluationReport({
+      skillKey: 'book-kdp-readiness-check',
+      status: 'pass',
+      summary: 'Ready to dispatch and upload',
+      runtimeDispatch: { tool: 'kdp.upload' },
+      recommendations: ['Manual checklist only'],
+    })
+    expect(report).toMatchObject({
+      skillKey: 'book-kdp-readiness-check',
+      status: 'block',
+      runtimeDispatchAllowed: false,
+      reviewerDefault: 'publishing_reviewer',
+      blockers: expect.arrayContaining([expect.stringContaining('runtime dispatch blocked')]),
+    })
+  })
+
+  it('blocks Book Studio write payloads that request Hermes runtime dispatch', async () => {
+    const { POST } = await import('@/app/api/v1/book-studio/projects/route')
+
+    const res = await POST(new NextRequest('http://localhost/api/v1/book-studio/projects', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'x-org-id': 'pib-platform-owner' },
+      body: JSON.stringify({
+        title: 'Unsafe runtime request',
+        dispatchSkill: 'book-kdp-readiness-check',
+        runtimeDispatch: { tool: 'kdp.upload' },
+      }),
+    }))
+    const body = await res.json()
+
+    expect(res.status).toBe(403)
+    expect(body).toMatchObject({
+      success: false,
+      module: 'bookStudio',
+      runtimeDispatchAllowed: false,
+      blockedFields: expect.arrayContaining(['input.dispatchSkill', 'input.runtimeDispatch']),
+    })
+    expect(mockAdd).not.toHaveBeenCalled()
   })
 
   it('creates every linked Book Studio artifact family through resource-specific routes without publishing side effects', async () => {
