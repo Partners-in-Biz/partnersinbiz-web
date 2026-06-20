@@ -11,6 +11,7 @@ import type {
   CreativeCanvasNode,
   CreativeCanvasOutputKind,
   CreativeCanvasOutputPatch,
+  CreativeCanvasPresence,
   CreativeCanvasReviewPatch,
   CreativeCanvasReviewStatus,
   CreativeCanvasRightsStatus,
@@ -19,6 +20,7 @@ import type {
 } from './types'
 
 export const CREATIVE_CANVAS_COMMENT_COLLECTION = 'creative_canvas_comments'
+export const CREATIVE_CANVAS_PRESENCE_COLLECTION = 'creative_canvas_presence'
 
 type UnknownRecord = Record<string, unknown>
 
@@ -76,6 +78,25 @@ function serializeVersion(id: string, data: UnknownRecord): CreativeCanvasVersio
 
 function serializeComment(id: string, data: CreativeCanvasComment): CreativeCanvasComment & { id: string } {
   return { id, ...data }
+}
+
+function serializePresence(id: string, data: UnknownRecord): CreativeCanvasPresence & { id: string } {
+  return {
+    id,
+    orgId: String(data.orgId ?? ''),
+    canvasId: String(data.canvasId ?? ''),
+    actorUid: String(data.actorUid ?? ''),
+    actorType: data.actorType === 'agent' || data.actorType === 'system' ? data.actorType : 'user',
+    displayName: cleanString(data.displayName),
+    selectedNodeId: cleanString(data.selectedNodeId),
+    focus: ['canvas', 'inspector', 'versions', 'comments', 'assets', 'runs'].includes(data.focus as string)
+      ? data.focus as CreativeCanvasPresence['focus']
+      : undefined,
+    viewport: Object.keys(asRecord(data.viewport)).length ? asRecord(data.viewport) as CreativeCanvasPresence['viewport'] : undefined,
+    lastSeenAt: data.lastSeenAt,
+    lastSeenAtMs: typeof data.lastSeenAtMs === 'number' ? data.lastSeenAtMs : 0,
+    expiresAtMs: typeof data.expiresAtMs === 'number' ? data.expiresAtMs : 0,
+  }
 }
 
 function buildVersionSnapshot(
@@ -285,6 +306,59 @@ export async function createCreativeCanvasComment(
   }
   const ref = await adminDb.collection(CREATIVE_CANVAS_COMMENT_COLLECTION).add(payload)
   return serializeComment(ref.id, payload)
+}
+
+export async function listCreativeCanvasPresence(
+  canvasId: string,
+  orgId: string,
+  nowMs = Date.now(),
+): Promise<Array<CreativeCanvasPresence & { id: string }>> {
+  const snap = await adminDb
+    .collection(CREATIVE_CANVAS_PRESENCE_COLLECTION)
+    .where('orgId', '==', orgId)
+    .where('canvasId', '==', canvasId)
+    .get()
+
+  return snap.docs
+    .map((doc: { id: string; data: () => UnknownRecord }) => serializePresence(doc.id, doc.data()))
+    .filter((presence) => presence.expiresAtMs > nowMs)
+    .sort((a, b) => b.lastSeenAtMs - a.lastSeenAtMs)
+}
+
+export async function heartbeatCreativeCanvasPresence(
+  canvasId: string,
+  orgId: string,
+  input: unknown,
+  actor: CreativeCanvasActor,
+  nowMs = Date.now(),
+): Promise<CreativeCanvasPresence & { id: string }> {
+  requiredString(canvasId, 'canvasId')
+  requiredString(orgId, 'orgId')
+  requiredString(actor.uid, 'actor.uid')
+  const body = asRecord(input)
+  const viewport = asRecord(body.viewport)
+  const payload: CreativeCanvasPresence = {
+    orgId,
+    canvasId,
+    actorUid: actor.uid,
+    actorType: actor.type,
+    displayName: cleanString(body.displayName),
+    selectedNodeId: cleanString(body.selectedNodeId),
+    focus: ['canvas', 'inspector', 'versions', 'comments', 'assets', 'runs'].includes(body.focus as string)
+      ? body.focus as CreativeCanvasPresence['focus']
+      : 'canvas',
+    viewport: Object.keys(viewport).length ? {
+      zoom: typeof viewport.zoom === 'number' && Number.isFinite(viewport.zoom) ? viewport.zoom : undefined,
+      x: typeof viewport.x === 'number' && Number.isFinite(viewport.x) ? viewport.x : undefined,
+      y: typeof viewport.y === 'number' && Number.isFinite(viewport.y) ? viewport.y : undefined,
+    } : undefined,
+    lastSeenAt: FieldValue.serverTimestamp(),
+    lastSeenAtMs: nowMs,
+    expiresAtMs: nowMs + 45_000,
+  }
+  const presenceId = `${canvasId}:${actor.uid}`.replace(/[^a-zA-Z0-9_-]/g, '_')
+  await adminDb.collection(CREATIVE_CANVAS_PRESENCE_COLLECTION).doc(presenceId).set(payload, { merge: true })
+  return { id: presenceId, ...payload }
 }
 
 export async function attachCreativeCanvasNodeOutput(

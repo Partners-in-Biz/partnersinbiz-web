@@ -2,6 +2,7 @@ const mockGet = jest.fn()
 const mockAdd = jest.fn()
 const mockDoc = jest.fn()
 const mockDocGet = jest.fn()
+const mockDocSet = jest.fn()
 const mockDocUpdate = jest.fn()
 const mockWhere = jest.fn()
 const mockOrderBy = jest.fn()
@@ -21,6 +22,8 @@ import {
   createCreativeCanvasComment,
   forkCreativeCanvasVersion,
   listCreativeCanvasVersions,
+  heartbeatCreativeCanvasPresence,
+  listCreativeCanvasPresence,
   restoreCreativeCanvasVersion,
   updateCreativeCanvasNodeReview,
 } from '@/lib/creative-canvas/collaboration'
@@ -51,7 +54,7 @@ beforeEach(() => {
   const query = { get: mockGet, where: mockWhere, orderBy: mockOrderBy }
   mockWhere.mockReturnValue(query)
   mockOrderBy.mockReturnValue(query)
-  mockDoc.mockReturnValue({ get: mockDocGet, update: mockDocUpdate })
+  mockDoc.mockReturnValue({ get: mockDocGet, set: mockDocSet, update: mockDocUpdate })
   mockCollection.mockReturnValue({ add: mockAdd, doc: mockDoc, where: mockWhere, orderBy: mockOrderBy })
 })
 
@@ -211,6 +214,70 @@ describe('creative canvas collaboration helpers', () => {
       createdAt: 'SERVER_TIMESTAMP',
     }))
     expect(comment).toMatchObject({ id: 'comment-1', body: 'Needs a stronger hook' })
+  })
+
+  it('lists active collaborators and filters stale canvas presence', async () => {
+    mockGet.mockResolvedValue({
+      docs: [
+        {
+          id: 'canvas-1_maya',
+          data: () => ({
+            orgId: 'org-1',
+            canvasId: 'canvas-1',
+            actorUid: 'maya',
+            actorType: 'agent',
+            selectedNodeId: 'model-1',
+            focus: 'runs',
+            lastSeenAtMs: 2000,
+            expiresAtMs: 6000,
+          }),
+        },
+        {
+          id: 'canvas-1_stale',
+          data: () => ({
+            orgId: 'org-1',
+            canvasId: 'canvas-1',
+            actorUid: 'stale-user',
+            actorType: 'user',
+            lastSeenAtMs: 1000,
+            expiresAtMs: 3000,
+          }),
+        },
+      ],
+    })
+
+    const presence = await listCreativeCanvasPresence('canvas-1', 'org-1', 5000)
+
+    expect(mockCollection).toHaveBeenCalledWith('creative_canvas_presence')
+    expect(mockWhere).toHaveBeenCalledWith('orgId', '==', 'org-1')
+    expect(mockWhere).toHaveBeenCalledWith('canvasId', '==', 'canvas-1')
+    expect(presence).toEqual([
+      expect.objectContaining({ id: 'canvas-1_maya', actorUid: 'maya', selectedNodeId: 'model-1', focus: 'runs' }),
+    ])
+  })
+
+  it('heartbeats canvas presence with selected node focus', async () => {
+    const presence = await heartbeatCreativeCanvasPresence('canvas-1', 'org-1', {
+      displayName: 'Peet',
+      selectedNodeId: 'edit-1',
+      focus: 'canvas',
+      viewport: { zoom: 1.2, x: 20, y: 40 },
+    }, ACTOR, 10_000)
+
+    expect(mockCollection).toHaveBeenCalledWith('creative_canvas_presence')
+    expect(mockDoc).toHaveBeenCalledWith('canvas-1_user-1')
+    expect(mockDocSet).toHaveBeenCalledWith(expect.objectContaining({
+      orgId: 'org-1',
+      canvasId: 'canvas-1',
+      actorUid: 'user-1',
+      displayName: 'Peet',
+      selectedNodeId: 'edit-1',
+      focus: 'canvas',
+      lastSeenAt: 'SERVER_TIMESTAMP',
+      lastSeenAtMs: 10_000,
+      expiresAtMs: 55_000,
+    }), { merge: true })
+    expect(presence).toMatchObject({ id: 'canvas-1_user-1', selectedNodeId: 'edit-1' })
   })
 
   it('attaches output and review metadata to a single node', async () => {

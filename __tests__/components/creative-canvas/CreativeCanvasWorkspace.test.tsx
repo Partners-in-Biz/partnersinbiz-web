@@ -89,6 +89,51 @@ beforeEach(() => {
         }),
       }
     }
+    if (url.includes('/presence') && init?.method === 'POST') {
+      const body = JSON.parse(String(init.body ?? '{}')) as { selectedNodeId?: string }
+      return {
+        ok: true,
+        json: async () => ({
+          success: true,
+          data: {
+            presence: [{
+              id: 'canvas-1_user-1',
+              orgId: 'org-1',
+              canvasId: 'canvas-1',
+              actorUid: 'user-1',
+              actorType: 'user',
+              displayName: 'You',
+              selectedNodeId: body.selectedNodeId,
+              focus: 'canvas',
+              lastSeenAtMs: 1000,
+              expiresAtMs: 46000,
+            }],
+          },
+        }),
+      }
+    }
+    if (url.includes('/presence')) {
+      return {
+        ok: true,
+        json: async () => ({
+          success: true,
+          data: {
+            presence: [{
+              id: 'canvas-1_maya',
+              orgId: 'org-1',
+              canvasId: 'canvas-1',
+              actorUid: 'maya',
+              actorType: 'agent',
+              displayName: 'Maya',
+              selectedNodeId: 'model-node-existing',
+              focus: 'runs',
+              lastSeenAtMs: 900,
+              expiresAtMs: 45900,
+            }],
+          },
+        }),
+      }
+    }
     if (url.includes('/runtime-proof')) {
       return {
         ok: true,
@@ -429,6 +474,9 @@ describe('CreativeCanvasWorkspace', () => {
     expect(screen.getAllByText('Quota exceeded').length).toBeGreaterThan(0)
     expect(screen.getByText('Agent orchestration')).toBeInTheDocument()
     expect(screen.getByText('Provider job: hf-job-existing')).toBeInTheDocument()
+    expect(screen.getByText('Live collaborators')).toBeInTheDocument()
+    expect(screen.getByText('Maya')).toBeInTheDocument()
+    expect(screen.getByText('runs / model-node-existing')).toBeInTheDocument()
     expect(screen.getByText('Versions')).toBeInTheDocument()
     expect(screen.getByText('Comments')).toBeInTheDocument()
     expect(screen.getByText('Output attachment')).toBeInTheDocument()

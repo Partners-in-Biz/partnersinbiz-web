@@ -338,6 +338,25 @@ export interface CreativeCanvasComment {
   updatedAt?: unknown
 }
 
+export interface CreativeCanvasPresence {
+  id?: string
+  orgId: string
+  canvasId: string
+  actorUid: string
+  actorType: CreativeCanvasActorType
+  displayName?: string
+  selectedNodeId?: string
+  focus?: 'canvas' | 'inspector' | 'versions' | 'comments' | 'assets' | 'runs'
+  viewport?: {
+    zoom?: number
+    x?: number
+    y?: number
+  }
+  lastSeenAt?: unknown
+  lastSeenAtMs: number
+  expiresAtMs: number
+}
+
 export type CreativeCanvasOutputPatch = Pick<NonNullable<CreativeCanvasNode['output']>, 'kind'> &
   Partial<Omit<NonNullable<CreativeCanvasNode['output']>, 'kind'>> & {
     review?: CreativeCanvasReviewPatch

@@ -21,6 +21,7 @@ import type {
   CreativeCanvasRunOperationsSummary,
   CreativeCanvasRunBatchRetryResult,
   CreativeCanvasProviderRuntimeReadiness,
+  CreativeCanvasPresence,
   CreativeCanvasRuntimeProof,
   CreativeCanvasRun,
   CreativeCanvasSourceLibraryItem,
@@ -98,6 +99,13 @@ interface CreativeCanvasRuntimeProofApiResponse {
     proof?: CreativeCanvasRuntimeProof
   }
   error?: string
+}
+
+interface CreativeCanvasPresenceApiResponse {
+  success?: boolean
+  data?: {
+    presence?: Array<CreativeCanvasPresence & { id: string }>
+  }
 }
 
 const nodeTypeLabels: Record<CreativeCanvasNodeType, string> = {
@@ -512,6 +520,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
   const [saveMessage, setSaveMessage] = useState('')
   const [versions, setVersions] = useState<Array<CreativeCanvasVersion & { id?: string }>>([])
   const [commentBody, setCommentBody] = useState('')
+  const [presence, setPresence] = useState<Array<CreativeCanvasPresence & { id: string }>>([])
   const [activityMessage, setActivityMessage] = useState('')
   const [exportTarget, setExportTarget] = useState<CreativeCanvasExport['target']>('campaign_asset')
   const [latestRun, setLatestRun] = useState<{ id: string; status: string; nodeId?: string } | null>(null)
@@ -631,6 +640,41 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
     setRuntimeProof(payload.data?.proof ?? null)
   }, [])
 
+  const loadPresence = useCallback(async (canvasId: string, canvasOrgId: string) => {
+    if (!canvasId || !canvasOrgId) {
+      setPresence([])
+      return
+    }
+    const response = await fetch(`/api/v1/creative-canvas/${canvasId}/presence?orgId=${encodeURIComponent(canvasOrgId)}`)
+    const payload = (await response.json()) as CreativeCanvasPresenceApiResponse
+    setPresence(payload.data?.presence ?? [])
+  }, [])
+
+  const sendPresenceHeartbeat = useCallback(async (
+    canvasId: string,
+    canvasOrgId: string,
+    nodeId?: string,
+    focus: CreativeCanvasPresence['focus'] = 'canvas',
+  ) => {
+    if (!canvasId || !canvasOrgId) return
+    const response = await fetch(`/api/v1/creative-canvas/${canvasId}/presence?orgId=${encodeURIComponent(canvasOrgId)}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        selectedNodeId: nodeId,
+        focus,
+      }),
+    })
+    const payload = await response.json().catch(() => null) as CreativeCanvasPresenceApiResponse | null
+    if (response.ok && payload?.data?.presence?.[0]) {
+      setPresence((current) => {
+        const own = payload.data?.presence?.[0]
+        if (!own) return current
+        return [own, ...current.filter((item) => item.id !== own.id)]
+      })
+    }
+  }, [])
+
   useEffect(() => {
     const region = selectedCanvasNode?.edit?.mask?.region
     if (!region) return
@@ -672,12 +716,14 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
           await loadVersions(firstCanvas.id, orgId ?? firstCanvas.orgId)
           await loadRuns(firstCanvas.id, orgId ?? firstCanvas.orgId)
           await loadRuntimeProof(firstCanvas.id, orgId ?? firstCanvas.orgId)
+          await loadPresence(firstCanvas.id, orgId ?? firstCanvas.orgId)
         } else {
           setVersions([])
           setRunHistory([])
           setRunOperations(null)
           setRuntimeReadiness(null)
           setRuntimeProof(null)
+          setPresence([])
         }
       } catch {
         if (!cancelled) {
@@ -695,7 +741,19 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
     return () => {
       cancelled = true
     }
-  }, [loadRuns, loadRuntimeProof, loadVersions, orgId])
+  }, [loadPresence, loadRuns, loadRuntimeProof, loadVersions, orgId])
+
+  useEffect(() => {
+    if (!activeCanvas?.id) return
+    const canvasOrgId = resolvedOrgId || activeCanvas.orgId
+    if (!canvasOrgId) return
+    sendPresenceHeartbeat(activeCanvas.id, canvasOrgId, selectedNodeId)
+    const heartbeat = window.setInterval(() => {
+      sendPresenceHeartbeat(activeCanvas.id!, canvasOrgId, selectedNodeId)
+      loadPresence(activeCanvas.id!, canvasOrgId)
+    }, 30_000)
+    return () => window.clearInterval(heartbeat)
+  }, [activeCanvas?.id, activeCanvas?.orgId, loadPresence, resolvedOrgId, selectedNodeId, sendPresenceHeartbeat])
 
   useEffect(() => {
     let cancelled = false
@@ -842,6 +900,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
       await loadVersions(canvas.id, orgId ?? canvas.orgId)
       await loadRuns(canvas.id, orgId ?? canvas.orgId)
       await loadRuntimeProof(canvas.id, orgId ?? canvas.orgId)
+      await loadPresence(canvas.id, orgId ?? canvas.orgId)
     }
   }
 
@@ -1139,6 +1198,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
     setLatestExecution(null)
     await loadVersions(nextCanvas.id ?? activeCanvas.id, resolvedOrgId || nextCanvas.orgId)
     await loadRuns(nextCanvas.id ?? activeCanvas.id, resolvedOrgId || nextCanvas.orgId)
+    await loadPresence(nextCanvas.id ?? activeCanvas.id, resolvedOrgId || nextCanvas.orgId)
     setActivityMessage(action === 'restore'
       ? `Restored version ${version.version}`
       : `Forked version ${version.version}`)
@@ -2322,6 +2382,40 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
               )) : (
                 <p className="rounded-lg border border-dashed border-[var(--color-pib-line)] p-3 text-xs text-[var(--color-pib-text-muted)]">
                   Runs will appear here after an agent or provider job is queued.
+                </p>
+              )}
+            </div>
+          </div>
+
+          <div>
+            <div className="flex items-center justify-between gap-2">
+              <h3 className="text-sm font-semibold text-[var(--color-pib-text)]">Live collaborators</h3>
+              <button
+                type="button"
+                onClick={() => activeCanvas?.id ? loadPresence(activeCanvas.id, resolvedOrgId || activeCanvas.orgId) : undefined}
+                disabled={!activeCanvas?.id}
+                className="rounded-md border border-[var(--color-pib-line)] px-2 py-1 text-xs font-semibold text-[var(--color-pib-text)] disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                Refresh
+              </button>
+            </div>
+            <div className="mt-2 space-y-2">
+              {presence.length ? presence.map((item) => (
+                <div
+                  key={item.id}
+                  className="rounded-lg border border-[var(--color-pib-line)] px-3 py-2 text-xs text-[var(--color-pib-text-muted)]"
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="font-semibold text-[var(--color-pib-text)]">{item.displayName ?? item.actorUid}</span>
+                    <span className="rounded-full border border-[var(--color-pib-line)] px-2 py-0.5 uppercase tracking-normal">
+                      {item.actorType}
+                    </span>
+                  </div>
+                  <p className="mt-1">{item.focus ?? 'canvas'}{item.selectedNodeId ? ` / ${item.selectedNodeId}` : ''}</p>
+                </div>
+              )) : (
+                <p className="rounded-lg border border-dashed border-[var(--color-pib-line)] px-3 py-2 text-xs text-[var(--color-pib-text-muted)]">
+                  Active collaborators will appear here.
                 </p>
               )}
             </div>

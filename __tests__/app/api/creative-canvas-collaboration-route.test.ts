@@ -2,6 +2,8 @@ import { NextRequest } from 'next/server'
 
 const mockListCreativeCanvasVersions = jest.fn()
 const mockCreateCreativeCanvasComment = jest.fn()
+const mockListCreativeCanvasPresence = jest.fn()
+const mockHeartbeatCreativeCanvasPresence = jest.fn()
 const mockAttachCreativeCanvasNodeOutput = jest.fn()
 const mockUpdateCreativeCanvasNodeReview = jest.fn()
 
@@ -13,6 +15,8 @@ jest.mock('@/lib/api/auth', () => ({
 jest.mock('@/lib/creative-canvas/collaboration', () => ({
   listCreativeCanvasVersions: mockListCreativeCanvasVersions,
   createCreativeCanvasComment: mockCreateCreativeCanvasComment,
+  listCreativeCanvasPresence: mockListCreativeCanvasPresence,
+  heartbeatCreativeCanvasPresence: mockHeartbeatCreativeCanvasPresence,
   attachCreativeCanvasNodeOutput: mockAttachCreativeCanvasNodeOutput,
   updateCreativeCanvasNodeReview: mockUpdateCreativeCanvasNodeReview,
 }))
@@ -52,6 +56,38 @@ describe('creative canvas collaboration API routes', () => {
       { uid: 'user-1', type: 'user' },
     )
     expect(body.data.comment.id).toBe('comment-1')
+  })
+
+  it('lists active collaborators for a canvas', async () => {
+    const { GET } = await import('@/app/api/v1/creative-canvas/[id]/presence/route')
+    mockListCreativeCanvasPresence.mockResolvedValue([{ id: 'presence-1', actorUid: 'maya' }])
+
+    const res = await GET(new NextRequest('http://test.local/api/v1/creative-canvas/canvas-1/presence?orgId=org-1'), {
+      params: Promise.resolve({ id: 'canvas-1' }),
+    })
+    const body = await res.json()
+
+    expect(mockListCreativeCanvasPresence).toHaveBeenCalledWith('canvas-1', 'org-1')
+    expect(body.data.presence).toEqual([{ id: 'presence-1', actorUid: 'maya' }])
+  })
+
+  it('heartbeats active collaborator focus', async () => {
+    const { POST } = await import('@/app/api/v1/creative-canvas/[id]/presence/route')
+    mockHeartbeatCreativeCanvasPresence.mockResolvedValue({ id: 'canvas-1_user-1', actorUid: 'user-1' })
+
+    const res = await POST(new NextRequest('http://test.local/api/v1/creative-canvas/canvas-1/presence?orgId=org-1', {
+      method: 'POST',
+      body: JSON.stringify({ selectedNodeId: 'edit-1', focus: 'canvas' }),
+    }), { params: Promise.resolve({ id: 'canvas-1' }) })
+    const body = await res.json()
+
+    expect(mockHeartbeatCreativeCanvasPresence).toHaveBeenCalledWith(
+      'canvas-1',
+      'org-1',
+      { selectedNodeId: 'edit-1', focus: 'canvas' },
+      { uid: 'user-1', type: 'user' },
+    )
+    expect(body.data.presence).toEqual([{ id: 'canvas-1_user-1', actorUid: 'user-1' }])
   })
 
   it('attaches output to a node', async () => {
