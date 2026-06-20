@@ -417,6 +417,29 @@ export interface CreativeCanvasRunOperationsSummary {
   providers: CreativeCanvasProviderRunSummary[]
 }
 
+export type CreativeCanvasAssetOrigin = 'source_node' | 'output_node' | 'run_output'
+
+export interface CreativeCanvasAssetSummary {
+  id: string
+  origin: CreativeCanvasAssetOrigin
+  title: string
+  nodeId?: string
+  runId?: string
+  providerKey?: CreativeCanvasProviderKey
+  sourceKind?: CreativeCanvasSourceKind
+  referenceRole?: CreativeCanvasReferenceRole
+  outputKind?: CreativeCanvasOutputKind
+  url?: string
+  thumbnailUrl?: string
+  storagePath?: string
+  artifactId?: string
+  textPreview?: string
+  reviewStatus?: CreativeCanvasReviewStatus
+  rightsStatus?: CreativeCanvasRightsStatus
+  brandStatus?: CreativeCanvasBrandStatus
+  readyForExport: boolean
+}
+
 export interface CreativeCanvasExport {
   id?: string
   orgId: string

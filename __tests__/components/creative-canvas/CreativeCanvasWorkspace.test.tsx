@@ -451,6 +451,9 @@ describe('CreativeCanvasWorkspace', () => {
       'https://cdn.example.com/product-thumb.png',
     )
     expect(screen.getByText('product / 1')).toBeInTheDocument()
+    expect(screen.getByText('Asset gallery')).toBeInTheDocument()
+    expect(screen.getByText('1 / 1')).toBeInTheDocument()
+    expect(screen.getByText('Internal asset')).toBeInTheDocument()
   })
 
   it('filters the source library with search, source kind, role, and media type controls', async () => {

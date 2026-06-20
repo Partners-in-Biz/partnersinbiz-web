@@ -12,6 +12,7 @@ import {
   type Node,
 } from '@xyflow/react'
 import type {
+  CreativeCanvasAssetOrigin,
   CreativeCanvas,
   CreativeCanvasEdge,
   CreativeCanvasExport,
@@ -23,6 +24,7 @@ import type {
   CreativeCanvasVersion,
 } from '@/lib/creative-canvas/types'
 import { buildCreativeCanvasOrchestrationPlan } from '@/lib/creative-canvas/orchestration'
+import { buildCreativeCanvasAssetGallery } from '@/lib/creative-canvas/assets'
 
 type CreativeCanvasMode = 'admin' | 'portal'
 
@@ -102,6 +104,12 @@ const palette: Array<{ type: CreativeCanvasNodeType; label: string; description:
   { type: 'review', label: 'Review', description: 'Brand, rights, and approval gate' },
   { type: 'output', label: 'Output', description: 'Draft image, video, copy, blog, book asset' },
 ]
+
+const assetOriginLabels: Record<CreativeCanvasAssetOrigin, string> = {
+  source_node: 'Source',
+  output_node: 'Output',
+  run_output: 'Run output',
+}
 
 type CreativeCanvasWorkflowPreset = {
   key: string
@@ -476,6 +484,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
   const [sourceUploadRole, setSourceUploadRole] = useState('product')
   const [sourceUploadAltText, setSourceUploadAltText] = useState('')
   const [sourceUploading, setSourceUploading] = useState(false)
+  const [assetOriginFilter, setAssetOriginFilter] = useState<'all' | CreativeCanvasAssetOrigin>('all')
 
   const activeCanvas = useMemo(
     () => canvases.find((canvas) => canvas.id === activeCanvasId) ?? canvases[0],
@@ -495,6 +504,15 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
     nodes: nodes.map((node) => toCanvasNode(node, resolvedOrgId || activeCanvas?.orgId || 'pending-org')),
     edges: edges.map((edge) => toCanvasEdge(edge, resolvedOrgId || activeCanvas?.orgId || 'pending-org')),
   }), [activeCanvas?.id, activeCanvas?.orgId, edges, nodes, resolvedOrgId])
+  const canvasAssets = useMemo(() => buildCreativeCanvasAssetGallery({
+    nodes: nodes.map((node) => toCanvasNode(node, resolvedOrgId || activeCanvas?.orgId || 'pending-org')),
+    runs: runHistory,
+  }), [activeCanvas?.orgId, nodes, resolvedOrgId, runHistory])
+  const filteredCanvasAssets = useMemo(() => (
+    assetOriginFilter === 'all'
+      ? canvasAssets
+      : canvasAssets.filter((asset) => asset.origin === assetOriginFilter)
+  ), [assetOriginFilter, canvasAssets])
 
   const loadVersions = useCallback(async (canvasId: string, canvasOrgId: string) => {
     if (!canvasId || !canvasOrgId) {
@@ -1788,6 +1806,74 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
             >
               Add comment
             </button>
+          </div>
+
+          <div>
+            <div className="flex items-center justify-between gap-2">
+              <h3 className="text-sm font-semibold text-[var(--color-pib-text)]">Asset gallery</h3>
+              <span className="rounded-full border border-[var(--color-pib-line)] px-2 py-0.5 text-xs text-[var(--color-pib-text-muted)]">
+                {filteredCanvasAssets.length} / {canvasAssets.length}
+              </span>
+            </div>
+            <label className="mt-2 block text-xs font-medium text-[var(--color-pib-text-muted)]" htmlFor="creative-canvas-asset-filter">
+              Asset filter
+            </label>
+            <select
+              id="creative-canvas-asset-filter"
+              value={assetOriginFilter}
+              onChange={(event) => setAssetOriginFilter(event.target.value as 'all' | CreativeCanvasAssetOrigin)}
+              className="mt-1 w-full rounded-lg border border-[var(--color-pib-line)] bg-white px-3 py-2 text-xs text-[var(--color-pib-text)]"
+            >
+              <option value="all">All assets</option>
+              <option value="source_node">Sources</option>
+              <option value="output_node">Outputs</option>
+              <option value="run_output">Run outputs</option>
+            </select>
+            <div className="mt-2 space-y-2">
+              {filteredCanvasAssets.length ? filteredCanvasAssets.slice(0, 8).map((asset) => {
+                const previewUrl = asset.thumbnailUrl ?? asset.url
+                return (
+                  <div
+                    key={asset.id}
+                    className="rounded-lg border border-[var(--color-pib-line)] bg-white p-2 text-xs text-[var(--color-pib-text-muted)]"
+                  >
+                    <div className="flex gap-2">
+                      {previewUrl ? (
+                        <div
+                          aria-label={`Asset preview: ${asset.title}`}
+                          className="h-14 w-16 shrink-0 rounded-md bg-[var(--color-pib-surface)] bg-cover bg-center"
+                          style={{ backgroundImage: `url(${previewUrl})` }}
+                        />
+                      ) : (
+                        <div className="flex h-14 w-16 shrink-0 items-center justify-center rounded-md bg-[var(--color-pib-surface)] text-[10px] uppercase">
+                          {asset.outputKind ?? asset.sourceKind ?? 'asset'}
+                        </div>
+                      )}
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center justify-between gap-2">
+                          <p className="truncate font-semibold text-[var(--color-pib-text)]">{asset.title}</p>
+                          <span className="shrink-0 rounded-full border border-[var(--color-pib-line)] px-2 py-0.5">
+                            {assetOriginLabels[asset.origin]}
+                          </span>
+                        </div>
+                        <p className="mt-1 truncate">
+                          {asset.outputKind ?? asset.sourceKind ?? asset.providerKey ?? 'creative asset'}
+                          {asset.nodeId ? ` · ${asset.nodeId}` : ''}
+                        </p>
+                        {asset.textPreview ? <p className="mt-1 line-clamp-2">{asset.textPreview}</p> : null}
+                        <p className={asset.readyForExport ? 'mt-1 font-semibold text-green-700' : 'mt-1 text-[var(--color-pib-text-muted)]'}>
+                          {asset.readyForExport ? 'Ready for export' : asset.reviewStatus ? `Review ${asset.reviewStatus}` : 'Internal asset'}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )
+              }) : (
+                <p className="rounded-lg border border-dashed border-[var(--color-pib-line)] px-3 py-2 text-xs text-[var(--color-pib-text-muted)]">
+                  Source uploads, generated outputs, and completed run artifacts will appear here.
+                </p>
+              )}
+            </div>
           </div>
 
           <div>
