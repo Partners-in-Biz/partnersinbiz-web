@@ -158,4 +158,82 @@ describe('Creative Canvas Hermes runtime bridge', () => {
       },
     })
   })
+
+  it('extracts media output from Hermes rich parts', async () => {
+    const link = {
+      orgId: 'org-1',
+      profile: 'maya',
+      baseUrl: 'http://127.0.0.1:8651',
+      enabled: true,
+      capabilities: { runs: true },
+    }
+    mockGetHermesProfileLink.mockResolvedValue(link)
+    mockCallHermesJson.mockResolvedValue({
+      response: { ok: true },
+      data: {
+        status: 'completed',
+        output: {
+          rich_parts: [
+            {
+              type: 'gallery',
+              images: [
+                {
+                  url: 'https://d8j0ntlcm91z4.cloudfront.net/user/product-higgsfield.png',
+                  caption: 'Generated product image',
+                },
+              ],
+            },
+          ],
+        },
+      },
+    })
+
+    const result = await getCreativeCanvasHermesRunStatus('org-1', 'hermes-run-rich')
+
+    expect(result).toMatchObject({
+      status: 'completed',
+      output: {
+        kind: 'image',
+        url: 'https://d8j0ntlcm91z4.cloudfront.net/user/product-higgsfield.png',
+        textPreview: 'Generated product image',
+      },
+    })
+  })
+
+  it('extracts media output from CLI text when Hermes returns raw tool output', async () => {
+    const link = {
+      orgId: 'org-1',
+      profile: 'maya',
+      baseUrl: 'http://127.0.0.1:8651',
+      enabled: true,
+      capabilities: { runs: true },
+    }
+    mockGetHermesProfileLink.mockResolvedValue(link)
+    mockCallHermesJson.mockResolvedValue({
+      response: { ok: true },
+      data: {
+        status: 'completed',
+        output: {
+          rich_parts: [
+            {
+              type: 'tool_output',
+              tool: 'higgsfield',
+              output: 'Completed job hf_123: https://cdn.example.com/final-output.mp4',
+            },
+          ],
+        },
+      },
+    })
+
+    const result = await getCreativeCanvasHermesRunStatus('org-1', 'hermes-run-cli')
+
+    expect(result).toMatchObject({
+      status: 'completed',
+      output: {
+        kind: 'video',
+        url: 'https://cdn.example.com/final-output.mp4',
+        textPreview: 'Completed job hf_123: https://cdn.example.com/final-output.mp4',
+      },
+    })
+  })
 })
