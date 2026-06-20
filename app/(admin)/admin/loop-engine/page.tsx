@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import type { Metadata } from 'next'
 import { LOOP_REGISTRY, loopsByStatus } from '@/lib/loop-engine/registry'
+import { LOOP_TEMPLATE_LIBRARY, LOOP_TEMPLATE_SOURCE } from '@/lib/loop-engine/template-library'
 import { evaluateLoopRun } from '@/lib/loop-engine/executor'
 import { explainTaskLoopReadiness } from '@/lib/loop-engine/readiness'
 import { adminDb } from '@/lib/firebase/admin'
@@ -269,6 +270,70 @@ export default async function AdminLoopEnginePage() {
         <p className="mt-4 text-xs text-[var(--color-pib-text-muted)]">
           API surface: POST /api/v1/admin/loop-engine/evaluate can persist dry-run or guarded run records; GET /api/v1/admin/loop-engine/runs lists recent org-scoped run history.
         </p>
+      </section>
+
+      <section className="pib-card p-6">
+        <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+          <div>
+            <p className="pib-label">Template library</p>
+            <h2 className="mt-2 text-2xl font-semibold text-[var(--color-pib-text)]">Loop templates from the community pattern library</h2>
+            <p className="mt-2 max-w-3xl text-sm text-[var(--color-pib-text-muted)]">
+              Copy-ready starter contracts adapted from {LOOP_TEMPLATE_SOURCE.name} for PiB-safe loops. Each template keeps the same operating spine — trigger, action, proof, and stop condition — then adds PiB owner/reviewer routing and approval guardrails.
+            </p>
+          </div>
+          <div className="rounded-2xl border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-2)] p-4 text-sm text-[var(--color-pib-text-muted)] md:min-w-72">
+            <p className="font-semibold text-[var(--color-pib-text)]">Source monitor</p>
+            <p className="mt-1">{LOOP_TEMPLATE_SOURCE.repo} · {LOOP_TEMPLATE_SOURCE.upstreamTemplateCount} templates checked</p>
+            <p className="mt-1">Last checked {LOOP_TEMPLATE_SOURCE.checkedAt}; upstream pushed {LOOP_TEMPLATE_SOURCE.upstreamPushedAt.slice(0, 10)}</p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <Link href={LOOP_TEMPLATE_SOURCE.url} className="pib-btn-secondary text-xs">Open GitHub source</Link>
+              <Link href={LOOP_TEMPLATE_SOURCE.siteUrl} className="pib-btn-secondary text-xs">Open Loop Library</Link>
+            </div>
+          </div>
+        </div>
+        <p className="mt-4 text-xs text-[var(--color-pib-text-muted)]">{LOOP_TEMPLATE_SOURCE.note}</p>
+        <div className="mt-5 grid gap-4 xl:grid-cols-2">
+          {LOOP_TEMPLATE_LIBRARY.map((template) => (
+            <article key={template.id} className="rounded-2xl border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-2)] p-4">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <p className="pib-label">{template.category} · {template.recommendedOwnerAgentId} → {template.recommendedReviewerAgentId}</p>
+                  <h3 className="mt-2 text-lg font-semibold text-[var(--color-pib-text)]">{template.name}</h3>
+                </div>
+                <Link href={`${LOOP_TEMPLATE_SOURCE.siteUrl}loops/${template.sourceSlug}/`} className="rounded-full bg-white/5 px-3 py-1 text-xs font-medium text-[var(--color-pib-text-muted)]">source</Link>
+              </div>
+              <p className="mt-3 text-sm text-[var(--color-pib-text-muted)]">{template.summary}</p>
+              <p className="mt-2 text-sm text-[var(--color-pib-text-muted)]">PiB fit: {template.pibFit}</p>
+              <dl className="mt-4 grid gap-3 text-sm md:grid-cols-2">
+                <div>
+                  <dt className="font-semibold text-[var(--color-pib-text)]">Trigger</dt>
+                  <dd className="mt-1 text-[var(--color-pib-text-muted)]">{template.trigger}</dd>
+                </div>
+                <div>
+                  <dt className="font-semibold text-[var(--color-pib-text)]">Action</dt>
+                  <dd className="mt-1 text-[var(--color-pib-text-muted)]">{template.action}</dd>
+                </div>
+                <div>
+                  <dt className="font-semibold text-[var(--color-pib-text)]">Proof</dt>
+                  <dd className="mt-1 text-[var(--color-pib-text-muted)]">{template.proof}</dd>
+                </div>
+                <div>
+                  <dt className="font-semibold text-[var(--color-pib-text)]">Stop condition</dt>
+                  <dd className="mt-1 text-[var(--color-pib-text-muted)]">{template.stopCondition}</dd>
+                </div>
+              </dl>
+              <div className="mt-4 rounded-xl border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] p-3">
+                <p className="text-sm font-semibold text-[var(--color-pib-text)]">Starter prompt</p>
+                <p className="mt-2 text-sm text-[var(--color-pib-text-muted)]">{template.starterPrompt}</p>
+              </div>
+              <div className="mt-3 flex flex-wrap gap-2">
+                {template.guardrails.map((guardrail) => (
+                  <span key={guardrail} className="rounded-full bg-amber-500/10 px-2.5 py-1 text-xs font-medium text-amber-300">{guardrail}</span>
+                ))}
+              </div>
+            </article>
+          ))}
+        </div>
       </section>
 
       <section className="pib-card p-6">
