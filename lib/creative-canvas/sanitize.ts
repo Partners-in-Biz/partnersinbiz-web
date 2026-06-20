@@ -59,6 +59,12 @@ function cleanOptionalNumber(value: unknown): number | undefined {
   return typeof value === 'number' && Number.isFinite(value) ? value : undefined
 }
 
+function cleanBoundedOptionalNumber(value: unknown, min: number, max: number): number | undefined {
+  const clean = cleanOptionalNumber(value)
+  if (clean === undefined) return undefined
+  return Math.min(max, Math.max(min, clean))
+}
+
 function cleanBoolean(value: unknown): boolean | undefined {
   return typeof value === 'boolean' ? value : undefined
 }
@@ -210,11 +216,29 @@ function sanitizeNode(raw: unknown, orgId: string): CreativeCanvasNode {
     }
 
     if (Object.keys(mask).length) {
+      const region = asRecord(mask.region)
+      const regionUnit = enumValue(region.unit, ['percent', 'pixel'] as const, 'percent')
       sanitizedEdit.mask = {
         sourceNodeId: cleanString(mask.sourceNodeId),
         url: cleanHttpUrl(mask.url, `node ${id} edit.mask.url`),
         storagePath: cleanString(mask.storagePath),
         invert: cleanBoolean(mask.invert),
+      }
+      if (Object.keys(region).length) {
+        const x = cleanBoundedOptionalNumber(region.x, 0, regionUnit === 'percent' ? 100 : 10000)
+        const y = cleanBoundedOptionalNumber(region.y, 0, regionUnit === 'percent' ? 100 : 10000)
+        const width = cleanBoundedOptionalNumber(region.width, 0, regionUnit === 'percent' ? 100 : 10000)
+        const height = cleanBoundedOptionalNumber(region.height, 0, regionUnit === 'percent' ? 100 : 10000)
+        if (x !== undefined && y !== undefined && width !== undefined && height !== undefined) {
+          sanitizedEdit.mask.region = {
+            x,
+            y,
+            width,
+            height,
+            unit: regionUnit,
+            feather: cleanBoundedOptionalNumber(region.feather, 0, 100),
+          }
+        }
       }
     }
 

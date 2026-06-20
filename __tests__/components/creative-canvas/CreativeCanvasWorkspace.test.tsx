@@ -171,6 +171,45 @@ describe('CreativeCanvasWorkspace', () => {
     expect(screen.getByText('Mask: not attached')).toBeInTheDocument()
   })
 
+  it('applies a mask region to an edit node and saves it with the graph', async () => {
+    render(<CreativeCanvasWorkspace mode="admin" orgId="org-1" />)
+
+    await screen.findByText('Launch Canvas')
+    fireEvent.click(screen.getByRole('button', { name: /add edit node/i }))
+
+    fireEvent.change(screen.getByLabelText(/mask x/i), { target: { value: '12' } })
+    fireEvent.change(screen.getByLabelText(/mask y/i), { target: { value: '18' } })
+    fireEvent.change(screen.getByLabelText(/mask width/i), { target: { value: '44' } })
+    fireEvent.change(screen.getByLabelText(/mask height/i), { target: { value: '52' } })
+    fireEvent.change(screen.getByLabelText(/mask feather/i), { target: { value: '6' } })
+    fireEvent.click(screen.getByRole('button', { name: /apply mask region/i }))
+
+    expect(await screen.findByText('Mask: region attached')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: /save graph/i }))
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith('/api/v1/creative-canvas/canvas-1/graph?orgId=org-1', expect.objectContaining({
+        method: 'PUT',
+      }))
+    })
+    const graphCall = fetchMock.mock.calls.find(([url, init]) =>
+      String(url).includes('/graph?orgId=org-1') && init?.method === 'PUT'
+    )
+    expect(JSON.parse(graphCall?.[1]?.body as string)).toMatchObject({
+      nodes: [
+        expect.objectContaining({
+          type: 'edit',
+          edit: expect.objectContaining({
+            mask: {
+              region: { x: 12, y: 18, width: 44, height: 52, unit: 'percent', feather: 6 },
+            },
+          }),
+        }),
+      ],
+    })
+  })
+
   it('loads versions and posts comments for the active canvas', async () => {
     render(<CreativeCanvasWorkspace mode="admin" orgId="org-1" />)
 

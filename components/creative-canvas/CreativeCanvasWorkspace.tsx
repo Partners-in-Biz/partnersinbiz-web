@@ -155,6 +155,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
   const [runCameraMotion, setRunCameraMotion] = useState('none')
   const [runNegativePrompt, setRunNegativePrompt] = useState('')
   const [sourceLibrary, setSourceLibrary] = useState<CreativeCanvasSourceLibraryItem[]>([])
+  const [maskRegion, setMaskRegion] = useState({ x: 0, y: 0, width: 50, height: 50, feather: 0 })
 
   const activeCanvas = useMemo(
     () => canvases.find((canvas) => canvas.id === activeCanvasId) ?? canvases[0],
@@ -309,6 +310,44 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
     }
 
     setNodes((currentNodes) => [...currentNodes, toFlowNode(canvasNode)])
+    setSaveMessage('')
+  }
+
+  const updateMaskRegionValue = (key: keyof typeof maskRegion, value: string) => {
+    setMaskRegion((current) => ({
+      ...current,
+      [key]: Math.max(0, Number(value) || 0),
+    }))
+  }
+
+  const applyMaskRegion = () => {
+    if (!selectedCanvasNode?.edit) return
+
+    const region = {
+      x: Math.min(100, maskRegion.x),
+      y: Math.min(100, maskRegion.y),
+      width: Math.min(100, maskRegion.width),
+      height: Math.min(100, maskRegion.height),
+      unit: 'percent' as const,
+      feather: Math.min(100, maskRegion.feather),
+    }
+
+    setNodes((currentNodes) => currentNodes.map((node) => {
+      if (node.id !== selectedCanvasNode.id) return node
+      const canvasNode = node.data?.canvasNode as CreativeCanvasNode | undefined
+      if (!canvasNode?.edit) return node
+      const nextCanvasNode: CreativeCanvasNode = {
+        ...canvasNode,
+        edit: {
+          ...canvasNode.edit,
+          mask: {
+            ...canvasNode.edit.mask,
+            region,
+          },
+        },
+      }
+      return toFlowNode(nextCanvasNode)
+    }))
     setSaveMessage('')
   }
 
@@ -750,11 +789,84 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
                   {selectedCanvasNode.edit.operation} / {selectedCanvasNode.edit.outputKind ?? 'image'}
                 </p>
                 <p>
-                  Mask: {selectedCanvasNode.edit.mask?.url || selectedCanvasNode.edit.mask?.sourceNodeId ? 'attached' : 'not attached'}
+                  Mask: {selectedCanvasNode.edit.mask?.region
+                    ? 'region attached'
+                    : selectedCanvasNode.edit.mask?.url || selectedCanvasNode.edit.mask?.sourceNodeId
+                      ? 'attached'
+                      : 'not attached'}
                 </p>
                 <p>
                   Strength: {selectedCanvasNode.edit.strength ?? 0.65} / Motion: {selectedCanvasNode.edit.motion?.mode ?? 'none'}
                 </p>
+                <div className="grid grid-cols-2 gap-2">
+                  <label className="text-xs font-medium text-[var(--color-pib-text-muted)]" htmlFor="creative-canvas-mask-x">
+                    Mask x
+                    <input
+                      id="creative-canvas-mask-x"
+                      type="number"
+                      min={0}
+                      max={100}
+                      value={maskRegion.x}
+                      onChange={(event) => updateMaskRegionValue('x', event.target.value)}
+                      className="mt-1 w-full rounded-lg border border-[var(--color-pib-line)] bg-white px-2 py-1.5 text-xs text-[var(--color-pib-text)]"
+                    />
+                  </label>
+                  <label className="text-xs font-medium text-[var(--color-pib-text-muted)]" htmlFor="creative-canvas-mask-y">
+                    Mask y
+                    <input
+                      id="creative-canvas-mask-y"
+                      type="number"
+                      min={0}
+                      max={100}
+                      value={maskRegion.y}
+                      onChange={(event) => updateMaskRegionValue('y', event.target.value)}
+                      className="mt-1 w-full rounded-lg border border-[var(--color-pib-line)] bg-white px-2 py-1.5 text-xs text-[var(--color-pib-text)]"
+                    />
+                  </label>
+                  <label className="text-xs font-medium text-[var(--color-pib-text-muted)]" htmlFor="creative-canvas-mask-width">
+                    Mask width
+                    <input
+                      id="creative-canvas-mask-width"
+                      type="number"
+                      min={0}
+                      max={100}
+                      value={maskRegion.width}
+                      onChange={(event) => updateMaskRegionValue('width', event.target.value)}
+                      className="mt-1 w-full rounded-lg border border-[var(--color-pib-line)] bg-white px-2 py-1.5 text-xs text-[var(--color-pib-text)]"
+                    />
+                  </label>
+                  <label className="text-xs font-medium text-[var(--color-pib-text-muted)]" htmlFor="creative-canvas-mask-height">
+                    Mask height
+                    <input
+                      id="creative-canvas-mask-height"
+                      type="number"
+                      min={0}
+                      max={100}
+                      value={maskRegion.height}
+                      onChange={(event) => updateMaskRegionValue('height', event.target.value)}
+                      className="mt-1 w-full rounded-lg border border-[var(--color-pib-line)] bg-white px-2 py-1.5 text-xs text-[var(--color-pib-text)]"
+                    />
+                  </label>
+                  <label className="col-span-2 text-xs font-medium text-[var(--color-pib-text-muted)]" htmlFor="creative-canvas-mask-feather">
+                    Mask feather
+                    <input
+                      id="creative-canvas-mask-feather"
+                      type="number"
+                      min={0}
+                      max={100}
+                      value={maskRegion.feather}
+                      onChange={(event) => updateMaskRegionValue('feather', event.target.value)}
+                      className="mt-1 w-full rounded-lg border border-[var(--color-pib-line)] bg-white px-2 py-1.5 text-xs text-[var(--color-pib-text)]"
+                    />
+                  </label>
+                </div>
+                <button
+                  type="button"
+                  onClick={applyMaskRegion}
+                  className="rounded-lg border border-[var(--color-pib-line)] px-3 py-2 text-xs font-semibold text-[var(--color-pib-text)]"
+                >
+                  Apply mask region
+                </button>
                 {selectedCanvasNode.edit.references?.length ? (
                   <p>{selectedCanvasNode.edit.references.length} reference inputs</p>
                 ) : (

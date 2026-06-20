@@ -187,6 +187,14 @@ export interface CreativeCanvasNode {
       url?: string
       storagePath?: string
       invert?: boolean
+      region?: {
+        x: number
+        y: number
+        width: number
+        height: number
+        unit: 'percent' | 'pixel'
+        feather?: number
+      }
     }
     references?: Array<{
       sourceNodeId: string

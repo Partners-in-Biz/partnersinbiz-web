@@ -147,6 +147,7 @@ describe('creative canvas sanitizers', () => {
             url: 'https://cdn.example.com/mask.png',
             storagePath: 'org-1/masks/mask.png',
             invert: false,
+            region: { x: 12, y: 18, width: 44, height: 52, unit: 'percent', feather: 6 },
           },
           references: [
             { sourceNodeId: 'source-1', role: 'style', weight: 0.6 },
@@ -168,6 +169,7 @@ describe('creative canvas sanitizers', () => {
         url: 'https://cdn.example.com/mask.png',
         storagePath: 'org-1/masks/mask.png',
         invert: false,
+        region: { x: 12, y: 18, width: 44, height: 52, unit: 'percent', feather: 6 },
       },
       references: [
         { sourceNodeId: 'source-1', role: 'style', weight: 0.6 },
