@@ -744,7 +744,7 @@ describe('CreativeCanvasWorkspace', () => {
       width: '30%',
       height: '34%',
     })
-    expect(screen.getByText('30x34% · feather 6')).toBeInTheDocument()
+    expect(screen.getByText('30x34% · feather 6 · 0 brush')).toBeInTheDocument()
 
     fireEvent.click(screen.getByRole('button', { name: /apply mask region/i }))
     fireEvent.click(screen.getByRole('button', { name: /save graph/i }))
@@ -765,6 +765,54 @@ describe('CreativeCanvasWorkspace', () => {
             mask: {
               region: { x: 56, y: 48, width: 30, height: 34, unit: 'percent', feather: 6 },
             },
+          }),
+        }),
+      ],
+    })
+  })
+
+  it('captures brush mask strokes and saves them with the graph', async () => {
+    render(<CreativeCanvasWorkspace mode="admin" orgId="org-1" />)
+
+    await screen.findByText('Launch Canvas')
+    fireEvent.click(screen.getByRole('button', { name: /add edit node/i }))
+    fireEvent.change(screen.getByLabelText(/brush size/i), { target: { value: '12' } })
+    fireEvent.pointerDown(screen.getByRole('application', { name: /brush mask canvas/i }), {
+      clientX: 40,
+      clientY: 40,
+    })
+
+    expect(await screen.findByText('Mask: brush attached')).toBeInTheDocument()
+    expect(screen.getByText(/1 brush/i)).toBeInTheDocument()
+    expect(screen.getByLabelText('Brush mask point 1')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: /save graph/i }))
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith('/api/v1/creative-canvas/canvas-1/graph?orgId=org-1', expect.objectContaining({
+        method: 'PUT',
+      }))
+    })
+    const graphCall = fetchMock.mock.calls.find(([url, init]) =>
+      String(url).includes('/graph?orgId=org-1') && init?.method === 'PUT'
+    )
+    expect(JSON.parse(graphCall?.[1]?.body as string)).toMatchObject({
+      nodes: [
+        expect.objectContaining({
+          type: 'edit',
+          edit: expect.objectContaining({
+            mask: expect.objectContaining({
+              brush: {
+                strokes: [
+                  expect.objectContaining({
+                    points: [{ x: 50, y: 50 }],
+                    size: 12,
+                    mode: 'paint',
+                    unit: 'percent',
+                  }),
+                ],
+              },
+            }),
           }),
         }),
       ],
@@ -913,6 +961,40 @@ describe('CreativeCanvasWorkspace', () => {
         stylePreset: 'cinematic_product',
         cameraMotion: 'camera_push',
         negativePrompt: 'blurry, distorted hands',
+      },
+    })
+  })
+
+  it('queues edit runs with brush mask geometry for agents', async () => {
+    render(<CreativeCanvasWorkspace mode="admin" orgId="org-1" />)
+
+    await screen.findByText('Launch Canvas')
+    fireEvent.click(screen.getByRole('button', { name: /add edit node/i }))
+    fireEvent.pointerDown(screen.getByRole('application', { name: /brush mask canvas/i }), {
+      clientX: 40,
+      clientY: 40,
+    })
+    fireEvent.click(screen.getByRole('button', { name: /queue run/i }))
+
+    await screen.findByText(/run queued: run-1/i)
+    const runCall = fetchMock.mock.calls.find(([url, init]) =>
+      String(url).endsWith('/runs?orgId=org-1') && init?.method === 'POST'
+    )
+    expect(JSON.parse(runCall?.[1]?.body as string)).toMatchObject({
+      providerKey: 'higgsfield',
+      input: {
+        outputKind: 'image',
+        operation: 'inpaint',
+        editMask: expect.objectContaining({
+          brush: {
+            strokes: [
+              expect.objectContaining({
+                points: [{ x: 50, y: 50 }],
+                unit: 'percent',
+              }),
+            ],
+          },
+        }),
       },
     })
   })

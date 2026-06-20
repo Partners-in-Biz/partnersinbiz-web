@@ -34,6 +34,7 @@ export interface CreativeCanvasAgentTaskDraft {
       stylePreset?: string
       cameraMotion?: string
       negativePrompt?: string
+      editMask?: CreativeCanvasRun['input']['editMask']
     }
     expectedArtifacts: string[]
     guardrails: string[]
@@ -99,6 +100,7 @@ export function buildCreativeCanvasAgentTask(
         stylePreset: run.input.stylePreset,
         cameraMotion: run.input.cameraMotion,
         negativePrompt: run.input.negativePrompt,
+        editMask: run.input.editMask,
       },
       expectedArtifacts: ['creative_canvas_output'],
       guardrails: [

@@ -151,6 +151,10 @@ export function buildHiggsfieldExecutionManifest(
       stylePreset: run.input.stylePreset,
       cameraMotion: run.input.cameraMotion,
       negativePrompt: run.input.negativePrompt,
+      maskRegion: run.input.editMask?.region
+        ? `${run.input.editMask.region.x},${run.input.editMask.region.y},${run.input.editMask.region.width},${run.input.editMask.region.height},${run.input.editMask.region.unit}`
+        : undefined,
+      brushStrokeCount: run.input.editMask?.brush?.strokes.length,
     },
     instructions: [
       'Run `higgsfield auth login` if the CLI session has expired before dispatch.',

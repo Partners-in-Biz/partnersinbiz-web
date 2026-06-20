@@ -3,6 +3,8 @@ import type {
   CreativeCanvasActorType,
   CreativeCanvasBrandStatus,
   CreativeCanvasEdge,
+  CreativeCanvasEditMask,
+  CreativeCanvasMaskBrushStroke,
   CreativeCanvasEditMotionMode,
   CreativeCanvasEditOperation,
   CreativeCanvasGraph,
@@ -67,6 +69,70 @@ function cleanBoundedOptionalNumber(value: unknown, min: number, max: number): n
 
 function cleanBoolean(value: unknown): boolean | undefined {
   return typeof value === 'boolean' ? value : undefined
+}
+
+function cleanMask(value: unknown, field: string): CreativeCanvasEditMask | undefined {
+  const mask = asRecord(value)
+  if (!Object.keys(mask).length) return undefined
+  const region = asRecord(mask.region)
+  const regionUnit = enumValue(region.unit, ['percent', 'pixel'] as const, 'percent')
+  const cleanMaskValue: CreativeCanvasEditMask = {
+    sourceNodeId: cleanString(mask.sourceNodeId),
+    url: cleanHttpUrl(mask.url, `${field}.url`),
+    storagePath: cleanString(mask.storagePath),
+    invert: cleanBoolean(mask.invert),
+  }
+
+  if (Object.keys(region).length) {
+    const x = cleanBoundedOptionalNumber(region.x, 0, regionUnit === 'percent' ? 100 : 10000)
+    const y = cleanBoundedOptionalNumber(region.y, 0, regionUnit === 'percent' ? 100 : 10000)
+    const width = cleanBoundedOptionalNumber(region.width, 0, regionUnit === 'percent' ? 100 : 10000)
+    const height = cleanBoundedOptionalNumber(region.height, 0, regionUnit === 'percent' ? 100 : 10000)
+    if (x !== undefined && y !== undefined && width !== undefined && height !== undefined) {
+      cleanMaskValue.region = {
+        x,
+        y,
+        width,
+        height,
+        unit: regionUnit,
+        feather: cleanBoundedOptionalNumber(region.feather, 0, 100),
+      }
+    }
+  }
+
+  const brush = asRecord(mask.brush)
+  if (Array.isArray(brush.strokes)) {
+    const strokes = brush.strokes
+      .slice(0, 80)
+      .map((stroke) => {
+        const rawStroke = asRecord(stroke)
+        const unit = enumValue(rawStroke.unit, ['percent', 'pixel'] as const, 'percent')
+        const maxCoordinate = unit === 'percent' ? 100 : 10000
+        const points = Array.isArray(rawStroke.points)
+          ? rawStroke.points.slice(0, 300).map((point) => {
+            const rawPoint = asRecord(point)
+            const x = cleanBoundedOptionalNumber(rawPoint.x, 0, maxCoordinate)
+            const y = cleanBoundedOptionalNumber(rawPoint.y, 0, maxCoordinate)
+            return x !== undefined && y !== undefined ? { x, y } : undefined
+          }).filter((point): point is { x: number; y: number } => Boolean(point))
+          : []
+        if (!points.length) return undefined
+        const cleanStroke: CreativeCanvasMaskBrushStroke = {
+          id: cleanString(rawStroke.id) ?? `stroke-${points[0].x}-${points[0].y}`,
+          points,
+          size: cleanBoundedOptionalNumber(rawStroke.size, 1, unit === 'percent' ? 25 : 500) ?? 8,
+          mode: enumValue(rawStroke.mode, ['paint', 'erase'] as const, 'paint'),
+          unit,
+        }
+        const opacity = cleanBoundedOptionalNumber(rawStroke.opacity, 0, 1)
+        if (opacity !== undefined) cleanStroke.opacity = opacity
+        return cleanStroke
+      })
+      .filter((stroke): stroke is CreativeCanvasMaskBrushStroke => Boolean(stroke))
+    if (strokes.length) cleanMaskValue.brush = { strokes }
+  }
+
+  return cleanMaskValue
 }
 
 function cleanStringArray(value: unknown): string[] {
@@ -187,7 +253,6 @@ function sanitizeNode(raw: unknown, orgId: string): CreativeCanvasNode {
   }
 
   if (Object.keys(edit).length) {
-    const mask = asRecord(edit.mask)
     const motion = asRecord(edit.motion)
     type EditReference = NonNullable<NonNullable<CreativeCanvasNode['edit']>['references']>[number]
     const references = Array.isArray(edit.references)
@@ -215,32 +280,7 @@ function sanitizeNode(raw: unknown, orgId: string): CreativeCanvasNode {
       outputKind: enumValue(edit.outputKind, OUTPUT_KINDS, 'image'),
     }
 
-    if (Object.keys(mask).length) {
-      const region = asRecord(mask.region)
-      const regionUnit = enumValue(region.unit, ['percent', 'pixel'] as const, 'percent')
-      sanitizedEdit.mask = {
-        sourceNodeId: cleanString(mask.sourceNodeId),
-        url: cleanHttpUrl(mask.url, `node ${id} edit.mask.url`),
-        storagePath: cleanString(mask.storagePath),
-        invert: cleanBoolean(mask.invert),
-      }
-      if (Object.keys(region).length) {
-        const x = cleanBoundedOptionalNumber(region.x, 0, regionUnit === 'percent' ? 100 : 10000)
-        const y = cleanBoundedOptionalNumber(region.y, 0, regionUnit === 'percent' ? 100 : 10000)
-        const width = cleanBoundedOptionalNumber(region.width, 0, regionUnit === 'percent' ? 100 : 10000)
-        const height = cleanBoundedOptionalNumber(region.height, 0, regionUnit === 'percent' ? 100 : 10000)
-        if (x !== undefined && y !== undefined && width !== undefined && height !== undefined) {
-          sanitizedEdit.mask.region = {
-            x,
-            y,
-            width,
-            height,
-            unit: regionUnit,
-            feather: cleanBoundedOptionalNumber(region.feather, 0, 100),
-          }
-        }
-      }
-    }
+    sanitizedEdit.mask = cleanMask(edit.mask, `node ${id} edit.mask`)
 
     if (Object.keys(motion).length) {
       sanitizedEdit.motion = {

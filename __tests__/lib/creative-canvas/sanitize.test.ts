@@ -148,6 +148,16 @@ describe('creative canvas sanitizers', () => {
             storagePath: 'org-1/masks/mask.png',
             invert: false,
             region: { x: 12, y: 18, width: 44, height: 52, unit: 'percent', feather: 6 },
+            brush: {
+              strokes: [{
+                id: 'stroke-1',
+                points: [{ x: 40, y: 44 }, { x: 45, y: 48 }],
+                size: 9,
+                opacity: 0.6,
+                mode: 'paint',
+                unit: 'percent',
+              }],
+            },
           },
           references: [
             { sourceNodeId: 'source-1', role: 'style', weight: 0.6 },
@@ -170,6 +180,16 @@ describe('creative canvas sanitizers', () => {
         storagePath: 'org-1/masks/mask.png',
         invert: false,
         region: { x: 12, y: 18, width: 44, height: 52, unit: 'percent', feather: 6 },
+        brush: {
+          strokes: [{
+            id: 'stroke-1',
+            points: [{ x: 40, y: 44 }, { x: 45, y: 48 }],
+            size: 9,
+            opacity: 0.6,
+            mode: 'paint',
+            unit: 'percent',
+          }],
+        },
       },
       references: [
         { sourceNodeId: 'source-1', role: 'style', weight: 0.6 },

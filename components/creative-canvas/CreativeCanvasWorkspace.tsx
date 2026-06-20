@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState, type PointerEvent as ReactPointerEvent } from 'react'
 import {
   Background,
   Controls,
@@ -537,6 +537,8 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
   const [sourceUploadRole, setSourceUploadRole] = useState('product')
   const [sourceUploadAltText, setSourceUploadAltText] = useState('')
   const [sourceUploading, setSourceUploading] = useState(false)
+  const [maskBrushSize, setMaskBrushSize] = useState(8)
+  const [maskBrushMode, setMaskBrushMode] = useState<'paint' | 'erase'>('paint')
   const [assetOriginFilter, setAssetOriginFilter] = useState<'all' | CreativeCanvasAssetOrigin>('all')
   const [assetReadinessFilter, setAssetReadinessFilter] = useState<'all' | 'ready' | 'draft_exportable' | 'review_needed' | 'blocked'>('all')
   const [selectedAssetId, setSelectedAssetId] = useState('')
@@ -554,6 +556,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
   }, [nodes, selectedFlowNodeId])
 
   const selectedNodeId = selectedCanvasNode?.id
+  const selectedMaskBrushStrokes = selectedCanvasNode?.edit?.mask?.brush?.strokes ?? []
   const orchestrationPlan = useMemo(() => buildCreativeCanvasOrchestrationPlan({
     id: activeCanvas?.id,
     orgId: resolvedOrgId || activeCanvas?.orgId || 'pending-org',
@@ -902,6 +905,17 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
     setMaskRegion(region)
   }
 
+  const updateSelectedEditNode = (updater: (node: CreativeCanvasNode) => CreativeCanvasNode) => {
+    if (!selectedCanvasNode?.edit) return
+    setNodes((currentNodes) => currentNodes.map((node) => {
+      if (node.id !== selectedCanvasNode.id) return node
+      const canvasNode = node.data?.canvasNode as CreativeCanvasNode | undefined
+      if (!canvasNode?.edit) return node
+      return toFlowNode(updater(canvasNode))
+    }))
+    setSaveMessage('')
+  }
+
   const applyMaskRegion = () => {
     if (!selectedCanvasNode?.edit) return
 
@@ -914,23 +928,96 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
       feather: Math.min(100, maskRegion.feather),
     }
 
-    setNodes((currentNodes) => currentNodes.map((node) => {
-      if (node.id !== selectedCanvasNode.id) return node
-      const canvasNode = node.data?.canvasNode as CreativeCanvasNode | undefined
-      if (!canvasNode?.edit) return node
-      const nextCanvasNode: CreativeCanvasNode = {
-        ...canvasNode,
-        edit: {
-          ...canvasNode.edit,
-          mask: {
-            ...canvasNode.edit.mask,
-            region,
-          },
-        },
-      }
-      return toFlowNode(nextCanvasNode)
+    updateSelectedEditNode((node) => ({
+      ...node,
+      edit: node.edit
+        ? {
+            ...node.edit,
+            mask: {
+              ...node.edit.mask,
+              region,
+            },
+          }
+        : node.edit,
     }))
-    setSaveMessage('')
+  }
+
+  const maskPointFromPointer = (event: ReactPointerEvent<HTMLDivElement>) => {
+    const bounds = event.currentTarget.getBoundingClientRect()
+    if (!bounds.width || !bounds.height) return { x: 50, y: 50 }
+    return {
+      x: Math.round(Math.min(100, Math.max(0, ((event.clientX - bounds.left) / bounds.width) * 100))),
+      y: Math.round(Math.min(100, Math.max(0, ((event.clientY - bounds.top) / bounds.height) * 100))),
+    }
+  }
+
+  const addBrushStroke = (point: { x: number; y: number }) => {
+    updateSelectedEditNode((node) => {
+      const strokes = node.edit?.mask?.brush?.strokes ?? []
+      return {
+        ...node,
+        edit: node.edit
+          ? {
+              ...node.edit,
+              mask: {
+                ...node.edit.mask,
+                brush: {
+                  strokes: [
+                    ...strokes,
+                    {
+                      id: `brush-${Date.now()}-${strokes.length + 1}`,
+                      points: [point],
+                      size: maskBrushSize,
+                      opacity: maskBrushMode === 'erase' ? 0.7 : 0.45,
+                      mode: maskBrushMode,
+                      unit: 'percent',
+                    },
+                  ],
+                },
+              },
+            }
+          : node.edit,
+      }
+    })
+  }
+
+  const handleMaskBrushPointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
+    event.preventDefault()
+    addBrushStroke(maskPointFromPointer(event))
+  }
+
+  const undoBrushStroke = () => {
+    updateSelectedEditNode((node) => {
+      const strokes = node.edit?.mask?.brush?.strokes ?? []
+      const nextStrokes = strokes.slice(0, -1)
+      return {
+        ...node,
+        edit: node.edit
+          ? {
+              ...node.edit,
+              mask: {
+                ...node.edit.mask,
+                brush: nextStrokes.length ? { strokes: nextStrokes } : undefined,
+              },
+            }
+          : node.edit,
+      }
+    })
+  }
+
+  const clearBrushMask = () => {
+    updateSelectedEditNode((node) => ({
+      ...node,
+      edit: node.edit
+        ? {
+            ...node.edit,
+            mask: {
+              ...node.edit.mask,
+              brush: undefined,
+            },
+          }
+        : node.edit,
+    }))
   }
 
   const selectFlowNode = useCallback((_: unknown, node: Node) => {
@@ -1092,6 +1179,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
             ? selectedEdit.motion.mode
             : runCameraMotion,
           negativePrompt: runNegativePrompt,
+          editMask: selectedEdit?.mask,
         },
       }),
     })
@@ -1830,7 +1918,12 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
                   {selectedCanvasNode.edit.operation} / {selectedCanvasNode.edit.outputKind ?? 'image'}
                 </p>
                 <div className="rounded-lg border border-[var(--color-pib-line)] bg-white p-2">
-                  <div className="relative aspect-video overflow-hidden rounded-md border border-[var(--color-pib-line)] bg-[linear-gradient(135deg,#f8fafc_0%,#f8fafc_48%,#eef2f7_48%,#eef2f7_100%)]">
+                  <div
+                    role="application"
+                    aria-label="Brush mask canvas"
+                    onPointerDown={handleMaskBrushPointerDown}
+                    className="relative aspect-video cursor-crosshair overflow-hidden rounded-md border border-[var(--color-pib-line)] bg-[linear-gradient(135deg,#f8fafc_0%,#f8fafc_48%,#eef2f7_48%,#eef2f7_100%)]"
+                  >
                     <div
                       aria-label="Mask preview overlay"
                       className="absolute rounded-md border-2 border-[var(--color-pib-primary)] bg-[var(--color-pib-primary)]/25 shadow-[0_0_0_999px_rgba(15,23,42,0.18)]"
@@ -1841,8 +1934,27 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
                         height: `${Math.min(100, maskRegion.height)}%`,
                       }}
                     />
+                    {selectedMaskBrushStrokes.flatMap((stroke) => stroke.points.map((point, pointIndex) => (
+                      <div
+                        key={`${stroke.id}-${pointIndex}`}
+                        aria-label={`Brush mask point ${pointIndex + 1}`}
+                        className={`absolute rounded-full border ${
+                          stroke.mode === 'erase'
+                            ? 'border-red-300 bg-white/80'
+                            : 'border-[var(--color-pib-primary)] bg-[var(--color-pib-primary)]/50'
+                        }`}
+                        style={{
+                          left: `${Math.min(100, point.x)}%`,
+                          top: `${Math.min(100, point.y)}%`,
+                          width: `${Math.min(25, Math.max(1, stroke.size))}%`,
+                          height: `${Math.min(25, Math.max(1, stroke.size))}%`,
+                          opacity: stroke.opacity ?? 0.45,
+                          transform: 'translate(-50%, -50%)',
+                        }}
+                      />
+                    )))}
                     <div className="absolute bottom-2 left-2 rounded-md bg-white/90 px-2 py-1 text-[11px] font-semibold text-[var(--color-pib-text)]">
-                      {maskRegion.width}x{maskRegion.height}% · feather {maskRegion.feather}
+                      {maskRegion.width}x{maskRegion.height}% · feather {maskRegion.feather} · {selectedMaskBrushStrokes.length} brush
                     </div>
                   </div>
                   <div className="mt-2 grid grid-cols-2 gap-1.5">
@@ -1857,9 +1969,55 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
                       </button>
                     ))}
                   </div>
+                  <div className="mt-2 grid grid-cols-2 gap-2">
+                    <label className="text-xs font-medium text-[var(--color-pib-text-muted)]" htmlFor="creative-canvas-brush-size">
+                      Brush size
+                      <input
+                        id="creative-canvas-brush-size"
+                        type="range"
+                        min={2}
+                        max={25}
+                        value={maskBrushSize}
+                        onChange={(event) => setMaskBrushSize(Math.min(25, Math.max(2, Number(event.target.value) || 8)))}
+                        className="mt-1 w-full"
+                      />
+                    </label>
+                    <label className="text-xs font-medium text-[var(--color-pib-text-muted)]" htmlFor="creative-canvas-brush-mode">
+                      Brush mode
+                      <select
+                        id="creative-canvas-brush-mode"
+                        value={maskBrushMode}
+                        onChange={(event) => setMaskBrushMode(event.target.value === 'erase' ? 'erase' : 'paint')}
+                        className="mt-1 w-full rounded-lg border border-[var(--color-pib-line)] bg-white px-2 py-1.5 text-xs text-[var(--color-pib-text)]"
+                      >
+                        <option value="paint">Paint</option>
+                        <option value="erase">Erase</option>
+                      </select>
+                    </label>
+                  </div>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      onClick={undoBrushStroke}
+                      disabled={!selectedMaskBrushStrokes.length}
+                      className="rounded-md border border-[var(--color-pib-line)] px-2 py-1 text-[11px] font-semibold text-[var(--color-pib-text)] disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      Undo brush stroke
+                    </button>
+                    <button
+                      type="button"
+                      onClick={clearBrushMask}
+                      disabled={!selectedMaskBrushStrokes.length}
+                      className="rounded-md border border-[var(--color-pib-line)] px-2 py-1 text-[11px] font-semibold text-[var(--color-pib-text)] disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      Clear brush mask
+                    </button>
+                  </div>
                 </div>
                 <p>
-                  Mask: {selectedCanvasNode.edit.mask?.region
+                  Mask: {selectedMaskBrushStrokes.length
+                    ? 'brush attached'
+                    : selectedCanvasNode.edit.mask?.region
                     ? 'region attached'
                     : selectedCanvasNode.edit.mask?.url || selectedCanvasNode.edit.mask?.sourceNodeId
                       ? 'attached'

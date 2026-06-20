@@ -103,6 +103,35 @@ export type CreativeCanvasProviderCapability =
   | 'analyze_media'
   | 'create_variants'
 
+export interface CreativeCanvasMaskRegion {
+  x: number
+  y: number
+  width: number
+  height: number
+  unit: 'percent' | 'pixel'
+  feather?: number
+}
+
+export interface CreativeCanvasMaskBrushStroke {
+  id: string
+  points: Array<{ x: number; y: number }>
+  size: number
+  opacity?: number
+  mode?: 'paint' | 'erase'
+  unit: 'percent' | 'pixel'
+}
+
+export interface CreativeCanvasEditMask {
+  sourceNodeId?: string
+  url?: string
+  storagePath?: string
+  invert?: boolean
+  region?: CreativeCanvasMaskRegion
+  brush?: {
+    strokes: CreativeCanvasMaskBrushStroke[]
+  }
+}
+
 export interface CreativeCanvasProvider {
   key: CreativeCanvasProviderKey
   label: string
@@ -182,20 +211,7 @@ export interface CreativeCanvasNode {
   edit?: {
     operation: CreativeCanvasEditOperation
     prompt?: string
-    mask?: {
-      sourceNodeId?: string
-      url?: string
-      storagePath?: string
-      invert?: boolean
-      region?: {
-        x: number
-        y: number
-        width: number
-        height: number
-        unit: 'percent' | 'pixel'
-        feather?: number
-      }
-    }
+    mask?: CreativeCanvasEditMask
     references?: Array<{
       sourceNodeId: string
       role: CreativeCanvasReferenceRole
@@ -358,6 +374,7 @@ export interface CreativeCanvasRun {
     stylePreset?: string
     cameraMotion?: CreativeCanvasEditMotionMode
     negativePrompt?: string
+    editMask?: CreativeCanvasEditMask
   }
   output?: {
     outputNodeId?: string

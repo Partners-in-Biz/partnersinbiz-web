@@ -72,6 +72,12 @@ function buildRuntimePrompt(input: CreativeCanvasHermesRuntimeRequest): string {
     run.input.stylePreset ? `Style preset: ${run.input.stylePreset}` : '',
     run.input.cameraMotion ? `Camera motion: ${run.input.cameraMotion}` : '',
     run.input.negativePrompt ? `Negative prompt: ${run.input.negativePrompt}` : '',
+    run.input.editMask?.region
+      ? `Mask region: x ${run.input.editMask.region.x}, y ${run.input.editMask.region.y}, width ${run.input.editMask.region.width}, height ${run.input.editMask.region.height}, unit ${run.input.editMask.region.unit}, feather ${run.input.editMask.region.feather ?? 0}`
+      : '',
+    run.input.editMask?.brush?.strokes.length
+      ? `Brush mask: ${run.input.editMask.brush.strokes.length} stroke(s), ${run.input.editMask.brush.strokes.reduce((total, stroke) => total + stroke.points.length, 0)} point(s). Use the brush geometry as the inpainting target.`
+      : '',
     '',
     'Source media:',
     sourceLines,

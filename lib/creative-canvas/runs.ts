@@ -8,6 +8,8 @@ import {
 import type {
   CreativeCanvas,
   CreativeCanvasActor,
+  CreativeCanvasEditMask,
+  CreativeCanvasMaskBrushStroke,
   CreativeCanvasEditMotionMode,
   CreativeCanvasEditOperation,
   CreativeCanvasNode,
@@ -44,6 +46,83 @@ function cleanStringArray(value: unknown): string[] {
 
 function cleanOptionalNumber(value: unknown): number | undefined {
   return typeof value === 'number' && Number.isFinite(value) ? value : undefined
+}
+
+function cleanBoundedOptionalNumber(value: unknown, min: number, max: number): number | undefined {
+  const clean = cleanOptionalNumber(value)
+  if (clean === undefined) return undefined
+  return Math.min(max, Math.max(min, clean))
+}
+
+function cleanHttpUrl(value: unknown): string | undefined {
+  const raw = cleanString(value)
+  if (!raw) return undefined
+  try {
+    const parsed = new URL(raw)
+    if (!['http:', 'https:'].includes(parsed.protocol)) throw new Error()
+    if (parsed.username || parsed.password) throw new Error()
+    return parsed.href
+  } catch {
+    return undefined
+  }
+}
+
+function cleanRunEditMask(value: unknown): CreativeCanvasEditMask | undefined {
+  const mask = asRecord(value)
+  if (!Object.keys(mask).length) return undefined
+  const region = asRecord(mask.region)
+  const regionUnit = region.unit === 'pixel' ? 'pixel' : 'percent'
+  const editMask: CreativeCanvasEditMask = {
+    sourceNodeId: cleanString(mask.sourceNodeId),
+    url: cleanHttpUrl(mask.url),
+    storagePath: cleanString(mask.storagePath),
+    invert: typeof mask.invert === 'boolean' ? mask.invert : undefined,
+  }
+  if (Object.keys(region).length) {
+    const x = cleanBoundedOptionalNumber(region.x, 0, regionUnit === 'percent' ? 100 : 10000)
+    const y = cleanBoundedOptionalNumber(region.y, 0, regionUnit === 'percent' ? 100 : 10000)
+    const width = cleanBoundedOptionalNumber(region.width, 0, regionUnit === 'percent' ? 100 : 10000)
+    const height = cleanBoundedOptionalNumber(region.height, 0, regionUnit === 'percent' ? 100 : 10000)
+    if (x !== undefined && y !== undefined && width !== undefined && height !== undefined) {
+      editMask.region = {
+        x,
+        y,
+        width,
+        height,
+        unit: regionUnit,
+        feather: cleanBoundedOptionalNumber(region.feather, 0, 100),
+      }
+    }
+  }
+  const brush = asRecord(mask.brush)
+  if (Array.isArray(brush.strokes)) {
+    const strokes = brush.strokes.slice(0, 80).map((stroke) => {
+      const rawStroke = asRecord(stroke)
+      const unit = rawStroke.unit === 'pixel' ? 'pixel' : 'percent'
+      const maxCoordinate = unit === 'percent' ? 100 : 10000
+      const points = Array.isArray(rawStroke.points)
+        ? rawStroke.points.slice(0, 300).map((point) => {
+          const rawPoint = asRecord(point)
+          const x = cleanBoundedOptionalNumber(rawPoint.x, 0, maxCoordinate)
+          const y = cleanBoundedOptionalNumber(rawPoint.y, 0, maxCoordinate)
+          return x !== undefined && y !== undefined ? { x, y } : undefined
+        }).filter((point): point is { x: number; y: number } => Boolean(point))
+        : []
+      if (!points.length) return undefined
+      const cleanStroke: CreativeCanvasMaskBrushStroke = {
+        id: cleanString(rawStroke.id) ?? `stroke-${points[0].x}-${points[0].y}`,
+        points,
+        size: cleanBoundedOptionalNumber(rawStroke.size, 1, unit === 'percent' ? 25 : 500) ?? 8,
+        mode: rawStroke.mode === 'erase' ? 'erase' as const : 'paint' as const,
+        unit,
+      }
+      const opacity = cleanBoundedOptionalNumber(rawStroke.opacity, 0, 1)
+      if (opacity !== undefined) cleanStroke.opacity = opacity
+      return cleanStroke
+    }).filter((stroke): stroke is CreativeCanvasMaskBrushStroke => Boolean(stroke))
+    if (strokes.length) editMask.brush = { strokes }
+  }
+  return editMask.region || editMask.brush || editMask.url || editMask.sourceNodeId || editMask.storagePath ? editMask : undefined
 }
 
 function cleanPositiveInteger(value: unknown, max: number): number | undefined {
@@ -431,6 +510,7 @@ export async function createCreativeCanvasRun(
       stylePreset: cleanString(runInput.stylePreset),
       cameraMotion: optionalCameraMotion(runInput.cameraMotion),
       negativePrompt: cleanString(runInput.negativePrompt),
+      editMask: cleanRunEditMask(runInput.editMask),
     },
     provenance: {
       generatedBy: actor.type,
