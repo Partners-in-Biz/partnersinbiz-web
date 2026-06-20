@@ -155,6 +155,69 @@ function upsertOutputEdge(canvas: CreativeCanvas & { id: string }, run: Creative
   ]
 }
 
+async function completeLoadedCreativeCanvasRun(
+  run: CreativeCanvasRun & { id: string },
+  orgId: string,
+  input: unknown,
+  actor: CreativeCanvasActor,
+): Promise<{ run: CreativeCanvasRun & { id: string }; outputNode?: CreativeCanvasNode }> {
+  const body = asRecord(input)
+  const output = asRecord(body.output)
+  const provenancePatch = asRecord(body.provenance)
+
+  if (run.orgId !== orgId) throw new Error('Creative canvas run does not belong to organisation')
+
+  const canvas = await getCreativeCanvas(run.canvasId, orgId)
+  if (!canvas) throw new Error('Creative canvas not found')
+
+  const outputNodeId = cleanString(body.outputNodeId) ?? `${run.nodeId}-output`
+  const outputNode = buildOutputNode({ run, canvas, outputNodeId, output })
+  const completedRun: CreativeCanvasRun & { id: string } = {
+    ...run,
+    status: 'completed',
+    output: {
+      outputNodeId,
+      artifactId: cleanString(output.artifactId),
+      url: safeHttpUrl(output.url, 'run output.url'),
+      thumbnailUrl: safeHttpUrl(output.thumbnailUrl, 'run output.thumbnailUrl'),
+      textPreview: cleanString(output.textPreview),
+      rawProviderJobId: cleanString(output.rawProviderJobId),
+    },
+    provenance: {
+      ...run.provenance,
+      providerJobId: cleanString(provenancePatch.providerJobId) ?? run.provenance.providerJobId,
+      model: cleanString(provenancePatch.model) ?? run.provenance.model,
+      costUnits: typeof provenancePatch.costUnits === 'number' && Number.isFinite(provenancePatch.costUnits)
+        ? provenancePatch.costUnits
+        : run.provenance.costUnits,
+      costLabel: cleanString(provenancePatch.costLabel) ?? run.provenance.costLabel,
+    },
+    updatedAt: FieldValue.serverTimestamp(),
+  }
+
+  await adminDb.collection(CREATIVE_CANVAS_RUN_COLLECTION).doc(run.id).update({
+    status: completedRun.status,
+    output: completedRun.output,
+    provenance: completedRun.provenance,
+    updatedAt: FieldValue.serverTimestamp(),
+    updatedBy: actor.uid,
+    updatedByType: actor.type,
+  })
+
+  const nextNodes = upsertOutputNode(canvas, outputNode)
+  const nextEdges = upsertOutputEdge(canvas, run, outputNodeId)
+  await adminDb.collection(CREATIVE_CANVAS_COLLECTION).doc(canvas.id).update({
+    nodes: nextNodes,
+    edges: nextEdges,
+    activeVersion: canvas.activeVersion + 1,
+    updatedAt: FieldValue.serverTimestamp(),
+    updatedBy: actor.uid,
+    updatedByType: actor.type,
+  })
+
+  return { run: completedRun, outputNode }
+}
+
 export async function createCreativeCanvasRun(
   input: unknown,
   orgId: string,
@@ -217,62 +280,42 @@ export async function completeCreativeCanvasRun(
   input: unknown,
   actor: CreativeCanvasActor,
 ): Promise<{ run: CreativeCanvasRun & { id: string }; outputNode?: CreativeCanvasNode }> {
-  const body = asRecord(input)
-  const output = asRecord(body.output)
-  const provenancePatch = asRecord(body.provenance)
-
   const runSnap = await adminDb.collection(CREATIVE_CANVAS_RUN_COLLECTION).doc(runId).get()
   if (!runSnap.exists) throw new Error('Creative canvas run not found')
   const run = serializeRun(runSnap.id ?? runId, runSnap.data() as CreativeCanvasRun)
-  if (run.orgId !== orgId) throw new Error('Creative canvas run does not belong to organisation')
+  return completeLoadedCreativeCanvasRun(run, orgId, input, actor)
+}
 
-  const canvas = await getCreativeCanvas(run.canvasId, orgId)
-  if (!canvas) throw new Error('Creative canvas not found')
-
-  const outputNodeId = cleanString(body.outputNodeId) ?? `${run.nodeId}-output`
-  const outputNode = buildOutputNode({ run, canvas, outputNodeId, output })
-  const completedRun: CreativeCanvasRun & { id: string } = {
-    ...run,
-    status: 'completed',
-    output: {
-      outputNodeId,
-      artifactId: cleanString(output.artifactId),
-      url: safeHttpUrl(output.url, 'run output.url'),
-      thumbnailUrl: safeHttpUrl(output.thumbnailUrl, 'run output.thumbnailUrl'),
-      textPreview: cleanString(output.textPreview),
-      rawProviderJobId: cleanString(output.rawProviderJobId),
-    },
-    provenance: {
-      ...run.provenance,
-      providerJobId: cleanString(provenancePatch.providerJobId) ?? run.provenance.providerJobId,
-      model: cleanString(provenancePatch.model) ?? run.provenance.model,
-      costUnits: typeof provenancePatch.costUnits === 'number' && Number.isFinite(provenancePatch.costUnits)
-        ? provenancePatch.costUnits
-        : run.provenance.costUnits,
-      costLabel: cleanString(provenancePatch.costLabel) ?? run.provenance.costLabel,
-    },
-    updatedAt: FieldValue.serverTimestamp(),
+export async function completeCreativeCanvasProviderCallback(
+  input: unknown,
+  actor: CreativeCanvasActor,
+): Promise<{ run: CreativeCanvasRun & { id: string }; outputNode?: CreativeCanvasNode }> {
+  const body = asRecord(input)
+  const orgId = requiredString(body.orgId, 'orgId')
+  const providerKey = requiredString(body.providerKey, 'providerKey') as CreativeCanvasProviderKey
+  const providerJobId = requiredString(body.providerJobId, 'providerJobId')
+  const output = {
+    ...asRecord(body.output),
+    rawProviderJobId: providerJobId,
+  }
+  const provenance = {
+    ...asRecord(body.provenance),
+    providerJobId,
   }
 
-  await adminDb.collection(CREATIVE_CANVAS_RUN_COLLECTION).doc(runId).update({
-    status: completedRun.status,
-    output: completedRun.output,
-    provenance: completedRun.provenance,
-    updatedAt: FieldValue.serverTimestamp(),
-    updatedBy: actor.uid,
-    updatedByType: actor.type,
-  })
+  const runQuery = await adminDb.collection(CREATIVE_CANVAS_RUN_COLLECTION)
+    .where('providerKey', '==', providerKey)
+    .where('provenance.providerJobId', '==', providerJobId)
+    .where('orgId', '==', orgId)
+    .get()
 
-  const nextNodes = upsertOutputNode(canvas, outputNode)
-  const nextEdges = upsertOutputEdge(canvas, run, outputNodeId)
-  await adminDb.collection(CREATIVE_CANVAS_COLLECTION).doc(canvas.id).update({
-    nodes: nextNodes,
-    edges: nextEdges,
-    activeVersion: canvas.activeVersion + 1,
-    updatedAt: FieldValue.serverTimestamp(),
-    updatedBy: actor.uid,
-    updatedByType: actor.type,
-  })
+  const runSnap = runQuery.docs[0]
+  if (!runSnap) throw new Error('Creative canvas provider run not found')
 
-  return { run: completedRun, outputNode }
+  const run = serializeRun(runSnap.id, runSnap.data() as CreativeCanvasRun)
+  return completeLoadedCreativeCanvasRun(run, orgId, {
+    outputNodeId: cleanString(body.outputNodeId),
+    output,
+    provenance,
+  }, actor)
 }

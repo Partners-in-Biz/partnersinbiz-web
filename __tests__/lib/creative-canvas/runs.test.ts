@@ -2,6 +2,8 @@ const mockAdd = jest.fn()
 const mockDoc = jest.fn()
 const mockDocGet = jest.fn()
 const mockDocUpdate = jest.fn()
+const mockWhere = jest.fn()
+const mockGet = jest.fn()
 const mockCollection = jest.fn()
 
 jest.mock('@/lib/firebase/admin', () => ({
@@ -14,6 +16,7 @@ jest.mock('firebase-admin/firestore', () => ({
 
 import { buildCreativeCanvasAgentTask } from '@/lib/creative-canvas/agent-bridge'
 import {
+  completeCreativeCanvasProviderCallback,
   completeCreativeCanvasRun,
   createCreativeCanvasRun,
 } from '@/lib/creative-canvas/runs'
@@ -24,7 +27,9 @@ const ACTOR = { uid: 'agent:maya', type: 'agent' as const }
 beforeEach(() => {
   jest.clearAllMocks()
   mockDoc.mockReturnValue({ get: mockDocGet, update: mockDocUpdate })
-  mockCollection.mockReturnValue({ add: mockAdd, doc: mockDoc })
+  const query = { where: mockWhere, get: mockGet }
+  mockWhere.mockReturnValue(query)
+  mockCollection.mockReturnValue({ add: mockAdd, doc: mockDoc, where: mockWhere })
 })
 
 describe('creative canvas runs', () => {
@@ -238,5 +243,89 @@ describe('creative canvas runs', () => {
     }))
     expect(result.run.status).toBe('completed')
     expect(result.outputNode?.id).toBe('output-1')
+  })
+
+  it('ingests a Higgsfield provider callback by provider job id', async () => {
+    mockGet.mockResolvedValueOnce({
+      docs: [{
+        id: 'run-1',
+        data: () => ({
+          orgId: 'org-1',
+          canvasId: 'canvas-1',
+          nodeId: 'model-1',
+          providerKey: 'higgsfield',
+          model: 'nano_banana_flash',
+          status: 'running',
+          input: { sourceNodeIds: ['source-1'], sourceArtifactIds: ['artifact-1'] },
+          provenance: {
+            generatedBy: 'agent',
+            agentId: 'maya',
+            providerJobId: 'hf-job-1',
+            model: 'nano_banana_flash',
+            promptStored: 'summary',
+            syntheticMedia: true,
+          },
+        }),
+      }],
+    })
+    mockDocGet.mockResolvedValueOnce({
+      exists: true,
+      id: 'canvas-1',
+      data: () => ({
+        orgId: 'org-1',
+        title: 'Launch Canvas',
+        purpose: 'Launch',
+        activeVersion: 5,
+        deleted: false,
+        nodes: [
+          { id: 'model-1', orgId: 'org-1', type: 'model', title: 'Higgsfield', position: { x: 40, y: 60 }, data: {} },
+        ],
+        edges: [],
+      }),
+    })
+
+    const result = await completeCreativeCanvasProviderCallback({
+      orgId: 'org-1',
+      providerKey: 'higgsfield',
+      providerJobId: 'hf-job-1',
+      output: {
+        kind: 'video',
+        url: 'https://cdn.example.com/render.mp4',
+        thumbnailUrl: 'https://cdn.example.com/render.jpg',
+        textPreview: 'Launch video render',
+      },
+      provenance: {
+        costUnits: 18,
+        costLabel: 'higgsfield_credits',
+      },
+    }, ACTOR)
+
+    expect(mockWhere).toHaveBeenCalledWith('providerKey', '==', 'higgsfield')
+    expect(mockWhere).toHaveBeenCalledWith('provenance.providerJobId', '==', 'hf-job-1')
+    expect(mockWhere).toHaveBeenCalledWith('orgId', '==', 'org-1')
+    expect(mockDocUpdate).toHaveBeenCalledWith(expect.objectContaining({
+      status: 'completed',
+      output: expect.objectContaining({
+        outputNodeId: 'model-1-output',
+        url: 'https://cdn.example.com/render.mp4',
+        thumbnailUrl: 'https://cdn.example.com/render.jpg',
+        rawProviderJobId: 'hf-job-1',
+      }),
+      provenance: expect.objectContaining({
+        providerJobId: 'hf-job-1',
+        costUnits: 18,
+        costLabel: 'higgsfield_credits',
+      }),
+    }))
+    expect(mockDocUpdate).toHaveBeenCalledWith(expect.objectContaining({
+      activeVersion: 6,
+      nodes: expect.arrayContaining([
+        expect.objectContaining({
+          id: 'model-1-output',
+          output: expect.objectContaining({ kind: 'video', textPreview: 'Launch video render' }),
+        }),
+      ]),
+    }))
+    expect(result.run.status).toBe('completed')
   })
 })
