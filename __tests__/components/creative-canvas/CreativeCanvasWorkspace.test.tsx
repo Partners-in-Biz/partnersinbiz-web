@@ -1362,6 +1362,57 @@ describe('CreativeCanvasWorkspace', () => {
     ]))
   })
 
+  it('duplicates a selected node as an editable branch', async () => {
+    render(<CreativeCanvasWorkspace mode="admin" orgId="org-1" />)
+
+    await screen.findByText('Launch Canvas')
+    fireEvent.click(screen.getByRole('button', { name: /apply social launch workflow/i }))
+    expect(await screen.findByText(/social launch workflow added/i)).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: /duplicate selected node/i }))
+
+    expect(await screen.findByText(/duplicated higgsfield vertical video/i)).toBeInTheDocument()
+    expect(screen.getAllByText(/Higgsfield vertical video copy/i).length).toBeGreaterThan(0)
+
+    fireEvent.click(screen.getByRole('button', { name: /save graph/i }))
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith('/api/v1/creative-canvas/canvas-1/graph?orgId=org-1', expect.objectContaining({
+        method: 'PUT',
+      }))
+    })
+    const graphCall = [...fetchMock.mock.calls].reverse().find(([url, init]) =>
+      String(url).includes('/graph?orgId=org-1') && init?.method === 'PUT'
+    )
+    const graphBody = JSON.parse(graphCall?.[1]?.body as string)
+    expect(graphBody.nodes).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        type: 'model',
+        title: 'Higgsfield vertical video copy',
+        provider: expect.objectContaining({
+          key: 'higgsfield',
+          model: 'nano_banana_flash',
+          mode: 'vertical_social',
+        }),
+        edit: expect.objectContaining({
+          operation: 'video_motion',
+          outputKind: 'social_post_draft',
+        }),
+        data: expect.objectContaining({
+          createdFrom: 'creative_canvas_node_duplicate',
+          duplicatedFromTitle: 'Higgsfield vertical video',
+        }),
+      }),
+    ]))
+    expect(graphBody.edges).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        label: 'duplicate branch',
+        data: expect.objectContaining({
+          createdFrom: 'creative_canvas_node_duplicate',
+          duplicatedFromNodeId: expect.stringContaining('social-launch-model'),
+        }),
+      }),
+    ]))
+  })
+
   it('removes connected edges when a graph node is deleted before save', async () => {
     render(<CreativeCanvasWorkspace mode="admin" orgId="org-1" />)
 

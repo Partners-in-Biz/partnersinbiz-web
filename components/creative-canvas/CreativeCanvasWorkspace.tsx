@@ -640,6 +640,11 @@ function canvasGraphSignature(nodes: CreativeCanvasNode[] = [], edges: CreativeC
   })
 }
 
+function cloneCanvasField<T>(value: T | undefined): T | undefined {
+  if (value === undefined) return undefined
+  return JSON.parse(JSON.stringify(value)) as T
+}
+
 export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspaceProps) {
   const [canvases, setCanvases] = useState<CreativeCanvas[]>([])
   const [activeCanvasId, setActiveCanvasId] = useState<string>('')
@@ -1453,6 +1458,50 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
     setSelectedFlowNodeId(nextNodes[0]?.id ?? selectedCanvasNode.id)
     setSaveMessage('')
     setActivityMessage(`Created ${variants.length} format variant${variants.length === 1 ? '' : 's'} from ${selectedCanvasNode.title}`)
+  }
+
+  const duplicateSelectedNode = () => {
+    if (!selectedCanvasNode) return
+    const sourceFlowNode = nodes.find((node) => node.id === selectedCanvasNode.id)
+    const stamp = Date.now()
+    const duplicateId = `${selectedCanvasNode.id}-copy-${stamp}`
+    const duplicateNode: CreativeCanvasNode = {
+      ...selectedCanvasNode,
+      id: duplicateId,
+      orgId: resolvedOrgId || selectedCanvasNode.orgId,
+      title: `${selectedCanvasNode.title} copy`,
+      position: {
+        x: (sourceFlowNode?.position.x ?? selectedCanvasNode.position.x) + 220,
+        y: (sourceFlowNode?.position.y ?? selectedCanvasNode.position.y) + 80,
+      },
+      data: {
+        ...(cloneCanvasField(selectedCanvasNode.data) ?? {}),
+        createdFrom: 'creative_canvas_node_duplicate',
+        duplicatedFromNodeId: selectedCanvasNode.id,
+        duplicatedFromTitle: selectedCanvasNode.title,
+      },
+      source: cloneCanvasField(selectedCanvasNode.source),
+      provider: cloneCanvasField(selectedCanvasNode.provider),
+      edit: cloneCanvasField(selectedCanvasNode.edit),
+      review: cloneCanvasField(selectedCanvasNode.review),
+      output: cloneCanvasField(selectedCanvasNode.output),
+    }
+    const branchEdge: Edge = {
+      id: `duplicate-${selectedCanvasNode.id}-${duplicateId}`,
+      source: selectedCanvasNode.id,
+      target: duplicateId,
+      label: 'duplicate branch',
+      data: {
+        createdFrom: 'creative_canvas_node_duplicate',
+        duplicatedFromNodeId: selectedCanvasNode.id,
+      },
+    }
+
+    setNodes((currentNodes) => [...currentNodes, toFlowNode(duplicateNode)])
+    setEdges((currentEdges) => [...currentEdges, branchEdge])
+    setSelectedFlowNodeId(duplicateId)
+    setSaveMessage('')
+    setActivityMessage(`Duplicated ${selectedCanvasNode.title}`)
   }
 
   const openCanvas = async (canvas: CreativeCanvas) => {
@@ -2738,6 +2787,14 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
                   className="rounded-lg border border-[var(--color-pib-line)] px-3 py-2 text-xs font-semibold text-[var(--color-pib-text)] disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   Apply settings to node
+                </button>
+                <button
+                  type="button"
+                  onClick={duplicateSelectedNode}
+                  disabled={!selectedNodeId}
+                  className="rounded-lg border border-[var(--color-pib-line)] px-3 py-2 text-xs font-semibold text-[var(--color-pib-text)] disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  Duplicate selected node
                 </button>
                 <button
                   type="button"
