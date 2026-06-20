@@ -235,6 +235,14 @@ export interface CreativeCanvasGraph {
   edges: CreativeCanvasEdge[]
 }
 
+export interface CreativeCanvasSourceLibraryItem {
+  id: string
+  title: string
+  description?: string
+  sourceCollection: string
+  source: NonNullable<CreativeCanvasNode['source']>
+}
+
 export interface CreativeCanvasVersion {
   id?: string
   orgId: string

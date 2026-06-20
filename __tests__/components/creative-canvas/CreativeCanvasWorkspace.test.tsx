@@ -51,6 +51,32 @@ beforeEach(() => {
         }),
       }
     }
+    if (url.includes('/creative-canvas/sources')) {
+      return {
+        ok: true,
+        json: async () => ({
+          success: true,
+          data: {
+            sources: [{
+              id: 'upload:upload-1',
+              title: 'Product bottle.png',
+              description: 'Upload / image/png',
+              source: {
+                kind: 'upload',
+                refId: 'upload-1',
+                url: 'https://cdn.example.com/product.png',
+                thumbnailUrl: 'https://cdn.example.com/product-thumb.png',
+                storagePath: 'uploads/org-1/product.png',
+                mimeType: 'image/png',
+                altText: 'Product bottle.png',
+                referenceRole: 'product',
+                weight: 1,
+              },
+            }],
+          },
+        }),
+      }
+    }
     if (url.endsWith('/runs?orgId=org-1') && init?.method === 'POST') {
       return {
         ok: true,
@@ -117,6 +143,20 @@ describe('CreativeCanvasWorkspace', () => {
     await waitFor(() => {
       expect(screen.getByText(/source node/i)).toBeInTheDocument()
     })
+  })
+
+  it('imports a source library item into the canvas graph', async () => {
+    render(<CreativeCanvasWorkspace mode="admin" orgId="org-1" />)
+
+    await screen.findByText('Launch Canvas')
+    expect(await screen.findByText('Product bottle.png')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: /import product bottle.png/i }))
+
+    expect(await screen.findByAltText('Reference preview: Product bottle.png')).toHaveAttribute(
+      'src',
+      'https://cdn.example.com/product-thumb.png',
+    )
+    expect(screen.getByText('product / 1')).toBeInTheDocument()
   })
 
   it('adds an edit node with mask and inpainting controls', async () => {

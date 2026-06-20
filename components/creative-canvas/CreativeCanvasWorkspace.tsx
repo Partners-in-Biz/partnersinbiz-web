@@ -17,6 +17,7 @@ import type {
   CreativeCanvasExport,
   CreativeCanvasNode,
   CreativeCanvasNodeType,
+  CreativeCanvasSourceLibraryItem,
   CreativeCanvasVersion,
 } from '@/lib/creative-canvas/types'
 
@@ -38,6 +39,13 @@ interface CreativeCanvasVersionApiResponse {
   success?: boolean
   data?: {
     versions?: Array<CreativeCanvasVersion & { id?: string }>
+  }
+}
+
+interface CreativeCanvasSourceLibraryApiResponse {
+  success?: boolean
+  data?: {
+    sources?: CreativeCanvasSourceLibraryItem[]
   }
 }
 
@@ -146,6 +154,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
   const [runStylePreset, setRunStylePreset] = useState('cinematic_product')
   const [runCameraMotion, setRunCameraMotion] = useState('none')
   const [runNegativePrompt, setRunNegativePrompt] = useState('')
+  const [sourceLibrary, setSourceLibrary] = useState<CreativeCanvasSourceLibraryItem[]>([])
 
   const activeCanvas = useMemo(
     () => canvases.find((canvas) => canvas.id === activeCanvasId) ?? canvases[0],
@@ -213,6 +222,29 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
     }
   }, [loadVersions, orgId])
 
+  useEffect(() => {
+    let cancelled = false
+    const loadSourceLibrary = async () => {
+      if (!resolvedOrgId) {
+        setSourceLibrary([])
+        return
+      }
+      try {
+        const response = await fetch(`/api/v1/creative-canvas/sources?orgId=${encodeURIComponent(resolvedOrgId)}&limit=12`)
+        const payload = (await response.json()) as CreativeCanvasSourceLibraryApiResponse
+        if (!cancelled) setSourceLibrary(payload.data?.sources ?? [])
+      } catch {
+        if (!cancelled) setSourceLibrary([])
+      }
+    }
+
+    loadSourceLibrary()
+
+    return () => {
+      cancelled = true
+    }
+  }, [resolvedOrgId])
+
   const onConnect = useCallback((connection: Connection) => {
     setEdges((currentEdges) => addEdge(connection, currentEdges))
   }, [])
@@ -254,6 +286,26 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
             brandStatus: 'needs_review',
           }
         : undefined,
+    }
+
+    setNodes((currentNodes) => [...currentNodes, toFlowNode(canvasNode)])
+    setSaveMessage('')
+  }
+
+  const importSourceItem = (item: CreativeCanvasSourceLibraryItem) => {
+    const nextNumber = nodes.length + 1
+    const canvasNode: CreativeCanvasNode = {
+      id: `source-${item.source.refId ?? Date.now()}-${Date.now()}`,
+      orgId: resolvedOrgId || 'pending-org',
+      type: 'source',
+      title: item.title,
+      position: { x: 80 + nextNumber * 40, y: 90 + nextNumber * 28 },
+      data: {
+        createdFrom: 'creative_canvas_source_library',
+        sourceLibraryId: item.id,
+        sourceCollection: item.sourceCollection,
+      },
+      source: item.source,
     }
 
     setNodes((currentNodes) => [...currentNodes, toFlowNode(canvasNode)])
@@ -507,6 +559,30 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
                   <span className="block text-xs text-[var(--color-pib-text-muted)]">{item.description}</span>
                 </button>
               ))}
+            </div>
+          </div>
+
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-normal text-[var(--color-pib-text-muted)]">Source library</p>
+            <div className="mt-3 space-y-2">
+              {sourceLibrary.length ? sourceLibrary.map((item) => (
+                <button
+                  key={item.id}
+                  type="button"
+                  aria-label={`Import ${item.title}`}
+                  onClick={() => importSourceItem(item)}
+                  className="w-full rounded-lg border border-[var(--color-pib-line)] px-3 py-2 text-left transition hover:bg-[var(--color-pib-surface)]"
+                >
+                  <span className="block text-sm font-semibold text-[var(--color-pib-text)]">{item.title}</span>
+                  <span className="block text-xs text-[var(--color-pib-text-muted)]">
+                    {item.source.kind}{item.source.referenceRole ? ` / ${item.source.referenceRole}` : ''}
+                  </span>
+                </button>
+              )) : (
+                <p className="rounded-lg border border-dashed border-[var(--color-pib-line)] px-3 py-2 text-xs text-[var(--color-pib-text-muted)]">
+                  Uploads, artifacts, research, social media, YouTube, and Book Studio sources will appear here.
+                </p>
+              )}
             </div>
           </div>
         </aside>
