@@ -182,6 +182,22 @@ beforeEach(() => {
         }),
       }
     }
+    if (url.includes('/orchestration-tasks') && init?.method === 'POST') {
+      return {
+        ok: true,
+        json: async () => ({
+          success: true,
+          data: {
+            projectId: 'project-1',
+            createdTasks: [
+              { id: 'task-1', nodeId: 'source-1', agentId: 'pip' },
+              { id: 'task-2', nodeId: 'model-1', agentId: 'maya' },
+            ],
+            skippedSteps: [],
+          },
+        }),
+      }
+    }
 
     return {
       ok: true,
@@ -195,6 +211,7 @@ beforeEach(() => {
             purpose: 'Product launch',
             status: 'draft',
             activeVersion: 1,
+            linked: { projectId: 'project-1' },
             nodes: [],
             edges: [],
           }],
@@ -249,6 +266,15 @@ describe('CreativeCanvasWorkspace', () => {
     expect(screen.getByText(/maya:generation_operator/i)).toBeInTheDocument()
     expect(screen.getByText(/maya · reviewer/i)).toBeInTheDocument()
     expect(screen.getByText(/Brand and rights review: maya · rights needs_review · brand needs_review/i)).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: /create agent tasks/i }))
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith('/api/v1/creative-canvas/canvas-1/orchestration-tasks?orgId=org-1', expect.objectContaining({
+        method: 'POST',
+      }))
+    })
+    const taskCall = fetchMock.mock.calls.find(([url]) => String(url).includes('/orchestration-tasks'))
+    expect(JSON.parse(taskCall?.[1]?.body as string)).toMatchObject({ projectId: 'project-1' })
+    expect(await screen.findByText(/created 2 agent tasks/i)).toBeInTheDocument()
     expect((screen.getByLabelText(/output kind/i) as HTMLSelectElement).value).toBe('social_post_draft')
     expect((screen.getByLabelText(/export target/i) as HTMLSelectElement).value).toBe('social_draft')
     expect((screen.getByLabelText(/aspect ratio/i) as HTMLSelectElement).value).toBe('9:16')

@@ -992,6 +992,30 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
     setActivityMessage(response.ok ? 'Draft export prepared' : 'Draft export failed')
   }
 
+  const createOrchestrationTasks = async () => {
+    if (!activeCanvas?.id) return
+    if (!activeCanvas.linked?.projectId) {
+      setActivityMessage('Link this canvas to a project before creating agent tasks')
+      return
+    }
+
+    const query = resolvedOrgId ? `?orgId=${encodeURIComponent(resolvedOrgId)}` : ''
+    const response = await fetch(`/api/v1/creative-canvas/${activeCanvas.id}/orchestration-tasks${query}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        projectId: activeCanvas.linked?.projectId,
+      }),
+    })
+    const payload = await response.json().catch(() => null) as { data?: { createdTasks?: Array<{ id: string }> }; error?: string } | null
+    if (response.ok) {
+      const count = payload?.data?.createdTasks?.length ?? 0
+      setActivityMessage(count === 1 ? 'Created 1 agent task' : `Created ${count} agent tasks`)
+    } else {
+      setActivityMessage(payload?.error ?? 'Agent task creation failed')
+    }
+  }
+
   if (loading) {
     return (
       <main className="mx-auto max-w-7xl space-y-5 px-4 py-6">
@@ -1439,6 +1463,16 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
                   <p className="font-semibold">Orchestration blockers</p>
                   {orchestrationPlan.blockers.map((blocker) => <p key={blocker}>{blocker}</p>)}
                 </div>
+              ) : null}
+              {mode === 'admin' ? (
+                <button
+                  type="button"
+                  onClick={createOrchestrationTasks}
+                  disabled={!activeCanvas?.id || !activeCanvas.linked?.projectId || !orchestrationPlan.steps.length || Boolean(orchestrationPlan.blockers.length)}
+                  className="rounded-lg border border-[var(--color-pib-line)] px-3 py-2 text-xs font-semibold text-[var(--color-pib-text)] disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {activeCanvas?.linked?.projectId ? 'Create agent tasks' : 'Link project to create tasks'}
+                </button>
               ) : null}
             </div>
           </div>
