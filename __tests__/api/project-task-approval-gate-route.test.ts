@@ -102,6 +102,14 @@ describe('project task approval gate route guards', () => {
   })
 
   it('blocks non-admin users from indirectly completing tasks gated by approvalGateTaskId', async () => {
+    const mockGateGet = jest.fn().mockResolvedValue({
+      exists: true,
+      data: () => ({ title: 'Approval gate', approvalStatus: 'pending' }),
+    })
+    mockTaskDoc.mockImplementation((id: string) => {
+      if (id === 'gate-1') return { get: mockGateGet }
+      return { get: mockTaskGet, update: mockTaskUpdate }
+    })
     mockTaskGet.mockResolvedValueOnce({
       exists: true,
       data: () => ({ title: 'Specialist task', approvalGateTaskId: 'gate-1', labels: [] }),
@@ -114,6 +122,32 @@ describe('project task approval gate route guards', () => {
     expect(res.status).toBe(403)
     expect(body.error).toMatch(/Only an admin approver/)
     expect(mockTaskUpdate).not.toHaveBeenCalled()
+  })
+
+  it('allows non-admin users to update normal execution state after an approvalGateTaskId is approved', async () => {
+    const mockGateGet = jest.fn().mockResolvedValue({
+      exists: true,
+      data: () => ({ title: 'Approval gate', approvalStatus: 'approved' }),
+    })
+    mockTaskDoc.mockImplementation((id: string) => {
+      if (id === 'gate-1') return { get: mockGateGet }
+      return { get: mockTaskGet, update: mockTaskUpdate }
+    })
+    mockTaskGet.mockResolvedValueOnce({
+      exists: true,
+      data: () => ({ title: 'Specialist task', approvalGateTaskId: 'gate-1', labels: [] }),
+    })
+
+    const { PATCH } = await import('@/app/api/v1/projects/[projectId]/tasks/[taskId]/route')
+    const res = await PATCH(req({ columnId: 'in_progress', agentStatus: 'in-progress' }), ctx)
+    const body = await res.json()
+
+    expect(res.status).toBe(200)
+    expect(body.success).toBe(true)
+    expect(mockTaskUpdate).toHaveBeenCalledWith(expect.objectContaining({
+      columnId: 'in_progress',
+      agentStatus: 'in-progress',
+    }))
   })
 
   it('rejects approvalStatus changes on legacy tasks with null status but no real gate', async () => {

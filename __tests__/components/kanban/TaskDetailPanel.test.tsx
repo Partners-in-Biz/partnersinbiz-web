@@ -82,6 +82,7 @@ describe('TaskDetailPanel', () => {
 
   it('surfaces an approval gate action directly on approval todo cards', async () => {
     const props = renderPanel({
+      surface: 'admin',
       task: {
         ...task,
         labels: ['approval-gate'],
@@ -102,6 +103,24 @@ describe('TaskDetailPanel', () => {
       approvalStatus: 'approved',
     }))
     expect(global.fetch).toHaveBeenCalledWith('/api/v1/projects/project-1/tasks/task-1/comments', expect.objectContaining({ method: 'POST' }))
+  })
+
+  it('hides approval-gate decision controls outside authorised admin approval contexts', async () => {
+    renderPanel({
+      surface: 'portal',
+      task: {
+        ...task,
+        labels: ['approval-gate'],
+        approvalStatus: 'pending',
+      },
+    })
+
+    await waitFor(() => expect(screen.queryByText('Loading comments...')).not.toBeInTheDocument())
+
+    expect(screen.getByText('Approval gate')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /approve this gate/i })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /reject \/ request changes/i })).not.toBeInTheDocument()
+    expect(screen.getByText(/Only an authorised admin approver can decide this gate/i)).toBeInTheDocument()
   })
 
   it('separates quality review state from business approval gate state in the task drawer', async () => {

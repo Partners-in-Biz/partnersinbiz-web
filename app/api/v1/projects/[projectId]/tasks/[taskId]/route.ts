@@ -38,6 +38,21 @@ function agentInputWithContextRefs(
   }
 }
 
+function hasApprovalGateLabel(labels: string[]): boolean {
+  return labels.some((label) => /approval-gate|approval-required|client-approval|required-approval/.test(label))
+}
+
+function bodySetsApprovalGateLabel(value: unknown): boolean {
+  if (!Array.isArray(value)) return false
+  return hasApprovalGateLabel(value.filter((label): label is string => typeof label === 'string').map((label) => label.toLowerCase()))
+}
+
+async function approvalGateTaskApproved(projectId: string, approvalGateTaskId: string): Promise<boolean> {
+  const gateDoc = await adminDb.collection('projects').doc(projectId).collection('tasks').doc(approvalGateTaskId).get()
+  if (!gateDoc.exists) return false
+  return gateDoc.data()?.approvalStatus === 'approved'
+}
+
 export const PATCH = withAuth('client', async (req: NextRequest, user, ctx) => {
   const { projectId, taskId } = await (ctx as RouteContext).params
   const body = await req.json().catch(() => ({})) as Record<string, unknown>
@@ -54,13 +69,23 @@ export const PATCH = withAuth('client', async (req: NextRequest, user, ctx) => {
   const nextGate = typeof body.approvalGate === 'string' && body.approvalGate && body.approvalGate !== 'none'
   const existingApprovalStatus = typeof existing.approvalStatus === 'string' && existing.approvalStatus.trim().length > 0
   const existingApprovalGateTaskId = typeof existing.approvalGateTaskId === 'string' && existing.approvalGateTaskId.trim().length > 0
-  const isApprovalGatedTask = labels.some((label) => /approval-gate|approval-required|client-approval|required-approval/.test(label)) || existingApprovalStatus || existingGate || nextGate || existingApprovalGateTaskId
-  const approvalGateFields = ['approvalGate', 'requiredCapability', 'riskLevel', 'expectedArtifacts', 'verifierChecklist', 'approvalGateTaskId', 'columnId', 'reviewStatus', 'labels', 'agentStatus']
-  if (user.role !== 'admin' && isApprovalGatedTask && approvalGateFields.some((field) => body[field] !== undefined)) {
-    return apiError('Only an admin approver can change approval-gate metadata on project tasks', 403)
-  }
+  const nextApprovalGateLabel = bodySetsApprovalGateLabel(body.labels)
+  const isApprovalGateCard = hasApprovalGateLabel(labels) || nextApprovalGateLabel || existingApprovalStatus || existingGate || nextGate
+  const isApprovalGatedTask = isApprovalGateCard || existingApprovalGateTaskId
+  const approvalMetadataFields = ['approvalGate', 'requiredCapability', 'riskLevel', 'expectedArtifacts', 'verifierChecklist', 'approvalGateTaskId']
+  const approvalExecutionFields = ['columnId', 'reviewStatus', 'labels', 'agentStatus']
   if (body.approvalStatus !== undefined && user.role !== 'admin') {
     return apiError('Only an admin approver can change approvalStatus on project tasks', 403)
+  }
+  if (user.role !== 'admin' && isApprovalGatedTask && approvalMetadataFields.some((field) => body[field] !== undefined)) {
+    return apiError('Only an admin approver can change approval-gate metadata on project tasks', 403)
+  }
+  if (user.role !== 'admin' && isApprovalGateCard && approvalExecutionFields.some((field) => body[field] !== undefined)) {
+    return apiError('Only an admin approver can change approval-gate metadata on project tasks', 403)
+  }
+  if (user.role !== 'admin' && existingApprovalGateTaskId && approvalExecutionFields.some((field) => body[field] !== undefined)) {
+    const approved = await approvalGateTaskApproved(projectId, String(existing.approvalGateTaskId))
+    if (!approved) return apiError('Only an admin approver can change approval-gate metadata on project tasks', 403)
   }
   if (body.approvalStatus !== undefined && body.approvalStatus !== null && !isApprovalGatedTask) {
     return apiError('approvalStatus can only be changed on approval-gated tasks', 400)
