@@ -490,6 +490,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
   const [assetOriginFilter, setAssetOriginFilter] = useState<'all' | CreativeCanvasAssetOrigin>('all')
   const [assetReadinessFilter, setAssetReadinessFilter] = useState<'all' | 'ready' | 'draft_exportable' | 'review_needed' | 'blocked'>('all')
   const [selectedAssetId, setSelectedAssetId] = useState('')
+  const [compareAssetIds, setCompareAssetIds] = useState<string[]>([])
 
   const activeCanvas = useMemo(
     () => canvases.find((canvas) => canvas.id === activeCanvasId) ?? canvases[0],
@@ -516,6 +517,11 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
   const selectedCanvasAsset = useMemo(() => (
     canvasAssets.find((asset) => asset.id === selectedAssetId) ?? null
   ), [canvasAssets, selectedAssetId])
+  const comparedCanvasAssets = useMemo(() => (
+    compareAssetIds
+      .map((assetId) => canvasAssets.find((asset) => asset.id === assetId))
+      .filter((asset): asset is NonNullable<typeof asset> => Boolean(asset))
+  ), [canvasAssets, compareAssetIds])
   const filteredCanvasAssets = useMemo(() => canvasAssets.filter((asset) => {
     if (assetOriginFilter !== 'all' && asset.origin !== assetOriginFilter) return false
     if (assetReadinessFilter === 'ready') return asset.readyForExport
@@ -1086,6 +1092,74 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
     if (asset?.suggestedExportTarget) {
       setExportTarget(asset.suggestedExportTarget)
     }
+  }
+
+  const updateSelectedAssetNode = (updater: (node: CreativeCanvasNode) => CreativeCanvasNode) => {
+    if (!selectedCanvasAsset?.nodeId) return
+    setNodes((currentNodes) => currentNodes.map((node) => {
+      if (node.id !== selectedCanvasAsset.nodeId) return node
+      const canvasNode = node.data?.canvasNode as CreativeCanvasNode | undefined
+      if (!canvasNode) return node
+      return toFlowNode(updater(canvasNode))
+    }))
+    setSaveMessage('')
+  }
+
+  const updateSelectedAssetTitle = (title: string) => {
+    updateSelectedAssetNode((node) => ({ ...node, title }))
+  }
+
+  const updateSelectedAssetReferenceRole = (referenceRole: string) => {
+    updateSelectedAssetNode((node) => node.source
+      ? {
+          ...node,
+          source: {
+            ...node.source,
+            referenceRole: referenceRole as NonNullable<CreativeCanvasNode['source']>['referenceRole'],
+          },
+        }
+      : node)
+  }
+
+  const updateSelectedAssetTextPreview = (textPreview: string) => {
+    updateSelectedAssetNode((node) => node.output
+      ? {
+          ...node,
+          output: {
+            ...node.output,
+            textPreview,
+          },
+        }
+      : node.source
+        ? {
+            ...node,
+            source: {
+              ...node.source,
+              altText: textPreview,
+            },
+          }
+        : node)
+  }
+
+  const updateSelectedAssetExportTarget = (target: CreativeCanvasExport['target']) => {
+    updateSelectedAssetNode((node) => ({
+      ...node,
+      data: {
+        ...node.data,
+        exportTarget: target,
+      },
+    }))
+    setExportTarget(target)
+  }
+
+  const toggleSelectedAssetCompare = () => {
+    if (!selectedCanvasAsset) return
+    setCompareAssetIds((current) => {
+      if (current.includes(selectedCanvasAsset.id)) {
+        return current.filter((assetId) => assetId !== selectedCanvasAsset.id)
+      }
+      return [...current, selectedCanvasAsset.id].slice(-4)
+    })
   }
 
   const ingestRunOutput = async () => {
@@ -1945,16 +2019,118 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
                     ? 'Draft export available'
                     : selectedCanvasAsset.exportBlockedReason ?? 'Draft export unavailable'}
                 </p>
-                {mode === 'admin' ? (
-                  <button
-                    type="button"
-                    onClick={exportSelectedAssetDraft}
-                    disabled={!selectedCanvasAsset.canDraftExport || !selectedCanvasAsset.nodeId}
-                    className="mt-2 rounded-md border border-[var(--color-pib-line)] bg-white px-2 py-1 font-semibold text-[var(--color-pib-text)] disabled:cursor-not-allowed disabled:opacity-50"
-                  >
-                    Export selected asset draft
-                  </button>
+                {selectedCanvasAsset.nodeId && selectedCanvasAsset.origin !== 'run_output' ? (
+                  <div className="mt-3 space-y-2 border-t border-[var(--color-pib-line)] pt-3">
+                    <label className="block text-xs font-medium text-[var(--color-pib-text-muted)]" htmlFor="creative-canvas-asset-title">
+                      Asset title
+                      <input
+                        id="creative-canvas-asset-title"
+                        value={selectedCanvasAsset.title}
+                        onChange={(event) => updateSelectedAssetTitle(event.target.value)}
+                        className="mt-1 w-full rounded-md border border-[var(--color-pib-line)] bg-white px-2 py-1.5 text-xs text-[var(--color-pib-text)]"
+                      />
+                    </label>
+                    {selectedCanvasAsset.origin === 'source_node' ? (
+                      <label className="block text-xs font-medium text-[var(--color-pib-text-muted)]" htmlFor="creative-canvas-asset-reference-role">
+                        Reference role
+                        <select
+                          id="creative-canvas-asset-reference-role"
+                          value={selectedCanvasAsset.referenceRole ?? 'general'}
+                          onChange={(event) => updateSelectedAssetReferenceRole(event.target.value)}
+                          className="mt-1 w-full rounded-md border border-[var(--color-pib-line)] bg-white px-2 py-1.5 text-xs text-[var(--color-pib-text)]"
+                        >
+                          <option value="general">General</option>
+                          <option value="product">Product</option>
+                          <option value="person">Person</option>
+                          <option value="character">Character</option>
+                          <option value="style">Style</option>
+                          <option value="background">Background</option>
+                          <option value="logo">Logo</option>
+                          <option value="mask">Mask</option>
+                          <option value="motion">Motion</option>
+                        </select>
+                      </label>
+                    ) : null}
+                    <label className="block text-xs font-medium text-[var(--color-pib-text-muted)]" htmlFor="creative-canvas-asset-text-preview">
+                      Preview notes
+                      <textarea
+                        id="creative-canvas-asset-text-preview"
+                        value={selectedCanvasAsset.textPreview ?? ''}
+                        onChange={(event) => updateSelectedAssetTextPreview(event.target.value)}
+                        rows={2}
+                        className="mt-1 w-full rounded-md border border-[var(--color-pib-line)] bg-white px-2 py-1.5 text-xs text-[var(--color-pib-text)]"
+                      />
+                    </label>
+                    {selectedCanvasAsset.origin === 'output_node' ? (
+                      <label className="block text-xs font-medium text-[var(--color-pib-text-muted)]" htmlFor="creative-canvas-asset-export-target">
+                        Asset export target
+                        <select
+                          id="creative-canvas-asset-export-target"
+                          value={selectedCanvasAsset.suggestedExportTarget ?? exportTarget}
+                          onChange={(event) => updateSelectedAssetExportTarget(event.target.value as CreativeCanvasExport['target'])}
+                          className="mt-1 w-full rounded-md border border-[var(--color-pib-line)] bg-white px-2 py-1.5 text-xs text-[var(--color-pib-text)]"
+                        >
+                          <option value="social_draft">Social draft</option>
+                          <option value="campaign_asset">Campaign asset</option>
+                          <option value="client_document">Client document</option>
+                          <option value="research">Research</option>
+                          <option value="youtube_studio">YouTube Studio</option>
+                          <option value="book_studio">Book Studio</option>
+                          <option value="workspace_artifact">Workspace artifact</option>
+                        </select>
+                      </label>
+                    ) : null}
+                  </div>
                 ) : null}
+                {mode === 'admin' ? (
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      onClick={exportSelectedAssetDraft}
+                      disabled={!selectedCanvasAsset.canDraftExport || !selectedCanvasAsset.nodeId}
+                      className="rounded-md border border-[var(--color-pib-line)] bg-white px-2 py-1 font-semibold text-[var(--color-pib-text)] disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      Export selected asset draft
+                    </button>
+                    <button
+                      type="button"
+                      onClick={toggleSelectedAssetCompare}
+                      className="rounded-md border border-[var(--color-pib-line)] bg-white px-2 py-1 font-semibold text-[var(--color-pib-text)]"
+                    >
+                      {compareAssetIds.includes(selectedCanvasAsset.id) ? 'Remove from compare' : 'Add to compare'}
+                    </button>
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
+            {comparedCanvasAssets.length ? (
+              <div className="mt-2 rounded-lg border border-[var(--color-pib-line)] bg-white p-3 text-xs text-[var(--color-pib-text-muted)]">
+                <div className="flex items-center justify-between gap-2">
+                  <p className="font-semibold text-[var(--color-pib-text)]">Compare assets</p>
+                  <span>{comparedCanvasAssets.length} selected</span>
+                </div>
+                <div className="mt-2 grid grid-cols-2 gap-2">
+                  {comparedCanvasAssets.map((asset) => {
+                    const previewUrl = asset.thumbnailUrl ?? asset.url
+                    return (
+                      <div key={asset.id} className="rounded-md border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] p-2">
+                        {previewUrl ? (
+                          <div
+                            aria-label={`Compare preview: ${asset.title}`}
+                            className="h-16 rounded bg-white bg-cover bg-center"
+                            style={{ backgroundImage: `url(${previewUrl})` }}
+                          />
+                        ) : (
+                          <div className="flex h-16 items-center justify-center rounded bg-white text-[10px] uppercase">
+                            {asset.outputKind ?? asset.sourceKind ?? 'asset'}
+                          </div>
+                        )}
+                        <p className="mt-1 truncate font-semibold text-[var(--color-pib-text)]">{asset.title}</p>
+                        <p>{asset.readyForExport ? 'ready' : asset.canDraftExport ? 'draftable' : asset.reviewStatus ?? 'internal'}</p>
+                      </div>
+                    )
+                  })}
+                </div>
               </div>
             ) : null}
             <div className="mt-2 space-y-2">

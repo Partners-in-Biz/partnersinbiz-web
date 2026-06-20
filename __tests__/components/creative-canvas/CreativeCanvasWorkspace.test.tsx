@@ -445,7 +445,7 @@ describe('CreativeCanvasWorkspace', () => {
     expect(JSON.parse(taskCall?.[1]?.body as string)).toMatchObject({ projectId: 'project-1' })
     expect(await screen.findByText(/created 2 agent tasks/i)).toBeInTheDocument()
     expect((screen.getByLabelText(/output kind/i) as HTMLSelectElement).value).toBe('social_post_draft')
-    expect((screen.getByLabelText(/export target/i) as HTMLSelectElement).value).toBe('social_draft')
+    expect(screen.getAllByLabelText(/export target/i).some((element) => (element as HTMLSelectElement).value === 'social_draft')).toBe(true)
     expect((screen.getByLabelText(/aspect ratio/i) as HTMLSelectElement).value).toBe('9:16')
 
     fireEvent.click(screen.getByRole('button', { name: /save graph/i }))
@@ -532,7 +532,10 @@ describe('CreativeCanvasWorkspace', () => {
     fireEvent.click(screen.getByRole('button', { name: /select asset social post draft/i }))
 
     expect(screen.getByText('Draft export available')).toBeInTheDocument()
-    expect((screen.getByLabelText(/export target/i) as HTMLSelectElement).value).toBe('social_draft')
+    expect(screen.getAllByLabelText(/export target/i).some((element) => (element as HTMLSelectElement).value === 'social_draft')).toBe(true)
+    fireEvent.click(screen.getByRole('button', { name: /add to compare/i }))
+    expect(screen.getByText('Compare assets')).toBeInTheDocument()
+    expect(screen.getByText('1 selected')).toBeInTheDocument()
 
     fireEvent.click(screen.getByRole('button', { name: /export selected asset draft/i }))
 
@@ -549,6 +552,41 @@ describe('CreativeCanvasWorkspace', () => {
       target: 'social_draft',
     })
     expect(await screen.findByText('Draft export prepared')).toBeInTheDocument()
+  })
+
+  it('edits selected source asset metadata and saves it with the graph', async () => {
+    render(<CreativeCanvasWorkspace mode="admin" orgId="org-1" />)
+
+    await screen.findByText('Launch Canvas')
+    expect(await screen.findByText('Product bottle.png')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: /import product bottle.png/i }))
+
+    await screen.findByText('Asset gallery')
+    fireEvent.click(screen.getByRole('button', { name: /select asset product bottle.png/i }))
+    fireEvent.change(screen.getByLabelText(/asset title/i), { target: { value: 'Hero product source' } })
+    fireEvent.change(screen.getByLabelText(/preview notes/i), { target: { value: 'Use as the primary product reference' } })
+
+    fireEvent.click(screen.getByRole('button', { name: /save graph/i }))
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith('/api/v1/creative-canvas/canvas-1/graph?orgId=org-1', expect.objectContaining({
+        method: 'PUT',
+      }))
+    })
+    const graphCall = [...fetchMock.mock.calls].reverse().find(([url, init]) =>
+      String(url).includes('/graph?orgId=org-1') && init?.method === 'PUT'
+    )
+    expect(JSON.parse(graphCall?.[1]?.body as string)).toMatchObject({
+      nodes: [
+        expect.objectContaining({
+          type: 'source',
+          title: 'Hero product source',
+          source: expect.objectContaining({
+            altText: 'Use as the primary product reference',
+          }),
+        }),
+      ],
+    })
   })
 
   it('filters the source library with search, source kind, role, and media type controls', async () => {
