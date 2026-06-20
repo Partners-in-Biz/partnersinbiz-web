@@ -12,6 +12,18 @@ import type {
 
 type CanvasWithId = CreativeCanvas & { id: string }
 type RunWithId = CreativeCanvasRun & { id: string }
+type ReliabilityCategory = 'image' | 'video_social' | 'blog_document' | 'book'
+
+const RELIABILITY_CATEGORIES: Array<{
+  key: ReliabilityCategory
+  label: string
+  kinds: Array<NonNullable<CreativeCanvasRun['input']['outputKind']>>
+}> = [
+  { key: 'image', label: 'Image', kinds: ['image', 'campaign_asset'] },
+  { key: 'video_social', label: 'Video/social', kinds: ['video', 'social_post_draft', 'youtube_render'] },
+  { key: 'blog_document', label: 'Blog/document', kinds: ['blog_draft', 'document_block', 'copy', 'caption'] },
+  { key: 'book', label: 'Book', kinds: ['book_artifact'] },
+]
 
 function proofStatus(checks: CreativeCanvasRuntimeProofCheck[]): CreativeCanvasProofStatus {
   if (checks.some((check) => check.status === 'blocked')) return 'blocked'
@@ -21,6 +33,23 @@ function proofStatus(checks: CreativeCanvasRuntimeProofCheck[]): CreativeCanvasP
 
 function check(input: CreativeCanvasRuntimeProofCheck): CreativeCanvasRuntimeProofCheck {
   return input
+}
+
+function categoryCoverage(runs: RunWithId[]) {
+  return RELIABILITY_CATEGORIES.map((category) => {
+    const matchingRuns = runs.filter((run) => {
+      const outputKind = run.input.outputKind
+      return outputKind ? category.kinds.includes(outputKind) : false
+    })
+    const completed = matchingRuns.filter((run) => run.status === 'completed').length
+    const failed = matchingRuns.filter((run) => run.status === 'failed').length
+    return {
+      ...category,
+      total: matchingRuns.length,
+      completed,
+      failed,
+    }
+  })
 }
 
 export function buildCreativeCanvasRuntimeProof(input: {
@@ -36,6 +65,10 @@ export function buildCreativeCanvasRuntimeProof(input: {
   const exportableAssets = assets.filter((asset) => asset.canDraftExport)
   const completedRuns = runs.filter((run) => run.status === 'completed')
   const activeRuns = runs.filter((run) => run.status === 'queued' || run.status === 'running' || run.status === 'waiting_for_review')
+  const reliabilityCoverage = categoryCoverage(runs)
+  const coveredCategories = reliabilityCoverage.filter((category) => category.completed > 0)
+  const totalFailures = runs.filter((run) => run.status === 'failed').length
+  const failureRate = runs.length ? totalFailures / runs.length : 0
 
   const checks: CreativeCanvasRuntimeProofCheck[] = [
     check({
@@ -79,6 +112,30 @@ export function buildCreativeCanvasRuntimeProof(input: {
       status: exportableAssets.length ? 'passed' : assets.some((asset) => asset.origin === 'run_output') ? 'warning' : 'blocked',
       evidence: `${assets.length} assets, ${exportableAssets.length} draft-exportable output assets.`,
       nextAction: exportableAssets.length ? undefined : 'Ingest completed provider output into an output node and pass review gates.',
+    }),
+    check({
+      id: 'repeated_job_coverage',
+      label: 'Repeated creative job coverage',
+      status: coveredCategories.length >= RELIABILITY_CATEGORIES.length
+        ? 'passed'
+        : coveredCategories.length >= 2
+          ? 'warning'
+          : 'blocked',
+      evidence: reliabilityCoverage
+        .map((category) => `${category.label}: ${category.completed}/${category.total} completed`)
+        .join('; '),
+      nextAction: coveredCategories.length >= RELIABILITY_CATEGORIES.length
+        ? undefined
+        : 'Run and complete image, video/social, blog/document, and book creative jobs through the canvas.',
+    }),
+    check({
+      id: 'repeated_job_reliability',
+      label: 'Repeated creative job reliability',
+      status: runs.length >= 8 && failureRate <= 0.1 && !operations.staleActiveRuns ? 'passed' : runs.length >= 4 ? 'warning' : 'blocked',
+      evidence: `${runs.length} total runs, ${completedRuns.length} completed, ${totalFailures} failed, ${Math.round(failureRate * 100)}% failure rate, ${operations.staleActiveRuns} stale active.`,
+      nextAction: runs.length >= 8 && failureRate <= 0.1 && !operations.staleActiveRuns
+        ? undefined
+        : 'Complete at least 8 recent creative jobs with <=10% failures and no stale active runs.',
     }),
   ]
 

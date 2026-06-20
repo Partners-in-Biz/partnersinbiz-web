@@ -151,6 +151,8 @@ beforeEach(() => {
                 { id: 'runtime_readiness', label: 'Higgsfield runtime readiness', status: 'warning', evidence: 'Submit configured, status configured, internal bridge yes.' },
                 { id: 'provider_runs', label: 'Provider run evidence', status: 'warning', evidence: '2 runs, 0 completed, 1 active, 1 failed.' },
                 { id: 'output_assets', label: 'Output asset evidence', status: 'blocked', evidence: '0 assets, 0 draft-exportable output assets.' },
+                { id: 'repeated_job_coverage', label: 'Repeated creative job coverage', status: 'blocked', evidence: 'Image: 0/0 completed; Video/social: 0/1 completed; Blog/document: 0/0 completed; Book: 0/0 completed' },
+                { id: 'repeated_job_reliability', label: 'Repeated creative job reliability', status: 'warning', evidence: '2 total runs, 0 completed, 1 failed, 50% failure rate, 1 stale active.' },
               ],
             },
           },
@@ -483,6 +485,8 @@ describe('CreativeCanvasWorkspace', () => {
     expect(screen.getByText('Live proof status')).toBeInTheDocument()
     expect(screen.getByText('0 blockers and 2 warnings remain before live proof.')).toBeInTheDocument()
     expect(screen.getByText('Provider run evidence')).toBeInTheDocument()
+    expect(screen.getByText('Repeated creative job coverage')).toBeInTheDocument()
+    expect(screen.getByText(/Image: 0\/0 completed/i)).toBeInTheDocument()
     expect(screen.getByText(/1 active provider run older than 30 min/i)).toBeInTheDocument()
     expect(screen.getByText(/1 stale active · oldest 74 min/i)).toBeInTheDocument()
     expect(screen.getByText('1 retryable provider failure')).toBeInTheDocument()

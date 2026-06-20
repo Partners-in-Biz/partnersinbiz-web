@@ -2381,7 +2381,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
                   </div>
                   <p className="mt-1">{runtimeProof.summary}</p>
                   <div className="mt-2 space-y-1">
-                    {runtimeProof.checks.slice(0, 4).map((item) => (
+                    {runtimeProof.checks.map((item) => (
                       <div key={item.id} className="rounded-md bg-white/70 px-2 py-1">
                         <div className="flex items-center justify-between gap-2">
                           <span className="font-semibold">{item.label}</span>

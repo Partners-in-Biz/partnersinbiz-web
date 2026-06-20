@@ -68,11 +68,29 @@ const completedRun = {
   output: { outputNodeId: 'output-1', url: 'https://cdn.example.com/output.mp4' },
 } satisfies CreativeCanvasRun & { id: string }
 
+function completedRunFor(id: string, outputKind: NonNullable<CreativeCanvasRun['input']['outputKind']>) {
+  return {
+    ...completedRun,
+    id,
+    input: { ...completedRun.input, outputKind },
+    output: { outputNodeId: 'output-1', url: `https://cdn.example.com/${id}.png` },
+  } satisfies CreativeCanvasRun & { id: string }
+}
+
 describe('creative canvas runtime proof', () => {
-  it('passes when canvas has project linkage, runtime readiness, completed run, healthy queue, and exportable output', () => {
+  it('passes when canvas has project linkage, runtime readiness, repeated jobs, healthy queue, and exportable output', () => {
     const proof = buildCreativeCanvasRuntimeProof({
       canvas,
-      runs: [completedRun],
+      runs: [
+        completedRunFor('run-image-1', 'image'),
+        completedRunFor('run-image-2', 'campaign_asset'),
+        completedRunFor('run-video-1', 'video'),
+        completedRunFor('run-social-1', 'social_post_draft'),
+        completedRunFor('run-blog-1', 'blog_draft'),
+        completedRunFor('run-document-1', 'document_block'),
+        completedRunFor('run-book-1', 'book_artifact'),
+        completedRunFor('run-book-2', 'book_artifact'),
+      ],
       env: {
         HIGGSFIELD_RUNTIME_API_KEY: 'runtime-key',
         NEXT_PUBLIC_APP_URL: 'https://partnersinbiz.online',
@@ -88,8 +106,34 @@ describe('creative canvas runtime proof', () => {
         expect.objectContaining({ id: 'runtime_readiness', status: 'passed' }),
         expect.objectContaining({ id: 'provider_runs', status: 'passed' }),
         expect.objectContaining({ id: 'output_assets', status: 'passed' }),
+        expect.objectContaining({ id: 'repeated_job_coverage', status: 'passed' }),
+        expect.objectContaining({ id: 'repeated_job_reliability', status: 'passed' }),
       ]),
     })
+  })
+
+  it('warns when only part of the repeated creative job mix has completed', () => {
+    const proof = buildCreativeCanvasRuntimeProof({
+      canvas,
+      runs: [
+        completedRunFor('run-image-1', 'image'),
+        completedRunFor('run-video-1', 'video'),
+        { ...completedRunFor('run-book-failed', 'book_artifact'), status: 'failed' },
+        { ...completedRunFor('run-blog-active', 'blog_draft'), status: 'running' },
+      ],
+      env: {
+        HIGGSFIELD_RUNTIME_API_KEY: 'runtime-key',
+        NEXT_PUBLIC_APP_URL: 'https://partnersinbiz.online',
+        HIGGSFIELD_WEBHOOK_SECRET: 'hook-secret',
+      } as NodeJS.ProcessEnv,
+    })
+
+    expect(proof.status).toBe('warning')
+    expect(proof.readyForLiveProof).toBe(false)
+    expect(proof.checks).toEqual(expect.arrayContaining([
+      expect.objectContaining({ id: 'repeated_job_coverage', status: 'warning' }),
+      expect.objectContaining({ id: 'repeated_job_reliability', status: 'warning' }),
+    ]))
   })
 
   it('blocks proof when runtime, project, runs, and output evidence are missing', () => {
@@ -107,6 +151,8 @@ describe('creative canvas runtime proof', () => {
       expect.objectContaining({ id: 'runtime_readiness', status: 'blocked' }),
       expect.objectContaining({ id: 'provider_runs', status: 'blocked' }),
       expect.objectContaining({ id: 'output_assets', status: 'blocked' }),
+      expect.objectContaining({ id: 'repeated_job_coverage', status: 'blocked' }),
+      expect.objectContaining({ id: 'repeated_job_reliability', status: 'blocked' }),
     ]))
   })
 })
