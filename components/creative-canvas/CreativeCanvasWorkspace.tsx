@@ -911,6 +911,17 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
     setSaveMessage('')
   }, [applyCanvasSnapshot, loadComments, loadPresence, loadRuns, loadRuntimeProof, loadVersions, remoteCanvasUpdate, resolvedOrgId])
 
+  const applyCollaboratorDraft = (collaborator: CreativeCanvasPresence & { id: string }) => {
+    const draftGraph = collaborator.draftGraph
+    if (!draftGraph?.nodes?.length) return
+    setNodes(draftGraph.nodes.map((node) => toFlowNode(node)))
+    setEdges((draftGraph.edges ?? []).map(toFlowEdge))
+    setSelectedFlowNodeId(collaborator.selectedNodeId ?? draftGraph.nodes[0]?.id ?? '')
+    setRemoteCanvasUpdate(null)
+    setSaveMessage('')
+    setActivityMessage(`Applied ${collaborator.displayName ?? collaborator.actorUid} live draft to this workspace`)
+  }
+
   useEffect(() => {
     if (!remoteCanvasUpdate?.id || graphHasUnsavedChanges) return
     void applyRemoteCanvasUpdate()
@@ -942,6 +953,12 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
         nodeCount: nodes.length,
         edgeCount: edges.length,
         selectedNodeTitle: selectedCanvasNode?.title,
+        draftGraph: graphHasUnsavedChanges
+          ? {
+              nodes: nodes.map((node) => toCanvasNode(node, resolvedOrgId || activeCanvas?.orgId || 'pending-org')),
+              edges: edges.map((edge) => toCanvasEdge(edge, resolvedOrgId || activeCanvas?.orgId || 'pending-org')),
+            }
+          : undefined,
       }),
     })
     const payload = await response.json().catch(() => null) as CreativeCanvasPresenceApiResponse | null
@@ -955,9 +972,11 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
   }, [
     activeCanvas?.activeVersion,
     currentGraphSignature,
-    edges.length,
+    edges,
     graphHasUnsavedChanges,
-    nodes.length,
+    nodes,
+    resolvedOrgId,
+    activeCanvas?.orgId,
     selectedCanvasNode?.title,
   ])
 
@@ -3407,6 +3426,15 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
                     <p className="mt-1 font-semibold text-amber-800">
                       Unsaved graph edits are active in this collaborator workspace.
                     </p>
+                  ) : null}
+                  {item.draftGraph?.nodes?.length ? (
+                    <button
+                      type="button"
+                      onClick={() => applyCollaboratorDraft(item)}
+                      className="mt-2 rounded-md border border-amber-300 bg-amber-50 px-2 py-1 text-xs font-semibold text-amber-900"
+                    >
+                      Apply live draft
+                    </button>
                   ) : null}
                 </div>
               )) : (

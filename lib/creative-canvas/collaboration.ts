@@ -29,6 +29,8 @@ const OUTPUT_KINDS: CreativeCanvasOutputKind[] = ['image', 'video', 'audio', 'ca
 const REVIEW_STATUSES: CreativeCanvasReviewStatus[] = ['not_required', 'needed', 'passed', 'warning', 'blocked']
 const RIGHTS_STATUSES: CreativeCanvasRightsStatus[] = ['unknown', 'cleared', 'needs_review', 'blocked']
 const BRAND_STATUSES: CreativeCanvasBrandStatus[] = ['unknown', 'passed', 'needs_review', 'blocked']
+const PRESENCE_DRAFT_NODE_LIMIT = 80
+const PRESENCE_DRAFT_EDGE_LIMIT = 160
 
 function asRecord(value: unknown): UnknownRecord {
   return value && typeof value === 'object' && !Array.isArray(value) ? value as UnknownRecord : {}
@@ -59,6 +61,16 @@ function safeHttpUrl(value: unknown, field: string): string | undefined {
   } catch {
     throw new Error(`${field} must be a safe http(s) URL`)
   }
+}
+
+function sanitizePresenceDraftGraph(input: unknown, orgId: string): CreativeCanvasGraph {
+  const graph = sanitizeCreativeCanvasGraph(input, orgId)
+  const nodes = graph.nodes.slice(0, PRESENCE_DRAFT_NODE_LIMIT)
+  const nodeIds = new Set(nodes.map((node) => node.id))
+  const edges = graph.edges
+    .filter((edge) => nodeIds.has(edge.sourceNodeId) && nodeIds.has(edge.targetNodeId))
+    .slice(0, PRESENCE_DRAFT_EDGE_LIMIT)
+  return { nodes, edges }
 }
 
 function serializeVersion(id: string, data: UnknownRecord): CreativeCanvasVersion & { id: string } {
@@ -113,6 +125,9 @@ function serializePresence(id: string, data: UnknownRecord): CreativeCanvasPrese
     nodeCount: typeof data.nodeCount === 'number' && Number.isFinite(data.nodeCount) ? data.nodeCount : undefined,
     edgeCount: typeof data.edgeCount === 'number' && Number.isFinite(data.edgeCount) ? data.edgeCount : undefined,
     selectedNodeTitle: cleanString(data.selectedNodeTitle),
+    draftGraph: Object.keys(asRecord(data.draftGraph)).length
+      ? sanitizePresenceDraftGraph(data.draftGraph, String(data.orgId ?? ''))
+      : undefined,
     lastSeenAt: data.lastSeenAt,
     lastSeenAtMs: typeof data.lastSeenAtMs === 'number' ? data.lastSeenAtMs : 0,
     expiresAtMs: typeof data.expiresAtMs === 'number' ? data.expiresAtMs : 0,
@@ -386,6 +401,9 @@ export async function heartbeatCreativeCanvasPresence(
   const edgeCount = typeof body.edgeCount === 'number' && Number.isFinite(body.edgeCount)
     ? Math.max(0, Math.min(2000, Math.round(body.edgeCount)))
     : undefined
+  const draftGraph = body.hasUnsavedGraphChanges === true && Object.keys(asRecord(body.draftGraph)).length
+    ? sanitizePresenceDraftGraph(body.draftGraph, orgId)
+    : undefined
   const payload: CreativeCanvasPresence = {
     orgId,
     canvasId,
@@ -409,6 +427,7 @@ export async function heartbeatCreativeCanvasPresence(
     nodeCount,
     edgeCount,
     selectedNodeTitle: cleanString(body.selectedNodeTitle),
+    draftGraph,
     lastSeenAt: FieldValue.serverTimestamp(),
     lastSeenAtMs: nowMs,
     expiresAtMs: nowMs + 45_000,

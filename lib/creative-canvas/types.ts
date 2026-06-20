@@ -377,6 +377,7 @@ export interface CreativeCanvasPresence {
   nodeCount?: number
   edgeCount?: number
   selectedNodeTitle?: string
+  draftGraph?: CreativeCanvasGraph
   lastSeenAt?: unknown
   lastSeenAtMs: number
   expiresAtMs: number

@@ -201,6 +201,7 @@ beforeEach(() => {
         hasUnsavedGraphChanges?: boolean
         nodeCount?: number
         edgeCount?: number
+        draftGraph?: unknown
       }
       return {
         ok: true,
@@ -222,6 +223,7 @@ beforeEach(() => {
               nodeCount: body.nodeCount,
               edgeCount: body.edgeCount,
               selectedNodeTitle: body.selectedNodeTitle,
+              draftGraph: body.draftGraph,
               lastSeenAtMs: 1000,
               expiresAtMs: 46000,
             }],
@@ -250,6 +252,17 @@ beforeEach(() => {
               hasUnsavedGraphChanges: true,
               nodeCount: 3,
               edgeCount: 2,
+              draftGraph: {
+                nodes: [{
+                  id: 'maya-draft-node',
+                  orgId: 'org-1',
+                  type: 'source',
+                  title: 'Maya live draft source',
+                  position: { x: 40, y: 60 },
+                  data: { createdFrom: 'maya_live_draft' },
+                }],
+                edges: [],
+              },
               lastSeenAtMs: 900,
               expiresAtMs: 45900,
             }],
@@ -883,6 +896,17 @@ describe('CreativeCanvasWorkspace', () => {
                 hasUnsavedGraphChanges: true,
                 nodeCount: 3,
                 edgeCount: 2,
+                draftGraph: {
+                  nodes: [{
+                    id: 'maya-draft-node',
+                    orgId: 'org-1',
+                    type: 'source',
+                    title: 'Maya live draft source',
+                    position: { x: 40, y: 60 },
+                    data: { createdFrom: 'maya_live_draft' },
+                  }],
+                  edges: [],
+                },
                 lastSeenAtMs: 900,
                 expiresAtMs: 45900,
               }],
@@ -920,6 +944,9 @@ describe('CreativeCanvasWorkspace', () => {
     expect(screen.getByText('Live draft')).toBeInTheDocument()
     expect(screen.getByText(/3 nodes \/ 2 links \/ v1/i)).toBeInTheDocument()
     expect(screen.getByText(/unsaved graph edits are active/i)).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: /apply live draft/i }))
+    expect(await screen.findByText(/applied maya live draft to this workspace/i)).toBeInTheDocument()
+    expect(screen.getAllByText(/Maya live draft source/i).length).toBeGreaterThan(0)
   })
 
   it('shares live draft metadata in collaborator heartbeats after graph edits', async () => {
@@ -941,6 +968,10 @@ describe('CreativeCanvasWorkspace', () => {
         hasUnsavedGraphChanges: true,
         nodeCount: 1,
         selectedNodeTitle: 'Source node',
+      }))
+      expect(body.draftGraph).toEqual(expect.objectContaining({
+        nodes: [expect.objectContaining({ title: 'Source node' })],
+        edges: [],
       }))
       expect(typeof body.graphSignature).toBe('string')
       expect(body.graphSignature.length).toBeGreaterThan(10)
