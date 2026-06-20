@@ -60,7 +60,7 @@ const runningRun = {
   provenance: {
     ...queuedRun.provenance,
     providerJobId: 'hf-job-2',
-    providerStatusUrl: 'https://runtime.example.com/jobs/hf-job-2',
+    providerStatusUrl: '/api/internal/creative-canvas/higgsfield-runtime/runs/hf-job-2?orgId=org-1',
   },
 }
 
@@ -218,12 +218,15 @@ describe('Higgsfield creative canvas provider runtime', () => {
 
     const result = await drainHiggsfieldCreativeCanvasRuns({
       env: {
-        HIGGSFIELD_RUNTIME_STATUS_URL: 'https://runtime.example.com/jobs/{providerJobId}',
+        HIGGSFIELD_RUNTIME_API_KEY: 'runtime-key',
+        NEXT_PUBLIC_APP_URL: 'https://partnersinbiz.online',
       } as NodeJS.ProcessEnv,
     })
 
     expect(result).toMatchObject({ completed: 1, runtimeConfigured: true })
-    expect(global.fetch).toHaveBeenCalledWith('https://runtime.example.com/jobs/hf-job-2', expect.any(Object))
+    expect(global.fetch).toHaveBeenCalledWith('https://partnersinbiz.online/api/internal/creative-canvas/higgsfield-runtime/runs/hf-job-2?orgId=org-1', expect.objectContaining({
+      headers: expect.objectContaining({ Authorization: 'Bearer runtime-key' }),
+    }))
     expect(mockCompleteCreativeCanvasRun).toHaveBeenCalledWith('run-2', 'org-1', expect.objectContaining({
       outputNodeId: 'model-1-output',
       output: expect.objectContaining({

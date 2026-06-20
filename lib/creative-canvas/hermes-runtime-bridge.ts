@@ -1,7 +1,7 @@
 import { createHash, timingSafeEqual } from 'crypto'
-import { createHermesRun, getHermesProfileLink } from '@/lib/hermes/server'
+import { callHermesJson, createHermesRun, getHermesProfileLink } from '@/lib/hermes/server'
 import type { HiggsfieldExecutionManifest } from './higgsfield-execution'
-import type { CreativeCanvas, CreativeCanvasRun } from './types'
+import type { CreativeCanvas, CreativeCanvasOutputKind, CreativeCanvasRun, CreativeCanvasRunStatus } from './types'
 
 type RunWithId = CreativeCanvasRun & { id: string }
 
@@ -85,6 +85,34 @@ function buildRuntimePrompt(input: CreativeCanvasHermesRuntimeRequest): string {
   ].filter(Boolean).join('\n')
 }
 
+function normalizeHermesStatus(value: unknown): CreativeCanvasRunStatus {
+  const status = cleanString(value)?.toLowerCase()
+  if (status === 'completed' || status === 'complete' || status === 'done' || status === 'succeeded') return 'completed'
+  if (status === 'failed' || status === 'error') return 'failed'
+  if (status === 'cancelled' || status === 'canceled') return 'cancelled'
+  if (status === 'waiting_for_review' || status === 'needs_review') return 'waiting_for_review'
+  return 'running'
+}
+
+function normalizeOutputKind(value: unknown): CreativeCanvasOutputKind | undefined {
+  const allowed: CreativeCanvasOutputKind[] = ['image', 'video', 'audio', 'caption', 'copy', 'blog_draft', 'document_block', 'book_artifact', 'youtube_render', 'campaign_asset', 'social_post_draft']
+  return allowed.includes(value as CreativeCanvasOutputKind) ? value as CreativeCanvasOutputKind : undefined
+}
+
+function normalizeHermesOutput(body: Record<string, unknown>) {
+  const output = asRecord(body.output)
+  const result = asRecord(body.result)
+  const artifact = asRecord(body.artifact)
+  return {
+    kind: normalizeOutputKind(output.kind ?? result.kind ?? artifact.kind),
+    url: cleanString(output.url) ?? cleanString(result.url) ?? cleanString(artifact.url) ?? cleanString(body.url) ?? cleanString(body.imageUrl) ?? cleanString(body.videoUrl),
+    thumbnailUrl: cleanString(output.thumbnailUrl) ?? cleanString(result.thumbnailUrl) ?? cleanString(artifact.thumbnailUrl),
+    artifactId: cleanString(output.artifactId) ?? cleanString(result.artifactId) ?? cleanString(artifact.id),
+    storagePath: cleanString(output.storagePath) ?? cleanString(result.storagePath) ?? cleanString(artifact.storagePath),
+    textPreview: cleanString(output.textPreview) ?? cleanString(result.textPreview) ?? cleanString(body.output_text) ?? cleanString(body.outputText),
+  }
+}
+
 export async function submitCreativeCanvasRunToHermes(input: CreativeCanvasHermesRuntimeRequest): Promise<{
   providerJobId: string
   providerStatusUrl: string
@@ -126,9 +154,49 @@ export async function submitCreativeCanvasRunToHermes(input: CreativeCanvasHerme
   return {
     providerJobId: hermesRunId,
     providerRequestId: result.runDocId ?? undefined,
-    providerStatusUrl: `/api/v1/admin/hermes/profiles/${encodeURIComponent(run.orgId)}/runs/${encodeURIComponent(hermesRunId)}`,
+    providerStatusUrl: `/api/internal/creative-canvas/higgsfield-runtime/runs/${encodeURIComponent(hermesRunId)}?orgId=${encodeURIComponent(run.orgId)}`,
     status: 'running',
     providerStatus: 'hermes_run_submitted',
     providerStatusMessage: `Submitted Creative Canvas Higgsfield run to Hermes profile ${link.profile}.`,
+  }
+}
+
+export async function getCreativeCanvasHermesRunStatus(orgId: string, runId: string) {
+  const cleanOrgId = cleanString(orgId)
+  const cleanRunId = cleanString(runId)
+  if (!cleanOrgId || !cleanRunId) throw new Error('orgId and runId are required')
+  const link = await getHermesProfileLink(cleanOrgId)
+  if (!link) throw new Error('Hermes profile link not found for Creative Canvas organisation')
+  if (!link.enabled) throw new Error('Hermes profile link is disabled for Creative Canvas organisation')
+  if (!link.capabilities.runs) throw new Error('Hermes runs capability is disabled for Creative Canvas organisation')
+
+  const { response, data } = await callHermesJson(link, `/v1/runs/${encodeURIComponent(cleanRunId)}`, { method: 'GET' })
+  if (!response.ok) {
+    const body = asRecord(data)
+    throw new Error(cleanString(body.error) ?? cleanString(body.message) ?? `Hermes run status request failed with ${response.status}`)
+  }
+
+  const body = asRecord(data)
+  const status = normalizeHermesStatus(body.status ?? body.state)
+  const error = asRecord(body.error)
+  return {
+    providerJobId: cleanRunId,
+    status,
+    providerStatus: cleanString(body.status) ?? cleanString(body.state) ?? status,
+    providerStatusMessage: cleanString(body.message)
+      ?? cleanString(body.summary)
+      ?? cleanString(error.message)
+      ?? `Hermes run ${cleanRunId} is ${status}.`,
+    ...(status === 'failed'
+      ? {
+          error: {
+            code: cleanString(error.code) ?? 'hermes_run_failed',
+            message: cleanString(error.message) ?? cleanString(body.message) ?? 'Hermes run failed',
+            retryable: error.retryable !== false,
+          },
+        }
+      : {}),
+    ...(status === 'completed' ? { output: normalizeHermesOutput(body) } : {}),
+    raw: data,
   }
 }

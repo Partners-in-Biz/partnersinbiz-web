@@ -171,10 +171,12 @@ function callbackUrl(config: HiggsfieldRuntimeConfig): string | undefined {
 
 function statusUrlForRun(run: RunWithId, config: HiggsfieldRuntimeConfig): string | undefined {
   const jobId = run.provenance.providerJobId
-  if (config.statusUrlTemplate && jobId) {
-    return config.statusUrlTemplate.replace('{providerJobId}', encodeURIComponent(jobId))
-  }
-  return run.provenance.providerStatusUrl
+  const statusUrl = config.statusUrlTemplate && jobId
+    ? config.statusUrlTemplate.replace('{providerJobId}', encodeURIComponent(jobId))
+    : run.provenance.providerStatusUrl
+  if (!statusUrl) return undefined
+  if (statusUrl.startsWith('/')) return config.callbackBaseUrl ? `${config.callbackBaseUrl}${statusUrl}` : undefined
+  return statusUrl
 }
 
 async function applyRuntimeResult(run: RunWithId, result: RuntimeResult): Promise<'dispatched' | 'refreshed' | 'completed' | 'failed'> {
