@@ -103,6 +103,16 @@ export type CreativeCanvasProviderCapability =
   | 'analyze_media'
   | 'create_variants'
 
+export interface CreativeCanvasGraphConflictDetail {
+  id: string
+  kind: 'node' | 'edge'
+  label: string
+  reason: 'concurrent_update' | 'deleted_remotely' | 'deleted_locally'
+  baseLabel?: string
+  currentLabel?: string
+  proposedLabel?: string
+}
+
 export interface CreativeCanvasMaskRegion {
   x: number
   y: number

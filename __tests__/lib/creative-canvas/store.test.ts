@@ -273,6 +273,67 @@ describe('creative canvas store', () => {
       },
     })).rejects.toMatchObject({
       conflicts: ['node:source-1'],
+      conflictDetails: [
+        expect.objectContaining({
+          id: 'source-1',
+          kind: 'node',
+          reason: 'concurrent_update',
+          baseLabel: 'Source',
+          currentLabel: 'Source from Maya',
+          proposedLabel: 'Source from Pip',
+        }),
+      ],
+    })
+    expect(mockDocUpdate).not.toHaveBeenCalled()
+    expect(mockAdd).not.toHaveBeenCalled()
+  })
+
+  it('describes edge conflicts with labels for collaborator review', async () => {
+    mockDocGet.mockResolvedValue({
+      exists: true,
+      id: 'canvas-1',
+      data: () => ({
+        orgId: 'org-1',
+        title: 'Launch',
+        activeVersion: 4,
+        deleted: false,
+        nodes: [
+          { id: 'source-1', orgId: 'org-1', type: 'source', title: 'Source', position: { x: 0, y: 0 }, data: {} },
+          { id: 'model-1', orgId: 'org-1', type: 'model', title: 'Model', position: { x: 300, y: 0 }, data: {} },
+        ],
+        edges: [{ id: 'source-model', orgId: 'org-1', sourceNodeId: 'source-1', targetNodeId: 'model-1', label: 'Maya link' }],
+      }),
+    })
+
+    await expect(updateCreativeCanvasGraph('canvas-1', 'org-1', {
+      nodes: [
+        { id: 'source-1', type: 'source', title: 'Source', position: { x: 0, y: 0 }, data: {} },
+        { id: 'model-1', type: 'model', title: 'Model', position: { x: 300, y: 0 }, data: {} },
+      ],
+      edges: [{ id: 'source-model', sourceNodeId: 'source-1', targetNodeId: 'model-1', label: 'Pip link' }],
+    }, ACTOR, {
+      expectedActiveVersion: 2,
+      mergeOnConflict: true,
+      baseGraphInput: {
+        nodes: [
+          { id: 'source-1', type: 'source', title: 'Source', position: { x: 0, y: 0 }, data: {} },
+          { id: 'model-1', type: 'model', title: 'Model', position: { x: 300, y: 0 }, data: {} },
+        ],
+        edges: [{ id: 'source-model', sourceNodeId: 'source-1', targetNodeId: 'model-1', label: 'Original link' }],
+      },
+    })).rejects.toMatchObject({
+      conflicts: ['edge:source-model'],
+      conflictDetails: [
+        expect.objectContaining({
+          id: 'source-model',
+          kind: 'edge',
+          label: 'Pip link',
+          reason: 'concurrent_update',
+          baseLabel: 'Original link',
+          currentLabel: 'Maya link',
+          proposedLabel: 'Pip link',
+        }),
+      ],
     })
     expect(mockDocUpdate).not.toHaveBeenCalled()
     expect(mockAdd).not.toHaveBeenCalled()

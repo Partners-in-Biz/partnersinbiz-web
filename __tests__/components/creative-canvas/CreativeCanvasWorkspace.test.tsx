@@ -1293,6 +1293,10 @@ describe('CreativeCanvasWorkspace', () => {
             currentActiveVersion: 4,
             expectedActiveVersion: 1,
             conflicts: ['node:source-1', 'edge:source-model'],
+            conflictDetails: [
+              { id: 'source-1', kind: 'node', label: 'Source node', reason: 'concurrent_update', currentLabel: 'Maya source', proposedLabel: 'Pip source' },
+              { id: 'source-model', kind: 'edge', label: 'Source to model', reason: 'concurrent_update', currentLabel: 'Maya link', proposedLabel: 'Pip link' },
+            ],
             error: 'Creative canvas graph has changed since it was loaded',
           }),
         }
@@ -1321,6 +1325,7 @@ describe('CreativeCanvasWorkspace', () => {
     fireEvent.click(screen.getByRole('button', { name: /save graph/i }))
 
     expect(await screen.findByText(/2 overlapping edits need review/i)).toBeInTheDocument()
+    expect(screen.getByText(/Conflicts: node "Source node", edge "Source to model"/i)).toBeInTheDocument()
     const graphCall = fetchMock.mock.calls.find(([url, init]) =>
       String(url).includes('/graph?orgId=org-1') && init?.method === 'PUT'
     )

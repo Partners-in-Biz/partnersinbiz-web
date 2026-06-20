@@ -50,6 +50,7 @@ export const PUT = withAuth('client', async (req: NextRequest, user: ApiUser, co
         currentActiveVersion: error.currentActiveVersion,
         expectedActiveVersion: error.expectedActiveVersion,
         conflicts: error.conflicts,
+        conflictDetails: error.conflictDetails,
       })
     }
     throw error

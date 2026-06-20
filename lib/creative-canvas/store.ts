@@ -8,6 +8,7 @@ import type {
   CreativeCanvas,
   CreativeCanvasActor,
   CreativeCanvasGraph,
+  CreativeCanvasGraphConflictDetail,
   CreativeCanvasStatus,
   CreativeCanvasTemplate,
   CreativeCanvasVersion,
@@ -27,13 +28,20 @@ export class CreativeCanvasVersionConflictError extends Error {
   currentActiveVersion: number
   expectedActiveVersion: number
   conflicts: string[]
+  conflictDetails: CreativeCanvasGraphConflictDetail[]
 
-  constructor(currentActiveVersion: number, expectedActiveVersion: number, conflicts: string[] = []) {
+  constructor(
+    currentActiveVersion: number,
+    expectedActiveVersion: number,
+    conflicts: string[] = [],
+    conflictDetails: CreativeCanvasGraphConflictDetail[] = [],
+  ) {
     super('Creative canvas graph has changed since it was loaded')
     this.name = 'CreativeCanvasVersionConflictError'
     this.currentActiveVersion = currentActiveVersion
     this.expectedActiveVersion = expectedActiveVersion
     this.conflicts = conflicts
+    this.conflictDetails = conflictDetails
   }
 }
 
@@ -50,18 +58,53 @@ function graphItemChanged<T>(left: T | undefined, right: T | undefined): boolean
   return stableStringify(left ?? null) !== stableStringify(right ?? null)
 }
 
+function graphItemLabel<T extends { id: string }>(kind: 'node' | 'edge', item: T | undefined): string | undefined {
+  if (!item) return undefined
+  const record = item as Record<string, unknown>
+  const title = typeof record.title === 'string' && record.title.trim() ? record.title.trim() : undefined
+  const label = typeof record.label === 'string' && record.label.trim() ? record.label.trim() : undefined
+  if (title) return title
+  if (label) return label
+  if (kind === 'edge') {
+    const sourceNodeId = typeof record.sourceNodeId === 'string' ? record.sourceNodeId : undefined
+    const targetNodeId = typeof record.targetNodeId === 'string' ? record.targetNodeId : undefined
+    if (sourceNodeId && targetNodeId) return `${sourceNodeId} -> ${targetNodeId}`
+  }
+  return item.id
+}
+
+function graphConflictDetail<T extends { id: string }>(
+  kind: 'node' | 'edge',
+  id: string,
+  reason: CreativeCanvasGraphConflictDetail['reason'],
+  base: T | undefined,
+  current: T | undefined,
+  proposed: T | undefined,
+): CreativeCanvasGraphConflictDetail {
+  return {
+    id,
+    kind,
+    reason,
+    label: graphItemLabel(kind, proposed) ?? graphItemLabel(kind, current) ?? graphItemLabel(kind, base) ?? id,
+    baseLabel: graphItemLabel(kind, base),
+    currentLabel: graphItemLabel(kind, current),
+    proposedLabel: graphItemLabel(kind, proposed),
+  }
+}
+
 function mergeGraphItems<T extends { id: string }>(
   kind: 'node' | 'edge',
   baseItems: T[],
   currentItems: T[],
   proposedItems: T[],
-): { merged: T[]; conflicts: string[] } {
+): { merged: T[]; conflicts: string[]; conflictDetails: CreativeCanvasGraphConflictDetail[] } {
   const baseMap = new Map(baseItems.map((item) => [item.id, item]))
   const currentMap = new Map(currentItems.map((item) => [item.id, item]))
   const proposedMap = new Map(proposedItems.map((item) => [item.id, item]))
   const ids = Array.from(new Set([...baseMap.keys(), ...currentMap.keys(), ...proposedMap.keys()]))
   const merged: T[] = []
   const conflicts: string[] = []
+  const conflictDetails: CreativeCanvasGraphConflictDetail[] = []
 
   for (const id of ids) {
     const base = baseMap.get(id)
@@ -71,7 +114,10 @@ function mergeGraphItems<T extends { id: string }>(
     const proposedChanged = graphItemChanged(proposed, base)
 
     if (!proposed) {
-      if (base && currentChanged) conflicts.push(`${kind}:${id}`)
+      if (base && currentChanged) {
+        conflicts.push(`${kind}:${id}`)
+        conflictDetails.push(graphConflictDetail(kind, id, 'deleted_locally', base, current, proposed))
+      }
       if (!base && current) merged.push(current)
       continue
     }
@@ -79,6 +125,7 @@ function mergeGraphItems<T extends { id: string }>(
     if (!current) {
       if (base && proposedChanged) {
         conflicts.push(`${kind}:${id}`)
+        conflictDetails.push(graphConflictDetail(kind, id, 'deleted_remotely', base, current, proposed))
         continue
       }
       merged.push(proposed)
@@ -87,13 +134,14 @@ function mergeGraphItems<T extends { id: string }>(
 
     if (currentChanged && proposedChanged && graphItemChanged(current, proposed)) {
       conflicts.push(`${kind}:${id}`)
+      conflictDetails.push(graphConflictDetail(kind, id, 'concurrent_update', base, current, proposed))
       continue
     }
 
     merged.push(proposedChanged ? proposed : current)
   }
 
-  return { merged, conflicts }
+  return { merged, conflicts, conflictDetails }
 }
 
 function mergeCreativeCanvasGraphs(
@@ -101,7 +149,7 @@ function mergeCreativeCanvasGraphs(
   current: CreativeCanvasGraph,
   proposed: CreativeCanvasGraph,
   orgId: string,
-): { graph: CreativeCanvasGraph; conflicts: string[] } {
+): { graph: CreativeCanvasGraph; conflicts: string[]; conflictDetails: CreativeCanvasGraphConflictDetail[] } {
   const nodeMerge = mergeGraphItems('node', base.nodes, current.nodes, proposed.nodes)
   const edgeMerge = mergeGraphItems('edge', base.edges, current.edges, proposed.edges)
   const mergedNodeIds = new Set(nodeMerge.merged.map((node) => node.id))
@@ -112,6 +160,7 @@ function mergeCreativeCanvasGraphs(
   return {
     graph,
     conflicts: [...nodeMerge.conflicts, ...edgeMerge.conflicts],
+    conflictDetails: [...nodeMerge.conflictDetails, ...edgeMerge.conflictDetails],
   }
 }
 
@@ -320,7 +369,12 @@ export async function updateCreativeCanvasGraph(
       orgId,
     )
     if (merged.conflicts.length) {
-      throw new CreativeCanvasVersionConflictError(current.activeVersion, options.expectedActiveVersion, merged.conflicts)
+      throw new CreativeCanvasVersionConflictError(
+        current.activeVersion,
+        options.expectedActiveVersion,
+        merged.conflicts,
+        merged.conflictDetails,
+      )
     }
     graph = merged.graph
     versionReason = `graph_auto_merge_from_v${options.expectedActiveVersion}`
