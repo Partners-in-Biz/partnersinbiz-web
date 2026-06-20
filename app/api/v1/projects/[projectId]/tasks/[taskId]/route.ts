@@ -54,7 +54,7 @@ export const PATCH = withAuth('client', async (req: NextRequest, user, ctx) => {
   const nextGate = typeof body.approvalGate === 'string' && body.approvalGate && body.approvalGate !== 'none'
   const existingApprovalStatus = typeof existing.approvalStatus === 'string' && existing.approvalStatus.trim().length > 0
   const isApprovalGatedTask = labels.includes('approval-gate') || existingApprovalStatus || existingGate || nextGate
-  const approvalGateFields = ['approvalGate', 'requiredCapability', 'riskLevel', 'expectedArtifacts', 'verifierChecklist', 'approvalGateTaskId']
+  const approvalGateFields = ['approvalGate', 'requiredCapability', 'riskLevel', 'expectedArtifacts', 'verifierChecklist', 'approvalGateTaskId', 'columnId', 'reviewStatus', 'labels', 'agentStatus']
   if (user.role !== 'admin' && isApprovalGatedTask && approvalGateFields.some((field) => body[field] !== undefined)) {
     return apiError('Only an admin approver can change approval-gate metadata on project tasks', 403)
   }
