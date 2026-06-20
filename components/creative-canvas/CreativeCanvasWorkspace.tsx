@@ -4108,6 +4108,11 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
     },
   ]
   const liveProofCompleteCount = liveProofRunbookItems.filter((item) => item.status === 'complete').length
+  const isWorldClassCertified = liveProofCompleteCount >= liveProofRunbookItems.length
+    && benchmarkPassedCount >= benchmarkProofItems.length
+  const blockedProofCount = liveProofRunbookItems.filter((item) => item.status === 'blocked').length
+  const actionableProofCount = liveProofRunbookItems.filter((item) => item.status === 'action').length
+  const nextRunbookAction = liveProofRunbookItems.find((item) => item.status !== 'complete')?.nextAction
 
   return (
     <main className="mx-auto max-w-7xl space-y-5 px-4 py-6">
@@ -4248,6 +4253,37 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
           </div>
         ))}
       </div>
+
+      <section
+        aria-label="Creative Canvas world-class certification gate"
+        className={`rounded-lg border px-4 py-3 text-sm ${
+          isWorldClassCertified
+            ? 'border-green-200 bg-green-50 text-green-800'
+            : 'border-red-200 bg-red-50 text-red-800'
+        }`}
+      >
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-normal">
+              Higgsfield parity certification
+            </p>
+            <h2 className="text-lg font-semibold">
+              {isWorldClassCertified ? 'World-class certified' : 'Not world-class certified yet'}
+            </h2>
+            <p className="mt-1">
+              {isWorldClassCertified
+                ? 'All live proof runbook items and Direct Higgsfield benchmark categories are source-backed and complete.'
+                : `${liveProofCompleteCount}/${liveProofRunbookItems.length} live proof steps complete, ${benchmarkPassedCount}/${benchmarkProofItems.length} source-backed benchmarks passed.`}
+            </p>
+            {!isWorldClassCertified && nextRunbookAction ? (
+              <p className="mt-1 font-semibold">Next required proof: {nextRunbookAction}</p>
+            ) : null}
+          </div>
+          <span className="rounded-full border border-current bg-white px-3 py-1 text-xs font-semibold uppercase tracking-normal">
+            {isWorldClassCertified ? 'certified' : `${blockedProofCount} blocked · ${actionableProofCount} action`}
+          </span>
+        </div>
+      </section>
 
       <section
         aria-label="Creative Canvas world-class proof runbook"

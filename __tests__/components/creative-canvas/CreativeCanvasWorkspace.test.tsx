@@ -829,6 +829,12 @@ describe('CreativeCanvasWorkspace', () => {
     expect(screen.getByRole('navigation', { name: /creative canvas mobile sections/i })).toBeInTheDocument()
     expect(screen.getByLabelText(/creative canvas responsive readiness/i)).toBeInTheDocument()
     expect(screen.getByText('3-column graph')).toBeInTheDocument()
+    const certificationGate = screen.getByLabelText(/creative canvas world-class certification gate/i)
+    expect(certificationGate).toHaveTextContent('Higgsfield parity certification')
+    expect(certificationGate).toHaveTextContent('Not world-class certified yet')
+    expect(certificationGate).toHaveTextContent('0/6 live proof steps complete, 0/9 source-backed benchmarks passed.')
+    expect(certificationGate).toHaveTextContent('Next required proof: Capture signed-in Desktop 1440, Tablet 820, Mobile 390, and Mobile panels screenshots.')
+    expect(certificationGate).toHaveTextContent('3 blocked · 3 action')
     const visualProof = screen.getByLabelText(/creative canvas visual qa proof/i)
     expect(visualProof).toHaveTextContent('Visual QA proof')
     expect(visualProof).toHaveTextContent('0/4 signed-in')
@@ -1025,6 +1031,9 @@ describe('CreativeCanvasWorkspace', () => {
     const proofRunbook = screen.getByLabelText(/creative canvas world-class proof runbook/i)
     expect(proofRunbook).toHaveTextContent('1/6 complete')
     expect(proofRunbook).toHaveTextContent('2/9 Direct Higgsfield benchmarks passed')
+    const certificationGate = screen.getByLabelText(/creative canvas world-class certification gate/i)
+    expect(certificationGate).toHaveTextContent('Not world-class certified yet')
+    expect(certificationGate).toHaveTextContent('1/6 live proof steps complete, 2/9 source-backed benchmarks passed.')
   })
 
   it('does not pass benchmark proof records that lack a Higgsfield source check', async () => {
