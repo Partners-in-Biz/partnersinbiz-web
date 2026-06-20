@@ -169,6 +169,7 @@ const RUN_STATUSES: CreativeCanvasRunStatus[] = ['queued', 'running', 'waiting_f
 const DEFAULT_STALE_ACTIVE_MINUTES = 30
 
 type CreativeCanvasProofBatchCategory = 'image' | 'video_social' | 'blog_document' | 'book'
+const PROOF_BATCH_RUNS_PER_CATEGORY = 2
 
 interface CreativeCanvasProofBatchSpec {
   category: CreativeCanvasProofBatchCategory
@@ -858,14 +859,16 @@ export async function queueCreativeCanvasProofBatchRuns(
   const skippedCategories: CreativeCanvasProofBatchResult['skippedCategories'] = []
 
   for (const spec of PROOF_BATCH_SPECS) {
-    const coveredRun = [...queuedRuns, ...existingRuns].find((run) =>
+    const coveredRuns = [...queuedRuns, ...existingRuns].filter((run) =>
       runMatchesProofCategory(run, spec.category) && (run.status === 'completed' || isActiveRunStatus(run.status)))
+    const missingRunCount = Math.max(0, PROOF_BATCH_RUNS_PER_CATEGORY - coveredRuns.length)
 
-    if (coveredRun) {
+    if (!missingRunCount) {
+      const coveredRun = coveredRuns[0]
       skippedCategories.push({
         category: spec.category,
-        reason: coveredRun.status === 'completed' ? 'Already has completed proof coverage' : 'Proof run already active',
-        runId: coveredRun.id,
+        reason: coveredRuns.every((run) => run.status === 'completed') ? 'Already has completed proof coverage' : 'Proof runs already active',
+        runId: coveredRun?.id,
       })
       continue
     }
@@ -879,31 +882,35 @@ export async function queueCreativeCanvasProofBatchRuns(
       continue
     }
 
-    const run = await createCreativeCanvasRun({
-      canvasId: canvas.id,
-      nodeId: sourceNode.id,
-      providerKey: spec.providerKey,
-      model: spec.model ?? sourceNode.provider?.model,
-      input: {
-        promptSummary: `${spec.promptSummary} Canvas: ${canvas.title}.`,
-        sourceNodeIds: sourceNodeIdsForProofBatch(canvas, sourceNode),
-        sourceArtifactIds: [],
-        format: spec.format,
-        outputKind: spec.outputKind,
-        operation: spec.operation,
-        aspectRatio: spec.aspectRatio,
-        durationSeconds: spec.durationSeconds,
-        variantCount: spec.variantCount,
-        stylePreset: spec.stylePreset,
-        cameraMotion: spec.cameraMotion,
-        negativePrompt: spec.providerKey === 'higgsfield' ? 'blur, distorted text, off-brand elements, unsafe claims' : undefined,
-        editMask: sourceNode.edit?.mask,
-      },
-      provenance: {
-        syntheticMedia: spec.providerKey === 'higgsfield',
-      },
-    }, orgId, actor)
-    queuedRuns.push(run)
+    for (let index = 0; index < missingRunCount; index += 1) {
+      const slot = coveredRuns.length + index + 1
+      const run = await createCreativeCanvasRun({
+        canvasId: canvas.id,
+        nodeId: sourceNode.id,
+        providerKey: spec.providerKey,
+        model: spec.model ?? sourceNode.provider?.model,
+        input: {
+          promptSummary: `${spec.promptSummary} Reliability pass ${slot}/${PROOF_BATCH_RUNS_PER_CATEGORY}. Canvas: ${canvas.title}.`,
+          sourceNodeIds: sourceNodeIdsForProofBatch(canvas, sourceNode),
+          sourceArtifactIds: [],
+          format: spec.format,
+          outputKind: spec.outputKind,
+          operation: spec.operation,
+          aspectRatio: spec.aspectRatio,
+          durationSeconds: spec.durationSeconds,
+          variantCount: spec.variantCount,
+          seed: `${spec.category}-proof-${slot}`,
+          stylePreset: spec.stylePreset,
+          cameraMotion: spec.cameraMotion,
+          negativePrompt: spec.providerKey === 'higgsfield' ? 'blur, distorted text, off-brand elements, unsafe claims' : undefined,
+          editMask: sourceNode.edit?.mask,
+        },
+        provenance: {
+          syntheticMedia: spec.providerKey === 'higgsfield',
+        },
+      }, orgId, actor)
+      queuedRuns.push(run)
+    }
   }
 
   return {

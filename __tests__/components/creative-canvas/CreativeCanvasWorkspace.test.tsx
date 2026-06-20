@@ -491,46 +491,44 @@ beforeEach(() => {
           success: true,
           data: {
             queuedRuns: [
-              {
-                id: 'proof-image',
+              ...[
+                ['proof-image-1', 'higgsfield', 'image'],
+                ['proof-image-2', 'higgsfield', 'image'],
+                ['proof-video-2', 'higgsfield', 'video'],
+                ['proof-blog-1', 'agent_task', 'blog_draft'],
+                ['proof-blog-2', 'agent_task', 'blog_draft'],
+                ['proof-book-1', 'higgsfield', 'book_artifact'],
+                ['proof-book-2', 'higgsfield', 'book_artifact'],
+              ].map(([id, providerKey, outputKind]) => ({
+                id,
                 orgId: 'org-1',
                 canvasId: 'canvas-1',
                 nodeId: 'model-node-existing',
-                providerKey: 'higgsfield',
+                providerKey,
                 status: 'queued',
-                input: { sourceNodeIds: ['model-node-existing'], sourceArtifactIds: [], outputKind: 'image' },
-                provenance: { generatedBy: 'agent', promptStored: 'summary', syntheticMedia: true },
-              },
-              {
-                id: 'proof-blog',
-                orgId: 'org-1',
-                canvasId: 'canvas-1',
-                nodeId: 'model-node-existing',
-                providerKey: 'agent_task',
-                status: 'queued',
-                input: { sourceNodeIds: ['model-node-existing'], sourceArtifactIds: [], outputKind: 'blog_draft' },
-                provenance: { generatedBy: 'agent', promptStored: 'summary', syntheticMedia: false },
-              },
+                input: { sourceNodeIds: ['model-node-existing'], sourceArtifactIds: [], outputKind },
+                provenance: { generatedBy: 'agent', promptStored: 'summary', syntheticMedia: providerKey === 'higgsfield' },
+              })),
             ],
-            skippedCategories: [{ category: 'video_social', reason: 'Proof run already active', runId: 'run-existing' }],
+            skippedCategories: [],
             operations: {
-              total: 4,
-              active: 3,
+              total: 9,
+              active: 8,
               staleActiveRuns: 1,
               staleThresholdMinutes: 30,
               failed: 1,
               retryableFailures: 1,
               completed: 0,
-              byStatus: { queued: 2, running: 1, waiting_for_review: 0, completed: 0, failed: 1, cancelled: 0 },
+              byStatus: { queued: 7, running: 1, waiting_for_review: 0, completed: 0, failed: 1, cancelled: 0 },
               providers: [{
                 providerKey: 'higgsfield',
-                total: 3,
-                active: 2,
+                total: 7,
+                active: 6,
                 staleActiveRuns: 1,
                 failed: 1,
                 retryableFailures: 1,
                 completed: 0,
-                byStatus: { queued: 1, running: 1, waiting_for_review: 0, completed: 0, failed: 1, cancelled: 0 },
+                byStatus: { queued: 5, running: 1, waiting_for_review: 0, completed: 0, failed: 1, cancelled: 0 },
               }],
             },
           },
@@ -1517,7 +1515,7 @@ describe('CreativeCanvasWorkspace', () => {
         method: 'POST',
       }))
     })
-    expect(await screen.findByText('Queued 2 proof runs')).toBeInTheDocument()
+    expect(await screen.findByText('Queued 7 proof runs')).toBeInTheDocument()
   })
 
   it('shows structured production job coverage from runtime proof', async () => {

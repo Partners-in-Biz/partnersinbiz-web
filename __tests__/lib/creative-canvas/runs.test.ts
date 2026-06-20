@@ -282,8 +282,12 @@ describe('creative canvas runs', () => {
   it('queues missing proof batch categories and skips active coverage', async () => {
     mockAdd
       .mockResolvedValueOnce({ id: 'proof-image' })
+      .mockResolvedValueOnce({ id: 'proof-image-2' })
+      .mockResolvedValueOnce({ id: 'proof-video-2' })
       .mockResolvedValueOnce({ id: 'proof-blog' })
+      .mockResolvedValueOnce({ id: 'proof-blog-2' })
       .mockResolvedValueOnce({ id: 'proof-book' })
+      .mockResolvedValueOnce({ id: 'proof-book-2' })
 
     const canvas = {
       id: 'canvas-1',
@@ -340,7 +344,7 @@ describe('creative canvas runs', () => {
       },
     ])
 
-    expect(mockAdd).toHaveBeenCalledTimes(3)
+    expect(mockAdd).toHaveBeenCalledTimes(7)
     expect(mockAdd).toHaveBeenNthCalledWith(1, expect.objectContaining({
       nodeId: 'model-1',
       providerKey: 'higgsfield',
@@ -348,37 +352,77 @@ describe('creative canvas runs', () => {
         outputKind: 'image',
         sourceNodeIds: ['model-1', 'source-1'],
         format: 'runtime_proof_image',
+        seed: 'image-proof-1',
       }),
     }))
     expect(mockAdd).toHaveBeenNthCalledWith(2, expect.objectContaining({
-      providerKey: 'agent_task',
+      nodeId: 'model-1',
+      providerKey: 'higgsfield',
       input: expect.objectContaining({
-        outputKind: 'blog_draft',
-        format: 'runtime_proof_blog_document',
-      }),
-      provenance: expect.objectContaining({
-        syntheticMedia: false,
+        outputKind: 'image',
+        format: 'runtime_proof_image',
+        seed: 'image-proof-2',
       }),
     }))
     expect(mockAdd).toHaveBeenNthCalledWith(3, expect.objectContaining({
       providerKey: 'higgsfield',
       input: expect.objectContaining({
+        outputKind: 'video',
+        format: 'runtime_proof_vertical_video',
+        seed: 'video_social-proof-2',
+      }),
+    }))
+    expect(mockAdd).toHaveBeenNthCalledWith(4, expect.objectContaining({
+      providerKey: 'agent_task',
+      input: expect.objectContaining({
+        outputKind: 'blog_draft',
+        format: 'runtime_proof_blog_document',
+        seed: 'blog_document-proof-1',
+      }),
+      provenance: expect.objectContaining({
+        syntheticMedia: false,
+      }),
+    }))
+    expect(mockAdd).toHaveBeenNthCalledWith(5, expect.objectContaining({
+      providerKey: 'agent_task',
+      input: expect.objectContaining({
+        outputKind: 'blog_draft',
+        format: 'runtime_proof_blog_document',
+        seed: 'blog_document-proof-2',
+      }),
+    }))
+    expect(mockAdd).toHaveBeenNthCalledWith(6, expect.objectContaining({
+      providerKey: 'higgsfield',
+      input: expect.objectContaining({
         outputKind: 'book_artifact',
         format: 'runtime_proof_book_artifact',
+        seed: 'book-proof-1',
+      }),
+    }))
+    expect(mockAdd).toHaveBeenNthCalledWith(7, expect.objectContaining({
+      providerKey: 'higgsfield',
+      input: expect.objectContaining({
+        outputKind: 'book_artifact',
+        format: 'runtime_proof_book_artifact',
+        seed: 'book-proof-2',
       }),
     }))
     expect(result).toMatchObject({
       queuedRuns: [
         { id: 'proof-image', providerKey: 'higgsfield', status: 'queued' },
+        { id: 'proof-image-2', providerKey: 'higgsfield', status: 'queued' },
+        { id: 'proof-video-2', providerKey: 'higgsfield', status: 'queued' },
         { id: 'proof-blog', providerKey: 'agent_task', status: 'queued' },
+        { id: 'proof-blog-2', providerKey: 'agent_task', status: 'queued' },
         { id: 'proof-book', providerKey: 'higgsfield', status: 'queued' },
+        { id: 'proof-book-2', providerKey: 'higgsfield', status: 'queued' },
       ],
-      skippedCategories: [{ category: 'video_social', runId: 'video-active' }],
       operations: {
-        total: 4,
-        active: 4,
+        total: 8,
+        active: 8,
       },
     })
+    expect(result.skippedCategories).toEqual([])
   })
 
   it('builds a reviewable agent task draft from a run and canvas', () => {
