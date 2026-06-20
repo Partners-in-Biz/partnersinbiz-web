@@ -551,10 +551,9 @@ describe('CreativeCanvasWorkspace', () => {
     expect(await screen.findByText('Product bottle.png')).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: /import product bottle.png/i }))
 
-    expect(await screen.findByAltText('Reference preview: Product bottle.png')).toHaveAttribute(
-      'src',
-      'https://cdn.example.com/product-thumb.png',
-    )
+    expect(await screen.findByLabelText('Reference preview: Product bottle.png')).toHaveStyle({
+      backgroundImage: 'url(https://cdn.example.com/product-thumb.png)',
+    })
     expect(screen.getByText('product / 1')).toBeInTheDocument()
     expect(screen.getByText('Asset gallery')).toBeInTheDocument()
     expect(screen.getByText('1 / 1')).toBeInTheDocument()
@@ -662,10 +661,9 @@ describe('CreativeCanvasWorkspace', () => {
     })
 
     expect(await screen.findByText(/source uploaded: new-product.png/i)).toBeInTheDocument()
-    expect(await screen.findByAltText('Reference preview: New product angle')).toHaveAttribute(
-      'src',
-      'https://cdn.example.com/new-product-thumb.png',
-    )
+    expect(await screen.findByLabelText('Reference preview: New product angle')).toHaveStyle({
+      backgroundImage: 'url(https://cdn.example.com/new-product-thumb.png)',
+    })
     expect(fetchMock).toHaveBeenCalledWith('/api/v1/creative-canvas/sources/upload', expect.objectContaining({
       method: 'POST',
       body: expect.any(FormData),
@@ -912,10 +910,9 @@ describe('CreativeCanvasWorkspace', () => {
 
     render(<CreativeCanvasWorkspace mode="admin" orgId="org-1" />)
 
-    expect(await screen.findByAltText('Reference preview: Red product bottle')).toHaveAttribute(
-      'src',
-      'https://cdn.example.com/product-thumb.png',
-    )
+    expect(await screen.findByLabelText('Reference preview: Red product bottle')).toHaveStyle({
+      backgroundImage: 'url(https://cdn.example.com/product-thumb.png)',
+    })
     expect(screen.getByText('product / 0.8')).toBeInTheDocument()
   })
 })

@@ -400,6 +400,25 @@ const workflowPresets: CreativeCanvasWorkflowPreset[] = [
   },
 ]
 
+function CanvasPreviewBlock({
+  url,
+  label,
+  className,
+}: {
+  url: string
+  label: string
+  className: string
+}) {
+  return (
+    <div
+      role="img"
+      aria-label={label}
+      className={`${className} bg-[var(--color-pib-surface)] bg-cover bg-center`}
+      style={{ backgroundImage: `url(${url})` }}
+    />
+  )
+}
+
 function toFlowNode(node: CreativeCanvasNode): Node {
   const previewUrl = node.source?.thumbnailUrl ?? node.source?.previewUrl ?? node.output?.thumbnailUrl ?? node.output?.url
   return {
@@ -410,10 +429,10 @@ function toFlowNode(node: CreativeCanvasNode): Node {
       label: (
         <div className="min-w-36">
           {previewUrl ? (
-            <img
-              src={previewUrl}
-              alt={`Reference preview: ${node.source?.altText ?? node.title}`}
-              className="mb-2 h-20 w-full rounded-md object-cover"
+            <CanvasPreviewBlock
+              url={previewUrl}
+              label={`Reference preview: ${node.source?.altText ?? node.title}`}
+              className="mb-2 h-20 w-full rounded-md"
             />
           ) : null}
           <p className="text-[10px] font-semibold uppercase tracking-normal text-[var(--color-pib-text-muted)]">
@@ -2375,10 +2394,10 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
                       <span className="ml-2">mask attached</span>
                     ) : null}
                     {canvasNode?.source?.thumbnailUrl || canvasNode?.source?.previewUrl ? (
-                      <img
-                        src={canvasNode.source.thumbnailUrl ?? canvasNode.source.previewUrl}
-                        alt={`Reference preview: ${canvasNode.source.altText ?? canvasNode.title}`}
-                        className="mt-2 h-24 w-full rounded-md object-cover"
+                      <CanvasPreviewBlock
+                        url={canvasNode.source.thumbnailUrl ?? canvasNode.source.previewUrl ?? ''}
+                        label={`Reference preview: ${canvasNode.source.altText ?? canvasNode.title}`}
+                        className="mt-2 h-24 w-full rounded-md"
                       />
                     ) : null}
                   </div>
