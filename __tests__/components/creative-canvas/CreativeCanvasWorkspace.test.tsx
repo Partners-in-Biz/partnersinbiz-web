@@ -999,6 +999,60 @@ describe('CreativeCanvasWorkspace', () => {
     expect(within(benchmarkProof).getAllByRole('link', { name: /open benchmark proof/i })).toHaveLength(2)
   })
 
+  it('does not mark static edit nodes as editing ergonomics benchmark-ready without local graph activity', async () => {
+    const defaultFetch = fetchMock.getMockImplementation()
+    fetchMock.mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      if (url === '/api/v1/creative-canvas?orgId=org-1') {
+        return {
+          ok: true,
+          json: async () => ({
+            success: true,
+            data: {
+              canvases: [{
+                id: 'canvas-1',
+                orgId: 'org-1',
+                title: 'Launch Canvas',
+                purpose: 'Product launch',
+                status: 'draft',
+                activeVersion: 1,
+                linked: { projectId: 'project-1' },
+                nodes: [{
+                  id: 'edit-node-existing',
+                  orgId: 'org-1',
+                  type: 'edit',
+                  title: 'Existing edit node',
+                  position: { x: 100, y: 120 },
+                  data: {},
+                  edit: {
+                    operation: 'inpaint',
+                    prompt: 'Replace background',
+                    references: [],
+                    strength: 0.6,
+                    outputKind: 'image',
+                  },
+                }],
+                edges: [],
+              }],
+            },
+          }),
+        }
+      }
+      return defaultFetch?.(input, init) ?? {
+        ok: true,
+        json: async () => ({ success: true, data: {} }),
+      }
+    })
+
+    render(<CreativeCanvasWorkspace mode="admin" orgId="org-1" />)
+
+    expect(await screen.findByText('Launch Canvas')).toBeInTheDocument()
+    const parityAudit = screen.getByLabelText(/higgsfield parity audit/i)
+    expect(parityAudit).toHaveTextContent('Edit controls are present; perform a graph edit to prove ergonomics')
+    const benchmarkProof = screen.getByLabelText(/direct higgsfield benchmark proof/i)
+    expect(benchmarkProof).toHaveTextContent('2 ready benchmark categories need stored proof.')
+  })
+
   it('applies benchmark Higgsfield model routing presets to generation controls', async () => {
     render(<CreativeCanvasWorkspace mode="admin" orgId="org-1" />)
 

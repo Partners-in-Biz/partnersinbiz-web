@@ -3773,7 +3773,9 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
   const parityAuditNodes = nodes.map((node) => toCanvasNode(node, resolvedOrgId || activeCanvas?.orgId || 'pending-org'))
   const coreWorkflowPresets = workflowPresets.filter((preset) => !preset.benchmarkScenario)
   const benchmarkWorkflowPresets = workflowPresets.filter((preset) => preset.benchmarkScenario)
-  const hasEditingEvidence = parityAuditNodes.some((node) => node.type === 'edit' || Boolean(node.edit))
+  const hasEditAffordanceEvidence = parityAuditNodes.some((node) => node.type === 'edit' || Boolean(node.edit))
+  const localEditingActivityCount = collaborationActivity.filter((event) => event.source === 'local').length
+  const hasEditingEvidence = hasEditAffordanceEvidence && localEditingActivityCount > 0
   const hasMaskEvidence = parityAuditNodes.some((node) => Boolean(
     node.edit?.mask?.region
       || node.edit?.mask?.url
@@ -3901,7 +3903,11 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
     {
       label: 'Editing ergonomics',
       status: hasEditingEvidence ? 'passed' : 'watch',
-      evidence: hasEditingEvidence ? 'Edit nodes and branch controls active' : 'Needs an edit node in this graph',
+      evidence: hasEditingEvidence
+        ? `${localEditingActivityCount} local graph edit${localEditingActivityCount === 1 ? '' : 's'} with edit controls active`
+        : hasEditAffordanceEvidence
+          ? 'Edit controls are present; perform a graph edit to prove ergonomics'
+          : 'Needs an edit node in this graph',
     },
     {
       label: 'Masking / inpainting',
