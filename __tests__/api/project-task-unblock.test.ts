@@ -107,7 +107,7 @@ describe('POST /api/v1/projects/[projectId]/tasks/[taskId]/unblock', () => {
     })
     mockGetAll.mockResolvedValue([
       docSnapshot('dep-1', { title: 'Dependency', columnId: 'done', agentStatus: 'done' }),
-      docSnapshot('gate-1', { title: 'Approval', columnId: 'done', reviewStatus: 'approved' }),
+      docSnapshot('gate-1', { title: 'Approval', columnId: 'done', reviewStatus: 'approved', approvalStatus: 'approved' }),
     ])
 
     const { POST } = await import('@/app/api/v1/projects/[projectId]/tasks/[taskId]/unblock/route')
@@ -160,6 +160,29 @@ describe('POST /api/v1/projects/[projectId]/tasks/[taskId]/unblock', () => {
         'Approval gate “Approval” is not approved yet.',
       ],
     })
+    expect(taskUpdate).not.toHaveBeenCalled()
+    expect(commentSet).not.toHaveBeenCalled()
+  })
+
+  it('does not treat quality review or done column as business approval for approval gates', async () => {
+    const { taskUpdate, commentSet } = makeTaskRefs({
+      title: 'Blocked implementation',
+      columnId: 'blocked',
+      agentStatus: 'blocked',
+      assigneeAgentId: 'theo',
+      dependsOn: [],
+      approvalGateTaskId: 'gate-1',
+    })
+    mockGetAll.mockResolvedValue([
+      docSnapshot('gate-1', { title: 'Approval', columnId: 'done', reviewStatus: 'approved', approvalStatus: 'pending' }),
+    ])
+
+    const { POST } = await import('@/app/api/v1/projects/[projectId]/tasks/[taskId]/unblock/route')
+    const res = await POST(req(), ctx)
+    const body = await res.json()
+
+    expect(res.status).toBe(409)
+    expect(body.reasons).toEqual(['Approval gate “Approval” is not approved yet.'])
     expect(taskUpdate).not.toHaveBeenCalled()
     expect(commentSet).not.toHaveBeenCalled()
   })

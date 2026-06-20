@@ -401,19 +401,19 @@ export function TaskDetailPanel({ task, columnName, projectId, orgId, members = 
     setApprovalGateError(null)
     try {
       if (decision === 'approve') {
-        await postSystemComment('✅ Peet approved this implementation plan for development. This approval does not approve production deployment, client-visible publishing, spend, secrets/config changes, destructive actions, finance changes, or live data backfill.')
         await onUpdate(task.id, {
           columnId: 'done',
           reviewStatus: 'approved',
           approvalStatus: 'approved',
         })
+        await postSystemComment('✅ Peet approved this implementation plan for development. This approval does not approve production deployment, client-visible publishing, spend, secrets/config changes, destructive actions, finance changes, or live data backfill.')
       } else {
-        await postSystemComment('❌ Peet rejected this approval gate. Changes are required before development can start.')
         await onUpdate(task.id, {
           columnId: 'todo',
           reviewStatus: 'changes-requested',
           approvalStatus: 'rejected',
         })
+        await postSystemComment('❌ Peet rejected this approval gate. Changes are required before development can start.')
       }
     } catch (err) {
       setApprovalGateError(err instanceof Error ? err.message : 'Could not record approval decision')

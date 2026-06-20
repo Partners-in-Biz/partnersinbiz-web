@@ -70,7 +70,7 @@ describe('blocked task recovery helpers', () => {
 
     expect(evaluateUnblockReadiness(task, [
       { id: 'dep-1', title: 'Dependency', columnId: 'blocked', agentStatus: 'blocked' },
-      { id: 'gate-1', title: 'Approval', columnId: 'review', reviewStatus: 'pending' },
+      { id: 'gate-1', title: 'Approval', columnId: 'review', approvalStatus: 'pending' },
     ])).toEqual({
       ready: false,
       reasons: [
@@ -81,7 +81,7 @@ describe('blocked task recovery helpers', () => {
 
     expect(evaluateUnblockReadiness(task, [
       { id: 'dep-1', title: 'Dependency', columnId: 'done', agentStatus: 'done' },
-      { id: 'gate-1', title: 'Approval', columnId: 'done', reviewStatus: 'approved' },
+      { id: 'gate-1', title: 'Approval', columnId: 'done', approvalStatus: 'approved' },
     ])).toEqual({ ready: true, reasons: [] })
   })
 })
