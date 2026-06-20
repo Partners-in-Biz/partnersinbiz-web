@@ -21,6 +21,7 @@ import {
   createCreativeCanvasRun,
   dispatchCreativeCanvasProviderRun,
   listCreativeCanvasRuns,
+  queueCreativeCanvasProofBatchRuns,
   refreshCreativeCanvasProviderRunStatus,
   retryCreativeCanvasProviderRun,
   retryCreativeCanvasProviderRunsForCanvas,
@@ -274,6 +275,108 @@ describe('creative canvas runs', () => {
         active: 1,
         failed: 1,
         retryableFailures: 0,
+      },
+    })
+  })
+
+  it('queues missing proof batch categories and skips active coverage', async () => {
+    mockAdd
+      .mockResolvedValueOnce({ id: 'proof-image' })
+      .mockResolvedValueOnce({ id: 'proof-blog' })
+      .mockResolvedValueOnce({ id: 'proof-book' })
+
+    const canvas = {
+      id: 'canvas-1',
+      orgId: 'org-1',
+      title: 'Launch Canvas',
+      status: 'draft',
+      purpose: 'Product launch proof',
+      linked: {},
+      activeVersion: 1,
+      visibility: 'admin_agents',
+      createdBy: 'agent:maya',
+      createdByType: 'agent',
+      updatedBy: 'agent:maya',
+      updatedByType: 'agent',
+      deleted: false,
+      nodes: [
+        {
+          id: 'source-1',
+          orgId: 'org-1',
+          type: 'source',
+          title: 'Product source',
+          position: { x: 0, y: 0 },
+          data: {},
+          source: { kind: 'upload' },
+        },
+        {
+          id: 'model-1',
+          orgId: 'org-1',
+          type: 'model',
+          title: 'Higgsfield model',
+          position: { x: 320, y: 0 },
+          data: {},
+          provider: { key: 'higgsfield', model: 'custom_higgsfield' },
+        },
+      ],
+      edges: [{
+        id: 'source-1-model-1',
+        orgId: 'org-1',
+        sourceNodeId: 'source-1',
+        targetNodeId: 'model-1',
+      }],
+    } as CreativeCanvas & { id: string }
+
+    const result = await queueCreativeCanvasProofBatchRuns(canvas, 'org-1', ACTOR, [
+      {
+        id: 'video-active',
+        orgId: 'org-1',
+        canvasId: 'canvas-1',
+        nodeId: 'model-1',
+        providerKey: 'higgsfield',
+        status: 'running',
+        input: { sourceNodeIds: ['source-1'], sourceArtifactIds: [], outputKind: 'video' },
+        provenance: { generatedBy: 'agent', promptStored: 'summary', syntheticMedia: true },
+      },
+    ])
+
+    expect(mockAdd).toHaveBeenCalledTimes(3)
+    expect(mockAdd).toHaveBeenNthCalledWith(1, expect.objectContaining({
+      nodeId: 'model-1',
+      providerKey: 'higgsfield',
+      input: expect.objectContaining({
+        outputKind: 'image',
+        sourceNodeIds: ['model-1', 'source-1'],
+        format: 'runtime_proof_image',
+      }),
+    }))
+    expect(mockAdd).toHaveBeenNthCalledWith(2, expect.objectContaining({
+      providerKey: 'agent_task',
+      input: expect.objectContaining({
+        outputKind: 'blog_draft',
+        format: 'runtime_proof_blog_document',
+      }),
+      provenance: expect.objectContaining({
+        syntheticMedia: false,
+      }),
+    }))
+    expect(mockAdd).toHaveBeenNthCalledWith(3, expect.objectContaining({
+      providerKey: 'higgsfield',
+      input: expect.objectContaining({
+        outputKind: 'book_artifact',
+        format: 'runtime_proof_book_artifact',
+      }),
+    }))
+    expect(result).toMatchObject({
+      queuedRuns: [
+        { id: 'proof-image', providerKey: 'higgsfield', status: 'queued' },
+        { id: 'proof-blog', providerKey: 'agent_task', status: 'queued' },
+        { id: 'proof-book', providerKey: 'higgsfield', status: 'queued' },
+      ],
+      skippedCategories: [{ category: 'video_social', runId: 'video-active' }],
+      operations: {
+        total: 4,
+        active: 4,
       },
     })
   })

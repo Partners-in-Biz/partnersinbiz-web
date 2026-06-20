@@ -470,6 +470,60 @@ beforeEach(() => {
         }),
       }
     }
+    if (url.includes('/runs/proof-batch') && init?.method === 'POST') {
+      return {
+        ok: true,
+        status: 201,
+        json: async () => ({
+          success: true,
+          data: {
+            queuedRuns: [
+              {
+                id: 'proof-image',
+                orgId: 'org-1',
+                canvasId: 'canvas-1',
+                nodeId: 'model-node-existing',
+                providerKey: 'higgsfield',
+                status: 'queued',
+                input: { sourceNodeIds: ['model-node-existing'], sourceArtifactIds: [], outputKind: 'image' },
+                provenance: { generatedBy: 'agent', promptStored: 'summary', syntheticMedia: true },
+              },
+              {
+                id: 'proof-blog',
+                orgId: 'org-1',
+                canvasId: 'canvas-1',
+                nodeId: 'model-node-existing',
+                providerKey: 'agent_task',
+                status: 'queued',
+                input: { sourceNodeIds: ['model-node-existing'], sourceArtifactIds: [], outputKind: 'blog_draft' },
+                provenance: { generatedBy: 'agent', promptStored: 'summary', syntheticMedia: false },
+              },
+            ],
+            skippedCategories: [{ category: 'video_social', reason: 'Proof run already active', runId: 'run-existing' }],
+            operations: {
+              total: 4,
+              active: 3,
+              staleActiveRuns: 1,
+              staleThresholdMinutes: 30,
+              failed: 1,
+              retryableFailures: 1,
+              completed: 0,
+              byStatus: { queued: 2, running: 1, waiting_for_review: 0, completed: 0, failed: 1, cancelled: 0 },
+              providers: [{
+                providerKey: 'higgsfield',
+                total: 3,
+                active: 2,
+                staleActiveRuns: 1,
+                failed: 1,
+                retryableFailures: 1,
+                completed: 0,
+                byStatus: { queued: 1, running: 1, waiting_for_review: 0, completed: 0, failed: 1, cancelled: 0 },
+              }],
+            },
+          },
+        }),
+      }
+    }
     if (url.endsWith('/runs?orgId=org-1')) {
       return {
         ok: true,
@@ -1041,6 +1095,20 @@ describe('CreativeCanvasWorkspace', () => {
     })
     expect(await screen.findByText('Retried 1 provider run')).toBeInTheDocument()
     expect(screen.getByText('2 active / 2 total')).toBeInTheDocument()
+  })
+
+  it('queues a proof batch from provider operations', async () => {
+    render(<CreativeCanvasWorkspace mode="admin" orgId="org-1" />)
+
+    await screen.findByText('Provider operations')
+    fireEvent.click(screen.getByRole('button', { name: /queue proof batch/i }))
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith('/api/v1/creative-canvas/canvas-1/runs/proof-batch?orgId=org-1', expect.objectContaining({
+        method: 'POST',
+      }))
+    })
+    expect(await screen.findByText('Queued 2 proof runs')).toBeInTheDocument()
   })
 
   it('adds a source node from the palette', async () => {

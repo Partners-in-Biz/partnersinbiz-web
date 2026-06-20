@@ -26,6 +26,7 @@ import type {
   CreativeCanvasOutputKind,
   CreativeCanvasRunOperationsSummary,
   CreativeCanvasRunBatchRetryResult,
+  CreativeCanvasProofBatchResult,
   CreativeCanvasProviderRuntimeReadiness,
   CreativeCanvasPresence,
   CreativeCanvasRuntimeProof,
@@ -85,6 +86,8 @@ interface CreativeCanvasRunApiResponse {
     runtimeReadiness?: CreativeCanvasProviderRuntimeReadiness
     retriedRuns?: CreativeCanvasRunBatchRetryResult['retriedRuns']
     skippedRuns?: CreativeCanvasRunBatchRetryResult['skippedRuns']
+    queuedRuns?: CreativeCanvasProofBatchResult['queuedRuns']
+    skippedCategories?: CreativeCanvasProofBatchResult['skippedCategories']
     agentTaskDraft?: {
       agentInput?: {
         providerExecution?: {
@@ -2198,6 +2201,36 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
     }
   }
 
+  const queueProofBatchRuns = async () => {
+    if (!activeCanvas?.id) return
+
+    const canvasOrgId = resolvedOrgId || activeCanvas.orgId
+    const query = canvasOrgId ? `?orgId=${encodeURIComponent(canvasOrgId)}` : ''
+    const response = await fetch(`/api/v1/creative-canvas/${activeCanvas.id}/runs/proof-batch${query}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+    })
+    const payload = await response.json().catch(() => null) as CreativeCanvasRunApiResponse | null
+    const queuedRuns = payload?.data?.queuedRuns ?? []
+    if (response.ok) {
+      if (queuedRuns.length) {
+        setRunHistory((currentRuns) => {
+          const queuedMap = new Map(queuedRuns.map((run) => [run.id, run]))
+          return [...queuedRuns, ...currentRuns.filter((run) => !queuedMap.has(run.id))]
+        })
+        setLatestRun({ id: queuedRuns[0].id, status: queuedRuns[0].status, nodeId: queuedRuns[0].nodeId })
+      }
+      if (payload?.data?.operations) setRunOperations(payload.data.operations)
+      await loadRuns(activeCanvas.id, canvasOrgId)
+      await loadRuntimeProof(activeCanvas.id, canvasOrgId)
+      setActivityMessage(queuedRuns.length
+        ? `Queued ${queuedRuns.length} proof run${queuedRuns.length === 1 ? '' : 's'}`
+        : 'Proof batch already covered or active')
+    } else {
+      setActivityMessage(payload?.error ?? 'Proof batch queue failed')
+    }
+  }
+
   const refreshRuntimeProof = async () => {
     if (!activeCanvas?.id) return
     await loadRuntimeProof(activeCanvas.id, resolvedOrgId || activeCanvas.orgId)
@@ -3269,6 +3302,21 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
                       ) : runtimeReadiness.warnings.length ? (
                         <p className="mt-1">{runtimeReadiness.warnings[0]}</p>
                       ) : null}
+                    </div>
+                  ) : null}
+                  {mode === 'admin' ? (
+                    <div className="mt-2 flex flex-wrap items-center justify-between gap-2 rounded-md border border-[var(--color-pib-line)] bg-white px-2 py-1">
+                      <p className="font-semibold text-[var(--color-pib-text)]">
+                        Reliability proof batch
+                      </p>
+                      <button
+                        type="button"
+                        onClick={queueProofBatchRuns}
+                        disabled={!activeCanvas?.id}
+                        className="rounded-md border border-[var(--color-pib-line)] px-2 py-1 font-semibold text-[var(--color-pib-text)] disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        Queue proof batch
+                      </button>
                     </div>
                   ) : null}
                   {runOperations.staleActiveRuns ? (

@@ -494,6 +494,16 @@ export interface CreativeCanvasRunBatchRetryResult {
   operations: CreativeCanvasRunOperationsSummary
 }
 
+export interface CreativeCanvasProofBatchResult {
+  queuedRuns: Array<CreativeCanvasRun & { id: string }>
+  skippedCategories: Array<{
+    category: 'image' | 'video_social' | 'blog_document' | 'book'
+    reason: string
+    runId?: string
+  }>
+  operations: CreativeCanvasRunOperationsSummary
+}
+
 export interface CreativeCanvasProviderRuntimeReadiness {
   providerKey: CreativeCanvasProviderKey
   runtimeConfigured: boolean

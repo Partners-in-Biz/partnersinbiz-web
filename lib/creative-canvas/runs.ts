@@ -14,6 +14,7 @@ import type {
   CreativeCanvasEditOperation,
   CreativeCanvasNode,
   CreativeCanvasOutputKind,
+  CreativeCanvasProofBatchResult,
   CreativeCanvasProviderKey,
   CreativeCanvasRunBatchRetryResult,
   CreativeCanvasRun,
@@ -167,6 +168,73 @@ function optionalRunStatus(value: unknown): CreativeCanvasRunStatus | undefined 
 const RUN_STATUSES: CreativeCanvasRunStatus[] = ['queued', 'running', 'waiting_for_review', 'completed', 'failed', 'cancelled']
 const DEFAULT_STALE_ACTIVE_MINUTES = 30
 
+type CreativeCanvasProofBatchCategory = 'image' | 'video_social' | 'blog_document' | 'book'
+
+interface CreativeCanvasProofBatchSpec {
+  category: CreativeCanvasProofBatchCategory
+  providerKey: CreativeCanvasProviderKey
+  model?: string
+  outputKind: CreativeCanvasOutputKind
+  operation?: CreativeCanvasEditOperation
+  aspectRatio: string
+  durationSeconds?: number
+  variantCount: number
+  format: string
+  stylePreset?: string
+  cameraMotion?: CreativeCanvasEditMotionMode
+  promptSummary: string
+}
+
+const PROOF_BATCH_SPECS: CreativeCanvasProofBatchSpec[] = [
+  {
+    category: 'image',
+    providerKey: 'higgsfield',
+    model: 'nano_banana_flash',
+    outputKind: 'image',
+    operation: 'variation',
+    aspectRatio: '1:1',
+    variantCount: 2,
+    format: 'runtime_proof_image',
+    stylePreset: 'brand_realism',
+    promptSummary: 'Runtime proof image job for a reviewable social campaign asset.',
+  },
+  {
+    category: 'video_social',
+    providerKey: 'higgsfield',
+    model: 'nano_banana_flash',
+    outputKind: 'video',
+    operation: 'video_motion',
+    aspectRatio: '9:16',
+    durationSeconds: 6,
+    variantCount: 1,
+    format: 'runtime_proof_vertical_video',
+    stylePreset: 'ugc_social',
+    cameraMotion: 'camera_push',
+    promptSummary: 'Runtime proof vertical social video job from the active canvas graph.',
+  },
+  {
+    category: 'blog_document',
+    providerKey: 'agent_task',
+    outputKind: 'blog_draft',
+    aspectRatio: '4:5',
+    variantCount: 1,
+    format: 'runtime_proof_blog_document',
+    promptSummary: 'Runtime proof blog/document draft job from the active canvas graph.',
+  },
+  {
+    category: 'book',
+    providerKey: 'higgsfield',
+    model: 'nano_banana_flash',
+    outputKind: 'book_artifact',
+    operation: 'variation',
+    aspectRatio: '4:5',
+    variantCount: 1,
+    format: 'runtime_proof_book_artifact',
+    stylePreset: 'editorial',
+    promptSummary: 'Runtime proof book artifact job for cover or chapter creative assets.',
+  },
+]
+
 function emptyStatusCounts(): CreativeCanvasRunStatusCounts {
   return {
     queued: 0,
@@ -180,6 +248,36 @@ function emptyStatusCounts(): CreativeCanvasRunStatusCounts {
 
 function isActiveRunStatus(status: CreativeCanvasRunStatus): boolean {
   return status === 'queued' || status === 'running' || status === 'waiting_for_review'
+}
+
+function runMatchesProofCategory(run: CreativeCanvasRun, category: CreativeCanvasProofBatchCategory): boolean {
+  const outputKind = run.input.outputKind
+  if (category === 'image') return outputKind === 'image' || outputKind === 'campaign_asset'
+  if (category === 'video_social') return outputKind === 'video' || outputKind === 'social_post_draft' || outputKind === 'youtube_render'
+  if (category === 'blog_document') return outputKind === 'blog_draft' || outputKind === 'document_block' || outputKind === 'copy' || outputKind === 'caption'
+  return outputKind === 'book_artifact'
+}
+
+function bestProofBatchNode(canvas: CreativeCanvas & { id: string }, spec: CreativeCanvasProofBatchSpec): CreativeCanvasNode | undefined {
+  const matchingOutput = canvas.nodes.find((node) => node.output?.kind === spec.outputKind)
+  if (matchingOutput) return matchingOutput
+
+  const matchingEdit = canvas.nodes.find((node) => node.edit?.outputKind === spec.outputKind)
+  if (matchingEdit) return matchingEdit
+
+  const matchingProvider = canvas.nodes.find((node) => node.provider?.key === spec.providerKey)
+  if (matchingProvider) return matchingProvider
+
+  return canvas.nodes.find((node) => ['model', 'edit', 'prompt', 'source', 'brief'].includes(node.type))
+}
+
+function sourceNodeIdsForProofBatch(canvas: CreativeCanvas & { id: string }, sourceNode: CreativeCanvasNode): string[] {
+  const linkedSourceIds = canvas.edges
+    .filter((edge) => edge.targetNodeId === sourceNode.id)
+    .map((edge) => edge.sourceNodeId)
+    .filter((nodeId) => canvas.nodes.some((node) => node.id === nodeId))
+
+  return Array.from(new Set([sourceNode.id, ...linkedSourceIds])).slice(0, 8)
 }
 
 function timestampToMillis(value: unknown): number | undefined {
@@ -744,6 +842,74 @@ export async function retryCreativeCanvasProviderRunsForCanvas(
     retriedRuns,
     skippedRuns,
     operations: summarizeCreativeCanvasRuns(nextRuns),
+  }
+}
+
+export async function queueCreativeCanvasProofBatchRuns(
+  canvas: CreativeCanvas & { id: string },
+  orgId: string,
+  actor: CreativeCanvasActor,
+  existingRuns: Array<CreativeCanvasRun & { id: string }>,
+): Promise<CreativeCanvasProofBatchResult> {
+  if (canvas.orgId !== orgId) throw new Error('Creative canvas does not belong to organisation')
+  if (!canvas.nodes.length) throw new Error('Creative canvas needs at least one node before queueing proof runs')
+
+  const queuedRuns: Array<CreativeCanvasRun & { id: string }> = []
+  const skippedCategories: CreativeCanvasProofBatchResult['skippedCategories'] = []
+
+  for (const spec of PROOF_BATCH_SPECS) {
+    const coveredRun = [...queuedRuns, ...existingRuns].find((run) =>
+      runMatchesProofCategory(run, spec.category) && (run.status === 'completed' || isActiveRunStatus(run.status)))
+
+    if (coveredRun) {
+      skippedCategories.push({
+        category: spec.category,
+        reason: coveredRun.status === 'completed' ? 'Already has completed proof coverage' : 'Proof run already active',
+        runId: coveredRun.id,
+      })
+      continue
+    }
+
+    const sourceNode = bestProofBatchNode(canvas, spec)
+    if (!sourceNode) {
+      skippedCategories.push({
+        category: spec.category,
+        reason: 'No usable canvas node found for proof run',
+      })
+      continue
+    }
+
+    const run = await createCreativeCanvasRun({
+      canvasId: canvas.id,
+      nodeId: sourceNode.id,
+      providerKey: spec.providerKey,
+      model: spec.model ?? sourceNode.provider?.model,
+      input: {
+        promptSummary: `${spec.promptSummary} Canvas: ${canvas.title}.`,
+        sourceNodeIds: sourceNodeIdsForProofBatch(canvas, sourceNode),
+        sourceArtifactIds: [],
+        format: spec.format,
+        outputKind: spec.outputKind,
+        operation: spec.operation,
+        aspectRatio: spec.aspectRatio,
+        durationSeconds: spec.durationSeconds,
+        variantCount: spec.variantCount,
+        stylePreset: spec.stylePreset,
+        cameraMotion: spec.cameraMotion,
+        negativePrompt: spec.providerKey === 'higgsfield' ? 'blur, distorted text, off-brand elements, unsafe claims' : undefined,
+        editMask: sourceNode.edit?.mask,
+      },
+      provenance: {
+        syntheticMedia: spec.providerKey === 'higgsfield',
+      },
+    }, orgId, actor)
+    queuedRuns.push(run)
+  }
+
+  return {
+    queuedRuns,
+    skippedCategories,
+    operations: summarizeCreativeCanvasRuns([...queuedRuns, ...existingRuns]),
   }
 }
 
