@@ -47,6 +47,14 @@ function bodySetsApprovalGateLabel(value: unknown): boolean {
   return hasApprovalGateLabel(value.filter((label): label is string => typeof label === 'string').map((label) => label.toLowerCase()))
 }
 
+function isApprovalGateRecord(data: Record<string, unknown>, nextBody: Record<string, unknown> = {}): boolean {
+  const labels = Array.isArray(data.labels) ? data.labels.map((label) => String(label).toLowerCase()) : []
+  const existingGate = typeof data.approvalGate === 'string' && data.approvalGate && data.approvalGate !== 'none'
+  const nextGate = typeof nextBody.approvalGate === 'string' && nextBody.approvalGate && nextBody.approvalGate !== 'none'
+  const existingApprovalStatus = typeof data.approvalStatus === 'string' && data.approvalStatus.trim().length > 0
+  return hasApprovalGateLabel(labels) || bodySetsApprovalGateLabel(nextBody.labels) || Boolean(existingApprovalStatus || existingGate || nextGate)
+}
+
 async function approvalGateTaskApproved(projectId: string, approvalGateTaskId: string): Promise<boolean> {
   const gateDoc = await adminDb.collection('projects').doc(projectId).collection('tasks').doc(approvalGateTaskId).get()
   if (!gateDoc.exists) return false
@@ -226,7 +234,18 @@ export const DELETE = withAuth('client', async (req: NextRequest, user, ctx) => 
   const { projectId, taskId } = await (ctx as RouteContext).params
   const access = await getProjectForUser(projectId, user)
   if (!access.ok) return apiError(access.error, access.status)
-  await adminDb.collection('projects').doc(projectId).collection('tasks').doc(taskId).delete()
+
+  const ref = adminDb.collection('projects').doc(projectId).collection('tasks').doc(taskId)
+  const doc = await ref.get()
+  if (!doc.exists) return apiError('Task not found', 404)
+
+  const existing = doc.data() ?? {}
+  const hasApprovalGateTaskId = typeof existing.approvalGateTaskId === 'string' && existing.approvalGateTaskId.trim().length > 0
+  if (user.role !== 'admin' && (isApprovalGateRecord(existing) || hasApprovalGateTaskId)) {
+    return apiError('Only an admin approver can delete approval-gated project tasks', 403)
+  }
+
+  await ref.delete()
 
   const deleteOrgId = access.doc.data()?.orgId as string | undefined
   if (deleteOrgId) {

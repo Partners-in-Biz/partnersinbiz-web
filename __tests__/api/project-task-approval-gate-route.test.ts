@@ -3,6 +3,7 @@ import { NextRequest } from 'next/server'
 const mockGetProjectForUser = jest.fn()
 const mockTaskGet = jest.fn()
 const mockTaskUpdate = jest.fn()
+const mockTaskDelete = jest.fn()
 const mockTaskDoc = jest.fn()
 const mockTasksCollection = jest.fn()
 const mockProjectDoc = jest.fn()
@@ -70,7 +71,8 @@ beforeEach(() => {
     }),
   })
   mockTaskUpdate.mockResolvedValue(undefined)
-  mockTaskDoc.mockReturnValue({ get: mockTaskGet, update: mockTaskUpdate })
+  mockTaskDelete.mockResolvedValue(undefined)
+  mockTaskDoc.mockReturnValue({ get: mockTaskGet, update: mockTaskUpdate, delete: mockTaskDelete })
   mockTasksCollection.mockReturnValue({ doc: mockTaskDoc })
   mockProjectDoc.mockReturnValue({ collection: mockTasksCollection, get: jest.fn(async () => ({ data: () => ({ orgId: 'org-1' }) })) })
   mockCollection.mockImplementation((name: string) => {
@@ -104,6 +106,28 @@ describe('project task approval gate route guards', () => {
     expect(res.status).toBe(403)
     expect(body.error).toMatch(/Only an admin approver/)
     expect(mockTaskUpdate).not.toHaveBeenCalled()
+  })
+
+  it('blocks non-admin users from deleting approval-gate tasks', async () => {
+    const { DELETE } = await import('@/app/api/v1/projects/[projectId]/tasks/[taskId]/route')
+    const res = await DELETE(new NextRequest('http://localhost/api/v1/projects/project-1/tasks/task-1', { method: 'DELETE' }), ctx)
+    const body = await res.json()
+
+    expect(res.status).toBe(403)
+    expect(body.error).toMatch(/Only an admin approver/)
+    expect(mockTaskDelete).not.toHaveBeenCalled()
+  })
+
+  it('allows admin users to delete approval-gate tasks', async () => {
+    currentUser = { uid: 'admin-1', role: 'admin', authKind: 'session' }
+
+    const { DELETE } = await import('@/app/api/v1/projects/[projectId]/tasks/[taskId]/route')
+    const res = await DELETE(new NextRequest('http://localhost/api/v1/projects/project-1/tasks/task-1', { method: 'DELETE' }), ctx)
+    const body = await res.json()
+
+    expect(res.status).toBe(200)
+    expect(body.success).toBe(true)
+    expect(mockTaskDelete).toHaveBeenCalledTimes(1)
   })
 
   it('blocks non-admin users from indirectly completing approval-gated tasks', async () => {

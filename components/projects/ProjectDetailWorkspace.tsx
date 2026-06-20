@@ -388,7 +388,7 @@ export function ProjectDetailWorkspace({
     })
     const body = await res.json().catch(() => null)
     if (!res.ok || body?.success === false) {
-      return
+      throw new Error(typeof body?.error === 'string' ? body.error : `Task move failed (${res.status})`)
     }
     setTasks(prev => prev.map(t => t.id === taskId ? { ...t, columnId: newColumnId, order: newOrder } : t))
   }, [projectId])

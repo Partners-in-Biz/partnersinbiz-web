@@ -402,6 +402,7 @@ export function KanbanBoard({
   const [tasks, setTasks] = useState(initialTasks)
   const [activeTask, setActiveTask] = useState<Task | null>(null)
   const [internalSortMode, setInternalSortMode] = useState<'latest' | 'manual'>('latest')
+  const dragSnapshotRef = useRef<Task[] | null>(null)
   const boardPanRef = useRef({
     active: false,
     pointerId: -1,
@@ -450,6 +451,7 @@ export function KanbanBoard({
   )
 
   function handleDragStart(event: DragStartEvent) {
+    dragSnapshotRef.current = tasks
     const task = tasks.find(t => t.id === event.active.id)
     setActiveTask(task ?? null)
   }
@@ -476,10 +478,16 @@ export function KanbanBoard({
   async function handleDragEnd(event: DragEndEvent) {
     const { active, over } = event
     setActiveTask(null)
-    if (!over) return
+    if (!over) {
+      dragSnapshotRef.current = null
+      return
+    }
 
     const movedTask = tasks.find(t => t.id === active.id)
-    if (!movedTask) return
+    if (!movedTask) {
+      dragSnapshotRef.current = null
+      return
+    }
 
     const overTask = tasks.find(t => t.id === over.id)
     const overColumn = columns.find(c => c.id === over.id)
@@ -499,10 +507,17 @@ export function KanbanBoard({
             ? previousOrder + 1
             : Date.now()
 
+    const rollbackTasks = dragSnapshotRef.current
     setTasks(prev => prev.map(t =>
       t.id === active.id ? { ...t, columnId: targetColumnId, order: newOrder } : t
     ))
-    await onTaskMove(movedTask.id, targetColumnId, newOrder)
+    try {
+      await onTaskMove(movedTask.id, targetColumnId, newOrder)
+      dragSnapshotRef.current = null
+    } catch {
+      if (rollbackTasks) setTasks(rollbackTasks)
+      dragSnapshotRef.current = null
+    }
   }
 
   function canPanBoardFromTarget(target: EventTarget | null) {

@@ -1,10 +1,31 @@
 import React from 'react'
-import { fireEvent, render, screen, within } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { KanbanBoard } from '@/components/kanban/KanbanBoard'
 import type { Column, Task } from '@/components/kanban/types'
 
+const mockDndHandlers: {
+  onDragStart?: (event: unknown) => void
+  onDragOver?: (event: unknown) => void
+  onDragEnd?: (event: unknown) => Promise<void> | void
+} = {}
+
 jest.mock('@dnd-kit/core', () => ({
-  DndContext: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+  DndContext: ({
+    children,
+    onDragStart,
+    onDragOver,
+    onDragEnd,
+  }: {
+    children: React.ReactNode
+    onDragStart?: (event: unknown) => void
+    onDragOver?: (event: unknown) => void
+    onDragEnd?: (event: unknown) => Promise<void> | void
+  }) => {
+    mockDndHandlers.onDragStart = onDragStart
+    mockDndHandlers.onDragOver = onDragOver
+    mockDndHandlers.onDragEnd = onDragEnd
+    return <div>{children}</div>
+  },
   DragOverlay: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
   closestCorners: jest.fn(),
   KeyboardSensor: jest.fn(),
@@ -65,7 +86,20 @@ function dispatchBoardPointerEvent(
   fireEvent(element, event)
 }
 
+function taskCardTones(title: string): string[] {
+  const cards = screen.getAllByText(title)
+    .map((node) => node.closest('.pib-card'))
+    .filter((card): card is HTMLElement => card instanceof HTMLElement)
+  return Array.from(new Set(cards)).map((card) => card.getAttribute('data-state-tone') ?? '')
+}
+
 describe('KanbanBoard task cards', () => {
+  beforeEach(() => {
+    mockDndHandlers.onDragStart = undefined
+    mockDndHandlers.onDragOver = undefined
+    mockDndHandlers.onDragEnd = undefined
+  })
+
   it('keeps kanban column overflow inside the board scroller on small screens', () => {
     render(
       <KanbanBoard
@@ -244,5 +278,44 @@ describe('KanbanBoard task cards', () => {
     const scope = within(card as HTMLElement)
     expect(scope.getByText('Approval pending')).toBeInTheDocument()
     expect(scope.getByText('Review passed')).toBeInTheDocument()
+  })
+
+  it('rolls back drag state when the server rejects a board move', async () => {
+    const rejectedMove = jest.fn(async () => {
+      throw new Error('Only an admin approver can change approval-gate metadata on project tasks')
+    })
+
+    render(
+      <KanbanBoard
+        columns={[
+          { id: 'todo', name: 'To Do', color: '#60a5fa', order: 1 },
+          { id: 'done', name: 'Done', color: '#22c55e', order: 2 },
+        ]}
+        tasks={[{ ...task, id: 'gated-task', title: 'Gated task', columnId: 'todo', order: 1 }]}
+        onTaskMove={rejectedMove}
+        onTaskClick={jest.fn()}
+        onAddTask={jest.fn()}
+      />,
+    )
+
+    expect(taskCardTones('Gated task')).toContain('todo')
+
+    act(() => {
+      mockDndHandlers.onDragStart?.({ active: { id: 'gated-task' } })
+      mockDndHandlers.onDragOver?.({ active: { id: 'gated-task' }, over: { id: 'done' } })
+    })
+
+    await waitFor(() => {
+      expect(taskCardTones('Gated task')).toContain('done')
+    })
+
+    await act(async () => {
+      await mockDndHandlers.onDragEnd?.({ active: { id: 'gated-task' }, over: { id: 'done' } })
+    })
+
+    expect(rejectedMove).toHaveBeenCalledWith('gated-task', 'done', expect.any(Number))
+    await waitFor(() => {
+      expect(taskCardTones('Gated task')).toEqual(['todo'])
+    })
   })
 })
