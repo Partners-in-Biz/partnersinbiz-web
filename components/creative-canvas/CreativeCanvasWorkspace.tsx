@@ -2641,6 +2641,91 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
     { label: 'Inspector', value: selectedCanvasNode ? 'node selected' : 'board ready' },
     { label: 'Desktop', value: '3-column graph' },
   ]
+  const parityAuditNodes = nodes.map((node) => toCanvasNode(node, resolvedOrgId || activeCanvas?.orgId || 'pending-org'))
+  const hasEditingEvidence = parityAuditNodes.some((node) => node.type === 'edit' || Boolean(node.edit))
+  const hasMaskEvidence = parityAuditNodes.some((node) => Boolean(
+    node.edit?.mask?.region
+      || node.edit?.mask?.url
+      || node.edit?.mask?.sourceNodeId
+      || node.edit?.mask?.brush?.strokes?.length,
+  ))
+  const hasGenerationEvidence = parityAuditNodes.some((node) => node.provider?.key === 'higgsfield' || node.type === 'model')
+    && Boolean(runModel && runOutputKind && runAspectRatio && runVariantCount)
+  const hasMultiAssetEvidence = sourceLibrary.length > 0
+    || canvasAssets.length > 1
+    || parityAuditNodes.filter((node) => node.source || node.output).length > 1
+  const hasVersionEvidence = versions.length > 0 && autoSaveEnabled
+  const hasCollaborationEvidence = presence.length > 0 || collaborationStreamConnected || Boolean(conflictDraft || latestCollaboratorDraft)
+  const hasTemplateEvidence = templates.length > 0
+  const hasExportEvidence = Boolean(latestExportPackage)
+    || canvasAssets.some((asset) => asset.canDraftExport)
+    || parityAuditNodes.some((node) => node.output || node.data?.exportTarget)
+  const reliabilityCoverage = runtimeProof?.reliabilityCoverage ?? []
+  const reliabilityPassed = reliabilityCoverage.length > 0 && reliabilityCoverage.every((category) => category.status === 'passed')
+  const reliabilityObserved = reliabilityCoverage.length > 0 || Boolean(runOperations?.total)
+  const parityAuditItems: Array<{
+    label: string
+    status: 'passed' | 'watch' | 'blocked'
+    evidence: string
+  }> = [
+    {
+      label: 'Editing ergonomics',
+      status: hasEditingEvidence ? 'passed' : 'watch',
+      evidence: hasEditingEvidence ? 'Edit nodes and branch controls active' : 'Needs an edit node in this graph',
+    },
+    {
+      label: 'Masking / inpainting',
+      status: hasMaskEvidence ? 'passed' : hasEditingEvidence ? 'watch' : 'blocked',
+      evidence: hasMaskEvidence ? 'Mask region or brush data attached' : 'No mask evidence on this graph yet',
+    },
+    {
+      label: 'Generation controls',
+      status: hasGenerationEvidence ? 'passed' : 'watch',
+      evidence: hasGenerationEvidence ? `${runModel} · ${runOutputKind} · ${runAspectRatio}` : 'Model, output, and format controls need selection',
+    },
+    {
+      label: 'Multi-asset workflows',
+      status: hasMultiAssetEvidence ? 'passed' : 'watch',
+      evidence: `${sourceLibrary.length} sources · ${canvasAssets.length} canvas assets`,
+    },
+    {
+      label: 'Versioning polish',
+      status: hasVersionEvidence ? 'passed' : 'watch',
+      evidence: hasVersionEvidence ? `${versions.length} saved versions with auto-save` : 'No saved version evidence loaded',
+    },
+    {
+      label: 'Collaboration',
+      status: hasCollaborationEvidence ? 'passed' : 'watch',
+      evidence: collaborationStreamConnected
+        ? 'Live stream connected'
+        : `${presence.length} collaborator${presence.length === 1 ? '' : 's'} / ${conflictDraft ? 'conflict draft preserved' : 'conflict-ready'}`,
+    },
+    {
+      label: 'Templates',
+      status: hasTemplateEvidence ? 'passed' : 'watch',
+      evidence: hasTemplateEvidence ? `${templates.length} reusable workflow template${templates.length === 1 ? '' : 's'}` : 'No reusable template loaded',
+    },
+    {
+      label: 'Mobile behavior',
+      status: responsiveProofItems.length >= 4 ? 'passed' : 'watch',
+      evidence: responsiveProofItems.map((item) => item.label).join(', '),
+    },
+    {
+      label: 'Export flows',
+      status: hasExportEvidence ? 'passed' : 'watch',
+      evidence: latestExportPackage
+        ? `${latestExportPackage.assetCount} packaged asset${latestExportPackage.assetCount === 1 ? '' : 's'}`
+        : `${canvasAssets.filter((asset) => asset.canDraftExport).length} draft-exportable assets`,
+    },
+    {
+      label: 'Production reliability',
+      status: reliabilityPassed ? 'passed' : reliabilityObserved ? 'watch' : 'blocked',
+      evidence: reliabilityCoverage.length
+        ? `${reliabilityCoverage.filter((category) => category.status === 'passed').length}/${reliabilityCoverage.length} proof categories passed`
+        : `${runOperations?.completed ?? 0} completed provider runs`,
+    },
+  ]
+  const parityPassedCount = parityAuditItems.filter((item) => item.status === 'passed').length
 
   return (
     <main className="mx-auto max-w-7xl space-y-5 px-4 py-6">
@@ -2781,6 +2866,43 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
           </div>
         ))}
       </div>
+
+      <section
+        aria-label="Higgsfield parity audit"
+        className="rounded-lg border border-[var(--color-pib-line)] bg-white p-4"
+      >
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-normal text-[var(--color-pib-text-muted)]">Higgsfield parity audit</p>
+            <h2 className="text-lg font-semibold text-[var(--color-pib-text)]">Canvas capability evidence</h2>
+          </div>
+          <span className="rounded-full border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] px-3 py-1 text-xs font-semibold text-[var(--color-pib-text)]">
+            {parityPassedCount}/{parityAuditItems.length} evidenced
+          </span>
+        </div>
+        <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
+          {parityAuditItems.map((item) => (
+            <div
+              key={item.label}
+              className={`min-w-0 rounded-lg border px-3 py-2 text-xs ${
+                item.status === 'passed'
+                  ? 'border-green-200 bg-green-50 text-green-800'
+                  : item.status === 'watch'
+                    ? 'border-amber-200 bg-amber-50 text-amber-800'
+                    : 'border-red-200 bg-red-50 text-red-800'
+              }`}
+            >
+              <div className="flex items-center justify-between gap-2">
+                <p className="font-semibold">{item.label}</p>
+                <span className="shrink-0 rounded-full border border-current px-2 py-0.5 uppercase tracking-normal">
+                  {item.status}
+                </span>
+              </div>
+              <p className="mt-1 break-words">{item.evidence}</p>
+            </div>
+          ))}
+        </div>
+      </section>
 
       <section className="grid min-h-[620px] gap-4 lg:grid-cols-[260px_minmax(0,1fr)_280px]">
         <aside
