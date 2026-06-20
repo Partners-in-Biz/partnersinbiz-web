@@ -152,4 +152,32 @@ describe('creative canvas source library API', () => {
       expect.objectContaining({ id: 'research_item:research-1', title: 'Competitor creative patterns' }),
     ])
   })
+
+  it('filters source references by source kind, reference role, and media type', async () => {
+    const { GET } = await import('@/app/api/v1/creative-canvas/sources/route')
+    const productRes = await GET(new NextRequest('http://test.local/api/v1/creative-canvas/sources?orgId=org-1&sourceKind=upload&referenceRole=product&mediaType=image'))
+    const productBody = await productRes.json()
+
+    expect(productBody.data.sources).toEqual([
+      expect.objectContaining({
+        id: 'upload:upload-1',
+        title: 'Product bottle.png',
+        source: expect.objectContaining({
+          kind: 'upload',
+          referenceRole: 'product',
+          mimeType: 'image/png',
+        }),
+      }),
+    ])
+
+    const videoRes = await GET(new NextRequest('http://test.local/api/v1/creative-canvas/sources?orgId=org-1&mediaType=video'))
+    const videoBody = await videoRes.json()
+    expect(videoBody.data.sources).toEqual(expect.arrayContaining([
+      expect.objectContaining({ id: 'social_post:media-1' }),
+      expect.objectContaining({ id: 'youtube_asset:youtube-1' }),
+    ]))
+    expect(videoBody.data.sources).not.toEqual(expect.arrayContaining([
+      expect.objectContaining({ id: 'upload:upload-1' }),
+    ]))
+  })
 })

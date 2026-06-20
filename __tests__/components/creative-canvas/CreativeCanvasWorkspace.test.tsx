@@ -198,6 +198,27 @@ describe('CreativeCanvasWorkspace', () => {
     expect(screen.getByText('product / 1')).toBeInTheDocument()
   })
 
+  it('filters the source library with search, source kind, role, and media type controls', async () => {
+    render(<CreativeCanvasWorkspace mode="admin" orgId="org-1" />)
+
+    await screen.findByText('Launch Canvas')
+    fireEvent.change(screen.getByLabelText(/search sources/i), { target: { value: 'Product' } })
+    fireEvent.change(screen.getByLabelText(/source kind/i), { target: { value: 'upload' } })
+    fireEvent.change(screen.getByLabelText(/reference role/i), { target: { value: 'product' } })
+    fireEvent.change(screen.getByLabelText(/media type/i), { target: { value: 'image' } })
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining('/api/v1/creative-canvas/sources?'))
+    })
+    expect(fetchMock.mock.calls.some(([url]) => {
+      const text = String(url)
+      return text.includes('q=Product')
+        && text.includes('sourceKind=upload')
+        && text.includes('referenceRole=product')
+        && text.includes('mediaType=image')
+    })).toBe(true)
+  })
+
   it('adds an edit node with mask and inpainting controls', async () => {
     render(<CreativeCanvasWorkspace mode="admin" orgId="org-1" />)
 

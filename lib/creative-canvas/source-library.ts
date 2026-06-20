@@ -38,6 +38,32 @@ function cleanHttpUrl(value: unknown): string | undefined {
   }
 }
 
+function enumSourceKind(value: unknown): CreativeCanvasSourceKind | undefined {
+  const allowed: CreativeCanvasSourceKind[] = [
+    'brand_kit',
+    'upload',
+    'url',
+    'research_item',
+    'client_document',
+    'campaign',
+    'social_post',
+    'youtube_asset',
+    'book_studio_record',
+    'workspace_artifact',
+  ]
+  return allowed.includes(value as CreativeCanvasSourceKind) ? value as CreativeCanvasSourceKind : undefined
+}
+
+function enumReferenceRole(value: unknown): CreativeCanvasReferenceRole | undefined {
+  const allowed: CreativeCanvasReferenceRole[] = ['general', 'product', 'person', 'character', 'style', 'background', 'logo', 'mask', 'motion']
+  return allowed.includes(value as CreativeCanvasReferenceRole) ? value as CreativeCanvasReferenceRole : undefined
+}
+
+function enumMediaType(value: unknown): 'image' | 'video' | 'audio' | 'document' | undefined {
+  const allowed = ['image', 'video', 'audio', 'document'] as const
+  return allowed.includes(value as typeof allowed[number]) ? value as typeof allowed[number] : undefined
+}
+
 function roleFromTitle(title: string): CreativeCanvasReferenceRole {
   const lower = title.toLowerCase()
   if (lower.includes('logo')) return 'logo'
@@ -46,6 +72,15 @@ function roleFromTitle(title: string): CreativeCanvasReferenceRole {
   if (lower.includes('person') || lower.includes('founder') || lower.includes('portrait')) return 'person'
   if (lower.includes('product') || lower.includes('bottle') || lower.includes('pack')) return 'product'
   return 'general'
+}
+
+function mediaTypeForItem(item: CreativeCanvasSourceLibraryItem): 'image' | 'video' | 'audio' | 'document' {
+  const mimeType = item.source.mimeType?.toLowerCase() ?? ''
+  const url = `${item.source.url ?? ''} ${item.source.previewUrl ?? ''} ${item.source.storagePath ?? ''}`.toLowerCase()
+  if (mimeType.startsWith('video/') || /\.(mp4|mov|webm|m4v)(\?|$)/.test(url)) return 'video'
+  if (mimeType.startsWith('audio/') || /\.(mp3|wav|m4a|aac|ogg)(\?|$)/.test(url)) return 'audio'
+  if (mimeType.startsWith('image/') || /\.(png|jpe?g|webp|gif|avif)(\?|$)/.test(url)) return 'image'
+  return 'document'
 }
 
 function firstMedia(value: unknown): Record<string, unknown> {
@@ -222,6 +257,9 @@ function mapDoc(collection: string, doc: FirestoreDoc): CreativeCanvasSourceLibr
 export async function listCreativeCanvasSourceLibrary(input: {
   orgId: string
   query?: string | null
+  sourceKind?: string | null
+  referenceRole?: string | null
+  mediaType?: string | null
   limit?: number
 }): Promise<CreativeCanvasSourceLibraryItem[]> {
   const collections = await Promise.all(COLLECTIONS.map(async (collection) => {
@@ -232,10 +270,16 @@ export async function listCreativeCanvasSourceLibrary(input: {
   }))
 
   const query = cleanString(input.query)?.toLowerCase()
+  const sourceKind = enumSourceKind(input.sourceKind)
+  const referenceRole = enumReferenceRole(input.referenceRole)
+  const mediaType = enumMediaType(input.mediaType)
   const limit = Math.min(Math.max(input.limit ?? 50, 1), 100)
   return collections
     .flat()
     .filter((item) => !query || `${item.title} ${item.description ?? ''} ${item.source.kind}`.toLowerCase().includes(query))
+    .filter((item) => !sourceKind || item.source.kind === sourceKind)
+    .filter((item) => !referenceRole || item.source.referenceRole === referenceRole)
+    .filter((item) => !mediaType || mediaTypeForItem(item) === mediaType)
     .sort((a, b) => a.title.localeCompare(b.title))
     .slice(0, limit)
 }

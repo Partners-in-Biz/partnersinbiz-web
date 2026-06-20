@@ -182,6 +182,10 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
   const [maskRegion, setMaskRegion] = useState({ x: 0, y: 0, width: 50, height: 50, feather: 0 })
   const [runHistory, setRunHistory] = useState<Array<CreativeCanvasRun & { id: string }>>([])
   const [latestExecution, setLatestExecution] = useState<{ command?: string; dispatchPath?: string; callbackPath?: string } | null>(null)
+  const [sourceQuery, setSourceQuery] = useState('')
+  const [sourceKindFilter, setSourceKindFilter] = useState('')
+  const [sourceRoleFilter, setSourceRoleFilter] = useState('')
+  const [sourceMediaFilter, setSourceMediaFilter] = useState('')
 
   const activeCanvas = useMemo(
     () => canvases.find((canvas) => canvas.id === activeCanvasId) ?? canvases[0],
@@ -270,7 +274,12 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
         return
       }
       try {
-        const response = await fetch(`/api/v1/creative-canvas/sources?orgId=${encodeURIComponent(resolvedOrgId)}&limit=12`)
+        const params = new URLSearchParams({ orgId: resolvedOrgId, limit: '24' })
+        if (sourceQuery.trim()) params.set('q', sourceQuery.trim())
+        if (sourceKindFilter) params.set('sourceKind', sourceKindFilter)
+        if (sourceRoleFilter) params.set('referenceRole', sourceRoleFilter)
+        if (sourceMediaFilter) params.set('mediaType', sourceMediaFilter)
+        const response = await fetch(`/api/v1/creative-canvas/sources?${params.toString()}`)
         const payload = (await response.json()) as CreativeCanvasSourceLibraryApiResponse
         if (!cancelled) setSourceLibrary(payload.data?.sources ?? [])
       } catch {
@@ -283,7 +292,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
     return () => {
       cancelled = true
     }
-  }, [resolvedOrgId])
+  }, [resolvedOrgId, sourceKindFilter, sourceMediaFilter, sourceQuery, sourceRoleFilter])
 
   const onConnect = useCallback((connection: Connection) => {
     setEdges((currentEdges) => addEdge(connection, currentEdges))
@@ -657,6 +666,70 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
 
           <div>
             <p className="text-xs font-semibold uppercase tracking-normal text-[var(--color-pib-text-muted)]">Source library</p>
+            <div className="mt-3 space-y-2">
+              <label className="block text-xs font-medium text-[var(--color-pib-text-muted)]" htmlFor="creative-canvas-source-search">
+                Search sources
+                <input
+                  id="creative-canvas-source-search"
+                  value={sourceQuery}
+                  onChange={(event) => setSourceQuery(event.target.value)}
+                  className="mt-1 w-full rounded-lg border border-[var(--color-pib-line)] bg-white px-2 py-1.5 text-xs text-[var(--color-pib-text)]"
+                  placeholder="Product, UGC, founder, cover..."
+                />
+              </label>
+              <div className="grid grid-cols-1 gap-2">
+                <label className="text-xs font-medium text-[var(--color-pib-text-muted)]" htmlFor="creative-canvas-source-kind">
+                  Source kind
+                  <select
+                    id="creative-canvas-source-kind"
+                    value={sourceKindFilter}
+                    onChange={(event) => setSourceKindFilter(event.target.value)}
+                    className="mt-1 w-full rounded-lg border border-[var(--color-pib-line)] bg-white px-2 py-1.5 text-xs text-[var(--color-pib-text)]"
+                  >
+                    <option value="">All sources</option>
+                    <option value="upload">Uploads</option>
+                    <option value="workspace_artifact">Workspace artifacts</option>
+                    <option value="research_item">Research</option>
+                    <option value="social_post">Social media/posts</option>
+                    <option value="youtube_asset">YouTube assets</option>
+                    <option value="book_studio_record">Book Studio</option>
+                  </select>
+                </label>
+                <label className="text-xs font-medium text-[var(--color-pib-text-muted)]" htmlFor="creative-canvas-source-role">
+                  Reference role
+                  <select
+                    id="creative-canvas-source-role"
+                    value={sourceRoleFilter}
+                    onChange={(event) => setSourceRoleFilter(event.target.value)}
+                    className="mt-1 w-full rounded-lg border border-[var(--color-pib-line)] bg-white px-2 py-1.5 text-xs text-[var(--color-pib-text)]"
+                  >
+                    <option value="">All roles</option>
+                    <option value="product">Product</option>
+                    <option value="person">Person</option>
+                    <option value="style">Style</option>
+                    <option value="logo">Logo</option>
+                    <option value="mask">Mask</option>
+                    <option value="motion">Motion</option>
+                    <option value="general">General</option>
+                  </select>
+                </label>
+                <label className="text-xs font-medium text-[var(--color-pib-text-muted)]" htmlFor="creative-canvas-source-media">
+                  Media type
+                  <select
+                    id="creative-canvas-source-media"
+                    value={sourceMediaFilter}
+                    onChange={(event) => setSourceMediaFilter(event.target.value)}
+                    className="mt-1 w-full rounded-lg border border-[var(--color-pib-line)] bg-white px-2 py-1.5 text-xs text-[var(--color-pib-text)]"
+                  >
+                    <option value="">All media</option>
+                    <option value="image">Images</option>
+                    <option value="video">Videos</option>
+                    <option value="audio">Audio</option>
+                    <option value="document">Documents</option>
+                  </select>
+                </label>
+              </div>
+            </div>
             <div className="mt-3 space-y-2">
               {sourceLibrary.length ? sourceLibrary.map((item) => (
                 <button

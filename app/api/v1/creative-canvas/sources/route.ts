@@ -30,6 +30,9 @@ export const GET = withAuth('client', async (req: NextRequest, user: ApiUser) =>
   const sources = await listCreativeCanvasSourceLibrary({
     orgId,
     query: url.searchParams.get('q'),
+    sourceKind: url.searchParams.get('sourceKind'),
+    referenceRole: url.searchParams.get('referenceRole'),
+    mediaType: url.searchParams.get('mediaType'),
     limit: Number.isFinite(limit) ? limit : 50,
   })
 
