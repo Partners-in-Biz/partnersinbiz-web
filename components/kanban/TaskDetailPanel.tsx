@@ -253,6 +253,7 @@ export function TaskDetailPanel({ task, columnName, projectId, orgId, members = 
         ? {
             spec,
             context: {
+              ...(task.agentInput?.context ?? {}),
               projectId,
               orgId: orgId ?? null,
               columnId: task.columnId,
@@ -863,7 +864,7 @@ export function TaskDetailPanel({ task, columnName, projectId, orgId, members = 
                     <div className="rounded border border-[var(--color-card-border)] bg-[var(--color-card)] p-3">
                       <p className="text-[9px] font-label uppercase tracking-widest text-on-surface-variant">Business approval</p>
                       <p className="mt-1 text-sm text-on-surface">{approvalStatusLabel}</p>
-                      {task.approvalGate && (
+                      {task.approvalGate && task.approvalGate !== 'none' && (
                         <p className="mt-1 text-xs text-on-surface-variant">Gate: {task.approvalGate}</p>
                       )}
                     </div>
