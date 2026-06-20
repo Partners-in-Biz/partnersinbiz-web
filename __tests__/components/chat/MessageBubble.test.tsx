@@ -95,6 +95,28 @@ describe('MessageBubble', () => {
     expect(screen.getAllByRole('img', { name: 'Screenshot 2026-05-19.png' }).at(-1)).toHaveAttribute('src', 'https://cdn.example.com/screenshot.png')
   })
 
+  it('turns bare URLs in chat text into clickable links with image previews', () => {
+    render(
+      <MessageBubble
+        currentUserUid="user-1"
+        message={{
+          id: 'msg-1',
+          conversationId: 'conv-1',
+          role: 'assistant',
+          content: 'Here is the page https://partnersinbiz.online and the image https://cdn.example.com/output.png',
+          authorKind: 'agent',
+          authorId: 'pip',
+          authorDisplayName: 'Pip',
+          status: 'completed',
+        }}
+      />,
+    )
+
+    expect(screen.getByRole('link', { name: 'https://partnersinbiz.online' })).toHaveAttribute('href', 'https://partnersinbiz.online')
+    expect(screen.getByRole('link', { name: 'https://cdn.example.com/output.png' })).toHaveAttribute('href', 'https://cdn.example.com/output.png')
+    expect(screen.getByRole('img', { name: 'https://cdn.example.com/output.png' })).toHaveAttribute('src', 'https://cdn.example.com/output.png')
+  })
+
   it('shows a full inline command console for agent tool events', () => {
     render(
       <MessageBubble
