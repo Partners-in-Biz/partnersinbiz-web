@@ -23,6 +23,7 @@ import {
   listCreativeCanvasRuns,
   refreshCreativeCanvasProviderRunStatus,
   retryCreativeCanvasProviderRun,
+  retryCreativeCanvasProviderRunsForCanvas,
   summarizeCreativeCanvasRuns,
 } from '@/lib/creative-canvas/runs'
 import type { CreativeCanvas } from '@/lib/creative-canvas/types'
@@ -162,6 +163,74 @@ describe('creative canvas runs', () => {
     }))
     expect(run).toMatchObject({ id: 'run-1', status: 'queued', providerKey: 'higgsfield' })
     expect(run.output).toBeUndefined()
+  })
+
+  it('batch retries retryable failed provider runs for a canvas', async () => {
+    mockGet.mockResolvedValue({
+      docs: [
+        {
+          id: 'run-retryable',
+          data: () => ({
+            orgId: 'org-1',
+            canvasId: 'canvas-1',
+            nodeId: 'model-1',
+            providerKey: 'higgsfield',
+            status: 'failed',
+            input: { sourceNodeIds: [], sourceArtifactIds: [] },
+            provenance: {
+              generatedBy: 'agent',
+              providerJobId: 'job-old',
+              providerRequestId: 'request-old',
+              providerStatusUrl: 'https://provider.example/status',
+              providerCallbackUrl: 'https://provider.example/callback',
+              promptStored: 'summary',
+              syntheticMedia: true,
+            },
+            error: { code: 'quota', message: 'Quota exceeded', retryable: true },
+          }),
+        },
+        {
+          id: 'run-blocked',
+          data: () => ({
+            orgId: 'org-1',
+            canvasId: 'canvas-1',
+            nodeId: 'model-2',
+            providerKey: 'higgsfield',
+            status: 'failed',
+            input: { sourceNodeIds: [], sourceArtifactIds: [] },
+            provenance: { generatedBy: 'agent', promptStored: 'summary', syntheticMedia: true },
+            error: { code: 'policy', message: 'Policy blocked', retryable: false },
+          }),
+        },
+      ],
+    })
+
+    const result = await retryCreativeCanvasProviderRunsForCanvas('canvas-1', 'org-1', ACTOR)
+
+    expect(mockWhere).toHaveBeenCalledWith('canvasId', '==', 'canvas-1')
+    expect(mockWhere).toHaveBeenCalledWith('orgId', '==', 'org-1')
+    expect(mockDoc).toHaveBeenCalledWith('run-retryable')
+    expect(mockDocUpdate).toHaveBeenCalledWith(expect.objectContaining({
+      status: 'queued',
+      providerStatus: 'retry_queued',
+      providerStatusMessage: 'Retry queued for provider runtime drain.',
+      error: null,
+      provenance: expect.not.objectContaining({
+        providerJobId: expect.any(String),
+      }),
+      updatedBy: 'agent:maya',
+      updatedByType: 'agent',
+    }))
+    expect(result).toMatchObject({
+      retriedRuns: [expect.objectContaining({ id: 'run-retryable', status: 'queued' })],
+      skippedRuns: [expect.objectContaining({ id: 'run-blocked', reason: 'Failed run is not retryable' })],
+      operations: {
+        total: 2,
+        active: 1,
+        failed: 1,
+        retryableFailures: 0,
+      },
+    })
   })
 
   it('builds a reviewable agent task draft from a run and canvas', () => {

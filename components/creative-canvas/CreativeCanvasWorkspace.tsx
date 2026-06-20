@@ -19,6 +19,7 @@ import type {
   CreativeCanvasNode,
   CreativeCanvasNodeType,
   CreativeCanvasRunOperationsSummary,
+  CreativeCanvasRunBatchRetryResult,
   CreativeCanvasRun,
   CreativeCanvasSourceLibraryItem,
   CreativeCanvasVersion,
@@ -65,6 +66,8 @@ interface CreativeCanvasRunApiResponse {
     runs?: Array<CreativeCanvasRun & { id: string }>
     run?: CreativeCanvasRun & { id: string }
     operations?: CreativeCanvasRunOperationsSummary
+    retriedRuns?: CreativeCanvasRunBatchRetryResult['retriedRuns']
+    skippedRuns?: CreativeCanvasRunBatchRetryResult['skippedRuns']
     agentTaskDraft?: {
       agentInput?: {
         providerExecution?: {
@@ -1050,6 +1053,33 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
     }
   }
 
+  const retryAllProviderRuns = async () => {
+    if (!activeCanvas?.id) return
+
+    const query = resolvedOrgId ? `?orgId=${encodeURIComponent(resolvedOrgId)}` : ''
+    const response = await fetch(`/api/v1/creative-canvas/${activeCanvas.id}/runs/retry${query}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+    })
+    const payload = await response.json().catch(() => null) as CreativeCanvasRunApiResponse | null
+    const retriedRuns = payload?.data?.retriedRuns ?? []
+    if (response.ok) {
+      setRunHistory((currentRuns) => {
+        const retriedMap = new Map(retriedRuns.map((run) => [run.id, run]))
+        return currentRuns.map((run) => retriedMap.get(run.id) ?? run)
+      })
+      if (payload?.data?.operations) setRunOperations(payload.data.operations)
+      if (retriedRuns[0]) {
+        setLatestRun({ id: retriedRuns[0].id, status: retriedRuns[0].status, nodeId: retriedRuns[0].nodeId })
+      }
+      setActivityMessage(retriedRuns.length === 1
+        ? 'Retried 1 provider run'
+        : `Retried ${retriedRuns.length} provider runs`)
+    } else {
+      setActivityMessage(payload?.error ?? 'Provider batch retry failed')
+    }
+  }
+
   const selectCanvasAsset = (assetId: string) => {
     const asset = canvasAssets.find((item) => item.id === assetId)
     setSelectedAssetId(assetId)
@@ -1703,7 +1733,18 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
                     <span>Failed {runOperations.failed}</span>
                   </div>
                   {runOperations.retryableFailures ? (
-                    <p className="mt-2 font-semibold text-red-700">{runOperations.retryableFailures} retryable provider failure{runOperations.retryableFailures === 1 ? '' : 's'}</p>
+                    <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
+                      <p className="font-semibold text-red-700">{runOperations.retryableFailures} retryable provider failure{runOperations.retryableFailures === 1 ? '' : 's'}</p>
+                      {mode === 'admin' ? (
+                        <button
+                          type="button"
+                          onClick={retryAllProviderRuns}
+                          className="rounded-md border border-[var(--color-pib-line)] bg-white px-2 py-1 font-semibold text-[var(--color-pib-text)]"
+                        >
+                          Retry all retryable
+                        </button>
+                      ) : null}
+                    </div>
                   ) : null}
                   {runOperations.providers.length ? (
                     <div className="mt-2 space-y-1">

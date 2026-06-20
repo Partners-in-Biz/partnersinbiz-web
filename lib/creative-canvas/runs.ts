@@ -13,6 +13,7 @@ import type {
   CreativeCanvasNode,
   CreativeCanvasOutputKind,
   CreativeCanvasProviderKey,
+  CreativeCanvasRunBatchRetryResult,
   CreativeCanvasRun,
   CreativeCanvasRunOperationsSummary,
   CreativeCanvasRunStatus,
@@ -99,6 +100,37 @@ function emptyStatusCounts(): CreativeCanvasRunStatusCounts {
 
 function isActiveRunStatus(status: CreativeCanvasRunStatus): boolean {
   return status === 'queued' || status === 'running' || status === 'waiting_for_review'
+}
+
+function buildRetriedCreativeCanvasProviderRun(run: CreativeCanvasRun & { id: string }): CreativeCanvasRun & { id: string } {
+  const provenance = { ...run.provenance }
+  delete provenance.providerJobId
+  delete provenance.providerRequestId
+  delete provenance.providerStatusUrl
+  delete provenance.providerCallbackUrl
+
+  return {
+    ...run,
+    status: 'queued',
+    providerStatus: 'retry_queued',
+    providerStatusMessage: 'Retry queued for provider runtime drain.',
+    error: undefined,
+    provenance,
+    updatedAt: FieldValue.serverTimestamp(),
+  }
+}
+
+function retryRunUpdatePayload(run: CreativeCanvasRun & { id: string }, actor: CreativeCanvasActor) {
+  return {
+    status: run.status,
+    providerStatus: run.providerStatus,
+    providerStatusMessage: run.providerStatusMessage,
+    error: null,
+    provenance: run.provenance,
+    updatedAt: FieldValue.serverTimestamp(),
+    updatedBy: actor.uid,
+    updatedByType: actor.type,
+  }
 }
 
 export function summarizeCreativeCanvasRuns(
@@ -473,33 +505,52 @@ export async function retryCreativeCanvasProviderRun(
   if (run.status !== 'failed') throw new Error('Only failed creative canvas provider runs can be retried')
   if (run.error?.retryable !== true) throw new Error('Creative canvas provider run is not marked retryable')
 
-  const provenance = { ...run.provenance }
-  delete provenance.providerJobId
-  delete provenance.providerRequestId
-  delete provenance.providerStatusUrl
-  delete provenance.providerCallbackUrl
-  const nextRun: CreativeCanvasRun & { id: string } = {
-    ...run,
-    status: 'queued',
-    providerStatus: 'retry_queued',
-    providerStatusMessage: 'Retry queued for provider runtime drain.',
-    error: undefined,
-    provenance,
-    updatedAt: FieldValue.serverTimestamp(),
-  }
+  const nextRun = buildRetriedCreativeCanvasProviderRun(run)
 
-  await adminDb.collection(CREATIVE_CANVAS_RUN_COLLECTION).doc(run.id).update({
-    status: nextRun.status,
-    providerStatus: nextRun.providerStatus,
-    providerStatusMessage: nextRun.providerStatusMessage,
-    error: null,
-    provenance,
-    updatedAt: FieldValue.serverTimestamp(),
-    updatedBy: actor.uid,
-    updatedByType: actor.type,
-  })
+  await adminDb.collection(CREATIVE_CANVAS_RUN_COLLECTION).doc(run.id).update(retryRunUpdatePayload(nextRun, actor))
 
   return nextRun
+}
+
+export async function retryCreativeCanvasProviderRunsForCanvas(
+  canvasId: string,
+  orgId: string,
+  actor: CreativeCanvasActor,
+): Promise<CreativeCanvasRunBatchRetryResult> {
+  const snapshot = await adminDb.collection(CREATIVE_CANVAS_RUN_COLLECTION)
+    .where('canvasId', '==', requiredString(canvasId, 'canvasId'))
+    .where('orgId', '==', requiredString(orgId, 'orgId'))
+    .get()
+
+  const retriedRuns: Array<CreativeCanvasRun & { id: string }> = []
+  const skippedRuns: CreativeCanvasRunBatchRetryResult['skippedRuns'] = []
+  const nextRuns: Array<CreativeCanvasRun & { id: string }> = []
+
+  for (const doc of snapshot.docs) {
+    const run = serializeRun(doc.id, doc.data() as CreativeCanvasRun)
+    if (run.status === 'failed' && run.error?.retryable === true) {
+      const nextRun = buildRetriedCreativeCanvasProviderRun(run)
+      retriedRuns.push(nextRun)
+      nextRuns.push(nextRun)
+      await adminDb.collection(CREATIVE_CANVAS_RUN_COLLECTION).doc(run.id).update(retryRunUpdatePayload(nextRun, actor))
+      continue
+    }
+
+    nextRuns.push(run)
+    if (run.status === 'failed') {
+      skippedRuns.push({
+        id: run.id,
+        status: run.status,
+        reason: run.error?.retryable === true ? 'Retryable run was not selected' : 'Failed run is not retryable',
+      })
+    }
+  }
+
+  return {
+    retriedRuns,
+    skippedRuns,
+    operations: summarizeCreativeCanvasRuns(nextRuns),
+  }
 }
 
 export async function completeCreativeCanvasProviderCallback(

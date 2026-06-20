@@ -417,6 +417,16 @@ export interface CreativeCanvasRunOperationsSummary {
   providers: CreativeCanvasProviderRunSummary[]
 }
 
+export interface CreativeCanvasRunBatchRetryResult {
+  retriedRuns: Array<CreativeCanvasRun & { id: string }>
+  skippedRuns: Array<{
+    id: string
+    status: CreativeCanvasRunStatus
+    reason: string
+  }>
+  operations: CreativeCanvasRunOperationsSummary
+}
+
 export type CreativeCanvasAssetOrigin = 'source_node' | 'output_node' | 'run_output'
 
 export interface CreativeCanvasAssetSummary {

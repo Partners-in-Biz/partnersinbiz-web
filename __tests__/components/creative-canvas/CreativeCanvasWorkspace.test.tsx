@@ -238,6 +238,46 @@ beforeEach(() => {
         }),
       }
     }
+    if (url.includes('/runs/retry') && init?.method === 'PUT') {
+      return {
+        ok: true,
+        json: async () => ({
+          success: true,
+          data: {
+            retriedRuns: [{
+              id: 'run-failed',
+              orgId: 'org-1',
+              canvasId: 'canvas-1',
+              nodeId: 'model-node-failed',
+              providerKey: 'higgsfield',
+              status: 'queued',
+              providerStatus: 'retry_queued',
+              providerStatusMessage: 'Retry queued for provider runtime drain.',
+              input: { sourceNodeIds: [], sourceArtifactIds: [] },
+              provenance: { generatedBy: 'agent', promptStored: 'summary', syntheticMedia: true },
+            }],
+            skippedRuns: [],
+            operations: {
+              total: 2,
+              active: 2,
+              failed: 0,
+              retryableFailures: 0,
+              completed: 0,
+              byStatus: { queued: 1, running: 1, waiting_for_review: 0, completed: 0, failed: 0, cancelled: 0 },
+              providers: [{
+                providerKey: 'higgsfield',
+                total: 2,
+                active: 2,
+                failed: 0,
+                retryableFailures: 0,
+                completed: 0,
+                byStatus: { queued: 1, running: 1, waiting_for_review: 0, completed: 0, failed: 0, cancelled: 0 },
+              }],
+            },
+          },
+        }),
+      }
+    }
     if (url.includes('/runs/run-1/provider-status') && init?.method === 'PUT') {
       return {
         ok: true,
@@ -344,6 +384,21 @@ describe('CreativeCanvasWorkspace', () => {
       }))
     })
     expect(await screen.findByText('Retry queued: run-failed')).toBeInTheDocument()
+  })
+
+  it('batch retries all retryable provider failures from operations', async () => {
+    render(<CreativeCanvasWorkspace mode="admin" orgId="org-1" />)
+
+    await screen.findByText('Provider operations')
+    fireEvent.click(screen.getByRole('button', { name: /retry all retryable/i }))
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith('/api/v1/creative-canvas/canvas-1/runs/retry?orgId=org-1', expect.objectContaining({
+        method: 'PUT',
+      }))
+    })
+    expect(await screen.findByText('Retried 1 provider run')).toBeInTheDocument()
+    expect(screen.getByText('2 active / 2 total')).toBeInTheDocument()
   })
 
   it('adds a source node from the palette', async () => {
