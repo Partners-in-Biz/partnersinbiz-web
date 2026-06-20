@@ -9,6 +9,7 @@ import { PwaRegistrar } from '@/components/pwa/PwaRegistrar'
 import { InstallPrompt } from '@/components/pwa/InstallPrompt'
 import { PWAReturnGate } from '@/components/pwa/PWAReturnGate'
 import { ToastProvider } from '@/components/ui/Toast'
+import '@xyflow/react/dist/style.css'
 import './globals.css'
 
 const geistSans = Geist({ subsets: ['latin'], variable: '--font-sans', display: 'swap' })
