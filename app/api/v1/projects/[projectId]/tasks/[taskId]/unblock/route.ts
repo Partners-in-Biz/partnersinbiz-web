@@ -35,6 +35,8 @@ async function loadRelatedTasks(projectId: string, ids: string[]): Promise<Depen
       agentStatus: typeof data.agentStatus === 'string' ? data.agentStatus : null,
       reviewStatus: typeof data.reviewStatus === 'string' ? data.reviewStatus : null,
       approvalStatus: typeof data.approvalStatus === 'string' ? data.approvalStatus : null,
+      approvalGate: typeof data.approvalGate === 'string' ? data.approvalGate : null,
+      labels: Array.isArray(data.labels) ? data.labels.filter((label): label is string => typeof label === 'string') : [],
     }
   })
 }

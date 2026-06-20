@@ -40,6 +40,8 @@ export type DependencyStatus = {
   agentStatus?: string | null
   reviewStatus?: string | null
   approvalStatus?: string | null
+  approvalGate?: string | null
+  labels?: string[]
 }
 
 const HUMAN_WAITING_PATTERNS = [
@@ -180,6 +182,16 @@ function isApprovalGateApproved(task: DependencyStatus | undefined): boolean {
   return task.approvalStatus === 'approved'
 }
 
+function isApprovalGateDependency(task: DependencyStatus | undefined): boolean {
+  if (!task) return false
+  const gate = typeof task.approvalGate === 'string' && task.approvalGate.trim() && task.approvalGate !== 'none'
+  return Boolean(
+    gate
+    || typeof task.approvalStatus === 'string'
+    || task.labels?.some((label) => /approval-gate/i.test(label)),
+  )
+}
+
 function isBlocked(task: DependencyStatus | undefined): boolean {
   if (!task) return false
   return task.columnId === 'blocked' || task.agentStatus === 'blocked' || task.agentStatus === 'awaiting-input'
@@ -201,6 +213,7 @@ export function evaluateUnblockReadiness(
     const label = taskLabel(dep, depId)
     if (!dep) reasons.push(`Dependency “${label}” could not be found.`)
     else if (isBlocked(dep)) reasons.push(`Dependency “${label}” is still blocked.`)
+    else if (isApprovalGateDependency(dep) && !isApprovalGateApproved(dep)) reasons.push(`Approval gate “${label}” is not approved yet.`)
     else if (!isDone(dep)) reasons.push(`Dependency “${label}” is not complete yet.`)
   }
 

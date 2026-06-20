@@ -186,4 +186,26 @@ describe('POST /api/v1/projects/[projectId]/tasks/[taskId]/unblock', () => {
     expect(taskUpdate).not.toHaveBeenCalled()
     expect(commentSet).not.toHaveBeenCalled()
   })
+
+  it('requires business approval when an approval-gate task is listed as an ordinary dependency', async () => {
+    const { taskUpdate, commentSet } = makeTaskRefs({
+      title: 'Blocked implementation',
+      columnId: 'blocked',
+      agentStatus: 'blocked',
+      assigneeAgentId: 'theo',
+      dependsOn: ['gate-1'],
+    })
+    mockGetAll.mockResolvedValue([
+      docSnapshot('gate-1', { title: 'Approval', columnId: 'done', reviewStatus: 'approved', approvalStatus: 'pending', labels: ['approval-gate'] }),
+    ])
+
+    const { POST } = await import('@/app/api/v1/projects/[projectId]/tasks/[taskId]/unblock/route')
+    const res = await POST(req(), ctx)
+    const body = await res.json()
+
+    expect(res.status).toBe(409)
+    expect(body.reasons).toEqual(['Approval gate “Approval” is not approved yet.'])
+    expect(taskUpdate).not.toHaveBeenCalled()
+    expect(commentSet).not.toHaveBeenCalled()
+  })
 })
