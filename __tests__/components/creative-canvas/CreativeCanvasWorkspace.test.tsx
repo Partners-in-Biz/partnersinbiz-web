@@ -651,6 +651,84 @@ describe('CreativeCanvasWorkspace', () => {
     })
   })
 
+  it('detects and applies a newer live graph from another collaborator', async () => {
+    render(<CreativeCanvasWorkspace mode="admin" orgId="org-1" />)
+
+    await screen.findByText('Launch Canvas')
+    fetchMock.mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      if (url.includes('/creative-canvas/canvas-1?orgId=org-1') && !init?.method) {
+        return {
+          ok: true,
+          json: async () => ({
+            success: true,
+            data: {
+              canvas: {
+                id: 'canvas-1',
+                orgId: 'org-1',
+                title: 'Launch Canvas',
+                purpose: 'Product launch',
+                status: 'draft',
+                activeVersion: 2,
+                linked: { projectId: 'project-1' },
+                nodes: [{
+                  id: 'remote-model-node',
+                  orgId: 'org-1',
+                  type: 'model',
+                  title: 'Remote collaborator model',
+                  position: { x: 120, y: 140 },
+                  data: {},
+                  provider: { key: 'higgsfield', model: 'nano_banana_flash' },
+                }],
+                edges: [],
+              },
+            },
+          }),
+        }
+      }
+      if (url.includes('/versions')) {
+        return {
+          ok: true,
+          json: async () => ({
+            success: true,
+            data: { versions: [{ id: 'v2', version: 2, reason: 'collaborator_graph_save' }] },
+          }),
+        }
+      }
+      if (url.includes('/presence')) {
+        return {
+          ok: true,
+          json: async () => ({ success: true, data: { presence: [] } }),
+        }
+      }
+      if (url.includes('/runs')) {
+        return {
+          ok: true,
+          json: async () => ({ success: true, data: { runs: [] } }),
+        }
+      }
+      if (url.includes('/runtime-proof')) {
+        return {
+          ok: true,
+          json: async () => ({ success: true, data: { proof: null } }),
+        }
+      }
+      return {
+        ok: true,
+        json: async () => ({ success: true, data: {} }),
+      }
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: /^refresh$/i }))
+
+    expect(await screen.findByText('Live graph update available')).toBeInTheDocument()
+    expect(screen.getByText(/another collaborator saved v2/i)).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: /apply latest graph/i }))
+
+    expect(await screen.findByText('remote-model-node')).toBeInTheDocument()
+    expect(await screen.findByText('Applied live graph v2')).toBeInTheDocument()
+  })
+
   it('applies a social launch workflow preset and saves the connected graph', async () => {
     render(<CreativeCanvasWorkspace mode="admin" orgId="org-1" />)
 

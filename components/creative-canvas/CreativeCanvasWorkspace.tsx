@@ -574,6 +574,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
   const [compareAssetIds, setCompareAssetIds] = useState<string[]>([])
   const [latestExportPackage, setLatestExportPackage] = useState<{ id: string; assetCount: number; targets: string[] } | null>(null)
   const [mobilePanel, setMobilePanel] = useState<CreativeCanvasMobilePanel>('canvas')
+  const [remoteCanvasUpdate, setRemoteCanvasUpdate] = useState<CreativeCanvas | null>(null)
 
   const activeCanvas = useMemo(
     () => canvases.find((canvas) => canvas.id === activeCanvasId) ?? canvases[0],
@@ -670,6 +671,65 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
     setPresence(payload.data?.presence ?? [])
   }, [])
 
+  const checkRemoteCanvasUpdate = useCallback(async (
+    canvasId: string,
+    canvasOrgId: string,
+    knownActiveVersion?: number,
+  ) => {
+    if (!canvasId || !canvasOrgId || !knownActiveVersion) {
+      setRemoteCanvasUpdate(null)
+      return
+    }
+
+    try {
+      const response = await fetch(`/api/v1/creative-canvas/${canvasId}?orgId=${encodeURIComponent(canvasOrgId)}`)
+      const payload = await response.json().catch(() => null) as CreativeCanvasApiListResponse | null
+      const latestCanvas = payload?.data?.canvas
+      if (!response.ok || !latestCanvas?.id) return
+      if ((latestCanvas.activeVersion ?? 0) > knownActiveVersion) {
+        setRemoteCanvasUpdate(latestCanvas)
+      } else {
+        setRemoteCanvasUpdate(null)
+      }
+    } catch {
+      // Presence polling should not surface transient remote refresh failures as canvas errors.
+    }
+  }, [])
+
+  const applyCanvasSnapshot = useCallback((canvas: CreativeCanvas) => {
+    setCanvases((current) => {
+      const exists = current.some((item) => item.id === canvas.id)
+      return exists
+        ? current.map((item) => item.id === canvas.id ? canvas : item)
+        : [canvas, ...current]
+    })
+    setActiveCanvasId(canvas.id ?? '')
+    setSelectedFlowNodeId(canvas.nodes?.[0]?.id ?? '')
+    setNodes((canvas.nodes ?? []).map(toFlowNode))
+    setEdges((canvas.edges ?? []).map(toFlowEdge))
+    setLatestExecution(null)
+    setRemoteCanvasUpdate(null)
+  }, [])
+
+  const applyRemoteCanvasUpdate = async () => {
+    if (!remoteCanvasUpdate?.id) return
+    const canvasOrgId = resolvedOrgId || remoteCanvasUpdate.orgId
+    applyCanvasSnapshot(remoteCanvasUpdate)
+    await loadVersions(remoteCanvasUpdate.id, canvasOrgId)
+    await loadRuns(remoteCanvasUpdate.id, canvasOrgId)
+    await loadRuntimeProof(remoteCanvasUpdate.id, canvasOrgId)
+    await loadPresence(remoteCanvasUpdate.id, canvasOrgId)
+    setActivityMessage(`Applied live graph v${remoteCanvasUpdate.activeVersion}`)
+    setSaveMessage('')
+  }
+
+  const refreshCollaborationState = useCallback(async (canvasId: string, canvasOrgId: string, knownActiveVersion?: number) => {
+    await Promise.all([
+      loadPresence(canvasId, canvasOrgId),
+      checkRemoteCanvasUpdate(canvasId, canvasOrgId, knownActiveVersion),
+    ])
+  }, [checkRemoteCanvasUpdate, loadPresence])
+
   const sendPresenceHeartbeat = useCallback(async (
     canvasId: string,
     canvasOrgId: string,
@@ -727,6 +787,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
         if (cancelled) return
 
         setCanvases(loadedCanvases)
+        setRemoteCanvasUpdate(null)
         const firstCanvas = loadedCanvases[0]
         setActiveCanvasId(firstCanvas?.id ?? '')
         setSelectedFlowNodeId(firstCanvas?.nodes?.[0]?.id ?? '')
@@ -770,10 +831,18 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
     sendPresenceHeartbeat(activeCanvas.id, canvasOrgId, selectedNodeId)
     const heartbeat = window.setInterval(() => {
       sendPresenceHeartbeat(activeCanvas.id!, canvasOrgId, selectedNodeId)
-      loadPresence(activeCanvas.id!, canvasOrgId)
+      refreshCollaborationState(activeCanvas.id!, canvasOrgId, activeCanvas.activeVersion)
     }, 30_000)
     return () => window.clearInterval(heartbeat)
-  }, [activeCanvas?.id, activeCanvas?.orgId, loadPresence, resolvedOrgId, selectedNodeId, sendPresenceHeartbeat])
+  }, [
+    activeCanvas?.activeVersion,
+    activeCanvas?.id,
+    activeCanvas?.orgId,
+    refreshCollaborationState,
+    resolvedOrgId,
+    selectedNodeId,
+    sendPresenceHeartbeat,
+  ])
 
   useEffect(() => {
     let cancelled = false
@@ -911,11 +980,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
   }
 
   const openCanvas = async (canvas: CreativeCanvas) => {
-    setActiveCanvasId(canvas.id ?? '')
-    setSelectedFlowNodeId(canvas.nodes[0]?.id ?? '')
-    setNodes(canvas.nodes.map(toFlowNode))
-    setEdges(canvas.edges.map(toFlowEdge))
-    setLatestExecution(null)
+    applyCanvasSnapshot(canvas)
     if (canvas.id) {
       await loadVersions(canvas.id, orgId ?? canvas.orgId)
       await loadRuns(canvas.id, orgId ?? canvas.orgId)
@@ -1199,6 +1264,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
       const savedCanvas = payload?.data?.canvas
       if (savedCanvas?.id) {
         setCanvases((current) => current.map((canvas) => canvas.id === savedCanvas.id ? savedCanvas : canvas))
+        setRemoteCanvasUpdate(null)
       }
       setSaveMessage('Graph saved')
       await loadVersions(activeCanvas.id, resolvedOrgId || activeCanvas.orgId)
@@ -1228,17 +1294,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
     }
 
     const nextCanvas = payload.data.canvas
-    setCanvases((current) => {
-      const exists = current.some((canvas) => canvas.id === nextCanvas.id)
-      return exists
-        ? current.map((canvas) => canvas.id === nextCanvas.id ? nextCanvas : canvas)
-        : [nextCanvas, ...current]
-    })
-    setActiveCanvasId(nextCanvas.id ?? '')
-    setSelectedFlowNodeId(nextCanvas.nodes?.[0]?.id ?? '')
-    setNodes((nextCanvas.nodes ?? []).map(toFlowNode))
-    setEdges((nextCanvas.edges ?? []).map(toFlowEdge))
-    setLatestExecution(null)
+    applyCanvasSnapshot(nextCanvas)
     await loadVersions(nextCanvas.id ?? activeCanvas.id, resolvedOrgId || nextCanvas.orgId)
     await loadRuns(nextCanvas.id ?? activeCanvas.id, resolvedOrgId || nextCanvas.orgId)
     await loadPresence(nextCanvas.id ?? activeCanvas.id, resolvedOrgId || nextCanvas.orgId)
@@ -1659,6 +1715,26 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
 
       {error ? (
         <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>
+      ) : null}
+
+      {remoteCanvasUpdate ? (
+        <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="font-semibold">Live graph update available</p>
+              <p className="mt-1">
+                Another collaborator saved v{remoteCanvasUpdate.activeVersion}; applying it will replace the graph currently shown in this workspace.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => { void applyRemoteCanvasUpdate() }}
+              className="rounded-md border border-amber-300 bg-white px-3 py-2 text-xs font-semibold text-amber-900"
+            >
+              Apply latest graph
+            </button>
+          </div>
+        </div>
       ) : null}
 
       <nav
@@ -2509,7 +2585,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
               <h3 className="text-sm font-semibold text-[var(--color-pib-text)]">Live collaborators</h3>
               <button
                 type="button"
-                onClick={() => activeCanvas?.id ? loadPresence(activeCanvas.id, resolvedOrgId || activeCanvas.orgId) : undefined}
+                onClick={() => activeCanvas?.id ? refreshCollaborationState(activeCanvas.id, resolvedOrgId || activeCanvas.orgId, activeCanvas.activeVersion) : undefined}
                 disabled={!activeCanvas?.id}
                 className="rounded-md border border-[var(--color-pib-line)] px-2 py-1 text-xs font-semibold text-[var(--color-pib-text)] disabled:cursor-not-allowed disabled:opacity-50"
               >
