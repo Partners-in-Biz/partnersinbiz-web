@@ -2,7 +2,7 @@ import { NextRequest } from 'next/server'
 import { withAuth } from '@/lib/api/auth'
 import { apiError, apiSuccess } from '@/lib/api/response'
 import type { ApiUser } from '@/lib/api/types'
-import { createCreativeCanvasComment } from '@/lib/creative-canvas/collaboration'
+import { createCreativeCanvasComment, listCreativeCanvasComments } from '@/lib/creative-canvas/collaboration'
 import type { CreativeCanvasActor } from '@/lib/creative-canvas/types'
 
 export const dynamic = 'force-dynamic'
@@ -29,4 +29,12 @@ export const POST = withAuth('client', async (req: NextRequest, user: ApiUser, c
   if (!body) return apiError('Malformed JSON body', 400)
   const comment = await createCreativeCanvasComment(id, orgId, body, actorFromUser(user))
   return apiSuccess({ comment }, 201)
+})
+
+export const GET = withAuth('client', async (req: NextRequest, user: ApiUser, context?: unknown) => {
+  const { id } = await (context as RouteContext).params
+  const orgId = resolveOrgId(req, user)
+  if (!orgId) return apiError('orgId is required', 400)
+  const comments = await listCreativeCanvasComments(id, orgId)
+  return apiSuccess({ comments })
 })

@@ -21,6 +21,7 @@ import {
   attachCreativeCanvasNodeOutput,
   createCreativeCanvasComment,
   forkCreativeCanvasVersion,
+  listCreativeCanvasComments,
   listCreativeCanvasVersions,
   heartbeatCreativeCanvasPresence,
   listCreativeCanvasPresence,
@@ -214,6 +215,41 @@ describe('creative canvas collaboration helpers', () => {
       createdAt: 'SERVER_TIMESTAMP',
     }))
     expect(comment).toMatchObject({ id: 'comment-1', body: 'Needs a stronger hook' })
+  })
+
+  it('lists tenant-scoped node comments for a canvas', async () => {
+    mockGet.mockResolvedValue({
+      docs: [
+        {
+          id: 'comment-1',
+          data: () => ({
+            orgId: 'org-1',
+            canvasId: 'canvas-1',
+            nodeId: 'output-1',
+            body: 'Needs stronger product framing',
+            visibility: 'admin_agents',
+            resolved: false,
+            createdBy: 'maya',
+            createdByType: 'agent',
+          }),
+        },
+      ],
+    })
+
+    const comments = await listCreativeCanvasComments('canvas-1', 'org-1')
+
+    expect(mockCollection).toHaveBeenCalledWith('creative_canvas_comments')
+    expect(mockWhere).toHaveBeenCalledWith('orgId', '==', 'org-1')
+    expect(mockWhere).toHaveBeenCalledWith('canvasId', '==', 'canvas-1')
+    expect(comments).toEqual([
+      expect.objectContaining({
+        id: 'comment-1',
+        nodeId: 'output-1',
+        body: 'Needs stronger product framing',
+        createdBy: 'maya',
+        createdByType: 'agent',
+      }),
+    ])
   })
 
   it('lists active collaborators and filters stale canvas presence', async () => {

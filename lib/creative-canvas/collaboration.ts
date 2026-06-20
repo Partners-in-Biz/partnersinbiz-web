@@ -76,8 +76,22 @@ function serializeVersion(id: string, data: UnknownRecord): CreativeCanvasVersio
   }
 }
 
-function serializeComment(id: string, data: CreativeCanvasComment): CreativeCanvasComment & { id: string } {
-  return { id, ...data }
+function serializeComment(id: string, data: UnknownRecord): CreativeCanvasComment & { id: string } {
+  return {
+    id,
+    orgId: String(data.orgId ?? ''),
+    canvasId: String(data.canvasId ?? ''),
+    nodeId: cleanString(data.nodeId),
+    body: String(data.body ?? ''),
+    visibility: VISIBILITIES.includes(data.visibility as CreativeCanvasVisibility)
+      ? data.visibility as CreativeCanvasVisibility
+      : 'admin_agents',
+    resolved: data.resolved === true,
+    createdAt: data.createdAt,
+    createdBy: String(data.createdBy ?? ''),
+    createdByType: data.createdByType === 'agent' || data.createdByType === 'system' ? data.createdByType : 'user',
+    updatedAt: data.updatedAt,
+  }
 }
 
 function serializePresence(id: string, data: UnknownRecord): CreativeCanvasPresence & { id: string } {
@@ -305,7 +319,30 @@ export async function createCreativeCanvasComment(
     updatedAt: FieldValue.serverTimestamp(),
   }
   const ref = await adminDb.collection(CREATIVE_CANVAS_COMMENT_COLLECTION).add(payload)
-  return serializeComment(ref.id, payload)
+  return serializeComment(ref.id, payload as unknown as UnknownRecord)
+}
+
+export async function listCreativeCanvasComments(
+  canvasId: string,
+  orgId: string,
+): Promise<Array<CreativeCanvasComment & { id: string }>> {
+  const snap = await adminDb
+    .collection(CREATIVE_CANVAS_COMMENT_COLLECTION)
+    .where('orgId', '==', orgId)
+    .where('canvasId', '==', canvasId)
+    .get()
+
+  return snap.docs
+    .map((doc: { id: string; data: () => UnknownRecord }) => serializeComment(doc.id, doc.data()))
+    .sort((a, b) => {
+      const aMs = typeof a.createdAt === 'object' && a.createdAt && 'toMillis' in a.createdAt
+        ? Number((a.createdAt as { toMillis: () => number }).toMillis())
+        : 0
+      const bMs = typeof b.createdAt === 'object' && b.createdAt && 'toMillis' in b.createdAt
+        ? Number((b.createdAt as { toMillis: () => number }).toMillis())
+        : 0
+      return bMs - aMs
+    })
 }
 
 export async function listCreativeCanvasPresence(

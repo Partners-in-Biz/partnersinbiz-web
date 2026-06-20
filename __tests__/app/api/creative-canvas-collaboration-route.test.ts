@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server'
 
 const mockListCreativeCanvasVersions = jest.fn()
 const mockCreateCreativeCanvasComment = jest.fn()
+const mockListCreativeCanvasComments = jest.fn()
 const mockListCreativeCanvasPresence = jest.fn()
 const mockHeartbeatCreativeCanvasPresence = jest.fn()
 const mockAttachCreativeCanvasNodeOutput = jest.fn()
@@ -15,6 +16,7 @@ jest.mock('@/lib/api/auth', () => ({
 jest.mock('@/lib/creative-canvas/collaboration', () => ({
   listCreativeCanvasVersions: mockListCreativeCanvasVersions,
   createCreativeCanvasComment: mockCreateCreativeCanvasComment,
+  listCreativeCanvasComments: mockListCreativeCanvasComments,
   listCreativeCanvasPresence: mockListCreativeCanvasPresence,
   heartbeatCreativeCanvasPresence: mockHeartbeatCreativeCanvasPresence,
   attachCreativeCanvasNodeOutput: mockAttachCreativeCanvasNodeOutput,
@@ -56,6 +58,19 @@ describe('creative canvas collaboration API routes', () => {
       { uid: 'user-1', type: 'user' },
     )
     expect(body.data.comment.id).toBe('comment-1')
+  })
+
+  it('lists canvas comments for the selected canvas', async () => {
+    const { GET } = await import('@/app/api/v1/creative-canvas/[id]/comments/route')
+    mockListCreativeCanvasComments.mockResolvedValue([{ id: 'comment-1', nodeId: 'node-1', body: 'Needs review' }])
+
+    const res = await GET(new NextRequest('http://test.local/api/v1/creative-canvas/canvas-1/comments?orgId=org-1'), {
+      params: Promise.resolve({ id: 'canvas-1' }),
+    })
+    const body = await res.json()
+
+    expect(mockListCreativeCanvasComments).toHaveBeenCalledWith('canvas-1', 'org-1')
+    expect(body).toMatchObject({ success: true, data: { comments: [{ id: 'comment-1', nodeId: 'node-1' }] } })
   })
 
   it('lists active collaborators for a canvas', async () => {

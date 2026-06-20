@@ -102,11 +102,33 @@ beforeEach(() => {
       }
     }
     if (url.includes('/comments') && init?.method === 'POST') {
+      const body = JSON.parse(String(init.body ?? '{}')) as { nodeId?: string; body?: string; visibility?: string }
       return {
         ok: true,
         json: async () => ({
           success: true,
-          data: { comment: { id: 'comment-1', body: 'Needs a stronger hook' } },
+          data: {
+            comment: {
+              id: 'comment-1',
+              orgId: 'org-1',
+              canvasId: 'canvas-1',
+              nodeId: body.nodeId,
+              body: body.body ?? 'Needs a stronger hook',
+              visibility: body.visibility ?? 'admin_agents',
+              resolved: false,
+              createdBy: 'user-1',
+              createdByType: 'user',
+            },
+          },
+        }),
+      }
+    }
+    if (url.includes('/comments')) {
+      return {
+        ok: true,
+        json: async () => ({
+          success: true,
+          data: { comments: [] },
         }),
       }
     }
@@ -1134,6 +1156,7 @@ describe('CreativeCanvasWorkspace', () => {
 
     await screen.findByText('Launch Canvas')
     expect(await screen.findByText(/version 2/i)).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: /add source node/i }))
 
     fireEvent.change(screen.getByLabelText(/comment body/i), {
       target: { value: 'Needs a stronger hook' },
@@ -1145,6 +1168,15 @@ describe('CreativeCanvasWorkspace', () => {
         method: 'POST',
       }))
     })
+    const commentCall = fetchMock.mock.calls.find(([url, init]) =>
+      String(url).includes('/comments?orgId=org-1') && init?.method === 'POST'
+    )
+    expect(JSON.parse(commentCall?.[1]?.body as string)).toMatchObject({
+      nodeId: expect.stringContaining('source-node-'),
+      body: 'Needs a stronger hook',
+    })
+    expect(await screen.findByText('Selected node thread')).toBeInTheDocument()
+    expect(screen.getByText('Needs a stronger hook')).toBeInTheDocument()
   })
 
   it('restores a saved graph version from the versions panel', async () => {

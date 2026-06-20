@@ -14,6 +14,7 @@ import {
 import type {
   CreativeCanvasAssetOrigin,
   CreativeCanvas,
+  CreativeCanvasComment,
   CreativeCanvasEdge,
   CreativeCanvasExport,
   CreativeCanvasNode,
@@ -124,6 +125,15 @@ interface CreativeCanvasPresenceApiResponse {
   data?: {
     presence?: Array<CreativeCanvasPresence & { id: string }>
   }
+}
+
+interface CreativeCanvasCommentApiResponse {
+  success?: boolean
+  data?: {
+    comment?: CreativeCanvasComment & { id: string }
+    comments?: Array<CreativeCanvasComment & { id: string }>
+  }
+  error?: string
 }
 
 const nodeTypeLabels: Record<CreativeCanvasNodeType, string> = {
@@ -538,6 +548,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
   const [saveMessage, setSaveMessage] = useState('')
   const [versions, setVersions] = useState<Array<CreativeCanvasVersion & { id?: string }>>([])
   const [commentBody, setCommentBody] = useState('')
+  const [comments, setComments] = useState<Array<CreativeCanvasComment & { id: string }>>([])
   const [presence, setPresence] = useState<Array<CreativeCanvasPresence & { id: string }>>([])
   const [activityMessage, setActivityMessage] = useState('')
   const [exportTarget, setExportTarget] = useState<CreativeCanvasExport['target']>('campaign_asset')
@@ -588,6 +599,17 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
   }, [nodes, selectedFlowNodeId])
 
   const selectedNodeId = selectedCanvasNode?.id
+  const selectedNodeComments = useMemo(() => (
+    comments.filter((comment) => comment.nodeId === selectedNodeId)
+  ), [comments, selectedNodeId])
+  const canvasLevelComments = useMemo(() => (
+    comments.filter((comment) => !comment.nodeId)
+  ), [comments])
+  const commentCountByNodeId = useMemo(() => comments.reduce<Record<string, number>>((counts, comment) => {
+    if (!comment.nodeId) return counts
+    counts[comment.nodeId] = (counts[comment.nodeId] ?? 0) + 1
+    return counts
+  }, {}), [comments])
   const selectedMaskBrushStrokes = selectedCanvasNode?.edit?.mask?.brush?.strokes ?? []
   const orchestrationPlan = useMemo(() => buildCreativeCanvasOrchestrationPlan({
     id: activeCanvas?.id,
@@ -671,6 +693,16 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
     setPresence(payload.data?.presence ?? [])
   }, [])
 
+  const loadComments = useCallback(async (canvasId: string, canvasOrgId: string) => {
+    if (!canvasId || !canvasOrgId) {
+      setComments([])
+      return
+    }
+    const response = await fetch(`/api/v1/creative-canvas/${canvasId}/comments?orgId=${encodeURIComponent(canvasOrgId)}`)
+    const payload = (await response.json()) as CreativeCanvasCommentApiResponse
+    setComments(payload.data?.comments ?? [])
+  }, [])
+
   const checkRemoteCanvasUpdate = useCallback(async (
     canvasId: string,
     canvasOrgId: string,
@@ -719,6 +751,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
     await loadRuns(remoteCanvasUpdate.id, canvasOrgId)
     await loadRuntimeProof(remoteCanvasUpdate.id, canvasOrgId)
     await loadPresence(remoteCanvasUpdate.id, canvasOrgId)
+    await loadComments(remoteCanvasUpdate.id, canvasOrgId)
     setActivityMessage(`Applied live graph v${remoteCanvasUpdate.activeVersion}`)
     setSaveMessage('')
   }
@@ -798,6 +831,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
           await loadRuns(firstCanvas.id, orgId ?? firstCanvas.orgId)
           await loadRuntimeProof(firstCanvas.id, orgId ?? firstCanvas.orgId)
           await loadPresence(firstCanvas.id, orgId ?? firstCanvas.orgId)
+          await loadComments(firstCanvas.id, orgId ?? firstCanvas.orgId)
         } else {
           setVersions([])
           setRunHistory([])
@@ -805,6 +839,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
           setRuntimeReadiness(null)
           setRuntimeProof(null)
           setPresence([])
+          setComments([])
         }
       } catch {
         if (!cancelled) {
@@ -822,7 +857,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
     return () => {
       cancelled = true
     }
-  }, [loadPresence, loadRuns, loadRuntimeProof, loadVersions, orgId])
+  }, [loadComments, loadPresence, loadRuns, loadRuntimeProof, loadVersions, orgId])
 
   useEffect(() => {
     if (!activeCanvas?.id) return
@@ -986,6 +1021,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
       await loadRuns(canvas.id, orgId ?? canvas.orgId)
       await loadRuntimeProof(canvas.id, orgId ?? canvas.orgId)
       await loadPresence(canvas.id, orgId ?? canvas.orgId)
+      await loadComments(canvas.id, orgId ?? canvas.orgId)
     }
   }
 
@@ -1298,6 +1334,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
     await loadVersions(nextCanvas.id ?? activeCanvas.id, resolvedOrgId || nextCanvas.orgId)
     await loadRuns(nextCanvas.id ?? activeCanvas.id, resolvedOrgId || nextCanvas.orgId)
     await loadPresence(nextCanvas.id ?? activeCanvas.id, resolvedOrgId || nextCanvas.orgId)
+    await loadComments(nextCanvas.id ?? activeCanvas.id, resolvedOrgId || nextCanvas.orgId)
     setActivityMessage(action === 'restore'
       ? `Restored version ${version.version}`
       : `Forked version ${version.version}`)
@@ -1317,9 +1354,16 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
       }),
     })
 
+    const payload = await response.json().catch(() => null) as CreativeCanvasCommentApiResponse | null
+
     if (response.ok) {
       setActivityMessage('Comment added')
       setCommentBody('')
+      if (payload?.data?.comment) {
+        setComments((current) => [payload.data!.comment!, ...current.filter((comment) => comment.id !== payload.data!.comment!.id)])
+      } else {
+        await loadComments(activeCanvas.id, resolvedOrgId || activeCanvas.orgId)
+      }
     } else {
       setActivityMessage('Comment failed')
     }
@@ -1991,6 +2035,11 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
             <p className="mt-1 text-sm text-[var(--color-pib-text-muted)]">
               {activeCanvas?.purpose ?? 'Create a canvas to start an agent-assisted creative workflow.'}
             </p>
+            {selectedNodeId ? (
+              <p className="mt-2 text-xs font-semibold text-[var(--color-pib-text-muted)]">
+                Node {selectedNodeId} · {commentCountByNodeId[selectedNodeId] ?? 0} comment{(commentCountByNodeId[selectedNodeId] ?? 0) === 1 ? '' : 's'}
+              </p>
+            ) : null}
           </div>
 
           <div className="rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] p-3">
@@ -2655,6 +2704,42 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
 
           <div>
             <h3 className="text-sm font-semibold text-[var(--color-pib-text)]">Comments</h3>
+            <div className="mt-2 space-y-2">
+              {selectedNodeId && selectedNodeComments.length ? (
+                <div className="rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] px-3 py-2 text-xs text-[var(--color-pib-text-muted)]">
+                  <p className="font-semibold text-[var(--color-pib-text)]">Selected node thread</p>
+                  <div className="mt-2 space-y-2">
+                    {selectedNodeComments.map((comment) => (
+                      <div key={comment.id} className="rounded-md border border-[var(--color-pib-line)] bg-white px-2 py-1.5">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="font-semibold text-[var(--color-pib-text)]">{comment.createdByType}:{comment.createdBy}</span>
+                          <span className="rounded-full border border-[var(--color-pib-line)] px-2 py-0.5 uppercase tracking-normal">{comment.visibility}</span>
+                        </div>
+                        <p className="mt-1 text-[var(--color-pib-text)]">{comment.body}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
+              {canvasLevelComments.length ? (
+                <div className="rounded-lg border border-[var(--color-pib-line)] px-3 py-2 text-xs text-[var(--color-pib-text-muted)]">
+                  <p className="font-semibold text-[var(--color-pib-text)]">Canvas thread</p>
+                  <div className="mt-2 space-y-2">
+                    {canvasLevelComments.slice(0, 4).map((comment) => (
+                      <div key={comment.id} className="rounded-md bg-[var(--color-pib-surface)] px-2 py-1.5">
+                        <p className="font-semibold text-[var(--color-pib-text)]">{comment.createdByType}:{comment.createdBy}</p>
+                        <p className="mt-1 text-[var(--color-pib-text)]">{comment.body}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
+              {!selectedNodeComments.length && !canvasLevelComments.length ? (
+                <p className="rounded-lg border border-dashed border-[var(--color-pib-line)] px-3 py-2 text-xs text-[var(--color-pib-text-muted)]">
+                  Node and canvas comments will appear here.
+                </p>
+              ) : null}
+            </div>
             <label className="mt-2 block text-xs font-medium text-[var(--color-pib-text-muted)]" htmlFor="creative-canvas-comment">
               Comment body
             </label>
