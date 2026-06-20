@@ -22,6 +22,7 @@ import {
   dispatchCreativeCanvasProviderRun,
   listCreativeCanvasRuns,
   refreshCreativeCanvasProviderRunStatus,
+  summarizeCreativeCanvasRuns,
 } from '@/lib/creative-canvas/runs'
 import type { CreativeCanvas } from '@/lib/creative-canvas/types'
 
@@ -36,6 +37,74 @@ beforeEach(() => {
 })
 
 describe('creative canvas runs', () => {
+  it('summarizes provider operations across run statuses', () => {
+    const summary = summarizeCreativeCanvasRuns([
+      {
+        id: 'run-1',
+        orgId: 'org-1',
+        canvasId: 'canvas-1',
+        nodeId: 'model-1',
+        providerKey: 'higgsfield',
+        status: 'running',
+        input: { sourceNodeIds: [], sourceArtifactIds: [] },
+        provenance: { generatedBy: 'agent', promptStored: 'summary', syntheticMedia: true },
+        providerStatusMessage: 'Rendering preview frames',
+      },
+      {
+        id: 'run-2',
+        orgId: 'org-1',
+        canvasId: 'canvas-1',
+        nodeId: 'model-2',
+        providerKey: 'higgsfield',
+        status: 'failed',
+        input: { sourceNodeIds: [], sourceArtifactIds: [] },
+        provenance: { generatedBy: 'agent', promptStored: 'summary', syntheticMedia: true },
+        error: { code: 'quota', message: 'Quota exceeded', retryable: true },
+      },
+      {
+        id: 'run-3',
+        orgId: 'org-1',
+        canvasId: 'canvas-1',
+        nodeId: 'copy-1',
+        providerKey: 'text_generation',
+        status: 'completed',
+        input: { sourceNodeIds: [], sourceArtifactIds: [] },
+        provenance: { generatedBy: 'agent', promptStored: 'summary', syntheticMedia: false },
+      },
+    ])
+
+    expect(summary).toMatchObject({
+      total: 3,
+      active: 1,
+      failed: 1,
+      retryableFailures: 1,
+      completed: 1,
+      byStatus: {
+        queued: 0,
+        running: 1,
+        waiting_for_review: 0,
+        completed: 1,
+        failed: 1,
+        cancelled: 0,
+      },
+      providers: [
+        expect.objectContaining({
+          providerKey: 'higgsfield',
+          total: 2,
+          active: 1,
+          failed: 1,
+          retryableFailures: 1,
+          latestProviderStatusMessage: 'Rendering preview frames',
+          latestErrorMessage: 'Quota exceeded',
+        }),
+        expect.objectContaining({
+          providerKey: 'text_generation',
+          completed: 1,
+        }),
+      ],
+    })
+  })
+
   it('queues a Higgsfield run with internal provenance and no client-visible output', async () => {
     mockAdd.mockResolvedValue({ id: 'run-1' })
 

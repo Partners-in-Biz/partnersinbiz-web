@@ -14,7 +14,9 @@ import type {
   CreativeCanvasOutputKind,
   CreativeCanvasProviderKey,
   CreativeCanvasRun,
+  CreativeCanvasRunOperationsSummary,
   CreativeCanvasRunStatus,
+  CreativeCanvasRunStatusCounts,
 } from './types'
 
 export const CREATIVE_CANVAS_RUN_COLLECTION = 'creative_canvas_runs'
@@ -80,6 +82,72 @@ function optionalCameraMotion(value: unknown): CreativeCanvasEditMotionMode | un
 function optionalRunStatus(value: unknown): CreativeCanvasRunStatus | undefined {
   const allowed: CreativeCanvasRunStatus[] = ['queued', 'running', 'waiting_for_review', 'completed', 'failed', 'cancelled']
   return allowed.includes(value as CreativeCanvasRunStatus) ? value as CreativeCanvasRunStatus : undefined
+}
+
+const RUN_STATUSES: CreativeCanvasRunStatus[] = ['queued', 'running', 'waiting_for_review', 'completed', 'failed', 'cancelled']
+
+function emptyStatusCounts(): CreativeCanvasRunStatusCounts {
+  return {
+    queued: 0,
+    running: 0,
+    waiting_for_review: 0,
+    completed: 0,
+    failed: 0,
+    cancelled: 0,
+  }
+}
+
+function isActiveRunStatus(status: CreativeCanvasRunStatus): boolean {
+  return status === 'queued' || status === 'running' || status === 'waiting_for_review'
+}
+
+export function summarizeCreativeCanvasRuns(
+  runs: Array<CreativeCanvasRun & { id: string }>,
+): CreativeCanvasRunOperationsSummary {
+  const byStatus = emptyStatusCounts()
+  const providerMap = new Map<CreativeCanvasProviderKey, CreativeCanvasRunOperationsSummary['providers'][number]>()
+
+  for (const run of runs) {
+    const status = RUN_STATUSES.includes(run.status) ? run.status : 'queued'
+    byStatus[status] += 1
+
+    const provider = providerMap.get(run.providerKey) ?? {
+      providerKey: run.providerKey,
+      total: 0,
+      byStatus: emptyStatusCounts(),
+      active: 0,
+      failed: 0,
+      retryableFailures: 0,
+      completed: 0,
+    }
+    provider.total += 1
+    provider.byStatus[status] += 1
+    if (isActiveRunStatus(status)) provider.active += 1
+    if (status === 'failed') provider.failed += 1
+    if (status === 'completed') provider.completed += 1
+    if (run.error?.retryable) provider.retryableFailures += 1
+    if (!provider.latestRunId) provider.latestRunId = run.id
+    if (!provider.latestProviderStatus && run.providerStatus) provider.latestProviderStatus = run.providerStatus
+    if (!provider.latestProviderStatusMessage && run.providerStatusMessage) provider.latestProviderStatusMessage = run.providerStatusMessage
+    if (!provider.latestErrorMessage && run.error?.message) provider.latestErrorMessage = run.error.message
+    providerMap.set(run.providerKey, provider)
+  }
+
+  const providers = Array.from(providerMap.values()).sort((a, b) => {
+    if (b.active !== a.active) return b.active - a.active
+    if (b.failed !== a.failed) return b.failed - a.failed
+    return a.providerKey.localeCompare(b.providerKey)
+  })
+
+  return {
+    total: runs.length,
+    byStatus,
+    active: byStatus.queued + byStatus.running + byStatus.waiting_for_review,
+    failed: byStatus.failed,
+    retryableFailures: runs.filter((run) => run.error?.retryable).length,
+    completed: byStatus.completed,
+    providers,
+  }
 }
 
 function safeHttpUrl(value: unknown, field: string): string | undefined {

@@ -17,6 +17,7 @@ import type {
   CreativeCanvasExport,
   CreativeCanvasNode,
   CreativeCanvasNodeType,
+  CreativeCanvasRunOperationsSummary,
   CreativeCanvasRun,
   CreativeCanvasSourceLibraryItem,
   CreativeCanvasVersion,
@@ -60,6 +61,7 @@ interface CreativeCanvasRunApiResponse {
   data?: {
     runs?: Array<CreativeCanvasRun & { id: string }>
     run?: CreativeCanvasRun & { id: string }
+    operations?: CreativeCanvasRunOperationsSummary
     agentTaskDraft?: {
       agentInput?: {
         providerExecution?: {
@@ -464,6 +466,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
   const [sourceLibrary, setSourceLibrary] = useState<CreativeCanvasSourceLibraryItem[]>([])
   const [maskRegion, setMaskRegion] = useState({ x: 0, y: 0, width: 50, height: 50, feather: 0 })
   const [runHistory, setRunHistory] = useState<Array<CreativeCanvasRun & { id: string }>>([])
+  const [runOperations, setRunOperations] = useState<CreativeCanvasRunOperationsSummary | null>(null)
   const [latestExecution, setLatestExecution] = useState<{ command?: string; dispatchPath?: string; callbackPath?: string; statusPath?: string } | null>(null)
   const [sourceQuery, setSourceQuery] = useState('')
   const [sourceKindFilter, setSourceKindFilter] = useState('')
@@ -506,12 +509,14 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
   const loadRuns = useCallback(async (canvasId: string, canvasOrgId: string) => {
     if (!canvasId || !canvasOrgId) {
       setRunHistory([])
+      setRunOperations(null)
       return
     }
 
     const response = await fetch(`/api/v1/creative-canvas/${canvasId}/runs?orgId=${encodeURIComponent(canvasOrgId)}`)
     const payload = (await response.json()) as CreativeCanvasRunApiResponse
     setRunHistory(payload.data?.runs ?? [])
+    setRunOperations(payload.data?.operations ?? null)
   }, [])
 
   useEffect(() => {
@@ -539,6 +544,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
         } else {
           setVersions([])
           setRunHistory([])
+          setRunOperations(null)
         }
       } catch {
         if (!cancelled) {
@@ -948,6 +954,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
     if (run?.id) {
       setLatestRun({ id: run.id, status: run.status ?? 'queued', nodeId: run.nodeId })
       setRunHistory((currentRuns) => [run, ...currentRuns.filter((item) => item.id !== run.id)])
+      await loadRuns(activeCanvas.id, resolvedOrgId || activeCanvas.orgId)
       const providerExecution = payload?.data?.agentTaskDraft?.agentInput?.providerExecution
       setLatestExecution({
         command: providerExecution?.cli?.display,
@@ -980,9 +987,8 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
       if (run?.id) {
         setLatestRun({ id: run.id, status: run.status ?? 'running', nodeId: run.nodeId })
         setRunHistory((currentRuns) => [run, ...currentRuns.filter((item) => item.id !== run.id)])
-      } else {
-        await loadRuns(activeCanvas.id, resolvedOrgId || activeCanvas.orgId)
       }
+      await loadRuns(activeCanvas.id, resolvedOrgId || activeCanvas.orgId)
       setActivityMessage(`Run status refreshed: ${latestRun.id}`)
     } else {
       setActivityMessage('Run status refresh failed')
@@ -1614,6 +1620,42 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
           <div>
             <h3 className="text-sm font-semibold text-[var(--color-pib-text)]">Run history</h3>
             <div className="mt-2 space-y-2">
+              {runOperations ? (
+                <div className="rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] px-3 py-2 text-xs text-[var(--color-pib-text-muted)]">
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="font-semibold text-[var(--color-pib-text)]">Provider operations</p>
+                    <span className="rounded-full border border-[var(--color-pib-line)] bg-white px-2 py-0.5 text-[var(--color-pib-text)]">
+                      {runOperations.active} active / {runOperations.total} total
+                    </span>
+                  </div>
+                  <div className="mt-2 grid grid-cols-4 gap-2">
+                    <span>Queued {runOperations.byStatus.queued}</span>
+                    <span>Running {runOperations.byStatus.running}</span>
+                    <span>Review {runOperations.byStatus.waiting_for_review}</span>
+                    <span>Failed {runOperations.failed}</span>
+                  </div>
+                  {runOperations.retryableFailures ? (
+                    <p className="mt-2 font-semibold text-red-700">{runOperations.retryableFailures} retryable provider failure{runOperations.retryableFailures === 1 ? '' : 's'}</p>
+                  ) : null}
+                  {runOperations.providers.length ? (
+                    <div className="mt-2 space-y-1">
+                      {runOperations.providers.map((provider) => (
+                        <div key={provider.providerKey} className="rounded-md border border-[var(--color-pib-line)] bg-white px-2 py-1">
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="font-semibold text-[var(--color-pib-text)]">{provider.providerKey}</span>
+                            <span>{provider.active} active · {provider.completed} completed · {provider.failed} failed</span>
+                          </div>
+                          {provider.latestProviderStatusMessage || provider.latestErrorMessage ? (
+                            <p className="mt-1">
+                              {provider.latestErrorMessage ?? provider.latestProviderStatusMessage}
+                            </p>
+                          ) : null}
+                        </div>
+                      ))}
+                    </div>
+                  ) : null}
+                </div>
+              ) : null}
               {latestExecution?.command ? (
                 <div className="rounded-lg border border-[var(--color-pib-line)] bg-white p-3 text-xs">
                   <p className="font-semibold text-[var(--color-pib-text)]">Higgsfield execution</p>

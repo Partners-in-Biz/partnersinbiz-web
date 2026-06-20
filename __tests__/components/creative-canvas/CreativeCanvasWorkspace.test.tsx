@@ -162,24 +162,56 @@ beforeEach(() => {
         json: async () => ({
           success: true,
           data: {
-            runs: [{
-              id: 'run-existing',
-              orgId: 'org-1',
-              canvasId: 'canvas-1',
-              nodeId: 'model-node-existing',
-              providerKey: 'higgsfield',
-              model: 'nano_banana_flash',
-              status: 'running',
-              providerStatusMessage: 'Rendering preview frames',
-              input: { sourceNodeIds: [], sourceArtifactIds: [] },
-              provenance: {
-                generatedBy: 'agent',
-                agentId: 'maya',
-                providerJobId: 'hf-job-existing',
-                promptStored: 'summary',
-                syntheticMedia: true,
+            operations: {
+              total: 2,
+              active: 1,
+              failed: 1,
+              retryableFailures: 1,
+              completed: 0,
+              byStatus: { queued: 0, running: 1, waiting_for_review: 0, completed: 0, failed: 1, cancelled: 0 },
+              providers: [{
+                providerKey: 'higgsfield',
+                total: 2,
+                active: 1,
+                failed: 1,
+                retryableFailures: 1,
+                completed: 0,
+                byStatus: { queued: 0, running: 1, waiting_for_review: 0, completed: 0, failed: 1, cancelled: 0 },
+                latestProviderStatusMessage: 'Rendering preview frames',
+                latestErrorMessage: 'Quota exceeded',
+              }],
+            },
+            runs: [
+              {
+                id: 'run-existing',
+                orgId: 'org-1',
+                canvasId: 'canvas-1',
+                nodeId: 'model-node-existing',
+                providerKey: 'higgsfield',
+                model: 'nano_banana_flash',
+                status: 'running',
+                providerStatusMessage: 'Rendering preview frames',
+                input: { sourceNodeIds: [], sourceArtifactIds: [] },
+                provenance: {
+                  generatedBy: 'agent',
+                  agentId: 'maya',
+                  providerJobId: 'hf-job-existing',
+                  promptStored: 'summary',
+                  syntheticMedia: true,
+                },
               },
-            }],
+              {
+                id: 'run-failed',
+                orgId: 'org-1',
+                canvasId: 'canvas-1',
+                nodeId: 'model-node-failed',
+                providerKey: 'higgsfield',
+                status: 'failed',
+                input: { sourceNodeIds: [], sourceArtifactIds: [] },
+                provenance: { generatedBy: 'agent', promptStored: 'summary', syntheticMedia: true },
+                error: { code: 'quota', message: 'Quota exceeded', retryable: true },
+              },
+            ],
           },
         }),
       }
@@ -262,6 +294,11 @@ describe('CreativeCanvasWorkspace', () => {
     expect(screen.getByText('Workflow presets')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /apply social launch workflow/i })).toBeInTheDocument()
     expect(screen.getByText('Run history')).toBeInTheDocument()
+    expect(screen.getByText('Provider operations')).toBeInTheDocument()
+    expect(screen.getByText('1 active / 2 total')).toBeInTheDocument()
+    expect(screen.getByText('1 retryable provider failure')).toBeInTheDocument()
+    expect(screen.getByText(/1 active · 0 completed · 1 failed/i)).toBeInTheDocument()
+    expect(screen.getAllByText('Quota exceeded').length).toBeGreaterThan(0)
     expect(screen.getByText('Agent orchestration')).toBeInTheDocument()
     expect(screen.getByText('Provider job: hf-job-existing')).toBeInTheDocument()
     expect(screen.getByText('Versions')).toBeInTheDocument()

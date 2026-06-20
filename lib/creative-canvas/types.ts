@@ -391,6 +391,32 @@ export interface CreativeCanvasRun {
   updatedAt?: unknown
 }
 
+export type CreativeCanvasRunStatusCounts = Record<CreativeCanvasRunStatus, number>
+
+export interface CreativeCanvasProviderRunSummary {
+  providerKey: CreativeCanvasProviderKey
+  total: number
+  byStatus: CreativeCanvasRunStatusCounts
+  active: number
+  failed: number
+  retryableFailures: number
+  completed: number
+  latestRunId?: string
+  latestProviderStatus?: string
+  latestProviderStatusMessage?: string
+  latestErrorMessage?: string
+}
+
+export interface CreativeCanvasRunOperationsSummary {
+  total: number
+  byStatus: CreativeCanvasRunStatusCounts
+  active: number
+  failed: number
+  retryableFailures: number
+  completed: number
+  providers: CreativeCanvasProviderRunSummary[]
+}
+
 export interface CreativeCanvasExport {
   id?: string
   orgId: string

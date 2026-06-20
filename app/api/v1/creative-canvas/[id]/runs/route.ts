@@ -7,6 +7,7 @@ import { buildCreativeCanvasAgentTask } from '@/lib/creative-canvas/agent-bridge
 import {
   createCreativeCanvasRun,
   listCreativeCanvasRuns,
+  summarizeCreativeCanvasRuns,
 } from '@/lib/creative-canvas/runs'
 import type { CreativeCanvasActor } from '@/lib/creative-canvas/types'
 
@@ -33,7 +34,7 @@ export const GET = withAuth('client', async (req: NextRequest, user: ApiUser, co
   const canvas = await getCreativeCanvas(id, orgId)
   if (!canvas) return apiError('Creative canvas not found', 404)
   const runs = await listCreativeCanvasRuns(id, orgId)
-  return apiSuccess({ runs })
+  return apiSuccess({ runs, operations: summarizeCreativeCanvasRuns(runs) })
 })
 
 export const POST = withAuth('client', async (req: NextRequest, user: ApiUser, context?: unknown) => {
