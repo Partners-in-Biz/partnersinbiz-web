@@ -182,7 +182,8 @@ function cleanBenchmarkProofData(value: unknown): Record<string, unknown> | unde
       const sourceTitle = cleanString(item.sourceTitle)?.slice(0, 160)
       const sourceUrl = cleanString(item.sourceUrl)?.slice(0, 500)
       const sourceCheckedAt = cleanString(item.sourceCheckedAt)?.slice(0, 80)
-      if (!proofUrl && !notes && !capturedAt && !capturedBy && !sourceTitle && !sourceUrl && !sourceCheckedAt) return []
+      const sourceSignals = cleanStringArray(item.sourceSignals).map((signal) => signal.slice(0, 120)).slice(0, 12)
+      if (!proofUrl && !notes && !capturedAt && !capturedBy && !sourceTitle && !sourceUrl && !sourceCheckedAt && !sourceSignals.length) return []
       return [[key.slice(0, 80), {
         proofUrl,
         notes,
@@ -191,6 +192,7 @@ function cleanBenchmarkProofData(value: unknown): Record<string, unknown> | unde
         sourceTitle,
         sourceUrl,
         sourceCheckedAt,
+        sourceSignals,
       } as Record<string, unknown>] as [string, Record<string, unknown>]]
     })
     .slice(0, 12)

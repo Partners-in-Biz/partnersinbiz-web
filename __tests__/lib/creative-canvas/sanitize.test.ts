@@ -107,6 +107,7 @@ describe('creative canvas sanitizers', () => {
           sourceTitle: ' Higgsfield AI Canvas node workflow ',
           sourceUrl: ' https://higgsfield.ai/canvas-intro ',
           sourceCheckedAt: '2026-06-21T09:00:00.000Z',
+          sourceSignals: [' Drop a node ', 'Chain your flow', 'Drop a node'],
         },
         empty: {},
       },
@@ -120,6 +121,7 @@ describe('creative canvas sanitizers', () => {
           sourceTitle: 'Higgsfield AI Canvas node workflow',
           sourceUrl: 'https://higgsfield.ai/canvas-intro',
           sourceCheckedAt: '2026-06-21T09:00:00.000Z',
+          sourceSignals: ['Drop a node', 'Chain your flow'],
         },
       },
     })

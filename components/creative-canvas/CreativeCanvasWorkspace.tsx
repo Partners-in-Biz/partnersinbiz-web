@@ -80,6 +80,7 @@ type CreativeCanvasBenchmarkProofRecord = {
   sourceTitle?: string
   sourceUrl?: string
   sourceCheckedAt?: string
+  sourceSignals?: string[]
 }
 
 type CreativeCanvasBenchmarkProofDraft = Record<CreativeCanvasBenchmarkProofKey, {
@@ -266,6 +267,7 @@ const benchmarkProofConfigs: Array<{
   benchmark: string
   sourceTitle: string
   sourceUrl: string
+  sourceSignals: string[]
 }> = [
   {
     key: 'editing_ergonomics',
@@ -273,6 +275,7 @@ const benchmarkProofConfigs: Array<{
     benchmark: 'Node graph editing with connected prompts, source assets, generated outputs, branches, and recoverable mutations.',
     sourceTitle: 'Higgsfield AI Canvas node workflow',
     sourceUrl: 'https://higgsfield.ai/canvas-intro',
+    sourceSignals: ['Drop a node', 'Chain your flow', 'Connect nodes', 'Every connection is live'],
   },
   {
     key: 'masking_inpainting',
@@ -280,6 +283,7 @@ const benchmarkProofConfigs: Array<{
     benchmark: 'Brush and prompt-driven edits that can target regions, references, style transfer, motion, and output branches.',
     sourceTitle: 'Higgsfield AI image editing and inpainting',
     sourceUrl: 'https://higgsfield.ai/image-editing',
+    sourceSignals: ['Brush & Prompt', 'AI inpainting', 'Precise Masking', 'Generative Fill'],
   },
   {
     key: 'generation_controls',
@@ -287,6 +291,7 @@ const benchmarkProofConfigs: Array<{
     benchmark: 'Model, output kind, aspect ratio, variants, duration, motion, style, and negative prompt control before dispatch.',
     sourceTitle: 'Higgsfield Canvas model catalog',
     sourceUrl: 'https://higgsfield.ai/canvas-intro',
+    sourceSignals: ['Kling 3.0', 'Seedance 2.0', 'Wan 2.7', 'Soul 2.0', 'GPT Image 2.0', 'Veo 3.1'],
   },
   {
     key: 'multi_asset_workflows',
@@ -294,6 +299,7 @@ const benchmarkProofConfigs: Array<{
     benchmark: 'Own uploads, references, previous outputs, templates, and benchmark workflows combined in one connected pipeline.',
     sourceTitle: 'Higgsfield Canvas multi-reference workflows',
     sourceUrl: 'https://higgsfield.ai/canvas-intro',
+    sourceSignals: ['Moodboard', 'mix models', 'route outputs', 'single creative pipeline'],
   },
   {
     key: 'versioning_polish',
@@ -301,6 +307,7 @@ const benchmarkProofConfigs: Array<{
     benchmark: 'Auto-save, preview, restore/fork safety, comments, review state, and non-destructive history inspection.',
     sourceTitle: 'Higgsfield Canvas saved versions and comments',
     sourceUrl: 'https://higgsfield.ai/canvas-intro',
+    sourceSignals: ['Every version is saved', 'nothing gets lost', 'shared space'],
   },
   {
     key: 'collaboration',
@@ -308,6 +315,7 @@ const benchmarkProofConfigs: Array<{
     benchmark: 'Live collaborators, focus, draft adoption, activity, conflict details, and safe concurrent graph changes.',
     sourceTitle: 'Higgsfield Canvas live collaboration',
     sourceUrl: 'https://higgsfield.ai/canvas-intro',
+    sourceSignals: ['Create together', 'Share a link', 'collaborate live', 'same canvas'],
   },
   {
     key: 'mobile_behavior',
@@ -315,6 +323,7 @@ const benchmarkProofConfigs: Array<{
     benchmark: 'Signed-in desktop, tablet, mobile canvas, and panel-switch proof with no hidden critical controls.',
     sourceTitle: 'Higgsfield Canvas app route',
     sourceUrl: 'https://higgsfield.ai/canvas',
+    sourceSignals: ['Generate', 'Library', 'Profile', 'Canvas'],
   },
   {
     key: 'export_flows',
@@ -322,6 +331,7 @@ const benchmarkProofConfigs: Array<{
     benchmark: 'Reviewable packages with manifests, target formats, provenance, source/output mapping, and downstream drafts.',
     sourceTitle: 'Higgsfield Canvas image and video pipeline',
     sourceUrl: 'https://higgsfield.ai/canvas-intro',
+    sourceSignals: ['image and video pipelines', 'render outputs', 'Explore All', 'Unified in one platform'],
   },
   {
     key: 'production_reliability',
@@ -329,6 +339,7 @@ const benchmarkProofConfigs: Array<{
     benchmark: 'Repeated real image, video/social, blog/document, and book jobs complete with drained queues and low failures.',
     sourceTitle: 'Higgsfield Canvas reusable production workflows',
     sourceUrl: 'https://higgsfield.ai/canvas-intro',
+    sourceSignals: ['Every top model', 'available now', 'Unified in one platform', 'Build AI image and video pipelines'],
   },
 ]
 
@@ -370,6 +381,10 @@ function objectRecord(value: unknown): Record<string, unknown> {
 
 function stringField(value: unknown): string {
   return typeof value === 'string' ? value : ''
+}
+
+function stringArrayField(value: unknown): string[] {
+  return Array.isArray(value) ? value.filter((item): item is string => typeof item === 'string' && Boolean(item.trim())) : []
 }
 
 function getCanvasVisualProof(data: unknown): Partial<Record<CreativeCanvasVisualProofKey, CreativeCanvasVisualProofRecord>> {
@@ -415,7 +430,8 @@ function getCanvasBenchmarkProof(data: unknown): Partial<Record<CreativeCanvasBe
     const sourceTitle = stringField(record.sourceTitle)
     const sourceUrl = stringField(record.sourceUrl)
     const sourceCheckedAt = stringField(record.sourceCheckedAt)
-    if (proofUrl || notes || capturedAt || capturedBy || sourceTitle || sourceUrl || sourceCheckedAt) {
+    const sourceSignals = stringArrayField(record.sourceSignals)
+    if (proofUrl || notes || capturedAt || capturedBy || sourceTitle || sourceUrl || sourceCheckedAt || sourceSignals.length) {
       acc[key] = {
         proofUrl,
         notes,
@@ -424,14 +440,17 @@ function getCanvasBenchmarkProof(data: unknown): Partial<Record<CreativeCanvasBe
         sourceTitle,
         sourceUrl,
         sourceCheckedAt,
+        sourceSignals,
       }
     }
     return acc
   }, {} as Partial<Record<CreativeCanvasBenchmarkProofKey, CreativeCanvasBenchmarkProofRecord>>)
 }
 
-function hasSourceBackedBenchmarkProof(proof: CreativeCanvasBenchmarkProofRecord | undefined): boolean {
-  return Boolean(proof?.proofUrl && proof.notes && proof.sourceUrl && proof.sourceCheckedAt)
+function hasSourceBackedBenchmarkProof(proof: CreativeCanvasBenchmarkProofRecord | undefined, requiredSignals: string[]): boolean {
+  const sourceSignals = proof?.sourceSignals ?? []
+  const hasRequiredSignals = requiredSignals.every((signal) => sourceSignals.includes(signal))
+  return Boolean(proof?.proofUrl && proof.notes && proof.sourceUrl && proof.sourceCheckedAt && hasRequiredSignals)
 }
 
 function benchmarkProofUrl(canvas: CreativeCanvas | undefined, orgId: string): string {
@@ -2000,6 +2019,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
         sourceTitle: proofConfig?.sourceTitle,
         sourceUrl: proofConfig?.sourceUrl,
         sourceCheckedAt: capturedAt,
+        sourceSignals: proofConfig?.sourceSignals ?? [],
       },
     }
 
@@ -3911,7 +3931,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
   }
   const benchmarkProofItems = benchmarkProofConfigs.map((item) => {
     const proof = benchmarkProofRecords[item.key]
-    const proofCaptured = hasSourceBackedBenchmarkProof(proof)
+    const proofCaptured = hasSourceBackedBenchmarkProof(proof, item.sourceSignals)
     return {
       ...item,
       proof,
@@ -3944,6 +3964,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
         sourceTitle: item.sourceTitle,
         sourceUrl: item.sourceUrl,
         sourceCheckedAt: capturedAt,
+        sourceSignals: item.sourceSignals,
       }
       return acc
     }, { ...benchmarkProofRecords } as Partial<Record<CreativeCanvasBenchmarkProofKey, CreativeCanvasBenchmarkProofRecord>>)
@@ -4620,9 +4641,25 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
                   Source checked {item.proof.sourceCheckedAt ? new Date(item.proof.sourceCheckedAt).toLocaleString() : 'not dated'}
                 </p>
               ) : null}
-              {item.proof && !hasSourceBackedBenchmarkProof(item.proof) ? (
+              {item.proof && (!item.proof.sourceUrl || !item.proof.sourceCheckedAt) ? (
                 <p className="mt-1 text-[11px] font-semibold">Needs Higgsfield source check before this proof can pass.</p>
               ) : null}
+              {item.proof && !hasSourceBackedBenchmarkProof(item.proof, item.sourceSignals) ? (
+                <p className="mt-1 text-[11px] font-semibold">Needs matched Higgsfield source signals before this proof can pass.</p>
+              ) : null}
+              <div className="mt-2 rounded-md border border-current/20 bg-white/70 px-2 py-1 text-[11px]">
+                <p className="font-semibold">Current Higgsfield source signals</p>
+                <ul className="mt-1 space-y-0.5">
+                  {item.sourceSignals.map((signal) => (
+                    <li key={signal}>- {signal}</li>
+                  ))}
+                </ul>
+                {item.proof?.sourceSignals?.length ? (
+                  <p className="mt-1">Stored signals: {item.proof.sourceSignals.join(', ')}</p>
+                ) : (
+                  <p className="mt-1 font-semibold">No stored source signals yet.</p>
+                )}
+              </div>
               {item.proof?.proofUrl ? (
                 <a
                   href={item.proof.proofUrl}
