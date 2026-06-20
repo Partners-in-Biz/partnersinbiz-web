@@ -19,6 +19,7 @@ import {
   completeCreativeCanvasProviderCallback,
   completeCreativeCanvasRun,
   createCreativeCanvasRun,
+  dispatchCreativeCanvasProviderRun,
 } from '@/lib/creative-canvas/runs'
 import type { CreativeCanvas } from '@/lib/creative-canvas/types'
 
@@ -327,5 +328,53 @@ describe('creative canvas runs', () => {
       ]),
     }))
     expect(result.run.status).toBe('completed')
+  })
+
+  it('marks a queued provider run as running after external dispatch', async () => {
+    mockDocGet.mockResolvedValueOnce({
+      exists: true,
+      id: 'run-1',
+      data: () => ({
+        orgId: 'org-1',
+        canvasId: 'canvas-1',
+        nodeId: 'model-1',
+        providerKey: 'higgsfield',
+        model: 'nano_banana_flash',
+        status: 'queued',
+        input: { sourceNodeIds: ['source-1'], sourceArtifactIds: ['artifact-1'] },
+        provenance: {
+          generatedBy: 'agent',
+          agentId: 'maya',
+          model: 'nano_banana_flash',
+          promptStored: 'summary',
+          syntheticMedia: true,
+        },
+      }),
+    })
+
+    const run = await dispatchCreativeCanvasProviderRun('run-1', 'org-1', {
+      providerJobId: 'hf-job-2',
+      providerStatusUrl: 'https://api.higgsfield.ai/jobs/hf-job-2',
+      providerRequestId: 'request-1',
+    }, ACTOR)
+
+    expect(mockDocUpdate).toHaveBeenCalledWith(expect.objectContaining({
+      status: 'running',
+      provenance: expect.objectContaining({
+        providerJobId: 'hf-job-2',
+        providerStatusUrl: 'https://api.higgsfield.ai/jobs/hf-job-2',
+        providerRequestId: 'request-1',
+      }),
+      updatedBy: 'agent:maya',
+      updatedByType: 'agent',
+    }))
+    expect(run).toMatchObject({
+      id: 'run-1',
+      status: 'running',
+      provenance: expect.objectContaining({
+        providerJobId: 'hf-job-2',
+        providerStatusUrl: 'https://api.higgsfield.ai/jobs/hf-job-2',
+      }),
+    })
   })
 })

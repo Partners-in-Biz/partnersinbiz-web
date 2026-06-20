@@ -327,6 +327,9 @@ export interface CreativeCanvasRun {
     generatedBy: CreativeCanvasGeneratedBy
     agentId?: string
     providerJobId?: string
+    providerRequestId?: string
+    providerStatusUrl?: string
+    providerCallbackUrl?: string
     model?: string
     costUnits?: number
     costLabel?: string

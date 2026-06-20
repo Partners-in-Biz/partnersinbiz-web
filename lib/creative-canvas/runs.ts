@@ -286,6 +286,49 @@ export async function completeCreativeCanvasRun(
   return completeLoadedCreativeCanvasRun(run, orgId, input, actor)
 }
 
+export async function dispatchCreativeCanvasProviderRun(
+  runId: string,
+  orgId: string,
+  input: unknown,
+  actor: CreativeCanvasActor,
+): Promise<CreativeCanvasRun & { id: string }> {
+  const body = asRecord(input)
+  const providerJobId = requiredString(body.providerJobId, 'providerJobId')
+  const runSnap = await adminDb.collection(CREATIVE_CANVAS_RUN_COLLECTION).doc(runId).get()
+  if (!runSnap.exists) throw new Error('Creative canvas run not found')
+  const run = serializeRun(runSnap.id ?? runId, runSnap.data() as CreativeCanvasRun)
+  if (run.orgId !== orgId) throw new Error('Creative canvas run does not belong to organisation')
+  if (run.status === 'completed' || run.status === 'cancelled') {
+    throw new Error('Creative canvas run cannot be dispatched from its current status')
+  }
+
+  const providerStatusUrl = safeHttpUrl(body.providerStatusUrl, 'providerStatusUrl')
+  const providerCallbackUrl = safeHttpUrl(body.providerCallbackUrl, 'providerCallbackUrl')
+  const provenance = {
+    ...run.provenance,
+    providerJobId,
+    providerRequestId: cleanString(body.providerRequestId) ?? run.provenance.providerRequestId,
+    providerStatusUrl: providerStatusUrl ?? run.provenance.providerStatusUrl,
+    providerCallbackUrl: providerCallbackUrl ?? run.provenance.providerCallbackUrl,
+  }
+  const nextRun: CreativeCanvasRun & { id: string } = {
+    ...run,
+    status: 'running',
+    provenance,
+    updatedAt: FieldValue.serverTimestamp(),
+  }
+
+  await adminDb.collection(CREATIVE_CANVAS_RUN_COLLECTION).doc(run.id).update({
+    status: nextRun.status,
+    provenance,
+    updatedAt: FieldValue.serverTimestamp(),
+    updatedBy: actor.uid,
+    updatedByType: actor.type,
+  })
+
+  return nextRun
+}
+
 export async function completeCreativeCanvasProviderCallback(
   input: unknown,
   actor: CreativeCanvasActor,
