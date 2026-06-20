@@ -57,11 +57,15 @@ function cleanOutputKind(value: unknown): CreativeCanvasOutputKind | undefined {
 
 function runtimeConfigFromEnv(env: NodeJS.ProcessEnv = process.env): HiggsfieldRuntimeConfig {
   const baseUrl = cleanString(env.HIGGSFIELD_RUNTIME_URL)?.replace(/\/$/, '')
+  const appUrl = (cleanString(env.NEXT_PUBLIC_APP_URL) ?? cleanString(env.NEXT_PUBLIC_BASE_URL))?.replace(/\/$/, '')
+  const internalSubmitUrl = appUrl && cleanString(env.HIGGSFIELD_RUNTIME_API_KEY)
+    ? `${appUrl}/api/internal/creative-canvas/higgsfield-runtime`
+    : undefined
   return {
-    submitUrl: cleanString(env.HIGGSFIELD_RUNTIME_SUBMIT_URL) ?? (baseUrl ? `${baseUrl}/creative-canvas/runs` : undefined),
+    submitUrl: cleanString(env.HIGGSFIELD_RUNTIME_SUBMIT_URL) ?? (baseUrl ? `${baseUrl}/creative-canvas/runs` : undefined) ?? internalSubmitUrl,
     statusUrlTemplate: cleanString(env.HIGGSFIELD_RUNTIME_STATUS_URL) ?? (baseUrl ? `${baseUrl}/creative-canvas/runs/{providerJobId}` : undefined),
     apiKey: cleanString(env.HIGGSFIELD_RUNTIME_API_KEY),
-    callbackBaseUrl: (cleanString(env.NEXT_PUBLIC_APP_URL) ?? cleanString(env.NEXT_PUBLIC_BASE_URL))?.replace(/\/$/, ''),
+    callbackBaseUrl: appUrl,
     webhookSecret: cleanString(env.HIGGSFIELD_WEBHOOK_SECRET),
   }
 }

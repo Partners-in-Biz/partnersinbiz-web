@@ -169,6 +169,37 @@ describe('Higgsfield creative canvas provider runtime', () => {
     }), { uid: 'agent:maya', type: 'agent' })
   })
 
+  it('uses the internal runtime bridge when only the app URL and runtime key are configured', async () => {
+    setupFirestoreDocs([[queuedRun], [], []])
+    mockGetCreativeCanvas.mockResolvedValue({
+      id: 'canvas-1',
+      orgId: 'org-1',
+      title: 'Launch Canvas',
+      purpose: 'Product launch',
+      nodes: [],
+    })
+    ;(global.fetch as jest.Mock).mockResolvedValue({
+      ok: true,
+      text: async () => JSON.stringify({
+        providerJobId: 'hermes-run-1',
+        status: 'running',
+      }),
+    })
+
+    const result = await drainHiggsfieldCreativeCanvasRuns({
+      env: {
+        HIGGSFIELD_RUNTIME_API_KEY: 'runtime-key',
+        NEXT_PUBLIC_APP_URL: 'https://partnersinbiz.online',
+      } as NodeJS.ProcessEnv,
+    })
+
+    expect(result).toMatchObject({ submitted: 1, runtimeConfigured: true })
+    expect(global.fetch).toHaveBeenCalledWith('https://partnersinbiz.online/api/internal/creative-canvas/higgsfield-runtime', expect.objectContaining({
+      method: 'POST',
+      headers: expect.objectContaining({ Authorization: 'Bearer runtime-key' }),
+    }))
+  })
+
   it('polls running jobs and completes canvas output when the runtime returns media', async () => {
     setupFirestoreDocs([[], [runningRun], []])
     ;(global.fetch as jest.Mock).mockResolvedValue({
