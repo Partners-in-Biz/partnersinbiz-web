@@ -1035,8 +1035,9 @@ describe('CreativeCanvasWorkspace', () => {
     expect(screen.getByRole('button', { name: /benchmark suite complete/i })).toBeDisabled()
     const parityAudit = screen.getByLabelText(/higgsfield parity audit/i)
     expect(parityAudit).toHaveTextContent('8/8 scenarios in graph')
+    expect(parityAudit).toHaveTextContent('Mask region or brush data attached')
     const benchmarkProof = screen.getByLabelText(/direct higgsfield benchmark proof/i)
-    expect(benchmarkProof).toHaveTextContent('6 ready benchmark categories need stored proof.')
+    expect(benchmarkProof).toHaveTextContent('7 ready benchmark categories need stored proof.')
   })
 
   it('switches mobile panels with responsive readiness evidence', async () => {

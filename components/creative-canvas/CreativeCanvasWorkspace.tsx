@@ -853,8 +853,46 @@ const workflowPresets: CreativeCanvasWorkflowPreset[] = [
         suffix: 'edit',
         type: 'edit',
         title: 'Background replacement edit',
-        data: { workflowRole: 'edit', benchmarkScenario: 'vfx_background_replace' },
-        edit: { operation: 'background_replace', outputKind: 'video', strength: 0.72, motion: { mode: 'dolly', durationSeconds: 8 }, references: [] },
+        data: {
+          workflowRole: 'edit',
+          benchmarkScenario: 'vfx_background_replace',
+          maskPreset: 'background_subject_holdout',
+        },
+        edit: {
+          operation: 'background_replace',
+          outputKind: 'video',
+          strength: 0.72,
+          motion: { mode: 'dolly', durationSeconds: 8 },
+          references: [],
+          mask: {
+            region: { x: 4, y: 6, width: 92, height: 88, unit: 'percent', feather: 8 },
+            brush: {
+              strokes: [
+                {
+                  id: 'subject-holdout-1',
+                  unit: 'percent',
+                  size: 14,
+                  opacity: 0.5,
+                  mode: 'paint',
+                  points: [
+                    { x: 18, y: 34 },
+                    { x: 26, y: 28 },
+                    { x: 38, y: 24 },
+                    { x: 50, y: 26 },
+                    { x: 62, y: 32 },
+                    { x: 72, y: 44 },
+                    { x: 76, y: 60 },
+                    { x: 69, y: 75 },
+                    { x: 55, y: 82 },
+                    { x: 40, y: 80 },
+                    { x: 28, y: 70 },
+                    { x: 20, y: 54 },
+                  ],
+                },
+              ],
+            },
+          },
+        },
       },
       {
         suffix: 'model',
