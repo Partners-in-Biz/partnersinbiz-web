@@ -26,6 +26,7 @@ import type {
   CreativeCanvasRuntimeProof,
   CreativeCanvasRun,
   CreativeCanvasSourceLibraryItem,
+  CreativeCanvasTemplate,
   CreativeCanvasVersion,
 } from '@/lib/creative-canvas/types'
 import { buildCreativeCanvasOrchestrationPlan } from '@/lib/creative-canvas/orchestration'
@@ -132,6 +133,15 @@ interface CreativeCanvasCommentApiResponse {
   data?: {
     comment?: CreativeCanvasComment & { id: string }
     comments?: Array<CreativeCanvasComment & { id: string }>
+  }
+  error?: string
+}
+
+interface CreativeCanvasTemplateApiResponse {
+  success?: boolean
+  data?: {
+    template?: CreativeCanvasTemplate & { id: string }
+    templates?: Array<CreativeCanvasTemplate & { id: string }>
   }
   error?: string
 }
@@ -618,6 +628,9 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
   const [latestExportPackage, setLatestExportPackage] = useState<{ id: string; assetCount: number; targets: string[] } | null>(null)
   const [mobilePanel, setMobilePanel] = useState<CreativeCanvasMobilePanel>('canvas')
   const [remoteCanvasUpdate, setRemoteCanvasUpdate] = useState<CreativeCanvas | null>(null)
+  const [templates, setTemplates] = useState<Array<CreativeCanvasTemplate & { id: string }>>([])
+  const [templateTitle, setTemplateTitle] = useState('')
+  const [templateDescription, setTemplateDescription] = useState('')
 
   const activeCanvas = useMemo(
     () => canvases.find((canvas) => canvas.id === activeCanvasId) ?? canvases[0],
@@ -733,6 +746,16 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
     const response = await fetch(`/api/v1/creative-canvas/${canvasId}/comments?orgId=${encodeURIComponent(canvasOrgId)}`)
     const payload = (await response.json()) as CreativeCanvasCommentApiResponse
     setComments(payload.data?.comments ?? [])
+  }, [])
+
+  const loadTemplates = useCallback(async (canvasOrgId: string) => {
+    if (!canvasOrgId) {
+      setTemplates([])
+      return
+    }
+    const response = await fetch(`/api/v1/creative-canvas/templates?orgId=${encodeURIComponent(canvasOrgId)}`)
+    const payload = (await response.json()) as CreativeCanvasTemplateApiResponse
+    setTemplates(payload.data?.templates ?? [])
   }, [])
 
   const checkRemoteCanvasUpdate = useCallback(async (
@@ -912,6 +935,25 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
   }, [loadComments, loadPresence, loadRuns, loadRuntimeProof, loadVersions, orgId])
 
   useEffect(() => {
+    let cancelled = false
+    const load = async () => {
+      if (!resolvedOrgId) {
+        setTemplates([])
+        return
+      }
+      try {
+        await loadTemplates(resolvedOrgId)
+      } catch {
+        if (!cancelled) setTemplates([])
+      }
+    }
+    load()
+    return () => {
+      cancelled = true
+    }
+  }, [loadTemplates, resolvedOrgId])
+
+  useEffect(() => {
     if (!activeCanvas?.id) return
     const canvasOrgId = resolvedOrgId || activeCanvas.orgId
     if (!canvasOrgId) return
@@ -1064,6 +1106,106 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
     setRunNegativePrompt(preset.negativePrompt)
     setSaveMessage('')
     setActivityMessage(`${preset.label} workflow added`)
+  }
+
+  const saveCurrentGraphAsTemplate = async () => {
+    if (!activeCanvas?.id || !resolvedOrgId || !nodes.length) return
+    const title = templateTitle.trim() || `${activeCanvas.title} template`
+    const graph = {
+      nodes: nodes.map((node) => toCanvasNode(node, resolvedOrgId)),
+      edges: edges.map((edge) => toCanvasEdge(edge, resolvedOrgId)),
+    }
+    const response = await fetch(`/api/v1/creative-canvas/templates?orgId=${encodeURIComponent(resolvedOrgId)}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        title,
+        description: templateDescription.trim(),
+        category: 'custom',
+        sourceCanvasId: activeCanvas.id,
+        sourceVersion: activeCanvas.activeVersion,
+        ...graph,
+      }),
+    })
+    const payload = await response.json().catch(() => null) as CreativeCanvasTemplateApiResponse | null
+    const template = payload?.data?.template
+    if (!response.ok || !template) {
+      setActivityMessage(payload?.error ?? 'Template save failed')
+      return
+    }
+    setTemplates((current) => [template, ...current.filter((item) => item.id !== template.id)])
+    setTemplateTitle('')
+    setTemplateDescription('')
+    setSaveMessage('')
+    setActivityMessage(`Saved ${template.title} template`)
+  }
+
+  const applySavedTemplate = (template: CreativeCanvasTemplate & { id: string }) => {
+    const stamp = Date.now()
+    const org = resolvedOrgId || activeCanvas?.orgId || 'pending-org'
+    const baseX = 80 + nodes.length * 18
+    const baseY = 90 + nodes.length * 12
+    const idMap = new Map(template.nodes.map((node, index) => [node.id, `template-${template.id}-${index}-${stamp}`]))
+    const cloneValue = <T,>(value: T | undefined): T | undefined => (
+      value === undefined ? undefined : JSON.parse(JSON.stringify(value)) as T
+    )
+    const nextNodes = template.nodes.map((node, index): CreativeCanvasNode => {
+      const edit = cloneValue(node.edit)
+      if (edit?.references?.length) {
+        edit.references = edit.references.map((reference) => ({
+          ...reference,
+          sourceNodeId: idMap.get(reference.sourceNodeId) ?? reference.sourceNodeId,
+        }))
+      }
+      if (edit?.mask?.sourceNodeId) {
+        edit.mask.sourceNodeId = idMap.get(edit.mask.sourceNodeId) ?? edit.mask.sourceNodeId
+      }
+      return {
+        id: idMap.get(node.id) ?? `template-${template.id}-${index}-${stamp}`,
+        orgId: org,
+        type: node.type,
+        title: node.title,
+        position: {
+          x: baseX + node.position.x,
+          y: baseY + node.position.y,
+        },
+        data: {
+          ...cloneValue(node.data),
+          createdFrom: 'creative_canvas_saved_template',
+          sourceTemplateId: template.id,
+          sourceTemplateTitle: template.title,
+        },
+        source: cloneValue(node.source),
+        provider: cloneValue(node.provider),
+        edit,
+        review: cloneValue(node.review),
+        output: cloneValue(node.output),
+      }
+    })
+    const nextEdges: Edge[] = template.edges
+      .map((edge, index): Edge | undefined => {
+        const source = idMap.get(edge.sourceNodeId)
+        const target = idMap.get(edge.targetNodeId)
+        if (!source || !target) return undefined
+        return {
+          id: `template-${template.id}-edge-${index}-${stamp}`,
+          source,
+          target,
+          label: edge.label,
+          data: {
+            ...cloneValue(edge.data),
+            createdFrom: 'creative_canvas_saved_template',
+            sourceTemplateId: template.id,
+          },
+        }
+      })
+      .filter((edge): edge is Edge => Boolean(edge))
+
+    setNodes((currentNodes) => [...currentNodes, ...nextNodes.map(toFlowNode)])
+    setEdges((currentEdges) => [...currentEdges, ...nextEdges])
+    setSelectedFlowNodeId(nextNodes.find((node) => node.type === 'model' || node.type === 'edit')?.id ?? nextNodes[0]?.id ?? '')
+    setSaveMessage('')
+    setActivityMessage(`${template.title} template applied`)
   }
 
   const openCanvas = async (canvas: CreativeCanvas) => {
@@ -1956,6 +2098,60 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
                   <span className="block text-xs text-[var(--color-pib-text-muted)]">{preset.description}</span>
                 </button>
               ))}
+            </div>
+          </div>
+
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-normal text-[var(--color-pib-text-muted)]">Saved templates</p>
+            <div className="mt-3 space-y-2 rounded-lg border border-dashed border-[var(--color-pib-line)] bg-white p-3">
+              <label className="block text-xs font-medium text-[var(--color-pib-text-muted)]" htmlFor="creative-canvas-template-title">
+                Template name
+                <input
+                  id="creative-canvas-template-title"
+                  value={templateTitle}
+                  onChange={(event) => setTemplateTitle(event.target.value)}
+                  className="mt-1 w-full rounded-lg border border-[var(--color-pib-line)] bg-white px-2 py-1.5 text-xs text-[var(--color-pib-text)]"
+                  placeholder={activeCanvas ? `${activeCanvas.title} template` : 'Reusable campaign flow'}
+                />
+              </label>
+              <label className="block text-xs font-medium text-[var(--color-pib-text-muted)]" htmlFor="creative-canvas-template-description">
+                Template notes
+                <input
+                  id="creative-canvas-template-description"
+                  value={templateDescription}
+                  onChange={(event) => setTemplateDescription(event.target.value)}
+                  className="mt-1 w-full rounded-lg border border-[var(--color-pib-line)] bg-white px-2 py-1.5 text-xs text-[var(--color-pib-text)]"
+                  placeholder="Reusable social, blog, video, or book pipeline"
+                />
+              </label>
+              <button
+                type="button"
+                onClick={saveCurrentGraphAsTemplate}
+                disabled={!activeCanvas?.id || !nodes.length}
+                className="w-full rounded-lg border border-[var(--color-pib-line)] px-3 py-2 text-left text-xs font-semibold text-[var(--color-pib-text)] disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                Save current graph as template
+              </button>
+            </div>
+            <div className="mt-3 space-y-2">
+              {templates.length ? templates.map((template) => (
+                <button
+                  key={template.id}
+                  type="button"
+                  aria-label={`Apply ${template.title} template`}
+                  onClick={() => applySavedTemplate(template)}
+                  className="w-full rounded-lg border border-[var(--color-pib-line)] px-3 py-2 text-left transition hover:bg-[var(--color-pib-surface)]"
+                >
+                  <span className="block text-sm font-semibold text-[var(--color-pib-text)]">{template.title}</span>
+                  <span className="block text-xs text-[var(--color-pib-text-muted)]">
+                    {template.nodes.length} nodes / {template.edges.length} links{template.description ? ` / ${template.description}` : ''}
+                  </span>
+                </button>
+              )) : (
+                <p className="rounded-lg border border-dashed border-[var(--color-pib-line)] px-3 py-2 text-xs text-[var(--color-pib-text-muted)]">
+                  Saved reusable workflow templates will appear here.
+                </p>
+              )}
             </div>
           </div>
 

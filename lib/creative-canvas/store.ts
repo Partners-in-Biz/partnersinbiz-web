@@ -9,12 +9,14 @@ import type {
   CreativeCanvasActor,
   CreativeCanvasGraph,
   CreativeCanvasStatus,
+  CreativeCanvasTemplate,
   CreativeCanvasVersion,
   CreativeCanvasVisibility,
 } from './types'
 
 export const CREATIVE_CANVAS_COLLECTION = 'creative_canvases'
 export const CREATIVE_CANVAS_VERSION_COLLECTION = 'creative_canvas_versions'
+export const CREATIVE_CANVAS_TEMPLATE_COLLECTION = 'creative_canvas_templates'
 
 type CanvasDoc = Record<string, unknown>
 
@@ -139,6 +141,58 @@ function serializeCreativeCanvas(id: string, data: CanvasDoc): CreativeCanvas & 
   }
 }
 
+function serializeCreativeCanvasTemplate(id: string, data: CanvasDoc): CreativeCanvasTemplate & { id: string } {
+  return {
+    id,
+    orgId: String(data.orgId ?? ''),
+    title: String(data.title ?? 'Untitled template'),
+    description: typeof data.description === 'string' ? data.description : undefined,
+    category: typeof data.category === 'string' ? data.category : undefined,
+    sourceCanvasId: typeof data.sourceCanvasId === 'string' ? data.sourceCanvasId : undefined,
+    sourceVersion: typeof data.sourceVersion === 'number' ? data.sourceVersion : undefined,
+    nodes: Array.isArray(data.nodes) ? data.nodes as CreativeCanvasTemplate['nodes'] : [],
+    edges: Array.isArray(data.edges) ? data.edges as CreativeCanvasTemplate['edges'] : [],
+    createdAt: data.createdAt,
+    createdBy: String(data.createdBy ?? ''),
+    createdByType: (data.createdByType as CreativeCanvasTemplate['createdByType']) ?? 'user',
+    updatedAt: data.updatedAt,
+    updatedBy: String(data.updatedBy ?? ''),
+    updatedByType: (data.updatedByType as CreativeCanvasTemplate['updatedByType']) ?? 'user',
+    deleted: data.deleted === true,
+  }
+}
+
+function cleanTemplateString(value: unknown): string | undefined {
+  return typeof value === 'string' && value.trim() ? value.trim() : undefined
+}
+
+function sanitizeCreativeCanvasTemplateInput(
+  input: unknown,
+  orgId: string,
+  actor: CreativeCanvasActor,
+): Omit<CreativeCanvasTemplate, 'id' | 'createdAt' | 'updatedAt'> {
+  const body = input && typeof input === 'object' && !Array.isArray(input) ? input as Record<string, unknown> : {}
+  const graph = sanitizeCreativeCanvasGraph(body, orgId)
+  if (!graph.nodes.length) throw new Error('template requires at least one node')
+  return {
+    orgId,
+    title: cleanTemplateString(body.title) ?? 'Untitled template',
+    description: cleanTemplateString(body.description),
+    category: cleanTemplateString(body.category) ?? 'custom',
+    sourceCanvasId: cleanTemplateString(body.sourceCanvasId),
+    sourceVersion: typeof body.sourceVersion === 'number' && Number.isFinite(body.sourceVersion)
+      ? body.sourceVersion
+      : undefined,
+    nodes: graph.nodes,
+    edges: graph.edges,
+    createdBy: actor.uid,
+    createdByType: actor.type,
+    updatedBy: actor.uid,
+    updatedByType: actor.type,
+    deleted: false,
+  }
+}
+
 function buildVersionSnapshot(
   canvasId: string,
   orgId: string,
@@ -168,6 +222,14 @@ export async function listCreativeCanvases(orgId: string): Promise<Array<Creativ
     .sort((a, b) => a.title.localeCompare(b.title))
 }
 
+export async function listCreativeCanvasTemplates(orgId: string): Promise<Array<CreativeCanvasTemplate & { id: string }>> {
+  const snap = await adminDb.collection(CREATIVE_CANVAS_TEMPLATE_COLLECTION).where('orgId', '==', orgId).get()
+  return snap.docs
+    .map((doc: { id: string; data: () => CanvasDoc }) => serializeCreativeCanvasTemplate(doc.id, doc.data()))
+    .filter((template) => template.deleted !== true)
+    .sort((a, b) => a.title.localeCompare(b.title))
+}
+
 export async function getCreativeCanvas(id: string, orgId: string): Promise<(CreativeCanvas & { id: string }) | null> {
   const snap = await adminDb.collection(CREATIVE_CANVAS_COLLECTION).doc(id).get()
   if (!snap.exists) return null
@@ -189,6 +251,21 @@ export async function createCreativeCanvas(
   }
   const ref = await adminDb.collection(CREATIVE_CANVAS_COLLECTION).add(payload)
   return serializeCreativeCanvas(ref.id, payload)
+}
+
+export async function createCreativeCanvasTemplate(
+  input: unknown,
+  orgId: string,
+  actor: CreativeCanvasActor,
+): Promise<CreativeCanvasTemplate & { id: string }> {
+  const data = sanitizeCreativeCanvasTemplateInput(input, orgId, actor)
+  const payload = {
+    ...data,
+    createdAt: FieldValue.serverTimestamp(),
+    updatedAt: FieldValue.serverTimestamp(),
+  }
+  const ref = await adminDb.collection(CREATIVE_CANVAS_TEMPLATE_COLLECTION).add(payload)
+  return serializeCreativeCanvasTemplate(ref.id, payload)
 }
 
 export async function updateCreativeCanvas(

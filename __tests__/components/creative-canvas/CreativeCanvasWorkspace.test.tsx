@@ -242,6 +242,82 @@ beforeEach(() => {
         }),
       }
     }
+    if (url.includes('/creative-canvas/templates') && init?.method === 'POST') {
+      const body = JSON.parse(String(init.body ?? '{}')) as {
+        title?: string
+        description?: string
+        nodes?: unknown[]
+        edges?: unknown[]
+        sourceCanvasId?: string
+        sourceVersion?: number
+      }
+      return {
+        ok: true,
+        status: 201,
+        json: async () => ({
+          success: true,
+          data: {
+            template: {
+              id: 'template-saved',
+              orgId: 'org-1',
+              title: body.title ?? 'Saved template',
+              description: body.description,
+              sourceCanvasId: body.sourceCanvasId,
+              sourceVersion: body.sourceVersion,
+              nodes: body.nodes ?? [],
+              edges: body.edges ?? [],
+              createdBy: 'user-1',
+              createdByType: 'user',
+              updatedBy: 'user-1',
+              updatedByType: 'user',
+              deleted: false,
+            },
+          },
+        }),
+      }
+    }
+    if (url.includes('/creative-canvas/templates')) {
+      return {
+        ok: true,
+        json: async () => ({
+          success: true,
+          data: {
+            templates: [{
+              id: 'template-social',
+              orgId: 'org-1',
+              title: 'Reusable social launch',
+              description: 'Saved UGC launch graph',
+              nodes: [
+                {
+                  id: 'template-source',
+                  orgId: 'org-1',
+                  type: 'source',
+                  title: 'Template product source',
+                  position: { x: 0, y: 0 },
+                  data: {},
+                  source: { kind: 'upload', referenceRole: 'product', weight: 1 },
+                },
+                {
+                  id: 'template-model',
+                  orgId: 'org-1',
+                  type: 'model',
+                  title: 'Template Higgsfield render',
+                  position: { x: 260, y: 0 },
+                  data: {},
+                  provider: { key: 'higgsfield', model: 'seedance_2_0_fast', mode: 'social_post_draft' },
+                },
+              ],
+              edges: [{ id: 'template-edge', orgId: 'org-1', sourceNodeId: 'template-source', targetNodeId: 'template-model', label: 'feeds' }],
+              createdBy: 'user-1',
+              createdByType: 'user',
+              updatedBy: 'user-1',
+              updatedByType: 'user',
+              deleted: false,
+            }],
+          },
+        }),
+      }
+    }
     if (url.includes('/creative-canvas/sources')) {
       if (url.includes('/sources/upload') && init?.method === 'POST') {
         return {
@@ -868,6 +944,75 @@ describe('CreativeCanvasWorkspace', () => {
       }),
       expect.objectContaining({
         label: 'approved draft',
+      }),
+    ]))
+  })
+
+  it('saves the current graph as a reusable template and applies it again', async () => {
+    render(<CreativeCanvasWorkspace mode="admin" orgId="org-1" />)
+
+    await screen.findByText('Launch Canvas')
+    expect(await screen.findByText('Reusable social launch')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: /apply social launch workflow/i }))
+    expect(await screen.findByText(/social launch workflow added/i)).toBeInTheDocument()
+
+    fireEvent.change(screen.getByLabelText(/template name/i), { target: { value: 'Launch repeatable flow' } })
+    fireEvent.change(screen.getByLabelText(/template notes/i), { target: { value: 'Repeat for new product launches' } })
+    fireEvent.click(screen.getByRole('button', { name: /save current graph as template/i }))
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith('/api/v1/creative-canvas/templates?orgId=org-1', expect.objectContaining({
+        method: 'POST',
+      }))
+    })
+    const templateCall = fetchMock.mock.calls.find(([url, init]) =>
+      String(url).includes('/creative-canvas/templates?orgId=org-1') && init?.method === 'POST'
+    )
+    const templateBody = JSON.parse(templateCall?.[1]?.body as string)
+    expect(templateBody).toMatchObject({
+      title: 'Launch repeatable flow',
+      description: 'Repeat for new product launches',
+      sourceCanvasId: 'canvas-1',
+      sourceVersion: 1,
+    })
+    expect(templateBody.nodes).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        title: 'Higgsfield vertical video',
+        provider: expect.objectContaining({ key: 'higgsfield' }),
+      }),
+    ]))
+    expect(templateBody.edges.length).toBeGreaterThan(0)
+    expect(await screen.findByText('Saved Launch repeatable flow template')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: /apply launch repeatable flow template/i }))
+    expect(await screen.findByText('Launch repeatable flow template applied')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: /save graph/i }))
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith('/api/v1/creative-canvas/canvas-1/graph?orgId=org-1', expect.objectContaining({
+        method: 'PUT',
+      }))
+    })
+    const graphCall = [...fetchMock.mock.calls].reverse().find(([url, init]) =>
+      String(url).includes('/graph?orgId=org-1') && init?.method === 'PUT'
+    )
+    const graphBody = JSON.parse(graphCall?.[1]?.body as string)
+    expect(graphBody.nodes).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        title: 'Higgsfield vertical video',
+        data: expect.objectContaining({
+          createdFrom: 'creative_canvas_saved_template',
+          sourceTemplateId: 'template-saved',
+          sourceTemplateTitle: 'Launch repeatable flow',
+        }),
+      }),
+    ]))
+    expect(graphBody.edges).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        data: expect.objectContaining({
+          createdFrom: 'creative_canvas_saved_template',
+          sourceTemplateId: 'template-saved',
+        }),
       }),
     ]))
   })

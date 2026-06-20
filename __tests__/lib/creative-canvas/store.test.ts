@@ -16,10 +16,13 @@ jest.mock('firebase-admin/firestore', () => ({
 
 import {
   CREATIVE_CANVAS_COLLECTION,
+  CREATIVE_CANVAS_TEMPLATE_COLLECTION,
   CreativeCanvasVersionConflictError,
   createCreativeCanvas,
+  createCreativeCanvasTemplate,
   getCreativeCanvas,
   listCreativeCanvases,
+  listCreativeCanvasTemplates,
   updateCreativeCanvasGraph,
 } from '@/lib/creative-canvas/store'
 
@@ -56,6 +59,65 @@ describe('creative canvas store', () => {
       edges: [],
     }))
     expect(created).toMatchObject({ id: 'canvas-1', orgId: 'org-1', title: 'Launch Canvas' })
+  })
+
+  it('creates and lists reusable canvas templates', async () => {
+    mockAdd.mockResolvedValue({ id: 'template-1' })
+    const template = await createCreativeCanvasTemplate({
+      title: 'UGC launch reusable flow',
+      description: 'Reusable social graph',
+      sourceCanvasId: 'canvas-1',
+      sourceVersion: 3,
+      nodes: [
+        {
+          id: 'source-1',
+          type: 'source',
+          title: 'Product source',
+          position: { x: 0, y: 0 },
+          data: {},
+        },
+        {
+          id: 'model-1',
+          type: 'model',
+          title: 'Higgsfield render',
+          position: { x: 260, y: 0 },
+          data: {},
+          provider: { key: 'higgsfield', model: 'seedance_2_0_fast', mode: 'social_post_draft' },
+        },
+      ],
+      edges: [{ id: 'edge-1', sourceNodeId: 'source-1', targetNodeId: 'model-1' }],
+    }, 'org-1', ACTOR)
+
+    expect(CREATIVE_CANVAS_TEMPLATE_COLLECTION).toBe('creative_canvas_templates')
+    expect(mockCollection).toHaveBeenCalledWith('creative_canvas_templates')
+    expect(mockAdd).toHaveBeenCalledWith(expect.objectContaining({
+      orgId: 'org-1',
+      title: 'UGC launch reusable flow',
+      description: 'Reusable social graph',
+      sourceCanvasId: 'canvas-1',
+      sourceVersion: 3,
+      createdBy: 'user-1',
+      createdAt: 'SERVER_TIMESTAMP',
+      nodes: expect.arrayContaining([
+        expect.objectContaining({ id: 'model-1', orgId: 'org-1', provider: expect.objectContaining({ model: 'seedance_2_0_fast' }) }),
+      ]),
+      edges: expect.arrayContaining([expect.objectContaining({ id: 'edge-1', orgId: 'org-1' })]),
+    }))
+    expect(template).toMatchObject({ id: 'template-1', title: 'UGC launch reusable flow', nodes: expect.any(Array) })
+
+    mockGet.mockResolvedValue({
+      docs: [
+        { id: 'template-2', data: () => ({ orgId: 'org-1', title: 'B template', deleted: false, nodes: [], edges: [] }) },
+        { id: 'template-3', data: () => ({ orgId: 'org-1', title: 'A template', deleted: false, nodes: [], edges: [] }) },
+        { id: 'template-deleted', data: () => ({ orgId: 'org-1', title: 'Deleted', deleted: true, nodes: [], edges: [] }) },
+      ],
+    })
+
+    await expect(listCreativeCanvasTemplates('org-1')).resolves.toMatchObject([
+      { id: 'template-3', title: 'A template' },
+      { id: 'template-2', title: 'B template' },
+    ])
+    expect(mockWhere).toHaveBeenCalledWith('orgId', '==', 'org-1')
   })
 
   it('returns null for missing or cross-org canvases', async () => {

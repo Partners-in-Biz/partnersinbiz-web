@@ -259,6 +259,25 @@ export interface CreativeCanvasGraph {
   edges: CreativeCanvasEdge[]
 }
 
+export interface CreativeCanvasTemplate {
+  id?: string
+  orgId: string
+  title: string
+  description?: string
+  category?: string
+  sourceCanvasId?: string
+  sourceVersion?: number
+  nodes: CreativeCanvasNode[]
+  edges: CreativeCanvasEdge[]
+  createdAt?: unknown
+  createdBy: string
+  createdByType: CreativeCanvasActorType
+  updatedAt?: unknown
+  updatedBy: string
+  updatedByType: CreativeCanvasActorType
+  deleted: boolean
+}
+
 export type CreativeCanvasOrchestrationRole =
   | 'source_curator'
   | 'strategist'
