@@ -835,7 +835,27 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
   useEffect(() => {
     const selectedModel = selectedCanvasNode?.provider?.key === 'higgsfield' ? selectedCanvasNode.provider.model : undefined
     if (selectedModel) setRunModel(selectedModel)
-  }, [selectedCanvasNode?.id, selectedCanvasNode?.provider?.key, selectedCanvasNode?.provider?.model])
+    if (selectedCanvasNode?.provider?.mode) setRunOutputKind(selectedCanvasNode.provider.mode)
+    if (selectedCanvasNode?.edit?.outputKind) setRunOutputKind(selectedCanvasNode.edit.outputKind)
+    if (selectedCanvasNode?.edit?.motion?.mode) setRunCameraMotion(selectedCanvasNode.edit.motion.mode)
+    if (typeof selectedCanvasNode?.edit?.motion?.durationSeconds === 'number') {
+      setRunDurationSeconds(selectedCanvasNode.edit.motion.durationSeconds)
+    }
+    const generationSettings = selectedCanvasNode?.data?.generationSettings as Record<string, unknown> | undefined
+    if (typeof generationSettings?.aspectRatio === 'string') setRunAspectRatio(generationSettings.aspectRatio)
+    if (typeof generationSettings?.variantCount === 'number') setRunVariantCount(generationSettings.variantCount)
+    if (typeof generationSettings?.stylePreset === 'string') setRunStylePreset(generationSettings.stylePreset)
+    if (typeof generationSettings?.negativePrompt === 'string') setRunNegativePrompt(generationSettings.negativePrompt)
+  }, [
+    selectedCanvasNode?.data,
+    selectedCanvasNode?.edit?.motion?.durationSeconds,
+    selectedCanvasNode?.edit?.motion?.mode,
+    selectedCanvasNode?.edit?.outputKind,
+    selectedCanvasNode?.id,
+    selectedCanvasNode?.provider?.key,
+    selectedCanvasNode?.provider?.mode,
+    selectedCanvasNode?.provider?.model,
+  ])
 
   useEffect(() => {
     let cancelled = false
@@ -1128,6 +1148,48 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
       return toFlowNode(updater(canvasNode))
     }))
     setSaveMessage('')
+  }
+
+  const applyGenerationSettingsToSelectedNode = () => {
+    if (!selectedCanvasNode) return
+    setNodes((currentNodes) => currentNodes.map((node) => {
+      if (node.id !== selectedCanvasNode.id) return node
+      const canvasNode = node.data?.canvasNode as CreativeCanvasNode | undefined
+      if (!canvasNode) return node
+      const nextNode: CreativeCanvasNode = {
+        ...canvasNode,
+        provider: {
+          key: 'higgsfield',
+          model: runModel || canvasNode.provider?.model || 'nano_banana_flash',
+          mode: runOutputKind,
+        },
+        data: {
+          ...canvasNode.data,
+          generationSettings: {
+            aspectRatio: runAspectRatio,
+            durationSeconds: runDurationSeconds,
+            variantCount: runVariantCount,
+            stylePreset: runStylePreset,
+            cameraMotion: runCameraMotion,
+            negativePrompt: runNegativePrompt,
+          },
+        },
+        edit: canvasNode.edit
+          ? {
+              ...canvasNode.edit,
+              outputKind: runOutputKind as CreativeCanvasRun['input']['outputKind'],
+              motion: {
+                ...canvasNode.edit.motion,
+                mode: runCameraMotion as NonNullable<NonNullable<CreativeCanvasNode['edit']>['motion']>['mode'],
+                durationSeconds: runDurationSeconds,
+              },
+            }
+          : canvasNode.edit,
+      }
+      return toFlowNode(nextNode)
+    }))
+    setSaveMessage('')
+    setActivityMessage(`Generation settings applied to ${selectedCanvasNode.title}`)
   }
 
   const applyMaskRegion = () => {
@@ -2079,6 +2141,11 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
             <p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">
               Queue Higgsfield, copy, document, and review work from prompt/model nodes while keeping approval gates intact.
             </p>
+            {selectedCanvasNode?.provider?.key === 'higgsfield' ? (
+              <p className="mt-2 rounded-md bg-white px-2 py-1 text-xs text-[var(--color-pib-text-muted)]">
+                Node settings: {selectedCanvasNode.provider.model ?? 'default model'} / {selectedCanvasNode.provider.mode ?? selectedCanvasNode.edit?.outputKind ?? 'image'}
+              </p>
+            ) : null}
             <div className="mt-3 grid grid-cols-2 gap-2">
               <label className="col-span-2 text-xs font-medium text-[var(--color-pib-text-muted)]" htmlFor="creative-canvas-model-id">
                 Higgsfield model id
@@ -2202,6 +2269,14 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
                   className="rounded-lg border border-[var(--color-pib-line)] px-3 py-2 text-xs font-semibold text-[var(--color-pib-text)] disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   Queue run
+                </button>
+                <button
+                  type="button"
+                  onClick={applyGenerationSettingsToSelectedNode}
+                  disabled={!selectedNodeId}
+                  className="rounded-lg border border-[var(--color-pib-line)] px-3 py-2 text-xs font-semibold text-[var(--color-pib-text)] disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  Apply settings to node
                 </button>
                 <button
                   type="button"

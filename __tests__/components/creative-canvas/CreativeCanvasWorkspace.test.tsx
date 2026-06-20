@@ -794,6 +794,12 @@ describe('CreativeCanvasWorkspace', () => {
     expect((screen.getByLabelText(/output kind/i) as HTMLSelectElement).value).toBe('social_post_draft')
     expect(screen.getAllByLabelText(/export target/i).some((element) => (element as HTMLSelectElement).value === 'social_draft')).toBe(true)
     expect((screen.getByLabelText(/aspect ratio/i) as HTMLSelectElement).value).toBe('9:16')
+    fireEvent.change(screen.getByLabelText(/higgsfield model id/i), { target: { value: 'seedance_2_0_fast' } })
+    fireEvent.change(screen.getByLabelText(/duration seconds/i), { target: { value: '12' } })
+    fireEvent.change(screen.getByLabelText(/variants/i), { target: { value: '3' } })
+    fireEvent.change(screen.getByLabelText(/negative prompt/i), { target: { value: 'no off-brand props' } })
+    fireEvent.click(screen.getByRole('button', { name: /apply settings to node/i }))
+    expect(await screen.findByText(/generation settings applied to higgsfield vertical video/i)).toBeInTheDocument()
 
     fireEvent.click(screen.getByRole('button', { name: /save graph/i }))
 
@@ -824,13 +830,25 @@ describe('CreativeCanvasWorkspace', () => {
       expect.objectContaining({
         type: 'model',
         title: 'Higgsfield vertical video',
+        data: expect.objectContaining({
+          generationSettings: expect.objectContaining({
+            aspectRatio: '9:16',
+            durationSeconds: 12,
+            variantCount: 3,
+            negativePrompt: 'no off-brand props',
+          }),
+        }),
         provider: expect.objectContaining({
           key: 'higgsfield',
-          mode: 'vertical_social',
+          model: 'seedance_2_0_fast',
+          mode: 'social_post_draft',
         }),
         edit: expect.objectContaining({
           operation: 'video_motion',
           outputKind: 'social_post_draft',
+          motion: expect.objectContaining({
+            durationSeconds: 12,
+          }),
         }),
       }),
       expect.objectContaining({
