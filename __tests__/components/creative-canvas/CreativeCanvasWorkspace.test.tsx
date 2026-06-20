@@ -52,6 +52,33 @@ beforeEach(() => {
       }
     }
     if (url.includes('/creative-canvas/sources')) {
+      if (url.includes('/sources/upload') && init?.method === 'POST') {
+        return {
+          ok: true,
+          json: async () => ({
+            success: true,
+            data: {
+              source: {
+                id: 'upload:upload-2',
+                title: 'new-product.png',
+                description: 'Upload / image/png',
+                source: {
+                  kind: 'upload',
+                  refId: 'upload-2',
+                  url: 'https://cdn.example.com/new-product.png',
+                  thumbnailUrl: 'https://cdn.example.com/new-product-thumb.png',
+                  previewUrl: 'https://cdn.example.com/new-product.png',
+                  storagePath: 'creative-canvas/org-1/canvas-1/new-product.png',
+                  mimeType: 'image/png',
+                  altText: 'New product angle',
+                  referenceRole: 'product',
+                  weight: 1,
+                },
+              },
+            },
+          }),
+        }
+      }
       return {
         ok: true,
         json: async () => ({
@@ -217,6 +244,28 @@ describe('CreativeCanvasWorkspace', () => {
         && text.includes('referenceRole=product')
         && text.includes('mediaType=image')
     })).toBe(true)
+  })
+
+  it('uploads a new source and imports it into the graph', async () => {
+    render(<CreativeCanvasWorkspace mode="admin" orgId="org-1" />)
+
+    await screen.findByText('Launch Canvas')
+    fireEvent.change(screen.getByLabelText(/alt text/i), { target: { value: 'New product angle' } })
+    fireEvent.change(screen.getByLabelText(/choose media or pdf/i), {
+      target: {
+        files: [new File(['image-bytes'], 'new-product.png', { type: 'image/png' })],
+      },
+    })
+
+    expect(await screen.findByText(/source uploaded: new-product.png/i)).toBeInTheDocument()
+    expect(await screen.findByAltText('Reference preview: New product angle')).toHaveAttribute(
+      'src',
+      'https://cdn.example.com/new-product-thumb.png',
+    )
+    expect(fetchMock).toHaveBeenCalledWith('/api/v1/creative-canvas/sources/upload', expect.objectContaining({
+      method: 'POST',
+      body: expect.any(FormData),
+    }))
   })
 
   it('adds an edit node with mask and inpainting controls', async () => {

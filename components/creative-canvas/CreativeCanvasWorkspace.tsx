@@ -47,6 +47,7 @@ interface CreativeCanvasSourceLibraryApiResponse {
   success?: boolean
   data?: {
     sources?: CreativeCanvasSourceLibraryItem[]
+    source?: CreativeCanvasSourceLibraryItem
   }
 }
 
@@ -186,6 +187,9 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
   const [sourceKindFilter, setSourceKindFilter] = useState('')
   const [sourceRoleFilter, setSourceRoleFilter] = useState('')
   const [sourceMediaFilter, setSourceMediaFilter] = useState('')
+  const [sourceUploadRole, setSourceUploadRole] = useState('product')
+  const [sourceUploadAltText, setSourceUploadAltText] = useState('')
+  const [sourceUploading, setSourceUploading] = useState(false)
 
   const activeCanvas = useMemo(
     () => canvases.find((canvas) => canvas.id === activeCanvasId) ?? canvases[0],
@@ -370,6 +374,36 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
 
     setNodes((currentNodes) => [...currentNodes, toFlowNode(canvasNode)])
     setSaveMessage('')
+  }
+
+  const uploadSourceFiles = async (files: FileList | null) => {
+    if (!files?.length || !resolvedOrgId) return
+    setSourceUploading(true)
+    setActivityMessage('')
+    try {
+      const uploaded: CreativeCanvasSourceLibraryItem[] = []
+      for (const file of Array.from(files)) {
+        const form = new FormData()
+        form.append('orgId', resolvedOrgId)
+        if (activeCanvas?.id) form.append('canvasId', activeCanvas.id)
+        form.append('referenceRole', sourceUploadRole)
+        if (sourceUploadAltText.trim()) form.append('altText', sourceUploadAltText.trim())
+        form.append('file', file)
+        const response = await fetch('/api/v1/creative-canvas/sources/upload', { method: 'POST', body: form })
+        const payload = await response.json().catch(() => null) as CreativeCanvasSourceLibraryApiResponse | null
+        const source = payload?.data?.source
+        if (!response.ok || !source) throw new Error('Source upload failed')
+        uploaded.push(source)
+      }
+      uploaded.forEach(importSourceItem)
+      setSourceLibrary((current) => [...uploaded, ...current.filter((item) => !uploaded.some((source) => source.id === item.id))])
+      setActivityMessage(uploaded.length === 1 ? `Source uploaded: ${uploaded[0].title}` : `${uploaded.length} sources uploaded`)
+      setSourceUploadAltText('')
+    } catch {
+      setActivityMessage('Source upload failed')
+    } finally {
+      setSourceUploading(false)
+    }
   }
 
   const updateMaskRegionValue = (key: keyof typeof maskRegion, value: string) => {
@@ -728,6 +762,53 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
                     <option value="document">Documents</option>
                   </select>
                 </label>
+              </div>
+              <div className="rounded-lg border border-dashed border-[var(--color-pib-line)] bg-white p-3">
+                <p className="text-xs font-semibold text-[var(--color-pib-text)]">Upload source</p>
+                <div className="mt-2 space-y-2">
+                  <label className="block text-xs font-medium text-[var(--color-pib-text-muted)]" htmlFor="creative-canvas-upload-role">
+                    Upload role
+                    <select
+                      id="creative-canvas-upload-role"
+                      value={sourceUploadRole}
+                      onChange={(event) => setSourceUploadRole(event.target.value)}
+                      className="mt-1 w-full rounded-lg border border-[var(--color-pib-line)] bg-white px-2 py-1.5 text-xs text-[var(--color-pib-text)]"
+                    >
+                      <option value="product">Product</option>
+                      <option value="person">Person</option>
+                      <option value="style">Style</option>
+                      <option value="logo">Logo</option>
+                      <option value="mask">Mask</option>
+                      <option value="motion">Motion</option>
+                      <option value="general">General</option>
+                    </select>
+                  </label>
+                  <label className="block text-xs font-medium text-[var(--color-pib-text-muted)]" htmlFor="creative-canvas-upload-alt">
+                    Alt text
+                    <input
+                      id="creative-canvas-upload-alt"
+                      value={sourceUploadAltText}
+                      onChange={(event) => setSourceUploadAltText(event.target.value)}
+                      className="mt-1 w-full rounded-lg border border-[var(--color-pib-line)] bg-white px-2 py-1.5 text-xs text-[var(--color-pib-text)]"
+                      placeholder="Product bottle front angle"
+                    />
+                  </label>
+                  <label className="block cursor-pointer rounded-lg border border-[var(--color-pib-line)] px-3 py-2 text-xs font-semibold text-[var(--color-pib-text)]" htmlFor="creative-canvas-source-upload">
+                    {sourceUploading ? 'Uploading source...' : 'Choose media or PDF'}
+                    <input
+                      id="creative-canvas-source-upload"
+                      type="file"
+                      accept="image/*,video/*,audio/*,application/pdf"
+                      multiple
+                      disabled={sourceUploading}
+                      onChange={(event) => {
+                        void uploadSourceFiles(event.target.files)
+                        event.currentTarget.value = ''
+                      }}
+                      className="sr-only"
+                    />
+                  </label>
+                </div>
               </div>
             </div>
             <div className="mt-3 space-y-2">
