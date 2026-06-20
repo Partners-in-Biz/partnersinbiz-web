@@ -1,5 +1,5 @@
 import React from 'react'
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { CreativeCanvasWorkspace } from '@/components/creative-canvas/CreativeCanvasWorkspace'
 
 jest.mock('@xyflow/react', () => ({
@@ -18,6 +18,22 @@ jest.mock('@xyflow/react', () => ({
 }))
 
 const fetchMock = jest.fn()
+
+function dispatchBrushPointerEvent(
+  element: HTMLElement,
+  type: 'pointerdown' | 'pointermove' | 'pointerup',
+  clientX: number,
+  clientY: number,
+) {
+  act(() => {
+    element.dispatchEvent(new MouseEvent(type, {
+      bubbles: true,
+      cancelable: true,
+      clientX,
+      clientY,
+    }))
+  })
+}
 
 beforeEach(() => {
   jest.clearAllMocks()
@@ -777,14 +793,26 @@ describe('CreativeCanvasWorkspace', () => {
     await screen.findByText('Launch Canvas')
     fireEvent.click(screen.getByRole('button', { name: /add edit node/i }))
     fireEvent.change(screen.getByLabelText(/brush size/i), { target: { value: '12' } })
-    fireEvent.pointerDown(screen.getByRole('application', { name: /brush mask canvas/i }), {
-      clientX: 40,
-      clientY: 40,
-    })
+    const brushCanvas = screen.getByRole('application', { name: /brush mask canvas/i })
+    jest.spyOn(brushCanvas, 'getBoundingClientRect').mockReturnValue({
+      x: 0,
+      y: 0,
+      left: 0,
+      top: 0,
+      right: 200,
+      bottom: 100,
+      width: 200,
+      height: 100,
+      toJSON: () => ({}),
+    } as DOMRect)
+    dispatchBrushPointerEvent(brushCanvas, 'pointerdown', 40, 40)
+    dispatchBrushPointerEvent(brushCanvas, 'pointermove', 80, 50)
+    dispatchBrushPointerEvent(brushCanvas, 'pointerup', 80, 50)
 
     expect(await screen.findByText('Mask: brush attached')).toBeInTheDocument()
     expect(screen.getByText(/1 brush/i)).toBeInTheDocument()
     expect(screen.getByLabelText('Brush mask point 1')).toBeInTheDocument()
+    expect(screen.getByLabelText('Brush mask point 2')).toBeInTheDocument()
 
     fireEvent.click(screen.getByRole('button', { name: /save graph/i }))
 
@@ -805,7 +833,7 @@ describe('CreativeCanvasWorkspace', () => {
               brush: {
                 strokes: [
                   expect.objectContaining({
-                    points: [{ x: 50, y: 50 }],
+                    points: [{ x: 20, y: 40 }, { x: 40, y: 50 }],
                     size: 12,
                     mode: 'paint',
                     unit: 'percent',
@@ -970,10 +998,21 @@ describe('CreativeCanvasWorkspace', () => {
 
     await screen.findByText('Launch Canvas')
     fireEvent.click(screen.getByRole('button', { name: /add edit node/i }))
-    fireEvent.pointerDown(screen.getByRole('application', { name: /brush mask canvas/i }), {
-      clientX: 40,
-      clientY: 40,
-    })
+    const brushCanvas = screen.getByRole('application', { name: /brush mask canvas/i })
+    jest.spyOn(brushCanvas, 'getBoundingClientRect').mockReturnValue({
+      x: 0,
+      y: 0,
+      left: 0,
+      top: 0,
+      right: 200,
+      bottom: 100,
+      width: 200,
+      height: 100,
+      toJSON: () => ({}),
+    } as DOMRect)
+    dispatchBrushPointerEvent(brushCanvas, 'pointerdown', 40, 40)
+    dispatchBrushPointerEvent(brushCanvas, 'pointermove', 80, 50)
+    dispatchBrushPointerEvent(brushCanvas, 'pointerup', 80, 50)
     fireEvent.click(screen.getByRole('button', { name: /queue run/i }))
 
     await screen.findByText(/run queued: run-1/i)
@@ -989,7 +1028,7 @@ describe('CreativeCanvasWorkspace', () => {
           brush: {
             strokes: [
               expect.objectContaining({
-                points: [{ x: 50, y: 50 }],
+                points: [{ x: 20, y: 40 }, { x: 40, y: 50 }],
                 unit: 'percent',
               }),
             ],

@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState, type PointerEvent as ReactPointerEvent } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
 import {
   Background,
   Controls,
@@ -539,6 +539,8 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
   const [sourceUploading, setSourceUploading] = useState(false)
   const [maskBrushSize, setMaskBrushSize] = useState(8)
   const [maskBrushMode, setMaskBrushMode] = useState<'paint' | 'erase'>('paint')
+  const [activeMaskBrushStrokeId, setActiveMaskBrushStrokeId] = useState<string>('')
+  const activeMaskBrushStrokeIdRef = useRef('')
   const [assetOriginFilter, setAssetOriginFilter] = useState<'all' | CreativeCanvasAssetOrigin>('all')
   const [assetReadinessFilter, setAssetReadinessFilter] = useState<'all' | 'ready' | 'draft_exportable' | 'review_needed' | 'blocked'>('all')
   const [selectedAssetId, setSelectedAssetId] = useState('')
@@ -944,14 +946,43 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
 
   const maskPointFromPointer = (event: ReactPointerEvent<HTMLDivElement>) => {
     const bounds = event.currentTarget.getBoundingClientRect()
-    if (!bounds.width || !bounds.height) return { x: 50, y: 50 }
+    if (!bounds.width || !bounds.height || !Number.isFinite(event.clientX) || !Number.isFinite(event.clientY)) return { x: 50, y: 50 }
     return {
       x: Math.round(Math.min(100, Math.max(0, ((event.clientX - bounds.left) / bounds.width) * 100))),
       y: Math.round(Math.min(100, Math.max(0, ((event.clientY - bounds.top) / bounds.height) * 100))),
     }
   }
 
+  const appendBrushPoint = (strokeId: string, point: { x: number; y: number }) => {
+    updateSelectedEditNode((node) => {
+      const strokes = node.edit?.mask?.brush?.strokes ?? []
+      return {
+        ...node,
+        edit: node.edit
+          ? {
+              ...node.edit,
+              mask: {
+                ...node.edit.mask,
+                brush: {
+                  strokes: strokes.map((stroke) => {
+                    if (stroke.id !== strokeId) return stroke
+                    const lastPoint = stroke.points[stroke.points.length - 1]
+                    if (lastPoint && Math.abs(lastPoint.x - point.x) < 1 && Math.abs(lastPoint.y - point.y) < 1) return stroke
+                    return {
+                      ...stroke,
+                      points: [...stroke.points, point].slice(0, 300),
+                    }
+                  }),
+                },
+              },
+            }
+          : node.edit,
+      }
+    })
+  }
+
   const addBrushStroke = (point: { x: number; y: number }) => {
+    const strokeId = `brush-${Date.now()}-${selectedMaskBrushStrokes.length + 1}`
     updateSelectedEditNode((node) => {
       const strokes = node.edit?.mask?.brush?.strokes ?? []
       return {
@@ -965,7 +996,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
                   strokes: [
                     ...strokes,
                     {
-                      id: `brush-${Date.now()}-${strokes.length + 1}`,
+                      id: strokeId,
                       points: [point],
                       size: maskBrushSize,
                       opacity: maskBrushMode === 'erase' ? 0.7 : 0.45,
@@ -979,11 +1010,29 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
           : node.edit,
       }
     })
+    activeMaskBrushStrokeIdRef.current = strokeId
+    setActiveMaskBrushStrokeId(strokeId)
   }
 
   const handleMaskBrushPointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
     event.preventDefault()
+    event.currentTarget.setPointerCapture?.(event.pointerId)
     addBrushStroke(maskPointFromPointer(event))
+  }
+
+  const handleMaskBrushPointerMove = (event: ReactPointerEvent<HTMLDivElement>) => {
+    const strokeId = activeMaskBrushStrokeIdRef.current || activeMaskBrushStrokeId
+    if (!strokeId) return
+    event.preventDefault()
+    appendBrushPoint(strokeId, maskPointFromPointer(event))
+  }
+
+  const handleMaskBrushPointerEnd = (event: ReactPointerEvent<HTMLDivElement>) => {
+    if (activeMaskBrushStrokeIdRef.current || activeMaskBrushStrokeId) {
+      event.currentTarget.releasePointerCapture?.(event.pointerId)
+      activeMaskBrushStrokeIdRef.current = ''
+      setActiveMaskBrushStrokeId('')
+    }
   }
 
   const undoBrushStroke = () => {
@@ -1003,6 +1052,8 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
           : node.edit,
       }
     })
+    activeMaskBrushStrokeIdRef.current = ''
+    setActiveMaskBrushStrokeId('')
   }
 
   const clearBrushMask = () => {
@@ -1018,6 +1069,8 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
           }
         : node.edit,
     }))
+    activeMaskBrushStrokeIdRef.current = ''
+    setActiveMaskBrushStrokeId('')
   }
 
   const selectFlowNode = useCallback((_: unknown, node: Node) => {
@@ -1922,6 +1975,9 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
                     role="application"
                     aria-label="Brush mask canvas"
                     onPointerDown={handleMaskBrushPointerDown}
+                    onPointerMove={handleMaskBrushPointerMove}
+                    onPointerUp={handleMaskBrushPointerEnd}
+                    onPointerCancel={handleMaskBrushPointerEnd}
                     className="relative aspect-video cursor-crosshair overflow-hidden rounded-md border border-[var(--color-pib-line)] bg-[linear-gradient(135deg,#f8fafc_0%,#f8fafc_48%,#eef2f7_48%,#eef2f7_100%)]"
                   >
                     <div
@@ -1937,7 +1993,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
                     {selectedMaskBrushStrokes.flatMap((stroke) => stroke.points.map((point, pointIndex) => (
                       <div
                         key={`${stroke.id}-${pointIndex}`}
-                        aria-label={`Brush mask point ${pointIndex + 1}`}
+                        aria-label={`Brush mask point ${selectedMaskBrushStrokes.slice(0, selectedMaskBrushStrokes.indexOf(stroke)).reduce((total, item) => total + item.points.length, 0) + pointIndex + 1}`}
                         className={`absolute rounded-full border ${
                           stroke.mode === 'erase'
                             ? 'border-red-300 bg-white/80'
