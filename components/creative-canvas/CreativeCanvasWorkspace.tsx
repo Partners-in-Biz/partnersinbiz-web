@@ -124,6 +124,13 @@ interface CreativeCanvasExportPackageApiResponse {
     package?: {
       assetCount?: number
       targets?: CreativeCanvasExport['target'][]
+      manifest?: {
+        canvas?: { nodeCount?: number; edgeCount?: number; activeVersion?: number }
+        proof?: {
+          requiredOutputKinds?: CreativeCanvasOutputKind[]
+          sourceNodeIds?: string[]
+        }
+      }
     }
   }
   error?: string
@@ -701,7 +708,18 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
   const [assetReadinessFilter, setAssetReadinessFilter] = useState<'all' | 'ready' | 'draft_exportable' | 'review_needed' | 'blocked'>('all')
   const [selectedAssetId, setSelectedAssetId] = useState('')
   const [compareAssetIds, setCompareAssetIds] = useState<string[]>([])
-  const [latestExportPackage, setLatestExportPackage] = useState<{ id: string; assetCount: number; targets: string[] } | null>(null)
+  const [latestExportPackage, setLatestExportPackage] = useState<{
+    id: string
+    assetCount: number
+    targets: string[]
+    manifest?: {
+      nodeCount?: number
+      edgeCount?: number
+      activeVersion?: number
+      requiredOutputKinds?: string[]
+      sourceNodeCount?: number
+    }
+  } | null>(null)
   const [mobilePanel, setMobilePanel] = useState<CreativeCanvasMobilePanel>('canvas')
   const [remoteCanvasUpdate, setRemoteCanvasUpdate] = useState<CreativeCanvas | null>(null)
   const [templates, setTemplates] = useState<Array<CreativeCanvasTemplate & { id: string }>>([])
@@ -2483,6 +2501,13 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
         id: payload.data.exportId,
         assetCount: payload.data.package?.assetCount ?? nodeIds.length,
         targets: payload.data.package?.targets ?? [],
+        manifest: {
+          nodeCount: payload.data.package?.manifest?.canvas?.nodeCount,
+          edgeCount: payload.data.package?.manifest?.canvas?.edgeCount,
+          activeVersion: payload.data.package?.manifest?.canvas?.activeVersion,
+          requiredOutputKinds: payload.data.package?.manifest?.proof?.requiredOutputKinds,
+          sourceNodeCount: payload.data.package?.manifest?.proof?.sourceNodeIds?.length,
+        },
       })
       setActivityMessage('Export package prepared')
     } else {
@@ -4003,10 +4028,19 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
                   </button>
                 </div>
                 {latestExportPackage ? (
-                  <p className="mt-2">
-                    Package {latestExportPackage.id}: {latestExportPackage.assetCount} assets
-                    {latestExportPackage.targets.length ? ` / ${latestExportPackage.targets.join(', ')}` : ''}
-                  </p>
+                  <div className="mt-2 rounded-md bg-[var(--color-pib-surface)] px-2 py-1.5">
+                    <p>
+                      Package {latestExportPackage.id}: {latestExportPackage.assetCount} assets
+                      {latestExportPackage.targets.length ? ` / ${latestExportPackage.targets.join(', ')}` : ''}
+                    </p>
+                    {latestExportPackage.manifest ? (
+                      <p className="mt-1">
+                        Manifest v{latestExportPackage.manifest.activeVersion ?? activeCanvas?.activeVersion ?? 0}: {latestExportPackage.manifest.nodeCount ?? 0} nodes / {latestExportPackage.manifest.edgeCount ?? 0} links
+                        {latestExportPackage.manifest.requiredOutputKinds?.length ? ` / ${latestExportPackage.manifest.requiredOutputKinds.join(', ')}` : ''}
+                        {typeof latestExportPackage.manifest.sourceNodeCount === 'number' ? ` / ${latestExportPackage.manifest.sourceNodeCount} sources` : ''}
+                      </p>
+                    ) : null}
+                  </div>
                 ) : null}
               </div>
             ) : null}

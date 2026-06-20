@@ -128,9 +128,18 @@ describe('creative canvas generic draft exports', () => {
       canvas: {
         ...canvas(),
         nodes: [
+          {
+            id: 'source-1',
+            orgId: 'org-1',
+            type: 'source',
+            title: 'Product reference',
+            position: { x: 0, y: 0 },
+            data: {},
+          },
           outputNode({ id: 'output-social', title: 'Social video', output: { ...outputNode().output!, kind: 'social_post_draft' } }),
           outputNode({ id: 'output-book', title: 'Book cover', output: { ...outputNode().output!, kind: 'book_artifact' } }),
         ],
+        edges: [{ id: 'edge-1', orgId: 'org-1', sourceNodeId: 'source-1', targetNodeId: 'output-social', label: 'reference' }],
       },
       nodeIds: ['output-social', 'output-book'],
       actor: { uid: 'user-1', type: 'user' },
@@ -151,6 +160,36 @@ describe('creative canvas generic draft exports', () => {
       clientVisible: false,
       publishEnabled: false,
     })
+    expect(pack.payload.manifest).toMatchObject({
+      format: 'creative_canvas_export_package_manifest_v1',
+      canvas: {
+        id: 'canvas-1',
+        title: 'Launch Canvas',
+        activeVersion: 2,
+        nodeCount: 3,
+        edgeCount: 1,
+      },
+      review: {
+        readyAssetCount: 2,
+        blockedAssetCount: 0,
+        needsReviewAssetCount: 0,
+        syntheticMediaAssetCount: 2,
+      },
+      proof: {
+        requiredOutputKinds: ['social_post_draft', 'book_artifact'],
+        packageTargets: ['social_draft', 'book_studio'],
+        sourceNodeIds: ['source-1'],
+        outputNodeIds: ['output-social', 'output-book'],
+      },
+    })
+    expect(pack.payload.manifest.graph.nodes).toEqual(expect.arrayContaining([
+      expect.objectContaining({ id: 'source-1', type: 'source', title: 'Product reference' }),
+      expect.objectContaining({ id: 'output-social', outputKind: 'social_post_draft', target: 'social_draft' }),
+      expect.objectContaining({ id: 'output-book', outputKind: 'book_artifact', target: 'book_studio' }),
+    ]))
+    expect(pack.payload.manifest.graph.edges).toEqual([
+      expect.objectContaining({ id: 'edge-1', sourceNodeId: 'source-1', targetNodeId: 'output-social' }),
+    ])
     expect(pack.payload.guardrails.join(' ')).toContain('Do not publish')
   })
 })

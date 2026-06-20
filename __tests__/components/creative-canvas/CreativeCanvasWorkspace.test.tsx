@@ -315,6 +315,13 @@ beforeEach(() => {
               status: 'internal_package',
               assetCount: 1,
               targets: ['social_draft'],
+              manifest: {
+                canvas: { activeVersion: 1, nodeCount: 6, edgeCount: 5 },
+                proof: {
+                  requiredOutputKinds: ['social_post_draft'],
+                  sourceNodeIds: ['social-launch-source'],
+                },
+              },
             },
           },
         }),
@@ -1853,6 +1860,7 @@ describe('CreativeCanvasWorkspace', () => {
     })
     expect(await screen.findByText('Export package prepared')).toBeInTheDocument()
     expect(screen.getByText(/Package package-1: 1 assets/i)).toBeInTheDocument()
+    expect(screen.getByText(/Manifest v1: 6 nodes \/ 5 links \/ social_post_draft \/ 1 sources/i)).toBeInTheDocument()
   })
 
   it('edits selected source asset metadata and saves it with the graph', async () => {

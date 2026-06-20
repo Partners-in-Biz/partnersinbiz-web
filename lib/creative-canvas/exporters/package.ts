@@ -20,6 +20,44 @@ export interface CreativeCanvasExportPackageAsset {
   review: NonNullable<CreativeCanvasNode['review']>
 }
 
+export interface CreativeCanvasExportPackageManifest {
+  format: 'creative_canvas_export_package_manifest_v1'
+  canvas: {
+    id: string
+    title: string
+    activeVersion: number
+    nodeCount: number
+    edgeCount: number
+  }
+  graph: {
+    nodes: Array<{
+      id: string
+      type: CreativeCanvasNode['type']
+      title: string
+      outputKind?: CreativeCanvasOutputKind
+      target?: CreativeCanvasExport['target']
+    }>
+    edges: Array<{
+      id: string
+      sourceNodeId: string
+      targetNodeId: string
+      label?: string
+    }>
+  }
+  review: {
+    readyAssetCount: number
+    blockedAssetCount: number
+    needsReviewAssetCount: number
+    syntheticMediaAssetCount: number
+  }
+  proof: {
+    requiredOutputKinds: CreativeCanvasOutputKind[]
+    packageTargets: CreativeCanvasExport['target'][]
+    sourceNodeIds: string[]
+    outputNodeIds: string[]
+  }
+}
+
 export interface CreativeCanvasExportPackagePayload {
   source: 'creative_canvas'
   status: 'internal_package'
@@ -34,6 +72,7 @@ export interface CreativeCanvasExportPackagePayload {
   clientVisible: false
   publishEnabled: false
   guardrails: string[]
+  manifest: CreativeCanvasExportPackageManifest
 }
 
 export interface CreativeCanvasExportPackageResult {
@@ -89,6 +128,18 @@ function outputIsReady(node: CreativeCanvasNode): boolean {
     && node.review.brandStatus === 'passed'
 }
 
+function outputNeedsReview(node: CreativeCanvasNode): boolean {
+  return node.review?.status === 'needed'
+    || node.review?.rightsStatus === 'needs_review'
+    || node.review?.brandStatus === 'needs_review'
+}
+
+function outputIsBlocked(node: CreativeCanvasNode): boolean {
+  return node.review?.status === 'blocked'
+    || node.review?.rightsStatus === 'blocked'
+    || node.review?.brandStatus === 'blocked'
+}
+
 export function buildCreativeCanvasExportPackage(input: {
   canvas: CreativeCanvas & { id: string }
   actor: CreativeCanvasActor
@@ -126,6 +177,44 @@ export function buildCreativeCanvasExportPackage(input: {
 
   const nodeIds = assets.map((asset) => asset.nodeId)
   const targets = Array.from(new Set(assets.map((asset) => asset.target)))
+  const canvasEdges = input.canvas.edges ?? []
+  const manifest: CreativeCanvasExportPackageManifest = {
+    format: 'creative_canvas_export_package_manifest_v1',
+    canvas: {
+      id: input.canvas.id,
+      title: input.canvas.title,
+      activeVersion: input.canvas.activeVersion ?? 1,
+      nodeCount: input.canvas.nodes.length,
+      edgeCount: canvasEdges.length,
+    },
+    graph: {
+      nodes: input.canvas.nodes.map((node) => ({
+        id: node.id,
+        type: node.type,
+        title: node.title,
+        outputKind: node.output?.kind,
+        target: node.type === 'output' ? targetFromNode(node) : undefined,
+      })),
+      edges: canvasEdges.map((edge) => ({
+        id: edge.id,
+        sourceNodeId: edge.sourceNodeId,
+        targetNodeId: edge.targetNodeId,
+        label: edge.label,
+      })),
+    },
+    review: {
+      readyAssetCount: candidates.filter(outputIsReady).length,
+      blockedAssetCount: candidates.filter(outputIsBlocked).length,
+      needsReviewAssetCount: candidates.filter(outputNeedsReview).length,
+      syntheticMediaAssetCount: candidates.filter((node) => node.review?.syntheticMediaDisclosure === true).length,
+    },
+    proof: {
+      requiredOutputKinds: Array.from(new Set(assets.map((asset) => asset.outputKind))),
+      packageTargets: targets,
+      sourceNodeIds: input.canvas.nodes.filter((node) => node.type === 'source').map((node) => node.id),
+      outputNodeIds: nodeIds,
+    },
+  }
   const exportRecord: CreativeCanvasExportPackageResult['exportRecord'] = {
     orgId: input.canvas.orgId,
     canvasId: input.canvas.id,
@@ -153,6 +242,7 @@ export function buildCreativeCanvasExportPackage(input: {
       linked: input.canvas.linked ?? {},
       clientVisible: false,
       publishEnabled: false,
+      manifest,
       guardrails: [
         'Internal package only.',
         'Do not publish, schedule, spend, or expose to clients until downstream review gates pass.',
