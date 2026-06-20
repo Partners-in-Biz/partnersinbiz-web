@@ -20,6 +20,7 @@ import type {
   CreativeCanvas,
   CreativeCanvasComment,
   CreativeCanvasEdge,
+  CreativeCanvasEditIntent,
   CreativeCanvasExport,
   CreativeCanvasNode,
   CreativeCanvasNodeType,
@@ -510,6 +511,25 @@ const maskQuickRegions = [
   { key: 'product-placement', label: 'Product placement', region: { x: 56, y: 48, width: 30, height: 34, feather: 6 } },
   { key: 'face-edit', label: 'Face edit', region: { x: 38, y: 10, width: 24, height: 28, feather: 10 } },
   { key: 'background-swap', label: 'Background swap', region: { x: 0, y: 0, width: 100, height: 100, feather: 12 } },
+]
+
+const editIntentOptions: Array<{ value: CreativeCanvasEditIntent; label: string }> = [
+  { value: 'generative_fill', label: 'Generative fill' },
+  { value: 'object_removal', label: 'Object removal' },
+  { value: 'object_replace', label: 'Object replace' },
+  { value: 'relight', label: 'Relight' },
+  { value: 'reference_blend', label: 'Reference blend' },
+]
+
+const blendControlOptions: Array<{
+  key: keyof NonNullable<NonNullable<CreativeCanvasNode['edit']>['blendControls']>
+  label: string
+}> = [
+  { key: 'lightMatch', label: 'Light match' },
+  { key: 'textureAdaptive', label: 'Texture adaptive' },
+  { key: 'autoShadows', label: 'Auto shadows' },
+  { key: 'perspectiveMatch', label: 'Perspective match' },
+  { key: 'preserveSubject', label: 'Preserve subject' },
 ]
 
 const higgsfieldModelSuggestions: Array<{
@@ -2885,9 +2905,17 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
       },
       edit: {
         operation: 'inpaint',
-        prompt: `Edit ${selectedCanvasNode.title}`,
+        intent: 'generative_fill',
+        prompt: `Brush over the target area and describe the replacement for ${selectedCanvasNode.title}. Match lighting, texture, shadows, and perspective.`,
         references: [{ sourceNodeId: selectedCanvasNode.id, role: 'mask', weight: 1 }],
         strength: 0.65,
+        blendControls: {
+          lightMatch: true,
+          textureAdaptive: true,
+          autoShadows: true,
+          perspectiveMatch: true,
+          preserveSubject: true,
+        },
         mask: {
           sourceNodeId: selectedCanvasNode.id,
           region: { ...maskQuickRegions[0].region, unit: 'percent' },
@@ -3097,6 +3125,46 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
             mask: {
               ...node.edit.mask,
               region,
+            },
+          }
+        : node.edit,
+    }))
+  }
+
+  const updateEditIntent = (intent: CreativeCanvasEditIntent) => {
+    updateSelectedEditNode((node) => ({
+      ...node,
+      edit: node.edit
+        ? {
+            ...node.edit,
+            intent,
+          }
+        : node.edit,
+    }))
+    setActivityMessage(`Edit intent set to ${intent.replaceAll('_', ' ')}`)
+  }
+
+  const updateEditPrompt = (prompt: string) => {
+    updateSelectedEditNode((node) => ({
+      ...node,
+      edit: node.edit
+        ? {
+            ...node.edit,
+            prompt,
+          }
+        : node.edit,
+    }))
+  }
+
+  const toggleBlendControl = (key: keyof NonNullable<NonNullable<CreativeCanvasNode['edit']>['blendControls']>, checked: boolean) => {
+    updateSelectedEditNode((node) => ({
+      ...node,
+      edit: node.edit
+        ? {
+            ...node.edit,
+            blendControls: {
+              ...node.edit.blendControls,
+              [key]: checked,
             },
           }
         : node.edit,
@@ -3469,7 +3537,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
         providerKey: 'higgsfield',
         model: runModel || selectedCanvasNode?.provider?.model,
         input: {
-          promptSummary: 'Generate a reviewable creative asset from the active canvas node.',
+          promptSummary: selectedEdit?.prompt || 'Generate a reviewable creative asset from the active canvas node.',
           sourceNodeIds: selectedNodeId ? [selectedNodeId] : [],
           sourceArtifactIds: [],
           format: 'internal_draft',
@@ -3484,6 +3552,8 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
             : runCameraMotion,
           negativePrompt: runNegativePrompt,
           editMask: selectedEdit?.mask,
+          editIntent: selectedEdit?.intent,
+          blendControls: selectedEdit?.blendControls,
         },
       }),
     })
@@ -5351,6 +5421,48 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
                   {selectedCanvasNode.edit.operation} / {selectedCanvasNode.edit.outputKind ?? 'image'}
                 </p>
                 <div className="rounded-lg border border-[var(--color-pib-line)] bg-white p-2">
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    <label className="text-xs font-medium text-[var(--color-pib-text-muted)]" htmlFor="creative-canvas-edit-intent">
+                      Edit intent
+                      <select
+                        id="creative-canvas-edit-intent"
+                        aria-label="Edit intent"
+                        value={selectedCanvasNode.edit.intent ?? 'generative_fill'}
+                        onChange={(event) => updateEditIntent(event.target.value as CreativeCanvasEditIntent)}
+                        className="mt-1 w-full rounded-lg border border-[var(--color-pib-line)] bg-white px-2 py-1.5 text-xs text-[var(--color-pib-text)]"
+                      >
+                        {editIntentOptions.map((option) => (
+                          <option key={option.value} value={option.value}>{option.label}</option>
+                        ))}
+                      </select>
+                    </label>
+                    <label className="text-xs font-medium text-[var(--color-pib-text-muted)]" htmlFor="creative-canvas-edit-prompt">
+                      Brush prompt
+                      <input
+                        id="creative-canvas-edit-prompt"
+                        aria-label="Edit brush prompt"
+                        value={selectedCanvasNode.edit.prompt ?? ''}
+                        onChange={(event) => updateEditPrompt(event.target.value)}
+                        className="mt-1 w-full rounded-lg border border-[var(--color-pib-line)] bg-white px-2 py-1.5 text-xs text-[var(--color-pib-text)]"
+                        placeholder="Remove glare, add product, change to sunset..."
+                      />
+                    </label>
+                  </div>
+                  <div className="mt-2 grid gap-1.5 sm:grid-cols-2">
+                    {blendControlOptions.map((option) => (
+                      <label key={option.key} className="flex items-center gap-2 rounded-md border border-[var(--color-pib-line)] px-2 py-1 text-[11px] font-semibold text-[var(--color-pib-text)]">
+                        <input
+                          type="checkbox"
+                          aria-label={option.label}
+                          checked={selectedCanvasNode.edit?.blendControls?.[option.key] === true}
+                          onChange={(event) => toggleBlendControl(option.key, event.target.checked)}
+                        />
+                        {option.label}
+                      </label>
+                    ))}
+                  </div>
+                </div>
+                <div className="rounded-lg border border-[var(--color-pib-line)] bg-white p-2">
                   <div
                     role="application"
                     aria-label="Brush mask canvas"
@@ -5461,6 +5573,9 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
                 </p>
                 <p>
                   Strength: {selectedCanvasNode.edit.strength ?? 0.65} / Motion: {selectedCanvasNode.edit.motion?.mode ?? 'none'}
+                </p>
+                <p>
+                  Intent: {(selectedCanvasNode.edit.intent ?? 'generative_fill').replaceAll('_', ' ')} / Match controls: {blendControlOptions.filter((option) => selectedCanvasNode.edit?.blendControls?.[option.key]).length}/{blendControlOptions.length}
                 </p>
                 <div className="grid grid-cols-2 gap-2">
                   <label className="text-xs font-medium text-[var(--color-pib-text-muted)]" htmlFor="creative-canvas-mask-x">

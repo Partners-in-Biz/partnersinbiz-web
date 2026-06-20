@@ -2426,8 +2426,17 @@ describe('CreativeCanvasWorkspace', () => {
         }),
         edit: expect.objectContaining({
           operation: 'inpaint',
+          intent: 'generative_fill',
           outputKind: 'image',
+          prompt: expect.stringContaining('Match lighting, texture, shadows, and perspective'),
           references: [expect.objectContaining({ sourceNodeId: sourceNode.id, role: 'mask' })],
+          blendControls: expect.objectContaining({
+            lightMatch: true,
+            textureAdaptive: true,
+            autoShadows: true,
+            perspectiveMatch: true,
+            preserveSubject: true,
+          }),
           mask: expect.objectContaining({
             sourceNodeId: sourceNode.id,
             region: expect.objectContaining({ x: 30, y: 18, width: 40, height: 64, feather: 8 }),
@@ -2695,7 +2704,48 @@ describe('CreativeCanvasWorkspace', () => {
     })
     expect(screen.getByText('Edit controls')).toBeInTheDocument()
     expect(screen.getAllByText('inpaint / image')[0]).toBeInTheDocument()
+    expect(screen.getByLabelText(/edit intent/i)).toHaveValue('generative_fill')
+    expect(screen.getByLabelText(/edit brush prompt/i)).toBeInTheDocument()
+    expect(screen.getByLabelText(/light match/i)).toBeInTheDocument()
+    expect(screen.getByText('Intent: generative fill / Match controls: 0/5')).toBeInTheDocument()
     expect(screen.getByText('Mask: not attached')).toBeInTheDocument()
+  })
+
+  it('saves Higgsfield-style inpainting intent and blend controls with edit nodes', async () => {
+    render(<CreativeCanvasWorkspace mode="admin" orgId="org-1" />)
+
+    await screen.findByText('Launch Canvas')
+    fireEvent.click(screen.getByRole('button', { name: /add edit node/i }))
+    fireEvent.change(screen.getByLabelText(/edit intent/i), { target: { value: 'object_removal' } })
+    fireEvent.change(screen.getByLabelText(/edit brush prompt/i), { target: { value: 'Remove glare and reconstruct the product surface.' } })
+    fireEvent.click(screen.getByLabelText(/light match/i))
+    fireEvent.click(screen.getByLabelText(/texture adaptive/i))
+    fireEvent.click(screen.getByLabelText(/auto shadows/i))
+    fireEvent.click(screen.getByRole('button', { name: /save graph/i }))
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith('/api/v1/creative-canvas/canvas-1/graph?orgId=org-1', expect.objectContaining({
+        method: 'PUT',
+      }))
+    })
+    const graphCall = [...fetchMock.mock.calls].reverse().find(([url, init]) =>
+      String(url).includes('/graph?orgId=org-1') && init?.method === 'PUT'
+    )
+    const graphBody = JSON.parse(graphCall?.[1]?.body as string)
+    expect(graphBody.nodes).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        type: 'edit',
+        edit: expect.objectContaining({
+          intent: 'object_removal',
+          prompt: 'Remove glare and reconstruct the product surface.',
+          blendControls: expect.objectContaining({
+            lightMatch: true,
+            textureAdaptive: true,
+            autoShadows: true,
+          }),
+        }),
+      }),
+    ]))
   })
 
   it('applies a mask region to an edit node and saves it with the graph', async () => {
@@ -3078,6 +3128,12 @@ describe('CreativeCanvasWorkspace', () => {
 
     await screen.findByText('Launch Canvas')
     fireEvent.click(screen.getByRole('button', { name: /add edit node/i }))
+    fireEvent.change(screen.getByLabelText(/edit intent/i), { target: { value: 'reference_blend' } })
+    fireEvent.change(screen.getByLabelText(/edit brush prompt/i), { target: { value: 'Blend the product into a sunset studio scene.' } })
+    fireEvent.click(screen.getByLabelText(/light match/i))
+    fireEvent.click(screen.getByLabelText(/texture adaptive/i))
+    fireEvent.click(screen.getByLabelText(/auto shadows/i))
+    fireEvent.click(screen.getByLabelText(/perspective match/i))
     const brushCanvas = screen.getByRole('application', { name: /brush mask canvas/i })
     jest.spyOn(brushCanvas, 'getBoundingClientRect').mockReturnValue({
       x: 0,
@@ -3102,8 +3158,16 @@ describe('CreativeCanvasWorkspace', () => {
     expect(JSON.parse(runCall?.[1]?.body as string)).toMatchObject({
       providerKey: 'higgsfield',
       input: {
+        promptSummary: 'Blend the product into a sunset studio scene.',
         outputKind: 'image',
         operation: 'inpaint',
+        editIntent: 'reference_blend',
+        blendControls: expect.objectContaining({
+          lightMatch: true,
+          textureAdaptive: true,
+          autoShadows: true,
+          perspectiveMatch: true,
+        }),
         editMask: expect.objectContaining({
           brush: {
             strokes: [

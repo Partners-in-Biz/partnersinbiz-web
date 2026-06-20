@@ -8,6 +8,7 @@ import {
 import type {
   CreativeCanvas,
   CreativeCanvasActor,
+  CreativeCanvasEditIntent,
   CreativeCanvasEditMask,
   CreativeCanvasMaskBrushStroke,
   CreativeCanvasEditMotionMode,
@@ -155,9 +156,26 @@ function optionalEditOperation(value: unknown): CreativeCanvasEditOperation | un
   return allowed.includes(value as CreativeCanvasEditOperation) ? value as CreativeCanvasEditOperation : undefined
 }
 
+function optionalEditIntent(value: unknown): CreativeCanvasEditIntent | undefined {
+  const allowed: CreativeCanvasEditIntent[] = ['generative_fill', 'object_removal', 'object_replace', 'relight', 'reference_blend']
+  return allowed.includes(value as CreativeCanvasEditIntent) ? value as CreativeCanvasEditIntent : undefined
+}
+
 function optionalCameraMotion(value: unknown): CreativeCanvasEditMotionMode | undefined {
   const allowed: CreativeCanvasEditMotionMode[] = ['none', 'camera_push', 'camera_pull', 'pan', 'orbit', 'dolly', 'handheld']
   return allowed.includes(value as CreativeCanvasEditMotionMode) ? value as CreativeCanvasEditMotionMode : undefined
+}
+
+function cleanBlendControls(value: unknown): NonNullable<NonNullable<CreativeCanvasNode['edit']>['blendControls']> | undefined {
+  const controls = asRecord(value)
+  if (!Object.keys(controls).length) return undefined
+  return {
+    lightMatch: controls.lightMatch === true,
+    textureAdaptive: controls.textureAdaptive === true,
+    autoShadows: controls.autoShadows === true,
+    perspectiveMatch: controls.perspectiveMatch === true,
+    preserveSubject: controls.preserveSubject === true,
+  }
 }
 
 function optionalRunStatus(value: unknown): CreativeCanvasRunStatus | undefined {
@@ -610,6 +628,8 @@ export async function createCreativeCanvasRun(
       cameraMotion: optionalCameraMotion(runInput.cameraMotion),
       negativePrompt: cleanString(runInput.negativePrompt),
       editMask: cleanRunEditMask(runInput.editMask),
+      editIntent: optionalEditIntent(runInput.editIntent),
+      blendControls: cleanBlendControls(runInput.blendControls),
     },
     provenance: {
       generatedBy: actor.type,

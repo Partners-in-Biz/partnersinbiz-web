@@ -83,6 +83,12 @@ export type CreativeCanvasEditOperation =
   | 'video_motion'
   | 'variation'
   | 'upscale'
+export type CreativeCanvasEditIntent =
+  | 'generative_fill'
+  | 'object_removal'
+  | 'object_replace'
+  | 'relight'
+  | 'reference_blend'
 export type CreativeCanvasEditMotionMode =
   | 'none'
   | 'camera_push'
@@ -221,6 +227,7 @@ export interface CreativeCanvasNode {
   }
   edit?: {
     operation: CreativeCanvasEditOperation
+    intent?: CreativeCanvasEditIntent
     prompt?: string
     mask?: CreativeCanvasEditMask
     references?: Array<{
@@ -229,6 +236,13 @@ export interface CreativeCanvasNode {
       weight?: number
     }>
     strength?: number
+    blendControls?: {
+      lightMatch?: boolean
+      textureAdaptive?: boolean
+      autoShadows?: boolean
+      perspectiveMatch?: boolean
+      preserveSubject?: boolean
+    }
     motion?: {
       mode: CreativeCanvasEditMotionMode
       durationSeconds?: number
@@ -431,6 +445,8 @@ export interface CreativeCanvasRun {
     cameraMotion?: CreativeCanvasEditMotionMode
     negativePrompt?: string
     editMask?: CreativeCanvasEditMask
+    editIntent?: CreativeCanvasEditIntent
+    blendControls?: NonNullable<NonNullable<CreativeCanvasNode['edit']>['blendControls']>
   }
   output?: {
     outputNodeId?: string

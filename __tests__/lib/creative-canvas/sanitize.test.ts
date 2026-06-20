@@ -242,6 +242,7 @@ describe('creative canvas sanitizers', () => {
         data: {},
         edit: {
           operation: 'inpaint',
+          intent: 'reference_blend',
           prompt: 'Replace background with a clean studio set',
           mask: {
             sourceNodeId: 'mask-source',
@@ -265,6 +266,13 @@ describe('creative canvas sanitizers', () => {
             { sourceNodeId: 'product-1', role: 'product', weight: 0.9 },
           ],
           strength: 0.65,
+          blendControls: {
+            lightMatch: true,
+            textureAdaptive: true,
+            autoShadows: true,
+            perspectiveMatch: true,
+            preserveSubject: false,
+          },
           motion: { mode: 'camera_push', durationSeconds: 5 },
           outputKind: 'image',
         },
@@ -274,6 +282,7 @@ describe('creative canvas sanitizers', () => {
 
     expect(graph.nodes[0].edit).toMatchObject({
       operation: 'inpaint',
+      intent: 'reference_blend',
       prompt: 'Replace background with a clean studio set',
       mask: {
         sourceNodeId: 'mask-source',
@@ -297,6 +306,13 @@ describe('creative canvas sanitizers', () => {
         { sourceNodeId: 'product-1', role: 'product', weight: 0.9 },
       ],
       strength: 0.65,
+      blendControls: {
+        lightMatch: true,
+        textureAdaptive: true,
+        autoShadows: true,
+        perspectiveMatch: true,
+        preserveSubject: false,
+      },
       motion: { mode: 'camera_push', durationSeconds: 5 },
       outputKind: 'image',
     })

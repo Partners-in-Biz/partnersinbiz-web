@@ -174,6 +174,14 @@ describe('creative canvas runs', () => {
         cameraMotion: 'camera_push',
         negativePrompt: 'blurry, distorted hands',
         durationSeconds: 6,
+        editIntent: 'relight',
+        blendControls: {
+          lightMatch: true,
+          textureAdaptive: true,
+          autoShadows: true,
+          perspectiveMatch: false,
+          preserveSubject: true,
+        },
       },
       provenance: {
         syntheticMedia: true,
@@ -205,6 +213,14 @@ describe('creative canvas runs', () => {
         cameraMotion: 'camera_push',
         negativePrompt: 'blurry, distorted hands',
         durationSeconds: 6,
+        editIntent: 'relight',
+        blendControls: {
+          lightMatch: true,
+          textureAdaptive: true,
+          autoShadows: true,
+          perspectiveMatch: false,
+          preserveSubject: true,
+        },
       }),
     }))
     expect(run).toMatchObject({ id: 'run-1', status: 'queued', providerKey: 'higgsfield' })

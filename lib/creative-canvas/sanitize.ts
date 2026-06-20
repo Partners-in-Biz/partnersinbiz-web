@@ -3,6 +3,7 @@ import type {
   CreativeCanvasActorType,
   CreativeCanvasBrandStatus,
   CreativeCanvasEdge,
+  CreativeCanvasEditIntent,
   CreativeCanvasEditMask,
   CreativeCanvasMaskBrushStroke,
   CreativeCanvasEditMotionMode,
@@ -33,6 +34,7 @@ const CANVAS_STATUSES: CreativeCanvasStatus[] = ['draft', 'internal_review', 'cl
 const VISIBILITIES: CreativeCanvasVisibility[] = ['admin_agents', 'admin_agents_clients']
 const ACTOR_TYPES: CreativeCanvasActorType[] = ['user', 'agent', 'system']
 const EDIT_OPERATIONS: CreativeCanvasEditOperation[] = ['inpaint', 'outpaint', 'style_transfer', 'object_replace', 'background_replace', 'video_motion', 'variation', 'upscale']
+const EDIT_INTENTS: CreativeCanvasEditIntent[] = ['generative_fill', 'object_removal', 'object_replace', 'relight', 'reference_blend']
 const EDIT_MOTION_MODES: CreativeCanvasEditMotionMode[] = ['none', 'camera_push', 'camera_pull', 'pan', 'orbit', 'dolly', 'handheld']
 
 function asRecord(value: unknown): Record<string, unknown> {
@@ -343,6 +345,7 @@ function sanitizeNode(raw: unknown, orgId: string): CreativeCanvasNode {
 
     const sanitizedEdit: NonNullable<CreativeCanvasNode['edit']> = {
       operation: enumValue(edit.operation, EDIT_OPERATIONS, 'inpaint'),
+      intent: enumValue(edit.intent, EDIT_INTENTS, 'generative_fill'),
       prompt: cleanString(edit.prompt),
       references,
       strength: cleanOptionalNumber(edit.strength),
@@ -350,6 +353,17 @@ function sanitizeNode(raw: unknown, orgId: string): CreativeCanvasNode {
     }
 
     sanitizedEdit.mask = cleanMask(edit.mask, `node ${id} edit.mask`)
+
+    const blendControls = asRecord(edit.blendControls)
+    if (Object.keys(blendControls).length) {
+      sanitizedEdit.blendControls = {
+        lightMatch: cleanBoolean(blendControls.lightMatch),
+        textureAdaptive: cleanBoolean(blendControls.textureAdaptive),
+        autoShadows: cleanBoolean(blendControls.autoShadows),
+        perspectiveMatch: cleanBoolean(blendControls.perspectiveMatch),
+        preserveSubject: cleanBoolean(blendControls.preserveSubject),
+      }
+    }
 
     if (Object.keys(motion).length) {
       sanitizedEdit.motion = {

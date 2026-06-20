@@ -22,6 +22,14 @@ describe('creative canvas Higgsfield execution manifest', () => {
       stylePreset: 'ugc_social',
       cameraMotion: 'camera_push',
       negativePrompt: 'blurry, distorted hands',
+      editIntent: 'reference_blend',
+      blendControls: {
+        lightMatch: true,
+        textureAdaptive: true,
+        autoShadows: true,
+        perspectiveMatch: true,
+        preserveSubject: true,
+      },
     },
     provenance: {
       generatedBy: 'agent',
@@ -104,6 +112,12 @@ describe('creative canvas Higgsfield execution manifest', () => {
         outputKind: 'video',
         aspectRatio: '9:16',
         durationSeconds: 6,
+        editIntent: 'reference_blend',
+        lightMatch: 'true',
+        textureAdaptive: 'true',
+        autoShadows: 'true',
+        perspectiveMatch: 'true',
+        preserveSubject: 'true',
       },
     })
     expect(manifest?.sourceMedia).toEqual([
@@ -112,6 +126,7 @@ describe('creative canvas Higgsfield execution manifest', () => {
     ])
     expect(manifest?.cli.display).toContain('higgsfield generate create nano_banana_flash --prompt')
     expect(manifest?.instructions.join('\n')).toContain('higgsfield model get nano_banana_flash --json')
+    expect(manifest?.instructions.join('\n')).toContain('Honor edit intent reference_blend')
     expect(manifest?.instructions.join('\n')).toContain('provider-status endpoint')
   })
 

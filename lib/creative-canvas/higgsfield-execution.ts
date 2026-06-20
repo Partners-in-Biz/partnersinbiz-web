@@ -151,6 +151,12 @@ export function buildHiggsfieldExecutionManifest(
       stylePreset: run.input.stylePreset,
       cameraMotion: run.input.cameraMotion,
       negativePrompt: run.input.negativePrompt,
+      editIntent: run.input.editIntent,
+      lightMatch: run.input.blendControls?.lightMatch ? 'true' : undefined,
+      textureAdaptive: run.input.blendControls?.textureAdaptive ? 'true' : undefined,
+      autoShadows: run.input.blendControls?.autoShadows ? 'true' : undefined,
+      perspectiveMatch: run.input.blendControls?.perspectiveMatch ? 'true' : undefined,
+      preserveSubject: run.input.blendControls?.preserveSubject ? 'true' : undefined,
       maskRegion: run.input.editMask?.region
         ? `${run.input.editMask.region.x},${run.input.editMask.region.y},${run.input.editMask.region.width},${run.input.editMask.region.height},${run.input.editMask.region.unit}`
         : undefined,
@@ -159,6 +165,9 @@ export function buildHiggsfieldExecutionManifest(
     instructions: [
       'Run `higgsfield auth login` if the CLI session has expired before dispatch.',
       `Inspect model-specific params with \`higgsfield model get ${model} --json\` before adding optional flags.`,
+      run.input.editIntent
+        ? `Honor edit intent ${run.input.editIntent}; for inpainting, use the mask plus prompt and preserve enabled blend controls for light, texture, shadows, perspective, and subject continuity.`
+        : 'For image edits, preserve brush/prompt semantics and blend controls when the run input includes them.',
       'Create the job without --wait when an asynchronous provider callback will complete the canvas run.',
       'After the CLI returns a job id, call the provider-dispatch endpoint with providerJobId and any provider status/request metadata.',
       'While polling, report non-terminal provider states to the provider-status endpoint; use failed/cancelled there when no output will arrive.',
