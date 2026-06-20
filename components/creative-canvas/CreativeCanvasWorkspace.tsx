@@ -40,8 +40,11 @@ interface CreativeCanvasApiListResponse {
 interface CreativeCanvasVersionApiResponse {
   success?: boolean
   data?: {
+    canvas?: CreativeCanvas
+    version?: CreativeCanvasVersion & { id?: string }
     versions?: Array<CreativeCanvasVersion & { id?: string }>
   }
+  error?: string
 }
 
 interface CreativeCanvasSourceLibraryApiResponse {
@@ -807,6 +810,42 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
     } finally {
       setSaving(false)
     }
+  }
+
+  const runVersionAction = async (version: CreativeCanvasVersion & { id?: string }, action: 'restore' | 'fork') => {
+    if (!activeCanvas?.id || !version.id) return
+
+    const query = resolvedOrgId ? `?orgId=${encodeURIComponent(resolvedOrgId)}` : ''
+    const response = await fetch(`/api/v1/creative-canvas/${activeCanvas.id}/versions${query}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action,
+        versionId: version.id,
+      }),
+    })
+    const payload = await response.json().catch(() => null) as CreativeCanvasVersionApiResponse | null
+    if (!response.ok || !payload?.data?.canvas) {
+      setActivityMessage(payload?.error ?? `Version ${action} failed`)
+      return
+    }
+
+    const nextCanvas = payload.data.canvas
+    setCanvases((current) => {
+      const exists = current.some((canvas) => canvas.id === nextCanvas.id)
+      return exists
+        ? current.map((canvas) => canvas.id === nextCanvas.id ? nextCanvas : canvas)
+        : [nextCanvas, ...current]
+    })
+    setActiveCanvasId(nextCanvas.id ?? '')
+    setNodes((nextCanvas.nodes ?? []).map(toFlowNode))
+    setEdges((nextCanvas.edges ?? []).map(toFlowEdge))
+    setLatestExecution(null)
+    await loadVersions(nextCanvas.id ?? activeCanvas.id, resolvedOrgId || nextCanvas.orgId)
+    await loadRuns(nextCanvas.id ?? activeCanvas.id, resolvedOrgId || nextCanvas.orgId)
+    setActivityMessage(action === 'restore'
+      ? `Restored version ${version.version}`
+      : `Forked version ${version.version}`)
   }
 
   const postComment = async () => {
@@ -1627,6 +1666,26 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
                 >
                   <span className="font-semibold text-[var(--color-pib-text)]">Version {version.version}</span>
                   <span className="block">{version.reason ?? 'graph snapshot'}</span>
+                  {mode === 'admin' ? (
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        onClick={() => runVersionAction(version, 'restore')}
+                        disabled={!version.id}
+                        className="rounded-md border border-[var(--color-pib-line)] px-2 py-1 font-semibold text-[var(--color-pib-text)] disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        Restore
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => runVersionAction(version, 'fork')}
+                        disabled={!version.id}
+                        className="rounded-md border border-[var(--color-pib-line)] px-2 py-1 font-semibold text-[var(--color-pib-text)] disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        Fork
+                      </button>
+                    </div>
+                  ) : null}
                 </div>
               )) : (
                 <p className="rounded-lg border border-dashed border-[var(--color-pib-line)] px-3 py-2 text-xs text-[var(--color-pib-text-muted)]">

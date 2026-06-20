@@ -1,11 +1,13 @@
 import { FieldValue } from 'firebase-admin/firestore'
 import { adminDb } from '@/lib/firebase/admin'
 import { CREATIVE_CANVAS_COLLECTION, CREATIVE_CANVAS_VERSION_COLLECTION, getCreativeCanvas } from './store'
+import { sanitizeCreativeCanvasGraph } from './sanitize'
 import type {
   CreativeCanvas,
   CreativeCanvasActor,
   CreativeCanvasBrandStatus,
   CreativeCanvasComment,
+  CreativeCanvasGraph,
   CreativeCanvasNode,
   CreativeCanvasOutputKind,
   CreativeCanvasOutputPatch,
@@ -74,6 +76,27 @@ function serializeVersion(id: string, data: UnknownRecord): CreativeCanvasVersio
 
 function serializeComment(id: string, data: CreativeCanvasComment): CreativeCanvasComment & { id: string } {
   return { id, ...data }
+}
+
+function buildVersionSnapshot(
+  canvasId: string,
+  orgId: string,
+  graph: CreativeCanvasGraph,
+  version: number,
+  actor: CreativeCanvasActor,
+  reason: string,
+): CreativeCanvasVersion {
+  return {
+    orgId,
+    canvasId,
+    version,
+    nodes: graph.nodes,
+    edges: graph.edges,
+    createdBy: actor.uid,
+    createdByType: actor.type,
+    createdAt: FieldValue.serverTimestamp(),
+    reason,
+  }
 }
 
 function sanitizeReviewPatch(input: unknown, fallback: CreativeCanvasReviewPatch = {}): CreativeCanvasReviewPatch {
@@ -157,6 +180,88 @@ export async function listCreativeCanvasVersions(
   return snap.docs
     .map((doc: { id: string; data: () => UnknownRecord }) => serializeVersion(doc.id, doc.data()))
     .sort((a, b) => b.version - a.version)
+}
+
+export async function getCreativeCanvasVersion(
+  canvasId: string,
+  orgId: string,
+  versionId: string,
+): Promise<CreativeCanvasVersion & { id: string }> {
+  const snap = await adminDb.collection(CREATIVE_CANVAS_VERSION_COLLECTION).doc(requiredString(versionId, 'versionId')).get()
+  if (!snap.exists) throw new Error('Creative canvas version not found')
+  const version = serializeVersion(snap.id ?? versionId, snap.data() as UnknownRecord)
+  if (version.orgId !== orgId || version.canvasId !== canvasId) throw new Error('Creative canvas version not found')
+  return version
+}
+
+export async function restoreCreativeCanvasVersion(
+  canvasId: string,
+  orgId: string,
+  versionId: string,
+  actor: CreativeCanvasActor,
+): Promise<{ canvas: CreativeCanvas & { id: string }; version: CreativeCanvasVersion & { id?: string } }> {
+  const canvas = await getCreativeCanvas(canvasId, orgId)
+  if (!canvas) throw new Error('Creative canvas not found')
+  const sourceVersion = await getCreativeCanvasVersion(canvasId, orgId, versionId)
+  const graph = sanitizeCreativeCanvasGraph({ nodes: sourceVersion.nodes, edges: sourceVersion.edges }, orgId)
+  const nextVersion = canvas.activeVersion + 1
+  const patch = {
+    nodes: graph.nodes,
+    edges: graph.edges,
+    activeVersion: nextVersion,
+    updatedBy: actor.uid,
+    updatedByType: actor.type,
+    updatedAt: FieldValue.serverTimestamp(),
+  }
+  await adminDb.collection(CREATIVE_CANVAS_COLLECTION).doc(canvasId).update(patch)
+  const snapshot = buildVersionSnapshot(canvasId, orgId, graph, nextVersion, actor, `restored_from_v${sourceVersion.version}`)
+  const ref = await adminDb.collection(CREATIVE_CANVAS_VERSION_COLLECTION).add(snapshot)
+
+  return {
+    canvas: { ...canvas, ...patch, updatedAt: canvas.updatedAt },
+    version: { id: ref.id, ...snapshot },
+  }
+}
+
+export async function forkCreativeCanvasVersion(
+  canvasId: string,
+  orgId: string,
+  versionId: string,
+  input: unknown,
+  actor: CreativeCanvasActor,
+): Promise<{ canvas: CreativeCanvas & { id: string }; version: CreativeCanvasVersion & { id?: string } }> {
+  const sourceCanvas = await getCreativeCanvas(canvasId, orgId)
+  if (!sourceCanvas) throw new Error('Creative canvas not found')
+  const sourceVersion = await getCreativeCanvasVersion(canvasId, orgId, versionId)
+  const graph = sanitizeCreativeCanvasGraph({ nodes: sourceVersion.nodes, edges: sourceVersion.edges }, orgId)
+  const body = asRecord(input)
+  const title = cleanString(body.title) ?? `${sourceCanvas.title} fork v${sourceVersion.version}`
+  const payload: CreativeCanvas = {
+    orgId,
+    title,
+    status: 'draft',
+    purpose: sourceCanvas.purpose,
+    linked: sourceCanvas.linked,
+    activeVersion: 1,
+    visibility: sourceCanvas.visibility,
+    createdAt: FieldValue.serverTimestamp(),
+    createdBy: actor.uid,
+    createdByType: actor.type,
+    updatedAt: FieldValue.serverTimestamp(),
+    updatedBy: actor.uid,
+    updatedByType: actor.type,
+    deleted: false,
+    nodes: graph.nodes,
+    edges: graph.edges,
+  }
+  const canvasRef = await adminDb.collection(CREATIVE_CANVAS_COLLECTION).add(payload)
+  const snapshot = buildVersionSnapshot(canvasRef.id, orgId, graph, 1, actor, `forked_from_${canvasId}_v${sourceVersion.version}`)
+  const versionRef = await adminDb.collection(CREATIVE_CANVAS_VERSION_COLLECTION).add(snapshot)
+
+  return {
+    canvas: { id: canvasRef.id, ...payload },
+    version: { id: versionRef.id, ...snapshot },
+  }
 }
 
 export async function createCreativeCanvasComment(

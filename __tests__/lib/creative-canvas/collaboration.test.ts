@@ -19,7 +19,9 @@ import { updateCreativeCanvasGraph } from '@/lib/creative-canvas/store'
 import {
   attachCreativeCanvasNodeOutput,
   createCreativeCanvasComment,
+  forkCreativeCanvasVersion,
   listCreativeCanvasVersions,
+  restoreCreativeCanvasVersion,
   updateCreativeCanvasNodeReview,
 } from '@/lib/creative-canvas/collaboration'
 
@@ -93,6 +95,98 @@ describe('creative canvas collaboration helpers', () => {
     expect(mockWhere).toHaveBeenCalledWith('orgId', '==', 'org-1')
     expect(mockWhere).toHaveBeenCalledWith('canvasId', '==', 'canvas-1')
     expect(versions).toEqual([expect.objectContaining({ id: 'v2', orgId: 'org-1', canvasId: 'canvas-1', version: 2 })])
+  })
+
+  it('restores a prior version as a new active graph version', async () => {
+    setupCanvasDoc()
+    mockDocGet
+      .mockResolvedValueOnce({
+        exists: true,
+        id: 'canvas-1',
+        data: () => ({
+          orgId: 'org-1',
+          title: 'Launch',
+          purpose: 'Launch pack',
+          activeVersion: 3,
+          deleted: false,
+          nodes: [],
+          edges: [],
+        }),
+      })
+      .mockResolvedValueOnce({
+        exists: true,
+        id: 'v2',
+        data: () => ({
+          orgId: 'org-1',
+          canvasId: 'canvas-1',
+          version: 2,
+          nodes: [{ id: 'source-restore', type: 'source', title: 'Restored source', position: { x: 0, y: 0 }, data: {} }],
+          edges: [],
+        }),
+      })
+    mockAdd.mockResolvedValue({ id: 'v4' })
+
+    const result = await restoreCreativeCanvasVersion('canvas-1', 'org-1', 'v2', ACTOR)
+
+    expect(mockDocUpdate).toHaveBeenCalledWith(expect.objectContaining({
+      activeVersion: 4,
+      nodes: [expect.objectContaining({ id: 'source-restore', orgId: 'org-1' })],
+      updatedBy: 'user-1',
+    }))
+    expect(mockAdd).toHaveBeenCalledWith(expect.objectContaining({
+      canvasId: 'canvas-1',
+      version: 4,
+      reason: 'restored_from_v2',
+    }))
+    expect(result.canvas.activeVersion).toBe(4)
+  })
+
+  it('forks a prior version into a new branch canvas', async () => {
+    mockDocGet
+      .mockResolvedValueOnce({
+        exists: true,
+        id: 'canvas-1',
+        data: () => ({
+          orgId: 'org-1',
+          title: 'Launch',
+          purpose: 'Launch pack',
+          activeVersion: 3,
+          visibility: 'admin_agents',
+          linked: { projectId: 'project-1' },
+          deleted: false,
+          nodes: [],
+          edges: [],
+        }),
+      })
+      .mockResolvedValueOnce({
+        exists: true,
+        id: 'v2',
+        data: () => ({
+          orgId: 'org-1',
+          canvasId: 'canvas-1',
+          version: 2,
+          nodes: [{ id: 'source-fork', type: 'source', title: 'Fork source', position: { x: 0, y: 0 }, data: {} }],
+          edges: [],
+        }),
+      })
+    mockAdd
+      .mockResolvedValueOnce({ id: 'canvas-fork' })
+      .mockResolvedValueOnce({ id: 'fork-version-1' })
+
+    const result = await forkCreativeCanvasVersion('canvas-1', 'org-1', 'v2', { title: 'Launch alt branch' }, ACTOR)
+
+    expect(mockAdd).toHaveBeenNthCalledWith(1, expect.objectContaining({
+      title: 'Launch alt branch',
+      activeVersion: 1,
+      linked: { projectId: 'project-1' },
+      nodes: [expect.objectContaining({ id: 'source-fork', orgId: 'org-1' })],
+    }))
+    expect(mockAdd).toHaveBeenNthCalledWith(2, expect.objectContaining({
+      canvasId: 'canvas-fork',
+      version: 1,
+      reason: 'forked_from_canvas-1_v2',
+    }))
+    expect(result.canvas).toMatchObject({ id: 'canvas-fork', title: 'Launch alt branch', activeVersion: 1 })
   })
 
   it('creates a tenant-scoped node comment', async () => {

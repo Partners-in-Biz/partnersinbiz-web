@@ -24,6 +24,37 @@ beforeEach(() => {
   global.fetch = fetchMock
   fetchMock.mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = String(input)
+    if (url.includes('/versions') && init?.method === 'POST') {
+      const body = JSON.parse(String(init.body ?? '{}')) as { action?: string }
+      return {
+        ok: true,
+        status: body.action === 'fork' ? 201 : 200,
+        json: async () => ({
+          success: true,
+          data: {
+            canvas: {
+              id: body.action === 'fork' ? 'canvas-fork' : 'canvas-1',
+              orgId: 'org-1',
+              title: body.action === 'fork' ? 'Launch Canvas fork v2' : 'Launch Canvas',
+              purpose: 'Product launch',
+              status: 'draft',
+              activeVersion: body.action === 'fork' ? 1 : 3,
+              linked: { projectId: 'project-1' },
+              nodes: [{
+                id: body.action === 'fork' ? 'fork-source' : 'restored-source',
+                orgId: 'org-1',
+                type: 'source',
+                title: body.action === 'fork' ? 'Fork source' : 'Restored source',
+                position: { x: 0, y: 0 },
+                data: {},
+              }],
+              edges: [],
+            },
+            version: { id: body.action === 'fork' ? 'fork-v1' : 'v3', version: body.action === 'fork' ? 1 : 3 },
+          },
+        }),
+      }
+    }
     if (url.includes('/versions')) {
       return {
         ok: true,
@@ -461,6 +492,51 @@ describe('CreativeCanvasWorkspace', () => {
         method: 'POST',
       }))
     })
+  })
+
+  it('restores a saved graph version from the versions panel', async () => {
+    render(<CreativeCanvasWorkspace mode="admin" orgId="org-1" />)
+
+    await screen.findByText(/version 2/i)
+    fireEvent.click(screen.getByRole('button', { name: /restore/i }))
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith('/api/v1/creative-canvas/canvas-1/versions?orgId=org-1', expect.objectContaining({
+        method: 'POST',
+      }))
+    })
+    const versionCall = fetchMock.mock.calls.find(([url, init]) =>
+      String(url).includes('/versions?orgId=org-1') && init?.method === 'POST'
+    )
+    expect(JSON.parse(versionCall?.[1]?.body as string)).toMatchObject({
+      action: 'restore',
+      versionId: 'v2',
+    })
+    expect(await screen.findByText('restored-source')).toBeInTheDocument()
+    expect(screen.getByText('Restored version 2')).toBeInTheDocument()
+  })
+
+  it('forks a saved graph version into a new canvas branch', async () => {
+    render(<CreativeCanvasWorkspace mode="admin" orgId="org-1" />)
+
+    await screen.findByText(/version 2/i)
+    fireEvent.click(screen.getByRole('button', { name: /fork/i }))
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith('/api/v1/creative-canvas/canvas-1/versions?orgId=org-1', expect.objectContaining({
+        method: 'POST',
+      }))
+    })
+    const versionCall = [...fetchMock.mock.calls].reverse().find(([url, init]) =>
+      String(url).includes('/versions?orgId=org-1') && init?.method === 'POST'
+    )
+    expect(JSON.parse(versionCall?.[1]?.body as string)).toMatchObject({
+      action: 'fork',
+      versionId: 'v2',
+    })
+    expect(await screen.findByText('Launch Canvas fork v2')).toBeInTheDocument()
+    expect(screen.getByText('fork-source')).toBeInTheDocument()
+    expect(screen.getByText('Forked version 2')).toBeInTheDocument()
   })
 
   it('prepares a generic draft export from an output node', async () => {
