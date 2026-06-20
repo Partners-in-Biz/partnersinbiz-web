@@ -274,6 +274,18 @@ export async function createCreativeCanvasRun(
   return serializeRun(ref.id, payload)
 }
 
+export async function listCreativeCanvasRuns(
+  canvasId: string,
+  orgId: string,
+): Promise<Array<CreativeCanvasRun & { id: string }>> {
+  const snapshot = await adminDb.collection(CREATIVE_CANVAS_RUN_COLLECTION)
+    .where('canvasId', '==', requiredString(canvasId, 'canvasId'))
+    .where('orgId', '==', requiredString(orgId, 'orgId'))
+    .get()
+
+  return snapshot.docs.map((doc) => serializeRun(doc.id, doc.data() as CreativeCanvasRun))
+}
+
 export async function completeCreativeCanvasRun(
   runId: string,
   orgId: string,

@@ -82,7 +82,45 @@ beforeEach(() => {
         ok: true,
         json: async () => ({
           success: true,
-          data: { run: { id: 'run-1', status: 'queued', nodeId: 'model-node-1' } },
+          data: {
+            run: { id: 'run-1', status: 'queued', nodeId: 'model-node-1', providerKey: 'higgsfield', input: {}, provenance: {} },
+            agentTaskDraft: {
+              agentInput: {
+                providerExecution: {
+                  cli: { display: "higgsfield generate create nano_banana_flash --prompt 'Generate a reviewable creative asset' --json" },
+                  dispatch: { path: '/api/v1/creative-canvas/canvas-1/runs/run-1/provider-dispatch?orgId=org-1' },
+                  callback: { path: '/api/v1/creative-canvas/provider-callbacks/higgsfield' },
+                },
+              },
+            },
+          },
+        }),
+      }
+    }
+    if (url.endsWith('/runs?orgId=org-1')) {
+      return {
+        ok: true,
+        json: async () => ({
+          success: true,
+          data: {
+            runs: [{
+              id: 'run-existing',
+              orgId: 'org-1',
+              canvasId: 'canvas-1',
+              nodeId: 'model-node-existing',
+              providerKey: 'higgsfield',
+              model: 'nano_banana_flash',
+              status: 'running',
+              input: { sourceNodeIds: [], sourceArtifactIds: [] },
+              provenance: {
+                generatedBy: 'agent',
+                agentId: 'maya',
+                providerJobId: 'hf-job-existing',
+                promptStored: 'summary',
+                syntheticMedia: true,
+              },
+            }],
+          },
         }),
       }
     }
@@ -125,6 +163,7 @@ describe('CreativeCanvasWorkspace', () => {
     expect(screen.getByText('Source')).toBeInTheDocument()
     expect(screen.getByText('Prompt')).toBeInTheDocument()
     expect(screen.getByText('Run history')).toBeInTheDocument()
+    expect(screen.getByText('Provider job: hf-job-existing')).toBeInTheDocument()
     expect(screen.getByText('Versions')).toBeInTheDocument()
     expect(screen.getByText('Comments')).toBeInTheDocument()
     expect(screen.getByText('Output attachment')).toBeInTheDocument()
@@ -255,6 +294,9 @@ describe('CreativeCanvasWorkspace', () => {
     fireEvent.click(screen.getByRole('button', { name: /queue run/i }))
 
     expect(await screen.findByText(/run queued: run-1/i)).toBeInTheDocument()
+    expect(screen.getByText('Higgsfield execution')).toBeInTheDocument()
+    expect(screen.getByText(/higgsfield generate create nano_banana_flash/i)).toBeInTheDocument()
+    expect(screen.getByText('Dispatch: /api/v1/creative-canvas/canvas-1/runs/run-1/provider-dispatch?orgId=org-1')).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: /ingest run output/i }))
 
     await waitFor(() => {

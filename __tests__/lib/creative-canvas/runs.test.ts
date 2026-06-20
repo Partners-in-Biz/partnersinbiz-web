@@ -20,6 +20,7 @@ import {
   completeCreativeCanvasRun,
   createCreativeCanvasRun,
   dispatchCreativeCanvasProviderRun,
+  listCreativeCanvasRuns,
 } from '@/lib/creative-canvas/runs'
 import type { CreativeCanvas } from '@/lib/creative-canvas/types'
 
@@ -400,5 +401,58 @@ describe('creative canvas runs', () => {
         providerStatusUrl: 'https://api.higgsfield.ai/jobs/hf-job-2',
       }),
     })
+  })
+
+  it('lists canvas runs for an organisation', async () => {
+    mockGet.mockResolvedValueOnce({
+      docs: [
+        {
+          id: 'run-2',
+          data: () => ({
+            orgId: 'org-1',
+            canvasId: 'canvas-1',
+            nodeId: 'model-2',
+            providerKey: 'higgsfield',
+            model: 'nano_banana_flash',
+            status: 'running',
+            input: { sourceNodeIds: [], sourceArtifactIds: [] },
+            provenance: {
+              generatedBy: 'agent',
+              agentId: 'maya',
+              providerJobId: 'hf-job-2',
+              promptStored: 'summary',
+              syntheticMedia: true,
+            },
+          }),
+        },
+        {
+          id: 'run-1',
+          data: () => ({
+            orgId: 'org-1',
+            canvasId: 'canvas-1',
+            nodeId: 'model-1',
+            providerKey: 'higgsfield',
+            model: 'nano_banana_flash',
+            status: 'queued',
+            input: { sourceNodeIds: [], sourceArtifactIds: [] },
+            provenance: {
+              generatedBy: 'agent',
+              agentId: 'maya',
+              promptStored: 'summary',
+              syntheticMedia: true,
+            },
+          }),
+        },
+      ],
+    })
+
+    const runs = await listCreativeCanvasRuns('canvas-1', 'org-1')
+
+    expect(mockWhere).toHaveBeenCalledWith('canvasId', '==', 'canvas-1')
+    expect(mockWhere).toHaveBeenCalledWith('orgId', '==', 'org-1')
+    expect(runs).toEqual([
+      expect.objectContaining({ id: 'run-2', status: 'running' }),
+      expect.objectContaining({ id: 'run-1', status: 'queued' }),
+    ])
   })
 })

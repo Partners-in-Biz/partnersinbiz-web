@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server'
 
 const mockGetCreativeCanvas = jest.fn()
 const mockCreateCreativeCanvasRun = jest.fn()
+const mockListCreativeCanvasRuns = jest.fn()
 
 jest.mock('@/lib/api/auth', () => ({
   withAuth: (_role: string, handler: any) => async (req: NextRequest, context?: unknown) =>
@@ -14,6 +15,7 @@ jest.mock('@/lib/creative-canvas/store', () => ({
 
 jest.mock('@/lib/creative-canvas/runs', () => ({
   createCreativeCanvasRun: mockCreateCreativeCanvasRun,
+  listCreativeCanvasRuns: mockListCreativeCanvasRuns,
 }))
 
 describe('creative canvas run create API', () => {
@@ -96,6 +98,42 @@ describe('creative canvas run create API', () => {
             },
           },
         },
+      },
+    })
+  })
+
+  it('lists runs for the selected canvas and org', async () => {
+    const { GET } = await import('@/app/api/v1/creative-canvas/[id]/runs/route')
+    mockGetCreativeCanvas.mockResolvedValue({
+      id: 'canvas-1',
+      orgId: 'org-1',
+      title: 'Launch Canvas',
+      purpose: 'Product launch',
+      nodes: [],
+    })
+    mockListCreativeCanvasRuns.mockResolvedValue([
+      {
+        id: 'run-1',
+        orgId: 'org-1',
+        canvasId: 'canvas-1',
+        nodeId: 'model-1',
+        providerKey: 'higgsfield',
+        status: 'running',
+        input: { sourceNodeIds: [], sourceArtifactIds: [] },
+        provenance: { generatedBy: 'agent', promptStored: 'summary', syntheticMedia: true },
+      },
+    ])
+
+    const res = await GET(new NextRequest('http://test.local/api/v1/creative-canvas/canvas-1/runs?orgId=org-1'), {
+      params: Promise.resolve({ id: 'canvas-1' }),
+    })
+    const body = await res.json()
+
+    expect(mockListCreativeCanvasRuns).toHaveBeenCalledWith('canvas-1', 'org-1')
+    expect(body).toMatchObject({
+      success: true,
+      data: {
+        runs: [{ id: 'run-1', status: 'running', providerKey: 'higgsfield' }],
       },
     })
   })

@@ -17,6 +17,7 @@ import type {
   CreativeCanvasExport,
   CreativeCanvasNode,
   CreativeCanvasNodeType,
+  CreativeCanvasRun,
   CreativeCanvasSourceLibraryItem,
   CreativeCanvasVersion,
 } from '@/lib/creative-canvas/types'
@@ -46,6 +47,29 @@ interface CreativeCanvasSourceLibraryApiResponse {
   success?: boolean
   data?: {
     sources?: CreativeCanvasSourceLibraryItem[]
+  }
+}
+
+interface CreativeCanvasRunApiResponse {
+  success?: boolean
+  data?: {
+    runs?: Array<CreativeCanvasRun & { id: string }>
+    run?: CreativeCanvasRun & { id: string }
+    agentTaskDraft?: {
+      agentInput?: {
+        providerExecution?: {
+          cli?: {
+            display?: string
+          }
+          dispatch?: {
+            path?: string
+          }
+          callback?: {
+            path?: string
+          }
+        }
+      }
+    }
   }
 }
 
@@ -156,6 +180,8 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
   const [runNegativePrompt, setRunNegativePrompt] = useState('')
   const [sourceLibrary, setSourceLibrary] = useState<CreativeCanvasSourceLibraryItem[]>([])
   const [maskRegion, setMaskRegion] = useState({ x: 0, y: 0, width: 50, height: 50, feather: 0 })
+  const [runHistory, setRunHistory] = useState<Array<CreativeCanvasRun & { id: string }>>([])
+  const [latestExecution, setLatestExecution] = useState<{ command?: string; dispatchPath?: string; callbackPath?: string } | null>(null)
 
   const activeCanvas = useMemo(
     () => canvases.find((canvas) => canvas.id === activeCanvasId) ?? canvases[0],
@@ -181,6 +207,17 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
     setVersions(payload.data?.versions ?? [])
   }, [])
 
+  const loadRuns = useCallback(async (canvasId: string, canvasOrgId: string) => {
+    if (!canvasId || !canvasOrgId) {
+      setRunHistory([])
+      return
+    }
+
+    const response = await fetch(`/api/v1/creative-canvas/${canvasId}/runs?orgId=${encodeURIComponent(canvasOrgId)}`)
+    const payload = (await response.json()) as CreativeCanvasRunApiResponse
+    setRunHistory(payload.data?.runs ?? [])
+  }, [])
+
   useEffect(() => {
     let cancelled = false
     const loadCanvases = async () => {
@@ -202,8 +239,10 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
         setEdges((firstCanvas?.edges ?? []).map(toFlowEdge))
         if (firstCanvas?.id) {
           await loadVersions(firstCanvas.id, orgId ?? firstCanvas.orgId)
+          await loadRuns(firstCanvas.id, orgId ?? firstCanvas.orgId)
         } else {
           setVersions([])
+          setRunHistory([])
         }
       } catch {
         if (!cancelled) {
@@ -221,7 +260,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
     return () => {
       cancelled = true
     }
-  }, [loadVersions, orgId])
+  }, [loadRuns, loadVersions, orgId])
 
   useEffect(() => {
     let cancelled = false
@@ -291,6 +330,17 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
 
     setNodes((currentNodes) => [...currentNodes, toFlowNode(canvasNode)])
     setSaveMessage('')
+  }
+
+  const openCanvas = async (canvas: CreativeCanvas) => {
+    setActiveCanvasId(canvas.id ?? '')
+    setNodes(canvas.nodes.map(toFlowNode))
+    setEdges(canvas.edges.map(toFlowEdge))
+    setLatestExecution(null)
+    if (canvas.id) {
+      await loadVersions(canvas.id, orgId ?? canvas.orgId)
+      await loadRuns(canvas.id, orgId ?? canvas.orgId)
+    }
   }
 
   const importSourceItem = (item: CreativeCanvasSourceLibraryItem) => {
@@ -476,10 +526,17 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
       setActivityMessage('Run queue failed')
       return
     }
-    const payload = await response.json().catch(() => null) as { data?: { run?: { id?: string; status?: string; nodeId?: string } } } | null
+    const payload = await response.json().catch(() => null) as CreativeCanvasRunApiResponse | null
     const run = payload?.data?.run
     if (run?.id) {
       setLatestRun({ id: run.id, status: run.status ?? 'queued', nodeId: run.nodeId })
+      setRunHistory((currentRuns) => [run, ...currentRuns.filter((item) => item.id !== run.id)])
+      const providerExecution = payload?.data?.agentTaskDraft?.agentInput?.providerExecution
+      setLatestExecution({
+        command: providerExecution?.cli?.display,
+        dispatchPath: providerExecution?.dispatch?.path,
+        callbackPath: providerExecution?.callback?.path,
+      })
       setActivityMessage(`Run queued: ${run.id}`)
     } else {
       setActivityMessage('Run queued for agent review')
@@ -506,6 +563,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
     })
     if (response.ok) {
       setLatestRun((current) => current ? { ...current, status: 'completed' } : current)
+      await loadRuns(activeCanvas.id, resolvedOrgId || activeCanvas.orgId)
       setActivityMessage(`Run completed: ${latestRun.id}`)
     } else {
       setActivityMessage('Run output ingest failed')
@@ -569,11 +627,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
                   key={canvas.id}
                   type="button"
                   aria-label={`Open ${canvas.title}`}
-                  onClick={() => {
-                    setActiveCanvasId(canvas.id ?? '')
-                    setNodes(canvas.nodes.map(toFlowNode))
-                    setEdges(canvas.edges.map(toFlowEdge))
-                  }}
+                  onClick={() => { void openCanvas(canvas) }}
                   className="w-full rounded-lg border border-[var(--color-pib-line)] px-3 py-2 text-left text-sm text-[var(--color-pib-text)] transition hover:bg-[var(--color-pib-surface)]"
                 >
                   <span className="block font-semibold">Canvas: {canvas.title}</span>
@@ -878,8 +932,41 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
 
           <div>
             <h3 className="text-sm font-semibold text-[var(--color-pib-text)]">Run history</h3>
-            <div className="mt-2 rounded-lg border border-dashed border-[var(--color-pib-line)] p-3 text-xs text-[var(--color-pib-text-muted)]">
-              Runs will appear here after an agent or provider job is queued.
+            <div className="mt-2 space-y-2">
+              {latestExecution?.command ? (
+                <div className="rounded-lg border border-[var(--color-pib-line)] bg-white p-3 text-xs">
+                  <p className="font-semibold text-[var(--color-pib-text)]">Higgsfield execution</p>
+                  <code className="mt-2 block break-words rounded-md bg-[var(--color-pib-surface)] p-2 text-[11px] text-[var(--color-pib-text)]">
+                    {latestExecution.command}
+                  </code>
+                  {latestExecution.dispatchPath ? (
+                    <p className="mt-2 text-[var(--color-pib-text-muted)]">Dispatch: {latestExecution.dispatchPath}</p>
+                  ) : null}
+                  {latestExecution.callbackPath ? (
+                    <p className="mt-1 text-[var(--color-pib-text-muted)]">Callback: {latestExecution.callbackPath}</p>
+                  ) : null}
+                </div>
+              ) : null}
+              {runHistory.length ? runHistory.map((run) => (
+                <div
+                  key={run.id}
+                  className="rounded-lg border border-[var(--color-pib-line)] bg-white px-3 py-2 text-xs text-[var(--color-pib-text-muted)]"
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="font-semibold text-[var(--color-pib-text)]">{run.providerKey}</span>
+                    <span className="rounded-full border border-[var(--color-pib-line)] px-2 py-0.5 uppercase tracking-normal">
+                      {run.status}
+                    </span>
+                  </div>
+                  <p className="mt-1">Run: {run.id}</p>
+                  {run.provenance.providerJobId ? <p>Provider job: {run.provenance.providerJobId}</p> : null}
+                  {run.output?.outputNodeId ? <p>Output: {run.output.outputNodeId}</p> : null}
+                </div>
+              )) : (
+                <p className="rounded-lg border border-dashed border-[var(--color-pib-line)] p-3 text-xs text-[var(--color-pib-text-muted)]">
+                  Runs will appear here after an agent or provider job is queued.
+                </p>
+              )}
             </div>
           </div>
 

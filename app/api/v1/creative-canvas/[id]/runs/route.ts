@@ -4,7 +4,10 @@ import { apiError, apiSuccess } from '@/lib/api/response'
 import type { ApiUser } from '@/lib/api/types'
 import { getCreativeCanvas } from '@/lib/creative-canvas/store'
 import { buildCreativeCanvasAgentTask } from '@/lib/creative-canvas/agent-bridge'
-import { createCreativeCanvasRun } from '@/lib/creative-canvas/runs'
+import {
+  createCreativeCanvasRun,
+  listCreativeCanvasRuns,
+} from '@/lib/creative-canvas/runs'
 import type { CreativeCanvasActor } from '@/lib/creative-canvas/types'
 
 export const dynamic = 'force-dynamic'
@@ -22,6 +25,16 @@ function actorFromUser(user: ApiUser): CreativeCanvasActor {
     type: user.role === 'ai' ? 'agent' : 'user',
   }
 }
+
+export const GET = withAuth('client', async (req: NextRequest, user: ApiUser, context?: unknown) => {
+  const { id } = await (context as RouteContext).params
+  const orgId = resolveOrgId(req, user)
+  if (!orgId) return apiError('orgId is required', 400)
+  const canvas = await getCreativeCanvas(id, orgId)
+  if (!canvas) return apiError('Creative canvas not found', 404)
+  const runs = await listCreativeCanvasRuns(id, orgId)
+  return apiSuccess({ runs })
+})
 
 export const POST = withAuth('client', async (req: NextRequest, user: ApiUser, context?: unknown) => {
   const { id } = await (context as RouteContext).params
