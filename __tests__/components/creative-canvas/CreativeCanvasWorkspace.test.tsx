@@ -1,5 +1,5 @@
 import React from 'react'
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { CreativeCanvasWorkspace } from '@/components/creative-canvas/CreativeCanvasWorkspace'
 
 jest.mock('@xyflow/react', () => ({
@@ -788,6 +788,8 @@ describe('CreativeCanvasWorkspace', () => {
     expect(screen.getByText('Agent orchestration')).toBeInTheDocument()
     expect(screen.getByText('Provider job: hf-job-existing')).toBeInTheDocument()
     expect(screen.getByText('Live collaborators')).toBeInTheDocument()
+    expect(screen.getByText('Live activity')).toBeInTheDocument()
+    expect(screen.getByText('0 recent')).toBeInTheDocument()
     expect(screen.getByText('Maya')).toBeInTheDocument()
     expect(screen.getByText('runs / Existing model')).toBeInTheDocument()
     expect(screen.getByText('Live draft')).toBeInTheDocument()
@@ -817,6 +819,7 @@ describe('CreativeCanvasWorkspace', () => {
     expect(parityAudit).toHaveTextContent('8/8 workflow scenarios ready')
     expect(parityAudit).toHaveTextContent('Versioning polish')
     expect(parityAudit).toHaveTextContent('Collaboration')
+    expect(parityAudit).toHaveTextContent('Live edit activity')
     expect(parityAudit).toHaveTextContent('Templates')
     expect(parityAudit).toHaveTextContent('Mobile behavior')
     expect(parityAudit).toHaveTextContent('Export flows')
@@ -1125,6 +1128,27 @@ describe('CreativeCanvasWorkspace', () => {
     fireEvent.click(screen.getByRole('button', { name: /apply live draft/i }))
     expect(await screen.findByText(/applied maya live draft to this workspace/i)).toBeInTheDocument()
     expect(screen.getAllByText(/Maya live draft source/i).length).toBeGreaterThan(0)
+    expect(screen.getByText('Applied live draft')).toBeInTheDocument()
+  })
+
+  it('records recent graph activity for local canvas mutations', async () => {
+    render(<CreativeCanvasWorkspace mode="admin" orgId="org-1" />)
+
+    expect(await screen.findByText('Launch Canvas')).toBeInTheDocument()
+    const liveActivity = screen.getByLabelText(/live collaboration activity/i)
+    expect(within(liveActivity).getByText('Recent graph edits will appear here.')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: /add source node/i }))
+    expect(within(liveActivity).getByText('Added node')).toBeInTheDocument()
+    expect(within(liveActivity).getByText('Source node')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: /move first graph node/i }))
+    expect(within(liveActivity).getByText('Moved node')).toBeInTheDocument()
+    expect(within(liveActivity).getByText('2 recent')).toBeInTheDocument()
+
+    const parityAudit = screen.getByLabelText(/higgsfield parity audit/i)
+    expect(parityAudit).toHaveTextContent('Live edit activity')
+    expect(parityAudit).toHaveTextContent('2 recent graph events')
   })
 
   it('updates collaborators from the live collaboration stream', async () => {

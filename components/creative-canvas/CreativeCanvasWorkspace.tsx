@@ -158,6 +158,16 @@ interface CreativeCanvasCollaborationStreamEvent {
   emittedAtMs?: number
 }
 
+interface CreativeCanvasActivityEvent {
+  id: string
+  actorLabel: string
+  action: string
+  detail: string
+  nodeId?: string
+  atMs: number
+  source: 'local' | 'stream' | 'draft'
+}
+
 interface CreativeCanvasCommentApiResponse {
   success?: boolean
   data?: {
@@ -1243,6 +1253,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
   const [collaborationStreamConnected, setCollaborationStreamConnected] = useState(false)
   const [acceptedGraphSignature, setAcceptedGraphSignature] = useState('')
   const [autoSaveEnabled, setAutoSaveEnabled] = useState(true)
+  const [collaborationActivity, setCollaborationActivity] = useState<CreativeCanvasActivityEvent[]>([])
   const [conflictDraft, setConflictDraft] = useState<{
     title: string
     purpose: string
@@ -1252,6 +1263,17 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
     conflictDetails?: CreativeCanvasApiListResponse['conflictDetails']
   } | null>(null)
   const lastAutoFollowedDraftSignatureRef = useRef('')
+  const activityCounterRef = useRef(0)
+
+  const recordCanvasActivity = useCallback((event: Omit<CreativeCanvasActivityEvent, 'id' | 'atMs'>) => {
+    activityCounterRef.current += 1
+    const nextEvent: CreativeCanvasActivityEvent = {
+      ...event,
+      id: `${Date.now()}-${activityCounterRef.current}`,
+      atMs: Date.now(),
+    }
+    setCollaborationActivity((current) => [nextEvent, ...current].slice(0, 8))
+  }, [])
 
   const activeCanvas = useMemo(
     () => canvases.find((canvas) => canvas.id === activeCanvasId) ?? canvases[0],
@@ -1470,9 +1492,15 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
     await loadRuntimeProof(remoteCanvasUpdate.id, canvasOrgId)
     await loadPresence(remoteCanvasUpdate.id, canvasOrgId)
     await loadComments(remoteCanvasUpdate.id, canvasOrgId)
+    recordCanvasActivity({
+      actorLabel: 'Live canvas',
+      action: 'Applied remote graph',
+      detail: `Version ${remoteCanvasUpdate.activeVersion}`,
+      source: 'stream',
+    })
     setActivityMessage(`Applied live graph v${remoteCanvasUpdate.activeVersion}`)
     setSaveMessage('')
-  }, [applyCanvasSnapshot, loadComments, loadPresence, loadRuns, loadRuntimeProof, loadVersions, remoteCanvasUpdate, resolvedOrgId])
+  }, [applyCanvasSnapshot, loadComments, loadPresence, loadRuns, loadRuntimeProof, loadVersions, recordCanvasActivity, remoteCanvasUpdate, resolvedOrgId])
 
   const applyCollaborationStreamEvent = useCallback((event: CreativeCanvasCollaborationStreamEvent) => {
     if (Array.isArray(event.presence)) setPresence(event.presence)
@@ -1484,7 +1512,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
     }
   }, [activeCanvas?.activeVersion, activeCanvas?.id])
 
-  const applyCollaboratorDraft = (collaborator: CreativeCanvasPresence & { id: string }, options: { automatic?: boolean } = {}) => {
+  const applyCollaboratorDraft = useCallback((collaborator: CreativeCanvasPresence & { id: string }, options: { automatic?: boolean } = {}) => {
     const draftGraph = collaborator.draftGraph
     if (!draftGraph?.nodes?.length) return
     setNodes(draftGraph.nodes.map((node) => toFlowNode(node)))
@@ -1493,8 +1521,15 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
     setRemoteCanvasUpdate(null)
     setSaveMessage('')
     if (collaborator.graphSignature) lastAutoFollowedDraftSignatureRef.current = collaborator.graphSignature
+    recordCanvasActivity({
+      actorLabel: collaborator.displayName ?? collaborator.actorUid,
+      action: options.automatic ? 'Auto-followed live draft' : 'Applied live draft',
+      detail: `${draftGraph.nodes.length} node${draftGraph.nodes.length === 1 ? '' : 's'} / ${draftGraph.edges?.length ?? 0} link${(draftGraph.edges?.length ?? 0) === 1 ? '' : 's'}`,
+      nodeId: collaborator.selectedNodeId,
+      source: 'draft',
+    })
     setActivityMessage(`${options.automatic ? 'Auto-followed' : 'Applied'} ${collaborator.displayName ?? collaborator.actorUid} live draft to this workspace`)
-  }
+  }, [recordCanvasActivity])
 
   const previewVersionGraph = (version: CreativeCanvasVersion & { id?: string }) => {
     if (!Array.isArray(version.nodes) || !Array.isArray(version.edges) || graphHasUnsavedChanges) return
@@ -1521,7 +1556,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
     if (!autoFollowLiveDrafts || graphHasUnsavedChanges || !latestCollaboratorDraft?.draftGraph?.nodes?.length) return
     if (latestCollaboratorDraft.graphSignature && latestCollaboratorDraft.graphSignature === lastAutoFollowedDraftSignatureRef.current) return
     applyCollaboratorDraft(latestCollaboratorDraft, { automatic: true })
-  }, [autoFollowLiveDrafts, graphHasUnsavedChanges, latestCollaboratorDraft])
+  }, [applyCollaboratorDraft, autoFollowLiveDrafts, graphHasUnsavedChanges, latestCollaboratorDraft])
 
   const refreshCollaborationState = useCallback(async (canvasId: string, canvasOrgId: string, knownActiveVersion?: number) => {
     await Promise.all([
@@ -1773,6 +1808,11 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
     const removedNodeIds = new Set(changes
       .filter((change) => change.type === 'remove')
       .map((change) => change.id))
+    const movedNodeIds = changes.flatMap((change) => (
+      change.type === 'position' && 'id' in change && ('dragging' in change ? !change.dragging : true)
+        ? [change.id]
+        : []
+    ))
     setNodes((currentNodes) => applyNodeChanges(changes, currentNodes).map((node) => {
       const canvasNode = node.data?.canvasNode as CreativeCanvasNode | undefined
       if (!canvasNode) return node
@@ -1792,11 +1832,35 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
         !removedNodeIds.has(edge.source) && !removedNodeIds.has(edge.target)
       )))
       setSelectedFlowNodeId((currentSelectedId) => removedNodeIds.has(currentSelectedId) ? '' : currentSelectedId)
+      recordCanvasActivity({
+        actorLabel: 'You',
+        action: 'Removed node',
+        detail: `${removedNodeIds.size} node${removedNodeIds.size === 1 ? '' : 's'} removed from graph`,
+        source: 'local',
+      })
     }
-  }, [])
+    if (movedNodeIds.length) {
+      recordCanvasActivity({
+        actorLabel: 'You',
+        action: 'Moved node',
+        detail: `${movedNodeIds.length} node${movedNodeIds.length === 1 ? '' : 's'} repositioned`,
+        nodeId: movedNodeIds[0],
+        source: 'local',
+      })
+    }
+  }, [recordCanvasActivity])
   const onEdgesChange = useCallback((changes: EdgeChange[]) => {
+    const removedEdges = changes.filter((change) => change.type === 'remove')
     setEdges((currentEdges) => applyEdgeChanges(changes, currentEdges))
-  }, [])
+    if (removedEdges.length) {
+      recordCanvasActivity({
+        actorLabel: 'You',
+        action: 'Updated links',
+        detail: `${removedEdges.length} link${removedEdges.length === 1 ? '' : 's'} removed`,
+        source: 'local',
+      })
+    }
+  }, [recordCanvasActivity])
 
   const addCanvasNode = (type: CreativeCanvasNodeType) => {
     const nextNumber = nodes.length + 1
@@ -1847,6 +1911,13 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
     setNodes((currentNodes) => [...currentNodes, toFlowNode(canvasNode)])
     setSelectedFlowNodeId(id)
     setSaveMessage('')
+    recordCanvasActivity({
+      actorLabel: 'You',
+      action: 'Added node',
+      detail: title,
+      nodeId: id,
+      source: 'local',
+    })
   }
 
   const applyWorkflowPreset = (preset: CreativeCanvasWorkflowPreset) => {
@@ -1898,6 +1969,13 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
     setRunCameraMotion(preset.cameraMotion)
     setRunNegativePrompt(preset.negativePrompt)
     setSaveMessage('')
+    recordCanvasActivity({
+      actorLabel: 'You',
+      action: 'Added workflow',
+      detail: `${preset.label}: ${nextNodes.length} nodes / ${nextEdges.length} links`,
+      nodeId: nextNodes[0]?.id,
+      source: 'local',
+    })
     setActivityMessage(`${preset.label} workflow added`)
   }
 
@@ -1998,6 +2076,13 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
     setEdges((currentEdges) => [...currentEdges, ...nextEdges])
     setSelectedFlowNodeId(nextNodes.find((node) => node.type === 'model' || node.type === 'edit')?.id ?? nextNodes[0]?.id ?? '')
     setSaveMessage('')
+    recordCanvasActivity({
+      actorLabel: 'You',
+      action: 'Applied template',
+      detail: `${template.title}: ${nextNodes.length} nodes / ${nextEdges.length} links`,
+      nodeId: nextNodes[0]?.id,
+      source: 'local',
+    })
     setActivityMessage(`${template.title} template applied`)
   }
 
@@ -2114,6 +2199,13 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
     setEdges((currentEdges) => [...currentEdges, ...nextEdges])
     setSelectedFlowNodeId(nextNodes[0]?.id ?? selectedCanvasNode.id)
     setSaveMessage('')
+    recordCanvasActivity({
+      actorLabel: 'You',
+      action: 'Created variants',
+      detail: `${variants.length} format variant${variants.length === 1 ? '' : 's'} from ${selectedCanvasNode.title}`,
+      nodeId: selectedCanvasNode.id,
+      source: 'local',
+    })
     setActivityMessage(`Created ${variants.length} format variant${variants.length === 1 ? '' : 's'} from ${selectedCanvasNode.title}`)
   }
 
@@ -2162,6 +2254,13 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
     setEdges((currentEdges) => [...currentEdges, branchEdge])
     setSelectedFlowNodeId(duplicateId)
     setSaveMessage('')
+    recordCanvasActivity({
+      actorLabel: 'You',
+      action: 'Duplicated node',
+      detail: selectedCanvasNode.title,
+      nodeId: duplicateId,
+      source: 'local',
+    })
     setActivityMessage(`Duplicated ${selectedCanvasNode.title}`)
   }
 
@@ -2235,6 +2334,13 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
     setSelectedFlowNodeId(editNodeId)
     setMaskRegion({ ...maskQuickRegions[0].region })
     setSaveMessage('')
+    recordCanvasActivity({
+      actorLabel: 'You',
+      action: 'Created inpaint branch',
+      detail: selectedCanvasNode.title,
+      nodeId: editNodeId,
+      source: 'local',
+    })
     setActivityMessage(`Created inpaint edit branch from ${selectedCanvasNode.title}`)
   }
 
@@ -3186,6 +3292,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
   const hasBenchmarkWorkflowCoverage = availableBenchmarkScenarioCount >= higgsfieldBenchmarkScenarios.length
   const hasVersionEvidence = versions.length > 0 && autoSaveEnabled
   const hasCollaborationEvidence = presence.length > 0 || collaborationStreamConnected || Boolean(conflictDraft || latestCollaboratorDraft)
+  const hasLiveEditActivityEvidence = collaborationActivity.length > 0 || presence.some((item) => item.hasUnsavedGraphChanges)
   const hasTemplateEvidence = templates.length > 0
   const hasExportEvidence = Boolean(latestExportPackage)
     || canvasAssets.some((asset) => asset.canDraftExport)
@@ -3243,6 +3350,13 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
       evidence: collaborationStreamConnected
         ? 'Live stream connected'
         : `${presence.length} collaborator${presence.length === 1 ? '' : 's'} / ${conflictDraft ? 'conflict draft preserved' : 'conflict-ready'}`,
+    },
+    {
+      label: 'Live edit activity',
+      status: hasLiveEditActivityEvidence ? 'passed' : hasCollaborationEvidence ? 'watch' : 'blocked',
+      evidence: collaborationActivity.length
+        ? `${collaborationActivity.length} recent graph event${collaborationActivity.length === 1 ? '' : 's'}`
+        : 'No recent graph mutation evidence',
     },
     {
       label: 'Templates',
@@ -4528,6 +4642,36 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
               >
                 {collaborationLinkCopied ? 'Copied link' : 'Copy canvas link'}
               </button>
+            </div>
+            <div
+              className="mt-2 rounded-lg border border-[var(--color-pib-line)] bg-white px-3 py-2"
+              aria-label="Live collaboration activity"
+            >
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-xs font-semibold text-[var(--color-pib-text)]">Live activity</p>
+                <span className="rounded-full border border-[var(--color-pib-line)] px-2 py-0.5 text-[11px] font-semibold uppercase tracking-normal text-[var(--color-pib-text-muted)]">
+                  {collaborationActivity.length} recent
+                </span>
+              </div>
+              <div className="mt-2 space-y-1.5">
+                {collaborationActivity.length ? collaborationActivity.map((event) => (
+                  <div
+                    key={event.id}
+                    className="rounded-md border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] px-2 py-1.5 text-[11px] text-[var(--color-pib-text-muted)]"
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="font-semibold text-[var(--color-pib-text)]">{event.actorLabel}</span>
+                      <span className="uppercase tracking-normal">{new Date(event.atMs).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                    </div>
+                    <p className="mt-0.5 font-semibold text-[var(--color-pib-text)]">{event.action}</p>
+                    <p className="mt-0.5">{event.detail}</p>
+                  </div>
+                )) : (
+                  <p className="rounded-md border border-dashed border-[var(--color-pib-line)] px-2 py-1.5 text-[11px] text-[var(--color-pib-text-muted)]">
+                    Recent graph edits will appear here.
+                  </p>
+                )}
+              </div>
             </div>
             <div className="mt-2 space-y-2">
               {presence.length ? presence.map((item) => (
