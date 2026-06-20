@@ -805,6 +805,8 @@ describe('CreativeCanvasWorkspace', () => {
     expect(parityAudit).toHaveTextContent('Editing ergonomics')
     expect(parityAudit).toHaveTextContent('Masking / inpainting')
     expect(parityAudit).toHaveTextContent('Generation controls')
+    expect(parityAudit).toHaveTextContent('Multi-model routing')
+    expect(parityAudit).toHaveTextContent('8 benchmark model presets ready')
     expect(parityAudit).toHaveTextContent('Multi-asset workflows')
     expect(parityAudit).toHaveTextContent('Versioning polish')
     expect(parityAudit).toHaveTextContent('Collaboration')
@@ -815,6 +817,28 @@ describe('CreativeCanvasWorkspace', () => {
     expect(parityAudit).toHaveTextContent('1/4 proof categories passed')
     expect(screen.getByRole('region', { name: /canvas graph workspace/i })).toHaveClass('block')
     expect(screen.getByRole('complementary', { name: /source and workflow tools/i })).toHaveClass('hidden')
+  })
+
+  it('applies benchmark Higgsfield model routing presets to generation controls', async () => {
+    render(<CreativeCanvasWorkspace mode="admin" orgId="org-1" />)
+
+    expect(await screen.findByText('Launch Canvas')).toBeInTheDocument()
+    expect(screen.getByText('Benchmark model routing')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Kling 3.0' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Seedance 2.0' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Wan 2.7' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Soul 2.0' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'GPT Image 2.0' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Veo 3.1' })).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Veo 3.1' }))
+
+    expect(screen.getByLabelText(/higgsfield model id/i)).toHaveValue('veo_3_1')
+    expect(screen.getByLabelText(/output kind/i)).toHaveValue('youtube_render')
+    expect(screen.getByLabelText(/aspect ratio/i)).toHaveValue('16:9')
+    expect(screen.getByLabelText(/duration seconds/i)).toHaveValue(12)
+    expect(screen.getByLabelText(/camera motion/i)).toHaveValue('dolly')
+    expect(screen.getByText('Veo 3.1 routing selected')).toBeInTheDocument()
   })
 
   it('switches mobile panels with responsive readiness evidence', async () => {

@@ -208,13 +208,87 @@ const maskQuickRegions = [
   { key: 'background-swap', label: 'Background swap', region: { x: 0, y: 0, width: 100, height: 100, feather: 12 } },
 ]
 
-const higgsfieldModelSuggestions = [
-  { id: 'nano_banana_flash', label: 'Nano Banana 2 (verified runtime)' },
-  { id: 'nano_banana_pro', label: 'Nano Banana Pro' },
-  { id: 'kling_3_0', label: 'Kling 3.0' },
-  { id: 'seedance_2_0_fast', label: 'Seedance 2.0 Fast' },
-  { id: 'soul_v2', label: 'Soul V2' },
-  { id: 'gpt_image', label: 'GPT Image' },
+const higgsfieldModelSuggestions: Array<{
+  id: string
+  label: string
+  outputKind: CreativeCanvasOutputKind
+  aspectRatio: string
+  durationSeconds: number
+  cameraMotion: string
+  stylePreset: string
+}> = [
+  {
+    id: 'nano_banana_flash',
+    label: 'Nano Banana Flash',
+    outputKind: 'image',
+    aspectRatio: '1:1',
+    durationSeconds: 0,
+    cameraMotion: 'none',
+    stylePreset: 'clean_studio',
+  },
+  {
+    id: 'nano_banana_pro',
+    label: 'Nano Banana Pro',
+    outputKind: 'campaign_asset',
+    aspectRatio: '4:5',
+    durationSeconds: 0,
+    cameraMotion: 'none',
+    stylePreset: 'brand_realism',
+  },
+  {
+    id: 'kling_3_0',
+    label: 'Kling 3.0',
+    outputKind: 'video',
+    aspectRatio: '16:9',
+    durationSeconds: 8,
+    cameraMotion: 'camera_push',
+    stylePreset: 'cinematic_product',
+  },
+  {
+    id: 'seedance_2_0_fast',
+    label: 'Seedance 2.0',
+    outputKind: 'social_post_draft',
+    aspectRatio: '9:16',
+    durationSeconds: 6,
+    cameraMotion: 'camera_push',
+    stylePreset: 'ugc_social',
+  },
+  {
+    id: 'wan_2_7',
+    label: 'Wan 2.7',
+    outputKind: 'video',
+    aspectRatio: '16:9',
+    durationSeconds: 8,
+    cameraMotion: 'pan',
+    stylePreset: 'cinematic_product',
+  },
+  {
+    id: 'soul_2_0',
+    label: 'Soul 2.0',
+    outputKind: 'campaign_asset',
+    aspectRatio: '4:5',
+    durationSeconds: 0,
+    cameraMotion: 'none',
+    stylePreset: 'editorial',
+  },
+  {
+    id: 'gpt_image_2_0',
+    label: 'GPT Image 2.0',
+    outputKind: 'image',
+    aspectRatio: '1:1',
+    durationSeconds: 0,
+    cameraMotion: 'none',
+    stylePreset: 'clean_studio',
+  },
+  {
+    id: 'veo_3_1',
+    label: 'Veo 3.1',
+    outputKind: 'youtube_render',
+    aspectRatio: '16:9',
+    durationSeconds: 12,
+    cameraMotion: 'dolly',
+    stylePreset: 'cinematic_product',
+  },
 ]
 
 const formatVariantPresets: Array<{
@@ -1875,6 +1949,16 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
     setActivityMessage(`Generation settings applied to ${selectedCanvasNode.title}`)
   }
 
+  const applyHiggsfieldModelPreset = (model: (typeof higgsfieldModelSuggestions)[number]) => {
+    setRunModel(model.id)
+    setRunOutputKind(model.outputKind)
+    setRunAspectRatio(model.aspectRatio)
+    setRunDurationSeconds(model.durationSeconds)
+    setRunCameraMotion(model.cameraMotion)
+    setRunStylePreset(model.stylePreset)
+    setActivityMessage(`${model.label} routing selected`)
+  }
+
   const applyMaskRegion = () => {
     if (!selectedCanvasNode?.edit) return
 
@@ -2651,6 +2735,11 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
   ))
   const hasGenerationEvidence = parityAuditNodes.some((node) => node.provider?.key === 'higgsfield' || node.type === 'model')
     && Boolean(runModel && runOutputKind && runAspectRatio && runVariantCount)
+  const routedModelIds = new Set(parityAuditNodes
+    .map((node) => node.provider?.model)
+    .filter((model): model is string => Boolean(model)))
+  const supportsBenchmarkModelCatalog = higgsfieldModelSuggestions.length >= 7
+  const hasMultiModelRoutingEvidence = routedModelIds.size > 1
   const hasMultiAssetEvidence = sourceLibrary.length > 0
     || canvasAssets.length > 1
     || parityAuditNodes.filter((node) => node.source || node.output).length > 1
@@ -2682,6 +2771,13 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
       label: 'Generation controls',
       status: hasGenerationEvidence ? 'passed' : 'watch',
       evidence: hasGenerationEvidence ? `${runModel} · ${runOutputKind} · ${runAspectRatio}` : 'Model, output, and format controls need selection',
+    },
+    {
+      label: 'Multi-model routing',
+      status: hasMultiModelRoutingEvidence ? 'passed' : supportsBenchmarkModelCatalog ? 'watch' : 'blocked',
+      evidence: hasMultiModelRoutingEvidence
+        ? `${routedModelIds.size} models routed in graph`
+        : `${higgsfieldModelSuggestions.length} benchmark model presets ready`,
     },
     {
       label: 'Multi-asset workflows',
@@ -3239,6 +3335,30 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
                   ))}
                 </datalist>
               </label>
+              <div className="col-span-2 rounded-lg border border-[var(--color-pib-line)] bg-white p-2">
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-xs font-semibold text-[var(--color-pib-text)]">Benchmark model routing</p>
+                  <span className="text-[11px] font-semibold text-[var(--color-pib-text-muted)]">
+                    {routedModelIds.size} routed
+                  </span>
+                </div>
+                <div className="mt-2 flex flex-wrap gap-1.5">
+                  {higgsfieldModelSuggestions.map((model) => (
+                    <button
+                      key={model.id}
+                      type="button"
+                      onClick={() => applyHiggsfieldModelPreset(model)}
+                      className={`rounded-full border px-2 py-1 text-[11px] font-semibold ${
+                        runModel === model.id
+                          ? 'border-[var(--color-pib-primary)] bg-[var(--color-pib-primary)] text-white'
+                          : 'border-[var(--color-pib-line)] text-[var(--color-pib-text)]'
+                      }`}
+                    >
+                      {model.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
               <label className="text-xs font-medium text-[var(--color-pib-text-muted)]" htmlFor="creative-canvas-output-kind">
                 Output kind
                 <select
