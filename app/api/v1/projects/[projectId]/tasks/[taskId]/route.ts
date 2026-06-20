@@ -49,15 +49,20 @@ export const PATCH = withAuth('client', async (req: NextRequest, user, ctx) => {
   if (!doc.exists) return apiError('Task not found', 404)
 
   const existing = doc.data() ?? {}
+  const labels = Array.isArray(existing.labels) ? existing.labels.map((label) => String(label).toLowerCase()) : []
+  const existingGate = typeof existing.approvalGate === 'string' && existing.approvalGate && existing.approvalGate !== 'none'
+  const nextGate = typeof body.approvalGate === 'string' && body.approvalGate && body.approvalGate !== 'none'
+  const existingApprovalStatus = typeof existing.approvalStatus === 'string' && existing.approvalStatus.trim().length > 0
+  const isApprovalGatedTask = labels.includes('approval-gate') || existingApprovalStatus || existingGate || nextGate
+  const approvalGateFields = ['approvalGate', 'requiredCapability', 'riskLevel', 'expectedArtifacts', 'verifierChecklist', 'approvalGateTaskId']
+  if (user.role !== 'admin' && isApprovalGatedTask && approvalGateFields.some((field) => body[field] !== undefined)) {
+    return apiError('Only an admin approver can change approval-gate metadata on project tasks', 403)
+  }
   if (body.approvalStatus !== undefined && user.role !== 'admin') {
     return apiError('Only an admin approver can change approvalStatus on project tasks', 403)
   }
-  if (body.approvalStatus !== undefined && body.approvalStatus !== null) {
-    const labels = Array.isArray(existing.labels) ? existing.labels.map((label) => String(label).toLowerCase()) : []
-    const existingGate = typeof existing.approvalGate === 'string' && existing.approvalGate && existing.approvalGate !== 'none'
-    const nextGate = typeof body.approvalGate === 'string' && body.approvalGate && body.approvalGate !== 'none'
-    const isApprovalGatedTask = labels.includes('approval-gate') || existing.approvalStatus !== undefined || existingGate || nextGate
-    if (!isApprovalGatedTask) return apiError('approvalStatus can only be changed on approval-gated tasks', 400)
+  if (body.approvalStatus !== undefined && body.approvalStatus !== null && !isApprovalGatedTask) {
+    return apiError('approvalStatus can only be changed on approval-gated tasks', 400)
   }
   const updates = buildProjectTaskUpdateData(body)
   if (!updates.ok) return apiError(updates.error, updates.status ?? 400)
