@@ -437,6 +437,9 @@ export interface CreativeCanvasAssetSummary {
   reviewStatus?: CreativeCanvasReviewStatus
   rightsStatus?: CreativeCanvasRightsStatus
   brandStatus?: CreativeCanvasBrandStatus
+  suggestedExportTarget?: CreativeCanvasExport['target']
+  canDraftExport: boolean
+  exportBlockedReason?: string
   readyForExport: boolean
 }
 

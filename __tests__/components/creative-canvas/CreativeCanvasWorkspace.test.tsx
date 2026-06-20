@@ -456,6 +456,36 @@ describe('CreativeCanvasWorkspace', () => {
     expect(screen.getByText('Internal asset')).toBeInTheDocument()
   })
 
+  it('selects an output asset and exports it as a downstream draft', async () => {
+    render(<CreativeCanvasWorkspace mode="admin" orgId="org-1" />)
+
+    await screen.findByText('Launch Canvas')
+    fireEvent.click(screen.getByRole('button', { name: /apply social launch workflow/i }))
+
+    expect(await screen.findByText(/social launch workflow added/i)).toBeInTheDocument()
+    fireEvent.change(screen.getByLabelText(/asset filter/i), { target: { value: 'output_node' } })
+    fireEvent.click(screen.getByRole('button', { name: /select asset social post draft/i }))
+
+    expect(screen.getByText('Draft export available')).toBeInTheDocument()
+    expect((screen.getByLabelText(/export target/i) as HTMLSelectElement).value).toBe('social_draft')
+
+    fireEvent.click(screen.getByRole('button', { name: /export selected asset draft/i }))
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith('/api/v1/creative-canvas/canvas-1/exports/draft?orgId=org-1', expect.objectContaining({
+        method: 'POST',
+      }))
+    })
+    const exportCall = fetchMock.mock.calls.find(([url, init]) =>
+      String(url).includes('/exports/draft?orgId=org-1') && init?.method === 'POST'
+    )
+    expect(JSON.parse(exportCall?.[1]?.body as string)).toMatchObject({
+      nodeId: expect.stringContaining('social-launch-output'),
+      target: 'social_draft',
+    })
+    expect(await screen.findByText('Draft export prepared')).toBeInTheDocument()
+  })
+
   it('filters the source library with search, source kind, role, and media type controls', async () => {
     render(<CreativeCanvasWorkspace mode="admin" orgId="org-1" />)
 

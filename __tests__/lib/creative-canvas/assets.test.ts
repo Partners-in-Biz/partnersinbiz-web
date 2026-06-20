@@ -67,12 +67,15 @@ describe('creative canvas asset gallery', () => {
         title: 'Product bottle',
         sourceKind: 'upload',
         referenceRole: 'product',
+        canDraftExport: false,
         readyForExport: false,
       }),
       expect.objectContaining({
         id: 'output:output-1',
         origin: 'output_node',
         outputKind: 'video',
+        suggestedExportTarget: 'campaign_asset',
+        canDraftExport: true,
         readyForExport: true,
       }),
       expect.objectContaining({
@@ -80,7 +83,62 @@ describe('creative canvas asset gallery', () => {
         origin: 'run_output',
         providerKey: 'higgsfield',
         outputKind: 'image',
+        suggestedExportTarget: 'campaign_asset',
+        canDraftExport: false,
         readyForExport: true,
+      }),
+    ])
+  })
+
+  it('infers draft export targets and explains blocked output assets', () => {
+    const assets = buildCreativeCanvasAssetGallery({
+      nodes: [
+        {
+          id: 'blog-output',
+          orgId: 'org-1',
+          type: 'output',
+          title: 'Blog package',
+          position: { x: 0, y: 0 },
+          data: {},
+          review: {
+            status: 'needed',
+            rightsStatus: 'needs_review',
+            brandStatus: 'needs_review',
+            syntheticMediaDisclosure: false,
+          },
+          output: { kind: 'blog_draft', textPreview: 'Draft article' },
+        },
+        {
+          id: 'blocked-output',
+          orgId: 'org-1',
+          type: 'output',
+          title: 'Blocked cover',
+          position: { x: 0, y: 0 },
+          data: { exportTarget: 'book_studio' },
+          review: {
+            status: 'blocked',
+            rightsStatus: 'blocked',
+            brandStatus: 'needs_review',
+            syntheticMediaDisclosure: true,
+          },
+          output: { kind: 'book_artifact', textPreview: 'Cover concept' },
+        },
+      ],
+    })
+
+    expect(assets).toEqual([
+      expect.objectContaining({
+        id: 'output:blog-output',
+        suggestedExportTarget: 'client_document',
+        canDraftExport: true,
+        readyForExport: false,
+      }),
+      expect.objectContaining({
+        id: 'output:blocked-output',
+        suggestedExportTarget: 'book_studio',
+        canDraftExport: false,
+        exportBlockedReason: 'Review is blocked',
+        readyForExport: false,
       }),
     ])
   })
