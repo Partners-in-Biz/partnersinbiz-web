@@ -188,7 +188,7 @@ function isApprovalGateDependency(task: DependencyStatus | undefined): boolean {
   return Boolean(
     gate
     || typeof task.approvalStatus === 'string'
-    || task.labels?.some((label) => /approval-gate/i.test(label)),
+    || task.labels?.some((label) => /approval-gate|approval-required|client-approval|required-approval/i.test(label)),
   )
 }
 

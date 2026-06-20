@@ -84,4 +84,15 @@ describe('blocked task recovery helpers', () => {
       { id: 'gate-1', title: 'Approval', columnId: 'done', approvalStatus: 'approved' },
     ])).toEqual({ ready: true, reasons: [] })
   })
+
+  it('treats supported approval label variants as business approval gates', () => {
+    const task = { ...baseTask, dependsOn: ['dep-1'] }
+
+    expect(evaluateUnblockReadiness(task, [
+      { id: 'dep-1', title: 'Client approval', columnId: 'done', reviewStatus: 'approved', labels: ['client-approval'] },
+    ])).toEqual({
+      ready: false,
+      reasons: ['Approval gate “Client approval” is not approved yet.'],
+    })
+  })
 })

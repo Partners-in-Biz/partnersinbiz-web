@@ -107,6 +107,16 @@ function isOrchestrationTask(task?: Task | null): boolean {
   return task?.agentInput?.context?.orchestrationMode === 'pip-orchestrator'
 }
 
+function hasApprovalGateMarker(task?: Task | null): boolean {
+  const labelGate = task?.labels?.some((label) => /approval-gate|approval-required|client-approval|required-approval/i.test(label))
+  const approvalGate = typeof task?.approvalGate === 'string' && task.approvalGate.trim().length > 0 && task.approvalGate !== 'none'
+  return Boolean(labelGate || approvalGate || task?.approvalStatus === 'pending')
+}
+
+function approvalGateResolvedFor(task?: Task | null): boolean {
+  return task?.approvalStatus === 'approved' || task?.approvalStatus === 'rejected' || task?.approvalStatus === 'denied'
+}
+
 function assignmentModeForTask(task?: Task | null): AssignmentMode {
   if (isOrchestrationTask(task)) return 'orchestration'
   if (task?.assigneeAgentId) return 'agent'
@@ -374,10 +384,7 @@ export function TaskDetailPanel({ task, columnName, projectId, orgId, members = 
 
   async function handleApproveReview() {
     if (!task?.id) return
-    const hasOpenBusinessGate = task.approvalStatus === 'pending' && (
-      task.labels?.some((label) => label.toLowerCase() === 'approval-gate')
-      || (task.approvalGate && task.approvalGate !== 'none')
-    )
+    const hasOpenBusinessGate = hasApprovalGateMarker(task) && !approvalGateResolvedFor(task)
     await onUpdate(task.id, {
       columnId: hasOpenBusinessGate ? 'review' : 'done',
       reviewStatus: 'approved',
@@ -629,8 +636,8 @@ export function TaskDetailPanel({ task, columnName, projectId, orgId, members = 
 
   const priorityColor = PRIORITY_COLORS[task.priority ?? 'medium'] ?? PRIORITY_COLORS.medium
   const blockerRecovery = buildBlockedTaskRecovery(task, comments)
-  const isApprovalGate = task.labels?.some((label) => label.toLowerCase() === 'approval-gate') || task.approvalStatus === 'pending'
-  const approvalGateResolved = task.approvalStatus === 'approved' || task.approvalStatus === 'rejected' || task.approvalStatus === 'denied'
+  const isApprovalGate = hasApprovalGateMarker(task)
+  const approvalGateResolved = approvalGateResolvedFor(task)
   const canDecideApprovalGate = canManageApprovalGates
   const reviewerAgent = task.reviewerAgentId ? agents.find((agent) => agent.agentId === task.reviewerAgentId) : undefined
   const reviewStatusLabel = task.reviewStatus === 'approved'

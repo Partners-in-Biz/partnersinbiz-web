@@ -189,7 +189,6 @@ describe('TaskDetailPanel', () => {
         assigneeAgentId: 'theo',
         agentStatus: 'done',
         reviewStatus: 'pending',
-        approvalStatus: 'pending',
       },
     })
 
@@ -200,6 +199,22 @@ describe('TaskDetailPanel', () => {
       columnId: 'review',
       reviewStatus: 'approved',
     }))
+  })
+
+  it('shows approval controls for approvalGate-only cards when the admin is authorised', async () => {
+    renderPanel({
+      surface: 'admin',
+      canManageApprovalGates: true,
+      task: {
+        ...task,
+        approvalGate: 'production-deploy',
+      },
+    })
+
+    await waitFor(() => expect(screen.queryByText('Loading comments...')).not.toBeInTheDocument())
+
+    expect(screen.getByText('Approval gate')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /approve this gate/i })).toBeInTheDocument()
   })
 
   it('uses an in-page confirmation before deleting project tasks', async () => {

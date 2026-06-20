@@ -77,7 +77,7 @@ export const PATCH = withAuth('client', async (req: NextRequest, user, ctx) => {
   if (body.approvalStatus !== undefined && user.role !== 'admin') {
     return apiError('Only an admin approver can change approvalStatus on project tasks', 403)
   }
-  if (user.role !== 'admin' && isApprovalGatedTask && approvalMetadataFields.some((field) => body[field] !== undefined)) {
+  if (user.role !== 'admin' && approvalMetadataFields.some((field) => body[field] !== undefined)) {
     return apiError('Only an admin approver can change approval-gate metadata on project tasks', 403)
   }
   if (body.approvalStatus !== undefined && body.approvalStatus !== null && !isApprovalGatedTask) {
