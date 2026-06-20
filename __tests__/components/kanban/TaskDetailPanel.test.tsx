@@ -83,6 +83,7 @@ describe('TaskDetailPanel', () => {
   it('surfaces an approval gate action directly on approval todo cards', async () => {
     const props = renderPanel({
       surface: 'admin',
+      canManageApprovalGates: true,
       task: {
         ...task,
         labels: ['approval-gate'],
@@ -167,6 +168,28 @@ describe('TaskDetailPanel', () => {
         reviewStatus: 'pending',
         approvalStatus: 'pending',
         approvalGate: 'production-deploy',
+      },
+    })
+
+    await waitFor(() => expect(screen.queryByText('Loading comments...')).not.toBeInTheDocument())
+    fireEvent.click(screen.getByRole('button', { name: /mark review passed/i }))
+
+    await waitFor(() => expect(props.onUpdate).toHaveBeenCalledWith('task-1', {
+      columnId: 'review',
+      reviewStatus: 'approved',
+    }))
+  })
+
+  it('keeps label-only approval gates in review when quality review passes but business approval is pending', async () => {
+    const props = renderPanel({
+      task: {
+        ...task,
+        columnId: 'review',
+        labels: ['approval-gate'],
+        assigneeAgentId: 'theo',
+        agentStatus: 'done',
+        reviewStatus: 'pending',
+        approvalStatus: 'pending',
       },
     })
 

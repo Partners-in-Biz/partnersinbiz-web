@@ -374,7 +374,8 @@ export function TaskDetailPanel({ task, columnName, projectId, orgId, members = 
 
   async function handleApproveReview() {
     if (!task?.id) return
-    const hasOpenBusinessGate = task.approvalStatus === 'pending' && task.approvalGate && task.approvalGate !== 'none'
+    const hasApprovalGateLabel = task.labels?.some((label) => label.toLowerCase() === 'approval-gate')
+    const hasOpenBusinessGate = task.approvalStatus === 'pending' && (hasApprovalGateLabel || (task.approvalGate && task.approvalGate !== 'none'))
     await onUpdate(task.id, {
       columnId: hasOpenBusinessGate ? 'review' : 'done',
       reviewStatus: 'approved',
