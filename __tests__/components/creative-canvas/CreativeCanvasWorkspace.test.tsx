@@ -10,7 +10,10 @@ jest.mock('@xyflow/react', () => ({
   }: {
     nodes: Array<{ id: string; data?: { label?: React.ReactNode } }>
     children: React.ReactNode
-    onNodesChange?: (changes: Array<{ id: string; type: 'position'; position: { x: number; y: number }; dragging: boolean }>) => void
+    onNodesChange?: (changes: Array<
+      | { id: string; type: 'position'; position: { x: number; y: number }; dragging: boolean }
+      | { id: string; type: 'remove' }
+    >) => void
   }) => (
     <div data-testid="react-flow">
       {nodes.map((node) => (
@@ -30,6 +33,12 @@ jest.mock('@xyflow/react', () => ({
       >
         Move first graph node
       </button>
+      <button
+        type="button"
+        onClick={() => nodes[0] ? onNodesChange?.([{ id: nodes[0].id, type: 'remove' }]) : undefined}
+      >
+        Delete first graph node
+      </button>
       {children}
     </div>
   ),
@@ -37,10 +46,12 @@ jest.mock('@xyflow/react', () => ({
   Controls: () => <div data-testid="flow-controls" />,
   MiniMap: () => <div data-testid="flow-minimap" />,
   addEdge: jest.fn((edge, edges) => edges.concat(edge)),
-  applyNodeChanges: jest.fn((changes, nodes) => nodes.map((node) => {
-    const positionChange = changes.find((change: { id?: string; type?: string }) => change.id === node.id && change.type === 'position')
-    return positionChange?.position ? { ...node, position: positionChange.position } : node
-  })),
+  applyNodeChanges: jest.fn((changes, nodes) => nodes
+    .filter((node) => !changes.some((change: { id?: string; type?: string }) => change.id === node.id && change.type === 'remove'))
+    .map((node) => {
+      const positionChange = changes.find((change: { id?: string; type?: string }) => change.id === node.id && change.type === 'position')
+      return positionChange?.position ? { ...node, position: positionChange.position } : node
+    })),
   applyEdgeChanges: jest.fn((changes, edges) => edges.filter((edge) => !changes.some((change: { id?: string; type?: string }) => change.id === edge.id && change.type === 'remove'))),
   useEdgesState: jest.fn((initial) => [initial, jest.fn(), jest.fn()]),
   useNodesState: jest.fn((initial) => [initial, jest.fn(), jest.fn()]),
@@ -1349,6 +1360,34 @@ describe('CreativeCanvasWorkspace', () => {
         data: expect.objectContaining({ formatVariant: 'landscape-video' }),
       }),
     ]))
+  })
+
+  it('removes connected edges when a graph node is deleted before save', async () => {
+    render(<CreativeCanvasWorkspace mode="admin" orgId="org-1" />)
+
+    await screen.findByText('Launch Canvas')
+    fireEvent.click(screen.getByRole('button', { name: /apply social launch workflow/i }))
+    await screen.findByText(/social launch workflow added/i)
+    fireEvent.click(screen.getByRole('button', { name: /delete first graph node/i }))
+    fireEvent.click(screen.getByRole('button', { name: /save graph/i }))
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith('/api/v1/creative-canvas/canvas-1/graph?orgId=org-1', expect.objectContaining({
+        method: 'PUT',
+      }))
+    })
+    const graphCall = fetchMock.mock.calls.find(([url, init]) =>
+      String(url).includes('/graph?orgId=org-1') && init?.method === 'PUT'
+    )
+    const body = JSON.parse(graphCall?.[1]?.body as string)
+    const sourceNode = body.nodes.find((node: { title?: string }) => node.title === 'Product / brand source')
+    expect(sourceNode).toBeUndefined()
+    expect(body.edges).not.toEqual(expect.arrayContaining([
+      expect.objectContaining({ label: 'source context' }),
+    ]))
+    expect(body.edges.every((edge: { sourceNodeId?: string; targetNodeId?: string }) => (
+      !String(edge.sourceNodeId).includes('source') && !String(edge.targetNodeId).includes('source')
+    ))).toBe(true)
   })
 
   it('imports a source library item into the canvas graph', async () => {

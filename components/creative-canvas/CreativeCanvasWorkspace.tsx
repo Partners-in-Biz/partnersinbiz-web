@@ -1112,6 +1112,9 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
     setEdges((currentEdges) => addEdge(connection, currentEdges))
   }, [])
   const onNodesChange = useCallback((changes: NodeChange[]) => {
+    const removedNodeIds = new Set(changes
+      .filter((change) => change.type === 'remove')
+      .map((change) => change.id))
     setNodes((currentNodes) => applyNodeChanges(changes, currentNodes).map((node) => {
       const canvasNode = node.data?.canvasNode as CreativeCanvasNode | undefined
       if (!canvasNode) return node
@@ -1126,6 +1129,12 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
         },
       }
     }))
+    if (removedNodeIds.size) {
+      setEdges((currentEdges) => currentEdges.filter((edge) => (
+        !removedNodeIds.has(edge.source) && !removedNodeIds.has(edge.target)
+      )))
+      setSelectedFlowNodeId((currentSelectedId) => removedNodeIds.has(currentSelectedId) ? '' : currentSelectedId)
+    }
   }, [])
   const onEdgesChange = useCallback((changes: EdgeChange[]) => {
     setEdges((currentEdges) => applyEdgeChanges(changes, currentEdges))
