@@ -211,6 +211,8 @@ describe('CreativeCanvasWorkspace', () => {
     expect(await screen.findByText('Launch Canvas')).toBeInTheDocument()
     expect(screen.getByText('Source')).toBeInTheDocument()
     expect(screen.getByText('Prompt')).toBeInTheDocument()
+    expect(screen.getByText('Workflow presets')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /apply social launch workflow/i })).toBeInTheDocument()
     expect(screen.getByText('Run history')).toBeInTheDocument()
     expect(screen.getByText('Provider job: hf-job-existing')).toBeInTheDocument()
     expect(screen.getByText('Versions')).toBeInTheDocument()
@@ -231,6 +233,76 @@ describe('CreativeCanvasWorkspace', () => {
     await waitFor(() => {
       expect(screen.getByText(/source node/i)).toBeInTheDocument()
     })
+  })
+
+  it('applies a social launch workflow preset and saves the connected graph', async () => {
+    render(<CreativeCanvasWorkspace mode="admin" orgId="org-1" />)
+
+    await screen.findByText('Launch Canvas')
+    fireEvent.click(screen.getByRole('button', { name: /apply social launch workflow/i }))
+
+    expect(await screen.findByText(/social launch workflow added/i)).toBeInTheDocument()
+    expect(screen.getByText(/Product \/ brand source/i)).toBeInTheDocument()
+    expect(screen.getByText(/UGC launch prompt/i)).toBeInTheDocument()
+    expect(screen.getByText(/Brand and rights review/i)).toBeInTheDocument()
+    expect((screen.getByLabelText(/output kind/i) as HTMLSelectElement).value).toBe('social_post_draft')
+    expect((screen.getByLabelText(/export target/i) as HTMLSelectElement).value).toBe('social_draft')
+    expect((screen.getByLabelText(/aspect ratio/i) as HTMLSelectElement).value).toBe('9:16')
+
+    fireEvent.click(screen.getByRole('button', { name: /save graph/i }))
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith('/api/v1/creative-canvas/canvas-1/graph?orgId=org-1', expect.objectContaining({
+        method: 'PUT',
+      }))
+    })
+    const graphCall = fetchMock.mock.calls.find(([url, init]) =>
+      String(url).includes('/graph?orgId=org-1') && init?.method === 'PUT'
+    )
+    const body = JSON.parse(graphCall?.[1]?.body as string)
+    expect(body.nodes).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        type: 'source',
+        title: 'Product / brand source',
+        data: expect.objectContaining({
+          createdFrom: 'creative_canvas_workflow_preset',
+          workflowPreset: 'social-launch',
+        }),
+        source: expect.objectContaining({
+          referenceRole: 'product',
+        }),
+      }),
+      expect.objectContaining({
+        type: 'model',
+        title: 'Higgsfield vertical video',
+        provider: expect.objectContaining({
+          key: 'higgsfield',
+          mode: 'vertical_social',
+        }),
+        edit: expect.objectContaining({
+          operation: 'video_motion',
+          outputKind: 'social_post_draft',
+        }),
+      }),
+      expect.objectContaining({
+        type: 'output',
+        title: 'Social post draft',
+        output: expect.objectContaining({
+          kind: 'social_post_draft',
+        }),
+      }),
+    ]))
+    expect(body.edges).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        label: 'generate',
+        data: expect.objectContaining({
+          workflowPreset: 'social-launch',
+        }),
+      }),
+      expect.objectContaining({
+        label: 'approved draft',
+      }),
+    ]))
   })
 
   it('imports a source library item into the canvas graph', async () => {

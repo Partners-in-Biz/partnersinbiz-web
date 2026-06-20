@@ -96,6 +96,281 @@ const palette: Array<{ type: CreativeCanvasNodeType; label: string; description:
   { type: 'output', label: 'Output', description: 'Draft image, video, copy, blog, book asset' },
 ]
 
+type CreativeCanvasWorkflowPreset = {
+  key: string
+  label: string
+  description: string
+  outputKind: CreativeCanvasRun['input']['outputKind']
+  exportTarget: CreativeCanvasExport['target']
+  aspectRatio: string
+  durationSeconds: number
+  stylePreset: string
+  cameraMotion: string
+  negativePrompt: string
+  nodes: Array<{
+    suffix: string
+    type: CreativeCanvasNodeType
+    title: string
+    data: Record<string, unknown>
+    source?: CreativeCanvasNode['source']
+    provider?: CreativeCanvasNode['provider']
+    edit?: CreativeCanvasNode['edit']
+    review?: CreativeCanvasNode['review']
+    output?: CreativeCanvasNode['output']
+  }>
+  edges: Array<{ from: string; to: string; label: string }>
+}
+
+const workflowPresets: CreativeCanvasWorkflowPreset[] = [
+  {
+    key: 'social-launch',
+    label: 'Social launch',
+    description: 'Product source, UGC prompt, Higgsfield model, review, social draft.',
+    outputKind: 'social_post_draft',
+    exportTarget: 'social_draft',
+    aspectRatio: '9:16',
+    durationSeconds: 6,
+    stylePreset: 'ugc_product_demo',
+    cameraMotion: 'camera_push',
+    negativePrompt: 'blurry, distorted hands, false claims, unreadable captions',
+    nodes: [
+      {
+        suffix: 'source',
+        type: 'source',
+        title: 'Product / brand source',
+        data: { workflowRole: 'source', requiredInputs: ['product_image', 'brand_logo', 'offer_context'] },
+        source: { kind: 'upload', referenceRole: 'product', weight: 1, altText: 'Product or brand source' },
+      },
+      {
+        suffix: 'brief',
+        type: 'brief',
+        title: 'Social launch brief',
+        data: { workflowRole: 'brief', channel: 'reels_tiktok_shorts', requiredOutputs: ['hook', 'caption', 'cta'] },
+      },
+      {
+        suffix: 'prompt',
+        type: 'prompt',
+        title: 'UGC launch prompt',
+        data: { workflowRole: 'prompt', agentId: 'maya', promptType: 'ugc_social_launch' },
+      },
+      {
+        suffix: 'model',
+        type: 'model',
+        title: 'Higgsfield vertical video',
+        data: { workflowRole: 'generation', ownerAgentId: 'maya' },
+        provider: { key: 'higgsfield', model: 'nano_banana_flash', mode: 'vertical_social' },
+        edit: { operation: 'video_motion', outputKind: 'social_post_draft', strength: 0.65, motion: { mode: 'camera_push', durationSeconds: 6 }, references: [] },
+      },
+      {
+        suffix: 'review',
+        type: 'review',
+        title: 'Brand and rights review',
+        data: { workflowRole: 'review', requiredReviewerAgentId: 'maya' },
+        review: { status: 'needed', syntheticMediaDisclosure: true, rightsStatus: 'needs_review', brandStatus: 'needs_review' },
+      },
+      {
+        suffix: 'output',
+        type: 'output',
+        title: 'Social post draft',
+        data: { workflowRole: 'output', exportTarget: 'social_draft' },
+        output: { kind: 'social_post_draft', textPreview: 'Hook, caption, thumbnail, and vertical creative ready for review' },
+      },
+    ],
+    edges: [
+      { from: 'source', to: 'brief', label: 'source context' },
+      { from: 'brief', to: 'prompt', label: 'brief to prompt' },
+      { from: 'prompt', to: 'model', label: 'generate' },
+      { from: 'model', to: 'review', label: 'needs review' },
+      { from: 'review', to: 'output', label: 'approved draft' },
+    ],
+  },
+  {
+    key: 'blog-article',
+    label: 'Blog article',
+    description: 'Research/source brief into copy draft, review, and document export.',
+    outputKind: 'blog_draft',
+    exportTarget: 'client_document',
+    aspectRatio: '1:1',
+    durationSeconds: 5,
+    stylePreset: 'editorial_article',
+    cameraMotion: 'none',
+    negativePrompt: 'unsupported claims, thin advice, duplicated sections',
+    nodes: [
+      {
+        suffix: 'research',
+        type: 'source',
+        title: 'Research and source packet',
+        data: { workflowRole: 'source', requiredInputs: ['research_item', 'client_offer', 'proof_points'] },
+        source: { kind: 'research_item', referenceRole: 'general', weight: 1, altText: 'Research packet' },
+      },
+      {
+        suffix: 'brief',
+        type: 'brief',
+        title: 'Blog strategy brief',
+        data: { workflowRole: 'brief', agentId: 'pip', requiredOutputs: ['angle', 'outline', 'seo_notes'] },
+      },
+      {
+        suffix: 'prompt',
+        type: 'prompt',
+        title: 'Long-form draft prompt',
+        data: { workflowRole: 'prompt', agentId: 'pip', promptType: 'blog_article' },
+      },
+      {
+        suffix: 'model',
+        type: 'model',
+        title: 'Agent copy draft',
+        data: { workflowRole: 'generation', ownerAgentId: 'pip' },
+        provider: { key: 'agent_task', mode: 'blog_draft' },
+      },
+      {
+        suffix: 'review',
+        type: 'review',
+        title: 'Editorial review',
+        data: { workflowRole: 'review', checks: ['source_support', 'brand_voice', 'cta'] },
+        review: { status: 'needed', syntheticMediaDisclosure: false, rightsStatus: 'needs_review', brandStatus: 'needs_review' },
+      },
+      {
+        suffix: 'output',
+        type: 'output',
+        title: 'Blog draft export',
+        data: { workflowRole: 'output', exportTarget: 'client_document' },
+        output: { kind: 'blog_draft', textPreview: 'Article outline, draft body, SEO title, meta description, and CTA' },
+      },
+    ],
+    edges: [
+      { from: 'research', to: 'brief', label: 'evidence' },
+      { from: 'brief', to: 'prompt', label: 'outline' },
+      { from: 'prompt', to: 'model', label: 'draft' },
+      { from: 'model', to: 'review', label: 'editorial gate' },
+      { from: 'review', to: 'output', label: 'document draft' },
+    ],
+  },
+  {
+    key: 'video-production',
+    label: 'Video production',
+    description: 'Script, storyboard, Higgsfield render, review, YouTube/shorts export.',
+    outputKind: 'youtube_render',
+    exportTarget: 'youtube_studio',
+    aspectRatio: '16:9',
+    durationSeconds: 15,
+    stylePreset: 'cinematic_product',
+    cameraMotion: 'camera_push',
+    negativePrompt: 'jumpy cuts, off-brand visuals, inaccurate claims',
+    nodes: [
+      {
+        suffix: 'source',
+        type: 'source',
+        title: 'Video source assets',
+        data: { workflowRole: 'source', requiredInputs: ['product_images', 'voice_notes', 'b_roll'] },
+        source: { kind: 'youtube_asset', referenceRole: 'motion', weight: 1, altText: 'Video source assets' },
+      },
+      {
+        suffix: 'brief',
+        type: 'brief',
+        title: 'Video concept brief',
+        data: { workflowRole: 'brief', requiredOutputs: ['script', 'shot_list', 'thumbnail_direction'] },
+      },
+      {
+        suffix: 'prompt',
+        type: 'prompt',
+        title: 'Storyboard prompt',
+        data: { workflowRole: 'prompt', agentId: 'maya', promptType: 'video_storyboard' },
+      },
+      {
+        suffix: 'model',
+        type: 'model',
+        title: 'Higgsfield video render',
+        data: { workflowRole: 'generation', ownerAgentId: 'maya' },
+        provider: { key: 'higgsfield', model: 'nano_banana_flash', mode: 'video_render' },
+        edit: { operation: 'video_motion', outputKind: 'youtube_render', strength: 0.7, motion: { mode: 'camera_push', durationSeconds: 15 }, references: [] },
+      },
+      {
+        suffix: 'review',
+        type: 'review',
+        title: 'Video QA review',
+        data: { workflowRole: 'review', checks: ['brand', 'rights', 'claims', 'thumbnail'] },
+        review: { status: 'needed', syntheticMediaDisclosure: true, rightsStatus: 'needs_review', brandStatus: 'needs_review' },
+      },
+      {
+        suffix: 'output',
+        type: 'output',
+        title: 'Video render package',
+        data: { workflowRole: 'output', exportTarget: 'youtube_studio' },
+        output: { kind: 'youtube_render', textPreview: 'Video render, thumbnail, description, and chapter draft' },
+      },
+    ],
+    edges: [
+      { from: 'source', to: 'brief', label: 'assets' },
+      { from: 'brief', to: 'prompt', label: 'storyboard' },
+      { from: 'prompt', to: 'model', label: 'render' },
+      { from: 'model', to: 'review', label: 'qa gate' },
+      { from: 'review', to: 'output', label: 'video package' },
+    ],
+  },
+  {
+    key: 'book-package',
+    label: 'Book package',
+    description: 'Book concept, cover/artifact generation, review, Book Studio export.',
+    outputKind: 'book_artifact',
+    exportTarget: 'book_studio',
+    aspectRatio: '2:3',
+    durationSeconds: 5,
+    stylePreset: 'book_cover_concept',
+    cameraMotion: 'none',
+    negativePrompt: 'trademarked characters, misleading author claims, unreadable title text',
+    nodes: [
+      {
+        suffix: 'source',
+        type: 'source',
+        title: 'Book source material',
+        data: { workflowRole: 'source', requiredInputs: ['manuscript_notes', 'audience', 'market_evidence'] },
+        source: { kind: 'book_studio_record', referenceRole: 'style', weight: 1, altText: 'Book source material' },
+      },
+      {
+        suffix: 'brief',
+        type: 'brief',
+        title: 'Book package brief',
+        data: { workflowRole: 'brief', requiredOutputs: ['positioning', 'cover_direction', 'metadata_notes'] },
+      },
+      {
+        suffix: 'prompt',
+        type: 'prompt',
+        title: 'Cover and asset prompt',
+        data: { workflowRole: 'prompt', agentId: 'maya', promptType: 'book_cover_artifact' },
+      },
+      {
+        suffix: 'model',
+        type: 'model',
+        title: 'Higgsfield book asset',
+        data: { workflowRole: 'generation', ownerAgentId: 'maya' },
+        provider: { key: 'higgsfield', model: 'nano_banana_flash', mode: 'book_artifact' },
+        edit: { operation: 'variation', outputKind: 'book_artifact', strength: 0.6, motion: { mode: 'none' }, references: [] },
+      },
+      {
+        suffix: 'review',
+        type: 'review',
+        title: 'Publishing readiness review',
+        data: { workflowRole: 'review', checks: ['rights', 'market_fit', 'store_metadata', 'brand'] },
+        review: { status: 'needed', syntheticMediaDisclosure: true, rightsStatus: 'needs_review', brandStatus: 'needs_review' },
+      },
+      {
+        suffix: 'output',
+        type: 'output',
+        title: 'Book Studio artifact',
+        data: { workflowRole: 'output', exportTarget: 'book_studio' },
+        output: { kind: 'book_artifact', textPreview: 'Cover concept, metadata notes, and review packet for Book Studio' },
+      },
+    ],
+    edges: [
+      { from: 'source', to: 'brief', label: 'source material' },
+      { from: 'brief', to: 'prompt', label: 'asset brief' },
+      { from: 'prompt', to: 'model', label: 'generate cover' },
+      { from: 'model', to: 'review', label: 'publishing gate' },
+      { from: 'review', to: 'output', label: 'book artifact' },
+    ],
+  },
+]
+
 function toFlowNode(node: CreativeCanvasNode): Node {
   const previewUrl = node.source?.thumbnailUrl ?? node.source?.previewUrl ?? node.output?.thumbnailUrl ?? node.output?.url
   return {
@@ -346,6 +621,56 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
 
     setNodes((currentNodes) => [...currentNodes, toFlowNode(canvasNode)])
     setSaveMessage('')
+  }
+
+  const applyWorkflowPreset = (preset: CreativeCanvasWorkflowPreset) => {
+    const baseX = 80 + nodes.length * 18
+    const baseY = 90 + nodes.length * 12
+    const stamp = Date.now()
+    const org = resolvedOrgId || 'pending-org'
+    const idFor = (suffix: string) => `${preset.key}-${suffix}-${stamp}`
+    const nextNodes = preset.nodes.map((template, index): CreativeCanvasNode => ({
+      id: idFor(template.suffix),
+      orgId: org,
+      type: template.type,
+      title: template.title,
+      position: {
+        x: baseX + (index % 3) * 260,
+        y: baseY + Math.floor(index / 3) * 180,
+      },
+      data: {
+        ...template.data,
+        createdFrom: 'creative_canvas_workflow_preset',
+        workflowPreset: preset.key,
+      },
+      source: template.source,
+      provider: template.provider,
+      edit: template.edit,
+      review: template.review,
+      output: template.output,
+    }))
+    const nextEdges: Edge[] = preset.edges.map((edge) => ({
+      id: `${preset.key}-${edge.from}-${edge.to}-${stamp}`,
+      source: idFor(edge.from),
+      target: idFor(edge.to),
+      label: edge.label,
+      data: {
+        createdFrom: 'creative_canvas_workflow_preset',
+        workflowPreset: preset.key,
+      },
+    }))
+
+    setNodes((currentNodes) => [...currentNodes, ...nextNodes.map(toFlowNode)])
+    setEdges((currentEdges) => [...currentEdges, ...nextEdges])
+    setRunOutputKind(preset.outputKind ?? 'image')
+    setExportTarget(preset.exportTarget)
+    setRunAspectRatio(preset.aspectRatio)
+    setRunDurationSeconds(preset.durationSeconds)
+    setRunStylePreset(preset.stylePreset)
+    setRunCameraMotion(preset.cameraMotion)
+    setRunNegativePrompt(preset.negativePrompt)
+    setSaveMessage('')
+    setActivityMessage(`${preset.label} workflow added`)
   }
 
   const openCanvas = async (canvas: CreativeCanvas) => {
@@ -725,6 +1050,24 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
                 >
                   <span className="block text-sm font-semibold text-[var(--color-pib-text)]">{item.label}</span>
                   <span className="block text-xs text-[var(--color-pib-text-muted)]">{item.description}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-normal text-[var(--color-pib-text-muted)]">Workflow presets</p>
+            <div className="mt-3 space-y-2">
+              {workflowPresets.map((preset) => (
+                <button
+                  key={preset.key}
+                  type="button"
+                  aria-label={`Apply ${preset.label} workflow`}
+                  onClick={() => applyWorkflowPreset(preset)}
+                  className="w-full rounded-lg border border-[var(--color-pib-line)] px-3 py-2 text-left transition hover:bg-[var(--color-pib-surface)]"
+                >
+                  <span className="block text-sm font-semibold text-[var(--color-pib-text)]">{preset.label}</span>
+                  <span className="block text-xs text-[var(--color-pib-text-muted)]">{preset.description}</span>
                 </button>
               ))}
             </div>
