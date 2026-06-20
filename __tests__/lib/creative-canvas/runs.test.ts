@@ -98,6 +98,17 @@ describe('creative canvas runs', () => {
       orgId: 'org-1',
       title: 'Launch Canvas',
       purpose: 'Product launch',
+      nodes: [
+        {
+          id: 'source-1',
+          orgId: 'org-1',
+          type: 'source',
+          title: 'Product image',
+          position: { x: 0, y: 0 },
+          data: {},
+          source: { kind: 'upload', storagePath: '/tmp/product.png', mimeType: 'image/png' },
+        },
+      ],
     } as CreativeCanvas & { id: string }
 
     const task = buildCreativeCanvasAgentTask({
@@ -148,6 +159,19 @@ describe('creative canvas runs', () => {
           stylePreset: 'cinematic_product',
           cameraMotion: 'camera_push',
         },
+        providerExecution: expect.objectContaining({
+          providerKey: 'higgsfield',
+          cli: expect.objectContaining({
+            command: 'higgsfield',
+            args: expect.arrayContaining(['generate', 'create', 'nano_banana_flash', '--prompt', 'Create a launch image', '--image', '/tmp/product.png']),
+          }),
+          dispatch: expect.objectContaining({
+            path: '/api/v1/creative-canvas/canvas-1/runs/run-1/provider-dispatch?orgId=org-1',
+          }),
+          callback: expect.objectContaining({
+            path: '/api/v1/creative-canvas/provider-callbacks/higgsfield',
+          }),
+        }),
       },
     })
     expect(task.description).toContain('Do not publish, schedule, share, launch ads, or expose outputs to clients.')

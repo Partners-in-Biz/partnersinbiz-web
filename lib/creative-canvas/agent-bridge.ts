@@ -1,4 +1,8 @@
 import type { CreativeCanvas, CreativeCanvasRun } from './types'
+import {
+  buildHiggsfieldExecutionManifest,
+  type HiggsfieldExecutionManifest,
+} from './higgsfield-execution'
 
 export interface CreativeCanvasAgentTaskDraft {
   title: string
@@ -31,6 +35,7 @@ export interface CreativeCanvasAgentTaskDraft {
     }
     expectedArtifacts: string[]
     guardrails: string[]
+    providerExecution?: HiggsfieldExecutionManifest
   }
 }
 
@@ -40,8 +45,15 @@ function runAgentId(run: CreativeCanvasRun): string {
 
 export function buildCreativeCanvasAgentTask(
   run: CreativeCanvasRun & { id: string },
-  canvas: Pick<CreativeCanvas, 'id' | 'orgId' | 'title' | 'purpose'>,
+  canvas: Pick<CreativeCanvas, 'id' | 'orgId' | 'title' | 'purpose'> & Partial<Pick<CreativeCanvas, 'nodes'>>,
 ): CreativeCanvasAgentTaskDraft {
+  const canvasId = canvas.id ?? run.canvasId
+  const providerExecution = buildHiggsfieldExecutionManifest(run, {
+    id: canvasId,
+    orgId: canvas.orgId,
+    nodes: canvas.nodes ?? [],
+  })
+
   return {
     title: `Creative Canvas run: ${canvas.title}`,
     description: [
@@ -60,7 +72,7 @@ export function buildCreativeCanvasAgentTask(
     labels: ['creative-canvas', `provider:${run.providerKey}`],
     agentInput: {
       source: 'creative_canvas',
-      canvasId: canvas.id ?? run.canvasId,
+      canvasId,
       runId: run.id,
       nodeId: run.nodeId,
       providerKey: run.providerKey,
@@ -87,6 +99,7 @@ export function buildCreativeCanvasAgentTask(
         'no_ad_spend',
         'no_client_visible_without_approval',
       ],
+      providerExecution,
     },
   }
 }
