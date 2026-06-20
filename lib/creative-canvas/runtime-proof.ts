@@ -14,6 +14,7 @@ import type {
 type CanvasWithId = CreativeCanvas & { id: string }
 type RunWithId = CreativeCanvasRun & { id: string }
 type ReliabilityCategory = 'image' | 'video_social' | 'blog_document' | 'book'
+const REQUIRED_COMPLETED_RUNS_PER_CATEGORY = 2
 
 const RELIABILITY_CATEGORIES: Array<{
   key: ReliabilityCategory
@@ -52,15 +53,16 @@ function categoryCoverage(runs: RunWithId[]): CreativeCanvasReliabilityCoverageC
     const cancelled = matchingRuns.filter((run) => run.status === 'cancelled').length
     const latestCompletedRun = matchingRuns.find((run) => run.status === 'completed')
     const latestRun = matchingRuns[0]
-    const status: CreativeCanvasProofStatus = completed
+    const status: CreativeCanvasProofStatus = completed >= REQUIRED_COMPLETED_RUNS_PER_CATEGORY
       ? 'passed'
-      : active
+      : completed || active
         ? 'warning'
         : 'blocked'
     return {
       key: category.key,
       label: category.label,
       requiredOutputKinds: category.kinds,
+      requiredCompleted: REQUIRED_COMPLETED_RUNS_PER_CATEGORY,
       status,
       total: matchingRuns.length,
       completed,
@@ -69,7 +71,7 @@ function categoryCoverage(runs: RunWithId[]): CreativeCanvasReliabilityCoverageC
       cancelled,
       latestRunId: latestRun?.id,
       latestCompletedRunId: latestCompletedRun?.id,
-      nextAction: completed
+      nextAction: completed >= REQUIRED_COMPLETED_RUNS_PER_CATEGORY
         ? undefined
         : active
           ? 'Wait for this proof run to complete or ingest the provider output.'
@@ -94,7 +96,7 @@ export function buildCreativeCanvasRuntimeProof(input: {
   const completedRuns = runs.filter((run) => run.status === 'completed')
   const activeRuns = runs.filter((run) => run.status === 'queued' || run.status === 'running' || run.status === 'waiting_for_review')
   const reliabilityCoverage = categoryCoverage(runs)
-  const coveredCategories = reliabilityCoverage.filter((category) => category.completed > 0)
+  const coveredCategories = reliabilityCoverage.filter((category) => category.completed >= category.requiredCompleted)
   const totalFailures = runs.filter((run) => run.status === 'failed').length
   const completedOrFailedRuns = completedRuns.length + totalFailures
   const failureRate = completedOrFailedRuns ? totalFailures / completedOrFailedRuns : 0
@@ -161,11 +163,11 @@ export function buildCreativeCanvasRuntimeProof(input: {
           ? 'warning'
           : 'blocked',
       evidence: reliabilityCoverage
-        .map((category) => `${category.label}: ${category.completed}/${category.total} completed`)
+        .map((category) => `${category.label}: ${category.completed}/${category.requiredCompleted} required completed (${category.total} total)`)
         .join('; '),
       nextAction: coveredCategories.length >= RELIABILITY_CATEGORIES.length
         ? undefined
-        : 'Run and complete image, video/social, blog/document, and book creative jobs through the canvas.',
+        : `Run and complete ${REQUIRED_COMPLETED_RUNS_PER_CATEGORY} image, video/social, blog/document, and book creative jobs through the canvas.`,
     }),
     check({
       id: 'repeated_job_reliability',
@@ -174,7 +176,7 @@ export function buildCreativeCanvasRuntimeProof(input: {
       evidence: `${runs.length} total runs, ${completedRuns.length} completed, ${activeRuns.length} active, ${totalFailures} failed, ${Math.round(failureRate * 100)}% completed-job failure rate, ${operations.staleActiveRuns} stale active.`,
       nextAction: repeatedJobReliabilityPassed
         ? undefined
-        : 'Complete at least 8 creative jobs across image, video/social, blog/document, and book with <=10% failures and no active or stale runs.',
+        : `Complete at least ${REQUIRED_COMPLETED_RUNS_PER_CATEGORY} creative jobs in each category, 8 total, with <=10% failures and no active or stale runs.`,
     }),
   ]
 

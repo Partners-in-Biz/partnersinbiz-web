@@ -118,7 +118,7 @@ describe('creative canvas runtime proof', () => {
     })
   })
 
-  it('warns when only part of the repeated creative job mix has completed', () => {
+  it('blocks when only part of the repeated creative job mix has completed', () => {
     const proof = buildCreativeCanvasRuntimeProof({
       canvas,
       runs: [
@@ -134,16 +134,16 @@ describe('creative canvas runtime proof', () => {
       } as NodeJS.ProcessEnv,
     })
 
-    expect(proof.status).toBe('warning')
+    expect(proof.status).toBe('blocked')
     expect(proof.readyForLiveProof).toBe(false)
     expect(proof.reliabilityCoverage).toEqual(expect.arrayContaining([
-      expect.objectContaining({ key: 'image', status: 'passed', completed: 1 }),
-      expect.objectContaining({ key: 'video_social', status: 'passed', completed: 1 }),
+      expect.objectContaining({ key: 'image', status: 'warning', completed: 1, requiredCompleted: 2 }),
+      expect.objectContaining({ key: 'video_social', status: 'warning', completed: 1, requiredCompleted: 2 }),
       expect.objectContaining({ key: 'blog_document', status: 'warning', active: 1 }),
       expect.objectContaining({ key: 'book', status: 'blocked', failed: 1 }),
     ]))
     expect(proof.checks).toEqual(expect.arrayContaining([
-      expect.objectContaining({ id: 'repeated_job_coverage', status: 'warning' }),
+      expect.objectContaining({ id: 'repeated_job_coverage', status: 'blocked' }),
       expect.objectContaining({ id: 'repeated_job_reliability', status: 'warning' }),
     ]))
   })
@@ -174,7 +174,43 @@ describe('creative canvas runtime proof', () => {
         id: 'repeated_job_reliability',
         status: 'warning',
         evidence: '8 total runs, 4 completed, 4 active, 0 failed, 0% completed-job failure rate, 0 stale active.',
-        nextAction: 'Complete at least 8 creative jobs across image, video/social, blog/document, and book with <=10% failures and no active or stale runs.',
+        nextAction: 'Complete at least 2 creative jobs in each category, 8 total, with <=10% failures and no active or stale runs.',
+      }),
+    ]))
+  })
+
+  it('does not pass when eight completed jobs are unevenly distributed across categories', () => {
+    const proof = buildCreativeCanvasRuntimeProof({
+      canvas,
+      runs: [
+        completedRunFor('run-image-1', 'image'),
+        completedRunFor('run-image-2', 'campaign_asset'),
+        completedRunFor('run-image-3', 'image'),
+        completedRunFor('run-video-1', 'video'),
+        completedRunFor('run-video-2', 'social_post_draft'),
+        completedRunFor('run-blog-1', 'blog_draft'),
+        completedRunFor('run-book-1', 'book_artifact'),
+        completedRunFor('run-book-2', 'book_artifact'),
+      ],
+      env: {
+        HIGGSFIELD_RUNTIME_API_KEY: 'runtime-key',
+        NEXT_PUBLIC_APP_URL: 'https://partnersinbiz.online',
+        HIGGSFIELD_WEBHOOK_SECRET: 'hook-secret',
+      } as NodeJS.ProcessEnv,
+    })
+
+    expect(proof.readyForLiveProof).toBe(false)
+    expect(proof.reliabilityCoverage).toEqual(expect.arrayContaining([
+      expect.objectContaining({ key: 'blog_document', status: 'warning', completed: 1, requiredCompleted: 2 }),
+    ]))
+    expect(proof.checks).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        id: 'repeated_job_coverage',
+        status: 'warning',
+      }),
+      expect.objectContaining({
+        id: 'repeated_job_reliability',
+        status: 'warning',
       }),
     ]))
   })

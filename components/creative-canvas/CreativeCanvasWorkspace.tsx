@@ -5262,7 +5262,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
                                 <span className="uppercase tracking-normal">{category.status}</span>
                               </div>
                               <p>
-                                {category.completed} completed · {category.active} active · {category.failed} failed
+                                {category.completed}/{category.requiredCompleted ?? 1} required completed · {category.active} active · {category.failed} failed
                               </p>
                               {category.latestRunId ? (
                                 <p>Latest: {category.latestRunId}</p>

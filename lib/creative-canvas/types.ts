@@ -542,6 +542,7 @@ export interface CreativeCanvasReliabilityCoverageCategory {
   key: 'image' | 'video_social' | 'blog_document' | 'book'
   label: string
   requiredOutputKinds: CreativeCanvasOutputKind[]
+  requiredCompleted: number
   status: CreativeCanvasProofStatus
   total: number
   completed: number

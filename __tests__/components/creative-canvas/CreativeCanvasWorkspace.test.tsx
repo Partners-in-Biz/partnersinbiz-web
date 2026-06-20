@@ -283,10 +283,10 @@ beforeEach(() => {
               readyForLiveProof: false,
               summary: '0 blockers and 2 warnings remain before live proof.',
               reliabilityCoverage: [
-                { key: 'image', label: 'Image', status: 'passed', requiredOutputKinds: ['image', 'campaign_asset'], total: 2, completed: 1, active: 1, failed: 0, cancelled: 0, latestRunId: 'run-image-2', latestCompletedRunId: 'run-image-1' },
-                { key: 'video_social', label: 'Video/social', status: 'warning', requiredOutputKinds: ['video', 'social_post_draft', 'youtube_render'], total: 1, completed: 0, active: 1, failed: 0, cancelled: 0, latestRunId: 'run-video-1', nextAction: 'Wait for this proof run to complete or ingest the provider output.' },
-                { key: 'blog_document', label: 'Blog/document', status: 'blocked', requiredOutputKinds: ['blog_draft', 'document_block', 'copy', 'caption'], total: 0, completed: 0, active: 0, failed: 0, cancelled: 0, nextAction: 'Queue proof batch to create this required creative job.' },
-                { key: 'book', label: 'Book', status: 'blocked', requiredOutputKinds: ['book_artifact'], total: 1, completed: 0, active: 0, failed: 1, cancelled: 0, latestRunId: 'run-book-1', nextAction: 'Retry failed proof run or queue a new proof batch.' },
+                { key: 'image', label: 'Image', status: 'warning', requiredOutputKinds: ['image', 'campaign_asset'], requiredCompleted: 2, total: 2, completed: 1, active: 1, failed: 0, cancelled: 0, latestRunId: 'run-image-2', latestCompletedRunId: 'run-image-1', nextAction: 'Wait for this proof run to complete or ingest the provider output.' },
+                { key: 'video_social', label: 'Video/social', status: 'warning', requiredOutputKinds: ['video', 'social_post_draft', 'youtube_render'], requiredCompleted: 2, total: 1, completed: 0, active: 1, failed: 0, cancelled: 0, latestRunId: 'run-video-1', nextAction: 'Wait for this proof run to complete or ingest the provider output.' },
+                { key: 'blog_document', label: 'Blog/document', status: 'blocked', requiredOutputKinds: ['blog_draft', 'document_block', 'copy', 'caption'], requiredCompleted: 2, total: 0, completed: 0, active: 0, failed: 0, cancelled: 0, nextAction: 'Queue proof batch to create this required creative job.' },
+                { key: 'book', label: 'Book', status: 'blocked', requiredOutputKinds: ['book_artifact'], requiredCompleted: 2, total: 1, completed: 0, active: 0, failed: 1, cancelled: 0, latestRunId: 'run-book-1', nextAction: 'Retry failed proof run or queue a new proof batch.' },
               ],
               checks: [
                 { id: 'project_link', label: 'Linked project', status: 'passed', evidence: 'Project project-1' },
@@ -854,7 +854,7 @@ describe('CreativeCanvasWorkspace', () => {
     expect(parityAudit).toHaveTextContent('Signed-in desktop/tablet/mobile screenshots still required')
     expect(parityAudit).toHaveTextContent('Export flows')
     expect(parityAudit).toHaveTextContent('Production reliability')
-    expect(parityAudit).toHaveTextContent('1/4 proof categories passed')
+    expect(parityAudit).toHaveTextContent('0/4 proof categories passed')
     const benchmarkProof = screen.getByLabelText(/direct higgsfield benchmark proof/i)
     expect(benchmarkProof).toHaveTextContent('Capability-by-capability evidence ledger')
     expect(benchmarkProof).toHaveTextContent('0/9 benchmark proven')
@@ -1522,11 +1522,11 @@ describe('CreativeCanvasWorkspace', () => {
     render(<CreativeCanvasWorkspace mode="admin" orgId="org-1" />)
 
     expect(await screen.findByText('Production job coverage')).toBeInTheDocument()
-    expect(screen.getByText('1/4 complete')).toBeInTheDocument()
+    expect(screen.getByText('0/4 complete')).toBeInTheDocument()
     expect(screen.getAllByText('Image').length).toBeGreaterThan(0)
-    expect(screen.getByText('1 completed · 1 active · 0 failed')).toBeInTheDocument()
+    expect(screen.getByText('1/2 required completed · 1 active · 0 failed')).toBeInTheDocument()
     expect(screen.getByText('Video/social')).toBeInTheDocument()
-    expect(screen.getByText('0 completed · 1 active · 0 failed')).toBeInTheDocument()
+    expect(screen.getByText('0/2 required completed · 1 active · 0 failed')).toBeInTheDocument()
     expect(screen.getByText('Blog/document')).toBeInTheDocument()
     expect(screen.getByText('Queue proof batch to create this required creative job.')).toBeInTheDocument()
     expect(screen.getByText('Book')).toBeInTheDocument()
