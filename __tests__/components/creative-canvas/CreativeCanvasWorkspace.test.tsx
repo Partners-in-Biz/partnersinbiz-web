@@ -3,7 +3,15 @@ import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { CreativeCanvasWorkspace } from '@/components/creative-canvas/CreativeCanvasWorkspace'
 
 jest.mock('@xyflow/react', () => ({
-  ReactFlow: ({ nodes, children }: { nodes: Array<{ id: string; data?: { label?: React.ReactNode } }>; children: React.ReactNode }) => (
+  ReactFlow: ({
+    nodes,
+    children,
+    onNodesChange,
+  }: {
+    nodes: Array<{ id: string; data?: { label?: React.ReactNode } }>
+    children: React.ReactNode
+    onNodesChange?: (changes: Array<{ id: string; type: 'position'; position: { x: number; y: number }; dragging: boolean }>) => void
+  }) => (
     <div data-testid="react-flow">
       {nodes.map((node) => (
         <div key={node.id}>
@@ -11,6 +19,17 @@ jest.mock('@xyflow/react', () => ({
           {node.data?.label}
         </div>
       ))}
+      <button
+        type="button"
+        onClick={() => nodes[0] ? onNodesChange?.([{
+          id: nodes[0].id,
+          type: 'position',
+          position: { x: 321, y: 654 },
+          dragging: false,
+        }]) : undefined}
+      >
+        Move first graph node
+      </button>
       {children}
     </div>
   ),
@@ -18,6 +37,11 @@ jest.mock('@xyflow/react', () => ({
   Controls: () => <div data-testid="flow-controls" />,
   MiniMap: () => <div data-testid="flow-minimap" />,
   addEdge: jest.fn((edge, edges) => edges.concat(edge)),
+  applyNodeChanges: jest.fn((changes, nodes) => nodes.map((node) => {
+    const positionChange = changes.find((change: { id?: string; type?: string }) => change.id === node.id && change.type === 'position')
+    return positionChange?.position ? { ...node, position: positionChange.position } : node
+  })),
+  applyEdgeChanges: jest.fn((changes, edges) => edges.filter((edge) => !changes.some((change: { id?: string; type?: string }) => change.id === edge.id && change.type === 'remove'))),
   useEdgesState: jest.fn((initial) => [initial, jest.fn(), jest.fn()]),
   useNodesState: jest.fn((initial) => [initial, jest.fn(), jest.fn()]),
 }))
@@ -1115,6 +1139,7 @@ describe('CreativeCanvasWorkspace', () => {
     fireEvent.click(screen.getByRole('button', { name: /apply settings to node/i }))
     expect(await screen.findByText(/generation settings applied to higgsfield vertical video/i)).toBeInTheDocument()
 
+    fireEvent.click(screen.getByRole('button', { name: /move first graph node/i }))
     fireEvent.click(screen.getByRole('button', { name: /save graph/i }))
 
     await waitFor(() => {
@@ -1133,6 +1158,7 @@ describe('CreativeCanvasWorkspace', () => {
       expect.objectContaining({
         type: 'source',
         title: 'Product / brand source',
+        position: { x: 321, y: 654 },
         data: expect.objectContaining({
           createdFrom: 'creative_canvas_workflow_preset',
           workflowPreset: 'social-launch',

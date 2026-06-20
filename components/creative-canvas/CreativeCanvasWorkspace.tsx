@@ -7,9 +7,13 @@ import {
   MiniMap,
   ReactFlow,
   addEdge,
+  applyEdgeChanges,
+  applyNodeChanges,
   type Connection,
   type Edge,
+  type EdgeChange,
   type Node,
+  type NodeChange,
 } from '@xyflow/react'
 import type {
   CreativeCanvasAssetOrigin,
@@ -1106,6 +1110,25 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
 
   const onConnect = useCallback((connection: Connection) => {
     setEdges((currentEdges) => addEdge(connection, currentEdges))
+  }, [])
+  const onNodesChange = useCallback((changes: NodeChange[]) => {
+    setNodes((currentNodes) => applyNodeChanges(changes, currentNodes).map((node) => {
+      const canvasNode = node.data?.canvasNode as CreativeCanvasNode | undefined
+      if (!canvasNode) return node
+      return {
+        ...node,
+        data: {
+          ...node.data,
+          canvasNode: {
+            ...canvasNode,
+            position: node.position,
+          },
+        },
+      }
+    }))
+  }, [])
+  const onEdgesChange = useCallback((changes: EdgeChange[]) => {
+    setEdges((currentEdges) => applyEdgeChanges(changes, currentEdges))
   }, [])
 
   const addCanvasNode = (type: CreativeCanvasNodeType) => {
@@ -2530,7 +2553,15 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
             {saveMessage ? <p className="text-xs font-medium text-[var(--color-pib-text-muted)]">{saveMessage}</p> : null}
           </div>
           <div className="h-[62vh] min-h-[420px] lg:h-[560px]">
-            <ReactFlow nodes={displayNodes} edges={edges} onConnect={onConnect} onNodeClick={selectFlowNode} fitView>
+            <ReactFlow
+              nodes={displayNodes}
+              edges={edges}
+              onNodesChange={onNodesChange}
+              onEdgesChange={onEdgesChange}
+              onConnect={onConnect}
+              onNodeClick={selectFlowNode}
+              fitView
+            >
               <Background />
               <Controls />
               <MiniMap />
