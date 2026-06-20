@@ -57,11 +57,13 @@ type CreativeCanvasVisualProofRecord = {
   notes?: string
   capturedAt?: string
   capturedBy?: string
+  signedIn?: boolean
 }
 
 type CreativeCanvasVisualProofDraft = Record<CreativeCanvasVisualProofKey, {
   screenshotUrl: string
   notes: string
+  signedIn: boolean
 }>
 
 type CreativeCanvasBenchmarkProofRecord = {
@@ -204,10 +206,10 @@ interface CreativeCanvasActivityEvent {
 }
 
 const emptyVisualProofDrafts: CreativeCanvasVisualProofDraft = {
-  desktop_1440: { screenshotUrl: '', notes: '' },
-  tablet_820: { screenshotUrl: '', notes: '' },
-  mobile_390: { screenshotUrl: '', notes: '' },
-  mobile_panels: { screenshotUrl: '', notes: '' },
+  desktop_1440: { screenshotUrl: '', notes: '', signedIn: false },
+  tablet_820: { screenshotUrl: '', notes: '', signedIn: false },
+  mobile_390: { screenshotUrl: '', notes: '', signedIn: false },
+  mobile_panels: { screenshotUrl: '', notes: '', signedIn: false },
 }
 
 const emptyBenchmarkProofDrafts: CreativeCanvasBenchmarkProofDraft = {
@@ -349,12 +351,14 @@ function getCanvasVisualProof(data: unknown): Partial<Record<CreativeCanvasVisua
     const notes = stringField(record.notes)
     const capturedAt = stringField(record.capturedAt)
     const capturedBy = stringField(record.capturedBy)
-    if (screenshotUrl || notes || capturedAt || capturedBy) {
+    const signedIn = record.signedIn === true
+    if (screenshotUrl || notes || capturedAt || capturedBy || signedIn) {
       acc[key] = {
         screenshotUrl,
         notes,
         capturedAt,
         capturedBy,
+        signedIn,
       }
     }
     return acc
@@ -1590,18 +1594,22 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
       desktop_1440: {
         screenshotUrl: proof.desktop_1440?.screenshotUrl ?? '',
         notes: proof.desktop_1440?.notes ?? '',
+        signedIn: proof.desktop_1440?.signedIn === true,
       },
       tablet_820: {
         screenshotUrl: proof.tablet_820?.screenshotUrl ?? '',
         notes: proof.tablet_820?.notes ?? '',
+        signedIn: proof.tablet_820?.signedIn === true,
       },
       mobile_390: {
         screenshotUrl: proof.mobile_390?.screenshotUrl ?? '',
         notes: proof.mobile_390?.notes ?? '',
+        signedIn: proof.mobile_390?.signedIn === true,
       },
       mobile_panels: {
         screenshotUrl: proof.mobile_panels?.screenshotUrl ?? '',
         notes: proof.mobile_panels?.notes ?? '',
+        signedIn: proof.mobile_panels?.signedIn === true,
       },
     })
   }, [activeCanvas?.data, activeCanvas?.id])
@@ -1867,6 +1875,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
         ...existingProof[key],
         screenshotUrl,
         notes,
+        signedIn: draft.signedIn,
         capturedAt: new Date().toISOString(),
         capturedBy: 'Pip',
       },
@@ -3750,7 +3759,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
   const visualProofItems: Array<{
     key: CreativeCanvasVisualProofKey
     label: string
-    status: 'captured' | 'needed'
+    status: 'signed-in' | 'needs sign-in' | 'needed'
     evidence: string
     proof?: CreativeCanvasVisualProofRecord
   }> = visualProofConfigs.map((item) => {
@@ -3758,7 +3767,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
     return {
       ...item,
       proof,
-      status: proof?.screenshotUrl ? 'captured' : 'needed',
+      status: proof?.screenshotUrl && proof.signedIn ? 'signed-in' : proof?.screenshotUrl ? 'needs sign-in' : 'needed',
     }
   })
   const parityAuditNodes = nodes.map((node) => toCanvasNode(node, resolvedOrgId || activeCanvas?.orgId || 'pending-org'))
@@ -3809,7 +3818,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
     && (latestExportPackage?.manifest?.sourceNodeCount ?? 0) > 0
     && passedExportProofCategories.length >= exportProofCategories.length
   const draftExportableAssetCount = canvasAssets.filter((asset) => asset.canDraftExport).length
-  const capturedVisualProofCount = visualProofItems.filter((item) => item.status === 'captured').length
+  const capturedVisualProofCount = visualProofItems.filter((item) => item.status === 'signed-in').length
   const reliabilityCoverage = runtimeProof?.reliabilityCoverage ?? []
   const reliabilityCoveragePassed = reliabilityCoverage.length > 0 && reliabilityCoverage.every((category) => category.status === 'passed')
   const reliabilityPassed = reliabilityCoveragePassed && runtimeProof?.status === 'passed' && runtimeProof.readyForLiveProof
@@ -3953,7 +3962,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
       label: 'Mobile behavior',
       status: capturedVisualProofCount >= visualProofItems.length ? 'passed' : responsiveProofItems.length >= 4 ? 'watch' : 'blocked',
       evidence: capturedVisualProofCount
-        ? `${capturedVisualProofCount}/${visualProofItems.length} visual proofs captured`
+        ? `${capturedVisualProofCount}/${visualProofItems.length} signed-in visual proofs captured`
         : 'Signed-in desktop/tablet/mobile screenshots still required',
     },
     {
@@ -4123,7 +4132,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
             <p className="mt-0.5">Mobile parity stays in watch state until signed-in viewport screenshots are captured.</p>
           </div>
           <span className="rounded-full border border-amber-300 bg-white px-2 py-0.5 font-semibold uppercase tracking-normal">
-            {capturedVisualProofCount}/{visualProofItems.length} captured
+            {capturedVisualProofCount}/{visualProofItems.length} signed-in
           </span>
         </div>
         <div className="mt-2 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
@@ -4134,6 +4143,11 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
                 <span className="rounded-full border border-current px-2 py-0.5 uppercase tracking-normal">{item.status}</span>
               </div>
               <p className="mt-1">{item.evidence}</p>
+              {item.proof?.screenshotUrl && !item.proof.signedIn ? (
+                <p className="mt-1 text-[11px] font-semibold text-amber-800">
+                  Mark as signed-in before this counts for mobile parity.
+                </p>
+              ) : null}
               {item.proof?.capturedAt ? (
                 <p className="mt-1 text-[11px] font-semibold text-amber-800">
                   Captured {new Date(item.proof.capturedAt).toLocaleString()}
@@ -4180,6 +4194,22 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
                   rows={2}
                   className="mt-1 w-full resize-none rounded-md border border-amber-200 bg-white px-2 py-1 text-xs text-amber-950 outline-none focus:border-amber-400"
                 />
+              </label>
+              <label className="mt-2 flex items-start gap-2 text-[11px] font-semibold text-amber-950">
+                <input
+                  type="checkbox"
+                  aria-label={`${item.label} proof is signed-in`}
+                  checked={visualProofDrafts[item.key].signedIn}
+                  onChange={(event) => {
+                    const value = event.target.checked
+                    setVisualProofDrafts((current) => ({
+                      ...current,
+                      [item.key]: { ...current[item.key], signedIn: value },
+                    }))
+                  }}
+                  className="mt-0.5"
+                />
+                Signed-in admin or portal session visible in this proof
               </label>
               <button
                 type="button"

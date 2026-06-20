@@ -38,6 +38,7 @@ describe('creative canvas sanitizers', () => {
               notes: ' Graph, sources, and inspector are visible. ',
               capturedAt: '2026-06-20T10:00:00.000Z',
               capturedBy: 'Pip',
+              signedIn: true,
             },
             empty: {},
           },
@@ -54,6 +55,7 @@ describe('creative canvas sanitizers', () => {
           notes: 'Graph, sources, and inspector are visible.',
           capturedAt: '2026-06-20T10:00:00.000Z',
           capturedBy: 'Pip',
+          signedIn: true,
         },
       },
     })
@@ -66,6 +68,7 @@ describe('creative canvas sanitizers', () => {
         mobile_390: {
           screenshotUrl: 'https://proof.example.com/mobile.png',
           notes: 'Mobile canvas is legible.',
+          signedIn: false,
         },
       },
     })).toEqual({
@@ -75,6 +78,7 @@ describe('creative canvas sanitizers', () => {
           notes: 'Mobile canvas is legible.',
           capturedAt: undefined,
           capturedBy: undefined,
+          signedIn: false,
         },
       },
     })

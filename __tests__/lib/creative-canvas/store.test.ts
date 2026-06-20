@@ -168,6 +168,7 @@ describe('creative canvas store', () => {
             notes: ' Mobile panel captured ',
             capturedAt: '2026-06-20T10:00:00.000Z',
             capturedBy: 'Pip',
+            signedIn: true,
           },
         },
         benchmarkProof: {
@@ -186,6 +187,7 @@ describe('creative canvas store', () => {
           mobile_390: expect.objectContaining({
             screenshotUrl: 'https://proof.example.com/mobile.png',
             notes: 'Mobile panel captured',
+            signedIn: true,
           }),
         }),
         benchmarkProof: expect.objectContaining({

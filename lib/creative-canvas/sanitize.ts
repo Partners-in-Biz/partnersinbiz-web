@@ -150,12 +150,14 @@ function cleanVisualProofData(value: unknown): Record<string, unknown> | undefin
       const notes = cleanString(item.notes)?.slice(0, 500)
       const capturedAt = cleanString(item.capturedAt)?.slice(0, 80)
       const capturedBy = cleanString(item.capturedBy)?.slice(0, 120)
-      if (!screenshotUrl && !notes && !capturedAt && !capturedBy) return []
+      const signedIn = item.signedIn === true
+      if (!screenshotUrl && !notes && !capturedAt && !capturedBy && !signedIn) return []
       return [[key.slice(0, 80), {
         screenshotUrl,
         notes,
         capturedAt,
         capturedBy,
+        signedIn,
       } as Record<string, unknown>] as [string, Record<string, unknown>]]
     })
     .slice(0, 8)

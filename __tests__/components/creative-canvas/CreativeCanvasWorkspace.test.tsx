@@ -831,7 +831,7 @@ describe('CreativeCanvasWorkspace', () => {
     expect(screen.getByText('3-column graph')).toBeInTheDocument()
     const visualProof = screen.getByLabelText(/creative canvas visual qa proof/i)
     expect(visualProof).toHaveTextContent('Visual QA proof')
-    expect(visualProof).toHaveTextContent('0/4 captured')
+    expect(visualProof).toHaveTextContent('0/4 signed-in')
     expect(visualProof).toHaveTextContent('Desktop 1440')
     expect(visualProof).toHaveTextContent('Tablet 820')
     expect(visualProof).toHaveTextContent('Mobile 390')
@@ -876,6 +876,7 @@ describe('CreativeCanvasWorkspace', () => {
     fireEvent.change(screen.getByLabelText(/desktop 1440 proof notes/i), {
       target: { value: 'Desktop graph, sources, and inspector are legible.' },
     })
+    fireEvent.click(screen.getByLabelText(/desktop 1440 proof is signed-in/i))
     fireEvent.click(screen.getByRole('button', { name: /save desktop 1440 proof/i }))
 
     await waitFor(() => expect(screen.getByText('Saved Desktop 1440 visual proof')).toBeInTheDocument())
@@ -886,20 +887,43 @@ describe('CreativeCanvasWorkspace', () => {
     ))
     expect(patchCall).toBeTruthy()
     const body = JSON.parse(String(patchCall?.[1]?.body ?? '{}')) as {
-      data?: { visualProof?: Record<string, { screenshotUrl?: string; notes?: string; capturedAt?: string; capturedBy?: string }> }
+      data?: { visualProof?: Record<string, { screenshotUrl?: string; notes?: string; capturedAt?: string; capturedBy?: string; signedIn?: boolean }> }
     }
     expect(body.data?.visualProof?.desktop_1440).toMatchObject({
       screenshotUrl: 'https://proof.example.com/desktop-1440.png',
       notes: 'Desktop graph, sources, and inspector are legible.',
       capturedBy: 'Pip',
+      signedIn: true,
     })
     expect(body.data?.visualProof?.desktop_1440?.capturedAt).toEqual(expect.any(String))
 
     const visualProof = screen.getByLabelText(/creative canvas visual qa proof/i)
-    expect(visualProof).toHaveTextContent('1/4 captured')
+    expect(visualProof).toHaveTextContent('1/4 signed-in')
     expect(within(visualProof).getByRole('link', { name: /open proof/i })).toHaveAttribute('href', 'https://proof.example.com/desktop-1440.png')
     const parityAudit = screen.getByLabelText(/higgsfield parity audit/i)
-    expect(parityAudit).toHaveTextContent('1/4 visual proofs captured')
+    expect(parityAudit).toHaveTextContent('1/4 signed-in visual proofs captured')
+  })
+
+  it('does not count viewport proof until the screenshot is confirmed signed-in', async () => {
+    render(<CreativeCanvasWorkspace mode="admin" orgId="org-1" />)
+
+    expect(await screen.findByText('Launch Canvas')).toBeInTheDocument()
+    fireEvent.change(screen.getByLabelText(/desktop 1440 screenshot url/i), {
+      target: { value: 'https://proof.example.com/desktop-1440.png' },
+    })
+    fireEvent.change(screen.getByLabelText(/desktop 1440 proof notes/i), {
+      target: { value: 'Desktop viewport without signed-in chrome.' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: /save desktop 1440 proof/i }))
+
+    await waitFor(() => expect(screen.getByText('Saved Desktop 1440 visual proof')).toBeInTheDocument())
+
+    const visualProof = screen.getByLabelText(/creative canvas visual qa proof/i)
+    expect(visualProof).toHaveTextContent('0/4 signed-in')
+    expect(visualProof).toHaveTextContent('needs sign-in')
+    expect(visualProof).toHaveTextContent('Mark as signed-in before this counts for mobile parity.')
+    const parityAudit = screen.getByLabelText(/higgsfield parity audit/i)
+    expect(parityAudit).toHaveTextContent('Signed-in desktop/tablet/mobile screenshots still required')
   })
 
   it('saves direct Higgsfield benchmark proof evidence', async () => {
