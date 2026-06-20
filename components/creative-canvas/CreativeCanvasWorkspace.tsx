@@ -341,6 +341,7 @@ type CreativeCanvasWorkflowPreset = {
   key: string
   label: string
   description: string
+  benchmarkScenario?: string
   outputKind: CreativeCanvasRun['input']['outputKind']
   exportTarget: CreativeCanvasExport['target']
   aspectRatio: string
@@ -361,6 +362,17 @@ type CreativeCanvasWorkflowPreset = {
   }>
   edges: Array<{ from: string; to: string; label: string }>
 }
+
+const higgsfieldBenchmarkScenarios = [
+  'vfx_background_replace',
+  'product_style_fusion',
+  'model_product_campaign',
+  'architecture_day_night',
+  'set_to_set_style',
+  'logo_animation',
+  'brand_icon_system',
+  'sketch_material_exploration',
+] as const
 
 const workflowPresets: CreativeCanvasWorkflowPreset[] = [
   {
@@ -608,6 +620,422 @@ const workflowPresets: CreativeCanvasWorkflowPreset[] = [
       { from: 'prompt', to: 'model', label: 'generate cover' },
       { from: 'model', to: 'review', label: 'publishing gate' },
       { from: 'review', to: 'output', label: 'book artifact' },
+    ],
+  },
+  {
+    key: 'benchmark-vfx-background',
+    label: 'VFX background replace',
+    description: 'Drop footage, replace the scene, render a VFX video output.',
+    benchmarkScenario: 'vfx_background_replace',
+    outputKind: 'video',
+    exportTarget: 'youtube_studio',
+    aspectRatio: '16:9',
+    durationSeconds: 8,
+    stylePreset: 'cinematic_product',
+    cameraMotion: 'dolly',
+    negativePrompt: 'warped horizon, broken perspective, flicker, inconsistent lighting',
+    nodes: [
+      {
+        suffix: 'footage',
+        type: 'source',
+        title: 'Source footage',
+        data: { workflowRole: 'source', requiredInputs: ['video_clip', 'subject_continuity'], benchmarkScenario: 'vfx_background_replace' },
+        source: { kind: 'upload', referenceRole: 'motion', weight: 1, altText: 'Footage for background replacement' },
+      },
+      {
+        suffix: 'environment',
+        type: 'source',
+        title: 'Replacement environment',
+        data: { workflowRole: 'source', requiredInputs: ['scene_reference', 'lighting_notes'], benchmarkScenario: 'vfx_background_replace' },
+        source: { kind: 'upload', referenceRole: 'background', weight: 0.9, altText: 'Replacement background reference' },
+      },
+      {
+        suffix: 'edit',
+        type: 'edit',
+        title: 'Background replacement edit',
+        data: { workflowRole: 'edit', benchmarkScenario: 'vfx_background_replace' },
+        edit: { operation: 'background_replace', outputKind: 'video', strength: 0.72, motion: { mode: 'dolly', durationSeconds: 8 }, references: [] },
+      },
+      {
+        suffix: 'model',
+        type: 'model',
+        title: 'Higgsfield VFX render',
+        data: { workflowRole: 'generation', ownerAgentId: 'maya', benchmarkScenario: 'vfx_background_replace' },
+        provider: { key: 'higgsfield', model: 'veo_3_1', mode: 'video' },
+        edit: { operation: 'video_motion', outputKind: 'video', strength: 0.7, motion: { mode: 'dolly', durationSeconds: 8 }, references: [] },
+      },
+      {
+        suffix: 'output',
+        type: 'output',
+        title: 'VFX video output',
+        data: { workflowRole: 'output', exportTarget: 'youtube_studio', benchmarkScenario: 'vfx_background_replace' },
+        output: { kind: 'video', textPreview: 'Background replacement video ready for review' },
+      },
+    ],
+    edges: [
+      { from: 'footage', to: 'edit', label: 'footage' },
+      { from: 'environment', to: 'edit', label: 'scene reference' },
+      { from: 'edit', to: 'model', label: 'replace background' },
+      { from: 'model', to: 'output', label: 'render' },
+    ],
+  },
+  {
+    key: 'benchmark-product-style',
+    label: 'Product style fusion',
+    description: 'Drop a product and style reference, generate campaign photography.',
+    benchmarkScenario: 'product_style_fusion',
+    outputKind: 'campaign_asset',
+    exportTarget: 'campaign_asset',
+    aspectRatio: '4:5',
+    durationSeconds: 0,
+    stylePreset: 'editorial',
+    cameraMotion: 'none',
+    negativePrompt: 'wrong product shape, off-brand material, mismatched lighting',
+    nodes: [
+      {
+        suffix: 'product',
+        type: 'source',
+        title: 'Product reference',
+        data: { workflowRole: 'source', benchmarkScenario: 'product_style_fusion' },
+        source: { kind: 'upload', referenceRole: 'product', weight: 1, altText: 'Product reference' },
+      },
+      {
+        suffix: 'style',
+        type: 'source',
+        title: 'Style reference',
+        data: { workflowRole: 'source', benchmarkScenario: 'product_style_fusion' },
+        source: { kind: 'upload', referenceRole: 'style', weight: 0.85, altText: 'Style reference' },
+      },
+      {
+        suffix: 'model',
+        type: 'model',
+        title: 'Higgsfield product shot',
+        data: { workflowRole: 'generation', ownerAgentId: 'maya', benchmarkScenario: 'product_style_fusion' },
+        provider: { key: 'higgsfield', model: 'nano_banana_pro', mode: 'campaign_asset' },
+        edit: { operation: 'variation', outputKind: 'campaign_asset', strength: 0.64, motion: { mode: 'none' }, references: [] },
+      },
+      {
+        suffix: 'review',
+        type: 'review',
+        title: 'Photography review',
+        data: { workflowRole: 'review', checks: ['product_accuracy', 'brand_style', 'rights'], benchmarkScenario: 'product_style_fusion' },
+        review: { status: 'needed', syntheticMediaDisclosure: true, rightsStatus: 'needs_review', brandStatus: 'needs_review' },
+      },
+      {
+        suffix: 'output',
+        type: 'output',
+        title: 'Campaign photography',
+        data: { workflowRole: 'output', exportTarget: 'campaign_asset', benchmarkScenario: 'product_style_fusion' },
+        output: { kind: 'campaign_asset', textPreview: 'Product and style fused campaign asset' },
+      },
+    ],
+    edges: [
+      { from: 'product', to: 'model', label: 'product' },
+      { from: 'style', to: 'model', label: 'style' },
+      { from: 'model', to: 'review', label: 'quality gate' },
+      { from: 'review', to: 'output', label: 'approved asset' },
+    ],
+  },
+  {
+    key: 'benchmark-campaign-model-product',
+    label: 'Model product campaign',
+    description: 'Chain a person/character and product into a campaign-ready video.',
+    benchmarkScenario: 'model_product_campaign',
+    outputKind: 'social_post_draft',
+    exportTarget: 'social_draft',
+    aspectRatio: '9:16',
+    durationSeconds: 6,
+    stylePreset: 'ugc_social',
+    cameraMotion: 'camera_push',
+    negativePrompt: 'identity drift, product distortion, false endorsement',
+    nodes: [
+      {
+        suffix: 'person',
+        type: 'source',
+        title: 'Person or Soul ID',
+        data: { workflowRole: 'source', benchmarkScenario: 'model_product_campaign' },
+        source: { kind: 'brand_kit', referenceRole: 'person', weight: 1, altText: 'Person or Soul ID reference' },
+      },
+      {
+        suffix: 'product',
+        type: 'source',
+        title: 'Product reference',
+        data: { workflowRole: 'source', benchmarkScenario: 'model_product_campaign' },
+        source: { kind: 'upload', referenceRole: 'product', weight: 1, altText: 'Product reference' },
+      },
+      {
+        suffix: 'model',
+        type: 'model',
+        title: 'Higgsfield campaign video',
+        data: { workflowRole: 'generation', ownerAgentId: 'maya', benchmarkScenario: 'model_product_campaign' },
+        provider: { key: 'higgsfield', model: 'seedance_2_0_fast', mode: 'social_post_draft' },
+        edit: { operation: 'video_motion', outputKind: 'social_post_draft', strength: 0.7, motion: { mode: 'camera_push', durationSeconds: 6 }, references: [] },
+      },
+      {
+        suffix: 'output',
+        type: 'output',
+        title: 'Campaign-ready social video',
+        data: { workflowRole: 'output', exportTarget: 'social_draft', benchmarkScenario: 'model_product_campaign' },
+        output: { kind: 'social_post_draft', textPreview: 'Model plus product campaign video draft' },
+      },
+    ],
+    edges: [
+      { from: 'person', to: 'model', label: 'character' },
+      { from: 'product', to: 'model', label: 'product' },
+      { from: 'model', to: 'output', label: 'campaign' },
+    ],
+  },
+  {
+    key: 'benchmark-architecture-day-night',
+    label: 'Architecture day to night',
+    description: 'Use start/end frames to create an architectural timelapse.',
+    benchmarkScenario: 'architecture_day_night',
+    outputKind: 'video',
+    exportTarget: 'youtube_studio',
+    aspectRatio: '16:9',
+    durationSeconds: 8,
+    stylePreset: 'cinematic_product',
+    cameraMotion: 'pan',
+    negativePrompt: 'unstable geometry, warped building lines, flicker',
+    nodes: [
+      {
+        suffix: 'start',
+        type: 'source',
+        title: 'Start frame',
+        data: { workflowRole: 'source', benchmarkScenario: 'architecture_day_night' },
+        source: { kind: 'upload', referenceRole: 'background', weight: 1, altText: 'Day start frame' },
+      },
+      {
+        suffix: 'end',
+        type: 'source',
+        title: 'End frame',
+        data: { workflowRole: 'source', benchmarkScenario: 'architecture_day_night' },
+        source: { kind: 'upload', referenceRole: 'motion', weight: 1, altText: 'Night end frame' },
+      },
+      {
+        suffix: 'model',
+        type: 'model',
+        title: 'Higgsfield architectural timelapse',
+        data: { workflowRole: 'generation', ownerAgentId: 'maya', benchmarkScenario: 'architecture_day_night' },
+        provider: { key: 'higgsfield', model: 'wan_2_7', mode: 'video' },
+        edit: { operation: 'video_motion', outputKind: 'video', strength: 0.66, motion: { mode: 'pan', durationSeconds: 8 }, references: [] },
+      },
+      {
+        suffix: 'output',
+        type: 'output',
+        title: 'Day-night timelapse',
+        data: { workflowRole: 'output', exportTarget: 'youtube_studio', benchmarkScenario: 'architecture_day_night' },
+        output: { kind: 'video', textPreview: 'Architecture day-to-night video' },
+      },
+    ],
+    edges: [
+      { from: 'start', to: 'model', label: 'start frame' },
+      { from: 'end', to: 'model', label: 'end frame' },
+      { from: 'model', to: 'output', label: 'timelapse' },
+    ],
+  },
+  {
+    key: 'benchmark-style-set',
+    label: 'Set to set style',
+    description: 'Blend two location frames into a coherent styled video.',
+    benchmarkScenario: 'set_to_set_style',
+    outputKind: 'video',
+    exportTarget: 'youtube_studio',
+    aspectRatio: '16:9',
+    durationSeconds: 8,
+    stylePreset: 'brand_realism',
+    cameraMotion: 'orbit',
+    negativePrompt: 'location mismatch, subject drift, inconsistent exposure',
+    nodes: [
+      {
+        suffix: 'start',
+        type: 'source',
+        title: 'Set start frame',
+        data: { workflowRole: 'source', benchmarkScenario: 'set_to_set_style' },
+        source: { kind: 'upload', referenceRole: 'background', weight: 1, altText: 'Start set reference' },
+      },
+      {
+        suffix: 'end',
+        type: 'source',
+        title: 'Set destination frame',
+        data: { workflowRole: 'source', benchmarkScenario: 'set_to_set_style' },
+        source: { kind: 'upload', referenceRole: 'style', weight: 1, altText: 'Destination style reference' },
+      },
+      {
+        suffix: 'model',
+        type: 'model',
+        title: 'Higgsfield set transition',
+        data: { workflowRole: 'generation', ownerAgentId: 'maya', benchmarkScenario: 'set_to_set_style' },
+        provider: { key: 'higgsfield', model: 'kling_3_0', mode: 'video' },
+        edit: { operation: 'video_motion', outputKind: 'video', strength: 0.68, motion: { mode: 'orbit', durationSeconds: 8 }, references: [] },
+      },
+      {
+        suffix: 'output',
+        type: 'output',
+        title: 'Styled transition video',
+        data: { workflowRole: 'output', exportTarget: 'youtube_studio', benchmarkScenario: 'set_to_set_style' },
+        output: { kind: 'video', textPreview: 'Styled set-to-set transition video' },
+      },
+    ],
+    edges: [
+      { from: 'start', to: 'model', label: 'start set' },
+      { from: 'end', to: 'model', label: 'style set' },
+      { from: 'model', to: 'output', label: 'transition' },
+    ],
+  },
+  {
+    key: 'benchmark-logo-animation',
+    label: 'Logo animation',
+    description: 'Drop a logo and style reference, render animated brand assets.',
+    benchmarkScenario: 'logo_animation',
+    outputKind: 'video',
+    exportTarget: 'campaign_asset',
+    aspectRatio: '1:1',
+    durationSeconds: 5,
+    stylePreset: 'brand_realism',
+    cameraMotion: 'none',
+    negativePrompt: 'logo distortion, unreadable mark, off-brand colors',
+    nodes: [
+      {
+        suffix: 'logo',
+        type: 'source',
+        title: 'Logo source',
+        data: { workflowRole: 'source', benchmarkScenario: 'logo_animation' },
+        source: { kind: 'brand_kit', referenceRole: 'logo', weight: 1, altText: 'Logo source' },
+      },
+      {
+        suffix: 'style',
+        type: 'source',
+        title: 'Animation style reference',
+        data: { workflowRole: 'source', benchmarkScenario: 'logo_animation' },
+        source: { kind: 'upload', referenceRole: 'style', weight: 0.8, altText: 'Animation style reference' },
+      },
+      {
+        suffix: 'model',
+        type: 'model',
+        title: 'Higgsfield logo animation',
+        data: { workflowRole: 'generation', ownerAgentId: 'maya', benchmarkScenario: 'logo_animation' },
+        provider: { key: 'higgsfield', model: 'kling_3_0', mode: 'video' },
+        edit: { operation: 'video_motion', outputKind: 'video', strength: 0.58, motion: { mode: 'none', durationSeconds: 5 }, references: [] },
+      },
+      {
+        suffix: 'output',
+        type: 'output',
+        title: 'Animated logo package',
+        data: { workflowRole: 'output', exportTarget: 'campaign_asset', benchmarkScenario: 'logo_animation' },
+        output: { kind: 'video', textPreview: 'Animated logo asset package' },
+      },
+    ],
+    edges: [
+      { from: 'logo', to: 'model', label: 'logo' },
+      { from: 'style', to: 'model', label: 'style' },
+      { from: 'model', to: 'output', label: 'animation' },
+    ],
+  },
+  {
+    key: 'benchmark-brand-icons',
+    label: 'Brand icon system',
+    description: 'Use a logo and palette prompt to generate a cohesive icon set.',
+    benchmarkScenario: 'brand_icon_system',
+    outputKind: 'campaign_asset',
+    exportTarget: 'campaign_asset',
+    aspectRatio: '1:1',
+    durationSeconds: 0,
+    stylePreset: 'clean_studio',
+    cameraMotion: 'none',
+    negativePrompt: 'inconsistent icon style, unreadable marks, off-brand palette',
+    nodes: [
+      {
+        suffix: 'logo',
+        type: 'source',
+        title: 'Logo and palette',
+        data: { workflowRole: 'source', requiredInputs: ['logo', 'color_palette'], benchmarkScenario: 'brand_icon_system' },
+        source: { kind: 'brand_kit', referenceRole: 'logo', weight: 1, altText: 'Logo and palette' },
+      },
+      {
+        suffix: 'prompt',
+        type: 'prompt',
+        title: 'Icon system prompt',
+        data: { workflowRole: 'prompt', promptType: 'brand_icon_system', benchmarkScenario: 'brand_icon_system' },
+      },
+      {
+        suffix: 'model',
+        type: 'model',
+        title: 'Higgsfield icon system',
+        data: { workflowRole: 'generation', ownerAgentId: 'maya', benchmarkScenario: 'brand_icon_system' },
+        provider: { key: 'higgsfield', model: 'gpt_image_2_0', mode: 'campaign_asset' },
+        edit: { operation: 'variation', outputKind: 'campaign_asset', strength: 0.62, motion: { mode: 'none' }, references: [] },
+      },
+      {
+        suffix: 'output',
+        type: 'output',
+        title: 'Brand icon grid',
+        data: { workflowRole: 'output', exportTarget: 'campaign_asset', benchmarkScenario: 'brand_icon_system' },
+        output: { kind: 'campaign_asset', textPreview: 'Cohesive brand icon system grid' },
+      },
+    ],
+    edges: [
+      { from: 'logo', to: 'prompt', label: 'brand system' },
+      { from: 'prompt', to: 'model', label: 'generate icons' },
+      { from: 'model', to: 'output', label: 'icon set' },
+    ],
+  },
+  {
+    key: 'benchmark-sketch-material',
+    label: 'Sketch material exploration',
+    description: 'Drop a sketch and branch material concepts into variations.',
+    benchmarkScenario: 'sketch_material_exploration',
+    outputKind: 'campaign_asset',
+    exportTarget: 'campaign_asset',
+    aspectRatio: '1:1',
+    durationSeconds: 0,
+    stylePreset: 'clean_studio',
+    cameraMotion: 'none',
+    negativePrompt: 'changed silhouette, weak material definition, muddy texture',
+    nodes: [
+      {
+        suffix: 'sketch',
+        type: 'source',
+        title: 'Concept sketch',
+        data: { workflowRole: 'source', benchmarkScenario: 'sketch_material_exploration' },
+        source: { kind: 'upload', referenceRole: 'general', weight: 1, altText: 'Concept sketch' },
+      },
+      {
+        suffix: 'leather',
+        type: 'edit',
+        title: 'Leather material branch',
+        data: { workflowRole: 'edit', material: 'leather', benchmarkScenario: 'sketch_material_exploration' },
+        edit: { operation: 'style_transfer', outputKind: 'campaign_asset', strength: 0.58, motion: { mode: 'none' }, references: [] },
+      },
+      {
+        suffix: 'glass',
+        type: 'edit',
+        title: 'Glass material branch',
+        data: { workflowRole: 'edit', material: 'glass', benchmarkScenario: 'sketch_material_exploration' },
+        edit: { operation: 'style_transfer', outputKind: 'campaign_asset', strength: 0.58, motion: { mode: 'none' }, references: [] },
+      },
+      {
+        suffix: 'model',
+        type: 'model',
+        title: 'Higgsfield material variants',
+        data: { workflowRole: 'generation', ownerAgentId: 'maya', benchmarkScenario: 'sketch_material_exploration' },
+        provider: { key: 'higgsfield', model: 'nano_banana_pro', mode: 'campaign_asset' },
+        edit: { operation: 'variation', outputKind: 'campaign_asset', strength: 0.62, motion: { mode: 'none' }, references: [] },
+      },
+      {
+        suffix: 'output',
+        type: 'output',
+        title: 'Material exploration grid',
+        data: { workflowRole: 'output', exportTarget: 'campaign_asset', benchmarkScenario: 'sketch_material_exploration' },
+        output: { kind: 'campaign_asset', textPreview: 'Sketch material variants for leather, glass, and related surfaces' },
+      },
+    ],
+    edges: [
+      { from: 'sketch', to: 'leather', label: 'sketch' },
+      { from: 'sketch', to: 'glass', label: 'sketch' },
+      { from: 'leather', to: 'model', label: 'leather branch' },
+      { from: 'glass', to: 'model', label: 'glass branch' },
+      { from: 'model', to: 'output', label: 'material grid' },
     ],
   },
 ]
@@ -2726,6 +3154,8 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
     { label: 'Desktop', value: '3-column graph' },
   ]
   const parityAuditNodes = nodes.map((node) => toCanvasNode(node, resolvedOrgId || activeCanvas?.orgId || 'pending-org'))
+  const coreWorkflowPresets = workflowPresets.filter((preset) => !preset.benchmarkScenario)
+  const benchmarkWorkflowPresets = workflowPresets.filter((preset) => preset.benchmarkScenario)
   const hasEditingEvidence = parityAuditNodes.some((node) => node.type === 'edit' || Boolean(node.edit))
   const hasMaskEvidence = parityAuditNodes.some((node) => Boolean(
     node.edit?.mask?.region
@@ -2743,6 +3173,13 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
   const hasMultiAssetEvidence = sourceLibrary.length > 0
     || canvasAssets.length > 1
     || parityAuditNodes.filter((node) => node.source || node.output).length > 1
+  const availableBenchmarkScenarioCount = new Set(workflowPresets
+    .map((preset) => preset.benchmarkScenario)
+    .filter((scenario): scenario is string => Boolean(scenario))).size
+  const graphBenchmarkScenarioCount = new Set(parityAuditNodes
+    .map((node) => node.data?.benchmarkScenario)
+    .filter((scenario): scenario is string => typeof scenario === 'string')).size
+  const hasBenchmarkWorkflowCoverage = availableBenchmarkScenarioCount >= higgsfieldBenchmarkScenarios.length
   const hasVersionEvidence = versions.length > 0 && autoSaveEnabled
   const hasCollaborationEvidence = presence.length > 0 || collaborationStreamConnected || Boolean(conflictDraft || latestCollaboratorDraft)
   const hasTemplateEvidence = templates.length > 0
@@ -2783,6 +3220,13 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
       label: 'Multi-asset workflows',
       status: hasMultiAssetEvidence ? 'passed' : 'watch',
       evidence: `${sourceLibrary.length} sources · ${canvasAssets.length} canvas assets`,
+    },
+    {
+      label: 'Benchmark workflows',
+      status: graphBenchmarkScenarioCount >= higgsfieldBenchmarkScenarios.length ? 'passed' : hasBenchmarkWorkflowCoverage ? 'watch' : 'blocked',
+      evidence: graphBenchmarkScenarioCount
+        ? `${graphBenchmarkScenarioCount}/${higgsfieldBenchmarkScenarios.length} scenarios in graph`
+        : `${availableBenchmarkScenarioCount}/${higgsfieldBenchmarkScenarios.length} workflow scenarios ready`,
     },
     {
       label: 'Versioning polish',
@@ -3044,7 +3488,30 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
           <div>
             <p className="text-xs font-semibold uppercase tracking-normal text-[var(--color-pib-text-muted)]">Workflow presets</p>
             <div className="mt-3 space-y-2">
-              {workflowPresets.map((preset) => (
+              {coreWorkflowPresets.map((preset) => (
+                <button
+                  key={preset.key}
+                  type="button"
+                  aria-label={`Apply ${preset.label} workflow`}
+                  onClick={() => applyWorkflowPreset(preset)}
+                  className="w-full rounded-lg border border-[var(--color-pib-line)] px-3 py-2 text-left transition hover:bg-[var(--color-pib-surface)]"
+                >
+                  <span className="block text-sm font-semibold text-[var(--color-pib-text)]">{preset.label}</span>
+                  <span className="block text-xs text-[var(--color-pib-text-muted)]">{preset.description}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-xs font-semibold uppercase tracking-normal text-[var(--color-pib-text-muted)]">Higgsfield benchmark workflows</p>
+              <span className="text-[11px] font-semibold text-[var(--color-pib-text-muted)]">
+                {benchmarkWorkflowPresets.length}/{higgsfieldBenchmarkScenarios.length}
+              </span>
+            </div>
+            <div className="mt-3 space-y-2">
+              {benchmarkWorkflowPresets.map((preset) => (
                 <button
                   key={preset.key}
                   type="button"

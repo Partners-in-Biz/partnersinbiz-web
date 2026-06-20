@@ -765,6 +765,11 @@ describe('CreativeCanvasWorkspace', () => {
     expect(screen.getByText('Prompt')).toBeInTheDocument()
     expect(screen.getByText('Workflow presets')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /apply social launch workflow/i })).toBeInTheDocument()
+    expect(screen.getByText('Higgsfield benchmark workflows')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /apply VFX background replace workflow/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /apply Product style fusion workflow/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /apply Model product campaign workflow/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /apply Brand icon system workflow/i })).toBeInTheDocument()
     expect(screen.getByText('Run history')).toBeInTheDocument()
     expect(screen.getByText('Provider operations')).toBeInTheDocument()
     expect(screen.getByText('1 active / 2 total')).toBeInTheDocument()
@@ -808,6 +813,8 @@ describe('CreativeCanvasWorkspace', () => {
     expect(parityAudit).toHaveTextContent('Multi-model routing')
     expect(parityAudit).toHaveTextContent('8 benchmark model presets ready')
     expect(parityAudit).toHaveTextContent('Multi-asset workflows')
+    expect(parityAudit).toHaveTextContent('Benchmark workflows')
+    expect(parityAudit).toHaveTextContent('8/8 workflow scenarios ready')
     expect(parityAudit).toHaveTextContent('Versioning polish')
     expect(parityAudit).toHaveTextContent('Collaboration')
     expect(parityAudit).toHaveTextContent('Templates')
@@ -839,6 +846,20 @@ describe('CreativeCanvasWorkspace', () => {
     expect(screen.getByLabelText(/duration seconds/i)).toHaveValue(12)
     expect(screen.getByLabelText(/camera motion/i)).toHaveValue('dolly')
     expect(screen.getByText('Veo 3.1 routing selected')).toBeInTheDocument()
+  })
+
+  it('adds direct Higgsfield benchmark workflows to the graph', async () => {
+    render(<CreativeCanvasWorkspace mode="admin" orgId="org-1" />)
+
+    expect(await screen.findByText('Launch Canvas')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: /apply Product style fusion workflow/i }))
+
+    expect(screen.getByText('Product style fusion workflow added')).toBeInTheDocument()
+    expect(screen.getAllByText('Product reference').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Style reference').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Higgsfield product shot').length).toBeGreaterThan(0)
+    const parityAudit = screen.getByLabelText(/higgsfield parity audit/i)
+    expect(parityAudit).toHaveTextContent('1/8 scenarios in graph')
   })
 
   it('switches mobile panels with responsive readiness evidence', async () => {
