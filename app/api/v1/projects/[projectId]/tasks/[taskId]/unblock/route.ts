@@ -34,6 +34,7 @@ async function loadRelatedTasks(projectId: string, ids: string[]): Promise<Depen
       columnId: typeof data.columnId === 'string' ? data.columnId : null,
       agentStatus: typeof data.agentStatus === 'string' ? data.agentStatus : null,
       reviewStatus: typeof data.reviewStatus === 'string' ? data.reviewStatus : null,
+      approvalStatus: typeof data.approvalStatus === 'string' ? data.approvalStatus : null,
     }
   })
 }
