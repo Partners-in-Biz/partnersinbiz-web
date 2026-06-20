@@ -1341,6 +1341,44 @@ function toCanvasEdge(edge: Edge, orgId: string): CreativeCanvasEdge {
   }
 }
 
+function buildWorkflowPresetGraph(
+  preset: CreativeCanvasWorkflowPreset,
+  options: { baseX: number; baseY: number; stamp: number; orgId: string },
+): { nodes: CreativeCanvasNode[]; edges: Edge[] } {
+  const idFor = (suffix: string) => `${preset.key}-${suffix}-${options.stamp}`
+  const nodes = preset.nodes.map((template, index): CreativeCanvasNode => ({
+    id: idFor(template.suffix),
+    orgId: options.orgId,
+    type: template.type,
+    title: template.title,
+    position: {
+      x: options.baseX + (index % 3) * 260,
+      y: options.baseY + Math.floor(index / 3) * 180,
+    },
+    data: {
+      ...template.data,
+      createdFrom: 'creative_canvas_workflow_preset',
+      workflowPreset: preset.key,
+    },
+    source: template.source,
+    provider: template.provider,
+    edit: template.edit,
+    review: template.review,
+    output: template.output,
+  }))
+  const edges: Edge[] = preset.edges.map((edge) => ({
+    id: `${preset.key}-${edge.from}-${edge.to}-${options.stamp}`,
+    source: idFor(edge.from),
+    target: idFor(edge.to),
+    label: edge.label,
+    data: {
+      createdFrom: 'creative_canvas_workflow_preset',
+      workflowPreset: preset.key,
+    },
+  }))
+  return { nodes, edges }
+}
+
 function canvasGraphSignature(nodes: CreativeCanvasNode[] = [], edges: CreativeCanvasEdge[] = []) {
   return JSON.stringify({
     nodes: nodes.map((node) => ({
@@ -2280,47 +2318,18 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
   }
 
   const applyWorkflowPreset = (preset: CreativeCanvasWorkflowPreset) => {
-    const baseX = 80 + nodes.length * 18
-    const baseY = 90 + nodes.length * 12
-    const stamp = Date.now()
-    const org = resolvedOrgId || 'pending-org'
-    const idFor = (suffix: string) => `${preset.key}-${suffix}-${stamp}`
-    const nextNodes = preset.nodes.map((template, index): CreativeCanvasNode => ({
-      id: idFor(template.suffix),
-      orgId: org,
-      type: template.type,
-      title: template.title,
-      position: {
-        x: baseX + (index % 3) * 260,
-        y: baseY + Math.floor(index / 3) * 180,
-      },
-      data: {
-        ...template.data,
-        createdFrom: 'creative_canvas_workflow_preset',
-        workflowPreset: preset.key,
-      },
-      source: template.source,
-      provider: template.provider,
-      edit: template.edit,
-      review: template.review,
-      output: template.output,
-    }))
-    const nextEdges: Edge[] = preset.edges.map((edge) => ({
-      id: `${preset.key}-${edge.from}-${edge.to}-${stamp}`,
-      source: idFor(edge.from),
-      target: idFor(edge.to),
-      label: edge.label,
-      data: {
-        createdFrom: 'creative_canvas_workflow_preset',
-        workflowPreset: preset.key,
-      },
-    }))
+    const graph = buildWorkflowPresetGraph(preset, {
+      baseX: 80 + nodes.length * 18,
+      baseY: 90 + nodes.length * 12,
+      stamp: Date.now(),
+      orgId: resolvedOrgId || 'pending-org',
+    })
 
-    setNodes((currentNodes) => [...currentNodes, ...nextNodes.map((node) => toFlowNode(node))])
-    setEdges((currentEdges) => [...currentEdges, ...nextEdges])
-    setSelectedFlowNodeId(nextNodes.find((node) => node.type === 'model' || node.type === 'edit')?.id ?? nextNodes[0]?.id ?? '')
+    setNodes((currentNodes) => [...currentNodes, ...graph.nodes.map((node) => toFlowNode(node))])
+    setEdges((currentEdges) => [...currentEdges, ...graph.edges])
+    setSelectedFlowNodeId(graph.nodes.find((node) => node.type === 'model' || node.type === 'edit')?.id ?? graph.nodes[0]?.id ?? '')
     setRunOutputKind(preset.outputKind ?? 'image')
-    setRunModel(nextNodes.find((node) => node.provider?.key === 'higgsfield')?.provider?.model ?? 'nano_banana_flash')
+    setRunModel(graph.nodes.find((node) => node.provider?.key === 'higgsfield')?.provider?.model ?? 'nano_banana_flash')
     setExportTarget(preset.exportTarget)
     setRunAspectRatio(preset.aspectRatio)
     setRunDurationSeconds(preset.durationSeconds)
@@ -2331,11 +2340,56 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
     recordCanvasActivity({
       actorLabel: 'You',
       action: 'Added workflow',
-      detail: `${preset.label}: ${nextNodes.length} nodes / ${nextEdges.length} links`,
-      nodeId: nextNodes[0]?.id,
+      detail: `${preset.label}: ${graph.nodes.length} nodes / ${graph.edges.length} links`,
+      nodeId: graph.nodes[0]?.id,
       source: 'local',
     })
     setActivityMessage(`${preset.label} workflow added`)
+  }
+
+  const applyMissingBenchmarkWorkflowSuite = () => {
+    const existingScenarios = new Set(nodes
+      .map((node) => (node.data?.canvasNode as CreativeCanvasNode | undefined)?.data?.benchmarkScenario)
+      .filter((scenario): scenario is string => typeof scenario === 'string'))
+    const missingPresets = workflowPresets.filter((preset) => (
+      preset.benchmarkScenario && !existingScenarios.has(preset.benchmarkScenario)
+    ))
+    if (!missingPresets.length) {
+      setActivityMessage('All Higgsfield benchmark workflows are already in this graph')
+      return
+    }
+    const org = resolvedOrgId || 'pending-org'
+    const stamp = Date.now()
+    const graphs = missingPresets.map((preset, index) => buildWorkflowPresetGraph(preset, {
+      baseX: 80 + (index % 2) * 760,
+      baseY: 120 + Math.floor(index / 2) * 520 + nodes.length * 8,
+      stamp: stamp + index,
+      orgId: org,
+    }))
+    const nextNodes = graphs.flatMap((graph) => graph.nodes)
+    const nextEdges = graphs.flatMap((graph) => graph.edges)
+    const lastPreset = missingPresets[missingPresets.length - 1]
+
+    setNodes((currentNodes) => [...currentNodes, ...nextNodes.map((node) => toFlowNode(node))])
+    setEdges((currentEdges) => [...currentEdges, ...nextEdges])
+    setSelectedFlowNodeId(nextNodes.find((node) => node.type === 'model' || node.type === 'edit')?.id ?? nextNodes[0]?.id ?? '')
+    setRunOutputKind(lastPreset?.outputKind ?? 'image')
+    setRunModel(nextNodes.find((node) => node.provider?.key === 'higgsfield')?.provider?.model ?? 'nano_banana_flash')
+    setExportTarget(lastPreset?.exportTarget ?? 'campaign_asset')
+    setRunAspectRatio(lastPreset?.aspectRatio ?? '1:1')
+    setRunDurationSeconds(lastPreset?.durationSeconds ?? 0)
+    setRunStylePreset(lastPreset?.stylePreset ?? 'clean_studio')
+    setRunCameraMotion(lastPreset?.cameraMotion ?? 'none')
+    setRunNegativePrompt(lastPreset?.negativePrompt ?? '')
+    setSaveMessage('')
+    recordCanvasActivity({
+      actorLabel: 'You',
+      action: 'Added benchmark suite',
+      detail: `${missingPresets.length} workflows: ${nextNodes.length} nodes / ${nextEdges.length} links`,
+      nodeId: nextNodes[0]?.id,
+      source: 'local',
+    })
+    setActivityMessage(`Added ${missingPresets.length} Higgsfield benchmark workflow${missingPresets.length === 1 ? '' : 's'}`)
   }
 
   const saveCurrentGraphAsTemplate = async () => {
@@ -3660,9 +3714,13 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
   const availableBenchmarkScenarioCount = new Set(workflowPresets
     .map((preset) => preset.benchmarkScenario)
     .filter((scenario): scenario is string => Boolean(scenario))).size
-  const graphBenchmarkScenarioCount = new Set(parityAuditNodes
+  const graphBenchmarkScenarios = new Set(parityAuditNodes
     .map((node) => node.data?.benchmarkScenario)
-    .filter((scenario): scenario is string => typeof scenario === 'string')).size
+    .filter((scenario): scenario is string => typeof scenario === 'string'))
+  const graphBenchmarkScenarioCount = graphBenchmarkScenarios.size
+  const missingBenchmarkWorkflowCount = benchmarkWorkflowPresets.filter((preset) => (
+    preset.benchmarkScenario && !graphBenchmarkScenarios.has(preset.benchmarkScenario)
+  )).length
   const hasBenchmarkWorkflowCoverage = availableBenchmarkScenarioCount >= higgsfieldBenchmarkScenarios.length
   const hasVersionEvidence = versions.length > 0 && autoSaveEnabled
   const hasCollaborationEvidence = presence.length > 0 || collaborationStreamConnected || Boolean(conflictDraft || latestCollaboratorDraft)
@@ -4263,6 +4321,19 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
               <span className="text-[11px] font-semibold text-[var(--color-pib-text-muted)]">
                 {benchmarkWorkflowPresets.length}/{higgsfieldBenchmarkScenarios.length}
               </span>
+            </div>
+            <div className="mt-3 rounded-lg border border-[var(--color-pib-line)] bg-white p-3 text-xs text-[var(--color-pib-text-muted)]">
+              <p>{graphBenchmarkScenarioCount}/{higgsfieldBenchmarkScenarios.length} benchmark scenarios are already in this graph.</p>
+              <button
+                type="button"
+                onClick={applyMissingBenchmarkWorkflowSuite}
+                disabled={!missingBenchmarkWorkflowCount}
+                className="mt-2 w-full rounded-md border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] px-2 py-1.5 text-xs font-semibold text-[var(--color-pib-text)] disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {missingBenchmarkWorkflowCount
+                  ? `Apply ${missingBenchmarkWorkflowCount} missing benchmark workflows`
+                  : 'Benchmark suite complete'}
+              </button>
             </div>
             <div className="mt-3 space-y-2">
               {benchmarkWorkflowPresets.map((preset) => (

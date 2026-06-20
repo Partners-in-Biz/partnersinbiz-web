@@ -793,6 +793,7 @@ describe('CreativeCanvasWorkspace', () => {
     expect(screen.getByRole('button', { name: /apply Product style fusion workflow/i })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /apply Model product campaign workflow/i })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /apply Brand icon system workflow/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /apply 8 missing benchmark workflows/i })).toBeInTheDocument()
     expect(screen.getByText('Run history')).toBeInTheDocument()
     expect(screen.getByText('Provider operations')).toBeInTheDocument()
     expect(screen.getByText('1 active / 2 total')).toBeInTheDocument()
@@ -1010,6 +1011,32 @@ describe('CreativeCanvasWorkspace', () => {
     expect(screen.getAllByText('Higgsfield product shot').length).toBeGreaterThan(0)
     const parityAudit = screen.getByLabelText(/higgsfield parity audit/i)
     expect(parityAudit).toHaveTextContent('1/8 scenarios in graph')
+  })
+
+  it('adds the full Higgsfield benchmark workflow suite in one action', async () => {
+    render(<CreativeCanvasWorkspace mode="admin" orgId="org-1" />)
+
+    expect(await screen.findByText('Launch Canvas')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: /apply 8 missing benchmark workflows/i }))
+
+    expect(screen.getByText('Added 8 Higgsfield benchmark workflows')).toBeInTheDocument()
+    ;[
+      'VFX video output',
+      'Campaign photography',
+      'Campaign-ready social video',
+      'Day-night timelapse',
+      'Styled transition video',
+      'Animated logo package',
+      'Brand icon grid',
+      'Material exploration grid',
+    ].forEach((label) => {
+      expect(screen.getAllByText(label).length).toBeGreaterThan(0)
+    })
+    expect(screen.getByRole('button', { name: /benchmark suite complete/i })).toBeDisabled()
+    const parityAudit = screen.getByLabelText(/higgsfield parity audit/i)
+    expect(parityAudit).toHaveTextContent('8/8 scenarios in graph')
+    const benchmarkProof = screen.getByLabelText(/direct higgsfield benchmark proof/i)
+    expect(benchmarkProof).toHaveTextContent('6 ready benchmark categories need stored proof.')
   })
 
   it('switches mobile panels with responsive readiness evidence', async () => {
