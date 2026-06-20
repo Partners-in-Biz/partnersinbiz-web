@@ -97,7 +97,22 @@ beforeEach(() => {
         ok: true,
         json: async () => ({
           success: true,
-          data: { versions: [{ id: 'v2', version: 2, reason: 'graph_save' }] },
+          data: {
+            versions: [{
+              id: 'v2',
+              version: 2,
+              reason: 'graph_save',
+              nodes: [{
+                id: 'version-source',
+                orgId: 'org-1',
+                type: 'source',
+                title: 'Version source',
+                position: { x: 0, y: 0 },
+                data: {},
+              }],
+              edges: [],
+            }],
+          },
         }),
       }
     }
@@ -541,6 +556,9 @@ describe('CreativeCanvasWorkspace', () => {
     expect(screen.getByText('Maya')).toBeInTheDocument()
     expect(screen.getByText('runs / model-node-existing')).toBeInTheDocument()
     expect(screen.getByText('Versions')).toBeInTheDocument()
+    expect(screen.getByText('1 nodes / 0 links')).toBeInTheDocument()
+    expect(screen.getByText('+1 / -0 changes')).toBeInTheDocument()
+    expect(screen.getByText('Changed: Version source')).toBeInTheDocument()
     expect(screen.getByText('Comments')).toBeInTheDocument()
     expect(screen.getByText('Output attachment')).toBeInTheDocument()
     expect(screen.getByText('Review gate')).toBeInTheDocument()

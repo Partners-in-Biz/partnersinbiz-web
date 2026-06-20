@@ -177,6 +177,38 @@ const higgsfieldModelSuggestions = [
   { id: 'gpt_image', label: 'GPT Image' },
 ]
 
+function summarizeVersionDelta(
+  version: CreativeCanvasVersion,
+  currentNodes: Node[],
+  currentEdges: Edge[],
+) {
+  const versionNodes = Array.isArray(version.nodes) ? version.nodes : []
+  const versionEdges = Array.isArray(version.edges) ? version.edges : []
+  const currentNodeIds = new Set(currentNodes.map((node) => node.id))
+  const versionNodeIds = new Set(versionNodes.map((node) => node.id))
+  const currentEdgeIds = new Set(currentEdges.map((edge) => edge.id))
+  const versionEdgeIds = new Set(versionEdges.map((edge) => edge.id))
+  const addedNodes = versionNodes.filter((node) => !currentNodeIds.has(node.id))
+  const removedNodes = currentNodes.filter((node) => !versionNodeIds.has(node.id))
+  const addedEdges = versionEdges.filter((edge) => !currentEdgeIds.has(edge.id))
+  const removedEdges = currentEdges.filter((edge) => !versionEdgeIds.has(edge.id))
+  const hasSnapshotGraph = Array.isArray(version.nodes) && Array.isArray(version.edges)
+
+  return {
+    hasSnapshotGraph,
+    nodeCount: versionNodes.length,
+    edgeCount: versionEdges.length,
+    addedNodeCount: addedNodes.length,
+    removedNodeCount: removedNodes.length,
+    addedEdgeCount: addedEdges.length,
+    removedEdgeCount: removedEdges.length,
+    changedNodeTitles: [...addedNodes.map((node) => node.title), ...removedNodes.map((node) => {
+      const canvasNode = node.data?.canvasNode as CreativeCanvasNode | undefined
+      return canvasNode?.title ?? node.id
+    })].slice(0, 3),
+  }
+}
+
 type CreativeCanvasWorkflowPreset = {
   key: string
   label: string
@@ -2666,35 +2698,66 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
           <div>
             <h3 className="text-sm font-semibold text-[var(--color-pib-text)]">Versions</h3>
             <div className="mt-2 space-y-2">
-              {versions.length ? versions.map((version) => (
-                <div
-                  key={version.id ?? version.version}
-                  className="rounded-lg border border-[var(--color-pib-line)] px-3 py-2 text-xs text-[var(--color-pib-text-muted)]"
-                >
-                  <span className="font-semibold text-[var(--color-pib-text)]">Version {version.version}</span>
-                  <span className="block">{version.reason ?? 'graph snapshot'}</span>
-                  {mode === 'admin' ? (
-                    <div className="mt-2 flex flex-wrap gap-2">
-                      <button
-                        type="button"
-                        onClick={() => runVersionAction(version, 'restore')}
-                        disabled={!version.id}
-                        className="rounded-md border border-[var(--color-pib-line)] px-2 py-1 font-semibold text-[var(--color-pib-text)] disabled:cursor-not-allowed disabled:opacity-50"
-                      >
-                        Restore
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => runVersionAction(version, 'fork')}
-                        disabled={!version.id}
-                        className="rounded-md border border-[var(--color-pib-line)] px-2 py-1 font-semibold text-[var(--color-pib-text)] disabled:cursor-not-allowed disabled:opacity-50"
-                      >
-                        Fork
-                      </button>
+              {versions.length ? versions.map((version) => {
+                const summary = summarizeVersionDelta(version, nodes, edges)
+                return (
+                  <div
+                    key={version.id ?? version.version}
+                    className="rounded-lg border border-[var(--color-pib-line)] px-3 py-2 text-xs text-[var(--color-pib-text-muted)]"
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div>
+                        <span className="font-semibold text-[var(--color-pib-text)]">Version {version.version}</span>
+                        <span className="block">{version.reason ?? 'graph snapshot'}</span>
+                      </div>
+                      <span className="rounded-full border border-[var(--color-pib-line)] px-2 py-0.5 text-[11px] uppercase tracking-normal">
+                        {summary.nodeCount} nodes
+                      </span>
                     </div>
-                  ) : null}
-                </div>
-              )) : (
+                    {summary.hasSnapshotGraph ? (
+                      <>
+                        <div className="mt-2 grid grid-cols-2 gap-1.5 rounded-md bg-[var(--color-pib-surface)] px-2 py-1.5">
+                          <span>{summary.nodeCount} nodes / {summary.edgeCount} links</span>
+                          <span>
+                            +{summary.addedNodeCount + summary.addedEdgeCount} / -{summary.removedNodeCount + summary.removedEdgeCount} changes
+                          </span>
+                        </div>
+                        {summary.changedNodeTitles.length ? (
+                          <p className="mt-2 line-clamp-2">
+                            Changed: {summary.changedNodeTitles.join(', ')}
+                          </p>
+                        ) : (
+                          <p className="mt-2">No node membership changes versus the current graph.</p>
+                        )}
+                      </>
+                    ) : (
+                      <p className="mt-2 rounded-md bg-[var(--color-pib-surface)] px-2 py-1.5">
+                        Snapshot graph unavailable for comparison.
+                      </p>
+                    )}
+                    {mode === 'admin' ? (
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        <button
+                          type="button"
+                          onClick={() => runVersionAction(version, 'restore')}
+                          disabled={!version.id}
+                          className="rounded-md border border-[var(--color-pib-line)] px-2 py-1 font-semibold text-[var(--color-pib-text)] disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                          Restore
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => runVersionAction(version, 'fork')}
+                          disabled={!version.id}
+                          className="rounded-md border border-[var(--color-pib-line)] px-2 py-1 font-semibold text-[var(--color-pib-text)] disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                          Fork
+                        </button>
+                      </div>
+                    ) : null}
+                  </div>
+                )
+              }) : (
                 <p className="rounded-lg border border-dashed border-[var(--color-pib-line)] px-3 py-2 text-xs text-[var(--color-pib-text-muted)]">
                   Saved graph snapshots will appear here.
                 </p>
