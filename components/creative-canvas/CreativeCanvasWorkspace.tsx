@@ -700,6 +700,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
   const [templateDescription, setTemplateDescription] = useState('')
   const [collaborationLinkCopied, setCollaborationLinkCopied] = useState(false)
   const [acceptedGraphSignature, setAcceptedGraphSignature] = useState('')
+  const [autoSaveEnabled, setAutoSaveEnabled] = useState(true)
 
   const activeCanvas = useMemo(
     () => canvases.find((canvas) => canvas.id === activeCanvasId) ?? canvases[0],
@@ -1899,11 +1900,11 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
     setSelectedFlowNodeId(node.id)
   }, [])
 
-  const saveGraph = async () => {
-    if (!activeCanvas?.id) return
+  const saveGraph = useCallback(async (reason: 'manual' | 'auto' = 'manual') => {
+    if (!activeCanvas?.id || saving) return
 
     setSaving(true)
-    setSaveMessage('')
+    setSaveMessage(reason === 'auto' ? 'Auto-saving graph' : '')
 
     try {
       const query = resolvedOrgId ? `?orgId=${encodeURIComponent(resolvedOrgId)}` : ''
@@ -1913,6 +1914,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
         body: JSON.stringify({
           expectedActiveVersion: activeCanvas.activeVersion,
           mergeOnConflict: true,
+          reason: reason === 'auto' ? 'auto_graph_save' : 'graph_save',
           baseGraph: {
             nodes: activeCanvas.nodes ?? [],
             edges: activeCanvas.edges ?? [],
@@ -1945,14 +1947,31 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
         setAcceptedGraphSignature(currentGraphSignature)
         setRemoteCanvasUpdate(null)
       }
-      setSaveMessage('Graph saved')
+      setSaveMessage(reason === 'auto' ? 'Auto-saved graph' : 'Graph saved')
       await loadVersions(activeCanvas.id, resolvedOrgId || activeCanvas.orgId)
     } catch {
-      setSaveMessage('Graph save failed')
+      setSaveMessage(reason === 'auto' ? 'Auto-save failed' : 'Graph save failed')
     } finally {
       setSaving(false)
     }
-  }
+  }, [
+    activeCanvas,
+    currentGraphSignature,
+    edges,
+    loadPresence,
+    loadVersions,
+    nodes,
+    resolvedOrgId,
+    saving,
+  ])
+
+  useEffect(() => {
+    if (!autoSaveEnabled || !graphHasUnsavedChanges || !activeCanvas?.id || saving) return
+    const timeout = window.setTimeout(() => {
+      void saveGraph('auto')
+    }, 3500)
+    return () => window.clearTimeout(timeout)
+  }, [activeCanvas?.id, autoSaveEnabled, graphHasUnsavedChanges, saveGraph, saving])
 
   const runVersionAction = async (version: CreativeCanvasVersion & { id?: string }, action: 'restore' | 'fork') => {
     if (!activeCanvas?.id || !version.id) return
@@ -2390,14 +2409,25 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
             Plan, generate, review, and export social posts, blogs, videos, books, and campaign assets from one agent-aware graph.
           </p>
         </div>
-        <button
-          type="button"
-          onClick={saveGraph}
-          disabled={!activeCanvas?.id || saving}
-          className="w-full rounded-lg bg-[var(--color-pib-primary)] px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
-        >
-          {saving ? 'Saving graph' : 'Save graph'}
-        </button>
+        <div className="flex w-full flex-col gap-2 sm:w-auto sm:items-end">
+          <button
+            type="button"
+            onClick={() => { void saveGraph('manual') }}
+            disabled={!activeCanvas?.id || saving}
+            className="w-full rounded-lg bg-[var(--color-pib-primary)] px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
+          >
+            {saving ? 'Saving graph' : 'Save graph'}
+          </button>
+          <label className="flex items-center gap-2 text-xs font-semibold text-[var(--color-pib-text-muted)]">
+            <input
+              type="checkbox"
+              checked={autoSaveEnabled}
+              onChange={(event) => setAutoSaveEnabled(event.target.checked)}
+              className="h-4 w-4 rounded border-[var(--color-pib-line)]"
+            />
+            Auto-save versions
+          </label>
+        </div>
       </div>
 
       {error ? (

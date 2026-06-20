@@ -154,6 +154,25 @@ describe('creative canvas store', () => {
     expect(updated).toMatchObject({ id: 'canvas-1', activeVersion: 3 })
   })
 
+  it('records autosaved graph snapshots with an autosave reason', async () => {
+    mockDocGet.mockResolvedValue({
+      exists: true,
+      id: 'canvas-1',
+      data: () => ({ orgId: 'org-1', title: 'Launch', activeVersion: 2, deleted: false }),
+    })
+
+    await updateCreativeCanvasGraph('canvas-1', 'org-1', {
+      nodes: [{ id: 'source-1', type: 'source', title: 'Source', position: { x: 0, y: 0 }, data: {} }],
+      edges: [],
+    }, ACTOR, { reason: 'auto_graph_save' })
+
+    expect(mockAdd).toHaveBeenCalledWith(expect.objectContaining({
+      version: 3,
+      reason: 'auto_graph_save',
+      nodes: [expect.objectContaining({ id: 'source-1', orgId: 'org-1' })],
+    }))
+  })
+
   it('rejects graph saves based on a stale activeVersion', async () => {
     mockDocGet.mockResolvedValue({
       exists: true,

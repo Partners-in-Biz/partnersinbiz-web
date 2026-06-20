@@ -295,13 +295,15 @@ export async function updateCreativeCanvasGraph(
   orgId: string,
   graphInput: unknown,
   actor: CreativeCanvasActor,
-  options: { expectedActiveVersion?: number; mergeOnConflict?: boolean; baseGraphInput?: unknown } = {},
+  options: { expectedActiveVersion?: number; mergeOnConflict?: boolean; baseGraphInput?: unknown; reason?: string } = {},
 ): Promise<CreativeCanvas & { id: string }> {
   const current = await getCreativeCanvas(id, orgId)
   if (!current) throw new Error('Creative canvas not found')
   const proposedGraph: CreativeCanvasGraph = sanitizeCreativeCanvasGraph(graphInput, orgId)
   let graph = proposedGraph
-  let versionReason = 'graph_save'
+  let versionReason = typeof options.reason === 'string' && options.reason.trim()
+    ? options.reason.trim().slice(0, 80)
+    : 'graph_save'
   if (
     typeof options.expectedActiveVersion === 'number'
     && Number.isFinite(options.expectedActiveVersion)

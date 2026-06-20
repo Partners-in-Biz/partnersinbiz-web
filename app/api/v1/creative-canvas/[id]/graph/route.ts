@@ -31,12 +31,16 @@ export const PUT = withAuth('client', async (req: NextRequest, user: ApiUser, co
     ? body.expectedActiveVersion
     : undefined
   const mergeOnConflict = body.mergeOnConflict === true
+  const reason = typeof body.reason === 'string' && body.reason.trim()
+    ? body.reason.trim().slice(0, 80)
+    : undefined
 
   try {
     const canvas = await updateCreativeCanvasGraph(id, orgId, body, actorFromUser(user), {
       expectedActiveVersion,
       mergeOnConflict,
       baseGraphInput: body.baseGraph,
+      reason,
     })
     return apiSuccess({ canvas })
   } catch (error) {

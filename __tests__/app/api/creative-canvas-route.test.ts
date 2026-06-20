@@ -80,9 +80,28 @@ describe('creative canvas API routes', () => {
       'org-1',
       { expectedActiveVersion: 1, nodes: [], edges: [] },
       { uid: 'user-1', type: 'user' },
-      { expectedActiveVersion: 1, mergeOnConflict: false, baseGraphInput: undefined },
+      { expectedActiveVersion: 1, mergeOnConflict: false, baseGraphInput: undefined, reason: undefined },
     )
     expect(body.data.canvas.activeVersion).toBe(2)
+  })
+
+  it('passes autosave reason when saving a graph automatically', async () => {
+    const { PUT } = await import('@/app/api/v1/creative-canvas/[id]/graph/route')
+    mockUpdateCreativeCanvasGraph.mockResolvedValue({ id: 'canvas-1', activeVersion: 2 })
+
+    const res = await PUT(new NextRequest('http://test.local/api/v1/creative-canvas/canvas-1/graph?orgId=org-1', {
+      method: 'PUT',
+      body: JSON.stringify({ expectedActiveVersion: 1, reason: 'auto_graph_save', nodes: [], edges: [] }),
+    }), { params: Promise.resolve({ id: 'canvas-1' }) })
+
+    expect(res.status).toBe(200)
+    expect(mockUpdateCreativeCanvasGraph).toHaveBeenCalledWith(
+      'canvas-1',
+      'org-1',
+      { expectedActiveVersion: 1, reason: 'auto_graph_save', nodes: [], edges: [] },
+      { uid: 'user-1', type: 'user' },
+      { expectedActiveVersion: 1, mergeOnConflict: false, baseGraphInput: undefined, reason: 'auto_graph_save' },
+    )
   })
 
   it('passes merge context when saving a graph from a stale collaboration base', async () => {
@@ -101,7 +120,7 @@ describe('creative canvas API routes', () => {
       'org-1',
       { expectedActiveVersion: 2, mergeOnConflict: true, baseGraph, nodes: [], edges: [] },
       { uid: 'user-1', type: 'user' },
-      { expectedActiveVersion: 2, mergeOnConflict: true, baseGraphInput: baseGraph },
+      { expectedActiveVersion: 2, mergeOnConflict: true, baseGraphInput: baseGraph, reason: undefined },
     )
     expect(body.data.canvas.activeVersion).toBe(5)
   })

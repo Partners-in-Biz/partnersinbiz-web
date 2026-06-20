@@ -978,6 +978,42 @@ describe('CreativeCanvasWorkspace', () => {
     })
   })
 
+  it('auto-saves dirty graph edits as version snapshots', async () => {
+    jest.useFakeTimers()
+    try {
+      render(<CreativeCanvasWorkspace mode="admin" orgId="org-1" />)
+
+      await screen.findByText('Launch Canvas')
+      expect(screen.getByLabelText(/auto-save versions/i)).toBeChecked()
+      fireEvent.click(screen.getByRole('button', { name: /add source node/i }))
+
+      await act(async () => {
+        jest.advanceTimersByTime(3600)
+      })
+
+      await waitFor(() => {
+        const graphCall = fetchMock.mock.calls.find(([url, init]) => (
+          String(url).includes('/creative-canvas/canvas-1/graph?orgId=org-1')
+          && init?.method === 'PUT'
+          && String(init.body ?? '').includes('auto_graph_save')
+        ))
+        expect(graphCall).toBeTruthy()
+        const body = JSON.parse(String(graphCall?.[1]?.body ?? '{}'))
+        expect(body).toEqual(expect.objectContaining({
+          expectedActiveVersion: 1,
+          mergeOnConflict: true,
+          reason: 'auto_graph_save',
+        }))
+        expect(body.nodes).toEqual(expect.arrayContaining([
+          expect.objectContaining({ title: 'Source node' }),
+        ]))
+      })
+      expect(await screen.findByText('Auto-saved graph')).toBeInTheDocument()
+    } finally {
+      jest.useRealTimers()
+    }
+  })
+
   it('retries a failed retryable provider run from run history', async () => {
     render(<CreativeCanvasWorkspace mode="admin" orgId="org-1" />)
 
