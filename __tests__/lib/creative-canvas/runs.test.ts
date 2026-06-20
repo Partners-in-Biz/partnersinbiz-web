@@ -174,6 +174,15 @@ describe('creative canvas runs', () => {
             path: '/api/v1/creative-canvas/provider-callbacks/higgsfield',
           }),
         }),
+        orchestration: expect.objectContaining({
+          canvasId: 'canvas-1',
+          agents: expect.arrayContaining([
+            expect.objectContaining({ agentId: 'pip', roles: expect.arrayContaining(['source_curator']) }),
+          ]),
+          steps: expect.arrayContaining([
+            expect.objectContaining({ nodeId: 'source-1', role: 'source_curator', agentId: 'pip' }),
+          ]),
+        }),
       },
     })
     expect(task.description).toContain('Do not publish, schedule, share, launch ads, or expose outputs to clients.')

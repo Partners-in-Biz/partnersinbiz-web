@@ -3,6 +3,8 @@ import {
   buildHiggsfieldExecutionManifest,
   type HiggsfieldExecutionManifest,
 } from './higgsfield-execution'
+import { buildCreativeCanvasOrchestrationPlan } from './orchestration'
+import type { CreativeCanvasOrchestrationPlan } from './types'
 
 export interface CreativeCanvasAgentTaskDraft {
   title: string
@@ -36,6 +38,7 @@ export interface CreativeCanvasAgentTaskDraft {
     expectedArtifacts: string[]
     guardrails: string[]
     providerExecution?: HiggsfieldExecutionManifest
+    orchestration: CreativeCanvasOrchestrationPlan
   }
 }
 
@@ -45,13 +48,19 @@ function runAgentId(run: CreativeCanvasRun): string {
 
 export function buildCreativeCanvasAgentTask(
   run: CreativeCanvasRun & { id: string },
-  canvas: Pick<CreativeCanvas, 'id' | 'orgId' | 'title' | 'purpose'> & Partial<Pick<CreativeCanvas, 'nodes'>>,
+  canvas: Pick<CreativeCanvas, 'id' | 'orgId' | 'title' | 'purpose'> & Partial<Pick<CreativeCanvas, 'nodes' | 'edges'>>,
 ): CreativeCanvasAgentTaskDraft {
   const canvasId = canvas.id ?? run.canvasId
   const providerExecution = buildHiggsfieldExecutionManifest(run, {
     id: canvasId,
     orgId: canvas.orgId,
     nodes: canvas.nodes ?? [],
+  })
+  const orchestration = buildCreativeCanvasOrchestrationPlan({
+    id: canvasId,
+    orgId: canvas.orgId,
+    nodes: canvas.nodes ?? [],
+    edges: canvas.edges ?? [],
   })
 
   return {
@@ -100,6 +109,7 @@ export function buildCreativeCanvasAgentTask(
         'no_client_visible_without_approval',
       ],
       providerExecution,
+      orchestration,
     },
   }
 }

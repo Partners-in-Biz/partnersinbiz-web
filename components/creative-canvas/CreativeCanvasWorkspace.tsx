@@ -21,6 +21,7 @@ import type {
   CreativeCanvasSourceLibraryItem,
   CreativeCanvasVersion,
 } from '@/lib/creative-canvas/types'
+import { buildCreativeCanvasOrchestrationPlan } from '@/lib/creative-canvas/orchestration'
 
 type CreativeCanvasMode = 'admin' | 'portal'
 
@@ -481,6 +482,12 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
   }, [nodes])
 
   const selectedNodeId = selectedCanvasNode?.id
+  const orchestrationPlan = useMemo(() => buildCreativeCanvasOrchestrationPlan({
+    id: activeCanvas?.id,
+    orgId: resolvedOrgId || activeCanvas?.orgId || 'pending-org',
+    nodes: nodes.map((node) => toCanvasNode(node, resolvedOrgId || activeCanvas?.orgId || 'pending-org')),
+    edges: edges.map((edge) => toCanvasEdge(edge, resolvedOrgId || activeCanvas?.orgId || 'pending-org')),
+  }), [activeCanvas?.id, activeCanvas?.orgId, edges, nodes, resolvedOrgId])
 
   const loadVersions = useCallback(async (canvasId: string, canvasOrgId: string) => {
     if (!canvasId || !canvasOrgId) {
@@ -1370,6 +1377,70 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
                 </button>
               </div>
             ) : null}
+          </div>
+
+          <div>
+            <h3 className="text-sm font-semibold text-[var(--color-pib-text)]">Agent orchestration</h3>
+            <p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">
+              Graph-derived handoffs for source, strategy, prompt, generation, review, and export work.
+            </p>
+            <div className="mt-2 space-y-2">
+              {orchestrationPlan.agents.length ? (
+                <div className="rounded-lg border border-[var(--color-pib-line)] bg-white px-3 py-2 text-xs text-[var(--color-pib-text-muted)]">
+                  <p className="font-semibold text-[var(--color-pib-text)]">Active agents</p>
+                  <div className="mt-2 flex flex-wrap gap-1.5">
+                    {orchestrationPlan.agents.map((agent) => (
+                      <span
+                        key={agent.agentId}
+                        className="rounded-full border border-[var(--color-pib-line)] px-2 py-0.5 text-[11px] font-semibold text-[var(--color-pib-text)]"
+                      >
+                        {agent.agentId} · {agent.stepCount}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
+              {orchestrationPlan.steps.length ? (
+                <div className="rounded-lg border border-[var(--color-pib-line)] bg-white px-3 py-2 text-xs text-[var(--color-pib-text-muted)]">
+                  <p className="font-semibold text-[var(--color-pib-text)]">Handoff chain</p>
+                  <p className="mt-1 break-words">{orchestrationPlan.handoffSummary}</p>
+                  <div className="mt-2 space-y-1.5">
+                    {orchestrationPlan.steps.slice(0, 6).map((step) => (
+                      <div key={step.id} className="border-t border-[var(--color-pib-line)] pt-1.5 first:border-t-0 first:pt-0">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="font-semibold text-[var(--color-pib-text)]">{step.title}</span>
+                          <span className="rounded-full border border-[var(--color-pib-line)] px-2 py-0.5 uppercase tracking-normal">
+                            {step.status}
+                          </span>
+                        </div>
+                        <p>{step.agentId} · {step.role.replaceAll('_', ' ')}</p>
+                        <p>{step.deliverables.slice(0, 3).join(', ')}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <p className="rounded-lg border border-dashed border-[var(--color-pib-line)] px-3 py-2 text-xs text-[var(--color-pib-text-muted)]">
+                  Add or apply a workflow to create an agent handoff chain.
+                </p>
+              )}
+              {orchestrationPlan.approvalGates.length ? (
+                <div className="rounded-lg border border-[var(--color-pib-line)] bg-white px-3 py-2 text-xs text-[var(--color-pib-text-muted)]">
+                  <p className="font-semibold text-[var(--color-pib-text)]">Approval gates</p>
+                  {orchestrationPlan.approvalGates.map((gate) => (
+                    <p key={gate.nodeId} className="mt-1">
+                      {gate.title}: {gate.reviewerAgentId} · rights {gate.rightsStatus} · brand {gate.brandStatus}
+                    </p>
+                  ))}
+                </div>
+              ) : null}
+              {orchestrationPlan.blockers.length ? (
+                <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
+                  <p className="font-semibold">Orchestration blockers</p>
+                  {orchestrationPlan.blockers.map((blocker) => <p key={blocker}>{blocker}</p>)}
+                </div>
+              ) : null}
+            </div>
           </div>
 
           {selectedCanvasNode?.edit ? (

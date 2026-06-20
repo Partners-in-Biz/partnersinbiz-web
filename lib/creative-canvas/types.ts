@@ -243,6 +243,50 @@ export interface CreativeCanvasGraph {
   edges: CreativeCanvasEdge[]
 }
 
+export type CreativeCanvasOrchestrationRole =
+  | 'source_curator'
+  | 'strategist'
+  | 'prompt_engineer'
+  | 'generation_operator'
+  | 'editor'
+  | 'reviewer'
+  | 'publisher'
+
+export interface CreativeCanvasOrchestrationStep {
+  id: string
+  nodeId: string
+  title: string
+  role: CreativeCanvasOrchestrationRole
+  agentId: string
+  status: 'ready' | 'waiting' | 'blocked'
+  dependsOnNodeIds: string[]
+  deliverables: string[]
+  guardrails: string[]
+  providerKey?: CreativeCanvasProviderKey
+  outputKind?: CreativeCanvasOutputKind
+}
+
+export interface CreativeCanvasOrchestrationPlan {
+  canvasId: string
+  orgId: string
+  steps: CreativeCanvasOrchestrationStep[]
+  agents: Array<{
+    agentId: string
+    roles: CreativeCanvasOrchestrationRole[]
+    stepCount: number
+  }>
+  approvalGates: Array<{
+    nodeId: string
+    title: string
+    reviewerAgentId: string
+    syntheticMediaDisclosure: boolean
+    rightsStatus: CreativeCanvasRightsStatus
+    brandStatus: CreativeCanvasBrandStatus
+  }>
+  blockers: string[]
+  handoffSummary: string
+}
+
 export interface CreativeCanvasSourceLibraryItem {
   id: string
   title: string

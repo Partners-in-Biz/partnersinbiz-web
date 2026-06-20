@@ -214,6 +214,7 @@ describe('CreativeCanvasWorkspace', () => {
     expect(screen.getByText('Workflow presets')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /apply social launch workflow/i })).toBeInTheDocument()
     expect(screen.getByText('Run history')).toBeInTheDocument()
+    expect(screen.getByText('Agent orchestration')).toBeInTheDocument()
     expect(screen.getByText('Provider job: hf-job-existing')).toBeInTheDocument()
     expect(screen.getByText('Versions')).toBeInTheDocument()
     expect(screen.getByText('Comments')).toBeInTheDocument()
@@ -231,7 +232,7 @@ describe('CreativeCanvasWorkspace', () => {
     fireEvent.click(screen.getByRole('button', { name: /add source node/i }))
 
     await waitFor(() => {
-      expect(screen.getByText(/source node/i)).toBeInTheDocument()
+      expect(screen.getAllByText(/source node/i).length).toBeGreaterThan(0)
     })
   })
 
@@ -242,9 +243,12 @@ describe('CreativeCanvasWorkspace', () => {
     fireEvent.click(screen.getByRole('button', { name: /apply social launch workflow/i }))
 
     expect(await screen.findByText(/social launch workflow added/i)).toBeInTheDocument()
-    expect(screen.getByText(/Product \/ brand source/i)).toBeInTheDocument()
-    expect(screen.getByText(/UGC launch prompt/i)).toBeInTheDocument()
-    expect(screen.getByText(/Brand and rights review/i)).toBeInTheDocument()
+    expect(screen.getAllByText(/Product \/ brand source/i).length).toBeGreaterThan(0)
+    expect(screen.getAllByText(/UGC launch prompt/i).length).toBeGreaterThan(0)
+    expect(screen.getAllByText(/Brand and rights review/i).length).toBeGreaterThan(0)
+    expect(screen.getByText(/maya:generation_operator/i)).toBeInTheDocument()
+    expect(screen.getByText(/maya · reviewer/i)).toBeInTheDocument()
+    expect(screen.getByText(/Brand and rights review: maya · rights needs_review · brand needs_review/i)).toBeInTheDocument()
     expect((screen.getByLabelText(/output kind/i) as HTMLSelectElement).value).toBe('social_post_draft')
     expect((screen.getByLabelText(/export target/i) as HTMLSelectElement).value).toBe('social_draft')
     expect((screen.getByLabelText(/aspect ratio/i) as HTMLSelectElement).value).toBe('9:16')
@@ -368,7 +372,9 @@ describe('CreativeCanvasWorkspace', () => {
     await screen.findByText('Launch Canvas')
     fireEvent.click(screen.getByRole('button', { name: /add edit node/i }))
 
-    expect(await screen.findByText(/edit node/i)).toBeInTheDocument()
+    await waitFor(() => {
+      expect(screen.getAllByText(/edit node/i).length).toBeGreaterThan(0)
+    })
     expect(screen.getByText('Edit controls')).toBeInTheDocument()
     expect(screen.getAllByText('inpaint / image')[0]).toBeInTheDocument()
     expect(screen.getByText('Mask: not attached')).toBeInTheDocument()
