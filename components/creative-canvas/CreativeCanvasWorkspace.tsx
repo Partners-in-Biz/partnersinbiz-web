@@ -3263,6 +3263,32 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
     { label: 'Inspector', value: selectedCanvasNode ? 'node selected' : 'board ready' },
     { label: 'Desktop', value: '3-column graph' },
   ]
+  const visualProofItems: Array<{
+    label: string
+    status: 'captured' | 'needed'
+    evidence: string
+  }> = [
+    {
+      label: 'Desktop 1440',
+      status: 'needed',
+      evidence: 'Signed-in graph, sources, and inspector screenshot required.',
+    },
+    {
+      label: 'Tablet 820',
+      status: 'needed',
+      evidence: 'Signed-in panel layout screenshot required.',
+    },
+    {
+      label: 'Mobile 390',
+      status: 'needed',
+      evidence: 'Signed-in mobile canvas screenshot required.',
+    },
+    {
+      label: 'Mobile panels',
+      status: 'needed',
+      evidence: 'Canvas, Sources, and Inspector panel-switch screenshots required.',
+    },
+  ]
   const parityAuditNodes = nodes.map((node) => toCanvasNode(node, resolvedOrgId || activeCanvas?.orgId || 'pending-org'))
   const coreWorkflowPresets = workflowPresets.filter((preset) => !preset.benchmarkScenario)
   const benchmarkWorkflowPresets = workflowPresets.filter((preset) => preset.benchmarkScenario)
@@ -3297,6 +3323,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
   const hasExportEvidence = Boolean(latestExportPackage)
     || canvasAssets.some((asset) => asset.canDraftExport)
     || parityAuditNodes.some((node) => node.output || node.data?.exportTarget)
+  const capturedVisualProofCount = visualProofItems.filter((item) => item.status === 'captured').length
   const reliabilityCoverage = runtimeProof?.reliabilityCoverage ?? []
   const reliabilityPassed = reliabilityCoverage.length > 0 && reliabilityCoverage.every((category) => category.status === 'passed')
   const reliabilityObserved = reliabilityCoverage.length > 0 || Boolean(runOperations?.total)
@@ -3365,8 +3392,10 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
     },
     {
       label: 'Mobile behavior',
-      status: responsiveProofItems.length >= 4 ? 'passed' : 'watch',
-      evidence: responsiveProofItems.map((item) => item.label).join(', '),
+      status: capturedVisualProofCount >= visualProofItems.length ? 'passed' : responsiveProofItems.length >= 4 ? 'watch' : 'blocked',
+      evidence: capturedVisualProofCount
+        ? `${capturedVisualProofCount}/${visualProofItems.length} visual proofs captured`
+        : 'Signed-in desktop/tablet/mobile screenshots still required',
     },
     {
       label: 'Export flows',
@@ -3524,6 +3553,32 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
           </div>
         ))}
       </div>
+
+      <section
+        aria-label="Creative Canvas visual QA proof"
+        className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-3 text-xs text-amber-900"
+      >
+        <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <p className="font-semibold text-amber-950">Visual QA proof</p>
+            <p className="mt-0.5">Mobile parity stays in watch state until signed-in viewport screenshots are captured.</p>
+          </div>
+          <span className="rounded-full border border-amber-300 bg-white px-2 py-0.5 font-semibold uppercase tracking-normal">
+            {capturedVisualProofCount}/{visualProofItems.length} captured
+          </span>
+        </div>
+        <div className="mt-2 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+          {visualProofItems.map((item) => (
+            <div key={item.label} className="rounded-md border border-amber-200 bg-white px-2 py-1.5">
+              <div className="flex items-center justify-between gap-2">
+                <p className="font-semibold text-amber-950">{item.label}</p>
+                <span className="rounded-full border border-current px-2 py-0.5 uppercase tracking-normal">{item.status}</span>
+              </div>
+              <p className="mt-1">{item.evidence}</p>
+            </div>
+          ))}
+        </div>
+      </section>
 
       <section
         aria-label="Higgsfield parity audit"
