@@ -32,6 +32,7 @@ interface TaskDetailPanelProps {
   agents?: AgentMember[]
   hideAgentSection?: boolean
   surface?: 'admin' | 'portal'
+  canManageApprovalGates?: boolean
   onClose: () => void
   onUpdate: (taskId: string, updates: Partial<Task>) => Promise<void>
   onDelete: (taskId: string) => Promise<void>
@@ -139,7 +140,7 @@ function isAgentStale(heartbeatAt: unknown, staleMinutes = 5): boolean {
   return Date.now() - ms > staleMinutes * 60 * 1000
 }
 
-export function TaskDetailPanel({ task, columnName, projectId, orgId, members = [], agents = [], hideAgentSection = false, surface = 'portal', onClose, onUpdate, onDelete }: TaskDetailPanelProps) {
+export function TaskDetailPanel({ task, columnName, projectId, orgId, members = [], agents = [], hideAgentSection = false, surface = 'portal', canManageApprovalGates = false, onClose, onUpdate, onDelete }: TaskDetailPanelProps) {
   const router = useRouter()
   const pathname = usePathname()
   // Extract org slug from current URL: /admin/org/[slug]/...
@@ -627,6 +628,7 @@ export function TaskDetailPanel({ task, columnName, projectId, orgId, members = 
   const blockerRecovery = buildBlockedTaskRecovery(task, comments)
   const isApprovalGate = task.labels?.some((label) => label.toLowerCase() === 'approval-gate') || task.approvalStatus === 'pending'
   const approvalGateResolved = task.approvalStatus === 'approved' || task.approvalStatus === 'rejected' || task.approvalStatus === 'denied'
+  const canDecideApprovalGate = surface === 'admin' || canManageApprovalGates
   const reviewerAgent = task.reviewerAgentId ? agents.find((agent) => agent.agentId === task.reviewerAgentId) : undefined
   const reviewStatusLabel = task.reviewStatus === 'approved'
     ? 'Passed'
