@@ -2667,6 +2667,10 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
 
   const runVersionAction = async (version: CreativeCanvasVersion & { id?: string }, action: 'restore' | 'fork') => {
     if (!activeCanvas?.id || !version.id) return
+    if (graphHasUnsavedChanges && !versionPreview) {
+      setActivityMessage('Save or clear local graph edits before restoring or forking a saved version')
+      return
+    }
 
     const query = resolvedOrgId ? `?orgId=${encodeURIComponent(resolvedOrgId)}` : ''
     const response = await fetch(`/api/v1/creative-canvas/${activeCanvas.id}/versions${query}`, {
@@ -4575,6 +4579,11 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
 
           <div>
             <h3 className="text-sm font-semibold text-[var(--color-pib-text)]">Versions</h3>
+            {graphHasUnsavedChanges && !versionPreview ? (
+              <p className="mt-2 rounded-md border border-amber-200 bg-amber-50 px-2 py-1.5 text-xs font-semibold text-amber-800">
+                Save or clear local graph edits before restoring or forking a saved version.
+              </p>
+            ) : null}
             <div className="mt-2 space-y-2">
               {versions.length ? versions.map((version) => {
                 const summary = summarizeVersionDelta(version, nodes, edges)
@@ -4630,7 +4639,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
                         <button
                           type="button"
                           onClick={() => runVersionAction(version, 'restore')}
-                          disabled={!version.id}
+                          disabled={!version.id || (graphHasUnsavedChanges && !versionPreview)}
                           className="rounded-md border border-[var(--color-pib-line)] px-2 py-1 font-semibold text-[var(--color-pib-text)] disabled:cursor-not-allowed disabled:opacity-50"
                         >
                           Restore
@@ -4638,7 +4647,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
                         <button
                           type="button"
                           onClick={() => runVersionAction(version, 'fork')}
-                          disabled={!version.id}
+                          disabled={!version.id || (graphHasUnsavedChanges && !versionPreview)}
                           className="rounded-md border border-[var(--color-pib-line)] px-2 py-1 font-semibold text-[var(--color-pib-text)] disabled:cursor-not-allowed disabled:opacity-50"
                         >
                           Fork

@@ -2351,6 +2351,22 @@ describe('CreativeCanvasWorkspace', () => {
     expect(screen.getByText('Restored version 2')).toBeInTheDocument()
   })
 
+  it('blocks saved version restore and fork while local graph edits are unsaved', async () => {
+    render(<CreativeCanvasWorkspace mode="admin" orgId="org-1" />)
+
+    await screen.findByText(/version 2/i)
+    fireEvent.click(screen.getByRole('button', { name: /add source node/i }))
+
+    expect(screen.getByText('Save or clear local graph edits before restoring or forking a saved version.')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /^restore$/i })).toBeDisabled()
+    expect(screen.getByRole('button', { name: /^fork$/i })).toBeDisabled()
+
+    const versionCalls = fetchMock.mock.calls.filter(([url, init]) =>
+      String(url).includes('/versions?orgId=org-1') && init?.method === 'POST'
+    )
+    expect(versionCalls).toHaveLength(0)
+  })
+
   it('forks a saved graph version into a new canvas branch', async () => {
     render(<CreativeCanvasWorkspace mode="admin" orgId="org-1" />)
 
