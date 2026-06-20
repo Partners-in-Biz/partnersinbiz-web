@@ -1732,6 +1732,12 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
                     <span>Review {runOperations.byStatus.waiting_for_review}</span>
                     <span>Failed {runOperations.failed}</span>
                   </div>
+                  {runOperations.staleActiveRuns ? (
+                    <p className="mt-2 font-semibold text-amber-700">
+                      {runOperations.staleActiveRuns} active provider run{runOperations.staleActiveRuns === 1 ? '' : 's'} older than {runOperations.staleThresholdMinutes} min
+                      {runOperations.oldestActiveRunAgeMinutes !== undefined ? ` · oldest ${runOperations.oldestActiveRunAgeMinutes} min` : ''}
+                    </p>
+                  ) : null}
                   {runOperations.retryableFailures ? (
                     <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
                       <p className="font-semibold text-red-700">{runOperations.retryableFailures} retryable provider failure{runOperations.retryableFailures === 1 ? '' : 's'}</p>
@@ -1754,6 +1760,11 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
                             <span className="font-semibold text-[var(--color-pib-text)]">{provider.providerKey}</span>
                             <span>{provider.active} active · {provider.completed} completed · {provider.failed} failed</span>
                           </div>
+                          {provider.staleActiveRuns ? (
+                            <p className="mt-1 font-semibold text-amber-700">
+                              {provider.staleActiveRuns} stale active{provider.oldestActiveRunAgeMinutes !== undefined ? ` · oldest ${provider.oldestActiveRunAgeMinutes} min` : ''}
+                            </p>
+                          ) : null}
                           {provider.latestProviderStatusMessage || provider.latestErrorMessage ? (
                             <p className="mt-1">
                               {provider.latestErrorMessage ?? provider.latestProviderStatusMessage}

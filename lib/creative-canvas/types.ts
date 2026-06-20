@@ -398,6 +398,8 @@ export interface CreativeCanvasProviderRunSummary {
   total: number
   byStatus: CreativeCanvasRunStatusCounts
   active: number
+  staleActiveRuns: number
+  oldestActiveRunAgeMinutes?: number
   failed: number
   retryableFailures: number
   completed: number
@@ -411,6 +413,9 @@ export interface CreativeCanvasRunOperationsSummary {
   total: number
   byStatus: CreativeCanvasRunStatusCounts
   active: number
+  staleActiveRuns: number
+  oldestActiveRunAgeMinutes?: number
+  staleThresholdMinutes: number
   failed: number
   retryableFailures: number
   completed: number

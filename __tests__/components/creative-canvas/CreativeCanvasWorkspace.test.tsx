@@ -165,6 +165,9 @@ beforeEach(() => {
             operations: {
               total: 2,
               active: 1,
+              staleActiveRuns: 1,
+              oldestActiveRunAgeMinutes: 74,
+              staleThresholdMinutes: 30,
               failed: 1,
               retryableFailures: 1,
               completed: 0,
@@ -173,6 +176,8 @@ beforeEach(() => {
                 providerKey: 'higgsfield',
                 total: 2,
                 active: 1,
+                staleActiveRuns: 1,
+                oldestActiveRunAgeMinutes: 74,
                 failed: 1,
                 retryableFailures: 1,
                 completed: 0,
@@ -260,6 +265,8 @@ beforeEach(() => {
             operations: {
               total: 2,
               active: 2,
+              staleActiveRuns: 0,
+              staleThresholdMinutes: 30,
               failed: 0,
               retryableFailures: 0,
               completed: 0,
@@ -268,6 +275,7 @@ beforeEach(() => {
                 providerKey: 'higgsfield',
                 total: 2,
                 active: 2,
+                staleActiveRuns: 0,
                 failed: 0,
                 retryableFailures: 0,
                 completed: 0,
@@ -358,6 +366,8 @@ describe('CreativeCanvasWorkspace', () => {
     expect(screen.getByText('Run history')).toBeInTheDocument()
     expect(screen.getByText('Provider operations')).toBeInTheDocument()
     expect(screen.getByText('1 active / 2 total')).toBeInTheDocument()
+    expect(screen.getByText(/1 active provider run older than 30 min/i)).toBeInTheDocument()
+    expect(screen.getByText(/1 stale active · oldest 74 min/i)).toBeInTheDocument()
     expect(screen.getByText('1 retryable provider failure')).toBeInTheDocument()
     expect(screen.getByText(/1 active · 0 completed · 1 failed/i)).toBeInTheDocument()
     expect(screen.getAllByText('Quota exceeded').length).toBeGreaterThan(0)

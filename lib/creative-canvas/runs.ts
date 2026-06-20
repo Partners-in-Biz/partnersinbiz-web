@@ -86,6 +86,7 @@ function optionalRunStatus(value: unknown): CreativeCanvasRunStatus | undefined 
 }
 
 const RUN_STATUSES: CreativeCanvasRunStatus[] = ['queued', 'running', 'waiting_for_review', 'completed', 'failed', 'cancelled']
+const DEFAULT_STALE_ACTIVE_MINUTES = 30
 
 function emptyStatusCounts(): CreativeCanvasRunStatusCounts {
   return {
@@ -100,6 +101,45 @@ function emptyStatusCounts(): CreativeCanvasRunStatusCounts {
 
 function isActiveRunStatus(status: CreativeCanvasRunStatus): boolean {
   return status === 'queued' || status === 'running' || status === 'waiting_for_review'
+}
+
+function timestampToMillis(value: unknown): number | undefined {
+  if (!value) return undefined
+  if (value instanceof Date) return value.getTime()
+  if (typeof value === 'number' && Number.isFinite(value)) return value
+  if (typeof value === 'string') {
+    const parsed = Date.parse(value)
+    return Number.isFinite(parsed) ? parsed : undefined
+  }
+  const record = asRecord(value)
+  if (typeof record.toMillis === 'function') {
+    const millis = record.toMillis()
+    return typeof millis === 'number' && Number.isFinite(millis) ? millis : undefined
+  }
+  if (typeof record.toDate === 'function') {
+    const date = record.toDate()
+    return date instanceof Date ? date.getTime() : undefined
+  }
+  const seconds = typeof record.seconds === 'number'
+    ? record.seconds
+    : typeof record._seconds === 'number'
+      ? record._seconds
+      : undefined
+  if (seconds !== undefined) {
+    const nanos = typeof record.nanoseconds === 'number'
+      ? record.nanoseconds
+      : typeof record._nanoseconds === 'number'
+        ? record._nanoseconds
+        : 0
+    return seconds * 1000 + Math.floor(nanos / 1_000_000)
+  }
+  return undefined
+}
+
+function activeRunAgeMinutes(run: CreativeCanvasRun, nowMs: number): number | undefined {
+  const updatedMs = timestampToMillis(run.updatedAt) ?? timestampToMillis(run.createdAt)
+  if (updatedMs === undefined) return undefined
+  return Math.max(0, Math.floor((nowMs - updatedMs) / 60_000))
 }
 
 function buildRetriedCreativeCanvasProviderRun(run: CreativeCanvasRun & { id: string }): CreativeCanvasRun & { id: string } {
@@ -135,9 +175,14 @@ function retryRunUpdatePayload(run: CreativeCanvasRun & { id: string }, actor: C
 
 export function summarizeCreativeCanvasRuns(
   runs: Array<CreativeCanvasRun & { id: string }>,
+  options: { now?: Date; staleAfterMinutes?: number } = {},
 ): CreativeCanvasRunOperationsSummary {
   const byStatus = emptyStatusCounts()
   const providerMap = new Map<CreativeCanvasProviderKey, CreativeCanvasRunOperationsSummary['providers'][number]>()
+  const nowMs = options.now?.getTime() ?? Date.now()
+  const staleThresholdMinutes = Math.max(1, options.staleAfterMinutes ?? DEFAULT_STALE_ACTIVE_MINUTES)
+  let staleActiveRuns = 0
+  let oldestActiveRunAgeMinutes: number | undefined
 
   for (const run of runs) {
     const status = RUN_STATUSES.includes(run.status) ? run.status : 'queued'
@@ -148,13 +193,25 @@ export function summarizeCreativeCanvasRuns(
       total: 0,
       byStatus: emptyStatusCounts(),
       active: 0,
+      staleActiveRuns: 0,
       failed: 0,
       retryableFailures: 0,
       completed: 0,
     }
     provider.total += 1
     provider.byStatus[status] += 1
-    if (isActiveRunStatus(status)) provider.active += 1
+    if (isActiveRunStatus(status)) {
+      provider.active += 1
+      const ageMinutes = activeRunAgeMinutes(run, nowMs)
+      if (ageMinutes !== undefined) {
+        provider.oldestActiveRunAgeMinutes = Math.max(provider.oldestActiveRunAgeMinutes ?? 0, ageMinutes)
+        oldestActiveRunAgeMinutes = Math.max(oldestActiveRunAgeMinutes ?? 0, ageMinutes)
+        if (ageMinutes >= staleThresholdMinutes) {
+          provider.staleActiveRuns += 1
+          staleActiveRuns += 1
+        }
+      }
+    }
     if (status === 'failed') provider.failed += 1
     if (status === 'completed') provider.completed += 1
     if (run.error?.retryable) provider.retryableFailures += 1
@@ -175,6 +232,9 @@ export function summarizeCreativeCanvasRuns(
     total: runs.length,
     byStatus,
     active: byStatus.queued + byStatus.running + byStatus.waiting_for_review,
+    staleActiveRuns,
+    oldestActiveRunAgeMinutes,
+    staleThresholdMinutes,
     failed: byStatus.failed,
     retryableFailures: runs.filter((run) => run.error?.retryable).length,
     completed: byStatus.completed,

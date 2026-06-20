@@ -107,6 +107,51 @@ describe('creative canvas runs', () => {
     })
   })
 
+  it('flags stale active provider operations using run timestamps', () => {
+    const summary = summarizeCreativeCanvasRuns([
+      {
+        id: 'run-old',
+        orgId: 'org-1',
+        canvasId: 'canvas-1',
+        nodeId: 'model-1',
+        providerKey: 'higgsfield',
+        status: 'running',
+        input: { sourceNodeIds: [], sourceArtifactIds: [] },
+        provenance: { generatedBy: 'agent', promptStored: 'summary', syntheticMedia: true },
+        updatedAt: { seconds: 1_800 },
+      },
+      {
+        id: 'run-fresh',
+        orgId: 'org-1',
+        canvasId: 'canvas-1',
+        nodeId: 'model-2',
+        providerKey: 'higgsfield',
+        status: 'queued',
+        input: { sourceNodeIds: [], sourceArtifactIds: [] },
+        provenance: { generatedBy: 'agent', promptStored: 'summary', syntheticMedia: true },
+        updatedAt: '1970-01-01T00:55:00.000Z',
+      },
+    ], {
+      now: new Date('1970-01-01T01:00:00.000Z'),
+      staleAfterMinutes: 20,
+    })
+
+    expect(summary).toMatchObject({
+      active: 2,
+      staleActiveRuns: 1,
+      oldestActiveRunAgeMinutes: 30,
+      staleThresholdMinutes: 20,
+      providers: [
+        expect.objectContaining({
+          providerKey: 'higgsfield',
+          active: 2,
+          staleActiveRuns: 1,
+          oldestActiveRunAgeMinutes: 30,
+        }),
+      ],
+    })
+  })
+
   it('queues a Higgsfield run with internal provenance and no client-visible output', async () => {
     mockAdd.mockResolvedValue({ id: 'run-1' })
 
