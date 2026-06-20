@@ -151,13 +151,19 @@ function cleanVisualProofData(value: unknown): Record<string, unknown> | undefin
       const capturedAt = cleanString(item.capturedAt)?.slice(0, 80)
       const capturedBy = cleanString(item.capturedBy)?.slice(0, 120)
       const signedIn = item.signedIn === true
-      if (!screenshotUrl && !notes && !capturedAt && !capturedBy && !signedIn) return []
+      const sessionEvidence = cleanString(item.sessionEvidence)?.slice(0, 240)
+      const viewportSize = cleanString(item.viewportSize)?.slice(0, 80)
+      const visiblePanels = cleanString(item.visiblePanels)?.slice(0, 240)
+      if (!screenshotUrl && !notes && !capturedAt && !capturedBy && !signedIn && !sessionEvidence && !viewportSize && !visiblePanels) return []
       return [[key.slice(0, 80), {
         screenshotUrl,
         notes,
         capturedAt,
         capturedBy,
         signedIn,
+        sessionEvidence,
+        viewportSize,
+        visiblePanels,
       } as Record<string, unknown>] as [string, Record<string, unknown>]]
     })
     .slice(0, 8)

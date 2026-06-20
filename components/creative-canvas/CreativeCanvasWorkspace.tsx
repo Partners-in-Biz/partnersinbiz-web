@@ -58,12 +58,18 @@ type CreativeCanvasVisualProofRecord = {
   capturedAt?: string
   capturedBy?: string
   signedIn?: boolean
+  sessionEvidence?: string
+  viewportSize?: string
+  visiblePanels?: string
 }
 
 type CreativeCanvasVisualProofDraft = Record<CreativeCanvasVisualProofKey, {
   screenshotUrl: string
   notes: string
   signedIn: boolean
+  sessionEvidence: string
+  viewportSize: string
+  visiblePanels: string
 }>
 
 type CreativeCanvasBenchmarkProofRecord = {
@@ -209,10 +215,10 @@ interface CreativeCanvasActivityEvent {
 }
 
 const emptyVisualProofDrafts: CreativeCanvasVisualProofDraft = {
-  desktop_1440: { screenshotUrl: '', notes: '', signedIn: false },
-  tablet_820: { screenshotUrl: '', notes: '', signedIn: false },
-  mobile_390: { screenshotUrl: '', notes: '', signedIn: false },
-  mobile_panels: { screenshotUrl: '', notes: '', signedIn: false },
+  desktop_1440: { screenshotUrl: '', notes: '', signedIn: false, sessionEvidence: '', viewportSize: '1440x900', visiblePanels: 'Graph, Sources, Inspector' },
+  tablet_820: { screenshotUrl: '', notes: '', signedIn: false, sessionEvidence: '', viewportSize: '820x1180', visiblePanels: 'Responsive panel layout' },
+  mobile_390: { screenshotUrl: '', notes: '', signedIn: false, sessionEvidence: '', viewportSize: '390x844', visiblePanels: 'Canvas panel' },
+  mobile_panels: { screenshotUrl: '', notes: '', signedIn: false, sessionEvidence: '', viewportSize: '390x844', visiblePanels: 'Canvas, Sources, Inspector panel switcher' },
 }
 
 const emptyBenchmarkProofDrafts: CreativeCanvasBenchmarkProofDraft = {
@@ -375,17 +381,27 @@ function getCanvasVisualProof(data: unknown): Partial<Record<CreativeCanvasVisua
     const capturedAt = stringField(record.capturedAt)
     const capturedBy = stringField(record.capturedBy)
     const signedIn = record.signedIn === true
-    if (screenshotUrl || notes || capturedAt || capturedBy || signedIn) {
+    const sessionEvidence = stringField(record.sessionEvidence)
+    const viewportSize = stringField(record.viewportSize)
+    const visiblePanels = stringField(record.visiblePanels)
+    if (screenshotUrl || notes || capturedAt || capturedBy || signedIn || sessionEvidence || viewportSize || visiblePanels) {
       acc[key] = {
         screenshotUrl,
         notes,
         capturedAt,
         capturedBy,
         signedIn,
+        sessionEvidence,
+        viewportSize,
+        visiblePanels,
       }
     }
     return acc
   }, {} as Partial<Record<CreativeCanvasVisualProofKey, CreativeCanvasVisualProofRecord>>)
+}
+
+function hasSignedInViewportProof(proof: CreativeCanvasVisualProofRecord | undefined): boolean {
+  return Boolean(proof?.screenshotUrl && proof.signedIn && proof.sessionEvidence && proof.viewportSize && proof.visiblePanels)
 }
 
 function getCanvasBenchmarkProof(data: unknown): Partial<Record<CreativeCanvasBenchmarkProofKey, CreativeCanvasBenchmarkProofRecord>> {
@@ -1628,21 +1644,33 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
         screenshotUrl: proof.desktop_1440?.screenshotUrl ?? '',
         notes: proof.desktop_1440?.notes ?? '',
         signedIn: proof.desktop_1440?.signedIn === true,
+        sessionEvidence: proof.desktop_1440?.sessionEvidence ?? '',
+        viewportSize: proof.desktop_1440?.viewportSize ?? '1440x900',
+        visiblePanels: proof.desktop_1440?.visiblePanels ?? 'Graph, Sources, Inspector',
       },
       tablet_820: {
         screenshotUrl: proof.tablet_820?.screenshotUrl ?? '',
         notes: proof.tablet_820?.notes ?? '',
         signedIn: proof.tablet_820?.signedIn === true,
+        sessionEvidence: proof.tablet_820?.sessionEvidence ?? '',
+        viewportSize: proof.tablet_820?.viewportSize ?? '820x1180',
+        visiblePanels: proof.tablet_820?.visiblePanels ?? 'Responsive panel layout',
       },
       mobile_390: {
         screenshotUrl: proof.mobile_390?.screenshotUrl ?? '',
         notes: proof.mobile_390?.notes ?? '',
         signedIn: proof.mobile_390?.signedIn === true,
+        sessionEvidence: proof.mobile_390?.sessionEvidence ?? '',
+        viewportSize: proof.mobile_390?.viewportSize ?? '390x844',
+        visiblePanels: proof.mobile_390?.visiblePanels ?? 'Canvas panel',
       },
       mobile_panels: {
         screenshotUrl: proof.mobile_panels?.screenshotUrl ?? '',
         notes: proof.mobile_panels?.notes ?? '',
         signedIn: proof.mobile_panels?.signedIn === true,
+        sessionEvidence: proof.mobile_panels?.sessionEvidence ?? '',
+        viewportSize: proof.mobile_panels?.viewportSize ?? '390x844',
+        visiblePanels: proof.mobile_panels?.visiblePanels ?? 'Canvas, Sources, Inspector panel switcher',
       },
     })
   }, [activeCanvas?.data, activeCanvas?.id])
@@ -1896,6 +1924,9 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
     const draft = visualProofDrafts[key]
     const screenshotUrl = draft.screenshotUrl.trim()
     const notes = draft.notes.trim()
+    const sessionEvidence = draft.sessionEvidence.trim()
+    const viewportSize = draft.viewportSize.trim()
+    const visiblePanels = draft.visiblePanels.trim()
     if (!screenshotUrl && !notes) {
       setActivityMessage('Add a screenshot URL or proof note before saving visual proof')
       return
@@ -1909,6 +1940,9 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
         screenshotUrl,
         notes,
         signedIn: draft.signedIn,
+        sessionEvidence,
+        viewportSize,
+        visiblePanels,
         capturedAt: new Date().toISOString(),
         capturedBy: 'Pip',
       },
@@ -3805,7 +3839,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
     return {
       ...item,
       proof,
-      status: proof?.screenshotUrl && proof.signedIn ? 'signed-in' : proof?.screenshotUrl ? 'needs sign-in' : 'needed',
+      status: hasSignedInViewportProof(proof) ? 'signed-in' : proof?.screenshotUrl ? 'needs sign-in' : 'needed',
     }
   })
   const parityAuditNodes = nodes.map((node) => toCanvasNode(node, resolvedOrgId || activeCanvas?.orgId || 'pending-org'))
@@ -4349,9 +4383,19 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
                   Mark as signed-in before this counts for mobile parity.
                 </p>
               ) : null}
+              {item.proof?.screenshotUrl && item.proof.signedIn && !hasSignedInViewportProof(item.proof) ? (
+                <p className="mt-1 text-[11px] font-semibold text-amber-800">
+                  Add session, viewport, and visible-panel evidence before this counts for mobile parity.
+                </p>
+              ) : null}
               {item.proof?.capturedAt ? (
                 <p className="mt-1 text-[11px] font-semibold text-amber-800">
                   Captured {new Date(item.proof.capturedAt).toLocaleString()}
+                </p>
+              ) : null}
+              {item.proof?.viewportSize || item.proof?.visiblePanels ? (
+                <p className="mt-1 text-[11px] text-amber-800">
+                  {item.proof.viewportSize ? `${item.proof.viewportSize}` : 'Viewport missing'} · {item.proof.visiblePanels || 'Panels missing'}
                 </p>
               ) : null}
               {item.proof?.screenshotUrl ? (
@@ -4394,6 +4438,54 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
                   }}
                   rows={2}
                   className="mt-1 w-full resize-none rounded-md border border-amber-200 bg-white px-2 py-1 text-xs text-amber-950 outline-none focus:border-amber-400"
+                />
+              </label>
+              <label className="mt-2 block text-[11px] font-semibold text-amber-950">
+                Session evidence
+                <input
+                  aria-label={`${item.label} session evidence`}
+                  value={visualProofDrafts[item.key].sessionEvidence}
+                  onChange={(event) => {
+                    const value = event.target.value
+                    setVisualProofDrafts((current) => ({
+                      ...current,
+                      [item.key]: { ...current[item.key], sessionEvidence: value },
+                    }))
+                  }}
+                  placeholder="Signed-in admin header, user menu, org switcher..."
+                  className="mt-1 w-full rounded-md border border-amber-200 bg-white px-2 py-1 text-xs text-amber-950 outline-none focus:border-amber-400"
+                />
+              </label>
+              <label className="mt-2 block text-[11px] font-semibold text-amber-950">
+                Viewport size
+                <input
+                  aria-label={`${item.label} viewport size`}
+                  value={visualProofDrafts[item.key].viewportSize}
+                  onChange={(event) => {
+                    const value = event.target.value
+                    setVisualProofDrafts((current) => ({
+                      ...current,
+                      [item.key]: { ...current[item.key], viewportSize: value },
+                    }))
+                  }}
+                  placeholder="1440x900"
+                  className="mt-1 w-full rounded-md border border-amber-200 bg-white px-2 py-1 text-xs text-amber-950 outline-none focus:border-amber-400"
+                />
+              </label>
+              <label className="mt-2 block text-[11px] font-semibold text-amber-950">
+                Visible panels
+                <input
+                  aria-label={`${item.label} visible panels`}
+                  value={visualProofDrafts[item.key].visiblePanels}
+                  onChange={(event) => {
+                    const value = event.target.value
+                    setVisualProofDrafts((current) => ({
+                      ...current,
+                      [item.key]: { ...current[item.key], visiblePanels: value },
+                    }))
+                  }}
+                  placeholder="Canvas, Sources, Inspector"
+                  className="mt-1 w-full rounded-md border border-amber-200 bg-white px-2 py-1 text-xs text-amber-950 outline-none focus:border-amber-400"
                 />
               </label>
               <label className="mt-2 flex items-start gap-2 text-[11px] font-semibold text-amber-950">
