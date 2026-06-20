@@ -107,6 +107,12 @@ function serializePresence(id: string, data: UnknownRecord): CreativeCanvasPrese
       ? data.focus as CreativeCanvasPresence['focus']
       : undefined,
     viewport: Object.keys(asRecord(data.viewport)).length ? asRecord(data.viewport) as CreativeCanvasPresence['viewport'] : undefined,
+    activeVersion: typeof data.activeVersion === 'number' ? data.activeVersion : undefined,
+    graphSignature: cleanString(data.graphSignature),
+    hasUnsavedGraphChanges: data.hasUnsavedGraphChanges === true,
+    nodeCount: typeof data.nodeCount === 'number' && Number.isFinite(data.nodeCount) ? data.nodeCount : undefined,
+    edgeCount: typeof data.edgeCount === 'number' && Number.isFinite(data.edgeCount) ? data.edgeCount : undefined,
+    selectedNodeTitle: cleanString(data.selectedNodeTitle),
     lastSeenAt: data.lastSeenAt,
     lastSeenAtMs: typeof data.lastSeenAtMs === 'number' ? data.lastSeenAtMs : 0,
     expiresAtMs: typeof data.expiresAtMs === 'number' ? data.expiresAtMs : 0,
@@ -374,6 +380,12 @@ export async function heartbeatCreativeCanvasPresence(
   requiredString(actor.uid, 'actor.uid')
   const body = asRecord(input)
   const viewport = asRecord(body.viewport)
+  const nodeCount = typeof body.nodeCount === 'number' && Number.isFinite(body.nodeCount)
+    ? Math.max(0, Math.min(1000, Math.round(body.nodeCount)))
+    : undefined
+  const edgeCount = typeof body.edgeCount === 'number' && Number.isFinite(body.edgeCount)
+    ? Math.max(0, Math.min(2000, Math.round(body.edgeCount)))
+    : undefined
   const payload: CreativeCanvasPresence = {
     orgId,
     canvasId,
@@ -389,6 +401,14 @@ export async function heartbeatCreativeCanvasPresence(
       x: typeof viewport.x === 'number' && Number.isFinite(viewport.x) ? viewport.x : undefined,
       y: typeof viewport.y === 'number' && Number.isFinite(viewport.y) ? viewport.y : undefined,
     } : undefined,
+    activeVersion: typeof body.activeVersion === 'number' && Number.isFinite(body.activeVersion)
+      ? Math.max(0, Math.round(body.activeVersion))
+      : undefined,
+    graphSignature: cleanString(body.graphSignature),
+    hasUnsavedGraphChanges: body.hasUnsavedGraphChanges === true,
+    nodeCount,
+    edgeCount,
+    selectedNodeTitle: cleanString(body.selectedNodeTitle),
     lastSeenAt: FieldValue.serverTimestamp(),
     lastSeenAtMs: nowMs,
     expiresAtMs: nowMs + 45_000,

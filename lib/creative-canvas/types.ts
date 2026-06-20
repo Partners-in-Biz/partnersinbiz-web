@@ -371,6 +371,12 @@ export interface CreativeCanvasPresence {
     x?: number
     y?: number
   }
+  activeVersion?: number
+  graphSignature?: string
+  hasUnsavedGraphChanges?: boolean
+  nodeCount?: number
+  edgeCount?: number
+  selectedNodeTitle?: string
   lastSeenAt?: unknown
   lastSeenAtMs: number
   expiresAtMs: number

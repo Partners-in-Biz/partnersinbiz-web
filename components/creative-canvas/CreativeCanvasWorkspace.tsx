@@ -936,6 +936,12 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
       body: JSON.stringify({
         selectedNodeId: nodeId,
         focus,
+        activeVersion: activeCanvas?.activeVersion,
+        graphSignature: currentGraphSignature,
+        hasUnsavedGraphChanges: graphHasUnsavedChanges,
+        nodeCount: nodes.length,
+        edgeCount: edges.length,
+        selectedNodeTitle: selectedCanvasNode?.title,
       }),
     })
     const payload = await response.json().catch(() => null) as CreativeCanvasPresenceApiResponse | null
@@ -946,7 +952,14 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
         return [own, ...current.filter((item) => item.id !== own.id)]
       })
     }
-  }, [])
+  }, [
+    activeCanvas?.activeVersion,
+    currentGraphSignature,
+    edges.length,
+    graphHasUnsavedChanges,
+    nodes.length,
+    selectedCanvasNode?.title,
+  ])
 
   useEffect(() => {
     const region = selectedCanvasNode?.edit?.mask?.region
@@ -3373,11 +3386,28 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
                 >
                   <div className="flex items-center justify-between gap-2">
                     <span className="font-semibold text-[var(--color-pib-text)]">{item.displayName ?? item.actorUid}</span>
-                    <span className="rounded-full border border-[var(--color-pib-line)] px-2 py-0.5 uppercase tracking-normal">
-                      {item.actorType}
-                    </span>
+                    <div className="flex flex-wrap justify-end gap-1">
+                      {item.hasUnsavedGraphChanges ? (
+                        <span className="rounded-full border border-amber-300 bg-amber-50 px-2 py-0.5 font-semibold text-amber-800">
+                          Live draft
+                        </span>
+                      ) : null}
+                      <span className="rounded-full border border-[var(--color-pib-line)] px-2 py-0.5 uppercase tracking-normal">
+                        {item.actorType}
+                      </span>
+                    </div>
                   </div>
-                  <p className="mt-1">{item.focus ?? 'canvas'}{item.selectedNodeId ? ` / ${item.selectedNodeId}` : ''}</p>
+                  <p className="mt-1">{item.focus ?? 'canvas'}{item.selectedNodeId ? ` / ${item.selectedNodeTitle ?? item.selectedNodeId}` : ''}</p>
+                  <p className="mt-1">
+                    {typeof item.nodeCount === 'number' ? `${item.nodeCount} nodes` : 'Graph size unknown'}
+                    {typeof item.edgeCount === 'number' ? ` / ${item.edgeCount} links` : ''}
+                    {typeof item.activeVersion === 'number' ? ` / v${item.activeVersion}` : ''}
+                  </p>
+                  {item.hasUnsavedGraphChanges ? (
+                    <p className="mt-1 font-semibold text-amber-800">
+                      Unsaved graph edits are active in this collaborator workspace.
+                    </p>
+                  ) : null}
                 </div>
               )) : (
                 <p className="rounded-lg border border-dashed border-[var(--color-pib-line)] px-3 py-2 text-xs text-[var(--color-pib-text-muted)]">

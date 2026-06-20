@@ -193,7 +193,15 @@ beforeEach(() => {
       }
     }
     if (url.includes('/presence') && init?.method === 'POST') {
-      const body = JSON.parse(String(init.body ?? '{}')) as { selectedNodeId?: string }
+      const body = JSON.parse(String(init.body ?? '{}')) as {
+        selectedNodeId?: string
+        selectedNodeTitle?: string
+        activeVersion?: number
+        graphSignature?: string
+        hasUnsavedGraphChanges?: boolean
+        nodeCount?: number
+        edgeCount?: number
+      }
       return {
         ok: true,
         json: async () => ({
@@ -208,6 +216,12 @@ beforeEach(() => {
               displayName: 'You',
               selectedNodeId: body.selectedNodeId,
               focus: 'canvas',
+              activeVersion: body.activeVersion,
+              graphSignature: body.graphSignature,
+              hasUnsavedGraphChanges: body.hasUnsavedGraphChanges,
+              nodeCount: body.nodeCount,
+              edgeCount: body.edgeCount,
+              selectedNodeTitle: body.selectedNodeTitle,
               lastSeenAtMs: 1000,
               expiresAtMs: 46000,
             }],
@@ -229,7 +243,13 @@ beforeEach(() => {
               actorType: 'agent',
               displayName: 'Maya',
               selectedNodeId: 'model-node-existing',
+              selectedNodeTitle: 'Existing model',
               focus: 'runs',
+              activeVersion: 1,
+              graphSignature: 'maya-draft-signature',
+              hasUnsavedGraphChanges: true,
+              nodeCount: 3,
+              edgeCount: 2,
               lastSeenAtMs: 900,
               expiresAtMs: 45900,
             }],
@@ -675,7 +695,9 @@ describe('CreativeCanvasWorkspace', () => {
     expect(screen.getByText('Provider job: hf-job-existing')).toBeInTheDocument()
     expect(screen.getByText('Live collaborators')).toBeInTheDocument()
     expect(screen.getByText('Maya')).toBeInTheDocument()
-    expect(screen.getByText('runs / model-node-existing')).toBeInTheDocument()
+    expect(screen.getByText('runs / Existing model')).toBeInTheDocument()
+    expect(screen.getByText('Live draft')).toBeInTheDocument()
+    expect(screen.getByText('3 nodes / 2 links / v1')).toBeInTheDocument()
     expect(screen.getByText('Versions')).toBeInTheDocument()
     expect(screen.getByText('1 nodes / 0 links')).toBeInTheDocument()
     expect(screen.getByText('+1 / -0 changes')).toBeInTheDocument()
@@ -854,7 +876,13 @@ describe('CreativeCanvasWorkspace', () => {
                 actorType: 'agent',
                 displayName: 'Maya',
                 selectedNodeId: 'model-node-existing',
+                selectedNodeTitle: 'Existing model',
                 focus: 'runs',
+                activeVersion: 1,
+                graphSignature: 'maya-draft-signature',
+                hasUnsavedGraphChanges: true,
+                nodeCount: 3,
+                edgeCount: 2,
                 lastSeenAtMs: 900,
                 expiresAtMs: 45900,
               }],
@@ -889,6 +917,34 @@ describe('CreativeCanvasWorkspace', () => {
 
     expect(await screen.findByLabelText(/1 collaborator active on existing model/i)).toBeInTheDocument()
     expect(screen.getAllByText('Maya').length).toBeGreaterThan(0)
+    expect(screen.getByText('Live draft')).toBeInTheDocument()
+    expect(screen.getByText(/3 nodes \/ 2 links \/ v1/i)).toBeInTheDocument()
+    expect(screen.getByText(/unsaved graph edits are active/i)).toBeInTheDocument()
+  })
+
+  it('shares live draft metadata in collaborator heartbeats after graph edits', async () => {
+    render(<CreativeCanvasWorkspace mode="admin" orgId="org-1" />)
+
+    await screen.findByText('Launch Canvas')
+    fireEvent.click(screen.getByRole('button', { name: /add source node/i }))
+
+    await waitFor(() => {
+      const heartbeatCalls = fetchMock.mock.calls.filter(([url, init]) => (
+        String(url).includes('/presence?orgId=org-1') && init?.method === 'POST'
+      ))
+      expect(heartbeatCalls.length).toBeGreaterThan(0)
+      const latestHeartbeat = heartbeatCalls[heartbeatCalls.length - 1]
+      const body = JSON.parse(String(latestHeartbeat?.[1]?.body ?? '{}'))
+      expect(body).toEqual(expect.objectContaining({
+        activeVersion: 1,
+        edgeCount: 0,
+        hasUnsavedGraphChanges: true,
+        nodeCount: 1,
+        selectedNodeTitle: 'Source node',
+      }))
+      expect(typeof body.graphSignature).toBe('string')
+      expect(body.graphSignature.length).toBeGreaterThan(10)
+    })
   })
 
   it('retries a failed retryable provider run from run history', async () => {
