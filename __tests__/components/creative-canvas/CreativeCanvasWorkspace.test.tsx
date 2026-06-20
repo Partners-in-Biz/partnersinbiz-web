@@ -1035,7 +1035,7 @@ describe('CreativeCanvasWorkspace', () => {
     expect(parityAudit).toHaveTextContent('8/8 scenarios in graph')
     expect(parityAudit).toHaveTextContent('Mask region or brush data attached')
     const benchmarkProof = screen.getByLabelText(/direct higgsfield benchmark proof/i)
-    expect(benchmarkProof).toHaveTextContent('7 ready benchmark categories need stored proof.')
+    expect(benchmarkProof).toHaveTextContent('6 ready benchmark categories need stored proof.')
   })
 
   it('switches mobile panels with responsive readiness evidence', async () => {
@@ -2230,6 +2230,61 @@ describe('CreativeCanvasWorkspace', () => {
     expect(await screen.findByText('Export package prepared')).toBeInTheDocument()
     expect(screen.getByText(/Package package-1: 1 assets/i)).toBeInTheDocument()
     expect(screen.getByText(/Manifest v1: 6 nodes \/ 5 links \/ social_post_draft \/ 1 sources/i)).toBeInTheDocument()
+    const parityAudit = screen.getByLabelText(/higgsfield parity audit/i)
+    expect(parityAudit).toHaveTextContent('1/4 export categories packaged · 1 asset')
+  })
+
+  it('requires a multi-category package manifest before export flows are benchmark-ready', async () => {
+    render(<CreativeCanvasWorkspace mode="admin" orgId="org-1" />)
+
+    await screen.findByText('Launch Canvas')
+    fireEvent.click(screen.getByRole('button', { name: /apply 8 missing benchmark workflows/i }))
+    const benchmarkProof = screen.getByLabelText(/direct higgsfield benchmark proof/i)
+    expect(benchmarkProof).toHaveTextContent('6 ready benchmark categories need stored proof.')
+
+    fetchMock.mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      if (url.includes('/exports/package') && init?.method === 'POST') {
+        return {
+          ok: true,
+          json: async () => ({
+            success: true,
+            data: {
+              exportId: 'package-benchmark',
+              package: {
+                status: 'internal_package',
+                assetCount: 4,
+                targets: ['campaign_asset', 'youtube_studio', 'client_document', 'book_studio'],
+                manifest: {
+                  canvas: { activeVersion: 1, nodeCount: 30, edgeCount: 22 },
+                  proof: {
+                    requiredOutputKinds: ['campaign_asset', 'youtube_render', 'blog_draft', 'book_artifact'],
+                    sourceNodeIds: ['source-1', 'source-2'],
+                  },
+                },
+              },
+            },
+          }),
+        }
+      }
+      if (url.includes('/presence') && init?.method === 'POST') {
+        return {
+          ok: true,
+          json: async () => ({ success: true, data: { presence: [] } }),
+        }
+      }
+      return {
+        ok: true,
+        json: async () => ({ success: true, data: {} }),
+      }
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: /prepare package/i }))
+
+    expect(await screen.findByText('Export package prepared')).toBeInTheDocument()
+    const parityAudit = screen.getByLabelText(/higgsfield parity audit/i)
+    expect(parityAudit).toHaveTextContent('4/4 export categories packaged · 4 assets')
+    expect(benchmarkProof).toHaveTextContent('7 ready benchmark categories need stored proof.')
   })
 
   it('edits selected source asset metadata and saves it with the graph', async () => {

@@ -301,6 +301,38 @@ const benchmarkProofConfigs: Array<{
   },
 ]
 
+const exportProofCategories: Array<{
+  key: string
+  label: string
+  outputKinds: CreativeCanvasOutputKind[]
+  targets: CreativeCanvasExport['target'][]
+}> = [
+  {
+    key: 'image_campaign',
+    label: 'Image/campaign',
+    outputKinds: ['image', 'campaign_asset'],
+    targets: ['campaign_asset'],
+  },
+  {
+    key: 'video_social',
+    label: 'Video/social',
+    outputKinds: ['video', 'social_post_draft', 'youtube_render'],
+    targets: ['social_draft', 'youtube_studio', 'campaign_asset'],
+  },
+  {
+    key: 'blog_document',
+    label: 'Blog/document',
+    outputKinds: ['blog_draft', 'document_block', 'copy', 'caption'],
+    targets: ['client_document'],
+  },
+  {
+    key: 'book',
+    label: 'Book',
+    outputKinds: ['book_artifact'],
+    targets: ['book_studio'],
+  },
+]
+
 function objectRecord(value: unknown): Record<string, unknown> {
   return value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : {}
 }
@@ -3766,9 +3798,17 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
   const hasCollaborationEvidence = remotePresence.length > 0 || Boolean(conflictDraft || latestCollaboratorDraft)
   const hasRemoteLiveEditEvidence = remoteActivityCount > 0 || Boolean(latestCollaboratorDraft) || remotePresence.some((item) => item.hasUnsavedGraphChanges)
   const hasTemplateEvidence = templates.length > 0
-  const hasExportEvidence = Boolean(latestExportPackage)
-    || canvasAssets.some((asset) => asset.canDraftExport)
-    || parityAuditNodes.some((node) => node.output || node.data?.exportTarget)
+  const exportPackageOutputKinds = new Set(latestExportPackage?.manifest?.requiredOutputKinds ?? [])
+  const exportPackageTargets = new Set(latestExportPackage?.targets ?? [])
+  const passedExportProofCategories = exportProofCategories.filter((category) => (
+    category.outputKinds.some((kind) => exportPackageOutputKinds.has(kind))
+    && category.targets.some((target) => exportPackageTargets.has(target))
+  ))
+  const hasExportPackageProof = Boolean(latestExportPackage)
+    && (latestExportPackage?.assetCount ?? 0) >= exportProofCategories.length
+    && (latestExportPackage?.manifest?.sourceNodeCount ?? 0) > 0
+    && passedExportProofCategories.length >= exportProofCategories.length
+  const draftExportableAssetCount = canvasAssets.filter((asset) => asset.canDraftExport).length
   const capturedVisualProofCount = visualProofItems.filter((item) => item.status === 'captured').length
   const reliabilityCoverage = runtimeProof?.reliabilityCoverage ?? []
   const reliabilityPassed = reliabilityCoverage.length > 0 && reliabilityCoverage.every((category) => category.status === 'passed')
@@ -3782,7 +3822,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
     versioning_polish: hasVersionEvidence,
     collaboration: hasCollaborationEvidence && hasRemoteLiveEditEvidence,
     mobile_behavior: capturedVisualProofCount >= visualProofItems.length,
-    export_flows: hasExportEvidence,
+    export_flows: hasExportPackageProof,
     production_reliability: reliabilityPassed,
   }
   const benchmarkProofItems = benchmarkProofConfigs.map((item) => {
@@ -3917,10 +3957,10 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
     },
     {
       label: 'Export flows',
-      status: hasExportEvidence ? 'passed' : 'watch',
+      status: hasExportPackageProof ? 'passed' : latestExportPackage || draftExportableAssetCount ? 'watch' : 'blocked',
       evidence: latestExportPackage
-        ? `${latestExportPackage.assetCount} packaged asset${latestExportPackage.assetCount === 1 ? '' : 's'}`
-        : `${canvasAssets.filter((asset) => asset.canDraftExport).length} draft-exportable assets`,
+        ? `${passedExportProofCategories.length}/${exportProofCategories.length} export categories packaged · ${latestExportPackage.assetCount} asset${latestExportPackage.assetCount === 1 ? '' : 's'}`
+        : `${draftExportableAssetCount} draft-exportable assets`,
     },
     {
       label: 'Production reliability',
