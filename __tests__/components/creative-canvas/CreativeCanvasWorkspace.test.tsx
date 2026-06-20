@@ -576,7 +576,7 @@ beforeEach(() => {
                 model: 'nano_banana_flash',
                 status: 'running',
                 providerStatusMessage: 'Rendering preview frames',
-                input: { sourceNodeIds: [], sourceArtifactIds: [] },
+                input: { sourceNodeIds: [], sourceArtifactIds: [], outputKind: 'video' },
                 provenance: {
                   generatedBy: 'agent',
                   agentId: 'maya',
@@ -692,6 +692,15 @@ beforeEach(() => {
         json: async () => ({
           success: true,
           data: { run: { id: 'run-1', status: 'completed' }, outputNode: { id: 'output-1' } },
+        }),
+      }
+    }
+    if (url.includes('/runs/run-existing/complete') && init?.method === 'PUT') {
+      return {
+        ok: true,
+        json: async () => ({
+          success: true,
+          data: { run: { id: 'run-existing', status: 'completed' }, outputNode: { id: 'model-node-existing-output' } },
         }),
       }
     }
@@ -2126,13 +2135,39 @@ describe('CreativeCanvasWorkspace', () => {
       }))
     })
     expect(await screen.findByText(/run status refreshed: run-1/i)).toBeInTheDocument()
-    fireEvent.click(screen.getByRole('button', { name: /ingest run output/i }))
+    fireEvent.click(screen.getByRole('button', { name: /ingest latest run output/i }))
 
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledWith('/api/v1/creative-canvas/canvas-1/runs/run-1/complete?orgId=org-1', expect.objectContaining({
         method: 'PUT',
       }))
     })
+  })
+
+  it('ingests a selected run-history output with that run output kind', async () => {
+    render(<CreativeCanvasWorkspace mode="admin" orgId="org-1" />)
+
+    await screen.findByText('Provider operations')
+    fireEvent.click(screen.getByRole('button', { name: /ingest output for run-existing/i }))
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith('/api/v1/creative-canvas/canvas-1/runs/run-existing/complete?orgId=org-1', expect.objectContaining({
+        method: 'PUT',
+      }))
+    })
+    const completeCall = fetchMock.mock.calls.find(([url]) => String(url).includes('/runs/run-existing/complete'))
+    expect(JSON.parse(String(completeCall?.[1]?.body))).toMatchObject({
+      outputNodeId: 'model-node-existing-output',
+      output: {
+        kind: 'video',
+        textPreview: 'video provider output ready for review',
+      },
+      provenance: {
+        providerJobId: 'hf-job-existing',
+        costLabel: 'provider_reported',
+      },
+    })
+    expect(await screen.findByText('Run completed: run-existing')).toBeInTheDocument()
   })
 
   it('queues Higgsfield runs with selected generation settings', async () => {

@@ -2313,28 +2313,48 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
     })
   }
 
-  const ingestRunOutput = async () => {
-    if (!activeCanvas?.id || !latestRun?.id) return
+  const ingestRunOutput = async (run?: CreativeCanvasRun & { id: string }) => {
+    const fallbackRun: CreativeCanvasRun & { id: string } | undefined = latestRun && activeCanvas?.id
+      ? {
+          id: latestRun.id,
+          orgId: activeCanvas.orgId,
+          canvasId: activeCanvas.id,
+          nodeId: latestRun.nodeId ?? selectedNodeId ?? 'run',
+          providerKey: 'higgsfield',
+          status: latestRun.status as CreativeCanvasRun['status'],
+          input: { sourceNodeIds: [], sourceArtifactIds: [], outputKind: runOutputKind as CreativeCanvasOutputKind },
+          provenance: { generatedBy: 'agent', promptStored: 'summary', syntheticMedia: true },
+        }
+      : undefined
+    const targetRun = run ?? runHistory.find((item) => item.id === latestRun?.id) ?? fallbackRun
+    if (!activeCanvas?.id || !targetRun?.id) return
 
     const query = resolvedOrgId ? `?orgId=${encodeURIComponent(resolvedOrgId)}` : ''
-    const response = await fetch(`/api/v1/creative-canvas/${activeCanvas.id}/runs/${latestRun.id}/complete${query}`, {
+    const outputKind = targetRun.input.outputKind ?? 'image'
+    const response = await fetch(`/api/v1/creative-canvas/${activeCanvas.id}/runs/${targetRun.id}/complete${query}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        outputNodeId: `${latestRun.nodeId ?? selectedNodeId ?? 'run'}-output`,
+        outputNodeId: `${targetRun.nodeId ?? selectedNodeId ?? 'run'}-output`,
         output: {
-          kind: 'image',
-          textPreview: 'Provider output ready for review',
+          kind: outputKind,
+          url: targetRun.output?.url,
+          thumbnailUrl: targetRun.output?.thumbnailUrl,
+          artifactId: targetRun.output?.artifactId,
+          textPreview: targetRun.output?.textPreview ?? `${outputKind.replaceAll('_', ' ')} provider output ready for review`,
         },
         provenance: {
+          providerJobId: targetRun.output?.rawProviderJobId ?? targetRun.provenance.providerJobId,
+          model: targetRun.provenance.model ?? targetRun.model,
           costLabel: 'provider_reported',
         },
       }),
     })
     if (response.ok) {
-      setLatestRun((current) => current ? { ...current, status: 'completed' } : current)
+      setLatestRun((current) => current?.id === targetRun.id ? { ...current, status: 'completed' } : current)
       await loadRuns(activeCanvas.id, resolvedOrgId || activeCanvas.orgId)
-      setActivityMessage(`Run completed: ${latestRun.id}`)
+      await loadRuntimeProof(activeCanvas.id, resolvedOrgId || activeCanvas.orgId)
+      setActivityMessage(`Run completed: ${targetRun.id}`)
     } else {
       setActivityMessage('Run output ingest failed')
     }
@@ -2978,11 +2998,11 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
                 </button>
                 <button
                   type="button"
-                  onClick={ingestRunOutput}
+                  onClick={() => ingestRunOutput()}
                   disabled={!latestRun?.id}
                   className="rounded-lg border border-[var(--color-pib-line)] px-3 py-2 text-xs font-semibold text-[var(--color-pib-text)] disabled:cursor-not-allowed disabled:opacity-50"
                 >
-                  Ingest run output
+                  Ingest latest run output
                 </button>
                 <button
                   type="button"
@@ -3431,6 +3451,15 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
                   {run.providerStatusMessage ? <p>Provider status: {run.providerStatusMessage}</p> : null}
                   {run.error?.message ? <p>Error: {run.error.message}</p> : null}
                   {run.output?.outputNodeId ? <p>Output: {run.output.outputNodeId}</p> : null}
+                  {mode === 'admin' && ['queued', 'running', 'waiting_for_review'].includes(run.status) ? (
+                    <button
+                      type="button"
+                      onClick={() => ingestRunOutput(run)}
+                      className="mt-2 rounded-md border border-[var(--color-pib-line)] px-2 py-1 font-semibold text-[var(--color-pib-text)]"
+                    >
+                      Ingest output for {run.id}
+                    </button>
+                  ) : null}
                   {mode === 'admin' && run.status === 'failed' && run.error?.retryable ? (
                     <button
                       type="button"
