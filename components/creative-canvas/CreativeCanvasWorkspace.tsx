@@ -31,6 +31,7 @@ import { buildCreativeCanvasOrchestrationPlan } from '@/lib/creative-canvas/orch
 import { buildCreativeCanvasAssetGallery } from '@/lib/creative-canvas/assets'
 
 type CreativeCanvasMode = 'admin' | 'portal'
+type CreativeCanvasMobilePanel = 'canvas' | 'sources' | 'inspector'
 
 interface CreativeCanvasWorkspaceProps {
   mode: CreativeCanvasMode
@@ -571,6 +572,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
   const [selectedAssetId, setSelectedAssetId] = useState('')
   const [compareAssetIds, setCompareAssetIds] = useState<string[]>([])
   const [latestExportPackage, setLatestExportPackage] = useState<{ id: string; assetCount: number; targets: string[] } | null>(null)
+  const [mobilePanel, setMobilePanel] = useState<CreativeCanvasMobilePanel>('canvas')
 
   const activeCanvas = useMemo(
     () => canvases.find((canvas) => canvas.id === activeCanvasId) ?? canvases[0],
@@ -1624,6 +1626,10 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
     )
   }
 
+  const mobilePanelClass = (panel: CreativeCanvasMobilePanel) => (
+    `${mobilePanel === panel ? 'block' : 'hidden'} lg:block`
+  )
+
   return (
     <main className="mx-auto max-w-7xl space-y-5 px-4 py-6">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
@@ -1638,7 +1644,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
           type="button"
           onClick={saveGraph}
           disabled={!activeCanvas?.id || saving}
-          className="rounded-lg bg-[var(--color-pib-primary)] px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+          className="w-full rounded-lg bg-[var(--color-pib-primary)] px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
         >
           {saving ? 'Saving graph' : 'Save graph'}
         </button>
@@ -1648,8 +1654,36 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
         <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>
       ) : null}
 
+      <nav
+        aria-label="Creative Canvas mobile sections"
+        className="sticky top-2 z-10 grid grid-cols-3 gap-1 rounded-lg border border-[var(--color-pib-line)] bg-white p-1 shadow-sm lg:hidden"
+      >
+        {([
+          ['canvas', `Canvas (${nodes.length})`],
+          ['sources', 'Sources'],
+          ['inspector', 'Inspector'],
+        ] as Array<[CreativeCanvasMobilePanel, string]>).map(([panel, label]) => (
+          <button
+            key={panel}
+            type="button"
+            aria-pressed={mobilePanel === panel}
+            onClick={() => setMobilePanel(panel)}
+            className={`rounded-md px-2 py-2 text-xs font-semibold ${
+              mobilePanel === panel
+                ? 'bg-[var(--color-pib-primary)] text-white'
+                : 'text-[var(--color-pib-text-muted)]'
+            }`}
+          >
+            {label}
+          </button>
+        ))}
+      </nav>
+
       <section className="grid min-h-[620px] gap-4 lg:grid-cols-[260px_minmax(0,1fr)_280px]">
-        <aside className="space-y-4 rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-card)] p-4">
+        <aside
+          aria-label="Source and workflow tools"
+          className={`${mobilePanelClass('sources')} space-y-4 rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-card)] p-4`}
+        >
           <div>
             <p className="text-xs font-semibold uppercase tracking-normal text-[var(--color-pib-text-muted)]">Canvases</p>
             <div className="mt-3 space-y-2">
@@ -1840,8 +1874,11 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
           </div>
         </aside>
 
-        <section className="overflow-hidden rounded-lg border border-[var(--color-pib-line)] bg-white">
-          <div className="flex items-center justify-between border-b border-[var(--color-pib-line)] px-4 py-3">
+        <section
+          aria-label="Canvas graph workspace"
+          className={`${mobilePanelClass('canvas')} overflow-hidden rounded-lg border border-[var(--color-pib-line)] bg-white`}
+        >
+          <div className="flex flex-col gap-2 border-b border-[var(--color-pib-line)] px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <h2 className="text-lg font-semibold text-[var(--color-pib-text)]">{activeCanvas?.title ?? 'Untitled canvas'}</h2>
               <p className="text-xs text-[var(--color-pib-text-muted)]">
@@ -1850,7 +1887,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
             </div>
             {saveMessage ? <p className="text-xs font-medium text-[var(--color-pib-text-muted)]">{saveMessage}</p> : null}
           </div>
-          <div className="h-[560px]">
+          <div className="h-[62vh] min-h-[420px] lg:h-[560px]">
             <ReactFlow nodes={nodes} edges={edges} onConnect={onConnect} onNodeClick={selectFlowNode} fitView>
               <Background />
               <Controls />
@@ -1859,7 +1896,10 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
           </div>
         </section>
 
-        <aside className="space-y-4 rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-card)] p-4">
+        <aside
+          aria-label="Canvas inspector and outputs"
+          className={`${mobilePanelClass('inspector')} space-y-4 rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-card)] p-4`}
+        >
           <div>
             <p className="text-xs font-semibold uppercase tracking-normal text-[var(--color-pib-text-muted)]">Inspector</p>
             <h2 className="mt-2 text-lg font-semibold text-[var(--color-pib-text)]">

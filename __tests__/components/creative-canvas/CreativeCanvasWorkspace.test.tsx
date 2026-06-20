@@ -525,6 +525,36 @@ describe('CreativeCanvasWorkspace', () => {
     expect(screen.getByText('Exports')).toBeInTheDocument()
     expect(screen.getByTestId('react-flow')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /save graph/i })).toBeInTheDocument()
+    expect(screen.getByRole('navigation', { name: /creative canvas mobile sections/i })).toBeInTheDocument()
+    expect(screen.getByRole('region', { name: /canvas graph workspace/i })).toHaveClass('block')
+    expect(screen.getByRole('complementary', { name: /source and workflow tools/i })).toHaveClass('hidden')
+  })
+
+  it('switches mobile panels without removing desktop canvas sections', async () => {
+    render(<CreativeCanvasWorkspace mode="admin" orgId="org-1" />)
+
+    await screen.findByText('Launch Canvas')
+    const canvasButton = screen.getByRole('button', { name: /^canvas \(/i })
+    const sourcesButton = screen.getByRole('button', { name: /^sources$/i })
+    const inspectorButton = screen.getByRole('button', { name: /^inspector$/i })
+    const canvasPanel = screen.getByRole('region', { name: /canvas graph workspace/i })
+    const sourcesPanel = screen.getByRole('complementary', { name: /source and workflow tools/i })
+    const inspectorPanel = screen.getByRole('complementary', { name: /canvas inspector and outputs/i })
+
+    expect(canvasButton).toHaveAttribute('aria-pressed', 'true')
+    expect(canvasPanel).toHaveClass('block')
+    expect(sourcesPanel).toHaveClass('hidden')
+    expect(inspectorPanel).toHaveClass('hidden')
+
+    fireEvent.click(sourcesButton)
+    expect(sourcesButton).toHaveAttribute('aria-pressed', 'true')
+    expect(sourcesPanel).toHaveClass('block')
+    expect(canvasPanel).toHaveClass('hidden')
+
+    fireEvent.click(inspectorButton)
+    expect(inspectorButton).toHaveAttribute('aria-pressed', 'true')
+    expect(inspectorPanel).toHaveClass('block')
+    expect(sourcesPanel).toHaveClass('hidden')
   })
 
   it('retries a failed retryable provider run from run history', async () => {
