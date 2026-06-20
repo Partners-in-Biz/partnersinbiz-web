@@ -821,24 +821,30 @@ export function TaskDetailPanel({ task, columnName, projectId, orgId, members = 
                     </p>
                   </div>
                   {approvalGateError ? <p className="text-xs text-[#ef4444]">{approvalGateError}</p> : null}
-                  <div className="flex flex-wrap gap-2">
-                    <button
-                      type="button"
-                      onClick={() => handleApprovalGateDecision('approve')}
-                      disabled={approvalGateResolved || !!approvalGateBusy}
-                      className="pib-btn-primary text-xs font-label"
-                    >
-                      {approvalGateBusy === 'approve' ? 'Approving...' : approvalGateResolved ? 'Approved' : 'Approve this gate'}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleApprovalGateDecision('reject')}
-                      disabled={approvalGateResolved || !!approvalGateBusy}
-                      className="pib-btn-secondary text-xs font-label"
-                    >
-                      {approvalGateBusy === 'reject' ? 'Rejecting...' : 'Reject / request changes'}
-                    </button>
-                  </div>
+                  {canDecideApprovalGate ? (
+                    <div className="flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        onClick={() => handleApprovalGateDecision('approve')}
+                        disabled={approvalGateResolved || !!approvalGateBusy}
+                        className="pib-btn-primary text-xs font-label"
+                      >
+                        {approvalGateBusy === 'approve' ? 'Approving...' : approvalGateResolved ? 'Approved' : 'Approve this gate'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleApprovalGateDecision('reject')}
+                        disabled={approvalGateResolved || !!approvalGateBusy}
+                        className="pib-btn-secondary text-xs font-label"
+                      >
+                        {approvalGateBusy === 'reject' ? 'Rejecting...' : 'Reject / request changes'}
+                      </button>
+                    </div>
+                  ) : (
+                    <p className="rounded border border-[var(--color-card-border)] bg-[var(--color-card)] px-3 py-2 text-xs leading-5 text-on-surface-variant">
+                      Only an authorised admin approver can decide this gate. Quality review can continue, but business approval remains locked.
+                    </p>
+                  )}
                 </div>
               </div>
             </div>
