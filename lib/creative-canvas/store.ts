@@ -21,6 +21,18 @@ type CanvasDoc = Record<string, unknown>
 const CANVAS_STATUSES: CreativeCanvasStatus[] = ['draft', 'internal_review', 'client_review', 'approved', 'archived']
 const VISIBILITIES: CreativeCanvasVisibility[] = ['admin_agents', 'admin_agents_clients']
 
+export class CreativeCanvasVersionConflictError extends Error {
+  currentActiveVersion: number
+  expectedActiveVersion: number
+
+  constructor(currentActiveVersion: number, expectedActiveVersion: number) {
+    super('Creative canvas graph has changed since it was loaded')
+    this.name = 'CreativeCanvasVersionConflictError'
+    this.currentActiveVersion = currentActiveVersion
+    this.expectedActiveVersion = expectedActiveVersion
+  }
+}
+
 function enumPatchValue<T extends string>(value: unknown, allowed: readonly T[], fallback: T): T {
   return allowed.includes(value as T) ? value as T : fallback
 }
@@ -125,9 +137,17 @@ export async function updateCreativeCanvasGraph(
   orgId: string,
   graphInput: unknown,
   actor: CreativeCanvasActor,
+  options: { expectedActiveVersion?: number } = {},
 ): Promise<CreativeCanvas & { id: string }> {
   const current = await getCreativeCanvas(id, orgId)
   if (!current) throw new Error('Creative canvas not found')
+  if (
+    typeof options.expectedActiveVersion === 'number'
+    && Number.isFinite(options.expectedActiveVersion)
+    && options.expectedActiveVersion !== current.activeVersion
+  ) {
+    throw new CreativeCanvasVersionConflictError(current.activeVersion, options.expectedActiveVersion)
+  }
   const graph: CreativeCanvasGraph = sanitizeCreativeCanvasGraph(graphInput, orgId)
   const nextVersion = current.activeVersion + 1
   const patch = {

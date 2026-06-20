@@ -71,6 +71,27 @@ beforeEach(() => {
         }),
       }
     }
+    if (url.includes('/graph?orgId=org-1') && init?.method === 'PUT') {
+      return {
+        ok: true,
+        json: async () => ({
+          success: true,
+          data: {
+            canvas: {
+              id: 'canvas-1',
+              orgId: 'org-1',
+              title: 'Launch Canvas',
+              purpose: 'Product launch',
+              status: 'draft',
+              activeVersion: 2,
+              linked: { projectId: 'project-1' },
+              nodes: [],
+              edges: [],
+            },
+          },
+        }),
+      }
+    }
     if (url.includes('/versions')) {
       return {
         ok: true,
@@ -546,6 +567,55 @@ describe('CreativeCanvasWorkspace', () => {
     })
   })
 
+  it('surfaces a graph save conflict when another session has a newer version', async () => {
+    render(<CreativeCanvasWorkspace mode="admin" orgId="org-1" />)
+
+    await screen.findByText('Launch Canvas')
+    fetchMock.mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      if (url.includes('/graph?orgId=org-1') && init?.method === 'PUT') {
+        return {
+          ok: false,
+          status: 409,
+          json: async () => ({
+            success: false,
+            code: 'creative_canvas_version_conflict',
+            currentActiveVersion: 4,
+            expectedActiveVersion: 1,
+            error: 'Creative canvas graph has changed since it was loaded',
+          }),
+        }
+      }
+      if (url.includes('/versions')) {
+        return {
+          ok: true,
+          json: async () => ({
+            success: true,
+            data: { versions: [{ id: 'v4', version: 4, reason: 'graph_save' }] },
+          }),
+        }
+      }
+      if (url.includes('/presence')) {
+        return {
+          ok: true,
+          json: async () => ({ success: true, data: { presence: [] } }),
+        }
+      }
+      return {
+        ok: true,
+        json: async () => ({ success: true, data: {} }),
+      }
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: /save graph/i }))
+
+    expect(await screen.findByText(/Graph changed in another session/i)).toBeInTheDocument()
+    const graphCall = fetchMock.mock.calls.find(([url, init]) =>
+      String(url).includes('/graph?orgId=org-1') && init?.method === 'PUT'
+    )
+    expect(JSON.parse(graphCall?.[1]?.body as string)).toMatchObject({ expectedActiveVersion: 1 })
+  })
+
   it('applies a social launch workflow preset and saves the connected graph', async () => {
     render(<CreativeCanvasWorkspace mode="admin" orgId="org-1" />)
 
@@ -583,6 +653,7 @@ describe('CreativeCanvasWorkspace', () => {
       String(url).includes('/graph?orgId=org-1') && init?.method === 'PUT'
     )
     const body = JSON.parse(graphCall?.[1]?.body as string)
+    expect(body.expectedActiveVersion).toBe(1)
     expect(body.nodes).toEqual(expect.arrayContaining([
       expect.objectContaining({
         type: 'source',
@@ -716,6 +787,7 @@ describe('CreativeCanvasWorkspace', () => {
       String(url).includes('/graph?orgId=org-1') && init?.method === 'PUT'
     )
     expect(JSON.parse(graphCall?.[1]?.body as string)).toMatchObject({
+      expectedActiveVersion: 1,
       nodes: [
         expect.objectContaining({
           type: 'source',
@@ -810,6 +882,7 @@ describe('CreativeCanvasWorkspace', () => {
       String(url).includes('/graph?orgId=org-1') && init?.method === 'PUT'
     )
     expect(JSON.parse(graphCall?.[1]?.body as string)).toMatchObject({
+      expectedActiveVersion: 1,
       nodes: [
         expect.objectContaining({
           type: 'edit',

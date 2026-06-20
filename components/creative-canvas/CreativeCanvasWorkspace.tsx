@@ -39,7 +39,11 @@ interface CreativeCanvasWorkspaceProps {
 
 interface CreativeCanvasApiListResponse {
   success?: boolean
+  error?: string
+  code?: string
+  currentActiveVersion?: number
   data?: {
+    canvas?: CreativeCanvas
     canvases?: CreativeCanvas[]
   }
 }
@@ -1161,15 +1165,32 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          expectedActiveVersion: activeCanvas.activeVersion,
           nodes: nodes.map((node) => toCanvasNode(node, resolvedOrgId || activeCanvas.orgId)),
           edges: edges.map((edge) => toCanvasEdge(edge, resolvedOrgId || activeCanvas.orgId)),
         }),
       })
+      const payload = await response.json().catch(() => null) as CreativeCanvasApiListResponse | null
 
       if (!response.ok) {
+        const conflict = payload as { code?: string; currentActiveVersion?: number } | null
+        if (response.status === 409 || conflict?.code === 'creative_canvas_version_conflict') {
+          setSaveMessage(
+            `Graph changed in another session. Refresh versions before saving${conflict?.currentActiveVersion ? ` (current v${conflict.currentActiveVersion})` : ''}.`,
+          )
+          if (activeCanvas.id) {
+            await loadVersions(activeCanvas.id, resolvedOrgId || activeCanvas.orgId)
+            await loadPresence(activeCanvas.id, resolvedOrgId || activeCanvas.orgId)
+          }
+          return
+        }
         throw new Error('Save failed')
       }
 
+      const savedCanvas = payload?.data?.canvas
+      if (savedCanvas?.id) {
+        setCanvases((current) => current.map((canvas) => canvas.id === savedCanvas.id ? savedCanvas : canvas))
+      }
       setSaveMessage('Graph saved')
       await loadVersions(activeCanvas.id, resolvedOrgId || activeCanvas.orgId)
     } catch {

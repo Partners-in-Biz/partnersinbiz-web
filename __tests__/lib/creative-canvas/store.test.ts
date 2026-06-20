@@ -16,6 +16,7 @@ jest.mock('firebase-admin/firestore', () => ({
 
 import {
   CREATIVE_CANVAS_COLLECTION,
+  CreativeCanvasVersionConflictError,
   createCreativeCanvas,
   getCreativeCanvas,
   listCreativeCanvases,
@@ -89,5 +90,28 @@ describe('creative canvas store', () => {
       edges: expect.arrayContaining([expect.objectContaining({ id: 'edge-1', orgId: 'org-1' })]),
     }))
     expect(updated).toMatchObject({ id: 'canvas-1', activeVersion: 3 })
+  })
+
+  it('rejects graph saves based on a stale activeVersion', async () => {
+    mockDocGet.mockResolvedValue({
+      exists: true,
+      id: 'canvas-1',
+      data: () => ({ orgId: 'org-1', title: 'Launch', activeVersion: 4, deleted: false }),
+    })
+
+    await expect(updateCreativeCanvasGraph('canvas-1', 'org-1', {
+      nodes: [{ id: 'source-1', type: 'source', title: 'Source', position: { x: 0, y: 0 }, data: {} }],
+      edges: [],
+    }, ACTOR, { expectedActiveVersion: 3 })).rejects.toMatchObject({
+      name: 'CreativeCanvasVersionConflictError',
+      currentActiveVersion: 4,
+      expectedActiveVersion: 3,
+    })
+    await expect(updateCreativeCanvasGraph('canvas-1', 'org-1', {
+      nodes: [{ id: 'source-1', type: 'source', title: 'Source', position: { x: 0, y: 0 }, data: {} }],
+      edges: [],
+    }, ACTOR, { expectedActiveVersion: 3 })).rejects.toBeInstanceOf(CreativeCanvasVersionConflictError)
+    expect(mockDocUpdate).not.toHaveBeenCalled()
+    expect(mockAdd).not.toHaveBeenCalled()
   })
 })
