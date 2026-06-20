@@ -262,6 +262,12 @@ function buildOutputNode(input: {
   output: Record<string, unknown>
 }): CreativeCanvasNode {
   const sourceNode = input.canvas.nodes.find((node) => node.id === input.run.nodeId)
+  const artifactId = cleanString(input.output.artifactId)
+  const url = safeHttpUrl(input.output.url, 'run output.url')
+  const thumbnailUrl = safeHttpUrl(input.output.thumbnailUrl, 'run output.thumbnailUrl')
+  const storagePath = cleanString(input.output.storagePath)
+  const textPreview = cleanString(input.output.textPreview)
+  const now = new Date()
   return {
     id: input.outputNodeId,
     canvasId: input.canvas.id,
@@ -285,14 +291,14 @@ function buildOutputNode(input: {
     },
     output: {
       kind: enumOutputKind(input.output.kind),
-      artifactId: cleanString(input.output.artifactId),
-      url: safeHttpUrl(input.output.url, 'run output.url'),
-      thumbnailUrl: safeHttpUrl(input.output.thumbnailUrl, 'run output.thumbnailUrl'),
-      storagePath: cleanString(input.output.storagePath),
-      textPreview: cleanString(input.output.textPreview),
+      ...(artifactId ? { artifactId } : {}),
+      ...(url ? { url } : {}),
+      ...(thumbnailUrl ? { thumbnailUrl } : {}),
+      ...(storagePath ? { storagePath } : {}),
+      ...(textPreview ? { textPreview } : {}),
     },
-    createdAt: FieldValue.serverTimestamp(),
-    updatedAt: FieldValue.serverTimestamp(),
+    createdAt: now,
+    updatedAt: now,
   }
 }
 
@@ -337,16 +343,21 @@ async function completeLoadedCreativeCanvasRun(
 
   const outputNodeId = cleanString(body.outputNodeId) ?? `${run.nodeId}-output`
   const outputNode = buildOutputNode({ run, canvas, outputNodeId, output })
+  const artifactId = cleanString(output.artifactId)
+  const url = safeHttpUrl(output.url, 'run output.url')
+  const thumbnailUrl = safeHttpUrl(output.thumbnailUrl, 'run output.thumbnailUrl')
+  const textPreview = cleanString(output.textPreview)
+  const rawProviderJobId = cleanString(output.rawProviderJobId)
   const completedRun: CreativeCanvasRun & { id: string } = {
     ...run,
     status: 'completed',
     output: {
       outputNodeId,
-      artifactId: cleanString(output.artifactId),
-      url: safeHttpUrl(output.url, 'run output.url'),
-      thumbnailUrl: safeHttpUrl(output.thumbnailUrl, 'run output.thumbnailUrl'),
-      textPreview: cleanString(output.textPreview),
-      rawProviderJobId: cleanString(output.rawProviderJobId),
+      ...(artifactId ? { artifactId } : {}),
+      ...(url ? { url } : {}),
+      ...(thumbnailUrl ? { thumbnailUrl } : {}),
+      ...(textPreview ? { textPreview } : {}),
+      ...(rawProviderJobId ? { rawProviderJobId } : {}),
     },
     provenance: {
       ...run.provenance,
@@ -463,6 +474,43 @@ export async function completeCreativeCanvasRun(
   return completeLoadedCreativeCanvasRun(run, orgId, input, actor)
 }
 
+export async function ensureCreativeCanvasRunOutputNode(
+  runId: string,
+  orgId: string,
+  actor: CreativeCanvasActor,
+): Promise<{ run: CreativeCanvasRun & { id: string }; outputNode?: CreativeCanvasNode } | null> {
+  const runSnap = await adminDb.collection(CREATIVE_CANVAS_RUN_COLLECTION).doc(runId).get()
+  if (!runSnap.exists) throw new Error('Creative canvas run not found')
+  const run = serializeRun(runSnap.id ?? runId, runSnap.data() as CreativeCanvasRun)
+  if (run.orgId !== orgId) throw new Error('Creative canvas run does not belong to organisation')
+  if (!run.output?.url && !run.output?.artifactId && !run.output?.textPreview) return null
+
+  const outputNodeId = run.output.outputNodeId ?? `${run.nodeId}-output`
+  const canvas = await getCreativeCanvas(run.canvasId, orgId)
+  const existingOutputNode = canvas?.nodes.find((node) => node.id === outputNodeId)
+  if (existingOutputNode) {
+    return { run, outputNode: existingOutputNode }
+  }
+
+  return completeLoadedCreativeCanvasRun(run, orgId, {
+    outputNodeId,
+    output: {
+      kind: run.input.outputKind ?? 'image',
+      url: run.output.url,
+      thumbnailUrl: run.output.thumbnailUrl,
+      artifactId: run.output.artifactId,
+      textPreview: run.output.textPreview,
+      rawProviderJobId: run.output.rawProviderJobId,
+    },
+    provenance: {
+      providerJobId: run.output.rawProviderJobId ?? run.provenance.providerJobId,
+      model: run.provenance.model,
+      costUnits: run.provenance.costUnits,
+      costLabel: run.provenance.costLabel,
+    },
+  }, actor)
+}
+
 export async function dispatchCreativeCanvasProviderRun(
   runId: string,
   orgId: string,
@@ -484,9 +532,15 @@ export async function dispatchCreativeCanvasProviderRun(
   const provenance = {
     ...run.provenance,
     providerJobId,
-    providerRequestId: cleanString(body.providerRequestId) ?? run.provenance.providerRequestId,
-    providerStatusUrl: providerStatusUrl ?? run.provenance.providerStatusUrl,
-    providerCallbackUrl: providerCallbackUrl ?? run.provenance.providerCallbackUrl,
+    ...(cleanString(body.providerRequestId) ?? run.provenance.providerRequestId
+      ? { providerRequestId: cleanString(body.providerRequestId) ?? run.provenance.providerRequestId }
+      : {}),
+    ...(providerStatusUrl ?? run.provenance.providerStatusUrl
+      ? { providerStatusUrl: providerStatusUrl ?? run.provenance.providerStatusUrl }
+      : {}),
+    ...(providerCallbackUrl ?? run.provenance.providerCallbackUrl
+      ? { providerCallbackUrl: providerCallbackUrl ?? run.provenance.providerCallbackUrl }
+      : {}),
   }
   const nextRun: CreativeCanvasRun & { id: string } = {
     ...run,

@@ -587,6 +587,8 @@ describe('creative canvas runs', () => {
       updatedBy: 'agent:maya',
       updatedByType: 'agent',
     }))
+    const updatePayload = mockDocUpdate.mock.calls[0][0]
+    expect(updatePayload.provenance).not.toHaveProperty('providerCallbackUrl')
     expect(run).toMatchObject({
       id: 'run-1',
       status: 'running',

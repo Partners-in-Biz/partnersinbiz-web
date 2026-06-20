@@ -1,6 +1,6 @@
 import { FieldValue } from 'firebase-admin/firestore'
 import { adminDb } from '@/lib/firebase/admin'
-import { CREATIVE_CANVAS_RUN_COLLECTION, completeCreativeCanvasRun, dispatchCreativeCanvasProviderRun, refreshCreativeCanvasProviderRunStatus } from './runs'
+import { CREATIVE_CANVAS_RUN_COLLECTION, completeCreativeCanvasRun, dispatchCreativeCanvasProviderRun, ensureCreativeCanvasRunOutputNode, refreshCreativeCanvasProviderRunStatus } from './runs'
 import { getCreativeCanvas } from './store'
 import { buildHiggsfieldExecutionManifest } from './higgsfield-execution'
 import type { CreativeCanvas, CreativeCanvasActor, CreativeCanvasOutputKind, CreativeCanvasProviderRuntimeReadiness, CreativeCanvasRun, CreativeCanvasRunStatus } from './types'
@@ -138,7 +138,10 @@ function normalizeRuntimeStatus(value: unknown): CreativeCanvasRunStatus | undef
 }
 
 function normalizeRuntimeResult(input: unknown): RuntimeResult {
-  const body = asRecord(input)
+  const envelope = asRecord(input)
+  const body = envelope.success === true && envelope.data
+    ? asRecord(envelope.data)
+    : envelope
   const output = asRecord(body.output)
   const result = asRecord(body.result)
   const error = asRecord(body.error)
@@ -216,6 +219,12 @@ function statusUrlForRun(run: RunWithId, config: HiggsfieldRuntimeConfig): strin
   if (!statusUrl) return undefined
   if (statusUrl.startsWith('/')) return config.callbackBaseUrl ? `${config.callbackBaseUrl}${statusUrl}` : undefined
   return statusUrl
+}
+
+function absoluteRuntimeUrl(value: string | undefined, config: HiggsfieldRuntimeConfig): string | undefined {
+  if (!value) return undefined
+  if (value.startsWith('/')) return config.callbackBaseUrl ? `${config.callbackBaseUrl}${value}` : undefined
+  return value
 }
 
 async function applyRuntimeResult(run: RunWithId, result: RuntimeResult): Promise<'dispatched' | 'refreshed' | 'completed' | 'failed'> {
@@ -308,11 +317,18 @@ async function submitQueuedRun(run: RunWithId, config: HiggsfieldRuntimeConfig):
     await markRunFailed(run, cleanString(body.error) ?? cleanString(body.message) ?? `Higgsfield runtime submit failed with ${response.status}`, 'higgsfield_submit_failed', true)
     return 'failed'
   }
-  const applied = await applyRuntimeResult(run, normalizeRuntimeResult(body))
+  const result = normalizeRuntimeResult(body)
+  result.providerStatusUrl = absoluteRuntimeUrl(result.providerStatusUrl, config)
+  result.providerCallbackUrl = absoluteRuntimeUrl(result.providerCallbackUrl, config)
+  const applied = await applyRuntimeResult(run, result)
   return applied === 'completed' ? 'completed' : applied === 'failed' ? 'failed' : 'submitted'
 }
 
 async function pollRunningRun(run: RunWithId, config: HiggsfieldRuntimeConfig): Promise<'refreshed' | 'completed' | 'failed' | 'skipped'> {
+  if (run.output?.url || run.output?.artifactId || run.output?.textPreview) {
+    await ensureCreativeCanvasRunOutputNode(run.id, run.orgId, HIGGSFIELD_ACTOR)
+    return 'completed'
+  }
   const statusUrl = statusUrlForRun(run, config)
   if (!statusUrl) return 'skipped'
   const response = await fetch(statusUrl, { headers: runtimeHeaders(config) })
@@ -360,6 +376,7 @@ export async function drainHiggsfieldCreativeCanvasRuns(options: {
   const runningRuns = [
     ...await listRunsByStatus('running', pollLimit),
     ...await listRunsByStatus('waiting_for_review', pollLimit),
+    ...await listRunsByStatus('completed', pollLimit),
   ].slice(0, pollLimit)
   for (const run of runningRuns) {
     const result = await pollRunningRun(run, config)
