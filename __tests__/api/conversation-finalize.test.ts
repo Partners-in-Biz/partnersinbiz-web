@@ -203,6 +203,43 @@ describe('POST /api/v1/conversations/[convId]/messages/[msgId]/finalize', () => 
     }))
   })
 
+  it('preserves generated video outputs from Hermes artifacts as rich video parts', async () => {
+    mockCallHermesJson.mockResolvedValue({
+      response: { ok: true },
+      data: {
+        status: 'completed',
+        output: {
+          text: 'Generated video ready for review.',
+          artifact: {
+            type: 'video',
+            url: 'https://cdn.example.com/higgsfield/final-render.mp4',
+            name: 'Higgsfield final render',
+            mimeType: 'video/mp4',
+          },
+        },
+      },
+    })
+
+    const res = await callFinalize({ runId: 'run-generated-video', agentId: 'maya', events: [] })
+    const body = await res.json()
+
+    expect(res.status).toBe(200)
+    expect(body.data.status).toBe('completed')
+    expect(mockMessageUpdate).toHaveBeenCalledWith(expect.objectContaining({
+      content: 'Generated video ready for review.',
+      status: 'completed',
+      runId: 'run-generated-video',
+      richParts: [
+        {
+          type: 'video',
+          url: 'https://cdn.example.com/higgsfield/final-render.mp4',
+          name: 'Higgsfield final render',
+          mimeType: 'video/mp4',
+        },
+      ],
+    }))
+  })
+
   it('extracts rich parts from JSON text output instead of persisting raw JSON in the chat bubble', async () => {
     const richJsonText = JSON.stringify({
       rich_parts: [

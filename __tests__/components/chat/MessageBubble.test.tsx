@@ -95,6 +95,62 @@ describe('MessageBubble', () => {
     expect(screen.getAllByRole('img', { name: 'Screenshot 2026-05-19.png' }).at(-1)).toHaveAttribute('src', 'https://cdn.example.com/screenshot.png')
   })
 
+  it('renders direct mp4 and webm rich video parts inline with mobile-safe controls and open fallbacks', () => {
+    const { container } = render(
+      <MessageBubble
+        currentUserUid="user-1"
+        message={{
+          id: 'msg-1',
+          conversationId: 'conv-1',
+          role: 'assistant',
+          content: 'Generated videos are ready.',
+          authorKind: 'agent',
+          authorId: 'maya',
+          authorDisplayName: 'Maya',
+          status: 'completed',
+          richParts: [
+            { type: 'video', url: 'https://cdn.example.com/higgsfield-output.mp4', name: 'Higgsfield MP4 output', mimeType: 'video/mp4' },
+            { type: 'video', url: 'https://firebasestorage.googleapis.com/v0/b/pib/o/render.webm?alt=media&token=abc', name: 'Firebase WebM output', mimeType: 'video/webm' },
+          ],
+        }}
+      />,
+    )
+
+    const videos = Array.from(container.querySelectorAll('video'))
+    expect(videos).toHaveLength(2)
+    expect(videos[0]).toHaveAttribute('src', 'https://cdn.example.com/higgsfield-output.mp4')
+    expect(videos[0]).toHaveAttribute('playsinline')
+    expect(videos[1]).toHaveAttribute('src', 'https://firebasestorage.googleapis.com/v0/b/pib/o/render.webm?alt=media&token=abc')
+    expect(videos[1]).toHaveAttribute('playsinline')
+    expect(screen.getByRole('link', { name: /open Higgsfield MP4 output/i })).toHaveAttribute('href', 'https://cdn.example.com/higgsfield-output.mp4')
+    expect(screen.getByRole('link', { name: /open Firebase WebM output/i })).toHaveAttribute('href', 'https://firebasestorage.googleapis.com/v0/b/pib/o/render.webm?alt=media&token=abc')
+  })
+
+  it('uses an explicit browser fallback instead of embedding non-direct Google Drive video links', () => {
+    const { container } = render(
+      <MessageBubble
+        currentUserUid="user-1"
+        message={{
+          id: 'msg-1',
+          conversationId: 'conv-1',
+          role: 'assistant',
+          content: 'Generated Drive video is ready.',
+          authorKind: 'agent',
+          authorId: 'maya',
+          authorDisplayName: 'Maya',
+          status: 'completed',
+          richParts: [
+            { type: 'video', url: 'https://drive.google.com/file/d/abc123/view?usp=drive_link', name: 'Higgsfield Drive output', mimeType: 'video/mp4' },
+          ],
+        }}
+      />,
+    )
+
+    expect(container.querySelector('video')).not.toBeInTheDocument()
+    expect(screen.getByText(/This generated video link cannot be previewed safely inline/i)).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /open Higgsfield Drive output in browser/i })).toHaveAttribute('href', 'https://drive.google.com/file/d/abc123/view?usp=drive_link')
+  })
+
   it('turns bare URLs in chat text into clickable links with image previews', () => {
     render(
       <MessageBubble
@@ -115,6 +171,84 @@ describe('MessageBubble', () => {
     expect(screen.getByRole('link', { name: 'https://partnersinbiz.online' })).toHaveAttribute('href', 'https://partnersinbiz.online')
     expect(screen.getByRole('link', { name: 'https://cdn.example.com/output.png' })).toHaveAttribute('href', 'https://cdn.example.com/output.png')
     expect(screen.getByRole('img', { name: 'https://cdn.example.com/output.png' })).toHaveAttribute('src', 'https://cdn.example.com/output.png')
+  })
+
+
+  it('standardises device-login instructions into a mobile-friendly auth card with separate URL and code copy actions', async () => {
+    const writeText = jest.fn().mockResolvedValue(undefined)
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: { writeText },
+    })
+    const authUrl = 'https://auth.higgsfield.ai/device'
+    const code = 'HF-24K9-ZQ7P'
+
+    render(
+      <MessageBubble
+        currentUserUid="user-1"
+        message={{
+          id: 'msg-auth',
+          conversationId: 'conv-1',
+          role: 'assistant',
+          content: `Higgsfield needs device login. Visit ${authUrl} and enter code ${code}. This code expires in 15 minutes. Full link: https://auth.higgsfield.ai/device?user_code=${code}&client_id=${'x'.repeat(120)}`,
+          authorKind: 'agent',
+          authorId: 'maya',
+          authorDisplayName: 'Maya',
+          status: 'completed',
+        }}
+      />,
+    )
+
+    const card = screen.getByLabelText('Device login instructions')
+    expect(card).toHaveClass('max-w-full', 'overflow-hidden')
+    expect(screen.getByText('Higgsfield device login')).toBeInTheDocument()
+    expect(screen.getByText(authUrl)).toHaveClass('break-words', '[overflow-wrap:anywhere]')
+    expect(screen.getByText(code)).toBeInTheDocument()
+    expect(screen.getByText(/expires in 15 minutes/i)).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Copy auth URL' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Copy auth code' }))
+
+    await waitFor(() => {
+      expect(writeText).toHaveBeenCalledWith(authUrl)
+      expect(writeText).toHaveBeenCalledWith(code)
+    })
+    expect(screen.getByRole('link', { name: /open full auth link/i })).toHaveAttribute('href', expect.stringContaining('user_code=HF-24K9-ZQ7P'))
+  })
+
+  it('renders device auth cards for Hermes/Higgsfield tool output and keeps long full links from overflowing', () => {
+    const fullLink = `https://login.example.com/activate?user_code=CODE-7788&state=${'state-token-'.repeat(30)}`
+
+    render(
+      <MessageBubble
+        currentUserUid="user-1"
+        message={{
+          id: 'msg-tool-auth',
+          conversationId: 'conv-1',
+          role: 'assistant',
+          content: 'Waiting on tool login.',
+          authorKind: 'agent',
+          authorId: 'maya',
+          authorDisplayName: 'Maya',
+          status: 'completed',
+          richParts: [
+            {
+              type: 'tool_output',
+              tool: 'higgsfield',
+              stdout: `To authenticate, open ${fullLink} and enter code CODE-7788. Status: pending, expires at 2026-06-20T12:30:00Z`,
+            },
+          ],
+        }}
+      />,
+    )
+
+    const card = screen.getByLabelText('Device login instructions')
+    expect(card).toHaveClass('max-w-full', 'overflow-hidden')
+    expect(screen.getByText('https://login.example.com/activate')).toBeInTheDocument()
+    expect(screen.getByText('CODE-7788')).toBeInTheDocument()
+    expect(screen.getByText(/status: pending/i)).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /open full auth link/i })).toHaveClass('max-w-full', 'truncate')
+    expect(screen.queryByText(fullLink)).not.toBeInTheDocument()
   })
 
   it('shows a full inline command console for agent tool events', () => {

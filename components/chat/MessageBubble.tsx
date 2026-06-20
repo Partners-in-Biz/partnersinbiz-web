@@ -259,6 +259,111 @@ function isImageAttachment(attachment: ConversationAttachment): boolean {
   return attachment.contentType.toLowerCase().startsWith('image/')
 }
 
+function isVideoAttachment(attachment: ConversationAttachment): boolean {
+  return attachment.contentType.toLowerCase().startsWith('video/')
+}
+
+function parsedUrl(value: string): URL | null {
+  try {
+    return new URL(value)
+  } catch {
+    return null
+  }
+}
+
+function isGoogleDriveBrowserUrl(url: string): boolean {
+  const parsed = parsedUrl(url)
+  if (!parsed) return false
+  const hostname = parsed.hostname.toLowerCase()
+  return hostname === 'drive.google.com'
+    || hostname === 'docs.google.com'
+    || hostname.endsWith('.drive.google.com')
+    || hostname.endsWith('.docs.google.com')
+}
+
+function urlPathHasVideoExtension(url: string): boolean {
+  const parsed = parsedUrl(url)
+  const path = parsed ? parsed.pathname : url.split('?')[0] ?? url
+  let decoded = path
+  try {
+    decoded = decodeURIComponent(path)
+  } catch {
+    decoded = path
+  }
+  return /\.(mp4|webm|mov|m4v)$/i.test(decoded)
+}
+
+function isStorageDirectMediaUrl(url: string): boolean {
+  const parsed = parsedUrl(url)
+  if (!parsed) return false
+  const hostname = parsed.hostname.toLowerCase()
+  if (hostname === 'firebasestorage.googleapis.com') return parsed.searchParams.get('alt') === 'media'
+  return hostname === 'storage.googleapis.com' || hostname.endsWith('.storage.googleapis.com')
+}
+
+function isInlinePlayableVideoUrl(url: string, mimeType?: string): boolean {
+  if (url.startsWith('blob:')) return true
+  const parsed = parsedUrl(url)
+  if (!parsed || !['http:', 'https:'].includes(parsed.protocol)) return false
+  if (isGoogleDriveBrowserUrl(url)) return false
+  if (urlPathHasVideoExtension(url)) return true
+  return Boolean(mimeType?.toLowerCase().startsWith('video/') && isStorageDirectMediaUrl(url))
+}
+
+function videoLabel(name?: string, caption?: string): string {
+  return name ?? caption ?? 'Generated video'
+}
+
+function VideoOpenLink({ url, label, suffix }: { url: string; label: string; suffix?: string }) {
+  return (
+    <a
+      href={url}
+      target="_blank"
+      rel="noreferrer"
+      className="inline-flex max-w-full items-center gap-1.5 truncate rounded-md border border-white/10 bg-white/[0.06] px-2.5 py-1.5 text-xs font-medium text-on-surface transition hover:border-primary/60 focus:outline-none focus:ring-2 focus:ring-primary/50"
+      aria-label={`Open ${label}${suffix ?? ''}`}
+    >
+      <span aria-hidden="true" className="material-symbols-outlined text-[14px]">open_in_new</span>
+      <span className="truncate">Open {label}{suffix}</span>
+    </a>
+  )
+}
+
+function NonEmbeddableVideoFallback({ url, name, caption }: { url: string; name?: string; caption?: string }) {
+  const label = videoLabel(name, caption)
+  return (
+    <div className="my-2 rounded-xl border border-amber-400/25 bg-amber-500/10 p-3 text-on-surface">
+      <div className="mb-1.5 flex items-center gap-2 text-xs font-semibold text-amber-100">
+        <span aria-hidden="true" className="material-symbols-outlined text-[16px]">movie_info</span>
+        <span>{label}</span>
+      </div>
+      <p className="mb-2 text-xs leading-relaxed text-on-surface-variant">
+        This generated video link cannot be previewed safely inline. Open it in a browser to view or download it.
+      </p>
+      <VideoOpenLink url={url} label={label} suffix=" in browser" />
+    </div>
+  )
+}
+
+function InlineVideoPreview({ url, name, caption }: { url: string; name?: string; caption?: string }) {
+  const label = videoLabel(name, caption)
+  return (
+    <figure className="my-2 overflow-hidden rounded-xl border border-white/10 bg-black/20">
+      <video controls playsInline preload="metadata" src={url} aria-label={label} className="max-h-80 w-full bg-black" />
+      <figcaption className="flex flex-wrap items-center justify-between gap-2 border-t border-white/10 px-3 py-2 text-xs text-on-surface-variant">
+        <span className="min-w-0 truncate">{caption ?? name ?? 'Video preview'}</span>
+        <VideoOpenLink url={url} label={label} />
+      </figcaption>
+    </figure>
+  )
+}
+
+function VideoPreviewOrFallback({ url, name, caption, mimeType }: { url: string; name?: string; caption?: string; mimeType?: string }) {
+  return isInlinePlayableVideoUrl(url, mimeType)
+    ? <InlineVideoPreview url={url} name={name} caption={caption} />
+    : <NonEmbeddableVideoFallback url={url} name={name} caption={caption} />
+}
+
 function formatBytes(bytes: number): string {
   if (!Number.isFinite(bytes) || bytes <= 0) return ''
   if (bytes >= 1024 * 1024) return `${(bytes / 1024 / 1024).toFixed(1)} MB`
@@ -371,6 +476,143 @@ function BareUrlPreviews({ content }: { content: string }) {
     </div>
   )
 }
+
+
+interface DeviceAuthInstruction {
+  providerLabel: string
+  url: string
+  code: string
+  expiryOrStatus?: string
+  fullLink?: string
+}
+
+const AUTH_CODE_PATTERN = /(?:\b(?:user[_ -]?code|device[_ -]?code|verification\s+code|login\s+code|code)\b\s*(?:is|:|=)?\s*)([A-Z0-9][A-Z0-9-]{3,31}[A-Z0-9])/i
+const AUTH_HINT_PATTERN = /\b(device\s+(?:login|auth|authorization)|auth(?:enticate|entication| link)?|login\s+code|verification\s+code|user[_ -]?code|device[_ -]?code)\b/i
+const SENSITIVE_URL_PARAM_PATTERN = /(^|_)(token|secret|key|password|signature|session|credential)s?$/i
+
+function safeAuthUrlParts(rawUrl: string): { baseUrl: string; fullLink?: string; codeFromUrl?: string } | null {
+  try {
+    const parsed = new URL(rawUrl)
+    const baseUrl = `${parsed.origin}${parsed.pathname}`
+    let codeFromUrl: string | undefined
+    for (const name of ['user_code', 'userCode', 'device_code', 'deviceCode', 'code']) {
+      const value = parsed.searchParams.get(name)
+      if (value && /^[A-Z0-9][A-Z0-9-]{3,31}[A-Z0-9]$/i.test(value)) {
+        codeFromUrl = value.toUpperCase()
+        break
+      }
+    }
+    const hasSensitiveParam = Array.from(parsed.searchParams.keys()).some((key) => SENSITIVE_URL_PARAM_PATTERN.test(key))
+    return {
+      baseUrl,
+      fullLink: parsed.search && !hasSensitiveParam ? rawUrl : undefined,
+      codeFromUrl,
+    }
+  } catch {
+    return null
+  }
+}
+
+function extractExpiryOrStatus(text: string): string | undefined {
+  const status = text.match(/\bstatus\s*[:=]\s*([^\n.,;]{2,80})/i)?.[1]?.trim()
+  const expiryMatch = text.match(/\b(?:expires?|expiration)\b\s*(in|at|:)?\s*([^\n.]{2,80})/i)
+  const expiry = expiryMatch?.[2]?.trim().replace(/[,;]+$/, '')
+  const expiryPrefix = expiryMatch?.[1]?.toLowerCase() === 'in' ? 'Expires in' : 'Expires'
+  return [
+    status ? `Status: ${status.replace(/[,;]+$/, '')}` : null,
+    expiry ? `${expiryPrefix} ${expiry}` : null,
+  ].filter(Boolean).join(' · ') || undefined
+}
+
+
+function extractDeviceAuthInstruction(text: string, tool?: string): DeviceAuthInstruction | null {
+  if (!text || !AUTH_HINT_PATTERN.test(`${tool ?? ''}\n${text}`)) return null
+  const urls = bareUrls(text)
+  if (!urls.length) return null
+
+  let selected: { baseUrl: string; fullLink?: string; codeFromUrl?: string } | null = null
+  for (const candidate of urls) {
+    const parts = safeAuthUrlParts(candidate)
+    if (!parts) continue
+    if (!selected || parts.codeFromUrl || /user[_-]?code|device[_-]?code|code=/i.test(candidate)) selected = parts
+    if (parts.codeFromUrl) break
+  }
+  if (!selected) return null
+
+  const regexCode = text.match(AUTH_CODE_PATTERN)?.[1]
+  const code = (selected.codeFromUrl ?? regexCode)?.toUpperCase()
+  if (!code) return null
+
+  const providerSource = `${tool ?? ''} ${text}`
+  const providerLabel = /higgsfield/i.test(providerSource)
+    ? 'Higgsfield device login'
+    : /hermes/i.test(providerSource)
+      ? 'Hermes device login'
+      : 'Device login'
+
+  return {
+    providerLabel,
+    url: selected.baseUrl,
+    code,
+    expiryOrStatus: extractExpiryOrStatus(text),
+    fullLink: selected.fullLink && selected.fullLink !== selected.baseUrl ? selected.fullLink : undefined,
+  }
+}
+
+function CopyAuthValueButton({ label, value }: { label: string; value: string }) {
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      onClick={() => { void copyToClipboard(value) }}
+      className="inline-flex items-center justify-center gap-1.5 rounded-md border border-white/10 bg-white/[0.06] px-2.5 py-1.5 text-xs font-medium text-on-surface transition hover:border-primary/50 hover:bg-white/[0.09] focus:outline-none focus:ring-2 focus:ring-primary/50"
+    >
+      <span aria-hidden="true" className="material-symbols-outlined text-[14px]">content_copy</span>
+      Copy
+    </button>
+  )
+}
+
+function DeviceAuthCard({ instruction }: { instruction: DeviceAuthInstruction }) {
+  return (
+    <section aria-label="Device login instructions" className="my-2 max-w-full overflow-hidden rounded-xl border border-primary/25 bg-primary/5 p-3 text-on-surface shadow-sm">
+      <div className="mb-2 flex items-center gap-2 text-sm font-semibold">
+        <span aria-hidden="true" className="material-symbols-outlined text-[17px] text-primary">phonelink_lock</span>
+        <span>{instruction.providerLabel}</span>
+      </div>
+      <dl className="space-y-2 text-xs">
+        <div className="grid gap-1 rounded-lg bg-black/20 p-2 sm:grid-cols-[4.5rem_minmax(0,1fr)_auto] sm:items-center">
+          <dt className="font-label uppercase tracking-wide text-on-surface-variant">URL</dt>
+          <dd className="min-w-0 break-words font-mono text-primary [overflow-wrap:anywhere]">{instruction.url}</dd>
+          <dd><CopyAuthValueButton label="Copy auth URL" value={instruction.url} /></dd>
+        </div>
+        <div className="grid gap-1 rounded-lg bg-black/20 p-2 sm:grid-cols-[4.5rem_minmax(0,1fr)_auto] sm:items-center">
+          <dt className="font-label uppercase tracking-wide text-on-surface-variant">Code</dt>
+          <dd className="min-w-0 break-words font-mono text-base font-semibold tracking-wide text-on-surface [overflow-wrap:anywhere]">{instruction.code}</dd>
+          <dd><CopyAuthValueButton label="Copy auth code" value={instruction.code} /></dd>
+        </div>
+        {instruction.expiryOrStatus && (
+          <div className="grid gap-1 rounded-lg bg-black/20 p-2 sm:grid-cols-[4.5rem_minmax(0,1fr)] sm:items-center">
+            <dt className="font-label uppercase tracking-wide text-on-surface-variant">Status</dt>
+            <dd className="min-w-0 break-words text-on-surface-variant [overflow-wrap:anywhere]">{instruction.expiryOrStatus}</dd>
+          </div>
+        )}
+      </dl>
+      {instruction.fullLink && (
+        <a
+          href={instruction.fullLink}
+          target="_blank"
+          rel="noreferrer"
+          className="mt-2 inline-flex max-w-full items-center gap-1.5 truncate rounded-md border border-primary/25 bg-primary/10 px-2.5 py-1.5 text-xs font-medium text-primary transition hover:border-primary/70 focus:outline-none focus:ring-2 focus:ring-primary/50"
+        >
+          <span aria-hidden="true" className="material-symbols-outlined text-[14px]">open_in_new</span>
+          <span className="truncate">Open full auth link</span>
+        </a>
+      )}
+    </section>
+  )
+}
+
 
 function inlineMarkdown(text: string): ReactNode[] {
   const nodes: ReactNode[] = []
@@ -552,6 +794,8 @@ function renderMarkdownBlocks(content: string): ReactNode[] {
 
 export function ChatMessageContent({ content }: { content: string }) {
   if (!content) return null
+  const authInstruction = extractDeviceAuthInstruction(content)
+  if (authInstruction) return <DeviceAuthCard instruction={authInstruction} />
   if (!hasRichChatMarkup(content)) {
     if (!hasBareUrl(content)) return <>{content}</>
     return (
@@ -660,12 +904,7 @@ function RichMessagePartView({ part }: { part: RichMessagePart }) {
       )
     }
     if (type === 'video') {
-      return (
-        <div className="my-2 overflow-hidden rounded-xl border border-white/10 bg-black/20">
-          <video controls src={part.url} className="max-h-80 w-full" />
-          {part.name && <p className="px-3 py-2 text-xs text-on-surface-variant">{part.name}</p>}
-        </div>
-      )
+      return <VideoPreviewOrFallback url={part.url} name={part.name ?? part.title} caption={part.caption} mimeType={part.mimeType} />
     }
     return (
       <a href={part.url} target="_blank" rel="noreferrer" className="my-2 flex items-center gap-2 rounded-xl border border-white/15 bg-black/10 px-3 py-2 text-xs transition hover:border-primary/70">
@@ -677,6 +916,8 @@ function RichMessagePartView({ part }: { part: RichMessagePart }) {
   }
   if (type === 'tool_output') {
     const text = [part.output, part.stdout, part.stderr].filter(Boolean).join('\n')
+    const authInstruction = extractDeviceAuthInstruction(text, part.tool ?? part.title)
+    if (authInstruction) return <DeviceAuthCard instruction={authInstruction} />
     return (
       <div className="my-2 overflow-hidden rounded-xl border border-primary/20 bg-black/35">
         <div className="border-b border-white/10 px-3 py-2 text-[11px] font-label uppercase tracking-wide text-primary">
@@ -982,6 +1223,7 @@ export default function MessageBubble({
       {attachments.map((attachment) => {
         const image = isImageAttachment(attachment)
         const size = formatBytes(attachment.sizeBytes)
+        const video = isVideoAttachment(attachment)
         if (image) {
           return (
             <button
@@ -1002,6 +1244,9 @@ export default function MessageBubble({
               </span>
             </button>
           )
+        }
+        if (video) {
+          return <VideoPreviewOrFallback key={attachment.id} url={attachment.url} name={attachment.name} mimeType={attachment.contentType} />
         }
 
         return (
