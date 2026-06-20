@@ -91,6 +91,16 @@ describe('project task approval gate route guards', () => {
     expect(mockTaskUpdate).not.toHaveBeenCalled()
   })
 
+  it('blocks non-admin users from indirectly completing approval-gated tasks', async () => {
+    const { PATCH } = await import('@/app/api/v1/projects/[projectId]/tasks/[taskId]/route')
+    const res = await PATCH(req({ columnId: 'done', reviewStatus: 'approved' }), ctx)
+    const body = await res.json()
+
+    expect(res.status).toBe(403)
+    expect(body.error).toMatch(/Only an admin approver/)
+    expect(mockTaskUpdate).not.toHaveBeenCalled()
+  })
+
   it('rejects approvalStatus changes on legacy tasks with null status but no real gate', async () => {
     currentUser = { uid: 'admin-1', role: 'admin', authKind: 'session' }
     mockTaskGet.mockResolvedValueOnce({
