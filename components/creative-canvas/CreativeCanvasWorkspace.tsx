@@ -741,6 +741,14 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
   const [collaborationStreamConnected, setCollaborationStreamConnected] = useState(false)
   const [acceptedGraphSignature, setAcceptedGraphSignature] = useState('')
   const [autoSaveEnabled, setAutoSaveEnabled] = useState(true)
+  const [conflictDraft, setConflictDraft] = useState<{
+    title: string
+    purpose: string
+    nodes: CreativeCanvasNode[]
+    edges: CreativeCanvasEdge[]
+    currentActiveVersion?: number
+    conflictDetails?: CreativeCanvasApiListResponse['conflictDetails']
+  } | null>(null)
   const lastAutoFollowedDraftSignatureRef = useRef('')
 
   const activeCanvas = useMemo(
@@ -2055,9 +2063,19 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
         const conflict = payload as { code?: string; currentActiveVersion?: number } | null
         if (response.status === 409 || conflict?.code === 'creative_canvas_version_conflict') {
           const conflictCount = payload?.conflicts?.length ?? 0
+          const draftNodes = nodes.map((node) => toCanvasNode(node, resolvedOrgId || activeCanvas.orgId))
+          const draftEdges = edges.map((edge) => toCanvasEdge(edge, resolvedOrgId || activeCanvas.orgId))
           const conflictDetailSummary = payload?.conflictDetails?.length
             ? ` Conflicts: ${payload.conflictDetails.slice(0, 3).map((item) => `${item.kind} "${item.label}"`).join(', ')}.`
             : ''
+          setConflictDraft({
+            title: `${activeCanvas.title} local conflict branch`,
+            purpose: activeCanvas.purpose,
+            nodes: draftNodes,
+            edges: draftEdges,
+            currentActiveVersion: conflict?.currentActiveVersion,
+            conflictDetails: payload?.conflictDetails,
+          })
           setSaveMessage(
             `Graph changed in another session. ${conflictCount ? `${conflictCount} overlapping edit${conflictCount === 1 ? '' : 's'} need review. ` : ''}Refresh versions before saving${conflict?.currentActiveVersion ? ` (current v${conflict.currentActiveVersion})` : ''}.${conflictDetailSummary}`,
           )
@@ -2093,6 +2111,39 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
     resolvedOrgId,
     saving,
   ])
+
+  const forkConflictDraft = async () => {
+    if (!conflictDraft || !activeCanvas?.id) return
+
+    const canvasOrgId = resolvedOrgId || activeCanvas.orgId
+    const query = canvasOrgId ? `?orgId=${encodeURIComponent(canvasOrgId)}` : ''
+    const response = await fetch(`/api/v1/creative-canvas${query}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        title: conflictDraft.title,
+        purpose: conflictDraft.purpose,
+        status: 'draft',
+        visibility: activeCanvas.visibility,
+        linked: activeCanvas.linked,
+        nodes: conflictDraft.nodes,
+        edges: conflictDraft.edges,
+      }),
+    })
+    const payload = await response.json().catch(() => null) as CreativeCanvasApiListResponse | null
+    if (!response.ok || !payload?.data?.canvas) {
+      setActivityMessage(payload?.error ?? 'Conflict branch creation failed')
+      return
+    }
+
+    applyCanvasSnapshot(payload.data.canvas)
+    setConflictDraft(null)
+    setSaveMessage(`Forked local conflict draft from v${conflictDraft.currentActiveVersion ?? activeCanvas.activeVersion}`)
+    await loadVersions(payload.data.canvas.id ?? activeCanvas.id, canvasOrgId)
+    await loadRuns(payload.data.canvas.id ?? activeCanvas.id, canvasOrgId)
+    await loadPresence(payload.data.canvas.id ?? activeCanvas.id, canvasOrgId)
+    await loadComments(payload.data.canvas.id ?? activeCanvas.id, canvasOrgId)
+  }
 
   useEffect(() => {
     if (!autoSaveEnabled || !graphHasUnsavedChanges || !activeCanvas?.id || saving) return
@@ -2664,6 +2715,31 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
               className="rounded-md border border-amber-300 bg-white px-3 py-2 text-xs font-semibold text-amber-900"
             >
               Apply latest graph
+            </button>
+          </div>
+        </div>
+      ) : null}
+
+      {conflictDraft ? (
+        <div className="rounded-lg border border-orange-200 bg-orange-50 px-4 py-3 text-sm text-orange-900">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="font-semibold">Local conflict draft preserved</p>
+              <p className="mt-1">
+                Your unsaved graph has {conflictDraft.nodes.length} nodes and {conflictDraft.edges.length} links. Fork it into a new canvas branch before applying the remote graph.
+              </p>
+              {conflictDraft.conflictDetails?.length ? (
+                <p className="mt-1 text-xs">
+                  {conflictDraft.conflictDetails.slice(0, 3).map((item) => `${item.kind} "${item.label}"`).join(', ')}
+                </p>
+              ) : null}
+            </div>
+            <button
+              type="button"
+              onClick={() => { void forkConflictDraft() }}
+              className="rounded-md border border-orange-300 bg-white px-3 py-2 text-xs font-semibold text-orange-900"
+            >
+              Fork local draft
             </button>
           </div>
         </div>

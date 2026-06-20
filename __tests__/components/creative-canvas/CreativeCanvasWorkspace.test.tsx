@@ -1310,6 +1310,29 @@ describe('CreativeCanvasWorkspace', () => {
           }),
         }
       }
+      if (url === '/api/v1/creative-canvas?orgId=org-1' && init?.method === 'POST') {
+        return {
+          ok: true,
+          status: 201,
+          json: async () => ({
+            success: true,
+            data: {
+              canvas: {
+                id: 'canvas-conflict-branch',
+                orgId: 'org-1',
+                title: 'Launch Canvas local conflict branch',
+                purpose: 'Product launch',
+                status: 'draft',
+                activeVersion: 1,
+                visibility: 'admin_agents',
+                linked: { projectId: 'project-1' },
+                nodes: [{ id: 'conflict-node', orgId: 'org-1', type: 'source', title: 'Conflict node', position: { x: 0, y: 0 }, data: {} }],
+                edges: [],
+              },
+            },
+          }),
+        }
+      }
       if (url.includes('/versions')) {
         return {
           ok: true,
@@ -1335,6 +1358,22 @@ describe('CreativeCanvasWorkspace', () => {
 
     expect(await screen.findByText(/2 overlapping edits need review/i)).toBeInTheDocument()
     expect(screen.getByText(/Conflicts: node "Source node", edge "Source to model"/i)).toBeInTheDocument()
+    expect(screen.getByText('Local conflict draft preserved')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: /fork local draft/i }))
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith('/api/v1/creative-canvas?orgId=org-1', expect.objectContaining({
+        method: 'POST',
+      }))
+    })
+    const branchCall = fetchMock.mock.calls.find(([url, init]) =>
+      String(url) === '/api/v1/creative-canvas?orgId=org-1' && init?.method === 'POST'
+    )
+    expect(JSON.parse(branchCall?.[1]?.body as string)).toMatchObject({
+      title: 'Launch Canvas local conflict branch',
+      linked: { projectId: 'project-1' },
+    })
+    expect(await screen.findByText('Launch Canvas local conflict branch')).toBeInTheDocument()
     const graphCall = fetchMock.mock.calls.find(([url, init]) =>
       String(url).includes('/graph?orgId=org-1') && init?.method === 'PUT'
     )
