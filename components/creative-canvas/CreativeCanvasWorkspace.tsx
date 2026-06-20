@@ -646,6 +646,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
   const [templates, setTemplates] = useState<Array<CreativeCanvasTemplate & { id: string }>>([])
   const [templateTitle, setTemplateTitle] = useState('')
   const [templateDescription, setTemplateDescription] = useState('')
+  const [collaborationLinkCopied, setCollaborationLinkCopied] = useState(false)
 
   const activeCanvas = useMemo(
     () => canvases.find((canvas) => canvas.id === activeCanvasId) ?? canvases[0],
@@ -705,6 +706,21 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
     }
     return true
   }), [assetOriginFilter, assetReadinessFilter, canvasAssets])
+  const collaborationLink = useMemo(() => {
+    if (!activeCanvas?.id || typeof window === 'undefined') return ''
+    const url = new URL(window.location.href)
+    url.searchParams.set('canvasId', activeCanvas.id)
+    if (resolvedOrgId || activeCanvas.orgId) url.searchParams.set('orgId', resolvedOrgId || activeCanvas.orgId)
+    return url.toString()
+  }, [activeCanvas?.id, activeCanvas?.orgId, resolvedOrgId])
+
+  const writeCanvasDeepLink = useCallback((canvas: CreativeCanvas) => {
+    if (!canvas.id || typeof window === 'undefined') return
+    const url = new URL(window.location.href)
+    url.searchParams.set('canvasId', canvas.id)
+    if (resolvedOrgId || canvas.orgId) url.searchParams.set('orgId', resolvedOrgId || canvas.orgId)
+    window.history.replaceState(null, '', `${url.pathname}${url.search}${url.hash}`)
+  }, [resolvedOrgId])
 
   const loadVersions = useCallback(async (canvasId: string, canvasOrgId: string) => {
     if (!canvasId || !canvasOrgId) {
@@ -911,11 +927,15 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
 
         setCanvases(loadedCanvases)
         setRemoteCanvasUpdate(null)
-        const firstCanvas = loadedCanvases[0]
+        const requestedCanvasId = typeof window === 'undefined'
+          ? ''
+          : new URLSearchParams(window.location.search).get('canvasId') ?? ''
+        const firstCanvas = loadedCanvases.find((canvas) => canvas.id === requestedCanvasId) ?? loadedCanvases[0]
         setActiveCanvasId(firstCanvas?.id ?? '')
         setSelectedFlowNodeId(firstCanvas?.nodes?.[0]?.id ?? '')
         setNodes((firstCanvas?.nodes ?? []).map(toFlowNode))
         setEdges((firstCanvas?.edges ?? []).map(toFlowEdge))
+        if (firstCanvas?.id) writeCanvasDeepLink(firstCanvas)
         if (firstCanvas?.id) {
           await loadVersions(firstCanvas.id, orgId ?? firstCanvas.orgId)
           await loadRuns(firstCanvas.id, orgId ?? firstCanvas.orgId)
@@ -947,7 +967,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
     return () => {
       cancelled = true
     }
-  }, [loadComments, loadPresence, loadRuns, loadRuntimeProof, loadVersions, orgId])
+  }, [loadComments, loadPresence, loadRuns, loadRuntimeProof, loadVersions, orgId, writeCanvasDeepLink])
 
   useEffect(() => {
     let cancelled = false
@@ -1337,6 +1357,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
 
   const openCanvas = async (canvas: CreativeCanvas) => {
     applyCanvasSnapshot(canvas)
+    writeCanvasDeepLink(canvas)
     if (canvas.id) {
       await loadVersions(canvas.id, orgId ?? canvas.orgId)
       await loadRuns(canvas.id, orgId ?? canvas.orgId)
@@ -1344,6 +1365,14 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
       await loadPresence(canvas.id, orgId ?? canvas.orgId)
       await loadComments(canvas.id, orgId ?? canvas.orgId)
     }
+  }
+
+  const copyCollaborationLink = async () => {
+    if (!collaborationLink) return
+    await navigator.clipboard?.writeText(collaborationLink)
+    setCollaborationLinkCopied(true)
+    setActivityMessage('Canvas collaboration link copied')
+    window.setTimeout(() => setCollaborationLinkCopied(false), 1800)
   }
 
   const importSourceItem = (item: CreativeCanvasSourceLibraryItem) => {
@@ -3077,6 +3106,20 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
                 className="rounded-md border border-[var(--color-pib-line)] px-2 py-1 text-xs font-semibold text-[var(--color-pib-text)] disabled:cursor-not-allowed disabled:opacity-50"
               >
                 Refresh
+              </button>
+            </div>
+            <div className="mt-2 rounded-lg border border-[var(--color-pib-line)] bg-white px-3 py-2">
+              <p className="text-xs font-semibold text-[var(--color-pib-text)]">Canvas link</p>
+              <p className="mt-1 break-all text-[11px] text-[var(--color-pib-text-muted)]">
+                {collaborationLink || 'Open a canvas to create a collaboration link.'}
+              </p>
+              <button
+                type="button"
+                onClick={() => { void copyCollaborationLink() }}
+                disabled={!collaborationLink}
+                className="mt-2 rounded-md border border-[var(--color-pib-line)] px-2 py-1 text-xs font-semibold text-[var(--color-pib-text)] disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {collaborationLinkCopied ? 'Copied link' : 'Copy canvas link'}
               </button>
             </div>
             <div className="mt-2 space-y-2">

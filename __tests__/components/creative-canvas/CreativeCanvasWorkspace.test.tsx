@@ -37,6 +37,11 @@ function dispatchBrushPointerEvent(
 
 beforeEach(() => {
   jest.clearAllMocks()
+  window.history.replaceState(null, '', '/admin/creative-canvas?orgId=org-1')
+  Object.defineProperty(navigator, 'clipboard', {
+    configurable: true,
+    value: { writeText: jest.fn().mockResolvedValue(undefined) },
+  })
   global.fetch = fetchMock
   fetchMock.mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = String(input)
@@ -671,6 +676,96 @@ describe('CreativeCanvasWorkspace', () => {
     expect(inspectorButton).toHaveAttribute('aria-pressed', 'true')
     expect(inspectorPanel).toHaveClass('block')
     expect(sourcesPanel).toHaveClass('hidden')
+  })
+
+  it('opens a requested canvas from the collaboration URL', async () => {
+    window.history.replaceState(null, '', '/admin/creative-canvas?orgId=org-1&canvasId=canvas-2')
+    fetchMock.mockImplementation(async (input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url === '/api/v1/creative-canvas?orgId=org-1') {
+        return {
+          ok: true,
+          json: async () => ({
+            success: true,
+            data: {
+              canvases: [
+                {
+                  id: 'canvas-1',
+                  orgId: 'org-1',
+                  title: 'First Canvas',
+                  purpose: 'First project',
+                  status: 'draft',
+                  activeVersion: 1,
+                  linked: {},
+                  nodes: [],
+                  edges: [],
+                },
+                {
+                  id: 'canvas-2',
+                  orgId: 'org-1',
+                  title: 'Second Canvas',
+                  purpose: 'Shared board',
+                  status: 'draft',
+                  activeVersion: 4,
+                  linked: {},
+                  nodes: [{
+                    id: 'second-source',
+                    orgId: 'org-1',
+                    type: 'source',
+                    title: 'Second source',
+                    position: { x: 0, y: 0 },
+                    data: {},
+                  }],
+                  edges: [],
+                },
+              ],
+            },
+          }),
+        }
+      }
+      if (url.includes('/templates')) {
+        return { ok: true, json: async () => ({ success: true, data: { templates: [] } }) }
+      }
+      if (url.includes('/sources')) {
+        return { ok: true, json: async () => ({ success: true, data: { sources: [] } }) }
+      }
+      if (url.includes('/presence')) {
+        return { ok: true, json: async () => ({ success: true, data: { presence: [] } }) }
+      }
+      if (url.includes('/comments')) {
+        return { ok: true, json: async () => ({ success: true, data: { comments: [] } }) }
+      }
+      if (url.includes('/runtime-proof')) {
+        return { ok: true, json: async () => ({ success: true, data: { proof: null } }) }
+      }
+      if (url.includes('/runs')) {
+        return { ok: true, json: async () => ({ success: true, data: { runs: [] } }) }
+      }
+      if (url.includes('/versions')) {
+        return { ok: true, json: async () => ({ success: true, data: { versions: [] } }) }
+      }
+      return { ok: true, json: async () => ({ success: true, data: {} }) }
+    })
+
+    render(<CreativeCanvasWorkspace mode="admin" orgId="org-1" />)
+
+    expect(await screen.findByText('Second Canvas')).toBeInTheDocument()
+    expect(screen.getByText('second-source')).toBeInTheDocument()
+    expect(screen.getByText(/canvasId=canvas-2/)).toBeInTheDocument()
+    expect(window.location.search).toContain('canvasId=canvas-2')
+  })
+
+  it('copies the active canvas collaboration link', async () => {
+    render(<CreativeCanvasWorkspace mode="admin" orgId="org-1" />)
+
+    await screen.findByText('Launch Canvas')
+    fireEvent.click(screen.getByRole('button', { name: /copy canvas link/i }))
+
+    await waitFor(() => {
+      expect(navigator.clipboard.writeText).toHaveBeenCalledWith(expect.stringContaining('canvasId=canvas-1'))
+    })
+    expect(navigator.clipboard.writeText).toHaveBeenCalledWith(expect.stringContaining('orgId=org-1'))
+    expect(await screen.findByText('Canvas collaboration link copied')).toBeInTheDocument()
   })
 
   it('retries a failed retryable provider run from run history', async () => {
