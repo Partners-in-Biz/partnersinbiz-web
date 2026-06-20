@@ -856,6 +856,13 @@ describe('CreativeCanvasWorkspace', () => {
     expect(parityAudit).toHaveTextContent('Export flows')
     expect(parityAudit).toHaveTextContent('Production reliability')
     expect(parityAudit).toHaveTextContent('1/4 proof categories passed')
+    const benchmarkProof = screen.getByLabelText(/direct higgsfield benchmark proof/i)
+    expect(benchmarkProof).toHaveTextContent('Capability-by-capability evidence ledger')
+    expect(benchmarkProof).toHaveTextContent('0/9 benchmark proven')
+    expect(benchmarkProof).toHaveTextContent('Editing ergonomics')
+    expect(benchmarkProof).toHaveTextContent('Masking / inpainting UX')
+    expect(benchmarkProof).toHaveTextContent('Generation controls')
+    expect(benchmarkProof).toHaveTextContent('Production reliability')
     expect(screen.getByRole('region', { name: /canvas graph workspace/i })).toHaveClass('block')
     expect(screen.getByRole('complementary', { name: /source and workflow tools/i })).toHaveClass('hidden')
   })
@@ -894,6 +901,42 @@ describe('CreativeCanvasWorkspace', () => {
     expect(within(visualProof).getByRole('link', { name: /open proof/i })).toHaveAttribute('href', 'https://proof.example.com/desktop-1440.png')
     const parityAudit = screen.getByLabelText(/higgsfield parity audit/i)
     expect(parityAudit).toHaveTextContent('1/4 visual proofs captured')
+  })
+
+  it('saves direct Higgsfield benchmark proof evidence', async () => {
+    render(<CreativeCanvasWorkspace mode="admin" orgId="org-1" />)
+
+    expect(await screen.findByText('Launch Canvas')).toBeInTheDocument()
+    fireEvent.change(screen.getByLabelText(/editing ergonomics benchmark proof url/i), {
+      target: { value: 'https://proof.example.com/editing-ergonomics.mp4' },
+    })
+    fireEvent.change(screen.getByLabelText(/editing ergonomics benchmark proof notes/i), {
+      target: { value: 'Graph node editing, branch recovery, and save behavior captured.' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: /save editing ergonomics proof/i }))
+
+    await waitFor(() => expect(screen.getByText('Saved Editing ergonomics benchmark proof')).toBeInTheDocument())
+
+    const patchCall = fetchMock.mock.calls.find(([input, init]) => (
+      String(input) === '/api/v1/creative-canvas/canvas-1?orgId=org-1'
+      && init?.method === 'PATCH'
+      && String(init.body).includes('benchmarkProof')
+    ))
+    expect(patchCall).toBeTruthy()
+    const body = JSON.parse(String(patchCall?.[1]?.body ?? '{}')) as {
+      data?: { benchmarkProof?: Record<string, { proofUrl?: string; notes?: string; capturedAt?: string; capturedBy?: string }> }
+    }
+    expect(body.data?.benchmarkProof?.editing_ergonomics).toMatchObject({
+      proofUrl: 'https://proof.example.com/editing-ergonomics.mp4',
+      notes: 'Graph node editing, branch recovery, and save behavior captured.',
+      capturedBy: 'Pip',
+    })
+    expect(body.data?.benchmarkProof?.editing_ergonomics?.capturedAt).toEqual(expect.any(String))
+
+    const benchmarkProof = screen.getByLabelText(/direct higgsfield benchmark proof/i)
+    expect(benchmarkProof).toHaveTextContent('0/9 benchmark proven')
+    expect(benchmarkProof).toHaveTextContent('gap')
+    expect(within(benchmarkProof).getByRole('link', { name: /open benchmark proof/i })).toHaveAttribute('href', 'https://proof.example.com/editing-ergonomics.mp4')
   })
 
   it('applies benchmark Higgsfield model routing presets to generation controls', async () => {

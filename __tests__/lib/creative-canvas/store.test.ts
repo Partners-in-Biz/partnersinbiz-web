@@ -148,6 +148,12 @@ describe('creative canvas store', () => {
               notes: 'Desktop captured',
             },
           },
+          benchmarkProof: {
+            editing_ergonomics: {
+              proofUrl: 'https://proof.example.com/editing.mp4',
+              notes: 'Editing captured',
+            },
+          },
         },
         nodes: [{ id: 'source-1', orgId: 'org-1', type: 'source', title: 'Source', position: { x: 0, y: 0 }, data: {} }],
         edges: [],
@@ -164,6 +170,12 @@ describe('creative canvas store', () => {
             capturedBy: 'Pip',
           },
         },
+        benchmarkProof: {
+          masking_inpainting: {
+            proofUrl: ' https://proof.example.com/mask.mp4 ',
+            notes: ' Brush mask captured ',
+          },
+        },
       },
     }, ACTOR)
 
@@ -176,6 +188,13 @@ describe('creative canvas store', () => {
             notes: 'Mobile panel captured',
           }),
         }),
+        benchmarkProof: expect.objectContaining({
+          editing_ergonomics: expect.objectContaining({ proofUrl: 'https://proof.example.com/editing.mp4' }),
+          masking_inpainting: expect.objectContaining({
+            proofUrl: 'https://proof.example.com/mask.mp4',
+            notes: 'Brush mask captured',
+          }),
+        }),
       },
       updatedAt: 'SERVER_TIMESTAMP',
     }))
@@ -185,6 +204,9 @@ describe('creative canvas store', () => {
       data: {
         visualProof: expect.objectContaining({
           mobile_390: expect.objectContaining({ screenshotUrl: 'https://proof.example.com/mobile.png' }),
+        }),
+        benchmarkProof: expect.objectContaining({
+          masking_inpainting: expect.objectContaining({ proofUrl: 'https://proof.example.com/mask.mp4' }),
         }),
       },
     })

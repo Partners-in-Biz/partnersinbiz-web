@@ -41,6 +41,16 @@ import { buildCreativeCanvasAssetGallery } from '@/lib/creative-canvas/assets'
 type CreativeCanvasMode = 'admin' | 'portal'
 type CreativeCanvasMobilePanel = 'canvas' | 'sources' | 'inspector'
 type CreativeCanvasVisualProofKey = 'desktop_1440' | 'tablet_820' | 'mobile_390' | 'mobile_panels'
+type CreativeCanvasBenchmarkProofKey =
+  | 'editing_ergonomics'
+  | 'masking_inpainting'
+  | 'generation_controls'
+  | 'multi_asset_workflows'
+  | 'versioning_polish'
+  | 'collaboration'
+  | 'mobile_behavior'
+  | 'export_flows'
+  | 'production_reliability'
 
 type CreativeCanvasVisualProofRecord = {
   screenshotUrl?: string
@@ -51,6 +61,18 @@ type CreativeCanvasVisualProofRecord = {
 
 type CreativeCanvasVisualProofDraft = Record<CreativeCanvasVisualProofKey, {
   screenshotUrl: string
+  notes: string
+}>
+
+type CreativeCanvasBenchmarkProofRecord = {
+  proofUrl?: string
+  notes?: string
+  capturedAt?: string
+  capturedBy?: string
+}
+
+type CreativeCanvasBenchmarkProofDraft = Record<CreativeCanvasBenchmarkProofKey, {
+  proofUrl: string
   notes: string
 }>
 
@@ -188,6 +210,18 @@ const emptyVisualProofDrafts: CreativeCanvasVisualProofDraft = {
   mobile_panels: { screenshotUrl: '', notes: '' },
 }
 
+const emptyBenchmarkProofDrafts: CreativeCanvasBenchmarkProofDraft = {
+  editing_ergonomics: { proofUrl: '', notes: '' },
+  masking_inpainting: { proofUrl: '', notes: '' },
+  generation_controls: { proofUrl: '', notes: '' },
+  multi_asset_workflows: { proofUrl: '', notes: '' },
+  versioning_polish: { proofUrl: '', notes: '' },
+  collaboration: { proofUrl: '', notes: '' },
+  mobile_behavior: { proofUrl: '', notes: '' },
+  export_flows: { proofUrl: '', notes: '' },
+  production_reliability: { proofUrl: '', notes: '' },
+}
+
 const visualProofConfigs: Array<{
   key: CreativeCanvasVisualProofKey
   label: string
@@ -212,6 +246,58 @@ const visualProofConfigs: Array<{
     key: 'mobile_panels',
     label: 'Mobile panels',
     evidence: 'Canvas, Sources, and Inspector panel-switch screenshots required.',
+  },
+]
+
+const benchmarkProofConfigs: Array<{
+  key: CreativeCanvasBenchmarkProofKey
+  label: string
+  benchmark: string
+}> = [
+  {
+    key: 'editing_ergonomics',
+    label: 'Editing ergonomics',
+    benchmark: 'Node graph editing with connected prompts, source assets, generated outputs, branches, and recoverable mutations.',
+  },
+  {
+    key: 'masking_inpainting',
+    label: 'Masking / inpainting UX',
+    benchmark: 'Brush and prompt-driven edits that can target regions, references, style transfer, motion, and output branches.',
+  },
+  {
+    key: 'generation_controls',
+    label: 'Generation controls',
+    benchmark: 'Model, output kind, aspect ratio, variants, duration, motion, style, and negative prompt control before dispatch.',
+  },
+  {
+    key: 'multi_asset_workflows',
+    label: 'Multi-asset workflows',
+    benchmark: 'Own uploads, references, previous outputs, templates, and benchmark workflows combined in one connected pipeline.',
+  },
+  {
+    key: 'versioning_polish',
+    label: 'Versioning polish',
+    benchmark: 'Auto-save, preview, restore/fork safety, comments, review state, and non-destructive history inspection.',
+  },
+  {
+    key: 'collaboration',
+    label: 'Collaboration',
+    benchmark: 'Live collaborators, focus, draft adoption, activity, conflict details, and safe concurrent graph changes.',
+  },
+  {
+    key: 'mobile_behavior',
+    label: 'Mobile behavior',
+    benchmark: 'Signed-in desktop, tablet, mobile canvas, and panel-switch proof with no hidden critical controls.',
+  },
+  {
+    key: 'export_flows',
+    label: 'Export flows',
+    benchmark: 'Reviewable packages with manifests, target formats, provenance, source/output mapping, and downstream drafts.',
+  },
+  {
+    key: 'production_reliability',
+    label: 'Production reliability',
+    benchmark: 'Repeated real image, video/social, blog/document, and book jobs complete with drained queues and low failures.',
   },
 ]
 
@@ -241,6 +327,26 @@ function getCanvasVisualProof(data: unknown): Partial<Record<CreativeCanvasVisua
     }
     return acc
   }, {} as Partial<Record<CreativeCanvasVisualProofKey, CreativeCanvasVisualProofRecord>>)
+}
+
+function getCanvasBenchmarkProof(data: unknown): Partial<Record<CreativeCanvasBenchmarkProofKey, CreativeCanvasBenchmarkProofRecord>> {
+  const proof = objectRecord(objectRecord(data).benchmarkProof)
+  return (Object.keys(emptyBenchmarkProofDrafts) as CreativeCanvasBenchmarkProofKey[]).reduce((acc, key) => {
+    const record = objectRecord(proof[key])
+    const proofUrl = stringField(record.proofUrl)
+    const notes = stringField(record.notes)
+    const capturedAt = stringField(record.capturedAt)
+    const capturedBy = stringField(record.capturedBy)
+    if (proofUrl || notes || capturedAt || capturedBy) {
+      acc[key] = {
+        proofUrl,
+        notes,
+        capturedAt,
+        capturedBy,
+      }
+    }
+    return acc
+  }, {} as Partial<Record<CreativeCanvasBenchmarkProofKey, CreativeCanvasBenchmarkProofRecord>>)
 }
 
 interface CreativeCanvasCommentApiResponse {
@@ -1331,6 +1437,8 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
   const [collaborationActivity, setCollaborationActivity] = useState<CreativeCanvasActivityEvent[]>([])
   const [visualProofDrafts, setVisualProofDrafts] = useState<CreativeCanvasVisualProofDraft>(emptyVisualProofDrafts)
   const [savingVisualProofKey, setSavingVisualProofKey] = useState<CreativeCanvasVisualProofKey | ''>('')
+  const [benchmarkProofDrafts, setBenchmarkProofDrafts] = useState<CreativeCanvasBenchmarkProofDraft>(emptyBenchmarkProofDrafts)
+  const [savingBenchmarkProofKey, setSavingBenchmarkProofKey] = useState<CreativeCanvasBenchmarkProofKey | ''>('')
   const [conflictDraft, setConflictDraft] = useState<{
     title: string
     purpose: string
@@ -1377,6 +1485,48 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
       mobile_panels: {
         screenshotUrl: proof.mobile_panels?.screenshotUrl ?? '',
         notes: proof.mobile_panels?.notes ?? '',
+      },
+    })
+  }, [activeCanvas?.data, activeCanvas?.id])
+
+  useEffect(() => {
+    const proof = getCanvasBenchmarkProof(activeCanvas?.data)
+    setBenchmarkProofDrafts({
+      editing_ergonomics: {
+        proofUrl: proof.editing_ergonomics?.proofUrl ?? '',
+        notes: proof.editing_ergonomics?.notes ?? '',
+      },
+      masking_inpainting: {
+        proofUrl: proof.masking_inpainting?.proofUrl ?? '',
+        notes: proof.masking_inpainting?.notes ?? '',
+      },
+      generation_controls: {
+        proofUrl: proof.generation_controls?.proofUrl ?? '',
+        notes: proof.generation_controls?.notes ?? '',
+      },
+      multi_asset_workflows: {
+        proofUrl: proof.multi_asset_workflows?.proofUrl ?? '',
+        notes: proof.multi_asset_workflows?.notes ?? '',
+      },
+      versioning_polish: {
+        proofUrl: proof.versioning_polish?.proofUrl ?? '',
+        notes: proof.versioning_polish?.notes ?? '',
+      },
+      collaboration: {
+        proofUrl: proof.collaboration?.proofUrl ?? '',
+        notes: proof.collaboration?.notes ?? '',
+      },
+      mobile_behavior: {
+        proofUrl: proof.mobile_behavior?.proofUrl ?? '',
+        notes: proof.mobile_behavior?.notes ?? '',
+      },
+      export_flows: {
+        proofUrl: proof.export_flows?.proofUrl ?? '',
+        notes: proof.export_flows?.notes ?? '',
+      },
+      production_reliability: {
+        proofUrl: proof.production_reliability?.proofUrl ?? '',
+        notes: proof.production_reliability?.notes ?? '',
       },
     })
   }, [activeCanvas?.data, activeCanvas?.id])
@@ -1632,6 +1782,56 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
       setSavingVisualProofKey('')
     }
   }, [activeCanvas, applyCanvasSnapshot, resolvedOrgId, visualProofDrafts])
+
+  const saveBenchmarkProof = useCallback(async (key: CreativeCanvasBenchmarkProofKey) => {
+    if (!activeCanvas?.id) return
+    const draft = benchmarkProofDrafts[key]
+    const proofUrl = draft.proofUrl.trim()
+    const notes = draft.notes.trim()
+    if (!proofUrl && !notes) {
+      setActivityMessage('Add a proof URL or notes before saving benchmark evidence')
+      return
+    }
+    const canvasOrgId = resolvedOrgId || activeCanvas.orgId
+    const existingProof = getCanvasBenchmarkProof(activeCanvas.data)
+    const nextBenchmarkProof = {
+      ...existingProof,
+      [key]: {
+        ...existingProof[key],
+        proofUrl,
+        notes,
+        capturedAt: new Date().toISOString(),
+        capturedBy: 'Pip',
+      },
+    }
+
+    setSavingBenchmarkProofKey(key)
+    try {
+      const response = await fetch(`/api/v1/creative-canvas/${activeCanvas.id}?orgId=${encodeURIComponent(canvasOrgId)}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          data: {
+            ...objectRecord(activeCanvas.data),
+            benchmarkProof: nextBenchmarkProof,
+          },
+        }),
+      })
+      const payload = await response.json().catch(() => null) as CreativeCanvasApiListResponse | null
+      const updatedCanvas = payload?.data?.canvas
+      if (!response.ok || !updatedCanvas?.id) {
+        setActivityMessage(payload?.error ?? 'Benchmark proof save failed')
+        return
+      }
+      applyCanvasSnapshot(updatedCanvas)
+      const label = benchmarkProofConfigs.find((item) => item.key === key)?.label ?? 'Benchmark'
+      setActivityMessage(`Saved ${label} benchmark proof`)
+    } catch {
+      setActivityMessage('Benchmark proof save failed')
+    } finally {
+      setSavingBenchmarkProofKey('')
+    }
+  }, [activeCanvas, applyCanvasSnapshot, benchmarkProofDrafts, resolvedOrgId])
 
   const applyRemoteCanvasUpdate = useCallback(async () => {
     if (!remoteCanvasUpdate?.id) return
@@ -3466,6 +3666,29 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
   const reliabilityCoverage = runtimeProof?.reliabilityCoverage ?? []
   const reliabilityPassed = reliabilityCoverage.length > 0 && reliabilityCoverage.every((category) => category.status === 'passed')
   const reliabilityObserved = reliabilityCoverage.length > 0 || Boolean(runOperations?.total)
+  const benchmarkProofRecords = getCanvasBenchmarkProof(activeCanvas?.data)
+  const benchmarkSignals: Record<CreativeCanvasBenchmarkProofKey, boolean> = {
+    editing_ergonomics: hasEditingEvidence,
+    masking_inpainting: hasMaskEvidence,
+    generation_controls: hasGenerationEvidence && hasMultiModelRoutingEvidence,
+    multi_asset_workflows: hasMultiAssetEvidence && graphBenchmarkScenarioCount > 0,
+    versioning_polish: hasVersionEvidence,
+    collaboration: hasCollaborationEvidence && hasLiveEditActivityEvidence,
+    mobile_behavior: capturedVisualProofCount >= visualProofItems.length,
+    export_flows: hasExportEvidence,
+    production_reliability: reliabilityPassed,
+  }
+  const benchmarkProofItems = benchmarkProofConfigs.map((item) => {
+    const proof = benchmarkProofRecords[item.key]
+    const proofCaptured = Boolean(proof?.proofUrl || proof?.notes)
+    return {
+      ...item,
+      proof,
+      signalReady: benchmarkSignals[item.key],
+      status: benchmarkSignals[item.key] && proofCaptured ? 'passed' : benchmarkSignals[item.key] ? 'proof needed' : 'gap',
+    }
+  })
+  const benchmarkPassedCount = benchmarkProofItems.filter((item) => item.status === 'passed').length
   const parityAuditItems: Array<{
     label: string
     status: 'passed' | 'watch' | 'blocked'
@@ -3806,6 +4029,98 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
                 </span>
               </div>
               <p className="mt-1 break-words">{item.evidence}</p>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <section
+        aria-label="Direct Higgsfield benchmark proof"
+        className="rounded-lg border border-[var(--color-pib-line)] bg-white p-4"
+      >
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-normal text-[var(--color-pib-text-muted)]">Direct Higgsfield benchmark proof</p>
+            <h2 className="text-lg font-semibold text-[var(--color-pib-text)]">Capability-by-capability evidence ledger</h2>
+          </div>
+          <span className="rounded-full border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] px-3 py-1 text-xs font-semibold text-[var(--color-pib-text)]">
+            {benchmarkPassedCount}/{benchmarkProofItems.length} benchmark proven
+          </span>
+        </div>
+        <div className="mt-3 grid gap-3 lg:grid-cols-3">
+          {benchmarkProofItems.map((item) => (
+            <div
+              key={item.key}
+              className={`rounded-lg border p-3 text-xs ${
+                item.status === 'passed'
+                  ? 'border-green-200 bg-green-50 text-green-800'
+                  : item.status === 'proof needed'
+                    ? 'border-amber-200 bg-amber-50 text-amber-800'
+                    : 'border-red-200 bg-red-50 text-red-800'
+              }`}
+            >
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0">
+                  <p className="font-semibold">{item.label}</p>
+                  <p className="mt-1">{item.benchmark}</p>
+                </div>
+                <span className="shrink-0 rounded-full border border-current px-2 py-0.5 text-[10px] font-semibold uppercase tracking-normal">
+                  {item.status}
+                </span>
+              </div>
+              {item.proof?.capturedAt ? (
+                <p className="mt-2 text-[11px] font-semibold">Captured {new Date(item.proof.capturedAt).toLocaleString()}</p>
+              ) : null}
+              {item.proof?.proofUrl ? (
+                <a
+                  href={item.proof.proofUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="mt-1 inline-flex text-[11px] font-semibold text-[var(--color-pib-primary)] underline"
+                >
+                  Open benchmark proof
+                </a>
+              ) : null}
+              <label className="mt-2 block text-[11px] font-semibold">
+                Proof URL
+                <input
+                  aria-label={`${item.label} benchmark proof URL`}
+                  value={benchmarkProofDrafts[item.key].proofUrl}
+                  onChange={(event) => {
+                    const value = event.target.value
+                    setBenchmarkProofDrafts((current) => ({
+                      ...current,
+                      [item.key]: { ...current[item.key], proofUrl: value },
+                    }))
+                  }}
+                  placeholder="https://..."
+                  className="mt-1 w-full rounded-md border border-current/20 bg-white px-2 py-1 text-xs text-[var(--color-pib-text)] outline-none focus:border-current"
+                />
+              </label>
+              <label className="mt-2 block text-[11px] font-semibold">
+                Notes
+                <textarea
+                  aria-label={`${item.label} benchmark proof notes`}
+                  value={benchmarkProofDrafts[item.key].notes}
+                  onChange={(event) => {
+                    const value = event.target.value
+                    setBenchmarkProofDrafts((current) => ({
+                      ...current,
+                      [item.key]: { ...current[item.key], notes: value },
+                    }))
+                  }}
+                  rows={2}
+                  className="mt-1 w-full resize-none rounded-md border border-current/20 bg-white px-2 py-1 text-xs text-[var(--color-pib-text)] outline-none focus:border-current"
+                />
+              </label>
+              <button
+                type="button"
+                onClick={() => { void saveBenchmarkProof(item.key) }}
+                disabled={!activeCanvas?.id || savingBenchmarkProofKey === item.key}
+                className="mt-2 w-full rounded-md border border-current/20 bg-white px-2 py-1 text-[11px] font-semibold disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {savingBenchmarkProofKey === item.key ? 'Saving proof' : `Save ${item.label} proof`}
+              </button>
             </div>
           ))}
         </div>

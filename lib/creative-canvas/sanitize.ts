@@ -162,10 +162,35 @@ function cleanVisualProofData(value: unknown): Record<string, unknown> | undefin
   return entries.length ? Object.fromEntries(entries) : undefined
 }
 
+function cleanBenchmarkProofData(value: unknown): Record<string, unknown> | undefined {
+  const proof = asRecord(value)
+  const entries: Array<[string, Record<string, unknown>]> = Object.entries(proof)
+    .flatMap(([key, raw]) => {
+      const item = asRecord(raw)
+      const proofUrl = cleanString(item.proofUrl)?.slice(0, 500)
+      const notes = cleanString(item.notes)?.slice(0, 700)
+      const capturedAt = cleanString(item.capturedAt)?.slice(0, 80)
+      const capturedBy = cleanString(item.capturedBy)?.slice(0, 120)
+      if (!proofUrl && !notes && !capturedAt && !capturedBy) return []
+      return [[key.slice(0, 80), {
+        proofUrl,
+        notes,
+        capturedAt,
+        capturedBy,
+      } as Record<string, unknown>] as [string, Record<string, unknown>]]
+    })
+    .slice(0, 12)
+  return entries.length ? Object.fromEntries(entries) : undefined
+}
+
 export function sanitizeCreativeCanvasData(value: unknown): Record<string, unknown> {
   const data = asRecord(value)
   const visualProof = cleanVisualProofData(data.visualProof)
-  return visualProof ? { visualProof } : {}
+  const benchmarkProof = cleanBenchmarkProofData(data.benchmarkProof)
+  return {
+    ...(visualProof ? { visualProof } : {}),
+    ...(benchmarkProof ? { benchmarkProof } : {}),
+  }
 }
 
 function cleanHttpUrl(value: unknown, field: string): string | undefined {

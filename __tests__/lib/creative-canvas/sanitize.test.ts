@@ -80,6 +80,29 @@ describe('creative canvas sanitizers', () => {
     })
   })
 
+  it('sanitizes direct benchmark proof patches', () => {
+    expect(sanitizeCreativeCanvasData({
+      benchmarkProof: {
+        editing_ergonomics: {
+          proofUrl: ' https://proof.example.com/editing.mp4 ',
+          notes: ' Node editing, branching, and recovery were captured. ',
+          capturedAt: '2026-06-20T11:00:00.000Z',
+          capturedBy: 'Pip',
+        },
+        empty: {},
+      },
+    })).toEqual({
+      benchmarkProof: {
+        editing_ergonomics: {
+          proofUrl: 'https://proof.example.com/editing.mp4',
+          notes: 'Node editing, branching, and recovery were captured.',
+          capturedAt: '2026-06-20T11:00:00.000Z',
+          capturedBy: 'Pip',
+        },
+      },
+    })
+  })
+
   it('rejects cross-org graph nodes before accepting their source data', () => {
     expect(() =>
       sanitizeCreativeCanvasGraph({

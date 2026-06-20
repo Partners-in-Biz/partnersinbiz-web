@@ -342,6 +342,10 @@ export async function updateCreativeCanvas(
         ...plainRecord(currentData.visualProof),
         ...plainRecord(inputData.visualProof),
       },
+      benchmarkProof: {
+        ...plainRecord(currentData.benchmarkProof),
+        ...plainRecord(inputData.benchmarkProof),
+      },
     })
     : current.data ?? {}
   const patch = {
