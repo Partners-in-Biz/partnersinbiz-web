@@ -1413,6 +1413,72 @@ describe('CreativeCanvasWorkspace', () => {
     ]))
   })
 
+  it('creates an inpaint edit branch from a selected node', async () => {
+    render(<CreativeCanvasWorkspace mode="admin" orgId="org-1" />)
+
+    await screen.findByText('Launch Canvas')
+    fireEvent.click(screen.getByRole('button', { name: /add source node/i }))
+    await waitFor(() => {
+      expect(screen.getAllByText(/source node/i).length).toBeGreaterThan(0)
+    })
+    fireEvent.click(screen.getByRole('button', { name: /create inpaint edit branch/i }))
+
+    expect(await screen.findByText(/created inpaint edit branch from source node/i)).toBeInTheDocument()
+    expect(screen.getAllByText(/Source node inpaint edit/i).length).toBeGreaterThan(0)
+    expect(screen.getAllByText(/inpaint \/ image/i).length).toBeGreaterThan(0)
+
+    fireEvent.click(screen.getByRole('button', { name: /save graph/i }))
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith('/api/v1/creative-canvas/canvas-1/graph?orgId=org-1', expect.objectContaining({
+        method: 'PUT',
+      }))
+    })
+    const graphCall = [...fetchMock.mock.calls].reverse().find(([url, init]) =>
+      String(url).includes('/graph?orgId=org-1') && init?.method === 'PUT'
+    )
+    const graphBody = JSON.parse(graphCall?.[1]?.body as string)
+    const sourceNode = graphBody.nodes.find((node: { title?: string }) => node.title === 'Source node')
+    expect(sourceNode?.id).toBeTruthy()
+    expect(graphBody.nodes).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        type: 'edit',
+        title: 'Source node inpaint edit',
+        provider: expect.objectContaining({
+          key: 'higgsfield',
+          model: 'nano_banana_flash',
+          mode: 'image',
+        }),
+        edit: expect.objectContaining({
+          operation: 'inpaint',
+          outputKind: 'image',
+          references: [expect.objectContaining({ sourceNodeId: sourceNode.id, role: 'mask' })],
+          mask: expect.objectContaining({
+            sourceNodeId: sourceNode.id,
+            region: expect.objectContaining({ x: 30, y: 18, width: 40, height: 64, feather: 8 }),
+          }),
+        }),
+        review: expect.objectContaining({
+          status: 'needed',
+          syntheticMediaDisclosure: true,
+        }),
+        data: expect.objectContaining({
+          createdFrom: 'creative_canvas_inpaint_branch',
+          sourceNodeId: sourceNode.id,
+        }),
+      }),
+    ]))
+    expect(graphBody.edges).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        sourceNodeId: sourceNode.id,
+        label: 'inpaint edit',
+        data: expect.objectContaining({
+          createdFrom: 'creative_canvas_inpaint_branch',
+          sourceNodeId: sourceNode.id,
+        }),
+      }),
+    ]))
+  })
+
   it('removes connected edges when a graph node is deleted before save', async () => {
     render(<CreativeCanvasWorkspace mode="admin" orgId="org-1" />)
 

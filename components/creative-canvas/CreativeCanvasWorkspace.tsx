@@ -1504,6 +1504,75 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
     setActivityMessage(`Duplicated ${selectedCanvasNode.title}`)
   }
 
+  const createInpaintEditBranch = () => {
+    if (!selectedCanvasNode) return
+    const sourceFlowNode = nodes.find((node) => node.id === selectedCanvasNode.id)
+    const stamp = Date.now()
+    const editNodeId = `${selectedCanvasNode.id}-inpaint-${stamp}`
+    const editNode: CreativeCanvasNode = {
+      id: editNodeId,
+      orgId: resolvedOrgId || selectedCanvasNode.orgId,
+      type: 'edit',
+      title: `${selectedCanvasNode.title} inpaint edit`,
+      position: {
+        x: (sourceFlowNode?.position.x ?? selectedCanvasNode.position.x) + 280,
+        y: (sourceFlowNode?.position.y ?? selectedCanvasNode.position.y) + 120,
+      },
+      data: {
+        createdFrom: 'creative_canvas_inpaint_branch',
+        sourceNodeId: selectedCanvasNode.id,
+        sourceNodeTitle: selectedCanvasNode.title,
+        generationSettings: {
+          model: runModel || selectedCanvasNode.provider?.model || 'nano_banana_flash',
+          outputKind: 'image',
+          aspectRatio: runAspectRatio,
+          stylePreset: runStylePreset,
+          negativePrompt: runNegativePrompt,
+        },
+      },
+      provider: {
+        key: 'higgsfield',
+        model: runModel || selectedCanvasNode.provider?.model || 'nano_banana_flash',
+        mode: 'image',
+      },
+      edit: {
+        operation: 'inpaint',
+        prompt: `Edit ${selectedCanvasNode.title}`,
+        references: [{ sourceNodeId: selectedCanvasNode.id, role: 'mask', weight: 1 }],
+        strength: 0.65,
+        mask: {
+          sourceNodeId: selectedCanvasNode.id,
+          region: { ...maskQuickRegions[0].region, unit: 'percent' },
+        },
+        motion: { mode: 'none' },
+        outputKind: 'image',
+      },
+      review: {
+        status: 'needed',
+        syntheticMediaDisclosure: true,
+        rightsStatus: 'needs_review',
+        brandStatus: 'needs_review',
+      },
+    }
+    const editEdge: Edge = {
+      id: `inpaint-${selectedCanvasNode.id}-${editNodeId}`,
+      source: selectedCanvasNode.id,
+      target: editNodeId,
+      label: 'inpaint edit',
+      data: {
+        createdFrom: 'creative_canvas_inpaint_branch',
+        sourceNodeId: selectedCanvasNode.id,
+      },
+    }
+
+    setNodes((currentNodes) => [...currentNodes, toFlowNode(editNode)])
+    setEdges((currentEdges) => [...currentEdges, editEdge])
+    setSelectedFlowNodeId(editNodeId)
+    setMaskRegion({ ...maskQuickRegions[0].region })
+    setSaveMessage('')
+    setActivityMessage(`Created inpaint edit branch from ${selectedCanvasNode.title}`)
+  }
+
   const openCanvas = async (canvas: CreativeCanvas) => {
     applyCanvasSnapshot(canvas)
     writeCanvasDeepLink(canvas)
@@ -2795,6 +2864,14 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
                   className="rounded-lg border border-[var(--color-pib-line)] px-3 py-2 text-xs font-semibold text-[var(--color-pib-text)] disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   Duplicate selected node
+                </button>
+                <button
+                  type="button"
+                  onClick={createInpaintEditBranch}
+                  disabled={!selectedNodeId}
+                  className="rounded-lg border border-[var(--color-pib-line)] px-3 py-2 text-xs font-semibold text-[var(--color-pib-text)] disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  Create inpaint edit branch
                 </button>
                 <button
                   type="button"
