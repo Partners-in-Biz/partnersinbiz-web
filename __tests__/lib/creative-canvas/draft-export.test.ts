@@ -2,6 +2,7 @@ import {
   assertCanvasOutputCanExport,
   buildCreativeCanvasDraftExport,
 } from '@/lib/creative-canvas/exporters/drafts'
+import { buildCreativeCanvasExportPackage } from '@/lib/creative-canvas/exporters/package'
 import type { CreativeCanvas, CreativeCanvasExport, CreativeCanvasNode } from '@/lib/creative-canvas/types'
 
 const TARGETS: CreativeCanvasExport['target'][] = [
@@ -120,5 +121,36 @@ describe('creative canvas generic draft exports', () => {
       publishEnabled: false,
       linked: { clientDocumentId: 'doc-1' },
     })
+  })
+
+  it('builds a guarded multi-asset package manifest', () => {
+    const pack = buildCreativeCanvasExportPackage({
+      canvas: {
+        ...canvas(),
+        nodes: [
+          outputNode({ id: 'output-social', title: 'Social video', output: { ...outputNode().output!, kind: 'social_post_draft' } }),
+          outputNode({ id: 'output-book', title: 'Book cover', output: { ...outputNode().output!, kind: 'book_artifact' } }),
+        ],
+      },
+      nodeIds: ['output-social', 'output-book'],
+      actor: { uid: 'user-1', type: 'user' },
+    })
+
+    expect(pack.exportRecord).toMatchObject({
+      canvasId: 'canvas-1',
+      nodeIds: ['output-social', 'output-book'],
+      packageAssetCount: 2,
+      target: 'workspace_artifact',
+      status: 'drafted',
+    })
+    expect(pack.payload).toMatchObject({
+      status: 'internal_package',
+      assetCount: 2,
+      readyAssetCount: 2,
+      targets: ['social_draft', 'book_studio'],
+      clientVisible: false,
+      publishEnabled: false,
+    })
+    expect(pack.payload.guardrails.join(' ')).toContain('Do not publish')
   })
 })

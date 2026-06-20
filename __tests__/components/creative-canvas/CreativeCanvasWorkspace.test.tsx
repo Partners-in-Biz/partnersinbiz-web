@@ -166,6 +166,22 @@ beforeEach(() => {
         }),
       }
     }
+    if (url.includes('/exports/package') && init?.method === 'POST') {
+      return {
+        ok: true,
+        json: async () => ({
+          success: true,
+          data: {
+            exportId: 'package-1',
+            package: {
+              status: 'internal_package',
+              assetCount: 1,
+              targets: ['social_draft'],
+            },
+          },
+        }),
+      }
+    }
     if (url.includes('/creative-canvas/sources')) {
       if (url.includes('/sources/upload') && init?.method === 'POST') {
         return {
@@ -655,6 +671,22 @@ describe('CreativeCanvasWorkspace', () => {
       target: 'social_draft',
     })
     expect(await screen.findByText('Draft export prepared')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: /prepare package/i }))
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith('/api/v1/creative-canvas/canvas-1/exports/package?orgId=org-1', expect.objectContaining({
+        method: 'POST',
+      }))
+    })
+    const packageCall = fetchMock.mock.calls.find(([url, init]) =>
+      String(url).includes('/exports/package?orgId=org-1') && init?.method === 'POST'
+    )
+    expect(JSON.parse(packageCall?.[1]?.body as string)).toMatchObject({
+      nodeIds: [expect.stringContaining('social-launch-output')],
+      title: 'Creative package: Launch Canvas',
+    })
+    expect(await screen.findByText('Export package prepared')).toBeInTheDocument()
+    expect(screen.getByText(/Package package-1: 1 assets/i)).toBeInTheDocument()
   })
 
   it('edits selected source asset metadata and saves it with the graph', async () => {

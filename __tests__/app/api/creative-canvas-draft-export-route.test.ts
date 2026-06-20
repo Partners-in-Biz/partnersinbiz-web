@@ -71,4 +71,37 @@ describe('creative canvas generic draft export API', () => {
       },
     })
   })
+
+  it('persists a multi-asset export package manifest', async () => {
+    const { POST } = await import('@/app/api/v1/creative-canvas/[id]/exports/package/route')
+
+    const res = await POST(new NextRequest('http://test.local/api/v1/creative-canvas/canvas-1/exports/package?orgId=org-1', {
+      method: 'POST',
+      body: JSON.stringify({ nodeIds: ['output-1'], title: 'Launch package' }),
+    }), { params: Promise.resolve({ id: 'canvas-1' }) })
+    const body = await res.json()
+
+    expect(mockCollection).toHaveBeenCalledWith('creative_canvas_export_packages')
+    expect(mockAdd).toHaveBeenCalledWith(expect.objectContaining({
+      orgId: 'org-1',
+      canvasId: 'canvas-1',
+      nodeIds: ['output-1'],
+      packageAssetCount: 1,
+      payload: expect.objectContaining({
+        title: 'Launch package',
+        status: 'internal_package',
+        assetCount: 1,
+        clientVisible: false,
+        publishEnabled: false,
+      }),
+      createdAt: 'SERVER_TIMESTAMP',
+    }))
+    expect(body).toMatchObject({
+      success: true,
+      data: {
+        exportId: 'export-1',
+        package: { assetCount: 1, status: 'internal_package' },
+      },
+    })
+  })
 })

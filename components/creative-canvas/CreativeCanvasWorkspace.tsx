@@ -101,6 +101,18 @@ interface CreativeCanvasRuntimeProofApiResponse {
   error?: string
 }
 
+interface CreativeCanvasExportPackageApiResponse {
+  success?: boolean
+  data?: {
+    exportId?: string
+    package?: {
+      assetCount?: number
+      targets?: CreativeCanvasExport['target'][]
+    }
+  }
+  error?: string
+}
+
 interface CreativeCanvasPresenceApiResponse {
   success?: boolean
   data?: {
@@ -554,6 +566,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
   const [assetReadinessFilter, setAssetReadinessFilter] = useState<'all' | 'ready' | 'draft_exportable' | 'review_needed' | 'blocked'>('all')
   const [selectedAssetId, setSelectedAssetId] = useState('')
   const [compareAssetIds, setCompareAssetIds] = useState<string[]>([])
+  const [latestExportPackage, setLatestExportPackage] = useState<{ id: string; assetCount: number; targets: string[] } | null>(null)
 
   const activeCanvas = useMemo(
     () => canvases.find((canvas) => canvas.id === activeCanvasId) ?? canvases[0],
@@ -1520,6 +1533,42 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
   const exportSelectedAssetDraft = async () => {
     if (!selectedCanvasAsset?.nodeId || !selectedCanvasAsset.canDraftExport) return
     await exportDraft(selectedCanvasAsset.nodeId)
+  }
+
+  const exportAssetPackage = async () => {
+    if (!activeCanvas?.id) return
+    const comparedOutputNodeIds = comparedCanvasAssets
+      .filter((asset) => asset.origin === 'output_node' && asset.canDraftExport && asset.nodeId)
+      .map((asset) => asset.nodeId!)
+    const fallbackOutputNodeIds = canvasAssets
+      .filter((asset) => asset.origin === 'output_node' && asset.canDraftExport && asset.nodeId)
+      .map((asset) => asset.nodeId!)
+    const nodeIds = comparedOutputNodeIds.length ? comparedOutputNodeIds : fallbackOutputNodeIds
+    if (!nodeIds.length) {
+      setActivityMessage('No draft-exportable output assets to package')
+      return
+    }
+
+    const query = resolvedOrgId ? `?orgId=${encodeURIComponent(resolvedOrgId)}` : ''
+    const response = await fetch(`/api/v1/creative-canvas/${activeCanvas.id}/exports/package${query}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        nodeIds,
+        title: `Creative package: ${activeCanvas.title}`,
+      }),
+    })
+    const payload = await response.json().catch(() => null) as CreativeCanvasExportPackageApiResponse | null
+    if (response.ok && payload?.data?.exportId) {
+      setLatestExportPackage({
+        id: payload.data.exportId,
+        assetCount: payload.data.package?.assetCount ?? nodeIds.length,
+        targets: payload.data.package?.targets ?? [],
+      })
+      setActivityMessage('Export package prepared')
+    } else {
+      setActivityMessage(payload?.error ?? 'Export package failed')
+    }
   }
 
   const createOrchestrationTasks = async () => {
@@ -2651,6 +2700,33 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
                     )
                   })}
                 </div>
+              </div>
+            ) : null}
+            {mode === 'admin' ? (
+              <div className="mt-2 rounded-lg border border-[var(--color-pib-line)] bg-white p-3 text-xs text-[var(--color-pib-text-muted)]">
+                <div className="flex items-center justify-between gap-2">
+                  <div>
+                    <p className="font-semibold text-[var(--color-pib-text)]">Export package</p>
+                    <p>
+                      {comparedCanvasAssets.length
+                        ? `${comparedCanvasAssets.filter((asset) => asset.origin === 'output_node' && asset.canDraftExport).length} compared output assets ready`
+                        : `${canvasAssets.filter((asset) => asset.origin === 'output_node' && asset.canDraftExport).length} output assets ready`}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={exportAssetPackage}
+                    className="rounded-md border border-[var(--color-pib-line)] px-2 py-1 font-semibold text-[var(--color-pib-text)]"
+                  >
+                    Prepare package
+                  </button>
+                </div>
+                {latestExportPackage ? (
+                  <p className="mt-2">
+                    Package {latestExportPackage.id}: {latestExportPackage.assetCount} assets
+                    {latestExportPackage.targets.length ? ` / ${latestExportPackage.targets.join(', ')}` : ''}
+                  </p>
+                ) : null}
               </div>
             ) : null}
             <div className="mt-2 space-y-2">
