@@ -5,6 +5,7 @@ import { useParams } from 'next/navigation'
 import { copyToClipboard } from '@/lib/utils/clipboard'
 import { LEGACY_GOOGLE_WORKSPACE_CONNECTION_KEY, UNIFIED_GOOGLE_WORKSPACE_CONNECTION_KEY, UNIFIED_GOOGLE_WORKSPACE_SCOPES, workspaceScopeRows } from '@/lib/mailbox/googleOAuth'
 import type { WorkspaceFolder } from '@/lib/workspace-folders/model'
+import { parseDriveFolderId } from '@/lib/workspace-folders/drive'
 
 interface OrgForm {
   // General settings
@@ -77,6 +78,8 @@ const emptyForm: OrgForm = {
 
 type WorkspaceFolderWithId = WorkspaceFolder & { id: string }
 type OrgSummary = { id: string; name?: string; slug?: string }
+type CrmCompanySummary = { id: string; name?: string; domain?: string }
+type FolderMappingForm = { name: string; driveFolderUrl: string; scope: 'workspace' | 'crm_company'; companyId: string; visibility: WorkspaceFolder['visibility'] }
 type WorkspaceConnectionSummary = {
   id: string
   displayName?: string
@@ -87,6 +90,7 @@ type WorkspaceConnectionSummary = {
 }
 
 const GOOGLE_WORKSPACE_OAUTH_SCOPES = workspaceScopeRows(UNIFIED_GOOGLE_WORKSPACE_SCOPES)
+const EMPTY_FOLDER_MAPPING_FORM: FolderMappingForm = { name: '', driveFolderUrl: '', scope: 'workspace', companyId: '', visibility: 'admin_agents' }
 
 const REQUIRED_WORKSPACE_OAUTHS = [
   {
@@ -135,6 +139,10 @@ export default function OrgSettingsPage() {
   const [copiedId, setCopiedId] = useState(false)
   const [folderMappings, setFolderMappings] = useState<WorkspaceFolderWithId[]>([])
   const [workspaceConnections, setWorkspaceConnections] = useState<WorkspaceConnectionSummary[]>([])
+  const [crmCompanies, setCrmCompanies] = useState<CrmCompanySummary[]>([])
+  const [folderMappingForm, setFolderMappingForm] = useState<FolderMappingForm>(EMPTY_FOLDER_MAPPING_FORM)
+  const [savingFolderMapping, setSavingFolderMapping] = useState(false)
+  const [companySearch, setCompanySearch] = useState('')
   const [folderNotice, setFolderNotice] = useState('')
   const [resyncingFolderId, setResyncingFolderId] = useState<string | null>(null)
   const [preparingOauths, setPreparingOauths] = useState(false)
@@ -163,11 +171,14 @@ export default function OrgSettingsPage() {
       const d = detailBody.data
       const folderRes = await fetch(`/api/v1/workspace-folders?orgId=${encodeURIComponent(org.id)}`, { headers: { 'X-Org-Id': org.id, 'X-Org-Slug': slug } })
       const folderBody = await folderRes.json().catch(() => ({ data: { folders: [] } }))
-      const folders = Array.isArray(folderBody.data?.folders) ? folderBody.data.folders : []
+      const folders = Array.isArray(folderBody.data?.folders) ? folderBody.data.folders : Array.isArray(folderBody.data) ? folderBody.data : []
       setFolderMappings(folders)
       const connectionRes = await fetch(`/api/v1/workspace-connections?orgId=${encodeURIComponent(org.id)}`, { headers: { 'X-Org-Id': org.id, 'X-Org-Slug': slug } })
       const connectionBody = await connectionRes.json().catch(() => ({ data: [] }))
       setWorkspaceConnections(Array.isArray(connectionBody.data) ? connectionBody.data : [])
+      const companyRes = await fetch('/api/v1/crm/companies?limit=100&orderBy=name-asc', { headers: { 'X-Org-Id': org.id, 'X-Org-Slug': slug } })
+      const companyBody = await companyRes.json().catch(() => ({ data: { companies: [] } }))
+      setCrmCompanies(Array.isArray(companyBody.data?.companies) ? companyBody.data.companies : [])
       if (d) {
         const bd = d.billingDetails ?? {}
         const addr = bd.address ?? {}
@@ -334,6 +345,73 @@ export default function OrgSettingsPage() {
     setResyncingFolderId(null)
   }
 
+
+  function updateFolderMappingForm<K extends keyof FolderMappingForm>(field: K, value: FolderMappingForm[K]) {
+    setFolderMappingForm(prev => ({ ...prev, [field]: value }))
+  }
+
+  async function refreshFolderMappings(currentOrgId = orgId) {
+    if (!currentOrgId) return
+    const folderRes = await fetch(`/api/v1/workspace-folders?orgId=${encodeURIComponent(currentOrgId)}`, { headers: { 'X-Org-Id': currentOrgId, 'X-Org-Slug': slug } })
+    const folderBody = await folderRes.json().catch(() => ({ data: { folders: [] } }))
+    const folders = Array.isArray(folderBody.data?.folders) ? folderBody.data.folders : Array.isArray(folderBody.data) ? folderBody.data : []
+    setFolderMappings(folders)
+  }
+
+  async function handleAddFolderMapping(e: React.FormEvent) {
+    e.preventDefault()
+    if (!orgId || savingFolderMapping) return
+    setSavingFolderMapping(true)
+    setFolderNotice('')
+    try {
+      const driveFolderId = parseDriveFolderId(folderMappingForm.driveFolderUrl)
+      if (!driveFolderId) throw new Error('Paste a valid Google Drive folder URL or folder ID.')
+      if (folderMappingForm.scope === 'crm_company' && !folderMappingForm.companyId) {
+        throw new Error('Choose the CRM company this Drive folder belongs to.')
+      }
+      const isDriveUrl = /^https?:\/\//i.test(folderMappingForm.driveFolderUrl.trim())
+      const selectedCompany = crmCompanies.find((company) => company.id === folderMappingForm.companyId)
+      const payload = {
+        orgId,
+        name: folderMappingForm.name.trim() || (folderMappingForm.scope === 'crm_company' && selectedCompany?.name ? `${selectedCompany.name} Drive folder` : 'Workspace Drive folder'),
+        resourceType: folderMappingForm.scope === 'crm_company' ? 'crm_company' : null,
+        resourceId: folderMappingForm.scope === 'crm_company' ? folderMappingForm.companyId : null,
+        visibility: folderMappingForm.visibility,
+        driveFolderId,
+        driveFolderUrl: isDriveUrl ? folderMappingForm.driveFolderUrl.trim() : `https://drive.google.com/drive/folders/${driveFolderId}`,
+        sourceOfTruth: 'google_drive',
+        syncMode: 'metadata_only',
+        syncTargets: [],
+        tags: ['drive', 'research', 'notebooklm'],
+        audit: {
+          auditStatus: 'pending_drive_acl_review',
+          riskLevel: folderMappingForm.visibility === 'admin_agents_clients' ? 'medium' : 'low',
+          notes: 'PiB app visibility controls app/agent access only. Review Google Drive sharing separately before client exposure.',
+        },
+        safeMetadata: {
+          createdFrom: 'admin_org_settings_drive_mapping_form',
+          linkedCompanyName: selectedCompany?.name ?? null,
+          driveAclRequiresSeparateReview: true,
+        },
+      }
+      const res = await fetch('/api/v1/workspace-folders', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-Org-Id': orgId, 'X-Org-Slug': slug },
+        body: JSON.stringify(payload),
+      })
+      const body = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(body.error ?? 'Failed to save Drive folder mapping.')
+      setFolderMappingForm(EMPTY_FOLDER_MAPPING_FORM)
+      setCompanySearch('')
+      await refreshFolderMappings()
+      setFolderNotice('Drive folder mapping saved. Review Drive sharing separately before making it client-visible.')
+    } catch (err) {
+      setFolderNotice(err instanceof Error ? err.message : 'Failed to save Drive folder mapping.')
+    } finally {
+      setSavingFolderMapping(false)
+    }
+  }
+
   const requiredWorkspaceOauths = useMemo(() => REQUIRED_WORKSPACE_OAUTHS.map((oauth) => {
     const keys = new Set<string>([oauth.key, ...oauth.aliases])
     const existing = workspaceConnections.find((connection) => connection.connectionKey ? keys.has(connection.connectionKey) : false)
@@ -342,6 +420,11 @@ export default function OrgSettingsPage() {
 
   const missingWorkspaceOauthCount = requiredWorkspaceOauths.filter((oauth) => !oauth.existing).length
   const googleWorkspaceAuthorizeKey = requiredWorkspaceOauths[0]?.existing?.connectionKey ?? UNIFIED_GOOGLE_WORKSPACE_CONNECTION_KEY
+  const filteredCrmCompanies = useMemo(() => {
+    const query = companySearch.trim().toLowerCase()
+    if (!query) return crmCompanies
+    return crmCompanies.filter((company) => `${company.name ?? ''} ${company.domain ?? ''} ${company.id}`.toLowerCase().includes(query))
+  }, [companySearch, crmCompanies])
 
   async function refreshWorkspaceConnections(currentOrgId = orgId) {
     if (!currentOrgId) return
@@ -482,10 +565,60 @@ export default function OrgSettingsPage() {
             </div>
           </div>
         </div>
+        <form onSubmit={handleAddFolderMapping} className="border-t border-outline-variant/50 p-4">
+          <div className="rounded-xl border border-outline-variant/60 bg-[var(--color-surface-container)]/30 p-4">
+            <div className="mb-4">
+              <h2 className="text-sm font-semibold text-on-surface">Add Drive folder mapping</h2>
+              <p className="mt-1 text-xs text-on-surface-variant">Paste a Google Drive folder URL, choose whether it belongs to the selected workspace or a CRM company, and keep app visibility separate from Drive sharing.</p>
+            </div>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div>
+                <label htmlFor="folderMappingName" className="pib-label">Mapping name</label>
+                <input id="folderMappingName" value={folderMappingForm.name} onChange={e => updateFolderMappingForm('name', e.target.value)} className="pib-input" placeholder="NotebookLM research assets" />
+              </div>
+              <div>
+                <label htmlFor="folderMappingUrl" className="pib-label">Drive folder URL or ID</label>
+                <input id="folderMappingUrl" value={folderMappingForm.driveFolderUrl} onChange={e => updateFolderMappingForm('driveFolderUrl', e.target.value)} className="pib-input" placeholder="https://drive.google.com/drive/folders/..." />
+              </div>
+              <div>
+                <label htmlFor="folderMappingScope" className="pib-label">Mapping scope</label>
+                <select id="folderMappingScope" value={folderMappingForm.scope} onChange={e => updateFolderMappingForm('scope', e.target.value as FolderMappingForm['scope'])} className="pib-select">
+                  <option value="workspace">Workspace / org-level folder</option>
+                  <option value="crm_company">CRM company folder</option>
+                </select>
+              </div>
+              <div>
+                <label htmlFor="folderMappingCompanySearch" className="pib-label">Search CRM companies</label>
+                <input id="folderMappingCompanySearch" value={companySearch} onChange={e => setCompanySearch(e.target.value)} disabled={folderMappingForm.scope !== 'crm_company'} className="pib-input" placeholder="Search by company name" />
+              </div>
+              <div>
+                <label htmlFor="folderMappingCompany" className="pib-label">CRM company</label>
+                <select id="folderMappingCompany" value={folderMappingForm.companyId} onChange={e => updateFolderMappingForm('companyId', e.target.value)} disabled={folderMappingForm.scope !== 'crm_company'} className="pib-select">
+                  <option value="">{folderMappingForm.scope === 'crm_company' ? 'Choose company…' : 'Not required for workspace scope'}</option>
+                  {filteredCrmCompanies.map(company => <option key={company.id} value={company.id}>{company.name || company.id}</option>)}
+                </select>
+              </div>
+              <div>
+                <label htmlFor="folderMappingVisibility" className="pib-label">App visibility</label>
+                <select id="folderMappingVisibility" value={folderMappingForm.visibility} onChange={e => updateFolderMappingForm('visibility', e.target.value as WorkspaceFolder['visibility'])} className="pib-select">
+                  <option value="admin_agents">Admin + agents (safe default)</option>
+                  <option value="admin_only">Admin only</option>
+                  <option value="admin_agents_clients">Client-visible: admin + agents + clients</option>
+                </select>
+              </div>
+              <div className="flex items-end">
+                <button type="submit" disabled={savingFolderMapping} className="pib-btn-primary text-xs">
+                  {savingFolderMapping ? 'Saving…' : 'Add Drive folder mapping'}
+                </button>
+              </div>
+            </div>
+            <p className="mt-3 text-[11px] text-on-surface-variant">Default for NotebookLM and research assets is Admin + agents. Selecting client-visible only changes PiB app access; Google Drive ACLs must still be reviewed in Drive.</p>
+          </div>
+        </form>
         <div className="divide-y divide-outline-variant/50">
           {folderMappings.length === 0 ? (
             <div className="p-4 text-sm text-on-surface-variant">
-              No folder mappings yet. Add records through the folder mappings API once Drive folders and sync targets are agreed.
+              No folder mappings yet. Use the form above to add a workspace or CRM company Drive folder mapping.
             </div>
           ) : folderMappings.map(folder => (
             <div key={folder.id} className="p-4 space-y-3">
@@ -494,6 +627,8 @@ export default function OrgSettingsPage() {
                   <div className="flex flex-wrap items-center gap-2">
                     <h2 className="text-sm font-semibold text-on-surface">{folder.name}</h2>
                     <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-label uppercase tracking-wide text-primary">{folder.resourceType || 'workspace'}</span>
+                    {folder.resourceId && <span className="text-[11px] text-on-surface-variant">Linked ID: {folder.resourceId}</span>}
+                    {folder.resourceType === 'crm_company' && <span className="text-[11px] text-on-surface-variant">Company: {crmCompanies.find(company => company.id === folder.resourceId)?.name || folder.resourceId}</span>}
                     {folder.parentId && <span className="text-[11px] text-on-surface-variant">Parent: {folder.parentId}</span>}
                   </div>
                   <p className="mt-1 flex flex-wrap gap-1 text-xs text-on-surface-variant">

@@ -80,10 +80,122 @@ interface TaskData {
   requiredCapability?: string
   requestedByAgentId?: string
   expectedArtifacts?: string[]
+  reporterId?: string
+  createdBy?: string
 }
 
 function safeDocKey(value: string): string {
   return value.replace(/\//g, '-')
+}
+
+const HUMAN_BLOCKER_PATTERNS = [
+  /\bcannot continue (?:because|until)\b/i,
+  /\b(can't|cannot) proceed (?:because|until|without)\b/i,
+  /\bneeds? peet\b/i,
+  /\bwaiting on (?:peet|human|client|approval|input|confirmation|sign[- ]?off)\b/i,
+  /\bawaiting (?:peet|human|client|approval|input|confirmation|sign[- ]?off)\b/i,
+  /\bmissing (?:approval|input|confirmation|credential|secret|access|api key)\b/i,
+]
+
+function firstMatch(text: string, patterns: RegExp[]): string | null {
+  for (const pattern of patterns) {
+    const match = text.match(pattern)
+    const value = match?.[1]?.trim()
+    if (value) return value.replace(/[.\n]+$/, '').trim()
+  }
+  return null
+}
+
+function sentenceContaining(text: string, pattern: RegExp): string | null {
+  const sentences = text.split(/(?<=[.!?])\s+/).map((part) => part.trim()).filter(Boolean)
+  return sentences.find((sentence) => pattern.test(sentence)) ?? null
+}
+
+function outputNeedsHumanInput(output: string): boolean {
+  return HUMAN_BLOCKER_PATTERNS.some((pattern) => pattern.test(output))
+}
+
+function extractBlockingReason(output: string): string {
+  return firstMatch(output, [
+    /exact blocker\s*:\s*([^\n.]+)/i,
+    /blocking reason\s*:\s*([^\n.]+)/i,
+    /blocked because\s*([^\n.]+)/i,
+    /cannot continue (?:because|until)\s*([^\n.]+)/i,
+    /waiting on\s+([^\n.]+)/i,
+    /awaiting\s+([^\n.]+)/i,
+  ]) ?? sentenceContaining(output, /approval|input|missing|waiting|awaiting|cannot continue|blocked/i) ?? 'Human approval or missing input is required.'
+}
+
+function extractRequiredEvidence(output: string): string {
+  return firstMatch(output, [
+    /proof needed\s*:\s*([^\n]+)/i,
+    /evidence required\s*:\s*([^\n]+)/i,
+    /required evidence\s*:\s*([^\n]+)/i,
+  ]) ?? sentenceContaining(output, /proof|evidence|approval comment|screenshot|link|artifact|confirmation/i) ?? 'Add an approval/input comment or attachment showing the blocker is resolved.'
+}
+
+function extractMessageForAgent(output: string): string {
+  return firstMatch(output, [
+    /message for agent\s*:\s*([^\n]+)/i,
+    /when resolved tell [^:]+:\s*([^\n]+)/i,
+    /agent needs\s*:\s*([^\n]+)/i,
+  ]) ?? 'Comment with what changed, who approved it, and any evidence link or attachment so the agent can safely continue.'
+}
+
+function projectTaskLink(projectId: string | undefined, taskId: string): string {
+  return projectId ? `/admin/projects/${projectId}?taskId=${taskId}` : `/admin/projects?taskId=${taskId}`
+}
+
+async function notifyNeedsPeet(input: {
+  taskId: string
+  taskData: TaskData
+  agentId: AgentId
+  blockingReason: string
+  requiredEvidence: string
+  messageForAgent: string
+  runId: string | null
+}): Promise<void> {
+  if (!input.taskData.orgId) return
+  try {
+    const taskTitle = input.taskData.title ?? input.taskId
+    const userId = input.taskData.reporterId ?? input.taskData.createdBy ?? null
+    const safeContinuePath = 'Provide approval/input evidence in the linked task, then use the safe continue/unblock action. Do not bypass approval gates for production deploys, client-visible sends/publishing, paid spend, finance, secrets/config, or destructive actions.'
+    await db.collection('notifications').doc(`agent-needs-peet-${safeDocKey(input.taskData.orgId)}-${safeDocKey(input.taskId)}`).set({
+      orgId: input.taskData.orgId,
+      userId,
+      agentId: input.agentId,
+      type: 'task.agent_needs_input',
+      title: `Needs Peet: ${input.agentId.charAt(0).toUpperCase() + input.agentId.slice(1)} cannot continue`,
+      body: `Task “${taskTitle}” cannot continue. Exact blocker: ${input.blockingReason}. Proof needed: ${input.requiredEvidence}. Message for agent: ${input.messageForAgent}`,
+      link: projectTaskLink(input.taskData.projectId, input.taskId),
+      data: {
+        projectId: input.taskData.projectId ?? null,
+        taskId: input.taskId,
+        taskTitle,
+        runId: input.runId,
+        blockerReason: input.blockingReason,
+        requiredEvidence: input.requiredEvidence,
+        messageForAgent: input.messageForAgent,
+        requiredCapability: input.taskData.requiredCapability ?? null,
+        safeContinuePath,
+        approvalGatesPreserved: ['production-deploy', 'client-visible-send', 'public-publishing', 'paid-spend', 'finance', 'secrets-config', 'destructive-action'],
+      },
+      status: 'unread',
+      priority: /deploy|send|publish|spend|finance|secret|destructive/i.test(`${input.taskData.requiredCapability ?? ''} ${input.blockingReason}`) ? 'urgent' : 'high',
+      snoozedUntil: null,
+      readAt: null,
+      createdAt: FieldValue.serverTimestamp(),
+      updatedAt: FieldValue.serverTimestamp(),
+      createdBy: 'system:agent-watcher',
+      createdByType: 'system',
+    }, { merge: true })
+  } catch (err) {
+    logger.warn('failed to create needs-peet notification', {
+      taskId: input.taskId,
+      agentId: input.agentId,
+      error: err instanceof Error ? err.message : String(err),
+    })
+  }
 }
 
 function fallbackTelemetry(input: TaskDispatchInput): AgentRunTelemetry {
@@ -509,6 +621,39 @@ export async function dispatchTask(taskRef: DocumentReference, taskData: TaskDat
     }
 
     const summary = (result.output ?? '').slice(0, 4_000) || 'Hermes returned no output.'
+    if (outputNeedsHumanInput(summary)) {
+      const blockingReason = extractBlockingReason(summary)
+      const requiredEvidence = extractRequiredEvidence(summary)
+      const messageForAgent = extractMessageForAgent(summary)
+      const safeContinuePath = 'Add the required approval/input evidence or comment in the linked task, then use the safe continue/unblock action. Do not bypass approval gates: production deploys, client-visible sends/publishing, paid spend, finance, secrets/config, and destructive actions still require explicit approval evidence.'
+      await taskRef.update({
+        ...agentStatusUpdate('awaiting-input'),
+        ...(activeRunId ? { agentConversationId: activeRunId } : {}),
+        agentOutput: {
+          summary,
+          telemetry,
+          needsPeet: true,
+          blockingReason,
+          requiredEvidence,
+          messageForAgent,
+          safeContinuePath,
+          completedAt: FieldValue.serverTimestamp(),
+        },
+        updatedAt: FieldValue.serverTimestamp(),
+      })
+      await notifyNeedsPeet({
+        taskId,
+        taskData,
+        agentId,
+        blockingReason,
+        requiredEvidence,
+        messageForAgent,
+        runId: activeRunId,
+      })
+      logger.info('task needs Peet input before continuing', { taskId, agentId, blockingReason })
+      return
+    }
+
     await taskRef.update({
       ...agentStatusUpdate('done'),
       ...(activeRunId ? { agentConversationId: activeRunId } : {}),

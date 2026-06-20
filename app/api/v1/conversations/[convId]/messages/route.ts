@@ -35,7 +35,7 @@ import { assertUserCanPerformOrganizationModuleAction } from '@/lib/organization
 import type { HermesProfileLink } from '@/lib/hermes/types'
 import type { ApiUser } from '@/lib/api/types'
 import type { AgentTeamDoc } from '@/lib/agents/types'
-import type { AgentId, Conversation, ConversationAttachment } from '@/lib/conversations/types'
+import type { AgentId, Conversation, ConversationAttachment, ConversationMessage } from '@/lib/conversations/types'
 
 export const dynamic = 'force-dynamic'
 
@@ -171,6 +171,46 @@ function buildConversationContext(conversation: Conversation, callerDisplayName:
   return `[Conversation — convId: ${conversation.id}, participants: ${participants}, initiated by: ${callerDisplayName}]\n\n`
 }
 
+function messageAuthorLabel(message: ConversationMessage): string {
+  if (message.authorDisplayName?.trim()) return message.authorDisplayName.trim()
+  if (message.authorId?.trim()) return message.authorId.trim()
+  return message.role
+}
+
+function normalizeHistoryContent(message: ConversationMessage): string {
+  const content = typeof message.content === 'string' ? message.content.trim() : ''
+  if (content) return content.replace(/\s+$/g, '')
+  if (message.error) return `[${message.status ?? 'failed'}: ${message.error}]`
+  if (message.attachments?.length) return `[attachments: ${message.attachments.map((attachment) => attachment.name).join(', ')}]`
+  return ''
+}
+
+function buildConversationHistoryBlock(messages: ConversationMessage[], currentMessageId: string): string {
+  const priorMessages = messages
+    .filter((message) => message.id !== currentMessageId)
+    .filter((message) => message.role === 'user' || message.role === 'assistant')
+    .map((message) => ({ message, content: normalizeHistoryContent(message) }))
+    .filter(({ content }) => content.length > 0)
+    .slice(-30)
+
+  if (priorMessages.length === 0) return ''
+
+  const lines = priorMessages.map(({ message, content }) => {
+    const label = message.role === 'assistant'
+      ? `${messageAuthorLabel(message)} (assistant)`
+      : `${messageAuthorLabel(message)} (user)`
+    const clipped = content.length > 2000 ? `${content.slice(0, 2000).trimEnd()}…` : content
+    return `${label}: ${clipped}`
+  })
+
+  return [
+    '[Recent conversation history — use this to preserve context and answer the latest user message as part of the ongoing thread]',
+    ...lines,
+    '---',
+    '',
+  ].join('\n')
+}
+
 function buildOrchestrationContext(conversation: Conversation, dispatchAgentId: AgentId): string {
   const requestedAgentIds =
     conversation.orchestration?.requestedAgentIds?.length
@@ -283,6 +323,9 @@ export const POST = withAuth(
     const preview = content || attachments.map((attachment) => attachment.name).join(', ')
     await touchConversation(convId, preview, 'user')
 
+    const recentMessages = await listMessages(convId, 200).catch(() => [message])
+    const conversationHistory = buildConversationHistoryBlock(recentMessages, message.id)
+
     // Phase 2: dispatch a Hermes run. Multi-agent conversations route via Pip.
     const dispatchAgentId = await resolveDispatchAgentId(conversation)
     if (dispatchAgentId) {
@@ -353,7 +396,7 @@ export const POST = withAuth(
       const attachmentContext = attachments.length > 0
         ? `\n\n[Attachments]\n${attachments.map((attachment) => `- ${attachment.name}: ${attachment.url} (${attachment.contentType}, ${attachment.sizeBytes} bytes)`).join('\n')}`
         : ''
-      const hermesInput = orgContext + convContext + orchestrationContext + agentSkillsContext + attachedContext + commandContext + content + attachmentContext
+      const hermesInput = orgContext + convContext + orchestrationContext + agentSkillsContext + attachedContext + conversationHistory + commandContext + content + attachmentContext
 
       // Dispatch Hermes run
       const runResult = await createHermesRun(agentLink, user.uid, {

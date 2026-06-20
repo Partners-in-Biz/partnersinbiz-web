@@ -143,12 +143,18 @@ function skillBasename(skill: string): string {
 export function classifyInstalledSkills(installed: string[]): { pib: string[]; global: string[] } {
   const catalogPaths = new Set(Object.keys(AGENT_SKILL_POLICY.skillCatalog))
   const catalogByBase = new Map(Object.keys(AGENT_SKILL_POLICY.skillCatalog).map((skill) => [skillBasename(skill), skill]))
+  const policyGlobals = new Set(Object.values(AGENT_SKILL_POLICY.agents).flatMap((policy) => policy.globalSkills))
   const pib: string[] = []
   const global: string[] = []
 
   for (const skill of installed) {
     const normalized = skill.trim()
     if (!normalized) continue
+
+    if (policyGlobals.has(normalized)) {
+      global.push(normalized)
+      continue
+    }
 
     if (normalized.startsWith('partnersinbiz/')) {
       const repoSkill = normalized.slice('partnersinbiz/'.length)

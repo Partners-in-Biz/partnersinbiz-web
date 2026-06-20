@@ -276,13 +276,109 @@ function hasRichChatMarkup(content: string): boolean {
     || /`[^`]+`|\*\*[^*]+\*\*/.test(content)
 }
 
+const BARE_URL_PATTERN = /https?:\/\/[^\s<>"`]+/g
+const TRAILING_URL_PUNCTUATION = /[.,!?;:]+$/
+
+function splitUrlToken(token: string): { url: string; trailing: string } {
+  let url = token
+  let trailing = ''
+  while (TRAILING_URL_PUNCTUATION.test(url)) {
+    trailing = url.slice(-1) + trailing
+    url = url.slice(0, -1)
+  }
+  if (url.endsWith(')') && !url.includes('(')) {
+    trailing = `)${trailing}`
+    url = url.slice(0, -1)
+  }
+  return { url, trailing }
+}
+
+function hasBareUrl(content: string): boolean {
+  BARE_URL_PATTERN.lastIndex = 0
+  return BARE_URL_PATTERN.test(content)
+}
+
+function isImageUrl(url: string): boolean {
+  try {
+    const parsed = new URL(url)
+    return /\.(png|jpe?g|gif|webp|avif)$/i.test(parsed.pathname)
+  } catch {
+    return false
+  }
+}
+
+function bareUrls(content: string): string[] {
+  const urls: string[] = []
+  const seen = new Set<string>()
+  BARE_URL_PATTERN.lastIndex = 0
+  let match: RegExpExecArray | null
+  while ((match = BARE_URL_PATTERN.exec(content)) !== null) {
+    const { url } = splitUrlToken(match[0])
+    if (!url || seen.has(url)) continue
+    seen.add(url)
+    urls.push(url)
+  }
+  return urls
+}
+
+function linkifyBareUrls(text: string, keyPrefix: string): ReactNode[] {
+  const nodes: ReactNode[] = []
+  let lastIndex = 0
+  BARE_URL_PATTERN.lastIndex = 0
+  let match: RegExpExecArray | null
+  while ((match = BARE_URL_PATTERN.exec(text)) !== null) {
+    const rawToken = match[0]
+    const { url, trailing } = splitUrlToken(rawToken)
+    if (!url) continue
+    if (match.index > lastIndex) nodes.push(text.slice(lastIndex, match.index))
+    nodes.push(
+      <a
+        key={`${keyPrefix}-url-${match.index}`}
+        href={url}
+        target="_blank"
+        rel="noreferrer"
+        className="inline-block max-w-full overflow-hidden break-words text-primary underline decoration-primary/50 underline-offset-2 [overflow-wrap:anywhere] hover:decoration-primary"
+      >
+        {url}
+      </a>,
+    )
+    if (trailing) nodes.push(trailing)
+    lastIndex = match.index + rawToken.length
+  }
+  if (lastIndex < text.length) nodes.push(text.slice(lastIndex))
+  return nodes
+}
+
+function BareUrlPreviews({ content }: { content: string }) {
+  const imageUrls = bareUrls(content).filter(isImageUrl)
+  if (!imageUrls.length) return null
+  return (
+    <div className="mt-2 grid gap-2">
+      {imageUrls.map((url) => (
+        <a
+          key={url}
+          href={url}
+          target="_blank"
+          rel="noreferrer"
+          className="group block overflow-hidden rounded-xl border border-white/15 bg-black/20 transition hover:border-primary/70 focus:outline-none focus:ring-2 focus:ring-primary/60"
+        >
+          <img src={url} alt={url} className="max-h-52 w-full min-w-[220px] object-cover" />
+          <span className="block truncate border-t border-white/10 px-3 py-2 text-xs text-on-surface-variant group-hover:text-on-surface">
+            {url}
+          </span>
+        </a>
+      ))}
+    </div>
+  )
+}
+
 function inlineMarkdown(text: string): ReactNode[] {
   const nodes: ReactNode[] = []
   const tokenPattern = /(\*\*([^*]+)\*\*|`([^`]+)`|\[([^\]]+)\]\((https?:\/\/[^\s)]+)\))/g
   let lastIndex = 0
   let match: RegExpExecArray | null
   while ((match = tokenPattern.exec(text)) !== null) {
-    if (match.index > lastIndex) nodes.push(text.slice(lastIndex, match.index))
+    if (match.index > lastIndex) nodes.push(...linkifyBareUrls(text.slice(lastIndex, match.index), `plain-${match.index}`))
     if (match[2]) {
       nodes.push(<strong key={`strong-${match.index}`} className="font-semibold text-on-surface">{match[2]}</strong>)
     } else if (match[3]) {
@@ -296,7 +392,7 @@ function inlineMarkdown(text: string): ReactNode[] {
     }
     lastIndex = match.index + match[0].length
   }
-  if (lastIndex < text.length) nodes.push(text.slice(lastIndex))
+  if (lastIndex < text.length) nodes.push(...linkifyBareUrls(text.slice(lastIndex), `plain-${lastIndex}`))
   return nodes
 }
 
@@ -456,7 +552,15 @@ function renderMarkdownBlocks(content: string): ReactNode[] {
 
 export function ChatMessageContent({ content }: { content: string }) {
   if (!content) return null
-  if (!hasRichChatMarkup(content)) return <>{content}</>
+  if (!hasRichChatMarkup(content)) {
+    if (!hasBareUrl(content)) return <>{content}</>
+    return (
+      <div className="space-y-1 [&>:first-child]:mt-0 [&>:last-child]:mb-0">
+        <p>{linkifyBareUrls(content, 'plain-message')}</p>
+        <BareUrlPreviews content={content} />
+      </div>
+    )
+  }
   return <div className="space-y-1 [&>:first-child]:mt-0 [&>:last-child]:mb-0">{renderMarkdownBlocks(content)}</div>
 }
 

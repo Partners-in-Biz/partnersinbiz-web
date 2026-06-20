@@ -4,6 +4,32 @@ After the parallel writing wave, you have 6 video scripts (`marketing/videos/V*/
 
 The pipeline has been validated end-to-end on AHS Law and Partners in Biz. Follow it.
 
+## Optional Step - Higgsfield CLI creative source
+
+Use this branch when the campaign needs AI UGC, product-demo, cinematic image-to-video, avatar/Soul continuity, viral clip extraction, or pre-publish virality analysis. For Hermes, prefer Higgsfield CLI over MCP because the official Higgsfield CLI page says Hermes/Codex/OpenClaw users are better served by CLI. MCP can stay unconfigured unless a connector-style workflow is explicitly needed.
+
+Prerequisite checks:
+
+```bash
+which higgsfield || npm install -g @higgsfield/cli
+higgsfield --version
+higgsfield account status
+```
+
+If `higgsfield account status` returns `Not authenticated`, ask Peet to run `higgsfield auth login` in the Maya/VPS shell and complete the browser/device login. Do not invent output or mark live generation as working until `higgsfield model list` succeeds.
+
+When authenticated:
+
+1. Read `campaign.brandIdentity`, the video slot brief, target platform, CTA, and forbidden claims.
+2. Use `higgsfield model list` / `higgsfield workflow list` to choose the current model or workflow instead of hard-coding stale model names.
+3. Use Marketing Studio / `higgsfield-generate` for UGC ads, product demos, unboxing, TV spot, presenter videos, and virality prediction.
+4. Save the returned media URL/job output in the local manifest with prompt, model/workflow, source assets, and generation ID.
+5. Download/export to local MP4 if needed, then still create the same three campaign formats: vertical full, YouTube 16:9, and Stories 15s.
+6. Upload all final files through `/api/v1/social/media/upload` and attach them to one `social_post` with `media[0].url`, `urlYoutube`, and `urlStories`.
+
+Fallback rule: if Higgsfield is unauthenticated, out of credits, or the job fails, continue with the HyperFrames route below and save a Higgsfield-ready prompt pack for later regeneration.
+
+
 ## Step 0 — Generate or fix each composition (LINT MUST PASS)
 
 Every `V*/index.html` MUST satisfy these hard rules or HyperFrames will refuse to render (or render black frames):

@@ -1,0 +1,315 @@
+import type {
+  CreativeCanvasActor,
+  CreativeCanvasActorType,
+  CreativeCanvasBrandStatus,
+  CreativeCanvasEdge,
+  CreativeCanvasEditMotionMode,
+  CreativeCanvasEditOperation,
+  CreativeCanvasGraph,
+  CreativeCanvasInput,
+  CreativeCanvasNode,
+  CreativeCanvasNodeType,
+  CreativeCanvasOutputKind,
+  CreativeCanvasProviderKey,
+  CreativeCanvasReferenceRole,
+  CreativeCanvasReviewStatus,
+  CreativeCanvasRightsStatus,
+  CreativeCanvasSourceKind,
+  CreativeCanvasStatus,
+  CreativeCanvasVisibility,
+} from './types'
+
+const NODE_TYPES: CreativeCanvasNodeType[] = ['source', 'brief', 'prompt', 'model', 'edit', 'review', 'output']
+const SOURCE_KINDS: CreativeCanvasSourceKind[] = ['brand_kit', 'upload', 'url', 'research_item', 'client_document', 'campaign', 'social_post', 'youtube_asset', 'book_studio_record', 'workspace_artifact']
+const REFERENCE_ROLES: CreativeCanvasReferenceRole[] = ['general', 'product', 'person', 'character', 'style', 'background', 'logo', 'mask', 'motion']
+const PROVIDER_KEYS: CreativeCanvasProviderKey[] = ['higgsfield', 'xai', 'manual_upload', 'text_generation', 'document_generation', 'agent_task']
+const OUTPUT_KINDS: CreativeCanvasOutputKind[] = ['image', 'video', 'audio', 'caption', 'copy', 'blog_draft', 'document_block', 'book_artifact', 'youtube_render', 'campaign_asset', 'social_post_draft']
+const REVIEW_STATUSES: CreativeCanvasReviewStatus[] = ['not_required', 'needed', 'passed', 'warning', 'blocked']
+const RIGHTS_STATUSES: CreativeCanvasRightsStatus[] = ['unknown', 'cleared', 'needs_review', 'blocked']
+const BRAND_STATUSES: CreativeCanvasBrandStatus[] = ['unknown', 'passed', 'needs_review', 'blocked']
+const CANVAS_STATUSES: CreativeCanvasStatus[] = ['draft', 'internal_review', 'client_review', 'approved', 'archived']
+const VISIBILITIES: CreativeCanvasVisibility[] = ['admin_agents', 'admin_agents_clients']
+const ACTOR_TYPES: CreativeCanvasActorType[] = ['user', 'agent', 'system']
+const EDIT_OPERATIONS: CreativeCanvasEditOperation[] = ['inpaint', 'outpaint', 'style_transfer', 'object_replace', 'background_replace', 'video_motion', 'variation', 'upscale']
+const EDIT_MOTION_MODES: CreativeCanvasEditMotionMode[] = ['none', 'camera_push', 'camera_pull', 'pan', 'orbit', 'dolly', 'handheld']
+
+function asRecord(value: unknown): Record<string, unknown> {
+  return value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : {}
+}
+
+function cleanString(value: unknown): string | undefined {
+  return typeof value === 'string' && value.trim() ? value.trim() : undefined
+}
+
+function requiredString(value: unknown, field: string): string {
+  const clean = cleanString(value)
+  if (!clean) throw new Error(`${field} is required`)
+  return clean
+}
+
+function enumValue<T extends string>(value: unknown, allowed: readonly T[], fallback: T): T {
+  return allowed.includes(value as T) ? value as T : fallback
+}
+
+function cleanNumber(value: unknown, fallback: number): number {
+  return typeof value === 'number' && Number.isFinite(value) ? value : fallback
+}
+
+function cleanOptionalNumber(value: unknown): number | undefined {
+  return typeof value === 'number' && Number.isFinite(value) ? value : undefined
+}
+
+function cleanBoundedOptionalNumber(value: unknown, min: number, max: number): number | undefined {
+  const clean = cleanOptionalNumber(value)
+  if (clean === undefined) return undefined
+  return Math.min(max, Math.max(min, clean))
+}
+
+function cleanBoolean(value: unknown): boolean | undefined {
+  return typeof value === 'boolean' ? value : undefined
+}
+
+function cleanStringArray(value: unknown): string[] {
+  return Array.isArray(value)
+    ? Array.from(new Set(value.map(cleanString).filter((item): item is string => Boolean(item))))
+    : []
+}
+
+function cleanHttpUrl(value: unknown, field: string): string | undefined {
+  const raw = cleanString(value)
+  if (!raw) return undefined
+  try {
+    const parsed = new URL(raw)
+    if (!['http:', 'https:'].includes(parsed.protocol)) throw new Error()
+    if (parsed.username || parsed.password) throw new Error()
+    return parsed.href
+  } catch {
+    throw new Error(`${field} must be a safe http(s) URL`)
+  }
+}
+
+function cleanLinked(value: unknown) {
+  const linked = asRecord(value)
+  return {
+    projectId: cleanString(linked.projectId),
+    taskId: cleanString(linked.taskId),
+    campaignId: cleanString(linked.campaignId),
+    researchItemId: cleanString(linked.researchItemId),
+    clientDocumentId: cleanString(linked.clientDocumentId),
+    socialPostId: cleanString(linked.socialPostId),
+    youtubeVideoProjectId: cleanString(linked.youtubeVideoProjectId),
+    bookStudioProjectId: cleanString(linked.bookStudioProjectId),
+    workspaceArtifactIds: cleanStringArray(linked.workspaceArtifactIds),
+  }
+}
+
+export function sanitizeCreativeCanvasInput(
+  input: unknown,
+  orgId: string,
+  actor: CreativeCanvasActor,
+): CreativeCanvasInput {
+  const body = asRecord(input)
+  const actorType = enumValue(actor.type, ACTOR_TYPES, 'user')
+
+  return {
+    orgId: requiredString(orgId, 'orgId'),
+    title: requiredString(body.title, 'title'),
+    status: enumValue(body.status, CANVAS_STATUSES, 'draft'),
+    purpose: cleanString(body.purpose) ?? '',
+    linked: cleanLinked(body.linked),
+    activeVersion: 1,
+    visibility: enumValue(body.visibility, VISIBILITIES, 'admin_agents'),
+    createdBy: requiredString(actor.uid, 'actor.uid'),
+    createdByType: actorType,
+    updatedBy: requiredString(actor.uid, 'actor.uid'),
+    updatedByType: actorType,
+    deleted: false,
+    nodes: [],
+    edges: [],
+  }
+}
+
+function sanitizeNode(raw: unknown, orgId: string): CreativeCanvasNode {
+  const node = asRecord(raw)
+  const id = requiredString(node.id, 'node.id')
+  const nodeOrgId = cleanString(node.orgId) ?? orgId
+  if (nodeOrgId !== orgId) throw new Error(`node ${id} does not belong to organisation`)
+
+  const position = asRecord(node.position)
+  const source = asRecord(node.source)
+  const provider = asRecord(node.provider)
+  const edit = asRecord(node.edit)
+  const review = asRecord(node.review)
+  const output = asRecord(node.output)
+  const size = asRecord(node.size)
+
+  const sanitized: CreativeCanvasNode = {
+    id,
+    canvasId: cleanString(node.canvasId),
+    orgId,
+    type: enumValue(node.type, NODE_TYPES, 'source'),
+    title: cleanString(node.title) ?? id,
+    position: {
+      x: cleanNumber(position.x, 0),
+      y: cleanNumber(position.y, 0),
+    },
+    data: asRecord(node.data),
+  }
+
+  if (typeof size.width === 'number' || typeof size.height === 'number') {
+    sanitized.size = {
+      width: Math.max(1, cleanNumber(size.width, 280)),
+      height: Math.max(1, cleanNumber(size.height, 160)),
+    }
+  }
+
+  if (Object.keys(source).length) {
+    sanitized.source = {
+      kind: enumValue(source.kind, SOURCE_KINDS, 'upload'),
+      refId: cleanString(source.refId),
+      url: cleanHttpUrl(source.url, `node ${id} source.url`),
+      thumbnailUrl: cleanHttpUrl(source.thumbnailUrl, `node ${id} source.thumbnailUrl`),
+      previewUrl: cleanHttpUrl(source.previewUrl, `node ${id} source.previewUrl`),
+      storagePath: cleanString(source.storagePath),
+      mimeType: cleanString(source.mimeType),
+      altText: cleanString(source.altText),
+      referenceRole: enumValue(source.referenceRole, REFERENCE_ROLES, 'general'),
+      weight: cleanOptionalNumber(source.weight),
+    }
+  }
+
+  if (Object.keys(provider).length) {
+    sanitized.provider = {
+      key: enumValue(provider.key, PROVIDER_KEYS, 'manual_upload'),
+      model: cleanString(provider.model),
+      mode: cleanString(provider.mode),
+    }
+  }
+
+  if (Object.keys(edit).length) {
+    const mask = asRecord(edit.mask)
+    const motion = asRecord(edit.motion)
+    type EditReference = NonNullable<NonNullable<CreativeCanvasNode['edit']>['references']>[number]
+    const references = Array.isArray(edit.references)
+      ? edit.references
+        .map((reference) => {
+          const rawReference = asRecord(reference)
+          const sourceNodeId = cleanString(rawReference.sourceNodeId)
+          if (!sourceNodeId) return undefined
+          const cleanReference: EditReference = {
+            sourceNodeId,
+            role: enumValue(rawReference.role, REFERENCE_ROLES, 'general'),
+          }
+          const weight = cleanOptionalNumber(rawReference.weight)
+          if (weight !== undefined) cleanReference.weight = weight
+          return cleanReference
+        })
+        .filter((reference): reference is EditReference => Boolean(reference))
+      : []
+
+    const sanitizedEdit: NonNullable<CreativeCanvasNode['edit']> = {
+      operation: enumValue(edit.operation, EDIT_OPERATIONS, 'inpaint'),
+      prompt: cleanString(edit.prompt),
+      references,
+      strength: cleanOptionalNumber(edit.strength),
+      outputKind: enumValue(edit.outputKind, OUTPUT_KINDS, 'image'),
+    }
+
+    if (Object.keys(mask).length) {
+      const region = asRecord(mask.region)
+      const regionUnit = enumValue(region.unit, ['percent', 'pixel'] as const, 'percent')
+      sanitizedEdit.mask = {
+        sourceNodeId: cleanString(mask.sourceNodeId),
+        url: cleanHttpUrl(mask.url, `node ${id} edit.mask.url`),
+        storagePath: cleanString(mask.storagePath),
+        invert: cleanBoolean(mask.invert),
+      }
+      if (Object.keys(region).length) {
+        const x = cleanBoundedOptionalNumber(region.x, 0, regionUnit === 'percent' ? 100 : 10000)
+        const y = cleanBoundedOptionalNumber(region.y, 0, regionUnit === 'percent' ? 100 : 10000)
+        const width = cleanBoundedOptionalNumber(region.width, 0, regionUnit === 'percent' ? 100 : 10000)
+        const height = cleanBoundedOptionalNumber(region.height, 0, regionUnit === 'percent' ? 100 : 10000)
+        if (x !== undefined && y !== undefined && width !== undefined && height !== undefined) {
+          sanitizedEdit.mask.region = {
+            x,
+            y,
+            width,
+            height,
+            unit: regionUnit,
+            feather: cleanBoundedOptionalNumber(region.feather, 0, 100),
+          }
+        }
+      }
+    }
+
+    if (Object.keys(motion).length) {
+      sanitizedEdit.motion = {
+        mode: enumValue(motion.mode, EDIT_MOTION_MODES, 'none'),
+        durationSeconds: cleanOptionalNumber(motion.durationSeconds),
+      }
+    }
+
+    sanitized.edit = sanitizedEdit
+  }
+
+  if (Object.keys(review).length) {
+    sanitized.review = {
+      status: enumValue(review.status, REVIEW_STATUSES, 'needed'),
+      approvalGateTaskId: cleanString(review.approvalGateTaskId),
+      requiredReviewerAgentId: cleanString(review.requiredReviewerAgentId),
+      syntheticMediaDisclosure: cleanBoolean(review.syntheticMediaDisclosure),
+      rightsStatus: enumValue(review.rightsStatus, RIGHTS_STATUSES, 'unknown'),
+      brandStatus: enumValue(review.brandStatus, BRAND_STATUSES, 'unknown'),
+    }
+  }
+
+  if (Object.keys(output).length) {
+    sanitized.output = {
+      kind: enumValue(output.kind, OUTPUT_KINDS, 'image'),
+      artifactId: cleanString(output.artifactId),
+      url: cleanHttpUrl(output.url, `node ${id} output.url`),
+      thumbnailUrl: cleanHttpUrl(output.thumbnailUrl, `node ${id} output.thumbnailUrl`),
+      storagePath: cleanString(output.storagePath),
+      textPreview: cleanString(output.textPreview),
+    }
+  }
+
+  return sanitized
+}
+
+function sanitizeEdge(raw: unknown, orgId: string, nodeIds: Set<string>): CreativeCanvasEdge {
+  const edge = asRecord(raw)
+  const id = requiredString(edge.id, 'edge.id')
+  const edgeOrgId = cleanString(edge.orgId) ?? orgId
+  if (edgeOrgId !== orgId) throw new Error(`edge ${id} does not belong to organisation`)
+
+  const sourceNodeId = requiredString(edge.sourceNodeId, `edge ${id} sourceNodeId`)
+  const targetNodeId = requiredString(edge.targetNodeId, `edge ${id} targetNodeId`)
+  if (!nodeIds.has(sourceNodeId)) throw new Error(`edge ${id} sourceNodeId does not exist in graph`)
+  if (!nodeIds.has(targetNodeId)) throw new Error(`edge ${id} targetNodeId does not exist in graph`)
+
+  return {
+    id,
+    canvasId: cleanString(edge.canvasId),
+    orgId,
+    sourceNodeId,
+    targetNodeId,
+    label: cleanString(edge.label),
+    data: asRecord(edge.data),
+  }
+}
+
+export function sanitizeCreativeCanvasGraph(input: unknown, orgId: string): CreativeCanvasGraph {
+  const body = asRecord(input)
+  const nodes = Array.isArray(body.nodes) ? body.nodes.map((node) => sanitizeNode(node, orgId)) : []
+  const nodeIds = new Set(nodes.map((node) => node.id))
+  if (nodeIds.size !== nodes.length) throw new Error('graph contains duplicate node ids')
+
+  const edges = Array.isArray(body.edges)
+    ? body.edges.map((edge) => sanitizeEdge(edge, orgId, nodeIds))
+    : []
+  const edgeIds = new Set(edges.map((edge) => edge.id))
+  if (edgeIds.size !== edges.length) throw new Error('graph contains duplicate edge ids')
+
+  return { nodes, edges }
+}

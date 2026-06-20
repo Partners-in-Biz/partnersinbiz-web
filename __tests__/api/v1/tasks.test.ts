@@ -94,6 +94,82 @@ describe('GET /api/v1/tasks', () => {
     expect(body.data.map((task: { id: string }) => task.id)).toEqual(['shayne-follow-up'])
   })
 
+  it('keeps priority=high filtering index-safe by filtering priority in memory', async () => {
+    mockWhere.mockImplementation((field: string) => {
+      if (field === 'priority') {
+        throw new Error('Firestore composite index missing for priority task lookup')
+      }
+      const query = { where: mockWhere, orderBy: mockOrderBy, limit: mockLimit, offset: mockOffset, get: mockGet }
+      return query
+    })
+    mockGet.mockResolvedValue({
+      docs: [
+        taskDoc('high-task', { orgId: 'pib-platform-owner', title: 'High task', priority: 'high', createdAt: 3 }),
+        taskDoc('normal-task', { orgId: 'pib-platform-owner', title: 'Normal task', priority: 'normal', createdAt: 2 }),
+        taskDoc('deleted-high-task', { orgId: 'pib-platform-owner', title: 'Deleted high task', priority: 'high', deleted: true, createdAt: 1 }),
+      ],
+    })
+
+    const { GET } = await import('@/app/api/v1/tasks/route')
+    const res = await GET(new NextRequest('http://localhost/api/v1/tasks?orgId=pib-platform-owner&priority=high&limit=5'))
+    const body = await res.json()
+
+    expect(res.status).toBe(200)
+    expect(mockWhere).toHaveBeenCalledWith('orgId', '==', 'pib-platform-owner')
+    expect(mockWhere).not.toHaveBeenCalledWith('priority', '==', 'high')
+    expect(body.data.map((task: { id: string }) => task.id)).toEqual(['high-task'])
+  })
+
+  it('keeps priority=urgent filtering index-safe by filtering priority in memory', async () => {
+    mockWhere.mockImplementation((field: string) => {
+      if (field === 'priority') {
+        throw new Error('Firestore composite index missing for priority task lookup')
+      }
+      const query = { where: mockWhere, orderBy: mockOrderBy, limit: mockLimit, offset: mockOffset, get: mockGet }
+      return query
+    })
+    mockGet.mockResolvedValue({
+      docs: [
+        taskDoc('urgent-task', { orgId: 'pib-platform-owner', title: 'Urgent task', priority: 'urgent', createdAt: 3 }),
+        taskDoc('high-task', { orgId: 'pib-platform-owner', title: 'High task', priority: 'high', createdAt: 2 }),
+      ],
+    })
+
+    const { GET } = await import('@/app/api/v1/tasks/route')
+    const res = await GET(new NextRequest('http://localhost/api/v1/tasks?orgId=pib-platform-owner&priority=urgent&limit=5'))
+    const body = await res.json()
+
+    expect(res.status).toBe(200)
+    expect(mockWhere).toHaveBeenCalledWith('orgId', '==', 'pib-platform-owner')
+    expect(mockWhere).not.toHaveBeenCalledWith('priority', '==', 'urgent')
+    expect(body.data.map((task: { id: string }) => task.id)).toEqual(['urgent-task'])
+  })
+
+  it('keeps status=todo&priority=high index-safe by querying status and filtering priority in memory', async () => {
+    mockWhere.mockImplementation((field: string) => {
+      if (field === 'priority') {
+        throw new Error('Firestore composite index missing for priority task lookup')
+      }
+      const query = { where: mockWhere, orderBy: mockOrderBy, limit: mockLimit, offset: mockOffset, get: mockGet }
+      return query
+    })
+    mockGet.mockResolvedValue({
+      docs: [
+        taskDoc('todo-high-task', { orgId: 'pib-platform-owner', title: 'Todo high task', status: 'todo', priority: 'high', createdAt: 3 }),
+        taskDoc('todo-normal-task', { orgId: 'pib-platform-owner', title: 'Todo normal task', status: 'todo', priority: 'normal', createdAt: 2 }),
+      ],
+    })
+
+    const { GET } = await import('@/app/api/v1/tasks/route')
+    const res = await GET(new NextRequest('http://localhost/api/v1/tasks?orgId=pib-platform-owner&status=todo&priority=high&limit=5'))
+    const body = await res.json()
+
+    expect(res.status).toBe(200)
+    expect(mockWhere).toHaveBeenCalledWith('status', '==', 'todo')
+    expect(mockWhere).not.toHaveBeenCalledWith('priority', '==', 'high')
+    expect(body.data.map((task: { id: string }) => task.id)).toEqual(['todo-high-task'])
+  })
+
   it('preserves assignedTo=user filtering through the existing assignedTo fields', async () => {
     const query = { where: mockWhere, orderBy: mockOrderBy, limit: mockLimit, offset: mockOffset, get: mockGet }
     mockWhere.mockReturnValue(query)

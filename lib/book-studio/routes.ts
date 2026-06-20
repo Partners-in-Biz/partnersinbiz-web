@@ -2,6 +2,7 @@ import { withAuth } from '@/lib/api/auth'
 import { apiSuccess } from '@/lib/api/response'
 import { adminDb } from '@/lib/firebase/admin'
 import { actorFields, collectionFor, ensureBookStudioAccess, validateBookStudioReferences } from './api'
+import { findBookStudioRuntimeDispatchFields } from './hermes'
 import { sanitizeBookStudioRecordInput, serializeBookStudioRecord } from './sanitize'
 import type { BookStudioResourceKey } from './types'
 
@@ -31,6 +32,17 @@ export function createBookStudioResourceHandlers(resource: BookStudioResourceKey
     }
     const access = await ensureBookStudioAccess(req, user, body, 'write')
     if (access.error) return access.error
+
+    const runtimeDispatchFields = findBookStudioRuntimeDispatchFields(body)
+    if (runtimeDispatchFields.length) {
+      return Response.json({
+        success: false,
+        error: 'Book Studio Hermes runtime dispatch is not enabled in V1',
+        module: 'bookStudio',
+        runtimeDispatchAllowed: false,
+        blockedFields: runtimeDispatchFields,
+      }, { status: 403 })
+    }
 
     const data = sanitizeBookStudioRecordInput(resource, body, access.orgId)
     const referenceError = await validateBookStudioReferences(access.orgId, data)

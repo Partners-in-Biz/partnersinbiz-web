@@ -143,7 +143,10 @@ describe('PortalLayout mobile role switch', () => {
           ok: true,
           json: async () => ({
             activeOrgId: 'org-acme',
-            orgs: [{ id: 'org-acme', slug: 'acme', name: 'Acme Growth', type: 'client', modulePolicies: mockModulePolicies }],
+            orgs: [
+              { id: 'org-acme', slug: 'acme', name: 'Acme Growth', type: 'client', modulePolicies: mockModulePolicies },
+              { id: 'course-digs-org', slug: 'course-digs', name: 'Course Digs', type: 'client', modulePolicies: mockModulePolicies },
+            ],
           }),
         } as Response)
       }
@@ -255,6 +258,25 @@ describe('PortalLayout mobile role switch', () => {
         '/portal/marketing?orgId=lumen-org&orgSlug=lumen-speeds&sourceCompanyId=company-1&sourceCompanyName=Lumen',
       )
     })
+  })
+
+  it('navigates plain portal workspace switches to an explicit scoped URL', async () => {
+    mockPathname = '/portal/projects'
+
+    render(
+      <PortalLayout>
+        <div>Portal content</div>
+      </PortalLayout>,
+    )
+
+    const switcher = await screen.findByRole('button', { name: 'Switch portal workspace' })
+    fireEvent.click(switcher)
+    fireEvent.click(await screen.findByText('Course Digs'))
+
+    await waitFor(() => {
+      expect(pushMock).toHaveBeenCalledWith('/portal/projects?orgId=course-digs-org&orgSlug=course-digs')
+    })
+    expect(refreshMock).not.toHaveBeenCalled()
   })
 
   it('keeps Mobile Apps visible when no portal module setting is stored', async () => {

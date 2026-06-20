@@ -71,7 +71,6 @@ export const GET = withAuth('admin', async (req, user) => {
   const limit = Math.min(parseInt(searchParams.get('limit') ?? '50'), 200)
   const page = Math.max(parseInt(searchParams.get('page') ?? '1'), 1)
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let query: any = adminDb
     .collection('tasks')
     .where('orgId', '==', orgId)
@@ -80,9 +79,10 @@ export const GET = withAuth('admin', async (req, user) => {
   if (status && VALID_TASK_STATUSES.includes(status)) {
     query = query.where('status', '==', status)
   }
-  if (priority && VALID_TASK_PRIORITIES.includes(priority)) {
-    query = query.where('priority', '==', priority)
-  }
+  const priorityFilter = priority && VALID_TASK_PRIORITIES.includes(priority) ? priority : null
+  // Priority-only task lookups are common from admin boards. Keep them index-safe by filtering
+  // in memory after the tenant/status scoped createdAt query instead of requiring Firestore
+  // composites on orgId + priority + createdAt and orgId + status + priority + createdAt.
   let assignedToFilter: TaskAssignee | null = null
   if (assignedToRaw) {
     const [type, ...rest] = assignedToRaw.split(':')
@@ -117,7 +117,8 @@ export const GET = withAuth('admin', async (req, user) => {
 
   const needsAgentAssigneeInMemoryFilter = assignedToFilter?.type === 'agent'
   const needsContactInMemoryFilter = Boolean(contactId)
-  const needsInMemoryFilter = needsAgentAssigneeInMemoryFilter || needsContactInMemoryFilter
+  const needsPriorityInMemoryFilter = Boolean(priorityFilter)
+  const needsInMemoryFilter = needsAgentAssigneeInMemoryFilter || needsContactInMemoryFilter || needsPriorityInMemoryFilter
   const queryLimit = needsInMemoryFilter
     ? Math.min(Math.max(limit * page, 500), 1000)
     : limit
@@ -130,12 +131,15 @@ export const GET = withAuth('admin', async (req, user) => {
   const snapshot = await pagedQuery.get()
 
   let tasks: Task[] = snapshot.docs
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     .map((doc: any) => ({ id: doc.id, ...doc.data() }))
     .filter((t: Task) => t.deleted !== true)
 
   if (needsContactInMemoryFilter && contactId) {
     tasks = tasks.filter((t: Task) => t.contactId === contactId)
+  }
+
+  if (needsPriorityInMemoryFilter && priorityFilter) {
+    tasks = tasks.filter((t: Task) => t.priority === priorityFilter)
   }
 
   if (needsAgentAssigneeInMemoryFilter && assignedToFilter) {

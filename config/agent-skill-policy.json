@@ -284,6 +284,82 @@
       "riskLevel": "high",
       "syncTarget": "vps"
     },
+    "higgsfield-generate": {
+      "ownerAgentId": "maya",
+      "allowedAgentIds": [
+        "pip",
+        "theo",
+        "maya",
+        "sage",
+        "nora",
+        "ads",
+        "qa-release",
+        "support",
+        "data",
+        "docs",
+        "seo",
+        "sales"
+      ],
+      "riskLevel": "high",
+      "syncTarget": "vps"
+    },
+    "higgsfield-marketplace-cards": {
+      "ownerAgentId": "maya",
+      "allowedAgentIds": [
+        "pip",
+        "theo",
+        "maya",
+        "sage",
+        "nora",
+        "ads",
+        "qa-release",
+        "support",
+        "data",
+        "docs",
+        "seo",
+        "sales"
+      ],
+      "riskLevel": "high",
+      "syncTarget": "vps"
+    },
+    "higgsfield-product-photoshoot": {
+      "ownerAgentId": "maya",
+      "allowedAgentIds": [
+        "pip",
+        "theo",
+        "maya",
+        "sage",
+        "nora",
+        "ads",
+        "qa-release",
+        "support",
+        "data",
+        "docs",
+        "seo",
+        "sales"
+      ],
+      "riskLevel": "high",
+      "syncTarget": "vps"
+    },
+    "higgsfield-soul-id": {
+      "ownerAgentId": "maya",
+      "allowedAgentIds": [
+        "pip",
+        "theo",
+        "maya",
+        "sage",
+        "nora",
+        "ads",
+        "qa-release",
+        "support",
+        "data",
+        "docs",
+        "seo",
+        "sales"
+      ],
+      "riskLevel": "critical",
+      "syncTarget": "vps"
+    },
     "marketing/ads": {
       "ownerAgentId": "ads",
       "allowedAgentIds": [
@@ -948,6 +1024,10 @@
         "aso-appstore-screenshots",
         "autonomous-ai-agents/hermes-agent",
         "google-play-console-cli",
+        "higgsfield-generate",
+        "higgsfield-marketplace-cards",
+        "higgsfield-product-photoshoot",
+        "higgsfield-soul-id",
         "ios-marketing-capture",
         "software-development/mobile-screenshot-capture"
       ],
@@ -1081,13 +1161,17 @@
         "app-store-connect-cli",
         "autonomous-ai-agents/codex",
         "autonomous-ai-agents/hermes-agent",
-        "google-play-console-cli",
         "github/codebase-inspection",
         "github/github-auth",
         "github/github-code-review",
         "github/github-issues",
         "github/github-pr-workflow",
         "github/github-repo-management",
+        "google-play-console-cli",
+        "higgsfield-generate",
+        "higgsfield-marketplace-cards",
+        "higgsfield-product-photoshoot",
+        "higgsfield-soul-id",
         "ios-simulator-skill",
         "software-development/mobile-screenshot-capture"
       ],
@@ -1173,6 +1257,10 @@
         "creative/creative-ideation",
         "creative/popular-web-designs",
         "google-play-console-cli",
+        "higgsfield-generate",
+        "higgsfield-marketplace-cards",
+        "higgsfield-product-photoshoot",
+        "higgsfield-soul-id",
         "ios-marketing-capture",
         "media/youtube-content",
         "productivity/google-workspace",
@@ -1245,6 +1333,10 @@
         "research/open-notebook"
       ],
       "globalSkills": [
+        "higgsfield-generate",
+        "higgsfield-marketplace-cards",
+        "higgsfield-product-photoshoot",
+        "higgsfield-soul-id",
         "note-taking/obsidian",
         "productivity/google-workspace",
         "productivity/maps",
@@ -1313,6 +1405,10 @@
       ],
       "globalSkills": [
         "email/himalaya",
+        "higgsfield-generate",
+        "higgsfield-marketplace-cards",
+        "higgsfield-product-photoshoot",
+        "higgsfield-soul-id",
         "productivity/google-workspace"
       ],
       "capabilities": [
@@ -1404,6 +1500,10 @@
         "app-store-connect-cli",
         "aso-appstore-screenshots",
         "google-play-console-cli",
+        "higgsfield-generate",
+        "higgsfield-marketplace-cards",
+        "higgsfield-product-photoshoot",
+        "higgsfield-soul-id",
         "ios-marketing-capture",
         "productivity/google-workspace",
         "software-development/mobile-screenshot-capture"
@@ -1525,10 +1625,14 @@
       ],
       "globalSkills": [
         "app-store-connect-cli",
-        "google-play-console-cli",
         "github/codebase-inspection",
         "github/github-code-review",
         "github/github-pr-workflow",
+        "google-play-console-cli",
+        "higgsfield-generate",
+        "higgsfield-marketplace-cards",
+        "higgsfield-product-photoshoot",
+        "higgsfield-soul-id",
         "software-development/mobile-screenshot-capture"
       ],
       "capabilities": [
@@ -1599,6 +1703,10 @@
         "support-manager"
       ],
       "globalSkills": [
+        "higgsfield-generate",
+        "higgsfield-marketplace-cards",
+        "higgsfield-product-photoshoot",
+        "higgsfield-soul-id",
         "productivity/google-workspace"
       ],
       "capabilities": [
@@ -1669,6 +1777,10 @@
       ],
       "globalSkills": [
         "data-science/jupyter-live-kernel",
+        "higgsfield-generate",
+        "higgsfield-marketplace-cards",
+        "higgsfield-product-photoshoot",
+        "higgsfield-soul-id",
         "productivity/google-workspace"
       ],
       "capabilities": [
@@ -1738,6 +1850,10 @@
         "research/open-notebook"
       ],
       "globalSkills": [
+        "higgsfield-generate",
+        "higgsfield-marketplace-cards",
+        "higgsfield-product-photoshoot",
+        "higgsfield-soul-id",
         "productivity/google-workspace",
         "productivity/powerpoint"
       ],
@@ -1815,6 +1931,10 @@
         "research/open-notebook"
       ],
       "globalSkills": [
+        "higgsfield-generate",
+        "higgsfield-marketplace-cards",
+        "higgsfield-product-photoshoot",
+        "higgsfield-soul-id",
         "productivity/google-workspace",
         "productivity/maps",
         "research/blogwatcher"
@@ -1882,6 +2002,10 @@
         "research-intelligence"
       ],
       "globalSkills": [
+        "higgsfield-generate",
+        "higgsfield-marketplace-cards",
+        "higgsfield-product-photoshoot",
+        "higgsfield-soul-id",
         "productivity/google-workspace"
       ],
       "capabilities": [

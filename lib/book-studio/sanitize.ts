@@ -13,7 +13,19 @@ export const BOOK_STUDIO_RESOURCES: Record<BookStudioResourceKey, BookStudioReso
 }
 
 const STAGES: BookStudioStage[] = ['intake', 'research', 'brief', 'quality_gates', 'publishing_packet', 'manual_upload_review', 'analytics_reconciliation']
-const STATUSES: BookStudioStatus[] = ['draft', 'internal_review', 'client_review', 'approved', 'blocked', 'archived']
+const STATUSES: BookStudioStatus[] = [
+  'not_started',
+  'draft',
+  'internal_review',
+  'client_review',
+  'approved',
+  'needs_review',
+  'blocked',
+  'ready_for_human_review',
+  'approved_for_manual_next_step',
+  'archived',
+]
+const PUBLISHING_READINESS_STATUSES = ['not_started', 'draft', 'needs_review', 'blocked', 'ready_for_human_review', 'approved_for_manual_next_step'] as const
 const GATE_STATUSES: BookStudioGateStatus[] = ['pass', 'warning', 'block', 'not_applicable', 'missing_evidence']
 const CHANNELS: BookStudioChannel[] = ['kdp', 'google_play_books', 'apple_books', 'kobo', 'draft2digital', 'ingram', 'acx', 'manual_handoff', 'local_publisher']
 const APPROVAL_STATUSES = ['not_requested', 'requested', 'approved', 'changes_requested', 'rejected', 'blocked'] as const
@@ -39,6 +51,12 @@ const FORBIDDEN_KEYS = new Set([
   'categoryAutomationJobId',
   'internalNotes',
   'privateNotes',
+  'rawPrompt',
+  'rawOutput',
+  'rawHermesOutput',
+  'unsafeRecommendation',
+  'unsupportedClaim',
+  'parserError',
 ])
 
 function normalizedKey(value: string): string {
@@ -232,10 +250,16 @@ function cleanApprovalState(value: unknown) {
   })
 }
 
+function cleanPublishingReadinessStatus(value: unknown) {
+  if (value === undefined || value === null || value === '') return undefined
+  return pick(value, PUBLISHING_READINESS_STATUSES, 'draft')
+}
+
 function cleanPackageManifest(value: unknown) {
   const source = cleanObject(value)
   if (!Object.keys(source).length) return undefined
   return compact({
+    status: cleanPublishingReadinessStatus(source.status),
     version: cleanString(source.version),
     checksum: cleanString(source.checksum),
     files: cleanArtifactLinks(source.files),
@@ -294,6 +318,7 @@ export function sanitizeBookStudioRecordInput(resource: BookStudioResourceKey, i
     packageManifest: cleanPackageManifest(source.packageManifest ?? source.manifest),
     analyticsSnapshot: cleanAnalyticsSnapshot(source.analyticsSnapshot ?? source.analytics),
     approvalState: cleanApprovalState(source.approvalState),
+    publishingReadinessStatus: cleanPublishingReadinessStatus(source.publishingReadinessStatus ?? source.readinessStatus),
     evidenceIds: cleanStringArray(source.evidenceIds),
     researchItemIds: cleanStringArray(source.researchItemIds),
     clientDocumentIds: cleanStringArray(source.clientDocumentIds ?? source.documentIds),

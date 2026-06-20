@@ -107,6 +107,8 @@ describe('GET /api/v1/portal/book-studio', () => {
                 summary: 'Check the PDF.',
                 artifacts: [
                   { label: 'Cover proof', href: 'https://example.com/cover.pdf' },
+                  { label: 'Unsafe JS', href: 'javascript:alert(1)' },
+                  { label: 'Unsafe FTP', href: 'ftp://example.com/cover.pdf' },
                   { label: 'Missing link' },
                 ],
               },
@@ -143,6 +145,48 @@ describe('GET /api/v1/portal/book-studio', () => {
         gates: [{ id: 'release', label: 'Human release review', status: 'blocked' }],
       },
     ])
+  })
+
+  it('strips unsafe review-packet artifact hrefs before portal exposure', async () => {
+    stageCollections(
+      { portalModules: { bookStudio: true } },
+      [
+        {
+          id: 'book-unsafe',
+          data: () => ({
+            title: 'Unsafe packet links',
+            reviewPackets: [
+              {
+                id: 'packet-unsafe',
+                title: 'Artifact checks',
+                status: 'ready_for_human_review',
+                artifacts: [
+                  { label: 'Relative path', href: '/internal/file.pdf' },
+                  { label: 'JavaScript URL', href: 'javascript:alert(1)' },
+                  { label: 'Data URL', href: 'data:text/html;base64,PGgxPkJvb208L2gxPg==' },
+                  { label: 'Credentialed URL', href: 'https://user:pass@example.com/secret.pdf' },
+                  { label: 'Safe HTTP', href: 'http://example.com/review.pdf' },
+                  { label: 'Safe HTTPS', href: 'https://example.com/review.pdf' },
+                ],
+              },
+            ],
+          }),
+        },
+      ],
+    )
+
+    const { GET } = await import('@/app/api/v1/portal/book-studio/route')
+    const res = await GET(new NextRequest('http://localhost/api/v1/portal/book-studio'))
+    const body = await res.json()
+
+    expect(res.status).toBe(200)
+    expect(body.data.projects[0].reviewPackets[0].artifacts).toEqual([
+      { label: 'Safe HTTP', href: 'http://example.com/review.pdf' },
+      { label: 'Safe HTTPS', href: 'https://example.com/review.pdf' },
+    ])
+    expect(JSON.stringify(body)).not.toContain('javascript:')
+    expect(JSON.stringify(body)).not.toContain('data:text')
+    expect(JSON.stringify(body)).not.toContain('user:pass')
   })
 
   it('filters review packets and gates when the organisation role policy denies those views', async () => {

@@ -3,8 +3,16 @@ import {
   canReadWorkspaceFolder,
   workspaceFolderMatchesLookup,
 } from '@/lib/workspace-folders/model'
+import { parseDriveFolderId } from '@/lib/workspace-folders/drive'
 
 describe('workspace folder model', () => {
+  it('extracts Google Drive folder IDs from pasted folder URLs and accepts raw IDs', () => {
+    expect(parseDriveFolderId('https://drive.google.com/drive/folders/1AbCdEfG?usp=sharing')).toBe('1AbCdEfG')
+    expect(parseDriveFolderId('https://drive.google.com/open?id=folder_123')).toBe('folder_123')
+    expect(parseDriveFolderId('folder-123_abc')).toBe('folder-123_abc')
+    expect(parseDriveFolderId('https://example.com/not-drive')).toBeNull()
+  })
+
   it('normalizes a tenant-safe folder mapping with hierarchy, visibility, paths, permissions, and sync state', () => {
     const folder = normalizeWorkspaceFolderInput({
       name: 'Client Assets',

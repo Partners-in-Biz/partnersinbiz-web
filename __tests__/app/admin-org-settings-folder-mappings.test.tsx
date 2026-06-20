@@ -28,6 +28,13 @@ describe('OrgSettingsPage folder mappings', () => {
       if (url === '/api/v1/workspace-connections?orgId=org_1') {
         return Promise.resolve({ ok: true, json: async () => ({ data: [] }) } as Response)
       }
+      if (url === '/api/v1/crm/companies?limit=100&orderBy=name-asc') {
+        expect(init?.headers).toEqual(expect.objectContaining({ 'X-Org-Id': 'org_1', 'X-Org-Slug': 'acme-client' }))
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ data: { companies: [{ id: 'company_1', name: 'Acme Holdings' }] } }),
+        } as Response)
+      }
       if (url === '/api/v1/workspace-folders?orgId=org_1') {
         expect(init?.headers).toEqual(expect.objectContaining({ 'X-Org-Id': 'org_1', 'X-Org-Slug': 'acme-client' }))
         return Promise.resolve({
@@ -60,6 +67,9 @@ describe('OrgSettingsPage folder mappings', () => {
       }
       if (url === '/api/v1/workspace-connections' && init?.method === 'POST') {
         return Promise.resolve({ ok: true, json: async () => ({ data: { id: 'conn_1' } }) } as Response)
+      }
+      if (url === '/api/v1/workspace-folders' && init?.method === 'POST') {
+        return Promise.resolve({ ok: true, json: async () => ({ data: { id: 'folder_2' } }) } as Response)
       }
       if (url === '/api/v1/workspace-folders/assets/resync?orgId=org_1') {
         return Promise.resolve({
@@ -113,6 +123,44 @@ describe('OrgSettingsPage folder mappings', () => {
       )
     })
   })
+
+
+  it('creates a CRM company Drive folder mapping through the workspace folder API with tenant headers', async () => {
+    render(<OrgSettingsPage />)
+
+    await waitFor(() => expect(screen.getByText('Workspace folder registry')).toBeInTheDocument())
+    fireEvent.change(screen.getByLabelText('Mapping name'), { target: { value: 'NotebookLM research assets' } })
+    fireEvent.change(screen.getByLabelText('Drive folder URL or ID'), { target: { value: 'https://drive.google.com/drive/folders/drive_folder_456?usp=sharing' } })
+    fireEvent.change(screen.getByLabelText('Mapping scope'), { target: { value: 'crm_company' } })
+    fireEvent.change(screen.getByLabelText('CRM company'), { target: { value: 'company_1' } })
+    fireEvent.click(screen.getByRole('button', { name: /Add Drive folder mapping/i }))
+
+    await waitFor(() => {
+      const post = (global.fetch as jest.Mock).mock.calls.find(([url, init]) =>
+        String(url) === '/api/v1/workspace-folders' && init?.method === 'POST',
+      )
+      expect(post).toBeTruthy()
+      expect(post![1].headers).toEqual(expect.objectContaining({
+        'Content-Type': 'application/json',
+        'X-Org-Id': 'org_1',
+        'X-Org-Slug': 'acme-client',
+      }))
+      expect(JSON.parse(post![1].body as string)).toMatchObject({
+        orgId: 'org_1',
+        name: 'NotebookLM research assets',
+        resourceType: 'crm_company',
+        resourceId: 'company_1',
+        visibility: 'admin_agents',
+        driveFolderId: 'drive_folder_456',
+        driveFolderUrl: 'https://drive.google.com/drive/folders/drive_folder_456?usp=sharing',
+        sourceOfTruth: 'google_drive',
+        syncMode: 'metadata_only',
+        tags: ['drive', 'research', 'notebooklm'],
+      })
+    })
+    expect(await screen.findByText('Drive folder mapping saved. Review Drive sharing separately before making it client-visible.')).toBeInTheDocument()
+  })
+
 
   it('loads and saves client portal module switches including Book Studio default-off posture', async () => {
     detailSettings = { portalModules: { mobileApps: false, youtubeStudio: false, bookStudio: true } }
