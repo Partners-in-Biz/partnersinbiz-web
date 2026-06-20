@@ -8,6 +8,7 @@ import type {
   CreativeCanvasRuntimeProofCheck,
   CreativeCanvasRun,
   CreativeCanvasProofStatus,
+  CreativeCanvasReliabilityCoverageCategory,
 } from './types'
 
 type CanvasWithId = CreativeCanvas & { id: string }
@@ -35,19 +36,46 @@ function check(input: CreativeCanvasRuntimeProofCheck): CreativeCanvasRuntimePro
   return input
 }
 
-function categoryCoverage(runs: RunWithId[]) {
+function isActiveStatus(status: CreativeCanvasRun['status']): boolean {
+  return status === 'queued' || status === 'running' || status === 'waiting_for_review'
+}
+
+function categoryCoverage(runs: RunWithId[]): CreativeCanvasReliabilityCoverageCategory[] {
   return RELIABILITY_CATEGORIES.map((category) => {
     const matchingRuns = runs.filter((run) => {
       const outputKind = run.input.outputKind
       return outputKind ? category.kinds.includes(outputKind) : false
     })
     const completed = matchingRuns.filter((run) => run.status === 'completed').length
+    const active = matchingRuns.filter((run) => isActiveStatus(run.status)).length
     const failed = matchingRuns.filter((run) => run.status === 'failed').length
+    const cancelled = matchingRuns.filter((run) => run.status === 'cancelled').length
+    const latestCompletedRun = matchingRuns.find((run) => run.status === 'completed')
+    const latestRun = matchingRuns[0]
+    const status: CreativeCanvasProofStatus = completed
+      ? 'passed'
+      : active
+        ? 'warning'
+        : 'blocked'
     return {
-      ...category,
+      key: category.key,
+      label: category.label,
+      requiredOutputKinds: category.kinds,
+      status,
       total: matchingRuns.length,
       completed,
+      active,
       failed,
+      cancelled,
+      latestRunId: latestRun?.id,
+      latestCompletedRunId: latestCompletedRun?.id,
+      nextAction: completed
+        ? undefined
+        : active
+          ? 'Wait for this proof run to complete or ingest the provider output.'
+          : failed
+            ? 'Retry failed proof run or queue a new proof batch.'
+            : 'Queue proof batch to create this required creative job.',
     }
   })
 }
@@ -146,6 +174,7 @@ export function buildCreativeCanvasRuntimeProof(input: {
     orgId: canvas.orgId,
     status,
     checks,
+    reliabilityCoverage,
     readyForLiveProof,
     summary: readyForLiveProof
       ? 'Canvas has linked project, agent orchestration, runtime readiness, completed provider run evidence, healthy queue, and exportable output assets.'

@@ -527,11 +527,27 @@ export interface CreativeCanvasRuntimeProofCheck {
   nextAction?: string
 }
 
+export interface CreativeCanvasReliabilityCoverageCategory {
+  key: 'image' | 'video_social' | 'blog_document' | 'book'
+  label: string
+  requiredOutputKinds: CreativeCanvasOutputKind[]
+  status: CreativeCanvasProofStatus
+  total: number
+  completed: number
+  active: number
+  failed: number
+  cancelled: number
+  latestRunId?: string
+  latestCompletedRunId?: string
+  nextAction?: string
+}
+
 export interface CreativeCanvasRuntimeProof {
   canvasId: string
   orgId: string
   status: CreativeCanvasProofStatus
   checks: CreativeCanvasRuntimeProofCheck[]
+  reliabilityCoverage: CreativeCanvasReliabilityCoverageCategory[]
   readyForLiveProof: boolean
   summary: string
 }

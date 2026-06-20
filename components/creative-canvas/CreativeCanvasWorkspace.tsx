@@ -3568,6 +3568,35 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
                   </div>
                   <p className="mt-1">{runtimeProof.summary}</p>
                   <div className="mt-2 space-y-1">
+                    {runtimeProof.reliabilityCoverage?.length ? (
+                      <div className="rounded-md bg-white/70 px-2 py-2">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="font-semibold">Production job coverage</span>
+                          <span>
+                            {runtimeProof.reliabilityCoverage.filter((category) => category.status === 'passed').length}/{runtimeProof.reliabilityCoverage.length} complete
+                          </span>
+                        </div>
+                        <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                          {runtimeProof.reliabilityCoverage.map((category) => (
+                            <div key={category.key} className="rounded-md border border-current/20 bg-white px-2 py-1">
+                              <div className="flex items-center justify-between gap-2">
+                                <span className="font-semibold">{category.label}</span>
+                                <span className="uppercase tracking-normal">{category.status}</span>
+                              </div>
+                              <p>
+                                {category.completed} completed · {category.active} active · {category.failed} failed
+                              </p>
+                              {category.latestRunId ? (
+                                <p>Latest: {category.latestRunId}</p>
+                              ) : null}
+                              {category.nextAction ? (
+                                <p>{category.nextAction}</p>
+                              ) : null}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ) : null}
                     {runtimeProof.checks.map((item) => (
                       <div key={item.id} className="rounded-md bg-white/70 px-2 py-1">
                         <div className="flex items-center justify-between gap-2">

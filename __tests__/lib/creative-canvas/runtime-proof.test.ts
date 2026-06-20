@@ -101,6 +101,12 @@ describe('creative canvas runtime proof', () => {
     expect(proof).toMatchObject({
       status: 'passed',
       readyForLiveProof: true,
+      reliabilityCoverage: expect.arrayContaining([
+        expect.objectContaining({ key: 'image', status: 'passed', completed: 2 }),
+        expect.objectContaining({ key: 'video_social', status: 'passed', completed: 2 }),
+        expect.objectContaining({ key: 'blog_document', status: 'passed', completed: 2 }),
+        expect.objectContaining({ key: 'book', status: 'passed', completed: 2 }),
+      ]),
       checks: expect.arrayContaining([
         expect.objectContaining({ id: 'project_link', status: 'passed' }),
         expect.objectContaining({ id: 'runtime_readiness', status: 'passed' }),
@@ -130,6 +136,12 @@ describe('creative canvas runtime proof', () => {
 
     expect(proof.status).toBe('warning')
     expect(proof.readyForLiveProof).toBe(false)
+    expect(proof.reliabilityCoverage).toEqual(expect.arrayContaining([
+      expect.objectContaining({ key: 'image', status: 'passed', completed: 1 }),
+      expect.objectContaining({ key: 'video_social', status: 'passed', completed: 1 }),
+      expect.objectContaining({ key: 'blog_document', status: 'warning', active: 1 }),
+      expect.objectContaining({ key: 'book', status: 'blocked', failed: 1 }),
+    ]))
     expect(proof.checks).toEqual(expect.arrayContaining([
       expect.objectContaining({ id: 'repeated_job_coverage', status: 'warning' }),
       expect.objectContaining({ id: 'repeated_job_reliability', status: 'warning' }),
@@ -146,6 +158,12 @@ describe('creative canvas runtime proof', () => {
     expect(proof.status).toBe('blocked')
     expect(proof.readyForLiveProof).toBe(false)
     expect(proof.summary).toContain('blockers')
+    expect(proof.reliabilityCoverage).toEqual(expect.arrayContaining([
+      expect.objectContaining({ key: 'image', status: 'blocked', total: 0 }),
+      expect.objectContaining({ key: 'video_social', status: 'blocked', total: 0 }),
+      expect.objectContaining({ key: 'blog_document', status: 'blocked', total: 0 }),
+      expect.objectContaining({ key: 'book', status: 'blocked', total: 0 }),
+    ]))
     expect(proof.checks).toEqual(expect.arrayContaining([
       expect.objectContaining({ id: 'project_link', status: 'blocked' }),
       expect.objectContaining({ id: 'runtime_readiness', status: 'blocked' }),
