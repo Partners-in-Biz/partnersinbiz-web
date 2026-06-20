@@ -36,6 +36,20 @@ export type AgentStatus =
   | 'done'
   | 'blocked'
 
+export type ReviewStatus = 'pending' | 'in-progress' | 'approved' | 'changes-requested'
+export type ApprovalStatus = 'pending' | 'approved' | 'rejected' | 'denied'
+export type ApprovalGate =
+  | 'none'
+  | 'human-review'
+  | 'client-visible'
+  | 'public-publishing'
+  | 'paid-spend'
+  | 'production-deploy'
+  | 'finance'
+  | 'destructive'
+  | 'secret-config'
+  | 'none-until-production-or-client-visible'
+
 export interface AgentMember {
   agentId: AgentId
   name: string
@@ -75,9 +89,10 @@ export interface Task {
   dependsOn?: string[]
   reviewerIds?: string[]
   reviewerAgentId?: AgentId | null
-  reviewStatus?: 'pending' | 'in-progress' | 'approved' | 'changes-requested' | null
-  approvalStatus?: 'pending' | 'approved' | 'rejected' | 'denied' | null
-  riskLevel?: 'low' | 'medium' | 'high' | 'critical'
+  reviewStatus?: ReviewStatus | null
+  approvalStatus?: ApprovalStatus | null
+  riskLevel?: 'low' | 'medium' | 'high' | 'critical' | null
+  approvalGate?: ApprovalGate | null
   agentEffort?: AgentEffort | null
   agentModel?: AgentModel | null
   requiredCapability?: string | null
@@ -88,6 +103,7 @@ export interface Task {
   sourceSpecVersion?: string | null
   sourceResearchItemId?: string | null
   expectedArtifacts?: string[]
+  verifierChecklist?: string[]
   mentionIds?: string[]
   contextRefs?: ContextReference[]
   internalOnly?: boolean

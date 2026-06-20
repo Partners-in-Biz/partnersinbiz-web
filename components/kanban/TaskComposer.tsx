@@ -22,11 +22,20 @@ interface TaskComposerProps {
 }
 
 const PRIORITIES = ['urgent', 'high', 'medium', 'low'] as const
+const RISK_LEVELS = ['low', 'medium', 'high', 'critical'] as const
+const APPROVAL_GATES = ['none', 'human-review', 'client-visible', 'public-publishing', 'paid-spend', 'production-deploy', 'finance', 'destructive', 'secret-config'] as const
 type AssignmentMode = 'people' | 'agent' | 'orchestration'
 
 function cleanList(value: string): string[] {
   return value
     .split(',')
+    .map((item) => item.trim())
+    .filter(Boolean)
+}
+
+function cleanLines(value: string): string[] {
+  return value
+    .split(/\r?\n/)
     .map((item) => item.trim())
     .filter(Boolean)
 }
@@ -112,6 +121,11 @@ export function TaskComposer({ open, column, projectId, orgId, members, agents =
   const [reviewerAgentId, setReviewerAgentId] = useState<AgentId | ''>('')
   const [agentEffort, setAgentEffort] = useState<AgentEffort | ''>('')
   const [agentModel, setAgentModel] = useState<AgentModel | ''>('')
+  const [requiredCapability, setRequiredCapability] = useState('')
+  const [riskLevel, setRiskLevel] = useState<(typeof RISK_LEVELS)[number] | ''>('')
+  const [approvalGate, setApprovalGate] = useState<(typeof APPROVAL_GATES)[number] | ''>('')
+  const [expectedArtifactsText, setExpectedArtifactsText] = useState('')
+  const [verifierChecklistText, setVerifierChecklistText] = useState('')
   const [checklistText, setChecklistText] = useState('')
   const [files, setFiles] = useState<File[]>([])
   const [dragging, setDragging] = useState(false)
@@ -165,6 +179,11 @@ export function TaskComposer({ open, column, projectId, orgId, members, agents =
     setReviewerAgentId('')
     setAgentEffort('')
     setAgentModel('')
+    setRequiredCapability('')
+    setRiskLevel('')
+    setApprovalGate('')
+    setExpectedArtifactsText('')
+    setVerifierChecklistText('')
     setChecklistText('')
     setFiles([])
     setError(null)
@@ -181,6 +200,8 @@ export function TaskComposer({ open, column, projectId, orgId, members, agents =
       const attachments = await Promise.all(files.map((file) => uploadTaskFile(file, projectId, orgId)))
       const estimate = Number.parseFloat(estimateHours)
       const checklist = newChecklist(checklistText)
+      const expectedArtifacts = cleanLines(expectedArtifactsText)
+      const verifierChecklist = cleanLines(verifierChecklistText)
       const order = Date.now()
       const effectiveMode = hideAgentSection ? 'people' : assignmentMode
       const agentId = effectiveMode === 'orchestration' ? 'pip' : effectiveMode === 'agent' ? assigneeAgentId : ''
@@ -206,6 +227,11 @@ export function TaskComposer({ open, column, projectId, orgId, members, agents =
                 columnId: column.id,
                 assignmentMode: effectiveMode,
                 ...(contextRefs.length > 0 ? { contextRefs } : {}),
+                ...(requiredCapability.trim() ? { requiredCapability: requiredCapability.trim() } : {}),
+                ...(riskLevel ? { riskLevel } : {}),
+                ...(approvalGate ? { approvalGate } : {}),
+                ...(expectedArtifacts.length > 0 ? { expectedArtifacts } : {}),
+                ...(verifierChecklist.length > 0 ? { verifierChecklist } : {}),
                 ...(effectiveMode === 'orchestration'
                   ? {
                       orchestrationMode: 'pip-orchestrator',
@@ -228,6 +254,11 @@ export function TaskComposer({ open, column, projectId, orgId, members, agents =
         dependsOn,
         reviewerIds,
         reviewerAgentId: reviewerAgentId || null,
+        requiredCapability: requiredCapability.trim() || null,
+        riskLevel: riskLevel || null,
+        approvalGate: approvalGate || null,
+        expectedArtifacts,
+        verifierChecklist,
         agentEffort: agentId && agentEffort ? agentEffort : null,
         agentModel: agentId && agentModel ? agentModel : null,
         dueDate: dueDate || null,
@@ -643,6 +674,43 @@ export function TaskComposer({ open, column, projectId, orgId, members, agents =
                   </label>
                 ))}
               </div>
+            </div>
+            <div className="space-y-3 rounded-md border border-purple-400/20 bg-purple-500/5 p-3">
+              <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Review model</p>
+              <label className="block space-y-1">
+                <span className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Required capability</span>
+                <input
+                  value={requiredCapability}
+                  onChange={(event) => setRequiredCapability(event.target.value)}
+                  placeholder="platform-engineering"
+                  className="w-full min-w-0 rounded-md border border-[var(--color-card-border)] bg-[var(--color-card)] px-3 py-2 text-sm text-on-surface placeholder:text-on-surface-variant focus:border-[var(--color-accent-v2)] focus:outline-none"
+                />
+              </label>
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                <label className="space-y-1">
+                  <span className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Risk</span>
+                  <select value={riskLevel} onChange={(event) => setRiskLevel(event.target.value as (typeof RISK_LEVELS)[number] | '')} className="w-full rounded-md border border-[var(--color-card-border)] bg-[var(--color-card)] px-2 py-2 text-xs text-on-surface focus:border-[var(--color-accent-v2)] focus:outline-none">
+                    <option value="">Unset</option>
+                    {RISK_LEVELS.map((item) => <option key={item} value={item}>{item}</option>)}
+                  </select>
+                </label>
+                <label className="space-y-1">
+                  <span className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Approval gate</span>
+                  <select value={approvalGate} onChange={(event) => setApprovalGate(event.target.value as (typeof APPROVAL_GATES)[number] | '')} className="w-full rounded-md border border-[var(--color-card-border)] bg-[var(--color-card)] px-2 py-2 text-xs text-on-surface focus:border-[var(--color-accent-v2)] focus:outline-none">
+                    <option value="">Unset</option>
+                    {APPROVAL_GATES.map((item) => <option key={item} value={item}>{item}</option>)}
+                  </select>
+                </label>
+              </div>
+              <label className="block space-y-1">
+                <span className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Expected artifacts</span>
+                <textarea value={expectedArtifactsText} onChange={(event) => setExpectedArtifactsText(event.target.value)} placeholder="One artifact per line" rows={3} className="w-full resize-y rounded-md border border-[var(--color-card-border)] bg-[var(--color-card)] px-3 py-2 text-xs text-on-surface placeholder:text-on-surface-variant focus:border-[var(--color-accent-v2)] focus:outline-none" />
+              </label>
+              <label className="block space-y-1">
+                <span className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Verifier checklist</span>
+                <textarea value={verifierChecklistText} onChange={(event) => setVerifierChecklistText(event.target.value)} placeholder="One verification check per line" rows={3} className="w-full resize-y rounded-md border border-[var(--color-card-border)] bg-[var(--color-card)] px-3 py-2 text-xs text-on-surface placeholder:text-on-surface-variant focus:border-[var(--color-accent-v2)] focus:outline-none" />
+              </label>
+              <p className="text-[10px] leading-snug text-on-surface-variant">Review status is quality control. Approval gate is business authority and still requires explicit approval before gated actions.</p>
             </div>
           </aside>
         </div>

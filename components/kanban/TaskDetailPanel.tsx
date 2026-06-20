@@ -372,8 +372,9 @@ export function TaskDetailPanel({ task, columnName, projectId, orgId, members = 
 
   async function handleApproveReview() {
     if (!task?.id) return
+    const hasOpenBusinessGate = task.approvalStatus === 'pending' && task.approvalGate && task.approvalGate !== 'none'
     await onUpdate(task.id, {
-      columnId: 'done',
+      columnId: hasOpenBusinessGate ? 'review' : 'done',
       reviewStatus: 'approved',
     })
   }
@@ -624,7 +625,36 @@ export function TaskDetailPanel({ task, columnName, projectId, orgId, members = 
   const priorityColor = PRIORITY_COLORS[task.priority ?? 'medium'] ?? PRIORITY_COLORS.medium
   const blockerRecovery = buildBlockedTaskRecovery(task, comments)
   const isApprovalGate = task.labels?.some((label) => label.toLowerCase() === 'approval-gate') || task.approvalStatus === 'pending'
-  const approvalGateResolved = task.approvalStatus === 'approved' || task.reviewStatus === 'approved' || task.columnId === 'done'
+  const approvalGateResolved = task.approvalStatus === 'approved' || task.approvalStatus === 'rejected' || task.approvalStatus === 'denied'
+  const reviewerAgent = task.reviewerAgentId ? agents.find((agent) => agent.agentId === task.reviewerAgentId) : undefined
+  const reviewStatusLabel = task.reviewStatus === 'approved'
+    ? 'Passed'
+    : task.reviewStatus === 'changes-requested'
+      ? 'Failed / changes requested'
+      : task.reviewStatus === 'in-progress'
+        ? 'In progress'
+        : task.reviewStatus === 'pending'
+          ? 'Pending reviewer'
+          : 'Not started'
+  const approvalStatusLabel = task.approvalStatus === 'approved'
+    ? 'Approved'
+    : task.approvalStatus === 'rejected' || task.approvalStatus === 'denied'
+      ? 'Rejected'
+      : task.approvalStatus === 'pending'
+        ? 'Pending'
+        : task.approvalGate && task.approvalGate !== 'none'
+          ? 'Gate identified'
+          : 'No business approval gate'
+  const hasReviewPackage = Boolean(
+    task.reviewerAgentId
+    || task.reviewStatus
+    || task.approvalStatus
+    || task.requiredCapability
+    || task.riskLevel
+    || (task.approvalGate && task.approvalGate !== 'none')
+    || task.expectedArtifacts?.length
+    || task.verifierChecklist?.length,
+  )
 
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-end" onClick={onClose}>
@@ -806,6 +836,66 @@ export function TaskDetailPanel({ task, columnName, projectId, orgId, members = 
                       {approvalGateBusy === 'reject' ? 'Rejecting...' : 'Reject / request changes'}
                     </button>
                   </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {hasReviewPackage && (
+            <div className="rounded-[var(--radius-card)] border border-purple-400/25 bg-purple-500/5 p-4">
+              <div className="flex items-start gap-3">
+                <span className="material-symbols-outlined text-[20px] text-purple-300">fact_check</span>
+                <div className="min-w-0 flex-1 space-y-3">
+                  <div>
+                    <p className="text-sm font-label text-on-surface">Review package</p>
+                    <p className="mt-1 text-xs leading-5 text-on-surface-variant">
+                      Quality review records objective verification. Business approval records authority for gated actions; one does not imply the other.
+                    </p>
+                  </div>
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    <div className="rounded border border-[var(--color-card-border)] bg-[var(--color-card)] p-3">
+                      <p className="text-[9px] font-label uppercase tracking-widest text-on-surface-variant">Quality review</p>
+                      <p className="mt-1 text-sm text-on-surface">{reviewStatusLabel}</p>
+                      {(reviewerAgent || task.reviewerAgentId) && (
+                        <p className="mt-1 text-xs text-on-surface-variant">Reviewer: {agentLabel(reviewerAgent, task.reviewerAgentId)}</p>
+                      )}
+                    </div>
+                    <div className="rounded border border-[var(--color-card-border)] bg-[var(--color-card)] p-3">
+                      <p className="text-[9px] font-label uppercase tracking-widest text-on-surface-variant">Business approval</p>
+                      <p className="mt-1 text-sm text-on-surface">{approvalStatusLabel}</p>
+                      {task.approvalGate && (
+                        <p className="mt-1 text-xs text-on-surface-variant">Gate: {task.approvalGate}</p>
+                      )}
+                    </div>
+                  </div>
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    {task.requiredCapability && (
+                      <p className="rounded border border-[var(--color-card-border)] bg-[var(--color-card)] p-2 text-xs text-on-surface-variant">
+                        <span className="font-label uppercase tracking-wide text-on-surface">Capability:</span> {task.requiredCapability}
+                      </p>
+                    )}
+                    {task.riskLevel && (
+                      <p className="rounded border border-[var(--color-card-border)] bg-[var(--color-card)] p-2 text-xs text-on-surface-variant">
+                        <span className="font-label uppercase tracking-wide text-on-surface">Risk:</span> {task.riskLevel}
+                      </p>
+                    )}
+                  </div>
+                  {task.expectedArtifacts?.length ? (
+                    <div>
+                      <p className="mb-1 text-[9px] font-label uppercase tracking-widest text-on-surface-variant">Expected artifacts</p>
+                      <ul className="list-disc space-y-1 pl-4 text-xs text-on-surface-variant">
+                        {task.expectedArtifacts.map((artifact) => <li key={artifact}>{artifact}</li>)}
+                      </ul>
+                    </div>
+                  ) : null}
+                  {task.verifierChecklist?.length ? (
+                    <div>
+                      <p className="mb-1 text-[9px] font-label uppercase tracking-widest text-on-surface-variant">Verifier checklist</p>
+                      <ul className="list-disc space-y-1 pl-4 text-xs text-on-surface-variant">
+                        {task.verifierChecklist.map((item) => <li key={item}>{item}</li>)}
+                      </ul>
+                    </div>
+                  ) : null}
                 </div>
               </div>
             </div>
@@ -1092,7 +1182,7 @@ export function TaskDetailPanel({ task, columnName, projectId, orgId, members = 
                           className="inline-flex items-center gap-1 text-[10px] font-label uppercase tracking-wide px-2 py-1 rounded bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 transition-colors"
                         >
                           <span className="material-symbols-outlined text-[12px]">check_circle</span>
-                          Approve
+                          Mark review passed
                         </button>
                       )}
                       {task.agentStatus === 'done' && !showRevisionForm && (
@@ -1427,8 +1517,8 @@ export function TaskDetailPanel({ task, columnName, projectId, orgId, members = 
               <p className="text-xs text-on-surface-variant italic mb-3">No comments yet</p>
             ) : (
               <div className="space-y-3 max-h-48 overflow-y-auto mb-3">
-                {comments.map(comment => (
-                  <div key={comment.id} className="text-xs">
+                {comments.map((comment, index) => (
+                  <div key={comment.id ?? `${comment.createdAt ?? 'comment'}-${index}`} className="text-xs">
                     <div className="flex items-center gap-2 mb-1">
                       {/* Avatar */}
                       <div

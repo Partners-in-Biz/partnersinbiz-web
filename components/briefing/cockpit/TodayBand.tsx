@@ -1,4 +1,5 @@
 'use client'
+import { useEffect, useState } from 'react'
 import type { Meeting } from './useTodayMeetings'
 
 type Props = {
@@ -17,6 +18,14 @@ function formatTime(iso: string): string {
 }
 
 export function TodayBand({ status, meetings, loading, mode }: Props) {
+  const [now, setNow] = useState<number | null>(null)
+
+  useEffect(() => {
+    setNow(Date.now())
+    const timer = window.setInterval(() => setNow(Date.now()), 60_000)
+    return () => window.clearInterval(timer)
+  }, [])
+
   if (loading) {
     return (
       <div className="border-b border-[var(--color-card-border)] px-4 py-2 text-xs text-on-surface-variant">
@@ -44,8 +53,7 @@ export function TodayBand({ status, meetings, loading, mode }: Props) {
     )
   }
 
-  const now = Date.now()
-  const nextIdx = meetings.findIndex((m) => !m.allDay && new Date(m.start).getTime() > now)
+  const nextIdx = now === null ? -1 : meetings.findIndex((m) => !m.allDay && new Date(m.start).getTime() > now)
 
   return (
     <div className="flex items-center gap-2 overflow-x-auto border-b border-[var(--color-card-border)] bg-[var(--color-surface)] px-3 py-2">

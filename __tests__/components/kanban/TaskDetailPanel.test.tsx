@@ -104,6 +104,62 @@ describe('TaskDetailPanel', () => {
     expect(global.fetch).toHaveBeenCalledWith('/api/v1/projects/project-1/tasks/task-1/comments', expect.objectContaining({ method: 'POST' }))
   })
 
+  it('separates quality review state from business approval gate state in the task drawer', async () => {
+    renderPanel({
+      task: {
+        ...task,
+        assigneeAgentId: 'theo',
+        agentStatus: 'done',
+        reviewerAgentId: 'qa-release',
+        reviewStatus: 'approved',
+        approvalStatus: 'pending',
+        requiredCapability: 'platform-engineering',
+        riskLevel: 'high',
+        approvalGate: 'production-deploy',
+        expectedArtifacts: ['commit on origin/development', 'typecheck output'],
+        verifierChecklist: ['Inspect diff against spec', 'Confirm approval gates remain closed'],
+      },
+      agents: [
+        { agentId: 'theo', name: 'Theo' },
+        { agentId: 'qa-release', name: 'Quinn' },
+      ],
+    })
+
+    await waitFor(() => expect(screen.queryByText('Loading comments...')).not.toBeInTheDocument())
+
+    expect(screen.getByText('Review package')).toBeInTheDocument()
+    expect(screen.getByText('Quality review')).toBeInTheDocument()
+    expect(screen.getByText('Passed')).toBeInTheDocument()
+    expect(screen.getByText('Business approval')).toBeInTheDocument()
+    expect(screen.getByText('Pending')).toBeInTheDocument()
+    expect(screen.getByText(/production-deploy/)).toBeInTheDocument()
+    expect(screen.getAllByText(/Quinn/).length).toBeGreaterThan(0)
+    expect(screen.getByText('commit on origin/development')).toBeInTheDocument()
+    expect(screen.getByText('Confirm approval gates remain closed')).toBeInTheDocument()
+  })
+
+  it('keeps review-passed tasks in review when a business approval gate is still pending', async () => {
+    const props = renderPanel({
+      task: {
+        ...task,
+        columnId: 'review',
+        assigneeAgentId: 'theo',
+        agentStatus: 'done',
+        reviewStatus: 'pending',
+        approvalStatus: 'pending',
+        approvalGate: 'production-deploy',
+      },
+    })
+
+    await waitFor(() => expect(screen.queryByText('Loading comments...')).not.toBeInTheDocument())
+    fireEvent.click(screen.getByRole('button', { name: /mark review passed/i }))
+
+    await waitFor(() => expect(props.onUpdate).toHaveBeenCalledWith('task-1', {
+      columnId: 'review',
+      reviewStatus: 'approved',
+    }))
+  })
+
   it('uses an in-page confirmation before deleting project tasks', async () => {
     const confirmSpy = jest.spyOn(window, 'confirm').mockReturnValue(false)
     const props = renderPanel()

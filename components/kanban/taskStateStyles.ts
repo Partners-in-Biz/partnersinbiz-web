@@ -79,7 +79,8 @@ export function getTaskStateTone(task: TaskStateLike): TaskStateTone {
     status === 'pending-review' ||
     reviewStatus === 'pending' ||
     reviewStatus === 'in-progress' ||
-    reviewStatus === 'changes-requested'
+    reviewStatus === 'changes-requested' ||
+    (reviewStatus === 'approved' && approvalStatus === 'pending')
   ) {
     return 'review'
   }

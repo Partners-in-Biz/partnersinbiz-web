@@ -216,4 +216,33 @@ describe('KanbanBoard task cards', () => {
     expect(screen.getByText('Blocked task state').closest('.pib-card')).toHaveStyle({ borderLeftColor: '#ef4444' })
     expect(screen.getByText('Done task').closest('.pib-card')).toHaveStyle({ borderLeftColor: '#22c55e' })
   })
+
+  it('shows review-passed tasks that still need business approval as decision items, not completed work', () => {
+    render(
+      <KanbanBoard
+        columns={[{ id: 'review', name: 'Review', color: '#a855f7', order: 1 }]}
+        tasks={[{
+          ...task,
+          id: 'decision-task',
+          title: 'Review passed but approval pending',
+          columnId: 'review',
+          agentStatus: 'done',
+          reviewStatus: 'approved',
+          approvalStatus: 'pending',
+          approvalGate: 'production-deploy',
+          reviewerAgentId: 'qa-release',
+        }]}
+        onTaskMove={jest.fn()}
+        onTaskClick={jest.fn()}
+        onAddTask={jest.fn()}
+      />,
+    )
+
+    const card = screen.getByText('Review passed but approval pending').closest('.pib-card')
+    expect(card).not.toBeNull()
+    expect(card).toHaveAttribute('data-state-tone', 'review')
+    const scope = within(card as HTMLElement)
+    expect(scope.getByText('Approval pending')).toBeInTheDocument()
+    expect(scope.getByText('Review passed')).toBeInTheDocument()
+  })
 })

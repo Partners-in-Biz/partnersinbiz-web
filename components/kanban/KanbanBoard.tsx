@@ -212,6 +212,16 @@ function TaskCard({
         <span className={`text-[9px] font-label uppercase tracking-wide px-1.5 py-0.5 rounded border ${stateStyle.pillClassName}`}>
           {stateStyle.label}
         </span>
+        {task.reviewStatus === 'approved' && (
+          <span className="text-[9px] font-label uppercase tracking-wide px-1.5 py-0.5 rounded border border-emerald-400/30 bg-emerald-500/10 text-emerald-300">
+            Review passed
+          </span>
+        )}
+        {task.approvalStatus === 'pending' && task.approvalGate && task.approvalGate !== 'none' && (
+          <span className="text-[9px] font-label uppercase tracking-wide px-1.5 py-0.5 rounded border border-amber-400/30 bg-amber-500/10 text-amber-300">
+            Approval pending
+          </span>
+        )}
         {task.labels?.slice(0, 2).map(l => (
           <span key={l} className="text-[9px] px-1.5 py-0.5 rounded bg-surface-container text-on-surface-variant">
             {l}
