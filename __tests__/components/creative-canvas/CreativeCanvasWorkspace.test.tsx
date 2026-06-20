@@ -723,6 +723,54 @@ describe('CreativeCanvasWorkspace', () => {
     })
   })
 
+  it('uses visual mask presets for Higgsfield-style inpainting regions', async () => {
+    render(<CreativeCanvasWorkspace mode="admin" orgId="org-1" />)
+
+    await screen.findByText('Launch Canvas')
+    fireEvent.click(screen.getByRole('button', { name: /add edit node/i }))
+
+    expect(screen.getByLabelText('Mask preview overlay')).toHaveStyle({
+      left: '0%',
+      top: '0%',
+      width: '50%',
+      height: '50%',
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: /product placement/i }))
+
+    expect(screen.getByLabelText('Mask preview overlay')).toHaveStyle({
+      left: '56%',
+      top: '48%',
+      width: '30%',
+      height: '34%',
+    })
+    expect(screen.getByText('30x34% · feather 6')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: /apply mask region/i }))
+    fireEvent.click(screen.getByRole('button', { name: /save graph/i }))
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith('/api/v1/creative-canvas/canvas-1/graph?orgId=org-1', expect.objectContaining({
+        method: 'PUT',
+      }))
+    })
+    const graphCall = fetchMock.mock.calls.find(([url, init]) =>
+      String(url).includes('/graph?orgId=org-1') && init?.method === 'PUT'
+    )
+    expect(JSON.parse(graphCall?.[1]?.body as string)).toMatchObject({
+      nodes: [
+        expect.objectContaining({
+          type: 'edit',
+          edit: expect.objectContaining({
+            mask: {
+              region: { x: 56, y: 48, width: 30, height: 34, unit: 'percent', feather: 6 },
+            },
+          }),
+        }),
+      ],
+    })
+  })
+
   it('loads versions and posts comments for the active canvas', async () => {
     render(<CreativeCanvasWorkspace mode="admin" orgId="org-1" />)
 
@@ -840,6 +888,7 @@ describe('CreativeCanvasWorkspace', () => {
 
     await screen.findByText('Launch Canvas')
     fireEvent.click(screen.getByRole('button', { name: /add model node/i }))
+    fireEvent.change(screen.getByLabelText(/higgsfield model id/i), { target: { value: 'nano_banana_pro' } })
     fireEvent.change(screen.getByLabelText(/output kind/i), { target: { value: 'video' } })
     fireEvent.change(screen.getByLabelText(/aspect ratio/i), { target: { value: '9:16' } })
     fireEvent.change(screen.getByLabelText(/duration seconds/i), { target: { value: '6' } })
@@ -855,6 +904,7 @@ describe('CreativeCanvasWorkspace', () => {
     )
     expect(JSON.parse(runCall?.[1]?.body as string)).toMatchObject({
       providerKey: 'higgsfield',
+      model: 'nano_banana_pro',
       input: {
         outputKind: 'video',
         aspectRatio: '9:16',

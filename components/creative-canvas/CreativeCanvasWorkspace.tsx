@@ -125,6 +125,22 @@ const assetOriginLabels: Record<CreativeCanvasAssetOrigin, string> = {
   run_output: 'Run output',
 }
 
+const maskQuickRegions = [
+  { key: 'center-subject', label: 'Center subject', region: { x: 30, y: 18, width: 40, height: 64, feather: 8 } },
+  { key: 'product-placement', label: 'Product placement', region: { x: 56, y: 48, width: 30, height: 34, feather: 6 } },
+  { key: 'face-edit', label: 'Face edit', region: { x: 38, y: 10, width: 24, height: 28, feather: 10 } },
+  { key: 'background-swap', label: 'Background swap', region: { x: 0, y: 0, width: 100, height: 100, feather: 12 } },
+]
+
+const higgsfieldModelSuggestions = [
+  { id: 'nano_banana_flash', label: 'Nano Banana 2 (verified runtime)' },
+  { id: 'nano_banana_pro', label: 'Nano Banana Pro' },
+  { id: 'kling_3_0', label: 'Kling 3.0' },
+  { id: 'seedance_2_0_fast', label: 'Seedance 2.0 Fast' },
+  { id: 'soul_v2', label: 'Soul V2' },
+  { id: 'gpt_image', label: 'GPT Image' },
+]
+
 type CreativeCanvasWorkflowPreset = {
   key: string
   label: string
@@ -487,6 +503,7 @@ function toCanvasEdge(edge: Edge, orgId: string): CreativeCanvasEdge {
 export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspaceProps) {
   const [canvases, setCanvases] = useState<CreativeCanvas[]>([])
   const [activeCanvasId, setActiveCanvasId] = useState<string>('')
+  const [selectedFlowNodeId, setSelectedFlowNodeId] = useState<string>('')
   const [nodes, setNodes] = useState<Node[]>([])
   const [edges, setEdges] = useState<Edge[]>([])
   const [loading, setLoading] = useState(true)
@@ -498,6 +515,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
   const [activityMessage, setActivityMessage] = useState('')
   const [exportTarget, setExportTarget] = useState<CreativeCanvasExport['target']>('campaign_asset')
   const [latestRun, setLatestRun] = useState<{ id: string; status: string; nodeId?: string } | null>(null)
+  const [runModel, setRunModel] = useState('nano_banana_flash')
   const [runOutputKind, setRunOutputKind] = useState('image')
   const [runAspectRatio, setRunAspectRatio] = useState('1:1')
   const [runDurationSeconds, setRunDurationSeconds] = useState(5)
@@ -531,9 +549,9 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
 
   const resolvedOrgId = orgId ?? activeCanvas?.orgId ?? ''
   const selectedCanvasNode = useMemo(() => {
-    const flowNode = nodes[0]
+    const flowNode = nodes.find((node) => node.id === selectedFlowNodeId) ?? nodes[0]
     return flowNode?.data?.canvasNode as CreativeCanvasNode | undefined
-  }, [nodes])
+  }, [nodes, selectedFlowNodeId])
 
   const selectedNodeId = selectedCanvasNode?.id
   const orchestrationPlan = useMemo(() => buildCreativeCanvasOrchestrationPlan({
@@ -609,6 +627,23 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
   }, [])
 
   useEffect(() => {
+    const region = selectedCanvasNode?.edit?.mask?.region
+    if (!region) return
+    setMaskRegion({
+      x: region.x,
+      y: region.y,
+      width: region.width,
+      height: region.height,
+      feather: region.feather ?? 0,
+    })
+  }, [selectedCanvasNode?.id, selectedCanvasNode?.edit?.mask?.region])
+
+  useEffect(() => {
+    const selectedModel = selectedCanvasNode?.provider?.key === 'higgsfield' ? selectedCanvasNode.provider.model : undefined
+    if (selectedModel) setRunModel(selectedModel)
+  }, [selectedCanvasNode?.id, selectedCanvasNode?.provider?.key, selectedCanvasNode?.provider?.model])
+
+  useEffect(() => {
     let cancelled = false
     const loadCanvases = async () => {
       setLoading(true)
@@ -625,6 +660,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
         setCanvases(loadedCanvases)
         const firstCanvas = loadedCanvases[0]
         setActiveCanvasId(firstCanvas?.id ?? '')
+        setSelectedFlowNodeId(firstCanvas?.nodes?.[0]?.id ?? '')
         setNodes((firstCanvas?.nodes ?? []).map(toFlowNode))
         setEdges((firstCanvas?.edges ?? []).map(toFlowEdge))
         if (firstCanvas?.id) {
@@ -707,6 +743,13 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
             altText: title,
           }
         : undefined,
+      provider: type === 'model'
+        ? {
+            key: 'higgsfield',
+            model: runModel,
+            mode: runOutputKind,
+          }
+        : undefined,
       edit: type === 'edit'
         ? {
             operation: 'inpaint',
@@ -728,6 +771,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
     }
 
     setNodes((currentNodes) => [...currentNodes, toFlowNode(canvasNode)])
+    setSelectedFlowNodeId(id)
     setSaveMessage('')
   }
 
@@ -770,7 +814,9 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
 
     setNodes((currentNodes) => [...currentNodes, ...nextNodes.map(toFlowNode)])
     setEdges((currentEdges) => [...currentEdges, ...nextEdges])
+    setSelectedFlowNodeId(nextNodes.find((node) => node.type === 'model' || node.type === 'edit')?.id ?? nextNodes[0]?.id ?? '')
     setRunOutputKind(preset.outputKind ?? 'image')
+    setRunModel(nextNodes.find((node) => node.provider?.key === 'higgsfield')?.provider?.model ?? 'nano_banana_flash')
     setExportTarget(preset.exportTarget)
     setRunAspectRatio(preset.aspectRatio)
     setRunDurationSeconds(preset.durationSeconds)
@@ -783,6 +829,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
 
   const openCanvas = async (canvas: CreativeCanvas) => {
     setActiveCanvasId(canvas.id ?? '')
+    setSelectedFlowNodeId(canvas.nodes[0]?.id ?? '')
     setNodes(canvas.nodes.map(toFlowNode))
     setEdges(canvas.edges.map(toFlowEdge))
     setLatestExecution(null)
@@ -810,6 +857,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
     }
 
     setNodes((currentNodes) => [...currentNodes, toFlowNode(canvasNode)])
+    setSelectedFlowNodeId(canvasNode.id)
     setSaveMessage('')
   }
 
@@ -850,6 +898,10 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
     }))
   }
 
+  const applyMaskQuickRegion = (region: typeof maskQuickRegions[number]['region']) => {
+    setMaskRegion(region)
+  }
+
   const applyMaskRegion = () => {
     if (!selectedCanvasNode?.edit) return
 
@@ -880,6 +932,10 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
     }))
     setSaveMessage('')
   }
+
+  const selectFlowNode = useCallback((_: unknown, node: Node) => {
+    setSelectedFlowNodeId(node.id)
+  }, [])
 
   const saveGraph = async () => {
     if (!activeCanvas?.id) return
@@ -937,6 +993,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
         : [nextCanvas, ...current]
     })
     setActiveCanvasId(nextCanvas.id ?? '')
+    setSelectedFlowNodeId(nextCanvas.nodes?.[0]?.id ?? '')
     setNodes((nextCanvas.nodes ?? []).map(toFlowNode))
     setEdges((nextCanvas.edges ?? []).map(toFlowEdge))
     setLatestExecution(null)
@@ -1019,7 +1076,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
         canvasId: activeCanvas.id,
         nodeId: selectedNodeId,
         providerKey: 'higgsfield',
-        model: selectedCanvasNode?.provider?.model,
+        model: runModel || selectedCanvasNode?.provider?.model,
         input: {
           promptSummary: 'Generate a reviewable creative asset from the active canvas node.',
           sourceNodeIds: selectedNodeId ? [selectedNodeId] : [],
@@ -1523,7 +1580,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
             {saveMessage ? <p className="text-xs font-medium text-[var(--color-pib-text-muted)]">{saveMessage}</p> : null}
           </div>
           <div className="h-[560px]">
-            <ReactFlow nodes={nodes} edges={edges} onConnect={onConnect} fitView>
+            <ReactFlow nodes={nodes} edges={edges} onConnect={onConnect} onNodeClick={selectFlowNode} fitView>
               <Background />
               <Controls />
               <MiniMap />
@@ -1548,6 +1605,22 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
               Queue Higgsfield, copy, document, and review work from prompt/model nodes while keeping approval gates intact.
             </p>
             <div className="mt-3 grid grid-cols-2 gap-2">
+              <label className="col-span-2 text-xs font-medium text-[var(--color-pib-text-muted)]" htmlFor="creative-canvas-model-id">
+                Higgsfield model id
+                <input
+                  id="creative-canvas-model-id"
+                  list="creative-canvas-model-suggestions"
+                  value={runModel}
+                  onChange={(event) => setRunModel(event.target.value)}
+                  className="mt-1 w-full rounded-lg border border-[var(--color-pib-line)] bg-white px-2 py-1.5 text-xs text-[var(--color-pib-text)]"
+                  placeholder="nano_banana_flash"
+                />
+                <datalist id="creative-canvas-model-suggestions">
+                  {higgsfieldModelSuggestions.map((model) => (
+                    <option key={model.id} value={model.id}>{model.label}</option>
+                  ))}
+                </datalist>
+              </label>
               <label className="text-xs font-medium text-[var(--color-pib-text-muted)]" htmlFor="creative-canvas-output-kind">
                 Output kind
                 <select
@@ -1756,6 +1829,35 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
                 <p className="font-semibold text-[var(--color-pib-text)]">
                   {selectedCanvasNode.edit.operation} / {selectedCanvasNode.edit.outputKind ?? 'image'}
                 </p>
+                <div className="rounded-lg border border-[var(--color-pib-line)] bg-white p-2">
+                  <div className="relative aspect-video overflow-hidden rounded-md border border-[var(--color-pib-line)] bg-[linear-gradient(135deg,#f8fafc_0%,#f8fafc_48%,#eef2f7_48%,#eef2f7_100%)]">
+                    <div
+                      aria-label="Mask preview overlay"
+                      className="absolute rounded-md border-2 border-[var(--color-pib-primary)] bg-[var(--color-pib-primary)]/25 shadow-[0_0_0_999px_rgba(15,23,42,0.18)]"
+                      style={{
+                        left: `${Math.min(100, maskRegion.x)}%`,
+                        top: `${Math.min(100, maskRegion.y)}%`,
+                        width: `${Math.min(100, maskRegion.width)}%`,
+                        height: `${Math.min(100, maskRegion.height)}%`,
+                      }}
+                    />
+                    <div className="absolute bottom-2 left-2 rounded-md bg-white/90 px-2 py-1 text-[11px] font-semibold text-[var(--color-pib-text)]">
+                      {maskRegion.width}x{maskRegion.height}% · feather {maskRegion.feather}
+                    </div>
+                  </div>
+                  <div className="mt-2 grid grid-cols-2 gap-1.5">
+                    {maskQuickRegions.map((preset) => (
+                      <button
+                        key={preset.key}
+                        type="button"
+                        onClick={() => applyMaskQuickRegion(preset.region)}
+                        className="rounded-md border border-[var(--color-pib-line)] px-2 py-1 text-left text-[11px] font-semibold text-[var(--color-pib-text)]"
+                      >
+                        {preset.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
                 <p>
                   Mask: {selectedCanvasNode.edit.mask?.region
                     ? 'region attached'
