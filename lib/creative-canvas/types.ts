@@ -173,6 +173,7 @@ export interface CreativeCanvas {
   title: string
   status: CreativeCanvasStatus
   purpose: string
+  data?: Record<string, unknown>
   linked: CreativeCanvasLinkMap
   activeVersion: number
   visibility: CreativeCanvasVisibility

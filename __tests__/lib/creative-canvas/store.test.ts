@@ -23,6 +23,7 @@ import {
   getCreativeCanvas,
   listCreativeCanvases,
   listCreativeCanvasTemplates,
+  updateCreativeCanvas,
   updateCreativeCanvasGraph,
 } from '@/lib/creative-canvas/store'
 
@@ -126,6 +127,67 @@ describe('creative canvas store', () => {
 
     mockDocGet.mockResolvedValueOnce({ exists: true, id: 'canvas-1', data: () => ({ orgId: 'org-2', deleted: false }) })
     await expect(getCreativeCanvas('canvas-1', 'org-1')).resolves.toBeNull()
+  })
+
+  it('patches persisted visual proof metadata without changing the graph version', async () => {
+    mockDocGet.mockResolvedValue({
+      exists: true,
+      id: 'canvas-1',
+      data: () => ({
+        orgId: 'org-1',
+        title: 'Launch',
+        purpose: 'Product launch',
+        activeVersion: 2,
+        status: 'draft',
+        visibility: 'admin_agents',
+        deleted: false,
+        data: {
+          visualProof: {
+            desktop_1440: {
+              screenshotUrl: 'https://proof.example.com/desktop.png',
+              notes: 'Desktop captured',
+            },
+          },
+        },
+        nodes: [{ id: 'source-1', orgId: 'org-1', type: 'source', title: 'Source', position: { x: 0, y: 0 }, data: {} }],
+        edges: [],
+      }),
+    })
+
+    const updated = await updateCreativeCanvas('canvas-1', 'org-1', {
+      data: {
+        visualProof: {
+          mobile_390: {
+            screenshotUrl: ' https://proof.example.com/mobile.png ',
+            notes: ' Mobile panel captured ',
+            capturedAt: '2026-06-20T10:00:00.000Z',
+            capturedBy: 'Pip',
+          },
+        },
+      },
+    }, ACTOR)
+
+    expect(mockDocUpdate).toHaveBeenCalledWith(expect.objectContaining({
+      data: {
+        visualProof: expect.objectContaining({
+          desktop_1440: expect.objectContaining({ screenshotUrl: 'https://proof.example.com/desktop.png' }),
+          mobile_390: expect.objectContaining({
+            screenshotUrl: 'https://proof.example.com/mobile.png',
+            notes: 'Mobile panel captured',
+          }),
+        }),
+      },
+      updatedAt: 'SERVER_TIMESTAMP',
+    }))
+    expect(updated).toMatchObject({
+      id: 'canvas-1',
+      activeVersion: 2,
+      data: {
+        visualProof: expect.objectContaining({
+          mobile_390: expect.objectContaining({ screenshotUrl: 'https://proof.example.com/mobile.png' }),
+        }),
+      },
+    })
   })
 
   it('saves graph updates and increments activeVersion', async () => {

@@ -733,6 +733,29 @@ beforeEach(() => {
         }),
       }
     }
+    if (url === '/api/v1/creative-canvas/canvas-1?orgId=org-1' && init?.method === 'PATCH') {
+      const body = JSON.parse(String(init.body ?? '{}')) as { data?: Record<string, unknown> }
+      return {
+        ok: true,
+        json: async () => ({
+          success: true,
+          data: {
+            canvas: {
+              id: 'canvas-1',
+              orgId: 'org-1',
+              title: 'Launch Canvas',
+              purpose: 'Product launch',
+              status: 'draft',
+              activeVersion: 1,
+              linked: { projectId: 'project-1' },
+              data: body.data ?? {},
+              nodes: [],
+              edges: [],
+            },
+          },
+        }),
+      }
+    }
 
     return {
       ok: true,
@@ -835,6 +858,42 @@ describe('CreativeCanvasWorkspace', () => {
     expect(parityAudit).toHaveTextContent('1/4 proof categories passed')
     expect(screen.getByRole('region', { name: /canvas graph workspace/i })).toHaveClass('block')
     expect(screen.getByRole('complementary', { name: /source and workflow tools/i })).toHaveClass('hidden')
+  })
+
+  it('saves visual proof evidence and updates the parity audit', async () => {
+    render(<CreativeCanvasWorkspace mode="admin" orgId="org-1" />)
+
+    expect(await screen.findByText('Launch Canvas')).toBeInTheDocument()
+    fireEvent.change(screen.getByLabelText(/desktop 1440 screenshot url/i), {
+      target: { value: 'https://proof.example.com/desktop-1440.png' },
+    })
+    fireEvent.change(screen.getByLabelText(/desktop 1440 proof notes/i), {
+      target: { value: 'Desktop graph, sources, and inspector are legible.' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: /save desktop 1440 proof/i }))
+
+    await waitFor(() => expect(screen.getByText('Saved Desktop 1440 visual proof')).toBeInTheDocument())
+
+    const patchCall = fetchMock.mock.calls.find(([input, init]) => (
+      String(input) === '/api/v1/creative-canvas/canvas-1?orgId=org-1'
+      && init?.method === 'PATCH'
+    ))
+    expect(patchCall).toBeTruthy()
+    const body = JSON.parse(String(patchCall?.[1]?.body ?? '{}')) as {
+      data?: { visualProof?: Record<string, { screenshotUrl?: string; notes?: string; capturedAt?: string; capturedBy?: string }> }
+    }
+    expect(body.data?.visualProof?.desktop_1440).toMatchObject({
+      screenshotUrl: 'https://proof.example.com/desktop-1440.png',
+      notes: 'Desktop graph, sources, and inspector are legible.',
+      capturedBy: 'Pip',
+    })
+    expect(body.data?.visualProof?.desktop_1440?.capturedAt).toEqual(expect.any(String))
+
+    const visualProof = screen.getByLabelText(/creative canvas visual qa proof/i)
+    expect(visualProof).toHaveTextContent('1/4 captured')
+    expect(within(visualProof).getByRole('link', { name: /open proof/i })).toHaveAttribute('href', 'https://proof.example.com/desktop-1440.png')
+    const parityAudit = screen.getByLabelText(/higgsfield parity audit/i)
+    expect(parityAudit).toHaveTextContent('1/4 visual proofs captured')
   })
 
   it('applies benchmark Higgsfield model routing presets to generation controls', async () => {

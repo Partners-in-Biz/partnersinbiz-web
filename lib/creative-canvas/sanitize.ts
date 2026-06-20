@@ -141,6 +141,33 @@ function cleanStringArray(value: unknown): string[] {
     : []
 }
 
+function cleanVisualProofData(value: unknown): Record<string, unknown> | undefined {
+  const proof = asRecord(value)
+  const entries: Array<[string, Record<string, unknown>]> = Object.entries(proof)
+    .flatMap(([key, raw]) => {
+      const item = asRecord(raw)
+      const screenshotUrl = cleanString(item.screenshotUrl)?.slice(0, 500)
+      const notes = cleanString(item.notes)?.slice(0, 500)
+      const capturedAt = cleanString(item.capturedAt)?.slice(0, 80)
+      const capturedBy = cleanString(item.capturedBy)?.slice(0, 120)
+      if (!screenshotUrl && !notes && !capturedAt && !capturedBy) return []
+      return [[key.slice(0, 80), {
+        screenshotUrl,
+        notes,
+        capturedAt,
+        capturedBy,
+      } as Record<string, unknown>] as [string, Record<string, unknown>]]
+    })
+    .slice(0, 8)
+  return entries.length ? Object.fromEntries(entries) : undefined
+}
+
+export function sanitizeCreativeCanvasData(value: unknown): Record<string, unknown> {
+  const data = asRecord(value)
+  const visualProof = cleanVisualProofData(data.visualProof)
+  return visualProof ? { visualProof } : {}
+}
+
 function cleanHttpUrl(value: unknown, field: string): string | undefined {
   const raw = cleanString(value)
   if (!raw) return undefined
@@ -182,6 +209,7 @@ export function sanitizeCreativeCanvasInput(
     title: requiredString(body.title, 'title'),
     status: enumValue(body.status, CANVAS_STATUSES, 'draft'),
     purpose: cleanString(body.purpose) ?? '',
+    data: sanitizeCreativeCanvasData(body.data),
     linked: cleanLinked(body.linked),
     activeVersion: 1,
     visibility: enumValue(body.visibility, VISIBILITIES, 'admin_agents'),

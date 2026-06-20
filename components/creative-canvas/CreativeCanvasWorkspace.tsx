@@ -40,6 +40,19 @@ import { buildCreativeCanvasAssetGallery } from '@/lib/creative-canvas/assets'
 
 type CreativeCanvasMode = 'admin' | 'portal'
 type CreativeCanvasMobilePanel = 'canvas' | 'sources' | 'inspector'
+type CreativeCanvasVisualProofKey = 'desktop_1440' | 'tablet_820' | 'mobile_390' | 'mobile_panels'
+
+type CreativeCanvasVisualProofRecord = {
+  screenshotUrl?: string
+  notes?: string
+  capturedAt?: string
+  capturedBy?: string
+}
+
+type CreativeCanvasVisualProofDraft = Record<CreativeCanvasVisualProofKey, {
+  screenshotUrl: string
+  notes: string
+}>
 
 interface CreativeCanvasWorkspaceProps {
   mode: CreativeCanvasMode
@@ -166,6 +179,68 @@ interface CreativeCanvasActivityEvent {
   nodeId?: string
   atMs: number
   source: 'local' | 'stream' | 'draft'
+}
+
+const emptyVisualProofDrafts: CreativeCanvasVisualProofDraft = {
+  desktop_1440: { screenshotUrl: '', notes: '' },
+  tablet_820: { screenshotUrl: '', notes: '' },
+  mobile_390: { screenshotUrl: '', notes: '' },
+  mobile_panels: { screenshotUrl: '', notes: '' },
+}
+
+const visualProofConfigs: Array<{
+  key: CreativeCanvasVisualProofKey
+  label: string
+  evidence: string
+}> = [
+  {
+    key: 'desktop_1440',
+    label: 'Desktop 1440',
+    evidence: 'Signed-in graph, sources, and inspector screenshot required.',
+  },
+  {
+    key: 'tablet_820',
+    label: 'Tablet 820',
+    evidence: 'Signed-in panel layout screenshot required.',
+  },
+  {
+    key: 'mobile_390',
+    label: 'Mobile 390',
+    evidence: 'Signed-in mobile canvas screenshot required.',
+  },
+  {
+    key: 'mobile_panels',
+    label: 'Mobile panels',
+    evidence: 'Canvas, Sources, and Inspector panel-switch screenshots required.',
+  },
+]
+
+function objectRecord(value: unknown): Record<string, unknown> {
+  return value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : {}
+}
+
+function stringField(value: unknown): string {
+  return typeof value === 'string' ? value : ''
+}
+
+function getCanvasVisualProof(data: unknown): Partial<Record<CreativeCanvasVisualProofKey, CreativeCanvasVisualProofRecord>> {
+  const proof = objectRecord(objectRecord(data).visualProof)
+  return (Object.keys(emptyVisualProofDrafts) as CreativeCanvasVisualProofKey[]).reduce((acc, key) => {
+    const record = objectRecord(proof[key])
+    const screenshotUrl = stringField(record.screenshotUrl)
+    const notes = stringField(record.notes)
+    const capturedAt = stringField(record.capturedAt)
+    const capturedBy = stringField(record.capturedBy)
+    if (screenshotUrl || notes || capturedAt || capturedBy) {
+      acc[key] = {
+        screenshotUrl,
+        notes,
+        capturedAt,
+        capturedBy,
+      }
+    }
+    return acc
+  }, {} as Partial<Record<CreativeCanvasVisualProofKey, CreativeCanvasVisualProofRecord>>)
 }
 
 interface CreativeCanvasCommentApiResponse {
@@ -1254,6 +1329,8 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
   const [acceptedGraphSignature, setAcceptedGraphSignature] = useState('')
   const [autoSaveEnabled, setAutoSaveEnabled] = useState(true)
   const [collaborationActivity, setCollaborationActivity] = useState<CreativeCanvasActivityEvent[]>([])
+  const [visualProofDrafts, setVisualProofDrafts] = useState<CreativeCanvasVisualProofDraft>(emptyVisualProofDrafts)
+  const [savingVisualProofKey, setSavingVisualProofKey] = useState<CreativeCanvasVisualProofKey | ''>('')
   const [conflictDraft, setConflictDraft] = useState<{
     title: string
     purpose: string
@@ -1281,6 +1358,29 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
   )
 
   const resolvedOrgId = orgId ?? activeCanvas?.orgId ?? ''
+
+  useEffect(() => {
+    const proof = getCanvasVisualProof(activeCanvas?.data)
+    setVisualProofDrafts({
+      desktop_1440: {
+        screenshotUrl: proof.desktop_1440?.screenshotUrl ?? '',
+        notes: proof.desktop_1440?.notes ?? '',
+      },
+      tablet_820: {
+        screenshotUrl: proof.tablet_820?.screenshotUrl ?? '',
+        notes: proof.tablet_820?.notes ?? '',
+      },
+      mobile_390: {
+        screenshotUrl: proof.mobile_390?.screenshotUrl ?? '',
+        notes: proof.mobile_390?.notes ?? '',
+      },
+      mobile_panels: {
+        screenshotUrl: proof.mobile_panels?.screenshotUrl ?? '',
+        notes: proof.mobile_panels?.notes ?? '',
+      },
+    })
+  }, [activeCanvas?.data, activeCanvas?.id])
+
   const selectedCanvasNode = useMemo(() => {
     const flowNode = nodes.find((node) => node.id === selectedFlowNodeId) ?? nodes[0]
     return flowNode?.data?.canvasNode as CreativeCanvasNode | undefined
@@ -1482,6 +1582,56 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
     setRemoteCanvasUpdate(null)
     setVersionPreview(null)
   }, [])
+
+  const saveVisualProof = useCallback(async (key: CreativeCanvasVisualProofKey) => {
+    if (!activeCanvas?.id) return
+    const draft = visualProofDrafts[key]
+    const screenshotUrl = draft.screenshotUrl.trim()
+    const notes = draft.notes.trim()
+    if (!screenshotUrl && !notes) {
+      setActivityMessage('Add a screenshot URL or proof note before saving visual proof')
+      return
+    }
+    const canvasOrgId = resolvedOrgId || activeCanvas.orgId
+    const existingProof = getCanvasVisualProof(activeCanvas.data)
+    const nextVisualProof = {
+      ...existingProof,
+      [key]: {
+        ...existingProof[key],
+        screenshotUrl,
+        notes,
+        capturedAt: new Date().toISOString(),
+        capturedBy: 'Pip',
+      },
+    }
+
+    setSavingVisualProofKey(key)
+    try {
+      const response = await fetch(`/api/v1/creative-canvas/${activeCanvas.id}?orgId=${encodeURIComponent(canvasOrgId)}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          data: {
+            ...objectRecord(activeCanvas.data),
+            visualProof: nextVisualProof,
+          },
+        }),
+      })
+      const payload = await response.json().catch(() => null) as CreativeCanvasApiListResponse | null
+      const updatedCanvas = payload?.data?.canvas
+      if (!response.ok || !updatedCanvas?.id) {
+        setActivityMessage(payload?.error ?? 'Visual proof save failed')
+        return
+      }
+      applyCanvasSnapshot(updatedCanvas)
+      const label = visualProofConfigs.find((item) => item.key === key)?.label ?? 'Viewport'
+      setActivityMessage(`Saved ${label} visual proof`)
+    } catch {
+      setActivityMessage('Visual proof save failed')
+    } finally {
+      setSavingVisualProofKey('')
+    }
+  }, [activeCanvas, applyCanvasSnapshot, resolvedOrgId, visualProofDrafts])
 
   const applyRemoteCanvasUpdate = useCallback(async () => {
     if (!remoteCanvasUpdate?.id) return
@@ -3263,32 +3413,21 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
     { label: 'Inspector', value: selectedCanvasNode ? 'node selected' : 'board ready' },
     { label: 'Desktop', value: '3-column graph' },
   ]
+  const visualProofRecords = getCanvasVisualProof(activeCanvas?.data)
   const visualProofItems: Array<{
+    key: CreativeCanvasVisualProofKey
     label: string
     status: 'captured' | 'needed'
     evidence: string
-  }> = [
-    {
-      label: 'Desktop 1440',
-      status: 'needed',
-      evidence: 'Signed-in graph, sources, and inspector screenshot required.',
-    },
-    {
-      label: 'Tablet 820',
-      status: 'needed',
-      evidence: 'Signed-in panel layout screenshot required.',
-    },
-    {
-      label: 'Mobile 390',
-      status: 'needed',
-      evidence: 'Signed-in mobile canvas screenshot required.',
-    },
-    {
-      label: 'Mobile panels',
-      status: 'needed',
-      evidence: 'Canvas, Sources, and Inspector panel-switch screenshots required.',
-    },
-  ]
+    proof?: CreativeCanvasVisualProofRecord
+  }> = visualProofConfigs.map((item) => {
+    const proof = visualProofRecords[item.key]
+    return {
+      ...item,
+      proof,
+      status: proof?.screenshotUrl ? 'captured' : 'needed',
+    }
+  })
   const parityAuditNodes = nodes.map((node) => toCanvasNode(node, resolvedOrgId || activeCanvas?.orgId || 'pending-org'))
   const coreWorkflowPresets = workflowPresets.filter((preset) => !preset.benchmarkScenario)
   const benchmarkWorkflowPresets = workflowPresets.filter((preset) => preset.benchmarkScenario)
@@ -3569,12 +3708,67 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
         </div>
         <div className="mt-2 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
           {visualProofItems.map((item) => (
-            <div key={item.label} className="rounded-md border border-amber-200 bg-white px-2 py-1.5">
+            <div key={item.key} className="rounded-md border border-amber-200 bg-white px-2 py-1.5">
               <div className="flex items-center justify-between gap-2">
                 <p className="font-semibold text-amber-950">{item.label}</p>
                 <span className="rounded-full border border-current px-2 py-0.5 uppercase tracking-normal">{item.status}</span>
               </div>
               <p className="mt-1">{item.evidence}</p>
+              {item.proof?.capturedAt ? (
+                <p className="mt-1 text-[11px] font-semibold text-amber-800">
+                  Captured {new Date(item.proof.capturedAt).toLocaleString()}
+                </p>
+              ) : null}
+              {item.proof?.screenshotUrl ? (
+                <a
+                  href={item.proof.screenshotUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="mt-1 inline-flex text-[11px] font-semibold text-[var(--color-pib-primary)] underline"
+                >
+                  Open proof
+                </a>
+              ) : null}
+              <label className="mt-2 block text-[11px] font-semibold text-amber-950">
+                Screenshot URL
+                <input
+                  aria-label={`${item.label} screenshot URL`}
+                  value={visualProofDrafts[item.key].screenshotUrl}
+                  onChange={(event) => {
+                    const value = event.target.value
+                    setVisualProofDrafts((current) => ({
+                      ...current,
+                      [item.key]: { ...current[item.key], screenshotUrl: value },
+                    }))
+                  }}
+                  placeholder="https://..."
+                  className="mt-1 w-full rounded-md border border-amber-200 bg-white px-2 py-1 text-xs text-amber-950 outline-none focus:border-amber-400"
+                />
+              </label>
+              <label className="mt-2 block text-[11px] font-semibold text-amber-950">
+                Notes
+                <textarea
+                  aria-label={`${item.label} proof notes`}
+                  value={visualProofDrafts[item.key].notes}
+                  onChange={(event) => {
+                    const value = event.target.value
+                    setVisualProofDrafts((current) => ({
+                      ...current,
+                      [item.key]: { ...current[item.key], notes: value },
+                    }))
+                  }}
+                  rows={2}
+                  className="mt-1 w-full resize-none rounded-md border border-amber-200 bg-white px-2 py-1 text-xs text-amber-950 outline-none focus:border-amber-400"
+                />
+              </label>
+              <button
+                type="button"
+                onClick={() => { void saveVisualProof(item.key) }}
+                disabled={!activeCanvas?.id || savingVisualProofKey === item.key}
+                className="mt-2 w-full rounded-md border border-amber-300 bg-amber-100 px-2 py-1 text-[11px] font-semibold text-amber-950 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {savingVisualProofKey === item.key ? 'Saving proof' : `Save ${item.label} proof`}
+              </button>
             </div>
           ))}
         </div>

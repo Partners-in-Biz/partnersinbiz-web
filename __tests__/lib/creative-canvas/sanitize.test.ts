@@ -1,4 +1,5 @@
 import {
+  sanitizeCreativeCanvasData,
   sanitizeCreativeCanvasGraph,
   sanitizeCreativeCanvasInput,
 } from '@/lib/creative-canvas/sanitize'
@@ -23,6 +24,59 @@ describe('creative canvas sanitizers', () => {
       updatedByType: 'user',
       activeVersion: 1,
       deleted: false,
+    })
+  })
+
+  it('keeps bounded visual proof metadata on canvas input', () => {
+    const input = sanitizeCreativeCanvasInput(
+      {
+        title: ' Launch Pack ',
+        data: {
+          visualProof: {
+            desktop_1440: {
+              screenshotUrl: ' https://proof.example.com/desktop.png ',
+              notes: ' Graph, sources, and inspector are visible. ',
+              capturedAt: '2026-06-20T10:00:00.000Z',
+              capturedBy: 'Pip',
+            },
+            empty: {},
+          },
+        },
+      },
+      'org-1',
+      { uid: 'user-1', type: 'user' },
+    )
+
+    expect(input.data).toEqual({
+      visualProof: {
+        desktop_1440: {
+          screenshotUrl: 'https://proof.example.com/desktop.png',
+          notes: 'Graph, sources, and inspector are visible.',
+          capturedAt: '2026-06-20T10:00:00.000Z',
+          capturedBy: 'Pip',
+        },
+      },
+    })
+  })
+
+  it('sanitizes visual proof patches without accepting unrelated canvas metadata', () => {
+    expect(sanitizeCreativeCanvasData({
+      arbitrary: { value: true },
+      visualProof: {
+        mobile_390: {
+          screenshotUrl: 'https://proof.example.com/mobile.png',
+          notes: 'Mobile canvas is legible.',
+        },
+      },
+    })).toEqual({
+      visualProof: {
+        mobile_390: {
+          screenshotUrl: 'https://proof.example.com/mobile.png',
+          notes: 'Mobile canvas is legible.',
+          capturedAt: undefined,
+          capturedBy: undefined,
+        },
+      },
     })
   })
 

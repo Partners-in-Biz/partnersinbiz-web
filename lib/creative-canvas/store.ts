@@ -2,6 +2,7 @@ import { FieldValue } from 'firebase-admin/firestore'
 import { adminDb } from '@/lib/firebase/admin'
 import {
   sanitizeCreativeCanvasGraph,
+  sanitizeCreativeCanvasData,
   sanitizeCreativeCanvasInput,
 } from './sanitize'
 import type {
@@ -52,6 +53,10 @@ function stableStringify(value: unknown): string {
     .sort(([a], [b]) => a.localeCompare(b))
     .map(([key, item]) => `${JSON.stringify(key)}:${stableStringify(item)}`)
     .join(',')}}`
+}
+
+function plainRecord(value: unknown): Record<string, unknown> {
+  return value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : {}
 }
 
 function graphItemChanged<T>(left: T | undefined, right: T | undefined): boolean {
@@ -175,6 +180,7 @@ function serializeCreativeCanvas(id: string, data: CanvasDoc): CreativeCanvas & 
     title: String(data.title ?? 'Untitled canvas'),
     status: (data.status as CreativeCanvas['status']) ?? 'draft',
     purpose: String(data.purpose ?? ''),
+    data: plainRecord(data.data),
     linked: (data.linked as CreativeCanvas['linked']) ?? {},
     activeVersion: typeof data.activeVersion === 'number' ? data.activeVersion : 1,
     visibility: (data.visibility as CreativeCanvas['visibility']) ?? 'admin_agents',
@@ -326,9 +332,22 @@ export async function updateCreativeCanvas(
   const current = await getCreativeCanvas(id, orgId)
   if (!current) throw new Error('Creative canvas not found')
   const source = input && typeof input === 'object' && !Array.isArray(input) ? input as Record<string, unknown> : {}
+  const currentData = plainRecord(current.data)
+  const inputData = plainRecord(source.data)
+  const sourceData = Object.prototype.hasOwnProperty.call(source, 'data')
+    ? sanitizeCreativeCanvasData({
+      ...currentData,
+      ...inputData,
+      visualProof: {
+        ...plainRecord(currentData.visualProof),
+        ...plainRecord(inputData.visualProof),
+      },
+    })
+    : current.data ?? {}
   const patch = {
     title: typeof source.title === 'string' && source.title.trim() ? source.title.trim() : current.title,
     purpose: typeof source.purpose === 'string' ? source.purpose.trim() : current.purpose,
+    data: sourceData,
     status: enumPatchValue(source.status, CANVAS_STATUSES, current.status),
     visibility: enumPatchValue(source.visibility, VISIBILITIES, current.visibility),
     updatedBy: actor.uid,
