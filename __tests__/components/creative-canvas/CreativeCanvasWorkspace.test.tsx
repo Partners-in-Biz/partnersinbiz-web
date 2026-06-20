@@ -862,7 +862,7 @@ describe('CreativeCanvasWorkspace', () => {
     })
   })
 
-  it('detects and applies a newer live graph from another collaborator', async () => {
+  it('automatically applies a newer live graph when local graph has no unsaved edits', async () => {
     render(<CreativeCanvasWorkspace mode="admin" orgId="org-1" />)
 
     await screen.findByText('Launch Canvas')
@@ -932,8 +932,63 @@ describe('CreativeCanvasWorkspace', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /^refresh$/i }))
 
+    expect(await screen.findByText('remote-model-node')).toBeInTheDocument()
+    expect(await screen.findByText('Applied live graph v2')).toBeInTheDocument()
+  })
+
+  it('keeps a newer live graph pending when local graph has unsaved edits', async () => {
+    render(<CreativeCanvasWorkspace mode="admin" orgId="org-1" />)
+
+    await screen.findByText('Launch Canvas')
+    fireEvent.click(screen.getByRole('button', { name: /add source node/i }))
+    fetchMock.mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      if (url.includes('/creative-canvas/canvas-1?orgId=org-1') && !init?.method) {
+        return {
+          ok: true,
+          json: async () => ({
+            success: true,
+            data: {
+              canvas: {
+                id: 'canvas-1',
+                orgId: 'org-1',
+                title: 'Launch Canvas',
+                purpose: 'Product launch',
+                status: 'draft',
+                activeVersion: 2,
+                linked: { projectId: 'project-1' },
+                nodes: [{
+                  id: 'remote-model-node',
+                  orgId: 'org-1',
+                  type: 'model',
+                  title: 'Remote collaborator model',
+                  position: { x: 120, y: 140 },
+                  data: {},
+                  provider: { key: 'higgsfield', model: 'nano_banana_flash' },
+                }],
+                edges: [],
+              },
+            },
+          }),
+        }
+      }
+      if (url.includes('/presence')) {
+        return {
+          ok: true,
+          json: async () => ({ success: true, data: { presence: [] } }),
+        }
+      }
+      return {
+        ok: true,
+        json: async () => ({ success: true, data: {} }),
+      }
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: /^refresh$/i }))
+
     expect(await screen.findByText('Live graph update available')).toBeInTheDocument()
-    expect(screen.getByText(/another collaborator saved v2/i)).toBeInTheDocument()
+    expect(screen.getByText(/local edits are active/i)).toBeInTheDocument()
+    expect(screen.queryByText('Applied live graph v2')).not.toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: /apply latest graph/i }))
 
     expect(await screen.findByText('remote-model-node')).toBeInTheDocument()

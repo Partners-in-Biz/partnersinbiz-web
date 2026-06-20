@@ -593,6 +593,32 @@ function toCanvasEdge(edge: Edge, orgId: string): CreativeCanvasEdge {
   }
 }
 
+function canvasGraphSignature(nodes: CreativeCanvasNode[] = [], edges: CreativeCanvasEdge[] = []) {
+  return JSON.stringify({
+    nodes: nodes.map((node) => ({
+      id: node.id,
+      orgId: node.orgId,
+      type: node.type,
+      title: node.title,
+      position: node.position,
+      data: node.data ?? {},
+      source: node.source,
+      provider: node.provider,
+      edit: node.edit,
+      review: node.review,
+      output: node.output,
+    })),
+    edges: edges.map((edge) => ({
+      id: edge.id,
+      orgId: edge.orgId,
+      sourceNodeId: edge.sourceNodeId,
+      targetNodeId: edge.targetNodeId,
+      label: edge.label,
+      data: edge.data,
+    })),
+  })
+}
+
 export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspaceProps) {
   const [canvases, setCanvases] = useState<CreativeCanvas[]>([])
   const [activeCanvasId, setActiveCanvasId] = useState<string>('')
@@ -647,6 +673,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
   const [templateTitle, setTemplateTitle] = useState('')
   const [templateDescription, setTemplateDescription] = useState('')
   const [collaborationLinkCopied, setCollaborationLinkCopied] = useState(false)
+  const [acceptedGraphSignature, setAcceptedGraphSignature] = useState('')
 
   const activeCanvas = useMemo(
     () => canvases.find((canvas) => canvas.id === activeCanvasId) ?? canvases[0],
@@ -713,6 +740,11 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
     if (resolvedOrgId || activeCanvas.orgId) url.searchParams.set('orgId', resolvedOrgId || activeCanvas.orgId)
     return url.toString()
   }, [activeCanvas?.id, activeCanvas?.orgId, resolvedOrgId])
+  const currentGraphSignature = useMemo(() => canvasGraphSignature(
+    nodes.map((node) => toCanvasNode(node, resolvedOrgId || activeCanvas?.orgId || 'pending-org')),
+    edges.map((edge) => toCanvasEdge(edge, resolvedOrgId || activeCanvas?.orgId || 'pending-org')),
+  ), [activeCanvas?.orgId, edges, nodes, resolvedOrgId])
+  const graphHasUnsavedChanges = Boolean(activeCanvas?.id && acceptedGraphSignature && currentGraphSignature !== acceptedGraphSignature)
 
   const writeCanvasDeepLink = useCallback((canvas: CreativeCanvas) => {
     if (!canvas.id || typeof window === 'undefined') return
@@ -825,11 +857,12 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
     setSelectedFlowNodeId(canvas.nodes?.[0]?.id ?? '')
     setNodes((canvas.nodes ?? []).map(toFlowNode))
     setEdges((canvas.edges ?? []).map(toFlowEdge))
+    setAcceptedGraphSignature(canvasGraphSignature(canvas.nodes ?? [], canvas.edges ?? []))
     setLatestExecution(null)
     setRemoteCanvasUpdate(null)
   }, [])
 
-  const applyRemoteCanvasUpdate = async () => {
+  const applyRemoteCanvasUpdate = useCallback(async () => {
     if (!remoteCanvasUpdate?.id) return
     const canvasOrgId = resolvedOrgId || remoteCanvasUpdate.orgId
     applyCanvasSnapshot(remoteCanvasUpdate)
@@ -840,7 +873,12 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
     await loadComments(remoteCanvasUpdate.id, canvasOrgId)
     setActivityMessage(`Applied live graph v${remoteCanvasUpdate.activeVersion}`)
     setSaveMessage('')
-  }
+  }, [applyCanvasSnapshot, loadComments, loadPresence, loadRuns, loadRuntimeProof, loadVersions, remoteCanvasUpdate, resolvedOrgId])
+
+  useEffect(() => {
+    if (!remoteCanvasUpdate?.id || graphHasUnsavedChanges) return
+    void applyRemoteCanvasUpdate()
+  }, [applyRemoteCanvasUpdate, graphHasUnsavedChanges, remoteCanvasUpdate?.id, remoteCanvasUpdate?.activeVersion])
 
   const refreshCollaborationState = useCallback(async (canvasId: string, canvasOrgId: string, knownActiveVersion?: number) => {
     await Promise.all([
@@ -935,6 +973,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
         setSelectedFlowNodeId(firstCanvas?.nodes?.[0]?.id ?? '')
         setNodes((firstCanvas?.nodes ?? []).map(toFlowNode))
         setEdges((firstCanvas?.edges ?? []).map(toFlowEdge))
+        setAcceptedGraphSignature(canvasGraphSignature(firstCanvas?.nodes ?? [], firstCanvas?.edges ?? []))
         if (firstCanvas?.id) writeCanvasDeepLink(firstCanvas)
         if (firstCanvas?.id) {
           await loadVersions(firstCanvas.id, orgId ?? firstCanvas.orgId)
@@ -994,14 +1033,16 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
     if (!canvasOrgId) return
     sendPresenceHeartbeat(activeCanvas.id, canvasOrgId, selectedNodeId)
     const heartbeat = window.setInterval(() => {
+      if (document.visibilityState === 'hidden') return
       sendPresenceHeartbeat(activeCanvas.id!, canvasOrgId, selectedNodeId)
       refreshCollaborationState(activeCanvas.id!, canvasOrgId, activeCanvas.activeVersion)
-    }, 30_000)
+    }, graphHasUnsavedChanges ? 12_000 : 8_000)
     return () => window.clearInterval(heartbeat)
   }, [
     activeCanvas?.activeVersion,
     activeCanvas?.id,
     activeCanvas?.orgId,
+    graphHasUnsavedChanges,
     refreshCollaborationState,
     resolvedOrgId,
     selectedNodeId,
@@ -1692,6 +1733,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
       const savedCanvas = payload?.data?.canvas
       if (savedCanvas?.id) {
         setCanvases((current) => current.map((canvas) => canvas.id === savedCanvas.id ? savedCanvas : canvas))
+        setAcceptedGraphSignature(currentGraphSignature)
         setRemoteCanvasUpdate(null)
       }
       setSaveMessage('Graph saved')
@@ -2159,7 +2201,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
             <div>
               <p className="font-semibold">Live graph update available</p>
               <p className="mt-1">
-                Another collaborator saved v{remoteCanvasUpdate.activeVersion}; applying it will replace the graph currently shown in this workspace.
+                Another collaborator saved v{remoteCanvasUpdate.activeVersion}. Local edits are active, so review before replacing the graph currently shown in this workspace.
               </p>
             </div>
             <button
