@@ -148,6 +148,37 @@ describe('creative canvas runtime proof', () => {
     ]))
   })
 
+  it('does not pass repeated-job reliability until eight jobs are completed and the queue is drained', () => {
+    const proof = buildCreativeCanvasRuntimeProof({
+      canvas,
+      runs: [
+        completedRunFor('run-image-1', 'image'),
+        completedRunFor('run-image-2', 'campaign_asset'),
+        completedRunFor('run-video-1', 'video'),
+        completedRunFor('run-social-1', 'social_post_draft'),
+        { ...completedRunFor('run-blog-active-1', 'blog_draft'), status: 'running' },
+        { ...completedRunFor('run-document-active-1', 'document_block'), status: 'queued' },
+        { ...completedRunFor('run-book-active-1', 'book_artifact'), status: 'waiting_for_review' },
+        { ...completedRunFor('run-book-active-2', 'book_artifact'), status: 'running' },
+      ],
+      env: {
+        HIGGSFIELD_RUNTIME_API_KEY: 'runtime-key',
+        NEXT_PUBLIC_APP_URL: 'https://partnersinbiz.online',
+        HIGGSFIELD_WEBHOOK_SECRET: 'hook-secret',
+      } as NodeJS.ProcessEnv,
+    })
+
+    expect(proof.readyForLiveProof).toBe(false)
+    expect(proof.checks).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        id: 'repeated_job_reliability',
+        status: 'warning',
+        evidence: '8 total runs, 4 completed, 4 active, 0 failed, 0% completed-job failure rate, 0 stale active.',
+        nextAction: 'Complete at least 8 creative jobs across image, video/social, blog/document, and book with <=10% failures and no active or stale runs.',
+      }),
+    ]))
+  })
+
   it('blocks proof when runtime, project, runs, and output evidence are missing', () => {
     const proof = buildCreativeCanvasRuntimeProof({
       canvas: { ...canvas, linked: {}, nodes: [], edges: [] },

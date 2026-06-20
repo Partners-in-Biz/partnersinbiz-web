@@ -96,7 +96,18 @@ export function buildCreativeCanvasRuntimeProof(input: {
   const reliabilityCoverage = categoryCoverage(runs)
   const coveredCategories = reliabilityCoverage.filter((category) => category.completed > 0)
   const totalFailures = runs.filter((run) => run.status === 'failed').length
-  const failureRate = runs.length ? totalFailures / runs.length : 0
+  const completedOrFailedRuns = completedRuns.length + totalFailures
+  const failureRate = completedOrFailedRuns ? totalFailures / completedOrFailedRuns : 0
+  const allReliabilityCategoriesCovered = coveredCategories.length >= RELIABILITY_CATEGORIES.length
+  const repeatedJobsCompleted = completedRuns.length >= 8
+  const repeatedJobQueueDrained = activeRuns.length === 0 && operations.staleActiveRuns === 0
+  const repeatedJobReliabilityPassed = repeatedJobsCompleted
+    && allReliabilityCategoriesCovered
+    && repeatedJobQueueDrained
+    && failureRate <= 0.1
+  const repeatedJobReliabilityObserved = completedRuns.length >= 4
+    || activeRuns.length > 0
+    || coveredCategories.length >= 2
 
   const checks: CreativeCanvasRuntimeProofCheck[] = [
     check({
@@ -159,11 +170,11 @@ export function buildCreativeCanvasRuntimeProof(input: {
     check({
       id: 'repeated_job_reliability',
       label: 'Repeated creative job reliability',
-      status: runs.length >= 8 && failureRate <= 0.1 && !operations.staleActiveRuns ? 'passed' : runs.length >= 4 ? 'warning' : 'blocked',
-      evidence: `${runs.length} total runs, ${completedRuns.length} completed, ${totalFailures} failed, ${Math.round(failureRate * 100)}% failure rate, ${operations.staleActiveRuns} stale active.`,
-      nextAction: runs.length >= 8 && failureRate <= 0.1 && !operations.staleActiveRuns
+      status: repeatedJobReliabilityPassed ? 'passed' : repeatedJobReliabilityObserved ? 'warning' : 'blocked',
+      evidence: `${runs.length} total runs, ${completedRuns.length} completed, ${activeRuns.length} active, ${totalFailures} failed, ${Math.round(failureRate * 100)}% completed-job failure rate, ${operations.staleActiveRuns} stale active.`,
+      nextAction: repeatedJobReliabilityPassed
         ? undefined
-        : 'Complete at least 8 recent creative jobs with <=10% failures and no stale active runs.',
+        : 'Complete at least 8 creative jobs across image, video/social, blog/document, and book with <=10% failures and no active or stale runs.',
     }),
   ]
 
@@ -177,7 +188,7 @@ export function buildCreativeCanvasRuntimeProof(input: {
     reliabilityCoverage,
     readyForLiveProof,
     summary: readyForLiveProof
-      ? 'Canvas has linked project, agent orchestration, runtime readiness, completed provider run evidence, healthy queue, and exportable output assets.'
+      ? 'Canvas has linked project, agent orchestration, runtime readiness, completed repeated provider jobs, healthy drained queue, and exportable output assets.'
       : `${checks.filter((item) => item.status === 'blocked').length} blockers and ${checks.filter((item) => item.status === 'warning').length} warnings remain before live proof.`,
   }
 }
