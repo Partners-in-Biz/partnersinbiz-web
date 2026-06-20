@@ -7,6 +7,7 @@ const mockListCreativeCanvasPresence = jest.fn()
 const mockHeartbeatCreativeCanvasPresence = jest.fn()
 const mockAttachCreativeCanvasNodeOutput = jest.fn()
 const mockUpdateCreativeCanvasNodeReview = jest.fn()
+const mockGetCreativeCanvas = jest.fn()
 
 jest.mock('@/lib/api/auth', () => ({
   withAuth: (_role: string, handler: any) => async (req: NextRequest, context?: unknown) =>
@@ -21,6 +22,10 @@ jest.mock('@/lib/creative-canvas/collaboration', () => ({
   heartbeatCreativeCanvasPresence: mockHeartbeatCreativeCanvasPresence,
   attachCreativeCanvasNodeOutput: mockAttachCreativeCanvasNodeOutput,
   updateCreativeCanvasNodeReview: mockUpdateCreativeCanvasNodeReview,
+}))
+
+jest.mock('@/lib/creative-canvas/store', () => ({
+  getCreativeCanvas: mockGetCreativeCanvas,
 }))
 
 describe('creative canvas collaboration API routes', () => {
@@ -103,6 +108,30 @@ describe('creative canvas collaboration API routes', () => {
       { uid: 'user-1', type: 'user' },
     )
     expect(body.data.presence).toEqual([{ id: 'canvas-1_user-1', actorUid: 'user-1' }])
+  })
+
+  it('streams live collaboration snapshots for a canvas', async () => {
+    const { GET } = await import('@/app/api/v1/creative-canvas/[id]/presence/events/route')
+    mockGetCreativeCanvas.mockResolvedValue({ id: 'canvas-1', activeVersion: 2 })
+    mockListCreativeCanvasPresence.mockResolvedValue([{ id: 'presence-1', actorUid: 'maya' }])
+
+    const res = await GET(new NextRequest('http://test.local/api/v1/creative-canvas/canvas-1/presence/events?orgId=org-1'), {
+      params: Promise.resolve({ id: 'canvas-1' }),
+    })
+
+    expect(res.headers.get('content-type')).toContain('text/event-stream')
+    const reader = res.body?.getReader()
+    expect(reader).toBeTruthy()
+    const first = await reader!.read()
+    const second = await reader!.read()
+    await reader!.cancel()
+    const text = `${new TextDecoder().decode(first.value)}${new TextDecoder().decode(second.value)}`
+
+    expect(mockGetCreativeCanvas).toHaveBeenCalledWith('canvas-1', 'org-1')
+    expect(mockListCreativeCanvasPresence).toHaveBeenCalledWith('canvas-1', 'org-1')
+    expect(text).toContain('event: collaboration')
+    expect(text).toContain('"activeVersion":2')
+    expect(text).toContain('"actorUid":"maya"')
   })
 
   it('attaches output to a node', async () => {

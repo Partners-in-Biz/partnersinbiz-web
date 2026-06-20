@@ -1012,6 +1012,79 @@ describe('CreativeCanvasWorkspace', () => {
     expect(screen.getAllByText(/Maya live draft source/i).length).toBeGreaterThan(0)
   })
 
+  it('updates collaborators from the live collaboration stream', async () => {
+    const originalEventSource = window.EventSource
+    const instances: Array<{
+      url: string
+      onopen: (() => void) | null
+      onerror: (() => void) | null
+      close: jest.Mock
+      listeners: Record<string, (event: MessageEvent) => void>
+    }> = []
+    class MockEventSource {
+      url: string
+      onopen: (() => void) | null = null
+      onerror: (() => void) | null = null
+      close = jest.fn()
+      listeners: Record<string, (event: MessageEvent) => void> = {}
+
+      constructor(url: string) {
+        this.url = url
+        instances.push(this)
+      }
+
+      addEventListener(event: string, listener: EventListener) {
+        this.listeners[event] = listener as (event: MessageEvent) => void
+      }
+    }
+    Object.defineProperty(window, 'EventSource', {
+      configurable: true,
+      value: MockEventSource,
+    })
+
+    try {
+      render(<CreativeCanvasWorkspace mode="admin" orgId="org-1" />)
+
+      await screen.findByText('Launch Canvas')
+      await waitFor(() => expect(instances.length).toBe(1))
+      expect(instances[0].url).toBe('/api/v1/creative-canvas/canvas-1/presence/events?orgId=org-1')
+
+      act(() => {
+        instances[0].onopen?.()
+      })
+      expect(await screen.findByText('Live stream')).toBeInTheDocument()
+
+      act(() => {
+        instances[0].listeners.collaboration?.({
+          data: JSON.stringify({
+            canvas: { id: 'canvas-1', activeVersion: 1 },
+            presence: [{
+              id: 'canvas-1_nova',
+              orgId: 'org-1',
+              canvasId: 'canvas-1',
+              actorUid: 'nova',
+              actorType: 'agent',
+              displayName: 'Nova',
+              focus: 'canvas',
+              activeVersion: 1,
+              lastSeenAtMs: 2000,
+              expiresAtMs: 47000,
+            }],
+            emittedAtMs: 2000,
+          }),
+        } as MessageEvent)
+      })
+
+      expect(await screen.findByText('Nova')).toBeInTheDocument()
+      expect(screen.queryByText('Maya')).not.toBeInTheDocument()
+    } finally {
+      Object.defineProperty(window, 'EventSource', {
+        configurable: true,
+        value: originalEventSource,
+      })
+    }
+  })
+
   it('shares live draft metadata in collaborator heartbeats after graph edits', async () => {
     render(<CreativeCanvasWorkspace mode="admin" orgId="org-1" />)
 

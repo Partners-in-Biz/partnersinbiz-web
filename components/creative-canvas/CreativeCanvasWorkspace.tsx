@@ -136,6 +136,12 @@ interface CreativeCanvasPresenceApiResponse {
   }
 }
 
+interface CreativeCanvasCollaborationStreamEvent {
+  canvas?: CreativeCanvas | null
+  presence?: Array<CreativeCanvasPresence & { id: string }>
+  emittedAtMs?: number
+}
+
 interface CreativeCanvasCommentApiResponse {
   success?: boolean
   data?: {
@@ -705,6 +711,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
   const [autoFollowLiveDrafts, setAutoFollowLiveDrafts] = useState(false)
   const [ownPresenceId, setOwnPresenceId] = useState('')
   const [versionPreview, setVersionPreview] = useState<{ version: number; reason?: string } | null>(null)
+  const [collaborationStreamConnected, setCollaborationStreamConnected] = useState(false)
   const [acceptedGraphSignature, setAcceptedGraphSignature] = useState('')
   const [autoSaveEnabled, setAutoSaveEnabled] = useState(true)
   const lastAutoFollowedDraftSignatureRef = useRef('')
@@ -924,6 +931,16 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
     setSaveMessage('')
   }, [applyCanvasSnapshot, loadComments, loadPresence, loadRuns, loadRuntimeProof, loadVersions, remoteCanvasUpdate, resolvedOrgId])
 
+  const applyCollaborationStreamEvent = useCallback((event: CreativeCanvasCollaborationStreamEvent) => {
+    if (Array.isArray(event.presence)) setPresence(event.presence)
+    if (!event.canvas?.id || event.canvas.id !== activeCanvas?.id) return
+    if ((event.canvas.activeVersion ?? 0) > (activeCanvas.activeVersion ?? 0)) {
+      setRemoteCanvasUpdate(event.canvas)
+    } else {
+      setRemoteCanvasUpdate(null)
+    }
+  }, [activeCanvas?.activeVersion, activeCanvas?.id])
+
   const applyCollaboratorDraft = (collaborator: CreativeCanvasPresence & { id: string }, options: { automatic?: boolean } = {}) => {
     const draftGraph = collaborator.draftGraph
     if (!draftGraph?.nodes?.length) return
@@ -1134,19 +1151,42 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
   useEffect(() => {
     if (!activeCanvas?.id) return
     const canvasOrgId = resolvedOrgId || activeCanvas.orgId
+    if (!canvasOrgId || typeof window === 'undefined' || typeof window.EventSource === 'undefined') return
+
+    const source = new window.EventSource(`/api/v1/creative-canvas/${activeCanvas.id}/presence/events?orgId=${encodeURIComponent(canvasOrgId)}`)
+    source.onopen = () => setCollaborationStreamConnected(true)
+    source.onerror = () => setCollaborationStreamConnected(false)
+    source.addEventListener('collaboration', (message) => {
+      try {
+        applyCollaborationStreamEvent(JSON.parse((message as MessageEvent).data) as CreativeCanvasCollaborationStreamEvent)
+      } catch {
+        // Ignore malformed collaboration stream events and allow EventSource to continue.
+      }
+    })
+
+    return () => {
+      source.close()
+      setCollaborationStreamConnected(false)
+    }
+  }, [activeCanvas?.id, activeCanvas?.orgId, applyCollaborationStreamEvent, resolvedOrgId])
+
+  useEffect(() => {
+    if (!activeCanvas?.id) return
+    const canvasOrgId = resolvedOrgId || activeCanvas.orgId
     if (!canvasOrgId) return
     sendPresenceHeartbeat(activeCanvas.id, canvasOrgId, selectedNodeId)
     const collaborationPollMs = graphHasUnsavedChanges || hasCollaboratorLiveDraft ? 3_000 : 8_000
     const heartbeat = window.setInterval(() => {
       if (document.visibilityState === 'hidden') return
       sendPresenceHeartbeat(activeCanvas.id!, canvasOrgId, selectedNodeId)
-      refreshCollaborationState(activeCanvas.id!, canvasOrgId, activeCanvas.activeVersion)
+      if (!collaborationStreamConnected) refreshCollaborationState(activeCanvas.id!, canvasOrgId, activeCanvas.activeVersion)
     }, collaborationPollMs)
     return () => window.clearInterval(heartbeat)
   }, [
     activeCanvas?.activeVersion,
     activeCanvas?.id,
     activeCanvas?.orgId,
+    collaborationStreamConnected,
     graphHasUnsavedChanges,
     hasCollaboratorLiveDraft,
     refreshCollaborationState,
@@ -3538,14 +3578,23 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
           <div>
             <div className="flex items-center justify-between gap-2">
               <h3 className="text-sm font-semibold text-[var(--color-pib-text)]">Live collaborators</h3>
-              <button
-                type="button"
-                onClick={() => activeCanvas?.id ? refreshCollaborationState(activeCanvas.id, resolvedOrgId || activeCanvas.orgId, activeCanvas.activeVersion) : undefined}
-                disabled={!activeCanvas?.id}
-                className="rounded-md border border-[var(--color-pib-line)] px-2 py-1 text-xs font-semibold text-[var(--color-pib-text)] disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                Refresh
-              </button>
+              <div className="flex items-center gap-2">
+                <span className={`rounded-full border px-2 py-0.5 text-[11px] font-semibold uppercase tracking-normal ${
+                  collaborationStreamConnected
+                    ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
+                    : 'border-[var(--color-pib-line)] bg-white text-[var(--color-pib-text-muted)]'
+                }`}>
+                  {collaborationStreamConnected ? 'Live stream' : 'Refresh mode'}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => activeCanvas?.id ? refreshCollaborationState(activeCanvas.id, resolvedOrgId || activeCanvas.orgId, activeCanvas.activeVersion) : undefined}
+                  disabled={!activeCanvas?.id}
+                  className="rounded-md border border-[var(--color-pib-line)] px-2 py-1 text-xs font-semibold text-[var(--color-pib-text)] disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  Refresh
+                </button>
+              </div>
             </div>
             <label className="mt-2 flex items-center gap-2 rounded-lg border border-[var(--color-pib-line)] bg-white px-3 py-2 text-xs font-semibold text-[var(--color-pib-text)]">
               <input
