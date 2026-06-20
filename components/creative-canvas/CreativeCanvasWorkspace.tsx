@@ -528,7 +528,7 @@ function CanvasPreviewBlock({
   )
 }
 
-function toFlowNode(node: CreativeCanvasNode): Node {
+function toFlowNode(node: CreativeCanvasNode, collaborators: Array<CreativeCanvasPresence & { id: string }> = []): Node {
   const previewUrl = node.source?.thumbnailUrl ?? node.source?.previewUrl ?? node.output?.thumbnailUrl ?? node.output?.url
   return {
     id: node.id,
@@ -548,6 +548,23 @@ function toFlowNode(node: CreativeCanvasNode): Node {
             {nodeTypeLabels[node.type]}
           </p>
           <p className="text-sm font-semibold text-[var(--color-pib-text)]">{node.title}</p>
+          {collaborators.length ? (
+            <div className="mt-2 flex flex-wrap gap-1" aria-label={`${collaborators.length} collaborator${collaborators.length === 1 ? '' : 's'} active on ${node.title}`}>
+              {collaborators.slice(0, 3).map((collaborator) => (
+                <span
+                  key={collaborator.id}
+                  className="rounded-full border border-[var(--color-pib-primary)] bg-white px-1.5 py-0.5 text-[9px] font-semibold text-[var(--color-pib-primary)]"
+                >
+                  {collaborator.displayName ?? collaborator.actorUid}
+                </span>
+              ))}
+              {collaborators.length > 3 ? (
+                <span className="rounded-full border border-[var(--color-pib-line)] bg-white px-1.5 py-0.5 text-[9px] font-semibold text-[var(--color-pib-text-muted)]">
+                  +{collaborators.length - 3}
+                </span>
+              ) : null}
+            </div>
+          ) : null}
         </div>
       ),
       canvasNode: node,
@@ -698,6 +715,16 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
     counts[comment.nodeId] = (counts[comment.nodeId] ?? 0) + 1
     return counts
   }, {}), [comments])
+  const collaboratorsByNodeId = useMemo(() => presence.reduce<Record<string, Array<CreativeCanvasPresence & { id: string }>>>((groups, collaborator) => {
+    if (!collaborator.selectedNodeId) return groups
+    groups[collaborator.selectedNodeId] = [...(groups[collaborator.selectedNodeId] ?? []), collaborator]
+    return groups
+  }, {}), [presence])
+  const displayNodes = useMemo(() => nodes.map((node) => {
+    const canvasNode = node.data?.canvasNode as CreativeCanvasNode | undefined
+    if (!canvasNode) return node
+    return toFlowNode({ ...canvasNode, position: node.position }, collaboratorsByNodeId[node.id] ?? [])
+  }), [collaboratorsByNodeId, nodes])
   const selectedMaskBrushStrokes = selectedCanvasNode?.edit?.mask?.brush?.strokes ?? []
   const orchestrationPlan = useMemo(() => buildCreativeCanvasOrchestrationPlan({
     id: activeCanvas?.id,
@@ -855,7 +882,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
     })
     setActiveCanvasId(canvas.id ?? '')
     setSelectedFlowNodeId(canvas.nodes?.[0]?.id ?? '')
-    setNodes((canvas.nodes ?? []).map(toFlowNode))
+    setNodes((canvas.nodes ?? []).map((node) => toFlowNode(node)))
     setEdges((canvas.edges ?? []).map(toFlowEdge))
     setAcceptedGraphSignature(canvasGraphSignature(canvas.nodes ?? [], canvas.edges ?? []))
     setLatestExecution(null)
@@ -971,7 +998,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
         const firstCanvas = loadedCanvases.find((canvas) => canvas.id === requestedCanvasId) ?? loadedCanvases[0]
         setActiveCanvasId(firstCanvas?.id ?? '')
         setSelectedFlowNodeId(firstCanvas?.nodes?.[0]?.id ?? '')
-        setNodes((firstCanvas?.nodes ?? []).map(toFlowNode))
+        setNodes((firstCanvas?.nodes ?? []).map((node) => toFlowNode(node)))
         setEdges((firstCanvas?.edges ?? []).map(toFlowEdge))
         setAcceptedGraphSignature(canvasGraphSignature(firstCanvas?.nodes ?? [], firstCanvas?.edges ?? []))
         if (firstCanvas?.id) writeCanvasDeepLink(firstCanvas)
@@ -1169,7 +1196,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
       },
     }))
 
-    setNodes((currentNodes) => [...currentNodes, ...nextNodes.map(toFlowNode)])
+    setNodes((currentNodes) => [...currentNodes, ...nextNodes.map((node) => toFlowNode(node))])
     setEdges((currentEdges) => [...currentEdges, ...nextEdges])
     setSelectedFlowNodeId(nextNodes.find((node) => node.type === 'model' || node.type === 'edit')?.id ?? nextNodes[0]?.id ?? '')
     setRunOutputKind(preset.outputKind ?? 'image')
@@ -1277,7 +1304,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
       })
       .filter((edge): edge is Edge => Boolean(edge))
 
-    setNodes((currentNodes) => [...currentNodes, ...nextNodes.map(toFlowNode)])
+    setNodes((currentNodes) => [...currentNodes, ...nextNodes.map((node) => toFlowNode(node))])
     setEdges((currentEdges) => [...currentEdges, ...nextEdges])
     setSelectedFlowNodeId(nextNodes.find((node) => node.type === 'model' || node.type === 'edit')?.id ?? nextNodes[0]?.id ?? '')
     setSaveMessage('')
@@ -1389,7 +1416,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
       ]
     })
 
-    setNodes((currentNodes) => [...currentNodes, ...nextNodes.map(toFlowNode)])
+    setNodes((currentNodes) => [...currentNodes, ...nextNodes.map((node) => toFlowNode(node))])
     setEdges((currentEdges) => [...currentEdges, ...nextEdges])
     setSelectedFlowNodeId(nextNodes[0]?.id ?? selectedCanvasNode.id)
     setSaveMessage('')
@@ -2503,7 +2530,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
             {saveMessage ? <p className="text-xs font-medium text-[var(--color-pib-text-muted)]">{saveMessage}</p> : null}
           </div>
           <div className="h-[62vh] min-h-[420px] lg:h-[560px]">
-            <ReactFlow nodes={nodes} edges={edges} onConnect={onConnect} onNodeClick={selectFlowNode} fitView>
+            <ReactFlow nodes={displayNodes} edges={edges} onConnect={onConnect} onNodeClick={selectFlowNode} fitView>
               <Background />
               <Controls />
               <MiniMap />

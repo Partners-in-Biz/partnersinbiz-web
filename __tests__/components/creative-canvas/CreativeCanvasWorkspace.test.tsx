@@ -3,9 +3,14 @@ import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { CreativeCanvasWorkspace } from '@/components/creative-canvas/CreativeCanvasWorkspace'
 
 jest.mock('@xyflow/react', () => ({
-  ReactFlow: ({ nodes, children }: { nodes: Array<{ id: string }>; children: React.ReactNode }) => (
+  ReactFlow: ({ nodes, children }: { nodes: Array<{ id: string; data?: { label?: React.ReactNode } }>; children: React.ReactNode }) => (
     <div data-testid="react-flow">
-      {nodes.map((node) => <div key={node.id}>{node.id}</div>)}
+      {nodes.map((node) => (
+        <div key={node.id}>
+          <span>{node.id}</span>
+          {node.data?.label}
+        </div>
+      ))}
       {children}
     </div>
   ),
@@ -768,6 +773,89 @@ describe('CreativeCanvasWorkspace', () => {
     expect(await screen.findByText('Canvas collaboration link copied')).toBeInTheDocument()
   })
 
+  it('shows collaborator focus badges on graph nodes', async () => {
+    fetchMock.mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      if (url.includes('/creative-canvas?orgId=org-1')) {
+        return {
+          ok: true,
+          json: async () => ({
+            success: true,
+            data: {
+              canvases: [{
+                id: 'canvas-1',
+                orgId: 'org-1',
+                title: 'Launch Canvas',
+                purpose: 'Product launch',
+                status: 'draft',
+                activeVersion: 1,
+                linked: { projectId: 'project-1' },
+                nodes: [{
+                  id: 'model-node-existing',
+                  orgId: 'org-1',
+                  type: 'model',
+                  title: 'Existing model',
+                  position: { x: 0, y: 0 },
+                  data: {},
+                  provider: { key: 'higgsfield', model: 'nano_banana_flash' },
+                }],
+                edges: [],
+              }],
+            },
+          }),
+        }
+      }
+      if (url.includes('/presence')) {
+        return {
+          ok: true,
+          json: async () => ({
+            success: true,
+            data: {
+              presence: [{
+                id: 'canvas-1_maya',
+                orgId: 'org-1',
+                canvasId: 'canvas-1',
+                actorUid: 'maya',
+                actorType: 'agent',
+                displayName: 'Maya',
+                selectedNodeId: 'model-node-existing',
+                focus: 'runs',
+                lastSeenAtMs: 900,
+                expiresAtMs: 45900,
+              }],
+            },
+          }),
+        }
+      }
+      if (url.includes('/templates')) {
+        return { ok: true, json: async () => ({ success: true, data: { templates: [] } }) }
+      }
+      if (url.includes('/sources')) {
+        return { ok: true, json: async () => ({ success: true, data: { sources: [] } }) }
+      }
+      if (url.includes('/comments')) {
+        return { ok: true, json: async () => ({ success: true, data: { comments: [] } }) }
+      }
+      if (url.includes('/runtime-proof')) {
+        return { ok: true, json: async () => ({ success: true, data: { proof: null } }) }
+      }
+      if (url.includes('/runs')) {
+        return { ok: true, json: async () => ({ success: true, data: { runs: [] } }) }
+      }
+      if (url.includes('/versions')) {
+        return { ok: true, json: async () => ({ success: true, data: { versions: [] } }) }
+      }
+      return { ok: true, json: async () => ({ success: true, data: {} }) }
+    })
+
+    render(<CreativeCanvasWorkspace mode="admin" orgId="org-1" />)
+
+    await screen.findByText('Launch Canvas')
+
+    expect(await screen.findByLabelText(/1 collaborator active on existing model/i)).toBeInTheDocument()
+    expect(screen.getAllByText('Maya').length).toBeGreaterThan(0)
+  })
+
   it('retries a failed retryable provider run from run history', async () => {
     render(<CreativeCanvasWorkspace mode="admin" orgId="org-1" />)
 
@@ -1244,7 +1332,7 @@ describe('CreativeCanvasWorkspace', () => {
     expect(await screen.findByText('Product bottle.png')).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: /import product bottle.png/i }))
 
-    expect(await screen.findByLabelText('Reference preview: Product bottle.png')).toHaveStyle({
+    expect((await screen.findAllByLabelText('Reference preview: Product bottle.png'))[0]).toHaveStyle({
       backgroundImage: 'url(https://cdn.example.com/product-thumb.png)',
     })
     expect(screen.getByText('product / 1')).toBeInTheDocument()
@@ -1373,7 +1461,7 @@ describe('CreativeCanvasWorkspace', () => {
     })
 
     expect(await screen.findByText(/source uploaded: new-product.png/i)).toBeInTheDocument()
-    expect(await screen.findByLabelText('Reference preview: New product angle')).toHaveStyle({
+    expect((await screen.findAllByLabelText('Reference preview: New product angle'))[0]).toHaveStyle({
       backgroundImage: 'url(https://cdn.example.com/new-product-thumb.png)',
     })
     expect(fetchMock).toHaveBeenCalledWith('/api/v1/creative-canvas/sources/upload', expect.objectContaining({
@@ -1796,7 +1884,7 @@ describe('CreativeCanvasWorkspace', () => {
 
     render(<CreativeCanvasWorkspace mode="admin" orgId="org-1" />)
 
-    expect(await screen.findByLabelText('Reference preview: Red product bottle')).toHaveStyle({
+    expect((await screen.findAllByLabelText('Reference preview: Red product bottle'))[0]).toHaveStyle({
       backgroundImage: 'url(https://cdn.example.com/product-thumb.png)',
     })
     expect(screen.getByText('product / 0.8')).toBeInTheDocument()
