@@ -73,19 +73,12 @@ export const PATCH = withAuth('client', async (req: NextRequest, user, ctx) => {
   const isApprovalGateCard = hasApprovalGateLabel(labels) || nextApprovalGateLabel || existingApprovalStatus || existingGate || nextGate
   const isApprovalGatedTask = isApprovalGateCard || existingApprovalGateTaskId
   const approvalMetadataFields = ['approvalGate', 'requiredCapability', 'riskLevel', 'expectedArtifacts', 'verifierChecklist', 'approvalGateTaskId']
-  const approvalExecutionFields = ['columnId', 'reviewStatus', 'labels', 'agentStatus']
+  const approvalExecutionFields = ['columnId', 'reviewStatus', 'labels', 'agentStatus', 'assigneeAgentId', 'agentOutput', 'agentConversationId', 'agentHeartbeatAt', 'agentReleaseAt', 'agentReleaseStatus', 'agentReleasedAt']
   if (body.approvalStatus !== undefined && user.role !== 'admin') {
     return apiError('Only an admin approver can change approvalStatus on project tasks', 403)
   }
   if (user.role !== 'admin' && isApprovalGatedTask && approvalMetadataFields.some((field) => body[field] !== undefined)) {
     return apiError('Only an admin approver can change approval-gate metadata on project tasks', 403)
-  }
-  if (user.role !== 'admin' && isApprovalGateCard && approvalExecutionFields.some((field) => body[field] !== undefined)) {
-    return apiError('Only an admin approver can change approval-gate metadata on project tasks', 403)
-  }
-  if (user.role !== 'admin' && existingApprovalGateTaskId && approvalExecutionFields.some((field) => body[field] !== undefined)) {
-    const approved = await approvalGateTaskApproved(projectId, String(existing.approvalGateTaskId))
-    if (!approved) return apiError('Only an admin approver can change approval-gate metadata on project tasks', 403)
   }
   if (body.approvalStatus !== undefined && body.approvalStatus !== null && !isApprovalGatedTask) {
     return apiError('approvalStatus can only be changed on approval-gated tasks', 400)
@@ -93,6 +86,14 @@ export const PATCH = withAuth('client', async (req: NextRequest, user, ctx) => {
   const updates = buildProjectTaskUpdateData(body)
   if (!updates.ok) return apiError(updates.error, updates.status ?? 400)
   const updateValue = applyAgentColumnMoveState(existing, updates.value, body)
+  const touchesApprovalExecutionState = approvalExecutionFields.some((field) => updateValue[field] !== undefined)
+  if (user.role !== 'admin' && isApprovalGateCard && touchesApprovalExecutionState) {
+    return apiError('Only an admin approver can change approval-gate metadata on project tasks', 403)
+  }
+  if (user.role !== 'admin' && existingApprovalGateTaskId && touchesApprovalExecutionState) {
+    const approved = await approvalGateTaskApproved(projectId, String(existing.approvalGateTaskId))
+    if (!approved) return apiError('Only an admin approver can change approval-gate metadata on project tasks', 403)
+  }
   const projectOrgId = access.doc.data()?.orgId as string | undefined
 
   if (body.contextRefs !== undefined) {

@@ -124,6 +124,52 @@ describe('project task approval gate route guards', () => {
     expect(mockTaskUpdate).not.toHaveBeenCalled()
   })
 
+  it('blocks non-admin reassignment from deriving pending agent state before an approvalGateTaskId is approved', async () => {
+    const mockGateGet = jest.fn().mockResolvedValue({
+      exists: true,
+      data: () => ({ title: 'Approval gate', approvalStatus: 'pending' }),
+    })
+    mockTaskDoc.mockImplementation((id: string) => {
+      if (id === 'gate-1') return { get: mockGateGet }
+      return { get: mockTaskGet, update: mockTaskUpdate }
+    })
+    mockTaskGet.mockResolvedValueOnce({
+      exists: true,
+      data: () => ({ title: 'Specialist task', approvalGateTaskId: 'gate-1', labels: [] }),
+    })
+
+    const { PATCH } = await import('@/app/api/v1/projects/[projectId]/tasks/[taskId]/route')
+    const res = await PATCH(req({ assigneeAgentId: 'theo' }), ctx)
+    const body = await res.json()
+
+    expect(res.status).toBe(403)
+    expect(body.error).toMatch(/Only an admin approver/)
+    expect(mockTaskUpdate).not.toHaveBeenCalled()
+  })
+
+  it('blocks non-admin release scheduling from deriving backlog state before an approvalGateTaskId is approved', async () => {
+    const mockGateGet = jest.fn().mockResolvedValue({
+      exists: true,
+      data: () => ({ title: 'Approval gate', approvalStatus: 'pending' }),
+    })
+    mockTaskDoc.mockImplementation((id: string) => {
+      if (id === 'gate-1') return { get: mockGateGet }
+      return { get: mockTaskGet, update: mockTaskUpdate }
+    })
+    mockTaskGet.mockResolvedValueOnce({
+      exists: true,
+      data: () => ({ title: 'Specialist task', approvalGateTaskId: 'gate-1', labels: [] }),
+    })
+
+    const { PATCH } = await import('@/app/api/v1/projects/[projectId]/tasks/[taskId]/route')
+    const res = await PATCH(req({ agentReleaseAt: '2026-06-21T10:00:00.000Z' }), ctx)
+    const body = await res.json()
+
+    expect(res.status).toBe(403)
+    expect(body.error).toMatch(/Only an admin approver/)
+    expect(mockTaskUpdate).not.toHaveBeenCalled()
+  })
+
   it('allows non-admin users to update normal execution state after an approvalGateTaskId is approved', async () => {
     const mockGateGet = jest.fn().mockResolvedValue({
       exists: true,

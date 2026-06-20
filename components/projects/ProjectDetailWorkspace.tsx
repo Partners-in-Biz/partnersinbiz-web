@@ -381,12 +381,16 @@ export function ProjectDetailWorkspace({
   }, [project?.orgId, projectId])
 
   const handleTaskMove = useCallback(async (taskId: string, newColumnId: string, newOrder: number) => {
-    setTasks(prev => prev.map(t => t.id === taskId ? { ...t, columnId: newColumnId, order: newOrder } : t))
-    await fetch(`/api/v1/projects/${projectId}/tasks/${taskId}`, {
+    const res = await fetch(`/api/v1/projects/${projectId}/tasks/${taskId}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ columnId: newColumnId, order: newOrder }),
     })
+    const body = await res.json().catch(() => null)
+    if (!res.ok || body?.success === false) {
+      return
+    }
+    setTasks(prev => prev.map(t => t.id === taskId ? { ...t, columnId: newColumnId, order: newOrder } : t))
   }, [projectId])
 
   const handleTaskUpdate = useCallback(async (taskId: string, updates: Partial<Task>) => {

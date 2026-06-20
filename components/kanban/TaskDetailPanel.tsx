@@ -374,8 +374,10 @@ export function TaskDetailPanel({ task, columnName, projectId, orgId, members = 
 
   async function handleApproveReview() {
     if (!task?.id) return
-    const hasApprovalGateLabel = task.labels?.some((label) => label.toLowerCase() === 'approval-gate')
-    const hasOpenBusinessGate = task.approvalStatus === 'pending' && (hasApprovalGateLabel || (task.approvalGate && task.approvalGate !== 'none'))
+    const hasOpenBusinessGate = task.approvalStatus === 'pending' && (
+      task.labels?.some((label) => label.toLowerCase() === 'approval-gate')
+      || (task.approvalGate && task.approvalGate !== 'none')
+    )
     await onUpdate(task.id, {
       columnId: hasOpenBusinessGate ? 'review' : 'done',
       reviewStatus: 'approved',
@@ -629,7 +631,7 @@ export function TaskDetailPanel({ task, columnName, projectId, orgId, members = 
   const blockerRecovery = buildBlockedTaskRecovery(task, comments)
   const isApprovalGate = task.labels?.some((label) => label.toLowerCase() === 'approval-gate') || task.approvalStatus === 'pending'
   const approvalGateResolved = task.approvalStatus === 'approved' || task.approvalStatus === 'rejected' || task.approvalStatus === 'denied'
-  const canDecideApprovalGate = surface === 'admin' || canManageApprovalGates
+  const canDecideApprovalGate = canManageApprovalGates
   const reviewerAgent = task.reviewerAgentId ? agents.find((agent) => agent.agentId === task.reviewerAgentId) : undefined
   const reviewStatusLabel = task.reviewStatus === 'approved'
     ? 'Passed'
