@@ -173,12 +173,18 @@ function cleanBenchmarkProofData(value: unknown): Record<string, unknown> | unde
       const notes = cleanString(item.notes)?.slice(0, 700)
       const capturedAt = cleanString(item.capturedAt)?.slice(0, 80)
       const capturedBy = cleanString(item.capturedBy)?.slice(0, 120)
-      if (!proofUrl && !notes && !capturedAt && !capturedBy) return []
+      const sourceTitle = cleanString(item.sourceTitle)?.slice(0, 160)
+      const sourceUrl = cleanString(item.sourceUrl)?.slice(0, 500)
+      const sourceCheckedAt = cleanString(item.sourceCheckedAt)?.slice(0, 80)
+      if (!proofUrl && !notes && !capturedAt && !capturedBy && !sourceTitle && !sourceUrl && !sourceCheckedAt) return []
       return [[key.slice(0, 80), {
         proofUrl,
         notes,
         capturedAt,
         capturedBy,
+        sourceTitle,
+        sourceUrl,
+        sourceCheckedAt,
       } as Record<string, unknown>] as [string, Record<string, unknown>]]
     })
     .slice(0, 12)

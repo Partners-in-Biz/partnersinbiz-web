@@ -947,18 +947,22 @@ describe('CreativeCanvasWorkspace', () => {
     ))
     expect(patchCall).toBeTruthy()
     const body = JSON.parse(String(patchCall?.[1]?.body ?? '{}')) as {
-      data?: { benchmarkProof?: Record<string, { proofUrl?: string; notes?: string; capturedAt?: string; capturedBy?: string }> }
+      data?: { benchmarkProof?: Record<string, { proofUrl?: string; notes?: string; capturedAt?: string; capturedBy?: string; sourceTitle?: string; sourceUrl?: string; sourceCheckedAt?: string }> }
     }
     expect(body.data?.benchmarkProof?.editing_ergonomics).toMatchObject({
       proofUrl: 'https://proof.example.com/editing-ergonomics.mp4',
       notes: 'Graph node editing, branch recovery, and save behavior captured.',
       capturedBy: 'Pip',
+      sourceTitle: 'Higgsfield AI Canvas node workflow',
+      sourceUrl: 'https://higgsfield.ai/canvas-intro',
     })
     expect(body.data?.benchmarkProof?.editing_ergonomics?.capturedAt).toEqual(expect.any(String))
+    expect(body.data?.benchmarkProof?.editing_ergonomics?.sourceCheckedAt).toEqual(expect.any(String))
 
     const benchmarkProof = screen.getByLabelText(/direct higgsfield benchmark proof/i)
     expect(benchmarkProof).toHaveTextContent('0/9 benchmark proven')
     expect(benchmarkProof).toHaveTextContent('gap')
+    expect(benchmarkProof).toHaveTextContent('Benchmark source: Higgsfield AI Canvas node workflow')
     expect(within(benchmarkProof).getByRole('link', { name: /open benchmark proof/i })).toHaveAttribute('href', 'https://proof.example.com/editing-ergonomics.mp4')
   })
 
@@ -982,21 +986,74 @@ describe('CreativeCanvasWorkspace', () => {
     ))
     expect(patchCall).toBeTruthy()
     const body = JSON.parse(String(patchCall?.[1]?.body ?? '{}')) as {
-      data?: { benchmarkProof?: Record<string, { proofUrl?: string; notes?: string; capturedAt?: string; capturedBy?: string }> }
+      data?: { benchmarkProof?: Record<string, { proofUrl?: string; notes?: string; capturedAt?: string; capturedBy?: string; sourceTitle?: string; sourceUrl?: string; sourceCheckedAt?: string }> }
     }
     expect(body.data?.benchmarkProof?.versioning_polish).toMatchObject({
       proofUrl: expect.stringContaining('#direct-higgsfield-benchmark-proof'),
       capturedBy: 'Pip',
+      sourceTitle: 'Higgsfield Canvas saved versions and comments',
+      sourceUrl: 'https://higgsfield.ai/canvas-intro',
     })
     expect(body.data?.benchmarkProof?.collaboration).toMatchObject({
       proofUrl: expect.stringContaining('#direct-higgsfield-benchmark-proof'),
       capturedBy: 'Pip',
+      sourceTitle: 'Higgsfield Canvas live collaboration',
+      sourceUrl: 'https://higgsfield.ai/canvas-intro',
     })
+    expect(body.data?.benchmarkProof?.versioning_polish?.sourceCheckedAt).toEqual(expect.any(String))
+    expect(body.data?.benchmarkProof?.collaboration?.sourceCheckedAt).toEqual(expect.any(String))
     expect(body.data?.benchmarkProof?.editing_ergonomics).toBeUndefined()
 
     expect(benchmarkProof).toHaveTextContent('2/9 benchmark proven')
     expect(benchmarkProof).toHaveTextContent('No uncaptured benchmark category has enough live evidence yet.')
     expect(within(benchmarkProof).getAllByRole('link', { name: /open benchmark proof/i })).toHaveLength(2)
+  })
+
+  it('does not pass benchmark proof records that lack a Higgsfield source check', async () => {
+    const defaultFetch = fetchMock.getMockImplementation()
+    fetchMock.mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      if (url === '/api/v1/creative-canvas?orgId=org-1') {
+        return {
+          ok: true,
+          json: async () => ({
+            success: true,
+            data: {
+              canvases: [{
+                id: 'canvas-1',
+                orgId: 'org-1',
+                title: 'Launch Canvas',
+                activeVersion: 1,
+                data: {
+                  benchmarkProof: {
+                    versioning_polish: {
+                      proofUrl: 'https://proof.example.com/versioning.mp4',
+                      notes: 'Auto-save and version preview were captured.',
+                      capturedAt: '2026-06-21T10:00:00.000Z',
+                      capturedBy: 'Pip',
+                    },
+                  },
+                },
+                nodes: [],
+                edges: [],
+              }],
+            },
+          }),
+        }
+      }
+      return defaultFetch?.(input, init) ?? {
+        ok: true,
+        json: async () => ({ success: true, data: {} }),
+      }
+    })
+
+    render(<CreativeCanvasWorkspace mode="admin" orgId="org-1" />)
+
+    expect(await screen.findByText('Launch Canvas')).toBeInTheDocument()
+    const benchmarkProof = screen.getByLabelText(/direct higgsfield benchmark proof/i)
+    expect(benchmarkProof).toHaveTextContent('0/9 benchmark proven')
+    expect(benchmarkProof).toHaveTextContent('2 ready benchmark categories need stored proof.')
+    expect(benchmarkProof).toHaveTextContent('Needs Higgsfield source check before this proof can pass.')
   })
 
   it('does not mark static edit nodes as editing ergonomics benchmark-ready without local graph activity', async () => {

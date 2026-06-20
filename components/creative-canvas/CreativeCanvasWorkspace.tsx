@@ -71,6 +71,9 @@ type CreativeCanvasBenchmarkProofRecord = {
   notes?: string
   capturedAt?: string
   capturedBy?: string
+  sourceTitle?: string
+  sourceUrl?: string
+  sourceCheckedAt?: string
 }
 
 type CreativeCanvasBenchmarkProofDraft = Record<CreativeCanvasBenchmarkProofKey, {
@@ -255,51 +258,71 @@ const benchmarkProofConfigs: Array<{
   key: CreativeCanvasBenchmarkProofKey
   label: string
   benchmark: string
+  sourceTitle: string
+  sourceUrl: string
 }> = [
   {
     key: 'editing_ergonomics',
     label: 'Editing ergonomics',
     benchmark: 'Node graph editing with connected prompts, source assets, generated outputs, branches, and recoverable mutations.',
+    sourceTitle: 'Higgsfield AI Canvas node workflow',
+    sourceUrl: 'https://higgsfield.ai/canvas-intro',
   },
   {
     key: 'masking_inpainting',
     label: 'Masking / inpainting UX',
     benchmark: 'Brush and prompt-driven edits that can target regions, references, style transfer, motion, and output branches.',
+    sourceTitle: 'Higgsfield AI image editing and inpainting',
+    sourceUrl: 'https://higgsfield.ai/image-editing',
   },
   {
     key: 'generation_controls',
     label: 'Generation controls',
     benchmark: 'Model, output kind, aspect ratio, variants, duration, motion, style, and negative prompt control before dispatch.',
+    sourceTitle: 'Higgsfield Canvas model catalog',
+    sourceUrl: 'https://higgsfield.ai/canvas-intro',
   },
   {
     key: 'multi_asset_workflows',
     label: 'Multi-asset workflows',
     benchmark: 'Own uploads, references, previous outputs, templates, and benchmark workflows combined in one connected pipeline.',
+    sourceTitle: 'Higgsfield Canvas multi-reference workflows',
+    sourceUrl: 'https://higgsfield.ai/canvas-intro',
   },
   {
     key: 'versioning_polish',
     label: 'Versioning polish',
     benchmark: 'Auto-save, preview, restore/fork safety, comments, review state, and non-destructive history inspection.',
+    sourceTitle: 'Higgsfield Canvas saved versions and comments',
+    sourceUrl: 'https://higgsfield.ai/canvas-intro',
   },
   {
     key: 'collaboration',
     label: 'Collaboration',
     benchmark: 'Live collaborators, focus, draft adoption, activity, conflict details, and safe concurrent graph changes.',
+    sourceTitle: 'Higgsfield Canvas live collaboration',
+    sourceUrl: 'https://higgsfield.ai/canvas-intro',
   },
   {
     key: 'mobile_behavior',
     label: 'Mobile behavior',
     benchmark: 'Signed-in desktop, tablet, mobile canvas, and panel-switch proof with no hidden critical controls.',
+    sourceTitle: 'Higgsfield Canvas app route',
+    sourceUrl: 'https://higgsfield.ai/canvas',
   },
   {
     key: 'export_flows',
     label: 'Export flows',
     benchmark: 'Reviewable packages with manifests, target formats, provenance, source/output mapping, and downstream drafts.',
+    sourceTitle: 'Higgsfield Canvas image and video pipeline',
+    sourceUrl: 'https://higgsfield.ai/canvas-intro',
   },
   {
     key: 'production_reliability',
     label: 'Production reliability',
     benchmark: 'Repeated real image, video/social, blog/document, and book jobs complete with drained queues and low failures.',
+    sourceTitle: 'Higgsfield Canvas reusable production workflows',
+    sourceUrl: 'https://higgsfield.ai/canvas-intro',
   },
 ]
 
@@ -373,16 +396,26 @@ function getCanvasBenchmarkProof(data: unknown): Partial<Record<CreativeCanvasBe
     const notes = stringField(record.notes)
     const capturedAt = stringField(record.capturedAt)
     const capturedBy = stringField(record.capturedBy)
-    if (proofUrl || notes || capturedAt || capturedBy) {
+    const sourceTitle = stringField(record.sourceTitle)
+    const sourceUrl = stringField(record.sourceUrl)
+    const sourceCheckedAt = stringField(record.sourceCheckedAt)
+    if (proofUrl || notes || capturedAt || capturedBy || sourceTitle || sourceUrl || sourceCheckedAt) {
       acc[key] = {
         proofUrl,
         notes,
         capturedAt,
         capturedBy,
+        sourceTitle,
+        sourceUrl,
+        sourceCheckedAt,
       }
     }
     return acc
   }, {} as Partial<Record<CreativeCanvasBenchmarkProofKey, CreativeCanvasBenchmarkProofRecord>>)
+}
+
+function hasSourceBackedBenchmarkProof(proof: CreativeCanvasBenchmarkProofRecord | undefined): boolean {
+  return Boolean(proof?.proofUrl && proof.notes && proof.sourceUrl && proof.sourceCheckedAt)
 }
 
 function benchmarkProofUrl(canvas: CreativeCanvas | undefined, orgId: string): string {
@@ -1914,20 +1947,25 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
     const draft = benchmarkProofDrafts[key]
     const proofUrl = draft.proofUrl.trim()
     const notes = draft.notes.trim()
-    if (!proofUrl && !notes) {
-      setActivityMessage('Add a proof URL or notes before saving benchmark evidence')
+    if (!proofUrl || !notes) {
+      setActivityMessage('Add a proof URL and notes before saving benchmark evidence')
       return
     }
+    const proofConfig = benchmarkProofConfigs.find((item) => item.key === key)
     const canvasOrgId = resolvedOrgId || activeCanvas.orgId
     const existingProof = getCanvasBenchmarkProof(activeCanvas.data)
+    const capturedAt = new Date().toISOString()
     const nextBenchmarkProof = {
       ...existingProof,
       [key]: {
         ...existingProof[key],
         proofUrl,
         notes,
-        capturedAt: new Date().toISOString(),
+        capturedAt,
         capturedBy: 'Pip',
+        sourceTitle: proofConfig?.sourceTitle,
+        sourceUrl: proofConfig?.sourceUrl,
+        sourceCheckedAt: capturedAt,
       },
     }
 
@@ -3839,7 +3877,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
   }
   const benchmarkProofItems = benchmarkProofConfigs.map((item) => {
     const proof = benchmarkProofRecords[item.key]
-    const proofCaptured = Boolean(proof?.proofUrl || proof?.notes)
+    const proofCaptured = hasSourceBackedBenchmarkProof(proof)
     return {
       ...item,
       proof,
@@ -3862,9 +3900,12 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
       acc[item.key] = {
         ...acc[item.key],
         proofUrl: acc[item.key]?.proofUrl || proofUrl,
-        notes: acc[item.key]?.notes || `${item.label} captured from live Creative Canvas signals. ${item.benchmark}`,
+        notes: acc[item.key]?.notes || `${item.label} captured from live Creative Canvas signals against ${item.sourceTitle}. ${item.benchmark}`,
         capturedAt,
         capturedBy: 'Pip',
+        sourceTitle: item.sourceTitle,
+        sourceUrl: item.sourceUrl,
+        sourceCheckedAt: capturedAt,
       }
       return acc
     }, { ...benchmarkProofRecords } as Partial<Record<CreativeCanvasBenchmarkProofKey, CreativeCanvasBenchmarkProofRecord>>)
@@ -4312,6 +4353,14 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
                 <div className="min-w-0">
                   <p className="font-semibold">{item.label}</p>
                   <p className="mt-1">{item.benchmark}</p>
+                  <a
+                    href={item.sourceUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="mt-1 inline-flex text-[11px] font-semibold text-[var(--color-pib-primary)] underline"
+                  >
+                    Benchmark source: {item.sourceTitle}
+                  </a>
                 </div>
                 <span className="shrink-0 rounded-full border border-current px-2 py-0.5 text-[10px] font-semibold uppercase tracking-normal">
                   {item.status}
@@ -4319,6 +4368,14 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
               </div>
               {item.proof?.capturedAt ? (
                 <p className="mt-2 text-[11px] font-semibold">Captured {new Date(item.proof.capturedAt).toLocaleString()}</p>
+              ) : null}
+              {item.proof?.sourceUrl ? (
+                <p className="mt-1 text-[11px]">
+                  Source checked {item.proof.sourceCheckedAt ? new Date(item.proof.sourceCheckedAt).toLocaleString() : 'not dated'}
+                </p>
+              ) : null}
+              {item.proof && !hasSourceBackedBenchmarkProof(item.proof) ? (
+                <p className="mt-1 text-[11px] font-semibold">Needs Higgsfield source check before this proof can pass.</p>
               ) : null}
               {item.proof?.proofUrl ? (
                 <a
