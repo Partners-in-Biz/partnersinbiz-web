@@ -58,6 +58,7 @@ interface CreativeCanvasSourceLibraryApiResponse {
 
 interface CreativeCanvasRunApiResponse {
   success?: boolean
+  error?: string
   data?: {
     runs?: Array<CreativeCanvasRun & { id: string }>
     run?: CreativeCanvasRun & { id: string }
@@ -995,6 +996,26 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
     }
   }
 
+  const retryProviderRun = async (run: CreativeCanvasRun & { id: string }) => {
+    if (!activeCanvas?.id || !run.id) return
+
+    const query = resolvedOrgId ? `?orgId=${encodeURIComponent(resolvedOrgId)}` : ''
+    const response = await fetch(`/api/v1/creative-canvas/${activeCanvas.id}/runs/${run.id}/retry${query}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+    })
+    const payload = await response.json().catch(() => null) as CreativeCanvasRunApiResponse | null
+    const retriedRun = payload?.data?.run
+    if (response.ok && retriedRun?.id) {
+      setLatestRun({ id: retriedRun.id, status: retriedRun.status ?? 'queued', nodeId: retriedRun.nodeId })
+      setRunHistory((currentRuns) => [retriedRun, ...currentRuns.filter((item) => item.id !== retriedRun.id)])
+      await loadRuns(activeCanvas.id, resolvedOrgId || activeCanvas.orgId)
+      setActivityMessage(`Retry queued: ${retriedRun.id}`)
+    } else {
+      setActivityMessage(payload?.error ?? 'Run retry failed')
+    }
+  }
+
   const ingestRunOutput = async () => {
     if (!activeCanvas?.id || !latestRun?.id) return
 
@@ -1689,6 +1710,15 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
                   {run.providerStatusMessage ? <p>Provider status: {run.providerStatusMessage}</p> : null}
                   {run.error?.message ? <p>Error: {run.error.message}</p> : null}
                   {run.output?.outputNodeId ? <p>Output: {run.output.outputNodeId}</p> : null}
+                  {mode === 'admin' && run.status === 'failed' && run.error?.retryable ? (
+                    <button
+                      type="button"
+                      onClick={() => retryProviderRun(run)}
+                      className="mt-2 rounded-md border border-[var(--color-pib-line)] px-2 py-1 font-semibold text-[var(--color-pib-text)]"
+                    >
+                      Retry provider run
+                    </button>
+                  ) : null}
                 </div>
               )) : (
                 <p className="rounded-lg border border-dashed border-[var(--color-pib-line)] p-3 text-xs text-[var(--color-pib-text-muted)]">

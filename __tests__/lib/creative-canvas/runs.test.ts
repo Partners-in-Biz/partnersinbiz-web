@@ -22,6 +22,7 @@ import {
   dispatchCreativeCanvasProviderRun,
   listCreativeCanvasRuns,
   refreshCreativeCanvasProviderRunStatus,
+  retryCreativeCanvasProviderRun,
   summarizeCreativeCanvasRuns,
 } from '@/lib/creative-canvas/runs'
 import type { CreativeCanvas } from '@/lib/creative-canvas/types'
@@ -590,5 +591,84 @@ describe('creative canvas runs', () => {
     })
     expect(mockCollection).toHaveBeenCalledWith('creative_canvas_runs')
     expect(mockCollection).not.toHaveBeenCalledWith('creative_canvases')
+  })
+
+  it('requeues a failed retryable provider run without stale provider job metadata', async () => {
+    mockDocGet.mockResolvedValueOnce({
+      exists: true,
+      id: 'run-1',
+      data: () => ({
+        orgId: 'org-1',
+        canvasId: 'canvas-1',
+        nodeId: 'model-1',
+        providerKey: 'higgsfield',
+        model: 'nano_banana_flash',
+        status: 'failed',
+        providerStatus: 'status_poll_failed',
+        providerStatusMessage: 'Runtime timed out',
+        input: { sourceNodeIds: [], sourceArtifactIds: [], promptSummary: 'Retry this render' },
+        provenance: {
+          generatedBy: 'agent',
+          agentId: 'maya',
+          providerJobId: 'hf-job-stale',
+          providerRequestId: 'req-stale',
+          providerStatusUrl: 'https://runtime.example.com/jobs/hf-job-stale',
+          providerCallbackUrl: 'https://partnersinbiz.online/api/v1/creative-canvas/provider-callbacks/higgsfield',
+          promptStored: 'summary',
+          syntheticMedia: true,
+        },
+        error: {
+          code: 'status_poll_failed',
+          message: 'Runtime timed out',
+          retryable: true,
+        },
+      }),
+    })
+
+    const run = await retryCreativeCanvasProviderRun('run-1', 'org-1', ACTOR)
+
+    expect(mockDocUpdate).toHaveBeenCalledWith(expect.objectContaining({
+      status: 'queued',
+      providerStatus: 'retry_queued',
+      providerStatusMessage: 'Retry queued for provider runtime drain.',
+      error: null,
+      provenance: expect.not.objectContaining({
+        providerJobId: expect.anything(),
+        providerRequestId: expect.anything(),
+        providerStatusUrl: expect.anything(),
+        providerCallbackUrl: expect.anything(),
+      }),
+      updatedBy: 'agent:maya',
+      updatedByType: 'agent',
+    }))
+    expect(run).toMatchObject({
+      id: 'run-1',
+      status: 'queued',
+      providerStatus: 'retry_queued',
+      providerStatusMessage: 'Retry queued for provider runtime drain.',
+    })
+    expect(run.error).toBeUndefined()
+    expect(run.provenance.providerJobId).toBeUndefined()
+  })
+
+  it('rejects retry when a failed provider run is not retryable', async () => {
+    mockDocGet.mockResolvedValueOnce({
+      exists: true,
+      id: 'run-1',
+      data: () => ({
+        orgId: 'org-1',
+        canvasId: 'canvas-1',
+        nodeId: 'model-1',
+        providerKey: 'higgsfield',
+        status: 'failed',
+        input: { sourceNodeIds: [], sourceArtifactIds: [] },
+        provenance: { generatedBy: 'agent', promptStored: 'summary', syntheticMedia: true },
+        error: { code: 'blocked', message: 'Unsafe content', retryable: false },
+      }),
+    })
+
+    await expect(retryCreativeCanvasProviderRun('run-1', 'org-1', ACTOR))
+      .rejects.toThrow('Creative canvas provider run is not marked retryable')
+    expect(mockDocUpdate).not.toHaveBeenCalled()
   })
 })

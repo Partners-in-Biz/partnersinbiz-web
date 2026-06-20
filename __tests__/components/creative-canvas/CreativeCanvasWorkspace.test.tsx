@@ -216,6 +216,28 @@ beforeEach(() => {
         }),
       }
     }
+    if (url.includes('/runs/run-failed/retry') && init?.method === 'PUT') {
+      return {
+        ok: true,
+        json: async () => ({
+          success: true,
+          data: {
+            run: {
+              id: 'run-failed',
+              orgId: 'org-1',
+              canvasId: 'canvas-1',
+              nodeId: 'model-node-failed',
+              providerKey: 'higgsfield',
+              status: 'queued',
+              providerStatus: 'retry_queued',
+              providerStatusMessage: 'Retry queued for provider runtime drain.',
+              input: { sourceNodeIds: [], sourceArtifactIds: [] },
+              provenance: { generatedBy: 'agent', promptStored: 'summary', syntheticMedia: true },
+            },
+          },
+        }),
+      }
+    }
     if (url.includes('/runs/run-1/provider-status') && init?.method === 'PUT') {
       return {
         ok: true,
@@ -308,6 +330,20 @@ describe('CreativeCanvasWorkspace', () => {
     expect(screen.getByText('Exports')).toBeInTheDocument()
     expect(screen.getByTestId('react-flow')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /save graph/i })).toBeInTheDocument()
+  })
+
+  it('retries a failed retryable provider run from run history', async () => {
+    render(<CreativeCanvasWorkspace mode="admin" orgId="org-1" />)
+
+    await screen.findByText('Provider operations')
+    fireEvent.click(screen.getByRole('button', { name: /retry provider run/i }))
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith('/api/v1/creative-canvas/canvas-1/runs/run-failed/retry?orgId=org-1', expect.objectContaining({
+        method: 'PUT',
+      }))
+    })
+    expect(await screen.findByText('Retry queued: run-failed')).toBeInTheDocument()
   })
 
   it('adds a source node from the palette', async () => {

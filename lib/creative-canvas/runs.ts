@@ -461,6 +461,47 @@ export async function refreshCreativeCanvasProviderRunStatus(
   return nextRun
 }
 
+export async function retryCreativeCanvasProviderRun(
+  runId: string,
+  orgId: string,
+  actor: CreativeCanvasActor,
+): Promise<CreativeCanvasRun & { id: string }> {
+  const runSnap = await adminDb.collection(CREATIVE_CANVAS_RUN_COLLECTION).doc(runId).get()
+  if (!runSnap.exists) throw new Error('Creative canvas run not found')
+  const run = serializeRun(runSnap.id ?? runId, runSnap.data() as CreativeCanvasRun)
+  if (run.orgId !== orgId) throw new Error('Creative canvas run does not belong to organisation')
+  if (run.status !== 'failed') throw new Error('Only failed creative canvas provider runs can be retried')
+  if (run.error?.retryable !== true) throw new Error('Creative canvas provider run is not marked retryable')
+
+  const provenance = { ...run.provenance }
+  delete provenance.providerJobId
+  delete provenance.providerRequestId
+  delete provenance.providerStatusUrl
+  delete provenance.providerCallbackUrl
+  const nextRun: CreativeCanvasRun & { id: string } = {
+    ...run,
+    status: 'queued',
+    providerStatus: 'retry_queued',
+    providerStatusMessage: 'Retry queued for provider runtime drain.',
+    error: undefined,
+    provenance,
+    updatedAt: FieldValue.serverTimestamp(),
+  }
+
+  await adminDb.collection(CREATIVE_CANVAS_RUN_COLLECTION).doc(run.id).update({
+    status: nextRun.status,
+    providerStatus: nextRun.providerStatus,
+    providerStatusMessage: nextRun.providerStatusMessage,
+    error: null,
+    provenance,
+    updatedAt: FieldValue.serverTimestamp(),
+    updatedBy: actor.uid,
+    updatedByType: actor.type,
+  })
+
+  return nextRun
+}
+
 export async function completeCreativeCanvasProviderCallback(
   input: unknown,
   actor: CreativeCanvasActor,
