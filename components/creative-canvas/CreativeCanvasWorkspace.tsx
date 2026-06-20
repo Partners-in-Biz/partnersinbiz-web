@@ -21,6 +21,7 @@ import type {
   CreativeCanvasRunOperationsSummary,
   CreativeCanvasRunBatchRetryResult,
   CreativeCanvasProviderRuntimeReadiness,
+  CreativeCanvasRuntimeProof,
   CreativeCanvasRun,
   CreativeCanvasSourceLibraryItem,
   CreativeCanvasVersion,
@@ -89,6 +90,14 @@ interface CreativeCanvasRunApiResponse {
       }
     }
   }
+}
+
+interface CreativeCanvasRuntimeProofApiResponse {
+  success?: boolean
+  data?: {
+    proof?: CreativeCanvasRuntimeProof
+  }
+  error?: string
 }
 
 const nodeTypeLabels: Record<CreativeCanvasNodeType, string> = {
@@ -482,6 +491,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
   const [runHistory, setRunHistory] = useState<Array<CreativeCanvasRun & { id: string }>>([])
   const [runOperations, setRunOperations] = useState<CreativeCanvasRunOperationsSummary | null>(null)
   const [runtimeReadiness, setRuntimeReadiness] = useState<CreativeCanvasProviderRuntimeReadiness | null>(null)
+  const [runtimeProof, setRuntimeProof] = useState<CreativeCanvasRuntimeProof | null>(null)
   const [latestExecution, setLatestExecution] = useState<{ command?: string; dispatchPath?: string; callbackPath?: string; statusPath?: string } | null>(null)
   const [sourceQuery, setSourceQuery] = useState('')
   const [sourceKindFilter, setSourceKindFilter] = useState('')
@@ -558,6 +568,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
       setRunHistory([])
       setRunOperations(null)
       setRuntimeReadiness(null)
+      setRuntimeProof(null)
       return
     }
 
@@ -566,6 +577,16 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
     setRunHistory(payload.data?.runs ?? [])
     setRunOperations(payload.data?.operations ?? null)
     setRuntimeReadiness(payload.data?.runtimeReadiness ?? null)
+  }, [])
+
+  const loadRuntimeProof = useCallback(async (canvasId: string, canvasOrgId: string) => {
+    if (!canvasId || !canvasOrgId) {
+      setRuntimeProof(null)
+      return
+    }
+    const response = await fetch(`/api/v1/creative-canvas/${canvasId}/runtime-proof?orgId=${encodeURIComponent(canvasOrgId)}`)
+    const payload = (await response.json()) as CreativeCanvasRuntimeProofApiResponse
+    setRuntimeProof(payload.data?.proof ?? null)
   }, [])
 
   useEffect(() => {
@@ -590,11 +611,13 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
         if (firstCanvas?.id) {
           await loadVersions(firstCanvas.id, orgId ?? firstCanvas.orgId)
           await loadRuns(firstCanvas.id, orgId ?? firstCanvas.orgId)
+          await loadRuntimeProof(firstCanvas.id, orgId ?? firstCanvas.orgId)
         } else {
           setVersions([])
           setRunHistory([])
           setRunOperations(null)
           setRuntimeReadiness(null)
+          setRuntimeProof(null)
         }
       } catch {
         if (!cancelled) {
@@ -612,7 +635,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
     return () => {
       cancelled = true
     }
-  }, [loadRuns, loadVersions, orgId])
+  }, [loadRuns, loadRuntimeProof, loadVersions, orgId])
 
   useEffect(() => {
     let cancelled = false
@@ -747,6 +770,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
     if (canvas.id) {
       await loadVersions(canvas.id, orgId ?? canvas.orgId)
       await loadRuns(canvas.id, orgId ?? canvas.orgId)
+      await loadRuntimeProof(canvas.id, orgId ?? canvas.orgId)
     }
   }
 
@@ -1090,6 +1114,12 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
     } else {
       setActivityMessage(payload?.error ?? 'Provider batch retry failed')
     }
+  }
+
+  const refreshRuntimeProof = async () => {
+    if (!activeCanvas?.id) return
+    await loadRuntimeProof(activeCanvas.id, resolvedOrgId || activeCanvas.orgId)
+    setActivityMessage('Runtime proof refreshed')
   }
 
   const selectCanvasAsset = (assetId: string) => {
@@ -1890,6 +1920,41 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
                   ) : null}
                   {latestExecution.statusPath ? (
                     <p className="mt-1 text-[var(--color-pib-text-muted)]">Status: {latestExecution.statusPath}</p>
+                  ) : null}
+                </div>
+              ) : null}
+              {runtimeProof ? (
+                <div className={`rounded-lg border p-3 text-xs ${
+                  runtimeProof.status === 'passed'
+                    ? 'border-green-200 bg-green-50 text-green-800'
+                    : runtimeProof.status === 'warning'
+                      ? 'border-amber-200 bg-amber-50 text-amber-800'
+                      : 'border-red-200 bg-red-50 text-red-800'
+                }`}>
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="font-semibold">Live proof status</p>
+                    <span className="rounded-full border border-current px-2 py-0.5 uppercase tracking-normal">{runtimeProof.status}</span>
+                  </div>
+                  <p className="mt-1">{runtimeProof.summary}</p>
+                  <div className="mt-2 space-y-1">
+                    {runtimeProof.checks.slice(0, 4).map((item) => (
+                      <div key={item.id} className="rounded-md bg-white/70 px-2 py-1">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="font-semibold">{item.label}</span>
+                          <span>{item.status}</span>
+                        </div>
+                        <p>{item.evidence}</p>
+                      </div>
+                    ))}
+                  </div>
+                  {mode === 'admin' ? (
+                    <button
+                      type="button"
+                      onClick={refreshRuntimeProof}
+                      className="mt-2 rounded-md border border-current bg-white px-2 py-1 font-semibold"
+                    >
+                      Refresh runtime proof
+                    </button>
                   ) : null}
                 </div>
               ) : null}

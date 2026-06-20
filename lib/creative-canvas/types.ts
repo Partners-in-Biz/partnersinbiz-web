@@ -445,6 +445,25 @@ export interface CreativeCanvasProviderRuntimeReadiness {
   warnings: string[]
 }
 
+export type CreativeCanvasProofStatus = 'passed' | 'warning' | 'blocked'
+
+export interface CreativeCanvasRuntimeProofCheck {
+  id: string
+  label: string
+  status: CreativeCanvasProofStatus
+  evidence: string
+  nextAction?: string
+}
+
+export interface CreativeCanvasRuntimeProof {
+  canvasId: string
+  orgId: string
+  status: CreativeCanvasProofStatus
+  checks: CreativeCanvasRuntimeProofCheck[]
+  readyForLiveProof: boolean
+  summary: string
+}
+
 export type CreativeCanvasAssetOrigin = 'source_node' | 'output_node' | 'run_output'
 
 export interface CreativeCanvasAssetSummary {

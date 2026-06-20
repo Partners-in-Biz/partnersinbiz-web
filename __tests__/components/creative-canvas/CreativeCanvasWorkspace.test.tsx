@@ -73,6 +73,29 @@ beforeEach(() => {
         }),
       }
     }
+    if (url.includes('/runtime-proof')) {
+      return {
+        ok: true,
+        json: async () => ({
+          success: true,
+          data: {
+            proof: {
+              canvasId: 'canvas-1',
+              orgId: 'org-1',
+              status: 'warning',
+              readyForLiveProof: false,
+              summary: '0 blockers and 2 warnings remain before live proof.',
+              checks: [
+                { id: 'project_link', label: 'Linked project', status: 'passed', evidence: 'Project project-1' },
+                { id: 'runtime_readiness', label: 'Higgsfield runtime readiness', status: 'warning', evidence: 'Submit configured, status configured, internal bridge yes.' },
+                { id: 'provider_runs', label: 'Provider run evidence', status: 'warning', evidence: '2 runs, 0 completed, 1 active, 1 failed.' },
+                { id: 'output_assets', label: 'Output asset evidence', status: 'blocked', evidence: '0 assets, 0 draft-exportable output assets.' },
+              ],
+            },
+          },
+        }),
+      }
+    }
     if (url.includes('/exports/draft') && init?.method === 'POST') {
       return {
         ok: true,
@@ -380,6 +403,9 @@ describe('CreativeCanvasWorkspace', () => {
     expect(screen.getByText('1 active / 2 total')).toBeInTheDocument()
     expect(screen.getByText('Runtime readiness')).toBeInTheDocument()
     expect(screen.getByText('Submit yes · Status yes · Project project-1')).toBeInTheDocument()
+    expect(screen.getByText('Live proof status')).toBeInTheDocument()
+    expect(screen.getByText('0 blockers and 2 warnings remain before live proof.')).toBeInTheDocument()
+    expect(screen.getByText('Provider run evidence')).toBeInTheDocument()
     expect(screen.getByText(/1 active provider run older than 30 min/i)).toBeInTheDocument()
     expect(screen.getByText(/1 stale active · oldest 74 min/i)).toBeInTheDocument()
     expect(screen.getByText('1 retryable provider failure')).toBeInTheDocument()
