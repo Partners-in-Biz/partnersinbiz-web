@@ -1324,7 +1324,7 @@ describe('CreativeCanvasWorkspace', () => {
 
     const parityAudit = screen.getByLabelText(/higgsfield parity audit/i)
     expect(parityAudit).toHaveTextContent('Live edit activity')
-    expect(parityAudit).toHaveTextContent('2 recent graph events')
+    expect(parityAudit).toHaveTextContent('1 remote graph event')
   })
 
   it('updates collaborators from the live collaboration stream', async () => {
@@ -1392,6 +1392,8 @@ describe('CreativeCanvasWorkspace', () => {
 
       expect(await screen.findByText('Nova')).toBeInTheDocument()
       expect(screen.queryByText('Maya')).not.toBeInTheDocument()
+      const benchmarkProof = screen.getByLabelText(/direct higgsfield benchmark proof/i)
+      expect(benchmarkProof).toHaveTextContent('1 ready benchmark category needs stored proof.')
     } finally {
       Object.defineProperty(window, 'EventSource', {
         configurable: true,

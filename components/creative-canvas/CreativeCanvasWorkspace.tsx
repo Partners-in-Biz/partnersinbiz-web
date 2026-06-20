@@ -3761,8 +3761,10 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
   )).length
   const hasBenchmarkWorkflowCoverage = availableBenchmarkScenarioCount >= higgsfieldBenchmarkScenarios.length
   const hasVersionEvidence = versions.length > 0 && autoSaveEnabled
-  const hasCollaborationEvidence = presence.length > 0 || collaborationStreamConnected || Boolean(conflictDraft || latestCollaboratorDraft)
-  const hasLiveEditActivityEvidence = collaborationActivity.length > 0 || presence.some((item) => item.hasUnsavedGraphChanges)
+  const remotePresence = presence.filter((item) => item.id !== ownPresenceId)
+  const remoteActivityCount = collaborationActivity.filter((event) => event.source === 'stream' || event.source === 'draft').length
+  const hasCollaborationEvidence = remotePresence.length > 0 || Boolean(conflictDraft || latestCollaboratorDraft)
+  const hasRemoteLiveEditEvidence = remoteActivityCount > 0 || Boolean(latestCollaboratorDraft) || remotePresence.some((item) => item.hasUnsavedGraphChanges)
   const hasTemplateEvidence = templates.length > 0
   const hasExportEvidence = Boolean(latestExportPackage)
     || canvasAssets.some((asset) => asset.canDraftExport)
@@ -3778,7 +3780,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
     generation_controls: hasGenerationEvidence && hasMultiModelRoutingEvidence,
     multi_asset_workflows: hasMultiAssetEvidence && graphBenchmarkScenarioCount > 0,
     versioning_polish: hasVersionEvidence,
-    collaboration: hasCollaborationEvidence && hasLiveEditActivityEvidence,
+    collaboration: hasCollaborationEvidence && hasRemoteLiveEditEvidence,
     mobile_behavior: capturedVisualProofCount >= visualProofItems.length,
     export_flows: hasExportEvidence,
     production_reliability: reliabilityPassed,
@@ -3889,15 +3891,17 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
       label: 'Collaboration',
       status: hasCollaborationEvidence ? 'passed' : 'watch',
       evidence: collaborationStreamConnected
-        ? 'Live stream connected'
-        : `${presence.length} collaborator${presence.length === 1 ? '' : 's'} / ${conflictDraft ? 'conflict draft preserved' : 'conflict-ready'}`,
+        ? `${remotePresence.length} remote collaborator${remotePresence.length === 1 ? '' : 's'} on live stream`
+        : `${remotePresence.length} remote collaborator${remotePresence.length === 1 ? '' : 's'} / ${conflictDraft ? 'conflict draft preserved' : 'conflict-ready'}`,
     },
     {
       label: 'Live edit activity',
-      status: hasLiveEditActivityEvidence ? 'passed' : hasCollaborationEvidence ? 'watch' : 'blocked',
-      evidence: collaborationActivity.length
-        ? `${collaborationActivity.length} recent graph event${collaborationActivity.length === 1 ? '' : 's'}`
-        : 'No recent graph mutation evidence',
+      status: hasRemoteLiveEditEvidence ? 'passed' : hasCollaborationEvidence ? 'watch' : 'blocked',
+      evidence: hasRemoteLiveEditEvidence
+        ? `${remoteActivityCount || remotePresence.length} remote graph event${(remoteActivityCount || remotePresence.length) === 1 ? '' : 's'}`
+        : collaborationActivity.length
+          ? `${collaborationActivity.length} local graph event${collaborationActivity.length === 1 ? '' : 's'}`
+          : 'No recent remote graph mutation evidence',
     },
     {
       label: 'Templates',
