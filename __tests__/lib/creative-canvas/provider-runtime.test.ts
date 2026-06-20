@@ -28,7 +28,7 @@ jest.mock('@/lib/creative-canvas/runs', () => ({
   completeCreativeCanvasRun: (...args: unknown[]) => mockCompleteCreativeCanvasRun(...args),
 }))
 
-import { drainHiggsfieldCreativeCanvasRuns } from '@/lib/creative-canvas/provider-runtime'
+import { drainHiggsfieldCreativeCanvasRuns, getHiggsfieldRuntimeReadiness } from '@/lib/creative-canvas/provider-runtime'
 
 const queuedRun = {
   id: 'run-1',
@@ -100,6 +100,41 @@ describe('Higgsfield creative canvas provider runtime', () => {
     })
     expect(mockCollection).not.toHaveBeenCalled()
     expect(global.fetch).not.toHaveBeenCalled()
+  })
+
+  it('reports safe Higgsfield runtime readiness diagnostics', () => {
+    const readiness = getHiggsfieldRuntimeReadiness({
+      canvas: { linked: { projectId: 'project-1' } },
+      env: {
+        HIGGSFIELD_RUNTIME_API_KEY: 'secret-key',
+        NEXT_PUBLIC_APP_URL: 'https://partnersinbiz.online',
+      } as NodeJS.ProcessEnv,
+    })
+
+    expect(readiness).toMatchObject({
+      providerKey: 'higgsfield',
+      runtimeConfigured: true,
+      submitConfigured: true,
+      statusPollingConfigured: true,
+      internalBridgeConfigured: true,
+      callbackBaseConfigured: true,
+      webhookSecretConfigured: false,
+      linkedProjectId: 'project-1',
+      blockers: [],
+      warnings: ['Provider webhook secret is not configured'],
+    })
+    expect(JSON.stringify(readiness)).not.toContain('secret-key')
+  })
+
+  it('reports runtime readiness blockers when runtime and project linkage are missing', () => {
+    const readiness = getHiggsfieldRuntimeReadiness({ env: {} as NodeJS.ProcessEnv })
+
+    expect(readiness.runtimeConfigured).toBe(false)
+    expect(readiness.blockers).toEqual(expect.arrayContaining([
+      'Higgsfield runtime submit URL or internal bridge is not configured',
+      'Higgsfield runtime status polling is not configured',
+      'Canvas is not linked to a project for agent task execution',
+    ]))
   })
 
   it('submits queued Higgsfield runs through the configured runtime bridge', async () => {

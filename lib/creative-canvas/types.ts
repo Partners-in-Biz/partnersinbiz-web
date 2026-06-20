@@ -432,6 +432,19 @@ export interface CreativeCanvasRunBatchRetryResult {
   operations: CreativeCanvasRunOperationsSummary
 }
 
+export interface CreativeCanvasProviderRuntimeReadiness {
+  providerKey: CreativeCanvasProviderKey
+  runtimeConfigured: boolean
+  submitConfigured: boolean
+  statusPollingConfigured: boolean
+  internalBridgeConfigured: boolean
+  callbackBaseConfigured: boolean
+  webhookSecretConfigured: boolean
+  linkedProjectId?: string
+  blockers: string[]
+  warnings: string[]
+}
+
 export type CreativeCanvasAssetOrigin = 'source_node' | 'output_node' | 'run_output'
 
 export interface CreativeCanvasAssetSummary {

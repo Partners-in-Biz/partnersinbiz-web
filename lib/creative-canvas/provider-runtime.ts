@@ -3,7 +3,7 @@ import { adminDb } from '@/lib/firebase/admin'
 import { CREATIVE_CANVAS_RUN_COLLECTION, completeCreativeCanvasRun, dispatchCreativeCanvasProviderRun, refreshCreativeCanvasProviderRunStatus } from './runs'
 import { getCreativeCanvas } from './store'
 import { buildHiggsfieldExecutionManifest } from './higgsfield-execution'
-import type { CreativeCanvasActor, CreativeCanvasOutputKind, CreativeCanvasRun, CreativeCanvasRunStatus } from './types'
+import type { CreativeCanvas, CreativeCanvasActor, CreativeCanvasOutputKind, CreativeCanvasProviderRuntimeReadiness, CreativeCanvasRun, CreativeCanvasRunStatus } from './types'
 
 const HIGGSFIELD_ACTOR: CreativeCanvasActor = { uid: 'agent:maya', type: 'agent' }
 const DEFAULT_BATCH_SIZE = 5
@@ -67,6 +67,45 @@ function runtimeConfigFromEnv(env: NodeJS.ProcessEnv = process.env): HiggsfieldR
     apiKey: cleanString(env.HIGGSFIELD_RUNTIME_API_KEY),
     callbackBaseUrl: appUrl,
     webhookSecret: cleanString(env.HIGGSFIELD_WEBHOOK_SECRET),
+  }
+}
+
+export function getHiggsfieldRuntimeReadiness(input: {
+  canvas?: Pick<CreativeCanvas, 'linked'>
+  env?: NodeJS.ProcessEnv
+} = {}): CreativeCanvasProviderRuntimeReadiness {
+  const env = input.env ?? process.env
+  const config = runtimeConfigFromEnv(env)
+  const baseUrl = cleanString(env.HIGGSFIELD_RUNTIME_URL)
+  const explicitSubmitUrl = cleanString(env.HIGGSFIELD_RUNTIME_SUBMIT_URL)
+  const appUrl = cleanString(env.NEXT_PUBLIC_APP_URL) ?? cleanString(env.NEXT_PUBLIC_BASE_URL)
+  const hasRuntimeKey = Boolean(cleanString(env.HIGGSFIELD_RUNTIME_API_KEY))
+  const internalBridgeConfigured = Boolean(!explicitSubmitUrl && !baseUrl && appUrl && hasRuntimeKey)
+  const submitConfigured = Boolean(config.submitUrl)
+  const statusPollingConfigured = Boolean(config.statusUrlTemplate || internalBridgeConfigured)
+  const callbackBaseConfigured = Boolean(config.callbackBaseUrl)
+  const webhookSecretConfigured = Boolean(config.webhookSecret)
+  const linkedProjectId = cleanString(input.canvas?.linked?.projectId)
+  const blockers: string[] = []
+  const warnings: string[] = []
+
+  if (!submitConfigured) blockers.push('Higgsfield runtime submit URL or internal bridge is not configured')
+  if (!statusPollingConfigured) blockers.push('Higgsfield runtime status polling is not configured')
+  if (!linkedProjectId) blockers.push('Canvas is not linked to a project for agent task execution')
+  if (!callbackBaseConfigured) warnings.push('Callback base URL is not configured')
+  if (!webhookSecretConfigured) warnings.push('Provider webhook secret is not configured')
+
+  return {
+    providerKey: 'higgsfield',
+    runtimeConfigured: submitConfigured || statusPollingConfigured,
+    submitConfigured,
+    statusPollingConfigured,
+    internalBridgeConfigured,
+    callbackBaseConfigured,
+    webhookSecretConfigured,
+    linkedProjectId,
+    blockers,
+    warnings,
   }
 }
 

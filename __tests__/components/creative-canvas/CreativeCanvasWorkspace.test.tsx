@@ -186,6 +186,18 @@ beforeEach(() => {
                 latestErrorMessage: 'Quota exceeded',
               }],
             },
+            runtimeReadiness: {
+              providerKey: 'higgsfield',
+              runtimeConfigured: true,
+              submitConfigured: true,
+              statusPollingConfigured: true,
+              internalBridgeConfigured: true,
+              callbackBaseConfigured: true,
+              webhookSecretConfigured: false,
+              linkedProjectId: 'project-1',
+              blockers: [],
+              warnings: ['Provider webhook secret is not configured'],
+            },
             runs: [
               {
                 id: 'run-existing',
@@ -366,6 +378,8 @@ describe('CreativeCanvasWorkspace', () => {
     expect(screen.getByText('Run history')).toBeInTheDocument()
     expect(screen.getByText('Provider operations')).toBeInTheDocument()
     expect(screen.getByText('1 active / 2 total')).toBeInTheDocument()
+    expect(screen.getByText('Runtime readiness')).toBeInTheDocument()
+    expect(screen.getByText('Submit yes · Status yes · Project project-1')).toBeInTheDocument()
     expect(screen.getByText(/1 active provider run older than 30 min/i)).toBeInTheDocument()
     expect(screen.getByText(/1 stale active · oldest 74 min/i)).toBeInTheDocument()
     expect(screen.getByText('1 retryable provider failure')).toBeInTheDocument()

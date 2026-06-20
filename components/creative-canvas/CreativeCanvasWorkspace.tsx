@@ -20,6 +20,7 @@ import type {
   CreativeCanvasNodeType,
   CreativeCanvasRunOperationsSummary,
   CreativeCanvasRunBatchRetryResult,
+  CreativeCanvasProviderRuntimeReadiness,
   CreativeCanvasRun,
   CreativeCanvasSourceLibraryItem,
   CreativeCanvasVersion,
@@ -66,6 +67,7 @@ interface CreativeCanvasRunApiResponse {
     runs?: Array<CreativeCanvasRun & { id: string }>
     run?: CreativeCanvasRun & { id: string }
     operations?: CreativeCanvasRunOperationsSummary
+    runtimeReadiness?: CreativeCanvasProviderRuntimeReadiness
     retriedRuns?: CreativeCanvasRunBatchRetryResult['retriedRuns']
     skippedRuns?: CreativeCanvasRunBatchRetryResult['skippedRuns']
     agentTaskDraft?: {
@@ -479,6 +481,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
   const [maskRegion, setMaskRegion] = useState({ x: 0, y: 0, width: 50, height: 50, feather: 0 })
   const [runHistory, setRunHistory] = useState<Array<CreativeCanvasRun & { id: string }>>([])
   const [runOperations, setRunOperations] = useState<CreativeCanvasRunOperationsSummary | null>(null)
+  const [runtimeReadiness, setRuntimeReadiness] = useState<CreativeCanvasProviderRuntimeReadiness | null>(null)
   const [latestExecution, setLatestExecution] = useState<{ command?: string; dispatchPath?: string; callbackPath?: string; statusPath?: string } | null>(null)
   const [sourceQuery, setSourceQuery] = useState('')
   const [sourceKindFilter, setSourceKindFilter] = useState('')
@@ -554,6 +557,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
     if (!canvasId || !canvasOrgId) {
       setRunHistory([])
       setRunOperations(null)
+      setRuntimeReadiness(null)
       return
     }
 
@@ -561,6 +565,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
     const payload = (await response.json()) as CreativeCanvasRunApiResponse
     setRunHistory(payload.data?.runs ?? [])
     setRunOperations(payload.data?.operations ?? null)
+    setRuntimeReadiness(payload.data?.runtimeReadiness ?? null)
   }, [])
 
   useEffect(() => {
@@ -589,6 +594,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
           setVersions([])
           setRunHistory([])
           setRunOperations(null)
+          setRuntimeReadiness(null)
         }
       } catch {
         if (!cancelled) {
@@ -1806,6 +1812,26 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
                     <span>Review {runOperations.byStatus.waiting_for_review}</span>
                     <span>Failed {runOperations.failed}</span>
                   </div>
+                  {runtimeReadiness ? (
+                    <div className={`mt-2 rounded-md border px-2 py-1 ${
+                      runtimeReadiness.blockers.length
+                        ? 'border-amber-200 bg-amber-50 text-amber-800'
+                        : 'border-green-200 bg-green-50 text-green-800'
+                    }`}>
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="font-semibold">Runtime readiness</p>
+                        <span>{runtimeReadiness.runtimeConfigured ? 'configured' : 'not configured'}</span>
+                      </div>
+                      <p className="mt-1">
+                        Submit {runtimeReadiness.submitConfigured ? 'yes' : 'no'} · Status {runtimeReadiness.statusPollingConfigured ? 'yes' : 'no'} · Project {runtimeReadiness.linkedProjectId ?? 'missing'}
+                      </p>
+                      {runtimeReadiness.blockers.length ? (
+                        <p className="mt-1">{runtimeReadiness.blockers[0]}</p>
+                      ) : runtimeReadiness.warnings.length ? (
+                        <p className="mt-1">{runtimeReadiness.warnings[0]}</p>
+                      ) : null}
+                    </div>
+                  ) : null}
                   {runOperations.staleActiveRuns ? (
                     <p className="mt-2 font-semibold text-amber-700">
                       {runOperations.staleActiveRuns} active provider run{runOperations.staleActiveRuns === 1 ? '' : 's'} older than {runOperations.staleThresholdMinutes} min
