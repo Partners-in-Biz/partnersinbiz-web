@@ -3811,7 +3811,8 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
   const draftExportableAssetCount = canvasAssets.filter((asset) => asset.canDraftExport).length
   const capturedVisualProofCount = visualProofItems.filter((item) => item.status === 'captured').length
   const reliabilityCoverage = runtimeProof?.reliabilityCoverage ?? []
-  const reliabilityPassed = reliabilityCoverage.length > 0 && reliabilityCoverage.every((category) => category.status === 'passed')
+  const reliabilityCoveragePassed = reliabilityCoverage.length > 0 && reliabilityCoverage.every((category) => category.status === 'passed')
+  const reliabilityPassed = reliabilityCoveragePassed && runtimeProof?.status === 'passed' && runtimeProof.readyForLiveProof
   const reliabilityObserved = reliabilityCoverage.length > 0 || Boolean(runOperations?.total)
   const benchmarkProofRecords = getCanvasBenchmarkProof(activeCanvas?.data)
   const benchmarkSignals: Record<CreativeCanvasBenchmarkProofKey, boolean> = {
@@ -3966,7 +3967,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
       label: 'Production reliability',
       status: reliabilityPassed ? 'passed' : reliabilityObserved ? 'watch' : 'blocked',
       evidence: reliabilityCoverage.length
-        ? `${reliabilityCoverage.filter((category) => category.status === 'passed').length}/${reliabilityCoverage.length} proof categories passed`
+        ? `${reliabilityCoverage.filter((category) => category.status === 'passed').length}/${reliabilityCoverage.length} proof categories passed · ${runtimeProof?.status ?? 'missing'} runtime proof`
         : `${runOperations?.completed ?? 0} completed provider runs`,
     },
   ]

@@ -854,7 +854,7 @@ describe('CreativeCanvasWorkspace', () => {
     expect(parityAudit).toHaveTextContent('Signed-in desktop/tablet/mobile screenshots still required')
     expect(parityAudit).toHaveTextContent('Export flows')
     expect(parityAudit).toHaveTextContent('Production reliability')
-    expect(parityAudit).toHaveTextContent('0/4 proof categories passed')
+    expect(parityAudit).toHaveTextContent('0/4 proof categories passed · warning runtime proof')
     const benchmarkProof = screen.getByLabelText(/direct higgsfield benchmark proof/i)
     expect(benchmarkProof).toHaveTextContent('Capability-by-capability evidence ledger')
     expect(benchmarkProof).toHaveTextContent('0/9 benchmark proven')
@@ -1533,6 +1533,59 @@ describe('CreativeCanvasWorkspace', () => {
     expect(screen.getByText('Queue proof batch to create this required creative job.')).toBeInTheDocument()
     expect(screen.getByText('Book')).toBeInTheDocument()
     expect(screen.getByText('Retry failed proof run or queue a new proof batch.')).toBeInTheDocument()
+  })
+
+  it('does not mark production reliability benchmark-ready until the full runtime proof passes', async () => {
+    render(<CreativeCanvasWorkspace mode="admin" orgId="org-1" />)
+
+    await screen.findByText('Production job coverage')
+    const defaultFetch = fetchMock.getMockImplementation()
+    fetchMock.mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      if (url.includes('/runtime-proof')) {
+        return {
+          ok: true,
+          json: async () => ({
+            success: true,
+            data: {
+              proof: {
+                canvasId: 'canvas-1',
+                orgId: 'org-1',
+                status: 'warning',
+                readyForLiveProof: false,
+                summary: '0 blockers and 1 warning remain before live proof.',
+                reliabilityCoverage: [
+                  { key: 'image', label: 'Image', status: 'passed', requiredOutputKinds: ['image', 'campaign_asset'], requiredCompleted: 2, total: 2, completed: 2, active: 0, failed: 0, cancelled: 0 },
+                  { key: 'video_social', label: 'Video/social', status: 'passed', requiredOutputKinds: ['video', 'social_post_draft', 'youtube_render'], requiredCompleted: 2, total: 2, completed: 2, active: 0, failed: 0, cancelled: 0 },
+                  { key: 'blog_document', label: 'Blog/document', status: 'passed', requiredOutputKinds: ['blog_draft', 'document_block', 'copy', 'caption'], requiredCompleted: 2, total: 2, completed: 2, active: 0, failed: 0, cancelled: 0 },
+                  { key: 'book', label: 'Book', status: 'passed', requiredOutputKinds: ['book_artifact'], requiredCompleted: 2, total: 2, completed: 2, active: 0, failed: 0, cancelled: 0 },
+                ],
+                checks: [
+                  { id: 'project_link', label: 'Linked project', status: 'passed', evidence: 'Project project-1' },
+                  { id: 'runtime_readiness', label: 'Higgsfield runtime readiness', status: 'passed', evidence: 'Submit configured, status configured, internal bridge yes.' },
+                  { id: 'provider_runs', label: 'Provider run evidence', status: 'passed', evidence: '8 runs, 8 completed, 0 active, 0 failed.' },
+                  { id: 'queue_health', label: 'Provider queue health', status: 'passed', evidence: '0 stale active, 0 retryable failures.' },
+                  { id: 'output_assets', label: 'Output asset evidence', status: 'warning', evidence: '8 assets, 0 draft-exportable output assets.' },
+                  { id: 'repeated_job_coverage', label: 'Repeated creative job coverage', status: 'passed', evidence: 'All categories complete.' },
+                  { id: 'repeated_job_reliability', label: 'Repeated creative job reliability', status: 'passed', evidence: '8 total runs, 8 completed, 0 active, 0 failed, 0% completed-job failure rate, 0 stale active.' },
+                ],
+              },
+            },
+          }),
+        }
+      }
+      return defaultFetch?.(input, init) ?? {
+        ok: true,
+        json: async () => ({ success: true, data: {} }),
+      }
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: /refresh runtime proof/i }))
+
+    const parityAudit = screen.getByLabelText(/higgsfield parity audit/i)
+    await waitFor(() => expect(parityAudit).toHaveTextContent('4/4 proof categories passed · warning runtime proof'))
+    const benchmarkProof = screen.getByLabelText(/direct higgsfield benchmark proof/i)
+    expect(benchmarkProof).toHaveTextContent('2 ready benchmark categories need stored proof.')
   })
 
   it('adds a source node from the palette', async () => {
