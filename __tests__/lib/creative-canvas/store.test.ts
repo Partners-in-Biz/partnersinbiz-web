@@ -114,4 +114,86 @@ describe('creative canvas store', () => {
     expect(mockDocUpdate).not.toHaveBeenCalled()
     expect(mockAdd).not.toHaveBeenCalled()
   })
+
+  it('auto-merges stale graph saves when collaborators changed different nodes', async () => {
+    mockDocGet.mockResolvedValue({
+      exists: true,
+      id: 'canvas-1',
+      data: () => ({
+        orgId: 'org-1',
+        title: 'Launch',
+        activeVersion: 4,
+        deleted: false,
+        nodes: [
+          { id: 'source-1', orgId: 'org-1', type: 'source', title: 'Source', position: { x: 0, y: 0 }, data: {} },
+          { id: 'maya-model', orgId: 'org-1', type: 'model', title: 'Maya render', position: { x: 300, y: 0 }, data: {} },
+        ],
+        edges: [],
+      }),
+    })
+
+    const updated = await updateCreativeCanvasGraph('canvas-1', 'org-1', {
+      nodes: [
+        { id: 'source-1', type: 'source', title: 'Source', position: { x: 0, y: 0 }, data: {} },
+        { id: 'pip-prompt', type: 'prompt', title: 'Pip prompt', position: { x: 0, y: 240 }, data: {} },
+      ],
+      edges: [],
+    }, ACTOR, {
+      expectedActiveVersion: 2,
+      mergeOnConflict: true,
+      baseGraphInput: {
+        nodes: [{ id: 'source-1', type: 'source', title: 'Source', position: { x: 0, y: 0 }, data: {} }],
+        edges: [],
+      },
+    })
+
+    expect(mockDocUpdate).toHaveBeenCalledWith(expect.objectContaining({
+      activeVersion: 5,
+      nodes: expect.arrayContaining([
+        expect.objectContaining({ id: 'source-1' }),
+        expect.objectContaining({ id: 'maya-model' }),
+        expect.objectContaining({ id: 'pip-prompt' }),
+      ]),
+    }))
+    expect(mockAdd).toHaveBeenCalledWith(expect.objectContaining({
+      version: 5,
+      reason: 'graph_auto_merge_from_v2',
+      nodes: expect.arrayContaining([
+        expect.objectContaining({ id: 'maya-model' }),
+        expect.objectContaining({ id: 'pip-prompt' }),
+      ]),
+    }))
+    expect(updated).toMatchObject({ id: 'canvas-1', activeVersion: 5 })
+  })
+
+  it('keeps conflicting stale graph edits blocked when both collaborators changed the same node', async () => {
+    mockDocGet.mockResolvedValue({
+      exists: true,
+      id: 'canvas-1',
+      data: () => ({
+        orgId: 'org-1',
+        title: 'Launch',
+        activeVersion: 4,
+        deleted: false,
+        nodes: [{ id: 'source-1', orgId: 'org-1', type: 'source', title: 'Source from Maya', position: { x: 10, y: 0 }, data: {} }],
+        edges: [],
+      }),
+    })
+
+    await expect(updateCreativeCanvasGraph('canvas-1', 'org-1', {
+      nodes: [{ id: 'source-1', type: 'source', title: 'Source from Pip', position: { x: 0, y: 20 }, data: {} }],
+      edges: [],
+    }, ACTOR, {
+      expectedActiveVersion: 2,
+      mergeOnConflict: true,
+      baseGraphInput: {
+        nodes: [{ id: 'source-1', type: 'source', title: 'Source', position: { x: 0, y: 0 }, data: {} }],
+        edges: [],
+      },
+    })).rejects.toMatchObject({
+      conflicts: ['node:source-1'],
+    })
+    expect(mockDocUpdate).not.toHaveBeenCalled()
+    expect(mockAdd).not.toHaveBeenCalled()
+  })
 })

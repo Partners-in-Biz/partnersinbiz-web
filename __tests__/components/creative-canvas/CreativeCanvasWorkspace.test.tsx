@@ -612,6 +612,7 @@ describe('CreativeCanvasWorkspace', () => {
             code: 'creative_canvas_version_conflict',
             currentActiveVersion: 4,
             expectedActiveVersion: 1,
+            conflicts: ['node:source-1', 'edge:source-model'],
             error: 'Creative canvas graph has changed since it was loaded',
           }),
         }
@@ -639,11 +640,15 @@ describe('CreativeCanvasWorkspace', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /save graph/i }))
 
-    expect(await screen.findByText(/Graph changed in another session/i)).toBeInTheDocument()
+    expect(await screen.findByText(/2 overlapping edits need review/i)).toBeInTheDocument()
     const graphCall = fetchMock.mock.calls.find(([url, init]) =>
       String(url).includes('/graph?orgId=org-1') && init?.method === 'PUT'
     )
-    expect(JSON.parse(graphCall?.[1]?.body as string)).toMatchObject({ expectedActiveVersion: 1 })
+    expect(JSON.parse(graphCall?.[1]?.body as string)).toMatchObject({
+      expectedActiveVersion: 1,
+      mergeOnConflict: true,
+      baseGraph: { nodes: [], edges: [] },
+    })
   })
 
   it('applies a social launch workflow preset and saves the connected graph', async () => {
@@ -684,6 +689,8 @@ describe('CreativeCanvasWorkspace', () => {
     )
     const body = JSON.parse(graphCall?.[1]?.body as string)
     expect(body.expectedActiveVersion).toBe(1)
+    expect(body.mergeOnConflict).toBe(true)
+    expect(body.baseGraph).toEqual({ nodes: [], edges: [] })
     expect(body.nodes).toEqual(expect.arrayContaining([
       expect.objectContaining({
         type: 'source',
@@ -818,6 +825,8 @@ describe('CreativeCanvasWorkspace', () => {
     )
     expect(JSON.parse(graphCall?.[1]?.body as string)).toMatchObject({
       expectedActiveVersion: 1,
+      mergeOnConflict: true,
+      baseGraph: { nodes: [], edges: [] },
       nodes: [
         expect.objectContaining({
           type: 'source',
@@ -913,6 +922,8 @@ describe('CreativeCanvasWorkspace', () => {
     )
     expect(JSON.parse(graphCall?.[1]?.body as string)).toMatchObject({
       expectedActiveVersion: 1,
+      mergeOnConflict: true,
+      baseGraph: { nodes: [], edges: [] },
       nodes: [
         expect.objectContaining({
           type: 'edit',
@@ -961,6 +972,9 @@ describe('CreativeCanvasWorkspace', () => {
       String(url).includes('/graph?orgId=org-1') && init?.method === 'PUT'
     )
     expect(JSON.parse(graphCall?.[1]?.body as string)).toMatchObject({
+      expectedActiveVersion: 1,
+      mergeOnConflict: true,
+      baseGraph: { nodes: [], edges: [] },
       nodes: [
         expect.objectContaining({
           type: 'edit',
@@ -1012,6 +1026,9 @@ describe('CreativeCanvasWorkspace', () => {
       String(url).includes('/graph?orgId=org-1') && init?.method === 'PUT'
     )
     expect(JSON.parse(graphCall?.[1]?.body as string)).toMatchObject({
+      expectedActiveVersion: 1,
+      mergeOnConflict: true,
+      baseGraph: { nodes: [], edges: [] },
       nodes: [
         expect.objectContaining({
           type: 'edit',

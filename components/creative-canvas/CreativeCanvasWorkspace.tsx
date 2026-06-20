@@ -43,6 +43,7 @@ interface CreativeCanvasApiListResponse {
   error?: string
   code?: string
   currentActiveVersion?: number
+  conflicts?: string[]
   data?: {
     canvas?: CreativeCanvas
     canvases?: CreativeCanvas[]
@@ -1168,6 +1169,11 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           expectedActiveVersion: activeCanvas.activeVersion,
+          mergeOnConflict: true,
+          baseGraph: {
+            nodes: activeCanvas.nodes ?? [],
+            edges: activeCanvas.edges ?? [],
+          },
           nodes: nodes.map((node) => toCanvasNode(node, resolvedOrgId || activeCanvas.orgId)),
           edges: edges.map((edge) => toCanvasEdge(edge, resolvedOrgId || activeCanvas.orgId)),
         }),
@@ -1177,8 +1183,9 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
       if (!response.ok) {
         const conflict = payload as { code?: string; currentActiveVersion?: number } | null
         if (response.status === 409 || conflict?.code === 'creative_canvas_version_conflict') {
+          const conflictCount = payload?.conflicts?.length ?? 0
           setSaveMessage(
-            `Graph changed in another session. Refresh versions before saving${conflict?.currentActiveVersion ? ` (current v${conflict.currentActiveVersion})` : ''}.`,
+            `Graph changed in another session. ${conflictCount ? `${conflictCount} overlapping edit${conflictCount === 1 ? '' : 's'} need review. ` : ''}Refresh versions before saving${conflict?.currentActiveVersion ? ` (current v${conflict.currentActiveVersion})` : ''}.`,
           )
           if (activeCanvas.id) {
             await loadVersions(activeCanvas.id, resolvedOrgId || activeCanvas.orgId)

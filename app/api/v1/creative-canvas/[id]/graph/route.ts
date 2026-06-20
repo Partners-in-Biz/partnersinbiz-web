@@ -30,9 +30,14 @@ export const PUT = withAuth('client', async (req: NextRequest, user: ApiUser, co
   const expectedActiveVersion = typeof body.expectedActiveVersion === 'number'
     ? body.expectedActiveVersion
     : undefined
+  const mergeOnConflict = body.mergeOnConflict === true
 
   try {
-    const canvas = await updateCreativeCanvasGraph(id, orgId, body, actorFromUser(user), { expectedActiveVersion })
+    const canvas = await updateCreativeCanvasGraph(id, orgId, body, actorFromUser(user), {
+      expectedActiveVersion,
+      mergeOnConflict,
+      baseGraphInput: body.baseGraph,
+    })
     return apiSuccess({ canvas })
   } catch (error) {
     if (error instanceof CreativeCanvasVersionConflictError) {
@@ -40,6 +45,7 @@ export const PUT = withAuth('client', async (req: NextRequest, user: ApiUser, co
         code: 'creative_canvas_version_conflict',
         currentActiveVersion: error.currentActiveVersion,
         expectedActiveVersion: error.expectedActiveVersion,
+        conflicts: error.conflicts,
       })
     }
     throw error

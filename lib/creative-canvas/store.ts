@@ -24,12 +24,92 @@ const VISIBILITIES: CreativeCanvasVisibility[] = ['admin_agents', 'admin_agents_
 export class CreativeCanvasVersionConflictError extends Error {
   currentActiveVersion: number
   expectedActiveVersion: number
+  conflicts: string[]
 
-  constructor(currentActiveVersion: number, expectedActiveVersion: number) {
+  constructor(currentActiveVersion: number, expectedActiveVersion: number, conflicts: string[] = []) {
     super('Creative canvas graph has changed since it was loaded')
     this.name = 'CreativeCanvasVersionConflictError'
     this.currentActiveVersion = currentActiveVersion
     this.expectedActiveVersion = expectedActiveVersion
+    this.conflicts = conflicts
+  }
+}
+
+function stableStringify(value: unknown): string {
+  if (value === null || typeof value !== 'object') return JSON.stringify(value)
+  if (Array.isArray(value)) return `[${value.map(stableStringify).join(',')}]`
+  return `{${Object.entries(value as Record<string, unknown>)
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([key, item]) => `${JSON.stringify(key)}:${stableStringify(item)}`)
+    .join(',')}}`
+}
+
+function graphItemChanged<T>(left: T | undefined, right: T | undefined): boolean {
+  return stableStringify(left ?? null) !== stableStringify(right ?? null)
+}
+
+function mergeGraphItems<T extends { id: string }>(
+  kind: 'node' | 'edge',
+  baseItems: T[],
+  currentItems: T[],
+  proposedItems: T[],
+): { merged: T[]; conflicts: string[] } {
+  const baseMap = new Map(baseItems.map((item) => [item.id, item]))
+  const currentMap = new Map(currentItems.map((item) => [item.id, item]))
+  const proposedMap = new Map(proposedItems.map((item) => [item.id, item]))
+  const ids = Array.from(new Set([...baseMap.keys(), ...currentMap.keys(), ...proposedMap.keys()]))
+  const merged: T[] = []
+  const conflicts: string[] = []
+
+  for (const id of ids) {
+    const base = baseMap.get(id)
+    const current = currentMap.get(id)
+    const proposed = proposedMap.get(id)
+    const currentChanged = graphItemChanged(current, base)
+    const proposedChanged = graphItemChanged(proposed, base)
+
+    if (!proposed) {
+      if (base && currentChanged) conflicts.push(`${kind}:${id}`)
+      if (!base && current) merged.push(current)
+      continue
+    }
+
+    if (!current) {
+      if (base && proposedChanged) {
+        conflicts.push(`${kind}:${id}`)
+        continue
+      }
+      merged.push(proposed)
+      continue
+    }
+
+    if (currentChanged && proposedChanged && graphItemChanged(current, proposed)) {
+      conflicts.push(`${kind}:${id}`)
+      continue
+    }
+
+    merged.push(proposedChanged ? proposed : current)
+  }
+
+  return { merged, conflicts }
+}
+
+function mergeCreativeCanvasGraphs(
+  base: CreativeCanvasGraph,
+  current: CreativeCanvasGraph,
+  proposed: CreativeCanvasGraph,
+  orgId: string,
+): { graph: CreativeCanvasGraph; conflicts: string[] } {
+  const nodeMerge = mergeGraphItems('node', base.nodes, current.nodes, proposed.nodes)
+  const edgeMerge = mergeGraphItems('edge', base.edges, current.edges, proposed.edges)
+  const mergedNodeIds = new Set(nodeMerge.merged.map((node) => node.id))
+  const mergedEdges = edgeMerge.merged.filter((edge) => (
+    mergedNodeIds.has(edge.sourceNodeId) && mergedNodeIds.has(edge.targetNodeId)
+  ))
+  const graph = sanitizeCreativeCanvasGraph({ nodes: nodeMerge.merged, edges: mergedEdges }, orgId)
+  return {
+    graph,
+    conflicts: [...nodeMerge.conflicts, ...edgeMerge.conflicts],
   }
 }
 
@@ -65,6 +145,7 @@ function buildVersionSnapshot(
   graph: CreativeCanvasGraph,
   version: number,
   actor: CreativeCanvasActor,
+  reason = 'graph_save',
 ): CreativeCanvasVersion {
   return {
     orgId,
@@ -75,7 +156,7 @@ function buildVersionSnapshot(
     createdBy: actor.uid,
     createdByType: actor.type,
     createdAt: FieldValue.serverTimestamp(),
-    reason: 'graph_save',
+    reason,
   }
 }
 
@@ -137,18 +218,34 @@ export async function updateCreativeCanvasGraph(
   orgId: string,
   graphInput: unknown,
   actor: CreativeCanvasActor,
-  options: { expectedActiveVersion?: number } = {},
+  options: { expectedActiveVersion?: number; mergeOnConflict?: boolean; baseGraphInput?: unknown } = {},
 ): Promise<CreativeCanvas & { id: string }> {
   const current = await getCreativeCanvas(id, orgId)
   if (!current) throw new Error('Creative canvas not found')
+  const proposedGraph: CreativeCanvasGraph = sanitizeCreativeCanvasGraph(graphInput, orgId)
+  let graph = proposedGraph
+  let versionReason = 'graph_save'
   if (
     typeof options.expectedActiveVersion === 'number'
     && Number.isFinite(options.expectedActiveVersion)
     && options.expectedActiveVersion !== current.activeVersion
   ) {
-    throw new CreativeCanvasVersionConflictError(current.activeVersion, options.expectedActiveVersion)
+    if (!options.mergeOnConflict || !options.baseGraphInput) {
+      throw new CreativeCanvasVersionConflictError(current.activeVersion, options.expectedActiveVersion)
+    }
+    const baseGraph = sanitizeCreativeCanvasGraph(options.baseGraphInput, orgId)
+    const merged = mergeCreativeCanvasGraphs(
+      baseGraph,
+      { nodes: current.nodes, edges: current.edges },
+      proposedGraph,
+      orgId,
+    )
+    if (merged.conflicts.length) {
+      throw new CreativeCanvasVersionConflictError(current.activeVersion, options.expectedActiveVersion, merged.conflicts)
+    }
+    graph = merged.graph
+    versionReason = `graph_auto_merge_from_v${options.expectedActiveVersion}`
   }
-  const graph: CreativeCanvasGraph = sanitizeCreativeCanvasGraph(graphInput, orgId)
   const nextVersion = current.activeVersion + 1
   const patch = {
     nodes: graph.nodes,
@@ -159,7 +256,7 @@ export async function updateCreativeCanvasGraph(
     updatedAt: FieldValue.serverTimestamp(),
   }
   await adminDb.collection(CREATIVE_CANVAS_COLLECTION).doc(id).update(patch)
-  await adminDb.collection(CREATIVE_CANVAS_VERSION_COLLECTION).add(buildVersionSnapshot(id, orgId, graph, nextVersion, actor))
+  await adminDb.collection(CREATIVE_CANVAS_VERSION_COLLECTION).add(buildVersionSnapshot(id, orgId, graph, nextVersion, actor, versionReason))
   return {
     ...current,
     ...patch,

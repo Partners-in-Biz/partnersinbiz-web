@@ -9,12 +9,14 @@ const mockUpdateCreativeCanvasGraph = jest.fn()
 class MockCreativeCanvasVersionConflictError extends Error {
   currentActiveVersion: number
   expectedActiveVersion: number
+  conflicts: string[]
 
-  constructor(currentActiveVersion: number, expectedActiveVersion: number) {
+  constructor(currentActiveVersion: number, expectedActiveVersion: number, conflicts: string[] = []) {
     super('Creative canvas graph has changed since it was loaded')
     this.name = 'CreativeCanvasVersionConflictError'
     this.currentActiveVersion = currentActiveVersion
     this.expectedActiveVersion = expectedActiveVersion
+    this.conflicts = conflicts
   }
 }
 
@@ -78,14 +80,35 @@ describe('creative canvas API routes', () => {
       'org-1',
       { expectedActiveVersion: 1, nodes: [], edges: [] },
       { uid: 'user-1', type: 'user' },
-      { expectedActiveVersion: 1 },
+      { expectedActiveVersion: 1, mergeOnConflict: false, baseGraphInput: undefined },
     )
     expect(body.data.canvas.activeVersion).toBe(2)
   })
 
+  it('passes merge context when saving a graph from a stale collaboration base', async () => {
+    const { PUT } = await import('@/app/api/v1/creative-canvas/[id]/graph/route')
+    mockUpdateCreativeCanvasGraph.mockResolvedValue({ id: 'canvas-1', activeVersion: 5 })
+    const baseGraph = { nodes: [{ id: 'source-1' }], edges: [] }
+
+    const res = await PUT(new NextRequest('http://test.local/api/v1/creative-canvas/canvas-1/graph?orgId=org-1', {
+      method: 'PUT',
+      body: JSON.stringify({ expectedActiveVersion: 2, mergeOnConflict: true, baseGraph, nodes: [], edges: [] }),
+    }), { params: Promise.resolve({ id: 'canvas-1' }) })
+    const body = await res.json()
+
+    expect(mockUpdateCreativeCanvasGraph).toHaveBeenCalledWith(
+      'canvas-1',
+      'org-1',
+      { expectedActiveVersion: 2, mergeOnConflict: true, baseGraph, nodes: [], edges: [] },
+      { uid: 'user-1', type: 'user' },
+      { expectedActiveVersion: 2, mergeOnConflict: true, baseGraphInput: baseGraph },
+    )
+    expect(body.data.canvas.activeVersion).toBe(5)
+  })
+
   it('returns a conflict when a graph save is based on a stale version', async () => {
     const { PUT } = await import('@/app/api/v1/creative-canvas/[id]/graph/route')
-    mockUpdateCreativeCanvasGraph.mockRejectedValue(new MockCreativeCanvasVersionConflictError(4, 2))
+    mockUpdateCreativeCanvasGraph.mockRejectedValue(new MockCreativeCanvasVersionConflictError(4, 2, ['node:source-1']))
 
     const res = await PUT(new NextRequest('http://test.local/api/v1/creative-canvas/canvas-1/graph?orgId=org-1', {
       method: 'PUT',
@@ -99,6 +122,7 @@ describe('creative canvas API routes', () => {
       code: 'creative_canvas_version_conflict',
       currentActiveVersion: 4,
       expectedActiveVersion: 2,
+      conflicts: ['node:source-1'],
     })
   })
 })
