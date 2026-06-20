@@ -117,6 +117,7 @@ beforeEach(() => {
                   cli: { display: "higgsfield generate create nano_banana_flash --prompt 'Generate a reviewable creative asset' --json" },
                   dispatch: { path: '/api/v1/creative-canvas/canvas-1/runs/run-1/provider-dispatch?orgId=org-1' },
                   callback: { path: '/api/v1/creative-canvas/provider-callbacks/higgsfield' },
+                  statusRefresh: { path: '/api/v1/creative-canvas/canvas-1/runs/run-1/provider-status?orgId=org-1' },
                 },
               },
             },
@@ -138,6 +139,7 @@ beforeEach(() => {
               providerKey: 'higgsfield',
               model: 'nano_banana_flash',
               status: 'running',
+              providerStatusMessage: 'Rendering preview frames',
               input: { sourceNodeIds: [], sourceArtifactIds: [] },
               provenance: {
                 generatedBy: 'agent',
@@ -147,6 +149,26 @@ beforeEach(() => {
                 syntheticMedia: true,
               },
             }],
+          },
+        }),
+      }
+    }
+    if (url.includes('/runs/run-1/provider-status') && init?.method === 'PUT') {
+      return {
+        ok: true,
+        json: async () => ({
+          success: true,
+          data: {
+            run: {
+              id: 'run-1',
+              status: 'running',
+              nodeId: 'model-node-1',
+              providerKey: 'higgsfield',
+              providerStatus: 'poll_requested',
+              providerStatusMessage: 'Manual status refresh requested from Creative Canvas.',
+              input: {},
+              provenance: {},
+            },
           },
         }),
       }
@@ -367,6 +389,16 @@ describe('CreativeCanvasWorkspace', () => {
     expect(screen.getByText('Higgsfield execution')).toBeInTheDocument()
     expect(screen.getByText(/higgsfield generate create nano_banana_flash/i)).toBeInTheDocument()
     expect(screen.getByText('Dispatch: /api/v1/creative-canvas/canvas-1/runs/run-1/provider-dispatch?orgId=org-1')).toBeInTheDocument()
+    expect(screen.getByText('Status: /api/v1/creative-canvas/canvas-1/runs/run-1/provider-status?orgId=org-1')).toBeInTheDocument()
+    expect(screen.getByText('Provider status: Rendering preview frames')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: /refresh provider status/i }))
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith('/api/v1/creative-canvas/canvas-1/runs/run-1/provider-status?orgId=org-1', expect.objectContaining({
+        method: 'PUT',
+      }))
+    })
+    expect(await screen.findByText(/run status refreshed: run-1/i)).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: /ingest run output/i }))
 
     await waitFor(() => {

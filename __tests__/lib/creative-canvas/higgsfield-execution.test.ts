@@ -91,6 +91,10 @@ describe('creative canvas Higgsfield execution manifest', () => {
         method: 'PUT',
         path: '/api/v1/creative-canvas/canvas-1/runs/run-1/provider-dispatch?orgId=org-1',
       },
+      statusRefresh: {
+        method: 'PUT',
+        path: '/api/v1/creative-canvas/canvas-1/runs/run-1/provider-status?orgId=org-1',
+      },
       callback: {
         method: 'POST',
         path: '/api/v1/creative-canvas/provider-callbacks/higgsfield',
@@ -108,6 +112,7 @@ describe('creative canvas Higgsfield execution manifest', () => {
     ])
     expect(manifest?.cli.display).toContain('higgsfield generate create nano_banana_flash --prompt')
     expect(manifest?.instructions.join('\n')).toContain('higgsfield model get nano_banana_flash --json')
+    expect(manifest?.instructions.join('\n')).toContain('provider-status endpoint')
   })
 
   it('skips non-Higgsfield runs', () => {

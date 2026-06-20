@@ -17,6 +17,20 @@ export interface HiggsfieldExecutionManifest {
       providerCallbackUrl?: 'string'
     }
   }
+  statusRefresh: {
+    method: 'PUT'
+    path: string
+    bodyShape: {
+      status: 'queued | running | waiting_for_review | failed | cancelled'
+      providerStatus?: 'string'
+      providerStatusMessage?: 'string'
+      error?: {
+        code: 'string'
+        message: 'string'
+        retryable: 'boolean'
+      }
+    }
+  }
   callback: {
     method: 'POST'
     path: '/api/v1/creative-canvas/provider-callbacks/higgsfield'
@@ -107,6 +121,20 @@ export function buildHiggsfieldExecutionManifest(
         providerCallbackUrl: 'string',
       },
     },
+    statusRefresh: {
+      method: 'PUT',
+      path: `/api/v1/creative-canvas/${canvas.id}/runs/${run.id}/provider-status?orgId=${encodeURIComponent(canvas.orgId)}`,
+      bodyShape: {
+        status: 'queued | running | waiting_for_review | failed | cancelled',
+        providerStatus: 'string',
+        providerStatusMessage: 'string',
+        error: {
+          code: 'string',
+          message: 'string',
+          retryable: 'boolean',
+        },
+      },
+    },
     callback: {
       method: 'POST',
       path: '/api/v1/creative-canvas/provider-callbacks/higgsfield',
@@ -129,6 +157,7 @@ export function buildHiggsfieldExecutionManifest(
       `Inspect model-specific params with \`higgsfield model get ${model} --json\` before adding optional flags.`,
       'Create the job without --wait when an asynchronous provider callback will complete the canvas run.',
       'After the CLI returns a job id, call the provider-dispatch endpoint with providerJobId and any provider status/request metadata.',
+      'While polling, report non-terminal provider states to the provider-status endpoint; use failed/cancelled there when no output will arrive.',
       'Do not publish, schedule, share, or make the output client-visible without the Creative Canvas review gate passing.',
     ],
   }

@@ -77,6 +77,11 @@ function optionalCameraMotion(value: unknown): CreativeCanvasEditMotionMode | un
   return allowed.includes(value as CreativeCanvasEditMotionMode) ? value as CreativeCanvasEditMotionMode : undefined
 }
 
+function optionalRunStatus(value: unknown): CreativeCanvasRunStatus | undefined {
+  const allowed: CreativeCanvasRunStatus[] = ['queued', 'running', 'waiting_for_review', 'completed', 'failed', 'cancelled']
+  return allowed.includes(value as CreativeCanvasRunStatus) ? value as CreativeCanvasRunStatus : undefined
+}
+
 function safeHttpUrl(value: unknown, field: string): string | undefined {
   const raw = cleanString(value)
   if (!raw) return undefined
@@ -337,6 +342,53 @@ export async function dispatchCreativeCanvasProviderRun(
     updatedBy: actor.uid,
     updatedByType: actor.type,
   })
+
+  return nextRun
+}
+
+export async function refreshCreativeCanvasProviderRunStatus(
+  runId: string,
+  orgId: string,
+  input: unknown,
+  actor: CreativeCanvasActor,
+): Promise<CreativeCanvasRun & { id: string }> {
+  const body = asRecord(input)
+  const status = optionalRunStatus(body.status)
+  if (!status || status === 'completed') {
+    throw new Error('Provider status refresh must use queued, running, waiting_for_review, failed, or cancelled')
+  }
+
+  const runSnap = await adminDb.collection(CREATIVE_CANVAS_RUN_COLLECTION).doc(runId).get()
+  if (!runSnap.exists) throw new Error('Creative canvas run not found')
+  const run = serializeRun(runSnap.id ?? runId, runSnap.data() as CreativeCanvasRun)
+  if (run.orgId !== orgId) throw new Error('Creative canvas run does not belong to organisation')
+
+  const error = asRecord(body.error)
+  const nextRun: CreativeCanvasRun & { id: string } = {
+    ...run,
+    status,
+    providerStatus: cleanString(body.providerStatus) ?? run.providerStatus,
+    providerStatusMessage: cleanString(body.providerStatusMessage) ?? run.providerStatusMessage,
+    error: status === 'failed'
+      ? {
+          code: cleanString(error.code) ?? 'provider_error',
+          message: cleanString(error.message) ?? cleanString(body.providerStatusMessage) ?? 'Provider run failed',
+          retryable: error.retryable === true,
+        }
+      : undefined,
+    updatedAt: FieldValue.serverTimestamp(),
+  }
+  const updatePayload = {
+    status: nextRun.status,
+    providerStatus: nextRun.providerStatus,
+    providerStatusMessage: nextRun.providerStatusMessage,
+    error: nextRun.error ?? null,
+    updatedAt: FieldValue.serverTimestamp(),
+    updatedBy: actor.uid,
+    updatedByType: actor.type,
+  }
+
+  await adminDb.collection(CREATIVE_CANVAS_RUN_COLLECTION).doc(run.id).update(updatePayload)
 
   return nextRun
 }

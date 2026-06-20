@@ -336,6 +336,8 @@ export interface CreativeCanvasRun {
     promptStored: CreativeCanvasPromptStorage
     syntheticMedia: boolean
   }
+  providerStatus?: string
+  providerStatusMessage?: string
   error?: {
     code: string
     message: string

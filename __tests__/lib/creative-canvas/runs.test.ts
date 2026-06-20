@@ -21,6 +21,7 @@ import {
   createCreativeCanvasRun,
   dispatchCreativeCanvasProviderRun,
   listCreativeCanvasRuns,
+  refreshCreativeCanvasProviderRunStatus,
 } from '@/lib/creative-canvas/runs'
 import type { CreativeCanvas } from '@/lib/creative-canvas/types'
 
@@ -454,5 +455,62 @@ describe('creative canvas runs', () => {
       expect.objectContaining({ id: 'run-2', status: 'running' }),
       expect.objectContaining({ id: 'run-1', status: 'queued' }),
     ])
+  })
+
+  it('refreshes provider run status without attaching output nodes', async () => {
+    mockDocGet.mockResolvedValueOnce({
+      exists: true,
+      id: 'run-1',
+      data: () => ({
+        orgId: 'org-1',
+        canvasId: 'canvas-1',
+        nodeId: 'model-1',
+        providerKey: 'higgsfield',
+        model: 'nano_banana_flash',
+        status: 'running',
+        input: { sourceNodeIds: [], sourceArtifactIds: [] },
+        provenance: {
+          generatedBy: 'agent',
+          agentId: 'maya',
+          providerJobId: 'hf-job-1',
+          promptStored: 'summary',
+          syntheticMedia: true,
+        },
+      }),
+    })
+
+    const run = await refreshCreativeCanvasProviderRunStatus('run-1', 'org-1', {
+      status: 'failed',
+      providerStatus: 'error',
+      providerStatusMessage: 'Model queue timed out',
+      error: {
+        code: 'provider_timeout',
+        message: 'Higgsfield job timed out',
+        retryable: true,
+      },
+    }, ACTOR)
+
+    expect(mockDocUpdate).toHaveBeenCalledWith(expect.objectContaining({
+      status: 'failed',
+      providerStatus: 'error',
+      providerStatusMessage: 'Model queue timed out',
+      error: {
+        code: 'provider_timeout',
+        message: 'Higgsfield job timed out',
+        retryable: true,
+      },
+      updatedBy: 'agent:maya',
+      updatedByType: 'agent',
+    }))
+    expect(run).toMatchObject({
+      id: 'run-1',
+      status: 'failed',
+      error: {
+        code: 'provider_timeout',
+        retryable: true,
+      },
+    })
+    expect(mockCollection).toHaveBeenCalledWith('creative_canvas_runs')
+    expect(mockCollection).not.toHaveBeenCalledWith('creative_canvases')
   })
 })

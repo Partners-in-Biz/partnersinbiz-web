@@ -68,6 +68,9 @@ interface CreativeCanvasRunApiResponse {
           callback?: {
             path?: string
           }
+          statusRefresh?: {
+            path?: string
+          }
         }
       }
     }
@@ -182,7 +185,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
   const [sourceLibrary, setSourceLibrary] = useState<CreativeCanvasSourceLibraryItem[]>([])
   const [maskRegion, setMaskRegion] = useState({ x: 0, y: 0, width: 50, height: 50, feather: 0 })
   const [runHistory, setRunHistory] = useState<Array<CreativeCanvasRun & { id: string }>>([])
-  const [latestExecution, setLatestExecution] = useState<{ command?: string; dispatchPath?: string; callbackPath?: string } | null>(null)
+  const [latestExecution, setLatestExecution] = useState<{ command?: string; dispatchPath?: string; callbackPath?: string; statusPath?: string } | null>(null)
   const [sourceQuery, setSourceQuery] = useState('')
   const [sourceKindFilter, setSourceKindFilter] = useState('')
   const [sourceRoleFilter, setSourceRoleFilter] = useState('')
@@ -579,10 +582,39 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
         command: providerExecution?.cli?.display,
         dispatchPath: providerExecution?.dispatch?.path,
         callbackPath: providerExecution?.callback?.path,
+        statusPath: providerExecution?.statusRefresh?.path,
       })
       setActivityMessage(`Run queued: ${run.id}`)
     } else {
       setActivityMessage('Run queued for agent review')
+    }
+  }
+
+  const refreshLatestRunStatus = async () => {
+    if (!activeCanvas?.id || !latestRun?.id) return
+
+    const query = resolvedOrgId ? `?orgId=${encodeURIComponent(resolvedOrgId)}` : ''
+    const response = await fetch(`/api/v1/creative-canvas/${activeCanvas.id}/runs/${latestRun.id}/provider-status${query}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        status: 'running',
+        providerStatus: 'poll_requested',
+        providerStatusMessage: 'Manual status refresh requested from Creative Canvas.',
+      }),
+    })
+    if (response.ok) {
+      const payload = await response.json().catch(() => null) as CreativeCanvasRunApiResponse | null
+      const run = payload?.data?.run
+      if (run?.id) {
+        setLatestRun({ id: run.id, status: run.status ?? 'running', nodeId: run.nodeId })
+        setRunHistory((currentRuns) => [run, ...currentRuns.filter((item) => item.id !== run.id)])
+      } else {
+        await loadRuns(activeCanvas.id, resolvedOrgId || activeCanvas.orgId)
+      }
+      setActivityMessage(`Run status refreshed: ${latestRun.id}`)
+    } else {
+      setActivityMessage('Run status refresh failed')
     }
   }
 
@@ -985,6 +1017,14 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
                 >
                   Ingest run output
                 </button>
+                <button
+                  type="button"
+                  onClick={refreshLatestRunStatus}
+                  disabled={!latestRun?.id}
+                  className="rounded-lg border border-[var(--color-pib-line)] px-3 py-2 text-xs font-semibold text-[var(--color-pib-text)] disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  Refresh provider status
+                </button>
               </div>
             ) : null}
           </div>
@@ -1099,6 +1139,9 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
                   {latestExecution.callbackPath ? (
                     <p className="mt-1 text-[var(--color-pib-text-muted)]">Callback: {latestExecution.callbackPath}</p>
                   ) : null}
+                  {latestExecution.statusPath ? (
+                    <p className="mt-1 text-[var(--color-pib-text-muted)]">Status: {latestExecution.statusPath}</p>
+                  ) : null}
                 </div>
               ) : null}
               {runHistory.length ? runHistory.map((run) => (
@@ -1114,6 +1157,8 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
                   </div>
                   <p className="mt-1">Run: {run.id}</p>
                   {run.provenance.providerJobId ? <p>Provider job: {run.provenance.providerJobId}</p> : null}
+                  {run.providerStatusMessage ? <p>Provider status: {run.providerStatusMessage}</p> : null}
+                  {run.error?.message ? <p>Error: {run.error.message}</p> : null}
                   {run.output?.outputNodeId ? <p>Output: {run.output.outputNodeId}</p> : null}
                 </div>
               )) : (
