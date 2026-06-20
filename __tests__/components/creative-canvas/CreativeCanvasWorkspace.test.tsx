@@ -2060,6 +2060,27 @@ describe('CreativeCanvasWorkspace', () => {
     expect(screen.getByText('Needs a stronger hook')).toBeInTheDocument()
   })
 
+  it('previews a saved graph version without saving it', async () => {
+    render(<CreativeCanvasWorkspace mode="admin" orgId="org-1" />)
+
+    await screen.findByText(/version 2/i)
+    fetchMock.mockClear()
+    fireEvent.click(screen.getByRole('button', { name: /preview/i }))
+
+    expect(await screen.findByText('version-source')).toBeInTheDocument()
+    expect(screen.getAllByText('Previewing version 2').length).toBeGreaterThan(0)
+    expect(screen.getByRole('button', { name: /previewing version/i })).toBeDisabled()
+    expect(fetchMock).not.toHaveBeenCalledWith('/api/v1/creative-canvas/canvas-1/graph?orgId=org-1', expect.objectContaining({
+      method: 'PUT',
+    }))
+
+    fireEvent.click(screen.getByRole('button', { name: /return to current graph/i }))
+
+    expect(await screen.findByText('Returned to current graph')).toBeInTheDocument()
+    expect(screen.queryByText('version-source')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /save graph/i })).toBeEnabled()
+  })
+
   it('restores a saved graph version from the versions panel', async () => {
     render(<CreativeCanvasWorkspace mode="admin" orgId="org-1" />)
 

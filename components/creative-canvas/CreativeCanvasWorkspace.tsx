@@ -704,6 +704,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
   const [collaborationLinkCopied, setCollaborationLinkCopied] = useState(false)
   const [autoFollowLiveDrafts, setAutoFollowLiveDrafts] = useState(false)
   const [ownPresenceId, setOwnPresenceId] = useState('')
+  const [versionPreview, setVersionPreview] = useState<{ version: number; reason?: string } | null>(null)
   const [acceptedGraphSignature, setAcceptedGraphSignature] = useState('')
   const [autoSaveEnabled, setAutoSaveEnabled] = useState(true)
   const lastAutoFollowedDraftSignatureRef = useRef('')
@@ -787,7 +788,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
     nodes.map((node) => toCanvasNode(node, resolvedOrgId || activeCanvas?.orgId || 'pending-org')),
     edges.map((edge) => toCanvasEdge(edge, resolvedOrgId || activeCanvas?.orgId || 'pending-org')),
   ), [activeCanvas?.orgId, edges, nodes, resolvedOrgId])
-  const graphHasUnsavedChanges = Boolean(activeCanvas?.id && acceptedGraphSignature && currentGraphSignature !== acceptedGraphSignature)
+  const graphHasUnsavedChanges = Boolean(activeCanvas?.id && !versionPreview && acceptedGraphSignature && currentGraphSignature !== acceptedGraphSignature)
   const latestCollaboratorDraft = useMemo(() => presence
     .filter((item) => item.id !== ownPresenceId && item.draftGraph?.nodes?.length && item.hasUnsavedGraphChanges)
     .sort((a, b) => (b.lastSeenAtMs ?? 0) - (a.lastSeenAtMs ?? 0))[0] ?? null, [ownPresenceId, presence])
@@ -907,6 +908,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
     setAcceptedGraphSignature(canvasGraphSignature(canvas.nodes ?? [], canvas.edges ?? []))
     setLatestExecution(null)
     setRemoteCanvasUpdate(null)
+    setVersionPreview(null)
   }, [])
 
   const applyRemoteCanvasUpdate = useCallback(async () => {
@@ -932,6 +934,22 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
     setSaveMessage('')
     if (collaborator.graphSignature) lastAutoFollowedDraftSignatureRef.current = collaborator.graphSignature
     setActivityMessage(`${options.automatic ? 'Auto-followed' : 'Applied'} ${collaborator.displayName ?? collaborator.actorUid} live draft to this workspace`)
+  }
+
+  const previewVersionGraph = (version: CreativeCanvasVersion & { id?: string }) => {
+    if (!Array.isArray(version.nodes) || !Array.isArray(version.edges) || graphHasUnsavedChanges) return
+    setNodes(version.nodes.map((node) => toFlowNode(node)))
+    setEdges(version.edges.map(toFlowEdge))
+    setSelectedFlowNodeId(version.nodes[0]?.id ?? '')
+    setRemoteCanvasUpdate(null)
+    setVersionPreview({ version: version.version, reason: version.reason })
+    setActivityMessage(`Previewing version ${version.version}`)
+  }
+
+  const exitVersionPreview = () => {
+    if (!activeCanvas) return
+    applyCanvasSnapshot(activeCanvas)
+    setActivityMessage('Returned to current graph')
   }
 
   useEffect(() => {
@@ -2482,10 +2500,10 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
           <button
             type="button"
             onClick={() => { void saveGraph('manual') }}
-            disabled={!activeCanvas?.id || saving}
+            disabled={!activeCanvas?.id || saving || Boolean(versionPreview)}
             className="w-full rounded-lg bg-[var(--color-pib-primary)] px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
           >
-            {saving ? 'Saving graph' : 'Save graph'}
+            {versionPreview ? 'Previewing version' : saving ? 'Saving graph' : 'Save graph'}
           </button>
           <label className="flex items-center gap-2 text-xs font-semibold text-[var(--color-pib-text-muted)]">
             <input
@@ -2501,6 +2519,29 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
 
       {error ? (
         <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>
+      ) : null}
+
+      {versionPreview ? (
+        <div className="rounded-lg border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-900">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="font-semibold">Previewing version {versionPreview.version}</p>
+              <p className="mt-1">
+                This is a read-only version preview. Return to the current graph before saving or running new edits.
+              </p>
+              {versionPreview.reason ? (
+                <p className="mt-1 text-xs font-semibold uppercase tracking-normal text-sky-700">{versionPreview.reason}</p>
+              ) : null}
+            </div>
+            <button
+              type="button"
+              onClick={exitVersionPreview}
+              className="rounded-md border border-sky-300 bg-white px-3 py-2 text-xs font-semibold text-sky-900"
+            >
+              Return to current graph
+            </button>
+          </div>
+        </div>
       ) : null}
 
       {remoteCanvasUpdate ? (
@@ -3590,7 +3631,11 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
                 return (
                   <div
                     key={version.id ?? version.version}
-                    className="rounded-lg border border-[var(--color-pib-line)] px-3 py-2 text-xs text-[var(--color-pib-text-muted)]"
+                    className={`rounded-lg border px-3 py-2 text-xs text-[var(--color-pib-text-muted)] ${
+                      versionPreview?.version === version.version
+                        ? 'border-sky-300 bg-sky-50'
+                        : 'border-[var(--color-pib-line)]'
+                    }`}
                   >
                     <div className="flex items-start justify-between gap-2">
                       <div>
@@ -3624,6 +3669,14 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
                     )}
                     {mode === 'admin' ? (
                       <div className="mt-2 flex flex-wrap gap-2">
+                        <button
+                          type="button"
+                          onClick={() => previewVersionGraph(version)}
+                          disabled={!summary.hasSnapshotGraph || graphHasUnsavedChanges}
+                          className="rounded-md border border-[var(--color-pib-line)] px-2 py-1 font-semibold text-[var(--color-pib-text)] disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                          Preview
+                        </button>
                         <button
                           type="button"
                           onClick={() => runVersionAction(version, 'restore')}
