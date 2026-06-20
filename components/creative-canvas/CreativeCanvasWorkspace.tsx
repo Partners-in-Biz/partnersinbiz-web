@@ -3887,6 +3887,10 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
   })
   const benchmarkPassedCount = benchmarkProofItems.filter((item) => item.status === 'passed').length
   const readyBenchmarkProofItems = benchmarkProofItems.filter((item) => item.signalReady && item.status !== 'passed')
+  const proofItemByKey = benchmarkProofItems.reduce((acc, item) => {
+    acc[item.key] = item
+    return acc
+  }, {} as Partial<Record<CreativeCanvasBenchmarkProofKey, (typeof benchmarkProofItems)[number]>>)
   const captureReadyBenchmarkProofs = async () => {
     if (!activeCanvas?.id) return
     if (!readyBenchmarkProofItems.length) {
@@ -4028,6 +4032,82 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
     },
   ]
   const parityPassedCount = parityAuditItems.filter((item) => item.status === 'passed').length
+  const liveProofRunbookItems: Array<{
+    label: string
+    status: 'complete' | 'action' | 'blocked'
+    evidence: string
+    nextAction: string
+  }> = [
+    {
+      label: 'Signed-in viewport proof',
+      status: capturedVisualProofCount >= visualProofItems.length ? 'complete' : 'action',
+      evidence: `${capturedVisualProofCount}/${visualProofItems.length} signed-in viewport proofs stored`,
+      nextAction: capturedVisualProofCount >= visualProofItems.length
+        ? 'Viewport proof is stored for desktop, tablet, mobile, and mobile panels.'
+        : 'Capture signed-in Desktop 1440, Tablet 820, Mobile 390, and Mobile panels screenshots.',
+    },
+    {
+      label: 'Local editing proof',
+      status: proofItemByKey.editing_ergonomics?.status === 'passed' ? 'complete' : hasEditingEvidence ? 'action' : 'blocked',
+      evidence: hasEditingEvidence
+        ? `${localEditingActivityCount} local graph edit${localEditingActivityCount === 1 ? '' : 's'} with edit controls active`
+        : hasEditAffordanceEvidence
+          ? 'Edit controls are present without a local edit event'
+          : 'No edit node evidence loaded',
+      nextAction: proofItemByKey.editing_ergonomics?.status === 'passed'
+        ? 'Editing benchmark proof is source-backed and stored.'
+        : hasEditingEvidence
+          ? 'Save source-backed Editing ergonomics benchmark proof with live operation evidence.'
+          : 'Perform a real graph edit on an edit node before saving benchmark proof.',
+    },
+    {
+      label: 'Two-user collaboration proof',
+      status: proofItemByKey.collaboration?.status === 'passed' ? 'complete' : hasRemoteLiveEditEvidence ? 'action' : 'blocked',
+      evidence: hasRemoteLiveEditEvidence
+        ? `${remoteActivityCount || remotePresence.length} remote graph event${(remoteActivityCount || remotePresence.length) === 1 ? '' : 's'} observed`
+        : `${remotePresence.length} remote collaborator${remotePresence.length === 1 ? '' : 's'} currently visible`,
+      nextAction: proofItemByKey.collaboration?.status === 'passed'
+        ? 'Collaboration benchmark proof is source-backed and stored.'
+        : hasRemoteLiveEditEvidence
+          ? 'Capture source-backed Collaboration benchmark proof from the live two-user session.'
+          : 'Open the canvas as a second user or agent, mutate the graph remotely, then capture proof.',
+    },
+    {
+      label: 'Multi-category export proof',
+      status: proofItemByKey.export_flows?.status === 'passed' ? 'complete' : hasExportPackageProof ? 'action' : 'blocked',
+      evidence: latestExportPackage
+        ? `${passedExportProofCategories.length}/${exportProofCategories.length} export categories packaged`
+        : `${draftExportableAssetCount} draft-exportable asset${draftExportableAssetCount === 1 ? '' : 's'}`,
+      nextAction: proofItemByKey.export_flows?.status === 'passed'
+        ? 'Export benchmark proof is source-backed and stored.'
+        : hasExportPackageProof
+          ? 'Save source-backed Export flows benchmark proof for the completed package.'
+          : 'Generate a package covering image/campaign, video/social, blog/document, and book outputs.',
+    },
+    {
+      label: 'Repeated production job proof',
+      status: proofItemByKey.production_reliability?.status === 'passed' ? 'complete' : reliabilityPassed ? 'action' : 'blocked',
+      evidence: reliabilityCoverage.length
+        ? `${reliabilityCoverage.filter((category) => category.status === 'passed').length}/${reliabilityCoverage.length} reliability categories passed`
+        : `${runOperations?.completed ?? 0} completed provider runs`,
+      nextAction: proofItemByKey.production_reliability?.status === 'passed'
+        ? 'Production reliability benchmark proof is source-backed and stored.'
+        : reliabilityPassed
+          ? 'Save source-backed Production reliability benchmark proof from the passed runtime evidence.'
+          : 'Complete repeated image, video/social, blog/document, and book jobs with drained queues and low failures.',
+    },
+    {
+      label: 'Full source-backed benchmark ledger',
+      status: benchmarkPassedCount >= benchmarkProofItems.length ? 'complete' : readyBenchmarkProofItems.length ? 'action' : 'blocked',
+      evidence: `${benchmarkPassedCount}/${benchmarkProofItems.length} Direct Higgsfield benchmarks passed`,
+      nextAction: benchmarkPassedCount >= benchmarkProofItems.length
+        ? 'All Direct Higgsfield benchmark categories have source-backed stored proof.'
+        : readyBenchmarkProofItems.length
+          ? 'Use Capture ready proofs, then fill any remaining proof URLs and notes from live evidence.'
+          : 'Create the missing live evidence signals before capturing benchmark proof.',
+    },
+  ]
+  const liveProofCompleteCount = liveProofRunbookItems.filter((item) => item.status === 'complete').length
 
   return (
     <main className="mx-auto max-w-7xl space-y-5 px-4 py-6">
@@ -4168,6 +4248,44 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
           </div>
         ))}
       </div>
+
+      <section
+        aria-label="Creative Canvas world-class proof runbook"
+        className="rounded-lg border border-[var(--color-pib-line)] bg-white p-4"
+      >
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-normal text-[var(--color-pib-text-muted)]">World-class proof runbook</p>
+            <h2 className="text-lg font-semibold text-[var(--color-pib-text)]">Live evidence still required for Higgsfield parity</h2>
+          </div>
+          <span className="rounded-full border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] px-3 py-1 text-xs font-semibold text-[var(--color-pib-text)]">
+            {liveProofCompleteCount}/{liveProofRunbookItems.length} complete
+          </span>
+        </div>
+        <div className="mt-3 grid gap-2 lg:grid-cols-3">
+          {liveProofRunbookItems.map((item) => (
+            <div
+              key={item.label}
+              className={`rounded-lg border px-3 py-2 text-xs ${
+                item.status === 'complete'
+                  ? 'border-green-200 bg-green-50 text-green-800'
+                  : item.status === 'action'
+                    ? 'border-amber-200 bg-amber-50 text-amber-800'
+                    : 'border-red-200 bg-red-50 text-red-800'
+              }`}
+            >
+              <div className="flex items-start justify-between gap-2">
+                <p className="font-semibold">{item.label}</p>
+                <span className="shrink-0 rounded-full border border-current px-2 py-0.5 text-[10px] font-semibold uppercase tracking-normal">
+                  {item.status}
+                </span>
+              </div>
+              <p className="mt-1 break-words">{item.evidence}</p>
+              <p className="mt-1 font-semibold">{item.nextAction}</p>
+            </div>
+          ))}
+        </div>
+      </section>
 
       <section
         aria-label="Creative Canvas visual QA proof"
