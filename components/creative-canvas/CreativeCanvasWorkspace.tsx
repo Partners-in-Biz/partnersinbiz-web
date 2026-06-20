@@ -349,6 +349,15 @@ function getCanvasBenchmarkProof(data: unknown): Partial<Record<CreativeCanvasBe
   }, {} as Partial<Record<CreativeCanvasBenchmarkProofKey, CreativeCanvasBenchmarkProofRecord>>)
 }
 
+function benchmarkProofUrl(canvas: CreativeCanvas | undefined, orgId: string): string {
+  if (typeof window === 'undefined') return ''
+  const url = new URL(window.location.href)
+  if (orgId) url.searchParams.set('orgId', orgId)
+  if (canvas?.id) url.searchParams.set('canvasId', canvas.id)
+  url.hash = 'direct-higgsfield-benchmark-proof'
+  return url.href
+}
+
 interface CreativeCanvasCommentApiResponse {
   success?: boolean
   data?: {
@@ -3689,6 +3698,53 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
     }
   })
   const benchmarkPassedCount = benchmarkProofItems.filter((item) => item.status === 'passed').length
+  const readyBenchmarkProofItems = benchmarkProofItems.filter((item) => item.signalReady && item.status !== 'passed')
+  const captureReadyBenchmarkProofs = async () => {
+    if (!activeCanvas?.id) return
+    if (!readyBenchmarkProofItems.length) {
+      setActivityMessage('No ready benchmark proofs to capture')
+      return
+    }
+    const canvasOrgId = resolvedOrgId || activeCanvas.orgId
+    const proofUrl = benchmarkProofUrl(activeCanvas, canvasOrgId)
+    const capturedAt = new Date().toISOString()
+    const nextBenchmarkProof = readyBenchmarkProofItems.reduce((acc, item) => {
+      acc[item.key] = {
+        ...acc[item.key],
+        proofUrl: acc[item.key]?.proofUrl || proofUrl,
+        notes: acc[item.key]?.notes || `${item.label} captured from live Creative Canvas signals. ${item.benchmark}`,
+        capturedAt,
+        capturedBy: 'Pip',
+      }
+      return acc
+    }, { ...benchmarkProofRecords } as Partial<Record<CreativeCanvasBenchmarkProofKey, CreativeCanvasBenchmarkProofRecord>>)
+
+    setSavingBenchmarkProofKey(readyBenchmarkProofItems[0].key)
+    try {
+      const response = await fetch(`/api/v1/creative-canvas/${activeCanvas.id}?orgId=${encodeURIComponent(canvasOrgId)}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          data: {
+            ...objectRecord(activeCanvas.data),
+            benchmarkProof: nextBenchmarkProof,
+          },
+        }),
+      })
+      const payload = await response.json().catch(() => null) as CreativeCanvasApiListResponse | null
+      const updatedCanvas = payload?.data?.canvas
+      if (!response.ok || !updatedCanvas?.id) {
+        setActivityMessage(payload?.error ?? 'Ready benchmark proof capture failed')
+        return
+      }
+      applyCanvasSnapshot(updatedCanvas)
+      setActivityMessage(`Captured ${readyBenchmarkProofItems.length} ready benchmark proof${readyBenchmarkProofItems.length === 1 ? '' : 's'}`)
+    } catch {
+      setActivityMessage('Ready benchmark proof capture failed')
+    } finally {
+      setSavingBenchmarkProofKey('')
+    }
+  }
   const parityAuditItems: Array<{
     label: string
     status: 'passed' | 'watch' | 'blocked'
@@ -4035,6 +4091,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
       </section>
 
       <section
+        id="direct-higgsfield-benchmark-proof"
         aria-label="Direct Higgsfield benchmark proof"
         className="rounded-lg border border-[var(--color-pib-line)] bg-white p-4"
       >
@@ -4046,6 +4103,21 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
           <span className="rounded-full border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] px-3 py-1 text-xs font-semibold text-[var(--color-pib-text)]">
             {benchmarkPassedCount}/{benchmarkProofItems.length} benchmark proven
           </span>
+        </div>
+        <div className="mt-3 flex flex-col gap-2 rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] px-3 py-2 text-xs text-[var(--color-pib-text-muted)] sm:flex-row sm:items-center sm:justify-between">
+          <p>
+            {readyBenchmarkProofItems.length
+              ? `${readyBenchmarkProofItems.length} ready benchmark ${readyBenchmarkProofItems.length === 1 ? 'category needs' : 'categories need'} stored proof.`
+              : 'No uncaptured benchmark category has enough live evidence yet.'}
+          </p>
+          <button
+            type="button"
+            onClick={() => { void captureReadyBenchmarkProofs() }}
+            disabled={!activeCanvas?.id || !readyBenchmarkProofItems.length || Boolean(savingBenchmarkProofKey)}
+            className="rounded-md border border-[var(--color-pib-line)] bg-white px-3 py-1.5 text-xs font-semibold text-[var(--color-pib-text)] disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            Capture ready proofs
+          </button>
         </div>
         <div className="mt-3 grid gap-3 lg:grid-cols-3">
           {benchmarkProofItems.map((item) => (

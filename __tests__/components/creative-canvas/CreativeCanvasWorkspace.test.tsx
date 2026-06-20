@@ -939,6 +939,43 @@ describe('CreativeCanvasWorkspace', () => {
     expect(within(benchmarkProof).getByRole('link', { name: /open benchmark proof/i })).toHaveAttribute('href', 'https://proof.example.com/editing-ergonomics.mp4')
   })
 
+  it('captures all ready benchmark proofs without passing unready gaps', async () => {
+    render(<CreativeCanvasWorkspace mode="admin" orgId="org-1" />)
+
+    expect(await screen.findByText('Launch Canvas')).toBeInTheDocument()
+    const benchmarkProof = screen.getByLabelText(/direct higgsfield benchmark proof/i)
+    expect(benchmarkProof).toHaveTextContent('2 ready benchmark categories need stored proof.')
+
+    fireEvent.click(within(benchmarkProof).getByRole('button', { name: /capture ready proofs/i }))
+
+    await waitFor(() => expect(screen.getByText('Captured 2 ready benchmark proofs')).toBeInTheDocument())
+
+    const patchCall = fetchMock.mock.calls.find(([input, init]) => (
+      String(input) === '/api/v1/creative-canvas/canvas-1?orgId=org-1'
+      && init?.method === 'PATCH'
+      && String(init.body).includes('benchmarkProof')
+      && String(init.body).includes('versioning_polish')
+      && String(init.body).includes('collaboration')
+    ))
+    expect(patchCall).toBeTruthy()
+    const body = JSON.parse(String(patchCall?.[1]?.body ?? '{}')) as {
+      data?: { benchmarkProof?: Record<string, { proofUrl?: string; notes?: string; capturedAt?: string; capturedBy?: string }> }
+    }
+    expect(body.data?.benchmarkProof?.versioning_polish).toMatchObject({
+      proofUrl: expect.stringContaining('#direct-higgsfield-benchmark-proof'),
+      capturedBy: 'Pip',
+    })
+    expect(body.data?.benchmarkProof?.collaboration).toMatchObject({
+      proofUrl: expect.stringContaining('#direct-higgsfield-benchmark-proof'),
+      capturedBy: 'Pip',
+    })
+    expect(body.data?.benchmarkProof?.editing_ergonomics).toBeUndefined()
+
+    expect(benchmarkProof).toHaveTextContent('2/9 benchmark proven')
+    expect(benchmarkProof).toHaveTextContent('No uncaptured benchmark category has enough live evidence yet.')
+    expect(within(benchmarkProof).getAllByRole('link', { name: /open benchmark proof/i })).toHaveLength(2)
+  })
+
   it('applies benchmark Higgsfield model routing presets to generation controls', async () => {
     render(<CreativeCanvasWorkspace mode="admin" orgId="org-1" />)
 
