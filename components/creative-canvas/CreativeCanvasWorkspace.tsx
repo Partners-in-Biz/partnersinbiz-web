@@ -762,6 +762,12 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
     groups[collaborator.selectedNodeId] = [...(groups[collaborator.selectedNodeId] ?? []), collaborator]
     return groups
   }, {}), [presence])
+  const selectedNodeCollaborators = useMemo(() => (
+    selectedNodeId
+      ? (collaboratorsByNodeId[selectedNodeId] ?? []).filter((collaborator) => collaborator.id !== ownPresenceId)
+      : []
+  ), [collaboratorsByNodeId, ownPresenceId, selectedNodeId])
+  const selectedNodeLockedByCollaborator = selectedNodeCollaborators.length > 0
   const displayNodes = useMemo(() => nodes.map((node) => {
     const canvasNode = node.data?.canvasNode as CreativeCanvasNode | undefined
     if (!canvasNode) return node
@@ -1478,6 +1484,10 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
 
   const createFormatVariantBranches = () => {
     if (!selectedCanvasNode) return
+    if (selectedNodeLockedByCollaborator) {
+      setActivityMessage(`${selectedNodeCollaborators[0]?.displayName ?? selectedNodeCollaborators[0]?.actorUid ?? 'A collaborator'} is editing this node`)
+      return
+    }
     const org = resolvedOrgId || activeCanvas?.orgId || 'pending-org'
     const stamp = Date.now()
     const variantCount = Math.max(1, Math.min(runVariantCount, formatVariantPresets.length))
@@ -1590,6 +1600,10 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
 
   const duplicateSelectedNode = () => {
     if (!selectedCanvasNode) return
+    if (selectedNodeLockedByCollaborator) {
+      setActivityMessage(`${selectedNodeCollaborators[0]?.displayName ?? selectedNodeCollaborators[0]?.actorUid ?? 'A collaborator'} is editing this node`)
+      return
+    }
     const sourceFlowNode = nodes.find((node) => node.id === selectedCanvasNode.id)
     const stamp = Date.now()
     const duplicateId = `${selectedCanvasNode.id}-copy-${stamp}`
@@ -1634,6 +1648,10 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
 
   const createInpaintEditBranch = () => {
     if (!selectedCanvasNode) return
+    if (selectedNodeLockedByCollaborator) {
+      setActivityMessage(`${selectedNodeCollaborators[0]?.displayName ?? selectedNodeCollaborators[0]?.actorUid ?? 'A collaborator'} is editing this node`)
+      return
+    }
     const sourceFlowNode = nodes.find((node) => node.id === selectedCanvasNode.id)
     const stamp = Date.now()
     const editNodeId = `${selectedCanvasNode.id}-inpaint-${stamp}`
@@ -1796,6 +1814,10 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
 
   const applyGenerationSettingsToSelectedNode = () => {
     if (!selectedCanvasNode) return
+    if (selectedNodeLockedByCollaborator) {
+      setActivityMessage(`${selectedNodeCollaborators[0]?.displayName ?? selectedNodeCollaborators[0]?.actorUid ?? 'A collaborator'} is editing this node`)
+      return
+    }
     setNodes((currentNodes) => currentNodes.map((node) => {
       if (node.id !== selectedCanvasNode.id) return node
       const canvasNode = node.data?.canvasNode as CreativeCanvasNode | undefined
@@ -2950,6 +2972,16 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
                 Node {selectedNodeId} · {commentCountByNodeId[selectedNodeId] ?? 0} comment{(commentCountByNodeId[selectedNodeId] ?? 0) === 1 ? '' : 's'}
               </p>
             ) : null}
+            {selectedNodeLockedByCollaborator ? (
+              <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+                <p className="font-semibold">
+                  {selectedNodeCollaborators.map((collaborator) => collaborator.displayName ?? collaborator.actorUid).join(', ')} {selectedNodeCollaborators.length === 1 ? 'is' : 'are'} editing this node
+                </p>
+                <p className="mt-1">
+                  Branching and settings writes are paused for this node until their focus moves away. You can still inspect, comment, queue runs, or apply a live draft.
+                </p>
+              </div>
+            ) : null}
           </div>
 
           <div className="rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] p-3">
@@ -3089,7 +3121,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
                 <button
                   type="button"
                   onClick={applyGenerationSettingsToSelectedNode}
-                  disabled={!selectedNodeId}
+                  disabled={!selectedNodeId || selectedNodeLockedByCollaborator}
                   className="rounded-lg border border-[var(--color-pib-line)] px-3 py-2 text-xs font-semibold text-[var(--color-pib-text)] disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   Apply settings to node
@@ -3097,7 +3129,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
                 <button
                   type="button"
                   onClick={duplicateSelectedNode}
-                  disabled={!selectedNodeId}
+                  disabled={!selectedNodeId || selectedNodeLockedByCollaborator}
                   className="rounded-lg border border-[var(--color-pib-line)] px-3 py-2 text-xs font-semibold text-[var(--color-pib-text)] disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   Duplicate selected node
@@ -3105,7 +3137,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
                 <button
                   type="button"
                   onClick={createInpaintEditBranch}
-                  disabled={!selectedNodeId}
+                  disabled={!selectedNodeId || selectedNodeLockedByCollaborator}
                   className="rounded-lg border border-[var(--color-pib-line)] px-3 py-2 text-xs font-semibold text-[var(--color-pib-text)] disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   Create inpaint edit branch
@@ -3113,7 +3145,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
                 <button
                   type="button"
                   onClick={createFormatVariantBranches}
-                  disabled={!selectedNodeId}
+                  disabled={!selectedNodeId || selectedNodeLockedByCollaborator}
                   className="rounded-lg border border-[var(--color-pib-line)] px-3 py-2 text-xs font-semibold text-[var(--color-pib-text)] disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   Create format variants

@@ -945,6 +945,36 @@ describe('CreativeCanvasWorkspace', () => {
           }),
         }
       }
+      if (url.includes('/presence') && init?.method === 'POST') {
+        const body = JSON.parse(String(init.body ?? '{}'))
+        return {
+          ok: true,
+          json: async () => ({
+            success: true,
+            data: {
+              presence: [{
+                id: 'canvas-1_user-1',
+                orgId: 'org-1',
+                canvasId: 'canvas-1',
+                actorUid: 'user-1',
+                actorType: 'user',
+                displayName: 'You',
+                selectedNodeId: body.selectedNodeId,
+                focus: body.focus,
+                activeVersion: body.activeVersion,
+                graphSignature: body.graphSignature,
+                hasUnsavedGraphChanges: body.hasUnsavedGraphChanges,
+                nodeCount: body.nodeCount,
+                edgeCount: body.edgeCount,
+                selectedNodeTitle: body.selectedNodeTitle,
+                draftGraph: body.draftGraph,
+                lastSeenAtMs: 1000,
+                expiresAtMs: 46000,
+              }],
+            },
+          }),
+        }
+      }
       if (url.includes('/presence')) {
         return {
           ok: true,
@@ -1014,6 +1044,11 @@ describe('CreativeCanvasWorkspace', () => {
     expect(screen.getByText('Live draft')).toBeInTheDocument()
     expect(screen.getByText(/3 nodes \/ 2 links \/ v1/i)).toBeInTheDocument()
     expect(screen.getByText(/unsaved graph edits are active/i)).toBeInTheDocument()
+    expect(screen.getByText('Maya is editing this node')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /apply settings to node/i })).toBeDisabled()
+    expect(screen.getByRole('button', { name: /duplicate selected node/i })).toBeDisabled()
+    expect(screen.getByRole('button', { name: /create inpaint edit branch/i })).toBeDisabled()
+    expect(screen.getByRole('button', { name: /create format variants/i })).toBeDisabled()
     fireEvent.click(screen.getByRole('button', { name: /apply live draft/i }))
     expect(await screen.findByText(/applied maya live draft to this workspace/i)).toBeInTheDocument()
     expect(screen.getAllByText(/Maya live draft source/i).length).toBeGreaterThan(0)
