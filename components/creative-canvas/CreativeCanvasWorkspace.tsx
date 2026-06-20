@@ -19,6 +19,7 @@ import type {
   CreativeCanvasExport,
   CreativeCanvasNode,
   CreativeCanvasNodeType,
+  CreativeCanvasOutputKind,
   CreativeCanvasRunOperationsSummary,
   CreativeCanvasRunBatchRetryResult,
   CreativeCanvasProviderRuntimeReadiness,
@@ -185,6 +186,20 @@ const higgsfieldModelSuggestions = [
   { id: 'seedance_2_0_fast', label: 'Seedance 2.0 Fast' },
   { id: 'soul_v2', label: 'Soul V2' },
   { id: 'gpt_image', label: 'GPT Image' },
+]
+
+const formatVariantPresets: Array<{
+  key: string
+  label: string
+  aspectRatio: string
+  exportTarget: CreativeCanvasExport['target']
+  outputKind: CreativeCanvasOutputKind
+  cameraMotion: string
+}> = [
+  { key: 'vertical-social', label: 'Vertical social', aspectRatio: '9:16', exportTarget: 'social_draft', outputKind: 'social_post_draft', cameraMotion: 'camera_push' },
+  { key: 'feed-portrait', label: 'Feed portrait', aspectRatio: '4:5', exportTarget: 'social_draft', outputKind: 'campaign_asset', cameraMotion: 'none' },
+  { key: 'square-ad', label: 'Square ad', aspectRatio: '1:1', exportTarget: 'campaign_asset', outputKind: 'campaign_asset', cameraMotion: 'none' },
+  { key: 'landscape-video', label: 'Landscape video', aspectRatio: '16:9', exportTarget: 'youtube_studio', outputKind: 'youtube_render', cameraMotion: 'pan' },
 ]
 
 function summarizeVersionDelta(
@@ -1206,6 +1221,118 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
     setSelectedFlowNodeId(nextNodes.find((node) => node.type === 'model' || node.type === 'edit')?.id ?? nextNodes[0]?.id ?? '')
     setSaveMessage('')
     setActivityMessage(`${template.title} template applied`)
+  }
+
+  const createFormatVariantBranches = () => {
+    if (!selectedCanvasNode) return
+    const org = resolvedOrgId || activeCanvas?.orgId || 'pending-org'
+    const stamp = Date.now()
+    const variantCount = Math.max(1, Math.min(runVariantCount, formatVariantPresets.length))
+    const variants = formatVariantPresets.slice(0, variantCount)
+    const basePosition = nodes.find((node) => node.id === selectedCanvasNode.id)?.position ?? selectedCanvasNode.position
+    const nextNodes = variants.flatMap((variant, index): CreativeCanvasNode[] => {
+      const modelId = `variant-${variant.key}-model-${stamp}-${index}`
+      const outputId = `variant-${variant.key}-output-${stamp}-${index}`
+      const outputKind = variant.outputKind ?? (runOutputKind as CreativeCanvasOutputKind)
+      const durationSeconds = outputKind === 'youtube_render' || outputKind === 'video' || outputKind === 'social_post_draft'
+        ? runDurationSeconds
+        : 0
+      const modelNode: CreativeCanvasNode = {
+        id: modelId,
+        orgId: org,
+        type: 'model',
+        title: `${variant.label} render`,
+        position: {
+          x: basePosition.x + 300,
+          y: basePosition.y + index * 190,
+        },
+        data: {
+          createdFrom: 'creative_canvas_format_variant',
+          sourceNodeId: selectedCanvasNode.id,
+          formatVariant: variant.key,
+          generationSettings: {
+            aspectRatio: variant.aspectRatio,
+            durationSeconds,
+            variantCount: 1,
+            stylePreset: runStylePreset,
+            cameraMotion: variant.cameraMotion,
+            negativePrompt: runNegativePrompt,
+            exportTarget: variant.exportTarget,
+          },
+        },
+        provider: {
+          key: 'higgsfield',
+          model: runModel || 'nano_banana_flash',
+          mode: outputKind,
+        },
+        edit: {
+          operation: durationSeconds > 0 ? 'video_motion' : 'variation',
+          references: [{ sourceNodeId: selectedCanvasNode.id, role: 'general', weight: 1 }],
+          strength: 0.65,
+          motion: { mode: variant.cameraMotion as NonNullable<NonNullable<CreativeCanvasNode['edit']>['motion']>['mode'], durationSeconds },
+          outputKind,
+        },
+        review: {
+          status: 'needed',
+          syntheticMediaDisclosure: true,
+          rightsStatus: 'needs_review',
+          brandStatus: 'needs_review',
+        },
+      }
+      const outputNode: CreativeCanvasNode = {
+        id: outputId,
+        orgId: org,
+        type: 'output',
+        title: `${variant.label} output`,
+        position: {
+          x: basePosition.x + 600,
+          y: basePosition.y + index * 190,
+        },
+        data: {
+          createdFrom: 'creative_canvas_format_variant',
+          sourceNodeId: selectedCanvasNode.id,
+          formatVariant: variant.key,
+          exportTarget: variant.exportTarget,
+        },
+        output: {
+          kind: outputKind,
+          textPreview: `${variant.label} ${variant.aspectRatio} draft target: ${variant.exportTarget}`,
+        },
+        review: {
+          status: 'needed',
+          syntheticMediaDisclosure: true,
+          rightsStatus: 'needs_review',
+          brandStatus: 'needs_review',
+        },
+      }
+      return [modelNode, outputNode]
+    })
+    const nextEdges = variants.flatMap((variant, index): Edge[] => {
+      const modelId = `variant-${variant.key}-model-${stamp}-${index}`
+      const outputId = `variant-${variant.key}-output-${stamp}-${index}`
+      return [
+        {
+          id: `variant-${variant.key}-source-${stamp}-${index}`,
+          source: selectedCanvasNode.id,
+          target: modelId,
+          label: 'variant source',
+          data: { createdFrom: 'creative_canvas_format_variant', formatVariant: variant.key },
+        },
+        {
+          id: `variant-${variant.key}-output-${stamp}-${index}`,
+          source: modelId,
+          target: outputId,
+          label: 'variant output',
+          data: { createdFrom: 'creative_canvas_format_variant', formatVariant: variant.key },
+        },
+      ]
+    })
+
+    setNodes((currentNodes) => [...currentNodes, ...nextNodes.map(toFlowNode)])
+    setEdges((currentEdges) => [...currentEdges, ...nextEdges])
+    setSelectedFlowNodeId(nextNodes[0]?.id ?? selectedCanvasNode.id)
+    setSaveMessage('')
+    setActivityMessage(`Created ${variants.length} format variant${variants.length === 1 ? '' : 's'} from ${selectedCanvasNode.title}`)
   }
 
   const openCanvas = async (canvas: CreativeCanvas) => {
@@ -2473,6 +2600,14 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
                   className="rounded-lg border border-[var(--color-pib-line)] px-3 py-2 text-xs font-semibold text-[var(--color-pib-text)] disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   Apply settings to node
+                </button>
+                <button
+                  type="button"
+                  onClick={createFormatVariantBranches}
+                  disabled={!selectedNodeId}
+                  className="rounded-lg border border-[var(--color-pib-line)] px-3 py-2 text-xs font-semibold text-[var(--color-pib-text)] disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  Create format variants
                 </button>
                 <button
                   type="button"

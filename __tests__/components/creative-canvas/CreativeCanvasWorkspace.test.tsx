@@ -1017,6 +1017,76 @@ describe('CreativeCanvasWorkspace', () => {
     ]))
   })
 
+  it('branches a selected node into reusable format variants', async () => {
+    render(<CreativeCanvasWorkspace mode="admin" orgId="org-1" />)
+
+    await screen.findByText('Launch Canvas')
+    fireEvent.click(screen.getByRole('button', { name: /apply social launch workflow/i }))
+    expect(await screen.findByText(/social launch workflow added/i)).toBeInTheDocument()
+    fireEvent.change(screen.getByLabelText(/variants/i), { target: { value: '4' } })
+
+    fireEvent.click(screen.getByRole('button', { name: /create format variants/i }))
+
+    expect(await screen.findByText(/created 4 format variants from higgsfield vertical video/i)).toBeInTheDocument()
+    expect(screen.getAllByText(/Vertical social render/i).length).toBeGreaterThan(0)
+    expect(screen.getAllByText(/Landscape video output/i).length).toBeGreaterThan(0)
+
+    fireEvent.click(screen.getByRole('button', { name: /save graph/i }))
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith('/api/v1/creative-canvas/canvas-1/graph?orgId=org-1', expect.objectContaining({
+        method: 'PUT',
+      }))
+    })
+    const graphCall = [...fetchMock.mock.calls].reverse().find(([url, init]) =>
+      String(url).includes('/graph?orgId=org-1') && init?.method === 'PUT'
+    )
+    const graphBody = JSON.parse(graphCall?.[1]?.body as string)
+    expect(graphBody.nodes).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        type: 'model',
+        title: 'Vertical social render',
+        provider: expect.objectContaining({
+          key: 'higgsfield',
+          mode: 'social_post_draft',
+        }),
+        data: expect.objectContaining({
+          createdFrom: 'creative_canvas_format_variant',
+          formatVariant: 'vertical-social',
+          generationSettings: expect.objectContaining({
+            aspectRatio: '9:16',
+            exportTarget: 'social_draft',
+          }),
+        }),
+        edit: expect.objectContaining({
+          references: [expect.objectContaining({ sourceNodeId: expect.stringContaining('social-launch-model') })],
+          outputKind: 'social_post_draft',
+        }),
+      }),
+      expect.objectContaining({
+        type: 'output',
+        title: 'Landscape video output',
+        data: expect.objectContaining({
+          createdFrom: 'creative_canvas_format_variant',
+          formatVariant: 'landscape-video',
+          exportTarget: 'youtube_studio',
+        }),
+        output: expect.objectContaining({
+          kind: 'youtube_render',
+        }),
+      }),
+    ]))
+    expect(graphBody.edges).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        label: 'variant source',
+        data: expect.objectContaining({ formatVariant: 'vertical-social' }),
+      }),
+      expect.objectContaining({
+        label: 'variant output',
+        data: expect.objectContaining({ formatVariant: 'landscape-video' }),
+      }),
+    ]))
+  })
+
   it('imports a source library item into the canvas graph', async () => {
     render(<CreativeCanvasWorkspace mode="admin" orgId="org-1" />)
 
