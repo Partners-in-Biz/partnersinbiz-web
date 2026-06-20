@@ -2584,6 +2584,12 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
   const mobilePanelClass = (panel: CreativeCanvasMobilePanel) => (
     `${mobilePanel === panel ? 'block' : 'hidden'} lg:block`
   )
+  const responsiveProofItems = [
+    { label: 'Canvas', value: `${nodes.length} nodes` },
+    { label: 'Sources', value: `${sourceLibrary.length} ready` },
+    { label: 'Inspector', value: selectedCanvasNode ? 'node selected' : 'board ready' },
+    { label: 'Desktop', value: '3-column graph' },
+  ]
 
   return (
     <main className="mx-auto max-w-7xl space-y-5 px-4 py-6">
@@ -2687,6 +2693,18 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
           </button>
         ))}
       </nav>
+
+      <div
+        aria-label="Creative Canvas responsive readiness"
+        className="grid grid-cols-2 gap-2 rounded-lg border border-[var(--color-pib-line)] bg-white px-3 py-2 text-xs text-[var(--color-pib-text-muted)] sm:grid-cols-4"
+      >
+        {responsiveProofItems.map((item) => (
+          <div key={item.label} className="min-w-0">
+            <p className="font-semibold text-[var(--color-pib-text)]">{item.label}</p>
+            <p className="truncate">{item.value}</p>
+          </div>
+        ))}
+      </div>
 
       <section className="grid min-h-[620px] gap-4 lg:grid-cols-[260px_minmax(0,1fr)_280px]">
         <aside
