@@ -702,8 +702,11 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
   const [templateTitle, setTemplateTitle] = useState('')
   const [templateDescription, setTemplateDescription] = useState('')
   const [collaborationLinkCopied, setCollaborationLinkCopied] = useState(false)
+  const [autoFollowLiveDrafts, setAutoFollowLiveDrafts] = useState(false)
+  const [ownPresenceId, setOwnPresenceId] = useState('')
   const [acceptedGraphSignature, setAcceptedGraphSignature] = useState('')
   const [autoSaveEnabled, setAutoSaveEnabled] = useState(true)
+  const lastAutoFollowedDraftSignatureRef = useRef('')
 
   const activeCanvas = useMemo(
     () => canvases.find((canvas) => canvas.id === activeCanvasId) ?? canvases[0],
@@ -785,6 +788,10 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
     edges.map((edge) => toCanvasEdge(edge, resolvedOrgId || activeCanvas?.orgId || 'pending-org')),
   ), [activeCanvas?.orgId, edges, nodes, resolvedOrgId])
   const graphHasUnsavedChanges = Boolean(activeCanvas?.id && acceptedGraphSignature && currentGraphSignature !== acceptedGraphSignature)
+  const latestCollaboratorDraft = useMemo(() => presence
+    .filter((item) => item.id !== ownPresenceId && item.draftGraph?.nodes?.length && item.hasUnsavedGraphChanges)
+    .sort((a, b) => (b.lastSeenAtMs ?? 0) - (a.lastSeenAtMs ?? 0))[0] ?? null, [ownPresenceId, presence])
+  const hasCollaboratorLiveDraft = Boolean(latestCollaboratorDraft)
 
   const writeCanvasDeepLink = useCallback((canvas: CreativeCanvas) => {
     if (!canvas.id || typeof window === 'undefined') return
@@ -915,7 +922,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
     setSaveMessage('')
   }, [applyCanvasSnapshot, loadComments, loadPresence, loadRuns, loadRuntimeProof, loadVersions, remoteCanvasUpdate, resolvedOrgId])
 
-  const applyCollaboratorDraft = (collaborator: CreativeCanvasPresence & { id: string }) => {
+  const applyCollaboratorDraft = (collaborator: CreativeCanvasPresence & { id: string }, options: { automatic?: boolean } = {}) => {
     const draftGraph = collaborator.draftGraph
     if (!draftGraph?.nodes?.length) return
     setNodes(draftGraph.nodes.map((node) => toFlowNode(node)))
@@ -923,13 +930,20 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
     setSelectedFlowNodeId(collaborator.selectedNodeId ?? draftGraph.nodes[0]?.id ?? '')
     setRemoteCanvasUpdate(null)
     setSaveMessage('')
-    setActivityMessage(`Applied ${collaborator.displayName ?? collaborator.actorUid} live draft to this workspace`)
+    if (collaborator.graphSignature) lastAutoFollowedDraftSignatureRef.current = collaborator.graphSignature
+    setActivityMessage(`${options.automatic ? 'Auto-followed' : 'Applied'} ${collaborator.displayName ?? collaborator.actorUid} live draft to this workspace`)
   }
 
   useEffect(() => {
     if (!remoteCanvasUpdate?.id || graphHasUnsavedChanges) return
     void applyRemoteCanvasUpdate()
   }, [applyRemoteCanvasUpdate, graphHasUnsavedChanges, remoteCanvasUpdate?.id, remoteCanvasUpdate?.activeVersion])
+
+  useEffect(() => {
+    if (!autoFollowLiveDrafts || graphHasUnsavedChanges || !latestCollaboratorDraft?.draftGraph?.nodes?.length) return
+    if (latestCollaboratorDraft.graphSignature && latestCollaboratorDraft.graphSignature === lastAutoFollowedDraftSignatureRef.current) return
+    applyCollaboratorDraft(latestCollaboratorDraft, { automatic: true })
+  }, [autoFollowLiveDrafts, graphHasUnsavedChanges, latestCollaboratorDraft])
 
   const refreshCollaborationState = useCallback(async (canvasId: string, canvasOrgId: string, knownActiveVersion?: number) => {
     await Promise.all([
@@ -967,9 +981,9 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
     })
     const payload = await response.json().catch(() => null) as CreativeCanvasPresenceApiResponse | null
     if (response.ok && payload?.data?.presence?.[0]) {
+      const own = payload.data.presence[0]
+      setOwnPresenceId(own.id)
       setPresence((current) => {
-        const own = payload.data?.presence?.[0]
-        if (!own) return current
         return [own, ...current.filter((item) => item.id !== own.id)]
       })
     }
@@ -1104,17 +1118,19 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
     const canvasOrgId = resolvedOrgId || activeCanvas.orgId
     if (!canvasOrgId) return
     sendPresenceHeartbeat(activeCanvas.id, canvasOrgId, selectedNodeId)
+    const collaborationPollMs = graphHasUnsavedChanges || hasCollaboratorLiveDraft ? 3_000 : 8_000
     const heartbeat = window.setInterval(() => {
       if (document.visibilityState === 'hidden') return
       sendPresenceHeartbeat(activeCanvas.id!, canvasOrgId, selectedNodeId)
       refreshCollaborationState(activeCanvas.id!, canvasOrgId, activeCanvas.activeVersion)
-    }, graphHasUnsavedChanges ? 12_000 : 8_000)
+    }, collaborationPollMs)
     return () => window.clearInterval(heartbeat)
   }, [
     activeCanvas?.activeVersion,
     activeCanvas?.id,
     activeCanvas?.orgId,
     graphHasUnsavedChanges,
+    hasCollaboratorLiveDraft,
     refreshCollaborationState,
     resolvedOrgId,
     selectedNodeId,
@@ -3490,6 +3506,20 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
                 Refresh
               </button>
             </div>
+            <label className="mt-2 flex items-center gap-2 rounded-lg border border-[var(--color-pib-line)] bg-white px-3 py-2 text-xs font-semibold text-[var(--color-pib-text)]">
+              <input
+                type="checkbox"
+                checked={autoFollowLiveDrafts}
+                onChange={(event) => setAutoFollowLiveDrafts(event.target.checked)}
+                className="h-4 w-4 rounded border-[var(--color-pib-line)]"
+              />
+              Auto-follow live drafts
+            </label>
+            {autoFollowLiveDrafts && hasCollaboratorLiveDraft ? (
+              <p className="mt-1 text-xs font-semibold text-amber-800">
+                Watching {latestCollaboratorDraft?.displayName ?? latestCollaboratorDraft?.actorUid} live draft while your graph is clean.
+              </p>
+            ) : null}
             <div className="mt-2 rounded-lg border border-[var(--color-pib-line)] bg-white px-3 py-2">
               <p className="text-xs font-semibold text-[var(--color-pib-text)]">Canvas link</p>
               <p className="mt-1 break-all text-[11px] text-[var(--color-pib-text-muted)]">

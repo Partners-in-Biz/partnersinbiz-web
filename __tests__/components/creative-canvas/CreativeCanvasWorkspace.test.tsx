@@ -1041,6 +1041,16 @@ describe('CreativeCanvasWorkspace', () => {
     })
   })
 
+  it('auto-follows a collaborator live draft when enabled and the local graph is clean', async () => {
+    render(<CreativeCanvasWorkspace mode="admin" orgId="org-1" />)
+
+    await screen.findByText('Launch Canvas')
+    fireEvent.click(screen.getByLabelText(/auto-follow live drafts/i))
+
+    expect(await screen.findByText(/auto-followed maya live draft to this workspace/i)).toBeInTheDocument()
+    expect(screen.getAllByText(/Maya live draft source/i).length).toBeGreaterThan(0)
+  })
+
   it('auto-saves dirty graph edits as version snapshots', async () => {
     jest.useFakeTimers()
     try {
