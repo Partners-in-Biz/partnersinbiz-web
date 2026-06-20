@@ -333,6 +333,49 @@ function minutesLabel(durationMs: number): string {
   return `${minutes}m`
 }
 
+function errorMessage(error: unknown): string {
+  if (error instanceof Error && error.message.trim()) return error.message.trim()
+  if (typeof error === 'string' && error.trim()) return error.trim()
+  return 'Unknown source collection error'
+}
+
+function signalForSourceFailure(sourceName: string, error: unknown, occurredAt: string): AgentEvolutionSignal {
+  const message = errorMessage(error)
+  return {
+    id: `loop-review-source-failed-${slug(sourceName)}`,
+    category: 'tooling-gap',
+    targetSurface: 'loop:business-insight-review',
+    title: `Loop review signal source failed: ${sourceName}`,
+    summary: `Loop-review collection could not read ${sourceName}: ${message}. The cron continued with the remaining sources instead of returning HTTP 500.`,
+    severity: 82,
+    confidence: 84,
+    easeOfFix: 74,
+    risk: 28,
+    source: {
+      type: 'loop-review-source',
+      id: sourceName,
+      href: '/admin/loop-engine/runs?loopId=business-insight-review',
+      label: sourceName,
+    },
+    occurredAt,
+  }
+}
+
+async function collectSource<T>(input: {
+  sourceName: string
+  agentSignals: AgentEvolutionSignal[]
+  occurredAt: string
+  fallback: T
+  collect: () => Promise<T>
+}): Promise<T> {
+  try {
+    return await input.collect()
+  } catch (error) {
+    input.agentSignals.push(signalForSourceFailure(input.sourceName, error, input.occurredAt))
+    return input.fallback
+  }
+}
+
 function agentSignalForLoopTelemetryRun(doc: LoopRunDoc, data: Record<string, unknown>): AgentEvolutionSignal | null {
   const loopId = cleanString(data.loopId) ?? doc.id.split(':')[0] ?? 'unknown-loop'
   const loopName = cleanString(data.loopName) ?? loopId
@@ -475,14 +518,30 @@ export async function collectLoopReviewSignals(input: LoopReviewSignalCollection
   const limit = boundedLimit(input.limit)
   const now = input.now ?? new Date()
   const window = sourceWindow(now)
-  const snap = await adminDb.collectionGroup('tasks')
-    .where('orgId', '==', input.orgId)
-    .limit(limit)
-    .get() as { docs: TaskDoc[] }
-  const loopRunSnap = await adminDb.collection('loop_engine_runs')
-    .where('orgId', '==', input.orgId)
-    .limit(limit)
-    .get() as { docs: LoopRunDoc[] }
+  const agentSignals: AgentEvolutionSignal[] = []
+  const businessSignals: BusinessInsightSignal[] = []
+  const occurredAt = window.to
+
+  const snap = await collectSource<{ docs: TaskDoc[] }>({
+    sourceName: 'tasks',
+    agentSignals,
+    occurredAt,
+    fallback: { docs: [] },
+    collect: async () => await adminDb.collectionGroup('tasks')
+      .where('orgId', '==', input.orgId)
+      .limit(limit)
+      .get() as { docs: TaskDoc[] },
+  })
+  const loopRunSnap = await collectSource<{ docs: LoopRunDoc[] }>({
+    sourceName: 'loop_engine_runs',
+    agentSignals,
+    occurredAt,
+    fallback: { docs: [] },
+    collect: async () => await adminDb.collection('loop_engine_runs')
+      .where('orgId', '==', input.orgId)
+      .limit(limit)
+      .get() as { docs: LoopRunDoc[] },
+  })
 
   const docs = snap.docs.filter((doc) => {
     const data = doc.data()
@@ -495,8 +554,6 @@ export async function collectLoopReviewSignals(input: LoopReviewSignalCollection
     if (key) existingSuppressionKeys.add(key)
   }
 
-  const agentSignals: AgentEvolutionSignal[] = []
-  const businessSignals: BusinessInsightSignal[] = []
   for (const doc of loopRunSnap.docs) {
     const data = doc.data()
     if (data.deleted === true) continue
@@ -514,47 +571,55 @@ export async function collectLoopReviewSignals(input: LoopReviewSignalCollection
     const businessSignal = businessSignalForTask(doc, data, projectId, existingSuppressionKeys)
     if (businessSignal) businessSignals.push(businessSignal)
   }
-  const crmCollection = await collectCrmBusinessInsightSignals({
-    orgId: input.orgId,
-    existingSuppressionKeys: [...existingSuppressionKeys],
-    limit,
-    now,
+  const suppressionKeys = [...existingSuppressionKeys]
+  const crmCollection = await collectSource({
+    sourceName: 'crm',
+    agentSignals,
+    occurredAt,
+    fallback: { contactsScanned: 0, dealsScanned: 0, metrics: [], signals: [] },
+    collect: async () => await collectCrmBusinessInsightSignals({ orgId: input.orgId, existingSuppressionKeys: suppressionKeys, limit, now }),
   })
-  const supportCollection = await collectSupportBusinessInsightSignals({
-    orgId: input.orgId,
-    existingSuppressionKeys: [...existingSuppressionKeys],
-    limit,
-    now,
+  const supportCollection = await collectSource({
+    sourceName: 'support',
+    agentSignals,
+    occurredAt,
+    fallback: { ticketsScanned: 0, metrics: [], signals: [] },
+    collect: async () => await collectSupportBusinessInsightSignals({ orgId: input.orgId, existingSuppressionKeys: suppressionKeys, limit, now }),
   })
-  const socialCollection = await collectSocialBusinessInsightSignals({
-    orgId: input.orgId,
-    existingSuppressionKeys: [...existingSuppressionKeys],
-    limit,
-    now,
+  const socialCollection = await collectSource({
+    sourceName: 'social',
+    agentSignals,
+    occurredAt,
+    fallback: { postsScanned: 0, metrics: [], signals: [] },
+    collect: async () => await collectSocialBusinessInsightSignals({ orgId: input.orgId, existingSuppressionKeys: suppressionKeys, limit, now }),
   })
-  const adsCollection = await collectAdsBusinessInsightSignals({
-    orgId: input.orgId,
-    existingSuppressionKeys: [...existingSuppressionKeys],
-    limit,
-    now,
+  const adsCollection = await collectSource({
+    sourceName: 'ads',
+    agentSignals,
+    occurredAt,
+    fallback: { connectionsScanned: 0, campaignsScanned: 0, metrics: [], signals: [] },
+    collect: async () => await collectAdsBusinessInsightSignals({ orgId: input.orgId, existingSuppressionKeys: suppressionKeys, limit, now }),
   })
-  const seoCollection = await collectSeoBusinessInsightSignals({
-    orgId: input.orgId,
-    existingSuppressionKeys: [...existingSuppressionKeys],
-    limit,
-    now,
+  const seoCollection = await collectSource({
+    sourceName: 'seo',
+    agentSignals,
+    occurredAt,
+    fallback: { tasksScanned: 0, sprintsScanned: 0, metrics: [], signals: [] },
+    collect: async () => await collectSeoBusinessInsightSignals({ orgId: input.orgId, existingSuppressionKeys: suppressionKeys, limit, now }),
   })
-  const invoiceCollection = await collectInvoiceBusinessInsightSignals({
-    orgId: input.orgId,
-    existingSuppressionKeys: [...existingSuppressionKeys],
-    limit,
-    now,
+  const invoiceCollection = await collectSource({
+    sourceName: 'invoice',
+    agentSignals,
+    occurredAt,
+    fallback: { invoicesScanned: 0, metrics: [], signals: [] },
+    collect: async () => await collectInvoiceBusinessInsightSignals({ orgId: input.orgId, existingSuppressionKeys: suppressionKeys, limit, now }),
   })
-  const documentCollection = await collectDocumentBusinessInsightSignals({
-    orgId: input.orgId,
-    existingSuppressionKeys: [...existingSuppressionKeys],
-    limit,
-    now,
+  const documentCollection = await collectSource({
+    sourceName: 'documents',
+    agentSignals,
+    occurredAt,
+    fallback: { documentsScanned: 0, metrics: [], signals: [] },
+    collect: async () => await collectDocumentBusinessInsightSignals({ orgId: input.orgId, existingSuppressionKeys: suppressionKeys, limit, now }),
   })
   businessSignals.push(...crmCollection.signals)
   businessSignals.push(...supportCollection.signals)
