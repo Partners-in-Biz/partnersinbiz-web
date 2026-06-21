@@ -20,6 +20,7 @@ import type { CanvasNodeType } from '@/components/creative-canvas/nodes/ports'
 import CreateMenu from '@/components/creative-canvas/canvas/CreateMenu'
 import NodeSettingsPanel from '@/components/creative-canvas/panels/NodeSettingsPanel'
 import CanvasLanding from '@/components/creative-canvas/landing/CanvasLanding'
+import { canvasTheme } from '@/components/creative-canvas/theme/tokens'
 import type {
   CreativeCanvasAssetOrigin,
   CreativeCanvas,
@@ -1487,7 +1488,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
   const [activityMessage, setActivityMessage] = useState('')
   const [exportTarget, setExportTarget] = useState<CreativeCanvasExport['target']>('campaign_asset')
   const [latestRun, setLatestRun] = useState<{ id: string; status: string; nodeId?: string } | null>(null)
-  const [runModel, setRunModel] = useState('nano_banana_flash')
+  const [runModel, setRunModel] = useState('grok-image')
   const [runOutputKind, setRunOutputKind] = useState('image')
   const [runAspectRatio, setRunAspectRatio] = useState('1:1')
   const [runDurationSeconds, setRunDurationSeconds] = useState(5)
@@ -5101,20 +5102,22 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
           onClick={() => setTopBarPanel('')}
         >
           <div
-            className="w-full max-w-md rounded-xl border border-[var(--color-pib-line)] bg-white p-5 shadow-xl"
+            className="w-full max-w-md rounded-xl p-5 shadow-xl"
+            style={{ background: canvasTheme.surface, border: `1px solid ${canvasTheme.border}`, color: canvasTheme.text }}
             onClick={(event) => event.stopPropagation()}
           >
             {topBarPanel === 'share' ? (
               <div className="space-y-3">
-                <h2 className="text-lg font-semibold text-[var(--color-pib-text)]">Share canvas</h2>
-                <p className="text-sm text-[var(--color-pib-text-muted)]">
+                <h2 className="text-lg font-semibold" style={{ color: canvasTheme.text }}>Share canvas</h2>
+                <p className="text-sm" style={{ color: canvasTheme.textMuted }}>
                   Visibility: {activeCanvas?.visibility === 'admin_agents_clients' ? 'Admins, agents & clients' : 'Admins & agents'}
                 </p>
                 <div className="flex items-center gap-2">
                   <input
                     readOnly
                     value={activeCanvas?.id ? `${typeof window !== 'undefined' ? window.location.origin : ''}/admin/creative-canvas?canvas=${activeCanvas.id}` : ''}
-                    className="flex-1 rounded-md border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] px-3 py-2 text-xs text-[var(--color-pib-text)]"
+                    className="flex-1 rounded-md px-3 py-2 text-xs"
+                    style={{ background: canvasTheme.bg, border: `1px solid ${canvasTheme.border}`, color: canvasTheme.text }}
                     aria-label="Canvas link"
                   />
                   <button
@@ -5125,7 +5128,8 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
                         setActivityMessage('Canvas link copied')
                       }
                     }}
-                    className="rounded-md bg-[var(--color-pib-primary)] px-3 py-2 text-xs font-semibold text-white"
+                    className="rounded-md px-3 py-2 text-xs font-semibold"
+                    style={{ background: canvasTheme.accent, color: canvasTheme.accentText }}
                   >
                     Copy
                   </button>
@@ -5133,13 +5137,13 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
               </div>
             ) : (
               <div className="space-y-3">
-                <h2 className="text-lg font-semibold text-[var(--color-pib-text)]">Team chat</h2>
-                <p className="text-sm text-[var(--color-pib-text-muted)]">
+                <h2 className="text-lg font-semibold" style={{ color: canvasTheme.text }}>Team chat</h2>
+                <p className="text-sm" style={{ color: canvasTheme.textMuted }}>
                   {(presence?.length ?? 0) > 0
                     ? `${presence.length} collaborator${presence.length === 1 ? '' : 's'} present`
                     : 'No collaborators online right now.'}
                 </p>
-                <p className="text-xs text-[var(--color-pib-text-muted)]">
+                <p className="text-xs" style={{ color: canvasTheme.textMuted }}>
                   Node-level comments and live presence appear in the inspector when a node is selected.
                 </p>
               </div>
@@ -5147,7 +5151,8 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
             <button
               type="button"
               onClick={() => setTopBarPanel('')}
-              className="mt-4 w-full rounded-md border border-[var(--color-pib-line)] px-3 py-2 text-sm font-semibold text-[var(--color-pib-text)]"
+              className="mt-4 w-full rounded-md px-3 py-2 text-sm font-semibold"
+              style={{ border: `1px solid ${canvasTheme.border}`, color: canvasTheme.text }}
             >
               Close
             </button>
@@ -5265,7 +5270,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
 
       <div
         aria-label="Creative Canvas responsive readiness"
-        className="grid grid-cols-2 gap-2 rounded-lg border border-[var(--color-pib-line)] bg-white px-3 py-2 text-xs text-[var(--color-pib-text-muted)] sm:grid-cols-4"
+        className={`${immersiveCanvas ? 'sr-only' : ''} grid grid-cols-2 gap-2 rounded-lg border border-[var(--color-pib-line)] bg-white px-3 py-2 text-xs text-[var(--color-pib-text-muted)] sm:grid-cols-4`}
       >
         {responsiveProofItems.map((item) => (
           <div key={item.label} className="min-w-0">
@@ -6190,6 +6195,10 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
                   generateAudio: runGenerateAudio,
                   batch: runVariantCount,
                 }}
+                prompt={typeof (selectedCanvasNode?.data as Record<string, unknown> | undefined)?.prompt === 'string'
+                  ? String((selectedCanvasNode!.data as Record<string, unknown>).prompt)
+                  : ''}
+                onPromptChange={(value) => { if (selectedNodeId) updateNodePrompt(selectedNodeId, value) }}
                 canGenerate={mode === 'admin' && Boolean(selectedNodeId) && !versionPreview}
                 onModelSelect={setRunModel}
                 onChange={(patch) => {

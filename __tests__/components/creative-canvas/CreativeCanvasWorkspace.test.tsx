@@ -4798,7 +4798,7 @@ describe('CreativeCanvasWorkspace', () => {
         title: 'Source node inpaint edit',
         provider: expect.objectContaining({
           key: 'higgsfield',
-          model: 'nano_banana_flash',
+          model: 'grok-image',
           mode: 'image',
         }),
         edit: expect.objectContaining({

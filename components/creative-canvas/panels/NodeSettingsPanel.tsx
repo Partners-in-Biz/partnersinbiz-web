@@ -25,8 +25,10 @@ export interface NodeSettingsPanelProps {
   node: CreativeCanvasNode | null
   presentationType: CanvasNodeType | null
   values: NodeSettingsValues
+  prompt: string
   generating: boolean
   canGenerate: boolean
+  onPromptChange: (value: string) => void
   onModelSelect: (modelId: string) => void
   onChange: (patch: Partial<NodeSettingsValues>) => void
   onGenerate: () => void
@@ -97,7 +99,7 @@ function Segmented<T extends string | number>({ options, value, onChange }: { op
 /** Higgsfield-style slide-in node settings. Configure is the default; the
  *  enterprise layer (Review / Provenance / Export) is tucked into tabs. */
 export default function NodeSettingsPanel(props: NodeSettingsPanelProps) {
-  const { open, node, presentationType, values, generating, canGenerate, onModelSelect, onChange, onGenerate, onClose, onExport } = props
+  const { open, node, presentationType, values, prompt, generating, canGenerate, onPromptChange, onModelSelect, onChange, onGenerate, onClose, onExport } = props
   const [tab, setTab] = useState<Tab>('configure')
   const [modelPickerOpen, setModelPickerOpen] = useState(false)
   const kind = kindFor(presentationType)
@@ -159,6 +161,25 @@ export default function NodeSettingsPanel(props: NodeSettingsPanelProps) {
       <div style={{ flex: 1, overflowY: 'auto', padding: 12 }}>
         {tab === 'configure' ? (
           <>
+            <div style={{ paddingBottom: 10, borderBottom: `1px solid ${canvasTheme.border}` }}>
+              <textarea
+                value={prompt}
+                onChange={(event) => onPromptChange(event.target.value)}
+                placeholder="Describe what you want to create…"
+                aria-label="Generation prompt"
+                rows={4}
+                style={{
+                  resize: 'vertical',
+                  width: '100%',
+                  background: canvasTheme.bg,
+                  border: `1px solid ${canvasTheme.border}`,
+                  borderRadius: 8,
+                  color: canvasTheme.text,
+                  fontSize: 13,
+                  padding: 8,
+                }}
+              />
+            </div>
             <div style={rowStyle}>
               <span style={labelStyle}>Model</span>
               <button
