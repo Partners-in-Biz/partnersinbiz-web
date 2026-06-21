@@ -2,6 +2,10 @@ import React from 'react'
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { CreativeCanvasWorkspace } from '@/components/creative-canvas/CreativeCanvasWorkspace'
 
+// This file renders the full workspace 78 times; under parallel load with the
+// other jsdom canvas suites a few async waitFor tests can exceed the 5s default.
+jest.setTimeout(30000)
+
 jest.mock('@xyflow/react', () => ({
   ReactFlow: ({
     nodes,

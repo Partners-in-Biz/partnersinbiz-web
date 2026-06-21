@@ -18,6 +18,7 @@ import CanvasTopBar from '@/components/creative-canvas/topbar/CanvasTopBar'
 import { canvasNodeTypes } from '@/components/creative-canvas/nodes/nodeTypes'
 import type { CanvasNodeType } from '@/components/creative-canvas/nodes/ports'
 import CreateMenu from '@/components/creative-canvas/canvas/CreateMenu'
+import NodeSettingsPanel from '@/components/creative-canvas/panels/NodeSettingsPanel'
 import type {
   CreativeCanvasAssetOrigin,
   CreativeCanvas,
@@ -1490,6 +1491,9 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
   const [runAspectRatio, setRunAspectRatio] = useState('1:1')
   const [runDurationSeconds, setRunDurationSeconds] = useState(5)
   const [runVariantCount, setRunVariantCount] = useState(1)
+  const [runResolution, setRunResolution] = useState('2k')
+  const [runQuality, setRunQuality] = useState('High')
+  const [runGenerateAudio, setRunGenerateAudio] = useState(false)
   const [runStylePreset, setRunStylePreset] = useState('cinematic_product')
   const [runCameraMotion, setRunCameraMotion] = useState('none')
   const [runNegativePrompt, setRunNegativePrompt] = useState('')
@@ -5958,7 +5962,36 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
               onRedo={handleCanvasRedo}
               activeTool={activeCanvasTool}
               onTool={setActiveCanvasTool}
-            />
+            >
+              <NodeSettingsPanel
+                open={Boolean(selectedFlowNodeId)}
+                node={selectedFlowNodeId ? selectedCanvasNode ?? null : null}
+                presentationType={selectedFlowNodeId && selectedCanvasNode ? presentationTypeFor(selectedCanvasNode) : null}
+                values={{
+                  model: runModel,
+                  aspectRatio: runAspectRatio,
+                  resolution: runResolution,
+                  quality: runQuality,
+                  duration: runDurationSeconds,
+                  generateAudio: runGenerateAudio,
+                  batch: runVariantCount,
+                }}
+                generating={false}
+                canGenerate={mode === 'admin' && Boolean(selectedNodeId) && !versionPreview}
+                onModelSelect={setRunModel}
+                onChange={(patch) => {
+                  if (patch.model !== undefined) setRunModel(patch.model)
+                  if (patch.aspectRatio !== undefined) setRunAspectRatio(patch.aspectRatio)
+                  if (patch.resolution !== undefined) setRunResolution(patch.resolution)
+                  if (patch.quality !== undefined) setRunQuality(patch.quality)
+                  if (patch.duration !== undefined) setRunDurationSeconds(patch.duration)
+                  if (patch.generateAudio !== undefined) setRunGenerateAudio(patch.generateAudio)
+                  if (patch.batch !== undefined) setRunVariantCount(patch.batch)
+                }}
+                onGenerate={() => { void queueRun() }}
+                onClose={() => setSelectedFlowNodeId('')}
+              />
+            </CanvasStage>
           </div>
         </section>
 
