@@ -185,3 +185,33 @@ Commit created for the fix:
 ```bash
 fix(canvas): require source backed certification artifacts
 ```
+
+## Review Fix Addendum 5
+
+Date: 2026-06-21
+Base commit under review: `c1f3a11a`
+
+Fixed remaining live proof artifact contract findings in Task 1 owned files only:
+
+- Bound `CreativeCanvasLiveProofArtifact` to the current canvas contract with `orgId`, `canvasVersion`, `graphSignature`, `nodeCount`, and `edgeCount`
+- Hardened certification so live proof artifacts only count when they are valid and match the current binding
+- Changed live proof certification from raw row-counting to distinct required key coverage using exactly `desktop`, `tablet`, `mobile`, and `mobile_panels`
+- Added regressions for duplicate live proof artifact keys and stale/unbound live proof artifact records
+
+Verification commands:
+
+```bash
+npx jest __tests__/lib/creative-canvas/parity-proof.test.ts --runInBand
+npm run typecheck
+```
+
+Verification results:
+
+- Focused Jest passed: 1 suite, 23 tests
+- Typecheck passed
+
+Commit created for the fix:
+
+```bash
+fix(canvas): bind live proof artifacts
+```

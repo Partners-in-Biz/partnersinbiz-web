@@ -44,6 +44,7 @@ describe('creative canvas parity proof contracts', () => {
   }
   const validLiveProofArtifacts = [
     {
+      ...currentBinding,
       key: 'desktop',
       url: 'https://proof.example.com/live-desktop.png',
       status: 200,
@@ -52,6 +53,7 @@ describe('creative canvas parity proof contracts', () => {
       evidence: 'Desktop signed-in preview captured.',
     },
     {
+      ...currentBinding,
       key: 'tablet',
       url: 'https://proof.example.com/live-tablet.png',
       status: 200,
@@ -60,6 +62,7 @@ describe('creative canvas parity proof contracts', () => {
       evidence: 'Tablet signed-in preview captured.',
     },
     {
+      ...currentBinding,
       key: 'mobile',
       url: 'https://proof.example.com/live-mobile.png',
       status: 302,
@@ -68,7 +71,8 @@ describe('creative canvas parity proof contracts', () => {
       evidence: 'Mobile signed-in preview captured.',
     },
     {
-      key: 'mobile-panels',
+      ...currentBinding,
+      key: 'mobile_panels',
       url: 'https://proof.example.com/live-mobile-panels.png',
       status: 200,
       contentType: 'image/png',
@@ -452,6 +456,7 @@ describe('creative canvas parity proof contracts', () => {
       runtimeProof: validRuntimeProof,
       liveProofArtifacts: [
         {
+          ...currentBinding,
           key: '',
           url: '',
           status: 0,
@@ -460,6 +465,7 @@ describe('creative canvas parity proof contracts', () => {
           evidence: '',
         },
         {
+          ...currentBinding,
           key: 'tablet',
           url: 'https://proof.example.com/live-tablet.png',
           status: 200,
@@ -468,6 +474,7 @@ describe('creative canvas parity proof contracts', () => {
           evidence: 'Missing content type.',
         },
         {
+          ...currentBinding,
           key: 'mobile',
           url: 'javascript:alert(1)',
           status: 200,
@@ -476,7 +483,8 @@ describe('creative canvas parity proof contracts', () => {
           evidence: 'Unsafe URL.',
         },
         {
-          key: 'mobile-panels',
+          ...currentBinding,
+          key: 'mobile_panels',
           url: 'https://proof.example.com/live-mobile-panels.png',
           status: 200,
           contentType: 'image/png',
@@ -484,6 +492,47 @@ describe('creative canvas parity proof contracts', () => {
           evidence: '',
         },
       ],
+      requiredBenchmarkCount: 2,
+      capturedAt,
+      currentBinding,
+      signedInPreviewProof: validSignedInPreviewProof,
+      kbCertification: validKbCertification,
+    })
+
+    expect(certification.status).toBe('blocked')
+    expect(certification.blockers).toContain('Signed-in live proof artifacts are incomplete.')
+  })
+
+  it('blocks certification when live proof artifacts duplicate one required key instead of covering the full matrix', () => {
+    const certification = buildWorldClassCertification({
+      benchmarkProofs: validBenchmarkProofs,
+      runtimeProof: validRuntimeProof,
+      liveProofArtifacts: [
+        { ...validLiveProofArtifacts[0], key: 'desktop', url: 'https://proof.example.com/live-desktop-1.png' },
+        { ...validLiveProofArtifacts[0], key: 'desktop', url: 'https://proof.example.com/live-desktop-2.png' },
+        { ...validLiveProofArtifacts[0], key: 'desktop', url: 'https://proof.example.com/live-desktop-3.png' },
+        { ...validLiveProofArtifacts[0], key: 'desktop', url: 'https://proof.example.com/live-desktop-4.png' },
+      ],
+      requiredBenchmarkCount: 2,
+      capturedAt,
+      currentBinding,
+      signedInPreviewProof: validSignedInPreviewProof,
+      kbCertification: validKbCertification,
+    })
+
+    expect(certification.status).toBe('blocked')
+    expect(certification.blockers).toContain('Signed-in live proof artifacts are incomplete.')
+  })
+
+  it('blocks certification when live proof artifacts are stale or bound to a different current canvas', () => {
+    const certification = buildWorldClassCertification({
+      benchmarkProofs: validBenchmarkProofs,
+      runtimeProof: validRuntimeProof,
+      liveProofArtifacts: validLiveProofArtifacts.map((artifact, index) => (
+        index === validLiveProofArtifacts.length - 1
+          ? { ...artifact, canvasVersion: artifact.canvasVersion + 1 }
+          : artifact
+      )),
       requiredBenchmarkCount: 2,
       capturedAt,
       currentBinding,

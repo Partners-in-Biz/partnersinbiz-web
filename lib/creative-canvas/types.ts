@@ -701,6 +701,11 @@ export interface CreativeCanvasBenchmarkProof extends CreativeCanvasProofBinding
 }
 
 export interface CreativeCanvasLiveProofArtifact {
+  orgId: string
+  canvasVersion: number
+  graphSignature: string
+  nodeCount: number
+  edgeCount: number
   key: string
   url: string
   status: number

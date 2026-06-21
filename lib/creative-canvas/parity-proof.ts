@@ -22,6 +22,7 @@ export const requiredCreativeCanvasProofCategories: Array<{ key: CreativeCanvasP
 ]
 
 const requiredViewportKeys: CreativeCanvasMobileViewportEvidence['key'][] = ['desktop', 'tablet', 'mobile', 'mobile_panels']
+const requiredLiveProofArtifactKeys = ['desktop', 'tablet', 'mobile', 'mobile_panels'] as const
 const certifiedCollaborationOutcomes = new Set<string>([
   'remote_changes_adopted',
   'conflict_detected',
@@ -209,7 +210,8 @@ function hasBenchmarkProofRequirements(
 
 function hasLiveProofArtifactRequirements(proof: CreativeCanvasLiveProofArtifact): boolean {
   return Boolean(
-    hasText(proof.key)
+    hasCurrentCanvasBinding(proof)
+      && hasText(proof.key)
       && hasSafeHttpUrl(proof.url)
       && hasSuccessfulStatus(proof.status)
       && hasText(proof.contentType)
@@ -257,8 +259,14 @@ export function buildWorldClassCertification(input: CreativeCanvasWorldClassCert
   const blockers: string[] = []
   const warnings: string[] = []
   const passedBenchmarks = input.benchmarkProofs.filter((item) => isCurrentBenchmarkProof(item, input.currentBinding))
-  const validLiveProofArtifacts = input.liveProofArtifacts.filter(hasLiveProofArtifactRequirements)
   const currentBindingValid = hasCurrentCanvasBinding(input.currentBinding)
+  const validLiveProofArtifacts = input.liveProofArtifacts.filter((item) => (
+    hasLiveProofArtifactRequirements(item) && hasCurrentCanvasBinding(item, input.currentBinding)
+  ))
+  const validLiveProofArtifactKeys = new Set(validLiveProofArtifacts.map((item) => item.key))
+  const validRequiredLiveProofArtifactCount = requiredLiveProofArtifactKeys.filter((key) => (
+    validLiveProofArtifactKeys.has(key)
+  )).length
   const runtimeProofValid = Boolean(
     input.runtimeProof
       && hasCurrentCanvasBinding(input.runtimeProof, input.currentBinding)
@@ -280,7 +288,7 @@ export function buildWorldClassCertification(input: CreativeCanvasWorldClassCert
     blockers.push('Runtime proof is not passed and ready for live proof.')
   }
 
-  if (validLiveProofArtifacts.length < 4) {
+  if (validRequiredLiveProofArtifactCount < requiredLiveProofArtifactKeys.length) {
     blockers.push('Signed-in live proof artifacts are incomplete.')
   }
 
@@ -298,7 +306,7 @@ export function buildWorldClassCertification(input: CreativeCanvasWorldClassCert
 
   const passedGateCount = input.requiredBenchmarkCount - Math.max(0, input.requiredBenchmarkCount - passedBenchmarks.length)
     + (runtimeProofValid ? 1 : 0)
-    + Math.min(validLiveProofArtifacts.length, 4)
+    + validRequiredLiveProofArtifactCount
     + (signedInPreviewProofValid ? 1 : 0)
     + (kbCertificationValid ? 1 : 0)
   const requiredGateCount = input.requiredBenchmarkCount + 7
