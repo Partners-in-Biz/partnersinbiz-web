@@ -1452,6 +1452,81 @@ describe('CreativeCanvasWorkspace', () => {
     })
   })
 
+  it('stores brush mask session evidence for masking benchmark proof', async () => {
+    render(<CreativeCanvasWorkspace mode="admin" orgId="org-1" />)
+
+    expect(await screen.findByText('Launch Canvas')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: /add edit node/i }))
+    fireEvent.change(screen.getByLabelText(/edit intent/i), { target: { value: 'reference_blend' } })
+    fireEvent.change(screen.getByLabelText(/edit brush prompt/i), { target: { value: 'Blend a product reference into the masked area with matching light.' } })
+    fireEvent.click(screen.getByLabelText(/light match/i))
+    fireEvent.click(screen.getByLabelText(/texture adaptive/i))
+    fireEvent.click(screen.getByLabelText(/auto shadows/i))
+    fireEvent.click(screen.getByRole('button', { name: /product placement/i }))
+    fireEvent.click(screen.getByRole('button', { name: /apply mask region/i }))
+    const brushCanvas = screen.getByRole('application', { name: /brush mask canvas/i })
+    jest.spyOn(brushCanvas, 'getBoundingClientRect').mockReturnValue({
+      x: 0,
+      y: 0,
+      left: 0,
+      top: 0,
+      right: 200,
+      bottom: 100,
+      width: 200,
+      height: 100,
+      toJSON: () => ({}),
+    } as DOMRect)
+    dispatchBrushPointerEvent(brushCanvas, 'pointerdown', 40, 40)
+    dispatchBrushPointerEvent(brushCanvas, 'pointermove', 80, 50)
+    dispatchBrushPointerEvent(brushCanvas, 'pointerup', 80, 50)
+
+    const parityAudit = screen.getByLabelText(/higgsfield parity audit/i)
+    expect(parityAudit).toHaveTextContent('1 edit node · 1 brush stroke · 3/3+ blend controls')
+
+    fireEvent.change(screen.getByLabelText(/masking \/ inpainting ux benchmark proof url/i), {
+      target: { value: 'https://proof.example.com/masking-session.mp4' },
+    })
+    fireEvent.change(screen.getByLabelText(/masking \/ inpainting ux benchmark proof notes/i), {
+      target: { value: 'Brush mask, object blend controls, and reference workflow compared against Higgsfield inpainting.' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: /save masking \/ inpainting ux proof/i }))
+
+    await waitFor(() => expect(screen.getByText('Saved Masking / inpainting UX benchmark proof')).toBeInTheDocument())
+
+    const patchCall = fetchMock.mock.calls.find(([input, init]) => (
+      String(input) === '/api/v1/creative-canvas/canvas-1?orgId=org-1'
+      && init?.method === 'PATCH'
+      && String(init.body).includes('masking_inpainting')
+    ))
+    expect(patchCall).toBeTruthy()
+    const body = JSON.parse(String(patchCall?.[1]?.body ?? '{}')) as {
+      data?: {
+        benchmarkProof?: Record<string, {
+          sourceSignals?: string[]
+          maskingEditNodeCount?: number
+          maskingPromptCount?: number
+          maskingIntentCount?: number
+          maskingRegionCount?: number
+          maskingBrushStrokeCount?: number
+          maskingBlendControlCount?: number
+          maskingCapturedAt?: string
+          maskingEvidence?: string
+        }>
+      }
+    }
+    expect(body.data?.benchmarkProof?.masking_inpainting).toMatchObject({
+      sourceSignals: ['Brush & Prompt', 'Precise Masking', 'Object Removal', 'Light Matching', 'Texture Adaptive', 'Auto-Shadows', 'IMAGE-TO-IMAGE BLENDING'],
+      maskingEditNodeCount: 1,
+      maskingPromptCount: 1,
+      maskingIntentCount: 1,
+      maskingRegionCount: 1,
+      maskingBrushStrokeCount: 1,
+      maskingBlendControlCount: 3,
+      maskingCapturedAt: expect.any(String),
+      maskingEvidence: expect.stringContaining('1 brush stroke'),
+    })
+  }, 15000)
+
   it('stores project-linked agent task evidence for AI agent integration benchmark proof', async () => {
     render(<CreativeCanvasWorkspace mode="admin" orgId="org-1" />)
 
@@ -2205,9 +2280,9 @@ describe('CreativeCanvasWorkspace', () => {
     expect(screen.getByRole('button', { name: /benchmark suite complete/i })).toBeDisabled()
     const parityAudit = screen.getByLabelText(/higgsfield parity audit/i)
     expect(parityAudit).toHaveTextContent('8/8 scenarios in graph')
-    expect(parityAudit).toHaveTextContent('Mask region or brush data attached')
+    expect(parityAudit).toHaveTextContent('0 prompt · 1 mask/source · 1 brush · 0/3+ blend controls')
     const benchmarkProof = screen.getByLabelText(/direct higgsfield benchmark proof/i)
-    expect(benchmarkProof).toHaveTextContent('6 ready benchmark categories need stored proof.')
+    expect(benchmarkProof).toHaveTextContent('5 ready benchmark categories need stored proof.')
   })
 
   it('switches mobile panels with responsive readiness evidence', async () => {
@@ -3667,7 +3742,7 @@ describe('CreativeCanvasWorkspace', () => {
     await screen.findByText('Launch Canvas')
     fireEvent.click(screen.getByRole('button', { name: /apply 8 missing benchmark workflows/i }))
     const benchmarkProof = screen.getByLabelText(/direct higgsfield benchmark proof/i)
-    expect(benchmarkProof).toHaveTextContent('6 ready benchmark categories need stored proof.')
+    expect(benchmarkProof).toHaveTextContent('5 ready benchmark categories need stored proof.')
 
     fetchMock.mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input)
@@ -3726,7 +3801,7 @@ describe('CreativeCanvasWorkspace', () => {
     expect(await screen.findByText('Export package prepared')).toBeInTheDocument()
     const parityAudit = screen.getByLabelText(/higgsfield parity audit/i)
     expect(parityAudit).toHaveTextContent('5/5 export categories packaged · 0/5 artifact-backed categories · 5 assets')
-    expect(benchmarkProof).toHaveTextContent('6 ready benchmark categories need stored proof.')
+    expect(benchmarkProof).toHaveTextContent('5 ready benchmark categories need stored proof.')
 
     fetchMock.mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input)
@@ -3769,7 +3844,7 @@ describe('CreativeCanvasWorkspace', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /refresh runtime proof/i }))
     await waitFor(() => expect(parityAudit).toHaveTextContent('5/5 export categories packaged · 5/5 artifact-backed categories · 5 assets'))
-    expect(benchmarkProof).toHaveTextContent('7 ready benchmark categories need stored proof.')
+    expect(benchmarkProof).toHaveTextContent('6 ready benchmark categories need stored proof.')
   })
 
   it('edits selected source asset metadata and saves it with the graph', async () => {
@@ -4023,7 +4098,7 @@ describe('CreativeCanvasWorkspace', () => {
     dispatchBrushPointerEvent(brushCanvas, 'pointerup', 80, 50)
 
     expect(await screen.findByText('Mask: brush attached')).toBeInTheDocument()
-    expect(screen.getByText(/1 brush/i)).toBeInTheDocument()
+    expect(screen.getAllByText(/1 brush/i).length).toBeGreaterThan(0)
     expect(screen.getByLabelText('Brush mask point 1')).toBeInTheDocument()
     expect(screen.getByLabelText('Brush mask point 2')).toBeInTheDocument()
 

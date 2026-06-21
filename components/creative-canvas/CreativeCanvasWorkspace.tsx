@@ -119,6 +119,14 @@ type CreativeCanvasBenchmarkProofRecord = {
   editingLocalEventCount?: number
   editingCapturedAt?: string
   editingEvidence?: string
+  maskingEditNodeCount?: number
+  maskingPromptCount?: number
+  maskingIntentCount?: number
+  maskingRegionCount?: number
+  maskingBrushStrokeCount?: number
+  maskingBlendControlCount?: number
+  maskingCapturedAt?: string
+  maskingEvidence?: string
   agentStepCount?: number
   agentActorCount?: number
   agentTaskCreatedCount?: number
@@ -368,7 +376,7 @@ const benchmarkProofConfigs: Array<{
     benchmark: 'Brush and prompt-driven edits that can target regions, references, style transfer, motion, and output branches.',
     sourceTitle: 'Higgsfield AI image editing and inpainting',
     sourceUrl: 'https://higgsfield.ai/image-editing',
-    sourceSignals: ['Brush & Prompt', 'AI inpainting', 'Precise Masking', 'Generative Fill'],
+    sourceSignals: ['Brush & Prompt', 'Precise Masking', 'Object Removal', 'Light Matching', 'Texture Adaptive', 'Auto-Shadows', 'IMAGE-TO-IMAGE BLENDING'],
   },
   {
     key: 'generation_controls',
@@ -622,6 +630,14 @@ function getCanvasBenchmarkProof(data: unknown): Partial<Record<CreativeCanvasBe
     const editingLocalEventCount = typeof record.editingLocalEventCount === 'number' && Number.isFinite(record.editingLocalEventCount) ? record.editingLocalEventCount : undefined
     const editingCapturedAt = stringField(record.editingCapturedAt)
     const editingEvidence = stringField(record.editingEvidence)
+    const maskingEditNodeCount = typeof record.maskingEditNodeCount === 'number' && Number.isFinite(record.maskingEditNodeCount) ? record.maskingEditNodeCount : undefined
+    const maskingPromptCount = typeof record.maskingPromptCount === 'number' && Number.isFinite(record.maskingPromptCount) ? record.maskingPromptCount : undefined
+    const maskingIntentCount = typeof record.maskingIntentCount === 'number' && Number.isFinite(record.maskingIntentCount) ? record.maskingIntentCount : undefined
+    const maskingRegionCount = typeof record.maskingRegionCount === 'number' && Number.isFinite(record.maskingRegionCount) ? record.maskingRegionCount : undefined
+    const maskingBrushStrokeCount = typeof record.maskingBrushStrokeCount === 'number' && Number.isFinite(record.maskingBrushStrokeCount) ? record.maskingBrushStrokeCount : undefined
+    const maskingBlendControlCount = typeof record.maskingBlendControlCount === 'number' && Number.isFinite(record.maskingBlendControlCount) ? record.maskingBlendControlCount : undefined
+    const maskingCapturedAt = stringField(record.maskingCapturedAt)
+    const maskingEvidence = stringField(record.maskingEvidence)
     const agentStepCount = typeof record.agentStepCount === 'number' && Number.isFinite(record.agentStepCount) ? record.agentStepCount : undefined
     const agentActorCount = typeof record.agentActorCount === 'number' && Number.isFinite(record.agentActorCount) ? record.agentActorCount : undefined
     const agentTaskCreatedCount = typeof record.agentTaskCreatedCount === 'number' && Number.isFinite(record.agentTaskCreatedCount) ? record.agentTaskCreatedCount : undefined
@@ -688,6 +704,14 @@ function getCanvasBenchmarkProof(data: unknown): Partial<Record<CreativeCanvasBe
       || editingLocalEventCount !== undefined
       || editingCapturedAt
       || editingEvidence
+      || maskingEditNodeCount !== undefined
+      || maskingPromptCount !== undefined
+      || maskingIntentCount !== undefined
+      || maskingRegionCount !== undefined
+      || maskingBrushStrokeCount !== undefined
+      || maskingBlendControlCount !== undefined
+      || maskingCapturedAt
+      || maskingEvidence
       || agentStepCount !== undefined
       || agentActorCount !== undefined
       || agentTaskCreatedCount !== undefined
@@ -753,6 +777,14 @@ function getCanvasBenchmarkProof(data: unknown): Partial<Record<CreativeCanvasBe
         editingLocalEventCount,
         editingCapturedAt,
         editingEvidence,
+        maskingEditNodeCount,
+        maskingPromptCount,
+        maskingIntentCount,
+        maskingRegionCount,
+        maskingBrushStrokeCount,
+        maskingBlendControlCount,
+        maskingCapturedAt,
+        maskingEvidence,
         agentStepCount,
         agentActorCount,
         agentTaskCreatedCount,
@@ -861,6 +893,26 @@ function hasEditingSessionProof(proof: CreativeCanvasBenchmarkProofRecord | unde
   )
 }
 
+function hasMaskingSessionProof(proof: CreativeCanvasBenchmarkProofRecord | undefined): boolean {
+  return Boolean(
+    proof
+      && typeof proof.maskingEditNodeCount === 'number'
+      && proof.maskingEditNodeCount > 0
+      && typeof proof.maskingPromptCount === 'number'
+      && proof.maskingPromptCount > 0
+      && typeof proof.maskingIntentCount === 'number'
+      && proof.maskingIntentCount > 0
+      && typeof proof.maskingRegionCount === 'number'
+      && proof.maskingRegionCount > 0
+      && typeof proof.maskingBrushStrokeCount === 'number'
+      && proof.maskingBrushStrokeCount > 0
+      && typeof proof.maskingBlendControlCount === 'number'
+      && proof.maskingBlendControlCount >= 3
+      && proof.maskingCapturedAt
+      && proof.maskingEvidence,
+  )
+}
+
 function hasAgentOrchestrationProof(proof: CreativeCanvasBenchmarkProofRecord | undefined): boolean {
   return Boolean(
     proof
@@ -873,6 +925,31 @@ function hasAgentOrchestrationProof(proof: CreativeCanvasBenchmarkProofRecord | 
       && proof.agentTaskCreatedAt
       && proof.agentEvidence,
   )
+}
+
+function buildMaskingSessionProofFields(input: {
+  nodes: CreativeCanvasNode[]
+  capturedAt: string
+}): Pick<CreativeCanvasBenchmarkProofRecord, 'maskingEditNodeCount' | 'maskingPromptCount' | 'maskingIntentCount' | 'maskingRegionCount' | 'maskingBrushStrokeCount' | 'maskingBlendControlCount' | 'maskingCapturedAt' | 'maskingEvidence'> {
+  const editNodes = input.nodes.filter((node) => node.type === 'edit' || Boolean(node.edit))
+  const maskingPromptCount = editNodes.filter((node) => Boolean(node.edit?.prompt?.trim())).length
+  const maskingIntentCount = editNodes.filter((node) => Boolean(node.edit?.intent)).length
+  const maskingRegionCount = editNodes.filter((node) => Boolean(node.edit?.mask?.region || node.edit?.mask?.url || node.edit?.mask?.sourceNodeId)).length
+  const maskingBrushStrokeCount = editNodes.reduce((total, node) => total + (node.edit?.mask?.brush?.strokes?.length ?? 0), 0)
+  const maskingBlendControlCount = editNodes.reduce((total, node) => {
+    const controls = node.edit?.blendControls
+    return total + (controls ? blendControlOptions.filter((option) => controls[option.key] === true).length : 0)
+  }, 0)
+  return {
+    maskingEditNodeCount: editNodes.length,
+    maskingPromptCount,
+    maskingIntentCount,
+    maskingRegionCount,
+    maskingBrushStrokeCount,
+    maskingBlendControlCount,
+    maskingCapturedAt: input.capturedAt,
+    maskingEvidence: `${editNodes.length} edit node${editNodes.length === 1 ? '' : 's'}; ${maskingPromptCount} brush prompt${maskingPromptCount === 1 ? '' : 's'}; ${maskingRegionCount} mask region/source attachment${maskingRegionCount === 1 ? '' : 's'}; ${maskingBrushStrokeCount} brush stroke${maskingBrushStrokeCount === 1 ? '' : 's'}; ${maskingBlendControlCount} blend control${maskingBlendControlCount === 1 ? '' : 's'} enabled`,
+  }
 }
 
 function hasMobileViewportBenchmarkProof(proof: CreativeCanvasBenchmarkProofRecord | undefined): boolean {
@@ -2666,6 +2743,9 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
           editingEvidence: `${currentLocalEditingActivityCount} local graph edit${currentLocalEditingActivityCount === 1 ? '' : 's'} captured with edit controls active`,
         }
       : {}
+    const maskingSessionProof = key === 'masking_inpainting'
+      ? buildMaskingSessionProofFields({ nodes: parityAuditNodes, capturedAt })
+      : {}
     const collaborationSessionProof = key === 'collaboration'
       ? {
           collaborationRemoteActorCount: currentRemotePresence.length,
@@ -2746,6 +2826,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
         nodeCount: nodes.length,
         edgeCount: edges.length,
         ...editingSessionProof,
+        ...maskingSessionProof,
         ...collaborationSessionProof,
         ...agentOrchestrationProof,
         ...mobileViewportProof,
@@ -2779,7 +2860,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
     } finally {
       setSavingBenchmarkProofKey('')
     }
-  }, [activeCanvas, applyCanvasSnapshot, benchmarkProofDrafts, collaborationActivity, collaborationStreamConnected, currentGraphSignature, edges.length, latestAgentTaskCreation, latestCollaboratorDraft, nodes.length, orchestrationPlan.agents.length, orchestrationPlan.blockers.length, orchestrationPlan.steps.length, ownPresenceId, presence, resolvedOrgId, runOperations, runtimeProof])
+  }, [activeCanvas, applyCanvasSnapshot, benchmarkProofDrafts, collaborationActivity, collaborationStreamConnected, currentGraphSignature, edges.length, latestAgentTaskCreation, latestCollaboratorDraft, nodes.length, orchestrationPlan.agents.length, orchestrationPlan.blockers.length, orchestrationPlan.steps.length, ownPresenceId, parityAuditNodes, presence, resolvedOrgId, runOperations, runtimeProof])
 
   const applyRemoteCanvasUpdate = useCallback(async () => {
     if (!remoteCanvasUpdate?.id) return
@@ -4662,12 +4743,27 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
   const hasEditAffordanceEvidence = parityAuditNodes.some((node) => node.type === 'edit' || Boolean(node.edit))
   const localEditingActivityCount = collaborationActivity.filter((event) => event.source === 'local').length
   const hasEditingEvidence = hasEditAffordanceEvidence && localEditingActivityCount > 0
-  const hasMaskEvidence = parityAuditNodes.some((node) => Boolean(
-    node.edit?.mask?.region
-      || node.edit?.mask?.url
-      || node.edit?.mask?.sourceNodeId
-      || node.edit?.mask?.brush?.strokes?.length,
-  ))
+  const maskingEditNodes = parityAuditNodes.filter((node) => node.type === 'edit' || Boolean(node.edit))
+  const maskingPromptCount = maskingEditNodes.filter((node) => Boolean(node.edit?.prompt?.trim())).length
+  const maskingIntentCount = maskingEditNodes.filter((node) => Boolean(node.edit?.intent)).length
+  const maskingRegionCount = maskingEditNodes.filter((node) => Boolean(node.edit?.mask?.region || node.edit?.mask?.url || node.edit?.mask?.sourceNodeId)).length
+  const maskingBrushStrokeCount = maskingEditNodes.reduce((total, node) => total + (node.edit?.mask?.brush?.strokes?.length ?? 0), 0)
+  const maskingBlendControlCount = maskingEditNodes.reduce((total, node) => {
+    const controls = node.edit?.blendControls
+    return total + (controls ? blendControlOptions.filter((option) => controls[option.key] === true).length : 0)
+  }, 0)
+  const hasPartialMaskEvidence = maskingEditNodes.length > 0
+    || maskingPromptCount > 0
+    || maskingIntentCount > 0
+    || maskingRegionCount > 0
+    || maskingBrushStrokeCount > 0
+    || maskingBlendControlCount > 0
+  const hasMaskEvidence = maskingEditNodes.length > 0
+    && maskingPromptCount > 0
+    && maskingIntentCount > 0
+    && maskingRegionCount > 0
+    && maskingBrushStrokeCount > 0
+    && maskingBlendControlCount >= 3
   const hasGenerationEvidence = parityAuditNodes.some((node) => node.provider?.key === 'higgsfield' || node.type === 'model')
     && Boolean(runModel && runOutputKind && runAspectRatio && runVariantCount)
   const routedModelIds = new Set(parityAuditNodes
@@ -4752,6 +4848,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
     const proofCaptured = hasSourceBackedBenchmarkProof(proof, item.sourceSignals)
       && hasCurrentCanvasBenchmarkState(proof, currentProofGraphState)
       && (item.key !== 'editing_ergonomics' || hasEditingSessionProof(proof))
+      && (item.key !== 'masking_inpainting' || hasMaskingSessionProof(proof))
       && (item.key !== 'collaboration' || hasCollaborationSessionProof(proof))
       && (item.key !== 'agent_orchestration' || hasAgentOrchestrationProof(proof))
       && (item.key !== 'mobile_behavior' || hasMobileViewportBenchmarkProof(proof))
@@ -4831,6 +4928,9 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
             editingEvidence: `${localEditingActivityCount} local graph edit${localEditingActivityCount === 1 ? '' : 's'} captured with edit controls active`,
           }
         : {}
+      const maskingSessionProof = item.key === 'masking_inpainting'
+        ? buildMaskingSessionProofFields({ nodes: parityAuditNodes, capturedAt })
+        : {}
       const collaborationSessionProof = item.key === 'collaboration'
         ? {
             collaborationRemoteActorCount: remotePresence.length,
@@ -4893,6 +4993,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
         nodeCount: nodes.length,
         edgeCount: edges.length,
         ...editingSessionProof,
+        ...maskingSessionProof,
         ...collaborationSessionProof,
         ...agentOrchestrationProof,
         ...mobileViewportProof,
@@ -4943,8 +5044,12 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
     },
     {
       label: 'Masking / inpainting',
-      status: hasMaskEvidence ? 'passed' : hasEditingEvidence ? 'watch' : 'blocked',
-      evidence: hasMaskEvidence ? 'Mask region or brush data attached' : 'No mask evidence on this graph yet',
+      status: hasMaskEvidence ? 'passed' : hasPartialMaskEvidence || hasEditingEvidence ? 'watch' : 'blocked',
+      evidence: hasMaskEvidence
+        ? `${maskingEditNodes.length} edit node${maskingEditNodes.length === 1 ? '' : 's'} · ${maskingBrushStrokeCount} brush stroke${maskingBrushStrokeCount === 1 ? '' : 's'} · ${maskingBlendControlCount}/3+ blend controls`
+        : hasPartialMaskEvidence
+          ? `${maskingPromptCount} prompt · ${maskingRegionCount} mask/source · ${maskingBrushStrokeCount} brush · ${maskingBlendControlCount}/3+ blend controls`
+          : 'No mask evidence on this graph yet',
     },
     {
       label: 'Generation controls',
@@ -5643,6 +5748,9 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
               {item.key === 'editing_ergonomics' && item.proof && !hasEditingSessionProof(item.proof) ? (
                 <p className="mt-1 text-[11px] font-semibold">Needs stored local editing session evidence before editing proof can pass.</p>
               ) : null}
+              {item.key === 'masking_inpainting' && item.proof && !hasMaskingSessionProof(item.proof) ? (
+                <p className="mt-1 text-[11px] font-semibold">Needs stored brush mask, prompt, intent, and blend-control evidence before masking proof can pass.</p>
+              ) : null}
               {item.key === 'agent_orchestration' && item.proof && !hasAgentOrchestrationProof(item.proof) ? (
                 <p className="mt-1 text-[11px] font-semibold">Needs stored project-linked agent task evidence before AI agent integration proof can pass.</p>
               ) : null}
@@ -5703,6 +5811,11 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
                   {item.key === 'editing_ergonomics' && item.proof.editingEvidence ? (
                     <p className="mt-1">
                       Editing session: {item.proof.editingLocalEventCount ?? 0} local graph edit{item.proof.editingLocalEventCount === 1 ? '' : 's'}
+                    </p>
+                  ) : null}
+                  {item.key === 'masking_inpainting' && item.proof.maskingEvidence ? (
+                    <p className="mt-1">
+                      Masking session: {item.proof.maskingEditNodeCount ?? 0} edit node{item.proof.maskingEditNodeCount === 1 ? '' : 's'} · {item.proof.maskingBrushStrokeCount ?? 0} brush stroke{item.proof.maskingBrushStrokeCount === 1 ? '' : 's'} · {item.proof.maskingBlendControlCount ?? 0} blend control{item.proof.maskingBlendControlCount === 1 ? '' : 's'}
                     </p>
                   ) : null}
                   {item.key === 'agent_orchestration' && item.proof.agentEvidence ? (

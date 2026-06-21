@@ -272,6 +272,26 @@ function cleanBenchmarkProofData(value: unknown): Record<string, unknown> | unde
         : undefined
       const editingCapturedAt = cleanString(item.editingCapturedAt)?.slice(0, 80)
       const editingEvidence = cleanString(item.editingEvidence)?.slice(0, 300)
+      const maskingEditNodeCount = typeof item.maskingEditNodeCount === 'number' && Number.isFinite(item.maskingEditNodeCount)
+        ? Math.max(0, Math.round(item.maskingEditNodeCount))
+        : undefined
+      const maskingPromptCount = typeof item.maskingPromptCount === 'number' && Number.isFinite(item.maskingPromptCount)
+        ? Math.max(0, Math.round(item.maskingPromptCount))
+        : undefined
+      const maskingIntentCount = typeof item.maskingIntentCount === 'number' && Number.isFinite(item.maskingIntentCount)
+        ? Math.max(0, Math.round(item.maskingIntentCount))
+        : undefined
+      const maskingRegionCount = typeof item.maskingRegionCount === 'number' && Number.isFinite(item.maskingRegionCount)
+        ? Math.max(0, Math.round(item.maskingRegionCount))
+        : undefined
+      const maskingBrushStrokeCount = typeof item.maskingBrushStrokeCount === 'number' && Number.isFinite(item.maskingBrushStrokeCount)
+        ? Math.max(0, Math.round(item.maskingBrushStrokeCount))
+        : undefined
+      const maskingBlendControlCount = typeof item.maskingBlendControlCount === 'number' && Number.isFinite(item.maskingBlendControlCount)
+        ? Math.max(0, Math.round(item.maskingBlendControlCount))
+        : undefined
+      const maskingCapturedAt = cleanString(item.maskingCapturedAt)?.slice(0, 80)
+      const maskingEvidence = cleanString(item.maskingEvidence)?.slice(0, 400)
       const agentStepCount = typeof item.agentStepCount === 'number' && Number.isFinite(item.agentStepCount)
         ? Math.max(0, Math.round(item.agentStepCount))
         : undefined
@@ -368,6 +388,14 @@ function cleanBenchmarkProofData(value: unknown): Record<string, unknown> | unde
         && editingLocalEventCount === undefined
         && !editingCapturedAt
         && !editingEvidence
+        && maskingEditNodeCount === undefined
+        && maskingPromptCount === undefined
+        && maskingIntentCount === undefined
+        && maskingRegionCount === undefined
+        && maskingBrushStrokeCount === undefined
+        && maskingBlendControlCount === undefined
+        && !maskingCapturedAt
+        && !maskingEvidence
         && agentStepCount === undefined
         && agentActorCount === undefined
         && agentTaskCreatedCount === undefined
@@ -433,6 +461,14 @@ function cleanBenchmarkProofData(value: unknown): Record<string, unknown> | unde
         ...(editingLocalEventCount !== undefined ? { editingLocalEventCount } : {}),
         ...(editingCapturedAt ? { editingCapturedAt } : {}),
         ...(editingEvidence ? { editingEvidence } : {}),
+        ...(maskingEditNodeCount !== undefined ? { maskingEditNodeCount } : {}),
+        ...(maskingPromptCount !== undefined ? { maskingPromptCount } : {}),
+        ...(maskingIntentCount !== undefined ? { maskingIntentCount } : {}),
+        ...(maskingRegionCount !== undefined ? { maskingRegionCount } : {}),
+        ...(maskingBrushStrokeCount !== undefined ? { maskingBrushStrokeCount } : {}),
+        ...(maskingBlendControlCount !== undefined ? { maskingBlendControlCount } : {}),
+        ...(maskingCapturedAt ? { maskingCapturedAt } : {}),
+        ...(maskingEvidence ? { maskingEvidence } : {}),
         ...(agentStepCount !== undefined ? { agentStepCount } : {}),
         ...(agentActorCount !== undefined ? { agentActorCount } : {}),
         ...(agentTaskCreatedCount !== undefined ? { agentTaskCreatedCount } : {}),
