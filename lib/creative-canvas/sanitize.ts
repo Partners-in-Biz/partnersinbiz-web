@@ -306,6 +306,21 @@ function cleanBenchmarkProofData(value: unknown): Record<string, unknown> | unde
         : undefined
       const generationMultiReferenceCapturedAt = cleanString(item.generationMultiReferenceCapturedAt)?.slice(0, 80)
       const generationMultiReferenceEvidence = cleanString(item.generationMultiReferenceEvidence)?.slice(0, 400)
+      const versionSnapshotCount = typeof item.versionSnapshotCount === 'number' && Number.isFinite(item.versionSnapshotCount)
+        ? Math.max(0, Math.round(item.versionSnapshotCount))
+        : undefined
+      const versionRestorableSnapshotCount = typeof item.versionRestorableSnapshotCount === 'number' && Number.isFinite(item.versionRestorableSnapshotCount)
+        ? Math.max(0, Math.round(item.versionRestorableSnapshotCount))
+        : undefined
+      const versionNodeCommentCount = typeof item.versionNodeCommentCount === 'number' && Number.isFinite(item.versionNodeCommentCount)
+        ? Math.max(0, Math.round(item.versionNodeCommentCount))
+        : undefined
+      const versionReusableTemplateCount = typeof item.versionReusableTemplateCount === 'number' && Number.isFinite(item.versionReusableTemplateCount)
+        ? Math.max(0, Math.round(item.versionReusableTemplateCount))
+        : undefined
+      const versionAutoSaveEnabled = item.versionAutoSaveEnabled === true ? true : undefined
+      const versionCapturedAt = cleanString(item.versionCapturedAt)?.slice(0, 80)
+      const versionEvidence = cleanString(item.versionEvidence)?.slice(0, 400)
       const agentStepCount = typeof item.agentStepCount === 'number' && Number.isFinite(item.agentStepCount)
         ? Math.max(0, Math.round(item.agentStepCount))
         : undefined
@@ -416,6 +431,13 @@ function cleanBenchmarkProofData(value: unknown): Record<string, unknown> | unde
         && generationLinkedReferenceCount === undefined
         && !generationMultiReferenceCapturedAt
         && !generationMultiReferenceEvidence
+        && versionSnapshotCount === undefined
+        && versionRestorableSnapshotCount === undefined
+        && versionNodeCommentCount === undefined
+        && versionReusableTemplateCount === undefined
+        && versionAutoSaveEnabled === undefined
+        && !versionCapturedAt
+        && !versionEvidence
         && agentStepCount === undefined
         && agentActorCount === undefined
         && agentTaskCreatedCount === undefined
@@ -495,6 +517,13 @@ function cleanBenchmarkProofData(value: unknown): Record<string, unknown> | unde
         ...(generationLinkedReferenceCount !== undefined ? { generationLinkedReferenceCount } : {}),
         ...(generationMultiReferenceCapturedAt ? { generationMultiReferenceCapturedAt } : {}),
         ...(generationMultiReferenceEvidence ? { generationMultiReferenceEvidence } : {}),
+        ...(versionSnapshotCount !== undefined ? { versionSnapshotCount } : {}),
+        ...(versionRestorableSnapshotCount !== undefined ? { versionRestorableSnapshotCount } : {}),
+        ...(versionNodeCommentCount !== undefined ? { versionNodeCommentCount } : {}),
+        ...(versionReusableTemplateCount !== undefined ? { versionReusableTemplateCount } : {}),
+        ...(versionAutoSaveEnabled !== undefined ? { versionAutoSaveEnabled } : {}),
+        ...(versionCapturedAt ? { versionCapturedAt } : {}),
+        ...(versionEvidence ? { versionEvidence } : {}),
         ...(agentStepCount !== undefined ? { agentStepCount } : {}),
         ...(agentActorCount !== undefined ? { agentActorCount } : {}),
         ...(agentTaskCreatedCount !== undefined ? { agentTaskCreatedCount } : {}),

@@ -133,6 +133,13 @@ type CreativeCanvasBenchmarkProofRecord = {
   generationLinkedReferenceCount?: number
   generationMultiReferenceCapturedAt?: string
   generationMultiReferenceEvidence?: string
+  versionSnapshotCount?: number
+  versionRestorableSnapshotCount?: number
+  versionNodeCommentCount?: number
+  versionReusableTemplateCount?: number
+  versionAutoSaveEnabled?: boolean
+  versionCapturedAt?: string
+  versionEvidence?: string
   agentStepCount?: number
   agentActorCount?: number
   agentTaskCreatedCount?: number
@@ -406,7 +413,7 @@ const benchmarkProofConfigs: Array<{
     benchmark: 'Auto-save, preview, restore/fork safety, comments, review state, and non-destructive history inspection.',
     sourceTitle: 'Higgsfield Canvas saved versions and comments',
     sourceUrl: 'https://higgsfield.ai/canvas-intro',
-    sourceSignals: ['Every version is saved', 'nothing gets lost', 'shared space'],
+    sourceSignals: ['Every version is saved', 'nothing gets lost', 'comments stay attached', 'reusable template'],
   },
   {
     key: 'collaboration',
@@ -650,6 +657,13 @@ function getCanvasBenchmarkProof(data: unknown): Partial<Record<CreativeCanvasBe
     const generationLinkedReferenceCount = typeof record.generationLinkedReferenceCount === 'number' && Number.isFinite(record.generationLinkedReferenceCount) ? record.generationLinkedReferenceCount : undefined
     const generationMultiReferenceCapturedAt = stringField(record.generationMultiReferenceCapturedAt)
     const generationMultiReferenceEvidence = stringField(record.generationMultiReferenceEvidence)
+    const versionSnapshotCount = typeof record.versionSnapshotCount === 'number' && Number.isFinite(record.versionSnapshotCount) ? record.versionSnapshotCount : undefined
+    const versionRestorableSnapshotCount = typeof record.versionRestorableSnapshotCount === 'number' && Number.isFinite(record.versionRestorableSnapshotCount) ? record.versionRestorableSnapshotCount : undefined
+    const versionNodeCommentCount = typeof record.versionNodeCommentCount === 'number' && Number.isFinite(record.versionNodeCommentCount) ? record.versionNodeCommentCount : undefined
+    const versionReusableTemplateCount = typeof record.versionReusableTemplateCount === 'number' && Number.isFinite(record.versionReusableTemplateCount) ? record.versionReusableTemplateCount : undefined
+    const versionAutoSaveEnabled = record.versionAutoSaveEnabled === true
+    const versionCapturedAt = stringField(record.versionCapturedAt)
+    const versionEvidence = stringField(record.versionEvidence)
     const agentStepCount = typeof record.agentStepCount === 'number' && Number.isFinite(record.agentStepCount) ? record.agentStepCount : undefined
     const agentActorCount = typeof record.agentActorCount === 'number' && Number.isFinite(record.agentActorCount) ? record.agentActorCount : undefined
     const agentTaskCreatedCount = typeof record.agentTaskCreatedCount === 'number' && Number.isFinite(record.agentTaskCreatedCount) ? record.agentTaskCreatedCount : undefined
@@ -730,6 +744,13 @@ function getCanvasBenchmarkProof(data: unknown): Partial<Record<CreativeCanvasBe
       || generationLinkedReferenceCount !== undefined
       || generationMultiReferenceCapturedAt
       || generationMultiReferenceEvidence
+      || versionSnapshotCount !== undefined
+      || versionRestorableSnapshotCount !== undefined
+      || versionNodeCommentCount !== undefined
+      || versionReusableTemplateCount !== undefined
+      || versionAutoSaveEnabled
+      || versionCapturedAt
+      || versionEvidence
       || agentStepCount !== undefined
       || agentActorCount !== undefined
       || agentTaskCreatedCount !== undefined
@@ -809,6 +830,13 @@ function getCanvasBenchmarkProof(data: unknown): Partial<Record<CreativeCanvasBe
         generationLinkedReferenceCount,
         generationMultiReferenceCapturedAt,
         generationMultiReferenceEvidence,
+        versionSnapshotCount,
+        versionRestorableSnapshotCount,
+        versionNodeCommentCount,
+        versionReusableTemplateCount,
+        versionAutoSaveEnabled,
+        versionCapturedAt,
+        versionEvidence,
         agentStepCount,
         agentActorCount,
         agentTaskCreatedCount,
@@ -1002,6 +1030,67 @@ function buildGenerationReferenceProofFields(input: {
     ...evidence,
     generationMultiReferenceCapturedAt: input.capturedAt,
     generationMultiReferenceEvidence: `${evidence.generationLinkedReferenceCount}/3 linked generation reference${evidence.generationLinkedReferenceCount === 1 ? '' : 's'} across ${evidence.generationReferenceRoleCount}/3 role${evidence.generationReferenceRoleCount === 1 ? '' : 's'} and ${evidence.generationModelCount} generation node${evidence.generationModelCount === 1 ? '' : 's'}`,
+  }
+}
+
+function collectVersioningEvidence(input: {
+  versions: Array<CreativeCanvasVersion & { id?: string }>
+  comments: Array<CreativeCanvasComment & { id?: string }>
+  templates: Array<CreativeCanvasTemplate & { id?: string }>
+  autoSaveEnabled: boolean
+}) {
+  const restorableSnapshots = input.versions.filter((version) => (
+    Boolean(version.id)
+      && Array.isArray(version.nodes)
+      && Array.isArray(version.edges)
+      && version.nodes.length > 0
+  ))
+  const nodeCommentCount = input.comments.filter((comment) => Boolean(comment.nodeId && comment.body?.trim())).length
+  const reusableTemplateCount = input.templates.filter((template) => (
+    Boolean(template.id)
+      && Array.isArray(template.nodes)
+      && Array.isArray(template.edges)
+      && template.nodes.length > 0
+  )).length
+
+  return {
+    versionSnapshotCount: input.versions.length,
+    versionRestorableSnapshotCount: restorableSnapshots.length,
+    versionNodeCommentCount: nodeCommentCount,
+    versionReusableTemplateCount: reusableTemplateCount,
+    versionAutoSaveEnabled: input.autoSaveEnabled,
+  }
+}
+
+function hasVersioningPolishProof(proof: CreativeCanvasBenchmarkProofRecord | undefined): boolean {
+  return Boolean(
+    proof
+      && typeof proof.versionSnapshotCount === 'number'
+      && proof.versionSnapshotCount > 0
+      && typeof proof.versionRestorableSnapshotCount === 'number'
+      && proof.versionRestorableSnapshotCount > 0
+      && typeof proof.versionNodeCommentCount === 'number'
+      && proof.versionNodeCommentCount > 0
+      && typeof proof.versionReusableTemplateCount === 'number'
+      && proof.versionReusableTemplateCount > 0
+      && proof.versionAutoSaveEnabled === true
+      && proof.versionCapturedAt
+      && proof.versionEvidence,
+  )
+}
+
+function buildVersioningPolishProofFields(input: {
+  versions: Array<CreativeCanvasVersion & { id?: string }>
+  comments: Array<CreativeCanvasComment & { id?: string }>
+  templates: Array<CreativeCanvasTemplate & { id?: string }>
+  autoSaveEnabled: boolean
+  capturedAt: string
+}): Pick<CreativeCanvasBenchmarkProofRecord, 'versionSnapshotCount' | 'versionRestorableSnapshotCount' | 'versionNodeCommentCount' | 'versionReusableTemplateCount' | 'versionAutoSaveEnabled' | 'versionCapturedAt' | 'versionEvidence'> {
+  const evidence = collectVersioningEvidence(input)
+  return {
+    ...evidence,
+    versionCapturedAt: input.capturedAt,
+    versionEvidence: `${evidence.versionRestorableSnapshotCount}/${evidence.versionSnapshotCount} restorable saved version${evidence.versionSnapshotCount === 1 ? '' : 's'}; ${evidence.versionNodeCommentCount} node-attached comment${evidence.versionNodeCommentCount === 1 ? '' : 's'}; ${evidence.versionReusableTemplateCount} reusable template${evidence.versionReusableTemplateCount === 1 ? '' : 's'}; auto-save ${evidence.versionAutoSaveEnabled ? 'enabled' : 'disabled'}`,
   }
 }
 
@@ -2843,6 +2932,9 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
     const generationReferenceProof = key === 'generation_controls'
       ? buildGenerationReferenceProofFields({ nodes: benchmarkAuditNodes, edges: benchmarkAuditEdges, capturedAt })
       : {}
+    const versioningPolishProof = key === 'versioning_polish'
+      ? buildVersioningPolishProofFields({ versions, comments, templates, autoSaveEnabled, capturedAt })
+      : {}
     const collaborationSessionProof = key === 'collaboration'
       ? {
           collaborationRemoteActorCount: currentRemotePresence.length,
@@ -2925,6 +3017,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
         ...editingSessionProof,
         ...maskingSessionProof,
         ...generationReferenceProof,
+        ...versioningPolishProof,
         ...collaborationSessionProof,
         ...agentOrchestrationProof,
         ...mobileViewportProof,
@@ -2958,7 +3051,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
     } finally {
       setSavingBenchmarkProofKey('')
     }
-  }, [activeCanvas, applyCanvasSnapshot, benchmarkProofDrafts, collaborationActivity, collaborationStreamConnected, currentGraphSignature, edges, latestAgentTaskCreation, latestCollaboratorDraft, nodes, orchestrationPlan.agents.length, orchestrationPlan.blockers.length, orchestrationPlan.steps.length, ownPresenceId, presence, resolvedOrgId, runOperations, runtimeProof])
+  }, [activeCanvas, applyCanvasSnapshot, autoSaveEnabled, benchmarkProofDrafts, collaborationActivity, collaborationStreamConnected, comments, currentGraphSignature, edges, latestAgentTaskCreation, latestCollaboratorDraft, nodes, orchestrationPlan.agents.length, orchestrationPlan.blockers.length, orchestrationPlan.steps.length, ownPresenceId, presence, resolvedOrgId, runOperations, runtimeProof, templates, versions])
 
   const applyRemoteCanvasUpdate = useCallback(async () => {
     if (!remoteCanvasUpdate?.id) return
@@ -4936,13 +5029,19 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
     && (latestExportPackage?.manifest?.downstreamDraftCount ?? 0) >= (latestExportPackage?.assetCount ?? 0)
     && passedExportProofCategories.length >= exportProofCategories.length
     && hasExportArtifactBackedCoverage
+  const versioningEvidence = collectVersioningEvidence({ versions, comments, templates, autoSaveEnabled })
+  const hasVersioningPolishEvidence = versioningEvidence.versionSnapshotCount > 0
+    && versioningEvidence.versionRestorableSnapshotCount > 0
+    && versioningEvidence.versionNodeCommentCount > 0
+    && versioningEvidence.versionReusableTemplateCount > 0
+    && versioningEvidence.versionAutoSaveEnabled
   const benchmarkProofRecords = getCanvasBenchmarkProof(activeCanvas?.data)
   const benchmarkSignals: Record<CreativeCanvasBenchmarkProofKey, boolean> = {
     editing_ergonomics: hasEditingEvidence,
     masking_inpainting: hasMaskEvidence,
     generation_controls: hasGenerationEvidence && hasMultiModelRoutingEvidence && hasGenerationMultiReferenceEvidence,
     multi_asset_workflows: hasMultiAssetEvidence && graphBenchmarkScenarioCount > 0,
-    versioning_polish: hasVersionEvidence,
+    versioning_polish: hasVersioningPolishEvidence,
     collaboration: hasCollaborationEvidence && hasRemoteLiveEditEvidence,
     agent_orchestration: hasAgentTaskCreationEvidence,
     mobile_behavior: capturedVisualProofCount >= visualProofItems.length,
@@ -4956,6 +5055,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
       && (item.key !== 'editing_ergonomics' || hasEditingSessionProof(proof))
       && (item.key !== 'masking_inpainting' || hasMaskingSessionProof(proof))
       && (item.key !== 'generation_controls' || hasGenerationReferenceProof(proof))
+      && (item.key !== 'versioning_polish' || hasVersioningPolishProof(proof))
       && (item.key !== 'collaboration' || hasCollaborationSessionProof(proof))
       && (item.key !== 'agent_orchestration' || hasAgentOrchestrationProof(proof))
       && (item.key !== 'mobile_behavior' || hasMobileViewportBenchmarkProof(proof))
@@ -5041,6 +5141,9 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
       const generationReferenceProof = item.key === 'generation_controls'
         ? buildGenerationReferenceProofFields({ nodes: parityAuditNodes, edges: edges.map((edge) => toCanvasEdge(edge, canvasOrgId)), capturedAt })
         : {}
+      const versioningPolishProof = item.key === 'versioning_polish'
+        ? buildVersioningPolishProofFields({ versions, comments, templates, autoSaveEnabled, capturedAt })
+        : {}
       const collaborationSessionProof = item.key === 'collaboration'
         ? {
             collaborationRemoteActorCount: remotePresence.length,
@@ -5105,6 +5208,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
         ...editingSessionProof,
         ...maskingSessionProof,
         ...generationReferenceProof,
+        ...versioningPolishProof,
         ...collaborationSessionProof,
         ...agentOrchestrationProof,
         ...mobileViewportProof,
@@ -5192,8 +5296,10 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
     },
     {
       label: 'Versioning polish',
-      status: hasVersionEvidence ? 'passed' : 'watch',
-      evidence: hasVersionEvidence ? `${versions.length} saved versions with auto-save` : 'No saved version evidence loaded',
+      status: hasVersioningPolishEvidence ? 'passed' : hasVersionEvidence || templates.length || comments.length ? 'watch' : 'blocked',
+      evidence: hasVersioningPolishEvidence
+        ? `${versioningEvidence.versionRestorableSnapshotCount}/${versioningEvidence.versionSnapshotCount} restorable versions · ${versioningEvidence.versionNodeCommentCount} node comments · ${versioningEvidence.versionReusableTemplateCount} templates`
+        : `${versioningEvidence.versionSnapshotCount} saved · ${versioningEvidence.versionNodeCommentCount} node comments · ${versioningEvidence.versionReusableTemplateCount} templates · auto-save ${versioningEvidence.versionAutoSaveEnabled ? 'on' : 'off'}`,
     },
     {
       label: 'Collaboration',
@@ -5867,6 +5973,9 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
               {item.key === 'generation_controls' && item.proof && !hasGenerationReferenceProof(item.proof) ? (
                 <p className="mt-1 text-[11px] font-semibold">Needs stored three-reference generation routing evidence before generation proof can pass.</p>
               ) : null}
+              {item.key === 'versioning_polish' && item.proof && !hasVersioningPolishProof(item.proof) ? (
+                <p className="mt-1 text-[11px] font-semibold">Needs stored restorable version, node comment, reusable template, and auto-save evidence before versioning proof can pass.</p>
+              ) : null}
               {item.key === 'agent_orchestration' && item.proof && !hasAgentOrchestrationProof(item.proof) ? (
                 <p className="mt-1 text-[11px] font-semibold">Needs stored project-linked agent task evidence before AI agent integration proof can pass.</p>
               ) : null}
@@ -5937,6 +6046,11 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
                   {item.key === 'generation_controls' && item.proof.generationMultiReferenceEvidence ? (
                     <p className="mt-1">
                       Generation references: {item.proof.generationLinkedReferenceCount ?? 0}/3 linked · {item.proof.generationReferenceRoleCount ?? 0}/3 roles · {item.proof.generationModelCount ?? 0} generation node{item.proof.generationModelCount === 1 ? '' : 's'}
+                    </p>
+                  ) : null}
+                  {item.key === 'versioning_polish' && item.proof.versionEvidence ? (
+                    <p className="mt-1">
+                      Versioning: {item.proof.versionRestorableSnapshotCount ?? 0}/{item.proof.versionSnapshotCount ?? 0} restorable versions · {item.proof.versionNodeCommentCount ?? 0} node comments · {item.proof.versionReusableTemplateCount ?? 0} templates · auto-save {item.proof.versionAutoSaveEnabled ? 'on' : 'off'}
                     </p>
                   ) : null}
                   {item.key === 'agent_orchestration' && item.proof.agentEvidence ? (

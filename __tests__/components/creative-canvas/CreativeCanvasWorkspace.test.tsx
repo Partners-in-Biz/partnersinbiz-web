@@ -1303,7 +1303,7 @@ describe('CreativeCanvasWorkspace', () => {
     const benchmarkProof = screen.getByLabelText(/direct higgsfield benchmark proof/i)
     expect(benchmarkProof).toHaveTextContent('Needs stored signed-in viewport matrix evidence before mobile benchmark proof can pass.')
     expect(benchmarkProof).toHaveTextContent('0/10 benchmark proven')
-    expect(benchmarkProof).toHaveTextContent('3 ready benchmark categories need stored proof.')
+    expect(benchmarkProof).toHaveTextContent('2 ready benchmark categories need stored proof.')
     const proofRunbook = screen.getByLabelText(/creative canvas world-class proof runbook/i)
     expect(proofRunbook).toHaveTextContent('0/7 complete')
     expect(proofRunbook).toHaveTextContent('4/4 signed-in viewport proofs stored')
@@ -1617,6 +1617,36 @@ describe('CreativeCanvasWorkspace', () => {
   })
 
   it('captures all ready benchmark proofs without passing unready gaps', async () => {
+    const defaultFetch = fetchMock.getMockImplementation()
+    fetchMock.mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      if (url.includes('/comments') && init?.method !== 'POST') {
+        return {
+          ok: true,
+          json: async () => ({
+            success: true,
+            data: {
+              comments: [{
+                id: 'comment-version-1',
+                orgId: 'org-1',
+                canvasId: 'canvas-1',
+                nodeId: 'version-source',
+                body: 'Keep this node note attached to the saved version.',
+                visibility: 'admin_agents',
+                resolved: false,
+                createdBy: 'user-1',
+                createdByType: 'user',
+              }],
+            },
+          }),
+        }
+      }
+      return defaultFetch?.(input, init) ?? {
+        ok: true,
+        json: async () => ({ success: true, data: {} }),
+      }
+    })
+
     render(<CreativeCanvasWorkspace mode="admin" orgId="org-1" />)
 
     expect(await screen.findByText('Launch Canvas')).toBeInTheDocument()
@@ -1636,7 +1666,7 @@ describe('CreativeCanvasWorkspace', () => {
     ))
     expect(patchCall).toBeTruthy()
     const body = JSON.parse(String(patchCall?.[1]?.body ?? '{}')) as {
-      data?: { benchmarkProof?: Record<string, { proofUrl?: string; notes?: string; capturedAt?: string; capturedBy?: string; sourceTitle?: string; sourceUrl?: string; sourceCheckedAt?: string; sourceEvidenceCheckedAt?: string; sourceEvidenceReachable?: boolean; sourceEvidenceStatus?: number; sourceEvidenceContentType?: string; sourceSignalsVerifiedAt?: string; sourceSignalsMatched?: boolean; sourceSignalsMissing?: string[]; sourceSignals?: string[]; higgsfieldUiEvidenceUrl?: string; canvasEvidenceUrl?: string; canvasEvidenceCheckedAt?: string; canvasEvidenceReachable?: boolean; canvasEvidenceStatus?: number; canvasEvidenceContentType?: string; directComparisonAt?: string; directComparisonVerdict?: string; directComparisonNotes?: string; canvasVersion?: number; graphSignature?: string; nodeCount?: number; edgeCount?: number }> }
+      data?: { benchmarkProof?: Record<string, { proofUrl?: string; notes?: string; capturedAt?: string; capturedBy?: string; sourceTitle?: string; sourceUrl?: string; sourceCheckedAt?: string; sourceEvidenceCheckedAt?: string; sourceEvidenceReachable?: boolean; sourceEvidenceStatus?: number; sourceEvidenceContentType?: string; sourceSignalsVerifiedAt?: string; sourceSignalsMatched?: boolean; sourceSignalsMissing?: string[]; sourceSignals?: string[]; higgsfieldUiEvidenceUrl?: string; canvasEvidenceUrl?: string; canvasEvidenceCheckedAt?: string; canvasEvidenceReachable?: boolean; canvasEvidenceStatus?: number; canvasEvidenceContentType?: string; directComparisonAt?: string; directComparisonVerdict?: string; directComparisonNotes?: string; canvasVersion?: number; graphSignature?: string; nodeCount?: number; edgeCount?: number; versionSnapshotCount?: number; versionRestorableSnapshotCount?: number; versionNodeCommentCount?: number; versionReusableTemplateCount?: number; versionAutoSaveEnabled?: boolean; versionCapturedAt?: string; versionEvidence?: string }> }
     }
     expect(body.data?.benchmarkProof?.versioning_polish).toMatchObject({
       proofUrl: expect.stringContaining('#direct-higgsfield-benchmark-proof'),
@@ -1648,7 +1678,7 @@ describe('CreativeCanvasWorkspace', () => {
       sourceEvidenceContentType: 'text/html',
       sourceSignalsMatched: true,
       sourceSignalsMissing: [],
-      sourceSignals: ['Every version is saved', 'nothing gets lost', 'shared space'],
+      sourceSignals: ['Every version is saved', 'nothing gets lost', 'comments stay attached', 'reusable template'],
       higgsfieldUiEvidenceUrl: 'https://higgsfield.ai/canvas-intro',
       canvasEvidenceUrl: expect.stringContaining('#direct-higgsfield-benchmark-proof'),
       canvasEvidenceReachable: true,
@@ -1659,6 +1689,13 @@ describe('CreativeCanvasWorkspace', () => {
       canvasVersion: 1,
       nodeCount: expect.any(Number),
       edgeCount: expect.any(Number),
+      versionSnapshotCount: 1,
+      versionRestorableSnapshotCount: 1,
+      versionNodeCommentCount: 1,
+      versionReusableTemplateCount: 1,
+      versionAutoSaveEnabled: true,
+      versionCapturedAt: expect.any(String),
+      versionEvidence: expect.stringContaining('1/1 restorable saved version'),
     })
     expect(body.data?.benchmarkProof?.collaboration).toMatchObject({
       proofUrl: expect.stringContaining('#direct-higgsfield-benchmark-proof'),
@@ -1770,6 +1807,77 @@ describe('CreativeCanvasWorkspace', () => {
     expect(benchmarkProof).toHaveTextContent('Needs stored two-user session evidence before collaboration proof can pass.')
   })
 
+  it('does not pass versioning benchmark proof without saved-version comment and template evidence', async () => {
+    const defaultFetch = fetchMock.getMockImplementation()
+    const emptyGraphSignature = JSON.stringify({ nodes: [], edges: [] })
+    fetchMock.mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      if (url === '/api/v1/creative-canvas?orgId=org-1') {
+        return {
+          ok: true,
+          json: async () => ({
+            success: true,
+            data: {
+              canvases: [{
+                id: 'canvas-1',
+                orgId: 'org-1',
+                title: 'Launch Canvas',
+                activeVersion: 1,
+                data: {
+                  benchmarkProof: {
+                    versioning_polish: {
+                      proofUrl: 'https://proof.example.com/versioning.mp4',
+                      notes: 'Legacy versioning proof before version metadata was required.',
+                      capturedAt: '2026-06-21T10:00:00.000Z',
+                      capturedBy: 'Pip',
+                      sourceTitle: 'Higgsfield Canvas saved versions and comments',
+                      sourceUrl: 'https://higgsfield.ai/canvas-intro',
+                      sourceCheckedAt: '2026-06-21T10:01:00.000Z',
+                      sourceEvidenceCheckedAt: '2026-06-21T10:01:10.000Z',
+                      sourceEvidenceReachable: true,
+                      sourceEvidenceStatus: 200,
+                      sourceEvidenceContentType: 'text/html',
+                      sourceSignalsVerifiedAt: '2026-06-21T10:01:20.000Z',
+                      sourceSignalsMatched: true,
+                      sourceSignalsMissing: [],
+                      sourceSignals: ['Every version is saved', 'nothing gets lost', 'comments stay attached', 'reusable template'],
+                      higgsfieldUiEvidenceUrl: 'https://higgsfield.ai/canvas-intro',
+                      canvasEvidenceUrl: 'https://proof.example.com/versioning.mp4',
+                      canvasEvidenceCheckedAt: '2026-06-21T10:01:30.000Z',
+                      canvasEvidenceReachable: true,
+                      canvasEvidenceStatus: 200,
+                      canvasEvidenceContentType: 'video/mp4',
+                      directComparisonAt: '2026-06-21T10:02:00.000Z',
+                      directComparisonVerdict: 'pass',
+                      directComparisonNotes: 'Direct versioning comparison passed.',
+                      canvasVersion: 1,
+                      graphSignature: emptyGraphSignature,
+                      nodeCount: 0,
+                      edgeCount: 0,
+                    },
+                  },
+                },
+                nodes: [],
+                edges: [],
+              }],
+            },
+          }),
+        }
+      }
+      return defaultFetch?.(input, init) ?? {
+        ok: true,
+        json: async () => ({ success: true, data: {} }),
+      }
+    })
+
+    render(<CreativeCanvasWorkspace mode="admin" orgId="org-1" />)
+
+    expect(await screen.findByText('Launch Canvas')).toBeInTheDocument()
+    const benchmarkProof = screen.getByLabelText(/direct higgsfield benchmark proof/i)
+    expect(benchmarkProof).toHaveTextContent('0/10 benchmark proven')
+    expect(benchmarkProof).toHaveTextContent('Needs stored restorable version, node comment, reusable template, and auto-save evidence before versioning proof can pass.')
+  })
+
   it('does not pass benchmark proof records that lack a Higgsfield source check', async () => {
     const defaultFetch = fetchMock.getMockImplementation()
     fetchMock.mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
@@ -1813,7 +1921,7 @@ describe('CreativeCanvasWorkspace', () => {
     expect(await screen.findByText('Launch Canvas')).toBeInTheDocument()
     const benchmarkProof = screen.getByLabelText(/direct higgsfield benchmark proof/i)
     expect(benchmarkProof).toHaveTextContent('0/10 benchmark proven')
-    expect(benchmarkProof).toHaveTextContent('2 ready benchmark categories need stored proof.')
+    expect(benchmarkProof).toHaveTextContent('1 ready benchmark category needs stored proof.')
     expect(benchmarkProof).toHaveTextContent('Needs Higgsfield source check before this proof can pass.')
   })
 
@@ -1894,7 +2002,7 @@ describe('CreativeCanvasWorkspace', () => {
                       sourceTitle: 'Higgsfield Canvas saved versions and comments',
                       sourceUrl: 'https://higgsfield.ai/canvas-intro',
                       sourceCheckedAt: '2026-06-21T10:01:00.000Z',
-                      sourceSignals: ['Every version is saved', 'nothing gets lost', 'shared space'],
+                      sourceSignals: ['Every version is saved', 'nothing gets lost', 'comments stay attached', 'reusable template'],
                       higgsfieldUiEvidenceUrl: 'https://higgsfield.ai/canvas-intro',
                       canvasEvidenceUrl: 'https://proof.example.com/versioning.mp4',
                       canvasEvidenceCheckedAt: '2026-06-21T10:01:30.000Z',
@@ -1963,7 +2071,7 @@ describe('CreativeCanvasWorkspace', () => {
                       sourceEvidenceReachable: true,
                       sourceEvidenceStatus: 200,
                       sourceEvidenceContentType: 'text/html',
-                      sourceSignals: ['Every version is saved', 'nothing gets lost', 'shared space'],
+                      sourceSignals: ['Every version is saved', 'nothing gets lost', 'comments stay attached', 'reusable template'],
                       higgsfieldUiEvidenceUrl: 'https://higgsfield.ai/canvas-intro',
                       canvasEvidenceUrl: 'https://proof.example.com/versioning.mp4',
                       canvasEvidenceCheckedAt: '2026-06-21T10:01:30.000Z',
@@ -2026,7 +2134,7 @@ describe('CreativeCanvasWorkspace', () => {
                       sourceTitle: 'Higgsfield Canvas saved versions and comments',
                       sourceUrl: 'https://higgsfield.ai/canvas-intro',
                       sourceCheckedAt: '2026-06-21T10:01:00.000Z',
-                      sourceSignals: ['Every version is saved', 'nothing gets lost', 'shared space'],
+                      sourceSignals: ['Every version is saved', 'nothing gets lost', 'comments stay attached', 'reusable template'],
                     },
                   },
                 },
@@ -2080,7 +2188,7 @@ describe('CreativeCanvasWorkspace', () => {
                       sourceTitle: 'Higgsfield Canvas saved versions and comments',
                       sourceUrl: 'https://higgsfield.ai/canvas-intro',
                       sourceCheckedAt: '2026-06-21T10:01:00.000Z',
-                      sourceSignals: ['Every version is saved', 'nothing gets lost', 'shared space'],
+                      sourceSignals: ['Every version is saved', 'nothing gets lost', 'comments stay attached', 'reusable template'],
                       higgsfieldUiEvidenceUrl: 'https://higgsfield.ai/canvas-intro',
                       canvasEvidenceUrl: 'https://proof.example.com/versioning.mp4',
                       directComparisonAt: '2026-06-21T10:02:00.000Z',
@@ -2140,7 +2248,7 @@ describe('CreativeCanvasWorkspace', () => {
                       sourceTitle: 'Higgsfield Canvas saved versions and comments',
                       sourceUrl: 'https://higgsfield.ai/canvas-intro',
                       sourceCheckedAt: '2026-06-21T10:01:00.000Z',
-                      sourceSignals: ['Every version is saved', 'nothing gets lost', 'shared space'],
+                      sourceSignals: ['Every version is saved', 'nothing gets lost', 'comments stay attached', 'reusable template'],
                       higgsfieldUiEvidenceUrl: 'https://higgsfield.ai/canvas-intro',
                       canvasEvidenceUrl: 'https://proof.example.com/versioning.mp4',
                       directComparisonAt: '2026-06-21T10:02:00.000Z',
@@ -2226,7 +2334,7 @@ describe('CreativeCanvasWorkspace', () => {
     const parityAudit = screen.getByLabelText(/higgsfield parity audit/i)
     expect(parityAudit).toHaveTextContent('Edit controls are present; perform a graph edit to prove ergonomics')
     const benchmarkProof = screen.getByLabelText(/direct higgsfield benchmark proof/i)
-    expect(benchmarkProof).toHaveTextContent('2 ready benchmark categories need stored proof.')
+    expect(benchmarkProof).toHaveTextContent('1 ready benchmark category needs stored proof.')
   })
 
   it('applies benchmark Higgsfield model routing presets to generation controls', async () => {
@@ -2290,7 +2398,7 @@ describe('CreativeCanvasWorkspace', () => {
     expect(parityAudit).toHaveTextContent('8/8 scenarios in graph')
     expect(parityAudit).toHaveTextContent('0 prompt · 1 mask/source · 1 brush · 0/3+ blend controls')
     const benchmarkProof = screen.getByLabelText(/direct higgsfield benchmark proof/i)
-    expect(benchmarkProof).toHaveTextContent('5 ready benchmark categories need stored proof.')
+    expect(benchmarkProof).toHaveTextContent('4 ready benchmark categories need stored proof.')
   })
 
   it('switches mobile panels with responsive readiness evidence', async () => {
@@ -2671,7 +2779,7 @@ describe('CreativeCanvasWorkspace', () => {
       expect(await screen.findByText('Nova')).toBeInTheDocument()
       expect(screen.queryByText('Maya')).not.toBeInTheDocument()
       const benchmarkProof = screen.getByLabelText(/direct higgsfield benchmark proof/i)
-      expect(benchmarkProof).toHaveTextContent('1 ready benchmark category needs stored proof.')
+      expect(benchmarkProof).toHaveTextContent('No uncaptured benchmark category has enough live evidence yet.')
     } finally {
       Object.defineProperty(window, 'EventSource', {
         configurable: true,
@@ -2866,7 +2974,7 @@ describe('CreativeCanvasWorkspace', () => {
     const parityAudit = screen.getByLabelText(/higgsfield parity audit/i)
     await waitFor(() => expect(parityAudit).toHaveTextContent('5/5 proof categories passed · warning runtime proof'))
     const benchmarkProof = screen.getByLabelText(/direct higgsfield benchmark proof/i)
-    expect(benchmarkProof).toHaveTextContent('2 ready benchmark categories need stored proof.')
+    expect(benchmarkProof).toHaveTextContent('1 ready benchmark category needs stored proof.')
   })
 
   it('requires a stored passed runtime snapshot before production reliability proof can pass', async () => {
@@ -2986,11 +3094,11 @@ describe('CreativeCanvasWorkspace', () => {
     await screen.findByText('Production job coverage')
     const benchmarkProof = screen.getByLabelText(/direct higgsfield benchmark proof/i)
     expect(benchmarkProof).toHaveTextContent('Needs stored passed provider-backed runtime snapshot with drained queue and <=10% failure rate before reliability proof can pass.')
-    expect(benchmarkProof).toHaveTextContent('3 ready benchmark categories need stored proof.')
+    expect(benchmarkProof).toHaveTextContent('2 ready benchmark categories need stored proof.')
 
     fireEvent.click(within(benchmarkProof).getByRole('button', { name: /capture ready proofs/i }))
 
-    await waitFor(() => expect(screen.getByText('Captured 3 ready benchmark proofs')).toBeInTheDocument())
+    await waitFor(() => expect(screen.getByText('Captured 2 ready benchmark proofs')).toBeInTheDocument())
 
     const patchCall = fetchMock.mock.calls.find(([input, init]) => (
       String(input) === '/api/v1/creative-canvas/canvas-1?orgId=org-1'
@@ -3750,7 +3858,7 @@ describe('CreativeCanvasWorkspace', () => {
     await screen.findByText('Launch Canvas')
     fireEvent.click(screen.getByRole('button', { name: /apply 8 missing benchmark workflows/i }))
     const benchmarkProof = screen.getByLabelText(/direct higgsfield benchmark proof/i)
-    expect(benchmarkProof).toHaveTextContent('5 ready benchmark categories need stored proof.')
+    expect(benchmarkProof).toHaveTextContent('4 ready benchmark categories need stored proof.')
 
     fetchMock.mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input)
@@ -3809,7 +3917,7 @@ describe('CreativeCanvasWorkspace', () => {
     expect(await screen.findByText('Export package prepared')).toBeInTheDocument()
     const parityAudit = screen.getByLabelText(/higgsfield parity audit/i)
     expect(parityAudit).toHaveTextContent('5/5 export categories packaged · 0/5 artifact-backed categories · 5 assets')
-    expect(benchmarkProof).toHaveTextContent('5 ready benchmark categories need stored proof.')
+    expect(benchmarkProof).toHaveTextContent('4 ready benchmark categories need stored proof.')
 
     fetchMock.mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input)
@@ -3852,7 +3960,7 @@ describe('CreativeCanvasWorkspace', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /refresh runtime proof/i }))
     await waitFor(() => expect(parityAudit).toHaveTextContent('5/5 export categories packaged · 5/5 artifact-backed categories · 5 assets'))
-    expect(benchmarkProof).toHaveTextContent('6 ready benchmark categories need stored proof.')
+    expect(benchmarkProof).toHaveTextContent('5 ready benchmark categories need stored proof.')
   })
 
   it('edits selected source asset metadata and saves it with the graph', async () => {
