@@ -18,6 +18,8 @@ interface CanvasTopBarProps {
   onOpenChat: () => void
   onShare: () => void
   onHome?: () => void
+  immersive?: boolean
+  onToggleImmersive?: () => void
 }
 
 function barButton(active = false): React.CSSProperties {
@@ -53,6 +55,8 @@ export default function CanvasTopBar({
   onOpenChat,
   onShare,
   onHome,
+  immersive,
+  onToggleImmersive,
 }: CanvasTopBarProps) {
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(title)
@@ -164,6 +168,11 @@ export default function CanvasTopBar({
           />
           Auto-save versions
         </label>
+        {onToggleImmersive ? (
+          <button type="button" onClick={onToggleImmersive} style={barButton(immersive)} title={immersive ? 'Show dashboard' : 'Immersive canvas'}>
+            {immersive ? '⛶ Canvas' : '▦ Dashboard'}
+          </button>
+        ) : null}
         <button type="button" onClick={onOpenChat} style={barButton()}>
           💬 Team Chat{presenceCount > 0 ? ` · ${presenceCount}` : ''}
         </button>

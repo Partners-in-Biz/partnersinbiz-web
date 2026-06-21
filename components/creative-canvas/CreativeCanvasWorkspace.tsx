@@ -2673,6 +2673,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
   const [topBarPanel, setTopBarPanel] = useState<'chat' | 'share' | ''>('')
   const [createMenu, setCreateMenu] = useState<{ flow: { x: number; y: number }; client: { x: number; y: number } } | null>(null)
   const [showLanding, setShowLanding] = useState(false)
+  const [immersiveCanvas, setImmersiveCanvas] = useState(true)
 
   const reloadActiveCanvas = useCallback(async () => {
     if (!activeCanvas?.id) return
@@ -5001,7 +5002,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
   }
 
   return (
-    <main className="mx-auto max-w-7xl space-y-5 px-4 py-6">
+    <main className={immersiveCanvas ? 'space-y-3 px-3 py-3' : 'mx-auto max-w-7xl space-y-5 px-4 py-6'}>
       <CanvasTopBar
         eyebrow={mode === 'admin' ? 'Agent creative command' : 'Creative review'}
         title={activeCanvas?.title ?? 'Creative Canvas'}
@@ -5017,6 +5018,8 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
         onOpenChat={() => setTopBarPanel('chat')}
         onShare={() => setTopBarPanel('share')}
         onHome={() => setShowLanding(true)}
+        immersive={immersiveCanvas}
+        onToggleImmersive={() => setImmersiveCanvas((value) => !value)}
       />
 
       {topBarPanel ? (
@@ -5201,6 +5204,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
         ))}
       </div>
 
+      <div className={immersiveCanvas ? 'sr-only' : 'space-y-5'}>
       <section
         aria-label="Creative Canvas world-class certification gate"
         className={`rounded-lg border px-4 py-3 text-sm ${
@@ -5784,10 +5788,12 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
         </div>
       </section>
 
-      <section className="grid min-h-[620px] gap-4 lg:grid-cols-[260px_minmax(0,1fr)_280px]">
+      </div>
+
+      <section className={immersiveCanvas ? 'grid min-h-[calc(100vh-150px)]' : 'grid min-h-[620px] gap-4 lg:grid-cols-[260px_minmax(0,1fr)_280px]'}>
         <aside
           aria-label="Source and workflow tools"
-          className={`${mobilePanelClass('sources')} space-y-4 rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-card)] p-4`}
+          className={`${immersiveCanvas ? 'sr-only' : ''} ${mobilePanelClass('sources')} space-y-4 rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-card)] p-4`}
         >
           <div>
             <p className="text-xs font-semibold uppercase tracking-normal text-[var(--color-pib-text-muted)]">Canvases</p>
@@ -6071,9 +6077,9 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
 
         <section
           aria-label="Canvas graph workspace"
-          className={`${mobilePanelClass('canvas')} overflow-hidden rounded-lg border border-[var(--color-pib-line)] bg-white`}
+          className={`${mobilePanelClass('canvas')} overflow-hidden ${immersiveCanvas ? '' : 'rounded-lg border border-[var(--color-pib-line)] bg-white'}`}
         >
-          <div className="flex flex-col gap-2 border-b border-[var(--color-pib-line)] px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className={`${immersiveCanvas ? 'hidden' : 'flex'} flex-col gap-2 border-b border-[var(--color-pib-line)] px-4 py-3 sm:flex-row sm:items-center sm:justify-between`}>
             <div>
               <h2 className="text-sm font-semibold uppercase tracking-normal text-[var(--color-pib-text-muted)]">Graph</h2>
               <p className="text-xs text-[var(--color-pib-text-muted)]">
@@ -6082,7 +6088,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
             </div>
             {saveMessage ? <p className="text-xs font-medium text-[var(--color-pib-text-muted)]">{saveMessage}</p> : null}
           </div>
-          <div className="relative h-[62vh] min-h-[420px] lg:h-[560px]">
+          <div className={immersiveCanvas ? 'relative h-[calc(100vh-140px)] min-h-[480px]' : 'relative h-[62vh] min-h-[420px] lg:h-[560px]'}>
             <CanvasStage
               nodes={displayNodes}
               edges={edges}
@@ -6134,7 +6140,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
 
         <aside
           aria-label="Canvas inspector and outputs"
-          className={`${mobilePanelClass('inspector')} space-y-4 rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-card)] p-4`}
+          className={`${immersiveCanvas ? 'sr-only' : ''} ${mobilePanelClass('inspector')} space-y-4 rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-card)] p-4`}
         >
           <div>
             <p className="text-xs font-semibold uppercase tracking-normal text-[var(--color-pib-text-muted)]">Inspector</p>
