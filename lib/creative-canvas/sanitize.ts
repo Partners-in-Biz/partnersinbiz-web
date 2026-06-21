@@ -257,6 +257,17 @@ function cleanBenchmarkProofData(value: unknown): Record<string, unknown> | unde
         : undefined
       const editingCapturedAt = cleanString(item.editingCapturedAt)?.slice(0, 80)
       const editingEvidence = cleanString(item.editingEvidence)?.slice(0, 300)
+      const agentStepCount = typeof item.agentStepCount === 'number' && Number.isFinite(item.agentStepCount)
+        ? Math.max(0, Math.round(item.agentStepCount))
+        : undefined
+      const agentActorCount = typeof item.agentActorCount === 'number' && Number.isFinite(item.agentActorCount)
+        ? Math.max(0, Math.round(item.agentActorCount))
+        : undefined
+      const agentTaskCreatedCount = typeof item.agentTaskCreatedCount === 'number' && Number.isFinite(item.agentTaskCreatedCount)
+        ? Math.max(0, Math.round(item.agentTaskCreatedCount))
+        : undefined
+      const agentTaskCreatedAt = cleanString(item.agentTaskCreatedAt)?.slice(0, 80)
+      const agentEvidence = cleanString(item.agentEvidence)?.slice(0, 400)
       const mobileViewportProofCount = typeof item.mobileViewportProofCount === 'number' && Number.isFinite(item.mobileViewportProofCount)
         ? Math.max(0, Math.round(item.mobileViewportProofCount))
         : undefined
@@ -331,6 +342,11 @@ function cleanBenchmarkProofData(value: unknown): Record<string, unknown> | unde
         && editingLocalEventCount === undefined
         && !editingCapturedAt
         && !editingEvidence
+        && agentStepCount === undefined
+        && agentActorCount === undefined
+        && agentTaskCreatedCount === undefined
+        && !agentTaskCreatedAt
+        && !agentEvidence
         && mobileViewportProofCount === undefined
         && mobileViewportRequiredCount === undefined
         && !mobileViewportProofCapturedAt
@@ -380,6 +396,11 @@ function cleanBenchmarkProofData(value: unknown): Record<string, unknown> | unde
         ...(editingLocalEventCount !== undefined ? { editingLocalEventCount } : {}),
         ...(editingCapturedAt ? { editingCapturedAt } : {}),
         ...(editingEvidence ? { editingEvidence } : {}),
+        ...(agentStepCount !== undefined ? { agentStepCount } : {}),
+        ...(agentActorCount !== undefined ? { agentActorCount } : {}),
+        ...(agentTaskCreatedCount !== undefined ? { agentTaskCreatedCount } : {}),
+        ...(agentTaskCreatedAt ? { agentTaskCreatedAt } : {}),
+        ...(agentEvidence ? { agentEvidence } : {}),
         ...(mobileViewportProofCount !== undefined ? { mobileViewportProofCount } : {}),
         ...(mobileViewportRequiredCount !== undefined ? { mobileViewportRequiredCount } : {}),
         ...(mobileViewportProofCapturedAt ? { mobileViewportProofCapturedAt } : {}),

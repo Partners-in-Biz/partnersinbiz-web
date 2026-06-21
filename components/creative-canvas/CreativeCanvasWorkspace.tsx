@@ -49,6 +49,7 @@ type CreativeCanvasBenchmarkProofKey =
   | 'multi_asset_workflows'
   | 'versioning_polish'
   | 'collaboration'
+  | 'agent_orchestration'
   | 'mobile_behavior'
   | 'export_flows'
   | 'production_reliability'
@@ -107,6 +108,11 @@ type CreativeCanvasBenchmarkProofRecord = {
   editingLocalEventCount?: number
   editingCapturedAt?: string
   editingEvidence?: string
+  agentStepCount?: number
+  agentActorCount?: number
+  agentTaskCreatedCount?: number
+  agentTaskCreatedAt?: string
+  agentEvidence?: string
   mobileViewportProofCount?: number
   mobileViewportRequiredCount?: number
   mobileViewportProofCapturedAt?: string
@@ -293,6 +299,7 @@ const emptyBenchmarkProofDrafts: CreativeCanvasBenchmarkProofDraft = {
   multi_asset_workflows: { proofUrl: '', notes: '' },
   versioning_polish: { proofUrl: '', notes: '' },
   collaboration: { proofUrl: '', notes: '' },
+  agent_orchestration: { proofUrl: '', notes: '' },
   mobile_behavior: { proofUrl: '', notes: '' },
   export_flows: { proofUrl: '', notes: '' },
   production_reliability: { proofUrl: '', notes: '' },
@@ -380,6 +387,14 @@ const benchmarkProofConfigs: Array<{
     sourceTitle: 'Higgsfield Canvas live collaboration',
     sourceUrl: 'https://higgsfield.ai/canvas-intro',
     sourceSignals: ['Create together', 'Share a link', 'collaborate live', 'same canvas'],
+  },
+  {
+    key: 'agent_orchestration',
+    label: 'AI agent integration',
+    benchmark: 'Canvas graph handoffs become executable agent tasks with model/provider context, approval gates, and project-linked provenance.',
+    sourceTitle: 'Higgsfield MCP, CLI, Collab, and Canvas surface',
+    sourceUrl: 'https://higgsfield.ai/',
+    sourceSignals: ['MCP & CLI', 'Collab', 'Canvas', 'Generate'],
   },
   {
     key: 'mobile_behavior',
@@ -582,6 +597,11 @@ function getCanvasBenchmarkProof(data: unknown): Partial<Record<CreativeCanvasBe
     const editingLocalEventCount = typeof record.editingLocalEventCount === 'number' && Number.isFinite(record.editingLocalEventCount) ? record.editingLocalEventCount : undefined
     const editingCapturedAt = stringField(record.editingCapturedAt)
     const editingEvidence = stringField(record.editingEvidence)
+    const agentStepCount = typeof record.agentStepCount === 'number' && Number.isFinite(record.agentStepCount) ? record.agentStepCount : undefined
+    const agentActorCount = typeof record.agentActorCount === 'number' && Number.isFinite(record.agentActorCount) ? record.agentActorCount : undefined
+    const agentTaskCreatedCount = typeof record.agentTaskCreatedCount === 'number' && Number.isFinite(record.agentTaskCreatedCount) ? record.agentTaskCreatedCount : undefined
+    const agentTaskCreatedAt = stringField(record.agentTaskCreatedAt)
+    const agentEvidence = stringField(record.agentEvidence)
     const mobileViewportProofCount = typeof record.mobileViewportProofCount === 'number' && Number.isFinite(record.mobileViewportProofCount) ? record.mobileViewportProofCount : undefined
     const mobileViewportRequiredCount = typeof record.mobileViewportRequiredCount === 'number' && Number.isFinite(record.mobileViewportRequiredCount) ? record.mobileViewportRequiredCount : undefined
     const mobileViewportProofCapturedAt = stringField(record.mobileViewportProofCapturedAt)
@@ -632,6 +652,11 @@ function getCanvasBenchmarkProof(data: unknown): Partial<Record<CreativeCanvasBe
       || editingLocalEventCount !== undefined
       || editingCapturedAt
       || editingEvidence
+      || agentStepCount !== undefined
+      || agentActorCount !== undefined
+      || agentTaskCreatedCount !== undefined
+      || agentTaskCreatedAt
+      || agentEvidence
       || mobileViewportProofCount !== undefined
       || mobileViewportRequiredCount !== undefined
       || mobileViewportProofCapturedAt
@@ -681,6 +706,11 @@ function getCanvasBenchmarkProof(data: unknown): Partial<Record<CreativeCanvasBe
         editingLocalEventCount,
         editingCapturedAt,
         editingEvidence,
+        agentStepCount,
+        agentActorCount,
+        agentTaskCreatedCount,
+        agentTaskCreatedAt,
+        agentEvidence,
         mobileViewportProofCount,
         mobileViewportRequiredCount,
         mobileViewportProofCapturedAt,
@@ -769,6 +799,20 @@ function hasEditingSessionProof(proof: CreativeCanvasBenchmarkProofRecord | unde
       && proof.editingLocalEventCount > 0
       && proof.editingCapturedAt
       && proof.editingEvidence,
+  )
+}
+
+function hasAgentOrchestrationProof(proof: CreativeCanvasBenchmarkProofRecord | undefined): boolean {
+  return Boolean(
+    proof
+      && typeof proof.agentStepCount === 'number'
+      && proof.agentStepCount > 0
+      && typeof proof.agentActorCount === 'number'
+      && proof.agentActorCount > 0
+      && typeof proof.agentTaskCreatedCount === 'number'
+      && proof.agentTaskCreatedCount > 0
+      && proof.agentTaskCreatedAt
+      && proof.agentEvidence,
   )
 }
 
@@ -2054,6 +2098,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
   const [acceptedGraphSignature, setAcceptedGraphSignature] = useState('')
   const [autoSaveEnabled, setAutoSaveEnabled] = useState(true)
   const [collaborationActivity, setCollaborationActivity] = useState<CreativeCanvasActivityEvent[]>([])
+  const [latestAgentTaskCreation, setLatestAgentTaskCreation] = useState<{ count: number; createdAt: string } | null>(null)
   const [visualProofDrafts, setVisualProofDrafts] = useState<CreativeCanvasVisualProofDraft>(emptyVisualProofDrafts)
   const [savingVisualProofKey, setSavingVisualProofKey] = useState<CreativeCanvasVisualProofKey | ''>('')
   const [benchmarkProofDrafts, setBenchmarkProofDrafts] = useState<CreativeCanvasBenchmarkProofDraft>(emptyBenchmarkProofDrafts)
@@ -2125,6 +2170,10 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
   }, [activeCanvas?.data, activeCanvas?.id])
 
   useEffect(() => {
+    setLatestAgentTaskCreation(null)
+  }, [activeCanvas?.id])
+
+  useEffect(() => {
     const proof = getCanvasBenchmarkProof(activeCanvas?.data)
     setBenchmarkProofDrafts({
       editing_ergonomics: {
@@ -2150,6 +2199,10 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
       collaboration: {
         proofUrl: proof.collaboration?.proofUrl ?? '',
         notes: proof.collaboration?.notes ?? '',
+      },
+      agent_orchestration: {
+        proofUrl: proof.agent_orchestration?.proofUrl ?? '',
+        notes: proof.agent_orchestration?.notes ?? '',
       },
       mobile_behavior: {
         proofUrl: proof.mobile_behavior?.proofUrl ?? '',
@@ -2498,6 +2551,15 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
           collaborationEvidence: `${currentRemotePresence.length} remote collaborator${currentRemotePresence.length === 1 ? '' : 's'}; ${currentRemoteActivityCount} remote stream/draft event${currentRemoteActivityCount === 1 ? '' : 's'}; ${latestCollaboratorDraft ? 'collaborator draft present' : 'no collaborator draft'}; ${collaborationStreamConnected ? 'stream connected' : 'poll fallback'}`,
         }
       : {}
+    const agentOrchestrationProof = key === 'agent_orchestration'
+      ? {
+          agentStepCount: orchestrationPlan.steps.length,
+          agentActorCount: orchestrationPlan.agents.length,
+          agentTaskCreatedCount: latestAgentTaskCreation?.count ?? 0,
+          agentTaskCreatedAt: latestAgentTaskCreation?.createdAt ?? capturedAt,
+          agentEvidence: `${orchestrationPlan.steps.length} graph-derived handoff step${orchestrationPlan.steps.length === 1 ? '' : 's'} across ${orchestrationPlan.agents.length} agent${orchestrationPlan.agents.length === 1 ? '' : 's'}; ${latestAgentTaskCreation?.count ?? 0} project-linked agent task${latestAgentTaskCreation?.count === 1 ? '' : 's'} created; ${orchestrationPlan.blockers.length} blocker${orchestrationPlan.blockers.length === 1 ? '' : 's'}`,
+        }
+      : {}
     const currentVisualProofRecords = getCanvasVisualProof(activeCanvas.data)
     const currentVisualProofItems = visualProofConfigs.map((item) => {
       const proof = currentVisualProofRecords[item.key]
@@ -2559,6 +2621,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
         edgeCount: edges.length,
         ...editingSessionProof,
         ...collaborationSessionProof,
+        ...agentOrchestrationProof,
         ...mobileViewportProof,
         ...exportArtifactProof,
         ...productionRuntimeProof,
@@ -2591,7 +2654,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
     } finally {
       setSavingBenchmarkProofKey('')
     }
-  }, [activeCanvas, applyCanvasSnapshot, benchmarkProofDrafts, collaborationActivity, collaborationStreamConnected, currentGraphSignature, edges.length, latestCollaboratorDraft, nodes.length, ownPresenceId, presence, resolvedOrgId, runOperations, runtimeProof])
+  }, [activeCanvas, applyCanvasSnapshot, benchmarkProofDrafts, collaborationActivity, collaborationStreamConnected, currentGraphSignature, edges.length, latestAgentTaskCreation, latestCollaboratorDraft, nodes.length, orchestrationPlan.agents.length, orchestrationPlan.blockers.length, orchestrationPlan.steps.length, ownPresenceId, presence, resolvedOrgId, runOperations, runtimeProof])
 
   const applyRemoteCanvasUpdate = useCallback(async () => {
     if (!remoteCanvasUpdate?.id) return
@@ -4419,6 +4482,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
     const payload = await response.json().catch(() => null) as { data?: { createdTasks?: Array<{ id: string }> }; error?: string } | null
     if (response.ok) {
       const count = payload?.data?.createdTasks?.length ?? 0
+      if (count > 0) setLatestAgentTaskCreation({ count, createdAt: new Date().toISOString() })
       setActivityMessage(count === 1 ? 'Created 1 agent task' : `Created ${count} agent tasks`)
     } else {
       setActivityMessage(payload?.error ?? 'Agent task creation failed')
@@ -4507,6 +4571,11 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
   const hasRemoteLiveEditEvidence = remoteActivityCount > 0 || Boolean(latestCollaboratorDraft) || remotePresence.some((item) => item.hasUnsavedGraphChanges)
   const collaborationRemoteEventProofCount = remoteActivityCount || (latestCollaboratorDraft ? 1 : 0) || (remotePresence.some((item) => item.hasUnsavedGraphChanges) ? 1 : 0)
   const hasTemplateEvidence = templates.length > 0
+  const hasAgentOrchestrationEvidence = orchestrationPlan.steps.length > 0
+    && orchestrationPlan.agents.length > 0
+    && orchestrationPlan.blockers.length === 0
+    && Boolean(activeCanvas?.linked?.projectId)
+  const hasAgentTaskCreationEvidence = hasAgentOrchestrationEvidence && Boolean(latestAgentTaskCreation?.count)
   const exportPackageOutputKinds = new Set(latestExportPackage?.manifest?.requiredOutputKinds ?? [])
   const exportPackageTargets = new Set(latestExportPackage?.targets ?? [])
   const explicitExportCategories = new Set(latestExportPackage?.manifest?.coveredCategories ?? [])
@@ -4545,6 +4614,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
     multi_asset_workflows: hasMultiAssetEvidence && graphBenchmarkScenarioCount > 0,
     versioning_polish: hasVersionEvidence,
     collaboration: hasCollaborationEvidence && hasRemoteLiveEditEvidence,
+    agent_orchestration: hasAgentTaskCreationEvidence,
     mobile_behavior: capturedVisualProofCount >= visualProofItems.length,
     export_flows: hasExportPackageProof,
     production_reliability: reliabilityPassed,
@@ -4555,6 +4625,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
       && hasCurrentCanvasBenchmarkState(proof, currentProofGraphState)
       && (item.key !== 'editing_ergonomics' || hasEditingSessionProof(proof))
       && (item.key !== 'collaboration' || hasCollaborationSessionProof(proof))
+      && (item.key !== 'agent_orchestration' || hasAgentOrchestrationProof(proof))
       && (item.key !== 'mobile_behavior' || hasMobileViewportBenchmarkProof(proof))
       && (item.key !== 'export_flows' || hasExportArtifactBackedProof(proof))
       && (item.key !== 'production_reliability' || hasProductionRuntimeProof(proof))
@@ -4597,6 +4668,15 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
             collaborationEvidence: `${remotePresence.length} remote collaborator${remotePresence.length === 1 ? '' : 's'}; ${remoteActivityCount} remote stream/draft event${remoteActivityCount === 1 ? '' : 's'}; ${latestCollaboratorDraft ? 'collaborator draft present' : 'no collaborator draft'}; ${collaborationStreamConnected ? 'stream connected' : 'poll fallback'}`,
           }
         : {}
+      const agentOrchestrationProof = item.key === 'agent_orchestration'
+        ? {
+            agentStepCount: orchestrationPlan.steps.length,
+            agentActorCount: orchestrationPlan.agents.length,
+            agentTaskCreatedCount: latestAgentTaskCreation?.count ?? 0,
+            agentTaskCreatedAt: latestAgentTaskCreation?.createdAt ?? capturedAt,
+            agentEvidence: `${orchestrationPlan.steps.length} graph-derived handoff step${orchestrationPlan.steps.length === 1 ? '' : 's'} across ${orchestrationPlan.agents.length} agent${orchestrationPlan.agents.length === 1 ? '' : 's'}; ${latestAgentTaskCreation?.count ?? 0} project-linked agent task${latestAgentTaskCreation?.count === 1 ? '' : 's'} created; ${orchestrationPlan.blockers.length} blocker${orchestrationPlan.blockers.length === 1 ? '' : 's'}`,
+          }
+        : {}
       const mobileViewportProof = item.key === 'mobile_behavior'
         ? {
             mobileViewportProofCount: capturedVisualProofCount,
@@ -4637,6 +4717,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
         edgeCount: edges.length,
         ...editingSessionProof,
         ...collaborationSessionProof,
+        ...agentOrchestrationProof,
         ...mobileViewportProof,
         ...exportArtifactProof,
         ...productionRuntimeProof,
@@ -4735,6 +4816,15 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
           : 'No recent remote graph mutation evidence',
     },
     {
+      label: 'AI agent integration',
+      status: hasAgentTaskCreationEvidence ? 'passed' : hasAgentOrchestrationEvidence ? 'watch' : 'blocked',
+      evidence: hasAgentTaskCreationEvidence
+        ? `${latestAgentTaskCreation?.count ?? 0} project-linked agent task${latestAgentTaskCreation?.count === 1 ? '' : 's'} created`
+        : hasAgentOrchestrationEvidence
+          ? `${orchestrationPlan.steps.length} handoff step${orchestrationPlan.steps.length === 1 ? '' : 's'} ready for ${orchestrationPlan.agents.length} agent${orchestrationPlan.agents.length === 1 ? '' : 's'}`
+          : `${orchestrationPlan.steps.length} handoff step${orchestrationPlan.steps.length === 1 ? '' : 's'} · ${orchestrationPlan.blockers.length} blocker${orchestrationPlan.blockers.length === 1 ? '' : 's'}`,
+    },
+    {
       label: 'Templates',
       status: hasTemplateEvidence ? 'passed' : 'watch',
       evidence: hasTemplateEvidence ? `${templates.length} reusable workflow template${templates.length === 1 ? '' : 's'}` : 'No reusable template loaded',
@@ -4801,6 +4891,18 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
         : hasRemoteLiveEditEvidence
           ? 'Capture source-backed Collaboration benchmark proof from the live two-user session.'
           : 'Open the canvas as a second user or agent, mutate the graph remotely, then capture proof.',
+    },
+    {
+      label: 'AI agent task proof',
+      status: proofItemByKey.agent_orchestration?.status === 'passed' ? 'complete' : hasAgentTaskCreationEvidence ? 'action' : 'blocked',
+      evidence: hasAgentTaskCreationEvidence
+        ? `${latestAgentTaskCreation?.count ?? 0} project-linked agent task${latestAgentTaskCreation?.count === 1 ? '' : 's'} created from ${orchestrationPlan.steps.length} handoff step${orchestrationPlan.steps.length === 1 ? '' : 's'}`
+        : `${orchestrationPlan.steps.length} handoff step${orchestrationPlan.steps.length === 1 ? '' : 's'} · ${orchestrationPlan.agents.length} agent${orchestrationPlan.agents.length === 1 ? '' : 's'} · ${orchestrationPlan.blockers.length} blocker${orchestrationPlan.blockers.length === 1 ? '' : 's'}`,
+      nextAction: proofItemByKey.agent_orchestration?.status === 'passed'
+        ? 'AI agent integration benchmark proof is source-backed and stored.'
+        : hasAgentTaskCreationEvidence
+          ? 'Save source-backed AI agent integration benchmark proof from the created project tasks.'
+          : 'Create project-linked agent tasks from the canvas orchestration chain before saving benchmark proof.',
     },
     {
       label: 'Multi-category export proof',
@@ -5349,6 +5451,9 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
               {item.key === 'editing_ergonomics' && item.proof && !hasEditingSessionProof(item.proof) ? (
                 <p className="mt-1 text-[11px] font-semibold">Needs stored local editing session evidence before editing proof can pass.</p>
               ) : null}
+              {item.key === 'agent_orchestration' && item.proof && !hasAgentOrchestrationProof(item.proof) ? (
+                <p className="mt-1 text-[11px] font-semibold">Needs stored project-linked agent task evidence before AI agent integration proof can pass.</p>
+              ) : null}
               {item.key === 'mobile_behavior' && item.proof && !hasMobileViewportBenchmarkProof(item.proof) ? (
                 <p className="mt-1 text-[11px] font-semibold">Needs stored signed-in viewport matrix evidence before mobile benchmark proof can pass.</p>
               ) : null}
@@ -5388,6 +5493,11 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
                   {item.key === 'editing_ergonomics' && item.proof.editingEvidence ? (
                     <p className="mt-1">
                       Editing session: {item.proof.editingLocalEventCount ?? 0} local graph edit{item.proof.editingLocalEventCount === 1 ? '' : 's'}
+                    </p>
+                  ) : null}
+                  {item.key === 'agent_orchestration' && item.proof.agentEvidence ? (
+                    <p className="mt-1">
+                      Agent tasks: {item.proof.agentTaskCreatedCount ?? 0} created · {item.proof.agentStepCount ?? 0} handoff step{item.proof.agentStepCount === 1 ? '' : 's'} · {item.proof.agentActorCount ?? 0} agent{item.proof.agentActorCount === 1 ? '' : 's'}
                     </p>
                   ) : null}
                   {item.key === 'mobile_behavior' && item.proof.mobileViewportEvidence ? (

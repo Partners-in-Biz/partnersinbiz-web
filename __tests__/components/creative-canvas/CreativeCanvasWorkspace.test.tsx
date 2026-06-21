@@ -855,9 +855,9 @@ describe('CreativeCanvasWorkspace', () => {
     const certificationGate = screen.getByLabelText(/creative canvas world-class certification gate/i)
     expect(certificationGate).toHaveTextContent('Higgsfield parity certification')
     expect(certificationGate).toHaveTextContent('Not world-class certified yet')
-    expect(certificationGate).toHaveTextContent('0/6 live proof steps complete, 0/9 source-backed benchmarks passed.')
+    expect(certificationGate).toHaveTextContent('0/7 live proof steps complete, 0/10 source-backed benchmarks passed.')
     expect(certificationGate).toHaveTextContent('Next required proof: Capture signed-in Desktop 1440, Tablet 820, Mobile 390, and Mobile panels screenshots.')
-    expect(certificationGate).toHaveTextContent('3 blocked · 3 action')
+    expect(certificationGate).toHaveTextContent('4 blocked · 3 action')
     const visualProof = screen.getByLabelText(/creative canvas visual qa proof/i)
     expect(visualProof).toHaveTextContent('Visual QA proof')
     expect(visualProof).toHaveTextContent('0/4 signed-in')
@@ -867,13 +867,15 @@ describe('CreativeCanvasWorkspace', () => {
     expect(visualProof).toHaveTextContent('Mobile panels')
     const proofRunbook = screen.getByLabelText(/creative canvas world-class proof runbook/i)
     expect(proofRunbook).toHaveTextContent('World-class proof runbook')
-    expect(proofRunbook).toHaveTextContent('0/6 complete')
+    expect(proofRunbook).toHaveTextContent('0/7 complete')
     expect(proofRunbook).toHaveTextContent('Signed-in viewport proof')
     expect(proofRunbook).toHaveTextContent('Capture signed-in Desktop 1440, Tablet 820, Mobile 390, and Mobile panels screenshots.')
     expect(proofRunbook).toHaveTextContent('Local editing proof')
     expect(proofRunbook).toHaveTextContent('Perform a real graph edit on an edit node before saving benchmark proof.')
     expect(proofRunbook).toHaveTextContent('Two-user collaboration proof')
     expect(proofRunbook).toHaveTextContent('Capture source-backed Collaboration benchmark proof from the live two-user session.')
+    expect(proofRunbook).toHaveTextContent('AI agent task proof')
+    expect(proofRunbook).toHaveTextContent('Create project-linked agent tasks from the canvas orchestration chain before saving benchmark proof.')
     expect(proofRunbook).toHaveTextContent('Multi-category export proof')
     expect(proofRunbook).toHaveTextContent('Generate a package covering image/campaign, video/social, audio, blog/document, and book outputs.')
     expect(proofRunbook).toHaveTextContent('Repeated production job proof')
@@ -893,6 +895,7 @@ describe('CreativeCanvasWorkspace', () => {
     expect(parityAudit).toHaveTextContent('Versioning polish')
     expect(parityAudit).toHaveTextContent('Collaboration')
     expect(parityAudit).toHaveTextContent('Live edit activity')
+    expect(parityAudit).toHaveTextContent('AI agent integration')
     expect(parityAudit).toHaveTextContent('Templates')
     expect(parityAudit).toHaveTextContent('Mobile behavior')
     expect(parityAudit).toHaveTextContent('Signed-in desktop/tablet/mobile screenshots still required')
@@ -901,10 +904,11 @@ describe('CreativeCanvasWorkspace', () => {
     expect(parityAudit).toHaveTextContent('0/5 proof categories passed · warning runtime proof')
     const benchmarkProof = screen.getByLabelText(/direct higgsfield benchmark proof/i)
     expect(benchmarkProof).toHaveTextContent('Capability-by-capability evidence ledger')
-    expect(benchmarkProof).toHaveTextContent('0/9 benchmark proven')
+    expect(benchmarkProof).toHaveTextContent('0/10 benchmark proven')
     expect(benchmarkProof).toHaveTextContent('Editing ergonomics')
     expect(benchmarkProof).toHaveTextContent('Masking / inpainting UX')
     expect(benchmarkProof).toHaveTextContent('Generation controls')
+    expect(benchmarkProof).toHaveTextContent('AI agent integration')
     expect(benchmarkProof).toHaveTextContent('Production reliability')
     expect(benchmarkProof).toHaveTextContent('Current Higgsfield source signals')
     expect(benchmarkProof).toHaveTextContent('Drop a node')
@@ -1291,7 +1295,7 @@ describe('CreativeCanvasWorkspace', () => {
 
     const benchmarkProof = screen.getByLabelText(/direct higgsfield benchmark proof/i)
     expect(benchmarkProof).toHaveTextContent('Needs stored signed-in viewport matrix evidence before mobile benchmark proof can pass.')
-    expect(benchmarkProof).toHaveTextContent('0/9 benchmark proven')
+    expect(benchmarkProof).toHaveTextContent('0/10 benchmark proven')
     expect(benchmarkProof).toHaveTextContent('3 ready benchmark categories need stored proof.')
     await waitFor(() => {
       expect(within(benchmarkProof).getByLabelText(/Mobile behavior benchmark proof URL/i)).toHaveValue('https://proof.example.com/mobile-behavior.mp4')
@@ -1374,12 +1378,71 @@ describe('CreativeCanvasWorkspace', () => {
     expect(body.data?.benchmarkProof?.editing_ergonomics?.graphSignature).toEqual(expect.any(String))
 
     const benchmarkProof = screen.getByLabelText(/direct higgsfield benchmark proof/i)
-    expect(benchmarkProof).toHaveTextContent('0/9 benchmark proven')
+    expect(benchmarkProof).toHaveTextContent('0/10 benchmark proven')
     expect(benchmarkProof).toHaveTextContent('gap')
     expect(benchmarkProof).toHaveTextContent('Needs stored local editing session evidence before editing proof can pass.')
     expect(benchmarkProof).toHaveTextContent('Benchmark source: Higgsfield AI Canvas node workflow')
     expect(benchmarkProof).toHaveTextContent('Stored signals: Drop a node, Chain your flow, Connect nodes, Every connection is live')
     expect(within(benchmarkProof).getByRole('link', { name: /open benchmark proof/i })).toHaveAttribute('href', 'https://proof.example.com/editing-ergonomics.mp4')
+  })
+
+  it('stores project-linked agent task evidence for AI agent integration benchmark proof', async () => {
+    render(<CreativeCanvasWorkspace mode="admin" orgId="org-1" />)
+
+    expect(await screen.findByText('Launch Canvas')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: /apply social launch workflow/i }))
+    expect(await screen.findByText(/social launch workflow added/i)).toBeInTheDocument()
+
+    const benchmarkProof = screen.getByLabelText(/direct higgsfield benchmark proof/i)
+    expect(benchmarkProof).toHaveTextContent('AI agent integration')
+    expect(benchmarkProof).toHaveTextContent('gap')
+    expect(benchmarkProof).toHaveTextContent('MCP & CLI')
+
+    fireEvent.click(screen.getByRole('button', { name: /create agent tasks/i }))
+    expect(await screen.findByText(/created 2 agent tasks/i)).toBeInTheDocument()
+
+    fireEvent.change(screen.getByLabelText(/ai agent integration benchmark proof url/i), {
+      target: { value: 'https://proof.example.com/agent-tasks.mp4' },
+    })
+    fireEvent.change(screen.getByLabelText(/ai agent integration benchmark proof notes/i), {
+      target: { value: 'Canvas handoff chain created project-linked tasks for Pip and Maya.' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: /save ai agent integration proof/i }))
+
+    await waitFor(() => expect(screen.getByText('Saved AI agent integration benchmark proof')).toBeInTheDocument())
+
+    const patchCall = fetchMock.mock.calls.find(([input, init]) => (
+      String(input) === '/api/v1/creative-canvas/canvas-1?orgId=org-1'
+      && init?.method === 'PATCH'
+      && String(init.body).includes('agent_orchestration')
+    ))
+    expect(patchCall).toBeTruthy()
+    const body = JSON.parse(String(patchCall?.[1]?.body ?? '{}')) as {
+      data?: {
+        benchmarkProof?: Record<string, {
+          proofUrl?: string
+          sourceTitle?: string
+          sourceUrl?: string
+          sourceSignals?: string[]
+          agentStepCount?: number
+          agentActorCount?: number
+          agentTaskCreatedCount?: number
+          agentTaskCreatedAt?: string
+          agentEvidence?: string
+        }>
+      }
+    }
+    expect(body.data?.benchmarkProof?.agent_orchestration).toMatchObject({
+      proofUrl: 'https://proof.example.com/agent-tasks.mp4',
+      sourceTitle: 'Higgsfield MCP, CLI, Collab, and Canvas surface',
+      sourceUrl: 'https://higgsfield.ai/',
+      sourceSignals: ['MCP & CLI', 'Collab', 'Canvas', 'Generate'],
+      agentActorCount: expect.any(Number),
+      agentTaskCreatedCount: 2,
+      agentTaskCreatedAt: expect.any(String),
+      agentEvidence: expect.stringContaining('2 project-linked agent tasks created'),
+    })
+    expect(body.data?.benchmarkProof?.agent_orchestration?.agentStepCount).toBeGreaterThan(0)
   })
 
   it('captures all ready benchmark proofs without passing unready gaps', async () => {
@@ -1445,15 +1508,15 @@ describe('CreativeCanvasWorkspace', () => {
     expect(body.data?.benchmarkProof?.collaboration?.graphSignature).toEqual(expect.any(String))
     expect(body.data?.benchmarkProof?.editing_ergonomics).toBeUndefined()
 
-    expect(benchmarkProof).toHaveTextContent('2/9 benchmark proven')
+    expect(benchmarkProof).toHaveTextContent('2/10 benchmark proven')
     expect(benchmarkProof).toHaveTextContent('No uncaptured benchmark category has enough live evidence yet.')
     expect(within(benchmarkProof).getAllByRole('link', { name: /open benchmark proof/i })).toHaveLength(2)
     const proofRunbook = screen.getByLabelText(/creative canvas world-class proof runbook/i)
-    expect(proofRunbook).toHaveTextContent('1/6 complete')
-    expect(proofRunbook).toHaveTextContent('2/9 Direct Higgsfield benchmarks passed')
+    expect(proofRunbook).toHaveTextContent('1/7 complete')
+    expect(proofRunbook).toHaveTextContent('2/10 Direct Higgsfield benchmarks passed')
     const certificationGate = screen.getByLabelText(/creative canvas world-class certification gate/i)
     expect(certificationGate).toHaveTextContent('Not world-class certified yet')
-    expect(certificationGate).toHaveTextContent('1/6 live proof steps complete, 2/9 source-backed benchmarks passed.')
+    expect(certificationGate).toHaveTextContent('1/7 live proof steps complete, 2/10 source-backed benchmarks passed.')
   })
 
   it('does not pass collaboration benchmark proof without stored two-user session evidence', async () => {
@@ -1508,7 +1571,7 @@ describe('CreativeCanvasWorkspace', () => {
 
     expect(await screen.findByText('Launch Canvas')).toBeInTheDocument()
     const benchmarkProof = screen.getByLabelText(/direct higgsfield benchmark proof/i)
-    expect(benchmarkProof).toHaveTextContent('0/9 benchmark proven')
+    expect(benchmarkProof).toHaveTextContent('0/10 benchmark proven')
     expect(benchmarkProof).toHaveTextContent('Needs stored two-user session evidence before collaboration proof can pass.')
   })
 
@@ -1554,7 +1617,7 @@ describe('CreativeCanvasWorkspace', () => {
 
     expect(await screen.findByText('Launch Canvas')).toBeInTheDocument()
     const benchmarkProof = screen.getByLabelText(/direct higgsfield benchmark proof/i)
-    expect(benchmarkProof).toHaveTextContent('0/9 benchmark proven')
+    expect(benchmarkProof).toHaveTextContent('0/10 benchmark proven')
     expect(benchmarkProof).toHaveTextContent('2 ready benchmark categories need stored proof.')
     expect(benchmarkProof).toHaveTextContent('Needs Higgsfield source check before this proof can pass.')
   })
@@ -1605,7 +1668,7 @@ describe('CreativeCanvasWorkspace', () => {
 
     expect(await screen.findByText('Launch Canvas')).toBeInTheDocument()
     const benchmarkProof = screen.getByLabelText(/direct higgsfield benchmark proof/i)
-    expect(benchmarkProof).toHaveTextContent('0/9 benchmark proven')
+    expect(benchmarkProof).toHaveTextContent('0/10 benchmark proven')
     expect(benchmarkProof).toHaveTextContent('Needs matched Higgsfield source signals before this proof can pass.')
     expect(benchmarkProof).toHaveTextContent('Stored signals: Every version is saved')
   })
@@ -1656,7 +1719,7 @@ describe('CreativeCanvasWorkspace', () => {
 
     expect(await screen.findByText('Launch Canvas')).toBeInTheDocument()
     const benchmarkProof = screen.getByLabelText(/direct higgsfield benchmark proof/i)
-    expect(benchmarkProof).toHaveTextContent('0/9 benchmark proven')
+    expect(benchmarkProof).toHaveTextContent('0/10 benchmark proven')
     expect(benchmarkProof).toHaveTextContent('Needs direct Higgsfield UI comparison evidence before this proof can pass.')
   })
 
@@ -1715,7 +1778,7 @@ describe('CreativeCanvasWorkspace', () => {
 
     expect(await screen.findByText('Launch Canvas')).toBeInTheDocument()
     const benchmarkProof = screen.getByLabelText(/direct higgsfield benchmark proof/i)
-    expect(benchmarkProof).toHaveTextContent('0/9 benchmark proven')
+    expect(benchmarkProof).toHaveTextContent('0/10 benchmark proven')
     expect(benchmarkProof).toHaveTextContent('Needs proof captured against the current canvas version and graph state before this benchmark can pass.')
     expect(benchmarkProof).toHaveTextContent('Canvas state: v999 · 99 nodes · 99 links')
   })
