@@ -1697,11 +1697,26 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
       : []
   ), [collaboratorsByNodeId, ownPresenceId, selectedNodeId])
   const selectedNodeLockedByCollaborator = selectedNodeCollaborators.length > 0
+  const [generatingNodeIds, setGeneratingNodeIds] = useState<Set<string>>(() => new Set())
+  const nodeActionRefs = useRef<{
+    generate: (nodeId: string) => void
+    updatePrompt: (nodeId: string, value: string) => void
+  }>({ generate: () => {}, updatePrompt: () => {} })
+
   const displayNodes = useMemo(() => nodes.map((node) => {
     const canvasNode = node.data?.canvasNode as CreativeCanvasNode | undefined
     if (!canvasNode) return node
-    return toFlowNode({ ...canvasNode, position: node.position }, collaboratorsByNodeId[node.id] ?? [])
-  }), [collaboratorsByNodeId, nodes])
+    const flowNode = toFlowNode({ ...canvasNode, position: node.position }, collaboratorsByNodeId[node.id] ?? [])
+    return {
+      ...flowNode,
+      data: {
+        ...flowNode.data,
+        status: generatingNodeIds.has(node.id) ? 'running' : flowNode.data.status,
+        onGenerate: () => nodeActionRefs.current.generate(node.id),
+        onPromptChange: (value: string) => nodeActionRefs.current.updatePrompt(node.id, value),
+      },
+    }
+  }), [collaboratorsByNodeId, generatingNodeIds, nodes])
   const selectedMaskBrushStrokes = selectedCanvasNode?.edit?.mask?.brush?.strokes ?? []
   const orchestrationPlan = useMemo(() => buildCreativeCanvasOrchestrationPlan({
     id: activeCanvas?.id,
@@ -2656,6 +2671,19 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
 
   const [topBarPanel, setTopBarPanel] = useState<'chat' | 'share' | ''>('')
   const [createMenu, setCreateMenu] = useState<{ flow: { x: number; y: number }; client: { x: number; y: number } } | null>(null)
+
+  const reloadActiveCanvas = useCallback(async () => {
+    if (!activeCanvas?.id) return
+    const canvasOrgId = resolvedOrgId || activeCanvas.orgId || ''
+    try {
+      const response = await fetch(`/api/v1/creative-canvas/${activeCanvas.id}?orgId=${encodeURIComponent(canvasOrgId)}`)
+      const payload = await response.json().catch(() => null) as CreativeCanvasApiListResponse | null
+      const canvas = payload?.data?.canvas
+      if (response.ok && canvas?.id) applyCanvasSnapshot(canvas)
+    } catch {
+      /* non-fatal refresh */
+    }
+  }, [activeCanvas?.id, activeCanvas?.orgId, applyCanvasSnapshot, resolvedOrgId])
 
   const renameActiveCanvas = useCallback(async (nextTitle: string) => {
     if (!activeCanvas?.id) return
@@ -3787,6 +3815,70 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
     })
     setActivityMessage(response.ok ? 'Output attached for review' : 'Output attach failed')
   }
+
+  const updateNodePrompt = useCallback((nodeId: string, value: string) => {
+    setNodes((current) => current.map((node) => {
+      if (node.id !== nodeId) return node
+      const canvasNode = node.data?.canvasNode as CreativeCanvasNode | undefined
+      if (!canvasNode) return node
+      return {
+        ...node,
+        data: {
+          ...node.data,
+          prompt: value,
+          canvasNode: { ...canvasNode, data: { ...(canvasNode.data as Record<string, unknown>), prompt: value } },
+        },
+      }
+    }))
+  }, [])
+
+  const generateInlineForNode = useCallback(async (nodeId: string) => {
+    if (!activeCanvas?.id || mode !== 'admin') return
+    const canvasOrgId = resolvedOrgId || activeCanvas.orgId || ''
+    const target = nodes.find((node) => node.id === nodeId)
+    const canvasNode = target?.data?.canvasNode as CreativeCanvasNode | undefined
+    const promptText = (canvasNode?.data as Record<string, unknown> | undefined)?.prompt
+    setGeneratingNodeIds((prev) => new Set(prev).add(nodeId))
+    try {
+      const response = await fetch(`/api/v1/creative-canvas/${activeCanvas.id}/runs/generate?orgId=${encodeURIComponent(canvasOrgId)}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          nodeId,
+          model: runModel,
+          prompt: typeof promptText === 'string' ? promptText : '',
+          aspectRatio: runAspectRatio,
+          resolution: runResolution,
+          quality: runQuality,
+          duration: runDurationSeconds,
+          generateAudio: runGenerateAudio,
+          batch: runVariantCount,
+        }),
+      })
+      const payload = await response.json().catch(() => null) as { data?: { pending?: boolean }; error?: string } | null
+      if (!response.ok) {
+        setActivityMessage(payload?.error ?? 'Generation failed')
+        return
+      }
+      await reloadActiveCanvas()
+      setActivityMessage(payload?.data?.pending ? 'Generation queued for review' : 'Generation complete')
+    } catch {
+      setActivityMessage('Generation failed')
+    } finally {
+      setGeneratingNodeIds((prev) => {
+        const next = new Set(prev)
+        next.delete(nodeId)
+        return next
+      })
+    }
+  }, [activeCanvas?.id, activeCanvas?.orgId, mode, nodes, reloadActiveCanvas, resolvedOrgId, runAspectRatio, runDurationSeconds, runGenerateAudio, runModel, runQuality, runVariantCount])
+
+  useEffect(() => {
+    nodeActionRefs.current = {
+      generate: (nodeId: string) => { void generateInlineForNode(nodeId) },
+      updatePrompt: updateNodePrompt,
+    }
+  }, [generateInlineForNode, updateNodePrompt])
 
   const markReviewPassed = async () => {
     if (!activeCanvas?.id || !selectedNodeId) return
@@ -5976,7 +6068,6 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
                   generateAudio: runGenerateAudio,
                   batch: runVariantCount,
                 }}
-                generating={false}
                 canGenerate={mode === 'admin' && Boolean(selectedNodeId) && !versionPreview}
                 onModelSelect={setRunModel}
                 onChange={(patch) => {
@@ -5988,7 +6079,8 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
                   if (patch.generateAudio !== undefined) setRunGenerateAudio(patch.generateAudio)
                   if (patch.batch !== undefined) setRunVariantCount(patch.batch)
                 }}
-                onGenerate={() => { void queueRun() }}
+                generating={Boolean(selectedNodeId && generatingNodeIds.has(selectedNodeId))}
+                onGenerate={() => { if (selectedNodeId) void generateInlineForNode(selectedNodeId) }}
                 onClose={() => setSelectedFlowNodeId('')}
               />
             </CanvasStage>

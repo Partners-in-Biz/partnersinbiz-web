@@ -1,0 +1,146 @@
+import { NextRequest } from 'next/server'
+import { withAuth } from '@/lib/api/auth'
+import { apiError, apiSuccess } from '@/lib/api/response'
+import type { ApiUser } from '@/lib/api/types'
+import { getCreativeCanvas } from '@/lib/creative-canvas/store'
+import { buildCreativeCanvasAgentTask } from '@/lib/creative-canvas/agent-bridge'
+import {
+  createCreativeCanvasRun,
+  completeCreativeCanvasRun,
+} from '@/lib/creative-canvas/runs'
+import { getCanvasModel } from '@/lib/creative-canvas/model-registry'
+import {
+  generateInline,
+  InlineNotSupportedError,
+} from '@/lib/creative-canvas/inline-generation'
+import type { CreativeCanvasActor } from '@/lib/creative-canvas/types'
+
+export const dynamic = 'force-dynamic'
+
+type RouteContext = { params: Promise<{ id: string }> }
+
+function resolveOrgId(req: NextRequest, user: ApiUser): string | null {
+  const url = new URL(req.url)
+  return url.searchParams.get('orgId') ?? req.headers.get('x-org-id') ?? user.orgId ?? user.orgIds?.[0] ?? null
+}
+
+function actorFromUser(user: ApiUser): CreativeCanvasActor {
+  return {
+    uid: user.role === 'ai' && user.agentId ? `agent:${user.agentId}` : user.uid,
+    type: user.role === 'ai' ? 'agent' : 'user',
+  }
+}
+
+export const POST = withAuth('client', async (req: NextRequest, user: ApiUser, context?: unknown) => {
+  const { id } = await (context as RouteContext).params
+  const orgId = resolveOrgId(req, user)
+  if (!orgId) return apiError('orgId is required', 400)
+  const canvas = await getCreativeCanvas(id, orgId)
+  if (!canvas) return apiError('Creative canvas not found', 404)
+
+  const body = await req.json().catch(() => null)
+  if (!body) return apiError('Malformed JSON body', 400)
+
+  const {
+    nodeId,
+    model,
+    prompt,
+    aspectRatio,
+    resolution,
+    duration,
+    batch,
+  } = body as {
+    nodeId?: string
+    model?: string
+    prompt?: string
+    aspectRatio?: string
+    resolution?: string
+    quality?: string
+    duration?: number
+    generateAudio?: boolean
+    batch?: number
+  }
+
+  const m = getCanvasModel(typeof model === 'string' ? model : '')
+  if (!m) return apiError('Unknown creative canvas model', 400)
+
+  const actor = actorFromUser(user)
+  const promptSummary = typeof prompt === 'string' ? prompt : undefined
+
+  // Shared run-creation payload mirroring the create `/runs` route.
+  const runPayload = {
+    canvasId: id,
+    nodeId,
+    providerKey: m.providerKey,
+    model: m.id,
+    input: {
+      promptSummary,
+      sourceNodeIds: nodeId ? [nodeId] : [],
+      sourceArtifactIds: [],
+      aspectRatio,
+      outputKind: m.kind,
+      durationSeconds: duration,
+      variantCount: batch,
+      ...(resolution ? { format: resolution } : {}),
+    },
+  }
+
+  if (m.execution === 'sync') {
+    let inlineResult: { url: string; mimeType: string }
+    let run: Awaited<ReturnType<typeof createCreativeCanvasRun>>
+    try {
+      run = await createCreativeCanvasRun(runPayload, orgId, actor)
+    } catch (err) {
+      return apiError(err instanceof Error ? err.message : 'Failed to create run', 500)
+    }
+
+    try {
+      inlineResult = await generateInline({
+        providerKey: m.providerKey,
+        model: m.id,
+        prompt: promptSummary ?? '',
+        aspectRatio,
+      })
+    } catch (err) {
+      if (err instanceof InlineNotSupportedError) {
+        // Inline not available for this provider — fall back to queued async run.
+        const agentTaskDraft = buildCreativeCanvasAgentTask(run, canvas)
+        return apiSuccess({ run, agentTaskDraft, pending: true }, 201)
+      }
+      return apiError(err instanceof Error ? err.message : 'Inline generation failed', 500)
+    }
+
+    let completed: Awaited<ReturnType<typeof completeCreativeCanvasRun>>
+    try {
+      completed = await completeCreativeCanvasRun(
+        run.id,
+        orgId,
+        {
+          output: {
+            kind: m.kind,
+            url: inlineResult.url,
+          },
+        },
+        actor,
+      )
+    } catch (err) {
+      return apiError(err instanceof Error ? err.message : 'Failed to attach inline output', 500)
+    }
+
+    return apiSuccess({
+      run: completed.run,
+      node: completed.outputNode,
+      pending: false,
+    })
+  }
+
+  // Async provider — queue the run exactly like the create `/runs` route.
+  let run: Awaited<ReturnType<typeof createCreativeCanvasRun>>
+  try {
+    run = await createCreativeCanvasRun(runPayload, orgId, actor)
+  } catch (err) {
+    return apiError(err instanceof Error ? err.message : 'Failed to create run', 500)
+  }
+  const agentTaskDraft = buildCreativeCanvasAgentTask(run, canvas)
+  return apiSuccess({ run, agentTaskDraft, pending: true }, 201)
+})
