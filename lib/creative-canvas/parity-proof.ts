@@ -1,4 +1,5 @@
 import type {
+  CreativeCanvasBenchmarkProof,
   CreativeCanvasCategoryEvidence,
   CreativeCanvasCertificationArtifactEvidence,
   CreativeCanvasCollaborationProofEvidence,
@@ -101,14 +102,15 @@ export function hasStructuredCollaborationProof(
 
 export function hasStructuredMobileProof(
   proof: CreativeCanvasMobileProof | undefined,
-  current?: CreativeCanvasProofBinding,
+  current: CreativeCanvasProofBinding,
 ): boolean {
   if (!proof) return false
   const evidence = Array.isArray(proof.mobileViewportBehaviorEvidence) ? proof.mobileViewportBehaviorEvidence : []
   const covered = new Set(evidence.map((item) => item.key))
 
   return Boolean(
-    hasCurrentCanvasBinding(proof, current)
+    hasCurrentCanvasBinding(current, current)
+      && hasCurrentCanvasBinding(proof, current)
       && typeof proof.mobileViewportProofCount === 'number'
       && typeof proof.mobileViewportRequiredCount === 'number'
       && proof.mobileViewportRequiredCount >= requiredViewportKeys.length
@@ -191,11 +193,24 @@ function hasKbCertificationEvidence(
   )
 }
 
+function isCurrentBenchmarkProof(
+  proof: CreativeCanvasBenchmarkProof,
+  current: CreativeCanvasProofBinding,
+): boolean {
+  return proof.passed && hasCurrentCanvasBinding(proof, current)
+}
+
 export function buildWorldClassCertification(input: CreativeCanvasWorldClassCertificationInput): CreativeCanvasWorldClassCertification {
   const blockers: string[] = []
   const warnings: string[] = []
-  const passedBenchmarks = input.benchmarkProofs.filter((item) => item.passed)
+  const passedBenchmarks = input.benchmarkProofs.filter((item) => isCurrentBenchmarkProof(item, input.currentBinding))
   const currentBindingValid = hasCurrentCanvasBinding(input.currentBinding)
+  const runtimeProofValid = Boolean(
+    input.runtimeProof
+      && hasCurrentCanvasBinding(input.runtimeProof, input.currentBinding)
+      && input.runtimeProof.status === 'passed'
+      && input.runtimeProof.readyForLiveProof === true,
+  )
   const signedInPreviewProofValid = hasCertificationArtifactEvidence(input.signedInPreviewProof, input.currentBinding)
   const kbCertificationValid = hasKbCertificationEvidence(input.kbCertification, input.currentBinding)
 
@@ -207,7 +222,7 @@ export function buildWorldClassCertification(input: CreativeCanvasWorldClassCert
     blockers.push('Current canvas binding is missing or invalid.')
   }
 
-  if (input.runtimeProof?.status !== 'passed' || input.runtimeProof.readyForLiveProof !== true) {
+  if (!runtimeProofValid) {
     blockers.push('Runtime proof is not passed and ready for live proof.')
   }
 
@@ -228,7 +243,7 @@ export function buildWorldClassCertification(input: CreativeCanvasWorldClassCert
   }
 
   const passedGateCount = input.requiredBenchmarkCount - Math.max(0, input.requiredBenchmarkCount - passedBenchmarks.length)
-    + (input.runtimeProof?.status === 'passed' && input.runtimeProof.readyForLiveProof ? 1 : 0)
+    + (runtimeProofValid ? 1 : 0)
     + Math.min(input.liveProofArtifacts.length, 4)
     + (signedInPreviewProofValid ? 1 : 0)
     + (kbCertificationValid ? 1 : 0)
@@ -237,11 +252,11 @@ export function buildWorldClassCertification(input: CreativeCanvasWorldClassCert
   return {
     status: blockers.length ? 'blocked' : warnings.length ? 'warning' : 'passed',
     capturedAt: input.capturedAt,
-    orgId: input.currentBinding?.orgId,
-    canvasVersion: input.currentBinding?.canvasVersion,
-    graphSignature: input.currentBinding?.graphSignature,
-    nodeCount: input.currentBinding?.nodeCount,
-    edgeCount: input.currentBinding?.edgeCount,
+    orgId: input.currentBinding.orgId,
+    canvasVersion: input.currentBinding.canvasVersion,
+    graphSignature: input.currentBinding.graphSignature,
+    nodeCount: input.currentBinding.nodeCount,
+    edgeCount: input.currentBinding.edgeCount,
     passedGateCount,
     requiredGateCount,
     blockers,

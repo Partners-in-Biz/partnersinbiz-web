@@ -683,18 +683,29 @@ export interface CreativeCanvasKnowledgeBaseCertificationEvidence extends Creati
   capturedAt?: string
 }
 
+export interface CreativeCanvasBenchmarkProof extends CreativeCanvasProofBinding {
+  key: string
+  passed: boolean
+  evidence?: string
+}
+
+export interface CreativeCanvasCertificationRuntimeProof extends CreativeCanvasProofBinding {
+  status: CreativeCanvasProofStatus
+  readyForLiveProof: boolean
+}
+
 export interface CreativeCanvasWorldClassCertificationInput {
-  benchmarkProofs: Array<{ key: string; passed: boolean; evidence?: string }>
-  runtimeProof?: { status: CreativeCanvasProofStatus; readyForLiveProof?: boolean }
+  benchmarkProofs: CreativeCanvasBenchmarkProof[]
+  runtimeProof?: CreativeCanvasCertificationRuntimeProof
   liveProofArtifacts: string[]
   requiredBenchmarkCount: number
   capturedAt: string
-  currentBinding?: CreativeCanvasProofBinding
+  currentBinding: CreativeCanvasProofBinding
   signedInPreviewProof?: CreativeCanvasCertificationArtifactEvidence
   kbCertification?: CreativeCanvasKnowledgeBaseCertificationEvidence
 }
 
-export interface CreativeCanvasWorldClassCertification extends Partial<CreativeCanvasProofBinding> {
+export interface CreativeCanvasWorldClassCertification extends CreativeCanvasProofBinding {
   status: CreativeCanvasProofStatus
   capturedAt: string
   passedGateCount: number

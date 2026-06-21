@@ -15,6 +15,31 @@ describe('creative canvas parity proof contracts', () => {
     nodeCount: 2,
     edgeCount: 1,
   }
+  const validBenchmarkProofs = Array.from({ length: 2 }, (_, index) => ({
+    ...currentBinding,
+    key: `benchmark-${index + 1}`,
+    passed: true,
+    evidence: `Benchmark ${index + 1} passed.`,
+  }))
+  const validRuntimeProof = {
+    ...currentBinding,
+    status: 'passed' as const,
+    readyForLiveProof: true,
+  }
+  const validSignedInPreviewProof = {
+    ...currentBinding,
+    passed: true,
+    evidence: 'Preview confirmed against signed-in Vercel Preview.',
+    artifactRef: 'preview-artifact-1',
+    capturedAt,
+  }
+  const validKbCertification = {
+    ...currentBinding,
+    recorded: true,
+    evidence: 'KB certification recorded in partner wiki.',
+    artifactRef: 'kb-artifact-1',
+    capturedAt,
+  }
 
   it('requires the five current content categories', () => {
     expect(requiredCreativeCanvasProofCategories.map((item) => item.key)).toEqual([
@@ -107,7 +132,7 @@ describe('creative canvas parity proof contracts', () => {
       mobileViewportRequiredCount: 4,
       mobileViewportProofCapturedAt: capturedAt,
       mobileViewportEvidence: '4/4 screenshots captured.',
-    })).toBe(false)
+    }, currentBinding)).toBe(false)
   })
 
   it('rejects signed-in mobile behavior evidence when current canvas binding is missing', () => {
@@ -125,6 +150,25 @@ describe('creative canvas parity proof contracts', () => {
     }, currentBinding)).toBe(false)
   })
 
+  it('requires current binding when validating signed-in mobile behavior evidence', () => {
+    const proof = {
+      ...currentBinding,
+      mobileViewportProofCount: 4,
+      mobileViewportRequiredCount: 4,
+      mobileViewportProofCapturedAt: capturedAt,
+      mobileViewportEvidence: '4/4 viewport behavior proofs captured.',
+      mobileViewportBehaviorEvidence: [
+        { key: 'desktop', width: 1440, height: 980, screenshotUrl: 'https://proof.example.com/desktop.png', status: 200, contentType: 'image/png', criticalControlsVisible: true, criticalControlsEnabled: true, horizontalOverflow: false, touchSmokePassed: true, pointerSmokePassed: true, panelKeys: ['graph', 'inspector', 'runs'], capturedAt },
+        { key: 'tablet', width: 820, height: 1180, screenshotUrl: 'https://proof.example.com/tablet.png', status: 200, contentType: 'image/png', criticalControlsVisible: true, criticalControlsEnabled: true, horizontalOverflow: false, touchSmokePassed: true, pointerSmokePassed: true, panelKeys: ['graph', 'inspector'], capturedAt },
+        { key: 'mobile', width: 390, height: 844, screenshotUrl: 'https://proof.example.com/mobile.png', status: 200, contentType: 'image/png', criticalControlsVisible: true, criticalControlsEnabled: true, horizontalOverflow: false, touchSmokePassed: true, pointerSmokePassed: true, panelKeys: ['graph'], capturedAt },
+        { key: 'mobile_panels', width: 390, height: 844, screenshotUrl: 'https://proof.example.com/mobile-panels.png', status: 200, contentType: 'image/png', criticalControlsVisible: true, criticalControlsEnabled: true, horizontalOverflow: false, touchSmokePassed: true, pointerSmokePassed: true, panelKeys: ['inspector', 'runs', 'exports'], capturedAt },
+      ],
+    }
+
+    // @ts-expect-error current binding is required for mobile proof validation
+    expect(hasStructuredMobileProof(proof)).toBe(false)
+  })
+
   it('accepts signed-in mobile behavior evidence for all required viewports', () => {
     expect(hasStructuredMobileProof({
       ...currentBinding,
@@ -138,7 +182,7 @@ describe('creative canvas parity proof contracts', () => {
         { key: 'mobile', width: 390, height: 844, screenshotUrl: 'https://proof.example.com/mobile.png', status: 200, contentType: 'image/png', criticalControlsVisible: true, criticalControlsEnabled: true, horizontalOverflow: false, touchSmokePassed: true, pointerSmokePassed: true, panelKeys: ['graph'], capturedAt },
         { key: 'mobile_panels', width: 390, height: 844, screenshotUrl: 'https://proof.example.com/mobile-panels.png', status: 200, contentType: 'image/png', criticalControlsVisible: true, criticalControlsEnabled: true, horizontalOverflow: false, touchSmokePassed: true, pointerSmokePassed: true, panelKeys: ['inspector', 'runs', 'exports'], capturedAt },
       ],
-    })).toBe(true)
+    }, currentBinding)).toBe(true)
   })
 
   it('requires durable category evidence instead of aggregate runtime counts', () => {
@@ -252,14 +296,13 @@ describe('creative canvas parity proof contracts', () => {
     expect(certification.blockers).toContain('Missing 10 source-backed benchmark proofs.')
   })
 
-  it('keeps certification blocked when current binding is omitted', () => {
+  it('ignores stale or foreign benchmark proofs for certification', () => {
     const certification = buildWorldClassCertification({
-      benchmarkProofs: Array.from({ length: 2 }, (_, index) => ({
-        key: `benchmark-${index + 1}`,
-        passed: true,
-        evidence: `Benchmark ${index + 1} passed.`,
-      })),
-      runtimeProof: { status: 'passed', readyForLiveProof: true },
+      benchmarkProofs: [
+        validBenchmarkProofs[0],
+        { ...validBenchmarkProofs[1], orgId: 'org-foreign' },
+      ],
+      runtimeProof: validRuntimeProof,
       liveProofArtifacts: [
         'https://proof.example.com/live-1',
         'https://proof.example.com/live-2',
@@ -268,34 +311,60 @@ describe('creative canvas parity proof contracts', () => {
       ],
       requiredBenchmarkCount: 2,
       capturedAt,
-      signedInPreviewProof: {
-        ...currentBinding,
-        passed: true,
-        evidence: 'Preview confirmed against signed-in Vercel Preview.',
-        artifactRef: 'preview-artifact-1',
-        capturedAt,
-      },
-      kbCertification: {
-        ...currentBinding,
-        recorded: true,
-        evidence: 'KB certification recorded in partner wiki.',
-        artifactRef: 'kb-artifact-1',
-        capturedAt,
-      },
+      currentBinding,
+      signedInPreviewProof: validSignedInPreviewProof,
+      kbCertification: validKbCertification,
     })
 
     expect(certification.status).toBe('blocked')
-    expect(certification.blockers).toContain('Current canvas binding is missing or invalid.')
+    expect(certification.blockers).toContain('Missing 1 source-backed benchmark proofs.')
+  })
+
+  it('keeps certification blocked when runtime proof is missing', () => {
+    const certification = buildWorldClassCertification({
+      benchmarkProofs: validBenchmarkProofs,
+      liveProofArtifacts: [
+        'https://proof.example.com/live-1',
+        'https://proof.example.com/live-2',
+        'https://proof.example.com/live-3',
+        'https://proof.example.com/live-4',
+      ],
+      requiredBenchmarkCount: 2,
+      capturedAt,
+      currentBinding,
+      signedInPreviewProof: validSignedInPreviewProof,
+      kbCertification: validKbCertification,
+    })
+
+    expect(certification.status).toBe('blocked')
+    expect(certification.blockers).toContain('Runtime proof is not passed and ready for live proof.')
+  })
+
+  it('keeps certification blocked when runtime proof binding is stale', () => {
+    const certification = buildWorldClassCertification({
+      benchmarkProofs: validBenchmarkProofs,
+      runtimeProof: { ...validRuntimeProof, graphSignature: 'nodes:stale|edges:none' },
+      liveProofArtifacts: [
+        'https://proof.example.com/live-1',
+        'https://proof.example.com/live-2',
+        'https://proof.example.com/live-3',
+        'https://proof.example.com/live-4',
+      ],
+      requiredBenchmarkCount: 2,
+      capturedAt,
+      currentBinding,
+      signedInPreviewProof: validSignedInPreviewProof,
+      kbCertification: validKbCertification,
+    })
+
+    expect(certification.status).toBe('blocked')
+    expect(certification.blockers).toContain('Runtime proof is not passed and ready for live proof.')
   })
 
   it('keeps certification blocked when preview and kb evidence references are missing', () => {
     const certification = buildWorldClassCertification({
-      benchmarkProofs: Array.from({ length: 2 }, (_, index) => ({
-        key: `benchmark-${index + 1}`,
-        passed: true,
-        evidence: `Benchmark ${index + 1} passed.`,
-      })),
-      runtimeProof: { status: 'passed', readyForLiveProof: true },
+      benchmarkProofs: validBenchmarkProofs,
+      runtimeProof: validRuntimeProof,
       liveProofArtifacts: [
         'https://proof.example.com/live-1',
         'https://proof.example.com/live-2',
@@ -324,12 +393,8 @@ describe('creative canvas parity proof contracts', () => {
 
   it('returns passed certification only when bound preview and kb artifacts are present', () => {
     const certification = buildWorldClassCertification({
-      benchmarkProofs: Array.from({ length: 2 }, (_, index) => ({
-        key: `benchmark-${index + 1}`,
-        passed: true,
-        evidence: `Benchmark ${index + 1} passed.`,
-      })),
-      runtimeProof: { status: 'passed', readyForLiveProof: true },
+      benchmarkProofs: validBenchmarkProofs,
+      runtimeProof: validRuntimeProof,
       liveProofArtifacts: [
         'https://proof.example.com/live-1',
         'https://proof.example.com/live-2',
@@ -339,23 +404,16 @@ describe('creative canvas parity proof contracts', () => {
       requiredBenchmarkCount: 2,
       capturedAt,
       currentBinding,
-      signedInPreviewProof: {
-        ...currentBinding,
-        passed: true,
-        evidence: 'Preview confirmed against signed-in Vercel Preview.',
-        artifactRef: 'preview-artifact-1',
-        capturedAt,
-      },
-      kbCertification: {
-        ...currentBinding,
-        recorded: true,
-        evidence: 'KB certification recorded in partner wiki.',
-        artifactRef: 'kb-artifact-1',
-        capturedAt,
-      },
+      signedInPreviewProof: validSignedInPreviewProof,
+      kbCertification: validKbCertification,
     })
 
     expect(certification.status).toBe('passed')
+    expect(certification.orgId).toBe(currentBinding.orgId)
+    expect(certification.canvasVersion).toBe(currentBinding.canvasVersion)
+    expect(certification.graphSignature).toBe(currentBinding.graphSignature)
+    expect(certification.nodeCount).toBe(currentBinding.nodeCount)
+    expect(certification.edgeCount).toBe(currentBinding.edgeCount)
     expect(certification.signedInPreviewProofPassed).toBe(true)
     expect(certification.signedInPreviewProofArtifactRef).toBe('preview-artifact-1')
     expect(certification.kbCertificationRecorded).toBe(true)

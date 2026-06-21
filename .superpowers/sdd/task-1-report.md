@@ -131,3 +131,27 @@ Commit created for the fix:
 ```bash
 fix(canvas): bind mobile and certification proof
 ```
+
+## Review Fix Addendum 3
+
+Date: 2026-06-21
+Base commit under review: `774c20b5`
+
+Fixed remaining binding-contract findings in Task 1 owned files only:
+
+- Added bound certification benchmark/runtime proof contracts so each proof carries `orgId`, `canvasVersion`, `graphSignature`, `nodeCount`, and `edgeCount`
+- Hardened certification aggregation to ignore stale or foreign benchmark proofs and to block stale or missing runtime proof against the required current binding
+- Made `hasStructuredMobileProof` require a current binding argument and added regression coverage for omitted binding plus stale benchmark/runtime proof inputs
+- Made returned certification binding non-optional by requiring valid `currentBinding` in the certification input contract and returning those fields on every certification object
+
+Verification commands:
+
+```bash
+npx jest __tests__/lib/creative-canvas/parity-proof.test.ts --runInBand
+npm run typecheck
+```
+
+Verification results:
+
+- Focused Jest passed: 1 suite, 18 tests
+- Typecheck passed
