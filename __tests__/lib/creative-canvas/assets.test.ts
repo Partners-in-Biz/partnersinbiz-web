@@ -129,7 +129,7 @@ describe('creative canvas asset gallery', () => {
     expect(assets).toEqual([
       expect.objectContaining({
         id: 'output:blog-output',
-        suggestedExportTarget: 'client_document',
+        suggestedExportTarget: 'blog_post',
         canDraftExport: true,
         readyForExport: false,
       }),

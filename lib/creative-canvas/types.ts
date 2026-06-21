@@ -805,8 +805,14 @@ export interface CreativeCanvasExport {
   orgId: string
   canvasId: string
   nodeId: string
-  target: 'social_draft' | 'campaign_asset' | 'client_document' | 'research' | 'youtube_studio' | 'book_studio' | 'workspace_artifact'
+  target: 'social_draft' | 'campaign_asset' | 'client_document' | 'blog_post' | 'research' | 'youtube_studio' | 'book_studio' | 'workspace_artifact'
   targetId?: string
+  categoryKey?: CreativeCanvasProofCategoryKey
+  downstreamDraftId?: string
+  lineageSourceNodeIds?: string[]
+  outputNodeId?: string
+  outputKind?: CreativeCanvasOutputKind
+  reviewStatus?: CreativeCanvasReviewStatus
   status: 'drafted' | 'blocked' | 'completed' | 'failed'
   createdAt?: unknown
   createdBy: string

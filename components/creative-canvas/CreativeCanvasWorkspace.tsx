@@ -8334,6 +8334,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
                           <option value="social_draft">Social draft</option>
                           <option value="campaign_asset">Campaign asset</option>
                           <option value="client_document">Client document</option>
+                          <option value="blog_post">Blog post</option>
                           <option value="research">Research</option>
                           <option value="youtube_studio">YouTube Studio</option>
                           <option value="book_studio">Book Studio</option>
@@ -8533,6 +8534,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
               <option value="campaign_asset">Campaign asset</option>
               <option value="social_draft">Social draft</option>
               <option value="client_document">Client document / blog</option>
+              <option value="blog_post">Blog post</option>
               <option value="research">Research</option>
               <option value="youtube_studio">YouTube Studio</option>
               <option value="book_studio">Book Studio</option>

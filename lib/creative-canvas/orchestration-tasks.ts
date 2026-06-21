@@ -2,6 +2,7 @@ import { FieldValue } from 'firebase-admin/firestore'
 import { adminDb } from '@/lib/firebase/admin'
 import { buildProjectTaskCreateData } from '@/lib/projects/taskPayload'
 import { buildCreativeCanvasOrchestrationPlan } from './orchestration'
+import { CREATIVE_CANVAS_COLLECTION } from './store'
 import type {
   CreativeCanvas,
   CreativeCanvasActor,
@@ -81,6 +82,7 @@ export async function createCreativeCanvasOrchestrationTasks(
 ): Promise<{
   projectId: string
   createdTasks: Array<{ id: string; nodeId: string; agentId: string; title: string }>
+  nodeTaskLineage: Array<{ nodeId: string; taskId: string; projectId: string; agentId: string }>
   skippedSteps: Array<{ nodeId: string; reason: string }>
 }> {
   const body = input && typeof input === 'object' && !Array.isArray(input) ? input as Record<string, unknown> : {}
@@ -97,6 +99,7 @@ export async function createCreativeCanvasOrchestrationTasks(
     : null
   const steps = plan.steps.filter((step) => !requestedNodeIds || requestedNodeIds.has(step.nodeId))
   const createdTasks: Array<{ id: string; nodeId: string; agentId: string; title: string }> = []
+  const nodeTaskLineage: Array<{ nodeId: string; taskId: string; projectId: string; agentId: string }> = []
   const skippedSteps: Array<{ nodeId: string; reason: string }> = []
   const nodeTaskIds = new Map<string, string>()
 
@@ -132,7 +135,45 @@ export async function createCreativeCanvasOrchestrationTasks(
       agentId: step.agentId,
       title: String(taskData.value.title ?? step.title),
     })
+    nodeTaskLineage.push({
+      nodeId: step.nodeId,
+      taskId: ref.id,
+      projectId,
+      agentId: step.agentId,
+    })
   }
 
-  return { projectId, createdTasks, skippedSteps }
+  if (nodeTaskLineage.length) {
+    const taskIdsByNodeId = new Map(nodeTaskLineage.map((item) => [item.nodeId, item.taskId]))
+    let changed = false
+    const nodes = canvas.nodes.map((node) => {
+      const taskId = taskIdsByNodeId.get(node.id)
+      if (!taskId) return node
+      const existingTaskIds = Array.isArray(node.data.agentTaskIds)
+        ? node.data.agentTaskIds.filter((item): item is string => typeof item === 'string' && Boolean(item.trim()))
+        : []
+      const agentTaskIds = Array.from(new Set([...existingTaskIds, taskId]))
+      if (agentTaskIds.length === existingTaskIds.length && agentTaskIds.every((item, index) => item === existingTaskIds[index])) {
+        return node
+      }
+      changed = true
+      return {
+        ...node,
+        data: {
+          ...node.data,
+          agentTaskIds,
+        },
+      }
+    })
+    if (changed) {
+      await adminDb.collection(CREATIVE_CANVAS_COLLECTION).doc(canvas.id).update({
+        nodes,
+        updatedBy: actor.uid,
+        updatedByType: actor.type,
+        updatedAt: FieldValue.serverTimestamp(),
+      })
+    }
+  }
+
+  return { projectId, createdTasks, nodeTaskLineage, skippedSteps }
 }

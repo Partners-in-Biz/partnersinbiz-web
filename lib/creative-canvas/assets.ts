@@ -31,6 +31,7 @@ function exportTargetFromOutputKind(kind?: CreativeCanvasOutputKind): CreativeCa
     case 'caption':
       return 'social_draft'
     case 'blog_draft':
+      return 'blog_post'
     case 'document_block':
     case 'copy':
       return 'client_document'
@@ -54,6 +55,7 @@ function exportTargetFromNode(node: CreativeCanvasNode): CreativeCanvasExport['t
     dataTarget === 'social_draft'
     || dataTarget === 'campaign_asset'
     || dataTarget === 'client_document'
+    || dataTarget === 'blog_post'
     || dataTarget === 'research'
     || dataTarget === 'youtube_studio'
     || dataTarget === 'book_studio'

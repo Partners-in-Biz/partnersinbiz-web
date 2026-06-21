@@ -9,6 +9,7 @@ const TARGETS: CreativeCanvasExport['target'][] = [
   'social_draft',
   'campaign_asset',
   'client_document',
+  'blog_post',
   'research',
   'youtube_studio',
   'book_studio',
@@ -75,6 +76,8 @@ describe('creative canvas generic draft exports', () => {
         node: outputNode(),
         target,
         actor: { uid: 'user-1', type: 'user' },
+        lineageSourceNodeIds: ['source-1'],
+        downstreamDraftId: `${target}-draft-1`,
       })
 
       expect(draft.exportRecord).toMatchObject({
@@ -82,6 +85,11 @@ describe('creative canvas generic draft exports', () => {
         canvasId: 'canvas-1',
         nodeId: 'output-1',
         target,
+        downstreamDraftId: `${target}-draft-1`,
+        lineageSourceNodeIds: ['source-1'],
+        outputNodeId: 'output-1',
+        outputKind: 'image',
+        reviewStatus: 'passed',
         status: 'drafted',
         createdBy: 'user-1',
         createdByType: 'user',
@@ -97,6 +105,40 @@ describe('creative canvas generic draft exports', () => {
     }
   })
 
+  it('requires category lineage for every world-class export target', () => {
+    const targets = [
+      ['social_draft', 'video_social'],
+      ['campaign_asset', 'image'],
+      ['client_document', 'blog_document'],
+      ['blog_post', 'blog_document'],
+      ['youtube_studio', 'video_social'],
+      ['book_studio', 'book'],
+      ['workspace_artifact', 'image'],
+    ] as const
+
+    for (const [target, categoryKey] of targets) {
+      const exportRecord = buildCreativeCanvasDraftExport({
+        canvas: canvas(),
+        node: outputNode(),
+        target,
+        actor: { uid: 'user-1', type: 'user' },
+        lineageSourceNodeIds: ['source-1', 'source-2'],
+        downstreamDraftId: `${target}-draft-1`,
+      }).exportRecord
+
+      expect(exportRecord).toMatchObject({
+        orgId: 'org-1',
+        canvasId: 'canvas-1',
+        nodeId: 'output-1',
+        target,
+        categoryKey,
+        downstreamDraftId: `${target}-draft-1`,
+        lineageSourceNodeIds: ['source-1', 'source-2'],
+        status: 'drafted',
+      })
+    }
+  })
+
   it('blocks cross-org and review-blocked exports', () => {
     expect(() => assertCanvasOutputCanExport(outputNode({ orgId: 'org-2' }), 'campaign_asset', 'org-1'))
       .toThrow('Creative canvas output does not belong to organisation')
@@ -106,12 +148,43 @@ describe('creative canvas generic draft exports', () => {
     }), 'client_document', 'org-1')).toThrow('Creative canvas output is blocked by review state')
   })
 
+  it('rejects missing lineage, missing downstream draft ids, unreviewed outputs, and unsafe urls', () => {
+    const baseInput = {
+      canvas: canvas(),
+      node: outputNode(),
+      target: 'campaign_asset' as const,
+      actor: { uid: 'user-1', type: 'user' as const },
+      lineageSourceNodeIds: ['source-1'],
+      downstreamDraftId: 'draft-1',
+    }
+
+    expect(() => buildCreativeCanvasDraftExport({ ...baseInput, lineageSourceNodeIds: [] }))
+      .toThrow('requires lineage source node ids')
+    expect(() => buildCreativeCanvasDraftExport({ ...baseInput, downstreamDraftId: '' }))
+      .toThrow('requires downstream draft id')
+    expect(() => buildCreativeCanvasDraftExport({
+      ...baseInput,
+      node: outputNode({ review: { status: 'needed', rightsStatus: 'cleared', brandStatus: 'passed' } }),
+    })).toThrow('must pass review before export')
+    expect(() => buildCreativeCanvasDraftExport({
+      ...baseInput,
+      node: outputNode({ output: { ...outputNode().output!, url: 'javascript:alert(1)' } }),
+    })).toThrow('unsafe url')
+
+    expect(buildCreativeCanvasDraftExport({
+      ...baseInput,
+      node: outputNode({ review: { status: 'warning', rightsStatus: 'cleared', brandStatus: 'passed' } }),
+    }).exportRecord.reviewStatus).toBe('warning')
+  })
+
   it('adds module-specific draft metadata without enabling publishing', () => {
     const documentDraft = buildCreativeCanvasDraftExport({
       canvas: canvas(),
       node: outputNode({ output: { ...outputNode().output!, kind: 'document_block' } }),
       target: 'client_document',
       actor: { uid: 'agent:iris', type: 'agent' },
+      lineageSourceNodeIds: ['source-1'],
+      downstreamDraftId: 'doc-draft-1',
     })
 
     expect(documentDraft.payload).toMatchObject({
@@ -139,7 +212,10 @@ describe('creative canvas generic draft exports', () => {
           outputNode({ id: 'output-social', title: 'Social video', output: { ...outputNode().output!, kind: 'social_post_draft' } }),
           outputNode({ id: 'output-book', title: 'Book cover', output: { ...outputNode().output!, kind: 'book_artifact' } }),
         ],
-        edges: [{ id: 'edge-1', orgId: 'org-1', sourceNodeId: 'source-1', targetNodeId: 'output-social', label: 'reference' }],
+        edges: [
+          { id: 'edge-1', orgId: 'org-1', sourceNodeId: 'source-1', targetNodeId: 'output-social', label: 'reference' },
+          { id: 'edge-2', orgId: 'org-1', sourceNodeId: 'source-1', targetNodeId: 'output-book', label: 'reference' },
+        ],
       },
       nodeIds: ['output-social', 'output-book'],
       actor: { uid: 'user-1', type: 'user' },
@@ -167,7 +243,7 @@ describe('creative canvas generic draft exports', () => {
         title: 'Launch Canvas',
         activeVersion: 2,
         nodeCount: 3,
-        edgeCount: 1,
+        edgeCount: 2,
       },
       review: {
         readyAssetCount: 2,
@@ -184,7 +260,7 @@ describe('creative canvas generic draft exports', () => {
         categoryCoverage: expect.arrayContaining([
           expect.objectContaining({ key: 'video_social', passed: true, assetNodeIds: ['output-social'] }),
           expect.objectContaining({ key: 'book', passed: true, assetNodeIds: ['output-book'] }),
-          expect.objectContaining({ key: 'image_campaign', passed: false, assetNodeIds: [] }),
+          expect.objectContaining({ key: 'image', passed: false, assetNodeIds: [] }),
           expect.objectContaining({ key: 'audio', passed: false, assetNodeIds: [] }),
         ]),
       },
@@ -196,7 +272,7 @@ describe('creative canvas generic draft exports', () => {
         }),
         expect.objectContaining({
           outputNodeId: 'output-book',
-          sourceNodeIds: [],
+          sourceNodeIds: ['source-1'],
         }),
       ],
     })
@@ -211,6 +287,7 @@ describe('creative canvas generic draft exports', () => {
     ]))
     expect(pack.payload.manifest.graph.edges).toEqual([
       expect.objectContaining({ id: 'edge-1', sourceNodeId: 'source-1', targetNodeId: 'output-social' }),
+      expect.objectContaining({ id: 'edge-2', sourceNodeId: 'source-1', targetNodeId: 'output-book' }),
     ])
     expect(pack.payload.guardrails.join(' ')).toContain('Do not publish')
   })
@@ -240,13 +317,18 @@ describe('creative canvas generic draft exports', () => {
 
     expect(pack.payload.assetCount).toBe(5)
     expect(pack.payload.downstreamDrafts).toHaveLength(5)
-    expect(pack.payload.manifest.proof.coveredCategories).toEqual(['image_campaign', 'video_social', 'audio', 'blog_document', 'book'])
+    expect(pack.payload.manifest.proof.coveredCategories).toEqual(['image', 'video_social', 'audio', 'blog_document', 'book'])
     expect(pack.payload.manifest.proof.categoryCoverage).toEqual(expect.arrayContaining([
-      expect.objectContaining({ key: 'image_campaign', passed: true, assetNodeIds: ['output-image'] }),
+      expect.objectContaining({ key: 'image', passed: true, assetNodeIds: ['output-image'] }),
       expect.objectContaining({ key: 'video_social', passed: true, assetNodeIds: ['output-social'] }),
       expect.objectContaining({ key: 'audio', passed: true, assetNodeIds: ['output-audio'] }),
       expect.objectContaining({ key: 'blog_document', passed: true, assetNodeIds: ['output-blog'] }),
       expect.objectContaining({ key: 'book', passed: true, assetNodeIds: ['output-book'] }),
+    ]))
+    expect(pack.exportRecords).toEqual(expect.arrayContaining([
+      expect.objectContaining({ categoryKey: 'image', downstreamDraftId: 'campaign-1', lineageSourceNodeIds: ['source-1'], outputNodeId: 'output-image' }),
+      expect.objectContaining({ categoryKey: 'audio', downstreamDraftId: 'campaign-1', lineageSourceNodeIds: ['source-1'], outputNodeId: 'output-audio' }),
+      expect.objectContaining({ categoryKey: 'book', downstreamDraftId: 'book-1', lineageSourceNodeIds: ['source-1'], outputNodeId: 'output-book' }),
     ]))
     expect(pack.payload.manifest.lineage).toEqual(expect.arrayContaining([
       expect.objectContaining({ outputNodeId: 'output-image', sourceNodeIds: ['source-1'] }),

@@ -1,4 +1,3 @@
-import { FieldValue } from 'firebase-admin/firestore'
 import { NextRequest } from 'next/server'
 import { withAuth } from '@/lib/api/auth'
 import { apiError, apiSuccess } from '@/lib/api/response'
@@ -42,12 +41,31 @@ export const POST = withAuth('client', async (req: NextRequest, user: ApiUser, c
       nodeIds,
       title: typeof body?.title === 'string' ? body.title : undefined,
     })
-    const ref = await adminDb.collection('creative_canvas_export_packages').add({
+    const packageRecord = {
       ...pack.exportRecord,
       payload: pack.payload,
-      createdAt: FieldValue.serverTimestamp(),
-    })
-    return apiSuccess({ exportId: ref.id, package: pack.payload }, 201)
+      exportRecords: pack.exportRecords,
+    }
+    const ref = await adminDb.collection('creative_canvas_export_packages').add(packageRecord)
+    const exportRecords = []
+    for (const record of pack.exportRecords) {
+      const exportRecord = {
+        ...record,
+        packageExportId: ref.id,
+        payload: pack.payload.downstreamDrafts.find((draft) => draft.sourceNodeId === record.nodeId),
+      }
+      const exportRef = await adminDb.collection('creative_canvas_exports').add(exportRecord)
+      exportRecords.push({ id: exportRef.id, ...exportRecord })
+    }
+    return apiSuccess({
+      exportId: ref.id,
+      export: { id: ref.id, ...packageRecord },
+      exportRecords,
+      package: {
+        ...pack.payload,
+        exportRecords,
+      },
+    }, 201)
   } catch (error) {
     return apiError(error instanceof Error ? error.message : 'Creative canvas export package failed', 400)
   }

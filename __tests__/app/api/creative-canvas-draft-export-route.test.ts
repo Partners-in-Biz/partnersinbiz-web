@@ -30,17 +30,28 @@ beforeEach(() => {
     orgId: 'org-1',
     title: 'Launch Canvas',
     purpose: 'Product launch',
-    linked: {},
-    nodes: [{
-      id: 'output-1',
-      orgId: 'org-1',
-      type: 'output',
-      title: 'Output',
-      position: { x: 0, y: 0 },
-      data: {},
-      review: { status: 'passed', rightsStatus: 'cleared', brandStatus: 'passed', syntheticMediaDisclosure: true },
-      output: { kind: 'image', url: 'https://cdn.example.com/image.png', textPreview: 'Launch image' },
-    }],
+    linked: { campaignId: 'campaign-1', clientDocumentId: 'doc-1' },
+    nodes: [
+      {
+        id: 'source-1',
+        orgId: 'org-1',
+        type: 'source',
+        title: 'Source',
+        position: { x: 0, y: 0 },
+        data: {},
+      },
+      {
+        id: 'output-1',
+        orgId: 'org-1',
+        type: 'output',
+        title: 'Output',
+        position: { x: 0, y: 0 },
+        data: {},
+        review: { status: 'passed', rightsStatus: 'cleared', brandStatus: 'passed', syntheticMediaDisclosure: true },
+        output: { kind: 'image', url: 'https://cdn.example.com/image.png', textPreview: 'Launch image' },
+      },
+    ],
+    edges: [{ id: 'edge-1', orgId: 'org-1', sourceNodeId: 'source-1', targetNodeId: 'output-1' }],
   })
 })
 
@@ -60,14 +71,54 @@ describe('creative canvas generic draft export API', () => {
       canvasId: 'canvas-1',
       nodeId: 'output-1',
       target: 'campaign_asset',
+      categoryKey: 'image',
+      downstreamDraftId: 'campaign-1',
+      lineageSourceNodeIds: ['source-1'],
+      outputNodeId: 'output-1',
+      outputKind: 'image',
+      reviewStatus: 'passed',
       status: 'drafted',
-      createdAt: 'SERVER_TIMESTAMP',
+      createdAt: expect.any(String),
     }))
     expect(body).toMatchObject({
       success: true,
       data: {
         exportId: 'export-1',
+        export: {
+          id: 'export-1',
+          categoryKey: 'image',
+          downstreamDraftId: 'campaign-1',
+          lineageSourceNodeIds: ['source-1'],
+          outputNodeId: 'output-1',
+        },
         draft: { target: 'campaign_asset', status: 'internal_draft' },
+      },
+    })
+  })
+
+  it('allows blog post draft exports with durable category evidence fields', async () => {
+    const { POST } = await import('@/app/api/v1/creative-canvas/[id]/exports/draft/route')
+
+    const res = await POST(new NextRequest('http://test.local/api/v1/creative-canvas/canvas-1/exports/draft?orgId=org-1', {
+      method: 'POST',
+      body: JSON.stringify({ nodeId: 'output-1', target: 'blog_post', downstreamDraftId: 'blog-draft-1' }),
+    }), { params: Promise.resolve({ id: 'canvas-1' }) })
+    const body = await res.json()
+
+    expect(mockAdd).toHaveBeenCalledWith(expect.objectContaining({
+      target: 'blog_post',
+      categoryKey: 'blog_document',
+      downstreamDraftId: 'blog-draft-1',
+      lineageSourceNodeIds: ['source-1'],
+    }))
+    expect(body).toMatchObject({
+      success: true,
+      data: {
+        export: {
+          target: 'blog_post',
+          categoryKey: 'blog_document',
+          downstreamDraftId: 'blog-draft-1',
+        },
       },
     })
   })
@@ -87,6 +138,14 @@ describe('creative canvas generic draft export API', () => {
       canvasId: 'canvas-1',
       nodeIds: ['output-1'],
       packageAssetCount: 1,
+      exportRecords: [
+        expect.objectContaining({
+          categoryKey: 'image',
+          downstreamDraftId: 'campaign-1',
+          lineageSourceNodeIds: ['source-1'],
+          outputNodeId: 'output-1',
+        }),
+      ],
       payload: expect.objectContaining({
         title: 'Launch package',
         status: 'internal_package',
@@ -107,12 +166,26 @@ describe('creative canvas generic draft export API', () => {
           ],
         }),
       }),
-      createdAt: 'SERVER_TIMESTAMP',
+      createdAt: expect.any(String),
+    }))
+    expect(mockCollection).toHaveBeenCalledWith('creative_canvas_exports')
+    expect(mockAdd).toHaveBeenCalledWith(expect.objectContaining({
+      packageExportId: 'export-1',
+      categoryKey: 'image',
+      downstreamDraftId: 'campaign-1',
+      lineageSourceNodeIds: ['source-1'],
+      outputNodeId: 'output-1',
     }))
     expect(body).toMatchObject({
       success: true,
       data: {
         exportId: 'export-1',
+        exportRecords: [
+          expect.objectContaining({
+            categoryKey: 'image',
+            downstreamDraftId: 'campaign-1',
+          }),
+        ],
         package: { assetCount: 1, status: 'internal_package' },
       },
     })

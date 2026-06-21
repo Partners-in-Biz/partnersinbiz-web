@@ -4,21 +4,20 @@ import type {
   CreativeCanvasExport,
   CreativeCanvasNode,
   CreativeCanvasOutputKind,
+  CreativeCanvasProofCategoryKey,
 } from '../types'
 import { assertCanvasOutputCanExport, buildCreativeCanvasDraftExport, type CreativeCanvasDraftPayload } from './drafts'
 
-type ExportProofCategoryKey = 'image_campaign' | 'video_social' | 'audio' | 'blog_document' | 'book'
-
 const EXPORT_PROOF_CATEGORIES: Array<{
-  key: ExportProofCategoryKey
+  key: CreativeCanvasProofCategoryKey
   label: string
   outputKinds: CreativeCanvasOutputKind[]
   targets: CreativeCanvasExport['target'][]
 }> = [
-  { key: 'image_campaign', label: 'Image/campaign', outputKinds: ['image', 'campaign_asset'], targets: ['campaign_asset'] },
+  { key: 'image', label: 'Image/campaign', outputKinds: ['image', 'campaign_asset'], targets: ['campaign_asset'] },
   { key: 'video_social', label: 'Video/social', outputKinds: ['video', 'social_post_draft', 'youtube_render'], targets: ['social_draft', 'youtube_studio', 'campaign_asset'] },
   { key: 'audio', label: 'Audio', outputKinds: ['audio'], targets: ['campaign_asset', 'workspace_artifact'] },
-  { key: 'blog_document', label: 'Blog/document', outputKinds: ['blog_draft', 'document_block', 'copy', 'caption'], targets: ['client_document'] },
+  { key: 'blog_document', label: 'Blog/document', outputKinds: ['blog_draft', 'document_block', 'copy', 'caption'], targets: ['client_document', 'blog_post'] },
   { key: 'book', label: 'Book', outputKinds: ['book_artifact'], targets: ['book_studio'] },
 ]
 
@@ -70,9 +69,9 @@ export interface CreativeCanvasExportPackageManifest {
     packageTargets: CreativeCanvasExport['target'][]
     sourceNodeIds: string[]
     outputNodeIds: string[]
-    coveredCategories: ExportProofCategoryKey[]
+    coveredCategories: CreativeCanvasProofCategoryKey[]
     categoryCoverage: Array<{
-      key: ExportProofCategoryKey
+      key: CreativeCanvasProofCategoryKey
       label: string
       passed: boolean
       assetNodeIds: string[]
@@ -110,6 +109,7 @@ export interface CreativeCanvasExportPackageResult {
     nodeIds: string[]
     packageAssetCount: number
   }
+  exportRecords: CreativeCanvasExport[]
   payload: CreativeCanvasExportPackagePayload
 }
 
@@ -119,6 +119,7 @@ function targetFromOutputKind(kind: CreativeCanvasOutputKind): CreativeCanvasExp
     case 'caption':
       return 'social_draft'
     case 'blog_draft':
+      return 'blog_post'
     case 'document_block':
     case 'copy':
       return 'client_document'
@@ -142,6 +143,7 @@ function targetFromNode(node: CreativeCanvasNode): CreativeCanvasExport['target'
     target === 'social_draft'
     || target === 'campaign_asset'
     || target === 'client_document'
+    || target === 'blog_post'
     || target === 'research'
     || target === 'youtube_studio'
     || target === 'book_studio'
@@ -205,6 +207,52 @@ function buildCategoryCoverage(assets: CreativeCanvasExportPackageAsset[]) {
   })
 }
 
+function categoryKeyForAsset(asset: CreativeCanvasExportPackageAsset): CreativeCanvasProofCategoryKey {
+  return EXPORT_PROOF_CATEGORIES.find((category) => (
+    category.outputKinds.includes(asset.outputKind)
+    && category.targets.includes(asset.target)
+  ))?.key ?? 'image'
+}
+
+function cleanString(value: unknown): string | undefined {
+  return typeof value === 'string' && value.trim() ? value.trim() : undefined
+}
+
+function linkedDownstreamDraftId(canvas: CreativeCanvas, target: CreativeCanvasExport['target']): string | undefined {
+  switch (target) {
+    case 'social_draft':
+      return cleanString(canvas.linked?.socialPostId)
+    case 'campaign_asset':
+      return cleanString(canvas.linked?.campaignId)
+    case 'client_document':
+    case 'blog_post':
+      return cleanString(canvas.linked?.clientDocumentId)
+    case 'research':
+      return cleanString(canvas.linked?.researchItemId)
+    case 'youtube_studio':
+      return cleanString(canvas.linked?.youtubeVideoProjectId)
+    case 'book_studio':
+      return cleanString(canvas.linked?.bookStudioProjectId)
+    case 'workspace_artifact':
+      return Array.isArray(canvas.linked?.workspaceArtifactIds)
+        ? cleanString(canvas.linked.workspaceArtifactIds[0])
+        : undefined
+    default:
+      return undefined
+  }
+}
+
+function downstreamDraftIdForAsset(
+  canvas: CreativeCanvas & { id: string },
+  node: CreativeCanvasNode,
+  target: CreativeCanvasExport['target'],
+): string {
+  return cleanString(node.data.downstreamDraftId)
+    ?? cleanString(node.data.targetId)
+    ?? linkedDownstreamDraftId(canvas, target)
+    ?? `creative-canvas:${canvas.id}:${node.id}:${target}`
+}
+
 export function buildCreativeCanvasExportPackage(input: {
   canvas: CreativeCanvas & { id: string }
   actor: CreativeCanvasActor
@@ -254,16 +302,28 @@ export function buildCreativeCanvasExportPackage(input: {
       upstreamNodeIds,
     }
   })
-  const downstreamDrafts = assets.map((asset) => {
+  const lineageByOutputNodeId = new Map(lineage.map((item) => [item.outputNodeId, item.sourceNodeIds]))
+  const draftResults = assets.map((asset) => {
     const node = input.canvas.nodes.find((candidate) => candidate.id === asset.nodeId)
     if (!node) throw new Error(`Creative canvas output ${asset.nodeId} is missing from graph`)
-    return buildCreativeCanvasDraftExport({
+    const draft = buildCreativeCanvasDraftExport({
       canvas: input.canvas,
       node,
       target: asset.target,
       actor: input.actor,
-    }).payload
+      lineageSourceNodeIds: lineageByOutputNodeId.get(asset.nodeId) ?? [],
+      downstreamDraftId: downstreamDraftIdForAsset(input.canvas, node, asset.target),
+    })
+    return {
+      ...draft,
+      exportRecord: {
+        ...draft.exportRecord,
+        categoryKey: categoryKeyForAsset(asset),
+      },
+    }
   })
+  const downstreamDrafts = draftResults.map((result) => result.payload)
+  const exportRecords = draftResults.map((result) => result.exportRecord)
   const manifest: CreativeCanvasExportPackageManifest = {
     format: 'creative_canvas_export_package_manifest_v1',
     canvas: {
@@ -312,12 +372,14 @@ export function buildCreativeCanvasExportPackage(input: {
     packageAssetCount: assets.length,
     target: targets.length === 1 ? targets[0] : 'workspace_artifact',
     status: 'drafted',
+    createdAt: new Date().toISOString(),
     createdBy: input.actor.uid,
     createdByType: input.actor.type,
   }
 
   return {
     exportRecord,
+    exportRecords,
     payload: {
       source: 'creative_canvas',
       status: 'internal_package',
