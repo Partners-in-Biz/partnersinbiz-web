@@ -2498,6 +2498,33 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
           collaborationEvidence: `${currentRemotePresence.length} remote collaborator${currentRemotePresence.length === 1 ? '' : 's'}; ${currentRemoteActivityCount} remote stream/draft event${currentRemoteActivityCount === 1 ? '' : 's'}; ${latestCollaboratorDraft ? 'collaborator draft present' : 'no collaborator draft'}; ${collaborationStreamConnected ? 'stream connected' : 'poll fallback'}`,
         }
       : {}
+    const currentVisualProofRecords = getCanvasVisualProof(activeCanvas.data)
+    const currentVisualProofItems = visualProofConfigs.map((item) => {
+      const proof = currentVisualProofRecords[item.key]
+      return {
+        ...item,
+        proof,
+        status: hasSignedInViewportProof(proof) && hasCurrentVisualProofState(proof, {
+          canvasVersion: activeCanvas.activeVersion,
+          graphSignature: currentGraphSignature,
+          nodeCount: nodes.length,
+          edgeCount: edges.length,
+        })
+          ? 'signed-in'
+          : proof?.screenshotUrl
+            ? 'needs sign-in'
+            : 'needed',
+      }
+    })
+    const currentCapturedVisualProofCount = currentVisualProofItems.filter((item) => item.status === 'signed-in').length
+    const mobileViewportProof = key === 'mobile_behavior'
+      ? {
+          mobileViewportProofCount: currentCapturedVisualProofCount,
+          mobileViewportRequiredCount: currentVisualProofItems.length,
+          mobileViewportProofCapturedAt: capturedAt,
+          mobileViewportEvidence: `${currentCapturedVisualProofCount}/${currentVisualProofItems.length} signed-in viewport proofs captured against current graph: ${currentVisualProofItems.map((proof) => `${proof.label} ${proof.status}`).join(', ')}`,
+        }
+      : {}
     const exportArtifactProof = key === 'export_flows'
       ? {
           exportArtifactBackedCategoryCount: currentExportArtifactBackedCoverage.length,
@@ -2532,6 +2559,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
         edgeCount: edges.length,
         ...editingSessionProof,
         ...collaborationSessionProof,
+        ...mobileViewportProof,
         ...exportArtifactProof,
         ...productionRuntimeProof,
       },

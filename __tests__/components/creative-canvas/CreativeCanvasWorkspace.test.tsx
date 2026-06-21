@@ -1017,6 +1017,29 @@ describe('CreativeCanvasWorkspace', () => {
           }),
         }
       }
+      if (url === '/api/v1/creative-canvas/canvas-1?orgId=org-1' && init?.method === 'PATCH') {
+        const body = JSON.parse(String(init.body ?? '{}')) as { data?: CreativeCanvas['data'] }
+        return {
+          ok: true,
+          json: async () => ({
+            success: true,
+            data: {
+              canvas: {
+                id: 'canvas-1',
+                orgId: 'org-1',
+                title: 'Launch Canvas',
+                purpose: 'Product launch',
+                status: 'draft',
+                activeVersion: 1,
+                linked: { projectId: 'project-1' },
+                data: body.data ?? {},
+                nodes: [],
+                edges: [],
+              },
+            },
+          }),
+        }
+      }
       return defaultFetch?.(input, init) ?? {
         ok: true,
         json: async () => ({ success: true, data: {} }),
@@ -1270,10 +1293,15 @@ describe('CreativeCanvasWorkspace', () => {
     expect(benchmarkProof).toHaveTextContent('Needs stored signed-in viewport matrix evidence before mobile benchmark proof can pass.')
     expect(benchmarkProof).toHaveTextContent('0/9 benchmark proven')
     expect(benchmarkProof).toHaveTextContent('3 ready benchmark categories need stored proof.')
+    await waitFor(() => {
+      expect(within(benchmarkProof).getByLabelText(/Mobile behavior benchmark proof URL/i)).toHaveValue('https://proof.example.com/mobile-behavior.mp4')
+      expect(within(benchmarkProof).getByLabelText(/Mobile behavior benchmark proof notes/i)).toHaveValue('Mobile proof before viewport matrix metadata was required.')
+    })
 
-    fireEvent.click(within(benchmarkProof).getByRole('button', { name: /capture ready proofs/i }))
+    fetchMock.mockClear()
+    fireEvent.click(within(benchmarkProof).getByRole('button', { name: /save mobile behavior proof/i }))
 
-    await waitFor(() => expect(screen.getByText('Captured 3 ready benchmark proofs')).toBeInTheDocument())
+    await waitFor(() => expect(screen.getByText('Saved Mobile behavior benchmark proof')).toBeInTheDocument())
 
     const patchCall = fetchMock.mock.calls.find(([input, init]) => (
       String(input) === '/api/v1/creative-canvas/canvas-1?orgId=org-1'
