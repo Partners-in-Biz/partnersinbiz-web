@@ -72,3 +72,33 @@ Planned commit message from task brief:
 ```bash
 feat(canvas): add world class parity proof contracts
 ```
+
+## Review Fix Addendum
+
+Date: 2026-06-21
+Base commit under review: `d45a211c`
+
+Fixed review findings in Task 1 owned files only:
+
+- Added reusable proof binding fields to the shared Task 1 proof contracts: `orgId`, `canvasVersion`, `graphSignature`, `nodeCount`, and `edgeCount`
+- Hardened proof validators so collaboration and durable category proof fail when binding fields are missing or when a supplied current graph binding does not match
+- Hardened certification so `passed` is impossible unless signed-in Vercel Preview proof and KB-recorded certification proof are explicitly satisfied
+- Added negative regression coverage for `collaborationRemoteOutcome: 'remote_changes_observed'`
+
+Verification commands:
+
+```bash
+npx jest __tests__/lib/creative-canvas/parity-proof.test.ts --runInBand
+npm run typecheck
+```
+
+Verification results:
+
+- Focused Jest passed: 1 suite, 12 tests
+- Typecheck passed
+
+Commit created for the fix:
+
+```bash
+fix(canvas): harden parity proof contracts
+```

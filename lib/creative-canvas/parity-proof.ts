@@ -3,6 +3,7 @@ import type {
   CreativeCanvasCollaborationProofEvidence,
   CreativeCanvasMobileViewportEvidence,
   CreativeCanvasProofCategoryKey,
+  CreativeCanvasProofBinding,
   CreativeCanvasProofStatus,
   CreativeCanvasWorldClassCertification,
 } from './types'
@@ -30,14 +31,53 @@ function uniqueCount(values: string[]): number {
   return new Set(values.filter(hasText)).size
 }
 
-export function hasStructuredCollaborationProof(proof: CreativeCanvasCollaborationProofEvidence | undefined): boolean {
+function hasCurrentCanvasBinding(
+  proof: CreativeCanvasProofBinding | undefined,
+  current?: CreativeCanvasProofBinding,
+): boolean {
+  if (!proof) return false
+
+  const hasRequiredBinding = hasText(proof.orgId)
+    && Number.isInteger(proof.canvasVersion)
+    && proof.canvasVersion > 0
+    && hasText(proof.graphSignature)
+    && Number.isInteger(proof.nodeCount)
+    && proof.nodeCount >= 0
+    && Number.isInteger(proof.edgeCount)
+    && proof.edgeCount >= 0
+
+  if (!hasRequiredBinding) {
+    return false
+  }
+
+  if (!current) {
+    return true
+  }
+
+  return proof.orgId === current.orgId
+    && proof.canvasVersion === current.canvasVersion
+    && proof.graphSignature === current.graphSignature
+    && proof.nodeCount === current.nodeCount
+    && proof.edgeCount === current.edgeCount
+}
+
+export function hasStructuredCollaborationProof(
+  proof: CreativeCanvasCollaborationProofEvidence | undefined,
+  current?: CreativeCanvasProofBinding,
+): boolean {
   if (!proof) return false
   const mutations = Array.isArray(proof.collaborationRemoteMutations) ? proof.collaborationRemoteMutations : []
   const touchedNodeCount = uniqueCount(mutations.flatMap((item) => item.touchedNodeIds))
   const mutationKindCount = uniqueCount(mutations.map((item) => item.operation))
 
   return Boolean(
-    typeof proof.collaborationRemoteActorCount === 'number'
+    hasCurrentCanvasBinding(proof, current)
+      && hasText(proof.collaborationRemoteGraphSignature)
+      && proof.collaborationRemoteGraphSignature === proof.graphSignature
+      && typeof proof.collaborationRemoteTouchedNodeCount === 'number'
+      && proof.collaborationRemoteTouchedNodeCount > 0
+      && proof.collaborationRemoteTouchedNodeCount <= proof.nodeCount
+      && typeof proof.collaborationRemoteActorCount === 'number'
       && proof.collaborationRemoteActorCount > 0
       && typeof proof.collaborationRemoteEventCount === 'number'
       && proof.collaborationRemoteEventCount > 0
@@ -45,12 +85,9 @@ export function hasStructuredCollaborationProof(proof: CreativeCanvasCollaborati
       && proof.collaborationRemoteMutationCount > 0
       && typeof proof.collaborationRemoteMutationKindCount === 'number'
       && proof.collaborationRemoteMutationKindCount > 0
-      && typeof proof.collaborationRemoteTouchedNodeCount === 'number'
-      && proof.collaborationRemoteTouchedNodeCount > 0
       && proof.collaborationRemoteMutationCount <= mutations.length
       && proof.collaborationRemoteMutationKindCount <= mutationKindCount
       && proof.collaborationRemoteTouchedNodeCount <= touchedNodeCount
-      && hasText(proof.collaborationRemoteGraphSignature)
       && hasText(proof.collaborationRemoteSource)
       && hasText(proof.collaborationRemoteOutcome)
       && certifiedCollaborationOutcomes.has(proof.collaborationRemoteOutcome)
@@ -97,7 +134,7 @@ export function hasStructuredMobileProof(proof: {
 export function hasDurableCategoryEvidence(proof: {
   runtimeCategoryEvidence?: CreativeCanvasCategoryEvidence[]
   exportCategoryEvidence?: CreativeCanvasCategoryEvidence[]
-} | undefined): boolean {
+}, current?: CreativeCanvasProofBinding): boolean {
   if (!proof) return false
   const runtime = Array.isArray(proof.runtimeCategoryEvidence) ? proof.runtimeCategoryEvidence : []
   const exportEvidence = Array.isArray(proof.exportCategoryEvidence) ? proof.exportCategoryEvidence : []
@@ -110,6 +147,8 @@ export function hasDurableCategoryEvidence(proof: {
     return Boolean(
       runtimeItem
         && exportItem
+        && hasCurrentCanvasBinding(runtimeItem, current)
+        && hasCurrentCanvasBinding(exportItem, current)
         && runtimeItem.runIds.length >= 2
         && runtimeItem.outputNodeIds.length > 0
         && runtimeItem.outputKinds.length > 0
@@ -129,6 +168,11 @@ export function buildWorldClassCertification(input: {
   liveProofArtifacts: string[]
   requiredBenchmarkCount: number
   capturedAt: string
+  currentBinding?: CreativeCanvasProofBinding
+  signedInPreviewProofPassed?: boolean
+  signedInPreviewProofEvidence?: string
+  kbCertificationRecorded?: boolean
+  kbCertificationEvidence?: string
 }): CreativeCanvasWorldClassCertification {
   const blockers: string[] = []
   const warnings: string[] = []
@@ -146,14 +190,29 @@ export function buildWorldClassCertification(input: {
     blockers.push('Signed-in live proof artifacts are incomplete.')
   }
 
+  if (input.signedInPreviewProofPassed !== true) {
+    blockers.push('Signed-in Vercel Preview proof is missing or failed.')
+  }
+
+  if (input.kbCertificationRecorded !== true) {
+    blockers.push('KB-recorded certification artifact is missing.')
+  }
+
   const passedGateCount = input.requiredBenchmarkCount - Math.max(0, input.requiredBenchmarkCount - passedBenchmarks.length)
     + (input.runtimeProof?.status === 'passed' && input.runtimeProof.readyForLiveProof ? 1 : 0)
     + Math.min(input.liveProofArtifacts.length, 4)
-  const requiredGateCount = input.requiredBenchmarkCount + 5
+    + (input.signedInPreviewProofPassed === true ? 1 : 0)
+    + (input.kbCertificationRecorded === true ? 1 : 0)
+  const requiredGateCount = input.requiredBenchmarkCount + 7
 
   return {
     status: blockers.length ? 'blocked' : warnings.length ? 'warning' : 'passed',
     capturedAt: input.capturedAt,
+    orgId: input.currentBinding?.orgId,
+    canvasVersion: input.currentBinding?.canvasVersion,
+    graphSignature: input.currentBinding?.graphSignature,
+    nodeCount: input.currentBinding?.nodeCount,
+    edgeCount: input.currentBinding?.edgeCount,
     passedGateCount,
     requiredGateCount,
     blockers,
@@ -161,6 +220,8 @@ export function buildWorldClassCertification(input: {
     evidence: [
       `${passedBenchmarks.length}/${input.requiredBenchmarkCount} benchmark proofs passed.`,
       `${input.liveProofArtifacts.length}/4 live proof artifacts captured.`,
+      ...(input.signedInPreviewProofEvidence && input.signedInPreviewProofPassed ? [input.signedInPreviewProofEvidence] : []),
+      ...(input.kbCertificationEvidence && input.kbCertificationRecorded ? [input.kbCertificationEvidence] : []),
       ...passedBenchmarks.map((item) => item.evidence).filter(hasText),
     ],
   }

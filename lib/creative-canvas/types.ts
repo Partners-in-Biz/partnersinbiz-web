@@ -596,6 +596,14 @@ export type CreativeCanvasRemoteMutationOperation =
   | 'draft_apply'
   | 'version_restore'
 
+export interface CreativeCanvasProofBinding {
+  orgId: string
+  canvasVersion: number
+  graphSignature: string
+  nodeCount: number
+  edgeCount: number
+}
+
 export interface CreativeCanvasRemoteMutationEvidence {
   actorUid: string
   actorType: CreativeCanvasActorType
@@ -606,7 +614,7 @@ export interface CreativeCanvasRemoteMutationEvidence {
   occurredAt: string
 }
 
-export interface CreativeCanvasCollaborationProofEvidence {
+export interface CreativeCanvasCollaborationProofEvidence extends CreativeCanvasProofBinding {
   collaborationRemoteActorCount?: number
   collaborationRemoteEventCount?: number
   collaborationRemoteMutationCount?: number
@@ -636,7 +644,7 @@ export interface CreativeCanvasMobileViewportEvidence {
   capturedAt: string
 }
 
-export interface CreativeCanvasCategoryEvidence {
+export interface CreativeCanvasCategoryEvidence extends CreativeCanvasProofBinding {
   categoryKey: CreativeCanvasProofCategoryKey
   runIds: string[]
   providerJobIds: string[]
@@ -656,6 +664,11 @@ export interface CreativeCanvasCategoryEvidence {
 export interface CreativeCanvasWorldClassCertification {
   status: CreativeCanvasProofStatus
   capturedAt: string
+  orgId?: string
+  canvasVersion?: number
+  graphSignature?: string
+  nodeCount?: number
+  edgeCount?: number
   passedGateCount: number
   requiredGateCount: number
   blockers: string[]
