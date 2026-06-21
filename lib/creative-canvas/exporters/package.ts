@@ -5,7 +5,21 @@ import type {
   CreativeCanvasNode,
   CreativeCanvasOutputKind,
 } from '../types'
-import { assertCanvasOutputCanExport } from './drafts'
+import { assertCanvasOutputCanExport, buildCreativeCanvasDraftExport, type CreativeCanvasDraftPayload } from './drafts'
+
+type ExportProofCategoryKey = 'image_campaign' | 'video_social' | 'blog_document' | 'book'
+
+const EXPORT_PROOF_CATEGORIES: Array<{
+  key: ExportProofCategoryKey
+  label: string
+  outputKinds: CreativeCanvasOutputKind[]
+  targets: CreativeCanvasExport['target'][]
+}> = [
+  { key: 'image_campaign', label: 'Image/campaign', outputKinds: ['image', 'campaign_asset'], targets: ['campaign_asset'] },
+  { key: 'video_social', label: 'Video/social', outputKinds: ['video', 'social_post_draft', 'youtube_render'], targets: ['social_draft', 'youtube_studio', 'campaign_asset'] },
+  { key: 'blog_document', label: 'Blog/document', outputKinds: ['blog_draft', 'document_block', 'copy', 'caption'], targets: ['client_document'] },
+  { key: 'book', label: 'Book', outputKinds: ['book_artifact'], targets: ['book_studio'] },
+]
 
 export interface CreativeCanvasExportPackageAsset {
   nodeId: string
@@ -55,7 +69,21 @@ export interface CreativeCanvasExportPackageManifest {
     packageTargets: CreativeCanvasExport['target'][]
     sourceNodeIds: string[]
     outputNodeIds: string[]
+    coveredCategories: ExportProofCategoryKey[]
+    categoryCoverage: Array<{
+      key: ExportProofCategoryKey
+      label: string
+      passed: boolean
+      assetNodeIds: string[]
+      outputKinds: CreativeCanvasOutputKind[]
+      targets: CreativeCanvasExport['target'][]
+    }>
   }
+  lineage: Array<{
+    outputNodeId: string
+    sourceNodeIds: string[]
+    upstreamNodeIds: string[]
+  }>
 }
 
 export interface CreativeCanvasExportPackagePayload {
@@ -72,6 +100,7 @@ export interface CreativeCanvasExportPackagePayload {
   clientVisible: false
   publishEnabled: false
   guardrails: string[]
+  downstreamDrafts: CreativeCanvasDraftPayload[]
   manifest: CreativeCanvasExportPackageManifest
 }
 
@@ -140,6 +169,41 @@ function outputIsBlocked(node: CreativeCanvasNode): boolean {
     || node.review?.brandStatus === 'blocked'
 }
 
+function collectUpstreamNodeIds(canvas: CreativeCanvas, outputNodeId: string): string[] {
+  const edges = canvas.edges ?? []
+  const byTarget = edges.reduce<Record<string, string[]>>((acc, edge) => {
+    acc[edge.targetNodeId] = [...(acc[edge.targetNodeId] ?? []), edge.sourceNodeId]
+    return acc
+  }, {})
+  const seen = new Set<string>()
+  const visit = (nodeId: string) => {
+    for (const sourceNodeId of byTarget[nodeId] ?? []) {
+      if (seen.has(sourceNodeId)) continue
+      seen.add(sourceNodeId)
+      visit(sourceNodeId)
+    }
+  }
+  visit(outputNodeId)
+  return Array.from(seen)
+}
+
+function buildCategoryCoverage(assets: CreativeCanvasExportPackageAsset[]) {
+  return EXPORT_PROOF_CATEGORIES.map((category) => {
+    const categoryAssets = assets.filter((asset) => (
+      category.outputKinds.includes(asset.outputKind)
+      && category.targets.includes(asset.target)
+    ))
+    return {
+      key: category.key,
+      label: category.label,
+      passed: categoryAssets.length > 0,
+      assetNodeIds: categoryAssets.map((asset) => asset.nodeId),
+      outputKinds: Array.from(new Set(categoryAssets.map((asset) => asset.outputKind))),
+      targets: Array.from(new Set(categoryAssets.map((asset) => asset.target))),
+    }
+  })
+}
+
 export function buildCreativeCanvasExportPackage(input: {
   canvas: CreativeCanvas & { id: string }
   actor: CreativeCanvasActor
@@ -178,6 +242,27 @@ export function buildCreativeCanvasExportPackage(input: {
   const nodeIds = assets.map((asset) => asset.nodeId)
   const targets = Array.from(new Set(assets.map((asset) => asset.target)))
   const canvasEdges = input.canvas.edges ?? []
+  const categoryCoverage = buildCategoryCoverage(assets)
+  const coveredCategories = categoryCoverage.filter((category) => category.passed).map((category) => category.key)
+  const lineage = assets.map((asset) => {
+    const upstreamNodeIds = collectUpstreamNodeIds(input.canvas, asset.nodeId)
+    const upstreamSourceIds = upstreamNodeIds.filter((nodeId) => input.canvas.nodes.find((node) => node.id === nodeId)?.type === 'source')
+    return {
+      outputNodeId: asset.nodeId,
+      sourceNodeIds: upstreamSourceIds,
+      upstreamNodeIds,
+    }
+  })
+  const downstreamDrafts = assets.map((asset) => {
+    const node = input.canvas.nodes.find((candidate) => candidate.id === asset.nodeId)
+    if (!node) throw new Error(`Creative canvas output ${asset.nodeId} is missing from graph`)
+    return buildCreativeCanvasDraftExport({
+      canvas: input.canvas,
+      node,
+      target: asset.target,
+      actor: input.actor,
+    }).payload
+  })
   const manifest: CreativeCanvasExportPackageManifest = {
     format: 'creative_canvas_export_package_manifest_v1',
     canvas: {
@@ -213,7 +298,10 @@ export function buildCreativeCanvasExportPackage(input: {
       packageTargets: targets,
       sourceNodeIds: input.canvas.nodes.filter((node) => node.type === 'source').map((node) => node.id),
       outputNodeIds: nodeIds,
+      coveredCategories,
+      categoryCoverage,
     },
+    lineage,
   }
   const exportRecord: CreativeCanvasExportPackageResult['exportRecord'] = {
     orgId: input.canvas.orgId,
@@ -242,6 +330,7 @@ export function buildCreativeCanvasExportPackage(input: {
       linked: input.canvas.linked ?? {},
       clientVisible: false,
       publishEnabled: false,
+      downstreamDrafts,
       manifest,
       guardrails: [
         'Internal package only.',

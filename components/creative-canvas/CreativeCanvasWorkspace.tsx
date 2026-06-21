@@ -186,8 +186,11 @@ interface CreativeCanvasExportPackageApiResponse {
         proof?: {
           requiredOutputKinds?: CreativeCanvasOutputKind[]
           sourceNodeIds?: string[]
+          coveredCategories?: string[]
         }
+        lineage?: Array<{ outputNodeId?: string; sourceNodeIds?: string[]; upstreamNodeIds?: string[] }>
       }
+      downstreamDrafts?: Array<{ target?: string; sourceNodeId?: string }>
     }
   }
   error?: string
@@ -1629,6 +1632,9 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
       activeVersion?: number
       requiredOutputKinds?: string[]
       sourceNodeCount?: number
+      coveredCategories?: string[]
+      lineageCount?: number
+      downstreamDraftCount?: number
     }
   } | null>(null)
   const [mobilePanel, setMobilePanel] = useState<CreativeCanvasMobilePanel>('canvas')
@@ -3868,6 +3874,9 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
           activeVersion: payload.data.package?.manifest?.canvas?.activeVersion,
           requiredOutputKinds: payload.data.package?.manifest?.proof?.requiredOutputKinds,
           sourceNodeCount: payload.data.package?.manifest?.proof?.sourceNodeIds?.length,
+          coveredCategories: payload.data.package?.manifest?.proof?.coveredCategories,
+          lineageCount: payload.data.package?.manifest?.lineage?.length,
+          downstreamDraftCount: payload.data.package?.downstreamDrafts?.length,
         },
       })
       setActivityMessage('Export package prepared')
@@ -3973,13 +3982,19 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
   const hasTemplateEvidence = templates.length > 0
   const exportPackageOutputKinds = new Set(latestExportPackage?.manifest?.requiredOutputKinds ?? [])
   const exportPackageTargets = new Set(latestExportPackage?.targets ?? [])
+  const explicitExportCategories = new Set(latestExportPackage?.manifest?.coveredCategories ?? [])
   const passedExportProofCategories = exportProofCategories.filter((category) => (
-    category.outputKinds.some((kind) => exportPackageOutputKinds.has(kind))
-    && category.targets.some((target) => exportPackageTargets.has(target))
+    explicitExportCategories.has(category.key)
+    || (
+      category.outputKinds.some((kind) => exportPackageOutputKinds.has(kind))
+      && category.targets.some((target) => exportPackageTargets.has(target))
+    )
   ))
   const hasExportPackageProof = Boolean(latestExportPackage)
     && (latestExportPackage?.assetCount ?? 0) >= exportProofCategories.length
     && (latestExportPackage?.manifest?.sourceNodeCount ?? 0) > 0
+    && (latestExportPackage?.manifest?.lineageCount ?? 0) >= (latestExportPackage?.assetCount ?? 0)
+    && (latestExportPackage?.manifest?.downstreamDraftCount ?? 0) >= (latestExportPackage?.assetCount ?? 0)
     && passedExportProofCategories.length >= exportProofCategories.length
   const draftExportableAssetCount = canvasAssets.filter((asset) => asset.canDraftExport).length
   const capturedVisualProofCount = visualProofItems.filter((item) => item.status === 'signed-in').length
@@ -6348,6 +6363,8 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
                         Manifest v{latestExportPackage.manifest.activeVersion ?? activeCanvas?.activeVersion ?? 0}: {latestExportPackage.manifest.nodeCount ?? 0} nodes / {latestExportPackage.manifest.edgeCount ?? 0} links
                         {latestExportPackage.manifest.requiredOutputKinds?.length ? ` / ${latestExportPackage.manifest.requiredOutputKinds.join(', ')}` : ''}
                         {typeof latestExportPackage.manifest.sourceNodeCount === 'number' ? ` / ${latestExportPackage.manifest.sourceNodeCount} sources` : ''}
+                        {latestExportPackage.manifest.coveredCategories?.length ? ` / ${latestExportPackage.manifest.coveredCategories.length} categories` : ''}
+                        {typeof latestExportPackage.manifest.downstreamDraftCount === 'number' ? ` / ${latestExportPackage.manifest.downstreamDraftCount} handoffs` : ''}
                       </p>
                     ) : null}
                   </div>

@@ -326,8 +326,11 @@ beforeEach(() => {
                 proof: {
                   requiredOutputKinds: ['social_post_draft'],
                   sourceNodeIds: ['social-launch-source'],
+                  coveredCategories: ['video_social'],
                 },
+                lineage: [{ outputNodeId: 'social-launch-output', sourceNodeIds: ['social-launch-source'], upstreamNodeIds: ['social-launch-source'] }],
               },
+              downstreamDrafts: [{ target: 'social_draft', sourceNodeId: 'social-launch-output' }],
             },
           },
         }),
@@ -2555,7 +2558,7 @@ describe('CreativeCanvasWorkspace', () => {
     })
     expect(await screen.findByText('Export package prepared')).toBeInTheDocument()
     expect(screen.getByText(/Package package-1: 1 assets/i)).toBeInTheDocument()
-    expect(screen.getByText(/Manifest v1: 6 nodes \/ 5 links \/ social_post_draft \/ 1 sources/i)).toBeInTheDocument()
+    expect(screen.getByText(/Manifest v1: 6 nodes \/ 5 links \/ social_post_draft \/ 1 sources \/ 1 categories \/ 1 handoffs/i)).toBeInTheDocument()
     const parityAudit = screen.getByLabelText(/higgsfield parity audit/i)
     expect(parityAudit).toHaveTextContent('1/4 export categories packaged · 1 asset')
   })
@@ -2586,8 +2589,21 @@ describe('CreativeCanvasWorkspace', () => {
                   proof: {
                     requiredOutputKinds: ['campaign_asset', 'youtube_render', 'blog_draft', 'book_artifact'],
                     sourceNodeIds: ['source-1', 'source-2'],
+                    coveredCategories: ['image_campaign', 'video_social', 'blog_document', 'book'],
                   },
+                  lineage: [
+                    { outputNodeId: 'campaign-output', sourceNodeIds: ['source-1'], upstreamNodeIds: ['source-1'] },
+                    { outputNodeId: 'youtube-output', sourceNodeIds: ['source-1'], upstreamNodeIds: ['source-1'] },
+                    { outputNodeId: 'blog-output', sourceNodeIds: ['source-2'], upstreamNodeIds: ['source-2'] },
+                    { outputNodeId: 'book-output', sourceNodeIds: ['source-2'], upstreamNodeIds: ['source-2'] },
+                  ],
                 },
+                downstreamDrafts: [
+                  { target: 'campaign_asset', sourceNodeId: 'campaign-output' },
+                  { target: 'youtube_studio', sourceNodeId: 'youtube-output' },
+                  { target: 'client_document', sourceNodeId: 'blog-output' },
+                  { target: 'book_studio', sourceNodeId: 'book-output' },
+                ],
               },
             },
           }),

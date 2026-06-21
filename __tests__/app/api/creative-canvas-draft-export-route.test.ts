@@ -93,6 +93,19 @@ describe('creative canvas generic draft export API', () => {
         assetCount: 1,
         clientVisible: false,
         publishEnabled: false,
+        downstreamDrafts: [
+          expect.objectContaining({
+            sourceNodeId: 'output-1',
+            publishEnabled: false,
+          }),
+        ],
+        manifest: expect.objectContaining({
+          lineage: [
+            expect.objectContaining({
+              outputNodeId: 'output-1',
+            }),
+          ],
+        }),
       }),
       createdAt: 'SERVER_TIMESTAMP',
     }))
