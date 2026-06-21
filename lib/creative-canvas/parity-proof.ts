@@ -90,6 +90,7 @@ export function hasStructuredCollaborationProof(
 ): boolean {
   if (!proof) return false
   const mutations = Array.isArray(proof.collaborationRemoteMutations) ? proof.collaborationRemoteMutations : []
+  const actorCount = uniqueCount(mutations.map((item) => item.actorUid))
   const touchedNodeCount = uniqueCount(mutations.flatMap((item) => item.touchedNodeIds))
   const mutationKindCount = uniqueCount(mutations.map((item) => item.operation))
 
@@ -108,6 +109,8 @@ export function hasStructuredCollaborationProof(
       && proof.collaborationRemoteMutationCount > 0
       && typeof proof.collaborationRemoteMutationKindCount === 'number'
       && proof.collaborationRemoteMutationKindCount > 0
+      && proof.collaborationRemoteActorCount === actorCount
+      && proof.collaborationRemoteEventCount === mutations.length
       && proof.collaborationRemoteMutationCount === mutations.length
       && proof.collaborationRemoteMutationKindCount === mutationKindCount
       && proof.collaborationRemoteTouchedNodeCount === touchedNodeCount

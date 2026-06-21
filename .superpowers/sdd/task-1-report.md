@@ -256,3 +256,45 @@ Commit created for the fix:
 ```bash
 fix(canvas): tighten live proof validation
 ```
+
+## Review Fix Addendum 7
+
+Date: 2026-06-21
+Base commit under review: `df0d8230`
+
+Fixed the final Task 1 collaboration count finding in Task 1 owned files only:
+
+- Tightened `hasStructuredCollaborationProof` so `collaborationRemoteActorCount` must exactly equal the distinct actor count from `collaborationRemoteMutations`
+- Tightened `hasStructuredCollaborationProof` so `collaborationRemoteEventCount` must exactly equal `collaborationRemoteMutations.length`
+- Kept the existing exact checks for mutation-kind count and touched-node count
+- Added regressions proving over-reported and under-reported actor counts are rejected
+- Added regressions proving over-reported and under-reported event counts are rejected
+- Updated the passing collaboration fixture so its declared event count matches the structured payload row count
+
+Verification commands:
+
+```bash
+npx jest __tests__/lib/creative-canvas/parity-proof.test.ts --runInBand
+npm run typecheck
+```
+
+Verification results:
+
+```text
+$ npx jest __tests__/lib/creative-canvas/parity-proof.test.ts --runInBand
+Test Suites: 1 passed, 1 total
+Tests:       30 passed, 30 total
+Snapshots:   0 total
+Time:        0.683 s, estimated 1 s
+Ran all test suites matching __tests__/lib/creative-canvas/parity-proof.test.ts.
+
+$ npm run typecheck
+> partnersinbiz@0.1.0 typecheck
+> NODE_OPTIONS=--max-old-space-size=4096 tsc --noEmit --pretty false --project tsconfig.typecheck.json
+```
+
+Commit created for the fix:
+
+```bash
+fix(canvas): require exact collaboration proof counts
+```

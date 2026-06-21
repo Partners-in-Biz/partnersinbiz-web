@@ -119,7 +119,7 @@ describe('creative canvas parity proof contracts', () => {
     expect(hasStructuredCollaborationProof({
       ...currentBinding,
       collaborationRemoteActorCount: 2,
-      collaborationRemoteEventCount: 3,
+      collaborationRemoteEventCount: 2,
       collaborationRemoteMutationCount: 2,
       collaborationRemoteMutationKindCount: 2,
       collaborationRemoteTouchedNodeCount: 2,
@@ -139,7 +139,7 @@ describe('creative canvas parity proof contracts', () => {
     expect(hasStructuredCollaborationProof({
       ...currentBinding,
       collaborationRemoteActorCount: 2,
-      collaborationRemoteEventCount: 3,
+      collaborationRemoteEventCount: 2,
       collaborationRemoteMutationCount: 2,
       collaborationRemoteMutationKindCount: 2,
       collaborationRemoteTouchedNodeCount: 2,
@@ -159,7 +159,7 @@ describe('creative canvas parity proof contracts', () => {
     expect(hasStructuredCollaborationProof({
       ...currentBinding,
       collaborationRemoteActorCount: 2,
-      collaborationRemoteEventCount: 3,
+      collaborationRemoteEventCount: 2,
       collaborationRemoteMutationCount: 1,
       collaborationRemoteMutationKindCount: 2,
       collaborationRemoteTouchedNodeCount: 2,
@@ -175,6 +175,86 @@ describe('creative canvas parity proof contracts', () => {
     }, currentBinding)).toBe(false)
   })
 
+  it('rejects collaboration proof when declared actor count over-reports the structured mutation payload', () => {
+    expect(hasStructuredCollaborationProof({
+      ...currentBinding,
+      collaborationRemoteActorCount: 3,
+      collaborationRemoteEventCount: 2,
+      collaborationRemoteMutationCount: 2,
+      collaborationRemoteMutationKindCount: 2,
+      collaborationRemoteTouchedNodeCount: 2,
+      collaborationRemoteGraphSignature: currentBinding.graphSignature,
+      collaborationRemoteSource: 'draft_applied',
+      collaborationRemoteOutcome: 'remote_changes_adopted',
+      collaborationCapturedAt: capturedAt,
+      collaborationEvidence: 'Declared actor count is higher than the payload.',
+      collaborationRemoteMutations: [
+        { actorUid: 'user-a', actorType: 'user', operation: 'node_move', touchedNodeIds: ['node-a'], touchedEdgeIds: [], source: 'stream', occurredAt: capturedAt },
+        { actorUid: 'agent-maya', actorType: 'agent', operation: 'edge_add', touchedNodeIds: ['node-a', 'node-b'], touchedEdgeIds: ['edge-a-b'], source: 'draft_applied', occurredAt: capturedAt },
+      ],
+    }, currentBinding)).toBe(false)
+  })
+
+  it('rejects collaboration proof when declared actor count under-reports the structured mutation payload', () => {
+    expect(hasStructuredCollaborationProof({
+      ...currentBinding,
+      collaborationRemoteActorCount: 1,
+      collaborationRemoteEventCount: 2,
+      collaborationRemoteMutationCount: 2,
+      collaborationRemoteMutationKindCount: 2,
+      collaborationRemoteTouchedNodeCount: 2,
+      collaborationRemoteGraphSignature: currentBinding.graphSignature,
+      collaborationRemoteSource: 'draft_applied',
+      collaborationRemoteOutcome: 'remote_changes_adopted',
+      collaborationCapturedAt: capturedAt,
+      collaborationEvidence: 'Declared actor count is lower than the payload.',
+      collaborationRemoteMutations: [
+        { actorUid: 'user-a', actorType: 'user', operation: 'node_move', touchedNodeIds: ['node-a'], touchedEdgeIds: [], source: 'stream', occurredAt: capturedAt },
+        { actorUid: 'agent-maya', actorType: 'agent', operation: 'edge_add', touchedNodeIds: ['node-a', 'node-b'], touchedEdgeIds: ['edge-a-b'], source: 'draft_applied', occurredAt: capturedAt },
+      ],
+    }, currentBinding)).toBe(false)
+  })
+
+  it('rejects collaboration proof when declared event count over-reports the structured mutation payload', () => {
+    expect(hasStructuredCollaborationProof({
+      ...currentBinding,
+      collaborationRemoteActorCount: 2,
+      collaborationRemoteEventCount: 3,
+      collaborationRemoteMutationCount: 2,
+      collaborationRemoteMutationKindCount: 2,
+      collaborationRemoteTouchedNodeCount: 2,
+      collaborationRemoteGraphSignature: currentBinding.graphSignature,
+      collaborationRemoteSource: 'draft_applied',
+      collaborationRemoteOutcome: 'remote_changes_adopted',
+      collaborationCapturedAt: capturedAt,
+      collaborationEvidence: 'Declared event count is higher than the payload.',
+      collaborationRemoteMutations: [
+        { actorUid: 'user-a', actorType: 'user', operation: 'node_move', touchedNodeIds: ['node-a'], touchedEdgeIds: [], source: 'stream', occurredAt: capturedAt },
+        { actorUid: 'agent-maya', actorType: 'agent', operation: 'edge_add', touchedNodeIds: ['node-a', 'node-b'], touchedEdgeIds: ['edge-a-b'], source: 'draft_applied', occurredAt: capturedAt },
+      ],
+    }, currentBinding)).toBe(false)
+  })
+
+  it('rejects collaboration proof when declared event count under-reports the structured mutation payload', () => {
+    expect(hasStructuredCollaborationProof({
+      ...currentBinding,
+      collaborationRemoteActorCount: 2,
+      collaborationRemoteEventCount: 1,
+      collaborationRemoteMutationCount: 2,
+      collaborationRemoteMutationKindCount: 2,
+      collaborationRemoteTouchedNodeCount: 2,
+      collaborationRemoteGraphSignature: currentBinding.graphSignature,
+      collaborationRemoteSource: 'draft_applied',
+      collaborationRemoteOutcome: 'remote_changes_adopted',
+      collaborationCapturedAt: capturedAt,
+      collaborationEvidence: 'Declared event count is lower than the payload.',
+      collaborationRemoteMutations: [
+        { actorUid: 'user-a', actorType: 'user', operation: 'node_move', touchedNodeIds: ['node-a'], touchedEdgeIds: [], source: 'stream', occurredAt: capturedAt },
+        { actorUid: 'agent-maya', actorType: 'agent', operation: 'edge_add', touchedNodeIds: ['node-a', 'node-b'], touchedEdgeIds: ['edge-a-b'], source: 'draft_applied', occurredAt: capturedAt },
+      ],
+    }, currentBinding)).toBe(false)
+  })
+
   it('rejects collaboration proof when the current graph binding does not match', () => {
     expect(hasStructuredCollaborationProof({
       orgId: currentBinding.orgId,
@@ -183,7 +263,7 @@ describe('creative canvas parity proof contracts', () => {
       nodeCount: currentBinding.nodeCount,
       edgeCount: currentBinding.edgeCount,
       collaborationRemoteActorCount: 2,
-      collaborationRemoteEventCount: 3,
+      collaborationRemoteEventCount: 2,
       collaborationRemoteMutationCount: 2,
       collaborationRemoteMutationKindCount: 2,
       collaborationRemoteTouchedNodeCount: 2,
