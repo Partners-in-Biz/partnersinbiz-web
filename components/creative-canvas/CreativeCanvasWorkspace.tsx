@@ -2736,6 +2736,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
       && category.completed >= (category.requiredCompleted ?? 2)
     ))
     const currentExportArtifactBackedCompletedCount = currentExportArtifactBackedCoverage.reduce((total, category) => total + category.completed, 0)
+    const benchmarkAuditNodes = nodes.map((node) => toCanvasNode(node, canvasOrgId))
     const editingSessionProof = key === 'editing_ergonomics'
       ? {
           editingLocalEventCount: currentLocalEditingActivityCount,
@@ -2744,7 +2745,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
         }
       : {}
     const maskingSessionProof = key === 'masking_inpainting'
-      ? buildMaskingSessionProofFields({ nodes: parityAuditNodes, capturedAt })
+      ? buildMaskingSessionProofFields({ nodes: benchmarkAuditNodes, capturedAt })
       : {}
     const collaborationSessionProof = key === 'collaboration'
       ? {
@@ -2860,7 +2861,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
     } finally {
       setSavingBenchmarkProofKey('')
     }
-  }, [activeCanvas, applyCanvasSnapshot, benchmarkProofDrafts, collaborationActivity, collaborationStreamConnected, currentGraphSignature, edges.length, latestAgentTaskCreation, latestCollaboratorDraft, nodes.length, orchestrationPlan.agents.length, orchestrationPlan.blockers.length, orchestrationPlan.steps.length, ownPresenceId, parityAuditNodes, presence, resolvedOrgId, runOperations, runtimeProof])
+  }, [activeCanvas, applyCanvasSnapshot, benchmarkProofDrafts, collaborationActivity, collaborationStreamConnected, currentGraphSignature, edges.length, latestAgentTaskCreation, latestCollaboratorDraft, nodes, orchestrationPlan.agents.length, orchestrationPlan.blockers.length, orchestrationPlan.steps.length, ownPresenceId, presence, resolvedOrgId, runOperations, runtimeProof])
 
   const applyRemoteCanvasUpdate = useCallback(async () => {
     if (!remoteCanvasUpdate?.id) return
