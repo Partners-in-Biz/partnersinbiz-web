@@ -7,7 +7,7 @@ import type {
 } from '../types'
 import { assertCanvasOutputCanExport, buildCreativeCanvasDraftExport, type CreativeCanvasDraftPayload } from './drafts'
 
-type ExportProofCategoryKey = 'image_campaign' | 'video_social' | 'blog_document' | 'book'
+type ExportProofCategoryKey = 'image_campaign' | 'video_social' | 'audio' | 'blog_document' | 'book'
 
 const EXPORT_PROOF_CATEGORIES: Array<{
   key: ExportProofCategoryKey
@@ -17,6 +17,7 @@ const EXPORT_PROOF_CATEGORIES: Array<{
 }> = [
   { key: 'image_campaign', label: 'Image/campaign', outputKinds: ['image', 'campaign_asset'], targets: ['campaign_asset'] },
   { key: 'video_social', label: 'Video/social', outputKinds: ['video', 'social_post_draft', 'youtube_render'], targets: ['social_draft', 'youtube_studio', 'campaign_asset'] },
+  { key: 'audio', label: 'Audio', outputKinds: ['audio'], targets: ['campaign_asset', 'workspace_artifact'] },
   { key: 'blog_document', label: 'Blog/document', outputKinds: ['blog_draft', 'document_block', 'copy', 'caption'], targets: ['client_document'] },
   { key: 'book', label: 'Book', outputKinds: ['book_artifact'], targets: ['book_studio'] },
 ]

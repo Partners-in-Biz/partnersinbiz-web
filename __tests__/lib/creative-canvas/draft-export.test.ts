@@ -185,6 +185,7 @@ describe('creative canvas generic draft exports', () => {
           expect.objectContaining({ key: 'video_social', passed: true, assetNodeIds: ['output-social'] }),
           expect.objectContaining({ key: 'book', passed: true, assetNodeIds: ['output-book'] }),
           expect.objectContaining({ key: 'image_campaign', passed: false, assetNodeIds: [] }),
+          expect.objectContaining({ key: 'audio', passed: false, assetNodeIds: [] }),
         ]),
       },
       lineage: [
@@ -214,7 +215,7 @@ describe('creative canvas generic draft exports', () => {
     expect(pack.payload.guardrails.join(' ')).toContain('Do not publish')
   })
 
-  it('proves full export coverage for image, video/social, blog/document, and book packages', () => {
+  it('proves full export coverage for image, video/social, audio, blog/document, and book packages', () => {
     const pack = buildCreativeCanvasExportPackage({
       canvas: {
         ...canvas(),
@@ -222,12 +223,14 @@ describe('creative canvas generic draft exports', () => {
           { id: 'source-1', orgId: 'org-1', type: 'source', title: 'Brand source', position: { x: 0, y: 0 }, data: {} },
           outputNode({ id: 'output-image', title: 'Campaign image', output: { ...outputNode().output!, kind: 'campaign_asset' } }),
           outputNode({ id: 'output-social', title: 'Social video', output: { ...outputNode().output!, kind: 'youtube_render' } }),
+          outputNode({ id: 'output-audio', title: 'Audio bed', output: { ...outputNode().output!, kind: 'audio' } }),
           outputNode({ id: 'output-blog', title: 'Blog section', output: { ...outputNode().output!, kind: 'blog_draft' } }),
           outputNode({ id: 'output-book', title: 'Book spread', output: { ...outputNode().output!, kind: 'book_artifact' } }),
         ],
         edges: [
           { id: 'edge-image', orgId: 'org-1', sourceNodeId: 'source-1', targetNodeId: 'output-image' },
           { id: 'edge-social', orgId: 'org-1', sourceNodeId: 'source-1', targetNodeId: 'output-social' },
+          { id: 'edge-audio', orgId: 'org-1', sourceNodeId: 'source-1', targetNodeId: 'output-audio' },
           { id: 'edge-blog', orgId: 'org-1', sourceNodeId: 'source-1', targetNodeId: 'output-blog' },
           { id: 'edge-book', orgId: 'org-1', sourceNodeId: 'source-1', targetNodeId: 'output-book' },
         ],
@@ -235,17 +238,19 @@ describe('creative canvas generic draft exports', () => {
       actor: { uid: 'agent:maya', type: 'agent' },
     })
 
-    expect(pack.payload.assetCount).toBe(4)
-    expect(pack.payload.downstreamDrafts).toHaveLength(4)
-    expect(pack.payload.manifest.proof.coveredCategories).toEqual(['image_campaign', 'video_social', 'blog_document', 'book'])
+    expect(pack.payload.assetCount).toBe(5)
+    expect(pack.payload.downstreamDrafts).toHaveLength(5)
+    expect(pack.payload.manifest.proof.coveredCategories).toEqual(['image_campaign', 'video_social', 'audio', 'blog_document', 'book'])
     expect(pack.payload.manifest.proof.categoryCoverage).toEqual(expect.arrayContaining([
       expect.objectContaining({ key: 'image_campaign', passed: true, assetNodeIds: ['output-image'] }),
       expect.objectContaining({ key: 'video_social', passed: true, assetNodeIds: ['output-social'] }),
+      expect.objectContaining({ key: 'audio', passed: true, assetNodeIds: ['output-audio'] }),
       expect.objectContaining({ key: 'blog_document', passed: true, assetNodeIds: ['output-blog'] }),
       expect.objectContaining({ key: 'book', passed: true, assetNodeIds: ['output-book'] }),
     ]))
     expect(pack.payload.manifest.lineage).toEqual(expect.arrayContaining([
       expect.objectContaining({ outputNodeId: 'output-image', sourceNodeIds: ['source-1'] }),
+      expect.objectContaining({ outputNodeId: 'output-audio', sourceNodeIds: ['source-1'] }),
       expect.objectContaining({ outputNodeId: 'output-book', sourceNodeIds: ['source-1'] }),
     ]))
   })

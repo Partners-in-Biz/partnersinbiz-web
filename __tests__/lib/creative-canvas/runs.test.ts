@@ -300,6 +300,8 @@ describe('creative canvas runs', () => {
       .mockResolvedValueOnce({ id: 'proof-image' })
       .mockResolvedValueOnce({ id: 'proof-image-2' })
       .mockResolvedValueOnce({ id: 'proof-video-2' })
+      .mockResolvedValueOnce({ id: 'proof-audio' })
+      .mockResolvedValueOnce({ id: 'proof-audio-2' })
       .mockResolvedValueOnce({ id: 'proof-blog' })
       .mockResolvedValueOnce({ id: 'proof-blog-2' })
       .mockResolvedValueOnce({ id: 'proof-book' })
@@ -360,7 +362,7 @@ describe('creative canvas runs', () => {
       },
     ])
 
-    expect(mockAdd).toHaveBeenCalledTimes(7)
+    expect(mockAdd).toHaveBeenCalledTimes(9)
     expect(mockAdd).toHaveBeenNthCalledWith(1, expect.objectContaining({
       nodeId: 'model-1',
       providerKey: 'higgsfield',
@@ -389,6 +391,22 @@ describe('creative canvas runs', () => {
       }),
     }))
     expect(mockAdd).toHaveBeenNthCalledWith(4, expect.objectContaining({
+      providerKey: 'higgsfield',
+      input: expect.objectContaining({
+        outputKind: 'audio',
+        format: 'runtime_proof_audio',
+        seed: 'audio-proof-1',
+      }),
+    }))
+    expect(mockAdd).toHaveBeenNthCalledWith(5, expect.objectContaining({
+      providerKey: 'higgsfield',
+      input: expect.objectContaining({
+        outputKind: 'audio',
+        format: 'runtime_proof_audio',
+        seed: 'audio-proof-2',
+      }),
+    }))
+    expect(mockAdd).toHaveBeenNthCalledWith(6, expect.objectContaining({
       providerKey: 'agent_task',
       input: expect.objectContaining({
         outputKind: 'blog_draft',
@@ -399,7 +417,7 @@ describe('creative canvas runs', () => {
         syntheticMedia: false,
       }),
     }))
-    expect(mockAdd).toHaveBeenNthCalledWith(5, expect.objectContaining({
+    expect(mockAdd).toHaveBeenNthCalledWith(7, expect.objectContaining({
       providerKey: 'agent_task',
       input: expect.objectContaining({
         outputKind: 'blog_draft',
@@ -407,7 +425,7 @@ describe('creative canvas runs', () => {
         seed: 'blog_document-proof-2',
       }),
     }))
-    expect(mockAdd).toHaveBeenNthCalledWith(6, expect.objectContaining({
+    expect(mockAdd).toHaveBeenNthCalledWith(8, expect.objectContaining({
       providerKey: 'higgsfield',
       input: expect.objectContaining({
         outputKind: 'book_artifact',
@@ -415,7 +433,7 @@ describe('creative canvas runs', () => {
         seed: 'book-proof-1',
       }),
     }))
-    expect(mockAdd).toHaveBeenNthCalledWith(7, expect.objectContaining({
+    expect(mockAdd).toHaveBeenNthCalledWith(9, expect.objectContaining({
       providerKey: 'higgsfield',
       input: expect.objectContaining({
         outputKind: 'book_artifact',
@@ -428,14 +446,16 @@ describe('creative canvas runs', () => {
         { id: 'proof-image', providerKey: 'higgsfield', status: 'queued' },
         { id: 'proof-image-2', providerKey: 'higgsfield', status: 'queued' },
         { id: 'proof-video-2', providerKey: 'higgsfield', status: 'queued' },
+        { id: 'proof-audio', providerKey: 'higgsfield', status: 'queued' },
+        { id: 'proof-audio-2', providerKey: 'higgsfield', status: 'queued' },
         { id: 'proof-blog', providerKey: 'agent_task', status: 'queued' },
         { id: 'proof-blog-2', providerKey: 'agent_task', status: 'queued' },
         { id: 'proof-book', providerKey: 'higgsfield', status: 'queued' },
         { id: 'proof-book-2', providerKey: 'higgsfield', status: 'queued' },
       ],
       operations: {
-        total: 8,
-        active: 8,
+        total: 10,
+        active: 10,
       },
     })
     expect(result.skippedCategories).toEqual([])

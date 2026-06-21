@@ -186,7 +186,7 @@ function optionalRunStatus(value: unknown): CreativeCanvasRunStatus | undefined 
 const RUN_STATUSES: CreativeCanvasRunStatus[] = ['queued', 'running', 'waiting_for_review', 'completed', 'failed', 'cancelled']
 const DEFAULT_STALE_ACTIVE_MINUTES = 30
 
-type CreativeCanvasProofBatchCategory = 'image' | 'video_social' | 'blog_document' | 'book'
+type CreativeCanvasProofBatchCategory = 'image' | 'video_social' | 'audio' | 'blog_document' | 'book'
 const PROOF_BATCH_RUNS_PER_CATEGORY = 2
 
 interface CreativeCanvasProofBatchSpec {
@@ -232,6 +232,19 @@ const PROOF_BATCH_SPECS: CreativeCanvasProofBatchSpec[] = [
     promptSummary: 'Runtime proof vertical social video job from the active canvas graph.',
   },
   {
+    category: 'audio',
+    providerKey: 'higgsfield',
+    model: 'nano_banana_flash',
+    outputKind: 'audio',
+    operation: 'variation',
+    aspectRatio: '1:1',
+    durationSeconds: 15,
+    variantCount: 1,
+    format: 'runtime_proof_audio',
+    stylePreset: 'brand_audio',
+    promptSummary: 'Runtime proof audio job for voiceover, sound bed, or social media audio assets.',
+  },
+  {
     category: 'blog_document',
     providerKey: 'agent_task',
     outputKind: 'blog_draft',
@@ -273,6 +286,7 @@ function runMatchesProofCategory(run: CreativeCanvasRun, category: CreativeCanva
   const outputKind = run.input.outputKind
   if (category === 'image') return outputKind === 'image' || outputKind === 'campaign_asset'
   if (category === 'video_social') return outputKind === 'video' || outputKind === 'social_post_draft' || outputKind === 'youtube_render'
+  if (category === 'audio') return outputKind === 'audio'
   if (category === 'blog_document') return outputKind === 'blog_draft' || outputKind === 'document_block' || outputKind === 'copy' || outputKind === 'caption'
   return outputKind === 'book_artifact'
 }

@@ -301,6 +301,7 @@ beforeEach(() => {
               reliabilityCoverage: [
                 { key: 'image', label: 'Image', status: 'warning', requiredOutputKinds: ['image', 'campaign_asset'], requiredCompleted: 2, total: 2, completed: 1, active: 1, failed: 0, cancelled: 0, latestRunId: 'run-image-2', latestCompletedRunId: 'run-image-1', nextAction: 'Wait for this proof run to complete or ingest the provider output.' },
                 { key: 'video_social', label: 'Video/social', status: 'warning', requiredOutputKinds: ['video', 'social_post_draft', 'youtube_render'], requiredCompleted: 2, total: 1, completed: 0, active: 1, failed: 0, cancelled: 0, latestRunId: 'run-video-1', nextAction: 'Wait for this proof run to complete or ingest the provider output.' },
+                { key: 'audio', label: 'Audio', status: 'blocked', requiredOutputKinds: ['audio'], requiredCompleted: 2, total: 0, completed: 0, active: 0, failed: 0, cancelled: 0, nextAction: 'Queue proof batch to create this required creative job.' },
                 { key: 'blog_document', label: 'Blog/document', status: 'blocked', requiredOutputKinds: ['blog_draft', 'document_block', 'copy', 'caption'], requiredCompleted: 2, total: 0, completed: 0, active: 0, failed: 0, cancelled: 0, nextAction: 'Queue proof batch to create this required creative job.' },
                 { key: 'book', label: 'Book', status: 'blocked', requiredOutputKinds: ['book_artifact'], requiredCompleted: 2, total: 1, completed: 0, active: 0, failed: 1, cancelled: 0, latestRunId: 'run-book-1', nextAction: 'Retry failed proof run or queue a new proof batch.' },
               ],
@@ -515,6 +516,8 @@ beforeEach(() => {
                 ['proof-image-1', 'higgsfield', 'image'],
                 ['proof-image-2', 'higgsfield', 'image'],
                 ['proof-video-2', 'higgsfield', 'video'],
+                ['proof-audio-1', 'higgsfield', 'audio'],
+                ['proof-audio-2', 'higgsfield', 'audio'],
                 ['proof-blog-1', 'agent_task', 'blog_draft'],
                 ['proof-blog-2', 'agent_task', 'blog_draft'],
                 ['proof-book-1', 'higgsfield', 'book_artifact'],
@@ -532,23 +535,23 @@ beforeEach(() => {
             ],
             skippedCategories: [],
             operations: {
-              total: 9,
-              active: 8,
+              total: 11,
+              active: 10,
               staleActiveRuns: 1,
               staleThresholdMinutes: 30,
               failed: 1,
               retryableFailures: 1,
               completed: 0,
-              byStatus: { queued: 7, running: 1, waiting_for_review: 0, completed: 0, failed: 1, cancelled: 0 },
+              byStatus: { queued: 9, running: 1, waiting_for_review: 0, completed: 0, failed: 1, cancelled: 0 },
               providers: [{
                 providerKey: 'higgsfield',
-                total: 7,
-                active: 6,
+                total: 9,
+                active: 8,
                 staleActiveRuns: 1,
                 failed: 1,
                 retryableFailures: 1,
                 completed: 0,
-                byStatus: { queued: 5, running: 1, waiting_for_review: 0, completed: 0, failed: 1, cancelled: 0 },
+                byStatus: { queued: 7, running: 1, waiting_for_review: 0, completed: 0, failed: 1, cancelled: 0 },
               }],
             },
           },
@@ -872,9 +875,9 @@ describe('CreativeCanvasWorkspace', () => {
     expect(proofRunbook).toHaveTextContent('Two-user collaboration proof')
     expect(proofRunbook).toHaveTextContent('Capture source-backed Collaboration benchmark proof from the live two-user session.')
     expect(proofRunbook).toHaveTextContent('Multi-category export proof')
-    expect(proofRunbook).toHaveTextContent('Generate a package covering image/campaign, video/social, blog/document, and book outputs.')
+    expect(proofRunbook).toHaveTextContent('Generate a package covering image/campaign, video/social, audio, blog/document, and book outputs.')
     expect(proofRunbook).toHaveTextContent('Repeated production job proof')
-    expect(proofRunbook).toHaveTextContent('Complete repeated image, video/social, blog/document, and book jobs with drained queues and low failures.')
+    expect(proofRunbook).toHaveTextContent('Complete repeated image, video/social, audio, blog/document, and book jobs with drained queues and low failures.')
     expect(proofRunbook).toHaveTextContent('Full source-backed benchmark ledger')
     expect(proofRunbook).toHaveTextContent('Use Capture ready proofs, then fill any remaining proof URLs and notes from live evidence.')
     const parityAudit = screen.getByLabelText(/higgsfield parity audit/i)
@@ -895,7 +898,7 @@ describe('CreativeCanvasWorkspace', () => {
     expect(parityAudit).toHaveTextContent('Signed-in desktop/tablet/mobile screenshots still required')
     expect(parityAudit).toHaveTextContent('Export flows')
     expect(parityAudit).toHaveTextContent('Production reliability')
-    expect(parityAudit).toHaveTextContent('0/4 proof categories passed · warning runtime proof')
+    expect(parityAudit).toHaveTextContent('0/5 proof categories passed · warning runtime proof')
     const benchmarkProof = screen.getByLabelText(/direct higgsfield benchmark proof/i)
     expect(benchmarkProof).toHaveTextContent('Capability-by-capability evidence ledger')
     expect(benchmarkProof).toHaveTextContent('0/9 benchmark proven')
@@ -2138,20 +2141,21 @@ describe('CreativeCanvasWorkspace', () => {
         method: 'POST',
       }))
     })
-    expect(await screen.findByText('Queued 7 proof runs')).toBeInTheDocument()
+    expect(await screen.findByText('Queued 9 proof runs')).toBeInTheDocument()
   })
 
   it('shows structured production job coverage from runtime proof', async () => {
     render(<CreativeCanvasWorkspace mode="admin" orgId="org-1" />)
 
     expect(await screen.findByText('Production job coverage')).toBeInTheDocument()
-    expect(screen.getByText('0/4 complete')).toBeInTheDocument()
+    expect(screen.getByText('0/5 complete')).toBeInTheDocument()
     expect(screen.getAllByText('Image').length).toBeGreaterThan(0)
     expect(screen.getByText('1/2 required completed · 1 active · 0 failed')).toBeInTheDocument()
     expect(screen.getByText('Video/social')).toBeInTheDocument()
     expect(screen.getByText('0/2 required completed · 1 active · 0 failed')).toBeInTheDocument()
+    expect(screen.getAllByText('Audio').length).toBeGreaterThan(0)
     expect(screen.getByText('Blog/document')).toBeInTheDocument()
-    expect(screen.getByText('Queue proof batch to create this required creative job.')).toBeInTheDocument()
+    expect(screen.getAllByText('Queue proof batch to create this required creative job.').length).toBeGreaterThan(0)
     expect(screen.getByText('Book')).toBeInTheDocument()
     expect(screen.getByText('Retry failed proof run or queue a new proof batch.')).toBeInTheDocument()
   })
@@ -2178,18 +2182,19 @@ describe('CreativeCanvasWorkspace', () => {
                 reliabilityCoverage: [
                   { key: 'image', label: 'Image', status: 'passed', requiredOutputKinds: ['image', 'campaign_asset'], requiredCompleted: 2, total: 2, completed: 2, active: 0, failed: 0, cancelled: 0 },
                   { key: 'video_social', label: 'Video/social', status: 'passed', requiredOutputKinds: ['video', 'social_post_draft', 'youtube_render'], requiredCompleted: 2, total: 2, completed: 2, active: 0, failed: 0, cancelled: 0 },
+                  { key: 'audio', label: 'Audio', status: 'passed', requiredOutputKinds: ['audio'], requiredCompleted: 2, total: 2, completed: 2, active: 0, failed: 0, cancelled: 0 },
                   { key: 'blog_document', label: 'Blog/document', status: 'passed', requiredOutputKinds: ['blog_draft', 'document_block', 'copy', 'caption'], requiredCompleted: 2, total: 2, completed: 2, active: 0, failed: 0, cancelled: 0 },
                   { key: 'book', label: 'Book', status: 'passed', requiredOutputKinds: ['book_artifact'], requiredCompleted: 2, total: 2, completed: 2, active: 0, failed: 0, cancelled: 0 },
                 ],
                 checks: [
                   { id: 'project_link', label: 'Linked project', status: 'passed', evidence: 'Project project-1' },
                   { id: 'runtime_readiness', label: 'Higgsfield runtime readiness', status: 'passed', evidence: 'Submit configured, status configured, internal bridge yes.' },
-                  { id: 'provider_runs', label: 'Provider run evidence', status: 'passed', evidence: '8 runs, 8 completed, 0 active, 0 failed.' },
-                  { id: 'completed_run_artifacts', label: 'Completed run artifacts', status: 'passed', evidence: '8/8 completed runs have output URL, artifact ID, or text preview evidence.' },
+                  { id: 'provider_runs', label: 'Provider run evidence', status: 'passed', evidence: '10 runs, 10 completed, 0 active, 0 failed.' },
+                  { id: 'completed_run_artifacts', label: 'Completed run artifacts', status: 'passed', evidence: '10/10 completed runs have output URL, artifact ID, or text preview evidence.' },
                   { id: 'queue_health', label: 'Provider queue health', status: 'passed', evidence: '0 stale active, 0 retryable failures.' },
-                  { id: 'output_assets', label: 'Output asset evidence', status: 'warning', evidence: '8 assets, 0 draft-exportable output assets.' },
+                  { id: 'output_assets', label: 'Output asset evidence', status: 'warning', evidence: '10 assets, 0 draft-exportable output assets.' },
                   { id: 'repeated_job_coverage', label: 'Repeated creative job coverage', status: 'passed', evidence: 'All categories complete.' },
-                  { id: 'repeated_job_reliability', label: 'Repeated creative job reliability', status: 'passed', evidence: '8 total runs, 8 artifact-backed completed, 0 completed missing artifacts, 0 active, 0 failed, 0% artifact-backed failure rate, 0 stale active.' },
+                  { id: 'repeated_job_reliability', label: 'Repeated creative job reliability', status: 'passed', evidence: '10 total runs, 10 artifact-backed completed, 0 completed missing artifacts, 0 active, 0 failed, 0% artifact-backed failure rate, 0 stale active.' },
                 ],
               },
             },
@@ -2205,7 +2210,7 @@ describe('CreativeCanvasWorkspace', () => {
     fireEvent.click(screen.getByRole('button', { name: /refresh runtime proof/i }))
 
     const parityAudit = screen.getByLabelText(/higgsfield parity audit/i)
-    await waitFor(() => expect(parityAudit).toHaveTextContent('4/4 proof categories passed · warning runtime proof'))
+    await waitFor(() => expect(parityAudit).toHaveTextContent('5/5 proof categories passed · warning runtime proof'))
     const benchmarkProof = screen.getByLabelText(/direct higgsfield benchmark proof/i)
     expect(benchmarkProof).toHaveTextContent('2 ready benchmark categories need stored proof.')
   })
@@ -2274,6 +2279,7 @@ describe('CreativeCanvasWorkspace', () => {
                 reliabilityCoverage: [
                   { key: 'image', label: 'Image', status: 'passed', requiredOutputKinds: ['image', 'campaign_asset'], requiredCompleted: 2, total: 2, completed: 2, active: 0, failed: 0, cancelled: 0 },
                   { key: 'video_social', label: 'Video/social', status: 'passed', requiredOutputKinds: ['video', 'social_post_draft', 'youtube_render'], requiredCompleted: 2, total: 2, completed: 2, active: 0, failed: 0, cancelled: 0 },
+                  { key: 'audio', label: 'Audio', status: 'passed', requiredOutputKinds: ['audio'], requiredCompleted: 2, total: 2, completed: 2, active: 0, failed: 0, cancelled: 0 },
                   { key: 'blog_document', label: 'Blog/document', status: 'passed', requiredOutputKinds: ['blog_draft', 'document_block', 'copy', 'caption'], requiredCompleted: 2, total: 2, completed: 2, active: 0, failed: 0, cancelled: 0 },
                   { key: 'book', label: 'Book', status: 'passed', requiredOutputKinds: ['book_artifact'], requiredCompleted: 2, total: 2, completed: 2, active: 0, failed: 0, cancelled: 0 },
                 ],
@@ -2290,14 +2296,14 @@ describe('CreativeCanvasWorkspace', () => {
             success: true,
             data: {
               operations: {
-                total: 8,
+                total: 10,
                 active: 0,
                 staleActiveRuns: 0,
                 staleThresholdMinutes: 30,
                 failed: 0,
                 retryableFailures: 0,
-                completed: 8,
-                byStatus: { queued: 0, running: 0, waiting_for_review: 0, completed: 8, failed: 0, cancelled: 0 },
+                completed: 10,
+                byStatus: { queued: 0, running: 0, waiting_for_review: 0, completed: 10, failed: 0, cancelled: 0 },
                 providers: [],
               },
               runs: [],
@@ -2347,14 +2353,14 @@ describe('CreativeCanvasWorkspace', () => {
     expect(body.data?.benchmarkProof?.production_reliability).toMatchObject({
       runtimeProofStatus: 'passed',
       runtimeReadyForLiveProof: true,
-      runtimeArtifactBackedCategoryCount: 4,
-      runtimeArtifactBackedCompletedCount: 8,
+      runtimeArtifactBackedCategoryCount: 5,
+      runtimeArtifactBackedCompletedCount: 10,
       runtimeActiveRunCount: 0,
       runtimeStaleActiveRunCount: 0,
       runtimeFailedRunCount: 0,
       runtimeFailureRatePercent: 0,
       runtimeProofCapturedAt: expect.any(String),
-      runtimeEvidence: expect.stringContaining('4/4 runtime categories passed'),
+      runtimeEvidence: expect.stringContaining('5/5 runtime categories passed'),
     })
   })
 
@@ -3063,7 +3069,7 @@ describe('CreativeCanvasWorkspace', () => {
     expect(screen.getByText(/Package package-1: 1 assets/i)).toBeInTheDocument()
     expect(screen.getByText(/Manifest v1: 6 nodes \/ 5 links \/ social_post_draft \/ 1 sources \/ 1 categories \/ 1 handoffs/i)).toBeInTheDocument()
     const parityAudit = screen.getByLabelText(/higgsfield parity audit/i)
-    expect(parityAudit).toHaveTextContent('1/4 export categories packaged · 0/4 artifact-backed categories · 1 asset')
+    expect(parityAudit).toHaveTextContent('1/5 export categories packaged · 0/5 artifact-backed categories · 1 asset')
   })
 
   it('requires a multi-category package manifest before export flows are benchmark-ready', async () => {
@@ -3085,18 +3091,19 @@ describe('CreativeCanvasWorkspace', () => {
               exportId: 'package-benchmark',
               package: {
                 status: 'internal_package',
-                assetCount: 4,
+                assetCount: 5,
                 targets: ['campaign_asset', 'youtube_studio', 'client_document', 'book_studio'],
                 manifest: {
                   canvas: { activeVersion: 1, nodeCount: 30, edgeCount: 22 },
                   proof: {
-                    requiredOutputKinds: ['campaign_asset', 'youtube_render', 'blog_draft', 'book_artifact'],
+                    requiredOutputKinds: ['campaign_asset', 'youtube_render', 'audio', 'blog_draft', 'book_artifact'],
                     sourceNodeIds: ['source-1', 'source-2'],
-                    coveredCategories: ['image_campaign', 'video_social', 'blog_document', 'book'],
+                    coveredCategories: ['image_campaign', 'video_social', 'audio', 'blog_document', 'book'],
                   },
                   lineage: [
                     { outputNodeId: 'campaign-output', sourceNodeIds: ['source-1'], upstreamNodeIds: ['source-1'] },
                     { outputNodeId: 'youtube-output', sourceNodeIds: ['source-1'], upstreamNodeIds: ['source-1'] },
+                    { outputNodeId: 'audio-output', sourceNodeIds: ['source-1'], upstreamNodeIds: ['source-1'] },
                     { outputNodeId: 'blog-output', sourceNodeIds: ['source-2'], upstreamNodeIds: ['source-2'] },
                     { outputNodeId: 'book-output', sourceNodeIds: ['source-2'], upstreamNodeIds: ['source-2'] },
                   ],
@@ -3104,6 +3111,7 @@ describe('CreativeCanvasWorkspace', () => {
                 downstreamDrafts: [
                   { target: 'campaign_asset', sourceNodeId: 'campaign-output' },
                   { target: 'youtube_studio', sourceNodeId: 'youtube-output' },
+                  { target: 'campaign_asset', sourceNodeId: 'audio-output' },
                   { target: 'client_document', sourceNodeId: 'blog-output' },
                   { target: 'book_studio', sourceNodeId: 'book-output' },
                 ],
@@ -3128,7 +3136,7 @@ describe('CreativeCanvasWorkspace', () => {
 
     expect(await screen.findByText('Export package prepared')).toBeInTheDocument()
     const parityAudit = screen.getByLabelText(/higgsfield parity audit/i)
-    expect(parityAudit).toHaveTextContent('4/4 export categories packaged · 0/4 artifact-backed categories · 4 assets')
+    expect(parityAudit).toHaveTextContent('5/5 export categories packaged · 0/5 artifact-backed categories · 5 assets')
     expect(benchmarkProof).toHaveTextContent('6 ready benchmark categories need stored proof.')
 
     fetchMock.mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
@@ -3148,6 +3156,7 @@ describe('CreativeCanvasWorkspace', () => {
                 reliabilityCoverage: [
                   { key: 'image', label: 'Image', status: 'passed', requiredOutputKinds: ['image', 'campaign_asset'], requiredCompleted: 2, total: 2, completed: 2, active: 0, failed: 0, cancelled: 0 },
                   { key: 'video_social', label: 'Video/social', status: 'passed', requiredOutputKinds: ['video', 'social_post_draft', 'youtube_render'], requiredCompleted: 2, total: 2, completed: 2, active: 0, failed: 0, cancelled: 0 },
+                  { key: 'audio', label: 'Audio', status: 'passed', requiredOutputKinds: ['audio'], requiredCompleted: 2, total: 2, completed: 2, active: 0, failed: 0, cancelled: 0 },
                   { key: 'blog_document', label: 'Blog/document', status: 'passed', requiredOutputKinds: ['blog_draft', 'document_block', 'copy', 'caption'], requiredCompleted: 2, total: 2, completed: 2, active: 0, failed: 0, cancelled: 0 },
                   { key: 'book', label: 'Book', status: 'passed', requiredOutputKinds: ['book_artifact'], requiredCompleted: 2, total: 2, completed: 2, active: 0, failed: 0, cancelled: 0 },
                 ],
@@ -3170,7 +3179,7 @@ describe('CreativeCanvasWorkspace', () => {
     })
 
     fireEvent.click(screen.getByRole('button', { name: /refresh runtime proof/i }))
-    await waitFor(() => expect(parityAudit).toHaveTextContent('4/4 export categories packaged · 4/4 artifact-backed categories · 4 assets'))
+    await waitFor(() => expect(parityAudit).toHaveTextContent('5/5 export categories packaged · 5/5 artifact-backed categories · 5 assets'))
     expect(benchmarkProof).toHaveTextContent('7 ready benchmark categories need stored proof.')
   })
 

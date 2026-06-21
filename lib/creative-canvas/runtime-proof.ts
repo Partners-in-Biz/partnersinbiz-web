@@ -13,7 +13,7 @@ import type {
 
 type CanvasWithId = CreativeCanvas & { id: string }
 type RunWithId = CreativeCanvasRun & { id: string }
-type ReliabilityCategory = 'image' | 'video_social' | 'blog_document' | 'book'
+type ReliabilityCategory = 'image' | 'video_social' | 'audio' | 'blog_document' | 'book'
 const REQUIRED_COMPLETED_RUNS_PER_CATEGORY = 2
 
 const RELIABILITY_CATEGORIES: Array<{
@@ -23,6 +23,7 @@ const RELIABILITY_CATEGORIES: Array<{
 }> = [
   { key: 'image', label: 'Image', kinds: ['image', 'campaign_asset'] },
   { key: 'video_social', label: 'Video/social', kinds: ['video', 'social_post_draft', 'youtube_render'] },
+  { key: 'audio', label: 'Audio', kinds: ['audio'] },
   { key: 'blog_document', label: 'Blog/document', kinds: ['blog_draft', 'document_block', 'copy', 'caption'] },
   { key: 'book', label: 'Book', kinds: ['book_artifact'] },
 ]
@@ -110,7 +111,7 @@ export function buildCreativeCanvasRuntimeProof(input: {
   const completedOrFailedRuns = completedRunsWithArtifacts.length + totalFailures
   const failureRate = completedOrFailedRuns ? totalFailures / completedOrFailedRuns : 0
   const allReliabilityCategoriesCovered = coveredCategories.length >= RELIABILITY_CATEGORIES.length
-  const repeatedJobsCompleted = completedRunsWithArtifacts.length >= 8
+  const repeatedJobsCompleted = completedRunsWithArtifacts.length >= RELIABILITY_CATEGORIES.length * REQUIRED_COMPLETED_RUNS_PER_CATEGORY
   const repeatedJobQueueDrained = activeRuns.length === 0 && operations.staleActiveRuns === 0
   const repeatedJobReliabilityPassed = repeatedJobsCompleted
     && allReliabilityCategoriesCovered
@@ -195,7 +196,7 @@ export function buildCreativeCanvasRuntimeProof(input: {
         .join('; '),
       nextAction: coveredCategories.length >= RELIABILITY_CATEGORIES.length
         ? undefined
-        : `Run and complete ${REQUIRED_COMPLETED_RUNS_PER_CATEGORY} image, video/social, blog/document, and book creative jobs through the canvas.`,
+        : `Run and complete ${REQUIRED_COMPLETED_RUNS_PER_CATEGORY} image, video/social, audio, blog/document, and book creative jobs through the canvas.`,
     }),
     check({
       id: 'repeated_job_reliability',
@@ -204,7 +205,7 @@ export function buildCreativeCanvasRuntimeProof(input: {
       evidence: `${runs.length} total runs, ${completedRunsWithArtifacts.length} artifact-backed completed, ${completedRunsMissingArtifacts} completed missing artifacts, ${activeRuns.length} active, ${totalFailures} failed, ${Math.round(failureRate * 100)}% artifact-backed failure rate, ${operations.staleActiveRuns} stale active.`,
       nextAction: repeatedJobReliabilityPassed
         ? undefined
-        : `Complete at least ${REQUIRED_COMPLETED_RUNS_PER_CATEGORY} artifact-backed creative jobs in each category, 8 total, with <=10% failures and no active or stale runs.`,
+        : `Complete at least ${REQUIRED_COMPLETED_RUNS_PER_CATEGORY} artifact-backed creative jobs in each category, ${RELIABILITY_CATEGORIES.length * REQUIRED_COMPLETED_RUNS_PER_CATEGORY} total, with <=10% failures and no active or stale runs.`,
     }),
   ]
 

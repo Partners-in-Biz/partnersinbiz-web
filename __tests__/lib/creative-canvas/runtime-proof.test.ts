@@ -86,6 +86,8 @@ describe('creative canvas runtime proof', () => {
         completedRunFor('run-image-2', 'campaign_asset'),
         completedRunFor('run-video-1', 'video'),
         completedRunFor('run-social-1', 'social_post_draft'),
+        completedRunFor('run-audio-1', 'audio'),
+        completedRunFor('run-audio-2', 'audio'),
         completedRunFor('run-blog-1', 'blog_draft'),
         completedRunFor('run-document-1', 'document_block'),
         completedRunFor('run-book-1', 'book_artifact'),
@@ -104,6 +106,7 @@ describe('creative canvas runtime proof', () => {
       reliabilityCoverage: expect.arrayContaining([
         expect.objectContaining({ key: 'image', status: 'passed', completed: 2 }),
         expect.objectContaining({ key: 'video_social', status: 'passed', completed: 2 }),
+        expect.objectContaining({ key: 'audio', status: 'passed', completed: 2 }),
         expect.objectContaining({ key: 'blog_document', status: 'passed', completed: 2 }),
         expect.objectContaining({ key: 'book', status: 'passed', completed: 2 }),
       ]),
@@ -139,6 +142,7 @@ describe('creative canvas runtime proof', () => {
     expect(proof.reliabilityCoverage).toEqual(expect.arrayContaining([
       expect.objectContaining({ key: 'image', status: 'warning', completed: 1, requiredCompleted: 2 }),
       expect.objectContaining({ key: 'video_social', status: 'warning', completed: 1, requiredCompleted: 2 }),
+      expect.objectContaining({ key: 'audio', status: 'blocked', completed: 0, requiredCompleted: 2 }),
       expect.objectContaining({ key: 'blog_document', status: 'warning', active: 1 }),
       expect.objectContaining({ key: 'book', status: 'blocked', failed: 1 }),
     ]))
@@ -148,7 +152,7 @@ describe('creative canvas runtime proof', () => {
     ]))
   })
 
-  it('does not pass repeated-job reliability until eight jobs are completed and the queue is drained', () => {
+  it('does not pass repeated-job reliability until ten jobs are completed and the queue is drained', () => {
     const proof = buildCreativeCanvasRuntimeProof({
       canvas,
       runs: [
@@ -156,6 +160,8 @@ describe('creative canvas runtime proof', () => {
         completedRunFor('run-image-2', 'campaign_asset'),
         completedRunFor('run-video-1', 'video'),
         completedRunFor('run-social-1', 'social_post_draft'),
+        { ...completedRunFor('run-audio-active-1', 'audio'), status: 'running' },
+        { ...completedRunFor('run-audio-active-2', 'audio'), status: 'queued' },
         { ...completedRunFor('run-blog-active-1', 'blog_draft'), status: 'running' },
         { ...completedRunFor('run-document-active-1', 'document_block'), status: 'queued' },
         { ...completedRunFor('run-book-active-1', 'book_artifact'), status: 'waiting_for_review' },
@@ -173,8 +179,8 @@ describe('creative canvas runtime proof', () => {
       expect.objectContaining({
         id: 'repeated_job_reliability',
         status: 'warning',
-        evidence: '8 total runs, 4 artifact-backed completed, 0 completed missing artifacts, 4 active, 0 failed, 0% artifact-backed failure rate, 0 stale active.',
-        nextAction: 'Complete at least 2 artifact-backed creative jobs in each category, 8 total, with <=10% failures and no active or stale runs.',
+        evidence: '10 total runs, 4 artifact-backed completed, 0 completed missing artifacts, 6 active, 0 failed, 0% artifact-backed failure rate, 0 stale active.',
+        nextAction: 'Complete at least 2 artifact-backed creative jobs in each category, 10 total, with <=10% failures and no active or stale runs.',
       }),
     ]))
   })
@@ -187,6 +193,8 @@ describe('creative canvas runtime proof', () => {
         completedRunFor('run-image-2', 'campaign_asset'),
         completedRunFor('run-video-1', 'video'),
         completedRunFor('run-social-1', 'social_post_draft'),
+        completedRunFor('run-audio-1', 'audio'),
+        completedRunFor('run-audio-2', 'audio'),
         completedRunFor('run-blog-1', 'blog_draft'),
         completedRunFor('run-document-1', 'document_block'),
         completedRunFor('run-book-1', 'book_artifact'),
@@ -214,7 +222,7 @@ describe('creative canvas runtime proof', () => {
       expect.objectContaining({
         id: 'completed_run_artifacts',
         status: 'warning',
-        evidence: '7/8 completed runs have output URL, artifact ID, or text preview evidence.',
+        evidence: '9/10 completed runs have output URL, artifact ID, or text preview evidence.',
       }),
       expect.objectContaining({
         id: 'repeated_job_reliability',
@@ -223,7 +231,7 @@ describe('creative canvas runtime proof', () => {
     ]))
   })
 
-  it('does not pass when eight completed jobs are unevenly distributed across categories', () => {
+  it('does not pass when ten completed jobs are unevenly distributed across categories', () => {
     const proof = buildCreativeCanvasRuntimeProof({
       canvas,
       runs: [
@@ -232,6 +240,8 @@ describe('creative canvas runtime proof', () => {
         completedRunFor('run-image-3', 'image'),
         completedRunFor('run-video-1', 'video'),
         completedRunFor('run-video-2', 'social_post_draft'),
+        completedRunFor('run-audio-1', 'audio'),
+        completedRunFor('run-audio-2', 'audio'),
         completedRunFor('run-blog-1', 'blog_draft'),
         completedRunFor('run-book-1', 'book_artifact'),
         completedRunFor('run-book-2', 'book_artifact'),
@@ -272,6 +282,7 @@ describe('creative canvas runtime proof', () => {
     expect(proof.reliabilityCoverage).toEqual(expect.arrayContaining([
       expect.objectContaining({ key: 'image', status: 'blocked', total: 0 }),
       expect.objectContaining({ key: 'video_social', status: 'blocked', total: 0 }),
+      expect.objectContaining({ key: 'audio', status: 'blocked', total: 0 }),
       expect.objectContaining({ key: 'blog_document', status: 'blocked', total: 0 }),
       expect.objectContaining({ key: 'book', status: 'blocked', total: 0 }),
     ]))

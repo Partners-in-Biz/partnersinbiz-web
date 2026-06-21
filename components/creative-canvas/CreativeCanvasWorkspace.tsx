@@ -344,10 +344,10 @@ const benchmarkProofConfigs: Array<{
   {
     key: 'generation_controls',
     label: 'Generation controls',
-    benchmark: 'Model, output kind, aspect ratio, variants, duration, motion, style, and negative prompt control before dispatch.',
-    sourceTitle: 'Higgsfield Canvas model catalog',
-    sourceUrl: 'https://higgsfield.ai/canvas-intro',
-    sourceSignals: ['Kling 3.0', 'Seedance 2.0', 'Wan 2.7', 'Soul 2.0', 'GPT Image 2.0', 'Veo 3.1'],
+    benchmark: 'Model, output kind, aspect ratio, variants, duration, motion, style, negative prompt, and image/video/audio dispatch control.',
+    sourceTitle: 'Higgsfield Canvas generation surface',
+    sourceUrl: 'https://higgsfield.ai/canvas',
+    sourceSignals: ['Generate', 'Image', 'Video', 'Audio', 'Canvas'],
   },
   {
     key: 'multi_asset_workflows',
@@ -384,18 +384,18 @@ const benchmarkProofConfigs: Array<{
   {
     key: 'export_flows',
     label: 'Export flows',
-    benchmark: 'Reviewable packages with manifests, target formats, provenance, source/output mapping, and downstream drafts.',
-    sourceTitle: 'Higgsfield Canvas image and video pipeline',
-    sourceUrl: 'https://higgsfield.ai/canvas-intro',
-    sourceSignals: ['image and video pipelines', 'render outputs', 'Explore All', 'Unified in one platform'],
+    benchmark: 'Reviewable packages with manifests, target formats, provenance, source/output mapping, downstream drafts, and image/video/audio coverage.',
+    sourceTitle: 'Higgsfield Canvas media library and generation pipeline',
+    sourceUrl: 'https://higgsfield.ai/canvas',
+    sourceSignals: ['Generate', 'Library', 'Image', 'Video', 'Audio'],
   },
   {
     key: 'production_reliability',
     label: 'Production reliability',
-    benchmark: 'Repeated real image, video/social, blog/document, and book jobs complete with drained queues and low failures.',
-    sourceTitle: 'Higgsfield Canvas reusable production workflows',
-    sourceUrl: 'https://higgsfield.ai/canvas-intro',
-    sourceSignals: ['Every top model', 'available now', 'Unified in one platform', 'Build AI image and video pipelines'],
+    benchmark: 'Repeated real image, video/social, audio, blog/document, and book jobs complete with drained queues and low failures.',
+    sourceTitle: 'Higgsfield Canvas current media modalities',
+    sourceUrl: 'https://higgsfield.ai/canvas',
+    sourceSignals: ['Generate', 'Library', 'Image', 'Video', 'Audio'],
   },
 ]
 
@@ -418,6 +418,12 @@ const exportProofCategories: Array<{
     targets: ['social_draft', 'youtube_studio', 'campaign_asset'],
   },
   {
+    key: 'audio',
+    label: 'Audio',
+    outputKinds: ['audio'],
+    targets: ['campaign_asset', 'workspace_artifact'],
+  },
+  {
     key: 'blog_document',
     label: 'Blog/document',
     outputKinds: ['blog_draft', 'document_block', 'copy', 'caption'],
@@ -430,6 +436,9 @@ const exportProofCategories: Array<{
     targets: ['book_studio'],
   },
 ]
+const requiredRuntimeProofCategoryKeys = new Set(exportProofCategories.map((category) => (
+  category.key === 'image_campaign' ? 'image' : category.key
+)))
 
 function objectRecord(value: unknown): Record<string, unknown> {
   return value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : {}
@@ -769,7 +778,7 @@ function buildProductionRuntimeProofFields(input: {
 }): Partial<CreativeCanvasBenchmarkProofRecord> {
   const reliabilityCoverage = input.runtimeProof?.reliabilityCoverage ?? []
   const passedCoverage = reliabilityCoverage.filter((category) => (
-    ['image', 'video_social', 'blog_document', 'book'].includes(category.key)
+    requiredRuntimeProofCategoryKeys.has(category.key)
     && category.status === 'passed'
     && category.completed >= (category.requiredCompleted ?? 2)
   ))
@@ -2412,7 +2421,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
     const currentLocalEditingActivityCount = collaborationActivity.filter((event) => event.source === 'local').length
     const currentRemoteEventProofCount = currentRemoteActivityCount || (latestCollaboratorDraft ? 1 : 0) || (currentRemotePresence.some((item) => item.hasUnsavedGraphChanges) ? 1 : 0)
     const currentExportArtifactBackedCoverage = (runtimeProof?.reliabilityCoverage ?? []).filter((category) => (
-      ['image', 'video_social', 'blog_document', 'book'].includes(category.key)
+      requiredRuntimeProofCategoryKeys.has(category.key)
       && category.status === 'passed'
       && category.completed >= (category.requiredCompleted ?? 2)
     ))
@@ -4431,7 +4440,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
   const reliabilityPassed = reliabilityCoveragePassed && runtimeProof?.status === 'passed' && runtimeProof.readyForLiveProof
   const reliabilityObserved = reliabilityCoverage.length > 0 || Boolean(runOperations?.total)
   const exportArtifactBackedCoverage = reliabilityCoverage.filter((category) => (
-    ['image', 'video_social', 'blog_document', 'book'].includes(category.key)
+    requiredRuntimeProofCategoryKeys.has(category.key)
     && category.status === 'passed'
     && category.completed >= (category.requiredCompleted ?? 2)
   ))
@@ -4709,7 +4718,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
         ? 'Export benchmark proof is source-backed and stored.'
         : hasExportPackageProof
           ? 'Save source-backed Export flows benchmark proof for the completed package.'
-          : 'Generate a package covering image/campaign, video/social, blog/document, and book outputs.',
+          : 'Generate a package covering image/campaign, video/social, audio, blog/document, and book outputs.',
     },
     {
       label: 'Repeated production job proof',
@@ -4721,7 +4730,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
         ? 'Production reliability benchmark proof is source-backed and stored.'
         : reliabilityPassed
           ? 'Save source-backed Production reliability benchmark proof from the passed runtime evidence.'
-          : 'Complete repeated image, video/social, blog/document, and book jobs with drained queues and low failures.',
+          : 'Complete repeated image, video/social, audio, blog/document, and book jobs with drained queues and low failures.',
     },
     {
       label: 'Full source-backed benchmark ledger',

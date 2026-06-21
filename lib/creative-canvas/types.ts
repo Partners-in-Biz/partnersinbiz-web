@@ -524,7 +524,7 @@ export interface CreativeCanvasRunBatchRetryResult {
 export interface CreativeCanvasProofBatchResult {
   queuedRuns: Array<CreativeCanvasRun & { id: string }>
   skippedCategories: Array<{
-    category: 'image' | 'video_social' | 'blog_document' | 'book'
+    category: 'image' | 'video_social' | 'audio' | 'blog_document' | 'book'
     reason: string
     runId?: string
   }>
@@ -555,7 +555,7 @@ export interface CreativeCanvasRuntimeProofCheck {
 }
 
 export interface CreativeCanvasReliabilityCoverageCategory {
-  key: 'image' | 'video_social' | 'blog_document' | 'book'
+  key: 'image' | 'video_social' | 'audio' | 'blog_document' | 'book'
   label: string
   requiredOutputKinds: CreativeCanvasOutputKind[]
   requiredCompleted: number
