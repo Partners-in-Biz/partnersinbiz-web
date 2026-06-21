@@ -17,6 +17,7 @@ interface CanvasTopBarProps {
   presenceCount: number
   onOpenChat: () => void
   onShare: () => void
+  onHome?: () => void
 }
 
 function barButton(active = false): React.CSSProperties {
@@ -51,6 +52,7 @@ export default function CanvasTopBar({
   presenceCount,
   onOpenChat,
   onShare,
+  onHome,
 }: CanvasTopBarProps) {
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(title)
@@ -84,7 +86,19 @@ export default function CanvasTopBar({
         border: `1px solid ${canvasTheme.border}`,
       }}
     >
-      <div style={{ minWidth: 0 }}>
+      <div style={{ minWidth: 0, display: 'flex', alignItems: 'center', gap: 10 }}>
+        {onHome ? (
+          <button
+            type="button"
+            aria-label="All canvases"
+            title="All canvases"
+            onClick={onHome}
+            style={{ width: 32, height: 32, flexShrink: 0, display: 'grid', placeItems: 'center', borderRadius: 8, border: `1px solid ${canvasTheme.border}`, background: canvasTheme.surfaceRaised, color: canvasTheme.text, cursor: 'pointer', fontSize: 14 }}
+          >
+            ⬓
+          </button>
+        ) : null}
+        <div style={{ minWidth: 0 }}>
         <p style={{ margin: 0, fontSize: 11, letterSpacing: 0.6, textTransform: 'uppercase', color: canvasTheme.textMuted }}>
           {eyebrow}
         </p>
@@ -138,6 +152,7 @@ export default function CanvasTopBar({
             {title}
           </button>
         )}
+        </div>
       </div>
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>

@@ -19,6 +19,7 @@ import { canvasNodeTypes } from '@/components/creative-canvas/nodes/nodeTypes'
 import type { CanvasNodeType } from '@/components/creative-canvas/nodes/ports'
 import CreateMenu from '@/components/creative-canvas/canvas/CreateMenu'
 import NodeSettingsPanel from '@/components/creative-canvas/panels/NodeSettingsPanel'
+import CanvasLanding from '@/components/creative-canvas/landing/CanvasLanding'
 import type {
   CreativeCanvasAssetOrigin,
   CreativeCanvas,
@@ -2671,6 +2672,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
 
   const [topBarPanel, setTopBarPanel] = useState<'chat' | 'share' | ''>('')
   const [createMenu, setCreateMenu] = useState<{ flow: { x: number; y: number }; client: { x: number; y: number } } | null>(null)
+  const [showLanding, setShowLanding] = useState(false)
 
   const reloadActiveCanvas = useCallback(async () => {
     if (!activeCanvas?.id) return
@@ -3267,6 +3269,28 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
       await loadRuntimeProof(canvas.id, orgId ?? canvas.orgId)
       await loadPresence(canvas.id, orgId ?? canvas.orgId)
       await loadComments(canvas.id, orgId ?? canvas.orgId)
+    }
+  }
+
+  const createBlankCanvas = async () => {
+    const canvasOrgId = resolvedOrgId || ''
+    try {
+      const response = await fetch(`/api/v1/creative-canvas${canvasOrgId ? `?orgId=${encodeURIComponent(canvasOrgId)}` : ''}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title: 'Untitled canvas', purpose: '' }),
+      })
+      const payload = await response.json().catch(() => null) as CreativeCanvasApiListResponse | null
+      const canvas = payload?.data?.canvas
+      if (response.ok && canvas?.id) {
+        setCanvases((current) => [canvas, ...current])
+        setShowLanding(false)
+        await openCanvas(canvas)
+      } else {
+        setActivityMessage(payload?.error ?? 'Could not create canvas')
+      }
+    } catch {
+      setActivityMessage('Could not create canvas')
     }
   }
 
@@ -4956,6 +4980,26 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
     },
   ]
 
+  if (!loading && (showLanding || canvases.length === 0)) {
+    return (
+      <main className="mx-auto max-w-7xl px-4 py-6">
+        <CanvasLanding
+          boards={canvases.map((canvas) => ({ id: canvas.id ?? '', title: canvas.title }))}
+          templates={templates.map((template) => ({ id: template.id, title: template.title }))}
+          onCreate={() => { void createBlankCanvas() }}
+          onOpenBoard={(id) => {
+            const canvas = canvases.find((item) => item.id === id)
+            if (canvas) {
+              setShowLanding(false)
+              void openCanvas(canvas)
+            }
+          }}
+          onUseTemplate={() => { void createBlankCanvas() }}
+        />
+      </main>
+    )
+  }
+
   return (
     <main className="mx-auto max-w-7xl space-y-5 px-4 py-6">
       <CanvasTopBar
@@ -4972,6 +5016,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
         presenceCount={presence?.length ?? 0}
         onOpenChat={() => setTopBarPanel('chat')}
         onShare={() => setTopBarPanel('share')}
+        onHome={() => setShowLanding(true)}
       />
 
       {topBarPanel ? (
