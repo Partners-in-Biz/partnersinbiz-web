@@ -15,17 +15,67 @@ describe('creative canvas parity proof contracts', () => {
     nodeCount: 2,
     edgeCount: 1,
   }
-  const validBenchmarkProofs = Array.from({ length: 2 }, (_, index) => ({
+  const createBenchmarkProof = (
+    index: number,
+    overrides: Record<string, unknown> = {},
+  ) => ({
     ...currentBinding,
     key: `benchmark-${index + 1}`,
     passed: true,
     evidence: `Benchmark ${index + 1} passed.`,
-  }))
+    proofUrl: `https://proof.example.com/benchmark-${index + 1}`,
+    notes: `Benchmark ${index + 1} notes.`,
+    sourceUrl: `https://higgsfield.ai/source-${index + 1}`,
+    sourceEvidenceReachable: true,
+    sourceEvidenceStatus: 200,
+    sourceSignalsMatched: true,
+    sourceSignals: ['Kling 3.0', 'Seedance 2.0'],
+    sourceSignalsVerifiedAt: capturedAt,
+    directComparisonVerdict: 'pass' as const,
+    directComparisonAt: capturedAt,
+    directComparisonNotes: `Benchmark ${index + 1} direct comparison passed.`,
+    ...overrides,
+  })
+  const validBenchmarkProofs = Array.from({ length: 2 }, (_, index) => createBenchmarkProof(index))
   const validRuntimeProof = {
     ...currentBinding,
     status: 'passed' as const,
     readyForLiveProof: true,
   }
+  const validLiveProofArtifacts = [
+    {
+      key: 'desktop',
+      url: 'https://proof.example.com/live-desktop.png',
+      status: 200,
+      contentType: 'image/png',
+      capturedAt,
+      evidence: 'Desktop signed-in preview captured.',
+    },
+    {
+      key: 'tablet',
+      url: 'https://proof.example.com/live-tablet.png',
+      status: 200,
+      contentType: 'image/png',
+      capturedAt,
+      evidence: 'Tablet signed-in preview captured.',
+    },
+    {
+      key: 'mobile',
+      url: 'https://proof.example.com/live-mobile.png',
+      status: 302,
+      contentType: 'image/png',
+      capturedAt,
+      evidence: 'Mobile signed-in preview captured.',
+    },
+    {
+      key: 'mobile-panels',
+      url: 'https://proof.example.com/live-mobile-panels.png',
+      status: 200,
+      contentType: 'image/png',
+      capturedAt,
+      evidence: 'Mobile panels signed-in preview captured.',
+    },
+  ]
   const validSignedInPreviewProof = {
     ...currentBinding,
     passed: true,
@@ -296,19 +346,64 @@ describe('creative canvas parity proof contracts', () => {
     expect(certification.blockers).toContain('Missing 10 source-backed benchmark proofs.')
   })
 
+  it('blocks certification when benchmark proof lacks Higgsfield source and direct comparison fields', () => {
+    const certification = buildWorldClassCertification({
+      benchmarkProofs: [
+        createBenchmarkProof(0, {
+          proofUrl: '',
+          notes: '',
+          sourceUrl: '',
+          sourceEvidenceReachable: false,
+          sourceEvidenceStatus: 500,
+          sourceSignalsMatched: false,
+          sourceSignals: [],
+          sourceSignalsVerifiedAt: '',
+          directComparisonVerdict: 'fail',
+          directComparisonAt: '',
+          directComparisonNotes: '',
+        }),
+        validBenchmarkProofs[1],
+      ],
+      runtimeProof: validRuntimeProof,
+      liveProofArtifacts: validLiveProofArtifacts,
+      requiredBenchmarkCount: 2,
+      capturedAt,
+      currentBinding,
+      signedInPreviewProof: validSignedInPreviewProof,
+      kbCertification: validKbCertification,
+    })
+
+    expect(certification.status).toBe('blocked')
+    expect(certification.blockers).toContain('Missing 1 source-backed benchmark proofs.')
+  })
+
   it('ignores stale or foreign benchmark proofs for certification', () => {
     const certification = buildWorldClassCertification({
       benchmarkProofs: [
         validBenchmarkProofs[0],
-        { ...validBenchmarkProofs[1], orgId: 'org-foreign' },
+        createBenchmarkProof(1, { orgId: 'org-foreign' }),
       ],
       runtimeProof: validRuntimeProof,
-      liveProofArtifacts: [
-        'https://proof.example.com/live-1',
-        'https://proof.example.com/live-2',
-        'https://proof.example.com/live-3',
-        'https://proof.example.com/live-4',
+      liveProofArtifacts: validLiveProofArtifacts,
+      requiredBenchmarkCount: 2,
+      capturedAt,
+      currentBinding,
+      signedInPreviewProof: validSignedInPreviewProof,
+      kbCertification: validKbCertification,
+    })
+
+    expect(certification.status).toBe('blocked')
+    expect(certification.blockers).toContain('Missing 1 source-backed benchmark proofs.')
+  })
+
+  it('blocks certification when benchmark proof binding is stale even with Higgsfield source and direct comparison fields', () => {
+    const certification = buildWorldClassCertification({
+      benchmarkProofs: [
+        validBenchmarkProofs[0],
+        createBenchmarkProof(1, { graphSignature: 'nodes:stale|edges:none' }),
       ],
+      runtimeProof: validRuntimeProof,
+      liveProofArtifacts: validLiveProofArtifacts,
       requiredBenchmarkCount: 2,
       capturedAt,
       currentBinding,
@@ -323,12 +418,7 @@ describe('creative canvas parity proof contracts', () => {
   it('keeps certification blocked when runtime proof is missing', () => {
     const certification = buildWorldClassCertification({
       benchmarkProofs: validBenchmarkProofs,
-      liveProofArtifacts: [
-        'https://proof.example.com/live-1',
-        'https://proof.example.com/live-2',
-        'https://proof.example.com/live-3',
-        'https://proof.example.com/live-4',
-      ],
+      liveProofArtifacts: validLiveProofArtifacts,
       requiredBenchmarkCount: 2,
       capturedAt,
       currentBinding,
@@ -344,12 +434,7 @@ describe('creative canvas parity proof contracts', () => {
     const certification = buildWorldClassCertification({
       benchmarkProofs: validBenchmarkProofs,
       runtimeProof: { ...validRuntimeProof, graphSignature: 'nodes:stale|edges:none' },
-      liveProofArtifacts: [
-        'https://proof.example.com/live-1',
-        'https://proof.example.com/live-2',
-        'https://proof.example.com/live-3',
-        'https://proof.example.com/live-4',
-      ],
+      liveProofArtifacts: validLiveProofArtifacts,
       requiredBenchmarkCount: 2,
       capturedAt,
       currentBinding,
@@ -361,16 +446,60 @@ describe('creative canvas parity proof contracts', () => {
     expect(certification.blockers).toContain('Runtime proof is not passed and ready for live proof.')
   })
 
-  it('keeps certification blocked when preview and kb evidence references are missing', () => {
+  it('blocks certification when live proof artifacts are empty or incomplete structured records', () => {
     const certification = buildWorldClassCertification({
       benchmarkProofs: validBenchmarkProofs,
       runtimeProof: validRuntimeProof,
       liveProofArtifacts: [
-        'https://proof.example.com/live-1',
-        'https://proof.example.com/live-2',
-        'https://proof.example.com/live-3',
-        'https://proof.example.com/live-4',
+        {
+          key: '',
+          url: '',
+          status: 0,
+          contentType: '',
+          capturedAt: '',
+          evidence: '',
+        },
+        {
+          key: 'tablet',
+          url: 'https://proof.example.com/live-tablet.png',
+          status: 200,
+          contentType: '',
+          capturedAt,
+          evidence: 'Missing content type.',
+        },
+        {
+          key: 'mobile',
+          url: 'javascript:alert(1)',
+          status: 200,
+          contentType: 'image/png',
+          capturedAt,
+          evidence: 'Unsafe URL.',
+        },
+        {
+          key: 'mobile-panels',
+          url: 'https://proof.example.com/live-mobile-panels.png',
+          status: 200,
+          contentType: 'image/png',
+          capturedAt,
+          evidence: '',
+        },
       ],
+      requiredBenchmarkCount: 2,
+      capturedAt,
+      currentBinding,
+      signedInPreviewProof: validSignedInPreviewProof,
+      kbCertification: validKbCertification,
+    })
+
+    expect(certification.status).toBe('blocked')
+    expect(certification.blockers).toContain('Signed-in live proof artifacts are incomplete.')
+  })
+
+  it('keeps certification blocked when preview and kb evidence references are missing', () => {
+    const certification = buildWorldClassCertification({
+      benchmarkProofs: validBenchmarkProofs,
+      runtimeProof: validRuntimeProof,
+      liveProofArtifacts: validLiveProofArtifacts,
       requiredBenchmarkCount: 2,
       capturedAt,
       currentBinding,
@@ -391,16 +520,11 @@ describe('creative canvas parity proof contracts', () => {
     expect(certification.blockers).toContain('KB-recorded certification evidence is incomplete.')
   })
 
-  it('returns passed certification only when bound preview and kb artifacts are present', () => {
+  it('returns passed certification only with bound benchmark/runtime proof, signed-in preview evidence, kb evidence, and four complete structured live proof artifacts', () => {
     const certification = buildWorldClassCertification({
       benchmarkProofs: validBenchmarkProofs,
       runtimeProof: validRuntimeProof,
-      liveProofArtifacts: [
-        'https://proof.example.com/live-1',
-        'https://proof.example.com/live-2',
-        'https://proof.example.com/live-3',
-        'https://proof.example.com/live-4',
-      ],
+      liveProofArtifacts: validLiveProofArtifacts,
       requiredBenchmarkCount: 2,
       capturedAt,
       currentBinding,

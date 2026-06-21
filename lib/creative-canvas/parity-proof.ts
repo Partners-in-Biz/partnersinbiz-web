@@ -4,6 +4,7 @@ import type {
   CreativeCanvasCertificationArtifactEvidence,
   CreativeCanvasCollaborationProofEvidence,
   CreativeCanvasKnowledgeBaseCertificationEvidence,
+  CreativeCanvasLiveProofArtifact,
   CreativeCanvasMobileProof,
   CreativeCanvasMobileViewportEvidence,
   CreativeCanvasProofCategoryKey,
@@ -33,6 +34,23 @@ function hasText(value: unknown): value is string {
 
 function uniqueCount(values: string[]): number {
   return new Set(values.filter(hasText)).size
+}
+
+function hasSafeHttpUrl(value: unknown): value is string {
+  if (!hasText(value)) {
+    return false
+  }
+
+  try {
+    const parsed = new URL(value)
+    return parsed.protocol === 'http:' || parsed.protocol === 'https:'
+  } catch {
+    return false
+  }
+}
+
+function hasSuccessfulStatus(value: unknown): value is number {
+  return typeof value === 'number' && value >= 200 && value < 400
 }
 
 function hasCurrentCanvasBinding(
@@ -109,7 +127,7 @@ export function hasStructuredMobileProof(
   const covered = new Set(evidence.map((item) => item.key))
 
   return Boolean(
-    hasCurrentCanvasBinding(current, current)
+    hasCurrentCanvasBinding(current)
       && hasCurrentCanvasBinding(proof, current)
       && typeof proof.mobileViewportProofCount === 'number'
       && typeof proof.mobileViewportRequiredCount === 'number'
@@ -165,6 +183,41 @@ export function hasDurableCategoryEvidence(proof: {
   })
 }
 
+function hasBenchmarkProofRequirements(
+  proof: CreativeCanvasBenchmarkProof,
+  current: CreativeCanvasProofBinding,
+): boolean {
+  return Boolean(
+    proof.passed
+      && hasCurrentCanvasBinding(proof, current)
+      && hasText(proof.key)
+      && hasText(proof.evidence)
+      && hasSafeHttpUrl(proof.proofUrl)
+      && hasText(proof.notes)
+      && hasSafeHttpUrl(proof.sourceUrl)
+      && proof.sourceEvidenceReachable === true
+      && hasSuccessfulStatus(proof.sourceEvidenceStatus)
+      && proof.sourceSignalsMatched === true
+      && Array.isArray(proof.sourceSignals)
+      && proof.sourceSignals.some(hasText)
+      && hasText(proof.sourceSignalsVerifiedAt)
+      && proof.directComparisonVerdict === 'pass'
+      && hasText(proof.directComparisonAt)
+      && hasText(proof.directComparisonNotes),
+  )
+}
+
+function hasLiveProofArtifactRequirements(proof: CreativeCanvasLiveProofArtifact): boolean {
+  return Boolean(
+    hasText(proof.key)
+      && hasSafeHttpUrl(proof.url)
+      && hasSuccessfulStatus(proof.status)
+      && hasText(proof.contentType)
+      && hasText(proof.capturedAt)
+      && hasText(proof.evidence),
+  )
+}
+
 function hasCertificationArtifactEvidence(
   proof: CreativeCanvasCertificationArtifactEvidence | undefined,
   current?: CreativeCanvasProofBinding,
@@ -197,13 +250,14 @@ function isCurrentBenchmarkProof(
   proof: CreativeCanvasBenchmarkProof,
   current: CreativeCanvasProofBinding,
 ): boolean {
-  return proof.passed && hasCurrentCanvasBinding(proof, current)
+  return hasBenchmarkProofRequirements(proof, current)
 }
 
 export function buildWorldClassCertification(input: CreativeCanvasWorldClassCertificationInput): CreativeCanvasWorldClassCertification {
   const blockers: string[] = []
   const warnings: string[] = []
   const passedBenchmarks = input.benchmarkProofs.filter((item) => isCurrentBenchmarkProof(item, input.currentBinding))
+  const validLiveProofArtifacts = input.liveProofArtifacts.filter(hasLiveProofArtifactRequirements)
   const currentBindingValid = hasCurrentCanvasBinding(input.currentBinding)
   const runtimeProofValid = Boolean(
     input.runtimeProof
@@ -226,7 +280,7 @@ export function buildWorldClassCertification(input: CreativeCanvasWorldClassCert
     blockers.push('Runtime proof is not passed and ready for live proof.')
   }
 
-  if (input.liveProofArtifacts.length < 4) {
+  if (validLiveProofArtifacts.length < 4) {
     blockers.push('Signed-in live proof artifacts are incomplete.')
   }
 
@@ -244,7 +298,7 @@ export function buildWorldClassCertification(input: CreativeCanvasWorldClassCert
 
   const passedGateCount = input.requiredBenchmarkCount - Math.max(0, input.requiredBenchmarkCount - passedBenchmarks.length)
     + (runtimeProofValid ? 1 : 0)
-    + Math.min(input.liveProofArtifacts.length, 4)
+    + Math.min(validLiveProofArtifacts.length, 4)
     + (signedInPreviewProofValid ? 1 : 0)
     + (kbCertificationValid ? 1 : 0)
   const requiredGateCount = input.requiredBenchmarkCount + 7
@@ -269,7 +323,7 @@ export function buildWorldClassCertification(input: CreativeCanvasWorldClassCert
     kbCertificationArtifactRef: input.kbCertification?.artifactRef,
     evidence: [
       `${passedBenchmarks.length}/${input.requiredBenchmarkCount} benchmark proofs passed.`,
-      `${input.liveProofArtifacts.length}/4 live proof artifacts captured.`,
+      `${validLiveProofArtifacts.length}/4 live proof artifacts captured.`,
       ...(signedInPreviewProofValid && input.signedInPreviewProof?.evidence ? [input.signedInPreviewProof.evidence] : []),
       ...(kbCertificationValid && input.kbCertification?.evidence ? [input.kbCertification.evidence] : []),
       ...passedBenchmarks.map((item) => item.evidence).filter(hasText),

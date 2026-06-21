@@ -687,6 +687,26 @@ export interface CreativeCanvasBenchmarkProof extends CreativeCanvasProofBinding
   key: string
   passed: boolean
   evidence?: string
+  proofUrl?: string
+  notes?: string
+  sourceUrl?: string
+  sourceEvidenceReachable?: boolean
+  sourceEvidenceStatus?: number
+  sourceSignalsMatched?: boolean
+  sourceSignals?: string[]
+  sourceSignalsVerifiedAt?: string
+  directComparisonVerdict?: 'pass' | 'fail'
+  directComparisonAt?: string
+  directComparisonNotes?: string
+}
+
+export interface CreativeCanvasLiveProofArtifact {
+  key: string
+  url: string
+  status: number
+  contentType: string
+  capturedAt: string
+  evidence: string
 }
 
 export interface CreativeCanvasCertificationRuntimeProof extends CreativeCanvasProofBinding {
@@ -697,7 +717,7 @@ export interface CreativeCanvasCertificationRuntimeProof extends CreativeCanvasP
 export interface CreativeCanvasWorldClassCertificationInput {
   benchmarkProofs: CreativeCanvasBenchmarkProof[]
   runtimeProof?: CreativeCanvasCertificationRuntimeProof
-  liveProofArtifacts: string[]
+  liveProofArtifacts: CreativeCanvasLiveProofArtifact[]
   requiredBenchmarkCount: number
   capturedAt: string
   currentBinding: CreativeCanvasProofBinding

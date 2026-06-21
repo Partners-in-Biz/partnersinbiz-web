@@ -155,3 +155,33 @@ Verification results:
 
 - Focused Jest passed: 1 suite, 18 tests
 - Typecheck passed
+
+## Review Fix Addendum 4
+
+Date: 2026-06-21
+Base commit under review: `8a4d2007`
+
+Fixed remaining certification-contract findings in Task 1 owned files only:
+
+- Expanded benchmark proof contracts so certification only counts proofs with bound Higgsfield source evidence, verified source signals, and direct-comparison pass metadata
+- Replaced raw `liveProofArtifacts: string[]` with structured live proof artifact records and required complete URL/status/content-type/timestamp/evidence fields before any artifact counts
+- Removed the redundant mobile proof self-binding shortcut and kept runtime validation strict when the current binding is omitted at runtime
+- Added regression coverage for incomplete benchmark proof metadata, stale benchmark bindings, incomplete live artifact records, and the fully passing bound certification path
+
+Verification commands:
+
+```bash
+npx jest __tests__/lib/creative-canvas/parity-proof.test.ts --runInBand
+npm run typecheck
+```
+
+Verification results:
+
+- Focused Jest passed: 1 suite, 21 tests
+- Typecheck passed
+
+Commit created for the fix:
+
+```bash
+fix(canvas): require source backed certification artifacts
+```
