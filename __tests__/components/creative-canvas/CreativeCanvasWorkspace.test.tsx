@@ -126,6 +126,318 @@ function durableCategoryEvidence(binding: {
   }
 }
 
+const worldClassCanvasNodes = [{
+  id: 'source-1',
+  orgId: 'org-1',
+  type: 'source' as const,
+  title: 'Certification source',
+  position: { x: 0, y: 0 },
+  data: {},
+}]
+
+const worldClassBinding = {
+  orgId: 'org-1',
+  canvasVersion: 1,
+  graphSignature: JSON.stringify({ nodes: worldClassCanvasNodes, edges: [] }),
+  nodeCount: 1,
+  edgeCount: 0,
+}
+
+const benchmarkSourceSignals = {
+  editing_ergonomics: ['Drop a node', 'Chain your flow', 'Connect nodes', 'Every connection is live'],
+  masking_inpainting: ['Brush & Prompt', 'Precise Masking', 'Object Removal', 'Light Matching', 'Texture Adaptive', 'Auto-Shadows', 'IMAGE-TO-IMAGE BLENDING'],
+  generation_controls: ['Kling 3.0', 'Seedance 2.0', 'Wan 2.7', 'Soul 2.0', 'GPT Image 2.0', 'Veo 3.1', 'NB Pro', 'Any prompt, image, or reference'],
+  multi_asset_workflows: ['Moodboard', 'mix models', 'route outputs', 'single creative pipeline', 'Soul ID characters', 'uploaded products', 'brand references', 'previous generations'],
+  versioning_polish: ['Every version is saved', 'nothing gets lost', 'comments stay attached', 'reusable template'],
+  collaboration: ['Create together', 'Share a link', 'collaborate live', 'same canvas'],
+  agent_orchestration: ['MCP & CLI', 'Collab', 'Canvas', 'Generate'],
+  mobile_behavior: ['Generate', 'Library', 'Profile', 'Canvas'],
+  export_flows: ['Generate', 'Library', 'Image', 'Video', 'Audio'],
+  production_reliability: ['Generate', 'Library', 'Image', 'Video', 'Audio'],
+} as const
+
+function sourceBackedBenchmarkProof(
+  key: keyof typeof benchmarkSourceSignals,
+  extra: Record<string, unknown>,
+) {
+  const sourceUrl = key === 'agent_orchestration' ? 'https://higgsfield.ai/' : key === 'editing_ergonomics' || key === 'generation_controls' || key === 'multi_asset_workflows' || key === 'versioning_polish' || key === 'collaboration'
+    ? 'https://higgsfield.ai/canvas-intro'
+    : key === 'masking_inpainting'
+      ? 'https://higgsfield.ai/image-editing'
+      : 'https://higgsfield.ai/canvas'
+
+  return {
+    proofUrl: `https://proof.example.com/${key}.mp4`,
+    notes: `${key} proof passed.`,
+    capturedAt: '2026-06-21T15:00:00.000Z',
+    capturedBy: 'Pip',
+    sourceTitle: `Source for ${key}`,
+    sourceUrl,
+    sourceCheckedAt: '2026-06-21T15:00:00.000Z',
+    sourceEvidenceCheckedAt: '2026-06-21T15:00:00.000Z',
+    sourceEvidenceReachable: true,
+    sourceEvidenceStatus: 200,
+    sourceEvidenceContentType: 'text/html',
+    sourceSignalsVerifiedAt: '2026-06-21T15:00:00.000Z',
+    sourceSignalsMatched: true,
+    sourceSignalsMissing: [],
+    sourceSignals: [...benchmarkSourceSignals[key]],
+    higgsfieldUiEvidenceUrl: sourceUrl,
+    canvasEvidenceUrl: `https://proof.example.com/${key}.mp4`,
+    canvasEvidenceCheckedAt: '2026-06-21T15:00:00.000Z',
+    canvasEvidenceReachable: true,
+    canvasEvidenceStatus: 200,
+    canvasEvidenceContentType: 'video/mp4',
+    directComparisonAt: '2026-06-21T15:00:00.000Z',
+    directComparisonVerdict: 'pass',
+    directComparisonNotes: `${key} direct comparison passed.`,
+    ...worldClassBinding,
+    ...extra,
+  }
+}
+
+function worldClassVisualProof() {
+  return {
+    desktop_1440: {
+      screenshotUrl: 'https://proof.example.com/desktop-1440.png',
+      notes: 'Desktop signed-in proof.',
+      capturedAt: '2026-06-21T15:01:00.000Z',
+      capturedBy: 'Pip',
+      signedIn: true,
+      sessionEvidence: 'Desktop signed-in graph, sources, and inspector visible.',
+      viewportSize: '1440x900',
+      visiblePanels: 'Graph, Sources, Inspector',
+      screenshotCheckedAt: '2026-06-21T15:01:00.000Z',
+      screenshotReachable: true,
+      screenshotStatus: 200,
+      screenshotContentType: 'image/png',
+      ...worldClassBinding,
+    },
+    tablet_820: {
+      screenshotUrl: 'https://proof.example.com/tablet-820.png',
+      notes: 'Tablet signed-in proof.',
+      capturedAt: '2026-06-21T15:02:00.000Z',
+      capturedBy: 'Pip',
+      signedIn: true,
+      sessionEvidence: 'Tablet signed-in panel layout visible.',
+      viewportSize: '820x1180',
+      visiblePanels: 'Canvas, Sources, Inspector',
+      screenshotCheckedAt: '2026-06-21T15:02:00.000Z',
+      screenshotReachable: true,
+      screenshotStatus: 200,
+      screenshotContentType: 'image/png',
+      ...worldClassBinding,
+    },
+    mobile_390: {
+      screenshotUrl: 'https://proof.example.com/mobile-390.png',
+      notes: 'Mobile signed-in proof.',
+      capturedAt: '2026-06-21T15:03:00.000Z',
+      capturedBy: 'Pip',
+      signedIn: true,
+      sessionEvidence: 'Mobile signed-in canvas visible.',
+      viewportSize: '390x844',
+      visiblePanels: 'Canvas',
+      screenshotCheckedAt: '2026-06-21T15:03:00.000Z',
+      screenshotReachable: true,
+      screenshotStatus: 200,
+      screenshotContentType: 'image/png',
+      ...worldClassBinding,
+    },
+    mobile_panels: {
+      screenshotUrl: 'https://proof.example.com/mobile-panels.png',
+      notes: 'Mobile panels signed-in proof.',
+      capturedAt: '2026-06-21T15:04:00.000Z',
+      capturedBy: 'Pip',
+      signedIn: true,
+      sessionEvidence: 'Mobile panel switcher proves canvas, sources, and inspector.',
+      viewportSize: '390x844',
+      visiblePanels: 'Canvas, Sources, Inspector',
+      screenshotCheckedAt: '2026-06-21T15:04:00.000Z',
+      screenshotReachable: true,
+      screenshotStatus: 200,
+      screenshotContentType: 'image/png',
+      ...worldClassBinding,
+    },
+  }
+}
+
+function mobileViewportBehaviorEvidence() {
+  return [
+    ['desktop', 1440, 900, 'desktop-1440'],
+    ['tablet', 820, 1180, 'tablet-820'],
+    ['mobile', 390, 844, 'mobile-390'],
+    ['mobile_panels', 390, 844, 'mobile-panels'],
+  ].map(([key, width, height, slug]) => ({
+    key,
+    width,
+    height,
+    screenshotUrl: `https://proof.example.com/${slug}.png`,
+    status: 200,
+    contentType: 'image/png',
+    criticalControlsVisible: true,
+    criticalControlsEnabled: true,
+    horizontalOverflow: false,
+    touchSmokePassed: true,
+    pointerSmokePassed: true,
+    panelKeys: ['canvas', 'sources', 'inspector'],
+    capturedAt: '2026-06-21T15:05:00.000Z',
+  }))
+}
+
+function worldClassBenchmarkProofs() {
+  const durable = durableCategoryEvidence(worldClassBinding)
+  return {
+    editing_ergonomics: sourceBackedBenchmarkProof('editing_ergonomics', {
+      editingLocalEventCount: 4,
+      editingNodeDropCount: 1,
+      editingNodeMoveCount: 1,
+      editingConnectionCount: 1,
+      editingConfiguredGenerationCount: 1,
+      editingCapturedAt: '2026-06-21T15:00:00.000Z',
+      editingEvidence: 'Node drop, drag, live connection, and generation route saved.',
+    }),
+    masking_inpainting: sourceBackedBenchmarkProof('masking_inpainting', {
+      maskingEditNodeCount: 1,
+      maskingPromptCount: 1,
+      maskingIntentCount: 1,
+      maskingRegionCount: 1,
+      maskingBrushStrokeCount: 2,
+      maskingBlendControlCount: 3,
+      maskingCapturedAt: '2026-06-21T15:00:00.000Z',
+      maskingEvidence: 'Brush mask session evidence passed.',
+    }),
+    generation_controls: sourceBackedBenchmarkProof('generation_controls', {
+      generationModelCount: 2,
+      generationReferenceNodeCount: 3,
+      generationReferenceRoleCount: 3,
+      generationLinkedReferenceCount: 3,
+      generationMultiReferenceCapturedAt: '2026-06-21T15:00:00.000Z',
+      generationMultiReferenceEvidence: 'Three-reference generation routing evidence passed.',
+    }),
+    multi_asset_workflows: sourceBackedBenchmarkProof('multi_asset_workflows', {
+      multiAssetSourceNodeCount: 3,
+      multiAssetSourceKindCount: 2,
+      multiAssetReferenceRoleCount: 3,
+      multiAssetConnectedSourceCount: 3,
+      multiAssetOutputNodeCount: 1,
+      multiAssetWorkflowScenarioCount: 1,
+      multiAssetLineageEdgeCount: 3,
+      multiAssetCapturedAt: '2026-06-21T15:00:00.000Z',
+      multiAssetEvidence: 'Connected multi-asset workflow evidence passed.',
+    }),
+    versioning_polish: sourceBackedBenchmarkProof('versioning_polish', {
+      versionSnapshotCount: 2,
+      versionRestorableSnapshotCount: 1,
+      versionNodeCommentCount: 1,
+      versionReusableTemplateCount: 1,
+      versionAutoSaveEnabled: true,
+      versionCapturedAt: '2026-06-21T15:00:00.000Z',
+      versionEvidence: 'Restorable version, comment, template, and auto-save evidence passed.',
+    }),
+    collaboration: sourceBackedBenchmarkProof('collaboration', {
+      collaborationRemoteActorCount: 1,
+      collaborationRemoteEventCount: 1,
+      collaborationRemoteMutationCount: 1,
+      collaborationRemoteMutationKindCount: 1,
+      collaborationRemoteTouchedNodeCount: 1,
+      collaborationRemoteTouchedEdgeCount: 0,
+      collaborationRemoteGraphSignature: worldClassBinding.graphSignature,
+      collaborationRemoteSource: 'draft_applied',
+      collaborationRemoteOutcome: 'remote_changes_adopted',
+      collaborationRemoteMutations: [{
+        actorUid: 'maya',
+        actorType: 'agent',
+        operation: 'node_add',
+        touchedNodeIds: ['source-1'],
+        touchedEdgeIds: [],
+        source: 'draft_applied',
+        occurredAt: '2026-06-21T15:00:00.000Z',
+      }],
+      collaborationStreamConnected: true,
+      collaborationCapturedAt: '2026-06-21T15:00:00.000Z',
+      collaborationEvidence: 'Collaboration mutation proof passed with 1 structured remote mutation.',
+    }),
+    agent_orchestration: sourceBackedBenchmarkProof('agent_orchestration', {
+      agentStepCount: 2,
+      agentActorCount: 2,
+      agentTaskCreatedCount: 1,
+      agentTaskCreatedAt: '2026-06-21T15:00:00.000Z',
+      agentEvidence: 'Project-linked agent task evidence passed.',
+    }),
+    mobile_behavior: sourceBackedBenchmarkProof('mobile_behavior', {
+      mobileViewportProofCount: 4,
+      mobileViewportRequiredCount: 4,
+      mobileViewportProofCapturedAt: '2026-06-21T15:00:00.000Z',
+      mobileViewportEvidence: 'Signed-in mobile behavior proof passed for desktop, tablet, mobile, and mobile panels.',
+      mobileViewportBehaviorEvidence: mobileViewportBehaviorEvidence(),
+    }),
+    export_flows: sourceBackedBenchmarkProof('export_flows', {
+      exportArtifactBackedCategoryCount: 5,
+      exportArtifactBackedCompletedCount: 10,
+      exportArtifactBackedCapturedAt: '2026-06-21T15:00:00.000Z',
+      exportArtifactEvidence: 'Durable export/runtime evidence passed for all categories.',
+      ...durable,
+    }),
+    production_reliability: sourceBackedBenchmarkProof('production_reliability', {
+      runtimeProofStatus: 'passed',
+      runtimeReadyForLiveProof: true,
+      runtimeArtifactBackedCategoryCount: 5,
+      runtimeArtifactBackedCompletedCount: 10,
+      runtimeProviderBackedCategoryCount: 5,
+      runtimeProviderBackedCompletedCount: 10,
+      runtimeActiveRunCount: 0,
+      runtimeStaleActiveRunCount: 0,
+      runtimeFailedRunCount: 0,
+      runtimeFailureRatePercent: 0,
+      runtimeProofCapturedAt: '2026-06-21T15:00:00.000Z',
+      runtimeEvidence: 'Durable export/runtime evidence passed with 5/5 runtime categories and drained queues.',
+      runtimeProviderEvidenceCapturedAt: '2026-06-21T15:00:00.000Z',
+      runtimeProviderEvidence: '5/5 provider-backed categories passed.',
+      ...durable,
+    }),
+  }
+}
+
+function worldClassCanvasData() {
+  return {
+    visualProof: worldClassVisualProof(),
+    benchmarkProof: worldClassBenchmarkProofs(),
+    signedInPreviewProof: {
+      ...worldClassBinding,
+      passed: true,
+      evidence: 'Signed-in Vercel Preview proof passed.',
+      artifactRef: 'https://partnersinbiz-preview.example.com/admin/creative-canvas',
+      capturedAt: '2026-06-21T15:10:00.000Z',
+    },
+    kbCertification: {
+      ...worldClassBinding,
+      recorded: true,
+      evidence: 'KB certification artifact recorded.',
+      artifactRef: 'wiki/creative-canvas-world-class-certification-2026-06-21.md',
+      capturedAt: '2026-06-21T15:11:00.000Z',
+    },
+  }
+}
+
+function worldClassRuntimeProof() {
+  return {
+    canvasId: 'canvas-1',
+    orgId: 'org-1',
+    status: 'passed',
+    readyForLiveProof: true,
+    summary: 'World-class runtime proof passed.',
+    reliabilityCoverage: [
+      { key: 'image', label: 'Image', status: 'passed', requiredOutputKinds: ['image', 'campaign_asset'], requiredCompleted: 2, total: 2, completed: 2, active: 0, failed: 0, cancelled: 0 },
+      { key: 'video_social', label: 'Video/social', status: 'passed', requiredOutputKinds: ['video', 'social_post_draft', 'youtube_render'], requiredCompleted: 2, total: 2, completed: 2, active: 0, failed: 0, cancelled: 0 },
+      { key: 'audio', label: 'Audio', status: 'passed', requiredOutputKinds: ['audio'], requiredCompleted: 2, total: 2, completed: 2, active: 0, failed: 0, cancelled: 0 },
+      { key: 'blog_document', label: 'Blog/document', status: 'passed', requiredOutputKinds: ['blog_draft', 'document_block', 'copy', 'caption'], requiredCompleted: 2, total: 2, completed: 2, active: 0, failed: 0, cancelled: 0 },
+      { key: 'book', label: 'Book', status: 'passed', requiredOutputKinds: ['book_artifact'], requiredCompleted: 2, total: 2, completed: 2, active: 0, failed: 0, cancelled: 0 },
+    ],
+    checks: [{ id: 'runtime_readiness', label: 'Higgsfield runtime readiness', status: 'passed', evidence: 'Runtime ready.' }],
+    ...durableCategoryEvidence(worldClassBinding),
+  }
+}
+
 function dispatchBrushPointerEvent(
   element: HTMLElement,
   type: 'pointerdown' | 'pointermove' | 'pointerup',
@@ -930,9 +1242,9 @@ describe('CreativeCanvasWorkspace', () => {
     expect(screen.getByText('3-column graph')).toBeInTheDocument()
     const certificationGate = screen.getByLabelText(/creative canvas world-class certification gate/i)
     expect(certificationGate).toHaveTextContent('Higgsfield parity certification')
-    expect(certificationGate).toHaveTextContent('Not world-class certified yet')
-    expect(certificationGate).toHaveTextContent('0/7 live proof steps complete, 0/10 source-backed benchmarks passed.')
-    expect(certificationGate).toHaveTextContent('Next required proof: Capture signed-in Desktop 1440, Tablet 820, Mobile 390, and Mobile panels screenshots.')
+    expect(certificationGate).toHaveTextContent('World-class certification blocked')
+    expect(certificationGate).toHaveTextContent('0/17 hard proof gates passed; 5 blockers remain.')
+    expect(certificationGate).toHaveTextContent('Next required proof: Missing 10 source-backed benchmark proofs.')
     expect(certificationGate).toHaveTextContent('4 blocked · 3 action')
     const visualProof = screen.getByLabelText(/creative canvas visual qa proof/i)
     expect(visualProof).toHaveTextContent('Visual QA proof')
@@ -991,6 +1303,97 @@ describe('CreativeCanvasWorkspace', () => {
     expect(benchmarkProof).toHaveTextContent('Brush & Prompt')
     expect(screen.getByRole('region', { name: /canvas graph workspace/i })).toHaveClass('block')
     expect(screen.getByRole('complementary', { name: /source and workflow tools/i })).toHaveClass('hidden')
+  })
+
+  it('shows certification passed only when all hard proof gates pass', async () => {
+    const defaultFetch = fetchMock.getMockImplementation()
+    fetchMock.mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      if (url === '/api/v1/creative-canvas?orgId=org-1') {
+        return {
+          ok: true,
+          json: async () => ({
+            success: true,
+            data: {
+              canvases: [{
+                id: 'canvas-1',
+                orgId: 'org-1',
+                title: 'Launch Canvas',
+                purpose: 'Product launch',
+                status: 'draft',
+                activeVersion: 1,
+                linked: { projectId: 'project-1' },
+                data: worldClassCanvasData(),
+                nodes: worldClassCanvasNodes,
+                edges: [],
+              }],
+            },
+          }),
+        }
+      }
+      if (url.includes('/runtime-proof')) {
+        return {
+          ok: true,
+          json: async () => ({
+            success: true,
+            data: { proof: worldClassRuntimeProof() },
+          }),
+        }
+      }
+      if (url.endsWith('/runs?orgId=org-1')) {
+        return {
+          ok: true,
+          json: async () => ({
+            success: true,
+            data: {
+              operations: {
+                total: 10,
+                active: 0,
+                staleActiveRuns: 0,
+                failed: 0,
+                retryableFailures: 0,
+                completed: 10,
+                byStatus: { queued: 0, running: 0, waiting_for_review: 0, completed: 10, failed: 0, cancelled: 0 },
+                providers: [],
+              },
+              runtimeReadiness: {
+                providerKey: 'higgsfield',
+                runtimeConfigured: true,
+                submitConfigured: true,
+                statusPollingConfigured: true,
+                internalBridgeConfigured: true,
+                callbackBaseConfigured: true,
+                webhookSecretConfigured: true,
+                linkedProjectId: 'project-1',
+                blockers: [],
+                warnings: [],
+              },
+              runs: [],
+            },
+          }),
+        }
+      }
+      return defaultFetch?.(input, init) ?? {
+        ok: true,
+        json: async () => ({ success: true, data: {} }),
+      }
+    })
+
+    render(<CreativeCanvasWorkspace mode="admin" orgId="org-1" />)
+
+    expect(await screen.findByText('Launch Canvas')).toBeInTheDocument()
+    const certificationGate = screen.getByLabelText(/creative canvas world-class certification gate/i)
+    expect(certificationGate).toHaveTextContent('World-class certification passed')
+    expect(certificationGate).not.toHaveTextContent('World-class certification blocked')
+    expect(certificationGate).toHaveTextContent('17/17 hard proof gates passed.')
+    expect(certificationGate).toHaveTextContent('Collaboration mutation proof')
+    expect(certificationGate).toHaveTextContent('Collaboration mutation proof passed with 1 structured remote mutation.')
+    expect(certificationGate).toHaveTextContent('Signed-in mobile behavior proof')
+    expect(certificationGate).toHaveTextContent('Signed-in mobile behavior proof passed for desktop, tablet, mobile, and mobile panels.')
+    expect(certificationGate).toHaveTextContent('Durable export/runtime evidence')
+    expect(certificationGate).toHaveTextContent('Durable export/runtime evidence passed with 5/5 runtime categories and drained queues.')
+    const benchmarkProof = screen.getByLabelText(/direct higgsfield benchmark proof/i)
+    expect(benchmarkProof).toHaveTextContent('10/10 benchmark proven')
   })
 
   it('saves visual proof evidence and updates the parity audit', async () => {
@@ -1229,10 +1632,10 @@ describe('CreativeCanvasWorkspace', () => {
     expect(visualProof).toHaveTextContent('0/4 signed-in')
     expect(visualProof).toHaveTextContent('Add session, viewport, visible-panel, and reachable image evidence before this counts for mobile parity.')
     const certificationGate = screen.getByLabelText(/creative canvas world-class certification gate/i)
-    expect(certificationGate).toHaveTextContent('Not world-class certified yet')
+    expect(certificationGate).toHaveTextContent('World-class certification blocked')
   })
 
-  it('does not pass mobile benchmark proof without stored viewport matrix evidence', async () => {
+  it('does not pass mobile benchmark proof without signed-in behavior evidence', async () => {
     const defaultFetch = fetchMock.getMockImplementation()
     const emptyGraphSignature = JSON.stringify({ nodes: [], edges: [] })
     const visualProof = {
@@ -1386,7 +1789,7 @@ describe('CreativeCanvasWorkspace', () => {
     expect(visualProofPanel).toHaveTextContent('4/4 signed-in')
 
     const benchmarkProof = screen.getByLabelText(/direct higgsfield benchmark proof/i)
-    expect(benchmarkProof).toHaveTextContent('Needs stored signed-in viewport matrix evidence before mobile benchmark proof can pass.')
+    expect(benchmarkProof).toHaveTextContent('Needs signed-in behavior evidence for desktop, tablet, mobile, and mobile panels before mobile proof can pass.')
     expect(benchmarkProof).toHaveTextContent('0/10 benchmark proven')
     expect(benchmarkProof).toHaveTextContent('2 ready benchmark categories need stored proof.')
     const proofRunbook = screen.getByLabelText(/creative canvas world-class proof runbook/i)
@@ -1948,11 +2351,11 @@ describe('CreativeCanvasWorkspace', () => {
     expect(proofRunbook).toHaveTextContent('Capture signed-in Desktop 1440, Tablet 820, Mobile 390, and Mobile panels screenshots.')
     expect(proofRunbook).toHaveTextContent('2/10 Direct Higgsfield benchmarks passed')
     const certificationGate = screen.getByLabelText(/creative canvas world-class certification gate/i)
-    expect(certificationGate).toHaveTextContent('Not world-class certified yet')
-    expect(certificationGate).toHaveTextContent('1/7 live proof steps complete, 2/10 source-backed benchmarks passed.')
+    expect(certificationGate).toHaveTextContent('World-class certification blocked')
+    expect(certificationGate).toHaveTextContent('2/17 hard proof gates passed; 5 blockers remain.')
   })
 
-  it('does not pass collaboration benchmark proof without stored two-user session evidence', async () => {
+  it('does not pass collaboration benchmark proof without structured remote mutation evidence', async () => {
     const defaultFetch = fetchMock.getMockImplementation()
     fetchMock.mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input)
@@ -2005,7 +2408,7 @@ describe('CreativeCanvasWorkspace', () => {
     expect(await screen.findByText('Launch Canvas')).toBeInTheDocument()
     const benchmarkProof = screen.getByLabelText(/direct higgsfield benchmark proof/i)
     expect(benchmarkProof).toHaveTextContent('0/10 benchmark proven')
-    expect(benchmarkProof).toHaveTextContent('Needs stored two-user session evidence before collaboration proof can pass.')
+    expect(benchmarkProof).toHaveTextContent('Needs structured remote mutation evidence before collaboration proof can pass.')
   })
 
   it('saves manual collaboration benchmark proof with structured mutation evidence', async () => {
@@ -3534,8 +3937,10 @@ describe('CreativeCanvasWorkspace', () => {
     render(<CreativeCanvasWorkspace mode="admin" orgId="org-1" />)
 
     await screen.findByText('Production job coverage')
+    const certificationGate = screen.getByLabelText(/creative canvas world-class certification gate/i)
+    expect(certificationGate).toHaveTextContent('World-class certification blocked')
     const benchmarkProof = screen.getByLabelText(/direct higgsfield benchmark proof/i)
-    expect(benchmarkProof).toHaveTextContent('Needs durable provider-backed runtime and export category evidence with drained queue and <=10% failure rate before reliability proof can pass.')
+    expect(benchmarkProof).toHaveTextContent('Needs durable per-category runtime and export evidence before reliability proof can pass.')
     expect(benchmarkProof).toHaveTextContent('2 ready benchmark categories need stored proof.')
 
     fireEvent.click(within(benchmarkProof).getByRole('button', { name: /capture ready proofs/i }))

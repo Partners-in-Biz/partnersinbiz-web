@@ -36,7 +36,12 @@ import type {
   CreativeCanvasSourceLibraryItem,
   CreativeCanvasTemplate,
   CreativeCanvasVersion,
+  CreativeCanvasBenchmarkProof,
+  CreativeCanvasCertificationArtifactEvidence,
+  CreativeCanvasCertificationRuntimeProof,
   CreativeCanvasCollaborationProofEvidence,
+  CreativeCanvasKnowledgeBaseCertificationEvidence,
+  CreativeCanvasLiveProofArtifact,
   CreativeCanvasMobileProof,
   CreativeCanvasMobileViewportEvidence,
   CreativeCanvasProofBinding,
@@ -52,7 +57,12 @@ import { buildCreativeCanvasOrchestrationPlan } from '@/lib/creative-canvas/orch
 import { buildCreativeCanvasAssetGallery } from '@/lib/creative-canvas/assets'
 import { collectCollaborationMutationProof } from '@/lib/creative-canvas/collaboration-proof'
 import { buildMobileViewportBehaviorProof } from '@/lib/creative-canvas/mobile-proof'
-import { hasDurableCategoryEvidence, hasStructuredCollaborationProof, hasStructuredMobileProof } from '@/lib/creative-canvas/parity-proof'
+import {
+  buildWorldClassCertification,
+  hasDurableCategoryEvidence,
+  hasStructuredCollaborationProof,
+  hasStructuredMobileProof,
+} from '@/lib/creative-canvas/parity-proof'
 
 type CreativeCanvasMode = 'admin' | 'portal'
 type CreativeCanvasMobilePanel = 'canvas' | 'sources' | 'inspector'
@@ -1086,6 +1096,109 @@ function hasCurrentCanvasBenchmarkState(
       && proof.nodeCount === current.nodeCount
       && proof.edgeCount === current.edgeCount,
   )
+}
+
+function buildCertificationBenchmarkProof(input: {
+  key: CreativeCanvasBenchmarkProofKey
+  proof: CreativeCanvasBenchmarkProofRecord | undefined
+  passed: boolean
+  evidence: string
+  currentBinding: CreativeCanvasProofBinding
+}): CreativeCanvasBenchmarkProof {
+  return {
+    key: input.key,
+    passed: input.passed,
+    evidence: input.evidence,
+    proofUrl: input.proof?.proofUrl,
+    notes: input.proof?.notes,
+    sourceUrl: input.proof?.sourceUrl,
+    sourceEvidenceReachable: input.proof?.sourceEvidenceReachable,
+    sourceEvidenceStatus: input.proof?.sourceEvidenceStatus,
+    sourceSignalsMatched: input.proof?.sourceSignalsMatched,
+    sourceSignals: input.proof?.sourceSignals,
+    sourceSignalsVerifiedAt: input.proof?.sourceSignalsVerifiedAt,
+    directComparisonVerdict: input.proof?.directComparisonVerdict === 'pass' ? 'pass' : 'fail',
+    directComparisonAt: input.proof?.directComparisonAt,
+    directComparisonNotes: input.proof?.directComparisonNotes,
+    orgId: input.proof?.orgId ?? input.currentBinding.orgId,
+    canvasVersion: input.proof?.canvasVersion ?? input.currentBinding.canvasVersion,
+    graphSignature: input.proof?.graphSignature ?? input.currentBinding.graphSignature,
+    nodeCount: input.proof?.nodeCount ?? input.currentBinding.nodeCount,
+    edgeCount: input.proof?.edgeCount ?? input.currentBinding.edgeCount,
+  }
+}
+
+function readCertificationArtifactEvidence(
+  data: unknown,
+  key: string,
+): CreativeCanvasCertificationArtifactEvidence | undefined {
+  const record = objectRecord(objectRecord(data)[key])
+  const evidence = stringField(record.evidence)
+  const artifactRef = stringField(record.artifactRef)
+  const capturedAt = stringField(record.capturedAt)
+  const orgId = stringField(record.orgId)
+  const canvasVersion = typeof record.canvasVersion === 'number' && Number.isFinite(record.canvasVersion)
+    ? record.canvasVersion
+    : 0
+  const graphSignature = stringField(record.graphSignature)
+  const nodeCount = typeof record.nodeCount === 'number' && Number.isFinite(record.nodeCount)
+    ? record.nodeCount
+    : -1
+  const edgeCount = typeof record.edgeCount === 'number' && Number.isFinite(record.edgeCount)
+    ? record.edgeCount
+    : -1
+
+  if (!record.passed && !evidence && !artifactRef && !capturedAt) {
+    return undefined
+  }
+
+  return {
+    passed: record.passed === true,
+    evidence,
+    artifactRef,
+    capturedAt,
+    orgId,
+    canvasVersion,
+    graphSignature,
+    nodeCount,
+    edgeCount,
+  }
+}
+
+function readKnowledgeBaseCertificationEvidence(
+  data: unknown,
+): CreativeCanvasKnowledgeBaseCertificationEvidence | undefined {
+  const record = objectRecord(objectRecord(data).kbCertification)
+  const evidence = stringField(record.evidence)
+  const artifactRef = stringField(record.artifactRef)
+  const capturedAt = stringField(record.capturedAt)
+  const orgId = stringField(record.orgId)
+  const canvasVersion = typeof record.canvasVersion === 'number' && Number.isFinite(record.canvasVersion)
+    ? record.canvasVersion
+    : 0
+  const graphSignature = stringField(record.graphSignature)
+  const nodeCount = typeof record.nodeCount === 'number' && Number.isFinite(record.nodeCount)
+    ? record.nodeCount
+    : -1
+  const edgeCount = typeof record.edgeCount === 'number' && Number.isFinite(record.edgeCount)
+    ? record.edgeCount
+    : -1
+
+  if (!record.recorded && !evidence && !artifactRef && !capturedAt) {
+    return undefined
+  }
+
+  return {
+    recorded: record.recorded === true,
+    evidence,
+    artifactRef,
+    capturedAt,
+    orgId,
+    canvasVersion,
+    graphSignature,
+    nodeCount,
+    edgeCount,
+  }
 }
 
 const remoteMutationOperationSet = new Set<string>(creativeCanvasRemoteMutationOperations)
@@ -5589,6 +5702,27 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
           : 'needed',
     }
   })
+  const liveProofKeyByVisualProofKey: Record<CreativeCanvasVisualProofKey, CreativeCanvasLiveProofArtifact['key']> = {
+    desktop_1440: 'desktop',
+    tablet_820: 'tablet',
+    mobile_390: 'mobile',
+    mobile_panels: 'mobile_panels',
+  }
+  const certificationLiveProofArtifacts: CreativeCanvasLiveProofArtifact[] = visualProofItems.flatMap((item) => {
+    const proof = item.proof
+    if (!proof || item.status !== 'signed-in' || !proof.screenshotUrl || !proof.screenshotStatus || !proof.screenshotContentType || !proof.capturedAt) {
+      return []
+    }
+    return [{
+      ...currentCollaborationProofBinding,
+      key: liveProofKeyByVisualProofKey[item.key],
+      url: proof.screenshotUrl,
+      status: proof.screenshotStatus,
+      contentType: proof.screenshotContentType,
+      capturedAt: proof.capturedAt,
+      evidence: proof.sessionEvidence || proof.notes || item.evidence,
+    }]
+  })
   const parityAuditNodes = nodes.map((node) => toCanvasNode(node, resolvedOrgId || activeCanvas?.orgId || 'pending-org'))
   const coreWorkflowPresets = workflowPresets.filter((preset) => !preset.benchmarkScenario)
   const benchmarkWorkflowPresets = workflowPresets.filter((preset) => preset.benchmarkScenario)
@@ -5744,7 +5878,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
       ...item,
       proof,
       signalReady: benchmarkSignals[item.key],
-      status: benchmarkSignals[item.key] && proofCaptured ? 'passed' : benchmarkSignals[item.key] ? 'proof needed' : 'gap',
+      status: proofCaptured ? 'passed' : benchmarkSignals[item.key] ? 'proof needed' : 'gap',
     }
   })
   const benchmarkPassedCount = benchmarkProofItems.filter((item) => item.status === 'passed').length
@@ -6143,11 +6277,59 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
     },
   ]
   const liveProofCompleteCount = liveProofRunbookItems.filter((item) => item.status === 'complete').length
-  const isWorldClassCertified = liveProofCompleteCount >= liveProofRunbookItems.length
-    && benchmarkPassedCount >= benchmarkProofItems.length
   const blockedProofCount = liveProofRunbookItems.filter((item) => item.status === 'blocked').length
   const actionableProofCount = liveProofRunbookItems.filter((item) => item.status === 'action').length
   const nextRunbookAction = liveProofRunbookItems.find((item) => item.status !== 'complete')?.nextAction
+  const certificationBenchmarkProofs = benchmarkProofItems.map((item) => buildCertificationBenchmarkProof({
+    key: item.key,
+    proof: item.proof,
+    passed: item.status === 'passed',
+    evidence: item.proof?.directComparisonNotes || item.proof?.notes || item.benchmark,
+    currentBinding: currentCollaborationProofBinding,
+  }))
+  const certificationRuntimeProof: CreativeCanvasCertificationRuntimeProof | undefined = runtimeProof
+    ? {
+        ...currentCollaborationProofBinding,
+        status: runtimeProof.status,
+        readyForLiveProof: runtimeProof.readyForLiveProof,
+      }
+    : undefined
+  const signedInPreviewProof = readCertificationArtifactEvidence(activeCanvas?.data, 'signedInPreviewProof')
+  const kbCertification = readKnowledgeBaseCertificationEvidence(activeCanvas?.data)
+  const worldClassCertification = buildWorldClassCertification({
+    benchmarkProofs: certificationBenchmarkProofs,
+    runtimeProof: certificationRuntimeProof,
+    liveProofArtifacts: certificationLiveProofArtifacts,
+    requiredBenchmarkCount: benchmarkProofItems.length,
+    capturedAt: new Date().toISOString(),
+    currentBinding: currentCollaborationProofBinding,
+    signedInPreviewProof,
+    kbCertification,
+  })
+  const isWorldClassCertified = worldClassCertification.status === 'passed'
+  const certificationDetailItems = [
+    {
+      label: 'Collaboration mutation proof',
+      passed: proofItemByKey.collaboration?.status === 'passed',
+      detail: proofItemByKey.collaboration?.status === 'passed'
+        ? proofItemByKey.collaboration.proof?.collaborationEvidence || 'Structured remote mutation evidence passed.'
+        : 'Needs structured remote mutation evidence before collaboration proof can pass.',
+    },
+    {
+      label: 'Signed-in mobile behavior proof',
+      passed: proofItemByKey.mobile_behavior?.status === 'passed',
+      detail: proofItemByKey.mobile_behavior?.status === 'passed'
+        ? proofItemByKey.mobile_behavior.proof?.mobileViewportEvidence || 'Signed-in behavior evidence passed for desktop, tablet, mobile, and mobile panels.'
+        : 'Needs signed-in behavior evidence for desktop, tablet, mobile, and mobile panels before mobile proof can pass.',
+    },
+    {
+      label: 'Durable export/runtime evidence',
+      passed: proofItemByKey.export_flows?.status === 'passed' && proofItemByKey.production_reliability?.status === 'passed',
+      detail: proofItemByKey.export_flows?.status === 'passed' && proofItemByKey.production_reliability?.status === 'passed'
+        ? proofItemByKey.production_reliability.proof?.runtimeEvidence || proofItemByKey.export_flows.proof?.exportArtifactEvidence || 'Durable per-category runtime and export evidence passed.'
+        : 'Needs durable per-category runtime and export evidence before reliability proof can pass.',
+    },
+  ]
 
   return (
     <main className="mx-auto max-w-7xl space-y-5 px-4 py-6">
@@ -6303,19 +6485,30 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
               Higgsfield parity certification
             </p>
             <h2 className="text-lg font-semibold">
-              {isWorldClassCertified ? 'World-class certified' : 'Not world-class certified yet'}
+              {isWorldClassCertified ? 'World-class certification passed' : 'World-class certification blocked'}
             </h2>
             <p className="mt-1">
               {isWorldClassCertified
-                ? 'All live proof runbook items and Direct Higgsfield benchmark categories are source-backed and complete.'
-                : `${liveProofCompleteCount}/${liveProofRunbookItems.length} live proof steps complete, ${benchmarkPassedCount}/${benchmarkProofItems.length} source-backed benchmarks passed.`}
+                ? `${worldClassCertification.passedGateCount}/${worldClassCertification.requiredGateCount} hard proof gates passed.`
+                : `${worldClassCertification.passedGateCount}/${worldClassCertification.requiredGateCount} hard proof gates passed; ${worldClassCertification.blockers.length} blocker${worldClassCertification.blockers.length === 1 ? '' : 's'} remain.`}
             </p>
-            {!isWorldClassCertified && nextRunbookAction ? (
+            {!isWorldClassCertified && worldClassCertification.blockers.length ? (
+              <p className="mt-1 font-semibold">Next required proof: {worldClassCertification.blockers[0]}</p>
+            ) : null}
+            {!isWorldClassCertified && !worldClassCertification.blockers.length && nextRunbookAction ? (
               <p className="mt-1 font-semibold">Next required proof: {nextRunbookAction}</p>
             ) : null}
+            <div className="mt-3 grid gap-2 sm:grid-cols-3">
+              {certificationDetailItems.map((item) => (
+                <div key={item.label} className="rounded-md border border-current/20 bg-white/70 px-2 py-1 text-xs">
+                  <p className="font-semibold">{item.label}</p>
+                  <p className="mt-1">{item.detail}</p>
+                </div>
+              ))}
+            </div>
           </div>
           <span className="rounded-full border border-current bg-white px-3 py-1 text-xs font-semibold uppercase tracking-normal">
-            {isWorldClassCertified ? 'certified' : `${blockedProofCount} blocked · ${actionableProofCount} action`}
+            {isWorldClassCertified ? 'passed' : `${blockedProofCount} blocked · ${actionableProofCount} action`}
           </span>
         </div>
       </section>
@@ -6658,7 +6851,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
                 <p className="mt-1 text-[11px] font-semibold">Needs proof captured against the current canvas version and graph state before this benchmark can pass.</p>
               ) : null}
               {item.key === 'collaboration' && item.proof && !hasCollaborationSessionProof(item.proof, currentCollaborationProofBinding) ? (
-                <p className="mt-1 text-[11px] font-semibold">Needs stored two-user session evidence before collaboration proof can pass.</p>
+                <p className="mt-1 text-[11px] font-semibold">Needs structured remote mutation evidence before collaboration proof can pass.</p>
               ) : null}
               {item.key === 'editing_ergonomics' && item.proof && !hasEditingSessionProof(item.proof) ? (
                 <p className="mt-1 text-[11px] font-semibold">Needs stored node drop, drag/move, live connection, and configured generation-route evidence before editing proof can pass.</p>
@@ -6679,13 +6872,13 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
                 <p className="mt-1 text-[11px] font-semibold">Needs stored project-linked agent task evidence before AI agent integration proof can pass.</p>
               ) : null}
               {item.key === 'mobile_behavior' && item.proof && !hasMobileViewportBenchmarkProof(item.proof, currentCollaborationProofBinding) ? (
-                <p className="mt-1 text-[11px] font-semibold">Needs stored signed-in viewport matrix evidence before mobile benchmark proof can pass.</p>
+                <p className="mt-1 text-[11px] font-semibold">Needs signed-in behavior evidence for desktop, tablet, mobile, and mobile panels before mobile proof can pass.</p>
               ) : null}
               {item.key === 'export_flows' && item.proof && !hasExportArtifactBackedProof(item.proof, currentCollaborationProofBinding) ? (
                 <p className="mt-1 text-[11px] font-semibold">Needs durable runtime and export category evidence before export proof can pass.</p>
               ) : null}
               {item.key === 'production_reliability' && item.proof && !hasProductionRuntimeProof(item.proof, currentCollaborationProofBinding) ? (
-                <p className="mt-1 text-[11px] font-semibold">Needs durable provider-backed runtime and export category evidence with drained queue and &lt;=10% failure rate before reliability proof can pass.</p>
+                <p className="mt-1 text-[11px] font-semibold">Needs durable per-category runtime and export evidence before reliability proof can pass.</p>
               ) : null}
               <div className="mt-2 rounded-md border border-current/20 bg-white/70 px-2 py-1 text-[11px]">
                 <p className="font-semibold">Current Higgsfield source signals</p>
