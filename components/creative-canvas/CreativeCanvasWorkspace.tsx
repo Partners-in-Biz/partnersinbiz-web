@@ -14,6 +14,7 @@ import {
 import CanvasStage from '@/components/creative-canvas/canvas/CanvasStage'
 import type { CanvasTool } from '@/components/creative-canvas/canvas/BottomToolbar'
 import { useGraphHistory } from '@/components/creative-canvas/canvas/useGraphHistory'
+import CanvasTopBar from '@/components/creative-canvas/topbar/CanvasTopBar'
 import type {
   CreativeCanvasAssetOrigin,
   CreativeCanvas,
@@ -2564,6 +2565,28 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
     setEdges(snapshot.edges as Edge[])
   }, [graphHistory])
 
+  const [topBarPanel, setTopBarPanel] = useState<'chat' | 'share' | ''>('')
+
+  const renameActiveCanvas = useCallback(async (nextTitle: string) => {
+    if (!activeCanvas?.id) return
+    const canvasOrgId = resolvedOrgId || activeCanvas.orgId || ''
+    try {
+      const response = await fetch(`/api/v1/creative-canvas/${activeCanvas.id}?orgId=${encodeURIComponent(canvasOrgId)}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title: nextTitle }),
+      })
+      const payload = await response.json().catch(() => null) as CreativeCanvasApiListResponse | null
+      const updatedCanvas = payload?.data?.canvas
+      if (response.ok && updatedCanvas?.id) {
+        applyCanvasSnapshot(updatedCanvas)
+        setActivityMessage('Canvas renamed')
+      }
+    } catch {
+      setActivityMessage('Rename failed')
+    }
+  }, [activeCanvas?.id, activeCanvas?.orgId, applyCanvasSnapshot, resolvedOrgId])
+
   const addCanvasNode = (type: CreativeCanvasNodeType) => {
     const nextNumber = nodes.length + 1
     const title = `${nodeTypeLabels[type]} node`
@@ -4713,34 +4736,83 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
 
   return (
     <main className="mx-auto max-w-7xl space-y-5 px-4 py-6">
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-        <div>
-          <p className="eyebrow">{mode === 'admin' ? 'Agent creative command' : 'Creative review'}</p>
-          <h1 className="text-3xl font-headline font-bold text-[var(--color-pib-text)]">Creative Canvas</h1>
-          <p className="mt-2 max-w-3xl text-sm text-[var(--color-pib-text-muted)]">
-            Plan, generate, review, and export social posts, blogs, videos, books, and campaign assets from one agent-aware graph.
-          </p>
-        </div>
-        <div className="flex w-full flex-col gap-2 sm:w-auto sm:items-end">
-          <button
-            type="button"
-            onClick={() => { void saveGraph('manual') }}
-            disabled={!activeCanvas?.id || saving || Boolean(versionPreview)}
-            className="w-full rounded-lg bg-[var(--color-pib-primary)] px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
+      <CanvasTopBar
+        eyebrow={mode === 'admin' ? 'Agent creative command' : 'Creative review'}
+        title={activeCanvas?.title ?? 'Creative Canvas'}
+        canRename={mode === 'admin' && Boolean(activeCanvas?.id)}
+        onRename={(next) => { void renameActiveCanvas(next) }}
+        saveLabel={versionPreview ? 'Previewing version' : 'Save graph'}
+        saving={saving}
+        saveDisabled={!activeCanvas?.id || saving || Boolean(versionPreview)}
+        onSave={() => { void saveGraph('manual') }}
+        autoSaveEnabled={autoSaveEnabled}
+        onToggleAutoSave={setAutoSaveEnabled}
+        presenceCount={presence?.length ?? 0}
+        onOpenChat={() => setTopBarPanel('chat')}
+        onShare={() => setTopBarPanel('share')}
+      />
+
+      {topBarPanel ? (
+        <div
+          role="dialog"
+          aria-modal="true"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+          onClick={() => setTopBarPanel('')}
+        >
+          <div
+            className="w-full max-w-md rounded-xl border border-[var(--color-pib-line)] bg-white p-5 shadow-xl"
+            onClick={(event) => event.stopPropagation()}
           >
-            {versionPreview ? 'Previewing version' : saving ? 'Saving graph' : 'Save graph'}
-          </button>
-          <label className="flex items-center gap-2 text-xs font-semibold text-[var(--color-pib-text-muted)]">
-            <input
-              type="checkbox"
-              checked={autoSaveEnabled}
-              onChange={(event) => setAutoSaveEnabled(event.target.checked)}
-              className="h-4 w-4 rounded border-[var(--color-pib-line)]"
-            />
-            Auto-save versions
-          </label>
+            {topBarPanel === 'share' ? (
+              <div className="space-y-3">
+                <h2 className="text-lg font-semibold text-[var(--color-pib-text)]">Share canvas</h2>
+                <p className="text-sm text-[var(--color-pib-text-muted)]">
+                  Visibility: {activeCanvas?.visibility === 'admin_agents_clients' ? 'Admins, agents & clients' : 'Admins & agents'}
+                </p>
+                <div className="flex items-center gap-2">
+                  <input
+                    readOnly
+                    value={activeCanvas?.id ? `${typeof window !== 'undefined' ? window.location.origin : ''}/admin/creative-canvas?canvas=${activeCanvas.id}` : ''}
+                    className="flex-1 rounded-md border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] px-3 py-2 text-xs text-[var(--color-pib-text)]"
+                    aria-label="Canvas link"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (activeCanvas?.id && typeof navigator !== 'undefined' && navigator.clipboard) {
+                        void navigator.clipboard.writeText(`${window.location.origin}/admin/creative-canvas?canvas=${activeCanvas.id}`)
+                        setActivityMessage('Canvas link copied')
+                      }
+                    }}
+                    className="rounded-md bg-[var(--color-pib-primary)] px-3 py-2 text-xs font-semibold text-white"
+                  >
+                    Copy
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <h2 className="text-lg font-semibold text-[var(--color-pib-text)]">Team chat</h2>
+                <p className="text-sm text-[var(--color-pib-text-muted)]">
+                  {(presence?.length ?? 0) > 0
+                    ? `${presence.length} collaborator${presence.length === 1 ? '' : 's'} present`
+                    : 'No collaborators online right now.'}
+                </p>
+                <p className="text-xs text-[var(--color-pib-text-muted)]">
+                  Node-level comments and live presence appear in the inspector when a node is selected.
+                </p>
+              </div>
+            )}
+            <button
+              type="button"
+              onClick={() => setTopBarPanel('')}
+              className="mt-4 w-full rounded-md border border-[var(--color-pib-line)] px-3 py-2 text-sm font-semibold text-[var(--color-pib-text)]"
+            >
+              Close
+            </button>
+          </div>
         </div>
-      </div>
+      ) : null}
 
       {error ? (
         <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>
@@ -5725,7 +5797,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
         >
           <div className="flex flex-col gap-2 border-b border-[var(--color-pib-line)] px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <h2 className="text-lg font-semibold text-[var(--color-pib-text)]">{activeCanvas?.title ?? 'Untitled canvas'}</h2>
+              <h2 className="text-sm font-semibold uppercase tracking-normal text-[var(--color-pib-text-muted)]">Graph</h2>
               <p className="text-xs text-[var(--color-pib-text-muted)]">
                 {nodes.length} nodes / {edges.length} links / v{activeCanvas?.activeVersion ?? 1}
               </p>
