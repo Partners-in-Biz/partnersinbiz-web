@@ -185,7 +185,28 @@ function cleanBenchmarkProofData(value: unknown): Record<string, unknown> | unde
       const sourceUrl = cleanString(item.sourceUrl)?.slice(0, 500)
       const sourceCheckedAt = cleanString(item.sourceCheckedAt)?.slice(0, 80)
       const sourceSignals = cleanStringArray(item.sourceSignals).map((signal) => signal.slice(0, 120)).slice(0, 12)
-      if (!proofUrl && !notes && !capturedAt && !capturedBy && !sourceTitle && !sourceUrl && !sourceCheckedAt && !sourceSignals.length) return []
+      const higgsfieldUiEvidenceUrl = cleanString(item.higgsfieldUiEvidenceUrl)?.slice(0, 500)
+      const canvasEvidenceUrl = cleanString(item.canvasEvidenceUrl)?.slice(0, 500)
+      const directComparisonAt = cleanString(item.directComparisonAt)?.slice(0, 80)
+      const directComparisonVerdict = item.directComparisonVerdict === 'pass' || item.directComparisonVerdict === 'gap'
+        ? item.directComparisonVerdict
+        : undefined
+      const directComparisonNotes = cleanString(item.directComparisonNotes)?.slice(0, 700)
+      if (
+        !proofUrl
+        && !notes
+        && !capturedAt
+        && !capturedBy
+        && !sourceTitle
+        && !sourceUrl
+        && !sourceCheckedAt
+        && !sourceSignals.length
+        && !higgsfieldUiEvidenceUrl
+        && !canvasEvidenceUrl
+        && !directComparisonAt
+        && !directComparisonVerdict
+        && !directComparisonNotes
+      ) return []
       return [[key.slice(0, 80), {
         proofUrl,
         notes,
@@ -195,6 +216,11 @@ function cleanBenchmarkProofData(value: unknown): Record<string, unknown> | unde
         sourceUrl,
         sourceCheckedAt,
         sourceSignals,
+        higgsfieldUiEvidenceUrl,
+        canvasEvidenceUrl,
+        directComparisonAt,
+        directComparisonVerdict,
+        directComparisonNotes,
       } as Record<string, unknown>] as [string, Record<string, unknown>]]
     })
     .slice(0, 12)

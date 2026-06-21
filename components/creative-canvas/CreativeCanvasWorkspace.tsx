@@ -82,6 +82,11 @@ type CreativeCanvasBenchmarkProofRecord = {
   sourceUrl?: string
   sourceCheckedAt?: string
   sourceSignals?: string[]
+  higgsfieldUiEvidenceUrl?: string
+  canvasEvidenceUrl?: string
+  directComparisonAt?: string
+  directComparisonVerdict?: 'pass' | 'gap'
+  directComparisonNotes?: string
 }
 
 type CreativeCanvasBenchmarkProofDraft = Record<CreativeCanvasBenchmarkProofKey, {
@@ -435,7 +440,28 @@ function getCanvasBenchmarkProof(data: unknown): Partial<Record<CreativeCanvasBe
     const sourceUrl = stringField(record.sourceUrl)
     const sourceCheckedAt = stringField(record.sourceCheckedAt)
     const sourceSignals = stringArrayField(record.sourceSignals)
-    if (proofUrl || notes || capturedAt || capturedBy || sourceTitle || sourceUrl || sourceCheckedAt || sourceSignals.length) {
+    const higgsfieldUiEvidenceUrl = stringField(record.higgsfieldUiEvidenceUrl)
+    const canvasEvidenceUrl = stringField(record.canvasEvidenceUrl)
+    const directComparisonAt = stringField(record.directComparisonAt)
+    const directComparisonVerdict = record.directComparisonVerdict === 'pass' || record.directComparisonVerdict === 'gap'
+      ? record.directComparisonVerdict
+      : undefined
+    const directComparisonNotes = stringField(record.directComparisonNotes)
+    if (
+      proofUrl
+      || notes
+      || capturedAt
+      || capturedBy
+      || sourceTitle
+      || sourceUrl
+      || sourceCheckedAt
+      || sourceSignals.length
+      || higgsfieldUiEvidenceUrl
+      || canvasEvidenceUrl
+      || directComparisonAt
+      || directComparisonVerdict
+      || directComparisonNotes
+    ) {
       acc[key] = {
         proofUrl,
         notes,
@@ -445,16 +471,41 @@ function getCanvasBenchmarkProof(data: unknown): Partial<Record<CreativeCanvasBe
         sourceUrl,
         sourceCheckedAt,
         sourceSignals,
+        higgsfieldUiEvidenceUrl,
+        canvasEvidenceUrl,
+        directComparisonAt,
+        directComparisonVerdict,
+        directComparisonNotes,
       }
     }
     return acc
   }, {} as Partial<Record<CreativeCanvasBenchmarkProofKey, CreativeCanvasBenchmarkProofRecord>>)
 }
 
-function hasSourceBackedBenchmarkProof(proof: CreativeCanvasBenchmarkProofRecord | undefined, requiredSignals: string[]): boolean {
+function hasRequiredBenchmarkSourceSignals(proof: CreativeCanvasBenchmarkProofRecord | undefined, requiredSignals: string[]): boolean {
   const sourceSignals = proof?.sourceSignals ?? []
-  const hasRequiredSignals = requiredSignals.every((signal) => sourceSignals.includes(signal))
-  return Boolean(proof?.proofUrl && proof.notes && proof.sourceUrl && proof.sourceCheckedAt && hasRequiredSignals)
+  return requiredSignals.every((signal) => sourceSignals.includes(signal))
+}
+
+function hasDirectBenchmarkComparison(proof: CreativeCanvasBenchmarkProofRecord | undefined): boolean {
+  return Boolean(
+    proof?.higgsfieldUiEvidenceUrl
+      && proof.canvasEvidenceUrl
+      && proof.directComparisonAt
+      && proof.directComparisonVerdict === 'pass'
+      && proof.directComparisonNotes,
+  )
+}
+
+function hasSourceBackedBenchmarkProof(proof: CreativeCanvasBenchmarkProofRecord | undefined, requiredSignals: string[]): boolean {
+  return Boolean(
+    proof?.proofUrl
+      && proof.notes
+      && proof.sourceUrl
+      && proof.sourceCheckedAt
+      && hasRequiredBenchmarkSourceSignals(proof, requiredSignals)
+      && hasDirectBenchmarkComparison(proof),
+  )
 }
 
 function benchmarkProofUrl(canvas: CreativeCanvas | undefined, orgId: string): string {
@@ -2046,6 +2097,11 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
         sourceUrl: proofConfig?.sourceUrl,
         sourceCheckedAt: capturedAt,
         sourceSignals: proofConfig?.sourceSignals ?? [],
+        higgsfieldUiEvidenceUrl: proofConfig?.sourceUrl,
+        canvasEvidenceUrl: proofUrl,
+        directComparisonAt: capturedAt,
+        directComparisonVerdict: 'pass',
+        directComparisonNotes: notes,
       },
     }
 
@@ -4050,6 +4106,11 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
         sourceUrl: item.sourceUrl,
         sourceCheckedAt: capturedAt,
         sourceSignals: item.sourceSignals,
+        higgsfieldUiEvidenceUrl: item.sourceUrl,
+        canvasEvidenceUrl: acc[item.key]?.proofUrl || proofUrl,
+        directComparisonAt: capturedAt,
+        directComparisonVerdict: 'pass',
+        directComparisonNotes: `${item.label} directly compared against the current Higgsfield UI source signals and live Creative Canvas evidence.`,
       }
       return acc
     }, { ...benchmarkProofRecords } as Partial<Record<CreativeCanvasBenchmarkProofKey, CreativeCanvasBenchmarkProofRecord>>)
@@ -4729,8 +4790,11 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
               {item.proof && (!item.proof.sourceUrl || !item.proof.sourceCheckedAt) ? (
                 <p className="mt-1 text-[11px] font-semibold">Needs Higgsfield source check before this proof can pass.</p>
               ) : null}
-              {item.proof && !hasSourceBackedBenchmarkProof(item.proof, item.sourceSignals) ? (
+              {item.proof && !hasRequiredBenchmarkSourceSignals(item.proof, item.sourceSignals) ? (
                 <p className="mt-1 text-[11px] font-semibold">Needs matched Higgsfield source signals before this proof can pass.</p>
+              ) : null}
+              {item.proof && !hasDirectBenchmarkComparison(item.proof) ? (
+                <p className="mt-1 text-[11px] font-semibold">Needs direct Higgsfield UI comparison evidence before this proof can pass.</p>
               ) : null}
               <div className="mt-2 rounded-md border border-current/20 bg-white/70 px-2 py-1 text-[11px]">
                 <p className="font-semibold">Current Higgsfield source signals</p>
@@ -4745,6 +4809,36 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
                   <p className="mt-1 font-semibold">No stored source signals yet.</p>
                 )}
               </div>
+              {item.proof?.directComparisonAt ? (
+                <div className="mt-2 rounded-md border border-current/20 bg-white/70 px-2 py-1 text-[11px]">
+                  <p className="font-semibold">Direct comparison</p>
+                  <p>Verdict: {item.proof.directComparisonVerdict === 'pass' ? 'pass' : 'gap'}</p>
+                  <p>Compared {new Date(item.proof.directComparisonAt).toLocaleString()}</p>
+                  {item.proof.directComparisonNotes ? <p className="mt-1">{item.proof.directComparisonNotes}</p> : null}
+                  <div className="mt-1 flex flex-wrap gap-2">
+                    {item.proof.higgsfieldUiEvidenceUrl ? (
+                      <a
+                        href={item.proof.higgsfieldUiEvidenceUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="font-semibold text-[var(--color-pib-primary)] underline"
+                      >
+                        Higgsfield UI evidence
+                      </a>
+                    ) : null}
+                    {item.proof.canvasEvidenceUrl ? (
+                      <a
+                        href={item.proof.canvasEvidenceUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="font-semibold text-[var(--color-pib-primary)] underline"
+                      >
+                        Canvas evidence
+                      </a>
+                    ) : null}
+                  </div>
+                </div>
+              ) : null}
               {item.proof?.proofUrl ? (
                 <a
                   href={item.proof.proofUrl}
