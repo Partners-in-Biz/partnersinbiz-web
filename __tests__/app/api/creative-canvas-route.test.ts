@@ -213,6 +213,78 @@ describe('creative canvas API routes', () => {
     fetchSpy.mockRestore()
   })
 
+  it('verifies expected benchmark source signals in reachable evidence pages', async () => {
+    const fetchSpy = jest.spyOn(global, 'fetch')
+      .mockResolvedValueOnce(new Response('', {
+        status: 200,
+        headers: { 'content-type': 'text/html; charset=utf-8' },
+      }))
+      .mockResolvedValueOnce(new Response('<html><body>Drop a node &amp; Chain your flow. Every connection is live.</body></html>', {
+        status: 200,
+        headers: { 'content-type': 'text/html; charset=utf-8' },
+      }))
+    const { POST } = await import('@/app/api/v1/creative-canvas/proof-url/route')
+
+    const res = await POST(new NextRequest('http://test.local/api/v1/creative-canvas/proof-url', {
+      method: 'POST',
+      body: JSON.stringify({
+        url: 'https://higgsfield.ai/canvas-intro',
+        kind: 'evidence',
+        expectedSignals: ['Drop a node', 'Chain your flow', 'Every connection is live'],
+      }),
+    }))
+    const body = await res.json()
+
+    expect(fetchSpy).toHaveBeenNthCalledWith(1, 'https://higgsfield.ai/canvas-intro', expect.objectContaining({ method: 'HEAD' }))
+    expect(fetchSpy).toHaveBeenNthCalledWith(2, 'https://higgsfield.ai/canvas-intro', expect.objectContaining({ method: 'GET' }))
+    expect(body).toMatchObject({
+      success: true,
+      data: {
+        proof: {
+          reachable: true,
+          signalMatched: true,
+          missingSignals: [],
+        },
+      },
+    })
+    fetchSpy.mockRestore()
+  })
+
+  it('reports missing benchmark source signals in reachable evidence pages', async () => {
+    const fetchSpy = jest.spyOn(global, 'fetch')
+      .mockResolvedValueOnce(new Response('', {
+        status: 200,
+        headers: { 'content-type': 'text/html; charset=utf-8' },
+      }))
+      .mockResolvedValueOnce(new Response('<html><body>Drop a node only.</body></html>', {
+        status: 200,
+        headers: { 'content-type': 'text/html; charset=utf-8' },
+      }))
+    const { POST } = await import('@/app/api/v1/creative-canvas/proof-url/route')
+
+    const res = await POST(new NextRequest('http://test.local/api/v1/creative-canvas/proof-url', {
+      method: 'POST',
+      body: JSON.stringify({
+        url: 'https://higgsfield.ai/canvas-intro',
+        kind: 'evidence',
+        expectedSignals: ['Drop a node', 'Every connection is live'],
+      }),
+    }))
+    const body = await res.json()
+
+    expect(body).toMatchObject({
+      success: true,
+      data: {
+        proof: {
+          reachable: true,
+          signalMatched: false,
+          missingSignals: ['Every connection is live'],
+        },
+      },
+    })
+    fetchSpy.mockRestore()
+  })
+
   it('rejects local proof URLs', async () => {
     const fetchSpy = jest.spyOn(global, 'fetch')
     const { POST } = await import('@/app/api/v1/creative-canvas/proof-url/route')

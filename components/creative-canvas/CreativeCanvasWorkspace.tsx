@@ -94,6 +94,9 @@ type CreativeCanvasBenchmarkProofRecord = {
   sourceEvidenceReachable?: boolean
   sourceEvidenceStatus?: number
   sourceEvidenceContentType?: string
+  sourceSignalsVerifiedAt?: string
+  sourceSignalsMatched?: boolean
+  sourceSignalsMissing?: string[]
   sourceSignals?: string[]
   higgsfieldUiEvidenceUrl?: string
   canvasEvidenceUrl?: string
@@ -185,6 +188,9 @@ interface CreativeCanvasProofUrlResponse {
       status?: number
       contentType?: string
       checkedAt?: string
+      signalMatched?: boolean
+      signalCheckedAt?: string
+      missingSignals?: string[]
     }
   }
 }
@@ -589,6 +595,9 @@ function getCanvasBenchmarkProof(data: unknown): Partial<Record<CreativeCanvasBe
     const sourceEvidenceReachable = record.sourceEvidenceReachable === true
     const sourceEvidenceStatus = typeof record.sourceEvidenceStatus === 'number' && Number.isFinite(record.sourceEvidenceStatus) ? record.sourceEvidenceStatus : undefined
     const sourceEvidenceContentType = stringField(record.sourceEvidenceContentType)
+    const sourceSignalsVerifiedAt = stringField(record.sourceSignalsVerifiedAt)
+    const sourceSignalsMatched = record.sourceSignalsMatched === true
+    const sourceSignalsMissing = stringArrayField(record.sourceSignalsMissing)
     const sourceSignals = stringArrayField(record.sourceSignals)
     const higgsfieldUiEvidenceUrl = stringField(record.higgsfieldUiEvidenceUrl)
     const canvasEvidenceUrl = stringField(record.canvasEvidenceUrl)
@@ -654,6 +663,9 @@ function getCanvasBenchmarkProof(data: unknown): Partial<Record<CreativeCanvasBe
       || sourceEvidenceReachable
       || sourceEvidenceStatus !== undefined
       || sourceEvidenceContentType
+      || sourceSignalsVerifiedAt
+      || sourceSignalsMatched
+      || sourceSignalsMissing.length
       || sourceSignals.length
       || higgsfieldUiEvidenceUrl
       || canvasEvidenceUrl
@@ -716,6 +728,9 @@ function getCanvasBenchmarkProof(data: unknown): Partial<Record<CreativeCanvasBe
         sourceEvidenceReachable,
         sourceEvidenceStatus,
         sourceEvidenceContentType,
+        sourceSignalsVerifiedAt,
+        sourceSignalsMatched,
+        sourceSignalsMissing,
         sourceSignals,
         higgsfieldUiEvidenceUrl,
         canvasEvidenceUrl,
@@ -802,6 +817,8 @@ function hasSourceBackedBenchmarkProof(proof: CreativeCanvasBenchmarkProofRecord
       && proof.sourceEvidenceStatus >= 200
       && proof.sourceEvidenceStatus < 400
       && proof.sourceEvidenceCheckedAt
+      && proof.sourceSignalsMatched
+      && proof.sourceSignalsVerifiedAt
       && hasRequiredBenchmarkSourceSignals(proof, requiredSignals)
       && hasDirectBenchmarkComparison(proof),
   )
@@ -2570,13 +2587,13 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
       return
     }
     setSavingBenchmarkProofKey(key)
-    let sourceEvidenceProof: Pick<CreativeCanvasBenchmarkProofRecord, 'sourceEvidenceCheckedAt' | 'sourceEvidenceReachable' | 'sourceEvidenceStatus' | 'sourceEvidenceContentType'> = {}
+    let sourceEvidenceProof: Pick<CreativeCanvasBenchmarkProofRecord, 'sourceEvidenceCheckedAt' | 'sourceEvidenceReachable' | 'sourceEvidenceStatus' | 'sourceEvidenceContentType' | 'sourceSignalsVerifiedAt' | 'sourceSignalsMatched' | 'sourceSignalsMissing'> = {}
     let benchmarkEvidenceProof: Pick<CreativeCanvasBenchmarkProofRecord, 'canvasEvidenceCheckedAt' | 'canvasEvidenceReachable' | 'canvasEvidenceStatus' | 'canvasEvidenceContentType'> = {}
     try {
       const sourceResponse = await fetch('/api/v1/creative-canvas/proof-url', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url: sourceEvidenceUrl, kind: 'evidence' }),
+        body: JSON.stringify({ url: sourceEvidenceUrl, kind: 'evidence', expectedSignals: proofConfig?.sourceSignals ?? [] }),
       })
       const sourcePayload = await sourceResponse.json().catch(() => null) as CreativeCanvasProofUrlResponse | null
       const sourceProof = sourcePayload?.data?.proof
@@ -2587,11 +2604,20 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
         setSavingBenchmarkProofKey('')
         return
       }
+      if (sourceProof.signalMatched === false) {
+        const missing = sourceProof.missingSignals?.length ? `: ${sourceProof.missingSignals.join(', ')}` : ''
+        setActivityMessage(`Benchmark source signals were not found${missing}`)
+        setSavingBenchmarkProofKey('')
+        return
+      }
       sourceEvidenceProof = {
         sourceEvidenceCheckedAt: sourceProof.checkedAt,
         sourceEvidenceReachable: true,
         sourceEvidenceStatus: sourceProof.status,
         sourceEvidenceContentType: sourceProof.contentType,
+        sourceSignalsVerifiedAt: sourceProof.signalCheckedAt,
+        sourceSignalsMatched: true,
+        sourceSignalsMissing: sourceProof.missingSignals ?? [],
       }
       const proofResponse = await fetch('/api/v1/creative-canvas/proof-url', {
         method: 'POST',
@@ -4749,16 +4775,16 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
     const proofUrl = benchmarkProofUrl(activeCanvas, canvasOrgId)
     const capturedAt = new Date().toISOString()
     setSavingBenchmarkProofKey(readyBenchmarkProofItems[0].key)
-    const sourceEvidenceByUrl = new Map<string, Pick<CreativeCanvasBenchmarkProofRecord, 'sourceEvidenceCheckedAt' | 'sourceEvidenceReachable' | 'sourceEvidenceStatus' | 'sourceEvidenceContentType'>>()
+    const sourceEvidenceByUrl = new Map<string, Pick<CreativeCanvasBenchmarkProofRecord, 'sourceEvidenceCheckedAt' | 'sourceEvidenceReachable' | 'sourceEvidenceStatus' | 'sourceEvidenceContentType' | 'sourceSignalsVerifiedAt' | 'sourceSignalsMatched' | 'sourceSignalsMissing'>>()
     try {
-      const sourceProofs = await Promise.all(Array.from(new Set(readyBenchmarkProofItems.map((item) => item.sourceUrl))).map(async (sourceUrl) => {
+      const sourceProofs = await Promise.all(readyBenchmarkProofItems.map(async (item) => {
         const response = await fetch('/api/v1/creative-canvas/proof-url', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ url: sourceUrl, kind: 'evidence' }),
+          body: JSON.stringify({ url: item.sourceUrl, kind: 'evidence', expectedSignals: item.sourceSignals }),
         })
         const payload = await response.json().catch(() => null) as CreativeCanvasProofUrlResponse | null
-        return { sourceUrl, response, payload, proof: payload?.data?.proof }
+        return { item, response, payload, proof: payload?.data?.proof }
       }))
       const failedSource = sourceProofs.find((item) => !item.response.ok || !item.proof?.reachable)
       if (failedSource) {
@@ -4768,13 +4794,23 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
         setSavingBenchmarkProofKey('')
         return
       }
+      const failedSignals = sourceProofs.find((item) => item.proof?.signalMatched === false)
+      if (failedSignals) {
+        const missing = failedSignals.proof?.missingSignals?.length ? `: ${failedSignals.proof.missingSignals.join(', ')}` : ''
+        setActivityMessage(`${failedSignals.item.label} source signals were not found${missing}`)
+        setSavingBenchmarkProofKey('')
+        return
+      }
       sourceProofs.forEach((item) => {
         if (!item.proof) return
-        sourceEvidenceByUrl.set(item.sourceUrl, {
+        sourceEvidenceByUrl.set(item.item.key, {
           sourceEvidenceCheckedAt: item.proof.checkedAt,
           sourceEvidenceReachable: true,
           sourceEvidenceStatus: item.proof.status,
           sourceEvidenceContentType: item.proof.contentType,
+          sourceSignalsVerifiedAt: item.proof.signalCheckedAt,
+          sourceSignalsMatched: true,
+          sourceSignalsMissing: item.proof.missingSignals ?? [],
         })
       })
     } catch {
@@ -4836,7 +4872,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
         sourceTitle: item.sourceTitle,
         sourceUrl: item.sourceUrl,
         sourceCheckedAt: capturedAt,
-        ...sourceEvidenceByUrl.get(item.sourceUrl),
+        ...sourceEvidenceByUrl.get(item.key),
         sourceSignals: item.sourceSignals,
         higgsfieldUiEvidenceUrl: item.sourceUrl,
         canvasEvidenceUrl: acc[item.key]?.proofUrl || proofUrl,
@@ -5574,6 +5610,9 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
               {item.proof?.sourceUrl && !item.proof.sourceEvidenceReachable ? (
                 <p className="mt-1 text-[11px] font-semibold">Needs reachable Higgsfield source URL verification before this proof can pass.</p>
               ) : null}
+              {item.proof?.sourceUrl && item.proof.sourceEvidenceReachable && !item.proof.sourceSignalsMatched ? (
+                <p className="mt-1 text-[11px] font-semibold">Needs current Higgsfield source signal verification before this proof can pass.</p>
+              ) : null}
               {item.proof && !hasRequiredBenchmarkSourceSignals(item.proof, item.sourceSignals) ? (
                 <p className="mt-1 text-[11px] font-semibold">Needs matched Higgsfield source signals before this proof can pass.</p>
               ) : null}
@@ -5634,6 +5673,14 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
                     <p className="mt-1">
                       Source evidence URL: {item.proof.sourceEvidenceReachable ? 'reachable' : 'unverified'}{item.proof.sourceEvidenceStatus ? ` · ${item.proof.sourceEvidenceStatus}` : ''}{item.proof.sourceEvidenceContentType ? ` · ${item.proof.sourceEvidenceContentType}` : ''}
                     </p>
+                  ) : null}
+                  {item.proof.sourceSignalsVerifiedAt ? (
+                    <p className="mt-1">
+                      Source signals: {item.proof.sourceSignalsMatched ? 'matched' : 'missing'} · checked {new Date(item.proof.sourceSignalsVerifiedAt).toLocaleString()}
+                    </p>
+                  ) : null}
+                  {item.proof.sourceSignalsMissing?.length ? (
+                    <p className="mt-1">Missing source signals: {item.proof.sourceSignalsMissing.join(', ')}</p>
                   ) : null}
                   {item.proof.directComparisonNotes ? <p className="mt-1">{item.proof.directComparisonNotes}</p> : null}
                   {item.key === 'collaboration' && item.proof.collaborationEvidence ? (

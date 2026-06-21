@@ -231,6 +231,9 @@ function cleanBenchmarkProofData(value: unknown): Record<string, unknown> | unde
         ? Math.max(0, Math.round(item.sourceEvidenceStatus))
         : undefined
       const sourceEvidenceContentType = cleanString(item.sourceEvidenceContentType)?.slice(0, 120)
+      const sourceSignalsVerifiedAt = cleanString(item.sourceSignalsVerifiedAt)?.slice(0, 80)
+      const sourceSignalsMatched = item.sourceSignalsMatched === true ? true : undefined
+      const sourceSignalsMissing = cleanStringArray(item.sourceSignalsMissing).map((signal) => signal.slice(0, 120)).slice(0, 12)
       const sourceSignals = cleanStringArray(item.sourceSignals).map((signal) => signal.slice(0, 120)).slice(0, 12)
       const higgsfieldUiEvidenceUrl = cleanString(item.higgsfieldUiEvidenceUrl)?.slice(0, 500)
       const canvasEvidenceUrl = cleanString(item.canvasEvidenceUrl)?.slice(0, 500)
@@ -340,6 +343,9 @@ function cleanBenchmarkProofData(value: unknown): Record<string, unknown> | unde
         && sourceEvidenceReachable === undefined
         && sourceEvidenceStatus === undefined
         && !sourceEvidenceContentType
+        && !sourceSignalsVerifiedAt
+        && sourceSignalsMatched === undefined
+        && !sourceSignalsMissing.length
         && !sourceSignals.length
         && !higgsfieldUiEvidenceUrl
         && !canvasEvidenceUrl
@@ -402,6 +408,9 @@ function cleanBenchmarkProofData(value: unknown): Record<string, unknown> | unde
         ...(sourceEvidenceReachable !== undefined ? { sourceEvidenceReachable } : {}),
         ...(sourceEvidenceStatus !== undefined ? { sourceEvidenceStatus } : {}),
         ...(sourceEvidenceContentType ? { sourceEvidenceContentType } : {}),
+        ...(sourceSignalsVerifiedAt ? { sourceSignalsVerifiedAt } : {}),
+        ...(sourceSignalsMatched !== undefined ? { sourceSignalsMatched } : {}),
+        ...(sourceSignalsMissing.length ? { sourceSignalsMissing } : {}),
         sourceSignals,
         higgsfieldUiEvidenceUrl,
         canvasEvidenceUrl,
