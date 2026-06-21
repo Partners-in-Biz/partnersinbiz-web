@@ -137,6 +137,22 @@ beforeEach(() => {
         }),
       }
     }
+    if (url === '/api/v1/creative-canvas/proof-url' && init?.method === 'POST') {
+      return {
+        ok: true,
+        json: async () => ({
+          success: true,
+          data: {
+            proof: {
+              reachable: true,
+              status: 200,
+              contentType: 'image/png',
+              checkedAt: '2026-06-21T12:00:00.000Z',
+            },
+          },
+        }),
+      }
+    }
     if (url.includes('/versions')) {
       return {
         ok: true,
@@ -924,7 +940,7 @@ describe('CreativeCanvasWorkspace', () => {
     ))
     expect(patchCall).toBeTruthy()
     const body = JSON.parse(String(patchCall?.[1]?.body ?? '{}')) as {
-      data?: { visualProof?: Record<string, { screenshotUrl?: string; notes?: string; capturedAt?: string; capturedBy?: string; signedIn?: boolean; sessionEvidence?: string; viewportSize?: string; visiblePanels?: string; canvasVersion?: number; graphSignature?: string; nodeCount?: number; edgeCount?: number }> }
+      data?: { visualProof?: Record<string, { screenshotUrl?: string; notes?: string; capturedAt?: string; capturedBy?: string; signedIn?: boolean; sessionEvidence?: string; viewportSize?: string; visiblePanels?: string; canvasVersion?: number; graphSignature?: string; nodeCount?: number; edgeCount?: number; screenshotReachable?: boolean; screenshotStatus?: number; screenshotContentType?: string; screenshotCheckedAt?: string }> }
     }
     expect(body.data?.visualProof?.desktop_1440).toMatchObject({
       screenshotUrl: 'https://proof.example.com/desktop-1440.png',
@@ -937,6 +953,10 @@ describe('CreativeCanvasWorkspace', () => {
       canvasVersion: 1,
       nodeCount: expect.any(Number),
       edgeCount: expect.any(Number),
+      screenshotReachable: true,
+      screenshotStatus: 200,
+      screenshotContentType: 'image/png',
+      screenshotCheckedAt: '2026-06-21T12:00:00.000Z',
     })
     expect(body.data?.visualProof?.desktop_1440?.capturedAt).toEqual(expect.any(String))
     expect(body.data?.visualProof?.desktop_1440?.graphSignature).toEqual(expect.any(String))
@@ -944,6 +964,7 @@ describe('CreativeCanvasWorkspace', () => {
     const visualProof = screen.getByLabelText(/creative canvas visual qa proof/i)
     expect(visualProof).toHaveTextContent('1/4 signed-in')
     expect(visualProof).toHaveTextContent('1440x900 · Graph, Sources, Inspector')
+    expect(visualProof).toHaveTextContent('Proof URL: reachable · 200 · image/png')
     expect(within(visualProof).getByRole('link', { name: /open proof/i })).toHaveAttribute('href', 'https://proof.example.com/desktop-1440.png')
     const parityAudit = screen.getByLabelText(/higgsfield parity audit/i)
     expect(parityAudit).toHaveTextContent('1/4 signed-in visual proofs captured')
@@ -979,6 +1000,10 @@ describe('CreativeCanvasWorkspace', () => {
                       graphSignature: 'old-visual-signature',
                       nodeCount: 99,
                       edgeCount: 99,
+                      screenshotReachable: true,
+                      screenshotStatus: 200,
+                      screenshotContentType: 'image/png',
+                      screenshotCheckedAt: '2026-06-21T10:00:01.000Z',
                     },
                   },
                 },
@@ -1002,6 +1027,50 @@ describe('CreativeCanvasWorkspace', () => {
     expect(visualProof).toHaveTextContent('0/4 signed-in')
     expect(visualProof).toHaveTextContent('Recapture this viewport against the current canvas version and graph state before it counts.')
     expect(visualProof).toHaveTextContent('Canvas state: v999 · 99 nodes · 99 links')
+  })
+
+  it('does not save signed-in viewport proof when the screenshot URL is not a reachable image', async () => {
+    const defaultFetch = fetchMock.getMockImplementation()
+    fetchMock.mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
+      if (String(input) === '/api/v1/creative-canvas/proof-url') {
+        return {
+          ok: true,
+          json: async () => ({
+            success: true,
+            data: {
+              proof: {
+                reachable: false,
+                status: 404,
+                contentType: 'text/html',
+                checkedAt: '2026-06-21T12:00:00.000Z',
+              },
+            },
+          }),
+        }
+      }
+      return defaultFetch?.(input, init) ?? {
+        ok: true,
+        json: async () => ({ success: true, data: {} }),
+      }
+    })
+
+    render(<CreativeCanvasWorkspace mode="admin" orgId="org-1" />)
+
+    expect(await screen.findByText('Launch Canvas')).toBeInTheDocument()
+    fireEvent.change(screen.getByLabelText(/desktop 1440 screenshot url/i), {
+      target: { value: 'https://proof.example.com/missing.html' },
+    })
+    fireEvent.change(screen.getByLabelText(/desktop 1440 proof notes/i), {
+      target: { value: 'Desktop proof attempt.' },
+    })
+    fireEvent.change(screen.getByLabelText(/desktop 1440 session evidence/i), {
+      target: { value: 'Signed-in admin header visible.' },
+    })
+    fireEvent.click(screen.getByLabelText(/desktop 1440 proof is signed-in/i))
+    fireEvent.click(screen.getByRole('button', { name: /save desktop 1440 proof/i }))
+
+    await waitFor(() => expect(screen.getByText('Screenshot proof URL is not a reachable image (404) · text/html')).toBeInTheDocument())
+    expect(fetchMock.mock.calls.some(([input, init]) => String(input) === '/api/v1/creative-canvas/canvas-1?orgId=org-1' && init?.method === 'PATCH')).toBe(false)
   })
 
   it('does not count viewport proof until the screenshot is confirmed signed-in', async () => {
@@ -1052,7 +1121,7 @@ describe('CreativeCanvasWorkspace', () => {
 
     const visualProof = screen.getByLabelText(/creative canvas visual qa proof/i)
     expect(visualProof).toHaveTextContent('0/4 signed-in')
-    expect(visualProof).toHaveTextContent('Add session, viewport, and visible-panel evidence before this counts for mobile parity.')
+    expect(visualProof).toHaveTextContent('Add session, viewport, visible-panel, and reachable image evidence before this counts for mobile parity.')
     const certificationGate = screen.getByLabelText(/creative canvas world-class certification gate/i)
     expect(certificationGate).toHaveTextContent('Not world-class certified yet')
   })

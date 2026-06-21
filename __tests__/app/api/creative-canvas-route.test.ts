@@ -156,4 +156,48 @@ describe('creative canvas API routes', () => {
       ],
     })
   })
+
+  it('checks public image proof URLs before viewport proof can be saved', async () => {
+    const fetchSpy = jest.spyOn(global, 'fetch').mockResolvedValueOnce(new Response('', {
+      status: 200,
+      headers: { 'content-type': 'image/png' },
+    }))
+    const { POST } = await import('@/app/api/v1/creative-canvas/proof-url/route')
+
+    const res = await POST(new NextRequest('http://test.local/api/v1/creative-canvas/proof-url', {
+      method: 'POST',
+      body: JSON.stringify({ url: 'https://proof.example.com/desktop.png' }),
+    }))
+    const body = await res.json()
+
+    expect(fetchSpy).toHaveBeenCalledWith('https://proof.example.com/desktop.png', expect.objectContaining({ method: 'HEAD' }))
+    expect(body).toMatchObject({
+      success: true,
+      data: {
+        proof: {
+          reachable: true,
+          status: 200,
+          contentType: 'image/png',
+          url: 'https://proof.example.com/desktop.png',
+        },
+      },
+    })
+    fetchSpy.mockRestore()
+  })
+
+  it('rejects local proof URLs', async () => {
+    const fetchSpy = jest.spyOn(global, 'fetch')
+    const { POST } = await import('@/app/api/v1/creative-canvas/proof-url/route')
+
+    const res = await POST(new NextRequest('http://test.local/api/v1/creative-canvas/proof-url', {
+      method: 'POST',
+      body: JSON.stringify({ url: 'http://localhost:3000/private.png' }),
+    }))
+    const body = await res.json()
+
+    expect(res.status).toBe(400)
+    expect(body).toMatchObject({ success: false, error: 'A public http(s) proof URL is required' })
+    expect(fetchSpy).not.toHaveBeenCalled()
+    fetchSpy.mockRestore()
+  })
 })

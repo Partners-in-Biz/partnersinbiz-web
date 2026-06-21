@@ -166,6 +166,12 @@ function cleanVisualProofData(value: unknown): Record<string, unknown> | undefin
       const edgeCount = typeof item.edgeCount === 'number' && Number.isFinite(item.edgeCount)
         ? Math.max(0, Math.round(item.edgeCount))
         : undefined
+      const screenshotCheckedAt = cleanString(item.screenshotCheckedAt)?.slice(0, 80)
+      const screenshotReachable = item.screenshotReachable === true ? true : undefined
+      const screenshotStatus = typeof item.screenshotStatus === 'number' && Number.isFinite(item.screenshotStatus)
+        ? Math.max(0, Math.round(item.screenshotStatus))
+        : undefined
+      const screenshotContentType = cleanString(item.screenshotContentType)?.slice(0, 120)
       if (
         !screenshotUrl
         && !notes
@@ -179,6 +185,10 @@ function cleanVisualProofData(value: unknown): Record<string, unknown> | undefin
         && !graphSignature
         && nodeCount === undefined
         && edgeCount === undefined
+        && !screenshotCheckedAt
+        && screenshotReachable === undefined
+        && screenshotStatus === undefined
+        && !screenshotContentType
       ) return []
       return [[key.slice(0, 80), {
         screenshotUrl,
@@ -193,6 +203,10 @@ function cleanVisualProofData(value: unknown): Record<string, unknown> | undefin
         graphSignature,
         nodeCount,
         edgeCount,
+        ...(screenshotCheckedAt ? { screenshotCheckedAt } : {}),
+        ...(screenshotReachable !== undefined ? { screenshotReachable } : {}),
+        ...(screenshotStatus !== undefined ? { screenshotStatus } : {}),
+        ...(screenshotContentType ? { screenshotContentType } : {}),
       } as Record<string, unknown>] as [string, Record<string, unknown>]]
     })
     .slice(0, 8)

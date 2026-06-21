@@ -66,6 +66,10 @@ type CreativeCanvasVisualProofRecord = {
   graphSignature?: string
   nodeCount?: number
   edgeCount?: number
+  screenshotCheckedAt?: string
+  screenshotReachable?: boolean
+  screenshotStatus?: number
+  screenshotContentType?: string
 }
 
 type CreativeCanvasVisualProofDraft = Record<CreativeCanvasVisualProofKey, {
@@ -125,6 +129,19 @@ interface CreativeCanvasApiListResponse {
   data?: {
     canvas?: CreativeCanvas
     canvases?: CreativeCanvas[]
+  }
+}
+
+interface CreativeCanvasProofUrlResponse {
+  success?: boolean
+  error?: string
+  data?: {
+    proof?: {
+      reachable?: boolean
+      status?: number
+      contentType?: string
+      checkedAt?: string
+    }
   }
 }
 
@@ -420,6 +437,10 @@ function getCanvasVisualProof(data: unknown): Partial<Record<CreativeCanvasVisua
     const graphSignature = stringField(record.graphSignature)
     const nodeCount = typeof record.nodeCount === 'number' && Number.isFinite(record.nodeCount) ? record.nodeCount : undefined
     const edgeCount = typeof record.edgeCount === 'number' && Number.isFinite(record.edgeCount) ? record.edgeCount : undefined
+    const screenshotCheckedAt = stringField(record.screenshotCheckedAt)
+    const screenshotReachable = record.screenshotReachable === true
+    const screenshotStatus = typeof record.screenshotStatus === 'number' && Number.isFinite(record.screenshotStatus) ? record.screenshotStatus : undefined
+    const screenshotContentType = stringField(record.screenshotContentType)
     if (
       screenshotUrl
       || notes
@@ -433,6 +454,10 @@ function getCanvasVisualProof(data: unknown): Partial<Record<CreativeCanvasVisua
       || graphSignature
       || nodeCount !== undefined
       || edgeCount !== undefined
+      || screenshotCheckedAt
+      || screenshotReachable
+      || screenshotStatus !== undefined
+      || screenshotContentType
     ) {
       acc[key] = {
         screenshotUrl,
@@ -447,6 +472,10 @@ function getCanvasVisualProof(data: unknown): Partial<Record<CreativeCanvasVisua
         graphSignature,
         nodeCount,
         edgeCount,
+        screenshotCheckedAt,
+        screenshotReachable,
+        screenshotStatus,
+        screenshotContentType,
       }
     }
     return acc
@@ -454,7 +483,18 @@ function getCanvasVisualProof(data: unknown): Partial<Record<CreativeCanvasVisua
 }
 
 function hasSignedInViewportProof(proof: CreativeCanvasVisualProofRecord | undefined): boolean {
-  return Boolean(proof?.screenshotUrl && proof.signedIn && proof.sessionEvidence && proof.viewportSize && proof.visiblePanels)
+  return Boolean(
+    proof?.screenshotUrl
+      && proof.signedIn
+      && proof.sessionEvidence
+      && proof.viewportSize
+      && proof.visiblePanels
+      && proof.screenshotReachable
+      && typeof proof.screenshotStatus === 'number'
+      && proof.screenshotStatus >= 200
+      && proof.screenshotStatus < 400
+      && proof.screenshotContentType?.startsWith('image/'),
+  )
 }
 
 function hasCurrentVisualProofState(
@@ -2098,6 +2138,36 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
       setActivityMessage('Add a screenshot URL or proof note before saving visual proof')
       return
     }
+    let screenshotProof: CreativeCanvasVisualProofRecord = {}
+    if (screenshotUrl) {
+      setSavingVisualProofKey(key)
+      try {
+        const proofResponse = await fetch('/api/v1/creative-canvas/proof-url', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ url: screenshotUrl }),
+        })
+        const proofPayload = await proofResponse.json().catch(() => null) as CreativeCanvasProofUrlResponse | null
+        const proof = proofPayload?.data?.proof
+        if (!proofResponse.ok || !proof?.reachable) {
+          const status = typeof proof?.status === 'number' ? ` (${proof.status})` : ''
+          const contentType = proof?.contentType ? ` · ${proof.contentType}` : ''
+          setActivityMessage(`${proofPayload?.error ?? 'Screenshot proof URL is not a reachable image'}${status}${contentType}`)
+          setSavingVisualProofKey('')
+          return
+        }
+        screenshotProof = {
+          screenshotCheckedAt: proof.checkedAt,
+          screenshotReachable: true,
+          screenshotStatus: proof.status,
+          screenshotContentType: proof.contentType,
+        }
+      } catch {
+        setActivityMessage('Screenshot proof URL check failed')
+        setSavingVisualProofKey('')
+        return
+      }
+    }
     const canvasOrgId = resolvedOrgId || activeCanvas.orgId
     const existingProof = getCanvasVisualProof(activeCanvas.data)
     const nextVisualProof = {
@@ -2116,10 +2186,10 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
         graphSignature: currentGraphSignature,
         nodeCount: nodes.length,
         edgeCount: edges.length,
+        ...screenshotProof,
       },
     }
 
-    setSavingVisualProofKey(key)
     try {
       const response = await fetch(`/api/v1/creative-canvas/${activeCanvas.id}?orgId=${encodeURIComponent(canvasOrgId)}`, {
         method: 'PATCH',
@@ -4646,7 +4716,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
               ) : null}
               {item.proof?.screenshotUrl && item.proof.signedIn && !hasSignedInViewportProof(item.proof) ? (
                 <p className="mt-1 text-[11px] font-semibold text-amber-800">
-                  Add session, viewport, and visible-panel evidence before this counts for mobile parity.
+                  Add session, viewport, visible-panel, and reachable image evidence before this counts for mobile parity.
                 </p>
               ) : null}
               {item.proof?.screenshotUrl && hasSignedInViewportProof(item.proof) && !hasCurrentVisualProofState(item.proof, currentProofGraphState) ? (
@@ -4667,6 +4737,11 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
               {typeof item.proof?.canvasVersion === 'number' || typeof item.proof?.nodeCount === 'number' || typeof item.proof?.edgeCount === 'number' ? (
                 <p className="mt-1 text-[11px] text-amber-800">
                   Canvas state: v{item.proof.canvasVersion ?? 'missing'} · {item.proof.nodeCount ?? 0} nodes · {item.proof.edgeCount ?? 0} links
+                </p>
+              ) : null}
+              {item.proof?.screenshotCheckedAt || item.proof?.screenshotStatus || item.proof?.screenshotContentType ? (
+                <p className="mt-1 text-[11px] text-amber-800">
+                  Proof URL: {item.proof.screenshotReachable ? 'reachable' : 'unverified'}{item.proof.screenshotStatus ? ` · ${item.proof.screenshotStatus}` : ''}{item.proof.screenshotContentType ? ` · ${item.proof.screenshotContentType}` : ''}
                 </p>
               ) : null}
               {item.proof?.screenshotUrl ? (
