@@ -1129,6 +1129,176 @@ describe('CreativeCanvasWorkspace', () => {
     expect(certificationGate).toHaveTextContent('Not world-class certified yet')
   })
 
+  it('does not pass mobile benchmark proof without stored viewport matrix evidence', async () => {
+    const defaultFetch = fetchMock.getMockImplementation()
+    const emptyGraphSignature = JSON.stringify({ nodes: [], edges: [] })
+    const visualProof = {
+      desktop_1440: {
+        screenshotUrl: 'https://proof.example.com/desktop-1440.png',
+        notes: 'Desktop proof.',
+        capturedAt: '2026-06-21T11:00:00.000Z',
+        capturedBy: 'Pip',
+        signedIn: true,
+        sessionEvidence: 'Signed-in admin header visible.',
+        viewportSize: '1440x900',
+        visiblePanels: 'Graph, Sources, Inspector',
+        canvasVersion: 1,
+        graphSignature: emptyGraphSignature,
+        nodeCount: 0,
+        edgeCount: 0,
+        screenshotCheckedAt: '2026-06-21T11:00:00.000Z',
+        screenshotReachable: true,
+        screenshotStatus: 200,
+        screenshotContentType: 'image/png',
+      },
+      tablet_820: {
+        screenshotUrl: 'https://proof.example.com/tablet-820.png',
+        notes: 'Tablet proof.',
+        capturedAt: '2026-06-21T11:01:00.000Z',
+        capturedBy: 'Pip',
+        signedIn: true,
+        sessionEvidence: 'Signed-in admin header visible.',
+        viewportSize: '820x1180',
+        visiblePanels: 'Responsive panel layout',
+        canvasVersion: 1,
+        graphSignature: emptyGraphSignature,
+        nodeCount: 0,
+        edgeCount: 0,
+        screenshotCheckedAt: '2026-06-21T11:01:00.000Z',
+        screenshotReachable: true,
+        screenshotStatus: 200,
+        screenshotContentType: 'image/png',
+      },
+      mobile_390: {
+        screenshotUrl: 'https://proof.example.com/mobile-390.png',
+        notes: 'Mobile proof.',
+        capturedAt: '2026-06-21T11:02:00.000Z',
+        capturedBy: 'Pip',
+        signedIn: true,
+        sessionEvidence: 'Signed-in admin header visible.',
+        viewportSize: '390x844',
+        visiblePanels: 'Canvas panel',
+        canvasVersion: 1,
+        graphSignature: emptyGraphSignature,
+        nodeCount: 0,
+        edgeCount: 0,
+        screenshotCheckedAt: '2026-06-21T11:02:00.000Z',
+        screenshotReachable: true,
+        screenshotStatus: 200,
+        screenshotContentType: 'image/png',
+      },
+      mobile_panels: {
+        screenshotUrl: 'https://proof.example.com/mobile-panels.png',
+        notes: 'Mobile panels proof.',
+        capturedAt: '2026-06-21T11:03:00.000Z',
+        capturedBy: 'Pip',
+        signedIn: true,
+        sessionEvidence: 'Signed-in admin header visible.',
+        viewportSize: '390x844',
+        visiblePanels: 'Canvas, Sources, Inspector panel switcher',
+        canvasVersion: 1,
+        graphSignature: emptyGraphSignature,
+        nodeCount: 0,
+        edgeCount: 0,
+        screenshotCheckedAt: '2026-06-21T11:03:00.000Z',
+        screenshotReachable: true,
+        screenshotStatus: 200,
+        screenshotContentType: 'image/png',
+      },
+    }
+
+    fetchMock.mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      if (url === '/api/v1/creative-canvas?orgId=org-1') {
+        return {
+          ok: true,
+          json: async () => ({
+            success: true,
+            data: {
+              canvases: [{
+                id: 'canvas-1',
+                orgId: 'org-1',
+                title: 'Launch Canvas',
+                purpose: 'Product launch',
+                status: 'draft',
+                activeVersion: 1,
+                linked: { projectId: 'project-1' },
+                data: {
+                  visualProof,
+                  benchmarkProof: {
+                    mobile_behavior: {
+                      proofUrl: 'https://proof.example.com/mobile-behavior.mp4',
+                      notes: 'Mobile proof before viewport matrix metadata was required.',
+                      capturedAt: '2026-06-21T11:04:00.000Z',
+                      capturedBy: 'Pip',
+                      sourceTitle: 'Higgsfield Canvas app route',
+                      sourceUrl: 'https://higgsfield.ai/canvas',
+                      sourceCheckedAt: '2026-06-21T11:04:00.000Z',
+                      sourceSignals: ['Generate', 'Library', 'Profile', 'Canvas'],
+                      higgsfieldUiEvidenceUrl: 'https://higgsfield.ai/canvas',
+                      canvasEvidenceUrl: 'https://proof.example.com/mobile-behavior.mp4',
+                      directComparisonAt: '2026-06-21T11:04:00.000Z',
+                      directComparisonVerdict: 'pass',
+                      directComparisonNotes: 'Mobile behavior looked complete before viewport matrix fields existed.',
+                      canvasVersion: 1,
+                      graphSignature: emptyGraphSignature,
+                      nodeCount: 0,
+                      edgeCount: 0,
+                    },
+                  },
+                },
+                nodes: [],
+                edges: [],
+              }],
+            },
+          }),
+        }
+      }
+      return defaultFetch?.(input, init) ?? {
+        ok: true,
+        json: async () => ({ success: true, data: {} }),
+      }
+    })
+
+    render(<CreativeCanvasWorkspace mode="admin" orgId="org-1" />)
+
+    await screen.findByText('Launch Canvas')
+    const visualProofPanel = screen.getByLabelText(/creative canvas visual qa proof/i)
+    expect(visualProofPanel).toHaveTextContent('4/4 signed-in')
+
+    const benchmarkProof = screen.getByLabelText(/direct higgsfield benchmark proof/i)
+    expect(benchmarkProof).toHaveTextContent('Needs stored signed-in viewport matrix evidence before mobile benchmark proof can pass.')
+    expect(benchmarkProof).toHaveTextContent('0/9 benchmark proven')
+    expect(benchmarkProof).toHaveTextContent('3 ready benchmark categories need stored proof.')
+
+    fireEvent.click(within(benchmarkProof).getByRole('button', { name: /capture ready proofs/i }))
+
+    await waitFor(() => expect(screen.getByText('Captured 3 ready benchmark proofs')).toBeInTheDocument())
+
+    const patchCall = fetchMock.mock.calls.find(([input, init]) => (
+      String(input) === '/api/v1/creative-canvas/canvas-1?orgId=org-1'
+      && init?.method === 'PATCH'
+      && String(init.body).includes('mobile_behavior')
+    ))
+    expect(patchCall).toBeTruthy()
+    const body = JSON.parse(String(patchCall?.[1]?.body ?? '{}')) as {
+      data?: {
+        benchmarkProof?: Record<string, {
+          mobileViewportProofCount?: number
+          mobileViewportRequiredCount?: number
+          mobileViewportProofCapturedAt?: string
+          mobileViewportEvidence?: string
+        }>
+      }
+    }
+    expect(body.data?.benchmarkProof?.mobile_behavior).toMatchObject({
+      mobileViewportProofCount: 4,
+      mobileViewportRequiredCount: 4,
+      mobileViewportProofCapturedAt: expect.any(String),
+      mobileViewportEvidence: expect.stringContaining('4/4 signed-in viewport proofs captured'),
+    })
+  })
+
   it('saves direct Higgsfield benchmark proof evidence', async () => {
     render(<CreativeCanvasWorkspace mode="admin" orgId="org-1" />)
 

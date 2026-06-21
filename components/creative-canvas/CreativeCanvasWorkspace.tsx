@@ -107,6 +107,10 @@ type CreativeCanvasBenchmarkProofRecord = {
   editingLocalEventCount?: number
   editingCapturedAt?: string
   editingEvidence?: string
+  mobileViewportProofCount?: number
+  mobileViewportRequiredCount?: number
+  mobileViewportProofCapturedAt?: string
+  mobileViewportEvidence?: string
   exportArtifactBackedCategoryCount?: number
   exportArtifactBackedCompletedCount?: number
   exportArtifactBackedCapturedAt?: string
@@ -578,6 +582,10 @@ function getCanvasBenchmarkProof(data: unknown): Partial<Record<CreativeCanvasBe
     const editingLocalEventCount = typeof record.editingLocalEventCount === 'number' && Number.isFinite(record.editingLocalEventCount) ? record.editingLocalEventCount : undefined
     const editingCapturedAt = stringField(record.editingCapturedAt)
     const editingEvidence = stringField(record.editingEvidence)
+    const mobileViewportProofCount = typeof record.mobileViewportProofCount === 'number' && Number.isFinite(record.mobileViewportProofCount) ? record.mobileViewportProofCount : undefined
+    const mobileViewportRequiredCount = typeof record.mobileViewportRequiredCount === 'number' && Number.isFinite(record.mobileViewportRequiredCount) ? record.mobileViewportRequiredCount : undefined
+    const mobileViewportProofCapturedAt = stringField(record.mobileViewportProofCapturedAt)
+    const mobileViewportEvidence = stringField(record.mobileViewportEvidence)
     const exportArtifactBackedCategoryCount = typeof record.exportArtifactBackedCategoryCount === 'number' && Number.isFinite(record.exportArtifactBackedCategoryCount) ? record.exportArtifactBackedCategoryCount : undefined
     const exportArtifactBackedCompletedCount = typeof record.exportArtifactBackedCompletedCount === 'number' && Number.isFinite(record.exportArtifactBackedCompletedCount) ? record.exportArtifactBackedCompletedCount : undefined
     const exportArtifactBackedCapturedAt = stringField(record.exportArtifactBackedCapturedAt)
@@ -624,6 +632,10 @@ function getCanvasBenchmarkProof(data: unknown): Partial<Record<CreativeCanvasBe
       || editingLocalEventCount !== undefined
       || editingCapturedAt
       || editingEvidence
+      || mobileViewportProofCount !== undefined
+      || mobileViewportRequiredCount !== undefined
+      || mobileViewportProofCapturedAt
+      || mobileViewportEvidence
       || exportArtifactBackedCategoryCount !== undefined
       || exportArtifactBackedCompletedCount !== undefined
       || exportArtifactBackedCapturedAt
@@ -669,6 +681,10 @@ function getCanvasBenchmarkProof(data: unknown): Partial<Record<CreativeCanvasBe
         editingLocalEventCount,
         editingCapturedAt,
         editingEvidence,
+        mobileViewportProofCount,
+        mobileViewportRequiredCount,
+        mobileViewportProofCapturedAt,
+        mobileViewportEvidence,
         exportArtifactBackedCategoryCount,
         exportArtifactBackedCompletedCount,
         exportArtifactBackedCapturedAt,
@@ -753,6 +769,18 @@ function hasEditingSessionProof(proof: CreativeCanvasBenchmarkProofRecord | unde
       && proof.editingLocalEventCount > 0
       && proof.editingCapturedAt
       && proof.editingEvidence,
+  )
+}
+
+function hasMobileViewportBenchmarkProof(proof: CreativeCanvasBenchmarkProofRecord | undefined): boolean {
+  return Boolean(
+    proof
+      && typeof proof.mobileViewportProofCount === 'number'
+      && typeof proof.mobileViewportRequiredCount === 'number'
+      && proof.mobileViewportRequiredCount >= visualProofConfigs.length
+      && proof.mobileViewportProofCount >= proof.mobileViewportRequiredCount
+      && proof.mobileViewportProofCapturedAt
+      && proof.mobileViewportEvidence,
   )
 }
 
@@ -4499,6 +4527,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
       && hasCurrentCanvasBenchmarkState(proof, currentProofGraphState)
       && (item.key !== 'editing_ergonomics' || hasEditingSessionProof(proof))
       && (item.key !== 'collaboration' || hasCollaborationSessionProof(proof))
+      && (item.key !== 'mobile_behavior' || hasMobileViewportBenchmarkProof(proof))
       && (item.key !== 'export_flows' || hasExportArtifactBackedProof(proof))
       && (item.key !== 'production_reliability' || hasProductionRuntimeProof(proof))
     return {
@@ -4540,6 +4569,14 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
             collaborationEvidence: `${remotePresence.length} remote collaborator${remotePresence.length === 1 ? '' : 's'}; ${remoteActivityCount} remote stream/draft event${remoteActivityCount === 1 ? '' : 's'}; ${latestCollaboratorDraft ? 'collaborator draft present' : 'no collaborator draft'}; ${collaborationStreamConnected ? 'stream connected' : 'poll fallback'}`,
           }
         : {}
+      const mobileViewportProof = item.key === 'mobile_behavior'
+        ? {
+            mobileViewportProofCount: capturedVisualProofCount,
+            mobileViewportRequiredCount: visualProofItems.length,
+            mobileViewportProofCapturedAt: capturedAt,
+            mobileViewportEvidence: `${capturedVisualProofCount}/${visualProofItems.length} signed-in viewport proofs captured against current graph: ${visualProofItems.map((proof) => `${proof.label} ${proof.status}`).join(', ')}`,
+          }
+        : {}
       const exportArtifactProof = item.key === 'export_flows'
         ? {
             exportArtifactBackedCategoryCount: exportArtifactBackedCoverage.length,
@@ -4572,6 +4609,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
         edgeCount: edges.length,
         ...editingSessionProof,
         ...collaborationSessionProof,
+        ...mobileViewportProof,
         ...exportArtifactProof,
         ...productionRuntimeProof,
       }
@@ -5283,6 +5321,9 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
               {item.key === 'editing_ergonomics' && item.proof && !hasEditingSessionProof(item.proof) ? (
                 <p className="mt-1 text-[11px] font-semibold">Needs stored local editing session evidence before editing proof can pass.</p>
               ) : null}
+              {item.key === 'mobile_behavior' && item.proof && !hasMobileViewportBenchmarkProof(item.proof) ? (
+                <p className="mt-1 text-[11px] font-semibold">Needs stored signed-in viewport matrix evidence before mobile benchmark proof can pass.</p>
+              ) : null}
               {item.key === 'export_flows' && item.proof && !hasExportArtifactBackedProof(item.proof) ? (
                 <p className="mt-1 text-[11px] font-semibold">Needs artifact-backed completed export category evidence before export proof can pass.</p>
               ) : null}
@@ -5319,6 +5360,11 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
                   {item.key === 'editing_ergonomics' && item.proof.editingEvidence ? (
                     <p className="mt-1">
                       Editing session: {item.proof.editingLocalEventCount ?? 0} local graph edit{item.proof.editingLocalEventCount === 1 ? '' : 's'}
+                    </p>
+                  ) : null}
+                  {item.key === 'mobile_behavior' && item.proof.mobileViewportEvidence ? (
+                    <p className="mt-1">
+                      Viewport matrix: {item.proof.mobileViewportProofCount ?? 0}/{item.proof.mobileViewportRequiredCount ?? visualProofItems.length} signed-in proofs
                     </p>
                   ) : null}
                   {item.key === 'export_flows' && item.proof.exportArtifactEvidence ? (

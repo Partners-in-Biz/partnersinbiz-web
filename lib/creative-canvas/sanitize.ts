@@ -257,6 +257,14 @@ function cleanBenchmarkProofData(value: unknown): Record<string, unknown> | unde
         : undefined
       const editingCapturedAt = cleanString(item.editingCapturedAt)?.slice(0, 80)
       const editingEvidence = cleanString(item.editingEvidence)?.slice(0, 300)
+      const mobileViewportProofCount = typeof item.mobileViewportProofCount === 'number' && Number.isFinite(item.mobileViewportProofCount)
+        ? Math.max(0, Math.round(item.mobileViewportProofCount))
+        : undefined
+      const mobileViewportRequiredCount = typeof item.mobileViewportRequiredCount === 'number' && Number.isFinite(item.mobileViewportRequiredCount)
+        ? Math.max(0, Math.round(item.mobileViewportRequiredCount))
+        : undefined
+      const mobileViewportProofCapturedAt = cleanString(item.mobileViewportProofCapturedAt)?.slice(0, 80)
+      const mobileViewportEvidence = cleanString(item.mobileViewportEvidence)?.slice(0, 400)
       const exportArtifactBackedCategoryCount = typeof item.exportArtifactBackedCategoryCount === 'number' && Number.isFinite(item.exportArtifactBackedCategoryCount)
         ? Math.max(0, Math.round(item.exportArtifactBackedCategoryCount))
         : undefined
@@ -323,6 +331,10 @@ function cleanBenchmarkProofData(value: unknown): Record<string, unknown> | unde
         && editingLocalEventCount === undefined
         && !editingCapturedAt
         && !editingEvidence
+        && mobileViewportProofCount === undefined
+        && mobileViewportRequiredCount === undefined
+        && !mobileViewportProofCapturedAt
+        && !mobileViewportEvidence
         && exportArtifactBackedCategoryCount === undefined
         && exportArtifactBackedCompletedCount === undefined
         && !exportArtifactBackedCapturedAt
@@ -368,6 +380,10 @@ function cleanBenchmarkProofData(value: unknown): Record<string, unknown> | unde
         ...(editingLocalEventCount !== undefined ? { editingLocalEventCount } : {}),
         ...(editingCapturedAt ? { editingCapturedAt } : {}),
         ...(editingEvidence ? { editingEvidence } : {}),
+        ...(mobileViewportProofCount !== undefined ? { mobileViewportProofCount } : {}),
+        ...(mobileViewportRequiredCount !== undefined ? { mobileViewportRequiredCount } : {}),
+        ...(mobileViewportProofCapturedAt ? { mobileViewportProofCapturedAt } : {}),
+        ...(mobileViewportEvidence ? { mobileViewportEvidence } : {}),
         ...(exportArtifactBackedCategoryCount !== undefined ? { exportArtifactBackedCategoryCount } : {}),
         ...(exportArtifactBackedCompletedCount !== undefined ? { exportArtifactBackedCompletedCount } : {}),
         ...(exportArtifactBackedCapturedAt ? { exportArtifactBackedCapturedAt } : {}),
