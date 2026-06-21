@@ -3765,7 +3765,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
     } finally {
       setSavingBenchmarkProofKey('')
     }
-  }, [activeCanvas, applyCanvasSnapshot, autoSaveEnabled, benchmarkProofDrafts, collaborationActivity, collaborationStreamConnected, comments, currentGraphSignature, edges, latestAgentTaskCreation, latestCollaboratorDraft, nodes, orchestrationPlan.agents.length, orchestrationPlan.blockers.length, orchestrationPlan.steps.length, ownPresenceId, presence, resolvedOrgId, runOperations, runtimeProof, templates, versions])
+  }, [activeCanvas, applyCanvasSnapshot, autoSaveEnabled, benchmarkProofDrafts, collaborationActivity, collaborationStreamConnected, comments, currentGraphSignature, edges, latestAgentTaskCreation, nodes, orchestrationPlan.agents.length, orchestrationPlan.blockers.length, orchestrationPlan.steps.length, ownPresenceId, presence, resolvedOrgId, runOperations, runtimeProof, templates, versions])
 
   const applyRemoteCanvasUpdate = useCallback(async () => {
     if (!remoteCanvasUpdate?.id) return
