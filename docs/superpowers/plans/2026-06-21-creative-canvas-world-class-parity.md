@@ -389,6 +389,7 @@ export function hasStructuredCollaborationProof(proof: CreativeCanvasCollaborati
       && proof.collaborationRemoteTouchedNodeCount <= touchedNodeCount
       && hasText(proof.collaborationRemoteGraphSignature)
       && hasText(proof.collaborationRemoteSource)
+      && proof.collaborationRemoteOutcome !== 'remote_changes_observed'
       && hasText(proof.collaborationRemoteOutcome)
       && hasText(proof.collaborationCapturedAt)
       && hasText(proof.collaborationEvidence),
