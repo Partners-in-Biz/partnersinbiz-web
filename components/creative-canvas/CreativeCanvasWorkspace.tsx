@@ -374,9 +374,9 @@ const benchmarkProofConfigs: Array<{
     key: 'generation_controls',
     label: 'Generation controls',
     benchmark: 'Model, output kind, aspect ratio, variants, duration, motion, style, negative prompt, and image/video/audio dispatch control.',
-    sourceTitle: 'Higgsfield Canvas generation surface',
-    sourceUrl: 'https://higgsfield.ai/canvas',
-    sourceSignals: ['Generate', 'Image', 'Video', 'Audio', 'Canvas'],
+    sourceTitle: 'Higgsfield Canvas current model catalog',
+    sourceUrl: 'https://higgsfield.ai/canvas-intro',
+    sourceSignals: ['Kling 3.0', 'Seedance 2.0', 'Wan 2.7', 'Soul 2.0', 'GPT Image 2.0', 'Veo 3.1', 'NB Pro'],
   },
   {
     key: 'multi_asset_workflows',
@@ -1042,6 +1042,8 @@ const blendControlOptions: Array<{
   { key: 'preserveSubject', label: 'Preserve subject' },
 ]
 
+const requiredHiggsfieldModelLabels = ['Kling 3.0', 'Seedance 2.0', 'Wan 2.7', 'Soul 2.0', 'GPT Image 2.0', 'Veo 3.1', 'NB Pro']
+
 const higgsfieldModelSuggestions: Array<{
   id: string
   label: string
@@ -1062,7 +1064,7 @@ const higgsfieldModelSuggestions: Array<{
   },
   {
     id: 'nano_banana_pro',
-    label: 'Nano Banana Pro',
+    label: 'NB Pro',
     outputKind: 'campaign_asset',
     aspectRatio: '4:5',
     durationSeconds: 0,
@@ -4671,7 +4673,10 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
   const routedModelIds = new Set(parityAuditNodes
     .map((node) => node.provider?.model)
     .filter((model): model is string => Boolean(model)))
-  const supportsBenchmarkModelCatalog = higgsfieldModelSuggestions.length >= 7
+  const availableHiggsfieldModelLabels = new Set(higgsfieldModelSuggestions.map((model) => model.label))
+  const matchedBenchmarkModelLabels = requiredHiggsfieldModelLabels.filter((label) => availableHiggsfieldModelLabels.has(label))
+  const missingBenchmarkModelLabels = requiredHiggsfieldModelLabels.filter((label) => !availableHiggsfieldModelLabels.has(label))
+  const supportsBenchmarkModelCatalog = missingBenchmarkModelLabels.length === 0
   const hasMultiModelRoutingEvidence = routedModelIds.size > 1
   const hasMultiAssetEvidence = sourceLibrary.length > 0
     || canvasAssets.length > 1
@@ -4951,7 +4956,9 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
       status: hasMultiModelRoutingEvidence ? 'passed' : supportsBenchmarkModelCatalog ? 'watch' : 'blocked',
       evidence: hasMultiModelRoutingEvidence
         ? `${routedModelIds.size} models routed in graph`
-        : `${higgsfieldModelSuggestions.length} benchmark model presets ready`,
+        : supportsBenchmarkModelCatalog
+          ? `${matchedBenchmarkModelLabels.length}/${requiredHiggsfieldModelLabels.length} current Higgsfield model presets ready`
+          : `Missing current Higgsfield model presets: ${missingBenchmarkModelLabels.join(', ')}`,
     },
     {
       label: 'Multi-asset workflows',

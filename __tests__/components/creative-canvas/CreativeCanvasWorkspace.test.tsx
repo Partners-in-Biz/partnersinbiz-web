@@ -895,7 +895,7 @@ describe('CreativeCanvasWorkspace', () => {
     expect(parityAudit).toHaveTextContent('Masking / inpainting')
     expect(parityAudit).toHaveTextContent('Generation controls')
     expect(parityAudit).toHaveTextContent('Multi-model routing')
-    expect(parityAudit).toHaveTextContent('8 benchmark model presets ready')
+    expect(parityAudit).toHaveTextContent('7/7 current Higgsfield model presets ready')
     expect(parityAudit).toHaveTextContent('Multi-asset workflows')
     expect(parityAudit).toHaveTextContent('Benchmark workflows')
     expect(parityAudit).toHaveTextContent('8/8 workflow scenarios ready')
@@ -1406,6 +1406,50 @@ describe('CreativeCanvasWorkspace', () => {
     expect(benchmarkProof).toHaveTextContent('Benchmark source: Higgsfield AI Canvas node workflow')
     expect(benchmarkProof).toHaveTextContent('Stored signals: Drop a node, Chain your flow, Connect nodes, Every connection is live')
     expect(within(benchmarkProof).getByRole('link', { name: /open benchmark proof/i })).toHaveAttribute('href', 'https://proof.example.com/editing-ergonomics.mp4')
+  })
+
+  it('stores current Higgsfield model catalog signals for generation benchmark proof', async () => {
+    render(<CreativeCanvasWorkspace mode="admin" orgId="org-1" />)
+
+    expect(await screen.findByText('Launch Canvas')).toBeInTheDocument()
+    fireEvent.change(screen.getByLabelText(/generation controls benchmark proof url/i), {
+      target: { value: 'https://proof.example.com/current-model-catalog.html' },
+    })
+    fireEvent.change(screen.getByLabelText(/generation controls benchmark proof notes/i), {
+      target: { value: 'Current model catalog and generation controls compared against Higgsfield Canvas.' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: /save generation controls proof/i }))
+
+    await waitFor(() => expect(screen.getByText('Saved Generation controls benchmark proof')).toBeInTheDocument())
+
+    const sourceCheckCall = fetchMock.mock.calls.find(([input, init]) => (
+      String(input) === '/api/v1/creative-canvas/proof-url'
+      && init?.method === 'POST'
+      && String(init.body).includes('Kling 3.0')
+    ))
+    expect(sourceCheckCall).toBeTruthy()
+    expect(JSON.parse(String(sourceCheckCall?.[1]?.body ?? '{}'))).toMatchObject({
+      url: 'https://higgsfield.ai/canvas-intro',
+      kind: 'evidence',
+      expectedSignals: ['Kling 3.0', 'Seedance 2.0', 'Wan 2.7', 'Soul 2.0', 'GPT Image 2.0', 'Veo 3.1', 'NB Pro'],
+    })
+
+    const patchCall = fetchMock.mock.calls.find(([input, init]) => (
+      String(input) === '/api/v1/creative-canvas/canvas-1?orgId=org-1'
+      && init?.method === 'PATCH'
+      && String(init.body).includes('generation_controls')
+    ))
+    expect(patchCall).toBeTruthy()
+    const body = JSON.parse(String(patchCall?.[1]?.body ?? '{}')) as {
+      data?: { benchmarkProof?: Record<string, { sourceTitle?: string; sourceUrl?: string; sourceSignals?: string[]; sourceSignalsMatched?: boolean; sourceSignalsMissing?: string[] }> }
+    }
+    expect(body.data?.benchmarkProof?.generation_controls).toMatchObject({
+      sourceTitle: 'Higgsfield Canvas current model catalog',
+      sourceUrl: 'https://higgsfield.ai/canvas-intro',
+      sourceSignalsMatched: true,
+      sourceSignalsMissing: [],
+      sourceSignals: ['Kling 3.0', 'Seedance 2.0', 'Wan 2.7', 'Soul 2.0', 'GPT Image 2.0', 'Veo 3.1', 'NB Pro'],
+    })
   })
 
   it('stores project-linked agent task evidence for AI agent integration benchmark proof', async () => {
@@ -2113,6 +2157,7 @@ describe('CreativeCanvasWorkspace', () => {
     expect(screen.getByRole('button', { name: 'Soul 2.0' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'GPT Image 2.0' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Veo 3.1' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'NB Pro' })).toBeInTheDocument()
 
     fireEvent.click(screen.getByRole('button', { name: 'Veo 3.1' }))
 
