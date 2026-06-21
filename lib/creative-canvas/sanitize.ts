@@ -275,6 +275,12 @@ function cleanBenchmarkProofData(value: unknown): Record<string, unknown> | unde
       const runtimeArtifactBackedCompletedCount = typeof item.runtimeArtifactBackedCompletedCount === 'number' && Number.isFinite(item.runtimeArtifactBackedCompletedCount)
         ? Math.max(0, Math.round(item.runtimeArtifactBackedCompletedCount))
         : undefined
+      const runtimeProviderBackedCategoryCount = typeof item.runtimeProviderBackedCategoryCount === 'number' && Number.isFinite(item.runtimeProviderBackedCategoryCount)
+        ? Math.max(0, Math.round(item.runtimeProviderBackedCategoryCount))
+        : undefined
+      const runtimeProviderBackedCompletedCount = typeof item.runtimeProviderBackedCompletedCount === 'number' && Number.isFinite(item.runtimeProviderBackedCompletedCount)
+        ? Math.max(0, Math.round(item.runtimeProviderBackedCompletedCount))
+        : undefined
       const runtimeActiveRunCount = typeof item.runtimeActiveRunCount === 'number' && Number.isFinite(item.runtimeActiveRunCount)
         ? Math.max(0, Math.round(item.runtimeActiveRunCount))
         : undefined
@@ -289,6 +295,8 @@ function cleanBenchmarkProofData(value: unknown): Record<string, unknown> | unde
         : undefined
       const runtimeProofCapturedAt = cleanString(item.runtimeProofCapturedAt)?.slice(0, 80)
       const runtimeEvidence = cleanString(item.runtimeEvidence)?.slice(0, 400)
+      const runtimeProviderEvidenceCapturedAt = cleanString(item.runtimeProviderEvidenceCapturedAt)?.slice(0, 80)
+      const runtimeProviderEvidence = cleanString(item.runtimeProviderEvidence)?.slice(0, 400)
       if (
         !proofUrl
         && !notes
@@ -323,12 +331,16 @@ function cleanBenchmarkProofData(value: unknown): Record<string, unknown> | unde
         && runtimeReadyForLiveProof === undefined
         && runtimeArtifactBackedCategoryCount === undefined
         && runtimeArtifactBackedCompletedCount === undefined
+        && runtimeProviderBackedCategoryCount === undefined
+        && runtimeProviderBackedCompletedCount === undefined
         && runtimeActiveRunCount === undefined
         && runtimeStaleActiveRunCount === undefined
         && runtimeFailedRunCount === undefined
         && runtimeFailureRatePercent === undefined
         && !runtimeProofCapturedAt
         && !runtimeEvidence
+        && !runtimeProviderEvidenceCapturedAt
+        && !runtimeProviderEvidence
       ) return []
       return [[key.slice(0, 80), {
         proofUrl,
@@ -364,12 +376,16 @@ function cleanBenchmarkProofData(value: unknown): Record<string, unknown> | unde
         ...(runtimeReadyForLiveProof !== undefined ? { runtimeReadyForLiveProof } : {}),
         ...(runtimeArtifactBackedCategoryCount !== undefined ? { runtimeArtifactBackedCategoryCount } : {}),
         ...(runtimeArtifactBackedCompletedCount !== undefined ? { runtimeArtifactBackedCompletedCount } : {}),
+        ...(runtimeProviderBackedCategoryCount !== undefined ? { runtimeProviderBackedCategoryCount } : {}),
+        ...(runtimeProviderBackedCompletedCount !== undefined ? { runtimeProviderBackedCompletedCount } : {}),
         ...(runtimeActiveRunCount !== undefined ? { runtimeActiveRunCount } : {}),
         ...(runtimeStaleActiveRunCount !== undefined ? { runtimeStaleActiveRunCount } : {}),
         ...(runtimeFailedRunCount !== undefined ? { runtimeFailedRunCount } : {}),
         ...(runtimeFailureRatePercent !== undefined ? { runtimeFailureRatePercent } : {}),
         ...(runtimeProofCapturedAt ? { runtimeProofCapturedAt } : {}),
         ...(runtimeEvidence ? { runtimeEvidence } : {}),
+        ...(runtimeProviderEvidenceCapturedAt ? { runtimeProviderEvidenceCapturedAt } : {}),
+        ...(runtimeProviderEvidence ? { runtimeProviderEvidence } : {}),
       } as Record<string, unknown>] as [string, Record<string, unknown>]]
     })
     .slice(0, 12)

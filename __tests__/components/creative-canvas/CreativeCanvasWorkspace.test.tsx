@@ -2254,6 +2254,16 @@ describe('CreativeCanvasWorkspace', () => {
                       graphSignature: emptyGraphSignature,
                       nodeCount: 0,
                       edgeCount: 0,
+                      runtimeProofStatus: 'passed',
+                      runtimeReadyForLiveProof: true,
+                      runtimeArtifactBackedCategoryCount: 5,
+                      runtimeArtifactBackedCompletedCount: 10,
+                      runtimeActiveRunCount: 0,
+                      runtimeStaleActiveRunCount: 0,
+                      runtimeFailedRunCount: 0,
+                      runtimeFailureRatePercent: 0,
+                      runtimeProofCapturedAt: '2026-06-21T10:00:00.000Z',
+                      runtimeEvidence: '5/5 runtime categories passed; 10 artifact-backed completed; 0 active; 0 stale; 0 failed; 0% failure rate; passed runtime proof',
                     },
                   },
                 },
@@ -2321,7 +2331,7 @@ describe('CreativeCanvasWorkspace', () => {
 
     await screen.findByText('Production job coverage')
     const benchmarkProof = screen.getByLabelText(/direct higgsfield benchmark proof/i)
-    expect(benchmarkProof).toHaveTextContent('Needs stored passed runtime snapshot with drained queue and <=10% failure rate before reliability proof can pass.')
+    expect(benchmarkProof).toHaveTextContent('Needs stored passed provider-backed runtime snapshot with drained queue and <=10% failure rate before reliability proof can pass.')
     expect(benchmarkProof).toHaveTextContent('3 ready benchmark categories need stored proof.')
 
     fireEvent.click(within(benchmarkProof).getByRole('button', { name: /capture ready proofs/i }))
@@ -2341,12 +2351,16 @@ describe('CreativeCanvasWorkspace', () => {
           runtimeReadyForLiveProof?: boolean
           runtimeArtifactBackedCategoryCount?: number
           runtimeArtifactBackedCompletedCount?: number
+          runtimeProviderBackedCategoryCount?: number
+          runtimeProviderBackedCompletedCount?: number
           runtimeActiveRunCount?: number
           runtimeStaleActiveRunCount?: number
           runtimeFailedRunCount?: number
           runtimeFailureRatePercent?: number
           runtimeProofCapturedAt?: string
           runtimeEvidence?: string
+          runtimeProviderEvidenceCapturedAt?: string
+          runtimeProviderEvidence?: string
         }>
       }
     }
@@ -2355,12 +2369,16 @@ describe('CreativeCanvasWorkspace', () => {
       runtimeReadyForLiveProof: true,
       runtimeArtifactBackedCategoryCount: 5,
       runtimeArtifactBackedCompletedCount: 10,
+      runtimeProviderBackedCategoryCount: 5,
+      runtimeProviderBackedCompletedCount: 10,
       runtimeActiveRunCount: 0,
       runtimeStaleActiveRunCount: 0,
       runtimeFailedRunCount: 0,
       runtimeFailureRatePercent: 0,
       runtimeProofCapturedAt: expect.any(String),
       runtimeEvidence: expect.stringContaining('5/5 runtime categories passed'),
+      runtimeProviderEvidenceCapturedAt: expect.any(String),
+      runtimeProviderEvidence: expect.stringContaining('5/5 provider-backed'),
     })
   })
 
