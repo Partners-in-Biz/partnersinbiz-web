@@ -104,6 +104,9 @@ type CreativeCanvasBenchmarkProofRecord = {
   collaborationStreamConnected?: boolean
   collaborationCapturedAt?: string
   collaborationEvidence?: string
+  editingLocalEventCount?: number
+  editingCapturedAt?: string
+  editingEvidence?: string
 }
 
 type CreativeCanvasBenchmarkProofDraft = Record<CreativeCanvasBenchmarkProofKey, {
@@ -545,6 +548,9 @@ function getCanvasBenchmarkProof(data: unknown): Partial<Record<CreativeCanvasBe
     const collaborationStreamConnected = record.collaborationStreamConnected === true
     const collaborationCapturedAt = stringField(record.collaborationCapturedAt)
     const collaborationEvidence = stringField(record.collaborationEvidence)
+    const editingLocalEventCount = typeof record.editingLocalEventCount === 'number' && Number.isFinite(record.editingLocalEventCount) ? record.editingLocalEventCount : undefined
+    const editingCapturedAt = stringField(record.editingCapturedAt)
+    const editingEvidence = stringField(record.editingEvidence)
     if (
       proofUrl
       || notes
@@ -568,6 +574,9 @@ function getCanvasBenchmarkProof(data: unknown): Partial<Record<CreativeCanvasBe
       || collaborationStreamConnected
       || collaborationCapturedAt
       || collaborationEvidence
+      || editingLocalEventCount !== undefined
+      || editingCapturedAt
+      || editingEvidence
     ) {
       acc[key] = {
         proofUrl,
@@ -592,6 +601,9 @@ function getCanvasBenchmarkProof(data: unknown): Partial<Record<CreativeCanvasBe
         collaborationStreamConnected,
         collaborationCapturedAt,
         collaborationEvidence,
+        editingLocalEventCount,
+        editingCapturedAt,
+        editingEvidence,
       }
     }
     return acc
@@ -648,6 +660,16 @@ function hasCollaborationSessionProof(proof: CreativeCanvasBenchmarkProofRecord 
       && proof.collaborationRemoteEventCount > 0
       && proof.collaborationCapturedAt
       && proof.collaborationEvidence,
+  )
+}
+
+function hasEditingSessionProof(proof: CreativeCanvasBenchmarkProofRecord | undefined): boolean {
+  return Boolean(
+    proof
+      && typeof proof.editingLocalEventCount === 'number'
+      && proof.editingLocalEventCount > 0
+      && proof.editingCapturedAt
+      && proof.editingEvidence,
   )
 }
 
@@ -2264,7 +2286,15 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
     const capturedAt = new Date().toISOString()
     const currentRemotePresence = presence.filter((item) => item.id !== ownPresenceId)
     const currentRemoteActivityCount = collaborationActivity.filter((event) => event.source === 'stream' || event.source === 'draft').length
+    const currentLocalEditingActivityCount = collaborationActivity.filter((event) => event.source === 'local').length
     const currentRemoteEventProofCount = currentRemoteActivityCount || (latestCollaboratorDraft ? 1 : 0) || (currentRemotePresence.some((item) => item.hasUnsavedGraphChanges) ? 1 : 0)
+    const editingSessionProof = key === 'editing_ergonomics'
+      ? {
+          editingLocalEventCount: currentLocalEditingActivityCount,
+          editingCapturedAt: capturedAt,
+          editingEvidence: `${currentLocalEditingActivityCount} local graph edit${currentLocalEditingActivityCount === 1 ? '' : 's'} captured with edit controls active`,
+        }
+      : {}
     const collaborationSessionProof = key === 'collaboration'
       ? {
           collaborationRemoteActorCount: currentRemotePresence.length,
@@ -2295,6 +2325,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
         graphSignature: currentGraphSignature,
         nodeCount: nodes.length,
         edgeCount: edges.length,
+        ...editingSessionProof,
         ...collaborationSessionProof,
       },
     }
@@ -4279,6 +4310,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
     const proof = benchmarkProofRecords[item.key]
     const proofCaptured = hasSourceBackedBenchmarkProof(proof, item.sourceSignals)
       && hasCurrentCanvasBenchmarkState(proof, currentProofGraphState)
+      && (item.key !== 'editing_ergonomics' || hasEditingSessionProof(proof))
       && (item.key !== 'collaboration' || hasCollaborationSessionProof(proof))
     return {
       ...item,
@@ -4303,6 +4335,13 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
     const proofUrl = benchmarkProofUrl(activeCanvas, canvasOrgId)
     const capturedAt = new Date().toISOString()
     const nextBenchmarkProof = readyBenchmarkProofItems.reduce((acc, item) => {
+      const editingSessionProof = item.key === 'editing_ergonomics'
+        ? {
+            editingLocalEventCount: localEditingActivityCount,
+            editingCapturedAt: capturedAt,
+            editingEvidence: `${localEditingActivityCount} local graph edit${localEditingActivityCount === 1 ? '' : 's'} captured with edit controls active`,
+          }
+        : {}
       const collaborationSessionProof = item.key === 'collaboration'
         ? {
             collaborationRemoteActorCount: remotePresence.length,
@@ -4331,6 +4370,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
         graphSignature: currentGraphSignature,
         nodeCount: nodes.length,
         edgeCount: edges.length,
+        ...editingSessionProof,
         ...collaborationSessionProof,
       }
       return acc
@@ -5038,6 +5078,9 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
               {item.key === 'collaboration' && item.proof && !hasCollaborationSessionProof(item.proof) ? (
                 <p className="mt-1 text-[11px] font-semibold">Needs stored two-user session evidence before collaboration proof can pass.</p>
               ) : null}
+              {item.key === 'editing_ergonomics' && item.proof && !hasEditingSessionProof(item.proof) ? (
+                <p className="mt-1 text-[11px] font-semibold">Needs stored local editing session evidence before editing proof can pass.</p>
+              ) : null}
               <div className="mt-2 rounded-md border border-current/20 bg-white/70 px-2 py-1 text-[11px]">
                 <p className="font-semibold">Current Higgsfield source signals</p>
                 <ul className="mt-1 space-y-0.5">
@@ -5063,6 +5106,11 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
                   {item.key === 'collaboration' && item.proof.collaborationEvidence ? (
                     <p className="mt-1">
                       Collaboration session: {item.proof.collaborationRemoteActorCount ?? 0} remote actor{item.proof.collaborationRemoteActorCount === 1 ? '' : 's'} · {item.proof.collaborationRemoteEventCount ?? 0} remote event{item.proof.collaborationRemoteEventCount === 1 ? '' : 's'} · {item.proof.collaborationStreamConnected ? 'stream connected' : 'poll fallback'}
+                    </p>
+                  ) : null}
+                  {item.key === 'editing_ergonomics' && item.proof.editingEvidence ? (
+                    <p className="mt-1">
+                      Editing session: {item.proof.editingLocalEventCount ?? 0} local graph edit{item.proof.editingLocalEventCount === 1 ? '' : 's'}
                     </p>
                   ) : null}
                   <div className="mt-1 flex flex-wrap gap-2">

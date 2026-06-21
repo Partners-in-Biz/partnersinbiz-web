@@ -252,6 +252,11 @@ function cleanBenchmarkProofData(value: unknown): Record<string, unknown> | unde
       const collaborationStreamConnected = item.collaborationStreamConnected === true ? true : undefined
       const collaborationCapturedAt = cleanString(item.collaborationCapturedAt)?.slice(0, 80)
       const collaborationEvidence = cleanString(item.collaborationEvidence)?.slice(0, 300)
+      const editingLocalEventCount = typeof item.editingLocalEventCount === 'number' && Number.isFinite(item.editingLocalEventCount)
+        ? Math.max(0, Math.round(item.editingLocalEventCount))
+        : undefined
+      const editingCapturedAt = cleanString(item.editingCapturedAt)?.slice(0, 80)
+      const editingEvidence = cleanString(item.editingEvidence)?.slice(0, 300)
       if (
         !proofUrl
         && !notes
@@ -275,6 +280,9 @@ function cleanBenchmarkProofData(value: unknown): Record<string, unknown> | unde
         && collaborationStreamConnected === undefined
         && !collaborationCapturedAt
         && !collaborationEvidence
+        && editingLocalEventCount === undefined
+        && !editingCapturedAt
+        && !editingEvidence
       ) return []
       return [[key.slice(0, 80), {
         proofUrl,
@@ -299,6 +307,9 @@ function cleanBenchmarkProofData(value: unknown): Record<string, unknown> | unde
         ...(collaborationStreamConnected !== undefined ? { collaborationStreamConnected } : {}),
         ...(collaborationCapturedAt ? { collaborationCapturedAt } : {}),
         ...(collaborationEvidence ? { collaborationEvidence } : {}),
+        ...(editingLocalEventCount !== undefined ? { editingLocalEventCount } : {}),
+        ...(editingCapturedAt ? { editingCapturedAt } : {}),
+        ...(editingEvidence ? { editingEvidence } : {}),
       } as Record<string, unknown>] as [string, Record<string, unknown>]]
     })
     .slice(0, 12)

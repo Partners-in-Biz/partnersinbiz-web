@@ -1147,7 +1147,7 @@ describe('CreativeCanvasWorkspace', () => {
     ))
     expect(patchCall).toBeTruthy()
     const body = JSON.parse(String(patchCall?.[1]?.body ?? '{}')) as {
-      data?: { benchmarkProof?: Record<string, { proofUrl?: string; notes?: string; capturedAt?: string; capturedBy?: string; sourceTitle?: string; sourceUrl?: string; sourceCheckedAt?: string; sourceSignals?: string[]; higgsfieldUiEvidenceUrl?: string; canvasEvidenceUrl?: string; directComparisonAt?: string; directComparisonVerdict?: string; directComparisonNotes?: string; canvasVersion?: number; graphSignature?: string; nodeCount?: number; edgeCount?: number; collaborationRemoteActorCount?: number; collaborationRemoteEventCount?: number; collaborationStreamConnected?: boolean; collaborationCapturedAt?: string; collaborationEvidence?: string }> }
+      data?: { benchmarkProof?: Record<string, { proofUrl?: string; notes?: string; capturedAt?: string; capturedBy?: string; sourceTitle?: string; sourceUrl?: string; sourceCheckedAt?: string; sourceSignals?: string[]; higgsfieldUiEvidenceUrl?: string; canvasEvidenceUrl?: string; directComparisonAt?: string; directComparisonVerdict?: string; directComparisonNotes?: string; canvasVersion?: number; graphSignature?: string; nodeCount?: number; edgeCount?: number; editingLocalEventCount?: number; editingCapturedAt?: string; editingEvidence?: string }> }
     }
     expect(body.data?.benchmarkProof?.editing_ergonomics).toMatchObject({
       proofUrl: 'https://proof.example.com/editing-ergonomics.mp4',
@@ -1163,6 +1163,9 @@ describe('CreativeCanvasWorkspace', () => {
       canvasVersion: 1,
       nodeCount: expect.any(Number),
       edgeCount: expect.any(Number),
+      editingLocalEventCount: 0,
+      editingCapturedAt: expect.any(String),
+      editingEvidence: '0 local graph edits captured with edit controls active',
     })
     expect(body.data?.benchmarkProof?.editing_ergonomics?.capturedAt).toEqual(expect.any(String))
     expect(body.data?.benchmarkProof?.editing_ergonomics?.sourceCheckedAt).toEqual(expect.any(String))
@@ -1172,6 +1175,7 @@ describe('CreativeCanvasWorkspace', () => {
     const benchmarkProof = screen.getByLabelText(/direct higgsfield benchmark proof/i)
     expect(benchmarkProof).toHaveTextContent('0/9 benchmark proven')
     expect(benchmarkProof).toHaveTextContent('gap')
+    expect(benchmarkProof).toHaveTextContent('Needs stored local editing session evidence before editing proof can pass.')
     expect(benchmarkProof).toHaveTextContent('Benchmark source: Higgsfield AI Canvas node workflow')
     expect(benchmarkProof).toHaveTextContent('Stored signals: Drop a node, Chain your flow, Connect nodes, Every connection is live')
     expect(within(benchmarkProof).getByRole('link', { name: /open benchmark proof/i })).toHaveAttribute('href', 'https://proof.example.com/editing-ergonomics.mp4')
@@ -1919,6 +1923,29 @@ describe('CreativeCanvasWorkspace', () => {
     const parityAudit = screen.getByLabelText(/higgsfield parity audit/i)
     expect(parityAudit).toHaveTextContent('Live edit activity')
     expect(parityAudit).toHaveTextContent('1 remote graph event')
+
+    fireEvent.change(screen.getByLabelText(/editing ergonomics benchmark proof url/i), {
+      target: { value: 'https://proof.example.com/editing-after-local-edits.mp4' },
+    })
+    fireEvent.change(screen.getByLabelText(/editing ergonomics benchmark proof notes/i), {
+      target: { value: 'Local add and move graph edits captured.' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: /save editing ergonomics proof/i }))
+
+    await waitFor(() => expect(screen.getByText('Saved Editing ergonomics benchmark proof')).toBeInTheDocument())
+    const patchCall = fetchMock.mock.calls.find(([input, init]) => (
+      String(input) === '/api/v1/creative-canvas/canvas-1?orgId=org-1'
+      && init?.method === 'PATCH'
+      && String(init.body).includes('editing-after-local-edits')
+    ))
+    const body = JSON.parse(String(patchCall?.[1]?.body ?? '{}')) as {
+      data?: { benchmarkProof?: Record<string, { editingLocalEventCount?: number; editingCapturedAt?: string; editingEvidence?: string }> }
+    }
+    expect(body.data?.benchmarkProof?.editing_ergonomics).toMatchObject({
+      editingLocalEventCount: 2,
+      editingCapturedAt: expect.any(String),
+      editingEvidence: '2 local graph edits captured with edit controls active',
+    })
   })
 
   it('updates collaborators from the live collaboration stream', async () => {
