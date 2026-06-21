@@ -123,6 +123,51 @@ describe('creative canvas generic draft export API', () => {
     })
   })
 
+  it('rejects draft exports without a real downstream draft id before persisting', async () => {
+    mockGetCreativeCanvas.mockResolvedValueOnce({
+      id: 'canvas-1',
+      orgId: 'org-1',
+      title: 'Launch Canvas',
+      purpose: 'Product launch',
+      linked: {},
+      nodes: [
+        {
+          id: 'source-1',
+          orgId: 'org-1',
+          type: 'source',
+          title: 'Source',
+          position: { x: 0, y: 0 },
+          data: {},
+        },
+        {
+          id: 'output-1',
+          orgId: 'org-1',
+          type: 'output',
+          title: 'Output',
+          position: { x: 0, y: 0 },
+          data: {},
+          review: { status: 'passed', rightsStatus: 'cleared', brandStatus: 'passed', syntheticMediaDisclosure: true },
+          output: { kind: 'image', url: 'https://cdn.example.com/image.png', textPreview: 'Launch image' },
+        },
+      ],
+      edges: [{ id: 'edge-1', orgId: 'org-1', sourceNodeId: 'source-1', targetNodeId: 'output-1' }],
+    })
+    const { POST } = await import('@/app/api/v1/creative-canvas/[id]/exports/draft/route')
+
+    const res = await POST(new NextRequest('http://test.local/api/v1/creative-canvas/canvas-1/exports/draft?orgId=org-1', {
+      method: 'POST',
+      body: JSON.stringify({ nodeId: 'output-1', target: 'campaign_asset' }),
+    }), { params: Promise.resolve({ id: 'canvas-1' }) })
+    const body = await res.json()
+
+    expect(res.status).toBe(400)
+    expect(body).toMatchObject({
+      success: false,
+      error: expect.stringContaining('requires downstream draft id'),
+    })
+    expect(mockAdd).not.toHaveBeenCalled()
+  })
+
   it('persists a multi-asset export package manifest', async () => {
     const { POST } = await import('@/app/api/v1/creative-canvas/[id]/exports/package/route')
 

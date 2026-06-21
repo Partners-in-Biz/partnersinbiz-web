@@ -246,11 +246,10 @@ function downstreamDraftIdForAsset(
   canvas: CreativeCanvas & { id: string },
   node: CreativeCanvasNode,
   target: CreativeCanvasExport['target'],
-): string {
+): string | undefined {
   return cleanString(node.data.downstreamDraftId)
     ?? cleanString(node.data.targetId)
     ?? linkedDownstreamDraftId(canvas, target)
-    ?? `creative-canvas:${canvas.id}:${node.id}:${target}`
 }
 
 export function buildCreativeCanvasExportPackage(input: {
@@ -312,7 +311,7 @@ export function buildCreativeCanvasExportPackage(input: {
       target: asset.target,
       actor: input.actor,
       lineageSourceNodeIds: lineageByOutputNodeId.get(asset.nodeId) ?? [],
-      downstreamDraftId: downstreamDraftIdForAsset(input.canvas, node, asset.target),
+      downstreamDraftId: downstreamDraftIdForAsset(input.canvas, node, asset.target) ?? '',
     })
     return {
       ...draft,

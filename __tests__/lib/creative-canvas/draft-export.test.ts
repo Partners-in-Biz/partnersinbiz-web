@@ -209,7 +209,12 @@ describe('creative canvas generic draft exports', () => {
             position: { x: 0, y: 0 },
             data: {},
           },
-          outputNode({ id: 'output-social', title: 'Social video', output: { ...outputNode().output!, kind: 'social_post_draft' } }),
+          outputNode({
+            id: 'output-social',
+            title: 'Social video',
+            data: { downstreamDraftId: 'social-draft-1' },
+            output: { ...outputNode().output!, kind: 'social_post_draft' },
+          }),
           outputNode({ id: 'output-book', title: 'Book cover', output: { ...outputNode().output!, kind: 'book_artifact' } }),
         ],
         edges: [
@@ -290,6 +295,23 @@ describe('creative canvas generic draft exports', () => {
       expect.objectContaining({ id: 'edge-2', sourceNodeId: 'source-1', targetNodeId: 'output-book' }),
     ])
     expect(pack.payload.guardrails.join(' ')).toContain('Do not publish')
+  })
+
+  it('rejects package exports when assets have no real downstream draft id', () => {
+    expect(() => buildCreativeCanvasExportPackage({
+      canvas: {
+        ...canvas(),
+        linked: {},
+        nodes: [
+          { id: 'source-1', orgId: 'org-1', type: 'source', title: 'Brand source', position: { x: 0, y: 0 }, data: {} },
+          outputNode({ id: 'output-image', title: 'Campaign image', output: { ...outputNode().output!, kind: 'campaign_asset' } }),
+        ],
+        edges: [
+          { id: 'edge-image', orgId: 'org-1', sourceNodeId: 'source-1', targetNodeId: 'output-image' },
+        ],
+      },
+      actor: { uid: 'agent:maya', type: 'agent' },
+    })).toThrow('Creative canvas draft export requires downstream draft id')
   })
 
   it('proves full export coverage for image, video/social, audio, blog/document, and book packages', () => {

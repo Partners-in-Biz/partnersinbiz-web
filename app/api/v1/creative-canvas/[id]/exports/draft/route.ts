@@ -109,12 +109,11 @@ function downstreamDraftIdFrom(
   node: CreativeCanvasNode,
   target: CreativeCanvasExport['target'],
   body: Record<string, unknown>,
-): string {
+): string | undefined {
   return cleanString(body.downstreamDraftId)
     ?? cleanString(node.data.downstreamDraftId)
     ?? cleanString(node.data.targetId)
     ?? linkedDownstreamDraftId(canvas, target)
-    ?? `creative-canvas:${canvas.id}:${node.id}:${target}`
 }
 
 export const POST = withAuth('client', async (req: NextRequest, user: ApiUser, context?: unknown) => {
@@ -142,7 +141,7 @@ export const POST = withAuth('client', async (req: NextRequest, user: ApiUser, c
       target,
       actor: actorFromUser(user),
       lineageSourceNodeIds: sourceLineageFrom(canvas, node, body),
-      downstreamDraftId: downstreamDraftIdFrom(canvas, node, target, body),
+      downstreamDraftId: downstreamDraftIdFrom(canvas, node, target, body) ?? '',
     })
 
     const storedRecord = {

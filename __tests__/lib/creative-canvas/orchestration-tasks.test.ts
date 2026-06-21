@@ -2,6 +2,7 @@ const mockAdd = jest.fn()
 const mockCollection = jest.fn()
 const mockDoc = jest.fn()
 const mockUpdate = jest.fn()
+const mockGet = jest.fn()
 
 jest.mock('@/lib/firebase/admin', () => ({
   adminDb: { collection: mockCollection },
@@ -23,7 +24,8 @@ beforeEach(() => {
     .mockResolvedValueOnce({ id: 'task-model' })
     .mockResolvedValueOnce({ id: 'task-review' })
   mockUpdate.mockResolvedValue(undefined)
-  mockDoc.mockReturnValue({ collection: mockCollection, update: mockUpdate })
+  mockGet.mockResolvedValue({ exists: false, data: jest.fn() })
+  mockDoc.mockReturnValue({ collection: mockCollection, update: mockUpdate, get: mockGet })
   mockCollection.mockReturnValue({ doc: mockDoc, add: mockAdd })
 })
 
@@ -146,6 +148,60 @@ describe('creative canvas orchestration tasks', () => {
         expect.objectContaining({ id: 'model-1', data: expect.objectContaining({ agentTaskIds: ['task-model'] }) }),
         expect.objectContaining({ id: 'review-1', data: expect.objectContaining({ agentTaskIds: ['task-review'] }) }),
       ]),
+    }))
+  })
+
+  it('merges lineage into latest stored canvas nodes without overwriting concurrent node data', async () => {
+    mockAdd.mockReset()
+    mockAdd.mockResolvedValueOnce({ id: 'task-prompt' })
+    mockGet.mockResolvedValueOnce({
+      exists: true,
+      data: jest.fn(() => ({
+        nodes: [{
+          id: 'prompt-1',
+          orgId: 'org-1',
+          type: 'prompt',
+          title: 'UGC prompt updated concurrently',
+          position: { x: 24, y: 48 },
+          data: {
+            agentId: 'maya',
+            requiredOutputs: ['caption'],
+            concurrentMarker: 'preserve-me',
+          },
+        }],
+      })),
+    })
+    const staleCanvas = {
+      id: 'canvas-1',
+      orgId: 'org-1',
+      title: 'Launch Canvas',
+      purpose: 'Launch product',
+      linked: { projectId: 'project-1' },
+      nodes: [{
+        id: 'prompt-1',
+        orgId: 'org-1',
+        type: 'prompt',
+        title: 'Stale UGC prompt',
+        position: { x: 0, y: 0 },
+        data: { agentId: 'maya', requiredOutputs: ['caption'] },
+      }],
+      edges: [],
+    } as CreativeCanvas & { id: string }
+
+    await createCreativeCanvasOrchestrationTasks(staleCanvas, { projectId: 'project-1' }, ACTOR)
+
+    expect(mockUpdate).toHaveBeenCalledWith(expect.objectContaining({
+      nodes: [
+        expect.objectContaining({
+          id: 'prompt-1',
+          title: 'UGC prompt updated concurrently',
+          position: { x: 24, y: 48 },
+          data: expect.objectContaining({
+            concurrentMarker: 'preserve-me',
+            agentTaskIds: ['task-prompt'],
+          }),
+        }),
+      ],
     }))
   })
 

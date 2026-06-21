@@ -75,6 +75,71 @@ function buildTaskInput(canvas: CreativeCanvas & { id: string }, step: CreativeC
   }
 }
 
+function mergeAgentTaskIdsIntoNodes(
+  nodes: CreativeCanvas['nodes'],
+  taskIdsByNodeId: Map<string, string>,
+): { changed: boolean; nodes: CreativeCanvas['nodes'] } {
+  let changed = false
+  const mergedNodes = nodes.map((node) => {
+    const taskId = taskIdsByNodeId.get(node.id)
+    if (!taskId) return node
+    const existingTaskIds = Array.isArray(node.data.agentTaskIds)
+      ? node.data.agentTaskIds.filter((item): item is string => typeof item === 'string' && Boolean(item.trim()))
+      : []
+    const agentTaskIds = Array.from(new Set([...existingTaskIds, taskId]))
+    if (agentTaskIds.length === existingTaskIds.length && agentTaskIds.every((item, index) => item === existingTaskIds[index])) {
+      return node
+    }
+    changed = true
+    return {
+      ...node,
+      data: {
+        ...node.data,
+        agentTaskIds,
+      },
+    }
+  })
+
+  return { changed, nodes: mergedNodes }
+}
+
+async function persistNodeTaskLineage(
+  canvas: CreativeCanvas & { id: string },
+  actor: CreativeCanvasActor,
+  nodeTaskLineage: Array<{ nodeId: string; taskId: string; projectId: string; agentId: string }>,
+): Promise<void> {
+  const taskIdsByNodeId = new Map(nodeTaskLineage.map((item) => [item.nodeId, item.taskId]))
+  const canvasRef = adminDb.collection(CREATIVE_CANVAS_COLLECTION).doc(canvas.id)
+  const updatePayloadForNodes = (nodes: CreativeCanvas['nodes']) => {
+    const merged = mergeAgentTaskIdsIntoNodes(nodes, taskIdsByNodeId)
+    if (!merged.changed) return null
+    return {
+      nodes: merged.nodes,
+      updatedBy: actor.uid,
+      updatedByType: actor.type,
+      updatedAt: FieldValue.serverTimestamp(),
+    }
+  }
+
+  const runTransaction = typeof adminDb.runTransaction === 'function' ? adminDb.runTransaction.bind(adminDb) : null
+  if (runTransaction) {
+    await runTransaction(async (transaction) => {
+      const snap = await transaction.get(canvasRef)
+      const data = snap.exists ? snap.data() : undefined
+      const currentNodes = Array.isArray(data?.nodes) ? data.nodes as CreativeCanvas['nodes'] : canvas.nodes
+      const updatePayload = updatePayloadForNodes(currentNodes)
+      if (updatePayload) transaction.update(canvasRef, updatePayload)
+    })
+    return
+  }
+
+  const snap = await canvasRef.get()
+  const data = snap.exists ? snap.data() : undefined
+  const currentNodes = Array.isArray(data?.nodes) ? data.nodes as CreativeCanvas['nodes'] : canvas.nodes
+  const updatePayload = updatePayloadForNodes(currentNodes)
+  if (updatePayload) await canvasRef.update(updatePayload)
+}
+
 export async function createCreativeCanvasOrchestrationTasks(
   canvas: CreativeCanvas & { id: string },
   input: unknown,
@@ -144,35 +209,7 @@ export async function createCreativeCanvasOrchestrationTasks(
   }
 
   if (nodeTaskLineage.length) {
-    const taskIdsByNodeId = new Map(nodeTaskLineage.map((item) => [item.nodeId, item.taskId]))
-    let changed = false
-    const nodes = canvas.nodes.map((node) => {
-      const taskId = taskIdsByNodeId.get(node.id)
-      if (!taskId) return node
-      const existingTaskIds = Array.isArray(node.data.agentTaskIds)
-        ? node.data.agentTaskIds.filter((item): item is string => typeof item === 'string' && Boolean(item.trim()))
-        : []
-      const agentTaskIds = Array.from(new Set([...existingTaskIds, taskId]))
-      if (agentTaskIds.length === existingTaskIds.length && agentTaskIds.every((item, index) => item === existingTaskIds[index])) {
-        return node
-      }
-      changed = true
-      return {
-        ...node,
-        data: {
-          ...node.data,
-          agentTaskIds,
-        },
-      }
-    })
-    if (changed) {
-      await adminDb.collection(CREATIVE_CANVAS_COLLECTION).doc(canvas.id).update({
-        nodes,
-        updatedBy: actor.uid,
-        updatedByType: actor.type,
-        updatedAt: FieldValue.serverTimestamp(),
-      })
-    }
+    await persistNodeTaskLineage(canvas, actor, nodeTaskLineage)
   }
 
   return { projectId, createdTasks, nodeTaskLineage, skippedSteps }
