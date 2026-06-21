@@ -1431,7 +1431,7 @@ describe('CreativeCanvasWorkspace', () => {
     expect(JSON.parse(String(sourceCheckCall?.[1]?.body ?? '{}'))).toMatchObject({
       url: 'https://higgsfield.ai/canvas-intro',
       kind: 'evidence',
-      expectedSignals: ['Kling 3.0', 'Seedance 2.0', 'Wan 2.7', 'Soul 2.0', 'GPT Image 2.0', 'Veo 3.1', 'NB Pro'],
+      expectedSignals: ['Kling 3.0', 'Seedance 2.0', 'Wan 2.7', 'Soul 2.0', 'GPT Image 2.0', 'Veo 3.1', 'NB Pro', 'Any prompt, image, or reference'],
     })
 
     const patchCall = fetchMock.mock.calls.find(([input, init]) => (
@@ -1441,15 +1441,23 @@ describe('CreativeCanvasWorkspace', () => {
     ))
     expect(patchCall).toBeTruthy()
     const body = JSON.parse(String(patchCall?.[1]?.body ?? '{}')) as {
-      data?: { benchmarkProof?: Record<string, { sourceTitle?: string; sourceUrl?: string; sourceSignals?: string[]; sourceSignalsMatched?: boolean; sourceSignalsMissing?: string[] }> }
+      data?: { benchmarkProof?: Record<string, { sourceTitle?: string; sourceUrl?: string; sourceSignals?: string[]; sourceSignalsMatched?: boolean; sourceSignalsMissing?: string[]; generationModelCount?: number; generationReferenceNodeCount?: number; generationReferenceRoleCount?: number; generationLinkedReferenceCount?: number; generationMultiReferenceCapturedAt?: string; generationMultiReferenceEvidence?: string }> }
     }
     expect(body.data?.benchmarkProof?.generation_controls).toMatchObject({
       sourceTitle: 'Higgsfield Canvas current model catalog',
       sourceUrl: 'https://higgsfield.ai/canvas-intro',
       sourceSignalsMatched: true,
       sourceSignalsMissing: [],
-      sourceSignals: ['Kling 3.0', 'Seedance 2.0', 'Wan 2.7', 'Soul 2.0', 'GPT Image 2.0', 'Veo 3.1', 'NB Pro'],
+      sourceSignals: ['Kling 3.0', 'Seedance 2.0', 'Wan 2.7', 'Soul 2.0', 'GPT Image 2.0', 'Veo 3.1', 'NB Pro', 'Any prompt, image, or reference'],
+      generationModelCount: 0,
+      generationReferenceNodeCount: 0,
+      generationReferenceRoleCount: 0,
+      generationLinkedReferenceCount: 0,
+      generationMultiReferenceCapturedAt: expect.any(String),
+      generationMultiReferenceEvidence: '0/3 linked generation references across 0/3 roles and 0 generation nodes',
     })
+    const benchmarkProof = screen.getByLabelText(/direct higgsfield benchmark proof/i)
+    expect(benchmarkProof).toHaveTextContent('Needs stored three-reference generation routing evidence before generation proof can pass.')
   })
 
   it('stores brush mask session evidence for masking benchmark proof', async () => {

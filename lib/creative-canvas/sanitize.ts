@@ -292,6 +292,20 @@ function cleanBenchmarkProofData(value: unknown): Record<string, unknown> | unde
         : undefined
       const maskingCapturedAt = cleanString(item.maskingCapturedAt)?.slice(0, 80)
       const maskingEvidence = cleanString(item.maskingEvidence)?.slice(0, 400)
+      const generationModelCount = typeof item.generationModelCount === 'number' && Number.isFinite(item.generationModelCount)
+        ? Math.max(0, Math.round(item.generationModelCount))
+        : undefined
+      const generationReferenceNodeCount = typeof item.generationReferenceNodeCount === 'number' && Number.isFinite(item.generationReferenceNodeCount)
+        ? Math.max(0, Math.round(item.generationReferenceNodeCount))
+        : undefined
+      const generationReferenceRoleCount = typeof item.generationReferenceRoleCount === 'number' && Number.isFinite(item.generationReferenceRoleCount)
+        ? Math.max(0, Math.round(item.generationReferenceRoleCount))
+        : undefined
+      const generationLinkedReferenceCount = typeof item.generationLinkedReferenceCount === 'number' && Number.isFinite(item.generationLinkedReferenceCount)
+        ? Math.max(0, Math.round(item.generationLinkedReferenceCount))
+        : undefined
+      const generationMultiReferenceCapturedAt = cleanString(item.generationMultiReferenceCapturedAt)?.slice(0, 80)
+      const generationMultiReferenceEvidence = cleanString(item.generationMultiReferenceEvidence)?.slice(0, 400)
       const agentStepCount = typeof item.agentStepCount === 'number' && Number.isFinite(item.agentStepCount)
         ? Math.max(0, Math.round(item.agentStepCount))
         : undefined
@@ -396,6 +410,12 @@ function cleanBenchmarkProofData(value: unknown): Record<string, unknown> | unde
         && maskingBlendControlCount === undefined
         && !maskingCapturedAt
         && !maskingEvidence
+        && generationModelCount === undefined
+        && generationReferenceNodeCount === undefined
+        && generationReferenceRoleCount === undefined
+        && generationLinkedReferenceCount === undefined
+        && !generationMultiReferenceCapturedAt
+        && !generationMultiReferenceEvidence
         && agentStepCount === undefined
         && agentActorCount === undefined
         && agentTaskCreatedCount === undefined
@@ -469,6 +489,12 @@ function cleanBenchmarkProofData(value: unknown): Record<string, unknown> | unde
         ...(maskingBlendControlCount !== undefined ? { maskingBlendControlCount } : {}),
         ...(maskingCapturedAt ? { maskingCapturedAt } : {}),
         ...(maskingEvidence ? { maskingEvidence } : {}),
+        ...(generationModelCount !== undefined ? { generationModelCount } : {}),
+        ...(generationReferenceNodeCount !== undefined ? { generationReferenceNodeCount } : {}),
+        ...(generationReferenceRoleCount !== undefined ? { generationReferenceRoleCount } : {}),
+        ...(generationLinkedReferenceCount !== undefined ? { generationLinkedReferenceCount } : {}),
+        ...(generationMultiReferenceCapturedAt ? { generationMultiReferenceCapturedAt } : {}),
+        ...(generationMultiReferenceEvidence ? { generationMultiReferenceEvidence } : {}),
         ...(agentStepCount !== undefined ? { agentStepCount } : {}),
         ...(agentActorCount !== undefined ? { agentActorCount } : {}),
         ...(agentTaskCreatedCount !== undefined ? { agentTaskCreatedCount } : {}),

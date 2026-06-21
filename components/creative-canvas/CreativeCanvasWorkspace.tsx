@@ -127,6 +127,12 @@ type CreativeCanvasBenchmarkProofRecord = {
   maskingBlendControlCount?: number
   maskingCapturedAt?: string
   maskingEvidence?: string
+  generationModelCount?: number
+  generationReferenceNodeCount?: number
+  generationReferenceRoleCount?: number
+  generationLinkedReferenceCount?: number
+  generationMultiReferenceCapturedAt?: string
+  generationMultiReferenceEvidence?: string
   agentStepCount?: number
   agentActorCount?: number
   agentTaskCreatedCount?: number
@@ -384,7 +390,7 @@ const benchmarkProofConfigs: Array<{
     benchmark: 'Model, output kind, aspect ratio, variants, duration, motion, style, negative prompt, and image/video/audio dispatch control.',
     sourceTitle: 'Higgsfield Canvas current model catalog',
     sourceUrl: 'https://higgsfield.ai/canvas-intro',
-    sourceSignals: ['Kling 3.0', 'Seedance 2.0', 'Wan 2.7', 'Soul 2.0', 'GPT Image 2.0', 'Veo 3.1', 'NB Pro'],
+    sourceSignals: ['Kling 3.0', 'Seedance 2.0', 'Wan 2.7', 'Soul 2.0', 'GPT Image 2.0', 'Veo 3.1', 'NB Pro', 'Any prompt, image, or reference'],
   },
   {
     key: 'multi_asset_workflows',
@@ -638,6 +644,12 @@ function getCanvasBenchmarkProof(data: unknown): Partial<Record<CreativeCanvasBe
     const maskingBlendControlCount = typeof record.maskingBlendControlCount === 'number' && Number.isFinite(record.maskingBlendControlCount) ? record.maskingBlendControlCount : undefined
     const maskingCapturedAt = stringField(record.maskingCapturedAt)
     const maskingEvidence = stringField(record.maskingEvidence)
+    const generationModelCount = typeof record.generationModelCount === 'number' && Number.isFinite(record.generationModelCount) ? record.generationModelCount : undefined
+    const generationReferenceNodeCount = typeof record.generationReferenceNodeCount === 'number' && Number.isFinite(record.generationReferenceNodeCount) ? record.generationReferenceNodeCount : undefined
+    const generationReferenceRoleCount = typeof record.generationReferenceRoleCount === 'number' && Number.isFinite(record.generationReferenceRoleCount) ? record.generationReferenceRoleCount : undefined
+    const generationLinkedReferenceCount = typeof record.generationLinkedReferenceCount === 'number' && Number.isFinite(record.generationLinkedReferenceCount) ? record.generationLinkedReferenceCount : undefined
+    const generationMultiReferenceCapturedAt = stringField(record.generationMultiReferenceCapturedAt)
+    const generationMultiReferenceEvidence = stringField(record.generationMultiReferenceEvidence)
     const agentStepCount = typeof record.agentStepCount === 'number' && Number.isFinite(record.agentStepCount) ? record.agentStepCount : undefined
     const agentActorCount = typeof record.agentActorCount === 'number' && Number.isFinite(record.agentActorCount) ? record.agentActorCount : undefined
     const agentTaskCreatedCount = typeof record.agentTaskCreatedCount === 'number' && Number.isFinite(record.agentTaskCreatedCount) ? record.agentTaskCreatedCount : undefined
@@ -712,6 +724,12 @@ function getCanvasBenchmarkProof(data: unknown): Partial<Record<CreativeCanvasBe
       || maskingBlendControlCount !== undefined
       || maskingCapturedAt
       || maskingEvidence
+      || generationModelCount !== undefined
+      || generationReferenceNodeCount !== undefined
+      || generationReferenceRoleCount !== undefined
+      || generationLinkedReferenceCount !== undefined
+      || generationMultiReferenceCapturedAt
+      || generationMultiReferenceEvidence
       || agentStepCount !== undefined
       || agentActorCount !== undefined
       || agentTaskCreatedCount !== undefined
@@ -785,6 +803,12 @@ function getCanvasBenchmarkProof(data: unknown): Partial<Record<CreativeCanvasBe
         maskingBlendControlCount,
         maskingCapturedAt,
         maskingEvidence,
+        generationModelCount,
+        generationReferenceNodeCount,
+        generationReferenceRoleCount,
+        generationLinkedReferenceCount,
+        generationMultiReferenceCapturedAt,
+        generationMultiReferenceEvidence,
         agentStepCount,
         agentActorCount,
         agentTaskCreatedCount,
@@ -911,6 +935,74 @@ function hasMaskingSessionProof(proof: CreativeCanvasBenchmarkProofRecord | unde
       && proof.maskingCapturedAt
       && proof.maskingEvidence,
   )
+}
+
+function collectGenerationReferenceEvidence(input: {
+  nodes: CreativeCanvasNode[]
+  edges: CreativeCanvasEdge[]
+}) {
+  const nodesById = new Map(input.nodes.map((node) => [node.id, node]))
+  const generationNodes = input.nodes.filter((node) => (
+    node.provider?.key === 'higgsfield'
+      || node.type === 'model'
+      || (node.edit && ['variation', 'video_motion', 'style_transfer'].includes(node.edit.operation))
+  ))
+  const generationNodeIds = new Set(generationNodes.map((node) => node.id))
+  const linkedReferenceIds = new Set<string>()
+
+  input.edges.forEach((edge) => {
+    if (!generationNodeIds.has(edge.targetNodeId)) return
+    const sourceNode = nodesById.get(edge.sourceNodeId)
+    if (sourceNode?.source) linkedReferenceIds.add(sourceNode.id)
+  })
+  generationNodes.forEach((node) => {
+    node.edit?.references?.forEach((reference) => {
+      const sourceNode = nodesById.get(reference.sourceNodeId)
+      if (sourceNode?.source) linkedReferenceIds.add(sourceNode.id)
+    })
+  })
+
+  const referenceNodes = input.nodes.filter((node) => Boolean(node.source))
+  const linkedReferenceNodes = Array.from(linkedReferenceIds)
+    .map((id) => nodesById.get(id))
+    .filter((node): node is CreativeCanvasNode => Boolean(node?.source))
+  const referenceRoleCount = new Set(linkedReferenceNodes.map((node) => node.source?.referenceRole ?? 'general')).size
+
+  return {
+    generationModelCount: generationNodes.length,
+    generationReferenceNodeCount: referenceNodes.length,
+    generationReferenceRoleCount: referenceRoleCount,
+    generationLinkedReferenceCount: linkedReferenceNodes.length,
+  }
+}
+
+function hasGenerationReferenceProof(proof: CreativeCanvasBenchmarkProofRecord | undefined): boolean {
+  return Boolean(
+    proof
+      && typeof proof.generationModelCount === 'number'
+      && proof.generationModelCount > 0
+      && typeof proof.generationReferenceNodeCount === 'number'
+      && proof.generationReferenceNodeCount >= 3
+      && typeof proof.generationReferenceRoleCount === 'number'
+      && proof.generationReferenceRoleCount >= 3
+      && typeof proof.generationLinkedReferenceCount === 'number'
+      && proof.generationLinkedReferenceCount >= 3
+      && proof.generationMultiReferenceCapturedAt
+      && proof.generationMultiReferenceEvidence,
+  )
+}
+
+function buildGenerationReferenceProofFields(input: {
+  nodes: CreativeCanvasNode[]
+  edges: CreativeCanvasEdge[]
+  capturedAt: string
+}): Pick<CreativeCanvasBenchmarkProofRecord, 'generationModelCount' | 'generationReferenceNodeCount' | 'generationReferenceRoleCount' | 'generationLinkedReferenceCount' | 'generationMultiReferenceCapturedAt' | 'generationMultiReferenceEvidence'> {
+  const evidence = collectGenerationReferenceEvidence(input)
+  return {
+    ...evidence,
+    generationMultiReferenceCapturedAt: input.capturedAt,
+    generationMultiReferenceEvidence: `${evidence.generationLinkedReferenceCount}/3 linked generation reference${evidence.generationLinkedReferenceCount === 1 ? '' : 's'} across ${evidence.generationReferenceRoleCount}/3 role${evidence.generationReferenceRoleCount === 1 ? '' : 's'} and ${evidence.generationModelCount} generation node${evidence.generationModelCount === 1 ? '' : 's'}`,
+  }
 }
 
 function hasAgentOrchestrationProof(proof: CreativeCanvasBenchmarkProofRecord | undefined): boolean {
@@ -2737,6 +2829,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
     ))
     const currentExportArtifactBackedCompletedCount = currentExportArtifactBackedCoverage.reduce((total, category) => total + category.completed, 0)
     const benchmarkAuditNodes = nodes.map((node) => toCanvasNode(node, canvasOrgId))
+    const benchmarkAuditEdges = edges.map((edge) => toCanvasEdge(edge, canvasOrgId))
     const editingSessionProof = key === 'editing_ergonomics'
       ? {
           editingLocalEventCount: currentLocalEditingActivityCount,
@@ -2746,6 +2839,9 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
       : {}
     const maskingSessionProof = key === 'masking_inpainting'
       ? buildMaskingSessionProofFields({ nodes: benchmarkAuditNodes, capturedAt })
+      : {}
+    const generationReferenceProof = key === 'generation_controls'
+      ? buildGenerationReferenceProofFields({ nodes: benchmarkAuditNodes, edges: benchmarkAuditEdges, capturedAt })
       : {}
     const collaborationSessionProof = key === 'collaboration'
       ? {
@@ -2828,6 +2924,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
         edgeCount: edges.length,
         ...editingSessionProof,
         ...maskingSessionProof,
+        ...generationReferenceProof,
         ...collaborationSessionProof,
         ...agentOrchestrationProof,
         ...mobileViewportProof,
@@ -2861,7 +2958,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
     } finally {
       setSavingBenchmarkProofKey('')
     }
-  }, [activeCanvas, applyCanvasSnapshot, benchmarkProofDrafts, collaborationActivity, collaborationStreamConnected, currentGraphSignature, edges.length, latestAgentTaskCreation, latestCollaboratorDraft, nodes, orchestrationPlan.agents.length, orchestrationPlan.blockers.length, orchestrationPlan.steps.length, ownPresenceId, presence, resolvedOrgId, runOperations, runtimeProof])
+  }, [activeCanvas, applyCanvasSnapshot, benchmarkProofDrafts, collaborationActivity, collaborationStreamConnected, currentGraphSignature, edges, latestAgentTaskCreation, latestCollaboratorDraft, nodes, orchestrationPlan.agents.length, orchestrationPlan.blockers.length, orchestrationPlan.steps.length, ownPresenceId, presence, resolvedOrgId, runOperations, runtimeProof])
 
   const applyRemoteCanvasUpdate = useCallback(async () => {
     if (!remoteCanvasUpdate?.id) return
@@ -4767,6 +4864,14 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
     && maskingBlendControlCount >= 3
   const hasGenerationEvidence = parityAuditNodes.some((node) => node.provider?.key === 'higgsfield' || node.type === 'model')
     && Boolean(runModel && runOutputKind && runAspectRatio && runVariantCount)
+  const generationReferenceEvidence = collectGenerationReferenceEvidence({
+    nodes: parityAuditNodes,
+    edges: edges.map((edge) => toCanvasEdge(edge, resolvedOrgId || activeCanvas?.orgId || 'pending-org')),
+  })
+  const hasGenerationMultiReferenceEvidence = generationReferenceEvidence.generationModelCount > 0
+    && generationReferenceEvidence.generationReferenceNodeCount >= 3
+    && generationReferenceEvidence.generationReferenceRoleCount >= 3
+    && generationReferenceEvidence.generationLinkedReferenceCount >= 3
   const routedModelIds = new Set(parityAuditNodes
     .map((node) => node.provider?.model)
     .filter((model): model is string => Boolean(model)))
@@ -4835,7 +4940,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
   const benchmarkSignals: Record<CreativeCanvasBenchmarkProofKey, boolean> = {
     editing_ergonomics: hasEditingEvidence,
     masking_inpainting: hasMaskEvidence,
-    generation_controls: hasGenerationEvidence && hasMultiModelRoutingEvidence,
+    generation_controls: hasGenerationEvidence && hasMultiModelRoutingEvidence && hasGenerationMultiReferenceEvidence,
     multi_asset_workflows: hasMultiAssetEvidence && graphBenchmarkScenarioCount > 0,
     versioning_polish: hasVersionEvidence,
     collaboration: hasCollaborationEvidence && hasRemoteLiveEditEvidence,
@@ -4850,6 +4955,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
       && hasCurrentCanvasBenchmarkState(proof, currentProofGraphState)
       && (item.key !== 'editing_ergonomics' || hasEditingSessionProof(proof))
       && (item.key !== 'masking_inpainting' || hasMaskingSessionProof(proof))
+      && (item.key !== 'generation_controls' || hasGenerationReferenceProof(proof))
       && (item.key !== 'collaboration' || hasCollaborationSessionProof(proof))
       && (item.key !== 'agent_orchestration' || hasAgentOrchestrationProof(proof))
       && (item.key !== 'mobile_behavior' || hasMobileViewportBenchmarkProof(proof))
@@ -4932,6 +5038,9 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
       const maskingSessionProof = item.key === 'masking_inpainting'
         ? buildMaskingSessionProofFields({ nodes: parityAuditNodes, capturedAt })
         : {}
+      const generationReferenceProof = item.key === 'generation_controls'
+        ? buildGenerationReferenceProofFields({ nodes: parityAuditNodes, edges: edges.map((edge) => toCanvasEdge(edge, canvasOrgId)), capturedAt })
+        : {}
       const collaborationSessionProof = item.key === 'collaboration'
         ? {
             collaborationRemoteActorCount: remotePresence.length,
@@ -4995,6 +5104,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
         edgeCount: edges.length,
         ...editingSessionProof,
         ...maskingSessionProof,
+        ...generationReferenceProof,
         ...collaborationSessionProof,
         ...agentOrchestrationProof,
         ...mobileViewportProof,
@@ -5054,8 +5164,10 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
     },
     {
       label: 'Generation controls',
-      status: hasGenerationEvidence ? 'passed' : 'watch',
-      evidence: hasGenerationEvidence ? `${runModel} · ${runOutputKind} · ${runAspectRatio}` : 'Model, output, and format controls need selection',
+      status: hasGenerationEvidence && hasGenerationMultiReferenceEvidence ? 'passed' : hasGenerationEvidence ? 'watch' : 'watch',
+      evidence: hasGenerationEvidence
+        ? `${runModel} · ${runOutputKind} · ${runAspectRatio} · ${generationReferenceEvidence.generationLinkedReferenceCount}/3 linked refs · ${generationReferenceEvidence.generationReferenceRoleCount}/3 roles`
+        : 'Model, output, format, and three linked reference controls need selection',
     },
     {
       label: 'Multi-model routing',
@@ -5752,6 +5864,9 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
               {item.key === 'masking_inpainting' && item.proof && !hasMaskingSessionProof(item.proof) ? (
                 <p className="mt-1 text-[11px] font-semibold">Needs stored brush mask, prompt, intent, and blend-control evidence before masking proof can pass.</p>
               ) : null}
+              {item.key === 'generation_controls' && item.proof && !hasGenerationReferenceProof(item.proof) ? (
+                <p className="mt-1 text-[11px] font-semibold">Needs stored three-reference generation routing evidence before generation proof can pass.</p>
+              ) : null}
               {item.key === 'agent_orchestration' && item.proof && !hasAgentOrchestrationProof(item.proof) ? (
                 <p className="mt-1 text-[11px] font-semibold">Needs stored project-linked agent task evidence before AI agent integration proof can pass.</p>
               ) : null}
@@ -5817,6 +5932,11 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
                   {item.key === 'masking_inpainting' && item.proof.maskingEvidence ? (
                     <p className="mt-1">
                       Masking session: {item.proof.maskingEditNodeCount ?? 0} edit node{item.proof.maskingEditNodeCount === 1 ? '' : 's'} · {item.proof.maskingBrushStrokeCount ?? 0} brush stroke{item.proof.maskingBrushStrokeCount === 1 ? '' : 's'} · {item.proof.maskingBlendControlCount ?? 0} blend control{item.proof.maskingBlendControlCount === 1 ? '' : 's'}
+                    </p>
+                  ) : null}
+                  {item.key === 'generation_controls' && item.proof.generationMultiReferenceEvidence ? (
+                    <p className="mt-1">
+                      Generation references: {item.proof.generationLinkedReferenceCount ?? 0}/3 linked · {item.proof.generationReferenceRoleCount ?? 0}/3 roles · {item.proof.generationModelCount ?? 0} generation node{item.proof.generationModelCount === 1 ? '' : 's'}
                     </p>
                   ) : null}
                   {item.key === 'agent_orchestration' && item.proof.agentEvidence ? (
