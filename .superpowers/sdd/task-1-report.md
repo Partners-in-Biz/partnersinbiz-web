@@ -102,3 +102,32 @@ Commit created for the fix:
 ```bash
 fix(canvas): harden parity proof contracts
 ```
+
+## Review Fix Addendum 2
+
+Date: 2026-06-21
+Base commit under review: `ffbac500`
+
+Fixed remaining review findings in Task 1 owned files only:
+
+- Bound mobile proof to the current canvas contract so proof now requires `orgId`, `canvasVersion`, `graphSignature`, `nodeCount`, and `edgeCount`
+- Hardened world-class certification contracts so `passed` requires a valid current binding plus explicit signed-in Preview and KB certification artifacts with evidence strings and artifact references
+- Added positive and negative regression coverage for bound mobile proof and bound certification proof
+
+Verification commands:
+
+```bash
+npx jest __tests__/lib/creative-canvas/parity-proof.test.ts --runInBand
+npm run typecheck
+```
+
+Verification results:
+
+- Focused Jest passed: 1 suite, 15 tests
+- Typecheck passed
+
+Commit created for the fix:
+
+```bash
+fix(canvas): bind mobile and certification proof
+```

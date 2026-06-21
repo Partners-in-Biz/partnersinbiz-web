@@ -1,10 +1,13 @@
 import type {
   CreativeCanvasCategoryEvidence,
+  CreativeCanvasCertificationArtifactEvidence,
   CreativeCanvasCollaborationProofEvidence,
+  CreativeCanvasKnowledgeBaseCertificationEvidence,
+  CreativeCanvasMobileProof,
   CreativeCanvasMobileViewportEvidence,
   CreativeCanvasProofCategoryKey,
   CreativeCanvasProofBinding,
-  CreativeCanvasProofStatus,
+  CreativeCanvasWorldClassCertificationInput,
   CreativeCanvasWorldClassCertification,
 } from './types'
 
@@ -96,19 +99,17 @@ export function hasStructuredCollaborationProof(
   )
 }
 
-export function hasStructuredMobileProof(proof: {
-  mobileViewportProofCount?: number
-  mobileViewportRequiredCount?: number
-  mobileViewportProofCapturedAt?: string
-  mobileViewportEvidence?: string
-  mobileViewportBehaviorEvidence?: CreativeCanvasMobileViewportEvidence[]
-} | undefined): boolean {
+export function hasStructuredMobileProof(
+  proof: CreativeCanvasMobileProof | undefined,
+  current?: CreativeCanvasProofBinding,
+): boolean {
   if (!proof) return false
   const evidence = Array.isArray(proof.mobileViewportBehaviorEvidence) ? proof.mobileViewportBehaviorEvidence : []
   const covered = new Set(evidence.map((item) => item.key))
 
   return Boolean(
-    typeof proof.mobileViewportProofCount === 'number'
+    hasCurrentCanvasBinding(proof, current)
+      && typeof proof.mobileViewportProofCount === 'number'
       && typeof proof.mobileViewportRequiredCount === 'number'
       && proof.mobileViewportRequiredCount >= requiredViewportKeys.length
       && proof.mobileViewportProofCount >= proof.mobileViewportRequiredCount
@@ -162,24 +163,48 @@ export function hasDurableCategoryEvidence(proof: {
   })
 }
 
-export function buildWorldClassCertification(input: {
-  benchmarkProofs: Array<{ key: string; passed: boolean; evidence?: string }>
-  runtimeProof?: { status: CreativeCanvasProofStatus; readyForLiveProof?: boolean }
-  liveProofArtifacts: string[]
-  requiredBenchmarkCount: number
-  capturedAt: string
-  currentBinding?: CreativeCanvasProofBinding
-  signedInPreviewProofPassed?: boolean
-  signedInPreviewProofEvidence?: string
-  kbCertificationRecorded?: boolean
-  kbCertificationEvidence?: string
-}): CreativeCanvasWorldClassCertification {
+function hasCertificationArtifactEvidence(
+  proof: CreativeCanvasCertificationArtifactEvidence | undefined,
+  current?: CreativeCanvasProofBinding,
+): boolean {
+  return Boolean(
+    proof
+      && hasCurrentCanvasBinding(proof, current)
+      && proof.passed === true
+      && hasText(proof.evidence)
+      && hasText(proof.artifactRef)
+      && hasText(proof.capturedAt),
+  )
+}
+
+function hasKbCertificationEvidence(
+  proof: CreativeCanvasKnowledgeBaseCertificationEvidence | undefined,
+  current?: CreativeCanvasProofBinding,
+): boolean {
+  return Boolean(
+    proof
+      && hasCurrentCanvasBinding(proof, current)
+      && proof.recorded === true
+      && hasText(proof.evidence)
+      && hasText(proof.artifactRef)
+      && hasText(proof.capturedAt),
+  )
+}
+
+export function buildWorldClassCertification(input: CreativeCanvasWorldClassCertificationInput): CreativeCanvasWorldClassCertification {
   const blockers: string[] = []
   const warnings: string[] = []
   const passedBenchmarks = input.benchmarkProofs.filter((item) => item.passed)
+  const currentBindingValid = hasCurrentCanvasBinding(input.currentBinding)
+  const signedInPreviewProofValid = hasCertificationArtifactEvidence(input.signedInPreviewProof, input.currentBinding)
+  const kbCertificationValid = hasKbCertificationEvidence(input.kbCertification, input.currentBinding)
 
   if (passedBenchmarks.length < input.requiredBenchmarkCount) {
     blockers.push(`Missing ${input.requiredBenchmarkCount - passedBenchmarks.length} source-backed benchmark proofs.`)
+  }
+
+  if (!currentBindingValid) {
+    blockers.push('Current canvas binding is missing or invalid.')
   }
 
   if (input.runtimeProof?.status !== 'passed' || input.runtimeProof.readyForLiveProof !== true) {
@@ -190,19 +215,23 @@ export function buildWorldClassCertification(input: {
     blockers.push('Signed-in live proof artifacts are incomplete.')
   }
 
-  if (input.signedInPreviewProofPassed !== true) {
+  if (input.signedInPreviewProof?.passed !== true) {
     blockers.push('Signed-in Vercel Preview proof is missing or failed.')
+  } else if (!signedInPreviewProofValid) {
+    blockers.push('Signed-in Vercel Preview proof evidence is incomplete.')
   }
 
-  if (input.kbCertificationRecorded !== true) {
+  if (input.kbCertification?.recorded !== true) {
     blockers.push('KB-recorded certification artifact is missing.')
+  } else if (!kbCertificationValid) {
+    blockers.push('KB-recorded certification evidence is incomplete.')
   }
 
   const passedGateCount = input.requiredBenchmarkCount - Math.max(0, input.requiredBenchmarkCount - passedBenchmarks.length)
     + (input.runtimeProof?.status === 'passed' && input.runtimeProof.readyForLiveProof ? 1 : 0)
     + Math.min(input.liveProofArtifacts.length, 4)
-    + (input.signedInPreviewProofPassed === true ? 1 : 0)
-    + (input.kbCertificationRecorded === true ? 1 : 0)
+    + (signedInPreviewProofValid ? 1 : 0)
+    + (kbCertificationValid ? 1 : 0)
   const requiredGateCount = input.requiredBenchmarkCount + 7
 
   return {
@@ -217,11 +246,17 @@ export function buildWorldClassCertification(input: {
     requiredGateCount,
     blockers,
     warnings,
+    signedInPreviewProofPassed: signedInPreviewProofValid,
+    signedInPreviewProofEvidence: input.signedInPreviewProof?.evidence,
+    signedInPreviewProofArtifactRef: input.signedInPreviewProof?.artifactRef,
+    kbCertificationRecorded: kbCertificationValid,
+    kbCertificationEvidence: input.kbCertification?.evidence,
+    kbCertificationArtifactRef: input.kbCertification?.artifactRef,
     evidence: [
       `${passedBenchmarks.length}/${input.requiredBenchmarkCount} benchmark proofs passed.`,
       `${input.liveProofArtifacts.length}/4 live proof artifacts captured.`,
-      ...(input.signedInPreviewProofEvidence && input.signedInPreviewProofPassed ? [input.signedInPreviewProofEvidence] : []),
-      ...(input.kbCertificationEvidence && input.kbCertificationRecorded ? [input.kbCertificationEvidence] : []),
+      ...(signedInPreviewProofValid && input.signedInPreviewProof?.evidence ? [input.signedInPreviewProof.evidence] : []),
+      ...(kbCertificationValid && input.kbCertification?.evidence ? [input.kbCertification.evidence] : []),
       ...passedBenchmarks.map((item) => item.evidence).filter(hasText),
     ],
   }

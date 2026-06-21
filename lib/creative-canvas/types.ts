@@ -644,6 +644,14 @@ export interface CreativeCanvasMobileViewportEvidence {
   capturedAt: string
 }
 
+export interface CreativeCanvasMobileProof extends CreativeCanvasProofBinding {
+  mobileViewportProofCount?: number
+  mobileViewportRequiredCount?: number
+  mobileViewportProofCapturedAt?: string
+  mobileViewportEvidence?: string
+  mobileViewportBehaviorEvidence?: CreativeCanvasMobileViewportEvidence[]
+}
+
 export interface CreativeCanvasCategoryEvidence extends CreativeCanvasProofBinding {
   categoryKey: CreativeCanvasProofCategoryKey
   runIds: string[]
@@ -661,19 +669,45 @@ export interface CreativeCanvasCategoryEvidence extends CreativeCanvasProofBindi
   evidence: string
 }
 
-export interface CreativeCanvasWorldClassCertification {
+export interface CreativeCanvasCertificationArtifactEvidence extends CreativeCanvasProofBinding {
+  passed: boolean
+  evidence?: string
+  artifactRef?: string
+  capturedAt?: string
+}
+
+export interface CreativeCanvasKnowledgeBaseCertificationEvidence extends CreativeCanvasProofBinding {
+  recorded: boolean
+  evidence?: string
+  artifactRef?: string
+  capturedAt?: string
+}
+
+export interface CreativeCanvasWorldClassCertificationInput {
+  benchmarkProofs: Array<{ key: string; passed: boolean; evidence?: string }>
+  runtimeProof?: { status: CreativeCanvasProofStatus; readyForLiveProof?: boolean }
+  liveProofArtifacts: string[]
+  requiredBenchmarkCount: number
+  capturedAt: string
+  currentBinding?: CreativeCanvasProofBinding
+  signedInPreviewProof?: CreativeCanvasCertificationArtifactEvidence
+  kbCertification?: CreativeCanvasKnowledgeBaseCertificationEvidence
+}
+
+export interface CreativeCanvasWorldClassCertification extends Partial<CreativeCanvasProofBinding> {
   status: CreativeCanvasProofStatus
   capturedAt: string
-  orgId?: string
-  canvasVersion?: number
-  graphSignature?: string
-  nodeCount?: number
-  edgeCount?: number
   passedGateCount: number
   requiredGateCount: number
   blockers: string[]
   warnings: string[]
   evidence: string[]
+  signedInPreviewProofPassed: boolean
+  signedInPreviewProofEvidence?: string
+  signedInPreviewProofArtifactRef?: string
+  kbCertificationRecorded: boolean
+  kbCertificationEvidence?: string
+  kbCertificationArtifactRef?: string
 }
 
 export type CreativeCanvasAssetOrigin = 'source_node' | 'output_node' | 'run_output'
