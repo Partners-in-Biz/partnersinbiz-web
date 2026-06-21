@@ -24,6 +24,14 @@ jest.mock('@/lib/creative-canvas/agent-bridge', () => ({
   buildCreativeCanvasAgentTask: mockBuildCreativeCanvasAgentTask,
 }))
 
+// Credit metering: default to no configured limit (always allowed) so the
+// generation flow under test is unchanged; record usage is a no-op here.
+jest.mock('@/lib/creative-canvas/credits', () => ({
+  getCanvasCredits: jest.fn(async (orgId: string) => ({ orgId, used: 0, limit: null, updatedAt: null })),
+  hasSufficientCredits: jest.fn(() => true),
+  recordCanvasCreditUsage: jest.fn(async () => undefined),
+}))
+
 // Keep the real InlineNotSupportedError class so `instanceof` works, but mock generateInline.
 jest.mock('@/lib/creative-canvas/inline-generation', () => {
   const actual = jest.requireActual('@/lib/creative-canvas/inline-generation')
@@ -175,5 +183,23 @@ describe('creative canvas run generate API', () => {
     expect(mockGenerateInline).not.toHaveBeenCalled()
     expect(res.status).toBe(404)
     expect(body).toMatchObject({ success: false, error: 'Creative canvas not found' })
+  })
+
+  it('blocks generation with 402 when the org is over its credit limit', async () => {
+    const { POST } = await import('@/app/api/v1/creative-canvas/[id]/runs/generate/route')
+    const credits = await import('@/lib/creative-canvas/credits')
+    mockGetCreativeCanvas.mockResolvedValue(CANVAS)
+    ;(credits.hasSufficientCredits as jest.Mock).mockReturnValueOnce(false)
+
+    const res = await POST(new NextRequest('http://test.local/api/v1/creative-canvas/canvas-1/runs/generate?orgId=org-1', {
+      method: 'POST',
+      body: JSON.stringify({ nodeId: 'source-1', model: 'grok-image', prompt: 'x' }),
+    }), { params: Promise.resolve({ id: 'canvas-1' }) })
+    const body = await res.json()
+
+    expect(mockCreateCreativeCanvasRun).not.toHaveBeenCalled()
+    expect(mockGenerateInline).not.toHaveBeenCalled()
+    expect(res.status).toBe(402)
+    expect(body).toMatchObject({ success: false, error: 'Insufficient creative canvas credits' })
   })
 })

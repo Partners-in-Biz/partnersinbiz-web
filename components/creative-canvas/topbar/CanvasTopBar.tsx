@@ -20,6 +20,7 @@ interface CanvasTopBarProps {
   onHome?: () => void
   immersive?: boolean
   onToggleImmersive?: () => void
+  creditsLabel?: string
 }
 
 function barButton(active = false): React.CSSProperties {
@@ -57,6 +58,7 @@ export default function CanvasTopBar({
   onHome,
   immersive,
   onToggleImmersive,
+  creditsLabel,
 }: CanvasTopBarProps) {
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(title)
@@ -168,6 +170,14 @@ export default function CanvasTopBar({
           />
           Auto-save versions
         </label>
+        {creditsLabel ? (
+          <span
+            title="Creative Canvas credits used"
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 4, height: 34, padding: '0 10px', borderRadius: 9, border: `1px solid ${canvasTheme.border}`, background: canvasTheme.surface, color: canvasTheme.accent, fontSize: 13, fontWeight: 700 }}
+          >
+            ✦ {creditsLabel}
+          </span>
+        ) : null}
         {onToggleImmersive ? (
           <button type="button" onClick={onToggleImmersive} style={barButton(immersive)} title={immersive ? 'Show dashboard' : 'Immersive canvas'}>
             {immersive ? '⛶ Canvas' : '▦ Dashboard'}

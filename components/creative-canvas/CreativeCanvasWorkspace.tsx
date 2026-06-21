@@ -2690,6 +2690,27 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
     }
   }, [activeCanvas?.id, activeCanvas?.orgId, applyCanvasSnapshot, resolvedOrgId])
 
+  const [canvasCredits, setCanvasCredits] = useState<{ used: number; limit: number | null } | null>(null)
+
+  const loadCanvasCredits = useCallback(async () => {
+    const canvasOrgId = resolvedOrgId || activeCanvas?.orgId || ''
+    if (!canvasOrgId) return
+    try {
+      const response = await fetch(`/api/v1/creative-canvas/credits?orgId=${encodeURIComponent(canvasOrgId)}`)
+      const payload = await response.json().catch(() => null) as { data?: { credits?: { used?: number; limit?: number | null } } } | null
+      const credits = payload?.data?.credits
+      if (response.ok && credits) {
+        setCanvasCredits({ used: Number(credits.used ?? 0), limit: credits.limit ?? null })
+      }
+    } catch {
+      /* non-fatal */
+    }
+  }, [activeCanvas?.orgId, resolvedOrgId])
+
+  useEffect(() => {
+    void loadCanvasCredits()
+  }, [loadCanvasCredits, activeCanvas?.id])
+
   const renameActiveCanvas = useCallback(async (nextTitle: string) => {
     if (!activeCanvas?.id) return
     const canvasOrgId = resolvedOrgId || activeCanvas.orgId || ''
@@ -3935,8 +3956,9 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
         next.delete(nodeId)
         return next
       })
+      void loadCanvasCredits()
     }
-  }, [activeCanvas?.id, activeCanvas?.orgId, applyCanvasSnapshot, mode, nodes, reloadActiveCanvas, resolvedOrgId, runAspectRatio, runDurationSeconds, runGenerateAudio, runModel, runQuality, runVariantCount])
+  }, [activeCanvas?.id, activeCanvas?.orgId, applyCanvasSnapshot, loadCanvasCredits, mode, nodes, reloadActiveCanvas, resolvedOrgId, runAspectRatio, runDurationSeconds, runGenerateAudio, runModel, runQuality, runVariantCount])
 
   useEffect(() => {
     nodeActionRefs.current = {
@@ -5068,6 +5090,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
         onHome={() => setShowLanding(true)}
         immersive={immersiveCanvas}
         onToggleImmersive={() => setImmersiveCanvas((value) => !value)}
+        creditsLabel={canvasCredits ? `${canvasCredits.used}${canvasCredits.limit != null ? `/${canvasCredits.limit}` : ''}` : undefined}
       />
 
       {topBarPanel ? (

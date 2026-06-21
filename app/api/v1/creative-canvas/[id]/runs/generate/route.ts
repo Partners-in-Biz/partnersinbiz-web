@@ -10,6 +10,11 @@ import {
 } from '@/lib/creative-canvas/runs'
 import { getCanvasModel } from '@/lib/creative-canvas/model-registry'
 import {
+  getCanvasCredits,
+  hasSufficientCredits,
+  recordCanvasCreditUsage,
+} from '@/lib/creative-canvas/credits'
+import {
   generateInline,
   InlineNotSupportedError,
 } from '@/lib/creative-canvas/inline-generation'
@@ -64,6 +69,16 @@ export const POST = withAuth('client', async (req: NextRequest, user: ApiUser, c
   const m = getCanvasModel(typeof model === 'string' ? model : '')
   if (!m) return apiError('Unknown creative canvas model', 400)
 
+  // Credit metering: blocks only when the org has a configured limit (default
+  // limit is null → always allowed, so existing generation never regresses).
+  const credits = await getCanvasCredits(orgId)
+  if (!hasSufficientCredits(credits, m.creditCost)) {
+    return apiError('Insufficient creative canvas credits', 402)
+  }
+
+  const recordUsage = (runId: string) =>
+    recordCanvasCreditUsage(orgId, m.creditCost, { runId, model: m.id }).catch(() => undefined)
+
   const actor = actorFromUser(user)
   const promptSummary = typeof prompt === 'string' ? prompt : undefined
 
@@ -104,6 +119,7 @@ export const POST = withAuth('client', async (req: NextRequest, user: ApiUser, c
     } catch (err) {
       if (err instanceof InlineNotSupportedError) {
         // Inline not available for this provider — fall back to queued async run.
+        await recordUsage(run.id)
         const agentTaskDraft = buildCreativeCanvasAgentTask(run, canvas)
         return apiSuccess({ run, agentTaskDraft, pending: true }, 201)
       }
@@ -127,6 +143,7 @@ export const POST = withAuth('client', async (req: NextRequest, user: ApiUser, c
       return apiError(err instanceof Error ? err.message : 'Failed to attach inline output', 500)
     }
 
+    await recordUsage(run.id)
     return apiSuccess({
       run: completed.run,
       node: completed.outputNode,
@@ -141,6 +158,7 @@ export const POST = withAuth('client', async (req: NextRequest, user: ApiUser, c
   } catch (err) {
     return apiError(err instanceof Error ? err.message : 'Failed to create run', 500)
   }
+  await recordUsage(run.id)
   const agentTaskDraft = buildCreativeCanvasAgentTask(run, canvas)
   return apiSuccess({ run, agentTaskDraft, pending: true }, 201)
 })
