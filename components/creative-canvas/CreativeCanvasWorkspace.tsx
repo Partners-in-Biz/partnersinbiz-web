@@ -117,6 +117,10 @@ type CreativeCanvasBenchmarkProofRecord = {
   collaborationCapturedAt?: string
   collaborationEvidence?: string
   editingLocalEventCount?: number
+  editingNodeDropCount?: number
+  editingNodeMoveCount?: number
+  editingConnectionCount?: number
+  editingConfiguredGenerationCount?: number
   editingCapturedAt?: string
   editingEvidence?: string
   maskingEditNodeCount?: number
@@ -325,6 +329,7 @@ interface CreativeCanvasActivityEvent {
   action: string
   detail: string
   nodeId?: string
+  operation?: 'node_add' | 'node_move' | 'node_remove' | 'edge_add' | 'edge_remove' | 'workflow_add' | 'template_apply' | 'variant_create' | 'node_duplicate' | 'inpaint_branch' | 'node_configure'
   atMs: number
   source: 'local' | 'stream' | 'draft'
 }
@@ -650,6 +655,10 @@ function getCanvasBenchmarkProof(data: unknown): Partial<Record<CreativeCanvasBe
     const collaborationCapturedAt = stringField(record.collaborationCapturedAt)
     const collaborationEvidence = stringField(record.collaborationEvidence)
     const editingLocalEventCount = typeof record.editingLocalEventCount === 'number' && Number.isFinite(record.editingLocalEventCount) ? record.editingLocalEventCount : undefined
+    const editingNodeDropCount = typeof record.editingNodeDropCount === 'number' && Number.isFinite(record.editingNodeDropCount) ? record.editingNodeDropCount : undefined
+    const editingNodeMoveCount = typeof record.editingNodeMoveCount === 'number' && Number.isFinite(record.editingNodeMoveCount) ? record.editingNodeMoveCount : undefined
+    const editingConnectionCount = typeof record.editingConnectionCount === 'number' && Number.isFinite(record.editingConnectionCount) ? record.editingConnectionCount : undefined
+    const editingConfiguredGenerationCount = typeof record.editingConfiguredGenerationCount === 'number' && Number.isFinite(record.editingConfiguredGenerationCount) ? record.editingConfiguredGenerationCount : undefined
     const editingCapturedAt = stringField(record.editingCapturedAt)
     const editingEvidence = stringField(record.editingEvidence)
     const maskingEditNodeCount = typeof record.maskingEditNodeCount === 'number' && Number.isFinite(record.maskingEditNodeCount) ? record.maskingEditNodeCount : undefined
@@ -746,6 +755,10 @@ function getCanvasBenchmarkProof(data: unknown): Partial<Record<CreativeCanvasBe
       || collaborationCapturedAt
       || collaborationEvidence
       || editingLocalEventCount !== undefined
+      || editingNodeDropCount !== undefined
+      || editingNodeMoveCount !== undefined
+      || editingConnectionCount !== undefined
+      || editingConfiguredGenerationCount !== undefined
       || editingCapturedAt
       || editingEvidence
       || maskingEditNodeCount !== undefined
@@ -841,6 +854,10 @@ function getCanvasBenchmarkProof(data: unknown): Partial<Record<CreativeCanvasBe
         collaborationCapturedAt,
         collaborationEvidence,
         editingLocalEventCount,
+        editingNodeDropCount,
+        editingNodeMoveCount,
+        editingConnectionCount,
+        editingConfiguredGenerationCount,
         editingCapturedAt,
         editingEvidence,
         maskingEditNodeCount,
@@ -971,14 +988,67 @@ function hasCollaborationSessionProof(proof: CreativeCanvasBenchmarkProofRecord 
   )
 }
 
+function collectEditingSessionEvidence(input: {
+  activity: CreativeCanvasActivityEvent[]
+  nodes: CreativeCanvasNode[]
+  edges: CreativeCanvasEdge[]
+}) {
+  const localActivity = input.activity.filter((event) => event.source === 'local')
+  const activityMatches = (event: CreativeCanvasActivityEvent, operations: NonNullable<CreativeCanvasActivityEvent['operation']>[], actionPattern: RegExp) => (
+    (event.operation && operations.includes(event.operation)) || actionPattern.test(event.action)
+  )
+  const nodeDropCount = localActivity.filter((event) => activityMatches(
+    event,
+    ['node_add', 'workflow_add', 'template_apply', 'variant_create', 'node_duplicate', 'inpaint_branch'],
+    /added|applied template|created|duplicated/i,
+  )).length
+  const nodeMoveCount = localActivity.filter((event) => activityMatches(event, ['node_move'], /moved/i)).length
+  const connectionActivityCount = localActivity.filter((event) => activityMatches(
+    event,
+    ['edge_add'],
+    /connected/i,
+  )).length
+  const configuredGenerationCount = localActivity.filter((event) => activityMatches(event, ['node_configure'], /configured generation/i)).length
+
+  return {
+    editingLocalEventCount: localActivity.length,
+    editingNodeDropCount: nodeDropCount,
+    editingNodeMoveCount: nodeMoveCount,
+    editingConnectionCount: connectionActivityCount,
+    editingConfiguredGenerationCount: configuredGenerationCount,
+  }
+}
+
 function hasEditingSessionProof(proof: CreativeCanvasBenchmarkProofRecord | undefined): boolean {
   return Boolean(
     proof
       && typeof proof.editingLocalEventCount === 'number'
       && proof.editingLocalEventCount > 0
+      && typeof proof.editingNodeDropCount === 'number'
+      && proof.editingNodeDropCount > 0
+      && typeof proof.editingNodeMoveCount === 'number'
+      && proof.editingNodeMoveCount > 0
+      && typeof proof.editingConnectionCount === 'number'
+      && proof.editingConnectionCount > 0
+      && typeof proof.editingConfiguredGenerationCount === 'number'
+      && proof.editingConfiguredGenerationCount > 0
       && proof.editingCapturedAt
       && proof.editingEvidence,
   )
+}
+
+function buildEditingSessionProofFields(input: {
+  activity: CreativeCanvasActivityEvent[]
+  nodes: CreativeCanvasNode[]
+  edges: CreativeCanvasEdge[]
+  capturedAt: string
+}): Pick<CreativeCanvasBenchmarkProofRecord, 'editingLocalEventCount' | 'editingNodeDropCount' | 'editingNodeMoveCount' | 'editingConnectionCount' | 'editingConfiguredGenerationCount' | 'editingCapturedAt' | 'editingEvidence'> {
+  const evidence = collectEditingSessionEvidence(input)
+  return {
+    ...evidence,
+    editingCapturedAt: input.capturedAt,
+    editingEvidence: `${evidence.editingLocalEventCount} local graph event${evidence.editingLocalEventCount === 1 ? '' : 's'}; ${evidence.editingNodeDropCount} node/drop action${evidence.editingNodeDropCount === 1 ? '' : 's'}; ${evidence.editingNodeMoveCount} drag/move action${evidence.editingNodeMoveCount === 1 ? '' : 's'}; ${evidence.editingConnectionCount} live connection${evidence.editingConnectionCount === 1 ? '' : 's'}; ${evidence.editingConfiguredGenerationCount} configured generation route${evidence.editingConfiguredGenerationCount === 1 ? '' : 's'}`,
+  }
 }
 
 function hasMaskingSessionProof(proof: CreativeCanvasBenchmarkProofRecord | undefined): boolean {
@@ -3017,7 +3087,6 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
     const capturedAt = new Date().toISOString()
     const currentRemotePresence = presence.filter((item) => item.id !== ownPresenceId)
     const currentRemoteActivityCount = collaborationActivity.filter((event) => event.source === 'stream' || event.source === 'draft').length
-    const currentLocalEditingActivityCount = collaborationActivity.filter((event) => event.source === 'local').length
     const currentRemoteEventProofCount = currentRemoteActivityCount || (latestCollaboratorDraft ? 1 : 0) || (currentRemotePresence.some((item) => item.hasUnsavedGraphChanges) ? 1 : 0)
     const currentExportArtifactBackedCoverage = (runtimeProof?.reliabilityCoverage ?? []).filter((category) => (
       requiredRuntimeProofCategoryKeys.has(category.key)
@@ -3028,11 +3097,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
     const benchmarkAuditNodes = nodes.map((node) => toCanvasNode(node, canvasOrgId))
     const benchmarkAuditEdges = edges.map((edge) => toCanvasEdge(edge, canvasOrgId))
     const editingSessionProof = key === 'editing_ergonomics'
-      ? {
-          editingLocalEventCount: currentLocalEditingActivityCount,
-          editingCapturedAt: capturedAt,
-          editingEvidence: `${currentLocalEditingActivityCount} local graph edit${currentLocalEditingActivityCount === 1 ? '' : 's'} captured with edit controls active`,
-        }
+      ? buildEditingSessionProofFields({ activity: collaborationActivity, nodes: benchmarkAuditNodes, edges: benchmarkAuditEdges, capturedAt })
       : {}
     const maskingSessionProof = key === 'masking_inpainting'
       ? buildMaskingSessionProofFields({ nodes: benchmarkAuditNodes, capturedAt })
@@ -3485,7 +3550,15 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
 
   const onConnect = useCallback((connection: Connection) => {
     setEdges((currentEdges) => addEdge(connection, currentEdges))
-  }, [])
+    recordCanvasActivity({
+      actorLabel: 'You',
+      action: 'Connected nodes',
+      detail: `${connection.source ?? 'source'} to ${connection.target ?? 'target'}`,
+      nodeId: connection.source ?? undefined,
+      operation: 'edge_add',
+      source: 'local',
+    })
+  }, [recordCanvasActivity])
   const onNodesChange = useCallback((changes: NodeChange[]) => {
     const removedNodeIds = new Set(changes
       .filter((change) => change.type === 'remove')
@@ -3518,6 +3591,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
         actorLabel: 'You',
         action: 'Removed node',
         detail: `${removedNodeIds.size} node${removedNodeIds.size === 1 ? '' : 's'} removed from graph`,
+        operation: 'node_remove',
         source: 'local',
       })
     }
@@ -3527,6 +3601,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
         action: 'Moved node',
         detail: `${movedNodeIds.length} node${movedNodeIds.length === 1 ? '' : 's'} repositioned`,
         nodeId: movedNodeIds[0],
+        operation: 'node_move',
         source: 'local',
       })
     }
@@ -3539,6 +3614,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
         actorLabel: 'You',
         action: 'Updated links',
         detail: `${removedEdges.length} link${removedEdges.length === 1 ? '' : 's'} removed`,
+        operation: 'edge_remove',
         source: 'local',
       })
     }
@@ -3598,6 +3674,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
       action: 'Added node',
       detail: title,
       nodeId: id,
+      operation: 'node_add',
       source: 'local',
     })
   }
@@ -3627,6 +3704,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
       action: 'Added workflow',
       detail: `${preset.label}: ${graph.nodes.length} nodes / ${graph.edges.length} links`,
       nodeId: graph.nodes[0]?.id,
+      operation: 'workflow_add',
       source: 'local',
     })
     setActivityMessage(`${preset.label} workflow added`)
@@ -3672,6 +3750,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
       action: 'Added benchmark suite',
       detail: `${missingPresets.length} workflows: ${nextNodes.length} nodes / ${nextEdges.length} links`,
       nodeId: nextNodes[0]?.id,
+      operation: 'workflow_add',
       source: 'local',
     })
     setActivityMessage(`Added ${missingPresets.length} Higgsfield benchmark workflow${missingPresets.length === 1 ? '' : 's'}`)
@@ -3779,6 +3858,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
       action: 'Applied template',
       detail: `${template.title}: ${nextNodes.length} nodes / ${nextEdges.length} links`,
       nodeId: nextNodes[0]?.id,
+      operation: 'template_apply',
       source: 'local',
     })
     setActivityMessage(`${template.title} template applied`)
@@ -3902,6 +3982,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
       action: 'Created variants',
       detail: `${variants.length} format variant${variants.length === 1 ? '' : 's'} from ${selectedCanvasNode.title}`,
       nodeId: selectedCanvasNode.id,
+      operation: 'variant_create',
       source: 'local',
     })
     setActivityMessage(`Created ${variants.length} format variant${variants.length === 1 ? '' : 's'} from ${selectedCanvasNode.title}`)
@@ -3957,6 +4038,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
       action: 'Duplicated node',
       detail: selectedCanvasNode.title,
       nodeId: duplicateId,
+      operation: 'node_duplicate',
       source: 'local',
     })
     setActivityMessage(`Duplicated ${selectedCanvasNode.title}`)
@@ -4045,6 +4127,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
       action: 'Created inpaint branch',
       detail: selectedCanvasNode.title,
       nodeId: editNodeId,
+      operation: 'inpaint_branch',
       source: 'local',
     })
     setActivityMessage(`Created inpaint edit branch from ${selectedCanvasNode.title}`)
@@ -4186,6 +4269,14 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
       return toFlowNode(nextNode)
     }))
     setSaveMessage('')
+    recordCanvasActivity({
+      actorLabel: 'You',
+      action: 'Configured generation',
+      detail: `${selectedCanvasNode.title}: ${runModel || 'higgsfield'} to ${runOutputKind}`,
+      nodeId: selectedCanvasNode.id,
+      operation: 'node_configure',
+      source: 'local',
+    })
     setActivityMessage(`Generation settings applied to ${selectedCanvasNode.title}`)
   }
 
@@ -5044,8 +5135,17 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
   const coreWorkflowPresets = workflowPresets.filter((preset) => !preset.benchmarkScenario)
   const benchmarkWorkflowPresets = workflowPresets.filter((preset) => preset.benchmarkScenario)
   const hasEditAffordanceEvidence = parityAuditNodes.some((node) => node.type === 'edit' || Boolean(node.edit))
-  const localEditingActivityCount = collaborationActivity.filter((event) => event.source === 'local').length
-  const hasEditingEvidence = hasEditAffordanceEvidence && localEditingActivityCount > 0
+  const editingSessionEvidence = collectEditingSessionEvidence({
+    activity: collaborationActivity,
+    nodes: parityAuditNodes,
+    edges: edges.map((edge) => toCanvasEdge(edge, resolvedOrgId || activeCanvas?.orgId || 'pending-org')),
+  })
+  const hasEditingEvidence = hasEditAffordanceEvidence
+    && editingSessionEvidence.editingLocalEventCount > 0
+    && editingSessionEvidence.editingNodeDropCount > 0
+    && editingSessionEvidence.editingNodeMoveCount > 0
+    && editingSessionEvidence.editingConnectionCount > 0
+    && editingSessionEvidence.editingConfiguredGenerationCount > 0
   const maskingEditNodes = parityAuditNodes.filter((node) => node.type === 'edit' || Boolean(node.edit))
   const maskingPromptCount = maskingEditNodes.filter((node) => Boolean(node.edit?.prompt?.trim())).length
   const maskingIntentCount = maskingEditNodes.filter((node) => Boolean(node.edit?.intent)).length
@@ -5250,11 +5350,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
     }
     const nextBenchmarkProof = readyBenchmarkProofItems.reduce((acc, item) => {
       const editingSessionProof = item.key === 'editing_ergonomics'
-        ? {
-            editingLocalEventCount: localEditingActivityCount,
-            editingCapturedAt: capturedAt,
-            editingEvidence: `${localEditingActivityCount} local graph edit${localEditingActivityCount === 1 ? '' : 's'} captured with edit controls active`,
-          }
+        ? buildEditingSessionProofFields({ activity: collaborationActivity, nodes: parityAuditNodes, edges: edges.map((edge) => toCanvasEdge(edge, canvasOrgId)), capturedAt })
         : {}
       const maskingSessionProof = item.key === 'masking_inpainting'
         ? buildMaskingSessionProofFields({ nodes: parityAuditNodes, capturedAt })
@@ -5377,9 +5473,9 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
       label: 'Editing ergonomics',
       status: hasEditingEvidence ? 'passed' : 'watch',
       evidence: hasEditingEvidence
-        ? `${localEditingActivityCount} local graph edit${localEditingActivityCount === 1 ? '' : 's'} with edit controls active`
+        ? `${editingSessionEvidence.editingNodeDropCount} drop · ${editingSessionEvidence.editingNodeMoveCount} drag · ${editingSessionEvidence.editingConnectionCount} live links · ${editingSessionEvidence.editingConfiguredGenerationCount} generation routes`
         : hasEditAffordanceEvidence
-          ? 'Edit controls are present; perform a graph edit to prove ergonomics'
+          ? `${editingSessionEvidence.editingNodeDropCount} drop · ${editingSessionEvidence.editingNodeMoveCount} drag · ${editingSessionEvidence.editingConnectionCount} live links · ${editingSessionEvidence.editingConfiguredGenerationCount} generation routes`
           : 'Needs an edit node in this graph',
     },
     {
@@ -5504,9 +5600,9 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
       label: 'Local editing proof',
       status: proofItemByKey.editing_ergonomics?.status === 'passed' ? 'complete' : hasEditingEvidence ? 'action' : 'blocked',
       evidence: hasEditingEvidence
-        ? `${localEditingActivityCount} local graph edit${localEditingActivityCount === 1 ? '' : 's'} with edit controls active`
+        ? `${editingSessionEvidence.editingNodeDropCount} drop · ${editingSessionEvidence.editingNodeMoveCount} drag · ${editingSessionEvidence.editingConnectionCount} live links · ${editingSessionEvidence.editingConfiguredGenerationCount} generation routes`
         : hasEditAffordanceEvidence
-          ? 'Edit controls are present without a local edit event'
+          ? `${editingSessionEvidence.editingNodeDropCount} drop · ${editingSessionEvidence.editingNodeMoveCount} drag · ${editingSessionEvidence.editingConnectionCount} live links · ${editingSessionEvidence.editingConfiguredGenerationCount} generation routes`
           : 'No edit node evidence loaded',
       nextAction: proofItemByKey.editing_ergonomics?.status === 'passed'
         ? 'Editing benchmark proof is source-backed and stored.'
@@ -6092,7 +6188,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
                 <p className="mt-1 text-[11px] font-semibold">Needs stored two-user session evidence before collaboration proof can pass.</p>
               ) : null}
               {item.key === 'editing_ergonomics' && item.proof && !hasEditingSessionProof(item.proof) ? (
-                <p className="mt-1 text-[11px] font-semibold">Needs stored local editing session evidence before editing proof can pass.</p>
+                <p className="mt-1 text-[11px] font-semibold">Needs stored node drop, drag/move, live connection, and configured generation-route evidence before editing proof can pass.</p>
               ) : null}
               {item.key === 'masking_inpainting' && item.proof && !hasMaskingSessionProof(item.proof) ? (
                 <p className="mt-1 text-[11px] font-semibold">Needs stored brush mask, prompt, intent, and blend-control evidence before masking proof can pass.</p>
@@ -6165,7 +6261,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
                   ) : null}
                   {item.key === 'editing_ergonomics' && item.proof.editingEvidence ? (
                     <p className="mt-1">
-                      Editing session: {item.proof.editingLocalEventCount ?? 0} local graph edit{item.proof.editingLocalEventCount === 1 ? '' : 's'}
+                      Editing session: {item.proof.editingNodeDropCount ?? 0} drop · {item.proof.editingNodeMoveCount ?? 0} drag · {item.proof.editingConnectionCount ?? 0} live links · {item.proof.editingConfiguredGenerationCount ?? 0} generation routes
                     </p>
                   ) : null}
                   {item.key === 'masking_inpainting' && item.proof.maskingEvidence ? (

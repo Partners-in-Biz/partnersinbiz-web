@@ -7,9 +7,11 @@ jest.mock('@xyflow/react', () => ({
     nodes,
     children,
     onNodesChange,
+    onConnect,
   }: {
     nodes: Array<{ id: string; data?: { label?: React.ReactNode } }>
     children: React.ReactNode
+    onConnect?: (connection: { source: string; target: string }) => void
     onNodesChange?: (changes: Array<
       | { id: string; type: 'position'; position: { x: number; y: number }; dragging: boolean }
       | { id: string; type: 'remove' }
@@ -38,6 +40,12 @@ jest.mock('@xyflow/react', () => ({
         onClick={() => nodes[0] ? onNodesChange?.([{ id: nodes[0].id, type: 'remove' }]) : undefined}
       >
         Delete first graph node
+      </button>
+      <button
+        type="button"
+        onClick={() => nodes[0] && nodes[1] ? onConnect?.({ source: nodes[0].id, target: nodes[1].id }) : undefined}
+      >
+        Connect first graph nodes
       </button>
       {children}
     </div>
@@ -1363,7 +1371,7 @@ describe('CreativeCanvasWorkspace', () => {
     ))
     expect(patchCall).toBeTruthy()
     const body = JSON.parse(String(patchCall?.[1]?.body ?? '{}')) as {
-      data?: { benchmarkProof?: Record<string, { proofUrl?: string; notes?: string; capturedAt?: string; capturedBy?: string; sourceTitle?: string; sourceUrl?: string; sourceCheckedAt?: string; sourceEvidenceCheckedAt?: string; sourceEvidenceReachable?: boolean; sourceEvidenceStatus?: number; sourceEvidenceContentType?: string; sourceSignalsVerifiedAt?: string; sourceSignalsMatched?: boolean; sourceSignalsMissing?: string[]; sourceSignals?: string[]; higgsfieldUiEvidenceUrl?: string; canvasEvidenceUrl?: string; canvasEvidenceCheckedAt?: string; canvasEvidenceReachable?: boolean; canvasEvidenceStatus?: number; canvasEvidenceContentType?: string; directComparisonAt?: string; directComparisonVerdict?: string; directComparisonNotes?: string; canvasVersion?: number; graphSignature?: string; nodeCount?: number; edgeCount?: number; editingLocalEventCount?: number; editingCapturedAt?: string; editingEvidence?: string }> }
+      data?: { benchmarkProof?: Record<string, { proofUrl?: string; notes?: string; capturedAt?: string; capturedBy?: string; sourceTitle?: string; sourceUrl?: string; sourceCheckedAt?: string; sourceEvidenceCheckedAt?: string; sourceEvidenceReachable?: boolean; sourceEvidenceStatus?: number; sourceEvidenceContentType?: string; sourceSignalsVerifiedAt?: string; sourceSignalsMatched?: boolean; sourceSignalsMissing?: string[]; sourceSignals?: string[]; higgsfieldUiEvidenceUrl?: string; canvasEvidenceUrl?: string; canvasEvidenceCheckedAt?: string; canvasEvidenceReachable?: boolean; canvasEvidenceStatus?: number; canvasEvidenceContentType?: string; directComparisonAt?: string; directComparisonVerdict?: string; directComparisonNotes?: string; canvasVersion?: number; graphSignature?: string; nodeCount?: number; edgeCount?: number; editingLocalEventCount?: number; editingNodeDropCount?: number; editingNodeMoveCount?: number; editingConnectionCount?: number; editingConfiguredGenerationCount?: number; editingCapturedAt?: string; editingEvidence?: string }> }
     }
     expect(body.data?.benchmarkProof?.editing_ergonomics).toMatchObject({
       proofUrl: 'https://proof.example.com/editing-ergonomics.mp4',
@@ -1388,8 +1396,12 @@ describe('CreativeCanvasWorkspace', () => {
       nodeCount: expect.any(Number),
       edgeCount: expect.any(Number),
       editingLocalEventCount: 0,
+      editingNodeDropCount: 0,
+      editingNodeMoveCount: 0,
+      editingConnectionCount: expect.any(Number),
+      editingConfiguredGenerationCount: expect.any(Number),
       editingCapturedAt: expect.any(String),
-      editingEvidence: '0 local graph edits captured with edit controls active',
+      editingEvidence: expect.stringContaining('0 local graph events'),
     })
     expect(body.data?.benchmarkProof?.editing_ergonomics?.capturedAt).toEqual(expect.any(String))
     expect(body.data?.benchmarkProof?.editing_ergonomics?.sourceCheckedAt).toEqual(expect.any(String))
@@ -1402,7 +1414,7 @@ describe('CreativeCanvasWorkspace', () => {
     const benchmarkProof = screen.getByLabelText(/direct higgsfield benchmark proof/i)
     expect(benchmarkProof).toHaveTextContent('0/10 benchmark proven')
     expect(benchmarkProof).toHaveTextContent('gap')
-    expect(benchmarkProof).toHaveTextContent('Needs stored local editing session evidence before editing proof can pass.')
+    expect(benchmarkProof).toHaveTextContent('Needs stored node drop, drag/move, live connection, and configured generation-route evidence before editing proof can pass.')
     expect(benchmarkProof).toHaveTextContent('Benchmark source: Higgsfield AI Canvas node workflow')
     expect(benchmarkProof).toHaveTextContent('Stored signals: Drop a node, Chain your flow, Connect nodes, Every connection is live')
     expect(within(benchmarkProof).getByRole('link', { name: /open benchmark proof/i })).toHaveAttribute('href', 'https://proof.example.com/editing-ergonomics.mp4')
@@ -2403,7 +2415,7 @@ describe('CreativeCanvasWorkspace', () => {
 
     expect(await screen.findByText('Launch Canvas')).toBeInTheDocument()
     const parityAudit = screen.getByLabelText(/higgsfield parity audit/i)
-    expect(parityAudit).toHaveTextContent('Edit controls are present; perform a graph edit to prove ergonomics')
+    expect(parityAudit).toHaveTextContent('0 drop · 0 drag · 0 live links · 0 generation routes')
     const benchmarkProof = screen.getByLabelText(/direct higgsfield benchmark proof/i)
     expect(benchmarkProof).toHaveTextContent('1 ready benchmark category needs stored proof.')
   })
@@ -2469,11 +2481,11 @@ describe('CreativeCanvasWorkspace', () => {
     expect(parityAudit).toHaveTextContent('8/8 scenarios in graph')
     expect(parityAudit).toHaveTextContent('0 prompt · 1 mask/source · 1 brush · 0/3+ blend controls')
     const benchmarkProof = screen.getByLabelText(/direct higgsfield benchmark proof/i)
-    expect(benchmarkProof).toHaveTextContent('4 ready benchmark categories need stored proof.')
+    expect(benchmarkProof).toHaveTextContent('3 ready benchmark categories need stored proof.')
 
     fireEvent.click(within(benchmarkProof).getByRole('button', { name: /capture ready proofs/i }))
 
-    await waitFor(() => expect(screen.getByText('Captured 4 ready benchmark proofs')).toBeInTheDocument())
+    await waitFor(() => expect(screen.getByText('Captured 3 ready benchmark proofs')).toBeInTheDocument())
 
     const patchCall = fetchMock.mock.calls.find(([input, init]) => (
       String(input) === '/api/v1/creative-canvas/canvas-1?orgId=org-1'
@@ -2818,12 +2830,58 @@ describe('CreativeCanvasWorkspace', () => {
       && String(init.body).includes('editing-after-local-edits')
     ))
     const body = JSON.parse(String(patchCall?.[1]?.body ?? '{}')) as {
-      data?: { benchmarkProof?: Record<string, { editingLocalEventCount?: number; editingCapturedAt?: string; editingEvidence?: string }> }
+      data?: { benchmarkProof?: Record<string, { editingLocalEventCount?: number; editingNodeDropCount?: number; editingNodeMoveCount?: number; editingConnectionCount?: number; editingConfiguredGenerationCount?: number; editingCapturedAt?: string; editingEvidence?: string }> }
     }
     expect(body.data?.benchmarkProof?.editing_ergonomics).toMatchObject({
       editingLocalEventCount: 2,
+      editingNodeDropCount: 1,
+      editingNodeMoveCount: 1,
+      editingConnectionCount: 0,
+      editingConfiguredGenerationCount: 0,
       editingCapturedAt: expect.any(String),
-      editingEvidence: '2 local graph edits captured with edit controls active',
+      editingEvidence: expect.stringContaining('1 node/drop action'),
+    })
+  })
+
+  it('passes editing ergonomics proof only after drop move connection and generation route evidence', async () => {
+    render(<CreativeCanvasWorkspace mode="admin" orgId="org-1" />)
+
+    expect(await screen.findByText('Launch Canvas')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: /apply Product style fusion workflow/i }))
+    fireEvent.click(screen.getByRole('button', { name: /move first graph node/i }))
+    fireEvent.click(screen.getByRole('button', { name: /connect first graph nodes/i }))
+    fireEvent.click(screen.getByRole('button', { name: /apply settings to node/i }))
+
+    const parityAudit = screen.getByLabelText(/higgsfield parity audit/i)
+    expect(parityAudit).toHaveTextContent('Editing ergonomics')
+    expect(parityAudit).toHaveTextContent('1 drop · 1 drag · 1 live links · 1 generation routes')
+
+    fireEvent.change(screen.getByLabelText(/editing ergonomics benchmark proof url/i), {
+      target: { value: 'https://proof.example.com/editing-complete-session.mp4' },
+    })
+    fireEvent.change(screen.getByLabelText(/editing ergonomics benchmark proof notes/i), {
+      target: { value: 'Node drop, drag, connected workflow, and generation route captured.' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: /save editing ergonomics proof/i }))
+
+    await waitFor(() => expect(screen.getByText('Saved Editing ergonomics benchmark proof')).toBeInTheDocument())
+    const patchCall = fetchMock.mock.calls.find(([input, init]) => (
+      String(input) === '/api/v1/creative-canvas/canvas-1?orgId=org-1'
+      && init?.method === 'PATCH'
+      && String(init.body).includes('editing-complete-session')
+    ))
+    expect(patchCall).toBeTruthy()
+    const body = JSON.parse(String(patchCall?.[1]?.body ?? '{}')) as {
+      data?: { benchmarkProof?: Record<string, { editingLocalEventCount?: number; editingNodeDropCount?: number; editingNodeMoveCount?: number; editingConnectionCount?: number; editingConfiguredGenerationCount?: number; editingCapturedAt?: string; editingEvidence?: string }> }
+    }
+    expect(body.data?.benchmarkProof?.editing_ergonomics).toMatchObject({
+      editingLocalEventCount: 4,
+      editingNodeDropCount: 1,
+      editingNodeMoveCount: 1,
+      editingConnectionCount: 1,
+      editingConfiguredGenerationCount: 1,
+      editingCapturedAt: expect.any(String),
+      editingEvidence: expect.stringContaining('configured generation route'),
     })
   })
 
@@ -3972,7 +4030,7 @@ describe('CreativeCanvasWorkspace', () => {
     await screen.findByText('Launch Canvas')
     fireEvent.click(screen.getByRole('button', { name: /apply 8 missing benchmark workflows/i }))
     const benchmarkProof = screen.getByLabelText(/direct higgsfield benchmark proof/i)
-    expect(benchmarkProof).toHaveTextContent('4 ready benchmark categories need stored proof.')
+    expect(benchmarkProof).toHaveTextContent('3 ready benchmark categories need stored proof.')
 
     fetchMock.mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input)
@@ -4031,7 +4089,7 @@ describe('CreativeCanvasWorkspace', () => {
     expect(await screen.findByText('Export package prepared')).toBeInTheDocument()
     const parityAudit = screen.getByLabelText(/higgsfield parity audit/i)
     expect(parityAudit).toHaveTextContent('5/5 export categories packaged · 0/5 artifact-backed categories · 5 assets')
-    expect(benchmarkProof).toHaveTextContent('4 ready benchmark categories need stored proof.')
+    expect(benchmarkProof).toHaveTextContent('3 ready benchmark categories need stored proof.')
 
     fetchMock.mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input)
@@ -4074,7 +4132,7 @@ describe('CreativeCanvasWorkspace', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /refresh runtime proof/i }))
     await waitFor(() => expect(parityAudit).toHaveTextContent('5/5 export categories packaged · 5/5 artifact-backed categories · 5 assets'))
-    expect(benchmarkProof).toHaveTextContent('5 ready benchmark categories need stored proof.')
+    expect(benchmarkProof).toHaveTextContent('4 ready benchmark categories need stored proof.')
   })
 
   it('edits selected source asset metadata and saves it with the graph', async () => {

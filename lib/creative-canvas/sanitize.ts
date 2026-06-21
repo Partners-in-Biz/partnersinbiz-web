@@ -270,8 +270,20 @@ function cleanBenchmarkProofData(value: unknown): Record<string, unknown> | unde
       const editingLocalEventCount = typeof item.editingLocalEventCount === 'number' && Number.isFinite(item.editingLocalEventCount)
         ? Math.max(0, Math.round(item.editingLocalEventCount))
         : undefined
+      const editingNodeDropCount = typeof item.editingNodeDropCount === 'number' && Number.isFinite(item.editingNodeDropCount)
+        ? Math.max(0, Math.round(item.editingNodeDropCount))
+        : undefined
+      const editingNodeMoveCount = typeof item.editingNodeMoveCount === 'number' && Number.isFinite(item.editingNodeMoveCount)
+        ? Math.max(0, Math.round(item.editingNodeMoveCount))
+        : undefined
+      const editingConnectionCount = typeof item.editingConnectionCount === 'number' && Number.isFinite(item.editingConnectionCount)
+        ? Math.max(0, Math.round(item.editingConnectionCount))
+        : undefined
+      const editingConfiguredGenerationCount = typeof item.editingConfiguredGenerationCount === 'number' && Number.isFinite(item.editingConfiguredGenerationCount)
+        ? Math.max(0, Math.round(item.editingConfiguredGenerationCount))
+        : undefined
       const editingCapturedAt = cleanString(item.editingCapturedAt)?.slice(0, 80)
-      const editingEvidence = cleanString(item.editingEvidence)?.slice(0, 300)
+      const editingEvidence = cleanString(item.editingEvidence)?.slice(0, 500)
       const maskingEditNodeCount = typeof item.maskingEditNodeCount === 'number' && Number.isFinite(item.maskingEditNodeCount)
         ? Math.max(0, Math.round(item.maskingEditNodeCount))
         : undefined
@@ -438,6 +450,10 @@ function cleanBenchmarkProofData(value: unknown): Record<string, unknown> | unde
         && !collaborationCapturedAt
         && !collaborationEvidence
         && editingLocalEventCount === undefined
+        && editingNodeDropCount === undefined
+        && editingNodeMoveCount === undefined
+        && editingConnectionCount === undefined
+        && editingConfiguredGenerationCount === undefined
         && !editingCapturedAt
         && !editingEvidence
         && maskingEditNodeCount === undefined
@@ -533,6 +549,10 @@ function cleanBenchmarkProofData(value: unknown): Record<string, unknown> | unde
         ...(collaborationCapturedAt ? { collaborationCapturedAt } : {}),
         ...(collaborationEvidence ? { collaborationEvidence } : {}),
         ...(editingLocalEventCount !== undefined ? { editingLocalEventCount } : {}),
+        ...(editingNodeDropCount !== undefined ? { editingNodeDropCount } : {}),
+        ...(editingNodeMoveCount !== undefined ? { editingNodeMoveCount } : {}),
+        ...(editingConnectionCount !== undefined ? { editingConnectionCount } : {}),
+        ...(editingConfiguredGenerationCount !== undefined ? { editingConfiguredGenerationCount } : {}),
         ...(editingCapturedAt ? { editingCapturedAt } : {}),
         ...(editingEvidence ? { editingEvidence } : {}),
         ...(maskingEditNodeCount !== undefined ? { maskingEditNodeCount } : {}),
