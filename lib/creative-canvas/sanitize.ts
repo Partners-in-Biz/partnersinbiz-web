@@ -264,9 +264,46 @@ function cleanBenchmarkProofData(value: unknown): Record<string, unknown> | unde
       const collaborationRemoteEventCount = typeof item.collaborationRemoteEventCount === 'number' && Number.isFinite(item.collaborationRemoteEventCount)
         ? Math.max(0, Math.round(item.collaborationRemoteEventCount))
         : undefined
+      const collaborationRemoteMutationCount = typeof item.collaborationRemoteMutationCount === 'number' && Number.isFinite(item.collaborationRemoteMutationCount)
+        ? Math.max(0, Math.round(item.collaborationRemoteMutationCount))
+        : undefined
+      const collaborationRemoteMutationKindCount = typeof item.collaborationRemoteMutationKindCount === 'number' && Number.isFinite(item.collaborationRemoteMutationKindCount)
+        ? Math.max(0, Math.round(item.collaborationRemoteMutationKindCount))
+        : undefined
+      const collaborationRemoteTouchedNodeCount = typeof item.collaborationRemoteTouchedNodeCount === 'number' && Number.isFinite(item.collaborationRemoteTouchedNodeCount)
+        ? Math.max(0, Math.round(item.collaborationRemoteTouchedNodeCount))
+        : undefined
+      const collaborationRemoteGraphSignature = cleanString(item.collaborationRemoteGraphSignature)?.slice(0, 160)
+      const collaborationRemoteSource = cleanString(item.collaborationRemoteSource)?.slice(0, 160)
+      const collaborationRemoteOutcome = cleanString(item.collaborationRemoteOutcome)?.slice(0, 160)
       const collaborationStreamConnected = item.collaborationStreamConnected === true ? true : undefined
       const collaborationCapturedAt = cleanString(item.collaborationCapturedAt)?.slice(0, 80)
       const collaborationEvidence = cleanString(item.collaborationEvidence)?.slice(0, 300)
+      const collaborationRemoteMutations = Array.isArray(item.collaborationRemoteMutations)
+        ? item.collaborationRemoteMutations
+          .slice(0, 25)
+          .map((mutation) => {
+            const raw = asRecord(mutation)
+            const actorUid = cleanString(raw.actorUid)?.slice(0, 160)
+            const actorType = enumValue(raw.actorType, ACTOR_TYPES, 'user')
+            const operation = cleanString(raw.operation)?.slice(0, 160)
+            const source = cleanString(raw.source)?.slice(0, 160)
+            const occurredAt = cleanString(raw.occurredAt)?.slice(0, 160)
+            if (!actorUid || !operation || !source || !occurredAt) {
+              return undefined
+            }
+            return {
+              actorUid,
+              actorType,
+              operation,
+              touchedNodeIds: cleanStringArray(raw.touchedNodeIds).map((id) => id.slice(0, 160)).slice(0, 40),
+              touchedEdgeIds: cleanStringArray(raw.touchedEdgeIds).map((id) => id.slice(0, 160)).slice(0, 80),
+              source,
+              occurredAt,
+            }
+          })
+          .filter((mutation): mutation is NonNullable<typeof mutation> => Boolean(mutation))
+        : []
       const editingLocalEventCount = typeof item.editingLocalEventCount === 'number' && Number.isFinite(item.editingLocalEventCount)
         ? Math.max(0, Math.round(item.editingLocalEventCount))
         : undefined
@@ -446,9 +483,16 @@ function cleanBenchmarkProofData(value: unknown): Record<string, unknown> | unde
         && edgeCount === undefined
         && collaborationRemoteActorCount === undefined
         && collaborationRemoteEventCount === undefined
+        && collaborationRemoteMutationCount === undefined
+        && collaborationRemoteMutationKindCount === undefined
+        && collaborationRemoteTouchedNodeCount === undefined
+        && !collaborationRemoteGraphSignature
+        && !collaborationRemoteSource
+        && !collaborationRemoteOutcome
         && collaborationStreamConnected === undefined
         && !collaborationCapturedAt
         && !collaborationEvidence
+        && !collaborationRemoteMutations.length
         && editingLocalEventCount === undefined
         && editingNodeDropCount === undefined
         && editingNodeMoveCount === undefined
@@ -545,9 +589,16 @@ function cleanBenchmarkProofData(value: unknown): Record<string, unknown> | unde
         edgeCount,
         ...(collaborationRemoteActorCount !== undefined ? { collaborationRemoteActorCount } : {}),
         ...(collaborationRemoteEventCount !== undefined ? { collaborationRemoteEventCount } : {}),
+        ...(collaborationRemoteMutationCount !== undefined ? { collaborationRemoteMutationCount } : {}),
+        ...(collaborationRemoteMutationKindCount !== undefined ? { collaborationRemoteMutationKindCount } : {}),
+        ...(collaborationRemoteTouchedNodeCount !== undefined ? { collaborationRemoteTouchedNodeCount } : {}),
+        ...(collaborationRemoteGraphSignature ? { collaborationRemoteGraphSignature } : {}),
+        ...(collaborationRemoteSource ? { collaborationRemoteSource } : {}),
+        ...(collaborationRemoteOutcome ? { collaborationRemoteOutcome } : {}),
         ...(collaborationStreamConnected !== undefined ? { collaborationStreamConnected } : {}),
         ...(collaborationCapturedAt ? { collaborationCapturedAt } : {}),
         ...(collaborationEvidence ? { collaborationEvidence } : {}),
+        ...(collaborationRemoteMutations.length ? { collaborationRemoteMutations } : {}),
         ...(editingLocalEventCount !== undefined ? { editingLocalEventCount } : {}),
         ...(editingNodeDropCount !== undefined ? { editingNodeDropCount } : {}),
         ...(editingNodeMoveCount !== undefined ? { editingNodeMoveCount } : {}),

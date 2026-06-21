@@ -56,6 +56,17 @@ export const GET = withAuth('client', async (req: NextRequest, user: ApiUser, co
           controller.enqueue(encodeSseEvent('collaboration', {
             canvas,
             presence,
+            mutations: presence
+              .map((item) => ({
+                actorUid: item.actorUid,
+                actorType: item.actorType,
+                operation: item.latestMutation?.operation,
+                touchedNodeIds: item.latestMutation?.touchedNodeIds ?? [],
+                touchedEdgeIds: item.latestMutation?.touchedEdgeIds ?? [],
+                source: 'stream',
+                occurredAt: item.latestMutation?.occurredAt,
+              }))
+              .filter((item) => item.operation && item.occurredAt),
             emittedAtMs: Date.now(),
           }))
         } catch (error) {

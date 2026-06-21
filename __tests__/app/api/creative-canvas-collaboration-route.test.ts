@@ -113,7 +113,17 @@ describe('creative canvas collaboration API routes', () => {
   it('streams live collaboration snapshots for a canvas', async () => {
     const { GET } = await import('@/app/api/v1/creative-canvas/[id]/presence/events/route')
     mockGetCreativeCanvas.mockResolvedValue({ id: 'canvas-1', activeVersion: 2 })
-    mockListCreativeCanvasPresence.mockResolvedValue([{ id: 'presence-1', actorUid: 'maya' }])
+    mockListCreativeCanvasPresence.mockResolvedValue([{
+      id: 'presence-1',
+      actorUid: 'maya',
+      actorType: 'agent',
+      latestMutation: {
+        operation: 'node_move',
+        touchedNodeIds: ['node-a'],
+        touchedEdgeIds: [],
+        occurredAt: '2026-06-21T12:00:00.000Z',
+      },
+    }])
 
     const res = await GET(new NextRequest('http://test.local/api/v1/creative-canvas/canvas-1/presence/events?orgId=org-1'), {
       params: Promise.resolve({ id: 'canvas-1' }),
@@ -132,6 +142,7 @@ describe('creative canvas collaboration API routes', () => {
     expect(text).toContain('event: collaboration')
     expect(text).toContain('"activeVersion":2')
     expect(text).toContain('"actorUid":"maya"')
+    expect(text).toContain('"mutations":[{"actorUid":"maya","actorType":"agent","operation":"node_move","touchedNodeIds":["node-a"],"touchedEdgeIds":[],"source":"stream","occurredAt":"2026-06-21T12:00:00.000Z"}]')
   })
 
   it('attaches output to a node', async () => {

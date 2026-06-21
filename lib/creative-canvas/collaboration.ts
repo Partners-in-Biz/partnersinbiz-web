@@ -15,6 +15,7 @@ import type {
   CreativeCanvasReviewPatch,
   CreativeCanvasReviewStatus,
   CreativeCanvasRightsStatus,
+  CreativeCanvasRemoteMutationOperation,
   CreativeCanvasVersion,
   CreativeCanvasVisibility,
 } from './types'
@@ -31,6 +32,15 @@ const RIGHTS_STATUSES: CreativeCanvasRightsStatus[] = ['unknown', 'cleared', 'ne
 const BRAND_STATUSES: CreativeCanvasBrandStatus[] = ['unknown', 'passed', 'needs_review', 'blocked']
 const PRESENCE_DRAFT_NODE_LIMIT = 80
 const PRESENCE_DRAFT_EDGE_LIMIT = 160
+const REMOTE_MUTATION_OPERATIONS: CreativeCanvasRemoteMutationOperation[] = [
+  'node_add',
+  'node_move',
+  'node_configure',
+  'edge_add',
+  'edge_remove',
+  'draft_apply',
+  'version_restore',
+]
 
 function asRecord(value: unknown): UnknownRecord {
   return value && typeof value === 'object' && !Array.isArray(value) ? value as UnknownRecord : {}
@@ -107,6 +117,7 @@ function serializeComment(id: string, data: UnknownRecord): CreativeCanvasCommen
 }
 
 function serializePresence(id: string, data: UnknownRecord): CreativeCanvasPresence & { id: string } {
+  const latestMutation = asRecord(data.latestMutation)
   return {
     id,
     orgId: String(data.orgId ?? ''),
@@ -127,6 +138,24 @@ function serializePresence(id: string, data: UnknownRecord): CreativeCanvasPrese
     selectedNodeTitle: cleanString(data.selectedNodeTitle),
     draftGraph: Object.keys(asRecord(data.draftGraph)).length
       ? sanitizePresenceDraftGraph(data.draftGraph, String(data.orgId ?? ''))
+      : undefined,
+    latestMutation: Object.keys(latestMutation).length
+      ? {
+        operation: enumValue(latestMutation.operation, REMOTE_MUTATION_OPERATIONS, 'node_move'),
+        touchedNodeIds: Array.isArray(latestMutation.touchedNodeIds)
+          ? latestMutation.touchedNodeIds
+            .map(cleanString)
+            .filter((item): item is string => Boolean(item))
+            .slice(0, 40)
+          : [],
+        touchedEdgeIds: Array.isArray(latestMutation.touchedEdgeIds)
+          ? latestMutation.touchedEdgeIds
+            .map(cleanString)
+            .filter((item): item is string => Boolean(item))
+            .slice(0, 80)
+          : [],
+        occurredAt: cleanString(latestMutation.occurredAt) ?? new Date(0).toISOString(),
+      }
       : undefined,
     lastSeenAt: data.lastSeenAt,
     lastSeenAtMs: typeof data.lastSeenAtMs === 'number' ? data.lastSeenAtMs : 0,
@@ -404,6 +433,28 @@ export async function heartbeatCreativeCanvasPresence(
   const draftGraph = body.hasUnsavedGraphChanges === true && Object.keys(asRecord(body.draftGraph)).length
     ? sanitizePresenceDraftGraph(body.draftGraph, orgId)
     : undefined
+  const mutation = asRecord(body.mutation)
+  const mutationOperation = REMOTE_MUTATION_OPERATIONS.includes(mutation.operation as CreativeCanvasRemoteMutationOperation)
+    ? mutation.operation as CreativeCanvasRemoteMutationOperation
+    : undefined
+  const latestMutation = mutationOperation
+    ? {
+      operation: mutationOperation,
+      touchedNodeIds: Array.isArray(mutation.touchedNodeIds)
+        ? mutation.touchedNodeIds
+          .map(cleanString)
+          .filter((item): item is string => Boolean(item))
+          .slice(0, 40)
+        : [],
+      touchedEdgeIds: Array.isArray(mutation.touchedEdgeIds)
+        ? mutation.touchedEdgeIds
+          .map(cleanString)
+          .filter((item): item is string => Boolean(item))
+          .slice(0, 80)
+        : [],
+      occurredAt: cleanString(mutation.occurredAt) ?? new Date(nowMs).toISOString(),
+    }
+    : undefined
   const payload: CreativeCanvasPresence = {
     orgId,
     canvasId,
@@ -428,6 +479,7 @@ export async function heartbeatCreativeCanvasPresence(
     edgeCount,
     selectedNodeTitle: cleanString(body.selectedNodeTitle),
     draftGraph,
+    latestMutation,
     lastSeenAt: FieldValue.serverTimestamp(),
     lastSeenAtMs: nowMs,
     expiresAtMs: nowMs + 45_000,

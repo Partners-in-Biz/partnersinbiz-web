@@ -403,6 +403,12 @@ export interface CreativeCanvasPresence {
   edgeCount?: number
   selectedNodeTitle?: string
   draftGraph?: CreativeCanvasGraph
+  latestMutation?: {
+    operation: CreativeCanvasRemoteMutationOperation
+    touchedNodeIds: string[]
+    touchedEdgeIds: string[]
+    occurredAt: string
+  }
   lastSeenAt?: unknown
   lastSeenAtMs: number
   expiresAtMs: number
