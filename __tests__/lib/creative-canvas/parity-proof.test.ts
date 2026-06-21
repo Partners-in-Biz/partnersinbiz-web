@@ -601,6 +601,7 @@ describe('creative canvas parity proof contracts', () => {
 
     expect(certification.status).toBe('blocked')
     expect(certification.blockers).toContain('Signed-in live proof artifacts are incomplete.')
+    expect(certification.evidence).toContain('0/4 required live proof artifacts captured.')
   })
 
   it('blocks certification when live proof artifacts duplicate one required key instead of covering the full matrix', () => {
@@ -622,6 +623,7 @@ describe('creative canvas parity proof contracts', () => {
 
     expect(certification.status).toBe('blocked')
     expect(certification.blockers).toContain('Signed-in live proof artifacts are incomplete.')
+    expect(certification.evidence).toContain('1/4 required live proof artifacts captured.')
   })
 
   it('blocks certification when live proof artifacts are stale or bound to a different current canvas', () => {

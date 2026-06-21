@@ -298,3 +298,41 @@ Commit created for the fix:
 ```bash
 fix(canvas): require exact collaboration proof counts
 ```
+
+## Review Fix Addendum 8
+
+Date: 2026-06-21
+Base commit under review: `aabce270`
+
+Fixed final Task 1 evidence-summary finding in Task 1 owned files only:
+
+- Changed world-class certification evidence summary to report distinct required live proof artifact key coverage instead of raw valid artifact row count
+- Added regression assertions proving incomplete artifacts report `0/4 required live proof artifacts captured.` and duplicate desktop artifacts report `1/4 required live proof artifacts captured.`
+
+Verification commands:
+
+```bash
+npx jest __tests__/lib/creative-canvas/parity-proof.test.ts --runInBand
+npm run typecheck
+```
+
+Verification results:
+
+```text
+$ npx jest __tests__/lib/creative-canvas/parity-proof.test.ts --runInBand
+Test Suites: 1 passed, 1 total
+Tests:       30 passed, 30 total
+Snapshots:   0 total
+Time:        0.586 s, estimated 1 s
+Ran all test suites matching __tests__/lib/creative-canvas/parity-proof.test.ts.
+
+$ npm run typecheck
+> partnersinbiz@0.1.0 typecheck
+> NODE_OPTIONS=--max-old-space-size=4096 tsc --noEmit --pretty false --project tsconfig.typecheck.json
+```
+
+Commit created for the fix:
+
+```bash
+fix(canvas): correct live proof evidence summary
+```

@@ -335,7 +335,7 @@ export function buildWorldClassCertification(input: CreativeCanvasWorldClassCert
     kbCertificationArtifactRef: input.kbCertification?.artifactRef,
     evidence: [
       `${passedBenchmarks.length}/${input.requiredBenchmarkCount} benchmark proofs passed.`,
-      `${validLiveProofArtifacts.length}/4 live proof artifacts captured.`,
+      `${validRequiredLiveProofArtifactCount}/${requiredLiveProofArtifactKeys.length} required live proof artifacts captured.`,
       ...(signedInPreviewProofValid && input.signedInPreviewProof?.evidence ? [input.signedInPreviewProof.evidence] : []),
       ...(kbCertificationValid && input.kbCertification?.evidence ? [input.kbCertification.evidence] : []),
       ...passedBenchmarks.map((item) => item.evidence).filter(hasText),
