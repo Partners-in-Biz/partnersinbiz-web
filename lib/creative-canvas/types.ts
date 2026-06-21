@@ -583,6 +583,8 @@ export interface CreativeCanvasRuntimeProof {
   status: CreativeCanvasProofStatus
   checks: CreativeCanvasRuntimeProofCheck[]
   reliabilityCoverage: CreativeCanvasReliabilityCoverageCategory[]
+  runtimeCategoryEvidence: CreativeCanvasCategoryEvidence[]
+  exportCategoryEvidence: CreativeCanvasCategoryEvidence[]
   readyForLiveProof: boolean
   summary: string
 }

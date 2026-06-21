@@ -1,13 +1,17 @@
 import { buildCreativeCanvasAssetGallery } from './assets'
+import { buildCreativeCanvasCategoryEvidence, type CreativeCanvasCategoryExportEvidenceInput } from './export-evidence'
 import { buildCreativeCanvasOrchestrationPlan } from './orchestration'
 import { getHiggsfieldRuntimeReadiness } from './provider-runtime'
 import { summarizeCreativeCanvasRuns } from './runs'
 import type {
   CreativeCanvas,
+  CreativeCanvasEdge,
+  CreativeCanvasNode,
   CreativeCanvasRuntimeProof,
   CreativeCanvasRuntimeProofCheck,
   CreativeCanvasRun,
   CreativeCanvasProofStatus,
+  CreativeCanvasProofBinding,
   CreativeCanvasReliabilityCoverageCategory,
 } from './types'
 
@@ -117,12 +121,50 @@ function categoryCoverage(runs: RunWithId[]): CreativeCanvasReliabilityCoverageC
   })
 }
 
+function canvasGraphSignature(nodes: CreativeCanvasNode[] = [], edges: CreativeCanvasEdge[] = []) {
+  return JSON.stringify({
+    nodes: nodes.map((node) => ({
+      id: node.id,
+      orgId: node.orgId,
+      type: node.type,
+      title: node.title,
+      position: node.position,
+      data: node.data ?? {},
+      source: node.source,
+      provider: node.provider,
+      edit: node.edit,
+      review: node.review,
+      output: node.output,
+    })),
+    edges: edges.map((edge) => ({
+      id: edge.id,
+      orgId: edge.orgId,
+      sourceNodeId: edge.sourceNodeId,
+      targetNodeId: edge.targetNodeId,
+      label: edge.label,
+      data: edge.data,
+    })),
+  })
+}
+
+function proofBinding(canvas: CanvasWithId): CreativeCanvasProofBinding {
+  return {
+    orgId: canvas.orgId,
+    canvasVersion: canvas.activeVersion,
+    graphSignature: canvasGraphSignature(canvas.nodes, canvas.edges),
+    nodeCount: canvas.nodes.length,
+    edgeCount: canvas.edges.length,
+  }
+}
+
 export function buildCreativeCanvasRuntimeProof(input: {
   canvas: CanvasWithId
   runs: RunWithId[]
+  exports?: CreativeCanvasCategoryExportEvidenceInput[]
   env?: NodeJS.ProcessEnv
 }): CreativeCanvasRuntimeProof {
   const { canvas, runs } = input
+  const capturedAt = new Date().toISOString()
   const orchestration = buildCreativeCanvasOrchestrationPlan(canvas)
   const operations = summarizeCreativeCanvasRuns(runs)
   const readiness = getHiggsfieldRuntimeReadiness({ canvas, env: input.env })
@@ -149,6 +191,12 @@ export function buildCreativeCanvasRuntimeProof(input: {
     || activeRuns.length > 0
     || coveredCategories.length >= 2
     || completedRunsMissingArtifacts > 0
+  const categoryEvidence = buildCreativeCanvasCategoryEvidence({
+    runs,
+    exports: input.exports ?? [],
+    completedAt: capturedAt,
+    binding: proofBinding(canvas),
+  })
 
   const checks: CreativeCanvasRuntimeProofCheck[] = [
     check({
@@ -244,6 +292,8 @@ export function buildCreativeCanvasRuntimeProof(input: {
     status,
     checks,
     reliabilityCoverage,
+    runtimeCategoryEvidence: categoryEvidence.runtimeCategoryEvidence,
+    exportCategoryEvidence: categoryEvidence.exportCategoryEvidence,
     readyForLiveProof,
     summary: readyForLiveProof
       ? 'Canvas has linked project, agent orchestration, runtime readiness, artifact-backed repeated provider jobs, healthy drained queue, and exportable output assets.'

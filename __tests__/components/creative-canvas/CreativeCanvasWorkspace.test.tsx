@@ -67,6 +67,65 @@ jest.mock('@xyflow/react', () => ({
 
 const fetchMock = jest.fn()
 
+function durableCategoryEvidence(binding: {
+  orgId?: string
+  canvasVersion?: number
+  graphSignature: string
+  nodeCount: number
+  edgeCount: number
+}) {
+  const base = {
+    orgId: binding.orgId ?? 'org-1',
+    canvasVersion: binding.canvasVersion ?? 1,
+    graphSignature: binding.graphSignature,
+    nodeCount: binding.nodeCount,
+    edgeCount: binding.edgeCount,
+    completedAt: '2026-06-21T14:00:00.000Z',
+  }
+  const categories = [
+    { key: 'image', kind: 'image', provider: true },
+    { key: 'video_social', kind: 'video', provider: true },
+    { key: 'audio', kind: 'audio', provider: true },
+    { key: 'blog_document', kind: 'blog_draft', provider: false },
+    { key: 'book', kind: 'book_artifact', provider: true },
+  ] as const
+
+  return {
+    runtimeCategoryEvidence: categories.map((category) => ({
+      ...base,
+      categoryKey: category.key,
+      runIds: [`run-${category.key}-1`, `run-${category.key}-2`],
+      providerJobIds: category.provider ? [`job-${category.key}-1`, `job-${category.key}-2`] : [],
+      outputUrls: category.provider ? [`https://cdn.example.com/${category.key}.asset`] : [],
+      artifactIds: category.provider ? [] : [`${category.key} text preview`],
+      outputNodeIds: [`output-${category.key}`],
+      exportIds: [],
+      downstreamDraftIds: [],
+      lineageSourceNodeIds: [],
+      providerKeys: category.provider ? ['higgsfield'] : ['text_generation'],
+      outputKinds: [category.kind],
+      reviewStatuses: ['passed'],
+      evidence: `${category.key} runtime evidence`,
+    })),
+    exportCategoryEvidence: categories.map((category) => ({
+      ...base,
+      categoryKey: category.key,
+      runIds: [],
+      providerJobIds: [],
+      outputUrls: [],
+      artifactIds: [],
+      outputNodeIds: [`output-${category.key}`],
+      exportIds: [`export-${category.key}`],
+      downstreamDraftIds: [`draft-${category.key}`],
+      lineageSourceNodeIds: [`source-${category.key}`],
+      providerKeys: [],
+      outputKinds: [category.kind],
+      reviewStatuses: ['passed'],
+      evidence: `${category.key} export evidence`,
+    })),
+  }
+}
+
 function dispatchBrushPointerEvent(
   element: HTMLElement,
   type: 'pointerdown' | 'pointermove' | 'pointerup',
@@ -3434,6 +3493,11 @@ describe('CreativeCanvasWorkspace', () => {
                   { key: 'book', label: 'Book', status: 'passed', requiredOutputKinds: ['book_artifact'], requiredCompleted: 2, total: 2, completed: 2, active: 0, failed: 0, cancelled: 0 },
                 ],
                 checks: [],
+                ...durableCategoryEvidence({
+                  graphSignature: emptyGraphSignature,
+                  nodeCount: 0,
+                  edgeCount: 0,
+                }),
               },
             },
           }),
@@ -3471,7 +3535,7 @@ describe('CreativeCanvasWorkspace', () => {
 
     await screen.findByText('Production job coverage')
     const benchmarkProof = screen.getByLabelText(/direct higgsfield benchmark proof/i)
-    expect(benchmarkProof).toHaveTextContent('Needs stored passed provider-backed runtime snapshot with drained queue and <=10% failure rate before reliability proof can pass.')
+    expect(benchmarkProof).toHaveTextContent('Needs durable provider-backed runtime and export category evidence with drained queue and <=10% failure rate before reliability proof can pass.')
     expect(benchmarkProof).toHaveTextContent('2 ready benchmark categories need stored proof.')
 
     fireEvent.click(within(benchmarkProof).getByRole('button', { name: /capture ready proofs/i }))
@@ -3501,6 +3565,8 @@ describe('CreativeCanvasWorkspace', () => {
           runtimeEvidence?: string
           runtimeProviderEvidenceCapturedAt?: string
           runtimeProviderEvidence?: string
+          runtimeCategoryEvidence?: Array<{ categoryKey?: string; runIds?: string[]; graphSignature?: string }>
+          exportCategoryEvidence?: Array<{ categoryKey?: string; exportIds?: string[]; downstreamDraftIds?: string[]; graphSignature?: string }>
         }>
       }
     }
@@ -3519,6 +3585,230 @@ describe('CreativeCanvasWorkspace', () => {
       runtimeEvidence: expect.stringContaining('5/5 runtime categories passed'),
       runtimeProviderEvidenceCapturedAt: expect.any(String),
       runtimeProviderEvidence: expect.stringContaining('5/5 provider-backed'),
+    })
+    expect(body.data?.benchmarkProof?.production_reliability?.runtimeCategoryEvidence).toHaveLength(5)
+    expect(body.data?.benchmarkProof?.production_reliability?.exportCategoryEvidence).toHaveLength(5)
+    expect(body.data?.benchmarkProof?.production_reliability?.runtimeCategoryEvidence?.[0]).toMatchObject({
+      categoryKey: 'image',
+      graphSignature: emptyGraphSignature,
+      runIds: ['run-image-1', 'run-image-2'],
+    })
+    expect(body.data?.benchmarkProof?.production_reliability?.exportCategoryEvidence?.[4]).toMatchObject({
+      categoryKey: 'book',
+      graphSignature: emptyGraphSignature,
+      exportIds: ['export-book'],
+      downstreamDraftIds: ['draft-book'],
+    })
+  })
+
+  it('does not pass aggregate-only export flow proof without durable category evidence', async () => {
+    const defaultFetch = fetchMock.getMockImplementation()
+    const emptyGraphSignature = JSON.stringify({ nodes: [], edges: [] })
+    fetchMock.mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      if (url === '/api/v1/creative-canvas?orgId=org-1') {
+        return {
+          ok: true,
+          json: async () => ({
+            success: true,
+            data: {
+              canvases: [{
+                id: 'canvas-1',
+                orgId: 'org-1',
+                title: 'Launch Canvas',
+                purpose: 'Product launch',
+                status: 'draft',
+                activeVersion: 1,
+                linked: { projectId: 'project-1' },
+                data: {
+                  benchmarkProof: {
+                    export_flows: {
+                      proofUrl: 'https://proof.example.com/export.mp4',
+                      notes: 'Export aggregates looked complete before durable arrays existed.',
+                      capturedAt: '2026-06-21T10:00:00.000Z',
+                      capturedBy: 'Pip',
+                      sourceTitle: 'Higgsfield Canvas media library and generation pipeline',
+                      sourceUrl: 'https://higgsfield.ai/canvas',
+                      sourceCheckedAt: '2026-06-21T10:00:00.000Z',
+                      sourceEvidenceCheckedAt: '2026-06-21T10:00:00.000Z',
+                      sourceEvidenceReachable: true,
+                      sourceEvidenceStatus: 200,
+                      sourceEvidenceContentType: 'text/html',
+                      sourceSignalsVerifiedAt: '2026-06-21T10:00:00.000Z',
+                      sourceSignalsMatched: true,
+                      sourceSignals: ['Generate', 'Library', 'Image', 'Video', 'Audio'],
+                      higgsfieldUiEvidenceUrl: 'https://higgsfield.ai/canvas',
+                      canvasEvidenceUrl: 'https://proof.example.com/export.mp4',
+                      canvasEvidenceCheckedAt: '2026-06-21T10:00:00.000Z',
+                      canvasEvidenceReachable: true,
+                      canvasEvidenceStatus: 200,
+                      canvasEvidenceContentType: 'text/html',
+                      directComparisonAt: '2026-06-21T10:00:00.000Z',
+                      directComparisonVerdict: 'pass',
+                      directComparisonNotes: 'Export flow comparison passed on aggregate counts only.',
+                      orgId: 'org-1',
+                      canvasVersion: 1,
+                      graphSignature: emptyGraphSignature,
+                      nodeCount: 0,
+                      edgeCount: 0,
+                      exportArtifactBackedCategoryCount: 5,
+                      exportArtifactBackedCompletedCount: 10,
+                      exportArtifactBackedCapturedAt: '2026-06-21T10:00:00.000Z',
+                      exportArtifactEvidence: '5/5 artifact-backed export categories; 10 completed runtime artifacts',
+                    },
+                  },
+                },
+                nodes: [],
+                edges: [],
+              }],
+            },
+          }),
+        }
+      }
+      return defaultFetch?.(input, init) ?? {
+        ok: true,
+        json: async () => ({ success: true, data: {} }),
+      }
+    })
+
+    render(<CreativeCanvasWorkspace mode="admin" orgId="org-1" />)
+
+    await screen.findByText('Production job coverage')
+    const benchmarkProof = screen.getByLabelText(/direct higgsfield benchmark proof/i)
+    expect(benchmarkProof).toHaveTextContent('Needs durable runtime and export category evidence before export proof can pass.')
+  })
+
+  it('persists durable arrays when manually saving export flow proof from runtime evidence', async () => {
+    const defaultFetch = fetchMock.getMockImplementation()
+    const emptyGraphSignature = JSON.stringify({ nodes: [], edges: [] })
+    fetchMock.mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      if (url === '/api/v1/creative-canvas?orgId=org-1') {
+        return {
+          ok: true,
+          json: async () => ({
+            success: true,
+            data: {
+              canvases: [{
+                id: 'canvas-1',
+                orgId: 'org-1',
+                title: 'Launch Canvas',
+                purpose: 'Product launch',
+                status: 'draft',
+                activeVersion: 1,
+                linked: { projectId: 'project-1' },
+                data: {
+                  benchmarkProof: {
+                    export_flows: {
+                      proofUrl: 'https://proof.example.com/export.mp4',
+                      notes: 'Export proof with durable runtime evidence.',
+                    },
+                  },
+                },
+                nodes: [],
+                edges: [],
+              }],
+            },
+          }),
+        }
+      }
+      if (url.includes('/runtime-proof')) {
+        return {
+          ok: true,
+          json: async () => ({
+            success: true,
+            data: {
+              proof: {
+                canvasId: 'canvas-1',
+                orgId: 'org-1',
+                status: 'passed',
+                readyForLiveProof: true,
+                summary: 'Runtime proof passed.',
+                reliabilityCoverage: [
+                  { key: 'image', label: 'Image', status: 'passed', requiredOutputKinds: ['image', 'campaign_asset'], requiredCompleted: 2, total: 2, completed: 2, active: 0, failed: 0, cancelled: 0 },
+                  { key: 'video_social', label: 'Video/social', status: 'passed', requiredOutputKinds: ['video', 'social_post_draft', 'youtube_render'], requiredCompleted: 2, total: 2, completed: 2, active: 0, failed: 0, cancelled: 0 },
+                  { key: 'audio', label: 'Audio', status: 'passed', requiredOutputKinds: ['audio'], requiredCompleted: 2, total: 2, completed: 2, active: 0, failed: 0, cancelled: 0 },
+                  { key: 'blog_document', label: 'Blog/document', status: 'passed', requiredOutputKinds: ['blog_draft', 'document_block', 'copy', 'caption'], requiredCompleted: 2, total: 2, completed: 2, active: 0, failed: 0, cancelled: 0 },
+                  { key: 'book', label: 'Book', status: 'passed', requiredOutputKinds: ['book_artifact'], requiredCompleted: 2, total: 2, completed: 2, active: 0, failed: 0, cancelled: 0 },
+                ],
+                checks: [],
+                ...durableCategoryEvidence({
+                  graphSignature: emptyGraphSignature,
+                  nodeCount: 0,
+                  edgeCount: 0,
+                }),
+              },
+            },
+          }),
+        }
+      }
+      if (url.endsWith('/runs?orgId=org-1')) {
+        return {
+          ok: true,
+          json: async () => ({
+            success: true,
+            data: {
+              operations: {
+                total: 10,
+                active: 0,
+                staleActiveRuns: 0,
+                staleThresholdMinutes: 30,
+                failed: 0,
+                retryableFailures: 0,
+                completed: 10,
+                byStatus: { queued: 0, running: 0, waiting_for_review: 0, completed: 10, failed: 0, cancelled: 0 },
+                providers: [],
+              },
+              runs: [],
+            },
+          }),
+        }
+      }
+      return defaultFetch?.(input, init) ?? {
+        ok: true,
+        json: async () => ({ success: true, data: {} }),
+      }
+    })
+
+    render(<CreativeCanvasWorkspace mode="admin" orgId="org-1" />)
+
+    const benchmarkProof = await screen.findByLabelText(/direct higgsfield benchmark proof/i)
+    await waitFor(() => {
+      expect(within(benchmarkProof).getByLabelText(/Export flows benchmark proof URL/i)).toHaveValue('https://proof.example.com/export.mp4')
+      expect(within(benchmarkProof).getByLabelText(/Export flows benchmark proof notes/i)).toHaveValue('Export proof with durable runtime evidence.')
+    })
+
+    fetchMock.mockClear()
+    fireEvent.click(within(benchmarkProof).getByRole('button', { name: /save export flows proof/i }))
+
+    await waitFor(() => expect(screen.getByText('Saved Export flows benchmark proof')).toBeInTheDocument())
+
+    const patchCall = fetchMock.mock.calls.find(([input, init]) => (
+      String(input) === '/api/v1/creative-canvas/canvas-1?orgId=org-1'
+      && init?.method === 'PATCH'
+      && String(init.body).includes('export_flows')
+    ))
+    expect(patchCall).toBeTruthy()
+    const body = JSON.parse(String(patchCall?.[1]?.body ?? '{}')) as {
+      data?: {
+        benchmarkProof?: Record<string, {
+          runtimeCategoryEvidence?: Array<{ categoryKey?: string; runIds?: string[]; graphSignature?: string }>
+          exportCategoryEvidence?: Array<{ categoryKey?: string; exportIds?: string[]; downstreamDraftIds?: string[]; graphSignature?: string }>
+        }>
+      }
+    }
+    expect(body.data?.benchmarkProof?.export_flows?.runtimeCategoryEvidence).toHaveLength(5)
+    expect(body.data?.benchmarkProof?.export_flows?.exportCategoryEvidence).toHaveLength(5)
+    expect(body.data?.benchmarkProof?.export_flows?.runtimeCategoryEvidence?.[0]).toMatchObject({
+      categoryKey: 'image',
+      graphSignature: emptyGraphSignature,
+      runIds: ['run-image-1', 'run-image-2'],
+    })
+    expect(body.data?.benchmarkProof?.export_flows?.exportCategoryEvidence?.[4]).toMatchObject({
+      categoryKey: 'book',
+      graphSignature: emptyGraphSignature,
+      exportIds: ['export-book'],
+      downstreamDraftIds: ['draft-book'],
     })
   })
 

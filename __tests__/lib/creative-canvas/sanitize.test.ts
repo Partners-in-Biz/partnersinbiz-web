@@ -379,6 +379,98 @@ describe('creative canvas sanitizers', () => {
     expect((sanitized.benchmarkProof as Record<string, { mobileViewportBehaviorEvidence?: unknown[] }>).mobile_behavior.mobileViewportBehaviorEvidence).toHaveLength(8)
   })
 
+  it('preserves capped durable runtime and export category evidence', () => {
+    const runtimeCategoryEvidence = Array.from({ length: 11 }, (_, index) => ({
+      categoryKey: index === 0 ? 'image_campaign' : 'audio',
+      orgId: ' org-1 ',
+      canvasVersion: 2.4,
+      graphSignature: ' graph-signature-123 ',
+      nodeCount: 5.6,
+      edgeCount: 4.4,
+      runIds: [` run-${index}-1 `, `run-${index}-2`],
+      providerJobIds: [` provider-job-${index}-1 `, `provider-job-${index}-2`],
+      outputUrls: [` https://cdn.example.com/output-${index}.png `],
+      artifactIds: [` artifact-${index} `],
+      outputNodeIds: [` output-${index} `],
+      exportIds: [` export-${index} `],
+      downstreamDraftIds: [` draft-${index} `],
+      lineageSourceNodeIds: [` source-${index} `],
+      providerKeys: [' higgsfield ', 'unknown'],
+      outputKinds: [' image ', 'unknown'],
+      reviewStatuses: [' passed ', 'unknown'],
+      completedAt: ' 2026-06-21T14:00:00.000Z ',
+      evidence: ` Runtime evidence ${index}. `,
+    }))
+
+    const sanitized = sanitizeCreativeCanvasData({
+      benchmarkProof: {
+        production_reliability: {
+          runtimeCategoryEvidence,
+          exportCategoryEvidence: [{
+            categoryKey: 'book',
+            orgId: 'org-1',
+            canvasVersion: 2,
+            graphSignature: 'graph-signature-123',
+            nodeCount: 5,
+            edgeCount: 4,
+            runIds: [],
+            providerJobIds: [],
+            outputUrls: [],
+            artifactIds: [],
+            outputNodeIds: [' output-book '],
+            exportIds: [' export-book '],
+            downstreamDraftIds: [' draft-book '],
+            lineageSourceNodeIds: [' source-book '],
+            providerKeys: [],
+            outputKinds: ['book_artifact'],
+            reviewStatuses: ['passed'],
+            completedAt: '2026-06-21T14:05:00.000Z',
+            evidence: ' Book export evidence. ',
+            dropped: 'remove me',
+          }],
+        },
+      },
+    })
+
+    const proof = (sanitized.benchmarkProof as Record<string, {
+      runtimeCategoryEvidence?: Array<Record<string, unknown>>
+      exportCategoryEvidence?: Array<Record<string, unknown>>
+    }>).production_reliability
+
+    expect(proof.runtimeCategoryEvidence).toHaveLength(10)
+    expect(proof.runtimeCategoryEvidence?.[0]).toEqual({
+      categoryKey: 'image',
+      orgId: 'org-1',
+      canvasVersion: 2,
+      graphSignature: 'graph-signature-123',
+      nodeCount: 6,
+      edgeCount: 4,
+      runIds: ['run-0-1', 'run-0-2'],
+      providerJobIds: ['provider-job-0-1', 'provider-job-0-2'],
+      outputUrls: ['https://cdn.example.com/output-0.png'],
+      artifactIds: ['artifact-0'],
+      outputNodeIds: ['output-0'],
+      exportIds: ['export-0'],
+      downstreamDraftIds: ['draft-0'],
+      lineageSourceNodeIds: ['source-0'],
+      providerKeys: ['higgsfield'],
+      outputKinds: ['image'],
+      reviewStatuses: ['passed'],
+      completedAt: '2026-06-21T14:00:00.000Z',
+      evidence: 'Runtime evidence 0.',
+    })
+    expect(proof.exportCategoryEvidence).toEqual([expect.objectContaining({
+      categoryKey: 'book',
+      outputNodeIds: ['output-book'],
+      exportIds: ['export-book'],
+      downstreamDraftIds: ['draft-book'],
+      lineageSourceNodeIds: ['source-book'],
+      outputKinds: ['book_artifact'],
+      reviewStatuses: ['passed'],
+      evidence: 'Book export evidence.',
+    })])
+  })
+
   it('rejects cross-org graph nodes before accepting their source data', () => {
     expect(() =>
       sanitizeCreativeCanvasGraph({

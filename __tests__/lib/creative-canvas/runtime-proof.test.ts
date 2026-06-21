@@ -1,4 +1,5 @@
 import { buildCreativeCanvasRuntimeProof } from '@/lib/creative-canvas/runtime-proof'
+import { hasDurableCategoryEvidence } from '@/lib/creative-canvas/parity-proof'
 import type { CreativeCanvas, CreativeCanvasRun } from '@/lib/creative-canvas/types'
 
 const canvas = {
@@ -77,6 +78,18 @@ function completedRunFor(id: string, outputKind: NonNullable<CreativeCanvasRun['
   } satisfies CreativeCanvasRun & { id: string }
 }
 
+function draftExport(id: string, categoryKey: string, outputNodeId: string, downstreamDraftId: string, sourceNodeIds: string[]) {
+  return {
+    id,
+    categoryKey,
+    outputNodeId,
+    downstreamDraftId,
+    sourceNodeIds,
+    status: 'drafted',
+    createdAt: '2026-06-21T14:00:00.000Z',
+  }
+}
+
 describe('creative canvas runtime proof', () => {
   it('passes when canvas has project linkage, runtime readiness, repeated jobs, healthy queue, and exportable output', () => {
     const proof = buildCreativeCanvasRuntimeProof({
@@ -92,6 +105,13 @@ describe('creative canvas runtime proof', () => {
         completedRunFor('run-document-1', 'document_block'),
         completedRunFor('run-book-1', 'book_artifact'),
         completedRunFor('run-book-2', 'book_artifact'),
+      ],
+      exports: [
+        draftExport('export-image', 'image_campaign', 'output-1', 'draft-image', ['source-1']),
+        draftExport('export-video', 'video_social', 'output-1', 'draft-video', ['source-1']),
+        draftExport('export-audio', 'audio', 'output-1', 'draft-audio', ['source-1']),
+        draftExport('export-blog', 'blog_document', 'output-1', 'draft-blog', ['source-1']),
+        draftExport('export-book', 'book', 'output-1', 'draft-book', ['source-1']),
       ],
       env: {
         HIGGSFIELD_RUNTIME_API_KEY: 'runtime-key',
@@ -119,6 +139,17 @@ describe('creative canvas runtime proof', () => {
         expect.objectContaining({ id: 'repeated_job_reliability', status: 'passed' }),
       ]),
     })
+    expect(proof.runtimeCategoryEvidence).toHaveLength(5)
+    expect(proof.exportCategoryEvidence).toHaveLength(5)
+    expect(proof.runtimeCategoryEvidence).toEqual(expect.arrayContaining([
+      expect.objectContaining({ categoryKey: 'image', runIds: ['run-image-1', 'run-image-2'], orgId: 'org-1', canvasVersion: 1 }),
+      expect.objectContaining({ categoryKey: 'blog_document', outputKinds: ['blog_draft', 'document_block'] }),
+    ]))
+    expect(proof.exportCategoryEvidence).toEqual(expect.arrayContaining([
+      expect.objectContaining({ categoryKey: 'image', exportIds: ['export-image'], downstreamDraftIds: ['draft-image'] }),
+      expect.objectContaining({ categoryKey: 'book', exportIds: ['export-book'], downstreamDraftIds: ['draft-book'] }),
+    ]))
+    expect(hasDurableCategoryEvidence(proof, proof.runtimeCategoryEvidence[0])).toBe(true)
   })
 
   it('blocks when only part of the repeated creative job mix has completed', () => {

@@ -18,6 +18,7 @@ import {
 import type {
   CreativeCanvasAssetOrigin,
   CreativeCanvas,
+  CreativeCanvasCategoryEvidence,
   CreativeCanvasComment,
   CreativeCanvasEdge,
   CreativeCanvasEditIntent,
@@ -51,7 +52,7 @@ import { buildCreativeCanvasOrchestrationPlan } from '@/lib/creative-canvas/orch
 import { buildCreativeCanvasAssetGallery } from '@/lib/creative-canvas/assets'
 import { collectCollaborationMutationProof } from '@/lib/creative-canvas/collaboration-proof'
 import { buildMobileViewportBehaviorProof } from '@/lib/creative-canvas/mobile-proof'
-import { hasStructuredCollaborationProof, hasStructuredMobileProof } from '@/lib/creative-canvas/parity-proof'
+import { hasDurableCategoryEvidence, hasStructuredCollaborationProof, hasStructuredMobileProof } from '@/lib/creative-canvas/parity-proof'
 
 type CreativeCanvasMode = 'admin' | 'portal'
 type CreativeCanvasMobilePanel = 'canvas' | 'sources' | 'inspector'
@@ -186,6 +187,8 @@ type CreativeCanvasBenchmarkProofRecord = {
   mobileViewportProofCapturedAt?: string
   mobileViewportEvidence?: string
   mobileViewportBehaviorEvidence?: CreativeCanvasMobileViewportEvidence[]
+  runtimeCategoryEvidence?: CreativeCanvasCategoryEvidence[]
+  exportCategoryEvidence?: CreativeCanvasCategoryEvidence[]
   exportArtifactBackedCategoryCount?: number
   exportArtifactBackedCompletedCount?: number
   exportArtifactBackedCapturedAt?: string
@@ -775,6 +778,16 @@ function getCanvasBenchmarkProof(data: unknown): Partial<Record<CreativeCanvasBe
         .map(objectToMobileViewportBehaviorEvidence)
         .filter((item): item is CreativeCanvasMobileViewportEvidence => Boolean(item))
       : []
+    const runtimeCategoryEvidence = Array.isArray(record.runtimeCategoryEvidence)
+      ? record.runtimeCategoryEvidence
+        .map(objectToCategoryEvidence)
+        .filter((item): item is CreativeCanvasCategoryEvidence => Boolean(item))
+      : []
+    const exportCategoryEvidence = Array.isArray(record.exportCategoryEvidence)
+      ? record.exportCategoryEvidence
+        .map(objectToCategoryEvidence)
+        .filter((item): item is CreativeCanvasCategoryEvidence => Boolean(item))
+      : []
     const exportArtifactBackedCategoryCount = typeof record.exportArtifactBackedCategoryCount === 'number' && Number.isFinite(record.exportArtifactBackedCategoryCount) ? record.exportArtifactBackedCategoryCount : undefined
     const exportArtifactBackedCompletedCount = typeof record.exportArtifactBackedCompletedCount === 'number' && Number.isFinite(record.exportArtifactBackedCompletedCount) ? record.exportArtifactBackedCompletedCount : undefined
     const exportArtifactBackedCapturedAt = stringField(record.exportArtifactBackedCapturedAt)
@@ -885,6 +898,8 @@ function getCanvasBenchmarkProof(data: unknown): Partial<Record<CreativeCanvasBe
       || mobileViewportProofCapturedAt
       || mobileViewportEvidence
       || mobileViewportBehaviorEvidence.length
+      || runtimeCategoryEvidence.length
+      || exportCategoryEvidence.length
       || exportArtifactBackedCategoryCount !== undefined
       || exportArtifactBackedCompletedCount !== undefined
       || exportArtifactBackedCapturedAt
@@ -994,6 +1009,8 @@ function getCanvasBenchmarkProof(data: unknown): Partial<Record<CreativeCanvasBe
         mobileViewportProofCapturedAt,
         mobileViewportEvidence,
         mobileViewportBehaviorEvidence,
+        runtimeCategoryEvidence,
+        exportCategoryEvidence,
         exportArtifactBackedCategoryCount,
         exportArtifactBackedCompletedCount,
         exportArtifactBackedCapturedAt,
@@ -1146,6 +1163,77 @@ function objectToMobileViewportBehaviorEvidence(input: unknown): CreativeCanvasM
     pointerSmokePassed: record.pointerSmokePassed === true,
     panelKeys: stringArrayField(record.panelKeys).map((item) => item.trim()).filter(Boolean).slice(0, 12),
     capturedAt,
+  }
+}
+
+function objectToCategoryEvidence(input: unknown): CreativeCanvasCategoryEvidence | undefined {
+  if (!input || typeof input !== 'object' || Array.isArray(input)) return undefined
+  const record = input as Record<string, unknown>
+  const categoryKey = record.categoryKey === 'image_campaign'
+    ? 'image'
+    : record.categoryKey === 'image'
+      || record.categoryKey === 'video_social'
+      || record.categoryKey === 'audio'
+      || record.categoryKey === 'blog_document'
+      || record.categoryKey === 'book'
+      ? record.categoryKey
+      : undefined
+  const orgId = stringField(record.orgId)
+  const canvasVersion = typeof record.canvasVersion === 'number' && Number.isFinite(record.canvasVersion) ? record.canvasVersion : undefined
+  const graphSignature = stringField(record.graphSignature)
+  const nodeCount = typeof record.nodeCount === 'number' && Number.isFinite(record.nodeCount) ? record.nodeCount : undefined
+  const edgeCount = typeof record.edgeCount === 'number' && Number.isFinite(record.edgeCount) ? record.edgeCount : undefined
+  const completedAt = stringField(record.completedAt)
+  const evidence = stringField(record.evidence)
+  if (!categoryKey || !orgId || canvasVersion === undefined || !graphSignature || nodeCount === undefined || edgeCount === undefined || !completedAt || !evidence) {
+    return undefined
+  }
+
+  return {
+    categoryKey,
+    orgId,
+    canvasVersion,
+    graphSignature,
+    nodeCount,
+    edgeCount,
+    runIds: stringArrayField(record.runIds),
+    providerJobIds: stringArrayField(record.providerJobIds),
+    outputUrls: stringArrayField(record.outputUrls),
+    artifactIds: stringArrayField(record.artifactIds),
+    outputNodeIds: stringArrayField(record.outputNodeIds),
+    exportIds: stringArrayField(record.exportIds),
+    downstreamDraftIds: stringArrayField(record.downstreamDraftIds),
+    lineageSourceNodeIds: stringArrayField(record.lineageSourceNodeIds),
+    providerKeys: stringArrayField(record.providerKeys).filter((item): item is CreativeCanvasCategoryEvidence['providerKeys'][number] => (
+      item === 'higgsfield'
+      || item === 'xai'
+      || item === 'manual_upload'
+      || item === 'text_generation'
+      || item === 'document_generation'
+      || item === 'agent_task'
+    )),
+    outputKinds: stringArrayField(record.outputKinds).filter((item): item is CreativeCanvasOutputKind => (
+      item === 'image'
+      || item === 'video'
+      || item === 'audio'
+      || item === 'caption'
+      || item === 'copy'
+      || item === 'blog_draft'
+      || item === 'document_block'
+      || item === 'book_artifact'
+      || item === 'youtube_render'
+      || item === 'campaign_asset'
+      || item === 'social_post_draft'
+    )),
+    reviewStatuses: stringArrayField(record.reviewStatuses).filter((item): item is CreativeCanvasCategoryEvidence['reviewStatuses'][number] => (
+      item === 'not_required'
+      || item === 'needed'
+      || item === 'passed'
+      || item === 'warning'
+      || item === 'blocked'
+    )),
+    completedAt,
+    evidence,
   }
 }
 
@@ -1611,9 +1699,13 @@ function hasMobileViewportBenchmarkProof(
   return hasStructuredMobileProof(proof as CreativeCanvasMobileProof | undefined, currentBinding)
 }
 
-function hasExportArtifactBackedProof(proof: CreativeCanvasBenchmarkProofRecord | undefined): boolean {
+function hasExportArtifactBackedProof(
+  proof: CreativeCanvasBenchmarkProofRecord | undefined,
+  currentBinding: CreativeCanvasProofBinding,
+): boolean {
   return Boolean(
     proof
+      && hasDurableCategoryEvidence(proof, currentBinding)
       && typeof proof.exportArtifactBackedCategoryCount === 'number'
       && proof.exportArtifactBackedCategoryCount >= exportProofCategories.length
       && typeof proof.exportArtifactBackedCompletedCount === 'number'
@@ -1623,9 +1715,13 @@ function hasExportArtifactBackedProof(proof: CreativeCanvasBenchmarkProofRecord 
   )
 }
 
-function hasProductionRuntimeProof(proof: CreativeCanvasBenchmarkProofRecord | undefined): boolean {
+function hasProductionRuntimeProof(
+  proof: CreativeCanvasBenchmarkProofRecord | undefined,
+  currentBinding: CreativeCanvasProofBinding,
+): boolean {
   return Boolean(
     proof
+      && hasDurableCategoryEvidence(proof, currentBinding)
       && proof.runtimeProofStatus === 'passed'
       && proof.runtimeReadyForLiveProof
       && typeof proof.runtimeArtifactBackedCategoryCount === 'number'
@@ -1648,10 +1744,21 @@ function hasProductionRuntimeProof(proof: CreativeCanvasBenchmarkProofRecord | u
   )
 }
 
+function rebindCategoryEvidence(
+  evidence: CreativeCanvasCategoryEvidence[] | undefined,
+  currentBinding: CreativeCanvasProofBinding,
+): CreativeCanvasCategoryEvidence[] {
+  return (evidence ?? []).map((item) => ({
+    ...item,
+    ...currentBinding,
+  }))
+}
+
 function buildProductionRuntimeProofFields(input: {
   runtimeProof: CreativeCanvasRuntimeProof | null
   runOperations: CreativeCanvasRunOperationsSummary | null
   capturedAt: string
+  currentBinding: CreativeCanvasProofBinding
 }): Partial<CreativeCanvasBenchmarkProofRecord> {
   const reliabilityCoverage = input.runtimeProof?.reliabilityCoverage ?? []
   const passedCoverage = reliabilityCoverage.filter((category) => (
@@ -1678,6 +1785,12 @@ function buildProductionRuntimeProofFields(input: {
     runtimeFailedRunCount: failedRunCount,
     runtimeFailureRatePercent: failureRatePercent,
     runtimeProofCapturedAt: input.runtimeProof ? input.capturedAt : undefined,
+    runtimeCategoryEvidence: input.runtimeProof
+      ? rebindCategoryEvidence(input.runtimeProof.runtimeCategoryEvidence, input.currentBinding)
+      : undefined,
+    exportCategoryEvidence: input.runtimeProof
+      ? rebindCategoryEvidence(input.runtimeProof.exportCategoryEvidence, input.currentBinding)
+      : undefined,
     runtimeEvidence: input.runtimeProof
       ? `${passedCoverage.length}/${exportProofCategories.length} runtime categories passed; ${artifactBackedCompleted} artifact/provenance-backed completed; ${activeRunCount} active; ${staleActiveRunCount} stale; ${failedRunCount} failed; ${failureRatePercent}% failure rate; ${input.runtimeProof.status} runtime proof`
       : undefined,
@@ -3374,6 +3487,13 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
     const canvasOrgId = resolvedOrgId || activeCanvas.orgId
     const existingProof = getCanvasBenchmarkProof(activeCanvas.data)
     const capturedAt = new Date().toISOString()
+    const currentBenchmarkBinding: CreativeCanvasProofBinding = {
+      orgId: canvasOrgId,
+      canvasVersion: activeCanvas.activeVersion,
+      graphSignature: currentGraphSignature,
+      nodeCount: nodes.length,
+      edgeCount: edges.length,
+    }
     const currentRemotePresence = presence.filter((item) => item.id !== ownPresenceId)
     const currentExportArtifactBackedCoverage = (runtimeProof?.reliabilityCoverage ?? []).filter((category) => (
       requiredRuntimeProofCategoryKeys.has(category.key)
@@ -3462,11 +3582,13 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
           exportArtifactBackedCategoryCount: currentExportArtifactBackedCoverage.length,
           exportArtifactBackedCompletedCount: currentExportArtifactBackedCompletedCount,
           exportArtifactBackedCapturedAt: capturedAt,
+          runtimeCategoryEvidence: rebindCategoryEvidence(runtimeProof?.runtimeCategoryEvidence, currentBenchmarkBinding),
+          exportCategoryEvidence: rebindCategoryEvidence(runtimeProof?.exportCategoryEvidence, currentBenchmarkBinding),
           exportArtifactEvidence: `${currentExportArtifactBackedCoverage.length}/${exportProofCategories.length} artifact-backed export categories; ${currentExportArtifactBackedCompletedCount} completed runtime artifacts`,
         }
       : {}
     const productionRuntimeProof = key === 'production_reliability'
-      ? buildProductionRuntimeProofFields({ runtimeProof, runOperations, capturedAt })
+      ? buildProductionRuntimeProofFields({ runtimeProof, runOperations, capturedAt, currentBinding: currentBenchmarkBinding })
       : {}
     const nextBenchmarkProof = {
       ...existingProof,
@@ -5616,8 +5738,8 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
       && (item.key !== 'collaboration' || hasCollaborationSessionProof(proof, currentCollaborationProofBinding))
       && (item.key !== 'agent_orchestration' || hasAgentOrchestrationProof(proof))
       && (item.key !== 'mobile_behavior' || hasMobileViewportBenchmarkProof(proof, currentCollaborationProofBinding))
-      && (item.key !== 'export_flows' || hasExportArtifactBackedProof(proof))
-      && (item.key !== 'production_reliability' || hasProductionRuntimeProof(proof))
+      && (item.key !== 'export_flows' || hasExportArtifactBackedProof(proof, currentCollaborationProofBinding))
+      && (item.key !== 'production_reliability' || hasProductionRuntimeProof(proof, currentCollaborationProofBinding))
     return {
       ...item,
       proof,
@@ -5640,6 +5762,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
     const canvasOrgId = resolvedOrgId || activeCanvas.orgId
     const proofUrl = benchmarkProofUrl(activeCanvas, canvasOrgId)
     const capturedAt = new Date().toISOString()
+    const currentBenchmarkBinding = currentCollaborationProofBinding
     setSavingBenchmarkProofKey(readyBenchmarkProofItems[0].key)
     const sourceEvidenceByUrl = new Map<string, Pick<CreativeCanvasBenchmarkProofRecord, 'sourceEvidenceCheckedAt' | 'sourceEvidenceReachable' | 'sourceEvidenceStatus' | 'sourceEvidenceContentType' | 'sourceSignalsVerifiedAt' | 'sourceSignalsMatched' | 'sourceSignalsMissing'>>()
     try {
@@ -5742,11 +5865,13 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
             exportArtifactBackedCategoryCount: exportArtifactBackedCoverage.length,
             exportArtifactBackedCompletedCount: exportArtifactBackedCompletedCount,
             exportArtifactBackedCapturedAt: capturedAt,
+            runtimeCategoryEvidence: rebindCategoryEvidence(runtimeProof?.runtimeCategoryEvidence, currentBenchmarkBinding),
+            exportCategoryEvidence: rebindCategoryEvidence(runtimeProof?.exportCategoryEvidence, currentBenchmarkBinding),
             exportArtifactEvidence: `${exportArtifactBackedCoverage.length}/${exportProofCategories.length} artifact-backed export categories; ${exportArtifactBackedCompletedCount} completed runtime artifacts`,
           }
         : {}
       const productionRuntimeProof = item.key === 'production_reliability'
-        ? buildProductionRuntimeProofFields({ runtimeProof, runOperations, capturedAt })
+        ? buildProductionRuntimeProofFields({ runtimeProof, runOperations, capturedAt, currentBinding: currentBenchmarkBinding })
         : {}
       acc[item.key] = {
         ...acc[item.key],
@@ -6556,11 +6681,11 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
               {item.key === 'mobile_behavior' && item.proof && !hasMobileViewportBenchmarkProof(item.proof, currentCollaborationProofBinding) ? (
                 <p className="mt-1 text-[11px] font-semibold">Needs stored signed-in viewport matrix evidence before mobile benchmark proof can pass.</p>
               ) : null}
-              {item.key === 'export_flows' && item.proof && !hasExportArtifactBackedProof(item.proof) ? (
-                <p className="mt-1 text-[11px] font-semibold">Needs artifact-backed completed export category evidence before export proof can pass.</p>
+              {item.key === 'export_flows' && item.proof && !hasExportArtifactBackedProof(item.proof, currentCollaborationProofBinding) ? (
+                <p className="mt-1 text-[11px] font-semibold">Needs durable runtime and export category evidence before export proof can pass.</p>
               ) : null}
-              {item.key === 'production_reliability' && item.proof && !hasProductionRuntimeProof(item.proof) ? (
-                <p className="mt-1 text-[11px] font-semibold">Needs stored passed provider-backed runtime snapshot with drained queue and &lt;=10% failure rate before reliability proof can pass.</p>
+              {item.key === 'production_reliability' && item.proof && !hasProductionRuntimeProof(item.proof, currentCollaborationProofBinding) ? (
+                <p className="mt-1 text-[11px] font-semibold">Needs durable provider-backed runtime and export category evidence with drained queue and &lt;=10% failure rate before reliability proof can pass.</p>
               ) : null}
               <div className="mt-2 rounded-md border border-current/20 bg-white/70 px-2 py-1 text-[11px]">
                 <p className="font-semibold">Current Higgsfield source signals</p>

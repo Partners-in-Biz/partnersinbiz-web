@@ -14,6 +14,7 @@ import type {
   CreativeCanvasEditOperation,
   CreativeCanvasGraph,
   CreativeCanvasInput,
+  CreativeCanvasProofCategoryKey,
   CreativeCanvasMobileViewportEvidence,
   CreativeCanvasNode,
   CreativeCanvasNodeType,
@@ -43,6 +44,7 @@ const ACTOR_TYPES: CreativeCanvasActorType[] = ['user', 'agent', 'system']
 const REMOTE_MUTATION_OPERATIONS: readonly CreativeCanvasRemoteMutationOperation[] = creativeCanvasRemoteMutationOperations
 const REMOTE_MUTATION_SOURCES: readonly CreativeCanvasRemoteMutationSource[] = creativeCanvasRemoteMutationSources
 const MOBILE_VIEWPORT_KEYS: CreativeCanvasMobileViewportEvidence['key'][] = ['desktop', 'tablet', 'mobile', 'mobile_panels']
+const PROOF_CATEGORY_KEYS: CreativeCanvasProofCategoryKey[] = ['image', 'video_social', 'audio', 'blog_document', 'book']
 const EDIT_OPERATIONS: CreativeCanvasEditOperation[] = ['inpaint', 'outpaint', 'style_transfer', 'object_replace', 'background_replace', 'video_motion', 'variation', 'upscale']
 const EDIT_INTENTS: CreativeCanvasEditIntent[] = ['generative_fill', 'object_removal', 'object_replace', 'relight', 'reference_blend']
 const EDIT_MOTION_MODES: CreativeCanvasEditMotionMode[] = ['none', 'camera_push', 'camera_pull', 'pan', 'orbit', 'dolly', 'handheld']
@@ -185,6 +187,74 @@ function cleanMobileViewportBehaviorEvidence(value: unknown): CreativeCanvasMobi
         pointerSmokePassed: item.pointerSmokePassed === true,
         panelKeys: cleanStringArray(item.panelKeys).map((panel) => panel.slice(0, 80)).slice(0, 12),
         capturedAt,
+      }]
+    })
+}
+
+function cleanProofCategoryKey(value: unknown): CreativeCanvasProofCategoryKey {
+  if (value === 'image_campaign') return 'image'
+  return enumValue(value, PROOF_CATEGORY_KEYS, 'image')
+}
+
+function cleanCategoryEvidence(value: unknown): Record<string, unknown>[] {
+  if (!Array.isArray(value)) return []
+
+  return value
+    .slice(0, 10)
+    .flatMap((raw) => {
+      const item = asRecord(raw)
+      const categoryKey = cleanProofCategoryKey(item.categoryKey)
+      const completedAt = cleanString(item.completedAt)?.slice(0, 80)
+      const evidence = cleanString(item.evidence)?.slice(0, 600)
+      if (!completedAt && !evidence) return []
+
+      const orgId = cleanString(item.orgId)?.slice(0, 160)
+      const canvasVersion = typeof item.canvasVersion === 'number' && Number.isFinite(item.canvasVersion)
+        ? Math.max(0, Math.round(item.canvasVersion))
+        : undefined
+      const graphSignature = cleanString(item.graphSignature)?.slice(0, 240)
+      const nodeCount = typeof item.nodeCount === 'number' && Number.isFinite(item.nodeCount)
+        ? Math.max(0, Math.round(item.nodeCount))
+        : undefined
+      const edgeCount = typeof item.edgeCount === 'number' && Number.isFinite(item.edgeCount)
+        ? Math.max(0, Math.round(item.edgeCount))
+        : undefined
+      const providerKeys = Array.from(new Set(
+        cleanStringArray(item.providerKeys)
+          .filter((key): key is CreativeCanvasProviderKey => PROVIDER_KEYS.includes(key as CreativeCanvasProviderKey))
+          .slice(0, 10),
+      ))
+      const outputKinds = Array.from(new Set(
+        cleanStringArray(item.outputKinds)
+          .filter((kind): kind is CreativeCanvasOutputKind => OUTPUT_KINDS.includes(kind as CreativeCanvasOutputKind))
+          .slice(0, 10),
+      ))
+      const reviewStatuses = Array.from(new Set(
+        cleanStringArray(item.reviewStatuses)
+          .filter((status): status is CreativeCanvasReviewStatus => REVIEW_STATUSES.includes(status as CreativeCanvasReviewStatus))
+          .slice(0, 10),
+      ))
+
+      return [{
+        categoryKey,
+        ...(orgId ? { orgId } : {}),
+        ...(canvasVersion !== undefined ? { canvasVersion } : {}),
+        ...(graphSignature ? { graphSignature } : {}),
+        ...(nodeCount !== undefined ? { nodeCount } : {}),
+        ...(edgeCount !== undefined ? { edgeCount } : {}),
+        runIds: cleanStringArray(item.runIds).map((id) => id.slice(0, 160)).slice(0, 10),
+        providerJobIds: cleanStringArray(item.providerJobIds).map((id) => id.slice(0, 200)).slice(0, 10),
+        outputUrls: cleanStringArray(item.outputUrls).map((url) => url.slice(0, 500)).slice(0, 10),
+        artifactIds: cleanStringArray(item.artifactIds).map((id) => id.slice(0, 200)).slice(0, 10),
+        outputNodeIds: cleanStringArray(item.outputNodeIds).map((id) => id.slice(0, 160)).slice(0, 10),
+        exportIds: cleanStringArray(item.exportIds).map((id) => id.slice(0, 160)).slice(0, 10),
+        downstreamDraftIds: cleanStringArray(item.downstreamDraftIds).map((id) => id.slice(0, 160)).slice(0, 10),
+        lineageSourceNodeIds: cleanStringArray(item.lineageSourceNodeIds).map((id) => id.slice(0, 160)).slice(0, 10),
+        providerKeys,
+        outputKinds,
+        reviewStatuses,
+        ...(completedAt ? { completedAt } : {}),
+        ...(evidence ? { evidence } : {}),
       }]
     })
 }
@@ -470,6 +540,8 @@ function cleanBenchmarkProofData(value: unknown): Record<string, unknown> | unde
       const mobileViewportProofCapturedAt = cleanString(item.mobileViewportProofCapturedAt)?.slice(0, 80)
       const mobileViewportEvidence = cleanString(item.mobileViewportEvidence)?.slice(0, 400)
       const mobileViewportBehaviorEvidence = cleanMobileViewportBehaviorEvidence(item.mobileViewportBehaviorEvidence)
+      const runtimeCategoryEvidence = cleanCategoryEvidence(item.runtimeCategoryEvidence)
+      const exportCategoryEvidence = cleanCategoryEvidence(item.exportCategoryEvidence)
       const exportArtifactBackedCategoryCount = typeof item.exportArtifactBackedCategoryCount === 'number' && Number.isFinite(item.exportArtifactBackedCategoryCount)
         ? Math.max(0, Math.round(item.exportArtifactBackedCategoryCount))
         : undefined
@@ -600,6 +672,8 @@ function cleanBenchmarkProofData(value: unknown): Record<string, unknown> | unde
         && !mobileViewportProofCapturedAt
         && !mobileViewportEvidence
         && !mobileViewportBehaviorEvidence.length
+        && !runtimeCategoryEvidence.length
+        && !exportCategoryEvidence.length
         && exportArtifactBackedCategoryCount === undefined
         && exportArtifactBackedCompletedCount === undefined
         && !exportArtifactBackedCapturedAt
@@ -709,6 +783,8 @@ function cleanBenchmarkProofData(value: unknown): Record<string, unknown> | unde
         ...(mobileViewportProofCapturedAt ? { mobileViewportProofCapturedAt } : {}),
         ...(mobileViewportEvidence ? { mobileViewportEvidence } : {}),
         ...(mobileViewportBehaviorEvidence.length ? { mobileViewportBehaviorEvidence } : {}),
+        ...(runtimeCategoryEvidence.length ? { runtimeCategoryEvidence } : {}),
+        ...(exportCategoryEvidence.length ? { exportCategoryEvidence } : {}),
         ...(exportArtifactBackedCategoryCount !== undefined ? { exportArtifactBackedCategoryCount } : {}),
         ...(exportArtifactBackedCompletedCount !== undefined ? { exportArtifactBackedCompletedCount } : {}),
         ...(exportArtifactBackedCapturedAt ? { exportArtifactBackedCapturedAt } : {}),
