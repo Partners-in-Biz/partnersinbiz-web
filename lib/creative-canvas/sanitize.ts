@@ -1,3 +1,7 @@
+import {
+  creativeCanvasRemoteMutationOperations,
+  creativeCanvasRemoteMutationSources,
+} from './types'
 import type {
   CreativeCanvasActor,
   CreativeCanvasActorType,
@@ -17,6 +21,8 @@ import type {
   CreativeCanvasReferenceRole,
   CreativeCanvasReviewStatus,
   CreativeCanvasRightsStatus,
+  CreativeCanvasRemoteMutationOperation,
+  CreativeCanvasRemoteMutationSource,
   CreativeCanvasSourceKind,
   CreativeCanvasStatus,
   CreativeCanvasVisibility,
@@ -33,6 +39,8 @@ const BRAND_STATUSES: CreativeCanvasBrandStatus[] = ['unknown', 'passed', 'needs
 const CANVAS_STATUSES: CreativeCanvasStatus[] = ['draft', 'internal_review', 'client_review', 'approved', 'archived']
 const VISIBILITIES: CreativeCanvasVisibility[] = ['admin_agents', 'admin_agents_clients']
 const ACTOR_TYPES: CreativeCanvasActorType[] = ['user', 'agent', 'system']
+const REMOTE_MUTATION_OPERATIONS: readonly CreativeCanvasRemoteMutationOperation[] = creativeCanvasRemoteMutationOperations
+const REMOTE_MUTATION_SOURCES: readonly CreativeCanvasRemoteMutationSource[] = creativeCanvasRemoteMutationSources
 const EDIT_OPERATIONS: CreativeCanvasEditOperation[] = ['inpaint', 'outpaint', 'style_transfer', 'object_replace', 'background_replace', 'video_motion', 'variation', 'upscale']
 const EDIT_INTENTS: CreativeCanvasEditIntent[] = ['generative_fill', 'object_removal', 'object_replace', 'relight', 'reference_blend']
 const EDIT_MOTION_MODES: CreativeCanvasEditMotionMode[] = ['none', 'camera_push', 'camera_pull', 'pan', 'orbit', 'dolly', 'handheld']
@@ -286,19 +294,26 @@ function cleanBenchmarkProofData(value: unknown): Record<string, unknown> | unde
             const raw = asRecord(mutation)
             const actorUid = cleanString(raw.actorUid)?.slice(0, 160)
             const actorType = enumValue(raw.actorType, ACTOR_TYPES, 'user')
-            const operation = cleanString(raw.operation)?.slice(0, 160)
-            const source = cleanString(raw.source)?.slice(0, 160)
+            const operation = cleanString(raw.operation)
+            const source = cleanString(raw.source)
             const occurredAt = cleanString(raw.occurredAt)?.slice(0, 160)
-            if (!actorUid || !operation || !source || !occurredAt) {
+            if (
+              !actorUid
+              || !operation
+              || !source
+              || !occurredAt
+              || !REMOTE_MUTATION_OPERATIONS.includes(operation as CreativeCanvasRemoteMutationOperation)
+              || !REMOTE_MUTATION_SOURCES.includes(source as CreativeCanvasRemoteMutationSource)
+            ) {
               return undefined
             }
             return {
               actorUid,
               actorType,
-              operation,
+              operation: operation as CreativeCanvasRemoteMutationOperation,
               touchedNodeIds: cleanStringArray(raw.touchedNodeIds).map((id) => id.slice(0, 160)).slice(0, 40),
               touchedEdgeIds: cleanStringArray(raw.touchedEdgeIds).map((id) => id.slice(0, 160)).slice(0, 80),
-              source,
+              source: source as CreativeCanvasRemoteMutationSource,
               occurredAt,
             }
           })

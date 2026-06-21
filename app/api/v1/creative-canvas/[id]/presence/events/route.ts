@@ -63,7 +63,7 @@ export const GET = withAuth('client', async (req: NextRequest, user: ApiUser, co
                 operation: item.latestMutation?.operation,
                 touchedNodeIds: item.latestMutation?.touchedNodeIds ?? [],
                 touchedEdgeIds: item.latestMutation?.touchedEdgeIds ?? [],
-                source: 'stream',
+                source: item.latestMutation?.source ?? 'stream',
                 occurredAt: item.latestMutation?.occurredAt,
               }))
               .filter((item) => item.operation && item.occurredAt),

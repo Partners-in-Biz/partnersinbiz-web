@@ -2,6 +2,10 @@ import { FieldValue } from 'firebase-admin/firestore'
 import { adminDb } from '@/lib/firebase/admin'
 import { CREATIVE_CANVAS_COLLECTION, CREATIVE_CANVAS_VERSION_COLLECTION, getCreativeCanvas } from './store'
 import { sanitizeCreativeCanvasGraph } from './sanitize'
+import {
+  creativeCanvasRemoteMutationOperations,
+  creativeCanvasRemoteMutationSources,
+} from './types'
 import type {
   CreativeCanvas,
   CreativeCanvasActor,
@@ -16,6 +20,7 @@ import type {
   CreativeCanvasReviewStatus,
   CreativeCanvasRightsStatus,
   CreativeCanvasRemoteMutationOperation,
+  CreativeCanvasRemoteMutationSource,
   CreativeCanvasVersion,
   CreativeCanvasVisibility,
 } from './types'
@@ -32,15 +37,8 @@ const RIGHTS_STATUSES: CreativeCanvasRightsStatus[] = ['unknown', 'cleared', 'ne
 const BRAND_STATUSES: CreativeCanvasBrandStatus[] = ['unknown', 'passed', 'needs_review', 'blocked']
 const PRESENCE_DRAFT_NODE_LIMIT = 80
 const PRESENCE_DRAFT_EDGE_LIMIT = 160
-const REMOTE_MUTATION_OPERATIONS: CreativeCanvasRemoteMutationOperation[] = [
-  'node_add',
-  'node_move',
-  'node_configure',
-  'edge_add',
-  'edge_remove',
-  'draft_apply',
-  'version_restore',
-]
+const REMOTE_MUTATION_OPERATIONS: readonly CreativeCanvasRemoteMutationOperation[] = creativeCanvasRemoteMutationOperations
+const REMOTE_MUTATION_SOURCES: readonly CreativeCanvasRemoteMutationSource[] = creativeCanvasRemoteMutationSources
 
 function asRecord(value: unknown): UnknownRecord {
   return value && typeof value === 'object' && !Array.isArray(value) ? value as UnknownRecord : {}
@@ -141,7 +139,7 @@ function serializePresence(id: string, data: UnknownRecord): CreativeCanvasPrese
       : undefined,
     latestMutation: Object.keys(latestMutation).length
       ? {
-        operation: enumValue(latestMutation.operation, REMOTE_MUTATION_OPERATIONS, 'node_move'),
+        operation: enumValue(cleanString(latestMutation.operation), REMOTE_MUTATION_OPERATIONS, 'node_move'),
         touchedNodeIds: Array.isArray(latestMutation.touchedNodeIds)
           ? latestMutation.touchedNodeIds
             .map(cleanString)
@@ -154,6 +152,7 @@ function serializePresence(id: string, data: UnknownRecord): CreativeCanvasPrese
             .filter((item): item is string => Boolean(item))
             .slice(0, 80)
           : [],
+        source: enumValue(cleanString(latestMutation.source), REMOTE_MUTATION_SOURCES, 'stream'),
         occurredAt: cleanString(latestMutation.occurredAt) ?? new Date(0).toISOString(),
       }
       : undefined,
@@ -434,9 +433,14 @@ export async function heartbeatCreativeCanvasPresence(
     ? sanitizePresenceDraftGraph(body.draftGraph, orgId)
     : undefined
   const mutation = asRecord(body.mutation)
-  const mutationOperation = REMOTE_MUTATION_OPERATIONS.includes(mutation.operation as CreativeCanvasRemoteMutationOperation)
-    ? mutation.operation as CreativeCanvasRemoteMutationOperation
+  const mutationOperationValue = cleanString(mutation.operation)
+  const mutationOperation = mutationOperationValue && REMOTE_MUTATION_OPERATIONS.includes(mutationOperationValue as CreativeCanvasRemoteMutationOperation)
+    ? mutationOperationValue as CreativeCanvasRemoteMutationOperation
     : undefined
+  const mutationSourceValue = cleanString(mutation.source)
+  const mutationSource = mutationSourceValue && REMOTE_MUTATION_SOURCES.includes(mutationSourceValue as CreativeCanvasRemoteMutationSource)
+    ? mutationSourceValue as CreativeCanvasRemoteMutationSource
+    : 'stream'
   const latestMutation = mutationOperation
     ? {
       operation: mutationOperation,
@@ -452,6 +456,7 @@ export async function heartbeatCreativeCanvasPresence(
           .filter((item): item is string => Boolean(item))
           .slice(0, 80)
         : [],
+      source: mutationSource,
       occurredAt: cleanString(mutation.occurredAt) ?? new Date(nowMs).toISOString(),
     }
     : undefined

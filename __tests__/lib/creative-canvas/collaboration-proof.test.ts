@@ -156,4 +156,63 @@ describe('collectCollaborationMutationProof', () => {
       occurredAt: capturedAt,
     }])
   })
+
+  it('rejects persisted proof rows with invalid typed mutation values', () => {
+    const proof = collectCollaborationMutationProof({
+      remotePresence: [
+        { actorUid: 'user-2', actorType: 'user', hasUnsavedGraphChanges: false, graphSignature: 'after-apply' },
+      ],
+      activity: [{
+        actorUid: 'user-2',
+        actorType: 'user',
+        operation: 'node_move',
+        touchedNodeIds: ['node-a'],
+        touchedEdgeIds: [],
+        source: 'stream',
+        occurredAt: capturedAt,
+      }],
+      latestAppliedDraft: undefined,
+      currentGraphSignature: 'after-apply',
+      streamConnected: true,
+      capturedAt,
+      binding: {
+        orgId: 'org-1',
+        canvasVersion: 7,
+        graphSignature: 'after-apply',
+        nodeCount: 2,
+        edgeCount: 0,
+      },
+    })
+
+    proof.collaborationRemoteOutcome = 'conflict_detected'
+    proof.collaborationRemoteGraphSignature = 'after-apply'
+    proof.collaborationRemoteMutations = [{
+      actorUid: 'user-2',
+      actorType: 'user',
+      operation: 'made_up' as any,
+      touchedNodeIds: ['node-a'],
+      touchedEdgeIds: [],
+      source: 'stream',
+      occurredAt: capturedAt,
+    }]
+    proof.collaborationRemoteActorCount = 1
+    proof.collaborationRemoteEventCount = 1
+    proof.collaborationRemoteMutationCount = 1
+    proof.collaborationRemoteMutationKindCount = 1
+    proof.collaborationRemoteTouchedNodeCount = 1
+
+    expect(hasStructuredCollaborationProof(proof)).toBe(false)
+
+    proof.collaborationRemoteMutations = [{
+      actorUid: 'user-2',
+      actorType: 'user',
+      operation: 'node_move',
+      touchedNodeIds: ['node-a'],
+      touchedEdgeIds: [],
+      source: 'websocket' as any,
+      occurredAt: capturedAt,
+    }]
+
+    expect(hasStructuredCollaborationProof(proof)).toBe(false)
+  })
 })

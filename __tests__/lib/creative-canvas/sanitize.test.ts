@@ -531,4 +531,76 @@ describe('creative canvas sanitizers', () => {
       }, 'org-1'),
     ).toThrow('edge edge-1 targetNodeId does not exist in graph')
   })
+
+  it('drops collaboration mutation rows with invalid operation or source', () => {
+    expect(sanitizeCreativeCanvasData({
+      benchmarkProof: {
+        collaboration: {
+          proofUrl: 'https://proof.example.com/collaboration.mp4',
+          graphSignature: 'graph-signature-123',
+          canvasVersion: 3,
+          nodeCount: 2,
+          edgeCount: 1,
+          collaborationRemoteMutations: [
+            {
+              actorUid: 'user-2',
+              actorType: 'user',
+              operation: 'node_move',
+              touchedNodeIds: ['node-a'],
+              touchedEdgeIds: [],
+              source: 'stream',
+              occurredAt: '2026-06-21T09:05:30.000Z',
+            },
+            {
+              actorUid: 'user-3',
+              actorType: 'user',
+              operation: 'made_up',
+              touchedNodeIds: ['node-b'],
+              touchedEdgeIds: [],
+              source: 'stream',
+              occurredAt: '2026-06-21T09:05:31.000Z',
+            },
+            {
+              actorUid: 'user-4',
+              actorType: 'user',
+              operation: 'edge_add',
+              touchedNodeIds: ['node-a', 'node-b'],
+              touchedEdgeIds: ['edge-a-b'],
+              source: 'websocket',
+              occurredAt: '2026-06-21T09:05:32.000Z',
+            },
+          ],
+        },
+      },
+    })).toEqual({
+      benchmarkProof: {
+        collaboration: {
+          proofUrl: 'https://proof.example.com/collaboration.mp4',
+          notes: undefined,
+          capturedAt: undefined,
+          capturedBy: undefined,
+          sourceTitle: undefined,
+          sourceUrl: undefined,
+          sourceCheckedAt: undefined,
+          directComparisonAt: undefined,
+          directComparisonVerdict: undefined,
+          directComparisonNotes: undefined,
+          canvasVersion: 3,
+          graphSignature: 'graph-signature-123',
+          nodeCount: 2,
+          edgeCount: 1,
+          sourceSignals: [],
+          collaborationRemoteMutations: [{
+            actorUid: 'user-2',
+            actorType: 'user',
+            operation: 'node_move',
+            touchedNodeIds: ['node-a'],
+            touchedEdgeIds: [],
+            source: 'stream',
+            occurredAt: '2026-06-21T09:05:30.000Z',
+          }],
+        },
+      },
+    })
+  })
 })

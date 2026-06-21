@@ -121,6 +121,7 @@ describe('creative canvas collaboration API routes', () => {
         operation: 'node_move',
         touchedNodeIds: ['node-a'],
         touchedEdgeIds: [],
+        source: 'draft_applied',
         occurredAt: '2026-06-21T12:00:00.000Z',
       },
     }])
@@ -142,7 +143,7 @@ describe('creative canvas collaboration API routes', () => {
     expect(text).toContain('event: collaboration')
     expect(text).toContain('"activeVersion":2')
     expect(text).toContain('"actorUid":"maya"')
-    expect(text).toContain('"mutations":[{"actorUid":"maya","actorType":"agent","operation":"node_move","touchedNodeIds":["node-a"],"touchedEdgeIds":[],"source":"stream","occurredAt":"2026-06-21T12:00:00.000Z"}]')
+    expect(text).toContain('"mutations":[{"actorUid":"maya","actorType":"agent","operation":"node_move","touchedNodeIds":["node-a"],"touchedEdgeIds":[],"source":"draft_applied","occurredAt":"2026-06-21T12:00:00.000Z"}]')
   })
 
   it('attaches output to a node', async () => {

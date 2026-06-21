@@ -407,6 +407,7 @@ export interface CreativeCanvasPresence {
     operation: CreativeCanvasRemoteMutationOperation
     touchedNodeIds: string[]
     touchedEdgeIds: string[]
+    source: CreativeCanvasRemoteMutationSource
     occurredAt: string
   }
   lastSeenAt?: unknown
@@ -602,6 +603,24 @@ export type CreativeCanvasRemoteMutationOperation =
   | 'draft_apply'
   | 'version_restore'
 
+export const creativeCanvasRemoteMutationOperations = [
+  'node_add',
+  'node_move',
+  'node_configure',
+  'edge_add',
+  'edge_remove',
+  'draft_apply',
+  'version_restore',
+] as const
+
+export type CreativeCanvasRemoteMutationSource = 'stream' | 'draft_applied' | 'poll'
+
+export const creativeCanvasRemoteMutationSources = [
+  'stream',
+  'draft_applied',
+  'poll',
+] as const
+
 export interface CreativeCanvasProofBinding {
   orgId: string
   canvasVersion: number
@@ -616,7 +635,7 @@ export interface CreativeCanvasRemoteMutationEvidence {
   operation: CreativeCanvasRemoteMutationOperation
   touchedNodeIds: string[]
   touchedEdgeIds: string[]
-  source: 'stream' | 'draft_applied' | 'poll'
+  source: CreativeCanvasRemoteMutationSource
   occurredAt: string
 }
 
@@ -627,7 +646,7 @@ export interface CreativeCanvasCollaborationProofEvidence extends CreativeCanvas
   collaborationRemoteMutationKindCount?: number
   collaborationRemoteTouchedNodeCount?: number
   collaborationRemoteGraphSignature?: string
-  collaborationRemoteSource?: 'stream' | 'draft_applied' | 'poll'
+  collaborationRemoteSource?: CreativeCanvasRemoteMutationSource
   collaborationRemoteOutcome?: 'remote_changes_observed' | 'remote_changes_adopted' | 'conflict_detected' | 'version_forked'
   collaborationCapturedAt?: string
   collaborationEvidence?: string

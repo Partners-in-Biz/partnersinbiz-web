@@ -1,3 +1,7 @@
+import {
+  creativeCanvasRemoteMutationOperations,
+  creativeCanvasRemoteMutationSources,
+} from './types'
 import type {
   CreativeCanvasBenchmarkProof,
   CreativeCanvasCategoryEvidence,
@@ -28,6 +32,8 @@ const certifiedCollaborationOutcomes = new Set<string>([
   'conflict_detected',
   'version_forked',
 ])
+const allowedRemoteMutationOperations = new Set<string>(creativeCanvasRemoteMutationOperations)
+const allowedRemoteMutationSources = new Set<string>(creativeCanvasRemoteMutationSources)
 
 function hasText(value: unknown): value is string {
   return typeof value === 'string' && value.trim().length > 0
@@ -93,6 +99,12 @@ export function hasStructuredCollaborationProof(
   const actorCount = uniqueCount(mutations.map((item) => item.actorUid))
   const touchedNodeCount = uniqueCount(mutations.flatMap((item) => item.touchedNodeIds))
   const mutationKindCount = uniqueCount(mutations.map((item) => item.operation))
+  const hasValidMutations = mutations.every((item) => (
+    hasText(item.actorUid)
+    && hasText(item.occurredAt)
+    && allowedRemoteMutationOperations.has(item.operation)
+    && allowedRemoteMutationSources.has(item.source)
+  ))
 
   return Boolean(
     hasCurrentCanvasBinding(proof, current)
@@ -109,6 +121,7 @@ export function hasStructuredCollaborationProof(
       && proof.collaborationRemoteMutationCount > 0
       && typeof proof.collaborationRemoteMutationKindCount === 'number'
       && proof.collaborationRemoteMutationKindCount > 0
+      && hasValidMutations
       && proof.collaborationRemoteActorCount === actorCount
       && proof.collaborationRemoteEventCount === mutations.length
       && proof.collaborationRemoteMutationCount === mutations.length
