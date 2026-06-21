@@ -243,6 +243,15 @@ function cleanBenchmarkProofData(value: unknown): Record<string, unknown> | unde
       const edgeCount = typeof item.edgeCount === 'number' && Number.isFinite(item.edgeCount)
         ? Math.max(0, Math.round(item.edgeCount))
         : undefined
+      const collaborationRemoteActorCount = typeof item.collaborationRemoteActorCount === 'number' && Number.isFinite(item.collaborationRemoteActorCount)
+        ? Math.max(0, Math.round(item.collaborationRemoteActorCount))
+        : undefined
+      const collaborationRemoteEventCount = typeof item.collaborationRemoteEventCount === 'number' && Number.isFinite(item.collaborationRemoteEventCount)
+        ? Math.max(0, Math.round(item.collaborationRemoteEventCount))
+        : undefined
+      const collaborationStreamConnected = item.collaborationStreamConnected === true ? true : undefined
+      const collaborationCapturedAt = cleanString(item.collaborationCapturedAt)?.slice(0, 80)
+      const collaborationEvidence = cleanString(item.collaborationEvidence)?.slice(0, 300)
       if (
         !proofUrl
         && !notes
@@ -261,6 +270,11 @@ function cleanBenchmarkProofData(value: unknown): Record<string, unknown> | unde
         && !graphSignature
         && nodeCount === undefined
         && edgeCount === undefined
+        && collaborationRemoteActorCount === undefined
+        && collaborationRemoteEventCount === undefined
+        && collaborationStreamConnected === undefined
+        && !collaborationCapturedAt
+        && !collaborationEvidence
       ) return []
       return [[key.slice(0, 80), {
         proofUrl,
@@ -280,6 +294,11 @@ function cleanBenchmarkProofData(value: unknown): Record<string, unknown> | unde
         graphSignature,
         nodeCount,
         edgeCount,
+        ...(collaborationRemoteActorCount !== undefined ? { collaborationRemoteActorCount } : {}),
+        ...(collaborationRemoteEventCount !== undefined ? { collaborationRemoteEventCount } : {}),
+        ...(collaborationStreamConnected !== undefined ? { collaborationStreamConnected } : {}),
+        ...(collaborationCapturedAt ? { collaborationCapturedAt } : {}),
+        ...(collaborationEvidence ? { collaborationEvidence } : {}),
       } as Record<string, unknown>] as [string, Record<string, unknown>]]
     })
     .slice(0, 12)

@@ -99,6 +99,11 @@ type CreativeCanvasBenchmarkProofRecord = {
   graphSignature?: string
   nodeCount?: number
   edgeCount?: number
+  collaborationRemoteActorCount?: number
+  collaborationRemoteEventCount?: number
+  collaborationStreamConnected?: boolean
+  collaborationCapturedAt?: string
+  collaborationEvidence?: string
 }
 
 type CreativeCanvasBenchmarkProofDraft = Record<CreativeCanvasBenchmarkProofKey, {
@@ -535,6 +540,11 @@ function getCanvasBenchmarkProof(data: unknown): Partial<Record<CreativeCanvasBe
     const graphSignature = stringField(record.graphSignature)
     const nodeCount = typeof record.nodeCount === 'number' && Number.isFinite(record.nodeCount) ? record.nodeCount : undefined
     const edgeCount = typeof record.edgeCount === 'number' && Number.isFinite(record.edgeCount) ? record.edgeCount : undefined
+    const collaborationRemoteActorCount = typeof record.collaborationRemoteActorCount === 'number' && Number.isFinite(record.collaborationRemoteActorCount) ? record.collaborationRemoteActorCount : undefined
+    const collaborationRemoteEventCount = typeof record.collaborationRemoteEventCount === 'number' && Number.isFinite(record.collaborationRemoteEventCount) ? record.collaborationRemoteEventCount : undefined
+    const collaborationStreamConnected = record.collaborationStreamConnected === true
+    const collaborationCapturedAt = stringField(record.collaborationCapturedAt)
+    const collaborationEvidence = stringField(record.collaborationEvidence)
     if (
       proofUrl
       || notes
@@ -553,6 +563,11 @@ function getCanvasBenchmarkProof(data: unknown): Partial<Record<CreativeCanvasBe
       || graphSignature
       || nodeCount !== undefined
       || edgeCount !== undefined
+      || collaborationRemoteActorCount !== undefined
+      || collaborationRemoteEventCount !== undefined
+      || collaborationStreamConnected
+      || collaborationCapturedAt
+      || collaborationEvidence
     ) {
       acc[key] = {
         proofUrl,
@@ -572,6 +587,11 @@ function getCanvasBenchmarkProof(data: unknown): Partial<Record<CreativeCanvasBe
         graphSignature,
         nodeCount,
         edgeCount,
+        collaborationRemoteActorCount,
+        collaborationRemoteEventCount,
+        collaborationStreamConnected,
+        collaborationCapturedAt,
+        collaborationEvidence,
       }
     }
     return acc
@@ -616,6 +636,18 @@ function hasCurrentCanvasBenchmarkState(
       && proof.graphSignature === current.graphSignature
       && proof.nodeCount === current.nodeCount
       && proof.edgeCount === current.edgeCount,
+  )
+}
+
+function hasCollaborationSessionProof(proof: CreativeCanvasBenchmarkProofRecord | undefined): boolean {
+  return Boolean(
+    proof
+      && typeof proof.collaborationRemoteActorCount === 'number'
+      && proof.collaborationRemoteActorCount > 0
+      && typeof proof.collaborationRemoteEventCount === 'number'
+      && proof.collaborationRemoteEventCount > 0
+      && proof.collaborationCapturedAt
+      && proof.collaborationEvidence,
   )
 }
 
@@ -2230,6 +2262,18 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
     const canvasOrgId = resolvedOrgId || activeCanvas.orgId
     const existingProof = getCanvasBenchmarkProof(activeCanvas.data)
     const capturedAt = new Date().toISOString()
+    const currentRemotePresence = presence.filter((item) => item.id !== ownPresenceId)
+    const currentRemoteActivityCount = collaborationActivity.filter((event) => event.source === 'stream' || event.source === 'draft').length
+    const currentRemoteEventProofCount = currentRemoteActivityCount || (latestCollaboratorDraft ? 1 : 0) || (currentRemotePresence.some((item) => item.hasUnsavedGraphChanges) ? 1 : 0)
+    const collaborationSessionProof = key === 'collaboration'
+      ? {
+          collaborationRemoteActorCount: currentRemotePresence.length,
+          collaborationRemoteEventCount: currentRemoteEventProofCount,
+          collaborationStreamConnected,
+          collaborationCapturedAt: capturedAt,
+          collaborationEvidence: `${currentRemotePresence.length} remote collaborator${currentRemotePresence.length === 1 ? '' : 's'}; ${currentRemoteActivityCount} remote stream/draft event${currentRemoteActivityCount === 1 ? '' : 's'}; ${latestCollaboratorDraft ? 'collaborator draft present' : 'no collaborator draft'}; ${collaborationStreamConnected ? 'stream connected' : 'poll fallback'}`,
+        }
+      : {}
     const nextBenchmarkProof = {
       ...existingProof,
       [key]: {
@@ -2251,6 +2295,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
         graphSignature: currentGraphSignature,
         nodeCount: nodes.length,
         edgeCount: edges.length,
+        ...collaborationSessionProof,
       },
     }
 
@@ -2280,7 +2325,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
     } finally {
       setSavingBenchmarkProofKey('')
     }
-  }, [activeCanvas, applyCanvasSnapshot, benchmarkProofDrafts, currentGraphSignature, edges.length, nodes.length, resolvedOrgId])
+  }, [activeCanvas, applyCanvasSnapshot, benchmarkProofDrafts, collaborationActivity, collaborationStreamConnected, currentGraphSignature, edges.length, latestCollaboratorDraft, nodes.length, ownPresenceId, presence, resolvedOrgId])
 
   const applyRemoteCanvasUpdate = useCallback(async () => {
     if (!remoteCanvasUpdate?.id) return
@@ -4194,6 +4239,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
   const remoteActivityCount = collaborationActivity.filter((event) => event.source === 'stream' || event.source === 'draft').length
   const hasCollaborationEvidence = remotePresence.length > 0 || Boolean(conflictDraft || latestCollaboratorDraft)
   const hasRemoteLiveEditEvidence = remoteActivityCount > 0 || Boolean(latestCollaboratorDraft) || remotePresence.some((item) => item.hasUnsavedGraphChanges)
+  const collaborationRemoteEventProofCount = remoteActivityCount || (latestCollaboratorDraft ? 1 : 0) || (remotePresence.some((item) => item.hasUnsavedGraphChanges) ? 1 : 0)
   const hasTemplateEvidence = templates.length > 0
   const exportPackageOutputKinds = new Set(latestExportPackage?.manifest?.requiredOutputKinds ?? [])
   const exportPackageTargets = new Set(latestExportPackage?.targets ?? [])
@@ -4233,6 +4279,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
     const proof = benchmarkProofRecords[item.key]
     const proofCaptured = hasSourceBackedBenchmarkProof(proof, item.sourceSignals)
       && hasCurrentCanvasBenchmarkState(proof, currentProofGraphState)
+      && (item.key !== 'collaboration' || hasCollaborationSessionProof(proof))
     return {
       ...item,
       proof,
@@ -4256,6 +4303,15 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
     const proofUrl = benchmarkProofUrl(activeCanvas, canvasOrgId)
     const capturedAt = new Date().toISOString()
     const nextBenchmarkProof = readyBenchmarkProofItems.reduce((acc, item) => {
+      const collaborationSessionProof = item.key === 'collaboration'
+        ? {
+            collaborationRemoteActorCount: remotePresence.length,
+            collaborationRemoteEventCount: collaborationRemoteEventProofCount,
+            collaborationStreamConnected,
+            collaborationCapturedAt: capturedAt,
+            collaborationEvidence: `${remotePresence.length} remote collaborator${remotePresence.length === 1 ? '' : 's'}; ${remoteActivityCount} remote stream/draft event${remoteActivityCount === 1 ? '' : 's'}; ${latestCollaboratorDraft ? 'collaborator draft present' : 'no collaborator draft'}; ${collaborationStreamConnected ? 'stream connected' : 'poll fallback'}`,
+          }
+        : {}
       acc[item.key] = {
         ...acc[item.key],
         proofUrl: acc[item.key]?.proofUrl || proofUrl,
@@ -4275,6 +4331,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
         graphSignature: currentGraphSignature,
         nodeCount: nodes.length,
         edgeCount: edges.length,
+        ...collaborationSessionProof,
       }
       return acc
     }, { ...benchmarkProofRecords } as Partial<Record<CreativeCanvasBenchmarkProofKey, CreativeCanvasBenchmarkProofRecord>>)
@@ -4978,6 +5035,9 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
               {item.proof && !hasCurrentCanvasBenchmarkState(item.proof, currentProofGraphState) ? (
                 <p className="mt-1 text-[11px] font-semibold">Needs proof captured against the current canvas version and graph state before this benchmark can pass.</p>
               ) : null}
+              {item.key === 'collaboration' && item.proof && !hasCollaborationSessionProof(item.proof) ? (
+                <p className="mt-1 text-[11px] font-semibold">Needs stored two-user session evidence before collaboration proof can pass.</p>
+              ) : null}
               <div className="mt-2 rounded-md border border-current/20 bg-white/70 px-2 py-1 text-[11px]">
                 <p className="font-semibold">Current Higgsfield source signals</p>
                 <ul className="mt-1 space-y-0.5">
@@ -5000,6 +5060,11 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
                     Canvas state: v{item.proof.canvasVersion ?? 'missing'} · {item.proof.nodeCount ?? 0} nodes · {item.proof.edgeCount ?? 0} links
                   </p>
                   {item.proof.directComparisonNotes ? <p className="mt-1">{item.proof.directComparisonNotes}</p> : null}
+                  {item.key === 'collaboration' && item.proof.collaborationEvidence ? (
+                    <p className="mt-1">
+                      Collaboration session: {item.proof.collaborationRemoteActorCount ?? 0} remote actor{item.proof.collaborationRemoteActorCount === 1 ? '' : 's'} · {item.proof.collaborationRemoteEventCount ?? 0} remote event{item.proof.collaborationRemoteEventCount === 1 ? '' : 's'} · {item.proof.collaborationStreamConnected ? 'stream connected' : 'poll fallback'}
+                    </p>
+                  ) : null}
                   <div className="mt-1 flex flex-wrap gap-2">
                     {item.proof.higgsfieldUiEvidenceUrl ? (
                       <a

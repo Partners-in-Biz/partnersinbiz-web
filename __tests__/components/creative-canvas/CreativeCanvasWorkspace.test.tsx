@@ -1147,7 +1147,7 @@ describe('CreativeCanvasWorkspace', () => {
     ))
     expect(patchCall).toBeTruthy()
     const body = JSON.parse(String(patchCall?.[1]?.body ?? '{}')) as {
-      data?: { benchmarkProof?: Record<string, { proofUrl?: string; notes?: string; capturedAt?: string; capturedBy?: string; sourceTitle?: string; sourceUrl?: string; sourceCheckedAt?: string; sourceSignals?: string[]; higgsfieldUiEvidenceUrl?: string; canvasEvidenceUrl?: string; directComparisonAt?: string; directComparisonVerdict?: string; directComparisonNotes?: string; canvasVersion?: number; graphSignature?: string; nodeCount?: number; edgeCount?: number }> }
+      data?: { benchmarkProof?: Record<string, { proofUrl?: string; notes?: string; capturedAt?: string; capturedBy?: string; sourceTitle?: string; sourceUrl?: string; sourceCheckedAt?: string; sourceSignals?: string[]; higgsfieldUiEvidenceUrl?: string; canvasEvidenceUrl?: string; directComparisonAt?: string; directComparisonVerdict?: string; directComparisonNotes?: string; canvasVersion?: number; graphSignature?: string; nodeCount?: number; edgeCount?: number; collaborationRemoteActorCount?: number; collaborationRemoteEventCount?: number; collaborationStreamConnected?: boolean; collaborationCapturedAt?: string; collaborationEvidence?: string }> }
     }
     expect(body.data?.benchmarkProof?.editing_ergonomics).toMatchObject({
       proofUrl: 'https://proof.example.com/editing-ergonomics.mp4',
@@ -1226,6 +1226,11 @@ describe('CreativeCanvasWorkspace', () => {
       canvasVersion: 1,
       nodeCount: expect.any(Number),
       edgeCount: expect.any(Number),
+      collaborationRemoteActorCount: 1,
+      collaborationRemoteEventCount: 1,
+      collaborationStreamConnected: false,
+      collaborationCapturedAt: expect.any(String),
+      collaborationEvidence: expect.stringContaining('1 remote collaborator'),
     })
     expect(body.data?.benchmarkProof?.versioning_polish?.sourceCheckedAt).toEqual(expect.any(String))
     expect(body.data?.benchmarkProof?.collaboration?.sourceCheckedAt).toEqual(expect.any(String))
@@ -1244,6 +1249,62 @@ describe('CreativeCanvasWorkspace', () => {
     const certificationGate = screen.getByLabelText(/creative canvas world-class certification gate/i)
     expect(certificationGate).toHaveTextContent('Not world-class certified yet')
     expect(certificationGate).toHaveTextContent('1/6 live proof steps complete, 2/9 source-backed benchmarks passed.')
+  })
+
+  it('does not pass collaboration benchmark proof without stored two-user session evidence', async () => {
+    const defaultFetch = fetchMock.getMockImplementation()
+    fetchMock.mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      if (url === '/api/v1/creative-canvas?orgId=org-1') {
+        return {
+          ok: true,
+          json: async () => ({
+            success: true,
+            data: {
+              canvases: [{
+                id: 'canvas-1',
+                orgId: 'org-1',
+                title: 'Launch Canvas',
+                activeVersion: 1,
+                data: {
+                  benchmarkProof: {
+                    collaboration: {
+                      proofUrl: 'https://proof.example.com/collaboration.mp4',
+                      notes: 'Collaboration proof before session metadata was required.',
+                      capturedAt: '2026-06-21T10:00:00.000Z',
+                      capturedBy: 'Pip',
+                      sourceTitle: 'Higgsfield Canvas live collaboration',
+                      sourceUrl: 'https://higgsfield.ai/canvas-intro',
+                      sourceCheckedAt: '2026-06-21T10:01:00.000Z',
+                      sourceSignals: ['Create together', 'Share a link', 'collaborate live', 'same canvas'],
+                      higgsfieldUiEvidenceUrl: 'https://higgsfield.ai/canvas-intro',
+                      canvasEvidenceUrl: 'https://proof.example.com/collaboration.mp4',
+                      directComparisonAt: '2026-06-21T10:02:00.000Z',
+                      directComparisonVerdict: 'pass',
+                      directComparisonNotes: 'Direct collaboration comparison passed.',
+                      canvasVersion: 1,
+                    },
+                  },
+                },
+                nodes: [],
+                edges: [],
+              }],
+            },
+          }),
+        }
+      }
+      return defaultFetch?.(input, init) ?? {
+        ok: true,
+        json: async () => ({ success: true, data: {} }),
+      }
+    })
+
+    render(<CreativeCanvasWorkspace mode="admin" orgId="org-1" />)
+
+    expect(await screen.findByText('Launch Canvas')).toBeInTheDocument()
+    const benchmarkProof = screen.getByLabelText(/direct higgsfield benchmark proof/i)
+    expect(benchmarkProof).toHaveTextContent('0/9 benchmark proven')
+    expect(benchmarkProof).toHaveTextContent('Needs stored two-user session evidence before collaboration proof can pass.')
   })
 
   it('does not pass benchmark proof records that lack a Higgsfield source check', async () => {
