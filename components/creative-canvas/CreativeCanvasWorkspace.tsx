@@ -1702,7 +1702,8 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
   const nodeActionRefs = useRef<{
     generate: (nodeId: string) => void
     updatePrompt: (nodeId: string, value: string) => void
-  }>({ generate: () => {}, updatePrompt: () => {} })
+    updateText: (nodeId: string, value: string) => void
+  }>({ generate: () => {}, updatePrompt: () => {}, updateText: () => {} })
 
   const displayNodes = useMemo(() => nodes.map((node) => {
     const canvasNode = node.data?.canvasNode as CreativeCanvasNode | undefined
@@ -1715,6 +1716,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
         status: generatingNodeIds.has(node.id) ? 'running' : flowNode.data.status,
         onGenerate: () => nodeActionRefs.current.generate(node.id),
         onPromptChange: (value: string) => nodeActionRefs.current.updatePrompt(node.id, value),
+        onTextChange: (value: string) => nodeActionRefs.current.updateText(node.id, value),
       },
     }
   }), [collaboratorsByNodeId, generatingNodeIds, nodes])
@@ -3857,6 +3859,22 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
     }))
   }, [])
 
+  const updateNodeText = useCallback((nodeId: string, value: string) => {
+    setNodes((current) => current.map((node) => {
+      if (node.id !== nodeId) return node
+      const canvasNode = node.data?.canvasNode as CreativeCanvasNode | undefined
+      if (!canvasNode) return node
+      return {
+        ...node,
+        data: {
+          ...node.data,
+          text: value,
+          canvasNode: { ...canvasNode, data: { ...(canvasNode.data as Record<string, unknown>), text: value } },
+        },
+      }
+    }))
+  }, [])
+
   const generateInlineForNode = useCallback(async (nodeId: string) => {
     if (!activeCanvas?.id || mode !== 'admin') return
     const canvasOrgId = resolvedOrgId || activeCanvas.orgId || ''
@@ -3885,8 +3903,30 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
         setActivityMessage(payload?.error ?? 'Generation failed')
         return
       }
-      await reloadActiveCanvas()
-      setActivityMessage(payload?.data?.pending ? 'Generation queued for review' : 'Generation complete')
+      if (payload?.data?.pending) {
+        // Async provider (e.g. Higgsfield video): bounded poll for the output node.
+        setActivityMessage('Generation queued — waiting for output…')
+        let found = false
+        for (let attempt = 0; attempt < 12 && !found; attempt += 1) {
+          await new Promise((resolve) => { window.setTimeout(resolve, 3000) })
+          try {
+            const pollResponse = await fetch(`/api/v1/creative-canvas/${activeCanvas.id}?orgId=${encodeURIComponent(canvasOrgId)}`)
+            const pollPayload = await pollResponse.json().catch(() => null) as CreativeCanvasApiListResponse | null
+            const polled = pollPayload?.data?.canvas
+            if (polled?.id && (polled.nodes ?? []).some((node) => node.id === `${nodeId}-output`)) {
+              applyCanvasSnapshot(polled)
+              found = true
+              setActivityMessage('Generation complete')
+            }
+          } catch {
+            /* keep polling */
+          }
+        }
+        if (!found) setActivityMessage('Generation still processing — it will appear on refresh')
+      } else {
+        await reloadActiveCanvas()
+        setActivityMessage('Generation complete')
+      }
     } catch {
       setActivityMessage('Generation failed')
     } finally {
@@ -3896,14 +3936,15 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
         return next
       })
     }
-  }, [activeCanvas?.id, activeCanvas?.orgId, mode, nodes, reloadActiveCanvas, resolvedOrgId, runAspectRatio, runDurationSeconds, runGenerateAudio, runModel, runQuality, runVariantCount])
+  }, [activeCanvas?.id, activeCanvas?.orgId, applyCanvasSnapshot, mode, nodes, reloadActiveCanvas, resolvedOrgId, runAspectRatio, runDurationSeconds, runGenerateAudio, runModel, runQuality, runVariantCount])
 
   useEffect(() => {
     nodeActionRefs.current = {
       generate: (nodeId: string) => { void generateInlineForNode(nodeId) },
       updatePrompt: updateNodePrompt,
+      updateText: updateNodeText,
     }
-  }, [generateInlineForNode, updateNodePrompt])
+  }, [generateInlineForNode, updateNodePrompt, updateNodeText])
 
   const markReviewPassed = async () => {
     if (!activeCanvas?.id || !selectedNodeId) return
@@ -4995,7 +5036,14 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
               void openCanvas(canvas)
             }
           }}
-          onUseTemplate={() => { void createBlankCanvas() }}
+          onUseTemplate={(id) => {
+            const template = templates.find((item) => item.id === id)
+            setShowLanding(false)
+            void (async () => {
+              await createBlankCanvas()
+              if (template) applySavedTemplate(template)
+            })()
+          }}
         />
       </main>
     )
