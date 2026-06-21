@@ -9,13 +9,14 @@ import {
   ReactFlowProvider,
   type Edge,
   type Node,
+  type NodeMouseHandler,
   type NodeTypes,
   type OnConnect,
   type OnEdgesChange,
   type OnNodesChange,
   type ReactFlowProps,
 } from '@xyflow/react'
-import '@xyflow/react/dist/style.css'
+// @xyflow/react/dist/style.css is imported globally in app/layout.tsx.
 import { canvasTheme } from '@/components/creative-canvas/theme/tokens'
 import ZoomRail from '@/components/creative-canvas/canvas/ZoomRail'
 import BottomToolbar, { type CanvasTool } from '@/components/creative-canvas/canvas/BottomToolbar'
@@ -26,6 +27,7 @@ export interface CanvasStageProps {
   onNodesChange: OnNodesChange
   onEdgesChange: OnEdgesChange
   onConnect: OnConnect
+  onNodeClick?: NodeMouseHandler
   nodeTypes?: NodeTypes
   /** Called with the flow position of a double-click on the empty pane. */
   onPaneDoubleClick?: (flowPosition: { x: number; y: number }, clientXY: { x: number; y: number }) => void
@@ -47,6 +49,7 @@ function StageInner(props: CanvasStageProps) {
     onNodesChange,
     onEdgesChange,
     onConnect,
+    onNodeClick,
     nodeTypes,
     onPaneDoubleClick,
     onPaneContextMenu,
@@ -84,6 +87,7 @@ function StageInner(props: CanvasStageProps) {
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
         onConnect={onConnect}
+        onNodeClick={onNodeClick}
         nodeTypes={nodeTypes}
         colorMode="dark"
         connectionLineType={'bezier' as ReactFlowProps['connectionLineType']}

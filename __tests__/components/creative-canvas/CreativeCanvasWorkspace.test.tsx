@@ -50,6 +50,14 @@ jest.mock('@xyflow/react', () => ({
       {children}
     </div>
   ),
+  ReactFlowProvider: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+  useReactFlow: () => ({
+    zoomIn: jest.fn(),
+    zoomOut: jest.fn(),
+    fitView: jest.fn(),
+    screenToFlowPosition: (position: { x: number; y: number }) => position,
+  }),
+  BackgroundVariant: { Dots: 'dots', Lines: 'lines', Cross: 'cross' },
   Background: () => <div data-testid="flow-background" />,
   Controls: () => <div data-testid="flow-controls" />,
   MiniMap: () => <div data-testid="flow-minimap" />,

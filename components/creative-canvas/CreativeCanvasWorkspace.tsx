@@ -2,10 +2,6 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
 import {
-  Background,
-  Controls,
-  MiniMap,
-  ReactFlow,
   addEdge,
   applyEdgeChanges,
   applyNodeChanges,
@@ -15,6 +11,9 @@ import {
   type Node,
   type NodeChange,
 } from '@xyflow/react'
+import CanvasStage from '@/components/creative-canvas/canvas/CanvasStage'
+import type { CanvasTool } from '@/components/creative-canvas/canvas/BottomToolbar'
+import { useGraphHistory } from '@/components/creative-canvas/canvas/useGraphHistory'
 import type {
   CreativeCanvasAssetOrigin,
   CreativeCanvas,
@@ -2532,6 +2531,38 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
       })
     }
   }, [recordCanvasActivity])
+
+  // In-session undo/redo over the graph. Structural snapshots only (node/edge
+  // add/remove), guarded so restoring a snapshot does not re-commit it.
+  const graphHistory = useGraphHistory({ nodes, edges })
+  const isRestoringHistoryRef = useRef(false)
+  const lastStructuralSignatureRef = useRef('')
+  const [activeCanvasTool, setActiveCanvasTool] = useState<CanvasTool>('select')
+
+  useEffect(() => {
+    if (isRestoringHistoryRef.current) {
+      isRestoringHistoryRef.current = false
+      return
+    }
+    const signature = `${nodes.map((node) => node.id).sort().join(',')}|${edges.map((edge) => edge.id).sort().join(',')}`
+    if (signature === lastStructuralSignatureRef.current) return
+    lastStructuralSignatureRef.current = signature
+    graphHistory.commit({ nodes, edges })
+  }, [nodes, edges, graphHistory])
+
+  const handleCanvasUndo = useCallback(() => {
+    const snapshot = graphHistory.undo()
+    isRestoringHistoryRef.current = true
+    setNodes(snapshot.nodes as Node[])
+    setEdges(snapshot.edges as Edge[])
+  }, [graphHistory])
+
+  const handleCanvasRedo = useCallback(() => {
+    const snapshot = graphHistory.redo()
+    isRestoringHistoryRef.current = true
+    setNodes(snapshot.nodes as Node[])
+    setEdges(snapshot.edges as Edge[])
+  }, [graphHistory])
 
   const addCanvasNode = (type: CreativeCanvasNodeType) => {
     const nextNumber = nodes.length + 1
@@ -5701,20 +5732,21 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
             </div>
             {saveMessage ? <p className="text-xs font-medium text-[var(--color-pib-text-muted)]">{saveMessage}</p> : null}
           </div>
-          <div className="h-[62vh] min-h-[420px] lg:h-[560px]">
-            <ReactFlow
+          <div className="relative h-[62vh] min-h-[420px] lg:h-[560px]">
+            <CanvasStage
               nodes={displayNodes}
               edges={edges}
               onNodesChange={onNodesChange}
               onEdgesChange={onEdgesChange}
               onConnect={onConnect}
               onNodeClick={selectFlowNode}
-              fitView
-            >
-              <Background />
-              <Controls />
-              <MiniMap />
-            </ReactFlow>
+              canUndo={graphHistory.canUndo}
+              canRedo={graphHistory.canRedo}
+              onUndo={handleCanvasUndo}
+              onRedo={handleCanvasRedo}
+              activeTool={activeCanvasTool}
+              onTool={setActiveCanvasTool}
+            />
           </div>
         </section>
 
