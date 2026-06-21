@@ -173,8 +173,52 @@ describe('creative canvas runtime proof', () => {
       expect.objectContaining({
         id: 'repeated_job_reliability',
         status: 'warning',
-        evidence: '8 total runs, 4 completed, 4 active, 0 failed, 0% completed-job failure rate, 0 stale active.',
-        nextAction: 'Complete at least 2 creative jobs in each category, 8 total, with <=10% failures and no active or stale runs.',
+        evidence: '8 total runs, 4 artifact-backed completed, 0 completed missing artifacts, 4 active, 0 failed, 0% artifact-backed failure rate, 0 stale active.',
+        nextAction: 'Complete at least 2 artifact-backed creative jobs in each category, 8 total, with <=10% failures and no active or stale runs.',
+      }),
+    ]))
+  })
+
+  it('does not pass completed proof runs without output artifacts', () => {
+    const proof = buildCreativeCanvasRuntimeProof({
+      canvas,
+      runs: [
+        { ...completedRunFor('run-image-1', 'image'), output: undefined },
+        completedRunFor('run-image-2', 'campaign_asset'),
+        completedRunFor('run-video-1', 'video'),
+        completedRunFor('run-social-1', 'social_post_draft'),
+        completedRunFor('run-blog-1', 'blog_draft'),
+        completedRunFor('run-document-1', 'document_block'),
+        completedRunFor('run-book-1', 'book_artifact'),
+        completedRunFor('run-book-2', 'book_artifact'),
+      ],
+      env: {
+        HIGGSFIELD_RUNTIME_API_KEY: 'runtime-key',
+        NEXT_PUBLIC_APP_URL: 'https://partnersinbiz.online',
+        HIGGSFIELD_WEBHOOK_SECRET: 'hook-secret',
+      } as NodeJS.ProcessEnv,
+    })
+
+    expect(proof.readyForLiveProof).toBe(false)
+    expect(proof.status).toBe('warning')
+    expect(proof.reliabilityCoverage).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        key: 'image',
+        status: 'warning',
+        completed: 1,
+        requiredCompleted: 2,
+        nextAction: 'Ingest provider output artifacts for completed proof runs.',
+      }),
+    ]))
+    expect(proof.checks).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        id: 'completed_run_artifacts',
+        status: 'warning',
+        evidence: '7/8 completed runs have output URL, artifact ID, or text preview evidence.',
+      }),
+      expect.objectContaining({
+        id: 'repeated_job_reliability',
+        status: 'warning',
       }),
     ]))
   })

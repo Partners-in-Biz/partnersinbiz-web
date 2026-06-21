@@ -41,21 +41,26 @@ function isActiveStatus(status: CreativeCanvasRun['status']): boolean {
   return status === 'queued' || status === 'running' || status === 'waiting_for_review'
 }
 
+function hasCompletedRunArtifact(run: RunWithId): boolean {
+  return Boolean(run.output?.url || run.output?.artifactId || run.output?.textPreview)
+}
+
 function categoryCoverage(runs: RunWithId[]): CreativeCanvasReliabilityCoverageCategory[] {
   return RELIABILITY_CATEGORIES.map((category) => {
     const matchingRuns = runs.filter((run) => {
       const outputKind = run.input.outputKind
       return outputKind ? category.kinds.includes(outputKind) : false
     })
-    const completed = matchingRuns.filter((run) => run.status === 'completed').length
+    const statusCompleted = matchingRuns.filter((run) => run.status === 'completed')
+    const completed = statusCompleted.filter(hasCompletedRunArtifact).length
     const active = matchingRuns.filter((run) => isActiveStatus(run.status)).length
     const failed = matchingRuns.filter((run) => run.status === 'failed').length
     const cancelled = matchingRuns.filter((run) => run.status === 'cancelled').length
-    const latestCompletedRun = matchingRuns.find((run) => run.status === 'completed')
+    const latestCompletedRun = statusCompleted.find(hasCompletedRunArtifact)
     const latestRun = matchingRuns[0]
     const status: CreativeCanvasProofStatus = completed >= REQUIRED_COMPLETED_RUNS_PER_CATEGORY
       ? 'passed'
-      : completed || active
+      : completed || active || statusCompleted.length
         ? 'warning'
         : 'blocked'
     return {
@@ -73,6 +78,8 @@ function categoryCoverage(runs: RunWithId[]): CreativeCanvasReliabilityCoverageC
       latestCompletedRunId: latestCompletedRun?.id,
       nextAction: completed >= REQUIRED_COMPLETED_RUNS_PER_CATEGORY
         ? undefined
+        : statusCompleted.length > completed
+          ? 'Ingest provider output artifacts for completed proof runs.'
         : active
           ? 'Wait for this proof run to complete or ingest the provider output.'
           : failed
@@ -94,22 +101,26 @@ export function buildCreativeCanvasRuntimeProof(input: {
   const assets = buildCreativeCanvasAssetGallery({ nodes: canvas.nodes, runs })
   const exportableAssets = assets.filter((asset) => asset.canDraftExport)
   const completedRuns = runs.filter((run) => run.status === 'completed')
+  const completedRunsWithArtifacts = completedRuns.filter(hasCompletedRunArtifact)
+  const completedRunsMissingArtifacts = completedRuns.length - completedRunsWithArtifacts.length
   const activeRuns = runs.filter((run) => run.status === 'queued' || run.status === 'running' || run.status === 'waiting_for_review')
   const reliabilityCoverage = categoryCoverage(runs)
   const coveredCategories = reliabilityCoverage.filter((category) => category.completed >= category.requiredCompleted)
   const totalFailures = runs.filter((run) => run.status === 'failed').length
-  const completedOrFailedRuns = completedRuns.length + totalFailures
+  const completedOrFailedRuns = completedRunsWithArtifacts.length + totalFailures
   const failureRate = completedOrFailedRuns ? totalFailures / completedOrFailedRuns : 0
   const allReliabilityCategoriesCovered = coveredCategories.length >= RELIABILITY_CATEGORIES.length
-  const repeatedJobsCompleted = completedRuns.length >= 8
+  const repeatedJobsCompleted = completedRunsWithArtifacts.length >= 8
   const repeatedJobQueueDrained = activeRuns.length === 0 && operations.staleActiveRuns === 0
   const repeatedJobReliabilityPassed = repeatedJobsCompleted
     && allReliabilityCategoriesCovered
     && repeatedJobQueueDrained
     && failureRate <= 0.1
-  const repeatedJobReliabilityObserved = completedRuns.length >= 4
+    && completedRunsMissingArtifacts === 0
+  const repeatedJobReliabilityObserved = completedRunsWithArtifacts.length >= 4
     || activeRuns.length > 0
     || coveredCategories.length >= 2
+    || completedRunsMissingArtifacts > 0
 
   const checks: CreativeCanvasRuntimeProofCheck[] = [
     check({
@@ -139,6 +150,23 @@ export function buildCreativeCanvasRuntimeProof(input: {
       status: completedRuns.length ? 'passed' : activeRuns.length ? 'warning' : 'blocked',
       evidence: `${operations.total} runs, ${operations.completed} completed, ${operations.active} active, ${operations.failed} failed.`,
       nextAction: completedRuns.length ? undefined : activeRuns.length ? 'Wait for runtime drain/callback completion.' : 'Queue a Higgsfield/provider run from the canvas.',
+    }),
+    check({
+      id: 'completed_run_artifacts',
+      label: 'Completed run artifacts',
+      status: completedRuns.length && !completedRunsWithArtifacts.length
+        ? 'blocked'
+        : completedRunsMissingArtifacts
+          ? 'warning'
+          : completedRunsWithArtifacts.length
+            ? 'passed'
+            : 'blocked',
+      evidence: `${completedRunsWithArtifacts.length}/${completedRuns.length} completed runs have output URL, artifact ID, or text preview evidence.`,
+      nextAction: completedRunsMissingArtifacts
+        ? 'Ingest provider output artifacts for every completed proof run before claiming repeated-job reliability.'
+        : completedRunsWithArtifacts.length
+          ? undefined
+          : 'Complete a provider run with output artifact evidence.',
     }),
     check({
       id: 'queue_health',
@@ -173,10 +201,10 @@ export function buildCreativeCanvasRuntimeProof(input: {
       id: 'repeated_job_reliability',
       label: 'Repeated creative job reliability',
       status: repeatedJobReliabilityPassed ? 'passed' : repeatedJobReliabilityObserved ? 'warning' : 'blocked',
-      evidence: `${runs.length} total runs, ${completedRuns.length} completed, ${activeRuns.length} active, ${totalFailures} failed, ${Math.round(failureRate * 100)}% completed-job failure rate, ${operations.staleActiveRuns} stale active.`,
+      evidence: `${runs.length} total runs, ${completedRunsWithArtifacts.length} artifact-backed completed, ${completedRunsMissingArtifacts} completed missing artifacts, ${activeRuns.length} active, ${totalFailures} failed, ${Math.round(failureRate * 100)}% artifact-backed failure rate, ${operations.staleActiveRuns} stale active.`,
       nextAction: repeatedJobReliabilityPassed
         ? undefined
-        : `Complete at least ${REQUIRED_COMPLETED_RUNS_PER_CATEGORY} creative jobs in each category, 8 total, with <=10% failures and no active or stale runs.`,
+        : `Complete at least ${REQUIRED_COMPLETED_RUNS_PER_CATEGORY} artifact-backed creative jobs in each category, 8 total, with <=10% failures and no active or stale runs.`,
     }),
   ]
 
@@ -190,7 +218,7 @@ export function buildCreativeCanvasRuntimeProof(input: {
     reliabilityCoverage,
     readyForLiveProof,
     summary: readyForLiveProof
-      ? 'Canvas has linked project, agent orchestration, runtime readiness, completed repeated provider jobs, healthy drained queue, and exportable output assets.'
+      ? 'Canvas has linked project, agent orchestration, runtime readiness, artifact-backed repeated provider jobs, healthy drained queue, and exportable output assets.'
       : `${checks.filter((item) => item.status === 'blocked').length} blockers and ${checks.filter((item) => item.status === 'warning').length} warnings remain before live proof.`,
   }
 }
