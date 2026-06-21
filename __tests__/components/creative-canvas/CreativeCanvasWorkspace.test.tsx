@@ -2210,6 +2210,154 @@ describe('CreativeCanvasWorkspace', () => {
     expect(benchmarkProof).toHaveTextContent('2 ready benchmark categories need stored proof.')
   })
 
+  it('requires a stored passed runtime snapshot before production reliability proof can pass', async () => {
+    const defaultFetch = fetchMock.getMockImplementation()
+    const emptyGraphSignature = JSON.stringify({ nodes: [], edges: [] })
+    fetchMock.mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      if (url === '/api/v1/creative-canvas?orgId=org-1') {
+        return {
+          ok: true,
+          json: async () => ({
+            success: true,
+            data: {
+              canvases: [{
+                id: 'canvas-1',
+                orgId: 'org-1',
+                title: 'Launch Canvas',
+                purpose: 'Product launch',
+                status: 'draft',
+                activeVersion: 1,
+                linked: { projectId: 'project-1' },
+                data: {
+                  benchmarkProof: {
+                    production_reliability: {
+                      proofUrl: 'https://proof.example.com/reliability.mp4',
+                      notes: 'Runtime proof was reviewed against the benchmark.',
+                      capturedAt: '2026-06-21T10:00:00.000Z',
+                      capturedBy: 'Pip',
+                      sourceTitle: 'Higgsfield Canvas production-ready generation',
+                      sourceUrl: 'https://higgsfield.ai/canvas',
+                      sourceCheckedAt: '2026-06-21T10:00:00.000Z',
+                      sourceSignals: ['Generate', 'Library', 'Image', 'Video', 'Audio'],
+                      higgsfieldUiEvidenceUrl: 'https://higgsfield.ai/canvas',
+                      canvasEvidenceUrl: 'https://proof.example.com/reliability.mp4',
+                      directComparisonAt: '2026-06-21T10:00:00.000Z',
+                      directComparisonVerdict: 'pass',
+                      directComparisonNotes: 'Reliability looked complete before runtime snapshot fields existed.',
+                      canvasVersion: 1,
+                      graphSignature: emptyGraphSignature,
+                      nodeCount: 0,
+                      edgeCount: 0,
+                    },
+                  },
+                },
+                nodes: [],
+                edges: [],
+              }],
+            },
+          }),
+        }
+      }
+      if (url.includes('/runtime-proof')) {
+        return {
+          ok: true,
+          json: async () => ({
+            success: true,
+            data: {
+              proof: {
+                canvasId: 'canvas-1',
+                orgId: 'org-1',
+                status: 'passed',
+                readyForLiveProof: true,
+                summary: 'Canvas has linked project, agent orchestration, runtime readiness, artifact-backed repeated provider jobs, healthy drained queue, and exportable output assets.',
+                reliabilityCoverage: [
+                  { key: 'image', label: 'Image', status: 'passed', requiredOutputKinds: ['image', 'campaign_asset'], requiredCompleted: 2, total: 2, completed: 2, active: 0, failed: 0, cancelled: 0 },
+                  { key: 'video_social', label: 'Video/social', status: 'passed', requiredOutputKinds: ['video', 'social_post_draft', 'youtube_render'], requiredCompleted: 2, total: 2, completed: 2, active: 0, failed: 0, cancelled: 0 },
+                  { key: 'blog_document', label: 'Blog/document', status: 'passed', requiredOutputKinds: ['blog_draft', 'document_block', 'copy', 'caption'], requiredCompleted: 2, total: 2, completed: 2, active: 0, failed: 0, cancelled: 0 },
+                  { key: 'book', label: 'Book', status: 'passed', requiredOutputKinds: ['book_artifact'], requiredCompleted: 2, total: 2, completed: 2, active: 0, failed: 0, cancelled: 0 },
+                ],
+                checks: [],
+              },
+            },
+          }),
+        }
+      }
+      if (url.endsWith('/runs?orgId=org-1')) {
+        return {
+          ok: true,
+          json: async () => ({
+            success: true,
+            data: {
+              operations: {
+                total: 8,
+                active: 0,
+                staleActiveRuns: 0,
+                staleThresholdMinutes: 30,
+                failed: 0,
+                retryableFailures: 0,
+                completed: 8,
+                byStatus: { queued: 0, running: 0, waiting_for_review: 0, completed: 8, failed: 0, cancelled: 0 },
+                providers: [],
+              },
+              runs: [],
+            },
+          }),
+        }
+      }
+      return defaultFetch?.(input, init) ?? {
+        ok: true,
+        json: async () => ({ success: true, data: {} }),
+      }
+    })
+
+    render(<CreativeCanvasWorkspace mode="admin" orgId="org-1" />)
+
+    await screen.findByText('Production job coverage')
+    const benchmarkProof = screen.getByLabelText(/direct higgsfield benchmark proof/i)
+    expect(benchmarkProof).toHaveTextContent('Needs stored passed runtime snapshot with drained queue and <=10% failure rate before reliability proof can pass.')
+    expect(benchmarkProof).toHaveTextContent('3 ready benchmark categories need stored proof.')
+
+    fireEvent.click(within(benchmarkProof).getByRole('button', { name: /capture ready proofs/i }))
+
+    await waitFor(() => expect(screen.getByText('Captured 3 ready benchmark proofs')).toBeInTheDocument())
+
+    const patchCall = fetchMock.mock.calls.find(([input, init]) => (
+      String(input) === '/api/v1/creative-canvas/canvas-1?orgId=org-1'
+      && init?.method === 'PATCH'
+      && String(init.body).includes('production_reliability')
+    ))
+    expect(patchCall).toBeTruthy()
+    const body = JSON.parse(String(patchCall?.[1]?.body ?? '{}')) as {
+      data?: {
+        benchmarkProof?: Record<string, {
+          runtimeProofStatus?: string
+          runtimeReadyForLiveProof?: boolean
+          runtimeArtifactBackedCategoryCount?: number
+          runtimeArtifactBackedCompletedCount?: number
+          runtimeActiveRunCount?: number
+          runtimeStaleActiveRunCount?: number
+          runtimeFailedRunCount?: number
+          runtimeFailureRatePercent?: number
+          runtimeProofCapturedAt?: string
+          runtimeEvidence?: string
+        }>
+      }
+    }
+    expect(body.data?.benchmarkProof?.production_reliability).toMatchObject({
+      runtimeProofStatus: 'passed',
+      runtimeReadyForLiveProof: true,
+      runtimeArtifactBackedCategoryCount: 4,
+      runtimeArtifactBackedCompletedCount: 8,
+      runtimeActiveRunCount: 0,
+      runtimeStaleActiveRunCount: 0,
+      runtimeFailedRunCount: 0,
+      runtimeFailureRatePercent: 0,
+      runtimeProofCapturedAt: expect.any(String),
+      runtimeEvidence: expect.stringContaining('4/4 runtime categories passed'),
+    })
+  })
+
   it('adds a source node from the palette', async () => {
     render(<CreativeCanvasWorkspace mode="admin" orgId="org-1" />)
 

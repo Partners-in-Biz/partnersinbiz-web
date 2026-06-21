@@ -111,6 +111,16 @@ type CreativeCanvasBenchmarkProofRecord = {
   exportArtifactBackedCompletedCount?: number
   exportArtifactBackedCapturedAt?: string
   exportArtifactEvidence?: string
+  runtimeProofStatus?: 'passed' | 'warning' | 'blocked'
+  runtimeReadyForLiveProof?: boolean
+  runtimeArtifactBackedCategoryCount?: number
+  runtimeArtifactBackedCompletedCount?: number
+  runtimeActiveRunCount?: number
+  runtimeStaleActiveRunCount?: number
+  runtimeFailedRunCount?: number
+  runtimeFailureRatePercent?: number
+  runtimeProofCapturedAt?: string
+  runtimeEvidence?: string
 }
 
 type CreativeCanvasBenchmarkProofDraft = Record<CreativeCanvasBenchmarkProofKey, {
@@ -559,6 +569,18 @@ function getCanvasBenchmarkProof(data: unknown): Partial<Record<CreativeCanvasBe
     const exportArtifactBackedCompletedCount = typeof record.exportArtifactBackedCompletedCount === 'number' && Number.isFinite(record.exportArtifactBackedCompletedCount) ? record.exportArtifactBackedCompletedCount : undefined
     const exportArtifactBackedCapturedAt = stringField(record.exportArtifactBackedCapturedAt)
     const exportArtifactEvidence = stringField(record.exportArtifactEvidence)
+    const runtimeProofStatus = record.runtimeProofStatus === 'passed' || record.runtimeProofStatus === 'warning' || record.runtimeProofStatus === 'blocked'
+      ? record.runtimeProofStatus
+      : undefined
+    const runtimeReadyForLiveProof = record.runtimeReadyForLiveProof === true
+    const runtimeArtifactBackedCategoryCount = typeof record.runtimeArtifactBackedCategoryCount === 'number' && Number.isFinite(record.runtimeArtifactBackedCategoryCount) ? record.runtimeArtifactBackedCategoryCount : undefined
+    const runtimeArtifactBackedCompletedCount = typeof record.runtimeArtifactBackedCompletedCount === 'number' && Number.isFinite(record.runtimeArtifactBackedCompletedCount) ? record.runtimeArtifactBackedCompletedCount : undefined
+    const runtimeActiveRunCount = typeof record.runtimeActiveRunCount === 'number' && Number.isFinite(record.runtimeActiveRunCount) ? record.runtimeActiveRunCount : undefined
+    const runtimeStaleActiveRunCount = typeof record.runtimeStaleActiveRunCount === 'number' && Number.isFinite(record.runtimeStaleActiveRunCount) ? record.runtimeStaleActiveRunCount : undefined
+    const runtimeFailedRunCount = typeof record.runtimeFailedRunCount === 'number' && Number.isFinite(record.runtimeFailedRunCount) ? record.runtimeFailedRunCount : undefined
+    const runtimeFailureRatePercent = typeof record.runtimeFailureRatePercent === 'number' && Number.isFinite(record.runtimeFailureRatePercent) ? record.runtimeFailureRatePercent : undefined
+    const runtimeProofCapturedAt = stringField(record.runtimeProofCapturedAt)
+    const runtimeEvidence = stringField(record.runtimeEvidence)
     if (
       proofUrl
       || notes
@@ -589,6 +611,16 @@ function getCanvasBenchmarkProof(data: unknown): Partial<Record<CreativeCanvasBe
       || exportArtifactBackedCompletedCount !== undefined
       || exportArtifactBackedCapturedAt
       || exportArtifactEvidence
+      || runtimeProofStatus
+      || runtimeReadyForLiveProof
+      || runtimeArtifactBackedCategoryCount !== undefined
+      || runtimeArtifactBackedCompletedCount !== undefined
+      || runtimeActiveRunCount !== undefined
+      || runtimeStaleActiveRunCount !== undefined
+      || runtimeFailedRunCount !== undefined
+      || runtimeFailureRatePercent !== undefined
+      || runtimeProofCapturedAt
+      || runtimeEvidence
     ) {
       acc[key] = {
         proofUrl,
@@ -620,6 +652,16 @@ function getCanvasBenchmarkProof(data: unknown): Partial<Record<CreativeCanvasBe
         exportArtifactBackedCompletedCount,
         exportArtifactBackedCapturedAt,
         exportArtifactEvidence,
+        runtimeProofStatus,
+        runtimeReadyForLiveProof,
+        runtimeArtifactBackedCategoryCount,
+        runtimeArtifactBackedCompletedCount,
+        runtimeActiveRunCount,
+        runtimeStaleActiveRunCount,
+        runtimeFailedRunCount,
+        runtimeFailureRatePercent,
+        runtimeProofCapturedAt,
+        runtimeEvidence,
       }
     }
     return acc
@@ -699,6 +741,59 @@ function hasExportArtifactBackedProof(proof: CreativeCanvasBenchmarkProofRecord 
       && proof.exportArtifactBackedCapturedAt
       && proof.exportArtifactEvidence,
   )
+}
+
+function hasProductionRuntimeProof(proof: CreativeCanvasBenchmarkProofRecord | undefined): boolean {
+  return Boolean(
+    proof
+      && proof.runtimeProofStatus === 'passed'
+      && proof.runtimeReadyForLiveProof
+      && typeof proof.runtimeArtifactBackedCategoryCount === 'number'
+      && proof.runtimeArtifactBackedCategoryCount >= exportProofCategories.length
+      && typeof proof.runtimeArtifactBackedCompletedCount === 'number'
+      && proof.runtimeArtifactBackedCompletedCount >= exportProofCategories.length * 2
+      && proof.runtimeActiveRunCount === 0
+      && proof.runtimeStaleActiveRunCount === 0
+      && typeof proof.runtimeFailedRunCount === 'number'
+      && typeof proof.runtimeFailureRatePercent === 'number'
+      && proof.runtimeFailureRatePercent <= 10
+      && proof.runtimeProofCapturedAt
+      && proof.runtimeEvidence,
+  )
+}
+
+function buildProductionRuntimeProofFields(input: {
+  runtimeProof: CreativeCanvasRuntimeProof | null
+  runOperations: CreativeCanvasRunOperationsSummary | null
+  capturedAt: string
+}): Partial<CreativeCanvasBenchmarkProofRecord> {
+  const reliabilityCoverage = input.runtimeProof?.reliabilityCoverage ?? []
+  const passedCoverage = reliabilityCoverage.filter((category) => (
+    ['image', 'video_social', 'blog_document', 'book'].includes(category.key)
+    && category.status === 'passed'
+    && category.completed >= (category.requiredCompleted ?? 2)
+  ))
+  const artifactBackedCompleted = passedCoverage.reduce((total, category) => total + category.completed, 0)
+  const activeRunCount = input.runOperations?.active ?? reliabilityCoverage.reduce((total, category) => total + category.active, 0)
+  const staleActiveRunCount = input.runOperations?.staleActiveRuns ?? 0
+  const failedRunCount = input.runOperations?.failed ?? reliabilityCoverage.reduce((total, category) => total + category.failed, 0)
+  const completedOrFailed = artifactBackedCompleted + failedRunCount
+  const failureRatePercent = completedOrFailed ? Math.round((failedRunCount / completedOrFailed) * 100) : 0
+
+  return {
+    runtimeProofStatus: input.runtimeProof?.status,
+    runtimeReadyForLiveProof: input.runtimeProof?.readyForLiveProof === true,
+    runtimeArtifactBackedCategoryCount: passedCoverage.length,
+    runtimeArtifactBackedCompletedCount: artifactBackedCompleted,
+    runtimeActiveRunCount: activeRunCount,
+    runtimeStaleActiveRunCount: staleActiveRunCount,
+    runtimeFailedRunCount: failedRunCount,
+    runtimeFailureRatePercent: failureRatePercent,
+    runtimeProofCapturedAt: input.runtimeProof ? input.capturedAt : undefined,
+    runtimeEvidence: input.runtimeProof
+      ? `${passedCoverage.length}/${exportProofCategories.length} runtime categories passed; ${artifactBackedCompleted} artifact-backed completed; ${activeRunCount} active; ${staleActiveRunCount} stale; ${failedRunCount} failed; ${failureRatePercent}% failure rate; ${input.runtimeProof.status} runtime proof`
+      : undefined,
+  }
 }
 
 function benchmarkProofUrl(canvas: CreativeCanvas | undefined, orgId: string): string {
@@ -2346,6 +2441,9 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
           exportArtifactEvidence: `${currentExportArtifactBackedCoverage.length}/${exportProofCategories.length} artifact-backed export categories; ${currentExportArtifactBackedCompletedCount} completed runtime artifacts`,
         }
       : {}
+    const productionRuntimeProof = key === 'production_reliability'
+      ? buildProductionRuntimeProofFields({ runtimeProof, runOperations, capturedAt })
+      : {}
     const nextBenchmarkProof = {
       ...existingProof,
       [key]: {
@@ -2370,6 +2468,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
         ...editingSessionProof,
         ...collaborationSessionProof,
         ...exportArtifactProof,
+        ...productionRuntimeProof,
       },
     }
 
@@ -2399,7 +2498,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
     } finally {
       setSavingBenchmarkProofKey('')
     }
-  }, [activeCanvas, applyCanvasSnapshot, benchmarkProofDrafts, collaborationActivity, collaborationStreamConnected, currentGraphSignature, edges.length, latestCollaboratorDraft, nodes.length, ownPresenceId, presence, resolvedOrgId, runtimeProof?.reliabilityCoverage])
+  }, [activeCanvas, applyCanvasSnapshot, benchmarkProofDrafts, collaborationActivity, collaborationStreamConnected, currentGraphSignature, edges.length, latestCollaboratorDraft, nodes.length, ownPresenceId, presence, resolvedOrgId, runOperations, runtimeProof])
 
   const applyRemoteCanvasUpdate = useCallback(async () => {
     if (!remoteCanvasUpdate?.id) return
@@ -4364,6 +4463,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
       && (item.key !== 'editing_ergonomics' || hasEditingSessionProof(proof))
       && (item.key !== 'collaboration' || hasCollaborationSessionProof(proof))
       && (item.key !== 'export_flows' || hasExportArtifactBackedProof(proof))
+      && (item.key !== 'production_reliability' || hasProductionRuntimeProof(proof))
     return {
       ...item,
       proof,
@@ -4411,6 +4511,9 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
             exportArtifactEvidence: `${exportArtifactBackedCoverage.length}/${exportProofCategories.length} artifact-backed export categories; ${exportArtifactBackedCompletedCount} completed runtime artifacts`,
           }
         : {}
+      const productionRuntimeProof = item.key === 'production_reliability'
+        ? buildProductionRuntimeProofFields({ runtimeProof, runOperations, capturedAt })
+        : {}
       acc[item.key] = {
         ...acc[item.key],
         proofUrl: acc[item.key]?.proofUrl || proofUrl,
@@ -4433,6 +4536,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
         ...editingSessionProof,
         ...collaborationSessionProof,
         ...exportArtifactProof,
+        ...productionRuntimeProof,
       }
       return acc
     }, { ...benchmarkProofRecords } as Partial<Record<CreativeCanvasBenchmarkProofKey, CreativeCanvasBenchmarkProofRecord>>)
@@ -5145,6 +5249,9 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
               {item.key === 'export_flows' && item.proof && !hasExportArtifactBackedProof(item.proof) ? (
                 <p className="mt-1 text-[11px] font-semibold">Needs artifact-backed completed export category evidence before export proof can pass.</p>
               ) : null}
+              {item.key === 'production_reliability' && item.proof && !hasProductionRuntimeProof(item.proof) ? (
+                <p className="mt-1 text-[11px] font-semibold">Needs stored passed runtime snapshot with drained queue and &lt;=10% failure rate before reliability proof can pass.</p>
+              ) : null}
               <div className="mt-2 rounded-md border border-current/20 bg-white/70 px-2 py-1 text-[11px]">
                 <p className="font-semibold">Current Higgsfield source signals</p>
                 <ul className="mt-1 space-y-0.5">
@@ -5180,6 +5287,11 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
                   {item.key === 'export_flows' && item.proof.exportArtifactEvidence ? (
                     <p className="mt-1">
                       Export artifacts: {item.proof.exportArtifactBackedCategoryCount ?? 0}/{exportProofCategories.length} categories · {item.proof.exportArtifactBackedCompletedCount ?? 0} completed artifacts
+                    </p>
+                  ) : null}
+                  {item.key === 'production_reliability' && item.proof.runtimeEvidence ? (
+                    <p className="mt-1">
+                      Runtime proof: {item.proof.runtimeArtifactBackedCategoryCount ?? 0}/{exportProofCategories.length} categories · {item.proof.runtimeArtifactBackedCompletedCount ?? 0} completed artifacts · {item.proof.runtimeActiveRunCount ?? 0} active · {item.proof.runtimeStaleActiveRunCount ?? 0} stale · {item.proof.runtimeFailureRatePercent ?? 100}% failure rate
                     </p>
                   ) : null}
                   <div className="mt-1 flex flex-wrap gap-2">

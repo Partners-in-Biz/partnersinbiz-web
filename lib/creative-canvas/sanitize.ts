@@ -265,6 +265,30 @@ function cleanBenchmarkProofData(value: unknown): Record<string, unknown> | unde
         : undefined
       const exportArtifactBackedCapturedAt = cleanString(item.exportArtifactBackedCapturedAt)?.slice(0, 80)
       const exportArtifactEvidence = cleanString(item.exportArtifactEvidence)?.slice(0, 300)
+      const runtimeProofStatus = item.runtimeProofStatus === 'passed' || item.runtimeProofStatus === 'warning' || item.runtimeProofStatus === 'blocked'
+        ? item.runtimeProofStatus
+        : undefined
+      const runtimeReadyForLiveProof = item.runtimeReadyForLiveProof === true ? true : undefined
+      const runtimeArtifactBackedCategoryCount = typeof item.runtimeArtifactBackedCategoryCount === 'number' && Number.isFinite(item.runtimeArtifactBackedCategoryCount)
+        ? Math.max(0, Math.round(item.runtimeArtifactBackedCategoryCount))
+        : undefined
+      const runtimeArtifactBackedCompletedCount = typeof item.runtimeArtifactBackedCompletedCount === 'number' && Number.isFinite(item.runtimeArtifactBackedCompletedCount)
+        ? Math.max(0, Math.round(item.runtimeArtifactBackedCompletedCount))
+        : undefined
+      const runtimeActiveRunCount = typeof item.runtimeActiveRunCount === 'number' && Number.isFinite(item.runtimeActiveRunCount)
+        ? Math.max(0, Math.round(item.runtimeActiveRunCount))
+        : undefined
+      const runtimeStaleActiveRunCount = typeof item.runtimeStaleActiveRunCount === 'number' && Number.isFinite(item.runtimeStaleActiveRunCount)
+        ? Math.max(0, Math.round(item.runtimeStaleActiveRunCount))
+        : undefined
+      const runtimeFailedRunCount = typeof item.runtimeFailedRunCount === 'number' && Number.isFinite(item.runtimeFailedRunCount)
+        ? Math.max(0, Math.round(item.runtimeFailedRunCount))
+        : undefined
+      const runtimeFailureRatePercent = typeof item.runtimeFailureRatePercent === 'number' && Number.isFinite(item.runtimeFailureRatePercent)
+        ? Math.min(100, Math.max(0, Math.round(item.runtimeFailureRatePercent)))
+        : undefined
+      const runtimeProofCapturedAt = cleanString(item.runtimeProofCapturedAt)?.slice(0, 80)
+      const runtimeEvidence = cleanString(item.runtimeEvidence)?.slice(0, 400)
       if (
         !proofUrl
         && !notes
@@ -295,6 +319,16 @@ function cleanBenchmarkProofData(value: unknown): Record<string, unknown> | unde
         && exportArtifactBackedCompletedCount === undefined
         && !exportArtifactBackedCapturedAt
         && !exportArtifactEvidence
+        && !runtimeProofStatus
+        && runtimeReadyForLiveProof === undefined
+        && runtimeArtifactBackedCategoryCount === undefined
+        && runtimeArtifactBackedCompletedCount === undefined
+        && runtimeActiveRunCount === undefined
+        && runtimeStaleActiveRunCount === undefined
+        && runtimeFailedRunCount === undefined
+        && runtimeFailureRatePercent === undefined
+        && !runtimeProofCapturedAt
+        && !runtimeEvidence
       ) return []
       return [[key.slice(0, 80), {
         proofUrl,
@@ -326,6 +360,16 @@ function cleanBenchmarkProofData(value: unknown): Record<string, unknown> | unde
         ...(exportArtifactBackedCompletedCount !== undefined ? { exportArtifactBackedCompletedCount } : {}),
         ...(exportArtifactBackedCapturedAt ? { exportArtifactBackedCapturedAt } : {}),
         ...(exportArtifactEvidence ? { exportArtifactEvidence } : {}),
+        ...(runtimeProofStatus ? { runtimeProofStatus } : {}),
+        ...(runtimeReadyForLiveProof !== undefined ? { runtimeReadyForLiveProof } : {}),
+        ...(runtimeArtifactBackedCategoryCount !== undefined ? { runtimeArtifactBackedCategoryCount } : {}),
+        ...(runtimeArtifactBackedCompletedCount !== undefined ? { runtimeArtifactBackedCompletedCount } : {}),
+        ...(runtimeActiveRunCount !== undefined ? { runtimeActiveRunCount } : {}),
+        ...(runtimeStaleActiveRunCount !== undefined ? { runtimeStaleActiveRunCount } : {}),
+        ...(runtimeFailedRunCount !== undefined ? { runtimeFailedRunCount } : {}),
+        ...(runtimeFailureRatePercent !== undefined ? { runtimeFailureRatePercent } : {}),
+        ...(runtimeProofCapturedAt ? { runtimeProofCapturedAt } : {}),
+        ...(runtimeEvidence ? { runtimeEvidence } : {}),
       } as Record<string, unknown>] as [string, Record<string, unknown>]]
     })
     .slice(0, 12)
