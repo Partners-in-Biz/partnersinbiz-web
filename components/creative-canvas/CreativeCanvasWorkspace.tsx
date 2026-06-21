@@ -107,6 +107,10 @@ type CreativeCanvasBenchmarkProofRecord = {
   editingLocalEventCount?: number
   editingCapturedAt?: string
   editingEvidence?: string
+  exportArtifactBackedCategoryCount?: number
+  exportArtifactBackedCompletedCount?: number
+  exportArtifactBackedCapturedAt?: string
+  exportArtifactEvidence?: string
 }
 
 type CreativeCanvasBenchmarkProofDraft = Record<CreativeCanvasBenchmarkProofKey, {
@@ -551,6 +555,10 @@ function getCanvasBenchmarkProof(data: unknown): Partial<Record<CreativeCanvasBe
     const editingLocalEventCount = typeof record.editingLocalEventCount === 'number' && Number.isFinite(record.editingLocalEventCount) ? record.editingLocalEventCount : undefined
     const editingCapturedAt = stringField(record.editingCapturedAt)
     const editingEvidence = stringField(record.editingEvidence)
+    const exportArtifactBackedCategoryCount = typeof record.exportArtifactBackedCategoryCount === 'number' && Number.isFinite(record.exportArtifactBackedCategoryCount) ? record.exportArtifactBackedCategoryCount : undefined
+    const exportArtifactBackedCompletedCount = typeof record.exportArtifactBackedCompletedCount === 'number' && Number.isFinite(record.exportArtifactBackedCompletedCount) ? record.exportArtifactBackedCompletedCount : undefined
+    const exportArtifactBackedCapturedAt = stringField(record.exportArtifactBackedCapturedAt)
+    const exportArtifactEvidence = stringField(record.exportArtifactEvidence)
     if (
       proofUrl
       || notes
@@ -577,6 +585,10 @@ function getCanvasBenchmarkProof(data: unknown): Partial<Record<CreativeCanvasBe
       || editingLocalEventCount !== undefined
       || editingCapturedAt
       || editingEvidence
+      || exportArtifactBackedCategoryCount !== undefined
+      || exportArtifactBackedCompletedCount !== undefined
+      || exportArtifactBackedCapturedAt
+      || exportArtifactEvidence
     ) {
       acc[key] = {
         proofUrl,
@@ -604,6 +616,10 @@ function getCanvasBenchmarkProof(data: unknown): Partial<Record<CreativeCanvasBe
         editingLocalEventCount,
         editingCapturedAt,
         editingEvidence,
+        exportArtifactBackedCategoryCount,
+        exportArtifactBackedCompletedCount,
+        exportArtifactBackedCapturedAt,
+        exportArtifactEvidence,
       }
     }
     return acc
@@ -670,6 +686,18 @@ function hasEditingSessionProof(proof: CreativeCanvasBenchmarkProofRecord | unde
       && proof.editingLocalEventCount > 0
       && proof.editingCapturedAt
       && proof.editingEvidence,
+  )
+}
+
+function hasExportArtifactBackedProof(proof: CreativeCanvasBenchmarkProofRecord | undefined): boolean {
+  return Boolean(
+    proof
+      && typeof proof.exportArtifactBackedCategoryCount === 'number'
+      && proof.exportArtifactBackedCategoryCount >= exportProofCategories.length
+      && typeof proof.exportArtifactBackedCompletedCount === 'number'
+      && proof.exportArtifactBackedCompletedCount >= exportProofCategories.length * 2
+      && proof.exportArtifactBackedCapturedAt
+      && proof.exportArtifactEvidence,
   )
 }
 
@@ -2288,6 +2316,12 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
     const currentRemoteActivityCount = collaborationActivity.filter((event) => event.source === 'stream' || event.source === 'draft').length
     const currentLocalEditingActivityCount = collaborationActivity.filter((event) => event.source === 'local').length
     const currentRemoteEventProofCount = currentRemoteActivityCount || (latestCollaboratorDraft ? 1 : 0) || (currentRemotePresence.some((item) => item.hasUnsavedGraphChanges) ? 1 : 0)
+    const currentExportArtifactBackedCoverage = (runtimeProof?.reliabilityCoverage ?? []).filter((category) => (
+      ['image', 'video_social', 'blog_document', 'book'].includes(category.key)
+      && category.status === 'passed'
+      && category.completed >= (category.requiredCompleted ?? 2)
+    ))
+    const currentExportArtifactBackedCompletedCount = currentExportArtifactBackedCoverage.reduce((total, category) => total + category.completed, 0)
     const editingSessionProof = key === 'editing_ergonomics'
       ? {
           editingLocalEventCount: currentLocalEditingActivityCount,
@@ -2302,6 +2336,14 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
           collaborationStreamConnected,
           collaborationCapturedAt: capturedAt,
           collaborationEvidence: `${currentRemotePresence.length} remote collaborator${currentRemotePresence.length === 1 ? '' : 's'}; ${currentRemoteActivityCount} remote stream/draft event${currentRemoteActivityCount === 1 ? '' : 's'}; ${latestCollaboratorDraft ? 'collaborator draft present' : 'no collaborator draft'}; ${collaborationStreamConnected ? 'stream connected' : 'poll fallback'}`,
+        }
+      : {}
+    const exportArtifactProof = key === 'export_flows'
+      ? {
+          exportArtifactBackedCategoryCount: currentExportArtifactBackedCoverage.length,
+          exportArtifactBackedCompletedCount: currentExportArtifactBackedCompletedCount,
+          exportArtifactBackedCapturedAt: capturedAt,
+          exportArtifactEvidence: `${currentExportArtifactBackedCoverage.length}/${exportProofCategories.length} artifact-backed export categories; ${currentExportArtifactBackedCompletedCount} completed runtime artifacts`,
         }
       : {}
     const nextBenchmarkProof = {
@@ -2327,6 +2369,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
         edgeCount: edges.length,
         ...editingSessionProof,
         ...collaborationSessionProof,
+        ...exportArtifactProof,
       },
     }
 
@@ -2356,7 +2399,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
     } finally {
       setSavingBenchmarkProofKey('')
     }
-  }, [activeCanvas, applyCanvasSnapshot, benchmarkProofDrafts, collaborationActivity, collaborationStreamConnected, currentGraphSignature, edges.length, latestCollaboratorDraft, nodes.length, ownPresenceId, presence, resolvedOrgId])
+  }, [activeCanvas, applyCanvasSnapshot, benchmarkProofDrafts, collaborationActivity, collaborationStreamConnected, currentGraphSignature, edges.length, latestCollaboratorDraft, nodes.length, ownPresenceId, presence, resolvedOrgId, runtimeProof?.reliabilityCoverage])
 
   const applyRemoteCanvasUpdate = useCallback(async () => {
     if (!remoteCanvasUpdate?.id) return
@@ -4282,18 +4325,26 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
       && category.targets.some((target) => exportPackageTargets.has(target))
     )
   ))
-  const hasExportPackageProof = Boolean(latestExportPackage)
-    && (latestExportPackage?.assetCount ?? 0) >= exportProofCategories.length
-    && (latestExportPackage?.manifest?.sourceNodeCount ?? 0) > 0
-    && (latestExportPackage?.manifest?.lineageCount ?? 0) >= (latestExportPackage?.assetCount ?? 0)
-    && (latestExportPackage?.manifest?.downstreamDraftCount ?? 0) >= (latestExportPackage?.assetCount ?? 0)
-    && passedExportProofCategories.length >= exportProofCategories.length
   const draftExportableAssetCount = canvasAssets.filter((asset) => asset.canDraftExport).length
   const capturedVisualProofCount = visualProofItems.filter((item) => item.status === 'signed-in').length
   const reliabilityCoverage = runtimeProof?.reliabilityCoverage ?? []
   const reliabilityCoveragePassed = reliabilityCoverage.length > 0 && reliabilityCoverage.every((category) => category.status === 'passed')
   const reliabilityPassed = reliabilityCoveragePassed && runtimeProof?.status === 'passed' && runtimeProof.readyForLiveProof
   const reliabilityObserved = reliabilityCoverage.length > 0 || Boolean(runOperations?.total)
+  const exportArtifactBackedCoverage = reliabilityCoverage.filter((category) => (
+    ['image', 'video_social', 'blog_document', 'book'].includes(category.key)
+    && category.status === 'passed'
+    && category.completed >= (category.requiredCompleted ?? 2)
+  ))
+  const exportArtifactBackedCompletedCount = exportArtifactBackedCoverage.reduce((total, category) => total + category.completed, 0)
+  const hasExportArtifactBackedCoverage = exportArtifactBackedCoverage.length >= exportProofCategories.length
+  const hasExportPackageProof = Boolean(latestExportPackage)
+    && (latestExportPackage?.assetCount ?? 0) >= exportProofCategories.length
+    && (latestExportPackage?.manifest?.sourceNodeCount ?? 0) > 0
+    && (latestExportPackage?.manifest?.lineageCount ?? 0) >= (latestExportPackage?.assetCount ?? 0)
+    && (latestExportPackage?.manifest?.downstreamDraftCount ?? 0) >= (latestExportPackage?.assetCount ?? 0)
+    && passedExportProofCategories.length >= exportProofCategories.length
+    && hasExportArtifactBackedCoverage
   const benchmarkProofRecords = getCanvasBenchmarkProof(activeCanvas?.data)
   const benchmarkSignals: Record<CreativeCanvasBenchmarkProofKey, boolean> = {
     editing_ergonomics: hasEditingEvidence,
@@ -4312,6 +4363,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
       && hasCurrentCanvasBenchmarkState(proof, currentProofGraphState)
       && (item.key !== 'editing_ergonomics' || hasEditingSessionProof(proof))
       && (item.key !== 'collaboration' || hasCollaborationSessionProof(proof))
+      && (item.key !== 'export_flows' || hasExportArtifactBackedProof(proof))
     return {
       ...item,
       proof,
@@ -4351,6 +4403,14 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
             collaborationEvidence: `${remotePresence.length} remote collaborator${remotePresence.length === 1 ? '' : 's'}; ${remoteActivityCount} remote stream/draft event${remoteActivityCount === 1 ? '' : 's'}; ${latestCollaboratorDraft ? 'collaborator draft present' : 'no collaborator draft'}; ${collaborationStreamConnected ? 'stream connected' : 'poll fallback'}`,
           }
         : {}
+      const exportArtifactProof = item.key === 'export_flows'
+        ? {
+            exportArtifactBackedCategoryCount: exportArtifactBackedCoverage.length,
+            exportArtifactBackedCompletedCount: exportArtifactBackedCompletedCount,
+            exportArtifactBackedCapturedAt: capturedAt,
+            exportArtifactEvidence: `${exportArtifactBackedCoverage.length}/${exportProofCategories.length} artifact-backed export categories; ${exportArtifactBackedCompletedCount} completed runtime artifacts`,
+          }
+        : {}
       acc[item.key] = {
         ...acc[item.key],
         proofUrl: acc[item.key]?.proofUrl || proofUrl,
@@ -4372,6 +4432,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
         edgeCount: edges.length,
         ...editingSessionProof,
         ...collaborationSessionProof,
+        ...exportArtifactProof,
       }
       return acc
     }, { ...benchmarkProofRecords } as Partial<Record<CreativeCanvasBenchmarkProofKey, CreativeCanvasBenchmarkProofRecord>>)
@@ -4482,7 +4543,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
       label: 'Export flows',
       status: hasExportPackageProof ? 'passed' : latestExportPackage || draftExportableAssetCount ? 'watch' : 'blocked',
       evidence: latestExportPackage
-        ? `${passedExportProofCategories.length}/${exportProofCategories.length} export categories packaged · ${latestExportPackage.assetCount} asset${latestExportPackage.assetCount === 1 ? '' : 's'}`
+        ? `${passedExportProofCategories.length}/${exportProofCategories.length} export categories packaged · ${exportArtifactBackedCoverage.length}/${exportProofCategories.length} artifact-backed categories · ${latestExportPackage.assetCount} asset${latestExportPackage.assetCount === 1 ? '' : 's'}`
         : `${draftExportableAssetCount} draft-exportable assets`,
     },
     {
@@ -4538,7 +4599,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
       label: 'Multi-category export proof',
       status: proofItemByKey.export_flows?.status === 'passed' ? 'complete' : hasExportPackageProof ? 'action' : 'blocked',
       evidence: latestExportPackage
-        ? `${passedExportProofCategories.length}/${exportProofCategories.length} export categories packaged`
+        ? `${passedExportProofCategories.length}/${exportProofCategories.length} export categories packaged · ${exportArtifactBackedCoverage.length}/${exportProofCategories.length} artifact-backed categories`
         : `${draftExportableAssetCount} draft-exportable asset${draftExportableAssetCount === 1 ? '' : 's'}`,
       nextAction: proofItemByKey.export_flows?.status === 'passed'
         ? 'Export benchmark proof is source-backed and stored.'
@@ -5081,6 +5142,9 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
               {item.key === 'editing_ergonomics' && item.proof && !hasEditingSessionProof(item.proof) ? (
                 <p className="mt-1 text-[11px] font-semibold">Needs stored local editing session evidence before editing proof can pass.</p>
               ) : null}
+              {item.key === 'export_flows' && item.proof && !hasExportArtifactBackedProof(item.proof) ? (
+                <p className="mt-1 text-[11px] font-semibold">Needs artifact-backed completed export category evidence before export proof can pass.</p>
+              ) : null}
               <div className="mt-2 rounded-md border border-current/20 bg-white/70 px-2 py-1 text-[11px]">
                 <p className="font-semibold">Current Higgsfield source signals</p>
                 <ul className="mt-1 space-y-0.5">
@@ -5111,6 +5175,11 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
                   {item.key === 'editing_ergonomics' && item.proof.editingEvidence ? (
                     <p className="mt-1">
                       Editing session: {item.proof.editingLocalEventCount ?? 0} local graph edit{item.proof.editingLocalEventCount === 1 ? '' : 's'}
+                    </p>
+                  ) : null}
+                  {item.key === 'export_flows' && item.proof.exportArtifactEvidence ? (
+                    <p className="mt-1">
+                      Export artifacts: {item.proof.exportArtifactBackedCategoryCount ?? 0}/{exportProofCategories.length} categories · {item.proof.exportArtifactBackedCompletedCount ?? 0} completed artifacts
                     </p>
                   ) : null}
                   <div className="mt-1 flex flex-wrap gap-2">

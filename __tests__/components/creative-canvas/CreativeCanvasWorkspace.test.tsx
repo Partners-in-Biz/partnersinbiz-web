@@ -2915,7 +2915,7 @@ describe('CreativeCanvasWorkspace', () => {
     expect(screen.getByText(/Package package-1: 1 assets/i)).toBeInTheDocument()
     expect(screen.getByText(/Manifest v1: 6 nodes \/ 5 links \/ social_post_draft \/ 1 sources \/ 1 categories \/ 1 handoffs/i)).toBeInTheDocument()
     const parityAudit = screen.getByLabelText(/higgsfield parity audit/i)
-    expect(parityAudit).toHaveTextContent('1/4 export categories packaged · 1 asset')
+    expect(parityAudit).toHaveTextContent('1/4 export categories packaged · 0/4 artifact-backed categories · 1 asset')
   })
 
   it('requires a multi-category package manifest before export flows are benchmark-ready', async () => {
@@ -2980,7 +2980,49 @@ describe('CreativeCanvasWorkspace', () => {
 
     expect(await screen.findByText('Export package prepared')).toBeInTheDocument()
     const parityAudit = screen.getByLabelText(/higgsfield parity audit/i)
-    expect(parityAudit).toHaveTextContent('4/4 export categories packaged · 4 assets')
+    expect(parityAudit).toHaveTextContent('4/4 export categories packaged · 0/4 artifact-backed categories · 4 assets')
+    expect(benchmarkProof).toHaveTextContent('6 ready benchmark categories need stored proof.')
+
+    fetchMock.mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      if (url.includes('/runtime-proof')) {
+        return {
+          ok: true,
+          json: async () => ({
+            success: true,
+            data: {
+              proof: {
+                canvasId: 'canvas-1',
+                orgId: 'org-1',
+                status: 'warning',
+                readyForLiveProof: false,
+                summary: 'Export artifacts are complete, runtime proof still needs final live certification.',
+                reliabilityCoverage: [
+                  { key: 'image', label: 'Image', status: 'passed', requiredOutputKinds: ['image', 'campaign_asset'], requiredCompleted: 2, total: 2, completed: 2, active: 0, failed: 0, cancelled: 0 },
+                  { key: 'video_social', label: 'Video/social', status: 'passed', requiredOutputKinds: ['video', 'social_post_draft', 'youtube_render'], requiredCompleted: 2, total: 2, completed: 2, active: 0, failed: 0, cancelled: 0 },
+                  { key: 'blog_document', label: 'Blog/document', status: 'passed', requiredOutputKinds: ['blog_draft', 'document_block', 'copy', 'caption'], requiredCompleted: 2, total: 2, completed: 2, active: 0, failed: 0, cancelled: 0 },
+                  { key: 'book', label: 'Book', status: 'passed', requiredOutputKinds: ['book_artifact'], requiredCompleted: 2, total: 2, completed: 2, active: 0, failed: 0, cancelled: 0 },
+                ],
+                checks: [],
+              },
+            },
+          }),
+        }
+      }
+      if (url.includes('/presence') && init?.method === 'POST') {
+        return {
+          ok: true,
+          json: async () => ({ success: true, data: { presence: [] } }),
+        }
+      }
+      return {
+        ok: true,
+        json: async () => ({ success: true, data: {} }),
+      }
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: /refresh runtime proof/i }))
+    await waitFor(() => expect(parityAudit).toHaveTextContent('4/4 export categories packaged · 4/4 artifact-backed categories · 4 assets'))
     expect(benchmarkProof).toHaveTextContent('7 ready benchmark categories need stored proof.')
   })
 

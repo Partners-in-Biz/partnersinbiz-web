@@ -257,6 +257,14 @@ function cleanBenchmarkProofData(value: unknown): Record<string, unknown> | unde
         : undefined
       const editingCapturedAt = cleanString(item.editingCapturedAt)?.slice(0, 80)
       const editingEvidence = cleanString(item.editingEvidence)?.slice(0, 300)
+      const exportArtifactBackedCategoryCount = typeof item.exportArtifactBackedCategoryCount === 'number' && Number.isFinite(item.exportArtifactBackedCategoryCount)
+        ? Math.max(0, Math.round(item.exportArtifactBackedCategoryCount))
+        : undefined
+      const exportArtifactBackedCompletedCount = typeof item.exportArtifactBackedCompletedCount === 'number' && Number.isFinite(item.exportArtifactBackedCompletedCount)
+        ? Math.max(0, Math.round(item.exportArtifactBackedCompletedCount))
+        : undefined
+      const exportArtifactBackedCapturedAt = cleanString(item.exportArtifactBackedCapturedAt)?.slice(0, 80)
+      const exportArtifactEvidence = cleanString(item.exportArtifactEvidence)?.slice(0, 300)
       if (
         !proofUrl
         && !notes
@@ -283,6 +291,10 @@ function cleanBenchmarkProofData(value: unknown): Record<string, unknown> | unde
         && editingLocalEventCount === undefined
         && !editingCapturedAt
         && !editingEvidence
+        && exportArtifactBackedCategoryCount === undefined
+        && exportArtifactBackedCompletedCount === undefined
+        && !exportArtifactBackedCapturedAt
+        && !exportArtifactEvidence
       ) return []
       return [[key.slice(0, 80), {
         proofUrl,
@@ -310,6 +322,10 @@ function cleanBenchmarkProofData(value: unknown): Record<string, unknown> | unde
         ...(editingLocalEventCount !== undefined ? { editingLocalEventCount } : {}),
         ...(editingCapturedAt ? { editingCapturedAt } : {}),
         ...(editingEvidence ? { editingEvidence } : {}),
+        ...(exportArtifactBackedCategoryCount !== undefined ? { exportArtifactBackedCategoryCount } : {}),
+        ...(exportArtifactBackedCompletedCount !== undefined ? { exportArtifactBackedCompletedCount } : {}),
+        ...(exportArtifactBackedCapturedAt ? { exportArtifactBackedCapturedAt } : {}),
+        ...(exportArtifactEvidence ? { exportArtifactEvidence } : {}),
       } as Record<string, unknown>] as [string, Record<string, unknown>]]
     })
     .slice(0, 12)
