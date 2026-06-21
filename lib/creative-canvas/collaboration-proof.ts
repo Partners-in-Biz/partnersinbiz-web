@@ -39,16 +39,28 @@ export function collectCollaborationMutationProof(input: {
   binding: CreativeCanvasProofBinding
 }): CreativeCanvasCollaborationProofEvidence {
   const typedMutations = input.activity.filter(hasTouchedGraph)
-  const actorIds = unique([
-    ...input.remotePresence.map((item) => item.actorUid),
-    ...typedMutations.map((item) => item.actorUid),
-  ])
-  const operationKinds = unique(typedMutations.map((item) => item.operation))
-  const touchedNodeIds = unique(typedMutations.flatMap((item) => item.touchedNodeIds))
   const appliedDraftHandled = Boolean(
     input.latestAppliedDraft
-      && input.latestAppliedDraft.graphSignature === input.currentGraphSignature,
+      && input.latestAppliedDraft.graphSignature === input.currentGraphSignature
+      && (input.latestAppliedDraft.touchedNodeIds.length > 0 || input.latestAppliedDraft.touchedEdgeIds.length > 0),
   )
+  const appliedDraftMutation = appliedDraftHandled && input.latestAppliedDraft
+    ? {
+        actorUid: input.latestAppliedDraft.actorUid,
+        actorType: input.latestAppliedDraft.actorType,
+        operation: 'draft_apply' as const,
+        touchedNodeIds: input.latestAppliedDraft.touchedNodeIds,
+        touchedEdgeIds: input.latestAppliedDraft.touchedEdgeIds,
+        source: 'draft_applied' as const,
+        occurredAt: input.latestAppliedDraft.appliedAt,
+      }
+    : undefined
+  const mutations = appliedDraftMutation
+    ? [...typedMutations, appliedDraftMutation]
+    : typedMutations
+  const actorIds = unique(mutations.map((item) => item.actorUid))
+  const operationKinds = unique(mutations.map((item) => item.operation))
+  const touchedNodeIds = unique(mutations.flatMap((item) => item.touchedNodeIds))
   const source = appliedDraftHandled
     ? 'draft_applied'
     : input.streamConnected
@@ -61,8 +73,8 @@ export function collectCollaborationMutationProof(input: {
   return {
     ...input.binding,
     collaborationRemoteActorCount: actorIds.length,
-    collaborationRemoteEventCount: typedMutations.length,
-    collaborationRemoteMutationCount: typedMutations.length,
+    collaborationRemoteEventCount: mutations.length,
+    collaborationRemoteMutationCount: mutations.length,
     collaborationRemoteMutationKindCount: operationKinds.length,
     collaborationRemoteTouchedNodeCount: touchedNodeIds.length,
     collaborationRemoteGraphSignature: appliedDraftHandled
@@ -71,7 +83,7 @@ export function collectCollaborationMutationProof(input: {
     collaborationRemoteSource: source,
     collaborationRemoteOutcome: outcome,
     collaborationCapturedAt: input.capturedAt,
-    collaborationEvidence: `${actorIds.length} remote actors; ${typedMutations.length} typed remote mutations; ${touchedNodeIds.length} touched nodes; source ${source}; outcome ${outcome}.`,
-    collaborationRemoteMutations: typedMutations,
+    collaborationEvidence: `${actorIds.length} remote actors; ${mutations.length} typed remote mutations; ${touchedNodeIds.length} touched nodes; source ${source}; outcome ${outcome}.`,
+    collaborationRemoteMutations: mutations,
   }
 }
