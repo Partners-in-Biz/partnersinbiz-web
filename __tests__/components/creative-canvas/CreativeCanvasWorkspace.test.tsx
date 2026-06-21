@@ -1019,7 +1019,7 @@ describe('CreativeCanvasWorkspace', () => {
     ))
     expect(patchCall).toBeTruthy()
     const body = JSON.parse(String(patchCall?.[1]?.body ?? '{}')) as {
-      data?: { benchmarkProof?: Record<string, { proofUrl?: string; notes?: string; capturedAt?: string; capturedBy?: string; sourceTitle?: string; sourceUrl?: string; sourceCheckedAt?: string; sourceSignals?: string[]; higgsfieldUiEvidenceUrl?: string; canvasEvidenceUrl?: string; directComparisonAt?: string; directComparisonVerdict?: string; directComparisonNotes?: string }> }
+      data?: { benchmarkProof?: Record<string, { proofUrl?: string; notes?: string; capturedAt?: string; capturedBy?: string; sourceTitle?: string; sourceUrl?: string; sourceCheckedAt?: string; sourceSignals?: string[]; higgsfieldUiEvidenceUrl?: string; canvasEvidenceUrl?: string; directComparisonAt?: string; directComparisonVerdict?: string; directComparisonNotes?: string; canvasVersion?: number; graphSignature?: string; nodeCount?: number; edgeCount?: number }> }
     }
     expect(body.data?.benchmarkProof?.editing_ergonomics).toMatchObject({
       proofUrl: 'https://proof.example.com/editing-ergonomics.mp4',
@@ -1032,10 +1032,14 @@ describe('CreativeCanvasWorkspace', () => {
       canvasEvidenceUrl: 'https://proof.example.com/editing-ergonomics.mp4',
       directComparisonVerdict: 'pass',
       directComparisonNotes: 'Graph node editing, branch recovery, and save behavior captured.',
+      canvasVersion: 1,
+      nodeCount: expect.any(Number),
+      edgeCount: expect.any(Number),
     })
     expect(body.data?.benchmarkProof?.editing_ergonomics?.capturedAt).toEqual(expect.any(String))
     expect(body.data?.benchmarkProof?.editing_ergonomics?.sourceCheckedAt).toEqual(expect.any(String))
     expect(body.data?.benchmarkProof?.editing_ergonomics?.directComparisonAt).toEqual(expect.any(String))
+    expect(body.data?.benchmarkProof?.editing_ergonomics?.graphSignature).toEqual(expect.any(String))
 
     const benchmarkProof = screen.getByLabelText(/direct higgsfield benchmark proof/i)
     expect(benchmarkProof).toHaveTextContent('0/9 benchmark proven')
@@ -1065,7 +1069,7 @@ describe('CreativeCanvasWorkspace', () => {
     ))
     expect(patchCall).toBeTruthy()
     const body = JSON.parse(String(patchCall?.[1]?.body ?? '{}')) as {
-      data?: { benchmarkProof?: Record<string, { proofUrl?: string; notes?: string; capturedAt?: string; capturedBy?: string; sourceTitle?: string; sourceUrl?: string; sourceCheckedAt?: string; sourceSignals?: string[]; higgsfieldUiEvidenceUrl?: string; canvasEvidenceUrl?: string; directComparisonAt?: string; directComparisonVerdict?: string; directComparisonNotes?: string }> }
+      data?: { benchmarkProof?: Record<string, { proofUrl?: string; notes?: string; capturedAt?: string; capturedBy?: string; sourceTitle?: string; sourceUrl?: string; sourceCheckedAt?: string; sourceSignals?: string[]; higgsfieldUiEvidenceUrl?: string; canvasEvidenceUrl?: string; directComparisonAt?: string; directComparisonVerdict?: string; directComparisonNotes?: string; canvasVersion?: number; graphSignature?: string; nodeCount?: number; edgeCount?: number }> }
     }
     expect(body.data?.benchmarkProof?.versioning_polish).toMatchObject({
       proofUrl: expect.stringContaining('#direct-higgsfield-benchmark-proof'),
@@ -1077,6 +1081,9 @@ describe('CreativeCanvasWorkspace', () => {
       canvasEvidenceUrl: expect.stringContaining('#direct-higgsfield-benchmark-proof'),
       directComparisonVerdict: 'pass',
       directComparisonNotes: 'Versioning polish directly compared against the current Higgsfield UI source signals and live Creative Canvas evidence.',
+      canvasVersion: 1,
+      nodeCount: expect.any(Number),
+      edgeCount: expect.any(Number),
     })
     expect(body.data?.benchmarkProof?.collaboration).toMatchObject({
       proofUrl: expect.stringContaining('#direct-higgsfield-benchmark-proof'),
@@ -1088,11 +1095,16 @@ describe('CreativeCanvasWorkspace', () => {
       canvasEvidenceUrl: expect.stringContaining('#direct-higgsfield-benchmark-proof'),
       directComparisonVerdict: 'pass',
       directComparisonNotes: 'Collaboration directly compared against the current Higgsfield UI source signals and live Creative Canvas evidence.',
+      canvasVersion: 1,
+      nodeCount: expect.any(Number),
+      edgeCount: expect.any(Number),
     })
     expect(body.data?.benchmarkProof?.versioning_polish?.sourceCheckedAt).toEqual(expect.any(String))
     expect(body.data?.benchmarkProof?.collaboration?.sourceCheckedAt).toEqual(expect.any(String))
     expect(body.data?.benchmarkProof?.versioning_polish?.directComparisonAt).toEqual(expect.any(String))
     expect(body.data?.benchmarkProof?.collaboration?.directComparisonAt).toEqual(expect.any(String))
+    expect(body.data?.benchmarkProof?.versioning_polish?.graphSignature).toEqual(expect.any(String))
+    expect(body.data?.benchmarkProof?.collaboration?.graphSignature).toEqual(expect.any(String))
     expect(body.data?.benchmarkProof?.editing_ergonomics).toBeUndefined()
 
     expect(benchmarkProof).toHaveTextContent('2/9 benchmark proven')
@@ -1252,6 +1264,66 @@ describe('CreativeCanvasWorkspace', () => {
     const benchmarkProof = screen.getByLabelText(/direct higgsfield benchmark proof/i)
     expect(benchmarkProof).toHaveTextContent('0/9 benchmark proven')
     expect(benchmarkProof).toHaveTextContent('Needs direct Higgsfield UI comparison evidence before this proof can pass.')
+  })
+
+  it('does not pass benchmark proof captured against a stale canvas graph state', async () => {
+    const defaultFetch = fetchMock.getMockImplementation()
+    fetchMock.mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      if (url === '/api/v1/creative-canvas?orgId=org-1') {
+        return {
+          ok: true,
+          json: async () => ({
+            success: true,
+            data: {
+              canvases: [{
+                id: 'canvas-1',
+                orgId: 'org-1',
+                title: 'Launch Canvas',
+                activeVersion: 1,
+                data: {
+                  benchmarkProof: {
+                    versioning_polish: {
+                      proofUrl: 'https://proof.example.com/versioning.mp4',
+                      notes: 'Auto-save and version preview were captured.',
+                      capturedAt: '2026-06-21T10:00:00.000Z',
+                      capturedBy: 'Pip',
+                      sourceTitle: 'Higgsfield Canvas saved versions and comments',
+                      sourceUrl: 'https://higgsfield.ai/canvas-intro',
+                      sourceCheckedAt: '2026-06-21T10:01:00.000Z',
+                      sourceSignals: ['Every version is saved', 'nothing gets lost', 'shared space'],
+                      higgsfieldUiEvidenceUrl: 'https://higgsfield.ai/canvas-intro',
+                      canvasEvidenceUrl: 'https://proof.example.com/versioning.mp4',
+                      directComparisonAt: '2026-06-21T10:02:00.000Z',
+                      directComparisonVerdict: 'pass',
+                      directComparisonNotes: 'Compared against a prior graph.',
+                      canvasVersion: 999,
+                      graphSignature: 'stale-graph-signature',
+                      nodeCount: 99,
+                      edgeCount: 99,
+                    },
+                  },
+                },
+                nodes: [],
+                edges: [],
+              }],
+            },
+          }),
+        }
+      }
+      return defaultFetch?.(input, init) ?? {
+        ok: true,
+        json: async () => ({ success: true, data: {} }),
+      }
+    })
+
+    render(<CreativeCanvasWorkspace mode="admin" orgId="org-1" />)
+
+    expect(await screen.findByText('Launch Canvas')).toBeInTheDocument()
+    const benchmarkProof = screen.getByLabelText(/direct higgsfield benchmark proof/i)
+    expect(benchmarkProof).toHaveTextContent('0/9 benchmark proven')
+    expect(benchmarkProof).toHaveTextContent('Needs proof captured against the current canvas version and graph state before this benchmark can pass.')
+    expect(benchmarkProof).toHaveTextContent('Canvas state: v999 · 99 nodes · 99 links')
   })
 
   it('does not mark static edit nodes as editing ergonomics benchmark-ready without local graph activity', async () => {

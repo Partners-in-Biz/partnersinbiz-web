@@ -192,6 +192,16 @@ function cleanBenchmarkProofData(value: unknown): Record<string, unknown> | unde
         ? item.directComparisonVerdict
         : undefined
       const directComparisonNotes = cleanString(item.directComparisonNotes)?.slice(0, 700)
+      const canvasVersion = typeof item.canvasVersion === 'number' && Number.isFinite(item.canvasVersion)
+        ? Math.max(0, Math.round(item.canvasVersion))
+        : undefined
+      const graphSignature = cleanString(item.graphSignature)?.slice(0, 240)
+      const nodeCount = typeof item.nodeCount === 'number' && Number.isFinite(item.nodeCount)
+        ? Math.max(0, Math.round(item.nodeCount))
+        : undefined
+      const edgeCount = typeof item.edgeCount === 'number' && Number.isFinite(item.edgeCount)
+        ? Math.max(0, Math.round(item.edgeCount))
+        : undefined
       if (
         !proofUrl
         && !notes
@@ -206,6 +216,10 @@ function cleanBenchmarkProofData(value: unknown): Record<string, unknown> | unde
         && !directComparisonAt
         && !directComparisonVerdict
         && !directComparisonNotes
+        && canvasVersion === undefined
+        && !graphSignature
+        && nodeCount === undefined
+        && edgeCount === undefined
       ) return []
       return [[key.slice(0, 80), {
         proofUrl,
@@ -221,6 +235,10 @@ function cleanBenchmarkProofData(value: unknown): Record<string, unknown> | unde
         directComparisonAt,
         directComparisonVerdict,
         directComparisonNotes,
+        canvasVersion,
+        graphSignature,
+        nodeCount,
+        edgeCount,
       } as Record<string, unknown>] as [string, Record<string, unknown>]]
     })
     .slice(0, 12)

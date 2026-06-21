@@ -87,6 +87,10 @@ type CreativeCanvasBenchmarkProofRecord = {
   directComparisonAt?: string
   directComparisonVerdict?: 'pass' | 'gap'
   directComparisonNotes?: string
+  canvasVersion?: number
+  graphSignature?: string
+  nodeCount?: number
+  edgeCount?: number
 }
 
 type CreativeCanvasBenchmarkProofDraft = Record<CreativeCanvasBenchmarkProofKey, {
@@ -447,6 +451,10 @@ function getCanvasBenchmarkProof(data: unknown): Partial<Record<CreativeCanvasBe
       ? record.directComparisonVerdict
       : undefined
     const directComparisonNotes = stringField(record.directComparisonNotes)
+    const canvasVersion = typeof record.canvasVersion === 'number' && Number.isFinite(record.canvasVersion) ? record.canvasVersion : undefined
+    const graphSignature = stringField(record.graphSignature)
+    const nodeCount = typeof record.nodeCount === 'number' && Number.isFinite(record.nodeCount) ? record.nodeCount : undefined
+    const edgeCount = typeof record.edgeCount === 'number' && Number.isFinite(record.edgeCount) ? record.edgeCount : undefined
     if (
       proofUrl
       || notes
@@ -461,6 +469,10 @@ function getCanvasBenchmarkProof(data: unknown): Partial<Record<CreativeCanvasBe
       || directComparisonAt
       || directComparisonVerdict
       || directComparisonNotes
+      || canvasVersion !== undefined
+      || graphSignature
+      || nodeCount !== undefined
+      || edgeCount !== undefined
     ) {
       acc[key] = {
         proofUrl,
@@ -476,6 +488,10 @@ function getCanvasBenchmarkProof(data: unknown): Partial<Record<CreativeCanvasBe
         directComparisonAt,
         directComparisonVerdict,
         directComparisonNotes,
+        canvasVersion,
+        graphSignature,
+        nodeCount,
+        edgeCount,
       }
     }
     return acc
@@ -505,6 +521,21 @@ function hasSourceBackedBenchmarkProof(proof: CreativeCanvasBenchmarkProofRecord
       && proof.sourceCheckedAt
       && hasRequiredBenchmarkSourceSignals(proof, requiredSignals)
       && hasDirectBenchmarkComparison(proof),
+  )
+}
+
+function hasCurrentCanvasBenchmarkState(
+  proof: CreativeCanvasBenchmarkProofRecord | undefined,
+  current: { canvasVersion?: number; graphSignature: string; nodeCount: number; edgeCount: number },
+): boolean {
+  return Boolean(
+    proof
+      && typeof proof.canvasVersion === 'number'
+      && proof.canvasVersion === current.canvasVersion
+      && proof.graphSignature
+      && proof.graphSignature === current.graphSignature
+      && proof.nodeCount === current.nodeCount
+      && proof.edgeCount === current.edgeCount,
   )
 }
 
@@ -2102,6 +2133,10 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
         directComparisonAt: capturedAt,
         directComparisonVerdict: 'pass',
         directComparisonNotes: notes,
+        canvasVersion: activeCanvas.activeVersion,
+        graphSignature: currentGraphSignature,
+        nodeCount: nodes.length,
+        edgeCount: edges.length,
       },
     }
 
@@ -2131,7 +2166,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
     } finally {
       setSavingBenchmarkProofKey('')
     }
-  }, [activeCanvas, applyCanvasSnapshot, benchmarkProofDrafts, resolvedOrgId])
+  }, [activeCanvas, applyCanvasSnapshot, benchmarkProofDrafts, currentGraphSignature, edges.length, nodes.length, resolvedOrgId])
 
   const applyRemoteCanvasUpdate = useCallback(async () => {
     if (!remoteCanvasUpdate?.id) return
@@ -4059,6 +4094,12 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
   const reliabilityPassed = reliabilityCoveragePassed && runtimeProof?.status === 'passed' && runtimeProof.readyForLiveProof
   const reliabilityObserved = reliabilityCoverage.length > 0 || Boolean(runOperations?.total)
   const benchmarkProofRecords = getCanvasBenchmarkProof(activeCanvas?.data)
+  const currentBenchmarkState = {
+    canvasVersion: activeCanvas?.activeVersion,
+    graphSignature: currentGraphSignature,
+    nodeCount: nodes.length,
+    edgeCount: edges.length,
+  }
   const benchmarkSignals: Record<CreativeCanvasBenchmarkProofKey, boolean> = {
     editing_ergonomics: hasEditingEvidence,
     masking_inpainting: hasMaskEvidence,
@@ -4073,6 +4114,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
   const benchmarkProofItems = benchmarkProofConfigs.map((item) => {
     const proof = benchmarkProofRecords[item.key]
     const proofCaptured = hasSourceBackedBenchmarkProof(proof, item.sourceSignals)
+      && hasCurrentCanvasBenchmarkState(proof, currentBenchmarkState)
     return {
       ...item,
       proof,
@@ -4111,6 +4153,10 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
         directComparisonAt: capturedAt,
         directComparisonVerdict: 'pass',
         directComparisonNotes: `${item.label} directly compared against the current Higgsfield UI source signals and live Creative Canvas evidence.`,
+        canvasVersion: activeCanvas.activeVersion,
+        graphSignature: currentGraphSignature,
+        nodeCount: nodes.length,
+        edgeCount: edges.length,
       }
       return acc
     }, { ...benchmarkProofRecords } as Partial<Record<CreativeCanvasBenchmarkProofKey, CreativeCanvasBenchmarkProofRecord>>)
@@ -4796,6 +4842,9 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
               {item.proof && !hasDirectBenchmarkComparison(item.proof) ? (
                 <p className="mt-1 text-[11px] font-semibold">Needs direct Higgsfield UI comparison evidence before this proof can pass.</p>
               ) : null}
+              {item.proof && !hasCurrentCanvasBenchmarkState(item.proof, currentBenchmarkState) ? (
+                <p className="mt-1 text-[11px] font-semibold">Needs proof captured against the current canvas version and graph state before this benchmark can pass.</p>
+              ) : null}
               <div className="mt-2 rounded-md border border-current/20 bg-white/70 px-2 py-1 text-[11px]">
                 <p className="font-semibold">Current Higgsfield source signals</p>
                 <ul className="mt-1 space-y-0.5">
@@ -4814,6 +4863,9 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
                   <p className="font-semibold">Direct comparison</p>
                   <p>Verdict: {item.proof.directComparisonVerdict === 'pass' ? 'pass' : 'gap'}</p>
                   <p>Compared {new Date(item.proof.directComparisonAt).toLocaleString()}</p>
+                  <p>
+                    Canvas state: v{item.proof.canvasVersion ?? 'missing'} · {item.proof.nodeCount ?? 0} nodes · {item.proof.edgeCount ?? 0} links
+                  </p>
                   {item.proof.directComparisonNotes ? <p className="mt-1">{item.proof.directComparisonNotes}</p> : null}
                   <div className="mt-1 flex flex-wrap gap-2">
                     {item.proof.higgsfieldUiEvidenceUrl ? (
