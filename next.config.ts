@@ -5,8 +5,16 @@ const nextConfig = {
   turbopack: {
     root: path.resolve(__dirname, '../..'),
   },
+  experimental: {
+    webpackMemoryOptimizations: true,
+  },
   transpilePackages: ['@partnersinbiz/analytics-js'],
   serverExternalPackages: ['@react-pdf/renderer'],
+  typescript: {
+    // The Vercel build script runs `npm run typecheck` before Next compiles.
+    // Skipping the duplicate Next type pass keeps preview builds under memory limits.
+    ignoreBuildErrors: true,
+  },
   images: {
     remotePatterns: [
       {
