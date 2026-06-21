@@ -138,6 +138,8 @@ beforeEach(() => {
       }
     }
     if (url === '/api/v1/creative-canvas/proof-url' && init?.method === 'POST') {
+      const body = JSON.parse(String(init.body ?? '{}')) as { kind?: string }
+      const contentType = body.kind === 'evidence' ? 'text/html' : 'image/png'
       return {
         ok: true,
         json: async () => ({
@@ -146,7 +148,7 @@ beforeEach(() => {
             proof: {
               reachable: true,
               status: 200,
-              contentType: 'image/png',
+              contentType,
               checkedAt: '2026-06-21T12:00:00.000Z',
             },
           },
@@ -1352,7 +1354,7 @@ describe('CreativeCanvasWorkspace', () => {
     ))
     expect(patchCall).toBeTruthy()
     const body = JSON.parse(String(patchCall?.[1]?.body ?? '{}')) as {
-      data?: { benchmarkProof?: Record<string, { proofUrl?: string; notes?: string; capturedAt?: string; capturedBy?: string; sourceTitle?: string; sourceUrl?: string; sourceCheckedAt?: string; sourceSignals?: string[]; higgsfieldUiEvidenceUrl?: string; canvasEvidenceUrl?: string; directComparisonAt?: string; directComparisonVerdict?: string; directComparisonNotes?: string; canvasVersion?: number; graphSignature?: string; nodeCount?: number; edgeCount?: number; editingLocalEventCount?: number; editingCapturedAt?: string; editingEvidence?: string }> }
+      data?: { benchmarkProof?: Record<string, { proofUrl?: string; notes?: string; capturedAt?: string; capturedBy?: string; sourceTitle?: string; sourceUrl?: string; sourceCheckedAt?: string; sourceSignals?: string[]; higgsfieldUiEvidenceUrl?: string; canvasEvidenceUrl?: string; canvasEvidenceCheckedAt?: string; canvasEvidenceReachable?: boolean; canvasEvidenceStatus?: number; canvasEvidenceContentType?: string; directComparisonAt?: string; directComparisonVerdict?: string; directComparisonNotes?: string; canvasVersion?: number; graphSignature?: string; nodeCount?: number; edgeCount?: number; editingLocalEventCount?: number; editingCapturedAt?: string; editingEvidence?: string }> }
     }
     expect(body.data?.benchmarkProof?.editing_ergonomics).toMatchObject({
       proofUrl: 'https://proof.example.com/editing-ergonomics.mp4',
@@ -1363,6 +1365,9 @@ describe('CreativeCanvasWorkspace', () => {
       sourceSignals: ['Drop a node', 'Chain your flow', 'Connect nodes', 'Every connection is live'],
       higgsfieldUiEvidenceUrl: 'https://higgsfield.ai/canvas-intro',
       canvasEvidenceUrl: 'https://proof.example.com/editing-ergonomics.mp4',
+      canvasEvidenceReachable: true,
+      canvasEvidenceStatus: 200,
+      canvasEvidenceContentType: 'text/html',
       directComparisonVerdict: 'pass',
       directComparisonNotes: 'Graph node editing, branch recovery, and save behavior captured.',
       canvasVersion: 1,
@@ -1374,6 +1379,7 @@ describe('CreativeCanvasWorkspace', () => {
     })
     expect(body.data?.benchmarkProof?.editing_ergonomics?.capturedAt).toEqual(expect.any(String))
     expect(body.data?.benchmarkProof?.editing_ergonomics?.sourceCheckedAt).toEqual(expect.any(String))
+    expect(body.data?.benchmarkProof?.editing_ergonomics?.canvasEvidenceCheckedAt).toEqual(expect.any(String))
     expect(body.data?.benchmarkProof?.editing_ergonomics?.directComparisonAt).toEqual(expect.any(String))
     expect(body.data?.benchmarkProof?.editing_ergonomics?.graphSignature).toEqual(expect.any(String))
 
@@ -1424,6 +1430,10 @@ describe('CreativeCanvasWorkspace', () => {
           sourceTitle?: string
           sourceUrl?: string
           sourceSignals?: string[]
+          canvasEvidenceCheckedAt?: string
+          canvasEvidenceReachable?: boolean
+          canvasEvidenceStatus?: number
+          canvasEvidenceContentType?: string
           agentStepCount?: number
           agentActorCount?: number
           agentTaskCreatedCount?: number
@@ -1437,11 +1447,15 @@ describe('CreativeCanvasWorkspace', () => {
       sourceTitle: 'Higgsfield MCP, CLI, Collab, and Canvas surface',
       sourceUrl: 'https://higgsfield.ai/',
       sourceSignals: ['MCP & CLI', 'Collab', 'Canvas', 'Generate'],
+      canvasEvidenceReachable: true,
+      canvasEvidenceStatus: 200,
+      canvasEvidenceContentType: 'text/html',
       agentActorCount: expect.any(Number),
       agentTaskCreatedCount: 2,
       agentTaskCreatedAt: expect.any(String),
       agentEvidence: expect.stringContaining('2 project-linked agent tasks created'),
     })
+    expect(body.data?.benchmarkProof?.agent_orchestration?.canvasEvidenceCheckedAt).toEqual(expect.any(String))
     expect(body.data?.benchmarkProof?.agent_orchestration?.agentStepCount).toBeGreaterThan(0)
   })
 
@@ -1465,7 +1479,7 @@ describe('CreativeCanvasWorkspace', () => {
     ))
     expect(patchCall).toBeTruthy()
     const body = JSON.parse(String(patchCall?.[1]?.body ?? '{}')) as {
-      data?: { benchmarkProof?: Record<string, { proofUrl?: string; notes?: string; capturedAt?: string; capturedBy?: string; sourceTitle?: string; sourceUrl?: string; sourceCheckedAt?: string; sourceSignals?: string[]; higgsfieldUiEvidenceUrl?: string; canvasEvidenceUrl?: string; directComparisonAt?: string; directComparisonVerdict?: string; directComparisonNotes?: string; canvasVersion?: number; graphSignature?: string; nodeCount?: number; edgeCount?: number }> }
+      data?: { benchmarkProof?: Record<string, { proofUrl?: string; notes?: string; capturedAt?: string; capturedBy?: string; sourceTitle?: string; sourceUrl?: string; sourceCheckedAt?: string; sourceSignals?: string[]; higgsfieldUiEvidenceUrl?: string; canvasEvidenceUrl?: string; canvasEvidenceCheckedAt?: string; canvasEvidenceReachable?: boolean; canvasEvidenceStatus?: number; canvasEvidenceContentType?: string; directComparisonAt?: string; directComparisonVerdict?: string; directComparisonNotes?: string; canvasVersion?: number; graphSignature?: string; nodeCount?: number; edgeCount?: number }> }
     }
     expect(body.data?.benchmarkProof?.versioning_polish).toMatchObject({
       proofUrl: expect.stringContaining('#direct-higgsfield-benchmark-proof'),
@@ -1475,6 +1489,9 @@ describe('CreativeCanvasWorkspace', () => {
       sourceSignals: ['Every version is saved', 'nothing gets lost', 'shared space'],
       higgsfieldUiEvidenceUrl: 'https://higgsfield.ai/canvas-intro',
       canvasEvidenceUrl: expect.stringContaining('#direct-higgsfield-benchmark-proof'),
+      canvasEvidenceReachable: true,
+      canvasEvidenceStatus: 200,
+      canvasEvidenceContentType: 'text/html',
       directComparisonVerdict: 'pass',
       directComparisonNotes: 'Versioning polish directly compared against the current Higgsfield UI source signals and live Creative Canvas evidence.',
       canvasVersion: 1,
@@ -1489,6 +1506,9 @@ describe('CreativeCanvasWorkspace', () => {
       sourceSignals: ['Create together', 'Share a link', 'collaborate live', 'same canvas'],
       higgsfieldUiEvidenceUrl: 'https://higgsfield.ai/canvas-intro',
       canvasEvidenceUrl: expect.stringContaining('#direct-higgsfield-benchmark-proof'),
+      canvasEvidenceReachable: true,
+      canvasEvidenceStatus: 200,
+      canvasEvidenceContentType: 'text/html',
       directComparisonVerdict: 'pass',
       directComparisonNotes: 'Collaboration directly compared against the current Higgsfield UI source signals and live Creative Canvas evidence.',
       canvasVersion: 1,
@@ -1502,6 +1522,8 @@ describe('CreativeCanvasWorkspace', () => {
     })
     expect(body.data?.benchmarkProof?.versioning_polish?.sourceCheckedAt).toEqual(expect.any(String))
     expect(body.data?.benchmarkProof?.collaboration?.sourceCheckedAt).toEqual(expect.any(String))
+    expect(body.data?.benchmarkProof?.versioning_polish?.canvasEvidenceCheckedAt).toEqual(expect.any(String))
+    expect(body.data?.benchmarkProof?.collaboration?.canvasEvidenceCheckedAt).toEqual(expect.any(String))
     expect(body.data?.benchmarkProof?.versioning_polish?.directComparisonAt).toEqual(expect.any(String))
     expect(body.data?.benchmarkProof?.collaboration?.directComparisonAt).toEqual(expect.any(String))
     expect(body.data?.benchmarkProof?.versioning_polish?.graphSignature).toEqual(expect.any(String))
@@ -1721,6 +1743,70 @@ describe('CreativeCanvasWorkspace', () => {
     const benchmarkProof = screen.getByLabelText(/direct higgsfield benchmark proof/i)
     expect(benchmarkProof).toHaveTextContent('0/10 benchmark proven')
     expect(benchmarkProof).toHaveTextContent('Needs direct Higgsfield UI comparison evidence before this proof can pass.')
+  })
+
+  it('does not pass direct benchmark proof without reachable canvas evidence URL verification', async () => {
+    const defaultFetch = fetchMock.getMockImplementation()
+    const emptyGraphSignature = JSON.stringify({ nodes: [], edges: [] })
+    fetchMock.mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      if (url === '/api/v1/creative-canvas?orgId=org-1') {
+        return {
+          ok: true,
+          json: async () => ({
+            success: true,
+            data: {
+              canvases: [{
+                id: 'canvas-1',
+                orgId: 'org-1',
+                title: 'Launch Canvas',
+                purpose: 'Product launch',
+                status: 'draft',
+                activeVersion: 1,
+                linked: { projectId: 'project-1' },
+                data: {
+                  benchmarkProof: {
+                    versioning_polish: {
+                      proofUrl: 'https://proof.example.com/versioning.mp4',
+                      notes: 'Versioning proof before URL verification existed.',
+                      capturedAt: '2026-06-21T10:00:00.000Z',
+                      capturedBy: 'Pip',
+                      sourceTitle: 'Higgsfield Canvas saved versions and comments',
+                      sourceUrl: 'https://higgsfield.ai/canvas-intro',
+                      sourceCheckedAt: '2026-06-21T10:01:00.000Z',
+                      sourceSignals: ['Every version is saved', 'nothing gets lost', 'shared space'],
+                      higgsfieldUiEvidenceUrl: 'https://higgsfield.ai/canvas-intro',
+                      canvasEvidenceUrl: 'https://proof.example.com/versioning.mp4',
+                      directComparisonAt: '2026-06-21T10:02:00.000Z',
+                      directComparisonVerdict: 'pass',
+                      directComparisonNotes: 'Direct versioning comparison passed.',
+                      canvasVersion: 1,
+                      graphSignature: emptyGraphSignature,
+                      nodeCount: 0,
+                      edgeCount: 0,
+                    },
+                  },
+                },
+                nodes: [],
+                edges: [],
+              }],
+            },
+          }),
+        }
+      }
+      return defaultFetch?.(input, init) ?? {
+        ok: true,
+        json: async () => ({ success: true, data: {} }),
+      }
+    })
+
+    render(<CreativeCanvasWorkspace mode="admin" orgId="org-1" />)
+
+    expect(await screen.findByText('Launch Canvas')).toBeInTheDocument()
+    const benchmarkProof = screen.getByLabelText(/direct higgsfield benchmark proof/i)
+    expect(benchmarkProof).toHaveTextContent('0/10 benchmark proven')
+    expect(benchmarkProof).toHaveTextContent('Needs reachable Creative Canvas evidence URL verification before this proof can pass.')
+    expect(benchmarkProof).toHaveTextContent('Canvas evidence URL: unverified')
   })
 
   it('does not pass benchmark proof captured against a stale canvas graph state', async () => {

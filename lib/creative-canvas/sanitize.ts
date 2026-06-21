@@ -228,6 +228,12 @@ function cleanBenchmarkProofData(value: unknown): Record<string, unknown> | unde
       const sourceSignals = cleanStringArray(item.sourceSignals).map((signal) => signal.slice(0, 120)).slice(0, 12)
       const higgsfieldUiEvidenceUrl = cleanString(item.higgsfieldUiEvidenceUrl)?.slice(0, 500)
       const canvasEvidenceUrl = cleanString(item.canvasEvidenceUrl)?.slice(0, 500)
+      const canvasEvidenceCheckedAt = cleanString(item.canvasEvidenceCheckedAt)?.slice(0, 80)
+      const canvasEvidenceReachable = item.canvasEvidenceReachable === true ? true : undefined
+      const canvasEvidenceStatus = typeof item.canvasEvidenceStatus === 'number' && Number.isFinite(item.canvasEvidenceStatus)
+        ? Math.max(0, Math.round(item.canvasEvidenceStatus))
+        : undefined
+      const canvasEvidenceContentType = cleanString(item.canvasEvidenceContentType)?.slice(0, 120)
       const directComparisonAt = cleanString(item.directComparisonAt)?.slice(0, 80)
       const directComparisonVerdict = item.directComparisonVerdict === 'pass' || item.directComparisonVerdict === 'gap'
         ? item.directComparisonVerdict
@@ -327,6 +333,10 @@ function cleanBenchmarkProofData(value: unknown): Record<string, unknown> | unde
         && !sourceSignals.length
         && !higgsfieldUiEvidenceUrl
         && !canvasEvidenceUrl
+        && !canvasEvidenceCheckedAt
+        && canvasEvidenceReachable === undefined
+        && canvasEvidenceStatus === undefined
+        && !canvasEvidenceContentType
         && !directComparisonAt
         && !directComparisonVerdict
         && !directComparisonNotes
@@ -381,6 +391,10 @@ function cleanBenchmarkProofData(value: unknown): Record<string, unknown> | unde
         sourceSignals,
         higgsfieldUiEvidenceUrl,
         canvasEvidenceUrl,
+        ...(canvasEvidenceCheckedAt ? { canvasEvidenceCheckedAt } : {}),
+        ...(canvasEvidenceReachable !== undefined ? { canvasEvidenceReachable } : {}),
+        ...(canvasEvidenceStatus !== undefined ? { canvasEvidenceStatus } : {}),
+        ...(canvasEvidenceContentType ? { canvasEvidenceContentType } : {}),
         directComparisonAt,
         directComparisonVerdict,
         directComparisonNotes,

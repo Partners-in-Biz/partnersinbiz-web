@@ -12,6 +12,8 @@ type ProofUrlCheck = {
   checkedAt: string
 }
 
+type ProofUrlKind = 'image' | 'evidence'
+
 function parseHttpProofUrl(value: unknown): string | null {
   if (typeof value !== 'string') return null
   const raw = value.trim()
@@ -33,18 +35,21 @@ function parseHttpProofUrl(value: unknown): string | null {
   }
 }
 
-function proofResponse(url: string, response: Response, checkedAt: string): ProofUrlCheck {
+function proofResponse(url: string, response: Response, checkedAt: string, kind: ProofUrlKind): ProofUrlCheck {
   const contentType = response.headers.get('content-type')?.split(';')[0]?.trim().toLowerCase() || undefined
+  const statusReachable = response.status >= 200 && response.status < 400
   return {
     url,
-    reachable: response.status >= 200 && response.status < 400 && Boolean(contentType?.startsWith('image/')),
+    reachable: kind === 'image'
+      ? statusReachable && Boolean(contentType?.startsWith('image/'))
+      : statusReachable,
     status: response.status,
     contentType,
     checkedAt,
   }
 }
 
-async function checkProofUrl(url: string): Promise<ProofUrlCheck> {
+async function checkProofUrl(url: string, kind: ProofUrlKind): Promise<ProofUrlCheck> {
   const checkedAt = new Date().toISOString()
   try {
     const head = await fetch(url, {
@@ -52,7 +57,7 @@ async function checkProofUrl(url: string): Promise<ProofUrlCheck> {
       redirect: 'follow',
       signal: AbortSignal.timeout(6000),
     })
-    if (head.status !== 405) return proofResponse(url, head, checkedAt)
+    if (head.status !== 405) return proofResponse(url, head, checkedAt, kind)
   } catch {
     // Fall through to a tiny GET because some storage/CDN hosts reject HEAD.
   }
@@ -64,7 +69,7 @@ async function checkProofUrl(url: string): Promise<ProofUrlCheck> {
       redirect: 'follow',
       signal: AbortSignal.timeout(6000),
     })
-    return proofResponse(url, get, checkedAt)
+    return proofResponse(url, get, checkedAt, kind)
   } catch {
     return { url, reachable: false, checkedAt }
   }
@@ -74,6 +79,7 @@ export const POST = withAuth('client', async (req: NextRequest) => {
   const body = await req.json().catch(() => null)
   const proofUrl = parseHttpProofUrl(body?.url)
   if (!proofUrl) return apiError('A public http(s) proof URL is required', 400)
-  const result = await checkProofUrl(proofUrl)
+  const kind: ProofUrlKind = body?.kind === 'evidence' ? 'evidence' : 'image'
+  const result = await checkProofUrl(proofUrl, kind)
   return apiSuccess({ proof: result })
 })

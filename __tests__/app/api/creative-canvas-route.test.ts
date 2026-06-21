@@ -185,6 +185,34 @@ describe('creative canvas API routes', () => {
     fetchSpy.mockRestore()
   })
 
+  it('allows reachable non-image URLs for benchmark evidence proof', async () => {
+    const fetchSpy = jest.spyOn(global, 'fetch').mockResolvedValueOnce(new Response('', {
+      status: 200,
+      headers: { 'content-type': 'text/html; charset=utf-8' },
+    }))
+    const { POST } = await import('@/app/api/v1/creative-canvas/proof-url/route')
+
+    const res = await POST(new NextRequest('http://test.local/api/v1/creative-canvas/proof-url', {
+      method: 'POST',
+      body: JSON.stringify({ url: 'https://proof.example.com/benchmark', kind: 'evidence' }),
+    }))
+    const body = await res.json()
+
+    expect(fetchSpy).toHaveBeenCalledWith('https://proof.example.com/benchmark', expect.objectContaining({ method: 'HEAD' }))
+    expect(body).toMatchObject({
+      success: true,
+      data: {
+        proof: {
+          reachable: true,
+          status: 200,
+          contentType: 'text/html',
+          url: 'https://proof.example.com/benchmark',
+        },
+      },
+    })
+    fetchSpy.mockRestore()
+  })
+
   it('rejects local proof URLs', async () => {
     const fetchSpy = jest.spyOn(global, 'fetch')
     const { POST } = await import('@/app/api/v1/creative-canvas/proof-url/route')

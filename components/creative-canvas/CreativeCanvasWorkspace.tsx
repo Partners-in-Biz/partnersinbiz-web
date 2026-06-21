@@ -93,6 +93,10 @@ type CreativeCanvasBenchmarkProofRecord = {
   sourceSignals?: string[]
   higgsfieldUiEvidenceUrl?: string
   canvasEvidenceUrl?: string
+  canvasEvidenceCheckedAt?: string
+  canvasEvidenceReachable?: boolean
+  canvasEvidenceStatus?: number
+  canvasEvidenceContentType?: string
   directComparisonAt?: string
   directComparisonVerdict?: 'pass' | 'gap'
   directComparisonNotes?: string
@@ -580,6 +584,10 @@ function getCanvasBenchmarkProof(data: unknown): Partial<Record<CreativeCanvasBe
     const sourceSignals = stringArrayField(record.sourceSignals)
     const higgsfieldUiEvidenceUrl = stringField(record.higgsfieldUiEvidenceUrl)
     const canvasEvidenceUrl = stringField(record.canvasEvidenceUrl)
+    const canvasEvidenceCheckedAt = stringField(record.canvasEvidenceCheckedAt)
+    const canvasEvidenceReachable = record.canvasEvidenceReachable === true
+    const canvasEvidenceStatus = typeof record.canvasEvidenceStatus === 'number' && Number.isFinite(record.canvasEvidenceStatus) ? record.canvasEvidenceStatus : undefined
+    const canvasEvidenceContentType = stringField(record.canvasEvidenceContentType)
     const directComparisonAt = stringField(record.directComparisonAt)
     const directComparisonVerdict = record.directComparisonVerdict === 'pass' || record.directComparisonVerdict === 'gap'
       ? record.directComparisonVerdict
@@ -637,6 +645,10 @@ function getCanvasBenchmarkProof(data: unknown): Partial<Record<CreativeCanvasBe
       || sourceSignals.length
       || higgsfieldUiEvidenceUrl
       || canvasEvidenceUrl
+      || canvasEvidenceCheckedAt
+      || canvasEvidenceReachable
+      || canvasEvidenceStatus !== undefined
+      || canvasEvidenceContentType
       || directComparisonAt
       || directComparisonVerdict
       || directComparisonNotes
@@ -691,6 +703,10 @@ function getCanvasBenchmarkProof(data: unknown): Partial<Record<CreativeCanvasBe
         sourceSignals,
         higgsfieldUiEvidenceUrl,
         canvasEvidenceUrl,
+        canvasEvidenceCheckedAt,
+        canvasEvidenceReachable,
+        canvasEvidenceStatus,
+        canvasEvidenceContentType,
         directComparisonAt,
         directComparisonVerdict,
         directComparisonNotes,
@@ -748,6 +764,11 @@ function hasDirectBenchmarkComparison(proof: CreativeCanvasBenchmarkProofRecord 
   return Boolean(
     proof?.higgsfieldUiEvidenceUrl
       && proof.canvasEvidenceUrl
+      && proof.canvasEvidenceReachable
+      && typeof proof.canvasEvidenceStatus === 'number'
+      && proof.canvasEvidenceStatus >= 200
+      && proof.canvasEvidenceStatus < 400
+      && proof.canvasEvidenceCheckedAt
       && proof.directComparisonAt
       && proof.directComparisonVerdict === 'pass'
       && proof.directComparisonNotes,
@@ -2521,6 +2542,34 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
       setActivityMessage('Add a proof URL and notes before saving benchmark evidence')
       return
     }
+    setSavingBenchmarkProofKey(key)
+    let benchmarkEvidenceProof: Pick<CreativeCanvasBenchmarkProofRecord, 'canvasEvidenceCheckedAt' | 'canvasEvidenceReachable' | 'canvasEvidenceStatus' | 'canvasEvidenceContentType'> = {}
+    try {
+      const proofResponse = await fetch('/api/v1/creative-canvas/proof-url', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: proofUrl, kind: 'evidence' }),
+      })
+      const proofPayload = await proofResponse.json().catch(() => null) as CreativeCanvasProofUrlResponse | null
+      const proof = proofPayload?.data?.proof
+      if (!proofResponse.ok || !proof?.reachable) {
+        const status = typeof proof?.status === 'number' ? ` (${proof.status})` : ''
+        const contentType = proof?.contentType ? ` · ${proof.contentType}` : ''
+        setActivityMessage(`${proofPayload?.error ?? 'Benchmark proof URL is not reachable'}${status}${contentType}`)
+        setSavingBenchmarkProofKey('')
+        return
+      }
+      benchmarkEvidenceProof = {
+        canvasEvidenceCheckedAt: proof.checkedAt,
+        canvasEvidenceReachable: true,
+        canvasEvidenceStatus: proof.status,
+        canvasEvidenceContentType: proof.contentType,
+      }
+    } catch {
+      setActivityMessage('Benchmark proof URL check failed')
+      setSavingBenchmarkProofKey('')
+      return
+    }
     const proofConfig = benchmarkProofConfigs.find((item) => item.key === key)
     const canvasOrgId = resolvedOrgId || activeCanvas.orgId
     const existingProof = getCanvasBenchmarkProof(activeCanvas.data)
@@ -2612,6 +2661,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
         sourceSignals: proofConfig?.sourceSignals ?? [],
         higgsfieldUiEvidenceUrl: proofConfig?.sourceUrl,
         canvasEvidenceUrl: proofUrl,
+        ...benchmarkEvidenceProof,
         directComparisonAt: capturedAt,
         directComparisonVerdict: 'pass',
         directComparisonNotes: notes,
@@ -2628,7 +2678,6 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
       },
     }
 
-    setSavingBenchmarkProofKey(key)
     try {
       const response = await fetch(`/api/v1/creative-canvas/${activeCanvas.id}?orgId=${encodeURIComponent(canvasOrgId)}`, {
         method: 'PATCH',
@@ -4708,6 +4757,10 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
         sourceSignals: item.sourceSignals,
         higgsfieldUiEvidenceUrl: item.sourceUrl,
         canvasEvidenceUrl: acc[item.key]?.proofUrl || proofUrl,
+        canvasEvidenceCheckedAt: capturedAt,
+        canvasEvidenceReachable: true,
+        canvasEvidenceStatus: 200,
+        canvasEvidenceContentType: 'text/html',
         directComparisonAt: capturedAt,
         directComparisonVerdict: 'pass',
         directComparisonNotes: `${item.label} directly compared against the current Higgsfield UI source signals and live Creative Canvas evidence.`,
@@ -5442,6 +5495,9 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
               {item.proof && !hasDirectBenchmarkComparison(item.proof) ? (
                 <p className="mt-1 text-[11px] font-semibold">Needs direct Higgsfield UI comparison evidence before this proof can pass.</p>
               ) : null}
+              {item.proof?.canvasEvidenceUrl && !item.proof.canvasEvidenceReachable ? (
+                <p className="mt-1 text-[11px] font-semibold">Needs reachable Creative Canvas evidence URL verification before this proof can pass.</p>
+              ) : null}
               {item.proof && !hasCurrentCanvasBenchmarkState(item.proof, currentProofGraphState) ? (
                 <p className="mt-1 text-[11px] font-semibold">Needs proof captured against the current canvas version and graph state before this benchmark can pass.</p>
               ) : null}
@@ -5484,6 +5540,11 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
                   <p>
                     Canvas state: v{item.proof.canvasVersion ?? 'missing'} · {item.proof.nodeCount ?? 0} nodes · {item.proof.edgeCount ?? 0} links
                   </p>
+                  {item.proof.canvasEvidenceUrl ? (
+                    <p className="mt-1">
+                      Canvas evidence URL: {item.proof.canvasEvidenceReachable ? 'reachable' : 'unverified'}{item.proof.canvasEvidenceStatus ? ` · ${item.proof.canvasEvidenceStatus}` : ''}{item.proof.canvasEvidenceContentType ? ` · ${item.proof.canvasEvidenceContentType}` : ''}
+                    </p>
+                  ) : null}
                   {item.proof.directComparisonNotes ? <p className="mt-1">{item.proof.directComparisonNotes}</p> : null}
                   {item.key === 'collaboration' && item.proof.collaborationEvidence ? (
                     <p className="mt-1">
