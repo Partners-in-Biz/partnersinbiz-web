@@ -7,6 +7,7 @@ import {
   MiniMap,
   ReactFlow,
   ReactFlowProvider,
+  useReactFlow,
   type Edge,
   type Node,
   type NodeMouseHandler,
@@ -62,21 +63,22 @@ function StageInner(props: CanvasStageProps) {
     children,
   } = props
 
-  // screenToFlowPosition requires the provider context; resolved lazily per event.
+  const { screenToFlowPosition } = useReactFlow()
+
   const handleDoubleClick: ReactFlowProps['onDoubleClick'] = (event) => {
     if (!onPaneDoubleClick) return
-    onPaneDoubleClick(
-      // ReactFlow attaches the instance; fall back to client coords if unavailable.
-      { x: event.clientX, y: event.clientY },
-      { x: event.clientX, y: event.clientY },
-    )
+    // Only react to double-clicks on the empty pane, not on nodes/edges.
+    if (!(event.target as HTMLElement).classList.contains('react-flow__pane')) return
+    const flow = screenToFlowPosition({ x: event.clientX, y: event.clientY })
+    onPaneDoubleClick(flow, { x: event.clientX, y: event.clientY })
   }
 
   const handleContextMenu: ReactFlowProps['onPaneContextMenu'] = (event) => {
     if (!onPaneContextMenu) return
     event.preventDefault()
     const e = event as unknown as MouseEvent
-    onPaneContextMenu({ x: e.clientX, y: e.clientY }, { x: e.clientX, y: e.clientY })
+    const flow = screenToFlowPosition({ x: e.clientX, y: e.clientY })
+    onPaneContextMenu(flow, { x: e.clientX, y: e.clientY })
   }
 
   return (

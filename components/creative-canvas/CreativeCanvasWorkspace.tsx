@@ -17,6 +17,7 @@ import { useGraphHistory } from '@/components/creative-canvas/canvas/useGraphHis
 import CanvasTopBar from '@/components/creative-canvas/topbar/CanvasTopBar'
 import { canvasNodeTypes } from '@/components/creative-canvas/nodes/nodeTypes'
 import type { CanvasNodeType } from '@/components/creative-canvas/nodes/ports'
+import CreateMenu from '@/components/creative-canvas/canvas/CreateMenu'
 import type {
   CreativeCanvasAssetOrigin,
   CreativeCanvas,
@@ -1238,6 +1239,41 @@ const PRESENTATION_NODE_TYPES = new Set<CanvasNodeType>([
   'prompt', 'image_generator', 'video_generator', 'voice_generator', 'llm_assistant',
   'voiceover', 'change_voice', 'translate', 'source', 'output', 'sticky_note', 'text', 'folder',
 ])
+
+/** Backend persistence type for each presentation node type (round-trips via data.presentationType). */
+const PRESENTATION_TO_BACKEND: Record<CanvasNodeType, CreativeCanvasNodeType> = {
+  image_generator: 'model',
+  video_generator: 'model',
+  voice_generator: 'model',
+  voiceover: 'model',
+  change_voice: 'model',
+  llm_assistant: 'model',
+  prompt: 'prompt',
+  translate: 'prompt',
+  text: 'prompt',
+  sticky_note: 'prompt',
+  folder: 'brief',
+  source: 'source',
+  output: 'output',
+}
+
+const PRESENTATION_LABELS: Record<CanvasNodeType, string> = {
+  image_generator: 'Image Generation',
+  video_generator: 'Video Generation',
+  voice_generator: 'Voice Generation',
+  voiceover: 'Voiceover',
+  change_voice: 'Change Voice',
+  llm_assistant: 'LLM Assistant',
+  prompt: 'Prompt',
+  translate: 'Translate',
+  text: 'Text',
+  sticky_note: 'Sticky Note',
+  folder: 'Folder',
+  source: 'Source',
+  output: 'Output',
+}
+
+const AGENT_PRESENTATION_TYPES = new Set<CanvasNodeType>(['voice_generator', 'voiceover', 'change_voice', 'llm_assistant'])
 
 /** Map a backend node onto a Higgsfield-style presentation node type. */
 function presentationTypeFor(node: CreativeCanvasNode): CanvasNodeType {
@@ -2615,6 +2651,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
   }, [graphHistory])
 
   const [topBarPanel, setTopBarPanel] = useState<'chat' | 'share' | ''>('')
+  const [createMenu, setCreateMenu] = useState<{ flow: { x: number; y: number }; client: { x: number; y: number } } | null>(null)
 
   const renameActiveCanvas = useCallback(async (nextTitle: string) => {
     if (!activeCanvas?.id) return
@@ -2679,6 +2716,46 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
             rightsStatus: 'needs_review',
             brandStatus: 'needs_review',
           }
+        : undefined,
+    }
+
+    setNodes((currentNodes) => [...currentNodes, toFlowNode(canvasNode)])
+    setSelectedFlowNodeId(id)
+    setSaveMessage('')
+    recordCanvasActivity({
+      actorLabel: 'You',
+      action: 'Added node',
+      detail: title,
+      nodeId: id,
+      operation: 'node_add',
+      source: 'local',
+    })
+  }
+
+  const addCanvasNodeAt = (presentationType: CanvasNodeType, position: { x: number; y: number }, mode?: string) => {
+    const backendType = PRESENTATION_TO_BACKEND[presentationType]
+    const title = PRESENTATION_LABELS[presentationType]
+    const id = `${presentationType}-node-${Date.now()}`
+    const isAgentBacked = AGENT_PRESENTATION_TYPES.has(presentationType)
+    const canvasNode: CreativeCanvasNode = {
+      id,
+      orgId: resolvedOrgId || 'pending-org',
+      type: backendType,
+      title,
+      position,
+      data: { createdFrom: 'creative_canvas_create_menu', presentationType, ...(mode ? { mode } : {}) },
+      source: backendType === 'source'
+        ? { kind: mode === 'assets' ? 'workspace_artifact' : 'upload', referenceRole: 'general', weight: 1, altText: title }
+        : undefined,
+      provider: backendType === 'model'
+        ? {
+            key: isAgentBacked ? 'agent_task' : 'higgsfield',
+            model: runModel,
+            mode: presentationType === 'video_generator' ? 'video' : runOutputKind,
+          }
+        : undefined,
+      review: backendType === 'output'
+        ? { status: 'needed', syntheticMediaDisclosure: true, rightsStatus: 'needs_review', brandStatus: 'needs_review' }
         : undefined,
     }
 
@@ -4863,6 +4940,17 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
         </div>
       ) : null}
 
+      {createMenu ? (
+        <CreateMenu
+          position={createMenu.client}
+          onCreate={(type, mode) => {
+            addCanvasNodeAt(type, createMenu.flow, mode)
+            setCreateMenu(null)
+          }}
+          onClose={() => setCreateMenu(null)}
+        />
+      ) : null}
+
       {error ? (
         <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>
       ) : null}
@@ -5862,6 +5950,8 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
               onEdgesChange={onEdgesChange}
               onConnect={onConnect}
               onNodeClick={selectFlowNode}
+              onPaneDoubleClick={(flow, client) => setCreateMenu({ flow, client })}
+              onPaneContextMenu={(flow, client) => setCreateMenu({ flow, client })}
               canUndo={graphHistory.canUndo}
               canRedo={graphHistory.canRedo}
               onUndo={handleCanvasUndo}
