@@ -62,6 +62,10 @@ type CreativeCanvasVisualProofRecord = {
   sessionEvidence?: string
   viewportSize?: string
   visiblePanels?: string
+  canvasVersion?: number
+  graphSignature?: string
+  nodeCount?: number
+  edgeCount?: number
 }
 
 type CreativeCanvasVisualProofDraft = Record<CreativeCanvasVisualProofKey, {
@@ -412,7 +416,24 @@ function getCanvasVisualProof(data: unknown): Partial<Record<CreativeCanvasVisua
     const sessionEvidence = stringField(record.sessionEvidence)
     const viewportSize = stringField(record.viewportSize)
     const visiblePanels = stringField(record.visiblePanels)
-    if (screenshotUrl || notes || capturedAt || capturedBy || signedIn || sessionEvidence || viewportSize || visiblePanels) {
+    const canvasVersion = typeof record.canvasVersion === 'number' && Number.isFinite(record.canvasVersion) ? record.canvasVersion : undefined
+    const graphSignature = stringField(record.graphSignature)
+    const nodeCount = typeof record.nodeCount === 'number' && Number.isFinite(record.nodeCount) ? record.nodeCount : undefined
+    const edgeCount = typeof record.edgeCount === 'number' && Number.isFinite(record.edgeCount) ? record.edgeCount : undefined
+    if (
+      screenshotUrl
+      || notes
+      || capturedAt
+      || capturedBy
+      || signedIn
+      || sessionEvidence
+      || viewportSize
+      || visiblePanels
+      || canvasVersion !== undefined
+      || graphSignature
+      || nodeCount !== undefined
+      || edgeCount !== undefined
+    ) {
       acc[key] = {
         screenshotUrl,
         notes,
@@ -422,6 +443,10 @@ function getCanvasVisualProof(data: unknown): Partial<Record<CreativeCanvasVisua
         sessionEvidence,
         viewportSize,
         visiblePanels,
+        canvasVersion,
+        graphSignature,
+        nodeCount,
+        edgeCount,
       }
     }
     return acc
@@ -430,6 +455,21 @@ function getCanvasVisualProof(data: unknown): Partial<Record<CreativeCanvasVisua
 
 function hasSignedInViewportProof(proof: CreativeCanvasVisualProofRecord | undefined): boolean {
   return Boolean(proof?.screenshotUrl && proof.signedIn && proof.sessionEvidence && proof.viewportSize && proof.visiblePanels)
+}
+
+function hasCurrentVisualProofState(
+  proof: CreativeCanvasVisualProofRecord | undefined,
+  current: { canvasVersion?: number; graphSignature: string; nodeCount: number; edgeCount: number },
+): boolean {
+  return Boolean(
+    proof
+      && typeof proof.canvasVersion === 'number'
+      && proof.canvasVersion === current.canvasVersion
+      && proof.graphSignature
+      && proof.graphSignature === current.graphSignature
+      && proof.nodeCount === current.nodeCount
+      && proof.edgeCount === current.edgeCount,
+  )
 }
 
 function getCanvasBenchmarkProof(data: unknown): Partial<Record<CreativeCanvasBenchmarkProofKey, CreativeCanvasBenchmarkProofRecord>> {
@@ -2072,6 +2112,10 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
         visiblePanels,
         capturedAt: new Date().toISOString(),
         capturedBy: 'Pip',
+        canvasVersion: activeCanvas.activeVersion,
+        graphSignature: currentGraphSignature,
+        nodeCount: nodes.length,
+        edgeCount: edges.length,
       },
     }
 
@@ -2101,7 +2145,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
     } finally {
       setSavingVisualProofKey('')
     }
-  }, [activeCanvas, applyCanvasSnapshot, resolvedOrgId, visualProofDrafts])
+  }, [activeCanvas, applyCanvasSnapshot, currentGraphSignature, edges.length, nodes.length, resolvedOrgId, visualProofDrafts])
 
   const saveBenchmarkProof = useCallback(async (key: CreativeCanvasBenchmarkProofKey) => {
     if (!activeCanvas?.id) return
@@ -4018,6 +4062,12 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
     { label: 'Desktop', value: '3-column graph' },
   ]
   const visualProofRecords = getCanvasVisualProof(activeCanvas?.data)
+  const currentProofGraphState = {
+    canvasVersion: activeCanvas?.activeVersion,
+    graphSignature: currentGraphSignature,
+    nodeCount: nodes.length,
+    edgeCount: edges.length,
+  }
   const visualProofItems: Array<{
     key: CreativeCanvasVisualProofKey
     label: string
@@ -4029,7 +4079,11 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
     return {
       ...item,
       proof,
-      status: hasSignedInViewportProof(proof) ? 'signed-in' : proof?.screenshotUrl ? 'needs sign-in' : 'needed',
+      status: hasSignedInViewportProof(proof) && hasCurrentVisualProofState(proof, currentProofGraphState)
+        ? 'signed-in'
+        : proof?.screenshotUrl
+          ? 'needs sign-in'
+          : 'needed',
     }
   })
   const parityAuditNodes = nodes.map((node) => toCanvasNode(node, resolvedOrgId || activeCanvas?.orgId || 'pending-org'))
@@ -4094,12 +4148,6 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
   const reliabilityPassed = reliabilityCoveragePassed && runtimeProof?.status === 'passed' && runtimeProof.readyForLiveProof
   const reliabilityObserved = reliabilityCoverage.length > 0 || Boolean(runOperations?.total)
   const benchmarkProofRecords = getCanvasBenchmarkProof(activeCanvas?.data)
-  const currentBenchmarkState = {
-    canvasVersion: activeCanvas?.activeVersion,
-    graphSignature: currentGraphSignature,
-    nodeCount: nodes.length,
-    edgeCount: edges.length,
-  }
   const benchmarkSignals: Record<CreativeCanvasBenchmarkProofKey, boolean> = {
     editing_ergonomics: hasEditingEvidence,
     masking_inpainting: hasMaskEvidence,
@@ -4114,7 +4162,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
   const benchmarkProofItems = benchmarkProofConfigs.map((item) => {
     const proof = benchmarkProofRecords[item.key]
     const proofCaptured = hasSourceBackedBenchmarkProof(proof, item.sourceSignals)
-      && hasCurrentCanvasBenchmarkState(proof, currentBenchmarkState)
+      && hasCurrentCanvasBenchmarkState(proof, currentProofGraphState)
     return {
       ...item,
       proof,
@@ -4601,6 +4649,11 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
                   Add session, viewport, and visible-panel evidence before this counts for mobile parity.
                 </p>
               ) : null}
+              {item.proof?.screenshotUrl && hasSignedInViewportProof(item.proof) && !hasCurrentVisualProofState(item.proof, currentProofGraphState) ? (
+                <p className="mt-1 text-[11px] font-semibold text-amber-800">
+                  Recapture this viewport against the current canvas version and graph state before it counts.
+                </p>
+              ) : null}
               {item.proof?.capturedAt ? (
                 <p className="mt-1 text-[11px] font-semibold text-amber-800">
                   Captured {new Date(item.proof.capturedAt).toLocaleString()}
@@ -4609,6 +4662,11 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
               {item.proof?.viewportSize || item.proof?.visiblePanels ? (
                 <p className="mt-1 text-[11px] text-amber-800">
                   {item.proof.viewportSize ? `${item.proof.viewportSize}` : 'Viewport missing'} · {item.proof.visiblePanels || 'Panels missing'}
+                </p>
+              ) : null}
+              {typeof item.proof?.canvasVersion === 'number' || typeof item.proof?.nodeCount === 'number' || typeof item.proof?.edgeCount === 'number' ? (
+                <p className="mt-1 text-[11px] text-amber-800">
+                  Canvas state: v{item.proof.canvasVersion ?? 'missing'} · {item.proof.nodeCount ?? 0} nodes · {item.proof.edgeCount ?? 0} links
                 </p>
               ) : null}
               {item.proof?.screenshotUrl ? (
@@ -4842,7 +4900,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
               {item.proof && !hasDirectBenchmarkComparison(item.proof) ? (
                 <p className="mt-1 text-[11px] font-semibold">Needs direct Higgsfield UI comparison evidence before this proof can pass.</p>
               ) : null}
-              {item.proof && !hasCurrentCanvasBenchmarkState(item.proof, currentBenchmarkState) ? (
+              {item.proof && !hasCurrentCanvasBenchmarkState(item.proof, currentProofGraphState) ? (
                 <p className="mt-1 text-[11px] font-semibold">Needs proof captured against the current canvas version and graph state before this benchmark can pass.</p>
               ) : null}
               <div className="mt-2 rounded-md border border-current/20 bg-white/70 px-2 py-1 text-[11px]">

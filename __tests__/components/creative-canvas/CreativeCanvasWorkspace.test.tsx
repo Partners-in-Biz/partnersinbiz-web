@@ -924,7 +924,7 @@ describe('CreativeCanvasWorkspace', () => {
     ))
     expect(patchCall).toBeTruthy()
     const body = JSON.parse(String(patchCall?.[1]?.body ?? '{}')) as {
-      data?: { visualProof?: Record<string, { screenshotUrl?: string; notes?: string; capturedAt?: string; capturedBy?: string; signedIn?: boolean; sessionEvidence?: string; viewportSize?: string; visiblePanels?: string }> }
+      data?: { visualProof?: Record<string, { screenshotUrl?: string; notes?: string; capturedAt?: string; capturedBy?: string; signedIn?: boolean; sessionEvidence?: string; viewportSize?: string; visiblePanels?: string; canvasVersion?: number; graphSignature?: string; nodeCount?: number; edgeCount?: number }> }
     }
     expect(body.data?.visualProof?.desktop_1440).toMatchObject({
       screenshotUrl: 'https://proof.example.com/desktop-1440.png',
@@ -934,8 +934,12 @@ describe('CreativeCanvasWorkspace', () => {
       sessionEvidence: 'Signed-in admin header and Peet user menu visible.',
       viewportSize: '1440x900',
       visiblePanels: 'Graph, Sources, Inspector',
+      canvasVersion: 1,
+      nodeCount: expect.any(Number),
+      edgeCount: expect.any(Number),
     })
     expect(body.data?.visualProof?.desktop_1440?.capturedAt).toEqual(expect.any(String))
+    expect(body.data?.visualProof?.desktop_1440?.graphSignature).toEqual(expect.any(String))
 
     const visualProof = screen.getByLabelText(/creative canvas visual qa proof/i)
     expect(visualProof).toHaveTextContent('1/4 signed-in')
@@ -943,6 +947,61 @@ describe('CreativeCanvasWorkspace', () => {
     expect(within(visualProof).getByRole('link', { name: /open proof/i })).toHaveAttribute('href', 'https://proof.example.com/desktop-1440.png')
     const parityAudit = screen.getByLabelText(/higgsfield parity audit/i)
     expect(parityAudit).toHaveTextContent('1/4 signed-in visual proofs captured')
+  })
+
+  it('does not count signed-in viewport proof captured against a stale graph state', async () => {
+    const defaultFetch = fetchMock.getMockImplementation()
+    fetchMock.mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      if (url === '/api/v1/creative-canvas?orgId=org-1') {
+        return {
+          ok: true,
+          json: async () => ({
+            success: true,
+            data: {
+              canvases: [{
+                id: 'canvas-1',
+                orgId: 'org-1',
+                title: 'Launch Canvas',
+                activeVersion: 1,
+                data: {
+                  visualProof: {
+                    desktop_1440: {
+                      screenshotUrl: 'https://proof.example.com/desktop-1440.png',
+                      notes: 'Desktop graph captured on an old version.',
+                      capturedAt: '2026-06-21T10:00:00.000Z',
+                      capturedBy: 'Pip',
+                      signedIn: true,
+                      sessionEvidence: 'Signed-in admin header visible.',
+                      viewportSize: '1440x900',
+                      visiblePanels: 'Graph, Sources, Inspector',
+                      canvasVersion: 999,
+                      graphSignature: 'old-visual-signature',
+                      nodeCount: 99,
+                      edgeCount: 99,
+                    },
+                  },
+                },
+                nodes: [],
+                edges: [],
+              }],
+            },
+          }),
+        }
+      }
+      return defaultFetch?.(input, init) ?? {
+        ok: true,
+        json: async () => ({ success: true, data: {} }),
+      }
+    })
+
+    render(<CreativeCanvasWorkspace mode="admin" orgId="org-1" />)
+
+    expect(await screen.findByText('Launch Canvas')).toBeInTheDocument()
+    const visualProof = screen.getByLabelText(/creative canvas visual qa proof/i)
+    expect(visualProof).toHaveTextContent('0/4 signed-in')
+    expect(visualProof).toHaveTextContent('Recapture this viewport against the current canvas version and graph state before it counts.')
+    expect(visualProof).toHaveTextContent('Canvas state: v999 · 99 nodes · 99 links')
   })
 
   it('does not count viewport proof until the screenshot is confirmed signed-in', async () => {

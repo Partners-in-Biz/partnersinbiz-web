@@ -156,7 +156,30 @@ function cleanVisualProofData(value: unknown): Record<string, unknown> | undefin
       const sessionEvidence = cleanString(item.sessionEvidence)?.slice(0, 240)
       const viewportSize = cleanString(item.viewportSize)?.slice(0, 80)
       const visiblePanels = cleanString(item.visiblePanels)?.slice(0, 240)
-      if (!screenshotUrl && !notes && !capturedAt && !capturedBy && !signedIn && !sessionEvidence && !viewportSize && !visiblePanels) return []
+      const canvasVersion = typeof item.canvasVersion === 'number' && Number.isFinite(item.canvasVersion)
+        ? Math.max(0, Math.round(item.canvasVersion))
+        : undefined
+      const graphSignature = cleanString(item.graphSignature)?.slice(0, 240)
+      const nodeCount = typeof item.nodeCount === 'number' && Number.isFinite(item.nodeCount)
+        ? Math.max(0, Math.round(item.nodeCount))
+        : undefined
+      const edgeCount = typeof item.edgeCount === 'number' && Number.isFinite(item.edgeCount)
+        ? Math.max(0, Math.round(item.edgeCount))
+        : undefined
+      if (
+        !screenshotUrl
+        && !notes
+        && !capturedAt
+        && !capturedBy
+        && !signedIn
+        && !sessionEvidence
+        && !viewportSize
+        && !visiblePanels
+        && canvasVersion === undefined
+        && !graphSignature
+        && nodeCount === undefined
+        && edgeCount === undefined
+      ) return []
       return [[key.slice(0, 80), {
         screenshotUrl,
         notes,
@@ -166,6 +189,10 @@ function cleanVisualProofData(value: unknown): Record<string, unknown> | undefin
         sessionEvidence,
         viewportSize,
         visiblePanels,
+        canvasVersion,
+        graphSignature,
+        nodeCount,
+        edgeCount,
       } as Record<string, unknown>] as [string, Record<string, unknown>]]
     })
     .slice(0, 8)
