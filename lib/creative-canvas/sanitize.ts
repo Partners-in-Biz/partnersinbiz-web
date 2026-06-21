@@ -225,6 +225,12 @@ function cleanBenchmarkProofData(value: unknown): Record<string, unknown> | unde
       const sourceTitle = cleanString(item.sourceTitle)?.slice(0, 160)
       const sourceUrl = cleanString(item.sourceUrl)?.slice(0, 500)
       const sourceCheckedAt = cleanString(item.sourceCheckedAt)?.slice(0, 80)
+      const sourceEvidenceCheckedAt = cleanString(item.sourceEvidenceCheckedAt)?.slice(0, 80)
+      const sourceEvidenceReachable = item.sourceEvidenceReachable === true ? true : undefined
+      const sourceEvidenceStatus = typeof item.sourceEvidenceStatus === 'number' && Number.isFinite(item.sourceEvidenceStatus)
+        ? Math.max(0, Math.round(item.sourceEvidenceStatus))
+        : undefined
+      const sourceEvidenceContentType = cleanString(item.sourceEvidenceContentType)?.slice(0, 120)
       const sourceSignals = cleanStringArray(item.sourceSignals).map((signal) => signal.slice(0, 120)).slice(0, 12)
       const higgsfieldUiEvidenceUrl = cleanString(item.higgsfieldUiEvidenceUrl)?.slice(0, 500)
       const canvasEvidenceUrl = cleanString(item.canvasEvidenceUrl)?.slice(0, 500)
@@ -330,6 +336,10 @@ function cleanBenchmarkProofData(value: unknown): Record<string, unknown> | unde
         && !sourceTitle
         && !sourceUrl
         && !sourceCheckedAt
+        && !sourceEvidenceCheckedAt
+        && sourceEvidenceReachable === undefined
+        && sourceEvidenceStatus === undefined
+        && !sourceEvidenceContentType
         && !sourceSignals.length
         && !higgsfieldUiEvidenceUrl
         && !canvasEvidenceUrl
@@ -388,6 +398,10 @@ function cleanBenchmarkProofData(value: unknown): Record<string, unknown> | unde
         sourceTitle,
         sourceUrl,
         sourceCheckedAt,
+        ...(sourceEvidenceCheckedAt ? { sourceEvidenceCheckedAt } : {}),
+        ...(sourceEvidenceReachable !== undefined ? { sourceEvidenceReachable } : {}),
+        ...(sourceEvidenceStatus !== undefined ? { sourceEvidenceStatus } : {}),
+        ...(sourceEvidenceContentType ? { sourceEvidenceContentType } : {}),
         sourceSignals,
         higgsfieldUiEvidenceUrl,
         canvasEvidenceUrl,

@@ -90,6 +90,10 @@ type CreativeCanvasBenchmarkProofRecord = {
   sourceTitle?: string
   sourceUrl?: string
   sourceCheckedAt?: string
+  sourceEvidenceCheckedAt?: string
+  sourceEvidenceReachable?: boolean
+  sourceEvidenceStatus?: number
+  sourceEvidenceContentType?: string
   sourceSignals?: string[]
   higgsfieldUiEvidenceUrl?: string
   canvasEvidenceUrl?: string
@@ -581,6 +585,10 @@ function getCanvasBenchmarkProof(data: unknown): Partial<Record<CreativeCanvasBe
     const sourceTitle = stringField(record.sourceTitle)
     const sourceUrl = stringField(record.sourceUrl)
     const sourceCheckedAt = stringField(record.sourceCheckedAt)
+    const sourceEvidenceCheckedAt = stringField(record.sourceEvidenceCheckedAt)
+    const sourceEvidenceReachable = record.sourceEvidenceReachable === true
+    const sourceEvidenceStatus = typeof record.sourceEvidenceStatus === 'number' && Number.isFinite(record.sourceEvidenceStatus) ? record.sourceEvidenceStatus : undefined
+    const sourceEvidenceContentType = stringField(record.sourceEvidenceContentType)
     const sourceSignals = stringArrayField(record.sourceSignals)
     const higgsfieldUiEvidenceUrl = stringField(record.higgsfieldUiEvidenceUrl)
     const canvasEvidenceUrl = stringField(record.canvasEvidenceUrl)
@@ -642,6 +650,10 @@ function getCanvasBenchmarkProof(data: unknown): Partial<Record<CreativeCanvasBe
       || sourceTitle
       || sourceUrl
       || sourceCheckedAt
+      || sourceEvidenceCheckedAt
+      || sourceEvidenceReachable
+      || sourceEvidenceStatus !== undefined
+      || sourceEvidenceContentType
       || sourceSignals.length
       || higgsfieldUiEvidenceUrl
       || canvasEvidenceUrl
@@ -700,6 +712,10 @@ function getCanvasBenchmarkProof(data: unknown): Partial<Record<CreativeCanvasBe
         sourceTitle,
         sourceUrl,
         sourceCheckedAt,
+        sourceEvidenceCheckedAt,
+        sourceEvidenceReachable,
+        sourceEvidenceStatus,
+        sourceEvidenceContentType,
         sourceSignals,
         higgsfieldUiEvidenceUrl,
         canvasEvidenceUrl,
@@ -781,6 +797,11 @@ function hasSourceBackedBenchmarkProof(proof: CreativeCanvasBenchmarkProofRecord
       && proof.notes
       && proof.sourceUrl
       && proof.sourceCheckedAt
+      && proof.sourceEvidenceReachable
+      && typeof proof.sourceEvidenceStatus === 'number'
+      && proof.sourceEvidenceStatus >= 200
+      && proof.sourceEvidenceStatus < 400
+      && proof.sourceEvidenceCheckedAt
       && hasRequiredBenchmarkSourceSignals(proof, requiredSignals)
       && hasDirectBenchmarkComparison(proof),
   )
@@ -2542,9 +2563,36 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
       setActivityMessage('Add a proof URL and notes before saving benchmark evidence')
       return
     }
+    const proofConfig = benchmarkProofConfigs.find((item) => item.key === key)
+    const sourceEvidenceUrl = proofConfig?.sourceUrl
+    if (!sourceEvidenceUrl) {
+      setActivityMessage('Benchmark source URL is missing')
+      return
+    }
     setSavingBenchmarkProofKey(key)
+    let sourceEvidenceProof: Pick<CreativeCanvasBenchmarkProofRecord, 'sourceEvidenceCheckedAt' | 'sourceEvidenceReachable' | 'sourceEvidenceStatus' | 'sourceEvidenceContentType'> = {}
     let benchmarkEvidenceProof: Pick<CreativeCanvasBenchmarkProofRecord, 'canvasEvidenceCheckedAt' | 'canvasEvidenceReachable' | 'canvasEvidenceStatus' | 'canvasEvidenceContentType'> = {}
     try {
+      const sourceResponse = await fetch('/api/v1/creative-canvas/proof-url', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: sourceEvidenceUrl, kind: 'evidence' }),
+      })
+      const sourcePayload = await sourceResponse.json().catch(() => null) as CreativeCanvasProofUrlResponse | null
+      const sourceProof = sourcePayload?.data?.proof
+      if (!sourceResponse.ok || !sourceProof?.reachable) {
+        const status = typeof sourceProof?.status === 'number' ? ` (${sourceProof.status})` : ''
+        const contentType = sourceProof?.contentType ? ` · ${sourceProof.contentType}` : ''
+        setActivityMessage(`${sourcePayload?.error ?? 'Benchmark source URL is not reachable'}${status}${contentType}`)
+        setSavingBenchmarkProofKey('')
+        return
+      }
+      sourceEvidenceProof = {
+        sourceEvidenceCheckedAt: sourceProof.checkedAt,
+        sourceEvidenceReachable: true,
+        sourceEvidenceStatus: sourceProof.status,
+        sourceEvidenceContentType: sourceProof.contentType,
+      }
       const proofResponse = await fetch('/api/v1/creative-canvas/proof-url', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -2566,11 +2614,10 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
         canvasEvidenceContentType: proof.contentType,
       }
     } catch {
-      setActivityMessage('Benchmark proof URL check failed')
+      setActivityMessage('Benchmark evidence URL check failed')
       setSavingBenchmarkProofKey('')
       return
     }
-    const proofConfig = benchmarkProofConfigs.find((item) => item.key === key)
     const canvasOrgId = resolvedOrgId || activeCanvas.orgId
     const existingProof = getCanvasBenchmarkProof(activeCanvas.data)
     const capturedAt = new Date().toISOString()
@@ -2658,6 +2705,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
         sourceTitle: proofConfig?.sourceTitle,
         sourceUrl: proofConfig?.sourceUrl,
         sourceCheckedAt: capturedAt,
+        ...sourceEvidenceProof,
         sourceSignals: proofConfig?.sourceSignals ?? [],
         higgsfieldUiEvidenceUrl: proofConfig?.sourceUrl,
         canvasEvidenceUrl: proofUrl,
@@ -4700,6 +4748,40 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
     const canvasOrgId = resolvedOrgId || activeCanvas.orgId
     const proofUrl = benchmarkProofUrl(activeCanvas, canvasOrgId)
     const capturedAt = new Date().toISOString()
+    setSavingBenchmarkProofKey(readyBenchmarkProofItems[0].key)
+    const sourceEvidenceByUrl = new Map<string, Pick<CreativeCanvasBenchmarkProofRecord, 'sourceEvidenceCheckedAt' | 'sourceEvidenceReachable' | 'sourceEvidenceStatus' | 'sourceEvidenceContentType'>>()
+    try {
+      const sourceProofs = await Promise.all(Array.from(new Set(readyBenchmarkProofItems.map((item) => item.sourceUrl))).map(async (sourceUrl) => {
+        const response = await fetch('/api/v1/creative-canvas/proof-url', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ url: sourceUrl, kind: 'evidence' }),
+        })
+        const payload = await response.json().catch(() => null) as CreativeCanvasProofUrlResponse | null
+        return { sourceUrl, response, payload, proof: payload?.data?.proof }
+      }))
+      const failedSource = sourceProofs.find((item) => !item.response.ok || !item.proof?.reachable)
+      if (failedSource) {
+        const status = typeof failedSource.proof?.status === 'number' ? ` (${failedSource.proof.status})` : ''
+        const contentType = failedSource.proof?.contentType ? ` · ${failedSource.proof.contentType}` : ''
+        setActivityMessage(`${failedSource.payload?.error ?? 'Benchmark source URL is not reachable'}${status}${contentType}`)
+        setSavingBenchmarkProofKey('')
+        return
+      }
+      sourceProofs.forEach((item) => {
+        if (!item.proof) return
+        sourceEvidenceByUrl.set(item.sourceUrl, {
+          sourceEvidenceCheckedAt: item.proof.checkedAt,
+          sourceEvidenceReachable: true,
+          sourceEvidenceStatus: item.proof.status,
+          sourceEvidenceContentType: item.proof.contentType,
+        })
+      })
+    } catch {
+      setActivityMessage('Benchmark source URL check failed')
+      setSavingBenchmarkProofKey('')
+      return
+    }
     const nextBenchmarkProof = readyBenchmarkProofItems.reduce((acc, item) => {
       const editingSessionProof = item.key === 'editing_ergonomics'
         ? {
@@ -4754,6 +4836,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
         sourceTitle: item.sourceTitle,
         sourceUrl: item.sourceUrl,
         sourceCheckedAt: capturedAt,
+        ...sourceEvidenceByUrl.get(item.sourceUrl),
         sourceSignals: item.sourceSignals,
         higgsfieldUiEvidenceUrl: item.sourceUrl,
         canvasEvidenceUrl: acc[item.key]?.proofUrl || proofUrl,
@@ -4778,7 +4861,6 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
       return acc
     }, { ...benchmarkProofRecords } as Partial<Record<CreativeCanvasBenchmarkProofKey, CreativeCanvasBenchmarkProofRecord>>)
 
-    setSavingBenchmarkProofKey(readyBenchmarkProofItems[0].key)
     try {
       const response = await fetch(`/api/v1/creative-canvas/${activeCanvas.id}?orgId=${encodeURIComponent(canvasOrgId)}`, {
         method: 'PATCH',
@@ -5489,6 +5571,9 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
               {item.proof && (!item.proof.sourceUrl || !item.proof.sourceCheckedAt) ? (
                 <p className="mt-1 text-[11px] font-semibold">Needs Higgsfield source check before this proof can pass.</p>
               ) : null}
+              {item.proof?.sourceUrl && !item.proof.sourceEvidenceReachable ? (
+                <p className="mt-1 text-[11px] font-semibold">Needs reachable Higgsfield source URL verification before this proof can pass.</p>
+              ) : null}
               {item.proof && !hasRequiredBenchmarkSourceSignals(item.proof, item.sourceSignals) ? (
                 <p className="mt-1 text-[11px] font-semibold">Needs matched Higgsfield source signals before this proof can pass.</p>
               ) : null}
@@ -5543,6 +5628,11 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
                   {item.proof.canvasEvidenceUrl ? (
                     <p className="mt-1">
                       Canvas evidence URL: {item.proof.canvasEvidenceReachable ? 'reachable' : 'unverified'}{item.proof.canvasEvidenceStatus ? ` · ${item.proof.canvasEvidenceStatus}` : ''}{item.proof.canvasEvidenceContentType ? ` · ${item.proof.canvasEvidenceContentType}` : ''}
+                    </p>
+                  ) : null}
+                  {item.proof.sourceUrl ? (
+                    <p className="mt-1">
+                      Source evidence URL: {item.proof.sourceEvidenceReachable ? 'reachable' : 'unverified'}{item.proof.sourceEvidenceStatus ? ` · ${item.proof.sourceEvidenceStatus}` : ''}{item.proof.sourceEvidenceContentType ? ` · ${item.proof.sourceEvidenceContentType}` : ''}
                     </p>
                   ) : null}
                   {item.proof.directComparisonNotes ? <p className="mt-1">{item.proof.directComparisonNotes}</p> : null}
