@@ -15,6 +15,8 @@ import CanvasStage from '@/components/creative-canvas/canvas/CanvasStage'
 import type { CanvasTool } from '@/components/creative-canvas/canvas/BottomToolbar'
 import { useGraphHistory } from '@/components/creative-canvas/canvas/useGraphHistory'
 import CanvasTopBar from '@/components/creative-canvas/topbar/CanvasTopBar'
+import { canvasNodeTypes } from '@/components/creative-canvas/nodes/nodeTypes'
+import type { CanvasNodeType } from '@/components/creative-canvas/nodes/ports'
 import type {
   CreativeCanvasAssetOrigin,
   CreativeCanvas,
@@ -1232,13 +1234,60 @@ function CanvasPreviewBlock({
   )
 }
 
+const PRESENTATION_NODE_TYPES = new Set<CanvasNodeType>([
+  'prompt', 'image_generator', 'video_generator', 'voice_generator', 'llm_assistant',
+  'voiceover', 'change_voice', 'translate', 'source', 'output', 'sticky_note', 'text', 'folder',
+])
+
+/** Map a backend node onto a Higgsfield-style presentation node type. */
+function presentationTypeFor(node: CreativeCanvasNode): CanvasNodeType {
+  const hint = (node.data as Record<string, unknown> | undefined)?.presentationType
+  if (typeof hint === 'string' && PRESENTATION_NODE_TYPES.has(hint as CanvasNodeType)) {
+    return hint as CanvasNodeType
+  }
+  switch (node.type) {
+    case 'source':
+      return 'source'
+    case 'prompt':
+    case 'brief':
+      return 'prompt'
+    case 'review':
+    case 'output':
+      return 'output'
+    case 'edit':
+      return 'image_generator'
+    case 'model':
+    default:
+      return node.output?.kind === 'video' || node.provider?.mode === 'video'
+        ? 'video_generator'
+        : 'image_generator'
+  }
+}
+
 function toFlowNode(node: CreativeCanvasNode, collaborators: Array<CreativeCanvasPresence & { id: string }> = []): Node {
   const previewUrl = node.source?.thumbnailUrl ?? node.source?.previewUrl ?? node.output?.thumbnailUrl ?? node.output?.url
+  const presentationType = presentationTypeFor(node)
+  const promptValue = typeof (node.data as Record<string, unknown> | undefined)?.prompt === 'string'
+    ? String((node.data as Record<string, unknown>).prompt)
+    : undefined
   return {
     id: node.id,
-    type: 'default',
+    type: presentationType,
     position: node.position,
     data: {
+      // Structured data consumed by the custom node components (real ReactFlow).
+      presentationType,
+      title: node.title,
+      prompt: promptValue,
+      model: node.provider?.model,
+      assetUrl: node.output?.url ?? node.source?.url ?? previewUrl,
+      assetKind: node.output?.kind === 'video' ? 'video' : 'image',
+      status: node.output?.url ? 'done' : 'idle',
+      reviewStatus: node.review?.status,
+      text: typeof (node.data as Record<string, unknown> | undefined)?.text === 'string'
+        ? String((node.data as Record<string, unknown>).text)
+        : undefined,
+      // `label` is retained for the lightweight test mock + legacy rendering paths.
       label: (
         <div className="min-w-36">
           {previewUrl ? (
@@ -5808,6 +5857,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
             <CanvasStage
               nodes={displayNodes}
               edges={edges}
+              nodeTypes={canvasNodeTypes}
               onNodesChange={onNodesChange}
               onEdgesChange={onEdgesChange}
               onConnect={onConnect}
