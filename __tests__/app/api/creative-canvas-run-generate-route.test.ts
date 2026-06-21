@@ -132,7 +132,7 @@ describe('creative canvas run generate API', () => {
       canvasId: 'canvas-1',
       nodeId: 'source-1',
       providerKey: 'higgsfield',
-      model: 'higgsfield-video',
+      model: 'seedance_2_0',
       status: 'queued',
       input: { promptSummary: 'A product hero video', sourceNodeIds: ['source-1'], sourceArtifactIds: [] },
       provenance: { generatedBy: 'agent', agentId: 'maya', promptStored: 'summary', syntheticMedia: true },
@@ -142,7 +142,7 @@ describe('creative canvas run generate API', () => {
       method: 'POST',
       body: JSON.stringify({
         nodeId: 'source-1',
-        model: 'higgsfield-video',
+        model: 'seedance_2_0',
         prompt: 'A product hero video',
         aspectRatio: '9:16',
         duration: 8,
@@ -153,7 +153,7 @@ describe('creative canvas run generate API', () => {
     expect(mockGenerateInline).not.toHaveBeenCalled()
     expect(mockCompleteCreativeCanvasRun).not.toHaveBeenCalled()
     expect(mockCreateCreativeCanvasRun).toHaveBeenCalledWith(
-      expect.objectContaining({ canvasId: 'canvas-1', providerKey: 'higgsfield', model: 'higgsfield-video' }),
+      expect.objectContaining({ canvasId: 'canvas-1', providerKey: 'higgsfield', model: 'seedance_2_0' }),
       'org-1',
       { uid: 'agent:maya', type: 'agent' },
     )

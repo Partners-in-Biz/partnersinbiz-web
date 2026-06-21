@@ -2,33 +2,33 @@ import { render, screen, fireEvent } from '@testing-library/react'
 import ModelPicker from '@/components/creative-canvas/panels/ModelPicker'
 
 describe('ModelPicker', () => {
-  test('renders Featured and All headings and shows Grok Image', () => {
+  test('renders Featured and All headings and shows the Higgsfield catalog', () => {
     render(<ModelPicker kind="image" onSelect={() => {}} />)
     expect(screen.getByText('Featured models')).toBeInTheDocument()
     expect(screen.getByText('All models')).toBeInTheDocument()
-    expect(screen.getAllByText('Grok Image').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('GPT Image 2').length).toBeGreaterThan(0)
   })
 
-  test('searching "grok" keeps Grok Image and clicking calls onSelect', () => {
+  test('searching "gpt" keeps GPT Image 2 and clicking calls onSelect', () => {
     const onSelect = jest.fn()
     render(<ModelPicker kind="image" onSelect={onSelect} />)
 
     const search = screen.getByPlaceholderText(/search/i)
-    fireEvent.change(search, { target: { value: 'grok' } })
+    fireEvent.change(search, { target: { value: 'gpt' } })
 
-    const rows = screen.getAllByText('Grok Image')
+    const rows = screen.getAllByText('GPT Image 2')
     expect(rows.length).toBeGreaterThan(0)
 
     fireEvent.click(rows[0])
-    expect(onSelect).toHaveBeenCalledWith('grok-image')
+    expect(onSelect).toHaveBeenCalledWith('gpt_image_2')
   })
 
-  test('searching "zzzzz" hides Grok Image', () => {
+  test('searching "zzzzz" hides GPT Image 2', () => {
     render(<ModelPicker kind="image" onSelect={() => {}} />)
 
     const search = screen.getByPlaceholderText(/search/i)
     fireEvent.change(search, { target: { value: 'zzzzz' } })
 
-    expect(screen.queryByText('Grok Image')).not.toBeInTheDocument()
+    expect(screen.queryByText('GPT Image 2')).not.toBeInTheDocument()
   })
 })

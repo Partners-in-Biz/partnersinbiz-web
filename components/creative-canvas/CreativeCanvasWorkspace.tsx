@@ -1488,7 +1488,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
   const [activityMessage, setActivityMessage] = useState('')
   const [exportTarget, setExportTarget] = useState<CreativeCanvasExport['target']>('campaign_asset')
   const [latestRun, setLatestRun] = useState<{ id: string; status: string; nodeId?: string } | null>(null)
-  const [runModel, setRunModel] = useState('grok-image')
+  const [runModel, setRunModel] = useState('gpt_image_2')
   const [runOutputKind, setRunOutputKind] = useState('image')
   const [runAspectRatio, setRunAspectRatio] = useState('1:1')
   const [runDurationSeconds, setRunDurationSeconds] = useState(5)
