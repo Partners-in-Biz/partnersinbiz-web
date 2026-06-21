@@ -61,6 +61,7 @@ export function collectCollaborationMutationProof(input: {
   const actorIds = unique(mutations.map((item) => item.actorUid))
   const operationKinds = unique(mutations.map((item) => item.operation))
   const touchedNodeIds = unique(mutations.flatMap((item) => item.touchedNodeIds))
+  const touchedEdgeIds = unique(mutations.flatMap((item) => item.touchedEdgeIds))
   const source = appliedDraftHandled
     ? 'draft_applied'
     : input.streamConnected
@@ -77,6 +78,7 @@ export function collectCollaborationMutationProof(input: {
     collaborationRemoteMutationCount: mutations.length,
     collaborationRemoteMutationKindCount: operationKinds.length,
     collaborationRemoteTouchedNodeCount: touchedNodeIds.length,
+    collaborationRemoteTouchedEdgeCount: touchedEdgeIds.length,
     collaborationRemoteGraphSignature: appliedDraftHandled
       ? input.currentGraphSignature
       : input.binding.graphSignature,

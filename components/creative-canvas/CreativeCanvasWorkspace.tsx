@@ -35,9 +35,20 @@ import type {
   CreativeCanvasSourceLibraryItem,
   CreativeCanvasTemplate,
   CreativeCanvasVersion,
+  CreativeCanvasCollaborationProofEvidence,
+  CreativeCanvasProofBinding,
+  CreativeCanvasRemoteMutationEvidence,
+  CreativeCanvasRemoteMutationOperation,
+  CreativeCanvasRemoteMutationSource,
+} from '@/lib/creative-canvas/types'
+import {
+  creativeCanvasRemoteMutationOperations,
+  creativeCanvasRemoteMutationSources,
 } from '@/lib/creative-canvas/types'
 import { buildCreativeCanvasOrchestrationPlan } from '@/lib/creative-canvas/orchestration'
 import { buildCreativeCanvasAssetGallery } from '@/lib/creative-canvas/assets'
+import { collectCollaborationMutationProof } from '@/lib/creative-canvas/collaboration-proof'
+import { hasStructuredCollaborationProof } from '@/lib/creative-canvas/parity-proof'
 
 type CreativeCanvasMode = 'admin' | 'portal'
 type CreativeCanvasMobilePanel = 'canvas' | 'sources' | 'inspector'
@@ -107,12 +118,21 @@ type CreativeCanvasBenchmarkProofRecord = {
   directComparisonAt?: string
   directComparisonVerdict?: 'pass' | 'gap'
   directComparisonNotes?: string
+  orgId?: string
   canvasVersion?: number
   graphSignature?: string
   nodeCount?: number
   edgeCount?: number
   collaborationRemoteActorCount?: number
   collaborationRemoteEventCount?: number
+  collaborationRemoteMutationCount?: number
+  collaborationRemoteMutationKindCount?: number
+  collaborationRemoteTouchedNodeCount?: number
+  collaborationRemoteTouchedEdgeCount?: number
+  collaborationRemoteGraphSignature?: string
+  collaborationRemoteSource?: CreativeCanvasRemoteMutationSource
+  collaborationRemoteOutcome?: 'remote_changes_observed' | 'remote_changes_adopted' | 'conflict_detected' | 'version_forked'
+  collaborationRemoteMutations?: CreativeCanvasRemoteMutationEvidence[]
   collaborationStreamConnected?: boolean
   collaborationCapturedAt?: string
   collaborationEvidence?: string
@@ -320,6 +340,7 @@ interface CreativeCanvasPresenceApiResponse {
 interface CreativeCanvasCollaborationStreamEvent {
   canvas?: CreativeCanvas | null
   presence?: Array<CreativeCanvasPresence & { id: string }>
+  mutations?: CreativeCanvasRemoteMutationEvidence[]
   emittedAtMs?: number
 }
 
@@ -329,9 +350,10 @@ interface CreativeCanvasActivityEvent {
   action: string
   detail: string
   nodeId?: string
-  operation?: 'node_add' | 'node_move' | 'node_remove' | 'edge_add' | 'edge_remove' | 'workflow_add' | 'template_apply' | 'variant_create' | 'node_duplicate' | 'inpaint_branch' | 'node_configure'
+  operation?: 'node_add' | 'node_move' | 'node_remove' | 'edge_add' | 'edge_remove' | 'workflow_add' | 'template_apply' | 'variant_create' | 'node_duplicate' | 'inpaint_branch' | 'node_configure' | 'draft_apply' | 'version_restore'
   atMs: number
   source: 'local' | 'stream' | 'draft'
+  remoteMutation?: CreativeCanvasRemoteMutationEvidence
 }
 
 const emptyVisualProofDrafts: CreativeCanvasVisualProofDraft = {
@@ -645,12 +667,30 @@ function getCanvasBenchmarkProof(data: unknown): Partial<Record<CreativeCanvasBe
       ? record.directComparisonVerdict
       : undefined
     const directComparisonNotes = stringField(record.directComparisonNotes)
+    const orgId = stringField(record.orgId)
     const canvasVersion = typeof record.canvasVersion === 'number' && Number.isFinite(record.canvasVersion) ? record.canvasVersion : undefined
     const graphSignature = stringField(record.graphSignature)
     const nodeCount = typeof record.nodeCount === 'number' && Number.isFinite(record.nodeCount) ? record.nodeCount : undefined
     const edgeCount = typeof record.edgeCount === 'number' && Number.isFinite(record.edgeCount) ? record.edgeCount : undefined
     const collaborationRemoteActorCount = typeof record.collaborationRemoteActorCount === 'number' && Number.isFinite(record.collaborationRemoteActorCount) ? record.collaborationRemoteActorCount : undefined
     const collaborationRemoteEventCount = typeof record.collaborationRemoteEventCount === 'number' && Number.isFinite(record.collaborationRemoteEventCount) ? record.collaborationRemoteEventCount : undefined
+    const collaborationRemoteMutationCount = typeof record.collaborationRemoteMutationCount === 'number' && Number.isFinite(record.collaborationRemoteMutationCount) ? record.collaborationRemoteMutationCount : undefined
+    const collaborationRemoteMutationKindCount = typeof record.collaborationRemoteMutationKindCount === 'number' && Number.isFinite(record.collaborationRemoteMutationKindCount) ? record.collaborationRemoteMutationKindCount : undefined
+    const collaborationRemoteTouchedNodeCount = typeof record.collaborationRemoteTouchedNodeCount === 'number' && Number.isFinite(record.collaborationRemoteTouchedNodeCount) ? record.collaborationRemoteTouchedNodeCount : undefined
+    const collaborationRemoteTouchedEdgeCount = typeof record.collaborationRemoteTouchedEdgeCount === 'number' && Number.isFinite(record.collaborationRemoteTouchedEdgeCount) ? record.collaborationRemoteTouchedEdgeCount : undefined
+    const collaborationRemoteGraphSignature = stringField(record.collaborationRemoteGraphSignature)
+    const collaborationRemoteSource = isRemoteMutationSource(record.collaborationRemoteSource) ? record.collaborationRemoteSource : undefined
+    const collaborationRemoteOutcome = record.collaborationRemoteOutcome === 'remote_changes_observed'
+      || record.collaborationRemoteOutcome === 'remote_changes_adopted'
+      || record.collaborationRemoteOutcome === 'conflict_detected'
+      || record.collaborationRemoteOutcome === 'version_forked'
+      ? record.collaborationRemoteOutcome
+      : undefined
+    const collaborationRemoteMutations = Array.isArray(record.collaborationRemoteMutations)
+      ? record.collaborationRemoteMutations
+        .map(objectToRemoteMutationEvidence)
+        .filter((item): item is CreativeCanvasRemoteMutationEvidence => Boolean(item))
+      : []
     const collaborationStreamConnected = record.collaborationStreamConnected === true
     const collaborationCapturedAt = stringField(record.collaborationCapturedAt)
     const collaborationEvidence = stringField(record.collaborationEvidence)
@@ -745,12 +785,21 @@ function getCanvasBenchmarkProof(data: unknown): Partial<Record<CreativeCanvasBe
       || directComparisonAt
       || directComparisonVerdict
       || directComparisonNotes
+      || orgId
       || canvasVersion !== undefined
       || graphSignature
       || nodeCount !== undefined
       || edgeCount !== undefined
       || collaborationRemoteActorCount !== undefined
       || collaborationRemoteEventCount !== undefined
+      || collaborationRemoteMutationCount !== undefined
+      || collaborationRemoteMutationKindCount !== undefined
+      || collaborationRemoteTouchedNodeCount !== undefined
+      || collaborationRemoteTouchedEdgeCount !== undefined
+      || collaborationRemoteGraphSignature
+      || collaborationRemoteSource
+      || collaborationRemoteOutcome
+      || collaborationRemoteMutations.length
       || collaborationStreamConnected
       || collaborationCapturedAt
       || collaborationEvidence
@@ -844,12 +893,21 @@ function getCanvasBenchmarkProof(data: unknown): Partial<Record<CreativeCanvasBe
         directComparisonAt,
         directComparisonVerdict,
         directComparisonNotes,
+        orgId,
         canvasVersion,
         graphSignature,
         nodeCount,
         edgeCount,
         collaborationRemoteActorCount,
         collaborationRemoteEventCount,
+        collaborationRemoteMutationCount,
+        collaborationRemoteMutationKindCount,
+        collaborationRemoteTouchedNodeCount,
+        collaborationRemoteTouchedEdgeCount,
+        collaborationRemoteGraphSignature,
+        collaborationRemoteSource,
+        collaborationRemoteOutcome,
+        collaborationRemoteMutations,
         collaborationStreamConnected,
         collaborationCapturedAt,
         collaborationEvidence,
@@ -976,16 +1034,138 @@ function hasCurrentCanvasBenchmarkState(
   )
 }
 
-function hasCollaborationSessionProof(proof: CreativeCanvasBenchmarkProofRecord | undefined): boolean {
-  return Boolean(
-    proof
-      && typeof proof.collaborationRemoteActorCount === 'number'
-      && proof.collaborationRemoteActorCount > 0
-      && typeof proof.collaborationRemoteEventCount === 'number'
-      && proof.collaborationRemoteEventCount > 0
-      && proof.collaborationCapturedAt
-      && proof.collaborationEvidence,
-  )
+const remoteMutationOperationSet = new Set<string>(creativeCanvasRemoteMutationOperations)
+const remoteMutationSourceSet = new Set<string>(creativeCanvasRemoteMutationSources)
+
+function isRemoteMutationOperation(value: unknown): value is CreativeCanvasRemoteMutationOperation {
+  return typeof value === 'string' && remoteMutationOperationSet.has(value)
+}
+
+function isRemoteMutationSource(value: unknown): value is CreativeCanvasRemoteMutationSource {
+  return typeof value === 'string' && remoteMutationSourceSet.has(value)
+}
+
+function cleanMutationIdList(value: unknown, limit: number): string[] {
+  return Array.isArray(value)
+    ? value
+      .filter((item): item is string => typeof item === 'string' && item.trim().length > 0)
+      .map((item) => item.trim())
+      .slice(0, limit)
+    : []
+}
+
+function objectToRemoteMutationEvidence(input: unknown): CreativeCanvasRemoteMutationEvidence | undefined {
+  if (!input || typeof input !== 'object' || Array.isArray(input)) return undefined
+  const record = input as Record<string, unknown>
+  if (!isRemoteMutationOperation(record.operation) || !isRemoteMutationSource(record.source)) return undefined
+  const touchedNodeIds = cleanMutationIdList(record.touchedNodeIds, 40)
+  const touchedEdgeIds = cleanMutationIdList(record.touchedEdgeIds, 80)
+  if (!touchedNodeIds.length && !touchedEdgeIds.length) return undefined
+  const actorUid = typeof record.actorUid === 'string' && record.actorUid.trim() ? record.actorUid.trim() : ''
+  const actorType = record.actorType === 'agent' || record.actorType === 'system' ? record.actorType : 'user'
+  const occurredAt = typeof record.occurredAt === 'string' && record.occurredAt.trim()
+    ? record.occurredAt.trim()
+    : new Date().toISOString()
+  if (!actorUid) return undefined
+
+  return {
+    actorUid,
+    actorType,
+    operation: record.operation,
+    touchedNodeIds,
+    touchedEdgeIds,
+    source: record.source,
+    occurredAt,
+  }
+}
+
+function latestLocalActivityMutation(event: CreativeCanvasActivityEvent | undefined): CreativeCanvasPresence['latestMutation'] | undefined {
+  if (!event || event.source !== 'local' || !isRemoteMutationOperation(event.operation)) return undefined
+  const touchedNodeIds = event.nodeId ? [event.nodeId] : []
+  if (!touchedNodeIds.length) return undefined
+
+  return {
+    operation: event.operation,
+    touchedNodeIds,
+    touchedEdgeIds: [],
+    source: 'stream',
+    occurredAt: new Date(event.atMs).toISOString(),
+  }
+}
+
+function dedupeRemoteMutations(mutations: CreativeCanvasRemoteMutationEvidence[]): CreativeCanvasRemoteMutationEvidence[] {
+  const seen = new Set<string>()
+  return mutations.filter((mutation) => {
+    const key = [
+      mutation.actorUid,
+      mutation.operation,
+      mutation.source,
+      mutation.occurredAt,
+      mutation.touchedNodeIds.join(','),
+      mutation.touchedEdgeIds.join(','),
+    ].join('|')
+    if (seen.has(key)) return false
+    seen.add(key)
+    return true
+  })
+}
+
+type AppliedCollaborationDraftProof = {
+  actorUid: string
+  actorType: 'user' | 'agent' | 'system'
+  graphSignature: string
+  touchedNodeIds: string[]
+  touchedEdgeIds: string[]
+  appliedAt: string
+}
+
+function buildWorkspaceCollaborationProof(input: {
+  remotePresence: Array<CreativeCanvasPresence & { id: string }>
+  activity: CreativeCanvasActivityEvent[]
+  latestAppliedDraft?: AppliedCollaborationDraftProof
+  currentGraphSignature: string
+  streamConnected: boolean
+  capturedAt: string
+  binding: CreativeCanvasProofBinding
+}): CreativeCanvasBenchmarkProofRecord {
+  const presenceMutations = input.remotePresence.flatMap((presence) => {
+    if (!presence.latestMutation) return []
+    return [{
+      actorUid: presence.actorUid,
+      actorType: presence.actorType,
+      operation: presence.latestMutation.operation,
+      touchedNodeIds: presence.latestMutation.touchedNodeIds,
+      touchedEdgeIds: presence.latestMutation.touchedEdgeIds,
+      source: presence.latestMutation.source,
+      occurredAt: presence.latestMutation.occurredAt,
+    }]
+  })
+  const activityMutations = input.activity.flatMap((event) => event.remoteMutation ? [event.remoteMutation] : [])
+
+  return {
+    ...collectCollaborationMutationProof({
+      remotePresence: input.remotePresence.map((presence) => ({
+        actorUid: presence.actorUid,
+        actorType: presence.actorType,
+        hasUnsavedGraphChanges: presence.hasUnsavedGraphChanges,
+        graphSignature: presence.graphSignature,
+      })),
+      activity: dedupeRemoteMutations([...presenceMutations, ...activityMutations]),
+      latestAppliedDraft: input.latestAppliedDraft,
+      currentGraphSignature: input.currentGraphSignature,
+      streamConnected: input.streamConnected,
+      capturedAt: input.capturedAt,
+      binding: input.binding,
+    }),
+    collaborationStreamConnected: input.streamConnected,
+  }
+}
+
+function hasCollaborationSessionProof(
+  proof: CreativeCanvasBenchmarkProofRecord | undefined,
+  current: CreativeCanvasProofBinding,
+): boolean {
+  return hasStructuredCollaborationProof(proof as CreativeCanvasCollaborationProofEvidence | undefined, current)
 }
 
 function collectEditingSessionEvidence(input: {
@@ -2609,6 +2789,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
     conflictDetails?: CreativeCanvasApiListResponse['conflictDetails']
   } | null>(null)
   const lastAutoFollowedDraftSignatureRef = useRef('')
+  const latestAppliedDraftProofRef = useRef<AppliedCollaborationDraftProof | undefined>(undefined)
   const activityCounterRef = useRef(0)
 
   const recordCanvasActivity = useCallback((event: Omit<CreativeCanvasActivityEvent, 'id' | 'atMs'>) => {
@@ -3086,8 +3267,6 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
     const existingProof = getCanvasBenchmarkProof(activeCanvas.data)
     const capturedAt = new Date().toISOString()
     const currentRemotePresence = presence.filter((item) => item.id !== ownPresenceId)
-    const currentRemoteActivityCount = collaborationActivity.filter((event) => event.source === 'stream' || event.source === 'draft').length
-    const currentRemoteEventProofCount = currentRemoteActivityCount || (latestCollaboratorDraft ? 1 : 0) || (currentRemotePresence.some((item) => item.hasUnsavedGraphChanges) ? 1 : 0)
     const currentExportArtifactBackedCoverage = (runtimeProof?.reliabilityCoverage ?? []).filter((category) => (
       requiredRuntimeProofCategoryKeys.has(category.key)
       && category.status === 'passed'
@@ -3112,13 +3291,21 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
       ? buildMultiAssetWorkflowProofFields({ nodes: benchmarkAuditNodes, edges: benchmarkAuditEdges, capturedAt })
       : {}
     const collaborationSessionProof = key === 'collaboration'
-      ? {
-          collaborationRemoteActorCount: currentRemotePresence.length,
-          collaborationRemoteEventCount: currentRemoteEventProofCount,
-          collaborationStreamConnected,
-          collaborationCapturedAt: capturedAt,
-          collaborationEvidence: `${currentRemotePresence.length} remote collaborator${currentRemotePresence.length === 1 ? '' : 's'}; ${currentRemoteActivityCount} remote stream/draft event${currentRemoteActivityCount === 1 ? '' : 's'}; ${latestCollaboratorDraft ? 'collaborator draft present' : 'no collaborator draft'}; ${collaborationStreamConnected ? 'stream connected' : 'poll fallback'}`,
-        }
+      ? buildWorkspaceCollaborationProof({
+          remotePresence: currentRemotePresence,
+          activity: collaborationActivity,
+          latestAppliedDraft: latestAppliedDraftProofRef.current,
+          currentGraphSignature,
+          streamConnected: collaborationStreamConnected,
+          capturedAt,
+          binding: {
+            orgId: canvasOrgId,
+            canvasVersion: activeCanvas.activeVersion,
+            graphSignature: currentGraphSignature,
+            nodeCount: nodes.length,
+            edgeCount: edges.length,
+          },
+        })
       : {}
     const agentOrchestrationProof = key === 'agent_orchestration'
       ? {
@@ -3186,6 +3373,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
         directComparisonAt: capturedAt,
         directComparisonVerdict: 'pass',
         directComparisonNotes: notes,
+        orgId: canvasOrgId,
         canvasVersion: activeCanvas.activeVersion,
         graphSignature: currentGraphSignature,
         nodeCount: nodes.length,
@@ -3251,13 +3439,29 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
 
   const applyCollaborationStreamEvent = useCallback((event: CreativeCanvasCollaborationStreamEvent) => {
     if (Array.isArray(event.presence)) setPresence(event.presence)
+    if (Array.isArray(event.mutations)) {
+      event.mutations
+        .map(objectToRemoteMutationEvidence)
+        .filter((mutation): mutation is CreativeCanvasRemoteMutationEvidence => Boolean(mutation))
+        .forEach((mutation) => {
+          recordCanvasActivity({
+            actorLabel: mutation.actorUid,
+            action: 'Remote graph mutation',
+            detail: `${mutation.operation.replace(/_/g, ' ')} touched ${mutation.touchedNodeIds.length} node${mutation.touchedNodeIds.length === 1 ? '' : 's'} / ${mutation.touchedEdgeIds.length} link${mutation.touchedEdgeIds.length === 1 ? '' : 's'}`,
+            nodeId: mutation.touchedNodeIds[0],
+            operation: mutation.operation,
+            source: 'stream',
+            remoteMutation: mutation,
+          })
+        })
+    }
     if (!event.canvas?.id || event.canvas.id !== activeCanvas?.id) return
     if ((event.canvas.activeVersion ?? 0) > (activeCanvas.activeVersion ?? 0)) {
       setRemoteCanvasUpdate(event.canvas)
     } else {
       setRemoteCanvasUpdate(null)
     }
-  }, [activeCanvas?.activeVersion, activeCanvas?.id])
+  }, [activeCanvas?.activeVersion, activeCanvas?.id, recordCanvasActivity])
 
   const applyCollaboratorDraft = useCallback((collaborator: CreativeCanvasPresence & { id: string }, options: { automatic?: boolean } = {}) => {
     const draftGraph = collaborator.draftGraph
@@ -3268,6 +3472,14 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
     setRemoteCanvasUpdate(null)
     setSaveMessage('')
     if (collaborator.graphSignature) lastAutoFollowedDraftSignatureRef.current = collaborator.graphSignature
+    latestAppliedDraftProofRef.current = {
+      actorUid: collaborator.actorUid,
+      actorType: collaborator.actorType,
+      graphSignature: canvasGraphSignature(draftGraph.nodes, draftGraph.edges ?? []),
+      touchedNodeIds: draftGraph.nodes.map((node) => node.id),
+      touchedEdgeIds: (draftGraph.edges ?? []).map((edge) => edge.id),
+      appliedAt: new Date().toISOString(),
+    }
     recordCanvasActivity({
       actorLabel: collaborator.displayName ?? collaborator.actorUid,
       action: options.automatic ? 'Auto-followed live draft' : 'Applied live draft',
@@ -3319,6 +3531,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
     focus: CreativeCanvasPresence['focus'] = 'canvas',
   ) => {
     if (!canvasId || !canvasOrgId) return
+    const mutation = latestLocalActivityMutation(collaborationActivity.find((event) => event.source === 'local'))
     const response = await fetch(`/api/v1/creative-canvas/${canvasId}/presence?orgId=${encodeURIComponent(canvasOrgId)}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -3331,6 +3544,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
         nodeCount: nodes.length,
         edgeCount: edges.length,
         selectedNodeTitle: selectedCanvasNode?.title,
+        mutation,
         draftGraph: graphHasUnsavedChanges
           ? {
               nodes: nodes.map((node) => toCanvasNode(node, resolvedOrgId || activeCanvas?.orgId || 'pending-org')),
@@ -3349,6 +3563,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
     }
   }, [
     activeCanvas?.activeVersion,
+    collaborationActivity,
     currentGraphSignature,
     edges,
     graphHasUnsavedChanges,
@@ -5113,6 +5328,13 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
     nodeCount: nodes.length,
     edgeCount: edges.length,
   }
+  const currentCollaborationProofBinding: CreativeCanvasProofBinding = {
+    orgId: resolvedOrgId || activeCanvas?.orgId || '',
+    canvasVersion: activeCanvas?.activeVersion ?? 0,
+    graphSignature: currentGraphSignature,
+    nodeCount: nodes.length,
+    edgeCount: edges.length,
+  }
   const visualProofItems: Array<{
     key: CreativeCanvasVisualProofKey
     label: string
@@ -5210,9 +5432,9 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
   const hasVersionEvidence = versions.length > 0 && autoSaveEnabled
   const remotePresence = presence.filter((item) => item.id !== ownPresenceId)
   const remoteActivityCount = collaborationActivity.filter((event) => event.source === 'stream' || event.source === 'draft').length
+  const hasRemoteMutationPresenceEvidence = remotePresence.some((item) => Boolean(item.latestMutation))
   const hasCollaborationEvidence = remotePresence.length > 0 || Boolean(conflictDraft || latestCollaboratorDraft)
-  const hasRemoteLiveEditEvidence = remoteActivityCount > 0 || Boolean(latestCollaboratorDraft) || remotePresence.some((item) => item.hasUnsavedGraphChanges)
-  const collaborationRemoteEventProofCount = remoteActivityCount || (latestCollaboratorDraft ? 1 : 0) || (remotePresence.some((item) => item.hasUnsavedGraphChanges) ? 1 : 0)
+  const hasRemoteLiveEditEvidence = remoteActivityCount > 0 || hasRemoteMutationPresenceEvidence || Boolean(latestCollaboratorDraft) || remotePresence.some((item) => item.hasUnsavedGraphChanges)
   const hasTemplateEvidence = templates.length > 0
   const hasAgentOrchestrationEvidence = orchestrationPlan.steps.length > 0
     && orchestrationPlan.agents.length > 0
@@ -5277,7 +5499,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
       && (item.key !== 'generation_controls' || hasGenerationReferenceProof(proof))
       && (item.key !== 'multi_asset_workflows' || hasMultiAssetWorkflowProof(proof))
       && (item.key !== 'versioning_polish' || hasVersioningPolishProof(proof))
-      && (item.key !== 'collaboration' || hasCollaborationSessionProof(proof))
+      && (item.key !== 'collaboration' || hasCollaborationSessionProof(proof, currentCollaborationProofBinding))
       && (item.key !== 'agent_orchestration' || hasAgentOrchestrationProof(proof))
       && (item.key !== 'mobile_behavior' || hasMobileViewportBenchmarkProof(proof))
       && (item.key !== 'export_flows' || hasExportArtifactBackedProof(proof))
@@ -5365,13 +5587,21 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
         ? buildMultiAssetWorkflowProofFields({ nodes: parityAuditNodes, edges: edges.map((edge) => toCanvasEdge(edge, canvasOrgId)), capturedAt })
         : {}
       const collaborationSessionProof = item.key === 'collaboration'
-        ? {
-            collaborationRemoteActorCount: remotePresence.length,
-            collaborationRemoteEventCount: collaborationRemoteEventProofCount,
-            collaborationStreamConnected,
-            collaborationCapturedAt: capturedAt,
-            collaborationEvidence: `${remotePresence.length} remote collaborator${remotePresence.length === 1 ? '' : 's'}; ${remoteActivityCount} remote stream/draft event${remoteActivityCount === 1 ? '' : 's'}; ${latestCollaboratorDraft ? 'collaborator draft present' : 'no collaborator draft'}; ${collaborationStreamConnected ? 'stream connected' : 'poll fallback'}`,
-          }
+        ? buildWorkspaceCollaborationProof({
+            remotePresence,
+            activity: collaborationActivity,
+            latestAppliedDraft: latestAppliedDraftProofRef.current,
+            currentGraphSignature,
+            streamConnected: collaborationStreamConnected,
+            capturedAt,
+            binding: {
+              orgId: canvasOrgId,
+              canvasVersion: activeCanvas.activeVersion,
+              graphSignature: currentGraphSignature,
+              nodeCount: nodes.length,
+              edgeCount: edges.length,
+            },
+          })
         : {}
       const agentOrchestrationProof = item.key === 'agent_orchestration'
         ? {
@@ -5421,6 +5651,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
         directComparisonAt: capturedAt,
         directComparisonVerdict: 'pass',
         directComparisonNotes: `${item.label} directly compared against the current Higgsfield UI source signals and live Creative Canvas evidence.`,
+        orgId: canvasOrgId,
         canvasVersion: activeCanvas.activeVersion,
         graphSignature: currentGraphSignature,
         nodeCount: nodes.length,
@@ -6184,7 +6415,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
               {item.proof && !hasCurrentCanvasBenchmarkState(item.proof, currentProofGraphState) ? (
                 <p className="mt-1 text-[11px] font-semibold">Needs proof captured against the current canvas version and graph state before this benchmark can pass.</p>
               ) : null}
-              {item.key === 'collaboration' && item.proof && !hasCollaborationSessionProof(item.proof) ? (
+              {item.key === 'collaboration' && item.proof && !hasCollaborationSessionProof(item.proof, currentCollaborationProofBinding) ? (
                 <p className="mt-1 text-[11px] font-semibold">Needs stored two-user session evidence before collaboration proof can pass.</p>
               ) : null}
               {item.key === 'editing_ergonomics' && item.proof && !hasEditingSessionProof(item.proof) ? (

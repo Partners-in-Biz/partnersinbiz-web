@@ -233,6 +233,7 @@ beforeEach(() => {
         nodeCount?: number
         edgeCount?: number
         draftGraph?: unknown
+        mutation?: unknown
       }
       return {
         ok: true,
@@ -255,6 +256,7 @@ beforeEach(() => {
               edgeCount: body.edgeCount,
               selectedNodeTitle: body.selectedNodeTitle,
               draftGraph: body.draftGraph,
+              latestMutation: body.mutation,
               lastSeenAtMs: 1000,
               expiresAtMs: 46000,
             }],
@@ -1632,6 +1634,36 @@ describe('CreativeCanvasWorkspace', () => {
     const defaultFetch = fetchMock.getMockImplementation()
     fetchMock.mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input)
+      if (url === '/api/v1/creative-canvas/canvas-1?orgId=org-1' && init?.method === 'PATCH') {
+        const body = JSON.parse(String(init.body ?? '{}')) as { data?: Record<string, unknown> }
+        return {
+          ok: true,
+          json: async () => ({
+            success: true,
+            data: {
+              canvas: {
+                id: 'canvas-1',
+                orgId: 'org-1',
+                title: 'Launch Canvas',
+                purpose: 'Product launch',
+                status: 'draft',
+                activeVersion: 1,
+                linked: { projectId: 'project-1' },
+                data: body.data ?? {},
+                nodes: [{
+                  id: 'maya-draft-node',
+                  orgId: 'org-1',
+                  type: 'source',
+                  title: 'Maya live draft source',
+                  position: { x: 40, y: 60 },
+                  data: { createdFrom: 'maya_live_draft' },
+                }],
+                edges: [],
+              },
+            },
+          }),
+        }
+      }
       if (url.includes('/comments') && init?.method !== 'POST') {
         return {
           ok: true,
@@ -1662,6 +1694,8 @@ describe('CreativeCanvasWorkspace', () => {
     render(<CreativeCanvasWorkspace mode="admin" orgId="org-1" />)
 
     expect(await screen.findByText('Launch Canvas')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: /apply live draft/i }))
+    expect(await screen.findByText(/applied maya live draft to this workspace/i)).toBeInTheDocument()
     const benchmarkProof = screen.getByLabelText(/direct higgsfield benchmark proof/i)
     expect(benchmarkProof).toHaveTextContent('2 ready benchmark categories need stored proof.')
 
@@ -1678,7 +1712,7 @@ describe('CreativeCanvasWorkspace', () => {
     ))
     expect(patchCall).toBeTruthy()
     const body = JSON.parse(String(patchCall?.[1]?.body ?? '{}')) as {
-      data?: { benchmarkProof?: Record<string, { proofUrl?: string; notes?: string; capturedAt?: string; capturedBy?: string; sourceTitle?: string; sourceUrl?: string; sourceCheckedAt?: string; sourceEvidenceCheckedAt?: string; sourceEvidenceReachable?: boolean; sourceEvidenceStatus?: number; sourceEvidenceContentType?: string; sourceSignalsVerifiedAt?: string; sourceSignalsMatched?: boolean; sourceSignalsMissing?: string[]; sourceSignals?: string[]; higgsfieldUiEvidenceUrl?: string; canvasEvidenceUrl?: string; canvasEvidenceCheckedAt?: string; canvasEvidenceReachable?: boolean; canvasEvidenceStatus?: number; canvasEvidenceContentType?: string; directComparisonAt?: string; directComparisonVerdict?: string; directComparisonNotes?: string; canvasVersion?: number; graphSignature?: string; nodeCount?: number; edgeCount?: number; versionSnapshotCount?: number; versionRestorableSnapshotCount?: number; versionNodeCommentCount?: number; versionReusableTemplateCount?: number; versionAutoSaveEnabled?: boolean; versionCapturedAt?: string; versionEvidence?: string }> }
+      data?: { benchmarkProof?: Record<string, { proofUrl?: string; notes?: string; capturedAt?: string; capturedBy?: string; sourceTitle?: string; sourceUrl?: string; sourceCheckedAt?: string; sourceEvidenceCheckedAt?: string; sourceEvidenceReachable?: boolean; sourceEvidenceStatus?: number; sourceEvidenceContentType?: string; sourceSignalsVerifiedAt?: string; sourceSignalsMatched?: boolean; sourceSignalsMissing?: string[]; sourceSignals?: string[]; higgsfieldUiEvidenceUrl?: string; canvasEvidenceUrl?: string; canvasEvidenceCheckedAt?: string; canvasEvidenceReachable?: boolean; canvasEvidenceStatus?: number; canvasEvidenceContentType?: string; directComparisonAt?: string; directComparisonVerdict?: string; directComparisonNotes?: string; orgId?: string; canvasVersion?: number; graphSignature?: string; nodeCount?: number; edgeCount?: number; versionSnapshotCount?: number; versionRestorableSnapshotCount?: number; versionNodeCommentCount?: number; versionReusableTemplateCount?: number; versionAutoSaveEnabled?: boolean; versionCapturedAt?: string; versionEvidence?: string; collaborationRemoteActorCount?: number; collaborationRemoteEventCount?: number; collaborationRemoteMutationCount?: number; collaborationRemoteMutationKindCount?: number; collaborationRemoteTouchedNodeCount?: number; collaborationRemoteTouchedEdgeCount?: number; collaborationRemoteGraphSignature?: string; collaborationRemoteSource?: string; collaborationRemoteOutcome?: string; collaborationRemoteMutations?: unknown[]; collaborationStreamConnected?: boolean; collaborationCapturedAt?: string; collaborationEvidence?: string }> }
     }
     expect(body.data?.benchmarkProof?.versioning_polish).toMatchObject({
       proofUrl: expect.stringContaining('#direct-higgsfield-benchmark-proof'),
@@ -1727,14 +1761,31 @@ describe('CreativeCanvasWorkspace', () => {
       canvasEvidenceContentType: 'text/html',
       directComparisonVerdict: 'pass',
       directComparisonNotes: 'Collaboration directly compared against the current Higgsfield UI source signals and live Creative Canvas evidence.',
+      orgId: 'org-1',
       canvasVersion: 1,
       nodeCount: expect.any(Number),
       edgeCount: expect.any(Number),
       collaborationRemoteActorCount: 1,
       collaborationRemoteEventCount: 1,
+      collaborationRemoteMutationCount: 1,
+      collaborationRemoteMutationKindCount: 1,
+      collaborationRemoteTouchedNodeCount: 1,
+      collaborationRemoteTouchedEdgeCount: 0,
+      collaborationRemoteGraphSignature: expect.any(String),
+      collaborationRemoteSource: 'draft_applied',
+      collaborationRemoteOutcome: 'remote_changes_adopted',
+      collaborationRemoteMutations: [{
+        actorUid: 'maya',
+        actorType: 'agent',
+        operation: 'draft_apply',
+        touchedNodeIds: ['maya-draft-node'],
+        touchedEdgeIds: [],
+        source: 'draft_applied',
+        occurredAt: expect.any(String),
+      }],
       collaborationStreamConnected: false,
       collaborationCapturedAt: expect.any(String),
-      collaborationEvidence: expect.stringContaining('1 remote collaborator'),
+      collaborationEvidence: expect.stringContaining('1 typed remote mutations'),
     })
     expect(body.data?.benchmarkProof?.versioning_polish?.sourceCheckedAt).toEqual(expect.any(String))
     expect(body.data?.benchmarkProof?.collaboration?.sourceCheckedAt).toEqual(expect.any(String))
@@ -1817,6 +1868,64 @@ describe('CreativeCanvasWorkspace', () => {
     const benchmarkProof = screen.getByLabelText(/direct higgsfield benchmark proof/i)
     expect(benchmarkProof).toHaveTextContent('0/10 benchmark proven')
     expect(benchmarkProof).toHaveTextContent('Needs stored two-user session evidence before collaboration proof can pass.')
+  })
+
+  it('saves manual collaboration benchmark proof with structured mutation evidence', async () => {
+    render(<CreativeCanvasWorkspace mode="admin" orgId="org-1" />)
+
+    expect(await screen.findByText('Launch Canvas')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: /apply live draft/i }))
+    expect(await screen.findByText(/applied maya live draft to this workspace/i)).toBeInTheDocument()
+
+    fireEvent.change(screen.getByLabelText(/collaboration benchmark proof url/i), {
+      target: { value: 'https://proof.example.com/collaboration-structured.mp4' },
+    })
+    fireEvent.change(screen.getByLabelText(/collaboration benchmark proof notes/i), {
+      target: { value: 'Applied a remote collaborator draft with typed mutation evidence.' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: /save collaboration proof/i }))
+
+    await waitFor(() => expect(screen.getByText('Saved Collaboration benchmark proof')).toBeInTheDocument())
+    const patchCall = fetchMock.mock.calls.find(([input, init]) => (
+      String(input) === '/api/v1/creative-canvas/canvas-1?orgId=org-1'
+      && init?.method === 'PATCH'
+      && String(init.body).includes('collaboration-structured')
+    ))
+    expect(patchCall).toBeTruthy()
+    const body = JSON.parse(String(patchCall?.[1]?.body ?? '{}')) as {
+      data?: {
+        benchmarkProof?: {
+          collaboration?: {
+            orgId?: string
+            collaborationRemoteMutationCount?: number
+            collaborationRemoteTouchedNodeCount?: number
+            collaborationRemoteTouchedEdgeCount?: number
+            collaborationRemoteGraphSignature?: string
+            collaborationRemoteSource?: string
+            collaborationRemoteOutcome?: string
+            collaborationRemoteMutations?: unknown[]
+          }
+        }
+      }
+    }
+    expect(body.data?.benchmarkProof?.collaboration).toMatchObject({
+      orgId: 'org-1',
+      collaborationRemoteMutationCount: 1,
+      collaborationRemoteTouchedNodeCount: 1,
+      collaborationRemoteTouchedEdgeCount: 0,
+      collaborationRemoteGraphSignature: expect.any(String),
+      collaborationRemoteSource: 'draft_applied',
+      collaborationRemoteOutcome: 'remote_changes_adopted',
+      collaborationRemoteMutations: [{
+        actorUid: 'maya',
+        actorType: 'agent',
+        operation: 'draft_apply',
+        touchedNodeIds: ['maya-draft-node'],
+        touchedEdgeIds: [],
+        source: 'draft_applied',
+        occurredAt: expect.any(String),
+      }],
+    })
   })
 
   it('does not pass versioning benchmark proof without saved-version comment and template evidence', async () => {
@@ -2943,15 +3052,26 @@ describe('CreativeCanvasWorkspace', () => {
               lastSeenAtMs: 2000,
               expiresAtMs: 47000,
             }],
+            mutations: [{
+              actorUid: 'nova',
+              actorType: 'agent',
+              operation: 'node_move',
+              touchedNodeIds: ['model-node-existing'],
+              touchedEdgeIds: [],
+              source: 'stream',
+              occurredAt: '2026-06-21T12:00:00.000Z',
+            }],
             emittedAtMs: 2000,
           }),
         } as MessageEvent)
       })
 
       expect(await screen.findByText('Nova')).toBeInTheDocument()
+      expect(screen.getByText('Remote graph mutation')).toBeInTheDocument()
+      expect(screen.getByText(/node move touched 1 node \/ 0 links/i)).toBeInTheDocument()
       expect(screen.queryByText('Maya')).not.toBeInTheDocument()
       const benchmarkProof = screen.getByLabelText(/direct higgsfield benchmark proof/i)
-      expect(benchmarkProof).toHaveTextContent('No uncaptured benchmark category has enough live evidence yet.')
+      expect(benchmarkProof).toHaveTextContent('1 ready benchmark category needs stored proof.')
     } finally {
       Object.defineProperty(window, 'EventSource', {
         configurable: true,
@@ -2984,6 +3104,13 @@ describe('CreativeCanvasWorkspace', () => {
         nodes: [expect.objectContaining({ title: 'Source node' })],
         edges: [],
       }))
+      expect(body.mutation).toMatchObject({
+        operation: 'node_add',
+        touchedNodeIds: [expect.any(String)],
+        touchedEdgeIds: [],
+        source: 'stream',
+        occurredAt: expect.any(String),
+      })
       expect(typeof body.graphSignature).toBe('string')
       expect(body.graphSignature.length).toBeGreaterThan(10)
     })

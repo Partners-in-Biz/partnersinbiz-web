@@ -361,4 +361,83 @@ describe('creative canvas collaboration helpers', () => {
     expect(reviewNode?.review).toMatchObject({ status: 'passed', rightsStatus: 'cleared', brandStatus: 'passed' })
     expect(outputNode?.review).toBeUndefined()
   })
+
+  it('drops invalid persisted latest mutation operation or source values', async () => {
+    mockGet.mockResolvedValue({
+      docs: [
+        {
+          id: 'bad-operation',
+          data: () => ({
+            orgId: 'org-1',
+            canvasId: 'canvas-1',
+            actorUid: 'maya',
+            actorType: 'agent',
+            latestMutation: {
+              operation: 'made_up',
+              touchedNodeIds: ['node-a'],
+              source: 'stream',
+              occurredAt: '2026-06-21T12:00:00.000Z',
+            },
+            lastSeenAtMs: 1000,
+            expiresAtMs: 5000,
+          }),
+        },
+        {
+          id: 'bad-source',
+          data: () => ({
+            orgId: 'org-1',
+            canvasId: 'canvas-1',
+            actorUid: 'nova',
+            actorType: 'agent',
+            latestMutation: {
+              operation: 'node_move',
+              touchedNodeIds: ['node-b'],
+              source: 'websocket',
+              occurredAt: '2026-06-21T12:01:00.000Z',
+            },
+            lastSeenAtMs: 1100,
+            expiresAtMs: 5000,
+          }),
+        },
+      ],
+    })
+
+    const presence = await listCreativeCanvasPresence('canvas-1', 'org-1', 2000)
+
+    expect(presence).toHaveLength(2)
+    expect(presence.find((item) => item.id === 'bad-operation')?.latestMutation).toBeUndefined()
+    expect(presence.find((item) => item.id === 'bad-source')?.latestMutation).toBeUndefined()
+  })
+
+  it('defaults absent latest mutation source to stream for older valid rows', async () => {
+    mockGet.mockResolvedValue({
+      docs: [{
+        id: 'old-valid-row',
+        data: () => ({
+          orgId: 'org-1',
+          canvasId: 'canvas-1',
+          actorUid: 'maya',
+          actorType: 'agent',
+          latestMutation: {
+            operation: 'node_move',
+            touchedNodeIds: ['node-a'],
+            touchedEdgeIds: [],
+            occurredAt: '2026-06-21T12:00:00.000Z',
+          },
+          lastSeenAtMs: 1000,
+          expiresAtMs: 5000,
+        }),
+      }],
+    })
+
+    const presence = await listCreativeCanvasPresence('canvas-1', 'org-1', 2000)
+
+    expect(presence[0].latestMutation).toEqual({
+      operation: 'node_move',
+      touchedNodeIds: ['node-a'],
+      touchedEdgeIds: [],
+      source: 'stream',
+      occurredAt: '2026-06-21T12:00:00.000Z',
+    })
+  })
 })

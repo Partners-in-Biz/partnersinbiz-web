@@ -98,6 +98,7 @@ export function hasStructuredCollaborationProof(
   const mutations = Array.isArray(proof.collaborationRemoteMutations) ? proof.collaborationRemoteMutations : []
   const actorCount = uniqueCount(mutations.map((item) => item.actorUid))
   const touchedNodeCount = uniqueCount(mutations.flatMap((item) => item.touchedNodeIds))
+  const touchedEdgeCount = uniqueCount(mutations.flatMap((item) => item.touchedEdgeIds))
   const mutationKindCount = uniqueCount(mutations.map((item) => item.operation))
   const hasValidMutations = mutations.every((item) => (
     hasText(item.actorUid)
@@ -113,6 +114,9 @@ export function hasStructuredCollaborationProof(
       && typeof proof.collaborationRemoteTouchedNodeCount === 'number'
       && proof.collaborationRemoteTouchedNodeCount > 0
       && proof.collaborationRemoteTouchedNodeCount <= proof.nodeCount
+      && typeof proof.collaborationRemoteTouchedEdgeCount === 'number'
+      && proof.collaborationRemoteTouchedEdgeCount >= 0
+      && proof.collaborationRemoteTouchedEdgeCount <= proof.edgeCount
       && typeof proof.collaborationRemoteActorCount === 'number'
       && proof.collaborationRemoteActorCount > 0
       && typeof proof.collaborationRemoteEventCount === 'number'
@@ -127,6 +131,7 @@ export function hasStructuredCollaborationProof(
       && proof.collaborationRemoteMutationCount === mutations.length
       && proof.collaborationRemoteMutationKindCount === mutationKindCount
       && proof.collaborationRemoteTouchedNodeCount === touchedNodeCount
+      && proof.collaborationRemoteTouchedEdgeCount === touchedEdgeCount
       && hasText(proof.collaborationRemoteSource)
       && hasText(proof.collaborationRemoteOutcome)
       && certifiedCollaborationOutcomes.has(proof.collaborationRemoteOutcome)

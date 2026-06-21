@@ -58,6 +58,37 @@ function enumValue<T extends string>(value: unknown, allowed: readonly T[], fall
   return allowed.includes(value as T) ? value as T : fallback
 }
 
+function latestPresenceMutation(value: unknown): CreativeCanvasPresence['latestMutation'] | undefined {
+  const latestMutation = asRecord(value)
+  if (!Object.keys(latestMutation).length) return undefined
+  const operation = cleanString(latestMutation.operation)
+  if (!operation || !REMOTE_MUTATION_OPERATIONS.includes(operation as CreativeCanvasRemoteMutationOperation)) {
+    return undefined
+  }
+  const rawSource = cleanString(latestMutation.source)
+  if (rawSource && !REMOTE_MUTATION_SOURCES.includes(rawSource as CreativeCanvasRemoteMutationSource)) {
+    return undefined
+  }
+
+  return {
+    operation: operation as CreativeCanvasRemoteMutationOperation,
+    touchedNodeIds: Array.isArray(latestMutation.touchedNodeIds)
+      ? latestMutation.touchedNodeIds
+        .map(cleanString)
+        .filter((item): item is string => Boolean(item))
+        .slice(0, 40)
+      : [],
+    touchedEdgeIds: Array.isArray(latestMutation.touchedEdgeIds)
+      ? latestMutation.touchedEdgeIds
+        .map(cleanString)
+        .filter((item): item is string => Boolean(item))
+        .slice(0, 80)
+      : [],
+    source: rawSource ? rawSource as CreativeCanvasRemoteMutationSource : 'stream',
+    occurredAt: cleanString(latestMutation.occurredAt) ?? new Date(0).toISOString(),
+  }
+}
+
 function safeHttpUrl(value: unknown, field: string): string | undefined {
   const raw = cleanString(value)
   if (!raw) return undefined
@@ -115,7 +146,6 @@ function serializeComment(id: string, data: UnknownRecord): CreativeCanvasCommen
 }
 
 function serializePresence(id: string, data: UnknownRecord): CreativeCanvasPresence & { id: string } {
-  const latestMutation = asRecord(data.latestMutation)
   return {
     id,
     orgId: String(data.orgId ?? ''),
@@ -137,25 +167,7 @@ function serializePresence(id: string, data: UnknownRecord): CreativeCanvasPrese
     draftGraph: Object.keys(asRecord(data.draftGraph)).length
       ? sanitizePresenceDraftGraph(data.draftGraph, String(data.orgId ?? ''))
       : undefined,
-    latestMutation: Object.keys(latestMutation).length
-      ? {
-        operation: enumValue(cleanString(latestMutation.operation), REMOTE_MUTATION_OPERATIONS, 'node_move'),
-        touchedNodeIds: Array.isArray(latestMutation.touchedNodeIds)
-          ? latestMutation.touchedNodeIds
-            .map(cleanString)
-            .filter((item): item is string => Boolean(item))
-            .slice(0, 40)
-          : [],
-        touchedEdgeIds: Array.isArray(latestMutation.touchedEdgeIds)
-          ? latestMutation.touchedEdgeIds
-            .map(cleanString)
-            .filter((item): item is string => Boolean(item))
-            .slice(0, 80)
-          : [],
-        source: enumValue(cleanString(latestMutation.source), REMOTE_MUTATION_SOURCES, 'stream'),
-        occurredAt: cleanString(latestMutation.occurredAt) ?? new Date(0).toISOString(),
-      }
-      : undefined,
+    latestMutation: latestPresenceMutation(data.latestMutation),
     lastSeenAt: data.lastSeenAt,
     lastSeenAtMs: typeof data.lastSeenAtMs === 'number' ? data.lastSeenAtMs : 0,
     expiresAtMs: typeof data.expiresAtMs === 'number' ? data.expiresAtMs : 0,

@@ -72,6 +72,7 @@ describe('collectCollaborationMutationProof', () => {
     expect(hasStructuredCollaborationProof(proof)).toBe(true)
     expect(proof.collaborationRemoteMutationKindCount).toBe(3)
     expect(proof.collaborationRemoteTouchedNodeCount).toBe(2)
+    expect(proof.collaborationRemoteTouchedEdgeCount).toBe(1)
     expect(proof.collaborationRemoteOutcome).toBe('remote_changes_adopted')
   })
 
@@ -200,6 +201,7 @@ describe('collectCollaborationMutationProof', () => {
     proof.collaborationRemoteMutationCount = 1
     proof.collaborationRemoteMutationKindCount = 1
     proof.collaborationRemoteTouchedNodeCount = 1
+    proof.collaborationRemoteTouchedEdgeCount = 0
 
     expect(hasStructuredCollaborationProof(proof)).toBe(false)
 

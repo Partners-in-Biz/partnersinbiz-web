@@ -645,6 +645,7 @@ export interface CreativeCanvasCollaborationProofEvidence extends CreativeCanvas
   collaborationRemoteMutationCount?: number
   collaborationRemoteMutationKindCount?: number
   collaborationRemoteTouchedNodeCount?: number
+  collaborationRemoteTouchedEdgeCount?: number
   collaborationRemoteGraphSignature?: string
   collaborationRemoteSource?: CreativeCanvasRemoteMutationSource
   collaborationRemoteOutcome?: 'remote_changes_observed' | 'remote_changes_adopted' | 'conflict_detected' | 'version_forked'

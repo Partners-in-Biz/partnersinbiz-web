@@ -29,3 +29,12 @@ Fix addendum (2026-06-21, typed mutation validation findings):
 - Commands and results:
   - `npx jest __tests__/lib/creative-canvas/collaboration-proof.test.ts __tests__/lib/creative-canvas/sanitize.test.ts __tests__/app/api/creative-canvas-collaboration-route.test.ts --runInBand` -> passed (`Test Suites: 3 passed, 3 total`; `Tests: 27 passed, 27 total`).
   - `npm run typecheck` -> passed.
+
+Fix addendum (2026-06-21, workspace product-path review findings):
+- Replaced the Creative Canvas workspace's legacy collaboration benchmark proof save path with `collectCollaborationMutationProof()` and `hasStructuredCollaborationProof()` so manual save and Capture ready proofs persist the current graph binding, typed `collaborationRemoteMutations`, mutation counts, touched node/edge counts, source, outcome, and evidence.
+- Added ordinary workspace heartbeat mutation payloads for local graph edits, consumed SSE `event.mutations` into the collaboration activity ledger, and preserved structured proof fields when benchmark proof data is read back into the workspace.
+- Fixed presence deserialization so invalid persisted `latestMutation.operation` or `.source` rows are dropped instead of coerced; older valid rows without `source` still default to `stream`.
+- Commands and results:
+  - `npx jest __tests__/lib/creative-canvas/collaboration-proof.test.ts __tests__/lib/creative-canvas/sanitize.test.ts __tests__/app/api/creative-canvas-collaboration-route.test.ts __tests__/components/creative-canvas/CreativeCanvasWorkspace.test.tsx --runInBand` -> passed (`Test Suites: 4 passed, 4 total`; `Tests: 102 passed, 102 total`).
+  - `npx jest __tests__/lib/creative-canvas/collaboration.test.ts --runInBand` -> passed (`Test Suites: 1 passed, 1 total`; `Tests: 12 passed, 12 total`).
+  - `npm run typecheck` -> passed.
