@@ -14,6 +14,7 @@ import type {
   CreativeCanvasEditOperation,
   CreativeCanvasGraph,
   CreativeCanvasInput,
+  CreativeCanvasMobileViewportEvidence,
   CreativeCanvasNode,
   CreativeCanvasNodeType,
   CreativeCanvasOutputKind,
@@ -41,6 +42,7 @@ const VISIBILITIES: CreativeCanvasVisibility[] = ['admin_agents', 'admin_agents_
 const ACTOR_TYPES: CreativeCanvasActorType[] = ['user', 'agent', 'system']
 const REMOTE_MUTATION_OPERATIONS: readonly CreativeCanvasRemoteMutationOperation[] = creativeCanvasRemoteMutationOperations
 const REMOTE_MUTATION_SOURCES: readonly CreativeCanvasRemoteMutationSource[] = creativeCanvasRemoteMutationSources
+const MOBILE_VIEWPORT_KEYS: CreativeCanvasMobileViewportEvidence['key'][] = ['desktop', 'tablet', 'mobile', 'mobile_panels']
 const EDIT_OPERATIONS: CreativeCanvasEditOperation[] = ['inpaint', 'outpaint', 'style_transfer', 'object_replace', 'background_replace', 'video_motion', 'variation', 'upscale']
 const EDIT_INTENTS: CreativeCanvasEditIntent[] = ['generative_fill', 'object_removal', 'object_replace', 'relight', 'reference_blend']
 const EDIT_MOTION_MODES: CreativeCanvasEditMotionMode[] = ['none', 'camera_push', 'camera_pull', 'pan', 'orbit', 'dolly', 'handheld']
@@ -151,6 +153,42 @@ function cleanStringArray(value: unknown): string[] {
     : []
 }
 
+function cleanMobileViewportBehaviorEvidence(value: unknown): CreativeCanvasMobileViewportEvidence[] {
+  if (!Array.isArray(value)) return []
+
+  return value
+    .slice(0, 8)
+    .flatMap((raw) => {
+      const item = asRecord(raw)
+      const key = enumValue(item.key, MOBILE_VIEWPORT_KEYS, 'mobile')
+      const width = typeof item.width === 'number' && Number.isFinite(item.width) ? Math.max(0, Math.round(item.width)) : undefined
+      const height = typeof item.height === 'number' && Number.isFinite(item.height) ? Math.max(0, Math.round(item.height)) : undefined
+      const screenshotUrl = cleanString(item.screenshotUrl)?.slice(0, 500)
+      const status = typeof item.status === 'number' && Number.isFinite(item.status) ? Math.max(0, Math.round(item.status)) : undefined
+      const contentType = cleanString(item.contentType)?.slice(0, 120)
+      const capturedAt = cleanString(item.capturedAt)?.slice(0, 80)
+      if (width === undefined || height === undefined || !screenshotUrl || status === undefined || !contentType || !capturedAt) {
+        return []
+      }
+
+      return [{
+        key,
+        width,
+        height,
+        screenshotUrl,
+        status,
+        contentType,
+        criticalControlsVisible: item.criticalControlsVisible === true,
+        criticalControlsEnabled: item.criticalControlsEnabled === true,
+        horizontalOverflow: item.horizontalOverflow === true,
+        touchSmokePassed: item.touchSmokePassed === true,
+        pointerSmokePassed: item.pointerSmokePassed === true,
+        panelKeys: cleanStringArray(item.panelKeys).map((panel) => panel.slice(0, 80)).slice(0, 12),
+        capturedAt,
+      }]
+    })
+}
+
 function cleanVisualProofData(value: unknown): Record<string, unknown> | undefined {
   const proof = asRecord(value)
   const entries: Array<[string, Record<string, unknown>]> = Object.entries(proof)
@@ -256,6 +294,7 @@ function cleanBenchmarkProofData(value: unknown): Record<string, unknown> | unde
         ? item.directComparisonVerdict
         : undefined
       const directComparisonNotes = cleanString(item.directComparisonNotes)?.slice(0, 700)
+      const orgId = cleanString(item.orgId)?.slice(0, 160)
       const canvasVersion = typeof item.canvasVersion === 'number' && Number.isFinite(item.canvasVersion)
         ? Math.max(0, Math.round(item.canvasVersion))
         : undefined
@@ -280,6 +319,9 @@ function cleanBenchmarkProofData(value: unknown): Record<string, unknown> | unde
         : undefined
       const collaborationRemoteTouchedNodeCount = typeof item.collaborationRemoteTouchedNodeCount === 'number' && Number.isFinite(item.collaborationRemoteTouchedNodeCount)
         ? Math.max(0, Math.round(item.collaborationRemoteTouchedNodeCount))
+        : undefined
+      const collaborationRemoteTouchedEdgeCount = typeof item.collaborationRemoteTouchedEdgeCount === 'number' && Number.isFinite(item.collaborationRemoteTouchedEdgeCount)
+        ? Math.max(0, Math.round(item.collaborationRemoteTouchedEdgeCount))
         : undefined
       const collaborationRemoteGraphSignature = cleanString(item.collaborationRemoteGraphSignature)?.slice(0, 160)
       const collaborationRemoteSource = cleanString(item.collaborationRemoteSource)?.slice(0, 160)
@@ -427,6 +469,7 @@ function cleanBenchmarkProofData(value: unknown): Record<string, unknown> | unde
         : undefined
       const mobileViewportProofCapturedAt = cleanString(item.mobileViewportProofCapturedAt)?.slice(0, 80)
       const mobileViewportEvidence = cleanString(item.mobileViewportEvidence)?.slice(0, 400)
+      const mobileViewportBehaviorEvidence = cleanMobileViewportBehaviorEvidence(item.mobileViewportBehaviorEvidence)
       const exportArtifactBackedCategoryCount = typeof item.exportArtifactBackedCategoryCount === 'number' && Number.isFinite(item.exportArtifactBackedCategoryCount)
         ? Math.max(0, Math.round(item.exportArtifactBackedCategoryCount))
         : undefined
@@ -492,6 +535,7 @@ function cleanBenchmarkProofData(value: unknown): Record<string, unknown> | unde
         && !directComparisonAt
         && !directComparisonVerdict
         && !directComparisonNotes
+        && !orgId
         && canvasVersion === undefined
         && !graphSignature
         && nodeCount === undefined
@@ -501,6 +545,7 @@ function cleanBenchmarkProofData(value: unknown): Record<string, unknown> | unde
         && collaborationRemoteMutationCount === undefined
         && collaborationRemoteMutationKindCount === undefined
         && collaborationRemoteTouchedNodeCount === undefined
+        && collaborationRemoteTouchedEdgeCount === undefined
         && !collaborationRemoteGraphSignature
         && !collaborationRemoteSource
         && !collaborationRemoteOutcome
@@ -554,6 +599,7 @@ function cleanBenchmarkProofData(value: unknown): Record<string, unknown> | unde
         && mobileViewportRequiredCount === undefined
         && !mobileViewportProofCapturedAt
         && !mobileViewportEvidence
+        && !mobileViewportBehaviorEvidence.length
         && exportArtifactBackedCategoryCount === undefined
         && exportArtifactBackedCompletedCount === undefined
         && !exportArtifactBackedCapturedAt
@@ -598,6 +644,7 @@ function cleanBenchmarkProofData(value: unknown): Record<string, unknown> | unde
         directComparisonAt,
         directComparisonVerdict,
         directComparisonNotes,
+        ...(orgId ? { orgId } : {}),
         canvasVersion,
         graphSignature,
         nodeCount,
@@ -607,6 +654,7 @@ function cleanBenchmarkProofData(value: unknown): Record<string, unknown> | unde
         ...(collaborationRemoteMutationCount !== undefined ? { collaborationRemoteMutationCount } : {}),
         ...(collaborationRemoteMutationKindCount !== undefined ? { collaborationRemoteMutationKindCount } : {}),
         ...(collaborationRemoteTouchedNodeCount !== undefined ? { collaborationRemoteTouchedNodeCount } : {}),
+        ...(collaborationRemoteTouchedEdgeCount !== undefined ? { collaborationRemoteTouchedEdgeCount } : {}),
         ...(collaborationRemoteGraphSignature ? { collaborationRemoteGraphSignature } : {}),
         ...(collaborationRemoteSource ? { collaborationRemoteSource } : {}),
         ...(collaborationRemoteOutcome ? { collaborationRemoteOutcome } : {}),
@@ -660,6 +708,7 @@ function cleanBenchmarkProofData(value: unknown): Record<string, unknown> | unde
         ...(mobileViewportRequiredCount !== undefined ? { mobileViewportRequiredCount } : {}),
         ...(mobileViewportProofCapturedAt ? { mobileViewportProofCapturedAt } : {}),
         ...(mobileViewportEvidence ? { mobileViewportEvidence } : {}),
+        ...(mobileViewportBehaviorEvidence.length ? { mobileViewportBehaviorEvidence } : {}),
         ...(exportArtifactBackedCategoryCount !== undefined ? { exportArtifactBackedCategoryCount } : {}),
         ...(exportArtifactBackedCompletedCount !== undefined ? { exportArtifactBackedCompletedCount } : {}),
         ...(exportArtifactBackedCapturedAt ? { exportArtifactBackedCapturedAt } : {}),

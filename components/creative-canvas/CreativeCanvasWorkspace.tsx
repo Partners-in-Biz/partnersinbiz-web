@@ -36,6 +36,8 @@ import type {
   CreativeCanvasTemplate,
   CreativeCanvasVersion,
   CreativeCanvasCollaborationProofEvidence,
+  CreativeCanvasMobileProof,
+  CreativeCanvasMobileViewportEvidence,
   CreativeCanvasProofBinding,
   CreativeCanvasRemoteMutationEvidence,
   CreativeCanvasRemoteMutationOperation,
@@ -48,7 +50,8 @@ import {
 import { buildCreativeCanvasOrchestrationPlan } from '@/lib/creative-canvas/orchestration'
 import { buildCreativeCanvasAssetGallery } from '@/lib/creative-canvas/assets'
 import { collectCollaborationMutationProof } from '@/lib/creative-canvas/collaboration-proof'
-import { hasStructuredCollaborationProof } from '@/lib/creative-canvas/parity-proof'
+import { buildMobileViewportBehaviorProof } from '@/lib/creative-canvas/mobile-proof'
+import { hasStructuredCollaborationProof, hasStructuredMobileProof } from '@/lib/creative-canvas/parity-proof'
 
 type CreativeCanvasMode = 'admin' | 'portal'
 type CreativeCanvasMobilePanel = 'canvas' | 'sources' | 'inspector'
@@ -182,6 +185,7 @@ type CreativeCanvasBenchmarkProofRecord = {
   mobileViewportRequiredCount?: number
   mobileViewportProofCapturedAt?: string
   mobileViewportEvidence?: string
+  mobileViewportBehaviorEvidence?: CreativeCanvasMobileViewportEvidence[]
   exportArtifactBackedCategoryCount?: number
   exportArtifactBackedCompletedCount?: number
   exportArtifactBackedCapturedAt?: string
@@ -546,6 +550,32 @@ function stringArrayField(value: unknown): string[] {
   return Array.isArray(value) ? value.filter((item): item is string => typeof item === 'string' && Boolean(item.trim())) : []
 }
 
+function parseViewportSize(value: string | undefined, fallback: { width: number; height: number }): { width: number; height: number } {
+  const match = value?.match(/(\d{2,5})\s*x\s*(\d{2,5})/i)
+  if (!match) return fallback
+  const width = Number(match[1])
+  const height = Number(match[2])
+  if (!Number.isFinite(width) || !Number.isFinite(height)) return fallback
+  return { width, height }
+}
+
+function panelKeysFromText(value: string | undefined): string[] {
+  const text = value?.toLowerCase() ?? ''
+  const keys = [
+    ['graph', ['graph']],
+    ['canvas', ['canvas']],
+    ['sources', ['source', 'library']],
+    ['inspector', ['inspector']],
+    ['panel', ['panel']],
+    ['runs', ['run']],
+    ['exports', ['export']],
+  ] as const
+
+  return keys.flatMap(([key, needles]) => (
+    needles.some((needle) => text.includes(needle)) ? [key] : []
+  ))
+}
+
 function getCanvasVisualProof(data: unknown): Partial<Record<CreativeCanvasVisualProofKey, CreativeCanvasVisualProofRecord>> {
   const proof = objectRecord(objectRecord(data).visualProof)
   return (Object.keys(emptyVisualProofDrafts) as CreativeCanvasVisualProofKey[]).reduce((acc, key) => {
@@ -740,6 +770,11 @@ function getCanvasBenchmarkProof(data: unknown): Partial<Record<CreativeCanvasBe
     const mobileViewportRequiredCount = typeof record.mobileViewportRequiredCount === 'number' && Number.isFinite(record.mobileViewportRequiredCount) ? record.mobileViewportRequiredCount : undefined
     const mobileViewportProofCapturedAt = stringField(record.mobileViewportProofCapturedAt)
     const mobileViewportEvidence = stringField(record.mobileViewportEvidence)
+    const mobileViewportBehaviorEvidence = Array.isArray(record.mobileViewportBehaviorEvidence)
+      ? record.mobileViewportBehaviorEvidence
+        .map(objectToMobileViewportBehaviorEvidence)
+        .filter((item): item is CreativeCanvasMobileViewportEvidence => Boolean(item))
+      : []
     const exportArtifactBackedCategoryCount = typeof record.exportArtifactBackedCategoryCount === 'number' && Number.isFinite(record.exportArtifactBackedCategoryCount) ? record.exportArtifactBackedCategoryCount : undefined
     const exportArtifactBackedCompletedCount = typeof record.exportArtifactBackedCompletedCount === 'number' && Number.isFinite(record.exportArtifactBackedCompletedCount) ? record.exportArtifactBackedCompletedCount : undefined
     const exportArtifactBackedCapturedAt = stringField(record.exportArtifactBackedCapturedAt)
@@ -849,6 +884,7 @@ function getCanvasBenchmarkProof(data: unknown): Partial<Record<CreativeCanvasBe
       || mobileViewportRequiredCount !== undefined
       || mobileViewportProofCapturedAt
       || mobileViewportEvidence
+      || mobileViewportBehaviorEvidence.length
       || exportArtifactBackedCategoryCount !== undefined
       || exportArtifactBackedCompletedCount !== undefined
       || exportArtifactBackedCapturedAt
@@ -957,6 +993,7 @@ function getCanvasBenchmarkProof(data: unknown): Partial<Record<CreativeCanvasBe
         mobileViewportRequiredCount,
         mobileViewportProofCapturedAt,
         mobileViewportEvidence,
+        mobileViewportBehaviorEvidence,
         exportArtifactBackedCategoryCount,
         exportArtifactBackedCompletedCount,
         exportArtifactBackedCapturedAt,
@@ -1077,6 +1114,82 @@ function objectToRemoteMutationEvidence(input: unknown): CreativeCanvasRemoteMut
     source: record.source,
     occurredAt,
   }
+}
+
+function objectToMobileViewportBehaviorEvidence(input: unknown): CreativeCanvasMobileViewportEvidence | undefined {
+  if (!input || typeof input !== 'object' || Array.isArray(input)) return undefined
+  const record = input as Record<string, unknown>
+  const key = record.key === 'desktop' || record.key === 'tablet' || record.key === 'mobile' || record.key === 'mobile_panels'
+    ? record.key
+    : undefined
+  const width = typeof record.width === 'number' && Number.isFinite(record.width) ? record.width : undefined
+  const height = typeof record.height === 'number' && Number.isFinite(record.height) ? record.height : undefined
+  const screenshotUrl = typeof record.screenshotUrl === 'string' && record.screenshotUrl.trim() ? record.screenshotUrl.trim() : ''
+  const status = typeof record.status === 'number' && Number.isFinite(record.status) ? record.status : undefined
+  const contentType = typeof record.contentType === 'string' && record.contentType.trim() ? record.contentType.trim() : ''
+  const capturedAt = typeof record.capturedAt === 'string' && record.capturedAt.trim() ? record.capturedAt.trim() : ''
+  if (!key || width === undefined || height === undefined || !screenshotUrl || status === undefined || !contentType || !capturedAt) {
+    return undefined
+  }
+
+  return {
+    key,
+    width,
+    height,
+    screenshotUrl,
+    status,
+    contentType,
+    criticalControlsVisible: record.criticalControlsVisible === true,
+    criticalControlsEnabled: record.criticalControlsEnabled === true,
+    horizontalOverflow: record.horizontalOverflow === true,
+    touchSmokePassed: record.touchSmokePassed === true,
+    pointerSmokePassed: record.pointerSmokePassed === true,
+    panelKeys: stringArrayField(record.panelKeys).map((item) => item.trim()).filter(Boolean).slice(0, 12),
+    capturedAt,
+  }
+}
+
+function buildMobileViewportInputs(
+  items: Array<{
+    key: CreativeCanvasVisualProofKey
+    status: 'signed-in' | 'needs sign-in' | 'needed'
+    proof?: CreativeCanvasVisualProofRecord
+  }>,
+): Array<Omit<CreativeCanvasMobileViewportEvidence, 'capturedAt'>> {
+  const viewportKeys: Record<CreativeCanvasVisualProofKey, CreativeCanvasMobileViewportEvidence['key']> = {
+    desktop_1440: 'desktop',
+    tablet_820: 'tablet',
+    mobile_390: 'mobile',
+    mobile_panels: 'mobile_panels',
+  }
+  const fallbackSizes: Record<CreativeCanvasVisualProofKey, { width: number; height: number }> = {
+    desktop_1440: { width: 1440, height: 900 },
+    tablet_820: { width: 820, height: 1180 },
+    mobile_390: { width: 390, height: 844 },
+    mobile_panels: { width: 390, height: 844 },
+  }
+
+  return items.map((item) => {
+    const proof = item.proof
+    const signedIn = item.status === 'signed-in'
+    const viewportSize = parseViewportSize(proof?.viewportSize, fallbackSizes[item.key])
+    const panelKeys = panelKeysFromText(proof?.visiblePanels)
+
+    return {
+      key: viewportKeys[item.key],
+      width: viewportSize.width,
+      height: viewportSize.height,
+      screenshotUrl: proof?.screenshotUrl ?? '',
+      status: proof?.screenshotStatus ?? (signedIn ? 200 : 0),
+      contentType: proof?.screenshotContentType ?? '',
+      criticalControlsVisible: signedIn && panelKeys.length > 0,
+      criticalControlsEnabled: signedIn,
+      horizontalOverflow: !signedIn,
+      touchSmokePassed: signedIn,
+      pointerSmokePassed: signedIn,
+      panelKeys,
+    }
+  })
 }
 
 function latestLocalActivityMutation(event: CreativeCanvasActivityEvent | undefined): CreativeCanvasPresence['latestMutation'] | undefined {
@@ -1491,16 +1604,11 @@ function buildMaskingSessionProofFields(input: {
   }
 }
 
-function hasMobileViewportBenchmarkProof(proof: CreativeCanvasBenchmarkProofRecord | undefined): boolean {
-  return Boolean(
-    proof
-      && typeof proof.mobileViewportProofCount === 'number'
-      && typeof proof.mobileViewportRequiredCount === 'number'
-      && proof.mobileViewportRequiredCount >= visualProofConfigs.length
-      && proof.mobileViewportProofCount >= proof.mobileViewportRequiredCount
-      && proof.mobileViewportProofCapturedAt
-      && proof.mobileViewportEvidence,
-  )
+function hasMobileViewportBenchmarkProof(
+  proof: CreativeCanvasBenchmarkProofRecord | undefined,
+  currentBinding: CreativeCanvasProofBinding,
+): boolean {
+  return hasStructuredMobileProof(proof as CreativeCanvasMobileProof | undefined, currentBinding)
 }
 
 function hasExportArtifactBackedProof(proof: CreativeCanvasBenchmarkProofRecord | undefined): boolean {
@@ -3317,7 +3425,11 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
         }
       : {}
     const currentVisualProofRecords = getCanvasVisualProof(activeCanvas.data)
-    const currentVisualProofItems = visualProofConfigs.map((item) => {
+    const currentVisualProofItems: Array<{
+      key: CreativeCanvasVisualProofKey
+      status: 'signed-in' | 'needs sign-in' | 'needed'
+      proof?: CreativeCanvasVisualProofRecord
+    }> = visualProofConfigs.map((item) => {
       const proof = currentVisualProofRecords[item.key]
       return {
         ...item,
@@ -3334,14 +3446,16 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
             : 'needed',
       }
     })
-    const currentCapturedVisualProofCount = currentVisualProofItems.filter((item) => item.status === 'signed-in').length
     const mobileViewportProof = key === 'mobile_behavior'
-      ? {
-          mobileViewportProofCount: currentCapturedVisualProofCount,
-          mobileViewportRequiredCount: currentVisualProofItems.length,
-          mobileViewportProofCapturedAt: capturedAt,
-          mobileViewportEvidence: `${currentCapturedVisualProofCount}/${currentVisualProofItems.length} signed-in viewport proofs captured against current graph: ${currentVisualProofItems.map((proof) => `${proof.label} ${proof.status}`).join(', ')}`,
-        }
+      ? buildMobileViewportBehaviorProof({
+          orgId: canvasOrgId,
+          canvasVersion: activeCanvas.activeVersion,
+          graphSignature: currentGraphSignature,
+          nodeCount: nodes.length,
+          edgeCount: edges.length,
+          capturedAt,
+          viewports: buildMobileViewportInputs(currentVisualProofItems),
+        })
       : {}
     const exportArtifactProof = key === 'export_flows'
       ? {
@@ -5501,7 +5615,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
       && (item.key !== 'versioning_polish' || hasVersioningPolishProof(proof))
       && (item.key !== 'collaboration' || hasCollaborationSessionProof(proof, currentCollaborationProofBinding))
       && (item.key !== 'agent_orchestration' || hasAgentOrchestrationProof(proof))
-      && (item.key !== 'mobile_behavior' || hasMobileViewportBenchmarkProof(proof))
+      && (item.key !== 'mobile_behavior' || hasMobileViewportBenchmarkProof(proof, currentCollaborationProofBinding))
       && (item.key !== 'export_flows' || hasExportArtifactBackedProof(proof))
       && (item.key !== 'production_reliability' || hasProductionRuntimeProof(proof))
     return {
@@ -5613,12 +5727,15 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
           }
         : {}
       const mobileViewportProof = item.key === 'mobile_behavior'
-        ? {
-            mobileViewportProofCount: capturedVisualProofCount,
-            mobileViewportRequiredCount: visualProofItems.length,
-            mobileViewportProofCapturedAt: capturedAt,
-            mobileViewportEvidence: `${capturedVisualProofCount}/${visualProofItems.length} signed-in viewport proofs captured against current graph: ${visualProofItems.map((proof) => `${proof.label} ${proof.status}`).join(', ')}`,
-          }
+        ? buildMobileViewportBehaviorProof({
+            orgId: canvasOrgId,
+            canvasVersion: activeCanvas.activeVersion,
+            graphSignature: currentGraphSignature,
+            nodeCount: nodes.length,
+            edgeCount: edges.length,
+            capturedAt,
+            viewports: buildMobileViewportInputs(visualProofItems),
+          })
         : {}
       const exportArtifactProof = item.key === 'export_flows'
         ? {
@@ -6436,7 +6553,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
               {item.key === 'agent_orchestration' && item.proof && !hasAgentOrchestrationProof(item.proof) ? (
                 <p className="mt-1 text-[11px] font-semibold">Needs stored project-linked agent task evidence before AI agent integration proof can pass.</p>
               ) : null}
-              {item.key === 'mobile_behavior' && item.proof && !hasMobileViewportBenchmarkProof(item.proof) ? (
+              {item.key === 'mobile_behavior' && item.proof && !hasMobileViewportBenchmarkProof(item.proof, currentCollaborationProofBinding) ? (
                 <p className="mt-1 text-[11px] font-semibold">Needs stored signed-in viewport matrix evidence before mobile benchmark proof can pass.</p>
               ) : null}
               {item.key === 'export_flows' && item.proof && !hasExportArtifactBackedProof(item.proof) ? (

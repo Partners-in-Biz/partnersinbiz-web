@@ -1278,16 +1278,32 @@ describe('CreativeCanvasWorkspace', () => {
                       sourceTitle: 'Higgsfield Canvas app route',
                       sourceUrl: 'https://higgsfield.ai/canvas',
                       sourceCheckedAt: '2026-06-21T11:04:00.000Z',
+                      sourceEvidenceCheckedAt: '2026-06-21T11:04:30.000Z',
+                      sourceEvidenceReachable: true,
+                      sourceEvidenceStatus: 200,
+                      sourceEvidenceContentType: 'text/html',
+                      sourceSignalsVerifiedAt: '2026-06-21T11:04:45.000Z',
+                      sourceSignalsMatched: true,
+                      sourceSignalsMissing: [],
                       sourceSignals: ['Generate', 'Library', 'Profile', 'Canvas'],
                       higgsfieldUiEvidenceUrl: 'https://higgsfield.ai/canvas',
                       canvasEvidenceUrl: 'https://proof.example.com/mobile-behavior.mp4',
+                      canvasEvidenceCheckedAt: '2026-06-21T11:04:50.000Z',
+                      canvasEvidenceReachable: true,
+                      canvasEvidenceStatus: 200,
+                      canvasEvidenceContentType: 'video/mp4',
                       directComparisonAt: '2026-06-21T11:04:00.000Z',
                       directComparisonVerdict: 'pass',
                       directComparisonNotes: 'Mobile behavior looked complete before viewport matrix fields existed.',
+                      orgId: 'org-1',
                       canvasVersion: 1,
                       graphSignature: emptyGraphSignature,
                       nodeCount: 0,
                       edgeCount: 0,
+                      mobileViewportProofCount: 4,
+                      mobileViewportRequiredCount: 4,
+                      mobileViewportProofCapturedAt: '2026-06-21T11:04:00.000Z',
+                      mobileViewportEvidence: '4/4 signed-in viewport proofs captured.',
                     },
                   },
                 },
@@ -1337,19 +1353,82 @@ describe('CreativeCanvasWorkspace', () => {
     const body = JSON.parse(String(patchCall?.[1]?.body ?? '{}')) as {
       data?: {
         benchmarkProof?: Record<string, {
+          orgId?: string
+          canvasVersion?: number
+          graphSignature?: string
+          nodeCount?: number
+          edgeCount?: number
           mobileViewportProofCount?: number
           mobileViewportRequiredCount?: number
           mobileViewportProofCapturedAt?: string
           mobileViewportEvidence?: string
+          mobileViewportBehaviorEvidence?: Array<{
+            key?: string
+            width?: number
+            height?: number
+            screenshotUrl?: string
+            status?: number
+            contentType?: string
+            criticalControlsVisible?: boolean
+            criticalControlsEnabled?: boolean
+            horizontalOverflow?: boolean
+            touchSmokePassed?: boolean
+            pointerSmokePassed?: boolean
+            panelKeys?: string[]
+            capturedAt?: string
+          }>
         }>
       }
     }
     expect(body.data?.benchmarkProof?.mobile_behavior).toMatchObject({
+      orgId: 'org-1',
+      canvasVersion: 1,
+      graphSignature: emptyGraphSignature,
+      nodeCount: 0,
+      edgeCount: 0,
       mobileViewportProofCount: 4,
       mobileViewportRequiredCount: 4,
       mobileViewportProofCapturedAt: expect.any(String),
-      mobileViewportEvidence: expect.stringContaining('4/4 signed-in viewport proofs captured'),
+      mobileViewportEvidence: expect.stringContaining('4/4 signed-in viewport behavior proofs captured'),
     })
+    expect(body.data?.benchmarkProof?.mobile_behavior?.mobileViewportBehaviorEvidence).toEqual([
+      expect.objectContaining({
+        key: 'desktop',
+        width: 1440,
+        height: 900,
+        screenshotUrl: 'https://proof.example.com/desktop-1440.png',
+        status: 200,
+        contentType: 'image/png',
+        criticalControlsVisible: true,
+        criticalControlsEnabled: true,
+        horizontalOverflow: false,
+        touchSmokePassed: true,
+        pointerSmokePassed: true,
+        panelKeys: expect.arrayContaining(['graph', 'sources', 'inspector']),
+        capturedAt: expect.any(String),
+      }),
+      expect.objectContaining({
+        key: 'tablet',
+        width: 820,
+        height: 1180,
+        screenshotUrl: 'https://proof.example.com/tablet-820.png',
+        panelKeys: expect.arrayContaining(['panel']),
+      }),
+      expect.objectContaining({
+        key: 'mobile',
+        width: 390,
+        height: 844,
+        screenshotUrl: 'https://proof.example.com/mobile-390.png',
+        panelKeys: expect.arrayContaining(['canvas']),
+      }),
+      expect.objectContaining({
+        key: 'mobile_panels',
+        width: 390,
+        height: 844,
+        screenshotUrl: 'https://proof.example.com/mobile-panels.png',
+        panelKeys: expect.arrayContaining(['canvas', 'sources', 'inspector']),
+      }),
+    ])
   })
 
   it('saves direct Higgsfield benchmark proof evidence', async () => {

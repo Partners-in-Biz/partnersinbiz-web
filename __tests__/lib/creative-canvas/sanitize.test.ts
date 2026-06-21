@@ -313,6 +313,72 @@ describe('creative canvas sanitizers', () => {
     })
   })
 
+  it('preserves capped mobile viewport behavior evidence and benchmark proof org binding', () => {
+    const evidence = Array.from({ length: 9 }, (_, index) => ({
+      key: index === 0 ? 'desktop' : index === 1 ? 'tablet' : index === 2 ? 'mobile' : 'mobile_panels',
+      width: 390.4 + index,
+      height: 844.2,
+      screenshotUrl: ` https://proof.example.com/mobile-${index}.png `,
+      status: 200.2,
+      contentType: ' image/png ',
+      criticalControlsVisible: true,
+      criticalControlsEnabled: true,
+      horizontalOverflow: false,
+      touchSmokePassed: true,
+      pointerSmokePassed: true,
+      panelKeys: [' canvas ', 'inspector'],
+      capturedAt: ' 2026-06-21T13:00:00.000Z ',
+      dropped: 'remove me',
+    }))
+
+    const sanitized = sanitizeCreativeCanvasData({
+      benchmarkProof: {
+        mobile_behavior: {
+          orgId: ' org-1 ',
+          canvasVersion: 2,
+          graphSignature: ' graph-signature-123 ',
+          nodeCount: 4,
+          edgeCount: 3,
+          mobileViewportProofCount: 4,
+          mobileViewportRequiredCount: 4,
+          mobileViewportProofCapturedAt: '2026-06-21T13:00:00.000Z',
+          mobileViewportEvidence: ' 4/4 signed-in viewport behavior proofs captured. ',
+          mobileViewportBehaviorEvidence: evidence,
+        },
+      },
+    })
+
+    expect(sanitized.benchmarkProof).toMatchObject({
+      mobile_behavior: {
+        orgId: 'org-1',
+        canvasVersion: 2,
+        graphSignature: 'graph-signature-123',
+        nodeCount: 4,
+        edgeCount: 3,
+        mobileViewportProofCount: 4,
+        mobileViewportRequiredCount: 4,
+        mobileViewportProofCapturedAt: '2026-06-21T13:00:00.000Z',
+        mobileViewportEvidence: '4/4 signed-in viewport behavior proofs captured.',
+        mobileViewportBehaviorEvidence: evidence.slice(0, 8).map((item, index) => ({
+          key: item.key,
+          width: 390 + index,
+          height: 844,
+          screenshotUrl: `https://proof.example.com/mobile-${index}.png`,
+          status: 200,
+          contentType: 'image/png',
+          criticalControlsVisible: true,
+          criticalControlsEnabled: true,
+          horizontalOverflow: false,
+          touchSmokePassed: true,
+          pointerSmokePassed: true,
+          panelKeys: ['canvas', 'inspector'],
+          capturedAt: '2026-06-21T13:00:00.000Z',
+        })),
+      },
+    })
+    expect((sanitized.benchmarkProof as Record<string, { mobileViewportBehaviorEvidence?: unknown[] }>).mobile_behavior.mobileViewportBehaviorEvidence).toHaveLength(8)
+  })
+
   it('rejects cross-org graph nodes before accepting their source data', () => {
     expect(() =>
       sanitizeCreativeCanvasGraph({
