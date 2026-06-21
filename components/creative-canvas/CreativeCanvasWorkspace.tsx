@@ -5023,6 +5023,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
     },
   ]
   const parityPassedCount = parityAuditItems.filter((item) => item.status === 'passed').length
+  const signedInViewportBenchmarkComplete = proofItemByKey.mobile_behavior?.status === 'passed'
   const liveProofRunbookItems: Array<{
     label: string
     status: 'complete' | 'action' | 'blocked'
@@ -5031,11 +5032,15 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
   }> = [
     {
       label: 'Signed-in viewport proof',
-      status: capturedVisualProofCount >= visualProofItems.length ? 'complete' : 'action',
-      evidence: `${capturedVisualProofCount}/${visualProofItems.length} signed-in viewport proofs stored`,
-      nextAction: capturedVisualProofCount >= visualProofItems.length
-        ? 'Viewport proof is stored for desktop, tablet, mobile, and mobile panels.'
-        : 'Capture signed-in Desktop 1440, Tablet 820, Mobile 390, and Mobile panels screenshots.',
+      status: signedInViewportBenchmarkComplete ? 'complete' : 'action',
+      evidence: signedInViewportBenchmarkComplete
+        ? `Mobile behavior benchmark proof is source-backed with ${capturedVisualProofCount}/${visualProofItems.length} signed-in viewport proofs`
+        : `${capturedVisualProofCount}/${visualProofItems.length} signed-in viewport proofs stored`,
+      nextAction: signedInViewportBenchmarkComplete
+        ? 'Mobile behavior benchmark proof is source-backed and stored for desktop, tablet, mobile, and mobile panels.'
+        : capturedVisualProofCount >= visualProofItems.length
+          ? 'Save source-backed Mobile behavior benchmark proof from the signed-in viewport matrix.'
+          : 'Capture signed-in Desktop 1440, Tablet 820, Mobile 390, and Mobile panels screenshots.',
     },
     {
       label: 'Local editing proof',
