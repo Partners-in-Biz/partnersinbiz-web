@@ -51,7 +51,7 @@ function hasSafeHttpUrl(value: unknown): value is string {
 }
 
 function hasSuccessfulStatus(value: unknown): value is number {
-  return typeof value === 'number' && value >= 200 && value < 400
+  return typeof value === 'number' && value >= 200 && value < 300
 }
 
 function hasCurrentCanvasBinding(
@@ -108,9 +108,9 @@ export function hasStructuredCollaborationProof(
       && proof.collaborationRemoteMutationCount > 0
       && typeof proof.collaborationRemoteMutationKindCount === 'number'
       && proof.collaborationRemoteMutationKindCount > 0
-      && proof.collaborationRemoteMutationCount <= mutations.length
-      && proof.collaborationRemoteMutationKindCount <= mutationKindCount
-      && proof.collaborationRemoteTouchedNodeCount <= touchedNodeCount
+      && proof.collaborationRemoteMutationCount === mutations.length
+      && proof.collaborationRemoteMutationKindCount === mutationKindCount
+      && proof.collaborationRemoteTouchedNodeCount === touchedNodeCount
       && hasText(proof.collaborationRemoteSource)
       && hasText(proof.collaborationRemoteOutcome)
       && certifiedCollaborationOutcomes.has(proof.collaborationRemoteOutcome)
@@ -215,6 +215,7 @@ function hasLiveProofArtifactRequirements(proof: CreativeCanvasLiveProofArtifact
       && hasSafeHttpUrl(proof.url)
       && hasSuccessfulStatus(proof.status)
       && hasText(proof.contentType)
+      && proof.contentType.startsWith('image/')
       && hasText(proof.capturedAt)
       && hasText(proof.evidence),
   )

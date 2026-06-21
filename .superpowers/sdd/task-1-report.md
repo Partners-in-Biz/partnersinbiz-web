@@ -215,3 +215,44 @@ Commit created for the fix:
 ```bash
 fix(canvas): bind live proof artifacts
 ```
+
+## Review Fix Addendum 6
+
+Date: 2026-06-21
+Base commit under review: `2373e88e`
+
+Fixed remaining Task 1 approval findings in Task 1 owned files only:
+
+- Tightened live proof artifact validation so only HTTP `200-299` responses count and artifact `contentType` must start with `image/`
+- Replaced the passing live-proof fixture that used a `302` mobile artifact with a real `200` image artifact
+- Added regressions proving redirected (`302`) and non-image (`text/html`) live proof artifacts are blocked
+- Tightened collaboration proof validation so declared mutation summary counts must exactly match the structured mutation payload counts
+- Added a regression proving under-reported mutation count is rejected
+
+Verification commands:
+
+```bash
+npx jest __tests__/lib/creative-canvas/parity-proof.test.ts --runInBand
+npm run typecheck
+```
+
+Verification results:
+
+```text
+$ npx jest __tests__/lib/creative-canvas/parity-proof.test.ts --runInBand
+Test Suites: 1 passed, 1 total
+Tests:       26 passed, 26 total
+Snapshots:   0 total
+Time:        0.779 s, estimated 1 s
+Ran all test suites matching __tests__/lib/creative-canvas/parity-proof.test.ts.
+
+$ npm run typecheck
+> partnersinbiz@0.1.0 typecheck
+> NODE_OPTIONS=--max-old-space-size=4096 tsc --noEmit --pretty false --project tsconfig.typecheck.json
+```
+
+Commit created for the fix:
+
+```bash
+fix(canvas): tighten live proof validation
+```

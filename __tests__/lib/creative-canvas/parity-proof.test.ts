@@ -65,7 +65,7 @@ describe('creative canvas parity proof contracts', () => {
       ...currentBinding,
       key: 'mobile',
       url: 'https://proof.example.com/live-mobile.png',
-      status: 302,
+      status: 200,
       contentType: 'image/png',
       capturedAt,
       evidence: 'Mobile signed-in preview captured.',
@@ -148,6 +148,26 @@ describe('creative canvas parity proof contracts', () => {
       collaborationRemoteOutcome: 'remote_changes_observed',
       collaborationCapturedAt: capturedAt,
       collaborationEvidence: 'Remote changes were only observed.',
+      collaborationRemoteMutations: [
+        { actorUid: 'user-a', actorType: 'user', operation: 'node_move', touchedNodeIds: ['node-a'], touchedEdgeIds: [], source: 'stream', occurredAt: capturedAt },
+        { actorUid: 'agent-maya', actorType: 'agent', operation: 'edge_add', touchedNodeIds: ['node-a', 'node-b'], touchedEdgeIds: ['edge-a-b'], source: 'draft_applied', occurredAt: capturedAt },
+      ],
+    }, currentBinding)).toBe(false)
+  })
+
+  it('rejects collaboration proof when declared mutation count under-reports the structured mutation payload', () => {
+    expect(hasStructuredCollaborationProof({
+      ...currentBinding,
+      collaborationRemoteActorCount: 2,
+      collaborationRemoteEventCount: 3,
+      collaborationRemoteMutationCount: 1,
+      collaborationRemoteMutationKindCount: 2,
+      collaborationRemoteTouchedNodeCount: 2,
+      collaborationRemoteGraphSignature: currentBinding.graphSignature,
+      collaborationRemoteSource: 'draft_applied',
+      collaborationRemoteOutcome: 'remote_changes_adopted',
+      collaborationCapturedAt: capturedAt,
+      collaborationEvidence: 'Declared mutation count is lower than the payload.',
       collaborationRemoteMutations: [
         { actorUid: 'user-a', actorType: 'user', operation: 'node_move', touchedNodeIds: ['node-a'], touchedEdgeIds: [], source: 'stream', occurredAt: capturedAt },
         { actorUid: 'agent-maya', actorType: 'agent', operation: 'edge_add', touchedNodeIds: ['node-a', 'node-b'], touchedEdgeIds: ['edge-a-b'], source: 'draft_applied', occurredAt: capturedAt },
@@ -531,6 +551,46 @@ describe('creative canvas parity proof contracts', () => {
       liveProofArtifacts: validLiveProofArtifacts.map((artifact, index) => (
         index === validLiveProofArtifacts.length - 1
           ? { ...artifact, canvasVersion: artifact.canvasVersion + 1 }
+          : artifact
+      )),
+      requiredBenchmarkCount: 2,
+      capturedAt,
+      currentBinding,
+      signedInPreviewProof: validSignedInPreviewProof,
+      kbCertification: validKbCertification,
+    })
+
+    expect(certification.status).toBe('blocked')
+    expect(certification.blockers).toContain('Signed-in live proof artifacts are incomplete.')
+  })
+
+  it('blocks certification when a live proof artifact is a redirect instead of a fetched image artifact', () => {
+    const certification = buildWorldClassCertification({
+      benchmarkProofs: validBenchmarkProofs,
+      runtimeProof: validRuntimeProof,
+      liveProofArtifacts: validLiveProofArtifacts.map((artifact) => (
+        artifact.key === 'mobile'
+          ? { ...artifact, status: 302 }
+          : artifact
+      )),
+      requiredBenchmarkCount: 2,
+      capturedAt,
+      currentBinding,
+      signedInPreviewProof: validSignedInPreviewProof,
+      kbCertification: validKbCertification,
+    })
+
+    expect(certification.status).toBe('blocked')
+    expect(certification.blockers).toContain('Signed-in live proof artifacts are incomplete.')
+  })
+
+  it('blocks certification when a live proof artifact content type is not an image', () => {
+    const certification = buildWorldClassCertification({
+      benchmarkProofs: validBenchmarkProofs,
+      runtimeProof: validRuntimeProof,
+      liveProofArtifacts: validLiveProofArtifacts.map((artifact) => (
+        artifact.key === 'mobile'
+          ? { ...artifact, contentType: 'text/html' }
           : artifact
       )),
       requiredBenchmarkCount: 2,
