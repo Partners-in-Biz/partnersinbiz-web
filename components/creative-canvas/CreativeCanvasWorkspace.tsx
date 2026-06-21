@@ -140,6 +140,15 @@ type CreativeCanvasBenchmarkProofRecord = {
   versionAutoSaveEnabled?: boolean
   versionCapturedAt?: string
   versionEvidence?: string
+  multiAssetSourceNodeCount?: number
+  multiAssetSourceKindCount?: number
+  multiAssetReferenceRoleCount?: number
+  multiAssetConnectedSourceCount?: number
+  multiAssetOutputNodeCount?: number
+  multiAssetWorkflowScenarioCount?: number
+  multiAssetLineageEdgeCount?: number
+  multiAssetCapturedAt?: string
+  multiAssetEvidence?: string
   agentStepCount?: number
   agentActorCount?: number
   agentTaskCreatedCount?: number
@@ -405,7 +414,7 @@ const benchmarkProofConfigs: Array<{
     benchmark: 'Own uploads, references, previous outputs, templates, and benchmark workflows combined in one connected pipeline.',
     sourceTitle: 'Higgsfield Canvas multi-reference workflows',
     sourceUrl: 'https://higgsfield.ai/canvas-intro',
-    sourceSignals: ['Moodboard', 'mix models', 'route outputs', 'single creative pipeline'],
+    sourceSignals: ['Moodboard', 'mix models', 'route outputs', 'single creative pipeline', 'Soul ID characters', 'uploaded products', 'brand references', 'previous generations'],
   },
   {
     key: 'versioning_polish',
@@ -664,6 +673,15 @@ function getCanvasBenchmarkProof(data: unknown): Partial<Record<CreativeCanvasBe
     const versionAutoSaveEnabled = record.versionAutoSaveEnabled === true
     const versionCapturedAt = stringField(record.versionCapturedAt)
     const versionEvidence = stringField(record.versionEvidence)
+    const multiAssetSourceNodeCount = typeof record.multiAssetSourceNodeCount === 'number' && Number.isFinite(record.multiAssetSourceNodeCount) ? record.multiAssetSourceNodeCount : undefined
+    const multiAssetSourceKindCount = typeof record.multiAssetSourceKindCount === 'number' && Number.isFinite(record.multiAssetSourceKindCount) ? record.multiAssetSourceKindCount : undefined
+    const multiAssetReferenceRoleCount = typeof record.multiAssetReferenceRoleCount === 'number' && Number.isFinite(record.multiAssetReferenceRoleCount) ? record.multiAssetReferenceRoleCount : undefined
+    const multiAssetConnectedSourceCount = typeof record.multiAssetConnectedSourceCount === 'number' && Number.isFinite(record.multiAssetConnectedSourceCount) ? record.multiAssetConnectedSourceCount : undefined
+    const multiAssetOutputNodeCount = typeof record.multiAssetOutputNodeCount === 'number' && Number.isFinite(record.multiAssetOutputNodeCount) ? record.multiAssetOutputNodeCount : undefined
+    const multiAssetWorkflowScenarioCount = typeof record.multiAssetWorkflowScenarioCount === 'number' && Number.isFinite(record.multiAssetWorkflowScenarioCount) ? record.multiAssetWorkflowScenarioCount : undefined
+    const multiAssetLineageEdgeCount = typeof record.multiAssetLineageEdgeCount === 'number' && Number.isFinite(record.multiAssetLineageEdgeCount) ? record.multiAssetLineageEdgeCount : undefined
+    const multiAssetCapturedAt = stringField(record.multiAssetCapturedAt)
+    const multiAssetEvidence = stringField(record.multiAssetEvidence)
     const agentStepCount = typeof record.agentStepCount === 'number' && Number.isFinite(record.agentStepCount) ? record.agentStepCount : undefined
     const agentActorCount = typeof record.agentActorCount === 'number' && Number.isFinite(record.agentActorCount) ? record.agentActorCount : undefined
     const agentTaskCreatedCount = typeof record.agentTaskCreatedCount === 'number' && Number.isFinite(record.agentTaskCreatedCount) ? record.agentTaskCreatedCount : undefined
@@ -751,6 +769,15 @@ function getCanvasBenchmarkProof(data: unknown): Partial<Record<CreativeCanvasBe
       || versionAutoSaveEnabled
       || versionCapturedAt
       || versionEvidence
+      || multiAssetSourceNodeCount !== undefined
+      || multiAssetSourceKindCount !== undefined
+      || multiAssetReferenceRoleCount !== undefined
+      || multiAssetConnectedSourceCount !== undefined
+      || multiAssetOutputNodeCount !== undefined
+      || multiAssetWorkflowScenarioCount !== undefined
+      || multiAssetLineageEdgeCount !== undefined
+      || multiAssetCapturedAt
+      || multiAssetEvidence
       || agentStepCount !== undefined
       || agentActorCount !== undefined
       || agentTaskCreatedCount !== undefined
@@ -837,6 +864,15 @@ function getCanvasBenchmarkProof(data: unknown): Partial<Record<CreativeCanvasBe
         versionAutoSaveEnabled,
         versionCapturedAt,
         versionEvidence,
+        multiAssetSourceNodeCount,
+        multiAssetSourceKindCount,
+        multiAssetReferenceRoleCount,
+        multiAssetConnectedSourceCount,
+        multiAssetOutputNodeCount,
+        multiAssetWorkflowScenarioCount,
+        multiAssetLineageEdgeCount,
+        multiAssetCapturedAt,
+        multiAssetEvidence,
         agentStepCount,
         agentActorCount,
         agentTaskCreatedCount,
@@ -1091,6 +1127,78 @@ function buildVersioningPolishProofFields(input: {
     ...evidence,
     versionCapturedAt: input.capturedAt,
     versionEvidence: `${evidence.versionRestorableSnapshotCount}/${evidence.versionSnapshotCount} restorable saved version${evidence.versionSnapshotCount === 1 ? '' : 's'}; ${evidence.versionNodeCommentCount} node-attached comment${evidence.versionNodeCommentCount === 1 ? '' : 's'}; ${evidence.versionReusableTemplateCount} reusable template${evidence.versionReusableTemplateCount === 1 ? '' : 's'}; auto-save ${evidence.versionAutoSaveEnabled ? 'enabled' : 'disabled'}`,
+  }
+}
+
+function collectMultiAssetWorkflowEvidence(input: {
+  nodes: CreativeCanvasNode[]
+  edges: CreativeCanvasEdge[]
+}) {
+  const sourceNodes = input.nodes.filter((node) => Boolean(node.source))
+  const outputNodes = input.nodes.filter((node) => node.type === 'output' || Boolean(node.output))
+  const connectedSourceIds = new Set<string>()
+  const sourceNodeIds = new Set(sourceNodes.map((node) => node.id))
+  let lineageEdgeCount = 0
+
+  input.edges.forEach((edge) => {
+    const sourceIsAsset = sourceNodeIds.has(edge.sourceNodeId)
+    const targetNode = input.nodes.find((node) => node.id === edge.targetNodeId)
+    if (sourceIsAsset) {
+      connectedSourceIds.add(edge.sourceNodeId)
+      lineageEdgeCount += 1
+    }
+    if (targetNode?.type === 'output' || targetNode?.output) {
+      lineageEdgeCount += 1
+    }
+  })
+
+  const workflowScenarioCount = new Set(input.nodes
+    .map((node) => node.data?.benchmarkScenario)
+    .filter((scenario): scenario is string => typeof scenario === 'string' && Boolean(scenario.trim()))).size
+
+  return {
+    multiAssetSourceNodeCount: sourceNodes.length,
+    multiAssetSourceKindCount: new Set(sourceNodes.map((node) => node.source?.kind ?? 'upload')).size,
+    multiAssetReferenceRoleCount: new Set(sourceNodes.map((node) => node.source?.referenceRole ?? 'general')).size,
+    multiAssetConnectedSourceCount: connectedSourceIds.size,
+    multiAssetOutputNodeCount: outputNodes.length,
+    multiAssetWorkflowScenarioCount: workflowScenarioCount,
+    multiAssetLineageEdgeCount: lineageEdgeCount,
+  }
+}
+
+function hasMultiAssetWorkflowProof(proof: CreativeCanvasBenchmarkProofRecord | undefined): boolean {
+  return Boolean(
+    proof
+      && typeof proof.multiAssetSourceNodeCount === 'number'
+      && proof.multiAssetSourceNodeCount >= 3
+      && typeof proof.multiAssetSourceKindCount === 'number'
+      && proof.multiAssetSourceKindCount >= 2
+      && typeof proof.multiAssetReferenceRoleCount === 'number'
+      && proof.multiAssetReferenceRoleCount >= 3
+      && typeof proof.multiAssetConnectedSourceCount === 'number'
+      && proof.multiAssetConnectedSourceCount >= 3
+      && typeof proof.multiAssetOutputNodeCount === 'number'
+      && proof.multiAssetOutputNodeCount > 0
+      && typeof proof.multiAssetWorkflowScenarioCount === 'number'
+      && proof.multiAssetWorkflowScenarioCount > 0
+      && typeof proof.multiAssetLineageEdgeCount === 'number'
+      && proof.multiAssetLineageEdgeCount >= 3
+      && proof.multiAssetCapturedAt
+      && proof.multiAssetEvidence,
+  )
+}
+
+function buildMultiAssetWorkflowProofFields(input: {
+  nodes: CreativeCanvasNode[]
+  edges: CreativeCanvasEdge[]
+  capturedAt: string
+}): Pick<CreativeCanvasBenchmarkProofRecord, 'multiAssetSourceNodeCount' | 'multiAssetSourceKindCount' | 'multiAssetReferenceRoleCount' | 'multiAssetConnectedSourceCount' | 'multiAssetOutputNodeCount' | 'multiAssetWorkflowScenarioCount' | 'multiAssetLineageEdgeCount' | 'multiAssetCapturedAt' | 'multiAssetEvidence'> {
+  const evidence = collectMultiAssetWorkflowEvidence(input)
+  return {
+    ...evidence,
+    multiAssetCapturedAt: input.capturedAt,
+    multiAssetEvidence: `${evidence.multiAssetConnectedSourceCount}/3 connected source nodes across ${evidence.multiAssetReferenceRoleCount}/3 roles and ${evidence.multiAssetSourceKindCount}/2 source kinds; ${evidence.multiAssetOutputNodeCount} output node${evidence.multiAssetOutputNodeCount === 1 ? '' : 's'}; ${evidence.multiAssetWorkflowScenarioCount} benchmark scenario${evidence.multiAssetWorkflowScenarioCount === 1 ? '' : 's'}; ${evidence.multiAssetLineageEdgeCount} lineage edge${evidence.multiAssetLineageEdgeCount === 1 ? '' : 's'}`,
   }
 }
 
@@ -2935,6 +3043,9 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
     const versioningPolishProof = key === 'versioning_polish'
       ? buildVersioningPolishProofFields({ versions, comments, templates, autoSaveEnabled, capturedAt })
       : {}
+    const multiAssetWorkflowProof = key === 'multi_asset_workflows'
+      ? buildMultiAssetWorkflowProofFields({ nodes: benchmarkAuditNodes, edges: benchmarkAuditEdges, capturedAt })
+      : {}
     const collaborationSessionProof = key === 'collaboration'
       ? {
           collaborationRemoteActorCount: currentRemotePresence.length,
@@ -3018,6 +3129,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
         ...maskingSessionProof,
         ...generationReferenceProof,
         ...versioningPolishProof,
+        ...multiAssetWorkflowProof,
         ...collaborationSessionProof,
         ...agentOrchestrationProof,
         ...mobileViewportProof,
@@ -4973,9 +5085,17 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
   const missingBenchmarkModelLabels = requiredHiggsfieldModelLabels.filter((label) => !availableHiggsfieldModelLabels.has(label))
   const supportsBenchmarkModelCatalog = missingBenchmarkModelLabels.length === 0
   const hasMultiModelRoutingEvidence = routedModelIds.size > 1
-  const hasMultiAssetEvidence = sourceLibrary.length > 0
-    || canvasAssets.length > 1
-    || parityAuditNodes.filter((node) => node.source || node.output).length > 1
+  const multiAssetWorkflowEvidence = collectMultiAssetWorkflowEvidence({
+    nodes: parityAuditNodes,
+    edges: edges.map((edge) => toCanvasEdge(edge, resolvedOrgId || activeCanvas?.orgId || 'pending-org')),
+  })
+  const hasMultiAssetWorkflowEvidence = multiAssetWorkflowEvidence.multiAssetSourceNodeCount >= 3
+    && multiAssetWorkflowEvidence.multiAssetSourceKindCount >= 2
+    && multiAssetWorkflowEvidence.multiAssetReferenceRoleCount >= 3
+    && multiAssetWorkflowEvidence.multiAssetConnectedSourceCount >= 3
+    && multiAssetWorkflowEvidence.multiAssetOutputNodeCount > 0
+    && multiAssetWorkflowEvidence.multiAssetWorkflowScenarioCount > 0
+    && multiAssetWorkflowEvidence.multiAssetLineageEdgeCount >= 3
   const availableBenchmarkScenarioCount = new Set(workflowPresets
     .map((preset) => preset.benchmarkScenario)
     .filter((scenario): scenario is string => Boolean(scenario))).size
@@ -5040,7 +5160,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
     editing_ergonomics: hasEditingEvidence,
     masking_inpainting: hasMaskEvidence,
     generation_controls: hasGenerationEvidence && hasMultiModelRoutingEvidence && hasGenerationMultiReferenceEvidence,
-    multi_asset_workflows: hasMultiAssetEvidence && graphBenchmarkScenarioCount > 0,
+    multi_asset_workflows: hasMultiAssetWorkflowEvidence,
     versioning_polish: hasVersioningPolishEvidence,
     collaboration: hasCollaborationEvidence && hasRemoteLiveEditEvidence,
     agent_orchestration: hasAgentTaskCreationEvidence,
@@ -5055,6 +5175,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
       && (item.key !== 'editing_ergonomics' || hasEditingSessionProof(proof))
       && (item.key !== 'masking_inpainting' || hasMaskingSessionProof(proof))
       && (item.key !== 'generation_controls' || hasGenerationReferenceProof(proof))
+      && (item.key !== 'multi_asset_workflows' || hasMultiAssetWorkflowProof(proof))
       && (item.key !== 'versioning_polish' || hasVersioningPolishProof(proof))
       && (item.key !== 'collaboration' || hasCollaborationSessionProof(proof))
       && (item.key !== 'agent_orchestration' || hasAgentOrchestrationProof(proof))
@@ -5144,6 +5265,9 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
       const versioningPolishProof = item.key === 'versioning_polish'
         ? buildVersioningPolishProofFields({ versions, comments, templates, autoSaveEnabled, capturedAt })
         : {}
+      const multiAssetWorkflowProof = item.key === 'multi_asset_workflows'
+        ? buildMultiAssetWorkflowProofFields({ nodes: parityAuditNodes, edges: edges.map((edge) => toCanvasEdge(edge, canvasOrgId)), capturedAt })
+        : {}
       const collaborationSessionProof = item.key === 'collaboration'
         ? {
             collaborationRemoteActorCount: remotePresence.length,
@@ -5209,6 +5333,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
         ...maskingSessionProof,
         ...generationReferenceProof,
         ...versioningPolishProof,
+        ...multiAssetWorkflowProof,
         ...collaborationSessionProof,
         ...agentOrchestrationProof,
         ...mobileViewportProof,
@@ -5284,8 +5409,10 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
     },
     {
       label: 'Multi-asset workflows',
-      status: hasMultiAssetEvidence ? 'passed' : 'watch',
-      evidence: `${sourceLibrary.length} sources · ${canvasAssets.length} canvas assets`,
+      status: hasMultiAssetWorkflowEvidence ? 'passed' : multiAssetWorkflowEvidence.multiAssetSourceNodeCount || multiAssetWorkflowEvidence.multiAssetOutputNodeCount ? 'watch' : 'blocked',
+      evidence: hasMultiAssetWorkflowEvidence
+        ? `${multiAssetWorkflowEvidence.multiAssetConnectedSourceCount}/3 connected sources · ${multiAssetWorkflowEvidence.multiAssetReferenceRoleCount}/3 roles · ${multiAssetWorkflowEvidence.multiAssetSourceKindCount}/2 source kinds · ${multiAssetWorkflowEvidence.multiAssetOutputNodeCount} outputs`
+        : `${multiAssetWorkflowEvidence.multiAssetConnectedSourceCount}/3 connected sources · ${multiAssetWorkflowEvidence.multiAssetReferenceRoleCount}/3 roles · ${multiAssetWorkflowEvidence.multiAssetSourceKindCount}/2 source kinds · ${multiAssetWorkflowEvidence.multiAssetOutputNodeCount} outputs`,
     },
     {
       label: 'Benchmark workflows',
@@ -5973,6 +6100,9 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
               {item.key === 'generation_controls' && item.proof && !hasGenerationReferenceProof(item.proof) ? (
                 <p className="mt-1 text-[11px] font-semibold">Needs stored three-reference generation routing evidence before generation proof can pass.</p>
               ) : null}
+              {item.key === 'multi_asset_workflows' && item.proof && !hasMultiAssetWorkflowProof(item.proof) ? (
+                <p className="mt-1 text-[11px] font-semibold">Needs stored connected multi-asset source, role, output, workflow, and lineage evidence before multi-asset proof can pass.</p>
+              ) : null}
               {item.key === 'versioning_polish' && item.proof && !hasVersioningPolishProof(item.proof) ? (
                 <p className="mt-1 text-[11px] font-semibold">Needs stored restorable version, node comment, reusable template, and auto-save evidence before versioning proof can pass.</p>
               ) : null}
@@ -6046,6 +6176,11 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
                   {item.key === 'generation_controls' && item.proof.generationMultiReferenceEvidence ? (
                     <p className="mt-1">
                       Generation references: {item.proof.generationLinkedReferenceCount ?? 0}/3 linked · {item.proof.generationReferenceRoleCount ?? 0}/3 roles · {item.proof.generationModelCount ?? 0} generation node{item.proof.generationModelCount === 1 ? '' : 's'}
+                    </p>
+                  ) : null}
+                  {item.key === 'multi_asset_workflows' && item.proof.multiAssetEvidence ? (
+                    <p className="mt-1">
+                      Multi-asset workflow: {item.proof.multiAssetConnectedSourceCount ?? 0}/3 connected sources · {item.proof.multiAssetReferenceRoleCount ?? 0}/3 roles · {item.proof.multiAssetSourceKindCount ?? 0}/2 source kinds · {item.proof.multiAssetOutputNodeCount ?? 0} outputs · {item.proof.multiAssetWorkflowScenarioCount ?? 0} scenarios
                     </p>
                   ) : null}
                   {item.key === 'versioning_polish' && item.proof.versionEvidence ? (

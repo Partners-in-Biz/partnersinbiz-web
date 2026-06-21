@@ -1878,6 +1878,77 @@ describe('CreativeCanvasWorkspace', () => {
     expect(benchmarkProof).toHaveTextContent('Needs stored restorable version, node comment, reusable template, and auto-save evidence before versioning proof can pass.')
   })
 
+  it('does not pass multi-asset workflow benchmark proof without connected source lineage evidence', async () => {
+    const defaultFetch = fetchMock.getMockImplementation()
+    const emptyGraphSignature = JSON.stringify({ nodes: [], edges: [] })
+    fetchMock.mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      if (url === '/api/v1/creative-canvas?orgId=org-1') {
+        return {
+          ok: true,
+          json: async () => ({
+            success: true,
+            data: {
+              canvases: [{
+                id: 'canvas-1',
+                orgId: 'org-1',
+                title: 'Launch Canvas',
+                activeVersion: 1,
+                data: {
+                  benchmarkProof: {
+                    multi_asset_workflows: {
+                      proofUrl: 'https://proof.example.com/multi-asset.mp4',
+                      notes: 'Legacy multi-asset proof before connected lineage metadata was required.',
+                      capturedAt: '2026-06-21T10:00:00.000Z',
+                      capturedBy: 'Pip',
+                      sourceTitle: 'Higgsfield Canvas source and output workflow',
+                      sourceUrl: 'https://higgsfield.ai/canvas-intro',
+                      sourceCheckedAt: '2026-06-21T10:01:00.000Z',
+                      sourceEvidenceCheckedAt: '2026-06-21T10:01:10.000Z',
+                      sourceEvidenceReachable: true,
+                      sourceEvidenceStatus: 200,
+                      sourceEvidenceContentType: 'text/html',
+                      sourceSignalsVerifiedAt: '2026-06-21T10:01:20.000Z',
+                      sourceSignalsMatched: true,
+                      sourceSignalsMissing: [],
+                      sourceSignals: ['Moodboard', 'mix models', 'route outputs', 'single creative pipeline', 'Soul ID characters', 'uploaded products', 'brand references', 'previous generations'],
+                      higgsfieldUiEvidenceUrl: 'https://higgsfield.ai/canvas-intro',
+                      canvasEvidenceUrl: 'https://proof.example.com/multi-asset.mp4',
+                      canvasEvidenceCheckedAt: '2026-06-21T10:01:30.000Z',
+                      canvasEvidenceReachable: true,
+                      canvasEvidenceStatus: 200,
+                      canvasEvidenceContentType: 'video/mp4',
+                      directComparisonAt: '2026-06-21T10:02:00.000Z',
+                      directComparisonVerdict: 'pass',
+                      directComparisonNotes: 'Direct multi-asset workflow comparison passed.',
+                      canvasVersion: 1,
+                      graphSignature: emptyGraphSignature,
+                      nodeCount: 0,
+                      edgeCount: 0,
+                    },
+                  },
+                },
+                nodes: [],
+                edges: [],
+              }],
+            },
+          }),
+        }
+      }
+      return defaultFetch?.(input, init) ?? {
+        ok: true,
+        json: async () => ({ success: true, data: {} }),
+      }
+    })
+
+    render(<CreativeCanvasWorkspace mode="admin" orgId="org-1" />)
+
+    expect(await screen.findByText('Launch Canvas')).toBeInTheDocument()
+    const benchmarkProof = screen.getByLabelText(/direct higgsfield benchmark proof/i)
+    expect(benchmarkProof).toHaveTextContent('0/10 benchmark proven')
+    expect(benchmarkProof).toHaveTextContent('Needs stored connected multi-asset source, role, output, workflow, and lineage evidence before multi-asset proof can pass.')
+  })
+
   it('does not pass benchmark proof records that lack a Higgsfield source check', async () => {
     const defaultFetch = fetchMock.getMockImplementation()
     fetchMock.mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
@@ -2399,6 +2470,49 @@ describe('CreativeCanvasWorkspace', () => {
     expect(parityAudit).toHaveTextContent('0 prompt · 1 mask/source · 1 brush · 0/3+ blend controls')
     const benchmarkProof = screen.getByLabelText(/direct higgsfield benchmark proof/i)
     expect(benchmarkProof).toHaveTextContent('4 ready benchmark categories need stored proof.')
+
+    fireEvent.click(within(benchmarkProof).getByRole('button', { name: /capture ready proofs/i }))
+
+    await waitFor(() => expect(screen.getByText('Captured 4 ready benchmark proofs')).toBeInTheDocument())
+
+    const patchCall = fetchMock.mock.calls.find(([input, init]) => (
+      String(input) === '/api/v1/creative-canvas/canvas-1?orgId=org-1'
+      && init?.method === 'PATCH'
+      && String(init.body).includes('multi_asset_workflows')
+      && String(init.body).includes('multiAssetEvidence')
+    ))
+    expect(patchCall).toBeTruthy()
+    const body = JSON.parse(String(patchCall?.[1]?.body ?? '{}')) as {
+      data?: {
+        benchmarkProof?: {
+          multi_asset_workflows?: {
+            multiAssetSourceNodeCount?: number
+            multiAssetSourceKindCount?: number
+            multiAssetReferenceRoleCount?: number
+            multiAssetConnectedSourceCount?: number
+            multiAssetOutputNodeCount?: number
+            multiAssetWorkflowScenarioCount?: number
+            multiAssetLineageEdgeCount?: number
+            multiAssetCapturedAt?: string
+            multiAssetEvidence?: string
+          }
+        }
+      }
+    }
+    expect(body.data?.benchmarkProof?.multi_asset_workflows).toMatchObject({
+      multiAssetSourceNodeCount: expect.any(Number),
+      multiAssetSourceKindCount: expect.any(Number),
+      multiAssetReferenceRoleCount: expect.any(Number),
+      multiAssetConnectedSourceCount: expect.any(Number),
+      multiAssetOutputNodeCount: expect.any(Number),
+      multiAssetWorkflowScenarioCount: expect.any(Number),
+      multiAssetLineageEdgeCount: expect.any(Number),
+      multiAssetCapturedAt: expect.any(String),
+      multiAssetEvidence: expect.stringContaining('connected source nodes'),
+    })
+    expect(body.data?.benchmarkProof?.multi_asset_workflows?.multiAssetConnectedSourceCount).toBeGreaterThanOrEqual(3)
+    expect(body.data?.benchmarkProof?.multi_asset_workflows?.multiAssetSourceKindCount).toBeGreaterThanOrEqual(2)
+    expect(body.data?.benchmarkProof?.multi_asset_workflows?.multiAssetReferenceRoleCount).toBeGreaterThanOrEqual(3)
   })
 
   it('switches mobile panels with responsive readiness evidence', async () => {

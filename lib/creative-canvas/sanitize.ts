@@ -321,6 +321,29 @@ function cleanBenchmarkProofData(value: unknown): Record<string, unknown> | unde
       const versionAutoSaveEnabled = item.versionAutoSaveEnabled === true ? true : undefined
       const versionCapturedAt = cleanString(item.versionCapturedAt)?.slice(0, 80)
       const versionEvidence = cleanString(item.versionEvidence)?.slice(0, 400)
+      const multiAssetSourceNodeCount = typeof item.multiAssetSourceNodeCount === 'number' && Number.isFinite(item.multiAssetSourceNodeCount)
+        ? Math.max(0, Math.round(item.multiAssetSourceNodeCount))
+        : undefined
+      const multiAssetSourceKindCount = typeof item.multiAssetSourceKindCount === 'number' && Number.isFinite(item.multiAssetSourceKindCount)
+        ? Math.max(0, Math.round(item.multiAssetSourceKindCount))
+        : undefined
+      const multiAssetReferenceRoleCount = typeof item.multiAssetReferenceRoleCount === 'number' && Number.isFinite(item.multiAssetReferenceRoleCount)
+        ? Math.max(0, Math.round(item.multiAssetReferenceRoleCount))
+        : undefined
+      const multiAssetConnectedSourceCount = typeof item.multiAssetConnectedSourceCount === 'number' && Number.isFinite(item.multiAssetConnectedSourceCount)
+        ? Math.max(0, Math.round(item.multiAssetConnectedSourceCount))
+        : undefined
+      const multiAssetOutputNodeCount = typeof item.multiAssetOutputNodeCount === 'number' && Number.isFinite(item.multiAssetOutputNodeCount)
+        ? Math.max(0, Math.round(item.multiAssetOutputNodeCount))
+        : undefined
+      const multiAssetWorkflowScenarioCount = typeof item.multiAssetWorkflowScenarioCount === 'number' && Number.isFinite(item.multiAssetWorkflowScenarioCount)
+        ? Math.max(0, Math.round(item.multiAssetWorkflowScenarioCount))
+        : undefined
+      const multiAssetLineageEdgeCount = typeof item.multiAssetLineageEdgeCount === 'number' && Number.isFinite(item.multiAssetLineageEdgeCount)
+        ? Math.max(0, Math.round(item.multiAssetLineageEdgeCount))
+        : undefined
+      const multiAssetCapturedAt = cleanString(item.multiAssetCapturedAt)?.slice(0, 80)
+      const multiAssetEvidence = cleanString(item.multiAssetEvidence)?.slice(0, 500)
       const agentStepCount = typeof item.agentStepCount === 'number' && Number.isFinite(item.agentStepCount)
         ? Math.max(0, Math.round(item.agentStepCount))
         : undefined
@@ -438,6 +461,15 @@ function cleanBenchmarkProofData(value: unknown): Record<string, unknown> | unde
         && versionAutoSaveEnabled === undefined
         && !versionCapturedAt
         && !versionEvidence
+        && multiAssetSourceNodeCount === undefined
+        && multiAssetSourceKindCount === undefined
+        && multiAssetReferenceRoleCount === undefined
+        && multiAssetConnectedSourceCount === undefined
+        && multiAssetOutputNodeCount === undefined
+        && multiAssetWorkflowScenarioCount === undefined
+        && multiAssetLineageEdgeCount === undefined
+        && !multiAssetCapturedAt
+        && !multiAssetEvidence
         && agentStepCount === undefined
         && agentActorCount === undefined
         && agentTaskCreatedCount === undefined
@@ -524,6 +556,15 @@ function cleanBenchmarkProofData(value: unknown): Record<string, unknown> | unde
         ...(versionAutoSaveEnabled !== undefined ? { versionAutoSaveEnabled } : {}),
         ...(versionCapturedAt ? { versionCapturedAt } : {}),
         ...(versionEvidence ? { versionEvidence } : {}),
+        ...(multiAssetSourceNodeCount !== undefined ? { multiAssetSourceNodeCount } : {}),
+        ...(multiAssetSourceKindCount !== undefined ? { multiAssetSourceKindCount } : {}),
+        ...(multiAssetReferenceRoleCount !== undefined ? { multiAssetReferenceRoleCount } : {}),
+        ...(multiAssetConnectedSourceCount !== undefined ? { multiAssetConnectedSourceCount } : {}),
+        ...(multiAssetOutputNodeCount !== undefined ? { multiAssetOutputNodeCount } : {}),
+        ...(multiAssetWorkflowScenarioCount !== undefined ? { multiAssetWorkflowScenarioCount } : {}),
+        ...(multiAssetLineageEdgeCount !== undefined ? { multiAssetLineageEdgeCount } : {}),
+        ...(multiAssetCapturedAt ? { multiAssetCapturedAt } : {}),
+        ...(multiAssetEvidence ? { multiAssetEvidence } : {}),
         ...(agentStepCount !== undefined ? { agentStepCount } : {}),
         ...(agentActorCount !== undefined ? { agentActorCount } : {}),
         ...(agentTaskCreatedCount !== undefined ? { agentTaskCreatedCount } : {}),
