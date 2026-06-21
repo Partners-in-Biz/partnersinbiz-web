@@ -20,12 +20,13 @@ const RELIABILITY_CATEGORIES: Array<{
   key: ReliabilityCategory
   label: string
   kinds: Array<NonNullable<CreativeCanvasRun['input']['outputKind']>>
+  requiresProviderEvidence: boolean
 }> = [
-  { key: 'image', label: 'Image', kinds: ['image', 'campaign_asset'] },
-  { key: 'video_social', label: 'Video/social', kinds: ['video', 'social_post_draft', 'youtube_render'] },
-  { key: 'audio', label: 'Audio', kinds: ['audio'] },
-  { key: 'blog_document', label: 'Blog/document', kinds: ['blog_draft', 'document_block', 'copy', 'caption'] },
-  { key: 'book', label: 'Book', kinds: ['book_artifact'] },
+  { key: 'image', label: 'Image', kinds: ['image', 'campaign_asset'], requiresProviderEvidence: true },
+  { key: 'video_social', label: 'Video/social', kinds: ['video', 'social_post_draft', 'youtube_render'], requiresProviderEvidence: true },
+  { key: 'audio', label: 'Audio', kinds: ['audio'], requiresProviderEvidence: true },
+  { key: 'blog_document', label: 'Blog/document', kinds: ['blog_draft', 'document_block', 'copy', 'caption'], requiresProviderEvidence: false },
+  { key: 'book', label: 'Book', kinds: ['book_artifact'], requiresProviderEvidence: true },
 ]
 
 function proofStatus(checks: CreativeCanvasRuntimeProofCheck[]): CreativeCanvasProofStatus {
@@ -42,8 +43,30 @@ function isActiveStatus(status: CreativeCanvasRun['status']): boolean {
   return status === 'queued' || status === 'running' || status === 'waiting_for_review'
 }
 
-function hasCompletedRunArtifact(run: RunWithId): boolean {
-  return Boolean(run.output?.url || run.output?.artifactId || run.output?.textPreview)
+function reliabilityCategoryForRun(run: RunWithId) {
+  const outputKind = run.input.outputKind
+  if (!outputKind) return undefined
+  return RELIABILITY_CATEGORIES.find((category) => category.kinds.includes(outputKind))
+}
+
+function hasProviderEvidence(run: RunWithId): boolean {
+  return Boolean(run.provenance.providerJobId || run.output?.rawProviderJobId)
+}
+
+function hasCompletedRunArtifact(
+  run: RunWithId,
+  options: { requiresProviderEvidence?: boolean } = {},
+): boolean {
+  const hasOutputEvidence = Boolean(run.output?.url || run.output?.artifactId || run.output?.textPreview)
+  if (!hasOutputEvidence) return false
+  return !options.requiresProviderEvidence || hasProviderEvidence(run)
+}
+
+function hasRequiredCompletedRunArtifact(run: RunWithId): boolean {
+  const category = reliabilityCategoryForRun(run)
+  return hasCompletedRunArtifact(run, {
+    requiresProviderEvidence: category?.requiresProviderEvidence ?? false,
+  })
 }
 
 function categoryCoverage(runs: RunWithId[]): CreativeCanvasReliabilityCoverageCategory[] {
@@ -53,11 +76,15 @@ function categoryCoverage(runs: RunWithId[]): CreativeCanvasReliabilityCoverageC
       return outputKind ? category.kinds.includes(outputKind) : false
     })
     const statusCompleted = matchingRuns.filter((run) => run.status === 'completed')
-    const completed = statusCompleted.filter(hasCompletedRunArtifact).length
+    const completed = statusCompleted.filter((run) => hasCompletedRunArtifact(run, {
+      requiresProviderEvidence: category.requiresProviderEvidence,
+    })).length
     const active = matchingRuns.filter((run) => isActiveStatus(run.status)).length
     const failed = matchingRuns.filter((run) => run.status === 'failed').length
     const cancelled = matchingRuns.filter((run) => run.status === 'cancelled').length
-    const latestCompletedRun = statusCompleted.find(hasCompletedRunArtifact)
+    const latestCompletedRun = statusCompleted.find((run) => hasCompletedRunArtifact(run, {
+      requiresProviderEvidence: category.requiresProviderEvidence,
+    }))
     const latestRun = matchingRuns[0]
     const status: CreativeCanvasProofStatus = completed >= REQUIRED_COMPLETED_RUNS_PER_CATEGORY
       ? 'passed'
@@ -80,7 +107,7 @@ function categoryCoverage(runs: RunWithId[]): CreativeCanvasReliabilityCoverageC
       nextAction: completed >= REQUIRED_COMPLETED_RUNS_PER_CATEGORY
         ? undefined
         : statusCompleted.length > completed
-          ? 'Ingest provider output artifacts for completed proof runs.'
+          ? 'Ingest provider output artifacts and provider job IDs for completed proof runs.'
         : active
           ? 'Wait for this proof run to complete or ingest the provider output.'
           : failed
@@ -102,7 +129,7 @@ export function buildCreativeCanvasRuntimeProof(input: {
   const assets = buildCreativeCanvasAssetGallery({ nodes: canvas.nodes, runs })
   const exportableAssets = assets.filter((asset) => asset.canDraftExport)
   const completedRuns = runs.filter((run) => run.status === 'completed')
-  const completedRunsWithArtifacts = completedRuns.filter(hasCompletedRunArtifact)
+  const completedRunsWithArtifacts = completedRuns.filter(hasRequiredCompletedRunArtifact)
   const completedRunsMissingArtifacts = completedRuns.length - completedRunsWithArtifacts.length
   const activeRuns = runs.filter((run) => run.status === 'queued' || run.status === 'running' || run.status === 'waiting_for_review')
   const reliabilityCoverage = categoryCoverage(runs)
@@ -154,7 +181,7 @@ export function buildCreativeCanvasRuntimeProof(input: {
     }),
     check({
       id: 'completed_run_artifacts',
-      label: 'Completed run artifacts',
+      label: 'Completed run artifacts and provenance',
       status: completedRuns.length && !completedRunsWithArtifacts.length
         ? 'blocked'
         : completedRunsMissingArtifacts
@@ -162,12 +189,12 @@ export function buildCreativeCanvasRuntimeProof(input: {
           : completedRunsWithArtifacts.length
             ? 'passed'
             : 'blocked',
-      evidence: `${completedRunsWithArtifacts.length}/${completedRuns.length} completed runs have output URL, artifact ID, or text preview evidence.`,
+      evidence: `${completedRunsWithArtifacts.length}/${completedRuns.length} completed runs have required output artifact evidence and provider job IDs for media categories.`,
       nextAction: completedRunsMissingArtifacts
-        ? 'Ingest provider output artifacts for every completed proof run before claiming repeated-job reliability.'
+        ? 'Ingest provider output artifacts and provider job IDs for every completed media proof run before claiming repeated-job reliability.'
         : completedRunsWithArtifacts.length
           ? undefined
-          : 'Complete a provider run with output artifact evidence.',
+          : 'Complete a provider run with output artifact evidence and provider job provenance.',
     }),
     check({
       id: 'queue_health',
@@ -202,10 +229,10 @@ export function buildCreativeCanvasRuntimeProof(input: {
       id: 'repeated_job_reliability',
       label: 'Repeated creative job reliability',
       status: repeatedJobReliabilityPassed ? 'passed' : repeatedJobReliabilityObserved ? 'warning' : 'blocked',
-      evidence: `${runs.length} total runs, ${completedRunsWithArtifacts.length} artifact-backed completed, ${completedRunsMissingArtifacts} completed missing artifacts, ${activeRuns.length} active, ${totalFailures} failed, ${Math.round(failureRate * 100)}% artifact-backed failure rate, ${operations.staleActiveRuns} stale active.`,
+      evidence: `${runs.length} total runs, ${completedRunsWithArtifacts.length} artifact/provenance-backed completed, ${completedRunsMissingArtifacts} completed missing artifacts or media provenance, ${activeRuns.length} active, ${totalFailures} failed, ${Math.round(failureRate * 100)}% artifact/provenance-backed failure rate, ${operations.staleActiveRuns} stale active.`,
       nextAction: repeatedJobReliabilityPassed
         ? undefined
-        : `Complete at least ${REQUIRED_COMPLETED_RUNS_PER_CATEGORY} artifact-backed creative jobs in each category, ${RELIABILITY_CATEGORIES.length * REQUIRED_COMPLETED_RUNS_PER_CATEGORY} total, with <=10% failures and no active or stale runs.`,
+        : `Complete at least ${REQUIRED_COMPLETED_RUNS_PER_CATEGORY} artifact/provenance-backed creative jobs in each category, ${RELIABILITY_CATEGORIES.length * REQUIRED_COMPLETED_RUNS_PER_CATEGORY} total, with <=10% failures and no active or stale runs.`,
     }),
   ]
 

@@ -179,8 +179,8 @@ describe('creative canvas runtime proof', () => {
       expect.objectContaining({
         id: 'repeated_job_reliability',
         status: 'warning',
-        evidence: '10 total runs, 4 artifact-backed completed, 0 completed missing artifacts, 6 active, 0 failed, 0% artifact-backed failure rate, 0 stale active.',
-        nextAction: 'Complete at least 2 artifact-backed creative jobs in each category, 10 total, with <=10% failures and no active or stale runs.',
+        evidence: '10 total runs, 4 artifact/provenance-backed completed, 0 completed missing artifacts or media provenance, 6 active, 0 failed, 0% artifact/provenance-backed failure rate, 0 stale active.',
+        nextAction: 'Complete at least 2 artifact/provenance-backed creative jobs in each category, 10 total, with <=10% failures and no active or stale runs.',
       }),
     ]))
   })
@@ -215,18 +215,96 @@ describe('creative canvas runtime proof', () => {
         status: 'warning',
         completed: 1,
         requiredCompleted: 2,
-        nextAction: 'Ingest provider output artifacts for completed proof runs.',
+        nextAction: 'Ingest provider output artifacts and provider job IDs for completed proof runs.',
       }),
     ]))
     expect(proof.checks).toEqual(expect.arrayContaining([
       expect.objectContaining({
         id: 'completed_run_artifacts',
         status: 'warning',
-        evidence: '9/10 completed runs have output URL, artifact ID, or text preview evidence.',
+        evidence: '9/10 completed runs have required output artifact evidence and provider job IDs for media categories.',
       }),
       expect.objectContaining({
         id: 'repeated_job_reliability',
         status: 'warning',
+      }),
+    ]))
+  })
+
+  it('does not count completed media proof runs without provider job provenance', () => {
+    const withoutProviderEvidence = (run: CreativeCanvasRun & { id: string }) => ({
+      ...run,
+      provenance: {
+        ...run.provenance,
+        providerJobId: undefined,
+        providerRequestId: undefined,
+        providerStatusUrl: undefined,
+      },
+      output: {
+        ...run.output,
+        rawProviderJobId: undefined,
+      },
+    }) satisfies CreativeCanvasRun & { id: string }
+
+    const proof = buildCreativeCanvasRuntimeProof({
+      canvas,
+      runs: [
+        withoutProviderEvidence(completedRunFor('run-image-1', 'image')),
+        withoutProviderEvidence(completedRunFor('run-image-2', 'campaign_asset')),
+        withoutProviderEvidence(completedRunFor('run-video-1', 'video')),
+        withoutProviderEvidence(completedRunFor('run-social-1', 'social_post_draft')),
+        withoutProviderEvidence(completedRunFor('run-audio-1', 'audio')),
+        withoutProviderEvidence(completedRunFor('run-audio-2', 'audio')),
+        completedRunFor('run-blog-1', 'blog_draft'),
+        completedRunFor('run-document-1', 'document_block'),
+        withoutProviderEvidence(completedRunFor('run-book-1', 'book_artifact')),
+        withoutProviderEvidence(completedRunFor('run-book-2', 'book_artifact')),
+      ],
+      env: {
+        HIGGSFIELD_RUNTIME_API_KEY: 'runtime-key',
+        NEXT_PUBLIC_APP_URL: 'https://partnersinbiz.online',
+        HIGGSFIELD_WEBHOOK_SECRET: 'hook-secret',
+      } as NodeJS.ProcessEnv,
+    })
+
+    expect(proof.readyForLiveProof).toBe(false)
+    expect(proof.status).toBe('blocked')
+    expect(proof.reliabilityCoverage).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        key: 'image',
+        status: 'warning',
+        completed: 0,
+        requiredCompleted: 2,
+        nextAction: 'Ingest provider output artifacts and provider job IDs for completed proof runs.',
+      }),
+      expect.objectContaining({
+        key: 'audio',
+        status: 'warning',
+        completed: 0,
+        requiredCompleted: 2,
+        nextAction: 'Ingest provider output artifacts and provider job IDs for completed proof runs.',
+      }),
+      expect.objectContaining({
+        key: 'blog_document',
+        status: 'passed',
+        completed: 2,
+        requiredCompleted: 2,
+      }),
+    ]))
+    expect(proof.checks).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        id: 'completed_run_artifacts',
+        status: 'warning',
+        evidence: '2/10 completed runs have required output artifact evidence and provider job IDs for media categories.',
+      }),
+      expect.objectContaining({
+        id: 'repeated_job_coverage',
+        status: 'blocked',
+      }),
+      expect.objectContaining({
+        id: 'repeated_job_reliability',
+        status: 'warning',
+        evidence: '10 total runs, 2 artifact/provenance-backed completed, 8 completed missing artifacts or media provenance, 0 active, 0 failed, 0% artifact/provenance-backed failure rate, 0 stale active.',
       }),
     ]))
   })
