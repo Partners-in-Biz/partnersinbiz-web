@@ -20,13 +20,27 @@ jest.mock('@/lib/firebase/config', () => ({
 }))
 
 jest.mock('@/components/kanban/KanbanBoard', () => ({
-  KanbanBoard: ({ onAddTask }: { onAddTask: (columnId: string) => void }) => (
-    <button type="button" onClick={() => onAddTask('todo')}>Mock add task</button>
+  KanbanBoard: ({ tasks, onAddTask, onTaskClick, onTaskMove }: { tasks?: Array<{ id: string; title: string; columnId?: string }>; onAddTask: (columnId: string) => void; onTaskClick?: (task: unknown) => void; onTaskMove?: (taskId: string, newColumnId: string, newOrder: number) => void }) => (
+    <div>
+      <button type="button" onClick={() => onAddTask('todo')}>Mock add task</button>
+      {tasks?.map((task) => (
+        <div key={task.id}>
+          <span>Task column: {task.title} {task.columnId}</span>
+          <button type="button" onClick={() => onTaskClick?.(task)}>{task.title}</button>
+          <button type="button" onClick={() => onTaskMove?.(task.id, 'done', 2)}>Move {task.title} to done</button>
+        </div>
+      ))}
+    </div>
   ),
 }))
 
 jest.mock('@/components/kanban/TaskDetailPanel', () => ({
-  TaskDetailPanel: () => <div data-testid="task-detail-panel" />,
+  TaskDetailPanel: ({ task, onUpdate }: { task: { id: string; approvalStatus?: string } | null; onUpdate: (taskId: string, updates: Record<string, unknown>) => Promise<void> }) => task ? (
+    <div data-testid="task-detail-panel">
+      <span>Approval status: {task.approvalStatus ?? 'none'}</span>
+      <button type="button" onClick={() => onUpdate(task.id, { approvalStatus: 'approved', columnId: 'done', reviewStatus: 'approved' }).catch(() => undefined)}>Attempt approval</button>
+    </div>
+  ) : null,
 }))
 
 jest.mock('@/components/kanban/TaskComposer', () => ({
@@ -74,5 +88,71 @@ describe('ProjectDetailWorkspace portal agent assignment', () => {
     await waitFor(() => {
       expect(screen.getByTestId('task-composer-agent-visibility')).toHaveTextContent('agents visible')
     })
+  })
+
+  it('does not keep false local approval state when a task PATCH is rejected', async () => {
+    global.fetch = jest.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      if (url === '/api/auth/verify') {
+        return jsonResponse({ uid: 'client-1', email: 'client@example.com', role: 'client', isSuperAdmin: false })
+      }
+      if (url === '/api/v1/projects/project-1') {
+        return jsonResponse({ data: { id: 'project-1', orgId: 'org-acme', name: 'Client Website', status: 'active', columns: [] } })
+      }
+      if (url === '/api/v1/projects/project-1/docs') return jsonResponse({ data: [] })
+      if (url === '/api/v1/projects/project-1/tasks' && !init) {
+        return jsonResponse({ data: [{ id: 'task-1', title: 'Approval gate', columnId: 'review', order: 1, labels: ['approval-gate'], approvalStatus: 'pending' }] })
+      }
+      if (url === '/api/v1/projects/project-1/tasks/task-1' && init?.method === 'PATCH') {
+        return Promise.resolve({ ok: false, status: 403, json: async () => ({ success: false, error: 'Only an admin approver can change approvalStatus on project tasks' }) } as Response)
+      }
+      if (url === '/api/v1/organizations/org-acme/members') return jsonResponse({ data: [] })
+      if (url === '/api/v1/projects/project-1/access') return jsonResponse({ data: { members: [] } })
+      if (url === '/api/v1/orgs/org-acme/visible-agents') return jsonResponse({ data: [] })
+      return jsonResponse({ data: [] })
+    }) as jest.Mock
+
+    render(<ProjectDetailWorkspace mode="portal" projectId="project-1" orgScope={{ orgSlug: 'acme' }} />)
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Approval gate' }))
+    expect(await screen.findByText('Approval status: pending')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Attempt approval' }))
+
+    await waitFor(() => expect(global.fetch).toHaveBeenCalledWith('/api/v1/projects/project-1/tasks/task-1', expect.objectContaining({ method: 'PATCH' })))
+    expect(screen.getByText('Approval status: pending')).toBeInTheDocument()
+    expect(screen.queryByText('Approval status: approved')).not.toBeInTheDocument()
+  })
+
+  it('rolls back optimistic board movement when a task move PATCH is rejected', async () => {
+    global.fetch = jest.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      if (url === '/api/auth/verify') {
+        return jsonResponse({ uid: 'client-1', email: 'client@example.com', role: 'client', isSuperAdmin: false })
+      }
+      if (url === '/api/v1/projects/project-1') {
+        return jsonResponse({ data: { id: 'project-1', orgId: 'org-acme', name: 'Client Website', status: 'active', columns: [] } })
+      }
+      if (url === '/api/v1/projects/project-1/docs') return jsonResponse({ data: [] })
+      if (url === '/api/v1/projects/project-1/tasks' && !init) {
+        return jsonResponse({ data: [{ id: 'task-1', title: 'Approval gate', columnId: 'review', order: 1, labels: ['approval-gate'], approvalStatus: 'pending' }] })
+      }
+      if (url === '/api/v1/projects/project-1/tasks/task-1' && init?.method === 'PATCH') {
+        return Promise.resolve({ ok: false, status: 403, json: async () => ({ success: false, error: 'Only an admin approver can change approval-gate metadata on project tasks' }) } as Response)
+      }
+      if (url === '/api/v1/organizations/org-acme/members') return jsonResponse({ data: [] })
+      if (url === '/api/v1/projects/project-1/access') return jsonResponse({ data: { members: [] } })
+      if (url === '/api/v1/orgs/org-acme/visible-agents') return jsonResponse({ data: [] })
+      return jsonResponse({ data: [] })
+    }) as jest.Mock
+
+    render(<ProjectDetailWorkspace mode="portal" projectId="project-1" orgScope={{ orgSlug: 'acme' }} />)
+
+    expect(await screen.findByText('Task column: Approval gate review')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Move Approval gate to done' }))
+
+    await waitFor(() => expect(global.fetch).toHaveBeenCalledWith('/api/v1/projects/project-1/tasks/task-1', expect.objectContaining({ method: 'PATCH' })))
+    expect(screen.getByText('Task column: Approval gate review')).toBeInTheDocument()
+    expect(screen.queryByText('Task column: Approval gate done')).not.toBeInTheDocument()
   })
 })

@@ -1,9 +1,9 @@
 import { FieldValue } from 'firebase-admin/firestore'
 import { adminDb } from '@/lib/firebase/admin'
-import { CREATIVE_CANVAS_RUN_COLLECTION, completeCreativeCanvasRun, dispatchCreativeCanvasProviderRun, refreshCreativeCanvasProviderRunStatus } from './runs'
+import { CREATIVE_CANVAS_RUN_COLLECTION, completeCreativeCanvasRun, dispatchCreativeCanvasProviderRun, ensureCreativeCanvasRunOutputNode, refreshCreativeCanvasProviderRunStatus } from './runs'
 import { getCreativeCanvas } from './store'
 import { buildHiggsfieldExecutionManifest } from './higgsfield-execution'
-import type { CreativeCanvasActor, CreativeCanvasOutputKind, CreativeCanvasRun, CreativeCanvasRunStatus } from './types'
+import type { CreativeCanvas, CreativeCanvasActor, CreativeCanvasOutputKind, CreativeCanvasProviderRuntimeReadiness, CreativeCanvasRun, CreativeCanvasRunStatus } from './types'
 
 const HIGGSFIELD_ACTOR: CreativeCanvasActor = { uid: 'agent:maya', type: 'agent' }
 const DEFAULT_BATCH_SIZE = 5
@@ -70,6 +70,45 @@ function runtimeConfigFromEnv(env: NodeJS.ProcessEnv = process.env): HiggsfieldR
   }
 }
 
+export function getHiggsfieldRuntimeReadiness(input: {
+  canvas?: Pick<CreativeCanvas, 'linked'>
+  env?: NodeJS.ProcessEnv
+} = {}): CreativeCanvasProviderRuntimeReadiness {
+  const env = input.env ?? process.env
+  const config = runtimeConfigFromEnv(env)
+  const baseUrl = cleanString(env.HIGGSFIELD_RUNTIME_URL)
+  const explicitSubmitUrl = cleanString(env.HIGGSFIELD_RUNTIME_SUBMIT_URL)
+  const appUrl = cleanString(env.NEXT_PUBLIC_APP_URL) ?? cleanString(env.NEXT_PUBLIC_BASE_URL)
+  const hasRuntimeKey = Boolean(cleanString(env.HIGGSFIELD_RUNTIME_API_KEY))
+  const internalBridgeConfigured = Boolean(!explicitSubmitUrl && !baseUrl && appUrl && hasRuntimeKey)
+  const submitConfigured = Boolean(config.submitUrl)
+  const statusPollingConfigured = Boolean(config.statusUrlTemplate || internalBridgeConfigured)
+  const callbackBaseConfigured = Boolean(config.callbackBaseUrl)
+  const webhookSecretConfigured = Boolean(config.webhookSecret)
+  const linkedProjectId = cleanString(input.canvas?.linked?.projectId)
+  const blockers: string[] = []
+  const warnings: string[] = []
+
+  if (!submitConfigured) blockers.push('Higgsfield runtime submit URL or internal bridge is not configured')
+  if (!statusPollingConfigured) blockers.push('Higgsfield runtime status polling is not configured')
+  if (!linkedProjectId) blockers.push('Canvas is not linked to a project for agent task execution')
+  if (!callbackBaseConfigured) warnings.push('Callback base URL is not configured')
+  if (!webhookSecretConfigured) warnings.push('Provider webhook secret is not configured')
+
+  return {
+    providerKey: 'higgsfield',
+    runtimeConfigured: submitConfigured || statusPollingConfigured,
+    submitConfigured,
+    statusPollingConfigured,
+    internalBridgeConfigured,
+    callbackBaseConfigured,
+    webhookSecretConfigured,
+    linkedProjectId,
+    blockers,
+    warnings,
+  }
+}
+
 function runtimeHeaders(config: HiggsfieldRuntimeConfig): Record<string, string> {
   const headers: Record<string, string> = { 'Content-Type': 'application/json' }
   if (config.apiKey) headers.Authorization = `Bearer ${config.apiKey}`
@@ -99,7 +138,10 @@ function normalizeRuntimeStatus(value: unknown): CreativeCanvasRunStatus | undef
 }
 
 function normalizeRuntimeResult(input: unknown): RuntimeResult {
-  const body = asRecord(input)
+  const envelope = asRecord(input)
+  const body = envelope.success === true && envelope.data
+    ? asRecord(envelope.data)
+    : envelope
   const output = asRecord(body.output)
   const result = asRecord(body.result)
   const error = asRecord(body.error)
@@ -171,10 +213,18 @@ function callbackUrl(config: HiggsfieldRuntimeConfig): string | undefined {
 
 function statusUrlForRun(run: RunWithId, config: HiggsfieldRuntimeConfig): string | undefined {
   const jobId = run.provenance.providerJobId
-  if (config.statusUrlTemplate && jobId) {
-    return config.statusUrlTemplate.replace('{providerJobId}', encodeURIComponent(jobId))
-  }
-  return run.provenance.providerStatusUrl
+  const statusUrl = config.statusUrlTemplate && jobId
+    ? config.statusUrlTemplate.replace('{providerJobId}', encodeURIComponent(jobId))
+    : run.provenance.providerStatusUrl
+  if (!statusUrl) return undefined
+  if (statusUrl.startsWith('/')) return config.callbackBaseUrl ? `${config.callbackBaseUrl}${statusUrl}` : undefined
+  return statusUrl
+}
+
+function absoluteRuntimeUrl(value: string | undefined, config: HiggsfieldRuntimeConfig): string | undefined {
+  if (!value) return undefined
+  if (value.startsWith('/')) return config.callbackBaseUrl ? `${config.callbackBaseUrl}${value}` : undefined
+  return value
 }
 
 async function applyRuntimeResult(run: RunWithId, result: RuntimeResult): Promise<'dispatched' | 'refreshed' | 'completed' | 'failed'> {
@@ -267,11 +317,18 @@ async function submitQueuedRun(run: RunWithId, config: HiggsfieldRuntimeConfig):
     await markRunFailed(run, cleanString(body.error) ?? cleanString(body.message) ?? `Higgsfield runtime submit failed with ${response.status}`, 'higgsfield_submit_failed', true)
     return 'failed'
   }
-  const applied = await applyRuntimeResult(run, normalizeRuntimeResult(body))
+  const result = normalizeRuntimeResult(body)
+  result.providerStatusUrl = absoluteRuntimeUrl(result.providerStatusUrl, config)
+  result.providerCallbackUrl = absoluteRuntimeUrl(result.providerCallbackUrl, config)
+  const applied = await applyRuntimeResult(run, result)
   return applied === 'completed' ? 'completed' : applied === 'failed' ? 'failed' : 'submitted'
 }
 
 async function pollRunningRun(run: RunWithId, config: HiggsfieldRuntimeConfig): Promise<'refreshed' | 'completed' | 'failed' | 'skipped'> {
+  if (run.output?.url || run.output?.artifactId || run.output?.textPreview) {
+    await ensureCreativeCanvasRunOutputNode(run.id, run.orgId, HIGGSFIELD_ACTOR)
+    return 'completed'
+  }
   const statusUrl = statusUrlForRun(run, config)
   if (!statusUrl) return 'skipped'
   const response = await fetch(statusUrl, { headers: runtimeHeaders(config) })
@@ -319,6 +376,7 @@ export async function drainHiggsfieldCreativeCanvasRuns(options: {
   const runningRuns = [
     ...await listRunsByStatus('running', pollLimit),
     ...await listRunsByStatus('waiting_for_review', pollLimit),
+    ...await listRunsByStatus('completed', pollLimit),
   ].slice(0, pollLimit)
   for (const run of runningRuns) {
     const result = await pollRunningRun(run, config)

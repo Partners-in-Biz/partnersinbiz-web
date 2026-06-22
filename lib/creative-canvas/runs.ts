@@ -8,13 +8,20 @@ import {
 import type {
   CreativeCanvas,
   CreativeCanvasActor,
+  CreativeCanvasEditIntent,
+  CreativeCanvasEditMask,
+  CreativeCanvasMaskBrushStroke,
   CreativeCanvasEditMotionMode,
   CreativeCanvasEditOperation,
   CreativeCanvasNode,
   CreativeCanvasOutputKind,
+  CreativeCanvasProofBatchResult,
   CreativeCanvasProviderKey,
+  CreativeCanvasRunBatchRetryResult,
   CreativeCanvasRun,
+  CreativeCanvasRunOperationsSummary,
   CreativeCanvasRunStatus,
+  CreativeCanvasRunStatusCounts,
 } from './types'
 
 export const CREATIVE_CANVAS_RUN_COLLECTION = 'creative_canvas_runs'
@@ -41,6 +48,83 @@ function cleanStringArray(value: unknown): string[] {
 
 function cleanOptionalNumber(value: unknown): number | undefined {
   return typeof value === 'number' && Number.isFinite(value) ? value : undefined
+}
+
+function cleanBoundedOptionalNumber(value: unknown, min: number, max: number): number | undefined {
+  const clean = cleanOptionalNumber(value)
+  if (clean === undefined) return undefined
+  return Math.min(max, Math.max(min, clean))
+}
+
+function cleanHttpUrl(value: unknown): string | undefined {
+  const raw = cleanString(value)
+  if (!raw) return undefined
+  try {
+    const parsed = new URL(raw)
+    if (!['http:', 'https:'].includes(parsed.protocol)) throw new Error()
+    if (parsed.username || parsed.password) throw new Error()
+    return parsed.href
+  } catch {
+    return undefined
+  }
+}
+
+function cleanRunEditMask(value: unknown): CreativeCanvasEditMask | undefined {
+  const mask = asRecord(value)
+  if (!Object.keys(mask).length) return undefined
+  const region = asRecord(mask.region)
+  const regionUnit = region.unit === 'pixel' ? 'pixel' : 'percent'
+  const editMask: CreativeCanvasEditMask = {
+    sourceNodeId: cleanString(mask.sourceNodeId),
+    url: cleanHttpUrl(mask.url),
+    storagePath: cleanString(mask.storagePath),
+    invert: typeof mask.invert === 'boolean' ? mask.invert : undefined,
+  }
+  if (Object.keys(region).length) {
+    const x = cleanBoundedOptionalNumber(region.x, 0, regionUnit === 'percent' ? 100 : 10000)
+    const y = cleanBoundedOptionalNumber(region.y, 0, regionUnit === 'percent' ? 100 : 10000)
+    const width = cleanBoundedOptionalNumber(region.width, 0, regionUnit === 'percent' ? 100 : 10000)
+    const height = cleanBoundedOptionalNumber(region.height, 0, regionUnit === 'percent' ? 100 : 10000)
+    if (x !== undefined && y !== undefined && width !== undefined && height !== undefined) {
+      editMask.region = {
+        x,
+        y,
+        width,
+        height,
+        unit: regionUnit,
+        feather: cleanBoundedOptionalNumber(region.feather, 0, 100),
+      }
+    }
+  }
+  const brush = asRecord(mask.brush)
+  if (Array.isArray(brush.strokes)) {
+    const strokes = brush.strokes.slice(0, 80).map((stroke) => {
+      const rawStroke = asRecord(stroke)
+      const unit = rawStroke.unit === 'pixel' ? 'pixel' : 'percent'
+      const maxCoordinate = unit === 'percent' ? 100 : 10000
+      const points = Array.isArray(rawStroke.points)
+        ? rawStroke.points.slice(0, 300).map((point) => {
+          const rawPoint = asRecord(point)
+          const x = cleanBoundedOptionalNumber(rawPoint.x, 0, maxCoordinate)
+          const y = cleanBoundedOptionalNumber(rawPoint.y, 0, maxCoordinate)
+          return x !== undefined && y !== undefined ? { x, y } : undefined
+        }).filter((point): point is { x: number; y: number } => Boolean(point))
+        : []
+      if (!points.length) return undefined
+      const cleanStroke: CreativeCanvasMaskBrushStroke = {
+        id: cleanString(rawStroke.id) ?? `stroke-${points[0].x}-${points[0].y}`,
+        points,
+        size: cleanBoundedOptionalNumber(rawStroke.size, 1, unit === 'percent' ? 25 : 500) ?? 8,
+        mode: rawStroke.mode === 'erase' ? 'erase' as const : 'paint' as const,
+        unit,
+      }
+      const opacity = cleanBoundedOptionalNumber(rawStroke.opacity, 0, 1)
+      if (opacity !== undefined) cleanStroke.opacity = opacity
+      return cleanStroke
+    }).filter((stroke): stroke is CreativeCanvasMaskBrushStroke => Boolean(stroke))
+    if (strokes.length) editMask.brush = { strokes }
+  }
+  return editMask.region || editMask.brush || editMask.url || editMask.sourceNodeId || editMask.storagePath ? editMask : undefined
 }
 
 function cleanPositiveInteger(value: unknown, max: number): number | undefined {
@@ -72,14 +156,300 @@ function optionalEditOperation(value: unknown): CreativeCanvasEditOperation | un
   return allowed.includes(value as CreativeCanvasEditOperation) ? value as CreativeCanvasEditOperation : undefined
 }
 
+function optionalEditIntent(value: unknown): CreativeCanvasEditIntent | undefined {
+  const allowed: CreativeCanvasEditIntent[] = ['generative_fill', 'object_removal', 'object_replace', 'relight', 'reference_blend']
+  return allowed.includes(value as CreativeCanvasEditIntent) ? value as CreativeCanvasEditIntent : undefined
+}
+
 function optionalCameraMotion(value: unknown): CreativeCanvasEditMotionMode | undefined {
   const allowed: CreativeCanvasEditMotionMode[] = ['none', 'camera_push', 'camera_pull', 'pan', 'orbit', 'dolly', 'handheld']
   return allowed.includes(value as CreativeCanvasEditMotionMode) ? value as CreativeCanvasEditMotionMode : undefined
 }
 
+function cleanBlendControls(value: unknown): NonNullable<NonNullable<CreativeCanvasNode['edit']>['blendControls']> | undefined {
+  const controls = asRecord(value)
+  if (!Object.keys(controls).length) return undefined
+  return {
+    lightMatch: controls.lightMatch === true,
+    textureAdaptive: controls.textureAdaptive === true,
+    autoShadows: controls.autoShadows === true,
+    perspectiveMatch: controls.perspectiveMatch === true,
+    preserveSubject: controls.preserveSubject === true,
+  }
+}
+
 function optionalRunStatus(value: unknown): CreativeCanvasRunStatus | undefined {
   const allowed: CreativeCanvasRunStatus[] = ['queued', 'running', 'waiting_for_review', 'completed', 'failed', 'cancelled']
   return allowed.includes(value as CreativeCanvasRunStatus) ? value as CreativeCanvasRunStatus : undefined
+}
+
+const RUN_STATUSES: CreativeCanvasRunStatus[] = ['queued', 'running', 'waiting_for_review', 'completed', 'failed', 'cancelled']
+const DEFAULT_STALE_ACTIVE_MINUTES = 30
+
+type CreativeCanvasProofBatchCategory = 'image' | 'video_social' | 'audio' | 'blog_document' | 'book'
+const PROOF_BATCH_RUNS_PER_CATEGORY = 2
+
+interface CreativeCanvasProofBatchSpec {
+  category: CreativeCanvasProofBatchCategory
+  providerKey: CreativeCanvasProviderKey
+  model?: string
+  outputKind: CreativeCanvasOutputKind
+  operation?: CreativeCanvasEditOperation
+  aspectRatio: string
+  durationSeconds?: number
+  variantCount: number
+  format: string
+  stylePreset?: string
+  cameraMotion?: CreativeCanvasEditMotionMode
+  promptSummary: string
+}
+
+const PROOF_BATCH_SPECS: CreativeCanvasProofBatchSpec[] = [
+  {
+    category: 'image',
+    providerKey: 'higgsfield',
+    model: 'nano_banana_flash',
+    outputKind: 'image',
+    operation: 'variation',
+    aspectRatio: '1:1',
+    variantCount: 2,
+    format: 'runtime_proof_image',
+    stylePreset: 'brand_realism',
+    promptSummary: 'Runtime proof image job for a reviewable social campaign asset.',
+  },
+  {
+    category: 'video_social',
+    providerKey: 'higgsfield',
+    model: 'nano_banana_flash',
+    outputKind: 'video',
+    operation: 'video_motion',
+    aspectRatio: '9:16',
+    durationSeconds: 6,
+    variantCount: 1,
+    format: 'runtime_proof_vertical_video',
+    stylePreset: 'ugc_social',
+    cameraMotion: 'camera_push',
+    promptSummary: 'Runtime proof vertical social video job from the active canvas graph.',
+  },
+  {
+    category: 'audio',
+    providerKey: 'higgsfield',
+    model: 'nano_banana_flash',
+    outputKind: 'audio',
+    operation: 'variation',
+    aspectRatio: '1:1',
+    durationSeconds: 15,
+    variantCount: 1,
+    format: 'runtime_proof_audio',
+    stylePreset: 'brand_audio',
+    promptSummary: 'Runtime proof audio job for voiceover, sound bed, or social media audio assets.',
+  },
+  {
+    category: 'blog_document',
+    providerKey: 'agent_task',
+    outputKind: 'blog_draft',
+    aspectRatio: '4:5',
+    variantCount: 1,
+    format: 'runtime_proof_blog_document',
+    promptSummary: 'Runtime proof blog/document draft job from the active canvas graph.',
+  },
+  {
+    category: 'book',
+    providerKey: 'higgsfield',
+    model: 'nano_banana_flash',
+    outputKind: 'book_artifact',
+    operation: 'variation',
+    aspectRatio: '4:5',
+    variantCount: 1,
+    format: 'runtime_proof_book_artifact',
+    stylePreset: 'editorial',
+    promptSummary: 'Runtime proof book artifact job for cover or chapter creative assets.',
+  },
+]
+
+function emptyStatusCounts(): CreativeCanvasRunStatusCounts {
+  return {
+    queued: 0,
+    running: 0,
+    waiting_for_review: 0,
+    completed: 0,
+    failed: 0,
+    cancelled: 0,
+  }
+}
+
+function isActiveRunStatus(status: CreativeCanvasRunStatus): boolean {
+  return status === 'queued' || status === 'running' || status === 'waiting_for_review'
+}
+
+function runMatchesProofCategory(run: CreativeCanvasRun, category: CreativeCanvasProofBatchCategory): boolean {
+  const outputKind = run.input.outputKind
+  if (category === 'image') return outputKind === 'image' || outputKind === 'campaign_asset'
+  if (category === 'video_social') return outputKind === 'video' || outputKind === 'social_post_draft' || outputKind === 'youtube_render'
+  if (category === 'audio') return outputKind === 'audio'
+  if (category === 'blog_document') return outputKind === 'blog_draft' || outputKind === 'document_block' || outputKind === 'copy' || outputKind === 'caption'
+  return outputKind === 'book_artifact'
+}
+
+function bestProofBatchNode(canvas: CreativeCanvas & { id: string }, spec: CreativeCanvasProofBatchSpec): CreativeCanvasNode | undefined {
+  const matchingOutput = canvas.nodes.find((node) => node.output?.kind === spec.outputKind)
+  if (matchingOutput) return matchingOutput
+
+  const matchingEdit = canvas.nodes.find((node) => node.edit?.outputKind === spec.outputKind)
+  if (matchingEdit) return matchingEdit
+
+  const matchingProvider = canvas.nodes.find((node) => node.provider?.key === spec.providerKey)
+  if (matchingProvider) return matchingProvider
+
+  return canvas.nodes.find((node) => ['model', 'edit', 'prompt', 'source', 'brief'].includes(node.type))
+}
+
+function sourceNodeIdsForProofBatch(canvas: CreativeCanvas & { id: string }, sourceNode: CreativeCanvasNode): string[] {
+  const linkedSourceIds = canvas.edges
+    .filter((edge) => edge.targetNodeId === sourceNode.id)
+    .map((edge) => edge.sourceNodeId)
+    .filter((nodeId) => canvas.nodes.some((node) => node.id === nodeId))
+
+  return Array.from(new Set([sourceNode.id, ...linkedSourceIds])).slice(0, 8)
+}
+
+function timestampToMillis(value: unknown): number | undefined {
+  if (!value) return undefined
+  if (value instanceof Date) return value.getTime()
+  if (typeof value === 'number' && Number.isFinite(value)) return value
+  if (typeof value === 'string') {
+    const parsed = Date.parse(value)
+    return Number.isFinite(parsed) ? parsed : undefined
+  }
+  const record = asRecord(value)
+  if (typeof record.toMillis === 'function') {
+    const millis = record.toMillis()
+    return typeof millis === 'number' && Number.isFinite(millis) ? millis : undefined
+  }
+  if (typeof record.toDate === 'function') {
+    const date = record.toDate()
+    return date instanceof Date ? date.getTime() : undefined
+  }
+  const seconds = typeof record.seconds === 'number'
+    ? record.seconds
+    : typeof record._seconds === 'number'
+      ? record._seconds
+      : undefined
+  if (seconds !== undefined) {
+    const nanos = typeof record.nanoseconds === 'number'
+      ? record.nanoseconds
+      : typeof record._nanoseconds === 'number'
+        ? record._nanoseconds
+        : 0
+    return seconds * 1000 + Math.floor(nanos / 1_000_000)
+  }
+  return undefined
+}
+
+function activeRunAgeMinutes(run: CreativeCanvasRun, nowMs: number): number | undefined {
+  const updatedMs = timestampToMillis(run.updatedAt) ?? timestampToMillis(run.createdAt)
+  if (updatedMs === undefined) return undefined
+  return Math.max(0, Math.floor((nowMs - updatedMs) / 60_000))
+}
+
+function buildRetriedCreativeCanvasProviderRun(run: CreativeCanvasRun & { id: string }): CreativeCanvasRun & { id: string } {
+  const provenance = { ...run.provenance }
+  delete provenance.providerJobId
+  delete provenance.providerRequestId
+  delete provenance.providerStatusUrl
+  delete provenance.providerCallbackUrl
+
+  return {
+    ...run,
+    status: 'queued',
+    providerStatus: 'retry_queued',
+    providerStatusMessage: 'Retry queued for provider runtime drain.',
+    error: undefined,
+    provenance,
+    updatedAt: FieldValue.serverTimestamp(),
+  }
+}
+
+function retryRunUpdatePayload(run: CreativeCanvasRun & { id: string }, actor: CreativeCanvasActor) {
+  return {
+    status: run.status,
+    providerStatus: run.providerStatus,
+    providerStatusMessage: run.providerStatusMessage,
+    error: null,
+    provenance: run.provenance,
+    updatedAt: FieldValue.serverTimestamp(),
+    updatedBy: actor.uid,
+    updatedByType: actor.type,
+  }
+}
+
+export function summarizeCreativeCanvasRuns(
+  runs: Array<CreativeCanvasRun & { id: string }>,
+  options: { now?: Date; staleAfterMinutes?: number } = {},
+): CreativeCanvasRunOperationsSummary {
+  const byStatus = emptyStatusCounts()
+  const providerMap = new Map<CreativeCanvasProviderKey, CreativeCanvasRunOperationsSummary['providers'][number]>()
+  const nowMs = options.now?.getTime() ?? Date.now()
+  const staleThresholdMinutes = Math.max(1, options.staleAfterMinutes ?? DEFAULT_STALE_ACTIVE_MINUTES)
+  let staleActiveRuns = 0
+  let oldestActiveRunAgeMinutes: number | undefined
+
+  for (const run of runs) {
+    const status = RUN_STATUSES.includes(run.status) ? run.status : 'queued'
+    byStatus[status] += 1
+
+    const provider = providerMap.get(run.providerKey) ?? {
+      providerKey: run.providerKey,
+      total: 0,
+      byStatus: emptyStatusCounts(),
+      active: 0,
+      staleActiveRuns: 0,
+      failed: 0,
+      retryableFailures: 0,
+      completed: 0,
+    }
+    provider.total += 1
+    provider.byStatus[status] += 1
+    if (isActiveRunStatus(status)) {
+      provider.active += 1
+      const ageMinutes = activeRunAgeMinutes(run, nowMs)
+      if (ageMinutes !== undefined) {
+        provider.oldestActiveRunAgeMinutes = Math.max(provider.oldestActiveRunAgeMinutes ?? 0, ageMinutes)
+        oldestActiveRunAgeMinutes = Math.max(oldestActiveRunAgeMinutes ?? 0, ageMinutes)
+        if (ageMinutes >= staleThresholdMinutes) {
+          provider.staleActiveRuns += 1
+          staleActiveRuns += 1
+        }
+      }
+    }
+    if (status === 'failed') provider.failed += 1
+    if (status === 'completed') provider.completed += 1
+    if (run.error?.retryable) provider.retryableFailures += 1
+    if (!provider.latestRunId) provider.latestRunId = run.id
+    if (!provider.latestProviderStatus && run.providerStatus) provider.latestProviderStatus = run.providerStatus
+    if (!provider.latestProviderStatusMessage && run.providerStatusMessage) provider.latestProviderStatusMessage = run.providerStatusMessage
+    if (!provider.latestErrorMessage && run.error?.message) provider.latestErrorMessage = run.error.message
+    providerMap.set(run.providerKey, provider)
+  }
+
+  const providers = Array.from(providerMap.values()).sort((a, b) => {
+    if (b.active !== a.active) return b.active - a.active
+    if (b.failed !== a.failed) return b.failed - a.failed
+    return a.providerKey.localeCompare(b.providerKey)
+  })
+
+  return {
+    total: runs.length,
+    byStatus,
+    active: byStatus.queued + byStatus.running + byStatus.waiting_for_review,
+    staleActiveRuns,
+    oldestActiveRunAgeMinutes,
+    staleThresholdMinutes,
+    failed: byStatus.failed,
+    retryableFailures: runs.filter((run) => run.error?.retryable).length,
+    completed: byStatus.completed,
+    providers,
+  }
 }
 
 function safeHttpUrl(value: unknown, field: string): string | undefined {
@@ -102,6 +472,12 @@ function buildOutputNode(input: {
   output: Record<string, unknown>
 }): CreativeCanvasNode {
   const sourceNode = input.canvas.nodes.find((node) => node.id === input.run.nodeId)
+  const artifactId = cleanString(input.output.artifactId)
+  const url = safeHttpUrl(input.output.url, 'run output.url')
+  const thumbnailUrl = safeHttpUrl(input.output.thumbnailUrl, 'run output.thumbnailUrl')
+  const storagePath = cleanString(input.output.storagePath)
+  const textPreview = cleanString(input.output.textPreview)
+  const now = new Date()
   return {
     id: input.outputNodeId,
     canvasId: input.canvas.id,
@@ -125,14 +501,14 @@ function buildOutputNode(input: {
     },
     output: {
       kind: enumOutputKind(input.output.kind),
-      artifactId: cleanString(input.output.artifactId),
-      url: safeHttpUrl(input.output.url, 'run output.url'),
-      thumbnailUrl: safeHttpUrl(input.output.thumbnailUrl, 'run output.thumbnailUrl'),
-      storagePath: cleanString(input.output.storagePath),
-      textPreview: cleanString(input.output.textPreview),
+      ...(artifactId ? { artifactId } : {}),
+      ...(url ? { url } : {}),
+      ...(thumbnailUrl ? { thumbnailUrl } : {}),
+      ...(storagePath ? { storagePath } : {}),
+      ...(textPreview ? { textPreview } : {}),
     },
-    createdAt: FieldValue.serverTimestamp(),
-    updatedAt: FieldValue.serverTimestamp(),
+    createdAt: now,
+    updatedAt: now,
   }
 }
 
@@ -177,16 +553,21 @@ async function completeLoadedCreativeCanvasRun(
 
   const outputNodeId = cleanString(body.outputNodeId) ?? `${run.nodeId}-output`
   const outputNode = buildOutputNode({ run, canvas, outputNodeId, output })
+  const artifactId = cleanString(output.artifactId)
+  const url = safeHttpUrl(output.url, 'run output.url')
+  const thumbnailUrl = safeHttpUrl(output.thumbnailUrl, 'run output.thumbnailUrl')
+  const textPreview = cleanString(output.textPreview)
+  const rawProviderJobId = cleanString(output.rawProviderJobId)
   const completedRun: CreativeCanvasRun & { id: string } = {
     ...run,
     status: 'completed',
     output: {
       outputNodeId,
-      artifactId: cleanString(output.artifactId),
-      url: safeHttpUrl(output.url, 'run output.url'),
-      thumbnailUrl: safeHttpUrl(output.thumbnailUrl, 'run output.thumbnailUrl'),
-      textPreview: cleanString(output.textPreview),
-      rawProviderJobId: cleanString(output.rawProviderJobId),
+      ...(artifactId ? { artifactId } : {}),
+      ...(url ? { url } : {}),
+      ...(thumbnailUrl ? { thumbnailUrl } : {}),
+      ...(textPreview ? { textPreview } : {}),
+      ...(rawProviderJobId ? { rawProviderJobId } : {}),
     },
     provenance: {
       ...run.provenance,
@@ -260,6 +641,9 @@ export async function createCreativeCanvasRun(
       stylePreset: cleanString(runInput.stylePreset),
       cameraMotion: optionalCameraMotion(runInput.cameraMotion),
       negativePrompt: cleanString(runInput.negativePrompt),
+      editMask: cleanRunEditMask(runInput.editMask),
+      editIntent: optionalEditIntent(runInput.editIntent),
+      blendControls: cleanBlendControls(runInput.blendControls),
     },
     provenance: {
       generatedBy: actor.type,
@@ -303,6 +687,43 @@ export async function completeCreativeCanvasRun(
   return completeLoadedCreativeCanvasRun(run, orgId, input, actor)
 }
 
+export async function ensureCreativeCanvasRunOutputNode(
+  runId: string,
+  orgId: string,
+  actor: CreativeCanvasActor,
+): Promise<{ run: CreativeCanvasRun & { id: string }; outputNode?: CreativeCanvasNode } | null> {
+  const runSnap = await adminDb.collection(CREATIVE_CANVAS_RUN_COLLECTION).doc(runId).get()
+  if (!runSnap.exists) throw new Error('Creative canvas run not found')
+  const run = serializeRun(runSnap.id ?? runId, runSnap.data() as CreativeCanvasRun)
+  if (run.orgId !== orgId) throw new Error('Creative canvas run does not belong to organisation')
+  if (!run.output?.url && !run.output?.artifactId && !run.output?.textPreview) return null
+
+  const outputNodeId = run.output.outputNodeId ?? `${run.nodeId}-output`
+  const canvas = await getCreativeCanvas(run.canvasId, orgId)
+  const existingOutputNode = canvas?.nodes.find((node) => node.id === outputNodeId)
+  if (existingOutputNode) {
+    return { run, outputNode: existingOutputNode }
+  }
+
+  return completeLoadedCreativeCanvasRun(run, orgId, {
+    outputNodeId,
+    output: {
+      kind: run.input.outputKind ?? 'image',
+      url: run.output.url,
+      thumbnailUrl: run.output.thumbnailUrl,
+      artifactId: run.output.artifactId,
+      textPreview: run.output.textPreview,
+      rawProviderJobId: run.output.rawProviderJobId,
+    },
+    provenance: {
+      providerJobId: run.output.rawProviderJobId ?? run.provenance.providerJobId,
+      model: run.provenance.model,
+      costUnits: run.provenance.costUnits,
+      costLabel: run.provenance.costLabel,
+    },
+  }, actor)
+}
+
 export async function dispatchCreativeCanvasProviderRun(
   runId: string,
   orgId: string,
@@ -324,9 +745,15 @@ export async function dispatchCreativeCanvasProviderRun(
   const provenance = {
     ...run.provenance,
     providerJobId,
-    providerRequestId: cleanString(body.providerRequestId) ?? run.provenance.providerRequestId,
-    providerStatusUrl: providerStatusUrl ?? run.provenance.providerStatusUrl,
-    providerCallbackUrl: providerCallbackUrl ?? run.provenance.providerCallbackUrl,
+    ...(cleanString(body.providerRequestId) ?? run.provenance.providerRequestId
+      ? { providerRequestId: cleanString(body.providerRequestId) ?? run.provenance.providerRequestId }
+      : {}),
+    ...(providerStatusUrl ?? run.provenance.providerStatusUrl
+      ? { providerStatusUrl: providerStatusUrl ?? run.provenance.providerStatusUrl }
+      : {}),
+    ...(providerCallbackUrl ?? run.provenance.providerCallbackUrl
+      ? { providerCallbackUrl: providerCallbackUrl ?? run.provenance.providerCallbackUrl }
+      : {}),
   }
   const nextRun: CreativeCanvasRun & { id: string } = {
     ...run,
@@ -391,6 +818,140 @@ export async function refreshCreativeCanvasProviderRunStatus(
   await adminDb.collection(CREATIVE_CANVAS_RUN_COLLECTION).doc(run.id).update(updatePayload)
 
   return nextRun
+}
+
+export async function retryCreativeCanvasProviderRun(
+  runId: string,
+  orgId: string,
+  actor: CreativeCanvasActor,
+): Promise<CreativeCanvasRun & { id: string }> {
+  const runSnap = await adminDb.collection(CREATIVE_CANVAS_RUN_COLLECTION).doc(runId).get()
+  if (!runSnap.exists) throw new Error('Creative canvas run not found')
+  const run = serializeRun(runSnap.id ?? runId, runSnap.data() as CreativeCanvasRun)
+  if (run.orgId !== orgId) throw new Error('Creative canvas run does not belong to organisation')
+  if (run.status !== 'failed') throw new Error('Only failed creative canvas provider runs can be retried')
+  if (run.error?.retryable !== true) throw new Error('Creative canvas provider run is not marked retryable')
+
+  const nextRun = buildRetriedCreativeCanvasProviderRun(run)
+
+  await adminDb.collection(CREATIVE_CANVAS_RUN_COLLECTION).doc(run.id).update(retryRunUpdatePayload(nextRun, actor))
+
+  return nextRun
+}
+
+export async function retryCreativeCanvasProviderRunsForCanvas(
+  canvasId: string,
+  orgId: string,
+  actor: CreativeCanvasActor,
+): Promise<CreativeCanvasRunBatchRetryResult> {
+  const snapshot = await adminDb.collection(CREATIVE_CANVAS_RUN_COLLECTION)
+    .where('canvasId', '==', requiredString(canvasId, 'canvasId'))
+    .where('orgId', '==', requiredString(orgId, 'orgId'))
+    .get()
+
+  const retriedRuns: Array<CreativeCanvasRun & { id: string }> = []
+  const skippedRuns: CreativeCanvasRunBatchRetryResult['skippedRuns'] = []
+  const nextRuns: Array<CreativeCanvasRun & { id: string }> = []
+
+  for (const doc of snapshot.docs) {
+    const run = serializeRun(doc.id, doc.data() as CreativeCanvasRun)
+    if (run.status === 'failed' && run.error?.retryable === true) {
+      const nextRun = buildRetriedCreativeCanvasProviderRun(run)
+      retriedRuns.push(nextRun)
+      nextRuns.push(nextRun)
+      await adminDb.collection(CREATIVE_CANVAS_RUN_COLLECTION).doc(run.id).update(retryRunUpdatePayload(nextRun, actor))
+      continue
+    }
+
+    nextRuns.push(run)
+    if (run.status === 'failed') {
+      skippedRuns.push({
+        id: run.id,
+        status: run.status,
+        reason: run.error?.retryable === true ? 'Retryable run was not selected' : 'Failed run is not retryable',
+      })
+    }
+  }
+
+  return {
+    retriedRuns,
+    skippedRuns,
+    operations: summarizeCreativeCanvasRuns(nextRuns),
+  }
+}
+
+export async function queueCreativeCanvasProofBatchRuns(
+  canvas: CreativeCanvas & { id: string },
+  orgId: string,
+  actor: CreativeCanvasActor,
+  existingRuns: Array<CreativeCanvasRun & { id: string }>,
+): Promise<CreativeCanvasProofBatchResult> {
+  if (canvas.orgId !== orgId) throw new Error('Creative canvas does not belong to organisation')
+  if (!canvas.nodes.length) throw new Error('Creative canvas needs at least one node before queueing proof runs')
+
+  const queuedRuns: Array<CreativeCanvasRun & { id: string }> = []
+  const skippedCategories: CreativeCanvasProofBatchResult['skippedCategories'] = []
+
+  for (const spec of PROOF_BATCH_SPECS) {
+    const coveredRuns = [...queuedRuns, ...existingRuns].filter((run) =>
+      runMatchesProofCategory(run, spec.category) && (run.status === 'completed' || isActiveRunStatus(run.status)))
+    const missingRunCount = Math.max(0, PROOF_BATCH_RUNS_PER_CATEGORY - coveredRuns.length)
+
+    if (!missingRunCount) {
+      const coveredRun = coveredRuns[0]
+      skippedCategories.push({
+        category: spec.category,
+        reason: coveredRuns.every((run) => run.status === 'completed') ? 'Already has completed proof coverage' : 'Proof runs already active',
+        runId: coveredRun?.id,
+      })
+      continue
+    }
+
+    const sourceNode = bestProofBatchNode(canvas, spec)
+    if (!sourceNode) {
+      skippedCategories.push({
+        category: spec.category,
+        reason: 'No usable canvas node found for proof run',
+      })
+      continue
+    }
+
+    for (let index = 0; index < missingRunCount; index += 1) {
+      const slot = coveredRuns.length + index + 1
+      const run = await createCreativeCanvasRun({
+        canvasId: canvas.id,
+        nodeId: sourceNode.id,
+        providerKey: spec.providerKey,
+        model: spec.model ?? sourceNode.provider?.model,
+        input: {
+          promptSummary: `${spec.promptSummary} Reliability pass ${slot}/${PROOF_BATCH_RUNS_PER_CATEGORY}. Canvas: ${canvas.title}.`,
+          sourceNodeIds: sourceNodeIdsForProofBatch(canvas, sourceNode),
+          sourceArtifactIds: [],
+          format: spec.format,
+          outputKind: spec.outputKind,
+          operation: spec.operation,
+          aspectRatio: spec.aspectRatio,
+          durationSeconds: spec.durationSeconds,
+          variantCount: spec.variantCount,
+          seed: `${spec.category}-proof-${slot}`,
+          stylePreset: spec.stylePreset,
+          cameraMotion: spec.cameraMotion,
+          negativePrompt: spec.providerKey === 'higgsfield' ? 'blur, distorted text, off-brand elements, unsafe claims' : undefined,
+          editMask: sourceNode.edit?.mask,
+        },
+        provenance: {
+          syntheticMedia: spec.providerKey === 'higgsfield',
+        },
+      }, orgId, actor)
+      queuedRuns.push(run)
+    }
+  }
+
+  return {
+    queuedRuns,
+    skippedCategories,
+    operations: summarizeCreativeCanvasRuns([...queuedRuns, ...existingRuns]),
+  }
 }
 
 export async function completeCreativeCanvasProviderCallback(

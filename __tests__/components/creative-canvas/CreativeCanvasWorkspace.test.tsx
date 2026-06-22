@@ -1,44 +1,721 @@
 import React from 'react'
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { CreativeCanvasWorkspace } from '@/components/creative-canvas/CreativeCanvasWorkspace'
 
+// This file renders the full workspace ~78 times; under parallel load with the
+// other jsdom canvas suites a few async waitFor tests can exceed the default.
+jest.setTimeout(60000)
+
 jest.mock('@xyflow/react', () => ({
-  ReactFlow: ({ nodes, children }: { nodes: Array<{ id: string }>; children: React.ReactNode }) => (
+  ReactFlow: ({
+    nodes,
+    children,
+    onNodesChange,
+    onConnect,
+  }: {
+    nodes: Array<{ id: string; data?: { label?: React.ReactNode } }>
+    children: React.ReactNode
+    onConnect?: (connection: { source: string; target: string }) => void
+    onNodesChange?: (changes: Array<
+      | { id: string; type: 'position'; position: { x: number; y: number }; dragging: boolean }
+      | { id: string; type: 'remove' }
+    >) => void
+  }) => (
     <div data-testid="react-flow">
-      {nodes.map((node) => <div key={node.id}>{node.id}</div>)}
+      {nodes.map((node) => (
+        <div key={node.id}>
+          <span>{node.id}</span>
+          {node.data?.label}
+        </div>
+      ))}
+      <button
+        type="button"
+        onClick={() => nodes[0] ? onNodesChange?.([{
+          id: nodes[0].id,
+          type: 'position',
+          position: { x: 321, y: 654 },
+          dragging: false,
+        }]) : undefined}
+      >
+        Move first graph node
+      </button>
+      <button
+        type="button"
+        onClick={() => nodes[0] ? onNodesChange?.([{ id: nodes[0].id, type: 'remove' }]) : undefined}
+      >
+        Delete first graph node
+      </button>
+      <button
+        type="button"
+        onClick={() => nodes[0] && nodes[1] ? onConnect?.({ source: nodes[0].id, target: nodes[1].id }) : undefined}
+      >
+        Connect first graph nodes
+      </button>
       {children}
     </div>
   ),
+  ReactFlowProvider: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+  useReactFlow: () => ({
+    zoomIn: jest.fn(),
+    zoomOut: jest.fn(),
+    fitView: jest.fn(),
+    screenToFlowPosition: (position: { x: number; y: number }) => position,
+  }),
+  BackgroundVariant: { Dots: 'dots', Lines: 'lines', Cross: 'cross' },
   Background: () => <div data-testid="flow-background" />,
   Controls: () => <div data-testid="flow-controls" />,
   MiniMap: () => <div data-testid="flow-minimap" />,
   addEdge: jest.fn((edge, edges) => edges.concat(edge)),
+  applyNodeChanges: jest.fn((changes, nodes) => nodes
+    .filter((node) => !changes.some((change: { id?: string; type?: string }) => change.id === node.id && change.type === 'remove'))
+    .map((node) => {
+      const positionChange = changes.find((change: { id?: string; type?: string }) => change.id === node.id && change.type === 'position')
+      return positionChange?.position ? { ...node, position: positionChange.position } : node
+    })),
+  applyEdgeChanges: jest.fn((changes, edges) => edges.filter((edge) => !changes.some((change: { id?: string; type?: string }) => change.id === edge.id && change.type === 'remove'))),
   useEdgesState: jest.fn((initial) => [initial, jest.fn(), jest.fn()]),
   useNodesState: jest.fn((initial) => [initial, jest.fn(), jest.fn()]),
 }))
 
 const fetchMock = jest.fn()
 
+function durableCategoryEvidence(binding: {
+  orgId?: string
+  canvasVersion?: number
+  graphSignature: string
+  nodeCount: number
+  edgeCount: number
+}) {
+  const base = {
+    orgId: binding.orgId ?? 'org-1',
+    canvasVersion: binding.canvasVersion ?? 1,
+    graphSignature: binding.graphSignature,
+    nodeCount: binding.nodeCount,
+    edgeCount: binding.edgeCount,
+    completedAt: '2026-06-21T14:00:00.000Z',
+  }
+  const categories = [
+    { key: 'image', kind: 'image', provider: true },
+    { key: 'video_social', kind: 'video', provider: true },
+    { key: 'audio', kind: 'audio', provider: true },
+    { key: 'blog_document', kind: 'blog_draft', provider: false },
+    { key: 'book', kind: 'book_artifact', provider: true },
+  ] as const
+
+  return {
+    runtimeCategoryEvidence: categories.map((category) => ({
+      ...base,
+      categoryKey: category.key,
+      runIds: [`run-${category.key}-1`, `run-${category.key}-2`],
+      providerJobIds: category.provider ? [`job-${category.key}-1`, `job-${category.key}-2`] : [],
+      outputUrls: category.provider ? [`https://cdn.example.com/${category.key}.asset`] : [],
+      artifactIds: category.provider ? [] : [`${category.key} text preview`],
+      outputNodeIds: [`output-${category.key}`],
+      exportIds: [],
+      downstreamDraftIds: [],
+      lineageSourceNodeIds: [],
+      providerKeys: category.provider ? ['higgsfield'] : ['text_generation'],
+      outputKinds: [category.kind],
+      reviewStatuses: ['passed'],
+      evidence: `${category.key} runtime evidence`,
+    })),
+    exportCategoryEvidence: categories.map((category) => ({
+      ...base,
+      categoryKey: category.key,
+      runIds: [],
+      providerJobIds: [],
+      outputUrls: [],
+      artifactIds: [],
+      outputNodeIds: [`output-${category.key}`],
+      exportIds: [`export-${category.key}`],
+      downstreamDraftIds: [`draft-${category.key}`],
+      lineageSourceNodeIds: [`source-${category.key}`],
+      providerKeys: [],
+      outputKinds: [category.kind],
+      reviewStatuses: ['passed'],
+      evidence: `${category.key} export evidence`,
+    })),
+  }
+}
+
+const worldClassCanvasNodes = [{
+  id: 'source-1',
+  orgId: 'org-1',
+  type: 'source' as const,
+  title: 'Certification source',
+  position: { x: 0, y: 0 },
+  data: {},
+}]
+
+const worldClassBinding = {
+  orgId: 'org-1',
+  canvasVersion: 1,
+  graphSignature: JSON.stringify({ nodes: worldClassCanvasNodes, edges: [] }),
+  nodeCount: 1,
+  edgeCount: 0,
+}
+
+const benchmarkSourceSignals = {
+  editing_ergonomics: ['Drop a node', 'Chain your flow', 'Connect nodes', 'Every connection is live'],
+  masking_inpainting: ['Brush & Prompt', 'Precise Masking', 'Object Removal', 'Light Matching', 'Texture Adaptive', 'Auto-Shadows', 'IMAGE-TO-IMAGE BLENDING'],
+  generation_controls: ['Kling 3.0', 'Seedance 2.0', 'Wan 2.7', 'Soul 2.0', 'GPT Image 2.0', 'Veo 3.1', 'NB Pro', 'Any prompt, image, or reference'],
+  multi_asset_workflows: ['Moodboard', 'mix models', 'route outputs', 'single creative pipeline', 'Soul ID characters', 'uploaded products', 'brand references', 'previous generations'],
+  versioning_polish: ['Every version is saved', 'nothing gets lost', 'comments stay attached', 'reusable template'],
+  collaboration: ['Create together', 'Share a link', 'collaborate live', 'same canvas'],
+  agent_orchestration: ['MCP & CLI', 'Collab', 'Canvas', 'Generate'],
+  mobile_behavior: ['Generate', 'Library', 'Profile', 'Canvas'],
+  export_flows: ['Generate', 'Library', 'Image', 'Video', 'Audio'],
+  production_reliability: ['Generate', 'Library', 'Image', 'Video', 'Audio'],
+} as const
+
+function sourceBackedBenchmarkProof(
+  key: keyof typeof benchmarkSourceSignals,
+  extra: Record<string, unknown>,
+) {
+  const sourceUrl = key === 'agent_orchestration' ? 'https://higgsfield.ai/' : key === 'editing_ergonomics' || key === 'generation_controls' || key === 'multi_asset_workflows' || key === 'versioning_polish' || key === 'collaboration'
+    ? 'https://higgsfield.ai/canvas-intro'
+    : key === 'masking_inpainting'
+      ? 'https://higgsfield.ai/image-editing'
+      : 'https://higgsfield.ai/canvas'
+
+  return {
+    proofUrl: `https://proof.example.com/${key}.mp4`,
+    notes: `${key} proof passed.`,
+    capturedAt: '2026-06-21T15:00:00.000Z',
+    capturedBy: 'Pip',
+    sourceTitle: `Source for ${key}`,
+    sourceUrl,
+    sourceCheckedAt: '2026-06-21T15:00:00.000Z',
+    sourceEvidenceCheckedAt: '2026-06-21T15:00:00.000Z',
+    sourceEvidenceReachable: true,
+    sourceEvidenceStatus: 200,
+    sourceEvidenceContentType: 'text/html',
+    sourceSignalsVerifiedAt: '2026-06-21T15:00:00.000Z',
+    sourceSignalsMatched: true,
+    sourceSignalsMissing: [],
+    sourceSignals: [...benchmarkSourceSignals[key]],
+    higgsfieldUiEvidenceUrl: sourceUrl,
+    canvasEvidenceUrl: `https://proof.example.com/${key}.mp4`,
+    canvasEvidenceCheckedAt: '2026-06-21T15:00:00.000Z',
+    canvasEvidenceReachable: true,
+    canvasEvidenceStatus: 200,
+    canvasEvidenceContentType: 'video/mp4',
+    directComparisonAt: '2026-06-21T15:00:00.000Z',
+    directComparisonVerdict: 'pass',
+    directComparisonNotes: `${key} direct comparison passed.`,
+    ...worldClassBinding,
+    ...extra,
+  }
+}
+
+function worldClassVisualProof() {
+  return {
+    desktop_1440: {
+      screenshotUrl: 'https://proof.example.com/desktop-1440.png',
+      notes: 'Desktop signed-in proof.',
+      capturedAt: '2026-06-21T15:01:00.000Z',
+      capturedBy: 'Pip',
+      signedIn: true,
+      sessionEvidence: 'Desktop signed-in graph, sources, and inspector visible.',
+      viewportSize: '1440x900',
+      visiblePanels: 'Graph, Sources, Inspector',
+      screenshotCheckedAt: '2026-06-21T15:01:00.000Z',
+      screenshotReachable: true,
+      screenshotStatus: 200,
+      screenshotContentType: 'image/png',
+      ...worldClassBinding,
+    },
+    tablet_820: {
+      screenshotUrl: 'https://proof.example.com/tablet-820.png',
+      notes: 'Tablet signed-in proof.',
+      capturedAt: '2026-06-21T15:02:00.000Z',
+      capturedBy: 'Pip',
+      signedIn: true,
+      sessionEvidence: 'Tablet signed-in panel layout visible.',
+      viewportSize: '820x1180',
+      visiblePanels: 'Canvas, Sources, Inspector',
+      screenshotCheckedAt: '2026-06-21T15:02:00.000Z',
+      screenshotReachable: true,
+      screenshotStatus: 200,
+      screenshotContentType: 'image/png',
+      ...worldClassBinding,
+    },
+    mobile_390: {
+      screenshotUrl: 'https://proof.example.com/mobile-390.png',
+      notes: 'Mobile signed-in proof.',
+      capturedAt: '2026-06-21T15:03:00.000Z',
+      capturedBy: 'Pip',
+      signedIn: true,
+      sessionEvidence: 'Mobile signed-in canvas visible.',
+      viewportSize: '390x844',
+      visiblePanels: 'Canvas',
+      screenshotCheckedAt: '2026-06-21T15:03:00.000Z',
+      screenshotReachable: true,
+      screenshotStatus: 200,
+      screenshotContentType: 'image/png',
+      ...worldClassBinding,
+    },
+    mobile_panels: {
+      screenshotUrl: 'https://proof.example.com/mobile-panels.png',
+      notes: 'Mobile panels signed-in proof.',
+      capturedAt: '2026-06-21T15:04:00.000Z',
+      capturedBy: 'Pip',
+      signedIn: true,
+      sessionEvidence: 'Mobile panel switcher proves canvas, sources, and inspector.',
+      viewportSize: '390x844',
+      visiblePanels: 'Canvas, Sources, Inspector',
+      screenshotCheckedAt: '2026-06-21T15:04:00.000Z',
+      screenshotReachable: true,
+      screenshotStatus: 200,
+      screenshotContentType: 'image/png',
+      ...worldClassBinding,
+    },
+  }
+}
+
+function mobileViewportBehaviorEvidence() {
+  return [
+    ['desktop', 1440, 900, 'desktop-1440'],
+    ['tablet', 820, 1180, 'tablet-820'],
+    ['mobile', 390, 844, 'mobile-390'],
+    ['mobile_panels', 390, 844, 'mobile-panels'],
+  ].map(([key, width, height, slug]) => ({
+    key,
+    width,
+    height,
+    screenshotUrl: `https://proof.example.com/${slug}.png`,
+    status: 200,
+    contentType: 'image/png',
+    criticalControlsVisible: true,
+    criticalControlsEnabled: true,
+    horizontalOverflow: false,
+    touchSmokePassed: true,
+    pointerSmokePassed: true,
+    panelKeys: ['canvas', 'sources', 'inspector'],
+    capturedAt: '2026-06-21T15:05:00.000Z',
+  }))
+}
+
+function worldClassBenchmarkProofs() {
+  const durable = durableCategoryEvidence(worldClassBinding)
+  return {
+    editing_ergonomics: sourceBackedBenchmarkProof('editing_ergonomics', {
+      editingLocalEventCount: 4,
+      editingNodeDropCount: 1,
+      editingNodeMoveCount: 1,
+      editingConnectionCount: 1,
+      editingConfiguredGenerationCount: 1,
+      editingCapturedAt: '2026-06-21T15:00:00.000Z',
+      editingEvidence: 'Node drop, drag, live connection, and generation route saved.',
+    }),
+    masking_inpainting: sourceBackedBenchmarkProof('masking_inpainting', {
+      maskingEditNodeCount: 1,
+      maskingPromptCount: 1,
+      maskingIntentCount: 1,
+      maskingRegionCount: 1,
+      maskingBrushStrokeCount: 2,
+      maskingBlendControlCount: 3,
+      maskingCapturedAt: '2026-06-21T15:00:00.000Z',
+      maskingEvidence: 'Brush mask session evidence passed.',
+    }),
+    generation_controls: sourceBackedBenchmarkProof('generation_controls', {
+      generationModelCount: 2,
+      generationReferenceNodeCount: 3,
+      generationReferenceRoleCount: 3,
+      generationLinkedReferenceCount: 3,
+      generationMultiReferenceCapturedAt: '2026-06-21T15:00:00.000Z',
+      generationMultiReferenceEvidence: 'Three-reference generation routing evidence passed.',
+    }),
+    multi_asset_workflows: sourceBackedBenchmarkProof('multi_asset_workflows', {
+      multiAssetSourceNodeCount: 3,
+      multiAssetSourceKindCount: 2,
+      multiAssetReferenceRoleCount: 3,
+      multiAssetConnectedSourceCount: 3,
+      multiAssetOutputNodeCount: 1,
+      multiAssetWorkflowScenarioCount: 1,
+      multiAssetLineageEdgeCount: 3,
+      multiAssetCapturedAt: '2026-06-21T15:00:00.000Z',
+      multiAssetEvidence: 'Connected multi-asset workflow evidence passed.',
+    }),
+    versioning_polish: sourceBackedBenchmarkProof('versioning_polish', {
+      versionSnapshotCount: 2,
+      versionRestorableSnapshotCount: 1,
+      versionNodeCommentCount: 1,
+      versionReusableTemplateCount: 1,
+      versionAutoSaveEnabled: true,
+      versionCapturedAt: '2026-06-21T15:00:00.000Z',
+      versionEvidence: 'Restorable version, comment, template, and auto-save evidence passed.',
+    }),
+    collaboration: sourceBackedBenchmarkProof('collaboration', {
+      collaborationRemoteActorCount: 1,
+      collaborationRemoteEventCount: 1,
+      collaborationRemoteMutationCount: 1,
+      collaborationRemoteMutationKindCount: 1,
+      collaborationRemoteTouchedNodeCount: 1,
+      collaborationRemoteTouchedEdgeCount: 0,
+      collaborationRemoteGraphSignature: worldClassBinding.graphSignature,
+      collaborationRemoteSource: 'draft_applied',
+      collaborationRemoteOutcome: 'remote_changes_adopted',
+      collaborationRemoteMutations: [{
+        actorUid: 'maya',
+        actorType: 'agent',
+        operation: 'node_add',
+        touchedNodeIds: ['source-1'],
+        touchedEdgeIds: [],
+        source: 'draft_applied',
+        occurredAt: '2026-06-21T15:00:00.000Z',
+      }],
+      collaborationStreamConnected: true,
+      collaborationCapturedAt: '2026-06-21T15:00:00.000Z',
+      collaborationEvidence: 'Collaboration mutation proof passed with 1 structured remote mutation.',
+    }),
+    agent_orchestration: sourceBackedBenchmarkProof('agent_orchestration', {
+      agentStepCount: 2,
+      agentActorCount: 2,
+      agentTaskCreatedCount: 1,
+      agentTaskCreatedAt: '2026-06-21T15:00:00.000Z',
+      agentEvidence: 'Project-linked agent task evidence passed.',
+    }),
+    mobile_behavior: sourceBackedBenchmarkProof('mobile_behavior', {
+      mobileViewportProofCount: 4,
+      mobileViewportRequiredCount: 4,
+      mobileViewportProofCapturedAt: '2026-06-21T15:00:00.000Z',
+      mobileViewportEvidence: 'Signed-in mobile behavior proof passed for desktop, tablet, mobile, and mobile panels.',
+      mobileViewportBehaviorEvidence: mobileViewportBehaviorEvidence(),
+    }),
+    export_flows: sourceBackedBenchmarkProof('export_flows', {
+      exportArtifactBackedCategoryCount: 5,
+      exportArtifactBackedCompletedCount: 10,
+      exportArtifactBackedCapturedAt: '2026-06-21T15:00:00.000Z',
+      exportArtifactEvidence: 'Durable export/runtime evidence passed for all categories.',
+      ...durable,
+    }),
+    production_reliability: sourceBackedBenchmarkProof('production_reliability', {
+      runtimeProofStatus: 'passed',
+      runtimeReadyForLiveProof: true,
+      runtimeArtifactBackedCategoryCount: 5,
+      runtimeArtifactBackedCompletedCount: 10,
+      runtimeProviderBackedCategoryCount: 5,
+      runtimeProviderBackedCompletedCount: 10,
+      runtimeActiveRunCount: 0,
+      runtimeStaleActiveRunCount: 0,
+      runtimeFailedRunCount: 0,
+      runtimeFailureRatePercent: 0,
+      runtimeProofCapturedAt: '2026-06-21T15:00:00.000Z',
+      runtimeEvidence: 'Durable export/runtime evidence passed with 5/5 runtime categories and drained queues.',
+      runtimeProviderEvidenceCapturedAt: '2026-06-21T15:00:00.000Z',
+      runtimeProviderEvidence: '5/5 provider-backed categories passed.',
+      ...durable,
+    }),
+  }
+}
+
+function worldClassCanvasData() {
+  return {
+    visualProof: worldClassVisualProof(),
+    benchmarkProof: worldClassBenchmarkProofs(),
+    signedInPreviewProof: {
+      ...worldClassBinding,
+      passed: true,
+      evidence: 'Signed-in Vercel Preview proof passed.',
+      artifactRef: 'https://partnersinbiz-preview.example.com/admin/creative-canvas',
+      capturedAt: '2026-06-21T15:10:00.000Z',
+    },
+    kbCertification: {
+      ...worldClassBinding,
+      recorded: true,
+      evidence: 'KB certification artifact recorded.',
+      artifactRef: 'wiki/creative-canvas-world-class-certification-2026-06-21.md',
+      capturedAt: '2026-06-21T15:11:00.000Z',
+    },
+  }
+}
+
+function worldClassRuntimeProof() {
+  return {
+    canvasId: 'canvas-1',
+    orgId: 'org-1',
+    status: 'passed',
+    readyForLiveProof: true,
+    summary: 'World-class runtime proof passed.',
+    reliabilityCoverage: [
+      { key: 'image', label: 'Image', status: 'passed', requiredOutputKinds: ['image', 'campaign_asset'], requiredCompleted: 2, total: 2, completed: 2, active: 0, failed: 0, cancelled: 0 },
+      { key: 'video_social', label: 'Video/social', status: 'passed', requiredOutputKinds: ['video', 'social_post_draft', 'youtube_render'], requiredCompleted: 2, total: 2, completed: 2, active: 0, failed: 0, cancelled: 0 },
+      { key: 'audio', label: 'Audio', status: 'passed', requiredOutputKinds: ['audio'], requiredCompleted: 2, total: 2, completed: 2, active: 0, failed: 0, cancelled: 0 },
+      { key: 'blog_document', label: 'Blog/document', status: 'passed', requiredOutputKinds: ['blog_draft', 'document_block', 'copy', 'caption'], requiredCompleted: 2, total: 2, completed: 2, active: 0, failed: 0, cancelled: 0 },
+      { key: 'book', label: 'Book', status: 'passed', requiredOutputKinds: ['book_artifact'], requiredCompleted: 2, total: 2, completed: 2, active: 0, failed: 0, cancelled: 0 },
+    ],
+    checks: [{ id: 'runtime_readiness', label: 'Higgsfield runtime readiness', status: 'passed', evidence: 'Runtime ready.' }],
+    ...durableCategoryEvidence(worldClassBinding),
+  }
+}
+
+function dispatchBrushPointerEvent(
+  element: HTMLElement,
+  type: 'pointerdown' | 'pointermove' | 'pointerup',
+  clientX: number,
+  clientY: number,
+) {
+  act(() => {
+    element.dispatchEvent(new MouseEvent(type, {
+      bubbles: true,
+      cancelable: true,
+      clientX,
+      clientY,
+    }))
+  })
+}
+
 beforeEach(() => {
   jest.clearAllMocks()
+  window.history.replaceState(null, '', '/admin/creative-canvas?orgId=org-1')
+  Object.defineProperty(navigator, 'clipboard', {
+    configurable: true,
+    value: { writeText: jest.fn().mockResolvedValue(undefined) },
+  })
   global.fetch = fetchMock
   fetchMock.mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = String(input)
+    if (url.includes('/versions') && init?.method === 'POST') {
+      const body = JSON.parse(String(init.body ?? '{}')) as { action?: string }
+      return {
+        ok: true,
+        status: body.action === 'fork' ? 201 : 200,
+        json: async () => ({
+          success: true,
+          data: {
+            canvas: {
+              id: body.action === 'fork' ? 'canvas-fork' : 'canvas-1',
+              orgId: 'org-1',
+              title: body.action === 'fork' ? 'Launch Canvas fork v2' : 'Launch Canvas',
+              purpose: 'Product launch',
+              status: 'draft',
+              activeVersion: body.action === 'fork' ? 1 : 3,
+              linked: { projectId: 'project-1' },
+              nodes: [{
+                id: body.action === 'fork' ? 'fork-source' : 'restored-source',
+                orgId: 'org-1',
+                type: 'source',
+                title: body.action === 'fork' ? 'Fork source' : 'Restored source',
+                position: { x: 0, y: 0 },
+                data: {},
+              }],
+              edges: [],
+            },
+            version: { id: body.action === 'fork' ? 'fork-v1' : 'v3', version: body.action === 'fork' ? 1 : 3 },
+          },
+        }),
+      }
+    }
+    if (url.includes('/graph?orgId=org-1') && init?.method === 'PUT') {
+      return {
+        ok: true,
+        json: async () => ({
+          success: true,
+          data: {
+            canvas: {
+              id: 'canvas-1',
+              orgId: 'org-1',
+              title: 'Launch Canvas',
+              purpose: 'Product launch',
+              status: 'draft',
+              activeVersion: 2,
+              linked: { projectId: 'project-1' },
+              nodes: [],
+              edges: [],
+            },
+          },
+        }),
+      }
+    }
+    if (url === '/api/v1/creative-canvas/proof-url' && init?.method === 'POST') {
+      const body = JSON.parse(String(init.body ?? '{}')) as { kind?: string; expectedSignals?: string[] }
+      const contentType = body.kind === 'evidence' ? 'text/html' : 'image/png'
+      return {
+        ok: true,
+        json: async () => ({
+          success: true,
+          data: {
+            proof: {
+              reachable: true,
+              status: 200,
+              contentType,
+              checkedAt: '2026-06-21T12:00:00.000Z',
+              ...(body.expectedSignals?.length ? {
+                signalMatched: true,
+                signalCheckedAt: '2026-06-21T12:00:01.000Z',
+                missingSignals: [],
+              } : {}),
+            },
+          },
+        }),
+      }
+    }
     if (url.includes('/versions')) {
       return {
         ok: true,
         json: async () => ({
           success: true,
-          data: { versions: [{ id: 'v2', version: 2, reason: 'graph_save' }] },
+          data: {
+            versions: [{
+              id: 'v2',
+              version: 2,
+              reason: 'graph_save',
+              nodes: [{
+                id: 'version-source',
+                orgId: 'org-1',
+                type: 'source',
+                title: 'Version source',
+                position: { x: 0, y: 0 },
+                data: {},
+              }],
+              edges: [],
+            }],
+          },
         }),
       }
     }
     if (url.includes('/comments') && init?.method === 'POST') {
+      const body = JSON.parse(String(init.body ?? '{}')) as { nodeId?: string; body?: string; visibility?: string }
       return {
         ok: true,
         json: async () => ({
           success: true,
-          data: { comment: { id: 'comment-1', body: 'Needs a stronger hook' } },
+          data: {
+            comment: {
+              id: 'comment-1',
+              orgId: 'org-1',
+              canvasId: 'canvas-1',
+              nodeId: body.nodeId,
+              body: body.body ?? 'Needs a stronger hook',
+              visibility: body.visibility ?? 'admin_agents',
+              resolved: false,
+              createdBy: 'user-1',
+              createdByType: 'user',
+            },
+          },
+        }),
+      }
+    }
+    if (url.includes('/comments')) {
+      return {
+        ok: true,
+        json: async () => ({
+          success: true,
+          data: { comments: [] },
+        }),
+      }
+    }
+    if (url.includes('/presence') && init?.method === 'POST') {
+      const body = JSON.parse(String(init.body ?? '{}')) as {
+        selectedNodeId?: string
+        selectedNodeTitle?: string
+        activeVersion?: number
+        graphSignature?: string
+        hasUnsavedGraphChanges?: boolean
+        nodeCount?: number
+        edgeCount?: number
+        draftGraph?: unknown
+        mutation?: unknown
+      }
+      return {
+        ok: true,
+        json: async () => ({
+          success: true,
+          data: {
+            presence: [{
+              id: 'canvas-1_user-1',
+              orgId: 'org-1',
+              canvasId: 'canvas-1',
+              actorUid: 'user-1',
+              actorType: 'user',
+              displayName: 'You',
+              selectedNodeId: body.selectedNodeId,
+              focus: 'canvas',
+              activeVersion: body.activeVersion,
+              graphSignature: body.graphSignature,
+              hasUnsavedGraphChanges: body.hasUnsavedGraphChanges,
+              nodeCount: body.nodeCount,
+              edgeCount: body.edgeCount,
+              selectedNodeTitle: body.selectedNodeTitle,
+              draftGraph: body.draftGraph,
+              latestMutation: body.mutation,
+              lastSeenAtMs: 1000,
+              expiresAtMs: 46000,
+            }],
+          },
+        }),
+      }
+    }
+    if (url.includes('/presence')) {
+      return {
+        ok: true,
+        json: async () => ({
+          success: true,
+          data: {
+            presence: [{
+              id: 'canvas-1_maya',
+              orgId: 'org-1',
+              canvasId: 'canvas-1',
+              actorUid: 'maya',
+              actorType: 'agent',
+              displayName: 'Maya',
+              selectedNodeId: 'model-node-existing',
+              selectedNodeTitle: 'Existing model',
+              focus: 'runs',
+              activeVersion: 1,
+              graphSignature: 'maya-draft-signature',
+              hasUnsavedGraphChanges: true,
+              nodeCount: 3,
+              edgeCount: 2,
+              draftGraph: {
+                nodes: [{
+                  id: 'maya-draft-node',
+                  orgId: 'org-1',
+                  type: 'source',
+                  title: 'Maya live draft source',
+                  position: { x: 40, y: 60 },
+                  data: { createdFrom: 'maya_live_draft' },
+                }],
+                edges: [],
+              },
+              lastSeenAtMs: 900,
+              expiresAtMs: 45900,
+            }],
+          },
+        }),
+      }
+    }
+    if (url.includes('/runtime-proof')) {
+      return {
+        ok: true,
+        json: async () => ({
+          success: true,
+          data: {
+            proof: {
+              canvasId: 'canvas-1',
+              orgId: 'org-1',
+              status: 'warning',
+              readyForLiveProof: false,
+              summary: '0 blockers and 2 warnings remain before live proof.',
+              reliabilityCoverage: [
+                { key: 'image', label: 'Image', status: 'warning', requiredOutputKinds: ['image', 'campaign_asset'], requiredCompleted: 2, total: 2, completed: 1, active: 1, failed: 0, cancelled: 0, latestRunId: 'run-image-2', latestCompletedRunId: 'run-image-1', nextAction: 'Wait for this proof run to complete or ingest the provider output.' },
+                { key: 'video_social', label: 'Video/social', status: 'warning', requiredOutputKinds: ['video', 'social_post_draft', 'youtube_render'], requiredCompleted: 2, total: 1, completed: 0, active: 1, failed: 0, cancelled: 0, latestRunId: 'run-video-1', nextAction: 'Wait for this proof run to complete or ingest the provider output.' },
+                { key: 'audio', label: 'Audio', status: 'blocked', requiredOutputKinds: ['audio'], requiredCompleted: 2, total: 0, completed: 0, active: 0, failed: 0, cancelled: 0, nextAction: 'Queue proof batch to create this required creative job.' },
+                { key: 'blog_document', label: 'Blog/document', status: 'blocked', requiredOutputKinds: ['blog_draft', 'document_block', 'copy', 'caption'], requiredCompleted: 2, total: 0, completed: 0, active: 0, failed: 0, cancelled: 0, nextAction: 'Queue proof batch to create this required creative job.' },
+                { key: 'book', label: 'Book', status: 'blocked', requiredOutputKinds: ['book_artifact'], requiredCompleted: 2, total: 1, completed: 0, active: 0, failed: 1, cancelled: 0, latestRunId: 'run-book-1', nextAction: 'Retry failed proof run or queue a new proof batch.' },
+              ],
+              checks: [
+                { id: 'project_link', label: 'Linked project', status: 'passed', evidence: 'Project project-1' },
+                { id: 'runtime_readiness', label: 'Higgsfield runtime readiness', status: 'warning', evidence: 'Submit configured, status configured, internal bridge yes.' },
+                { id: 'provider_runs', label: 'Provider run evidence', status: 'warning', evidence: '2 runs, 0 completed, 1 active, 1 failed.' },
+                { id: 'completed_run_artifacts', label: 'Completed run artifacts and provenance', status: 'blocked', evidence: '0/0 completed runs have required output artifact evidence and provider job IDs for media categories.' },
+                { id: 'output_assets', label: 'Output asset evidence', status: 'blocked', evidence: '0 assets, 0 draft-exportable output assets.' },
+                { id: 'repeated_job_coverage', label: 'Repeated creative job coverage', status: 'blocked', evidence: 'Image: 0/0 completed; Video/social: 0/1 completed; Blog/document: 0/0 completed; Book: 0/0 completed' },
+                { id: 'repeated_job_reliability', label: 'Repeated creative job reliability', status: 'warning', evidence: '2 total runs, 0 artifact/provenance-backed completed, 0 completed missing artifacts or media provenance, 1 active, 1 failed, 100% artifact/provenance-backed failure rate, 1 stale active.' },
+              ],
+            },
+          },
         }),
       }
     }
@@ -48,6 +725,108 @@ beforeEach(() => {
         json: async () => ({
           success: true,
           data: { exportId: 'export-1', draft: { target: 'campaign_asset', status: 'internal_draft' } },
+        }),
+      }
+    }
+    if (url.includes('/exports/package') && init?.method === 'POST') {
+      return {
+        ok: true,
+        json: async () => ({
+          success: true,
+          data: {
+            exportId: 'package-1',
+            package: {
+              status: 'internal_package',
+              assetCount: 1,
+              targets: ['social_draft'],
+              manifest: {
+                canvas: { activeVersion: 1, nodeCount: 6, edgeCount: 5 },
+                proof: {
+                  requiredOutputKinds: ['social_post_draft'],
+                  sourceNodeIds: ['social-launch-source'],
+                  coveredCategories: ['video_social'],
+                },
+                lineage: [{ outputNodeId: 'social-launch-output', sourceNodeIds: ['social-launch-source'], upstreamNodeIds: ['social-launch-source'] }],
+              },
+              downstreamDrafts: [{ target: 'social_draft', sourceNodeId: 'social-launch-output' }],
+            },
+          },
+        }),
+      }
+    }
+    if (url.includes('/creative-canvas/templates') && init?.method === 'POST') {
+      const body = JSON.parse(String(init.body ?? '{}')) as {
+        title?: string
+        description?: string
+        nodes?: unknown[]
+        edges?: unknown[]
+        sourceCanvasId?: string
+        sourceVersion?: number
+      }
+      return {
+        ok: true,
+        status: 201,
+        json: async () => ({
+          success: true,
+          data: {
+            template: {
+              id: 'template-saved',
+              orgId: 'org-1',
+              title: body.title ?? 'Saved template',
+              description: body.description,
+              sourceCanvasId: body.sourceCanvasId,
+              sourceVersion: body.sourceVersion,
+              nodes: body.nodes ?? [],
+              edges: body.edges ?? [],
+              createdBy: 'user-1',
+              createdByType: 'user',
+              updatedBy: 'user-1',
+              updatedByType: 'user',
+              deleted: false,
+            },
+          },
+        }),
+      }
+    }
+    if (url.includes('/creative-canvas/templates')) {
+      return {
+        ok: true,
+        json: async () => ({
+          success: true,
+          data: {
+            templates: [{
+              id: 'template-social',
+              orgId: 'org-1',
+              title: 'Reusable social launch',
+              description: 'Saved UGC launch graph',
+              nodes: [
+                {
+                  id: 'template-source',
+                  orgId: 'org-1',
+                  type: 'source',
+                  title: 'Template product source',
+                  position: { x: 0, y: 0 },
+                  data: {},
+                  source: { kind: 'upload', referenceRole: 'product', weight: 1 },
+                },
+                {
+                  id: 'template-model',
+                  orgId: 'org-1',
+                  type: 'model',
+                  title: 'Template Higgsfield render',
+                  position: { x: 260, y: 0 },
+                  data: {},
+                  provider: { key: 'higgsfield', model: 'seedance_2_0_fast', mode: 'social_post_draft' },
+                },
+              ],
+              edges: [{ id: 'template-edge', orgId: 'org-1', sourceNodeId: 'template-source', targetNodeId: 'template-model', label: 'feeds' }],
+              createdBy: 'user-1',
+              createdByType: 'user',
+              updatedBy: 'user-1',
+              updatedByType: 'user',
+              deleted: false,
+            }],
+          },
         }),
       }
     }
@@ -125,30 +904,198 @@ beforeEach(() => {
         }),
       }
     }
+    if (url.includes('/runs/proof-batch') && init?.method === 'POST') {
+      return {
+        ok: true,
+        status: 201,
+        json: async () => ({
+          success: true,
+          data: {
+            queuedRuns: [
+              ...[
+                ['proof-image-1', 'higgsfield', 'image'],
+                ['proof-image-2', 'higgsfield', 'image'],
+                ['proof-video-2', 'higgsfield', 'video'],
+                ['proof-audio-1', 'higgsfield', 'audio'],
+                ['proof-audio-2', 'higgsfield', 'audio'],
+                ['proof-blog-1', 'agent_task', 'blog_draft'],
+                ['proof-blog-2', 'agent_task', 'blog_draft'],
+                ['proof-book-1', 'higgsfield', 'book_artifact'],
+                ['proof-book-2', 'higgsfield', 'book_artifact'],
+              ].map(([id, providerKey, outputKind]) => ({
+                id,
+                orgId: 'org-1',
+                canvasId: 'canvas-1',
+                nodeId: 'model-node-existing',
+                providerKey,
+                status: 'queued',
+                input: { sourceNodeIds: ['model-node-existing'], sourceArtifactIds: [], outputKind },
+                provenance: { generatedBy: 'agent', promptStored: 'summary', syntheticMedia: providerKey === 'higgsfield' },
+              })),
+            ],
+            skippedCategories: [],
+            operations: {
+              total: 11,
+              active: 10,
+              staleActiveRuns: 1,
+              staleThresholdMinutes: 30,
+              failed: 1,
+              retryableFailures: 1,
+              completed: 0,
+              byStatus: { queued: 9, running: 1, waiting_for_review: 0, completed: 0, failed: 1, cancelled: 0 },
+              providers: [{
+                providerKey: 'higgsfield',
+                total: 9,
+                active: 8,
+                staleActiveRuns: 1,
+                failed: 1,
+                retryableFailures: 1,
+                completed: 0,
+                byStatus: { queued: 7, running: 1, waiting_for_review: 0, completed: 0, failed: 1, cancelled: 0 },
+              }],
+            },
+          },
+        }),
+      }
+    }
     if (url.endsWith('/runs?orgId=org-1')) {
       return {
         ok: true,
         json: async () => ({
           success: true,
           data: {
-            runs: [{
-              id: 'run-existing',
+            operations: {
+              total: 2,
+              active: 1,
+              staleActiveRuns: 1,
+              oldestActiveRunAgeMinutes: 74,
+              staleThresholdMinutes: 30,
+              failed: 1,
+              retryableFailures: 1,
+              completed: 0,
+              byStatus: { queued: 0, running: 1, waiting_for_review: 0, completed: 0, failed: 1, cancelled: 0 },
+              providers: [{
+                providerKey: 'higgsfield',
+                total: 2,
+                active: 1,
+                staleActiveRuns: 1,
+                oldestActiveRunAgeMinutes: 74,
+                failed: 1,
+                retryableFailures: 1,
+                completed: 0,
+                byStatus: { queued: 0, running: 1, waiting_for_review: 0, completed: 0, failed: 1, cancelled: 0 },
+                latestProviderStatusMessage: 'Rendering preview frames',
+                latestErrorMessage: 'Quota exceeded',
+              }],
+            },
+            runtimeReadiness: {
+              providerKey: 'higgsfield',
+              runtimeConfigured: true,
+              submitConfigured: true,
+              statusPollingConfigured: true,
+              internalBridgeConfigured: true,
+              callbackBaseConfigured: true,
+              webhookSecretConfigured: false,
+              linkedProjectId: 'project-1',
+              blockers: [],
+              warnings: ['Provider webhook secret is not configured'],
+            },
+            runs: [
+              {
+                id: 'run-existing',
+                orgId: 'org-1',
+                canvasId: 'canvas-1',
+                nodeId: 'model-node-existing',
+                providerKey: 'higgsfield',
+                model: 'nano_banana_flash',
+                status: 'running',
+                providerStatusMessage: 'Rendering preview frames',
+                input: { sourceNodeIds: [], sourceArtifactIds: [], outputKind: 'video' },
+                provenance: {
+                  generatedBy: 'agent',
+                  agentId: 'maya',
+                  providerJobId: 'hf-job-existing',
+                  promptStored: 'summary',
+                  syntheticMedia: true,
+                },
+              },
+              {
+                id: 'run-failed',
+                orgId: 'org-1',
+                canvasId: 'canvas-1',
+                nodeId: 'model-node-failed',
+                providerKey: 'higgsfield',
+                status: 'failed',
+                input: { sourceNodeIds: [], sourceArtifactIds: [] },
+                provenance: { generatedBy: 'agent', promptStored: 'summary', syntheticMedia: true },
+                error: { code: 'quota', message: 'Quota exceeded', retryable: true },
+              },
+            ],
+          },
+        }),
+      }
+    }
+    if (url.includes('/runs/run-failed/retry') && init?.method === 'PUT') {
+      return {
+        ok: true,
+        json: async () => ({
+          success: true,
+          data: {
+            run: {
+              id: 'run-failed',
               orgId: 'org-1',
               canvasId: 'canvas-1',
-              nodeId: 'model-node-existing',
+              nodeId: 'model-node-failed',
               providerKey: 'higgsfield',
-              model: 'nano_banana_flash',
-              status: 'running',
-              providerStatusMessage: 'Rendering preview frames',
+              status: 'queued',
+              providerStatus: 'retry_queued',
+              providerStatusMessage: 'Retry queued for provider runtime drain.',
               input: { sourceNodeIds: [], sourceArtifactIds: [] },
-              provenance: {
-                generatedBy: 'agent',
-                agentId: 'maya',
-                providerJobId: 'hf-job-existing',
-                promptStored: 'summary',
-                syntheticMedia: true,
-              },
+              provenance: { generatedBy: 'agent', promptStored: 'summary', syntheticMedia: true },
+            },
+          },
+        }),
+      }
+    }
+    if (url.includes('/runs/retry') && init?.method === 'PUT') {
+      return {
+        ok: true,
+        json: async () => ({
+          success: true,
+          data: {
+            retriedRuns: [{
+              id: 'run-failed',
+              orgId: 'org-1',
+              canvasId: 'canvas-1',
+              nodeId: 'model-node-failed',
+              providerKey: 'higgsfield',
+              status: 'queued',
+              providerStatus: 'retry_queued',
+              providerStatusMessage: 'Retry queued for provider runtime drain.',
+              input: { sourceNodeIds: [], sourceArtifactIds: [] },
+              provenance: { generatedBy: 'agent', promptStored: 'summary', syntheticMedia: true },
             }],
+            skippedRuns: [],
+            operations: {
+              total: 2,
+              active: 2,
+              staleActiveRuns: 0,
+              staleThresholdMinutes: 30,
+              failed: 0,
+              retryableFailures: 0,
+              completed: 0,
+              byStatus: { queued: 1, running: 1, waiting_for_review: 0, completed: 0, failed: 0, cancelled: 0 },
+              providers: [{
+                providerKey: 'higgsfield',
+                total: 2,
+                active: 2,
+                staleActiveRuns: 0,
+                failed: 0,
+                retryableFailures: 0,
+                completed: 0,
+                byStatus: { queued: 1, running: 1, waiting_for_review: 0, completed: 0, failed: 0, cancelled: 0 },
+              }],
+            },
           },
         }),
       }
@@ -182,6 +1129,54 @@ beforeEach(() => {
         }),
       }
     }
+    if (url.includes('/runs/run-existing/complete') && init?.method === 'PUT') {
+      return {
+        ok: true,
+        json: async () => ({
+          success: true,
+          data: { run: { id: 'run-existing', status: 'completed' }, outputNode: { id: 'model-node-existing-output' } },
+        }),
+      }
+    }
+    if (url.includes('/orchestration-tasks') && init?.method === 'POST') {
+      return {
+        ok: true,
+        json: async () => ({
+          success: true,
+          data: {
+            projectId: 'project-1',
+            createdTasks: [
+              { id: 'task-1', nodeId: 'source-1', agentId: 'pip' },
+              { id: 'task-2', nodeId: 'model-1', agentId: 'maya' },
+            ],
+            skippedSteps: [],
+          },
+        }),
+      }
+    }
+    if (url === '/api/v1/creative-canvas/canvas-1?orgId=org-1' && init?.method === 'PATCH') {
+      const body = JSON.parse(String(init.body ?? '{}')) as { data?: Record<string, unknown> }
+      return {
+        ok: true,
+        json: async () => ({
+          success: true,
+          data: {
+            canvas: {
+              id: 'canvas-1',
+              orgId: 'org-1',
+              title: 'Launch Canvas',
+              purpose: 'Product launch',
+              status: 'draft',
+              activeVersion: 1,
+              linked: { projectId: 'project-1' },
+              data: body.data ?? {},
+              nodes: [],
+              edges: [],
+            },
+          },
+        }),
+      }
+    }
 
     return {
       ok: true,
@@ -195,6 +1190,7 @@ beforeEach(() => {
             purpose: 'Product launch',
             status: 'draft',
             activeVersion: 1,
+            linked: { projectId: 'project-1' },
             nodes: [],
             edges: [],
           }],
@@ -211,15 +1207,3026 @@ describe('CreativeCanvasWorkspace', () => {
     expect(await screen.findByText('Launch Canvas')).toBeInTheDocument()
     expect(screen.getByText('Source')).toBeInTheDocument()
     expect(screen.getByText('Prompt')).toBeInTheDocument()
+    expect(screen.getByText('Workflow presets')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /apply social launch workflow/i })).toBeInTheDocument()
+    expect(screen.getByText('Higgsfield benchmark workflows')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /apply VFX background replace workflow/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /apply Product style fusion workflow/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /apply Model product campaign workflow/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /apply Brand icon system workflow/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /apply 8 missing benchmark workflows/i })).toBeInTheDocument()
     expect(screen.getByText('Run history')).toBeInTheDocument()
+    expect(screen.getByText('Provider operations')).toBeInTheDocument()
+    expect(screen.getByText('1 active / 2 total')).toBeInTheDocument()
+    expect(screen.getByText('Runtime readiness')).toBeInTheDocument()
+    expect(screen.getByText('Submit yes · Status yes · Project project-1')).toBeInTheDocument()
+    expect(screen.getByText('Live proof status')).toBeInTheDocument()
+    expect(screen.getByText('0 blockers and 2 warnings remain before live proof.')).toBeInTheDocument()
+    expect(screen.getByText('Provider run evidence')).toBeInTheDocument()
+    expect(screen.getByText('Repeated creative job coverage')).toBeInTheDocument()
+    expect(screen.getByText(/Image: 0\/0 completed/i)).toBeInTheDocument()
+    expect(screen.getByText(/1 active provider run older than 30 min/i)).toBeInTheDocument()
+    expect(screen.getByText(/1 stale active · oldest 74 min/i)).toBeInTheDocument()
+    expect(screen.getByText('1 retryable provider failure')).toBeInTheDocument()
+    expect(screen.getByText(/1 active · 0 completed · 1 failed/i)).toBeInTheDocument()
+    expect(screen.getAllByText('Quota exceeded').length).toBeGreaterThan(0)
+    expect(screen.getByText('Agent orchestration')).toBeInTheDocument()
     expect(screen.getByText('Provider job: hf-job-existing')).toBeInTheDocument()
+    expect(screen.getByText('Live collaborators')).toBeInTheDocument()
+    expect(screen.getByText('Live activity')).toBeInTheDocument()
+    expect(screen.getByText('0 recent')).toBeInTheDocument()
+    expect(screen.getByText('Maya')).toBeInTheDocument()
+    expect(screen.getByText('runs / Existing model')).toBeInTheDocument()
+    expect(screen.getByText('Live draft')).toBeInTheDocument()
+    expect(screen.getByText('3 nodes / 2 links / v1')).toBeInTheDocument()
     expect(screen.getByText('Versions')).toBeInTheDocument()
+    expect(screen.getByText('1 nodes / 0 links')).toBeInTheDocument()
+    expect(screen.getByText('+1 / -0 changes')).toBeInTheDocument()
+    expect(screen.getByText('Changed: Version source')).toBeInTheDocument()
     expect(screen.getByText('Comments')).toBeInTheDocument()
     expect(screen.getByText('Output attachment')).toBeInTheDocument()
     expect(screen.getByText('Review gate')).toBeInTheDocument()
     expect(screen.getByText('Exports')).toBeInTheDocument()
     expect(screen.getByTestId('react-flow')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /save graph/i })).toBeInTheDocument()
+    expect(screen.getByRole('navigation', { name: /creative canvas mobile sections/i })).toBeInTheDocument()
+    expect(screen.getByLabelText(/creative canvas responsive readiness/i)).toBeInTheDocument()
+    expect(screen.getByText('3-column graph')).toBeInTheDocument()
+    const certificationGate = screen.getByLabelText(/creative canvas world-class certification gate/i)
+    expect(certificationGate).toHaveTextContent('Higgsfield parity certification')
+    expect(certificationGate).toHaveTextContent('World-class certification blocked')
+    expect(certificationGate).toHaveTextContent('0/17 hard proof gates passed; 5 blockers remain.')
+    expect(certificationGate).toHaveTextContent('Next required proof: Missing 10 source-backed benchmark proofs.')
+    expect(certificationGate).toHaveTextContent('4 blocked · 3 action')
+    const visualProof = screen.getByLabelText(/creative canvas visual qa proof/i)
+    expect(visualProof).toHaveTextContent('Visual QA proof')
+    expect(visualProof).toHaveTextContent('0/4 signed-in')
+    expect(visualProof).toHaveTextContent('Desktop 1440')
+    expect(visualProof).toHaveTextContent('Tablet 820')
+    expect(visualProof).toHaveTextContent('Mobile 390')
+    expect(visualProof).toHaveTextContent('Mobile panels')
+    const proofRunbook = screen.getByLabelText(/creative canvas world-class proof runbook/i)
+    expect(proofRunbook).toHaveTextContent('World-class proof runbook')
+    expect(proofRunbook).toHaveTextContent('0/7 complete')
+    expect(proofRunbook).toHaveTextContent('Signed-in viewport proof')
+    expect(proofRunbook).toHaveTextContent('Capture signed-in Desktop 1440, Tablet 820, Mobile 390, and Mobile panels screenshots.')
+    expect(proofRunbook).toHaveTextContent('Local editing proof')
+    expect(proofRunbook).toHaveTextContent('Perform a real graph edit on an edit node before saving benchmark proof.')
+    expect(proofRunbook).toHaveTextContent('Two-user collaboration proof')
+    expect(proofRunbook).toHaveTextContent('Capture source-backed Collaboration benchmark proof from the live two-user session.')
+    expect(proofRunbook).toHaveTextContent('AI agent task proof')
+    expect(proofRunbook).toHaveTextContent('Create project-linked agent tasks from the canvas orchestration chain before saving benchmark proof.')
+    expect(proofRunbook).toHaveTextContent('Multi-category export proof')
+    expect(proofRunbook).toHaveTextContent('Generate a package covering image/campaign, video/social, audio, blog/document, and book outputs.')
+    expect(proofRunbook).toHaveTextContent('Repeated production job proof')
+    expect(proofRunbook).toHaveTextContent('Complete repeated image, video/social, audio, blog/document, and book jobs with drained queues and low failures.')
+    expect(proofRunbook).toHaveTextContent('Full source-backed benchmark ledger')
+    expect(proofRunbook).toHaveTextContent('Use Capture ready proofs, then fill any remaining proof URLs and notes from live evidence.')
+    const parityAudit = screen.getByLabelText(/higgsfield parity audit/i)
+    expect(parityAudit).toHaveTextContent('Canvas capability evidence')
+    expect(parityAudit).toHaveTextContent('Editing ergonomics')
+    expect(parityAudit).toHaveTextContent('Masking / inpainting')
+    expect(parityAudit).toHaveTextContent('Generation controls')
+    expect(parityAudit).toHaveTextContent('Multi-model routing')
+    expect(parityAudit).toHaveTextContent('7/7 current Higgsfield model presets ready')
+    expect(parityAudit).toHaveTextContent('Multi-asset workflows')
+    expect(parityAudit).toHaveTextContent('Benchmark workflows')
+    expect(parityAudit).toHaveTextContent('8/8 workflow scenarios ready')
+    expect(parityAudit).toHaveTextContent('Versioning polish')
+    expect(parityAudit).toHaveTextContent('Collaboration')
+    expect(parityAudit).toHaveTextContent('Live edit activity')
+    expect(parityAudit).toHaveTextContent('AI agent integration')
+    expect(parityAudit).toHaveTextContent('Templates')
+    expect(parityAudit).toHaveTextContent('Mobile behavior')
+    expect(parityAudit).toHaveTextContent('Signed-in desktop/tablet/mobile screenshots still required')
+    expect(parityAudit).toHaveTextContent('Export flows')
+    expect(parityAudit).toHaveTextContent('Production reliability')
+    expect(parityAudit).toHaveTextContent('0/5 proof categories passed · warning runtime proof')
+    const benchmarkProof = screen.getByLabelText(/direct higgsfield benchmark proof/i)
+    expect(benchmarkProof).toHaveTextContent('Capability-by-capability evidence ledger')
+    expect(benchmarkProof).toHaveTextContent('0/10 benchmark proven')
+    expect(benchmarkProof).toHaveTextContent('Editing ergonomics')
+    expect(benchmarkProof).toHaveTextContent('Masking / inpainting UX')
+    expect(benchmarkProof).toHaveTextContent('Generation controls')
+    expect(benchmarkProof).toHaveTextContent('AI agent integration')
+    expect(benchmarkProof).toHaveTextContent('Production reliability')
+    expect(benchmarkProof).toHaveTextContent('Current Higgsfield source signals')
+    expect(benchmarkProof).toHaveTextContent('Drop a node')
+    expect(benchmarkProof).toHaveTextContent('Brush & Prompt')
+    expect(screen.getByRole('region', { name: /canvas graph workspace/i })).toHaveClass('block')
+    expect(screen.getByRole('complementary', { name: /source and workflow tools/i })).toHaveClass('hidden')
+  })
+
+  it('shows certification passed only when all hard proof gates pass', async () => {
+    const defaultFetch = fetchMock.getMockImplementation()
+    fetchMock.mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      if (url === '/api/v1/creative-canvas?orgId=org-1') {
+        return {
+          ok: true,
+          json: async () => ({
+            success: true,
+            data: {
+              canvases: [{
+                id: 'canvas-1',
+                orgId: 'org-1',
+                title: 'Launch Canvas',
+                purpose: 'Product launch',
+                status: 'draft',
+                activeVersion: 1,
+                linked: { projectId: 'project-1' },
+                data: worldClassCanvasData(),
+                nodes: worldClassCanvasNodes,
+                edges: [],
+              }],
+            },
+          }),
+        }
+      }
+      if (url.includes('/runtime-proof')) {
+        return {
+          ok: true,
+          json: async () => ({
+            success: true,
+            data: { proof: worldClassRuntimeProof() },
+          }),
+        }
+      }
+      if (url.endsWith('/runs?orgId=org-1')) {
+        return {
+          ok: true,
+          json: async () => ({
+            success: true,
+            data: {
+              operations: {
+                total: 10,
+                active: 0,
+                staleActiveRuns: 0,
+                failed: 0,
+                retryableFailures: 0,
+                completed: 10,
+                byStatus: { queued: 0, running: 0, waiting_for_review: 0, completed: 10, failed: 0, cancelled: 0 },
+                providers: [],
+              },
+              runtimeReadiness: {
+                providerKey: 'higgsfield',
+                runtimeConfigured: true,
+                submitConfigured: true,
+                statusPollingConfigured: true,
+                internalBridgeConfigured: true,
+                callbackBaseConfigured: true,
+                webhookSecretConfigured: true,
+                linkedProjectId: 'project-1',
+                blockers: [],
+                warnings: [],
+              },
+              runs: [],
+            },
+          }),
+        }
+      }
+      return defaultFetch?.(input, init) ?? {
+        ok: true,
+        json: async () => ({ success: true, data: {} }),
+      }
+    })
+
+    render(<CreativeCanvasWorkspace mode="admin" orgId="org-1" />)
+
+    expect(await screen.findByText('Launch Canvas')).toBeInTheDocument()
+    const certificationGate = screen.getByLabelText(/creative canvas world-class certification gate/i)
+    expect(certificationGate).toHaveTextContent('World-class certification passed')
+    expect(certificationGate).not.toHaveTextContent('World-class certification blocked')
+    expect(certificationGate).toHaveTextContent('17/17 hard proof gates passed.')
+    expect(certificationGate).toHaveTextContent('Collaboration mutation proof')
+    expect(certificationGate).toHaveTextContent('Collaboration mutation proof passed with 1 structured remote mutation.')
+    expect(certificationGate).toHaveTextContent('Signed-in mobile behavior proof')
+    expect(certificationGate).toHaveTextContent('Signed-in mobile behavior proof passed for desktop, tablet, mobile, and mobile panels.')
+    expect(certificationGate).toHaveTextContent('Durable export/runtime evidence')
+    expect(certificationGate).toHaveTextContent('Durable export/runtime evidence passed with 5/5 runtime categories and drained queues.')
+    const benchmarkProof = screen.getByLabelText(/direct higgsfield benchmark proof/i)
+    expect(benchmarkProof).toHaveTextContent('10/10 benchmark proven')
+  })
+
+  it('saves visual proof evidence and updates the parity audit', async () => {
+    render(<CreativeCanvasWorkspace mode="admin" orgId="org-1" />)
+
+    expect(await screen.findByText('Launch Canvas')).toBeInTheDocument()
+    fireEvent.change(screen.getByLabelText(/desktop 1440 screenshot url/i), {
+      target: { value: 'https://proof.example.com/desktop-1440.png' },
+    })
+    fireEvent.change(screen.getByLabelText(/desktop 1440 proof notes/i), {
+      target: { value: 'Desktop graph, sources, and inspector are legible.' },
+    })
+    fireEvent.change(screen.getByLabelText(/desktop 1440 session evidence/i), {
+      target: { value: 'Signed-in admin header and Peet user menu visible.' },
+    })
+    fireEvent.change(screen.getByLabelText(/desktop 1440 viewport size/i), {
+      target: { value: '1440x900' },
+    })
+    fireEvent.change(screen.getByLabelText(/desktop 1440 visible panels/i), {
+      target: { value: 'Graph, Sources, Inspector' },
+    })
+    fireEvent.click(screen.getByLabelText(/desktop 1440 proof is signed-in/i))
+    fireEvent.click(screen.getByRole('button', { name: /save desktop 1440 proof/i }))
+
+    await waitFor(() => expect(screen.getByText('Saved Desktop 1440 visual proof')).toBeInTheDocument())
+
+    const patchCall = fetchMock.mock.calls.find(([input, init]) => (
+      String(input) === '/api/v1/creative-canvas/canvas-1?orgId=org-1'
+      && init?.method === 'PATCH'
+    ))
+    expect(patchCall).toBeTruthy()
+    const body = JSON.parse(String(patchCall?.[1]?.body ?? '{}')) as {
+      data?: { visualProof?: Record<string, { screenshotUrl?: string; notes?: string; capturedAt?: string; capturedBy?: string; signedIn?: boolean; sessionEvidence?: string; viewportSize?: string; visiblePanels?: string; canvasVersion?: number; graphSignature?: string; nodeCount?: number; edgeCount?: number; screenshotReachable?: boolean; screenshotStatus?: number; screenshotContentType?: string; screenshotCheckedAt?: string }> }
+    }
+    expect(body.data?.visualProof?.desktop_1440).toMatchObject({
+      screenshotUrl: 'https://proof.example.com/desktop-1440.png',
+      notes: 'Desktop graph, sources, and inspector are legible.',
+      capturedBy: 'Pip',
+      signedIn: true,
+      sessionEvidence: 'Signed-in admin header and Peet user menu visible.',
+      viewportSize: '1440x900',
+      visiblePanels: 'Graph, Sources, Inspector',
+      canvasVersion: 1,
+      nodeCount: expect.any(Number),
+      edgeCount: expect.any(Number),
+      screenshotReachable: true,
+      screenshotStatus: 200,
+      screenshotContentType: 'image/png',
+      screenshotCheckedAt: '2026-06-21T12:00:00.000Z',
+    })
+    expect(body.data?.visualProof?.desktop_1440?.capturedAt).toEqual(expect.any(String))
+    expect(body.data?.visualProof?.desktop_1440?.graphSignature).toEqual(expect.any(String))
+
+    const visualProof = screen.getByLabelText(/creative canvas visual qa proof/i)
+    expect(visualProof).toHaveTextContent('1/4 signed-in')
+    expect(visualProof).toHaveTextContent('1440x900 · Graph, Sources, Inspector')
+    expect(visualProof).toHaveTextContent('Proof URL: reachable · 200 · image/png')
+    expect(within(visualProof).getByRole('link', { name: /open proof/i })).toHaveAttribute('href', 'https://proof.example.com/desktop-1440.png')
+    const parityAudit = screen.getByLabelText(/higgsfield parity audit/i)
+    expect(parityAudit).toHaveTextContent('1/4 signed-in visual proofs captured')
+  })
+
+  it('does not count signed-in viewport proof captured against a stale graph state', async () => {
+    const defaultFetch = fetchMock.getMockImplementation()
+    fetchMock.mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      if (url === '/api/v1/creative-canvas?orgId=org-1') {
+        return {
+          ok: true,
+          json: async () => ({
+            success: true,
+            data: {
+              canvases: [{
+                id: 'canvas-1',
+                orgId: 'org-1',
+                title: 'Launch Canvas',
+                activeVersion: 1,
+                data: {
+                  visualProof: {
+                    desktop_1440: {
+                      screenshotUrl: 'https://proof.example.com/desktop-1440.png',
+                      notes: 'Desktop graph captured on an old version.',
+                      capturedAt: '2026-06-21T10:00:00.000Z',
+                      capturedBy: 'Pip',
+                      signedIn: true,
+                      sessionEvidence: 'Signed-in admin header visible.',
+                      viewportSize: '1440x900',
+                      visiblePanels: 'Graph, Sources, Inspector',
+                      canvasVersion: 999,
+                      graphSignature: 'old-visual-signature',
+                      nodeCount: 99,
+                      edgeCount: 99,
+                      screenshotReachable: true,
+                      screenshotStatus: 200,
+                      screenshotContentType: 'image/png',
+                      screenshotCheckedAt: '2026-06-21T10:00:01.000Z',
+                    },
+                  },
+                },
+                nodes: [],
+                edges: [],
+              }],
+            },
+          }),
+        }
+      }
+      if (url === '/api/v1/creative-canvas/canvas-1?orgId=org-1' && init?.method === 'PATCH') {
+        const body = JSON.parse(String(init.body ?? '{}')) as { data?: CreativeCanvas['data'] }
+        return {
+          ok: true,
+          json: async () => ({
+            success: true,
+            data: {
+              canvas: {
+                id: 'canvas-1',
+                orgId: 'org-1',
+                title: 'Launch Canvas',
+                purpose: 'Product launch',
+                status: 'draft',
+                activeVersion: 1,
+                linked: { projectId: 'project-1' },
+                data: body.data ?? {},
+                nodes: [],
+                edges: [],
+              },
+            },
+          }),
+        }
+      }
+      return defaultFetch?.(input, init) ?? {
+        ok: true,
+        json: async () => ({ success: true, data: {} }),
+      }
+    })
+
+    render(<CreativeCanvasWorkspace mode="admin" orgId="org-1" />)
+
+    expect(await screen.findByText('Launch Canvas')).toBeInTheDocument()
+    const visualProof = screen.getByLabelText(/creative canvas visual qa proof/i)
+    expect(visualProof).toHaveTextContent('0/4 signed-in')
+    expect(visualProof).toHaveTextContent('Recapture this viewport against the current canvas version and graph state before it counts.')
+    expect(visualProof).toHaveTextContent('Canvas state: v999 · 99 nodes · 99 links')
+  })
+
+  it('does not save signed-in viewport proof when the screenshot URL is not a reachable image', async () => {
+    const defaultFetch = fetchMock.getMockImplementation()
+    fetchMock.mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
+      if (String(input) === '/api/v1/creative-canvas/proof-url') {
+        return {
+          ok: true,
+          json: async () => ({
+            success: true,
+            data: {
+              proof: {
+                reachable: false,
+                status: 404,
+                contentType: 'text/html',
+                checkedAt: '2026-06-21T12:00:00.000Z',
+              },
+            },
+          }),
+        }
+      }
+      return defaultFetch?.(input, init) ?? {
+        ok: true,
+        json: async () => ({ success: true, data: {} }),
+      }
+    })
+
+    render(<CreativeCanvasWorkspace mode="admin" orgId="org-1" />)
+
+    expect(await screen.findByText('Launch Canvas')).toBeInTheDocument()
+    fireEvent.change(screen.getByLabelText(/desktop 1440 screenshot url/i), {
+      target: { value: 'https://proof.example.com/missing.html' },
+    })
+    fireEvent.change(screen.getByLabelText(/desktop 1440 proof notes/i), {
+      target: { value: 'Desktop proof attempt.' },
+    })
+    fireEvent.change(screen.getByLabelText(/desktop 1440 session evidence/i), {
+      target: { value: 'Signed-in admin header visible.' },
+    })
+    fireEvent.click(screen.getByLabelText(/desktop 1440 proof is signed-in/i))
+    fireEvent.click(screen.getByRole('button', { name: /save desktop 1440 proof/i }))
+
+    await waitFor(() => expect(screen.getByText('Screenshot proof URL is not a reachable image (404) · text/html')).toBeInTheDocument())
+    expect(fetchMock.mock.calls.some(([input, init]) => String(input) === '/api/v1/creative-canvas/canvas-1?orgId=org-1' && init?.method === 'PATCH')).toBe(false)
+  })
+
+  it('does not count viewport proof until the screenshot is confirmed signed-in', async () => {
+    render(<CreativeCanvasWorkspace mode="admin" orgId="org-1" />)
+
+    expect(await screen.findByText('Launch Canvas')).toBeInTheDocument()
+    fireEvent.change(screen.getByLabelText(/desktop 1440 screenshot url/i), {
+      target: { value: 'https://proof.example.com/desktop-1440.png' },
+    })
+    fireEvent.change(screen.getByLabelText(/desktop 1440 proof notes/i), {
+      target: { value: 'Desktop viewport without signed-in chrome.' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: /save desktop 1440 proof/i }))
+
+    await waitFor(() => expect(screen.getByText('Saved Desktop 1440 visual proof')).toBeInTheDocument())
+
+    const visualProof = screen.getByLabelText(/creative canvas visual qa proof/i)
+    expect(visualProof).toHaveTextContent('0/4 signed-in')
+    expect(visualProof).toHaveTextContent('needs sign-in')
+    expect(visualProof).toHaveTextContent('Mark as signed-in before this counts for mobile parity.')
+    const parityAudit = screen.getByLabelText(/higgsfield parity audit/i)
+    expect(parityAudit).toHaveTextContent('Signed-in desktop/tablet/mobile screenshots still required')
+  })
+
+  it('does not count signed-in viewport proof until session and viewport evidence are saved', async () => {
+    render(<CreativeCanvasWorkspace mode="admin" orgId="org-1" />)
+
+    expect(await screen.findByText('Launch Canvas')).toBeInTheDocument()
+    fireEvent.change(screen.getByLabelText(/desktop 1440 screenshot url/i), {
+      target: { value: 'https://proof.example.com/desktop-1440.png' },
+    })
+    fireEvent.change(screen.getByLabelText(/desktop 1440 proof notes/i), {
+      target: { value: 'Desktop viewport with signed-in chrome but missing viewport evidence.' },
+    })
+    fireEvent.change(screen.getByLabelText(/desktop 1440 session evidence/i), {
+      target: { value: '' },
+    })
+    fireEvent.change(screen.getByLabelText(/desktop 1440 viewport size/i), {
+      target: { value: '' },
+    })
+    fireEvent.change(screen.getByLabelText(/desktop 1440 visible panels/i), {
+      target: { value: '' },
+    })
+    fireEvent.click(screen.getByLabelText(/desktop 1440 proof is signed-in/i))
+    fireEvent.click(screen.getByRole('button', { name: /save desktop 1440 proof/i }))
+
+    await waitFor(() => expect(screen.getByText('Saved Desktop 1440 visual proof')).toBeInTheDocument())
+
+    const visualProof = screen.getByLabelText(/creative canvas visual qa proof/i)
+    expect(visualProof).toHaveTextContent('0/4 signed-in')
+    expect(visualProof).toHaveTextContent('Add session, viewport, visible-panel, and reachable image evidence before this counts for mobile parity.')
+    const certificationGate = screen.getByLabelText(/creative canvas world-class certification gate/i)
+    expect(certificationGate).toHaveTextContent('World-class certification blocked')
+  })
+
+  it('does not pass mobile benchmark proof without signed-in behavior evidence', async () => {
+    const defaultFetch = fetchMock.getMockImplementation()
+    const emptyGraphSignature = JSON.stringify({ nodes: [], edges: [] })
+    const visualProof = {
+      desktop_1440: {
+        screenshotUrl: 'https://proof.example.com/desktop-1440.png',
+        notes: 'Desktop proof.',
+        capturedAt: '2026-06-21T11:00:00.000Z',
+        capturedBy: 'Pip',
+        signedIn: true,
+        sessionEvidence: 'Signed-in admin header visible.',
+        viewportSize: '1440x900',
+        visiblePanels: 'Graph, Sources, Inspector',
+        canvasVersion: 1,
+        graphSignature: emptyGraphSignature,
+        nodeCount: 0,
+        edgeCount: 0,
+        screenshotCheckedAt: '2026-06-21T11:00:00.000Z',
+        screenshotReachable: true,
+        screenshotStatus: 200,
+        screenshotContentType: 'image/png',
+      },
+      tablet_820: {
+        screenshotUrl: 'https://proof.example.com/tablet-820.png',
+        notes: 'Tablet proof.',
+        capturedAt: '2026-06-21T11:01:00.000Z',
+        capturedBy: 'Pip',
+        signedIn: true,
+        sessionEvidence: 'Signed-in admin header visible.',
+        viewportSize: '820x1180',
+        visiblePanels: 'Responsive panel layout',
+        canvasVersion: 1,
+        graphSignature: emptyGraphSignature,
+        nodeCount: 0,
+        edgeCount: 0,
+        screenshotCheckedAt: '2026-06-21T11:01:00.000Z',
+        screenshotReachable: true,
+        screenshotStatus: 200,
+        screenshotContentType: 'image/png',
+      },
+      mobile_390: {
+        screenshotUrl: 'https://proof.example.com/mobile-390.png',
+        notes: 'Mobile proof.',
+        capturedAt: '2026-06-21T11:02:00.000Z',
+        capturedBy: 'Pip',
+        signedIn: true,
+        sessionEvidence: 'Signed-in admin header visible.',
+        viewportSize: '390x844',
+        visiblePanels: 'Canvas panel',
+        canvasVersion: 1,
+        graphSignature: emptyGraphSignature,
+        nodeCount: 0,
+        edgeCount: 0,
+        screenshotCheckedAt: '2026-06-21T11:02:00.000Z',
+        screenshotReachable: true,
+        screenshotStatus: 200,
+        screenshotContentType: 'image/png',
+      },
+      mobile_panels: {
+        screenshotUrl: 'https://proof.example.com/mobile-panels.png',
+        notes: 'Mobile panels proof.',
+        capturedAt: '2026-06-21T11:03:00.000Z',
+        capturedBy: 'Pip',
+        signedIn: true,
+        sessionEvidence: 'Signed-in admin header visible.',
+        viewportSize: '390x844',
+        visiblePanels: 'Canvas, Sources, Inspector panel switcher',
+        canvasVersion: 1,
+        graphSignature: emptyGraphSignature,
+        nodeCount: 0,
+        edgeCount: 0,
+        screenshotCheckedAt: '2026-06-21T11:03:00.000Z',
+        screenshotReachable: true,
+        screenshotStatus: 200,
+        screenshotContentType: 'image/png',
+      },
+    }
+
+    fetchMock.mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      if (url === '/api/v1/creative-canvas?orgId=org-1') {
+        return {
+          ok: true,
+          json: async () => ({
+            success: true,
+            data: {
+              canvases: [{
+                id: 'canvas-1',
+                orgId: 'org-1',
+                title: 'Launch Canvas',
+                purpose: 'Product launch',
+                status: 'draft',
+                activeVersion: 1,
+                linked: { projectId: 'project-1' },
+                data: {
+                  visualProof,
+                  benchmarkProof: {
+                    mobile_behavior: {
+                      proofUrl: 'https://proof.example.com/mobile-behavior.mp4',
+                      notes: 'Mobile proof before viewport matrix metadata was required.',
+                      capturedAt: '2026-06-21T11:04:00.000Z',
+                      capturedBy: 'Pip',
+                      sourceTitle: 'Higgsfield Canvas app route',
+                      sourceUrl: 'https://higgsfield.ai/canvas',
+                      sourceCheckedAt: '2026-06-21T11:04:00.000Z',
+                      sourceEvidenceCheckedAt: '2026-06-21T11:04:30.000Z',
+                      sourceEvidenceReachable: true,
+                      sourceEvidenceStatus: 200,
+                      sourceEvidenceContentType: 'text/html',
+                      sourceSignalsVerifiedAt: '2026-06-21T11:04:45.000Z',
+                      sourceSignalsMatched: true,
+                      sourceSignalsMissing: [],
+                      sourceSignals: ['Generate', 'Library', 'Profile', 'Canvas'],
+                      higgsfieldUiEvidenceUrl: 'https://higgsfield.ai/canvas',
+                      canvasEvidenceUrl: 'https://proof.example.com/mobile-behavior.mp4',
+                      canvasEvidenceCheckedAt: '2026-06-21T11:04:50.000Z',
+                      canvasEvidenceReachable: true,
+                      canvasEvidenceStatus: 200,
+                      canvasEvidenceContentType: 'video/mp4',
+                      directComparisonAt: '2026-06-21T11:04:00.000Z',
+                      directComparisonVerdict: 'pass',
+                      directComparisonNotes: 'Mobile behavior looked complete before viewport matrix fields existed.',
+                      orgId: 'org-1',
+                      canvasVersion: 1,
+                      graphSignature: emptyGraphSignature,
+                      nodeCount: 0,
+                      edgeCount: 0,
+                      mobileViewportProofCount: 4,
+                      mobileViewportRequiredCount: 4,
+                      mobileViewportProofCapturedAt: '2026-06-21T11:04:00.000Z',
+                      mobileViewportEvidence: '4/4 signed-in viewport proofs captured.',
+                    },
+                  },
+                },
+                nodes: [],
+                edges: [],
+              }],
+            },
+          }),
+        }
+      }
+      return defaultFetch?.(input, init) ?? {
+        ok: true,
+        json: async () => ({ success: true, data: {} }),
+      }
+    })
+
+    render(<CreativeCanvasWorkspace mode="admin" orgId="org-1" />)
+
+    await screen.findByText('Launch Canvas')
+    const visualProofPanel = screen.getByLabelText(/creative canvas visual qa proof/i)
+    expect(visualProofPanel).toHaveTextContent('4/4 signed-in')
+
+    const benchmarkProof = screen.getByLabelText(/direct higgsfield benchmark proof/i)
+    expect(benchmarkProof).toHaveTextContent('Needs signed-in behavior evidence for desktop, tablet, mobile, and mobile panels before mobile proof can pass.')
+    expect(benchmarkProof).toHaveTextContent('0/10 benchmark proven')
+    expect(benchmarkProof).toHaveTextContent('2 ready benchmark categories need stored proof.')
+    const proofRunbook = screen.getByLabelText(/creative canvas world-class proof runbook/i)
+    expect(proofRunbook).toHaveTextContent('0/7 complete')
+    expect(proofRunbook).toHaveTextContent('4/4 signed-in viewport proofs stored')
+    expect(proofRunbook).toHaveTextContent('Save source-backed Mobile behavior benchmark proof from the signed-in viewport matrix.')
+    await waitFor(() => {
+      expect(within(benchmarkProof).getByLabelText(/Mobile behavior benchmark proof URL/i)).toHaveValue('https://proof.example.com/mobile-behavior.mp4')
+      expect(within(benchmarkProof).getByLabelText(/Mobile behavior benchmark proof notes/i)).toHaveValue('Mobile proof before viewport matrix metadata was required.')
+    })
+
+    fetchMock.mockClear()
+    fireEvent.click(within(benchmarkProof).getByRole('button', { name: /save mobile behavior proof/i }))
+
+    await waitFor(() => expect(screen.getByText('Saved Mobile behavior benchmark proof')).toBeInTheDocument())
+
+    const patchCall = fetchMock.mock.calls.find(([input, init]) => (
+      String(input) === '/api/v1/creative-canvas/canvas-1?orgId=org-1'
+      && init?.method === 'PATCH'
+      && String(init.body).includes('mobile_behavior')
+    ))
+    expect(patchCall).toBeTruthy()
+    const body = JSON.parse(String(patchCall?.[1]?.body ?? '{}')) as {
+      data?: {
+        benchmarkProof?: Record<string, {
+          orgId?: string
+          canvasVersion?: number
+          graphSignature?: string
+          nodeCount?: number
+          edgeCount?: number
+          mobileViewportProofCount?: number
+          mobileViewportRequiredCount?: number
+          mobileViewportProofCapturedAt?: string
+          mobileViewportEvidence?: string
+          mobileViewportBehaviorEvidence?: Array<{
+            key?: string
+            width?: number
+            height?: number
+            screenshotUrl?: string
+            status?: number
+            contentType?: string
+            criticalControlsVisible?: boolean
+            criticalControlsEnabled?: boolean
+            horizontalOverflow?: boolean
+            touchSmokePassed?: boolean
+            pointerSmokePassed?: boolean
+            panelKeys?: string[]
+            capturedAt?: string
+          }>
+        }>
+      }
+    }
+    expect(body.data?.benchmarkProof?.mobile_behavior).toMatchObject({
+      orgId: 'org-1',
+      canvasVersion: 1,
+      graphSignature: emptyGraphSignature,
+      nodeCount: 0,
+      edgeCount: 0,
+      mobileViewportProofCount: 4,
+      mobileViewportRequiredCount: 4,
+      mobileViewportProofCapturedAt: expect.any(String),
+      mobileViewportEvidence: expect.stringContaining('4/4 signed-in viewport behavior proofs captured'),
+    })
+    expect(body.data?.benchmarkProof?.mobile_behavior?.mobileViewportBehaviorEvidence).toEqual([
+      expect.objectContaining({
+        key: 'desktop',
+        width: 1440,
+        height: 900,
+        screenshotUrl: 'https://proof.example.com/desktop-1440.png',
+        status: 200,
+        contentType: 'image/png',
+        criticalControlsVisible: true,
+        criticalControlsEnabled: true,
+        horizontalOverflow: false,
+        touchSmokePassed: true,
+        pointerSmokePassed: true,
+        panelKeys: expect.arrayContaining(['graph', 'sources', 'inspector']),
+        capturedAt: expect.any(String),
+      }),
+      expect.objectContaining({
+        key: 'tablet',
+        width: 820,
+        height: 1180,
+        screenshotUrl: 'https://proof.example.com/tablet-820.png',
+        panelKeys: expect.arrayContaining(['panel']),
+      }),
+      expect.objectContaining({
+        key: 'mobile',
+        width: 390,
+        height: 844,
+        screenshotUrl: 'https://proof.example.com/mobile-390.png',
+        panelKeys: expect.arrayContaining(['canvas']),
+      }),
+      expect.objectContaining({
+        key: 'mobile_panels',
+        width: 390,
+        height: 844,
+        screenshotUrl: 'https://proof.example.com/mobile-panels.png',
+        panelKeys: expect.arrayContaining(['canvas', 'sources', 'inspector']),
+      }),
+    ])
+  })
+
+  it('saves direct Higgsfield benchmark proof evidence', async () => {
+    render(<CreativeCanvasWorkspace mode="admin" orgId="org-1" />)
+
+    expect(await screen.findByText('Launch Canvas')).toBeInTheDocument()
+    fireEvent.change(screen.getByLabelText(/editing ergonomics benchmark proof url/i), {
+      target: { value: 'https://proof.example.com/editing-ergonomics.mp4' },
+    })
+    fireEvent.change(screen.getByLabelText(/editing ergonomics benchmark proof notes/i), {
+      target: { value: 'Graph node editing, branch recovery, and save behavior captured.' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: /save editing ergonomics proof/i }))
+
+    await waitFor(() => expect(screen.getByText('Saved Editing ergonomics benchmark proof')).toBeInTheDocument())
+
+    const patchCall = fetchMock.mock.calls.find(([input, init]) => (
+      String(input) === '/api/v1/creative-canvas/canvas-1?orgId=org-1'
+      && init?.method === 'PATCH'
+      && String(init.body).includes('benchmarkProof')
+    ))
+    expect(patchCall).toBeTruthy()
+    const body = JSON.parse(String(patchCall?.[1]?.body ?? '{}')) as {
+      data?: { benchmarkProof?: Record<string, { proofUrl?: string; notes?: string; capturedAt?: string; capturedBy?: string; sourceTitle?: string; sourceUrl?: string; sourceCheckedAt?: string; sourceEvidenceCheckedAt?: string; sourceEvidenceReachable?: boolean; sourceEvidenceStatus?: number; sourceEvidenceContentType?: string; sourceSignalsVerifiedAt?: string; sourceSignalsMatched?: boolean; sourceSignalsMissing?: string[]; sourceSignals?: string[]; higgsfieldUiEvidenceUrl?: string; canvasEvidenceUrl?: string; canvasEvidenceCheckedAt?: string; canvasEvidenceReachable?: boolean; canvasEvidenceStatus?: number; canvasEvidenceContentType?: string; directComparisonAt?: string; directComparisonVerdict?: string; directComparisonNotes?: string; canvasVersion?: number; graphSignature?: string; nodeCount?: number; edgeCount?: number; editingLocalEventCount?: number; editingNodeDropCount?: number; editingNodeMoveCount?: number; editingConnectionCount?: number; editingConfiguredGenerationCount?: number; editingCapturedAt?: string; editingEvidence?: string }> }
+    }
+    expect(body.data?.benchmarkProof?.editing_ergonomics).toMatchObject({
+      proofUrl: 'https://proof.example.com/editing-ergonomics.mp4',
+      notes: 'Graph node editing, branch recovery, and save behavior captured.',
+      capturedBy: 'Pip',
+      sourceTitle: 'Higgsfield AI Canvas node workflow',
+      sourceUrl: 'https://higgsfield.ai/canvas-intro',
+      sourceEvidenceReachable: true,
+      sourceEvidenceStatus: 200,
+      sourceEvidenceContentType: 'text/html',
+      sourceSignalsMatched: true,
+      sourceSignalsMissing: [],
+      sourceSignals: ['Drop a node', 'Chain your flow', 'Connect nodes', 'Every connection is live'],
+      higgsfieldUiEvidenceUrl: 'https://higgsfield.ai/canvas-intro',
+      canvasEvidenceUrl: 'https://proof.example.com/editing-ergonomics.mp4',
+      canvasEvidenceReachable: true,
+      canvasEvidenceStatus: 200,
+      canvasEvidenceContentType: 'text/html',
+      directComparisonVerdict: 'pass',
+      directComparisonNotes: 'Graph node editing, branch recovery, and save behavior captured.',
+      canvasVersion: 1,
+      nodeCount: expect.any(Number),
+      edgeCount: expect.any(Number),
+      editingLocalEventCount: 0,
+      editingNodeDropCount: 0,
+      editingNodeMoveCount: 0,
+      editingConnectionCount: expect.any(Number),
+      editingConfiguredGenerationCount: expect.any(Number),
+      editingCapturedAt: expect.any(String),
+      editingEvidence: expect.stringContaining('0 local graph events'),
+    })
+    expect(body.data?.benchmarkProof?.editing_ergonomics?.capturedAt).toEqual(expect.any(String))
+    expect(body.data?.benchmarkProof?.editing_ergonomics?.sourceCheckedAt).toEqual(expect.any(String))
+    expect(body.data?.benchmarkProof?.editing_ergonomics?.sourceEvidenceCheckedAt).toEqual(expect.any(String))
+    expect(body.data?.benchmarkProof?.editing_ergonomics?.sourceSignalsVerifiedAt).toEqual(expect.any(String))
+    expect(body.data?.benchmarkProof?.editing_ergonomics?.canvasEvidenceCheckedAt).toEqual(expect.any(String))
+    expect(body.data?.benchmarkProof?.editing_ergonomics?.directComparisonAt).toEqual(expect.any(String))
+    expect(body.data?.benchmarkProof?.editing_ergonomics?.graphSignature).toEqual(expect.any(String))
+
+    const benchmarkProof = screen.getByLabelText(/direct higgsfield benchmark proof/i)
+    expect(benchmarkProof).toHaveTextContent('0/10 benchmark proven')
+    expect(benchmarkProof).toHaveTextContent('gap')
+    expect(benchmarkProof).toHaveTextContent('Needs stored node drop, drag/move, live connection, and configured generation-route evidence before editing proof can pass.')
+    expect(benchmarkProof).toHaveTextContent('Benchmark source: Higgsfield AI Canvas node workflow')
+    expect(benchmarkProof).toHaveTextContent('Stored signals: Drop a node, Chain your flow, Connect nodes, Every connection is live')
+    expect(within(benchmarkProof).getByRole('link', { name: /open benchmark proof/i })).toHaveAttribute('href', 'https://proof.example.com/editing-ergonomics.mp4')
+  })
+
+  it('stores current Higgsfield model catalog signals for generation benchmark proof', async () => {
+    render(<CreativeCanvasWorkspace mode="admin" orgId="org-1" />)
+
+    expect(await screen.findByText('Launch Canvas')).toBeInTheDocument()
+    fireEvent.change(screen.getByLabelText(/generation controls benchmark proof url/i), {
+      target: { value: 'https://proof.example.com/current-model-catalog.html' },
+    })
+    fireEvent.change(screen.getByLabelText(/generation controls benchmark proof notes/i), {
+      target: { value: 'Current model catalog and generation controls compared against Higgsfield Canvas.' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: /save generation controls proof/i }))
+
+    await waitFor(() => expect(screen.getByText('Saved Generation controls benchmark proof')).toBeInTheDocument())
+
+    const sourceCheckCall = fetchMock.mock.calls.find(([input, init]) => (
+      String(input) === '/api/v1/creative-canvas/proof-url'
+      && init?.method === 'POST'
+      && String(init.body).includes('Kling 3.0')
+    ))
+    expect(sourceCheckCall).toBeTruthy()
+    expect(JSON.parse(String(sourceCheckCall?.[1]?.body ?? '{}'))).toMatchObject({
+      url: 'https://higgsfield.ai/canvas-intro',
+      kind: 'evidence',
+      expectedSignals: ['Kling 3.0', 'Seedance 2.0', 'Wan 2.7', 'Soul 2.0', 'GPT Image 2.0', 'Veo 3.1', 'NB Pro', 'Any prompt, image, or reference'],
+    })
+
+    const patchCall = fetchMock.mock.calls.find(([input, init]) => (
+      String(input) === '/api/v1/creative-canvas/canvas-1?orgId=org-1'
+      && init?.method === 'PATCH'
+      && String(init.body).includes('generation_controls')
+    ))
+    expect(patchCall).toBeTruthy()
+    const body = JSON.parse(String(patchCall?.[1]?.body ?? '{}')) as {
+      data?: { benchmarkProof?: Record<string, { sourceTitle?: string; sourceUrl?: string; sourceSignals?: string[]; sourceSignalsMatched?: boolean; sourceSignalsMissing?: string[]; generationModelCount?: number; generationReferenceNodeCount?: number; generationReferenceRoleCount?: number; generationLinkedReferenceCount?: number; generationMultiReferenceCapturedAt?: string; generationMultiReferenceEvidence?: string }> }
+    }
+    expect(body.data?.benchmarkProof?.generation_controls).toMatchObject({
+      sourceTitle: 'Higgsfield Canvas current model catalog',
+      sourceUrl: 'https://higgsfield.ai/canvas-intro',
+      sourceSignalsMatched: true,
+      sourceSignalsMissing: [],
+      sourceSignals: ['Kling 3.0', 'Seedance 2.0', 'Wan 2.7', 'Soul 2.0', 'GPT Image 2.0', 'Veo 3.1', 'NB Pro', 'Any prompt, image, or reference'],
+      generationModelCount: 0,
+      generationReferenceNodeCount: 0,
+      generationReferenceRoleCount: 0,
+      generationLinkedReferenceCount: 0,
+      generationMultiReferenceCapturedAt: expect.any(String),
+      generationMultiReferenceEvidence: '0/3 linked generation references across 0/3 roles and 0 generation nodes',
+    })
+    const benchmarkProof = screen.getByLabelText(/direct higgsfield benchmark proof/i)
+    expect(benchmarkProof).toHaveTextContent('Needs stored three-reference generation routing evidence before generation proof can pass.')
+  })
+
+  it('stores brush mask session evidence for masking benchmark proof', async () => {
+    render(<CreativeCanvasWorkspace mode="admin" orgId="org-1" />)
+
+    expect(await screen.findByText('Launch Canvas')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: /add edit node/i }))
+    fireEvent.change(screen.getByLabelText(/edit intent/i), { target: { value: 'reference_blend' } })
+    fireEvent.change(screen.getByLabelText(/edit brush prompt/i), { target: { value: 'Blend a product reference into the masked area with matching light.' } })
+    fireEvent.click(screen.getByLabelText(/light match/i))
+    fireEvent.click(screen.getByLabelText(/texture adaptive/i))
+    fireEvent.click(screen.getByLabelText(/auto shadows/i))
+    fireEvent.click(screen.getByRole('button', { name: /product placement/i }))
+    fireEvent.click(screen.getByRole('button', { name: /apply mask region/i }))
+    const brushCanvas = screen.getByRole('application', { name: /brush mask canvas/i })
+    jest.spyOn(brushCanvas, 'getBoundingClientRect').mockReturnValue({
+      x: 0,
+      y: 0,
+      left: 0,
+      top: 0,
+      right: 200,
+      bottom: 100,
+      width: 200,
+      height: 100,
+      toJSON: () => ({}),
+    } as DOMRect)
+    dispatchBrushPointerEvent(brushCanvas, 'pointerdown', 40, 40)
+    dispatchBrushPointerEvent(brushCanvas, 'pointermove', 80, 50)
+    dispatchBrushPointerEvent(brushCanvas, 'pointerup', 80, 50)
+
+    const parityAudit = screen.getByLabelText(/higgsfield parity audit/i)
+    expect(parityAudit).toHaveTextContent('1 edit node · 1 brush stroke · 3/3+ blend controls')
+
+    fireEvent.change(screen.getByLabelText(/masking \/ inpainting ux benchmark proof url/i), {
+      target: { value: 'https://proof.example.com/masking-session.mp4' },
+    })
+    fireEvent.change(screen.getByLabelText(/masking \/ inpainting ux benchmark proof notes/i), {
+      target: { value: 'Brush mask, object blend controls, and reference workflow compared against Higgsfield inpainting.' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: /save masking \/ inpainting ux proof/i }))
+
+    await waitFor(() => expect(screen.getByText('Saved Masking / inpainting UX benchmark proof')).toBeInTheDocument())
+
+    const patchCall = fetchMock.mock.calls.find(([input, init]) => (
+      String(input) === '/api/v1/creative-canvas/canvas-1?orgId=org-1'
+      && init?.method === 'PATCH'
+      && String(init.body).includes('masking_inpainting')
+    ))
+    expect(patchCall).toBeTruthy()
+    const body = JSON.parse(String(patchCall?.[1]?.body ?? '{}')) as {
+      data?: {
+        benchmarkProof?: Record<string, {
+          sourceSignals?: string[]
+          maskingEditNodeCount?: number
+          maskingPromptCount?: number
+          maskingIntentCount?: number
+          maskingRegionCount?: number
+          maskingBrushStrokeCount?: number
+          maskingBlendControlCount?: number
+          maskingCapturedAt?: string
+          maskingEvidence?: string
+        }>
+      }
+    }
+    expect(body.data?.benchmarkProof?.masking_inpainting).toMatchObject({
+      sourceSignals: ['Brush & Prompt', 'Precise Masking', 'Object Removal', 'Light Matching', 'Texture Adaptive', 'Auto-Shadows', 'IMAGE-TO-IMAGE BLENDING'],
+      maskingEditNodeCount: 1,
+      maskingPromptCount: 1,
+      maskingIntentCount: 1,
+      maskingRegionCount: 1,
+      maskingBrushStrokeCount: 1,
+      maskingBlendControlCount: 3,
+      maskingCapturedAt: expect.any(String),
+      maskingEvidence: expect.stringContaining('1 brush stroke'),
+    })
+  }, 15000)
+
+  it('stores project-linked agent task evidence for AI agent integration benchmark proof', async () => {
+    render(<CreativeCanvasWorkspace mode="admin" orgId="org-1" />)
+
+    expect(await screen.findByText('Launch Canvas')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: /apply social launch workflow/i }))
+    expect(await screen.findByText(/social launch workflow added/i)).toBeInTheDocument()
+
+    const benchmarkProof = screen.getByLabelText(/direct higgsfield benchmark proof/i)
+    expect(benchmarkProof).toHaveTextContent('AI agent integration')
+    expect(benchmarkProof).toHaveTextContent('gap')
+    expect(benchmarkProof).toHaveTextContent('MCP & CLI')
+
+    fireEvent.click(screen.getByRole('button', { name: /create agent tasks/i }))
+    expect(await screen.findByText(/created 2 agent tasks/i)).toBeInTheDocument()
+
+    fireEvent.change(screen.getByLabelText(/ai agent integration benchmark proof url/i), {
+      target: { value: 'https://proof.example.com/agent-tasks.mp4' },
+    })
+    fireEvent.change(screen.getByLabelText(/ai agent integration benchmark proof notes/i), {
+      target: { value: 'Canvas handoff chain created project-linked tasks for Pip and Maya.' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: /save ai agent integration proof/i }))
+
+    await waitFor(() => expect(screen.getByText('Saved AI agent integration benchmark proof')).toBeInTheDocument())
+
+    const patchCall = fetchMock.mock.calls.find(([input, init]) => (
+      String(input) === '/api/v1/creative-canvas/canvas-1?orgId=org-1'
+      && init?.method === 'PATCH'
+      && String(init.body).includes('agent_orchestration')
+    ))
+    expect(patchCall).toBeTruthy()
+    const body = JSON.parse(String(patchCall?.[1]?.body ?? '{}')) as {
+      data?: {
+        benchmarkProof?: Record<string, {
+          proofUrl?: string
+          sourceTitle?: string
+          sourceUrl?: string
+          sourceSignals?: string[]
+          sourceEvidenceCheckedAt?: string
+          sourceEvidenceReachable?: boolean
+          sourceEvidenceStatus?: number
+          sourceEvidenceContentType?: string
+          sourceSignalsVerifiedAt?: string
+          sourceSignalsMatched?: boolean
+          sourceSignalsMissing?: string[]
+          canvasEvidenceCheckedAt?: string
+          canvasEvidenceReachable?: boolean
+          canvasEvidenceStatus?: number
+          canvasEvidenceContentType?: string
+          agentStepCount?: number
+          agentActorCount?: number
+          agentTaskCreatedCount?: number
+          agentTaskCreatedAt?: string
+          agentEvidence?: string
+        }>
+      }
+    }
+    expect(body.data?.benchmarkProof?.agent_orchestration).toMatchObject({
+      proofUrl: 'https://proof.example.com/agent-tasks.mp4',
+      sourceTitle: 'Higgsfield MCP, CLI, Collab, and Canvas surface',
+      sourceUrl: 'https://higgsfield.ai/',
+      sourceSignals: ['MCP & CLI', 'Collab', 'Canvas', 'Generate'],
+      sourceEvidenceReachable: true,
+      sourceEvidenceStatus: 200,
+      sourceEvidenceContentType: 'text/html',
+      sourceSignalsMatched: true,
+      sourceSignalsMissing: [],
+      canvasEvidenceReachable: true,
+      canvasEvidenceStatus: 200,
+      canvasEvidenceContentType: 'text/html',
+      agentActorCount: expect.any(Number),
+      agentTaskCreatedCount: 2,
+      agentTaskCreatedAt: expect.any(String),
+      agentEvidence: expect.stringContaining('2 project-linked agent tasks created'),
+    })
+    expect(body.data?.benchmarkProof?.agent_orchestration?.sourceEvidenceCheckedAt).toEqual(expect.any(String))
+    expect(body.data?.benchmarkProof?.agent_orchestration?.sourceSignalsVerifiedAt).toEqual(expect.any(String))
+    expect(body.data?.benchmarkProof?.agent_orchestration?.canvasEvidenceCheckedAt).toEqual(expect.any(String))
+    expect(body.data?.benchmarkProof?.agent_orchestration?.agentStepCount).toBeGreaterThan(0)
+  })
+
+  it('captures all ready benchmark proofs without passing unready gaps', async () => {
+    const defaultFetch = fetchMock.getMockImplementation()
+    fetchMock.mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      if (url === '/api/v1/creative-canvas/canvas-1?orgId=org-1' && init?.method === 'PATCH') {
+        const body = JSON.parse(String(init.body ?? '{}')) as { data?: Record<string, unknown> }
+        return {
+          ok: true,
+          json: async () => ({
+            success: true,
+            data: {
+              canvas: {
+                id: 'canvas-1',
+                orgId: 'org-1',
+                title: 'Launch Canvas',
+                purpose: 'Product launch',
+                status: 'draft',
+                activeVersion: 1,
+                linked: { projectId: 'project-1' },
+                data: body.data ?? {},
+                nodes: [{
+                  id: 'maya-draft-node',
+                  orgId: 'org-1',
+                  type: 'source',
+                  title: 'Maya live draft source',
+                  position: { x: 40, y: 60 },
+                  data: { createdFrom: 'maya_live_draft' },
+                }],
+                edges: [],
+              },
+            },
+          }),
+        }
+      }
+      if (url.includes('/comments') && init?.method !== 'POST') {
+        return {
+          ok: true,
+          json: async () => ({
+            success: true,
+            data: {
+              comments: [{
+                id: 'comment-version-1',
+                orgId: 'org-1',
+                canvasId: 'canvas-1',
+                nodeId: 'version-source',
+                body: 'Keep this node note attached to the saved version.',
+                visibility: 'admin_agents',
+                resolved: false,
+                createdBy: 'user-1',
+                createdByType: 'user',
+              }],
+            },
+          }),
+        }
+      }
+      return defaultFetch?.(input, init) ?? {
+        ok: true,
+        json: async () => ({ success: true, data: {} }),
+      }
+    })
+
+    render(<CreativeCanvasWorkspace mode="admin" orgId="org-1" />)
+
+    expect(await screen.findByText('Launch Canvas')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: /apply live draft/i }))
+    expect(await screen.findByText(/applied maya live draft to this workspace/i)).toBeInTheDocument()
+    const benchmarkProof = screen.getByLabelText(/direct higgsfield benchmark proof/i)
+    expect(benchmarkProof).toHaveTextContent('2 ready benchmark categories need stored proof.')
+
+    fireEvent.click(within(benchmarkProof).getByRole('button', { name: /capture ready proofs/i }))
+
+    await waitFor(() => expect(screen.getByText('Captured 2 ready benchmark proofs')).toBeInTheDocument())
+
+    const patchCall = fetchMock.mock.calls.find(([input, init]) => (
+      String(input) === '/api/v1/creative-canvas/canvas-1?orgId=org-1'
+      && init?.method === 'PATCH'
+      && String(init.body).includes('benchmarkProof')
+      && String(init.body).includes('versioning_polish')
+      && String(init.body).includes('collaboration')
+    ))
+    expect(patchCall).toBeTruthy()
+    const body = JSON.parse(String(patchCall?.[1]?.body ?? '{}')) as {
+      data?: { benchmarkProof?: Record<string, { proofUrl?: string; notes?: string; capturedAt?: string; capturedBy?: string; sourceTitle?: string; sourceUrl?: string; sourceCheckedAt?: string; sourceEvidenceCheckedAt?: string; sourceEvidenceReachable?: boolean; sourceEvidenceStatus?: number; sourceEvidenceContentType?: string; sourceSignalsVerifiedAt?: string; sourceSignalsMatched?: boolean; sourceSignalsMissing?: string[]; sourceSignals?: string[]; higgsfieldUiEvidenceUrl?: string; canvasEvidenceUrl?: string; canvasEvidenceCheckedAt?: string; canvasEvidenceReachable?: boolean; canvasEvidenceStatus?: number; canvasEvidenceContentType?: string; directComparisonAt?: string; directComparisonVerdict?: string; directComparisonNotes?: string; orgId?: string; canvasVersion?: number; graphSignature?: string; nodeCount?: number; edgeCount?: number; versionSnapshotCount?: number; versionRestorableSnapshotCount?: number; versionNodeCommentCount?: number; versionReusableTemplateCount?: number; versionAutoSaveEnabled?: boolean; versionCapturedAt?: string; versionEvidence?: string; collaborationRemoteActorCount?: number; collaborationRemoteEventCount?: number; collaborationRemoteMutationCount?: number; collaborationRemoteMutationKindCount?: number; collaborationRemoteTouchedNodeCount?: number; collaborationRemoteTouchedEdgeCount?: number; collaborationRemoteGraphSignature?: string; collaborationRemoteSource?: string; collaborationRemoteOutcome?: string; collaborationRemoteMutations?: unknown[]; collaborationStreamConnected?: boolean; collaborationCapturedAt?: string; collaborationEvidence?: string }> }
+    }
+    expect(body.data?.benchmarkProof?.versioning_polish).toMatchObject({
+      proofUrl: expect.stringContaining('#direct-higgsfield-benchmark-proof'),
+      capturedBy: 'Pip',
+      sourceTitle: 'Higgsfield Canvas saved versions and comments',
+      sourceUrl: 'https://higgsfield.ai/canvas-intro',
+      sourceEvidenceReachable: true,
+      sourceEvidenceStatus: 200,
+      sourceEvidenceContentType: 'text/html',
+      sourceSignalsMatched: true,
+      sourceSignalsMissing: [],
+      sourceSignals: ['Every version is saved', 'nothing gets lost', 'comments stay attached', 'reusable template'],
+      higgsfieldUiEvidenceUrl: 'https://higgsfield.ai/canvas-intro',
+      canvasEvidenceUrl: expect.stringContaining('#direct-higgsfield-benchmark-proof'),
+      canvasEvidenceReachable: true,
+      canvasEvidenceStatus: 200,
+      canvasEvidenceContentType: 'text/html',
+      directComparisonVerdict: 'pass',
+      directComparisonNotes: 'Versioning polish directly compared against the current Higgsfield UI source signals and live Creative Canvas evidence.',
+      canvasVersion: 1,
+      nodeCount: expect.any(Number),
+      edgeCount: expect.any(Number),
+      versionSnapshotCount: 1,
+      versionRestorableSnapshotCount: 1,
+      versionNodeCommentCount: 1,
+      versionReusableTemplateCount: 1,
+      versionAutoSaveEnabled: true,
+      versionCapturedAt: expect.any(String),
+      versionEvidence: expect.stringContaining('1/1 restorable saved version'),
+    })
+    expect(body.data?.benchmarkProof?.collaboration).toMatchObject({
+      proofUrl: expect.stringContaining('#direct-higgsfield-benchmark-proof'),
+      capturedBy: 'Pip',
+      sourceTitle: 'Higgsfield Canvas live collaboration',
+      sourceUrl: 'https://higgsfield.ai/canvas-intro',
+      sourceEvidenceReachable: true,
+      sourceEvidenceStatus: 200,
+      sourceEvidenceContentType: 'text/html',
+      sourceSignalsMatched: true,
+      sourceSignalsMissing: [],
+      sourceSignals: ['Create together', 'Share a link', 'collaborate live', 'same canvas'],
+      higgsfieldUiEvidenceUrl: 'https://higgsfield.ai/canvas-intro',
+      canvasEvidenceUrl: expect.stringContaining('#direct-higgsfield-benchmark-proof'),
+      canvasEvidenceReachable: true,
+      canvasEvidenceStatus: 200,
+      canvasEvidenceContentType: 'text/html',
+      directComparisonVerdict: 'pass',
+      directComparisonNotes: 'Collaboration directly compared against the current Higgsfield UI source signals and live Creative Canvas evidence.',
+      orgId: 'org-1',
+      canvasVersion: 1,
+      nodeCount: expect.any(Number),
+      edgeCount: expect.any(Number),
+      collaborationRemoteActorCount: 1,
+      collaborationRemoteEventCount: 1,
+      collaborationRemoteMutationCount: 1,
+      collaborationRemoteMutationKindCount: 1,
+      collaborationRemoteTouchedNodeCount: 1,
+      collaborationRemoteTouchedEdgeCount: 0,
+      collaborationRemoteGraphSignature: expect.any(String),
+      collaborationRemoteSource: 'draft_applied',
+      collaborationRemoteOutcome: 'remote_changes_adopted',
+      collaborationRemoteMutations: [{
+        actorUid: 'maya',
+        actorType: 'agent',
+        operation: 'draft_apply',
+        touchedNodeIds: ['maya-draft-node'],
+        touchedEdgeIds: [],
+        source: 'draft_applied',
+        occurredAt: expect.any(String),
+      }],
+      collaborationStreamConnected: false,
+      collaborationCapturedAt: expect.any(String),
+      collaborationEvidence: expect.stringContaining('1 typed remote mutations'),
+    })
+    expect(body.data?.benchmarkProof?.versioning_polish?.sourceCheckedAt).toEqual(expect.any(String))
+    expect(body.data?.benchmarkProof?.collaboration?.sourceCheckedAt).toEqual(expect.any(String))
+    expect(body.data?.benchmarkProof?.versioning_polish?.sourceEvidenceCheckedAt).toEqual(expect.any(String))
+    expect(body.data?.benchmarkProof?.collaboration?.sourceEvidenceCheckedAt).toEqual(expect.any(String))
+    expect(body.data?.benchmarkProof?.versioning_polish?.sourceSignalsVerifiedAt).toEqual(expect.any(String))
+    expect(body.data?.benchmarkProof?.collaboration?.sourceSignalsVerifiedAt).toEqual(expect.any(String))
+    expect(body.data?.benchmarkProof?.versioning_polish?.canvasEvidenceCheckedAt).toEqual(expect.any(String))
+    expect(body.data?.benchmarkProof?.collaboration?.canvasEvidenceCheckedAt).toEqual(expect.any(String))
+    expect(body.data?.benchmarkProof?.versioning_polish?.directComparisonAt).toEqual(expect.any(String))
+    expect(body.data?.benchmarkProof?.collaboration?.directComparisonAt).toEqual(expect.any(String))
+    expect(body.data?.benchmarkProof?.versioning_polish?.graphSignature).toEqual(expect.any(String))
+    expect(body.data?.benchmarkProof?.collaboration?.graphSignature).toEqual(expect.any(String))
+    expect(body.data?.benchmarkProof?.editing_ergonomics).toBeUndefined()
+
+    expect(benchmarkProof).toHaveTextContent('2/10 benchmark proven')
+    expect(benchmarkProof).toHaveTextContent('No uncaptured benchmark category has enough live evidence yet.')
+    expect(within(benchmarkProof).getAllByRole('link', { name: /open benchmark proof/i })).toHaveLength(2)
+    const proofRunbook = screen.getByLabelText(/creative canvas world-class proof runbook/i)
+    expect(proofRunbook).toHaveTextContent('1/7 complete')
+    expect(proofRunbook).toHaveTextContent('0/4 signed-in viewport proofs stored')
+    expect(proofRunbook).toHaveTextContent('Capture signed-in Desktop 1440, Tablet 820, Mobile 390, and Mobile panels screenshots.')
+    expect(proofRunbook).toHaveTextContent('2/10 Direct Higgsfield benchmarks passed')
+    const certificationGate = screen.getByLabelText(/creative canvas world-class certification gate/i)
+    expect(certificationGate).toHaveTextContent('World-class certification blocked')
+    expect(certificationGate).toHaveTextContent('2/17 hard proof gates passed; 5 blockers remain.')
+  })
+
+  it('does not pass collaboration benchmark proof without structured remote mutation evidence', async () => {
+    const defaultFetch = fetchMock.getMockImplementation()
+    fetchMock.mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      if (url === '/api/v1/creative-canvas?orgId=org-1') {
+        return {
+          ok: true,
+          json: async () => ({
+            success: true,
+            data: {
+              canvases: [{
+                id: 'canvas-1',
+                orgId: 'org-1',
+                title: 'Launch Canvas',
+                activeVersion: 1,
+                data: {
+                  benchmarkProof: {
+                    collaboration: {
+                      proofUrl: 'https://proof.example.com/collaboration.mp4',
+                      notes: 'Collaboration proof before session metadata was required.',
+                      capturedAt: '2026-06-21T10:00:00.000Z',
+                      capturedBy: 'Pip',
+                      sourceTitle: 'Higgsfield Canvas live collaboration',
+                      sourceUrl: 'https://higgsfield.ai/canvas-intro',
+                      sourceCheckedAt: '2026-06-21T10:01:00.000Z',
+                      sourceSignals: ['Create together', 'Share a link', 'collaborate live', 'same canvas'],
+                      higgsfieldUiEvidenceUrl: 'https://higgsfield.ai/canvas-intro',
+                      canvasEvidenceUrl: 'https://proof.example.com/collaboration.mp4',
+                      directComparisonAt: '2026-06-21T10:02:00.000Z',
+                      directComparisonVerdict: 'pass',
+                      directComparisonNotes: 'Direct collaboration comparison passed.',
+                      canvasVersion: 1,
+                    },
+                  },
+                },
+                nodes: [],
+                edges: [],
+              }],
+            },
+          }),
+        }
+      }
+      return defaultFetch?.(input, init) ?? {
+        ok: true,
+        json: async () => ({ success: true, data: {} }),
+      }
+    })
+
+    render(<CreativeCanvasWorkspace mode="admin" orgId="org-1" />)
+
+    expect(await screen.findByText('Launch Canvas')).toBeInTheDocument()
+    const benchmarkProof = screen.getByLabelText(/direct higgsfield benchmark proof/i)
+    expect(benchmarkProof).toHaveTextContent('0/10 benchmark proven')
+    expect(benchmarkProof).toHaveTextContent('Needs structured remote mutation evidence before collaboration proof can pass.')
+  })
+
+  it('saves manual collaboration benchmark proof with structured mutation evidence', async () => {
+    render(<CreativeCanvasWorkspace mode="admin" orgId="org-1" />)
+
+    expect(await screen.findByText('Launch Canvas')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: /apply live draft/i }))
+    expect(await screen.findByText(/applied maya live draft to this workspace/i)).toBeInTheDocument()
+
+    fireEvent.change(screen.getByLabelText(/collaboration benchmark proof url/i), {
+      target: { value: 'https://proof.example.com/collaboration-structured.mp4' },
+    })
+    fireEvent.change(screen.getByLabelText(/collaboration benchmark proof notes/i), {
+      target: { value: 'Applied a remote collaborator draft with typed mutation evidence.' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: /save collaboration proof/i }))
+
+    await waitFor(() => expect(screen.getByText('Saved Collaboration benchmark proof')).toBeInTheDocument())
+    const patchCall = fetchMock.mock.calls.find(([input, init]) => (
+      String(input) === '/api/v1/creative-canvas/canvas-1?orgId=org-1'
+      && init?.method === 'PATCH'
+      && String(init.body).includes('collaboration-structured')
+    ))
+    expect(patchCall).toBeTruthy()
+    const body = JSON.parse(String(patchCall?.[1]?.body ?? '{}')) as {
+      data?: {
+        benchmarkProof?: {
+          collaboration?: {
+            orgId?: string
+            collaborationRemoteMutationCount?: number
+            collaborationRemoteTouchedNodeCount?: number
+            collaborationRemoteTouchedEdgeCount?: number
+            collaborationRemoteGraphSignature?: string
+            collaborationRemoteSource?: string
+            collaborationRemoteOutcome?: string
+            collaborationRemoteMutations?: unknown[]
+          }
+        }
+      }
+    }
+    expect(body.data?.benchmarkProof?.collaboration).toMatchObject({
+      orgId: 'org-1',
+      collaborationRemoteMutationCount: 1,
+      collaborationRemoteTouchedNodeCount: 1,
+      collaborationRemoteTouchedEdgeCount: 0,
+      collaborationRemoteGraphSignature: expect.any(String),
+      collaborationRemoteSource: 'draft_applied',
+      collaborationRemoteOutcome: 'remote_changes_adopted',
+      collaborationRemoteMutations: [{
+        actorUid: 'maya',
+        actorType: 'agent',
+        operation: 'draft_apply',
+        touchedNodeIds: ['maya-draft-node'],
+        touchedEdgeIds: [],
+        source: 'draft_applied',
+        occurredAt: expect.any(String),
+      }],
+    })
+  })
+
+  it('does not pass versioning benchmark proof without saved-version comment and template evidence', async () => {
+    const defaultFetch = fetchMock.getMockImplementation()
+    const emptyGraphSignature = JSON.stringify({ nodes: [], edges: [] })
+    fetchMock.mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      if (url === '/api/v1/creative-canvas?orgId=org-1') {
+        return {
+          ok: true,
+          json: async () => ({
+            success: true,
+            data: {
+              canvases: [{
+                id: 'canvas-1',
+                orgId: 'org-1',
+                title: 'Launch Canvas',
+                activeVersion: 1,
+                data: {
+                  benchmarkProof: {
+                    versioning_polish: {
+                      proofUrl: 'https://proof.example.com/versioning.mp4',
+                      notes: 'Legacy versioning proof before version metadata was required.',
+                      capturedAt: '2026-06-21T10:00:00.000Z',
+                      capturedBy: 'Pip',
+                      sourceTitle: 'Higgsfield Canvas saved versions and comments',
+                      sourceUrl: 'https://higgsfield.ai/canvas-intro',
+                      sourceCheckedAt: '2026-06-21T10:01:00.000Z',
+                      sourceEvidenceCheckedAt: '2026-06-21T10:01:10.000Z',
+                      sourceEvidenceReachable: true,
+                      sourceEvidenceStatus: 200,
+                      sourceEvidenceContentType: 'text/html',
+                      sourceSignalsVerifiedAt: '2026-06-21T10:01:20.000Z',
+                      sourceSignalsMatched: true,
+                      sourceSignalsMissing: [],
+                      sourceSignals: ['Every version is saved', 'nothing gets lost', 'comments stay attached', 'reusable template'],
+                      higgsfieldUiEvidenceUrl: 'https://higgsfield.ai/canvas-intro',
+                      canvasEvidenceUrl: 'https://proof.example.com/versioning.mp4',
+                      canvasEvidenceCheckedAt: '2026-06-21T10:01:30.000Z',
+                      canvasEvidenceReachable: true,
+                      canvasEvidenceStatus: 200,
+                      canvasEvidenceContentType: 'video/mp4',
+                      directComparisonAt: '2026-06-21T10:02:00.000Z',
+                      directComparisonVerdict: 'pass',
+                      directComparisonNotes: 'Direct versioning comparison passed.',
+                      canvasVersion: 1,
+                      graphSignature: emptyGraphSignature,
+                      nodeCount: 0,
+                      edgeCount: 0,
+                    },
+                  },
+                },
+                nodes: [],
+                edges: [],
+              }],
+            },
+          }),
+        }
+      }
+      return defaultFetch?.(input, init) ?? {
+        ok: true,
+        json: async () => ({ success: true, data: {} }),
+      }
+    })
+
+    render(<CreativeCanvasWorkspace mode="admin" orgId="org-1" />)
+
+    expect(await screen.findByText('Launch Canvas')).toBeInTheDocument()
+    const benchmarkProof = screen.getByLabelText(/direct higgsfield benchmark proof/i)
+    expect(benchmarkProof).toHaveTextContent('0/10 benchmark proven')
+    expect(benchmarkProof).toHaveTextContent('Needs stored restorable version, node comment, reusable template, and auto-save evidence before versioning proof can pass.')
+  })
+
+  it('does not pass multi-asset workflow benchmark proof without connected source lineage evidence', async () => {
+    const defaultFetch = fetchMock.getMockImplementation()
+    const emptyGraphSignature = JSON.stringify({ nodes: [], edges: [] })
+    fetchMock.mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      if (url === '/api/v1/creative-canvas?orgId=org-1') {
+        return {
+          ok: true,
+          json: async () => ({
+            success: true,
+            data: {
+              canvases: [{
+                id: 'canvas-1',
+                orgId: 'org-1',
+                title: 'Launch Canvas',
+                activeVersion: 1,
+                data: {
+                  benchmarkProof: {
+                    multi_asset_workflows: {
+                      proofUrl: 'https://proof.example.com/multi-asset.mp4',
+                      notes: 'Legacy multi-asset proof before connected lineage metadata was required.',
+                      capturedAt: '2026-06-21T10:00:00.000Z',
+                      capturedBy: 'Pip',
+                      sourceTitle: 'Higgsfield Canvas source and output workflow',
+                      sourceUrl: 'https://higgsfield.ai/canvas-intro',
+                      sourceCheckedAt: '2026-06-21T10:01:00.000Z',
+                      sourceEvidenceCheckedAt: '2026-06-21T10:01:10.000Z',
+                      sourceEvidenceReachable: true,
+                      sourceEvidenceStatus: 200,
+                      sourceEvidenceContentType: 'text/html',
+                      sourceSignalsVerifiedAt: '2026-06-21T10:01:20.000Z',
+                      sourceSignalsMatched: true,
+                      sourceSignalsMissing: [],
+                      sourceSignals: ['Moodboard', 'mix models', 'route outputs', 'single creative pipeline', 'Soul ID characters', 'uploaded products', 'brand references', 'previous generations'],
+                      higgsfieldUiEvidenceUrl: 'https://higgsfield.ai/canvas-intro',
+                      canvasEvidenceUrl: 'https://proof.example.com/multi-asset.mp4',
+                      canvasEvidenceCheckedAt: '2026-06-21T10:01:30.000Z',
+                      canvasEvidenceReachable: true,
+                      canvasEvidenceStatus: 200,
+                      canvasEvidenceContentType: 'video/mp4',
+                      directComparisonAt: '2026-06-21T10:02:00.000Z',
+                      directComparisonVerdict: 'pass',
+                      directComparisonNotes: 'Direct multi-asset workflow comparison passed.',
+                      canvasVersion: 1,
+                      graphSignature: emptyGraphSignature,
+                      nodeCount: 0,
+                      edgeCount: 0,
+                    },
+                  },
+                },
+                nodes: [],
+                edges: [],
+              }],
+            },
+          }),
+        }
+      }
+      return defaultFetch?.(input, init) ?? {
+        ok: true,
+        json: async () => ({ success: true, data: {} }),
+      }
+    })
+
+    render(<CreativeCanvasWorkspace mode="admin" orgId="org-1" />)
+
+    expect(await screen.findByText('Launch Canvas')).toBeInTheDocument()
+    const benchmarkProof = screen.getByLabelText(/direct higgsfield benchmark proof/i)
+    expect(benchmarkProof).toHaveTextContent('0/10 benchmark proven')
+    expect(benchmarkProof).toHaveTextContent('Needs stored connected multi-asset source, role, output, workflow, and lineage evidence before multi-asset proof can pass.')
+  })
+
+  it('does not pass benchmark proof records that lack a Higgsfield source check', async () => {
+    const defaultFetch = fetchMock.getMockImplementation()
+    fetchMock.mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      if (url === '/api/v1/creative-canvas?orgId=org-1') {
+        return {
+          ok: true,
+          json: async () => ({
+            success: true,
+            data: {
+              canvases: [{
+                id: 'canvas-1',
+                orgId: 'org-1',
+                title: 'Launch Canvas',
+                activeVersion: 1,
+                data: {
+                  benchmarkProof: {
+                    versioning_polish: {
+                      proofUrl: 'https://proof.example.com/versioning.mp4',
+                      notes: 'Auto-save and version preview were captured.',
+                      capturedAt: '2026-06-21T10:00:00.000Z',
+                      capturedBy: 'Pip',
+                    },
+                  },
+                },
+                nodes: [],
+                edges: [],
+              }],
+            },
+          }),
+        }
+      }
+      return defaultFetch?.(input, init) ?? {
+        ok: true,
+        json: async () => ({ success: true, data: {} }),
+      }
+    })
+
+    render(<CreativeCanvasWorkspace mode="admin" orgId="org-1" />)
+
+    expect(await screen.findByText('Launch Canvas')).toBeInTheDocument()
+    const benchmarkProof = screen.getByLabelText(/direct higgsfield benchmark proof/i)
+    expect(benchmarkProof).toHaveTextContent('0/10 benchmark proven')
+    expect(benchmarkProof).toHaveTextContent('1 ready benchmark category needs stored proof.')
+    expect(benchmarkProof).toHaveTextContent('Needs Higgsfield source check before this proof can pass.')
+  })
+
+  it('does not pass benchmark proof records that lack matched Higgsfield source signals', async () => {
+    const defaultFetch = fetchMock.getMockImplementation()
+    fetchMock.mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      if (url === '/api/v1/creative-canvas?orgId=org-1') {
+        return {
+          ok: true,
+          json: async () => ({
+            success: true,
+            data: {
+              canvases: [{
+                id: 'canvas-1',
+                orgId: 'org-1',
+                title: 'Launch Canvas',
+                activeVersion: 1,
+                data: {
+                  benchmarkProof: {
+                    versioning_polish: {
+                      proofUrl: 'https://proof.example.com/versioning.mp4',
+                      notes: 'Auto-save and version preview were captured.',
+                      capturedAt: '2026-06-21T10:00:00.000Z',
+                      capturedBy: 'Pip',
+                      sourceTitle: 'Higgsfield Canvas saved versions and comments',
+                      sourceUrl: 'https://higgsfield.ai/canvas-intro',
+                      sourceCheckedAt: '2026-06-21T10:01:00.000Z',
+                      sourceSignals: ['Every version is saved'],
+                    },
+                  },
+                },
+                nodes: [],
+                edges: [],
+              }],
+            },
+          }),
+        }
+      }
+      return defaultFetch?.(input, init) ?? {
+        ok: true,
+        json: async () => ({ success: true, data: {} }),
+      }
+    })
+
+    render(<CreativeCanvasWorkspace mode="admin" orgId="org-1" />)
+
+    expect(await screen.findByText('Launch Canvas')).toBeInTheDocument()
+    const benchmarkProof = screen.getByLabelText(/direct higgsfield benchmark proof/i)
+    expect(benchmarkProof).toHaveTextContent('0/10 benchmark proven')
+    expect(benchmarkProof).toHaveTextContent('Needs matched Higgsfield source signals before this proof can pass.')
+    expect(benchmarkProof).toHaveTextContent('Stored signals: Every version is saved')
+  })
+
+  it('does not pass source-backed benchmark proof without reachable Higgsfield source URL verification', async () => {
+    const defaultFetch = fetchMock.getMockImplementation()
+    const emptyGraphSignature = JSON.stringify({ nodes: [], edges: [] })
+    fetchMock.mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      if (url === '/api/v1/creative-canvas?orgId=org-1') {
+        return {
+          ok: true,
+          json: async () => ({
+            success: true,
+            data: {
+              canvases: [{
+                id: 'canvas-1',
+                orgId: 'org-1',
+                title: 'Launch Canvas',
+                activeVersion: 1,
+                data: {
+                  benchmarkProof: {
+                    versioning_polish: {
+                      proofUrl: 'https://proof.example.com/versioning.mp4',
+                      notes: 'Versioning proof before source URL verification existed.',
+                      capturedAt: '2026-06-21T10:00:00.000Z',
+                      capturedBy: 'Pip',
+                      sourceTitle: 'Higgsfield Canvas saved versions and comments',
+                      sourceUrl: 'https://higgsfield.ai/canvas-intro',
+                      sourceCheckedAt: '2026-06-21T10:01:00.000Z',
+                      sourceSignals: ['Every version is saved', 'nothing gets lost', 'comments stay attached', 'reusable template'],
+                      higgsfieldUiEvidenceUrl: 'https://higgsfield.ai/canvas-intro',
+                      canvasEvidenceUrl: 'https://proof.example.com/versioning.mp4',
+                      canvasEvidenceCheckedAt: '2026-06-21T10:01:30.000Z',
+                      canvasEvidenceReachable: true,
+                      canvasEvidenceStatus: 200,
+                      canvasEvidenceContentType: 'video/mp4',
+                      directComparisonAt: '2026-06-21T10:02:00.000Z',
+                      directComparisonVerdict: 'pass',
+                      directComparisonNotes: 'Direct versioning comparison passed.',
+                      canvasVersion: 1,
+                      graphSignature: emptyGraphSignature,
+                      nodeCount: 0,
+                      edgeCount: 0,
+                    },
+                  },
+                },
+                nodes: [],
+                edges: [],
+              }],
+            },
+          }),
+        }
+      }
+      return defaultFetch?.(input, init) ?? {
+        ok: true,
+        json: async () => ({ success: true, data: {} }),
+      }
+    })
+
+    render(<CreativeCanvasWorkspace mode="admin" orgId="org-1" />)
+
+    expect(await screen.findByText('Launch Canvas')).toBeInTheDocument()
+    const benchmarkProof = screen.getByLabelText(/direct higgsfield benchmark proof/i)
+    expect(benchmarkProof).toHaveTextContent('0/10 benchmark proven')
+    expect(benchmarkProof).toHaveTextContent('Needs reachable Higgsfield source URL verification before this proof can pass.')
+    expect(benchmarkProof).toHaveTextContent('Source evidence URL: unverified')
+  })
+
+  it('does not pass source-backed benchmark proof without current Higgsfield signal verification', async () => {
+    const defaultFetch = fetchMock.getMockImplementation()
+    const emptyGraphSignature = JSON.stringify({ nodes: [], edges: [] })
+    fetchMock.mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      if (url === '/api/v1/creative-canvas?orgId=org-1') {
+        return {
+          ok: true,
+          json: async () => ({
+            success: true,
+            data: {
+              canvases: [{
+                id: 'canvas-1',
+                orgId: 'org-1',
+                title: 'Launch Canvas',
+                activeVersion: 1,
+                data: {
+                  benchmarkProof: {
+                    versioning_polish: {
+                      proofUrl: 'https://proof.example.com/versioning.mp4',
+                      notes: 'Versioning proof before source signal verification existed.',
+                      capturedAt: '2026-06-21T10:00:00.000Z',
+                      capturedBy: 'Pip',
+                      sourceTitle: 'Higgsfield Canvas saved versions and comments',
+                      sourceUrl: 'https://higgsfield.ai/canvas-intro',
+                      sourceCheckedAt: '2026-06-21T10:01:00.000Z',
+                      sourceEvidenceCheckedAt: '2026-06-21T10:01:20.000Z',
+                      sourceEvidenceReachable: true,
+                      sourceEvidenceStatus: 200,
+                      sourceEvidenceContentType: 'text/html',
+                      sourceSignals: ['Every version is saved', 'nothing gets lost', 'comments stay attached', 'reusable template'],
+                      higgsfieldUiEvidenceUrl: 'https://higgsfield.ai/canvas-intro',
+                      canvasEvidenceUrl: 'https://proof.example.com/versioning.mp4',
+                      canvasEvidenceCheckedAt: '2026-06-21T10:01:30.000Z',
+                      canvasEvidenceReachable: true,
+                      canvasEvidenceStatus: 200,
+                      canvasEvidenceContentType: 'video/mp4',
+                      directComparisonAt: '2026-06-21T10:02:00.000Z',
+                      directComparisonVerdict: 'pass',
+                      directComparisonNotes: 'Direct versioning comparison passed.',
+                      canvasVersion: 1,
+                      graphSignature: emptyGraphSignature,
+                      nodeCount: 0,
+                      edgeCount: 0,
+                    },
+                  },
+                },
+                nodes: [],
+                edges: [],
+              }],
+            },
+          }),
+        }
+      }
+      return defaultFetch?.(input, init) ?? {
+        ok: true,
+        json: async () => ({ success: true, data: {} }),
+      }
+    })
+
+    render(<CreativeCanvasWorkspace mode="admin" orgId="org-1" />)
+
+    expect(await screen.findByText('Launch Canvas')).toBeInTheDocument()
+    const benchmarkProof = screen.getByLabelText(/direct higgsfield benchmark proof/i)
+    expect(benchmarkProof).toHaveTextContent('0/10 benchmark proven')
+    expect(benchmarkProof).toHaveTextContent('Needs current Higgsfield source signal verification before this proof can pass.')
+  })
+
+  it('does not pass source-backed benchmark proof records without a direct Higgsfield comparison', async () => {
+    const defaultFetch = fetchMock.getMockImplementation()
+    fetchMock.mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      if (url === '/api/v1/creative-canvas?orgId=org-1') {
+        return {
+          ok: true,
+          json: async () => ({
+            success: true,
+            data: {
+              canvases: [{
+                id: 'canvas-1',
+                orgId: 'org-1',
+                title: 'Launch Canvas',
+                activeVersion: 1,
+                data: {
+                  benchmarkProof: {
+                    versioning_polish: {
+                      proofUrl: 'https://proof.example.com/versioning.mp4',
+                      notes: 'Auto-save and version preview were captured.',
+                      capturedAt: '2026-06-21T10:00:00.000Z',
+                      capturedBy: 'Pip',
+                      sourceTitle: 'Higgsfield Canvas saved versions and comments',
+                      sourceUrl: 'https://higgsfield.ai/canvas-intro',
+                      sourceCheckedAt: '2026-06-21T10:01:00.000Z',
+                      sourceSignals: ['Every version is saved', 'nothing gets lost', 'comments stay attached', 'reusable template'],
+                    },
+                  },
+                },
+                nodes: [],
+                edges: [],
+              }],
+            },
+          }),
+        }
+      }
+      return defaultFetch?.(input, init) ?? {
+        ok: true,
+        json: async () => ({ success: true, data: {} }),
+      }
+    })
+
+    render(<CreativeCanvasWorkspace mode="admin" orgId="org-1" />)
+
+    expect(await screen.findByText('Launch Canvas')).toBeInTheDocument()
+    const benchmarkProof = screen.getByLabelText(/direct higgsfield benchmark proof/i)
+    expect(benchmarkProof).toHaveTextContent('0/10 benchmark proven')
+    expect(benchmarkProof).toHaveTextContent('Needs direct Higgsfield UI comparison evidence before this proof can pass.')
+  })
+
+  it('does not pass direct benchmark proof without reachable canvas evidence URL verification', async () => {
+    const defaultFetch = fetchMock.getMockImplementation()
+    const emptyGraphSignature = JSON.stringify({ nodes: [], edges: [] })
+    fetchMock.mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      if (url === '/api/v1/creative-canvas?orgId=org-1') {
+        return {
+          ok: true,
+          json: async () => ({
+            success: true,
+            data: {
+              canvases: [{
+                id: 'canvas-1',
+                orgId: 'org-1',
+                title: 'Launch Canvas',
+                purpose: 'Product launch',
+                status: 'draft',
+                activeVersion: 1,
+                linked: { projectId: 'project-1' },
+                data: {
+                  benchmarkProof: {
+                    versioning_polish: {
+                      proofUrl: 'https://proof.example.com/versioning.mp4',
+                      notes: 'Versioning proof before URL verification existed.',
+                      capturedAt: '2026-06-21T10:00:00.000Z',
+                      capturedBy: 'Pip',
+                      sourceTitle: 'Higgsfield Canvas saved versions and comments',
+                      sourceUrl: 'https://higgsfield.ai/canvas-intro',
+                      sourceCheckedAt: '2026-06-21T10:01:00.000Z',
+                      sourceSignals: ['Every version is saved', 'nothing gets lost', 'comments stay attached', 'reusable template'],
+                      higgsfieldUiEvidenceUrl: 'https://higgsfield.ai/canvas-intro',
+                      canvasEvidenceUrl: 'https://proof.example.com/versioning.mp4',
+                      directComparisonAt: '2026-06-21T10:02:00.000Z',
+                      directComparisonVerdict: 'pass',
+                      directComparisonNotes: 'Direct versioning comparison passed.',
+                      canvasVersion: 1,
+                      graphSignature: emptyGraphSignature,
+                      nodeCount: 0,
+                      edgeCount: 0,
+                    },
+                  },
+                },
+                nodes: [],
+                edges: [],
+              }],
+            },
+          }),
+        }
+      }
+      return defaultFetch?.(input, init) ?? {
+        ok: true,
+        json: async () => ({ success: true, data: {} }),
+      }
+    })
+
+    render(<CreativeCanvasWorkspace mode="admin" orgId="org-1" />)
+
+    expect(await screen.findByText('Launch Canvas')).toBeInTheDocument()
+    const benchmarkProof = screen.getByLabelText(/direct higgsfield benchmark proof/i)
+    expect(benchmarkProof).toHaveTextContent('0/10 benchmark proven')
+    expect(benchmarkProof).toHaveTextContent('Needs reachable Creative Canvas evidence URL verification before this proof can pass.')
+    expect(benchmarkProof).toHaveTextContent('Canvas evidence URL: unverified')
+  })
+
+  it('does not pass benchmark proof captured against a stale canvas graph state', async () => {
+    const defaultFetch = fetchMock.getMockImplementation()
+    fetchMock.mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      if (url === '/api/v1/creative-canvas?orgId=org-1') {
+        return {
+          ok: true,
+          json: async () => ({
+            success: true,
+            data: {
+              canvases: [{
+                id: 'canvas-1',
+                orgId: 'org-1',
+                title: 'Launch Canvas',
+                activeVersion: 1,
+                data: {
+                  benchmarkProof: {
+                    versioning_polish: {
+                      proofUrl: 'https://proof.example.com/versioning.mp4',
+                      notes: 'Auto-save and version preview were captured.',
+                      capturedAt: '2026-06-21T10:00:00.000Z',
+                      capturedBy: 'Pip',
+                      sourceTitle: 'Higgsfield Canvas saved versions and comments',
+                      sourceUrl: 'https://higgsfield.ai/canvas-intro',
+                      sourceCheckedAt: '2026-06-21T10:01:00.000Z',
+                      sourceSignals: ['Every version is saved', 'nothing gets lost', 'comments stay attached', 'reusable template'],
+                      higgsfieldUiEvidenceUrl: 'https://higgsfield.ai/canvas-intro',
+                      canvasEvidenceUrl: 'https://proof.example.com/versioning.mp4',
+                      directComparisonAt: '2026-06-21T10:02:00.000Z',
+                      directComparisonVerdict: 'pass',
+                      directComparisonNotes: 'Compared against a prior graph.',
+                      canvasVersion: 999,
+                      graphSignature: 'stale-graph-signature',
+                      nodeCount: 99,
+                      edgeCount: 99,
+                    },
+                  },
+                },
+                nodes: [],
+                edges: [],
+              }],
+            },
+          }),
+        }
+      }
+      return defaultFetch?.(input, init) ?? {
+        ok: true,
+        json: async () => ({ success: true, data: {} }),
+      }
+    })
+
+    render(<CreativeCanvasWorkspace mode="admin" orgId="org-1" />)
+
+    expect(await screen.findByText('Launch Canvas')).toBeInTheDocument()
+    const benchmarkProof = screen.getByLabelText(/direct higgsfield benchmark proof/i)
+    expect(benchmarkProof).toHaveTextContent('0/10 benchmark proven')
+    expect(benchmarkProof).toHaveTextContent('Needs proof captured against the current canvas version and graph state before this benchmark can pass.')
+    expect(benchmarkProof).toHaveTextContent('Canvas state: v999 · 99 nodes · 99 links')
+  })
+
+  it('does not mark static edit nodes as editing ergonomics benchmark-ready without local graph activity', async () => {
+    const defaultFetch = fetchMock.getMockImplementation()
+    fetchMock.mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      if (url === '/api/v1/creative-canvas?orgId=org-1') {
+        return {
+          ok: true,
+          json: async () => ({
+            success: true,
+            data: {
+              canvases: [{
+                id: 'canvas-1',
+                orgId: 'org-1',
+                title: 'Launch Canvas',
+                purpose: 'Product launch',
+                status: 'draft',
+                activeVersion: 1,
+                linked: { projectId: 'project-1' },
+                nodes: [{
+                  id: 'edit-node-existing',
+                  orgId: 'org-1',
+                  type: 'edit',
+                  title: 'Existing edit node',
+                  position: { x: 100, y: 120 },
+                  data: {},
+                  edit: {
+                    operation: 'inpaint',
+                    prompt: 'Replace background',
+                    references: [],
+                    strength: 0.6,
+                    outputKind: 'image',
+                  },
+                }],
+                edges: [],
+              }],
+            },
+          }),
+        }
+      }
+      return defaultFetch?.(input, init) ?? {
+        ok: true,
+        json: async () => ({ success: true, data: {} }),
+      }
+    })
+
+    render(<CreativeCanvasWorkspace mode="admin" orgId="org-1" />)
+
+    expect(await screen.findByText('Launch Canvas')).toBeInTheDocument()
+    const parityAudit = screen.getByLabelText(/higgsfield parity audit/i)
+    expect(parityAudit).toHaveTextContent('0 drop · 0 drag · 0 live links · 0 generation routes')
+    const benchmarkProof = screen.getByLabelText(/direct higgsfield benchmark proof/i)
+    expect(benchmarkProof).toHaveTextContent('1 ready benchmark category needs stored proof.')
+  })
+
+  it('applies benchmark Higgsfield model routing presets to generation controls', async () => {
+    render(<CreativeCanvasWorkspace mode="admin" orgId="org-1" />)
+
+    expect(await screen.findByText('Launch Canvas')).toBeInTheDocument()
+    expect(screen.getByText('Benchmark model routing')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Kling 3.0' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Seedance 2.0' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Wan 2.7' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Soul 2.0' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'GPT Image 2.0' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Veo 3.1' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'NB Pro' })).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Veo 3.1' }))
+
+    expect(screen.getByLabelText(/higgsfield model id/i)).toHaveValue('veo_3_1')
+    expect(screen.getByLabelText(/output kind/i)).toHaveValue('youtube_render')
+    expect(screen.getByLabelText(/aspect ratio/i)).toHaveValue('16:9')
+    expect(screen.getByLabelText(/duration seconds/i)).toHaveValue(12)
+    expect(screen.getByLabelText(/camera motion/i)).toHaveValue('dolly')
+    expect(screen.getByText('Veo 3.1 routing selected')).toBeInTheDocument()
+  })
+
+  it('adds direct Higgsfield benchmark workflows to the graph', async () => {
+    render(<CreativeCanvasWorkspace mode="admin" orgId="org-1" />)
+
+    expect(await screen.findByText('Launch Canvas')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: /apply Product style fusion workflow/i }))
+
+    expect(screen.getByText('Product style fusion workflow added')).toBeInTheDocument()
+    expect(screen.getAllByText('Product reference').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Style reference').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Higgsfield product shot').length).toBeGreaterThan(0)
+    const parityAudit = screen.getByLabelText(/higgsfield parity audit/i)
+    expect(parityAudit).toHaveTextContent('1/8 scenarios in graph')
+  })
+
+  it('adds the full Higgsfield benchmark workflow suite in one action', async () => {
+    render(<CreativeCanvasWorkspace mode="admin" orgId="org-1" />)
+
+    expect(await screen.findByText('Launch Canvas')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: /apply 8 missing benchmark workflows/i }))
+
+    expect(screen.getByText('Added 8 Higgsfield benchmark workflows')).toBeInTheDocument()
+    ;[
+      'VFX video output',
+      'Campaign photography',
+      'Campaign-ready social video',
+      'Day-night timelapse',
+      'Styled transition video',
+      'Animated logo package',
+      'Brand icon grid',
+      'Material exploration grid',
+    ].forEach((label) => {
+      expect(screen.getAllByText(label).length).toBeGreaterThan(0)
+    })
+    expect(screen.getByRole('button', { name: /benchmark suite complete/i })).toBeDisabled()
+    const parityAudit = screen.getByLabelText(/higgsfield parity audit/i)
+    expect(parityAudit).toHaveTextContent('8/8 scenarios in graph')
+    expect(parityAudit).toHaveTextContent('0 prompt · 1 mask/source · 1 brush · 0/3+ blend controls')
+    const benchmarkProof = screen.getByLabelText(/direct higgsfield benchmark proof/i)
+    expect(benchmarkProof).toHaveTextContent('3 ready benchmark categories need stored proof.')
+
+    fireEvent.click(within(benchmarkProof).getByRole('button', { name: /capture ready proofs/i }))
+
+    await waitFor(() => expect(screen.getByText('Captured 3 ready benchmark proofs')).toBeInTheDocument())
+
+    const patchCall = fetchMock.mock.calls.find(([input, init]) => (
+      String(input) === '/api/v1/creative-canvas/canvas-1?orgId=org-1'
+      && init?.method === 'PATCH'
+      && String(init.body).includes('multi_asset_workflows')
+      && String(init.body).includes('multiAssetEvidence')
+    ))
+    expect(patchCall).toBeTruthy()
+    const body = JSON.parse(String(patchCall?.[1]?.body ?? '{}')) as {
+      data?: {
+        benchmarkProof?: {
+          multi_asset_workflows?: {
+            multiAssetSourceNodeCount?: number
+            multiAssetSourceKindCount?: number
+            multiAssetReferenceRoleCount?: number
+            multiAssetConnectedSourceCount?: number
+            multiAssetOutputNodeCount?: number
+            multiAssetWorkflowScenarioCount?: number
+            multiAssetLineageEdgeCount?: number
+            multiAssetCapturedAt?: string
+            multiAssetEvidence?: string
+          }
+        }
+      }
+    }
+    expect(body.data?.benchmarkProof?.multi_asset_workflows).toMatchObject({
+      multiAssetSourceNodeCount: expect.any(Number),
+      multiAssetSourceKindCount: expect.any(Number),
+      multiAssetReferenceRoleCount: expect.any(Number),
+      multiAssetConnectedSourceCount: expect.any(Number),
+      multiAssetOutputNodeCount: expect.any(Number),
+      multiAssetWorkflowScenarioCount: expect.any(Number),
+      multiAssetLineageEdgeCount: expect.any(Number),
+      multiAssetCapturedAt: expect.any(String),
+      multiAssetEvidence: expect.stringContaining('connected source nodes'),
+    })
+    expect(body.data?.benchmarkProof?.multi_asset_workflows?.multiAssetConnectedSourceCount).toBeGreaterThanOrEqual(3)
+    expect(body.data?.benchmarkProof?.multi_asset_workflows?.multiAssetSourceKindCount).toBeGreaterThanOrEqual(2)
+    expect(body.data?.benchmarkProof?.multi_asset_workflows?.multiAssetReferenceRoleCount).toBeGreaterThanOrEqual(3)
+  })
+
+  it('switches mobile panels with responsive readiness evidence', async () => {
+    render(<CreativeCanvasWorkspace mode="admin" orgId="org-1" />)
+
+    await screen.findByText('Launch Canvas')
+    const readiness = screen.getByLabelText(/creative canvas responsive readiness/i)
+    expect(readiness).toHaveTextContent('Canvas')
+    expect(readiness).toHaveTextContent('Sources')
+    expect(readiness).toHaveTextContent('Inspector')
+    expect(readiness).toHaveTextContent('Desktop')
+    expect(readiness).toHaveTextContent('3-column graph')
+    const visualProof = screen.getByLabelText(/creative canvas visual qa proof/i)
+    expect(visualProof).toHaveTextContent('Mobile parity stays in watch state until signed-in viewport screenshots are captured.')
+    expect(visualProof).toHaveTextContent('Canvas, Sources, and Inspector panel-switch screenshots required.')
+
+    const canvasButton = screen.getByRole('button', { name: /^canvas \(/i })
+    const sourcesButton = screen.getByRole('button', { name: /^sources$/i })
+    const inspectorButton = screen.getByRole('button', { name: /^inspector$/i })
+    const canvasPanel = screen.getByRole('region', { name: /canvas graph workspace/i })
+    const sourcesPanel = screen.getByRole('complementary', { name: /source and workflow tools/i })
+    const inspectorPanel = screen.getByRole('complementary', { name: /canvas inspector and outputs/i })
+
+    expect(canvasButton).toHaveAttribute('aria-pressed', 'true')
+    expect(canvasPanel).toHaveClass('block')
+    expect(sourcesPanel).toHaveClass('hidden')
+    expect(inspectorPanel).toHaveClass('hidden')
+
+    fireEvent.click(sourcesButton)
+    expect(sourcesButton).toHaveAttribute('aria-pressed', 'true')
+    expect(sourcesPanel).toHaveClass('block')
+    expect(canvasPanel).toHaveClass('hidden')
+
+    fireEvent.click(inspectorButton)
+    expect(inspectorButton).toHaveAttribute('aria-pressed', 'true')
+    expect(inspectorPanel).toHaveClass('block')
+    expect(sourcesPanel).toHaveClass('hidden')
+  })
+
+  it('opens a requested canvas from the collaboration URL', async () => {
+    window.history.replaceState(null, '', '/admin/creative-canvas?orgId=org-1&canvasId=canvas-2')
+    fetchMock.mockImplementation(async (input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url === '/api/v1/creative-canvas?orgId=org-1') {
+        return {
+          ok: true,
+          json: async () => ({
+            success: true,
+            data: {
+              canvases: [
+                {
+                  id: 'canvas-1',
+                  orgId: 'org-1',
+                  title: 'First Canvas',
+                  purpose: 'First project',
+                  status: 'draft',
+                  activeVersion: 1,
+                  linked: {},
+                  nodes: [],
+                  edges: [],
+                },
+                {
+                  id: 'canvas-2',
+                  orgId: 'org-1',
+                  title: 'Second Canvas',
+                  purpose: 'Shared board',
+                  status: 'draft',
+                  activeVersion: 4,
+                  linked: {},
+                  nodes: [{
+                    id: 'second-source',
+                    orgId: 'org-1',
+                    type: 'source',
+                    title: 'Second source',
+                    position: { x: 0, y: 0 },
+                    data: {},
+                  }],
+                  edges: [],
+                },
+              ],
+            },
+          }),
+        }
+      }
+      if (url.includes('/templates')) {
+        return { ok: true, json: async () => ({ success: true, data: { templates: [] } }) }
+      }
+      if (url.includes('/sources')) {
+        return { ok: true, json: async () => ({ success: true, data: { sources: [] } }) }
+      }
+      if (url.includes('/presence')) {
+        return { ok: true, json: async () => ({ success: true, data: { presence: [] } }) }
+      }
+      if (url.includes('/comments')) {
+        return { ok: true, json: async () => ({ success: true, data: { comments: [] } }) }
+      }
+      if (url.includes('/runtime-proof')) {
+        return { ok: true, json: async () => ({ success: true, data: { proof: null } }) }
+      }
+      if (url.includes('/runs')) {
+        return { ok: true, json: async () => ({ success: true, data: { runs: [] } }) }
+      }
+      if (url.includes('/versions')) {
+        return { ok: true, json: async () => ({ success: true, data: { versions: [] } }) }
+      }
+      return { ok: true, json: async () => ({ success: true, data: {} }) }
+    })
+
+    render(<CreativeCanvasWorkspace mode="admin" orgId="org-1" />)
+
+    expect(await screen.findByText('Second Canvas')).toBeInTheDocument()
+    expect(screen.getByText('second-source')).toBeInTheDocument()
+    expect(screen.getByText(/canvasId=canvas-2/)).toBeInTheDocument()
+    expect(window.location.search).toContain('canvasId=canvas-2')
+  })
+
+  it('copies the active canvas collaboration link', async () => {
+    render(<CreativeCanvasWorkspace mode="admin" orgId="org-1" />)
+
+    await screen.findByText('Launch Canvas')
+    fireEvent.click(screen.getByRole('button', { name: /copy canvas link/i }))
+
+    await waitFor(() => {
+      expect(navigator.clipboard.writeText).toHaveBeenCalledWith(expect.stringContaining('canvasId=canvas-1'))
+    })
+    expect(navigator.clipboard.writeText).toHaveBeenCalledWith(expect.stringContaining('orgId=org-1'))
+    expect(await screen.findByText('Canvas collaboration link copied')).toBeInTheDocument()
+  })
+
+  it('shows collaborator focus badges on graph nodes', async () => {
+    fetchMock.mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      if (url.includes('/creative-canvas?orgId=org-1')) {
+        return {
+          ok: true,
+          json: async () => ({
+            success: true,
+            data: {
+              canvases: [{
+                id: 'canvas-1',
+                orgId: 'org-1',
+                title: 'Launch Canvas',
+                purpose: 'Product launch',
+                status: 'draft',
+                activeVersion: 1,
+                linked: { projectId: 'project-1' },
+                nodes: [{
+                  id: 'model-node-existing',
+                  orgId: 'org-1',
+                  type: 'model',
+                  title: 'Existing model',
+                  position: { x: 0, y: 0 },
+                  data: {},
+                  provider: { key: 'higgsfield', model: 'nano_banana_flash' },
+                }],
+                edges: [],
+              }],
+            },
+          }),
+        }
+      }
+      if (url.includes('/presence') && init?.method === 'POST') {
+        const body = JSON.parse(String(init.body ?? '{}'))
+        return {
+          ok: true,
+          json: async () => ({
+            success: true,
+            data: {
+              presence: [{
+                id: 'canvas-1_user-1',
+                orgId: 'org-1',
+                canvasId: 'canvas-1',
+                actorUid: 'user-1',
+                actorType: 'user',
+                displayName: 'You',
+                selectedNodeId: body.selectedNodeId,
+                focus: body.focus,
+                activeVersion: body.activeVersion,
+                graphSignature: body.graphSignature,
+                hasUnsavedGraphChanges: body.hasUnsavedGraphChanges,
+                nodeCount: body.nodeCount,
+                edgeCount: body.edgeCount,
+                selectedNodeTitle: body.selectedNodeTitle,
+                draftGraph: body.draftGraph,
+                lastSeenAtMs: 1000,
+                expiresAtMs: 46000,
+              }],
+            },
+          }),
+        }
+      }
+      if (url.includes('/presence')) {
+        return {
+          ok: true,
+          json: async () => ({
+            success: true,
+            data: {
+              presence: [{
+                id: 'canvas-1_maya',
+                orgId: 'org-1',
+                canvasId: 'canvas-1',
+                actorUid: 'maya',
+                actorType: 'agent',
+                displayName: 'Maya',
+                selectedNodeId: 'model-node-existing',
+                selectedNodeTitle: 'Existing model',
+                focus: 'runs',
+                activeVersion: 1,
+                graphSignature: 'maya-draft-signature',
+                hasUnsavedGraphChanges: true,
+                nodeCount: 3,
+                edgeCount: 2,
+                draftGraph: {
+                  nodes: [{
+                    id: 'maya-draft-node',
+                    orgId: 'org-1',
+                    type: 'source',
+                    title: 'Maya live draft source',
+                    position: { x: 40, y: 60 },
+                    data: { createdFrom: 'maya_live_draft' },
+                  }],
+                  edges: [],
+                },
+                lastSeenAtMs: 900,
+                expiresAtMs: 45900,
+              }],
+            },
+          }),
+        }
+      }
+      if (url.includes('/templates')) {
+        return { ok: true, json: async () => ({ success: true, data: { templates: [] } }) }
+      }
+      if (url.includes('/sources')) {
+        return { ok: true, json: async () => ({ success: true, data: { sources: [] } }) }
+      }
+      if (url.includes('/comments')) {
+        return { ok: true, json: async () => ({ success: true, data: { comments: [] } }) }
+      }
+      if (url.includes('/runtime-proof')) {
+        return { ok: true, json: async () => ({ success: true, data: { proof: null } }) }
+      }
+      if (url.includes('/runs')) {
+        return { ok: true, json: async () => ({ success: true, data: { runs: [] } }) }
+      }
+      if (url.includes('/versions')) {
+        return { ok: true, json: async () => ({ success: true, data: { versions: [] } }) }
+      }
+      return { ok: true, json: async () => ({ success: true, data: {} }) }
+    })
+
+    render(<CreativeCanvasWorkspace mode="admin" orgId="org-1" />)
+
+    await screen.findByText('Launch Canvas')
+
+    expect(await screen.findByLabelText(/1 collaborator active on existing model/i)).toBeInTheDocument()
+    expect(screen.getAllByText('Maya').length).toBeGreaterThan(0)
+    expect(screen.getByText('Live draft')).toBeInTheDocument()
+    expect(screen.getByText(/3 nodes \/ 2 links \/ v1/i)).toBeInTheDocument()
+    expect(screen.getByText(/unsaved graph edits are active/i)).toBeInTheDocument()
+    expect(screen.getByText('Maya is editing this node')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /apply settings to node/i })).toBeDisabled()
+    expect(screen.getByRole('button', { name: /duplicate selected node/i })).toBeDisabled()
+    expect(screen.getByRole('button', { name: /create inpaint edit branch/i })).toBeDisabled()
+    expect(screen.getByRole('button', { name: /create format variants/i })).toBeDisabled()
+    fireEvent.click(screen.getByRole('button', { name: /apply live draft/i }))
+    expect(await screen.findByText(/applied maya live draft to this workspace/i)).toBeInTheDocument()
+    expect(screen.getAllByText(/Maya live draft source/i).length).toBeGreaterThan(0)
+    expect(screen.getByText('Applied live draft')).toBeInTheDocument()
+  })
+
+  it('records recent graph activity for local canvas mutations', async () => {
+    render(<CreativeCanvasWorkspace mode="admin" orgId="org-1" />)
+
+    expect(await screen.findByText('Launch Canvas')).toBeInTheDocument()
+    const liveActivity = screen.getByLabelText(/live collaboration activity/i)
+    expect(within(liveActivity).getByText('Recent graph edits will appear here.')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: /add source node/i }))
+    expect(within(liveActivity).getByText('Added node')).toBeInTheDocument()
+    expect(within(liveActivity).getByText('Source node')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: /move first graph node/i }))
+    expect(within(liveActivity).getByText('Moved node')).toBeInTheDocument()
+    expect(within(liveActivity).getByText('2 recent')).toBeInTheDocument()
+
+    const parityAudit = screen.getByLabelText(/higgsfield parity audit/i)
+    expect(parityAudit).toHaveTextContent('Live edit activity')
+    expect(parityAudit).toHaveTextContent('1 remote graph event')
+
+    fireEvent.change(screen.getByLabelText(/editing ergonomics benchmark proof url/i), {
+      target: { value: 'https://proof.example.com/editing-after-local-edits.mp4' },
+    })
+    fireEvent.change(screen.getByLabelText(/editing ergonomics benchmark proof notes/i), {
+      target: { value: 'Local add and move graph edits captured.' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: /save editing ergonomics proof/i }))
+
+    await waitFor(() => expect(screen.getByText('Saved Editing ergonomics benchmark proof')).toBeInTheDocument())
+    const patchCall = fetchMock.mock.calls.find(([input, init]) => (
+      String(input) === '/api/v1/creative-canvas/canvas-1?orgId=org-1'
+      && init?.method === 'PATCH'
+      && String(init.body).includes('editing-after-local-edits')
+    ))
+    const body = JSON.parse(String(patchCall?.[1]?.body ?? '{}')) as {
+      data?: { benchmarkProof?: Record<string, { editingLocalEventCount?: number; editingNodeDropCount?: number; editingNodeMoveCount?: number; editingConnectionCount?: number; editingConfiguredGenerationCount?: number; editingCapturedAt?: string; editingEvidence?: string }> }
+    }
+    expect(body.data?.benchmarkProof?.editing_ergonomics).toMatchObject({
+      editingLocalEventCount: 2,
+      editingNodeDropCount: 1,
+      editingNodeMoveCount: 1,
+      editingConnectionCount: 0,
+      editingConfiguredGenerationCount: 0,
+      editingCapturedAt: expect.any(String),
+      editingEvidence: expect.stringContaining('1 node/drop action'),
+    })
+  })
+
+  it('passes editing ergonomics proof only after drop move connection and generation route evidence', async () => {
+    render(<CreativeCanvasWorkspace mode="admin" orgId="org-1" />)
+
+    expect(await screen.findByText('Launch Canvas')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: /apply Product style fusion workflow/i }))
+    fireEvent.click(screen.getByRole('button', { name: /move first graph node/i }))
+    fireEvent.click(screen.getByRole('button', { name: /connect first graph nodes/i }))
+    fireEvent.click(screen.getByRole('button', { name: /apply settings to node/i }))
+
+    const parityAudit = screen.getByLabelText(/higgsfield parity audit/i)
+    expect(parityAudit).toHaveTextContent('Editing ergonomics')
+    expect(parityAudit).toHaveTextContent('1 drop · 1 drag · 1 live links · 1 generation routes')
+
+    fireEvent.change(screen.getByLabelText(/editing ergonomics benchmark proof url/i), {
+      target: { value: 'https://proof.example.com/editing-complete-session.mp4' },
+    })
+    fireEvent.change(screen.getByLabelText(/editing ergonomics benchmark proof notes/i), {
+      target: { value: 'Node drop, drag, connected workflow, and generation route captured.' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: /save editing ergonomics proof/i }))
+
+    await waitFor(() => expect(screen.getByText('Saved Editing ergonomics benchmark proof')).toBeInTheDocument())
+    const patchCall = fetchMock.mock.calls.find(([input, init]) => (
+      String(input) === '/api/v1/creative-canvas/canvas-1?orgId=org-1'
+      && init?.method === 'PATCH'
+      && String(init.body).includes('editing-complete-session')
+    ))
+    expect(patchCall).toBeTruthy()
+    const body = JSON.parse(String(patchCall?.[1]?.body ?? '{}')) as {
+      data?: { benchmarkProof?: Record<string, { editingLocalEventCount?: number; editingNodeDropCount?: number; editingNodeMoveCount?: number; editingConnectionCount?: number; editingConfiguredGenerationCount?: number; editingCapturedAt?: string; editingEvidence?: string }> }
+    }
+    expect(body.data?.benchmarkProof?.editing_ergonomics).toMatchObject({
+      editingLocalEventCount: 4,
+      editingNodeDropCount: 1,
+      editingNodeMoveCount: 1,
+      editingConnectionCount: 1,
+      editingConfiguredGenerationCount: 1,
+      editingCapturedAt: expect.any(String),
+      editingEvidence: expect.stringContaining('configured generation route'),
+    })
+  })
+
+  it('updates collaborators from the live collaboration stream', async () => {
+    const originalEventSource = window.EventSource
+    const instances: Array<{
+      url: string
+      onopen: (() => void) | null
+      onerror: (() => void) | null
+      close: jest.Mock
+      listeners: Record<string, (event: MessageEvent) => void>
+    }> = []
+    class MockEventSource {
+      url: string
+      onopen: (() => void) | null = null
+      onerror: (() => void) | null = null
+      close = jest.fn()
+      listeners: Record<string, (event: MessageEvent) => void> = {}
+
+      constructor(url: string) {
+        this.url = url
+        instances.push(this)
+      }
+
+      addEventListener(event: string, listener: EventListener) {
+        this.listeners[event] = listener as (event: MessageEvent) => void
+      }
+    }
+    Object.defineProperty(window, 'EventSource', {
+      configurable: true,
+      value: MockEventSource,
+    })
+
+    try {
+      render(<CreativeCanvasWorkspace mode="admin" orgId="org-1" />)
+
+      await screen.findByText('Launch Canvas')
+      await waitFor(() => expect(instances.length).toBe(1))
+      expect(instances[0].url).toBe('/api/v1/creative-canvas/canvas-1/presence/events?orgId=org-1')
+
+      act(() => {
+        instances[0].onopen?.()
+      })
+      expect(await screen.findByText('Live stream')).toBeInTheDocument()
+
+      act(() => {
+        instances[0].listeners.collaboration?.({
+          data: JSON.stringify({
+            canvas: { id: 'canvas-1', activeVersion: 1 },
+            presence: [{
+              id: 'canvas-1_nova',
+              orgId: 'org-1',
+              canvasId: 'canvas-1',
+              actorUid: 'nova',
+              actorType: 'agent',
+              displayName: 'Nova',
+              focus: 'canvas',
+              activeVersion: 1,
+              lastSeenAtMs: 2000,
+              expiresAtMs: 47000,
+            }],
+            mutations: [{
+              actorUid: 'nova',
+              actorType: 'agent',
+              operation: 'node_move',
+              touchedNodeIds: ['model-node-existing'],
+              touchedEdgeIds: [],
+              source: 'stream',
+              occurredAt: '2026-06-21T12:00:00.000Z',
+            }],
+            emittedAtMs: 2000,
+          }),
+        } as MessageEvent)
+      })
+
+      expect(await screen.findByText('Nova')).toBeInTheDocument()
+      expect(screen.getByText('Remote graph mutation')).toBeInTheDocument()
+      expect(screen.getByText(/node move touched 1 node \/ 0 links/i)).toBeInTheDocument()
+      expect(screen.queryByText('Maya')).not.toBeInTheDocument()
+      const benchmarkProof = screen.getByLabelText(/direct higgsfield benchmark proof/i)
+      expect(benchmarkProof).toHaveTextContent('1 ready benchmark category needs stored proof.')
+    } finally {
+      Object.defineProperty(window, 'EventSource', {
+        configurable: true,
+        value: originalEventSource,
+      })
+    }
+  })
+
+  it('shares live draft metadata in collaborator heartbeats after graph edits', async () => {
+    render(<CreativeCanvasWorkspace mode="admin" orgId="org-1" />)
+
+    await screen.findByText('Launch Canvas')
+    fireEvent.click(screen.getByRole('button', { name: /add source node/i }))
+
+    await waitFor(() => {
+      const heartbeatCalls = fetchMock.mock.calls.filter(([url, init]) => (
+        String(url).includes('/presence?orgId=org-1') && init?.method === 'POST'
+      ))
+      expect(heartbeatCalls.length).toBeGreaterThan(0)
+      const latestHeartbeat = heartbeatCalls[heartbeatCalls.length - 1]
+      const body = JSON.parse(String(latestHeartbeat?.[1]?.body ?? '{}'))
+      expect(body).toEqual(expect.objectContaining({
+        activeVersion: 1,
+        edgeCount: 0,
+        hasUnsavedGraphChanges: true,
+        nodeCount: 1,
+        selectedNodeTitle: 'Source node',
+      }))
+      expect(body.draftGraph).toEqual(expect.objectContaining({
+        nodes: [expect.objectContaining({ title: 'Source node' })],
+        edges: [],
+      }))
+      expect(body.mutation).toMatchObject({
+        operation: 'node_add',
+        touchedNodeIds: [expect.any(String)],
+        touchedEdgeIds: [],
+        source: 'stream',
+        occurredAt: expect.any(String),
+      })
+      expect(typeof body.graphSignature).toBe('string')
+      expect(body.graphSignature.length).toBeGreaterThan(10)
+    })
+  })
+
+  it('auto-follows a collaborator live draft when enabled and the local graph is clean', async () => {
+    render(<CreativeCanvasWorkspace mode="admin" orgId="org-1" />)
+
+    await screen.findByText('Launch Canvas')
+    fireEvent.click(screen.getByLabelText(/auto-follow live drafts/i))
+
+    expect(await screen.findByText(/auto-followed maya live draft to this workspace/i)).toBeInTheDocument()
+    expect(screen.getAllByText(/Maya live draft source/i).length).toBeGreaterThan(0)
+  })
+
+  it('auto-saves dirty graph edits as version snapshots', async () => {
+    jest.useFakeTimers()
+    try {
+      render(<CreativeCanvasWorkspace mode="admin" orgId="org-1" />)
+
+      await screen.findByText('Launch Canvas')
+      expect(screen.getByLabelText(/auto-save versions/i)).toBeChecked()
+      fireEvent.click(screen.getByRole('button', { name: /add source node/i }))
+
+      await act(async () => {
+        jest.advanceTimersByTime(3600)
+      })
+
+      await waitFor(() => {
+        const graphCall = fetchMock.mock.calls.find(([url, init]) => (
+          String(url).includes('/creative-canvas/canvas-1/graph?orgId=org-1')
+          && init?.method === 'PUT'
+          && String(init.body ?? '').includes('auto_graph_save')
+        ))
+        expect(graphCall).toBeTruthy()
+        const body = JSON.parse(String(graphCall?.[1]?.body ?? '{}'))
+        expect(body).toEqual(expect.objectContaining({
+          expectedActiveVersion: 1,
+          mergeOnConflict: true,
+          reason: 'auto_graph_save',
+        }))
+        expect(body.nodes).toEqual(expect.arrayContaining([
+          expect.objectContaining({ title: 'Source node' }),
+        ]))
+      })
+      expect(await screen.findByText('Auto-saved graph')).toBeInTheDocument()
+    } finally {
+      jest.useRealTimers()
+    }
+  })
+
+  it('retries a failed retryable provider run from run history', async () => {
+    render(<CreativeCanvasWorkspace mode="admin" orgId="org-1" />)
+
+    await screen.findByText('Provider operations')
+    fireEvent.click(screen.getByRole('button', { name: /retry provider run/i }))
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith('/api/v1/creative-canvas/canvas-1/runs/run-failed/retry?orgId=org-1', expect.objectContaining({
+        method: 'PUT',
+      }))
+    })
+    expect(await screen.findByText('Retry queued: run-failed')).toBeInTheDocument()
+  })
+
+  it('batch retries all retryable provider failures from operations', async () => {
+    render(<CreativeCanvasWorkspace mode="admin" orgId="org-1" />)
+
+    await screen.findByText('Provider operations')
+    fireEvent.click(screen.getByRole('button', { name: /retry all retryable/i }))
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith('/api/v1/creative-canvas/canvas-1/runs/retry?orgId=org-1', expect.objectContaining({
+        method: 'PUT',
+      }))
+    })
+    expect(await screen.findByText('Retried 1 provider run')).toBeInTheDocument()
+    expect(screen.getByText('2 active / 2 total')).toBeInTheDocument()
+  })
+
+  it('queues a proof batch from provider operations', async () => {
+    render(<CreativeCanvasWorkspace mode="admin" orgId="org-1" />)
+
+    await screen.findByText('Provider operations')
+    fireEvent.click(screen.getByRole('button', { name: /queue proof batch/i }))
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith('/api/v1/creative-canvas/canvas-1/runs/proof-batch?orgId=org-1', expect.objectContaining({
+        method: 'POST',
+      }))
+    })
+    expect(await screen.findByText('Queued 9 proof runs')).toBeInTheDocument()
+  })
+
+  it('shows structured production job coverage from runtime proof', async () => {
+    render(<CreativeCanvasWorkspace mode="admin" orgId="org-1" />)
+
+    expect(await screen.findByText('Production job coverage')).toBeInTheDocument()
+    expect(screen.getByText('0/5 complete')).toBeInTheDocument()
+    expect(screen.getAllByText('Image').length).toBeGreaterThan(0)
+    expect(screen.getByText('1/2 required completed · 1 active · 0 failed')).toBeInTheDocument()
+    expect(screen.getByText('Video/social')).toBeInTheDocument()
+    expect(screen.getByText('0/2 required completed · 1 active · 0 failed')).toBeInTheDocument()
+    expect(screen.getAllByText('Audio').length).toBeGreaterThan(0)
+    expect(screen.getByText('Blog/document')).toBeInTheDocument()
+    expect(screen.getAllByText('Queue proof batch to create this required creative job.').length).toBeGreaterThan(0)
+    expect(screen.getByText('Book')).toBeInTheDocument()
+    expect(screen.getByText('Retry failed proof run or queue a new proof batch.')).toBeInTheDocument()
+  })
+
+  it('does not mark production reliability benchmark-ready until the full runtime proof passes', async () => {
+    render(<CreativeCanvasWorkspace mode="admin" orgId="org-1" />)
+
+    await screen.findByText('Production job coverage')
+    const defaultFetch = fetchMock.getMockImplementation()
+    fetchMock.mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      if (url.includes('/runtime-proof')) {
+        return {
+          ok: true,
+          json: async () => ({
+            success: true,
+            data: {
+              proof: {
+                canvasId: 'canvas-1',
+                orgId: 'org-1',
+                status: 'warning',
+                readyForLiveProof: false,
+                summary: '0 blockers and 1 warning remain before live proof.',
+                reliabilityCoverage: [
+                  { key: 'image', label: 'Image', status: 'passed', requiredOutputKinds: ['image', 'campaign_asset'], requiredCompleted: 2, total: 2, completed: 2, active: 0, failed: 0, cancelled: 0 },
+                  { key: 'video_social', label: 'Video/social', status: 'passed', requiredOutputKinds: ['video', 'social_post_draft', 'youtube_render'], requiredCompleted: 2, total: 2, completed: 2, active: 0, failed: 0, cancelled: 0 },
+                  { key: 'audio', label: 'Audio', status: 'passed', requiredOutputKinds: ['audio'], requiredCompleted: 2, total: 2, completed: 2, active: 0, failed: 0, cancelled: 0 },
+                  { key: 'blog_document', label: 'Blog/document', status: 'passed', requiredOutputKinds: ['blog_draft', 'document_block', 'copy', 'caption'], requiredCompleted: 2, total: 2, completed: 2, active: 0, failed: 0, cancelled: 0 },
+                  { key: 'book', label: 'Book', status: 'passed', requiredOutputKinds: ['book_artifact'], requiredCompleted: 2, total: 2, completed: 2, active: 0, failed: 0, cancelled: 0 },
+                ],
+                checks: [
+                  { id: 'project_link', label: 'Linked project', status: 'passed', evidence: 'Project project-1' },
+                  { id: 'runtime_readiness', label: 'Higgsfield runtime readiness', status: 'passed', evidence: 'Submit configured, status configured, internal bridge yes.' },
+                  { id: 'provider_runs', label: 'Provider run evidence', status: 'passed', evidence: '10 runs, 10 completed, 0 active, 0 failed.' },
+                  { id: 'completed_run_artifacts', label: 'Completed run artifacts and provenance', status: 'passed', evidence: '10/10 completed runs have required output artifact evidence and provider job IDs for media categories.' },
+                  { id: 'queue_health', label: 'Provider queue health', status: 'passed', evidence: '0 stale active, 0 retryable failures.' },
+                  { id: 'output_assets', label: 'Output asset evidence', status: 'warning', evidence: '10 assets, 0 draft-exportable output assets.' },
+                  { id: 'repeated_job_coverage', label: 'Repeated creative job coverage', status: 'passed', evidence: 'All categories complete.' },
+                  { id: 'repeated_job_reliability', label: 'Repeated creative job reliability', status: 'passed', evidence: '10 total runs, 10 artifact/provenance-backed completed, 0 completed missing artifacts or media provenance, 0 active, 0 failed, 0% artifact/provenance-backed failure rate, 0 stale active.' },
+                ],
+              },
+            },
+          }),
+        }
+      }
+      return defaultFetch?.(input, init) ?? {
+        ok: true,
+        json: async () => ({ success: true, data: {} }),
+      }
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: /refresh runtime proof/i }))
+
+    const parityAudit = screen.getByLabelText(/higgsfield parity audit/i)
+    await waitFor(() => expect(parityAudit).toHaveTextContent('5/5 proof categories passed · warning runtime proof'))
+    const benchmarkProof = screen.getByLabelText(/direct higgsfield benchmark proof/i)
+    expect(benchmarkProof).toHaveTextContent('1 ready benchmark category needs stored proof.')
+  })
+
+  it('requires a stored passed runtime snapshot before production reliability proof can pass', async () => {
+    const defaultFetch = fetchMock.getMockImplementation()
+    const emptyGraphSignature = JSON.stringify({ nodes: [], edges: [] })
+    fetchMock.mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      if (url === '/api/v1/creative-canvas?orgId=org-1') {
+        return {
+          ok: true,
+          json: async () => ({
+            success: true,
+            data: {
+              canvases: [{
+                id: 'canvas-1',
+                orgId: 'org-1',
+                title: 'Launch Canvas',
+                purpose: 'Product launch',
+                status: 'draft',
+                activeVersion: 1,
+                linked: { projectId: 'project-1' },
+                data: {
+                  benchmarkProof: {
+                    production_reliability: {
+                      proofUrl: 'https://proof.example.com/reliability.mp4',
+                      notes: 'Runtime proof was reviewed against the benchmark.',
+                      capturedAt: '2026-06-21T10:00:00.000Z',
+                      capturedBy: 'Pip',
+                      sourceTitle: 'Higgsfield Canvas production-ready generation',
+                      sourceUrl: 'https://higgsfield.ai/canvas',
+                      sourceCheckedAt: '2026-06-21T10:00:00.000Z',
+                      sourceSignals: ['Generate', 'Library', 'Image', 'Video', 'Audio'],
+                      higgsfieldUiEvidenceUrl: 'https://higgsfield.ai/canvas',
+                      canvasEvidenceUrl: 'https://proof.example.com/reliability.mp4',
+                      directComparisonAt: '2026-06-21T10:00:00.000Z',
+                      directComparisonVerdict: 'pass',
+                      directComparisonNotes: 'Reliability looked complete before runtime snapshot fields existed.',
+                      canvasVersion: 1,
+                      graphSignature: emptyGraphSignature,
+                      nodeCount: 0,
+                      edgeCount: 0,
+                      runtimeProofStatus: 'passed',
+                      runtimeReadyForLiveProof: true,
+                      runtimeArtifactBackedCategoryCount: 5,
+                      runtimeArtifactBackedCompletedCount: 10,
+                      runtimeActiveRunCount: 0,
+                      runtimeStaleActiveRunCount: 0,
+                      runtimeFailedRunCount: 0,
+                      runtimeFailureRatePercent: 0,
+                      runtimeProofCapturedAt: '2026-06-21T10:00:00.000Z',
+                      runtimeEvidence: '5/5 runtime categories passed; 10 artifact-backed completed; 0 active; 0 stale; 0 failed; 0% failure rate; passed runtime proof',
+                    },
+                  },
+                },
+                nodes: [],
+                edges: [],
+              }],
+            },
+          }),
+        }
+      }
+      if (url.includes('/runtime-proof')) {
+        return {
+          ok: true,
+          json: async () => ({
+            success: true,
+            data: {
+              proof: {
+                canvasId: 'canvas-1',
+                orgId: 'org-1',
+                status: 'passed',
+                readyForLiveProof: true,
+                summary: 'Canvas has linked project, agent orchestration, runtime readiness, artifact-backed repeated provider jobs, healthy drained queue, and exportable output assets.',
+                reliabilityCoverage: [
+                  { key: 'image', label: 'Image', status: 'passed', requiredOutputKinds: ['image', 'campaign_asset'], requiredCompleted: 2, total: 2, completed: 2, active: 0, failed: 0, cancelled: 0 },
+                  { key: 'video_social', label: 'Video/social', status: 'passed', requiredOutputKinds: ['video', 'social_post_draft', 'youtube_render'], requiredCompleted: 2, total: 2, completed: 2, active: 0, failed: 0, cancelled: 0 },
+                  { key: 'audio', label: 'Audio', status: 'passed', requiredOutputKinds: ['audio'], requiredCompleted: 2, total: 2, completed: 2, active: 0, failed: 0, cancelled: 0 },
+                  { key: 'blog_document', label: 'Blog/document', status: 'passed', requiredOutputKinds: ['blog_draft', 'document_block', 'copy', 'caption'], requiredCompleted: 2, total: 2, completed: 2, active: 0, failed: 0, cancelled: 0 },
+                  { key: 'book', label: 'Book', status: 'passed', requiredOutputKinds: ['book_artifact'], requiredCompleted: 2, total: 2, completed: 2, active: 0, failed: 0, cancelled: 0 },
+                ],
+                checks: [],
+                ...durableCategoryEvidence({
+                  graphSignature: emptyGraphSignature,
+                  nodeCount: 0,
+                  edgeCount: 0,
+                }),
+              },
+            },
+          }),
+        }
+      }
+      if (url.endsWith('/runs?orgId=org-1')) {
+        return {
+          ok: true,
+          json: async () => ({
+            success: true,
+            data: {
+              operations: {
+                total: 10,
+                active: 0,
+                staleActiveRuns: 0,
+                staleThresholdMinutes: 30,
+                failed: 0,
+                retryableFailures: 0,
+                completed: 10,
+                byStatus: { queued: 0, running: 0, waiting_for_review: 0, completed: 10, failed: 0, cancelled: 0 },
+                providers: [],
+              },
+              runs: [],
+            },
+          }),
+        }
+      }
+      return defaultFetch?.(input, init) ?? {
+        ok: true,
+        json: async () => ({ success: true, data: {} }),
+      }
+    })
+
+    render(<CreativeCanvasWorkspace mode="admin" orgId="org-1" />)
+
+    await screen.findByText('Production job coverage')
+    const certificationGate = screen.getByLabelText(/creative canvas world-class certification gate/i)
+    expect(certificationGate).toHaveTextContent('World-class certification blocked')
+    const benchmarkProof = screen.getByLabelText(/direct higgsfield benchmark proof/i)
+    expect(benchmarkProof).toHaveTextContent('Needs durable per-category runtime and export evidence before reliability proof can pass.')
+    expect(benchmarkProof).toHaveTextContent('2 ready benchmark categories need stored proof.')
+
+    fireEvent.click(within(benchmarkProof).getByRole('button', { name: /capture ready proofs/i }))
+
+    await waitFor(() => expect(screen.getByText('Captured 2 ready benchmark proofs')).toBeInTheDocument())
+
+    const patchCall = fetchMock.mock.calls.find(([input, init]) => (
+      String(input) === '/api/v1/creative-canvas/canvas-1?orgId=org-1'
+      && init?.method === 'PATCH'
+      && String(init.body).includes('production_reliability')
+    ))
+    expect(patchCall).toBeTruthy()
+    const body = JSON.parse(String(patchCall?.[1]?.body ?? '{}')) as {
+      data?: {
+        benchmarkProof?: Record<string, {
+          runtimeProofStatus?: string
+          runtimeReadyForLiveProof?: boolean
+          runtimeArtifactBackedCategoryCount?: number
+          runtimeArtifactBackedCompletedCount?: number
+          runtimeProviderBackedCategoryCount?: number
+          runtimeProviderBackedCompletedCount?: number
+          runtimeActiveRunCount?: number
+          runtimeStaleActiveRunCount?: number
+          runtimeFailedRunCount?: number
+          runtimeFailureRatePercent?: number
+          runtimeProofCapturedAt?: string
+          runtimeEvidence?: string
+          runtimeProviderEvidenceCapturedAt?: string
+          runtimeProviderEvidence?: string
+          runtimeCategoryEvidence?: Array<{ categoryKey?: string; runIds?: string[]; graphSignature?: string }>
+          exportCategoryEvidence?: Array<{ categoryKey?: string; exportIds?: string[]; downstreamDraftIds?: string[]; graphSignature?: string }>
+        }>
+      }
+    }
+    expect(body.data?.benchmarkProof?.production_reliability).toMatchObject({
+      runtimeProofStatus: 'passed',
+      runtimeReadyForLiveProof: true,
+      runtimeArtifactBackedCategoryCount: 5,
+      runtimeArtifactBackedCompletedCount: 10,
+      runtimeProviderBackedCategoryCount: 5,
+      runtimeProviderBackedCompletedCount: 10,
+      runtimeActiveRunCount: 0,
+      runtimeStaleActiveRunCount: 0,
+      runtimeFailedRunCount: 0,
+      runtimeFailureRatePercent: 0,
+      runtimeProofCapturedAt: expect.any(String),
+      runtimeEvidence: expect.stringContaining('5/5 runtime categories passed'),
+      runtimeProviderEvidenceCapturedAt: expect.any(String),
+      runtimeProviderEvidence: expect.stringContaining('5/5 provider-backed'),
+    })
+    expect(body.data?.benchmarkProof?.production_reliability?.runtimeCategoryEvidence).toHaveLength(5)
+    expect(body.data?.benchmarkProof?.production_reliability?.exportCategoryEvidence).toHaveLength(5)
+    expect(body.data?.benchmarkProof?.production_reliability?.runtimeCategoryEvidence?.[0]).toMatchObject({
+      categoryKey: 'image',
+      graphSignature: emptyGraphSignature,
+      runIds: ['run-image-1', 'run-image-2'],
+    })
+    expect(body.data?.benchmarkProof?.production_reliability?.exportCategoryEvidence?.[4]).toMatchObject({
+      categoryKey: 'book',
+      graphSignature: emptyGraphSignature,
+      exportIds: ['export-book'],
+      downstreamDraftIds: ['draft-book'],
+    })
+  })
+
+  it('does not pass aggregate-only export flow proof without durable category evidence', async () => {
+    const defaultFetch = fetchMock.getMockImplementation()
+    const emptyGraphSignature = JSON.stringify({ nodes: [], edges: [] })
+    fetchMock.mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      if (url === '/api/v1/creative-canvas?orgId=org-1') {
+        return {
+          ok: true,
+          json: async () => ({
+            success: true,
+            data: {
+              canvases: [{
+                id: 'canvas-1',
+                orgId: 'org-1',
+                title: 'Launch Canvas',
+                purpose: 'Product launch',
+                status: 'draft',
+                activeVersion: 1,
+                linked: { projectId: 'project-1' },
+                data: {
+                  benchmarkProof: {
+                    export_flows: {
+                      proofUrl: 'https://proof.example.com/export.mp4',
+                      notes: 'Export aggregates looked complete before durable arrays existed.',
+                      capturedAt: '2026-06-21T10:00:00.000Z',
+                      capturedBy: 'Pip',
+                      sourceTitle: 'Higgsfield Canvas media library and generation pipeline',
+                      sourceUrl: 'https://higgsfield.ai/canvas',
+                      sourceCheckedAt: '2026-06-21T10:00:00.000Z',
+                      sourceEvidenceCheckedAt: '2026-06-21T10:00:00.000Z',
+                      sourceEvidenceReachable: true,
+                      sourceEvidenceStatus: 200,
+                      sourceEvidenceContentType: 'text/html',
+                      sourceSignalsVerifiedAt: '2026-06-21T10:00:00.000Z',
+                      sourceSignalsMatched: true,
+                      sourceSignals: ['Generate', 'Library', 'Image', 'Video', 'Audio'],
+                      higgsfieldUiEvidenceUrl: 'https://higgsfield.ai/canvas',
+                      canvasEvidenceUrl: 'https://proof.example.com/export.mp4',
+                      canvasEvidenceCheckedAt: '2026-06-21T10:00:00.000Z',
+                      canvasEvidenceReachable: true,
+                      canvasEvidenceStatus: 200,
+                      canvasEvidenceContentType: 'text/html',
+                      directComparisonAt: '2026-06-21T10:00:00.000Z',
+                      directComparisonVerdict: 'pass',
+                      directComparisonNotes: 'Export flow comparison passed on aggregate counts only.',
+                      orgId: 'org-1',
+                      canvasVersion: 1,
+                      graphSignature: emptyGraphSignature,
+                      nodeCount: 0,
+                      edgeCount: 0,
+                      exportArtifactBackedCategoryCount: 5,
+                      exportArtifactBackedCompletedCount: 10,
+                      exportArtifactBackedCapturedAt: '2026-06-21T10:00:00.000Z',
+                      exportArtifactEvidence: '5/5 artifact-backed export categories; 10 completed runtime artifacts',
+                    },
+                  },
+                },
+                nodes: [],
+                edges: [],
+              }],
+            },
+          }),
+        }
+      }
+      return defaultFetch?.(input, init) ?? {
+        ok: true,
+        json: async () => ({ success: true, data: {} }),
+      }
+    })
+
+    render(<CreativeCanvasWorkspace mode="admin" orgId="org-1" />)
+
+    await screen.findByText('Production job coverage')
+    const benchmarkProof = screen.getByLabelText(/direct higgsfield benchmark proof/i)
+    expect(benchmarkProof).toHaveTextContent('Needs durable runtime and export category evidence before export proof can pass.')
+  })
+
+  it('persists durable arrays when manually saving export flow proof from runtime evidence', async () => {
+    const defaultFetch = fetchMock.getMockImplementation()
+    const emptyGraphSignature = JSON.stringify({ nodes: [], edges: [] })
+    fetchMock.mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      if (url === '/api/v1/creative-canvas?orgId=org-1') {
+        return {
+          ok: true,
+          json: async () => ({
+            success: true,
+            data: {
+              canvases: [{
+                id: 'canvas-1',
+                orgId: 'org-1',
+                title: 'Launch Canvas',
+                purpose: 'Product launch',
+                status: 'draft',
+                activeVersion: 1,
+                linked: { projectId: 'project-1' },
+                data: {
+                  benchmarkProof: {
+                    export_flows: {
+                      proofUrl: 'https://proof.example.com/export.mp4',
+                      notes: 'Export proof with durable runtime evidence.',
+                    },
+                  },
+                },
+                nodes: [],
+                edges: [],
+              }],
+            },
+          }),
+        }
+      }
+      if (url.includes('/runtime-proof')) {
+        return {
+          ok: true,
+          json: async () => ({
+            success: true,
+            data: {
+              proof: {
+                canvasId: 'canvas-1',
+                orgId: 'org-1',
+                status: 'passed',
+                readyForLiveProof: true,
+                summary: 'Runtime proof passed.',
+                reliabilityCoverage: [
+                  { key: 'image', label: 'Image', status: 'passed', requiredOutputKinds: ['image', 'campaign_asset'], requiredCompleted: 2, total: 2, completed: 2, active: 0, failed: 0, cancelled: 0 },
+                  { key: 'video_social', label: 'Video/social', status: 'passed', requiredOutputKinds: ['video', 'social_post_draft', 'youtube_render'], requiredCompleted: 2, total: 2, completed: 2, active: 0, failed: 0, cancelled: 0 },
+                  { key: 'audio', label: 'Audio', status: 'passed', requiredOutputKinds: ['audio'], requiredCompleted: 2, total: 2, completed: 2, active: 0, failed: 0, cancelled: 0 },
+                  { key: 'blog_document', label: 'Blog/document', status: 'passed', requiredOutputKinds: ['blog_draft', 'document_block', 'copy', 'caption'], requiredCompleted: 2, total: 2, completed: 2, active: 0, failed: 0, cancelled: 0 },
+                  { key: 'book', label: 'Book', status: 'passed', requiredOutputKinds: ['book_artifact'], requiredCompleted: 2, total: 2, completed: 2, active: 0, failed: 0, cancelled: 0 },
+                ],
+                checks: [],
+                ...durableCategoryEvidence({
+                  graphSignature: emptyGraphSignature,
+                  nodeCount: 0,
+                  edgeCount: 0,
+                }),
+              },
+            },
+          }),
+        }
+      }
+      if (url.endsWith('/runs?orgId=org-1')) {
+        return {
+          ok: true,
+          json: async () => ({
+            success: true,
+            data: {
+              operations: {
+                total: 10,
+                active: 0,
+                staleActiveRuns: 0,
+                staleThresholdMinutes: 30,
+                failed: 0,
+                retryableFailures: 0,
+                completed: 10,
+                byStatus: { queued: 0, running: 0, waiting_for_review: 0, completed: 10, failed: 0, cancelled: 0 },
+                providers: [],
+              },
+              runs: [],
+            },
+          }),
+        }
+      }
+      return defaultFetch?.(input, init) ?? {
+        ok: true,
+        json: async () => ({ success: true, data: {} }),
+      }
+    })
+
+    render(<CreativeCanvasWorkspace mode="admin" orgId="org-1" />)
+
+    const benchmarkProof = await screen.findByLabelText(/direct higgsfield benchmark proof/i)
+    await waitFor(() => {
+      expect(within(benchmarkProof).getByLabelText(/Export flows benchmark proof URL/i)).toHaveValue('https://proof.example.com/export.mp4')
+      expect(within(benchmarkProof).getByLabelText(/Export flows benchmark proof notes/i)).toHaveValue('Export proof with durable runtime evidence.')
+    })
+
+    fetchMock.mockClear()
+    fireEvent.click(within(benchmarkProof).getByRole('button', { name: /save export flows proof/i }))
+
+    await waitFor(() => expect(screen.getByText('Saved Export flows benchmark proof')).toBeInTheDocument())
+
+    const patchCall = fetchMock.mock.calls.find(([input, init]) => (
+      String(input) === '/api/v1/creative-canvas/canvas-1?orgId=org-1'
+      && init?.method === 'PATCH'
+      && String(init.body).includes('export_flows')
+    ))
+    expect(patchCall).toBeTruthy()
+    const body = JSON.parse(String(patchCall?.[1]?.body ?? '{}')) as {
+      data?: {
+        benchmarkProof?: Record<string, {
+          runtimeCategoryEvidence?: Array<{ categoryKey?: string; runIds?: string[]; graphSignature?: string }>
+          exportCategoryEvidence?: Array<{ categoryKey?: string; exportIds?: string[]; downstreamDraftIds?: string[]; graphSignature?: string }>
+        }>
+      }
+    }
+    expect(body.data?.benchmarkProof?.export_flows?.runtimeCategoryEvidence).toHaveLength(5)
+    expect(body.data?.benchmarkProof?.export_flows?.exportCategoryEvidence).toHaveLength(5)
+    expect(body.data?.benchmarkProof?.export_flows?.runtimeCategoryEvidence?.[0]).toMatchObject({
+      categoryKey: 'image',
+      graphSignature: emptyGraphSignature,
+      runIds: ['run-image-1', 'run-image-2'],
+    })
+    expect(body.data?.benchmarkProof?.export_flows?.exportCategoryEvidence?.[4]).toMatchObject({
+      categoryKey: 'book',
+      graphSignature: emptyGraphSignature,
+      exportIds: ['export-book'],
+      downstreamDraftIds: ['draft-book'],
+    })
   })
 
   it('adds a source node from the palette', async () => {
@@ -229,8 +4236,637 @@ describe('CreativeCanvasWorkspace', () => {
     fireEvent.click(screen.getByRole('button', { name: /add source node/i }))
 
     await waitFor(() => {
-      expect(screen.getByText(/source node/i)).toBeInTheDocument()
+      expect(screen.getAllByText(/source node/i).length).toBeGreaterThan(0)
     })
+  })
+
+  it('surfaces a graph save conflict when another session has a newer version', async () => {
+    render(<CreativeCanvasWorkspace mode="admin" orgId="org-1" />)
+
+    await screen.findByText('Launch Canvas')
+    fetchMock.mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      if (url.includes('/graph?orgId=org-1') && init?.method === 'PUT') {
+        return {
+          ok: false,
+          status: 409,
+          json: async () => ({
+            success: false,
+            code: 'creative_canvas_version_conflict',
+            currentActiveVersion: 4,
+            expectedActiveVersion: 1,
+            conflicts: ['node:source-1', 'edge:source-model'],
+            conflictDetails: [
+              { id: 'source-1', kind: 'node', label: 'Source node', reason: 'concurrent_update', currentLabel: 'Maya source', proposedLabel: 'Pip source' },
+              { id: 'source-model', kind: 'edge', label: 'Source to model', reason: 'concurrent_update', currentLabel: 'Maya link', proposedLabel: 'Pip link' },
+            ],
+            error: 'Creative canvas graph has changed since it was loaded',
+          }),
+        }
+      }
+      if (url === '/api/v1/creative-canvas?orgId=org-1' && init?.method === 'POST') {
+        return {
+          ok: true,
+          status: 201,
+          json: async () => ({
+            success: true,
+            data: {
+              canvas: {
+                id: 'canvas-conflict-branch',
+                orgId: 'org-1',
+                title: 'Launch Canvas local conflict branch',
+                purpose: 'Product launch',
+                status: 'draft',
+                activeVersion: 1,
+                visibility: 'admin_agents',
+                linked: { projectId: 'project-1' },
+                nodes: [{ id: 'conflict-node', orgId: 'org-1', type: 'source', title: 'Conflict node', position: { x: 0, y: 0 }, data: {} }],
+                edges: [],
+              },
+            },
+          }),
+        }
+      }
+      if (url.includes('/versions')) {
+        return {
+          ok: true,
+          json: async () => ({
+            success: true,
+            data: { versions: [{ id: 'v4', version: 4, reason: 'graph_save' }] },
+          }),
+        }
+      }
+      if (url.includes('/presence')) {
+        return {
+          ok: true,
+          json: async () => ({ success: true, data: { presence: [] } }),
+        }
+      }
+      return {
+        ok: true,
+        json: async () => ({ success: true, data: {} }),
+      }
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: /save graph/i }))
+
+    expect(await screen.findByText(/2 overlapping edits need review/i)).toBeInTheDocument()
+    expect(screen.getByText(/Conflicts: node "Source node", edge "Source to model"/i)).toBeInTheDocument()
+    expect(screen.getByText('Local conflict draft preserved')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: /fork local draft/i }))
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith('/api/v1/creative-canvas?orgId=org-1', expect.objectContaining({
+        method: 'POST',
+      }))
+    })
+    const branchCall = fetchMock.mock.calls.find(([url, init]) =>
+      String(url) === '/api/v1/creative-canvas?orgId=org-1' && init?.method === 'POST'
+    )
+    expect(JSON.parse(branchCall?.[1]?.body as string)).toMatchObject({
+      title: 'Launch Canvas local conflict branch',
+      linked: { projectId: 'project-1' },
+    })
+    expect(await screen.findByText('Launch Canvas local conflict branch')).toBeInTheDocument()
+    const graphCall = fetchMock.mock.calls.find(([url, init]) =>
+      String(url).includes('/graph?orgId=org-1') && init?.method === 'PUT'
+    )
+    expect(JSON.parse(graphCall?.[1]?.body as string)).toMatchObject({
+      expectedActiveVersion: 1,
+      mergeOnConflict: true,
+      baseGraph: { nodes: [], edges: [] },
+    })
+  })
+
+  it('automatically applies a newer live graph when local graph has no unsaved edits', async () => {
+    render(<CreativeCanvasWorkspace mode="admin" orgId="org-1" />)
+
+    await screen.findByText('Launch Canvas')
+    fetchMock.mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      if (url.includes('/creative-canvas/canvas-1?orgId=org-1') && !init?.method) {
+        return {
+          ok: true,
+          json: async () => ({
+            success: true,
+            data: {
+              canvas: {
+                id: 'canvas-1',
+                orgId: 'org-1',
+                title: 'Launch Canvas',
+                purpose: 'Product launch',
+                status: 'draft',
+                activeVersion: 2,
+                linked: { projectId: 'project-1' },
+                nodes: [{
+                  id: 'remote-model-node',
+                  orgId: 'org-1',
+                  type: 'model',
+                  title: 'Remote collaborator model',
+                  position: { x: 120, y: 140 },
+                  data: {},
+                  provider: { key: 'higgsfield', model: 'nano_banana_flash' },
+                }],
+                edges: [],
+              },
+            },
+          }),
+        }
+      }
+      if (url.includes('/versions')) {
+        return {
+          ok: true,
+          json: async () => ({
+            success: true,
+            data: { versions: [{ id: 'v2', version: 2, reason: 'collaborator_graph_save' }] },
+          }),
+        }
+      }
+      if (url.includes('/presence')) {
+        return {
+          ok: true,
+          json: async () => ({ success: true, data: { presence: [] } }),
+        }
+      }
+      if (url.includes('/runs')) {
+        return {
+          ok: true,
+          json: async () => ({ success: true, data: { runs: [] } }),
+        }
+      }
+      if (url.includes('/runtime-proof')) {
+        return {
+          ok: true,
+          json: async () => ({ success: true, data: { proof: null } }),
+        }
+      }
+      return {
+        ok: true,
+        json: async () => ({ success: true, data: {} }),
+      }
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: /^refresh$/i }))
+
+    expect(await screen.findByText('remote-model-node')).toBeInTheDocument()
+    expect(await screen.findByText('Applied live graph v2')).toBeInTheDocument()
+  })
+
+  it('keeps a newer live graph pending when local graph has unsaved edits', async () => {
+    render(<CreativeCanvasWorkspace mode="admin" orgId="org-1" />)
+
+    await screen.findByText('Launch Canvas')
+    fireEvent.click(screen.getByRole('button', { name: /add source node/i }))
+    fetchMock.mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      if (url.includes('/creative-canvas/canvas-1?orgId=org-1') && !init?.method) {
+        return {
+          ok: true,
+          json: async () => ({
+            success: true,
+            data: {
+              canvas: {
+                id: 'canvas-1',
+                orgId: 'org-1',
+                title: 'Launch Canvas',
+                purpose: 'Product launch',
+                status: 'draft',
+                activeVersion: 2,
+                linked: { projectId: 'project-1' },
+                nodes: [{
+                  id: 'remote-model-node',
+                  orgId: 'org-1',
+                  type: 'model',
+                  title: 'Remote collaborator model',
+                  position: { x: 120, y: 140 },
+                  data: {},
+                  provider: { key: 'higgsfield', model: 'nano_banana_flash' },
+                }],
+                edges: [],
+              },
+            },
+          }),
+        }
+      }
+      if (url.includes('/presence')) {
+        return {
+          ok: true,
+          json: async () => ({ success: true, data: { presence: [] } }),
+        }
+      }
+      return {
+        ok: true,
+        json: async () => ({ success: true, data: {} }),
+      }
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: /^refresh$/i }))
+
+    expect(await screen.findByText('Live graph update available')).toBeInTheDocument()
+    expect(screen.getByText(/local edits are active/i)).toBeInTheDocument()
+    expect(screen.queryByText('Applied live graph v2')).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: /apply latest graph/i }))
+
+    expect(await screen.findByText('remote-model-node')).toBeInTheDocument()
+    expect(await screen.findByText('Applied live graph v2')).toBeInTheDocument()
+  })
+
+  it('applies a social launch workflow preset and saves the connected graph', async () => {
+    render(<CreativeCanvasWorkspace mode="admin" orgId="org-1" />)
+
+    await screen.findByText('Launch Canvas')
+    fireEvent.click(screen.getByRole('button', { name: /apply social launch workflow/i }))
+
+    expect(await screen.findByText(/social launch workflow added/i)).toBeInTheDocument()
+    expect(screen.getAllByText(/Product \/ brand source/i).length).toBeGreaterThan(0)
+    expect(screen.getAllByText(/UGC launch prompt/i).length).toBeGreaterThan(0)
+    expect(screen.getAllByText(/Brand and rights review/i).length).toBeGreaterThan(0)
+    expect(screen.getByText(/maya:generation_operator/i)).toBeInTheDocument()
+    expect(screen.getByText(/maya · reviewer/i)).toBeInTheDocument()
+    expect(screen.getByText(/Brand and rights review: maya · rights needs_review · brand needs_review/i)).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: /create agent tasks/i }))
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith('/api/v1/creative-canvas/canvas-1/orchestration-tasks?orgId=org-1', expect.objectContaining({
+        method: 'POST',
+      }))
+    })
+    const taskCall = fetchMock.mock.calls.find(([url]) => String(url).includes('/orchestration-tasks'))
+    expect(JSON.parse(taskCall?.[1]?.body as string)).toMatchObject({ projectId: 'project-1' })
+    expect(await screen.findByText(/created 2 agent tasks/i)).toBeInTheDocument()
+    expect((screen.getByLabelText(/output kind/i) as HTMLSelectElement).value).toBe('social_post_draft')
+    expect(screen.getAllByLabelText(/export target/i).some((element) => (element as HTMLSelectElement).value === 'social_draft')).toBe(true)
+    expect((screen.getByLabelText(/aspect ratio/i) as HTMLSelectElement).value).toBe('9:16')
+    fireEvent.change(screen.getByLabelText(/higgsfield model id/i), { target: { value: 'seedance_2_0_fast' } })
+    fireEvent.change(screen.getByLabelText(/duration seconds/i), { target: { value: '12' } })
+    fireEvent.change(screen.getByLabelText(/variants/i), { target: { value: '3' } })
+    fireEvent.change(screen.getByLabelText(/negative prompt/i), { target: { value: 'no off-brand props' } })
+    fireEvent.click(screen.getByRole('button', { name: /apply settings to node/i }))
+    expect(await screen.findByText(/generation settings applied to higgsfield vertical video/i)).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: /move first graph node/i }))
+    fireEvent.click(screen.getByRole('button', { name: /save graph/i }))
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith('/api/v1/creative-canvas/canvas-1/graph?orgId=org-1', expect.objectContaining({
+        method: 'PUT',
+      }))
+    })
+    const graphCall = fetchMock.mock.calls.find(([url, init]) =>
+      String(url).includes('/graph?orgId=org-1') && init?.method === 'PUT'
+    )
+    const body = JSON.parse(graphCall?.[1]?.body as string)
+    expect(body.expectedActiveVersion).toBe(1)
+    expect(body.mergeOnConflict).toBe(true)
+    expect(body.baseGraph).toEqual({ nodes: [], edges: [] })
+    expect(body.nodes).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        type: 'source',
+        title: 'Product / brand source',
+        position: { x: 321, y: 654 },
+        data: expect.objectContaining({
+          createdFrom: 'creative_canvas_workflow_preset',
+          workflowPreset: 'social-launch',
+        }),
+        source: expect.objectContaining({
+          referenceRole: 'product',
+        }),
+      }),
+      expect.objectContaining({
+        type: 'model',
+        title: 'Higgsfield vertical video',
+        data: expect.objectContaining({
+          generationSettings: expect.objectContaining({
+            aspectRatio: '9:16',
+            durationSeconds: 12,
+            variantCount: 3,
+            negativePrompt: 'no off-brand props',
+          }),
+        }),
+        provider: expect.objectContaining({
+          key: 'higgsfield',
+          model: 'seedance_2_0_fast',
+          mode: 'social_post_draft',
+        }),
+        edit: expect.objectContaining({
+          operation: 'video_motion',
+          outputKind: 'social_post_draft',
+          motion: expect.objectContaining({
+            durationSeconds: 12,
+          }),
+        }),
+      }),
+      expect.objectContaining({
+        type: 'output',
+        title: 'Social post draft',
+        output: expect.objectContaining({
+          kind: 'social_post_draft',
+        }),
+      }),
+    ]))
+    expect(body.edges).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        label: 'generate',
+        data: expect.objectContaining({
+          workflowPreset: 'social-launch',
+        }),
+      }),
+      expect.objectContaining({
+        label: 'approved draft',
+      }),
+    ]))
+  })
+
+  it('saves the current graph as a reusable template and applies it again', async () => {
+    render(<CreativeCanvasWorkspace mode="admin" orgId="org-1" />)
+
+    await screen.findByText('Launch Canvas')
+    expect(await screen.findByText('Reusable social launch')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: /apply social launch workflow/i }))
+    expect(await screen.findByText(/social launch workflow added/i)).toBeInTheDocument()
+
+    fireEvent.change(screen.getByLabelText(/template name/i), { target: { value: 'Launch repeatable flow' } })
+    fireEvent.change(screen.getByLabelText(/template notes/i), { target: { value: 'Repeat for new product launches' } })
+    fireEvent.click(screen.getByRole('button', { name: /save current graph as template/i }))
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith('/api/v1/creative-canvas/templates?orgId=org-1', expect.objectContaining({
+        method: 'POST',
+      }))
+    })
+    const templateCall = fetchMock.mock.calls.find(([url, init]) =>
+      String(url).includes('/creative-canvas/templates?orgId=org-1') && init?.method === 'POST'
+    )
+    const templateBody = JSON.parse(templateCall?.[1]?.body as string)
+    expect(templateBody).toMatchObject({
+      title: 'Launch repeatable flow',
+      description: 'Repeat for new product launches',
+      sourceCanvasId: 'canvas-1',
+      sourceVersion: 1,
+    })
+    expect(templateBody.nodes).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        title: 'Higgsfield vertical video',
+        provider: expect.objectContaining({ key: 'higgsfield' }),
+      }),
+    ]))
+    expect(templateBody.edges.length).toBeGreaterThan(0)
+    expect(await screen.findByText('Saved Launch repeatable flow template')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: /apply launch repeatable flow template/i }))
+    expect(await screen.findByText('Launch repeatable flow template applied')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: /save graph/i }))
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith('/api/v1/creative-canvas/canvas-1/graph?orgId=org-1', expect.objectContaining({
+        method: 'PUT',
+      }))
+    })
+    const graphCall = [...fetchMock.mock.calls].reverse().find(([url, init]) =>
+      String(url).includes('/graph?orgId=org-1') && init?.method === 'PUT'
+    )
+    const graphBody = JSON.parse(graphCall?.[1]?.body as string)
+    expect(graphBody.nodes).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        title: 'Higgsfield vertical video',
+        data: expect.objectContaining({
+          createdFrom: 'creative_canvas_saved_template',
+          sourceTemplateId: 'template-saved',
+          sourceTemplateTitle: 'Launch repeatable flow',
+        }),
+      }),
+    ]))
+    expect(graphBody.edges).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        data: expect.objectContaining({
+          createdFrom: 'creative_canvas_saved_template',
+          sourceTemplateId: 'template-saved',
+        }),
+      }),
+    ]))
+  })
+
+  it('branches a selected node into reusable format variants', async () => {
+    render(<CreativeCanvasWorkspace mode="admin" orgId="org-1" />)
+
+    await screen.findByText('Launch Canvas')
+    fireEvent.click(screen.getByRole('button', { name: /apply social launch workflow/i }))
+    expect(await screen.findByText(/social launch workflow added/i)).toBeInTheDocument()
+    fireEvent.change(screen.getByLabelText(/variants/i), { target: { value: '4' } })
+
+    fireEvent.click(screen.getByRole('button', { name: /create format variants/i }))
+
+    expect(await screen.findByText(/created 4 format variants from higgsfield vertical video/i)).toBeInTheDocument()
+    expect(screen.getAllByText(/Vertical social render/i).length).toBeGreaterThan(0)
+    expect(screen.getAllByText(/Landscape video output/i).length).toBeGreaterThan(0)
+
+    fireEvent.click(screen.getByRole('button', { name: /save graph/i }))
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith('/api/v1/creative-canvas/canvas-1/graph?orgId=org-1', expect.objectContaining({
+        method: 'PUT',
+      }))
+    })
+    const graphCall = [...fetchMock.mock.calls].reverse().find(([url, init]) =>
+      String(url).includes('/graph?orgId=org-1') && init?.method === 'PUT'
+    )
+    const graphBody = JSON.parse(graphCall?.[1]?.body as string)
+    expect(graphBody.nodes).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        type: 'model',
+        title: 'Vertical social render',
+        provider: expect.objectContaining({
+          key: 'higgsfield',
+          mode: 'social_post_draft',
+        }),
+        data: expect.objectContaining({
+          createdFrom: 'creative_canvas_format_variant',
+          formatVariant: 'vertical-social',
+          generationSettings: expect.objectContaining({
+            aspectRatio: '9:16',
+            exportTarget: 'social_draft',
+          }),
+        }),
+        edit: expect.objectContaining({
+          references: [expect.objectContaining({ sourceNodeId: expect.stringContaining('social-launch-model') })],
+          outputKind: 'social_post_draft',
+        }),
+      }),
+      expect.objectContaining({
+        type: 'output',
+        title: 'Landscape video output',
+        data: expect.objectContaining({
+          createdFrom: 'creative_canvas_format_variant',
+          formatVariant: 'landscape-video',
+          exportTarget: 'youtube_studio',
+        }),
+        output: expect.objectContaining({
+          kind: 'youtube_render',
+        }),
+      }),
+    ]))
+    expect(graphBody.edges).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        label: 'variant source',
+        data: expect.objectContaining({ formatVariant: 'vertical-social' }),
+      }),
+      expect.objectContaining({
+        label: 'variant output',
+        data: expect.objectContaining({ formatVariant: 'landscape-video' }),
+      }),
+    ]))
+  })
+
+  it('duplicates a selected node as an editable branch', async () => {
+    render(<CreativeCanvasWorkspace mode="admin" orgId="org-1" />)
+
+    await screen.findByText('Launch Canvas')
+    fireEvent.click(screen.getByRole('button', { name: /apply social launch workflow/i }))
+    expect(await screen.findByText(/social launch workflow added/i)).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: /duplicate selected node/i }))
+
+    expect(await screen.findByText(/duplicated higgsfield vertical video/i)).toBeInTheDocument()
+    expect(screen.getAllByText(/Higgsfield vertical video copy/i).length).toBeGreaterThan(0)
+
+    fireEvent.click(screen.getByRole('button', { name: /save graph/i }))
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith('/api/v1/creative-canvas/canvas-1/graph?orgId=org-1', expect.objectContaining({
+        method: 'PUT',
+      }))
+    })
+    const graphCall = [...fetchMock.mock.calls].reverse().find(([url, init]) =>
+      String(url).includes('/graph?orgId=org-1') && init?.method === 'PUT'
+    )
+    const graphBody = JSON.parse(graphCall?.[1]?.body as string)
+    expect(graphBody.nodes).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        type: 'model',
+        title: 'Higgsfield vertical video copy',
+        provider: expect.objectContaining({
+          key: 'higgsfield',
+          model: 'nano_banana_flash',
+          mode: 'vertical_social',
+        }),
+        edit: expect.objectContaining({
+          operation: 'video_motion',
+          outputKind: 'social_post_draft',
+        }),
+        data: expect.objectContaining({
+          createdFrom: 'creative_canvas_node_duplicate',
+          duplicatedFromTitle: 'Higgsfield vertical video',
+        }),
+      }),
+    ]))
+    expect(graphBody.edges).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        label: 'duplicate branch',
+        data: expect.objectContaining({
+          createdFrom: 'creative_canvas_node_duplicate',
+          duplicatedFromNodeId: expect.stringContaining('social-launch-model'),
+        }),
+      }),
+    ]))
+  })
+
+  it('creates an inpaint edit branch from a selected node', async () => {
+    render(<CreativeCanvasWorkspace mode="admin" orgId="org-1" />)
+
+    await screen.findByText('Launch Canvas')
+    fireEvent.click(screen.getByRole('button', { name: /add source node/i }))
+    await waitFor(() => {
+      expect(screen.getAllByText(/source node/i).length).toBeGreaterThan(0)
+    })
+    fireEvent.click(screen.getByRole('button', { name: /create inpaint edit branch/i }))
+
+    expect(await screen.findByText(/created inpaint edit branch from source node/i)).toBeInTheDocument()
+    expect(screen.getAllByText(/Source node inpaint edit/i).length).toBeGreaterThan(0)
+    expect(screen.getAllByText(/inpaint \/ image/i).length).toBeGreaterThan(0)
+
+    fireEvent.click(screen.getByRole('button', { name: /save graph/i }))
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith('/api/v1/creative-canvas/canvas-1/graph?orgId=org-1', expect.objectContaining({
+        method: 'PUT',
+      }))
+    })
+    const graphCall = [...fetchMock.mock.calls].reverse().find(([url, init]) =>
+      String(url).includes('/graph?orgId=org-1') && init?.method === 'PUT'
+    )
+    const graphBody = JSON.parse(graphCall?.[1]?.body as string)
+    const sourceNode = graphBody.nodes.find((node: { title?: string }) => node.title === 'Source node')
+    expect(sourceNode?.id).toBeTruthy()
+    expect(graphBody.nodes).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        type: 'edit',
+        title: 'Source node inpaint edit',
+        provider: expect.objectContaining({
+          key: 'higgsfield',
+          model: 'gpt_image_2',
+          mode: 'image',
+        }),
+        edit: expect.objectContaining({
+          operation: 'inpaint',
+          intent: 'generative_fill',
+          outputKind: 'image',
+          prompt: expect.stringContaining('Match lighting, texture, shadows, and perspective'),
+          references: [expect.objectContaining({ sourceNodeId: sourceNode.id, role: 'mask' })],
+          blendControls: expect.objectContaining({
+            lightMatch: true,
+            textureAdaptive: true,
+            autoShadows: true,
+            perspectiveMatch: true,
+            preserveSubject: true,
+          }),
+          mask: expect.objectContaining({
+            sourceNodeId: sourceNode.id,
+            region: expect.objectContaining({ x: 30, y: 18, width: 40, height: 64, feather: 8 }),
+          }),
+        }),
+        review: expect.objectContaining({
+          status: 'needed',
+          syntheticMediaDisclosure: true,
+        }),
+        data: expect.objectContaining({
+          createdFrom: 'creative_canvas_inpaint_branch',
+          sourceNodeId: sourceNode.id,
+        }),
+      }),
+    ]))
+    expect(graphBody.edges).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        sourceNodeId: sourceNode.id,
+        label: 'inpaint edit',
+        data: expect.objectContaining({
+          createdFrom: 'creative_canvas_inpaint_branch',
+          sourceNodeId: sourceNode.id,
+        }),
+      }),
+    ]))
+  })
+
+  it('removes connected edges when a graph node is deleted before save', async () => {
+    render(<CreativeCanvasWorkspace mode="admin" orgId="org-1" />)
+
+    await screen.findByText('Launch Canvas')
+    fireEvent.click(screen.getByRole('button', { name: /apply social launch workflow/i }))
+    await screen.findByText(/social launch workflow added/i)
+    fireEvent.click(screen.getByRole('button', { name: /delete first graph node/i }))
+    fireEvent.click(screen.getByRole('button', { name: /save graph/i }))
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith('/api/v1/creative-canvas/canvas-1/graph?orgId=org-1', expect.objectContaining({
+        method: 'PUT',
+      }))
+    })
+    const graphCall = fetchMock.mock.calls.find(([url, init]) =>
+      String(url).includes('/graph?orgId=org-1') && init?.method === 'PUT'
+    )
+    const body = JSON.parse(graphCall?.[1]?.body as string)
+    const sourceNode = body.nodes.find((node: { title?: string }) => node.title === 'Product / brand source')
+    expect(sourceNode).toBeUndefined()
+    expect(body.edges).not.toEqual(expect.arrayContaining([
+      expect.objectContaining({ label: 'source context' }),
+    ]))
+    expect(body.edges.every((edge: { sourceNodeId?: string; targetNodeId?: string }) => (
+      !String(edge.sourceNodeId).includes('source') && !String(edge.targetNodeId).includes('source')
+    ))).toBe(true)
   })
 
   it('imports a source library item into the canvas graph', async () => {
@@ -240,11 +4876,214 @@ describe('CreativeCanvasWorkspace', () => {
     expect(await screen.findByText('Product bottle.png')).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: /import product bottle.png/i }))
 
-    expect(await screen.findByAltText('Reference preview: Product bottle.png')).toHaveAttribute(
-      'src',
-      'https://cdn.example.com/product-thumb.png',
-    )
+    expect((await screen.findAllByLabelText('Reference preview: Product bottle.png'))[0]).toHaveStyle({
+      backgroundImage: 'url(https://cdn.example.com/product-thumb.png)',
+    })
     expect(screen.getByText('product / 1')).toBeInTheDocument()
+    expect(screen.getByText('Asset gallery')).toBeInTheDocument()
+    expect(screen.getByText('1 / 1')).toBeInTheDocument()
+    expect(screen.getByText('Internal asset')).toBeInTheDocument()
+  })
+
+  it('selects an output asset and exports it as a downstream draft', async () => {
+    render(<CreativeCanvasWorkspace mode="admin" orgId="org-1" />)
+
+    await screen.findByText('Launch Canvas')
+    fireEvent.click(screen.getByRole('button', { name: /apply social launch workflow/i }))
+
+    expect(await screen.findByText(/social launch workflow added/i)).toBeInTheDocument()
+    fireEvent.change(screen.getByLabelText(/asset filter/i), { target: { value: 'output_node' } })
+    fireEvent.click(screen.getByRole('button', { name: /select asset social post draft/i }))
+
+    expect(screen.getByText('Draft export available')).toBeInTheDocument()
+    expect(screen.getAllByLabelText(/export target/i).some((element) => (element as HTMLSelectElement).value === 'social_draft')).toBe(true)
+    fireEvent.click(screen.getByRole('button', { name: /add to compare/i }))
+    expect(screen.getByText('Compare assets')).toBeInTheDocument()
+    expect(screen.getByText('1 selected')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: /export selected asset draft/i }))
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith('/api/v1/creative-canvas/canvas-1/exports/draft?orgId=org-1', expect.objectContaining({
+        method: 'POST',
+      }))
+    })
+    const exportCall = fetchMock.mock.calls.find(([url, init]) =>
+      String(url).includes('/exports/draft?orgId=org-1') && init?.method === 'POST'
+    )
+    expect(JSON.parse(exportCall?.[1]?.body as string)).toMatchObject({
+      nodeId: expect.stringContaining('social-launch-output'),
+      target: 'social_draft',
+    })
+    expect(await screen.findByText('Draft export prepared')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: /prepare package/i }))
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith('/api/v1/creative-canvas/canvas-1/exports/package?orgId=org-1', expect.objectContaining({
+        method: 'POST',
+      }))
+    })
+    const packageCall = fetchMock.mock.calls.find(([url, init]) =>
+      String(url).includes('/exports/package?orgId=org-1') && init?.method === 'POST'
+    )
+    expect(JSON.parse(packageCall?.[1]?.body as string)).toMatchObject({
+      nodeIds: [expect.stringContaining('social-launch-output')],
+      title: 'Creative package: Launch Canvas',
+    })
+    expect(await screen.findByText('Export package prepared')).toBeInTheDocument()
+    expect(screen.getByText(/Package package-1: 1 assets/i)).toBeInTheDocument()
+    expect(screen.getByText(/Manifest v1: 6 nodes \/ 5 links \/ social_post_draft \/ 1 sources \/ 1 categories \/ 1 handoffs/i)).toBeInTheDocument()
+    const parityAudit = screen.getByLabelText(/higgsfield parity audit/i)
+    expect(parityAudit).toHaveTextContent('1/5 export categories packaged · 0/5 artifact-backed categories · 1 asset')
+  })
+
+  it('requires a multi-category package manifest before export flows are benchmark-ready', async () => {
+    render(<CreativeCanvasWorkspace mode="admin" orgId="org-1" />)
+
+    await screen.findByText('Launch Canvas')
+    fireEvent.click(screen.getByRole('button', { name: /apply 8 missing benchmark workflows/i }))
+    const benchmarkProof = screen.getByLabelText(/direct higgsfield benchmark proof/i)
+    expect(benchmarkProof).toHaveTextContent('3 ready benchmark categories need stored proof.')
+
+    fetchMock.mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      if (url.includes('/exports/package') && init?.method === 'POST') {
+        return {
+          ok: true,
+          json: async () => ({
+            success: true,
+            data: {
+              exportId: 'package-benchmark',
+              package: {
+                status: 'internal_package',
+                assetCount: 5,
+                targets: ['campaign_asset', 'youtube_studio', 'client_document', 'book_studio'],
+                manifest: {
+                  canvas: { activeVersion: 1, nodeCount: 30, edgeCount: 22 },
+                  proof: {
+                    requiredOutputKinds: ['campaign_asset', 'youtube_render', 'audio', 'blog_draft', 'book_artifact'],
+                    sourceNodeIds: ['source-1', 'source-2'],
+                    coveredCategories: ['image_campaign', 'video_social', 'audio', 'blog_document', 'book'],
+                  },
+                  lineage: [
+                    { outputNodeId: 'campaign-output', sourceNodeIds: ['source-1'], upstreamNodeIds: ['source-1'] },
+                    { outputNodeId: 'youtube-output', sourceNodeIds: ['source-1'], upstreamNodeIds: ['source-1'] },
+                    { outputNodeId: 'audio-output', sourceNodeIds: ['source-1'], upstreamNodeIds: ['source-1'] },
+                    { outputNodeId: 'blog-output', sourceNodeIds: ['source-2'], upstreamNodeIds: ['source-2'] },
+                    { outputNodeId: 'book-output', sourceNodeIds: ['source-2'], upstreamNodeIds: ['source-2'] },
+                  ],
+                },
+                downstreamDrafts: [
+                  { target: 'campaign_asset', sourceNodeId: 'campaign-output' },
+                  { target: 'youtube_studio', sourceNodeId: 'youtube-output' },
+                  { target: 'campaign_asset', sourceNodeId: 'audio-output' },
+                  { target: 'client_document', sourceNodeId: 'blog-output' },
+                  { target: 'book_studio', sourceNodeId: 'book-output' },
+                ],
+              },
+            },
+          }),
+        }
+      }
+      if (url.includes('/presence') && init?.method === 'POST') {
+        return {
+          ok: true,
+          json: async () => ({ success: true, data: { presence: [] } }),
+        }
+      }
+      return {
+        ok: true,
+        json: async () => ({ success: true, data: {} }),
+      }
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: /prepare package/i }))
+
+    expect(await screen.findByText('Export package prepared')).toBeInTheDocument()
+    const parityAudit = screen.getByLabelText(/higgsfield parity audit/i)
+    expect(parityAudit).toHaveTextContent('5/5 export categories packaged · 0/5 artifact-backed categories · 5 assets')
+    expect(benchmarkProof).toHaveTextContent('3 ready benchmark categories need stored proof.')
+
+    fetchMock.mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      if (url.includes('/runtime-proof')) {
+        return {
+          ok: true,
+          json: async () => ({
+            success: true,
+            data: {
+              proof: {
+                canvasId: 'canvas-1',
+                orgId: 'org-1',
+                status: 'warning',
+                readyForLiveProof: false,
+                summary: 'Export artifacts are complete, runtime proof still needs final live certification.',
+                reliabilityCoverage: [
+                  { key: 'image', label: 'Image', status: 'passed', requiredOutputKinds: ['image', 'campaign_asset'], requiredCompleted: 2, total: 2, completed: 2, active: 0, failed: 0, cancelled: 0 },
+                  { key: 'video_social', label: 'Video/social', status: 'passed', requiredOutputKinds: ['video', 'social_post_draft', 'youtube_render'], requiredCompleted: 2, total: 2, completed: 2, active: 0, failed: 0, cancelled: 0 },
+                  { key: 'audio', label: 'Audio', status: 'passed', requiredOutputKinds: ['audio'], requiredCompleted: 2, total: 2, completed: 2, active: 0, failed: 0, cancelled: 0 },
+                  { key: 'blog_document', label: 'Blog/document', status: 'passed', requiredOutputKinds: ['blog_draft', 'document_block', 'copy', 'caption'], requiredCompleted: 2, total: 2, completed: 2, active: 0, failed: 0, cancelled: 0 },
+                  { key: 'book', label: 'Book', status: 'passed', requiredOutputKinds: ['book_artifact'], requiredCompleted: 2, total: 2, completed: 2, active: 0, failed: 0, cancelled: 0 },
+                ],
+                checks: [],
+              },
+            },
+          }),
+        }
+      }
+      if (url.includes('/presence') && init?.method === 'POST') {
+        return {
+          ok: true,
+          json: async () => ({ success: true, data: { presence: [] } }),
+        }
+      }
+      return {
+        ok: true,
+        json: async () => ({ success: true, data: {} }),
+      }
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: /refresh runtime proof/i }))
+    await waitFor(() => expect(parityAudit).toHaveTextContent('5/5 export categories packaged · 5/5 artifact-backed categories · 5 assets'))
+    expect(benchmarkProof).toHaveTextContent('4 ready benchmark categories need stored proof.')
+  })
+
+  it('edits selected source asset metadata and saves it with the graph', async () => {
+    render(<CreativeCanvasWorkspace mode="admin" orgId="org-1" />)
+
+    await screen.findByText('Launch Canvas')
+    expect(await screen.findByText('Product bottle.png')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: /import product bottle.png/i }))
+
+    await screen.findByText('Asset gallery')
+    fireEvent.click(screen.getByRole('button', { name: /select asset product bottle.png/i }))
+    fireEvent.change(screen.getByLabelText(/asset title/i), { target: { value: 'Hero product source' } })
+    fireEvent.change(screen.getByLabelText(/preview notes/i), { target: { value: 'Use as the primary product reference' } })
+
+    fireEvent.click(screen.getByRole('button', { name: /save graph/i }))
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith('/api/v1/creative-canvas/canvas-1/graph?orgId=org-1', expect.objectContaining({
+        method: 'PUT',
+      }))
+    })
+    const graphCall = [...fetchMock.mock.calls].reverse().find(([url, init]) =>
+      String(url).includes('/graph?orgId=org-1') && init?.method === 'PUT'
+    )
+    expect(JSON.parse(graphCall?.[1]?.body as string)).toMatchObject({
+      expectedActiveVersion: 1,
+      mergeOnConflict: true,
+      baseGraph: { nodes: [], edges: [] },
+      nodes: [
+        expect.objectContaining({
+          type: 'source',
+          title: 'Hero product source',
+          source: expect.objectContaining({
+            altText: 'Use as the primary product reference',
+          }),
+        }),
+      ],
+    })
   })
 
   it('filters the source library with search, source kind, role, and media type controls', async () => {
@@ -280,10 +5119,9 @@ describe('CreativeCanvasWorkspace', () => {
     })
 
     expect(await screen.findByText(/source uploaded: new-product.png/i)).toBeInTheDocument()
-    expect(await screen.findByAltText('Reference preview: New product angle')).toHaveAttribute(
-      'src',
-      'https://cdn.example.com/new-product-thumb.png',
-    )
+    expect((await screen.findAllByLabelText('Reference preview: New product angle'))[0]).toHaveStyle({
+      backgroundImage: 'url(https://cdn.example.com/new-product-thumb.png)',
+    })
     expect(fetchMock).toHaveBeenCalledWith('/api/v1/creative-canvas/sources/upload', expect.objectContaining({
       method: 'POST',
       body: expect.any(FormData),
@@ -296,10 +5134,53 @@ describe('CreativeCanvasWorkspace', () => {
     await screen.findByText('Launch Canvas')
     fireEvent.click(screen.getByRole('button', { name: /add edit node/i }))
 
-    expect(await screen.findByText(/edit node/i)).toBeInTheDocument()
+    await waitFor(() => {
+      expect(screen.getAllByText(/edit node/i).length).toBeGreaterThan(0)
+    })
     expect(screen.getByText('Edit controls')).toBeInTheDocument()
     expect(screen.getAllByText('inpaint / image')[0]).toBeInTheDocument()
+    expect(screen.getByLabelText(/edit intent/i)).toHaveValue('generative_fill')
+    expect(screen.getByLabelText(/edit brush prompt/i)).toBeInTheDocument()
+    expect(screen.getByLabelText(/light match/i)).toBeInTheDocument()
+    expect(screen.getByText('Intent: generative fill / Match controls: 0/5')).toBeInTheDocument()
     expect(screen.getByText('Mask: not attached')).toBeInTheDocument()
+  })
+
+  it('saves Higgsfield-style inpainting intent and blend controls with edit nodes', async () => {
+    render(<CreativeCanvasWorkspace mode="admin" orgId="org-1" />)
+
+    await screen.findByText('Launch Canvas')
+    fireEvent.click(screen.getByRole('button', { name: /add edit node/i }))
+    fireEvent.change(screen.getByLabelText(/edit intent/i), { target: { value: 'object_removal' } })
+    fireEvent.change(screen.getByLabelText(/edit brush prompt/i), { target: { value: 'Remove glare and reconstruct the product surface.' } })
+    fireEvent.click(screen.getByLabelText(/light match/i))
+    fireEvent.click(screen.getByLabelText(/texture adaptive/i))
+    fireEvent.click(screen.getByLabelText(/auto shadows/i))
+    fireEvent.click(screen.getByRole('button', { name: /save graph/i }))
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith('/api/v1/creative-canvas/canvas-1/graph?orgId=org-1', expect.objectContaining({
+        method: 'PUT',
+      }))
+    })
+    const graphCall = [...fetchMock.mock.calls].reverse().find(([url, init]) =>
+      String(url).includes('/graph?orgId=org-1') && init?.method === 'PUT'
+    )
+    const graphBody = JSON.parse(graphCall?.[1]?.body as string)
+    expect(graphBody.nodes).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        type: 'edit',
+        edit: expect.objectContaining({
+          intent: 'object_removal',
+          prompt: 'Remove glare and reconstruct the product surface.',
+          blendControls: expect.objectContaining({
+            lightMatch: true,
+            textureAdaptive: true,
+            autoShadows: true,
+          }),
+        }),
+      }),
+    ]))
   })
 
   it('applies a mask region to an edit node and saves it with the graph', async () => {
@@ -328,6 +5209,9 @@ describe('CreativeCanvasWorkspace', () => {
       String(url).includes('/graph?orgId=org-1') && init?.method === 'PUT'
     )
     expect(JSON.parse(graphCall?.[1]?.body as string)).toMatchObject({
+      expectedActiveVersion: 1,
+      mergeOnConflict: true,
+      baseGraph: { nodes: [], edges: [] },
       nodes: [
         expect.objectContaining({
           type: 'edit',
@@ -341,11 +5225,126 @@ describe('CreativeCanvasWorkspace', () => {
     })
   })
 
+  it('uses visual mask presets for Higgsfield-style inpainting regions', async () => {
+    render(<CreativeCanvasWorkspace mode="admin" orgId="org-1" />)
+
+    await screen.findByText('Launch Canvas')
+    fireEvent.click(screen.getByRole('button', { name: /add edit node/i }))
+
+    expect(screen.getByLabelText('Mask preview overlay')).toHaveStyle({
+      left: '0%',
+      top: '0%',
+      width: '50%',
+      height: '50%',
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: /product placement/i }))
+
+    expect(screen.getByLabelText('Mask preview overlay')).toHaveStyle({
+      left: '56%',
+      top: '48%',
+      width: '30%',
+      height: '34%',
+    })
+    expect(screen.getByText('30x34% · feather 6 · 0 brush')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: /apply mask region/i }))
+    fireEvent.click(screen.getByRole('button', { name: /save graph/i }))
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith('/api/v1/creative-canvas/canvas-1/graph?orgId=org-1', expect.objectContaining({
+        method: 'PUT',
+      }))
+    })
+    const graphCall = fetchMock.mock.calls.find(([url, init]) =>
+      String(url).includes('/graph?orgId=org-1') && init?.method === 'PUT'
+    )
+    expect(JSON.parse(graphCall?.[1]?.body as string)).toMatchObject({
+      expectedActiveVersion: 1,
+      mergeOnConflict: true,
+      baseGraph: { nodes: [], edges: [] },
+      nodes: [
+        expect.objectContaining({
+          type: 'edit',
+          edit: expect.objectContaining({
+            mask: {
+              region: { x: 56, y: 48, width: 30, height: 34, unit: 'percent', feather: 6 },
+            },
+          }),
+        }),
+      ],
+    })
+  })
+
+  it('captures brush mask strokes and saves them with the graph', async () => {
+    render(<CreativeCanvasWorkspace mode="admin" orgId="org-1" />)
+
+    await screen.findByText('Launch Canvas')
+    fireEvent.click(screen.getByRole('button', { name: /add edit node/i }))
+    fireEvent.change(screen.getByLabelText(/brush size/i), { target: { value: '12' } })
+    const brushCanvas = screen.getByRole('application', { name: /brush mask canvas/i })
+    jest.spyOn(brushCanvas, 'getBoundingClientRect').mockReturnValue({
+      x: 0,
+      y: 0,
+      left: 0,
+      top: 0,
+      right: 200,
+      bottom: 100,
+      width: 200,
+      height: 100,
+      toJSON: () => ({}),
+    } as DOMRect)
+    dispatchBrushPointerEvent(brushCanvas, 'pointerdown', 40, 40)
+    dispatchBrushPointerEvent(brushCanvas, 'pointermove', 80, 50)
+    dispatchBrushPointerEvent(brushCanvas, 'pointerup', 80, 50)
+
+    expect(await screen.findByText('Mask: brush attached')).toBeInTheDocument()
+    expect(screen.getAllByText(/1 brush/i).length).toBeGreaterThan(0)
+    expect(screen.getByLabelText('Brush mask point 1')).toBeInTheDocument()
+    expect(screen.getByLabelText('Brush mask point 2')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: /save graph/i }))
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith('/api/v1/creative-canvas/canvas-1/graph?orgId=org-1', expect.objectContaining({
+        method: 'PUT',
+      }))
+    })
+    const graphCall = fetchMock.mock.calls.find(([url, init]) =>
+      String(url).includes('/graph?orgId=org-1') && init?.method === 'PUT'
+    )
+    expect(JSON.parse(graphCall?.[1]?.body as string)).toMatchObject({
+      expectedActiveVersion: 1,
+      mergeOnConflict: true,
+      baseGraph: { nodes: [], edges: [] },
+      nodes: [
+        expect.objectContaining({
+          type: 'edit',
+          edit: expect.objectContaining({
+            mask: expect.objectContaining({
+              brush: {
+                strokes: [
+                  expect.objectContaining({
+                    points: [{ x: 20, y: 40 }, { x: 40, y: 50 }],
+                    size: 12,
+                    mode: 'paint',
+                    unit: 'percent',
+                  }),
+                ],
+              },
+            }),
+          }),
+        }),
+      ],
+    })
+  })
+
   it('loads versions and posts comments for the active canvas', async () => {
     render(<CreativeCanvasWorkspace mode="admin" orgId="org-1" />)
 
     await screen.findByText('Launch Canvas')
     expect(await screen.findByText(/version 2/i)).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: /add source node/i }))
 
     fireEvent.change(screen.getByLabelText(/comment body/i), {
       target: { value: 'Needs a stronger hook' },
@@ -357,6 +5356,97 @@ describe('CreativeCanvasWorkspace', () => {
         method: 'POST',
       }))
     })
+    const commentCall = fetchMock.mock.calls.find(([url, init]) =>
+      String(url).includes('/comments?orgId=org-1') && init?.method === 'POST'
+    )
+    expect(JSON.parse(commentCall?.[1]?.body as string)).toMatchObject({
+      nodeId: expect.stringContaining('source-node-'),
+      body: 'Needs a stronger hook',
+    })
+    expect(await screen.findByText('Selected node thread')).toBeInTheDocument()
+    expect(screen.getByText('Needs a stronger hook')).toBeInTheDocument()
+  })
+
+  it('previews a saved graph version without saving it', async () => {
+    render(<CreativeCanvasWorkspace mode="admin" orgId="org-1" />)
+
+    await screen.findByText(/version 2/i)
+    fetchMock.mockClear()
+    fireEvent.click(screen.getByRole('button', { name: /preview/i }))
+
+    expect(await screen.findByText('version-source')).toBeInTheDocument()
+    expect(screen.getAllByText('Previewing version 2').length).toBeGreaterThan(0)
+    expect(screen.getByRole('button', { name: /previewing version/i })).toBeDisabled()
+    expect(fetchMock).not.toHaveBeenCalledWith('/api/v1/creative-canvas/canvas-1/graph?orgId=org-1', expect.objectContaining({
+      method: 'PUT',
+    }))
+
+    fireEvent.click(screen.getByRole('button', { name: /return to current graph/i }))
+
+    expect(await screen.findByText('Returned to current graph')).toBeInTheDocument()
+    expect(screen.queryByText('version-source')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /save graph/i })).toBeEnabled()
+  })
+
+  it('restores a saved graph version from the versions panel', async () => {
+    render(<CreativeCanvasWorkspace mode="admin" orgId="org-1" />)
+
+    await screen.findByText(/version 2/i)
+    fireEvent.click(screen.getByRole('button', { name: /restore/i }))
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith('/api/v1/creative-canvas/canvas-1/versions?orgId=org-1', expect.objectContaining({
+        method: 'POST',
+      }))
+    })
+    const versionCall = fetchMock.mock.calls.find(([url, init]) =>
+      String(url).includes('/versions?orgId=org-1') && init?.method === 'POST'
+    )
+    expect(JSON.parse(versionCall?.[1]?.body as string)).toMatchObject({
+      action: 'restore',
+      versionId: 'v2',
+    })
+    expect(await screen.findByText('restored-source')).toBeInTheDocument()
+    expect(screen.getByText('Restored version 2')).toBeInTheDocument()
+  })
+
+  it('blocks saved version restore and fork while local graph edits are unsaved', async () => {
+    render(<CreativeCanvasWorkspace mode="admin" orgId="org-1" />)
+
+    await screen.findByText(/version 2/i)
+    fireEvent.click(screen.getByRole('button', { name: /add source node/i }))
+
+    expect(screen.getByText('Save or clear local graph edits before restoring or forking a saved version.')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /^restore$/i })).toBeDisabled()
+    expect(screen.getByRole('button', { name: /^fork$/i })).toBeDisabled()
+
+    const versionCalls = fetchMock.mock.calls.filter(([url, init]) =>
+      String(url).includes('/versions?orgId=org-1') && init?.method === 'POST'
+    )
+    expect(versionCalls).toHaveLength(0)
+  })
+
+  it('forks a saved graph version into a new canvas branch', async () => {
+    render(<CreativeCanvasWorkspace mode="admin" orgId="org-1" />)
+
+    await screen.findByText(/version 2/i)
+    fireEvent.click(screen.getByRole('button', { name: /fork/i }))
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith('/api/v1/creative-canvas/canvas-1/versions?orgId=org-1', expect.objectContaining({
+        method: 'POST',
+      }))
+    })
+    const versionCall = [...fetchMock.mock.calls].reverse().find(([url, init]) =>
+      String(url).includes('/versions?orgId=org-1') && init?.method === 'POST'
+    )
+    expect(JSON.parse(versionCall?.[1]?.body as string)).toMatchObject({
+      action: 'fork',
+      versionId: 'v2',
+    })
+    expect(await screen.findByText('Launch Canvas fork v2')).toBeInTheDocument()
+    expect(screen.getByText('fork-source')).toBeInTheDocument()
+    expect(screen.getByText('Forked version 2')).toBeInTheDocument()
   })
 
   it('prepares a generic draft export from an output node', async () => {
@@ -399,7 +5489,7 @@ describe('CreativeCanvasWorkspace', () => {
       }))
     })
     expect(await screen.findByText(/run status refreshed: run-1/i)).toBeInTheDocument()
-    fireEvent.click(screen.getByRole('button', { name: /ingest run output/i }))
+    fireEvent.click(screen.getByRole('button', { name: /ingest latest run output/i }))
 
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledWith('/api/v1/creative-canvas/canvas-1/runs/run-1/complete?orgId=org-1', expect.objectContaining({
@@ -408,11 +5498,38 @@ describe('CreativeCanvasWorkspace', () => {
     })
   })
 
+  it('ingests a selected run-history output with that run output kind', async () => {
+    render(<CreativeCanvasWorkspace mode="admin" orgId="org-1" />)
+
+    await screen.findByText('Provider operations')
+    fireEvent.click(screen.getByRole('button', { name: /ingest output for run-existing/i }))
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith('/api/v1/creative-canvas/canvas-1/runs/run-existing/complete?orgId=org-1', expect.objectContaining({
+        method: 'PUT',
+      }))
+    })
+    const completeCall = fetchMock.mock.calls.find(([url]) => String(url).includes('/runs/run-existing/complete'))
+    expect(JSON.parse(String(completeCall?.[1]?.body))).toMatchObject({
+      outputNodeId: 'model-node-existing-output',
+      output: {
+        kind: 'video',
+        textPreview: 'video provider output ready for review',
+      },
+      provenance: {
+        providerJobId: 'hf-job-existing',
+        costLabel: 'provider_reported',
+      },
+    })
+    expect(await screen.findByText('Run completed: run-existing')).toBeInTheDocument()
+  })
+
   it('queues Higgsfield runs with selected generation settings', async () => {
     render(<CreativeCanvasWorkspace mode="admin" orgId="org-1" />)
 
     await screen.findByText('Launch Canvas')
     fireEvent.click(screen.getByRole('button', { name: /add model node/i }))
+    fireEvent.change(screen.getByLabelText(/higgsfield model id/i), { target: { value: 'nano_banana_pro' } })
     fireEvent.change(screen.getByLabelText(/output kind/i), { target: { value: 'video' } })
     fireEvent.change(screen.getByLabelText(/aspect ratio/i), { target: { value: '9:16' } })
     fireEvent.change(screen.getByLabelText(/duration seconds/i), { target: { value: '6' } })
@@ -428,6 +5545,7 @@ describe('CreativeCanvasWorkspace', () => {
     )
     expect(JSON.parse(runCall?.[1]?.body as string)).toMatchObject({
       providerKey: 'higgsfield',
+      model: 'nano_banana_pro',
       input: {
         outputKind: 'video',
         aspectRatio: '9:16',
@@ -436,6 +5554,65 @@ describe('CreativeCanvasWorkspace', () => {
         stylePreset: 'cinematic_product',
         cameraMotion: 'camera_push',
         negativePrompt: 'blurry, distorted hands',
+      },
+    })
+  })
+
+  it('queues edit runs with brush mask geometry for agents', async () => {
+    render(<CreativeCanvasWorkspace mode="admin" orgId="org-1" />)
+
+    await screen.findByText('Launch Canvas')
+    fireEvent.click(screen.getByRole('button', { name: /add edit node/i }))
+    fireEvent.change(screen.getByLabelText(/edit intent/i), { target: { value: 'reference_blend' } })
+    fireEvent.change(screen.getByLabelText(/edit brush prompt/i), { target: { value: 'Blend the product into a sunset studio scene.' } })
+    fireEvent.click(screen.getByLabelText(/light match/i))
+    fireEvent.click(screen.getByLabelText(/texture adaptive/i))
+    fireEvent.click(screen.getByLabelText(/auto shadows/i))
+    fireEvent.click(screen.getByLabelText(/perspective match/i))
+    const brushCanvas = screen.getByRole('application', { name: /brush mask canvas/i })
+    jest.spyOn(brushCanvas, 'getBoundingClientRect').mockReturnValue({
+      x: 0,
+      y: 0,
+      left: 0,
+      top: 0,
+      right: 200,
+      bottom: 100,
+      width: 200,
+      height: 100,
+      toJSON: () => ({}),
+    } as DOMRect)
+    dispatchBrushPointerEvent(brushCanvas, 'pointerdown', 40, 40)
+    dispatchBrushPointerEvent(brushCanvas, 'pointermove', 80, 50)
+    dispatchBrushPointerEvent(brushCanvas, 'pointerup', 80, 50)
+    fireEvent.click(screen.getByRole('button', { name: /queue run/i }))
+
+    await screen.findByText(/run queued: run-1/i)
+    const runCall = fetchMock.mock.calls.find(([url, init]) =>
+      String(url).endsWith('/runs?orgId=org-1') && init?.method === 'POST'
+    )
+    expect(JSON.parse(runCall?.[1]?.body as string)).toMatchObject({
+      providerKey: 'higgsfield',
+      input: {
+        promptSummary: 'Blend the product into a sunset studio scene.',
+        outputKind: 'image',
+        operation: 'inpaint',
+        editIntent: 'reference_blend',
+        blendControls: expect.objectContaining({
+          lightMatch: true,
+          textureAdaptive: true,
+          autoShadows: true,
+          perspectiveMatch: true,
+        }),
+        editMask: expect.objectContaining({
+          brush: {
+            strokes: [
+              expect.objectContaining({
+                points: [{ x: 20, y: 40 }, { x: 40, y: 50 }],
+                unit: 'percent',
+              }),
+            ],
+          },
+        }),
       },
     })
   })
@@ -483,10 +5660,9 @@ describe('CreativeCanvasWorkspace', () => {
 
     render(<CreativeCanvasWorkspace mode="admin" orgId="org-1" />)
 
-    expect(await screen.findByAltText('Reference preview: Red product bottle')).toHaveAttribute(
-      'src',
-      'https://cdn.example.com/product-thumb.png',
-    )
+    expect((await screen.findAllByLabelText('Reference preview: Red product bottle'))[0]).toHaveStyle({
+      backgroundImage: 'url(https://cdn.example.com/product-thumb.png)',
+    })
     expect(screen.getByText('product / 0.8')).toBeInTheDocument()
   })
 })

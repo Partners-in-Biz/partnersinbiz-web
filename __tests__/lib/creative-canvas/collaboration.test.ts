@@ -2,6 +2,7 @@ const mockGet = jest.fn()
 const mockAdd = jest.fn()
 const mockDoc = jest.fn()
 const mockDocGet = jest.fn()
+const mockDocSet = jest.fn()
 const mockDocUpdate = jest.fn()
 const mockWhere = jest.fn()
 const mockOrderBy = jest.fn()
@@ -19,7 +20,12 @@ import { updateCreativeCanvasGraph } from '@/lib/creative-canvas/store'
 import {
   attachCreativeCanvasNodeOutput,
   createCreativeCanvasComment,
+  forkCreativeCanvasVersion,
+  listCreativeCanvasComments,
   listCreativeCanvasVersions,
+  heartbeatCreativeCanvasPresence,
+  listCreativeCanvasPresence,
+  restoreCreativeCanvasVersion,
   updateCreativeCanvasNodeReview,
 } from '@/lib/creative-canvas/collaboration'
 
@@ -49,7 +55,7 @@ beforeEach(() => {
   const query = { get: mockGet, where: mockWhere, orderBy: mockOrderBy }
   mockWhere.mockReturnValue(query)
   mockOrderBy.mockReturnValue(query)
-  mockDoc.mockReturnValue({ get: mockDocGet, update: mockDocUpdate })
+  mockDoc.mockReturnValue({ get: mockDocGet, set: mockDocSet, update: mockDocUpdate })
   mockCollection.mockReturnValue({ add: mockAdd, doc: mockDoc, where: mockWhere, orderBy: mockOrderBy })
 })
 
@@ -95,6 +101,98 @@ describe('creative canvas collaboration helpers', () => {
     expect(versions).toEqual([expect.objectContaining({ id: 'v2', orgId: 'org-1', canvasId: 'canvas-1', version: 2 })])
   })
 
+  it('restores a prior version as a new active graph version', async () => {
+    setupCanvasDoc()
+    mockDocGet
+      .mockResolvedValueOnce({
+        exists: true,
+        id: 'canvas-1',
+        data: () => ({
+          orgId: 'org-1',
+          title: 'Launch',
+          purpose: 'Launch pack',
+          activeVersion: 3,
+          deleted: false,
+          nodes: [],
+          edges: [],
+        }),
+      })
+      .mockResolvedValueOnce({
+        exists: true,
+        id: 'v2',
+        data: () => ({
+          orgId: 'org-1',
+          canvasId: 'canvas-1',
+          version: 2,
+          nodes: [{ id: 'source-restore', type: 'source', title: 'Restored source', position: { x: 0, y: 0 }, data: {} }],
+          edges: [],
+        }),
+      })
+    mockAdd.mockResolvedValue({ id: 'v4' })
+
+    const result = await restoreCreativeCanvasVersion('canvas-1', 'org-1', 'v2', ACTOR)
+
+    expect(mockDocUpdate).toHaveBeenCalledWith(expect.objectContaining({
+      activeVersion: 4,
+      nodes: [expect.objectContaining({ id: 'source-restore', orgId: 'org-1' })],
+      updatedBy: 'user-1',
+    }))
+    expect(mockAdd).toHaveBeenCalledWith(expect.objectContaining({
+      canvasId: 'canvas-1',
+      version: 4,
+      reason: 'restored_from_v2',
+    }))
+    expect(result.canvas.activeVersion).toBe(4)
+  })
+
+  it('forks a prior version into a new branch canvas', async () => {
+    mockDocGet
+      .mockResolvedValueOnce({
+        exists: true,
+        id: 'canvas-1',
+        data: () => ({
+          orgId: 'org-1',
+          title: 'Launch',
+          purpose: 'Launch pack',
+          activeVersion: 3,
+          visibility: 'admin_agents',
+          linked: { projectId: 'project-1' },
+          deleted: false,
+          nodes: [],
+          edges: [],
+        }),
+      })
+      .mockResolvedValueOnce({
+        exists: true,
+        id: 'v2',
+        data: () => ({
+          orgId: 'org-1',
+          canvasId: 'canvas-1',
+          version: 2,
+          nodes: [{ id: 'source-fork', type: 'source', title: 'Fork source', position: { x: 0, y: 0 }, data: {} }],
+          edges: [],
+        }),
+      })
+    mockAdd
+      .mockResolvedValueOnce({ id: 'canvas-fork' })
+      .mockResolvedValueOnce({ id: 'fork-version-1' })
+
+    const result = await forkCreativeCanvasVersion('canvas-1', 'org-1', 'v2', { title: 'Launch alt branch' }, ACTOR)
+
+    expect(mockAdd).toHaveBeenNthCalledWith(1, expect.objectContaining({
+      title: 'Launch alt branch',
+      activeVersion: 1,
+      linked: { projectId: 'project-1' },
+      nodes: [expect.objectContaining({ id: 'source-fork', orgId: 'org-1' })],
+    }))
+    expect(mockAdd).toHaveBeenNthCalledWith(2, expect.objectContaining({
+      canvasId: 'canvas-fork',
+      version: 1,
+      reason: 'forked_from_canvas-1_v2',
+    }))
+    expect(result.canvas).toMatchObject({ id: 'canvas-fork', title: 'Launch alt branch', activeVersion: 1 })
+  })
+
   it('creates a tenant-scoped node comment', async () => {
     mockAdd.mockResolvedValue({ id: 'comment-1' })
 
@@ -117,6 +215,105 @@ describe('creative canvas collaboration helpers', () => {
       createdAt: 'SERVER_TIMESTAMP',
     }))
     expect(comment).toMatchObject({ id: 'comment-1', body: 'Needs a stronger hook' })
+  })
+
+  it('lists tenant-scoped node comments for a canvas', async () => {
+    mockGet.mockResolvedValue({
+      docs: [
+        {
+          id: 'comment-1',
+          data: () => ({
+            orgId: 'org-1',
+            canvasId: 'canvas-1',
+            nodeId: 'output-1',
+            body: 'Needs stronger product framing',
+            visibility: 'admin_agents',
+            resolved: false,
+            createdBy: 'maya',
+            createdByType: 'agent',
+          }),
+        },
+      ],
+    })
+
+    const comments = await listCreativeCanvasComments('canvas-1', 'org-1')
+
+    expect(mockCollection).toHaveBeenCalledWith('creative_canvas_comments')
+    expect(mockWhere).toHaveBeenCalledWith('orgId', '==', 'org-1')
+    expect(mockWhere).toHaveBeenCalledWith('canvasId', '==', 'canvas-1')
+    expect(comments).toEqual([
+      expect.objectContaining({
+        id: 'comment-1',
+        nodeId: 'output-1',
+        body: 'Needs stronger product framing',
+        createdBy: 'maya',
+        createdByType: 'agent',
+      }),
+    ])
+  })
+
+  it('lists active collaborators and filters stale canvas presence', async () => {
+    mockGet.mockResolvedValue({
+      docs: [
+        {
+          id: 'canvas-1_maya',
+          data: () => ({
+            orgId: 'org-1',
+            canvasId: 'canvas-1',
+            actorUid: 'maya',
+            actorType: 'agent',
+            selectedNodeId: 'model-1',
+            focus: 'runs',
+            lastSeenAtMs: 2000,
+            expiresAtMs: 6000,
+          }),
+        },
+        {
+          id: 'canvas-1_stale',
+          data: () => ({
+            orgId: 'org-1',
+            canvasId: 'canvas-1',
+            actorUid: 'stale-user',
+            actorType: 'user',
+            lastSeenAtMs: 1000,
+            expiresAtMs: 3000,
+          }),
+        },
+      ],
+    })
+
+    const presence = await listCreativeCanvasPresence('canvas-1', 'org-1', 5000)
+
+    expect(mockCollection).toHaveBeenCalledWith('creative_canvas_presence')
+    expect(mockWhere).toHaveBeenCalledWith('orgId', '==', 'org-1')
+    expect(mockWhere).toHaveBeenCalledWith('canvasId', '==', 'canvas-1')
+    expect(presence).toEqual([
+      expect.objectContaining({ id: 'canvas-1_maya', actorUid: 'maya', selectedNodeId: 'model-1', focus: 'runs' }),
+    ])
+  })
+
+  it('heartbeats canvas presence with selected node focus', async () => {
+    const presence = await heartbeatCreativeCanvasPresence('canvas-1', 'org-1', {
+      displayName: 'Peet',
+      selectedNodeId: 'edit-1',
+      focus: 'canvas',
+      viewport: { zoom: 1.2, x: 20, y: 40 },
+    }, ACTOR, 10_000)
+
+    expect(mockCollection).toHaveBeenCalledWith('creative_canvas_presence')
+    expect(mockDoc).toHaveBeenCalledWith('canvas-1_user-1')
+    expect(mockDocSet).toHaveBeenCalledWith(expect.objectContaining({
+      orgId: 'org-1',
+      canvasId: 'canvas-1',
+      actorUid: 'user-1',
+      displayName: 'Peet',
+      selectedNodeId: 'edit-1',
+      focus: 'canvas',
+      lastSeenAt: 'SERVER_TIMESTAMP',
+      lastSeenAtMs: 10_000,
+      expiresAtMs: 55_000,
+    }), { merge: true })
+    expect(presence).toMatchObject({ id: 'canvas-1_user-1', selectedNodeId: 'edit-1' })
   })
 
   it('attaches output and review metadata to a single node', async () => {
@@ -163,5 +360,84 @@ describe('creative canvas collaboration helpers', () => {
     const outputNode = canvas.nodes.find((node) => node.id === 'output-1')
     expect(reviewNode?.review).toMatchObject({ status: 'passed', rightsStatus: 'cleared', brandStatus: 'passed' })
     expect(outputNode?.review).toBeUndefined()
+  })
+
+  it('drops invalid persisted latest mutation operation or source values', async () => {
+    mockGet.mockResolvedValue({
+      docs: [
+        {
+          id: 'bad-operation',
+          data: () => ({
+            orgId: 'org-1',
+            canvasId: 'canvas-1',
+            actorUid: 'maya',
+            actorType: 'agent',
+            latestMutation: {
+              operation: 'made_up',
+              touchedNodeIds: ['node-a'],
+              source: 'stream',
+              occurredAt: '2026-06-21T12:00:00.000Z',
+            },
+            lastSeenAtMs: 1000,
+            expiresAtMs: 5000,
+          }),
+        },
+        {
+          id: 'bad-source',
+          data: () => ({
+            orgId: 'org-1',
+            canvasId: 'canvas-1',
+            actorUid: 'nova',
+            actorType: 'agent',
+            latestMutation: {
+              operation: 'node_move',
+              touchedNodeIds: ['node-b'],
+              source: 'websocket',
+              occurredAt: '2026-06-21T12:01:00.000Z',
+            },
+            lastSeenAtMs: 1100,
+            expiresAtMs: 5000,
+          }),
+        },
+      ],
+    })
+
+    const presence = await listCreativeCanvasPresence('canvas-1', 'org-1', 2000)
+
+    expect(presence).toHaveLength(2)
+    expect(presence.find((item) => item.id === 'bad-operation')?.latestMutation).toBeUndefined()
+    expect(presence.find((item) => item.id === 'bad-source')?.latestMutation).toBeUndefined()
+  })
+
+  it('defaults absent latest mutation source to stream for older valid rows', async () => {
+    mockGet.mockResolvedValue({
+      docs: [{
+        id: 'old-valid-row',
+        data: () => ({
+          orgId: 'org-1',
+          canvasId: 'canvas-1',
+          actorUid: 'maya',
+          actorType: 'agent',
+          latestMutation: {
+            operation: 'node_move',
+            touchedNodeIds: ['node-a'],
+            touchedEdgeIds: [],
+            occurredAt: '2026-06-21T12:00:00.000Z',
+          },
+          lastSeenAtMs: 1000,
+          expiresAtMs: 5000,
+        }),
+      }],
+    })
+
+    const presence = await listCreativeCanvasPresence('canvas-1', 'org-1', 2000)
+
+    expect(presence[0].latestMutation).toEqual({
+      operation: 'node_move',
+      touchedNodeIds: ['node-a'],
+      touchedEdgeIds: [],
+      source: 'stream',
+      occurredAt: '2026-06-21T12:00:00.000Z',
+    })
   })
 })

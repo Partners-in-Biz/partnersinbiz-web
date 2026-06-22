@@ -611,4 +611,38 @@ describe('live loop review signal collector', () => {
     ])
     expect(result.agentSignals[0].summary).toEqual(expect.stringContaining('Model: claude-sonnet-4-6.'))
   })
+
+  it('keeps cron collection JSON-safe when one optional source query fails', async () => {
+    mockGet.mockResolvedValue({ docs: [] })
+    mockCollection.mockImplementation((collectionName: string) => {
+      const sourceQuery = { where: mockCrmWhere, limit: mockCrmLimit, get: jest.fn() }
+      sourceQuery.where.mockReturnValue(sourceQuery)
+      sourceQuery.limit.mockReturnValue(sourceQuery)
+      if (collectionName === 'support_tickets') {
+        sourceQuery.get.mockRejectedValue(new Error('missing support_tickets index'))
+      } else {
+        sourceQuery.get.mockResolvedValue({ docs: [] })
+      }
+      return sourceQuery
+    })
+
+    const { collectLoopReviewSignals } = await import('@/lib/loop-engine/live-signal-collector')
+    const result = await collectLoopReviewSignals({
+      orgId: 'pib-platform-owner',
+      limit: 25,
+      now: new Date('2026-06-13T12:00:00.000Z'),
+    })
+
+    expect(mockCollection).toHaveBeenCalledWith('support_tickets')
+    expect(result.scanned).toBe(0)
+    expect(result.agentSignals).toEqual([
+      expect.objectContaining({
+        category: 'tooling-gap',
+        targetSurface: 'loop:business-insight-review',
+        title: 'Loop review signal source failed: support',
+        summary: expect.stringContaining('support_tickets index'),
+      }),
+    ])
+    expect(result.businessSignals).toEqual([])
+  })
 })

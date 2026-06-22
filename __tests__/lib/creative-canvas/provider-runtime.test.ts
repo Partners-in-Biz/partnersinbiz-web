@@ -8,6 +8,7 @@ const mockGetCreativeCanvas = jest.fn()
 const mockDispatchCreativeCanvasProviderRun = jest.fn()
 const mockRefreshCreativeCanvasProviderRunStatus = jest.fn()
 const mockCompleteCreativeCanvasRun = jest.fn()
+const mockEnsureCreativeCanvasRunOutputNode = jest.fn()
 
 jest.mock('@/lib/firebase/admin', () => ({
   adminDb: { collection: mockCollection },
@@ -26,9 +27,10 @@ jest.mock('@/lib/creative-canvas/runs', () => ({
   dispatchCreativeCanvasProviderRun: (...args: unknown[]) => mockDispatchCreativeCanvasProviderRun(...args),
   refreshCreativeCanvasProviderRunStatus: (...args: unknown[]) => mockRefreshCreativeCanvasProviderRunStatus(...args),
   completeCreativeCanvasRun: (...args: unknown[]) => mockCompleteCreativeCanvasRun(...args),
+  ensureCreativeCanvasRunOutputNode: (...args: unknown[]) => mockEnsureCreativeCanvasRunOutputNode(...args),
 }))
 
-import { drainHiggsfieldCreativeCanvasRuns } from '@/lib/creative-canvas/provider-runtime'
+import { drainHiggsfieldCreativeCanvasRuns, getHiggsfieldRuntimeReadiness } from '@/lib/creative-canvas/provider-runtime'
 
 const queuedRun = {
   id: 'run-1',
@@ -60,7 +62,18 @@ const runningRun = {
   provenance: {
     ...queuedRun.provenance,
     providerJobId: 'hf-job-2',
-    providerStatusUrl: 'https://runtime.example.com/jobs/hf-job-2',
+    providerStatusUrl: '/api/internal/creative-canvas/higgsfield-runtime/runs/hf-job-2?orgId=org-1',
+  },
+}
+
+const waitingRunWithOutput = {
+  ...runningRun,
+  id: 'run-3',
+  status: 'waiting_for_review',
+  output: {
+    outputNodeId: 'model-1-output',
+    url: 'https://cdn.example.com/proof.jpg',
+    textPreview: 'Proof output',
   },
 }
 
@@ -79,6 +92,7 @@ function setupFirestoreDocs(sequences: Array<Array<Record<string, unknown>>>) {
       })),
     })
   })
+  mockGet.mockResolvedValue({ docs: [] })
 }
 
 describe('Higgsfield creative canvas provider runtime', () => {
@@ -100,6 +114,41 @@ describe('Higgsfield creative canvas provider runtime', () => {
     })
     expect(mockCollection).not.toHaveBeenCalled()
     expect(global.fetch).not.toHaveBeenCalled()
+  })
+
+  it('reports safe Higgsfield runtime readiness diagnostics', () => {
+    const readiness = getHiggsfieldRuntimeReadiness({
+      canvas: { linked: { projectId: 'project-1' } },
+      env: {
+        HIGGSFIELD_RUNTIME_API_KEY: 'secret-key',
+        NEXT_PUBLIC_APP_URL: 'https://partnersinbiz.online',
+      } as NodeJS.ProcessEnv,
+    })
+
+    expect(readiness).toMatchObject({
+      providerKey: 'higgsfield',
+      runtimeConfigured: true,
+      submitConfigured: true,
+      statusPollingConfigured: true,
+      internalBridgeConfigured: true,
+      callbackBaseConfigured: true,
+      webhookSecretConfigured: false,
+      linkedProjectId: 'project-1',
+      blockers: [],
+      warnings: ['Provider webhook secret is not configured'],
+    })
+    expect(JSON.stringify(readiness)).not.toContain('secret-key')
+  })
+
+  it('reports runtime readiness blockers when runtime and project linkage are missing', () => {
+    const readiness = getHiggsfieldRuntimeReadiness({ env: {} as NodeJS.ProcessEnv })
+
+    expect(readiness.runtimeConfigured).toBe(false)
+    expect(readiness.blockers).toEqual(expect.arrayContaining([
+      'Higgsfield runtime submit URL or internal bridge is not configured',
+      'Higgsfield runtime status polling is not configured',
+      'Canvas is not linked to a project for agent task execution',
+    ]))
   })
 
   it('submits queued Higgsfield runs through the configured runtime bridge', async () => {
@@ -181,8 +230,14 @@ describe('Higgsfield creative canvas provider runtime', () => {
     ;(global.fetch as jest.Mock).mockResolvedValue({
       ok: true,
       text: async () => JSON.stringify({
-        providerJobId: 'hermes-run-1',
-        status: 'running',
+        success: true,
+        data: {
+          providerJobId: 'hermes-run-1',
+          providerStatusUrl: '/api/internal/creative-canvas/higgsfield-runtime/runs/hermes-run-1?orgId=org-1',
+          status: 'running',
+          providerStatus: 'hermes_run_submitted',
+          providerStatusMessage: 'Submitted Creative Canvas Higgsfield run to Hermes profile pip.',
+        },
       }),
     })
 
@@ -198,6 +253,14 @@ describe('Higgsfield creative canvas provider runtime', () => {
       method: 'POST',
       headers: expect.objectContaining({ Authorization: 'Bearer runtime-key' }),
     }))
+    expect(mockDispatchCreativeCanvasProviderRun).toHaveBeenCalledWith('run-1', 'org-1', expect.objectContaining({
+      providerJobId: 'hermes-run-1',
+      providerStatusUrl: 'https://partnersinbiz.online/api/internal/creative-canvas/higgsfield-runtime/runs/hermes-run-1?orgId=org-1',
+    }), { uid: 'agent:maya', type: 'agent' })
+    expect(mockRefreshCreativeCanvasProviderRunStatus).toHaveBeenCalledWith('run-1', 'org-1', expect.objectContaining({
+      status: 'running',
+      providerStatus: 'hermes_run_submitted',
+    }), { uid: 'agent:maya', type: 'agent' })
   })
 
   it('polls running jobs and completes canvas output when the runtime returns media', async () => {
@@ -205,25 +268,31 @@ describe('Higgsfield creative canvas provider runtime', () => {
     ;(global.fetch as jest.Mock).mockResolvedValue({
       ok: true,
       text: async () => JSON.stringify({
-        status: 'completed',
-        providerJobId: 'hf-job-2',
-        output: {
-          kind: 'video',
-          url: 'https://cdn.example.com/output.mp4',
-          thumbnailUrl: 'https://cdn.example.com/output.jpg',
-          textPreview: 'Generated product clip',
+        success: true,
+        data: {
+          status: 'completed',
+          providerJobId: 'hf-job-2',
+          output: {
+            kind: 'video',
+            url: 'https://cdn.example.com/output.mp4',
+            thumbnailUrl: 'https://cdn.example.com/output.jpg',
+            textPreview: 'Generated product clip',
+          },
         },
       }),
     })
 
     const result = await drainHiggsfieldCreativeCanvasRuns({
       env: {
-        HIGGSFIELD_RUNTIME_STATUS_URL: 'https://runtime.example.com/jobs/{providerJobId}',
+        HIGGSFIELD_RUNTIME_API_KEY: 'runtime-key',
+        NEXT_PUBLIC_APP_URL: 'https://partnersinbiz.online',
       } as NodeJS.ProcessEnv,
     })
 
     expect(result).toMatchObject({ completed: 1, runtimeConfigured: true })
-    expect(global.fetch).toHaveBeenCalledWith('https://runtime.example.com/jobs/hf-job-2', expect.any(Object))
+    expect(global.fetch).toHaveBeenCalledWith('https://partnersinbiz.online/api/internal/creative-canvas/higgsfield-runtime/runs/hf-job-2?orgId=org-1', expect.objectContaining({
+      headers: expect.objectContaining({ Authorization: 'Bearer runtime-key' }),
+    }))
     expect(mockCompleteCreativeCanvasRun).toHaveBeenCalledWith('run-2', 'org-1', expect.objectContaining({
       outputNodeId: 'model-1-output',
       output: expect.objectContaining({
@@ -236,5 +305,24 @@ describe('Higgsfield creative canvas provider runtime', () => {
         costLabel: 'higgsfield_runtime',
       }),
     }), { uid: 'agent:maya', type: 'agent' })
+  })
+
+  it('reconciles agent-written run outputs into canvas output nodes before polling', async () => {
+    setupFirestoreDocs([[], [waitingRunWithOutput], []])
+    mockEnsureCreativeCanvasRunOutputNode.mockResolvedValue({
+      run: { ...waitingRunWithOutput, status: 'completed' },
+      outputNode: { id: 'model-1-output' },
+    })
+
+    const result = await drainHiggsfieldCreativeCanvasRuns({
+      env: {
+        HIGGSFIELD_RUNTIME_API_KEY: 'runtime-key',
+        NEXT_PUBLIC_APP_URL: 'https://partnersinbiz.online',
+      } as NodeJS.ProcessEnv,
+    })
+
+    expect(result).toMatchObject({ completed: 1, runtimeConfigured: true })
+    expect(global.fetch).not.toHaveBeenCalled()
+    expect(mockEnsureCreativeCanvasRunOutputNode).toHaveBeenCalledWith('run-3', 'org-1', { uid: 'agent:maya', type: 'agent' })
   })
 })

@@ -22,6 +22,20 @@ export type AgentStatus =
   | 'done'
   | 'blocked'
 
+export type ReviewStatus = 'pending' | 'in-progress' | 'approved' | 'changes-requested'
+export type ApprovalStatus = 'pending' | 'approved' | 'rejected' | 'denied'
+export type ApprovalGate =
+  | 'none'
+  | 'human-review'
+  | 'client-visible'
+  | 'public-publishing'
+  | 'paid-spend'
+  | 'production-deploy'
+  | 'finance'
+  | 'destructive'
+  | 'secret-config'
+  | 'none-until-production-or-client-visible'
+
 export interface AgentArtifact {
   type: 'url' | 'file' | 'commit' | 'message-thread' | 'doc'
   ref: string
@@ -82,8 +96,10 @@ export interface Task {
   dependsOn?: string[]
   reviewerIds?: string[]
   reviewerAgentId?: AgentId | null
-  reviewStatus?: 'pending' | 'in-progress' | 'approved' | 'changes-requested' | null
+  reviewStatus?: ReviewStatus | null
+  approvalStatus?: ApprovalStatus | null
   riskLevel?: 'low' | 'medium' | 'high' | 'critical'
+  approvalGate?: ApprovalGate | null
   agentEffort?: AgentEffort | null
   agentModel?: AgentModel | null
   requiredCapability?: string | null
@@ -94,6 +110,7 @@ export interface Task {
   sourceSpecVersion?: string | null
   sourceResearchItemId?: string | null
   expectedArtifacts?: string[]
+  verifierChecklist?: string[]
   contextRefs?: ContextReference[]
 }
 
@@ -128,8 +145,10 @@ export interface TaskInput {
   dependsOn?: string[]
   reviewerIds?: string[]
   reviewerAgentId?: AgentId | null
-  reviewStatus?: 'pending' | 'in-progress' | 'approved' | 'changes-requested' | null
+  reviewStatus?: ReviewStatus | null
+  approvalStatus?: ApprovalStatus | null
   riskLevel?: 'low' | 'medium' | 'high' | 'critical'
+  approvalGate?: ApprovalGate | null
   agentEffort?: AgentEffort | null
   agentModel?: AgentModel | null
   requiredCapability?: string | null
@@ -140,6 +159,7 @@ export interface TaskInput {
   sourceSpecVersion?: string | null
   sourceResearchItemId?: string | null
   expectedArtifacts?: string[]
+  verifierChecklist?: string[]
   contextRefs?: ContextReference[]
 }
 

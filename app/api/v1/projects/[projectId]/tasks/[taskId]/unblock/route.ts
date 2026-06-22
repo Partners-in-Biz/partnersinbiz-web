@@ -21,6 +21,20 @@ function isAuthorisedToUnblock(role: string): boolean {
   return role === 'admin' || role === 'client'
 }
 
+function isApprovalGateTask(task: Record<string, unknown>): boolean {
+  const labels = Array.isArray(task.labels) ? task.labels.filter((label): label is string => typeof label === 'string') : []
+  const approvalGate = typeof task.approvalGate === 'string' && task.approvalGate.trim() && task.approvalGate !== 'none'
+  return Boolean(
+    approvalGate
+    || typeof task.approvalStatus === 'string'
+    || labels.some((label) => /approval-gate|approval-required|client-approval|required-approval/i.test(label)),
+  )
+}
+
+function taskLabel(task: Record<string, unknown>, fallback: string): string {
+  return typeof task.title === 'string' && task.title.trim() ? task.title.trim() : fallback
+}
+
 async function loadRelatedTasks(projectId: string, ids: string[]): Promise<DependencyStatus[]> {
   const uniqueIds = Array.from(new Set(ids.filter(Boolean)))
   if (uniqueIds.length === 0) return []
@@ -34,6 +48,9 @@ async function loadRelatedTasks(projectId: string, ids: string[]): Promise<Depen
       columnId: typeof data.columnId === 'string' ? data.columnId : null,
       agentStatus: typeof data.agentStatus === 'string' ? data.agentStatus : null,
       reviewStatus: typeof data.reviewStatus === 'string' ? data.reviewStatus : null,
+      approvalStatus: typeof data.approvalStatus === 'string' ? data.approvalStatus : null,
+      approvalGate: typeof data.approvalGate === 'string' ? data.approvalGate : null,
+      labels: Array.isArray(data.labels) ? data.labels.filter((label): label is string => typeof label === 'string') : [],
     }
   })
 }
@@ -51,6 +68,9 @@ export const POST = withAuth('client', async (req: NextRequest, user, ctx) => {
   const task = taskDoc.data() ?? {}
   const isBlocked = task.columnId === 'blocked' || task.agentStatus === 'blocked' || task.agentStatus === 'awaiting-input'
   if (!isBlocked) return apiError('Task is not blocked or awaiting input', 400)
+  if (isApprovalGateTask(task) && task.approvalStatus !== 'approved') {
+    return apiError('Cannot unblock yet', 409, { reasons: [`Approval gate “${taskLabel(task, taskId)}” is not approved yet.`] })
+  }
 
   const dependsOn = Array.isArray(task.dependsOn) ? task.dependsOn.filter((id): id is string => typeof id === 'string' && id.trim().length > 0) : []
   const approvalGateTaskId = typeof task.approvalGateTaskId === 'string' && task.approvalGateTaskId.trim() ? task.approvalGateTaskId.trim() : null

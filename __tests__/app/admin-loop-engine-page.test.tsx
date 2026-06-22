@@ -2,6 +2,7 @@ import React from 'react'
 import { render, screen } from '@testing-library/react'
 import AdminLoopEnginePage from '@/app/(admin)/admin/loop-engine/page'
 import { LOOP_REGISTRY } from '@/lib/loop-engine/registry'
+import { LOOP_TEMPLATE_LIBRARY, LOOP_TEMPLATE_SOURCE } from '@/lib/loop-engine/template-library'
 import { OPERATOR_NAV, OPERATOR_NAV_TOPBAR } from '@/components/admin/navConfig'
 
 jest.mock('next/link', () => {
@@ -42,6 +43,17 @@ describe('Admin loop engine page', () => {
     expect(screen.getAllByText(/Create internal lead-response task/i).length).toBeGreaterThan(0)
     expect(screen.getAllByText(/Draft lead response for approval/i).length).toBeGreaterThan(0)
     expect(screen.getByText(/POST \/api\/v1\/admin\/loop-engine\/evaluate/i)).toBeInTheDocument()
+
+    expect(screen.getByRole('heading', { name: /loop templates from the community pattern library/i })).toBeInTheDocument()
+    expect(screen.getByText(/copy-ready starter contracts adapted from Forward Future Loop Library/i)).toBeInTheDocument()
+    expect(screen.getByText(new RegExp(`${LOOP_TEMPLATE_SOURCE.upstreamTemplateCount} templates checked`, 'i'))).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /open github source/i })).toHaveAttribute('href', LOOP_TEMPLATE_SOURCE.url)
+    expect(screen.getByRole('link', { name: /open loop library/i })).toHaveAttribute('href', LOOP_TEMPLATE_SOURCE.siteUrl)
+    for (const template of LOOP_TEMPLATE_LIBRARY) {
+      expect(screen.getByRole('heading', { name: template.name })).toBeInTheDocument()
+      expect(screen.getByText(template.summary)).toBeInTheDocument()
+      expect(screen.getByText(template.starterPrompt)).toBeInTheDocument()
+    }
 
     expect(screen.getByRole('heading', { name: /task eligibility explainer/i })).toBeInTheDocument()
     expect(screen.getAllByText(/agentStatus is awaiting-input, not pending/i).length).toBeGreaterThan(0)

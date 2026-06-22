@@ -212,6 +212,16 @@ function TaskCard({
         <span className={`text-[9px] font-label uppercase tracking-wide px-1.5 py-0.5 rounded border ${stateStyle.pillClassName}`}>
           {stateStyle.label}
         </span>
+        {task.reviewStatus === 'approved' && (
+          <span className="text-[9px] font-label uppercase tracking-wide px-1.5 py-0.5 rounded border border-emerald-400/30 bg-emerald-500/10 text-emerald-300">
+            Review passed
+          </span>
+        )}
+        {task.approvalStatus === 'pending' && task.approvalGate && task.approvalGate !== 'none' && (
+          <span className="text-[9px] font-label uppercase tracking-wide px-1.5 py-0.5 rounded border border-amber-400/30 bg-amber-500/10 text-amber-300">
+            Approval pending
+          </span>
+        )}
         {task.labels?.slice(0, 2).map(l => (
           <span key={l} className="text-[9px] px-1.5 py-0.5 rounded bg-surface-container text-on-surface-variant">
             {l}
@@ -392,6 +402,7 @@ export function KanbanBoard({
   const [tasks, setTasks] = useState(initialTasks)
   const [activeTask, setActiveTask] = useState<Task | null>(null)
   const [internalSortMode, setInternalSortMode] = useState<'latest' | 'manual'>('latest')
+  const dragSnapshotRef = useRef<Task[] | null>(null)
   const boardPanRef = useRef({
     active: false,
     pointerId: -1,
@@ -440,6 +451,7 @@ export function KanbanBoard({
   )
 
   function handleDragStart(event: DragStartEvent) {
+    dragSnapshotRef.current = tasks
     const task = tasks.find(t => t.id === event.active.id)
     setActiveTask(task ?? null)
   }
@@ -466,10 +478,16 @@ export function KanbanBoard({
   async function handleDragEnd(event: DragEndEvent) {
     const { active, over } = event
     setActiveTask(null)
-    if (!over) return
+    if (!over) {
+      dragSnapshotRef.current = null
+      return
+    }
 
     const movedTask = tasks.find(t => t.id === active.id)
-    if (!movedTask) return
+    if (!movedTask) {
+      dragSnapshotRef.current = null
+      return
+    }
 
     const overTask = tasks.find(t => t.id === over.id)
     const overColumn = columns.find(c => c.id === over.id)
@@ -489,10 +507,17 @@ export function KanbanBoard({
             ? previousOrder + 1
             : Date.now()
 
+    const rollbackTasks = dragSnapshotRef.current
     setTasks(prev => prev.map(t =>
       t.id === active.id ? { ...t, columnId: targetColumnId, order: newOrder } : t
     ))
-    await onTaskMove(movedTask.id, targetColumnId, newOrder)
+    try {
+      await onTaskMove(movedTask.id, targetColumnId, newOrder)
+      dragSnapshotRef.current = null
+    } catch {
+      if (rollbackTasks) setTasks(rollbackTasks)
+      dragSnapshotRef.current = null
+    }
   }
 
   function canPanBoardFromTarget(target: EventTarget | null) {

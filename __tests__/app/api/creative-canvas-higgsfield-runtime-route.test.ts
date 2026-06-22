@@ -1,10 +1,12 @@
 import { NextRequest } from 'next/server'
 
 const mockSubmitCreativeCanvasRunToHermes = jest.fn()
+const mockGetCreativeCanvasHermesRunStatus = jest.fn()
 
 jest.mock('@/lib/creative-canvas/hermes-runtime-bridge', () => ({
   hasValidCreativeCanvasRuntimeKey: jest.requireActual('@/lib/creative-canvas/hermes-runtime-bridge').hasValidCreativeCanvasRuntimeKey,
   submitCreativeCanvasRunToHermes: (...args: unknown[]) => mockSubmitCreativeCanvasRunToHermes(...args),
+  getCreativeCanvasHermesRunStatus: (...args: unknown[]) => mockGetCreativeCanvasHermesRunStatus(...args),
 }))
 
 describe('internal Creative Canvas Higgsfield runtime route', () => {
@@ -67,6 +69,38 @@ describe('internal Creative Canvas Higgsfield runtime route', () => {
         providerJobId: 'hermes-run-1',
         status: 'running',
         providerStatus: 'hermes_run_submitted',
+      },
+    })
+  })
+
+  it('reads normalized Hermes run status for runtime polling', async () => {
+    const { GET } = await import('@/app/api/internal/creative-canvas/higgsfield-runtime/runs/[runId]/route')
+    mockGetCreativeCanvasHermesRunStatus.mockResolvedValue({
+      providerJobId: 'hermes-run-1',
+      status: 'completed',
+      providerStatus: 'completed',
+      providerStatusMessage: 'Generated output ready',
+      output: {
+        kind: 'image',
+        url: 'https://cdn.example.com/output.png',
+      },
+    })
+
+    const res = await GET(new NextRequest('http://localhost/api/internal/creative-canvas/higgsfield-runtime/runs/hermes-run-1?orgId=org-1', {
+      headers: { Authorization: 'Bearer runtime-key' },
+    }), { params: Promise.resolve({ runId: 'hermes-run-1' }) })
+    const body = await res.json()
+
+    expect(res.status).toBe(200)
+    expect(mockGetCreativeCanvasHermesRunStatus).toHaveBeenCalledWith('org-1', 'hermes-run-1')
+    expect(body).toMatchObject({
+      success: true,
+      data: {
+        providerJobId: 'hermes-run-1',
+        status: 'completed',
+        output: {
+          url: 'https://cdn.example.com/output.png',
+        },
       },
     })
   })

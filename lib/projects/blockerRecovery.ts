@@ -9,6 +9,7 @@ export type BlockerTaskLike = {
   dependsOn?: string[]
   approvalGateTaskId?: string | null
   reviewStatus?: string | null
+  approvalStatus?: string | null
   labels?: string[]
 }
 
@@ -38,6 +39,9 @@ export type DependencyStatus = {
   columnId?: string | null
   agentStatus?: string | null
   reviewStatus?: string | null
+  approvalStatus?: string | null
+  approvalGate?: string | null
+  labels?: string[]
 }
 
 const HUMAN_WAITING_PATTERNS = [
@@ -173,6 +177,21 @@ function isDone(task: DependencyStatus | undefined): boolean {
   return task.columnId === 'done' || task.agentStatus === 'done' || task.reviewStatus === 'approved'
 }
 
+function isApprovalGateApproved(task: DependencyStatus | undefined): boolean {
+  if (!task) return false
+  return task.approvalStatus === 'approved'
+}
+
+function isApprovalGateDependency(task: DependencyStatus | undefined): boolean {
+  if (!task) return false
+  const gate = typeof task.approvalGate === 'string' && task.approvalGate.trim() && task.approvalGate !== 'none'
+  return Boolean(
+    gate
+    || typeof task.approvalStatus === 'string'
+    || task.labels?.some((label) => /approval-gate|approval-required|client-approval|required-approval/i.test(label)),
+  )
+}
+
 function isBlocked(task: DependencyStatus | undefined): boolean {
   if (!task) return false
   return task.columnId === 'blocked' || task.agentStatus === 'blocked' || task.agentStatus === 'awaiting-input'
@@ -194,6 +213,7 @@ export function evaluateUnblockReadiness(
     const label = taskLabel(dep, depId)
     if (!dep) reasons.push(`Dependency “${label}” could not be found.`)
     else if (isBlocked(dep)) reasons.push(`Dependency “${label}” is still blocked.`)
+    else if (isApprovalGateDependency(dep) && !isApprovalGateApproved(dep)) reasons.push(`Approval gate “${label}” is not approved yet.`)
     else if (!isDone(dep)) reasons.push(`Dependency “${label}” is not complete yet.`)
   }
 
@@ -201,7 +221,7 @@ export function evaluateUnblockReadiness(
     const gate = byId.get(task.approvalGateTaskId)
     const label = taskLabel(gate, task.approvalGateTaskId)
     if (!gate) reasons.push(`Approval gate “${label}” could not be found.`)
-    else if (gate.reviewStatus !== 'approved' && gate.columnId !== 'done') reasons.push(`Approval gate “${label}” is not approved yet.`)
+    else if (!isApprovalGateApproved(gate)) reasons.push(`Approval gate “${label}” is not approved yet.`)
   }
 
   return { ready: reasons.length === 0, reasons }

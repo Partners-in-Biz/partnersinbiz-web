@@ -80,8 +80,11 @@ export function AdminShell({ userEmail, userUid, children }: AdminShellProps) {
     searchParams,
     orgId: drawerOrgId,
   })
-  const mainClassName = 'px-4 md:px-8 py-8'
-  const innerClassName = 'max-w-[1400px]'
+  // The Creative Canvas is an immersive full-bleed surface — drop the centered
+  // max-width and shell gutter so it can use the whole content area.
+  const isCanvasRoute = pathname.startsWith('/admin/creative-canvas')
+  const mainClassName = isCanvasRoute ? 'p-2' : 'px-4 md:px-8 py-8'
+  const innerClassName = isCanvasRoute ? 'max-w-none' : 'max-w-[1400px]'
   const messageAction = (
     <>
       <MailboxDrawer onOpen={closeSidebarForMessages} />

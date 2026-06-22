@@ -82,6 +82,8 @@ describe('TaskDetailPanel', () => {
 
   it('surfaces an approval gate action directly on approval todo cards', async () => {
     const props = renderPanel({
+      surface: 'admin',
+      canManageApprovalGates: true,
       task: {
         ...task,
         labels: ['approval-gate'],
@@ -102,6 +104,117 @@ describe('TaskDetailPanel', () => {
       approvalStatus: 'approved',
     }))
     expect(global.fetch).toHaveBeenCalledWith('/api/v1/projects/project-1/tasks/task-1/comments', expect.objectContaining({ method: 'POST' }))
+  })
+
+  it('hides approval-gate decision controls outside authorised admin approval contexts', async () => {
+    renderPanel({
+      surface: 'portal',
+      task: {
+        ...task,
+        labels: ['approval-gate'],
+        approvalStatus: 'pending',
+      },
+    })
+
+    await waitFor(() => expect(screen.queryByText('Loading comments...')).not.toBeInTheDocument())
+
+    expect(screen.getByText('Approval gate')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /approve this gate/i })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /reject \/ request changes/i })).not.toBeInTheDocument()
+    expect(screen.getByText(/Only an authorised admin approver can decide this gate/i)).toBeInTheDocument()
+  })
+
+  it('separates quality review state from business approval gate state in the task drawer', async () => {
+    renderPanel({
+      task: {
+        ...task,
+        assigneeAgentId: 'theo',
+        agentStatus: 'done',
+        reviewerAgentId: 'qa-release',
+        reviewStatus: 'approved',
+        approvalStatus: 'pending',
+        requiredCapability: 'platform-engineering',
+        riskLevel: 'high',
+        approvalGate: 'production-deploy',
+        expectedArtifacts: ['commit on origin/development', 'typecheck output'],
+        verifierChecklist: ['Inspect diff against spec', 'Confirm approval gates remain closed'],
+      },
+      agents: [
+        { agentId: 'theo', name: 'Theo' },
+        { agentId: 'qa-release', name: 'Quinn' },
+      ],
+    })
+
+    await waitFor(() => expect(screen.queryByText('Loading comments...')).not.toBeInTheDocument())
+
+    expect(screen.getByText('Review package')).toBeInTheDocument()
+    expect(screen.getByText('Quality review')).toBeInTheDocument()
+    expect(screen.getByText('Passed')).toBeInTheDocument()
+    expect(screen.getByText('Business approval')).toBeInTheDocument()
+    expect(screen.getByText('Pending')).toBeInTheDocument()
+    expect(screen.getByText(/production-deploy/)).toBeInTheDocument()
+    expect(screen.getAllByText(/Quinn/).length).toBeGreaterThan(0)
+    expect(screen.getByText('commit on origin/development')).toBeInTheDocument()
+    expect(screen.getByText('Confirm approval gates remain closed')).toBeInTheDocument()
+  })
+
+  it('keeps review-passed tasks in review when a business approval gate is still pending', async () => {
+    const props = renderPanel({
+      task: {
+        ...task,
+        columnId: 'review',
+        assigneeAgentId: 'theo',
+        agentStatus: 'done',
+        reviewStatus: 'pending',
+        approvalStatus: 'pending',
+        approvalGate: 'production-deploy',
+      },
+    })
+
+    await waitFor(() => expect(screen.queryByText('Loading comments...')).not.toBeInTheDocument())
+    fireEvent.click(screen.getByRole('button', { name: /mark review passed/i }))
+
+    await waitFor(() => expect(props.onUpdate).toHaveBeenCalledWith('task-1', {
+      columnId: 'review',
+      reviewStatus: 'approved',
+    }))
+  })
+
+  it('keeps label-only approval gates in review when quality review passes but business approval is pending', async () => {
+    const props = renderPanel({
+      task: {
+        ...task,
+        columnId: 'review',
+        labels: ['approval-gate'],
+        assigneeAgentId: 'theo',
+        agentStatus: 'done',
+        reviewStatus: 'pending',
+      },
+    })
+
+    await waitFor(() => expect(screen.queryByText('Loading comments...')).not.toBeInTheDocument())
+    fireEvent.click(screen.getByRole('button', { name: /mark review passed/i }))
+
+    await waitFor(() => expect(props.onUpdate).toHaveBeenCalledWith('task-1', {
+      columnId: 'review',
+      reviewStatus: 'approved',
+    }))
+  })
+
+  it('shows approval controls for approvalGate-only cards when the admin is authorised', async () => {
+    renderPanel({
+      surface: 'admin',
+      canManageApprovalGates: true,
+      task: {
+        ...task,
+        approvalGate: 'production-deploy',
+      },
+    })
+
+    await waitFor(() => expect(screen.queryByText('Loading comments...')).not.toBeInTheDocument())
+
+    expect(screen.getByText('Approval gate')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /approve this gate/i })).toBeInTheDocument()
   })
 
   it('uses an in-page confirmation before deleting project tasks', async () => {

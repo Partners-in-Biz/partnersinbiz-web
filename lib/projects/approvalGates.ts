@@ -2,6 +2,7 @@ import type { AgentId } from '@/lib/agents/types'
 import type { AgentCapability } from '@/lib/agents/capabilities'
 
 export type RiskLevel = 'low' | 'medium' | 'high' | 'critical'
+export type ApprovalGate = 'none' | 'human-review' | 'client-visible' | 'public-publishing' | 'paid-spend' | 'production-deploy' | 'finance' | 'destructive' | 'secret-config'
 
 interface ApprovalGatedTaskInput {
   title: string
@@ -9,7 +10,9 @@ interface ApprovalGatedTaskInput {
   reviewerAgentId?: AgentId
   requiredCapability: AgentCapability
   riskLevel: RiskLevel
+  approvalGate?: ApprovalGate
   expectedArtifacts?: string[]
+  verifierChecklist?: string[]
   spec: string
   sourceDocumentSectionId?: string
   sourceResearchItemId?: string
@@ -49,7 +52,9 @@ interface BuiltTask {
   reviewerAgentId?: AgentId
   requiredCapability?: AgentCapability
   riskLevel?: RiskLevel
+  approvalGate?: ApprovalGate
   expectedArtifacts?: string[]
+  verifierChecklist?: string[]
   dependsOn?: string[]
   labels: string[]
   agentInput: {
@@ -116,7 +121,9 @@ export function buildApprovalGatedTaskGroup(input: ApprovalGatedGroupInput): {
     requestedByAgentId: input.requestedByAgentId,
     requiredCapability: task.requiredCapability,
     riskLevel: task.riskLevel,
+    approvalGate: task.approvalGate,
     expectedArtifacts: task.expectedArtifacts ?? [],
+    verifierChecklist: task.verifierChecklist ?? [],
     labels: ['approval-gated', `agent:${task.assigneeAgentId}`, `capability:${task.requiredCapability}`],
     agentInput: {
       spec: task.spec,
@@ -128,7 +135,9 @@ export function buildApprovalGatedTaskGroup(input: ApprovalGatedGroupInput): {
         reviewerAgentId: task.reviewerAgentId,
         requiredCapability: task.requiredCapability,
         riskLevel: task.riskLevel,
+        approvalGate: task.approvalGate ?? 'human-review',
         expectedArtifacts: task.expectedArtifacts ?? [],
+        verifierChecklist: task.verifierChecklist ?? [],
       },
     },
   }))

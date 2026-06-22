@@ -1,4 +1,5 @@
 import {
+  sanitizeCreativeCanvasData,
   sanitizeCreativeCanvasGraph,
   sanitizeCreativeCanvasInput,
 } from '@/lib/creative-canvas/sanitize'
@@ -24,6 +25,450 @@ describe('creative canvas sanitizers', () => {
       activeVersion: 1,
       deleted: false,
     })
+  })
+
+  it('keeps bounded visual proof metadata on canvas input', () => {
+    const input = sanitizeCreativeCanvasInput(
+      {
+        title: ' Launch Pack ',
+        data: {
+          visualProof: {
+            desktop_1440: {
+              screenshotUrl: ' https://proof.example.com/desktop.png ',
+              notes: ' Graph, sources, and inspector are visible. ',
+              capturedAt: '2026-06-20T10:00:00.000Z',
+              capturedBy: 'Pip',
+              signedIn: true,
+              sessionEvidence: ' Signed-in admin header visible. ',
+              viewportSize: ' 1440x900 ',
+              visiblePanels: ' Graph, Sources, Inspector ',
+              canvasVersion: 2.6,
+              graphSignature: ' visual-signature ',
+              nodeCount: 6.1,
+              edgeCount: 5.9,
+              screenshotCheckedAt: ' 2026-06-21T12:00:00.000Z ',
+              screenshotReachable: true,
+              screenshotStatus: 200.4,
+              screenshotContentType: ' image/png ',
+            },
+            empty: {},
+          },
+        },
+      },
+      'org-1',
+      { uid: 'user-1', type: 'user' },
+    )
+
+    expect(input.data).toEqual({
+      visualProof: {
+        desktop_1440: {
+          screenshotUrl: 'https://proof.example.com/desktop.png',
+          notes: 'Graph, sources, and inspector are visible.',
+          capturedAt: '2026-06-20T10:00:00.000Z',
+          capturedBy: 'Pip',
+          signedIn: true,
+          sessionEvidence: 'Signed-in admin header visible.',
+          viewportSize: '1440x900',
+          visiblePanels: 'Graph, Sources, Inspector',
+          canvasVersion: 3,
+          graphSignature: 'visual-signature',
+          nodeCount: 6,
+          edgeCount: 6,
+          screenshotCheckedAt: '2026-06-21T12:00:00.000Z',
+          screenshotReachable: true,
+          screenshotStatus: 200,
+          screenshotContentType: 'image/png',
+        },
+      },
+    })
+  })
+
+  it('sanitizes visual proof patches without accepting unrelated canvas metadata', () => {
+    expect(sanitizeCreativeCanvasData({
+      arbitrary: { value: true },
+      visualProof: {
+        mobile_390: {
+          screenshotUrl: 'https://proof.example.com/mobile.png',
+          notes: 'Mobile canvas is legible.',
+          signedIn: false,
+          sessionEvidence: 'Signed-in mobile header visible.',
+          viewportSize: '390x844',
+          visiblePanels: 'Canvas panel',
+          canvasVersion: 1,
+          graphSignature: 'mobile-signature',
+          nodeCount: 3,
+          edgeCount: 2,
+        },
+      },
+    })).toEqual({
+      visualProof: {
+        mobile_390: {
+          screenshotUrl: 'https://proof.example.com/mobile.png',
+          notes: 'Mobile canvas is legible.',
+          capturedAt: undefined,
+          capturedBy: undefined,
+          signedIn: false,
+          sessionEvidence: 'Signed-in mobile header visible.',
+          viewportSize: '390x844',
+          visiblePanels: 'Canvas panel',
+          canvasVersion: 1,
+          graphSignature: 'mobile-signature',
+          nodeCount: 3,
+          edgeCount: 2,
+        },
+      },
+    })
+  })
+
+  it('sanitizes direct benchmark proof patches', () => {
+    expect(sanitizeCreativeCanvasData({
+      benchmarkProof: {
+        editing_ergonomics: {
+          proofUrl: ' https://proof.example.com/editing.mp4 ',
+          notes: ' Node editing, branching, and recovery were captured. ',
+          capturedAt: '2026-06-20T11:00:00.000Z',
+          capturedBy: 'Pip',
+          sourceTitle: ' Higgsfield AI Canvas node workflow ',
+          sourceUrl: ' https://higgsfield.ai/canvas-intro ',
+          sourceCheckedAt: '2026-06-21T09:00:00.000Z',
+          sourceEvidenceCheckedAt: ' 2026-06-21T09:00:30.000Z ',
+          sourceEvidenceReachable: true,
+          sourceEvidenceStatus: 200.6,
+          sourceEvidenceContentType: ' text/html ',
+          sourceSignalsVerifiedAt: ' 2026-06-21T09:00:45.000Z ',
+          sourceSignalsMatched: true,
+          sourceSignalsMissing: [' stale signal '],
+          sourceSignals: [' Drop a node ', 'Chain your flow', 'Drop a node'],
+          higgsfieldUiEvidenceUrl: ' https://higgsfield.ai/canvas-intro ',
+          canvasEvidenceUrl: ' https://partnersinbiz.example.com/canvas#proof ',
+          canvasEvidenceCheckedAt: ' 2026-06-21T09:04:30.000Z ',
+          canvasEvidenceReachable: true,
+          canvasEvidenceStatus: 200.4,
+          canvasEvidenceContentType: ' text/html ',
+          directComparisonAt: '2026-06-21T09:05:00.000Z',
+          directComparisonVerdict: 'pass',
+          directComparisonNotes: ' Direct comparison passed. ',
+          canvasVersion: 3.4,
+          graphSignature: ' graph-signature-123 ',
+          nodeCount: 6.2,
+          edgeCount: 5.7,
+          collaborationRemoteActorCount: 2.2,
+          collaborationRemoteEventCount: 3.6,
+          collaborationRemoteMutationCount: 2.4,
+          collaborationRemoteMutationKindCount: 1.7,
+          collaborationRemoteTouchedNodeCount: 2.4,
+          collaborationRemoteGraphSignature: ' graph-signature-123 ',
+          collaborationRemoteSource: ' draft_applied ',
+          collaborationRemoteOutcome: ' remote_changes_adopted ',
+          collaborationStreamConnected: true,
+          collaborationCapturedAt: ' 2026-06-21T09:06:00.000Z ',
+          collaborationEvidence: ' Nova and Peet edited the same canvas. ',
+          collaborationRemoteMutations: [
+            {
+              actorUid: ' user-2 ',
+              actorType: 'user',
+              operation: ' node_move ',
+              touchedNodeIds: [' node-a ', '', 'node-a'],
+              touchedEdgeIds: [],
+              source: ' stream ',
+              occurredAt: ' 2026-06-21T09:05:30.000Z ',
+            },
+            {
+              actorUid: ' agent-maya ',
+              actorType: 'agent',
+              operation: ' edge_add ',
+              touchedNodeIds: [' node-a ', ' node-b '],
+              touchedEdgeIds: [' edge-a-b '],
+              source: ' draft_applied ',
+              occurredAt: ' 2026-06-21T09:05:45.000Z ',
+            },
+          ],
+          editingLocalEventCount: 2.4,
+          editingCapturedAt: ' 2026-06-21T09:07:00.000Z ',
+          editingEvidence: ' Two local graph edits captured. ',
+          agentStepCount: 5.2,
+          agentActorCount: 2.4,
+          agentTaskCreatedCount: 4.6,
+          agentTaskCreatedAt: ' 2026-06-21T09:07:15.000Z ',
+          agentEvidence: ' Five graph handoffs created five project-linked tasks. ',
+          mobileViewportProofCount: 3.8,
+          mobileViewportRequiredCount: 4.1,
+          mobileViewportProofCapturedAt: ' 2026-06-21T09:07:30.000Z ',
+          mobileViewportEvidence: ' Four signed-in viewport proofs captured. ',
+          exportArtifactBackedCategoryCount: 3.6,
+          exportArtifactBackedCompletedCount: 8.2,
+          exportArtifactBackedCapturedAt: ' 2026-06-21T09:08:00.000Z ',
+          exportArtifactEvidence: ' Four export categories backed by completed runtime artifacts. ',
+          runtimeProofStatus: 'passed',
+          runtimeReadyForLiveProof: true,
+          runtimeArtifactBackedCategoryCount: 4.2,
+          runtimeArtifactBackedCompletedCount: 8.7,
+          runtimeProviderBackedCategoryCount: 4.8,
+          runtimeProviderBackedCompletedCount: 10.2,
+          runtimeActiveRunCount: 0.2,
+          runtimeStaleActiveRunCount: 0.1,
+          runtimeFailedRunCount: 1.6,
+          runtimeFailureRatePercent: 11.4,
+          runtimeProofCapturedAt: ' 2026-06-21T09:09:00.000Z ',
+          runtimeEvidence: ' Four runtime categories passed with a drained queue. ',
+          runtimeProviderEvidenceCapturedAt: ' 2026-06-21T09:10:00.000Z ',
+          runtimeProviderEvidence: ' Five categories passed with provider job provenance. ',
+        },
+        empty: {},
+      },
+    })).toEqual({
+      benchmarkProof: {
+        editing_ergonomics: {
+          proofUrl: 'https://proof.example.com/editing.mp4',
+          notes: 'Node editing, branching, and recovery were captured.',
+          capturedAt: '2026-06-20T11:00:00.000Z',
+          capturedBy: 'Pip',
+          sourceTitle: 'Higgsfield AI Canvas node workflow',
+          sourceUrl: 'https://higgsfield.ai/canvas-intro',
+          sourceCheckedAt: '2026-06-21T09:00:00.000Z',
+          sourceEvidenceCheckedAt: '2026-06-21T09:00:30.000Z',
+          sourceEvidenceReachable: true,
+          sourceEvidenceStatus: 201,
+          sourceEvidenceContentType: 'text/html',
+          sourceSignalsVerifiedAt: '2026-06-21T09:00:45.000Z',
+          sourceSignalsMatched: true,
+          sourceSignalsMissing: ['stale signal'],
+          sourceSignals: ['Drop a node', 'Chain your flow'],
+          higgsfieldUiEvidenceUrl: 'https://higgsfield.ai/canvas-intro',
+          canvasEvidenceUrl: 'https://partnersinbiz.example.com/canvas#proof',
+          canvasEvidenceCheckedAt: '2026-06-21T09:04:30.000Z',
+          canvasEvidenceReachable: true,
+          canvasEvidenceStatus: 200,
+          canvasEvidenceContentType: 'text/html',
+          directComparisonAt: '2026-06-21T09:05:00.000Z',
+          directComparisonVerdict: 'pass',
+          directComparisonNotes: 'Direct comparison passed.',
+          canvasVersion: 3,
+          graphSignature: 'graph-signature-123',
+          nodeCount: 6,
+          edgeCount: 6,
+          collaborationRemoteActorCount: 2,
+          collaborationRemoteEventCount: 4,
+          collaborationRemoteMutationCount: 2,
+          collaborationRemoteMutationKindCount: 2,
+          collaborationRemoteTouchedNodeCount: 2,
+          collaborationRemoteGraphSignature: 'graph-signature-123',
+          collaborationRemoteSource: 'draft_applied',
+          collaborationRemoteOutcome: 'remote_changes_adopted',
+          collaborationStreamConnected: true,
+          collaborationCapturedAt: '2026-06-21T09:06:00.000Z',
+          collaborationEvidence: 'Nova and Peet edited the same canvas.',
+          collaborationRemoteMutations: [
+            {
+              actorUid: 'user-2',
+              actorType: 'user',
+              operation: 'node_move',
+              touchedNodeIds: ['node-a'],
+              touchedEdgeIds: [],
+              source: 'stream',
+              occurredAt: '2026-06-21T09:05:30.000Z',
+            },
+            {
+              actorUid: 'agent-maya',
+              actorType: 'agent',
+              operation: 'edge_add',
+              touchedNodeIds: ['node-a', 'node-b'],
+              touchedEdgeIds: ['edge-a-b'],
+              source: 'draft_applied',
+              occurredAt: '2026-06-21T09:05:45.000Z',
+            },
+          ],
+          editingLocalEventCount: 2,
+          editingCapturedAt: '2026-06-21T09:07:00.000Z',
+          editingEvidence: 'Two local graph edits captured.',
+          agentStepCount: 5,
+          agentActorCount: 2,
+          agentTaskCreatedCount: 5,
+          agentTaskCreatedAt: '2026-06-21T09:07:15.000Z',
+          agentEvidence: 'Five graph handoffs created five project-linked tasks.',
+          mobileViewportProofCount: 4,
+          mobileViewportRequiredCount: 4,
+          mobileViewportProofCapturedAt: '2026-06-21T09:07:30.000Z',
+          mobileViewportEvidence: 'Four signed-in viewport proofs captured.',
+          exportArtifactBackedCategoryCount: 4,
+          exportArtifactBackedCompletedCount: 8,
+          exportArtifactBackedCapturedAt: '2026-06-21T09:08:00.000Z',
+          exportArtifactEvidence: 'Four export categories backed by completed runtime artifacts.',
+          runtimeProofStatus: 'passed',
+          runtimeReadyForLiveProof: true,
+          runtimeArtifactBackedCategoryCount: 4,
+          runtimeArtifactBackedCompletedCount: 9,
+          runtimeProviderBackedCategoryCount: 5,
+          runtimeProviderBackedCompletedCount: 10,
+          runtimeActiveRunCount: 0,
+          runtimeStaleActiveRunCount: 0,
+          runtimeFailedRunCount: 2,
+          runtimeFailureRatePercent: 11,
+          runtimeProofCapturedAt: '2026-06-21T09:09:00.000Z',
+          runtimeEvidence: 'Four runtime categories passed with a drained queue.',
+          runtimeProviderEvidenceCapturedAt: '2026-06-21T09:10:00.000Z',
+          runtimeProviderEvidence: 'Five categories passed with provider job provenance.',
+        },
+      },
+    })
+  })
+
+  it('preserves capped mobile viewport behavior evidence and benchmark proof org binding', () => {
+    const evidence = Array.from({ length: 9 }, (_, index) => ({
+      key: index === 0 ? 'desktop' : index === 1 ? 'tablet' : index === 2 ? 'mobile' : 'mobile_panels',
+      width: 390.4 + index,
+      height: 844.2,
+      screenshotUrl: ` https://proof.example.com/mobile-${index}.png `,
+      status: 200.2,
+      contentType: ' image/png ',
+      criticalControlsVisible: true,
+      criticalControlsEnabled: true,
+      horizontalOverflow: false,
+      touchSmokePassed: true,
+      pointerSmokePassed: true,
+      panelKeys: [' canvas ', 'inspector'],
+      capturedAt: ' 2026-06-21T13:00:00.000Z ',
+      dropped: 'remove me',
+    }))
+
+    const sanitized = sanitizeCreativeCanvasData({
+      benchmarkProof: {
+        mobile_behavior: {
+          orgId: ' org-1 ',
+          canvasVersion: 2,
+          graphSignature: ' graph-signature-123 ',
+          nodeCount: 4,
+          edgeCount: 3,
+          mobileViewportProofCount: 4,
+          mobileViewportRequiredCount: 4,
+          mobileViewportProofCapturedAt: '2026-06-21T13:00:00.000Z',
+          mobileViewportEvidence: ' 4/4 signed-in viewport behavior proofs captured. ',
+          mobileViewportBehaviorEvidence: evidence,
+        },
+      },
+    })
+
+    expect(sanitized.benchmarkProof).toMatchObject({
+      mobile_behavior: {
+        orgId: 'org-1',
+        canvasVersion: 2,
+        graphSignature: 'graph-signature-123',
+        nodeCount: 4,
+        edgeCount: 3,
+        mobileViewportProofCount: 4,
+        mobileViewportRequiredCount: 4,
+        mobileViewportProofCapturedAt: '2026-06-21T13:00:00.000Z',
+        mobileViewportEvidence: '4/4 signed-in viewport behavior proofs captured.',
+        mobileViewportBehaviorEvidence: evidence.slice(0, 8).map((item, index) => ({
+          key: item.key,
+          width: 390 + index,
+          height: 844,
+          screenshotUrl: `https://proof.example.com/mobile-${index}.png`,
+          status: 200,
+          contentType: 'image/png',
+          criticalControlsVisible: true,
+          criticalControlsEnabled: true,
+          horizontalOverflow: false,
+          touchSmokePassed: true,
+          pointerSmokePassed: true,
+          panelKeys: ['canvas', 'inspector'],
+          capturedAt: '2026-06-21T13:00:00.000Z',
+        })),
+      },
+    })
+    expect((sanitized.benchmarkProof as Record<string, { mobileViewportBehaviorEvidence?: unknown[] }>).mobile_behavior.mobileViewportBehaviorEvidence).toHaveLength(8)
+  })
+
+  it('preserves capped durable runtime and export category evidence', () => {
+    const runtimeCategoryEvidence = Array.from({ length: 11 }, (_, index) => ({
+      categoryKey: index === 0 ? 'image_campaign' : 'audio',
+      orgId: ' org-1 ',
+      canvasVersion: 2.4,
+      graphSignature: ' graph-signature-123 ',
+      nodeCount: 5.6,
+      edgeCount: 4.4,
+      runIds: [` run-${index}-1 `, `run-${index}-2`],
+      providerJobIds: [` provider-job-${index}-1 `, `provider-job-${index}-2`],
+      outputUrls: [` https://cdn.example.com/output-${index}.png `],
+      artifactIds: [` artifact-${index} `],
+      outputNodeIds: [` output-${index} `],
+      exportIds: [` export-${index} `],
+      downstreamDraftIds: [` draft-${index} `],
+      lineageSourceNodeIds: [` source-${index} `],
+      providerKeys: [' higgsfield ', 'unknown'],
+      outputKinds: [' image ', 'unknown'],
+      reviewStatuses: [' passed ', 'unknown'],
+      completedAt: ' 2026-06-21T14:00:00.000Z ',
+      evidence: ` Runtime evidence ${index}. `,
+    }))
+
+    const sanitized = sanitizeCreativeCanvasData({
+      benchmarkProof: {
+        production_reliability: {
+          runtimeCategoryEvidence,
+          exportCategoryEvidence: [{
+            categoryKey: 'book',
+            orgId: 'org-1',
+            canvasVersion: 2,
+            graphSignature: 'graph-signature-123',
+            nodeCount: 5,
+            edgeCount: 4,
+            runIds: [],
+            providerJobIds: [],
+            outputUrls: [],
+            artifactIds: [],
+            outputNodeIds: [' output-book '],
+            exportIds: [' export-book '],
+            downstreamDraftIds: [' draft-book '],
+            lineageSourceNodeIds: [' source-book '],
+            providerKeys: [],
+            outputKinds: ['book_artifact'],
+            reviewStatuses: ['passed'],
+            completedAt: '2026-06-21T14:05:00.000Z',
+            evidence: ' Book export evidence. ',
+            dropped: 'remove me',
+          }],
+        },
+      },
+    })
+
+    const proof = (sanitized.benchmarkProof as Record<string, {
+      runtimeCategoryEvidence?: Array<Record<string, unknown>>
+      exportCategoryEvidence?: Array<Record<string, unknown>>
+    }>).production_reliability
+
+    expect(proof.runtimeCategoryEvidence).toHaveLength(10)
+    expect(proof.runtimeCategoryEvidence?.[0]).toEqual({
+      categoryKey: 'image',
+      orgId: 'org-1',
+      canvasVersion: 2,
+      graphSignature: 'graph-signature-123',
+      nodeCount: 6,
+      edgeCount: 4,
+      runIds: ['run-0-1', 'run-0-2'],
+      providerJobIds: ['provider-job-0-1', 'provider-job-0-2'],
+      outputUrls: ['https://cdn.example.com/output-0.png'],
+      artifactIds: ['artifact-0'],
+      outputNodeIds: ['output-0'],
+      exportIds: ['export-0'],
+      downstreamDraftIds: ['draft-0'],
+      lineageSourceNodeIds: ['source-0'],
+      providerKeys: ['higgsfield'],
+      outputKinds: ['image'],
+      reviewStatuses: ['passed'],
+      completedAt: '2026-06-21T14:00:00.000Z',
+      evidence: 'Runtime evidence 0.',
+    })
+    expect(proof.exportCategoryEvidence).toEqual([expect.objectContaining({
+      categoryKey: 'book',
+      outputNodeIds: ['output-book'],
+      exportIds: ['export-book'],
+      downstreamDraftIds: ['draft-book'],
+      lineageSourceNodeIds: ['source-book'],
+      outputKinds: ['book_artifact'],
+      reviewStatuses: ['passed'],
+      evidence: 'Book export evidence.',
+    })])
   })
 
   it('rejects cross-org graph nodes before accepting their source data', () => {
@@ -141,6 +586,7 @@ describe('creative canvas sanitizers', () => {
         data: {},
         edit: {
           operation: 'inpaint',
+          intent: 'reference_blend',
           prompt: 'Replace background with a clean studio set',
           mask: {
             sourceNodeId: 'mask-source',
@@ -148,12 +594,29 @@ describe('creative canvas sanitizers', () => {
             storagePath: 'org-1/masks/mask.png',
             invert: false,
             region: { x: 12, y: 18, width: 44, height: 52, unit: 'percent', feather: 6 },
+            brush: {
+              strokes: [{
+                id: 'stroke-1',
+                points: [{ x: 40, y: 44 }, { x: 45, y: 48 }],
+                size: 9,
+                opacity: 0.6,
+                mode: 'paint',
+                unit: 'percent',
+              }],
+            },
           },
           references: [
             { sourceNodeId: 'source-1', role: 'style', weight: 0.6 },
             { sourceNodeId: 'product-1', role: 'product', weight: 0.9 },
           ],
           strength: 0.65,
+          blendControls: {
+            lightMatch: true,
+            textureAdaptive: true,
+            autoShadows: true,
+            perspectiveMatch: true,
+            preserveSubject: false,
+          },
           motion: { mode: 'camera_push', durationSeconds: 5 },
           outputKind: 'image',
         },
@@ -163,6 +626,7 @@ describe('creative canvas sanitizers', () => {
 
     expect(graph.nodes[0].edit).toMatchObject({
       operation: 'inpaint',
+      intent: 'reference_blend',
       prompt: 'Replace background with a clean studio set',
       mask: {
         sourceNodeId: 'mask-source',
@@ -170,12 +634,29 @@ describe('creative canvas sanitizers', () => {
         storagePath: 'org-1/masks/mask.png',
         invert: false,
         region: { x: 12, y: 18, width: 44, height: 52, unit: 'percent', feather: 6 },
+        brush: {
+          strokes: [{
+            id: 'stroke-1',
+            points: [{ x: 40, y: 44 }, { x: 45, y: 48 }],
+            size: 9,
+            opacity: 0.6,
+            mode: 'paint',
+            unit: 'percent',
+          }],
+        },
       },
       references: [
         { sourceNodeId: 'source-1', role: 'style', weight: 0.6 },
         { sourceNodeId: 'product-1', role: 'product', weight: 0.9 },
       ],
       strength: 0.65,
+      blendControls: {
+        lightMatch: true,
+        textureAdaptive: true,
+        autoShadows: true,
+        perspectiveMatch: true,
+        preserveSubject: false,
+      },
       motion: { mode: 'camera_push', durationSeconds: 5 },
       outputKind: 'image',
     })
@@ -207,5 +688,77 @@ describe('creative canvas sanitizers', () => {
         edges: [{ id: 'edge-1', sourceNodeId: 'source-1', targetNodeId: 'missing-node' }],
       }, 'org-1'),
     ).toThrow('edge edge-1 targetNodeId does not exist in graph')
+  })
+
+  it('drops collaboration mutation rows with invalid operation or source', () => {
+    expect(sanitizeCreativeCanvasData({
+      benchmarkProof: {
+        collaboration: {
+          proofUrl: 'https://proof.example.com/collaboration.mp4',
+          graphSignature: 'graph-signature-123',
+          canvasVersion: 3,
+          nodeCount: 2,
+          edgeCount: 1,
+          collaborationRemoteMutations: [
+            {
+              actorUid: 'user-2',
+              actorType: 'user',
+              operation: 'node_move',
+              touchedNodeIds: ['node-a'],
+              touchedEdgeIds: [],
+              source: 'stream',
+              occurredAt: '2026-06-21T09:05:30.000Z',
+            },
+            {
+              actorUid: 'user-3',
+              actorType: 'user',
+              operation: 'made_up',
+              touchedNodeIds: ['node-b'],
+              touchedEdgeIds: [],
+              source: 'stream',
+              occurredAt: '2026-06-21T09:05:31.000Z',
+            },
+            {
+              actorUid: 'user-4',
+              actorType: 'user',
+              operation: 'edge_add',
+              touchedNodeIds: ['node-a', 'node-b'],
+              touchedEdgeIds: ['edge-a-b'],
+              source: 'websocket',
+              occurredAt: '2026-06-21T09:05:32.000Z',
+            },
+          ],
+        },
+      },
+    })).toEqual({
+      benchmarkProof: {
+        collaboration: {
+          proofUrl: 'https://proof.example.com/collaboration.mp4',
+          notes: undefined,
+          capturedAt: undefined,
+          capturedBy: undefined,
+          sourceTitle: undefined,
+          sourceUrl: undefined,
+          sourceCheckedAt: undefined,
+          directComparisonAt: undefined,
+          directComparisonVerdict: undefined,
+          directComparisonNotes: undefined,
+          canvasVersion: 3,
+          graphSignature: 'graph-signature-123',
+          nodeCount: 2,
+          edgeCount: 1,
+          sourceSignals: [],
+          collaborationRemoteMutations: [{
+            actorUid: 'user-2',
+            actorType: 'user',
+            operation: 'node_move',
+            touchedNodeIds: ['node-a'],
+            touchedEdgeIds: [],
+            source: 'stream',
+            occurredAt: '2026-06-21T09:05:30.000Z',
+          }],
+        },
+      },
+    })
   })
 })

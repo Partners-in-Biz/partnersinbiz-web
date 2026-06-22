@@ -38,6 +38,29 @@ function agentInputWithContextRefs(
   }
 }
 
+function hasApprovalGateLabel(labels: string[]): boolean {
+  return labels.some((label) => /approval-gate|approval-required|client-approval|required-approval/.test(label))
+}
+
+function bodySetsApprovalGateLabel(value: unknown): boolean {
+  if (!Array.isArray(value)) return false
+  return hasApprovalGateLabel(value.filter((label): label is string => typeof label === 'string').map((label) => label.toLowerCase()))
+}
+
+function isApprovalGateRecord(data: Record<string, unknown>, nextBody: Record<string, unknown> = {}): boolean {
+  const labels = Array.isArray(data.labels) ? data.labels.map((label) => String(label).toLowerCase()) : []
+  const existingGate = typeof data.approvalGate === 'string' && data.approvalGate && data.approvalGate !== 'none'
+  const nextGate = typeof nextBody.approvalGate === 'string' && nextBody.approvalGate && nextBody.approvalGate !== 'none'
+  const existingApprovalStatus = typeof data.approvalStatus === 'string' && data.approvalStatus.trim().length > 0
+  return hasApprovalGateLabel(labels) || bodySetsApprovalGateLabel(nextBody.labels) || Boolean(existingApprovalStatus || existingGate || nextGate)
+}
+
+async function approvalGateTaskApproved(projectId: string, approvalGateTaskId: string): Promise<boolean> {
+  const gateDoc = await adminDb.collection('projects').doc(projectId).collection('tasks').doc(approvalGateTaskId).get()
+  if (!gateDoc.exists) return false
+  return gateDoc.data()?.approvalStatus === 'approved'
+}
+
 export const PATCH = withAuth('client', async (req: NextRequest, user, ctx) => {
   const { projectId, taskId } = await (ctx as RouteContext).params
   const body = await req.json().catch(() => ({})) as Record<string, unknown>
@@ -49,9 +72,36 @@ export const PATCH = withAuth('client', async (req: NextRequest, user, ctx) => {
   if (!doc.exists) return apiError('Task not found', 404)
 
   const existing = doc.data() ?? {}
+  const labels = Array.isArray(existing.labels) ? existing.labels.map((label) => String(label).toLowerCase()) : []
+  const existingGate = typeof existing.approvalGate === 'string' && existing.approvalGate && existing.approvalGate !== 'none'
+  const nextGate = typeof body.approvalGate === 'string' && body.approvalGate && body.approvalGate !== 'none'
+  const existingApprovalStatus = typeof existing.approvalStatus === 'string' && existing.approvalStatus.trim().length > 0
+  const existingApprovalGateTaskId = typeof existing.approvalGateTaskId === 'string' && existing.approvalGateTaskId.trim().length > 0
+  const nextApprovalGateLabel = bodySetsApprovalGateLabel(body.labels)
+  const isApprovalGateCard = hasApprovalGateLabel(labels) || nextApprovalGateLabel || existingApprovalStatus || existingGate || nextGate
+  const isApprovalGatedTask = isApprovalGateCard || existingApprovalGateTaskId
+  const approvalMetadataFields = ['approvalGate', 'requiredCapability', 'riskLevel', 'expectedArtifacts', 'verifierChecklist', 'approvalGateTaskId']
+  const approvalExecutionFields = ['columnId', 'reviewStatus', 'labels', 'agentStatus', 'assigneeAgentId', 'agentOutput', 'agentConversationId', 'agentHeartbeatAt', 'agentReleaseAt', 'agentReleaseStatus', 'agentReleasedAt']
+  if (body.approvalStatus !== undefined && user.role !== 'admin') {
+    return apiError('Only an admin approver can change approvalStatus on project tasks', 403)
+  }
+  if (user.role !== 'admin' && approvalMetadataFields.some((field) => body[field] !== undefined)) {
+    return apiError('Only an admin approver can change approval-gate metadata on project tasks', 403)
+  }
+  if (body.approvalStatus !== undefined && body.approvalStatus !== null && !isApprovalGatedTask) {
+    return apiError('approvalStatus can only be changed on approval-gated tasks', 400)
+  }
   const updates = buildProjectTaskUpdateData(body)
   if (!updates.ok) return apiError(updates.error, updates.status ?? 400)
   const updateValue = applyAgentColumnMoveState(existing, updates.value, body)
+  const touchesApprovalExecutionState = approvalExecutionFields.some((field) => updateValue[field] !== undefined)
+  if (user.role !== 'admin' && isApprovalGateCard && touchesApprovalExecutionState) {
+    return apiError('Only an admin approver can change approval-gate metadata on project tasks', 403)
+  }
+  if (user.role !== 'admin' && existingApprovalGateTaskId && touchesApprovalExecutionState) {
+    const approved = await approvalGateTaskApproved(projectId, String(existing.approvalGateTaskId))
+    if (!approved) return apiError('Only an admin approver can change approval-gate metadata on project tasks', 403)
+  }
   const projectOrgId = access.doc.data()?.orgId as string | undefined
 
   if (body.contextRefs !== undefined) {
@@ -184,7 +234,18 @@ export const DELETE = withAuth('client', async (req: NextRequest, user, ctx) => 
   const { projectId, taskId } = await (ctx as RouteContext).params
   const access = await getProjectForUser(projectId, user)
   if (!access.ok) return apiError(access.error, access.status)
-  await adminDb.collection('projects').doc(projectId).collection('tasks').doc(taskId).delete()
+
+  const ref = adminDb.collection('projects').doc(projectId).collection('tasks').doc(taskId)
+  const doc = await ref.get()
+  if (!doc.exists) return apiError('Task not found', 404)
+
+  const existing = doc.data() ?? {}
+  const hasApprovalGateTaskId = typeof existing.approvalGateTaskId === 'string' && existing.approvalGateTaskId.trim().length > 0
+  if (user.role !== 'admin' && (isApprovalGateRecord(existing) || hasApprovalGateTaskId)) {
+    return apiError('Only an admin approver can delete approval-gated project tasks', 403)
+  }
+
+  await ref.delete()
 
   const deleteOrgId = access.doc.data()?.orgId as string | undefined
   if (deleteOrgId) {

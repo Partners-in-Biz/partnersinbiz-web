@@ -115,6 +115,76 @@ function normalizeRows(value: unknown): unknown[][] | undefined {
   return rows.length > 0 ? rows : undefined
 }
 
+type MediaPartType = 'image' | 'audio' | 'video' | 'file'
+
+function inferMediaTypeFromMime(mimeType: string | undefined): MediaPartType | undefined {
+  const mime = mimeType?.toLowerCase()
+  if (!mime) return undefined
+  if (mime.startsWith('image/')) return 'image'
+  if (mime.startsWith('audio/')) return 'audio'
+  if (mime.startsWith('video/')) return 'video'
+  return undefined
+}
+
+function inferMediaTypeFromUrl(url: string | undefined): MediaPartType | undefined {
+  if (!url) return undefined
+  let pathname = url.split('?')[0] ?? url
+  try {
+    pathname = decodeURIComponent(new URL(url).pathname)
+  } catch {
+    try {
+      pathname = decodeURIComponent(pathname)
+    } catch {
+      // Keep original pathname.
+    }
+  }
+  const cleanPath = pathname.toLowerCase()
+  if (/\.(png|jpe?g|gif|webp|avif|svg)$/.test(cleanPath)) return 'image'
+  if (/\.(mp3|wav|m4a|aac|ogg)$/.test(cleanPath)) return 'audio'
+  if (/\.(mp4|webm|mov|m4v|ogv)$/.test(cleanPath)) return 'video'
+  return undefined
+}
+
+function mediaUrlFromRecord(record: PlainRecord): string | undefined {
+  return cleanString(record.url)
+    ?? cleanString(record.src)
+    ?? cleanString(record.fileUrl)
+    ?? cleanString(record.file_url)
+    ?? cleanString(record.downloadUrl)
+    ?? cleanString(record.download_url)
+    ?? cleanString(record.videoUrl)
+    ?? cleanString(record.video_url)
+    ?? cleanString(record.audioUrl)
+    ?? cleanString(record.audio_url)
+    ?? cleanString(record.imageUrl)
+    ?? cleanString(record.image_url)
+}
+
+function inferredMediaPartFromRecord(record: PlainRecord): RichMessagePart | null {
+  const url = mediaUrlFromRecord(record)
+  if (!url) return null
+  const mimeType = cleanString(record.mimeType) ?? cleanString(record.mime_type) ?? cleanString(record.contentType) ?? cleanString(record.content_type)
+  const typeHint = normalizeRichPartType(cleanString(record.type) ?? cleanString(record.kind) ?? cleanString(record.mediaType) ?? cleanString(record.media_type) ?? '')
+  const hintedType = ['image', 'audio', 'video', 'file'].includes(typeHint) ? typeHint as MediaPartType : undefined
+  const urlFieldType = record.videoUrl || record.video_url
+    ? 'video'
+    : record.audioUrl || record.audio_url
+      ? 'audio'
+      : record.imageUrl || record.image_url
+        ? 'image'
+        : undefined
+  const type = hintedType ?? inferMediaTypeFromMime(mimeType) ?? urlFieldType ?? inferMediaTypeFromUrl(url)
+  if (!type) return null
+  return sanitizeStructuredPayload({
+    type,
+    url,
+    name: cleanString(record.name) ?? cleanString(record.title) ?? cleanString(record.filename) ?? cleanString(record.fileName),
+    caption: cleanString(record.caption),
+    mimeType,
+    sizeBytes: numberValue(record.sizeBytes) ?? numberValue(record.size_bytes),
+  }) as RichMessagePart
+}
+
 function normalizeRichPart(value: unknown): RichMessagePart | null {
   const record = asRecord(value)
   if (!record) return null
@@ -143,6 +213,16 @@ function normalizeRichPart(value: unknown): RichMessagePart | null {
     'src',
     'imageUrl',
     'image_url',
+    'videoUrl',
+    'video_url',
+    'audioUrl',
+    'audio_url',
+    'fileUrl',
+    'file_url',
+    'downloadUrl',
+    'download_url',
+    'contentType',
+    'content_type',
     'alt',
     'name',
     'mimeType',
@@ -191,10 +271,17 @@ function normalizeRichPart(value: unknown): RichMessagePart | null {
     base.images = images.length > 0 ? images : undefined
     base.caption = cleanString(record.caption) ?? cleanString(record.title)
   } else if (normalizedType === 'file' || normalizedType === 'audio' || normalizedType === 'video') {
-    base.url = cleanString(record.url) ?? cleanString(record.src)
+    base.url = cleanString(record.url)
+      ?? cleanString(record.src)
+      ?? cleanString(record.fileUrl)
+      ?? cleanString(record.file_url)
+      ?? cleanString(record.downloadUrl)
+      ?? cleanString(record.download_url)
+      ?? (normalizedType === 'video' ? cleanString(record.videoUrl) ?? cleanString(record.video_url) : undefined)
+      ?? (normalizedType === 'audio' ? cleanString(record.audioUrl) ?? cleanString(record.audio_url) : undefined)
     base.name = cleanString(record.name) ?? cleanString(record.title)
     base.caption = cleanString(record.caption)
-    base.mimeType = cleanString(record.mimeType) ?? cleanString(record.mime_type)
+    base.mimeType = cleanString(record.mimeType) ?? cleanString(record.mime_type) ?? cleanString(record.contentType) ?? cleanString(record.content_type)
     base.sizeBytes = numberValue(record.sizeBytes) ?? numberValue(record.size_bytes)
   } else if (normalizedType === 'tool_output') {
     base.tool = cleanString(record.tool) ?? cleanString(record.tool_name)
@@ -317,11 +404,15 @@ export function richPartsFromPayload(value: unknown, depth = 0): RichMessagePart
     return Array.isArray(value) ? value.flatMap((item) => richPartsFromPayload(item, depth + 1)) : []
   }
 
+  const normalizedSelf = normalizeRichParts(record)
+  const inferred = normalizedSelf.length > 0 ? null : inferredMediaPartFromRecord(record)
   const direct = [
+    ...normalizedSelf,
+    ...(inferred ? [inferred] : []),
     ...normalizeRichParts(record.richParts),
     ...normalizeRichParts(record.rich_parts),
   ]
-  const nested = ['output', 'result', 'response', 'message', 'content', 'data']
+  const nested = ['output', 'result', 'response', 'message', 'content', 'data', 'artifact', 'artifacts', 'asset', 'assets', 'file', 'files', 'media', 'images', 'videos', 'audios', 'attachments']
     .flatMap((key) => key in record ? richPartsFromPayload(record[key], depth + 1) : [])
   return dedupeStructured([...direct, ...nested])
 }

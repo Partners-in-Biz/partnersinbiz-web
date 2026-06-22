@@ -6,12 +6,34 @@ const mockGetCreativeCanvas = jest.fn()
 const mockUpdateCreativeCanvas = jest.fn()
 const mockUpdateCreativeCanvasGraph = jest.fn()
 
+class MockCreativeCanvasVersionConflictError extends Error {
+  currentActiveVersion: number
+  expectedActiveVersion: number
+  conflicts: string[]
+  conflictDetails: Array<Record<string, unknown>>
+
+  constructor(
+    currentActiveVersion: number,
+    expectedActiveVersion: number,
+    conflicts: string[] = [],
+    conflictDetails: Array<Record<string, unknown>> = [],
+  ) {
+    super('Creative canvas graph has changed since it was loaded')
+    this.name = 'CreativeCanvasVersionConflictError'
+    this.currentActiveVersion = currentActiveVersion
+    this.expectedActiveVersion = expectedActiveVersion
+    this.conflicts = conflicts
+    this.conflictDetails = conflictDetails
+  }
+}
+
 jest.mock('@/lib/api/auth', () => ({
   withAuth: (_role: string, handler: any) => async (req: NextRequest, context?: unknown) =>
     handler(req, { uid: 'user-1', role: 'admin', authKind: 'test', orgId: 'org-1', orgIds: ['org-1'] }, context),
 }))
 
 jest.mock('@/lib/creative-canvas/store', () => ({
+  CreativeCanvasVersionConflictError: MockCreativeCanvasVersionConflictError,
   createCreativeCanvas: mockCreateCreativeCanvas,
   listCreativeCanvases: mockListCreativeCanvases,
   getCreativeCanvas: mockGetCreativeCanvas,
@@ -56,11 +78,226 @@ describe('creative canvas API routes', () => {
 
     const res = await PUT(new NextRequest('http://test.local/api/v1/creative-canvas/canvas-1/graph?orgId=org-1', {
       method: 'PUT',
-      body: JSON.stringify({ nodes: [], edges: [] }),
+      body: JSON.stringify({ expectedActiveVersion: 1, nodes: [], edges: [] }),
     }), { params: Promise.resolve({ id: 'canvas-1' }) })
     const body = await res.json()
 
-    expect(mockUpdateCreativeCanvasGraph).toHaveBeenCalledWith('canvas-1', 'org-1', { nodes: [], edges: [] }, { uid: 'user-1', type: 'user' })
+    expect(mockUpdateCreativeCanvasGraph).toHaveBeenCalledWith(
+      'canvas-1',
+      'org-1',
+      { expectedActiveVersion: 1, nodes: [], edges: [] },
+      { uid: 'user-1', type: 'user' },
+      { expectedActiveVersion: 1, mergeOnConflict: false, baseGraphInput: undefined, reason: undefined },
+    )
     expect(body.data.canvas.activeVersion).toBe(2)
+  })
+
+  it('passes autosave reason when saving a graph automatically', async () => {
+    const { PUT } = await import('@/app/api/v1/creative-canvas/[id]/graph/route')
+    mockUpdateCreativeCanvasGraph.mockResolvedValue({ id: 'canvas-1', activeVersion: 2 })
+
+    const res = await PUT(new NextRequest('http://test.local/api/v1/creative-canvas/canvas-1/graph?orgId=org-1', {
+      method: 'PUT',
+      body: JSON.stringify({ expectedActiveVersion: 1, reason: 'auto_graph_save', nodes: [], edges: [] }),
+    }), { params: Promise.resolve({ id: 'canvas-1' }) })
+
+    expect(res.status).toBe(200)
+    expect(mockUpdateCreativeCanvasGraph).toHaveBeenCalledWith(
+      'canvas-1',
+      'org-1',
+      { expectedActiveVersion: 1, reason: 'auto_graph_save', nodes: [], edges: [] },
+      { uid: 'user-1', type: 'user' },
+      { expectedActiveVersion: 1, mergeOnConflict: false, baseGraphInput: undefined, reason: 'auto_graph_save' },
+    )
+  })
+
+  it('passes merge context when saving a graph from a stale collaboration base', async () => {
+    const { PUT } = await import('@/app/api/v1/creative-canvas/[id]/graph/route')
+    mockUpdateCreativeCanvasGraph.mockResolvedValue({ id: 'canvas-1', activeVersion: 5 })
+    const baseGraph = { nodes: [{ id: 'source-1' }], edges: [] }
+
+    const res = await PUT(new NextRequest('http://test.local/api/v1/creative-canvas/canvas-1/graph?orgId=org-1', {
+      method: 'PUT',
+      body: JSON.stringify({ expectedActiveVersion: 2, mergeOnConflict: true, baseGraph, nodes: [], edges: [] }),
+    }), { params: Promise.resolve({ id: 'canvas-1' }) })
+    const body = await res.json()
+
+    expect(mockUpdateCreativeCanvasGraph).toHaveBeenCalledWith(
+      'canvas-1',
+      'org-1',
+      { expectedActiveVersion: 2, mergeOnConflict: true, baseGraph, nodes: [], edges: [] },
+      { uid: 'user-1', type: 'user' },
+      { expectedActiveVersion: 2, mergeOnConflict: true, baseGraphInput: baseGraph, reason: undefined },
+    )
+    expect(body.data.canvas.activeVersion).toBe(5)
+  })
+
+  it('returns a conflict when a graph save is based on a stale version', async () => {
+    const { PUT } = await import('@/app/api/v1/creative-canvas/[id]/graph/route')
+    mockUpdateCreativeCanvasGraph.mockRejectedValue(new MockCreativeCanvasVersionConflictError(4, 2, ['node:source-1'], [
+      { id: 'source-1', kind: 'node', label: 'Source node', reason: 'concurrent_update' },
+    ]))
+
+    const res = await PUT(new NextRequest('http://test.local/api/v1/creative-canvas/canvas-1/graph?orgId=org-1', {
+      method: 'PUT',
+      body: JSON.stringify({ expectedActiveVersion: 2, nodes: [], edges: [] }),
+    }), { params: Promise.resolve({ id: 'canvas-1' }) })
+    const body = await res.json()
+
+    expect(res.status).toBe(409)
+    expect(body).toMatchObject({
+      success: false,
+      code: 'creative_canvas_version_conflict',
+      currentActiveVersion: 4,
+      expectedActiveVersion: 2,
+      conflicts: ['node:source-1'],
+      conflictDetails: [
+        { id: 'source-1', kind: 'node', label: 'Source node', reason: 'concurrent_update' },
+      ],
+    })
+  })
+
+  it('checks public image proof URLs before viewport proof can be saved', async () => {
+    const fetchSpy = jest.spyOn(global, 'fetch').mockResolvedValueOnce(new Response('', {
+      status: 200,
+      headers: { 'content-type': 'image/png' },
+    }))
+    const { POST } = await import('@/app/api/v1/creative-canvas/proof-url/route')
+
+    const res = await POST(new NextRequest('http://test.local/api/v1/creative-canvas/proof-url', {
+      method: 'POST',
+      body: JSON.stringify({ url: 'https://proof.example.com/desktop.png' }),
+    }))
+    const body = await res.json()
+
+    expect(fetchSpy).toHaveBeenCalledWith('https://proof.example.com/desktop.png', expect.objectContaining({ method: 'HEAD' }))
+    expect(body).toMatchObject({
+      success: true,
+      data: {
+        proof: {
+          reachable: true,
+          status: 200,
+          contentType: 'image/png',
+          url: 'https://proof.example.com/desktop.png',
+        },
+      },
+    })
+    fetchSpy.mockRestore()
+  })
+
+  it('allows reachable non-image URLs for benchmark evidence proof', async () => {
+    const fetchSpy = jest.spyOn(global, 'fetch').mockResolvedValueOnce(new Response('', {
+      status: 200,
+      headers: { 'content-type': 'text/html; charset=utf-8' },
+    }))
+    const { POST } = await import('@/app/api/v1/creative-canvas/proof-url/route')
+
+    const res = await POST(new NextRequest('http://test.local/api/v1/creative-canvas/proof-url', {
+      method: 'POST',
+      body: JSON.stringify({ url: 'https://proof.example.com/benchmark', kind: 'evidence' }),
+    }))
+    const body = await res.json()
+
+    expect(fetchSpy).toHaveBeenCalledWith('https://proof.example.com/benchmark', expect.objectContaining({ method: 'HEAD' }))
+    expect(body).toMatchObject({
+      success: true,
+      data: {
+        proof: {
+          reachable: true,
+          status: 200,
+          contentType: 'text/html',
+          url: 'https://proof.example.com/benchmark',
+        },
+      },
+    })
+    fetchSpy.mockRestore()
+  })
+
+  it('verifies expected benchmark source signals in reachable evidence pages', async () => {
+    const fetchSpy = jest.spyOn(global, 'fetch')
+      .mockResolvedValueOnce(new Response('', {
+        status: 200,
+        headers: { 'content-type': 'text/html; charset=utf-8' },
+      }))
+      .mockResolvedValueOnce(new Response('<html><body>Drop a node &amp; Chain your flow. Every connection is live.</body></html>', {
+        status: 200,
+        headers: { 'content-type': 'text/html; charset=utf-8' },
+      }))
+    const { POST } = await import('@/app/api/v1/creative-canvas/proof-url/route')
+
+    const res = await POST(new NextRequest('http://test.local/api/v1/creative-canvas/proof-url', {
+      method: 'POST',
+      body: JSON.stringify({
+        url: 'https://higgsfield.ai/canvas-intro',
+        kind: 'evidence',
+        expectedSignals: ['Drop a node', 'Chain your flow', 'Every connection is live'],
+      }),
+    }))
+    const body = await res.json()
+
+    expect(fetchSpy).toHaveBeenNthCalledWith(1, 'https://higgsfield.ai/canvas-intro', expect.objectContaining({ method: 'HEAD' }))
+    expect(fetchSpy).toHaveBeenNthCalledWith(2, 'https://higgsfield.ai/canvas-intro', expect.objectContaining({ method: 'GET' }))
+    expect(body).toMatchObject({
+      success: true,
+      data: {
+        proof: {
+          reachable: true,
+          signalMatched: true,
+          missingSignals: [],
+        },
+      },
+    })
+    fetchSpy.mockRestore()
+  })
+
+  it('reports missing benchmark source signals in reachable evidence pages', async () => {
+    const fetchSpy = jest.spyOn(global, 'fetch')
+      .mockResolvedValueOnce(new Response('', {
+        status: 200,
+        headers: { 'content-type': 'text/html; charset=utf-8' },
+      }))
+      .mockResolvedValueOnce(new Response('<html><body>Drop a node only.</body></html>', {
+        status: 200,
+        headers: { 'content-type': 'text/html; charset=utf-8' },
+      }))
+    const { POST } = await import('@/app/api/v1/creative-canvas/proof-url/route')
+
+    const res = await POST(new NextRequest('http://test.local/api/v1/creative-canvas/proof-url', {
+      method: 'POST',
+      body: JSON.stringify({
+        url: 'https://higgsfield.ai/canvas-intro',
+        kind: 'evidence',
+        expectedSignals: ['Drop a node', 'Every connection is live'],
+      }),
+    }))
+    const body = await res.json()
+
+    expect(body).toMatchObject({
+      success: true,
+      data: {
+        proof: {
+          reachable: true,
+          signalMatched: false,
+          missingSignals: ['Every connection is live'],
+        },
+      },
+    })
+    fetchSpy.mockRestore()
+  })
+
+  it('rejects local proof URLs', async () => {
+    const fetchSpy = jest.spyOn(global, 'fetch')
+    const { POST } = await import('@/app/api/v1/creative-canvas/proof-url/route')
+
+    const res = await POST(new NextRequest('http://test.local/api/v1/creative-canvas/proof-url', {
+      method: 'POST',
+      body: JSON.stringify({ url: 'http://localhost:3000/private.png' }),
+    }))
+    const body = await res.json()
+
+    expect(res.status).toBe(400)
+    expect(body).toMatchObject({ success: false, error: 'A public http(s) proof URL is required' })
+    expect(fetchSpy).not.toHaveBeenCalled()
+    fetchSpy.mockRestore()
   })
 })

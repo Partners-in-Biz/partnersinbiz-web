@@ -381,22 +381,30 @@ export function ProjectDetailWorkspace({
   }, [project?.orgId, projectId])
 
   const handleTaskMove = useCallback(async (taskId: string, newColumnId: string, newOrder: number) => {
-    setTasks(prev => prev.map(t => t.id === taskId ? { ...t, columnId: newColumnId, order: newOrder } : t))
-    await fetch(`/api/v1/projects/${projectId}/tasks/${taskId}`, {
+    const res = await fetch(`/api/v1/projects/${projectId}/tasks/${taskId}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ columnId: newColumnId, order: newOrder }),
     })
+    const body = await res.json().catch(() => null)
+    if (!res.ok || body?.success === false) {
+      throw new Error(typeof body?.error === 'string' ? body.error : `Task move failed (${res.status})`)
+    }
+    setTasks(prev => prev.map(t => t.id === taskId ? { ...t, columnId: newColumnId, order: newOrder } : t))
   }, [projectId])
 
   const handleTaskUpdate = useCallback(async (taskId: string, updates: Partial<Task>) => {
-    setTasks(prev => prev.map(t => t.id === taskId ? { ...t, ...updates } : t))
-    setSelectedTask(prev => prev?.id === taskId ? { ...prev, ...updates } as Task : prev)
-    await fetch(`/api/v1/projects/${projectId}/tasks/${taskId}`, {
+    const res = await fetch(`/api/v1/projects/${projectId}/tasks/${taskId}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(updates),
     })
+    const body = await res.json().catch(() => null)
+    if (!res.ok || body?.success === false) {
+      throw new Error(typeof body?.error === 'string' ? body.error : `Task update failed (${res.status})`)
+    }
+    setTasks(prev => prev.map(t => t.id === taskId ? { ...t, ...updates } : t))
+    setSelectedTask(prev => prev?.id === taskId ? { ...prev, ...updates } as Task : prev)
   }, [projectId])
 
   const handleTaskDelete = useCallback(async (taskId: string) => {
@@ -891,6 +899,7 @@ export function ProjectDetailWorkspace({
           agents={agents}
           hideAgentSection={hideAgentAssignmentControls}
           surface={isAdmin ? 'admin' : 'portal'}
+          canManageApprovalGates={isAdmin || currentUser?.isSuperAdmin === true || currentUser?.role === 'admin'}
           onClose={() => setSelectedTask(null)}
           onUpdate={handleTaskUpdate}
           onDelete={handleTaskDelete}

@@ -25,18 +25,26 @@ export const GET = withAuth('admin', async (req: NextRequest, user) => {
 
   const loopId = cleanString(url.searchParams.get('loopId'))
   const limit = Math.min(Number(url.searchParams.get('limit') ?? 20) || 20, 50)
-  let query = adminDb.collection('loop_engine_runs').where('orgId', '==', orgId)
-  if (loopId) query = query.where('loopId', '==', loopId)
-  const snap = await query.orderBy('updatedAt', 'desc').limit(limit).get()
-  const runs = snap.docs.map((doc) => {
-    const data = doc.data()
-    return {
-      id: doc.id,
-      ...data,
-      createdAt: timestampToIso(data.createdAt),
-      updatedAt: timestampToIso(data.updatedAt),
-    }
-  })
+  const queryLimit = loopId ? Math.min(limit * 5, 250) : limit
+  const snap = await adminDb.collection('loop_engine_runs')
+    .where('orgId', '==', orgId)
+    .orderBy('updatedAt', 'desc')
+    .limit(queryLimit)
+    .get()
+  const runs = snap.docs
+    .map((doc) => {
+      const data = doc.data()
+      const runLoopId = cleanString(data.loopId)
+      return {
+        id: doc.id,
+        ...data,
+        loopId: runLoopId,
+        createdAt: timestampToIso(data.createdAt),
+        updatedAt: timestampToIso(data.updatedAt),
+      }
+    })
+    .filter((run) => !loopId || run.loopId === loopId)
+    .slice(0, limit)
 
   return apiSuccess({ runs })
 })

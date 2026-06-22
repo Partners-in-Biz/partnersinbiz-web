@@ -21,7 +21,11 @@ import {
   createCreativeCanvasRun,
   dispatchCreativeCanvasProviderRun,
   listCreativeCanvasRuns,
+  queueCreativeCanvasProofBatchRuns,
   refreshCreativeCanvasProviderRunStatus,
+  retryCreativeCanvasProviderRun,
+  retryCreativeCanvasProviderRunsForCanvas,
+  summarizeCreativeCanvasRuns,
 } from '@/lib/creative-canvas/runs'
 import type { CreativeCanvas } from '@/lib/creative-canvas/types'
 
@@ -36,6 +40,119 @@ beforeEach(() => {
 })
 
 describe('creative canvas runs', () => {
+  it('summarizes provider operations across run statuses', () => {
+    const summary = summarizeCreativeCanvasRuns([
+      {
+        id: 'run-1',
+        orgId: 'org-1',
+        canvasId: 'canvas-1',
+        nodeId: 'model-1',
+        providerKey: 'higgsfield',
+        status: 'running',
+        input: { sourceNodeIds: [], sourceArtifactIds: [] },
+        provenance: { generatedBy: 'agent', promptStored: 'summary', syntheticMedia: true },
+        providerStatusMessage: 'Rendering preview frames',
+      },
+      {
+        id: 'run-2',
+        orgId: 'org-1',
+        canvasId: 'canvas-1',
+        nodeId: 'model-2',
+        providerKey: 'higgsfield',
+        status: 'failed',
+        input: { sourceNodeIds: [], sourceArtifactIds: [] },
+        provenance: { generatedBy: 'agent', promptStored: 'summary', syntheticMedia: true },
+        error: { code: 'quota', message: 'Quota exceeded', retryable: true },
+      },
+      {
+        id: 'run-3',
+        orgId: 'org-1',
+        canvasId: 'canvas-1',
+        nodeId: 'copy-1',
+        providerKey: 'text_generation',
+        status: 'completed',
+        input: { sourceNodeIds: [], sourceArtifactIds: [] },
+        provenance: { generatedBy: 'agent', promptStored: 'summary', syntheticMedia: false },
+      },
+    ])
+
+    expect(summary).toMatchObject({
+      total: 3,
+      active: 1,
+      failed: 1,
+      retryableFailures: 1,
+      completed: 1,
+      byStatus: {
+        queued: 0,
+        running: 1,
+        waiting_for_review: 0,
+        completed: 1,
+        failed: 1,
+        cancelled: 0,
+      },
+      providers: [
+        expect.objectContaining({
+          providerKey: 'higgsfield',
+          total: 2,
+          active: 1,
+          failed: 1,
+          retryableFailures: 1,
+          latestProviderStatusMessage: 'Rendering preview frames',
+          latestErrorMessage: 'Quota exceeded',
+        }),
+        expect.objectContaining({
+          providerKey: 'text_generation',
+          completed: 1,
+        }),
+      ],
+    })
+  })
+
+  it('flags stale active provider operations using run timestamps', () => {
+    const summary = summarizeCreativeCanvasRuns([
+      {
+        id: 'run-old',
+        orgId: 'org-1',
+        canvasId: 'canvas-1',
+        nodeId: 'model-1',
+        providerKey: 'higgsfield',
+        status: 'running',
+        input: { sourceNodeIds: [], sourceArtifactIds: [] },
+        provenance: { generatedBy: 'agent', promptStored: 'summary', syntheticMedia: true },
+        updatedAt: { seconds: 1_800 },
+      },
+      {
+        id: 'run-fresh',
+        orgId: 'org-1',
+        canvasId: 'canvas-1',
+        nodeId: 'model-2',
+        providerKey: 'higgsfield',
+        status: 'queued',
+        input: { sourceNodeIds: [], sourceArtifactIds: [] },
+        provenance: { generatedBy: 'agent', promptStored: 'summary', syntheticMedia: true },
+        updatedAt: '1970-01-01T00:55:00.000Z',
+      },
+    ], {
+      now: new Date('1970-01-01T01:00:00.000Z'),
+      staleAfterMinutes: 20,
+    })
+
+    expect(summary).toMatchObject({
+      active: 2,
+      staleActiveRuns: 1,
+      oldestActiveRunAgeMinutes: 30,
+      staleThresholdMinutes: 20,
+      providers: [
+        expect.objectContaining({
+          providerKey: 'higgsfield',
+          active: 2,
+          staleActiveRuns: 1,
+          oldestActiveRunAgeMinutes: 30,
+        }),
+      ],
+    })
+  })
+
   it('queues a Higgsfield run with internal provenance and no client-visible output', async () => {
     mockAdd.mockResolvedValue({ id: 'run-1' })
 
@@ -57,6 +174,14 @@ describe('creative canvas runs', () => {
         cameraMotion: 'camera_push',
         negativePrompt: 'blurry, distorted hands',
         durationSeconds: 6,
+        editIntent: 'relight',
+        blendControls: {
+          lightMatch: true,
+          textureAdaptive: true,
+          autoShadows: true,
+          perspectiveMatch: false,
+          preserveSubject: true,
+        },
       },
       provenance: {
         syntheticMedia: true,
@@ -88,10 +213,252 @@ describe('creative canvas runs', () => {
         cameraMotion: 'camera_push',
         negativePrompt: 'blurry, distorted hands',
         durationSeconds: 6,
+        editIntent: 'relight',
+        blendControls: {
+          lightMatch: true,
+          textureAdaptive: true,
+          autoShadows: true,
+          perspectiveMatch: false,
+          preserveSubject: true,
+        },
       }),
     }))
     expect(run).toMatchObject({ id: 'run-1', status: 'queued', providerKey: 'higgsfield' })
     expect(run.output).toBeUndefined()
+  })
+
+  it('batch retries retryable failed provider runs for a canvas', async () => {
+    mockGet.mockResolvedValue({
+      docs: [
+        {
+          id: 'run-retryable',
+          data: () => ({
+            orgId: 'org-1',
+            canvasId: 'canvas-1',
+            nodeId: 'model-1',
+            providerKey: 'higgsfield',
+            status: 'failed',
+            input: { sourceNodeIds: [], sourceArtifactIds: [] },
+            provenance: {
+              generatedBy: 'agent',
+              providerJobId: 'job-old',
+              providerRequestId: 'request-old',
+              providerStatusUrl: 'https://provider.example/status',
+              providerCallbackUrl: 'https://provider.example/callback',
+              promptStored: 'summary',
+              syntheticMedia: true,
+            },
+            error: { code: 'quota', message: 'Quota exceeded', retryable: true },
+          }),
+        },
+        {
+          id: 'run-blocked',
+          data: () => ({
+            orgId: 'org-1',
+            canvasId: 'canvas-1',
+            nodeId: 'model-2',
+            providerKey: 'higgsfield',
+            status: 'failed',
+            input: { sourceNodeIds: [], sourceArtifactIds: [] },
+            provenance: { generatedBy: 'agent', promptStored: 'summary', syntheticMedia: true },
+            error: { code: 'policy', message: 'Policy blocked', retryable: false },
+          }),
+        },
+      ],
+    })
+
+    const result = await retryCreativeCanvasProviderRunsForCanvas('canvas-1', 'org-1', ACTOR)
+
+    expect(mockWhere).toHaveBeenCalledWith('canvasId', '==', 'canvas-1')
+    expect(mockWhere).toHaveBeenCalledWith('orgId', '==', 'org-1')
+    expect(mockDoc).toHaveBeenCalledWith('run-retryable')
+    expect(mockDocUpdate).toHaveBeenCalledWith(expect.objectContaining({
+      status: 'queued',
+      providerStatus: 'retry_queued',
+      providerStatusMessage: 'Retry queued for provider runtime drain.',
+      error: null,
+      provenance: expect.not.objectContaining({
+        providerJobId: expect.any(String),
+      }),
+      updatedBy: 'agent:maya',
+      updatedByType: 'agent',
+    }))
+    expect(result).toMatchObject({
+      retriedRuns: [expect.objectContaining({ id: 'run-retryable', status: 'queued' })],
+      skippedRuns: [expect.objectContaining({ id: 'run-blocked', reason: 'Failed run is not retryable' })],
+      operations: {
+        total: 2,
+        active: 1,
+        failed: 1,
+        retryableFailures: 0,
+      },
+    })
+  })
+
+  it('queues missing proof batch categories and skips active coverage', async () => {
+    mockAdd
+      .mockResolvedValueOnce({ id: 'proof-image' })
+      .mockResolvedValueOnce({ id: 'proof-image-2' })
+      .mockResolvedValueOnce({ id: 'proof-video-2' })
+      .mockResolvedValueOnce({ id: 'proof-audio' })
+      .mockResolvedValueOnce({ id: 'proof-audio-2' })
+      .mockResolvedValueOnce({ id: 'proof-blog' })
+      .mockResolvedValueOnce({ id: 'proof-blog-2' })
+      .mockResolvedValueOnce({ id: 'proof-book' })
+      .mockResolvedValueOnce({ id: 'proof-book-2' })
+
+    const canvas = {
+      id: 'canvas-1',
+      orgId: 'org-1',
+      title: 'Launch Canvas',
+      status: 'draft',
+      purpose: 'Product launch proof',
+      linked: {},
+      activeVersion: 1,
+      visibility: 'admin_agents',
+      createdBy: 'agent:maya',
+      createdByType: 'agent',
+      updatedBy: 'agent:maya',
+      updatedByType: 'agent',
+      deleted: false,
+      nodes: [
+        {
+          id: 'source-1',
+          orgId: 'org-1',
+          type: 'source',
+          title: 'Product source',
+          position: { x: 0, y: 0 },
+          data: {},
+          source: { kind: 'upload' },
+        },
+        {
+          id: 'model-1',
+          orgId: 'org-1',
+          type: 'model',
+          title: 'Higgsfield model',
+          position: { x: 320, y: 0 },
+          data: {},
+          provider: { key: 'higgsfield', model: 'custom_higgsfield' },
+        },
+      ],
+      edges: [{
+        id: 'source-1-model-1',
+        orgId: 'org-1',
+        sourceNodeId: 'source-1',
+        targetNodeId: 'model-1',
+      }],
+    } as CreativeCanvas & { id: string }
+
+    const result = await queueCreativeCanvasProofBatchRuns(canvas, 'org-1', ACTOR, [
+      {
+        id: 'video-active',
+        orgId: 'org-1',
+        canvasId: 'canvas-1',
+        nodeId: 'model-1',
+        providerKey: 'higgsfield',
+        status: 'running',
+        input: { sourceNodeIds: ['source-1'], sourceArtifactIds: [], outputKind: 'video' },
+        provenance: { generatedBy: 'agent', promptStored: 'summary', syntheticMedia: true },
+      },
+    ])
+
+    expect(mockAdd).toHaveBeenCalledTimes(9)
+    expect(mockAdd).toHaveBeenNthCalledWith(1, expect.objectContaining({
+      nodeId: 'model-1',
+      providerKey: 'higgsfield',
+      input: expect.objectContaining({
+        outputKind: 'image',
+        sourceNodeIds: ['model-1', 'source-1'],
+        format: 'runtime_proof_image',
+        seed: 'image-proof-1',
+      }),
+    }))
+    expect(mockAdd).toHaveBeenNthCalledWith(2, expect.objectContaining({
+      nodeId: 'model-1',
+      providerKey: 'higgsfield',
+      input: expect.objectContaining({
+        outputKind: 'image',
+        format: 'runtime_proof_image',
+        seed: 'image-proof-2',
+      }),
+    }))
+    expect(mockAdd).toHaveBeenNthCalledWith(3, expect.objectContaining({
+      providerKey: 'higgsfield',
+      input: expect.objectContaining({
+        outputKind: 'video',
+        format: 'runtime_proof_vertical_video',
+        seed: 'video_social-proof-2',
+      }),
+    }))
+    expect(mockAdd).toHaveBeenNthCalledWith(4, expect.objectContaining({
+      providerKey: 'higgsfield',
+      input: expect.objectContaining({
+        outputKind: 'audio',
+        format: 'runtime_proof_audio',
+        seed: 'audio-proof-1',
+      }),
+    }))
+    expect(mockAdd).toHaveBeenNthCalledWith(5, expect.objectContaining({
+      providerKey: 'higgsfield',
+      input: expect.objectContaining({
+        outputKind: 'audio',
+        format: 'runtime_proof_audio',
+        seed: 'audio-proof-2',
+      }),
+    }))
+    expect(mockAdd).toHaveBeenNthCalledWith(6, expect.objectContaining({
+      providerKey: 'agent_task',
+      input: expect.objectContaining({
+        outputKind: 'blog_draft',
+        format: 'runtime_proof_blog_document',
+        seed: 'blog_document-proof-1',
+      }),
+      provenance: expect.objectContaining({
+        syntheticMedia: false,
+      }),
+    }))
+    expect(mockAdd).toHaveBeenNthCalledWith(7, expect.objectContaining({
+      providerKey: 'agent_task',
+      input: expect.objectContaining({
+        outputKind: 'blog_draft',
+        format: 'runtime_proof_blog_document',
+        seed: 'blog_document-proof-2',
+      }),
+    }))
+    expect(mockAdd).toHaveBeenNthCalledWith(8, expect.objectContaining({
+      providerKey: 'higgsfield',
+      input: expect.objectContaining({
+        outputKind: 'book_artifact',
+        format: 'runtime_proof_book_artifact',
+        seed: 'book-proof-1',
+      }),
+    }))
+    expect(mockAdd).toHaveBeenNthCalledWith(9, expect.objectContaining({
+      providerKey: 'higgsfield',
+      input: expect.objectContaining({
+        outputKind: 'book_artifact',
+        format: 'runtime_proof_book_artifact',
+        seed: 'book-proof-2',
+      }),
+    }))
+    expect(result).toMatchObject({
+      queuedRuns: [
+        { id: 'proof-image', providerKey: 'higgsfield', status: 'queued' },
+        { id: 'proof-image-2', providerKey: 'higgsfield', status: 'queued' },
+        { id: 'proof-video-2', providerKey: 'higgsfield', status: 'queued' },
+        { id: 'proof-audio', providerKey: 'higgsfield', status: 'queued' },
+        { id: 'proof-audio-2', providerKey: 'higgsfield', status: 'queued' },
+        { id: 'proof-blog', providerKey: 'agent_task', status: 'queued' },
+        { id: 'proof-blog-2', providerKey: 'agent_task', status: 'queued' },
+        { id: 'proof-book', providerKey: 'higgsfield', status: 'queued' },
+        { id: 'proof-book-2', providerKey: 'higgsfield', status: 'queued' },
+      ],
+      operations: {
+        total: 10,
+        active: 10,
+      },
+    })
+    expect(result.skippedCategories).toEqual([])
   })
 
   it('builds a reviewable agent task draft from a run and canvas', () => {
@@ -173,6 +540,15 @@ describe('creative canvas runs', () => {
           callback: expect.objectContaining({
             path: '/api/v1/creative-canvas/provider-callbacks/higgsfield',
           }),
+        }),
+        orchestration: expect.objectContaining({
+          canvasId: 'canvas-1',
+          agents: expect.arrayContaining([
+            expect.objectContaining({ agentId: 'pip', roles: expect.arrayContaining(['source_curator']) }),
+          ]),
+          steps: expect.arrayContaining([
+            expect.objectContaining({ nodeId: 'source-1', role: 'source_curator', agentId: 'pip' }),
+          ]),
         }),
       },
     })
@@ -394,6 +770,8 @@ describe('creative canvas runs', () => {
       updatedBy: 'agent:maya',
       updatedByType: 'agent',
     }))
+    const updatePayload = mockDocUpdate.mock.calls[0][0]
+    expect(updatePayload.provenance).not.toHaveProperty('providerCallbackUrl')
     expect(run).toMatchObject({
       id: 'run-1',
       status: 'running',
@@ -512,5 +890,84 @@ describe('creative canvas runs', () => {
     })
     expect(mockCollection).toHaveBeenCalledWith('creative_canvas_runs')
     expect(mockCollection).not.toHaveBeenCalledWith('creative_canvases')
+  })
+
+  it('requeues a failed retryable provider run without stale provider job metadata', async () => {
+    mockDocGet.mockResolvedValueOnce({
+      exists: true,
+      id: 'run-1',
+      data: () => ({
+        orgId: 'org-1',
+        canvasId: 'canvas-1',
+        nodeId: 'model-1',
+        providerKey: 'higgsfield',
+        model: 'nano_banana_flash',
+        status: 'failed',
+        providerStatus: 'status_poll_failed',
+        providerStatusMessage: 'Runtime timed out',
+        input: { sourceNodeIds: [], sourceArtifactIds: [], promptSummary: 'Retry this render' },
+        provenance: {
+          generatedBy: 'agent',
+          agentId: 'maya',
+          providerJobId: 'hf-job-stale',
+          providerRequestId: 'req-stale',
+          providerStatusUrl: 'https://runtime.example.com/jobs/hf-job-stale',
+          providerCallbackUrl: 'https://partnersinbiz.online/api/v1/creative-canvas/provider-callbacks/higgsfield',
+          promptStored: 'summary',
+          syntheticMedia: true,
+        },
+        error: {
+          code: 'status_poll_failed',
+          message: 'Runtime timed out',
+          retryable: true,
+        },
+      }),
+    })
+
+    const run = await retryCreativeCanvasProviderRun('run-1', 'org-1', ACTOR)
+
+    expect(mockDocUpdate).toHaveBeenCalledWith(expect.objectContaining({
+      status: 'queued',
+      providerStatus: 'retry_queued',
+      providerStatusMessage: 'Retry queued for provider runtime drain.',
+      error: null,
+      provenance: expect.not.objectContaining({
+        providerJobId: expect.anything(),
+        providerRequestId: expect.anything(),
+        providerStatusUrl: expect.anything(),
+        providerCallbackUrl: expect.anything(),
+      }),
+      updatedBy: 'agent:maya',
+      updatedByType: 'agent',
+    }))
+    expect(run).toMatchObject({
+      id: 'run-1',
+      status: 'queued',
+      providerStatus: 'retry_queued',
+      providerStatusMessage: 'Retry queued for provider runtime drain.',
+    })
+    expect(run.error).toBeUndefined()
+    expect(run.provenance.providerJobId).toBeUndefined()
+  })
+
+  it('rejects retry when a failed provider run is not retryable', async () => {
+    mockDocGet.mockResolvedValueOnce({
+      exists: true,
+      id: 'run-1',
+      data: () => ({
+        orgId: 'org-1',
+        canvasId: 'canvas-1',
+        nodeId: 'model-1',
+        providerKey: 'higgsfield',
+        status: 'failed',
+        input: { sourceNodeIds: [], sourceArtifactIds: [] },
+        provenance: { generatedBy: 'agent', promptStored: 'summary', syntheticMedia: true },
+        error: { code: 'blocked', message: 'Unsafe content', retryable: false },
+      }),
+    })
+
+    await expect(retryCreativeCanvasProviderRun('run-1', 'org-1', ACTOR))
+      .rejects.toThrow('Creative canvas provider run is not marked retryable')
+    expect(mockDocUpdate).not.toHaveBeenCalled()
   })
 })

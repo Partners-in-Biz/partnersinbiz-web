@@ -1,12 +1,14 @@
 const mockGetHermesProfileLink = jest.fn()
 const mockCreateHermesRun = jest.fn()
+const mockCallHermesJson = jest.fn()
 
 jest.mock('@/lib/hermes/server', () => ({
   getHermesProfileLink: (...args: unknown[]) => mockGetHermesProfileLink(...args),
   createHermesRun: (...args: unknown[]) => mockCreateHermesRun(...args),
+  callHermesJson: (...args: unknown[]) => mockCallHermesJson(...args),
 }))
 
-import { submitCreativeCanvasRunToHermes } from '@/lib/creative-canvas/hermes-runtime-bridge'
+import { getCreativeCanvasHermesRunStatus, submitCreativeCanvasRunToHermes } from '@/lib/creative-canvas/hermes-runtime-bridge'
 
 const run = {
   id: 'run-1',
@@ -100,7 +102,7 @@ describe('Creative Canvas Hermes runtime bridge', () => {
     expect(result).toEqual({
       providerJobId: 'hermes-run-1',
       providerRequestId: 'doc-1',
-      providerStatusUrl: '/api/v1/admin/hermes/profiles/org-1/runs/hermes-run-1',
+      providerStatusUrl: '/api/internal/creative-canvas/higgsfield-runtime/runs/hermes-run-1?orgId=org-1',
       status: 'running',
       providerStatus: 'hermes_run_submitted',
       providerStatusMessage: 'Submitted Creative Canvas Higgsfield run to Hermes profile maya.',
@@ -115,5 +117,123 @@ describe('Creative Canvas Hermes runtime bridge', () => {
       run: run as never,
     })).rejects.toThrow('Hermes profile link not found')
     expect(mockCreateHermesRun).not.toHaveBeenCalled()
+  })
+
+  it('normalizes completed Hermes run status into provider output metadata', async () => {
+    const link = {
+      orgId: 'org-1',
+      profile: 'maya',
+      baseUrl: 'http://127.0.0.1:8651',
+      enabled: true,
+      capabilities: { runs: true },
+    }
+    mockGetHermesProfileLink.mockResolvedValue(link)
+    mockCallHermesJson.mockResolvedValue({
+      response: { ok: true },
+      data: {
+        run_id: 'hermes-run-1',
+        status: 'completed',
+        message: 'Generated output ready',
+        output: {
+          kind: 'video',
+          url: 'https://cdn.example.com/output.mp4',
+          thumbnailUrl: 'https://cdn.example.com/output.jpg',
+          textPreview: 'Product launch clip',
+        },
+      },
+    })
+
+    const result = await getCreativeCanvasHermesRunStatus('org-1', 'hermes-run-1')
+
+    expect(mockCallHermesJson).toHaveBeenCalledWith(link, '/v1/runs/hermes-run-1', { method: 'GET' })
+    expect(result).toMatchObject({
+      providerJobId: 'hermes-run-1',
+      status: 'completed',
+      providerStatus: 'completed',
+      providerStatusMessage: 'Generated output ready',
+      output: {
+        kind: 'video',
+        url: 'https://cdn.example.com/output.mp4',
+        thumbnailUrl: 'https://cdn.example.com/output.jpg',
+      },
+    })
+  })
+
+  it('extracts media output from Hermes rich parts', async () => {
+    const link = {
+      orgId: 'org-1',
+      profile: 'maya',
+      baseUrl: 'http://127.0.0.1:8651',
+      enabled: true,
+      capabilities: { runs: true },
+    }
+    mockGetHermesProfileLink.mockResolvedValue(link)
+    mockCallHermesJson.mockResolvedValue({
+      response: { ok: true },
+      data: {
+        status: 'completed',
+        output: {
+          rich_parts: [
+            {
+              type: 'gallery',
+              images: [
+                {
+                  url: 'https://d8j0ntlcm91z4.cloudfront.net/user/product-higgsfield.png',
+                  caption: 'Generated product image',
+                },
+              ],
+            },
+          ],
+        },
+      },
+    })
+
+    const result = await getCreativeCanvasHermesRunStatus('org-1', 'hermes-run-rich')
+
+    expect(result).toMatchObject({
+      status: 'completed',
+      output: {
+        kind: 'image',
+        url: 'https://d8j0ntlcm91z4.cloudfront.net/user/product-higgsfield.png',
+        textPreview: 'Generated product image',
+      },
+    })
+  })
+
+  it('extracts media output from CLI text when Hermes returns raw tool output', async () => {
+    const link = {
+      orgId: 'org-1',
+      profile: 'maya',
+      baseUrl: 'http://127.0.0.1:8651',
+      enabled: true,
+      capabilities: { runs: true },
+    }
+    mockGetHermesProfileLink.mockResolvedValue(link)
+    mockCallHermesJson.mockResolvedValue({
+      response: { ok: true },
+      data: {
+        status: 'completed',
+        output: {
+          rich_parts: [
+            {
+              type: 'tool_output',
+              tool: 'higgsfield',
+              output: 'Completed job hf_123: https://cdn.example.com/final-output.mp4',
+            },
+          ],
+        },
+      },
+    })
+
+    const result = await getCreativeCanvasHermesRunStatus('org-1', 'hermes-run-cli')
+
+    expect(result).toMatchObject({
+      status: 'completed',
+      output: {
+        kind: 'video',
+        url: 'https://cdn.example.com/final-output.mp4',
+        textPreview: 'Completed job hf_123: https://cdn.example.com/final-output.mp4',
+      },
+    })
   })
 })

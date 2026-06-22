@@ -19,6 +19,18 @@ const VALID_AGENT_STATUSES = [
 ] as const
 
 const VALID_RISK_LEVELS = ['low', 'medium', 'high', 'critical'] as const
+const VALID_APPROVAL_GATES = [
+  'none',
+  'human-review',
+  'client-visible',
+  'public-publishing',
+  'paid-spend',
+  'production-deploy',
+  'finance',
+  'destructive',
+  'secret-config',
+  'none-until-production-or-client-visible',
+] as const
 
 const VALID_AGENT_CAPABILITIES = [
   'read',
@@ -44,6 +56,13 @@ const VALID_AGENT_CAPABILITIES = [
   'research-intelligence',
   'agent-evolution-review',
   'business-insight-review',
+  'platform-engineering',
+  'platform-ops',
+  'coordination',
+  'decision-routing',
+  'review',
+  'public-publishing',
+  'production-deploy',
 ] as const
 
 export const TASK_SOURCE_LINKAGE_FIELDS = [
@@ -53,11 +72,13 @@ export const TASK_SOURCE_LINKAGE_FIELDS = [
   'approvalGateTaskId',
   'sourceResearchItemId',
   'riskLevel',
+  'approvalGate',
   'agentEffort',
   'agentModel',
   'requiredCapability',
   'requestedByAgentId',
   'expectedArtifacts',
+  'verifierChecklist',
   'geoWorkspaceId',
   'geoAuditId',
   'geoFindingId',
@@ -86,6 +107,15 @@ function cleanRiskLevel(value: unknown): PayloadResult<string | null> {
   const cleaned = cleanString(value)
   if (!cleaned || !VALID_RISK_LEVELS.includes(cleaned as (typeof VALID_RISK_LEVELS)[number])) {
     return { ok: false, error: 'Invalid riskLevel; expected low | medium | high | critical', status: 400 }
+  }
+  return { ok: true, value: cleaned }
+}
+
+function cleanApprovalGate(value: unknown): PayloadResult<string | null> {
+  if (value === undefined || value === null || value === '') return { ok: true, value: null }
+  const cleaned = cleanString(value)
+  if (!cleaned || !VALID_APPROVAL_GATES.includes(cleaned as (typeof VALID_APPROVAL_GATES)[number])) {
+    return { ok: false, error: `Invalid approvalGate; expected one of ${VALID_APPROVAL_GATES.join(' | ')}`, status: 400 }
   }
   return { ok: true, value: cleaned }
 }
@@ -123,7 +153,7 @@ function cleanAgentContext(value: unknown): Record<string, unknown> | null {
 
   for (const field of TASK_SOURCE_LINKAGE_FIELDS) {
     if (!(field in value)) continue
-    if (field === 'expectedArtifacts') {
+    if (field === 'expectedArtifacts' || field === 'verifierChecklist') {
       const cleaned = cleanStringArray(value[field])
       if (cleaned.length > 0) out[field] = cleaned
       else delete out[field]
@@ -150,11 +180,19 @@ function applyProvenanceFields(
     const risk = cleanRiskLevel(source.riskLevel)
     if (!risk.ok) return { ok: false, error: risk.error, status: risk.status }
     if (risk.value) target.riskLevel = risk.value
+    else if (source.riskLevel === null) target.riskLevel = null
+  }
+  if (source.approvalGate !== undefined) {
+    const gate = cleanApprovalGate(source.approvalGate)
+    if (!gate.ok) return { ok: false, error: gate.error, status: gate.status }
+    if (gate.value) target.approvalGate = gate.value
+    else target.approvalGate = null
   }
   if (source.requiredCapability !== undefined) {
     const capability = cleanRequiredCapability(source.requiredCapability)
     if (!capability.ok) return { ok: false, error: capability.error, status: capability.status }
     if (capability.value) target.requiredCapability = capability.value
+    else if (source.requiredCapability === null || source.requiredCapability === '') target.requiredCapability = null
   }
   if (source.agentEffort !== undefined) {
     const effort = cleanRunEffort(source.agentEffort)
@@ -172,20 +210,26 @@ function applyProvenanceFields(
     const requestedBy = cleanAgentId(source.requestedByAgentId, 'requestedByAgentId')
     if (!requestedBy.ok) return { ok: false, error: requestedBy.error, status: requestedBy.status }
     if (requestedBy.value) target.requestedByAgentId = requestedBy.value
+    else if (source.requestedByAgentId === null || source.requestedByAgentId === '') target.requestedByAgentId = null
   }
   if (source.expectedArtifacts !== undefined) {
     target.expectedArtifacts = cleanStringArray(source.expectedArtifacts)
+  }
+  if (source.verifierChecklist !== undefined) {
+    target.verifierChecklist = cleanStringArray(source.verifierChecklist)
   }
   for (const field of TASK_SOURCE_LINKAGE_FIELDS) {
     if (!(field in source)) continue
     if (
       field in target
       || field === 'riskLevel'
+      || field === 'approvalGate'
       || field === 'agentEffort'
       || field === 'agentModel'
       || field === 'requiredCapability'
       || field === 'requestedByAgentId'
       || field === 'expectedArtifacts'
+      || field === 'verifierChecklist'
     ) continue
     const cleaned = cleanString(source[field])
     if (cleaned) target[field] = cleaned

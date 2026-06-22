@@ -2,8 +2,12 @@ import { NextRequest } from 'next/server'
 
 const mockListCreativeCanvasVersions = jest.fn()
 const mockCreateCreativeCanvasComment = jest.fn()
+const mockListCreativeCanvasComments = jest.fn()
+const mockListCreativeCanvasPresence = jest.fn()
+const mockHeartbeatCreativeCanvasPresence = jest.fn()
 const mockAttachCreativeCanvasNodeOutput = jest.fn()
 const mockUpdateCreativeCanvasNodeReview = jest.fn()
+const mockGetCreativeCanvas = jest.fn()
 
 jest.mock('@/lib/api/auth', () => ({
   withAuth: (_role: string, handler: any) => async (req: NextRequest, context?: unknown) =>
@@ -13,8 +17,15 @@ jest.mock('@/lib/api/auth', () => ({
 jest.mock('@/lib/creative-canvas/collaboration', () => ({
   listCreativeCanvasVersions: mockListCreativeCanvasVersions,
   createCreativeCanvasComment: mockCreateCreativeCanvasComment,
+  listCreativeCanvasComments: mockListCreativeCanvasComments,
+  listCreativeCanvasPresence: mockListCreativeCanvasPresence,
+  heartbeatCreativeCanvasPresence: mockHeartbeatCreativeCanvasPresence,
   attachCreativeCanvasNodeOutput: mockAttachCreativeCanvasNodeOutput,
   updateCreativeCanvasNodeReview: mockUpdateCreativeCanvasNodeReview,
+}))
+
+jest.mock('@/lib/creative-canvas/store', () => ({
+  getCreativeCanvas: mockGetCreativeCanvas,
 }))
 
 describe('creative canvas collaboration API routes', () => {
@@ -52,6 +63,87 @@ describe('creative canvas collaboration API routes', () => {
       { uid: 'user-1', type: 'user' },
     )
     expect(body.data.comment.id).toBe('comment-1')
+  })
+
+  it('lists canvas comments for the selected canvas', async () => {
+    const { GET } = await import('@/app/api/v1/creative-canvas/[id]/comments/route')
+    mockListCreativeCanvasComments.mockResolvedValue([{ id: 'comment-1', nodeId: 'node-1', body: 'Needs review' }])
+
+    const res = await GET(new NextRequest('http://test.local/api/v1/creative-canvas/canvas-1/comments?orgId=org-1'), {
+      params: Promise.resolve({ id: 'canvas-1' }),
+    })
+    const body = await res.json()
+
+    expect(mockListCreativeCanvasComments).toHaveBeenCalledWith('canvas-1', 'org-1')
+    expect(body).toMatchObject({ success: true, data: { comments: [{ id: 'comment-1', nodeId: 'node-1' }] } })
+  })
+
+  it('lists active collaborators for a canvas', async () => {
+    const { GET } = await import('@/app/api/v1/creative-canvas/[id]/presence/route')
+    mockListCreativeCanvasPresence.mockResolvedValue([{ id: 'presence-1', actorUid: 'maya' }])
+
+    const res = await GET(new NextRequest('http://test.local/api/v1/creative-canvas/canvas-1/presence?orgId=org-1'), {
+      params: Promise.resolve({ id: 'canvas-1' }),
+    })
+    const body = await res.json()
+
+    expect(mockListCreativeCanvasPresence).toHaveBeenCalledWith('canvas-1', 'org-1')
+    expect(body.data.presence).toEqual([{ id: 'presence-1', actorUid: 'maya' }])
+  })
+
+  it('heartbeats active collaborator focus', async () => {
+    const { POST } = await import('@/app/api/v1/creative-canvas/[id]/presence/route')
+    mockHeartbeatCreativeCanvasPresence.mockResolvedValue({ id: 'canvas-1_user-1', actorUid: 'user-1' })
+
+    const res = await POST(new NextRequest('http://test.local/api/v1/creative-canvas/canvas-1/presence?orgId=org-1', {
+      method: 'POST',
+      body: JSON.stringify({ selectedNodeId: 'edit-1', focus: 'canvas' }),
+    }), { params: Promise.resolve({ id: 'canvas-1' }) })
+    const body = await res.json()
+
+    expect(mockHeartbeatCreativeCanvasPresence).toHaveBeenCalledWith(
+      'canvas-1',
+      'org-1',
+      { selectedNodeId: 'edit-1', focus: 'canvas' },
+      { uid: 'user-1', type: 'user' },
+    )
+    expect(body.data.presence).toEqual([{ id: 'canvas-1_user-1', actorUid: 'user-1' }])
+  })
+
+  it('streams live collaboration snapshots for a canvas', async () => {
+    const { GET } = await import('@/app/api/v1/creative-canvas/[id]/presence/events/route')
+    mockGetCreativeCanvas.mockResolvedValue({ id: 'canvas-1', activeVersion: 2 })
+    mockListCreativeCanvasPresence.mockResolvedValue([{
+      id: 'presence-1',
+      actorUid: 'maya',
+      actorType: 'agent',
+      latestMutation: {
+        operation: 'node_move',
+        touchedNodeIds: ['node-a'],
+        touchedEdgeIds: [],
+        source: 'draft_applied',
+        occurredAt: '2026-06-21T12:00:00.000Z',
+      },
+    }])
+
+    const res = await GET(new NextRequest('http://test.local/api/v1/creative-canvas/canvas-1/presence/events?orgId=org-1'), {
+      params: Promise.resolve({ id: 'canvas-1' }),
+    })
+
+    expect(res.headers.get('content-type')).toContain('text/event-stream')
+    const reader = res.body?.getReader()
+    expect(reader).toBeTruthy()
+    const first = await reader!.read()
+    const second = await reader!.read()
+    await reader!.cancel()
+    const text = `${new TextDecoder().decode(first.value)}${new TextDecoder().decode(second.value)}`
+
+    expect(mockGetCreativeCanvas).toHaveBeenCalledWith('canvas-1', 'org-1')
+    expect(mockListCreativeCanvasPresence).toHaveBeenCalledWith('canvas-1', 'org-1')
+    expect(text).toContain('event: collaboration')
+    expect(text).toContain('"activeVersion":2')
+    expect(text).toContain('"actorUid":"maya"')
+    expect(text).toContain('"mutations":[{"actorUid":"maya","actorType":"agent","operation":"node_move","touchedNodeIds":["node-a"],"touchedEdgeIds":[],"source":"draft_applied","occurredAt":"2026-06-21T12:00:00.000Z"}]')
   })
 
   it('attaches output to a node', async () => {

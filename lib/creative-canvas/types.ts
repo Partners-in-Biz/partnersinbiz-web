@@ -83,6 +83,12 @@ export type CreativeCanvasEditOperation =
   | 'video_motion'
   | 'variation'
   | 'upscale'
+export type CreativeCanvasEditIntent =
+  | 'generative_fill'
+  | 'object_removal'
+  | 'object_replace'
+  | 'relight'
+  | 'reference_blend'
 export type CreativeCanvasEditMotionMode =
   | 'none'
   | 'camera_push'
@@ -102,6 +108,45 @@ export type CreativeCanvasProviderCapability =
   | 'generate_document_block'
   | 'analyze_media'
   | 'create_variants'
+
+export interface CreativeCanvasGraphConflictDetail {
+  id: string
+  kind: 'node' | 'edge'
+  label: string
+  reason: 'concurrent_update' | 'deleted_remotely' | 'deleted_locally'
+  baseLabel?: string
+  currentLabel?: string
+  proposedLabel?: string
+}
+
+export interface CreativeCanvasMaskRegion {
+  x: number
+  y: number
+  width: number
+  height: number
+  unit: 'percent' | 'pixel'
+  feather?: number
+}
+
+export interface CreativeCanvasMaskBrushStroke {
+  id: string
+  points: Array<{ x: number; y: number }>
+  size: number
+  opacity?: number
+  mode?: 'paint' | 'erase'
+  unit: 'percent' | 'pixel'
+}
+
+export interface CreativeCanvasEditMask {
+  sourceNodeId?: string
+  url?: string
+  storagePath?: string
+  invert?: boolean
+  region?: CreativeCanvasMaskRegion
+  brush?: {
+    strokes: CreativeCanvasMaskBrushStroke[]
+  }
+}
 
 export interface CreativeCanvasProvider {
   key: CreativeCanvasProviderKey
@@ -134,6 +179,7 @@ export interface CreativeCanvas {
   title: string
   status: CreativeCanvasStatus
   purpose: string
+  data?: Record<string, unknown>
   linked: CreativeCanvasLinkMap
   activeVersion: number
   visibility: CreativeCanvasVisibility
@@ -181,27 +227,22 @@ export interface CreativeCanvasNode {
   }
   edit?: {
     operation: CreativeCanvasEditOperation
+    intent?: CreativeCanvasEditIntent
     prompt?: string
-    mask?: {
-      sourceNodeId?: string
-      url?: string
-      storagePath?: string
-      invert?: boolean
-      region?: {
-        x: number
-        y: number
-        width: number
-        height: number
-        unit: 'percent' | 'pixel'
-        feather?: number
-      }
-    }
+    mask?: CreativeCanvasEditMask
     references?: Array<{
       sourceNodeId: string
       role: CreativeCanvasReferenceRole
       weight?: number
     }>
     strength?: number
+    blendControls?: {
+      lightMatch?: boolean
+      textureAdaptive?: boolean
+      autoShadows?: boolean
+      perspectiveMatch?: boolean
+      preserveSubject?: boolean
+    }
     motion?: {
       mode: CreativeCanvasEditMotionMode
       durationSeconds?: number
@@ -243,6 +284,69 @@ export interface CreativeCanvasGraph {
   edges: CreativeCanvasEdge[]
 }
 
+export interface CreativeCanvasTemplate {
+  id?: string
+  orgId: string
+  title: string
+  description?: string
+  category?: string
+  sourceCanvasId?: string
+  sourceVersion?: number
+  nodes: CreativeCanvasNode[]
+  edges: CreativeCanvasEdge[]
+  createdAt?: unknown
+  createdBy: string
+  createdByType: CreativeCanvasActorType
+  updatedAt?: unknown
+  updatedBy: string
+  updatedByType: CreativeCanvasActorType
+  deleted: boolean
+}
+
+export type CreativeCanvasOrchestrationRole =
+  | 'source_curator'
+  | 'strategist'
+  | 'prompt_engineer'
+  | 'generation_operator'
+  | 'editor'
+  | 'reviewer'
+  | 'publisher'
+
+export interface CreativeCanvasOrchestrationStep {
+  id: string
+  nodeId: string
+  title: string
+  role: CreativeCanvasOrchestrationRole
+  agentId: string
+  status: 'ready' | 'waiting' | 'blocked'
+  dependsOnNodeIds: string[]
+  deliverables: string[]
+  guardrails: string[]
+  providerKey?: CreativeCanvasProviderKey
+  outputKind?: CreativeCanvasOutputKind
+}
+
+export interface CreativeCanvasOrchestrationPlan {
+  canvasId: string
+  orgId: string
+  steps: CreativeCanvasOrchestrationStep[]
+  agents: Array<{
+    agentId: string
+    roles: CreativeCanvasOrchestrationRole[]
+    stepCount: number
+  }>
+  approvalGates: Array<{
+    nodeId: string
+    title: string
+    reviewerAgentId: string
+    syntheticMediaDisclosure: boolean
+    rightsStatus: CreativeCanvasRightsStatus
+    brandStatus: CreativeCanvasBrandStatus
+  }>
+  blockers: string[]
+  handoffSummary: string
+}
+
 export interface CreativeCanvasSourceLibraryItem {
   id: string
   title: string
@@ -276,6 +380,39 @@ export interface CreativeCanvasComment {
   createdBy: string
   createdByType: CreativeCanvasActorType
   updatedAt?: unknown
+}
+
+export interface CreativeCanvasPresence {
+  id?: string
+  orgId: string
+  canvasId: string
+  actorUid: string
+  actorType: CreativeCanvasActorType
+  displayName?: string
+  selectedNodeId?: string
+  focus?: 'canvas' | 'inspector' | 'versions' | 'comments' | 'assets' | 'runs'
+  viewport?: {
+    zoom?: number
+    x?: number
+    y?: number
+  }
+  activeVersion?: number
+  graphSignature?: string
+  hasUnsavedGraphChanges?: boolean
+  nodeCount?: number
+  edgeCount?: number
+  selectedNodeTitle?: string
+  draftGraph?: CreativeCanvasGraph
+  latestMutation?: {
+    operation: CreativeCanvasRemoteMutationOperation
+    touchedNodeIds: string[]
+    touchedEdgeIds: string[]
+    source: CreativeCanvasRemoteMutationSource
+    occurredAt: string
+  }
+  lastSeenAt?: unknown
+  lastSeenAtMs: number
+  expiresAtMs: number
 }
 
 export type CreativeCanvasOutputPatch = Pick<NonNullable<CreativeCanvasNode['output']>, 'kind'> &
@@ -314,6 +451,9 @@ export interface CreativeCanvasRun {
     stylePreset?: string
     cameraMotion?: CreativeCanvasEditMotionMode
     negativePrompt?: string
+    editMask?: CreativeCanvasEditMask
+    editIntent?: CreativeCanvasEditIntent
+    blendControls?: NonNullable<NonNullable<CreativeCanvasNode['edit']>['blendControls']>
   }
   output?: {
     outputNodeId?: string
@@ -347,13 +487,332 @@ export interface CreativeCanvasRun {
   updatedAt?: unknown
 }
 
+export type CreativeCanvasRunStatusCounts = Record<CreativeCanvasRunStatus, number>
+
+export interface CreativeCanvasProviderRunSummary {
+  providerKey: CreativeCanvasProviderKey
+  total: number
+  byStatus: CreativeCanvasRunStatusCounts
+  active: number
+  staleActiveRuns: number
+  oldestActiveRunAgeMinutes?: number
+  failed: number
+  retryableFailures: number
+  completed: number
+  latestRunId?: string
+  latestProviderStatus?: string
+  latestProviderStatusMessage?: string
+  latestErrorMessage?: string
+}
+
+export interface CreativeCanvasRunOperationsSummary {
+  total: number
+  byStatus: CreativeCanvasRunStatusCounts
+  active: number
+  staleActiveRuns: number
+  oldestActiveRunAgeMinutes?: number
+  staleThresholdMinutes: number
+  failed: number
+  retryableFailures: number
+  completed: number
+  providers: CreativeCanvasProviderRunSummary[]
+}
+
+export interface CreativeCanvasRunBatchRetryResult {
+  retriedRuns: Array<CreativeCanvasRun & { id: string }>
+  skippedRuns: Array<{
+    id: string
+    status: CreativeCanvasRunStatus
+    reason: string
+  }>
+  operations: CreativeCanvasRunOperationsSummary
+}
+
+export interface CreativeCanvasProofBatchResult {
+  queuedRuns: Array<CreativeCanvasRun & { id: string }>
+  skippedCategories: Array<{
+    category: 'image' | 'video_social' | 'audio' | 'blog_document' | 'book'
+    reason: string
+    runId?: string
+  }>
+  operations: CreativeCanvasRunOperationsSummary
+}
+
+export interface CreativeCanvasProviderRuntimeReadiness {
+  providerKey: CreativeCanvasProviderKey
+  runtimeConfigured: boolean
+  submitConfigured: boolean
+  statusPollingConfigured: boolean
+  internalBridgeConfigured: boolean
+  callbackBaseConfigured: boolean
+  webhookSecretConfigured: boolean
+  linkedProjectId?: string
+  blockers: string[]
+  warnings: string[]
+}
+
+export type CreativeCanvasProofStatus = 'passed' | 'warning' | 'blocked'
+
+export interface CreativeCanvasRuntimeProofCheck {
+  id: string
+  label: string
+  status: CreativeCanvasProofStatus
+  evidence: string
+  nextAction?: string
+}
+
+export interface CreativeCanvasReliabilityCoverageCategory {
+  key: 'image' | 'video_social' | 'audio' | 'blog_document' | 'book'
+  label: string
+  requiredOutputKinds: CreativeCanvasOutputKind[]
+  requiredCompleted: number
+  status: CreativeCanvasProofStatus
+  total: number
+  completed: number
+  active: number
+  failed: number
+  cancelled: number
+  latestRunId?: string
+  latestCompletedRunId?: string
+  nextAction?: string
+}
+
+export interface CreativeCanvasRuntimeProof {
+  canvasId: string
+  orgId: string
+  status: CreativeCanvasProofStatus
+  checks: CreativeCanvasRuntimeProofCheck[]
+  reliabilityCoverage: CreativeCanvasReliabilityCoverageCategory[]
+  runtimeCategoryEvidence: CreativeCanvasCategoryEvidence[]
+  exportCategoryEvidence: CreativeCanvasCategoryEvidence[]
+  readyForLiveProof: boolean
+  summary: string
+}
+
+export type CreativeCanvasProofCategoryKey =
+  | 'image'
+  | 'video_social'
+  | 'audio'
+  | 'blog_document'
+  | 'book'
+
+export type CreativeCanvasRemoteMutationOperation =
+  | 'node_add'
+  | 'node_move'
+  | 'node_configure'
+  | 'edge_add'
+  | 'edge_remove'
+  | 'draft_apply'
+  | 'version_restore'
+
+export const creativeCanvasRemoteMutationOperations = [
+  'node_add',
+  'node_move',
+  'node_configure',
+  'edge_add',
+  'edge_remove',
+  'draft_apply',
+  'version_restore',
+] as const
+
+export type CreativeCanvasRemoteMutationSource = 'stream' | 'draft_applied' | 'poll'
+
+export const creativeCanvasRemoteMutationSources = [
+  'stream',
+  'draft_applied',
+  'poll',
+] as const
+
+export interface CreativeCanvasProofBinding {
+  orgId: string
+  canvasVersion: number
+  graphSignature: string
+  nodeCount: number
+  edgeCount: number
+}
+
+export interface CreativeCanvasRemoteMutationEvidence {
+  actorUid: string
+  actorType: CreativeCanvasActorType
+  operation: CreativeCanvasRemoteMutationOperation
+  touchedNodeIds: string[]
+  touchedEdgeIds: string[]
+  source: CreativeCanvasRemoteMutationSource
+  occurredAt: string
+}
+
+export interface CreativeCanvasCollaborationProofEvidence extends CreativeCanvasProofBinding {
+  collaborationRemoteActorCount?: number
+  collaborationRemoteEventCount?: number
+  collaborationRemoteMutationCount?: number
+  collaborationRemoteMutationKindCount?: number
+  collaborationRemoteTouchedNodeCount?: number
+  collaborationRemoteTouchedEdgeCount?: number
+  collaborationRemoteGraphSignature?: string
+  collaborationRemoteSource?: CreativeCanvasRemoteMutationSource
+  collaborationRemoteOutcome?: 'remote_changes_observed' | 'remote_changes_adopted' | 'conflict_detected' | 'version_forked'
+  collaborationCapturedAt?: string
+  collaborationEvidence?: string
+  collaborationRemoteMutations?: CreativeCanvasRemoteMutationEvidence[]
+}
+
+export interface CreativeCanvasMobileViewportEvidence {
+  key: 'desktop' | 'tablet' | 'mobile' | 'mobile_panels'
+  width: number
+  height: number
+  screenshotUrl: string
+  status: number
+  contentType: string
+  criticalControlsVisible: boolean
+  criticalControlsEnabled: boolean
+  horizontalOverflow: boolean
+  touchSmokePassed: boolean
+  pointerSmokePassed: boolean
+  panelKeys: string[]
+  capturedAt: string
+}
+
+export interface CreativeCanvasMobileProof extends CreativeCanvasProofBinding {
+  mobileViewportProofCount?: number
+  mobileViewportRequiredCount?: number
+  mobileViewportProofCapturedAt?: string
+  mobileViewportEvidence?: string
+  mobileViewportBehaviorEvidence?: CreativeCanvasMobileViewportEvidence[]
+}
+
+export interface CreativeCanvasCategoryEvidence extends CreativeCanvasProofBinding {
+  categoryKey: CreativeCanvasProofCategoryKey
+  runIds: string[]
+  providerJobIds: string[]
+  outputUrls: string[]
+  artifactIds: string[]
+  outputNodeIds: string[]
+  exportIds: string[]
+  downstreamDraftIds: string[]
+  lineageSourceNodeIds: string[]
+  providerKeys: CreativeCanvasProviderKey[]
+  outputKinds: CreativeCanvasOutputKind[]
+  reviewStatuses: CreativeCanvasReviewStatus[]
+  completedAt: string
+  evidence: string
+}
+
+export interface CreativeCanvasCertificationArtifactEvidence extends CreativeCanvasProofBinding {
+  passed: boolean
+  evidence?: string
+  artifactRef?: string
+  capturedAt?: string
+}
+
+export interface CreativeCanvasKnowledgeBaseCertificationEvidence extends CreativeCanvasProofBinding {
+  recorded: boolean
+  evidence?: string
+  artifactRef?: string
+  capturedAt?: string
+}
+
+export interface CreativeCanvasBenchmarkProof extends CreativeCanvasProofBinding {
+  key: string
+  passed: boolean
+  evidence?: string
+  proofUrl?: string
+  notes?: string
+  sourceUrl?: string
+  sourceEvidenceReachable?: boolean
+  sourceEvidenceStatus?: number
+  sourceSignalsMatched?: boolean
+  sourceSignals?: string[]
+  sourceSignalsVerifiedAt?: string
+  directComparisonVerdict?: 'pass' | 'fail'
+  directComparisonAt?: string
+  directComparisonNotes?: string
+}
+
+export interface CreativeCanvasLiveProofArtifact {
+  orgId: string
+  canvasVersion: number
+  graphSignature: string
+  nodeCount: number
+  edgeCount: number
+  key: string
+  url: string
+  status: number
+  contentType: string
+  capturedAt: string
+  evidence: string
+}
+
+export interface CreativeCanvasCertificationRuntimeProof extends CreativeCanvasProofBinding {
+  status: CreativeCanvasProofStatus
+  readyForLiveProof: boolean
+}
+
+export interface CreativeCanvasWorldClassCertificationInput {
+  benchmarkProofs: CreativeCanvasBenchmarkProof[]
+  runtimeProof?: CreativeCanvasCertificationRuntimeProof
+  liveProofArtifacts: CreativeCanvasLiveProofArtifact[]
+  requiredBenchmarkCount: number
+  capturedAt: string
+  currentBinding: CreativeCanvasProofBinding
+  signedInPreviewProof?: CreativeCanvasCertificationArtifactEvidence
+  kbCertification?: CreativeCanvasKnowledgeBaseCertificationEvidence
+}
+
+export interface CreativeCanvasWorldClassCertification extends CreativeCanvasProofBinding {
+  status: CreativeCanvasProofStatus
+  capturedAt: string
+  passedGateCount: number
+  requiredGateCount: number
+  blockers: string[]
+  warnings: string[]
+  evidence: string[]
+  signedInPreviewProofPassed: boolean
+  signedInPreviewProofEvidence?: string
+  signedInPreviewProofArtifactRef?: string
+  kbCertificationRecorded: boolean
+  kbCertificationEvidence?: string
+  kbCertificationArtifactRef?: string
+}
+
+export type CreativeCanvasAssetOrigin = 'source_node' | 'output_node' | 'run_output'
+
+export interface CreativeCanvasAssetSummary {
+  id: string
+  origin: CreativeCanvasAssetOrigin
+  title: string
+  nodeId?: string
+  runId?: string
+  providerKey?: CreativeCanvasProviderKey
+  sourceKind?: CreativeCanvasSourceKind
+  referenceRole?: CreativeCanvasReferenceRole
+  outputKind?: CreativeCanvasOutputKind
+  url?: string
+  thumbnailUrl?: string
+  storagePath?: string
+  artifactId?: string
+  textPreview?: string
+  reviewStatus?: CreativeCanvasReviewStatus
+  rightsStatus?: CreativeCanvasRightsStatus
+  brandStatus?: CreativeCanvasBrandStatus
+  suggestedExportTarget?: CreativeCanvasExport['target']
+  canDraftExport: boolean
+  exportBlockedReason?: string
+  readyForExport: boolean
+}
+
 export interface CreativeCanvasExport {
   id?: string
   orgId: string
   canvasId: string
   nodeId: string
-  target: 'social_draft' | 'campaign_asset' | 'client_document' | 'research' | 'youtube_studio' | 'book_studio' | 'workspace_artifact'
+  target: 'social_draft' | 'campaign_asset' | 'client_document' | 'blog_post' | 'research' | 'youtube_studio' | 'book_studio' | 'workspace_artifact'
   targetId?: string
+  categoryKey?: CreativeCanvasProofCategoryKey
+  downstreamDraftId?: string
+  lineageSourceNodeIds?: string[]
+  outputNodeId?: string
+  outputKind?: CreativeCanvasOutputKind
+  reviewStatus?: CreativeCanvasReviewStatus
   status: 'drafted' | 'blocked' | 'completed' | 'failed'
   createdAt?: unknown
   createdBy: string
