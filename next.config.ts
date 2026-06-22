@@ -1,6 +1,7 @@
 import path from 'path'
+import type { NextConfig } from 'next'
 
-const nextConfig = {
+const nextConfig: NextConfig = {
   allowedDevOrigins: ['127.0.0.1'],
   turbopack: {
     root: path.resolve(__dirname, '../..'),
@@ -10,6 +11,13 @@ const nextConfig = {
   },
   transpilePackages: ['@partnersinbiz/analytics-js'],
   serverExternalPackages: ['@react-pdf/renderer'],
+  webpack(config, { dev }) {
+    if (!dev) {
+      config.cache = false
+    }
+
+    return config
+  },
   typescript: {
     // The Vercel build script runs `npm run typecheck` before Next compiles.
     // Skipping the duplicate Next type pass keeps preview builds under memory limits.
