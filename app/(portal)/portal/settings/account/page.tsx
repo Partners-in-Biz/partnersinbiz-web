@@ -3,7 +3,7 @@
 export const dynamic = 'force-dynamic'
 
 import { useState } from 'react'
-import { sendPasswordResetEmail } from 'firebase/auth'
+import { sendPasswordResetEmail, deleteUser } from 'firebase/auth'
 import { getClientAuth } from '@/lib/firebase/config'
 
 function SecurityRow({
@@ -57,6 +57,25 @@ export default function AccountSettingsPage() {
   const [resetting, setResetting] = useState(false)
   const [resetSent, setResetSent] = useState(false)
   const [resetError, setResetError] = useState('')
+
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const [deleteConfirmText, setDeleteConfirmText] = useState('')
+  const [deleting, setDeleting] = useState(false)
+  const [deleteError, setDeleteError] = useState('')
+
+  async function handleDeleteAccount() {
+    if (deleteConfirmText !== 'DELETE' || deleting || !user) return
+    setDeleting(true)
+    setDeleteError('')
+    try {
+      await deleteUser(user)
+      // Firebase signs the user out automatically on delete
+      window.location.href = '/login'
+    } catch {
+      setDeleteError('Could not delete account. Please sign out and sign back in first, then try again.')
+      setDeleting(false)
+    }
+  }
 
   async function handlePasswordReset() {
     if (!email || resetting) return
@@ -172,6 +191,62 @@ export default function AccountSettingsPage() {
           </div>
         </section>
       </div>
+
+      <section data-testid="account-danger-zone" className="pib-card-section border-red-500/20">
+        <div className="pib-card-section-header">
+          <p className="text-[10px] font-label uppercase tracking-widest text-red-400">Danger zone</p>
+          <h2 className="mt-2 text-lg font-semibold text-[var(--color-pib-text)]">Delete account</h2>
+          <p className="mt-1 max-w-2xl text-sm text-[var(--color-pib-text-muted)]">
+            Permanently deletes your login identity. Your organisation's CRM data, documents, and workspace remain intact — only your personal login is removed. This cannot be undone.
+          </p>
+        </div>
+
+        <div className="pib-card-section-row items-start gap-4 max-sm:flex-col">
+          <span className="material-symbols-outlined rounded-xl border border-red-500/20 bg-red-500/5 p-2 text-[20px] text-red-400 shrink-0" aria-hidden="true">person_remove</span>
+          <div className="min-w-0 flex-1 space-y-4">
+            {!showDeleteConfirm ? (
+              <button
+                type="button"
+                onClick={() => setShowDeleteConfirm(true)}
+                className="rounded-lg border border-red-500/30 px-4 py-2 text-sm font-medium text-red-400 hover:bg-red-500/10 transition-colors"
+              >
+                Delete my account
+              </button>
+            ) : (
+              <div className="space-y-3">
+                <p className="text-sm text-[var(--color-pib-text-muted)]">
+                  Type <strong className="text-[var(--color-pib-text)] font-mono">DELETE</strong> to confirm permanent removal.
+                </p>
+                <input
+                  type="text"
+                  value={deleteConfirmText}
+                  onChange={(e) => setDeleteConfirmText(e.target.value)}
+                  placeholder="Type DELETE"
+                  className="rounded-lg border border-red-500/30 bg-white/5 px-3 py-2 text-sm text-white placeholder:text-white/30 focus:outline-none focus:ring-1 focus:ring-red-500/50 w-full max-w-xs"
+                />
+                <div className="flex items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={handleDeleteAccount}
+                    disabled={deleteConfirmText !== 'DELETE' || deleting}
+                    className="rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700 disabled:opacity-40 transition-colors"
+                  >
+                    {deleting ? 'Deleting…' : 'Permanently delete account'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setShowDeleteConfirm(false); setDeleteConfirmText(''); setDeleteError('') }}
+                    className="text-sm text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)]"
+                  >
+                    Cancel
+                  </button>
+                </div>
+                {deleteError && <p className="text-xs text-red-400" role="alert">{deleteError}</p>}
+              </div>
+            )}
+          </div>
+        </div>
+      </section>
     </div>
   )
 }
