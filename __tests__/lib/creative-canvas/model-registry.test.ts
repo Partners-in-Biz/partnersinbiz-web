@@ -7,10 +7,16 @@ test('every model has a stable id, provider key and credit cost', () => {
     expect(m.creditCost).toBeGreaterThanOrEqual(0)
   }
 })
-test('there is a synchronous xai image model for inline generation', () => {
-  const sync = modelsForKind('image').find((m) => m.execution === 'sync' && m.providerKey === 'xai')
-  expect(sync).toBeTruthy()
-  expect(getCanvasModel(sync!.id)).toEqual(sync)
+test('every model routes through Higgsfield (or an agent), default GPT Image 2', () => {
+  // The whole catalog is Higgsfield-backed (agent_task for LLM/voice helpers).
+  for (const m of CANVAS_MODELS) {
+    expect(['higgsfield', 'agent_task']).toContain(m.providerKey)
+  }
+  const def = getCanvasModel('gpt_image_2')
+  expect(def).toBeTruthy()
+  expect(def!.kind).toBe('image')
+  expect(def!.providerKey).toBe('higgsfield')
+  expect(modelsForKind('image').some((m) => m.id === 'gpt_image_2')).toBe(true)
 })
 test('featuredModels is a non-empty subset', () => {
   expect(featuredModels().length).toBeGreaterThan(0)

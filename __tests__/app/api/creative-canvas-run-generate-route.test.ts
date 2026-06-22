@@ -24,6 +24,20 @@ jest.mock('@/lib/creative-canvas/agent-bridge', () => ({
   buildCreativeCanvasAgentTask: mockBuildCreativeCanvasAgentTask,
 }))
 
+// Model registry: stub two models so the route's sync + async branches are
+// tested independently of the real catalog (which is now all-Higgsfield/async).
+jest.mock('@/lib/creative-canvas/model-registry', () => ({
+  getCanvasModel: (id: string) => {
+    if (id === 'grok-image') {
+      return { id, label: 'Sync', family: 'Test', featured: false, kind: 'image', providerKey: 'xai', capabilities: [], aspectRatios: [], maxBatch: 4, creditCost: 2, execution: 'sync' }
+    }
+    if (id === 'seedance_2_0') {
+      return { id, label: 'Async', family: 'Test', featured: true, kind: 'video', providerKey: 'higgsfield', capabilities: [], aspectRatios: [], durations: [8], maxBatch: 4, creditCost: 68, execution: 'async' }
+    }
+    return undefined
+  },
+}))
+
 // Credit metering: default to no configured limit (always allowed) so the
 // generation flow under test is unchanged; record usage is a no-op here.
 jest.mock('@/lib/creative-canvas/credits', () => ({

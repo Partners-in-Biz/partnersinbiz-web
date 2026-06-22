@@ -5145,7 +5145,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
   }
 
   return (
-    <main className={immersiveCanvas ? 'space-y-3 px-3 py-3' : 'mx-auto max-w-7xl space-y-5 px-4 py-6'}>
+    <main className={immersiveCanvas ? 'space-y-2' : 'mx-auto max-w-7xl space-y-5 px-4 py-6'}>
       <CanvasTopBar
         eyebrow={mode === 'admin' ? 'Agent creative command' : 'Creative review'}
         title={activeCanvas?.title ?? 'Creative Canvas'}
@@ -5163,7 +5163,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
         onHome={() => setShowLanding(true)}
         immersive={immersiveCanvas}
         onToggleImmersive={() => setImmersiveCanvas((value) => !value)}
-        creditsLabel={canvasCredits ? `${canvasCredits.used}${canvasCredits.limit != null ? `/${canvasCredits.limit}` : ''}` : undefined}
+        creditsLabel={canvasCredits?.limit != null ? `${canvasCredits.used}/${canvasCredits.limit}` : 'Unlimited'}
       />
 
       {topBarPanel ? (

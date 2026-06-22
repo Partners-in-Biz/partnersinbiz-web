@@ -179,21 +179,6 @@ export const CANVAS_MODELS: CanvasModel[] = [
     execution: 'async',
     description: 'Smart routing — picks the best image model from the prompt.',
   },
-  {
-    id: 'grok-image',
-    label: 'Grok Image (fast preview)',
-    family: 'Fast preview',
-    featured: false,
-    kind: 'image',
-    providerKey: 'xai',
-    capabilities: ['generate_image', 'create_variants'],
-    aspectRatios: ['1:1', '9:16', '16:9'],
-    resolutions: ['1k', '2k'],
-    maxBatch: 4,
-    creditCost: 2,
-    execution: 'sync',
-    description: 'Optional synchronous xAI image for an instant in-node preview (renders without the Higgsfield runtime).',
-  },
   // ----- Video -----
   {
     id: 'seedance_2_0',
