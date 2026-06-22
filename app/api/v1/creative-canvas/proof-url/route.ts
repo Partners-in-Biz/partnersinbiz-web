@@ -34,6 +34,7 @@ function parseHttpProofUrl(value: unknown): string | null {
     ) return null
     return parsed.toString()
   } catch {
+    void 0
     return null
   }
 }
@@ -92,6 +93,7 @@ async function checkExpectedSignals(url: string, expectedSignals: string[]): Pro
       missingSignals,
     }
   } catch {
+    void 0
     return { signalMatched: false, signalCheckedAt, missingSignals: expectedSignals }
   }
 }
@@ -112,6 +114,7 @@ async function checkProofUrl(url: string, kind: ProofUrlKind, expectedSignals: s
       return proof
     }
   } catch {
+    void 0
     // Fall through to a tiny GET because some storage/CDN hosts reject HEAD.
   }
 
@@ -128,6 +131,7 @@ async function checkProofUrl(url: string, kind: ProofUrlKind, expectedSignals: s
     }
     return proof
   } catch {
+    void 0
     return { url, reachable: false, checkedAt }
   }
 }

@@ -22,12 +22,34 @@ type BillingAddress = {
   country?: string
 }
 
+const TIMEZONES = [
+  { value: 'Africa/Johannesburg', label: 'Africa/Johannesburg (SAST, UTC+2)' },
+  { value: 'Africa/Nairobi',      label: 'Africa/Nairobi (EAT, UTC+3)' },
+  { value: 'Africa/Lagos',        label: 'Africa/Lagos (WAT, UTC+1)' },
+  { value: 'Africa/Cairo',        label: 'Africa/Cairo (EET, UTC+2)' },
+  { value: 'Europe/London',       label: 'Europe/London (GMT/BST)' },
+  { value: 'Europe/Paris',        label: 'Europe/Paris (CET, UTC+1)' },
+  { value: 'Europe/Berlin',       label: 'Europe/Berlin (CET, UTC+1)' },
+  { value: 'Europe/Amsterdam',    label: 'Europe/Amsterdam (CET, UTC+1)' },
+  { value: 'America/New_York',    label: 'America/New_York (EST/EDT)' },
+  { value: 'America/Chicago',     label: 'America/Chicago (CST/CDT)' },
+  { value: 'America/Denver',      label: 'America/Denver (MST/MDT)' },
+  { value: 'America/Los_Angeles', label: 'America/Los_Angeles (PST/PDT)' },
+  { value: 'America/Sao_Paulo',   label: 'America/Sao_Paulo (BRT, UTC−3)' },
+  { value: 'Asia/Dubai',          label: 'Asia/Dubai (GST, UTC+4)' },
+  { value: 'Asia/Singapore',      label: 'Asia/Singapore (SST, UTC+8)' },
+  { value: 'Asia/Tokyo',          label: 'Asia/Tokyo (JST, UTC+9)' },
+  { value: 'Australia/Sydney',    label: 'Australia/Sydney (AEST/AEDT)' },
+  { value: 'Pacific/Auckland',    label: 'Pacific/Auckland (NZST/NZDT)' },
+]
+
 type OrganizationSettingsResponse = {
   organization?: {
     name?: string
     website?: string
     industry?: string
     billingEmail?: string
+    timezone?: string
     billingDetails?: {
       legalName?: string
       tradingName?: string
@@ -226,6 +248,12 @@ export default function OrganizationSettingsPage() {
   const [saved, setSaved] = useState(false)
   const [error, setError] = useState('')
 
+  // Timezone state — independent of main form save
+  const [timezone, setTimezone] = useState('Africa/Johannesburg')
+  const [tzSaving, setTzSaving] = useState(false)
+  const [tzSaved, setTzSaved] = useState(false)
+  const [tzError, setTzError] = useState('')
+
   useEffect(() => {
     let alive = true
     fetch(organizationEndpoint)
@@ -239,6 +267,7 @@ export default function OrganizationSettingsPage() {
         setForm(toForm(body))
         setCanEdit(body.permissions?.canEdit === true)
         setRole(body.permissions?.role ?? null)
+        if (body.organization?.timezone) setTimezone(body.organization.timezone)
       })
       .catch((err: unknown) => {
         if (alive) setError(err instanceof Error ? err.message : 'Failed to load organisation details')
@@ -274,6 +303,30 @@ export default function OrganizationSettingsPage() {
       setError(body.error ?? 'Failed to save organisation details')
     }
     setSaving(false)
+  }
+
+  async function handleSaveTimezone() {
+    if (!canEdit) return
+    setTzSaving(true)
+    setTzSaved(false)
+    setTzError('')
+    try {
+      const res = await fetch(organizationEndpoint, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ timezone }),
+      })
+      if (res.ok) {
+        setTzSaved(true)
+        setTimeout(() => setTzSaved(false), 3000)
+      } else {
+        const body = await res.json().catch(() => ({})) as OrganizationSettingsResponse
+        setTzError(body.error ?? 'Failed to save timezone')
+      }
+    } catch {
+      setTzError('Failed to save timezone')
+    }
+    setTzSaving(false)
   }
 
   function field(label: string, key: TextField, options: { type?: string; required?: boolean } = {}) {
@@ -445,6 +498,45 @@ export default function OrganizationSettingsPage() {
           {saving ? 'Saving...' : saved ? 'Saved' : 'Save organisation details'}
         </button>
       </form>
+
+      {/* Timezone — standalone section, separate save */}
+      <div className="pib-card space-y-4">
+        <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Timezone</p>
+        <p className="text-sm text-[var(--color-pib-text-muted)]">
+          All scheduled times, reports, and activity timestamps will display in this timezone for your organisation.
+        </p>
+        <div className="flex flex-col gap-1.5">
+          <label htmlFor="org-timezone" className="pib-label !mb-0">Organisation timezone</label>
+          <select
+            id="org-timezone"
+            value={timezone}
+            onChange={(e) => setTimezone(e.target.value)}
+            disabled={!canEdit}
+            className="pib-input disabled:opacity-60"
+          >
+            {TIMEZONES.map((tz) => (
+              <option key={tz.value} value={tz.value}>{tz.label}</option>
+            ))}
+          </select>
+        </div>
+        {tzError && <p className="text-sm text-red-400">{tzError}</p>}
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={handleSaveTimezone}
+            disabled={tzSaving || !canEdit}
+            className="pib-btn-primary disabled:opacity-60"
+          >
+            {tzSaving ? 'Saving...' : 'Save timezone'}
+          </button>
+          {tzSaved && (
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-[var(--color-pib-success,#22c55e)]/10 px-3 py-1 text-xs font-medium text-[var(--color-pib-success,#22c55e)]">
+              <span className="material-symbols-outlined text-[14px]">check_circle</span>
+              Timezone saved
+            </span>
+          )}
+        </div>
+      </div>
     </div>
   )
 }

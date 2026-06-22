@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import { DocumentRenderer } from '@/components/client-documents/DocumentRenderer'
 import { DocumentReviewRail } from '@/components/client-documents/DocumentReviewRail'
+import { DocumentTaskList } from '@/components/client-documents/DocumentTaskList'
 import { ShareSettingsPanel } from '@/components/client-documents/share/ShareSettingsPanel'
 import { CommentComposer } from '@/components/inline-comments/CommentComposer'
 import type { AnchorTarget } from '@/components/inline-comments/types'
@@ -16,6 +17,7 @@ import {
   resolveOrganizationModulePolicies,
 } from '@/lib/organizations/module-policies'
 import { scopedApiPath, scopedPortalPath, scopeFromSearchParams } from '@/lib/portal/scoped-routing'
+import { fmtTimestamp } from '@/lib/format/timestamp'
 
 interface Props {
   params: Promise<{ id: string }>
@@ -60,6 +62,8 @@ export default function PortalDocumentDetail({ params }: Props) {
   const [activeCommentId, setActiveCommentId] = useState<string | null>(null)
   const [showShare, setShowShare] = useState(false)
   const [baseUrl, setBaseUrl] = useState('')
+  const [exportingPdf, setExportingPdf] = useState(false)
+  const [accessLog, setAccessLog] = useState<Array<{ userId: string; accessedAt: unknown; id: string }>>([]);
 
   useEffect(() => {
     setBaseUrl(window.location.origin)
@@ -107,6 +111,14 @@ export default function PortalDocumentDetail({ params }: Props) {
           versions[versions.length - 1] ??
           null
         setVersion(current)
+
+        // Log this access and fetch the recent access log
+        void fetch(`/api/v1/client-documents/${id}/access-log`, { method: 'POST' })
+        const logRes = await fetch(`/api/v1/client-documents/${id}/access-log`)
+        if (logRes.ok) {
+          const logBody = await logRes.json()
+          setAccessLog(logBody.data?.events ?? [])
+        }
       } catch {
         // silent
       } finally {
@@ -115,6 +127,26 @@ export default function PortalDocumentDetail({ params }: Props) {
     }
     load()
   }, [id, orgEndpoint])
+
+  async function handleExportPdf() {
+    if (!doc || exportingPdf) return
+    setExportingPdf(true)
+    try {
+      const res = await fetch(`/api/v1/client-documents/${id}/export-pdf`)
+      if (!res.ok) throw new Error('Export failed')
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `${doc.title ?? 'document'}.pdf`
+      a.click()
+      URL.revokeObjectURL(url)
+    } catch {
+      // silent — button re-enables
+    } finally {
+      setExportingPdf(false)
+    }
+  }
 
   const handleRequestTextComment = useCallback((anchor: { text: string; blockId: string | null }) => {
     setPendingAnchor({ kind: 'text', text: anchor.text, blockId: anchor.blockId })
@@ -309,6 +341,23 @@ export default function PortalDocumentDetail({ params }: Props) {
             />
           )}
 
+          {/* PDF Export — US-174 */}
+          <div className="pib-card p-4 flex items-center justify-between">
+            <div>
+              <p className="text-xs font-medium text-[var(--color-pib-text)]">Export document</p>
+              <p className="text-xs text-[var(--color-pib-text-muted)]">Download as PDF</p>
+            </div>
+            <button
+              type="button"
+              onClick={handleExportPdf}
+              disabled={exportingPdf}
+              className="flex items-center gap-1.5 rounded-md border border-[var(--color-pib-line)] px-3 py-1.5 text-xs font-medium hover:bg-white/5 disabled:opacity-50"
+            >
+              <span className="material-symbols-outlined text-sm">download</span>
+              {exportingPdf ? 'Generating…' : 'PDF'}
+            </button>
+          </div>
+
           <DocumentReviewRail
             document={doc}
             comments={comments}
@@ -317,6 +366,22 @@ export default function PortalDocumentDetail({ params }: Props) {
             onReply={handleReply}
             onScrollToComment={handleScrollToComment}
           />
+
+          {/* Recent views — US-188 */}
+          {accessLog.length > 0 && (
+            <section className="rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] p-4 space-y-2">
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-[var(--color-pib-text-muted)]">Recent views</h3>
+              {accessLog.slice(0, 5).map((entry) => (
+                <div key={entry.id} className="flex items-center gap-2 text-xs text-[var(--color-pib-text-muted)]">
+                  <span className="material-symbols-outlined text-sm">person</span>
+                  <span>{fmtTimestamp(entry.accessedAt)}</span>
+                </div>
+              ))}
+            </section>
+          )}
+
+          {/* Action items — US-215 */}
+          <DocumentTaskList documentId={id} />
 
           {canComment && (
             <div className="pib-card p-4 space-y-3">

@@ -59,6 +59,7 @@ function organizationPayload(orgId: string, org: OrgData, role: OrgRole | null) 
       website: typeof org.website === 'string' ? org.website : '',
       industry: typeof org.industry === 'string' ? org.industry : '',
       billingEmail: typeof org.billingEmail === 'string' ? org.billingEmail : '',
+      timezone: typeof org.timezone === 'string' ? org.timezone : 'Africa/Johannesburg',
       billingDetails: publicBillingDetails(org.billingDetails),
     },
     permissions: { canEdit: canEdit(role), role },
@@ -110,11 +111,13 @@ export const PATCH = withPortalAuth(async (req: NextRequest, uid: string) => {
     const website = cleanString(body.website)
     const industry = cleanString(body.industry)
     const billingEmail = cleanEmail(body.billingEmail)
+    const timezone = cleanString(body.timezone)
 
     if (name !== undefined && name) updates.name = name
     if (website !== undefined) updates.website = website
     if (industry !== undefined) updates.industry = industry
     if (billingEmail !== undefined) updates.billingEmail = billingEmail
+    if (timezone !== undefined && timezone) updates.timezone = timezone
     if (body.billingDetails && typeof body.billingDetails === 'object') {
       updates.billingDetails = mergeBillingDetailsForWrite(body.billingDetails, org.billingDetails, {
         allowBankingDetails: false,

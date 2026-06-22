@@ -14,8 +14,11 @@ import { WelcomeFlashHandler } from '@/components/ui/WelcomeFlashHandler'
 import { SettingsNav } from '@/components/settings/SettingsNav'
 import { SupportDrawer } from '@/components/support/SupportDrawer'
 import { NotificationBell } from '@/components/crm/NotificationBell'
+import { ThemeProvider } from '@/components/theme/ThemeProvider'
+import { ThemeToggle } from '@/components/theme/ThemeToggle'
 import { MessageDrawer } from '@/components/chat/MessageDrawer'
 import { ThemedSelect } from '@/components/ui/ThemedSelect'
+import { CommandPalette } from '@/components/command-palette/CommandPalette'
 import { detectCurrentPageContext } from '@/lib/context-references/route-context'
 import { PIB_PLATFORM_ORG_ID } from '@/lib/platform/constants'
 import { resolvePortalModules, type PortalModules } from '@/lib/organizations/portal-modules'
@@ -231,21 +234,23 @@ function NavLink({ item, pathname, collapsed }: { item: NavItem; pathname: strin
 
 export default function PortalLayout({ children }: { children: React.ReactNode }) {
   return (
-    <Suspense
-      fallback={(
-        <>
-          <link rel="stylesheet" href={PORTAL_MATERIAL_SYMBOLS} />
-          <div className="min-h-screen bg-[var(--color-pib-bg)] flex items-center justify-center">
-            <span className="relative flex h-3 w-3">
-              <span className="absolute inset-0 rounded-full bg-[var(--color-pib-accent)] opacity-75 animate-ping" />
-              <span className="relative inline-flex rounded-full h-3 w-3 bg-[var(--color-pib-accent)]" />
-            </span>
-          </div>
-        </>
-      )}
-    >
-      <PortalLayoutContent>{children}</PortalLayoutContent>
-    </Suspense>
+    <ThemeProvider>
+      <Suspense
+        fallback={(
+          <>
+            <link rel="stylesheet" href={PORTAL_MATERIAL_SYMBOLS} />
+            <div className="min-h-screen bg-[var(--color-pib-bg)] flex items-center justify-center">
+              <span className="relative flex h-3 w-3">
+                <span className="absolute inset-0 rounded-full bg-[var(--color-pib-accent)] opacity-75 animate-ping" />
+                <span className="relative inline-flex rounded-full h-3 w-3 bg-[var(--color-pib-accent)]" />
+              </span>
+            </div>
+          </>
+        )}
+      >
+        <PortalLayoutContent>{children}</PortalLayoutContent>
+      </Suspense>
+    </ThemeProvider>
   )
 }
 
@@ -281,6 +286,19 @@ function PortalLayoutContent({ children }: { children: React.ReactNode }) {
   const [memberRole, setMemberRole] = useState<string | null>(null)
   const [memberAccessPolicy, setMemberAccessPolicy] = useState<MemberAccessPolicy>(() => normalizeMemberAccessPolicy(null))
   const [profileName, setProfileName] = useState('')
+  const [cmdOpen, setCmdOpen] = useState(false)
+
+  // Cmd+K opens command palette
+  useEffect(() => {
+    function handler(e: KeyboardEvent) {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+        e.preventDefault()
+        setCmdOpen(v => !v)
+      }
+    }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [])
 
   // Restore persisted preferences
   useEffect(() => {
@@ -568,6 +586,10 @@ function PortalLayoutContent({ children }: { children: React.ReactNode }) {
                   <span className="material-symbols-outlined text-[18px]" aria-hidden="true">person</span>
                 </Link>
               )}
+              <button onClick={() => setCmdOpen(true)} title="Search (⌘K)" className="flex items-center justify-center w-8 h-8 rounded-lg text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] hover:bg-white/[0.05]">
+                <span className="material-symbols-outlined text-[20px]">search</span>
+              </button>
+              <ThemeToggle />
               <NotificationBell />
               <MessageDrawer
                 orgId={activeOrgId}
@@ -676,6 +698,7 @@ function PortalLayoutContent({ children }: { children: React.ReactNode }) {
             </div>
           </footer>
         )}
+        <CommandPalette open={cmdOpen} onClose={() => setCmdOpen(false)} />
         </div>
       </>
     )
@@ -908,6 +931,10 @@ function PortalLayoutContent({ children }: { children: React.ReactNode }) {
                 <span className="material-symbols-outlined text-[18px]">person</span>
               </Link>
             )}
+            <button onClick={() => setCmdOpen(true)} title="Search (⌘K)" className="flex items-center justify-center w-8 h-8 rounded-lg text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] hover:bg-white/[0.05]">
+              <span className="material-symbols-outlined text-[20px]">search</span>
+            </button>
+            <ThemeToggle />
             <NotificationBell />
             <MessageDrawer
               orgId={activeOrgId}
@@ -942,6 +969,7 @@ function PortalLayoutContent({ children }: { children: React.ReactNode }) {
           </footer>
         )}
       </div>
+      <CommandPalette open={cmdOpen} onClose={() => setCmdOpen(false)} />
       </div>
     </>
   )
