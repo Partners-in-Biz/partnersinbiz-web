@@ -62,6 +62,7 @@ export default function CanvasTopBar({
 }: CanvasTopBarProps) {
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(title)
+  const [menuOpen, setMenuOpen] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
@@ -161,15 +162,7 @@ export default function CanvasTopBar({
         </div>
       </div>
 
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
-        <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, color: canvasTheme.textMuted, fontWeight: 600 }}>
-          <input
-            type="checkbox"
-            checked={autoSaveEnabled}
-            onChange={(event) => onToggleAutoSave(event.target.checked)}
-          />
-          Auto-save versions
-        </label>
+      <div style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
         {creditsLabel ? (
           <span
             title="Creative Canvas credits used"
@@ -178,32 +171,71 @@ export default function CanvasTopBar({
             ✦ {creditsLabel}
           </span>
         ) : null}
-        {onToggleImmersive ? (
-          <button type="button" onClick={onToggleImmersive} style={barButton(immersive)} title={immersive ? 'Show dashboard' : 'Immersive canvas'}>
-            {immersive ? '⛶ Canvas' : '▦ Dashboard'}
-          </button>
-        ) : null}
         <button type="button" onClick={onOpenChat} style={barButton()}>
           💬 Team Chat{presenceCount > 0 ? ` · ${presenceCount}` : ''}
         </button>
         <button type="button" onClick={onShare} style={barButton()}>
           ⤴ Share
         </button>
-        <button
-          type="button"
-          onClick={onSave}
-          disabled={saveDisabled}
-          style={{
-            ...barButton(true),
-            background: canvasTheme.accent,
-            color: canvasTheme.accentText,
-            border: `1px solid ${canvasTheme.accent}`,
-            opacity: saveDisabled ? 0.5 : 1,
-            cursor: saveDisabled ? 'default' : 'pointer',
-          }}
-        >
-          {saving ? 'Saving…' : saveLabel}
+        <button type="button" aria-label="More options" title="More" onClick={() => setMenuOpen((value) => !value)} style={barButton(menuOpen)}>
+          ⋯
         </button>
+
+        {/* Overflow menu — Save / auto-save / view live here so the bar stays clean.
+            Hidden with sr-only when closed (still in the accessibility tree) so the
+            controls remain reachable; shown as a popover when open. */}
+        <div
+          className={menuOpen ? '' : 'sr-only'}
+          style={menuOpen ? {
+            position: 'absolute',
+            top: 42,
+            right: 0,
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 8,
+            padding: 10,
+            minWidth: 200,
+            borderRadius: 10,
+            background: canvasTheme.surface,
+            border: `1px solid ${canvasTheme.border}`,
+            boxShadow: canvasTheme.nodeShadow,
+            zIndex: 30,
+          } : undefined}
+        >
+          {onToggleImmersive ? (
+            <button
+              type="button"
+              onClick={() => { onToggleImmersive(); setMenuOpen(false) }}
+              style={{ ...barButton(), justifyContent: 'flex-start' }}
+            >
+              {immersive ? '▦ Show dashboard' : '⛶ Immersive canvas'}
+            </button>
+          ) : null}
+          <label style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontSize: 13, color: canvasTheme.textMuted, fontWeight: 600, padding: '4px 2px' }}>
+            <input
+              type="checkbox"
+              checked={autoSaveEnabled}
+              onChange={(event) => onToggleAutoSave(event.target.checked)}
+            />
+            Auto-save versions
+          </label>
+          <button
+            type="button"
+            onClick={() => { onSave(); setMenuOpen(false) }}
+            disabled={saveDisabled}
+            style={{
+              ...barButton(true),
+              justifyContent: 'center',
+              background: canvasTheme.accent,
+              color: canvasTheme.accentText,
+              border: `1px solid ${canvasTheme.accent}`,
+              opacity: saveDisabled ? 0.5 : 1,
+              cursor: saveDisabled ? 'default' : 'pointer',
+            }}
+          >
+            {saving ? 'Saving…' : saveLabel}
+          </button>
+        </div>
       </div>
     </div>
   )

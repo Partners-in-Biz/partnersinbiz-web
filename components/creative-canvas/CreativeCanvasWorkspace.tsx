@@ -19,6 +19,7 @@ import { canvasNodeTypes } from '@/components/creative-canvas/nodes/nodeTypes'
 import type { CanvasNodeType } from '@/components/creative-canvas/nodes/ports'
 import CreateMenu from '@/components/creative-canvas/canvas/CreateMenu'
 import NodeSettingsPanel from '@/components/creative-canvas/panels/NodeSettingsPanel'
+import ReferencePicker, { type ReferenceAsset } from '@/components/creative-canvas/panels/ReferencePicker'
 import CanvasLanding from '@/components/creative-canvas/landing/CanvasLanding'
 import { canvasTheme } from '@/components/creative-canvas/theme/tokens'
 import type {
@@ -2684,6 +2685,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
   const [createMenu, setCreateMenu] = useState<{ flow: { x: number; y: number }; client: { x: number; y: number } } | null>(null)
   const [showLanding, setShowLanding] = useState(false)
   const [immersiveCanvas, setImmersiveCanvas] = useState(true)
+  const [referencePicker, setReferencePicker] = useState<{ nodeId: string } | null>(null)
 
   const reloadActiveCanvas = useCallback(async () => {
     if (!activeCanvas?.id) return
@@ -3905,8 +3907,28 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
   }, [])
 
   const addReferenceToNode = useCallback((nodeId: string) => {
-    pendingReferenceNodeIdRef.current = nodeId
-    referenceFileInputRef.current?.click()
+    setReferencePicker({ nodeId })
+  }, [])
+
+  const attachReferenceUrl = useCallback((nodeId: string, url: string) => {
+    setNodes((current) => current.map((node) => {
+      if (node.id !== nodeId) return node
+      const canvasNode = node.data?.canvasNode as CreativeCanvasNode | undefined
+      if (!canvasNode) return node
+      const existing = Array.isArray((canvasNode.data as Record<string, unknown>)?.references)
+        ? ((canvasNode.data as Record<string, unknown>).references as string[])
+        : []
+      const nextReferences = [...existing, url]
+      return {
+        ...node,
+        data: {
+          ...node.data,
+          references: nextReferences,
+          canvasNode: { ...canvasNode, data: { ...(canvasNode.data as Record<string, unknown>), references: nextReferences } },
+        },
+      }
+    }))
+    setActivityMessage('Reference image added')
   }, [])
 
   const handleReferenceFileSelected = useCallback(async (files: FileList | null) => {
@@ -3928,28 +3950,11 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
         setActivityMessage('Reference upload failed')
         return
       }
-      setNodes((current) => current.map((node) => {
-        if (node.id !== nodeId) return node
-        const canvasNode = node.data?.canvasNode as CreativeCanvasNode | undefined
-        if (!canvasNode) return node
-        const existing = Array.isArray((canvasNode.data as Record<string, unknown>)?.references)
-          ? ((canvasNode.data as Record<string, unknown>).references as string[])
-          : []
-        const nextReferences = [...existing, url]
-        return {
-          ...node,
-          data: {
-            ...node.data,
-            references: nextReferences,
-            canvasNode: { ...canvasNode, data: { ...(canvasNode.data as Record<string, unknown>), references: nextReferences } },
-          },
-        }
-      }))
-      setActivityMessage('Reference image added')
+      attachReferenceUrl(nodeId, url)
     } catch {
       setActivityMessage('Reference upload failed')
     }
-  }, [activeCanvas?.id, resolvedOrgId])
+  }, [activeCanvas?.id, attachReferenceUrl, resolvedOrgId])
 
   const generateInlineForNode = useCallback(async (nodeId: string) => {
     if (!activeCanvas?.id || mode !== 'admin') return
@@ -5240,6 +5245,39 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
             setCreateMenu(null)
           }}
           onClose={() => setCreateMenu(null)}
+        />
+      ) : null}
+
+      {referencePicker ? (
+        <ReferencePicker
+          position={{ x: typeof window !== 'undefined' ? Math.max(16, window.innerWidth / 2 - 200) : 400, y: 120 }}
+          uploads={sourceLibrary.map((item): ReferenceAsset => ({
+            id: item.id,
+            url: item.source.url ?? item.source.thumbnailUrl ?? item.source.previewUrl ?? '',
+            thumbnailUrl: item.source.thumbnailUrl ?? item.source.previewUrl,
+            title: item.title,
+            kind: 'image',
+          })).filter((asset) => asset.url)}
+          imageGenerations={nodes.flatMap((node): ReferenceAsset[] => {
+            const canvasNode = node.data?.canvasNode as CreativeCanvasNode | undefined
+            const url = canvasNode?.output?.kind === 'image' ? canvasNode.output.url : undefined
+            return url ? [{ id: node.id, url, thumbnailUrl: canvasNode?.output?.thumbnailUrl, title: canvasNode?.title, kind: 'image' }] : []
+          })}
+          videoGenerations={nodes.flatMap((node): ReferenceAsset[] => {
+            const canvasNode = node.data?.canvasNode as CreativeCanvasNode | undefined
+            const url = canvasNode?.output?.kind === 'video' ? canvasNode.output.url : undefined
+            return url ? [{ id: node.id, url, thumbnailUrl: canvasNode?.output?.thumbnailUrl, title: canvasNode?.title, kind: 'video' }] : []
+          })}
+          onSelect={(asset) => {
+            attachReferenceUrl(referencePicker.nodeId, asset.url)
+            setReferencePicker(null)
+          }}
+          onUploadNew={() => {
+            pendingReferenceNodeIdRef.current = referencePicker.nodeId
+            setReferencePicker(null)
+            referenceFileInputRef.current?.click()
+          }}
+          onClose={() => setReferencePicker(null)}
         />
       ) : null}
 
