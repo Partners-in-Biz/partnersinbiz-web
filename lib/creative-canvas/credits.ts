@@ -9,6 +9,9 @@ export interface CanvasCreditState {
   used: number
   limit: number | null
   updatedAt: unknown
+  /** Real Higgsfield account balance, reported by the runtime agent (Maya). */
+  higgsfieldCredits?: number
+  higgsfieldPlan?: string
 }
 
 type CreditDoc = Record<string, unknown>
@@ -26,12 +29,19 @@ function coerceCost(value: unknown): number {
 }
 
 function serializeCanvasCredits(orgId: string, data: CreditDoc): CanvasCreditState {
-  return {
+  const state: CanvasCreditState = {
     orgId,
     used: coerceUsed(data.used),
     limit: coerceLimit(data.limit),
     updatedAt: data.updatedAt ?? null,
   }
+  if (typeof data.higgsfieldCredits === 'number' && Number.isFinite(data.higgsfieldCredits)) {
+    state.higgsfieldCredits = data.higgsfieldCredits
+  }
+  if (typeof data.higgsfieldPlan === 'string' && data.higgsfieldPlan.trim()) {
+    state.higgsfieldPlan = data.higgsfieldPlan.trim()
+  }
+  return state
 }
 
 export async function getCanvasCredits(orgId: string): Promise<CanvasCreditState> {
@@ -71,6 +81,25 @@ export async function recordCanvasCreditUsage(
     model,
     createdAt: FieldValue.serverTimestamp(),
   })
+  return getCanvasCredits(orgId)
+}
+
+/** Record the real Higgsfield account balance (called by the runtime agent). */
+export async function setCanvasHiggsfieldBalance(
+  orgId: string,
+  higgsfieldCredits: number,
+  higgsfieldPlan?: string,
+): Promise<CanvasCreditState> {
+  const credits = typeof higgsfieldCredits === 'number' && Number.isFinite(higgsfieldCredits) ? higgsfieldCredits : 0
+  await adminDb.collection(CREATIVE_CANVAS_CREDITS_COLLECTION).doc(orgId).set(
+    {
+      orgId,
+      higgsfieldCredits: credits,
+      ...(typeof higgsfieldPlan === 'string' && higgsfieldPlan.trim() ? { higgsfieldPlan: higgsfieldPlan.trim() } : {}),
+      updatedAt: FieldValue.serverTimestamp(),
+    },
+    { merge: true },
+  )
   return getCanvasCredits(orgId)
 }
 
