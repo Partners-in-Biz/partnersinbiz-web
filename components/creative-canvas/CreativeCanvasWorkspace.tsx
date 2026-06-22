@@ -1704,7 +1704,10 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
     generate: (nodeId: string) => void
     updatePrompt: (nodeId: string, value: string) => void
     updateText: (nodeId: string, value: string) => void
-  }>({ generate: () => {}, updatePrompt: () => {}, updateText: () => {} })
+    addReference: (nodeId: string) => void
+  }>({ generate: () => {}, updatePrompt: () => {}, updateText: () => {}, addReference: () => {} })
+  const pendingReferenceNodeIdRef = useRef<string>('')
+  const referenceFileInputRef = useRef<HTMLInputElement | null>(null)
 
   const displayNodes = useMemo(() => nodes.map((node) => {
     const canvasNode = node.data?.canvasNode as CreativeCanvasNode | undefined
@@ -1715,9 +1718,13 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
       data: {
         ...flowNode.data,
         status: generatingNodeIds.has(node.id) ? 'running' : flowNode.data.status,
+        references: Array.isArray((canvasNode.data as Record<string, unknown> | undefined)?.references)
+          ? ((canvasNode.data as Record<string, unknown>).references as string[])
+          : [],
         onGenerate: () => nodeActionRefs.current.generate(node.id),
         onPromptChange: (value: string) => nodeActionRefs.current.updatePrompt(node.id, value),
         onTextChange: (value: string) => nodeActionRefs.current.updateText(node.id, value),
+        onAddReference: () => nodeActionRefs.current.addReference(node.id),
       },
     }
   }), [collaboratorsByNodeId, generatingNodeIds, nodes])
@@ -3897,12 +3904,62 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
     }))
   }, [])
 
+  const addReferenceToNode = useCallback((nodeId: string) => {
+    pendingReferenceNodeIdRef.current = nodeId
+    referenceFileInputRef.current?.click()
+  }, [])
+
+  const handleReferenceFileSelected = useCallback(async (files: FileList | null) => {
+    const nodeId = pendingReferenceNodeIdRef.current
+    pendingReferenceNodeIdRef.current = ''
+    if (!files?.length || !nodeId || !resolvedOrgId) return
+    setActivityMessage('Uploading reference…')
+    try {
+      const form = new FormData()
+      form.append('orgId', resolvedOrgId)
+      if (activeCanvas?.id) form.append('canvasId', activeCanvas.id)
+      form.append('referenceRole', 'general')
+      form.append('file', files[0])
+      const response = await fetch('/api/v1/creative-canvas/sources/upload', { method: 'POST', body: form })
+      const payload = await response.json().catch(() => null) as CreativeCanvasSourceLibraryApiResponse | null
+      const source = payload?.data?.source
+      const url = source?.source?.url ?? source?.source?.thumbnailUrl ?? source?.source?.previewUrl
+      if (!response.ok || !url) {
+        setActivityMessage('Reference upload failed')
+        return
+      }
+      setNodes((current) => current.map((node) => {
+        if (node.id !== nodeId) return node
+        const canvasNode = node.data?.canvasNode as CreativeCanvasNode | undefined
+        if (!canvasNode) return node
+        const existing = Array.isArray((canvasNode.data as Record<string, unknown>)?.references)
+          ? ((canvasNode.data as Record<string, unknown>).references as string[])
+          : []
+        const nextReferences = [...existing, url]
+        return {
+          ...node,
+          data: {
+            ...node.data,
+            references: nextReferences,
+            canvasNode: { ...canvasNode, data: { ...(canvasNode.data as Record<string, unknown>), references: nextReferences } },
+          },
+        }
+      }))
+      setActivityMessage('Reference image added')
+    } catch {
+      setActivityMessage('Reference upload failed')
+    }
+  }, [activeCanvas?.id, resolvedOrgId])
+
   const generateInlineForNode = useCallback(async (nodeId: string) => {
     if (!activeCanvas?.id || mode !== 'admin') return
     const canvasOrgId = resolvedOrgId || activeCanvas.orgId || ''
     const target = nodes.find((node) => node.id === nodeId)
     const canvasNode = target?.data?.canvasNode as CreativeCanvasNode | undefined
     const promptText = (canvasNode?.data as Record<string, unknown> | undefined)?.prompt
+    const referenceImageUrls = Array.isArray((canvasNode?.data as Record<string, unknown> | undefined)?.references)
+      ? ((canvasNode!.data as Record<string, unknown>).references as string[])
+      : []
     setGeneratingNodeIds((prev) => new Set(prev).add(nodeId))
     try {
       const response = await fetch(`/api/v1/creative-canvas/${activeCanvas.id}/runs/generate?orgId=${encodeURIComponent(canvasOrgId)}`, {
@@ -3918,6 +3975,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
           duration: runDurationSeconds,
           generateAudio: runGenerateAudio,
           batch: runVariantCount,
+          referenceImageUrls,
         }),
       })
       const payload = await response.json().catch(() => null) as { data?: { pending?: boolean }; error?: string } | null
@@ -3966,8 +4024,9 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
       generate: (nodeId: string) => { void generateInlineForNode(nodeId) },
       updatePrompt: updateNodePrompt,
       updateText: updateNodeText,
+      addReference: addReferenceToNode,
     }
-  }, [generateInlineForNode, updateNodePrompt, updateNodeText])
+  }, [addReferenceToNode, generateInlineForNode, updateNodePrompt, updateNodeText])
 
   const markReviewPassed = async () => {
     if (!activeCanvas?.id || !selectedNodeId) return
@@ -5159,6 +5218,19 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
           </div>
         </div>
       ) : null}
+
+      <input
+        ref={referenceFileInputRef}
+        type="file"
+        accept="image/*"
+        className="sr-only"
+        aria-hidden="true"
+        tabIndex={-1}
+        onChange={(event) => {
+          void handleReferenceFileSelected(event.target.files)
+          event.currentTarget.value = ''
+        }}
+      />
 
       {createMenu ? (
         <CreateMenu

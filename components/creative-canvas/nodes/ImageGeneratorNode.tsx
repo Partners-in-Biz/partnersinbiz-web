@@ -19,10 +19,12 @@ function ImageGeneratorNodeComponent({ data, selected }: NodeProps) {
       assetKind={d.assetKind ?? 'image'}
       status={d.status}
       selected={Boolean(selected)}
+      references={d.references}
       showGenerateBar
       onPromptChange={d.onPromptChange}
       onBatchChange={d.onBatchChange}
       onOpenModelPicker={d.onOpenModelPicker}
+      onAddReference={d.onAddReference}
       onGenerate={d.onGenerate}
     />
   )

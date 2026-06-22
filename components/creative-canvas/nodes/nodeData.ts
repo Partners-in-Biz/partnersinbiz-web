@@ -20,10 +20,12 @@ export interface CanvasNodeData {
   status?: CanvasNodeStatus
   reviewStatus?: string
   text?: string
+  references?: string[]
   onPromptChange?: (value: string) => void
   onBatchChange?: (next: number) => void
   onTextChange?: (value: string) => void
   onOpenModelPicker?: () => void
+  onAddReference?: () => void
   onGenerate?: () => void
   [key: string]: unknown
 }

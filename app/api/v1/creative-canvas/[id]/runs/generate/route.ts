@@ -54,6 +54,7 @@ export const POST = withAuth('client', async (req: NextRequest, user: ApiUser, c
     resolution,
     duration,
     batch,
+    referenceImageUrls,
   } = body as {
     nodeId?: string
     model?: string
@@ -64,7 +65,12 @@ export const POST = withAuth('client', async (req: NextRequest, user: ApiUser, c
     duration?: number
     generateAudio?: boolean
     batch?: number
+    referenceImageUrls?: string[]
   }
+
+  const referenceUrls = Array.isArray(referenceImageUrls)
+    ? referenceImageUrls.filter((url): url is string => typeof url === 'string' && url.length > 0)
+    : []
 
   const m = getCanvasModel(typeof model === 'string' ? model : '')
   if (!m) return apiError('Unknown creative canvas model', 400)
@@ -97,6 +103,7 @@ export const POST = withAuth('client', async (req: NextRequest, user: ApiUser, c
       durationSeconds: duration,
       variantCount: batch,
       ...(resolution ? { format: resolution } : {}),
+      ...(referenceUrls.length ? { referenceImageUrls: referenceUrls } : {}),
     },
   }
 

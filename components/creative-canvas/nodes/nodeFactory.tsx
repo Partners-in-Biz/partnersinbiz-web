@@ -17,11 +17,14 @@ export interface GeneratorNodeCardProps {
   assetKind?: 'image' | 'video'
   status?: CanvasNodeStatus
   selected?: boolean
+  /** Attached reference image URLs (Higgsfield-style image combine). */
+  references?: string[]
   /** Generator nodes show the inline prompt + model + Generate bar; utility nodes do not. */
   showGenerateBar?: boolean
   onPromptChange?: (value: string) => void
   onBatchChange?: (next: number) => void
   onOpenModelPicker?: () => void
+  onAddReference?: () => void
   onGenerate?: () => void
   children?: React.ReactNode
 }
@@ -83,10 +86,12 @@ export function GeneratorNodeCard(props: GeneratorNodeCardProps) {
     assetKind,
     status = 'idle',
     selected = false,
+    references = [],
     showGenerateBar = false,
     onPromptChange,
     onBatchChange,
     onOpenModelPicker,
+    onAddReference,
     onGenerate,
     children,
   } = props
@@ -96,7 +101,7 @@ export function GeneratorNodeCard(props: GeneratorNodeCardProps) {
   return (
     <div
       style={{
-        width: 260,
+        width: 340,
         borderRadius: canvasTheme.radius,
         background: canvasTheme.surface,
         border: `1px solid ${selected ? canvasTheme.accent : canvasTheme.border}`,
@@ -145,7 +150,7 @@ export function GeneratorNodeCard(props: GeneratorNodeCardProps) {
             value={prompt}
             onChange={(event) => onPromptChange?.(event.target.value)}
             placeholder="Describe what you want to create…"
-            rows={3}
+            rows={5}
             className="nodrag"
             style={{
               resize: 'none',
@@ -154,10 +159,47 @@ export function GeneratorNodeCard(props: GeneratorNodeCardProps) {
               border: `1px solid ${canvasTheme.border}`,
               borderRadius: 8,
               color: canvasTheme.text,
-              fontSize: 12,
-              padding: 8,
+              fontSize: 13,
+              padding: 10,
             }}
           />
+          {onAddReference ? (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+              {references.map((url, index) => (
+                <span
+                  key={`${url}-${index}`}
+                  style={{ width: 40, height: 40, borderRadius: 8, overflow: 'hidden', border: `1px solid ${canvasTheme.border}`, flexShrink: 0, background: canvasTheme.bg }}
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={url} alt={`Reference ${index + 1}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                </span>
+              ))}
+              <button
+                type="button"
+                onClick={onAddReference}
+                className="nodrag"
+                title="Add reference image"
+                style={{
+                  width: 40,
+                  height: 40,
+                  display: 'grid',
+                  placeItems: 'center',
+                  borderRadius: 8,
+                  border: `1px dashed ${canvasTheme.borderActive}`,
+                  background: 'transparent',
+                  color: canvasTheme.textMuted,
+                  cursor: 'pointer',
+                  fontSize: 18,
+                  flexShrink: 0,
+                }}
+              >
+                +
+              </button>
+              {references.length === 0 ? (
+                <span style={{ fontSize: 11, color: canvasTheme.textMuted }}>Add reference images</span>
+              ) : null}
+            </div>
+          ) : null}
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
             <button
               type="button"
