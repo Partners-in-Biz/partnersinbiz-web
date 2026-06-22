@@ -2,6 +2,7 @@ import { notFound, redirect } from 'next/navigation'
 import { adminDb } from '@/lib/firebase/admin'
 import { SeoSprintOverview, type SeoSprintOverviewSprint } from '@/components/seo/SeoSprintOverview'
 import { loadSeoOverviewStats } from '@/lib/seo/overview'
+import { FeatureGate } from '@/components/paywall/FeatureGate'
 import {
   resolvePortalSeoUser,
   scopedPortalHref,
@@ -50,13 +51,15 @@ export default async function PortalSeoIndex({
   const singleSprintStats = sprints.length === 1 ? await loadSeoOverviewStats(sprints[0].id) : undefined
 
   return (
-    <SeoSprintOverview
-      sprints={sprints}
-      singleSprintStats={singleSprintStats}
-      sprintBasePath="/portal/seo/sprints"
-      sprintHref={(sprint, childPath = '') => scopedPortalHref(`/portal/seo/sprints/${sprint.id}${childPath}`, scope)}
-      emptyTitle="SEO Sprint"
-      emptyDescription="Your team is preparing your 90-day SEO sprint. Once it's set up you'll see your daily plan, keyword movements, content drafts, and progress here."
-    />
+    <FeatureGate feature="seo">
+      <SeoSprintOverview
+        sprints={sprints}
+        singleSprintStats={singleSprintStats}
+        sprintBasePath="/portal/seo/sprints"
+        sprintHref={(sprint, childPath = '') => scopedPortalHref(`/portal/seo/sprints/${sprint.id}${childPath}`, scope)}
+        emptyTitle="SEO Sprint"
+        emptyDescription="Your team is preparing your 90-day SEO sprint. Once it's set up you'll see your daily plan, keyword movements, content drafts, and progress here."
+      />
+    </FeatureGate>
   )
 }
