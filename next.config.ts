@@ -195,7 +195,6 @@ const nextConfig: NextConfig = {
       // QA-P3b: Portal settings security alias
       { source: '/portal/settings/security', destination: '/portal/settings/account', permanent: false },
       { source: '/portal/settings/2fa', destination: '/portal/settings/account', permanent: false },
-      { source: '/portal/settings/team', destination: '/portal/settings/permissions', permanent: false },
 
       // QA-P3b: Analytics sub-page aliases — map to closest existing analytics routes
       { source: '/portal/analytics/traffic', destination: '/portal/analytics', permanent: false },

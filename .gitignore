@@ -73,3 +73,4 @@ functions/node_modules/
 scripts/dist/
 scripts/crm-backfill-reports/*.csv
 .superpowers/
+qa/_split/
