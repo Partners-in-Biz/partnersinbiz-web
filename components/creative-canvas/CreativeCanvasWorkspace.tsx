@@ -1282,7 +1282,7 @@ const AGENT_PRESENTATION_TYPES = new Set<CanvasNodeType>(['voice_generator', 'vo
 
 /** Keep the active run model on a real catalog model; legacy ids fall back to GPT Image 2. */
 function coerceCanvasModel(id: string | undefined | null): string {
-  return id && getCanvasModel(id) ? id : 'gpt_image_2'
+  return id && getCanvasModel(id) ? id : 'text2image_soul_v2'
 }
 
 /** Map a backend node onto a Higgsfield-style presentation node type. */
@@ -1495,7 +1495,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
   const [activityMessage, setActivityMessage] = useState('')
   const [exportTarget, setExportTarget] = useState<CreativeCanvasExport['target']>('campaign_asset')
   const [latestRun, setLatestRun] = useState<{ id: string; status: string; nodeId?: string } | null>(null)
-  const [runModel, setRunModel] = useState('gpt_image_2')
+  const [runModel, setRunModel] = useState('text2image_soul_v2')
   const [runOutputKind, setRunOutputKind] = useState('image')
   const [runAspectRatio, setRunAspectRatio] = useState('1:1')
   const [runDurationSeconds, setRunDurationSeconds] = useState(5)

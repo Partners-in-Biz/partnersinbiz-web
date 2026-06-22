@@ -50,7 +50,7 @@ Before any other command:
 2. No internal jargon. Don't narrate "calling higgsfield cost", "polling job".
 3. Detect the user's language from the first message and reply in it. Technical args (`--aspect_ratio 16:9`) stay English.
 4. Don't batch-ask. Pick a sane default model and ask one thing at a time only if genuinely missing.
-5. Don't pre-estimate cost or optimize for cheaper models unless the user asks. Prefer the quality default first.
+5. **ALWAYS default to the low-cost Higgsfield-native "unlimited-tier" models unless Peet explicitly asks for a specific or premium model.** Image default is **Higgsfield Soul 2.0** (`text2image_soul_v2`, ~0.1 credit); near-free siblings: `z_image`, `soul_cinematic`, `cinematic_studio_image`. Video default is a cheap Higgsfield-native option (`cinematic_studio_video_3_5`) or `seedance1_5`/`minimax_hailuo`. The Higgsfield "unlimited" promo is **web-only** — the CLI bills credits, so premium third-party models (`gpt_image_2` = 7, `seedance_2_0` = 22.5, `veo3_1`, `kling3_0`) burn the balance fast. Reserve them for when the user requests them.
 6. Pass `--wait` to `generate create` so the command blocks until done and prints the result URL itself. Avoid the two-step `create` → `wait` pattern.
 
 ## Discovery guardrail
@@ -73,8 +73,9 @@ If the user says "analyze this video", "score this ad", "evaluate the hook", or 
 
 1. **Pick a model.** Start with the core defaults unless the brief clearly needs a specialist:
 
-   - **GPT Image 2** → default image model for high-fidelity general generation, graphic design, UI, banners, typography, and on-image text.
-   - **Seedance 2.0** → default video model for serious motion, cinematic clips, multi-shot work, image-to-video, and 4–15s production-quality output. 12s is valid.
+   - **Higgsfield Soul 2.0** (`text2image_soul_v2`) → **DEFAULT image model** — near-free (~0.1 credit), ultra-realistic, aesthetic/editorial/character work. Use this unless the brief or the user specifically needs something else. Other near-free options: `z_image` (fast drafts), `soul_cinematic`/`cinematic_studio_image` (cinematic).
+   - **GPT Image 2** → ONLY when the user asks for it or the brief genuinely needs heavy on-image text/typography/UI (costs ~7 credits).
+   - **Cinema Studio Video 3.5** (`cinematic_studio_video_3_5`) or **Seedance 1.5** (`seedance1_5`) → default video models (cheap Higgsfield-native). **Seedance 2.0** (~22.5 credits) only for premium briefs the user explicitly requests.
    - **Nano Banana 2/Pro** → default for character, cartoon, stylized, and reference-driven image work; use Pro for harder briefs.
    - **Marketing Studio** → default for ads, UGC, product demos, unboxing, TV spots, presenter videos, and brand/product workflows.
 
