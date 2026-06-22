@@ -7,16 +7,24 @@ test('every model has a stable id, provider key and credit cost', () => {
     expect(m.creditCost).toBeGreaterThanOrEqual(0)
   }
 })
-test('every model routes through Higgsfield (or an agent), default GPT Image 2', () => {
+test('every model routes through Higgsfield (or an agent), default Higgsfield Soul 2.0', () => {
   // The whole catalog is Higgsfield-backed (agent_task for LLM/voice helpers).
   for (const m of CANVAS_MODELS) {
     expect(['higgsfield', 'agent_task']).toContain(m.providerKey)
   }
-  const def = getCanvasModel('gpt_image_2')
+  const def = getCanvasModel('text2image_soul_v2')
   expect(def).toBeTruthy()
   expect(def!.kind).toBe('image')
   expect(def!.providerKey).toBe('higgsfield')
-  expect(modelsForKind('image').some((m) => m.id === 'gpt_image_2')).toBe(true)
+  expect(def!.featured).toBe(true)
+  expect(def!.unlimited).toBe(true)
+  expect(modelsForKind('image').some((m) => m.id === 'text2image_soul_v2')).toBe(true)
+  // It is the cheapest-tier default: no image model is cheaper.
+  const cheapestImage = Math.min(...modelsForKind('image').map((m) => m.creditCost))
+  expect(def!.creditCost).toBe(cheapestImage)
+  // generate-route test references still exist in the catalog.
+  expect(getCanvasModel('gpt_image_2')).toBeTruthy()
+  expect(getCanvasModel('seedance_2_0')).toBeTruthy()
 })
 test('featuredModels is a non-empty subset', () => {
   expect(featuredModels().length).toBeGreaterThan(0)

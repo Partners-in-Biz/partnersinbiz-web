@@ -24,6 +24,12 @@ jest.mock('@/lib/creative-canvas/agent-bridge', () => ({
   buildCreativeCanvasAgentTask: mockBuildCreativeCanvasAgentTask,
 }))
 
+// Immediate dispatch: stub so the route's "kick to runtime now" call is a no-op
+// in tests (no Firestore/network). Behaviour is the same as runtime-not-configured.
+jest.mock('@/lib/creative-canvas/provider-runtime', () => ({
+  dispatchCreativeCanvasRunNow: jest.fn(async () => 'not_configured'),
+}))
+
 // Model registry: stub two models so the route's sync + async branches are
 // tested independently of the real catalog (which is now all-Higgsfield/async).
 jest.mock('@/lib/creative-canvas/model-registry', () => ({

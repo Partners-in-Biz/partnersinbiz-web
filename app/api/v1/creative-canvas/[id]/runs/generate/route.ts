@@ -18,6 +18,7 @@ import {
   generateInline,
   InlineNotSupportedError,
 } from '@/lib/creative-canvas/inline-generation'
+import { dispatchCreativeCanvasRunNow } from '@/lib/creative-canvas/provider-runtime'
 import type { CreativeCanvasActor } from '@/lib/creative-canvas/types'
 
 export const dynamic = 'force-dynamic'
@@ -127,6 +128,8 @@ export const POST = withAuth('client', async (req: NextRequest, user: ApiUser, c
       if (err instanceof InlineNotSupportedError) {
         // Inline not available for this provider — fall back to queued async run.
         await recordUsage(run.id)
+        // Kick the run to the Higgsfield runtime now instead of waiting for the cron.
+        await dispatchCreativeCanvasRunNow(run).catch(() => undefined)
         const agentTaskDraft = buildCreativeCanvasAgentTask(run, canvas)
         return apiSuccess({ run, agentTaskDraft, pending: true }, 201)
       }
@@ -166,6 +169,8 @@ export const POST = withAuth('client', async (req: NextRequest, user: ApiUser, c
     return apiError(err instanceof Error ? err.message : 'Failed to create run', 500)
   }
   await recordUsage(run.id)
+  // Kick the run to the Higgsfield runtime now instead of waiting for the cron.
+  await dispatchCreativeCanvasRunNow(run).catch(() => undefined)
   const agentTaskDraft = buildCreativeCanvasAgentTask(run, canvas)
   return apiSuccess({ run, agentTaskDraft, pending: true }, 201)
 })

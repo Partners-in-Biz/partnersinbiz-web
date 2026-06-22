@@ -1282,7 +1282,7 @@ const AGENT_PRESENTATION_TYPES = new Set<CanvasNodeType>(['voice_generator', 'vo
 
 /** Keep the active run model on a real catalog model; legacy ids fall back to GPT Image 2. */
 function coerceCanvasModel(id: string | undefined | null): string {
-  return id && getCanvasModel(id) ? id : 'gpt_image_2'
+  return id && getCanvasModel(id) ? id : 'text2image_soul_v2'
 }
 
 /** Map a backend node onto a Higgsfield-style presentation node type. */
@@ -1495,7 +1495,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
   const [activityMessage, setActivityMessage] = useState('')
   const [exportTarget, setExportTarget] = useState<CreativeCanvasExport['target']>('campaign_asset')
   const [latestRun, setLatestRun] = useState<{ id: string; status: string; nodeId?: string } | null>(null)
-  const [runModel, setRunModel] = useState('gpt_image_2')
+  const [runModel, setRunModel] = useState('text2image_soul_v2')
   const [runOutputKind, setRunOutputKind] = useState('image')
   const [runAspectRatio, setRunAspectRatio] = useState('1:1')
   const [runDurationSeconds, setRunDurationSeconds] = useState(5)
@@ -2707,17 +2707,24 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
     }
   }, [activeCanvas?.id, activeCanvas?.orgId, applyCanvasSnapshot, resolvedOrgId])
 
-  const [canvasCredits, setCanvasCredits] = useState<{ used: number; limit: number | null } | null>(null)
+  const [canvasCredits, setCanvasCredits] = useState<{ used: number; limit: number | null; higgsfieldCredits?: number; higgsfieldPlan?: string } | null>(null)
 
   const loadCanvasCredits = useCallback(async () => {
     const canvasOrgId = resolvedOrgId || activeCanvas?.orgId || ''
     if (!canvasOrgId) return
     try {
       const response = await fetch(`/api/v1/creative-canvas/credits?orgId=${encodeURIComponent(canvasOrgId)}`)
-      const payload = await response.json().catch(() => null) as { data?: { credits?: { used?: number; limit?: number | null } } } | null
+      const payload = await response.json().catch(() => null) as {
+        data?: { credits?: { used?: number; limit?: number | null; higgsfieldCredits?: number; higgsfieldPlan?: string } }
+      } | null
       const credits = payload?.data?.credits
       if (response.ok && credits) {
-        setCanvasCredits({ used: Number(credits.used ?? 0), limit: credits.limit ?? null })
+        setCanvasCredits({
+          used: Number(credits.used ?? 0),
+          limit: credits.limit ?? null,
+          higgsfieldCredits: typeof credits.higgsfieldCredits === 'number' ? credits.higgsfieldCredits : undefined,
+          higgsfieldPlan: typeof credits.higgsfieldPlan === 'string' ? credits.higgsfieldPlan : undefined,
+        })
       }
     } catch {
       /* non-fatal */
@@ -5163,7 +5170,11 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
         onHome={() => setShowLanding(true)}
         immersive={immersiveCanvas}
         onToggleImmersive={() => setImmersiveCanvas((value) => !value)}
-        creditsLabel={canvasCredits?.limit != null ? `${canvasCredits.used}/${canvasCredits.limit}` : 'Unlimited'}
+        creditsLabel={canvasCredits?.higgsfieldCredits != null
+          ? `${canvasCredits.higgsfieldCredits}${canvasCredits.higgsfieldPlan ? ` · ${canvasCredits.higgsfieldPlan}` : ''}`
+          : canvasCredits
+            ? `${canvasCredits.used}${canvasCredits.limit != null ? `/${canvasCredits.limit}` : ' used'}`
+            : undefined}
       />
 
       {topBarPanel ? (
