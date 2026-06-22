@@ -411,6 +411,7 @@ export default function PortalContactDetailPage() {
   const [error, setError] = useState('')
   const [scoreSaving, setScoreSaving] = useState(false)
   const [scoreError, setScoreError] = useState<string | null>(null)
+  const [gdprDownloading, setGdprDownloading] = useState(false)
 
   // B2: Log activity quick actions
   const [logType, setLogType] = useState<string | null>(null)
@@ -702,6 +703,30 @@ export default function PortalContactDetailPage() {
       setError(err instanceof Error ? err.message : 'Archive failed')
     } finally {
       setArchiving(false)
+    }
+  }
+
+  async function downloadGdprExport() {
+    if (!contact || !id) return
+    setGdprDownloading(true)
+    try {
+      const res = await fetch(contactApiPath(`/api/v1/crm/contacts/${id}/gdpr-export`))
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        throw new Error((err as { error?: string }).error ?? 'GDPR export failed')
+      }
+      const body: unknown = await res.json()
+      const blob = new Blob([JSON.stringify(body, null, 2)], { type: 'application/json' })
+      const url = URL.createObjectURL(blob)
+      const anchor = document.createElement('a')
+      anchor.href = url
+      anchor.download = `${contactName.replace(/[^a-z0-9]/gi, '-').toLowerCase()}-gdpr-export.json`
+      anchor.click()
+      URL.revokeObjectURL(url)
+    } catch {
+      // Silent fail — UI shows button returning to normal state
+    } finally {
+      setGdprDownloading(false)
     }
   }
 
@@ -2255,6 +2280,26 @@ export default function PortalContactDetailPage() {
                 {saving ? 'Saving…' : 'Save changes'}
               </button>
             </div>
+          </div>
+
+          {/* GDPR data export */}
+          <div className="bento-card !p-4 flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <p className="eyebrow !text-[10px]">Data &amp; privacy</p>
+              <p className="mt-1 text-xs text-[var(--color-pib-text-muted)] leading-5">
+                Download all data held for this contact as a JSON file.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={downloadGdprExport}
+              disabled={gdprDownloading}
+              aria-label={`Download GDPR data export for ${contactName}`}
+              className="btn-pib-secondary text-xs shrink-0 flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <span className="material-symbols-outlined text-[14px]" aria-hidden="true">download</span>
+              {gdprDownloading ? 'Exporting…' : 'Download GDPR data'}
+            </button>
           </div>
         </section>
 

@@ -587,6 +587,18 @@ export function ContactsWorkspace({
               {duplicatesLoading ? 'Scanning…' : 'Find duplicates'}
             </button>
             <button
+              onClick={() => {
+                if (!canLoadContacts) return
+                window.location.href = scopedApiPath('/api/v1/crm/contacts/export', apiScope)
+              }}
+              disabled={!canLoadContacts}
+              aria-label="Export contacts as CSV"
+              className="btn-pib-secondary text-xs flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <span className="material-symbols-outlined text-[14px]" aria-hidden="true">file_download</span>
+              Export CSV
+            </button>
+            <button
               onClick={() => canLoadContacts && setShowNew(true)}
               disabled={!canLoadContacts}
               aria-label="New contact"

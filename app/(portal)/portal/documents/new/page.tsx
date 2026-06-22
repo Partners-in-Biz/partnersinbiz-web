@@ -10,11 +10,17 @@ import {
   resolveOrganizationModulePolicies,
 } from '@/lib/organizations/module-policies'
 
-const TYPE_OPTIONS = CLIENT_DOCUMENT_TEMPLATES.map((template) => ({
-  value: template.type,
-  label: template.label,
-  description: template.picker.description,
-}))
+const TEMPLATE_ICONS: Record<string, string> = {
+  sales_proposal: 'handshake',
+  build_spec: 'code',
+  social_strategy: 'campaign',
+  content_campaign_plan: 'calendar_month',
+  geo_seo_strategy: 'travel_explore',
+  research_report: 'lab_research',
+  monthly_report: 'bar_chart',
+  launch_signoff: 'rocket_launch',
+  change_request: 'edit_document',
+}
 
 function initialDocumentQuery() {
   if (typeof window === 'undefined') return new URLSearchParams()
@@ -41,15 +47,14 @@ export default function PortalNewDocumentPage() {
   const [orgName, setOrgName] = useState('')
   const [title, setTitle] = useState(searchParams.get('title') ?? '')
   const initialType = searchParams.get('type')
-  const [type, setType] = useState<ClientDocumentType>(
-    TYPE_OPTIONS.some(option => option.value === initialType) ? initialType as ClientDocumentType : 'sales_proposal'
+  const [type, setType] = useState<ClientDocumentType | null>(
+    CLIENT_DOCUMENT_TEMPLATES.some(t => t.type === initialType) ? initialType as ClientDocumentType : null
   )
   const [submitting, setSubmitting] = useState(false)
   const [canCreateDocument, setCanCreateDocument] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  const selectedTemplate = CLIENT_DOCUMENT_TEMPLATES.find((t) => t.type === type)
-  const templateId = selectedTemplate?.id ?? ''
+  const selectedTemplate = CLIENT_DOCUMENT_TEMPLATES.find((t) => t.type === type) ?? null
 
   useEffect(() => {
     fetch('/api/v1/portal/org')
@@ -69,7 +74,7 @@ export default function PortalNewDocumentPage() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    if (!orgId || !title.trim()) return
+    if (!orgId || !title.trim() || !type) return
     if (!canCreateDocument) {
       setError('Document creation is disabled for your organisation role.')
       return
@@ -80,7 +85,7 @@ export default function PortalNewDocumentPage() {
       const res = await fetch('/api/v1/client-documents', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ orgId, title: title.trim(), type, templateId }),
+        body: JSON.stringify({ orgId, title: title.trim(), type }),
       })
       const body = await res.json()
       if (!res.ok) {
@@ -96,8 +101,10 @@ export default function PortalNewDocumentPage() {
     }
   }
 
+  const isDisabled = submitting || !orgId || !title.trim() || !type || !canCreateDocument
+
   return (
-    <div className="mx-auto max-w-xl space-y-6">
+    <div className="mx-auto max-w-3xl space-y-8">
       <header className="space-y-2">
         <Link
           href="/portal/documents"
@@ -107,71 +114,81 @@ export default function PortalNewDocumentPage() {
         </Link>
         <div>
           <h1 className="text-2xl font-semibold">New Document</h1>
-          <p className="mt-2 text-sm text-on-surface-variant">
-            Pick the document by decision type: research decides what is true; specs decide what to build.
+          <p className="mt-1 text-sm text-on-surface-variant">
+            Choose a template, then give your document a title.
           </p>
         </div>
       </header>
 
-      <form onSubmit={handleSubmit} className="space-y-5 rounded-lg border border-[var(--color-outline)] bg-[var(--color-surface)] p-6">
-        {/* Workspace org (resolved from the active portal organisation) */}
-        <div className="space-y-1.5">
-          <p className="block text-sm font-medium">Organisation</p>
-          <p className="w-full rounded border border-[var(--color-outline)] bg-[var(--color-surface-variant)] px-3 py-2 text-sm text-on-surface-variant">
-            {orgName || 'Loading…'}
-          </p>
-        </div>
+      <form onSubmit={handleSubmit} className="space-y-8">
+        {/* Step 1 — Template picker grid */}
+        <section className="space-y-3">
+          <h2 className="text-xs font-semibold uppercase tracking-[0.18em] text-on-surface-variant">
+            Choose a template
+          </h2>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {CLIENT_DOCUMENT_TEMPLATES.map((template) => {
+              const icon = TEMPLATE_ICONS[template.type] ?? 'description'
+              const isSelected = type === template.type
+              return (
+                <button
+                  key={template.type}
+                  type="button"
+                  disabled={!canCreateDocument}
+                  onClick={() => setType(template.type)}
+                  className={[
+                    'group relative flex flex-col gap-2 rounded-lg border p-4 text-left transition-all duration-150',
+                    'focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-pib-accent)]',
+                    isSelected
+                      ? 'border-[var(--color-pib-accent)] bg-[var(--color-pib-accent)]/8 shadow-sm'
+                      : 'border-[var(--color-outline)] bg-[var(--color-surface)] hover:border-[var(--color-pib-accent)]/60 hover:bg-[var(--color-surface-variant)]',
+                    !canCreateDocument ? 'cursor-not-allowed opacity-50' : 'cursor-pointer',
+                  ].join(' ')}
+                  aria-pressed={isSelected}
+                >
+                  {/* Selected checkmark */}
+                  {isSelected && (
+                    <span
+                      className="absolute right-3 top-3 flex h-5 w-5 items-center justify-center rounded-full bg-[var(--color-pib-accent)] text-white"
+                      aria-hidden="true"
+                    >
+                      <span className="material-symbols-outlined text-[14px]">check</span>
+                    </span>
+                  )}
 
-        {/* Title */}
-        <div className="space-y-1.5">
-          <label htmlFor="title" className="block text-sm font-medium">
-            Title
-          </label>
-          <input
-            id="title"
-            type="text"
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            placeholder="e.g. Acme Corp — Sales Proposal Q3 2026"
-            required
-            disabled={!canCreateDocument}
-            className="w-full rounded border border-[var(--color-outline)] bg-[var(--color-surface-variant)] px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-[var(--color-pib-accent)]"
-          />
-        </div>
+                  {/* Icon */}
+                  <span
+                    className={[
+                      'material-symbols-outlined text-[28px]',
+                      isSelected ? 'text-[var(--color-pib-accent)]' : 'text-on-surface-variant group-hover:text-[var(--color-pib-accent)]',
+                    ].join(' ')}
+                    aria-hidden="true"
+                  >
+                    {icon}
+                  </span>
 
-        {/* Type */}
-        <div className="space-y-1.5">
-          <label htmlFor="type" className="block text-sm font-medium">
-            Document type
-          </label>
-          <select
-            id="type"
-            value={type}
-            onChange={(e) => setType(e.target.value as ClientDocumentType)}
-            disabled={!canCreateDocument}
-            className="w-full rounded border border-[var(--color-outline)] bg-[var(--color-surface-variant)] px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-[var(--color-pib-accent)]"
-          >
-            {TYPE_OPTIONS.map((o) => (
-              <option key={o.value} value={o.value}>
-                {o.label} — {o.description}
-              </option>
-            ))}
-          </select>
-        </div>
+                  {/* Name */}
+                  <p className={[
+                    'text-sm font-semibold leading-snug',
+                    isSelected ? 'text-[var(--color-pib-accent)]' : 'text-on-surface',
+                  ].join(' ')}>
+                    {template.label}
+                  </p>
 
+                  {/* Description */}
+                  <p className="text-xs leading-relaxed text-on-surface-variant">
+                    {template.picker.description}
+                  </p>
+                </button>
+              )
+            })}
+          </div>
+        </section>
+
+        {/* Selected template detail — shown after pick */}
         {selectedTemplate && (
           <section className="rounded-lg border border-[var(--color-outline)] bg-[var(--color-surface-variant)] p-4 text-sm">
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <p className="text-xs uppercase tracking-[0.18em] text-on-surface-variant">Selected template</p>
-                <h2 className="mt-1 font-medium text-on-surface">{selectedTemplate.label}</h2>
-              </div>
-              <span className="rounded-full border border-[var(--color-outline)] px-2 py-1 font-mono text-[11px] text-on-surface-variant">
-                {templateId}
-              </span>
-            </div>
-            <p className="mt-3 text-on-surface-variant">{selectedTemplate.picker.description}</p>
-            <dl className="mt-4 space-y-3">
+            <dl className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div>
                 <dt className="text-xs font-medium uppercase tracking-[0.14em] text-on-surface-variant">Best for</dt>
                 <dd className="mt-1 text-on-surface">{selectedTemplate.picker.bestFor}</dd>
@@ -187,6 +204,44 @@ export default function PortalNewDocumentPage() {
           </section>
         )}
 
+        {/* Step 2 — Details */}
+        <section
+          className={[
+            'space-y-4 rounded-lg border border-[var(--color-outline)] bg-[var(--color-surface)] p-6 transition-opacity duration-200',
+            !type ? 'pointer-events-none opacity-40' : '',
+          ].join(' ')}
+        >
+          <h2 className="text-xs font-semibold uppercase tracking-[0.18em] text-on-surface-variant">
+            Document details
+          </h2>
+
+          {/* Organisation */}
+          <div className="space-y-1.5">
+            <p className="block text-sm font-medium">Organisation</p>
+            <p className="w-full rounded border border-[var(--color-outline)] bg-[var(--color-surface-variant)] px-3 py-2 text-sm text-on-surface-variant">
+              {orgName || 'Loading…'}
+            </p>
+          </div>
+
+          {/* Title */}
+          <div className="space-y-1.5">
+            <label htmlFor="title" className="block text-sm font-medium">
+              Title
+            </label>
+            <input
+              id="title"
+              type="text"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder={selectedTemplate ? `e.g. ${selectedTemplate.label} — ${orgName || 'Client'} Q3 2026` : 'e.g. Acme Corp — Proposal Q3 2026'}
+              required
+              disabled={!canCreateDocument || !type}
+              className="w-full rounded border border-[var(--color-outline)] bg-[var(--color-surface-variant)] px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-[var(--color-pib-accent)]"
+            />
+          </div>
+        </section>
+
+        {/* Errors / permission notice */}
         {error && (
           <p className="rounded bg-red-900/30 px-3 py-2 text-sm text-red-400">{error}</p>
         )}
@@ -196,10 +251,11 @@ export default function PortalNewDocumentPage() {
           </p>
         )}
 
-        <div className="flex items-center gap-3 pt-1">
+        {/* Actions */}
+        <div className="flex items-center gap-3">
           <button
             type="submit"
-            disabled={submitting || !orgId || !title.trim() || !canCreateDocument}
+            disabled={isDisabled}
             className="btn-primary rounded px-5 py-2 text-sm font-medium disabled:opacity-50"
           >
             {submitting ? 'Creating…' : 'Create document'}

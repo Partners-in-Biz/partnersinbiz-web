@@ -924,6 +924,116 @@ export default function MissionControlDashboard() {
         </section>
       )}
 
+      {/* Platform observability panels */}
+      <section className="space-y-4">
+        <SectionHeader title="Platform observability" eyebrow="Monitoring" />
+
+        {/* System Health */}
+        <div className="rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)]/55 p-4 sm:p-5">
+          <SectionHeader title="System Health" eyebrow="API performance" />
+          <p className="text-xs text-on-surface-variant mb-4">API response times, error rates, and uptime.</p>
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            {[
+              { label: 'Avg response time', value: '—', unit: 'ms', icon: 'speed' },
+              { label: 'Error rate (24h)', value: '—', unit: '%', icon: 'report' },
+              { label: 'Uptime (30d)', value: '—', unit: '%', icon: 'monitor_heart' },
+              { label: 'Active sessions', value: '—', unit: '', icon: 'people' },
+            ].map(metric => (
+              <Surface key={metric.label} className="p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">{metric.label}</p>
+                    <p className="mt-3 text-3xl font-headline font-bold leading-none text-on-surface">{metric.value}<span className="text-sm font-normal text-on-surface-variant ml-1">{metric.unit}</span></p>
+                  </div>
+                  <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-md border border-[var(--color-pib-accent)]/20 bg-[var(--color-pib-accent-soft)] text-[var(--color-pib-accent)]">
+                    <span className="material-symbols-outlined text-[21px]">{metric.icon}</span>
+                  </span>
+                </div>
+                <p className="mt-4 text-xs text-on-surface-variant">Connect monitoring adapter to populate.</p>
+              </Surface>
+            ))}
+          </div>
+        </div>
+
+        <div className="grid gap-4 lg:grid-cols-2 xl:grid-cols-3">
+          {/* Analytics Ingestion */}
+          <Surface className="p-4 sm:p-5">
+            <div className="flex items-start gap-3 mb-3">
+              <span className="material-symbols-outlined text-[22px] text-[var(--color-pib-accent)]">analytics</span>
+              <div>
+                <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">SDK telemetry</p>
+                <h3 className="mt-1 text-base font-headline font-bold text-on-surface">Analytics Ingestion</h3>
+              </div>
+            </div>
+            <p className="text-xs text-on-surface-variant mb-4">Event ingestion rate from analytics.js SDK.</p>
+            <div className="rounded-lg border border-dashed border-[var(--color-card-border)] bg-[var(--color-surface-container)]/40 px-4 py-6 text-center">
+              <p className="text-sm font-label text-on-surface">No ingestion data</p>
+              <p className="mt-1 text-xs text-on-surface-variant">Events from analytics.js will appear here when the SDK is reporting.</p>
+            </div>
+            <button type="button" className="mt-3 text-xs text-on-surface-variant hover:text-on-surface px-3 py-2 rounded border border-[var(--color-card-border)] hover:bg-[var(--color-surface-container)] transition-colors w-full text-left">View ingestion log →</button>
+          </Surface>
+
+          {/* A/B Test Results */}
+          <Surface className="p-4 sm:p-5">
+            <div className="flex items-start gap-3 mb-3">
+              <span className="material-symbols-outlined text-[22px] text-[var(--color-pib-accent)]">science</span>
+              <div>
+                <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Experiments</p>
+                <h3 className="mt-1 text-base font-headline font-bold text-on-surface">A/B Test Results</h3>
+              </div>
+            </div>
+            <p className="text-xs text-on-surface-variant mb-4">Current A/B experiment performance.</p>
+            <div className="rounded-lg border border-dashed border-[var(--color-card-border)] bg-[var(--color-surface-container)]/40 px-4 py-6 text-center">
+              <p className="text-sm font-label text-on-surface">No active experiments</p>
+              <p className="mt-1 text-xs text-on-surface-variant">Configure an A/B test in Settings → A/B Testing and results will appear here.</p>
+            </div>
+            <button type="button" className="mt-3 text-xs text-on-surface-variant hover:text-on-surface px-3 py-2 rounded border border-[var(--color-card-border)] hover:bg-[var(--color-surface-container)] transition-colors w-full text-left">Manage experiments →</button>
+          </Surface>
+
+          {/* Scrolledbrain Analytics */}
+          <Surface className="p-4 sm:p-5">
+            <div className="flex items-start gap-3 mb-3">
+              <span className="material-symbols-outlined text-[22px] text-[var(--color-pib-accent)]">bar_chart</span>
+              <div>
+                <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Property analytics</p>
+                <h3 className="mt-1 text-base font-headline font-bold text-on-surface">Scrolledbrain Analytics</h3>
+              </div>
+            </div>
+            <p className="text-xs text-on-surface-variant mb-4">Analytics data from the Scrolledbrain property.</p>
+            <div className="space-y-2">
+              {[
+                { label: 'Property', value: 'scrolledbrain.com' },
+                { label: 'Ingest key', value: 'Set via SCROLLEDBRAIN_INGEST_KEY env var' },
+                { label: 'Status', value: 'Connected' },
+              ].map(row => (
+                <div key={row.label} className="flex items-center justify-between rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)]/70 px-3 py-2">
+                  <span className="text-xs text-on-surface-variant">{row.label}</span>
+                  <span className="text-xs text-on-surface font-medium truncate max-w-[180px]">{row.value}</span>
+                </div>
+              ))}
+            </div>
+            <button type="button" className="mt-3 text-xs text-on-surface-variant hover:text-on-surface px-3 py-2 rounded border border-[var(--color-card-border)] hover:bg-[var(--color-surface-container)] transition-colors w-full text-left">View analytics →</button>
+          </Surface>
+
+          {/* Content Moderation */}
+          <Surface className="p-4 sm:p-5">
+            <div className="flex items-start gap-3 mb-3">
+              <span className="material-symbols-outlined text-[22px] text-[var(--color-pib-accent)]">flag</span>
+              <div>
+                <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Moderation</p>
+                <h3 className="mt-1 text-base font-headline font-bold text-on-surface">Content Moderation</h3>
+              </div>
+            </div>
+            <p className="text-xs text-on-surface-variant mb-4">Flagged content queue awaiting review.</p>
+            <div className="rounded-lg border border-dashed border-[var(--color-card-border)] bg-[var(--color-surface-container)]/40 px-4 py-6 text-center">
+              <p className="text-sm font-label text-on-surface">Queue is clear</p>
+              <p className="mt-1 text-xs text-on-surface-variant">Flagged content items will appear here for review.</p>
+            </div>
+            <button type="button" className="mt-3 text-xs text-on-surface-variant hover:text-on-surface px-3 py-2 rounded border border-[var(--color-card-border)] hover:bg-[var(--color-surface-container)] transition-colors w-full text-left">Open moderation queue →</button>
+          </Surface>
+        </div>
+      </section>
+
       {loading && <p className="sr-only" aria-live="polite">Dashboard data is loading</p>}
       {loading && <div className="rounded-lg border border-[var(--color-card-border)] bg-[var(--color-surface-container)]/40 px-4 py-3 text-sm text-on-surface-variant">Loading dashboard signal...</div>}
     </div>

@@ -4,9 +4,12 @@ export const dynamic = 'force-dynamic'
 import { use, useCallback, useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
+import { onAuthStateChanged } from 'firebase/auth'
+import { auth } from '@/lib/firebase/client'
 import { DocumentRenderer } from '@/components/client-documents/DocumentRenderer'
 import { DocumentReviewRail } from '@/components/client-documents/DocumentReviewRail'
 import { DocumentTaskList } from '@/components/client-documents/DocumentTaskList'
+import { DocumentPresence } from '@/components/client-documents/DocumentPresence'
 import { ShareSettingsPanel } from '@/components/client-documents/share/ShareSettingsPanel'
 import { CommentComposer } from '@/components/inline-comments/CommentComposer'
 import type { AnchorTarget } from '@/components/inline-comments/types'
@@ -64,9 +67,19 @@ export default function PortalDocumentDetail({ params }: Props) {
   const [baseUrl, setBaseUrl] = useState('')
   const [exportingPdf, setExportingPdf] = useState(false)
   const [accessLog, setAccessLog] = useState<Array<{ userId: string; accessedAt: unknown; id: string }>>([]);
+  const [firebaseUid, setFirebaseUid] = useState('')
+  const [firebaseDisplayName, setFirebaseDisplayName] = useState('')
 
   useEffect(() => {
     setBaseUrl(window.location.origin)
+  }, [])
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      setFirebaseUid(user?.uid ?? '')
+      setFirebaseDisplayName(user?.displayName ?? user?.email ?? 'Anonymous')
+    })
+    return unsubscribe
   }, [])
 
   const articleScrollRef = useRef<HTMLDivElement>(null)
@@ -296,13 +309,22 @@ export default function PortalDocumentDetail({ params }: Props) {
 
   return (
     <div className="space-y-6">
-      <Link
-        href={documentsHref}
-        className="flex items-center gap-1 text-sm text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-accent)]"
-      >
-        <span className="material-symbols-outlined text-base" aria-hidden="true">arrow_back</span>
-        Back to Documents
-      </Link>
+      <div className="flex items-center justify-between gap-4">
+        <Link
+          href={documentsHref}
+          className="flex items-center gap-1 text-sm text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-accent)]"
+        >
+          <span className="material-symbols-outlined text-base" aria-hidden="true">arrow_back</span>
+          Back to Documents
+        </Link>
+        {firebaseUid && (
+          <DocumentPresence
+            documentId={id}
+            currentUserId={firebaseUid}
+            currentUserName={firebaseDisplayName}
+          />
+        )}
+      </div>
 
       <div className="grid gap-8 lg:grid-cols-[1fr_320px]">
         <div ref={articleScrollRef} className="min-w-0 rounded-xl overflow-hidden">

@@ -404,6 +404,106 @@ export default function SettingsPage() {
           </span>
         </div>
       </div>
+
+      {/* Billing & Revenue */}
+      <div className="pib-card space-y-1">
+        <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant mb-3">Billing &amp; Revenue</p>
+        {[
+          { icon: 'payments', title: 'Plans & Pricing', desc: 'Manage subscription plans and pricing tiers. Plans: Starter, Growth, Scale, Enterprise.', cta: 'View plans' },
+          { icon: 'confirmation_number', title: 'Coupon / Discount Codes', desc: 'Manage promotional discount codes.', cta: 'Configure' },
+          { icon: 'trending_up', title: 'Revenue & MRR', desc: 'Monthly recurring revenue dashboard. Connect billing analytics to view live MRR, churn, and ARR.', cta: 'View dashboard' },
+          { icon: 'account_balance', title: 'EFT Payment Queue', desc: 'Verify and process incoming EFT bank transfers.', cta: 'Open queue' },
+          { icon: 'hourglass_top', title: 'Trial Conversion', desc: 'Manage organisations on trial plans and track conversion rates.', cta: 'View trials' },
+          { icon: 'person_remove', title: 'Churn Analysis', desc: 'Track and analyse subscription churn by cohort.', cta: 'View churn' },
+          { icon: 'autorenew', title: 'Billing Dunning', desc: 'Automated payment retry sequences for failed billing.', cta: 'Configure' },
+          { icon: 'group_add', title: 'Referral Programme', desc: 'Manage client referral incentives and track referral performance.', cta: 'Configure' },
+          { icon: 'hub', title: 'Stripe Connect', desc: 'Marketplace payment routing configuration.', cta: 'Configure' },
+        ].map(item => (
+          <div key={item.title} className="flex items-center justify-between p-3 rounded-lg hover:bg-[var(--color-row-hover)] transition-colors">
+            <div className="flex items-start gap-3">
+              <span className="material-symbols-outlined text-[20px] mt-0.5" style={{ color: 'var(--color-accent-v2)' }}>{item.icon}</span>
+              <div>
+                <p className="text-sm font-medium text-on-surface">{item.title}</p>
+                <p className="text-xs text-on-surface-variant mt-0.5">{item.desc}</p>
+              </div>
+            </div>
+            <button type="button" className="shrink-0 ml-4 text-xs text-on-surface-variant hover:text-on-surface px-2 py-1 rounded hover:bg-[var(--color-surface-container)] transition-colors">{item.cta} →</button>
+          </div>
+        ))}
+      </div>
+
+      {/* Platform Communications */}
+      <div className="pib-card space-y-1">
+        <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant mb-3">Platform Communications</p>
+        {[
+          { icon: 'mark_email_read', title: 'Email Deliverability Tools', desc: 'Monitor email deliverability scores, configure SPF/DKIM/DMARC.' },
+          { icon: 'domain_verification', title: 'Email Domain Allowlist', desc: 'Approved sender domains for platform outbound email.' },
+          { icon: 'campaign', title: 'Mass Email Sender', desc: 'Send platform-wide broadcasts to all active organisations.' },
+          { icon: 'email', title: 'Email Templates', desc: 'Manage transactional and marketing email templates.' },
+        ].map(item => (
+          <div key={item.title} className="flex items-center justify-between p-3 rounded-lg hover:bg-[var(--color-row-hover)] transition-colors">
+            <div className="flex items-start gap-3">
+              <span className="material-symbols-outlined text-[20px] mt-0.5" style={{ color: 'var(--color-accent-v2)' }}>{item.icon}</span>
+              <div>
+                <p className="text-sm font-medium text-on-surface">{item.title}</p>
+                <p className="text-xs text-on-surface-variant mt-0.5">{item.desc}</p>
+              </div>
+            </div>
+            <button type="button" className="shrink-0 ml-4 text-xs text-on-surface-variant hover:text-on-surface px-2 py-1 rounded hover:bg-[var(--color-surface-container)] transition-colors">Configure →</button>
+          </div>
+        ))}
+      </div>
+
+      {/* Legal & Compliance */}
+      <div className="pib-card space-y-1">
+        <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant mb-3">Legal &amp; Compliance</p>
+        {[
+          { icon: 'gavel', title: 'Legal Documents', desc: 'Terms of service, privacy policy and legal document management.' },
+          { icon: 'privacy_tip', title: 'GDPR Compliance', desc: 'Data processing agreements, right-to-erasure workflows, and GDPR reporting.' },
+          { icon: 'assignment_turned_in', title: 'Automated Compliance Reporting', desc: 'Scheduled compliance reports for data protection audits.' },
+        ].map(item => (
+          <div key={item.title} className="flex items-center justify-between p-3 rounded-lg hover:bg-[var(--color-row-hover)] transition-colors">
+            <div className="flex items-start gap-3">
+              <span className="material-symbols-outlined text-[20px] mt-0.5" style={{ color: 'var(--color-accent-v2)' }}>{item.icon}</span>
+              <div>
+                <p className="text-sm font-medium text-on-surface">{item.title}</p>
+                <p className="text-xs text-on-surface-variant mt-0.5">{item.desc}</p>
+              </div>
+            </div>
+            <button type="button" className="shrink-0 ml-4 text-xs text-on-surface-variant hover:text-on-surface px-2 py-1 rounded hover:bg-[var(--color-surface-container)] transition-colors">Configure →</button>
+          </div>
+        ))}
+      </div>
+
+      {/* Infrastructure & Config */}
+      <div className="pib-card space-y-1">
+        <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant mb-3">Infrastructure &amp; Config</p>
+        {[
+          { icon: 'dns', title: 'White-Label Domains', desc: 'Configure custom domains for client portal white-labelling.' },
+          { icon: 'lock', title: 'SSL Certificate Management', desc: 'Automated SSL provisioning for custom domains.' },
+          { icon: 'key', title: 'Social API Credentials', desc: 'Manage API keys for Facebook, Instagram, LinkedIn, and Twitter.' },
+          { icon: 'webhook', title: 'Webhook Event Log', desc: 'Monitor webhook delivery status and retry failed events.' },
+          { icon: 'speed', title: 'Rate Limit Configuration', desc: 'Per-organisation API rate limit overrides.' },
+          { icon: 'notifications_active', title: 'Admin Alerts', desc: 'Slack/webhook notifications for critical platform events.' },
+          { icon: 'build_circle', title: 'Maintenance Mode', desc: 'Schedule and activate platform maintenance windows.' },
+          { icon: 'science', title: 'A/B Testing', desc: 'Manage A/B tests for public landing pages.' },
+          { icon: 'handshake', title: 'Partner Programme', desc: 'Partner tiers, commission rates, and affiliate tracking.' },
+          { icon: 'upload_file', title: 'Admin CSV Import Tools', desc: 'Bulk data import for organisations, contacts, and users.' },
+          { icon: 'inventory', title: 'Partner Products', desc: 'Product catalogue for partner onboarding flows.' },
+          { icon: 'summarize', title: 'Report Templates', desc: 'Platform-defined client report templates.' },
+        ].map(item => (
+          <div key={item.title} className="flex items-center justify-between p-3 rounded-lg hover:bg-[var(--color-row-hover)] transition-colors">
+            <div className="flex items-start gap-3">
+              <span className="material-symbols-outlined text-[20px] mt-0.5" style={{ color: 'var(--color-accent-v2)' }}>{item.icon}</span>
+              <div>
+                <p className="text-sm font-medium text-on-surface">{item.title}</p>
+                <p className="text-xs text-on-surface-variant mt-0.5">{item.desc}</p>
+              </div>
+            </div>
+            <button type="button" className="shrink-0 ml-4 text-xs text-on-surface-variant hover:text-on-surface px-2 py-1 rounded hover:bg-[var(--color-surface-container)] transition-colors">Configure →</button>
+          </div>
+        ))}
+      </div>
     </div>
   )
 }

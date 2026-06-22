@@ -221,12 +221,14 @@ const nextConfig: NextConfig = {
       { source: '/portal/seo/settings/integrations', destination: '/portal/integrations', permanent: false },
       { source: '/portal/seo/settings/:path*', destination: '/portal/seo', permanent: false },
 
+      // US-260/294/296/315/321/323/324: /admin/organisations/:orgId → /admin/org/:orgId (actual implementation path)
+      { source: '/admin/organisations/:orgId', destination: '/admin/org/:orgId', permanent: false },
+      { source: '/admin/organisations/:orgId/:path*', destination: '/admin/org/:orgId/:path*', permanent: false },
       // QA-P3: Admin spelling aliases — British 'organisations' → American 'organizations'
       { source: '/admin/organisations', destination: '/admin/organizations', permanent: false },
       { source: '/admin/organisations/:path*', destination: '/admin/organizations/:path*', permanent: false },
-      // Admin users alias
-      { source: '/admin/users', destination: '/admin/platform-users', permanent: false },
-      { source: '/admin/users/:path*', destination: '/admin/platform-users/:path*', permanent: false },
+      // Admin users — removed redirect so /admin/users resolves to users management page
+      // /admin/platform-users still works directly as its own page
 
       // QA-P3c: Admin section aliases — unbuilt routes mapped to nearest admin hubs
       { source: '/admin/hermes', destination: '/admin/agents', permanent: false },
