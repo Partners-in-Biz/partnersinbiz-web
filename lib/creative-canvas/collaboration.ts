@@ -502,7 +502,15 @@ export async function heartbeatCreativeCanvasPresence(
     expiresAtMs: nowMs + 45_000,
   }
   const presenceId = `${canvasId}:${actor.uid}`.replace(/[^a-zA-Z0-9_-]/g, '_')
-  await adminDb.collection(CREATIVE_CANVAS_PRESENCE_COLLECTION).doc(presenceId).set(payload, { merge: true })
+  // Firestore Admin rejects `undefined` values — strip them (and from the
+  // nested viewport) so optional/missing presence fields don't 500 the write.
+  const cleanedViewport = payload.viewport
+    ? Object.fromEntries(Object.entries(payload.viewport).filter(([, value]) => value !== undefined))
+    : undefined
+  const cleanedPayload = Object.fromEntries(
+    Object.entries({ ...payload, viewport: cleanedViewport }).filter(([, value]) => value !== undefined),
+  )
+  await adminDb.collection(CREATIVE_CANVAS_PRESENCE_COLLECTION).doc(presenceId).set(cleanedPayload, { merge: true })
   return { id: presenceId, ...payload }
 }
 
