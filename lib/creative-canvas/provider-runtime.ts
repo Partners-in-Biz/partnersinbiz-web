@@ -324,6 +324,21 @@ async function submitQueuedRun(run: RunWithId, config: HiggsfieldRuntimeConfig):
   return applied === 'completed' ? 'completed' : applied === 'failed' ? 'failed' : 'submitted'
 }
 
+/**
+ * Immediately submit a just-created queued run to the Higgsfield runtime
+ * (internal Hermes bridge / external runtime) instead of waiting for the
+ * 5-minute drain cron. Safe no-op when the runtime isn't configured.
+ */
+export async function dispatchCreativeCanvasRunNow(
+  run: RunWithId,
+  env: NodeJS.ProcessEnv = process.env,
+): Promise<'submitted' | 'completed' | 'failed' | 'not_configured'> {
+  const config = runtimeConfigFromEnv(env)
+  if (!config.submitUrl) return 'not_configured'
+  if (run.status !== 'queued') return 'not_configured'
+  return submitQueuedRun(run, config)
+}
+
 async function pollRunningRun(run: RunWithId, config: HiggsfieldRuntimeConfig): Promise<'refreshed' | 'completed' | 'failed' | 'skipped'> {
   if (run.output?.url || run.output?.artifactId || run.output?.textPreview) {
     await ensureCreativeCanvasRunOutputNode(run.id, run.orgId, HIGGSFIELD_ACTOR)
