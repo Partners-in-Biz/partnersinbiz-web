@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import { DocumentRenderer } from '@/components/client-documents/DocumentRenderer'
 import { DocumentReviewRail } from '@/components/client-documents/DocumentReviewRail'
+import { ShareSettingsPanel } from '@/components/client-documents/share/ShareSettingsPanel'
 import { CommentComposer } from '@/components/inline-comments/CommentComposer'
 import type { AnchorTarget } from '@/components/inline-comments/types'
 import type { ClientDocument, ClientDocumentVersion, DocumentComment } from '@/lib/client-documents/types'
@@ -57,6 +58,12 @@ export default function PortalDocumentDetail({ params }: Props) {
   const [pendingAnchor, setPendingAnchor] = useState<PendingAnchor | null>(null)
   const [composerBusy, setComposerBusy] = useState(false)
   const [activeCommentId, setActiveCommentId] = useState<string | null>(null)
+  const [showShare, setShowShare] = useState(false)
+  const [baseUrl, setBaseUrl] = useState('')
+
+  useEffect(() => {
+    setBaseUrl(window.location.origin)
+  }, [])
 
   const articleScrollRef = useRef<HTMLDivElement>(null)
 
@@ -281,6 +288,27 @@ export default function PortalDocumentDetail({ params }: Props) {
         </div>
 
         <div className="space-y-4">
+          {doc.shareToken && (
+            <div className="flex justify-end">
+              <button
+                type="button"
+                onClick={() => setShowShare((v) => !v)}
+                className="flex items-center gap-1.5 rounded-md border border-white/10 px-3 py-1.5 text-xs font-medium hover:bg-white/5"
+              >
+                <span className="material-symbols-outlined text-sm" aria-hidden="true">share</span>
+                {showShare ? 'Hide share' : 'Share'}
+              </button>
+            </div>
+          )}
+
+          {showShare && doc.shareToken && baseUrl && (
+            <ShareSettingsPanel
+              document={doc}
+              baseUrl={baseUrl}
+              onChange={(next) => setDoc(next)}
+            />
+          )}
+
           <DocumentReviewRail
             document={doc}
             comments={comments}

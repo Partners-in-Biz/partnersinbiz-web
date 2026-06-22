@@ -130,6 +130,45 @@ const nextConfig: NextConfig = {
       // P3 quotes convergence: portal is the only quotes workspace
       { source: '/admin/quotes', destination: '/portal/quotes', permanent: false },
       { source: '/admin/quotes/:path*', destination: '/portal/quotes/:path*', permanent: false },
+
+      // QA-P3: Billing path aliases — actual billing UI lives at /portal/invoicing & /portal/payments
+      { source: '/portal/billing', destination: '/portal/invoicing', permanent: false },
+      { source: '/portal/billing/invoices', destination: '/portal/invoicing', permanent: false },
+      { source: '/portal/billing/invoices/:path*', destination: '/portal/invoicing/:path*', permanent: false },
+      { source: '/portal/billing/payment-methods', destination: '/portal/payments', permanent: false },
+      { source: '/portal/billing/plan', destination: '/portal/invoicing', permanent: false },
+      { source: '/portal/billing/usage', destination: '/portal/invoicing', permanent: false },
+      { source: '/portal/billing/:path*', destination: '/portal/invoicing', permanent: false },
+
+      // QA-P3: Email path aliases — email features live at /portal/campaigns, /portal/email-templates, etc.
+      { source: '/portal/email/campaigns', destination: '/portal/campaigns', permanent: false },
+      { source: '/portal/email/campaigns/:path*', destination: '/portal/campaigns/:path*', permanent: false },
+      { source: '/portal/email/templates', destination: '/portal/email-templates', permanent: false },
+      { source: '/portal/email/templates/:path*', destination: '/portal/email-templates/:path*', permanent: false },
+      { source: '/portal/email/settings/domains', destination: '/portal/email-domains', permanent: false },
+      { source: '/portal/email/automations', destination: '/portal/settings/automations', permanent: false },
+      { source: '/portal/email/settings/unsubscribe-page', destination: '/portal/email-preferences', permanent: false },
+      { source: '/portal/email/deliverability', destination: '/portal/email-analytics', permanent: false },
+      { source: '/portal/email/list-health', destination: '/portal/email-analytics', permanent: false },
+
+      // QA-P3: Analytics path aliases
+      { source: '/portal/analytics/realtime', destination: '/portal/analytics/live', permanent: false },
+
+      // QA-P3: Portal settings path aliases — British vs American spelling + path moves
+      { source: '/portal/settings/organisation', destination: '/portal/settings/organization', permanent: false },
+      { source: '/portal/settings/branding', destination: '/portal/branding', permanent: false },
+      { source: '/portal/settings/roles', destination: '/portal/settings/permissions', permanent: false },
+      { source: '/portal/settings/integrations', destination: '/portal/integrations', permanent: false },
+
+      // QA-P3: Onboarding alias
+      { source: '/portal/onboarding', destination: '/portal/first-run', permanent: false },
+
+      // QA-P3: Admin spelling aliases — British 'organisations' → American 'organizations'
+      { source: '/admin/organisations', destination: '/admin/organizations', permanent: false },
+      { source: '/admin/organisations/:path*', destination: '/admin/organizations/:path*', permanent: false },
+      // Admin users alias
+      { source: '/admin/users', destination: '/admin/platform-users', permanent: false },
+      { source: '/admin/users/:path*', destination: '/admin/platform-users/:path*', permanent: false },
     ]
   },
 }
