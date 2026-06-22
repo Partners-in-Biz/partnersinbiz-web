@@ -142,7 +142,13 @@ const nextConfig: NextConfig = {
 
       // QA-P3: Email path aliases — email features live at /portal/campaigns, /portal/email-templates, etc.
       { source: '/portal/email/campaigns', destination: '/portal/campaigns', permanent: false },
-      { source: '/portal/email/campaigns/:path*', destination: '/portal/campaigns/:path*', permanent: false },
+      { source: '/portal/email/campaigns/:id/design', destination: '/portal/campaigns/email/:id', permanent: false },
+      { source: '/portal/email/campaigns/:id/schedule', destination: '/portal/campaigns/email/:id', permanent: false },
+      { source: '/portal/email/campaigns/:id/analytics', destination: '/portal/campaigns/email/:id', permanent: false },
+      { source: '/portal/email/campaigns/:id/test-send', destination: '/portal/campaigns/email/:id', permanent: false },
+      { source: '/portal/email/campaigns/:id/:path*', destination: '/portal/campaigns/email/:id', permanent: false },
+      { source: '/portal/email/campaigns/:id', destination: '/portal/campaigns/email/:id', permanent: false },
+      { source: '/portal/email/campaigns/new', destination: '/portal/campaigns', permanent: false },
       { source: '/portal/email/templates', destination: '/portal/email-templates', permanent: false },
       { source: '/portal/email/templates/:path*', destination: '/portal/email-templates/:path*', permanent: false },
       { source: '/portal/email/settings/domains', destination: '/portal/email-domains', permanent: false },
@@ -162,6 +168,58 @@ const nextConfig: NextConfig = {
 
       // QA-P3: Onboarding alias
       { source: '/portal/onboarding', destination: '/portal/first-run', permanent: false },
+
+      // QA-P3b: CRM namespace aliases — features live at top-level portal paths
+      { source: '/portal/crm/segments', destination: '/portal/segments', permanent: false },
+      { source: '/portal/crm/segments/:path*', destination: '/portal/segments/:path*', permanent: false },
+      { source: '/portal/crm/integrations', destination: '/portal/integrations', permanent: false },
+      { source: '/portal/crm/integrations/:path*', destination: '/portal/integrations/:path*', permanent: false },
+      { source: '/portal/crm/workflows', destination: '/portal/settings/automations', permanent: false },
+      { source: '/portal/crm/workflows/:path*', destination: '/portal/settings/automations', permanent: false },
+      { source: '/portal/crm/settings/fields', destination: '/portal/settings/custom-fields', permanent: false },
+      { source: '/portal/crm/settings/lead-scoring', destination: '/portal/settings/scoring', permanent: false },
+      { source: '/portal/crm/settings/:path*', destination: '/portal/settings/crm-setup', permanent: false },
+      { source: '/portal/crm/suppression', destination: '/portal/email-preferences', permanent: false },
+
+      // QA-P3b: Social namespace aliases — map to closest existing social routes
+      { source: '/portal/social/generate', destination: '/portal/social/compose', permanent: false },
+      { source: '/portal/social/reports', destination: '/portal/social/analytics', permanent: false },
+      { source: '/portal/social/creative-canvas', destination: '/portal/creative-canvas', permanent: false },
+      { source: '/portal/social/drafts', destination: '/portal/social/queue', permanent: false },
+      { source: '/portal/social/campaigns', destination: '/portal/campaigns', permanent: false },
+      { source: '/portal/social/campaigns/:path*', destination: '/portal/campaigns/:path*', permanent: false },
+      { source: '/portal/social/templates', destination: '/portal/email-templates', permanent: false },
+      { source: '/portal/social/hashtags', destination: '/portal/social/compose', permanent: false },
+      { source: '/portal/social/listening', destination: '/portal/social/inbox', permanent: false },
+
+      // QA-P3b: Portal settings security alias
+      { source: '/portal/settings/security', destination: '/portal/settings/account', permanent: false },
+      { source: '/portal/settings/2fa', destination: '/portal/settings/account', permanent: false },
+      { source: '/portal/settings/team', destination: '/portal/settings/permissions', permanent: false },
+
+      // QA-P3b: Analytics sub-page aliases — map to closest existing analytics routes
+      { source: '/portal/analytics/traffic', destination: '/portal/analytics', permanent: false },
+      { source: '/portal/analytics/conversions', destination: '/portal/analytics', permanent: false },
+      { source: '/portal/analytics/conversions/:path*', destination: '/portal/analytics', permanent: false },
+      { source: '/portal/analytics/settings', destination: '/portal/settings', permanent: false },
+      { source: '/portal/analytics/utm-builder', destination: '/portal/analytics', permanent: false },
+      { source: '/portal/analytics/audience', destination: '/portal/analytics/users', permanent: false },
+      { source: '/portal/analytics/heatmaps', destination: '/portal/analytics', permanent: false },
+      { source: '/portal/analytics/reports', destination: '/portal/analytics', permanent: false },
+
+      // QA-P3b: SEO sub-page aliases — map to /portal/seo (sprint overview)
+      { source: '/portal/seo/keywords', destination: '/portal/seo', permanent: false },
+      { source: '/portal/seo/keywords/:path*', destination: '/portal/seo', permanent: false },
+      { source: '/portal/seo/audit', destination: '/portal/seo', permanent: false },
+      { source: '/portal/seo/backlinks', destination: '/portal/seo', permanent: false },
+      { source: '/portal/seo/gap-analysis', destination: '/portal/seo', permanent: false },
+      { source: '/portal/seo/briefs', destination: '/portal/seo', permanent: false },
+      { source: '/portal/seo/reports', destination: '/portal/seo', permanent: false },
+      { source: '/portal/seo/on-page', destination: '/portal/seo', permanent: false },
+      { source: '/portal/seo/speed', destination: '/portal/seo', permanent: false },
+      { source: '/portal/seo/competitors', destination: '/portal/seo', permanent: false },
+      { source: '/portal/seo/settings/integrations', destination: '/portal/integrations', permanent: false },
+      { source: '/portal/seo/settings/:path*', destination: '/portal/seo', permanent: false },
 
       // QA-P3: Admin spelling aliases — British 'organisations' → American 'organizations'
       { source: '/admin/organisations', destination: '/admin/organizations', permanent: false },
