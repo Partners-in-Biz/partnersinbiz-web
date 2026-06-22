@@ -1,0 +1,18 @@
+{
+  "previewUrl": "https://partnersinbiz-ctttsdrga-peet-standers-projects-caab22b2.vercel.app",
+  "proofUrl": "https://partnersinbiz-ctttsdrga-peet-standers-projects-caab22b2.vercel.app/portal/creative-canvas",
+  "checkedAt": "2026-06-21T10:38:38.507Z",
+  "protectedRoute": {
+    "status": 401,
+    "contentType": "text/html; charset=utf-8",
+    "ok": true
+  },
+  "requiredManualSignedInArtifacts": [
+    "desktop viewport behavior screenshot and interaction JSON",
+    "tablet viewport behavior screenshot and interaction JSON",
+    "mobile viewport behavior screenshot and interaction JSON",
+    "mobile panel viewport behavior screenshot and interaction JSON",
+    "two-user collaboration mutation video or event JSON",
+    "runtime/export category evidence JSON"
+  ]
+}
