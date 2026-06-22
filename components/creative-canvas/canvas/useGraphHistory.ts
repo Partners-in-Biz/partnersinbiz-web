@@ -14,39 +14,44 @@ export function useGraphHistory(initial: GraphSnapshot) {
   const past = useRef<GraphSnapshot[]>([])
   const future = useRef<GraphSnapshot[]>([])
   const present = useRef<GraphSnapshot>(initial)
-  const [, force] = useState(0)
-  const tick = () => force((n) => n + 1)
+  const [availability, setAvailability] = useState({ canUndo: false, canRedo: false })
+  const refreshAvailability = useCallback(() => {
+    setAvailability({
+      canUndo: past.current.length > 0,
+      canRedo: future.current.length > 0,
+    })
+  }, [])
 
   const commit = useCallback((next: GraphSnapshot) => {
     past.current.push(present.current)
     present.current = next
     future.current = []
-    tick()
-  }, [])
+    refreshAvailability()
+  }, [refreshAvailability])
 
   const undo = useCallback((): GraphSnapshot => {
     const prev = past.current.pop()
     if (!prev) return present.current
     future.current.push(present.current)
     present.current = prev
-    tick()
+    refreshAvailability()
     return prev
-  }, [])
+  }, [refreshAvailability])
 
   const redo = useCallback((): GraphSnapshot => {
     const next = future.current.pop()
     if (!next) return present.current
     past.current.push(present.current)
     present.current = next
-    tick()
+    refreshAvailability()
     return next
-  }, [])
+  }, [refreshAvailability])
 
   return {
     commit,
     undo,
     redo,
-    canUndo: past.current.length > 0,
-    canRedo: future.current.length > 0,
+    canUndo: availability.canUndo,
+    canRedo: availability.canRedo,
   }
 }
