@@ -17,6 +17,7 @@ import { useGraphHistory } from '@/components/creative-canvas/canvas/useGraphHis
 import CanvasTopBar from '@/components/creative-canvas/topbar/CanvasTopBar'
 import { canvasNodeTypes } from '@/components/creative-canvas/nodes/nodeTypes'
 import type { CanvasNodeType } from '@/components/creative-canvas/nodes/ports'
+import { getCanvasModel } from '@/lib/creative-canvas/model-registry'
 import CreateMenu from '@/components/creative-canvas/canvas/CreateMenu'
 import NodeSettingsPanel from '@/components/creative-canvas/panels/NodeSettingsPanel'
 import ReferencePicker, { type ReferenceAsset } from '@/components/creative-canvas/panels/ReferencePicker'
@@ -1279,6 +1280,11 @@ const PRESENTATION_LABELS: Record<CanvasNodeType, string> = {
 
 const AGENT_PRESENTATION_TYPES = new Set<CanvasNodeType>(['voice_generator', 'voiceover', 'change_voice', 'llm_assistant'])
 
+/** Keep the active run model on a real catalog model; legacy ids fall back to GPT Image 2. */
+function coerceCanvasModel(id: string | undefined | null): string {
+  return id && getCanvasModel(id) ? id : 'gpt_image_2'
+}
+
 /** Map a backend node onto a Higgsfield-style presentation node type. */
 function presentationTypeFor(node: CreativeCanvasNode): CanvasNodeType {
   const hint = (node.data as Record<string, unknown> | undefined)?.presentationType
@@ -2401,7 +2407,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
 
   useEffect(() => {
     const selectedModel = selectedCanvasNode?.provider?.key === 'higgsfield' ? selectedCanvasNode.provider.model : undefined
-    if (selectedModel) setRunModel(selectedModel)
+    if (selectedModel) setRunModel(coerceCanvasModel(selectedModel))
     if (selectedCanvasNode?.provider?.mode) setRunOutputKind(selectedCanvasNode.provider.mode)
     if (selectedCanvasNode?.edit?.outputKind) setRunOutputKind(selectedCanvasNode.edit.outputKind)
     if (selectedCanvasNode?.edit?.motion?.mode) setRunCameraMotion(selectedCanvasNode.edit.motion.mode)
@@ -2686,6 +2692,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
   const [showLanding, setShowLanding] = useState(false)
   const [immersiveCanvas, setImmersiveCanvas] = useState(true)
   const [referencePicker, setReferencePicker] = useState<{ nodeId: string } | null>(null)
+  const [settingsCollapsed, setSettingsCollapsed] = useState(false)
 
   const reloadActiveCanvas = useCallback(async () => {
     if (!activeCanvas?.id) return
@@ -2852,7 +2859,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
     setEdges((currentEdges) => [...currentEdges, ...graph.edges])
     setSelectedFlowNodeId(graph.nodes.find((node) => node.type === 'model' || node.type === 'edit')?.id ?? graph.nodes[0]?.id ?? '')
     setRunOutputKind(preset.outputKind ?? 'image')
-    setRunModel(graph.nodes.find((node) => node.provider?.key === 'higgsfield')?.provider?.model ?? 'nano_banana_flash')
+    setRunModel(coerceCanvasModel(graph.nodes.find((node) => node.provider?.key === 'higgsfield')?.provider?.model))
     setExportTarget(preset.exportTarget)
     setRunAspectRatio(preset.aspectRatio)
     setRunDurationSeconds(preset.durationSeconds)
@@ -2898,7 +2905,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
     setEdges((currentEdges) => [...currentEdges, ...nextEdges])
     setSelectedFlowNodeId(nextNodes.find((node) => node.type === 'model' || node.type === 'edit')?.id ?? nextNodes[0]?.id ?? '')
     setRunOutputKind(lastPreset?.outputKind ?? 'image')
-    setRunModel(nextNodes.find((node) => node.provider?.key === 'higgsfield')?.provider?.model ?? 'nano_banana_flash')
+    setRunModel(coerceCanvasModel(nextNodes.find((node) => node.provider?.key === 'higgsfield')?.provider?.model))
     setExportTarget(lastPreset?.exportTarget ?? 'campaign_asset')
     setRunAspectRatio(lastPreset?.aspectRatio ?? '1:1')
     setRunDurationSeconds(lastPreset?.durationSeconds ?? 0)
@@ -3670,6 +3677,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
 
   const selectFlowNode = useCallback((_: unknown, node: Node) => {
     setSelectedFlowNodeId(node.id)
+    setSettingsCollapsed(false)
   }, [])
 
   const saveGraph = useCallback(async (reason: 'manual' | 'auto' = 'manual') => {
@@ -6290,10 +6298,26 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
               onUndo={handleCanvasUndo}
               onRedo={handleCanvasRedo}
               activeTool={activeCanvasTool}
-              onTool={setActiveCanvasTool}
+              onTool={(tool) => {
+                setActiveCanvasTool(tool)
+                const dropPosition = { x: 160 + nodes.length * 28, y: 140 + (nodes.length % 6) * 30 }
+                if (tool === 'add') {
+                  setCreateMenu({
+                    flow: dropPosition,
+                    client: {
+                      x: typeof window !== 'undefined' ? Math.max(16, window.innerWidth / 2 - 120) : 400,
+                      y: typeof window !== 'undefined' ? Math.max(80, window.innerHeight / 2 - 180) : 200,
+                    },
+                  })
+                } else if (tool === 'sticky_note') {
+                  addCanvasNodeAt('sticky_note', dropPosition)
+                } else if (tool === 'text') {
+                  addCanvasNodeAt('text', dropPosition)
+                }
+              }}
             >
               <NodeSettingsPanel
-                open={Boolean(selectedFlowNodeId)}
+                open={Boolean(selectedFlowNodeId) && !settingsCollapsed}
                 node={selectedFlowNodeId ? selectedCanvasNode ?? null : null}
                 presentationType={selectedFlowNodeId && selectedCanvasNode ? presentationTypeFor(selectedCanvasNode) : null}
                 values={{
@@ -6322,7 +6346,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
                 }}
                 generating={Boolean(selectedNodeId && generatingNodeIds.has(selectedNodeId))}
                 onGenerate={() => { if (selectedNodeId) void generateInlineForNode(selectedNodeId) }}
-                onClose={() => setSelectedFlowNodeId('')}
+                onClose={() => setSettingsCollapsed(true)}
               />
             </CanvasStage>
           </div>
