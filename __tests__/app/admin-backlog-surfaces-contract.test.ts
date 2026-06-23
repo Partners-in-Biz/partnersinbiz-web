@@ -9,7 +9,10 @@ function source(relativePath: string) {
 
 const REQUIRED_PAGE_FILES = [
   'app/(admin)/admin/properties/page.tsx',
+  'app/(admin)/admin/products/page.tsx',
+  'app/(admin)/admin/hermes/page.tsx',
   'app/(admin)/admin/moderation/page.tsx',
+  'app/(admin)/admin/system/wiki-sync/page.tsx',
   'app/(admin)/admin/system/audit-log/page.tsx',
   'app/(admin)/admin/domains/page.tsx',
   'app/(admin)/admin/domains/ssl/page.tsx',
@@ -23,6 +26,7 @@ const REQUIRED_PAGE_FILES = [
   'app/(admin)/admin/announcements/page.tsx',
   'app/(admin)/admin/changelog/page.tsx',
   'app/(admin)/admin/2fa/page.tsx',
+  'app/(portal)/portal/billing/page.tsx',
 ]
 
 describe('admin backlog surfaces contract', () => {

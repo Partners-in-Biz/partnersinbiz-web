@@ -7,6 +7,10 @@ import { findInboundLinks as ccLinks } from '@/lib/seo/integrations/commoncrawl'
 import { getPageRank } from '@/lib/seo/integrations/openpagerank'
 import type { ApiUser } from '@/lib/api/types'
 
+function ignoreBestEffortFailure() {
+  return undefined
+}
+
 export const dynamic = 'force-dynamic'
 
 export const GET = withAuth(
@@ -23,9 +27,7 @@ export const GET = withAuth(
     let domain = sprint.siteUrl
     try {
       domain = new URL(sprint.siteUrl).hostname
-    } catch {
-      // ignore
-    }
+    } catch { ignoreBestEffortFailure() }
 
     if (sprint.integrations?.bing?.connected && sprint.integrations.bing.siteUrl) {
       try {
@@ -34,14 +36,10 @@ export const GET = withAuth(
           let host = l.sourceUrl
           try {
             host = new URL(l.sourceUrl).hostname
-          } catch {
-            // skip
-          }
+          } catch { ignoreBestEffortFailure() }
           candidates.push({ source: l.sourceUrl, domain: host, via: 'bing-wmt' })
         }
-      } catch {
-        // continue
-      }
+      } catch { ignoreBestEffortFailure() }
     }
 
     try {
@@ -55,9 +53,7 @@ export const GET = withAuth(
         }
         candidates.push({ source: u, domain: host, via: 'common-crawl' })
       }
-    } catch {
-      // continue
-    }
+    } catch { ignoreBestEffortFailure() }
 
     // Try to enrich with DR
     if (process.env.OPR_API_KEY && candidates.length > 0) {
@@ -65,9 +61,7 @@ export const GET = withAuth(
       try {
         const ranks = await getPageRank(uniqueDomains)
         for (const c of candidates) c.theirDR = ranks[c.domain]
-      } catch {
-        // continue without DR
-      }
+      } catch { ignoreBestEffortFailure() }
     }
 
     return apiSuccess({ candidates, count: candidates.length })

@@ -28,6 +28,10 @@ const MAX_SCORED_PAGE_VISITS = 5
 // Product-analytics pageview event names (mirrors lib/reports/snapshot.ts).
 const PAGEVIEW_EVENT_NAMES = ['$pageview', 'page_view', 'pageview']
 
+function ignoreScoreSignalFailure() {
+  return undefined
+}
+
 function resolvedWeights(weights: LeadSignalsWeights): Required<LeadSignalsWeights> {
   return {
     emailOpens: weights.emailOpens ?? DEFAULT_LEAD_WEIGHTS.emailOpens,
@@ -75,9 +79,7 @@ export async function computeLeadScore(
       if (isOpened) opens += 1
       if (isClicked) clicks += 1
     }
-  } catch (_err) {
-    // best-effort; signals stay 0
-  }
+  } catch(_err) { ignoreScoreSignalFailure() }
 
   // ── Email replies (inbound_emails collection, last 30d) ─────────────────
   try {
@@ -88,9 +90,7 @@ export async function computeLeadScore(
       .where('receivedAt', '>=', thirtyDaysAgo)
       .get()
     replies = repliesSnap.size ?? 0
-  } catch (_err) {
-    // best-effort
-  }
+  } catch(_err) { ignoreScoreSignalFailure() }
 
   // ── Sequence completions (sequence_enrollments, last 30d) ────────────────
   try {
@@ -101,9 +101,7 @@ export async function computeLeadScore(
       .where('completedAt', '>=', thirtyDaysAgo)
       .get()
     sequenceCompleted = seqSnap.size ?? 0
-  } catch (_err) {
-    // best-effort
-  }
+  } catch(_err) { ignoreScoreSignalFailure() }
 
   // ── Form submissions (form_submissions, last 30d) ─────────────────────────
   try {
@@ -113,9 +111,7 @@ export async function computeLeadScore(
       .where('submittedAt', '>=', thirtyDaysAgo)
       .get()
     formSubmissions = formsSnap.size ?? 0
-  } catch (_err) {
-    // best-effort
-  }
+  } catch(_err) { ignoreScoreSignalFailure() }
 
   // ── Page visits (product_events pageviews, last 30d) ─────────────────────
   // Product-analytics events live in `product_events`, keyed by `userId` — the
@@ -139,9 +135,7 @@ export async function computeLeadScore(
         const ev = doc.data() as any
         if (PAGEVIEW_EVENT_NAMES.includes(ev.event)) pageVisits += 1
       }
-    } catch (_err) {
-      // best-effort; signal stays 0 (e.g. missing composite index)
-    }
+    } catch(_err) { ignoreScoreSignalFailure() }
   }
   const scoredPageVisits = Math.min(pageVisits, MAX_SCORED_PAGE_VISITS)
 
@@ -158,9 +152,7 @@ export async function computeLeadScore(
         recentContactSignal = w.recentContact
       }
     }
-  } catch (_err) {
-    // best-effort
-  }
+  } catch(_err) { ignoreScoreSignalFailure() }
 
   // ── Formula ──────────────────────────────────────────────────────────────
   const raw =

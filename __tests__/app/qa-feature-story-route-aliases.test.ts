@@ -52,6 +52,9 @@ describe('QA feature-story route aliases', () => {
       '/admin/properties',
       '/admin/properties/new',
       '/admin/properties/:path*',
+      '/admin/products',
+      '/admin/hermes',
+      '/admin/hermes/:path*',
       '/admin/moderation',
       '/admin/domains',
       '/admin/domains/:path*',
@@ -65,9 +68,11 @@ describe('QA feature-story route aliases', () => {
       '/admin/tools/import',
       '/admin/tools/:path*',
       '/admin/system/audit-log',
+      '/admin/system/wiki-sync',
       '/admin/settings/social-credentials',
       '/admin/reports/templates',
       '/admin/reports/:path*',
+      '/portal/billing',
     ]
 
     for (const source of completedAdminRoutes) {

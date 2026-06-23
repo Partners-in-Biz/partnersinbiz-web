@@ -11,6 +11,10 @@ import { pauseCampaign as googlePauseCampaign } from '@/lib/ads/providers/google
 import { logCampaignActivity } from '@/lib/ads/activity'
 import { notifyCampaignPaused } from '@/lib/ads/notifications'
 
+function ignoreBestEffortFailure() {
+  return undefined
+}
+
 export const POST = withAuth(
   'admin',
   async (req: NextRequest, user: unknown, ctxParams: { params: Promise<{ id: string }> }) => {
@@ -36,9 +40,7 @@ export const POST = withAuth(
             try {
               const { pauseCampaign: tiktokPauseCampaign } = await import('@/lib/ads/providers/tiktok/campaigns')
               await tiktokPauseCampaign({ advertiserId, accessToken, campaignId })
-            } catch {
-              // Status already updated locally; TikTok sync failure is non-blocking
-            }
+            } catch { ignoreBestEffortFailure() }
           }
         }
       }
@@ -56,9 +58,7 @@ export const POST = withAuth(
             try {
               const { pauseCampaignGroup } = await import('@/lib/ads/providers/linkedin/campaigns')
               await pauseCampaignGroup({ accountUrn, accessToken, groupUrn })
-            } catch {
-              // Status already updated locally; LinkedIn sync failure is non-blocking
-            }
+            } catch { ignoreBestEffortFailure() }
           }
         }
       }
@@ -82,9 +82,7 @@ export const POST = withAuth(
                   loginCustomerId: customerCtx.loginCustomerId,
                   resourceName,
                 })
-              } catch {
-                // Status already updated locally; Google sync failure is non-blocking
-              }
+              } catch { ignoreBestEffortFailure() }
             }
           }
         }
@@ -101,9 +99,7 @@ export const POST = withAuth(
               adAccountId: ctx.adAccountId,
               campaign: { ...campaign, status: 'PAUSED' } as any,
             })
-          } catch {
-            // Status already updated locally; Meta sync failure is non-blocking
-          }
+          } catch { ignoreBestEffortFailure() }
         }
       }
     }

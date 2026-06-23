@@ -29,7 +29,7 @@ export const GET = withAuth('admin', async (req: NextRequest) => {
   if (!orgId) return apiError('orgId is required')
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  let query: any = adminDb.collection('suppressions').where('orgId', '==', orgId)
+  const query: any = adminDb.collection('suppressions').where('orgId', '==', orgId)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let snap: any
   try {

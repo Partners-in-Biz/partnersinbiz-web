@@ -258,6 +258,20 @@ const MAX_EMAILS_PER_QUERY = 50_000
 const CHUNK_DAYS = 30
 const DAY_MS = 24 * 60 * 60 * 1000
 
+type ShortenedLinkRow = {
+  id: string
+  shortCode?: string
+  shortUrl?: string
+  originalUrl?: string
+  clickCount?: number
+}
+
+type LeaderboardOrgRow = {
+  id: string
+  name?: string
+  deleted?: boolean
+}
+
 function safeRate(numerator: number, denominator: number): number {
   if (!denominator || denominator <= 0) return 0
   return Math.round((numerator / denominator) * 10_000) / 10_000
@@ -327,7 +341,7 @@ async function fetchEmailsInRange(orgId: string, range: DateRange): Promise<Emai
   for (const w of windows) {
     try {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const snap: any = await (adminDb.collection('emails') as any)
+      const snap = await (adminDb.collection('emails'))
         .where('orgId', '==', orgId)
         .where('sentAt', '>=', Timestamp.fromDate(w.from))
         .where('sentAt', '<', Timestamp.fromDate(w.to))
@@ -344,7 +358,7 @@ async function fetchEmailsInRange(orgId: string, range: DateRange): Promise<Emai
       // `emails(orgId, sentAt)` index yet. Fall back to a tenant-only read and
       // filter by sentAt in memory so analytics still works.
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const snap: any = await (adminDb.collection('emails') as any)
+      const snap = await (adminDb.collection('emails'))
         .where('orgId', '==', orgId)
         .limit(MAX_EMAILS_PER_QUERY)
         .get()
@@ -436,22 +450,22 @@ export async function getOrgEmailOverview(
   let unsubscribed = 0
   try {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const unsubSnap: any = await (adminDb.collection('contacts') as any)
+    const unsubSnap = await (adminDb.collection('contacts'))
       .where('orgId', '==', orgId)
       .where('unsubscribedAt', '>=', Timestamp.fromDate(range.from))
       .where('unsubscribedAt', '<', Timestamp.fromDate(range.to))
       .get()
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    unsubscribed = unsubSnap.docs.filter((d: any) => d.data().deleted !== true).length
+    unsubscribed = unsubSnap.docs.filter((d) => d.data().deleted !== true).length
   } catch {
     // Missing composite index on contacts(orgId, unsubscribedAt) — fall back
     // to scanning all contacts in the org. Cheap for small orgs.
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const allSnap: any = await (adminDb.collection('contacts') as any)
+    const allSnap = await (adminDb.collection('contacts'))
       .where('orgId', '==', orgId)
       .get()
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    unsubscribed = allSnap.docs.filter((d: any) => {
+    unsubscribed = allSnap.docs.filter((d) => {
       const data = d.data() as Contact
       if (data.deleted === true) return false
       const ms = tsToMs(data.unsubscribedAt)
@@ -462,12 +476,12 @@ export async function getOrgEmailOverview(
   // Top broadcasts/campaigns — read pre-aggregated stats directly. We pull all
   // broadcasts/campaigns for the org and filter to those active in the range.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const broadcastsSnap: any = await (adminDb.collection('broadcasts') as any)
+  const broadcastsSnap = await (adminDb.collection('broadcasts'))
     .where('orgId', '==', orgId)
     .get()
   const broadcastsInRange: Broadcast[] = broadcastsSnap.docs
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    .map((d: any) => ({ id: d.id, ...d.data() } as Broadcast))
+    .map((d) => ({ id: d.id, ...d.data() } as Broadcast))
     .filter((b: Broadcast) => {
       if (b.deleted === true) return false
       const startMs = tsToMs(b.sendStartedAt) ?? tsToMs(b.scheduledFor) ?? tsToMs(b.createdAt)
@@ -517,12 +531,12 @@ export async function getOrgEmailOverview(
     .slice(0, 5)
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const campaignsSnap: any = await (adminDb.collection('campaigns') as any)
+  const campaignsSnap = await (adminDb.collection('campaigns'))
     .where('orgId', '==', orgId)
     .get()
   const topCampaigns = campaignsSnap.docs
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    .map((d: any) => ({ id: d.id, ...d.data() } as Campaign))
+    .map((d) => ({ id: d.id, ...d.data() } as Campaign))
     .filter((c: Campaign) => {
       if (c.deleted === true) return false
       const startMs = tsToMs(c.startAt) ?? tsToMs(c.createdAt)
@@ -657,14 +671,14 @@ export async function getBroadcastStats(
 
   // Per-email pull, scoped to this broadcast.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const emailsSnap: any = await (adminDb.collection('emails') as any)
+  const emailsSnap = await (adminDb.collection('emails'))
     .where('orgId', '==', orgId)
     .where('broadcastId', '==', broadcastId)
     .limit(MAX_EMAILS_PER_QUERY)
     .get()
   const emails: Email[] = emailsSnap.docs
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    .map((d: any) => ({ id: d.id, ...d.data() } as Email))
+    .map((d) => ({ id: d.id, ...d.data() } as Email))
      
     .filter((e: Email) => e.deleted !== true)
 
@@ -713,18 +727,18 @@ export async function getBroadcastStats(
   const topClicks: Array<{ url: string; clicks: number }> = []
   try {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const linksSnap: any = await (adminDb.collection('shortened_links') as any)
+    const linksSnap = await (adminDb.collection('shortened_links'))
       .where('orgId', '==', orgId)
       .get()
     const bodyHtml = broadcast.content?.bodyHtml ?? ''
      
     const linksReferenced = linksSnap.docs
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      .map((d: any) => ({ id: d.id, ...d.data() }))
+      .map((d) => ({ id: d.id, ...d.data() }) as ShortenedLinkRow)
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      .filter((l: any) => bodyHtml.includes(l.shortCode) || bodyHtml.includes(l.shortUrl))
+      .filter((l) => Boolean((l.shortCode && bodyHtml.includes(l.shortCode)) || (l.shortUrl && bodyHtml.includes(l.shortUrl))))
     for (const l of linksReferenced) {
-      topClicks.push({ url: l.originalUrl as string, clicks: (l.clickCount as number) ?? 0 })
+      topClicks.push({ url: l.originalUrl ?? '', clicks: l.clickCount ?? 0 })
     }
   } catch {
     // shortened_links collection may not exist or be empty — empty list is fine.
@@ -773,14 +787,14 @@ export async function getCampaignStats(
 
   // Per-email pull, scoped to this campaign.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const emailsSnap: any = await (adminDb.collection('emails') as any)
+  const emailsSnap = await (adminDb.collection('emails'))
     .where('orgId', '==', orgId)
     .where('campaignId', '==', campaignId)
     .limit(MAX_EMAILS_PER_QUERY)
     .get()
   const emails: Email[] = emailsSnap.docs
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    .map((d: any) => ({ id: d.id, ...d.data() } as Email))
+    .map((d) => ({ id: d.id, ...d.data() } as Email))
     .filter((e: Email) => e.deleted !== true)
 
   // Totals
@@ -900,7 +914,7 @@ export async function getCampaignStats(
   const topClicks: Array<{ url: string; clicks: number }> = []
   try {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const linksSnap: any = await (adminDb.collection('shortened_links') as any)
+    const linksSnap = await (adminDb.collection('shortened_links'))
       .where('orgId', '==', orgId)
       .where('campaignId', '==', campaignId)
       .get()
@@ -951,7 +965,7 @@ export async function getCampaignStats(
     if (chunk.length === 0) continue
     try {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const snap: any = await (adminDb.collection('contacts') as any)
+      const snap = await (adminDb.collection('contacts'))
         .where('orgId', '==', orgId)
         .where('__name__', 'in', chunk)
         .get()
@@ -1018,13 +1032,13 @@ export async function getSequenceStats(
 
   // Enrollments
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const enrollSnap: any = await (adminDb.collection('sequence_enrollments') as any)
+  const enrollSnap = await (adminDb.collection('sequence_enrollments'))
     .where('orgId', '==', orgId)
     .where('sequenceId', '==', sequenceId)
     .get()
   const enrollments: SequenceEnrollment[] = enrollSnap.docs
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    .map((d: any) => ({ id: d.id, ...d.data() } as SequenceEnrollment))
+    .map((d) => ({ id: d.id, ...d.data() } as SequenceEnrollment))
      
     .filter((e: SequenceEnrollment) => e.deleted !== true)
 
@@ -1050,7 +1064,7 @@ export async function getSequenceStats(
 
   // Per-step email aggregates
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const emailsSnap: any = await (adminDb.collection('emails') as any)
+  const emailsSnap = await (adminDb.collection('emails'))
     .where('orgId', '==', orgId)
     .where('sequenceId', '==', sequenceId)
     .limit(MAX_EMAILS_PER_QUERY)
@@ -1158,13 +1172,13 @@ export async function getContactEngagement(
 
   // Pull contacts for the org (capped).
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const contactsSnap: any = await (adminDb.collection('contacts') as any)
+  const contactsSnap = await (adminDb.collection('contacts'))
     .where('orgId', '==', orgId)
     .limit(5000)
     .get()
   const contacts: Contact[] = contactsSnap.docs
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    .map((d: any) => ({ id: d.id, ...d.data() } as Contact))
+    .map((d) => ({ id: d.id, ...d.data() } as Contact))
     .filter((c: Contact) => c.deleted !== true)
 
   if (contacts.length === 0) return []
@@ -1261,13 +1275,13 @@ export async function getContactEngagement(
 export async function getPlatformLeaderboard(range: DateRange): Promise<OrgComparisonRow[]> {
   // Pull all orgs.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const orgsSnap: any = await (adminDb.collection('organizations') as any).get()
+  const orgsSnap = await (adminDb.collection('organizations')).get()
    
   const orgs = orgsSnap.docs
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    .map((d: any) => ({ id: d.id, ...d.data() }))
+    .map((d) => ({ id: d.id, ...d.data() }) as LeaderboardOrgRow)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    .filter((o: any) => o.deleted !== true)
+    .filter((o) => o.deleted !== true)
 
   const rows: OrgComparisonRow[] = []
   for (const org of orgs) {
@@ -1335,26 +1349,26 @@ export async function getCohortAnalysis(
   let contacts: Contact[] = []
   try {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const snap: any = await (adminDb.collection('contacts') as any)
+    const snap = await (adminDb.collection('contacts'))
       .where('orgId', '==', orgId)
       .where('createdAt', '>=', Timestamp.fromDate(range.from))
       .where('createdAt', '<', Timestamp.fromDate(range.to))
       .get()
     contacts = snap.docs
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      .map((d: any) => ({ id: d.id, ...d.data() } as Contact))
+      .map((d) => ({ id: d.id, ...d.data() } as Contact))
       .filter((c: Contact) => c.deleted !== true)
   } catch {
     // Missing composite index — fall back to scan.
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const snap: any = await (adminDb.collection('contacts') as any)
+    const snap = await (adminDb.collection('contacts'))
       .where('orgId', '==', orgId)
       .limit(20_000)
       .get()
     const { fromMs, toMs } = rangeToMillis(range)
     contacts = snap.docs
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      .map((d: any) => ({ id: d.id, ...d.data() } as Contact))
+      .map((d) => ({ id: d.id, ...d.data() } as Contact))
       .filter((c: Contact) => {
         if (c.deleted === true) return false
         const ms = tsToMs(c.createdAt)
@@ -1426,7 +1440,7 @@ export async function getCohortAnalysis(
       const chunk = cohortIds.slice(i, i + FIRESTORE_IN_LIMIT)
       if (chunk.length === 0) continue
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const snap: any = await (adminDb.collection('emails') as any)
+      const snap = await (adminDb.collection('emails'))
         .where('orgId', '==', orgId)
         .where('contactId', 'in', chunk)
         .where('sentAt', '>=', Timestamp.fromDate(cohort.start))
@@ -1511,14 +1525,14 @@ export async function getBroadcastHeatmap(
 
   // Find shortened links whose shortCode/shortUrl appears in the broadcast body.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const linksSnap: any = await (adminDb.collection('shortened_links') as any)
+  const linksSnap = await (adminDb.collection('shortened_links'))
     .where('orgId', '==', orgId)
     .get()
   const referencedLinks = linksSnap.docs
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    .map((d: any) => ({ id: d.id, ...d.data() }))
+    .map((d) => ({ id: d.id, ...d.data() }) as ShortenedLinkRow)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    .filter((l: any) => {
+    .filter((l) => {
       if (!bodyHtml) return false
       return (
         (l.shortCode && bodyHtml.includes(l.shortCode)) ||
@@ -1538,7 +1552,7 @@ export async function getBroadcastHeatmap(
   // Get the set of contactIds that received this broadcast (for unique counts
   // and to filter shortened-link clicks back to this broadcast).
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const emailsSnap: any = await (adminDb.collection('emails') as any)
+  const emailsSnap = await (adminDb.collection('emails'))
     .where('orgId', '==', orgId)
     .where('broadcastId', '==', broadcastId)
     .limit(MAX_EMAILS_PER_QUERY)
@@ -1568,7 +1582,7 @@ export async function getBroadcastHeatmap(
     if (!url) continue
     try {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const clicksSnap: any = await (adminDb
+      const clicksSnap = await (adminDb
         .collection('shortened_links')
         .doc(link.id)
         .collection('clicks'))

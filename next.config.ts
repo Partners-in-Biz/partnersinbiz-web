@@ -123,7 +123,6 @@ const nextConfig: NextConfig = {
       { source: '/admin/quotes/:path*', destination: '/portal/quotes/:path*', permanent: false },
 
       // QA-P3: Billing path aliases — actual billing UI lives at /portal/invoicing & /portal/payments
-      { source: '/portal/billing', destination: '/portal/invoicing', permanent: false },
       { source: '/portal/billing/invoices', destination: '/portal/invoicing', permanent: false },
       { source: '/portal/billing/invoices/:path*', destination: '/portal/invoicing/:path*', permanent: false },
       { source: '/portal/billing/payment-methods', destination: '/portal/payments', permanent: false },
@@ -201,12 +200,8 @@ const nextConfig: NextConfig = {
       // /admin/platform-users still works directly as its own page
 
       // QA-P3c: Admin section aliases for surfaces that intentionally consolidate elsewhere.
-      { source: '/admin/hermes', destination: '/admin/agents', permanent: false },
-      { source: '/admin/hermes/:path*', destination: '/admin/agents', permanent: false },
       { source: '/admin/broadcast', destination: '/admin/email/broadcast', permanent: false },
-      { source: '/admin/products', destination: '/admin/settings', permanent: false },
       { source: '/admin/system/social-apis', destination: '/admin/settings', permanent: false },
-      { source: '/admin/system/wiki-sync', destination: '/admin/mission-control', permanent: false },
 
       // QA-P3c: Portal — unbuilt settings pages redirect to nearest settings hub
       { source: '/portal/referrals', destination: '/portal/dashboard', permanent: false },

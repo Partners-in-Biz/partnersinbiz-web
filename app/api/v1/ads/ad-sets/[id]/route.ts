@@ -17,6 +17,10 @@ import type { UpdateAdSetInput } from '@/lib/ads/types'
 import { logAdSetActivity } from '@/lib/ads/activity'
 import type { ApiUser } from '@/lib/api/types'
 
+function ignoreBestEffortFailure() {
+  return undefined
+}
+
 export const GET = withAuth(
   'admin',
   async (req: NextRequest, _user: unknown, ctxParams: { params: Promise<{ id: string }> }) => {
@@ -183,9 +187,7 @@ export const DELETE = withAuth(
             try {
               const { archiveAdGroup: tiktokArchiveAdGroup } = await import('@/lib/ads/providers/tiktok/adgroups')
               await tiktokArchiveAdGroup({ advertiserId, accessToken, adgroupId })
-            } catch {
-              // swallow — local delete is source of truth
-            }
+            } catch { ignoreBestEffortFailure() }
           }
         }
       }
@@ -208,9 +210,7 @@ export const DELETE = withAuth(
                   loginCustomerId: customerCtx.loginCustomerId,
                   resourceName,
                 })
-              } catch {
-                // swallow — local delete is source of truth
-              }
+              } catch { ignoreBestEffortFailure() }
             }
           }
         }
@@ -228,9 +228,7 @@ export const DELETE = withAuth(
             try {
               const { archiveCampaign: linkedinArchiveCampaign } = await import('@/lib/ads/providers/linkedin/adsets')
               await linkedinArchiveCampaign({ accountUrn, accessToken, campaignUrn })
-            } catch {
-              // swallow — local delete is source of truth
-            }
+            } catch { ignoreBestEffortFailure() }
           }
         }
       }
@@ -242,9 +240,7 @@ export const DELETE = withAuth(
         if (!(ctx instanceof Response)) {
           try {
             await metaDeleteAdSet({ metaAdSetId: metaId, accessToken: ctx.accessToken })
-          } catch {
-            // swallow — local delete is source of truth
-          }
+          } catch { ignoreBestEffortFailure() }
         }
       }
     }

@@ -16,6 +16,10 @@ import type { Campaign } from '@/lib/campaigns/types'
 import type { Sequence } from '@/lib/sequences/types'
 import type { DateRange } from './aggregate'
 
+function ignoreBestEffortFailure() {
+  return undefined
+}
+
 // ── Types ───────────────────────────────────────────────────────────────────
 
 export interface AttributedConversion {
@@ -134,9 +138,7 @@ async function findMostRecentClick(
         return { ...data, id: doc.id }
       }
     }
-  } catch {
-    // Missing composite index — fall back to scanning recent emails.
-  }
+  } catch { ignoreBestEffortFailure() }
 
   // Fallback: pull recent emails for this contact + filter in-memory.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -386,9 +388,7 @@ export async function getRevenueOverview(
       const eSnap = await adminDb.collection('emails').doc(emailId).get()
       const data = eSnap.data() as Partial<Email> | undefined
       subject = data?.subject ?? ''
-    } catch {
-      // Email might have been deleted — keep subject empty.
-    }
+    } catch { ignoreBestEffortFailure() }
     topPerformingEmails.push({
       emailId,
       subject,
@@ -420,9 +420,7 @@ export async function getRevenueOverview(
           | undefined
         name = data?.name ?? s.sourceId
       }
-    } catch {
-      // Best-effort.
-    }
+    } catch { ignoreBestEffortFailure() }
     topPerformingSources.push({
       source: s.source,
       sourceId: s.sourceId,

@@ -1,6 +1,8 @@
 import type { ApiUser } from '@/lib/api/types'
 import { restrictedAdminOrgIds } from '@/lib/api/platformAdmin'
 import { adminDb } from '@/lib/firebase/admin'
+import { HERMES_PROFILE_LINKS_COLLECTION, HERMES_RUNS_COLLECTION } from '@/lib/hermes/server'
+import { PRODUCTS as ONBOARDING_PRODUCTS } from '@/lib/onboarding/products'
 import { REPORT_EMAIL_TEMPLATES } from '@/lib/reports/templates'
 import { getCallbackUrl, getClientCredentials, getOAuthConfig } from '@/lib/social/oauth-config'
 
@@ -93,7 +95,9 @@ function timestampMs(value: unknown): number | null {
     try {
       if (typeof source.toMillis === 'function') return source.toMillis()
       if (typeof source.toDate === 'function') return source.toDate().getTime()
-    } catch {}
+    } catch {
+      return null
+    }
     const seconds = source.seconds ?? source._seconds
     if (typeof seconds === 'number') return seconds * 1000
   }
@@ -244,6 +248,267 @@ export async function buildPropertiesSurface(user: ApiUser): Promise<AdminBacklo
           }
         }),
         emptyMessage: 'No properties found for the accessible org scope.',
+      },
+    ],
+  }
+}
+
+export async function buildProductsSurface(user: ApiUser): Promise<AdminBacklogSurfacePayload> {
+  const [orgs, products] = await Promise.all([
+    readOrganizations(user),
+    readOrgScopedCollection(user, 'products', 180),
+  ])
+
+  const activeProducts = products.filter((product) => product.deleted !== true && product.active !== false)
+  const onboardingProducts = Object.values(ONBOARDING_PRODUCTS)
+
+  return {
+    actions: buildActions(
+      { label: 'Open services', href: '/services' },
+      { label: 'Open onboarding starts', href: '/start/athleet-management' },
+    ),
+    metrics: buildMetrics([
+      { label: 'Client products', value: String(activeProducts.length), helper: 'Billable product records across accessible orgs.' },
+      { label: 'Onboarding offers', value: String(onboardingProducts.length), helper: 'Public /start product registry entries.' },
+      { label: 'Org coverage', value: String(new Set(activeProducts.map((product) => stringValue(product.orgId))).size) },
+      { label: 'Route status', value: 'Live', helper: '/admin/products no longer redirects to settings.' },
+    ]),
+    callouts: [
+      {
+        title: 'Admin product control plane',
+        body: 'This surface combines platform onboarding products with client product records so operators can audit product catalog readiness without leaving admin.',
+      },
+    ],
+    sections: [
+      {
+        title: 'Client product catalog',
+        description: 'Products stored in the shared products collection, grouped by owning organization and current catalog state.',
+        columns: ['Product', 'Organization', 'Price', 'Unit', 'Updated'],
+        rows: activeProducts
+          .sort((a, b) => (timestampMs(b.updatedAt) ?? 0) - (timestampMs(a.updatedAt) ?? 0))
+          .slice(0, 80)
+          .map((product) => {
+            const org = orgs.get(stringValue(product.orgId))
+            const price = numberValue(product.unitPrice)
+            const currency = stringValue(product.currency, 'ZAR')
+            return {
+              id: product.id,
+              cells: [
+                `${stringValue(product.name, product.id)} (${stringValue(product.sku, 'no-sku')})`,
+                org?.name ?? stringValue(product.orgId, 'Unknown org'),
+                `${currency} ${price.toFixed(2)}`,
+                stringValue(product.unit, 'item'),
+                formatDateTime(product.updatedAt ?? product.createdAt),
+              ],
+              href: slugPath(org, '/settings/products'),
+              actions: buildActions({ label: 'Open org products', href: slugPath(org, '/settings/products') ?? '/admin/organizations' }),
+            }
+          }),
+        emptyMessage: 'No active product records were found for the accessible org scope.',
+      },
+      {
+        title: 'Public onboarding products',
+        description: 'Current product registry entries exposed through /start/[product].',
+        columns: ['Product', 'Slug', 'Price label', 'Features', 'Start route'],
+        rows: onboardingProducts.map((product) => ({
+          id: product.slug,
+          cells: [
+            product.name,
+            product.slug,
+            product.priceLabel,
+            String(product.features.length),
+            `/start/${product.slug}`,
+          ],
+          href: `/start/${product.slug}`,
+          actions: buildActions({ label: 'Open start page', href: `/start/${product.slug}` }),
+        })),
+      },
+    ],
+  }
+}
+
+export async function buildHermesSurface(user: ApiUser): Promise<AdminBacklogSurfacePayload> {
+  const [orgs, profileLinks, runs] = await Promise.all([
+    readOrganizations(user),
+    readGlobalCollection(HERMES_PROFILE_LINKS_COLLECTION, 120),
+    readGlobalCollection(HERMES_RUNS_COLLECTION, 120, 'createdAt'),
+  ])
+
+  const restricted = restrictedAdminOrgIds(user)
+  const visibleLinks = restricted.length > 0
+    ? profileLinks.filter((link) => restricted.includes(stringValue(link.orgId, link.id)))
+    : profileLinks
+  const visibleRuns = restricted.length > 0
+    ? runs.filter((run) => restricted.includes(stringValue(run.orgId)))
+    : runs
+  const enabledLinks = visibleLinks.filter((link) => link.enabled !== false)
+  const recentFailures = visibleRuns.filter((run) => ['failed', 'error', 'cancelled'].includes(stringValue(run.status).toLowerCase()))
+
+  return {
+    actions: buildActions(
+      { label: 'Open agents board', href: '/admin/agents' },
+      { label: 'Open infrastructure metrics', href: '/admin/system/infrastructure' },
+    ),
+    metrics: buildMetrics([
+      { label: 'Profile links', value: String(visibleLinks.length), helper: 'Hermes profiles configured for accessible orgs.' },
+      { label: 'Enabled', value: String(enabledLinks.length) },
+      { label: 'Recent runs', value: String(visibleRuns.length) },
+      { label: 'Failures', value: String(recentFailures.length), helper: 'Recent runs with failed/error/cancelled status.' },
+    ]),
+    callouts: [
+      {
+        title: 'Hermes operations hub',
+        body: 'Use this top-level route to audit profile links, recent run status, and safe handoffs into agents, profile tools, skills, jobs, and infrastructure metrics.',
+      },
+    ],
+    sections: [
+      {
+        title: 'Profile links',
+        description: 'Configured Hermes profile links and capability readiness by organization.',
+        columns: ['Organization', 'Profile', 'Base URL', 'Capabilities', 'Status'],
+        rows: visibleLinks.map((link) => {
+          const orgId = stringValue(link.orgId, link.id)
+          const org = orgs.get(orgId)
+          const capabilities = link.capabilities && typeof link.capabilities === 'object'
+            ? Object.entries(link.capabilities as Record<string, unknown>)
+                .filter(([, enabled]) => enabled === true)
+                .map(([capability]) => capability)
+                .join(', ')
+            : 'none'
+          return {
+            id: link.id,
+            cells: [
+              org?.name ?? orgId,
+              stringValue(link.profile, 'unlinked'),
+              stringValue(link.baseUrl, 'missing'),
+              capabilities || 'none',
+              link.enabled === false ? 'disabled' : 'enabled',
+            ],
+            href: `/admin/hermes/profiles/${orgId}`,
+            actions: buildActions(
+              { label: 'Open profile API', href: `/api/v1/admin/hermes/profiles/${orgId}` },
+              { label: 'Open agents', href: '/admin/agents' },
+            ),
+          }
+        }),
+        emptyMessage: 'No Hermes profile links are configured for the accessible org scope.',
+      },
+      {
+        title: 'Recent Hermes runs',
+        description: 'Recent run records submitted through the Partners in Biz Hermes bridge.',
+        columns: ['Run', 'Organization', 'Profile', 'Status', 'Created'],
+        rows: visibleRuns.slice(0, 50).map((run) => {
+          const orgId = stringValue(run.orgId)
+          return {
+            id: run.id,
+            cells: [
+              stringValue(run.hermesRunId, run.id),
+              orgs.get(orgId)?.name ?? orgId,
+              stringValue(run.profile, 'unknown'),
+              stringValue(run.status, 'submitted'),
+              formatDateTime(run.createdAt),
+            ],
+            actions: buildActions({ label: 'Open agents logs', href: '/admin/agents' }),
+          }
+        }),
+        emptyMessage: 'No recent Hermes runs were found.',
+      },
+    ],
+  }
+}
+
+export async function buildWikiSyncSurface(user: ApiUser): Promise<AdminBacklogSurfacePayload> {
+  const [orgs, memoryItems, tasks, runs] = await Promise.all([
+    readOrganizations(user),
+    readOrgScopedCollection(user, 'agent_memory_items', 160),
+    readGlobalCollection('agent_tasks', 80, 'createdAt'),
+    readGlobalCollection(HERMES_RUNS_COLLECTION, 80, 'createdAt'),
+  ])
+
+  const knowledgeItems = memoryItems.filter((item) => stringValue(item.sourceType).includes('knowledge') || stringValue(item.type).includes('knowledge'))
+  const wikiTasks = tasks.filter((task) => {
+    const haystack = [
+      stringValue(task.title),
+      stringValue(task.description),
+      stringValue(task.type),
+      stringValue(task.sourceType),
+    ].join(' ').toLowerCase()
+    return haystack.includes('wiki') || haystack.includes('knowledge') || haystack.includes('obsidian')
+  })
+  const knowledgeRuns = runs.filter((run) => {
+    const prompt = stringValue(run.prompt).toLowerCase()
+    return prompt.includes('wiki') || prompt.includes('knowledge') || prompt.includes('obsidian')
+  })
+
+  return {
+    actions: buildActions(
+      { label: 'Open shared knowledge', href: '/admin/knowledge' },
+      { label: 'Open mission control', href: '/admin/mission-control' },
+    ),
+    metrics: buildMetrics([
+      { label: 'Knowledge memory', value: String(knowledgeItems.length), helper: 'Indexed knowledge items in accessible org scopes.' },
+      { label: 'Wiki tasks', value: String(wikiTasks.length) },
+      { label: 'Knowledge runs', value: String(knowledgeRuns.length) },
+      { label: 'Reindex API', value: 'Ready', helper: '/api/v1/admin/agent-memory/reindex' },
+    ]),
+    callouts: [
+      {
+        title: 'Manual sync guardrail',
+        body: 'Knowledge and wiki updates stay reviewable. This surface exposes sync evidence and reindex handoffs without creating automatic wiki rewrites.',
+        href: '/admin/knowledge',
+        hrefLabel: 'Review knowledge base',
+      },
+    ],
+    sections: [
+      {
+        title: 'Indexed knowledge memory',
+        description: 'Recent knowledge-backed memory rows available to the admin sync/reindex flow.',
+        columns: ['Item', 'Organization', 'Source', 'Updated', 'Status'],
+        rows: knowledgeItems.slice(0, 50).map((item) => {
+          const orgId = stringValue(item.orgId)
+          return {
+            id: item.id,
+            cells: [
+              stringValue(item.title, item.id),
+              orgs.get(orgId)?.name ?? orgId,
+              stringValue(item.sourceType, stringValue(item.type, 'knowledge')),
+              formatDateTime(item.updatedAt ?? item.createdAt),
+              stringValue(item.status, 'indexed'),
+            ],
+            actions: buildActions({ label: 'Open knowledge', href: '/admin/knowledge' }),
+          }
+        }),
+        emptyMessage: 'No indexed knowledge memory rows were found for the accessible org scope.',
+      },
+      {
+        title: 'Wiki and knowledge jobs',
+        description: 'Recent tasks/runs that mention wiki, Obsidian, or knowledge sync.',
+        columns: ['Record', 'Source', 'Status', 'Created', 'Route'],
+        rows: [
+          ...wikiTasks.slice(0, 25).map((task) => ({
+            id: `task-${task.id}`,
+            cells: [
+              stringValue(task.title, task.id),
+              'agent task',
+              stringValue(task.status, 'open'),
+              formatDateTime(task.createdAt),
+              '/admin/mission-control',
+            ],
+            actions: buildActions({ label: 'Mission control', href: '/admin/mission-control' }),
+          })),
+          ...knowledgeRuns.slice(0, 25).map((run) => ({
+            id: `run-${run.id}`,
+            cells: [
+              stringValue(run.hermesRunId, run.id),
+              'Hermes run',
+              stringValue(run.status, 'submitted'),
+              formatDateTime(run.createdAt),
+              '/admin/agents',
+            ],
+            actions: buildActions({ label: 'Agents', href: '/admin/agents' }),
+          })),
+        ],
+        emptyMessage: 'No wiki or knowledge sync jobs were found.',
       },
     ],
   }

@@ -156,7 +156,7 @@ export const GET = withAuth('admin', async (req: NextRequest) => {
   // ── Bounce / complaint rates + recent events from the `emails` send log ────
   // The send log is large; cap the scan to a recent slice ordered by createdAt.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  let emailsQuery: any = adminDb.collection('emails')
+  const emailsQuery: any = adminDb.collection('emails')
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let emailDocs: any[] = []
   try {

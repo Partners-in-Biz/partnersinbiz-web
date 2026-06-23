@@ -3,6 +3,7 @@
 export const dynamic = 'force-dynamic'
 
 import { useEffect, useMemo, useState } from 'react'
+import Link from 'next/link'
 import { formatZar, formatDate, tsToMillis } from '@/lib/billing/format'
 
 type PartnerStatus = 'pending' | 'approved' | 'rejected' | 'suspended'
@@ -277,9 +278,9 @@ export default function AdminPartnersPage() {
           >
             {showCreate ? 'Cancel' : '+ New applicant'}
           </button>
-          <a href="/api/v1/admin/partners/export" className="pib-btn-ghost text-sm font-label">
+          <Link href="/api/v1/admin/partners/export" className="pib-btn-ghost text-sm font-label">
             Export CSV
-          </a>
+          </Link>
         </div>
       </div>
 

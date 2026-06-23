@@ -9,7 +9,10 @@ function source(relativePath: string) {
 
 const REQUIRED_API_FILES = [
   'app/api/v1/admin/properties/route.ts',
+  'app/api/v1/admin/products/route.ts',
+  'app/api/v1/admin/hermes/route.ts',
   'app/api/v1/admin/moderation/route.ts',
+  'app/api/v1/admin/system/wiki-sync/route.ts',
   'app/api/v1/admin/audit-log/route.ts',
   'app/api/v1/admin/domains/route.ts',
   'app/api/v1/admin/domains/ssl/route.ts',

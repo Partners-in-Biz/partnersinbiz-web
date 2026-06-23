@@ -4,6 +4,10 @@ export const dynamic = 'force-dynamic'
 import { useEffect, useState, useCallback } from 'react'
 import { useOrg } from '@/lib/contexts/OrgContext'
 
+function ignoreBestEffortFailure() {
+  return undefined
+}
+
 type SocialPlatform = 'twitter' | 'x' | 'linkedin' | 'facebook' | 'instagram' | 'reddit' | 'tiktok' | 'pinterest' | 'bluesky' | 'threads'
 type SocialPostStatus = 'draft' | 'pending_approval' | 'approved' | 'scheduled' | 'published' | 'failed' | 'cancelled'
 type SocialPostCategory = 'work' | 'personal' | 'ai' | 'sport' | 'sa' | 'other'
@@ -339,9 +343,7 @@ export default function QueuePage() {
     setPosts((prev) => prev.map((p) => p.id === post.id ? { ...p, status: 'published' } : p))
     try {
       await fetch(`/api/v1/social/posts/${post.id}/publish${orgId ? `?orgId=${orgId}` : ''}`, { method: 'POST' })
-    } catch {
-      // revert on error
-    } finally {
+    } catch { ignoreBestEffortFailure() } finally {
       setPublishing(null)
       fetchPosts()
     }
@@ -353,9 +355,7 @@ export default function QueuePage() {
     setPosts((prev) => prev.map((p) => p.id === post.id ? { ...p, status: 'cancelled' } : p))
     try {
       await fetch(`/api/v1/social/posts/${post.id}${orgId ? `?orgId=${orgId}` : ''}`, { method: 'DELETE' })
-    } catch {
-      // revert on error
-    } finally {
+    } catch { ignoreBestEffortFailure() } finally {
       setCancelling(null)
       fetchPosts()
     }
@@ -371,9 +371,7 @@ export default function QueuePage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'approve' }),
       })
-    } catch {
-      // revert on error
-    } finally {
+    } catch { ignoreBestEffortFailure() } finally {
       setApproving(null)
       fetchPosts()
     }
@@ -389,9 +387,7 @@ export default function QueuePage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'reject' }),
       })
-    } catch {
-      // revert on error
-    } finally {
+    } catch { ignoreBestEffortFailure() } finally {
       setApproving(null)
       fetchPosts()
     }

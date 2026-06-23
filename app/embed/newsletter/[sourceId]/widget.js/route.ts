@@ -118,12 +118,13 @@ export async function GET(req: NextRequest, context: Params) {
   var currentScript = document.currentScript || scripts[scripts.length - 1];
   var shown = false;
   var dismissed = false;
+  function noop(){ return undefined; }
 
   // ─── storage helpers ─────────────────────────────────────────────────────
   function lsGet(k){ try { return window.localStorage.getItem(NS + '_' + k); } catch(e){ return null; } }
-  function lsSet(k, v){ try { window.localStorage.setItem(NS + '_' + k, v); } catch(e){} }
+  function lsSet(k, v){ try { window.localStorage.setItem(NS + '_' + k, v); } catch(e){ noop(e); } }
   function ssGet(k){ try { return window.sessionStorage.getItem(NS + '_' + k); } catch(e){ return null; } }
-  function ssSet(k, v){ try { window.sessionStorage.setItem(NS + '_' + k, v); } catch(e){} }
+  function ssSet(k, v){ try { window.sessionStorage.setItem(NS + '_' + k, v); } catch(e){ noop(e); } }
 
   // ─── path glob match: "*" = any chars, otherwise literal ────────────────
   function globMatch(pattern, path){
@@ -520,7 +521,7 @@ export async function GET(req: NextRequest, context: Params) {
           setSubmitting(false);
           status.style.color = '#b91c1c';
           status.textContent = 'Network error — please try again.';
-          try { console.error('[partnersinbiz] progressive error', err); } catch(e){}
+          try { console.error('[partnersinbiz] progressive error', err); } catch(e){ noop(e); }
         });
         return;
       }
@@ -561,7 +562,7 @@ export async function GET(req: NextRequest, context: Params) {
           setSubmitting(false);
           status.style.color = '#b91c1c';
           status.textContent = 'Network error — please try again.';
-          try { console.error('[partnersinbiz] progressive final error', err); } catch(e){}
+          try { console.error('[partnersinbiz] progressive final error', err); } catch(e){ noop(e); }
         });
         return;
       }
@@ -593,7 +594,7 @@ export async function GET(req: NextRequest, context: Params) {
         setSubmitting(false);
         status.style.color = '#b91c1c';
         status.textContent = 'Network error — please try again.';
-        try { console.error('[partnersinbiz] submit error', err); } catch(e){}
+        try { console.error('[partnersinbiz] submit error', err); } catch(e){ noop(e); }
       });
     });
 
@@ -793,7 +794,7 @@ export async function GET(req: NextRequest, context: Params) {
       // Mobile back-button heuristic: push a history entry, fire on popstate
       try {
         history.pushState({ pibLc: CONFIG.id }, '');
-      } catch(e){}
+      } catch(e){ noop(e); }
       var popHandler = function(){
         window.removeEventListener('popstate', popHandler);
         handler();

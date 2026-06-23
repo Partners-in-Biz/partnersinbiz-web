@@ -22,6 +22,10 @@ import {
 import { scopedApiPath, scopedPortalPath, scopeFromSearchParams } from '@/lib/portal/scoped-routing'
 import { fmtTimestamp } from '@/lib/format/timestamp'
 
+function ignoreBestEffortFailure() {
+  return undefined
+}
+
 interface Props {
   params: Promise<{ id: string }>
 }
@@ -90,7 +94,7 @@ export default function PortalDocumentDetail({ params }: Props) {
       if (!res.ok) return
       const body = await res.json()
       setComments((body.data ?? []) as DocumentComment[])
-    } catch {}
+    } catch { ignoreBestEffortFailure() }
   }, [id])
 
   useEffect(() => {
@@ -132,9 +136,7 @@ export default function PortalDocumentDetail({ params }: Props) {
           const logBody = await logRes.json()
           setAccessLog(logBody.data?.events ?? [])
         }
-      } catch {
-        // silent
-      } finally {
+      } catch { ignoreBestEffortFailure() } finally {
         setLoading(false)
       }
     }
@@ -154,9 +156,7 @@ export default function PortalDocumentDetail({ params }: Props) {
       a.download = `${doc.title ?? 'document'}.pdf`
       a.click()
       URL.revokeObjectURL(url)
-    } catch {
-      // silent — button re-enables
-    } finally {
+    } catch { ignoreBestEffortFailure() } finally {
       setExportingPdf(false)
     }
   }

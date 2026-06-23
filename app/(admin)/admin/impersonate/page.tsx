@@ -10,6 +10,10 @@ import { getClientAuth } from '@/lib/firebase/config'
 import { copyToClipboard } from '@/lib/utils/clipboard'
 import ImpersonationBanner, { IMPERSONATION_KEY } from '@/components/admin/users/ImpersonationBanner'
 
+function ignoreBestEffortFailure() {
+  return undefined
+}
+
 function ImpersonateContent() {
   const searchParams = useSearchParams()
   const router = useRouter()
@@ -55,9 +59,7 @@ function ImpersonateContent() {
           startedAt: new Date().toISOString(),
         }),
       )
-    } catch {
-      /* sessionStorage unavailable — banner just won't show, exit still works via link */
-    }
+    } catch { ignoreBestEffortFailure() }
     try {
       const auth = getClientAuth()
       await signInWithCustomToken(auth, token)
@@ -67,9 +69,7 @@ function ImpersonateContent() {
       // Roll back the marker if sign-in never completed.
       try {
         window.sessionStorage.removeItem(IMPERSONATION_KEY)
-      } catch {
-        /* ignore */
-      }
+      } catch { ignoreBestEffortFailure() }
       setError(err instanceof Error ? err.message : 'Sign-in failed. The token may have expired.')
     } finally {
       setSigningIn(false)
@@ -79,9 +79,7 @@ function ImpersonateContent() {
   function handleExit() {
     try {
       window.sessionStorage.removeItem(IMPERSONATION_KEY)
-    } catch {
-      /* ignore */
-    }
+    } catch { ignoreBestEffortFailure() }
     // Sign out happens on /login; route there so the admin can sign back in.
     router.push('/login')
   }
