@@ -57,9 +57,6 @@ const NAV_LINKS: NavItem[] = [
   { href: '/portal/projects',  label: 'Projects',  icon: 'rocket_launch',   group: 'work' },
   { href: '/portal/documents', label: 'Documents', icon: 'description',     group: 'work' },
   { href: '/portal/research',  label: 'Research',  icon: 'travel_explore', group: 'data' },
-  { href: '/portal/mobile-apps', label: 'Mobile Apps', icon: 'smartphone', group: 'work' },
-  { href: '/portal/youtube-studio', label: 'YouTube Studio', icon: 'smart_display', group: 'work' },
-  { href: '/portal/book-studio', label: 'Book Studio', icon: 'auto_stories', group: 'work' },
   {
     href: '/portal/crm',
     label: 'CRM',
@@ -95,6 +92,11 @@ const NAV_LINKS: NavItem[] = [
       '/portal/social',
       '/portal/communications',
       '/portal/seo',
+      '/portal/geo-seo',
+      '/portal/creative-canvas',
+      '/portal/book-studio',
+      '/portal/youtube-studio',
+      '/portal/mobile-apps',
       '/portal/capture-sources',
       '/portal/email-domains',
       '/portal/ads',
@@ -185,6 +187,7 @@ const MARKETING_SECTION_ICONS: Record<string, string> = {
   'Social media': 'share',
   'Email and capture': 'mail',
   'Audience and setup': 'groups',
+  Studio: 'design_services',
 }
 
 const MARKETING_ROUTE_PATTERNS = [
@@ -195,6 +198,10 @@ const MARKETING_ROUTE_PATTERNS = [
   '/portal/ads',
   '/portal/seo',
   '/portal/geo-seo',
+  '/portal/creative-canvas',
+  '/portal/book-studio',
+  '/portal/youtube-studio',
+  '/portal/mobile-apps',
   '/portal/social',
   '/portal/email-analytics',
   '/portal/email-domains',
@@ -344,9 +351,9 @@ function buildMarketingSubnavItems(config: {
   orgSlug?: string
   sourceCompanyId?: string
   sourceCompanyName?: string
-}): PortalSubnavItem[] {
+}, buildHref: (path: string) => string): PortalSubnavItem[] {
   const marketingHub = buildMarketingHubProps({ surface: 'portal', ...config })
-  return marketingHub.sections.map((section) => {
+  const sectionItems = marketingHub.sections.map((section) => {
     const firstAction = section.actions[0]
     return {
       label: section.title,
@@ -360,6 +367,21 @@ function buildMarketingSubnavItems(config: {
       })),
     }
   })
+  return [
+    ...sectionItems,
+    {
+      label: 'Studio',
+      href: buildHref('/portal/creative-canvas'),
+      icon: MARKETING_SECTION_ICONS.Studio,
+      activePatterns: ['/portal/creative-canvas', '/portal/book-studio', '/portal/youtube-studio', '/portal/mobile-apps'],
+      children: [
+        { label: 'Marketing Studio', href: buildHref('/portal/creative-canvas'), icon: 'draw' },
+        { label: 'Book Studio', href: buildHref('/portal/book-studio'), icon: 'auto_stories' },
+        { label: 'YouTube Studio', href: buildHref('/portal/youtube-studio'), icon: 'smart_display' },
+        { label: 'Mobile Apps', href: buildHref('/portal/mobile-apps'), icon: 'smartphone' },
+      ],
+    },
+  ]
 }
 
 export default function PortalLayout({ children }: { children: React.ReactNode }) {
@@ -756,7 +778,7 @@ function PortalLayoutContent({ children }: { children: React.ReactNode }) {
     orgSlug: requestedOrgSlug || activeOrgSlug,
     sourceCompanyId: requestedSourceCompanyId,
     sourceCompanyName: requestedSourceCompanyName,
-  })
+  }, scopedShellHref)
   const showCrmSubnav = CRM_ROUTE_PATTERNS.some((pattern) => pathname === pattern || pathname.startsWith(pattern + '/'))
   const showMarketingSubnav = MARKETING_ROUTE_PATTERNS.some((pattern) => pathname === pattern || pathname.startsWith(pattern + '/'))
   const areaSubnav = showMarketingSubnav ? (
