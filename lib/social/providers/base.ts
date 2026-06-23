@@ -30,6 +30,12 @@ export interface PublishOptions {
   mediaUrls?: string[]
   altTexts?: string[]
   replyToId?: string
+  /**
+   * LinkedIn only: whether to publish as the member's personal Profile
+   * ('profile') or as a Company Page ('organization'). When omitted the
+   * provider infers it from the account's stored author URN.
+   */
+  shareType?: 'profile' | 'organization'
   title?: string
   privacyStatus?: 'private' | 'unlisted' | 'public'
   targetVisibility?: 'private' | 'unlisted' | 'public'
@@ -70,6 +76,16 @@ export abstract class SocialProvider {
       results.push(result)
     }
     return results
+  }
+
+  /**
+   * Post a comment on an already-published post (used for first-comment
+   * automation). Default implementation posts the comment as a native reply
+   * via publishPost({ replyToId }). Platforms with a dedicated comments API
+   * (LinkedIn, Facebook, Instagram) override this.
+   */
+  async postComment(platformPostId: string, text: string): Promise<PublishResult> {
+    return this.publishPost({ text, replyToId: platformPostId })
   }
 
   /** Delete a post by its platform-native ID */

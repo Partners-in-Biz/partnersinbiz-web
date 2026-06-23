@@ -256,6 +256,15 @@ export const POST = withAuth('client', withTenant(async (req, user, orgId) => {
     comments: [],
     source: (user.uid === 'ai-agent' ? 'ai_agent' : 'api') as string,
     threadParts: body.threadParts ?? [],
+    firstComment: typeof body.firstComment === 'string' && body.firstComment.trim()
+      ? body.firstComment.trim()
+      : null,
+    firstCommentStatus: typeof body.firstComment === 'string' && body.firstComment.trim()
+      ? 'pending'
+      : null,
+    linkedinShareType: body.linkedinShareType === 'organization' || body.linkedinShareType === 'profile'
+      ? body.linkedinShareType
+      : null,
     category: body.category ?? 'other',
     tags: body.tags ?? [],
     ...relationships.value,

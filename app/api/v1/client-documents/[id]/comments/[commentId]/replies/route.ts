@@ -8,6 +8,7 @@ import { apiError, apiSuccess } from '@/lib/api/response'
 import type { ApiUser } from '@/lib/api/types'
 import { promoteCrmContextRefsToDocumentLinks } from '@/lib/client-documents/context-reference-links'
 import { sendDocumentReplyEmail } from '@/lib/client-documents/notifications'
+import { resolveCommentAuthorRecipient, resolveUserRecipient } from '@/lib/client-documents/recipients'
 import { CLIENT_DOCUMENTS_COLLECTION, getClientDocument } from '@/lib/client-documents/store'
 import type { ClientDocument, DocumentComment, DocumentCommentReply } from '@/lib/client-documents/types'
 import { resolveContextReferences } from '@/lib/context-references/registry'
@@ -105,17 +106,15 @@ export const POST = withAuth('client', async (req: NextRequest, user: ApiUser, c
 
   await ref.update({ replies: FieldValue.arrayUnion(reply) })
 
-  // Fire-and-forget: notify the parent comment author.
+  // Fire-and-forget: notify the parent comment author at their real email (US-173).
+  // Skip when the replier is the same person as the parent author.
   void (async () => {
     try {
       const parent = { id: commentId, ...snap.data() } as DocumentComment
-      await sendDocumentReplyEmail(
-        access.document,
-        parent,
-        reply,
-        'notifications@partnersinbiz.online',
-        'Partners in Biz Team',
-      )
+      const recipient = await resolveCommentAuthorRecipient(access.document, parent)
+      const replier = await resolveUserRecipient(user.uid)
+      if (replier && replier.email === recipient.email) return
+      await sendDocumentReplyEmail(access.document, parent, reply, recipient.email, recipient.name)
     } catch (err) {
       console.error('[client-documents/comments/replies] Email notification failed:', err)
     }

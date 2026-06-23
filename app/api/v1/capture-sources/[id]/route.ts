@@ -161,6 +161,20 @@ function strArray(v: unknown): string[] {
   return v.filter((s): s is string => typeof s === 'string' && s.trim().length > 0)
 }
 
+// US-091: only accept http(s) webhook URLs; everything else → '' (disabled).
+function sanitizeWebhookUrl(v: unknown): string {
+  if (typeof v !== 'string') return ''
+  const trimmed = v.trim()
+  if (!trimmed) return ''
+  try {
+    const parsed = new URL(trimmed)
+    if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') return ''
+    return trimmed
+  } catch {
+    return ''
+  }
+}
+
 export const GET = withAuth('client', async (req: NextRequest, user: ApiUser, context?: unknown) => {
   const { id } = await (context as Params).params
   const snap = await adminDb.collection(LEAD_CAPTURE_SOURCES).doc(id).get()
@@ -168,6 +182,31 @@ export const GET = withAuth('client', async (req: NextRequest, user: ApiUser, co
   const data = snap.data() as CaptureSource
   const scope = resolveOrgScope(user, data.orgId ?? null)
   if (!scope.ok) return apiError(scope.error, scope.status)
+
+  // US-091: optionally include recent webhook deliveries for the settings UI.
+  const { searchParams } = new URL(req.url)
+  if (searchParams.get('includeDeliveries') === 'true') {
+    const deliveriesLimit = Math.min(
+      Math.max(parseInt(searchParams.get('deliveriesLimit') ?? '20', 10) || 20, 1),
+      100,
+    )
+    let deliveries: Array<Record<string, unknown>> = []
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const delSnap = await (adminDb.collection(LEAD_CAPTURE_SOURCES).doc(id).collection('deliveries') as any)
+        .orderBy('createdAt', 'desc')
+        .limit(deliveriesLimit)
+        .get()
+      deliveries = delSnap.docs.map((d: { id: string; data: () => Record<string, unknown> }) => ({
+        id: d.id,
+        ...d.data(),
+      }))
+    } catch {
+      deliveries = []
+    }
+    return apiSuccess({ ...data, id: snap.id, deliveries })
+  }
+
   return apiSuccess({ ...data, id: snap.id })
 })
 
@@ -219,6 +258,12 @@ export const PUT = withAuth('client', async (req: NextRequest, user: ApiUser, co
   if (body.display !== undefined) {
     const cleaned = sanitizeDisplay(body.display)
     patch.display = cleaned ?? { mode: 'inline' }
+  }
+
+  // Outbound webhook (US-091)
+  if (body.webhookUrl !== undefined) patch.webhookUrl = sanitizeWebhookUrl(body.webhookUrl)
+  if (body.webhookSecret !== undefined) {
+    patch.webhookSecret = typeof body.webhookSecret === 'string' ? body.webhookSecret.trim() : ''
   }
 
   await adminDb.collection(LEAD_CAPTURE_SOURCES).doc(id).update({

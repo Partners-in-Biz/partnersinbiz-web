@@ -55,6 +55,25 @@ interface AiHashtag {
   relevance: number
 }
 
+interface PostTemplate {
+  id: string
+  name: string
+  body: string
+  variables: string[]
+  description?: string
+}
+
+interface HashtagSet {
+  id: string
+  name: string
+  hashtags: string[]
+}
+
+type AiTone = 'professional' | 'casual' | 'friendly' | 'witty' | 'inspirational' | 'bold' | 'informative'
+type LinkedInShareType = 'profile' | 'organization'
+
+const AI_TONES: AiTone[] = ['professional', 'casual', 'friendly', 'witty', 'inspirational', 'bold', 'informative']
+
 interface SocialPostComposerProps {
   scope?: SocialScope
   title?: string
@@ -153,10 +172,28 @@ export default function SocialPostComposer({
 
   const [showAi, setShowAi] = useState(false)
   const [aiPrompt, setAiPrompt] = useState('')
+  const [aiTone, setAiTone] = useState<AiTone>('professional')
+  const [aiCount, setAiCount] = useState(3)
   const [aiLoading, setAiLoading] = useState(false)
   const [aiCaptions, setAiCaptions] = useState<AiCaption[]>([])
   const [aiHashtags, setAiHashtags] = useState<AiHashtag[]>([])
   const [bestTimeLoading, setBestTimeLoading] = useState(false)
+
+  // US-090 first-comment automation
+  const [firstComment, setFirstComment] = useState('')
+
+  // US-079 LinkedIn share-type selector
+  const [linkedinShareType, setLinkedinShareType] = useState<LinkedInShareType>('profile')
+
+  // US-071 post-text templates
+  const [templates, setTemplates] = useState<PostTemplate[]>([])
+  const [showTemplatePicker, setShowTemplatePicker] = useState(false)
+  const [activeTemplate, setActiveTemplate] = useState<PostTemplate | null>(null)
+  const [templateVars, setTemplateVars] = useState<Record<string, string>>({})
+
+  // US-084 saved hashtag sets
+  const [hashtagSets, setHashtagSets] = useState<HashtagSet[]>([])
+  const [showHashtagSets, setShowHashtagSets] = useState(false)
 
   const [showImageModal, setShowImageModal] = useState(false)
   const [imagePrompt, setImagePrompt] = useState('')
@@ -199,6 +236,22 @@ export default function SocialPostComposer({
       .catch(() => {})
       .finally(() => setTemplatesLoading(false))
   }, [advanced])
+
+  useEffect(() => {
+    fetch('/api/v1/social/templates')
+      .then((response) => response.json())
+      .then((body) => {
+        if (Array.isArray(body.data)) setTemplates(body.data)
+      })
+      .catch(() => {})
+
+    fetch('/api/v1/social/hashtag-sets')
+      .then((response) => response.json())
+      .then((body) => {
+        if (Array.isArray(body.data)) setHashtagSets(body.data)
+      })
+      .catch(() => {})
+  }, [])
 
   useEffect(() => {
     if (!queryPrefill) return
@@ -316,6 +369,14 @@ export default function SocialPostComposer({
       hashtags,
       labels: advanced ? labels : [],
       source: 'ui',
+    }
+
+    if (firstComment.trim()) {
+      body.firstComment = firstComment.trim()
+    }
+
+    if (linkedinSelected) {
+      body.linkedinShareType = linkedinShareType
     }
 
     if (advanced) {
@@ -476,8 +537,8 @@ export default function SocialPostComposer({
         body: JSON.stringify({
           prompt: aiPrompt,
           platform: selectedPlatforms[0] ?? 'twitter',
-          tone: 'professional',
-          count: 3,
+          tone: aiTone,
+          count: aiCount,
           includeHashtags: true,
         }),
       })
@@ -515,6 +576,37 @@ export default function SocialPostComposer({
 
   const applyHashtag = (tag: string) => {
     if (!hashtags.includes(tag)) setHashtags((prev) => [...prev, tag])
+  }
+
+  const linkedinSelected = selectedPlatforms.includes('linkedin')
+
+  // --- US-071 template helpers ---
+  const openTemplate = (template: PostTemplate) => {
+    setActiveTemplate(template)
+    setTemplateVars(Object.fromEntries(template.variables.map((v) => [v, ''])))
+    setShowTemplatePicker(false)
+  }
+
+  const renderTemplate = (template: PostTemplate, vars: Record<string, string>): string => {
+    return template.body.replace(/\{\{\s*([\w.-]+)\s*\}\}/g, (match, key: string) => {
+      const value = vars[key]
+      return value && value.trim() ? value : match
+    })
+  }
+
+  const insertTemplate = () => {
+    if (!activeTemplate) return
+    const rendered = renderTemplate(activeTemplate, templateVars)
+    setContent((prev) => (prev.trim() ? `${prev}\n\n${rendered}` : rendered))
+    setMode('single')
+    setActiveTemplate(null)
+    setTemplateVars({})
+  }
+
+  // --- US-084 hashtag-set helpers ---
+  const applyHashtagSet = (set: HashtagSet) => {
+    setHashtags((prev) => [...new Set([...prev, ...set.hashtags])])
+    setShowHashtagSets(false)
   }
 
   const minDateTime = new Date().toISOString().slice(0, 16)
@@ -636,6 +728,32 @@ export default function SocialPostComposer({
           </section>
         )}
 
+        {linkedinSelected && (
+          <section className="pib-card space-y-3">
+            <h2 className="text-sm font-label uppercase tracking-widest text-on-surface-variant">LinkedIn — Share As</h2>
+            <div className="flex gap-2">
+              {([
+                { value: 'profile', label: 'Profile' },
+                { value: 'organization', label: 'Company Page' },
+              ] as { value: LinkedInShareType; label: string }[]).map((option) => (
+                <button
+                  key={option.value}
+                  type="button"
+                  onClick={() => setLinkedinShareType(option.value)}
+                  className={`px-4 py-2 text-sm font-label font-bold uppercase tracking-widest border transition-colors ${
+                    linkedinShareType === option.value ? 'pib-btn-primary' : 'pib-btn-secondary'
+                  }`}
+                >
+                  {option.label}
+                </button>
+              ))}
+            </div>
+            <p className="text-xs text-on-surface-variant">
+              Share as your personal Profile or as a connected Company Page. The LinkedIn account you publish with must match the chosen type.
+            </p>
+          </section>
+        )}
+
         {advanced && showThreadToggle && (
           <section className="pib-card space-y-3">
             <div className="flex flex-col sm:flex-row gap-4">
@@ -706,7 +824,18 @@ export default function SocialPostComposer({
           </section>
         ) : (
           <section>
-            <label className="block text-xs font-label uppercase tracking-widest text-[var(--color-on-surface-variant)] mb-2">Content</label>
+            <div className="flex items-center justify-between mb-2">
+              <label className="block text-xs font-label uppercase tracking-widest text-[var(--color-on-surface-variant)]">Content</label>
+              {templates.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setShowTemplatePicker(true)}
+                  className="text-[11px] font-label font-bold uppercase tracking-widest text-[var(--color-accent-v2)] hover:underline"
+                >
+                  Use template
+                </button>
+              )}
+            </div>
             <div className="pib-card p-3">
               <textarea
                 rows={6}
@@ -791,6 +920,32 @@ export default function SocialPostComposer({
               <div className="space-y-3 pt-1">
                 <div className="space-y-2">
                   <label className="text-xs font-medium text-on-surface-variant uppercase tracking-wide">Generate Caption</label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <label className="space-y-1 text-[10px] font-medium text-on-surface-variant uppercase tracking-wide">
+                      Tone
+                      <select
+                        value={aiTone}
+                        onChange={(event) => setAiTone(event.target.value as AiTone)}
+                        className="w-full rounded-lg bg-surface px-3 py-2 text-sm text-on-surface outline-none border border-transparent focus:border-outline-variant transition-colors capitalize"
+                      >
+                        {AI_TONES.map((tone) => (
+                          <option key={tone} value={tone}>{tone}</option>
+                        ))}
+                      </select>
+                    </label>
+                    <label className="space-y-1 text-[10px] font-medium text-on-surface-variant uppercase tracking-wide">
+                      Variations
+                      <select
+                        value={aiCount}
+                        onChange={(event) => setAiCount(Number(event.target.value))}
+                        className="w-full rounded-lg bg-surface px-3 py-2 text-sm text-on-surface outline-none border border-transparent focus:border-outline-variant transition-colors"
+                      >
+                        {[1, 2, 3, 4, 5].map((n) => (
+                          <option key={n} value={n}>{n} {n === 1 ? 'variation' : 'variations'}</option>
+                        ))}
+                      </select>
+                    </label>
+                  </div>
                   <div className="flex gap-2">
                     <input
                       type="text"
@@ -901,6 +1056,57 @@ export default function SocialPostComposer({
               onRemove={(item) => removeChip(item, setTags)}
             />
           </>
+        )}
+
+        <section className="pib-card space-y-3">
+          <div className="flex items-center justify-between">
+            <h2 className="text-sm font-label uppercase tracking-widest text-on-surface-variant">First Comment</h2>
+            <span className="text-[10px] text-on-surface-variant uppercase tracking-wide">Posted automatically after publish</span>
+          </div>
+          <textarea
+            rows={2}
+            value={firstComment}
+            onChange={(event) => setFirstComment(event.target.value)}
+            placeholder="Optional — e.g. drop your link or extra hashtags as the first comment…"
+            className="w-full rounded-xl bg-surface-container px-4 py-2.5 text-sm text-on-surface placeholder:text-on-surface-variant/50 outline-none border border-transparent focus:border-outline-variant transition-colors resize-none"
+          />
+          <p className="text-xs text-on-surface-variant">
+            Leave empty to skip. The comment is posted on the published post by the same account; a comment failure never blocks the post.
+          </p>
+        </section>
+
+        {hashtagSets.length > 0 && (
+          <section className="pib-card space-y-2">
+            <div className="flex items-center justify-between">
+              <h2 className="text-sm font-label uppercase tracking-widest text-on-surface-variant">Saved Hashtag Sets</h2>
+              <button
+                type="button"
+                onClick={() => setShowHashtagSets((value) => !value)}
+                className="text-[11px] font-label font-bold uppercase tracking-widest text-[var(--color-accent-v2)] hover:underline"
+              >
+                {showHashtagSets ? 'Hide' : 'Browse sets'}
+              </button>
+            </div>
+            {showHashtagSets && (
+              <div className="space-y-2">
+                {hashtagSets.map((set) => (
+                  <div key={set.id} className="flex items-center justify-between gap-3 rounded-lg bg-surface-container-high p-2.5">
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-on-surface truncate">{set.name}</p>
+                      <p className="text-[11px] text-on-surface-variant truncate">{set.hashtags.join(' ')}</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => applyHashtagSet(set)}
+                      className="shrink-0 px-3 py-1.5 rounded bg-[var(--color-accent-v2)] text-black text-xs font-label font-bold uppercase tracking-widest hover:opacity-90 transition-opacity"
+                    >
+                      Insert
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </section>
         )}
 
         <ChipSection
@@ -1019,6 +1225,79 @@ export default function SocialPostComposer({
                 <button onClick={useGeneratedImage} className="w-full pib-btn-secondary">Use This Image</button>
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {showTemplatePicker && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-surface rounded-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto space-y-4 p-6">
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-semibold text-on-surface">Use a Post Template</h2>
+              <button onClick={() => setShowTemplatePicker(false)} className="text-on-surface-variant hover:text-on-surface text-xl">x</button>
+            </div>
+            {templates.length === 0 ? (
+              <p className="text-sm text-on-surface-variant">No templates yet. Create reusable post-text templates under Social → Templates.</p>
+            ) : (
+              <div className="space-y-2">
+                {templates.map((template) => (
+                  <button
+                    key={template.id}
+                    type="button"
+                    onClick={() => openTemplate(template)}
+                    className="w-full text-left rounded-lg bg-surface-container hover:bg-surface-container-high p-3 transition-colors"
+                  >
+                    <p className="text-sm font-medium text-on-surface">{template.name}</p>
+                    {template.description && <p className="text-[11px] text-on-surface-variant mt-0.5">{template.description}</p>}
+                    <p className="text-xs text-on-surface-variant mt-1 line-clamp-2">{template.body}</p>
+                    {template.variables.length > 0 && (
+                      <p className="text-[10px] text-[var(--color-accent-v2)] mt-1">{template.variables.map((v) => `{{${v}}}`).join(' ')}</p>
+                    )}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {activeTemplate && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-surface rounded-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto space-y-4 p-6">
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-semibold text-on-surface">{activeTemplate.name}</h2>
+              <button onClick={() => { setActiveTemplate(null); setTemplateVars({}) }} className="text-on-surface-variant hover:text-on-surface text-xl">x</button>
+            </div>
+
+            {activeTemplate.variables.length > 0 && (
+              <div className="space-y-2">
+                <label className="text-xs font-medium text-on-surface-variant uppercase tracking-wide">Fill in placeholders</label>
+                {activeTemplate.variables.map((variable) => (
+                  <div key={variable}>
+                    <label className="block text-[11px] text-on-surface-variant mb-1">{`{{${variable}}}`}</label>
+                    <input
+                      type="text"
+                      value={templateVars[variable] ?? ''}
+                      onChange={(event) => setTemplateVars((prev) => ({ ...prev, [variable]: event.target.value }))}
+                      placeholder={variable}
+                      className="w-full rounded-lg bg-surface-container px-3 py-2 text-sm text-on-surface placeholder:text-on-surface-variant/50 outline-none border border-transparent focus:border-outline-variant transition-colors"
+                    />
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <div className="space-y-1">
+              <label className="text-xs font-medium text-on-surface-variant uppercase tracking-wide">Preview</label>
+              <div className="rounded-lg bg-surface-container p-3 text-sm text-on-surface whitespace-pre-wrap">
+                {renderTemplate(activeTemplate, templateVars)}
+              </div>
+            </div>
+
+            <div className="flex gap-2">
+              <button onClick={insertTemplate} className="flex-1 pib-btn-primary">Insert into post</button>
+              <button onClick={() => { setActiveTemplate(null); setTemplateVars({}) }} className="pib-btn-secondary">Cancel</button>
+            </div>
           </div>
         </div>
       )}

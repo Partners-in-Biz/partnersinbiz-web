@@ -8,9 +8,13 @@ import type { CaptureSource } from '@/lib/crm/captureSources'
 import { scopedApiPath, scopedPortalPath, scopeFromSearchParams } from '@/lib/portal/scoped-routing'
 import {
   parseCsv,
-  rowsFromCsv,
+  autoMapHeaders,
+  rowsFromGridWithMapping,
+  CONTACT_IMPORT_FIELDS,
   type ParsedContactImportRow,
 } from '@/lib/crm/csv-import'
+
+const IGNORE_COLUMN = '__ignore__'
 
 interface InvalidRow {
   index: number
@@ -37,7 +41,11 @@ export default function PortalCaptureSourceImportPage() {
   const [selectedSourceId, setSelectedSourceId] = useState<string>('')
   const [defaultTagsRaw, setDefaultTagsRaw] = useState('')
   const [fileName, setFileName] = useState<string>('')
-  const [rows, setRows] = useState<ParsedContactImportRow[]>([])
+  // Raw parsed grid (incl. header row); the column mapping is applied on top.
+  const [grid, setGrid] = useState<string[][]>([])
+  const [headers, setHeaders] = useState<string[]>([])
+  // colMap[i] = target contact field for CSV column i, or null to ignore it.
+  const [colMap, setColMap] = useState<Array<keyof ParsedContactImportRow | null>>([])
   const [parseError, setParseError] = useState<string | null>(null)
 
   const [validating, setValidating] = useState(false)
@@ -55,6 +63,15 @@ export default function PortalCaptureSourceImportPage() {
     [defaultTagsRaw],
   )
 
+  // Apply the (possibly user-overridden) column mapping to produce import rows.
+  const rows = useMemo<ParsedContactImportRow[]>(
+    () => (grid.length > 0 ? rowsFromGridWithMapping(grid, colMap) : []),
+    [grid, colMap],
+  )
+
+  // Email is required by the import API — block submit until a column maps to it.
+  const emailMapped = colMap.includes('email')
+
   // Load capture sources
   useEffect(() => {
     fetch(captureSourcesEndpoint)
@@ -65,11 +82,17 @@ export default function PortalCaptureSourceImportPage() {
       .catch(() => {})
   }, [captureSourcesEndpoint])
 
+  function resetParsed() {
+    setGrid([])
+    setHeaders([])
+    setColMap([])
+  }
+
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     setSubmitError(null)
     setValidateResult(null)
     setImportResult(null)
-    setRows([])
+    resetParsed()
     setParseError(null)
     const file = e.target.files?.[0]
     if (!file) {
@@ -81,19 +104,32 @@ export default function PortalCaptureSourceImportPage() {
     reader.onload = () => {
       try {
         const text = String(reader.result ?? '')
-        const grid = parseCsv(text)
-        const parsed = rowsFromCsv(grid)
-        if (parsed.length === 0) {
+        const parsedGrid = parseCsv(text)
+        if (parsedGrid.length < 2) {
           setParseError('No data rows found. Make sure the first row contains headers and there is at least one row of data.')
           return
         }
-        setRows(parsed)
+        const header = parsedGrid[0]
+        setGrid(parsedGrid)
+        setHeaders(header)
+        // Seed the mapping from header aliases; the user adjusts each column below.
+        setColMap(autoMapHeaders(header))
       } catch (err) {
         setParseError(err instanceof Error ? err.message : 'Failed to parse CSV')
       }
     }
     reader.onerror = () => setParseError('Failed to read file')
     reader.readAsText(file)
+  }
+
+  function setColumnMapping(columnIndex: number, value: string) {
+    setValidateResult(null)
+    setImportResult(null)
+    setColMap((prev) => {
+      const next = [...prev]
+      next[columnIndex] = value === IGNORE_COLUMN ? null : (value as keyof ParsedContactImportRow)
+      return next
+    })
   }
 
   async function callImport(dryRun: boolean): Promise<ImportResult | null> {
@@ -144,7 +180,8 @@ export default function PortalCaptureSourceImportPage() {
     }
   }
 
-  const previewRows = rows.slice(0, 10)
+  // Preview the first 5 mapped rows so the user can confirm the mapping before committing.
+  const previewRows = rows.slice(0, 5)
   const selectedSource = sources.find((s) => s.id === selectedSourceId)
   const readySteps = [
     fileName ? 'File selected' : 'Choose a CSV',
@@ -279,6 +316,61 @@ export default function PortalCaptureSourceImportPage() {
           </p>
         </div>
       </div>
+
+      {headers.length > 0 && (
+        <div className="rounded-xl bg-[var(--color-pib-surface)] border border-[var(--color-pib-line)] p-4 space-y-3">
+          <div>
+            <h2 className="text-sm font-medium text-[var(--color-pib-text)]">Map columns</h2>
+            <p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">
+              Match each column in your file to a contact field. Columns set to
+              &ldquo;Ignore&rdquo; are not imported. A column must be mapped to
+              <span className="font-medium"> Email</span> before you can import.
+            </p>
+          </div>
+          <div className="grid gap-2 sm:grid-cols-2">
+            {headers.map((header, columnIndex) => {
+              const sampleValue = (grid[1] ?? [])[columnIndex]?.trim() ?? ''
+              const current = colMap[columnIndex] ?? IGNORE_COLUMN
+              return (
+                <div
+                  key={`${header}-${columnIndex}`}
+                  className="rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-bg)] p-3"
+                >
+                  <p className="text-[11px] font-medium text-[var(--color-pib-text)] break-all">
+                    {header || `Column ${columnIndex + 1}`}
+                  </p>
+                  {sampleValue && (
+                    <p className="mt-0.5 text-[11px] text-[var(--color-pib-text-muted)] break-all">
+                      e.g. {sampleValue}
+                    </p>
+                  )}
+                  <label className="sr-only" htmlFor={`col-map-${columnIndex}`}>
+                    Map column {header || columnIndex + 1} to a contact field
+                  </label>
+                  <select
+                    id={`col-map-${columnIndex}`}
+                    value={current}
+                    onChange={(e) => setColumnMapping(columnIndex, e.target.value)}
+                    className="mt-2 w-full px-2 py-1.5 rounded-md border border-[var(--color-pib-line)] bg-[var(--color-pib-bg)] text-[var(--color-pib-text)] text-xs"
+                  >
+                    <option value={IGNORE_COLUMN}>Ignore this column</option>
+                    {CONTACT_IMPORT_FIELDS.map((f) => (
+                      <option key={f.key} value={f.key}>
+                        {f.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )
+            })}
+          </div>
+          {!emailMapped && (
+            <p className="text-xs text-[#FBBF24]">
+              Map one column to Email to enable validation and import.
+            </p>
+          )}
+        </div>
+      )}
 
       {previewRows.length > 0 && (
         <div className="rounded-xl bg-[var(--color-pib-surface)] border border-[var(--color-pib-line)] p-4">

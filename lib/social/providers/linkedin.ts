@@ -133,7 +133,28 @@ export class LinkedInProvider extends SocialProvider {
     return videoUrn
   }
 
+  /** Whether the connected account publishes as a Company Page or a personal Profile. */
+  private isOrganizationUrn(): boolean {
+    return Boolean(this.credentials.personUrn?.startsWith('urn:li:organization:'))
+  }
+
+  /**
+   * Validate that the requested share type matches the connected account's URN.
+   * 'organization' requires an org URN; 'profile' requires a person URN.
+   */
+  private assertShareType(shareType?: 'profile' | 'organization'): void {
+    if (!shareType) return
+    const isOrg = this.isOrganizationUrn()
+    if (shareType === 'organization' && !isOrg) {
+      throw new Error('This LinkedIn account is a personal Profile, not a Company Page. Select a Company Page account to share as an organization.')
+    }
+    if (shareType === 'profile' && isOrg) {
+      throw new Error('This LinkedIn account is a Company Page, not a personal Profile. Select a Profile account to share as a person.')
+    }
+  }
+
   async publishPost(options: PublishOptions): Promise<PublishResult> {
+    this.assertShareType(options.shareType)
     let mediaUrn: string | null = null
 
     if (options.mediaUrls && options.mediaUrls.length > 0) {
@@ -201,6 +222,40 @@ export class LinkedInProvider extends SocialProvider {
     if (!response.ok) {
       const text = await response.text()
       throw new Error(`LinkedIn API delete error ${response.status}: ${text}`)
+    }
+  }
+
+  /**
+   * Post a comment on a published LinkedIn post via the socialActions
+   * comments API. Used for first-comment automation.
+   */
+  async postComment(platformPostId: string, text: string): Promise<PublishResult> {
+    const response = await fetch(
+      `https://api.linkedin.com/rest/socialActions/${encodeURIComponent(platformPostId)}/comments`,
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${this.credentials.accessToken}`,
+          'Content-Type': 'application/json',
+          'X-Restli-Protocol-Version': '2.0.0',
+          'LinkedIn-Version': '202502',
+        },
+        body: JSON.stringify({
+          actor: this.credentials.personUrn,
+          message: { text: escapeLinkedInLittleText(text) },
+        }),
+      },
+    )
+
+    if (!response.ok) {
+      const body = await response.text()
+      throw new Error(`LinkedIn comment error ${response.status}: ${body}`)
+    }
+
+    const commentUrn = response.headers.get('x-restli-id') ?? ''
+    return {
+      platformPostId: commentUrn,
+      platformPostUrl: `https://www.linkedin.com/feed/update/${platformPostId}`,
     }
   }
 

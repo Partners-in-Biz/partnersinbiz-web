@@ -317,6 +317,67 @@ export interface ClientDocumentPermissions {
   canApprove: boolean
 }
 
+/** Access-control mode for the public view-only share link (US-169). */
+export type PublicShareAccessMode = 'open' | 'access_code' | 'sign_in'
+
+/** Public view-only sharing configuration (US-169). */
+export interface PublicShareSettings {
+  /** Whether the public view link is enabled. Mirrors/extends `shareEnabled`. */
+  enabled: boolean
+  /** How visitors are gated. */
+  accessMode: PublicShareAccessMode
+  /** 6-char access code when accessMode === 'access_code'. */
+  accessCode?: string
+  /** ISO date string; link returns 410 after this instant. */
+  expiresAt?: string
+  /** When true the public view permits comments (requires sign-in). */
+  allowComments: boolean
+}
+
+/** A request for one or more people to e-sign the document (US-172). */
+export type SignatureRequestStatus = 'pending' | 'signed' | 'declined' | 'cancelled'
+
+export interface SignatureRequest {
+  id: string
+  documentId: string
+  versionId: string
+  signerName: string
+  signerEmail: string
+  message?: string
+  status: SignatureRequestStatus
+  /** Per-signer token appended to the sign URL. */
+  signToken: string
+  /** Data-URL (PNG) of the captured signature once signed. */
+  signatureImage?: string
+  /** Typed name the signer confirmed. */
+  typedName?: string
+  /** Storage path / URL of the PDF snapshot taken at signing time. */
+  pdfSnapshotPath?: string
+  ip?: string
+  userAgent?: string
+  createdBy: string
+  createdAt?: unknown
+  signedAt?: unknown
+  declinedAt?: unknown
+}
+
+/** A user-saved document template (US-171). */
+export interface UserDocumentTemplate {
+  id: string
+  orgId?: string
+  name: string
+  description?: string
+  /** Base document type the template maps onto (drives approval mode etc.). */
+  type: ClientDocumentType
+  blocks: DocumentBlock[]
+  theme?: DocumentTheme
+  createdBy: string
+  createdByType: DocumentActorType
+  createdAt?: unknown
+  updatedAt?: unknown
+  deleted?: boolean
+}
+
 export interface DocumentAssumption {
   id: string
   text: string
@@ -395,6 +456,8 @@ export interface ClientDocument {
   deleted: boolean
   providerSignature?: DocumentProviderSignature
   clientAcceptance?: DocumentClientAcceptance
+  /** Public view-only share configuration (US-169). */
+  share?: PublicShareSettings
 }
 
 export interface ClientDocumentVersion {
@@ -578,4 +641,42 @@ export interface DocumentAccessLog {
   ip?: string
   userAgent?: string
   createdAt?: unknown
+}
+
+/** A row in the document_access_log collection (US-188). */
+export interface DocumentAccessLogEntry {
+  id: string
+  documentId: string
+  orgId?: string
+  /** Authenticated portal user id, when present. */
+  userId?: string
+  /** Visitor email when known (sign-in gated public view, or portal user). */
+  email?: string
+  /** 'portal' = authenticated portal view, 'public' = /d/[shareToken] view. */
+  source: 'portal' | 'public'
+  /** Optional campaign/email attribution token (US-209). */
+  campaign?: string
+  ip?: string
+  country?: string
+  userAgent?: string
+  /** Seconds spent on the document, posted on unload (best-effort). */
+  durationSeconds?: number
+  accessedAt?: unknown
+}
+
+/** A document task / action item (US-215). */
+export interface DocumentTask {
+  id: string
+  documentId: string
+  orgId: string
+  title: string
+  completed: boolean
+  /** Free-text assignee (name or email). */
+  assignee?: string
+  /** ISO date string (yyyy-mm-dd). */
+  dueDate?: string
+  createdAt?: unknown
+  createdBy: string
+  updatedAt?: unknown
+  updatedBy?: string
 }

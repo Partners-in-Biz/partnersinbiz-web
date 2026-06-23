@@ -92,6 +92,14 @@ export interface Contact {
   aiLeadScore?: number        // 0-100, LLM-based (only set if scoringConfig.aiEnabled)
   scoreUpdatedAt?: Timestamp  // last computed
   scoreSignals?: Record<string, number>  // per-signal contribution (debug)
+  // UTM capture-source attribution (US-097 — additive, backward-compatible).
+  // Written by the public capture form / lead-capture pipeline; all optional so
+  // existing contacts without UTM data continue to work.
+  utmSource?: string
+  utmMedium?: string
+  utmCampaign?: string
+  utmTerm?: string
+  utmContent?: string
 }
 
 export interface ContactCompanyLink {
@@ -197,12 +205,19 @@ export type ActivityInput = Omit<Activity, 'id' | 'createdAt'>
 
 // ── API list params ──────────────────────────────────────────────────────────
 
+export type ContactSubscriptionStatus = 'active' | 'unsubscribed' | 'bounced'
+
 export interface ContactListParams {
   orgId?: string
   stage?: ContactStage
   type?: ContactType
   source?: ContactSource
   search?: string
+  tags?: string
+  status?: ContactSubscriptionStatus
+  utmSource?: string
+  minScore?: number
+  sort?: 'recent' | 'score'
   limit?: number
   page?: number
 }

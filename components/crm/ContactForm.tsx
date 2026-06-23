@@ -5,6 +5,14 @@ import { useState } from 'react'
 const STAGES = ['new','contacted','replied','demo','proposal','won','lost'] as const
 const TYPES = ['lead','prospect','client','churned'] as const
 const SOURCES = ['manual','form','import','outreach'] as const
+// Subscription status (US-052) — mapped to subscribedAt/unsubscribedAt/bouncedAt server-side.
+const STATUS_OPTIONS = [
+  { value: 'active', label: 'Active' },
+  { value: 'unsubscribed', label: 'Unsubscribed' },
+  { value: 'bounced', label: 'Bounced' },
+] as const
+
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 const AGREEMENT_ROLES = [
   { value: 'primary_contact', label: 'Primary contact' },
   { value: 'accounts_contact', label: 'Accounts contact' },
@@ -25,6 +33,7 @@ type ContactFormState = {
   source: string
   type: string
   stage: string
+  status: string
   agreementRoles: string[]
   tagsInput: string
   notes: string
@@ -33,13 +42,26 @@ type ContactFormState = {
 type ContactTextField = Exclude<keyof ContactFormState, 'agreementRoles'>
 
 interface ContactFormProps {
-  onSave: (data: Record<string, unknown>) => Promise<void>
+  /**
+   * Persists the contact. May resolve with the created contact's id; when it
+   * does and `redirectTo` is supplied, the form navigates to the detail page.
+   */
+  onSave: (data: Record<string, unknown>) => Promise<void | { id?: string } | null | undefined>
   onCancel: () => void
   initial?: Record<string, unknown>
   contextName?: string
+  /** When provided alongside an `onSave` that returns an id, navigate here on success (US-052). */
+  redirectTo?: (id: string) => string
 }
 
-export function ContactForm({ onSave, onCancel, initial = {}, contextName }: ContactFormProps) {
+function deriveInitialStatus(initial: Record<string, unknown>): string {
+  if (initial.bouncedAt) return 'bounced'
+  if (initial.unsubscribedAt) return 'unsubscribed'
+  if (typeof initial.status === 'string' && initial.status) return initial.status
+  return 'active'
+}
+
+export function ContactForm({ onSave, onCancel, initial = {}, contextName, redirectTo }: ContactFormProps) {
   const initialRoles = Array.isArray(initial.agreementRoles)
     ? initial.agreementRoles.filter((role): role is string => typeof role === 'string')
     : []
@@ -59,13 +81,33 @@ export function ContactForm({ onSave, onCancel, initial = {}, contextName }: Con
     source: String(initial.source ?? 'manual'),
     type: String(initial.type ?? 'lead'),
     stage: String(initial.stage ?? 'new'),
+    status: deriveInitialStatus(initial),
     agreementRoles: initialRoles,
     tagsInput: initialTags,
     notes: String(initial.notes ?? ''),
   })
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+  // Per-field validation errors keyed by field, surfaced inline (US-052).
+  const [fieldErrors, setFieldErrors] = useState<Partial<Record<ContactTextField, string>>>({})
   const context = contextName?.trim()
+
+  function validate(state: ContactFormState): Partial<Record<ContactTextField, string>> {
+    const errs: Partial<Record<ContactTextField, string>> = {}
+    if (!state.name.trim()) errs.name = 'Name is required'
+    if (!state.email.trim()) errs.email = 'Email is required'
+    else if (!EMAIL_RE.test(state.email.trim())) errs.email = 'Enter a valid email address'
+    return errs
+  }
+
+  function clearFieldError(key: ContactTextField) {
+    setFieldErrors((prev) => {
+      if (!prev[key]) return prev
+      const next = { ...prev }
+      delete next[key]
+      return next
+    })
+  }
   const contextualLabel = (label: string) => {
     if (!context) return undefined
     return `${label} for ${context}`
@@ -73,16 +115,26 @@ export function ContactForm({ onSave, onCancel, initial = {}, contextName }: Con
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
+    const errs = validate(form)
+    setFieldErrors(errs)
+    if (Object.keys(errs).length > 0) {
+      setError('')
+      return
+    }
     setSaving(true)
     setError('')
     try {
       const { tagsInput, ...payload } = form
-      await onSave({
+      const result = await onSave({
         ...payload,
         companyId: initial.companyId,
         companyName: initial.companyName,
         tags: splitTags(tagsInput),
       })
+      const newId = result && typeof result === 'object' && typeof result.id === 'string' ? result.id : ''
+      if (newId && redirectTo) {
+        window.location.assign(redirectTo(newId))
+      }
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Save failed')
     } finally {
@@ -93,6 +145,8 @@ export function ContactForm({ onSave, onCancel, initial = {}, contextName }: Con
   const field = (label: string, key: ContactTextField, type = 'text') => {
     const id = `crm-contact-${key}`
     const cleanLabel = label.replace(/\s*\*$/, '')
+    const fieldError = fieldErrors[key]
+    const errorId = `${id}-error`
     return (
       <div className="flex flex-col gap-1">
         <label htmlFor={id} className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">{label}</label>
@@ -100,10 +154,21 @@ export function ContactForm({ onSave, onCancel, initial = {}, contextName }: Con
           id={id}
           type={type}
           aria-label={contextualLabel(`Contact ${cleanLabel.toLowerCase()}`)}
+          aria-invalid={fieldError ? true : undefined}
+          aria-describedby={fieldError ? errorId : undefined}
           value={form[key]}
-          onChange={(e) => setForm((f) => ({ ...f, [key]: e.target.value }))}
+          onChange={(e) => {
+            const value = e.target.value
+            setForm((f) => ({ ...f, [key]: value }))
+            clearFieldError(key)
+          }}
           className="pib-input"
         />
+        {fieldError && (
+          <p id={errorId} role="alert" className="text-[11px]" style={{ color: 'var(--color-accent)' }}>
+            {fieldError}
+          </p>
+        )}
       </div>
     )
   }
@@ -154,6 +219,19 @@ export function ContactForm({ onSave, onCancel, initial = {}, contextName }: Con
       {select('Source', 'source', SOURCES)}
       {select('Type', 'type', TYPES)}
       {select('Stage', 'stage', STAGES)}
+      <div className="flex flex-col gap-1">
+        <label htmlFor="crm-contact-status" className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Status</label>
+        <select
+          id="crm-contact-status"
+          aria-label={contextualLabel('Contact status')}
+          value={form.status}
+          onChange={(e) => setForm((f) => ({ ...f, status: e.target.value }))}
+          className="pib-input"
+        >
+          {STATUS_OPTIONS.map((o) => <option key={o.value} value={o.value} className="bg-black">{o.label}</option>)}
+        </select>
+        <p className="text-[11px] text-on-surface-variant">Sets the subscription state — Unsubscribed and Bounced exclude this contact from marketing sends.</p>
+      </div>
       <div className="flex flex-col gap-1">
         <label htmlFor="admin-crm-contact-tags" className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">
           Tags

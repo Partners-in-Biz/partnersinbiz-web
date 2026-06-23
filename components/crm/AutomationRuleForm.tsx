@@ -24,6 +24,8 @@ const ACTION_LABELS: Record<ActionType, { label: string; icon: string }> = {
   assign_owner: { label: 'Assign owner', icon: 'assignment_ind' },
   dispatch_webhook: { label: 'Dispatch webhook', icon: 'webhook' },
   enroll_in_sequence: { label: 'Enroll in sequence', icon: 'send_time_extension' },
+  add_tag: { label: 'Add tag', icon: 'sell' },
+  assign_to_segment: { label: 'Assign to segment', icon: 'group_work' },
 }
 
 function describeDelay(minutes?: number) {

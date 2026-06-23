@@ -5,7 +5,11 @@ import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } fro
 import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { fmtTimestamp } from '@/lib/format/timestamp'
+import { onAuthStateChanged } from 'firebase/auth'
+import { auth } from '@/lib/firebase/config'
 import { ContactActivityTimeline, type ContactActivityTimelineActivity } from '@/components/crm/ContactActivityTimeline'
+import { ContactNotesPanel } from '@/components/crm/ContactNotesPanel'
+import { ContactMergePanel } from '@/components/crm/ContactMergePanel'
 import { ContactDealsPanel } from '@/components/crm/ContactDealsPanel'
 import { ContactEngagementPanel } from '@/components/crm/ContactEngagementPanel'
 import { CompanyPanel } from '@/components/crm/CompanyPanel'
@@ -412,6 +416,7 @@ export default function PortalContactDetailPage() {
   const [scoreSaving, setScoreSaving] = useState(false)
   const [scoreError, setScoreError] = useState<string | null>(null)
   const [gdprDownloading, setGdprDownloading] = useState(false)
+  const [currentUid, setCurrentUid] = useState<string | undefined>(undefined)
 
   // B2: Log activity quick actions
   const [logType, setLogType] = useState<string | null>(null)
@@ -527,6 +532,12 @@ export default function PortalContactDetailPage() {
       cancelled = true
     }
   }, [loadContact])
+
+  useEffect(() => {
+    // Track the signed-in user so notes can gate author-only edit/delete client-side
+    // (the server enforces this too).
+    return onAuthStateChanged(auth, (user) => setCurrentUid(user?.uid ?? undefined))
+  }, [])
 
   useEffect(() => {
     // Fetch custom field definitions once per page mount
@@ -2793,6 +2804,27 @@ export default function PortalContactDetailPage() {
               onLoadMore={loadMoreActivities}
             />
           </div>
+
+          {/* US-073: Contact notes subsystem */}
+          <ContactNotesPanel
+            contactId={id}
+            contactName={contactName}
+            apiPath={contactApiPath}
+            currentUid={currentUid}
+          />
+
+          {/* US-095: Merge duplicate contacts */}
+          <ContactMergePanel
+            contact={{ ...contact, id }}
+            apiPath={contactApiPath}
+            onMerged={(_winnerId, loserId) => {
+              if (loserId === id) {
+                router.push(scopedPortalPath('/portal/contacts', routeScope))
+              } else {
+                void loadContact()
+              }
+            }}
+          />
 
           <ContactDealsPanel
             contactId={id}

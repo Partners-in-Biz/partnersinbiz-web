@@ -22,9 +22,15 @@ export type ActionType =
   | 'assign_owner'
   | 'dispatch_webhook'
   | 'enroll_in_sequence'
+  | 'add_tag'
+  | 'assign_to_segment'
 
 export interface AutomationAction {
   type: ActionType
+  // Per-step wait: minutes to pause BEFORE this action runs. The processor
+  // executes everything up to a delayed step, then re-queues the remaining
+  // steps with scheduledAt = now + delayMinutes. 0 / absent = no wait.
+  delayMinutes?: number
   // send_email
   emailSubject?: string
   emailBody?: string
@@ -40,6 +46,13 @@ export interface AutomationAction {
   // enroll_in_sequence
   sequenceId?: string
   sequenceName?: string   // display only
+  // add_tag
+  tag?: string
+  // assign_to_segment — writes the segment's membership tag to the contact so
+  // dynamic (tag-based) segments resolve the contact in. segmentName is display
+  // only.
+  segmentId?: string
+  segmentName?: string
 }
 
 export interface AutomationRule {

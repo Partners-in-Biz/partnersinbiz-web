@@ -54,6 +54,8 @@ const ACTION_META: Record<ActionType, { label: string; icon: string; tone: strin
   assign_owner: { label: 'Assign', icon: 'assignment_ind', tone: 'text-violet-300 border-violet-400/20 bg-violet-400/10' },
   dispatch_webhook: { label: 'Webhook', icon: 'webhook', tone: 'text-emerald-300 border-emerald-400/20 bg-emerald-400/10' },
   enroll_in_sequence: { label: 'Sequence', icon: 'send_time_extension', tone: 'text-rose-300 border-rose-400/20 bg-rose-400/10' },
+  add_tag: { label: 'Add tag', icon: 'sell', tone: 'text-teal-300 border-teal-400/20 bg-teal-400/10' },
+  assign_to_segment: { label: 'Segment', icon: 'group_work', tone: 'text-indigo-300 border-indigo-400/20 bg-indigo-400/10' },
 }
 
 const automationBlueprint = [

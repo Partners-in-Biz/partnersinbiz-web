@@ -25,13 +25,11 @@ export function DocumentLinkPicker({ open, onClose, onSelect }: DocumentLinkPick
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [query, setQuery] = useState('')
-  const [privateNote, setPrivateNote] = useState<string | null>(null)
   const searchRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     if (!open) {
       setQuery('')
-      setPrivateNote(null)
       return
     }
     setLoading(true)
@@ -40,7 +38,12 @@ export function DocumentLinkPicker({ open, onClose, onSelect }: DocumentLinkPick
       .then((r) => r.json())
       .then((body: ApiResponse) => {
         if (body.success && Array.isArray(body.data)) {
-          setDocs(body.data)
+          // US-209: only documents that produce a working public link.
+          // A document is publicly viewable when sharing is enabled AND it has
+          // a share token (i.e. it has been published + shared). Private /
+          // unshared documents are dropped entirely so the user can only pick
+          // links that actually resolve at /d/{shareToken}.
+          setDocs(body.data.filter((d) => d.shareEnabled === true && Boolean(d.shareToken)))
         } else {
           setError('Could not load documents.')
         }
@@ -62,12 +65,17 @@ export function DocumentLinkPicker({ open, onClose, onSelect }: DocumentLinkPick
     : docs
 
   function handleSelect(doc: DocItem) {
-    if (doc.shareEnabled && doc.shareToken) {
-      onSelect(`/d/${doc.shareToken}`, doc.title ?? 'Document')
-    } else {
-      setPrivateNote(doc.id)
-      setTimeout(() => setPrivateNote(null), 3000)
-    }
+    // The list is already filtered to publicly viewable docs, but re-check so a
+    // bad row can never produce a dead link.
+    if (!doc.shareEnabled || !doc.shareToken) return
+    // US-209: app-relative public share URL with document-specific click
+    // tracking. The public share view (/d/[shareToken]) reads `dlid` + utm
+    // params for per-document click attribution from emails.
+    const href =
+      `/d/${doc.shareToken}` +
+      `?utm_source=email&utm_medium=document-link` +
+      `&dlid=${encodeURIComponent(doc.id)}`
+    onSelect(href, doc.title ?? 'Document')
   }
 
   if (!open) return null
@@ -171,72 +179,55 @@ export function DocumentLinkPicker({ open, onClose, onSelect }: DocumentLinkPick
               <p className="text-xs" style={{ color: 'var(--color-pib-text-muted)' }}>
                 {query.trim()
                   ? 'Try a different search term.'
-                  : 'Create a document first, then return here to link it.'}
+                  : 'Publish and enable sharing on a document first, then return here to link it.'}
               </p>
             </div>
           )}
 
-          {!loading && !error && filtered.map((doc) => {
-            const isPrivate = !doc.shareEnabled || !doc.shareToken
-            const showNote = privateNote === doc.id
-            return (
-              <button
-                key={doc.id}
-                onClick={() => handleSelect(doc)}
-                className="w-full flex items-center gap-3 px-5 py-3.5 text-left transition-colors border-b last:border-b-0"
+          {!loading && !error && filtered.map((doc) => (
+            <button
+              key={doc.id}
+              onClick={() => handleSelect(doc)}
+              className="w-full flex items-center gap-3 px-5 py-3.5 text-left transition-colors border-b last:border-b-0"
+              style={{
+                borderColor: 'var(--color-pib-line)',
+                background: 'transparent',
+                cursor: 'pointer',
+              }}
+              onMouseEnter={(e) => {
+                ;(e.currentTarget as HTMLButtonElement).style.background = 'var(--color-pib-surface-2)'
+              }}
+              onMouseLeave={(e) => {
+                ;(e.currentTarget as HTMLButtonElement).style.background = 'transparent'
+              }}
+            >
+              <span
+                className="material-symbols-outlined text-xl flex-shrink-0"
+                style={{ color: 'var(--color-pib-accent)' }}
+                aria-hidden="true"
+              >
+                description
+              </span>
+              <div className="flex-1 min-w-0">
+                <p
+                  className="text-sm font-medium truncate"
+                  style={{ color: 'var(--color-pib-text)' }}
+                >
+                  {doc.title ?? 'Untitled document'}
+                </p>
+              </div>
+              <span
+                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-label uppercase tracking-wide flex-shrink-0"
                 style={{
-                  borderColor: 'var(--color-pib-line)',
-                  background: 'transparent',
-                  cursor: isPrivate ? 'not-allowed' : 'pointer',
-                }}
-                onMouseEnter={(e) => {
-                  if (!isPrivate) (e.currentTarget as HTMLButtonElement).style.background = 'var(--color-pib-surface-2)'
-                }}
-                onMouseLeave={(e) => {
-                  ;(e.currentTarget as HTMLButtonElement).style.background = 'transparent'
+                  background: 'rgba(74,222,128,0.10)',
+                  border: '1px solid rgba(74,222,128,0.30)',
+                  color: '#86EFAC',
                 }}
               >
-                <span
-                  className="material-symbols-outlined text-xl flex-shrink-0"
-                  style={{ color: isPrivate ? 'var(--color-pib-text-muted)' : 'var(--color-pib-accent)' }}
-                  aria-hidden="true"
-                >
-                  description
-                </span>
-                <div className="flex-1 min-w-0">
-                  <p
-                    className="text-sm font-medium truncate"
-                    style={{ color: isPrivate ? 'var(--color-pib-text-muted)' : 'var(--color-pib-text)' }}
-                  >
-                    {doc.title ?? 'Untitled document'}
-                  </p>
-                  {showNote && (
-                    <p className="text-xs mt-0.5" style={{ color: '#FBBF24' }}>
-                      Enable sharing on this document first
-                    </p>
-                  )}
-                </div>
-                <span
-                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-label uppercase tracking-wide flex-shrink-0"
-                  style={
-                    isPrivate
-                      ? {
-                          background: 'rgba(148,163,184,0.10)',
-                          border: '1px solid rgba(148,163,184,0.25)',
-                          color: '#94A3B8',
-                        }
-                      : {
-                          background: 'rgba(74,222,128,0.10)',
-                          border: '1px solid rgba(74,222,128,0.30)',
-                          color: '#86EFAC',
-                        }
-                  }
-                >
-                  {isPrivate ? 'Private' : 'Shared'}
-                </span>
-              </button>
-            )
-          })}
+                Shared
+              </span>
+            </button>
+          ))}
         </div>
 
         {/* Footer */}

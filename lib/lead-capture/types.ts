@@ -173,7 +173,51 @@ export interface CaptureSource {
 
   // Widget display + triggers (optional — absence means classic inline mode)
   display?: WidgetDisplayConfig
+
+  // Outbound webhook (US-091): fired after a submission creates/updates a
+  // contact. Delivery is async + retried; never blocks the submit response.
+  // Absence (empty string) means no webhook is configured.
+  webhookUrl?: string                // https endpoint to POST submissions to
+  webhookSecret?: string             // optional shared secret → HMAC-SHA256 signature header
 }
+
+// ─── Outbound webhook deliveries (US-091) ────────────────────────────────────
+//
+// Every webhook delivery attempt is logged to the top-level
+// `capture_webhook_deliveries` collection (queryable per source) AND mirrored
+// into a `deliveries` subcollection under the source doc for quick UI reads.
+// Each document records the final outcome of a single submission's delivery
+// (after all retry attempts) plus a per-attempt breakdown.
+
+export type WebhookDeliveryStatus = 'success' | 'failed'
+
+export interface WebhookDeliveryAttempt {
+  attempt: number                    // 1-based attempt number
+  ok: boolean                        // 2xx response
+  statusCode: number | null          // HTTP status, null on network/timeout error
+  error: string | null               // error message when the attempt failed
+  durationMs: number                 // wall-clock time for this attempt
+  at: string                         // ISO timestamp of this attempt
+}
+
+export interface WebhookDelivery {
+  id: string
+  orgId: string
+  captureSourceId: string
+  submissionId: string
+  contactId: string
+  url: string                        // destination (redacted of query secrets if any)
+  event: string                      // 'capture.submission'
+  status: WebhookDeliveryStatus      // final outcome across all attempts
+  statusCode: number | null          // status of the last attempt
+  attempts: WebhookDeliveryAttempt[] // per-attempt log
+  attemptCount: number
+  lastError: string | null
+  createdAt: Timestamp | null        // when delivery started
+  completedAt: Timestamp | null      // when delivery finished (success or gave up)
+}
+
+export const CAPTURE_WEBHOOK_DELIVERIES = 'capture_webhook_deliveries'
 
 export type CaptureSourceInput = Omit<
   CaptureSource,

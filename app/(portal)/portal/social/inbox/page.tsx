@@ -115,6 +115,7 @@ export default function InboxPage() {
   const [selectedPlatform, setSelectedPlatform] = useState<string | null>(null)
   const [replyingToId, setReplyingToId] = useState<string | null>(null)
   const [replyText, setReplyText] = useState('')
+  const [replying, setReplying] = useState(false)
 
   const fetchInbox = useCallback(async () => {
     setLoading(true)
@@ -193,19 +194,31 @@ export default function InboxPage() {
   }
 
   const handleReply = async (id: string) => {
-    if (!replyText.trim()) return
+    const text = replyText.trim()
+    if (!text) return
+    setReplying(true)
+    setPollMessage('')
     try {
-      await fetch(`/api/v1/social/inbox/${id}`, {
-        method: 'PATCH',
+      const res = await fetch(`/api/v1/social/inbox/${id}/reply`, {
+        method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: 'replied' }),
+        body: JSON.stringify({ text }),
       })
-      // TODO: Actually send the reply via the appropriate platform
+      const body = await res.json()
+      if (!body.success) {
+        setPollMessage(`Error: ${body.error || 'Failed to send reply'}`)
+        return
+      }
+      setPollMessage('Reply posted')
       setReplyingToId(null)
       setReplyText('')
       await fetchInbox()
+      setTimeout(() => setPollMessage(''), 5000)
     } catch (error) {
       console.error('Error replying:', error)
+      setPollMessage(`Error: ${String(error)}`)
+    } finally {
+      setReplying(false)
     }
   }
 
@@ -517,10 +530,10 @@ export default function InboxPage() {
                   <div className="flex gap-2 mt-2">
                     <button
                       onClick={() => handleReply(item.id)}
-                      disabled={!replyText.trim()}
+                      disabled={!replyText.trim() || replying}
                       className="px-3 py-1.5 rounded bg-[#F59E0B] text-black font-label text-sm font-medium hover:bg-[#F59E0B]/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                     >
-                      Send Reply
+                      {replying ? 'Sending...' : 'Send Reply'}
                     </button>
                     <button
                       onClick={() => {

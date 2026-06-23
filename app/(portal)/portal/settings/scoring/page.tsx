@@ -36,6 +36,7 @@ const DEFAULT_WEIGHTS: Required<LeadSignalsWeights> = {
   sequenceCompleted: 10,
   recentContact: 10,
   formSubmission: 8,
+  pageVisit: 3,
 }
 
 const LEAD_SIGNAL_LABELS: Record<keyof Required<LeadSignalsWeights>, string> = {
@@ -45,6 +46,7 @@ const LEAD_SIGNAL_LABELS: Record<keyof Required<LeadSignalsWeights>, string> = {
   sequenceCompleted: 'Sequence completions',
   recentContact: 'Recent contact',
   formSubmission: 'Form submissions',
+  pageVisit: 'Page visits',
 }
 
 function activeIcpDimensions(icp: IcpProfile): string[] {
@@ -66,6 +68,7 @@ function effectiveWeights(weights: LeadSignalsWeights): Required<LeadSignalsWeig
     sequenceCompleted: weights.sequenceCompleted ?? DEFAULT_WEIGHTS.sequenceCompleted,
     recentContact: weights.recentContact ?? DEFAULT_WEIGHTS.recentContact,
     formSubmission: weights.formSubmission ?? DEFAULT_WEIGHTS.formSubmission,
+    pageVisit: weights.pageVisit ?? DEFAULT_WEIGHTS.pageVisit,
   }
 }
 

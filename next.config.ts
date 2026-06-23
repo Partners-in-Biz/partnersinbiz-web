@@ -179,7 +179,8 @@ const nextConfig: NextConfig = {
       { source: '/portal/crm/settings/fields', destination: '/portal/settings/custom-fields', permanent: false },
       { source: '/portal/crm/settings/lead-scoring', destination: '/portal/settings/scoring', permanent: false },
       { source: '/portal/crm/settings/:path*', destination: '/portal/settings/crm-setup', permanent: false },
-      { source: '/portal/crm/suppression', destination: '/portal/email-preferences', permanent: false },
+      { source: '/portal/crm/suppression', destination: '/portal/suppression', permanent: false },
+      { source: '/portal/crm/tags', destination: '/portal/tags', permanent: false },
 
       // QA-P3b: Social namespace aliases — map to closest existing social routes
       { source: '/portal/social/generate', destination: '/portal/social/compose', permanent: false },
@@ -188,9 +189,7 @@ const nextConfig: NextConfig = {
       { source: '/portal/social/drafts', destination: '/portal/social/queue', permanent: false },
       { source: '/portal/social/campaigns', destination: '/portal/campaigns', permanent: false },
       { source: '/portal/social/campaigns/:path*', destination: '/portal/campaigns/:path*', permanent: false },
-      { source: '/portal/social/templates', destination: '/portal/email-templates', permanent: false },
       { source: '/portal/social/hashtags', destination: '/portal/social/compose', permanent: false },
-      { source: '/portal/social/listening', destination: '/portal/social/inbox', permanent: false },
 
       // QA-P3b: Portal settings security alias
       { source: '/portal/settings/security', destination: '/portal/settings/account', permanent: false },

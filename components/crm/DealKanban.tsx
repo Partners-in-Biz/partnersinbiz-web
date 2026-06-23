@@ -43,6 +43,57 @@ function dealTitleLabel(deal: Deal): string {
   return deal.title?.trim() || 'Deal name missing'
 }
 
+// US-059: sum the captured value of every deal in a stage and render it with the
+// stage's currency (deals in a column can in theory differ; we use the first
+// deal's currency, defaulting to ZAR — matching formatValue's locale).
+function formatColumnTotal(deals: Deal[]): string {
+  const valued = deals.filter(
+    d => d.value !== null && d.value !== undefined && !Number.isNaN(d.value),
+  )
+  const total = valued.reduce((sum, d) => sum + (d.value || 0), 0)
+  const currency = valued[0]?.currency || deals[0]?.currency || 'ZAR'
+  return formatValue(total, currency)
+}
+
+// Firestore Timestamps arrive over the wire as { _seconds } (admin SDK) or
+// { seconds } (client SDK). Normalise to milliseconds; return null when absent.
+function timestampToMs(ts: unknown): number | null {
+  if (!ts || typeof ts !== 'object') return null
+  const t = ts as { _seconds?: number; seconds?: number; toMillis?: () => number }
+  if (typeof t.toMillis === 'function') {
+    try {
+      return t.toMillis()
+    } catch {
+      /* fall through */
+    }
+  }
+  const secs = t._seconds ?? t.seconds
+  return typeof secs === 'number' ? secs * 1000 : null
+}
+
+// US-059: when did this deal enter its current stage? Prefer the stageHistory
+// entry for the current stageId (latest enteredAt), then fall back to the deal's
+// updatedAt, then createdAt.
+function stageEnteredMs(deal: Deal): number | null {
+  let best: number | null = null
+  for (const entry of deal.stageHistory ?? []) {
+    if (entry.stageId !== deal.stageId) continue
+    const ms = timestampToMs(entry.enteredAt)
+    if (ms !== null && (best === null || ms > best)) best = ms
+  }
+  if (best !== null) return best
+  return timestampToMs(deal.updatedAt) ?? timestampToMs(deal.createdAt)
+}
+
+// US-059: human-readable days-in-stage label, e.g. "Today", "1 day", "12 days".
+function daysInStageLabel(deal: Deal): string | null {
+  const enteredMs = stageEnteredMs(deal)
+  if (enteredMs === null) return null
+  const days = Math.floor((Date.now() - enteredMs) / (24 * 60 * 60 * 1000))
+  if (days <= 0) return 'Today'
+  return `${days} day${days === 1 ? '' : 's'}`
+}
+
 interface DealCardProps {
   deal: Deal
   stageColor?: string
@@ -72,6 +123,7 @@ function DealCard({
   const readableCompanyLabel = deal.companyName?.trim() || (deal.companyId ? 'Company identity missing' : '')
   const contactHref = contactHrefForDeal ? contactHrefForDeal(deal) : `${contactBasePath}/${deal.contactId}`
   const companyHref = companyHrefForDeal ? companyHrefForDeal(deal) : `${companyBasePath}/${deal.companyId}`
+  const daysLabel = daysInStageLabel(deal)
 
   return (
     <div
@@ -128,6 +180,12 @@ function DealCard({
         ) : readableCompanyLabel ? (
           <span className="text-xs text-gray-500 truncate mt-1 block">{readableCompanyLabel}</span>
         ) : null}
+        {daysLabel && (
+          <div className="mt-2 flex items-center gap-1 text-[10px] text-on-surface-variant" title="Time in current stage">
+            <span className="material-symbols-outlined text-[12px] leading-none" aria-hidden="true">schedule</span>
+            <span className="font-label">{daysLabel} in stage</span>
+          </div>
+        )}
       </div>
     </div>
   )
@@ -159,21 +217,28 @@ function DealColumn({
   const dealIds = deals.map(d => d.id)
   const { setNodeRef, isOver } = useDroppable({ id: stage.id })
   const color = stage.color ?? '#6b7280'
+  const columnTotal = formatColumnTotal(deals)
 
   return (
     <div className="flex flex-col w-64 shrink-0">
       {/* Column header */}
-      <div className="flex items-center gap-2 mb-3 px-1">
-        <div className="w-2 h-2 rounded-full shrink-0" style={{ background: color }} />
-        <span className="text-xs font-label uppercase tracking-widest text-on-surface-variant">
-          {stage.label}
-        </span>
-        <span
-          className="text-[9px] font-label px-1.5 py-0.5 rounded-full ml-auto"
-          style={{ background: 'var(--color-surface-container)', color: 'var(--color-on-surface-variant)' }}
-        >
-          {deals.length}
-        </span>
+      <div className="mb-3 px-1">
+        <div className="flex items-center gap-2">
+          <div className="w-2 h-2 rounded-full shrink-0" style={{ background: color }} />
+          <span className="text-xs font-label uppercase tracking-widest text-on-surface-variant">
+            {stage.label}
+          </span>
+          <span
+            className="text-[9px] font-label px-1.5 py-0.5 rounded-full ml-auto"
+            style={{ background: 'var(--color-surface-container)', color: 'var(--color-on-surface-variant)' }}
+          >
+            {deals.length}
+          </span>
+        </div>
+        {/* US-059: per-column total value */}
+        <p className="mt-1 text-[11px] font-mono font-semibold text-on-surface-variant" title="Total value of deals in this stage">
+          {columnTotal}
+        </p>
       </div>
 
       {/* Drop zone */}

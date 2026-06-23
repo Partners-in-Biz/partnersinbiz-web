@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { CLIENT_DOCUMENT_TEMPLATES } from '@/lib/client-documents/templates'
-import type { ClientDocumentType } from '@/lib/client-documents/types'
+import type { ClientDocumentType, UserDocumentTemplate } from '@/lib/client-documents/types'
 import {
   canRolePerformModuleAction,
   resolveOrganizationModulePolicies,
@@ -39,9 +39,12 @@ function canCreateDocumentFromPortalBody(body: Record<string, unknown>) {
   return canRolePerformModuleAction(policies, 'documents', 'create', role)
 }
 
+type SavedTemplate = UserDocumentTemplate & { id: string }
+
 export default function PortalNewDocumentPage() {
   const router = useRouter()
   const searchParams = initialDocumentQuery()
+  const templateId = searchParams.get('templateId')
 
   const [orgId, setOrgId] = useState<string | null>(null)
   const [orgName, setOrgName] = useState('')
@@ -50,11 +53,32 @@ export default function PortalNewDocumentPage() {
   const [type, setType] = useState<ClientDocumentType | null>(
     CLIENT_DOCUMENT_TEMPLATES.some(t => t.type === initialType) ? initialType as ClientDocumentType : null
   )
+  const [savedTemplate, setSavedTemplate] = useState<SavedTemplate | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const [canCreateDocument, setCanCreateDocument] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   const selectedTemplate = CLIENT_DOCUMENT_TEMPLATES.find((t) => t.type === type) ?? null
+
+  // When a saved-template id is present, load it, preselect its type, and keep
+  // the full template so we can seed the document's first version after create.
+  useEffect(() => {
+    if (!templateId) return
+    fetch(`/api/v1/client-documents/templates/${templateId}`)
+      .then((r) => r.json().then((body) => ({ ok: r.ok, body })))
+      .then(({ ok, body }) => {
+        if (!ok) {
+          setError(body?.error ?? 'Could not load the saved template.')
+          return
+        }
+        const tpl = (body?.data ?? body) as SavedTemplate
+        if (tpl?.id) {
+          setSavedTemplate(tpl)
+          setType(tpl.type)
+        }
+      })
+      .catch(() => setError('Could not load the saved template.'))
+  }, [templateId])
 
   useEffect(() => {
     fetch('/api/v1/portal/org')
@@ -93,6 +117,26 @@ export default function PortalNewDocumentPage() {
         return
       }
       const doc = body.data ?? body
+
+      // If we started from a saved template, seed the new document's first
+      // version with the template's blocks + theme.
+      if (savedTemplate && Array.isArray(savedTemplate.blocks) && savedTemplate.blocks.length > 0) {
+        const seedRes = await fetch(`/api/v1/client-documents/${doc.id}/versions`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            blocks: savedTemplate.blocks,
+            ...(savedTemplate.theme ? { theme: savedTemplate.theme } : {}),
+            changeSummary: `Seeded from saved template: ${savedTemplate.name}`,
+          }),
+        })
+        if (!seedRes.ok) {
+          const seedBody = await seedRes.json().catch(() => null)
+          setError(seedBody?.error ?? `Document created, but seeding from template failed (${seedRes.status}).`)
+          return
+        }
+      }
+
       router.push(`/portal/documents/${doc.id}`)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unknown error')
@@ -112,13 +156,30 @@ export default function PortalNewDocumentPage() {
         >
           ← Documents
         </Link>
-        <div>
-          <h1 className="text-2xl font-semibold">New Document</h1>
-          <p className="mt-1 text-sm text-on-surface-variant">
-            Choose a template, then give your document a title.
-          </p>
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-semibold">New Document</h1>
+            <p className="mt-1 text-sm text-on-surface-variant">
+              Choose a template, then give your document a title.
+            </p>
+          </div>
+          <Link
+            href="/portal/documents/templates"
+            className="shrink-0 text-xs font-medium text-on-surface-variant hover:text-on-surface"
+          >
+            Manage templates →
+          </Link>
         </div>
       </header>
+
+      {savedTemplate && (
+        <div className="flex items-center gap-2 rounded-lg border border-[var(--color-pib-accent)]/40 bg-[var(--color-pib-accent)]/8 px-4 py-3 text-sm">
+          <span className="material-symbols-outlined text-[18px] text-[var(--color-pib-accent)]">bookmark</span>
+          <span>
+            Starting from saved template: <span className="font-semibold">{savedTemplate.name}</span>
+          </span>
+        </div>
+      )}
 
       <form onSubmit={handleSubmit} className="space-y-8">
         {/* Step 1 — Template picker grid */}

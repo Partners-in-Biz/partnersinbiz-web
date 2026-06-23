@@ -18,6 +18,7 @@ import { hasFinalApproval } from '@/lib/social/scheduling'
 import { validatePublishReadyText } from '@/lib/social/publish-text'
 import { validateOutboundLinks } from '@/lib/social/outbound-link-validation'
 import { notifySocialPublishFailure } from '@/lib/social/publish-failure-alerts'
+import { getFirstComment, postFirstComment } from '@/lib/social/first-comment'
 import crypto from 'crypto'
 
 /** Backoff schedule in seconds: 1min, 5min, 15min, 1hr */
@@ -41,18 +42,27 @@ export interface QueueProcessResult {
   errors: Array<{ postId: string; error: string }>
 }
 
+type QueueProvider = ReturnType<typeof import('@/lib/social/providers').getProvider>
+
+interface PublishOutcome {
+  externalId: string
+  /** The provider instance that actually performed the publish (post-refresh). */
+  provider: QueueProvider
+}
+
 /** Publish via provider, auto-refresh on 401 */
 async function publishWithRefresh(
-  provider: ReturnType<typeof import('@/lib/social/providers').getProvider>,
+  provider: QueueProvider,
   text: string,
   threadParts: string[] | undefined,
   mediaUrls: string[] | undefined,
   accountId: string | null,
   orgId: string,
   platformType: SocialPlatformType,
-): Promise<string> {
+  shareType: 'profile' | 'organization' | undefined,
+): Promise<PublishOutcome> {
   try {
-    return await doPublish(provider, text, threadParts, mediaUrls)
+    return { externalId: await doPublish(provider, text, threadParts, mediaUrls, shareType), provider }
   } catch (err) {
     const msg = err instanceof Error ? err.message : 'Unknown error'
     if (msg.includes('401') && accountId) {
@@ -60,7 +70,7 @@ async function publishWithRefresh(
       const refreshed = await refreshAccountToken(accountId, orgId, platformType)
       if (refreshed) {
         console.log(`[queue] Token refreshed, retrying ${accountId}`)
-        return await doPublish(refreshed, text, threadParts, mediaUrls)
+        return { externalId: await doPublish(refreshed, text, threadParts, mediaUrls, shareType), provider: refreshed }
       }
     }
     throw err
@@ -68,16 +78,17 @@ async function publishWithRefresh(
 }
 
 async function doPublish(
-  provider: ReturnType<typeof import('@/lib/social/providers').getProvider>,
+  provider: QueueProvider,
   text: string,
   threadParts: string[] | undefined,
   mediaUrls: string[] | undefined,
+  shareType: 'profile' | 'organization' | undefined,
 ): Promise<string> {
   if (Array.isArray(threadParts) && threadParts.length > 0) {
     const results = await provider.publishThread(threadParts, mediaUrls)
     return results[0].platformPostId
   }
-  const result = await provider.publishPost({ text, mediaUrls })
+  const result = await provider.publishPost({ text, mediaUrls, shareType })
   return result.platformPostId
 }
 
@@ -200,11 +211,24 @@ export async function processQueue(): Promise<QueueProcessResult> {
       const mediaUrls: string[] | undefined = Array.isArray(post.media) && post.media.length > 0
         ? (post.media as Array<{ url?: string }>).map(m => m.url).filter((u): u is string => Boolean(u))
         : undefined
-      const externalId = await publishWithRefresh(provider, text, post.threadParts, mediaUrls, resolvedAccountId, orgId, platformType)
+      const shareType: 'profile' | 'organization' | undefined =
+        post.linkedinShareType === 'organization' || post.linkedinShareType === 'profile'
+          ? post.linkedinShareType
+          : undefined
+      const { externalId, provider: publishProvider } = await publishWithRefresh(
+        provider, text, post.threadParts, mediaUrls, resolvedAccountId, orgId, platformType, shareType,
+      )
 
       await adminDb.collection('social_posts').doc(entry.postId).update({
         status: 'published', publishedAt: FieldValue.serverTimestamp(), externalId, error: null, updatedAt: FieldValue.serverTimestamp(),
       })
+
+      // First-comment automation — best-effort, never fails the publish.
+      const firstComment = getFirstComment(post)
+      if (firstComment) {
+        await postFirstComment(publishProvider, entry.postId, externalId, firstComment)
+      }
+
       await lockRef.update({ status: 'completed', lockedBy: null, lockedAt: null, completedAt: FieldValue.serverTimestamp(), error: null })
       result.processed++
     } catch (err) {

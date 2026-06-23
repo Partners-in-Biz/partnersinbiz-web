@@ -2,7 +2,9 @@
  * GET  /api/v1/crm/contacts  — list contacts (filterable, paginated)
  * POST /api/v1/crm/contacts  — create a new contact
  *
- * Query params (GET): stage, type, source, search, limit (default 50), page (default 1)
+ * Query params (GET): stage, type, source, tags (csv), status (active|unsubscribed|bounced),
+ *   utmSource, minScore (>=), sort (recent|score), search, limit (default 50), page (default 1)
+ * Meta (GET): { total, page, limit, orgId, utmSources } — utmSources = distinct values for the source filter
  * Auth: GET → viewer+, POST → member+
  */
 import { FieldValue } from 'firebase-admin/firestore'
@@ -40,6 +42,19 @@ const VALID_SOURCES: ContactSource[] = ['manual', 'form', 'import', 'outreach']
 
 function isValidEmail(e: string) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e)
+}
+
+const VALID_STATUSES = ['active', 'unsubscribed', 'bounced'] as const
+type SubscriptionStatus = (typeof VALID_STATUSES)[number]
+
+/**
+ * Derives a contact's subscription status from its lifecycle timestamps.
+ * Bounced and Unsubscribed are terminal and take precedence over Active.
+ */
+function deriveContactStatus(c: Contact): SubscriptionStatus {
+  if (c.bouncedAt) return 'bounced'
+  if (c.unsubscribedAt) return 'unsubscribed'
+  return 'active'
 }
 
 type ContactCompanyLink = {
@@ -108,6 +123,11 @@ export const GET = withCrmAuth('viewer', async (req, ctx) => {
   const tagsParam = searchParams.get('tags') ?? ''
   const capturedFromId = searchParams.get('capturedFromId') ?? ''
   const search = searchParams.get('search') ?? ''
+  const status = searchParams.get('status') ?? ''            // active | unsubscribed | bounced
+  const utmSource = (searchParams.get('utmSource') ?? '').trim()
+  const minScoreParam = searchParams.get('minScore')
+  const minScore = minScoreParam !== null ? parseInt(minScoreParam, 10) : null
+  const sort = searchParams.get('sort') ?? 'recent'          // recent | score
   const limit = Math.min(parseInt(searchParams.get('limit') ?? '50'), 200)
   const page = Math.max(parseInt(searchParams.get('page') ?? '1'), 1)
 
@@ -155,6 +175,26 @@ export const GET = withCrmAuth('viewer', async (req, ctx) => {
       return tagList.some((tag) => tags.includes(tag))
     })
   }
+  if (status && (VALID_STATUSES as readonly string[]).includes(status)) {
+    contacts = contacts.filter((c) => deriveContactStatus(c) === status)
+  }
+
+  // Capture distinct UTM sources BEFORE applying the utmSource filter so the
+  // list UI dropdown stays stable while a single source is selected.
+  const utmSources = Array.from(
+    new Set(
+      contacts
+        .map((c) => (typeof c.utmSource === 'string' ? c.utmSource.trim() : ''))
+        .filter(Boolean),
+    ),
+  ).sort((a, b) => a.localeCompare(b))
+
+  if (utmSource) {
+    contacts = contacts.filter((c) => (c.utmSource ?? '') === utmSource)
+  }
+  if (minScore !== null && Number.isFinite(minScore)) {
+    contacts = contacts.filter((c) => (c.leadScore ?? 0) >= minScore)
+  }
 
   if (search) {
     const q = search.toLowerCase()
@@ -166,11 +206,20 @@ export const GET = withCrmAuth('viewer', async (req, ctx) => {
     )
   }
 
-  contacts.sort((a, b) => timestampMillis(b.createdAt) - timestampMillis(a.createdAt))
+  if (sort === 'score') {
+    contacts.sort((a, b) => {
+      const diff = (b.leadScore ?? 0) - (a.leadScore ?? 0)
+      if (diff !== 0) return diff
+      // Tie-break on recency so equal-score rows stay deterministic.
+      return timestampMillis(b.createdAt) - timestampMillis(a.createdAt)
+    })
+  } else {
+    contacts.sort((a, b) => timestampMillis(b.createdAt) - timestampMillis(a.createdAt))
+  }
 
   const total = contacts.length
   const offset = (page - 1) * limit
-  return apiSuccess(contacts.slice(offset, offset + limit), 200, { total, page, limit, orgId })
+  return apiSuccess(contacts.slice(offset, offset + limit), 200, { total, page, limit, orgId, utmSources })
 })
 
 export const POST = withCrmAuth('member', async (req, ctx) => {
@@ -183,7 +232,32 @@ export const POST = withCrmAuth('member', async (req, ctx) => {
   if (body.type && !VALID_TYPES.includes(body.type)) return apiError('Invalid type')
   if (body.source && !VALID_SOURCES.includes(body.source)) return apiError('Invalid source')
 
+  const requestedStatus = typeof (body as { status?: unknown }).status === 'string'
+    ? ((body as { status?: string }).status as string).trim()
+    : ''
+  if (requestedStatus && !(VALID_STATUSES as readonly string[]).includes(requestedStatus)) {
+    return apiError('Invalid status', 400)
+  }
+  const subscriptionStatus = (requestedStatus || 'active') as SubscriptionStatus
+
   const { orgId } = ctx
+  const normalizedEmail = body.email.trim().toLowerCase()
+
+  // US-052: reject creating a second contact with an email already on file so the
+  // form can surface the collision instead of silently fanning out duplicates.
+  const duplicateSnap = await adminDb
+    .collection('contacts')
+    .where('orgId', '==', orgId)
+    .where('email', '==', normalizedEmail)
+    .limit(1)
+    .get()
+  const duplicate = duplicateSnap.docs.find((doc) => doc.data()?.deleted !== true)
+  if (duplicate) {
+    return apiError(
+      `A contact with the email ${normalizedEmail} already exists in this workspace.`,
+      409,
+    )
+  }
   const bodyRaw = body as unknown as Record<string, unknown>
   const agreementRoles = normalizeAgreementRoles(bodyRaw.agreementRoles)
   if (agreementRoles === null) return apiError('Invalid agreementRoles', 400)
@@ -251,9 +325,12 @@ export const POST = withCrmAuth('member', async (req, ctx) => {
     companyName: resolvedCompanyName, // undefined if not provided; sanitize strips
     companyLinks: normalizedCompanyLinks.length > 0 ? normalizedCompanyLinks : undefined,
     deleted: false,
+    // Subscription lifecycle derived from the requested status (US-052). The
+    // contact is always subscribed at creation; unsubscribed/bounced additionally
+    // stamp the terminal timestamp that deriveContactStatus() reads back.
     subscribedAt: FieldValue.serverTimestamp(),
-    unsubscribedAt: null,
-    bouncedAt: null,
+    unsubscribedAt: subscriptionStatus === 'unsubscribed' ? FieldValue.serverTimestamp() : null,
+    bouncedAt: subscriptionStatus === 'bounced' ? FieldValue.serverTimestamp() : null,
     createdAt: FieldValue.serverTimestamp(),
     updatedAt: FieldValue.serverTimestamp(),
     lastContactedAt: null,

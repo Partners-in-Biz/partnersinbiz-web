@@ -18,6 +18,7 @@ import { logActivity } from '@/lib/activity/log'
 import { hasFinalApproval } from '@/lib/social/scheduling'
 import { validatePublishReadyText } from '@/lib/social/publish-text'
 import { validateOutboundLinks } from '@/lib/social/outbound-link-validation'
+import { getFirstComment, postFirstComment } from '@/lib/social/first-comment'
 
 export const dynamic = 'force-dynamic'
 
@@ -57,13 +58,20 @@ export const POST = withAuth('admin', withTenant(async (_req, user, orgId, conte
     ? (post.media as Array<{ url?: string }>).map((m) => m.url).filter((u): u is string => Boolean(u))
     : undefined
 
+  const shareType: 'profile' | 'organization' | undefined =
+    post.linkedinShareType === 'organization' || post.linkedinShareType === 'profile'
+      ? post.linkedinShareType
+      : undefined
+
   let externalId: string
   let resolvedAccountId: string | null = null
+  let publishProvider: Awaited<ReturnType<typeof resolveProvider>>['provider'] | null = null
 
   try {
     // Resolve provider: explicit accountIds > default account for org+platform > env vars
     const { provider, accountId } = await resolveProvider(post, orgId, platformType)
     resolvedAccountId = accountId
+    publishProvider = provider
     if (!accountId) return apiError('Connect an active social account before publishing this post', 400)
     const threadParts: string[] | undefined = post.threadParts
 
@@ -73,7 +81,7 @@ export const POST = withAuth('admin', withTenant(async (_req, user, orgId, conte
         const results = await provider.publishThread(threadParts, mediaUrls)
         externalId = results[0].platformPostId
       } else {
-        const result = await provider.publishPost({ text, mediaUrls })
+        const result = await provider.publishPost({ text, mediaUrls, shareType })
         externalId = result.platformPostId
       }
     } catch (publishErr) {
@@ -82,11 +90,12 @@ export const POST = withAuth('admin', withTenant(async (_req, user, orgId, conte
         console.log(`[publish] 401, refreshing token for ${accountId}`)
         const refreshed = await refreshAccountToken(accountId, orgId, platformType)
         if (refreshed) {
+          publishProvider = refreshed
           if (Array.isArray(threadParts) && threadParts.length > 0) {
             const results = await refreshed.publishThread(threadParts, mediaUrls)
             externalId = results[0].platformPostId
           } else {
-            const result = await refreshed.publishPost({ text, mediaUrls })
+            const result = await refreshed.publishPost({ text, mediaUrls, shareType })
             externalId = result.platformPostId
           }
           console.log(`[publish] Retry succeeded after refresh for ${accountId}`)
@@ -116,6 +125,12 @@ export const POST = withAuth('admin', withTenant(async (_req, user, orgId, conte
   await adminDb.collection('social_posts').doc(id).update({
     status: 'published', publishedAt: FieldValue.serverTimestamp(), externalId, error: null, updatedAt: FieldValue.serverTimestamp(),
   })
+
+  // First-comment automation — best-effort, never rolls back the publish.
+  const firstComment = getFirstComment(post)
+  if (firstComment && publishProvider) {
+    await postFirstComment(publishProvider, id, externalId, firstComment)
+  }
 
   // Complete queue entry if exists
   const queueDoc = await adminDb.collection('social_queue').doc(id).get()

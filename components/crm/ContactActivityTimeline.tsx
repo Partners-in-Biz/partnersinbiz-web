@@ -1,5 +1,7 @@
 'use client'
 
+import { useMemo, useState } from 'react'
+
 export interface ContactActivityTimelineActivity {
   id: string
   type?: string
@@ -25,11 +27,22 @@ interface ContactActivityTimelineProps {
 const TYPE_LABELS: Record<string, string> = {
   email_sent: 'Email sent',
   email_received: 'Email received',
+  email_replied: 'Email replied',
+  email_opened: 'Email opened',
+  email_open: 'Email opened',
+  email_clicked: 'Email clicked',
+  email_click: 'Email clicked',
   call: 'Call',
   note: 'Note',
+  sms_sent: 'SMS sent',
   meeting_scheduled: 'Meeting scheduled',
   contact_captured: 'Contact captured',
+  form_submission: 'Form submission',
+  page_visit: 'Page visit',
   stage_change: 'Stage changed',
+  deal_stage_change: 'Deal stage changed',
+  tag_added: 'Tag added',
+  tag_removed: 'Tag removed',
   sequence_enrolled: 'Enrolled in sequence',
   sequence_completed: 'Sequence completed',
 }
@@ -38,13 +51,26 @@ const ACTIVITY_ICONS: Record<string, string> = {
   note: 'notes',
   email_sent: 'mail',
   email_received: 'inbox',
+  email_replied: 'reply',
+  email_opened: 'drafts',
+  email_open: 'drafts',
+  email_clicked: 'ads_click',
+  email_click: 'ads_click',
+  sms_sent: 'sms',
   sequence_enrolled: 'route',
   sequence_completed: 'route',
   contact_captured: 'add_circle',
+  form_submission: 'assignment_turned_in',
+  page_visit: 'travel_explore',
   call: 'call',
   meeting_scheduled: 'event',
   stage_change: 'swap_horiz',
+  deal_stage_change: 'trending_up',
+  tag_added: 'label',
+  tag_removed: 'label_off',
 }
+
+const ALL_FILTER = '__all__'
 
 function readableActivityType(type: string | undefined): string {
   const key = type?.trim() ?? ''
@@ -111,6 +137,33 @@ export function ContactActivityTimeline({
   onLoadMore,
 }: ContactActivityTimelineProps) {
   const contactLabel = contactName?.trim() || 'this contact'
+  const [typeFilter, setTypeFilter] = useState<string>(ALL_FILTER)
+
+  // Build the filter options from the event types actually present in the data,
+  // so the dropdown never offers a type with zero activity.
+  const filterOptions = useMemo(() => {
+    const counts = new Map<string, number>()
+    for (const activity of activities) {
+      const key = String(activity.type ?? '').trim()
+      if (!key) continue
+      counts.set(key, (counts.get(key) ?? 0) + 1)
+    }
+    return Array.from(counts.entries())
+      .map(([type, count]) => ({ type, count, label: readableActivityType(type) }))
+      .sort((a, b) => a.label.localeCompare(b.label))
+  }, [activities])
+
+  // If the active filter no longer matches any data, fall back to "all".
+  const effectiveFilter = typeFilter !== ALL_FILTER && !filterOptions.some((o) => o.type === typeFilter)
+    ? ALL_FILTER
+    : typeFilter
+
+  const visibleActivities = useMemo(
+    () => effectiveFilter === ALL_FILTER
+      ? activities
+      : activities.filter((a) => String(a.type ?? '').trim() === effectiveFilter),
+    [activities, effectiveFilter],
+  )
 
   if (loading) {
     return (
@@ -161,7 +214,35 @@ export function ContactActivityTimeline({
 
   return (
     <div className="px-5 pb-4">
-      {activities.map((activity) => {
+      {filterOptions.length > 1 && (
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[var(--color-pib-line)] py-3">
+          <label htmlFor="activity-type-filter" className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">
+            Filter by event type
+          </label>
+          <select
+            id="activity-type-filter"
+            value={effectiveFilter}
+            onChange={(e) => setTypeFilter(e.target.value)}
+            aria-label={`Filter ${contactLabel}'s activity by event type`}
+            className="input-pib text-xs"
+          >
+            <option value={ALL_FILTER}>All events ({activities.length})</option>
+            {filterOptions.map((option) => (
+              <option key={option.type} value={option.type}>
+                {option.label} ({option.count})
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
+
+      {effectiveFilter !== ALL_FILTER && visibleActivities.length === 0 && (
+        <p className="py-6 text-center text-sm text-[var(--color-pib-text-muted)]">
+          No {readableActivityType(effectiveFilter).toLowerCase()} events for {contactLabel}.
+        </p>
+      )}
+
+      {visibleActivities.map((activity) => {
         const summary = activitySummary(activity)
         return (
           <div key={activity.id} className="flex gap-3 border-b border-[var(--color-pib-line)] py-3 last:border-0">

@@ -5,8 +5,9 @@
 
 import { NextRequest } from 'next/server'
 import { apiSuccess, apiError } from '@/lib/api/response'
-import { getPendingDue, markExecuted, markFailed } from '@/lib/automations/store'
+import { getPendingDue, markExecuted, markFailed, requeueRemainingActions } from '@/lib/automations/store'
 import { executeActions } from '@/lib/automations/executor'
+import type { AutomationAction } from '@/lib/automations/types'
 import { runWithFirestoreReadAudit } from '@/lib/firebase/read-audit'
 
 export const dynamic = 'force-dynamic'
@@ -44,10 +45,32 @@ export async function GET(req: NextRequest) {
     }
 
     try {
-      const result = await executeActions(item.actions, context)
-      await markExecuted(item.id)
+      // Per-step wait (US-074): run leading steps until a step requests a delay,
+      // then re-queue the remainder for a later cron pass. The first step's wait
+      // was already honored by this item's scheduledAt, so only delays on steps
+      // after index 0 split the batch.
+      const actions = Array.isArray(item.actions) ? (item.actions as AutomationAction[]) : []
+      let splitIndex = -1
+      for (let i = 1; i < actions.length; i++) {
+        const delay = actions[i]?.delayMinutes
+        if (typeof delay === 'number' && delay > 0) {
+          splitIndex = i
+          break
+        }
+      }
+
+      const toRunNow = splitIndex === -1 ? actions : actions.slice(0, splitIndex)
+      const result = await executeActions(toRunNow, context)
       succeeded += result.succeeded
       if (result.errors.length) errors.push(...result.errors)
+
+      if (splitIndex !== -1) {
+        const remaining = actions.slice(splitIndex)
+        const delayMinutes = remaining[0]?.delayMinutes ?? 0
+        await requeueRemainingActions(item, remaining, delayMinutes)
+      }
+
+      await markExecuted(item.id)
     } catch (err) {
       const msg = `pending/${item.id}: ${(err as Error).message}`
       errors.push(msg)

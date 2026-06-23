@@ -83,12 +83,78 @@ export interface SegmentFilters {
   engagement?: EngagementScoreRule
 }
 
+// ── Generic rule-group builder (US-055) ──────────────────────────────────────
+//
+// An additive, more expressive filter model that lives ALONGSIDE the legacy
+// `SegmentFilters`. A segment may carry a `ruleGroup` (preferred when present)
+// or fall back to `filters`. Rule groups are evaluated entirely in-memory after
+// a single org-scoped contact fetch — this is the correct approach given
+// Firestore's one-inequality / single-array-contains limitations and lets us
+// support arbitrary AND/OR nesting + operators Firestore can't express
+// (contains, is-empty, etc.).
+
+export type RuleCombinator = 'AND' | 'OR'
+
+/**
+ * Fields a FieldRule may target. These map to Contact properties (plus a few
+ * UTM attribution fields). Unknown fields are stripped during sanitisation.
+ */
+export type RuleField =
+  | 'name'
+  | 'email'
+  | 'company'
+  | 'website'
+  | 'phone'
+  | 'jobTitle'
+  | 'stage'
+  | 'type'
+  | 'source'
+  | 'tags'
+  | 'leadScore'
+  | 'icpScore'
+  | 'createdAt'
+  | 'utmSource'
+  | 'utmMedium'
+  | 'utmCampaign'
+  | 'utmTerm'
+  | 'utmContent'
+
+export type RuleOperator =
+  | 'equals'
+  | 'not-equals'
+  | 'contains'
+  | 'not-contains'
+  | 'starts-with'
+  | 'ends-with'
+  | 'gt'
+  | 'gte'
+  | 'lt'
+  | 'lte'
+  | 'in'
+  | 'not-in'
+  | 'is-empty'
+  | 'is-not-empty'
+
+export interface FieldRule {
+  field: RuleField
+  operator: RuleOperator
+  /** Scalar or array (for in / not-in). Ignored for is-empty / is-not-empty. */
+  value?: string | number | boolean | Array<string | number>
+}
+
+export interface RuleGroup {
+  combinator: RuleCombinator
+  rules: Array<FieldRule | RuleGroup>
+}
+
 export interface Segment {
   id: string
   orgId: string
   name: string
   description: string
   filters: SegmentFilters
+  /** Optional generic rule tree (US-055). Preferred over `filters` when set. */
+  ruleGroup?: RuleGroup
   createdAt: Timestamp | null
   updatedAt: Timestamp | null
   createdBy?: string
@@ -99,6 +165,44 @@ export interface Segment {
 }
 
 export type SegmentInput = Omit<Segment, 'id' | 'createdAt' | 'updatedAt'>
+
+/**
+ * Canonical membership tag for a segment. Automations (US-074
+ * "assign to segment") write this tag onto a contact so the contact resolves
+ * into the segment regardless of whether the segment's own rules would have
+ * matched. Segment resolution treats any contact carrying this tag as a member
+ * (OR'd with the segment's dynamic filters / rule group).
+ */
+export function segmentMembershipTag(segmentId: string): string {
+  return `segment:${segmentId}`
+}
+
+/**
+ * Fetch contacts that were explicitly assigned to a segment via its membership
+ * tag. Always org-scoped first; excludes deleted / unsubscribed / bounced to
+ * match the dynamic resolvers.
+ */
+export async function resolveSegmentMembershipTag(
+  orgId: string,
+  segmentId: string,
+): Promise<Contact[]> {
+  if (!orgId || !segmentId) return []
+  const tag = segmentMembershipTag(segmentId)
+  const snapshot = await adminDb
+    .collection('contacts')
+    .where('orgId', '==', orgId)
+    .where('tags', 'array-contains', tag)
+    .limit(MAX_RESULTS)
+    .get()
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const contacts: Contact[] = snapshot.docs.map((doc: any) => ({ id: doc.id, ...doc.data() }))
+  return contacts.filter((c) => {
+    if (c.deleted === true) return false
+    if (c.unsubscribedAt != null) return false
+    if (c.bouncedAt != null) return false
+    return true
+  })
+}
 
 // ── Filter sanitizer (shared by API routes) ─────────────────────────────────
 
@@ -202,6 +306,316 @@ export function sanitizeSegmentFilters(input: unknown): SegmentFilters {
     if (engagement) filters.engagement = engagement
   }
   return filters
+}
+
+// ── Rule-group sanitizer (US-055) ────────────────────────────────────────────
+
+const VALID_RULE_FIELDS: ReadonlySet<RuleField> = new Set<RuleField>([
+  'name',
+  'email',
+  'company',
+  'website',
+  'phone',
+  'jobTitle',
+  'stage',
+  'type',
+  'source',
+  'tags',
+  'leadScore',
+  'icpScore',
+  'createdAt',
+  'utmSource',
+  'utmMedium',
+  'utmCampaign',
+  'utmTerm',
+  'utmContent',
+])
+
+const VALID_RULE_OPERATORS: ReadonlySet<RuleOperator> = new Set<RuleOperator>([
+  'equals',
+  'not-equals',
+  'contains',
+  'not-contains',
+  'starts-with',
+  'ends-with',
+  'gt',
+  'gte',
+  'lt',
+  'lte',
+  'in',
+  'not-in',
+  'is-empty',
+  'is-not-empty',
+])
+
+/** Operators that don't need a value. */
+const VALUELESS_OPERATORS: ReadonlySet<RuleOperator> = new Set<RuleOperator>([
+  'is-empty',
+  'is-not-empty',
+])
+
+const RULE_GROUP_MAX_DEPTH = 6
+const RULE_GROUP_MAX_RULES = 100
+
+function sanitizeRuleValue(
+  input: unknown,
+): string | number | boolean | Array<string | number> | undefined {
+  if (typeof input === 'string') return input
+  if (typeof input === 'number' && Number.isFinite(input)) return input
+  if (typeof input === 'boolean') return input
+  if (Array.isArray(input)) {
+    const arr = input
+      .filter((v): v is string | number => {
+        if (typeof v === 'string') return true
+        if (typeof v === 'number' && Number.isFinite(v)) return true
+        return false
+      })
+      .slice(0, 200)
+    return arr
+  }
+  return undefined
+}
+
+function sanitizeFieldRule(input: unknown): FieldRule | null {
+  if (!input || typeof input !== 'object') return null
+  const r = input as Record<string, unknown>
+  if (typeof r.field !== 'string' || !VALID_RULE_FIELDS.has(r.field as RuleField)) return null
+  if (typeof r.operator !== 'string' || !VALID_RULE_OPERATORS.has(r.operator as RuleOperator)) {
+    return null
+  }
+  const operator = r.operator as RuleOperator
+  const rule: FieldRule = {
+    field: r.field as RuleField,
+    operator,
+  }
+  if (!VALUELESS_OPERATORS.has(operator)) {
+    const value = sanitizeRuleValue(r.value)
+    if (value === undefined) return null
+    rule.value = value
+  }
+  return rule
+}
+
+function isRuleGroupShape(input: unknown): input is Record<string, unknown> {
+  return (
+    !!input &&
+    typeof input === 'object' &&
+    Array.isArray((input as Record<string, unknown>).rules)
+  )
+}
+
+/**
+ * Recursively sanitise an untrusted rule tree. Strips unknown fields/operators,
+ * caps depth and total rule count, and returns null when nothing valid survives.
+ */
+export function sanitizeRuleGroup(input: unknown, depth = 0): RuleGroup | null {
+  if (depth > RULE_GROUP_MAX_DEPTH) return null
+  if (!isRuleGroupShape(input)) return null
+  const g = input as Record<string, unknown>
+  const combinator: RuleCombinator = g.combinator === 'OR' ? 'OR' : 'AND'
+  const rawRules = Array.isArray(g.rules) ? g.rules : []
+  const rules: Array<FieldRule | RuleGroup> = []
+  let count = 0
+  for (const raw of rawRules) {
+    if (count >= RULE_GROUP_MAX_RULES) break
+    if (isRuleGroupShape(raw)) {
+      const nested = sanitizeRuleGroup(raw, depth + 1)
+      if (nested && nested.rules.length > 0) {
+        rules.push(nested)
+        count += 1
+      }
+    } else {
+      const fr = sanitizeFieldRule(raw)
+      if (fr) {
+        rules.push(fr)
+        count += 1
+      }
+    }
+  }
+  if (rules.length === 0) return null
+  return { combinator, rules }
+}
+
+// ── Rule-group resolver (US-055) ─────────────────────────────────────────────
+
+function toComparableString(v: unknown): string {
+  if (v === null || v === undefined) return ''
+  if (typeof v === 'string') return v
+  if (typeof v === 'number' || typeof v === 'boolean') return String(v)
+  return ''
+}
+
+function fieldValueFromContact(contact: Contact, field: RuleField): unknown {
+  switch (field) {
+    case 'createdAt': {
+      const ts = contact.createdAt as Timestamp | null
+      return ts && typeof ts.toMillis === 'function' ? ts.toMillis() : null
+    }
+    case 'tags':
+      return Array.isArray(contact.tags) ? contact.tags : []
+    case 'leadScore':
+      return typeof contact.leadScore === 'number' ? contact.leadScore : null
+    case 'icpScore':
+      return typeof contact.icpScore === 'number' ? contact.icpScore : null
+    default:
+      return (contact as unknown as Record<string, unknown>)[field]
+  }
+}
+
+/** Coerce a rule value into millis when comparing against createdAt. */
+function ruleValueToMillis(value: unknown): number | null {
+  if (typeof value === 'number' && Number.isFinite(value)) return value
+  if (typeof value === 'string' && value.trim()) {
+    const ms = Date.parse(value)
+    if (!Number.isNaN(ms)) return ms
+  }
+  return null
+}
+
+function evaluateFieldRule(contact: Contact, rule: FieldRule): boolean {
+  const raw = fieldValueFromContact(contact, rule.field)
+  const op = rule.operator
+
+  // is-empty / is-not-empty work uniformly across scalars + arrays.
+  if (op === 'is-empty' || op === 'is-not-empty') {
+    const empty = Array.isArray(raw)
+      ? raw.length === 0
+      : raw === null || raw === undefined || raw === ''
+    return op === 'is-empty' ? empty : !empty
+  }
+
+  // ── Array field (tags) ────────────────────────────────────────────────────
+  if (rule.field === 'tags') {
+    const tags = (Array.isArray(raw) ? raw : []).map((t) => toComparableString(t).toLowerCase())
+    const valArray = Array.isArray(rule.value)
+      ? rule.value.map((v) => toComparableString(v).toLowerCase())
+      : [toComparableString(rule.value).toLowerCase()]
+    switch (op) {
+      case 'equals':
+      case 'contains':
+      case 'in':
+        return valArray.some((v) => v !== '' && tags.includes(v))
+      case 'not-equals':
+      case 'not-contains':
+      case 'not-in':
+        return !valArray.some((v) => v !== '' && tags.includes(v))
+      default:
+        return false
+    }
+  }
+
+  // ── Numeric / date fields ─────────────────────────────────────────────────
+  if (rule.field === 'leadScore' || rule.field === 'icpScore' || rule.field === 'createdAt') {
+    const left =
+      rule.field === 'createdAt'
+        ? typeof raw === 'number'
+          ? raw
+          : null
+        : typeof raw === 'number'
+          ? raw
+          : null
+    const right =
+      rule.field === 'createdAt'
+        ? ruleValueToMillis(rule.value)
+        : typeof rule.value === 'number'
+          ? rule.value
+          : Number(rule.value)
+    const rightNum = typeof right === 'number' && Number.isFinite(right) ? right : null
+    switch (op) {
+      case 'equals':
+        return left !== null && rightNum !== null && left === rightNum
+      case 'not-equals':
+        return !(left !== null && rightNum !== null && left === rightNum)
+      case 'gt':
+        return left !== null && rightNum !== null && left > rightNum
+      case 'gte':
+        return left !== null && rightNum !== null && left >= rightNum
+      case 'lt':
+        return left !== null && rightNum !== null && left < rightNum
+      case 'lte':
+        return left !== null && rightNum !== null && left <= rightNum
+      default:
+        return false
+    }
+  }
+
+  // ── String fields ─────────────────────────────────────────────────────────
+  const left = toComparableString(raw).toLowerCase()
+  if (op === 'in' || op === 'not-in') {
+    const valArray = (Array.isArray(rule.value) ? rule.value : [rule.value]).map((v) =>
+      toComparableString(v).toLowerCase(),
+    )
+    const hit = valArray.some((v) => v !== '' && v === left)
+    return op === 'in' ? hit : !hit
+  }
+  const right = toComparableString(rule.value).toLowerCase()
+  switch (op) {
+    case 'equals':
+      return left === right
+    case 'not-equals':
+      return left !== right
+    case 'contains':
+      return right !== '' && left.includes(right)
+    case 'not-contains':
+      return !(right !== '' && left.includes(right))
+    case 'starts-with':
+      return right !== '' && left.startsWith(right)
+    case 'ends-with':
+      return right !== '' && left.endsWith(right)
+    case 'gt':
+      return left > right
+    case 'gte':
+      return left >= right
+    case 'lt':
+      return left < right
+    case 'lte':
+      return left <= right
+    default:
+      return false
+  }
+}
+
+/** Evaluate a sanitised rule tree against a single contact. */
+export function evaluateRuleGroup(contact: Contact, group: RuleGroup): boolean {
+  if (!group.rules.length) return true // empty group matches everything
+  if (group.combinator === 'OR') {
+    return group.rules.some((r) =>
+      isRuleGroupShape(r) ? evaluateRuleGroup(contact, r as RuleGroup) : evaluateFieldRule(contact, r as FieldRule),
+    )
+  }
+  return group.rules.every((r) =>
+    isRuleGroupShape(r) ? evaluateRuleGroup(contact, r as RuleGroup) : evaluateFieldRule(contact, r as FieldRule),
+  )
+}
+
+/**
+ * Resolve contacts matching a generic rule group within one org. Fetches the
+ * org's contacts once (capped at MAX_RESULTS), then evaluates the boolean tree
+ * in-memory. Always excludes deleted / unsubscribed / bounced contacts to match
+ * resolveSegmentContacts behaviour.
+ *
+ * Security: orgId is ALWAYS the first where() clause.
+ */
+export async function resolveRuleGroup(orgId: string, group: RuleGroup): Promise<Contact[]> {
+  if (!orgId) return []
+  const sanitized = sanitizeRuleGroup(group)
+  if (!sanitized) return []
+
+  const snapshot = await adminDb
+    .collection('contacts')
+    .where('orgId', '==', orgId)
+    .limit(MAX_RESULTS)
+    .get()
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const contacts: Contact[] = snapshot.docs.map((doc: any) => ({ id: doc.id, ...doc.data() }))
+
+  return contacts.filter((c) => {
+    if (c.deleted === true) return false
+    if (c.unsubscribedAt != null) return false
+    if (c.bouncedAt != null) return false
+    return evaluateRuleGroup(c, sanitized)
+  })
 }
 
 // ── Resolver ─────────────────────────────────────────────────────────────────

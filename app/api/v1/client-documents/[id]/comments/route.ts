@@ -7,6 +7,7 @@ import type { ApiUser } from '@/lib/api/types'
 import { getAccessibleClientDocument } from '@/lib/client-documents/access'
 import { promoteCrmContextRefsToDocumentLinks } from '@/lib/client-documents/context-reference-links'
 import { sendDocumentCommentEmail } from '@/lib/client-documents/notifications'
+import { resolveDocumentOwnerRecipient, resolveUserRecipient } from '@/lib/client-documents/recipients'
 import { CLIENT_DOCUMENTS_COLLECTION } from '@/lib/client-documents/store'
 import type { ClientDocument, DocumentComment } from '@/lib/client-documents/types'
 import { resolveContextReferences } from '@/lib/context-references/registry'
@@ -127,7 +128,8 @@ export const POST = withAuth('client', async (req: NextRequest, user: ApiUser, c
     createdAt: FieldValue.serverTimestamp(),
   })
 
-  // Fire-and-forget: notify PiB team inbox of new client comment
+  // Fire-and-forget: notify the document creator (their real email) of the new
+  // comment. If the commenter is also the creator we skip self-notification (US-173).
   void (async () => {
     try {
       const comment: DocumentComment = {
@@ -144,7 +146,10 @@ export const POST = withAuth('client', async (req: NextRequest, user: ApiUser, c
         agentPickedUp: false,
         ...(contextRefs.length > 0 ? { contextRefs } : {}),
       }
-      await sendDocumentCommentEmail(access.document, comment, 'notifications@partnersinbiz.online', 'Partners in Biz Team')
+      const recipient = await resolveDocumentOwnerRecipient(access.document)
+      const commenter = await resolveUserRecipient(user.uid)
+      if (commenter && commenter.email === recipient.email) return
+      await sendDocumentCommentEmail(access.document, comment, recipient.email, recipient.name)
     } catch (err) {
       console.error('[client-documents/comments] Email notification failed:', err)
     }
