@@ -1,5 +1,5 @@
 import { adminDb } from '@/lib/firebase/admin'
-import { API_RATE_LIMIT_DEFAULTS, detectRuntimeRateLimitProfileId } from '@/lib/rateLimitProfiles'
+import { API_RATE_LIMIT_DEFAULTS, detectRuntimeRateLimitProfileId, type RuntimeRateLimitProfileId } from '@/lib/rateLimitProfiles'
 
 export interface RateLimitInput {
   key: string         // e.g. 'code:1.2.3.4' or 'magic_link:a@b.com'
@@ -54,6 +54,10 @@ function isPositiveNumber(value: unknown): value is number {
   return typeof value === 'number' && Number.isFinite(value) && value > 0
 }
 
+function isRuntimeProfileId(value: unknown): value is RuntimeRateLimitProfileId {
+  return typeof value === 'string' && DEFAULT_PROFILE_MAP.has(value as RuntimeRateLimitProfileId)
+}
+
 function toMillis(value: unknown): number | null {
   if (typeof value === 'number') return value
   if (value instanceof Date) return value.getTime()
@@ -83,8 +87,8 @@ async function loadConfiguredApiPolicies(): Promise<Map<string, { limit: number;
     if (snap.exists) {
       const data = snap.data() as { entries?: ApiConfigEntry[] } | undefined
       for (const rawEntry of Array.isArray(data?.entries) ? data.entries : []) {
-        const profileId = typeof rawEntry.id === 'string' ? rawEntry.id : null
-        if (!profileId || !DEFAULT_PROFILE_MAP.has(profileId)) continue
+        if (!isRuntimeProfileId(rawEntry.id)) continue
+        const profileId = rawEntry.id
         const current = entries.get(profileId) ?? DEFAULT_PROFILE_MAP.get(profileId)!
         entries.set(profileId, {
           limit: isPositiveNumber(rawEntry.limit) ? rawEntry.limit : current.limit,

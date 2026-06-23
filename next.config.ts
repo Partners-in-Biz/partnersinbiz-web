@@ -52,7 +52,6 @@ const nextConfig: NextConfig = {
       { source: '/admin/communications/:path*', destination: '/portal/communications/:path*', permanent: false },
       // P2 reports convergence: portal is the only reports workspace
       { source: '/admin/reports', destination: '/portal/reports', permanent: false },
-      { source: '/admin/reports/:path*', destination: '/portal/reports/:path*', permanent: false },
       // P2 capture-sources convergence: portal is the only capture-sources workspace
       { source: '/admin/capture-sources', destination: '/portal/capture-sources', permanent: false },
       { source: '/admin/capture-sources/:path*', destination: '/portal/capture-sources', permanent: false },
@@ -61,11 +60,6 @@ const nextConfig: NextConfig = {
       { source: '/admin/documents/new', destination: '/portal/documents/new', permanent: false },
       { source: '/admin/documents/:id/preview', destination: '/portal/documents/:id', permanent: false },
       { source: '/admin/documents/:path*', destination: '/portal/documents/:path*', permanent: false },
-      // P2 properties convergence: portal is the only properties workspace
-      { source: '/admin/properties', destination: '/portal/properties', permanent: false },
-      { source: '/admin/properties/new', destination: '/portal/properties/new', permanent: false },
-      { source: '/admin/properties/:id/connections', destination: '/portal/properties/:id/connections', permanent: false },
-      { source: '/admin/properties/:path*', destination: '/portal/properties/:path*', permanent: false },
       // P2 geo-seo convergence: portal is the only geo-seo workspace
       { source: '/admin/geo-seo', destination: '/portal/geo-seo', permanent: false },
       { source: '/admin/geo-seo/:path*', destination: '/portal/geo-seo/:path*', permanent: false },
@@ -121,7 +115,6 @@ const nextConfig: NextConfig = {
       { source: '/admin/finance/:path*', destination: '/portal/payments', permanent: false },
       // P3 analytics convergence: per-org analytics → portal
       { source: '/admin/analytics', destination: '/portal/analytics', permanent: false },
-      { source: '/admin/analytics/:path*', destination: '/portal/analytics/:path*', permanent: false },
       // P3 invoicing convergence: portal is the only invoicing workspace
       { source: '/admin/invoicing', destination: '/portal/invoicing', permanent: false },
       { source: '/admin/invoicing/:path*', destination: '/portal/invoicing/:path*', permanent: false },
@@ -207,29 +200,13 @@ const nextConfig: NextConfig = {
       // Admin users — removed redirect so /admin/users resolves to users management page
       // /admin/platform-users still works directly as its own page
 
-      // QA-P3c: Admin section aliases — only still-unbuilt routes mapped to nearest admin hubs.
+      // QA-P3c: Admin section aliases for surfaces that intentionally consolidate elsewhere.
       { source: '/admin/hermes', destination: '/admin/agents', permanent: false },
       { source: '/admin/hermes/:path*', destination: '/admin/agents', permanent: false },
-      { source: '/admin/broadcast', destination: '/admin/mission-control', permanent: false },
-      { source: '/admin/moderation', destination: '/admin/dashboard', permanent: false },
-      { source: '/admin/domains', destination: '/admin/settings', permanent: false },
-      { source: '/admin/domains/:path*', destination: '/admin/settings', permanent: false },
-      { source: '/admin/ab-tests', destination: '/admin/dashboard', permanent: false },
-      { source: '/admin/ab-tests/:path*', destination: '/admin/dashboard', permanent: false },
-      { source: '/admin/announcements', destination: '/admin/updates', permanent: false },
-      { source: '/admin/changelog', destination: '/admin/updates', permanent: false },
-      { source: '/admin/analytics/ingestion', destination: '/admin/dashboard', permanent: false },
-      { source: '/admin/analytics/scrolledbrain', destination: '/admin/dashboard', permanent: false },
-      { source: '/admin/analytics/:path*', destination: '/admin/dashboard', permanent: false },
-      { source: '/admin/tools/import', destination: '/admin/settings', permanent: false },
-      { source: '/admin/tools/:path*', destination: '/admin/settings', permanent: false },
+      { source: '/admin/broadcast', destination: '/admin/email/broadcast', permanent: false },
       { source: '/admin/products', destination: '/admin/settings', permanent: false },
-      { source: '/admin/system/audit-log', destination: '/admin/settings', permanent: false },
       { source: '/admin/system/social-apis', destination: '/admin/settings', permanent: false },
       { source: '/admin/system/wiki-sync', destination: '/admin/mission-control', permanent: false },
-      { source: '/admin/settings/social-credentials', destination: '/admin/settings', permanent: false },
-      { source: '/admin/reports/templates', destination: '/admin/settings', permanent: false },
-      { source: '/admin/reports/:path*', destination: '/admin/settings', permanent: false },
 
       // QA-P3c: Portal — unbuilt settings pages redirect to nearest settings hub
       { source: '/portal/referrals', destination: '/portal/dashboard', permanent: false },

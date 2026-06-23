@@ -45,4 +45,39 @@ describe('QA feature-story route aliases', () => {
       destination: '/admin/organizations/new',
     })
   })
+
+  it('does not redirect completed admin backlog routes away from their real pages', async () => {
+    const redirects = await redirectMap()
+    const completedAdminRoutes = [
+      '/admin/properties',
+      '/admin/properties/new',
+      '/admin/properties/:path*',
+      '/admin/moderation',
+      '/admin/domains',
+      '/admin/domains/:path*',
+      '/admin/ab-tests',
+      '/admin/ab-tests/:path*',
+      '/admin/announcements',
+      '/admin/changelog',
+      '/admin/analytics/ingestion',
+      '/admin/analytics/scrolledbrain',
+      '/admin/analytics/:path*',
+      '/admin/tools/import',
+      '/admin/tools/:path*',
+      '/admin/system/audit-log',
+      '/admin/settings/social-credentials',
+      '/admin/reports/templates',
+      '/admin/reports/:path*',
+    ]
+
+    for (const source of completedAdminRoutes) {
+      expect(redirects.find((redirect) => redirect.source === source)).toBeUndefined()
+    }
+  })
+
+  it('maps the legacy broadcast route to the dedicated admin broadcast tool', async () => {
+    await expect(findRedirect('/admin/broadcast')).resolves.toMatchObject({
+      destination: '/admin/email/broadcast',
+    })
+  })
 })
