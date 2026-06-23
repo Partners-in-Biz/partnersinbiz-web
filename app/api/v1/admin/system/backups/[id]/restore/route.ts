@@ -11,6 +11,9 @@ import { withAuth } from '@/lib/api/auth'
 import { apiSuccess, apiError, apiErrorFromException } from '@/lib/api/response'
 import { adminDb, getAdminApp } from '@/lib/firebase/admin'
 import { isSuperAdmin } from '@/lib/api/platformAdmin'
+import { writeAdminAudit } from '@/lib/admin/audit'
+import { BACKUP_COLLECTIONS } from '@/app/api/v1/admin/system/backups/route'
+import type { ApiUser } from '@/lib/api/types'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 120
@@ -20,6 +23,31 @@ const BATCH_SIZE = 400
 interface BackupPayload {
   meta?: { orgId?: string }
   collections?: Record<string, Array<Record<string, unknown>>>
+}
+
+const ALLOWED_COLLECTIONS = new Set<string>(BACKUP_COLLECTIONS)
+
+async function auditRestoreAttempt(
+  user: ApiUser,
+  opts: {
+    backupId: string
+    orgId: string | null
+    outcome: 'completed' | 'rejected'
+    reason?: string
+    metadata?: Record<string, unknown>
+  },
+) {
+  await writeAdminAudit(user, {
+    action: 'system.backup.restore',
+    orgId: opts.orgId,
+    summary: `${opts.outcome === 'completed' ? 'Restored' : 'Rejected'} backup restore ${opts.backupId}`,
+    metadata: {
+      backupId: opts.backupId,
+      outcome: opts.outcome,
+      reason: opts.reason ?? null,
+      ...(opts.metadata ?? {}),
+    },
+  })
 }
 
 async function loadBackupJson(id: string, d: Record<string, unknown>): Promise<BackupPayload | null> {
@@ -44,6 +72,20 @@ export const POST = withAuth('admin', async (req: NextRequest, user, context?: {
   if (!isSuperAdmin(user)) return apiError('Forbidden', 403)
   try {
     const { id } = await context!.params
+    const doc = await adminDb.collection('org_backups').doc(id).get()
+    if (!doc.exists) {
+      await auditRestoreAttempt(user, {
+        backupId: id,
+        orgId: null,
+        outcome: 'rejected',
+        reason: 'backup_not_found',
+      })
+      return apiError('Backup not found', 404)
+    }
+
+    const backupData = doc.data() as Record<string, unknown>
+    const backupOrgId = typeof backupData.orgId === 'string' ? backupData.orgId : null
+    const expectedConfirm = backupOrgId ? `RESTORE ${id} ${backupOrgId}` : `RESTORE ${id}`
 
     let body: { confirm?: unknown }
     try {
@@ -52,13 +94,49 @@ export const POST = withAuth('admin', async (req: NextRequest, user, context?: {
       return apiError('Invalid JSON body', 400)
     }
     const confirm = typeof body.confirm === 'string' ? body.confirm.trim() : ''
-    if (confirm !== id) return apiError('confirm must equal the backup id', 400)
+    if (confirm !== expectedConfirm) {
+      await auditRestoreAttempt(user, {
+        backupId: id,
+        orgId: backupOrgId,
+        outcome: 'rejected',
+        reason: 'confirmation_mismatch',
+        metadata: { expectedConfirm },
+      })
+      return apiError(`confirm must equal "${expectedConfirm}"`, 400)
+    }
 
-    const doc = await adminDb.collection('org_backups').doc(id).get()
-    if (!doc.exists) return apiError('Backup not found', 404)
+    const payload = await loadBackupJson(id, backupData)
+    if (!payload || !payload.collections) {
+      await auditRestoreAttempt(user, {
+        backupId: id,
+        orgId: backupOrgId,
+        outcome: 'rejected',
+        reason: 'backup_unavailable',
+      })
+      return apiError('Backup data unavailable', 404)
+    }
+    if (!backupOrgId || payload.meta?.orgId !== backupOrgId) {
+      await auditRestoreAttempt(user, {
+        backupId: id,
+        orgId: backupOrgId,
+        outcome: 'rejected',
+        reason: 'org_mismatch',
+        metadata: { payloadOrgId: payload.meta?.orgId ?? null },
+      })
+      return apiError('Backup payload.meta.orgId must match the backup orgId', 400)
+    }
 
-    const payload = await loadBackupJson(id, doc.data() as Record<string, unknown>)
-    if (!payload || !payload.collections) return apiError('Backup data unavailable', 404)
+    const disallowedCollections = Object.keys(payload.collections).filter((collection) => !ALLOWED_COLLECTIONS.has(collection))
+    if (disallowedCollections.length > 0) {
+      await auditRestoreAttempt(user, {
+        backupId: id,
+        orgId: backupOrgId,
+        outcome: 'rejected',
+        reason: 'disallowed_collections',
+        metadata: { disallowedCollections },
+      })
+      return apiError(`Backup contains disallowed collections: ${disallowedCollections.join(', ')}`, 400)
+    }
 
     const restoredCollections: string[] = []
     let restoredCount = 0
@@ -80,6 +158,16 @@ export const POST = withAuth('admin', async (req: NextRequest, user, context?: {
         await batch.commit()
       }
     }
+
+    await auditRestoreAttempt(user, {
+      backupId: id,
+      orgId: backupOrgId,
+      outcome: 'completed',
+      metadata: {
+        restoredCollections,
+        restoredCount,
+      },
+    })
 
     return apiSuccess({ restored: true, restoredCount, collections: restoredCollections })
   } catch (err) {

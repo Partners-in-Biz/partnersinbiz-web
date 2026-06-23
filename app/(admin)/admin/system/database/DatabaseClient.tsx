@@ -235,7 +235,7 @@ export default function DatabaseClient() {
     setDeleteError(null)
   }, [])
 
-  const confirmTokenExpected = deleteTarget ? `${deleteTarget.collection}/${deleteTarget.docId}` : ''
+  const confirmTokenExpected = deleteTarget ? `DELETE ${deleteTarget.collection}/${deleteTarget.docId}` : ''
   const deleteEnabled = Boolean(deleteTarget) && confirmText === confirmTokenExpected
 
   const runDelete = useCallback(async () => {
@@ -243,7 +243,7 @@ export default function DatabaseClient() {
     setDeleting(true)
     setDeleteError(null)
     try {
-      const token = `${deleteTarget.collection}/${deleteTarget.docId}`
+      const token = `DELETE ${deleteTarget.collection}/${deleteTarget.docId}`
       const res = await fetch(
         `/api/v1/admin/system/database/${encodeURIComponent(deleteTarget.collection)}/${encodeURIComponent(
           deleteTarget.docId,

@@ -112,6 +112,7 @@ export const POST = withAuth('client', async (req: NextRequest, user: ApiUser) =
       key: `email_transactional:${orgId}`,
       limit: TRANSACTIONAL_RATE_LIMIT,
       windowMs: TRANSACTIONAL_RATE_WINDOW_MS,
+      orgId,
     })
   } catch {
     // Limiter unavailable — fail open so a Firestore blip doesn't break sends.

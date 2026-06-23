@@ -110,6 +110,12 @@ export default function BackupsClient() {
     return m
   }, [orgs])
 
+  const restorePrompt = useMemo(() => {
+    if (!restoreFor) return ''
+    const backup = backups.find((row) => row.id === restoreFor)
+    return backup ? `RESTORE ${backup.id} ${backup.orgId}` : `RESTORE ${restoreFor}`
+  }, [backups, restoreFor])
+
   useEffect(() => {
     let cancelled = false
     fetch('/api/auth/verify')
@@ -530,13 +536,13 @@ export default function BackupsClient() {
               This <strong>upserts</strong> every document from the backup back into live Firestore (merge). It does
               not delete anything, but it will overwrite fields that changed since the snapshot. This cannot be undone.
             </div>
-            <p className="text-sm text-on-surface-variant">To confirm, type the backup id:</p>
-            <code className="block rounded bg-surface-variant/40 px-2 py-1 text-xs font-mono text-on-surface">{restoreFor}</code>
+            <p className="text-sm text-on-surface-variant">To confirm, type the full restore phrase:</p>
+            <code className="block rounded bg-surface-variant/40 px-2 py-1 text-xs font-mono text-on-surface">{restorePrompt}</code>
             <input
               className="pib-input w-full text-sm font-mono"
               value={confirmRestore}
               onChange={(e) => setConfirmRestore(e.target.value)}
-              placeholder="Type the backup id to confirm"
+              placeholder="Type the full restore phrase"
               autoFocus
             />
             {restoreError && <div className="text-sm text-red-400">{restoreError}</div>}
@@ -552,7 +558,7 @@ export default function BackupsClient() {
               {!restoreResult && (
                 <button
                   onClick={runRestore}
-                  disabled={restoring || confirmRestore.trim() !== restoreFor}
+                  disabled={restoring || confirmRestore.trim() !== restorePrompt}
                   className="pib-btn-primary text-sm font-label flex items-center gap-1.5 disabled:opacity-50"
                 >
                   {restoring && <span className="material-symbols-outlined text-[16px] animate-spin">progress_activity</span>}

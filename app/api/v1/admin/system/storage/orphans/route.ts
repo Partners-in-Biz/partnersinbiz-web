@@ -15,16 +15,51 @@
  * in that case we report `storageAvailable: false` rather than fabricating.
  */
 import { NextRequest } from 'next/server'
+import { createHash } from 'crypto'
 import { getStorage } from 'firebase-admin/storage'
 import { withAuth } from '@/lib/api/auth'
 import { apiSuccess, apiError } from '@/lib/api/response'
 import { adminDb, getAdminApp } from '@/lib/firebase/admin'
 import { isSuperAdmin } from '@/lib/api/platformAdmin'
+import { writeAdminAudit } from '@/lib/admin/audit'
+import type { ApiUser } from '@/lib/api/types'
 
 export const dynamic = 'force-dynamic'
 
 const SCAN_CAP = 2000
 const UPLOADS_CAP = 20000
+
+function orphanDeleteDigest(path: string): string {
+  return createHash('sha256').update(`storage-orphan-delete:${path}`).digest('hex').slice(0, 16)
+}
+
+function buildQuarantinePath(path: string): string {
+  const filename = path.split('/').filter(Boolean).pop() ?? 'file'
+  const digest = createHash('sha256').update(path).digest('hex').slice(0, 12)
+  return `admin-quarantine/storage-orphans/${Date.now()}-${digest}-${filename}`
+}
+
+async function auditStorageMutation(
+  user: ApiUser,
+  action: 'system.storage.orphan.delete' | 'system.storage.orphan.quarantine',
+  opts: {
+    path: string
+    outcome: 'completed' | 'rejected'
+    reason?: string
+    metadata?: Record<string, unknown>
+  },
+) {
+  await writeAdminAudit(user, {
+    action,
+    summary: `${opts.outcome === 'completed' ? 'Processed' : 'Rejected'} storage orphan ${opts.path}`,
+    metadata: {
+      path: opts.path,
+      outcome: opts.outcome,
+      reason: opts.reason ?? null,
+      ...(opts.metadata ?? {}),
+    },
+  })
+}
 
 async function loadUploadPaths(): Promise<{ paths: Set<string>; docs: Array<{ id: string; storagePath: string; orgId: string | null }> }> {
   const snap = await adminDb.collection('uploads').limit(UPLOADS_CAP).get()
@@ -98,22 +133,50 @@ export const GET = withAuth('admin', async () => {
 export const DELETE = withAuth('admin', async (req: NextRequest, user) => {
   if (!isSuperAdmin(user)) return apiError('Super admin only', 403)
 
-  let body: { path?: unknown; confirm?: unknown }
+  let body: { path?: unknown; confirm?: unknown; mode?: unknown; digestConfirm?: unknown }
   try {
-    body = (await req.json()) as { path?: unknown; confirm?: unknown }
+    body = (await req.json()) as { path?: unknown; confirm?: unknown; mode?: unknown; digestConfirm?: unknown }
   } catch {
     return apiError('Invalid JSON body', 400)
   }
 
   const path = typeof body.path === 'string' ? body.path : ''
   const confirm = typeof body.confirm === 'string' ? body.confirm : ''
+  const mode = body.mode === 'delete' ? 'delete' : 'quarantine'
+  const digestConfirm = typeof body.digestConfirm === 'string' ? body.digestConfirm.trim() : ''
   if (!path) return apiError('path required', 400)
   if (confirm !== path) return apiError('confirm must exactly equal path', 400)
+  if (mode === 'delete' && digestConfirm !== orphanDeleteDigest(path)) {
+    await auditStorageMutation(user, 'system.storage.orphan.delete', {
+      path,
+      outcome: 'rejected',
+      reason: 'digest_mismatch',
+    })
+    return apiError('digestConfirm mismatch', 400)
+  }
 
   try {
     const bucket = getStorage(getAdminApp()).bucket()
-    await bucket.file(path).delete()
-    return apiSuccess({ deleted: true, path })
+    const fileRef = bucket.file(path)
+
+    if (mode === 'delete') {
+      await fileRef.delete()
+      await auditStorageMutation(user, 'system.storage.orphan.delete', {
+        path,
+        outcome: 'completed',
+      })
+      return apiSuccess({ deleted: true, quarantined: false, path })
+    }
+
+    const quarantinePath = buildQuarantinePath(path)
+    await fileRef.copy(bucket.file(quarantinePath))
+    await fileRef.delete()
+    await auditStorageMutation(user, 'system.storage.orphan.quarantine', {
+      path,
+      outcome: 'completed',
+      metadata: { quarantinePath },
+    })
+    return apiSuccess({ deleted: false, quarantined: true, path, quarantinePath })
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err)
     console.error('[storage/orphans] delete error:', message)

@@ -25,25 +25,11 @@ import { withAuth } from '@/lib/api/auth'
 import { apiSuccess, apiError } from '@/lib/api/response'
 import { adminDb } from '@/lib/firebase/admin'
 import { isSuperAdmin } from '@/lib/api/platformAdmin'
+import { API_RATE_LIMIT_DEFAULTS } from '@/lib/rateLimitProfiles'
 
 export const dynamic = 'force-dynamic'
 
 const CONFIG = 'rate_limit_config'
-
-/**
- * REAL per-API request limits as configured at the call sites today.
- * Source files noted for traceability. Seeded into rate_limit_config/api so
- * they become editable. `keyPrefix` matches the prefix used on rate_limits docs
- * so the live-usage view can join a counter to its ceiling.
- */
-const API_DEFAULTS: { id: string; label: string; limit: number; windowMs: number; source: string; keyPrefix?: string }[] = [
-  { id: 'analytics_ingest', label: 'Analytics ingest (per ingest key)', limit: 100, windowMs: 60_000, source: 'lib/analytics/ingest-rate-limit.ts' },
-  { id: 'fx_rates', label: 'FX rates (per IP)', limit: 120, windowMs: 60 * 60 * 1000, source: 'app/api/v1/fx/rates/route.ts' },
-  { id: 'firebase_config', label: 'Firebase config (per IP)', limit: 120, windowMs: 60 * 60 * 1000, source: 'app/api/v1/firebase-config/route.ts' },
-  { id: 'url_audit', label: 'URL audit tool (per IP)', limit: 12, windowMs: 60 * 60 * 1000, source: 'app/api/v1/tools/url-audit/route.ts' },
-  { id: 'magic_link_send', label: 'Magic-link send (per email)', limit: 3, windowMs: 15 * 60 * 1000, source: 'app/api/v1/auth/magic-link/send/route.ts' },
-  { id: 'magic_link_send_ip', label: 'Magic-link send (per IP)', limit: 10, windowMs: 15 * 60 * 1000, source: 'app/api/v1/auth/magic-link/send/route.ts' },
-]
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function toMillis(value: any): number | null {
@@ -61,19 +47,19 @@ interface PlanLimitConfig {
   source: string
 }
 
-async function loadOrSeedConfig(): Promise<{ plans: PlanLimitConfig[]; api: typeof API_DEFAULTS; seeded: string[] }> {
+async function loadOrSeedConfig(): Promise<{ plans: PlanLimitConfig[]; api: typeof API_RATE_LIMIT_DEFAULTS; seeded: string[] }> {
   const seeded: string[] = []
 
   // ---- API section ----
   const apiRef = adminDb.collection(CONFIG).doc('api')
   const apiSnap = await apiRef.get()
-  let api = API_DEFAULTS
+  let api = API_RATE_LIMIT_DEFAULTS
   if (!apiSnap.exists) {
-    await apiRef.set({ entries: API_DEFAULTS, seededFrom: 'call-site defaults', updatedAt: FieldValue.serverTimestamp() })
+    await apiRef.set({ entries: API_RATE_LIMIT_DEFAULTS, seededFrom: 'call-site defaults', updatedAt: FieldValue.serverTimestamp() })
     seeded.push('rate_limit_config/api')
   } else {
-    const data = apiSnap.data() as { entries?: typeof API_DEFAULTS }
-    api = data.entries?.length ? data.entries : API_DEFAULTS
+    const data = apiSnap.data() as { entries?: typeof API_RATE_LIMIT_DEFAULTS }
+    api = data.entries?.length ? data.entries : API_RATE_LIMIT_DEFAULTS
   }
 
   // ---- Plans section: one config doc per plan, seeded from live plans ----
@@ -122,7 +108,7 @@ export const GET = withAuth('admin', async () => {
       const data = d.data() as { count?: number; resetAt?: number }
       const key = d.id
       const prefix = key.includes(':') ? key.split(':')[0] : key
-      const matchApi = apiByPrefix.find((a) => a.id === prefix || key.startsWith(prefix))
+      const matchApi = apiByPrefix.find((a) => a.id === prefix || (typeof a.keyPrefix === 'string' && key.startsWith(a.keyPrefix)))
       return {
         key,
         count: typeof data.count === 'number' ? data.count : 0,
@@ -176,7 +162,7 @@ interface PatchBody {
   scope: 'plan' | 'api'
   planKey?: string
   limits?: Record<string, number>
-  apiEntries?: typeof API_DEFAULTS
+  apiEntries?: typeof API_RATE_LIMIT_DEFAULTS
 }
 
 export const PATCH = withAuth('admin', async (req: NextRequest, user) => {
