@@ -3,10 +3,11 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
+import type { PaymentInstructions } from '@/lib/invoices/types'
 import { INTERVAL_LABELS, RecurrenceInterval } from '@/lib/invoices/recurring'
 import { scopedApiPath, scopedPortalPath, scopeFromSearchParams } from '@/lib/portal/scoped-routing'
 
-type InvoiceStatus = 'draft' | 'sent' | 'viewed' | 'paid' | 'overdue' | 'cancelled'
+type InvoiceStatus = 'draft' | 'sent' | 'viewed' | 'payment_pending_verification' | 'paid' | 'partially_paid' | 'overdue' | 'cancelled'
 
 interface Invoice {
   id: string
@@ -54,7 +55,9 @@ const STATUS_MAP: Record<InvoiceStatus, { label: string; color: string }> = {
   draft:     { label: 'Draft',     color: 'var(--color-outline)' },
   sent:      { label: 'Sent',      color: '#60a5fa' },
   viewed:    { label: 'Viewed',    color: '#c084fc' },
+  payment_pending_verification: { label: 'Payment review', color: '#facc15' },
   paid:      { label: 'Paid',      color: '#4ade80' },
+  partially_paid: { label: 'Partially paid', color: '#34d399' },
   overdue:   { label: 'Overdue',   color: '#ef4444' },
   cancelled: { label: 'Cancelled', color: 'var(--color-outline)' },
 }
@@ -133,6 +136,12 @@ export default function InvoiceDetailPage() {
   const [recurringStartDate, setRecurringStartDate] = useState('')
   const [recurringEndDate, setRecurringEndDate] = useState('')
   const [savingRecurring, setSavingRecurring] = useState(false)
+  const [paymentInstructions, setPaymentInstructions] = useState<PaymentInstructions | null>(null)
+  const [paymentInstructionsError, setPaymentInstructionsError] = useState<string | null>(null)
+  const [paymentProofFile, setPaymentProofFile] = useState<File | null>(null)
+  const [paymentProofNote, setPaymentProofNote] = useState('')
+  const [uploadingPaymentProof, setUploadingPaymentProof] = useState(false)
+  const [paymentProofMessage, setPaymentProofMessage] = useState<string | null>(null)
 
   useEffect(() => {
     Promise.all([
@@ -150,6 +159,35 @@ export default function InvoiceDetailPage() {
       setLoading(false)
     }).catch(() => setLoading(false))
   }, [id, orgScope, searchParams])
+
+  useEffect(() => {
+    if (!invoice || ['draft', 'paid', 'cancelled'].includes(invoice.status)) {
+      setPaymentInstructions(null)
+      setPaymentInstructionsError(null)
+      return
+    }
+
+    let cancelled = false
+    fetch(scopedApiPath(`/api/v1/invoices/${id}/payment-instructions`, orgScope))
+      .then(async (response) => {
+        if (!response.ok) throw new Error('Failed to load payment instructions')
+        return response.json()
+      })
+      .then((body) => {
+        if (cancelled) return
+        setPaymentInstructions((body?.data ?? null) as PaymentInstructions | null)
+        setPaymentInstructionsError(null)
+      })
+      .catch(() => {
+        if (cancelled) return
+        setPaymentInstructions(null)
+        setPaymentInstructionsError('Payment instructions are unavailable right now.')
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [id, invoice, orgScope])
 
   async function updateStatus(status: InvoiceStatus) {
     if (!invoice) return
@@ -199,6 +237,56 @@ export default function InvoiceDetailPage() {
     window.print()
   }
 
+  async function handleUploadPaymentProof() {
+    if (!invoice || !paymentProofFile) return
+
+    setUploadingPaymentProof(true)
+    setPaymentProofMessage(null)
+
+    try {
+      const formData = new FormData()
+      formData.append('file', paymentProofFile)
+      formData.append('note', paymentProofNote)
+
+      const uploadResponse = await fetch(
+        scopedApiPath(`/api/v1/portal/invoices/${id}/payment-proof-upload`, orgScope),
+        {
+          method: 'POST',
+          body: formData,
+        },
+      )
+      const uploadBody = await uploadResponse.json().catch(() => ({}))
+      if (!uploadResponse.ok) {
+        throw new Error(uploadBody?.error ?? 'Failed to upload payment proof')
+      }
+
+      const proofResponse = await fetch(
+        scopedApiPath(`/api/v1/invoices/${id}/payment-proof`, orgScope),
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            fileId: uploadBody?.data?.id,
+            note: paymentProofNote,
+          }),
+        },
+      )
+      const proofBody = await proofResponse.json().catch(() => ({}))
+      if (!proofResponse.ok) {
+        throw new Error(proofBody?.error ?? 'Failed to submit payment proof')
+      }
+
+      setInvoice((current) => current ? { ...current, status: 'payment_pending_verification' } : current)
+      setPaymentProofFile(null)
+      setPaymentProofNote('')
+      setPaymentProofMessage(null)
+    } catch (error) {
+      setPaymentProofMessage(error instanceof Error ? error.message : 'Failed to submit payment proof')
+    } finally {
+      setUploadingPaymentProof(false)
+    }
+  }
+
   async function handleCreateRecurring() {
     if (!recurringStartDate) return
     setSavingRecurring(true)
@@ -231,6 +319,8 @@ export default function InvoiceDetailPage() {
   if (!invoice) return <div className="pib-card py-12 text-center"><p className="text-on-surface-variant">Invoice not found.</p></div>
 
   const status = STATUS_MAP[invoice.status]
+  const taxLabel = invoice.currency === 'ZAR' ? 'VAT' : 'Tax'
+  const canShowPaymentWorkspace = !['draft', 'paid', 'cancelled'].includes(invoice.status)
 
   return (
     <div className="max-w-3xl mx-auto space-y-6">
@@ -311,7 +401,7 @@ export default function InvoiceDetailPage() {
             </div>
             {invoice.taxRate > 0 && (
               <div className="flex justify-between text-sm text-on-surface-variant">
-                <span>Tax ({invoice.taxRate}%)</span><span>{formatCurrencyValue(invoice.taxAmount ?? 0, invoice.currency)}</span>
+                <span>{taxLabel} ({invoice.taxRate}%)</span><span>{formatCurrencyValue(invoice.taxAmount ?? 0, invoice.currency)}</span>
               </div>
             )}
             <div className="flex justify-between text-base font-bold text-on-surface pt-1 border-t border-[var(--color-card-border)]">
@@ -328,6 +418,114 @@ export default function InvoiceDetailPage() {
           </div>
         )}
       </div>
+
+      {canShowPaymentWorkspace && (
+        <div className="pib-card space-y-4">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <p className="text-sm font-medium text-on-surface">EFT payment</p>
+              <p className="text-xs text-on-surface-variant mt-0.5">
+                Use the invoice number as the EFT reference, then upload proof so finance can verify it.
+              </p>
+            </div>
+            {paymentInstructions?.publicViewUrl ? (
+              <a
+                href={paymentInstructions.publicViewUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="pib-btn-secondary text-xs font-label"
+              >
+                Open public invoice
+              </a>
+            ) : null}
+          </div>
+
+          {paymentInstructionsError ? (
+            <p className="text-sm text-red-300">{paymentInstructionsError}</p>
+          ) : paymentInstructions ? (
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="rounded-[var(--radius-card)] border border-[var(--color-card-border)] bg-white/[0.02] p-4">
+                <p className="text-[9px] font-label uppercase tracking-widest text-on-surface-variant">Bank details</p>
+                <dl className="mt-3 space-y-2 text-sm text-on-surface">
+                  <div className="flex items-start justify-between gap-4">
+                    <dt className="text-on-surface-variant">Bank</dt>
+                    <dd>{paymentInstructions.eft.bankingDetails.bankName ?? '—'}</dd>
+                  </div>
+                  <div className="flex items-start justify-between gap-4">
+                    <dt className="text-on-surface-variant">Account name</dt>
+                    <dd>{paymentInstructions.eft.bankingDetails.accountName ?? '—'}</dd>
+                  </div>
+                  <div className="flex items-start justify-between gap-4">
+                    <dt className="text-on-surface-variant">Account number</dt>
+                    <dd>{paymentInstructions.eft.bankingDetails.accountNumber ?? '—'}</dd>
+                  </div>
+                  <div className="flex items-start justify-between gap-4">
+                    <dt className="text-on-surface-variant">Branch code</dt>
+                    <dd>{paymentInstructions.eft.bankingDetails.branchCode ?? '—'}</dd>
+                  </div>
+                  <div className="flex items-start justify-between gap-4">
+                    <dt className="text-on-surface-variant">Reference</dt>
+                    <dd>{paymentInstructions.eft.reference}</dd>
+                  </div>
+                </dl>
+              </div>
+
+              <div className="rounded-[var(--radius-card)] border border-[var(--color-card-border)] bg-white/[0.02] p-4 space-y-3">
+                <div>
+                  <p className="text-[9px] font-label uppercase tracking-widest text-on-surface-variant">Proof upload</p>
+                  <p className="mt-2 text-sm text-on-surface-variant">
+                    Send proof to {paymentInstructions.eft.proofOfPaymentEmail} or attach it here for verification.
+                  </p>
+                </div>
+
+                {invoice.status === 'payment_pending_verification' ? (
+                  <p className="rounded-[var(--radius-card)] border border-amber-300/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-100">
+                    Payment proof submitted. Finance is reviewing it now.
+                  </p>
+                ) : null}
+
+                <label className="block text-xs text-on-surface-variant">
+                  Upload payment proof
+                  <input
+                    type="file"
+                    accept="image/*,application/pdf"
+                    aria-label="Upload payment proof"
+                    onChange={(event) => setPaymentProofFile(event.target.files?.[0] ?? null)}
+                    className="pib-input mt-1 w-full"
+                  />
+                </label>
+
+                <label className="block text-xs text-on-surface-variant">
+                  Payment note
+                  <textarea
+                    aria-label="Payment note"
+                    value={paymentProofNote}
+                    onChange={(event) => setPaymentProofNote(event.target.value)}
+                    className="pib-textarea mt-1 w-full"
+                    rows={3}
+                    placeholder="Add a payment reference, sending account, or anything finance should verify."
+                  />
+                </label>
+
+                <button
+                  type="button"
+                  onClick={handleUploadPaymentProof}
+                  disabled={!paymentProofFile || uploadingPaymentProof}
+                  className="pib-btn-primary text-sm font-label disabled:opacity-60"
+                >
+                  {uploadingPaymentProof ? 'Submitting proof…' : 'Submit proof of payment'}
+                </button>
+
+                {paymentProofMessage ? (
+                  <p className="text-sm text-on-surface">{paymentProofMessage}</p>
+                ) : null}
+              </div>
+            </div>
+          ) : (
+            <Skeleton className="h-48" />
+          )}
+        </div>
+      )}
 
       {/* Actions */}
       {invoice.status !== 'paid' && invoice.status !== 'cancelled' && (

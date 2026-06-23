@@ -6,8 +6,8 @@
  * Transitions invoice to `payment_pending_verification` and notifies admins.
  * The admin then calls `POST /confirm-payment` to finalise or reject.
  *
- * Auth: admin (ai satisfies). Clients uploading proof go through the admin
- * API proxy (see public invoice view page flow).
+ * Auth: admin/client (ai satisfies). Portal clients use the same route after
+ * the upload route stores the proof file in `uploads`.
  */
 import { FieldValue } from 'firebase-admin/firestore'
 import { adminDb } from '@/lib/firebase/admin'
@@ -20,7 +20,7 @@ export const dynamic = 'force-dynamic'
 
 type RouteContext = { params: Promise<{ id: string }> }
 
-export const POST = withAuth('admin', async (req, user, ctx) => {
+export const POST = withAuth('client', async (req, user, ctx) => {
   const { id } = await (ctx as RouteContext).params
   const body = await req.json().catch(() => ({}))
 

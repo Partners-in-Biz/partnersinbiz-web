@@ -19,6 +19,7 @@ interface Invoice {
   currency: string
   issueDate?: unknown
   dueDate?: unknown
+  taxRate?: number
 }
 
 interface Quote {
@@ -268,7 +269,12 @@ export default function PaymentsPage() {
                   </div>
                   <div className="md:col-span-2"><p className="text-sm text-[var(--color-pib-text-muted)]">{formatDate(invoice.issueDate)}</p></div>
                   <div className="md:col-span-2"><p className="text-sm text-[var(--color-pib-text-muted)]">{formatDate(invoice.dueDate)}</p></div>
-                  <div className="md:col-span-2"><p className="text-sm font-display text-lg">{formatCurrency(invoice.total ?? 0, invoice.currency ?? 'ZAR')}</p></div>
+                  <div className="md:col-span-2">
+                    <p className="text-sm font-display text-lg">{formatCurrency(invoice.total ?? 0, invoice.currency ?? 'ZAR')}</p>
+                    {typeof invoice.taxRate === 'number' && invoice.taxRate > 0 ? (
+                      <p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">VAT {invoice.taxRate}%</p>
+                    ) : null}
+                  </div>
                   <div className="col-span-2 md:col-span-2">
                     {invoice.status === 'paid' ? (
                       <span className={INVOICE_STATUS_PILL[invoice.status] ?? 'pib-pill'}>
@@ -302,10 +308,21 @@ export default function PaymentsPage() {
                     )}
                   </div>
                   <div className="col-span-2 md:col-span-1 flex md:justify-end">
-                    <a href={scopedApiPath(`/api/v1/invoices/${invoice.id}/pdf`, orgScope)} target="_blank" rel="noopener noreferrer" className="text-xs text-[var(--color-pib-accent-hover)] hover:text-[var(--color-pib-accent)] inline-flex items-center gap-1 font-mono uppercase tracking-widest" aria-label={`Download ${invoice.invoiceNumber} PDF`}>
-                      PDF
-                      <span className="material-symbols-outlined text-sm">arrow_outward</span>
-                    </a>
+                    <div className="flex items-center gap-3">
+                      {invoice.status !== 'draft' ? (
+                        <Link
+                          href={scopedPortalPath(`/portal/invoicing/${invoice.id}`, orgScope)}
+                          className="text-xs text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] inline-flex items-center gap-1 font-mono uppercase tracking-widest"
+                          aria-label={`Open invoice ${invoice.invoiceNumber}`}
+                        >
+                          Open
+                        </Link>
+                      ) : null}
+                      <a href={scopedApiPath(`/api/v1/invoices/${invoice.id}/pdf`, orgScope)} target="_blank" rel="noopener noreferrer" className="text-xs text-[var(--color-pib-accent-hover)] hover:text-[var(--color-pib-accent)] inline-flex items-center gap-1 font-mono uppercase tracking-widest" aria-label={`Download ${invoice.invoiceNumber} PDF`}>
+                        PDF
+                        <span className="material-symbols-outlined text-sm">arrow_outward</span>
+                      </a>
+                    </div>
                   </div>
                 </div>
               ))}
