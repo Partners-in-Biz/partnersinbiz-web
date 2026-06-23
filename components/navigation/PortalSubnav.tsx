@@ -79,7 +79,7 @@ function DropdownItem({ item, pathname }: { item: PortalSubnavItem; pathname: st
       {open ? (
         <div
           role="menu"
-          className="absolute left-0 top-full z-40 mt-1 min-w-[220px] overflow-hidden rounded-xl border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] py-1 shadow-2xl"
+          className="absolute left-0 top-full z-50 mt-1 min-w-[220px] overflow-hidden rounded-xl border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] py-1 shadow-2xl"
         >
           {item.children?.map((child) => {
             const childActive = linkIsActive(child, pathname)
@@ -130,7 +130,7 @@ export function PortalSubnav({ ariaLabel, items, pathname, className }: PortalSu
   if (!items.length) return null
 
   return (
-    <div className={cn('shrink-0 border-b border-[var(--color-pib-line)] bg-[var(--color-pib-bg)]/95 backdrop-blur-md', className)}>
+    <div className={cn('sticky top-14 z-40 shrink-0 border-b border-[var(--color-pib-line)] bg-[var(--color-pib-bg)]/95 backdrop-blur-md', className)}>
       <nav aria-label={ariaLabel} className="mx-auto flex min-h-12 w-full max-w-[1400px] flex-wrap items-center gap-1 px-4 py-1.5 md:px-8">
         {items.map((item) => (
           item.children?.length
