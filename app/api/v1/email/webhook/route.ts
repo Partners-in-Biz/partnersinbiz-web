@@ -31,6 +31,10 @@ import {
   temporaryExpiryFromNow,
   type SuppressionReason,
 } from '@/lib/email/suppressions'
+import {
+  recordSoftBounce,
+  SOFT_BOUNCE_ESCALATION_THRESHOLD,
+} from '@/lib/email/bounceTracking'
 
 // Resend webhook signature verification uses svix.
 // Set RESEND_WEBHOOK_SECRET (format: whsec_xxxx) in env to verify signatures.
@@ -164,7 +168,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       .toString()
       .toLowerCase()
 
-    const isHard = rawBounceType === 'permanent' || rawBounceType === 'hard'
+    const isHardReported = rawBounceType === 'permanent' || rawBounceType === 'hard'
     // Treat anything explicitly transient/soft as soft; undetermined → soft.
     const isSoft =
       rawBounceType === 'transient' ||
@@ -172,14 +176,48 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       rawBounceType === 'undetermined' ||
       rawBounceType === ''
 
+    // US-112 — soft-bounce aggregation.
+    // A single soft bounce is recoverable (24h temporary hold). But a recipient
+    // that soft-bounces repeatedly is effectively undeliverable, so we track a
+    // durable per-(org,email) counter and ESCALATE the Nth soft bounce within a
+    // rolling window to a hard bounce: permanent suppression + contact.bouncedAt.
+    // Hard bounces reported directly by Resend bypass the counter entirely.
+    let escalatedFromSoft = false
+    if (isSoft && !isHardReported && emailOrgId && bouncedEmail) {
+      try {
+        const tracking = await recordSoftBounce({
+          orgId: emailOrgId,
+          email: bouncedEmail,
+          emailId: resendEmailId,
+        })
+        // Duplicate webhook deliveries (same provider emailId) don't re-count
+        // and must not escalate.
+        escalatedFromSoft = tracking.escalate && !tracking.duplicate
+      } catch (err) {
+        console.error(
+          '[email/webhook] soft-bounce tracking failed',
+          { emailOrgId, bouncedEmail },
+          err,
+        )
+      }
+    }
+
+    // `isHard` is the effective hard-bounce decision: either Resend reported a
+    // permanent bounce, OR a soft bounce just escalated past the threshold.
+    const isHard = isHardReported || escalatedFromSoft
+
     await docRef.update({
       status: 'failed',
-      // Only stamp bouncedAt for hard bounces — soft bounces are recoverable.
+      // Only stamp bouncedAt on the email doc for hard (or escalated) bounces —
+      // a single soft bounce is recoverable.
       ...(isHard ? { bouncedAt: FieldValue.serverTimestamp() } : {}),
     })
+    // Both soft and hard bounces increment stats.bounced exactly once. An
+    // escalation does NOT double-count: the escalating delivery is still a
+    // single bounce event, now recorded as a hard bounce.
     campaignStatField = 'stats.bounced'
 
-    // Only hard bounces poison the contact record.
+    // Only hard (or escalated) bounces poison the contact record.
     if (isHard && contactId) {
       try {
         await adminDb.collection('contacts').doc(contactId).update({
@@ -190,10 +228,19 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       }
     }
 
-    // Add to suppression list. Hard → permanent; soft → 24h temporary.
+    // Add to suppression list.
+    //   • Resend hard bounce        → permanent, reason 'hard-bounce'
+    //   • Escalated soft bounce      → permanent, reason 'soft-bounce-escalated'
+    //   • Single soft bounce         → 24h temporary, reason 'soft-bounce'
+    // addSuppression is idempotent and upgrades temporary→permanent, so the
+    // final escalating soft bounce cleanly promotes any existing temporary row.
     if (emailOrgId && bouncedEmail) {
       try {
-        const reason: SuppressionReason = isHard ? 'hard-bounce' : 'soft-bounce'
+        const reason: SuppressionReason = isHardReported
+          ? 'hard-bounce'
+          : escalatedFromSoft
+            ? 'soft-bounce-escalated'
+            : 'soft-bounce'
         await addSuppression({
           orgId: emailOrgId,
           email: bouncedEmail,
@@ -212,6 +259,12 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
           },
           createdBy: 'system',
         })
+        if (escalatedFromSoft) {
+          console.warn(
+            `[email/webhook] soft bounce escalated to hard after ${SOFT_BOUNCE_ESCALATION_THRESHOLD} bounces`,
+            { emailOrgId, bouncedEmail },
+          )
+        }
       } catch (err) {
         console.error(
           '[email/webhook] failed to add bounce suppression',

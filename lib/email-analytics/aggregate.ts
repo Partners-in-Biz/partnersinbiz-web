@@ -100,6 +100,49 @@ export interface BroadcastDetailedStats {
   unsubReasons: Record<string, number>
 }
 
+export interface CampaignContactActivityRow {
+  contactId: string
+  email: string
+  name: string
+  sent: number
+  delivered: number
+  opened: number
+  clicked: number
+  bounced: number
+  lastEngagedAt: string | null
+  status: 'opened' | 'clicked' | 'bounced' | 'delivered' | 'sent' | 'none'
+}
+
+export interface CampaignDetailedStats {
+  campaignId: string
+  name: string
+  stats: {
+    audienceSize: number
+    enrolled: number
+    sent: number
+    delivered: number
+    opened: number // UNIQUE opens (distinct contacts who opened)
+    clicked: number // UNIQUE clicks (distinct contacts who clicked)
+    hardBounced: number
+    softBounced: number
+    bounced: number // hard + soft
+    unsubscribed: number
+  }
+  rates: {
+    deliveryRate: number
+    openRate: number
+    clickRate: number
+    ctrOnOpens: number
+    bounceRate: number
+    hardBounceRate: number
+    unsubRate: number
+  }
+  timeline: Array<{ date: string; sent: number; opened: number; clicked: number }>
+  topClicks: Array<{ url: string; clicks: number }>
+  topDomains: Array<{ domain: string; sent: number; opened: number; openRate: number }>
+  contactActivity: CampaignContactActivityRow[]
+}
+
 export interface SequenceDetailedStats {
   sequenceId: string
   sequence: {
@@ -703,6 +746,261 @@ export async function getBroadcastStats(
     topClicks: topClicks.slice(0, 10),
     topDomains,
     unsubReasons: {},
+  }
+}
+
+// ── Campaign detail ─────────────────────────────────────────────────────────
+
+/**
+ * Per-campaign analytics. Aggregates the `emails` collection filtered by
+ * `campaignId == id`, mirroring getBroadcastStats but computing UNIQUE opens /
+ * clicks (distinct contacts) and splitting hard vs soft bounces.
+ *
+ * Bounce classification (matches the webhook writes):
+ *   - hard bounce: email.bouncedAt is set (permanent or escalated soft bounce)
+ *   - soft bounce: email.status === 'failed' AND no bouncedAt
+ */
+export async function getCampaignStats(
+  orgId: string,
+  campaignId: string,
+): Promise<CampaignDetailedStats> {
+  const cSnap = await adminDb.collection('campaigns').doc(campaignId).get()
+  if (!cSnap.exists || cSnap.data()?.deleted === true || cSnap.data()?.orgId !== orgId) {
+    throw new Error('Campaign not found')
+  }
+  const campaign = { id: cSnap.id, ...cSnap.data() } as Campaign
+  const enrolled = campaign.stats?.enrolled ?? 0
+
+  // Per-email pull, scoped to this campaign.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const emailsSnap: any = await (adminDb.collection('emails') as any)
+    .where('orgId', '==', orgId)
+    .where('campaignId', '==', campaignId)
+    .limit(MAX_EMAILS_PER_QUERY)
+    .get()
+  const emails: Email[] = emailsSnap.docs
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    .map((d: any) => ({ id: d.id, ...d.data() } as Email))
+    .filter((e: Email) => e.deleted !== true)
+
+  // Totals
+  let sent = 0
+  let delivered = 0
+  let hardBounced = 0
+  let softBounced = 0
+
+  // Unique opens / clicks tracked by distinct contact (fall back to email id
+  // when a contact isn't linked so one-off rows still count once).
+  const openedContacts = new Set<string>()
+  const clickedContacts = new Set<string>()
+
+  // Timeline by day + domain rollup.
+  const timelineMap = new Map<string, { sent: number; opened: number; clicked: number }>()
+  const domainMap = new Map<string, { sent: number; opened: number }>()
+
+  // Per-contact activity.
+  type ContactAgg = {
+    email: string
+    sent: number
+    delivered: number
+    opened: number
+    clicked: number
+    bounced: number
+    lastEngagedMs: number | null
+  }
+  const contactAgg = new Map<string, ContactAgg>()
+
+  for (const e of emails) {
+    sent += 1
+    const isHard = !!e.bouncedAt
+    const isSoft = !isHard && e.status === 'failed'
+    if (isHard) hardBounced += 1
+    if (isSoft) softBounced += 1
+    if (emailIsDelivered(e)) delivered += 1
+
+    const key = e.contactId || `email:${e.id}`
+    if (emailIsOpened(e)) openedContacts.add(key)
+    if (emailIsClicked(e)) clickedContacts.add(key)
+
+    const ms = tsToMs(e.sentAt)
+    if (ms !== null) {
+      const dk = dayKey(ms)
+      const slot = timelineMap.get(dk) ?? { sent: 0, opened: 0, clicked: 0 }
+      slot.sent += 1
+      if (emailIsOpened(e)) slot.opened += 1
+      if (emailIsClicked(e)) slot.clicked += 1
+      timelineMap.set(dk, slot)
+    }
+
+    const at = (e.to ?? '').split('@')[1]?.toLowerCase().trim()
+    if (at) {
+      const dslot = domainMap.get(at) ?? { sent: 0, opened: 0 }
+      dslot.sent += 1
+      if (emailIsOpened(e)) dslot.opened += 1
+      domainMap.set(at, dslot)
+    }
+
+    // Per-contact activity (skip rows with no contact link).
+    if (e.contactId) {
+      const ca = contactAgg.get(e.contactId) ?? {
+        email: e.to ?? '',
+        sent: 0,
+        delivered: 0,
+        opened: 0,
+        clicked: 0,
+        bounced: 0,
+        lastEngagedMs: null,
+      }
+      ca.email = ca.email || (e.to ?? '')
+      ca.sent += 1
+      if (emailIsDelivered(e)) ca.delivered += 1
+      if (emailIsOpened(e)) {
+        ca.opened += 1
+        const ems = tsToMs(e.openedAt) ?? tsToMs(e.clickedAt) ?? ms
+        if (ems !== null) ca.lastEngagedMs = Math.max(ca.lastEngagedMs ?? 0, ems)
+      }
+      if (emailIsClicked(e)) {
+        ca.clicked += 1
+        const ems = tsToMs(e.clickedAt) ?? ms
+        if (ems !== null) ca.lastEngagedMs = Math.max(ca.lastEngagedMs ?? 0, ems)
+      }
+      if (isHard || isSoft) ca.bounced += 1
+      contactAgg.set(e.contactId, ca)
+    }
+  }
+
+  const opened = openedContacts.size
+  const clicked = clickedContacts.size
+  const bounced = hardBounced + softBounced
+
+  // Unsubscribes attributed to this campaign — count contacts on the campaign
+  // audience that unsubscribed after enrollment. We approximate using the
+  // pre-aggregated campaign.stats.unsubscribed (bumped by the webhook), which
+  // is the source of truth the campaign doc carries.
+  const unsubscribed = campaign.stats?.unsubscribed ?? 0
+
+  const timeline = Array.from(timelineMap.entries())
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([date, v]) => ({ date, ...v }))
+
+  const topDomains = Array.from(domainMap.entries())
+    .map(([domain, v]) => ({
+      domain,
+      sent: v.sent,
+      opened: v.opened,
+      openRate: safeRate(v.opened, v.sent),
+    }))
+    .sort((a, b) => b.sent - a.sent)
+    .slice(0, 10)
+
+  // Top clicks — same approach as broadcasts: shortened links whose code
+  // appears in the campaign's sequence step bodies. Campaigns don't carry a
+  // single bodyHtml, so we match links against ALL org links and rank by
+  // clickCount (best-effort; campaigns route engagement through sequences).
+  const topClicks: Array<{ url: string; clicks: number }> = []
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const linksSnap: any = await (adminDb.collection('shortened_links') as any)
+      .where('orgId', '==', orgId)
+      .where('campaignId', '==', campaignId)
+      .get()
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    for (const d of linksSnap.docs) {
+      const l = d.data()
+      topClicks.push({ url: (l.originalUrl as string) ?? '', clicks: (l.clickCount as number) ?? 0 })
+    }
+  } catch {
+    // shortened_links may lack a campaignId index — empty list is fine.
+  }
+  topClicks.sort((a, b) => b.clicks - a.clicks)
+
+  // Contact activity rows — newest engagement first.
+  const contactActivity: CampaignContactActivityRow[] = Array.from(contactAgg.entries())
+    .map(([contactId, ca]) => {
+      let status: CampaignContactActivityRow['status'] = 'none'
+      if (ca.clicked > 0) status = 'clicked'
+      else if (ca.opened > 0) status = 'opened'
+      else if (ca.bounced > 0) status = 'bounced'
+      else if (ca.delivered > 0) status = 'delivered'
+      else if (ca.sent > 0) status = 'sent'
+      return {
+        contactId,
+        email: ca.email,
+        name: '',
+        sent: ca.sent,
+        delivered: ca.delivered,
+        opened: ca.opened,
+        clicked: ca.clicked,
+        bounced: ca.bounced,
+        lastEngagedAt: ca.lastEngagedMs !== null ? new Date(ca.lastEngagedMs).toISOString() : null,
+        status,
+      }
+    })
+    .sort((a, b) => {
+      const at = a.lastEngagedAt ? Date.parse(a.lastEngagedAt) : 0
+      const bt = b.lastEngagedAt ? Date.parse(b.lastEngagedAt) : 0
+      if (bt !== at) return bt - at
+      return b.sent - a.sent
+    })
+
+  // Enrich contact names in one batched pass (cap to keep reads bounded).
+  const NAME_LIMIT = 500
+  const idsToName = contactActivity.slice(0, NAME_LIMIT).map((r) => r.contactId)
+  for (let i = 0; i < idsToName.length; i += FIRESTORE_IN_LIMIT) {
+    const chunk = idsToName.slice(i, i + FIRESTORE_IN_LIMIT)
+    if (chunk.length === 0) continue
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const snap: any = await (adminDb.collection('contacts') as any)
+        .where('orgId', '==', orgId)
+        .where('__name__', 'in', chunk)
+        .get()
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const nameById = new Map<string, string>()
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      for (const d of snap.docs) {
+        const c = d.data() as Contact
+        nameById.set(d.id, c.name ?? '')
+      }
+      for (const row of contactActivity) {
+        if (nameById.has(row.contactId)) row.name = nameById.get(row.contactId) ?? ''
+      }
+    } catch {
+      // __name__ in queries can fail on some deployments — leave names blank.
+    }
+  }
+
+  const audienceSize = Math.max(enrolled, contactAgg.size)
+  const denom = delivered || sent
+
+  return {
+    campaignId,
+    name: campaign.name ?? 'Untitled campaign',
+    stats: {
+      audienceSize,
+      enrolled,
+      sent,
+      delivered,
+      opened,
+      clicked,
+      hardBounced,
+      softBounced,
+      bounced,
+      unsubscribed,
+    },
+    rates: {
+      deliveryRate: safeRate(delivered, sent),
+      openRate: safeRate(opened, denom),
+      clickRate: safeRate(clicked, denom),
+      ctrOnOpens: safeRate(clicked, opened),
+      bounceRate: safeRate(bounced, sent),
+      hardBounceRate: safeRate(hardBounced, sent),
+      unsubRate: safeRate(unsubscribed, denom),
+    },
+    timeline,
+    topClicks: topClicks.slice(0, 10),
+    topDomains,
+    contactActivity,
   }
 }
 

@@ -39,6 +39,7 @@ export const POST = withAuth('admin', async (req: NextRequest, user: ApiUser) =>
   if (!propertyId) return apiError('propertyId is required', 400)
   if (!name?.trim()) return apiError('name is required', 400)
   if (!Array.isArray(steps) || steps.length < 2) return apiError('At least 2 steps required', 400)
+  if (steps.length > 8) return apiError('A funnel can have at most 8 steps', 400)
   if (win && !VALID_FUNNEL_WINDOWS.includes(win)) return apiError('Invalid window', 400)
 
   try {

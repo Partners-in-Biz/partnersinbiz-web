@@ -111,6 +111,115 @@ export interface IngestResult {
   errors: string[]
 }
 
+// ---------------------------------------------------------------------------
+// Segment filters (US-133, US-143) — applied to product_sessions/product_events
+// ---------------------------------------------------------------------------
+
+export type SegmentVisitorType = 'all' | 'new' | 'returning'
+
+export interface AnalyticsSegment {
+  /** new vs returning visitor (derived from distinctId session count) */
+  visitorType?: SegmentVisitorType
+  /** device class filter */
+  device?: DeviceType | null
+  /** utmSource exact-match filter */
+  source?: string | null
+  /** ISO country code filter */
+  country?: string | null
+  /** CRM dynamic-segment id (resolves to a set of distinctIds via userId) */
+  crmSegmentId?: string | null
+}
+
+export const VALID_VISITOR_TYPES: SegmentVisitorType[] = ['all', 'new', 'returning']
+
+// ---------------------------------------------------------------------------
+// Conversion goals (US-128, US-142)
+// ---------------------------------------------------------------------------
+
+export type GoalType = 'event' | 'pageview' | 'duration'
+
+export interface AnalyticsGoal {
+  id: string
+  orgId: string
+  propertyId: string
+  name: string
+  type: GoalType
+  /** event name (type=event) or page-URL match (type=pageview) */
+  target: string
+  /** min seconds (type=duration) */
+  minDuration?: number | null
+  /** monetary value in ZAR credited per completion (US-142) */
+  value: number
+  active: boolean
+  createdAt: unknown
+  updatedAt: unknown
+}
+
+// ---------------------------------------------------------------------------
+// Custom event registry (US-130)
+// ---------------------------------------------------------------------------
+
+export interface CustomEventDef {
+  id: string
+  orgId: string
+  propertyId: string
+  /** event name as fired via .track() */
+  name: string
+  description: string
+  /** documented property keys */
+  properties: string[]
+  createdAt: unknown
+  updatedAt: unknown
+}
+
+// ---------------------------------------------------------------------------
+// Scheduled reports (US-135)
+// ---------------------------------------------------------------------------
+
+export type ReportFrequency = 'weekly' | 'monthly'
+
+export interface ScheduledReport {
+  id: string
+  orgId: string
+  propertyId: string
+  name: string
+  frequency: ReportFrequency
+  metrics: string[]
+  recipients: string[]
+  active: boolean
+  lastRunAt: unknown | null
+  createdAt: unknown
+  updatedAt: unknown
+}
+
+export interface ReportRun {
+  id: string
+  reportId: string
+  propertyId: string
+  ranAt: unknown
+  rangeFrom: string
+  rangeTo: string
+  recipients: string[]
+  status: 'sent' | 'failed'
+  metrics: Record<string, number>
+  error?: string | null
+}
+
+// ---------------------------------------------------------------------------
+// Attribution (US-146)
+// ---------------------------------------------------------------------------
+
+export type AttributionModel = 'last' | 'first' | 'linear' | 'time_decay'
+
+export const VALID_ATTRIBUTION_MODELS: AttributionModel[] = ['last', 'first', 'linear', 'time_decay']
+
+export interface Touchpoint {
+  source: string
+  medium: string
+  campaign: string
+  timestamp: number
+}
+
 export type RetentionGranularity = 'day' | 'week'
 
 export interface RetentionCohortRow {

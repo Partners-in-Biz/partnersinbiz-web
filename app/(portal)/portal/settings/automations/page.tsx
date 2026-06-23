@@ -316,14 +316,32 @@ export default function AutomationsPage() {
             Design, monitor, and tune the CRM rules that react to contact and deal movement without leaving gaps in follow-up.
           </p>
         </div>
-        <Link
-          href={automationHref('/portal/settings/automations/new')}
-          className="btn-pib-accent flex w-fit shrink-0 items-center gap-1.5 text-sm"
-          aria-label="New automation"
-        >
-          <span className="material-symbols-outlined text-[16px]" aria-hidden="true">add</span>
-          New automation
-        </Link>
+        <div className="flex w-fit shrink-0 flex-wrap items-center gap-2">
+          <Link
+            href={automationHref('/portal/settings/automations/sequences/new')}
+            className="btn-pib-secondary flex items-center gap-1.5 text-sm"
+            aria-label="New email sequence"
+          >
+            <span className="material-symbols-outlined text-[16px]" aria-hidden="true">send_time_extension</span>
+            Email sequence
+          </Link>
+          <Link
+            href={automationHref('/portal/settings/automations/rss')}
+            className="btn-pib-secondary flex items-center gap-1.5 text-sm"
+            aria-label="RSS digest automations"
+          >
+            <span className="material-symbols-outlined text-[16px]" aria-hidden="true">rss_feed</span>
+            RSS digest
+          </Link>
+          <Link
+            href={automationHref('/portal/settings/automations/new')}
+            className="btn-pib-accent flex items-center gap-1.5 text-sm"
+            aria-label="New automation"
+          >
+            <span className="material-symbols-outlined text-[16px]" aria-hidden="true">add</span>
+            New automation
+          </Link>
+        </div>
       </div>
 
       {!fetchError && (

@@ -85,15 +85,30 @@ export const PUT = withAuth('client', async (req: NextRequest, user: ApiUser, co
     return apiError(`Cannot edit a campaign with status=${current.status}`, 422)
   }
 
-  const editable: Partial<Campaign> = {}
+  // Email-builder fields (subject, previewText, emailDocument, exclusion list,
+  // recipient tag) are stored on the campaign doc but are not yet part of the
+  // strict Campaign type — see lib/campaigns/types.ts. They are persisted here
+  // alongside the typed editable fields.
+  const editable: Record<string, unknown> = {}
   if (typeof body.name === 'string') editable.name = body.name.trim()
   if (typeof body.description === 'string') editable.description = body.description
+  if (typeof body.subject === 'string') editable.subject = body.subject
+  if (typeof body.previewText === 'string') editable.previewText = body.previewText
+  if (body.emailDocument && typeof body.emailDocument === 'object') {
+    editable.emailDocument = body.emailDocument
+  }
   if (typeof body.fromDomainId === 'string') editable.fromDomainId = body.fromDomainId
   if (typeof body.fromName === 'string') editable.fromName = body.fromName
   if (typeof body.fromLocal === 'string') editable.fromLocal = body.fromLocal
   if (typeof body.replyTo === 'string') editable.replyTo = body.replyTo
   if (typeof body.segmentId === 'string') editable.segmentId = body.segmentId
+  if (typeof body.tagId === 'string') editable.tagId = body.tagId
   if (Array.isArray(body.contactIds)) editable.contactIds = body.contactIds
+  if (Array.isArray(body.exclusionContactIds)) {
+    editable.exclusionContactIds = body.exclusionContactIds.filter(
+      (v: unknown): v is string => typeof v === 'string',
+    )
+  }
   if (typeof body.sequenceId === 'string') {
     if (body.sequenceId) {
       const seqSnap = await adminDb.collection('sequences').doc(body.sequenceId).get()

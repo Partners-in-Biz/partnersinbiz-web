@@ -6,6 +6,7 @@ import { scopedPortalPath, type PortalOrgRouteScope } from '@/lib/portal/scoped-
 export type PortalSeoSearchParams = {
   orgId?: string
   orgSlug?: string
+  sprintId?: string
 }
 
 export type PortalSeoScope = {

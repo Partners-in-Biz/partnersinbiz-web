@@ -63,6 +63,9 @@ export default async function PortalEmailCampaignPage({
       ? ({ id: domainSnap.id, ...domainSnap.data() } as EmailDomain)
       : null
 
+  const editHref = scopedPortalHref(`/portal/campaigns/email/${campaign.id}/edit`, scope)
+  const editable = campaign.status !== 'active' && campaign.status !== 'completed'
+
   return (
     <EmailCampaignDetailWorkspace
       campaign={campaign}
@@ -78,6 +81,7 @@ export default async function PortalEmailCampaignPage({
       }}
       backHref={scopedPortalHref('/portal/campaigns', scope)}
       reportHref={scopedPortalHref(`/portal/reports?campaignId=${encodeURIComponent(campaign.id)}`, scope)}
+      editHref={editable ? editHref : null}
       actions={<EmailCampaignDocumentLinker />}
     />
   )

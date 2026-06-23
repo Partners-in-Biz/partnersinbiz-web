@@ -142,9 +142,9 @@ const nextConfig: NextConfig = {
 
       // QA-P3: Email path aliases — email features live at /portal/campaigns, /portal/email-templates, etc.
       { source: '/portal/email/campaigns', destination: '/portal/campaigns', permanent: false },
-      { source: '/portal/email/campaigns/:id/design', destination: '/portal/campaigns/email/:id', permanent: false },
-      { source: '/portal/email/campaigns/:id/schedule', destination: '/portal/campaigns/email/:id', permanent: false },
-      { source: '/portal/email/campaigns/:id/analytics', destination: '/portal/campaigns/email/:id', permanent: false },
+      { source: '/portal/email/campaigns/:id/design', destination: '/portal/campaigns/email/:id/edit', permanent: false },
+      { source: '/portal/email/campaigns/:id/schedule', destination: '/portal/campaigns/email/:id/edit', permanent: false },
+      { source: '/portal/email/campaigns/:id/analytics', destination: '/portal/campaigns/email/:id/analytics', permanent: false },
       { source: '/portal/email/campaigns/:id/test-send', destination: '/portal/campaigns/email/:id', permanent: false },
       { source: '/portal/email/campaigns/:id/:path*', destination: '/portal/campaigns/email/:id', permanent: false },
       { source: '/portal/email/campaigns/:id', destination: '/portal/campaigns/email/:id', permanent: false },
@@ -154,11 +154,8 @@ const nextConfig: NextConfig = {
       { source: '/portal/email/settings/domains', destination: '/portal/email-domains', permanent: false },
       { source: '/portal/email/automations', destination: '/portal/settings/automations', permanent: false },
       { source: '/portal/email/settings/unsubscribe-page', destination: '/portal/email-preferences', permanent: false },
-      { source: '/portal/email/deliverability', destination: '/portal/email-analytics', permanent: false },
-      { source: '/portal/email/list-health', destination: '/portal/email-analytics', permanent: false },
-
-      // QA-P3: Analytics path aliases
-      { source: '/portal/analytics/realtime', destination: '/portal/analytics/live', permanent: false },
+      { source: '/portal/email/deliverability', destination: '/portal/email-deliverability', permanent: false },
+      { source: '/portal/email/list-health', destination: '/portal/email-list-health', permanent: false },
 
       // QA-P3: Portal settings path aliases — British vs American spelling + path moves
       { source: '/portal/settings/organisation', destination: '/portal/settings/organization', permanent: false },
@@ -195,26 +192,12 @@ const nextConfig: NextConfig = {
       { source: '/portal/settings/security', destination: '/portal/settings/account', permanent: false },
       { source: '/portal/settings/2fa', destination: '/portal/settings/account', permanent: false },
 
-      // QA-P3b: Analytics sub-page aliases — map to closest existing analytics routes
-      { source: '/portal/analytics/traffic', destination: '/portal/analytics', permanent: false },
-      { source: '/portal/analytics/conversions', destination: '/portal/analytics', permanent: false },
-      { source: '/portal/analytics/conversions/:path*', destination: '/portal/analytics', permanent: false },
-      { source: '/portal/analytics/settings', destination: '/portal/settings', permanent: false },
-      { source: '/portal/analytics/utm-builder', destination: '/portal/analytics', permanent: false },
-      { source: '/portal/analytics/audience', destination: '/portal/analytics/users', permanent: false },
-      { source: '/portal/analytics/heatmaps', destination: '/portal/analytics', permanent: false },
-      { source: '/portal/analytics/reports', destination: '/portal/analytics', permanent: false },
-
       // QA-P3b: SEO sub-page aliases — map to /portal/seo (sprint overview)
-      { source: '/portal/seo/keywords', destination: '/portal/seo', permanent: false },
-      { source: '/portal/seo/keywords/:path*', destination: '/portal/seo', permanent: false },
-      { source: '/portal/seo/audit', destination: '/portal/seo', permanent: false },
+      { source: '/portal/seo/keywords/:path+', destination: '/portal/seo/keywords', permanent: false },
       { source: '/portal/seo/backlinks', destination: '/portal/seo', permanent: false },
       { source: '/portal/seo/gap-analysis', destination: '/portal/seo', permanent: false },
       { source: '/portal/seo/briefs', destination: '/portal/seo', permanent: false },
       { source: '/portal/seo/reports', destination: '/portal/seo', permanent: false },
-      { source: '/portal/seo/on-page', destination: '/portal/seo', permanent: false },
-      { source: '/portal/seo/speed', destination: '/portal/seo', permanent: false },
       { source: '/portal/seo/competitors', destination: '/portal/seo', permanent: false },
       { source: '/portal/seo/settings/integrations', destination: '/portal/integrations', permanent: false },
       { source: '/portal/seo/settings/:path*', destination: '/portal/seo', permanent: false },
