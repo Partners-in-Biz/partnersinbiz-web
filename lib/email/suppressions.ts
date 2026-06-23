@@ -20,6 +20,7 @@ import { adminDb } from '@/lib/firebase/admin'
 export type SuppressionReason =
   | 'hard-bounce'
   | 'soft-bounce' // temporary — clears after 24h
+  | 'soft-bounce-escalated' // permanent — N soft bounces in a rolling window (treated as a hard bounce)
   | 'complaint' // marked as spam
   | 'manual-unsub' // user clicked unsubscribe / replied STOP
   | 'list-cleanup' // admin-removed
@@ -76,7 +77,10 @@ const REASON_PRIORITY: Record<SuppressionReason, number> = {
   'invalid-address': 3,
   'disposable-domain': 3,
   'manual-unsub': 4,
+  // soft-bounce-escalated is a permanent hard-equivalent: it must sit at the
+  // same strength as 'hard-bounce' so escalations stick.
   'hard-bounce': 5,
+  'soft-bounce-escalated': 5,
   complaint: 6,
 }
 

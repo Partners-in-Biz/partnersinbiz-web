@@ -194,6 +194,15 @@ async function createEmailCampaign(
     orgId,
     name,
     description: body.description ?? '',
+    // Email-builder fields stored on the campaign doc (not yet in the strict
+    // Campaign type — see lib/campaigns/types.ts).
+    subject: typeof body.subject === 'string' ? body.subject : '',
+    previewText: typeof body.previewText === 'string' ? body.previewText : '',
+    emailDocument: body.emailDocument && typeof body.emailDocument === 'object' ? body.emailDocument : null,
+    exclusionContactIds: Array.isArray(body.exclusionContactIds)
+      ? body.exclusionContactIds.filter((v: unknown) => typeof v === 'string')
+      : [],
+    tagId: typeof body.tagId === 'string' ? body.tagId : '',
     status: 'draft',
     fromDomainId: body.fromDomainId ?? '',
     fromName: body.fromName ?? '',

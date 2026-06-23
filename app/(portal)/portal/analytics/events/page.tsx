@@ -5,6 +5,7 @@ import { useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { AnalyticsNav } from '@/components/admin/AnalyticsNav'
 import { AnalyticsPropertyPicker } from '@/components/admin/AnalyticsPropertyPicker'
+import { FeatureGate } from '@/components/paywall/FeatureGate'
 
 interface AnalyticsEvent {
   id: string
@@ -58,6 +59,7 @@ export default function AnalyticsEventsPage() {
   }
 
   return (
+    <FeatureGate feature="analytics">
     <div className="max-w-6xl mx-auto space-y-6">
       <AnalyticsNav active="events" propertyId={propertyId} />
       <h1 className="text-xl font-headline font-bold text-on-surface">Events</h1>
@@ -124,5 +126,6 @@ export default function AnalyticsEventsPage() {
         <div className="pib-card p-8 text-center text-on-surface-variant text-sm">No events found.</div>
       )}
     </div>
+    </FeatureGate>
   )
 }

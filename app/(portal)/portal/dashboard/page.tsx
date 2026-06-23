@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import { ProfileCompleteBanner } from '@/components/settings/ProfileCompleteBanner'
+import { OnboardingChecklist } from '@/components/dashboard/OnboardingChecklist'
 import { TopCompaniesByPipelineTile } from '@/components/dashboard/TopCompaniesByPipelineTile'
 import { fmtTimestamp } from '@/lib/format/timestamp'
 import { ScheduledContentPreviewCards, type ScheduledContentPost } from '@/components/social/ScheduledContentPreviewCards'
@@ -362,8 +363,19 @@ export default function PortalDashboard() {
   })
   const [crmData, setCrmData] = useState<CrmDashboardData | null>(null)
   const [crmLoading, setCrmLoading] = useState(true)
+  const [firstName, setFirstName] = useState('')
   const scopedHref = useCallback((path: string) => scopedPortalPath(path, orgScope), [orgScope])
   const scopedApi = useCallback((path: string) => scopedApiPath(path, orgScope), [orgScope])
+
+  useEffect(() => {
+    fetch('/api/v1/portal/settings/profile')
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        const name = typeof d?.profile?.firstName === 'string' ? d.profile.firstName.trim() : ''
+        if (name) setFirstName(name)
+      })
+      .catch(() => {})
+  }, [])
 
   useEffect(() => {
     fetch(scopedApi('/api/v1/portal/org'))
@@ -498,6 +510,15 @@ export default function PortalDashboard() {
   return (
     <div className="mx-auto max-w-6xl space-y-6">
       <ProfileCompleteBanner />
+
+      <div className="rounded-xl border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] px-5 py-4">
+        <p className="eyebrow !text-[10px]">{getGreeting()}</p>
+        <p className="mt-1 font-display text-2xl tracking-tight text-[var(--color-pib-text)]">
+          {firstName ? `Welcome back, ${firstName}` : 'Welcome back'}
+        </p>
+      </div>
+
+      <OnboardingChecklist scopedHref={scopedHref} scopedApi={scopedApi} />
 
       <section className="space-y-6">
         <PageHeader

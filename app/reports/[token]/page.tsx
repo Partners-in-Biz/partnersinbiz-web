@@ -3,7 +3,9 @@
 // base64url string (~256 bits of entropy).
 
 import { notFound } from 'next/navigation'
-import { getReportByPublicToken, markReportViewed } from '@/lib/reports/generate'
+import { headers } from 'next/headers'
+import { getReportByPublicToken } from '@/lib/reports/generate'
+import { recordReportOpen } from '@/lib/reports/share'
 import ReportView from '@/components/reports/ReportView'
 
 export const dynamic = 'force-dynamic'
@@ -25,10 +27,20 @@ export default async function PublicReportPage({ params }: PageParams) {
   const { token } = await params
   const report = await getReportByPublicToken(token)
   if (!report) notFound()
-  // Fire-and-forget: mark first view.
-  if (!report.viewedAt) {
-    markReportViewed(report.id).catch(() => {})
-  }
+
+  // Record a per-open event (US-189). Deduped per visitor fingerprint so we can
+  // report total vs. unique opens. Fire-and-forget — never block the render.
+  const h = await headers()
+  const ip =
+    h.get('x-forwarded-for')?.split(',')[0]?.trim() ||
+    h.get('x-real-ip') ||
+    null
+  recordReportOpen(report.id, {
+    ip,
+    userAgent: h.get('user-agent'),
+    referer: h.get('referer'),
+  }).catch(() => {})
+
   return (
     <main className="min-h-screen bg-[#0A0A0B] text-[#EDEDED]">
       <ReportView report={report} />

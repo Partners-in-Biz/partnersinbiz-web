@@ -267,6 +267,7 @@ function parsedUrl(value: string): URL | null {
   try {
     return new URL(value)
   } catch {
+    void 0
     return null
   }
 }
@@ -408,6 +409,7 @@ function isImageUrl(url: string): boolean {
     const parsed = new URL(url)
     return /\.(png|jpe?g|gif|webp|avif)$/i.test(parsed.pathname)
   } catch {
+    void 0
     return false
   }
 }
@@ -509,6 +511,7 @@ function safeAuthUrlParts(rawUrl: string): { baseUrl: string; fullLink?: string;
       codeFromUrl,
     }
   } catch {
+    void 0
     return null
   }
 }

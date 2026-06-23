@@ -2,6 +2,7 @@
 import { sendEmail } from '@/lib/email/send'
 import { adminDb } from '@/lib/firebase/admin'
 import { FieldValue } from 'firebase-admin/firestore'
+import { segmentMembershipTag } from '@/lib/crm/segments'
 import type { AutomationAction, TriggerContext } from './types'
 
 export interface ExecuteResult {
@@ -123,6 +124,56 @@ async function executeEnrollInSequence(action: AutomationAction, context: Trigge
   await enrollContact(context.orgId, action.sequenceId, context.contactId, AGENT_PIP_REF, firstStepDelayDays)
 }
 
+async function executeAddTag(action: AutomationAction, context: TriggerContext): Promise<void> {
+  const tag = action.tag?.trim()
+  if (!tag) {
+    throw new Error('Tag is required for add_tag action')
+  }
+  if (!context.contactId) {
+    // Tags live on contacts; without a contact there is nothing to tag.
+    throw new Error('Contact is required to add a tag')
+  }
+  const ref = adminDb.collection('contacts').doc(context.contactId)
+  const snap = await ref.get()
+  if (!snap.exists || snap.data()?.orgId !== context.orgId) {
+    throw new Error('Contact not found for tag assignment')
+  }
+  await ref.update({
+    tags: FieldValue.arrayUnion(tag),
+    updatedAt: FieldValue.serverTimestamp(),
+  })
+}
+
+async function executeAssignToSegment(action: AutomationAction, context: TriggerContext): Promise<void> {
+  const segmentId = action.segmentId?.trim()
+  if (!segmentId) {
+    throw new Error('Segment is required for assign_to_segment action')
+  }
+  if (!context.contactId) {
+    throw new Error('Contact is required to assign to a segment')
+  }
+
+  // Verify the segment exists and belongs to this org before tagging.
+  const segSnap = await adminDb.collection('segments').doc(segmentId).get()
+  if (!segSnap.exists || segSnap.data()?.orgId !== context.orgId || segSnap.data()?.deleted === true) {
+    throw new Error('Segment not found for assignment')
+  }
+
+  const ref = adminDb.collection('contacts').doc(context.contactId)
+  const snap = await ref.get()
+  if (!snap.exists || snap.data()?.orgId !== context.orgId) {
+    throw new Error('Contact not found for segment assignment')
+  }
+
+  // Dynamic segments resolve membership via the canonical membership tag, so
+  // assignment is a single consistent tag write — resolveSegmentMembershipTag
+  // picks it up at resolve time.
+  await ref.update({
+    tags: FieldValue.arrayUnion(segmentMembershipTag(segmentId)),
+    updatedAt: FieldValue.serverTimestamp(),
+  })
+}
+
 export async function executeActions(
   actions: AutomationAction[],
   context: TriggerContext,
@@ -148,6 +199,12 @@ export async function executeActions(
           break
         case 'enroll_in_sequence':
           await executeEnrollInSequence(action, context)
+          break
+        case 'add_tag':
+          await executeAddTag(action, context)
+          break
+        case 'assign_to_segment':
+          await executeAssignToSegment(action, context)
           break
         default: {
           const _exhaustive: never = action.type

@@ -3,6 +3,7 @@ import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { adminAuth, adminDb } from '@/lib/firebase/admin'
 import { AdminShell } from '@/components/admin/AdminShell'
+import { AdminTwoFactorGate } from '@/components/admin/AdminTwoFactorGate'
 import { OrgProvider } from '@/lib/contexts/OrgContext'
 import { LastPathTracker } from '@/components/pwa/LastPathTracker'
 import { AdminRouteOrgSync } from '@/components/admin/AdminRouteOrgSync'
@@ -40,6 +41,7 @@ export default async function AdminLayout({
       <link rel="stylesheet" href={ADMIN_MATERIAL_SYMBOLS} />
       <OrgProvider>
         <AdminRouteOrgSync />
+        <AdminTwoFactorGate />
         <Suspense fallback={null}>
           <LastPathTracker />
         </Suspense>

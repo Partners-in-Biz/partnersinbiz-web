@@ -3,6 +3,7 @@
 export const dynamic = 'force-dynamic'
 
 import { PushNotificationsToggle } from '@/components/pwa/PushNotificationsToggle'
+import { NotificationPreferences } from '@/components/settings/NotificationPreferences'
 
 const readinessMetrics = [
   {
@@ -184,6 +185,8 @@ export default function NotificationsPage() {
           </div>
         </section>
       </div>
+
+      <NotificationPreferences />
     </div>
   )
 }

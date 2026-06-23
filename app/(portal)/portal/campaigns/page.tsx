@@ -171,6 +171,8 @@ export default async function PortalCampaignsIndex({
       adCampaigns={adCampaigns}
       requests={requests}
       brandStyle={brandStyle}
+      newEmailCampaignHref={scopedPortalHref('/portal/campaigns/email/new', scope)}
+      enableCampaignDelete
       requestComposer={
         <CampaignRequestPanel
           orgId={scope.orgId}

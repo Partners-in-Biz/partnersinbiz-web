@@ -6,9 +6,11 @@ import { useSearchParams } from 'next/navigation'
 import type {
   BehavioralRule,
   EngagementScoreRule,
+  RuleGroup,
 } from '@/lib/crm/segments'
 import { BehavioralRuleEditor } from '@/components/crm/segments/BehavioralRuleEditor'
 import { EngagementRuleEditor } from '@/components/crm/segments/EngagementRuleEditor'
+import { RuleGroupEditor, emptyRuleGroup } from '@/components/crm/segments/RuleGroupEditor'
 import { PREDEFINED_SEGMENTS } from '@/lib/crm/predefined-segments'
 import {
   SegmentCommandCenter,
@@ -38,6 +40,7 @@ interface Segment {
   name: string
   description: string
   filters: SegmentFilters
+  ruleGroup?: RuleGroup
   createdAt?: unknown
 }
 
@@ -50,6 +53,8 @@ interface FormState {
   source: string
   behavioral: BehavioralRule[]
   engagement: EngagementScoreRule | null
+  /** US-055: optional generic rule tree. null = use simple filters above. */
+  ruleGroup: RuleGroup | null
 }
 
 const EMPTY_FORM: FormState = {
@@ -61,6 +66,11 @@ const EMPTY_FORM: FormState = {
   source: '',
   behavioral: [],
   engagement: null,
+  ruleGroup: null,
+}
+
+function ruleGroupHasRules(g: RuleGroup | null | undefined): boolean {
+  return !!g && Array.isArray(g.rules) && g.rules.length > 0
 }
 
 function filtersFromForm(f: FormState): SegmentFilters {
@@ -88,6 +98,7 @@ function formFromSegment(s: Segment): FormState {
     source: s.filters?.source ?? '',
     behavioral: Array.isArray(s.filters?.behavioral) ? s.filters.behavioral : [],
     engagement: s.filters?.engagement ?? null,
+    ruleGroup: ruleGroupHasRules(s.ruleGroup) ? (s.ruleGroup as RuleGroup) : null,
   }
 }
 
@@ -176,6 +187,7 @@ export default function PortalSegmentsPage() {
           name: newForm.name.trim(),
           description: newForm.description.trim(),
           filters: filtersFromForm(newForm),
+          ruleGroup: ruleGroupHasRules(newForm.ruleGroup) ? newForm.ruleGroup : null,
         }),
       })
       if (!res.ok) {
@@ -215,6 +227,7 @@ export default function PortalSegmentsPage() {
           name: editForm.name.trim(),
           description: editForm.description.trim(),
           filters: filtersFromForm(editForm),
+          ruleGroup: ruleGroupHasRules(editForm.ruleGroup) ? editForm.ruleGroup : null,
         }),
       })
       if (!res.ok) {
@@ -426,6 +439,12 @@ export default function PortalSegmentsPage() {
         onEngagementChange={(e) => setForm({ ...form, engagement: e })}
       />
 
+      <AdvancedRuleBlock
+        group={form.ruleGroup}
+        segmentEndpoint={segmentEndpoint}
+        onChange={(g) => setForm({ ...form, ruleGroup: g })}
+      />
+
       {error && (
         <p className="text-[11px]" style={{ color: 'var(--color-pib-danger, #FCA5A5)' }}>
           {error}
@@ -630,6 +649,9 @@ export default function PortalSegmentsPage() {
               )
             }
             if (s.filters?.engagement) filterChips.push('engagement score')
+            if (ruleGroupHasRules(s.ruleGroup)) {
+              filterChips.push(`advanced rules (${s.ruleGroup!.rules.length})`)
+            }
 
             return (
               <div key={s.id} className="bento-card !p-5">
@@ -767,6 +789,105 @@ function BehavioralBlock({
         liveCountLoading={liveLoading}
       />
       <EngagementRuleEditor rule={engagement} onChange={onEngagementChange} />
+    </div>
+  )
+}
+
+interface AdvancedRuleBlockProps {
+  group: RuleGroup | null
+  segmentEndpoint: (path: string) => string
+  onChange: (group: RuleGroup | null) => void
+}
+
+/**
+ * US-055 — the generic field/operator/value + AND/OR group editor, with its own
+ * debounced live preview hitting /api/v1/crm/segments/preview with `ruleGroup`.
+ * When enabled, the rule group takes precedence over the simple filters above.
+ */
+function AdvancedRuleBlock({ group, segmentEndpoint, onChange }: AdvancedRuleBlockProps) {
+  const [liveCount, setLiveCount] = useState<number | null>(null)
+  const [liveLoading, setLiveLoading] = useState(false)
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const reqIdRef = useRef(0)
+  const enabled = !!group
+
+  const serialized = JSON.stringify(group ?? null)
+
+  useEffect(() => {
+    if (!group || !Array.isArray(group.rules) || group.rules.length === 0) {
+      setLiveCount(null)
+      return
+    }
+    if (timerRef.current) clearTimeout(timerRef.current)
+    timerRef.current = setTimeout(async () => {
+      const myId = ++reqIdRef.current
+      setLiveLoading(true)
+      try {
+        const res = await fetch(segmentEndpoint('/api/v1/crm/segments/preview'), {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ ruleGroup: group }),
+        })
+        if (!res.ok) {
+          if (reqIdRef.current === myId) setLiveCount(null)
+          return
+        }
+        const body = await res.json()
+        const count = body?.data?.count ?? body?.count
+        if (reqIdRef.current === myId && typeof count === 'number') setLiveCount(count)
+      } catch {
+        if (reqIdRef.current === myId) setLiveCount(null)
+      } finally {
+        if (reqIdRef.current === myId) setLiveLoading(false)
+      }
+    }, 500)
+    return () => {
+      if (timerRef.current) clearTimeout(timerRef.current)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [serialized, segmentEndpoint])
+
+  return (
+    <div className="space-y-3 pt-2 border-t border-[var(--color-pib-line)]">
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <div>
+          <p className="text-[10px] uppercase tracking-widest text-[var(--color-pib-text-muted)] font-mono">
+            Advanced rule builder
+          </p>
+          <p className="text-[11px] text-[var(--color-pib-text-muted)] mt-0.5 max-w-md">
+            Combine any contact field with AND/OR groups. When enabled this takes
+            precedence over the simple tag/stage/type filters above.
+          </p>
+        </div>
+        {!enabled ? (
+          <button
+            type="button"
+            onClick={() => onChange(emptyRuleGroup())}
+            className="btn-pib-secondary !py-2 !px-3 !text-sm"
+          >
+            <span className="material-symbols-outlined text-base" aria-hidden="true">
+              tune
+            </span>
+            Build advanced rules
+          </button>
+        ) : (
+          <div className="flex items-center gap-2">
+            {(liveLoading || liveCount !== null) && (
+              <span className="pill text-[11px]">
+                {liveLoading ? '…' : `${liveCount} match${liveCount === 1 ? '' : 'es'}`}
+              </span>
+            )}
+            <button
+              type="button"
+              onClick={() => onChange(null)}
+              className="text-xs text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-danger,#FCA5A5)] transition-colors p-1"
+            >
+              Clear
+            </button>
+          </div>
+        )}
+      </div>
+      {enabled && group && <RuleGroupEditor group={group} onChange={onChange} />}
     </div>
   )
 }

@@ -9,6 +9,9 @@ import { copyToClipboard } from '@/lib/utils/clipboard'
 import { PageTabs } from '@/components/ui/AppFoundation'
 
 type Tab = 'overview' | 'config' | 'sequences' | 'creators' | 'analytics' | 'keys'
+type TimestampLike = string | number | Date | { _seconds?: number; seconds?: number } | null | undefined
+type ApiDataList<T> = { data?: T[] }
+type ApiData<T> = { data?: T | null }
 
 const TABS: { id: Tab; label: string }[] = [
   { id: 'overview',   label: 'Overview' },
@@ -23,9 +26,20 @@ function Skeleton({ className = '' }: { className?: string }) {
   return <div className={`pib-skeleton ${className}`} />
 }
 
-function formatTs(ts: any): string {
+function timestampSeconds(ts: unknown): number {
+  if (!ts || typeof ts !== 'object' || ts instanceof Date) return 0
+  const candidate = ts as { _seconds?: unknown; seconds?: unknown }
+  return typeof candidate._seconds === 'number'
+    ? candidate._seconds
+    : typeof candidate.seconds === 'number'
+      ? candidate.seconds
+      : 0
+}
+
+function formatTs(ts: unknown): string {
   if (!ts) return '—'
-  const d = ts._seconds ? new Date(ts._seconds * 1000) : new Date(ts)
+  const seconds = timestampSeconds(ts)
+  const d = seconds ? new Date(seconds * 1000) : new Date(ts as string | number | Date)
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
 }
 
@@ -72,8 +86,8 @@ interface SessionRow {
   distinctId: string
   device: string | null
   country: string | null
-  startedAt: any
-  lastActivityAt: any
+  startedAt: TimestampLike
+  lastActivityAt: TimestampLike
   eventCount: number
 }
 
@@ -116,9 +130,9 @@ function PropertyAnalyticsSummary({ propertyId }: { propertyId: string }) {
     }
     topDevice = Object.entries(counts).sort((a, b) => b[1] - a[1])[0][0]
   }
-  const lastActivityTs = sessions.reduce<any>((acc, s) => {
-    const sec = (s.lastActivityAt as any)?._seconds ?? 0
-    const accSec = (acc as any)?._seconds ?? 0
+  const lastActivityTs = sessions.reduce<TimestampLike>((acc, s) => {
+    const sec = timestampSeconds(s.lastActivityAt)
+    const accSec = timestampSeconds(acc)
     return sec > accSec ? s.lastActivityAt : acc
   }, null)
 
@@ -201,12 +215,12 @@ function SequencesTab({ property, onUpdate }: { property: Property; onUpdate: (u
         }
         const results = await Promise.all(tasks)
         if (cancelled) return
-        const orgList = (results[0] as any)?.data ?? []
+        const orgList = (results[0] as ApiDataList<SequenceSummary>)?.data ?? []
         setOrgSequences(orgList)
         if (linkedId) {
-          const seqBody = results[1] as any
+          const seqBody = results[1] as ApiData<SequenceSummary>
           setLinkedSequence(seqBody?.data ?? null)
-          const enrBody = results[2] as any
+          const enrBody = results[2] as ApiDataList<Enrollment>
           setEnrollments(enrBody?.data ?? [])
         } else {
           setLinkedSequence(null)
@@ -559,22 +573,23 @@ interface AnalyticsEventRow {
   id: string
   event: string
   pageUrl: string | null
-  timestamp?: any
-  serverTime?: any
+  timestamp?: TimestampLike
+  serverTime?: TimestampLike
 }
 
 interface PropSession extends SessionRow {
   referrer?: string | null
 }
 
-function tsToMs(ts: any): number | null {
+function tsToMs(ts: TimestampLike): number | null {
   if (!ts) return null
-  if (ts._seconds) return ts._seconds * 1000
-  const d = new Date(ts)
+  const seconds = timestampSeconds(ts)
+  if (seconds) return seconds * 1000
+  const d = new Date(ts as string | number | Date)
   return isNaN(d.getTime()) ? null : d.getTime()
 }
 
-function formatDateTime(ts: any): string {
+function formatDateTime(ts: TimestampLike): string {
   if (!ts) return '—'
   const ms = tsToMs(ts)
   if (ms == null) return '—'
@@ -600,9 +615,9 @@ function PropertyAnalyticsTab({ property }: { property: Property }) {
       fetch(`/api/v1/analytics/sessions?propertyId=${encodeURIComponent(propertyId)}&limit=20`).then(r => r.ok ? r.json() : { data: [] }),
     ]).then(([sBig, eBig, sRecent]) => {
       if (cancelled) return
-      const sBigData = sBig.status === 'fulfilled' ? ((sBig.value as any).data ?? []) : []
-      const eBigData = eBig.status === 'fulfilled' ? ((eBig.value as any).data ?? []) : []
-      const sRecentData = sRecent.status === 'fulfilled' ? ((sRecent.value as any).data ?? []) : []
+      const sBigData = sBig.status === 'fulfilled' ? ((sBig.value as ApiDataList<PropSession>).data ?? []) : []
+      const eBigData = eBig.status === 'fulfilled' ? ((eBig.value as ApiDataList<AnalyticsEventRow>).data ?? []) : []
+      const sRecentData = sRecent.status === 'fulfilled' ? ((sRecent.value as ApiDataList<PropSession>).data ?? []) : []
       const cutoff = Date.now() - 7 * 86_400_000
       setSessions7d(sBigData.filter((s: PropSession) => {
         const ms = tsToMs(s.startedAt)
@@ -759,8 +774,8 @@ function KeysTab({ property, onRotate }: { property: Property; onRotate: (key: s
       const body = await res.json()
       if (!res.ok) throw new Error(body.error ?? 'Rotation failed')
       onRotate(body.data.ingestKey)
-    } catch (e: any) {
-      setError(e.message)
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : 'Rotation failed')
     } finally {
       setRotating(false)
     }

@@ -15,9 +15,9 @@
  *    back to deriving from `targetUrl` path segment for backfill.
  */
 import { adminDb } from '@/lib/firebase/admin'
+import { blocksToPlainText, type SeoBlock } from './types'
 import type { Post } from './posts'
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnyObj = any
 
 export function slugFromTargetUrl(targetUrl: string | undefined): string | null {
@@ -93,6 +93,127 @@ async function fetchLiveSeoContent(slug: string): Promise<SeoContentDoc | null> 
   return null
 }
 
+interface PublishedAdminSeoDoc {
+  id: string
+  data: AnyObj
+}
+
+function isoDateOnly(value: string | null | undefined): string {
+  if (!value) return new Date().toISOString().slice(0, 10)
+  return value.slice(0, 10)
+}
+
+function excerpt(text: string, limit = 200): string {
+  return text.replace(/\s+/g, ' ').trim().slice(0, limit)
+}
+
+function wordsToReadingTime(text: string): string {
+  const wc = text.trim() ? text.trim().split(/\s+/).length : 0
+  return readingTimeFromWordCount(wc)
+}
+
+function blockToMarkdown(block: SeoBlock): string {
+  if (block.type === 'heading') {
+    const hashes = block.level === 3 ? '###' : '##'
+    return `${hashes} ${block.text ?? ''}`.trim()
+  }
+  if (block.type === 'paragraph' || block.type === 'quote') {
+    return (block.text ?? '').trim()
+  }
+  if (block.type === 'image') {
+    const alt = block.alt ?? block.text ?? 'Insight image'
+    const src = block.src ?? ''
+    return src ? `![${alt}](${src})` : alt
+  }
+  if (block.type === 'list') {
+    return (block.items ?? []).map((item) => `- ${item}`).join('\n')
+  }
+  return ''
+}
+
+function adminBlocksToMarkdown(blocks: SeoBlock[]): string {
+  return blocks
+    .map((block) => blockToMarkdown(block))
+    .filter(Boolean)
+    .join('\n\n')
+    .trim()
+}
+
+async function fetchPublishedAdminSeoContent(slug: string): Promise<PublishedAdminSeoDoc | null> {
+  const snap = await adminDb
+    .collection('admin_seo_articles')
+    .where('slug', '==', slug)
+    .where('status', '==', 'published')
+    .limit(1)
+    .get()
+  if (snap.empty) return null
+  const doc = snap.docs[0]
+  return { id: doc.id, data: doc.data() }
+}
+
+function buildAdminArticlePost(id: string, raw: AnyObj): Post | null {
+  const title = typeof raw.title === 'string' ? raw.title.trim() : ''
+  const slug = typeof raw.slug === 'string' ? raw.slug.trim() : ''
+  if (!title || !slug) return null
+
+  const blocks = Array.isArray(raw.body) ? raw.body as SeoBlock[] : []
+  const plainText = blocksToPlainText(blocks)
+  const body = adminBlocksToMarkdown(blocks)
+  if (!body) return null
+
+  const updatedAt =
+    typeof raw.updatedAt === 'string'
+      ? raw.updatedAt
+      : raw.updatedAt?.toDate?.()?.toISOString?.() ?? null
+  const publishedAt =
+    typeof raw.publishedAt === 'string'
+      ? raw.publishedAt
+      : raw.publishedAt?.toDate?.()?.toISOString?.() ?? null
+
+  const tags = Array.isArray(raw.tags)
+    ? (raw.tags.filter((tag: unknown): tag is string => typeof tag === 'string' && tag.trim().length > 0))
+    : (typeof raw.keyword === 'string' && raw.keyword.trim() ? [raw.keyword.trim()] : [])
+
+  return {
+    slug,
+    title,
+    description:
+      typeof raw.metaDescription === 'string' && raw.metaDescription.trim()
+        ? raw.metaDescription.trim()
+        : excerpt(plainText),
+    category: clampCategory(raw.category),
+    readingTime: wordsToReadingTime(plainText),
+    datePublished: isoDateOnly(publishedAt ?? updatedAt),
+    dateModified: updatedAt ? isoDateOnly(updatedAt) : undefined,
+    cover: ensureLeadingSlash(raw.heroImageUrl as string | undefined),
+    tags,
+    body,
+  }
+}
+
+function buildSeoContentPost(slug: string, data: AnyObj, draft: { body: string; wordCount?: number; meta?: string } | null): Post | null {
+  if (!draft || !draft.body) return null
+
+  const publishedAtIso =
+    data.publishedAt && (data.publishedAt._seconds ?? data.publishedAt.seconds)
+      ? new Date((data.publishedAt._seconds ?? data.publishedAt.seconds) * 1000).toISOString()
+      : null
+  const dateRaw = (data.publishDate as string | undefined)
+    ?? isoDateOnly(publishedAtIso ?? undefined)
+
+  return {
+    slug,
+    title: typeof data.title === 'string' ? data.title : 'Untitled',
+    description: draft.meta || excerpt(draft.body),
+    category: clampCategory(data.type ?? data.category),
+    readingTime: readingTimeFromWordCount(draft.wordCount),
+    datePublished: dateRaw,
+    cover: ensureLeadingSlash(data.heroImageUrl as string | undefined),
+    tags: Array.isArray(data.tags) ? (data.tags as string[]) : [],
+    body: draft.body,
+  }
+}
+
 async function hydrateBody(draftPostId: string | undefined): Promise<{ body: string; wordCount?: number; meta?: string } | null> {
   if (!draftPostId) return null
   const snap = await adminDb.collection('seo_drafts').doc(draftPostId).get()
@@ -112,27 +233,16 @@ async function hydrateBody(draftPostId: string | undefined): Promise<{ body: str
  */
 export async function getFirestorePostBySlug(slug: string): Promise<Post | null> {
   const doc = await fetchLiveSeoContent(slug)
-  if (!doc) return null
-  const { data } = doc
-  const draft = await hydrateBody(data.draftPostId as string | undefined)
-  if (!draft || !draft.body) return null
-
-  const dateRaw = (data.publishDate as string | undefined)
-    ?? (data.publishedAt && (data.publishedAt._seconds ?? data.publishedAt.seconds)
-      ? new Date((data.publishedAt._seconds ?? data.publishedAt.seconds) * 1000).toISOString().slice(0, 10)
-      : new Date().toISOString().slice(0, 10))
-
-  return {
-    slug,
-    title: typeof data.title === 'string' ? data.title : 'Untitled',
-    description: draft.meta || (draft.body.slice(0, 200).replace(/\s+/g, ' ').trim()),
-    category: clampCategory(data.type ?? data.category),
-    readingTime: readingTimeFromWordCount(draft.wordCount),
-    datePublished: dateRaw,
-    cover: ensureLeadingSlash(data.heroImageUrl as string | undefined),
-    tags: Array.isArray(data.tags) ? (data.tags as string[]) : [],
-    body: draft.body,
+  if (doc) {
+    const { data } = doc
+    const draft = await hydrateBody(data.draftPostId as string | undefined)
+    const post = buildSeoContentPost(slug, data, draft)
+    if (post) return post
   }
+
+  const adminArticle = await fetchPublishedAdminSeoContent(slug)
+  if (!adminArticle) return null
+  return buildAdminArticlePost(adminArticle.id, adminArticle.data)
 }
 
 /**
@@ -152,5 +262,92 @@ export async function listLiveSlugs(): Promise<string[]> {
     const derived = persistedSlug ?? slugFromTargetUrl(data.targetUrl as string | undefined)
     if (derived) slugs.add(derived)
   }
+  const adminSnap = await adminDb
+    .collection('admin_seo_articles')
+    .where('status', '==', 'published')
+    .limit(200)
+    .get()
+  for (const d of adminSnap.docs) {
+    const slug = d.data()?.slug
+    if (typeof slug === 'string' && slug.trim()) slugs.add(slug.trim())
+  }
   return Array.from(slugs)
+}
+
+export async function listLiveInsightEntries(): Promise<Array<{ slug: string; lastModified: string | null }>> {
+  const entries = new Map<string, { slug: string; lastModified: string | null }>()
+
+  const seoSnap = await adminDb
+    .collection('seo_content')
+    .where('status', '==', 'live')
+    .limit(200)
+    .get()
+  for (const doc of seoSnap.docs) {
+    const data = doc.data() as AnyObj
+    const slug = typeof data.slug === 'string' ? data.slug : slugFromTargetUrl(data.targetUrl as string | undefined)
+    if (!slug) continue
+    const lastModified =
+      data.updatedAt?.toDate?.()?.toISOString?.()
+      ?? (data.publishedAt && (data.publishedAt._seconds ?? data.publishedAt.seconds)
+        ? new Date((data.publishedAt._seconds ?? data.publishedAt.seconds) * 1000).toISOString()
+        : null)
+    entries.set(slug, { slug, lastModified })
+  }
+
+  const adminSnap = await adminDb
+    .collection('admin_seo_articles')
+    .where('status', '==', 'published')
+    .limit(200)
+    .get()
+  for (const doc of adminSnap.docs) {
+    const data = doc.data() as AnyObj
+    const slug = typeof data.slug === 'string' ? data.slug.trim() : ''
+    if (!slug) continue
+    const lastModified =
+      typeof data.updatedAt === 'string'
+        ? data.updatedAt
+        : data.updatedAt?.toDate?.()?.toISOString?.()
+          ?? (typeof data.publishedAt === 'string'
+            ? data.publishedAt
+            : data.publishedAt?.toDate?.()?.toISOString?.() ?? null)
+    entries.set(slug, { slug, lastModified })
+  }
+
+  return Array.from(entries.values())
+}
+
+export async function listLivePosts(): Promise<Post[]> {
+  const posts: Post[] = []
+  const seoSnap = await adminDb
+    .collection('seo_content')
+    .where('status', '==', 'live')
+    .limit(50)
+    .get()
+
+  for (const doc of seoSnap.docs) {
+    const data = doc.data() as AnyObj
+    const slug = typeof data.slug === 'string' ? data.slug : slugFromTargetUrl(data.targetUrl as string | undefined)
+    if (!slug) continue
+    const draft = await hydrateBody(data.draftPostId as string | undefined)
+    const post = buildSeoContentPost(slug, data, draft)
+    if (post) posts.push(post)
+  }
+
+  const adminSnap = await adminDb
+    .collection('admin_seo_articles')
+    .where('status', '==', 'published')
+    .limit(50)
+    .get()
+  for (const doc of adminSnap.docs) {
+    const post = buildAdminArticlePost(doc.id, doc.data() as AnyObj)
+    if (post) posts.push(post)
+  }
+
+  posts.sort((a, b) => {
+    const aMs = Date.parse(a.dateModified ?? a.datePublished)
+    const bMs = Date.parse(b.dateModified ?? b.datePublished)
+    return bMs - aMs
+  })
+
+  return posts
 }

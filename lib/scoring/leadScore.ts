@@ -21,6 +21,17 @@ function clamp(n: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, n))
 }
 
+// Cap the number of page visits that contribute to the score so a single very
+// active anonymous-then-identified visitor cannot dominate the formula.
+const MAX_SCORED_PAGE_VISITS = 5
+
+// Product-analytics pageview event names (mirrors lib/reports/snapshot.ts).
+const PAGEVIEW_EVENT_NAMES = ['$pageview', 'page_view', 'pageview']
+
+function ignoreScoreSignalFailure() {
+  return undefined
+}
+
 function resolvedWeights(weights: LeadSignalsWeights): Required<LeadSignalsWeights> {
   return {
     emailOpens: weights.emailOpens ?? DEFAULT_LEAD_WEIGHTS.emailOpens,
@@ -29,6 +40,7 @@ function resolvedWeights(weights: LeadSignalsWeights): Required<LeadSignalsWeigh
     sequenceCompleted: weights.sequenceCompleted ?? DEFAULT_LEAD_WEIGHTS.sequenceCompleted,
     recentContact: weights.recentContact ?? DEFAULT_LEAD_WEIGHTS.recentContact,
     formSubmission: weights.formSubmission ?? DEFAULT_LEAD_WEIGHTS.formSubmission,
+    pageVisit: weights.pageVisit ?? DEFAULT_LEAD_WEIGHTS.pageVisit,
   }
 }
 
@@ -49,6 +61,7 @@ export async function computeLeadScore(
   let replies = 0
   let sequenceCompleted = 0
   let formSubmissions = 0
+  let pageVisits = 0
 
   // ── Email opens + clicks (emails collection, last 30d) ───────────────────
   try {
@@ -66,9 +79,7 @@ export async function computeLeadScore(
       if (isOpened) opens += 1
       if (isClicked) clicks += 1
     }
-  } catch (_err) {
-    // best-effort; signals stay 0
-  }
+  } catch(_err) { ignoreScoreSignalFailure() }
 
   // ── Email replies (inbound_emails collection, last 30d) ─────────────────
   try {
@@ -79,9 +90,7 @@ export async function computeLeadScore(
       .where('receivedAt', '>=', thirtyDaysAgo)
       .get()
     replies = repliesSnap.size ?? 0
-  } catch (_err) {
-    // best-effort
-  }
+  } catch(_err) { ignoreScoreSignalFailure() }
 
   // ── Sequence completions (sequence_enrollments, last 30d) ────────────────
   try {
@@ -92,9 +101,7 @@ export async function computeLeadScore(
       .where('completedAt', '>=', thirtyDaysAgo)
       .get()
     sequenceCompleted = seqSnap.size ?? 0
-  } catch (_err) {
-    // best-effort
-  }
+  } catch(_err) { ignoreScoreSignalFailure() }
 
   // ── Form submissions (form_submissions, last 30d) ─────────────────────────
   try {
@@ -104,9 +111,33 @@ export async function computeLeadScore(
       .where('submittedAt', '>=', thirtyDaysAgo)
       .get()
     formSubmissions = formsSnap.size ?? 0
-  } catch (_err) {
-    // best-effort
+  } catch(_err) { ignoreScoreSignalFailure() }
+
+  // ── Page visits (product_events pageviews, last 30d) ─────────────────────
+  // Product-analytics events live in `product_events`, keyed by `userId` — the
+  // identified visitor id set by the analytics SDK's identify() call, which by
+  // convention is the contact's email. We count distinct pageview events for
+  // this org where userId matches the contact email, capped to avoid a single
+  // hyper-active visitor dominating the score. Wrapped in try/catch + org scoped
+  // so a missing index or empty collection simply yields 0 contribution.
+  const contactEmail = typeof contact.email === 'string' ? contact.email.trim().toLowerCase() : ''
+  if (contactEmail) {
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const visitsSnap: any = await (db.collection('product_events') as any)
+        .where('orgId', '==', contact.orgId)
+        .where('userId', '==', contactEmail)
+        .where('timestamp', '>=', thirtyDaysAgo)
+        .get()
+
+      for (const doc of visitsSnap.docs) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const ev = doc.data() as any
+        if (PAGEVIEW_EVENT_NAMES.includes(ev.event)) pageVisits += 1
+      }
+    } catch(_err) { ignoreScoreSignalFailure() }
   }
+  const scoredPageVisits = Math.min(pageVisits, MAX_SCORED_PAGE_VISITS)
 
   // ── Recent contact within 7d ─────────────────────────────────────────────
   let recentContactSignal = 0
@@ -121,9 +152,7 @@ export async function computeLeadScore(
         recentContactSignal = w.recentContact
       }
     }
-  } catch (_err) {
-    // best-effort
-  }
+  } catch(_err) { ignoreScoreSignalFailure() }
 
   // ── Formula ──────────────────────────────────────────────────────────────
   const raw =
@@ -132,7 +161,8 @@ export async function computeLeadScore(
     replies * w.emailReplies +
     sequenceCompleted * w.sequenceCompleted +
     recentContactSignal +
-    formSubmissions * w.formSubmission
+    formSubmissions * w.formSubmission +
+    scoredPageVisits * w.pageVisit
 
   const score = clamp(Math.round(raw), 0, 100)
 
@@ -145,6 +175,7 @@ export async function computeLeadScore(
       sequenceCompleted,
       recentContact: recentContactSignal,
       formSubmissions,
+      pageVisits: scoredPageVisits,
     },
   }
 }

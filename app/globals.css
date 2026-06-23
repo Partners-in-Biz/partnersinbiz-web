@@ -124,6 +124,36 @@
   --pib-dialog-width: min(42rem, calc(100vw - 1rem));
 }
 
+/* ── Light theme overrides ────────────────────────────────────────────────── */
+[data-theme="light"] {
+  color-scheme: light;
+  --color-pib-bg: #F8F7F5;
+  --color-pib-surface: #FFFFFF;
+  --color-pib-surface-2: #F0EEF8;
+  --color-pib-card: #FFFFFF;
+  --color-pib-text: #181818;
+  --color-pib-text-muted: #6B6B76;
+  --color-pib-text-faint: #A0A0A8;
+  --color-pib-line: rgba(0, 0, 0, 0.08);
+  --color-pib-line-strong: rgba(0, 0, 0, 0.16);
+  --color-pib-surface-muted: rgba(0, 0, 0, 0.03);
+  --color-pib-surface-soft: rgba(0, 0, 0, 0.04);
+  --color-sidebar: #FFFFFF;
+  --color-bg: #F8F7F5;
+  --color-background: #F8F7F5;
+  --color-surface: #FFFFFF;
+  --color-on-background: #181818;
+  --color-on-surface: #181818;
+  --color-on-surface-variant: #6B6B76;
+  --color-card: #FFFFFF;
+  --color-card-border: rgba(0, 0, 0, 0.08);
+  --color-card-border-strong: rgba(0, 0, 0, 0.16);
+  --color-surface-variant: #F0EEF8;
+  --color-surface-container: #FFFFFF;
+  --color-surface-container-high: #F0EEF8;
+  --color-surface-container-highest: #E8E6F0;
+}
+
 @layer base {
   html {
     width: 100%;

@@ -1,7 +1,10 @@
+import { headers } from 'next/headers'
 import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
-import { adminAuth } from '@/lib/firebase/admin'
+import { adminAuth, adminDb } from '@/lib/firebase/admin'
 import PortalLayoutClient from './PortalLayoutClient'
+import { getMaintenanceState, isMaintenanceActiveNow, requestBypassesMaintenance } from '@/lib/governance/maintenance'
+import { MaintenanceShell } from '@/components/governance/MaintenanceShell'
 
 // Server-side session gate. The proxy only checks that a __session cookie
 // EXISTS; without this layout a junk cookie renders the full portal shell
@@ -18,10 +21,22 @@ export default async function PortalLayout({
 
   if (!sessionCookie) redirect('/login')
 
+  let uid: string
   try {
-    await adminAuth.verifySessionCookie(sessionCookie, true)
+    const decoded = await adminAuth.verifySessionCookie(sessionCookie, true)
+    uid = decoded.uid
   } catch {
     redirect('/login')
+  }
+
+  const maintenance = await getMaintenanceState()
+  if (isMaintenanceActiveNow(maintenance)) {
+    const headerStore = await headers()
+    const userDoc = await adminDb.collection('users').doc(uid).get()
+    const role = userDoc.exists && userDoc.data()?.role === 'admin' ? 'admin' : 'client'
+    if (!requestBypassesMaintenance(headerStore, maintenance, role)) {
+      return <MaintenanceShell message={maintenance.message} />
+    }
   }
 
   return <PortalLayoutClient>{children}</PortalLayoutClient>

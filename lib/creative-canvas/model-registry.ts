@@ -385,7 +385,10 @@ export const CANVAS_MODELS: CanvasModel[] = [
     id: 'seedance_2_0',
     label: 'Seedance 2.0',
     family: 'ByteDance',
-    featured: false,
+    featured: true,
+    // Unlimited via the active Higgsfield promo ("26 days of Seedance 2.0 Mini
+    // & Seedance 2.0 Fast unlimited"). Default video model while the promo runs.
+    unlimited: true,
     kind: 'video',
     providerKey: 'higgsfield',
     capabilities: ['generate_video', 'edit_video'],
@@ -395,7 +398,7 @@ export const CANVAS_MODELS: CanvasModel[] = [
     maxBatch: 4,
     creditCost: 22,
     execution: 'async',
-    description: 'SOTA all-purpose video — crisp, consistent identity, multi-shot.',
+    description: 'SOTA all-purpose video — crisp, consistent identity, multi-shot. Unlimited via the active Seedance promo; default video model.',
   },
   // ----- Audio -----
   {

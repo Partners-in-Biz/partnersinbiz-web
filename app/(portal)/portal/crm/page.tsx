@@ -7,6 +7,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { CrmSearchBar } from '@/components/crm/CrmSearchBar'
 import { CrmHubCommandRail } from '@/components/crm/CrmHubCommandRail'
+import { TrendAreaChart, DonutChart } from '@/components/ui/Charts'
 import type { HubSection } from '@/components/navigation/HubPage'
 import type { Deal } from '@/lib/crm/types'
 import { scopedApiPath, scopedPortalPath, scopeFromSearchParams } from '@/lib/portal/scoped-routing'
@@ -19,6 +20,13 @@ type CrmDashboard = {
   lostThisMonth?: { count?: number }
   recentActivities?: Array<{ id: string; type?: string; summary?: string; contactName?: string; contactId?: string; dealId?: string; createdAt?: unknown }>
   topOpenDeals?: Array<Deal & { contactName?: string }>
+  totalContacts?: number
+  newThisMonth?: number
+  activeLeads?: number
+  convertedClients?: number
+  conversionRate?: number
+  contactGrowth?: Array<{ label: string; value: number }>
+  sourceBreakdown?: Array<{ name: string; value: number }>
 }
 
 type CrmLeadershipRisk = {
@@ -189,6 +197,15 @@ function formatCurrency(value: unknown, currency = 'ZAR'): string {
 
 function numberValue(value: unknown): number {
   return typeof value === 'number' && Number.isFinite(value) ? value : 0
+}
+
+function formatPercent(value: unknown): string {
+  const ratio = typeof value === 'number' && Number.isFinite(value) ? value : 0
+  return `${(ratio * 100).toFixed(1)}%`
+}
+
+function formatCount(value: unknown): string {
+  return numberValue(value).toLocaleString('en-ZA')
 }
 
 function timestampMs(value: unknown): number {
@@ -557,6 +574,121 @@ export default function PortalCrmPage() {
             />
           </>
         )}
+      </section>
+
+      <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+        {loading ? (
+          Array.from({ length: 4 }).map((_, index) => <Skeleton key={`contact-metric-${index}`} className="h-[126px]" />)
+        ) : (
+          <>
+            <DashboardMetric
+              icon="contacts"
+              label="Total contacts"
+              value={formatCount(dashboard?.totalContacts)}
+              sub="People in this workspace"
+            />
+            <DashboardMetric
+              icon="person_add"
+              label="New this month"
+              value={formatCount(dashboard?.newThisMonth)}
+              sub="Contacts created this month"
+            />
+            <DashboardMetric
+              icon="flag"
+              label="Active leads"
+              value={formatCount(dashboard?.activeLeads)}
+              sub="Leads still in the pipeline"
+            />
+            <DashboardMetric
+              icon="trending_up"
+              label="Conversion rate"
+              value={formatPercent(dashboard?.conversionRate)}
+              sub={`${formatCount(dashboard?.convertedClients)} converted to clients`}
+            />
+          </>
+        )}
+      </section>
+
+      <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        <Link
+          href={crmPortalPath('/portal/contacts?create=contact')}
+          aria-label="Add a new contact"
+          className="pib-card group flex items-center gap-3 p-4 transition-colors hover:border-[var(--color-pib-accent)] hover:bg-white/[0.03]"
+        >
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[var(--color-pib-accent-soft)] text-[var(--color-pib-accent)]">
+            <span className="material-symbols-outlined text-[22px]" aria-hidden="true">person_add</span>
+          </span>
+          <span className="min-w-0">
+            <span className="block text-sm font-medium text-[var(--color-pib-text)]">Add contact</span>
+            <span className="block text-xs text-[var(--color-pib-text-muted)]">Capture a new person in CRM</span>
+          </span>
+        </Link>
+        <Link
+          href={crmPortalPath('/portal/email?compose=1')}
+          aria-label="Send an email"
+          className="pib-card group flex items-center gap-3 p-4 transition-colors hover:border-[var(--color-pib-accent)] hover:bg-white/[0.03]"
+        >
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[var(--color-pib-accent-soft)] text-[var(--color-pib-accent)]">
+            <span className="material-symbols-outlined text-[22px]" aria-hidden="true">mail</span>
+          </span>
+          <span className="min-w-0">
+            <span className="block text-sm font-medium text-[var(--color-pib-text)]">Send email</span>
+            <span className="block text-xs text-[var(--color-pib-text-muted)]">Reach a contact or audience</span>
+          </span>
+        </Link>
+        <Link
+          href={crmPortalPath('/portal/segments?create=segment')}
+          aria-label="Create a segment"
+          className="pib-card group flex items-center gap-3 p-4 transition-colors hover:border-[var(--color-pib-accent)] hover:bg-white/[0.03]"
+        >
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[var(--color-pib-accent-soft)] text-[var(--color-pib-accent)]">
+            <span className="material-symbols-outlined text-[22px]" aria-hidden="true">group_work</span>
+          </span>
+          <span className="min-w-0">
+            <span className="block text-sm font-medium text-[var(--color-pib-text)]">Create segment</span>
+            <span className="block text-xs text-[var(--color-pib-text-muted)]">Build a targeted audience</span>
+          </span>
+        </Link>
+      </section>
+
+      <section className="grid gap-5 xl:grid-cols-[1.4fr_0.6fr]">
+        <div className="pib-card-section overflow-hidden">
+          <div className="border-b border-[var(--color-pib-line)] bg-white/[0.02] px-5 py-3.5">
+            <p className="eyebrow !text-[10px]">Contact growth</p>
+          </div>
+          <div className="p-5">
+            {loading ? (
+              <Skeleton className="h-[200px]" />
+            ) : (dashboard?.contactGrowth?.length ?? 0) === 0 ? (
+              <p className="py-10 text-center text-sm text-[var(--color-pib-text-muted)]">
+                No contact history yet for this workspace.
+              </p>
+            ) : (
+              <TrendAreaChart data={dashboard!.contactGrowth!} height={200} />
+            )}
+          </div>
+        </div>
+
+        <div className="pib-card-section overflow-hidden">
+          <div className="border-b border-[var(--color-pib-line)] bg-white/[0.02] px-5 py-3.5">
+            <p className="eyebrow !text-[10px]">Source breakdown</p>
+          </div>
+          <div className="p-5">
+            {loading ? (
+              <Skeleton className="h-[220px]" />
+            ) : (dashboard?.sourceBreakdown?.length ?? 0) === 0 ? (
+              <p className="py-10 text-center text-sm text-[var(--color-pib-text-muted)]">
+                No contacts to attribute yet.
+              </p>
+            ) : (
+              <DonutChart
+                data={dashboard!.sourceBreakdown!}
+                centerLabel="Contacts"
+                centerValue={formatCount(dashboard?.totalContacts)}
+              />
+            )}
+          </div>
+        </div>
       </section>
 
       {!loading && <CrmHubCommandRail metrics={commandMetrics} buildHref={crmPortalPath} />}

@@ -255,6 +255,10 @@ interface CreativeCanvasCollaborationStreamEvent {
   emittedAtMs?: number
 }
 
+function ignoreCanvasBestEffortFailure() {
+  return undefined
+}
+
 function buildMaskingSessionProofFields(input: {
   nodes: CreativeCanvasNode[]
   capturedAt: string
@@ -1882,9 +1886,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
       } else {
         setRemoteCanvasUpdate(null)
       }
-    } catch {
-      // Presence polling should not surface transient remote refresh failures as canvas errors.
-    }
+    } catch { ignoreCanvasBestEffortFailure() }
   }, [])
 
   const applyCanvasSnapshot = useCallback((canvas: CreativeCanvas) => {
@@ -2519,9 +2521,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
     source.addEventListener('collaboration', (message) => {
       try {
         applyCollaborationStreamEvent(JSON.parse((message as MessageEvent).data) as CreativeCanvasCollaborationStreamEvent)
-      } catch {
-        // Ignore malformed collaboration stream events and allow EventSource to continue.
-      }
+      } catch { ignoreCanvasBestEffortFailure() }
     })
 
     return () => {
@@ -2702,9 +2702,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
       const payload = await response.json().catch(() => null) as CreativeCanvasApiListResponse | null
       const canvas = payload?.data?.canvas
       if (response.ok && canvas?.id) applyCanvasSnapshot(canvas)
-    } catch {
-      /* non-fatal refresh */
-    }
+    } catch { ignoreCanvasBestEffortFailure() }
   }, [activeCanvas?.id, activeCanvas?.orgId, applyCanvasSnapshot, resolvedOrgId])
 
   const [canvasCredits, setCanvasCredits] = useState<{ used: number; limit: number | null; higgsfieldCredits?: number; higgsfieldPlan?: string } | null>(null)
@@ -2726,9 +2724,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
           higgsfieldPlan: typeof credits.higgsfieldPlan === 'string' ? credits.higgsfieldPlan : undefined,
         })
       }
-    } catch {
-      /* non-fatal */
-    }
+    } catch { ignoreCanvasBestEffortFailure() }
   }, [activeCanvas?.orgId, resolvedOrgId])
 
   useEffect(() => {
@@ -4018,9 +4014,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
               found = true
               setActivityMessage('Generation complete')
             }
-          } catch {
-            /* keep polling */
-          }
+          } catch { ignoreCanvasBestEffortFailure() }
         }
         if (!found) setActivityMessage('Generation still processing — it will appear on refresh')
       } else {

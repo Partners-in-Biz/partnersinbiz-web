@@ -35,6 +35,18 @@ type WebhookDraft = {
   active: boolean
 }
 
+// US-096: a single delivery attempt surfaced in the "last 10 deliveries" log.
+type WebhookDelivery = {
+  id: string
+  event: string
+  responseStatus: number | null
+  success: boolean
+  durationMs: number | null
+  attemptNumber: number | null
+  error: string | null
+  deliveredAt: string | null
+}
+
 const CRM_EVENT_CATALOG: CatalogEvent[] = [
   {
     event: 'contact.created',
@@ -287,6 +299,11 @@ export function WebhookSettingsClient() {
   const [fetchError, setFetchError] = useState<string | null>(null)
   const [pendingDeleteWebhook, setPendingDeleteWebhook] = useState<OutboundWebhook | null>(null)
   const [pendingRotateWebhook, setPendingRotateWebhook] = useState<OutboundWebhook | null>(null)
+  // US-096: per-webhook recent delivery log (lazy-loaded when a row is expanded).
+  const [expandedDeliveries, setExpandedDeliveries] = useState<string | null>(null)
+  const [deliveriesByWebhook, setDeliveriesByWebhook] = useState<Record<string, WebhookDelivery[]>>({})
+  const [deliveriesLoadingId, setDeliveriesLoadingId] = useState<string | null>(null)
+  const [deliveriesError, setDeliveriesError] = useState<Record<string, string>>({})
 
   const selectedCatalogEvent = CRM_EVENT_CATALOG.find((item) => item.event === selectedEvent) ?? CRM_EVENT_CATALOG[0]
   const supportedCatalog = useMemo(
@@ -321,6 +338,41 @@ export function WebhookSettingsClient() {
     const items: OutboundWebhook[] = body.data?.items ?? body.items ?? []
     setWebhooks(Array.isArray(items) ? items : [])
   }, [])
+
+  // US-096: fetch the last 10 deliveries for a webhook and cache them.
+  const loadDeliveries = useCallback(async (webhookId: string) => {
+    setDeliveriesLoadingId(webhookId)
+    setDeliveriesError((prev) => {
+      const next = { ...prev }
+      delete next[webhookId]
+      return next
+    })
+    try {
+      const res = await fetch(webhookEndpoint(`/api/v1/crm/webhooks/${webhookId}/deliveries?limit=10`))
+      const body = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        throw new Error(parseApiError(body, 'Failed to load deliveries.'))
+      }
+      const list: WebhookDelivery[] = body.data?.deliveries ?? body.deliveries ?? []
+      setDeliveriesByWebhook((prev) => ({ ...prev, [webhookId]: Array.isArray(list) ? list : [] }))
+    } catch (err) {
+      setDeliveriesError((prev) => ({
+        ...prev,
+        [webhookId]: err instanceof Error ? err.message : 'Failed to load deliveries.',
+      }))
+    } finally {
+      setDeliveriesLoadingId(null)
+    }
+  }, [webhookEndpoint])
+
+  // Toggle the delivery log open/closed; load on first open.
+  const toggleDeliveries = useCallback((webhookId: string) => {
+    setExpandedDeliveries((current) => {
+      if (current === webhookId) return null
+      if (!deliveriesByWebhook[webhookId]) void loadDeliveries(webhookId)
+      return webhookId
+    })
+  }, [deliveriesByWebhook, loadDeliveries])
 
   useEffect(() => {
     let cancelled = false
@@ -982,6 +1034,19 @@ export function WebhookSettingsClient() {
                       </button>
                       <button
                         type="button"
+                        onClick={() => toggleDeliveries(webhook.id)}
+                        aria-expanded={expandedDeliveries === webhook.id}
+                        aria-label={`Show recent deliveries for ${displayName}`}
+                        className="cursor-pointer btn-pib-secondary flex items-center gap-1.5 text-xs disabled:opacity-50"
+                      >
+                        <span className="material-symbols-outlined text-[14px]">history</span>
+                        Deliveries
+                        <span className={`material-symbols-outlined text-[14px] transition-transform ${expandedDeliveries === webhook.id ? 'rotate-180' : ''}`}>
+                          expand_more
+                        </span>
+                      </button>
+                      <button
+                        type="button"
                         onClick={() => startEdit(webhook)}
                         disabled={busyId !== null}
                         aria-label={`Edit webhook subscription ${displayName}`}
@@ -1017,6 +1082,73 @@ export function WebhookSettingsClient() {
                         Delete
                       </button>
                     </div>
+
+                    {/* US-096: last 10 deliveries log */}
+                    {expandedDeliveries === webhook.id && (
+                      <div className="mt-3 rounded-lg border border-[var(--color-pib-line)] bg-black/20 p-3">
+                        <p className="mb-2 text-[10px] uppercase tracking-widest text-[var(--color-pib-text-muted)] font-mono">
+                          Last 10 deliveries
+                        </p>
+                        {deliveriesLoadingId === webhook.id ? (
+                          <div className="space-y-1.5">
+                            {[...Array(3)].map((_, i) => (
+                              <div key={i} className="pib-skeleton h-7 rounded" />
+                            ))}
+                          </div>
+                        ) : deliveriesError[webhook.id] ? (
+                          <div className="flex items-center justify-between gap-3">
+                            <p className="text-[11px] text-red-300">{deliveriesError[webhook.id]}</p>
+                            <button
+                              type="button"
+                              onClick={() => loadDeliveries(webhook.id)}
+                              className="cursor-pointer btn-pib-secondary !py-1 !px-2 !text-[11px]"
+                            >
+                              Retry
+                            </button>
+                          </div>
+                        ) : (deliveriesByWebhook[webhook.id]?.length ?? 0) === 0 ? (
+                          <p className="text-[11px] text-[var(--color-pib-text-muted)]">
+                            No deliveries recorded yet. Send a test or wait for a CRM event.
+                          </p>
+                        ) : (
+                          <table className="w-full text-[11px]">
+                            <thead>
+                              <tr className="text-left text-[var(--color-pib-text-muted)]">
+                                <th className="py-1 pr-2 font-mono font-normal uppercase tracking-wider">When</th>
+                                <th className="py-1 pr-2 font-mono font-normal uppercase tracking-wider">Event</th>
+                                <th className="py-1 pr-2 font-mono font-normal uppercase tracking-wider">Status</th>
+                                <th className="py-1 font-mono font-normal uppercase tracking-wider text-right">Code</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {deliveriesByWebhook[webhook.id]!.map((d) => (
+                                <tr key={d.id} className="border-t border-[var(--color-pib-line)]">
+                                  <td className="py-1.5 pr-2 text-[var(--color-pib-text-muted)] whitespace-nowrap">
+                                    {formatDate(d.deliveredAt)}
+                                  </td>
+                                  <td className="py-1.5 pr-2 text-[var(--color-pib-text)]">{eventLabel(d.event)}</td>
+                                  <td className="py-1.5 pr-2">
+                                    <span
+                                      className={`rounded-full px-2 py-0.5 text-[10px] ${
+                                        d.success
+                                          ? 'bg-emerald-500/15 text-emerald-300'
+                                          : 'bg-red-500/15 text-red-300'
+                                      }`}
+                                      title={d.error ?? undefined}
+                                    >
+                                      {d.success ? 'Delivered' : 'Failed'}
+                                    </span>
+                                  </td>
+                                  <td className="py-1.5 text-right font-mono text-[var(--color-pib-text-muted)]">
+                                    {d.responseStatus ?? '—'}
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        )}
+                      </div>
+                    )}
                   </div>
                   )
                 })}

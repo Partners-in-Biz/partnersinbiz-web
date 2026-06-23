@@ -8,7 +8,7 @@ import { FieldValue } from 'firebase-admin/firestore'
 import { adminDb } from '@/lib/firebase/admin'
 import { withCrmAuth } from '@/lib/auth/crm-middleware'
 import { apiSuccess, apiError } from '@/lib/api/response'
-import { sanitizeSegmentFilters as sanitizeFilters } from '@/lib/crm/segments'
+import { sanitizeSegmentFilters as sanitizeFilters, sanitizeRuleGroup } from '@/lib/crm/segments'
 import type { SegmentInput } from '@/lib/crm/segments'
 
 const ARRAY_CONTAINS_ANY_LIMIT = 10
@@ -48,11 +48,15 @@ export const POST = withCrmAuth('admin', async (req, ctx) => {
   // PR 3 pattern 1: use ctx.actor directly (no snapshotForWrite)
   const actorRef = ctx.actor
 
+  // US-055: accept an optional generic rule tree alongside legacy filters.
+  const ruleGroup = body.ruleGroup !== undefined ? sanitizeRuleGroup(body.ruleGroup) : null
+
   const segmentData = {
     orgId: ctx.orgId,
     name,
     description,
     filters,
+    ruleGroup: ruleGroup ?? undefined,
     deleted: false,
     createdBy: ctx.isAgent ? undefined : ctx.actor.uid,
     createdByRef: actorRef,

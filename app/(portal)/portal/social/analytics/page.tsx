@@ -50,6 +50,15 @@ interface BestTimeSlot {
   postCount: number
 }
 
+interface SocialReport {
+  id: string
+  title: string
+  dateRange?: { from: string | null; to: string | null; label?: string }
+  generatedBy?: string
+  createdAt?: any
+  metricsSummary?: Record<string, number>
+}
+
 const PLATFORM_COLORS: Record<string, { bg: string; label: string }> = {
   twitter: { bg: 'bg-black', label: 'X' },
   x: { bg: 'bg-black', label: 'X' },
@@ -148,6 +157,9 @@ export default function AnalyticsPage() {
   const [loading, setLoading] = useState(true)
   const [range, setRange] = useState<DateRange>('30d')
   const [tab, setTab] = useState<Tab>('overview')
+  const [reports, setReports] = useState<SocialReport[]>([])
+  const [generating, setGenerating] = useState(false)
+  const [pdfError, setPdfError] = useState<string | null>(null)
 
   const fetchData = useCallback(async () => {
     setLoading(true)
@@ -172,6 +184,49 @@ export default function AnalyticsPage() {
   }, [orgId])
 
   useEffect(() => { fetchData() }, [fetchData])
+
+  const fetchReports = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/v1/social/reports${orgId ? `?orgId=${orgId}` : ''}`)
+      const body = await res.json()
+      setReports(body.data ?? [])
+    } catch {
+      setReports([])
+    }
+  }, [orgId])
+
+  useEffect(() => { fetchReports() }, [fetchReports])
+
+  const handleGeneratePdf = useCallback(async () => {
+    setGenerating(true)
+    setPdfError(null)
+    try {
+      const params = new URLSearchParams()
+      if (orgId) params.set('orgId', orgId)
+      if (range === '7d') params.set('days', '7')
+      else if (range === '30d') params.set('days', '30')
+      const res = await fetch(`/api/v1/social/analytics/report.pdf?${params.toString()}`)
+      if (!res.ok) {
+        let msg = 'Failed to generate PDF'
+        try { const b = await res.json(); msg = b.error ?? msg } catch { /* non-json */ }
+        throw new Error(msg)
+      }
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `social-analytics-${new Date().toISOString().slice(0, 10)}.pdf`
+      document.body.appendChild(a)
+      a.click()
+      a.remove()
+      URL.revokeObjectURL(url)
+      fetchReports()
+    } catch (err) {
+      setPdfError(err instanceof Error ? err.message : 'Failed to generate PDF')
+    } finally {
+      setGenerating(false)
+    }
+  }, [orgId, range, fetchReports])
 
   const filtered = useMemo(() => {
     if (range === 'all') return posts
@@ -233,10 +288,22 @@ export default function AnalyticsPage() {
 
   return (
     <div className="max-w-6xl mx-auto space-y-6">
-      <div>
-        <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant mb-1">Social</p>
-        <h1 className="text-2xl font-headline font-bold text-on-surface">Analytics</h1>
-        <p className="text-sm text-on-surface-variant mt-0.5">Engagement data and performance insights</p>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant mb-1">Social</p>
+          <h1 className="text-2xl font-headline font-bold text-on-surface">Analytics</h1>
+          <p className="text-sm text-on-surface-variant mt-0.5">Engagement data and performance insights</p>
+        </div>
+        <div className="flex flex-col items-end gap-1">
+          <button
+            onClick={handleGeneratePdf}
+            disabled={generating}
+            className="px-4 py-2 rounded-lg font-label text-xs font-medium bg-white text-black hover:bg-white/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors whitespace-nowrap"
+          >
+            {generating ? 'Generating…' : 'Generate PDF'}
+          </button>
+          {pdfError && <p className="text-[10px] text-red-400 max-w-[200px] text-right">{pdfError}</p>}
+        </div>
       </div>
 
       <PageTabs
@@ -470,6 +537,33 @@ export default function AnalyticsPage() {
             </div>
           )}
         </>
+      )}
+
+      {/* ── Reports history ── */}
+      {reports.length > 0 && (
+        <div className="pib-card space-y-3">
+          <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">
+            Reports History
+          </p>
+          <div className="space-y-2">
+            {reports.map((r) => (
+              <div
+                key={r.id}
+                className="flex items-center justify-between gap-3 p-3 rounded-lg bg-[var(--color-surface-container)]"
+              >
+                <div className="min-w-0">
+                  <p className="text-sm text-on-surface truncate">{r.title}</p>
+                  <p className="text-[10px] text-on-surface-variant mt-0.5">
+                    {r.dateRange?.label ?? 'All time'} · Generated {fmtDate(r.createdAt)}
+                  </p>
+                </div>
+                <span className="text-[10px] px-2 py-0.5 rounded font-bold bg-surface-container-high text-on-surface-variant uppercase shrink-0">
+                  PDF
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
       )}
     </div>
   )

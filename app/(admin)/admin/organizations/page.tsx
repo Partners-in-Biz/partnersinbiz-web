@@ -3,161 +3,76 @@ export const dynamic = 'force-dynamic'
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
-
-interface OrgSummary {
-  id: string
-  name: string
-  slug: string
-  type: string
-  status: string
-  description?: string
-  logoUrl?: string
-  memberCount: number
-  createdAt?: unknown
-}
-
-function Skeleton({ className = '' }: { className?: string }) {
-  return <div className={`pib-skeleton ${className}`} />
-}
-
-function StatusBadge({ status }: { status: string }) {
-  const map: Record<string, { label: string; color: string }> = {
-    active:      { label: 'Active',      color: '#4ade80' },
-    onboarding:  { label: 'Onboarding',  color: 'var(--color-accent-v2)' },
-    suspended:   { label: 'Suspended',   color: 'var(--color-error)' },
-    churned:     { label: 'Churned',     color: 'var(--color-outline)' },
-  }
-  const s = map[status] ?? { label: status, color: 'var(--color-outline)' }
-  return (
-    <span
-      className="text-[10px] font-label uppercase tracking-wide px-2 py-0.5 rounded-full"
-      style={{ background: `${s.color}20`, color: s.color }}
-    >
-      {s.label}
-    </span>
-  )
-}
+import OrgsTable, { type AdminOrgRow } from '@/components/admin/orgs/OrgsTable'
 
 export default function OrganizationsPage() {
-  const [orgs, setOrgs] = useState<OrgSummary[]>([])
+  const [orgs, setOrgs] = useState<AdminOrgRow[]>([])
   const [loading, setLoading] = useState(true)
-  const [search, setSearch] = useState('')
+  const [error, setError] = useState('')
 
   useEffect(() => {
-    fetch('/api/v1/organizations')
-      .then(r => r.json())
-      .then(body => {
-        // Filter to client orgs only (exclude platform_owner)
-        const clients = (body.data ?? []).filter((o: OrgSummary) => o.type !== 'platform_owner')
-        setOrgs(clients)
+    let cancelled = false
+    fetch('/api/v1/admin/dashboard/organizations')
+      .then((r) => r.json())
+      .then((body) => {
+        if (cancelled) return
+        if (!body?.success) {
+          setError(body?.error || 'Failed to load organisations')
+          setLoading(false)
+          return
+        }
+        const rows: AdminOrgRow[] = (body.data?.organizations ?? []) as AdminOrgRow[]
+        setOrgs(rows)
         setLoading(false)
       })
-      .catch(() => setLoading(false))
+      .catch(() => {
+        if (cancelled) return
+        setError('Failed to load organisations')
+        setLoading(false)
+      })
+    return () => { cancelled = true }
   }, [])
 
-  const filtered = orgs.filter(o =>
-    !search || o.name.toLowerCase().includes(search.toLowerCase())
-  )
-
-  const activeCount = orgs.filter(o => o.status === 'active').length
+  const activeCount = orgs.filter((o) => o.status === 'active').length
+  const totalMrr = orgs.reduce((sum, o) => sum + (o.mrr || 0), 0)
 
   return (
-    <div className="space-y-6 max-w-5xl mx-auto">
+    <div className="space-y-6 max-w-[1400px] mx-auto">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div>
           <h1 className="text-2xl font-headline font-bold text-on-surface">Client Workspaces</h1>
           <p className="text-sm text-on-surface-variant mt-0.5">
-            Platform-admin operations for client organisations, workspace provisioning, and operational status.
+            Platform-admin operations for client organisations — billing, contacts, email activity, and provisioning.
           </p>
           <p className="text-xs text-on-surface-variant/70 mt-1">
-            {loading ? '—' : `${activeCount} active of ${orgs.length} client workspaces`}
+            {loading
+              ? '—'
+              : `${activeCount} active of ${orgs.length} client workspaces · R${Math.round(totalMrr).toLocaleString('en-ZA')} MRR`}
           </p>
         </div>
-        <Link href="/admin/organizations/new" className="pib-btn-primary text-sm font-label">+ Provision client workspace</Link>
+        <Link href="/admin/organizations/new" className="pib-btn-primary text-sm font-label shrink-0">
+          + Provision client workspace
+        </Link>
       </div>
 
-      {/* Search */}
-      <input
-        type="text"
-        placeholder="Search organisations..."
-        value={search}
-        onChange={e => setSearch(e.target.value)}
-        className="w-full px-4 py-2.5 text-sm bg-[var(--color-card)] border border-[var(--color-card-border)] rounded-[var(--radius-btn)] text-on-surface placeholder:text-on-surface-variant focus:outline-none focus:border-[var(--color-accent-v2)] transition-colors"
-      />
+      {error ? (
+        <div className="pib-card !border-red-500/30 !bg-red-500/5 text-sm text-red-400">{error}</div>
+      ) : null}
 
-      {/* Table */}
-      <div className="pib-card overflow-hidden !p-0">
-        {/* Table Header */}
-        <div className="grid grid-cols-12 gap-4 px-5 py-3 border-b border-[var(--color-card-border)]">
-          <p className="col-span-5 text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Name</p>
-          <p className="col-span-2 text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Status</p>
-          <p className="col-span-2 text-[10px] font-label uppercase tracking-widest text-on-surface-variant text-center sm:text-left">Portal access</p>
-          <p className="col-span-3 text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Actions</p>
-        </div>
-
-        {/* Rows */}
-        {loading ? (
+      {loading ? (
+        <div className="pib-card overflow-hidden !p-0">
           <div className="divide-y divide-[var(--color-card-border)]">
-            {Array.from({ length: 5 }).map((_, i) => (
+            {Array.from({ length: 6 }).map((_, i) => (
               <div key={i} className="px-5 py-4">
-                <Skeleton className="h-5 w-48" />
+                <div className="pib-skeleton h-5 w-48" />
               </div>
             ))}
           </div>
-        ) : filtered.length === 0 ? (
-          <div className="py-12 text-center">
-            <p className="text-on-surface-variant text-sm">No organisations found.</p>
-          </div>
-        ) : (
-          <div className="divide-y divide-[var(--color-card-border)]">
-            {filtered.map(org => (
-              <div
-                key={org.id}
-                className="grid grid-cols-12 gap-4 items-center px-5 py-3.5 hover:bg-[var(--color-row-hover)] transition-colors"
-              >
-                {/* Name + description */}
-                <div className="col-span-5 min-w-0">
-                  <p className="text-sm font-medium text-on-surface truncate">{org.name}</p>
-                  {org.description && (
-                    <p className="text-xs text-on-surface-variant truncate mt-0.5">{org.description}</p>
-                  )}
-                </div>
-                {/* Status */}
-                <div className="col-span-2">
-                  <StatusBadge status={org.status} />
-                </div>
-                {/* Members */}
-                <div className="col-span-2 flex justify-center sm:justify-start">
-                  <p className="text-sm text-on-surface-variant text-center sm:text-left">
-                    <span className="sm:hidden">{org.memberCount}</span>
-                    <span className="hidden sm:inline">{org.memberCount} portal login{org.memberCount !== 1 ? 's' : ''}</span>
-                  </p>
-                </div>
-                {/* Actions */}
-                <div className="col-span-3 flex gap-2">
-                  <Link
-                    href={`/admin/org/${org.slug}/dashboard`}
-                    className="pib-btn-secondary text-xs font-label !px-2 sm:!px-4"
-                    title="Open admin workspace"
-                  >
-                    <span className="sm:hidden">↗</span>
-                    <span className="hidden sm:inline">Open</span>
-                  </Link>
-                  <Link
-                    href={`/admin/organizations/${org.id}`}
-                    className="pib-btn-secondary text-xs font-label !px-2 sm:!px-4"
-                    title="Edit platform record"
-                  >
-                    <span className="sm:hidden">✎</span>
-                    <span className="hidden sm:inline">Admin edit</span>
-                  </Link>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
+        </div>
+      ) : (
+        <OrgsTable orgs={orgs} />
+      )}
     </div>
   )
 }

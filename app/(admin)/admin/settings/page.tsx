@@ -6,6 +6,7 @@ import { useEffect, useState } from 'react'
 import { useOrg } from '@/lib/contexts/OrgContext'
 import { copyToClipboard } from '@/lib/utils/clipboard'
 import { PushNotificationsToggle } from '@/components/pwa/PushNotificationsToggle'
+import { SettingsPlatformConfig } from '@/components/admin/governance/SettingsPlatformConfig'
 
 interface SessionInfo {
   email?: string | null
@@ -193,6 +194,9 @@ export default function SettingsPage() {
         <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant mb-1">Settings</p>
         <h1 className="text-2xl font-headline font-bold text-on-surface">Platform Settings</h1>
       </div>
+
+      {/* Platform configuration */}
+      <SettingsPlatformConfig canEdit={isSuperAdmin} />
 
       {/* Organisation */}
       {selectedOrgId && (
@@ -403,6 +407,101 @@ export default function SettingsPage() {
             </code>
           </span>
         </div>
+      </div>
+
+      {/* Billing & Revenue */}
+      <div className="pib-card space-y-1">
+        <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant mb-3">Billing &amp; Revenue</p>
+        {[
+          { icon: 'payments', title: 'Plans & Pricing', desc: 'Manage subscription plans and pricing tiers. Plans: Starter, Growth, Scale, Enterprise.', cta: 'View plans' },
+          { icon: 'confirmation_number', title: 'Coupon / Discount Codes', desc: 'Manage promotional discount codes.', cta: 'Configure' },
+          { icon: 'trending_up', title: 'Revenue & MRR', desc: 'Monthly recurring revenue dashboard. Connect billing analytics to view live MRR, churn, and ARR.', cta: 'View dashboard' },
+          { icon: 'account_balance', title: 'EFT Payment Queue', desc: 'Verify and process incoming EFT bank transfers.', cta: 'Open queue' },
+          { icon: 'hourglass_top', title: 'Trial Conversion', desc: 'Manage organisations on trial plans and track conversion rates.', cta: 'View trials' },
+          { icon: 'person_remove', title: 'Churn Analysis', desc: 'Track and analyse subscription churn by cohort.', cta: 'View churn' },
+          { icon: 'autorenew', title: 'Billing Dunning', desc: 'Automated payment retry sequences for failed billing.', cta: 'Configure' },
+          { icon: 'group_add', title: 'Referral Programme', desc: 'Manage client referral incentives and track referral performance.', cta: 'Configure' },
+          { icon: 'hub', title: 'Stripe Connect', desc: 'Marketplace payment routing configuration.', cta: 'Configure' },
+        ].map(item => (
+          <div key={item.title} className="flex items-center justify-between p-3 rounded-lg hover:bg-[var(--color-row-hover)] transition-colors">
+            <div className="flex items-start gap-3">
+              <span className="material-symbols-outlined text-[20px] mt-0.5" style={{ color: 'var(--color-accent-v2)' }}>{item.icon}</span>
+              <div>
+                <p className="text-sm font-medium text-on-surface">{item.title}</p>
+                <p className="text-xs text-on-surface-variant mt-0.5">{item.desc}</p>
+              </div>
+            </div>
+            <button type="button" className="shrink-0 ml-4 text-xs text-on-surface-variant hover:text-on-surface px-2 py-1 rounded hover:bg-[var(--color-surface-container)] transition-colors">{item.cta} →</button>
+          </div>
+        ))}
+      </div>
+
+      {/* Platform Communications */}
+      <div className="pib-card space-y-1">
+        <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant mb-3">Platform Communications</p>
+        {[
+          { icon: 'campaign', title: 'Platform Broadcast', desc: 'Send platform-wide broadcasts to all active organisations.', href: '/admin/settings/broadcast' },
+          { icon: 'notifications', title: 'Announcements', desc: 'Publish in-app announcement banners for all users.', href: '/admin/announcements' },
+          { icon: 'history', title: 'Changelog', desc: 'Manage the public product changelog and release notes.', href: '/admin/changelog' },
+        ].map(item => (
+          <Link key={item.title} href={item.href} className="flex items-center justify-between p-3 rounded-lg hover:bg-[var(--color-row-hover)] transition-colors">
+            <div className="flex items-start gap-3">
+              <span className="material-symbols-outlined text-[20px] mt-0.5" style={{ color: 'var(--color-accent-v2)' }}>{item.icon}</span>
+              <div>
+                <p className="text-sm font-medium text-on-surface">{item.title}</p>
+                <p className="text-xs text-on-surface-variant mt-0.5">{item.desc}</p>
+              </div>
+            </div>
+            <span style={{ color: 'var(--color-accent-v2)' }}>→</span>
+          </Link>
+        ))}
+      </div>
+
+      {/* Legal & Compliance */}
+      <div className="pib-card space-y-1">
+        <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant mb-3">Legal &amp; Compliance</p>
+        {[
+          { icon: 'gavel', title: 'Legal Documents', desc: 'Terms of service, privacy policy and legal document management.', href: '/admin/legal' },
+          { icon: 'privacy_tip', title: 'GDPR Compliance', desc: 'Data processing agreements, right-to-erasure workflows, and GDPR reporting.', href: '/admin/legal/gdpr' },
+          { icon: 'assignment_turned_in', title: 'Automated Compliance Reporting', desc: 'Scheduled compliance reports for data protection audits.', href: '/admin/legal/compliance' },
+          { icon: 'shield', title: 'Content Moderation', desc: 'Review flagged content and moderation queues.', href: '/admin/moderation' },
+        ].map(item => (
+          <Link key={item.title} href={item.href} className="flex items-center justify-between p-3 rounded-lg hover:bg-[var(--color-row-hover)] transition-colors">
+            <div className="flex items-start gap-3">
+              <span className="material-symbols-outlined text-[20px] mt-0.5" style={{ color: 'var(--color-accent-v2)' }}>{item.icon}</span>
+              <div>
+                <p className="text-sm font-medium text-on-surface">{item.title}</p>
+                <p className="text-xs text-on-surface-variant mt-0.5">{item.desc}</p>
+              </div>
+            </div>
+            <span style={{ color: 'var(--color-accent-v2)' }}>→</span>
+          </Link>
+        ))}
+      </div>
+
+      {/* Infrastructure & Config */}
+      <div className="pib-card space-y-1">
+        <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant mb-3">Infrastructure &amp; Config</p>
+        {[
+          { icon: 'admin_panel_settings', title: 'Admin Users', desc: 'Manage admin accounts, roles, and access.', href: '/admin/settings/admins' },
+          { icon: 'dns', title: 'White-Label Domains', desc: 'Configure custom domains for client portal white-labelling.', href: '/admin/domains' },
+          { icon: 'lock', title: 'SSL Certificate Management', desc: 'Automated SSL provisioning for custom domains.', href: '/admin/domains/ssl' },
+          { icon: 'notifications_active', title: 'Admin Alerts', desc: 'Slack/webhook notifications for critical platform events.', href: '/admin/settings/alerts' },
+          { icon: 'build_circle', title: 'Maintenance Mode', desc: 'Schedule and activate platform maintenance windows.', href: '/admin/settings/maintenance' },
+          { icon: 'science', title: 'A/B Testing', desc: 'Manage A/B tests for public landing pages.', href: '/admin/ab-tests' },
+          { icon: 'upload_file', title: 'Admin CSV Import Tools', desc: 'Bulk data import for organisations, contacts, and users.', href: '/admin/tools/import' },
+        ].map(item => (
+          <Link key={item.title} href={item.href} className="flex items-center justify-between p-3 rounded-lg hover:bg-[var(--color-row-hover)] transition-colors">
+            <div className="flex items-start gap-3">
+              <span className="material-symbols-outlined text-[20px] mt-0.5" style={{ color: 'var(--color-accent-v2)' }}>{item.icon}</span>
+              <div>
+                <p className="text-sm font-medium text-on-surface">{item.title}</p>
+                <p className="text-xs text-on-surface-variant mt-0.5">{item.desc}</p>
+              </div>
+            </div>
+            <span style={{ color: 'var(--color-accent-v2)' }}>→</span>
+          </Link>
+        ))}
       </div>
     </div>
   )

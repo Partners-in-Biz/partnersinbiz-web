@@ -2,7 +2,8 @@
 'use client'
 export const dynamic = 'force-dynamic'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import { scopedApiPath, scopeFromSearchParams } from '@/lib/portal/scoped-routing'
 
@@ -22,12 +23,35 @@ type BillingAddress = {
   country?: string
 }
 
+const TIMEZONES = [
+  { value: 'Africa/Johannesburg', label: 'Africa/Johannesburg (SAST, UTC+2)' },
+  { value: 'Africa/Nairobi',      label: 'Africa/Nairobi (EAT, UTC+3)' },
+  { value: 'Africa/Lagos',        label: 'Africa/Lagos (WAT, UTC+1)' },
+  { value: 'Africa/Cairo',        label: 'Africa/Cairo (EET, UTC+2)' },
+  { value: 'Europe/London',       label: 'Europe/London (GMT/BST)' },
+  { value: 'Europe/Paris',        label: 'Europe/Paris (CET, UTC+1)' },
+  { value: 'Europe/Berlin',       label: 'Europe/Berlin (CET, UTC+1)' },
+  { value: 'Europe/Amsterdam',    label: 'Europe/Amsterdam (CET, UTC+1)' },
+  { value: 'America/New_York',    label: 'America/New_York (EST/EDT)' },
+  { value: 'America/Chicago',     label: 'America/Chicago (CST/CDT)' },
+  { value: 'America/Denver',      label: 'America/Denver (MST/MDT)' },
+  { value: 'America/Los_Angeles', label: 'America/Los_Angeles (PST/PDT)' },
+  { value: 'America/Sao_Paulo',   label: 'America/Sao_Paulo (BRT, UTC−3)' },
+  { value: 'Asia/Dubai',          label: 'Asia/Dubai (GST, UTC+4)' },
+  { value: 'Asia/Singapore',      label: 'Asia/Singapore (SST, UTC+8)' },
+  { value: 'Asia/Tokyo',          label: 'Asia/Tokyo (JST, UTC+9)' },
+  { value: 'Australia/Sydney',    label: 'Australia/Sydney (AEST/AEDT)' },
+  { value: 'Pacific/Auckland',    label: 'Pacific/Auckland (NZST/NZDT)' },
+]
+
 type OrganizationSettingsResponse = {
   organization?: {
     name?: string
     website?: string
     industry?: string
     billingEmail?: string
+    timezone?: string
+    defaultSender?: { name?: string; email?: string }
     billingDetails?: {
       legalName?: string
       tradingName?: string
@@ -45,6 +69,18 @@ type OrganizationSettingsResponse = {
   }
   permissions?: { canEdit?: boolean; role?: string | null }
   error?: string
+}
+
+type BrandProfileResponse = {
+  brandProfile?: { logoUrl?: string } & Record<string, unknown>
+  brandColors?: { primary?: string; accent?: string }
+}
+
+type DomainConfig = {
+  subdomain?: string
+  customDomain?: string
+  verified?: boolean
+  sslStatus?: string
 }
 
 type FormState = {
@@ -226,6 +262,35 @@ export default function OrganizationSettingsPage() {
   const [saved, setSaved] = useState(false)
   const [error, setError] = useState('')
 
+  // Timezone state — independent of main form save
+  const [timezone, setTimezone] = useState('Africa/Johannesburg')
+  const [tzSaving, setTzSaving] = useState(false)
+  const [tzSaved, setTzSaved] = useState(false)
+  const [tzError, setTzError] = useState('')
+
+  // Branding & sender state — independent save (brand-profile API + org API).
+  const brandEndpoint = scopedApiPath('/api/v1/portal/brand-profile', scopeFromSearchParams(searchParams))
+  const brandUploadEndpoint = scopedApiPath('/api/v1/portal/brand-profile/upload', scopeFromSearchParams(searchParams))
+  const domainEndpoint = scopedApiPath('/api/v1/org/domain', scopeFromSearchParams(searchParams))
+  const fileInputRef = useRef<HTMLInputElement | null>(null)
+
+  const [logoUrl, setLogoUrl] = useState('')
+  const [brandProfile, setBrandProfile] = useState<Record<string, unknown>>({})
+  const [primaryColor, setPrimaryColor] = useState('#1d4ed8')
+  const [accentColor, setAccentColor] = useState('#f59e0b')
+  const [uploadingLogo, setUploadingLogo] = useState(false)
+  const [brandSaving, setBrandSaving] = useState(false)
+  const [brandSaved, setBrandSaved] = useState(false)
+  const [brandError, setBrandError] = useState('')
+
+  const [senderName, setSenderName] = useState('')
+  const [senderEmail, setSenderEmail] = useState('')
+  const [senderSaving, setSenderSaving] = useState(false)
+  const [senderSaved, setSenderSaved] = useState(false)
+  const [senderError, setSenderError] = useState('')
+
+  const [domain, setDomain] = useState<DomainConfig | null>(null)
+
   useEffect(() => {
     let alive = true
     fetch(organizationEndpoint)
@@ -239,6 +304,11 @@ export default function OrganizationSettingsPage() {
         setForm(toForm(body))
         setCanEdit(body.permissions?.canEdit === true)
         setRole(body.permissions?.role ?? null)
+        if (body.organization?.timezone) setTimezone(body.organization.timezone)
+        if (body.organization?.defaultSender) {
+          setSenderName(stringValue(body.organization.defaultSender.name))
+          setSenderEmail(stringValue(body.organization.defaultSender.email))
+        }
       })
       .catch((err: unknown) => {
         if (alive) setError(err instanceof Error ? err.message : 'Failed to load organisation details')
@@ -248,6 +318,129 @@ export default function OrganizationSettingsPage() {
       })
     return () => { alive = false }
   }, [organizationEndpoint])
+
+  // Load branding (brand-profile API) + domain summary.
+  useEffect(() => {
+    let alive = true
+    fetch(brandEndpoint)
+      .then(async (res) => (res.ok ? res.json().catch(() => ({})) : {}))
+      .then((body: { data?: BrandProfileResponse } & BrandProfileResponse) => {
+        if (!alive) return
+        const payload = body.data ?? body
+        const bp = payload.brandProfile ?? {}
+        setBrandProfile(bp)
+        if (typeof bp.logoUrl === 'string') setLogoUrl(bp.logoUrl)
+        const colors = payload.brandColors ?? {}
+        if (typeof colors.primary === 'string' && colors.primary) setPrimaryColor(colors.primary)
+        if (typeof colors.accent === 'string' && colors.accent) setAccentColor(colors.accent)
+      })
+      .catch(() => { /* branding is best-effort; surfaced on save */ })
+
+    fetch(domainEndpoint)
+      .then(async (res) => (res.ok ? res.json().catch(() => ({})) : {}))
+      .then((body: { data?: { domain?: DomainConfig } } & { domain?: DomainConfig }) => {
+        if (!alive) return
+        const payload = body.data ?? body
+        if (payload.domain) setDomain(payload.domain)
+      })
+      .catch(() => { /* domain summary is optional */ })
+
+    return () => { alive = false }
+  }, [brandEndpoint, domainEndpoint])
+
+  async function handleLogoUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file || !canEdit) return
+    setUploadingLogo(true)
+    setBrandError('')
+    setBrandSaved(false)
+    try {
+      const fd = new FormData()
+      fd.append('file', file)
+      fd.append('folder', 'brands/logos')
+      const res = await fetch(brandUploadEndpoint, { method: 'POST', body: fd })
+      const body = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(body?.error ?? body?.data?.error ?? 'Logo upload failed')
+      const url = body?.data?.url ?? body?.url
+      if (typeof url !== 'string' || !url) throw new Error('Upload did not return a URL')
+
+      // Persist the new logo URL onto the brand profile immediately.
+      const nextProfile = { ...brandProfile, logoUrl: url }
+      const saveRes = await fetch(brandEndpoint, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          brandProfile: nextProfile,
+          brandColors: { primary: primaryColor, accent: accentColor },
+        }),
+      })
+      if (!saveRes.ok) {
+        const sb = await saveRes.json().catch(() => ({}))
+        throw new Error(sb?.error ?? sb?.data?.error ?? 'Failed to save logo')
+      }
+      setBrandProfile(nextProfile)
+      setLogoUrl(url)
+      setBrandSaved(true)
+      setTimeout(() => setBrandSaved(false), 3000)
+    } catch (err) {
+      setBrandError(err instanceof Error ? err.message : 'Logo upload failed')
+    } finally {
+      setUploadingLogo(false)
+      if (fileInputRef.current) fileInputRef.current.value = ''
+    }
+  }
+
+  async function handleSaveBranding() {
+    if (!canEdit) return
+    setBrandSaving(true)
+    setBrandSaved(false)
+    setBrandError('')
+    try {
+      const res = await fetch(brandEndpoint, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          brandProfile: { ...brandProfile, logoUrl },
+          brandColors: { primary: primaryColor, accent: accentColor },
+        }),
+      })
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}))
+        throw new Error(body?.error ?? body?.data?.error ?? 'Failed to save branding')
+      }
+      setBrandSaved(true)
+      setTimeout(() => setBrandSaved(false), 3000)
+    } catch (err) {
+      setBrandError(err instanceof Error ? err.message : 'Failed to save branding')
+    } finally {
+      setBrandSaving(false)
+    }
+  }
+
+  async function handleSaveSender() {
+    if (!canEdit) return
+    setSenderSaving(true)
+    setSenderSaved(false)
+    setSenderError('')
+    try {
+      const res = await fetch(organizationEndpoint, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ defaultSenderName: senderName, defaultSenderEmail: senderEmail }),
+      })
+      if (res.ok) {
+        setSenderSaved(true)
+        setTimeout(() => setSenderSaved(false), 3000)
+      } else {
+        const body = await res.json().catch(() => ({})) as OrganizationSettingsResponse
+        setSenderError(body.error ?? 'Failed to save default sender')
+      }
+    } catch {
+      setSenderError('Failed to save default sender')
+    } finally {
+      setSenderSaving(false)
+    }
+  }
 
   function updateText(field: TextField, value: string) {
     setForm((prev) => ({ ...prev, [field]: value }))
@@ -274,6 +467,30 @@ export default function OrganizationSettingsPage() {
       setError(body.error ?? 'Failed to save organisation details')
     }
     setSaving(false)
+  }
+
+  async function handleSaveTimezone() {
+    if (!canEdit) return
+    setTzSaving(true)
+    setTzSaved(false)
+    setTzError('')
+    try {
+      const res = await fetch(organizationEndpoint, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ timezone }),
+      })
+      if (res.ok) {
+        setTzSaved(true)
+        setTimeout(() => setTzSaved(false), 3000)
+      } else {
+        const body = await res.json().catch(() => ({})) as OrganizationSettingsResponse
+        setTzError(body.error ?? 'Failed to save timezone')
+      }
+    } catch {
+      setTzError('Failed to save timezone')
+    }
+    setTzSaving(false)
   }
 
   function field(label: string, key: TextField, options: { type?: string; required?: boolean } = {}) {
@@ -445,6 +662,234 @@ export default function OrganizationSettingsPage() {
           {saving ? 'Saving...' : saved ? 'Saved' : 'Save organisation details'}
         </button>
       </form>
+
+      {/* Timezone — standalone section, separate save */}
+      <div className="pib-card space-y-4">
+        <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Timezone</p>
+        <p className="text-sm text-[var(--color-pib-text-muted)]">
+          All scheduled times, reports, and activity timestamps will display in this timezone for your organisation.
+        </p>
+        <div className="flex flex-col gap-1.5">
+          <label htmlFor="org-timezone" className="pib-label !mb-0">Organisation timezone</label>
+          <select
+            id="org-timezone"
+            value={timezone}
+            onChange={(e) => setTimezone(e.target.value)}
+            disabled={!canEdit}
+            className="pib-input disabled:opacity-60"
+          >
+            {TIMEZONES.map((tz) => (
+              <option key={tz.value} value={tz.value}>{tz.label}</option>
+            ))}
+          </select>
+        </div>
+        {tzError && <p className="text-sm text-red-400">{tzError}</p>}
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={handleSaveTimezone}
+            disabled={tzSaving || !canEdit}
+            className="pib-btn-primary disabled:opacity-60"
+          >
+            {tzSaving ? 'Saving...' : 'Save timezone'}
+          </button>
+          {tzSaved && (
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-[var(--color-pib-success,#22c55e)]/10 px-3 py-1 text-xs font-medium text-[var(--color-pib-success,#22c55e)]">
+              <span className="material-symbols-outlined text-[14px]">check_circle</span>
+              Timezone saved
+            </span>
+          )}
+        </div>
+      </div>
+
+      {/* Branding & sender — logo, brand colours, default sender, subdomain summary */}
+      <div className="pib-card space-y-6">
+        <div>
+          <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Branding &amp; sender</p>
+          <p className="mt-2 text-sm text-[var(--color-pib-text-muted)]">
+            Set the logo, brand colours, and default sender used across portals, proposals, and outbound email.
+          </p>
+        </div>
+
+        {/* Logo */}
+        <div className="space-y-3">
+          <p className="pib-label !mb-0">Organisation logo</p>
+          <div className="flex flex-wrap items-center gap-4">
+            <div className="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-soft)]">
+              {logoUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={logoUrl} alt="Organisation logo" className="h-full w-full object-contain" />
+              ) : (
+                <span className="material-symbols-outlined text-[24px] text-[var(--color-pib-text-muted)]" aria-hidden="true">image</span>
+              )}
+            </div>
+            <div className="space-y-2">
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                onChange={handleLogoUpload}
+                disabled={!canEdit || uploadingLogo}
+                className="hidden"
+                id="org-logo-upload"
+              />
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={!canEdit || uploadingLogo}
+                className="pib-btn-secondary disabled:opacity-60"
+              >
+                <span className="material-symbols-outlined text-[16px]" aria-hidden="true">upload</span>
+                {uploadingLogo ? 'Uploading...' : logoUrl ? 'Replace logo' : 'Upload logo'}
+              </button>
+              <p className="text-xs text-[var(--color-pib-text-muted)]">PNG, JPG or SVG. Max 8MB.</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Brand colours */}
+        <div className="space-y-3">
+          <p className="pib-label !mb-0">Brand colours</p>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="flex flex-col gap-1.5">
+              <label htmlFor="org-brand-primary" className="text-xs text-[var(--color-pib-text-muted)]">Primary</label>
+              <div className="flex items-center gap-3">
+                <input
+                  id="org-brand-primary"
+                  type="color"
+                  value={primaryColor}
+                  onChange={(e) => setPrimaryColor(e.target.value)}
+                  disabled={!canEdit}
+                  className="h-10 w-14 shrink-0 cursor-pointer rounded border border-[var(--color-pib-line)] bg-transparent disabled:opacity-60"
+                />
+                <input
+                  type="text"
+                  value={primaryColor}
+                  onChange={(e) => setPrimaryColor(e.target.value)}
+                  disabled={!canEdit}
+                  className="pib-input disabled:opacity-60"
+                  aria-label="Primary colour hex"
+                />
+              </div>
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <label htmlFor="org-brand-accent" className="text-xs text-[var(--color-pib-text-muted)]">Accent</label>
+              <div className="flex items-center gap-3">
+                <input
+                  id="org-brand-accent"
+                  type="color"
+                  value={accentColor}
+                  onChange={(e) => setAccentColor(e.target.value)}
+                  disabled={!canEdit}
+                  className="h-10 w-14 shrink-0 cursor-pointer rounded border border-[var(--color-pib-line)] bg-transparent disabled:opacity-60"
+                />
+                <input
+                  type="text"
+                  value={accentColor}
+                  onChange={(e) => setAccentColor(e.target.value)}
+                  disabled={!canEdit}
+                  className="pib-input disabled:opacity-60"
+                  aria-label="Accent colour hex"
+                />
+              </div>
+            </div>
+          </div>
+          {brandError && <p className="text-sm text-red-400">{brandError}</p>}
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={handleSaveBranding}
+              disabled={brandSaving || !canEdit}
+              className="pib-btn-primary disabled:opacity-60"
+            >
+              {brandSaving ? 'Saving...' : 'Save branding'}
+            </button>
+            {brandSaved && (
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-[var(--color-pib-success,#22c55e)]/10 px-3 py-1 text-xs font-medium text-[var(--color-pib-success,#22c55e)]">
+                <span className="material-symbols-outlined text-[14px]">check_circle</span>
+                Branding saved
+              </span>
+            )}
+          </div>
+        </div>
+
+        {/* Default sender */}
+        <div className="space-y-3 border-t border-[var(--color-pib-line)] pt-6">
+          <p className="pib-label !mb-0">Default sender</p>
+          <p className="text-xs text-[var(--color-pib-text-muted)]">
+            Used as the from name and reply-to address on outbound email when a campaign does not specify its own sender.
+          </p>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="flex flex-col gap-1.5">
+              <label htmlFor="org-sender-name" className="pib-label !mb-0">Sender name</label>
+              <input
+                id="org-sender-name"
+                type="text"
+                value={senderName}
+                onChange={(e) => setSenderName(e.target.value)}
+                disabled={!canEdit}
+                className="pib-input disabled:opacity-60"
+                placeholder="Acme Team"
+              />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <label htmlFor="org-sender-email" className="pib-label !mb-0">Sender email</label>
+              <input
+                id="org-sender-email"
+                type="email"
+                value={senderEmail}
+                onChange={(e) => setSenderEmail(e.target.value)}
+                disabled={!canEdit}
+                className="pib-input disabled:opacity-60"
+                placeholder="hello@acme.com"
+              />
+            </div>
+          </div>
+          {senderError && <p className="text-sm text-red-400">{senderError}</p>}
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={handleSaveSender}
+              disabled={senderSaving || !canEdit}
+              className="pib-btn-primary disabled:opacity-60"
+            >
+              {senderSaving ? 'Saving...' : 'Save sender'}
+            </button>
+            {senderSaved && (
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-[var(--color-pib-success,#22c55e)]/10 px-3 py-1 text-xs font-medium text-[var(--color-pib-success,#22c55e)]">
+                <span className="material-symbols-outlined text-[14px]">check_circle</span>
+                Sender saved
+              </span>
+            )}
+          </div>
+        </div>
+
+        {/* Subdomain — read-only summary + link to the dedicated domain page */}
+        <div className="space-y-3 border-t border-[var(--color-pib-line)] pt-6">
+          <p className="pib-label !mb-0">Subdomain &amp; custom domain</p>
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-soft)] px-4 py-3">
+            <div className="min-w-0">
+              {domain?.subdomain || domain?.customDomain ? (
+                <p className="truncate text-sm font-medium text-[var(--color-pib-text)]">
+                  {domain.customDomain || `${domain.subdomain}.partnersinbiz.online`}
+                  {domain.verified
+                    ? <span className="ml-2 pib-pill pib-pill-success">Verified</span>
+                    : <span className="ml-2 pib-pill">Pending</span>}
+                </p>
+              ) : (
+                <p className="text-sm text-[var(--color-pib-text-muted)]">No subdomain or custom domain configured yet.</p>
+              )}
+              <p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">
+                Configure your white-label subdomain, custom domain, DNS, and SSL on the dedicated domain page.
+              </p>
+            </div>
+            <Link href="/portal/settings/domain" className="pib-btn-secondary shrink-0">
+              <span className="material-symbols-outlined text-[16px]" aria-hidden="true">open_in_new</span>
+              Manage domain
+            </Link>
+          </div>
+        </div>
+      </div>
     </div>
   )
 }

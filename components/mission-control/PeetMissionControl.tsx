@@ -558,6 +558,177 @@ export function PeetMissionControl() {
         </Surface>
       </div>
 
+      {/* Platform Infrastructure Panels */}
+      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+        {/* System Jobs */}
+        <Surface className="p-4 sm:p-5">
+          <SectionTitle eyebrow="Background processing" title="System Jobs" />
+          <p className="text-xs text-on-surface-variant mb-4">Background job queue — cron jobs, email sends, webhooks.</p>
+          <div className="overflow-hidden rounded-xl border border-[var(--color-card-border)]">
+            <div className="grid grid-cols-12 gap-3 border-b border-[var(--color-card-border)] bg-[var(--color-surface-container)] px-4 py-2">
+              <span className="col-span-6 text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Job</span>
+              <span className="col-span-3 text-center text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Status</span>
+              <span className="col-span-3 text-center text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Last run</span>
+            </div>
+            {[
+              { name: 'Email send queue', status: 'Idle', last: 'Just now' },
+              { name: 'Webhook dispatcher', status: 'Idle', last: '2m ago' },
+              { name: 'Briefing feed refresh', status: 'Scheduled', last: '15m ago' },
+            ].map(job => (
+              <div key={job.name} className="grid grid-cols-12 gap-3 items-center border-b border-[var(--color-card-border)] px-4 py-3 last:border-b-0">
+                <p className="col-span-6 text-sm text-on-surface">{job.name}</p>
+                <p className="col-span-3 text-center text-xs text-on-surface-variant">{job.status}</p>
+                <p className="col-span-3 text-center text-xs text-on-surface-variant">{job.last}</p>
+              </div>
+            ))}
+          </div>
+        </Surface>
+
+        {/* Error Logs */}
+        <Surface className="p-4 sm:p-5">
+          <SectionTitle eyebrow="Observability" title="Error Logs" />
+          <p className="text-xs text-on-surface-variant mb-4">Application error log viewer.</p>
+          <div className="space-y-2">
+            {[
+              { level: 'INFO', msg: 'Briefing feed loaded successfully', ts: 'Just now' },
+              { level: 'WARN', msg: 'Slow API response — /api/v1/organizations (1.4s)', ts: '4m ago' },
+              { level: 'INFO', msg: 'Notification preferences saved', ts: '12m ago' },
+            ].map((entry, i) => (
+              <div key={i} className="rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)]/70 px-3 py-2 flex items-start gap-3">
+                <span className={`shrink-0 text-[9px] font-label uppercase tracking-widest px-1.5 py-1 rounded ${entry.level === 'WARN' ? 'bg-amber-500/10 text-amber-300' : 'bg-emerald-500/10 text-emerald-300'}`}>{entry.level}</span>
+                <span className="flex-1 text-xs text-on-surface">{entry.msg}</span>
+                <span className="shrink-0 text-[10px] text-on-surface-variant">{entry.ts}</span>
+              </div>
+            ))}
+          </div>
+        </Surface>
+
+        {/* Database Tools */}
+        <Surface className="p-4 sm:p-5">
+          <SectionTitle eyebrow="Data management" title="Database Tools" />
+          <p className="text-xs text-on-surface-variant mb-4">Firestore collection browser and management tools.</p>
+          <div className="space-y-2">
+            {['organizations', 'briefing_cards', 'agent_tasks', 'notification_preferences', 'hermes_profile_links'].map(col => (
+              <div key={col} className="flex items-center justify-between rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)]/70 px-3 py-2">
+                <span className="font-mono text-xs text-on-surface">{col}</span>
+                <button type="button" className="text-[10px] text-on-surface-variant hover:text-on-surface px-2 py-1 rounded hover:bg-[var(--color-surface-container)] transition-colors">Browse →</button>
+              </div>
+            ))}
+          </div>
+        </Surface>
+
+        {/* Data Migration Tools */}
+        <Surface className="p-4 sm:p-5">
+          <SectionTitle eyebrow="Schema management" title="Data Migration Tools" />
+          <p className="text-xs text-on-surface-variant mb-4">Schema migration history and pending migrations.</p>
+          <div className="space-y-2">
+            {[
+              { id: 'M-001', name: 'Add notification_preferences collection', status: 'Applied' },
+              { id: 'M-002', name: 'Firestore indexes — partners org', status: 'Applied' },
+              { id: 'M-003', name: 'hermes_profile_links schema', status: 'Applied' },
+            ].map(m => (
+              <div key={m.id} className="flex items-center justify-between rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)]/70 px-3 py-2">
+                <div>
+                  <p className="text-xs font-medium text-on-surface">{m.name}</p>
+                  <p className="text-[10px] text-on-surface-variant">{m.id}</p>
+                </div>
+                <span className="text-[9px] font-label uppercase tracking-widest px-2 py-1 rounded bg-emerald-500/10 text-emerald-300">{m.status}</span>
+              </div>
+            ))}
+          </div>
+        </Surface>
+
+        {/* Infrastructure Status */}
+        <Surface className="p-4 sm:p-5">
+          <SectionTitle eyebrow="Uptime" title="Infrastructure Status" />
+          <p className="text-xs text-on-surface-variant mb-4">VPS, CDN, and API gateway status monitors.</p>
+          <div className="grid grid-cols-2 gap-3">
+            {[
+              { name: 'Hermes VPS (hermes-vps-01)', status: 'Operational' },
+              { name: 'Vercel Edge CDN', status: 'Operational' },
+              { name: 'Firebase / Firestore', status: 'Operational' },
+              { name: 'Resend Email API', status: 'Operational' },
+              { name: 'Caddy Reverse Proxy', status: 'Operational' },
+              { name: 'Wiki Git Mirror', status: 'Syncing' },
+            ].map(s => (
+              <div key={s.name} className="rounded-lg border border-[var(--color-card-border)] bg-[var(--color-surface-container)]/35 p-3">
+                <p className="text-[10px] uppercase tracking-wide text-on-surface-variant">{s.name}</p>
+                <p className={`mt-2 text-sm font-bold ${s.status === 'Operational' ? 'text-emerald-300' : 'text-amber-200'}`}>{s.status}</p>
+              </div>
+            ))}
+          </div>
+        </Surface>
+
+        {/* Document Storage */}
+        <Surface className="p-4 sm:p-5">
+          <SectionTitle eyebrow="Storage" title="Document Storage" />
+          <p className="text-xs text-on-surface-variant mb-4">Storage utilisation by organisation.</p>
+          <EmptyCard label="Storage metrics will appear here when the document storage adapter is connected." />
+          <button type="button" className="mt-3 text-xs text-on-surface-variant hover:text-on-surface px-3 py-2 rounded border border-[var(--color-card-border)] hover:bg-[var(--color-surface-container)] transition-colors">View storage →</button>
+        </Surface>
+
+        {/* Org Backups */}
+        <Surface className="p-4 sm:p-5">
+          <SectionTitle eyebrow="Disaster recovery" title="Org Backups" />
+          <p className="text-xs text-on-surface-variant mb-4">Automated backup schedule and restore history.</p>
+          <EmptyCard label="Backup schedule and restore jobs will appear here." />
+          <button type="button" className="mt-3 text-xs text-on-surface-variant hover:text-on-surface px-3 py-2 rounded border border-[var(--color-card-border)] hover:bg-[var(--color-surface-container)] transition-colors">Configure backups →</button>
+        </Surface>
+
+        {/* Wiki Sync Monitor */}
+        <Surface className="p-4 sm:p-5">
+          <SectionTitle eyebrow="Knowledge sync" title="Wiki Sync Monitor" />
+          <p className="text-xs text-on-surface-variant mb-4">GitHub ↔ Obsidian wiki sync status and conflict log.</p>
+          <div className="space-y-2">
+            {[
+              { label: 'Mac → GitHub (launchd every 5m)', status: 'Active' },
+              { label: 'VPS → GitHub (systemd every 5m)', status: 'Active' },
+              { label: 'Obsidian Sync (Mac ↔ mobile)', status: 'Active' },
+              { label: 'Conflict log', status: 'Clean' },
+            ].map(row => (
+              <div key={row.label} className="flex items-center justify-between rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)]/70 px-3 py-2">
+                <span className="text-xs text-on-surface">{row.label}</span>
+                <span className={`text-[9px] font-label uppercase tracking-widest px-2 py-1 rounded ${row.status === 'Active' ? 'bg-emerald-500/10 text-emerald-300' : 'bg-[var(--color-surface-container)] text-on-surface-variant'}`}>{row.status}</span>
+              </div>
+            ))}
+          </div>
+        </Surface>
+
+        {/* Broadcast Centre */}
+        <Surface className="p-4 sm:p-5">
+          <SectionTitle eyebrow="Announcements" title="Broadcast Centre" />
+          <p className="text-xs text-on-surface-variant mb-4">Send announcements to all organisations.</p>
+          <div className="space-y-3">
+            <textarea disabled rows={3} placeholder="Compose announcement..." className="w-full rounded-lg border border-[var(--color-card-border)] bg-[var(--color-surface-container)]/35 px-3 py-2 text-sm text-on-surface-variant resize-none cursor-not-allowed" />
+            <button type="button" className="text-xs text-on-surface-variant hover:text-on-surface px-3 py-2 rounded border border-[var(--color-card-border)] hover:bg-[var(--color-surface-container)] transition-colors">Send broadcast →</button>
+          </div>
+        </Surface>
+
+        {/* Admin Audit Log */}
+        <Surface className="p-4 sm:p-5 lg:col-span-2">
+          <SectionTitle eyebrow="Compliance" title="Admin Audit Log" />
+          <p className="text-xs text-on-surface-variant mb-4">Full admin action log for compliance and security.</p>
+          <div className="overflow-hidden rounded-xl border border-[var(--color-card-border)]">
+            <div className="grid grid-cols-12 gap-3 border-b border-[var(--color-card-border)] bg-[var(--color-surface-container)] px-4 py-2">
+              <span className="col-span-3 text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Actor</span>
+              <span className="col-span-6 text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Action</span>
+              <span className="col-span-3 text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Time</span>
+            </div>
+            {[
+              { actor: 'peet@partnersinbiz.online', action: 'Viewed Mission Control', time: 'Just now' },
+              { actor: 'pip (agent)', action: 'Updated briefing feed', time: '8m ago' },
+              { actor: 'system', action: 'Notification preference saved', time: '14m ago' },
+            ].map((entry, i) => (
+              <div key={i} className="grid grid-cols-12 gap-3 items-center border-b border-[var(--color-card-border)] px-4 py-3 last:border-b-0">
+                <p className="col-span-3 text-xs text-on-surface font-medium truncate">{entry.actor}</p>
+                <p className="col-span-6 text-xs text-on-surface-variant">{entry.action}</p>
+                <p className="col-span-3 text-xs text-on-surface-variant">{entry.time}</p>
+              </div>
+            ))}
+          </div>
+        </Surface>
+      </div>
+
       {loading ? <p className="sr-only" aria-live="polite">Mission Control data is loading</p> : null}
     </div>
   )

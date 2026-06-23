@@ -5,7 +5,11 @@ import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } fro
 import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { fmtTimestamp } from '@/lib/format/timestamp'
+import { onAuthStateChanged } from 'firebase/auth'
+import { auth } from '@/lib/firebase/config'
 import { ContactActivityTimeline, type ContactActivityTimelineActivity } from '@/components/crm/ContactActivityTimeline'
+import { ContactNotesPanel } from '@/components/crm/ContactNotesPanel'
+import { ContactMergePanel } from '@/components/crm/ContactMergePanel'
 import { ContactDealsPanel } from '@/components/crm/ContactDealsPanel'
 import { ContactEngagementPanel } from '@/components/crm/ContactEngagementPanel'
 import { CompanyPanel } from '@/components/crm/CompanyPanel'
@@ -411,6 +415,8 @@ export default function PortalContactDetailPage() {
   const [error, setError] = useState('')
   const [scoreSaving, setScoreSaving] = useState(false)
   const [scoreError, setScoreError] = useState<string | null>(null)
+  const [gdprDownloading, setGdprDownloading] = useState(false)
+  const [currentUid, setCurrentUid] = useState<string | undefined>(undefined)
 
   // B2: Log activity quick actions
   const [logType, setLogType] = useState<string | null>(null)
@@ -526,6 +532,12 @@ export default function PortalContactDetailPage() {
       cancelled = true
     }
   }, [loadContact])
+
+  useEffect(() => {
+    // Track the signed-in user so notes can gate author-only edit/delete client-side
+    // (the server enforces this too).
+    return onAuthStateChanged(auth, (user) => setCurrentUid(user?.uid ?? undefined))
+  }, [])
 
   useEffect(() => {
     // Fetch custom field definitions once per page mount
@@ -702,6 +714,30 @@ export default function PortalContactDetailPage() {
       setError(err instanceof Error ? err.message : 'Archive failed')
     } finally {
       setArchiving(false)
+    }
+  }
+
+  async function downloadGdprExport() {
+    if (!contact || !id) return
+    setGdprDownloading(true)
+    try {
+      const res = await fetch(contactApiPath(`/api/v1/crm/contacts/${id}/gdpr-export`))
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        throw new Error((err as { error?: string }).error ?? 'GDPR export failed')
+      }
+      const body: unknown = await res.json()
+      const blob = new Blob([JSON.stringify(body, null, 2)], { type: 'application/json' })
+      const url = URL.createObjectURL(blob)
+      const anchor = document.createElement('a')
+      anchor.href = url
+      anchor.download = `${contactName.replace(/[^a-z0-9]/gi, '-').toLowerCase()}-gdpr-export.json`
+      anchor.click()
+      URL.revokeObjectURL(url)
+    } catch {
+      // Silent fail — UI shows button returning to normal state
+    } finally {
+      setGdprDownloading(false)
     }
   }
 
@@ -2256,6 +2292,26 @@ export default function PortalContactDetailPage() {
               </button>
             </div>
           </div>
+
+          {/* GDPR data export */}
+          <div className="bento-card !p-4 flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <p className="eyebrow !text-[10px]">Data &amp; privacy</p>
+              <p className="mt-1 text-xs text-[var(--color-pib-text-muted)] leading-5">
+                Download all data held for this contact as a JSON file.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={downloadGdprExport}
+              disabled={gdprDownloading}
+              aria-label={`Download GDPR data export for ${contactName}`}
+              className="btn-pib-secondary text-xs shrink-0 flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <span className="material-symbols-outlined text-[14px]" aria-hidden="true">download</span>
+              {gdprDownloading ? 'Exporting…' : 'Download GDPR data'}
+            </button>
+          </div>
         </section>
 
         {/* Right: Recent emails + activity */}
@@ -2748,6 +2804,27 @@ export default function PortalContactDetailPage() {
               onLoadMore={loadMoreActivities}
             />
           </div>
+
+          {/* US-073: Contact notes subsystem */}
+          <ContactNotesPanel
+            contactId={id}
+            contactName={contactName}
+            apiPath={contactApiPath}
+            currentUid={currentUid}
+          />
+
+          {/* US-095: Merge duplicate contacts */}
+          <ContactMergePanel
+            contact={{ ...contact, id }}
+            apiPath={contactApiPath}
+            onMerged={(_winnerId, loserId) => {
+              if (loserId === id) {
+                router.push(scopedPortalPath('/portal/contacts', routeScope))
+              } else {
+                void loadContact()
+              }
+            }}
+          />
 
           <ContactDealsPanel
             contactId={id}

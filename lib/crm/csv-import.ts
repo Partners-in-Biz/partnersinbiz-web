@@ -98,11 +98,35 @@ export function normalizeContactImportHeader(header: string): keyof ParsedContac
   return HEADER_ALIASES[key] ?? null
 }
 
-export function rowsFromCsv(grid: string[][]): ParsedContactImportRow[] {
-  if (grid.length === 0) return []
-  const header = grid[0]
-  const colMap: Array<keyof ParsedContactImportRow | null> = header.map(normalizeContactImportHeader)
+/** The mappable target fields a CSV column can be assigned to. */
+export const CONTACT_IMPORT_FIELDS: Array<{ key: keyof ParsedContactImportRow; label: string }> = [
+  { key: 'email', label: 'Email' },
+  { key: 'name', label: 'Full name' },
+  { key: 'firstName', label: 'First name' },
+  { key: 'lastName', label: 'Last name' },
+  { key: 'company', label: 'Company' },
+  { key: 'phone', label: 'Phone' },
+  { key: 'tags', label: 'Tags' },
+  { key: 'notes', label: 'Notes' },
+]
 
+/**
+ * Auto-maps a header row to target fields using the alias table. Unrecognised
+ * headers map to null (ignored). Callers can override the result in the UI.
+ */
+export function autoMapHeaders(header: string[]): Array<keyof ParsedContactImportRow | null> {
+  return header.map(normalizeContactImportHeader)
+}
+
+/**
+ * Builds import rows from a parsed grid using an explicit column→field mapping.
+ * `colMap[i]` is the target field for column i (or null to ignore it).
+ */
+export function rowsFromGridWithMapping(
+  grid: string[][],
+  colMap: Array<keyof ParsedContactImportRow | null>,
+): ParsedContactImportRow[] {
+  if (grid.length === 0) return []
   const out: ParsedContactImportRow[] = []
   for (let r = 1; r < grid.length; r += 1) {
     const cols = grid[r]
@@ -111,10 +135,10 @@ export function rowsFromCsv(grid: string[][]): ParsedContactImportRow[] {
     for (let c = 0; c < cols.length; c += 1) {
       const key = colMap[c]
       if (!key) continue
-      const value = cols[c]
+      const value = cols[c] ?? ''
       if (key === 'tags') {
         const tags = value.split(/[,;]/).map((tag) => tag.trim()).filter(Boolean)
-        if (tags.length > 0) row.tags = tags
+        if (tags.length > 0) row.tags = [...(row.tags ?? []), ...tags]
       } else {
         const cleaned = value.trim()
         if (cleaned) (row as unknown as Record<string, unknown>)[key] = cleaned
@@ -123,4 +147,9 @@ export function rowsFromCsv(grid: string[][]): ParsedContactImportRow[] {
     out.push(row)
   }
   return out
+}
+
+export function rowsFromCsv(grid: string[][]): ParsedContactImportRow[] {
+  if (grid.length === 0) return []
+  return rowsFromGridWithMapping(grid, autoMapHeaders(grid[0]))
 }

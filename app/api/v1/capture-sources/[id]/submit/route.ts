@@ -24,6 +24,7 @@ import { sendCampaignEmail, htmlToPlainText } from '@/lib/email/resend'
 import { resolveFrom } from '@/lib/email/resolveFrom'
 import { signConfirmToken } from '@/lib/lead-capture/token'
 import { performAutoEnroll } from '@/lib/lead-capture/autoEnroll'
+import { deliverCaptureWebhook } from '@/lib/lead-capture/webhook'
 import { isDisposableEmail } from '@/lib/lead-capture/disposable-domains'
 import { verifyTurnstileToken } from '@/lib/forms/turnstile'
 import {
@@ -142,6 +143,48 @@ function isEmail(s: string): boolean {
   const local = s.split('@')[0]
   if (/^[a-z]{1,3}\d{6,}$/i.test(local)) return false
   return true
+}
+
+// US-097: pull UTM params from the request body (top-level or under `utm`/`data`)
+// and the query string. Returns a map keyed by the canonical utm_* names; empty
+// values are dropped.
+const UTM_KEYS = ['utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content'] as const
+
+function extractUtm(req: NextRequest, body: Record<string, unknown>): Record<string, string> {
+  const out: Record<string, string> = {}
+  const search = new URL(req.url).searchParams
+  const data = (body.data && typeof body.data === 'object' ? body.data : {}) as Record<string, unknown>
+  const utmObj = (body.utm && typeof body.utm === 'object' ? body.utm : {}) as Record<string, unknown>
+
+  for (const key of UTM_KEYS) {
+    // Precedence: explicit body utm object → top-level body → data object → query string
+    const candidate =
+      (typeof utmObj[key] === 'string' && utmObj[key]) ||
+      (typeof body[key] === 'string' && (body[key] as string)) ||
+      (typeof data[key] === 'string' && (data[key] as string)) ||
+      search.get(key) ||
+      ''
+    const val = typeof candidate === 'string' ? candidate.trim() : ''
+    if (val) out[key] = val.slice(0, 500)
+  }
+  return out
+}
+
+// Map a utm_* key to the camelCase contact field name (utm_source → utmSource).
+function utmContactFields(utm: Record<string, string>): Record<string, string> {
+  const map: Record<string, string> = {
+    utm_source: 'utmSource',
+    utm_medium: 'utmMedium',
+    utm_campaign: 'utmCampaign',
+    utm_term: 'utmTerm',
+    utm_content: 'utmContent',
+  }
+  const out: Record<string, string> = {}
+  for (const [k, v] of Object.entries(utm)) {
+    const field = map[k]
+    if (field && v) out[field] = v
+  }
+  return out
 }
 
 function clientIp(req: NextRequest): string {
@@ -359,6 +402,10 @@ export async function POST(req: NextRequest, context: Params) {
     }
   }
 
+  // US-097: capture UTM attribution from body/query for the created contact.
+  const utm = extractUtm(req, body as Record<string, unknown>)
+  const utmFields = utmContactFields(utm)
+
   // 3. Find or create contact
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const existingSnap = await (adminDb.collection('contacts') as any)
@@ -383,7 +430,7 @@ export async function POST(req: NextRequest, context: Params) {
       name?: string
       phone?: string
       company?: string
-    }
+    } & Record<string, unknown>
     const mergedTags = Array.from(new Set([...(existingData.tags ?? []), ...incomingTags]))
     const patch: Record<string, unknown> = {
       tags: mergedTags,
@@ -394,6 +441,11 @@ export async function POST(req: NextRequest, context: Params) {
     if (!existingData.name && fullName) patch.name = fullName
     if (!existingData.phone && data.phone) patch.phone = data.phone
     if (!existingData.company && data.company) patch.company = data.company
+    // US-097: only fill UTM attribution that the contact doesn't already have,
+    // so first-touch attribution is preserved.
+    for (const [field, value] of Object.entries(utmFields)) {
+      if (!existingData[field] && value) patch[field] = value
+    }
     await existingDoc.ref.update(patch)
   } else {
     const contactRef = await adminDb.collection('contacts').add({
@@ -414,6 +466,8 @@ export async function POST(req: NextRequest, context: Params) {
       subscribedAt: FieldValue.serverTimestamp(),
       unsubscribedAt: null,
       bouncedAt: null,
+      // US-097: persist UTM attribution onto the new contact (undefined stripped).
+      ...utmFields,
       createdAt: FieldValue.serverTimestamp(),
       updatedAt: FieldValue.serverTimestamp(),
       lastContactedAt: FieldValue.serverTimestamp(),
@@ -499,6 +553,9 @@ export async function POST(req: NextRequest, context: Params) {
     // Fire-and-forget notify
     sendAdminNotifications({ source, submission, orgName }).catch(() => {})
 
+    // US-091: fire outbound webhook async — never block the submit response.
+    deliverCaptureWebhook({ source, submission, utm, requiresConfirmation: true }).catch(() => {})
+
     return jsonSuccess({
       ok: true,
       requiresConfirmation: true,
@@ -517,6 +574,9 @@ export async function POST(req: NextRequest, context: Params) {
   }
 
   sendAdminNotifications({ source, submission, orgName }).catch(() => {})
+
+  // US-091: fire outbound webhook async — never block the submit response.
+  deliverCaptureWebhook({ source, submission, utm, requiresConfirmation: false }).catch(() => {})
 
   return jsonSuccess({
     ok: true,

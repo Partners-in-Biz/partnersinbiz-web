@@ -161,6 +161,18 @@ export function ClientDocumentsWorkspace({ surface, orgSlug = '' }: ClientDocume
     ]),
   )
 
+  const createdByLabels: Record<string, string> = Object.fromEntries(
+    filteredDocuments.map((document) => {
+      const createdBy = typeof document.createdBy === 'string' ? document.createdBy.trim() : ''
+      const label = createdBy.includes('@')
+        ? createdBy
+        : document.createdByType === 'agent'
+          ? 'Pip (AI agent)'
+          : 'PiB team'
+      return [document.id, label]
+    }),
+  )
+
   const typeOptions = Array.from(new Set(documents.map((document) => document.type).filter(Boolean))).sort()
   const statusTabs = ADMIN_STATUS_TABS.map((tab) => {
     const tabParams = new URLSearchParams()
@@ -192,10 +204,18 @@ export function ClientDocumentsWorkspace({ surface, orgSlug = '' }: ClientDocume
             : 'Proposals, specs, strategies, and reports shared with you by Partners in Biz.'
         }
         actions={surface === 'admin' ? (
-          <Link href={orgDocumentPath(orgSlug, '/new')} className="btn-pib-accent">
-            <span className="material-symbols-outlined text-base">add</span>
-            New Document
-          </Link>
+          <div className="flex items-center gap-3">
+            <Link
+              href="/portal/documents/templates"
+              className="text-xs font-medium text-on-surface-variant hover:text-on-surface"
+            >
+              Manage templates →
+            </Link>
+            <Link href={orgDocumentPath(orgSlug, '/new')} className="btn-pib-accent">
+              <span className="material-symbols-outlined text-base">add</span>
+              New Document
+            </Link>
+          </div>
         ) : undefined}
         meta={surface === 'portal' ? <span>Client-visible documents only</span> : undefined}
         tabs={surface === 'admin' ? <PageLinkTabs tabs={statusTabs} activeValue={activeStatus} ariaLabel="Document status filters" /> : undefined}
@@ -265,6 +285,7 @@ export function ClientDocumentsWorkspace({ surface, orgSlug = '' }: ClientDocume
             )
             : undefined}
           partyLabels={partyLabels}
+          createdByLabels={createdByLabels}
           onDeleted={surface === 'admin'
             ? (documentId) => setDocuments((current) => current.filter((document) => document.id !== documentId))
             : undefined}

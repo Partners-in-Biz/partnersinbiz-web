@@ -4,8 +4,13 @@ export const dynamic = 'force-dynamic'
 import { use, useCallback, useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
+import { onAuthStateChanged } from 'firebase/auth'
+import { auth } from '@/lib/firebase/client'
 import { DocumentRenderer } from '@/components/client-documents/DocumentRenderer'
 import { DocumentReviewRail } from '@/components/client-documents/DocumentReviewRail'
+import { DocumentTaskList } from '@/components/client-documents/DocumentTaskList'
+import { DocumentPresence } from '@/components/client-documents/DocumentPresence'
+import { ShareSettingsPanel } from '@/components/client-documents/share/ShareSettingsPanel'
 import { CommentComposer } from '@/components/inline-comments/CommentComposer'
 import type { AnchorTarget } from '@/components/inline-comments/types'
 import type { ClientDocument, ClientDocumentVersion, DocumentComment } from '@/lib/client-documents/types'
@@ -15,6 +20,11 @@ import {
   resolveOrganizationModulePolicies,
 } from '@/lib/organizations/module-policies'
 import { scopedApiPath, scopedPortalPath, scopeFromSearchParams } from '@/lib/portal/scoped-routing'
+import { fmtTimestamp } from '@/lib/format/timestamp'
+
+function ignoreBestEffortFailure() {
+  return undefined
+}
 
 interface Props {
   params: Promise<{ id: string }>
@@ -57,6 +67,24 @@ export default function PortalDocumentDetail({ params }: Props) {
   const [pendingAnchor, setPendingAnchor] = useState<PendingAnchor | null>(null)
   const [composerBusy, setComposerBusy] = useState(false)
   const [activeCommentId, setActiveCommentId] = useState<string | null>(null)
+  const [showShare, setShowShare] = useState(false)
+  const [baseUrl, setBaseUrl] = useState('')
+  const [exportingPdf, setExportingPdf] = useState(false)
+  const [accessLog, setAccessLog] = useState<Array<{ userId: string; accessedAt: unknown; id: string }>>([]);
+  const [firebaseUid, setFirebaseUid] = useState('')
+  const [firebaseDisplayName, setFirebaseDisplayName] = useState('')
+
+  useEffect(() => {
+    setBaseUrl(window.location.origin)
+  }, [])
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      setFirebaseUid(user?.uid ?? '')
+      setFirebaseDisplayName(user?.displayName ?? user?.email ?? 'Anonymous')
+    })
+    return unsubscribe
+  }, [])
 
   const articleScrollRef = useRef<HTMLDivElement>(null)
 
@@ -66,7 +94,7 @@ export default function PortalDocumentDetail({ params }: Props) {
       if (!res.ok) return
       const body = await res.json()
       setComments((body.data ?? []) as DocumentComment[])
-    } catch {}
+    } catch { ignoreBestEffortFailure() }
   }, [id])
 
   useEffect(() => {
@@ -100,14 +128,38 @@ export default function PortalDocumentDetail({ params }: Props) {
           versions[versions.length - 1] ??
           null
         setVersion(current)
-      } catch {
-        // silent
-      } finally {
+
+        // Log this access and fetch the recent access log
+        void fetch(`/api/v1/client-documents/${id}/access-log`, { method: 'POST' })
+        const logRes = await fetch(`/api/v1/client-documents/${id}/access-log`)
+        if (logRes.ok) {
+          const logBody = await logRes.json()
+          setAccessLog(logBody.data?.events ?? [])
+        }
+      } catch { ignoreBestEffortFailure() } finally {
         setLoading(false)
       }
     }
     load()
   }, [id, orgEndpoint])
+
+  async function handleExportPdf() {
+    if (!doc || exportingPdf) return
+    setExportingPdf(true)
+    try {
+      const res = await fetch(`/api/v1/client-documents/${id}/export-pdf`)
+      if (!res.ok) throw new Error('Export failed')
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `${doc.title ?? 'document'}.pdf`
+      a.click()
+      URL.revokeObjectURL(url)
+    } catch { ignoreBestEffortFailure() } finally {
+      setExportingPdf(false)
+    }
+  }
 
   const handleRequestTextComment = useCallback((anchor: { text: string; blockId: string | null }) => {
     setPendingAnchor({ kind: 'text', text: anchor.text, blockId: anchor.blockId })
@@ -257,13 +309,22 @@ export default function PortalDocumentDetail({ params }: Props) {
 
   return (
     <div className="space-y-6">
-      <Link
-        href={documentsHref}
-        className="flex items-center gap-1 text-sm text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-accent)]"
-      >
-        <span className="material-symbols-outlined text-base" aria-hidden="true">arrow_back</span>
-        Back to Documents
-      </Link>
+      <div className="flex items-center justify-between gap-4">
+        <Link
+          href={documentsHref}
+          className="flex items-center gap-1 text-sm text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-accent)]"
+        >
+          <span className="material-symbols-outlined text-base" aria-hidden="true">arrow_back</span>
+          Back to Documents
+        </Link>
+        {firebaseUid && (
+          <DocumentPresence
+            documentId={id}
+            currentUserId={firebaseUid}
+            currentUserName={firebaseDisplayName}
+          />
+        )}
+      </div>
 
       <div className="grid gap-8 lg:grid-cols-[1fr_320px]">
         <div ref={articleScrollRef} className="min-w-0 rounded-xl overflow-hidden">
@@ -281,6 +342,44 @@ export default function PortalDocumentDetail({ params }: Props) {
         </div>
 
         <div className="space-y-4">
+          {doc.shareToken && (
+            <div className="flex justify-end">
+              <button
+                type="button"
+                onClick={() => setShowShare((v) => !v)}
+                className="flex items-center gap-1.5 rounded-md border border-white/10 px-3 py-1.5 text-xs font-medium hover:bg-white/5"
+              >
+                <span className="material-symbols-outlined text-sm" aria-hidden="true">share</span>
+                {showShare ? 'Hide share' : 'Share'}
+              </button>
+            </div>
+          )}
+
+          {showShare && doc.shareToken && baseUrl && (
+            <ShareSettingsPanel
+              document={doc}
+              baseUrl={baseUrl}
+              onChange={(next) => setDoc(next)}
+            />
+          )}
+
+          {/* PDF Export — US-174 */}
+          <div className="pib-card p-4 flex items-center justify-between">
+            <div>
+              <p className="text-xs font-medium text-[var(--color-pib-text)]">Export document</p>
+              <p className="text-xs text-[var(--color-pib-text-muted)]">Download as PDF</p>
+            </div>
+            <button
+              type="button"
+              onClick={handleExportPdf}
+              disabled={exportingPdf}
+              className="flex items-center gap-1.5 rounded-md border border-[var(--color-pib-line)] px-3 py-1.5 text-xs font-medium hover:bg-white/5 disabled:opacity-50"
+            >
+              <span className="material-symbols-outlined text-sm">download</span>
+              {exportingPdf ? 'Generating…' : 'PDF'}
+            </button>
+          </div>
+
           <DocumentReviewRail
             document={doc}
             comments={comments}
@@ -289,6 +388,22 @@ export default function PortalDocumentDetail({ params }: Props) {
             onReply={handleReply}
             onScrollToComment={handleScrollToComment}
           />
+
+          {/* Recent views — US-188 */}
+          {accessLog.length > 0 && (
+            <section className="rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] p-4 space-y-2">
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-[var(--color-pib-text-muted)]">Recent views</h3>
+              {accessLog.slice(0, 5).map((entry) => (
+                <div key={entry.id} className="flex items-center gap-2 text-xs text-[var(--color-pib-text-muted)]">
+                  <span className="material-symbols-outlined text-sm">person</span>
+                  <span>{fmtTimestamp(entry.accessedAt)}</span>
+                </div>
+              ))}
+            </section>
+          )}
+
+          {/* Action items — US-215 */}
+          <DocumentTaskList documentId={id} />
 
           {canComment && (
             <div className="pib-card p-4 space-y-3">

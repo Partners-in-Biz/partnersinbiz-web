@@ -4,6 +4,7 @@ import { listConnections } from '@/lib/ads/connections/store'
 import { summarizeAdConnections } from '@/lib/ads/provider-display'
 import { AdCampaignsWorkspace } from '@/components/ads/AdCampaignsWorkspace'
 import { BulkApproveButton } from '@/components/ads/BulkApproveButton'
+import { FeatureGate } from '@/components/paywall/FeatureGate'
 import {
   resolvePortalAdsUser,
   scopedPortalHref,
@@ -38,17 +39,19 @@ export default async function PortalAdsListPage({
   const awaiting = campaigns.filter((c) => c.reviewState === 'awaiting')
 
   return (
-    <AdCampaignsWorkspace
-      surface="portal"
-      title=""
-      campaigns={campaigns}
-      connectionSummaries={summarizeAdConnections(connections)}
-      campaignHref={(campaign) => scopedPortalHref(`/portal/ads/campaigns/${campaign.id}`, scope)}
-      bulkReviewAction={
-        awaiting.length > 0 ? <BulkApproveButton count={awaiting.length} orgId={scope.orgId} /> : null
-      }
-      emptyTitle="No campaigns yet."
-      emptyBody="Partners in Biz will draft your first campaigns and submit them here for your approval."
-    />
+    <FeatureGate feature="ads">
+      <AdCampaignsWorkspace
+        surface="portal"
+        title=""
+        campaigns={campaigns}
+        connectionSummaries={summarizeAdConnections(connections)}
+        campaignHref={(campaign) => scopedPortalHref(`/portal/ads/campaigns/${campaign.id}`, scope)}
+        bulkReviewAction={
+          awaiting.length > 0 ? <BulkApproveButton count={awaiting.length} orgId={scope.orgId} /> : null
+        }
+        emptyTitle="No campaigns yet."
+        emptyBody="Partners in Biz will draft your first campaigns and submit them here for your approval."
+      />
+    </FeatureGate>
   )
 }

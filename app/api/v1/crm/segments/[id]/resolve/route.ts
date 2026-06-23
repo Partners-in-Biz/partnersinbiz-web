@@ -12,7 +12,12 @@
 import { adminDb } from '@/lib/firebase/admin'
 import { withCrmAuth } from '@/lib/auth/crm-middleware'
 import { apiSuccess, apiError } from '@/lib/api/response'
-import { resolveSegmentContacts } from '@/lib/crm/segments'
+import {
+  resolveSegmentContacts,
+  resolveRuleGroup,
+  resolveSegmentMembershipTag,
+} from '@/lib/crm/segments'
+import type { Contact } from '@/lib/crm/types'
 import type { Segment } from '@/lib/crm/segments'
 
 const PREVIEW_LIMIT = 50
@@ -31,7 +36,23 @@ export const POST = withCrmAuth<RouteCtx>('admin', async (_req, ctx, routeCtx) =
   // Tenant isolation: 404 if segment belongs to a different org
   if (segment.orgId !== ctx.orgId) return apiError('Segment not found', 404)
 
-  const contacts = await resolveSegmentContacts(ctx.orgId, segment.filters ?? {})
+  // US-055: prefer the generic rule tree when present; else legacy filters.
+  const [dynamicContacts, taggedContacts] = await Promise.all([
+    segment.ruleGroup && Array.isArray(segment.ruleGroup.rules) && segment.ruleGroup.rules.length > 0
+      ? resolveRuleGroup(ctx.orgId, segment.ruleGroup)
+      : resolveSegmentContacts(ctx.orgId, segment.filters ?? {}),
+    // US-074: contacts explicitly assigned to this segment via automation carry
+    // the membership tag and are always members, OR'd with the dynamic rules.
+    resolveSegmentMembershipTag(ctx.orgId, id),
+  ])
+
+  const seen = new Set<string>()
+  const contacts: Contact[] = []
+  for (const c of [...dynamicContacts, ...taggedContacts]) {
+    if (seen.has(c.id)) continue
+    seen.add(c.id)
+    contacts.push(c)
+  }
 
   return apiSuccess({
     count: contacts.length,

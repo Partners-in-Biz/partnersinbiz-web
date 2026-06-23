@@ -24,6 +24,25 @@ export async function listRules(orgId: string): Promise<AutomationRule[]> {
     .sort((a, b) => (a.name ?? '').localeCompare(b.name ?? ''))
 }
 
+/**
+ * Count how many times each rule has enrolled a record (i.e. how many
+ * pending_automations docs it has produced — pending, executed, or failed).
+ * Returns a map keyed by ruleId. Org-scoped.
+ */
+export async function getEnrolledCounts(orgId: string): Promise<Record<string, number>> {
+  const snap = await adminDb
+    .collection(PENDING)
+    .where('orgId', '==', orgId)
+    .get()
+  const counts: Record<string, number> = {}
+  for (const doc of snap.docs) {
+    const ruleId = doc.data().ruleId as string | undefined
+    if (!ruleId) continue
+    counts[ruleId] = (counts[ruleId] ?? 0) + 1
+  }
+  return counts
+}
+
 export async function getRule(orgId: string, ruleId: string): Promise<AutomationRule | null> {
   const snap = await adminDb.collection(RULES).doc(ruleId).get()
   if (!snap.exists) return null
@@ -129,6 +148,36 @@ export async function queuePendingAutomation(
     contextContactId: context.contactId ?? null,
     contextContactEmail: context.contactEmail ?? null,
     contextOwnerEmail: context.ownerEmail ?? null,
+    scheduledAt,
+    status: 'pending',
+    executedAt: null,
+    createdAt: FieldValue.serverTimestamp(),
+  })
+}
+
+/**
+ * Re-queue the remaining steps of a pending automation after a per-step wait.
+ * Copies the original context forward and schedules execution for
+ * now + delayMinutes. Used when the processor hits a step carrying delayMinutes.
+ */
+export async function requeueRemainingActions(
+  original: PendingAutomation,
+  remainingActions: PendingAutomation['actions'],
+  delayMinutes: number,
+): Promise<void> {
+  if (remainingActions.length === 0) return
+  const delayMs = Math.max(0, delayMinutes) * 60_000
+  const scheduledAt = Timestamp.fromMillis(Date.now() + delayMs)
+
+  await adminDb.collection(PENDING).add({
+    orgId: original.orgId,
+    ruleId: original.ruleId,
+    triggerEvent: original.triggerEvent,
+    actions: remainingActions,
+    contextDealId: original.contextDealId ?? null,
+    contextContactId: original.contextContactId ?? null,
+    contextContactEmail: original.contextContactEmail ?? null,
+    contextOwnerEmail: original.contextOwnerEmail ?? null,
     scheduledAt,
     status: 'pending',
     executedAt: null,

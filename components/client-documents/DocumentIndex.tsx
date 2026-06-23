@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 
 import type { ClientDocument, ClientDocumentStatus, ClientDocumentType } from '@/lib/client-documents/types'
@@ -153,6 +153,58 @@ function formatDate(value: unknown) {
   }).format(date)
 }
 
+/**
+ * Resolve a sortable epoch-millis value from the many timestamp shapes a
+ * document can carry: ISO strings, numeric epochs, Firestore-like
+ * `{ seconds }` / `{ _seconds }`, or objects exposing `toDate()`.
+ */
+function toMillis(value: unknown): number {
+  if (value == null) return 0
+  if (typeof value === 'number') return Number.isFinite(value) ? value : 0
+  if (typeof value === 'string') {
+    const parsed = Date.parse(value)
+    return Number.isNaN(parsed) ? 0 : parsed
+  }
+  if (typeof value === 'object') {
+    const record = value as {
+      seconds?: unknown
+      _seconds?: unknown
+      toDate?: unknown
+    }
+    if (typeof record.toDate === 'function') {
+      try {
+        const date = (record.toDate as () => Date)()
+        const time = date instanceof Date ? date.getTime() : NaN
+        if (!Number.isNaN(time)) return time
+      } catch {
+        // fall through to seconds handling
+      }
+    }
+    if (typeof record.seconds === 'number') return record.seconds * 1000
+    if (typeof record._seconds === 'number') return record._seconds * 1000
+  }
+  return 0
+}
+
+type SortKey = 'updated' | 'created' | 'title'
+
+const SORT_OPTIONS: Array<{ value: SortKey; label: string }> = [
+  { value: 'updated', label: 'Last modified' },
+  { value: 'created', label: 'Date created' },
+  { value: 'title', label: 'Title (A–Z)' },
+]
+
+function isArchived(document: ClientDocument) {
+  return document.status === 'archived' || document.deleted === true
+}
+
+/** Derive a human "Created by" label from the document's actor metadata. */
+function deriveCreatedByLabel(document: ClientDocument): string {
+  const createdBy = typeof document.createdBy === 'string' ? document.createdBy.trim() : ''
+  if (createdBy.includes('@')) return createdBy
+  return document.createdByType === 'agent' ? 'Pip (AI agent)' : 'PiB team'
+}
+
 export function DocumentIndex({
   documents,
   basePath,
@@ -162,6 +214,7 @@ export function DocumentIndex({
   onDeleted,
   relationshipLabels = {},
   partyLabels = {},
+  createdByLabels = {},
 }: {
   documents: ClientDocument[]
   basePath: string
@@ -171,14 +224,41 @@ export function DocumentIndex({
   onDeleted?: (documentId: string) => void
   relationshipLabels?: Record<string, { companyName?: string; clientOrgName?: string }>
   partyLabels?: Record<string, ClientDocumentPartyLabels>
+  createdByLabels?: Record<string, string>
 }) {
-  const [visibleDocuments, setVisibleDocuments] = useState(documents)
+  const [presentDocuments, setPresentDocuments] = useState(documents)
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const [deleteError, setDeleteError] = useState<string | null>(null)
+  const [sortKey, setSortKey] = useState<SortKey>('updated')
+  const [showArchived, setShowArchived] = useState(false)
 
   useEffect(() => {
-    setVisibleDocuments(documents)
+    setPresentDocuments(documents)
   }, [documents])
+
+  const archivedPresent = useMemo(
+    () => presentDocuments.some(isArchived),
+    [presentDocuments],
+  )
+
+  const visibleDocuments = useMemo(() => {
+    const filtered = showArchived
+      ? presentDocuments
+      : presentDocuments.filter((document) => !isArchived(document))
+
+    const sorted = [...filtered]
+    if (sortKey === 'title') {
+      sorted.sort((a, b) => (a.title ?? '').localeCompare(b.title ?? ''))
+    } else if (sortKey === 'created') {
+      sorted.sort((a, b) => toMillis(b.createdAt) - toMillis(a.createdAt))
+    } else {
+      sorted.sort(
+        (a, b) =>
+          toMillis(b.updatedAt ?? b.createdAt) - toMillis(a.updatedAt ?? a.createdAt),
+      )
+    }
+    return sorted
+  }, [presentDocuments, showArchived, sortKey])
 
   async function deleteDocument(document: ClientDocument) {
     if (deletingId) return
@@ -198,7 +278,7 @@ export function DocumentIndex({
         throw new Error(body?.error ?? 'Could not delete document')
       }
 
-      setVisibleDocuments((current) => current.filter((item) => item.id !== document.id))
+      setPresentDocuments((current) => current.filter((item) => item.id !== document.id))
       onDeleted?.(document.id)
     } catch (err) {
       setDeleteError(err instanceof Error ? err.message : 'Could not delete document')
@@ -207,20 +287,62 @@ export function DocumentIndex({
     }
   }
 
+  const controlsBar = (
+    <div className="bento-card !p-3 flex flex-wrap items-center justify-between gap-3">
+      <label className="flex items-center gap-2">
+        <span className="eyebrow !text-[9px]">Sort</span>
+        <select
+          value={sortKey}
+          onChange={(event) => setSortKey(event.target.value as SortKey)}
+          className="pib-select !py-1.5 !text-sm"
+          aria-label="Sort documents"
+        >
+          {SORT_OPTIONS.map((option) => (
+            <option key={option.value} value={option.value}>{option.label}</option>
+          ))}
+        </select>
+      </label>
+      <button
+        type="button"
+        onClick={() => setShowArchived((current) => !current)}
+        aria-pressed={showArchived}
+        className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition ${
+          showArchived
+            ? 'border-[var(--color-pib-accent)] bg-[var(--color-pib-accent)]/15 text-[var(--color-pib-accent)]'
+            : 'border-[var(--color-pib-line)] text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)]'
+        }`}
+      >
+        <span className="material-symbols-outlined text-base">
+          {showArchived ? 'visibility' : 'visibility_off'}
+        </span>
+        Show archived/trash
+      </button>
+    </div>
+  )
+
   if (visibleDocuments.length === 0) {
     return (
-      <div className="bento-card p-10 text-center">
-        <span className="material-symbols-outlined text-4xl text-[var(--color-pib-accent)]">description</span>
-        <h2 className="mt-4 font-display text-2xl">No documents match this view.</h2>
-        <p className="mx-auto mt-2 max-w-md text-sm text-[var(--color-pib-text-muted)]">
-          Change the filter or create a Research Report for evidence, a Website/App Build Spec for what to build, a Change Request for scope changes, or a strategy/report for marketing and performance work.
-        </p>
+      <div className="space-y-3">
+        {controlsBar}
+        {showArchived && !archivedPresent && (
+          <p className="text-xs text-[var(--color-pib-text-muted)]">
+            No archived or trashed documents are present in this view.
+          </p>
+        )}
+        <div className="bento-card p-10 text-center">
+          <span className="material-symbols-outlined text-4xl text-[var(--color-pib-accent)]">description</span>
+          <h2 className="mt-4 font-display text-2xl">No documents match this view.</h2>
+          <p className="mx-auto mt-2 max-w-md text-sm text-[var(--color-pib-text-muted)]">
+            Change the filter or create a Research Report for evidence, a Website/App Build Spec for what to build, a Change Request for scope changes, or a strategy/report for marketing and performance work.
+          </p>
+        </div>
       </div>
     )
   }
 
   return (
     <div className="space-y-3">
+      {controlsBar}
       {deleteError && (
         <div className="rounded-md border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-200">
           {deleteError}
@@ -232,12 +354,19 @@ export function DocumentIndex({
           const documentHref = hrefFor?.(document) || `${basePath}/${document.id}`
           const resourceLinks = linkedResourceLinks(document, basePath, linkedResourceHrefFor)
           const parties = partyLabels[document.id]
+          const createdByLabel = createdByLabels[document.id] || deriveCreatedByLabel(document)
+          const archived = isArchived(document)
           return (
             <article key={document.id} className="bento-card flex min-h-[260px] flex-col gap-5">
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0 space-y-2">
-                  <p className="text-xs uppercase tracking-[0.18em] text-[var(--color-pib-text-muted)]">
+                  <p className="flex items-center gap-2 text-xs uppercase tracking-[0.18em] text-[var(--color-pib-text-muted)]">
                     {TYPE_LABELS[document.type] ?? readable(document.type)}
+                    {archived && (
+                      <span className="pib-pill !text-[9px] !py-0 !px-2 normal-case tracking-normal text-[var(--color-pib-text-muted)]">
+                        Archived
+                      </span>
+                    )}
                   </p>
                   <h2 className="font-display text-xl leading-snug">
                     <Link href={documentHref} className="hover:text-[var(--color-pib-accent)]">
@@ -283,6 +412,10 @@ export function DocumentIndex({
                       </span>
                     ) : linkedLabel(document)}
                   </dd>
+                </div>
+                <div className="col-span-2">
+                  <dt className="eyebrow !text-[9px]">Created by</dt>
+                  <dd className="mt-1 text-[var(--color-pib-text-muted)]">{createdByLabel}</dd>
                 </div>
                 {hasPartyLabels(parties) && (
                   <>

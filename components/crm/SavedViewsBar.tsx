@@ -9,6 +9,36 @@ interface SavedView {
   filters: Record<string, unknown>
 }
 
+// Maps a saved view's stored filters to the server-resolvable subset of the
+// contacts list query params, so we can count how many contacts each view
+// currently matches. owner/followUp are client-side lenses the contacts API
+// does not understand, so they are intentionally omitted from the count query
+// (the count reflects the server-filterable portion of the view).
+function viewFiltersToContactsQuery(filters: Record<string, unknown>): string {
+  const params = new URLSearchParams()
+  const str = (v: unknown) => (typeof v === 'string' ? v.trim() : '')
+  const search = str(filters.search)
+  const stage = str(filters.stage)
+  const type = str(filters.type)
+  const status = str(filters.status)
+  const utmSource = str(filters.utmSource)
+  if (search) params.set('search', search)
+  if (stage) params.set('stage', stage)
+  if (type) params.set('type', type)
+  if (status) params.set('status', status)
+  if (utmSource) params.set('utmSource', utmSource)
+  const tags = Array.isArray(filters.tags)
+    ? filters.tags.filter((t): t is string => typeof t === 'string').join(',')
+    : str(filters.tags)
+  if (tags) params.set('tags', tags)
+  if (filters.minScore !== undefined && filters.minScore !== '' && filters.minScore !== null) {
+    params.set('minScore', String(filters.minScore))
+  }
+  // Count only — one row is enough to read meta.total.
+  params.set('limit', '1')
+  return params.toString()
+}
+
 interface Props {
   currentFilters: Record<string, unknown>
   onSelectView: (filters: Record<string, unknown>) => void
@@ -31,6 +61,12 @@ export function SavedViewsBar({
   const [newName, setNewName] = useState('')
   const [saving, setSaving] = useState(false)
   const [pendingDeleteView, setPendingDeleteView] = useState<SavedView | null>(null)
+  // Per-view live contact counts: undefined = loading, number = resolved.
+  const [viewCounts, setViewCounts] = useState<Record<string, number | undefined>>({})
+  // Inline rename state for the Edit action.
+  const [editingViewId, setEditingViewId] = useState<string | null>(null)
+  const [editName, setEditName] = useState('')
+  const [editSaving, setEditSaving] = useState(false)
 
   const activeFilters = useMemo(() => {
     return Object.entries(currentFilters).filter(([, value]) => {
@@ -64,6 +100,40 @@ export function SavedViewsBar({
     void load()
   }, [load])
 
+  // Resolve each view's filters against the contacts list endpoint and read
+  // meta.total so the UI can show a live contact count next to each saved view.
+  useEffect(() => {
+    if (resourceKind !== 'contacts' || views.length === 0) return
+    let cancelled = false
+    const controller = new AbortController()
+    ;(async () => {
+      const entries = await Promise.all(
+        views.map(async (view): Promise<[string, number | undefined]> => {
+          try {
+            const qs = viewFiltersToContactsQuery(view.filters ?? {})
+            const res = await fetch(
+              scopedApiPath(`/api/v1/crm/contacts?${qs}`, orgScope),
+              { signal: controller.signal },
+            )
+            if (!res.ok) return [view.id, undefined]
+            const body = await res.json()
+            const total = body?.meta?.total
+            return [view.id, typeof total === 'number' ? total : undefined]
+          } catch {
+            return [view.id, undefined]
+          }
+        }),
+      )
+      if (!cancelled) {
+        setViewCounts(Object.fromEntries(entries))
+      }
+    })()
+    return () => {
+      cancelled = true
+      controller.abort()
+    }
+  }, [views, orgScope, resourceKind])
+
   async function saveView() {
     if (!newName.trim()) return
     setSaving(true)
@@ -96,6 +166,39 @@ export function SavedViewsBar({
     await fetch(scopedApiPath(`/api/v1/crm/saved-views/${pendingDeleteView.id}`, orgScope), { method: 'DELETE' })
     setPendingDeleteView(null)
     load()
+  }
+
+  function startEditView(view: SavedView) {
+    setEditingViewId(view.id)
+    setEditName(savedViewDisplayName(view) === 'Saved view name missing' ? '' : view.name)
+  }
+
+  function cancelEditView() {
+    setEditingViewId(null)
+    setEditName('')
+  }
+
+  async function saveEditView() {
+    if (!editingViewId || !editName.trim()) return
+    setEditSaving(true)
+    try {
+      const res = await fetch(scopedApiPath(`/api/v1/crm/saved-views/${editingViewId}`, orgScope), {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ name: editName.trim() }),
+      })
+      if (res.ok) {
+        cancelEditView()
+        load()
+      }
+    } finally {
+      setEditSaving(false)
+    }
+  }
+
+  function handleEditKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+    if (e.key === 'Enter') saveEditView()
+    if (e.key === 'Escape') cancelEditView()
   }
 
   function handleKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
@@ -232,10 +335,53 @@ export function SavedViewsBar({
               return value !== undefined && value !== null && value !== false && value !== ''
             }).length
 
+            const isEditing = editingViewId === view.id
+            const count = viewCounts[view.id]
+            const countLabel =
+              resourceKind !== 'contacts'
+                ? null
+                : count === undefined
+                  ? 'counting…'
+                  : `${count} contact${count === 1 ? '' : 's'}`
+
+            if (isEditing) {
+              return (
+                <div
+                  key={view.id}
+                  className="rounded-[var(--radius-card)] border border-[var(--color-pib-accent)]/40 bg-[var(--color-pib-surface-2)] p-3 flex items-center gap-2"
+                >
+                  <input
+                    autoFocus
+                    value={editName}
+                    onChange={(e) => setEditName(e.target.value)}
+                    onKeyDown={handleEditKeyDown}
+                    placeholder="View name"
+                    className="pib-input text-sm flex-1 min-w-0"
+                    aria-label={`Rename saved view ${displayName}`}
+                  />
+                  <button
+                    onClick={saveEditView}
+                    disabled={editSaving || !editName.trim()}
+                    className="btn-pib-accent !text-xs !px-2.5 !py-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
+                    aria-label={`Save name for saved view ${displayName}`}
+                  >
+                    {editSaving ? 'Saving...' : 'Save'}
+                  </button>
+                  <button
+                    onClick={cancelEditView}
+                    className="text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] transition-colors p-1"
+                    aria-label="Cancel rename"
+                  >
+                    <span className="material-symbols-outlined text-[18px]">close</span>
+                  </button>
+                </div>
+              )
+            }
+
             return (
               <div
                 key={view.id}
-                className="group rounded-[var(--radius-card)] border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-2)] p-3 flex items-center justify-between gap-3"
+                className="group rounded-[var(--radius-card)] border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-2)] p-3 flex items-center justify-between gap-2"
               >
                 <button
                   onClick={() => onSelectView(view.filters)}
@@ -245,16 +391,28 @@ export function SavedViewsBar({
                   <span className="block font-medium truncate text-[var(--color-pib-text)]">{displayName}</span>
                   <span className="block text-xs text-[var(--color-pib-text-muted)] mt-0.5">
                     {filterCount} filter{filterCount === 1 ? '' : 's'}
+                    {countLabel ? <span aria-hidden="true"> · </span> : null}
+                    {countLabel ? <span>{countLabel}</span> : null}
                   </span>
                 </button>
-                <button
-                  onClick={() => deleteView(view)}
-                  title={`Delete "${displayName}"`}
-                  aria-label={`Delete saved view ${displayName}`}
-                  className="text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-danger,#FCA5A5)] transition-colors p-1 rounded-md hover:bg-red-400/10"
-                >
-                  <span className="material-symbols-outlined text-[16px]">close</span>
-                </button>
+                <div className="flex items-center gap-0.5 shrink-0">
+                  <button
+                    onClick={() => startEditView(view)}
+                    title={`Edit "${displayName}"`}
+                    aria-label={`Edit saved view ${displayName}`}
+                    className="text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] transition-colors p-1 rounded-md hover:bg-white/[0.06]"
+                  >
+                    <span className="material-symbols-outlined text-[16px]">edit</span>
+                  </button>
+                  <button
+                    onClick={() => deleteView(view)}
+                    title={`Delete "${displayName}"`}
+                    aria-label={`Delete saved view ${displayName}`}
+                    className="text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-danger,#FCA5A5)] transition-colors p-1 rounded-md hover:bg-red-400/10"
+                  >
+                    <span className="material-symbols-outlined text-[16px]">close</span>
+                  </button>
+                </div>
               </div>
             )
           })}

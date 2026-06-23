@@ -1,6 +1,7 @@
 import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { adminAuth, adminDb } from '@/lib/firebase/admin'
+import { resolveOrgIdBySlugOrId } from '@/lib/organizations/resolve-by-slug'
 
 interface WorkspaceLayoutProps {
   children: React.ReactNode
@@ -25,9 +26,8 @@ export default async function WorkspaceLayout({ children, params }: WorkspaceLay
   const userDoc = await adminDb.collection('users').doc(uid).get()
   const role = userDoc.exists ? userDoc.data()?.role : 'client'
 
-  // Find the org by slug
-  const orgSnap = await adminDb.collection('organizations').where('slug', '==', slug).get()
-  if (orgSnap.empty) redirect('/admin/dashboard')
+  const orgId = await resolveOrgIdBySlugOrId(slug)
+  if (!orgId) redirect('/admin/dashboard')
 
   // Admin command surfaces are operator-only. Client members use the portal routes.
   if (role !== 'admin') redirect('/admin/dashboard')

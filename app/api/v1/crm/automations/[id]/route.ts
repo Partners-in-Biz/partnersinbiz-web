@@ -47,6 +47,16 @@ export const PUT = withCrmAuth<RouteCtx>('admin', async (req, ctx, routeCtx) => 
   if (rest.enabled !== undefined) patch.enabled = rest.enabled as boolean
   if (rest.description !== undefined) patch.description = rest.description as string
   if (rest.conditions !== undefined) patch.conditions = rest.conditions as AutomationRuleInput['conditions']
+  if (rest.delayMinutes !== undefined) {
+    if (
+      typeof rest.delayMinutes !== 'number' ||
+      !Number.isFinite(rest.delayMinutes) ||
+      rest.delayMinutes < 0
+    ) {
+      return apiError('delayMinutes must be a non-negative number', 400)
+    }
+    patch.delayMinutes = Math.trunc(rest.delayMinutes)
+  }
 
   if (patch.actions !== undefined) {
     const actionError = await validateAutomationActionsForSave(ctx.orgId, patch.actions as AutomationAction[])

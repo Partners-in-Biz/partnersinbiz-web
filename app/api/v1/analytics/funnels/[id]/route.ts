@@ -42,6 +42,7 @@ export const PUT = withAuth('admin', async (req: NextRequest, user: ApiUser, ctx
     if (body.name) update.name = String(body.name).trim()
     if (body.steps) {
       if (!Array.isArray(body.steps) || body.steps.length < 2) return apiError('At least 2 steps required', 400)
+      if (body.steps.length > 8) return apiError('A funnel can have at most 8 steps', 400)
       update.steps = body.steps
     }
     if (body.window) {

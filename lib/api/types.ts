@@ -31,9 +31,11 @@ export interface ApiUser {
 
 export interface ApiMeta {
   total: number
-  page: number
-  limit: number
+  page?: number
+  limit?: number
   orgId?: string
+  // Allow route-specific metadata (e.g. utmSources breakdown) without widening every caller.
+  [key: string]: unknown
 }
 
 export interface ApiResponse<T = unknown> {

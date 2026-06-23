@@ -51,6 +51,53 @@ interface Contact {
     uid?: string
     displayName?: string
   }
+  subscribedAt?: unknown
+  unsubscribedAt?: unknown
+  bouncedAt?: unknown
+  utmSource?: string
+}
+
+type ContactStatus = 'active' | 'unsubscribed' | 'bounced'
+
+function deriveContactStatus(c: Contact): ContactStatus {
+  if (c.bouncedAt) return 'bounced'
+  if (c.unsubscribedAt) return 'unsubscribed'
+  return 'active'
+}
+
+const STATUS_OPTIONS: { value: ContactStatus; label: string }[] = [
+  { value: 'active', label: 'Active' },
+  { value: 'unsubscribed', label: 'Unsubscribed' },
+  { value: 'bounced', label: 'Bounced' },
+]
+
+const HIGH_SCORE_THRESHOLD = 70
+
+interface SegmentOption {
+  id: string
+  name: string
+  /** The tag(s) this segment's filter matches on (array-contains-any). Only
+   *  tag-based segments have these — they are what a contact must be tagged with
+   *  to genuinely join the segment's dynamic audience. */
+  tags: string[]
+}
+
+function StatusBadge({ status }: { status: ContactStatus }) {
+  const color =
+    status === 'active'
+      ? 'var(--color-pib-success)'
+      : status === 'bounced'
+      ? 'var(--color-pib-danger, #FCA5A5)'
+      : 'var(--color-pib-accent)'
+  const label = status.charAt(0).toUpperCase() + status.slice(1)
+  return (
+    <span
+      className="text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full capitalize font-mono"
+      style={{ background: `${color}20`, color }}
+    >
+      {label}
+    </span>
+  )
 }
 
 interface TeamMember {
@@ -229,6 +276,16 @@ export function ContactsWorkspace({
   const [typeFilter, setTypeFilter] = useState(() => searchParamInList(searchParams?.get('type') ?? null, TYPES))
   const [ownerLens, setOwnerLens] = useState<'all' | 'unowned'>(() => searchParams?.get('owner') === 'unowned' ? 'unowned' : 'all')
   const [followUpLens, setFollowUpLens] = useState<'all' | 'stale'>(() => searchParams?.get('followUp') === 'stale' ? 'stale' : 'all')
+  const [statusFilter, setStatusFilter] = useState<'' | ContactStatus>(() => {
+    const s = searchParams?.get('status')
+    return s === 'active' || s === 'unsubscribed' || s === 'bounced' ? s : ''
+  })
+  const [tagsFilter, setTagsFilter] = useState(() => searchParams?.get('tags') ?? '')
+  const [sourceFilter, setSourceFilter] = useState(() => (searchParams?.get('utmSource') ?? '').trim())
+  const [highScoreOnly, setHighScoreOnly] = useState(() => searchParams?.get('minScore') === String(HIGH_SCORE_THRESHOLD))
+  const [sortByScore, setSortByScore] = useState(() => searchParams?.get('sort') === 'score')
+  const [page, setPage] = useState(1)
+  const [meta, setMeta] = useState<{ total: number; page: number; limit: number; utmSources?: string[] }>({ total: 0, page: 1, limit: 50 })
   const [showNew, setShowNew] = useState(() => shouldOpenCreateContact)
 
   // Bulk selection state
@@ -242,9 +299,13 @@ export function ContactsWorkspace({
   const [bulkStage, setBulkStage] = useState(STAGES[0])
   const [bulkType, setBulkType] = useState(TYPES[0])
   const [bulkTagsInput, setBulkTagsInput] = useState('')
+  const [bulkSegmentId, setBulkSegmentId] = useState('')
 
   // Team members for assign dropdown
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([])
+
+  // Segments for "assign segment" bulk action
+  const [segments, setSegments] = useState<SegmentOption[]>([])
 
   // Duplicates state
   const [showDuplicatesModal, setShowDuplicatesModal] = useState(false)
@@ -262,6 +323,26 @@ export function ContactsWorkspace({
     return scopedPortalPath(`/portal/contacts/${encodedId}${suffix}`, routeScope)
   }, [isAdmin, routeScope])
 
+  // Shared list-filter query string — reused by the list fetch and the
+  // filtered/selection CSV export so the export always matches the view.
+  const buildFilterParams = useCallback(() => {
+    const params = new URLSearchParams()
+    if (search) params.set('search', search)
+    if (stageFilter) params.set('stage', stageFilter)
+    if (typeFilter) params.set('type', typeFilter)
+    if (statusFilter) params.set('status', statusFilter)
+    if (sourceFilter) params.set('utmSource', sourceFilter)
+    const cleanedTags = tagsFilter
+      .split(',')
+      .map((t) => t.trim())
+      .filter(Boolean)
+      .join(',')
+    if (cleanedTags) params.set('tags', cleanedTags)
+    if (highScoreOnly) params.set('minScore', String(HIGH_SCORE_THRESHOLD))
+    if (sortByScore) params.set('sort', 'score')
+    return params
+  }, [search, stageFilter, typeFilter, statusFilter, sourceFilter, tagsFilter, highScoreOnly, sortByScore])
+
   const fetchContacts = useCallback(async () => {
     if (!canLoadContacts) {
       setContacts([])
@@ -270,10 +351,8 @@ export function ContactsWorkspace({
       return
     }
     setLoading(true)
-    const params = new URLSearchParams()
-    if (search) params.set('search', search)
-    if (stageFilter) params.set('stage', stageFilter)
-    if (typeFilter) params.set('type', typeFilter)
+    const params = buildFilterParams()
+    params.set('page', String(page))
     const qs = params.toString()
     try {
       const res = await fetch(scopedApiPath(`/api/v1/crm/contacts${qs ? `?${qs}` : ''}`, apiScope))
@@ -284,6 +363,14 @@ export function ContactsWorkspace({
       const body = await res.json()
       const nextContacts = body.data ?? []
       setContacts(nextContacts)
+      if (body.meta) {
+        setMeta({
+          total: body.meta.total ?? nextContacts.length,
+          page: body.meta.page ?? page,
+          limit: body.meta.limit ?? 50,
+          utmSources: Array.isArray(body.meta.utmSources) ? body.meta.utmSources : [],
+        })
+      }
       setContactOrgId(body.meta?.orgId ?? nextContacts.find((contact: Contact) => contact.orgId)?.orgId ?? scopedOrgId ?? '')
       setContactsError('')
     } catch (err) {
@@ -292,11 +379,16 @@ export function ContactsWorkspace({
     } finally {
       setLoading(false)
     }
-  }, [apiScope, canLoadContacts, scopedOrgId, search, stageFilter, typeFilter])
+  }, [apiScope, buildFilterParams, canLoadContacts, page, scopedOrgId])
 
   useEffect(() => {
     fetchContacts()
   }, [fetchContacts])
+
+  // Reset to page 1 whenever any filter / sort changes so pagination stays valid.
+  useEffect(() => {
+    setPage(1)
+  }, [search, stageFilter, typeFilter, statusFilter, sourceFilter, tagsFilter, highScoreOnly, sortByScore])
 
   useCrmLiveRefresh({
     orgId: scopedOrgId || contactOrgId,
@@ -315,6 +407,33 @@ export function ContactsWorkspace({
       .then(r => r.ok ? r.json() : null)
       .then(body => {
         if (body?.members) setTeamMembers(body.members)
+      })
+      .catch(() => {})
+  }, [apiScope, canLoadContacts])
+
+  // Load segments once (for the "assign segment" bulk action)
+  useEffect(() => {
+    if (!canLoadContacts) {
+      setSegments([])
+      return
+    }
+    fetch(scopedApiPath('/api/v1/crm/segments', apiScope))
+      .then(r => r.ok ? r.json() : null)
+      .then(body => {
+        const list = body?.data?.segments ?? body?.segments ?? []
+        if (Array.isArray(list)) {
+          setSegments(
+            list
+              .filter((s: { id?: string; name?: string }) => s?.id && s?.name)
+              .map((s: { id: string; name: string; filters?: { tags?: unknown } }) => ({
+                id: s.id,
+                name: s.name,
+                tags: Array.isArray(s.filters?.tags)
+                  ? (s.filters?.tags as unknown[]).filter((t): t is string => typeof t === 'string' && t.trim().length > 0)
+                  : [],
+              })),
+          )
+        }
       })
       .catch(() => {})
   }, [apiScope, canLoadContacts])
@@ -442,6 +561,22 @@ export function ContactsWorkspace({
       const tags = parseTags(bulkTagsInput)
       if (!tags.length) { pushToast('Enter at least one tag', 'error'); return }
       patch = { tags: { remove: tags } }
+    } else if (bulkAction === 'assign-segment') {
+      const segment = segments.find((s) => s.id === bulkSegmentId)
+      if (!segment) { pushToast('Select a segment', 'error'); return }
+      // Segments are DYNAMIC (filter/rule based) — there is no static membership
+      // store. A contact "joins" a tag-based segment by carrying a tag the
+      // segment's array-contains-any filter matches. So we add the segment's
+      // own defining tags. Behavioral/rule-only segments (no defining tags)
+      // cannot be joined by tagging — defer with a clear reason.
+      if (segment.tags.length === 0) {
+        pushToast(
+          `"${segment.name}" is a dynamic segment with no tag rule — contacts join it automatically when they match its conditions, so there's nothing to assign manually.`,
+          'info',
+        )
+        return
+      }
+      patch = { tags: { add: segment.tags } }
     }
 
     setBulkPending(true)
@@ -461,12 +596,63 @@ export function ContactsWorkspace({
         )
         setSelectedIds(new Set())
         setBulkTagsInput('')
+        setBulkSegmentId('')
         await fetchContacts()
       } else {
         pushToast(body.error ?? 'Bulk update failed', 'error')
       }
     } catch {
       pushToast('Network error — bulk update failed', 'error')
+    } finally {
+      setBulkPending(false)
+    }
+  }
+
+  // Trigger a browser download from an in-memory CSV blob.
+  function downloadBlob(blob: Blob, filename: string) {
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = filename
+    document.body.appendChild(a)
+    a.click()
+    a.remove()
+    setTimeout(() => URL.revokeObjectURL(url), 1000)
+  }
+
+  function exportFilename(): string {
+    const stamp = new Date().toISOString().slice(0, 10)
+    return `contacts-${stamp}.csv`
+  }
+
+  // Export every contact matching the active list filters (US-085).
+  async function exportFiltered() {
+    if (!canLoadContacts) return
+    const qs = buildFilterParams().toString()
+    window.location.href = scopedApiPath(`/api/v1/crm/contacts/export${qs ? `?${qs}` : ''}`, apiScope)
+  }
+
+  // Export ONLY the selected contacts (US-083). Sends ids in the request body
+  // so the selection survives URL-length limits.
+  async function exportSelected() {
+    if (selectedIds.size === 0) return
+    setBulkPending(true)
+    try {
+      const res = await fetch(scopedApiPath('/api/v1/crm/contacts/export', apiScope), {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ ids: Array.from(selectedIds) }),
+      })
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({})) as { error?: string }
+        pushToast(body.error ?? 'Export failed', 'error')
+        return
+      }
+      const blob = await res.blob()
+      downloadBlob(blob, exportFilename())
+      pushToast(`Exported ${selectedIds.size} contact${selectedIds.size === 1 ? '' : 's'}`, 'success')
+    } catch {
+      pushToast('Network error — export failed', 'error')
     } finally {
       setBulkPending(false)
     }
@@ -524,7 +710,7 @@ export function ContactsWorkspace({
   const setupArtifactContacts = displayedContacts.filter(isContactSetupArtifact)
   const allSelected = displayedContacts.length > 0 && displayedContacts.every((contact) => selectedIds.has(contact.id))
   const someSelected = selectedIds.size > 0 && !allSelected
-  const hasActiveFilters = !!(search.trim() || stageFilter || typeFilter || followUpLens === 'stale')
+  const hasActiveFilters = !!(search.trim() || stageFilter || typeFilter || statusFilter || tagsFilter.trim() || sourceFilter || highScoreOnly || followUpLens === 'stale')
   const isStageLens = !!stageFilter && !search.trim() && !typeFilter && ownerLens === 'all' && followUpLens === 'all'
   const contactCountLabel = loading
     ? canLoadContacts ? 'Loading…' : 'Select a client workspace to work contacts without cross-client bleed.'
@@ -585,6 +771,15 @@ export function ContactsWorkspace({
             >
               <span className="material-symbols-outlined text-[14px]" aria-hidden="true">merge</span>
               {duplicatesLoading ? 'Scanning…' : 'Find duplicates'}
+            </button>
+            <button
+              onClick={exportFiltered}
+              disabled={!canLoadContacts}
+              aria-label="Export contacts as CSV"
+              className="btn-pib-secondary text-xs flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <span className="material-symbols-outlined text-[14px]" aria-hidden="true">file_download</span>
+              Export CSV
             </button>
             <button
               onClick={() => canLoadContacts && setShowNew(true)}
@@ -925,6 +1120,61 @@ export function ContactsWorkspace({
             </option>
           ))}
         </select>
+        <select
+          value={statusFilter}
+          onChange={(e) => setStatusFilter(e.target.value as '' | ContactStatus)}
+          className="pib-input !w-auto"
+          aria-label="Filter contacts by subscription status"
+        >
+          <option value="">All statuses</option>
+          {STATUS_OPTIONS.map((s) => (
+            <option key={s.value} value={s.value} className="bg-black">
+              {s.label}
+            </option>
+          ))}
+        </select>
+        <input
+          placeholder="Tags (comma separated)…"
+          value={tagsFilter}
+          onChange={(e) => setTagsFilter(e.target.value)}
+          className="pib-input !w-auto min-w-[180px]"
+          aria-label="Filter contacts by tags"
+        />
+        <select
+          value={sourceFilter}
+          onChange={(e) => setSourceFilter(e.target.value)}
+          className="pib-input !w-auto"
+          aria-label="Filter contacts by UTM source"
+        >
+          <option value="">All sources</option>
+          {(meta.utmSources ?? []).map((src) => (
+            <option key={src} value={src} className="bg-black">
+              {src}
+            </option>
+          ))}
+        </select>
+        <select
+          value={sortByScore ? 'score' : 'recent'}
+          onChange={(e) => setSortByScore(e.target.value === 'score')}
+          className="pib-input !w-auto"
+          aria-label="Sort contacts"
+        >
+          <option value="recent" className="bg-black">Newest first</option>
+          <option value="score" className="bg-black">Highest lead score</option>
+        </select>
+        <button
+          type="button"
+          onClick={() => setHighScoreOnly((v) => !v)}
+          aria-pressed={highScoreOnly}
+          aria-label={`Toggle high score filter (lead score ${HIGH_SCORE_THRESHOLD} or higher)`}
+          className={[
+            'btn-pib-secondary text-xs',
+            highScoreOnly ? 'border-amber-400/50 bg-amber-400/10 text-amber-100' : '',
+          ].join(' ')}
+        >
+          <span className="material-symbols-outlined text-[14px]" aria-hidden="true">trending_up</span>
+          High score (&ge;{HIGH_SCORE_THRESHOLD})
+        </button>
       </section>
 
       {/* Bulk action bar */}
@@ -941,6 +1191,8 @@ export function ContactsWorkspace({
           bulkTagsInput={bulkTagsInput}
           stages={STAGES}
           types={TYPES}
+          segments={segments}
+          bulkSegmentId={bulkSegmentId}
           onActionChange={(action) => {
             setBulkAction(action)
             setBulkTagsInput('')
@@ -949,9 +1201,11 @@ export function ContactsWorkspace({
           onStageChange={setBulkStage}
           onTypeChange={setBulkType}
           onTagsInputChange={setBulkTagsInput}
+          onSegmentChange={setBulkSegmentId}
           onClear={() => setSelectedIds(new Set())}
           onApply={applyBulk}
           onDelete={handleBulkDelete}
+          onExportSelected={exportSelected}
         />
       )}
 
@@ -1038,7 +1292,7 @@ export function ContactsWorkspace({
           </p>
           {hasActiveFilters || ownerLens === 'unowned' ? (
             <button
-              onClick={() => { setSearch(''); setStageFilter(''); setTypeFilter(''); setOwnerLens('all'); setFollowUpLens('all') }}
+              onClick={() => { setSearch(''); setStageFilter(''); setTypeFilter(''); setStatusFilter(''); setTagsFilter(''); setSourceFilter(''); setHighScoreOnly(false); setOwnerLens('all'); setFollowUpLens('all') }}
               className="btn-pib-secondary mt-6"
               aria-label={ownerLens === 'unowned' || followUpLens === 'stale' ? 'Show all contacts' : 'Clear filters'}
             >
@@ -1060,7 +1314,7 @@ export function ContactsWorkspace({
       ) : (
         <div className="pib-card-section">
           {/* Table header */}
-          <div className="hidden md:grid grid-cols-15 gap-4 px-5 py-3.5 border-b border-[var(--color-pib-line)] bg-white/[0.02]">
+          <div className="hidden md:grid grid-cols-18 gap-4 px-5 py-3.5 border-b border-[var(--color-pib-line)] bg-white/[0.02]">
             {/* Checkbox cell — 1 col */}
             <div className="col-span-1 flex items-center">
               <input
@@ -1077,7 +1331,9 @@ export function ContactsWorkspace({
             <p className="col-span-2 eyebrow !text-[10px]">Company</p>
             <p className="col-span-1 eyebrow !text-[10px]">Type</p>
             <p className="col-span-1 eyebrow !text-[10px]">Stage</p>
+            <p className="col-span-1 eyebrow !text-[10px]">Status</p>
             <p className="col-span-2 eyebrow !text-[10px]">Last contacted</p>
+            <p className="col-span-2 eyebrow !text-[10px]">Tags</p>
             <p className="col-span-1 eyebrow !text-[10px]">Lead</p>
             <p className="col-span-1 eyebrow !text-[10px]">ICP</p>
             <p className="col-span-1 eyebrow !text-[10px]">AI</p>
@@ -1091,7 +1347,7 @@ export function ContactsWorkspace({
                 <div
                   key={c.id}
                   data-contact-row
-                  className="relative grid grid-cols-1 md:grid-cols-15 gap-3 md:gap-4 items-start md:items-center px-4 py-4 md:px-5 hover:bg-[var(--color-pib-surface-2)] transition-colors"
+                  className="relative grid grid-cols-1 md:grid-cols-18 gap-3 md:gap-4 items-start md:items-center px-4 py-4 md:px-5 hover:bg-[var(--color-pib-surface-2)] transition-colors"
                   style={isSelected ? { background: 'var(--color-pib-accent, #7c3aed)10' } : undefined}
                 >
                   {/* Checkbox */}
@@ -1110,7 +1366,7 @@ export function ContactsWorkspace({
                   </div>
                   <div
                     data-contact-card-content
-                    className="col-span-1 md:col-span-14 grid grid-cols-1 md:grid-cols-14 gap-3 md:gap-4 items-start md:items-center pr-10 md:pr-0"
+                    className="col-span-1 md:col-span-17 grid grid-cols-1 md:grid-cols-17 gap-3 md:gap-4 items-start md:items-center pr-10 md:pr-0"
                   >
                     <div className="md:col-span-2">
                       <Link
@@ -1120,11 +1376,6 @@ export function ContactsWorkspace({
                       >
                         {contactName}
                       </Link>
-                      {c.tags && c.tags.length > 0 && (
-                        <p className="text-[11px] text-[var(--color-pib-text-muted)] mt-0.5 truncate">
-                          {c.tags.join(', ')}
-                        </p>
-                      )}
                     </div>
                     <div className="md:col-span-3 text-sm text-[var(--color-pib-text-muted)]">
                       {c.email ? (
@@ -1174,6 +1425,9 @@ export function ContactsWorkspace({
                     <div className="md:col-span-1">
                       <StageBadge stage={c.stage} />
                     </div>
+                    <div className="md:col-span-1">
+                      <StatusBadge status={deriveContactStatus(c)} />
+                    </div>
                     <div className="md:col-span-2 text-xs font-mono">
                       <Link
                         href={contactHref(c.id, '?activity=note')}
@@ -1183,6 +1437,28 @@ export function ContactsWorkspace({
                         <span className="material-symbols-outlined text-[13px]" aria-hidden="true">edit_note</span>
                         <span className="truncate">{lastContactedLabel}</span>
                       </Link>
+                    </div>
+                    <div className="md:col-span-2">
+                      {c.tags && c.tags.length > 0 ? (
+                        <div className="flex flex-wrap gap-1">
+                          {c.tags.slice(0, 3).map((tag) => (
+                            <span
+                              key={tag}
+                              className="rounded-full border border-[var(--color-pib-line)] bg-white/[0.04] px-2 py-0.5 text-[10px] text-[var(--color-pib-text-muted)] max-w-[120px] truncate"
+                              title={tag}
+                            >
+                              {tag}
+                            </span>
+                          ))}
+                          {c.tags.length > 3 && (
+                            <span className="text-[10px] text-[var(--color-pib-text-muted)]">
+                              +{c.tags.length - 3}
+                            </span>
+                          )}
+                        </div>
+                      ) : (
+                        <span className="text-[11px] text-[var(--color-pib-text-muted)]">—</span>
+                      )}
                     </div>
                     <div className="md:col-span-1">
                       <ScoreChip score={c.leadScore} kind="lead" label="Lead score (formula)" size="sm" />
@@ -1199,6 +1475,47 @@ export function ContactsWorkspace({
             })}
           </div>
         </div>
+      )}
+
+      {/* Pagination */}
+      {!loading && !contactsError && meta.total > meta.limit && (
+        <nav
+          className="flex flex-wrap items-center justify-between gap-3"
+          aria-label="Contacts pagination"
+        >
+          <p className="text-xs text-[var(--color-pib-text-muted)]">
+            {(() => {
+              const start = (meta.page - 1) * meta.limit + 1
+              const end = Math.min(meta.page * meta.limit, meta.total)
+              return `Showing ${start}–${end} of ${meta.total}`
+            })()}
+          </p>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              disabled={meta.page <= 1}
+              className="btn-pib-secondary text-xs disabled:opacity-50 disabled:cursor-not-allowed"
+              aria-label="Previous page"
+            >
+              <span className="material-symbols-outlined text-[14px]" aria-hidden="true">chevron_left</span>
+              Prev
+            </button>
+            <span className="text-xs text-[var(--color-pib-text-muted)] font-mono">
+              Page {meta.page} of {Math.max(1, Math.ceil(meta.total / meta.limit))}
+            </span>
+            <button
+              type="button"
+              onClick={() => setPage((p) => p + 1)}
+              disabled={meta.page >= Math.ceil(meta.total / meta.limit)}
+              className="btn-pib-secondary text-xs disabled:opacity-50 disabled:cursor-not-allowed"
+              aria-label="Next page"
+            >
+              Next
+              <span className="material-symbols-outlined text-[14px]" aria-hidden="true">chevron_right</span>
+            </button>
+          </div>
+        </nav>
       )}
 
       {/* Duplicates modal */}

@@ -19,14 +19,18 @@ export interface NavItem {
 export const OPERATOR_NAV: NavItem[] = [
   { label: 'Home',            href: '/admin/dashboard',    icon: 'space_dashboard', group: 'work' },
   { label: 'Mission Control', href: '/admin/briefings',    icon: 'crisis_alert',    group: 'work' },
-  { label: 'Updates',         href: '/admin/updates',      icon: 'new_releases',    group: 'work' },
+  { label: 'Updates',         href: '/admin/updates',      icon: 'new_releases',    group: 'work', activePatterns: ['/admin/announcements', '/admin/changelog'] },
   { label: 'Loop Engine',     href: '/admin/loop-engine',  icon: 'all_inclusive',   group: 'work' },
-  { label: 'Organisations', href: '/admin/organizations', icon: 'groups', group: 'work', activePatterns: ['/admin/organizations'] },
+  { label: 'Organisations', href: '/admin/organizations', icon: 'groups', group: 'work', activePatterns: ['/admin/organizations', '/admin/org'] },
+  { label: 'Onboarding', href: '/admin/onboarding', icon: 'how_to_reg', group: 'work' },
+  { label: 'Demo Orgs', href: '/admin/demo-orgs', icon: 'science', group: 'work' },
+  { label: 'Billing', href: '/admin/billing/revenue', icon: 'payments', group: 'data', activePatterns: ['/admin/billing', '/admin/plans', '/admin/partners'] },
   { label: 'Agents',   href: '/admin/agents',   icon: 'group_work', group: 'work' },
   { label: 'Skill Lab', href: '/admin/skill-lab', icon: 'science', group: 'data' },
+  { label: 'Content', href: '/admin/content/seo', icon: 'article', group: 'data', activePatterns: ['/admin/content'] },
   { label: 'Knowledge', href: '/admin/knowledge', icon: 'menu_book', group: 'data' },
   { label: 'Support',   href: '/admin/support',   icon: 'support_agent', group: 'comms' },
-  { label: 'Settings', href: '/admin/settings', icon: 'settings', group: 'comms', activePatterns: ['/admin/platform-users', '/admin/platform-members'] },
+  { label: 'Settings', href: '/admin/settings', icon: 'settings', group: 'comms', activePatterns: ['/admin/platform-users', '/admin/platform-members', '/admin/properties', '/admin/moderation', '/admin/domains', '/admin/analytics', '/admin/reports', '/admin/tools', '/admin/system/audit-log', '/admin/settings/social-credentials', '/admin/2fa'] },
 ]
 
 export const OPERATOR_NAV_TOPBAR: NavItem[] = [
@@ -34,9 +38,37 @@ export const OPERATOR_NAV_TOPBAR: NavItem[] = [
   { label: 'Mission Control', href: '/admin/briefings',    icon: 'crisis_alert' },
   { label: 'Updates',         href: '/admin/updates',      icon: 'new_releases' },
   { label: 'Loop Engine',     href: '/admin/loop-engine',  icon: 'all_inclusive' },
-  { label: 'Organisations', href: '/admin/organizations', icon: 'groups', activePatterns: ['/admin/organizations'] },
+  { label: 'Organisations', href: '/admin/organizations', icon: 'groups', activePatterns: ['/admin/organizations', '/admin/org'] },
+  { label: 'Onboarding', href: '/admin/onboarding', icon: 'how_to_reg' },
+  { label: 'Demo Orgs', href: '/admin/demo-orgs', icon: 'science' },
+  {
+    label: 'Billing', href: '/admin/billing/revenue', icon: 'payments',
+    children: [
+      { label: 'Revenue', href: '/admin/billing/revenue' },
+      { label: 'EFT queue', href: '/admin/billing/eft-queue' },
+      { label: 'Coupons', href: '/admin/billing/coupons' },
+      { label: 'Trials', href: '/admin/billing/trials' },
+      { label: 'Dunning', href: '/admin/billing/dunning' },
+      { label: 'Churn', href: '/admin/billing/churn' },
+      { label: 'Referrals', href: '/admin/billing/referrals' },
+      { label: 'Payouts', href: '/admin/billing/stripe-connect' },
+      { label: 'Plans', href: '/admin/plans' },
+      { label: 'Partners', href: '/admin/partners' },
+    ],
+    activePatterns: ['/admin/billing', '/admin/plans', '/admin/partners'],
+  },
   { label: 'Agents',   href: '/admin/agents',   icon: 'group_work' },
   { label: 'Skill Lab', href: '/admin/skill-lab', icon: 'science' },
+  {
+    label: 'Content', href: '/admin/content/seo', icon: 'article',
+    children: [
+      { label: 'SEO articles', href: '/admin/content/seo' },
+      { label: 'Analytics', href: '/admin/content/analytics' },
+      { label: 'Sitemap', href: '/admin/content/sitemap' },
+      { label: 'API docs', href: '/admin/content/api-docs' },
+    ],
+    activePatterns: ['/admin/content'],
+  },
   { label: 'Knowledge', href: '/admin/knowledge', icon: 'menu_book' },
   { label: 'Support',  href: '/admin/support',  icon: 'support_agent' },
   {
@@ -46,8 +78,9 @@ export const OPERATOR_NAV_TOPBAR: NavItem[] = [
       { label: 'Platform users', href: '/admin/platform-users' },
       { label: 'Platform members', href: '/admin/platform-members' },
       { label: 'API keys',       href: '/admin/settings/api-keys' },
+      { label: '2FA', href: '/admin/2fa' },
     ],
-    activePatterns: ['/admin/platform-users', '/admin/platform-members'],
+    activePatterns: ['/admin/platform-users', '/admin/platform-members', '/admin/properties', '/admin/moderation', '/admin/domains', '/admin/analytics', '/admin/reports', '/admin/tools', '/admin/system/audit-log', '/admin/settings/social-credentials', '/admin/2fa'],
   },
 ]
 

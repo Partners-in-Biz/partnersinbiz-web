@@ -168,6 +168,20 @@ function strArray(v: unknown): string[] {
   return v.filter((s): s is string => typeof s === 'string' && s.trim().length > 0)
 }
 
+// US-091: only accept http(s) webhook URLs; everything else → '' (disabled).
+function sanitizeWebhookUrl(v: unknown): string {
+  if (typeof v !== 'string') return ''
+  const trimmed = v.trim()
+  if (!trimmed) return ''
+  try {
+    const parsed = new URL(trimmed)
+    if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') return ''
+    return trimmed
+  } catch {
+    return ''
+  }
+}
+
 export const GET = withAuth('client', async (req: NextRequest, user: ApiUser) => {
   const { searchParams } = new URL(req.url)
   const scope = resolveOrgScope(user, searchParams.get('orgId'))
@@ -253,6 +267,9 @@ export const POST = withAuth(
       rateLimit: sanitizeRateLimit(body.rateLimit),
       stats: { blocked: { ...DEFAULT_BLOCK_STATS } },
       display: sanitizeDisplay(body.display),
+      // Outbound webhook (US-091)
+      webhookUrl: sanitizeWebhookUrl(body.webhookUrl),
+      webhookSecret: typeof body.webhookSecret === 'string' ? body.webhookSecret.trim() : '',
       ...actorFrom(user),
       createdAt: FieldValue.serverTimestamp(),
       updatedAt: FieldValue.serverTimestamp(),

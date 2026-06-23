@@ -96,6 +96,9 @@ export const POST = withCrmAuth('admin', async (req, ctx) => {
     enabled: rest.enabled !== undefined ? (rest.enabled as boolean) : true,
     ...(rest.description !== undefined && { description: rest.description as string }),
     ...(rest.conditions !== undefined && { conditions: rest.conditions as AutomationRuleInput['conditions'] }),
+    ...(typeof rest.delayMinutes === 'number' && Number.isFinite(rest.delayMinutes) && rest.delayMinutes >= 0
+      ? { delayMinutes: Math.trunc(rest.delayMinutes) }
+      : {}),
   }
 
   try {

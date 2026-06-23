@@ -11,7 +11,7 @@ import { FieldValue } from 'firebase-admin/firestore'
 import { adminDb } from '@/lib/firebase/admin'
 import { withCrmAuth, type CrmAuthContext } from '@/lib/auth/crm-middleware'
 import { apiSuccess, apiError } from '@/lib/api/response'
-import { sanitizeSegmentFilters } from '@/lib/crm/segments'
+import { sanitizeSegmentFilters, sanitizeRuleGroup } from '@/lib/crm/segments'
 
 const ARRAY_CONTAINS_ANY_LIMIT = 10
 
@@ -84,6 +84,12 @@ async function handleSegmentUpdate(
       )
     }
     patch.filters = filters
+  }
+  // US-055: allow updating / clearing the generic rule tree.
+  if (body.ruleGroup !== undefined) {
+    const ruleGroup = sanitizeRuleGroup(body.ruleGroup)
+    // null/empty clears the field so the segment falls back to `filters`.
+    patch.ruleGroup = ruleGroup ?? FieldValue.delete()
   }
 
   // Firestore rejects undefined values — strip them before write

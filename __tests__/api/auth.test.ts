@@ -3,6 +3,10 @@ import { NextRequest } from 'next/server'
 import { withAuth } from '@/lib/api/auth'
 import { apiSuccess } from '@/lib/api/response'
 
+const mockGetMaintenanceState = jest.fn()
+const mockIsMaintenanceActiveNow = jest.fn()
+const mockRequestBypassesMaintenance = jest.fn()
+
 // Mock firebase admin
 jest.mock('@/lib/firebase/admin', () => ({
   adminAuth: {
@@ -16,6 +20,12 @@ jest.mock('@/lib/firebase/admin', () => ({
       }),
     }),
   },
+}))
+
+jest.mock('@/lib/governance/maintenance', () => ({
+  getMaintenanceState: (...args: unknown[]) => mockGetMaintenanceState(...args),
+  isMaintenanceActiveNow: (...args: unknown[]) => mockIsMaintenanceActiveNow(...args),
+  requestBypassesMaintenance: (...args: unknown[]) => mockRequestBypassesMaintenance(...args),
 }))
 
 import { adminAuth, adminDb } from '@/lib/firebase/admin'
@@ -32,6 +42,37 @@ function makeReq(headers: Record<string, string> = {}) {
 
 const handler = withAuth('admin', async (_req, user) => {
   return apiSuccess({ uid: user.uid, role: user.role })
+})
+
+beforeEach(() => {
+  mockGetMaintenanceState.mockResolvedValue({ enabled: false, message: '', ipAllowlist: [] })
+  mockIsMaintenanceActiveNow.mockReturnValue(false)
+  mockRequestBypassesMaintenance.mockReturnValue(false)
+})
+
+describe('withAuth — maintenance enforcement', () => {
+  beforeEach(() => {
+    jest.clearAllMocks()
+    mockGetMaintenanceState.mockResolvedValue({ enabled: true, message: 'Scheduled maintenance', ipAllowlist: [] })
+    mockIsMaintenanceActiveNow.mockReturnValue(true)
+    ;(adminAuth.verifyIdToken as jest.Mock).mockResolvedValue({ uid: 'client-user' })
+    const mockGet = jest.fn().mockResolvedValue({
+      exists: true,
+      data: () => ({ role: 'client' }),
+    })
+    ;(adminDb.collection as jest.Mock).mockReturnValue({
+      doc: jest.fn().mockReturnValue({ get: mockGet }),
+    })
+  })
+
+  it('blocks client API access with 503 while maintenance is active', async () => {
+    const clientHandler = withAuth('client', async () => apiSuccess({ ok: true }))
+    const req = makeReq({ authorization: 'Bearer valid-id-token' })
+
+    const res = await clientHandler(req)
+
+    expect(res.status).toBe(503)
+  })
 })
 
 describe('withAuth — AI_API_KEY', () => {

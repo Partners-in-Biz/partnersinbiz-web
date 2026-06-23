@@ -55,6 +55,8 @@ export interface EmailCampaignDetailWorkspaceProps {
   actions?: ReactNode
   setupPanel?: ReactNode
   reportHref?: string | null
+  /** When set, an "Edit content" button links here (US-103 editor). */
+  editHref?: string | null
 }
 
 function pct(num: number, denom: number): string {
@@ -83,6 +85,7 @@ export function EmailCampaignDetailWorkspace({
   actions,
   setupPanel,
   reportHref,
+  editHref,
 }: EmailCampaignDetailWorkspaceProps) {
   const stats = campaignStats(campaign)
   const status: CampaignStatus = campaign.status ?? 'draft'
@@ -165,6 +168,12 @@ export function EmailCampaignDetailWorkspace({
           </div>
 
           <div className="flex flex-col gap-3 min-w-[260px] max-w-sm">
+            {editHref && (
+              <Link href={editHref} className="btn-pib-primary justify-center">
+                <span className="material-symbols-outlined text-base">edit</span>
+                Edit content
+              </Link>
+            )}
             {actions}
             <div
               className="pib-card !p-4"

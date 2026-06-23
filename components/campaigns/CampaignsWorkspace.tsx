@@ -1,6 +1,7 @@
 import type { CSSProperties, ReactNode } from 'react'
 import Link from 'next/link'
 import { CampaignProgramCard } from '@/components/campaigns/CampaignProgramCard'
+import { EmailProgramsSection } from '@/components/campaigns/EmailProgramsSection'
 
 export type CampaignWorkspaceRecord = {
   id: string
@@ -63,6 +64,10 @@ type CampaignsWorkspaceProps = {
   contentMeta?: (campaign: CampaignWorkspaceRecord) => ReactNode
   visibleSections?: CampaignsWorkspaceSection[]
   brandStyle?: CSSProperties
+  /** US-101 — href to the new-email-campaign wizard. Shows a prominent button. */
+  newEmailCampaignHref?: string
+  /** US-101 — when set, draft email campaigns get a delete action. */
+  enableCampaignDelete?: boolean
 }
 
 const STATUS_PILL: Record<string, string> = {
@@ -154,6 +159,8 @@ export function CampaignsWorkspace({
   contentMeta,
   visibleSections = DEFAULT_SECTIONS,
   brandStyle,
+  newEmailCampaignHref,
+  enableCampaignDelete,
 }: CampaignsWorkspaceProps) {
   const visible = new Set(visibleSections)
   const visibleContentCampaigns = visible.has('content') ? contentCampaigns : []
@@ -219,21 +226,12 @@ export function CampaignsWorkspace({
       )}
 
       {visible.has('email') && (
-        <CampaignSection title="Email Programs" subhead="Sequence-backed campaigns linked to CRM segments and contacts.">
-          {emailPrograms.length === 0 ? (
-            <EmptyState
-              icon="forward_to_inbox"
-              title="No email programs yet"
-              body={surface === 'admin' ? 'Use quick create to start a draft email campaign.' : 'Speak to your account manager to get started.'}
-            />
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-              {emailPrograms.map((campaign) => (
-                <EmailCampaignCard key={campaign.id} campaign={campaign} href={hrefs.email(campaign)} />
-              ))}
-            </div>
-          )}
-        </CampaignSection>
+        <EmailProgramsSection
+          items={emailPrograms.map((campaign) => ({ campaign, href: hrefs.email(campaign) }))}
+          surface={surface}
+          newEmailCampaignHref={newEmailCampaignHref}
+          enableCampaignDelete={enableCampaignDelete}
+        />
       )}
 
       {visible.has('ads') && (
@@ -400,34 +398,6 @@ function BriefItem({ label, value }: { label: string; value?: string | null }) {
   )
 }
 
-function EmailCampaignCard({ campaign, href }: { campaign: CampaignWorkspaceRecord; href: string }) {
-  const stats = campaign.stats ?? {}
-  const enrolled = numeric(stats.enrolled)
-  const opened = numeric(stats.opened)
-  const clicked = numeric(stats.clicked)
-  const delivered = numeric(stats.delivered ?? stats.sent)
-
-  return (
-    <Link href={href} className="pib-card pib-card-hover block !p-5">
-      <div className="flex items-start justify-between gap-3">
-        <span className={`text-[10px] px-2 py-1 rounded uppercase tracking-wide ${statusPill(campaign.status)}`}>
-          {campaign.status ?? 'draft'}
-        </span>
-        <span className="material-symbols-outlined text-[18px] text-[var(--color-pib-text-muted)]">forward_to_inbox</span>
-      </div>
-      <h3 className="font-headline text-lg font-semibold mt-4 leading-tight">{campaignTitle(campaign)}</h3>
-      <p className="text-xs text-[var(--color-pib-text-muted)] mt-2">{campaign.description || 'Sequence-driven email program'}</p>
-      <div className="grid grid-cols-3 gap-3 mt-4 pt-4 border-t border-[var(--color-pib-line)] text-xs">
-        <MiniStat label="Audience" value={String(enrolled)} />
-        <MiniStat label="Open" value={pct(opened, delivered)} />
-        <MiniStat label="Click" value={pct(clicked, delivered)} />
-      </div>
-      <p className="text-[11px] text-[var(--color-pib-text-muted)] mt-3">
-        Last activity: {formatDate(campaign.updatedAt ?? campaign.createdAt)}
-      </p>
-    </Link>
-  )
-}
 
 function AdCampaignRow({ campaign, href }: { campaign: CampaignWorkspaceRecord; href: string }) {
   const objective = typeof campaign.objective === 'string' ? campaign.objective : 'objective pending'

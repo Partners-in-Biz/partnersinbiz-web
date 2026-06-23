@@ -25,6 +25,7 @@ export interface LeadSignalsWeights {
   sequenceCompleted?: number  // points per sequence completed (default 10)
   recentContact?: number      // points if lastContactedAt within 7d (default 10)
   formSubmission?: number     // points per form submitted (default 8)
+  pageVisit?: number          // points per product-analytics page visit in last 30d, capped (default 3)
 }
 
 export interface ScoringConfig {

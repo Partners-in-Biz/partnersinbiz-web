@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 import Image from 'next/image'
 import { POSTS } from '@/lib/content/posts'
+import { listLivePosts } from '@/lib/content/posts-firestore'
 import { SITE } from '@/lib/seo/site'
 import { JsonLd, breadcrumbSchema } from '@/lib/seo/schema'
 import { Reveal } from '@/components/marketing/Reveal'
@@ -30,7 +31,18 @@ function fmtDate(iso: string) {
   })
 }
 
-export default function InsightsIndexPage() {
+export default async function InsightsIndexPage() {
+  const livePosts = await listLivePosts().catch(() => [])
+  const combined = [...POSTS]
+  const seen = new Set(combined.map((post) => post.slug))
+  for (const post of livePosts) {
+    if (!seen.has(post.slug)) {
+      combined.push(post)
+      seen.add(post.slug)
+    }
+  }
+  combined.sort((a, b) => Date.parse(b.dateModified ?? b.datePublished) - Date.parse(a.dateModified ?? a.datePublished))
+
   const breadcrumb = breadcrumbSchema([
     { name: 'Home', url: '/' },
     { name: 'Insights', url: '/insights' },
@@ -44,7 +56,7 @@ export default function InsightsIndexPage() {
     description: 'Build notes, case studies, and industry opinions.',
     url: `${SITE.url}/insights`,
     publisher: { '@id': `${SITE.url}/#organization` },
-    blogPost: POSTS.map((p) => ({
+    blogPost: combined.map((p) => ({
       '@type': 'BlogPosting',
       headline: p.title,
       description: p.description,
@@ -54,8 +66,8 @@ export default function InsightsIndexPage() {
     })),
   }
 
-  const featured = POSTS[0]
-  const rest = POSTS.slice(1)
+  const featured = combined[0]
+  const rest = combined.slice(1)
 
   return (
     <main className="relative">

@@ -99,9 +99,7 @@ async function loadOrgSummaries(orgIds: string[] | null): Promise<Map<string, Or
         })
       }
     }
-  } catch {
-    // Org labels are display sugar; do not fail the feed for this.
-  }
+  } catch { ignoreOptionalFeedSource() }
   return map
 }
 
@@ -123,9 +121,7 @@ async function loadProjectSummaries(projectIds: string[]): Promise<Map<string, P
         })
       }
     }
-  } catch {
-    // Related labels are best-effort.
-  }
+  } catch { ignoreOptionalFeedSource() }
   return map
 }
 
@@ -149,17 +145,13 @@ async function loadTaskSummaries(taskRefs: TaskLookupRef[]): Promise<Map<string,
     const ref = adminDb.collectionGroup('tasks')
     const snaps = await Promise.all(chunk(ids, 30).map((batch) => ref.where('__name__', 'in', batch).get()))
     for (const snap of snaps) absorb(snap.docs as FirestoreDoc[])
-  } catch {
-    // Some contexts do not support collection-group task lookup.
-  }
+  } catch { ignoreOptionalFeedSource() }
 
   try {
     const ref = adminDb.collection('tasks')
     const snaps = await Promise.all(chunk(ids, 30).map((batch) => ref.where('__name__', 'in', batch).get()))
     for (const snap of snaps) absorb(snap.docs as FirestoreDoc[])
-  } catch {
-    // Standalone task labels are best-effort.
-  }
+  } catch { ignoreOptionalFeedSource() }
 
   const directRefs = refs.filter((ref) => ref.projectId && !map.has(ref.id))
   if (directRefs.length > 0) {
@@ -170,9 +162,7 @@ async function loadTaskSummaries(taskRefs: TaskLookupRef[]): Promise<Map<string,
         if (snap.exists) docs.push(snap as FirestoreDoc)
       }))
       absorb(docs)
-    } catch {
-      // Nested project task labels are best-effort.
-    }
+    } catch { ignoreOptionalFeedSource() }
   }
 
   return map
@@ -194,9 +184,7 @@ async function loadUserSummaries(actorIds: string[]): Promise<Map<string, UserSu
         map.set(doc.id, { id: doc.id, name, email })
       }
     }
-  } catch {
-    // Actor labels are display sugar.
-  }
+  } catch { ignoreOptionalFeedSource() }
 
   const missingAuthIds = ids.filter((id) => !map.has(id))
   if (missingAuthIds.length > 0) {
@@ -205,9 +193,7 @@ async function loadUserSummaries(actorIds: string[]): Promise<Map<string, UserSu
       for (const user of result.users) {
         map.set(user.uid, { id: user.uid, name: user.displayName ?? null, email: user.email ?? null })
       }
-    } catch {
-      // Firebase Auth fallback is display sugar too.
-    }
+    } catch { ignoreOptionalFeedSource() }
   }
   return map
 }
@@ -240,9 +226,7 @@ async function loadBriefingUserStates(userId: string, scopedOrgIds: string[] | n
         updatedAt: data.updatedAt,
       })
     }
-  } catch {
-    // Per-user handling state must not break the live briefing feed.
-  }
+  } catch { ignoreOptionalFeedSource() }
   return map
 }
 
@@ -318,9 +302,7 @@ async function fetchInvoiceDocs(scopedOrgIds: string[] | null): Promise<Firestor
       try {
         const snaps = await Promise.all(chunk(scopedOrgIds, 30).map((ids) => ref.where(field, 'in', ids).limit(SOURCE_FETCH_LIMIT).get()))
         out.push(...snaps.flatMap((snap) => snap.docs as FirestoreDoc[]))
-      } catch {
-        // Billing records have evolved through several org fields; keep each lookup best-effort.
-      }
+      } catch { ignoreOptionalFeedSource() }
     }
   } else {
     const snap = await ref.limit(SOURCE_FETCH_LIMIT).get()
@@ -346,9 +328,7 @@ async function fetchQuoteDocs(scopedOrgIds: string[] | null): Promise<FirestoreD
       try {
         const snaps = await Promise.all(chunk(scopedOrgIds, 30).map((ids) => ref.where(field, 'in', ids).limit(SOURCE_FETCH_LIMIT).get()))
         out.push(...snaps.flatMap((snap) => snap.docs as FirestoreDoc[]))
-      } catch {
-        // Quote records share the same legacy org-field drift as invoices.
-      }
+      } catch { ignoreOptionalFeedSource() }
     }
   } else {
     const snap = await ref.limit(SOURCE_FETCH_LIMIT).get()
@@ -468,15 +448,11 @@ async function fetchTaskDocs(scopedOrgIds: string[] | null): Promise<FirestoreDo
       const snap = await ref.limit(SOURCE_FETCH_LIMIT).get()
       out.push(...(snap.docs as FirestoreDoc[]))
     }
-  } catch {
-    // Some test/admin contexts only mock top-level collections; fall back below.
-  }
+  } catch { ignoreOptionalFeedSource() }
 
   try {
     out.push(...await fetchCollectionDocs('tasks', scopedOrgIds, SOURCE_FETCH_LIMIT))
-  } catch {
-    // Top-level standalone tasks may not exist in older workspaces.
-  }
+  } catch { ignoreOptionalFeedSource() }
 
   const seen = new Set<string>()
   return out.filter((doc) => {
@@ -498,15 +474,11 @@ async function fetchCommentDocs(scopedOrgIds: string[] | null): Promise<Firestor
       const snap = await ref.limit(SOURCE_FETCH_LIMIT).get()
       out.push(...(snap.docs as FirestoreDoc[]))
     }
-  } catch {
-    // Collection group comments are best-effort; top-level comments are fetched below.
-  }
+  } catch { ignoreOptionalFeedSource() }
 
   try {
     out.push(...await fetchCollectionDocs('comments', scopedOrgIds, SOURCE_FETCH_LIMIT))
-  } catch {
-    // Some workspaces have no top-level comments collection.
-  }
+  } catch { ignoreOptionalFeedSource() }
 
   const seen = new Set<string>()
   return out.filter((doc) => {
@@ -590,6 +562,10 @@ function toItemSafe(adapter: Pick<BriefingSourceAdapter<Record<string, unknown>>
   }
 }
 
+function ignoreOptionalFeedSource() {
+  return undefined
+}
+
 export async function buildBriefingFeed(user: ApiUser, options: BriefingFeedOptions = {}): Promise<BriefingResponse & { generatedAt: string; scope: { orgId: string | null } }> {
   const scopedOrgIds = userScopedOrgIds(user, options.orgId)
   const orgs = await loadOrgSummaries(scopedOrgIds)
@@ -639,7 +615,7 @@ export async function buildBriefingFeed(user: ApiUser, options: BriefingFeedOpti
         const item = toItemSafe(projectAdapter, normalizeDoc(doc), doc.id)
         if (item) items.push(decorate(item, orgs))
       }
-    } catch {}
+    } catch { ignoreOptionalFeedSource() }
   }
 
   if (include('client-document') || include('approval')) {
@@ -656,7 +632,7 @@ export async function buildBriefingFeed(user: ApiUser, options: BriefingFeedOpti
           if (item) items.push(decorate({ ...item, source: { ...item.source, type: 'approval' } }, orgs))
         }
       }
-    } catch {}
+    } catch { ignoreOptionalFeedSource() }
   }
 
   if (include('approval')) {
@@ -666,7 +642,7 @@ export async function buildBriefingFeed(user: ApiUser, options: BriefingFeedOpti
         const item = toItemSafe(approvalAdapter, normalizeDoc(doc), doc.id)
         if (item) items.push(decorate(item, orgs))
       }
-    } catch {}
+    } catch { ignoreOptionalFeedSource() }
   }
 
   if (include('social-post')) {
@@ -676,7 +652,7 @@ export async function buildBriefingFeed(user: ApiUser, options: BriefingFeedOpti
         const item = toItemSafe(socialPostAdapter, normalizeDoc(doc), doc.id)
         if (item) items.push(decorate(item, orgs))
       }
-    } catch {}
+    } catch { ignoreOptionalFeedSource() }
   }
 
   if (include('social-inbox')) {
@@ -686,7 +662,7 @@ export async function buildBriefingFeed(user: ApiUser, options: BriefingFeedOpti
         const item = toItemSafe(socialInboxAdapter, normalizeDoc(doc), doc.id)
         if (item) items.push(decorate(item, orgs))
       }
-    } catch {}
+    } catch { ignoreOptionalFeedSource() }
   }
 
   if (include('mailbox-message')) {
@@ -696,7 +672,7 @@ export async function buildBriefingFeed(user: ApiUser, options: BriefingFeedOpti
         const item = toItemSafe(mailboxMessageAdapter, normalizeDoc(doc), doc.id)
         if (item) items.push(decorate(item, orgs))
       }
-    } catch {}
+    } catch { ignoreOptionalFeedSource() }
   }
 
   if (include('agent-run') && (user.role === 'admin' || user.role === 'ai')) {
@@ -706,7 +682,7 @@ export async function buildBriefingFeed(user: ApiUser, options: BriefingFeedOpti
         const item = toItemSafe(agentRunAdapter, normalizeDoc(doc), doc.id)
         if (item) items.push(decorate(item, orgs))
       }
-    } catch {}
+    } catch { ignoreOptionalFeedSource() }
   }
 
   if (include('workspace-broker-job') && (user.role === 'admin' || user.role === 'ai')) {
@@ -716,7 +692,7 @@ export async function buildBriefingFeed(user: ApiUser, options: BriefingFeedOpti
         const item = toItemSafe(workspaceBrokerJobAdapter, normalizeDoc(doc), doc.id)
         if (item) items.push(decorate(item, orgs))
       }
-    } catch {}
+    } catch { ignoreOptionalFeedSource() }
   }
 
   if (include('calendar-event')) {
@@ -726,7 +702,7 @@ export async function buildBriefingFeed(user: ApiUser, options: BriefingFeedOpti
         const item = toItemSafe(calendarEventAdapter, normalizeDoc(doc), doc.id)
         if (item) items.push(decorate(item, orgs))
       }
-    } catch {}
+    } catch { ignoreOptionalFeedSource() }
   }
 
   if (include('booking') && (user.role === 'admin' || user.role === 'ai')) {
@@ -736,7 +712,7 @@ export async function buildBriefingFeed(user: ApiUser, options: BriefingFeedOpti
         const item = toItemSafe(bookingAdapter, normalizeDoc(doc), doc.id)
         if (item) items.push(decorate(item, orgs))
       }
-    } catch {}
+    } catch { ignoreOptionalFeedSource() }
   }
 
   if (include('contact')) {
@@ -746,7 +722,7 @@ export async function buildBriefingFeed(user: ApiUser, options: BriefingFeedOpti
         const item = toItemSafe(contactAdapter, normalizeDoc(doc), doc.id)
         if (item) items.push(decorate(item, orgs))
       }
-    } catch {}
+    } catch { ignoreOptionalFeedSource() }
   }
 
   if (include('deal')) {
@@ -756,7 +732,7 @@ export async function buildBriefingFeed(user: ApiUser, options: BriefingFeedOpti
         const item = toItemSafe(dealAdapter, normalizeDoc(doc), doc.id)
         if (item) items.push(decorate(item, orgs))
       }
-    } catch {}
+    } catch { ignoreOptionalFeedSource() }
   }
 
   if (include('notification')) {
@@ -766,7 +742,7 @@ export async function buildBriefingFeed(user: ApiUser, options: BriefingFeedOpti
         const item = toItemSafe(notificationAdapter, normalizeDoc(doc), doc.id)
         if (item) items.push(decorate(item, orgs))
       }
-    } catch {}
+    } catch { ignoreOptionalFeedSource() }
   }
 
   if (include('activity')) {
@@ -776,7 +752,7 @@ export async function buildBriefingFeed(user: ApiUser, options: BriefingFeedOpti
         const item = toItemSafe(activityAdapter, normalizeDoc(doc), doc.id)
         if (item) items.push(decorate(item, orgs))
       }
-    } catch {}
+    } catch { ignoreOptionalFeedSource() }
   }
 
   if (include('report')) {
@@ -786,7 +762,7 @@ export async function buildBriefingFeed(user: ApiUser, options: BriefingFeedOpti
         const item = toItemSafe(reportAdapter, normalizeDoc(doc), doc.id)
         if (item) items.push(decorate(item, orgs))
       }
-    } catch {}
+    } catch { ignoreOptionalFeedSource() }
   }
 
   if (include('support-ticket')) {
@@ -796,7 +772,7 @@ export async function buildBriefingFeed(user: ApiUser, options: BriefingFeedOpti
         const item = toItemSafe(supportTicketAdapter, normalizeDoc(doc), doc.id)
         if (item) items.push(decorate(item, orgs))
       }
-    } catch {}
+    } catch { ignoreOptionalFeedSource() }
   }
 
   if (include('invoice')) {
@@ -806,7 +782,7 @@ export async function buildBriefingFeed(user: ApiUser, options: BriefingFeedOpti
         const item = toItemSafe(invoiceAdapter, normalizeDoc(doc), doc.id)
         if (item) items.push(decorate(item, orgs))
       }
-    } catch {}
+    } catch { ignoreOptionalFeedSource() }
   }
 
   if (include('quote')) {
@@ -816,7 +792,7 @@ export async function buildBriefingFeed(user: ApiUser, options: BriefingFeedOpti
         const item = toItemSafe(quoteAdapter, normalizeDoc(doc), doc.id)
         if (item) items.push(decorate(item, orgs))
       }
-    } catch {}
+    } catch { ignoreOptionalFeedSource() }
   }
 
   if (include('order')) {
@@ -826,7 +802,7 @@ export async function buildBriefingFeed(user: ApiUser, options: BriefingFeedOpti
         const item = toItemSafe(orderAdapter, normalizeDoc(doc), doc.id)
         if (item) items.push(decorate(item, orgs))
       }
-    } catch {}
+    } catch { ignoreOptionalFeedSource() }
   }
 
   if (include('inventory-item')) {
@@ -836,7 +812,7 @@ export async function buildBriefingFeed(user: ApiUser, options: BriefingFeedOpti
         const item = toItemSafe(inventoryItemAdapter, normalizeDoc(doc), doc.id)
         if (item) items.push(decorate(item, orgs))
       }
-    } catch {}
+    } catch { ignoreOptionalFeedSource() }
   }
 
   if (include('shipment')) {
@@ -846,7 +822,7 @@ export async function buildBriefingFeed(user: ApiUser, options: BriefingFeedOpti
         const item = toItemSafe(shipmentAdapter, normalizeDoc(doc), doc.id)
         if (item) items.push(decorate(item, orgs))
       }
-    } catch {}
+    } catch { ignoreOptionalFeedSource() }
   }
 
   if (include('expense') && (user.role === 'admin' || user.role === 'ai')) {
@@ -856,7 +832,7 @@ export async function buildBriefingFeed(user: ApiUser, options: BriefingFeedOpti
         const item = toItemSafe(expenseAdapter, normalizeDoc(doc), doc.id)
         if (item) items.push(decorate(item, orgs))
       }
-    } catch {}
+    } catch { ignoreOptionalFeedSource() }
   }
 
   if (include('seo-content')) {
@@ -866,7 +842,7 @@ export async function buildBriefingFeed(user: ApiUser, options: BriefingFeedOpti
         const item = toItemSafe(seoContentAdapter, normalizeDoc(doc), doc.id)
         if (item) items.push(decorate(item, orgs))
       }
-    } catch {}
+    } catch { ignoreOptionalFeedSource() }
   }
 
   if (include('seo-task') && (user.role === 'admin' || user.role === 'ai')) {
@@ -876,7 +852,7 @@ export async function buildBriefingFeed(user: ApiUser, options: BriefingFeedOpti
         const item = toItemSafe(seoTaskAdapter, normalizeDoc(doc), doc.id)
         if (item) items.push(decorate(item, orgs))
       }
-    } catch {}
+    } catch { ignoreOptionalFeedSource() }
   }
 
   if (include('ad-campaign')) {
@@ -886,7 +862,7 @@ export async function buildBriefingFeed(user: ApiUser, options: BriefingFeedOpti
         const item = toItemSafe(adCampaignAdapter, normalizeDoc(doc), doc.id)
         if (item) items.push(decorate(item, orgs))
       }
-    } catch {}
+    } catch { ignoreOptionalFeedSource() }
   }
 
   if (include('broadcast')) {
@@ -896,7 +872,7 @@ export async function buildBriefingFeed(user: ApiUser, options: BriefingFeedOpti
         const item = toItemSafe(broadcastAdapter, normalizeDoc(doc), doc.id)
         if (item) items.push(decorate(item, orgs))
       }
-    } catch {}
+    } catch { ignoreOptionalFeedSource() }
   }
 
   if (include('campaign')) {
@@ -906,7 +882,7 @@ export async function buildBriefingFeed(user: ApiUser, options: BriefingFeedOpti
         const item = toItemSafe(campaignAdapter, normalizeDoc(doc), doc.id)
         if (item) items.push(decorate(item, orgs))
       }
-    } catch {}
+    } catch { ignoreOptionalFeedSource() }
   }
 
   if (include('enquiry') && (user.role === 'admin' || user.role === 'ai')) {
@@ -916,7 +892,7 @@ export async function buildBriefingFeed(user: ApiUser, options: BriefingFeedOpti
         const item = toItemSafe(enquiryAdapter, normalizeDoc(doc), doc.id)
         if (item) items.push(decorate(item, orgs))
       }
-    } catch {}
+    } catch { ignoreOptionalFeedSource() }
   }
 
   if (include('form-submission') && (user.role === 'admin' || user.role === 'ai')) {
@@ -926,7 +902,7 @@ export async function buildBriefingFeed(user: ApiUser, options: BriefingFeedOpti
         const item = toItemSafe(formSubmissionAdapter, normalizeDoc(doc), doc.id)
         if (item) items.push(decorate(item, orgs))
       }
-    } catch {}
+    } catch { ignoreOptionalFeedSource() }
   }
 
   const projectIds = items.map((item) => item.context.projectId).filter((id): id is string => typeof id === 'string' && id.length > 0)

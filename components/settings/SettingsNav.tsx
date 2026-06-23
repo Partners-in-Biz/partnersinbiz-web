@@ -14,6 +14,8 @@ interface SettingsNavProps {
 
 const ACCOUNT_LINKS = [
   { href: '/portal/settings/account', label: 'Account settings', icon: 'manage_accounts' },
+  { href: '/portal/settings/security', label: 'Security & 2FA', icon: 'security' },
+  { href: '/portal/settings/sessions', label: 'Sessions', icon: 'devices' },
   { href: '/portal/settings/notifications', label: 'Notifications', icon: 'notifications' },
   { href: '/portal/settings/workspaces', label: 'My workspaces', icon: 'workspaces' },
 ]
@@ -31,6 +33,10 @@ const WORKSPACE_LINKS = [
   { href: '/portal/settings/automations', label: 'Automations', icon: 'bolt', minRole: 'admin' },
   { href: '/portal/settings/sequences', label: 'Sequences', icon: 'route', minRole: 'admin' },
   { href: '/portal/settings/webhooks', label: 'Webhooks', icon: 'webhook', minRole: 'admin' },
+  { href: '/portal/settings/api-keys', label: 'API keys', icon: 'key', minRole: 'admin' },
+  { href: '/portal/settings/domain', label: 'Custom domain', icon: 'language', minRole: 'admin' },
+  { href: '/portal/settings/audit-log', label: 'Audit log', icon: 'history', minRole: 'admin' },
+  { href: '/portal/settings/data-export', label: 'Data export', icon: 'cloud_download', minRole: 'admin' },
   { href: '/portal/settings/permissions', label: 'Permissions', icon: 'shield', minRole: 'owner' },
 ]
 

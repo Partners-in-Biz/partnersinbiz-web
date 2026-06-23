@@ -4,12 +4,24 @@ import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 
 const TAB_KEYS = [
+  { label: 'Overview', key: 'overview' },
+  { label: 'Realtime', key: 'realtime' },
+  { label: 'Traffic', key: 'traffic' },
+  { label: 'Audience', key: 'audience' },
   { label: 'Events', key: 'events' },
+  { label: 'Custom Events', key: 'custom-events' },
   { label: 'Sessions', key: 'sessions' },
   { label: 'Users', key: 'users' },
   { label: 'Funnels', key: 'funnels' },
+  { label: 'Conversions', key: 'conversions' },
+  { label: 'Revenue', key: 'revenue' },
+  { label: 'Attribution', key: 'attribution' },
   { label: 'Retention', key: 'retention' },
+  { label: 'Heatmaps', key: 'heatmaps' },
+  { label: 'UTM Builder', key: 'utm-builder' },
+  { label: 'Reports', key: 'reports' },
   { label: 'Live', key: 'live' },
+  { label: 'Install', key: 'settings' },
 ]
 
 export function AnalyticsNav({ active, propertyId: selectedPropertyId, basePath = '/portal/analytics' }: { active: string; propertyId?: string; basePath?: string }) {

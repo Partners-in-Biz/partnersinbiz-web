@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { ContextReferenceChips } from '@/components/context-references/ContextReferenceChips'
 import { ContextReferencePicker } from '@/components/context-references/ContextReferencePicker'
 import { PageTabs } from '@/components/ui/AppFoundation'
+import { SaveAsTemplateButton } from './SaveAsTemplateButton'
 import type { ClientDocument, DocumentAssumption, DocumentComment, DocumentCommentReply } from '@/lib/client-documents/types'
 import type { ContextReference } from '@/lib/context-references/types'
 
@@ -282,6 +283,9 @@ export function DocumentReviewRail({
           >
             Publish to client
           </button>
+        )}
+        {onPublish && document.id && (
+          <SaveAsTemplateButton documentId={document.id} orgId={document.orgId} />
         )}
       </div>
 

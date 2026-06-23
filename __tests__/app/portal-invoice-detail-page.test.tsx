@@ -130,4 +130,116 @@ describe('InvoiceDetailPage', () => {
       )
     })
   })
+
+  it('shows EFT instructions and uploads proof for payable received invoices', async () => {
+    mockSearchParams = new URLSearchParams('orgId=course-digs&orgSlug=course-digs')
+    const proofFile = new File(['proof'], 'proof.pdf', { type: 'application/pdf' })
+
+    fetchMock.mockImplementation((url: string, init?: RequestInit) => {
+      if (url === '/api/v1/invoices/invoice-draft-1?orgId=course-digs') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            data: {
+              id: 'invoice-draft-1',
+              invoiceNumber: 'COU-004',
+              orgId: 'course-digs',
+              status: 'sent',
+              total: 5600,
+              subtotal: 4869.57,
+              taxRate: 15,
+              taxAmount: 730.43,
+              currency: 'ZAR',
+              lineItems: [{ description: 'Sprint retainer', quantity: 1, unitPrice: 4869.57, amount: 4869.57 }],
+              clientDetails: { name: 'Course Digs' },
+            },
+          }),
+        })
+      }
+      if (url === '/api/v1/recurring-schedules?status=all&orgId=course-digs') {
+        return Promise.resolve({ ok: true, json: async () => ({ data: [] }) })
+      }
+      if (url === '/api/v1/invoices/invoice-draft-1/payment-instructions?orgId=course-digs') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            data: {
+              invoiceNumber: 'COU-004',
+              total: 5600,
+              currency: 'ZAR',
+              dueDate: '2026-06-30T00:00:00.000Z',
+              eft: {
+                bankingDetails: {
+                  bankName: 'FNB',
+                  accountName: 'Partners in Biz',
+                  accountNumber: '123456789',
+                  branchCode: '250655',
+                },
+                reference: 'COU-004',
+                proofOfPaymentEmail: 'billing@partnersinbiz.online',
+              },
+              paypal: { available: false, url: null },
+              publicViewUrl: 'https://partnersinbiz.online/invoice/public-token-1',
+            },
+          }),
+        })
+      }
+      if (url === '/api/v1/portal/invoices/invoice-draft-1/payment-proof-upload?orgId=course-digs' && init?.method === 'POST') {
+        const body = init.body as FormData
+        expect(body.get('file')).toBe(proofFile)
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ data: { id: 'upload-1', name: 'proof.pdf' } }),
+        })
+      }
+      if (url === '/api/v1/invoices/invoice-draft-1/payment-proof?orgId=course-digs' && init?.method === 'POST') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ data: { id: 'invoice-draft-1', status: 'payment_pending_verification' } }),
+        })
+      }
+      return Promise.reject(new Error(`Unexpected fetch: ${url}`))
+    })
+
+    render(<InvoiceDetailPage />)
+
+    expect(await screen.findByRole('heading', { name: 'COU-004' })).toBeInTheDocument()
+    expect(await screen.findByText('FNB')).toBeInTheDocument()
+    expect(screen.getByText('123456789')).toBeInTheDocument()
+    expect(screen.getByText(/VAT \(15%\)/i)).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /open public invoice/i })).toHaveAttribute(
+      'href',
+      'https://partnersinbiz.online/invoice/public-token-1',
+    )
+
+    fireEvent.change(screen.getByLabelText(/Upload payment proof/i), {
+      target: { files: [proofFile] },
+    })
+    fireEvent.change(screen.getByLabelText(/Payment note/i), {
+      target: { value: 'Paid from Nedbank business account' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: /Submit proof of payment/i }))
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        '/api/v1/portal/invoices/invoice-draft-1/payment-proof-upload?orgId=course-digs',
+        expect.objectContaining({ method: 'POST' }),
+      )
+    })
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        '/api/v1/invoices/invoice-draft-1/payment-proof?orgId=course-digs',
+        expect.objectContaining({
+          method: 'POST',
+          body: JSON.stringify({
+            fileId: 'upload-1',
+            note: 'Paid from Nedbank business account',
+          }),
+        }),
+      )
+    })
+
+    expect(await screen.findByText(/Payment proof submitted/i)).toBeInTheDocument()
+  })
 })

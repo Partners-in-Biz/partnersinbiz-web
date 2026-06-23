@@ -28,6 +28,7 @@ export const DEFAULT_LEAD_WEIGHTS: Required<LeadSignalsWeights> = {
   sequenceCompleted: 10,
   recentContact: 10,
   formSubmission: 8,
+  pageVisit: 3,
 }
 
 function defaultConfig(orgId: string): ScoringConfig {

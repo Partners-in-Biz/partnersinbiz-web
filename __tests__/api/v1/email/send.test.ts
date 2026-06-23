@@ -41,6 +41,12 @@ jest.mock('@/lib/email/unsubscribeToken', () => ({
   signUnsubscribeToken: jest.fn().mockReturnValue('tok-abc'),
 }))
 
+const mockAssertOutboundEmailAllowed = jest.fn().mockResolvedValue({ allowed: true })
+
+jest.mock('@/lib/email/policy', () => ({
+  assertOutboundEmailAllowed: (...args: unknown[]) => mockAssertOutboundEmailAllowed(...args),
+}))
+
 import { adminDb } from '@/lib/firebase/admin'
 import { isWithinFrequencyCap, logFrequencySkip } from '@/lib/email/frequency'
 process.env.AI_API_KEY = 'test-key'
@@ -91,6 +97,7 @@ const validPayload = {
 describe('POST /api/v1/email/send', () => {
   beforeEach(() => {
     jest.clearAllMocks()
+    mockAssertOutboundEmailAllowed.mockResolvedValue({ allowed: true })
     mockContactGet.mockResolvedValue({
       exists: true,
       data: () => ({ orgId: 'org-from-contact', email: 'client@example.com' }),
@@ -119,6 +126,32 @@ describe('POST /api/v1/email/send', () => {
   it('returns 400 when both bodyText and bodyHtml are missing', async () => {
     const res = await POST(makeReq({ to: 'a@b.com', subject: 'Hi' }))
     expect(res.status).toBe(400)
+  })
+
+  it('returns 409 when outbound email is paused platform-wide', async () => {
+    mockAssertOutboundEmailAllowed.mockResolvedValueOnce({
+      allowed: false,
+      status: 409,
+      error: 'Outbound email is paused platform-wide.',
+    })
+
+    const res = await POST(makeReq(validPayload))
+
+    expect(res.status).toBe(409)
+    expect(mockAdd).not.toHaveBeenCalled()
+  })
+
+  it('returns 403 when the recipient domain is blocked by platform policy', async () => {
+    mockAssertOutboundEmailAllowed.mockResolvedValueOnce({
+      allowed: false,
+      status: 403,
+      error: 'Recipient domain is blocked by platform policy.',
+    })
+
+    const res = await POST(makeReq(validPayload))
+
+    expect(res.status).toBe(403)
+    expect(mockAdd).not.toHaveBeenCalled()
   })
 
   it('sends email and returns 201 with id', async () => {
