@@ -27,6 +27,7 @@ export const OPERATOR_NAV: NavItem[] = [
   { label: 'Billing', href: '/admin/billing/revenue', icon: 'payments', group: 'data', activePatterns: ['/admin/billing', '/admin/plans', '/admin/partners'] },
   { label: 'Agents',   href: '/admin/agents',   icon: 'group_work', group: 'work' },
   { label: 'Skill Lab', href: '/admin/skill-lab', icon: 'science', group: 'data' },
+  { label: 'Content', href: '/admin/content/seo', icon: 'article', group: 'data', activePatterns: ['/admin/content'] },
   { label: 'Knowledge', href: '/admin/knowledge', icon: 'menu_book', group: 'data' },
   { label: 'Support',   href: '/admin/support',   icon: 'support_agent', group: 'comms' },
   { label: 'Settings', href: '/admin/settings', icon: 'settings', group: 'comms', activePatterns: ['/admin/platform-users', '/admin/platform-members'] },
@@ -58,6 +59,16 @@ export const OPERATOR_NAV_TOPBAR: NavItem[] = [
   },
   { label: 'Agents',   href: '/admin/agents',   icon: 'group_work' },
   { label: 'Skill Lab', href: '/admin/skill-lab', icon: 'science' },
+  {
+    label: 'Content', href: '/admin/content/seo', icon: 'article',
+    children: [
+      { label: 'SEO articles', href: '/admin/content/seo' },
+      { label: 'Analytics', href: '/admin/content/analytics' },
+      { label: 'Sitemap', href: '/admin/content/sitemap' },
+      { label: 'API docs', href: '/admin/content/api-docs' },
+    ],
+    activePatterns: ['/admin/content'],
+  },
   { label: 'Knowledge', href: '/admin/knowledge', icon: 'menu_book' },
   { label: 'Support',  href: '/admin/support',  icon: 'support_agent' },
   {
