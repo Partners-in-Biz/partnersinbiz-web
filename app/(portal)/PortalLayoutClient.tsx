@@ -15,6 +15,7 @@ import { SettingsNav } from '@/components/settings/SettingsNav'
 import { SupportDrawer } from '@/components/support/SupportDrawer'
 import { NotificationBell } from '@/components/crm/NotificationBell'
 import { PortalSubnav, type PortalSubnavItem } from '@/components/navigation/PortalSubnav'
+import { buildMarketingHubProps } from '@/components/navigation/marketingHubConfig'
 import { ThemeProvider } from '@/components/theme/ThemeProvider'
 import { ThemeToggle } from '@/components/theme/ThemeToggle'
 import { MessageDrawer } from '@/components/chat/MessageDrawer'
@@ -179,6 +180,27 @@ const CRM_ROUTE_PATTERNS = [
   '/portal/settings/webhooks',
 ]
 
+const MARKETING_SECTION_ICONS: Record<string, string> = {
+  'Brand and campaigns': 'campaign',
+  'Social media': 'share',
+  'Email and capture': 'mail',
+  'Audience and setup': 'groups',
+}
+
+const MARKETING_ROUTE_PATTERNS = [
+  '/portal/marketing',
+  '/portal/branding',
+  '/portal/campaigns',
+  '/portal/content-campaigns',
+  '/portal/ads',
+  '/portal/seo',
+  '/portal/geo-seo',
+  '/portal/social',
+  '/portal/email-analytics',
+  '/portal/email-domains',
+  '/portal/communications',
+]
+
 type LayoutMode = 'sidebar' | 'topbar'
 
 interface PortalOrgOption {
@@ -315,6 +337,29 @@ function buildCrmSubnavItems(buildHref: (path: string) => string): PortalSubnavI
       ],
     },
   ]
+}
+
+function buildMarketingSubnavItems(config: {
+  orgId?: string
+  orgSlug?: string
+  sourceCompanyId?: string
+  sourceCompanyName?: string
+}): PortalSubnavItem[] {
+  const marketingHub = buildMarketingHubProps({ surface: 'portal', ...config })
+  return marketingHub.sections.map((section) => {
+    const firstAction = section.actions[0]
+    return {
+      label: section.title,
+      href: firstAction?.href ?? '/portal/marketing',
+      icon: MARKETING_SECTION_ICONS[section.title] ?? firstAction?.icon,
+      activePatterns: section.actions.map((action) => action.href.split('?')[0] ?? action.href),
+      children: section.actions.map((action) => ({
+        label: action.label,
+        href: action.href,
+        icon: action.icon,
+      })),
+    }
+  })
 }
 
 export default function PortalLayout({ children }: { children: React.ReactNode }) {
@@ -706,8 +751,17 @@ function PortalLayoutContent({ children }: { children: React.ReactNode }) {
     orgId: activeOrgId,
   })
   const crmSubnavItems = buildCrmSubnavItems(scopedShellHref)
+  const marketingSubnavItems = buildMarketingSubnavItems({
+    orgId: requestedOrgId,
+    orgSlug: requestedOrgSlug || activeOrgSlug,
+    sourceCompanyId: requestedSourceCompanyId,
+    sourceCompanyName: requestedSourceCompanyName,
+  })
   const showCrmSubnav = CRM_ROUTE_PATTERNS.some((pattern) => pathname === pattern || pathname.startsWith(pattern + '/'))
-  const crmSubnav = showCrmSubnav ? (
+  const showMarketingSubnav = MARKETING_ROUTE_PATTERNS.some((pattern) => pathname === pattern || pathname.startsWith(pattern + '/'))
+  const areaSubnav = showMarketingSubnav ? (
+    <PortalSubnav ariaLabel="Marketing workspace navigation" items={marketingSubnavItems} pathname={pathname} />
+  ) : showCrmSubnav ? (
     <PortalSubnav ariaLabel="CRM workspace navigation" items={crmSubnavItems} pathname={pathname} />
   ) : null
 
@@ -881,7 +935,7 @@ function PortalLayoutContent({ children }: { children: React.ReactNode }) {
           </div>
         )}
 
-        {crmSubnav}
+        {areaSubnav}
 
         <main className={isCockpitRoute
           ? 'flex-1 min-h-0 overflow-hidden w-full max-w-none'
@@ -1155,7 +1209,7 @@ function PortalLayoutContent({ children }: { children: React.ReactNode }) {
           </div>
         </header>
 
-        {crmSubnav}
+        {areaSubnav}
 
         <main className={isCockpitRoute
           ? 'flex-1 min-h-0 overflow-hidden w-full max-w-none'
