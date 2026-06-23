@@ -19,6 +19,8 @@ import { ThemeToggle } from '@/components/theme/ThemeToggle'
 import { MessageDrawer } from '@/components/chat/MessageDrawer'
 import { ThemedSelect } from '@/components/ui/ThemedSelect'
 import { CommandPalette } from '@/components/command-palette/CommandPalette'
+import { ShortcutsCheatSheet } from '@/components/command-palette/ShortcutsCheatSheet'
+import { FeatureFlagsProvider } from '@/components/portal/FeatureFlagsProvider'
 import { detectCurrentPageContext } from '@/lib/context-references/route-context'
 import { PIB_PLATFORM_ORG_ID } from '@/lib/platform/constants'
 import { resolvePortalModules, type PortalModules } from '@/lib/organizations/portal-modules'
@@ -287,18 +289,118 @@ function PortalLayoutContent({ children }: { children: React.ReactNode }) {
   const [memberAccessPolicy, setMemberAccessPolicy] = useState<MemberAccessPolicy>(() => normalizeMemberAccessPolicy(null))
   const [profileName, setProfileName] = useState('')
   const [cmdOpen, setCmdOpen] = useState(false)
+  const [shortcutsOpen, setShortcutsOpen] = useState(false)
+  const [changelogUnread, setChangelogUnread] = useState(0)
+  const [featureFlags, setFeatureFlags] = useState({
+    show_ai_features: true,
+    show_creative_canvas: true,
+    enable_social_listening: false,
+    show_whatsapp: false,
+  })
 
-  // Cmd+K opens command palette
+  // Keyboard shortcuts: Cmd+K (palette), Cmd+S (save event), ? (cheat sheet),
+  // and G-prefix nav sequences (G then D/C/E/S/O).
   useEffect(() => {
+    let gPrefixUntil = 0
+
+    function isTyping(target: EventTarget | null): boolean {
+      const el = target as HTMLElement | null
+      if (!el) return false
+      const tag = el.tagName
+      return (
+        tag === 'INPUT' ||
+        tag === 'TEXTAREA' ||
+        tag === 'SELECT' ||
+        el.isContentEditable === true
+      )
+    }
+
     function handler(e: KeyboardEvent) {
-      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+      const metaOrCtrl = e.metaKey || e.ctrlKey
+
+      // Cmd/Ctrl+K — command palette (works even while typing).
+      if (metaOrCtrl && e.key.toLowerCase() === 'k') {
         e.preventDefault()
         setCmdOpen(v => !v)
+        return
+      }
+
+      // Cmd/Ctrl+S — broadcast a save event for form pages to listen on.
+      if (metaOrCtrl && e.key.toLowerCase() === 's') {
+        e.preventDefault()
+        window.dispatchEvent(new CustomEvent('pib:save'))
+        return
+      }
+
+      // The rest are single-key shortcuts: ignore when typing or modifiers held.
+      if (metaOrCtrl || e.altKey || isTyping(e.target)) return
+
+      // ? — open the shortcuts cheat sheet.
+      if (e.key === '?') {
+        e.preventDefault()
+        setShortcutsOpen(true)
+        return
+      }
+
+      // G-prefix nav sequence.
+      const now = Date.now()
+      if (e.key.toLowerCase() === 'g') {
+        gPrefixUntil = now + 1500
+        return
+      }
+      if (now <= gPrefixUntil) {
+        const dest: Record<string, string> = {
+          d: '/portal/dashboard',
+          c: '/portal/crm',
+          e: '/portal/email',
+          s: '/portal/social',
+          o: '/portal/settings/organization',
+        }
+        const href = dest[e.key.toLowerCase()]
+        gPrefixUntil = 0
+        if (href) {
+          e.preventDefault()
+          router.push(href)
+        }
       }
     }
+
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
+  }, [router])
+
+  // Changelog unread count for the "What's new" badge.
+  useEffect(() => {
+    let cancelled = false
+    fetch('/api/v1/portal/changelog')
+      .then(r => (r.ok ? r.json() : null))
+      .then(body => {
+        if (cancelled) return
+        const count = (body?.data ?? body)?.unreadCount
+        if (typeof count === 'number') setChangelogUnread(count)
+      })
+      .catch(() => {})
+    return () => { cancelled = true }
   }, [])
+
+  // US-211: feature flags for the active org (drives nav gating).
+  useEffect(() => {
+    let cancelled = false
+    const url = activeOrgId
+      ? `/api/v1/org/feature-flags?orgId=${encodeURIComponent(activeOrgId)}`
+      : '/api/v1/org/feature-flags'
+    fetch(url)
+      .then(r => (r.ok ? r.json() : null))
+      .then(body => {
+        if (cancelled) return
+        const flags = (body?.data ?? body)?.flags
+        if (flags && typeof flags === 'object') {
+          setFeatureFlags(prev => ({ ...prev, ...flags }))
+        }
+      })
+      .catch(() => {})
+    return () => { cancelled = true }
+  }, [activeOrgId])
 
   // Restore persisted preferences
   useEffect(() => {
@@ -469,7 +571,13 @@ function PortalLayoutContent({ children }: { children: React.ReactNode }) {
       : path
 
   const canManageTeamSettings = memberRole === 'owner' || memberRole === 'admin'
+  // US-207: client-role users get a stripped-down sidebar — Dashboard, Reports,
+  // Documents only.
+  const effectiveRole = memberRole || userRole
+  const isClientRole = effectiveRole === 'client'
+  const CLIENT_ALLOWED_HREFS = new Set(['/portal/dashboard', '/portal/reports', '/portal/documents'])
   const visibleNavLinks = NAV_LINKS.filter((item) => {
+    if (isClientRole) return CLIENT_ALLOWED_HREFS.has(item.href)
     const moduleKey = NAV_MODULES[item.href]
     if (moduleKey && !canAccessModule(memberAccessPolicy, moduleKey)) return false
     if (isOrganizationModulePolicyKey(moduleKey) && !canRoleUseModule(modulePolicies, moduleKey, memberRole || userRole)) return false
@@ -477,6 +585,8 @@ function PortalLayoutContent({ children }: { children: React.ReactNode }) {
     if (item.href === '/portal/mobile-apps') return portalModules.mobileApps
     if (item.href === '/portal/youtube-studio') return portalModules.youtubeStudio
     if (item.href === '/portal/book-studio') return portalModules.bookStudio
+    // US-211: gate the AI-features Research entry behind the show_ai_features flag.
+    if (item.href === '/portal/research') return featureFlags.show_ai_features
     return true
   })
   const navItems: NavItem[] = visibleNavLinks.map((item) => {
@@ -586,6 +696,7 @@ function PortalLayoutContent({ children }: { children: React.ReactNode }) {
                   <span className="material-symbols-outlined text-[18px]" aria-hidden="true">person</span>
                 </Link>
               )}
+              <Link href={scopedShellHref("/portal/changelog")} title="What's new" aria-label="What's new" className="relative flex items-center justify-center w-8 h-8 rounded-lg text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] hover:bg-white/[0.05]"><span className="material-symbols-outlined text-[20px]">campaign</span>{changelogUnread > 0 && (<span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 px-1 rounded-full bg-[var(--color-pib-accent)] text-[10px] font-semibold text-white flex items-center justify-center">{changelogUnread > 9 ? "9+" : changelogUnread}</span>)}</Link>
               <button onClick={() => setCmdOpen(true)} title="Search (⌘K)" className="flex items-center justify-center w-8 h-8 rounded-lg text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] hover:bg-white/[0.05]">
                 <span className="material-symbols-outlined text-[20px]">search</span>
               </button>
@@ -687,7 +798,7 @@ function PortalLayoutContent({ children }: { children: React.ReactNode }) {
           : isWorkspaceRoute
           ? 'flex-1 min-h-0 overflow-hidden px-3 md:px-5 py-4 w-full max-w-none'
           : 'flex-1 overflow-y-auto px-4 md:px-8 py-8 max-w-[1400px] mx-auto w-full'
-        }>{children}</main>
+        }><FeatureFlagsProvider orgId={activeOrgId}>{children}</FeatureFlagsProvider></main>
 
         {!isWorkspaceRoute && !isCockpitRoute && (
           <footer className="px-4 md:px-8 py-6 border-t border-[var(--color-pib-line)] text-[var(--color-pib-text-muted)] text-xs flex flex-wrap items-center justify-between gap-3">
@@ -699,6 +810,7 @@ function PortalLayoutContent({ children }: { children: React.ReactNode }) {
           </footer>
         )}
         <CommandPalette open={cmdOpen} onClose={() => setCmdOpen(false)} />
+        <ShortcutsCheatSheet open={shortcutsOpen} onClose={() => setShortcutsOpen(false)} />
         </div>
       </>
     )
@@ -931,7 +1043,8 @@ function PortalLayoutContent({ children }: { children: React.ReactNode }) {
                 <span className="material-symbols-outlined text-[18px]">person</span>
               </Link>
             )}
-            <button onClick={() => setCmdOpen(true)} title="Search (⌘K)" className="flex items-center justify-center w-8 h-8 rounded-lg text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] hover:bg-white/[0.05]">
+            <Link href={scopedShellHref("/portal/changelog")} title="What's new" aria-label="What's new" className="relative flex items-center justify-center w-8 h-8 rounded-lg text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] hover:bg-white/[0.05]"><span className="material-symbols-outlined text-[20px]">campaign</span>{changelogUnread > 0 && (<span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 px-1 rounded-full bg-[var(--color-pib-accent)] text-[10px] font-semibold text-white flex items-center justify-center">{changelogUnread > 9 ? "9+" : changelogUnread}</span>)}</Link>
+              <button onClick={() => setCmdOpen(true)} title="Search (⌘K)" className="flex items-center justify-center w-8 h-8 rounded-lg text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] hover:bg-white/[0.05]">
               <span className="material-symbols-outlined text-[20px]">search</span>
             </button>
             <ThemeToggle />
@@ -957,7 +1070,7 @@ function PortalLayoutContent({ children }: { children: React.ReactNode }) {
           : isWorkspaceRoute
           ? 'flex-1 min-h-0 overflow-hidden px-3 md:px-5 py-4 w-full max-w-none'
           : 'flex-1 overflow-y-auto px-4 md:px-8 py-8 max-w-[1400px] mx-auto w-full'
-        }>{children}</main>
+        }><FeatureFlagsProvider orgId={activeOrgId}>{children}</FeatureFlagsProvider></main>
 
         {!isWorkspaceRoute && !isCockpitRoute && (
           <footer className="px-4 md:px-8 py-6 border-t border-[var(--color-pib-line)] text-[var(--color-pib-text-muted)] text-xs flex flex-wrap items-center justify-between gap-3">
@@ -970,6 +1083,7 @@ function PortalLayoutContent({ children }: { children: React.ReactNode }) {
         )}
       </div>
       <CommandPalette open={cmdOpen} onClose={() => setCmdOpen(false)} />
+        <ShortcutsCheatSheet open={shortcutsOpen} onClose={() => setShortcutsOpen(false)} />
       </div>
     </>
   )

@@ -189,18 +189,9 @@ const nextConfig: NextConfig = {
       { source: '/portal/social/hashtags', destination: '/portal/social/compose', permanent: false },
 
       // QA-P3b: Portal settings security alias
-      { source: '/portal/settings/security', destination: '/portal/settings/account', permanent: false },
       { source: '/portal/settings/2fa', destination: '/portal/settings/account', permanent: false },
 
       // QA-P3b: SEO sub-page aliases — map to /portal/seo (sprint overview)
-      { source: '/portal/seo/keywords/:path+', destination: '/portal/seo/keywords', permanent: false },
-      { source: '/portal/seo/backlinks', destination: '/portal/seo', permanent: false },
-      { source: '/portal/seo/gap-analysis', destination: '/portal/seo', permanent: false },
-      { source: '/portal/seo/briefs', destination: '/portal/seo', permanent: false },
-      { source: '/portal/seo/reports', destination: '/portal/seo', permanent: false },
-      { source: '/portal/seo/competitors', destination: '/portal/seo', permanent: false },
-      { source: '/portal/seo/settings/integrations', destination: '/portal/integrations', permanent: false },
-      { source: '/portal/seo/settings/:path*', destination: '/portal/seo', permanent: false },
 
       // US-260/294/296/315/321/323/324: /admin/organisations/:orgId → /admin/org/:orgId (actual implementation path)
       { source: '/admin/organisations/:orgId', destination: '/admin/org/:orgId', permanent: false },
@@ -272,16 +263,7 @@ const nextConfig: NextConfig = {
       { source: '/admin/reports/:path*', destination: '/admin/settings', permanent: false },
 
       // QA-P3c: Portal — unbuilt settings pages redirect to nearest settings hub
-      { source: '/portal/settings/api-keys', destination: '/portal/integrations', permanent: false },
-      { source: '/portal/settings/domain', destination: '/portal/settings/organization', permanent: false },
-      { source: '/portal/settings/audit-log', destination: '/portal/settings/account', permanent: false },
-      { source: '/portal/settings/data-export', destination: '/portal/settings/account', permanent: false },
-      { source: '/portal/settings/sessions', destination: '/portal/settings/account', permanent: false },
-      { source: '/portal/changelog', destination: '/portal/dashboard', permanent: false },
       { source: '/portal/referrals', destination: '/portal/dashboard', permanent: false },
-      { source: '/portal/reports/new', destination: '/portal/reports', permanent: false },
-      { source: '/portal/reports/:reportId/schedule', destination: '/portal/reports', permanent: false },
-      { source: '/portal/reports/:reportId/:path*', destination: '/portal/reports', permanent: false },
     ]
   },
 }

@@ -14,6 +14,18 @@ export const dynamic = 'force-dynamic'
 type OrgData = Record<string, unknown> & {
   members?: Array<{ userId?: string; role?: unknown }>
   billingDetails?: Record<string, unknown>
+  settings?: Record<string, unknown>
+}
+
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+
+function defaultSenderPayload(org: OrgData): { name: string; email: string } {
+  const settings = (org.settings ?? {}) as Record<string, unknown>
+  const sender = (settings.defaultSender ?? {}) as Record<string, unknown>
+  return {
+    name: typeof sender.name === 'string' ? sender.name : '',
+    email: typeof sender.email === 'string' ? sender.email : '',
+  }
 }
 
 function isOrgRole(value: unknown): value is OrgRole {
@@ -61,6 +73,7 @@ function organizationPayload(orgId: string, org: OrgData, role: OrgRole | null) 
       billingEmail: typeof org.billingEmail === 'string' ? org.billingEmail : '',
       timezone: typeof org.timezone === 'string' ? org.timezone : 'Africa/Johannesburg',
       billingDetails: publicBillingDetails(org.billingDetails),
+      defaultSender: defaultSenderPayload(org),
     },
     permissions: { canEdit: canEdit(role), role },
   }
@@ -124,9 +137,38 @@ export const PATCH = withPortalAuth(async (req: NextRequest, uid: string) => {
       })
     }
 
+    // Default sender name/email — stored on the org under settings.defaultSender.
+    // Use dot-path writes so we never clobber sibling settings keys
+    // (brandColors, permissions, customDomain, roleMatrix).
+    const existingSender = defaultSenderPayload(org)
+    const senderUpdate: { name: string; email: string } = { ...existingSender }
+    let senderChanged = false
+
+    const defaultSenderName = cleanString(body.defaultSenderName)
+    if (defaultSenderName !== undefined) {
+      senderUpdate.name = defaultSenderName
+      senderChanged = true
+    }
+
+    const defaultSenderEmail = cleanEmail(body.defaultSenderEmail)
+    if (defaultSenderEmail !== undefined) {
+      if (defaultSenderEmail && !EMAIL_RE.test(defaultSenderEmail)) {
+        return apiError('Default sender email must be a valid email address', 400)
+      }
+      senderUpdate.email = defaultSenderEmail
+      senderChanged = true
+    }
+
+    if (senderChanged) {
+      updates['settings.defaultSender'] = senderUpdate
+    }
+
     await orgRef.update(updates)
 
-    const nextOrg = { ...org, ...updates }
+    const nextSettings = senderChanged
+      ? { ...(org.settings ?? {}), defaultSender: senderUpdate }
+      : org.settings
+    const nextOrg = { ...org, ...updates, settings: nextSettings }
     await syncPlatformCompanyAgreementFieldsForOrg({ clientOrgId: orgId, clientOrg: nextOrg }).catch((err) => {
       console.error('[portal-organization-agreement-company-sync-error]', err)
     })

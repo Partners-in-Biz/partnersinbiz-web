@@ -1,256 +1,518 @@
 // app/(portal)/portal/first-run/page.tsx
+//
+// Growth-onboarding wizard — the PRIMARY first-run experience for the client
+// portal. A stepped flow that gets a workspace from empty to live:
+//   1) Org name + logo   2) Connect social   3) Verify domain
+//   4) Add first contact 5) Install analytics
+//
+// Completion is persisted on the organisation via
+// PATCH /api/v1/portal/growth-onboarding { growthOnboardingCompleted: true }.
+//
+// NOTE: the previous life-OS first-run profile flow lives behind the
+// /api/v1/portal/first-run API (collection life_os_profiles) and is untouched.
+// That API is gated by the LIFE_OS_ENABLED feature flag and is still callable;
+// this page simply no longer renders that form as the default first-run screen.
 'use client'
 export const dynamic = 'force-dynamic'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import Link from 'next/link'
+import { useRouter, useSearchParams } from 'next/navigation'
+import { scopeFromSearchParams, scopedApiPath, scopedPortalPath } from '@/lib/portal/scoped-routing'
 
-type LifeDomain = { key: string; label: string; priority: number; notes: string }
-type Goal = { title: string; domain: string; timeframe: string }
+type StepKey = 'org' | 'social' | 'domain' | 'contact' | 'analytics'
 
-type FirstRunProfile = {
-  completed: boolean
-  identity: { preferredName: string; pronouns: string; location: string }
-  values: string[]
-  lifeDomains: LifeDomain[]
-  constraints: string[]
-  goals: Goal[]
-  baseline: { confidence: number | null; energy: number | null; timeCapacityHours: number | null }
-  privacy: { consentToStore: boolean; shareWithTeam: boolean; allowAgentPersonalization: boolean }
+const STEP_ORDER: StepKey[] = ['org', 'social', 'domain', 'contact', 'analytics']
+const STEP_LABELS: Record<StepKey, string> = {
+  org: 'Workspace',
+  social: 'Social',
+  domain: 'Domain',
+  contact: 'Contact',
+  analytics: 'Analytics',
 }
 
-type FirstRunResponse = {
-  data?: { firstRun?: FirstRunProfile }
-  error?: string
-  moduleDisabled?: boolean
+function unwrap(body: unknown): unknown {
+  if (body && typeof body === 'object' && 'data' in (body as Record<string, unknown>)) {
+    return (body as { data?: unknown }).data
+  }
+  return body
 }
 
-const EMPTY_FIRST_RUN: FirstRunProfile = {
-  completed: false,
-  identity: { preferredName: '', pronouns: '', location: '' },
-  values: [],
-  lifeDomains: [],
-  constraints: [],
-  goals: [],
-  baseline: { confidence: null, energy: null, timeCapacityHours: null },
-  privacy: { consentToStore: false, shareWithTeam: false, allowAgentPersonalization: false },
-}
+export default function FirstRunGrowthWizard() {
+  const router = useRouter()
+  const searchParams = useSearchParams()
+  const orgScope = useMemo(() => scopeFromSearchParams(searchParams), [searchParams])
+  const scopedHref = useCallback((path: string) => scopedPortalPath(path, orgScope), [orgScope])
+  const scopedApi = useCallback((path: string) => scopedApiPath(path, orgScope), [orgScope])
 
-function linesToList(value: string) {
-  return value.split('\n').map((line) => line.trim()).filter(Boolean)
-}
+  const [stepIndex, setStepIndex] = useState(0)
+  const step = STEP_ORDER[stepIndex]
 
-function listToLines(value: string[]) {
-  return value.join('\n')
-}
+  // Step 1 — org name + logo
+  const [orgName, setOrgName] = useState('')
+  const [logoUrl, setLogoUrl] = useState('')
+  const [logoUploading, setLogoUploading] = useState(false)
+  const [orgSaving, setOrgSaving] = useState(false)
+  const [orgError, setOrgError] = useState('')
+  const [canEditOrg, setCanEditOrg] = useState(true)
 
-function domainsToText(domains: LifeDomain[]) {
-  return domains.map((domain) => `${domain.label}${domain.notes ? `: ${domain.notes}` : ''}`).join('\n')
-}
+  // Step 2 — social connected?
+  const [socialConnected, setSocialConnected] = useState(false)
 
-function textToDomains(value: string): LifeDomain[] {
-  return linesToList(value).map((line, index) => {
-    const [labelPart, ...notesParts] = line.split(':')
-    const label = (labelPart ?? line).trim()
-    return {
-      key: label.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || `domain-${index + 1}`,
-      label,
-      priority: Math.min(5, index + 1),
-      notes: notesParts.join(':').trim(),
+  // Step 3 — domain verified?
+  const [domainVerified, setDomainVerified] = useState(false)
+
+  // Step 4 — add a contact
+  const [contactName, setContactName] = useState('')
+  const [contactEmail, setContactEmail] = useState('')
+  const [contactSaving, setContactSaving] = useState(false)
+  const [contactAdded, setContactAdded] = useState(false)
+  const [contactError, setContactError] = useState('')
+
+  // Step 5 — analytics installed?
+  const [analyticsInstalled, setAnalyticsInstalled] = useState(false)
+
+  const [finishing, setFinishing] = useState(false)
+  const [loaded, setLoaded] = useState(false)
+
+  // Load existing org name + logo and signal states.
+  useEffect(() => {
+    fetch(scopedApi('/api/v1/portal/settings/organization'))
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (d?.organization?.name) setOrgName(d.organization.name)
+        if (d?.permissions && d.permissions.canEdit === false) setCanEditOrg(false)
+      })
+      .catch(() => {})
+
+    fetch(scopedApi('/api/v1/portal/brand-profile'))
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        const data = unwrap(d) as { brandProfile?: { logoUrl?: string } } | null
+        if (data?.brandProfile?.logoUrl) setLogoUrl(data.brandProfile.logoUrl)
+      })
+      .catch(() => {})
+      .finally(() => setLoaded(true))
+  }, [scopedApi])
+
+  // Poll the real signal-state for steps 2, 3, 5 so they auto-tick.
+  useEffect(() => {
+    let cancelled = false
+    async function refreshSignals() {
+      const [accounts, domain, dashboard] = await Promise.all([
+        fetch(scopedApi('/api/v1/social/accounts?limit=1')).then((r) => (r.ok ? r.json() : null)).catch(() => null),
+        fetch(scopedApi('/api/v1/org/domain')).then((r) => (r.ok ? r.json() : null)).catch(() => null),
+        fetch(scopedApi('/api/v1/portal/dashboard')).then((r) => (r.ok ? r.json() : null)).catch(() => null),
+      ])
+      if (cancelled) return
+
+      const accountsData = unwrap(accounts)
+      setSocialConnected(Array.isArray(accountsData) && accountsData.length > 0)
+
+      const domainData = unwrap(domain) as { domain?: { verified?: boolean } } | null
+      setDomainVerified(domainData?.domain?.verified === true)
+
+      const dashboardData = unwrap(dashboard) as { connections?: unknown[] } | null
+      setAnalyticsInstalled(Array.isArray(dashboardData?.connections) && dashboardData!.connections.length > 0)
     }
-  })
-}
+    refreshSignals()
+    return () => {
+      cancelled = true
+    }
+  }, [scopedApi, stepIndex])
 
-function goalsToText(goals: Goal[]) {
-  return goals.map((goal) => [goal.title, goal.domain, goal.timeframe].filter(Boolean).join(' | ')).join('\n')
-}
+  async function handleLogoUpload(file: File) {
+    setLogoUploading(true)
+    setOrgError('')
+    try {
+      const form = new FormData()
+      form.append('file', file)
+      form.append('folder', 'brands/logos')
+      const res = await fetch(scopedApi('/api/v1/portal/brand-profile/upload'), { method: 'POST', body: form })
+      const body = await res.json().catch(() => null)
+      if (!res.ok) {
+        setOrgError(body?.error ?? 'Logo upload failed')
+        return
+      }
+      const url = (unwrap(body) as { url?: string } | null)?.url
+      if (!url) {
+        setOrgError('Logo upload returned no URL')
+        return
+      }
+      setLogoUrl(url)
+      // Persist logo onto the brand profile immediately.
+      await fetch(scopedApi('/api/v1/portal/brand-profile'), {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ brandProfile: { logoUrl: url } }),
+      }).catch(() => {})
+    } catch {
+      setOrgError('Logo upload failed')
+    } finally {
+      setLogoUploading(false)
+    }
+  }
 
-function textToGoals(value: string): Goal[] {
-  return linesToList(value).map((line) => {
-    const [title = '', domain = '', timeframe = ''] = line.split('|').map((part) => part.trim())
-    return { title, domain, timeframe }
-  }).filter((goal) => goal.title)
-}
+  async function saveOrgName(): Promise<boolean> {
+    if (!canEditOrg) return true
+    const name = orgName.trim()
+    if (!name) return true
+    setOrgSaving(true)
+    setOrgError('')
+    try {
+      const res = await fetch(scopedApi('/api/v1/portal/settings/organization'), {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name }),
+      })
+      if (!res.ok) {
+        const body = await res.json().catch(() => null)
+        setOrgError(body?.error ?? 'Could not save workspace name')
+        return false
+      }
+      return true
+    } catch {
+      setOrgError('Could not save workspace name')
+      return false
+    } finally {
+      setOrgSaving(false)
+    }
+  }
 
-function numberOrNull(value: string) {
-  if (!value.trim()) return null
-  const parsed = Number(value)
-  return Number.isFinite(parsed) ? parsed : null
-}
+  async function addContact(): Promise<boolean> {
+    const name = contactName.trim()
+    const email = contactEmail.trim()
+    if (!name || !email) {
+      setContactError('Name and email are required')
+      return false
+    }
+    setContactSaving(true)
+    setContactError('')
+    try {
+      const res = await fetch(scopedApi('/api/v1/crm/contacts'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, email, source: 'manual' }),
+      })
+      const body = await res.json().catch(() => null)
+      if (!res.ok) {
+        setContactError(body?.error ?? 'Could not add contact')
+        return false
+      }
+      setContactAdded(true)
+      return true
+    } catch {
+      setContactError('Could not add contact')
+      return false
+    } finally {
+      setContactSaving(false)
+    }
+  }
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  async function goNext() {
+    if (step === 'org') {
+      const ok = await saveOrgName()
+      if (!ok) return
+    }
+    if (step === 'contact' && !contactAdded) {
+      // Only block if the user actually typed something; otherwise "Next" acts as skip.
+      if (contactName.trim() || contactEmail.trim()) {
+        const ok = await addContact()
+        if (!ok) return
+      }
+    }
+    if (stepIndex < STEP_ORDER.length - 1) {
+      setStepIndex((i) => i + 1)
+    }
+  }
+
+  function skip() {
+    if (stepIndex < STEP_ORDER.length - 1) setStepIndex((i) => i + 1)
+  }
+
+  async function finish() {
+    setFinishing(true)
+    try {
+      await fetch(scopedApi('/api/v1/portal/growth-onboarding'), {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ growthOnboardingCompleted: true }),
+      }).catch(() => {})
+      router.push(scopedHref('/portal/dashboard'))
+    } finally {
+      setFinishing(false)
+    }
+  }
+
+  const progress = ((stepIndex + 1) / STEP_ORDER.length) * 100
+  const isLast = stepIndex === STEP_ORDER.length - 1
+
   return (
-    <div className="flex flex-col gap-1.5">
-      <label className="pib-label !mb-0" htmlFor={`first-run-${label.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`}>{label}</label>
-      {children}
+    <div className="mx-auto max-w-2xl space-y-8">
+      <div>
+        <p className="eyebrow">Workspace setup</p>
+        <h1 className="pib-page-title mt-2">Let&apos;s get your workspace growing</h1>
+        <p className="mt-2 text-sm text-[var(--color-pib-text-muted)]">
+          Five quick steps to a live, connected workspace. Skip anything you want to handle later.
+        </p>
+      </div>
+
+      {/* Progress bar + step pills */}
+      <div className="space-y-3">
+        <div className="h-1.5 w-full overflow-hidden rounded-full bg-[var(--color-pib-line)]">
+          <div
+            className="h-full rounded-full bg-[var(--color-pib-accent)] transition-all"
+            style={{ width: `${progress}%` }}
+          />
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {STEP_ORDER.map((key, i) => (
+            <span
+              key={key}
+              className={[
+                'rounded-full px-3 py-1 text-[11px] font-label uppercase tracking-wide border',
+                i === stepIndex
+                  ? 'border-[var(--color-pib-accent)] bg-[var(--color-pib-accent-soft)] text-[var(--color-pib-accent)]'
+                  : i < stepIndex
+                    ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300'
+                    : 'border-[var(--color-pib-line)] text-[var(--color-pib-text-muted)]',
+              ].join(' ')}
+            >
+              {i + 1}. {STEP_LABELS[key]}
+            </span>
+          ))}
+        </div>
+      </div>
+
+      <div className="pib-card space-y-5" aria-busy={!loaded}>
+        {/* STEP 1 — org name + logo */}
+        {step === 'org' && (
+          <div className="space-y-4">
+            <div>
+              <p className="eyebrow !text-[10px]">Step 1</p>
+              <h2 className="font-display text-2xl text-[var(--color-pib-text)]">Name your workspace</h2>
+              <p className="mt-1 text-sm text-[var(--color-pib-text-muted)]">
+                Set the workspace name and upload a logo for your branding.
+              </p>
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <label className="pib-label !mb-0" htmlFor="growth-org-name">Workspace name</label>
+              <input
+                id="growth-org-name"
+                className="pib-input"
+                value={orgName}
+                disabled={!canEditOrg}
+                onChange={(e) => setOrgName(e.target.value)}
+                placeholder="Acme Inc."
+              />
+              {!canEditOrg && (
+                <p className="text-xs text-[var(--color-pib-text-muted)]">
+                  Only workspace owners and admins can rename the workspace.
+                </p>
+              )}
+            </div>
+            <div className="flex items-center gap-4">
+              <div className="grid h-16 w-16 place-items-center overflow-hidden rounded-xl border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)]">
+                {logoUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={logoUrl} alt="Workspace logo" className="h-full w-full object-contain" />
+                ) : (
+                  <span className="material-symbols-outlined text-[24px] text-[var(--color-pib-text-muted)]">image</span>
+                )}
+              </div>
+              <label className="pib-btn-secondary cursor-pointer text-sm font-label">
+                {logoUploading ? 'Uploading…' : logoUrl ? 'Replace logo' : 'Upload logo'}
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  disabled={logoUploading}
+                  onChange={(e) => {
+                    const file = e.target.files?.[0]
+                    if (file) handleLogoUpload(file)
+                  }}
+                />
+              </label>
+            </div>
+            {orgError && <p className="text-sm text-red-400">{orgError}</p>}
+          </div>
+        )}
+
+        {/* STEP 2 — connect social */}
+        {step === 'social' && (
+          <div className="space-y-4">
+            <div>
+              <p className="eyebrow !text-[10px]">Step 2</p>
+              <h2 className="font-display text-2xl text-[var(--color-pib-text)]">Connect a social account</h2>
+              <p className="mt-1 text-sm text-[var(--color-pib-text-muted)]">
+                Link a platform so you can schedule and publish content from the portal.
+              </p>
+            </div>
+            <SignalRow
+              done={socialConnected}
+              doneLabel="A social account is connected."
+              todoLabel="No social accounts connected yet."
+            />
+            <Link href={scopedHref('/portal/integrations')} className="pib-btn-primary inline-flex text-sm font-label">
+              {socialConnected ? 'Manage connections' : 'Connect a platform'}
+            </Link>
+          </div>
+        )}
+
+        {/* STEP 3 — verify domain */}
+        {step === 'domain' && (
+          <div className="space-y-4">
+            <div>
+              <p className="eyebrow !text-[10px]">Step 3</p>
+              <h2 className="font-display text-2xl text-[var(--color-pib-text)]">Verify your domain</h2>
+              <p className="mt-1 text-sm text-[var(--color-pib-text-muted)]">
+                Run the portal on your own white-label domain.
+              </p>
+            </div>
+            <SignalRow
+              done={domainVerified}
+              doneLabel="Your domain is verified."
+              todoLabel="Domain not verified yet."
+            />
+            <Link href={scopedHref('/portal/settings/domain')} className="pib-btn-primary inline-flex text-sm font-label">
+              {domainVerified ? 'Manage domain' : 'Set up domain'}
+            </Link>
+          </div>
+        )}
+
+        {/* STEP 4 — add a contact */}
+        {step === 'contact' && (
+          <div className="space-y-4">
+            <div>
+              <p className="eyebrow !text-[10px]">Step 4</p>
+              <h2 className="font-display text-2xl text-[var(--color-pib-text)]">Add your first contact</h2>
+              <p className="mt-1 text-sm text-[var(--color-pib-text-muted)]">
+                Start building your audience right inside the CRM.
+              </p>
+            </div>
+            {contactAdded ? (
+              <SignalRow done doneLabel="Contact added to your CRM." todoLabel="" />
+            ) : (
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="flex flex-col gap-1.5">
+                  <label className="pib-label !mb-0" htmlFor="growth-contact-name">Name</label>
+                  <input
+                    id="growth-contact-name"
+                    className="pib-input"
+                    value={contactName}
+                    onChange={(e) => setContactName(e.target.value)}
+                    placeholder="Jane Doe"
+                  />
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <label className="pib-label !mb-0" htmlFor="growth-contact-email">Email</label>
+                  <input
+                    id="growth-contact-email"
+                    type="email"
+                    className="pib-input"
+                    value={contactEmail}
+                    onChange={(e) => setContactEmail(e.target.value)}
+                    placeholder="jane@acme.com"
+                  />
+                </div>
+              </div>
+            )}
+            {contactError && <p className="text-sm text-red-400">{contactError}</p>}
+            {!contactAdded && (
+              <div className="flex flex-wrap items-center gap-3">
+                <button
+                  type="button"
+                  onClick={addContact}
+                  disabled={contactSaving || !contactName.trim() || !contactEmail.trim()}
+                  className="pib-btn-primary text-sm font-label disabled:opacity-50"
+                >
+                  {contactSaving ? 'Adding…' : 'Add contact'}
+                </button>
+                <Link href={scopedHref('/portal/contacts/new')} className="text-sm text-[var(--color-pib-accent)] hover:underline">
+                  Use the full contact form →
+                </Link>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* STEP 5 — install analytics */}
+        {step === 'analytics' && (
+          <div className="space-y-4">
+            <div>
+              <p className="eyebrow !text-[10px]">Step 5</p>
+              <h2 className="font-display text-2xl text-[var(--color-pib-text)]">Install analytics</h2>
+              <p className="mt-1 text-sm text-[var(--color-pib-text-muted)]">
+                Connect a property so KPIs and revenue flow into your dashboard.
+              </p>
+            </div>
+            <SignalRow
+              done={analyticsInstalled}
+              doneLabel="An analytics connection is live."
+              todoLabel="No analytics connections yet."
+            />
+            <Link href={scopedHref('/portal/properties')} className="pib-btn-primary inline-flex text-sm font-label">
+              {analyticsInstalled ? 'Manage properties' : 'Set up a property'}
+            </Link>
+          </div>
+        )}
+      </div>
+
+      {/* Footer controls */}
+      <div className="flex items-center justify-between gap-3">
+        <button
+          type="button"
+          onClick={() => setStepIndex((i) => Math.max(0, i - 1))}
+          disabled={stepIndex === 0}
+          className="pib-btn-secondary text-sm font-label disabled:opacity-40"
+        >
+          Back
+        </button>
+        <div className="flex items-center gap-3">
+          {!isLast && (
+            <button type="button" onClick={skip} className="text-sm text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)]">
+              Skip for now
+            </button>
+          )}
+          {isLast ? (
+            <button
+              type="button"
+              onClick={finish}
+              disabled={finishing}
+              className="pib-btn-primary text-sm font-label disabled:opacity-60"
+            >
+              {finishing ? 'Finishing…' : 'Finish setup'}
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={goNext}
+              disabled={orgSaving || contactSaving}
+              className="pib-btn-primary text-sm font-label disabled:opacity-60"
+            >
+              {orgSaving || contactSaving ? 'Saving…' : 'Next'}
+            </button>
+          )}
+        </div>
+      </div>
     </div>
   )
 }
 
-export default function FirstRunPage() {
-  const [profile, setProfile] = useState<FirstRunProfile>(EMPTY_FIRST_RUN)
-  const [valuesText, setValuesText] = useState('')
-  const [domainsText, setDomainsText] = useState('')
-  const [constraintsText, setConstraintsText] = useState('')
-  const [goalsText, setGoalsText] = useState('')
-  const [loading, setLoading] = useState(true)
-  const [disabled, setDisabled] = useState(false)
-  const [saving, setSaving] = useState(false)
-  const [saved, setSaved] = useState(false)
-  const [error, setError] = useState('')
-
-  useEffect(() => {
-    fetch('/api/v1/portal/first-run')
-      .then(async (res) => {
-        const body = await res.json().catch(() => ({})) as FirstRunResponse
-        if (res.status === 403 && body.moduleDisabled) {
-          setDisabled(true)
-          return
-        }
-        if (!res.ok) throw new Error(body.error ?? 'Failed to load first-run setup')
-        const firstRun = body.data?.firstRun ?? EMPTY_FIRST_RUN
-        setProfile(firstRun)
-        setValuesText(listToLines(firstRun.values))
-        setDomainsText(domainsToText(firstRun.lifeDomains))
-        setConstraintsText(listToLines(firstRun.constraints))
-        setGoalsText(goalsToText(firstRun.goals))
-      })
-      .catch((err) => setError(err instanceof Error ? err.message : 'Failed to load first-run setup'))
-      .finally(() => setLoading(false))
-  }, [])
-
-  const payload = useMemo(() => ({
-    ...profile,
-    values: linesToList(valuesText),
-    lifeDomains: textToDomains(domainsText),
-    constraints: linesToList(constraintsText),
-    goals: textToGoals(goalsText),
-  }), [profile, valuesText, domainsText, constraintsText, goalsText])
-
-  async function handleSave(e: React.FormEvent) {
-    e.preventDefault()
-    setSaving(true)
-    setSaved(false)
-    setError('')
-    const res = await fetch('/api/v1/portal/first-run', {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-    })
-    const body = await res.json().catch(() => ({})) as FirstRunResponse
-    if (res.ok) {
-      setSaved(true)
-      if (body.data?.firstRun) setProfile(body.data.firstRun)
-      setTimeout(() => setSaved(false), 3000)
-    } else {
-      setError(body.error ?? 'Failed to save first-run profile')
-    }
-    setSaving(false)
-  }
-
-  if (loading) {
+function SignalRow({ done, doneLabel, todoLabel }: { done: boolean; doneLabel: string; todoLabel: string }) {
+  if (done) {
     return (
-      <div className="space-y-4" aria-busy="true" aria-label="Loading first-run setup">
-        <div className="h-6 w-44 rounded bg-[var(--color-pib-surface-soft)]" />
-        <div className="pib-card h-48" />
+      <div className="flex items-center gap-2 rounded-lg border border-emerald-500/25 bg-emerald-500/10 px-3 py-2.5 text-sm text-emerald-200">
+        <span className="material-symbols-outlined text-[20px] text-emerald-300">check_circle</span>
+        {doneLabel}
       </div>
     )
   }
-
-  if (disabled) {
-    return (
-      <div role="status" className="pib-card max-w-2xl space-y-3">
-        <p className="eyebrow">Feature flag</p>
-        <h1 className="pib-page-title">First-run setup</h1>
-        <p className="text-sm text-[var(--color-pib-text-muted)]">First-run setup is not enabled for this workspace yet.</p>
-      </div>
-    )
-  }
-
+  if (!todoLabel) return null
   return (
-    <form onSubmit={handleSave} className="space-y-8">
-      <div>
-        <p className="eyebrow">Workspace onboarding</p>
-        <h1 className="pib-page-title mt-2">First-run setup</h1>
-        <p className="mt-2 max-w-3xl text-sm text-[var(--color-pib-text-muted)]">
-          Capture the operating context agents need before they help: identity, values, domains, constraints, goals, and baseline capacity.
-        </p>
-      </div>
-
-      <section className="pib-card space-y-4" aria-labelledby="first-run-identity">
-        <div>
-          <p className="eyebrow !text-[10px]">Step 1</p>
-          <h2 id="first-run-identity" className="font-display text-2xl text-[var(--color-pib-text)]">Identity and values</h2>
-        </div>
-        <div className="grid gap-4 md:grid-cols-3">
-          <Field label="Preferred name">
-            <input id="first-run-preferred-name" className="pib-input" value={profile.identity.preferredName} onChange={(e) => setProfile((p) => ({ ...p, identity: { ...p.identity, preferredName: e.target.value } }))} />
-          </Field>
-          <Field label="Pronouns">
-            <input id="first-run-pronouns" className="pib-input" value={profile.identity.pronouns} onChange={(e) => setProfile((p) => ({ ...p, identity: { ...p.identity, pronouns: e.target.value } }))} />
-          </Field>
-          <Field label="Location">
-            <input id="first-run-location" className="pib-input" value={profile.identity.location} onChange={(e) => setProfile((p) => ({ ...p, identity: { ...p.identity, location: e.target.value } }))} />
-          </Field>
-        </div>
-        <Field label="Core values">
-          <textarea id="first-run-core-values" className="pib-input min-h-28" value={valuesText} onChange={(e) => setValuesText(e.target.value)} placeholder="One value per line" />
-        </Field>
-      </section>
-
-      <section className="pib-card space-y-4" aria-labelledby="first-run-context">
-        <div>
-          <p className="eyebrow !text-[10px]">Step 2</p>
-          <h2 id="first-run-context" className="font-display text-2xl text-[var(--color-pib-text)]">Domains, constraints, and goals</h2>
-        </div>
-        <div className="grid gap-4 lg:grid-cols-3">
-          <Field label="Life domains">
-            <textarea id="first-run-life-domains" className="pib-input min-h-36" value={domainsText} onChange={(e) => setDomainsText(e.target.value)} placeholder="Health: training rhythm" />
-          </Field>
-          <Field label="Current constraints">
-            <textarea id="first-run-current-constraints" className="pib-input min-h-36" value={constraintsText} onChange={(e) => setConstraintsText(e.target.value)} placeholder="One constraint per line" />
-          </Field>
-          <Field label="Goals">
-            <textarea id="first-run-goals" className="pib-input min-h-36" value={goalsText} onChange={(e) => setGoalsText(e.target.value)} placeholder="Goal | domain | timeframe" />
-          </Field>
-        </div>
-      </section>
-
-      <section className="pib-card space-y-4" aria-labelledby="first-run-baseline">
-        <div>
-          <p className="eyebrow !text-[10px]">Step 3</p>
-          <h2 id="first-run-baseline" className="font-display text-2xl text-[var(--color-pib-text)]">Baseline and privacy</h2>
-        </div>
-        <div className="grid gap-4 md:grid-cols-3">
-          <Field label="Confidence baseline">
-            <input id="first-run-confidence-baseline" type="number" min={1} max={10} className="pib-input" value={profile.baseline.confidence ?? ''} onChange={(e) => setProfile((p) => ({ ...p, baseline: { ...p.baseline, confidence: numberOrNull(e.target.value) } }))} />
-          </Field>
-          <Field label="Energy baseline">
-            <input id="first-run-energy-baseline" type="number" min={1} max={10} className="pib-input" value={profile.baseline.energy ?? ''} onChange={(e) => setProfile((p) => ({ ...p, baseline: { ...p.baseline, energy: numberOrNull(e.target.value) } }))} />
-          </Field>
-          <Field label="Time capacity per week">
-            <input id="first-run-time-capacity-per-week" type="number" min={0} max={168} className="pib-input" value={profile.baseline.timeCapacityHours ?? ''} onChange={(e) => setProfile((p) => ({ ...p, baseline: { ...p.baseline, timeCapacityHours: numberOrNull(e.target.value) } }))} />
-          </Field>
-        </div>
-        <div className="space-y-3 rounded-lg border border-[var(--color-pib-border)] bg-[var(--color-pib-surface-soft)] p-4">
-          <label className="flex gap-3 text-sm text-[var(--color-pib-text)]">
-            <input type="checkbox" checked={profile.privacy.consentToStore} onChange={(e) => setProfile((p) => ({ ...p, privacy: { ...p.privacy, consentToStore: e.target.checked } }))} />
-            <span>I consent to Partners in Biz storing this first-run profile for my workspace.</span>
-          </label>
-          <label className="flex gap-3 text-sm text-[var(--color-pib-text)]">
-            <input type="checkbox" checked={profile.privacy.shareWithTeam} onChange={(e) => setProfile((p) => ({ ...p, privacy: { ...p.privacy, shareWithTeam: e.target.checked } }))} />
-            <span>Share this profile with workspace admins.</span>
-          </label>
-          <label className="flex gap-3 text-sm text-[var(--color-pib-text)]">
-            <input type="checkbox" checked={profile.privacy.allowAgentPersonalization} onChange={(e) => setProfile((p) => ({ ...p, privacy: { ...p.privacy, allowAgentPersonalization: e.target.checked } }))} />
-            <span>Allow agents to use this profile for personalisation inside this workspace.</span>
-          </label>
-        </div>
-      </section>
-
-      {error && <p role="alert" className="text-sm text-red-400">{error}</p>}
-      <button type="submit" disabled={saving || !profile.privacy.consentToStore} className="pib-btn-primary w-full justify-center disabled:opacity-60 sm:w-auto">
-        {saving ? 'Saving...' : saved ? 'Saved' : 'Save first-run profile'}
-      </button>
-    </form>
+    <div className="flex items-center gap-2 rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] px-3 py-2.5 text-sm text-[var(--color-pib-text-muted)]">
+      <span className="material-symbols-outlined text-[20px]">radio_button_unchecked</span>
+      {todoLabel}
+    </div>
   )
 }

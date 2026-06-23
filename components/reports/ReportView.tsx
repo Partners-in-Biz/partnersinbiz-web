@@ -3,7 +3,7 @@
 // Branded server component that renders a Report. Used both at /reports/[token]
 // (public viewer) and /admin/reports/[id]/preview (admin). Print-friendly.
 
-import type { Report, ReportKpis } from '@/lib/reports/types'
+import type { Report, ReportKpis, ReportSection, ReportMetricKey } from '@/lib/reports/types'
 
 const fmtZar = new Intl.NumberFormat('en-ZA', {
   style: 'currency',
@@ -78,8 +78,79 @@ function pickSeries(report: Report, metric: string): number[] {
   return report.series.find((s) => s.metric === metric)?.series.map((p) => p.value) ?? []
 }
 
+function metricVal(k: ReportKpis, key?: ReportMetricKey): number {
+  if (!key) return 0
+  const v = (k as unknown as Record<string, unknown>)[key]
+  return typeof v === 'number' ? v : 0
+}
+
+/** Renders one section of a custom (builder) report. */
+function CustomSectionView({ section, report }: { section: ReportSection; report: Report }) {
+  const k = report.kpis
+  if (section.type === 'page_break') {
+    return <div className="report-page-break mt-12 border-t border-white/10" />
+  }
+  if (section.type === 'text') {
+    return (
+      <section className="mt-12">
+        {section.title ? <h2 className="eyebrow mb-4">{section.title}</h2> : null}
+        <div className="prose prose-invert max-w-none text-white/80 text-base leading-relaxed">
+          {(section.body ?? '').split('\n\n').map((p, i) => (
+            <p key={i} className="mb-4">{p}</p>
+          ))}
+        </div>
+      </section>
+    )
+  }
+  if (section.type === 'metric') {
+    const val = section.dataSource?.kind === 'manual'
+      ? section.dataSource.value ?? 0
+      : metricVal(k, section.dataSource?.metric)
+    return (
+      <section className="mt-12">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <KpiTile label={section.title ?? section.dataSource?.metric ?? 'Metric'} value={fmtNum.format(val)} />
+        </div>
+      </section>
+    )
+  }
+  if (section.type === 'chart') {
+    const metric = section.dataSource?.metric ?? section.dataSource?.series ?? ''
+    return (
+      <section className="mt-12">
+        {section.title ? <h2 className="eyebrow mb-4">{section.title}</h2> : null}
+        <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-5 text-[var(--report-accent)]">
+          <Sparkline values={pickSeries(report, metric)} width={420} height={64} />
+        </div>
+      </section>
+    )
+  }
+  // table
+  const rows = section.dataSource?.kind === 'manual'
+    ? (section.dataSource.rows ?? []).map((r) => ({ label: r.label, value: r.value }))
+    : (section.dataSource?.metrics ?? []).map((m) => ({ label: m, value: fmtNum.format(metricVal(k, m)) }))
+  return (
+    <section className="mt-12">
+      {section.title ? <h2 className="eyebrow mb-4">{section.title}</h2> : null}
+      <div className="overflow-x-auto rounded-2xl border border-white/10 bg-white/[0.02]">
+        <table className="w-full text-sm">
+          <tbody>
+            {rows.map((r, i) => (
+              <tr key={i} className="border-b border-white/5">
+                <td className="py-3 px-4 font-mono text-white/60">{r.label}</td>
+                <td className="text-right tabular-nums py-3 px-4">{r.value}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  )
+}
+
 export default function ReportView({ report }: { report: Report }) {
   const k = report.kpis
+  const isCustom = Boolean(report.custom && report.custom.sections.length > 0)
   return (
     <article className="report-view max-w-5xl mx-auto px-6 md:px-10 py-12 text-[var(--report-text)]" style={{
       // Reports always use the dark+amber Partners-in-Biz brand,
@@ -111,8 +182,13 @@ export default function ReportView({ report }: { report: Report }) {
         </div>
       </header>
 
+      {/* Custom builder reports: render authored sections in order. */}
+      {isCustom && report.custom!.sections.map((s) => (
+        <CustomSectionView key={s.id} section={s} report={report} />
+      ))}
+
       {/* Highlights */}
-      {report.highlights.length > 0 && (
+      {!isCustom && report.highlights.length > 0 && (
         <section className="mt-10">
           <h2 className="eyebrow mb-4 text-[var(--report-accent)]">Highlights</h2>
           <ul className="grid gap-2 md:grid-cols-2">
@@ -127,6 +203,7 @@ export default function ReportView({ report }: { report: Report }) {
       )}
 
       {/* Headline KPIs */}
+      {!isCustom && (
       <section className="mt-12">
         <h2 className="eyebrow mb-4">Headline metrics</h2>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
@@ -140,8 +217,10 @@ export default function ReportView({ report }: { report: Report }) {
           <KpiTile label="Outstanding" value={fmtZar.format(k.outstanding)} hint="invoiced, unpaid" />
         </div>
       </section>
+      )}
 
       {/* Exec summary */}
+      {!isCustom && report.exec_summary && (
       <section className="mt-12">
         <h2 className="eyebrow mb-4">Executive summary</h2>
         <div className="prose prose-invert max-w-none text-white/80 text-base leading-relaxed">
@@ -150,9 +229,10 @@ export default function ReportView({ report }: { report: Report }) {
           ))}
         </div>
       </section>
+      )}
 
       {/* Series sparklines */}
-      {report.series.length > 0 && (
+      {!isCustom && report.series.length > 0 && (
         <section className="mt-12">
           <h2 className="eyebrow mb-4">Trend lines</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -172,7 +252,7 @@ export default function ReportView({ report }: { report: Report }) {
       )}
 
       {/* Per-property breakdown */}
-      {report.properties.length > 0 && (
+      {!isCustom && report.properties.length > 0 && (
         <section className="mt-12">
           <h2 className="eyebrow mb-4">By property</h2>
           <div className="overflow-x-auto rounded-2xl border border-white/10 bg-white/[0.02]">

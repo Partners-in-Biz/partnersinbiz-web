@@ -62,7 +62,7 @@ describe('ReportsWorkspace', () => {
       />,
     )
 
-    expect(screen.getByRole('link', { name: /preview report/i })).toHaveAttribute('href', '/reports/token-1')
+    expect(screen.getByRole('link', { name: /preview/i })).toHaveAttribute('href', '/reports/token-1')
     expect(screen.getByRole('button', { name: /send report/i })).toBeInTheDocument()
   })
 })

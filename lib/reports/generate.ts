@@ -70,6 +70,8 @@ export async function generateReport(input: GenerateInput): Promise<Report> {
     orgId: input.orgId,
     ...(input.propertyId ? { propertyId: input.propertyId } : {}),
     type: input.type,
+    category: 'monthly',
+    custom: null,
     period: input.period,
     previousPeriod,
     status: 'rendered',
@@ -79,9 +81,13 @@ export async function generateReport(input: GenerateInput): Promise<Report> {
     exec_summary: summary.exec_summary,
     highlights: summary.highlights,
     publicToken,
+    share: { enabled: true, expiresAt: null },
     sentTo: [],
     sentAt: null,
     viewedAt: null,
+    openCount: 0,
+    uniqueOpenCount: 0,
+    lastOpenedAt: null,
     brand,
     generatedBy: input.generatedBy,
     createdAt: FieldValue.serverTimestamp(),
@@ -100,6 +106,7 @@ export async function getReport(id: string): Promise<Report | null> {
 }
 
 export async function getReportByPublicToken(token: string): Promise<Report | null> {
+  if (!token) return null
   const snap = await adminDb
     .collection(REPORTS_COLLECTION)
     .where('publicToken', '==', token)
@@ -107,7 +114,15 @@ export async function getReportByPublicToken(token: string): Promise<Report | nu
     .get()
   if (snap.empty) return null
   const doc = snap.docs[0]
-  return { ...(doc.data() as Report), id: doc.id }
+  const report = { ...(doc.data() as Report), id: doc.id }
+  // Honour share settings (US-189): disabled or expired links resolve to null.
+  const share = report.share
+  if (share) {
+    if (share.enabled === false) return null
+    const today = new Date().toISOString().slice(0, 10)
+    if (share.expiresAt && share.expiresAt < today) return null
+  }
+  return report
 }
 
 export async function markReportViewed(id: string): Promise<void> {

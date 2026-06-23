@@ -1,37 +1,18 @@
 import { cookies } from 'next/headers'
 import { adminAuth, adminDb } from '@/lib/firebase/admin'
 import { canUsePortalOrg, resolvePortalActiveOrgId } from '@/lib/portal/org-access'
-import { scopedPortalPath, type PortalOrgRouteScope } from '@/lib/portal/scoped-routing'
 
-export type PortalSeoSearchParams = {
-  orgId?: string
-  orgSlug?: string
-  sprintId?: string
-}
-
-export type PortalSeoScope = {
-  orgId?: string
-  orgSlug?: string
-}
+// Re-export client-safe helpers so existing server-side imports keep working.
+export {
+  scopeFromSearchParams,
+  scopedPortalHref,
+  type PortalSeoSearchParams,
+  type PortalSeoScope,
+} from './portalSeoScopeShared'
 
 export type PortalSeoUser =
   | { uid: string; orgId: string; forbidden?: false }
   | { uid: string; orgId?: undefined; forbidden: true }
-
-function cleanString(value: unknown): string {
-  return typeof value === 'string' ? value.trim() : ''
-}
-
-export function scopeFromSearchParams(params?: PortalSeoSearchParams): PortalSeoScope {
-  return {
-    orgId: cleanString(params?.orgId) || undefined,
-    orgSlug: cleanString(params?.orgSlug) || undefined,
-  }
-}
-
-export function scopedPortalHref(path: string, scope: PortalSeoScope): string {
-  return scopedPortalPath(path, scope as PortalOrgRouteScope)
-}
 
 export async function resolvePortalSeoUser(requestedOrgId?: string): Promise<PortalSeoUser | null> {
   const cookieStore = await cookies()
