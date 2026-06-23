@@ -16,6 +16,7 @@ import { withAuth } from '@/lib/api/auth'
 import { apiSuccess, apiError } from '@/lib/api/response'
 import { isSuperAdmin } from '@/lib/api/platformAdmin'
 import { writeAdminAudit } from '@/lib/admin/audit'
+import { resolveOrgIdBySlugOrId } from '@/lib/organizations/resolve-by-slug'
 import {
   monthlyRecurringForOrg,
   toZar,
@@ -60,9 +61,10 @@ interface OrgDocLike {
  * admin org route. Returns null when not found.
  */
 export async function resolveOrgBySlug(slug: string): Promise<{ id: string; data: OrgDocLike } | null> {
-  const snap = await adminDb.collection('organizations').where('slug', '==', slug).limit(1).get()
-  if (snap.empty) return null
-  const doc = snap.docs[0]
+  const orgId = await resolveOrgIdBySlugOrId(slug)
+  if (!orgId) return null
+  const doc = await adminDb.collection('organizations').doc(orgId).get()
+  if (!doc.exists) return null
   return { id: doc.id, data: doc.data() as OrgDocLike }
 }
 

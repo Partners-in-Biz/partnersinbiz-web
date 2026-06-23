@@ -165,6 +165,12 @@ const nextConfig: NextConfig = {
       { source: '/portal/onboarding', destination: '/portal/first-run', permanent: false },
 
       // QA-P3b: CRM namespace aliases — features live at top-level portal paths
+      { source: '/portal/crm/contacts', destination: '/portal/contacts', permanent: false },
+      { source: '/portal/crm/contacts/:path*', destination: '/portal/contacts/:path*', permanent: false },
+      { source: '/portal/crm/capture-sources', destination: '/portal/capture-sources', permanent: false },
+      { source: '/portal/crm/capture-sources/:path*', destination: '/portal/capture-sources/:path*', permanent: false },
+      { source: '/portal/crm/pipeline', destination: '/portal/deals', permanent: false },
+      { source: '/portal/crm/pipeline/:path*', destination: '/portal/deals/:path*', permanent: false },
       { source: '/portal/crm/segments', destination: '/portal/segments', permanent: false },
       { source: '/portal/crm/segments/:path*', destination: '/portal/segments/:path*', permanent: false },
       { source: '/portal/crm/integrations', destination: '/portal/integrations', permanent: false },
@@ -191,11 +197,12 @@ const nextConfig: NextConfig = {
 
       // QA-P3b: SEO sub-page aliases — map to /portal/seo (sprint overview)
 
+      // QA-P3: Admin spelling aliases — British 'organisations' → American 'organizations'
+      { source: '/admin/organisations/new', destination: '/admin/organizations/new', permanent: false },
+      { source: '/admin/organisations', destination: '/admin/organizations', permanent: false },
       // US-260/294/296/315/321/323/324: /admin/organisations/:orgId → /admin/org/:orgId (actual implementation path)
       { source: '/admin/organisations/:orgId', destination: '/admin/org/:orgId', permanent: false },
       { source: '/admin/organisations/:orgId/:path*', destination: '/admin/org/:orgId/:path*', permanent: false },
-      // QA-P3: Admin spelling aliases — British 'organisations' → American 'organizations'
-      { source: '/admin/organisations', destination: '/admin/organizations', permanent: false },
       { source: '/admin/organisations/:path*', destination: '/admin/organizations/:path*', permanent: false },
       // Admin users — removed redirect so /admin/users resolves to users management page
       // /admin/platform-users still works directly as its own page
