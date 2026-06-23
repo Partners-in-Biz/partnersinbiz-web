@@ -1,4 +1,4 @@
-// GET /api/v1/reports/:reportId/pdf (US-175 per-report PDF download)
+// GET /api/v1/reports/:id/pdf (US-175 per-report PDF download)
 //
 // Renders the report to a branded PDF and streams it as an attachment.
 
@@ -14,11 +14,11 @@ export const maxDuration = 60
 // react-pdf needs the Node runtime (uses Node streams / fontkit).
 export const runtime = 'nodejs'
 
-type RouteContext = { params: Promise<{ reportId: string }> }
+type RouteContext = { params: Promise<{ id: string }> }
 
 export const GET = withAuth('admin', async (_req: NextRequest, user: ApiUser, ctx) => {
-  const { reportId } = await (ctx as RouteContext).params
-  const report = await getReport(reportId)
+  const { id } = await (ctx as RouteContext).params
+  const report = await getReport(id)
   if (!report) return NextResponse.json({ error: 'Not found' }, { status: 404 })
   if (!canAccessOrg(user, report.orgId)) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 

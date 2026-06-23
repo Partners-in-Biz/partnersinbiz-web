@@ -1,4 +1,4 @@
-// POST /api/v1/reports/:reportId/share-email (US-189)
+// POST /api/v1/reports/:id/share-email (US-189)
 //
 // Share a report by email with an optional custom subject + personal message,
 // using the share settings stored on the report. Distinct from /send (which is
@@ -24,7 +24,7 @@ import type { ApiUser } from '@/lib/api/types'
 export const dynamic = 'force-dynamic'
 export const maxDuration = 30
 
-type RouteContext = { params: Promise<{ reportId: string }> }
+type RouteContext = { params: Promise<{ id: string }> }
 
 interface ShareEmailBody {
   to?: string[]
@@ -38,7 +38,7 @@ function appBaseUrl(req: NextRequest): string {
 }
 
 export const POST = withAuth('client', async (req: NextRequest, user: ApiUser, ctx) => {
-  const { reportId } = await (ctx as RouteContext).params
+  const { id } = await (ctx as RouteContext).params
   const body = (await req.json().catch(() => ({}))) as ShareEmailBody & Record<string, unknown>
   const capabilityError = enforceAgentCapability(user, 'message_client', req, body)
   if (capabilityError) return capabilityError
@@ -46,7 +46,7 @@ export const POST = withAuth('client', async (req: NextRequest, user: ApiUser, c
   const recipients = (body.to ?? []).map(String).map((s) => s.trim()).filter(Boolean)
   if (recipients.length === 0) return NextResponse.json({ error: 'to[] required' }, { status: 400 })
 
-  const report = await getReport(reportId)
+  const report = await getReport(id)
   if (!report) return NextResponse.json({ error: 'Report not found' }, { status: 404 })
   if (!canAccessOrg(user, report.orgId)) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   if (!isShareLive(report)) {
@@ -73,7 +73,7 @@ export const POST = withAuth('client', async (req: NextRequest, user: ApiUser, c
     return NextResponse.json({ error: sendResult.error ?? 'send failed' }, { status: 500 })
   }
 
-  await adminDb.collection(REPORTS_COLLECTION).doc(reportId).update({
+  await adminDb.collection(REPORTS_COLLECTION).doc(id).update({
     status: 'sent',
     sentTo: FieldValue.arrayUnion(...recipients),
     sentAt: FieldValue.serverTimestamp(),
