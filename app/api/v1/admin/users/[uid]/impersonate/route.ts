@@ -12,6 +12,8 @@ import { adminAuth } from '@/lib/firebase/admin'
 import { withAuth } from '@/lib/api/auth'
 import { apiSuccess, apiError } from '@/lib/api/response'
 import { isSuperAdmin } from '@/lib/api/platformAdmin'
+import { writeAdminAudit } from '@/lib/admin/audit'
+import { resolveTargetMeta } from '../_guard'
 
 export const dynamic = 'force-dynamic'
 
@@ -29,8 +31,9 @@ export const POST = withAuth('admin', async (_req: NextRequest, user, context?: 
   }
 
   // Verify the target user exists before issuing a token
+  let authUser
   try {
-    await adminAuth.getUser(uid)
+    authUser = await adminAuth.getUser(uid)
   } catch {
     return apiError('User not found', 404)
   }
@@ -41,10 +44,26 @@ export const POST = withAuth('admin', async (_req: NextRequest, user, context?: 
     return apiError('Cannot impersonate yourself', 400)
   }
 
+  // US-255: refuse to impersonate another super admin. Resolving onto another
+  // super admin's session would hand the impersonator unrestricted access in
+  // a way that bypasses the audit trail's intent.
+  const meta = await resolveTargetMeta(uid)
+  if (meta.isSuperAdmin) {
+    return apiError('Cannot impersonate another super admin', 403)
+  }
+
   const customToken = await adminAuth.createCustomToken(uid, {
     impersonatedBy: user.uid,
     impersonatedAt: new Date().toISOString(),
   })
 
-  return apiSuccess({ customToken })
+  await writeAdminAudit(user, {
+    action: 'user.impersonate',
+    targetUid: uid,
+    orgId: meta.allowedOrgIds[0] ?? null,
+    summary: `Impersonated user ${authUser.email ?? uid}`,
+    metadata: { email: authUser.email ?? null, targetRole: meta.role },
+  })
+
+  return apiSuccess({ customToken, targetEmail: authUser.email ?? null })
 })

@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { PIB_PLATFORM_ORG_ID } from '@/lib/platform/constants'
 import { resolvePlatformAgentBoardHref, resolvePlatformOrgAdminHref } from '@/lib/admin/dashboard-links'
 import { PageHeader, PageTabs, Surface, StatusPill } from '@/components/ui/AppFoundation'
+import { RevenueBarChart, TrendAreaChart } from '@/components/ui/Charts'
 
 type OrgSummary = {
   id: string
@@ -57,12 +58,41 @@ type Health = {
   services?: Record<string, string>
 }
 
+type MonthPoint = { month: string; label: string; amount?: number; count?: number }
+
+type RecentSignup = {
+  id: string
+  name: string
+  slug: string
+  status: string
+  createdAt: number | null
+}
+
+type AdminDashboard = {
+  mrr: number
+  arr: number
+  currency: string
+  activeOrgs: number
+  totalClientOrgs: number
+  newOrgsThisMonth: number
+  churnedOrgs: number
+  churnRate: number
+  totalContacts: number
+  emailSendsToday: number
+  activeSocialAccounts: number
+  failedJobs: number
+  revenueByMonth: MonthPoint[]
+  acquisitionByMonth: MonthPoint[]
+  recentSignups: RecentSignup[]
+}
+
 type LoadState = {
   orgs: OrgSummary[]
   tasks: AgentTask[]
   approvals: Approval[]
   activity: Activity[]
   health: Health | null
+  admin: AdminDashboard | null
 }
 
 const initialState: LoadState = {
@@ -71,6 +101,7 @@ const initialState: LoadState = {
   approvals: [],
   activity: [],
   health: null,
+  admin: null,
 }
 
 const STATUS_LABELS: Record<string, string> = {
@@ -135,6 +166,24 @@ function formatRelative(value?: string | null) {
   const hours = Math.round(minutes / 60)
   if (hours < 24) return `${hours}h ago`
   return date.toLocaleDateString('en-ZA', { month: 'short', day: 'numeric' })
+}
+
+function formatZar(value: number) {
+  const safe = Number.isFinite(value) ? Math.round(value) : 0
+  return `R${safe.toLocaleString('en-ZA')}`
+}
+
+function formatRelativeMs(ms?: number | null) {
+  if (typeof ms !== 'number' || !Number.isFinite(ms)) return 'Recently'
+  const diff = Date.now() - ms
+  if (diff < 0) return 'Just now'
+  const minutes = Math.max(1, Math.round(diff / 60000))
+  if (minutes < 60) return `${minutes}m ago`
+  const hours = Math.round(minutes / 60)
+  if (hours < 24) return `${hours}h ago`
+  const days = Math.round(hours / 24)
+  if (days < 30) return `${days}d ago`
+  return new Date(ms).toLocaleDateString('en-ZA', { month: 'short', day: 'numeric', year: 'numeric' })
 }
 
 function healthTone(health: Health | null, error: string | null) {
@@ -417,6 +466,171 @@ function OperatorInsightDashboards({
   )
 }
 
+function KpiCard({
+  label,
+  value,
+  icon,
+  tone = 'accent',
+  detail,
+}: {
+  label: string
+  value: string
+  icon: string
+  tone?: 'accent' | 'success' | 'warn' | 'danger'
+  detail: string
+}) {
+  const toneClass = {
+    accent: 'text-[var(--color-pib-accent)] bg-[var(--color-pib-accent-soft)] border-[var(--color-pib-accent)]/20',
+    success: 'text-emerald-300 bg-emerald-500/10 border-emerald-400/20',
+    warn: 'text-amber-200 bg-amber-500/10 border-amber-400/25',
+    danger: 'text-red-300 bg-red-500/10 border-red-400/25',
+  }[tone]
+
+  return (
+    <Surface className="p-4">
+      <div className="flex items-start justify-between gap-4">
+        <div className="min-w-0">
+          <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">{label}</p>
+          <p className="mt-3 truncate text-2xl font-headline font-bold leading-none text-on-surface">{value}</p>
+        </div>
+        <span className={`inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-md border ${toneClass}`}>
+          <span className="material-symbols-outlined text-[21px]">{icon}</span>
+        </span>
+      </div>
+      <p className="mt-4 text-xs leading-5 text-on-surface-variant">{detail}</p>
+    </Surface>
+  )
+}
+
+function signupTone(status: string): 'success' | 'warn' | 'danger' | 'accent' | 'neutral' {
+  const s = status.toLowerCase()
+  if (s === 'active') return 'success'
+  if (s === 'churned') return 'danger'
+  if (s === 'paused' || s === 'trial' || s === 'pending') return 'warn'
+  return 'accent'
+}
+
+function RevenueOpsSection({ admin, error }: { admin: AdminDashboard | null; error: string | null }) {
+  if (!admin) {
+    return (
+      <section className="space-y-4" aria-label="Revenue and operations">
+        <SectionHeader title="Revenue & operations" eyebrow="Platform finance" />
+        {error ? (
+          <div className="rounded-lg border border-amber-400/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-100">
+            Revenue & ops metrics could not load: {error}.
+          </div>
+        ) : (
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+            <Skeleton className="h-32 rounded-lg" /><Skeleton className="h-32 rounded-lg" /><Skeleton className="h-32 rounded-lg" /><Skeleton className="h-32 rounded-lg" />
+          </div>
+        )}
+      </section>
+    )
+  }
+
+  const churnPct = `${(admin.churnRate * 100).toFixed(1)}%`
+  const revenueData = admin.revenueByMonth.map(point => ({ label: point.label, value: Math.max(0, Math.round(point.amount ?? 0)) }))
+  const acquisitionData = admin.acquisitionByMonth.map(point => ({ label: point.label, value: Math.max(0, Math.round(point.count ?? 0)) }))
+
+  return (
+    <section className="space-y-4" aria-label="Revenue and operations">
+      <SectionHeader
+        title="Revenue & operations"
+        eyebrow="Platform finance"
+        action={(
+          <Link href="/admin/organizations" className="inline-flex items-center gap-1 text-xs font-label uppercase tracking-wide text-[var(--color-accent-v2)]">
+            Manage billing <span className="material-symbols-outlined text-[15px]">arrow_forward</span>
+          </Link>
+        )}
+      />
+
+      {admin.failedJobs > 0 && (
+        <div className="flex items-center gap-3 rounded-lg border border-amber-400/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-100">
+          <span className="material-symbols-outlined text-[20px]">warning</span>
+          <span><span className="font-semibold">{admin.failedJobs}</span> failed background job{admin.failedJobs === 1 ? '' : 's'} in the webhook queue need attention.</span>
+        </div>
+      )}
+
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <KpiCard label="MRR" value={formatZar(admin.mrr)} icon="payments" detail="Monthly recurring revenue from active client orgs (ZAR)." />
+        <KpiCard label="ARR" value={formatZar(admin.arr)} icon="trending_up" detail="Annual run rate — MRR × 12." />
+        <KpiCard label="Active orgs" value={`${admin.activeOrgs}`} icon="apartment" detail={`${admin.totalClientOrgs} total client organisations.`} />
+        <KpiCard label="New orgs this month" value={`${admin.newOrgsThisMonth}`} icon="add_business" tone={admin.newOrgsThisMonth > 0 ? 'success' : 'accent'} detail="Client orgs created since the 1st." />
+        <KpiCard label="Churn rate" value={churnPct} icon="trending_down" tone={admin.churnRate > 0 ? 'warn' : 'success'} detail={`${admin.churnedOrgs} churned organisation${admin.churnedOrgs === 1 ? '' : 's'}.`} />
+        <KpiCard label="Total contacts" value={admin.totalContacts.toLocaleString('en-ZA')} icon="contacts" detail="CRM contacts across all client workspaces." />
+        <KpiCard label="Email sends today" value={admin.emailSendsToday.toLocaleString('en-ZA')} icon="mail" detail="Emails sent or delivered in the last 24 hours." />
+        <KpiCard label="Active social accounts" value={`${admin.activeSocialAccounts}`} icon="hub" detail="Connected social accounts across the platform." />
+      </div>
+
+      <div className="grid gap-4 lg:grid-cols-2">
+        <Surface className="p-4 sm:p-5">
+          <SectionHeader title="Collected revenue" eyebrow="Last 6 months · ZAR" />
+          <div className="mt-4">
+            {revenueData.some(d => d.value > 0) ? (
+              <RevenueBarChart data={revenueData} valueFormatter={(v) => formatZar(v)} height={240} />
+            ) : (
+              <EmptyState title="No collected revenue yet" body="Paid invoices in the last 6 months will chart here." />
+            )}
+          </div>
+        </Surface>
+
+        <Surface className="p-4 sm:p-5">
+          <SectionHeader title="New client orgs" eyebrow="Acquisition · last 6 months" />
+          <div className="mt-4">
+            {acquisitionData.some(d => d.value > 0) ? (
+              <TrendAreaChart data={acquisitionData} valueFormatter={(v) => `${Math.round(v)}`} height={240} />
+            ) : (
+              <EmptyState title="No new orgs in this window" body="Client organisations created in the last 6 months will chart here." />
+            )}
+          </div>
+        </Surface>
+      </div>
+
+      <Surface className="p-4 sm:p-5">
+        <SectionHeader
+          title="Recent signups"
+          eyebrow="Newest client organisations"
+          action={(
+            <Link href="/admin/organizations" className="inline-flex items-center gap-1 text-xs font-label uppercase tracking-wide text-[var(--color-accent-v2)]">
+              All organisations <span className="material-symbols-outlined text-[15px]">arrow_forward</span>
+            </Link>
+          )}
+        />
+        <div className="mt-4 space-y-2">
+          {admin.recentSignups.length === 0 ? (
+            <EmptyState title="No signups yet" body="New client organisations will appear here as they are created." />
+          ) : admin.recentSignups.map(signup => {
+            const href = signup.slug ? `/admin/org/${signup.slug}/dashboard` : null
+            const inner = (
+              <>
+                <div className="flex min-w-0 items-center gap-3">
+                  <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-[var(--color-card-border)] bg-[var(--color-surface-container)]/45 text-[var(--color-pib-accent)]">
+                    <span className="material-symbols-outlined text-[18px]">corporate_fare</span>
+                  </span>
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-medium text-on-surface">{signup.name}</p>
+                    <p className="truncate text-xs text-on-surface-variant">{formatRelativeMs(signup.createdAt)}</p>
+                  </div>
+                </div>
+                <StatusPill tone={signupTone(signup.status)} dot>{signup.status}</StatusPill>
+              </>
+            )
+            return href ? (
+              <Link key={signup.id} href={href} className="flex items-center justify-between gap-3 rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)]/70 px-3 py-2.5 transition-colors hover:border-[var(--color-pib-accent)]/50">
+                {inner}
+              </Link>
+            ) : (
+              <div key={signup.id} className="flex items-center justify-between gap-3 rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)]/70 px-3 py-2.5">
+                {inner}
+              </div>
+            )
+          })}
+        </div>
+      </Surface>
+    </section>
+  )
+}
+
 function MetricCard({
   label,
   value,
@@ -665,6 +879,7 @@ export default function MissionControlDashboard() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [healthError, setHealthError] = useState<string | null>(null)
+  const [adminError, setAdminError] = useState<string | null>(null)
   const [dashboardView, setDashboardView] = useState<'overview' | 'work'>('overview')
   const [hydrated, setHydrated] = useState(false)
 
@@ -679,13 +894,15 @@ export default function MissionControlDashboard() {
       setLoading(true)
       setError(null)
       setHealthError(null)
+      setAdminError(null)
       try {
-        const [orgsResult, tasksResult, approvalsResult, activityResult, healthResult] = await Promise.allSettled([
+        const [orgsResult, tasksResult, approvalsResult, activityResult, healthResult, adminResult] = await Promise.allSettled([
           fetchJson('/api/v1/organizations'),
           fetchJson(`/api/v1/admin/agent-tasks?orgId=${encodeURIComponent(PIB_PLATFORM_ORG_ID)}&assigneeAgentId=theo`),
           fetchJson('/api/v1/social/posts/pending?limit=12'),
           fetchJson('/api/v1/dashboard/activity?limit=12'),
           fetchJson('/api/v1/health'),
+          fetchJson('/api/v1/admin/dashboard'),
         ])
 
         if (cancelled) return
@@ -697,6 +914,11 @@ export default function MissionControlDashboard() {
         if (activityResult.status === 'fulfilled') next.activity = dataFrom<Activity[]>(activityResult.value, [])
         if (healthResult.status === 'fulfilled') next.health = dataFrom<Health>(healthResult.value, healthResult.value as Health)
         if (healthResult.status === 'rejected') setHealthError(healthResult.reason instanceof Error ? healthResult.reason.message : 'Health unavailable')
+        if (adminResult.status === 'fulfilled') {
+          const body = adminResult.value as { data?: AdminDashboard }
+          next.admin = (body?.data ?? (body as unknown as AdminDashboard)) ?? null
+        }
+        if (adminResult.status === 'rejected') setAdminError(adminResult.reason instanceof Error ? adminResult.reason.message : 'Revenue metrics unavailable')
 
         const failures = [orgsResult, tasksResult, approvalsResult, activityResult]
           .filter((result): result is PromiseRejectedResult => result.status === 'rejected')
@@ -777,6 +999,8 @@ export default function MissionControlDashboard() {
           Some dashboard feeds could not load: {error}. Showing everything that is available.
         </div>
       )}
+
+      <RevenueOpsSection admin={data.admin} error={loading ? null : adminError} />
 
       {dashboardView === 'overview' ? (
         <>
@@ -923,116 +1147,6 @@ export default function MissionControlDashboard() {
           )}
         </section>
       )}
-
-      {/* Platform observability panels */}
-      <section className="space-y-4">
-        <SectionHeader title="Platform observability" eyebrow="Monitoring" />
-
-        {/* System Health */}
-        <div className="rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)]/55 p-4 sm:p-5">
-          <SectionHeader title="System Health" eyebrow="API performance" />
-          <p className="text-xs text-on-surface-variant mb-4">API response times, error rates, and uptime.</p>
-          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-            {[
-              { label: 'Avg response time', value: '—', unit: 'ms', icon: 'speed' },
-              { label: 'Error rate (24h)', value: '—', unit: '%', icon: 'report' },
-              { label: 'Uptime (30d)', value: '—', unit: '%', icon: 'monitor_heart' },
-              { label: 'Active sessions', value: '—', unit: '', icon: 'people' },
-            ].map(metric => (
-              <Surface key={metric.label} className="p-4">
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">{metric.label}</p>
-                    <p className="mt-3 text-3xl font-headline font-bold leading-none text-on-surface">{metric.value}<span className="text-sm font-normal text-on-surface-variant ml-1">{metric.unit}</span></p>
-                  </div>
-                  <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-md border border-[var(--color-pib-accent)]/20 bg-[var(--color-pib-accent-soft)] text-[var(--color-pib-accent)]">
-                    <span className="material-symbols-outlined text-[21px]">{metric.icon}</span>
-                  </span>
-                </div>
-                <p className="mt-4 text-xs text-on-surface-variant">Connect monitoring adapter to populate.</p>
-              </Surface>
-            ))}
-          </div>
-        </div>
-
-        <div className="grid gap-4 lg:grid-cols-2 xl:grid-cols-3">
-          {/* Analytics Ingestion */}
-          <Surface className="p-4 sm:p-5">
-            <div className="flex items-start gap-3 mb-3">
-              <span className="material-symbols-outlined text-[22px] text-[var(--color-pib-accent)]">analytics</span>
-              <div>
-                <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">SDK telemetry</p>
-                <h3 className="mt-1 text-base font-headline font-bold text-on-surface">Analytics Ingestion</h3>
-              </div>
-            </div>
-            <p className="text-xs text-on-surface-variant mb-4">Event ingestion rate from analytics.js SDK.</p>
-            <div className="rounded-lg border border-dashed border-[var(--color-card-border)] bg-[var(--color-surface-container)]/40 px-4 py-6 text-center">
-              <p className="text-sm font-label text-on-surface">No ingestion data</p>
-              <p className="mt-1 text-xs text-on-surface-variant">Events from analytics.js will appear here when the SDK is reporting.</p>
-            </div>
-            <button type="button" className="mt-3 text-xs text-on-surface-variant hover:text-on-surface px-3 py-2 rounded border border-[var(--color-card-border)] hover:bg-[var(--color-surface-container)] transition-colors w-full text-left">View ingestion log →</button>
-          </Surface>
-
-          {/* A/B Test Results */}
-          <Surface className="p-4 sm:p-5">
-            <div className="flex items-start gap-3 mb-3">
-              <span className="material-symbols-outlined text-[22px] text-[var(--color-pib-accent)]">science</span>
-              <div>
-                <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Experiments</p>
-                <h3 className="mt-1 text-base font-headline font-bold text-on-surface">A/B Test Results</h3>
-              </div>
-            </div>
-            <p className="text-xs text-on-surface-variant mb-4">Current A/B experiment performance.</p>
-            <div className="rounded-lg border border-dashed border-[var(--color-card-border)] bg-[var(--color-surface-container)]/40 px-4 py-6 text-center">
-              <p className="text-sm font-label text-on-surface">No active experiments</p>
-              <p className="mt-1 text-xs text-on-surface-variant">Configure an A/B test in Settings → A/B Testing and results will appear here.</p>
-            </div>
-            <button type="button" className="mt-3 text-xs text-on-surface-variant hover:text-on-surface px-3 py-2 rounded border border-[var(--color-card-border)] hover:bg-[var(--color-surface-container)] transition-colors w-full text-left">Manage experiments →</button>
-          </Surface>
-
-          {/* Scrolledbrain Analytics */}
-          <Surface className="p-4 sm:p-5">
-            <div className="flex items-start gap-3 mb-3">
-              <span className="material-symbols-outlined text-[22px] text-[var(--color-pib-accent)]">bar_chart</span>
-              <div>
-                <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Property analytics</p>
-                <h3 className="mt-1 text-base font-headline font-bold text-on-surface">Scrolledbrain Analytics</h3>
-              </div>
-            </div>
-            <p className="text-xs text-on-surface-variant mb-4">Analytics data from the Scrolledbrain property.</p>
-            <div className="space-y-2">
-              {[
-                { label: 'Property', value: 'scrolledbrain.com' },
-                { label: 'Ingest key', value: 'Set via SCROLLEDBRAIN_INGEST_KEY env var' },
-                { label: 'Status', value: 'Connected' },
-              ].map(row => (
-                <div key={row.label} className="flex items-center justify-between rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)]/70 px-3 py-2">
-                  <span className="text-xs text-on-surface-variant">{row.label}</span>
-                  <span className="text-xs text-on-surface font-medium truncate max-w-[180px]">{row.value}</span>
-                </div>
-              ))}
-            </div>
-            <button type="button" className="mt-3 text-xs text-on-surface-variant hover:text-on-surface px-3 py-2 rounded border border-[var(--color-card-border)] hover:bg-[var(--color-surface-container)] transition-colors w-full text-left">View analytics →</button>
-          </Surface>
-
-          {/* Content Moderation */}
-          <Surface className="p-4 sm:p-5">
-            <div className="flex items-start gap-3 mb-3">
-              <span className="material-symbols-outlined text-[22px] text-[var(--color-pib-accent)]">flag</span>
-              <div>
-                <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Moderation</p>
-                <h3 className="mt-1 text-base font-headline font-bold text-on-surface">Content Moderation</h3>
-              </div>
-            </div>
-            <p className="text-xs text-on-surface-variant mb-4">Flagged content queue awaiting review.</p>
-            <div className="rounded-lg border border-dashed border-[var(--color-card-border)] bg-[var(--color-surface-container)]/40 px-4 py-6 text-center">
-              <p className="text-sm font-label text-on-surface">Queue is clear</p>
-              <p className="mt-1 text-xs text-on-surface-variant">Flagged content items will appear here for review.</p>
-            </div>
-            <button type="button" className="mt-3 text-xs text-on-surface-variant hover:text-on-surface px-3 py-2 rounded border border-[var(--color-card-border)] hover:bg-[var(--color-surface-container)] transition-colors w-full text-left">Open moderation queue →</button>
-          </Surface>
-        </div>
-      </section>
 
       {loading && <p className="sr-only" aria-live="polite">Dashboard data is loading</p>}
       {loading && <div className="rounded-lg border border-[var(--color-card-border)] bg-[var(--color-surface-container)]/40 px-4 py-3 text-sm text-on-surface-variant">Loading dashboard signal...</div>}

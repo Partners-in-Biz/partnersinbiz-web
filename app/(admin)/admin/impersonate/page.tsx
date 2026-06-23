@@ -8,14 +8,18 @@ import { Suspense, useState } from 'react'
 import { signInWithCustomToken } from 'firebase/auth'
 import { getClientAuth } from '@/lib/firebase/config'
 import { copyToClipboard } from '@/lib/utils/clipboard'
+import ImpersonationBanner, { IMPERSONATION_KEY } from '@/components/admin/users/ImpersonationBanner'
 
 function ImpersonateContent() {
   const searchParams = useSearchParams()
   const router = useRouter()
   const token = searchParams.get('token') ?? ''
+  const targetEmail = searchParams.get('email') ?? ''
+  const targetUid = searchParams.get('uid') ?? ''
   const [copying, setCopying] = useState(false)
   const [copied, setCopied] = useState(false)
   const [signingIn, setSigningIn] = useState(false)
+  const [signedIn, setSignedIn] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
 
@@ -39,16 +43,47 @@ function ImpersonateContent() {
     setSigningIn(true)
     setError(null)
     setNotice(null)
+    // Set the impersonation marker BEFORE replacing the session so the banner
+    // can render immediately and the admin always has an exit affordance.
+    try {
+      window.sessionStorage.setItem(
+        IMPERSONATION_KEY,
+        JSON.stringify({
+          targetUid: targetUid || 'unknown',
+          targetEmail: targetEmail || '',
+          adminReturnHint: 'your admin account',
+          startedAt: new Date().toISOString(),
+        }),
+      )
+    } catch {
+      /* sessionStorage unavailable — banner just won't show, exit still works via link */
+    }
     try {
       const auth = getClientAuth()
       await signInWithCustomToken(auth, token)
-      setNotice('Signed in successfully. Redirecting to portal...')
-      setTimeout(() => router.push('/portal'), 1500)
+      setSignedIn(true)
+      setNotice('Signed in successfully. Use the banner or button below to exit when done.')
     } catch (err) {
+      // Roll back the marker if sign-in never completed.
+      try {
+        window.sessionStorage.removeItem(IMPERSONATION_KEY)
+      } catch {
+        /* ignore */
+      }
       setError(err instanceof Error ? err.message : 'Sign-in failed. The token may have expired.')
     } finally {
       setSigningIn(false)
     }
+  }
+
+  function handleExit() {
+    try {
+      window.sessionStorage.removeItem(IMPERSONATION_KEY)
+    } catch {
+      /* ignore */
+    }
+    // Sign out happens on /login; route there so the admin can sign back in.
+    router.push('/login')
   }
 
   if (!token) {
@@ -67,6 +102,9 @@ function ImpersonateContent() {
 
   return (
     <div className="space-y-6 max-w-2xl mx-auto">
+      {/* Fixed banner — appears as soon as the impersonation marker is set */}
+      <ImpersonationBanner />
+
       {error && (
         <div className="pib-card border border-red-500/30 bg-red-500/5 px-4 py-3 text-sm text-red-400">
           {error}
@@ -110,15 +148,38 @@ function ImpersonateContent() {
           <button
             type="button"
             onClick={handleSignIn}
-            disabled={signingIn}
+            disabled={signingIn || signedIn}
             className="pib-btn-primary text-sm font-label"
           >
-            {signingIn ? 'Signing in...' : 'Sign in as this user'}
+            {signedIn ? 'Signed in' : signingIn ? 'Signing in...' : 'Sign in as this user'}
           </button>
-          <Link href="/admin/users" className="pib-btn-ghost text-sm font-label">
-            Back to users
-          </Link>
+          {signedIn ? (
+            <button
+              type="button"
+              onClick={handleExit}
+              className="pib-btn-ghost text-sm font-label"
+              style={{ borderColor: '#b91c1c', color: '#b91c1c' }}
+            >
+              Exit impersonation
+            </button>
+          ) : (
+            <Link href="/admin/users" className="pib-btn-ghost text-sm font-label">
+              Back to users
+            </Link>
+          )}
         </div>
+
+        {signedIn && (
+          <div className="pib-card border border-amber-500/30 bg-amber-500/5 px-4 py-3 text-sm text-amber-500">
+            You are now signed in as{' '}
+            <strong>{targetEmail || targetUid || 'this user'}</strong>. Open{' '}
+            <Link href="/portal" className="underline">
+              the portal
+            </Link>{' '}
+            to act as them. When finished, click <strong>Exit impersonation</strong> (or use the top
+            banner) to return to the login screen and sign back in as yourself.
+          </div>
+        )}
 
         <p className="text-xs text-on-surface-variant/60">
           Signing in will call <code>signInWithCustomToken</code> with the Firebase client SDK and
