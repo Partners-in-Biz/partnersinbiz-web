@@ -38,6 +38,24 @@ async function safeQuery(
   }
 }
 
+async function safeQueryMany(
+  collection: string,
+  clauses: Array<{ field: string; value: string }>,
+): Promise<Record<string, unknown>[]> {
+  const rows = new Map<string, Record<string, unknown>>()
+  await Promise.all(
+    clauses.map(async ({ field, value }) => {
+      if (!value) return
+      const result = await safeQuery(collection, field, value)
+      for (const row of result) {
+        const id = typeof row.id === 'string' ? row.id : JSON.stringify(row)
+        rows.set(id, row)
+      }
+    }),
+  )
+  return Array.from(rows.values())
+}
+
 export const GET = withAuth('admin', async (req: NextRequest, user: ApiUser, ctx: RouteContext) => {
   try {
     if (!isSuperAdmin(user)) return apiError('Forbidden', 403)
@@ -48,10 +66,22 @@ export const GET = withAuth('admin', async (req: NextRequest, user: ApiUser, ctx
     const subjectEmail = String(request.subjectEmail || '').toLowerCase()
     if (!subjectEmail) return apiError('DSR has no subjectEmail', 400)
 
-    const [users, legalAcceptances, supportTickets] = await Promise.all([
+    const [users, supportTickets] = await Promise.all([
       safeQuery('users', 'email', subjectEmail),
-      safeQuery('legal_acceptances', 'userEmail', subjectEmail),
       safeQuery('support_tickets', 'requesterEmail', subjectEmail),
+    ])
+    const userIds = users
+      .map((row) => (typeof row.id === 'string' ? row.id : null))
+      .filter((value): value is string => Boolean(value))
+
+    const [contacts, emails, legalAcceptanceRows, notifications] = await Promise.all([
+      safeQuery('contacts', 'email', subjectEmail),
+      safeQuery('emails', 'to', subjectEmail),
+      safeQueryMany('legal_acceptances', [
+        { field: 'userEmail', value: subjectEmail },
+        ...userIds.map((userId) => ({ field: 'userId', value: userId })),
+      ]),
+      safeQueryMany('notifications', userIds.map((userId) => ({ field: 'userId', value: userId }))),
     ])
 
     const bundle = {
@@ -61,16 +91,22 @@ export const GET = withAuth('admin', async (req: NextRequest, user: ApiUser, ctx
       dsr: request,
       note:
         'Best-effort cross-platform export. Queried collections confirmed to exist: ' +
-        'users, legal_acceptances, support_tickets. Additional product data living in ' +
-        'tenant-scoped collections is not included in this access export.',
+        'users, contacts, emails, legal_acceptances, notifications, support_tickets. ' +
+        'Additional tenant-scoped product data may still require manual review.',
       data: {
         users,
-        legalAcceptances,
+        contacts,
+        emails,
+        legalAcceptances: legalAcceptanceRows,
+        notifications,
         supportTickets,
       },
       counts: {
         users: users.length,
-        legalAcceptances: legalAcceptances.length,
+        contacts: contacts.length,
+        emails: emails.length,
+        legalAcceptances: legalAcceptanceRows.length,
+        notifications: notifications.length,
         supportTickets: supportTickets.length,
       },
     }

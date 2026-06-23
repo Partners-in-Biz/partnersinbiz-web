@@ -12,6 +12,7 @@
 
 import { Resend } from 'resend'
 import { getEmailProvider } from './provider'
+import { assertOutboundEmailAllowed } from './policy'
 
 // FROM_ADDRESS is reserved for SYSTEM emails (ops notifications, approvals,
 // invoice mails sent on behalf of PIB itself). Campaign / sequence sends
@@ -71,6 +72,16 @@ export interface CampaignSendResult {
  */
 export async function sendCampaignEmail(input: CampaignSendInput): Promise<CampaignSendResult> {
   const provider = getEmailProvider()
+  const recipients = Array.isArray(input.to) ? input.to : [input.to]
+  const policy = await assertOutboundEmailAllowed({ recipients })
+  if (!policy.allowed) {
+    return {
+      ok: false,
+      resendId: '',
+      provider: provider.id,
+      error: policy.error,
+    }
+  }
   const result = await provider.send({
     from: input.from,
     to: input.to,

@@ -6,6 +6,7 @@
 // only exposes a read helper + an "is active now" predicate.
 import { adminDb } from '@/lib/firebase/admin'
 import { toMillis } from '@/lib/governance/firestore'
+import type { ApiRole } from '@/lib/api/types'
 
 export interface MaintenanceState {
   enabled: boolean
@@ -47,7 +48,7 @@ export async function getMaintenanceState(): Promise<MaintenanceState> {
  * True when maintenance should be considered active right now: either the
  * manual toggle is on, OR the current time falls within the scheduled window.
  */
-export function isMaintenanceActiveNow(state: MaintenanceState, nowMs: number): boolean {
+export function isMaintenanceActiveNow(state: MaintenanceState, nowMs = Date.now()): boolean {
   if (state.enabled) return true
   const startMs = state.scheduledStart ? Date.parse(state.scheduledStart) : NaN
   const endMs = state.scheduledEnd ? Date.parse(state.scheduledEnd) : NaN
@@ -55,4 +56,45 @@ export function isMaintenanceActiveNow(state: MaintenanceState, nowMs: number): 
     return nowMs >= startMs && nowMs <= endMs
   }
   return false
+}
+
+function forwardedIps(headerValue: string | null): string[] {
+  if (!headerValue) return []
+  return headerValue
+    .split(',')
+    .map((part) => part.trim())
+    .filter(Boolean)
+}
+
+function extractCookieValue(cookieHeader: string | null, key: string): string | null {
+  if (!cookieHeader) return null
+  for (const part of cookieHeader.split(';')) {
+    const [name, ...rest] = part.trim().split('=')
+    if (name === key) return rest.join('=')
+  }
+  return null
+}
+
+export function requestBypassesMaintenance(
+  headers: Pick<Headers, 'get'>,
+  state: MaintenanceState,
+  role?: ApiRole | null,
+): boolean {
+  if (role === 'admin' || role === 'ai') return true
+
+  const token = process.env.MAINTENANCE_BYPASS_TOKEN?.trim()
+  const providedToken =
+    headers.get('x-maintenance-bypass') ??
+    extractCookieValue(headers.get('cookie'), 'pib_maintenance_bypass')
+  if (token && providedToken && providedToken === token) return true
+
+  const allowedIps = new Set(state.ipAllowlist.map((ip) => ip.trim()).filter(Boolean))
+  if (allowedIps.size === 0) return false
+
+  const ips = [
+    ...forwardedIps(headers.get('x-forwarded-for')),
+    ...forwardedIps(headers.get('x-real-ip')),
+  ]
+
+  return ips.some((ip) => allowedIps.has(ip))
 }

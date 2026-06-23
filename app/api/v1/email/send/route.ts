@@ -27,6 +27,7 @@ import { checkQuota } from '@/lib/platform/quotas'
 import type { ApiUser } from '@/lib/api/types'
 import { shouldSendToContact } from '@/lib/preferences/store'
 import { isWithinFrequencyCap, logFrequencySkip } from '@/lib/email/frequency'
+import { assertOutboundEmailAllowed } from '@/lib/email/policy'
 
 type SendEmailBody = {
   to?: string
@@ -80,6 +81,11 @@ export const POST = withAuth('client', async (req: NextRequest, user: ApiUser) =
   if (!cleanTo) return apiError('to is required')
   if (!cleanSubject) return apiError('subject is required')
   if (!cleanBodyText && !cleanBodyHtml) return apiError('bodyText or bodyHtml is required')
+
+  const policy = await assertOutboundEmailAllowed({ recipients: [cleanTo] })
+  if (!policy.allowed) {
+    return apiError(policy.error ?? 'Outbound email blocked by platform policy', policy.status ?? 403)
+  }
 
   const requestedOrgId =
     typeof body.orgId === 'string' && body.orgId.trim()

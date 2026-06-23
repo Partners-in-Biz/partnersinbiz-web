@@ -42,9 +42,15 @@ export const POST = withAuth('admin', async (req: NextRequest, user: ApiUser, ct
 
     // Find matching user docs by email.
     const userSnap = await adminDb.collection('users').where('email', '==', subjectEmail).limit(500).get()
+    const contactSnap = await adminDb.collection('contacts').where('email', '==', subjectEmail).limit(500).get()
+    const supportSnap = await adminDb.collection('support_tickets').where('requesterEmail', '==', subjectEmail).limit(500).get()
+    const acceptanceSnap = await adminDb.collection('legal_acceptances').where('userEmail', '==', subjectEmail).limit(500).get()
 
     let erasedUsers = 0
     let skippedAdmins = 0
+    let erasedContacts = 0
+    let scrubbedSupportTickets = 0
+    let pseudonymizedAcceptances = 0
     const erasedAt = new Date().toISOString()
     const batch = adminDb.batch()
 
@@ -64,18 +70,62 @@ export const POST = withAuth('admin', async (req: NextRequest, user: ApiUser, ct
       erasedUsers += 1
     }
 
+    for (const d of contactSnap.docs) {
+      batch.update(d.ref, {
+        email: '[erased]',
+        name: '[erased]',
+        firstName: '[erased]',
+        lastName: '[erased]',
+        erasedAt: FieldValue.serverTimestamp(),
+        erasedByDsr: id,
+      })
+      erasedContacts += 1
+    }
+
+    for (const d of supportSnap.docs) {
+      batch.update(d.ref, {
+        requesterEmail: '[erased]',
+        requesterName: '[erased]',
+        erasedAt: FieldValue.serverTimestamp(),
+        erasedByDsr: id,
+      })
+      scrubbedSupportTickets += 1
+    }
+
+    for (const d of acceptanceSnap.docs) {
+      batch.update(d.ref, {
+        userEmail: '[erased]',
+        erasedAt: FieldValue.serverTimestamp(),
+        erasedByDsr: id,
+      })
+      pseudonymizedAcceptances += 1
+    }
+
     // Mark DSR completed + append immutable audit log.
     const logEntry = {
       at: erasedAt,
       actor: actorOf(user),
       action: 'erasure',
-      detail: `Erased PII for ${subjectEmail}: ${erasedUsers} user doc(s) scrubbed, ${skippedAdmins} admin doc(s) preserved`,
+      detail:
+        `Erased PII for ${subjectEmail}: ${erasedUsers} user doc(s) scrubbed, ` +
+        `${erasedContacts} contact(s) scrubbed, ${scrubbedSupportTickets} support ticket(s) scrubbed, ` +
+        `${pseudonymizedAcceptances} acceptance record(s) pseudonymized, ${skippedAdmins} admin doc(s) preserved`,
     }
     batch.update(ref, {
       status: 'completed',
       completedAt: FieldValue.serverTimestamp(),
       handledBy: actorOf(user),
       erasedAt: FieldValue.serverTimestamp(),
+      eraseScope: {
+        users: erasedUsers,
+        contacts: erasedContacts,
+        supportTickets: scrubbedSupportTickets,
+        legalAcceptances: pseudonymizedAcceptances,
+        skippedAdmins,
+      },
+      eraseLimitations: [
+        'Historical outbound email logs and other tenant-scoped records may still require manual review before irreversible deletion.',
+      ],
       log: FieldValue.arrayUnion(logEntry),
       updatedAt: FieldValue.serverTimestamp(),
     })
@@ -86,6 +136,9 @@ export const POST = withAuth('admin', async (req: NextRequest, user: ApiUser, ct
     return apiSuccess({
       erased: {
         users: erasedUsers,
+        contacts: erasedContacts,
+        supportTickets: scrubbedSupportTickets,
+        legalAcceptances: pseudonymizedAcceptances,
         skippedAdmins,
         subjectEmail,
       },

@@ -24,6 +24,7 @@ import { adminAuth } from '@/lib/firebase/admin'
 import { consumeMagicLink } from '@/lib/client-documents/magicLink'
 import { findOrCreateGuestUser } from '@/lib/auth/guestUser'
 import { enforcePublicRateLimit, publicRequestIp, publicRateLimitHash } from '@/lib/api/public-rate-limit'
+import { markPendingLegalAcceptanceForLogin } from '@/lib/governance/legal-acceptance'
 
 export const dynamic = 'force-dynamic'
 
@@ -60,6 +61,7 @@ export async function GET(req: NextRequest) {
   }
 
   const user = await findOrCreateGuestUser(result.email, 'magic_link')
+  await markPendingLegalAcceptanceForLogin({ uid: user.uid, email: result.email })
   const customToken = await adminAuth.createCustomToken(user.uid)
 
   // The landing page exchanges customToken -> idToken via signInWithCustomToken

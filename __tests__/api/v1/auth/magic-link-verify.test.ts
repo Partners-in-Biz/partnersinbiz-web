@@ -3,6 +3,7 @@ import { NextRequest } from 'next/server'
 const mockConsumeMagicLink = jest.fn()
 const mockFindOrCreateGuestUser = jest.fn()
 const mockCreateCustomToken = jest.fn()
+const mockMarkPendingLegalAcceptanceForLogin = jest.fn()
 
 jest.mock('@/lib/client-documents/magicLink', () => ({
   consumeMagicLink: mockConsumeMagicLink,
@@ -18,6 +19,10 @@ jest.mock('@/lib/firebase/admin', () => ({
   },
 }))
 
+jest.mock('@/lib/governance/legal-acceptance', () => ({
+  markPendingLegalAcceptanceForLogin: (...args: unknown[]) => mockMarkPendingLegalAcceptanceForLogin(...args),
+}))
+
 function getRequest(url: string) {
   return new NextRequest(url, { method: 'GET' })
 }
@@ -25,6 +30,7 @@ function getRequest(url: string) {
 beforeEach(() => {
   jest.clearAllMocks()
   mockCreateCustomToken.mockResolvedValue('mock-custom-token')
+  mockMarkPendingLegalAcceptanceForLogin.mockResolvedValue(undefined)
   mockFindOrCreateGuestUser.mockResolvedValue({
     uid: 'user-1',
     email: 'foo@example.com',
@@ -86,6 +92,10 @@ describe('GET /api/v1/auth/magic-link/verify', () => {
     expect(res.status).toBe(307)
     expect(mockFindOrCreateGuestUser).toHaveBeenCalledWith('foo@example.com', 'magic_link')
     expect(mockCreateCustomToken).toHaveBeenCalledWith('user-1')
+    expect(mockMarkPendingLegalAcceptanceForLogin).toHaveBeenCalledWith({
+      uid: 'user-1',
+      email: 'foo@example.com',
+    })
 
     const location = new URL(res.headers.get('location') ?? '')
     expect(location.pathname).toBe('/auth/magic-link/verify')

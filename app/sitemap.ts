@@ -1,14 +1,31 @@
 import type { MetadataRoute } from 'next'
 import { SITE, SERVICES, CASE_STUDIES } from '@/lib/seo/site'
 import { POSTS } from '@/lib/content/posts'
-import { listLiveSlugs } from '@/lib/content/posts-firestore'
+import { listLiveInsightEntries } from '@/lib/content/posts-firestore'
 import { PUBLISHED_CAMPAIGN_INSIGHT_SLUGS } from '@/lib/seo/published-insights'
 import { PUBLIC_TOOLS } from '@/lib/tools/catalog'
 import { PARTNER_OPPORTUNITIES } from '@/lib/partner-opportunities'
+import { adminDb } from '@/lib/firebase/admin'
+
+const SITEMAP_CONFIG_COLLECTION = 'admin_sitemap_config'
+const SITEMAP_CONFIG_DOC_ID = 'default'
+
+async function readExcludedPaths(): Promise<Set<string>> {
+  try {
+    const snap = await adminDb.collection(SITEMAP_CONFIG_COLLECTION).doc(SITEMAP_CONFIG_DOC_ID).get()
+    const paths = Array.isArray(snap.data()?.excludedPaths)
+      ? snap.data()?.excludedPaths.filter((path: unknown): path is string => typeof path === 'string' && path.trim().startsWith('/'))
+      : []
+    return new Set(paths)
+  } catch {
+    return new Set()
+  }
+}
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const staticLastModified = new Date('2026-06-01')
   const campaignLastModified = new Date('2026-06-03')
+  const excludedPaths = await readExcludedPaths()
 
   const staticPages: MetadataRoute.Sitemap = [
     '',
@@ -54,16 +71,23 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     lastModified: new Date(p.dateModified ?? p.datePublished),
   }))
 
-  const firestoreSlugs = await listLiveSlugs().catch(() => [])
+  const liveInsightEntries = await listLiveInsightEntries().catch(() => [])
   const staticInsightSlugs = new Set(POSTS.map(p => p.slug))
-  const publishedCampaignInsights: MetadataRoute.Sitemap = Array.from(
-    new Set([...PUBLISHED_CAMPAIGN_INSIGHT_SLUGS, ...firestoreSlugs]),
-  )
-    .filter(slug => !staticInsightSlugs.has(slug))
+  const dynamicInsightMap = new Map<string, string | null>()
+  for (const slug of PUBLISHED_CAMPAIGN_INSIGHT_SLUGS) {
+    dynamicInsightMap.set(slug, campaignLastModified.toISOString())
+  }
+  for (const entry of liveInsightEntries) {
+    dynamicInsightMap.set(entry.slug, entry.lastModified)
+  }
+
+  const publishedCampaignInsights: MetadataRoute.Sitemap = Array.from(dynamicInsightMap.entries())
+    .filter(([slug]) => !staticInsightSlugs.has(slug))
     .map(slug => ({
-      url: `${SITE.url}/insights/${slug}`,
-      lastModified: campaignLastModified,
+      url: `${SITE.url}/insights/${slug[0]}`,
+      lastModified: slug[1] ? new Date(slug[1]) : campaignLastModified,
     }))
 
   return [...staticPages, ...services, ...work, ...tools, ...partnerOpportunities, ...insights, ...publishedCampaignInsights]
+    .filter((entry) => !excludedPaths.has(new URL(entry.url).pathname))
 }

@@ -3,7 +3,8 @@ import { apiSuccess, apiError, apiErrorFromException } from '@/lib/api/response'
 import { lastActorFrom } from '@/lib/api/actor'
 import { adminDb } from '@/lib/firebase/admin'
 import { FieldValue } from 'firebase-admin/firestore'
-import { serializeArticle, tsToIso } from '../seo/serialize'
+import { tsToIso } from '../seo/serialize'
+import { listLiveInsightEntries } from '@/lib/content/posts-firestore'
 
 export const dynamic = 'force-dynamic'
 
@@ -14,13 +15,20 @@ const CONFIG_DOC_ID = 'default'
 
 const STATIC_ROUTES = [
   '/',
+  '/work',
+  '/services',
+  '/gauteng-growth-audit',
   '/pricing',
   '/about',
-  '/contact',
-  '/blog',
   '/insights',
-  '/login',
-  '/signup',
+  '/tools',
+  '/properties',
+  '/partner-with-us',
+  '/faq',
+  '/book-a-call',
+  '/start-a-project',
+  '/privacy-policy',
+  '/terms-of-service',
 ]
 
 type PingAction = 'regenerate' | 'gsc-submit'
@@ -124,18 +132,16 @@ async function buildPages(excludedPaths: string[]): Promise<SitemapPage[]> {
     lastmod: null,
   }))
 
-  const snap = await adminDb.collection('admin_seo_articles').get()
-  for (const doc of snap.docs) {
-    const article = serializeArticle(doc.id, doc.data())
-    if (article.status !== 'published') continue
+  const insightEntries = await listLiveInsightEntries().catch(() => [])
+  for (const article of insightEntries) {
     if (!article.slug) continue
     const path = `/insights/${article.slug}`
     pages.push({
       path,
       source: 'article',
-      title: article.title,
+      title: article.slug,
       excluded: excludedPaths.includes(path),
-      lastmod: article.updatedAt ?? null,
+      lastmod: article.lastModified ?? null,
     })
   }
 

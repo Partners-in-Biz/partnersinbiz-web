@@ -7,6 +7,7 @@ import type { ApiPermission, ApiRole, ApiUser } from './types'
 import { canAccessOrg } from './platformAdmin'
 import { resolveMemberAccessPolicy, type MemberAccessPolicy } from '@/lib/orgMembers/access-policy'
 import type { OrgRole } from '@/lib/organizations/types'
+import { getMaintenanceState, isMaintenanceActiveNow, requestBypassesMaintenance } from '@/lib/governance/maintenance'
 
 type RouteHandler = (req: NextRequest, user: ApiUser, context?: any) => Promise<Response>
 
@@ -46,6 +47,13 @@ export function withAuth(requiredRole: 'admin' | 'client', handler: RouteHandler
       (requiredRole === 'client' && user.role === 'client')
 
     if (!roleOk) return apiError('Forbidden', 403)
+
+    if (requiredRole === 'client' && user.role === 'client') {
+      const maintenance = await getMaintenanceState()
+      if (isMaintenanceActiveNow(maintenance, Date.now()) && !requestBypassesMaintenance(req.headers, maintenance, user.role)) {
+        return apiError(maintenance.message || 'Scheduled maintenance in progress', 503)
+      }
+    }
 
     if (user.role === 'admin') {
       const url = new URL(req.url)
