@@ -124,6 +124,15 @@ function tsToDate(ts: DateLike | null | undefined): Date | null {
   return isNaN(d.getTime()) ? null : d
 }
 
+function isVideoSource(value: string | undefined): boolean {
+  if (!value) return false
+  return /\.(mp4|mov|m4v|webm)(\?|#|$)/i.test(value)
+}
+
+function isVideoMedia(media: MediaItem): boolean {
+  return media.type?.toLowerCase() === 'video' || isVideoSource(media.url) || isVideoSource(media.thumbnailUrl)
+}
+
 function relativeTime(ts: DateLike | null | undefined): string {
   const d = tsToDate(ts)
   if (!d) return '—'
@@ -234,18 +243,34 @@ function VaultCard({ post, onCopy, onDownload }: {
           {visibleMedia.map((m, i) => {
             const src = m.thumbnailUrl || m.url
             const isFeature = visibleMedia.length === 3 && i === 0
+            const isVideo = isVideoMedia(m)
             return (
               <div
                 key={i}
                 className={`relative overflow-hidden rounded-[var(--radius-card)] bg-[var(--color-surface-variant)] border border-[var(--color-outline-variant)] ${visibleMedia.length === 1 ? 'aspect-[4/3]' : 'aspect-square'} ${isFeature ? 'col-span-2 aspect-[16/9]' : ''}`}
               >
-                {src ? (
+                {isVideo && (m.url || m.thumbnailUrl) ? (
+                  <video
+                    src={m.url || m.thumbnailUrl}
+                    poster={!isVideoSource(m.thumbnailUrl) ? m.thumbnailUrl : undefined}
+                    muted
+                    playsInline
+                    preload="metadata"
+                    aria-label={m.alt ?? 'Post video preview'}
+                    className="w-full h-full object-cover"
+                  />
+                ) : src ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img src={src} alt={m.alt ?? ''} className="w-full h-full object-cover" />
                 ) : (
                   <div className="w-full h-full flex items-center justify-center text-xs text-[var(--color-on-surface-variant)]">
                     {(m.type ?? 'file').slice(0, 3)}
                   </div>
+                )}
+                {isVideo && (
+                  <span className="pointer-events-none absolute inset-0 grid place-items-center text-3xl text-white drop-shadow">
+                    ▶
+                  </span>
                 )}
                 {i === visibleMedia.length - 1 && media.length > visibleMedia.length && (
                   <span className="absolute inset-0 flex items-center justify-center bg-black/55 text-sm font-semibold text-white">
@@ -365,11 +390,21 @@ export default function VaultPage() {
     setLoading(true)
     setError(null)
     try {
+      let resolvedOrgId = orgScope.orgId ?? orgScope.id ?? null
+      if (!resolvedOrgId) {
+        const orgRes = await fetch(scopedApiPath('/api/v1/portal/org', orgScope))
+        const orgBody = orgRes.ok ? await orgRes.json().catch(() => null) : null
+        resolvedOrgId = typeof orgBody?.org?.id === 'string' ? orgBody.org.id : null
+      }
+
       const params = new URLSearchParams()
       if (platform) params.set('platform', platform)
       if (fromDate) params.set('from', new Date(fromDate).toISOString())
       if (toDate) params.set('to', new Date(toDate).toISOString())
-      const url = scopedApiPath(`/api/v1/social/vault${params.toString() ? `?${params.toString()}` : ''}`, orgScope)
+      const url = scopedApiPath(
+        `/api/v1/social/vault${params.toString() ? `?${params.toString()}` : ''}`,
+        { ...orgScope, orgId: resolvedOrgId },
+      )
       const res = await fetch(url)
       if (!res.ok) {
         throw new Error(`Failed to load vault (${res.status})`)

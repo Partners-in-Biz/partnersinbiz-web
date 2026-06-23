@@ -136,19 +136,41 @@ function defaultPostHref(slug: string, post: ScheduledContentPost): string {
   return `${surface}?${param}=${post.id}`
 }
 
+function isVideoSource(value: string | undefined): boolean {
+  if (!value) return false
+  return /\.(mp4|mov|m4v|webm)(\?|#|$)/i.test(value)
+}
+
+function isVideoMedia(media: ScheduledContentMedia | undefined): boolean {
+  return media?.type?.toLowerCase() === 'video' || isVideoSource(media?.url) || isVideoSource(media?.thumbnailUrl)
+}
+
 function MediaPane({ post, style }: { post: ScheduledContentPost; style: (typeof CHANNEL_STYLES)[keyof typeof CHANNEL_STYLES] }) {
   const media = post.media?.[0]
-  const imageUrl = media?.thumbnailUrl ?? (media?.type !== 'video' ? media?.url : undefined)
+  const isVideo = isVideoMedia(media)
+  const imageUrl = !isVideo ? media?.thumbnailUrl ?? media?.url : undefined
+  const videoUrl = isVideo ? media?.url ?? media?.thumbnailUrl : undefined
+  const posterUrl = isVideo && !isVideoSource(media?.thumbnailUrl) ? media?.thumbnailUrl : undefined
 
   return (
     <div className={`${style.frame} relative overflow-hidden rounded-2xl border border-white/10 flex items-center justify-center`}>
-      {imageUrl ? (
+      {videoUrl ? (
+        <video
+          src={videoUrl}
+          poster={posterUrl}
+          muted
+          playsInline
+          preload="metadata"
+          className="h-full w-full object-cover"
+          aria-label="Scheduled post video preview"
+        />
+      ) : imageUrl ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img src={imageUrl} alt="Scheduled post media preview" className="h-full w-full object-cover" />
       ) : (
         <div className="text-4xl text-white/70 font-headline">{style.icon}</div>
       )}
-      {media?.type === 'video' && (
+      {isVideo && (
         <span className="absolute inset-0 grid place-items-center text-3xl text-white drop-shadow">▶</span>
       )}
       <span className="absolute left-2 top-2 rounded-full bg-black/55 px-2 py-1 text-[9px] font-label uppercase tracking-wide text-white">
