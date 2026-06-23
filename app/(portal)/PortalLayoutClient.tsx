@@ -14,6 +14,7 @@ import { WelcomeFlashHandler } from '@/components/ui/WelcomeFlashHandler'
 import { SettingsNav } from '@/components/settings/SettingsNav'
 import { SupportDrawer } from '@/components/support/SupportDrawer'
 import { NotificationBell } from '@/components/crm/NotificationBell'
+import { PortalSubnav, type PortalSubnavItem } from '@/components/navigation/PortalSubnav'
 import { ThemeProvider } from '@/components/theme/ThemeProvider'
 import { ThemeToggle } from '@/components/theme/ThemeToggle'
 import { MessageDrawer } from '@/components/chat/MessageDrawer'
@@ -158,6 +159,26 @@ const GROUP_LABELS: Record<NavItem['group'], string> = {
   comms: 'Account',
 }
 
+const CRM_ROUTE_PATTERNS = [
+  '/portal/crm',
+  '/portal/contacts',
+  '/portal/companies',
+  '/portal/deals',
+  '/portal/reports/crm',
+  '/portal/segments',
+  '/portal/capture-sources',
+  '/portal/integrations',
+  '/portal/email',
+  '/portal/settings/crm-setup',
+  '/portal/settings/custom-fields',
+  '/portal/settings/pipelines',
+  '/portal/settings/scoring',
+  '/portal/settings/products',
+  '/portal/settings/automations',
+  '/portal/settings/sequences',
+  '/portal/settings/webhooks',
+]
+
 type LayoutMode = 'sidebar' | 'topbar'
 
 interface PortalOrgOption {
@@ -232,6 +253,68 @@ function NavLink({ item, pathname, collapsed }: { item: NavItem; pathname: strin
       {!collapsed && <span className="font-medium flex-1">{item.label}</span>}
     </Link>
   )
+}
+
+function buildCrmSubnavItems(buildHref: (path: string) => string): PortalSubnavItem[] {
+  return [
+    {
+      label: 'Contacts',
+      href: buildHref('/portal/contacts'),
+      icon: 'contacts',
+    },
+    {
+      label: 'Companies',
+      href: buildHref('/portal/companies'),
+      icon: 'domain',
+    },
+    {
+      label: 'Deals',
+      href: buildHref('/portal/deals'),
+      icon: 'monetization_on',
+    },
+    {
+      label: 'CRM Reports',
+      href: buildHref('/portal/reports/crm'),
+      icon: 'query_stats',
+    },
+    {
+      label: 'Capture & Comms',
+      href: buildHref('/portal/segments'),
+      icon: 'campaign',
+      activePatterns: ['/portal/segments', '/portal/capture-sources', '/portal/integrations', '/portal/email'],
+      children: [
+        { label: 'Segments', href: buildHref('/portal/segments'), icon: 'group_work' },
+        { label: 'Capture sources', href: buildHref('/portal/capture-sources'), icon: 'inventory_2' },
+        { label: 'Integrations', href: buildHref('/portal/integrations'), icon: 'extension' },
+        { label: 'Email', href: buildHref('/portal/email'), icon: 'mail' },
+      ],
+    },
+    {
+      label: 'Config',
+      href: buildHref('/portal/settings/crm-setup'),
+      icon: 'settings',
+      activePatterns: [
+        '/portal/settings/crm-setup',
+        '/portal/settings/pipelines',
+        '/portal/settings/custom-fields',
+        '/portal/settings/scoring',
+        '/portal/settings/products',
+        '/portal/settings/automations',
+        '/portal/settings/sequences',
+        '/portal/settings/webhooks',
+      ],
+      children: [
+        { label: 'CRM setup', href: buildHref('/portal/settings/crm-setup'), icon: 'rocket_launch' },
+        { label: 'Pipelines', href: buildHref('/portal/settings/pipelines'), icon: 'sync_alt' },
+        { label: 'Custom fields', href: buildHref('/portal/settings/custom-fields'), icon: 'tune' },
+        { label: 'Scoring', href: buildHref('/portal/settings/scoring'), icon: 'star_rate' },
+        { label: 'Products', href: buildHref('/portal/settings/products'), icon: 'inventory' },
+        { label: 'Automations', href: buildHref('/portal/settings/automations'), icon: 'bolt' },
+        { label: 'Sequences', href: buildHref('/portal/settings/sequences'), icon: 'route' },
+        { label: 'Webhooks', href: buildHref('/portal/settings/webhooks'), icon: 'webhook' },
+      ],
+    },
+  ]
 }
 
 export default function PortalLayout({ children }: { children: React.ReactNode }) {
@@ -622,6 +705,11 @@ function PortalLayoutContent({ children }: { children: React.ReactNode }) {
     searchParams,
     orgId: activeOrgId,
   })
+  const crmSubnavItems = buildCrmSubnavItems(scopedShellHref)
+  const showCrmSubnav = CRM_ROUTE_PATTERNS.some((pattern) => pathname === pattern || pathname.startsWith(pattern + '/'))
+  const crmSubnav = showCrmSubnav ? (
+    <PortalSubnav ariaLabel="CRM workspace navigation" items={crmSubnavItems} pathname={pathname} />
+  ) : null
 
   const tracker = (
     <>
@@ -792,6 +880,8 @@ function PortalLayoutContent({ children }: { children: React.ReactNode }) {
             </div>
           </div>
         )}
+
+        {crmSubnav}
 
         <main className={isCockpitRoute
           ? 'flex-1 min-h-0 overflow-hidden w-full max-w-none'
@@ -1064,6 +1154,8 @@ function PortalLayoutContent({ children }: { children: React.ReactNode }) {
             />
           </div>
         </header>
+
+        {crmSubnav}
 
         <main className={isCockpitRoute
           ? 'flex-1 min-h-0 overflow-hidden w-full max-w-none'
