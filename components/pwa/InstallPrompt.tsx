@@ -118,7 +118,7 @@ export function InstallPrompt() {
                 <button
                   type="button"
                   onClick={install}
-                  className="text-xs font-medium rounded-full bg-[var(--pib-accent)] text-black px-3 py-1.5"
+                  className="pib-btn-primary text-xs"
                 >
                   Install
                 </button>
