@@ -19,7 +19,7 @@ export interface NavItem {
 export const OPERATOR_NAV: NavItem[] = [
   { label: 'Home',            href: '/admin/dashboard',    icon: 'space_dashboard', group: 'work' },
   { label: 'Mission Control', href: '/admin/briefings',    icon: 'crisis_alert',    group: 'work' },
-  { label: 'Updates',         href: '/admin/updates',      icon: 'new_releases',    group: 'work' },
+  { label: 'Updates',         href: '/admin/updates',      icon: 'new_releases',    group: 'work', activePatterns: ['/admin/announcements', '/admin/changelog'] },
   { label: 'Loop Engine',     href: '/admin/loop-engine',  icon: 'all_inclusive',   group: 'work' },
   { label: 'Organisations', href: '/admin/organizations', icon: 'groups', group: 'work', activePatterns: ['/admin/organizations', '/admin/org'] },
   { label: 'Onboarding', href: '/admin/onboarding', icon: 'how_to_reg', group: 'work' },
@@ -30,7 +30,7 @@ export const OPERATOR_NAV: NavItem[] = [
   { label: 'Content', href: '/admin/content/seo', icon: 'article', group: 'data', activePatterns: ['/admin/content'] },
   { label: 'Knowledge', href: '/admin/knowledge', icon: 'menu_book', group: 'data' },
   { label: 'Support',   href: '/admin/support',   icon: 'support_agent', group: 'comms' },
-  { label: 'Settings', href: '/admin/settings', icon: 'settings', group: 'comms', activePatterns: ['/admin/platform-users', '/admin/platform-members'] },
+  { label: 'Settings', href: '/admin/settings', icon: 'settings', group: 'comms', activePatterns: ['/admin/platform-users', '/admin/platform-members', '/admin/properties', '/admin/moderation', '/admin/domains', '/admin/analytics', '/admin/reports', '/admin/tools', '/admin/system/audit-log', '/admin/settings/social-credentials', '/admin/2fa'] },
 ]
 
 export const OPERATOR_NAV_TOPBAR: NavItem[] = [
@@ -78,8 +78,9 @@ export const OPERATOR_NAV_TOPBAR: NavItem[] = [
       { label: 'Platform users', href: '/admin/platform-users' },
       { label: 'Platform members', href: '/admin/platform-members' },
       { label: 'API keys',       href: '/admin/settings/api-keys' },
+      { label: '2FA', href: '/admin/2fa' },
     ],
-    activePatterns: ['/admin/platform-users', '/admin/platform-members'],
+    activePatterns: ['/admin/platform-users', '/admin/platform-members', '/admin/properties', '/admin/moderation', '/admin/domains', '/admin/analytics', '/admin/reports', '/admin/tools', '/admin/system/audit-log', '/admin/settings/social-credentials', '/admin/2fa'],
   },
 ]
 
