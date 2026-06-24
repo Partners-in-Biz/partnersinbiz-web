@@ -14,11 +14,12 @@ import { FieldValue } from 'firebase-admin/firestore'
 import { withPortalAuth } from '@/lib/auth/portal-middleware'
 import { adminDb } from '@/lib/firebase/admin'
 import { apiError, apiSuccess, apiErrorFromException } from '@/lib/api/response'
-import { verifyToken, hashBackupCode } from '@/lib/auth/totp'
+import { verifyTokenWithCounter, hashBackupCode } from '@/lib/auth/totp'
 import {
   ADMIN_2FA_COOKIE,
   admin2faCookieOptions,
   clearFailedAttempts,
+  consumeTotpCounter,
   getLockoutState,
   issueAdmin2faToken,
   recordFailedAttempt,
@@ -59,8 +60,12 @@ export const POST = withPortalAuth(async (req: NextRequest, uid: string) => {
     }
 
     let verified = false
-    if (token && verifyToken(twoFactor.secret, token)) {
-      verified = true
+    if (token) {
+      const match = verifyTokenWithCounter(twoFactor.secret, token)
+      // Reject replay of an already-consumed TOTP step before accepting.
+      if (match && (await consumeTotpCounter(uid, match.counter))) {
+        verified = true
+      }
     } else if (backupCode) {
       const hashed = hashBackupCode(backupCode)
       const codes: string[] = Array.isArray(twoFactor.backupCodes) ? twoFactor.backupCodes : []

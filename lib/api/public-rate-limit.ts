@@ -21,6 +21,10 @@ export async function enforcePublicRateLimit(
     limit: number
     windowMs: number
     message?: string
+    // When true, a limiter failure denies the request (fail-closed) instead of
+    // allowing it. Use this for unauthenticated write paths where an attacker
+    // could otherwise bypass throttling by inducing limiter errors.
+    failClosed?: boolean
   },
 ) {
   let limit
@@ -31,6 +35,10 @@ export async function enforcePublicRateLimit(
       windowMs: input.windowMs,
     })
   } catch (error) {
+    if (input.failClosed) {
+      console.error('[public-rate-limit] limiter unavailable; denying request (fail-closed)', error)
+      return apiError(input.message ?? 'Service temporarily unavailable. Try again later.', 503)
+    }
     console.warn('[public-rate-limit] limiter unavailable; allowing request', error)
     return null
   }

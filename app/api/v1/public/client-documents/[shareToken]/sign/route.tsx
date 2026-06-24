@@ -82,6 +82,19 @@ function requiredText(value: unknown): string {
   return typeof value === 'string' && value.trim() ? value.trim() : ''
 }
 
+/** True when a signature request's signToken has passed its expiry. */
+function isSignatureRequestExpired(request: Record<string, unknown>): boolean {
+  const raw = request.expiresAt
+  let expiresMs: number | null = null
+  if (typeof raw === 'string') {
+    const parsed = Date.parse(raw)
+    expiresMs = Number.isNaN(parsed) ? null : parsed
+  } else if (raw && typeof (raw as { toMillis?: () => number }).toMillis === 'function') {
+    expiresMs = (raw as { toMillis: () => number }).toMillis()
+  }
+  return expiresMs !== null && expiresMs < Date.now()
+}
+
 async function loadByShareToken(shareToken: string) {
   const snap = await adminDb
     .collection(CLIENT_DOCUMENTS_COLLECTION)
@@ -166,6 +179,8 @@ export async function GET(req: NextRequest, context: RouteContext): Promise<Next
     const requestDoc = reqSnap.docs[0]
     const request = requestDoc.data()
 
+    if (isSignatureRequestExpired(request)) return apiError('This signature link has expired', 410)
+
     const versionId = (request.versionId as string) || document.latestPublishedVersionId
     if (!versionId) return apiError('Published version not found', 404)
 
@@ -214,6 +229,9 @@ export async function POST(req: NextRequest, context: RouteContext): Promise<Nex
       key: `public_sign_post:${publicRateLimitHash(shareToken)}:${publicRequestIp(req)}`,
       limit: 20,
       windowMs: 60 * 60 * 1000,
+      // Unauthenticated write path: deny if the limiter is unavailable rather
+      // than allowing an attacker to bypass throttling via induced errors.
+      failClosed: true,
     })
     if (limited) return limited
 
@@ -235,6 +253,7 @@ export async function POST(req: NextRequest, context: RouteContext): Promise<Nex
 
     if (request.status === 'signed') return apiError('This document has already been signed', 409)
     if (request.status === 'cancelled') return apiError('This signature request was cancelled', 410)
+    if (isSignatureRequestExpired(request)) return apiError('This signature link has expired', 410)
 
     const body = await req.json().catch(() => ({}))
     const typedName = requiredText(body.typedName)

@@ -43,7 +43,7 @@ export const GET = withAuth('admin', async () => {
     configured: platforms.filter((p) => p.configured).length,
     missing: platforms.filter((p) => !p.configured).length,
     disabled: platforms.filter((p) => !p.enabled).length,
-    withWebhookToken: platforms.filter((p) => Boolean(p.webhookToken)).length,
+    withWebhookToken: platforms.filter((p) => p.hasWebhookToken).length,
     inboxWebhookSecret: Boolean(process.env.SOCIAL_INBOX_WEBHOOK_SECRET),
   }
 

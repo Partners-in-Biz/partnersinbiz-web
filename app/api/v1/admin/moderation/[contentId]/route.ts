@@ -19,6 +19,7 @@ import { apiError, apiSuccess } from '@/lib/api/response'
 import { adminDb } from '@/lib/firebase/admin'
 import { FieldValue } from 'firebase-admin/firestore'
 import { writeAdminAudit } from '@/lib/admin/audit'
+import { canAccessOrg } from '@/lib/api/platformAdmin'
 
 export const dynamic = 'force-dynamic'
 
@@ -64,6 +65,10 @@ export const POST = withAuth('admin', async (req: NextRequest, user) => {
 
   const orgId = String(body.orgId ?? '').trim()
   if (!orgId) return apiError('orgId is required', 400)
+
+  // A restricted admin may only moderate orgs they are scoped to. Without this,
+  // a body-supplied orgId lets them strike / auto-suspend any organisation.
+  if (!canAccessOrg(user, orgId)) return apiError('Forbidden', 403)
 
   const decision = String(body.decision ?? '') as DecisionVerb
   if (!['approve', 'remove', 'escalate'].includes(decision)) {

@@ -52,20 +52,23 @@ export default async function AdminLayout({
     const verified = verifyAdmin2faToken(verificationCookie, uid, sessionCookie)
 
     if (!verified) {
-      // Loop-safe: never redirect while we are already on the challenge page.
-      // We detect the current path from the framework-provided header and, when
-      // it is unavailable, we fall back to letting the (still-active) client
-      // gate handle it rather than risk a redirect loop.
+      // FAIL CLOSED. The trusted `x-pathname` header is stamped server-side by
+      // middleware.ts for every `/admin/*` request, so we can reliably detect
+      // the challenge page and avoid a redirect loop. If the path genuinely
+      // cannot be determined we still redirect (the admin shell must never
+      // render without a satisfied challenge) — the only path we skip is the
+      // challenge page itself.
       const hdrs = await headers()
       const currentPath =
-        hdrs.get('next-url') ||
         hdrs.get('x-pathname') ||
+        hdrs.get('next-url') ||
         hdrs.get('x-invoke-path') ||
         ''
       const onChallengePage = currentPath.startsWith('/admin/2fa')
 
-      if (!onChallengePage && currentPath) {
-        redirect(`/admin/2fa?challenge=1&returnTo=${encodeURIComponent(currentPath)}`)
+      if (!onChallengePage) {
+        const returnTo = currentPath || '/admin'
+        redirect(`/admin/2fa?challenge=1&returnTo=${encodeURIComponent(returnTo)}`)
       }
     }
   }

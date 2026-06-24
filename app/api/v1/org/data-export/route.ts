@@ -10,13 +10,15 @@
 // 'data_exports' collection.
 //
 // POST (admin) -> creates job (status:processing) -> gathers -> uploads JSON
-//                 -> marks status:complete with downloadUrl.
+//                 privately (no public token) -> marks status:complete with a
+//                 storagePath. The response carries a `downloadPath` pointing at
+//                 the authenticated download route, which mints a short-lived
+//                 signed URL on demand.
 // GET  (admin) -> lists previous export jobs for the org, most recent first.
 
 import { NextRequest } from 'next/server'
 import { FieldValue, Timestamp } from 'firebase-admin/firestore'
 import { getStorage } from 'firebase-admin/storage'
-import crypto from 'crypto'
 import { withPortalAuthAndRole } from '@/lib/auth/portal-middleware'
 import { adminDb, getAdminApp } from '@/lib/firebase/admin'
 import { apiSuccess, apiError, apiErrorFromException } from '@/lib/api/response'
@@ -117,26 +119,24 @@ export const POST = withPortalAuthAndRole('admin', async (_req: NextRequest, uid
       collections,
     }
 
-    // Store assembled JSON in Firebase Storage with a download token.
+    // Store assembled JSON in Firebase Storage. No public download token is
+    // written: the file is private and served only through the authenticated
+    // download route, which mints a short-lived signed URL on demand.
     const bucket = getStorage(getAdminApp()).bucket()
     const filename = `data-exports/${orgId}/${Date.now()}-${jobRef.id}.json`
     const fileRef = bucket.file(filename)
-    const downloadToken = crypto.randomUUID()
     const buffer = Buffer.from(JSON.stringify(exportPayload, null, 2), 'utf-8')
 
     await fileRef.save(buffer, {
       metadata: {
         contentType: 'application/json',
-        metadata: { firebaseStorageDownloadTokens: downloadToken },
       },
     })
 
-    const downloadUrl = `https://firebasestorage.googleapis.com/v0/b/${bucket.name}/o/${encodeURIComponent(filename)}?alt=media&token=${downloadToken}`
     const totalRecords = Object.values(counts).reduce((a, b) => a + b, 0)
 
     await jobRef.update({
       status: 'complete',
-      downloadUrl,
       storagePath: filename,
       sizeBytes: buffer.byteLength,
       counts,
@@ -159,7 +159,10 @@ export const POST = withPortalAuthAndRole('admin', async (_req: NextRequest, uid
       {
         id: jobRef.id,
         status: 'complete',
-        downloadUrl,
+        // Authenticated download endpoint — call with the same portal session.
+        // It re-checks admin role + org ownership and mints a short-lived
+        // signed URL on demand. No public token is exposed.
+        downloadPath: `/api/v1/org/data-export/${jobRef.id}/download`,
         sizeBytes: buffer.byteLength,
         counts,
         totalRecords,
@@ -195,12 +198,14 @@ export const GET = withPortalAuthAndRole('admin', async (req: NextRequest, _uid:
       const d = doc.data()
       const createdAt = d.createdAt instanceof Timestamp ? d.createdAt.toDate().toISOString() : null
       const completedAt = d.completedAt instanceof Timestamp ? d.completedAt.toDate().toISOString() : null
+      const hasFile = d.status === 'complete' && typeof d.storagePath === 'string' && d.storagePath.length > 0
       return {
         id: doc.id,
         status: typeof d.status === 'string' ? d.status : 'unknown',
         scope: typeof d.scope === 'string' ? d.scope : 'organization',
         requestedBy: typeof d.requestedBy === 'string' ? d.requestedBy : '',
-        downloadUrl: typeof d.downloadUrl === 'string' ? d.downloadUrl : null,
+        // Authenticated download endpoint; no public URL is persisted.
+        downloadPath: hasFile ? `/api/v1/org/data-export/${doc.id}/download` : null,
         sizeBytes: typeof d.sizeBytes === 'number' ? d.sizeBytes : null,
         totalRecords: typeof d.totalRecords === 'number' ? d.totalRecords : null,
         error: typeof d.error === 'string' ? d.error : null,

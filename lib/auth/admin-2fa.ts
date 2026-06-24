@@ -203,6 +203,36 @@ export async function clearFailedAttempts(uid: string): Promise<void> {
   await adminDb.collection(LOCKOUT_COLLECTION).doc(uid).delete().catch(() => {})
 }
 
+/**
+ * TOTP replay protection (US-277 C2).
+ *
+ * A valid TOTP code is accepted across a ±1-step window (~90s), so the same
+ * 6-digit code can be presented multiple times inside that window. Without a
+ * record of consumed steps a single observed code can be replayed to mint a
+ * 12h verification cookie or to disable 2FA. We persist the highest TOTP step
+ * (counter) consumed on the user's `twoFactor` doc and reject any code whose
+ * matched step is <= the last consumed one.
+ *
+ * Pass the step returned by `verifyTokenWithCounter`. Returns true if the step
+ * is fresh (and records it), false if it is a replay of a consumed step.
+ *
+ * Atomic via a transaction so two concurrent requests with the same code cannot
+ * both pass.
+ */
+export async function consumeTotpCounter(uid: string, counter: number): Promise<boolean> {
+  const ref = adminDb.collection('users').doc(uid)
+  return adminDb.runTransaction(async (txn) => {
+    const snap = await txn.get(ref)
+    const lastUsed = snap.exists ? snap.data()?.twoFactor?.lastUsedCounter : undefined
+    if (typeof lastUsed === 'number' && counter <= lastUsed) {
+      // Replay: this step (or an earlier one) was already consumed.
+      return false
+    }
+    txn.set(ref, { twoFactor: { lastUsedCounter: counter } }, { merge: true })
+    return true
+  })
+}
+
 /** Cookie options for the verification marker (HttpOnly, Lax, secure in prod). */
 export function admin2faCookieOptions() {
   return {

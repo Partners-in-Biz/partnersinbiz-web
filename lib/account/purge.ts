@@ -30,7 +30,7 @@ export async function summariseAccountData(uid: string): Promise<AccountDataSumm
   const userRef = adminDb.collection('users').doc(uid)
   const [userSnap, memberSnap, notifSnap, keySnap, ownedSnap] = await Promise.all([
     userRef.get(),
-    adminDb.collection('orgMembers').where('userId', '==', uid).get(),
+    adminDb.collection('orgMembers').where('uid', '==', uid).get(),
     userRef.collection('notifications').limit(1000).get(),
     userRef.collection('apiKeys').limit(1000).get(),
     adminDb.collection('organizations').where('ownerId', '==', uid).get(),
@@ -76,8 +76,8 @@ async function deleteStorageAvatars(uid: string): Promise<void> {
 export async function purgeAccount(uid: string): Promise<{ uid: string; summary: AccountDataSummary }> {
   const summary = await summariseAccountData(uid)
 
-  // 1. orgMembers where this user is a member
-  const memberSnap = await adminDb.collection('orgMembers').where('userId', '==', uid).get()
+  // 1. orgMembers where this user is a member (membership docs are keyed by `uid`)
+  const memberSnap = await adminDb.collection('orgMembers').where('uid', '==', uid).get()
   for (let i = 0; i < memberSnap.docs.length; i += 400) {
     const batch = adminDb.batch()
     memberSnap.docs.slice(i, i + 400).forEach((doc) => batch.delete(doc.ref))

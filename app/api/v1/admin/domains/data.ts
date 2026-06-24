@@ -156,7 +156,13 @@ export function buildDomainsCsv(rows: DomainRow[]): string {
     'Last checked',
     'Last error',
   ]
-  const cell = (v: string) => `"${(v ?? '').replace(/"/g, '""')}"`
+  const cell = (v: string) => {
+    let raw = v ?? ''
+    // Prevent CSV/formula injection: a cell starting with one of these characters
+    // executes as a formula in Excel/Sheets. Prefix with an apostrophe to neutralise.
+    if (/^[=+\-@\t\r]/.test(raw)) raw = `'${raw}`
+    return `"${raw.replace(/"/g, '""')}"`
+  }
   const lines = [header.map(cell).join(',')]
   for (const row of rows) {
     lines.push(

@@ -12,6 +12,7 @@ import { apiError, apiSuccess } from '@/lib/api/response'
 import { adminDb } from '@/lib/firebase/admin'
 import { FieldValue } from 'firebase-admin/firestore'
 import { writeAdminAudit } from '@/lib/admin/audit'
+import { canAccessOrg } from '@/lib/api/platformAdmin'
 import { FLAGS_COLLECTION, coerceValue, isFlagType } from '../../_shared'
 
 export const dynamic = 'force-dynamic'
@@ -30,6 +31,10 @@ export const PUT = withAuth('admin', async (req: NextRequest, user, ctx) => {
 
   const orgId = String(body.orgId ?? '').trim()
   if (!orgId) return apiError('orgId is required', 400)
+
+  // A restricted admin may only override flags for orgs they are scoped to.
+  // Without this, a body-supplied orgId lets them flip feature flags on any org.
+  if (!canAccessOrg(user, orgId)) return apiError('Forbidden', 403)
 
   const orgRef = adminDb.collection('organizations').doc(orgId)
   const orgSnap = await orgRef.get()

@@ -395,7 +395,11 @@ export async function loadAuditLog(
 
 // CSV helpers.
 function csvCell(value: string): string {
-  const safe = (value ?? '').replace(/"/g, '""')
+  let raw = value ?? ''
+  // Prevent CSV/formula injection: a cell starting with one of these characters
+  // executes as a formula in Excel/Sheets. Prefix with an apostrophe to neutralise.
+  if (/^[=+\-@\t\r]/.test(raw)) raw = `'${raw}`
+  const safe = raw.replace(/"/g, '""')
   return `"${safe}"`
 }
 

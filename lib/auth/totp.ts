@@ -88,6 +88,39 @@ function hotp(secretBuffer: Buffer, counter: number, digits = DEFAULT_DIGITS): s
 }
 
 /**
+ * Verify a TOTP token against a secret and, on success, return the matched
+ * time-step counter so callers can persist it and reject replay of the same
+ * (or an earlier) step. Returns null on failure.
+ *
+ * `window` allows N steps of clock drift on either side (default 1 => ±30s).
+ */
+export function verifyTokenWithCounter(
+  secret: string,
+  token: string,
+  window = 1,
+  period = DEFAULT_PERIOD,
+): { counter: number } | null {
+  if (!secret || !token) return null
+  const normalized = token.replace(/\s+/g, '')
+  if (!/^\d{6}$/.test(normalized)) return null
+  const secretBuffer = base32Decode(secret)
+  if (secretBuffer.length === 0) return null
+  const counter = Math.floor(Date.now() / 1000 / period)
+  for (let errorWindow = -window; errorWindow <= window; errorWindow++) {
+    const step = counter + errorWindow
+    const candidate = hotp(secretBuffer, step)
+    // Constant-time comparison.
+    if (
+      candidate.length === normalized.length &&
+      crypto.timingSafeEqual(Buffer.from(candidate), Buffer.from(normalized))
+    ) {
+      return { counter: step }
+    }
+  }
+  return null
+}
+
+/**
  * Verify a TOTP token against a secret.
  * `window` allows N steps of clock drift on either side (default 1 => ±30s).
  */
@@ -97,23 +130,7 @@ export function verifyToken(
   window = 1,
   period = DEFAULT_PERIOD,
 ): boolean {
-  if (!secret || !token) return false
-  const normalized = token.replace(/\s+/g, '')
-  if (!/^\d{6}$/.test(normalized)) return false
-  const secretBuffer = base32Decode(secret)
-  if (secretBuffer.length === 0) return false
-  const counter = Math.floor(Date.now() / 1000 / period)
-  for (let errorWindow = -window; errorWindow <= window; errorWindow++) {
-    const candidate = hotp(secretBuffer, counter + errorWindow)
-    // Constant-time comparison.
-    if (
-      candidate.length === normalized.length &&
-      crypto.timingSafeEqual(Buffer.from(candidate), Buffer.from(normalized))
-    ) {
-      return true
-    }
-  }
-  return false
+  return verifyTokenWithCounter(secret, token, window, period) !== null
 }
 
 /** Generate N human-friendly backup codes (e.g. "a1b2-c3d4"). */

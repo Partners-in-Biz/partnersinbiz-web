@@ -14,7 +14,13 @@ export default async function proxy(request: NextRequest) {
     return NextResponse.redirect(new URL('/login', request.url))
   }
 
-  const response = NextResponse.next()
+  // US-277: stamp a trusted `x-pathname` header (the client cannot forge it — it
+  // is set server-side here) so the admin server layout can FAIL CLOSED on its
+  // 2FA gate while still skipping the redirect when already on `/admin/2fa`.
+  const requestHeaders = new Headers(request.headers)
+  requestHeaders.set('x-pathname', pathname)
+
+  const response = NextResponse.next({ request: { headers: requestHeaders } })
   response.headers.set('X-Robots-Tag', 'noindex, nofollow')
   return response
 }

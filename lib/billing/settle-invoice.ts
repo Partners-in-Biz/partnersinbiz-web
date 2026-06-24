@@ -57,6 +57,22 @@ export interface SettleInvoiceResult {
   invoiceId: string
   invoiceNumber?: string
   subscriptionAdvanced?: boolean
+  /**
+   * True when the settled amount was below the invoice total (beyond rounding
+   * tolerance). The invoice is marked `partially_paid`, the subscription is NOT
+   * advanced, and no `invoice.paid`/`payment.received` webhooks fire.
+   */
+  partiallyPaid?: boolean
+  /** Outstanding balance (invoice.total − paidAmount) when partially paid. */
+  shortfall?: number
+}
+
+/** Rounding tolerance for amount comparisons — half a ZAR cent. */
+const AMOUNT_EPSILON = 0.005
+
+/** Round a currency amount to 2 decimals (ZAR cents), avoiding float drift. */
+function roundCurrency(value: number): number {
+  return Math.round((value + Number.EPSILON) * 100) / 100
 }
 
 function intervalDays(interval: BillingInterval): number {
@@ -168,45 +184,163 @@ export async function settleInvoicePaid(
   } = input
 
   const ref = adminDb.collection('invoices').doc(invoiceId)
-  const snap = await ref.get()
-  if (!snap.exists) {
+
+  const paidAtTs = paidAt ? Timestamp.fromDate(paidAt) : FieldValue.serverTimestamp()
+  const paidAtMs = paidAt ? paidAt.getTime() : Date.now()
+
+  // --- Atomic load + status-check + write (H2) --------------------------
+  // The load, the "already paid?" check, and the paid/partially_paid write all
+  // happen inside one Firestore transaction. Concurrent webhook retries
+  // (PayPal + EFT both retry) serialise here: exactly ONE caller observes the
+  // un-settled invoice and performs the transition; every other caller sees the
+  // settled state and bails as a no-op. Side-effects below (subscription
+  // advance, outbound webhooks, activity, notification) run only when THIS call
+  // is the one that transitioned the invoice — so they fire exactly once.
+  type TxOutcome =
+    | { kind: 'not-found' }
+    | { kind: 'already-settled' }
+    | {
+        kind: 'transitioned'
+        invoice: Record<string, unknown>
+        invoiceNumber: string
+        orgId: string | undefined
+        createdBy: string | undefined
+        total: number
+        settledAmount: number
+        fullyPaid: boolean
+        shortfall: number
+      }
+
+  const outcome: TxOutcome = await adminDb.runTransaction(async (tx) => {
+    const snap = await tx.get(ref)
+    if (!snap.exists) return { kind: 'not-found' }
+
+    const invoice = snap.data() as Record<string, unknown>
+
+    // Idempotency: any terminal-settled state is a no-op for this caller. We
+    // treat `paid` and `partially_paid` as already-settled so a retry never
+    // re-runs side-effects (a partial top-up to full settlement is a separate
+    // flow handled elsewhere, not by a blind webhook retry).
+    if (invoice.status === 'paid' || invoice.status === 'partially_paid') {
+      return { kind: 'already-settled' }
+    }
+
+    const invoiceNumber =
+      typeof invoice.invoiceNumber === 'string' ? invoice.invoiceNumber : invoiceId
+    const orgId = typeof invoice.orgId === 'string' ? invoice.orgId : undefined
+    const createdBy =
+      typeof invoice.createdBy === 'string' ? invoice.createdBy : undefined
+    const total =
+      typeof invoice.total === 'number' ? roundCurrency(invoice.total) : 0
+
+    // --- Validate paid amount (H1) -------------------------------------
+    // Default to the invoice total when no explicit amount was supplied.
+    const settledAmount = roundCurrency(
+      typeof paidAmount === 'number' ? paidAmount : total,
+    )
+    // Full settlement = settled amount covers the total within tolerance.
+    // Overpayment (settled > total) still counts as full settlement.
+    const fullyPaid = settledAmount + AMOUNT_EPSILON >= total
+    const shortfall = fullyPaid ? 0 : roundCurrency(total - settledAmount)
+
+    const updates: Record<string, unknown> = {
+      status: fullyPaid ? 'paid' : 'partially_paid',
+      paidAt: paidAtTs,
+      paymentMethod,
+      paidAmount: settledAmount,
+      lastUpdatedBy: actorId,
+      updatedAt: FieldValue.serverTimestamp(),
+    }
+    if (paymentReference) updates.paymentReference = paymentReference
+    if (!fullyPaid) updates.amountDue = shortfall
+
+    tx.update(ref, updates)
+
+    return {
+      kind: 'transitioned',
+      invoice,
+      invoiceNumber,
+      orgId,
+      createdBy,
+      total,
+      settledAmount,
+      fullyPaid,
+      shortfall,
+    }
+  })
+
+  if (outcome.kind === 'not-found') {
     return { ok: false, alreadyPaid: false, notFound: true, invoiceId }
   }
-
-  const invoice = snap.data() as Record<string, unknown>
-  const invoiceNumber =
-    typeof invoice.invoiceNumber === 'string' ? invoice.invoiceNumber : invoiceId
-  const orgId = typeof invoice.orgId === 'string' ? invoice.orgId : undefined
-  const createdBy = typeof invoice.createdBy === 'string' ? invoice.createdBy : undefined
-  const total = typeof invoice.total === 'number' ? invoice.total : 0
-
-  // --- Idempotency ------------------------------------------------------
-  if (invoice.status === 'paid') {
+  if (outcome.kind === 'already-settled') {
     return {
       ok: true,
       alreadyPaid: true,
       notFound: false,
       invoiceId,
-      invoiceNumber,
     }
   }
 
-  const paidAtTs = paidAt ? Timestamp.fromDate(paidAt) : FieldValue.serverTimestamp()
-  const paidAtMs = paidAt ? paidAt.getTime() : Date.now()
-  const settledAmount = typeof paidAmount === 'number' ? paidAmount : total
+  const {
+    invoice,
+    invoiceNumber,
+    orgId,
+    createdBy,
+    total,
+    settledAmount,
+    fullyPaid,
+    shortfall,
+  } = outcome
 
-  // --- Mark the invoice paid -------------------------------------------
-  const updates: Record<string, unknown> = {
-    status: 'paid',
-    paidAt: paidAtTs,
-    paymentMethod,
-    paidAmount: settledAmount,
-    lastUpdatedBy: actorId,
-    updatedAt: FieldValue.serverTimestamp(),
+  if (!fullyPaid) {
+    // Underpayment: record the shortfall, flag the mismatch, and stop. We do
+    // NOT advance the subscription, notify "paid", or fire paid/received
+    // webhooks for a partial settlement. An activity entry records the partial
+    // payment for the audit trail and ops follow-up.
+    console.warn(
+      `[settle-invoice] amount mismatch on ${invoiceNumber}: settled ${settledAmount} < total ${total} (shortfall ${shortfall}); marked partially_paid`,
+    )
+    await adminDb.collection('activities').add({
+      orgId: orgId ?? null,
+      type: 'invoice.partially_paid',
+      resourceType: 'invoice',
+      resourceId: invoiceId,
+      summary: `Invoice ${invoiceNumber} partially paid via ${paymentMethod}: ${settledAmount} of ${total} (shortfall ${shortfall})${
+        paymentReference ? ` (${paymentReference})` : ''
+      }`,
+      createdBy: actorId,
+      createdByType: 'system',
+      actorName,
+      actorRole,
+      createdAt: FieldValue.serverTimestamp(),
+    })
+
+    if (createdBy && createdBy !== actorId) {
+      await adminDb.collection('notifications').add({
+        orgId: orgId ?? null,
+        userId: createdBy,
+        agentId: null,
+        type: 'invoice.partially_paid',
+        title: 'Partial payment received',
+        body: `Invoice ${invoiceNumber} received a partial payment of ${settledAmount} via ${paymentMethod} (${shortfall} still outstanding)`,
+        link: `/portal/invoicing/${invoiceId}`,
+        status: 'unread',
+        priority: 'high',
+        createdAt: FieldValue.serverTimestamp(),
+      })
+    }
+
+    return {
+      ok: true,
+      alreadyPaid: false,
+      notFound: false,
+      invoiceId,
+      invoiceNumber,
+      subscriptionAdvanced: false,
+      partiallyPaid: true,
+      shortfall,
+    }
   }
-  if (paymentReference) updates.paymentReference = paymentReference
-
-  await ref.update(updates)
 
   // --- Activity log -----------------------------------------------------
   await adminDb.collection('activities').add({

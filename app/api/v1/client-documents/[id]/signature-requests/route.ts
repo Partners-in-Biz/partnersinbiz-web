@@ -138,6 +138,9 @@ export const POST = withAuth('admin', async (req: NextRequest, user: ApiUser, ct
     .doc()
 
   const now = FieldValue.serverTimestamp()
+  // Sign tokens are valid for 30 days; the public sign endpoint rejects expired ones.
+  const SIGN_TOKEN_TTL_MS = 30 * 24 * 60 * 60 * 1000
+  const expiresAtIso = new Date(Date.now() + SIGN_TOKEN_TTL_MS).toISOString()
   const record = {
     documentId: id,
     versionId: document.latestPublishedVersionId,
@@ -146,6 +149,7 @@ export const POST = withAuth('admin', async (req: NextRequest, user: ApiUser, ct
     message: message || '',
     status: 'pending' as const,
     signToken,
+    expiresAt: expiresAtIso,
     createdBy: user.uid,
     createdByType: actorType(user),
     createdAt: now,

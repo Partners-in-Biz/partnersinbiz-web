@@ -93,7 +93,8 @@ export interface PlatformCredentialView {
   /** Operator-managed settings (Firestore). */
   enabled: boolean
   apiVersion: string | null
-  webhookToken: string | null
+  /** Whether a webhook verification token is configured (never the cleartext). */
+  hasWebhookToken: boolean
   webhookTokenMasked: string | null
   lastRotatedAt: string | null
   rotationLog: RotationLogEntry[]
@@ -143,7 +144,9 @@ export function buildCredentialView(
     scopes: config?.scopes ?? [],
     enabled: settings?.enabled === false ? false : true,
     apiVersion: typeof settings?.apiVersion === 'string' && settings.apiVersion.trim() ? settings.apiVersion.trim() : null,
-    webhookToken,
+    // Never return the cleartext token. Only presence + a masked copy. The raw
+    // value is revealed once, only in the rotate route's one-time response.
+    hasWebhookToken: Boolean(webhookToken),
     webhookTokenMasked: maskSecret(webhookToken),
     lastRotatedAt: tsToIso(settings?.lastRotatedAt),
     rotationLog,

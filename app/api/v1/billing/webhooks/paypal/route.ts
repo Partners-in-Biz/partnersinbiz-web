@@ -54,6 +54,8 @@ interface PayPalEvent {
     id?: string
     custom_id?: string
     invoice_id?: string
+    /** PAYMENT.CAPTURE.COMPLETED carries the captured amount here. */
+    amount?: { value?: string; currency_code?: string }
     supplementary_data?: {
       related_ids?: { order_id?: string }
     }
@@ -61,8 +63,19 @@ interface PayPalEvent {
       reference_id?: string
       custom_id?: string
       invoice_id?: string
+      amount?: { value?: string; currency_code?: string }
     }>
   }
+}
+
+/** Extract the captured ZAR amount from a capture event, or null if absent. */
+function captureAmount(event: PayPalEvent): number | null {
+  const resource = event.resource ?? {}
+  const raw =
+    resource.amount?.value ?? resource.purchase_units?.[0]?.amount?.value ?? null
+  if (raw == null) return null
+  const n = Number.parseFloat(raw)
+  return Number.isFinite(n) ? n : null
 }
 
 /** Resolve the platform invoice doc id from a PayPal event resource. */
@@ -165,15 +178,21 @@ export async function POST(req: Request) {
     invoiceId = await resolveInvoiceId(event)
     if (invoiceId) {
       const captureId = event.resource?.id ?? null
+      // Pass the captured amount so settleInvoicePaid can validate it against
+      // the invoice total (H1). A short capture marks the invoice
+      // partially_paid and does NOT advance the subscription. When PayPal omits
+      // the amount we fall back to the invoice total (settleInvoicePaid default).
+      const paidAmount = captureAmount(event)
       const result = await settleInvoicePaid({
         invoiceId,
         paymentMethod: 'paypal',
         paymentReference: captureId,
+        paidAmount,
         actorId: 'paypal-webhook',
         actorName: 'PayPal Webhook',
         actorRole: 'system',
       })
-      settled = result.ok && !result.alreadyPaid
+      settled = result.ok && !result.alreadyPaid && !result.partiallyPaid
     } else {
       console.warn(
         `[paypal-webhook] could not resolve invoice for capture event ${eventId ?? '?'}`,

@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server'
-import { adminDb } from '@/lib/firebase/admin'
+import { adminAuth, adminDb } from '@/lib/firebase/admin'
 import { FieldValue } from 'firebase-admin/firestore'
-import { apiErrorFromException, apiSuccess } from '@/lib/api/response'
+import { apiError, apiErrorFromException, apiSuccess } from '@/lib/api/response'
 import { withPortalAuth } from '@/lib/auth/portal-middleware'
 import { summariseAccountData } from '@/lib/account/purge'
 import { sendEmail } from '@/lib/email/send'
@@ -10,6 +10,11 @@ export const dynamic = 'force-dynamic'
 
 const RECOVERY_WINDOW_DAYS = 30
 
+// Irreversible account deletion requires a fresh sign-in. We reject sessions
+// whose last authentication (`auth_time`) is older than this window so a stale
+// or hijacked long-lived session cannot schedule deletion without re-auth.
+const REAUTH_MAX_AGE_SECONDS = 10 * 60 // 10 minutes
+
 /**
  * POST /api/v1/account/delete
  * Initiates a hardened, recoverable account deletion. Multi-step confirmation
@@ -17,8 +22,29 @@ const RECOVERY_WINDOW_DAYS = 30
  * job in `account_deletions` with a 30-day recovery window. A future cron
  * processor purges via lib/account/purge.purgeAccount once purgeAfter passes.
  */
-export const POST = withPortalAuth(async (_req: NextRequest, uid: string) => {
+export const POST = withPortalAuth(async (req: NextRequest, uid: string) => {
   try {
+    // Server-side re-auth gate. Irreversible deletion must be backed by a
+    // recent sign-in, not merely a still-valid long-lived session. Re-verify
+    // the session cookie to read the `auth_time` claim (Unix seconds of the
+    // user's last authentication) and reject stale sessions.
+    const sessionCookie = req.cookies.get('__session')?.value ?? ''
+    let authTime = 0
+    try {
+      const decoded = await adminAuth.verifySessionCookie(sessionCookie, true)
+      authTime = typeof decoded.auth_time === 'number' ? decoded.auth_time : 0
+    } catch {
+      return apiError('Unauthorized', 401)
+    }
+    const ageSeconds = Math.floor(Date.now() / 1000) - authTime
+    if (!authTime || ageSeconds > REAUTH_MAX_AGE_SECONDS) {
+      return apiError(
+        'Please sign in again to confirm account deletion. For your security, this action requires a recent login.',
+        401,
+        { reauthRequired: true },
+      )
+    }
+
     const existing = await adminDb
       .collection('account_deletions')
       .where('uid', '==', uid)
