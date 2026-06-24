@@ -42,7 +42,7 @@ describe('BudgetDetailClient', () => {
       screen.getByRole('alertdialog', { name: 'Reset budget period for Org Monthly Cap?' }),
     ).toBeInTheDocument()
     expect(
-      screen.getByText('Spend tracking restarts at 0 for the current monthly period. Historical budget events stay in PiB.'),
+      screen.getByText('Spend tracking restarts at 0 for the current monthly period. Historical budget events stay in PiB; this does not approve additional paid spend.'),
     ).toBeInTheDocument()
 
     fireEvent.click(screen.getByRole('button', { name: 'Confirm reset period for budget Org Monthly Cap' }))
@@ -54,7 +54,7 @@ describe('BudgetDetailClient', () => {
       })
     })
 
-    expect(await screen.findByText('Budget period reset. Spend tracking is back at 0.')).toBeInTheDocument()
+    expect(await screen.findByText('Budget period reset. Spend tracking is back at 0; this does not approve additional paid spend.')).toBeInTheDocument()
     expect(screen.getByText('0.0%')).toBeInTheDocument()
     confirmSpy.mockRestore()
   })
@@ -74,7 +74,7 @@ describe('BudgetDetailClient', () => {
       screen.getByRole('alertdialog', { name: 'Archive budget Org Monthly Cap for acme?' }),
     ).toBeInTheDocument()
     expect(
-      screen.getByText('This removes Org Monthly Cap from active pacing controls. Historical spend and events stay in PiB.'),
+      screen.getByText('This removes Org Monthly Cap from active admin pacing controls. Historical spend and events stay in PiB; this does not approve or increase paid spend.'),
     ).toBeInTheDocument()
 
     fireEvent.click(screen.getByRole('button', { name: 'Confirm archive budget Org Monthly Cap for acme' }))

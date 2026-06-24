@@ -248,9 +248,11 @@ describe('PATCH /api/v1/quotes/:id — status transitions', () => {
   })
 
   it('PATCH to accepted sets acceptedAt + fires quote.accepted webhook with explicit fields', async () => {
+    // Acceptance is only permitted for the RECIPIENT org. Stage the actor as a
+    // member of the recipient org (org-1); the quote is owned/sent by org-2.
     const member = seedOrgMember('org-1', 'uid-m', { role: 'member', firstName: 'Jane', lastName: 'Doe' })
     stageAuth(member, {
-      quotes: [makeQuoteDoc('q-sent', { status: 'sent', quoteNumber: 'Q-TES-001', total: 2000, currency: 'ZAR' })],
+      quotes: [makeQuoteDoc('q-sent', { status: 'sent', quoteNumber: 'Q-TES-001', total: 2000, currency: 'ZAR', orgId: 'org-2', sourceOrgId: 'org-2', recipientOrgId: 'org-1' })],
     })
     ;(dispatchWebhook as jest.Mock).mockClear()
 
@@ -261,7 +263,7 @@ describe('PATCH /api/v1/quotes/:id — status transitions', () => {
 
     expect(dispatchWebhook).toHaveBeenCalledTimes(1)
     const [orgId, event, payload] = (dispatchWebhook as jest.Mock).mock.calls[0]
-    expect(orgId).toBe('org-1')
+    expect(orgId).toBe('org-2')
     expect(event).toBe('quote.accepted')
     expect(payload).toHaveProperty('id', 'q-sent')
     expect(payload).toHaveProperty('quoteNumber', 'Q-TES-001')
@@ -276,7 +278,7 @@ describe('PATCH /api/v1/quotes/:id — status transitions', () => {
   it('PATCH to rejected fires quote.rejected webhook with explicit fields', async () => {
     const member = seedOrgMember('org-1', 'uid-m', { role: 'member' })
     stageAuth(member, {
-      quotes: [makeQuoteDoc('q-sent2', { status: 'sent', quoteNumber: 'Q-TES-002', total: 500, currency: 'ZAR' })],
+      quotes: [makeQuoteDoc('q-sent2', { status: 'sent', quoteNumber: 'Q-TES-002', total: 500, currency: 'ZAR', orgId: 'org-2', sourceOrgId: 'org-2', recipientOrgId: 'org-1' })],
     })
     ;(dispatchWebhook as jest.Mock).mockClear()
 
@@ -342,7 +344,7 @@ describe('PATCH /api/v1/quotes/:id — status transitions', () => {
     const member = seedOrgMember('org-1', 'uid-m', { role: 'member' })
     const capturedActivitiesAdd = jest.fn().mockResolvedValue({ id: 'act-2' })
     stageAuth(member, {
-      quotes: [makeQuoteDoc('q-sent-contact', { status: 'sent', contactId: 'c-99', quoteNumber: 'Q-TES-011' })],
+      quotes: [makeQuoteDoc('q-sent-contact', { status: 'sent', contactId: 'c-99', quoteNumber: 'Q-TES-011', orgId: 'org-2', sourceOrgId: 'org-2', recipientOrgId: 'org-1' })],
       activitiesCapture: { capturedAdd: capturedActivitiesAdd },
     })
     ;(dispatchWebhook as jest.Mock).mockClear()
@@ -353,7 +355,7 @@ describe('PATCH /api/v1/quotes/:id — status transitions', () => {
     expect(res.status).toBe(200)
     expect(capturedActivitiesAdd).toHaveBeenCalledWith(
       expect.objectContaining({
-        orgId: 'org-1',
+        orgId: 'org-2',
         contactId: 'c-99',
         type: 'note',
         summary: 'Quote accepted: Q-TES-011',
@@ -365,7 +367,7 @@ describe('PATCH /api/v1/quotes/:id — status transitions', () => {
     const member = seedOrgMember('org-1', 'uid-m', { role: 'member' })
     const capturedActivitiesAdd = jest.fn().mockResolvedValue({ id: 'act-3' })
     stageAuth(member, {
-      quotes: [makeQuoteDoc('q-sent-rej', { status: 'sent', contactId: 'c-99', quoteNumber: 'Q-TES-012' })],
+      quotes: [makeQuoteDoc('q-sent-rej', { status: 'sent', contactId: 'c-99', quoteNumber: 'Q-TES-012', orgId: 'org-2', sourceOrgId: 'org-2', recipientOrgId: 'org-1' })],
       activitiesCapture: { capturedAdd: capturedActivitiesAdd },
     })
     ;(dispatchWebhook as jest.Mock).mockClear()
@@ -376,7 +378,7 @@ describe('PATCH /api/v1/quotes/:id — status transitions', () => {
     expect(res.status).toBe(200)
     expect(capturedActivitiesAdd).toHaveBeenCalledWith(
       expect.objectContaining({
-        orgId: 'org-1',
+        orgId: 'org-2',
         contactId: 'c-99',
         type: 'note',
         summary: 'Quote rejected: Q-TES-012',
@@ -786,6 +788,9 @@ describe('PATCH /api/v1/quotes/:id — companyId wiring', () => {
         currency: 'ZAR',
         companyId: 'co-xyz',
         companyName: 'XYZ Ltd',
+        orgId: 'org-2',
+        sourceOrgId: 'org-2',
+        recipientOrgId: 'org-1',
       })],
     })
     ;(loadCompany as jest.Mock).mockResolvedValue(null)

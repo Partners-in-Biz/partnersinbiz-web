@@ -22,6 +22,11 @@ jest.mock('@/lib/firebase/admin', () => ({
       if (name === 'activities') {
         return { doc: mockActivityDoc }
       }
+      if (name === 'suppressions') {
+        // isSuppressed() does collection('suppressions').doc(id).get().
+        // Return not-suppressed so the happy path proceeds.
+        return { doc: jest.fn(() => ({ get: jest.fn().mockResolvedValue({ exists: false }) })) }
+      }
       throw new Error(`Unexpected collection: ${name}`)
     }),
     batch: mockBatch,

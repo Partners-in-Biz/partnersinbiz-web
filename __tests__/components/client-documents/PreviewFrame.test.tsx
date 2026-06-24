@@ -30,7 +30,7 @@ test('shows shareUrl link when published prop is true', () => {
       <span />
     </PreviewFrame>,
   )
-  const link = screen.getByRole('link', { name: /open public share/i })
+  const link = screen.getByRole('link', { name: /client-facing share link/i })
   expect(link.getAttribute('href')).toBe('https://partnersinbiz.online/d/xyz')
 })
 
@@ -40,5 +40,5 @@ test('omits shareUrl link when not provided', () => {
       <span />
     </PreviewFrame>,
   )
-  expect(screen.queryByRole('link', { name: /open public share/i })).toBeNull()
+  expect(screen.queryByRole('link', { name: /client-facing share link/i })).toBeNull()
 })

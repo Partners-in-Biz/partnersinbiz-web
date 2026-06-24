@@ -54,6 +54,7 @@ function stageAuth(
   opts: {
     deals?: DealFixture[]
     activities?: ActivityFixture[]
+    contacts?: Array<{ id: string } & Record<string, unknown>>
   } = {},
 ) {
   ;(adminAuth.verifySessionCookie as jest.Mock).mockResolvedValue({ uid: member.uid })
@@ -73,6 +74,10 @@ function stageAuth(
     if (name === 'activities') {
       const actDocs = (opts.activities ?? []).map((a) => ({ id: a.id, data: a as unknown as Record<string, unknown> }))
       return buildQueryChain(actDocs)
+    }
+    if (name === 'contacts') {
+      const contactDocs = (opts.contacts ?? []).map((c) => ({ id: c.id, data: c as Record<string, unknown> }))
+      return buildQueryChain(contactDocs)
     }
     return { doc: () => ({ get: () => Promise.resolve({ exists: false }) }) }
   })

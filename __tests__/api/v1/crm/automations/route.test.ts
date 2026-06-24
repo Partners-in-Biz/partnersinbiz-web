@@ -255,7 +255,7 @@ describe('POST /api/v1/crm/automations', () => {
     const req = callAsMember(member, 'POST', '/api/v1/crm/automations', {
       name: 'Safe Rule',
       trigger: { event: 'deal.created' },
-      actions: [{ type: 'notify_slack' }],
+      actions: [{ type: 'send_notification' }],
       id: 'injected-id',
       orgId: 'evil-org',
       createdAt: 'injected-ts',

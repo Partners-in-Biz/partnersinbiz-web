@@ -129,7 +129,7 @@ describe('BudgetsListClient', () => {
     ).toBeInTheDocument()
     expect(
       screen.getByText(
-        'This removes Org Monthly Cap from active budget pacing. Historical spend and alerts stay in PiB.',
+        'This removes Org Monthly Cap from active admin budget pacing. Historical spend and alerts stay in PiB; it does not approve or increase paid spend.',
       ),
     ).toBeInTheDocument()
 

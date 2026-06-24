@@ -350,7 +350,9 @@ describe('cross-tenant isolation: quotes routes', () => {
       return cb(fakeTx)
     })
 
-    const sentQuote = { ...quoteA, status: 'sent' }
+    // Acceptance is only permitted for the RECIPIENT org. memberA belongs to
+    // org-a, so stage the quote as sent BY org-b TO org-a (recipient = org-a).
+    const sentQuote = { ...quoteA, status: 'sent', sourceOrgId: 'org-b', recipientOrgId: 'org-a' }
     const authCollections = makePortalAuthCollections(memberA)
 
     ;(adminDb.collection as jest.Mock).mockImplementation((name: string) => {
@@ -385,7 +387,8 @@ describe('cross-tenant isolation: quotes routes', () => {
 
     expect(dispatchWebhook).toHaveBeenCalledTimes(1)
     const [calledOrgId, calledEvent, calledPayload] = (dispatchWebhook as jest.Mock).mock.calls[0]
-    expect(calledOrgId).toBe('org-a')
+    // Webhook fires for the SENDER (source) org — org-b in this recipient-accept flow
+    expect(calledOrgId).toBe('org-b')
     expect(calledEvent).toBe('quote.accepted')
     expect(calledPayload).toHaveProperty('id', 'q-a')
     expect(calledPayload).toHaveProperty('quoteNumber', 'Q-TST-001')

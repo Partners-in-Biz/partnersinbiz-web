@@ -2,7 +2,20 @@ import { NextRequest } from 'next/server'
 import type { CompanyCommandCenter } from '@/lib/companies/command-center'
 
 const mockAdminDbCollection = jest.fn()
-const mockWithAuthUser = { uid: 'admin-1', role: 'admin', orgId: 'pib-platform-owner', allowedOrgIds: ['client-org'] }
+// POST /api/v1/crm/data-tools now gates on the member access policy
+// (canAccessModule(..., 'crm') + recordScopeFor(..., 'crm')). Grant a full-access
+// CRM policy so the admin import/dedupe path is permitted.
+const mockWithAuthUser = {
+  uid: 'admin-1',
+  role: 'admin',
+  orgId: 'pib-platform-owner',
+  allowedOrgIds: ['client-org'],
+  memberAccessPolicy: {
+    preset: 'full',
+    modules: { crm: true },
+    recordScopes: { crm: 'all' },
+  },
+}
 const mockCanAccessOrg = jest.fn()
 const mockLoadCompany = jest.fn()
 const mockBuildCompanyCommandCenter = jest.fn()

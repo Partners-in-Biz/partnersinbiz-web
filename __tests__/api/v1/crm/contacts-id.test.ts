@@ -111,7 +111,8 @@ describe('GET /api/v1/crm/contacts/:id', () => {
   it('returns contact when found', async () => {
     const member = seedOrgMember('org-test', 'uid-viewer', { role: 'viewer' })
     stageAuth(member, {}, {
-      contact: { id: 'a1', data: { orgId: 'org-test', name: 'John', email: 'john@test.com', deleted: false } },
+      // Assigned to the viewer so the assignment-based read scope grants access.
+      contact: { id: 'a1', data: { orgId: 'org-test', assignedTo: 'uid-viewer', name: 'John', email: 'john@test.com', deleted: false } },
     })
     const req = callAsMember(member, 'GET', '/api/v1/crm/contacts/a1')
     const { GET } = await import('@/app/api/v1/crm/contacts/[id]/route')
