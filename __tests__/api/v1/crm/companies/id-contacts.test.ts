@@ -95,7 +95,7 @@ describe('GET /api/v1/crm/companies/:id/contacts', () => {
 
   it('returns linked contacts for a valid company (happy path)', async () => {
     const member = seedOrgMember(orgId, viewerUid, { role: 'viewer' })
-    const company = buildCompany({ id: companyId, orgId })
+    const company = buildCompany({ id: companyId, orgId, ownerUid: viewerUid })
     ;(loadCompany as jest.Mock).mockResolvedValue({ data: company })
 
     const contactDocs = [
@@ -117,7 +117,7 @@ describe('GET /api/v1/crm/companies/:id/contacts', () => {
 
   it('also returns mirrored contacts linked by recipient org id', async () => {
     const member = seedOrgMember(orgId, uidFor('viewer-linked-org'), { role: 'viewer' })
-    const company = { ...buildCompany({ id: companyId, orgId }), linkedOrgId: 'client-org-1' }
+    const company = { ...buildCompany({ id: companyId, orgId, ownerUid: member.uid }), linkedOrgId: 'client-org-1' }
     ;(loadCompany as jest.Mock).mockResolvedValue({ data: company })
 
     stageAuth(member, [
@@ -135,7 +135,7 @@ describe('GET /api/v1/crm/companies/:id/contacts', () => {
 
   it('returns empty array when company has no linked contacts', async () => {
     const member = seedOrgMember(orgId, uidFor('viewer-empty'), { role: 'viewer' })
-    const company = buildCompany({ id: companyId, orgId })
+    const company = buildCompany({ id: companyId, orgId, ownerUid: member.uid })
     ;(loadCompany as jest.Mock).mockResolvedValue({ data: company })
 
     stageAuth(member, []) // no contacts docs
@@ -163,7 +163,7 @@ describe('GET /api/v1/crm/companies/:id/contacts', () => {
 
   it('respects pagination limit param', async () => {
     const member = seedOrgMember(orgId, uidFor('viewer-pag'), { role: 'viewer' })
-    const company = buildCompany({ id: companyId, orgId })
+    const company = buildCompany({ id: companyId, orgId, ownerUid: member.uid })
     ;(loadCompany as jest.Mock).mockResolvedValue({ data: company })
 
     const contactDocs = Array.from({ length: 5 }, (_, i) => ({
@@ -182,7 +182,7 @@ describe('GET /api/v1/crm/companies/:id/contacts', () => {
 
   it('viewer role gets 200 (min role is viewer)', async () => {
     const viewer = seedOrgMember(orgId, uidFor('viewer-role'), { role: 'viewer' })
-    const company = buildCompany({ id: companyId, orgId })
+    const company = buildCompany({ id: companyId, orgId, ownerUid: viewer.uid })
     ;(loadCompany as jest.Mock).mockResolvedValue({ data: company })
 
     stageAuth(viewer, [])

@@ -2,6 +2,11 @@ import React from 'react'
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import FirstRunPage from '@/app/(portal)/portal/first-run/page'
 
+jest.mock('next/navigation', () => ({
+  useRouter: () => ({ push: jest.fn(), replace: jest.fn() }),
+  useSearchParams: () => new URLSearchParams(),
+}))
+
 describe('Portal first-run page', () => {
   beforeEach(() => {
     global.fetch = jest.fn((input: RequestInfo | URL, init?: RequestInit) => {

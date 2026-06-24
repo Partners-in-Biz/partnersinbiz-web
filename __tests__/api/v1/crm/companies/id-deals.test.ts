@@ -42,6 +42,10 @@ function stageAuth(
   installPortalAuthCollectionMock(adminDb.collection as jest.Mock, member, {
     collections: {
       deals: makeFirestoreQuery(deals.map((deal) => makeFirestoreDoc(deal.id, deal.data))),
+      // crmActorCanReadCompanyRecord falls back to a tenant-wide contacts scan for
+      // non-privileged actors. Provide an empty query; tests assign the company to
+      // the actor (ownerUid) so the early assignment check grants access first.
+      contacts: makeFirestoreQuery([]),
     },
   })
 }
@@ -53,7 +57,7 @@ describe('GET /api/v1/crm/companies/:id/deals', () => {
 
   it('happy path — returns deals linked to the company', async () => {
     const member = seedOrgMember('org-a', uidFor('m'), { role: 'viewer' })
-    const company = buildCompany({ id: 'co-1', orgId: 'org-a' })
+    const company = buildCompany({ id: 'co-1', orgId: 'org-a', ownerUid: member.uid })
     ;(companiesStore.loadCompany as jest.Mock).mockResolvedValue({ ref: {}, data: company })
     stageAuth(member, [
       { id: 'd-1', data: { orgId: 'org-a', companyId: 'co-1', title: 'Deal One', deleted: false } },
@@ -71,7 +75,7 @@ describe('GET /api/v1/crm/companies/:id/deals', () => {
 
   it('returns empty array when company has no linked deals', async () => {
     const member = seedOrgMember('org-a', uidFor('m'), { role: 'viewer' })
-    const company = buildCompany({ id: 'co-empty', orgId: 'org-a' })
+    const company = buildCompany({ id: 'co-empty', orgId: 'org-a', ownerUid: member.uid })
     ;(companiesStore.loadCompany as jest.Mock).mockResolvedValue({ ref: {}, data: company })
     stageAuth(member, [])
     const req = callAsMember(member, 'GET', '/api/v1/crm/companies/co-empty/deals')
@@ -94,7 +98,7 @@ describe('GET /api/v1/crm/companies/:id/deals', () => {
 
   it('uses an index-light tenant read and applies the request limit in memory', async () => {
     const member = seedOrgMember('org-a', uidFor('m'), { role: 'viewer' })
-    const company = buildCompany({ id: 'co-limit', orgId: 'org-a' })
+    const company = buildCompany({ id: 'co-limit', orgId: 'org-a', ownerUid: member.uid })
     ;(companiesStore.loadCompany as jest.Mock).mockResolvedValue({ ref: {}, data: company })
     const dealsQuery = {
       where: jest.fn().mockReturnThis(),
@@ -118,7 +122,7 @@ describe('GET /api/v1/crm/companies/:id/deals', () => {
 
   it('viewer role can access the endpoint', async () => {
     const member = seedOrgMember('org-a', uidFor('viewer'), { role: 'viewer' })
-    const company = buildCompany({ id: 'co-v', orgId: 'org-a' })
+    const company = buildCompany({ id: 'co-v', orgId: 'org-a', ownerUid: member.uid })
     ;(companiesStore.loadCompany as jest.Mock).mockResolvedValue({ ref: {}, data: company })
     stageAuth(member, [])
     const req = callAsMember(member, 'GET', '/api/v1/crm/companies/co-v/deals')

@@ -9,6 +9,10 @@ const mockAuth = {
 }
 const sendPasswordResetEmailMock = jest.fn()
 
+jest.mock('next/navigation', () => ({
+  useRouter: () => ({ push: jest.fn(), replace: jest.fn() }),
+}))
+
 jest.mock('@/lib/firebase/config', () => ({
   getClientAuth: () => mockAuth,
 }))
