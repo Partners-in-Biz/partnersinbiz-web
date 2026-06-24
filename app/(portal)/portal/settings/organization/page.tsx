@@ -242,6 +242,27 @@ function isFilled(value: string) {
   return value.trim().length > 0
 }
 
+/**
+ * South African VAT numbers are exactly 10 digits and start with a 4.
+ * Returns an error message for an invalid (non-empty) value, or '' when the
+ * value is empty or valid. Empty is allowed — VAT registration is optional.
+ */
+function vatNumberError(value: string): string {
+  const trimmed = value.trim()
+  if (!trimmed) return ''
+  const digits = trimmed.replace(/\s/g, '')
+  if (!/^\d+$/.test(digits)) {
+    return 'VAT number must contain digits only.'
+  }
+  if (digits.length !== 10) {
+    return 'South African VAT numbers are 10 digits.'
+  }
+  if (!digits.startsWith('4')) {
+    return 'South African VAT numbers start with 4.'
+  }
+  return ''
+}
+
 function countReadyAreas(form: FormState) {
   return [
     isFilled(form.legalName) && isFilled(form.registrationNumber),
@@ -514,6 +535,7 @@ export default function OrganizationSettingsPage() {
   }
 
   const readyAreas = countReadyAreas(form)
+  const vatError = vatNumberError(form.vatNumber)
   const accessLabel = canEdit ? `${role ? role[0].toUpperCase() + role.slice(1) : 'Editor'} access` : 'Read-only access'
   const invoicePolicy = form.purchaseOrderRequired ? 'Purchase order required' : 'No purchase order required'
   const legalIdentity = form.legalName || form.name || 'Legal identity missing'
@@ -593,7 +615,24 @@ export default function OrganizationSettingsPage() {
             {field('Legal company name', 'legalName')}
             {field('Trading name', 'tradingName')}
             {field('Registration number', 'registrationNumber')}
-            {field('VAT number', 'vatNumber')}
+            <div className="flex flex-col gap-1.5">
+              <label htmlFor="org-vatNumber" className="pib-label !mb-0">VAT number</label>
+              <input
+                id="org-vatNumber"
+                type="text"
+                inputMode="numeric"
+                value={form.vatNumber}
+                onChange={(e) => updateText('vatNumber', e.target.value)}
+                disabled={!canEdit}
+                aria-invalid={vatError ? true : undefined}
+                aria-describedby={vatError ? 'org-vatNumber-error' : undefined}
+                className={`pib-input disabled:opacity-60 ${vatError ? '!border-red-400' : ''}`}
+                placeholder="4xxxxxxxxx"
+              />
+              {vatError && (
+                <p id="org-vatNumber-error" className="text-xs text-red-400">{vatError}</p>
+              )}
+            </div>
             {field('Tax number', 'taxNumber')}
             {field('Phone', 'phone')}
           </div>
