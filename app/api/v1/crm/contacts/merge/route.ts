@@ -1,8 +1,9 @@
 // app/api/v1/crm/contacts/merge/route.ts
 //
 // POST /api/v1/crm/contacts/merge
-// Merges two contacts: winner keeps its fields (nulls backfilled from loser),
-// tags are unioned, loser is soft-deleted, deals + activities are re-parented.
+// Merges two same-workspace contacts. The winner keeps populated fields, loser
+// fields backfill blanks, tags are unioned, loser is soft-deleted, and related
+// CRM records are re-parented within the same org only.
 // Auth: admin+
 
 import { NextRequest } from 'next/server'
@@ -10,15 +11,48 @@ import { FieldValue } from 'firebase-admin/firestore'
 import { apiSuccess, apiError } from '@/lib/api/response'
 import { withCrmAuth, type CrmAuthContext } from '@/lib/auth/crm-middleware'
 import { adminDb } from '@/lib/firebase/admin'
+import { safeTouchCrmLiveUpdate } from '@/lib/crm/live-updates'
 
 export const dynamic = 'force-dynamic'
 
-const BATCH_CHUNK = 500 // Firestore batch limit
+const BATCH_CHUNK = 450 // leave headroom under Firestore's 500-write batch limit
+
+function hasValue(value: unknown): boolean {
+  if (value === null || value === undefined) return false
+  if (typeof value === 'string') return value.trim().length > 0
+  if (Array.isArray(value)) return value.length > 0
+  return true
+}
+
+async function reparentByField(
+  collection: string,
+  orgId: string,
+  field: string,
+  loserId: string,
+  winnerId: string,
+): Promise<number> {
+  const snap = await adminDb
+    .collection(collection)
+    .where('orgId', '==', orgId)
+    .where(field, '==', loserId)
+    .get()
+
+  let updated = 0
+  for (let i = 0; i < snap.docs.length; i += BATCH_CHUNK) {
+    const batch = adminDb.batch()
+    const chunk = snap.docs.slice(i, i + BATCH_CHUNK)
+    for (const doc of chunk) {
+      batch.update(doc.ref, { [field]: winnerId, updatedAt: FieldValue.serverTimestamp() })
+    }
+    await batch.commit()
+    updated += chunk.length
+  }
+  return updated
+}
 
 async function handler(req: NextRequest, ctx: CrmAuthContext): Promise<Response> {
   const { orgId } = ctx
 
-  // ── Parse body ───────────────────────────────────────────────────────────────
   let body: Record<string, unknown>
   try {
     body = await req.json()
@@ -29,8 +63,8 @@ async function handler(req: NextRequest, ctx: CrmAuthContext): Promise<Response>
   const { winnerId, loserId } = body as { winnerId?: string; loserId?: string }
   if (!winnerId) return apiError('winnerId is required', 400)
   if (!loserId) return apiError('loserId is required', 400)
+  if (winnerId === loserId) return apiError('winnerId and loserId must be different contacts', 400)
 
-  // ── Fetch both contacts ──────────────────────────────────────────────────────
   const [winnerSnap, loserSnap] = await Promise.all([
     adminDb.collection('contacts').doc(winnerId).get(),
     adminDb.collection('contacts').doc(loserId).get(),
@@ -44,69 +78,50 @@ async function handler(req: NextRequest, ctx: CrmAuthContext): Promise<Response>
 
   if (winner.orgId !== orgId) return apiError('Winner contact not found', 404)
   if (loser.orgId !== orgId) return apiError('Loser contact not found', 404)
+  if (winner.deleted === true) return apiError('Winner contact not found', 404)
+  if (loser.deleted === true) return apiError('Loser contact not found', 404)
 
-  // ── Build merged winner ──────────────────────────────────────────────────────
-  // Start with winner's fields; fill nulls/undefineds from loser
   const merged: Record<string, unknown> = { ...winner }
   for (const [key, value] of Object.entries(loser)) {
-    if (merged[key] === null || merged[key] === undefined) {
-      merged[key] = value
-    }
+    if (!hasValue(merged[key]) && hasValue(value)) merged[key] = value
   }
 
-  // Merge tags: union of both arrays
   const winnerTags: string[] = Array.isArray(winner.tags) ? (winner.tags as string[]) : []
   const loserTags: string[] = Array.isArray(loser.tags) ? (loser.tags as string[]) : []
   merged.tags = Array.from(new Set([...winnerTags, ...loserTags]))
+  merged.updatedBy = ctx.isAgent ? undefined : ctx.actor.uid
+  merged.updatedByRef = ctx.actor
   merged.updatedAt = FieldValue.serverTimestamp()
 
-  // ── Write winner + soft-delete loser ────────────────────────────────────────
+  const winnerWrite = Object.fromEntries(Object.entries(merged).filter(([, value]) => value !== undefined))
+
   await Promise.all([
-    adminDb.collection('contacts').doc(winnerId).update(merged),
+    adminDb.collection('contacts').doc(winnerId).update(winnerWrite),
     adminDb.collection('contacts').doc(loserId).update({
       deleted: true,
       mergedIntoId: winnerId,
+      updatedBy: ctx.isAgent ? undefined : ctx.actor.uid,
+      updatedByRef: ctx.actor,
       updatedAt: FieldValue.serverTimestamp(),
     }),
   ])
 
-  // ── Re-parent deals ──────────────────────────────────────────────────────────
-  const dealsSnap = await adminDb
-    .collection('deals')
-    .where('contactId', '==', loserId)
-    .where('orgId', '==', orgId)
-    .get()
-
-  for (let i = 0; i < dealsSnap.docs.length; i += BATCH_CHUNK) {
-    const batch = adminDb.batch()
-    const chunk = dealsSnap.docs.slice(i, i + BATCH_CHUNK)
-    for (const doc of chunk) {
-      batch.update(doc.ref, { contactId: winnerId, updatedAt: FieldValue.serverTimestamp() })
-    }
-    await batch.commit()
+  const reparented = {
+    deals: await reparentByField('deals', orgId, 'contactId', loserId, winnerId),
+    activities: await reparentByField('activities', orgId, 'contactId', loserId, winnerId),
+    quotes: await reparentByField('quotes', orgId, 'contactId', loserId, winnerId),
+    quoteSourceContacts: await reparentByField('quotes', orgId, 'sourceContactId', loserId, winnerId),
+    formSubmissions: await reparentByField('form_submissions', orgId, 'contactId', loserId, winnerId),
+    leadCaptureSubmissions: await reparentByField('lead_capture_submissions', orgId, 'contactId', loserId, winnerId),
+    tasks: await reparentByField('tasks', orgId, 'contactId', loserId, winnerId),
   }
 
-  // ── Re-parent activities ──────────────────────────────────────────────────────
-  const activitiesSnap = await adminDb
-    .collection('activities')
-    .where('contactId', '==', loserId)
-    .where('orgId', '==', orgId)
-    .get()
+  await safeTouchCrmLiveUpdate(orgId, 'contacts', 'contact.merged')
 
-  for (let i = 0; i < activitiesSnap.docs.length; i += BATCH_CHUNK) {
-    const batch = adminDb.batch()
-    const chunk = activitiesSnap.docs.slice(i, i + BATCH_CHUNK)
-    for (const doc of chunk) {
-      batch.update(doc.ref, { contactId: winnerId, updatedAt: FieldValue.serverTimestamp() })
-    }
-    await batch.commit()
-  }
-
-  // Return merged winner (without server timestamp placeholder)
   const winnerResult: Record<string, unknown> = { id: winnerId, ...merged }
-  delete winnerResult['updatedAt'] // remove FieldValue sentinel
+  delete winnerResult.updatedAt
 
-  return apiSuccess({ winner: winnerResult })
+  return apiSuccess({ winner: winnerResult, loserId, reparented })
 }
 
 export const POST = withCrmAuth('admin', handler)

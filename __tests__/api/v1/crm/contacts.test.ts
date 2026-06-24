@@ -186,6 +186,76 @@ describe('POST /api/v1/crm/contacts', () => {
     expect(body.data.id).toBe('auto-id-123')
   })
 
+  it('rejects a duplicate contact email inside the same workspace with 409 metadata', async () => {
+    const member = seedOrgMember('org-duplicate-contact', 'uid-duplicate-contact', { role: 'member' })
+    const emailQuery = jest.fn().mockResolvedValue({
+      docs: [{ id: 'existing-contact-id', data: () => ({ orgId: 'org-duplicate-contact', email: 'jane@example.com', deleted: false }) }],
+    })
+    const where = jest.fn().mockReturnThis()
+    ;(adminAuth.verifySessionCookie as jest.Mock).mockResolvedValue({ uid: member.uid })
+    ;(adminDb.collection as jest.Mock).mockImplementation((name: string) => {
+      if (name === 'users') return { doc: () => ({ get: () => Promise.resolve({ exists: true, data: () => ({ activeOrgId: member.orgId }) }) }) }
+      if (name === 'orgMembers') return orgMembersCollection([member])
+      if (name === 'organizations') return { doc: () => ({ get: () => Promise.resolve({ exists: true, data: () => ({ settings: { permissions: {} } }) }) }) }
+      if (name === 'contacts') {
+        return {
+          doc: jest.fn().mockReturnValue({ id: 'auto-id-should-not-write', set: jest.fn() }),
+          where,
+          limit: jest.fn().mockReturnThis(),
+          get: emailQuery,
+        }
+      }
+      return { doc: () => ({ get: () => Promise.resolve({ exists: false }) }) }
+    })
+
+    const req = callAsMember(member, 'POST', '/api/v1/crm/contacts', { ...validContact, email: ' Jane@Example.com ' })
+    const { POST } = await import('@/app/api/v1/crm/contacts/route')
+    const res = await POST(req)
+
+    expect(res.status).toBe(409)
+    const body = await res.json()
+    expect(body.error).toMatch(/already exists in this workspace/i)
+    expect(body.duplicate).toMatchObject({ id: 'existing-contact-id', reason: 'email' })
+    expect(where).toHaveBeenCalledWith('orgId', '==', 'org-duplicate-contact')
+    expect(where).toHaveBeenCalledWith('email', '==', 'jane@example.com')
+  })
+
+  it('rejects duplicate linkedUserId inside the same workspace', async () => {
+    const member = seedOrgMember('org-linked-user-contact', 'uid-linked-user-contact', { role: 'member' })
+    let queryCount = 0
+    const where = jest.fn().mockReturnThis()
+    ;(adminAuth.verifySessionCookie as jest.Mock).mockResolvedValue({ uid: member.uid })
+    ;(adminDb.collection as jest.Mock).mockImplementation((name: string) => {
+      if (name === 'users') return { doc: () => ({ get: () => Promise.resolve({ exists: true, data: () => ({ activeOrgId: member.orgId }) }) }) }
+      if (name === 'orgMembers') return orgMembersCollection([member])
+      if (name === 'organizations') return { doc: () => ({ get: () => Promise.resolve({ exists: true, data: () => ({ settings: { permissions: {} } }) }) }) }
+      if (name === 'contacts') {
+        return {
+          doc: jest.fn().mockReturnValue({ id: 'auto-id-should-not-write', set: jest.fn() }),
+          where,
+          limit: jest.fn().mockReturnThis(),
+          get: jest.fn(() => {
+            queryCount += 1
+            return Promise.resolve(queryCount === 1
+              ? { docs: [] }
+              : { docs: [{ id: 'existing-linked-contact', data: () => ({ orgId: member.orgId, linkedUserId: 'linked-user-1', deleted: false }) }] })
+          }),
+        }
+      }
+      return { doc: () => ({ get: () => Promise.resolve({ exists: false }) }) }
+    })
+
+    const req = callAsMember(member, 'POST', '/api/v1/crm/contacts', { ...validContact, linkedUserId: 'linked-user-1' })
+    const { POST } = await import('@/app/api/v1/crm/contacts/route')
+    const res = await POST(req)
+
+    expect(res.status).toBe(409)
+    const body = await res.json()
+    expect(body.duplicate).toMatchObject({ id: 'existing-linked-contact', reason: 'linkedUserId' })
+    expect(where).toHaveBeenCalledWith('orgId', '==', 'org-linked-user-contact')
+    expect(where).toHaveBeenCalledWith('linkedUserId', '==', 'linked-user-1')
+  })
+
   it('defaults a new contact owner to the creating member when assignedTo is blank', async () => {
     const member = seedOrgMember('org-owner-default', 'uid-owner-default', { role: 'member', firstName: 'Owner', lastName: 'Default' })
     const captured = jest.fn().mockResolvedValue(undefined)

@@ -23,6 +23,94 @@ export async function loadCompany(id: string, orgId: string): Promise<LoadedComp
   return { ref, data: { ...data, id: ref.id } }
 }
 
+export type CompanyDuplicateMatch = {
+  id: string
+  name?: string
+  domain?: string
+  website?: string
+  linkedOrgId?: string
+  reason: 'linkedOrgId' | 'domain' | 'name'
+}
+
+export function normalizeCompanyName(value: unknown): string {
+  return typeof value === 'string'
+    ? value.trim().toLowerCase().replace(/\s+/g, ' ')
+    : ''
+}
+
+export function normalizeCompanyHost(value: unknown): string {
+  if (typeof value !== 'string') return ''
+  const raw = value.trim().toLowerCase()
+  if (!raw) return ''
+  try {
+    const withProtocol = /^https?:\/\//i.test(raw) ? raw : `https://${raw}`
+    const parsed = new URL(withProtocol)
+    return parsed.hostname.replace(/^www\./, '')
+  } catch {
+    return raw
+      .replace(/^https?:\/\//, '')
+      .replace(/^www\./, '')
+      .replace(/\/.*$/, '')
+      .replace(/:.+$/, '')
+      .trim()
+  }
+}
+
+function companyIdentityHosts(company: Partial<CompanyInput> | Partial<Company>): Set<string> {
+  return new Set([normalizeCompanyHost(company.domain), normalizeCompanyHost(company.website)].filter(Boolean))
+}
+
+function companyIdentityNames(company: Partial<CompanyInput> | Partial<Company>): Set<string> {
+  return new Set([
+    normalizeCompanyName(company.name),
+    normalizeCompanyName(company.legalName),
+    normalizeCompanyName(company.tradingName),
+  ].filter(Boolean))
+}
+
+export async function findDuplicateCompany(
+  orgId: string,
+  input: Partial<CompanyInput>,
+  excludeId?: string,
+): Promise<CompanyDuplicateMatch | null> {
+  if (!orgId) return null
+  const inputLinkedOrgId = typeof input.linkedOrgId === 'string' ? input.linkedOrgId.trim() : ''
+  const inputHosts = companyIdentityHosts(input)
+  const inputNames = companyIdentityNames(input)
+  if (!inputLinkedOrgId && inputHosts.size === 0 && inputNames.size === 0) return null
+
+  const snap = await adminDb.collection(COMPANIES)
+    .where('orgId', '==', orgId)
+    .limit(1000)
+    .get()
+
+  for (const doc of snap.docs) {
+    if (excludeId && doc.id === excludeId) continue
+    const data = doc.data() as Company
+    if (data.deleted === true) continue
+
+    if (inputLinkedOrgId && data.linkedOrgId === inputLinkedOrgId) {
+      return { id: doc.id, name: data.name, domain: data.domain, website: data.website, linkedOrgId: data.linkedOrgId, reason: 'linkedOrgId' }
+    }
+
+    const existingHosts = companyIdentityHosts(data)
+    for (const host of inputHosts) {
+      if (existingHosts.has(host)) {
+        return { id: doc.id, name: data.name, domain: data.domain, website: data.website, linkedOrgId: data.linkedOrgId, reason: 'domain' }
+      }
+    }
+
+    const existingNames = companyIdentityNames(data)
+    for (const name of inputNames) {
+      if (existingNames.has(name)) {
+        return { id: doc.id, name: data.name, domain: data.domain, website: data.website, linkedOrgId: data.linkedOrgId, reason: 'name' }
+      }
+    }
+  }
+
+  return null
+}
+
 // Fields that must never come from the request body — the route handler
 // (via middleware-authoritative ctx) controls these. Stripping them here
 // blocks the cross-tenant-via-body-orgId attack at the source.
