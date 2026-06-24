@@ -1,82 +1,95 @@
 import React from 'react'
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import FirstRunPage from '@/app/(portal)/portal/first-run/page'
 
+const mockRouterPush = jest.fn()
+
 jest.mock('next/navigation', () => ({
-  useRouter: () => ({ push: jest.fn(), replace: jest.fn() }),
+  useRouter: () => ({ push: mockRouterPush, replace: jest.fn() }),
   useSearchParams: () => new URLSearchParams(),
 }))
 
-describe('Portal first-run page', () => {
+// The first-run page was redesigned into the growth-onboarding wizard (the
+// PRIMARY first-run experience). The old life-OS "operating profile" form is no
+// longer rendered by this page — its API (collection life_os_profiles) lives on
+// at /api/v1/portal/first-run but has no page. These tests cover the current
+// growth-onboarding wizard behaviour.
+describe('Portal first-run growth-onboarding wizard', () => {
   beforeEach(() => {
+    mockRouterPush.mockClear()
     global.fetch = jest.fn((input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input)
-      if (url === '/api/v1/portal/first-run' && !init?.method) {
+      if (url === '/api/v1/portal/settings/organization' && !init?.method) {
         return Promise.resolve({
           ok: true,
-          json: async () => ({
-            data: {
-              firstRun: {
-                completed: false,
-                identity: { preferredName: 'Peet Stander', pronouns: '', location: '' },
-                values: [],
-                lifeDomains: [],
-                constraints: [],
-                goals: [],
-                baseline: { confidence: null, energy: null, timeCapacityHours: null },
-                privacy: { consentToStore: false, shareWithTeam: false, allowAgentPersonalization: false },
-              },
-            },
-          }),
+          json: async () => ({ organization: { name: 'Acme Inc.' }, permissions: { canEdit: true } }),
         } as Response)
       }
-      if (url === '/api/v1/portal/first-run' && init?.method === 'PATCH') {
+      if (url === '/api/v1/portal/settings/organization' && init?.method === 'PATCH') {
         return Promise.resolve({ ok: true, json: async () => ({ data: { saved: true } }) } as Response)
       }
-      return Promise.resolve({ ok: false, json: async () => ({ error: 'unexpected fetch' }) } as Response)
+      if (url === '/api/v1/portal/brand-profile') {
+        return Promise.resolve({ ok: true, json: async () => ({ data: { brandProfile: {} } }) } as Response)
+      }
+      if (url === '/api/v1/portal/growth-onboarding' && init?.method === 'PATCH') {
+        return Promise.resolve({ ok: true, json: async () => ({ data: { saved: true } }) } as Response)
+      }
+      // Signal endpoints (social accounts, domain, dashboard) — default "nothing yet".
+      return Promise.resolve({ ok: true, json: async () => ({ data: [] }) } as Response)
     }) as jest.Mock
   })
 
-  it('captures the complete first-run operating profile and consent choices', async () => {
+  it('walks the workspace setup steps and prefills the existing workspace name', async () => {
     render(<FirstRunPage />)
 
-    expect(await screen.findByRole('heading', { name: 'First-run setup' })).toBeInTheDocument()
-    expect(screen.getByLabelText('Preferred name')).toHaveValue('Peet Stander')
+    expect(
+      await screen.findByRole('heading', { name: /let's get your workspace growing/i }),
+    ).toBeInTheDocument()
 
-    fireEvent.change(screen.getByLabelText('Core values'), { target: { value: 'Freedom\nFamily' } })
-    fireEvent.change(screen.getByLabelText('Life domains'), { target: { value: 'Health: Morning training\nBusiness: Client platform' } })
-    fireEvent.change(screen.getByLabelText('Current constraints'), { target: { value: 'School runs\nNo late calls' } })
-    fireEvent.change(screen.getByLabelText('Goals'), { target: { value: 'Launch alpha | business | 90 days' } })
-    fireEvent.change(screen.getByLabelText('Confidence baseline'), { target: { value: '8' } })
-    fireEvent.change(screen.getByLabelText('Energy baseline'), { target: { value: '6' } })
-    fireEvent.change(screen.getByLabelText('Time capacity per week'), { target: { value: '12' } })
-    fireEvent.click(screen.getByLabelText('I consent to Partners in Biz storing this first-run profile for my workspace.'))
-    fireEvent.click(screen.getByLabelText('Allow agents to use this profile for personalisation inside this workspace.'))
-    fireEvent.click(screen.getByRole('button', { name: 'Save first-run profile' }))
+    // Step 1 — workspace name, prefilled from the org settings load.
+    expect(await screen.findByRole('heading', { name: 'Name your workspace' })).toBeInTheDocument()
+    await waitFor(() => expect(screen.getByLabelText('Workspace name')).toHaveValue('Acme Inc.'))
 
-    await screen.findByRole('button', { name: 'Saved' })
+    // Edit the name and advance — the page PATCHes the org settings on Next.
+    fireEvent.change(screen.getByLabelText('Workspace name'), { target: { value: 'Acme Renamed' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }))
+
     await waitFor(() => {
       expect(global.fetch).toHaveBeenCalledWith(
-        '/api/v1/portal/first-run',
+        '/api/v1/portal/settings/organization',
         expect.objectContaining({
           method: 'PATCH',
-          body: expect.stringContaining('Launch alpha'),
+          body: expect.stringContaining('Acme Renamed'),
         }),
       )
     })
+
+    // Advanced to step 2 — connect a social account.
+    expect(await screen.findByRole('heading', { name: 'Connect a social account' })).toBeInTheDocument()
   })
 
-  it('shows the approved feature-flag disabled state without persisting answers', async () => {
-    ;(global.fetch as jest.Mock).mockImplementationOnce(() => Promise.resolve({
-      ok: false,
-      status: 403,
-      json: async () => ({ moduleDisabled: true }),
-    } as Response))
-
+  it('completes onboarding from the final step and routes to the dashboard', async () => {
     render(<FirstRunPage />)
 
-    const notice = await screen.findByRole('status')
-    expect(within(notice).getByText('First-run setup is not enabled for this workspace yet.')).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: 'Save first-run profile' })).not.toBeInTheDocument()
+    await screen.findByRole('heading', { name: 'Name your workspace' })
+
+    // Skip through to the final (analytics) step.
+    for (let i = 0; i < 4; i++) {
+      fireEvent.click(screen.getByRole('button', { name: 'Skip for now' }))
+    }
+
+    const finish = await screen.findByRole('button', { name: 'Finish setup' })
+    fireEvent.click(finish)
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith(
+        '/api/v1/portal/growth-onboarding',
+        expect.objectContaining({
+          method: 'PATCH',
+          body: expect.stringContaining('growthOnboardingCompleted'),
+        }),
+      )
+    })
+    await waitFor(() => expect(mockRouterPush).toHaveBeenCalledWith('/portal/dashboard'))
   })
 })

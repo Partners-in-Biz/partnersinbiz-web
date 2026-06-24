@@ -37,6 +37,20 @@ function jsonResponse(body: unknown, status = 200) {
 function mockPlatformFetches() {
   fetchMock.mockImplementation(async (input: RequestInfo | URL) => {
     const url = String(input)
+    // The organisations list now loads from the admin dashboard organisations
+    // endpoint, which already excludes the platform owner and returns enriched
+    // billing/contact rows.
+    if (url === '/api/v1/admin/dashboard/organizations') {
+      return jsonResponse({
+        success: true,
+        data: {
+          organizations: [
+            { id: 'org-1', name: 'Acme Client', slug: 'acme', status: 'active', plan: 'growth', createdAt: null, ownerEmail: 'jane@acme.test', mrr: 0, contacts: 0, sends30d: 0 },
+            { id: 'org-2', name: 'Book Studio', slug: 'book-studio', status: 'onboarding', plan: 'starter', createdAt: null, ownerEmail: 'sam@book.test', mrr: 0, contacts: 0, sends30d: 0 },
+          ],
+        },
+      })
+    }
     if (url === '/api/v1/organizations') {
       return jsonResponse({
         data: [
@@ -79,10 +93,14 @@ it('frames the organisations list as a platform-admin client workspace surface, 
   render(<OrganizationsPage />)
 
   expect(await screen.findByRole('heading', { name: 'Client Workspaces' })).toBeInTheDocument()
-  expect(screen.getByText('Platform-admin operations for client organisations, workspace provisioning, and operational status.')).toBeInTheDocument()
+  expect(screen.getByText('Platform-admin operations for client organisations — billing, contacts, email activity, and provisioning.')).toBeInTheDocument()
   expect(screen.getByRole('link', { name: '+ Provision client workspace' })).toHaveAttribute('href', '/admin/organizations/new')
+  // This is a workspace/account surface, not member management: it lists owner
+  // access (owner email column) and never a per-org "Members" count column.
   expect(screen.queryByText('Members')).not.toBeInTheDocument()
-  expect(screen.getByText('Portal access')).toBeInTheDocument()
+  expect(await screen.findByText('Owner email')).toBeInTheDocument()
+  expect(screen.getByText('jane@acme.test')).toBeInTheDocument()
+  // The platform owner org is excluded from the client workspace list.
   expect(screen.queryByText('Partners in Biz')).not.toBeInTheDocument()
 })
 
@@ -90,7 +108,7 @@ it('makes new organisation creation explicit as a platform provisioning operatio
   render(<NewOrganizationPage />)
 
   expect(screen.getByRole('heading', { name: 'Provision Client Workspace' })).toBeInTheDocument()
-  expect(screen.getByText('Platform-admin operation: creates a client organisation record and optional Cowork/Hermes workspace scaffolding.')).toBeInTheDocument()
+  expect(screen.getByText(/Creates a client organisation, an owner login with a password-setup email, an EFT trial window,\s*and optional Cowork\/Hermes workspace scaffolding\. No card required — EFT billing only\./)).toBeInTheDocument()
   expect(screen.getByText('Client Workspace Details')).toBeInTheDocument()
   expect(screen.getByRole('button', { name: 'Provision client workspace' })).toBeInTheDocument()
   expect(screen.queryByRole('heading', { name: 'New Client' })).not.toBeInTheDocument()
@@ -104,7 +122,7 @@ it('explains super-admin and restricted-admin allowedOrgIds behavior on platform
   expect(await screen.findByRole('heading', { name: 'Platform Admin Users' })).toBeInTheDocument()
   expect(screen.getByText('Staff accounts for PiB operators. Super admins have global platform access; restricted admins are limited by allowedOrgIds.')).toBeInTheDocument()
 
-  const superRow = screen.getByText('Peet Stander').closest('li')
+  const superRow = (await screen.findByText('Peet Stander')).closest('li')
   expect(superRow).not.toBeNull()
   expect(within(superRow as HTMLElement).getByText('Super admin')).toBeInTheDocument()
   expect(within(superRow as HTMLElement).getByText('allowedOrgIds: [] means global access')).toBeInTheDocument()

@@ -123,7 +123,7 @@ it('renders the invite section as one coherent access panel', async () => {
   render(<TeamPage />)
 
   expect(await screen.findByText('Invites & Access')).toBeInTheDocument()
-  expect(screen.getByRole('heading', { name: 'Add people to this workspace' })).toBeInTheDocument()
+  expect(screen.getByRole('heading', { name: 'Add people to this selected org' })).toBeInTheDocument()
   expect(screen.getByRole('heading', { name: 'Create client login' })).toBeInTheDocument()
   expect(screen.getByRole('heading', { name: 'Add existing client' })).toBeInTheDocument()
   expect(screen.getByRole('heading', { name: 'Add existing PiB member' })).toBeInTheDocument()

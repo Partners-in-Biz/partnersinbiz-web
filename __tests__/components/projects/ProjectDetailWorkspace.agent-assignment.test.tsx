@@ -27,7 +27,7 @@ jest.mock('@/components/kanban/KanbanBoard', () => ({
         <div key={task.id}>
           <span>Task column: {task.title} {task.columnId}</span>
           <button type="button" onClick={() => onTaskClick?.(task)}>{task.title}</button>
-          <button type="button" onClick={() => onTaskMove?.(task.id, 'done', 2)}>Move {task.title} to done</button>
+          <button type="button" onClick={() => onTaskMove?.(task.id, 'done', 2)?.catch(() => undefined)}>Move {task.title} to done</button>
         </div>
       ))}
     </div>

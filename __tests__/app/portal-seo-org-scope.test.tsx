@@ -91,7 +91,13 @@ describe('portal SEO org scope', () => {
 
     const result = (await Page({
       searchParams: Promise.resolve({ orgId: 'lumen-org', orgSlug: 'lumen-speeds' }),
-    } as never)) as ReactElement<{ sprintHref?: (sprint: { id: string }, childPath?: string) => string }>
+    } as never)) as ReactElement<{
+      children: ReactElement<{ sprintHref?: (sprint: { id: string }, childPath?: string) => string }>
+    }>
+
+    // The page wraps SeoSprintOverview in a <FeatureGate feature="seo">, so the
+    // sprintHref prop lives on the gated child element, not the root element.
+    const overview = result.props.children
 
     expect(mockCanUsePortalOrg).toHaveBeenCalledWith(
       'admin-1',
@@ -100,10 +106,10 @@ describe('portal SEO org scope', () => {
     )
     expect(whereCalls).toContainEqual(['orgId', '==', 'lumen-org'])
     expect(whereCalls).not.toContainEqual(['orgId', '==', 'platform-org'])
-    expect(result.props.sprintHref?.({ id: 'lumen-sprint' })).toBe(
+    expect(overview.props.sprintHref?.({ id: 'lumen-sprint' })).toBe(
       '/portal/seo/sprints/lumen-sprint?orgId=lumen-org&orgSlug=lumen-speeds',
     )
-    expect(result.props.sprintHref?.({ id: 'lumen-sprint' }, '/keywords')).toBe(
+    expect(overview.props.sprintHref?.({ id: 'lumen-sprint' }, '/keywords')).toBe(
       '/portal/seo/sprints/lumen-sprint/keywords?orgId=lumen-org&orgSlug=lumen-speeds',
     )
   })

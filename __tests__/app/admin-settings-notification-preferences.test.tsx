@@ -65,7 +65,7 @@ describe('SettingsPage admin notification preferences', () => {
   it('shows per-client in-app/push and email toggles with saved-state feedback', async () => {
     render(<SettingsPage />)
 
-    await waitFor(() => expect(screen.getByText('Client notification preferences')).toBeInTheDocument())
+    await waitFor(() => expect(screen.getByText('Organisation alert preferences')).toBeInTheDocument())
     expect(await screen.findByText('Acme Client')).toBeInTheDocument()
     expect(screen.getByText('Beta Client')).toBeInTheDocument()
     expect(screen.getByTestId('push-notifications-toggle')).toBeInTheDocument()

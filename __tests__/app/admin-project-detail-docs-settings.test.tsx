@@ -520,7 +520,8 @@ describe('Admin project docs and settings tabs', () => {
     expect(screen.getByLabelText('Done task progress')).toHaveTextContent('2 / 4')
     expect(screen.getByLabelText('Open task count')).toHaveTextContent('2')
     expect(screen.getByLabelText('Done task count')).toHaveTextContent('2')
-    expect(screen.getByLabelText('Blocked task count')).toHaveTextContent('1')
+    // The active-blocker stat is now labelled "Needs Peet" in the board summary.
+    expect(screen.getByLabelText('Needs Peet task count')).toHaveTextContent('1')
     expect(screen.queryByText('Done / blocked')).not.toBeInTheDocument()
   })
 
@@ -680,8 +681,9 @@ describe('Admin project docs and settings tabs', () => {
 
     await waitFor(() => expect(screen.getByText('Move me live')).toBeInTheDocument())
 
+    // The board polls tasks as a safety net on a 60s interval; advance past it.
     await act(async () => {
-      jest.advanceTimersByTime(10000)
+      jest.advanceTimersByTime(60000)
     })
 
     await waitFor(() => expect(screen.getByText('Move me live after poll')).toBeInTheDocument())

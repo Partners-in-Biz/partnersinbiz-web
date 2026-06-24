@@ -20,7 +20,10 @@ describe('admin nav config', () => {
       '/admin/sequences',
       '/admin/marketing',
       '/admin/seo',
-      '/admin/briefings',
+      // NOTE: /admin/briefings is intentionally NOT forbidden here. It backs the
+      // "Mission Control" operator topbar entry, which is a platform control-plane
+      // view (cross-tenant operator briefings), not a per-tenant work tool. Work
+      // tools (email/social/CRM/campaigns/…) still belong only in the portal.
       '/admin/projects',
       '/admin/documents',
       '/admin/invoicing',

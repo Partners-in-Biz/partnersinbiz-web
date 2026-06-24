@@ -94,7 +94,44 @@ beforeEach(() => {
 })
 
 describe('GET /api/v1/public/client-documents/edit/[editShareToken]', () => {
-  it('returns 401 "Code verification required" when no code cookie present', async () => {
+  // Helper: a document that requires an access code (editAccessCode set).
+  function codeProtectedDoc(extra: Record<string, unknown> = {}) {
+    return {
+      empty: false as const,
+      doc: {
+        id: 'doc-1',
+        data: {
+          editShareEnabled: true,
+          deleted: false,
+          currentVersionId: 'v-1',
+          editAccessCode: '123456',
+          ...extra,
+        },
+      },
+    }
+  }
+
+  // Helper: a document that does NOT require an access code.
+  function openDoc(extra: Record<string, unknown> = {}) {
+    return {
+      empty: false as const,
+      doc: {
+        id: 'doc-1',
+        data: {
+          editShareEnabled: true,
+          deleted: false,
+          currentVersionId: 'v-1',
+          ...extra,
+        },
+      },
+    }
+  }
+
+  it('returns 401 "Code verification required" when no code cookie present (code-protected doc)', async () => {
+    // The route now loads the document first (US-036): the access code is only
+    // required when the document actually configures one.
+    configureDocLookup(codeProtectedDoc())
+
     const { GET } = await import('@/app/api/v1/public/client-documents/edit/[editShareToken]/route')
     const req = getRequest(`http://localhost/api/v1/public/client-documents/edit/${TOKEN}`)
     const res = await GET(req, { params: Promise.resolve({ editShareToken: TOKEN }) })
@@ -103,10 +140,13 @@ describe('GET /api/v1/public/client-documents/edit/[editShareToken]', () => {
     const body = await res.json()
     expect(body.error).toBe('Code verification required')
     expect(mockVerifySessionCookie).not.toHaveBeenCalled()
-    expect(mockGet).not.toHaveBeenCalled()
+    // Doc lookup runs before the code check now.
+    expect(mockWhere).toHaveBeenCalledWith('editShareToken', '==', TOKEN)
   })
 
   it('returns 401 "Sign-in required" when code cookie present but no session cookie', async () => {
+    configureDocLookup(codeProtectedDoc())
+
     const { GET } = await import('@/app/api/v1/public/client-documents/edit/[editShareToken]/route')
     const req = getRequest(`http://localhost/api/v1/public/client-documents/edit/${TOKEN}`, {
       Cookie: buildCookieHeader({ [`eds_${TOKEN}`]: '1' }),
@@ -117,10 +157,10 @@ describe('GET /api/v1/public/client-documents/edit/[editShareToken]', () => {
     const body = await res.json()
     expect(body.error).toBe('Sign-in required')
     expect(mockVerifySessionCookie).not.toHaveBeenCalled()
-    expect(mockGet).not.toHaveBeenCalled()
   })
 
   it('returns 401 when session cookie is invalid (verifySessionCookie throws)', async () => {
+    configureDocLookup(codeProtectedDoc())
     mockVerifySessionCookie.mockRejectedValueOnce(new Error('invalid session'))
 
     const { GET } = await import('@/app/api/v1/public/client-documents/edit/[editShareToken]/route')
@@ -133,7 +173,6 @@ describe('GET /api/v1/public/client-documents/edit/[editShareToken]', () => {
     const body = await res.json()
     expect(body.error).toBe('Sign-in required')
     expect(mockVerifySessionCookie).toHaveBeenCalledWith('bad-session', true)
-    expect(mockGet).not.toHaveBeenCalled()
   })
 
   it('returns 404 when no document matches the editShareToken', async () => {
@@ -261,7 +300,9 @@ describe('GET /api/v1/public/client-documents/edit/[editShareToken]', () => {
     expect(mockSubDoc).toHaveBeenCalledWith('v-7')
   })
 
-  it('does not require code cookie to equal anything other than "1"', async () => {
+  it('rejects a code cookie that is not exactly "1" on a code-protected doc', async () => {
+    configureDocLookup(codeProtectedDoc())
+
     const { GET } = await import('@/app/api/v1/public/client-documents/edit/[editShareToken]/route')
     const req = getRequest(`http://localhost/api/v1/public/client-documents/edit/${TOKEN}`, {
       Cookie: buildCookieHeader({ [`eds_${TOKEN}`]: 'maybe', __session: 'good-session' }),

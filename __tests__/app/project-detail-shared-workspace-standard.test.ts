@@ -50,7 +50,12 @@ describe('project detail shared workspace standard', () => {
 
     expect(workspace).toContain('scopedPortalPath')
     expect(workspace).toContain('backHref')
-    expect(workspace).toContain('hideAgentSection={mode ===')
+    // Agent-section hiding is now expressed via a permission-derived flag rather
+    // than an inline `mode ===` check on the prop. The flag still keys off mode
+    // (canUseAgentAssignments starts from `isAdmin = mode === 'admin'`), so the
+    // shared-workspace contract is preserved.
+    expect(workspace).toContain('hideAgentSection={hideAgentAssignmentControls}')
+    expect(workspace).toContain('const hideAgentAssignmentControls = !canUseAgentAssignments')
     expect(workspace).toContain("mode === 'admin'")
   })
 

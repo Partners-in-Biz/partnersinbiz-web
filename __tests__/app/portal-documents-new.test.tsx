@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, within } from '@testing-library/react'
+import { fireEvent, render, screen } from '@testing-library/react'
 
 jest.mock('next/navigation', () => ({
   useRouter: () => ({ push: jest.fn() }),
@@ -31,25 +31,35 @@ describe('new client document type picker copy', () => {
     render(<NewDocumentPage />)
     await screen.findByText('Partners in Biz')
 
-    expect(screen.getByText(/research decides what is true; specs decide what to build/i)).toBeInTheDocument()
+    // Each template is a selectable card showing its label + picker description.
+    const researchCard = screen.getByRole('button', { name: /Research Report/ })
+    expect(researchCard).toHaveTextContent('Research Report')
+    expect(researchCard).toHaveTextContent(
+      /Evidence-led report for findings, confidence, contradictions, unknowns, and recommendations/i
+    )
 
-    const typeSelect = screen.getByLabelText('Document type')
-    expect(within(typeSelect).getByRole('option', { name: /Research Report — Evidence-led report/i })).toBeInTheDocument()
-    expect(within(typeSelect).getByRole('option', { name: /Website\/App Build Spec — Implementation spec/i })).toBeInTheDocument()
-    expect(within(typeSelect).getByRole('option', { name: /Change Request — Scoped change/i })).toBeInTheDocument()
+    const buildSpecCard = screen.getByRole('button', { name: /Website\/App Build Spec/ })
+    expect(buildSpecCard).toHaveTextContent('Website/App Build Spec')
+    expect(buildSpecCard).toHaveTextContent(
+      /Implementation spec for a website, app, integration, or platform feature build/i
+    )
 
-    fireEvent.change(typeSelect, { target: { value: 'research_report' } })
+    expect(screen.getByRole('button', { name: /Change Request/ })).toHaveTextContent(
+      /Scoped change to approved work/i
+    )
 
-    expect(screen.getByRole('heading', { name: 'Research Report' })).toBeInTheDocument()
-    expect(screen.getByText('research-report-v1')).toBeInTheDocument()
+    // Picking the research card reveals research-specific decision support copy.
+    fireEvent.click(researchCard)
+
     expect(screen.getByText(/Research questions, source ledgers, truth checks, options, and decision support/i)).toBeInTheDocument()
+    expect(screen.getByText(/Research decides what is true, what is still unknown, and what options are credible/i)).toBeInTheDocument()
     expect(screen.getByText(/should not blindly create code tasks/i)).toBeInTheDocument()
 
-    fireEvent.change(typeSelect, { target: { value: 'build_spec' } })
+    // Picking the build spec card reveals build-execution decision support copy.
+    fireEvent.click(buildSpecCard)
 
-    expect(screen.getByRole('heading', { name: 'Website/App Build Spec' })).toBeInTheDocument()
-    expect(screen.getByText('build-spec-v1')).toBeInTheDocument()
     expect(screen.getByText(/Requirements, technical approach, data\/API changes, tests, rollout, and rollback/i)).toBeInTheDocument()
+    expect(screen.getByText(/Specs decide what to build, in what order, and how QA will prove it is done/i)).toBeInTheDocument()
     expect(screen.getByText(/next decision is build execution/i)).toBeInTheDocument()
   })
 
@@ -61,8 +71,13 @@ describe('new client document type picker copy', () => {
 
     expect(screen.getByText('Partners in Biz')).toBeInTheDocument()
     expect(screen.getByLabelText('Title')).toHaveValue('PiB Platform Build Spec — Next Approved Sprint')
-    expect(screen.getByLabelText('Document type')).toHaveValue('build_spec')
-    expect(screen.getByRole('heading', { name: 'Website/App Build Spec' })).toBeInTheDocument()
+
+    // The build spec template card is preselected from the type query param.
+    expect(screen.getByRole('button', { name: /Website\/App Build Spec/ })).toHaveAttribute(
+      'aria-pressed',
+      'true'
+    )
+    expect(screen.getByText(/Specs decide what to build, in what order, and how QA will prove it is done/i)).toBeInTheDocument()
   })
 
   it('disables document creation when the organisation policy denies the member role', async () => {
@@ -90,7 +105,7 @@ describe('new client document type picker copy', () => {
 
     expect(screen.getByText('Document creation is disabled for your organisation role.')).toBeInTheDocument()
     expect(screen.getByLabelText('Title')).toBeDisabled()
-    expect(screen.getByLabelText('Document type')).toBeDisabled()
+    expect(screen.getByRole('button', { name: /Research Report/ })).toBeDisabled()
     expect(screen.getByRole('button', { name: 'Create document' })).toBeDisabled()
   })
 })
