@@ -10,6 +10,7 @@ import { adminDb } from '@/lib/firebase/admin'
 import { withCrmAuth } from '@/lib/auth/crm-middleware'
 import { apiSuccess, apiError } from '@/lib/api/response'
 import { sendEmail } from '@/lib/email/send'
+import { isSuppressed } from '@/lib/email/suppressions'
 
 export const dynamic = 'force-dynamic'
 
@@ -43,6 +44,16 @@ export const POST = withCrmAuth<RouteCtx>(
     if (contact.orgId !== ctx.orgId) return apiError('Contact not found', 404)
 
     if (!contact.email) return apiError('Contact has no email address', 400)
+
+    // ── Suppression check (US-076) ────────────────────────────────────────────
+    // Don't email contacts on the org's suppression list (unsubscribes, hard
+    // bounces, complaints). Mirrors the marketing send pipeline's guard.
+    if (await isSuppressed(ctx.orgId, contact.email as string, 'email')) {
+      return apiError(
+        'This contact is on the suppression list (unsubscribed or bounced) and cannot be emailed',
+        422,
+      )
+    }
 
     // ── Send email ────────────────────────────────────────────────────────────
     const html = bodyHtml ?? bodyText.replace(/\n/g, '<br/>')

@@ -37,6 +37,7 @@ export default function RevenuePage() {
   const [goalId, setGoalId] = useState('')
   const [results, setResults] = useState<GoalResults | null>(null)
   const [loading, setLoading] = useState(false)
+  const [adSpend, setAdSpend] = useState('')
 
   const loadGoals = useCallback(async () => {
     if (!propertyId) { setGoals([]); return }
@@ -65,6 +66,15 @@ export default function RevenuePage() {
   const revPerSession = results && results.totalSessions > 0
     ? rand(results.totalValue / results.totalSessions)
     : 'R0'
+
+  // ROI calculator (US-142): manual ad-spend input vs tracked goal revenue.
+  const spendNum = Number.parseFloat(adSpend)
+  const hasSpend = Number.isFinite(spendNum) && spendNum > 0
+  const trackedRevenue = results?.totalValue ?? 0
+  const profit = trackedRevenue - (hasSpend ? spendNum : 0)
+  const roiPct = hasSpend ? (profit / spendNum) * 100 : null
+  const roas = hasSpend ? trackedRevenue / spendNum : null
+  const breakEven = hasSpend ? trackedRevenue >= spendNum : null
 
   return (
     <div className="max-w-6xl mx-auto p-6 space-y-6">
@@ -108,6 +118,55 @@ export default function RevenuePage() {
             <KpiCard label="Completions" value={results.completions.toLocaleString()} />
             <KpiCard label="Completion Rate" value={`${results.completionRate}%`} />
             <KpiCard label="Revenue / session" value={revPerSession} sub="totalValue ÷ sessions" />
+          </div>
+
+          <div className="pib-card p-4 space-y-4">
+            <div>
+              <h2 className="text-sm font-label font-semibold text-on-surface">ROI calculator</h2>
+              <p className="text-xs text-on-surface-variant mt-0.5">
+                Enter your ad spend for this range to compare it against the tracked goal revenue.
+              </p>
+            </div>
+            <div className="flex flex-wrap items-end gap-4">
+              <div>
+                <label className="text-xs text-on-surface-variant font-label block mb-1">Ad spend (R)</label>
+                <div className="flex items-center">
+                  <span className="text-sm text-on-surface-variant mr-1">R</span>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    inputMode="decimal"
+                    value={adSpend}
+                    onChange={(e) => setAdSpend(e.target.value)}
+                    placeholder="0.00"
+                    className="pib-input text-sm w-40"
+                  />
+                </div>
+              </div>
+              <div>
+                <p className="text-xs text-on-surface-variant font-label mb-1">Tracked revenue</p>
+                <p className="text-sm font-semibold text-on-surface">R{trackedRevenue.toLocaleString()}</p>
+              </div>
+            </div>
+            {hasSpend ? (
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                <KpiCard
+                  label="ROI"
+                  value={`${roiPct! >= 0 ? '+' : ''}${roiPct!.toFixed(0)}%`}
+                  sub="(revenue − spend) ÷ spend"
+                  accent={roiPct! >= 0}
+                />
+                <KpiCard label="ROAS" value={`${roas!.toFixed(2)}×`} sub="revenue ÷ spend" />
+                <KpiCard
+                  label={profit >= 0 ? 'Net profit' : 'Net loss'}
+                  value={`R${Math.abs(profit).toLocaleString()}`}
+                />
+                <KpiCard label="Status" value={breakEven ? 'Profitable' : 'Below break-even'} />
+              </div>
+            ) : (
+              <p className="text-xs text-on-surface-variant">Enter an ad spend above to calculate ROI and ROAS.</p>
+            )}
           </div>
 
           <div className="pib-card p-4">

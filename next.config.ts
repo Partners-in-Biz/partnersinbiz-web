@@ -127,7 +127,6 @@ const nextConfig: NextConfig = {
       { source: '/portal/billing/invoices/:path*', destination: '/portal/invoicing/:path*', permanent: false },
       { source: '/portal/billing/payment-methods', destination: '/portal/payments', permanent: false },
       { source: '/portal/billing/plan', destination: '/portal/invoicing', permanent: false },
-      { source: '/portal/billing/usage', destination: '/portal/invoicing', permanent: false },
       { source: '/portal/billing/:path*', destination: '/portal/invoicing', permanent: false },
 
       // QA-P3: Email path aliases — email features live at /portal/campaigns, /portal/email-templates, etc.
@@ -201,10 +200,8 @@ const nextConfig: NextConfig = {
 
       // QA-P3c: Admin section aliases for surfaces that intentionally consolidate elsewhere.
       { source: '/admin/broadcast', destination: '/admin/email/broadcast', permanent: false },
-      { source: '/admin/system/social-apis', destination: '/admin/settings', permanent: false },
 
       // QA-P3c: Portal — unbuilt settings pages redirect to nearest settings hub
-      { source: '/portal/referrals', destination: '/portal/dashboard', permanent: false },
     ]
   },
 }
