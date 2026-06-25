@@ -47,7 +47,7 @@ export default async function AdminLayout({
   // password-only admins are never blocked.
   const twoFactorEnabled = userDoc.exists ? userDoc.data()?.twoFactor?.enabled === true : false
 
-  if (twoFactorEnabled) {
+  if (twoFactorEnabled && process.env.DISABLE_ADMIN_2FA !== 'true') {
     const verificationCookie = cookieStore.get(ADMIN_2FA_COOKIE)?.value
     const verified = verifyAdmin2faToken(verificationCookie, uid, sessionCookie)
 
