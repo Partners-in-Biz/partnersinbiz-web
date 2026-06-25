@@ -171,7 +171,7 @@ export function EmailCampaignEditor({ campaign, overviewHref, brandPrimary, bran
   const [previewText, setPreviewText] = useState(campaign.previewText || doc.preheader)
   const [selectedId, setSelectedId] = useState<string | null>(doc.blocks[0]?.id ?? null)
   const [previewHtml, setPreviewHtml] = useState('')
-  const [previewMode, setPreviewMode] = useState<'desktop' | 'mobile'>('desktop')
+  const [previewMode, setPreviewMode] = useState<'desktop' | 'mobile' | 'inbox'>('desktop')
   const [saving, setSaving] = useState(false)
   const [savedAt, setSavedAt] = useState<number | null>(null)
   const [statusMsg, setStatusMsg] = useState<string | null>(null)
@@ -399,14 +399,19 @@ export function EmailCampaignEditor({ campaign, overviewHref, brandPrimary, bran
               <span className="text-xs text-[var(--color-pib-text-muted)]">Preview:</span>
               <button onClick={() => setPreviewMode('desktop')} className={`text-xs px-2 py-1 rounded ${previewMode === 'desktop' ? 'bg-[var(--color-pib-accent-soft)] text-[var(--color-pib-accent)]' : 'text-[var(--color-pib-text-muted)]'}`}>Desktop</button>
               <button onClick={() => setPreviewMode('mobile')} className={`text-xs px-2 py-1 rounded ${previewMode === 'mobile' ? 'bg-[var(--color-pib-accent-soft)] text-[var(--color-pib-accent)]' : 'text-[var(--color-pib-text-muted)]'}`}>Mobile</button>
+              <button onClick={() => setPreviewMode('inbox')} className={`text-xs px-2 py-1 rounded ${previewMode === 'inbox' ? 'bg-[var(--color-pib-accent-soft)] text-[var(--color-pib-accent)]' : 'text-[var(--color-pib-text-muted)]'}`}>Inbox preview</button>
             </div>
-            <div className="p-4 flex justify-center bg-zinc-950/40" style={{ minHeight: 480 }}>
-              <iframe
-                title="Email preview"
-                srcDoc={previewHtml}
-                style={{ width: previewWidth, height: 560, border: '1px solid var(--color-pib-line)', borderRadius: 8, background: '#fff' }}
-              />
-            </div>
+            {previewMode === 'inbox' ? (
+              <InboxPreview campaignId={campaign.id} doc={liveDoc} />
+            ) : (
+              <div className="p-4 flex justify-center bg-zinc-950/40" style={{ minHeight: 480 }}>
+                <iframe
+                  title="Email preview"
+                  srcDoc={previewHtml}
+                  style={{ width: previewWidth, height: 560, border: '1px solid var(--color-pib-line)', borderRadius: 8, background: '#fff' }}
+                />
+              </div>
+            )}
           </div>
 
           <div className="pib-card">
@@ -501,6 +506,136 @@ function BlockPropertyForm({ block, onChange }: { block: Block; onChange: (b: Bl
     default:
       return null
   }
+}
+
+// US-138 — Multi-client inbox preview. Fetches per-client CSS-reset variants of
+// the rendered email and renders each in its own iframe behind a client tab,
+// surfacing Outlook (and other) rendering issues.
+interface ClientRender {
+  client: string
+  label: string
+  viewportWidth: number
+  html: string
+  issues: string[]
+  hasOutlookIssues: boolean
+}
+
+function InboxPreview({ campaignId, doc }: { campaignId: string; doc: EmailDocument }) {
+  const [renders, setRenders] = useState<ClientRender[]>([])
+  const [activeClient, setActiveClient] = useState<string | null>(null)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [outlookIssueCount, setOutlookIssueCount] = useState(0)
+
+  const load = useCallback(async () => {
+    setLoading(true)
+    setError(null)
+    try {
+      const res = await fetch(`/api/v1/email/campaigns/${campaignId}/preview-renders`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ document: doc }),
+      })
+      const body = await res.json().catch(() => null)
+      if (!res.ok) {
+        setError((body && (body.error as string)) || 'Failed to build inbox preview.')
+        setRenders([])
+        return
+      }
+      const data = unwrap<{ renders: ClientRender[]; outlookIssueCount: number }>(body)
+      const list = data?.renders ?? []
+      setRenders(list)
+      setOutlookIssueCount(data?.outlookIssueCount ?? 0)
+      setActiveClient((prev) => prev ?? list[0]?.client ?? null)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to build inbox preview.')
+    } finally {
+      setLoading(false)
+    }
+  }, [campaignId, doc])
+
+  // Rebuild when the document changes (debounced) so the preview tracks edits.
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  useEffect(() => {
+    if (debounceRef.current) clearTimeout(debounceRef.current)
+    debounceRef.current = setTimeout(load, 500)
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current)
+    }
+  }, [load])
+
+  const active = renders.find((r) => r.client === activeClient) ?? renders[0] ?? null
+
+  return (
+    <div className="bg-zinc-950/40">
+      <div className="flex flex-wrap items-center gap-1 border-b border-[var(--color-pib-line)] px-4 py-2">
+        {renders.map((r) => (
+          <button
+            key={r.client}
+            onClick={() => setActiveClient(r.client)}
+            className={[
+              'text-xs px-2.5 py-1 rounded inline-flex items-center gap-1',
+              active?.client === r.client
+                ? 'bg-[var(--color-pib-accent-soft)] text-[var(--color-pib-accent)]'
+                : 'text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)]',
+            ].join(' ')}
+          >
+            {r.label}
+            {r.hasOutlookIssues && (
+              <span className="material-symbols-outlined text-[14px] text-amber-400" title="Rendering issues">warning</span>
+            )}
+          </button>
+        ))}
+        {loading && <span className="text-xs text-[var(--color-pib-text-muted)] ml-2">Rendering…</span>}
+      </div>
+
+      {error && <p className="px-4 py-3 text-sm text-rose-300">{error}</p>}
+
+      {active && (
+        <>
+          {active.client === 'outlook' && outlookIssueCount > 0 && (
+            <div className="mx-4 mt-3 rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-200">
+              <span className="font-semibold">{outlookIssueCount} Outlook rendering issue{outlookIssueCount === 1 ? '' : 's'} detected.</span>{' '}
+              Outlook (Windows) uses the Word engine — review the notes below.
+            </div>
+          )}
+          <div className="p-4 flex justify-center">
+            <iframe
+              title={`${active.label} preview`}
+              srcDoc={active.html}
+              style={{
+                width: active.viewportWidth,
+                maxWidth: '100%',
+                height: 560,
+                border: '1px solid var(--color-pib-line)',
+                borderRadius: 8,
+                background: '#fff',
+              }}
+            />
+          </div>
+          {active.issues.length > 0 && (
+            <div className="px-4 pb-4">
+              <p className="eyebrow !text-[10px] mb-2">{active.label} rendering notes</p>
+              <ul className="space-y-1">
+                {active.issues.map((issue, i) => (
+                  <li key={i} className="flex items-start gap-2 text-xs text-[var(--color-pib-text-muted)]">
+                    <span className="material-symbols-outlined text-[14px] mt-0.5 text-[var(--color-pib-text-muted)]">info</span>
+                    <span>{issue}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </>
+      )}
+
+      {!loading && !error && renders.length === 0 && (
+        <p className="px-4 py-6 text-sm text-[var(--color-pib-text-muted)] text-center">
+          Add some content to preview it across email clients.
+        </p>
+      )}
+    </div>
+  )
 }
 
 // US-104 — Test-send modal.

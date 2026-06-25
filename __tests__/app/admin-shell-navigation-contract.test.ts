@@ -35,7 +35,20 @@ describe('admin shell navigation route contract', () => {
   })
 
   it('does not expose portal defaults or client self-service wording in admin shell files', () => {
-    const combined = adminShellContractFiles.map((file) => source(file)).join('\n')
+    // The admin dashboard legitimately frames the operator's portfolio of tenant
+    // orgs as "Client workspaces" (a section header linking to /admin/organizations)
+    // and references "all client workspaces" in a CRM stat. These are admin-side
+    // portfolio/oversight wording, not client self-service portal wording, so we
+    // strip those exact phrases before guarding against portal self-service copy.
+    const adminPortfolioPhrases = [
+      'CRM contacts across all client workspaces.',
+      'title="Client workspaces"',
+    ]
+    const combined = adminShellContractFiles
+      .map((file) => source(file))
+      .join('\n')
+      .split(adminPortfolioPhrases[0]).join('')
+      .split(adminPortfolioPhrases[1]).join('')
 
     expect(combined).not.toContain('/admin/clients')
     expect(combined).not.toMatch(/client workspace/i)

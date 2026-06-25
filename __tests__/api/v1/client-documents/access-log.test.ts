@@ -1,16 +1,23 @@
 import { NextRequest } from 'next/server'
 
 const mockCollection = jest.fn()
-const mockDocumentGet = jest.fn()
-const mockSubcollection = jest.fn()
+const mockWhere = jest.fn()
 const mockOrderBy = jest.fn()
 const mockLimit = jest.fn()
-const mockSubGet = jest.fn()
+const mockGet = jest.fn()
 
 jest.mock('@/lib/firebase/admin', () => ({
   adminDb: {
     collection: mockCollection,
   },
+}))
+
+// The route resolves document access through getAccessibleClientDocument →
+// getClientDocument(id). Mock the store so we control the document (and 404 cases)
+// without standing up the underlying Firestore document fetch.
+const mockGetClientDocument = jest.fn()
+jest.mock('@/lib/client-documents/store', () => ({
+  getClientDocument: (...args: unknown[]) => mockGetClientDocument(...args),
 }))
 
 jest.mock('@/lib/api/auth', () => ({
@@ -35,39 +42,32 @@ function getRequest(url: string) {
   return new NextRequest(url, { method: 'GET' })
 }
 
+function stageAccessLog(docs: Array<{ id: string; data: () => Record<string, unknown> }>) {
+  mockGet.mockResolvedValueOnce({ docs })
+}
+
 beforeEach(() => {
   jest.clearAllMocks()
-  mockDocumentGet.mockReset()
-  mockSubGet.mockReset()
+  mockGetClientDocument.mockReset()
+  mockGet.mockReset()
 
-  // Chain: docRef.collection('access_log').orderBy(...).limit(...).get()
-  const limitChain = { get: mockSubGet }
+  // Chain: adminDb.collection('document_access_log').where(...).orderBy(...).limit(...).get()
+  const limitChain = { get: mockGet }
   mockLimit.mockReturnValue(limitChain)
   const orderByChain = { limit: mockLimit }
   mockOrderBy.mockReturnValue(orderByChain)
-  const accessLogCollection = { orderBy: mockOrderBy }
-  mockSubcollection.mockReturnValue(accessLogCollection)
-
-  const documentRef = {
-    id: 'doc-1',
-    get: mockDocumentGet,
-    collection: mockSubcollection,
-  }
-  mockCollection.mockReturnValue({ doc: jest.fn(() => documentRef) })
+  const whereChain = { orderBy: mockOrderBy }
+  mockWhere.mockReturnValue(whereChain)
+  mockCollection.mockReturnValue({ where: mockWhere })
 })
 
 describe('GET /api/v1/client-documents/[id]/access-log', () => {
-  it('returns access-log entries ordered by createdAt desc with default limit 20', async () => {
-    mockDocumentGet.mockResolvedValueOnce({
-      exists: true,
-      data: () => ({ orgId: 'org-1', deleted: false }),
-    })
-    mockSubGet.mockResolvedValueOnce({
-      docs: [
-        { id: 'log-1', data: () => ({ type: 'view', email: 'a@example.com', createdAt: 't1' }) },
-        { id: 'log-2', data: () => ({ type: 'code_entered', email: 'a@example.com', createdAt: 't2' }) },
-      ],
-    })
+  it('returns access-log entries ordered by accessedAt desc with default limit 20', async () => {
+    mockGetClientDocument.mockResolvedValueOnce({ id: 'doc-1', orgId: 'org-1', deleted: false })
+    stageAccessLog([
+      { id: 'log-1', data: () => ({ type: 'view', email: 'a@example.com', accessedAt: 't1' }) },
+      { id: 'log-2', data: () => ({ type: 'code_entered', email: 'a@example.com', accessedAt: 't2' }) },
+    ])
 
     const { GET } = await import('@/app/api/v1/client-documents/[id]/access-log/route')
     const req = getRequest('http://localhost/api/v1/client-documents/doc-1/access-log')
@@ -76,21 +76,19 @@ describe('GET /api/v1/client-documents/[id]/access-log', () => {
     expect(res.status).toBe(200)
     const body = await res.json()
     expect(body.success).toBe(true)
-    expect(body.data.entries).toEqual([
-      { id: 'log-1', type: 'view', email: 'a@example.com', createdAt: 't1' },
-      { id: 'log-2', type: 'code_entered', email: 'a@example.com', createdAt: 't2' },
+    expect(body.data.events).toEqual([
+      { id: 'log-1', type: 'view', email: 'a@example.com', accessedAt: 't1' },
+      { id: 'log-2', type: 'code_entered', email: 'a@example.com', accessedAt: 't2' },
     ])
-    expect(mockSubcollection).toHaveBeenCalledWith('access_log')
-    expect(mockOrderBy).toHaveBeenCalledWith('createdAt', 'desc')
+    expect(mockCollection).toHaveBeenCalledWith('document_access_log')
+    expect(mockWhere).toHaveBeenCalledWith('documentId', '==', 'doc-1')
+    expect(mockOrderBy).toHaveBeenCalledWith('accessedAt', 'desc')
     expect(mockLimit).toHaveBeenCalledWith(20)
   })
 
   it('honours ?limit=N within the 1..100 range', async () => {
-    mockDocumentGet.mockResolvedValueOnce({
-      exists: true,
-      data: () => ({ orgId: 'org-1', deleted: false }),
-    })
-    mockSubGet.mockResolvedValueOnce({ docs: [] })
+    mockGetClientDocument.mockResolvedValueOnce({ id: 'doc-1', orgId: 'org-1', deleted: false })
+    stageAccessLog([])
 
     const { GET } = await import('@/app/api/v1/client-documents/[id]/access-log/route')
     const req = getRequest('http://localhost/api/v1/client-documents/doc-1/access-log?limit=50')
@@ -101,11 +99,8 @@ describe('GET /api/v1/client-documents/[id]/access-log', () => {
   })
 
   it('caps ?limit above 100 down to 100', async () => {
-    mockDocumentGet.mockResolvedValueOnce({
-      exists: true,
-      data: () => ({ orgId: 'org-1', deleted: false }),
-    })
-    mockSubGet.mockResolvedValueOnce({ docs: [] })
+    mockGetClientDocument.mockResolvedValueOnce({ id: 'doc-1', orgId: 'org-1', deleted: false })
+    stageAccessLog([])
 
     const { GET } = await import('@/app/api/v1/client-documents/[id]/access-log/route')
     const req = getRequest('http://localhost/api/v1/client-documents/doc-1/access-log?limit=500')
@@ -116,37 +111,38 @@ describe('GET /api/v1/client-documents/[id]/access-log', () => {
   })
 
   it('returns 404 when the document does not exist', async () => {
-    mockDocumentGet.mockResolvedValueOnce({ exists: false, data: () => undefined })
+    mockGetClientDocument.mockResolvedValueOnce(null)
 
     const { GET } = await import('@/app/api/v1/client-documents/[id]/access-log/route')
     const req = getRequest('http://localhost/api/v1/client-documents/missing/access-log')
     const res = await GET(req, adminUser, { params: Promise.resolve({ id: 'missing' }) })
 
     expect(res.status).toBe(404)
-    expect(mockSubGet).not.toHaveBeenCalled()
+    expect(mockGet).not.toHaveBeenCalled()
   })
 
-  it('returns 404 when the document is soft-deleted', async () => {
-    mockDocumentGet.mockResolvedValueOnce({
-      exists: true,
-      data: () => ({ orgId: 'org-1', deleted: true }),
-    })
+  it('returns 404 when the document is soft-deleted (store filters it out)', async () => {
+    // getClientDocument returns null for soft-deleted documents.
+    mockGetClientDocument.mockResolvedValueOnce(null)
 
     const { GET } = await import('@/app/api/v1/client-documents/[id]/access-log/route')
     const req = getRequest('http://localhost/api/v1/client-documents/doc-1/access-log')
     const res = await GET(req, adminUser, { params: Promise.resolve({ id: 'doc-1' }) })
 
     expect(res.status).toBe(404)
-    expect(mockSubGet).not.toHaveBeenCalled()
+    expect(mockGet).not.toHaveBeenCalled()
   })
 
-  it('blocks client role via withAuth (admin-only)', async () => {
+  it('blocks client role via withAuth when not linked to the document org', async () => {
+    // Client role for an org that is not linked/visible on the document → 403.
+    mockGetClientDocument.mockResolvedValueOnce({ id: 'doc-1', orgId: 'org-1', deleted: false, status: 'draft' })
+
     const { GET } = await import('@/app/api/v1/client-documents/[id]/access-log/route')
     const req = getRequest('http://localhost/api/v1/client-documents/doc-1/access-log')
     const res = await GET(req, clientUser, { params: Promise.resolve({ id: 'doc-1' }) })
 
     expect(res.status).toBe(403)
-    expect(mockDocumentGet).not.toHaveBeenCalled()
+    expect(mockGet).not.toHaveBeenCalled()
   })
 })
 

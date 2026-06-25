@@ -13,7 +13,10 @@ jest.mock('@/lib/ads/api-helpers', () => ({
 const store = jest.requireMock('@/lib/ads/campaigns/store')
 const helpers = jest.requireMock('@/lib/ads/api-helpers')
 
-beforeEach(() => jest.clearAllMocks())
+// resetAllMocks (not clearAllMocks) so leftover mockResolvedValueOnce queue
+// entries from validation tests — which return before requireMetaContext is
+// called — don't leak into later tests.
+beforeEach(() => jest.resetAllMocks())
 
 const baseConn = {
   orgId: 'org_1',
@@ -82,7 +85,6 @@ describe('POST /api/v1/ads/campaigns', () => {
   })
 
   it('returns 400 when name or objective is missing', async () => {
-    helpers.requireMetaContext.mockResolvedValueOnce(baseConn)
     const res = await POST(
       new Request('http://x', {
         method: 'POST',
@@ -102,7 +104,7 @@ describe('POST /api/v1/ads/campaigns', () => {
       new Request('http://x', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ input: {} }),
+        body: JSON.stringify({ input: { name: 'Test', objective: 'TRAFFIC' } }),
       }) as any,
       { uid: 'u1' } as any,
       {} as any,

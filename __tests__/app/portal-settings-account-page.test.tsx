@@ -9,6 +9,10 @@ const mockAuth = {
 }
 const sendPasswordResetEmailMock = jest.fn()
 
+jest.mock('next/navigation', () => ({
+  useRouter: () => ({ push: jest.fn(), replace: jest.fn() }),
+}))
+
 jest.mock('@/lib/firebase/config', () => ({
   getClientAuth: () => mockAuth,
 }))
@@ -22,21 +26,16 @@ describe('Portal account settings page', () => {
     sendPasswordResetEmailMock.mockReset()
   })
 
-  it('summarizes account access readiness before credential controls', () => {
+  it('surfaces the read-only login identity for the signed-in user', () => {
     render(<AccountSettingsPage />)
 
-    const accountOverview = screen.getByRole('region', { name: 'Account access overview' })
+    const loginPanel = screen.getByTestId('account-login-panel')
 
-    expect(accountOverview).toBeInTheDocument()
-    expect(within(accountOverview).getByRole('heading', { name: 'Account access overview' })).toBeInTheDocument()
-    expect(within(accountOverview).getByText('hello@partnersinbiz.online')).toBeInTheDocument()
-    expect(within(accountOverview).getByText('Password recovery ready')).toBeInTheDocument()
-    expect(within(accountOverview).getAllByText('Workspace independent')).toHaveLength(2)
-    expect(within(accountOverview).queryByText('Account security command center')).not.toBeInTheDocument()
-    expect(within(accountOverview).queryByText('Login verified')).not.toBeInTheDocument()
-    expect(within(accountOverview).getByTestId('account-readiness-login-email')).toHaveClass('pib-card-section-row')
-    expect(within(accountOverview).getByTestId('account-readiness-recovery')).toHaveClass('pib-card-section-row')
-    expect(within(accountOverview).getByTestId('account-readiness-scope')).toHaveClass('pib-card-section-row')
+    expect(loginPanel).toBeInTheDocument()
+    expect(within(loginPanel).getByText('Login identity')).toBeInTheDocument()
+    expect(within(loginPanel).getByRole('heading', { name: 'Login email' })).toBeInTheDocument()
+    expect(within(loginPanel).getByText('hello@partnersinbiz.online')).toBeInTheDocument()
+    expect(within(loginPanel).getByText(/Read-only\. Managed by your account provider/)).toBeInTheDocument()
   })
 
   it('uses shared PiB section and button primitives for credential controls', () => {
@@ -44,7 +43,7 @@ describe('Portal account settings page', () => {
 
     expect(screen.getByTestId('account-login-panel')).toHaveClass('pib-card-section')
     expect(screen.getByTestId('account-password-panel')).toHaveClass('pib-card-section')
-    expect(screen.getByRole('button', { name: 'Send password reset email' })).toHaveClass('pib-btn-primary')
+    expect(screen.getByRole('button', { name: 'Send password reset email' })).toHaveClass('border')
   })
 
   it('sends password reset email through Firebase auth', async () => {

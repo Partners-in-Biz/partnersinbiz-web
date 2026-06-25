@@ -16,6 +16,7 @@ import { CompanyOverviewPanel } from '@/components/crm/CompanyOverviewPanel'
 import { CompanyWorkspacePanel, type LinkedWorkspace } from '@/components/crm/CompanyWorkspacePanel'
 import { EntityScopedChat } from '@/components/crm/EntityScopedChat'
 import { CompanyEditDrawer, type CompanyTeamMember } from '@/components/crm/CompanyEditDrawer'
+import { CompanyMergePanel } from '@/components/crm/CompanyMergePanel'
 import { CustomFieldsSection } from '@/components/crm/CustomFieldsSection'
 import { ContactForm } from '@/components/crm/ContactForm'
 import { DealDrawer } from '@/components/crm/DealDrawer'
@@ -2686,6 +2687,14 @@ export default function CompanyDetailPage() {
                 if (selectedTab) selectTab(selectedTab)
               }}
               onEditCompany={() => setEditOpen(true)}
+            />
+            <CompanyMergePanel
+              company={company}
+              apiPath={companyApiPath}
+              onMerged={() => {
+                void fetchCompany()
+                void loadRelated(company.id)
+              }}
             />
             {customFieldDefs.length > 0 && (
               <div className="bento-card p-5 space-y-3">

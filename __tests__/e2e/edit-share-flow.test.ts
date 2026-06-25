@@ -233,6 +233,19 @@ describe('E2E: edit-share enable → verify-code → fetch', () => {
   it('4. fetch doc with no cookies returns 401 "Code verification required"', async () => {
     const token = 'd'.repeat(32)
 
+    // Route now loads the document first (US-036); the access code is only
+    // required when the document configures an editAccessCode.
+    mockQueryGet.mockResolvedValueOnce({
+      empty: false,
+      docs: [
+        {
+          id: 'doc-4',
+          ref: { id: 'doc-4' },
+          data: () => ({ editShareEnabled: true, editAccessCode: 'CODE12', deleted: false, currentVersionId: 'v-1' }),
+        },
+      ],
+    })
+
     const { GET } = await import('@/app/api/v1/public/client-documents/edit/[editShareToken]/route')
     const req = getRequest(`http://localhost/api/v1/public/client-documents/edit/${token}`)
     const res = await GET(req, { params: Promise.resolve({ editShareToken: token }) })
@@ -241,11 +254,21 @@ describe('E2E: edit-share enable → verify-code → fetch', () => {
     const body = await res.json()
     expect(body.error).toBe('Code verification required')
     expect(mockVerifySessionCookie).not.toHaveBeenCalled()
-    expect(mockQueryGet).not.toHaveBeenCalled()
   })
 
   it('5. fetch doc with code cookie but no session returns 401 "Sign-in required"', async () => {
     const token = 'e'.repeat(32)
+
+    mockQueryGet.mockResolvedValueOnce({
+      empty: false,
+      docs: [
+        {
+          id: 'doc-5',
+          ref: { id: 'doc-5' },
+          data: () => ({ editShareEnabled: true, editAccessCode: 'CODE12', deleted: false, currentVersionId: 'v-1' }),
+        },
+      ],
+    })
 
     const { GET } = await import('@/app/api/v1/public/client-documents/edit/[editShareToken]/route')
     const req = getRequest(`http://localhost/api/v1/public/client-documents/edit/${token}`, {
@@ -257,7 +280,6 @@ describe('E2E: edit-share enable → verify-code → fetch', () => {
     const body = await res.json()
     expect(body.error).toBe('Sign-in required')
     expect(mockVerifySessionCookie).not.toHaveBeenCalled()
-    expect(mockQueryGet).not.toHaveBeenCalled()
   })
 
   it('6. fetch doc with both cookies + valid session returns 200 with document, version, user', async () => {

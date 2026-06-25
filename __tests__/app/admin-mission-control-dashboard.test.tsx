@@ -52,6 +52,14 @@ describe('Mission control dashboard', () => {
       if (url === '/api/v1/health') {
         return Promise.resolve({ ok: true, json: async () => ({ success: true, data: { ok: true, services: { firestore: 'ok', auth: 'ok', storage: 'ok' } } }) } as Response)
       }
+      if (url === '/api/v1/admin/dashboard') {
+        return Promise.resolve({ ok: true, json: async () => ({ data: {
+          mrr: 0, arr: 0, currency: 'ZAR', activeOrgs: 0, totalClientOrgs: 0,
+          newOrgsThisMonth: 0, churnedOrgs: 0, churnRate: 0, totalContacts: 0,
+          emailSendsToday: 0, activeSocialAccounts: 0, failedJobs: 0,
+          revenueByMonth: [], acquisitionByMonth: [], recentSignups: [],
+        } }) } as Response)
+      }
       return Promise.resolve({ ok: true, json: async () => ({ data: [] }) } as Response)
     }) as jest.Mock
 
@@ -101,6 +109,14 @@ describe('Mission control dashboard', () => {
       if (url === '/api/v1/health') {
         return Promise.resolve({ ok: true, json: async () => ({ success: true, data: { ok: true, services: { firestore: 'ok' } } }) } as Response)
       }
+      if (url === '/api/v1/admin/dashboard') {
+        return Promise.resolve({ ok: true, json: async () => ({ data: {
+          mrr: 0, arr: 0, currency: 'ZAR', activeOrgs: 0, totalClientOrgs: 0,
+          newOrgsThisMonth: 0, churnedOrgs: 0, churnRate: 0, totalContacts: 0,
+          emailSendsToday: 0, activeSocialAccounts: 0, failedJobs: 0,
+          revenueByMonth: [], acquisitionByMonth: [], recentSignups: [],
+        } }) } as Response)
+      }
       return Promise.resolve({ ok: true, json: async () => ({ data: [] }) } as Response)
     }) as jest.Mock
 
@@ -132,6 +148,14 @@ describe('Mission control dashboard', () => {
       }
       if (url === '/api/v1/health') {
         return Promise.resolve({ ok: true, json: async () => ({ success: true, data: { ok: true, services: { firestore: 'ok' } } }) } as Response)
+      }
+      if (url === '/api/v1/admin/dashboard') {
+        return Promise.resolve({ ok: true, json: async () => ({ data: {
+          mrr: 0, arr: 0, currency: 'ZAR', activeOrgs: 0, totalClientOrgs: 0,
+          newOrgsThisMonth: 0, churnedOrgs: 0, churnRate: 0, totalContacts: 0,
+          emailSendsToday: 0, activeSocialAccounts: 0, failedJobs: 0,
+          revenueByMonth: [], acquisitionByMonth: [], recentSignups: [],
+        } }) } as Response)
       }
       return Promise.resolve({ ok: true, json: async () => ({ data: [] }) } as Response)
     }) as jest.Mock
@@ -168,6 +192,14 @@ describe('Mission control dashboard', () => {
       if (url === '/api/v1/health') {
         return Promise.resolve({ ok: true, json: async () => ({ success: true, data: { ok: true, services: { firestore: 'ok' } } }) } as Response)
       }
+      if (url === '/api/v1/admin/dashboard') {
+        return Promise.resolve({ ok: true, json: async () => ({ data: {
+          mrr: 0, arr: 0, currency: 'ZAR', activeOrgs: 0, totalClientOrgs: 0,
+          newOrgsThisMonth: 0, churnedOrgs: 0, churnRate: 0, totalContacts: 0,
+          emailSendsToday: 0, activeSocialAccounts: 0, failedJobs: 0,
+          revenueByMonth: [], acquisitionByMonth: [], recentSignups: [],
+        } }) } as Response)
+      }
       return Promise.resolve({ ok: true, json: async () => ({ data: [] }) } as Response)
     }) as jest.Mock
 
@@ -203,6 +235,14 @@ describe('Mission control dashboard', () => {
       }
       if (url === '/api/v1/health') {
         return Promise.resolve({ ok: true, json: async () => ({ success: true, data: { ok: true, services: { firestore: 'ok' } } }) } as Response)
+      }
+      if (url === '/api/v1/admin/dashboard') {
+        return Promise.resolve({ ok: true, json: async () => ({ data: {
+          mrr: 0, arr: 0, currency: 'ZAR', activeOrgs: 0, totalClientOrgs: 0,
+          newOrgsThisMonth: 0, churnedOrgs: 0, churnRate: 0, totalContacts: 0,
+          emailSendsToday: 0, activeSocialAccounts: 0, failedJobs: 0,
+          revenueByMonth: [], acquisitionByMonth: [], recentSignups: [],
+        } }) } as Response)
       }
       return Promise.resolve({ ok: true, json: async () => ({ data: [] }) } as Response)
     }) as jest.Mock
@@ -245,6 +285,14 @@ describe('Mission control dashboard', () => {
       if (url === '/api/v1/health') {
         return Promise.resolve({ ok: true, json: async () => ({ success: true, data: { ok: true, services: { firestore: 'ok' } } }) } as Response)
       }
+      if (url === '/api/v1/admin/dashboard') {
+        return Promise.resolve({ ok: true, json: async () => ({ data: {
+          mrr: 0, arr: 0, currency: 'ZAR', activeOrgs: 0, totalClientOrgs: 0,
+          newOrgsThisMonth: 0, churnedOrgs: 0, churnRate: 0, totalContacts: 0,
+          emailSendsToday: 0, activeSocialAccounts: 0, failedJobs: 0,
+          revenueByMonth: [], acquisitionByMonth: [], recentSignups: [],
+        } }) } as Response)
+      }
       return Promise.resolve({ ok: true, json: async () => ({ data: [] }) } as Response)
     }) as jest.Mock
 
@@ -276,6 +324,14 @@ describe('Mission control dashboard', () => {
       if (url === '/api/v1/health') {
         return Promise.resolve({ ok: true, json: async () => ({ success: true, data: { ok: true, services: { firestore: 'ok' } } }) } as Response)
       }
+      if (url === '/api/v1/admin/dashboard') {
+        return Promise.resolve({ ok: true, json: async () => ({ data: {
+          mrr: 0, arr: 0, currency: 'ZAR', activeOrgs: 0, totalClientOrgs: 0,
+          newOrgsThisMonth: 0, churnedOrgs: 0, churnRate: 0, totalContacts: 0,
+          emailSendsToday: 0, activeSocialAccounts: 0, failedJobs: 0,
+          revenueByMonth: [], acquisitionByMonth: [], recentSignups: [],
+        } }) } as Response)
+      }
       return Promise.resolve({ ok: true, json: async () => ({ data: [] }) } as Response)
     }) as jest.Mock
 
@@ -297,6 +353,14 @@ describe('Mission control dashboard', () => {
       }
       if (url === '/api/v1/health') {
         return Promise.reject(new Error('health unavailable'))
+      }
+      if (url === '/api/v1/admin/dashboard') {
+        return Promise.resolve({ ok: true, json: async () => ({ data: {
+          mrr: 0, arr: 0, currency: 'ZAR', activeOrgs: 0, totalClientOrgs: 0,
+          newOrgsThisMonth: 0, churnedOrgs: 0, churnRate: 0, totalContacts: 0,
+          emailSendsToday: 0, activeSocialAccounts: 0, failedJobs: 0,
+          revenueByMonth: [], acquisitionByMonth: [], recentSignups: [],
+        } }) } as Response)
       }
       return Promise.resolve({ ok: true, json: async () => ({ data: [] }) } as Response)
     }) as jest.Mock

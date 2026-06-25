@@ -313,7 +313,7 @@ describe('client.ts', () => {
     process.env.GOOGLE_ADS_DEVELOPER_TOKEN = 'dev-tok'
     const fetchMock = makeFetchMock(async (url, init) => {
       expect(url).toBe(
-        'https://googleads.googleapis.com/v17/customers/1234567890/googleAds:searchStream',
+        'https://googleads.googleapis.com/v21/customers/1234567890/googleAds:searchStream',
       )
       const headers = init.headers as Record<string, string>
       expect(headers.Authorization).toBe('Bearer at-1')

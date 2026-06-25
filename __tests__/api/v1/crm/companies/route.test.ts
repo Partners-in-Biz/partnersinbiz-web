@@ -31,6 +31,7 @@ jest.mock('@/lib/companies/store', () => ({
   validateParentChain: jest.fn().mockResolvedValue(true),
   validateAccountManager: jest.fn().mockResolvedValue(true),
   clearCompanyIdOnCollection: jest.fn().mockResolvedValue(0),
+  findDuplicateCompany: jest.fn().mockResolvedValue(null),
   // Default: a valid AM resolves to a MemberRef. Tests that need invalid-AM
   // override with mockResolvedValueOnce(null).
   loadMemberRef: jest.fn().mockResolvedValue({ uid: 'am-uid', displayName: 'AM User' }),
@@ -348,6 +349,51 @@ describe('POST /api/v1/crm/companies', () => {
     expect(res.status).toBe(400)
     const body = await res.json()
     expect(body.error).toMatch(/Name is required/i)
+  })
+
+  it('rejects duplicate company creation inside the same workspace with a 409 summary', async () => {
+    const uid = uidFor('member-duplicate-company')
+    const member = seedOrgMember('org-duplicate-company', uid, { role: 'member' })
+    stageAuth(member, {})
+    const { findDuplicateCompany } = await import('@/lib/companies/store')
+    ;(findDuplicateCompany as jest.Mock).mockResolvedValueOnce({
+      id: 'existing-company-id',
+      name: 'Talent Hub',
+      domain: 'talenthubsa.co.za',
+      reason: 'domain',
+    })
+
+    const req = callAsMember(member, 'POST', '/api/v1/crm/companies', {
+      name: 'Talent Hub',
+      website: 'https://www.talenthubsa.co.za/about',
+    })
+    const { POST } = await import('@/app/api/v1/crm/companies/route')
+    const res = await POST(req)
+
+    expect(res.status).toBe(409)
+    const body = await res.json()
+    expect(body.error).toMatch(/already exists in this workspace/i)
+    expect(body.duplicate).toMatchObject({ id: 'existing-company-id', reason: 'domain' })
+    expect(findDuplicateCompany).toHaveBeenCalledWith(
+      'org-duplicate-company',
+      expect.objectContaining({ name: 'Talent Hub' }),
+    )
+  })
+
+  it('uses tenant-scoped duplicate lookup before creating a company', async () => {
+    const uid = uidFor('member-tenant-company')
+    const member = seedOrgMember('org-tenant-company', uid, { role: 'member' })
+    const captured = jest.fn().mockResolvedValue(undefined)
+    stageAuth(member, {}, { capturedDocSet: captured })
+    const { findDuplicateCompany } = await import('@/lib/companies/store')
+    ;(findDuplicateCompany as jest.Mock).mockResolvedValueOnce(null)
+
+    const req = callAsMember(member, 'POST', '/api/v1/crm/companies', { name: 'Shared Name' })
+    const { POST } = await import('@/app/api/v1/crm/companies/route')
+    const res = await POST(req)
+
+    expect(res.status).toBe(201)
+    expect(findDuplicateCompany).toHaveBeenCalledWith('org-tenant-company', expect.objectContaining({ name: 'Shared Name' }))
   })
 
   it('returns 403 when viewer tries to POST', async () => {

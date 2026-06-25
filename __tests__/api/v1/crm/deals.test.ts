@@ -183,10 +183,13 @@ describe('GET /api/v1/crm/deals', () => {
     const member = seedOrgMember('org-test', 'uid-viewer', { role: 'viewer' })
     stageAuth(member, {}, {
       existingDeals: [
-        { id: 'd-old', data: { title: 'Old Website', pipelineId: DEFAULT_PIPELINE_ID, stageId: 'discovery', deleted: false, createdAt: { seconds: 1 } } },
-        { id: 'd-match', data: { title: 'Priority Website', pipelineId: DEFAULT_PIPELINE_ID, stageId: 'proposal', deleted: false, createdAt: { seconds: 3 } } },
-        { id: 'd-other-pipeline', data: { title: 'Priority Website', pipelineId: 'other-pipeline', stageId: 'proposal', deleted: false, createdAt: { seconds: 4 } } },
-        { id: 'd-deleted', data: { title: 'Priority Website deleted', pipelineId: DEFAULT_PIPELINE_ID, stageId: 'proposal', deleted: true, createdAt: { seconds: 5 } } },
+        // Deals must be assigned to the viewer (ownerUid) so the assignment-based
+        // read scope lets them through; this test exercises in-memory pipeline/
+        // deleted/search/pagination filtering, not assignment access.
+        { id: 'd-old', data: { orgId: 'org-test', ownerUid: 'uid-viewer', title: 'Old Website', pipelineId: DEFAULT_PIPELINE_ID, stageId: 'discovery', deleted: false, createdAt: { seconds: 1 } } },
+        { id: 'd-match', data: { orgId: 'org-test', ownerUid: 'uid-viewer', title: 'Priority Website', pipelineId: DEFAULT_PIPELINE_ID, stageId: 'proposal', deleted: false, createdAt: { seconds: 3 } } },
+        { id: 'd-other-pipeline', data: { orgId: 'org-test', ownerUid: 'uid-viewer', title: 'Priority Website', pipelineId: 'other-pipeline', stageId: 'proposal', deleted: false, createdAt: { seconds: 4 } } },
+        { id: 'd-deleted', data: { orgId: 'org-test', ownerUid: 'uid-viewer', title: 'Priority Website deleted', pipelineId: DEFAULT_PIPELINE_ID, stageId: 'proposal', deleted: true, createdAt: { seconds: 5 } } },
       ],
     })
 
@@ -1209,6 +1212,8 @@ describe('PUT /api/v1/crm/deals/[id] — A5 extensions', () => {
       existingDeals: [{
         id: 'd1',
         data: {
+          orgId: 'org-test',
+          ownerUid: 'uid-viewer',
           title: 'A5 Deal',
           pipelineId: DEFAULT_PIPELINE_ID,
           stageId: 'lost',

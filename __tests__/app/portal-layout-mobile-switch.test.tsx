@@ -279,45 +279,48 @@ describe('PortalLayout mobile role switch', () => {
     expect(refreshMock).not.toHaveBeenCalled()
   })
 
-  it('keeps Mobile Apps visible when no portal module setting is stored', async () => {
+  // The Studio entries (Mobile Apps / YouTube Studio / Book Studio) moved out of
+  // the top-level sidebar into the Marketing workspace subnav, under a "Studio"
+  // dropdown. They only render on marketing routes and after the dropdown is
+  // opened. Helper: render on a marketing route, open the Studio dropdown.
+  async function renderMarketingAndOpenStudio() {
+    mockPathname = '/portal/marketing'
     render(
       <PortalLayout>
         <div>Portal content</div>
       </PortalLayout>,
     )
+    const studioButton = await screen.findByRole('button', { name: /Studio/ })
+    fireEvent.click(studioButton)
+    return studioButton
+  }
+
+  it('shows Mobile Apps in the marketing Studio subnav', async () => {
+    await renderMarketingAndOpenStudio()
 
     await waitFor(() => {
-      expect(screen.getAllByRole('link', { name: /Mobile Apps/ }).length).toBeGreaterThan(0)
+      expect(screen.getAllByRole('menuitem', { name: /Mobile Apps/ }).length).toBeGreaterThan(0)
     })
   })
 
-  it('keeps Mobile Apps visible when the active organisation enables the module', async () => {
+  it('shows Mobile Apps in the Studio subnav when the active organisation enables the module', async () => {
     mockPortalModules = { mobileApps: true }
-
-    render(
-      <PortalLayout>
-        <div>Portal content</div>
-      </PortalLayout>,
-    )
+    await renderMarketingAndOpenStudio()
 
     await waitFor(() => {
-      expect(screen.getAllByRole('link', { name: /Mobile Apps/ }).length).toBeGreaterThan(0)
+      expect(screen.getAllByRole('menuitem', { name: /Mobile Apps/ }).length).toBeGreaterThan(0)
     })
   })
 
-  it('keeps YouTube Studio visible when no portal module setting is stored', async () => {
-    render(
-      <PortalLayout>
-        <div>Portal content</div>
-      </PortalLayout>,
-    )
+  it('shows YouTube Studio in the marketing Studio subnav', async () => {
+    await renderMarketingAndOpenStudio()
 
     await waitFor(() => {
-      expect(screen.getAllByRole('link', { name: /YouTube Studio/ }).length).toBeGreaterThan(0)
+      expect(screen.getAllByRole('menuitem', { name: /YouTube Studio/ }).length).toBeGreaterThan(0)
     })
   })
 
-  it('hides Book Studio navigation by default until the organisation enables it', async () => {
+  it('keeps Studio subnav entries off non-marketing routes like the dashboard', async () => {
     render(
       <PortalLayout>
         <div>Portal content</div>
@@ -327,37 +330,17 @@ describe('PortalLayout mobile role switch', () => {
     expect(await screen.findByText('Client portal')).toBeInTheDocument()
 
     await waitFor(() => {
-      expect(screen.queryByRole('link', { name: /Book Studio/ })).not.toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: /Studio/ })).not.toBeInTheDocument()
     })
+    expect(screen.queryByRole('menuitem', { name: /Book Studio/ })).not.toBeInTheDocument()
   })
 
-  it('shows Book Studio navigation when the active organisation enables the module', async () => {
+  it('shows Book Studio in the marketing Studio subnav', async () => {
     mockPortalModules = { bookStudio: true }
-
-    render(
-      <PortalLayout>
-        <div>Portal content</div>
-      </PortalLayout>,
-    )
+    await renderMarketingAndOpenStudio()
 
     await waitFor(() => {
-      expect(screen.getAllByRole('link', { name: /Book Studio/ }).length).toBeGreaterThan(0)
-    })
-  })
-
-  it('hides Mobile Apps navigation when the active organisation disables the module', async () => {
-    mockPortalModules = { mobileApps: false }
-
-    render(
-      <PortalLayout>
-        <div>Portal content</div>
-      </PortalLayout>,
-    )
-
-    expect(await screen.findByText('Client portal')).toBeInTheDocument()
-
-    await waitFor(() => {
-      expect(screen.queryByRole('link', { name: /Mobile Apps/ })).not.toBeInTheDocument()
+      expect(screen.getAllByRole('menuitem', { name: /Book Studio/ }).length).toBeGreaterThan(0)
     })
   })
 
@@ -398,24 +381,18 @@ describe('PortalLayout mobile role switch', () => {
       expect(screen.getByText('CRM')).toBeInTheDocument()
       expect(screen.getByText('Marketing')).toBeInTheDocument()
       expect(screen.getByText('Messages')).toBeInTheDocument()
-      expect(screen.getByText('Mobile Apps')).toBeInTheDocument()
-      expect(screen.getByText('YouTube Studio')).toBeInTheDocument()
     })
   })
 
-  it('hides YouTube Studio navigation when the active organisation disables the module', async () => {
+  it('lists YouTube Studio in the Studio subnav regardless of the portal module flag', async () => {
+    // The Studio subnav entries are no longer gated by portalModules; they live
+    // under the Marketing workspace Studio dropdown and render on marketing
+    // routes even when the org has youtubeStudio set false.
     mockPortalModules = { youtubeStudio: false }
-
-    render(
-      <PortalLayout>
-        <div>Portal content</div>
-      </PortalLayout>,
-    )
-
-    expect(await screen.findByText('Client portal')).toBeInTheDocument()
+    await renderMarketingAndOpenStudio()
 
     await waitFor(() => {
-      expect(screen.queryByRole('link', { name: /YouTube Studio/ })).not.toBeInTheDocument()
+      expect(screen.getAllByRole('menuitem', { name: /YouTube Studio/ }).length).toBeGreaterThan(0)
     })
   })
 })

@@ -96,6 +96,15 @@ const PLATFORM_ICONS: Record<string, { label: string; color: string; icon: strin
   dribbble: { label: 'Dribbble', color: '#ea4c89', icon: 'Db' },
 }
 
+function isVideoSource(value: string | undefined): boolean {
+  if (!value) return false
+  return /\.(mp4|mov|m4v|webm)(\?|#|$)/i.test(value)
+}
+
+function isVideoMedia(media: NonNullable<SocialCalendarPost['media']>[number]): boolean {
+  return media.type === 'video' || isVideoSource(media.url) || isVideoSource(media.thumbnailUrl)
+}
+
 const STATUS_STYLES: Record<SocialCalendarPostStatus, string> = {
   draft: 'border-outline-variant bg-surface-container-high text-on-surface-variant',
   qa_review: 'border-amber-500/40 bg-amber-900/30 text-amber-300',
@@ -456,13 +465,26 @@ function PostPanel({
               <p className="mb-2 text-xs font-medium uppercase tracking-wide text-on-surface-variant">Media</p>
               <div className="grid grid-cols-2 gap-2">
                 {post.media.map((media, index) => (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    key={media.id ?? `${media.url}-${index}`}
-                    src={media.thumbnailUrl || media.url}
-                    alt={media.altText || `Post media ${index + 1}`}
-                    className="aspect-square w-full rounded border border-outline-variant object-cover"
-                  />
+                  isVideoMedia(media) ? (
+                    <video
+                      key={media.id ?? `${media.url}-${index}`}
+                      src={media.url || media.thumbnailUrl}
+                      poster={!isVideoSource(media.thumbnailUrl) ? media.thumbnailUrl : undefined}
+                      muted
+                      playsInline
+                      preload="metadata"
+                      aria-label={media.altText || `Post media ${index + 1}`}
+                      className="aspect-square w-full rounded border border-outline-variant object-cover"
+                    />
+                  ) : (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      key={media.id ?? `${media.url}-${index}`}
+                      src={media.thumbnailUrl || media.url}
+                      alt={media.altText || `Post media ${index + 1}`}
+                      className="aspect-square w-full rounded border border-outline-variant object-cover"
+                    />
+                  )
                 ))}
               </div>
             </div>

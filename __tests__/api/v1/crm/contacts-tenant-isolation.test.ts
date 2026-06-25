@@ -85,6 +85,30 @@ function setupIsolationFixtures(perms: Record<string, unknown> = { membersCanDel
       }
     }
     if (name === 'contacts') {
+      const allDocs = [
+        { id: 'a1', data: () => contactA, ref: { id: 'a1' } },
+        { id: 'b1', data: () => contactB, ref: { id: 'b1' } },
+      ]
+      // The POST duplicate-email / linkedUserId guards issue
+      // .where('orgId').where('email'|'linkedUserId').limit(1).get(). Honour the
+      // email/linkedUserId filter so a brand-new contact (distinct email) is not
+      // wrongly treated as a duplicate. List reads (orgId-only) return all docs.
+      const makeQuery = (filters: Array<{ field: string; value: unknown }>) => {
+        const chain: Record<string, any> = {}
+        chain.where = (field: string, _op: string, value: unknown) =>
+          makeQuery([...filters, { field, value }])
+        chain.orderBy = () => chain
+        chain.limit = () => chain
+        chain.get = () => {
+          let docs = allDocs
+          for (const f of filters) {
+            if (f.field === 'email') docs = docs.filter((d) => (d.data() as any)?.email === f.value)
+            if (f.field === 'linkedUserId') docs = docs.filter((d) => (d.data() as any)?.linkedUserId === f.value)
+          }
+          return Promise.resolve({ docs })
+        }
+        return chain
+      }
       return {
         doc: jest.fn().mockImplementation((id?: string) => ({
           id: id ?? 'auto-id',
@@ -97,13 +121,10 @@ function setupIsolationFixtures(perms: Record<string, unknown> = { membersCanDel
           update: jest.fn((data: Record<string, unknown>) => { captured.updateCalls.push(data); return Promise.resolve() }),
           delete: jest.fn(() => { captured.deleteCalls.push(true); return Promise.resolve() }),
         })),
-        where: jest.fn().mockReturnThis(),
+        where: (field: string, op: string, value: unknown) => makeQuery([]).where(field, op, value),
         orderBy: jest.fn().mockReturnThis(),
         limit: jest.fn().mockReturnThis(),
-        get: () => Promise.resolve({ docs: [
-          { id: 'a1', data: () => contactA, ref: { id: 'a1' } },
-          { id: 'b1', data: () => contactB, ref: { id: 'b1' } },
-        ] }),
+        get: () => Promise.resolve({ docs: allDocs }),
       }
     }
     if (name === 'activities') {

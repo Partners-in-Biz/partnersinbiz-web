@@ -142,7 +142,7 @@ describe('PortalCaptureSourcesPage', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Confirm delete capture source Homepage enquiry form' }))
 
     await waitFor(() => {
-      expect(global.fetch).toHaveBeenCalledWith('/api/v1/crm/capture-sources/src-form', { method: 'DELETE' })
+      expect(global.fetch).toHaveBeenCalledWith('/api/v1/crm/capture-sources/src-form', { method: 'DELETE', headers: {} })
     })
     expect(screen.queryByText('Homepage enquiry form')).not.toBeInTheDocument()
 
@@ -266,7 +266,7 @@ describe('PortalCaptureSourcesPage', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Confirm delete capture source Capture source name missing' }))
 
     await waitFor(() => {
-      expect(global.fetch).toHaveBeenCalledWith('/api/v1/crm/capture-sources/src-sparse', { method: 'DELETE' })
+      expect(global.fetch).toHaveBeenCalledWith('/api/v1/crm/capture-sources/src-sparse', { method: 'DELETE', headers: {} })
     })
     expect(screen.queryByText('Capture source name missing')).not.toBeInTheDocument()
   })

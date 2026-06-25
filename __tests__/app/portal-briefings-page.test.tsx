@@ -24,6 +24,22 @@ const mockBriefingControlDesk = jest.fn(
   ),
 )
 
+jest.mock('next/headers', () => ({
+  cookies: jest.fn(async () => ({
+    get: () => undefined,
+  })),
+}))
+
+jest.mock('@/lib/firebase/admin', () => ({
+  adminAuth: {
+    verifySessionCookie: jest.fn(async () => {
+      throw new Error('no session in test')
+    }),
+  },
+  adminDb: {},
+  adminApp: {},
+}))
+
 jest.mock('@/components/briefing/BriefingControlDesk', () => ({
   BriefingControlDesk: (props: {
     mode: string

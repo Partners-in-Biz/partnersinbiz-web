@@ -1,5 +1,5 @@
 import React from 'react'
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import PermissionsPage from '@/app/(portal)/portal/settings/permissions/page'
 
 const fetchMock = jest.fn()
@@ -8,6 +8,31 @@ let mockSearchParams = new URLSearchParams()
 jest.mock('next/navigation', () => ({
   useSearchParams: () => mockSearchParams,
 }))
+
+// The page loads two endpoints on mount: the role × feature matrix
+// (/api/v1/org/roles) and the CRM guardrails (/api/v1/portal/settings/permissions).
+// These helpers keep the matrix load happy so the tests can focus on the
+// guardrail toggles, which is what this suite guards.
+function rolesPayload() {
+  // Return an empty body so the page keeps its valid default matrix/owner state.
+  // (Returning a partial `matrix: {}` would make the matrix render read
+  // matrix[role][feature] off undefined rows and throw.)
+  return {
+    ok: true,
+    json: () => Promise.resolve({}),
+  }
+}
+
+function guardrailsPayload(permissions: {
+  membersCanDeleteContacts: boolean
+  membersCanExportContacts: boolean
+  membersCanSendCampaigns: boolean
+}) {
+  return {
+    ok: true,
+    json: () => Promise.resolve({ permissions }),
+  }
+}
 
 beforeAll(() => {
   Object.defineProperty(global, 'fetch', {
@@ -19,71 +44,69 @@ beforeAll(() => {
 beforeEach(() => {
   mockSearchParams = new URLSearchParams()
   fetchMock.mockReset()
-  fetchMock.mockResolvedValue({
-    ok: true,
-    json: () =>
-      Promise.resolve({
-        permissions: {
-          membersCanDeleteContacts: false,
-          membersCanExportContacts: false,
-          membersCanSendCampaigns: true,
-        },
+  fetchMock.mockImplementation((input: RequestInfo | URL) => {
+    const url = String(input)
+    if (url.startsWith('/api/v1/org/roles')) return Promise.resolve(rolesPayload())
+    return Promise.resolve(
+      guardrailsPayload({
+        membersCanDeleteContacts: false,
+        membersCanExportContacts: false,
+        membersCanSendCampaigns: true,
       }),
+    )
   })
 })
 
 describe('PermissionsPage', () => {
-  it('names member permission toggles by current CRM risk state', async () => {
+  it('renders the CRM action guardrail toggles with their loaded state', async () => {
     render(<PermissionsPage />)
 
     expect(await screen.findByRole('heading', { name: 'Permissions' })).toBeInTheDocument()
 
-    expect(screen.getByRole('button', { name: 'Allow members to delete contacts' })).toHaveAttribute(
+    expect(screen.getByRole('region', { name: 'Advanced CRM guardrails' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'CRM action guardrails' })).toBeInTheDocument()
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Enable Members can delete contacts' })).toHaveAttribute(
+        'aria-pressed',
+        'false',
+      )
+    })
+    expect(screen.getByRole('button', { name: 'Enable Members can export contacts' })).toHaveAttribute(
       'aria-pressed',
       'false',
     )
-    expect(screen.getByRole('button', { name: 'Allow members to export contacts' })).toHaveAttribute(
-      'aria-pressed',
-      'false',
-    )
-    expect(screen.getByRole('button', { name: 'Stop members from creating and sending campaigns' })).toHaveAttribute(
+    expect(screen.getByRole('button', { name: 'Disable Members can create and send campaigns' })).toHaveAttribute(
       'aria-pressed',
       'true',
     )
-    expect(screen.getAllByText('lock')).toHaveLength(3)
-    screen.getAllByText('lock').forEach((icon) => {
-      expect(icon).toHaveAttribute('aria-hidden', 'true')
-    })
   })
 
-  it('summarizes permission risk and rolls back failed CRM permission saves', async () => {
-    fetchMock.mockResolvedValueOnce({
-      ok: true,
-      json: () =>
-        Promise.resolve({
-          permissions: {
-            membersCanDeleteContacts: true,
-            membersCanExportContacts: true,
-            membersCanSendCampaigns: false,
-          },
+  it('rolls back a failed CRM guardrail save and surfaces the error', async () => {
+    fetchMock.mockReset()
+    fetchMock.mockImplementation((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      if (url.startsWith('/api/v1/org/roles')) return Promise.resolve(rolesPayload())
+      if (init?.method === 'PATCH') {
+        return Promise.resolve({
+          ok: false,
+          json: () => Promise.resolve({ error: 'Only owners can change CRM permissions' }),
+        })
+      }
+      return Promise.resolve(
+        guardrailsPayload({
+          membersCanDeleteContacts: true,
+          membersCanExportContacts: true,
+          membersCanSendCampaigns: false,
         }),
-    })
-    fetchMock.mockResolvedValueOnce({
-      ok: false,
-      json: () => Promise.resolve({ error: 'Only owners can change CRM permissions' }),
+      )
     })
 
     render(<PermissionsPage />)
 
     expect(await screen.findByRole('heading', { name: 'Permissions' })).toBeInTheDocument()
 
-    const commandCenter = screen.getByRole('region', { name: 'CRM permission guardrails' })
-    expect(within(commandCenter).getByRole('heading', { name: 'CRM permission guardrails' })).toBeInTheDocument()
-    expect(within(commandCenter).getByText('2 elevated controls')).toBeInTheDocument()
-    expect(within(commandCenter).getByText('1 restricted')).toBeInTheDocument()
-    expect(within(commandCenter).getByText('3 fixed safeguards')).toBeInTheDocument()
-
-    const deleteToggle = screen.getByRole('button', { name: 'Stop members from deleting contacts' })
+    const deleteToggle = await screen.findByRole('button', { name: 'Disable Members can delete contacts' })
     expect(deleteToggle).toHaveAttribute('aria-pressed', 'true')
 
     fireEvent.click(deleteToggle)
@@ -96,49 +119,45 @@ describe('PermissionsPage', () => {
       })
     })
 
-    expect(await screen.findByRole('status', { name: 'CRM permission save failed' })).toHaveTextContent(
-      'Only owners can change CRM permissions',
-    )
-    expect(screen.getByRole('button', { name: 'Stop members from deleting contacts' })).toHaveAttribute(
-      'aria-pressed',
-      'true',
-    )
+    expect(await screen.findByRole('alert')).toHaveTextContent('Only owners can change CRM permissions')
+
+    // Optimistic flip is rolled back, so the toggle returns to its loaded state.
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Disable Members can delete contacts' })).toHaveAttribute(
+        'aria-pressed',
+        'true',
+      )
+    })
   })
 
-  it('loads and saves permission guardrails through the active company workspace scope', async () => {
+  it('loads and saves guardrails through the active company workspace scope', async () => {
     mockSearchParams = new URLSearchParams({
       orgId: 'lumen-org',
       orgSlug: 'lumen-speeds',
       sourceCompanyId: 'company-1',
       sourceCompanyName: 'Lumen',
     })
+    fetchMock.mockReset()
     fetchMock.mockImplementation((input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input)
+      if (url.startsWith('/api/v1/org/roles')) return Promise.resolve(rolesPayload())
       if (url === '/api/v1/portal/settings/permissions?orgId=lumen-org' && !init?.method) {
-        return Promise.resolve({
-          ok: true,
-          json: () =>
-            Promise.resolve({
-              permissions: {
-                membersCanDeleteContacts: false,
-                membersCanExportContacts: false,
-                membersCanSendCampaigns: true,
-              },
-            }),
-        })
+        return Promise.resolve(
+          guardrailsPayload({
+            membersCanDeleteContacts: false,
+            membersCanExportContacts: false,
+            membersCanSendCampaigns: true,
+          }),
+        )
       }
       if (url === '/api/v1/portal/settings/permissions?orgId=lumen-org' && init?.method === 'PATCH') {
-        return Promise.resolve({
-          ok: true,
-          json: () =>
-            Promise.resolve({
-              permissions: {
-                membersCanDeleteContacts: false,
-                membersCanExportContacts: false,
-                membersCanSendCampaigns: false,
-              },
-            }),
-        })
+        return Promise.resolve(
+          guardrailsPayload({
+            membersCanDeleteContacts: false,
+            membersCanExportContacts: false,
+            membersCanSendCampaigns: false,
+          }),
+        )
       }
       return Promise.resolve({ ok: false, json: () => Promise.resolve({ error: `unexpected fetch: ${url}` }) })
     })
@@ -147,7 +166,10 @@ describe('PermissionsPage', () => {
 
     expect(await screen.findByRole('heading', { name: 'Permissions' })).toBeInTheDocument()
 
-    fireEvent.click(screen.getByRole('button', { name: 'Stop members from creating and sending campaigns' }))
+    const campaignsToggle = await screen.findByRole('button', {
+      name: 'Disable Members can create and send campaigns',
+    })
+    fireEvent.click(campaignsToggle)
 
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledWith('/api/v1/portal/settings/permissions?orgId=lumen-org')

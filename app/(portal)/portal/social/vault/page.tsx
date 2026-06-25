@@ -3,8 +3,20 @@ export const dynamic = 'force-dynamic'
 
 import { useEffect, useMemo, useState, useCallback } from 'react'
 import Link from 'next/link'
-import { useSearchParams } from 'next/navigation'
-import { scopedApiPath, scopedPortalPath, scopeFromSearchParams } from '@/lib/portal/scoped-routing'
+import { useRouter, useSearchParams } from 'next/navigation'
+import {
+  FacebookFeedCard,
+  InstagramFeedCard,
+  InstagramReelsCard,
+  InstagramStoriesCard,
+  LinkedInPostCard,
+  TwitterPostCard,
+  YouTubeCard,
+  type PreviewBrand,
+  type PreviewMedia,
+  type PreviewSocialPost,
+} from '@/components/campaign-preview'
+import { appendQueryParams, scopedApiPath, scopedPortalPath, scopeFromSearchParams } from '@/lib/portal/scoped-routing'
 
 // NOTE: The bulk download endpoint (/api/v1/social/vault/download-bulk) does not
 // exist on the backend yet, so the "Download all visible (zip)" button is
@@ -25,6 +37,10 @@ interface MediaItem {
   thumbnailUrl?: string
   type?: string
   alt?: string
+  altText?: string
+  durationSec?: number
+  urlYoutube?: string
+  urlStories?: string
 }
 
 type DateLike = string | number | Date | { _seconds?: number; seconds?: number }
@@ -43,7 +59,10 @@ interface VaultPost {
   publishedAt?: DateLike
   createdAt?: DateLike
   approvedAt?: DateLike
+  category?: string | null
 }
+
+type VaultPostAction = 'post' | 'repost'
 
 const PLATFORM_COLORS: Record<string, { bg: string; label: string }> = {
   twitter: { bg: 'bg-black', label: 'X' },
@@ -96,6 +115,17 @@ const STATUS_LABELS: Record<VaultStatus, string> = {
   partially_published: 'Partially Published',
 }
 
+const VAULT_PREVIEW_BRAND: PreviewBrand = {
+  name: 'Partners in Biz',
+  palette: {
+    bg: '#0A0A0B',
+    accent: '#F5A623',
+    alert: '#FF5A5F',
+    text: '#EDEDED',
+    muted: '#8B8B92',
+  },
+}
+
 function PlatformBadge({ platform }: { platform: string }) {
   const cfg = PLATFORM_COLORS[platform] ?? { bg: 'bg-gray-600', label: platform.slice(0, 2).toUpperCase() }
   return <span className={`${cfg.bg} text-white text-[10px] px-2 py-0.5 rounded font-bold`}>{cfg.label}</span>
@@ -113,6 +143,11 @@ function getPostPlatforms(post: VaultPost): string[] {
   return []
 }
 
+function getPrimaryPlatform(post: VaultPost): string {
+  const platform = getPostPlatforms(post)[0] ?? ''
+  return platform === 'twitter' ? 'x' : platform.toLowerCase()
+}
+
 function tsToDate(ts: DateLike | null | undefined): Date | null {
   if (!ts) return null
   if (typeof ts === 'object' && !(ts instanceof Date)) {
@@ -122,6 +157,77 @@ function tsToDate(ts: DateLike | null | undefined): Date | null {
   }
   const d = new Date(ts)
   return isNaN(d.getTime()) ? null : d
+}
+
+function isVideoSource(value: string | undefined): boolean {
+  if (!value) return false
+  return /\.(mp4|mov|m4v|webm)(\?|#|$)/i.test(value)
+}
+
+function isVideoMedia(media: MediaItem): boolean {
+  return media.type?.toLowerCase() === 'video' || isVideoSource(media.url) || isVideoSource(media.thumbnailUrl)
+}
+
+function dateLikeToIso(value: DateLike | null | undefined): string | undefined {
+  const date = tsToDate(value)
+  return date ? date.toISOString() : undefined
+}
+
+function toPreviewMedia(media: MediaItem[]): PreviewMedia[] {
+  return media.flatMap((item): PreviewMedia[] => {
+    const url = item.url || item.thumbnailUrl
+    if (!url) return []
+    if (isVideoMedia(item)) {
+      return [{
+        type: 'video',
+        url,
+        thumbnailUrl: item.thumbnailUrl,
+        durationSec: item.durationSec,
+        urlYoutube: item.urlYoutube,
+        urlStories: item.urlStories,
+      }]
+    }
+    return [{ type: 'image', url, alt: item.alt ?? item.altText }]
+  })
+}
+
+function toPreviewSocialPost(post: VaultPost): PreviewSocialPost {
+  const platform = getPrimaryPlatform(post) || 'linkedin'
+  return {
+    id: post.id,
+    platform,
+    content: getPostText(post),
+    hashtags: post.hashtags,
+    status: post.status,
+    scheduledFor: dateLikeToIso(post.scheduledAt ?? post.publishedAt ?? post.approvedAt ?? post.createdAt),
+    media: toPreviewMedia(post.media ?? []),
+    campaignId: post.campaign ?? undefined,
+    authorName: 'Partners in Biz',
+    authorHandle: 'partnersinbiz',
+  }
+}
+
+function pickCampaignPreviewCard(post: VaultPost) {
+  const platform = getPrimaryPlatform(post)
+  const hasVideo = (post.media ?? []).some(isVideoMedia)
+  const category = (post.category ?? '').toLowerCase()
+
+  if (platform === 'instagram') {
+    if (category.includes('story')) return InstagramStoriesCard
+    if (hasVideo || category.includes('reel')) return InstagramReelsCard
+    return InstagramFeedCard
+  }
+  if (platform === 'facebook') return FacebookFeedCard
+  if (platform === 'linkedin') return LinkedInPostCard
+  if (platform === 'x' || platform === 'twitter') return TwitterPostCard
+  if (platform === 'youtube') return YouTubeCard
+  return LinkedInPostCard
+}
+
+function actionForStatus(status: VaultStatus): VaultPostAction | null {
+  if (status === 'scheduled') return 'post'
+  if (status === 'published' || status === 'partially_published') return 'repost'
+  return null
 }
 
 function relativeTime(ts: DateLike | null | undefined): string {
@@ -188,18 +294,24 @@ function useInlineToast() {
   return { push, node }
 }
 
-function VaultCard({ post, onCopy, onDownload }: {
+function VaultCard({ post, onCopy, onDownload, onPostAction, actionBusy }: {
   post: VaultPost
   onCopy: (post: VaultPost) => void
   onDownload: (post: VaultPost) => void
+  onPostAction: (post: VaultPost, action: VaultPostAction) => void
+  actionBusy?: boolean
 }) {
   const [expanded, setExpanded] = useState(false)
+  const [previewOpen, setPreviewOpen] = useState(false)
   const text = getPostText(post)
   const platforms = getPostPlatforms(post)
   const hashtags = (post.hashtags ?? []).filter(Boolean)
   const media = post.media ?? []
   const visibleMedia = media.slice(0, 4)
   const status = post.status
+  const headerAction = actionForStatus(status)
+  const CampaignPreviewCard = pickCampaignPreviewCard(post)
+  const previewPost = toPreviewSocialPost(post)
   const lineCount = text.split('\n').length
 
   // Heuristic for "needs read more": if visual lines > 6 or character count high.
@@ -223,10 +335,72 @@ function VaultCard({ post, onCopy, onDownload }: {
         <div className="flex gap-1 flex-wrap">
           {platforms.map(p => <PlatformBadge key={p} platform={p} />)}
         </div>
-        <span className={`text-[10px] font-label uppercase tracking-widest border px-2 py-0.5 rounded flex-shrink-0 ${STATUS_PILL_STYLES[status] ?? 'border-white/10 text-white/40'}`}>
-          {STATUS_LABELS[status] ?? status}
-        </span>
+        <div className="flex items-center gap-1.5">
+          <button
+            type="button"
+            onClick={() => setPreviewOpen(true)}
+            className="grid h-7 w-7 place-items-center rounded-full border border-[var(--color-outline-variant)] text-[var(--color-on-surface-variant)] transition hover:border-[var(--color-accent-v2)] hover:text-[var(--color-accent-v2)]"
+            aria-label="Preview post"
+            title="Preview post"
+          >
+            <span className="material-symbols-outlined text-[16px] leading-none">visibility</span>
+          </button>
+          {headerAction && (
+            <button
+              type="button"
+              onClick={() => onPostAction(post, headerAction)}
+              disabled={actionBusy}
+              className="grid h-7 w-7 place-items-center rounded-full border border-[var(--color-outline-variant)] text-[var(--color-on-surface-variant)] transition hover:border-[var(--color-accent-v2)] hover:text-[var(--color-accent-v2)] disabled:cursor-wait disabled:opacity-50"
+              aria-label={headerAction === 'post' ? 'Post scheduled post' : 'Repost published post'}
+              title={headerAction === 'post' ? 'Post now' : 'Repost'}
+            >
+              <span className="material-symbols-outlined text-[16px] leading-none">
+                {headerAction === 'post' ? 'publish' : 'repeat'}
+              </span>
+            </button>
+          )}
+          <span className={`text-[10px] font-label uppercase tracking-widest border px-2 py-0.5 rounded flex-shrink-0 ${STATUS_PILL_STYLES[status] ?? 'border-white/10 text-white/40'}`}>
+            {STATUS_LABELS[status] ?? status}
+          </span>
+        </div>
       </div>
+
+      {previewOpen && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label="Post preview"
+          className="fixed inset-0 z-[9998] flex items-center justify-center bg-black/75 p-4"
+          onClick={() => setPreviewOpen(false)}
+        >
+          <div
+            className="max-h-[90vh] w-full max-w-xl overflow-y-auto rounded-2xl border border-[var(--color-outline-variant)] bg-[var(--color-surface)] p-4 shadow-2xl"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="mb-4 flex items-center justify-between gap-3">
+              <div>
+                <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-on-surface-variant)]">
+                  Platform preview
+                </p>
+                <p className="text-sm font-medium text-[var(--color-on-surface)]">
+                  {STATUS_LABELS[status] ?? status}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setPreviewOpen(false)}
+                className="grid h-8 w-8 place-items-center rounded-full border border-[var(--color-outline-variant)] text-[var(--color-on-surface-variant)] hover:text-[var(--color-on-surface)]"
+                aria-label="Close preview"
+              >
+                <span className="material-symbols-outlined text-[18px] leading-none">close</span>
+              </button>
+            </div>
+            <div className="mx-auto max-w-md">
+              <CampaignPreviewCard post={previewPost} brand={VAULT_PREVIEW_BRAND} />
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Media preview */}
       {visibleMedia.length > 0 && (
@@ -234,18 +408,34 @@ function VaultCard({ post, onCopy, onDownload }: {
           {visibleMedia.map((m, i) => {
             const src = m.thumbnailUrl || m.url
             const isFeature = visibleMedia.length === 3 && i === 0
+            const isVideo = isVideoMedia(m)
             return (
               <div
                 key={i}
                 className={`relative overflow-hidden rounded-[var(--radius-card)] bg-[var(--color-surface-variant)] border border-[var(--color-outline-variant)] ${visibleMedia.length === 1 ? 'aspect-[4/3]' : 'aspect-square'} ${isFeature ? 'col-span-2 aspect-[16/9]' : ''}`}
               >
-                {src ? (
+                {isVideo && (m.url || m.thumbnailUrl) ? (
+                  <video
+                    src={m.url || m.thumbnailUrl}
+                    poster={!isVideoSource(m.thumbnailUrl) ? m.thumbnailUrl : undefined}
+                    muted
+                    playsInline
+                    preload="metadata"
+                    aria-label={m.alt ?? 'Post video preview'}
+                    className="w-full h-full object-cover"
+                  />
+                ) : src ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img src={src} alt={m.alt ?? ''} className="w-full h-full object-cover" />
                 ) : (
                   <div className="w-full h-full flex items-center justify-center text-xs text-[var(--color-on-surface-variant)]">
                     {(m.type ?? 'file').slice(0, 3)}
                   </div>
+                )}
+                {isVideo && (
+                  <span className="pointer-events-none absolute inset-0 grid place-items-center text-3xl text-white drop-shadow">
+                    ▶
+                  </span>
                 )}
                 {i === visibleMedia.length - 1 && media.length > visibleMedia.length && (
                   <span className="absolute inset-0 flex items-center justify-center bg-black/55 text-sm font-semibold text-white">
@@ -347,10 +537,13 @@ function VaultCard({ post, onCopy, onDownload }: {
 
 export default function VaultPage() {
   const searchParams = useSearchParams()
+  const router = useRouter()
   const orgScope = useMemo(() => scopeFromSearchParams(searchParams), [searchParams])
   const [posts, setPosts] = useState<VaultPost[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [activeOrgId, setActiveOrgId] = useState<string | null>(orgScope.orgId ?? orgScope.id ?? null)
+  const [actionBusyPostId, setActionBusyPostId] = useState<string | null>(null)
   const { push: pushToast, node: toastNode } = useInlineToast()
 
   // Filters
@@ -365,11 +558,22 @@ export default function VaultPage() {
     setLoading(true)
     setError(null)
     try {
+      let resolvedOrgId = orgScope.orgId ?? orgScope.id ?? null
+      if (!resolvedOrgId) {
+        const orgRes = await fetch(scopedApiPath('/api/v1/portal/org', orgScope))
+        const orgBody = orgRes.ok ? await orgRes.json().catch(() => null) : null
+        resolvedOrgId = typeof orgBody?.org?.id === 'string' ? orgBody.org.id : null
+      }
+      setActiveOrgId(resolvedOrgId)
+
       const params = new URLSearchParams()
       if (platform) params.set('platform', platform)
       if (fromDate) params.set('from', new Date(fromDate).toISOString())
       if (toDate) params.set('to', new Date(toDate).toISOString())
-      const url = scopedApiPath(`/api/v1/social/vault${params.toString() ? `?${params.toString()}` : ''}`, orgScope)
+      const url = scopedApiPath(
+        `/api/v1/social/vault${params.toString() ? `?${params.toString()}` : ''}`,
+        { ...orgScope, orgId: resolvedOrgId },
+      )
       const res = await fetch(url)
       if (!res.ok) {
         throw new Error(`Failed to load vault (${res.status})`)
@@ -436,9 +640,42 @@ export default function VaultPage() {
     }
   }
 
+  const activeScope = useMemo(() => ({ ...orgScope, orgId: activeOrgId ?? orgScope.orgId ?? orgScope.id }), [activeOrgId, orgScope])
+
   function handleDownload(post: VaultPost) {
     // Backend sends Content-Disposition: attachment, so the browser downloads.
-    window.open(scopedApiPath(`/api/v1/social/posts/${post.id}/download`, orgScope), '_blank', 'noopener,noreferrer')
+    window.open(scopedApiPath(`/api/v1/social/posts/${post.id}/download`, activeScope), '_blank', 'noopener,noreferrer')
+  }
+
+  async function handlePostAction(post: VaultPost, action: VaultPostAction) {
+    if (action === 'repost') {
+      const href = appendQueryParams(scopedPortalPath('/portal/social/compose', activeScope), {
+        draft: buildCopyPayload(post),
+      })
+      router.push(href)
+      return
+    }
+
+    setActionBusyPostId(post.id)
+    try {
+      const res = await fetch(scopedApiPath(`/api/v1/portal/social/posts/${post.id}/publish-now`, activeScope), {
+        method: 'POST',
+      })
+      const body = await res.json().catch(() => null)
+      if (!res.ok) {
+        throw new Error(body?.error ?? 'Publish failed')
+      }
+      setPosts((current) => current.map((item) => (
+        item.id === post.id
+          ? { ...item, status: 'published', publishedAt: new Date().toISOString() }
+          : item
+      )))
+      pushToast('Post published.', 'success')
+    } catch (err) {
+      pushToast(err instanceof Error ? err.message : 'Publish failed', 'error')
+    } finally {
+      setActionBusyPostId(null)
+    }
   }
 
   async function handleCopyAllVisible() {
@@ -621,6 +858,8 @@ export default function VaultPage() {
               post={post}
               onCopy={handleCopy}
               onDownload={handleDownload}
+              onPostAction={handlePostAction}
+              actionBusy={actionBusyPostId === post.id}
             />
           ))}
         </div>

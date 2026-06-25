@@ -52,6 +52,62 @@ export const HERMES_ADMIN_CONTROLS: Record<HermesAdminControl, HermesAdminContro
 
 const SAFE_HERMES_PATH_PART = /^[A-Za-z0-9._:-]+$/
 
+/**
+ * Validate an admin-supplied Hermes base URL to prevent stored SSRF. The base
+ * URL is later used as a `fetch` target with the platform API key attached, so
+ * a malicious value could be pointed at a cloud-metadata endpoint to exfiltrate
+ * the bearer token.
+ *
+ * IMPORTANT — production reality: the control plane talks to the Hermes sidecar
+ * SAME-HOST over a local port (e.g. http://127.0.0.1:8643). So we must NOT block
+ * loopback/private ranges or require https — doing so breaks live agent
+ * connectivity. We block only what is NEVER a legitimate Hermes target: the
+ * link-local / cloud-metadata range (169.254.0.0/16, which includes the AWS/GCP
+ * 169.254.169.254 metadata IP and the ECS 169.254.170.2 endpoint), 0.0.0.0, and
+ * the well-known metadata hostnames. We also restrict the scheme to http/https.
+ *
+ * Returns an error string when the URL is unsafe, or null when it is allowed.
+ */
+export function validateHermesBaseUrl(value: string): string | null {
+  let url: URL
+  try {
+    url = new URL(value)
+  } catch {
+    return 'baseUrl must be a valid absolute URL'
+  }
+  if (url.protocol !== 'https:' && url.protocol !== 'http:') {
+    return 'baseUrl must use http or https'
+  }
+
+  // Strip IPv6 brackets and any zone id for inspection.
+  const host = url.hostname.toLowerCase().replace(/^\[/, '').replace(/\]$/, '').replace(/%.*$/, '')
+
+  // Cloud-metadata hostnames are never a valid Hermes target.
+  if (host === 'metadata.google.internal' || host === 'metadata') {
+    return 'baseUrl host is not allowed'
+  }
+
+  // Block the link-local / metadata range (169.254.0.0/16) and 0.0.0.0 only.
+  const ipv4 = host.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/)
+  if (ipv4) {
+    const [a, b] = [Number(ipv4[1]), Number(ipv4[2])]
+    if ((a === 169 && b === 254) || a === 0) {
+      return 'baseUrl host is not allowed'
+    }
+  }
+
+  // IPv6: block link-local (fe80::/10) and the unspecified address; metadata
+  // over IPv6 is also link-local. Loopback/unique-local are allowed (same-host).
+  if (host.includes(':')) {
+    if (host === '::') return 'baseUrl host is not allowed'
+    if (/^fe[89ab][0-9a-f]:/.test(host)) return 'baseUrl host is not allowed'
+    // IPv4-mapped link-local metadata (e.g. ::ffff:169.254.169.254).
+    if (/(^|:)169\.254\./.test(host)) return 'baseUrl host is not allowed'
+  }
+
+  return null
+}
+
 export function publicHermesProfileLink(link: HermesProfileLink) {
   return {
     orgId: link.orgId,
@@ -98,10 +154,22 @@ export function sanitizeHermesProfileWrite(orgId: string, user: ApiUser, body: R
     ? body.dashboardBaseUrl.trim().replace(/\/+$/, '')
     : undefined
 
+  const baseUrl = typeof body.baseUrl === 'string' ? body.baseUrl.trim().replace(/\/+$/, '') : ''
+
+  // Reject SSRF-prone base URLs at write time so a bad value is never stored.
+  if (baseUrl) {
+    const baseUrlError = validateHermesBaseUrl(baseUrl)
+    if (baseUrlError) throw new Error(baseUrlError)
+  }
+  if (dashboardBaseUrl) {
+    const dashboardError = validateHermesBaseUrl(dashboardBaseUrl)
+    if (dashboardError) throw new Error(`dashboard ${dashboardError}`)
+  }
+
   return {
     orgId,
     profile: typeof body.profile === 'string' ? body.profile.trim() : '',
-    baseUrl: typeof body.baseUrl === 'string' ? body.baseUrl.trim().replace(/\/+$/, '') : '',
+    baseUrl,
     ...(dashboardBaseUrl ? { dashboardBaseUrl } : { dashboardBaseUrl: FieldValue.delete() }),
     ...(apiKey ? { apiKey } : {}),
     ...(dashboardSessionToken ? { dashboardSessionToken } : { dashboardSessionToken: FieldValue.delete() }),
@@ -129,6 +197,9 @@ export async function saveHermesProfileLink(orgId: string, user: ApiUser, body: 
 }
 
 export async function callHermesJson(link: HermesProfileLink, path: string, init: RequestInit = {}) {
+  // Guard against a stored SSRF-prone base URL even if it bypassed write-time validation.
+  const baseUrlError = validateHermesBaseUrl(link.baseUrl)
+  if (baseUrlError) throw new Error(`Refusing Hermes request: ${baseUrlError}`)
   const url = `${link.baseUrl}${path.startsWith('/') ? path : `/${path}`}`
   const headers: Record<string, string> = {
     Accept: 'application/json',
@@ -221,6 +292,8 @@ export async function createHermesRun(link: HermesProfileLink, requestedBy: stri
 }
 
 export async function callHermesStream(link: HermesProfileLink, path: string) {
+  const baseUrlError = validateHermesBaseUrl(link.baseUrl)
+  if (baseUrlError) throw new Error(`Refusing Hermes request: ${baseUrlError}`)
   const url = `${link.baseUrl.replace(/\/$/, '')}${path.startsWith('/') ? path : `/${path}`}`
   const headers: Record<string, string> = {}
   if (link.apiKey) headers['Authorization'] = `Bearer ${link.apiKey}`

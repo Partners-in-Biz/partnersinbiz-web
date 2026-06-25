@@ -1,5 +1,5 @@
 /**
- * POST /api/v1/admin/org/[id]/trial
+ * POST /api/v1/admin/org/[slug]/trial
  *
  * Sets an org onto an EFT trial (US-282). Writes `adminBilling` with
  * state:'trial' and a trialEndsAt computed from `trialDays`, merging into the
@@ -18,10 +18,11 @@ import { isSuperAdmin } from '@/lib/api/platformAdmin'
 import { writeAdminAudit } from '@/lib/admin/audit'
 import type { Organization } from '@/lib/organizations/types'
 import type { AdminBilling } from '@/lib/admin/billing-model'
+import { resolveOrgIdBySlugOrId } from '@/lib/organizations/resolve-by-slug'
 
 export const dynamic = 'force-dynamic'
 
-type Params = { params: Promise<{ id: string }> }
+type Params = { params: Promise<{ slug: string }> }
 
 const VALID_CURRENCIES = ['ZAR', 'USD', 'EUR'] as const
 
@@ -30,7 +31,7 @@ export const POST = withAuth('admin', async (req: NextRequest, user, ctx) => {
     return apiError('Super-admin access required', 403)
   }
 
-  const { id } = await (ctx as Params).params
+  const { slug } = await (ctx as Params).params
   const body = await req.json().catch(() => ({}))
 
   const trialDaysRaw = Number(body.trialDays)
@@ -43,7 +44,9 @@ export const POST = withAuth('admin', async (req: NextRequest, user, ctx) => {
     ? (body.currency as AdminBilling['currency'])
     : 'ZAR'
 
-  // Verify the org exists before writing.
+  // Verify the org exists before writing. Existing callers may pass either slug or document ID.
+  const id = await resolveOrgIdBySlugOrId(slug)
+  if (!id) return apiError('Organisation not found', 404)
   const orgRef = adminDb.collection('organizations').doc(id)
   const orgDoc = await orgRef.get()
   if (!orgDoc.exists) return apiError('Organisation not found', 404)

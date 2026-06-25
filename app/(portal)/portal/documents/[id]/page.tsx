@@ -10,6 +10,8 @@ import { DocumentRenderer } from '@/components/client-documents/DocumentRenderer
 import { DocumentReviewRail } from '@/components/client-documents/DocumentReviewRail'
 import { DocumentTaskList } from '@/components/client-documents/DocumentTaskList'
 import { DocumentPresence } from '@/components/client-documents/DocumentPresence'
+import { VersionHistoryDrawer } from '@/components/client-documents/VersionHistoryDrawer'
+import { SignatureRequestPanel } from '@/components/client-documents/SignatureRequestPanel'
 import { ShareSettingsPanel } from '@/components/client-documents/share/ShareSettingsPanel'
 import { CommentComposer } from '@/components/inline-comments/CommentComposer'
 import type { AnchorTarget } from '@/components/inline-comments/types'
@@ -70,6 +72,7 @@ export default function PortalDocumentDetail({ params }: Props) {
   const [showShare, setShowShare] = useState(false)
   const [baseUrl, setBaseUrl] = useState('')
   const [exportingPdf, setExportingPdf] = useState(false)
+  const [showVersionHistory, setShowVersionHistory] = useState(false)
   const [accessLog, setAccessLog] = useState<Array<{ userId: string; accessedAt: unknown; id: string }>>([]);
   const [firebaseUid, setFirebaseUid] = useState('')
   const [firebaseDisplayName, setFirebaseDisplayName] = useState('')
@@ -94,6 +97,26 @@ export default function PortalDocumentDetail({ params }: Props) {
       if (!res.ok) return
       const body = await res.json()
       setComments((body.data ?? []) as DocumentComment[])
+    } catch { ignoreBestEffortFailure() }
+  }, [id])
+
+  const reloadDocAndVersion = useCallback(async () => {
+    try {
+      const [docRes, versionsRes] = await Promise.all([
+        fetch(`/api/v1/client-documents/${id}`),
+        fetch(`/api/v1/client-documents/${id}/versions`),
+      ])
+      const docData = await docRes.json()
+      const versionsData = await versionsRes.json()
+      const document: ClientDocument = docData.data ?? docData
+      setDoc(document)
+      const versions: ClientDocumentVersion[] = versionsData.data ?? []
+      const current =
+        versions.find((v) => v.id === document.currentVersionId) ??
+        versions.find((v) => v.status === 'published') ??
+        versions[versions.length - 1] ??
+        null
+      setVersion(current)
     } catch { ignoreBestEffortFailure() }
   }, [id])
 
@@ -317,13 +340,30 @@ export default function PortalDocumentDetail({ params }: Props) {
           <span className="material-symbols-outlined text-base" aria-hidden="true">arrow_back</span>
           Back to Documents
         </Link>
-        {firebaseUid && (
-          <DocumentPresence
-            documentId={id}
-            currentUserId={firebaseUid}
-            currentUserName={firebaseDisplayName}
-          />
-        )}
+        <div className="flex items-center gap-3">
+          {(doc as { signedByExternal?: { signerName?: string } }).signedByExternal && (
+            <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/30 bg-emerald-500/15 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider text-emerald-300">
+              <span className="material-symbols-outlined text-[14px]" aria-hidden="true">verified</span>
+              Signed
+            </span>
+          )}
+          {firebaseUid && (
+            <DocumentPresence
+              documentId={id}
+              currentUserId={firebaseUid}
+              currentUserName={firebaseDisplayName}
+              surfaceRef={articleScrollRef}
+            />
+          )}
+          <button
+            type="button"
+            onClick={() => setShowVersionHistory(true)}
+            className="flex items-center gap-1.5 rounded-md border border-white/10 px-3 py-1.5 text-xs font-medium hover:bg-white/5"
+          >
+            <span className="material-symbols-outlined text-sm" aria-hidden="true">history</span>
+            Version history
+          </button>
+        </div>
       </div>
 
       <div className="grid gap-8 lg:grid-cols-[1fr_320px]">
@@ -379,6 +419,12 @@ export default function PortalDocumentDetail({ params }: Props) {
               {exportingPdf ? 'Generating…' : 'PDF'}
             </button>
           </div>
+
+          {/* E-signature — US-172 */}
+          <SignatureRequestPanel
+            documentId={id}
+            canRequest={Boolean(doc.latestPublishedVersionId) && doc.shareEnabled === true}
+          />
 
           <DocumentReviewRail
             document={doc}
@@ -448,6 +494,18 @@ export default function PortalDocumentDetail({ params }: Props) {
           onCancel={() => setPendingAnchor(null)}
           onSubmit={submitComposer}
           busy={composerBusy}
+        />
+      )}
+
+      {showVersionHistory && version && (
+        <VersionHistoryDrawer
+          documentId={id}
+          currentVersionId={version.id}
+          onClose={() => setShowVersionHistory(false)}
+          onRestored={() => {
+            setShowVersionHistory(false)
+            void reloadDocAndVersion()
+          }}
         />
       )}
 

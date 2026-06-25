@@ -1,0 +1,16 @@
+rules_version = '2';
+
+// Partners in Biz Cloud Storage security rules.
+//
+// All Storage access is server-mediated through the Firebase Admin SDK, which
+// bypasses these rules entirely. No browser/client Firebase SDK code uploads to
+// or reads from Storage directly. We therefore deny ALL direct client access as
+// a defense-in-depth backstop: any path reachable with end-user credentials is
+// refused, while server (Admin SDK) operations continue to work unaffected.
+service firebase.storage {
+  match /b/{bucket}/o {
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

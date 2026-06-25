@@ -227,7 +227,7 @@ export const POST = withCrmAuth('member', async (req, ctx) => {
 
   if (!body.name?.trim()) return apiError('Name is required')
   if (!body.email?.trim()) return apiError('Email is required')
-  if (!isValidEmail(body.email)) return apiError('Email is invalid')
+  if (!isValidEmail(body.email.trim())) return apiError('Email is invalid')
   if (body.stage && !VALID_STAGES.includes(body.stage)) return apiError('Invalid stage')
   if (body.type && !VALID_TYPES.includes(body.type)) return apiError('Invalid type')
   if (body.source && !VALID_SOURCES.includes(body.source)) return apiError('Invalid source')
@@ -242,6 +242,8 @@ export const POST = withCrmAuth('member', async (req, ctx) => {
 
   const { orgId } = ctx
   const normalizedEmail = body.email.trim().toLowerCase()
+  const bodyRaw = body as unknown as Record<string, unknown>
+  const linkedUserId = typeof bodyRaw.linkedUserId === 'string' ? bodyRaw.linkedUserId.trim() : ''
 
   // US-052: reject creating a second contact with an email already on file so the
   // form can surface the collision instead of silently fanning out duplicates.
@@ -256,9 +258,26 @@ export const POST = withCrmAuth('member', async (req, ctx) => {
     return apiError(
       `A contact with the email ${normalizedEmail} already exists in this workspace.`,
       409,
+      { duplicate: { id: duplicate.id, email: normalizedEmail, reason: 'email' } },
     )
   }
-  const bodyRaw = body as unknown as Record<string, unknown>
+
+  if (linkedUserId) {
+    const linkedUserSnap = await adminDb
+      .collection('contacts')
+      .where('orgId', '==', orgId)
+      .where('linkedUserId', '==', linkedUserId)
+      .limit(1)
+      .get()
+    const linkedDuplicate = linkedUserSnap.docs.find((doc) => doc.data()?.deleted !== true)
+    if (linkedDuplicate) {
+      return apiError(
+        'A contact for this linked platform user already exists in this workspace.',
+        409,
+        { duplicate: { id: linkedDuplicate.id, linkedUserId, reason: 'linkedUserId' } },
+      )
+    }
+  }
   const agreementRoles = normalizeAgreementRoles(bodyRaw.agreementRoles)
   if (agreementRoles === null) return apiError('Invalid agreementRoles', 400)
   const jobTitle = cleanContactString(bodyRaw.jobTitle)
@@ -324,6 +343,8 @@ export const POST = withCrmAuth('member', async (req, ctx) => {
     companyId: resolvedCompanyId,     // undefined if not provided; sanitize strips
     companyName: resolvedCompanyName, // undefined if not provided; sanitize strips
     companyLinks: normalizedCompanyLinks.length > 0 ? normalizedCompanyLinks : undefined,
+    linkedUserId: linkedUserId || undefined,
+    linkedOrgId: typeof bodyRaw.linkedOrgId === 'string' ? bodyRaw.linkedOrgId.trim() || undefined : undefined,
     deleted: false,
     // Subscription lifecycle derived from the requested status (US-052). The
     // contact is always subscribed at creation; unsubscribed/bounced additionally

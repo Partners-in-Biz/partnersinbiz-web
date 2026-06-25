@@ -25,7 +25,7 @@ export const OPERATOR_NAV: NavItem[] = [
   { label: 'Onboarding', href: '/admin/onboarding', icon: 'how_to_reg', group: 'work' },
   { label: 'Demo Orgs', href: '/admin/demo-orgs', icon: 'science', group: 'work' },
   { label: 'Billing', href: '/admin/billing/revenue', icon: 'payments', group: 'data', activePatterns: ['/admin/billing', '/admin/plans', '/admin/partners'] },
-  { label: 'Agents',   href: '/admin/agents',   icon: 'group_work', group: 'work' },
+  { label: 'Agents',   href: '/admin/agents',   icon: 'group_work', group: 'work', activePatterns: ['/admin/agents', '/admin/hermes'] },
   { label: 'Skill Lab', href: '/admin/skill-lab', icon: 'science', group: 'data' },
   { label: 'Content', href: '/admin/content/seo', icon: 'article', group: 'data', activePatterns: ['/admin/content'] },
   { label: 'Knowledge', href: '/admin/knowledge', icon: 'menu_book', group: 'data' },
@@ -57,7 +57,15 @@ export const OPERATOR_NAV_TOPBAR: NavItem[] = [
     ],
     activePatterns: ['/admin/billing', '/admin/plans', '/admin/partners'],
   },
-  { label: 'Agents',   href: '/admin/agents',   icon: 'group_work' },
+  {
+    label: 'Agents', href: '/admin/agents', icon: 'group_work',
+    children: [
+      { label: 'Agents board', href: '/admin/agents' },
+      { label: 'Hermes control', href: '/admin/hermes' },
+      { label: 'Hermes metrics', href: '/admin/hermes/metrics' },
+    ],
+    activePatterns: ['/admin/agents', '/admin/hermes'],
+  },
   { label: 'Skill Lab', href: '/admin/skill-lab', icon: 'science' },
   {
     label: 'Content', href: '/admin/content/seo', icon: 'article',

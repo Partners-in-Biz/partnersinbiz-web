@@ -22,8 +22,8 @@ import { FieldValue } from 'firebase-admin/firestore'
 import { withAuth } from '@/lib/api/auth'
 import { apiSuccess, apiError } from '@/lib/api/response'
 import { actorFrom, lastActorFrom } from '@/lib/api/actor'
-import { dispatchWebhook } from '@/lib/webhooks/dispatch'
 import { requireInvoiceAccess } from '@/lib/invoices/access'
+import { settleInvoicePaid } from '@/lib/billing/settle-invoice'
 
 export const dynamic = 'force-dynamic'
 
@@ -51,23 +51,69 @@ export const POST = withAuth('admin', async (req, user, ctx) => {
   const invoiceTotal: number = typeof invoice.total === 'number' ? invoice.total : 0
 
   if (action === 'confirm') {
-    const paidAmount = typeof body.amount === 'number' ? body.amount : invoiceTotal
+    const reference =
+      typeof body.reference === 'string' && body.reference.trim()
+        ? body.reference.trim()
+        : null
+    // Only pass an explicit amount when supplied; settleInvoicePaid defaults to
+    // the invoice total. This routes verification through the shared settle
+    // logic so it inherits atomic settlement (H2) and amount validation (H1):
+    // a short EFT amount marks the invoice partially_paid and does NOT advance
+    // the subscription, instead of silently being booked as fully paid.
+    const amount = typeof body.amount === 'number' ? body.amount : null
 
-    const updates: Record<string, unknown> = {
-      status: 'paid',
-      paidAt: FieldValue.serverTimestamp(),
+    const result = await settleInvoicePaid({
+      invoiceId: id,
       paymentMethod: 'eft',
-      paidAmount,
+      paymentReference: reference,
+      paidAmount: amount,
+      // Record the verifying admin as the actor for the audit trail.
+      actorId: user.uid,
+      actorName: user.uid,
+      actorRole: user.role === 'ai' ? 'ai' : 'admin',
+    })
+
+    if (result.notFound) {
+      // requireInvoiceAccess already loaded it, so this is unexpected — but
+      // surface it cleanly rather than 500.
+      return apiError('Invoice not found', 404)
+    }
+
+    if (result.alreadyPaid) {
+      return apiSuccess({ id, status: 'paid', alreadyPaid: true })
+    }
+
+    // Stamp the verification metadata the shared settle logic doesn't own.
+    await ref.update({
       eftVerifiedAt: FieldValue.serverTimestamp(),
       ...lastActorFrom(user),
-    }
-    if (typeof body.reference === 'string' && body.reference.trim()) {
-      updates.paymentReference = body.reference.trim()
+    })
+
+    if (result.partiallyPaid) {
+      // Short payment: record the admin-actor activity for the audit trail and
+      // tell the caller it is only partially settled.
+      await adminDb.collection('activities').add({
+        orgId: orgId ?? null,
+        type: 'invoice.partially_paid',
+        resourceType: 'invoice',
+        resourceId: id,
+        summary: `Invoice ${invoiceNumber} EFT payment verified as PARTIAL (shortfall ${
+          result.shortfall ?? 0
+        } of ${invoiceTotal})`,
+        ...actorFrom(user),
+        createdAt: FieldValue.serverTimestamp(),
+      })
+      return apiSuccess({
+        id,
+        status: 'partially_paid',
+        partiallyPaid: true,
+        shortfall: result.shortfall ?? 0,
+      })
     }
 
-    await ref.update(updates)
-
-    // Activity log entry (mirrors mark-paid)
+    // Full settlement: record the admin-actor activity for the audit trail
+    // (settleInvoicePaid records a system-actor entry; this one attributes the
+    // manual verification to the admin who performed it).
     await adminDb.collection('activities').add({
       orgId: orgId ?? null,
       type: 'invoice.paid',
@@ -77,45 +123,6 @@ export const POST = withAuth('admin', async (req, user, ctx) => {
       ...actorFrom(user),
       createdAt: FieldValue.serverTimestamp(),
     })
-
-    // Notify invoice creator (unless they verified it themselves)
-    if (createdBy && createdBy !== user.uid) {
-      await adminDb.collection('notifications').add({
-        orgId: orgId ?? null,
-        userId: createdBy,
-        type: 'invoice.paid',
-        title: 'Invoice paid',
-        body: `Invoice ${invoiceNumber} EFT payment was verified and marked paid`,
-        link: `/portal/invoicing/${id}`,
-        status: 'unread',
-        priority: 'normal',
-        createdAt: FieldValue.serverTimestamp(),
-      })
-    }
-
-    if (orgId) {
-      const webhookPayload = {
-        id,
-        invoiceNumber,
-        total: invoiceTotal,
-        paymentMethod: 'eft',
-        paymentReference:
-          typeof body.reference === 'string' && body.reference.trim()
-            ? body.reference.trim()
-            : null,
-        paidAmount,
-      }
-      try {
-        await dispatchWebhook(orgId, 'invoice.paid', webhookPayload)
-      } catch (err) {
-        console.error('[webhook-dispatch-error] invoice.paid', err)
-      }
-      try {
-        await dispatchWebhook(orgId, 'payment.received', webhookPayload)
-      } catch (err) {
-        console.error('[webhook-dispatch-error] payment.received', err)
-      }
-    }
 
     return apiSuccess({ id, status: 'paid' })
   }

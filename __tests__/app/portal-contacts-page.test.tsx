@@ -366,6 +366,9 @@ describe('Portal contacts page', () => {
       if (url.startsWith('/api/v1/crm/saved-views')) {
         return Promise.resolve({ ok: true, json: async () => ({ data: [] }) } as Response)
       }
+      if (url.startsWith('/api/v1/crm/segments')) {
+        return Promise.resolve({ ok: true, json: async () => ({ data: [] }) } as Response)
+      }
       return Promise.reject(new Error(`Unexpected fetch: ${url}`))
     })
 
@@ -378,7 +381,7 @@ describe('Portal contacts page', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Retry loading contacts' }))
 
     await waitFor(() => {
-      expect(global.fetch).toHaveBeenCalledTimes(4)
+      expect(global.fetch).toHaveBeenCalledTimes(5)
     })
   })
 
@@ -479,7 +482,7 @@ describe('Portal contacts page', () => {
     expect(ownedRow).not.toBeNull()
 
     expect(ownedRow).toHaveClass('grid-cols-1')
-    expect(ownedRow).toHaveClass('md:grid-cols-15')
+    expect(ownedRow).toHaveClass('md:grid-cols-18')
     expect(ownedRow).not.toHaveClass('grid-cols-2')
 
     const selectCell = within(ownedRow as HTMLElement)
@@ -492,7 +495,7 @@ describe('Portal contacts page', () => {
     const contentCell = (ownedRow as HTMLElement).querySelector('[data-contact-card-content]')
     expect(contentCell).not.toBeNull()
     expect(contentCell).toHaveClass('col-span-1')
-    expect(contentCell).toHaveClass('md:col-span-14')
+    expect(contentCell).toHaveClass('md:col-span-17')
   })
 
   it('names primary contact commands and filters without decorative icon text', async () => {
@@ -689,7 +692,7 @@ describe('Portal contacts page', () => {
     fireEvent.click(within(ownedRow as HTMLElement).getByRole('button', { name: 'Filter contacts by company Owned Co' }))
     expect(screen.getByPlaceholderText('Search name, email, company…')).toHaveValue('Owned Co')
     await waitFor(() => {
-      expect(global.fetch).toHaveBeenCalledWith('/api/v1/crm/contacts?search=Owned+Co')
+      expect(global.fetch).toHaveBeenCalledWith('/api/v1/crm/contacts?search=Owned+Co&page=1')
     })
   })
 
@@ -716,7 +719,7 @@ describe('Portal contacts page', () => {
         'href',
         '/portal/contacts/contact-owned?activity=note&orgId=lumen-org&orgSlug=lumen-speeds&sourceCompanyId=company-1&sourceCompanyName=Lumen',
     )
-    expect(global.fetch).toHaveBeenCalledWith('/api/v1/crm/contacts?orgId=lumen-org')
+    expect(global.fetch).toHaveBeenCalledWith('/api/v1/crm/contacts?page=1&orgId=lumen-org')
     expect(global.fetch).toHaveBeenCalledWith('/api/v1/portal/settings/team?orgId=lumen-org')
     expect(global.fetch).toHaveBeenCalledWith('/api/v1/crm/saved-views?resourceKind=contacts&orgId=lumen-org')
   })

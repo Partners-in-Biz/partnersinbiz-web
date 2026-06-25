@@ -175,7 +175,8 @@ describe('Portal project detail kanban stat cards', () => {
     expect(screen.getAllByText('Actually done').length).toBeGreaterThan(0)
     expect(screen.getByLabelText('Done task progress')).toHaveTextContent('2 / 4')
     expect(screen.getByLabelText('Open task count')).toHaveTextContent('2')
-    expect(screen.getByLabelText('Blocked task count')).toHaveTextContent('1')
+    // Active-blocker stat is now labelled "Needs Peet" in the board summary.
+    expect(screen.getByLabelText('Needs Peet task count')).toHaveTextContent('1')
     expect(screen.getByLabelText('Done task count')).toHaveTextContent('2')
     expect(screen.getByText('Due this week', { exact: false })).toHaveTextContent('1 due this week')
     expect(screen.queryByText('Media')).not.toBeInTheDocument()
@@ -194,7 +195,7 @@ describe('Portal project detail kanban stat cards', () => {
 
     expect(screen.getByText('Live blocked task')).toBeInTheDocument()
     expect(screen.getByLabelText('Done task progress')).toHaveTextContent('2 / 5')
-    expect(screen.getByLabelText('Blocked task count')).toHaveTextContent('2')
+    expect(screen.getByLabelText('Needs Peet task count')).toHaveTextContent('2')
   })
 
   it('keeps the board/list toggle and manual order control on one spaced toolbar row', async () => {

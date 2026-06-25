@@ -15,6 +15,8 @@ export function InstagramReelsCard({ post, brand }: InstagramReelsCardProps) {
   const handle = post.authorHandle || brand?.name || 'yourbrand'
   const fullCaption = withHashtags(post.content, post.hashtags)
   const accent = readableAccentOnDark(brand?.palette.accent, '#fff')
+  const hasVideo = Boolean(video)
+  const chromeBottomOffset = hasVideo ? 64 : 14
 
   return (
     <div
@@ -34,6 +36,7 @@ export function InstagramReelsCard({ post, brand }: InstagramReelsCardProps) {
         <video
           src={video.urlStories || video.url}
           poster={video.thumbnailUrl}
+          aria-label="Instagram reel video preview"
           controls
           playsInline
           style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
@@ -65,6 +68,7 @@ export function InstagramReelsCard({ post, brand }: InstagramReelsCardProps) {
           fontSize: 14,
           fontWeight: 600,
           gap: 8,
+          pointerEvents: 'none',
         }}
       >
         <span style={{ fontSize: 16 }}>Reels</span>
@@ -72,15 +76,17 @@ export function InstagramReelsCard({ post, brand }: InstagramReelsCardProps) {
 
       {/* right rail icons */}
       <div
+        data-testid="instagram-reels-right-rail"
         style={{
           position: 'absolute',
           right: 10,
-          bottom: 80,
+          bottom: hasVideo ? 128 : 80,
           display: 'flex',
           flexDirection: 'column',
           gap: 18,
           fontSize: 22,
           alignItems: 'center',
+          pointerEvents: 'none',
         }}
       >
         <div style={{ textAlign: 'center' }}>
@@ -104,7 +110,19 @@ export function InstagramReelsCard({ post, brand }: InstagramReelsCardProps) {
       </div>
 
       {/* bottom: handle + caption + audio */}
-      <div style={{ position: 'absolute', left: 12, right: 70, bottom: 14, fontSize: 13 }}>
+      <div
+        data-testid="instagram-reels-caption-overlay"
+        style={{
+          position: 'absolute',
+          left: 12,
+          right: 70,
+          bottom: chromeBottomOffset,
+          fontSize: 13,
+          maxHeight: hasVideo ? '46%' : undefined,
+          overflow: 'hidden',
+          pointerEvents: 'none',
+        }}
+      >
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
           <div
             style={{
@@ -135,7 +153,7 @@ export function InstagramReelsCard({ post, brand }: InstagramReelsCardProps) {
             Follow
           </span>
         </div>
-        <div style={{ lineHeight: 1.35, fontSize: 13, marginBottom: 6 }}>
+        <div style={{ lineHeight: 1.35, fontSize: 13, marginBottom: 6, overflow: 'hidden' }}>
           <HighlightedText text={fullCaption} linkColor={accent} />
         </div>
         <div style={{ fontSize: 12, opacity: 0.95, display: 'flex', alignItems: 'center', gap: 6 }}>

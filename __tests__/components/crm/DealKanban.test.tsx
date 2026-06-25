@@ -88,9 +88,13 @@ describe('DealKanban', () => {
   it('renders deal value as formatted currency', () => {
     const deal = makeDeal({ id: 'd1', value: 50000, currency: 'ZAR', stageId: 'proposal' })
     render(<DealKanban deals={[deal]} stages={TEST_STAGES} onStageChange={noop} />)
-    // Intl formats 50 000 — accept any digit grouping
-    const valueEl = screen.getByText(/50[\s,.]?000/)
-    expect(valueEl).toBeInTheDocument()
+    // The value now renders both on the deal card (a <span>) and in the stage
+    // total (a <p title="Total value of deals in this stage">). Intl formats
+    // 50 000 — accept any digit grouping. Scope to the card's value span so the
+    // assertion targets the deal card, not the stage roll-up.
+    const matches = screen.getAllByText(/50[\s,.]?000/)
+    const cardValue = matches.find(el => el.tagName === 'SPAN')
+    expect(cardValue).toBeInTheDocument()
   })
 
   it('names missing deal values on kanban cards instead of showing invalid currency', () => {

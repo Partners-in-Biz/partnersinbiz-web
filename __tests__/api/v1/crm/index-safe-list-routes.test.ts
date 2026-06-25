@@ -98,9 +98,12 @@ describe('CRM/settings list route Firestore query shape', () => {
       if (name === 'contacts') {
         return collectionWithOperationCapture(
           docs([
-            { id: 'keep', data: { orgId: 'org-1', name: 'Alice Buyer', email: 'alice@example.com', stage: 'new', type: 'lead', source: 'manual', tags: ['vip'], createdAt: { seconds: 20 }, deleted: false } },
-            { id: 'wrong-stage', data: { orgId: 'org-1', name: 'Bob Buyer', email: 'bob@example.com', stage: 'won', type: 'lead', source: 'manual', tags: ['vip'], createdAt: { seconds: 30 }, deleted: false } },
-            { id: 'wrong-org', data: { orgId: 'org-2', name: 'Alice Other', email: 'other@example.com', stage: 'new', type: 'lead', source: 'manual', tags: ['vip'], createdAt: { seconds: 40 }, deleted: false } },
+            // Contacts must be assigned to the viewer (assignedTo) so the
+            // assignment-based read scope lets them through; this test exercises
+            // the in-memory stage/type/source/tags/search filtering, not access.
+            { id: 'keep', data: { orgId: 'org-1', assignedTo: 'uid-contacts', name: 'Alice Buyer', email: 'alice@example.com', stage: 'new', type: 'lead', source: 'manual', tags: ['vip'], createdAt: { seconds: 20 }, deleted: false } },
+            { id: 'wrong-stage', data: { orgId: 'org-1', assignedTo: 'uid-contacts', name: 'Bob Buyer', email: 'bob@example.com', stage: 'won', type: 'lead', source: 'manual', tags: ['vip'], createdAt: { seconds: 30 }, deleted: false } },
+            { id: 'wrong-org', data: { orgId: 'org-2', assignedTo: 'uid-contacts', name: 'Alice Other', email: 'other@example.com', stage: 'new', type: 'lead', source: 'manual', tags: ['vip'], createdAt: { seconds: 40 }, deleted: false } },
           ]),
           operations,
         )

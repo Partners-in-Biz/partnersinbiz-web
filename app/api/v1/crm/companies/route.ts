@@ -17,6 +17,7 @@ import {
   sanitizeCompanyForWrite,
   validateParentChain,
   loadMemberRef,
+  findDuplicateCompany,
 } from '@/lib/companies/store'
 import { applyPostFilterSearch } from '@/lib/companies/filters'
 import type { Company, CompanyInput, CompanyListParams } from '@/lib/companies/types'
@@ -208,6 +209,15 @@ export const POST = withCrmAuth('member', async (req, ctx) => {
   }
 
   const sanitized = sanitizeCompanyForWrite(body)
+  const duplicate = await findDuplicateCompany(ctx.orgId, sanitized as Partial<CompanyInput>)
+  if (duplicate) {
+    return apiError(
+      `A company that looks like ${body.name.trim()} already exists in this workspace. Open or update the existing company instead of creating a duplicate.`,
+      409,
+      { duplicate },
+    )
+  }
+
   const allowedUserIds = normalizeAllowedUserIds((body as Record<string, unknown>).allowedUserIds)
   for (const uid of [body.accountManagerUid, ownerUid]) {
     if (typeof uid === 'string' && uid.trim() && !allowedUserIds.includes(uid.trim())) {

@@ -90,6 +90,17 @@ function stageAuth(
         }),
       }
     }
+    if (name === 'contacts') {
+      // crmActorCanReadCompanyRecord falls back to a tenant-wide contacts scan
+      // for non-privileged actors. Default to an empty result; tests that need a
+      // readable company assign it to the actor directly (see buildCompany ownerUid).
+      return {
+        where: jest.fn().mockReturnThis(),
+        orderBy: jest.fn().mockReturnThis(),
+        limit: jest.fn().mockReturnThis(),
+        get: jest.fn().mockResolvedValue({ docs: [] }),
+      }
+    }
     return { doc: () => ({ get: () => Promise.resolve({ exists: false }) }) }
   })
 }
@@ -131,7 +142,7 @@ describe('GET /api/v1/crm/companies/:id', () => {
     const uid = uidFor('viewer')
     const member = seedOrgMember('org-a', uid, { role: 'viewer' })
     stageAuth(member)
-    const co = buildCompany({ id: 'co-x', orgId: 'org-a', name: 'Acme' })
+    const co = buildCompany({ id: 'co-x', orgId: 'org-a', name: 'Acme', ownerUid: uid })
     ;(companiesStore.loadCompany as jest.Mock).mockResolvedValue(makeLoadedCompany(co))
     const req = callAsMember(member, 'GET', '/api/v1/crm/companies/co-x')
     const res = await routeModule.GET(req, routeCtx('co-x'))
@@ -160,7 +171,7 @@ describe('GET /api/v1/crm/companies/:id', () => {
     const uid = uidFor('viewer3')
     const member = seedOrgMember('org-b', uid, { role: 'viewer' })
     stageAuth(member)
-    const co = buildCompany({ id: 'co-b', orgId: 'org-b' })
+    const co = buildCompany({ id: 'co-b', orgId: 'org-b', ownerUid: uid })
     ;(companiesStore.loadCompany as jest.Mock).mockResolvedValue(makeLoadedCompany(co))
     const req = callAsMember(member, 'GET', '/api/v1/crm/companies/co-b')
     const res = await routeModule.GET(req, routeCtx('co-b'))

@@ -99,14 +99,22 @@ export async function POST(req: Request) {
       invoiceId,
       reference: reference ?? null,
       alreadyPaid: result.alreadyPaid,
-      settled: result.ok && !result.alreadyPaid,
+      // "settled" = transitioned to fully paid. A short payment is recorded as
+      // partiallyPaid and is NOT a full settlement.
+      settled: result.ok && !result.alreadyPaid && !result.partiallyPaid,
+      partiallyPaid: result.partiallyPaid ?? false,
+      shortfall: result.shortfall ?? 0,
       processedAt: FieldValue.serverTimestamp(),
     })
 
   return apiSuccess({
     invoiceId,
-    status: 'paid',
+    // Reflect the actual resulting status: a short EFT payment leaves the
+    // invoice partially_paid, not paid.
+    status: result.partiallyPaid ? 'partially_paid' : 'paid',
     alreadyPaid: result.alreadyPaid,
+    partiallyPaid: result.partiallyPaid ?? false,
+    shortfall: result.shortfall ?? 0,
     subscriptionAdvanced: result.subscriptionAdvanced ?? false,
   })
 }

@@ -1,9 +1,10 @@
 'use client'
 
 import Link from 'next/link'
-import { useEffect, useState } from 'react'
+import { useSearchParams } from 'next/navigation'
+import { Suspense, useEffect, useState } from 'react'
 
-type Phase = 'loading' | 'disabled' | 'setup' | 'backup' | 'enabled'
+type Phase = 'loading' | 'disabled' | 'setup' | 'backup' | 'enabled' | 'challenge'
 type SetupData = { secret: string; otpauthUrl: string }
 
 function unwrap(body: unknown): Record<string, unknown> {
@@ -15,13 +16,26 @@ function unwrap(body: unknown): Record<string, unknown> {
 
 export const dynamic = 'force-dynamic'
 
-export default function AdminTwoFactorPage() {
+function safeReturnTo(value: string | null): string {
+  // Only allow same-origin admin paths to prevent open-redirect.
+  if (value && value.startsWith('/admin') && !value.startsWith('//')) return value
+  return '/admin/dashboard'
+}
+
+function AdminTwoFactorInner() {
+  const searchParams = useSearchParams()
+  const isChallenge = searchParams.get('challenge') === '1'
+  const returnTo = safeReturnTo(searchParams.get('returnTo'))
+
   const [phase, setPhase] = useState<Phase>('loading')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const [setup, setSetup] = useState<SetupData | null>(null)
   const [token, setToken] = useState('')
   const [backupCodes, setBackupCodes] = useState<string[]>([])
+  const [useBackup, setUseBackup] = useState(false)
+  const [challengeCode, setChallengeCode] = useState('')
+  const [remainingAttempts, setRemainingAttempts] = useState<number | null>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -29,7 +43,12 @@ export default function AdminTwoFactorPage() {
     fetch('/api/v1/account/2fa/status', { cache: 'no-store' })
       .then(async (res) => unwrap(await res.json().catch(() => ({}))))
       .then((data) => {
-        if (!cancelled) setPhase(data.enabled === true ? 'enabled' : 'disabled')
+        if (cancelled) return
+        const enabled = data.enabled === true
+        // When the server layout redirected us here to re-verify (challenge=1)
+        // and 2FA is actually enabled, show the code-entry challenge form.
+        if (isChallenge && enabled) setPhase('challenge')
+        else setPhase(enabled ? 'enabled' : 'disabled')
       })
       .catch(() => {
         if (!cancelled) setPhase('disabled')
@@ -38,7 +57,36 @@ export default function AdminTwoFactorPage() {
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [isChallenge])
+
+  async function submitChallenge(event: React.FormEvent) {
+    event.preventDefault()
+    setBusy(true)
+    setError('')
+    try {
+      const payload = useBackup
+        ? { backupCode: challengeCode.trim() }
+        : { token: challengeCode.trim() }
+      const res = await fetch('/api/v1/account/2fa/challenge', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      })
+      const data = unwrap(await res.json().catch(() => ({})))
+      if (!res.ok) {
+        if (typeof data.remainingAttempts === 'number') setRemainingAttempts(data.remainingAttempts)
+        throw new Error((data.error as string) ?? 'Verification failed')
+      }
+      // Cookie minted server-side — hard-navigate so the admin layout re-runs and
+      // sees the verification cookie, then lands on the originally requested page.
+      window.location.href = returnTo
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Verification failed')
+      setChallengeCode('')
+    } finally {
+      setBusy(false)
+    }
+  }
 
   async function beginSetup() {
     setBusy(true)
@@ -84,7 +132,9 @@ export default function AdminTwoFactorPage() {
         <p className="eyebrow">Admin security</p>
         <h1 className="pib-page-title mt-2">Two-factor authentication</h1>
         <p className="mt-3 max-w-2xl text-sm text-[var(--color-pib-text-muted)]">
-          Platform admins are expected to keep TOTP enabled. This page lets you set up the authenticator flow used by the admin challenge gate.
+          {phase === 'challenge'
+            ? 'Confirm your identity with a code from your authenticator app to continue into the admin control plane.'
+            : 'Platform admins are expected to keep TOTP enabled. This page lets you set up the authenticator flow used by the admin challenge gate.'}
         </p>
       </header>
 
@@ -95,13 +145,76 @@ export default function AdminTwoFactorPage() {
             <h2 className="mt-2 text-lg font-semibold text-on-surface">Authenticator app (TOTP)</h2>
           </div>
           <span className={`pib-pill ${phase === 'enabled' ? 'pib-pill-success' : phase === 'loading' ? '' : 'pib-pill-warn'}`}>
-            {phase === 'enabled' ? 'Enabled' : phase === 'loading' ? 'Loading' : 'Required'}
+            {phase === 'enabled' ? 'Enabled' : phase === 'loading' ? 'Loading' : phase === 'challenge' ? 'Verification required' : 'Required'}
           </span>
         </div>
 
-        {error ? <div className="rounded-lg border border-red-500/30 bg-red-500/5 px-4 py-3 text-sm text-red-400">{error}</div> : null}
+        {error ? (
+          <div className="rounded-lg border border-red-500/30 bg-red-500/5 px-4 py-3 text-sm text-red-400">
+            {error}
+            {remainingAttempts != null && remainingAttempts > 0 ? (
+              <span className="ml-1 text-on-surface-variant">{remainingAttempts} attempt{remainingAttempts === 1 ? '' : 's'} left before lockout.</span>
+            ) : null}
+          </div>
+        ) : null}
 
         {phase === 'loading' ? <p className="text-sm text-on-surface-variant">Checking your 2FA status...</p> : null}
+
+        {phase === 'challenge' ? (
+          <form onSubmit={submitChallenge} className="space-y-4">
+            <p className="text-sm text-on-surface-variant">
+              {useBackup
+                ? 'Enter one of your single-use backup codes.'
+                : 'Enter the 6-digit code from your authenticator app.'}
+            </p>
+            <label className="pib-label" htmlFor="admin-twofa-challenge">
+              {useBackup ? 'Backup code' : 'Verification code'}
+            </label>
+            {useBackup ? (
+              <input
+                id="admin-twofa-challenge"
+                type="text"
+                autoComplete="one-time-code"
+                value={challengeCode}
+                onChange={(event) => setChallengeCode(event.target.value)}
+                placeholder="xxxx-xxxx-xx"
+                className="pib-input w-56 font-mono"
+              />
+            ) : (
+              <input
+                id="admin-twofa-challenge"
+                type="text"
+                inputMode="numeric"
+                autoComplete="one-time-code"
+                maxLength={6}
+                value={challengeCode}
+                onChange={(event) => setChallengeCode(event.target.value.replace(/\D/g, ''))}
+                placeholder="000000"
+                className="pib-input w-40 text-center text-xl tracking-[0.4em]"
+              />
+            )}
+            <div className="flex flex-wrap items-center gap-3">
+              <button
+                type="submit"
+                disabled={busy || challengeCode.trim().length < (useBackup ? 6 : 6)}
+                className="pib-btn-primary disabled:opacity-60"
+              >
+                {busy ? 'Verifying...' : 'Verify and continue'}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setUseBackup((v) => !v)
+                  setChallengeCode('')
+                  setError('')
+                }}
+                className="text-sm text-[var(--color-pib-accent)] hover:underline"
+              >
+                {useBackup ? 'Use authenticator code instead' : 'Use a backup code instead'}
+              </button>
+            </div>
+          </form>
+        ) : null}
 
         {phase === 'disabled' ? (
           <div className="space-y-4">
@@ -170,9 +283,19 @@ export default function AdminTwoFactorPage() {
         ) : null}
       </section>
 
-      <div className="pib-card p-5 text-sm text-on-surface-variant">
-        After setup, continue back to <Link href="/admin/dashboard" className="text-[var(--color-pib-accent)] hover:underline">/admin/dashboard</Link>.
-      </div>
+      {phase !== 'challenge' ? (
+        <div className="pib-card p-5 text-sm text-on-surface-variant">
+          After setup, continue back to <Link href="/admin/dashboard" className="text-[var(--color-pib-accent)] hover:underline">/admin/dashboard</Link>.
+        </div>
+      ) : null}
     </div>
+  )
+}
+
+export default function AdminTwoFactorPage() {
+  return (
+    <Suspense fallback={<div className="mx-auto max-w-3xl p-6 text-sm text-on-surface-variant">Loading…</div>}>
+      <AdminTwoFactorInner />
+    </Suspense>
   )
 }

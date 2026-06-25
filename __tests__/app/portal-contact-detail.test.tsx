@@ -22,6 +22,17 @@ jest.mock('next/navigation', () => ({
   useSearchParams: () => mockSearchParams,
 }))
 
+jest.mock('firebase/auth', () => ({
+  onAuthStateChanged: (_auth: unknown, cb: (user: { uid: string }) => void) => {
+    cb({ uid: 'user-1' })
+    return jest.fn()
+  },
+}))
+
+jest.mock('@/lib/firebase/config', () => ({
+  auth: {},
+}))
+
 jest.mock('@/components/crm/ContactDealsPanel', () => ({
   ContactDealsPanel: ({
     contactName,

@@ -17,7 +17,10 @@ const store = jest.requireMock('@/lib/ads/adsets/store')
 const campaignsStore = jest.requireMock('@/lib/ads/campaigns/store')
 const helpers = jest.requireMock('@/lib/ads/api-helpers')
 
-beforeEach(() => jest.clearAllMocks())
+// resetAllMocks (not clearAllMocks) so leftover mockResolvedValueOnce queue
+// entries from validation/not-found tests — which return before
+// requireMetaContext is called — don't leak into later tests.
+beforeEach(() => jest.resetAllMocks())
 
 const baseConn = {
   orgId: 'org_1',
@@ -183,12 +186,13 @@ describe('POST /api/v1/ads/ad-sets', () => {
 
   it('short-circuits with connection error when requireMetaContext returns Response', async () => {
     const errRes = new Response(JSON.stringify({ success: false, error: 'no conn' }), { status: 404 })
+    campaignsStore.getCampaign.mockResolvedValueOnce(baseCampaign)
     helpers.requireMetaContext.mockResolvedValueOnce(errRes)
     const res = await POST(
       new Request('http://x', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ input: {} }),
+        headers: { 'X-Org-Id': 'org_1', 'Content-Type': 'application/json' },
+        body: JSON.stringify({ input: { campaignId: 'cmp_1', name: 'Test' } }),
       }) as any,
       { uid: 'u1' } as any,
       {} as any,

@@ -8,6 +8,17 @@ jest.mock('next/navigation', () => ({
   useSearchParams: () => mockSearchParams,
 }))
 
+jest.mock('firebase/auth', () => ({
+  onAuthStateChanged: (_auth: unknown, cb: (user: { uid: string; email: string } | null) => void) => {
+    cb({ uid: 'user-1', email: 'peet@example.com' })
+    return jest.fn()
+  },
+}))
+
+jest.mock('@/lib/firebase/client', () => ({
+  auth: {},
+}))
+
 jest.mock('next/link', () => {
   return function MockLink({ href, children, className }: { href: string; children: React.ReactNode; className?: string }) {
     return <a href={href} className={className}>{children}</a>
@@ -24,6 +35,10 @@ jest.mock('@/components/client-documents/DocumentReviewRail', () => ({
 
 jest.mock('@/components/inline-comments/CommentComposer', () => ({
   CommentComposer: () => <div>Comment composer rendered</div>,
+}))
+
+jest.mock('@/components/client-documents/DocumentPresence', () => ({
+  DocumentPresence: () => <div>Presence rendered</div>,
 }))
 
 describe('portal document detail scoped routing', () => {
@@ -74,6 +89,12 @@ describe('portal document detail scoped routing', () => {
         return Promise.resolve({
           ok: true,
           json: async () => ({ data: [] }),
+        } as Response)
+      }
+      if (url === '/api/v1/client-documents/doc-lumen/access-log') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ data: { events: [] } }),
         } as Response)
       }
       if (url === '/api/v1/portal/org?orgId=lumen-org') {
@@ -140,6 +161,12 @@ describe('portal document detail scoped routing', () => {
         return Promise.resolve({
           ok: true,
           json: async () => ({ data: [] }),
+        } as Response)
+      }
+      if (url === '/api/v1/client-documents/doc-lumen/access-log') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ data: { events: [] } }),
         } as Response)
       }
       if (url === '/api/v1/portal/org?orgId=lumen-org') {

@@ -42,6 +42,29 @@ describe('ScheduledContentPreviewCards', () => {
     expect(screen.getByTestId('scheduled-preview-approval')).toHaveAttribute('href', '/admin/org/acme/social/standalone?approvalId=approval')
   })
 
+  it('renders video media as a video preview when thumbnailUrl points at the MP4 asset', () => {
+    render(
+      <ScheduledContentPreviewCards
+        slug="acme"
+        posts={[{
+          ...basePost,
+          id: 'video-post',
+          platform: 'instagram',
+          platforms: ['instagram'],
+          media: [{
+            type: 'video',
+            url: 'https://example.com/reel.mp4?token=abc',
+            thumbnailUrl: 'https://example.com/reel.mp4?token=abc',
+          }],
+        }]}
+        loading={false}
+      />,
+    )
+
+    expect(screen.getByLabelText('Scheduled post video preview')).toHaveAttribute('src', 'https://example.com/reel.mp4?token=abc')
+    expect(screen.queryByAltText('Scheduled post media preview')).not.toBeInTheDocument()
+  })
+
   it('falls back to a generic post label only for unknown platforms', () => {
     render(<ScheduledContentPreviewCards slug="acme" posts={[{ ...basePost, id: 'generic', platform: 'mastodon', platforms: ['mastodon'] }]} loading={false} />)
 

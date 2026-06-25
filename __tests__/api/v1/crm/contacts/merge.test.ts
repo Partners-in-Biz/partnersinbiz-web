@@ -24,8 +24,18 @@ jest.mock('@/lib/auth/crm-middleware', () => ({
         const { NextResponse } = require('next/server')
         return NextResponse.json({ success: false, error: 'Insufficient permissions' }, { status: 403 })
       }
-      return handler(req, { orgId: 'org-a', role, isAgent: false, permissions: {} }, routeCtx)
+      return handler(req, {
+        orgId: 'org-a',
+        role,
+        isAgent: false,
+        actor: { uid: 'admin-1', displayName: 'Admin One', kind: 'human' },
+        permissions: {},
+      }, routeCtx)
     },
+}))
+
+jest.mock('@/lib/crm/live-updates', () => ({
+  safeTouchCrmLiveUpdate: jest.fn().mockResolvedValue(undefined),
 }))
 
 // ─── Imports after mocks ──────────────────────────────────────────────────────
