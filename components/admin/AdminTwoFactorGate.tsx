@@ -23,6 +23,10 @@ export function AdminTwoFactorGate() {
       .then(async (res) => unwrap(await res.json().catch(() => ({}))))
       .then((data) => {
         if (cancelled) return
+        if (data.disabledByPolicy === true) {
+          setReady(true)
+          return
+        }
         if (data.enabled !== true && pathname !== '/admin/2fa') {
           router.replace(`/admin/2fa?returnTo=${encodeURIComponent(pathname || '/admin/dashboard')}`)
           return

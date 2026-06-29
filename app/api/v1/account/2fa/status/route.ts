@@ -9,7 +9,7 @@ export const dynamic = 'force-dynamic'
 export const GET = withPortalAuth(async (_req: NextRequest, uid: string) => {
   try {
     if (process.env.DISABLE_ADMIN_2FA === 'true') {
-      return apiSuccess({ enabled: false, backupCodesRemaining: 0 })
+      return apiSuccess({ enabled: false, backupCodesRemaining: 0, disabledByPolicy: true })
     }
     const userDoc = await adminDb.collection('users').doc(uid).get()
     const twoFactor = userDoc.data()?.twoFactor
