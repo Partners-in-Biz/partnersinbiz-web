@@ -3,7 +3,7 @@ import { NextRequest } from 'next/server'
 const mockInvoiceGet = jest.fn()
 const mockOrgGet = jest.fn()
 const mockCollection = jest.fn()
-const mockGenerateInvoiceHtml = jest.fn()
+const mockRenderInvoicePdf = jest.fn()
 const mockCheckAndIncrementRateLimit = jest.fn()
 const mockResolveUser = jest.fn()
 const mockCanAccessOrg = jest.fn()
@@ -14,8 +14,8 @@ jest.mock('@/lib/firebase/admin', () => ({
   },
 }))
 
-jest.mock('@/lib/invoices/html-generator', () => ({
-  generateInvoiceHtml: (...args: unknown[]) => mockGenerateInvoiceHtml(...args),
+jest.mock('@/lib/invoices/pdf-generator', () => ({
+  renderInvoicePdf: (...args: unknown[]) => mockRenderInvoicePdf(...args),
 }))
 
 jest.mock('@/lib/rateLimit', () => ({
@@ -49,7 +49,7 @@ function invoiceSnap(data: Record<string, unknown>) {
 beforeEach(() => {
   jest.resetModules()
   jest.clearAllMocks()
-  mockGenerateInvoiceHtml.mockReturnValue('<html>invoice html</html>')
+  mockRenderInvoicePdf.mockResolvedValue(Buffer.from('%PDF-1.7 invoice pdf'))
   mockCheckAndIncrementRateLimit.mockResolvedValue({
     allowed: true,
     remaining: 4,
@@ -83,7 +83,7 @@ describe('GET /api/v1/invoices/[id]/pdf', () => {
     const res = await GET(makeReq('http://localhost/api/v1/invoices/invoice-1/pdf'), makeCtx())
 
     expect(res.status).toBe(403)
-    expect(mockGenerateInvoiceHtml).not.toHaveBeenCalled()
+    expect(mockRenderInvoicePdf).not.toHaveBeenCalled()
   })
 
   it('returns 403 for anonymous requests with the wrong PDF share token', async () => {
@@ -91,10 +91,10 @@ describe('GET /api/v1/invoices/[id]/pdf', () => {
     const res = await GET(makeReq('http://localhost/api/v1/invoices/invoice-1/pdf?t=wrong'), makeCtx())
 
     expect(res.status).toBe(403)
-    expect(mockGenerateInvoiceHtml).not.toHaveBeenCalled()
+    expect(mockRenderInvoicePdf).not.toHaveBeenCalled()
   })
 
-  it('renders invoice HTML for anonymous requests with the PDF share token', async () => {
+  it('renders an actual PDF response for anonymous requests with the PDF share token', async () => {
     const { GET } = await import('@/app/api/v1/invoices/[id]/pdf/route')
     const req = makeReq('http://localhost/api/v1/invoices/invoice-1/pdf?t=pdf-token-123', {
       'x-forwarded-for': '203.0.113.10, 10.0.0.1',
@@ -102,13 +102,15 @@ describe('GET /api/v1/invoices/[id]/pdf', () => {
     const res = await GET(req, makeCtx())
 
     expect(res.status).toBe(200)
-    expect(await res.text()).toBe('<html>invoice html</html>')
+    expect(res.headers.get('Content-Type')).toBe('application/pdf')
+    expect(res.headers.get('Content-Disposition')).toBe('inline; filename="INV-001.pdf"')
+    expect(Buffer.from(await res.arrayBuffer()).toString()).toBe('%PDF-1.7 invoice pdf')
     expect(mockCheckAndIncrementRateLimit).toHaveBeenCalledWith({
       key: 'invoice_pdf:invoice-1:203.0.113.10',
       limit: 30,
       windowMs: 60 * 60 * 1000,
     })
-    expect(mockGenerateInvoiceHtml).toHaveBeenCalledWith(expect.objectContaining({
+    expect(mockRenderInvoicePdf).toHaveBeenCalledWith(expect.objectContaining({
       id: 'invoice-1',
       invoiceNumber: 'INV-001',
       pdfShareToken: 'pdf-token-123',
@@ -131,7 +133,7 @@ describe('GET /api/v1/invoices/[id]/pdf', () => {
     )
 
     expect(res.status).toBe(429)
-    expect(mockGenerateInvoiceHtml).not.toHaveBeenCalled()
+    expect(mockRenderInvoicePdf).not.toHaveBeenCalled()
   })
 
   it('keeps authenticated admin access working without a PDF share token', async () => {
@@ -143,7 +145,7 @@ describe('GET /api/v1/invoices/[id]/pdf', () => {
 
     expect(res.status).toBe(200)
     expect(mockCheckAndIncrementRateLimit).not.toHaveBeenCalled()
-    expect(mockGenerateInvoiceHtml).toHaveBeenCalled()
+    expect(mockRenderInvoicePdf).toHaveBeenCalled()
   })
 
   it('keeps authenticated PDF access constrained to the selected orgId query', async () => {
@@ -176,7 +178,7 @@ describe('GET /api/v1/invoices/[id]/pdf', () => {
     const res = await GET(makeReq('http://localhost/api/v1/invoices/invoice-1/pdf?orgId=home-org'), makeCtx())
 
     expect(res.status).toBe(403)
-    expect(mockGenerateInvoiceHtml).not.toHaveBeenCalled()
+    expect(mockRenderInvoicePdf).not.toHaveBeenCalled()
   })
 
   it('does not let a matching orgId query replace the required anonymous PDF share token', async () => {
@@ -191,6 +193,6 @@ describe('GET /api/v1/invoices/[id]/pdf', () => {
     const res = await GET(makeReq('http://localhost/api/v1/invoices/invoice-1/pdf?orgId=course-digs'), makeCtx())
 
     expect(res.status).toBe(403)
-    expect(mockGenerateInvoiceHtml).not.toHaveBeenCalled()
+    expect(mockRenderInvoicePdf).not.toHaveBeenCalled()
   })
 })

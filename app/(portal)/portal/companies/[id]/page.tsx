@@ -20,7 +20,7 @@ import { CompanyMergePanel } from '@/components/crm/CompanyMergePanel'
 import { CustomFieldsSection } from '@/components/crm/CustomFieldsSection'
 import { ContactForm } from '@/components/crm/ContactForm'
 import { DealDrawer } from '@/components/crm/DealDrawer'
-import { scopeFromSearchParams, scopedApiPath, scopedPortalPath } from '@/lib/portal/scoped-routing'
+import { scopeFromSearchParams, scopedApiPath, scopedPortalPath, type PortalOrgRouteScope } from '@/lib/portal/scoped-routing'
 
 type RelatedContact = {
   id: string
@@ -1298,6 +1298,7 @@ function InvoicesPanel({
   invoices,
   company,
   quotes,
+  orgScope,
   creatingInvoiceId,
   invoiceError,
   onCreateInvoiceFromQuote,
@@ -1305,6 +1306,7 @@ function InvoicesPanel({
   invoices: RelatedInvoice[]
   company: Company
   quotes: RelatedQuote[]
+  orgScope: PortalOrgRouteScope
   creatingInvoiceId: string | null
   invoiceError: string | null
   onCreateInvoiceFromQuote: (quote: RelatedQuote) => void
@@ -1457,27 +1459,33 @@ function InvoicesPanel({
             </tr>
           </thead>
           <tbody className="divide-y divide-[var(--color-pib-line)]">
-            {editableInvoices.map((invoice) => (
-              <Fragment key={invoice.id}>
-                <tr className="hover:bg-white/[0.02]">
-                  <td className="px-5 py-4 font-mono">{invoice.invoiceNumber || invoice.id}</td>
-                  <td className="px-5 py-4"><CompanyRecordStatusChip value={invoice.status} emptyLabel="Invoice status not set" /></td>
-                  <td className="px-5 py-4 text-[var(--color-pib-text-muted)]">{invoiceTotalLabel(invoice)}</td>
-                  <td className="px-5 py-4 text-[var(--color-pib-text-muted)]">{invoiceDueDateLabel(invoice)}</td>
-                  <td className="px-5 py-4 text-right">
-                    <div className="flex justify-end gap-3">
-                      {invoice.canEdit && invoice.status === 'draft' ? (
-                        <button type="button" onClick={() => startEditingInvoice(invoice)} className="text-[var(--color-accent-v2)] hover:underline">
-                          Edit draft
-                        </button>
-                      ) : null}
-                      <a href={`/api/v1/invoices/${invoice.id}/pdf`} target="_blank" rel="noopener noreferrer" className="text-[var(--color-accent-v2)] hover:underline">
-                        Open PDF
-                      </a>
-                    </div>
-                  </td>
-                </tr>
-                {editingInvoiceId === invoice.id ? (
+            {editableInvoices.map((invoice) => {
+              const pdfHref = scopedApiPath(`/api/v1/invoices/${invoice.id}/pdf`, orgScope)
+              const pdfFilename = `${invoice.invoiceNumber || invoice.id}.pdf`
+              return (
+                <Fragment key={invoice.id}>
+                  <tr className="hover:bg-white/[0.02]">
+                    <td className="px-5 py-4 font-mono">{invoice.invoiceNumber || invoice.id}</td>
+                    <td className="px-5 py-4"><CompanyRecordStatusChip value={invoice.status} emptyLabel="Invoice status not set" /></td>
+                    <td className="px-5 py-4 text-[var(--color-pib-text-muted)]">{invoiceTotalLabel(invoice)}</td>
+                    <td className="px-5 py-4 text-[var(--color-pib-text-muted)]">{invoiceDueDateLabel(invoice)}</td>
+                    <td className="px-5 py-4 text-right">
+                      <div className="flex justify-end gap-3">
+                        {invoice.canEdit && invoice.status === 'draft' ? (
+                          <button type="button" onClick={() => startEditingInvoice(invoice)} className="text-[var(--color-accent-v2)] hover:underline">
+                            Edit draft
+                          </button>
+                        ) : null}
+                        <a href={pdfHref} target="_blank" rel="noopener noreferrer" className="text-[var(--color-accent-v2)] hover:underline">
+                          Open PDF
+                        </a>
+                        <a href={pdfHref} download={pdfFilename} className="text-[var(--color-accent-v2)] hover:underline" aria-label={`Download ${invoice.invoiceNumber || invoice.id} as PDF`}>
+                          Download PDF
+                        </a>
+                      </div>
+                    </td>
+                  </tr>
+                  {editingInvoiceId === invoice.id ? (
                   <tr key={`${invoice.id}-editor`}>
                     <td colSpan={5} className="bg-white/[0.02] px-5 py-4">
                       <div className="grid gap-3 sm:grid-cols-2">
@@ -1511,7 +1519,8 @@ function InvoicesPanel({
                   </tr>
                 ) : null}
               </Fragment>
-            ))}
+              )
+            })}
           </tbody>
         </table>
       </CompanyRecordTableShell>
@@ -2797,6 +2806,7 @@ export default function CompanyDetailPage() {
             invoices={related.invoices}
             company={company}
             quotes={related.quotes}
+            orgScope={orgScope}
             creatingInvoiceId={creatingInvoiceId}
             invoiceError={invoiceError}
             onCreateInvoiceFromQuote={createInvoiceFromQuote}

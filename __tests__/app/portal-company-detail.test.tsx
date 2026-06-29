@@ -188,7 +188,9 @@ describe('Portal company detail page', () => {
               relationships: [],
               documents: [],
               quotes: [],
-              invoices: [],
+              invoices: [
+                { id: 'invoice-1', invoiceNumber: 'INV-001', status: 'sent', total: 1200, currency: 'ZAR' },
+              ],
               orders: [],
               shipments: [],
               inventoryItems: [],
@@ -214,6 +216,9 @@ describe('Portal company detail page', () => {
 
     await selectCompanyTab(/Invoices/i)
     expect(replaceMock).toHaveBeenCalledWith(`/portal/companies/company-1?${scope}&edit=profile&tab=invoices`, { scroll: false })
+    expect(screen.getByRole('link', { name: 'Open PDF' })).toHaveAttribute('href', '/api/v1/invoices/invoice-1/pdf?orgId=lumen-org')
+    expect(screen.getByRole('link', { name: 'Download INV-001 as PDF' })).toHaveAttribute('href', '/api/v1/invoices/invoice-1/pdf?orgId=lumen-org')
+    expect(screen.getByRole('link', { name: 'Download INV-001 as PDF' })).toHaveAttribute('download', 'INV-001.pdf')
 
     await selectCompanyTab(/Chat/i)
     expect(screen.getByRole('link', { name: 'Open chat context for Lumen' })).toHaveAttribute('href', `/portal/companies/company-1?${scope}`)

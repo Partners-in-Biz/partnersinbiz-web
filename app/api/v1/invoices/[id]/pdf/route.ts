@@ -3,7 +3,7 @@ import { adminDb } from '@/lib/firebase/admin'
 import { resolveUser } from '@/lib/api/auth'
 import { canAccessOrg } from '@/lib/api/platformAdmin'
 import { apiError } from '@/lib/api/response'
-import { generateInvoiceHtml } from '@/lib/invoices/html-generator'
+import { renderInvoicePdf } from '@/lib/invoices/pdf-generator'
 import { checkAndIncrementRateLimit } from '@/lib/rateLimit'
 import {
   INVOICE_PDF_RATE_LIMIT,
@@ -81,15 +81,17 @@ export async function GET(req: NextRequest, ctx: RouteContext) {
       return apiError('Forbidden', 403)
     }
 
-    // Generate HTML
-    const html = generateInvoiceHtml(invoice)
+    // Generate and return a real PDF. The browser may open it inline or download it,
+    // but the payload must be application/pdf rather than printable HTML.
+    const pdfBuffer = await renderInvoicePdf(invoice)
+    const filename = `${invoiceData.invoiceNumber || id}.pdf`
 
-    // Return as HTML with proper headers for PDF download
-    return new NextResponse(html, {
+    return new NextResponse(new Uint8Array(pdfBuffer), {
       status: 200,
       headers: {
-        'Content-Type': 'text/html; charset=utf-8',
-        'Content-Disposition': `inline; filename="${invoiceData.invoiceNumber}.html"`,
+        'Content-Type': 'application/pdf',
+        'Content-Disposition': `inline; filename="${filename}"`,
+        'Cache-Control': 'private, no-store',
       },
     })
   } catch (error) {
