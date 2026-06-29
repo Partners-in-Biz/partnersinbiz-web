@@ -31,6 +31,19 @@ describe('client documents admin and portal boundary', () => {
     expect(portalRoute).not.toContain('fetch(')
   })
 
+  it('keeps portal document detail API calls scoped to the route organisation', () => {
+    const detailRoute = source('app/(portal)/portal/documents/[id]/page.tsx')
+
+    expect(detailRoute).toContain("scopeFromSearchParams(searchParams)")
+    expect(detailRoute).toContain("const documentEndpoint = scopedApiPath(`/api/v1/client-documents/${encodeURIComponent(id)}`, portalScope)")
+    expect(detailRoute).toContain('fetch(documentEndpoint)')
+    expect(detailRoute).toContain('fetch(documentVersionsEndpoint)')
+    expect(detailRoute).toContain('fetch(documentCommentsEndpoint)')
+    expect(detailRoute).toContain('fetch(documentAccessLogEndpoint)')
+    expect(detailRoute).not.toContain('fetch(`/api/v1/client-documents/${id}`)')
+    expect(detailRoute).not.toContain('fetch(`/api/v1/client-documents/${id}/versions`)')
+  })
+
   it('keeps admin document governance about permissions, templates, and document-owner settings', () => {
     const governance = source('components/client-documents/AdminDocumentsGovernanceWorkspace.tsx')
 
