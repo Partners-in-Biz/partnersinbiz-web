@@ -18,8 +18,8 @@ jest.mock('@/lib/firebase/admin', () => ({
 jest.mock('@/lib/api/auth', () => ({
   withAuth: (
     _role: string,
-    handler: (req: NextRequest, user: { uid: string; role: string; allowedOrgIds: string[] }) => Promise<Response>,
-  ) => (req: NextRequest) => handler(req, { uid: 'admin-1', role: 'admin', allowedOrgIds: [] }),
+    handler: (req: NextRequest, user: { uid: string; role: string; allowedOrgIds: string[] }, context?: unknown) => Promise<Response>,
+  ) => (req: NextRequest, context?: unknown) => handler(req, { uid: 'admin-1', role: 'admin', allowedOrgIds: [] }, context),
 }))
 
 jest.mock('@/lib/activity/log', () => ({
@@ -213,5 +213,88 @@ describe('GET /api/v1/tasks', () => {
     expect(mockWhere).toHaveBeenCalledWith('assignedTo.type', '==', 'user')
     expect(mockWhere).toHaveBeenCalledWith('assignedTo.id', '==', 'user-1')
     expect(body.data.map((task: { id: string }) => task.id)).toEqual(['user-task'])
+  })
+})
+
+describe('PUT /api/v1/tasks/[id]', () => {
+  const mockTaskGet = jest.fn()
+  const mockTaskUpdate = jest.fn()
+  const mockNotificationAdd = jest.fn()
+
+  function req(body: Record<string, unknown>) {
+    return new NextRequest('http://localhost/api/v1/tasks/task-1', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    })
+  }
+
+  beforeEach(() => {
+    jest.resetModules()
+    jest.clearAllMocks()
+    mockTaskGet.mockResolvedValue({
+      exists: true,
+      id: 'task-1',
+      data: () => ({
+        orgId: 'pib-platform-owner',
+        title: 'Daily growth agent queue',
+        description: '',
+        status: 'in_progress',
+        priority: 'high',
+        dueDate: null,
+        assignedTo: { type: 'agent', id: 'sales' },
+        tags: ['pib-ceo-ai-employees-sprint-2026-06-30', 'daily-growth'],
+        createdBy: 'peet',
+        assigneeAgentId: 'sales',
+        agentStatus: 'in-progress',
+        deleted: false,
+      }),
+    })
+    mockTaskUpdate.mockResolvedValue(undefined)
+    mockNotificationAdd.mockResolvedValue({ id: 'notification-1' })
+    mockCollection.mockImplementation((name: string) => {
+      if (name === 'tasks') {
+        return {
+          doc: (id: string) => ({ id, get: mockTaskGet, update: mockTaskUpdate }),
+        }
+      }
+      if (name === 'notifications') {
+        return { add: mockNotificationAdd }
+      }
+      throw new Error(`Unexpected collection: ${name}`)
+    })
+  })
+
+  it('preserves existing tags when an agent completion payload carries an empty tag snapshot', async () => {
+    const { PUT } = await import('@/app/api/v1/tasks/[id]/route')
+
+    const res = await PUT(req({
+      agentStatus: 'done',
+      status: 'done',
+      reviewStatus: 'pending',
+      agentOutput: {
+        summary: 'Completed CRM shortlist.',
+        artifacts: [{ type: 'message-thread', ref: 'pip-20260630-daily-growth-agent-queue' }],
+      },
+      tags: [],
+    }), { params: Promise.resolve({ id: 'task-1' }) })
+
+    expect(res.status).toBe(200)
+    expect(mockTaskUpdate).toHaveBeenCalledWith(expect.not.objectContaining({ tags: [] }))
+    expect(mockTaskUpdate).toHaveBeenCalledWith(expect.objectContaining({
+      agentStatus: 'done',
+      status: 'done',
+      reviewStatus: 'pending',
+      completedAt: 'SERVER_TIMESTAMP',
+    }))
+  })
+
+  it('still allows an explicit tag-only update to clear tags', async () => {
+    const { PUT } = await import('@/app/api/v1/tasks/[id]/route')
+
+    const res = await PUT(req({ tags: [] }), { params: Promise.resolve({ id: 'task-1' }) })
+
+    expect(res.status).toBe(200)
+    expect(mockTaskUpdate).toHaveBeenCalledWith(expect.objectContaining({ tags: [] }))
   })
 })
