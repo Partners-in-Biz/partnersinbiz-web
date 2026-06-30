@@ -258,6 +258,10 @@ describe('unified conversation message routing', () => {
     expect(prompt).toContain('Use or create a reusable gather skill/workflow')
     expect(prompt).toContain('Run focused analysis for the specific decision')
     expect(prompt).toContain('Create temporary throw-away HTML only when useful')
+    expect(prompt).toContain('Do not make server Markdown, local files, logs, or a hidden dashboard the CEO-facing delivery surface')
+    expect(prompt).toContain('Return the decision, evidence, reusable workflow, and next actions in this dynamic chat window')
+    expect(prompt).toContain('If you persist Markdown/docs for internal memory, summarize every actionable outcome in chat')
+    expect(prompt).toContain('Temporary HTML is allowed only as a throw-away linked/attached artifact inside the chat thread')
     expect(prompt).toContain('Build me a dashboard for marketing performance')
   })
 
