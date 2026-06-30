@@ -3,13 +3,12 @@
  *
  * Returns a manifest of endpoints that AI agents can use.
  */
-import { NextRequest } from 'next/server'
 import { withAuth } from '@/lib/api/auth'
 import { apiSuccess } from '@/lib/api/response'
 
 export const dynamic = 'force-dynamic'
 
-export const GET = withAuth('admin', async (req: NextRequest) => {
+export const GET = withAuth('admin', async () => {
   return apiSuccess({
     version: 'v1',
     endpoints: {
@@ -120,6 +119,19 @@ export const GET = withAuth('admin', async (req: NextRequest) => {
               total: 1,
             },
           },
+        },
+      },
+      growthCommandQueue: {
+        method: 'GET',
+        path: '/api/v1/agent/growth-command-queue',
+        description: 'Read-only CEO growth command queue that gathers stored CRM, Marketing Studio, failed-social, and briefing evidence for on-demand chat analysis. Use this before proposing dashboards or external actions.',
+        params: {
+          orgId: 'string (required for browser/admin query param or X-Org-Id for AI agents) — organization ID',
+        },
+        safety: {
+          readOnly: true,
+          dashboardPolicy: 'Do not create a permanent dashboard by default. Gather stored data, analyze the current question, and answer in Messages.',
+          blockedWithoutApproval: ['send', 'publish', 'schedule', 'retry', 'reconnect', 'spend', 'deploy', 'billing', 'destructive', 'client-visible'],
         },
       },
       markHandled: {
