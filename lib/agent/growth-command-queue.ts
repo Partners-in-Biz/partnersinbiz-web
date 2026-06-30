@@ -9,6 +9,7 @@ export type GrowthQueueItemKind =
   | 'marketing-review'
   | 'failed-social-recovery'
   | 'agent-review'
+  | 'ops-cleanup'
 
 export interface GrowthCommandQueueItem {
   id: string
@@ -73,32 +74,88 @@ function summarizeBriefing(item: BriefingCard): string {
   return item.summary || item.excerpt || `${item.source.type} needs review.`
 }
 
-function briefingQueueItems(items: BriefingCard[]): GrowthCommandQueueItem[] {
+function dateFromUnknown(value: unknown): Date | null {
+  if (!value) return null
+  if (value instanceof Date && Number.isFinite(value.getTime())) return value
+  if (typeof value === 'number') {
+    const date = new Date(value > 10_000_000_000 ? value : value * 1000)
+    return Number.isFinite(date.getTime()) ? date : null
+  }
+  if (typeof value === 'string') {
+    const date = new Date(value)
+    return Number.isFinite(date.getTime()) ? date : null
+  }
+  if (typeof value === 'object' && 'toDate' in value && typeof value.toDate === 'function') {
+    const date = value.toDate()
+    return date instanceof Date && Number.isFinite(date.getTime()) ? date : null
+  }
+  return null
+}
+
+function bookingDateFromText(value: string): Date | null {
+  const match = value.match(/\bon\s+(\d{4}-\d{2}-\d{2})(?:\s+at\s+(\d{1,2}:\d{2}))?/i)
+  if (!match) return null
+  const datePart = match[1]
+  const timePart = match[2] ?? '00:00'
+  const date = new Date(`${datePart}T${timePart}:00+02:00`)
+  return Number.isFinite(date.getTime()) ? date : null
+}
+
+function isPastMissingMeetBooking(item: BriefingCard, generatedAt: string): boolean {
+  if (item.source.type !== 'booking') return false
+  const text = `${item.title} ${item.summary} ${item.excerpt ?? ''}`
+  if (!/meet link missing|missing meet link/i.test(text)) return false
+  const bookingDate = bookingDateFromText(text) ?? dateFromUnknown(item.occurredAt)
+  const referenceDate = dateFromUnknown(generatedAt)
+  if (!bookingDate || !referenceDate) return false
+  return bookingDate.getTime() < referenceDate.getTime()
+}
+
+function briefingQueueItem(item: BriefingCard, generatedAt: string): GrowthCommandQueueItem {
+  const staleBooking = isPastMissingMeetBooking(item, generatedAt)
+  const isAgentReview = item.source.type === 'agent-run' || item.source.type === 'agent-output'
+  return {
+    id: `briefing:${item.id}`,
+    kind: staleBooking ? 'ops-cleanup' : isAgentReview ? 'agent-review' : 'ceo-approval',
+    priority: staleBooking ? 'review' : item.priority === 'critical' ? 'critical' : item.priority === 'needs-peet' ? 'needs-peet' : 'review',
+    title: item.title,
+    summary: staleBooking
+      ? `${summarizeBriefing(item)} This booking is already in the past, so treat it as cleanup/follow-up review instead of a critical live Meet-link approval.`
+      : summarizeBriefing(item),
+    source: {
+      type: item.source.type,
+      id: item.source.id,
+      url: item.source.url ?? null,
+    },
+    recommendedAgent: staleBooking ? 'nora' : item.context.reviewerAgentId ?? 'pip',
+    approvalRequired: !staleBooking,
+    allowedNow: staleBooking
+      ? [
+          'Analyze the stored booking and briefing data.',
+          'Recommend whether to mark handled, create a follow-up task, or repair the briefing rule.',
+          'Return a CEO-readable cleanup recommendation in Messages.',
+        ]
+      : [
+          'Analyze the stored source data.',
+          'Return a CEO-readable recommendation in Messages.',
+          'Create or update internal-only follow-up tasks if needed.',
+        ],
+    blockedUntilApproval: staleBooking
+      ? [
+          'Do not create calendar events, Meet links, customer emails, or external notifications without CEO approval.',
+        ]
+      : [
+          'No send, publish, schedule, retry, reconnect, spend, deploy, billing, destructive, or client-visible action.',
+        ],
+  }
+}
+
+function briefingQueueItems(items: BriefingCard[], generatedAt: string): GrowthCommandQueueItem[] {
   return items
-    .filter(briefingLooksApprovalLike)
+    .filter((item) => briefingLooksApprovalLike(item) || isPastMissingMeetBooking(item, generatedAt))
+    .map((item) => briefingQueueItem(item, generatedAt))
+    .sort((a, b) => priorityRank(a.priority) - priorityRank(b.priority) || a.title.localeCompare(b.title))
     .slice(0, 10)
-    .map((item) => ({
-      id: `briefing:${item.id}`,
-      kind: item.source.type === 'agent-run' || item.source.type === 'agent-output' ? 'agent-review' : 'ceo-approval',
-      priority: item.priority === 'critical' ? 'critical' : item.priority === 'needs-peet' ? 'needs-peet' : 'review',
-      title: item.title,
-      summary: summarizeBriefing(item),
-      source: {
-        type: item.source.type,
-        id: item.source.id,
-        url: item.source.url ?? null,
-      },
-      recommendedAgent: item.context.reviewerAgentId ?? 'pip',
-      approvalRequired: true,
-      allowedNow: [
-        'Analyze the stored source data.',
-        'Return a CEO-readable recommendation in Messages.',
-        'Create or update internal-only follow-up tasks if needed.',
-      ],
-      blockedUntilApproval: [
-        'No send, publish, schedule, retry, reconnect, spend, deploy, billing, destructive, or client-visible action.',
-      ],
-    }))
 }
 
 function crmQueueItems(crm: CrmPipelineDiagnostics): GrowthCommandQueueItem[] {
@@ -187,9 +244,9 @@ function priorityRank(priority: GrowthCommandQueueItem['priority']): number {
 
 export function buildAgentGrowthCommandQueue(input: BuildAgentGrowthCommandQueueInput): AgentGrowthCommandQueue {
   const generatedAt = input.generatedAt ?? new Date().toISOString()
-  const briefingApprovalItems = input.briefing.items.filter(briefingLooksApprovalLike)
+  const briefingApprovalItems = input.briefing.items.filter((item) => briefingLooksApprovalLike(item) && !isPastMissingMeetBooking(item, generatedAt))
   const queue = [
-    ...briefingQueueItems(input.briefing.items),
+    ...briefingQueueItems(input.briefing.items, generatedAt),
     ...crmQueueItems(input.crm),
     ...socialQueueItems(input.social),
     ...failedSocialQueueItems(input.failedSocial),
