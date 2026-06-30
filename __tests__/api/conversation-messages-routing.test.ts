@@ -262,6 +262,11 @@ describe('unified conversation message routing', () => {
     expect(prompt).toContain('Return the decision, evidence, reusable workflow, and next actions in this dynamic chat window')
     expect(prompt).toContain('If you persist Markdown/docs for internal memory, summarize every actionable outcome in chat')
     expect(prompt).toContain('Temporary HTML is allowed only as a throw-away linked/attached artifact inside the chat thread')
+    expect(prompt).toContain('When you need CEO approval, return a structured rich message, not a Markdown-only card')
+    expect(prompt).toContain('type "approval_card"')
+    expect(prompt).toContain('Approval cards must include: title, body, statusLabel, evidence, dataSkill, analysisQuestion, decisions, recommendation, replyTemplate, and safetyNote')
+    expect(prompt).toContain('Use approval_card for deal follow-ups, Marketing Studio publish/schedule decisions')
+    expect(prompt).toContain('"rich_parts":[{"type":"approval_card"')
     expect(prompt).toContain('Build me a dashboard for marketing performance')
   })
 
