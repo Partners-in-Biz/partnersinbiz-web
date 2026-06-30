@@ -1,7 +1,7 @@
 import { asRecord, assertNoRawSecrets, cleanIsoString, cleanRequiredString, cleanString, cleanStringArray, enumValue, normalizeRegistryAudit, normalizeRegistryOwner, normalizeSafeMetadata, slugify, type SafeMetadata, type WorkspaceRegistryAudit, type WorkspaceRegistryOwner } from './common'
 
 export const WORKSPACE_CONNECTION_COLLECTION = 'workspace_connections'
-export const WORKSPACE_CONNECTION_PROVIDERS = ['google_workspace'] as const
+export const WORKSPACE_CONNECTION_PROVIDERS = ['google_workspace', 'x_mcp'] as const
 export const WORKSPACE_CONNECTION_TYPES = ['user_oauth', 'service_account', 'domain_delegation', 'manual_link'] as const
 export const WORKSPACE_CONNECTION_STATUSES = ['proposed', 'approved', 'active', 'paused', 'revoked', 'retired'] as const
 export const WORKSPACE_SCOPE_CLASSIFICATIONS = ['non_sensitive', 'sensitive', 'restricted'] as const
@@ -9,13 +9,15 @@ export const WORKSPACE_AUTOMATION_IDENTITIES = ['peet', 'ops_mailbox', 'no_reply
 export const WORKSPACE_CONNECTION_RISK_LEVELS = ['low', 'medium', 'high', 'critical'] as const
 
 export type WorkspaceConnectionStatus = (typeof WORKSPACE_CONNECTION_STATUSES)[number]
+export type WorkspaceConnectionProvider = (typeof WORKSPACE_CONNECTION_PROVIDERS)[number]
+export type WorkspaceConnectionCapabilities = Record<'driveRead' | 'driveWrite' | 'driveShare' | 'driveDelete' | 'docsRead' | 'docsWrite' | 'sheetsRead' | 'sheetsWrite' | 'externalShare' | 'xPostsRead' | 'xSearchRead' | 'xUsersRead' | 'xBookmarksRead' | 'xBookmarksWrite' | 'xNewsRead' | 'xArticlesWrite', boolean>
 
 export interface WorkspaceConnection {
   id?: string
   orgId: string
   connectionKey: string | null
   displayName: string
-  provider: 'google_workspace'
+  provider: WorkspaceConnectionProvider
   connectionType: (typeof WORKSPACE_CONNECTION_TYPES)[number]
   status: WorkspaceConnectionStatus
   ownerAgentId: string | null
@@ -37,7 +39,7 @@ export interface WorkspaceConnection {
   serviceAccountEmail: string | null
   automationIdentity: (typeof WORKSPACE_AUTOMATION_IDENTITIES)[number]
   scopes: Array<{ scope: string; classification: (typeof WORKSPACE_SCOPE_CLASSIFICATIONS)[number]; approved: boolean; approvedBy: string | null; approvedAt: string | null; approvalGateTaskId: string | null }>
-  capabilities: Record<'driveRead' | 'driveWrite' | 'driveShare' | 'driveDelete' | 'docsRead' | 'docsWrite' | 'sheetsRead' | 'sheetsWrite' | 'externalShare', boolean>
+  capabilities: WorkspaceConnectionCapabilities
   credentialRef: { secretName: string | null; envVarName: string | null; tokenStorePath: string | null; keyPrefix: string | null }
   redirectUri: string | null
   tokenStatus: string
@@ -82,6 +84,13 @@ function normalizeCapabilities(value: unknown): WorkspaceConnection['capabilitie
     sheetsRead: body.sheetsRead === true,
     sheetsWrite: body.sheetsWrite === true,
     externalShare: body.externalShare === true,
+    xPostsRead: body.xPostsRead === true,
+    xSearchRead: body.xSearchRead === true,
+    xUsersRead: body.xUsersRead === true,
+    xBookmarksRead: body.xBookmarksRead === true,
+    xBookmarksWrite: body.xBookmarksWrite === true,
+    xNewsRead: body.xNewsRead === true,
+    xArticlesWrite: body.xArticlesWrite === true,
   }
 }
 

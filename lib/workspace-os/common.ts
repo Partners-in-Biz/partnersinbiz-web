@@ -66,7 +66,7 @@ export function assertNoRawSecrets(input: unknown): void {
   visit(input)
 }
 
-export type WorkspaceRegistryProvider = 'google_workspace'
+export type WorkspaceRegistryProvider = 'google_workspace' | 'x_mcp'
 export type WorkspaceRegistryOwner = { type: 'agent' | 'user' | 'system' | null; id: string | null }
 export type WorkspaceRegistryAudit = {
   approvalStatus: string | null
