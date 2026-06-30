@@ -238,6 +238,22 @@ function buildOrchestrationContext(conversation: Conversation, dispatchAgentId: 
   ].join('\n')
 }
 
+function buildDecisionDataOperatingRuleContext(): string {
+  return [
+    '[CEO data-decision operating rule]',
+    'Do not default to permanent dashboards when a user asks to look at data, reports, CRM, marketing, campaign performance, agent throughput, pipeline movement, or growth decisions.',
+    'Default sequence:',
+    '1. Confirm the needed facts are stored in the database.',
+    '2. Use or create a reusable gather skill/workflow to collect those facts.',
+    '3. Run focused analysis for the specific decision question.',
+    '4. Create temporary throw-away HTML only when useful for the answer.',
+    '5. Return the decision, evidence, reusable workflow, and next actions in the chat.',
+    'Create or recommend a permanent dashboard only if Peet explicitly asks for ongoing monitoring.',
+    '---',
+    '',
+  ].join('\n')
+}
+
 async function resolveDispatchAgentId(conversation: Conversation): Promise<AgentId | null> {
   if (conversation.participantAgentIds.length === 0) return null
   if (conversation.participantAgentIds.length === 1) return conversation.participantAgentIds[0]
@@ -391,12 +407,13 @@ export const POST = withAuth(
       const convContext = buildConversationContext(conversation, authorDisplayName)
       const orchestrationContext = buildOrchestrationContext(conversation, agentId)
       const agentSkillsContext = buildAgentSkillsPromptBlock(agentData, agentId)
+      const decisionDataRuleContext = buildDecisionDataOperatingRuleContext()
       const attachedContext = buildAttachedContextBlock(resolvedContextRefs)
       const commandContext = slashCommand ? slashCommandInstruction(slashCommand) : ''
       const attachmentContext = attachments.length > 0
         ? `\n\n[Attachments]\n${attachments.map((attachment) => `- ${attachment.name}: ${attachment.url} (${attachment.contentType}, ${attachment.sizeBytes} bytes)`).join('\n')}`
         : ''
-      const hermesInput = orgContext + convContext + orchestrationContext + agentSkillsContext + attachedContext + conversationHistory + commandContext + content + attachmentContext
+      const hermesInput = orgContext + convContext + orchestrationContext + agentSkillsContext + decisionDataRuleContext + attachedContext + conversationHistory + commandContext + content + attachmentContext
 
       // Dispatch Hermes run
       const runResult = await createHermesRun(agentLink, user.uid, {

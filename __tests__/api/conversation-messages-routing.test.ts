@@ -129,10 +129,10 @@ beforeEach(() => {
   })
 })
 
-function req() {
+function req(input: { content?: string } = {}) {
   return new NextRequest('http://localhost/api/v1/conversations/conv-1/messages', {
     method: 'POST',
-    body: JSON.stringify({ content: 'Hello' }),
+    body: JSON.stringify({ content: input.content ?? 'Hello' }),
   })
 }
 
@@ -231,6 +231,34 @@ describe('unified conversation message routing', () => {
     expect(body.data.assistantMessage.id).toBe('assistant-1')
     expect(body.data.runId).toBe('run-1')
     expect(body.data.dispatchAgentId).toBe('pip')
+  })
+
+  it('includes the CEO data-first dashboard rule in every agent prompt', async () => {
+    mockGetConversation.mockResolvedValue({
+      id: 'conv-1',
+      orgId: 'pib-platform-owner',
+      participantUids: ['client-1'],
+      participantAgentIds: ['pip'],
+      participants: [
+        { kind: 'user', uid: 'client-1', role: 'client', displayName: 'Client User' },
+        { kind: 'agent', agentId: 'pip', name: 'Pip' },
+      ],
+    })
+    const { POST } = await import('@/app/api/v1/conversations/[convId]/messages/route')
+
+    const res = await POST(req({ content: 'Build me a dashboard for marketing performance' }), {
+      params: Promise.resolve({ convId: 'conv-1' }),
+    })
+
+    expect(res.status).toBe(201)
+    const prompt = mockCreateHermesRun.mock.calls[0][2].prompt as string
+    expect(prompt).toContain('[CEO data-decision operating rule]')
+    expect(prompt).toContain('Do not default to permanent dashboards')
+    expect(prompt).toContain('Confirm the needed facts are stored in the database')
+    expect(prompt).toContain('Use or create a reusable gather skill/workflow')
+    expect(prompt).toContain('Run focused analysis for the specific decision')
+    expect(prompt).toContain('Create temporary throw-away HTML only when useful')
+    expect(prompt).toContain('Build me a dashboard for marketing performance')
   })
 
   it('routes multi-agent conversations through Pip with council-style orchestration guidance', async () => {
