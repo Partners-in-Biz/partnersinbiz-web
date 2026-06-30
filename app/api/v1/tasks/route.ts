@@ -67,6 +67,13 @@ export const GET = withAuth('admin', async (req, user) => {
   const dueBefore = searchParams.get('dueBefore')
   const dueAfter = searchParams.get('dueAfter')
   const tagsParam = searchParams.get('tags')
+  const tagsFilter = tagsParam
+    ? tagsParam
+      .split(',')
+      .map((t) => t.trim())
+      .filter(Boolean)
+      .slice(0, 10)
+    : []
 
   const limit = Math.min(parseInt(searchParams.get('limit') ?? '50'), 200)
   const page = Math.max(parseInt(searchParams.get('page') ?? '1'), 1)
@@ -104,21 +111,11 @@ export const GET = withAuth('admin', async (req, user) => {
   if (dueBefore) query = query.where('dueDate', '<=', dueBefore)
   if (dueAfter) query = query.where('dueDate', '>=', dueAfter)
 
-  if (tagsParam) {
-    const tags = tagsParam
-      .split(',')
-      .map((t) => t.trim())
-      .filter(Boolean)
-      .slice(0, 10)
-    if (tags.length > 0) {
-      query = query.where('tags', 'array-contains-any', tags)
-    }
-  }
-
   const needsAgentAssigneeInMemoryFilter = assignedToFilter?.type === 'agent'
   const needsContactInMemoryFilter = Boolean(contactId)
   const needsPriorityInMemoryFilter = Boolean(priorityFilter)
-  const needsInMemoryFilter = needsAgentAssigneeInMemoryFilter || needsContactInMemoryFilter || needsPriorityInMemoryFilter
+  const needsTagsInMemoryFilter = tagsFilter.length > 0
+  const needsInMemoryFilter = needsAgentAssigneeInMemoryFilter || needsContactInMemoryFilter || needsPriorityInMemoryFilter || needsTagsInMemoryFilter
   const queryLimit = needsInMemoryFilter
     ? Math.min(Math.max(limit * page, 500), 1000)
     : limit
@@ -140,6 +137,13 @@ export const GET = withAuth('admin', async (req, user) => {
 
   if (needsPriorityInMemoryFilter && priorityFilter) {
     tasks = tasks.filter((t: Task) => t.priority === priorityFilter)
+  }
+
+  if (needsTagsInMemoryFilter) {
+    tasks = tasks.filter((t: Task) => {
+      const taskTags = Array.isArray(t.tags) ? t.tags : []
+      return taskTags.some((tag) => tagsFilter.includes(tag))
+    })
   }
 
   if (needsAgentAssigneeInMemoryFilter && assignedToFilter) {

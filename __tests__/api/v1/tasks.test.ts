@@ -170,6 +170,32 @@ describe('GET /api/v1/tasks', () => {
     expect(body.data.map((task: { id: string }) => task.id)).toEqual(['todo-high-task'])
   })
 
+  it('keeps tags filtering index-safe by filtering tag intersections in memory', async () => {
+    mockWhere.mockImplementation((field: string) => {
+      if (field === 'tags') {
+        throw new Error('Firestore composite index missing for tags task lookup')
+      }
+      const query = { where: mockWhere, orderBy: mockOrderBy, limit: mockLimit, offset: mockOffset, get: mockGet }
+      return query
+    })
+    mockGet.mockResolvedValue({
+      docs: [
+        taskDoc('growth-task', { orgId: 'pib-platform-owner', title: 'Growth task', tags: ['growth', 'daily'], createdAt: 3 }),
+        taskDoc('ops-task', { orgId: 'pib-platform-owner', title: 'Ops task', tags: ['ops'], createdAt: 2 }),
+        taskDoc('deleted-growth-task', { orgId: 'pib-platform-owner', title: 'Deleted growth task', tags: ['growth'], deleted: true, createdAt: 1 }),
+      ],
+    })
+
+    const { GET } = await import('@/app/api/v1/tasks/route')
+    const res = await GET(new NextRequest('http://localhost/api/v1/tasks?orgId=pib-platform-owner&tags=growth,daily&limit=5'))
+    const body = await res.json()
+
+    expect(res.status).toBe(200)
+    expect(mockWhere).toHaveBeenCalledWith('orgId', '==', 'pib-platform-owner')
+    expect(mockWhere).not.toHaveBeenCalledWith('tags', 'array-contains-any', ['growth', 'daily'])
+    expect(body.data.map((task: { id: string }) => task.id)).toEqual(['growth-task'])
+  })
+
   it('preserves assignedTo=user filtering through the existing assignedTo fields', async () => {
     const query = { where: mockWhere, orderBy: mockOrderBy, limit: mockLimit, offset: mockOffset, get: mockGet }
     mockWhere.mockReturnValue(query)
