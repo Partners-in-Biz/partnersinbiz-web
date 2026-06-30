@@ -205,3 +205,50 @@ describe('personal social post scope', () => {
     }))
   })
 })
+
+
+describe('personal social vault scope', () => {
+  beforeEach(() => {
+    jest.clearAllMocks()
+    mockDocs.length = 0
+    mockWhere.mockReturnValue({
+      where: mockWhere,
+      get: mockGet,
+    })
+    mockGet.mockImplementation(async () => ({
+      docs: mockDocs.map((doc) => ({
+        id: doc.id,
+        data: () => doc.data,
+      })),
+    }))
+  })
+
+  it('keeps personal vault posts out of the default organisation vault', async () => {
+    mockDocs.push(
+      { id: 'org-vault-post', data: { orgId: 'org-1', status: 'approved', content: { text: 'Company' } } },
+      { id: 'personal-vault-post', data: { orgId: 'org-1', ownerUid: 'user-1', accountScope: 'personal', status: 'approved', content: { text: 'Personal' } } },
+    )
+
+    const { GET } = await import('@/app/api/v1/social/vault/route')
+    const res = await GET(new NextRequest('http://localhost/api/v1/social/vault'))
+    const body = await res.json()
+
+    expect(res.status).toBe(200)
+    expect(body.data.map((post: { id: string }) => post.id)).toEqual(['org-vault-post'])
+  })
+
+  it('lists only the current user vault posts for scope=personal', async () => {
+    mockDocs.push(
+      { id: 'own-personal-vault-post', data: { orgId: 'org-1', ownerUid: 'user-1', accountScope: 'personal', status: 'approved', content: { text: 'Own personal' } } },
+      { id: 'other-personal-vault-post', data: { orgId: 'org-1', ownerUid: 'user-2', accountScope: 'personal', status: 'approved', content: { text: 'Other personal' } } },
+      { id: 'org-vault-post', data: { orgId: 'org-1', status: 'approved', content: { text: 'Company' } } },
+    )
+
+    const { GET } = await import('@/app/api/v1/social/vault/route')
+    const res = await GET(new NextRequest('http://localhost/api/v1/social/vault?scope=personal'))
+    const body = await res.json()
+
+    expect(res.status).toBe(200)
+    expect(body.data.map((post: { id: string }) => post.id)).toEqual(['own-personal-vault-post'])
+  })
+})

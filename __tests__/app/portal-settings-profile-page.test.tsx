@@ -40,7 +40,7 @@ describe('Portal profile settings page', () => {
     }) as jest.Mock
   })
 
-  it('summarizes CRM profile readiness before the edit form', async () => {
+  it('summarizes profile readiness before the edit form', async () => {
     render(<ProfilePage />)
 
     const commandCenter = await screen.findByRole('region', { name: 'Profile command center' })
@@ -52,12 +52,26 @@ describe('Portal profile settings page', () => {
     expect(within(commandCenter).getByText('Mandy Stander')).toBeInTheDocument()
     expect(within(commandCenter).getByText('CEO')).toBeInTheDocument()
     expect(within(commandCenter).getByText('+27 82 000 0000')).toBeInTheDocument()
-    expect(within(commandCenter).getByText('CRM ownership ready')).toBeInTheDocument()
+    expect(within(commandCenter).getByText('Profile ready')).toBeInTheDocument()
 
     expect(within(commandCenter).getByTestId('profile-readiness-ready-fields')).toHaveClass('pib-stat-card')
     expect(within(commandCenter).getByTestId('profile-readiness-name')).toHaveClass('pib-stat-card')
     expect(within(commandCenter).getByTestId('profile-readiness-title')).toHaveClass('pib-stat-card')
     expect(within(commandCenter).getByTestId('profile-readiness-contact')).toHaveClass('pib-stat-card')
+  })
+
+
+  it('links from My profile to the personal social marketing workspace', async () => {
+    render(<ProfilePage />)
+
+    const personalRegion = await screen.findByRole('region', { name: 'Personal social marketing' })
+
+    expect(within(personalRegion).getByRole('link', { name: /Open personal workspace/i })).toHaveAttribute('href', '/portal/personal/marketing')
+    expect(within(personalRegion).getByRole('link', { name: /Compose personal post/i })).toHaveAttribute('href', '/portal/personal/social/compose')
+    expect(within(personalRegion).getByRole('link', { name: /Connect personal accounts/i })).toHaveAttribute('href', '/portal/personal/social/accounts')
+    expect(within(personalRegion).getByRole('link', { name: /Open company social instead/i })).toHaveAttribute('href', '/portal/social')
+    expect(within(personalRegion).getByText('Personal')).toBeInTheDocument()
+    expect(within(personalRegion).getByText('Company / organisation')).toBeInTheDocument()
   })
 
   it('saves profile changes through the portal route', async () => {

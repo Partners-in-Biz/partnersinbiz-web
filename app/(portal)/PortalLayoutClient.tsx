@@ -197,6 +197,10 @@ const MARKETING_SECTION_ICONS: Record<string, string> = {
   Studio: 'design_services',
 }
 
+const PERSONAL_ROUTE_PATTERNS = [
+  '/portal/personal',
+]
+
 const MARKETING_ROUTE_PATTERNS = [
   '/portal/marketing',
   '/portal/branding',
@@ -225,6 +229,19 @@ interface PortalOrgOption {
   logoUrl: string
   portalModules?: PortalModules
   modulePolicies?: OrganizationModulePolicies
+}
+
+
+function buildPersonalSubnavItems(): PortalSubnavItem[] {
+  return [
+    { label: 'Personal overview', href: '/portal/personal/marketing', icon: 'person' },
+    { label: 'Compose', href: '/portal/personal/social/compose', icon: 'edit_square' },
+    { label: 'Accounts', href: '/portal/personal/social/accounts', icon: 'add_link' },
+    { label: 'Vault', href: '/portal/personal/social/vault', icon: 'folder' },
+    { label: 'History', href: '/portal/personal/social/history', icon: 'history' },
+    { label: 'Calendar', href: '/portal/personal/social/calendar', icon: 'calendar_month' },
+    { label: 'Company social', href: '/portal/social', icon: 'business' },
+  ]
 }
 
 function active(pathname: string, item: NavItem) {
@@ -786,9 +803,13 @@ function PortalLayoutContent({ children }: { children: React.ReactNode }) {
     sourceCompanyId: requestedSourceCompanyId,
     sourceCompanyName: requestedSourceCompanyName,
   }, scopedShellHref)
+  const personalSubnavItems = buildPersonalSubnavItems()
+  const showPersonalSubnav = PERSONAL_ROUTE_PATTERNS.some((pattern) => pathname === pattern || pathname.startsWith(pattern + '/'))
   const showCrmSubnav = CRM_ROUTE_PATTERNS.some((pattern) => pathname === pattern || pathname.startsWith(pattern + '/'))
   const showMarketingSubnav = MARKETING_ROUTE_PATTERNS.some((pattern) => pathname === pattern || pathname.startsWith(pattern + '/'))
-  const areaSubnav = showMarketingSubnav ? (
+  const areaSubnav = showPersonalSubnav ? (
+    <PortalSubnav ariaLabel="Personal marketing workspace navigation" items={personalSubnavItems} pathname={pathname} />
+  ) : showMarketingSubnav ? (
     <PortalSubnav ariaLabel="Marketing workspace navigation" items={marketingSubnavItems} pathname={pathname} />
   ) : showCrmSubnav ? (
     <PortalSubnav ariaLabel="CRM workspace navigation" items={crmSubnavItems} pathname={pathname} />

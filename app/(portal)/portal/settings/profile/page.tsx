@@ -2,6 +2,7 @@
 'use client'
 export const dynamic = 'force-dynamic'
 
+import Link from 'next/link'
 import { useEffect, useState } from 'react'
 
 interface ProfileData {
@@ -94,8 +95,8 @@ export default function ProfilePage() {
 
   const readyFields = countReadyFields(profile)
   const ownershipState = isFilled(profile.firstName) && isFilled(profile.lastName) && isFilled(profile.jobTitle)
-    ? 'CRM ownership ready'
-    : 'CRM ownership incomplete'
+    ? 'Profile ready'
+    : 'Profile incomplete'
   const contactState = isFilled(profile.phone) ? profile.phone : 'Phone missing'
 
   if (loading) {
@@ -113,10 +114,10 @@ export default function ProfilePage() {
   return (
     <div className="space-y-8">
       <div>
-        <p className="eyebrow">CRM settings</p>
+        <p className="eyebrow">Personal workspace</p>
         <h1 className="pib-page-title mt-2">My profile</h1>
         <p className="mt-2 max-w-3xl text-sm text-[var(--color-pib-text-muted)]">
-          Keep your CRM identity complete so records, comments, activity, and ownership handoffs have a clear accountable person.
+          Manage the identity your team sees, then jump straight into your own user-owned marketing workspace. Personal social accounts stay separate from company and organisation publishing.
         </p>
       </div>
 
@@ -124,10 +125,10 @@ export default function ProfilePage() {
         <div className="pib-card space-y-5">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
             <div>
-              <p className="eyebrow !text-[10px]">CRM attribution</p>
+              <p className="eyebrow !text-[10px]">Profile and attribution</p>
               <h2 className="mt-2 font-display text-2xl text-[var(--color-pib-text)]">Profile command center</h2>
               <p className="mt-2 max-w-2xl text-sm text-[var(--color-pib-text-muted)]">
-                This is the identity your team sees on assigned contacts, activity notes, approvals, and internal handoffs.
+                This is your human identity across CRM handoffs, approvals, personal social drafts, and user-owned workspace activity.
               </p>
             </div>
             <div className="rounded-lg border border-[var(--color-pib-border)] bg-[var(--color-pib-surface-soft)] px-4 py-3 text-sm text-[var(--color-pib-text-muted)]">
@@ -142,7 +143,7 @@ export default function ProfilePage() {
             </div>
             <div data-testid="profile-readiness-name" className="pib-stat-card min-w-0 space-y-2 p-4">
               <p className="truncate text-sm font-semibold text-[var(--color-pib-text)]" title={fullName(profile)}>{fullName(profile)}</p>
-              <p className="text-xs leading-5 text-[var(--color-pib-text-muted)]">Displayed on CRM records and comments.</p>
+              <p className="text-xs leading-5 text-[var(--color-pib-text-muted)]">Displayed on CRM records, comments, and personal drafts.</p>
             </div>
             <div data-testid="profile-readiness-title" className="pib-stat-card min-w-0 space-y-2 p-4">
               <p className="truncate text-sm font-semibold text-[var(--color-pib-text)]" title={profile.jobTitle || 'Job title missing'}>{profile.jobTitle || 'Job title missing'}</p>
@@ -150,9 +151,53 @@ export default function ProfilePage() {
             </div>
             <div data-testid="profile-readiness-contact" className="pib-stat-card min-w-0 space-y-2 p-4">
               <p className="truncate text-sm font-semibold text-[var(--color-pib-text)]" title={contactState}>{contactState}</p>
-              <p className="text-xs leading-5 text-[var(--color-pib-text-muted)]">Used when CRM work needs a direct internal contact.</p>
+              <p className="text-xs leading-5 text-[var(--color-pib-text-muted)]">Used when workspace work needs a direct contact.</p>
             </div>
           </div>
+        </div>
+      </section>
+
+
+      <section role="region" aria-label="Personal social marketing" className="grid gap-4 lg:grid-cols-[1.15fr_0.85fr]">
+        <div className="pib-card space-y-5 overflow-hidden">
+          <div className="flex items-start gap-4">
+            <span className="material-symbols-outlined rounded-2xl bg-[var(--color-pib-accent)]/15 p-3 text-[var(--color-pib-accent)]" aria-hidden>person_play</span>
+            <div>
+              <p className="eyebrow !text-[10px]">Your own channels</p>
+              <h2 className="mt-2 font-display text-2xl text-[var(--color-pib-text)]">Personal social marketing</h2>
+              <p className="mt-2 max-w-2xl text-sm leading-6 text-[var(--color-pib-text-muted)]">
+                Use this for posts, content vault, schedules, X MCP/bookmarks, and accounts that belong to you as a user. Company / organisation social remains the shared brand or client workspace.
+              </p>
+            </div>
+          </div>
+          <div className="grid gap-3 md:grid-cols-3">
+            <Link href="/portal/personal/marketing" className="pib-stat-card group min-w-0 space-y-2 p-4 transition hover:border-[var(--color-pib-accent)]/50 hover:bg-[var(--color-pib-surface-soft)]">
+              <span className="material-symbols-outlined text-[var(--color-pib-accent)]" aria-hidden>space_dashboard</span>
+              <p className="text-sm font-semibold text-[var(--color-pib-text)]">Open personal workspace</p>
+              <p className="text-xs leading-5 text-[var(--color-pib-text-muted)]">Dashboard, vault, calendar, history, and X MCP setup.</p>
+            </Link>
+            <Link href="/portal/personal/social/compose" className="pib-stat-card group min-w-0 space-y-2 p-4 transition hover:border-[var(--color-pib-accent)]/50 hover:bg-[var(--color-pib-surface-soft)]">
+              <span className="material-symbols-outlined text-[var(--color-pib-accent)]" aria-hidden>edit_square</span>
+              <p className="text-sm font-semibold text-[var(--color-pib-text)]">Compose personal post</p>
+              <p className="text-xs leading-5 text-[var(--color-pib-text-muted)]">Draft, schedule, preview, and publish from your accounts.</p>
+            </Link>
+            <Link href="/portal/personal/social/accounts" className="pib-stat-card group min-w-0 space-y-2 p-4 transition hover:border-[var(--color-pib-accent)]/50 hover:bg-[var(--color-pib-surface-soft)]">
+              <span className="material-symbols-outlined text-[var(--color-pib-accent)]" aria-hidden>add_link</span>
+              <p className="text-sm font-semibold text-[var(--color-pib-text)]">Connect personal accounts</p>
+              <p className="text-xs leading-5 text-[var(--color-pib-text-muted)]">OAuth and X MCP are user-owned, not shared company tokens.</p>
+            </Link>
+          </div>
+        </div>
+        <div className="pib-card space-y-3 bg-[var(--color-pib-surface-soft)]">
+          <p className="eyebrow !text-[10px]">Clear distinction</p>
+          <div className="space-y-3 text-sm leading-6 text-[var(--color-pib-text-muted)]">
+            <p><span className="font-semibold text-[var(--color-pib-text)]">Personal</span> is for your profile, bookmarks, personal voice, and accounts owned by your login.</p>
+            <p><span className="font-semibold text-[var(--color-pib-text)]">Company / organisation</span> is for shared brand/client publishing, approvals, and team-managed accounts.</p>
+          </div>
+          <Link href="/portal/social" className="inline-flex items-center gap-2 text-sm font-semibold text-[var(--color-pib-accent)]">
+            Open company social instead
+            <span className="material-symbols-outlined text-base" aria-hidden>arrow_forward</span>
+          </Link>
         </div>
       </section>
 

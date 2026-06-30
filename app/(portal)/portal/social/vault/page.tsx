@@ -535,7 +535,17 @@ function VaultCard({ post, onCopy, onDownload, onPostAction, actionBusy }: {
   )
 }
 
-export default function VaultPage() {
+export function SocialVaultWorkspace({
+  personal = false,
+  title = 'Vault',
+  description = 'Your approved social content. Copy text, download images, or grab the full bundle.',
+  composeHref = '/portal/social/compose',
+}: {
+  personal?: boolean
+  title?: string
+  description?: string
+  composeHref?: string
+}) {
   const searchParams = useSearchParams()
   const router = useRouter()
   const orgScope = useMemo(() => scopeFromSearchParams(searchParams), [searchParams])
@@ -570,6 +580,7 @@ export default function VaultPage() {
       if (platform) params.set('platform', platform)
       if (fromDate) params.set('from', new Date(fromDate).toISOString())
       if (toDate) params.set('to', new Date(toDate).toISOString())
+      if (personal) params.set('scope', 'personal')
       const url = scopedApiPath(
         `/api/v1/social/vault${params.toString() ? `?${params.toString()}` : ''}`,
         { ...orgScope, orgId: resolvedOrgId },
@@ -586,7 +597,7 @@ export default function VaultPage() {
     } finally {
       setLoading(false)
     }
-  }, [platform, fromDate, toDate, orgScope])
+  }, [platform, fromDate, toDate, orgScope, personal])
 
   useEffect(() => { fetchVault() }, [fetchVault])
 
@@ -649,7 +660,7 @@ export default function VaultPage() {
 
   async function handlePostAction(post: VaultPost, action: VaultPostAction) {
     if (action === 'repost') {
-      const href = appendQueryParams(scopedPortalPath('/portal/social/compose', activeScope), {
+      const href = appendQueryParams(personal ? composeHref : scopedPortalPath(composeHref, activeScope), {
         draft: buildCopyPayload(post),
       })
       router.push(href)
@@ -703,9 +714,9 @@ export default function VaultPage() {
 
       {/* Header */}
       <div>
-        <h1 className="font-headline text-2xl font-bold tracking-tighter">Vault</h1>
+        <h1 className="font-headline text-2xl font-bold tracking-tighter">{title}</h1>
         <p className="text-sm text-[var(--color-on-surface-variant)] mt-1">
-          Your approved social content. Copy text, download images, or grab the full bundle.
+          {description}
         </p>
       </div>
 
@@ -866,4 +877,9 @@ export default function VaultPage() {
       )}
     </div>
   )
+}
+
+
+export default function VaultPage() {
+  return <SocialVaultWorkspace />
 }

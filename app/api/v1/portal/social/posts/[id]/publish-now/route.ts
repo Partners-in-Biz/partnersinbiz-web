@@ -30,6 +30,7 @@ export const POST = withAuth('client', withTenant(async (_req: NextRequest, user
 
   const post = snap.data()!
   if (post.orgId && post.orgId !== orgId) return apiError('Post not found', 404)
+  if (post.accountScope === 'personal' && post.ownerUid !== user.uid) return apiError('Post not found', 404)
   if (post.status === 'published') return apiError('Post already published', 409)
   if (post.status === 'cancelled') return apiError('Cannot publish a cancelled post', 400)
   if (!hasFinalApproval(post)) return apiError('Post must be approved before publishing', 400)

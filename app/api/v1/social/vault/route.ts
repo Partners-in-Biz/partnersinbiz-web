@@ -38,13 +38,16 @@ function tsSeconds(ts: Timestamp | null | undefined): number {
   return ts?.seconds ?? 0
 }
 
-export const GET = withAuth('client', withTenant(async (req, _user, orgId) => {
+const PERSONAL_SCOPE = 'personal'
+
+export const GET = withAuth('client', withTenant(async (req, user, orgId) => {
   const { searchParams } = new URL(req.url)
   const platform = searchParams.get('platform')
   const from = searchParams.get('from')
   const to = searchParams.get('to')
   const label = searchParams.get('label')
   const deliveryMode = searchParams.get('deliveryMode') as DeliveryMode | null
+  const personalScope = searchParams.get('scope') === PERSONAL_SCOPE
 
   // Firestore `in` accepts up to 30 values; VAULT_VISIBLE_STATUSES has 6.
   const snap = await adminDb
@@ -53,11 +56,13 @@ export const GET = withAuth('client', withTenant(async (req, _user, orgId) => {
     .where('status', 'in', VAULT_VISIBLE_STATUSES)
     .get()
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  let posts: RawPost[] = snap.docs.map((doc: any) => ({
+  let posts: RawPost[] = snap.docs.map((doc) => ({
     id: doc.id,
     ...doc.data(),
-  }))
+  })).filter((post: RawPost) => {
+    if (personalScope) return post.accountScope === PERSONAL_SCOPE && post.ownerUid === user.uid
+    return post.accountScope !== PERSONAL_SCOPE
+  })
 
   if (platform) {
     posts = posts.filter((p) => Array.isArray(p.platforms) && p.platforms.includes(platform as SocialPlatformType))

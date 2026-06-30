@@ -27,6 +27,7 @@ export const POST = withAuth('client', withTenant(async (req: NextRequest, user,
 
   const post = snap.data()!
   if (post.orgId && post.orgId !== orgId) return apiError('Post not found', 404)
+  if (post.accountScope === 'personal' && post.ownerUid !== user.uid) return apiError('Post not found', 404)
   if (post.status === 'published') return apiError('Published posts cannot be rescheduled', 400)
   if (post.status === 'cancelled') return apiError('Cancelled posts cannot be rescheduled', 400)
   if (!hasFinalApproval(post)) return apiError('Post must be approved before it can be scheduled', 400)
