@@ -61,6 +61,7 @@ export type RichMessagePartType =
   | 'tool_output'
   | 'status'
   | 'approval'
+  | 'approval_card'
   | 'clarify'
   | 'model_picker'
 
@@ -108,6 +109,14 @@ export type RichMessagePart = {
   choices?: RichMessageChoice[]
   models?: RichModelOption[]
   providers?: string[]
+  evidence?: string[]
+  decisions?: Array<string | { label?: string; value?: string; required?: boolean; [key: string]: unknown }>
+  recommendation?: string
+  safetyNote?: string
+  replyTemplate?: string
+  dataSkill?: string
+  analysisQuestion?: string
+  statusLabel?: string
   [key: string]: unknown
 }
 
