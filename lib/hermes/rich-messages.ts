@@ -242,6 +242,19 @@ function normalizeRichPart(value: unknown): RichMessagePart | null {
     'choices',
     'models',
     'providers',
+    'evidence',
+    'decisions',
+    'recommendation',
+    'safetyNote',
+    'safety_note',
+    'replyTemplate',
+    'reply_template',
+    'dataSkill',
+    'data_skill',
+    'analysisQuestion',
+    'analysis_question',
+    'statusLabel',
+    'status_label',
   ]
 
   const base: PlainRecord = {
@@ -296,6 +309,30 @@ function normalizeRichPart(value: unknown): RichMessagePart | null {
   } else if (normalizedType === 'approval') {
     base.body = rawString(record.body) ?? rawString(record.content) ?? rawString(record.text)
     base.choices = normalizeChoices(record.choices)
+  } else if (normalizedType === 'approval_card') {
+    base.body = rawString(record.body) ?? rawString(record.content) ?? rawString(record.text)
+    base.choices = normalizeChoices(record.choices)
+    base.evidence = stringArray(record.evidence)
+    base.decisions = arrayValue(record.decisions)
+      .map((decision) => {
+        if (typeof decision === 'string') return decision
+        const item = asRecord(decision)
+        if (!item) return null
+        const label = cleanString(item.label) ?? cleanString(item.title) ?? cleanString(item.name) ?? cleanString(item.value)
+        if (!label) return null
+        return withRest(item, ['label', 'title', 'name', 'value', 'required'], {
+          label,
+          value: cleanString(item.value),
+          required: typeof item.required === 'boolean' ? item.required : undefined,
+        })
+      })
+      .filter((decision): decision is string | PlainRecord => Boolean(decision))
+    base.recommendation = rawString(record.recommendation)
+    base.safetyNote = rawString(record.safetyNote) ?? rawString(record.safety_note)
+    base.replyTemplate = rawString(record.replyTemplate) ?? rawString(record.reply_template)
+    base.dataSkill = cleanString(record.dataSkill) ?? cleanString(record.data_skill)
+    base.analysisQuestion = rawString(record.analysisQuestion) ?? rawString(record.analysis_question)
+    base.statusLabel = cleanString(record.statusLabel) ?? cleanString(record.status_label)
   } else if (normalizedType === 'clarify') {
     base.question = rawString(record.question) ?? rawString(record.content) ?? rawString(record.text) ?? rawString(record.title)
     base.choices = normalizeChoices(record.choices)
@@ -318,6 +355,7 @@ function normalizeRichPart(value: unknown): RichMessagePart | null {
 function normalizeRichPartType(type: string): string {
   const normalized = type.toLowerCase().replace(/-/g, '_')
   if (normalized === 'status_card' || normalized === 'statuscard') return 'status'
+  if (normalized === 'approvalcard' || normalized === 'approval_request' || normalized === 'approval_request_card') return 'approval_card'
   if (normalized === 'model_picker' || normalized === 'modelpicker') return 'model_picker'
   if (normalized === 'tool_output' || normalized === 'tooloutput') return 'tool_output'
   return normalized

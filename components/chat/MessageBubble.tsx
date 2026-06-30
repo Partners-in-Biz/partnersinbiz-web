@@ -834,6 +834,146 @@ function RichChoices({ choices }: { choices?: RichMessagePart['choices'] }) {
   )
 }
 
+function richStringList(value: unknown): string[] {
+  if (!Array.isArray(value)) return []
+  return value
+    .map((item) => typeof item === 'string' ? item.trim() : '')
+    .filter(Boolean)
+}
+
+function richRecord(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === 'object' && !Array.isArray(value)
+    ? value as Record<string, unknown>
+    : null
+}
+
+function decisionText(value: unknown): { label: string; required: boolean } | null {
+  if (typeof value === 'string') {
+    const label = value.trim()
+    return label ? { label, required: false } : null
+  }
+  const record = richRecord(value)
+  if (!record) return null
+  const label = [record.label, record.title, record.name, record.value]
+    .find((item): item is string => typeof item === 'string' && item.trim().length > 0)
+    ?.trim()
+  if (!label) return null
+  return { label, required: record.required === true }
+}
+
+function partString(part: RichMessagePart, key: string): string {
+  const value = part[key]
+  return typeof value === 'string' ? value.trim() : ''
+}
+
+function ApprovalCardSection({ title, children }: { title: string; children: ReactNode }) {
+  return (
+    <section className="min-w-0">
+      <p className="text-[11px] font-label uppercase tracking-wide text-on-surface-variant">{title}</p>
+      <div className="mt-1 text-xs leading-relaxed text-on-surface">{children}</div>
+    </section>
+  )
+}
+
+function ApprovalCard({ part }: { part: RichMessagePart }) {
+  const title = part.title ?? 'CEO approval needed'
+  const body = partContent(part)
+  const evidence = richStringList(part.evidence)
+  const decisions = Array.isArray(part.decisions)
+    ? part.decisions.map(decisionText).filter((item): item is { label: string; required: boolean } => Boolean(item))
+    : []
+  const recommendation = partString(part, 'recommendation')
+  const safetyNote = partString(part, 'safetyNote') || partString(part, 'safety_note')
+  const replyTemplate = partString(part, 'replyTemplate') || partString(part, 'reply_template')
+  const dataSkill = partString(part, 'dataSkill') || partString(part, 'data_skill')
+  const analysisQuestion = partString(part, 'analysisQuestion') || partString(part, 'analysis_question')
+  const statusLabel = partString(part, 'statusLabel') || partString(part, 'status_label') || 'Needs decision'
+
+  return (
+    <article aria-label={title} className="my-2 max-w-full overflow-hidden rounded-lg border border-primary/25 bg-primary/[0.06] p-3 shadow-sm shadow-black/10">
+      <div className="flex min-w-0 flex-wrap items-start justify-between gap-2">
+        <div className="min-w-0">
+          <p className="text-[11px] font-label uppercase tracking-wide text-primary">Approval card</p>
+          <p className="mt-0.5 break-words text-sm font-semibold leading-snug text-on-surface [overflow-wrap:anywhere]">{title}</p>
+        </div>
+        <span className="shrink-0 rounded-md border border-primary/30 bg-black/20 px-2 py-1 text-[11px] text-primary">
+          {statusLabel}
+        </span>
+      </div>
+
+      {body && <div className="mt-2 text-xs leading-relaxed text-on-surface-variant"><ChatMessageContent content={body} /></div>}
+
+      <div className="mt-3 grid gap-3">
+        {evidence.length > 0 && (
+          <ApprovalCardSection title="Evidence">
+            <ul className="space-y-1">
+              {evidence.map((item, index) => (
+                <li key={`${item}-${index}`} className="flex min-w-0 gap-2">
+                  <span aria-hidden="true" className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-primary/80" />
+                  <span className="min-w-0 break-words [overflow-wrap:anywhere]">{item}</span>
+                </li>
+              ))}
+            </ul>
+          </ApprovalCardSection>
+        )}
+
+        {(dataSkill || analysisQuestion) && (
+          <ApprovalCardSection title="Data first">
+            <div className="space-y-1">
+              {dataSkill && <p><span className="text-on-surface-variant">Gather skill:</span> {dataSkill}</p>}
+              {analysisQuestion && <p className="break-words [overflow-wrap:anywhere]"><span className="text-on-surface-variant">Question:</span> {analysisQuestion}</p>}
+            </div>
+          </ApprovalCardSection>
+        )}
+
+        {decisions.length > 0 && (
+          <ApprovalCardSection title="Decision needed">
+            <ul className="space-y-1">
+              {decisions.map((decision, index) => (
+                <li key={`${decision.label}-${index}`} className="flex min-w-0 gap-2">
+                  <span aria-hidden="true" className="material-symbols-outlined mt-0.5 text-[14px] text-primary">radio_button_unchecked</span>
+                  <span className="min-w-0 break-words [overflow-wrap:anywhere]">
+                    {decision.label}
+                    {decision.required ? <span className="ml-1 text-primary">(required)</span> : null}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </ApprovalCardSection>
+        )}
+
+        {recommendation && (
+          <ApprovalCardSection title="Recommended reply">
+            <p className="break-words [overflow-wrap:anywhere]">{recommendation}</p>
+          </ApprovalCardSection>
+        )}
+
+        {replyTemplate && (
+          <ApprovalCardSection title="Copy into chat">
+            <div className="rounded-md border border-white/10 bg-black/20 p-2">
+              <p className="whitespace-pre-wrap break-words text-on-surface-variant [overflow-wrap:anywhere]">{replyTemplate}</p>
+              <button
+                type="button"
+                onClick={() => { void copyToClipboard(replyTemplate) }}
+                className="mt-2 inline-flex items-center gap-1.5 rounded-md border border-white/10 bg-white/[0.06] px-2 py-1 text-[11px] font-medium text-on-surface transition hover:border-primary/50 hover:bg-white/[0.09]"
+              >
+                <span aria-hidden="true" className="material-symbols-outlined text-[14px]">content_copy</span>
+                Copy reply
+              </button>
+            </div>
+          </ApprovalCardSection>
+        )}
+
+        {safetyNote && (
+          <p className="rounded-md border border-amber-400/20 bg-amber-400/10 px-2 py-1.5 text-[11px] leading-relaxed text-amber-100">
+            {safetyNote}
+          </p>
+        )}
+      </div>
+    </article>
+  )
+}
+
 function RichMessagePartView({ part }: { part: RichMessagePart }) {
   const type = String(part.type).toLowerCase()
   if (type === 'markdown') {
@@ -953,6 +1093,9 @@ function RichMessagePartView({ part }: { part: RichMessagePart }) {
         )}
       </div>
     )
+  }
+  if (type === 'approval_card') {
+    return <ApprovalCard part={part} />
   }
   return partContent(part) ? <ChatMessageContent content={partContent(part)} /> : null
 }

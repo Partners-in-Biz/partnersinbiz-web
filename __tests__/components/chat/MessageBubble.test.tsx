@@ -360,6 +360,22 @@ describe('MessageBubble', () => {
             { type: 'file', url: 'https://cdn.example.com/brief.pdf', name: 'Launch brief.pdf', sizeBytes: 2048 },
             { type: 'status', title: 'Checks passed', status: 'completed', body: 'All assets are ready.' },
             { type: 'approval', actionId: 'approval-1', title: 'Approve publish?', choices: ['once', 'deny'] },
+            {
+              type: 'approval_card',
+              title: 'CMP proposal follow-up',
+              body: 'Proposal and CRM notes are ready for a CEO decision.',
+              statusLabel: 'Needs CEO decision',
+              evidence: ['Deal is in active proposal stage', 'Follow-up copy is drafted but not sent'],
+              dataSkill: 'crm-sales:gather-deal-context',
+              analysisQuestion: 'Which follow-up has the highest chance of moving CMP to a meeting?',
+              decisions: [
+                { label: 'Approve WhatsApp follow-up', required: true },
+                'Ask Pip to revise the tone',
+              ],
+              recommendation: 'Approve the WhatsApp follow-up and ask for a meeting window.',
+              replyTemplate: 'Approved: send the CMP WhatsApp follow-up with a meeting-window ask.',
+              safetyNote: 'No external message is sent until this approval is posted in chat.',
+            },
             { type: 'clarify', actionId: 'clarify-tone', question: 'Which tone should I use?', choices: ['Direct', 'Warm'] },
             {
               type: 'model_picker',
@@ -385,6 +401,12 @@ describe('MessageBubble', () => {
     expect(screen.getByRole('link', { name: /Launch brief\.pdf/i })).toHaveAttribute('href', 'https://cdn.example.com/brief.pdf')
     expect(screen.getByText('Checks passed')).toBeInTheDocument()
     expect(screen.getByText('Approve publish?')).toBeInTheDocument()
+    expect(screen.getByLabelText('CMP proposal follow-up')).toBeInTheDocument()
+    expect(screen.getByText('Needs CEO decision')).toBeInTheDocument()
+    expect(screen.getByText('Deal is in active proposal stage')).toBeInTheDocument()
+    expect(screen.getByText('crm-sales:gather-deal-context')).toBeInTheDocument()
+    expect(screen.getByText('Approve WhatsApp follow-up')).toBeInTheDocument()
+    expect(screen.getByText('Approved: send the CMP WhatsApp follow-up with a meeting-window ask.')).toBeInTheDocument()
     expect(screen.getByText('Which tone should I use?')).toBeInTheDocument()
     expect(screen.getByText('Choose model depth')).toBeInTheDocument()
 
