@@ -17,7 +17,8 @@ type PortalHandler = (
 export function withPortalAuth(handler: PortalHandler) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   return async (req: NextRequest, ...args: any[]): Promise<Response> => {
-    const sessionCookie = req.cookies.get('__session')?.value
+    const cookieName = process.env.SESSION_COOKIE_NAME ?? '__session'
+    const sessionCookie = req.cookies.get(cookieName)?.value
     if (!sessionCookie) return apiError('Unauthorized', 401)
     try {
       const decoded = await adminAuth.verifySessionCookie(sessionCookie, true)
