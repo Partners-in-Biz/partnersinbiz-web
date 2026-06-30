@@ -18,6 +18,7 @@ const ACCOUNT_LINKS = [
   { href: '/portal/settings/sessions', label: 'Sessions', icon: 'devices' },
   { href: '/portal/settings/notifications', label: 'Notifications', icon: 'notifications' },
   { href: '/portal/settings/workspaces', label: 'My workspaces', icon: 'workspaces' },
+  { href: '/portal/personal/marketing', label: 'Personal marketing', icon: 'person' },
 ]
 
 const WORKSPACE_LINKS = [

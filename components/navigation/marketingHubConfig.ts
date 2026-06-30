@@ -67,6 +67,22 @@ export function buildMarketingHubProps(config: MarketingHubSurface): HubPageProp
             eyebrow: 'AI search',
           },
         ]),
+        section('Personal workspace', [
+          {
+            label: 'Personal marketing',
+            href: '/portal/personal/marketing',
+            icon: 'person',
+            description: 'Your own social accounts, drafts, and X MCP/bookmark access. Separate from this company workspace.',
+            eyebrow: 'User-owned',
+          },
+          {
+            label: 'Personal accounts',
+            href: '/portal/personal/social/accounts',
+            icon: 'person_add',
+            description: 'Connect social accounts and personal X MCP under your user profile, not the organisation.',
+            eyebrow: 'Connect',
+          },
+        ]),
         section('Social media', [
           {
             label: 'Social overview',

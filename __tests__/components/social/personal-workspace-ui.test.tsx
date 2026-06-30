@@ -3,6 +3,7 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import WorkspacesPage from '@/app/(portal)/portal/settings/workspaces/page'
 import SocialAccountsManager from '@/components/social/SocialAccountsManager'
 import SocialPostComposer from '@/components/social/SocialPostComposer'
+import { PersonalXMcpConnectionCard } from '@/components/workspace-os/PersonalXMcpConnectionCard'
 
 const push = jest.fn()
 const replace = jest.fn()
@@ -38,6 +39,12 @@ describe('personal workspace social UI', () => {
       }
       if (url === '/api/v1/social/posts?scope=personal' && init?.method === 'POST') {
         return Promise.resolve({ ok: true, json: async () => ({ data: { id: 'post-1' } }) } as Response)
+      }
+      if (url === '/api/v1/workspace-connections?orgId=org-1&provider=x_mcp&owner=me' && !init) {
+        return Promise.resolve({ ok: true, json: async () => ({ data: [] }) } as Response)
+      }
+      if (url === '/api/v1/workspace-connections' && init?.method === 'POST') {
+        return Promise.resolve({ ok: true, json: async () => ({ data: { id: 'x-conn-1' } }) } as Response)
       }
       return Promise.resolve({ ok: true, json: async () => ({ data: [] }) } as Response)
     }) as jest.Mock
@@ -133,6 +140,38 @@ describe('personal workspace social UI', () => {
           body: expect.stringContaining('"accountIds":["acct-1"]'),
         }),
       )
+    })
+  })
+
+  it('prepares a user-owned X MCP registry record from the personal account surface', async () => {
+    render(<PersonalXMcpConnectionCard />)
+
+    expect(await screen.findByText('Personal X MCP and bookmarks')).toBeInTheDocument()
+    expect(screen.getAllByText(/https:\/\/api\.x\.com\/mcp/i).length).toBeGreaterThan(0)
+
+    fireEvent.click(screen.getByRole('button', { name: /prepare personal x mcp/i }))
+
+    await waitFor(() => {
+      const post = (global.fetch as jest.Mock).mock.calls.find(([url, init]) =>
+        String(url) === '/api/v1/workspace-connections' && init?.method === 'POST',
+      )
+      expect(post).toBeTruthy()
+      const payload = JSON.parse(post![1].body as string)
+      expect(payload).toMatchObject({
+        orgId: 'org-1',
+        connectionKey: 'x-mcp-user-account',
+        displayName: 'Personal X MCP account',
+        provider: 'x_mcp',
+        connectionType: 'user_oauth',
+        tokenStatus: 'user_authorization_required',
+        capabilityScopes: expect.arrayContaining(['x.bookmarks.read', 'x.bookmarks.write', 'x.search.read']),
+        capabilities: expect.objectContaining({ xBookmarksRead: true, xBookmarksWrite: true, xSearchRead: true }),
+        safeMetadata: expect.objectContaining({
+          setupSurface: 'portal_personal_social_accounts',
+          perUserAccount: true,
+          sharedPlatformTokenStored: false,
+        }),
+      })
     })
   })
 })

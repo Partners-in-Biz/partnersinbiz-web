@@ -11,7 +11,7 @@ import { X_MCP_CLIENT_CONFIG, X_MCP_CONNECTION_KEY, X_MCP_PROVIDER } from '@/lib
 
 export const dynamic = 'force-dynamic'
 
-export const GET = withAuth('admin', async (req: NextRequest, user) => {
+export const GET = withAuth('client', async (req: NextRequest, user) => {
   const { searchParams } = new URL(req.url)
   const resolved = resolveOrgId(req, user)
   const accessError = orgAccessError(user, resolved.orgId, resolved.mismatch, resolved)
@@ -30,7 +30,7 @@ export const GET = withAuth('admin', async (req: NextRequest, user) => {
   return apiSuccess(connections)
 })
 
-export const POST = withAuth('admin', async (req: NextRequest, user) => {
+export const POST = withAuth('client', async (req: NextRequest, user) => {
   const body = (await req.json()) as Record<string, unknown>
   const resolved = resolveOrgId(req, user, body)
   const accessError = orgAccessError(user, resolved.orgId, resolved.mismatch, resolved)

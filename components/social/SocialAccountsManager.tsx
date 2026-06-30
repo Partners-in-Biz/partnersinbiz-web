@@ -563,9 +563,9 @@ export default function SocialAccountsManager({
   scope = 'org',
   basePath = '/portal/social/accounts',
   eyebrow = 'Social media',
-  title = 'Social Accounts',
-  description = 'Connect every profile or page you want Pip to publish to. Multiple accounts per platform are supported.',
-  emptyDescription = 'Connect your first account below so scheduled content has somewhere to publish.',
+  title = 'Company social accounts',
+  description = 'Connect shared organisation or company profiles/pages for brand publishing. Personal accounts and X bookmarks stay in the Personal workspace.',
+  emptyDescription = 'Connect the first company account below so scheduled organisation content has somewhere to publish.',
   orgId,
 }: SocialAccountsManagerProps) {
   const router = useRouter()
@@ -693,6 +693,22 @@ export default function SocialAccountsManager({
   const disconnectCandidatePlatform = disconnectCandidate
     ? PLATFORM_LABELS[disconnectCandidate.platform] ?? disconnectCandidate.platform
     : ''
+  const isPersonalScope = scope === 'personal'
+  const scopeCard = isPersonalScope
+    ? {
+        title: 'Personal account scope',
+        body: 'These accounts belong to your user profile. They are used for your own posts and do not appear in organisation publishing queues or company account pickers.',
+        icon: 'person',
+        href: '/portal/social/accounts',
+        hrefLabel: 'Open company accounts',
+      }
+    : {
+        title: 'Company / organisation scope',
+        body: 'These accounts are shared by the active company workspace for brand publishing, approvals, calendars, and inbox sync. They are not your private bookmarks or personal X account.',
+        icon: 'business',
+        href: '/portal/personal/social/accounts',
+        hrefLabel: 'Open personal accounts',
+      }
 
   return (
     <div className="space-y-8">
@@ -716,9 +732,24 @@ export default function SocialAccountsManager({
         </div>
         <a href="#connect-new-account" className="btn-pib-accent self-start md:self-auto">
           <span className="material-symbols-outlined text-base">add_link</span>
-          Connect account
+          {isPersonalScope ? 'Connect personal account' : 'Connect company account'}
         </a>
       </header>
+
+      <section className="rounded-xl border border-[var(--color-card-border)] bg-[var(--color-surface-container)]/35 p-4" aria-label={scopeCard.title}>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-start gap-3">
+            <span className="material-symbols-outlined mt-0.5 text-[20px] text-[var(--color-pib-accent)]" aria-hidden="true">{scopeCard.icon}</span>
+            <div>
+              <h2 className="text-sm font-semibold text-on-surface">{scopeCard.title}</h2>
+              <p className="mt-1 max-w-3xl text-xs leading-5 text-on-surface-variant">{scopeCard.body}</p>
+            </div>
+          </div>
+          <a href={scopeCard.href} className="btn-pib-secondary w-fit shrink-0 !px-3 !py-2 !text-xs">
+            {scopeCard.hrefLabel}
+          </a>
+        </div>
+      </section>
 
       {disconnectCandidate && (
         <div
@@ -840,9 +871,13 @@ export default function SocialAccountsManager({
 
       <section id="connect-new-account" className="space-y-4 scroll-mt-24">
         <div>
-          <h2 className="text-xs font-label uppercase tracking-widest text-on-surface-variant">Connect New Account</h2>
+          <h2 className="text-xs font-label uppercase tracking-widest text-on-surface-variant">
+            {isPersonalScope ? 'Connect New Personal Account' : 'Connect New Company Account'}
+          </h2>
           <p className="mt-1 text-sm text-on-surface-variant">
-            OAuth platforms can return several pages or profiles. You can choose which ones to save after authorising.
+            {isPersonalScope
+              ? 'Authorize only accounts that belong to you personally. Company pages and client brand accounts belong in the company workspace.'
+              : 'OAuth platforms can return several pages or profiles. Choose the shared brand pages/profiles that this organisation may publish through.'}
           </p>
         </div>
 

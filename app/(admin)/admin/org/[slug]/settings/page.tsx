@@ -627,7 +627,7 @@ export default function OrgSettingsPage() {
               <div className="min-w-0 flex-1">
                 <h2 className="text-sm font-semibold text-on-surface">Personal X MCP account</h2>
                 <p className="mt-1 text-xs text-on-surface-variant">
-                  Register the hosted X MCP as a per-user connection so agents can work with the signed-in user’s own X permissions, including bookmarks, searches, posts, news, and article drafts. PiB stores setup metadata only; xurl handles OAuth and token refresh in the user’s MCP client.
+                  Register the hosted X MCP as a per-user connection so agents can work with the signed-in user’s own X permissions, including bookmarks, searches, posts, news, and article drafts. PiB stores setup metadata only; xurl handles OAuth and token refresh in the user’s MCP client. This admin card is a fallback; users should normally start from Portal → Personal → Accounts.
                 </p>
               </div>
               <span className={xMcpConnection ? 'rounded-full bg-green-500/10 px-2 py-0.5 text-[10px] font-label uppercase tracking-wide text-green-300' : 'rounded-full bg-amber-500/10 px-2 py-0.5 text-[10px] font-label uppercase tracking-wide text-amber-300'}>
