@@ -55,9 +55,9 @@ const VERDICT_META: Record<SpamVerdict, { label: string; color: string; ring: st
   'high-risk': { label: 'High risk', color: 'text-red-500', ring: 'stroke-red-500' },
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function unwrap(body: any): any {
-  return body?.data ?? body
+function unwrap<T>(body: T | { data?: T }): T | { data?: T } {
+  if (body && typeof body === 'object' && 'data' in body) return body.data ?? body
+  return body
 }
 
 function Gauge({ score, verdict }: { score: number; verdict: SpamVerdict }) {

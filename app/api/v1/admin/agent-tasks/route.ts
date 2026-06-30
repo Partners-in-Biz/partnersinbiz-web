@@ -22,6 +22,7 @@ import { apiError, apiSuccess } from '@/lib/api/response'
 import { isSuperAdmin } from '@/lib/api/platformAdmin'
 import { VALID_AGENT_IDS, type AgentId, type AgentStatus } from '@/lib/tasks/types'
 import { matchesAgentBoardView, type AgentBoardOperationalView } from '@/lib/agent-board/filters'
+import { getTaskDispatchBlocker, type DispatchBlocker, type DispatchEligibilityTask } from '@/services/agent-watcher/src/eligibility'
 
 export const dynamic = 'force-dynamic'
 
@@ -36,6 +37,8 @@ type AgentTaskCard = {
   agentStatus: AgentStatus | null
   agentInputSpec: string | null
   agentOutputSummary: string | null
+  dispatchReady: boolean
+  dispatchBlocker: DispatchBlocker | null
   priority: string | null
   tags: string[]
   labels: string[]
@@ -230,6 +233,20 @@ export const GET = withAuth('admin', async (req: NextRequest, user) => {
     const ao = data.agentOutput as { summary?: unknown } | undefined
     const labels = Array.isArray(data.labels) ? data.labels.filter((l): l is string => typeof l === 'string') : []
     const tags = Array.isArray(data.tags) ? data.tags.filter((t): t is string => typeof t === 'string') : labels
+    const dispatchBlocker = getTaskDispatchBlocker({
+      assigneeAgentId: nullableString(data.assigneeAgentId),
+      agentStatus: nullableString(data.agentStatus),
+      columnId: nullableString(data.columnId),
+      status: nullableString(data.status),
+      deleted: data.deleted === true,
+      requiresApproval: data.requiresApproval === true,
+      approvalStatus: nullableString(data.approvalStatus),
+      approvalGate: data.approvalGate && typeof data.approvalGate === 'object' && !Array.isArray(data.approvalGate)
+        ? { status: nullableString((data.approvalGate as Record<string, unknown>).status) }
+        : null,
+      agentReleaseAt: data.agentReleaseAt as DispatchEligibilityTask['agentReleaseAt'],
+      agentReleaseStatus: nullableString(data.agentReleaseStatus),
+    }, VALID_AGENT_IDS)
 
     const cardOrgId = nullableString(data.orgId) ?? orgId!
     const cardSlug = (cardOrgId ? orgSlugs.get(cardOrgId) : null) ?? slug ?? cardOrgId
@@ -248,6 +265,8 @@ export const GET = withAuth('admin', async (req: NextRequest, user) => {
       agentStatus: (data.agentStatus as AgentStatus) ?? null,
       agentInputSpec: typeof ai?.spec === 'string' ? ai.spec : null,
       agentOutputSummary: typeof ao?.summary === 'string' ? ao.summary : null,
+      dispatchReady: dispatchBlocker === null,
+      dispatchBlocker,
       priority: typeof data.priority === 'string' ? data.priority : null,
       tags,
       labels,

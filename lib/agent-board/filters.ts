@@ -13,6 +13,7 @@ export type AgentBoardBadgeId =
   | `agent:${AgentId}`
   | 'blocked'
   | 'awaiting-input'
+  | 'dispatch-blocked'
   | 'document-linked'
   | 'dependency-blocked'
   | 'cron-origin'
@@ -38,6 +39,8 @@ export type AgentBoardTaskLike = {
   agentStatus: string | null
   agentInputSpec: string | null
   agentOutputSummary: string | null
+  dispatchReady?: boolean
+  dispatchBlocker?: string | null
   priority: string | null
   tags: string[]
   labels?: string[]
@@ -141,6 +144,14 @@ export function getAgentBoardBadges(card: AgentBoardTaskLike): AgentBoardBadge[]
   const badges: AgentBoardBadge[] = []
   if (card.assigneeAgentId) {
     badges.push({ id: `agent:${card.assigneeAgentId}`, label: card.assigneeAgentId, tone: 'agent', title: `Assigned to ${card.assigneeAgentId}` })
+  }
+  if (card.agentStatus === 'pending' && card.dispatchReady === false && card.dispatchBlocker) {
+    badges.push({
+      id: 'dispatch-blocked',
+      label: `Dispatch: ${card.dispatchBlocker.replace(/-/g, ' ')}`,
+      tone: 'warning',
+      title: `The watcher will not pick up this pending task until this blocker clears: ${card.dispatchBlocker}`,
+    })
   }
   if (isBlocked(card)) badges.push({ id: 'blocked', label: 'Blocked', tone: 'danger' })
   if (isAwaitingInput(card)) badges.push({ id: 'awaiting-input', label: 'Awaiting input', tone: 'warning' })
