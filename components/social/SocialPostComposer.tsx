@@ -291,6 +291,9 @@ export default function SocialPostComposer({
 
   const selectedAccountObjects = accounts.filter((account) => selectedAccounts.includes(account.id))
   const filteredAccounts = accounts.filter((account) => selectedPlatforms.includes(account.platform))
+  const selectedAccountPlatforms = useMemo(() => {
+    return new Set(selectedAccountObjects.map((account) => account.platform))
+  }, [selectedAccountObjects])
 
   const togglePlatform = (platform: string) => {
     setSelectedPlatforms((prev) => prev.includes(platform) ? prev.filter((item) => item !== platform) : [...prev, platform])
@@ -325,6 +328,30 @@ export default function SocialPostComposer({
     setErrors(nextErrors)
     return Object.keys(nextErrors).length === 0
   }, [charLimit, content, isThread, selectedAccounts.length, selectedPlatforms.length, threadParts])
+
+  const publishReadinessErrors = useMemo(() => {
+    const issues: string[] = []
+    if (selectedPlatforms.length === 0) issues.push('Select a platform.')
+    if (selectedAccounts.length === 0) issues.push('Select an account.')
+    for (const platform of selectedPlatforms) {
+      if (!selectedAccountPlatforms.has(platform)) {
+        issues.push(`Select a ${PLATFORM_CONFIG[platform]?.label ?? platform} account.`)
+      }
+    }
+    if (isThread) {
+      threadParts.forEach((part, index) => {
+        if (!part.trim()) issues.push(`Write thread part ${index + 1}.`)
+        if (part.length > charLimit) issues.push(`Thread part ${index + 1} exceeds ${charLimit} characters.`)
+      })
+    } else {
+      if (!content.trim()) issues.push('Write post content.')
+      if (content.length > charLimit) issues.push(`Content exceeds ${charLimit} characters.`)
+    }
+    if (uploadingImage) issues.push('Wait for image upload to finish.')
+    return issues
+  }, [charLimit, content, isThread, selectedAccountPlatforms, selectedAccounts.length, selectedPlatforms, threadParts, uploadingImage])
+
+  const canPublishNow = publishReadinessErrors.length === 0 && !submitting
 
   const chipKeyDown = (
     value: string,
@@ -470,6 +497,10 @@ export default function SocialPostComposer({
 
   const handleSubmit = async (action: 'draft' | 'schedule' | 'publish') => {
     if (!validate()) return
+    if (action === 'publish' && publishReadinessErrors.length > 0) {
+      setErrors({ submit: publishReadinessErrors[0] })
+      return
+    }
     if (action === 'schedule' && !scheduledFor) {
       setErrors({ submit: 'Set a schedule date/time first.' })
       return
@@ -485,17 +516,22 @@ export default function SocialPostComposer({
       })
       const body = await res.json()
       if (!res.ok) throw new Error(body.error ?? 'Failed to create post')
+      const postId = body.data?.id
+      if (!postId) throw new Error('No post ID returned')
 
       if (action === 'publish') {
-        const postId = body.data?.id
-        if (!postId) throw new Error('No post ID returned')
         const pubRes = await fetch(socialApiPath(`/api/v1/social/posts/${postId}/publish`), { method: 'POST' })
         const pubBody = await pubRes.json()
         if (!pubRes.ok) throw new Error(pubBody.error ?? 'Failed to publish')
         setSuccessMsg('Published successfully!')
         setTimeout(() => router.push(afterPublishHref ?? afterSaveHref), 1200)
+      } else if (action === 'draft') {
+        const readback = await fetch(socialApiPath(`/api/v1/social/posts/${postId}`))
+        const readbackBody = await readback.json()
+        if (!readback.ok || readbackBody.data?.id !== postId) throw new Error('Draft saved, but readback failed')
+        setSuccessMsg(`Draft saved and verified: ${postId}`)
       } else {
-        setSuccessMsg(action === 'schedule' ? 'Post scheduled!' : 'Draft saved!')
+        setSuccessMsg('Post scheduled!')
         setTimeout(() => router.push(afterSaveHref), 1200)
       }
     } catch (err: unknown) {
@@ -1127,7 +1163,12 @@ export default function SocialPostComposer({
             <button onClick={() => handleSubmit('schedule')} disabled={submitting || !scheduledFor} className="pib-btn-primary disabled:opacity-50">
               Schedule
             </button>
-            <button onClick={() => handleSubmit('publish')} disabled={submitting} className="pib-btn-secondary disabled:opacity-50">
+            <button
+              onClick={() => handleSubmit('publish')}
+              disabled={!canPublishNow}
+              title={publishReadinessErrors[0] ?? 'Ready to publish now'}
+              className="pib-btn-secondary disabled:opacity-50"
+            >
               Publish Now
             </button>
           </div>
