@@ -116,6 +116,30 @@ const briefingItem = {
   metadata: {},
 } as unknown as BriefingCard
 
+function briefing(overrides: Partial<BriefingCard> & { id: string; title: string; summary: string; source: BriefingCard['source'] }): BriefingCard {
+  return {
+    id: overrides.id,
+    title: overrides.title,
+    summary: overrides.summary,
+    excerpt: null,
+    priority: overrides.priority ?? 'needs-peet',
+    source: overrides.source,
+    context: overrides.context ?? { orgId: 'pib-platform-owner', reviewerAgentId: 'pip' },
+    actor: overrides.actor ?? { id: 'agent:pip', role: 'ai', type: 'agent' },
+    occurredAt: overrides.occurredAt ?? new Date('2026-07-01T08:00:00.000Z'),
+    createdAt: overrides.createdAt ?? new Date('2026-07-01T08:00:00.000Z'),
+    updatedAt: overrides.updatedAt ?? new Date('2026-07-01T08:00:00.000Z'),
+    timeAgo: overrides.timeAgo ?? 'now',
+    unread: overrides.unread ?? true,
+    requiresAction: overrides.requiresAction ?? true,
+    relevanceScore: overrides.relevanceScore ?? 100,
+    status: overrides.status ?? 'active',
+    sourceHash: overrides.sourceHash ?? `hash:${overrides.id}`,
+    actions: overrides.actions ?? [],
+    metadata: overrides.metadata ?? {},
+  } as unknown as BriefingCard
+}
+
 describe('buildAgentGrowthCommandQueue', () => {
   it('combines stored diagnostics into a CEO chat queue with approval gates', () => {
     const queue = buildAgentGrowthCommandQueue({
@@ -143,5 +167,91 @@ describe('buildAgentGrowthCommandQueue', () => {
     ]))
     expect(queue.queue.every((item) => item.blockedUntilApproval.join(' ').includes('without CEO approval') || item.blockedUntilApproval.join(' ').includes('No send'))).toBe(true)
     expect(queue.analysisPrompt).toContain('dynamic Messages window')
+  })
+
+  it('downgrades past missing-Meet booking cards to cleanup instead of CEO approval', () => {
+    const queue = buildAgentGrowthCommandQueue({
+      orgId: 'pib-platform-owner',
+      crm,
+      social: {
+        ...social,
+        summary: { ...social.summary, draftPosts: 0, failedPosts: 0 },
+        primaryFinding: {
+          code: 'content_ready',
+          title: 'Content is ready',
+          detail: 'No social action needed.',
+        },
+      },
+      failedSocial: {
+        ...failedSocial,
+        summary: { ...failedSocial.summary, failedPosts: 0, blockedFailures: 0 },
+      },
+      briefing: {
+        generatedAt: '2026-07-01T08:00:00.000Z',
+        total: 1,
+        items: [
+          briefing({
+            id: 'booking:past',
+            title: 'Booking needs Meet link: Buhle',
+            summary: '20-minute call with Buhle on 2026-06-29 at 11:00. Africa/Johannesburg. Meet link missing',
+            priority: 'critical',
+            source: { type: 'booking', id: 'booking-past', collectionPath: 'bookings', url: '/admin/bookings/booking-past' },
+          }),
+        ],
+      },
+      generatedAt: '2026-07-01T08:01:00.000Z',
+    })
+
+    const bookingItem = queue.queue.find((item) => item.id === 'briefing:booking:past')
+    expect(bookingItem).toMatchObject({
+      kind: 'ops-cleanup',
+      priority: 'review',
+      recommendedAgent: 'nora',
+      approvalRequired: false,
+    })
+    expect(bookingItem?.summary).toContain('already in the past')
+    expect(queue.sourceReports.briefingFeed.approvalLikeItems).toBe(0)
+  })
+
+  it('keeps future missing-Meet booking cards approval-gated', () => {
+    const queue = buildAgentGrowthCommandQueue({
+      orgId: 'pib-platform-owner',
+      crm,
+      social: {
+        ...social,
+        summary: { ...social.summary, draftPosts: 0, failedPosts: 0 },
+        primaryFinding: {
+          code: 'content_ready',
+          title: 'Content is ready',
+          detail: 'No social action needed.',
+        },
+      },
+      failedSocial: {
+        ...failedSocial,
+        summary: { ...failedSocial.summary, failedPosts: 0, blockedFailures: 0 },
+      },
+      briefing: {
+        generatedAt: '2026-07-01T08:00:00.000Z',
+        total: 1,
+        items: [
+          briefing({
+            id: 'booking:future',
+            title: 'Booking needs Meet link: Future lead',
+            summary: '20-minute call with Future lead on 2026-07-03 at 11:00. Africa/Johannesburg. Meet link missing',
+            priority: 'critical',
+            source: { type: 'booking', id: 'booking-future', collectionPath: 'bookings', url: '/admin/bookings/booking-future' },
+          }),
+        ],
+      },
+      generatedAt: '2026-07-01T08:01:00.000Z',
+    })
+
+    const bookingItem = queue.queue.find((item) => item.id === 'briefing:booking:future')
+    expect(bookingItem).toMatchObject({
+      kind: 'ceo-approval',
+      priority: 'critical',
+      approvalRequired: true,
+    })
+    expect(queue.sourceReports.briefingFeed.approvalLikeItems).toBe(1)
   })
 })
