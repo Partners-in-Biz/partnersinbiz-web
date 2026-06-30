@@ -93,7 +93,11 @@ describe('OrgSettingsPage folder mappings', () => {
     expect(screen.getByText('Local Cowork')).toBeInTheDocument()
     expect(screen.getByText('Portal exposure deferred')).toBeInTheDocument()
     expect(screen.getByText('Required Google OAuth setup')).toBeInTheDocument()
+    expect(screen.getByText('Personal X MCP account')).toBeInTheDocument()
+    expect(screen.getByText('https://api.x.com/mcp')).toBeInTheDocument()
+    expect(screen.getByText('npx -y @xdevplatform/xurl mcp https://api.x.com/mcp')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /Prepare 1 OAuth/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Prepare personal X MCP/i })).toBeInTheDocument()
 
     fireEvent.click(screen.getByRole('button', { name: /Resync Source Assets/i }))
     await waitFor(() => expect(screen.getByText('Manual resync is not configured for this folder yet.')).toBeInTheDocument())
@@ -121,6 +125,27 @@ describe('OrgSettingsPage folder mappings', () => {
         'href',
         '/api/v1/workspace-connections/google/authorize?orgId=org_1&connectionKey=google-workspace-drive-docs-sheets-gmail-calendar&returnTo=%2Fadmin%2Forg%2Facme-client%2Fsettings',
       )
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: /Prepare personal X MCP/i }))
+    await waitFor(() => {
+      const post = (global.fetch as jest.Mock).mock.calls.find(([url, init]) => {
+        if (String(url) !== '/api/v1/workspace-connections' || init?.method !== 'POST') return false
+        return JSON.parse(init.body as string).provider === 'x_mcp'
+      })
+      expect(post).toBeTruthy()
+      const payload = JSON.parse(post![1].body as string)
+      expect(payload).toMatchObject({
+        connectionKey: 'x-mcp-user-account',
+        displayName: 'Personal X MCP account',
+        provider: 'x_mcp',
+        connectionType: 'user_oauth',
+        tokenStatus: 'user_authorization_required',
+        capabilityScopes: expect.arrayContaining(['x.bookmarks.read', 'x.bookmarks.write', 'x.search.read']),
+        capabilities: expect.objectContaining({ xBookmarksRead: true, xBookmarksWrite: true, xSearchRead: true }),
+        riskLevel: 'high',
+      })
+      expect(payload.safeMetadata).toMatchObject({ perUserAccount: true, sharedPlatformTokenStored: false })
     })
   })
 

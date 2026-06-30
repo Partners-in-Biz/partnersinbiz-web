@@ -83,6 +83,36 @@ describe('workspace connection registry models', () => {
       safeMetadata: { note: 'metadata only', retryCount: 1, flags: ['internal'] },
     })
   })
+
+  it('normalizes personal X MCP connection records without shared tokens', () => {
+    const connection = normalizeWorkspaceConnectionInput({
+      connectionKey: 'X MCP User Account',
+      displayName: 'Personal X MCP account',
+      provider: 'x_mcp',
+      connectionType: 'user_oauth',
+      ownerUserId: 'user-1',
+      capabilityScopes: ['x.bookmarks.read', 'x.bookmarks.write', 'x.search.read'],
+      capabilities: { xBookmarksRead: true, xBookmarksWrite: true, xSearchRead: true },
+      scopes: [{ scope: 'bookmark.read', classification: 'restricted' }],
+      credentialRef: { tokenStorePath: 'xurl://local-cache' },
+      tokenStatus: 'user_authorization_required',
+      safeMetadata: { perUserAccount: true, sharedPlatformTokenStored: false },
+    }, 'org-1')
+
+    expect(connection).toMatchObject({
+      orgId: 'org-1',
+      connectionKey: 'x-mcp-user-account',
+      displayName: 'Personal X MCP account',
+      provider: 'x_mcp',
+      connectionType: 'user_oauth',
+      ownerUserId: 'user-1',
+      owner: { type: 'user', id: 'user-1' },
+      capabilities: expect.objectContaining({ xBookmarksRead: true, xBookmarksWrite: true, xSearchRead: true, driveRead: false }),
+      scopes: [expect.objectContaining({ scope: 'bookmark.read', classification: 'restricted', approved: false })],
+      credentialRef: expect.objectContaining({ tokenStorePath: 'xurl://local-cache' }),
+      safeMetadata: { perUserAccount: true, sharedPlatformTokenStored: false },
+    })
+  })
 })
 
 describe('workspace artifact registry models', () => {

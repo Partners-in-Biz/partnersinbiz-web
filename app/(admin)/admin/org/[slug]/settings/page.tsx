@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useParams } from 'next/navigation'
 import { copyToClipboard } from '@/lib/utils/clipboard'
 import { LEGACY_GOOGLE_WORKSPACE_CONNECTION_KEY, UNIFIED_GOOGLE_WORKSPACE_CONNECTION_KEY, UNIFIED_GOOGLE_WORKSPACE_SCOPES, workspaceScopeRows } from '@/lib/mailbox/googleOAuth'
+import { X_MCP_CAPABILITY_SCOPES, X_MCP_CLIENT_CONFIG, X_MCP_CONNECTION_KEY, X_MCP_SCOPE_ROWS } from '@/lib/workspace-os/xMcp'
 import type { WorkspaceFolder } from '@/lib/workspace-folders/model'
 import { parseDriveFolderId } from '@/lib/workspace-folders/drive'
 
@@ -87,6 +88,9 @@ type WorkspaceConnectionSummary = {
   connectionType?: string
   status?: string
   tokenStatus?: string
+  provider?: string
+  ownerUserId?: string | null
+  safeMetadata?: Record<string, unknown>
 }
 
 const GOOGLE_WORKSPACE_OAUTH_SCOPES = workspaceScopeRows(UNIFIED_GOOGLE_WORKSPACE_SCOPES)
@@ -146,6 +150,7 @@ export default function OrgSettingsPage() {
   const [folderNotice, setFolderNotice] = useState('')
   const [resyncingFolderId, setResyncingFolderId] = useState<string | null>(null)
   const [preparingOauths, setPreparingOauths] = useState(false)
+  const [preparingXMcp, setPreparingXMcp] = useState(false)
 
   function copyOrgId() {
     if (!orgId) return
@@ -420,6 +425,7 @@ export default function OrgSettingsPage() {
 
   const missingWorkspaceOauthCount = requiredWorkspaceOauths.filter((oauth) => !oauth.existing).length
   const googleWorkspaceAuthorizeKey = requiredWorkspaceOauths[0]?.existing?.connectionKey ?? UNIFIED_GOOGLE_WORKSPACE_CONNECTION_KEY
+  const xMcpConnection = workspaceConnections.find((connection) => connection.provider === 'x_mcp' && connection.connectionKey === X_MCP_CONNECTION_KEY)
   const filteredCrmCompanies = useMemo(() => {
     const query = companySearch.trim().toLowerCase()
     if (!query) return crmCompanies
@@ -477,6 +483,56 @@ export default function OrgSettingsPage() {
       setFolderNotice(err instanceof Error ? err.message : 'Failed to prepare OAuth records.')
     } finally {
       setPreparingOauths(false)
+    }
+  }
+
+  async function prepareXMcpConnection() {
+    if (!orgId || preparingXMcp || xMcpConnection) return
+    setPreparingXMcp(true)
+    setFolderNotice('')
+    try {
+      const res = await fetch('/api/v1/workspace-connections', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-Org-Id': orgId, 'X-Org-Slug': slug },
+        body: JSON.stringify({
+          orgId,
+          connectionKey: X_MCP_CONNECTION_KEY,
+          displayName: 'Personal X MCP account',
+          provider: 'x_mcp',
+          connectionType: 'user_oauth',
+          status: 'proposed',
+          capabilityScopes: [...X_MCP_CAPABILITY_SCOPES],
+          capabilities: {
+            xPostsRead: true,
+            xSearchRead: true,
+            xUsersRead: true,
+            xBookmarksRead: true,
+            xBookmarksWrite: true,
+            xNewsRead: true,
+            xArticlesWrite: true,
+          },
+          scopes: [...X_MCP_SCOPE_ROWS],
+          tokenStatus: 'user_authorization_required',
+          reconnectInstructions: `Use xurl with the hosted Streamable HTTP MCP server at ${X_MCP_CLIENT_CONFIG.streamableHttpServer}. Each user authorizes their own X account; PiB stores registry metadata only, not bearer or refresh tokens.`,
+          riskLevel: 'high',
+          approvalStatus: 'pending',
+          dataTouched: ['x_posts', 'x_search', 'x_users', 'x_bookmarks', 'x_news', 'x_articles'],
+          safeMetadata: {
+            setupSurface: 'admin_org_settings_x_mcp_registry',
+            perUserAccount: true,
+            sharedPlatformTokenStored: false,
+            docsMcpServer: X_MCP_CLIENT_CONFIG.docsServer,
+          },
+        }),
+      })
+      const body = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(body.error ?? 'Failed to prepare personal X MCP connection.')
+      await refreshWorkspaceConnections()
+      setFolderNotice('Prepared a personal X MCP registry record. The MCP client still needs the user to authorize X through xurl before agents can use that user’s X permissions.')
+    } catch (err) {
+      setFolderNotice(err instanceof Error ? err.message : 'Failed to prepare personal X MCP connection.')
+    } finally {
+      setPreparingXMcp(false)
     }
   }
 
@@ -562,6 +618,40 @@ export default function OrgSettingsPage() {
                   </span>
                 </div>
               ))}
+            </div>
+          </div>
+        </div>
+        <div className="border-t border-outline-variant/50 p-4">
+          <div className="rounded-xl border border-outline-variant/60 bg-[var(--color-surface-container)]/30 p-4">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div className="min-w-0 flex-1">
+                <h2 className="text-sm font-semibold text-on-surface">Personal X MCP account</h2>
+                <p className="mt-1 text-xs text-on-surface-variant">
+                  Register the hosted X MCP as a per-user connection so agents can work with the signed-in user’s own X permissions, including bookmarks, searches, posts, news, and article drafts. PiB stores setup metadata only; xurl handles OAuth and token refresh in the user’s MCP client. This admin card is a fallback; users should normally start from Portal → Personal → Accounts.
+                </p>
+              </div>
+              <span className={xMcpConnection ? 'rounded-full bg-green-500/10 px-2 py-0.5 text-[10px] font-label uppercase tracking-wide text-green-300' : 'rounded-full bg-amber-500/10 px-2 py-0.5 text-[10px] font-label uppercase tracking-wide text-amber-300'}>
+                {xMcpConnection ? `${xMcpConnection.status ?? 'proposed'} · ${xMcpConnection.tokenStatus ?? 'authorization pending'}` : 'Not prepared'}
+              </span>
+            </div>
+            <div className="mt-3 grid gap-2 rounded-lg border border-outline-variant/50 bg-[var(--color-surface)] p-3 text-xs text-on-surface-variant">
+              <p><span className="font-medium text-on-surface">Server:</span> {X_MCP_CLIENT_CONFIG.streamableHttpServer}</p>
+              <p><span className="font-medium text-on-surface">Client command:</span> <code className="rounded bg-[var(--color-surface-container)] px-1 py-0.5">{X_MCP_CLIENT_CONFIG.command}</code></p>
+              <p><span className="font-medium text-on-surface">Docs MCP:</span> {X_MCP_CLIENT_CONFIG.docsServer}</p>
+              <p><span className="font-medium text-on-surface">Startup timeout:</span> {X_MCP_CLIENT_CONFIG.startupTimeoutSeconds}s minimum so the one-time OAuth browser login can finish.</p>
+            </div>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={prepareXMcpConnection}
+                disabled={preparingXMcp || Boolean(xMcpConnection)}
+                className="pib-btn-primary text-xs"
+              >
+                {preparingXMcp ? 'Preparing…' : xMcpConnection ? 'X MCP record ready' : 'Prepare personal X MCP'}
+              </button>
+              <a href="https://docs.x.com/tools/mcp" className="pib-btn-secondary text-xs" target="_blank" rel="noreferrer">
+                Open X MCP docs
+              </a>
             </div>
           </div>
         </div>

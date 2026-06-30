@@ -30,6 +30,7 @@ describe('SettingsNav', () => {
     expect(screen.getByRole('link', { name: 'Custom fields' })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'CRM setup' })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Permissions' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Personal marketing' })).toHaveAttribute('href', '/portal/personal/marketing')
     expect(screen.queryByRole('link', { name: /business Organisation details/i })).not.toBeInTheDocument()
     expect(screen.queryByRole('link', { name: /Custom fields admin/i })).not.toBeInTheDocument()
   })

@@ -131,6 +131,42 @@ describe('workspace connection API routes', () => {
     }))
   })
 
+  it('creates personal X MCP records under the requesting user without storing shared credentials', async () => {
+    mockAdd.mockResolvedValue({ id: 'x-conn-1' })
+    const { POST } = await import('@/app/api/v1/workspace-connections/route')
+    const res = await POST(new NextRequest('http://localhost/api/v1/workspace-connections', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'x-org-id': 'org-1' },
+      body: JSON.stringify({
+        orgId: 'org-1',
+        connectionKey: 'x-mcp-user-account',
+        displayName: 'Personal X MCP account',
+        provider: 'x_mcp',
+        capabilities: { xBookmarksRead: true, xBookmarksWrite: true, xSearchRead: true },
+        scopes: [{ scope: 'bookmark.read', classification: 'restricted' }],
+      }),
+    }))
+    const body = await res.json()
+
+    expect(res.status).toBe(201)
+    expect(body.data).toEqual({ id: 'x-conn-1' })
+    expect(mockAdd).toHaveBeenCalledWith(expect.objectContaining({
+      orgId: 'org-1',
+      provider: 'x_mcp',
+      connectionKey: 'x-mcp-user-account',
+      connectionType: 'user_oauth',
+      ownerUserId: 'admin-1',
+      owner: { type: 'user', id: 'admin-1' },
+      tokenStatus: 'user_authorization_required',
+      capabilities: expect.objectContaining({ xBookmarksRead: true, xBookmarksWrite: true, xSearchRead: true }),
+      safeMetadata: expect.objectContaining({
+        userOwnedPermissions: true,
+        sharedPlatformTokenStored: false,
+        mcp: expect.objectContaining({ streamableHttpServer: 'https://api.x.com/mcp' }),
+      }),
+    }))
+  })
+
   it('rejects deleted workspace connection review and reconnect actions', async () => {
     mockGetDoc.mockResolvedValue({ exists: true, id: 'conn-deleted', data: () => ({ orgId: 'org-1', displayName: 'Deleted', deleted: true }) })
 

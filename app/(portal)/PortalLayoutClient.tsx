@@ -103,6 +103,13 @@ const NAV_LINKS: NavItem[] = [
     ],
   },
   {
+    href: '/portal/personal/marketing',
+    label: 'Personal',
+    icon: 'person',
+    group: 'work',
+    activePatterns: ['/portal/personal'],
+  },
+  {
     href: '/portal/messages',
     label: 'Messages',
     icon: 'forum',
@@ -725,7 +732,7 @@ function PortalLayoutContent({ children }: { children: React.ReactNode }) {
   // Documents only.
   const effectiveRole = memberRole || userRole
   const isClientRole = effectiveRole === 'client'
-  const CLIENT_ALLOWED_HREFS = new Set(['/portal/dashboard', '/portal/reports', '/portal/documents'])
+  const CLIENT_ALLOWED_HREFS = new Set(['/portal/dashboard', '/portal/reports', '/portal/documents', '/portal/personal/marketing'])
   const visibleNavLinks = NAV_LINKS.filter((item) => {
     if (isClientRole) return CLIENT_ALLOWED_HREFS.has(item.href)
     const moduleKey = NAV_MODULES[item.href]
