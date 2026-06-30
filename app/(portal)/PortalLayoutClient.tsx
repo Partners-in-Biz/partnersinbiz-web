@@ -441,7 +441,8 @@ function PortalLayoutContent({ children }: { children: React.ReactNode }) {
   const isEmailRoute = pathname === '/portal/email' || pathname.startsWith('/portal/email/')
   const isMessagesRoute = pathname === '/portal/messages' || pathname.startsWith('/portal/messages/')
   const isCockpitRoute = pathname === '/portal/briefings' || pathname.startsWith('/portal/briefings/')
-  const isWorkspaceRoute = isEmailRoute || isMessagesRoute
+  const isCreativeCanvasRoute = pathname === '/portal/creative-canvas' || pathname.startsWith('/portal/creative-canvas/')
+  const isWorkspaceRoute = isEmailRoute || isMessagesRoute || isCreativeCanvasRoute
 
   const [email, setEmail]       = useState('')
   const [name, setName]         = useState('')
