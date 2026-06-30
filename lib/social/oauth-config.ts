@@ -114,7 +114,7 @@ export function getOAuthConfig(platform: SocialPlatformType, options: OAuthOptio
         platform: 'twitter',
         authUrl: 'https://twitter.com/i/oauth2/authorize',
         tokenUrl: 'https://api.x.com/2/oauth2/token',
-        scopes: ['tweet.read', 'tweet.write', 'users.read', 'offline.access'],
+        scopes: ['tweet.read', 'tweet.write', 'users.read', 'bookmark.read', 'bookmark.write', 'offline.access'],
         useBasicAuth: true,
         usePKCE: true,
       }

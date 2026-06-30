@@ -245,4 +245,35 @@ describe('POST /api/v1/social/accounts/confirm', () => {
     expect(Array.isArray(body.data.accountIds)).toBe(true)
     expect(body.data.accountIds.length).toBeGreaterThan(0)
   })
+
+  it('does not update a personal account when confirming an org/company selection with the same platform account id', async () => {
+    const personalRef = { id: 'personal-ref' }
+    const orgRef = { id: 'org-ref' }
+    mockGet
+      .mockResolvedValueOnce({
+        exists: true,
+        ref: { delete: jest.fn() },
+        data: () => pendingDocData,
+      })
+      .mockResolvedValueOnce({ docs: [] })
+      .mockResolvedValueOnce({
+        docs: [
+          { id: 'personal-account', ref: personalRef, data: () => ({ accountScope: 'personal', ownerUid: 'user-1' }) },
+          { id: 'org-account', ref: orgRef, data: () => ({ accountScope: 'org', ownerUid: null }) },
+        ],
+      })
+
+    const req = {
+      json: async () => ({ nonce: 'nonce-1', selections: [{ index: 0, isDefault: true }] }),
+    } as any
+    const res = await POST(req, undefined as any)
+
+    expect(res.status).toBe(201)
+    expect(mockLimitFn).toHaveBeenCalledWith(10)
+    expect(mockBatchUpdate).toHaveBeenCalledWith(orgRef, expect.objectContaining({
+      accountScope: 'org',
+      ownerUid: null,
+    }))
+    expect(mockBatchUpdate).not.toHaveBeenCalledWith(personalRef, expect.anything())
+  })
 })

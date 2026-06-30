@@ -108,7 +108,9 @@ function hasUsablePlatformAccountId(account: FirebaseFirestore.DocumentData): bo
 function isPublishableAccount(
   account: FirebaseFirestore.DocumentData,
   platformNames: string[],
+  options: { allowPersonal?: boolean } = {},
 ): boolean {
+  if (!options.allowPersonal && account.accountScope === 'personal') return false
   return (
     account.status === 'active' &&
     platformNames.includes(account.platform) &&
@@ -187,8 +189,11 @@ export async function resolveProvider(
       if (personalScope && (account.accountScope !== 'personal' || account.ownerUid !== ownerUid)) {
         throw new Error('Selected personal account is not available to this user.')
       }
+      if (!personalScope && account.accountScope === 'personal') {
+        throw new Error('Selected account is personal and cannot be used for company/organisation publishing.')
+      }
       const platformNames = platformMap[platformType] ?? []
-      if (!isPublishableAccount(account, platformNames)) {
+      if (!isPublishableAccount(account, platformNames, { allowPersonal: personalScope })) {
         throw new Error(`Selected ${platformType} account is not publishable. Reconnect it from Social Accounts and try again.`)
       }
       const provider = buildProviderFromAccount(account, orgId, platformType)

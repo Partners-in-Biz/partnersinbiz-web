@@ -202,6 +202,18 @@ export const POST = withAuth('client', withTenant(async (req, user, orgId) => {
         return apiError('Selected personal account does not match the chosen platform', 400)
       }
     }
+  } else if (accountIds.length > 0) {
+    for (const accountId of accountIds) {
+      const accountDoc = await adminDb.collection('social_accounts').doc(accountId).get()
+      const account = accountDoc.data()
+      if (!accountDoc.exists || account?.orgId !== orgId || account.accountScope === PERSONAL_SCOPE || account.status !== 'active') {
+        return apiError('Selected company/organisation account is not available for this workspace', 403)
+      }
+      const accountPlatform = toProviderPlatform(String(account.platform ?? ''))
+      if (!accountPlatform || !platforms.includes(accountPlatform)) {
+        return apiError('Selected company/organisation account does not match the chosen platform', 400)
+      }
+    }
   }
 
   // --- Resolve scheduling ---

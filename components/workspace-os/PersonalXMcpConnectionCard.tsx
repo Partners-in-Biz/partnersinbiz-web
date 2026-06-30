@@ -182,6 +182,7 @@ export function PersonalXMcpConnectionCard({
         <p><span className="font-medium text-on-surface">Client command:</span> <code className="rounded bg-[var(--color-surface-container)] px-1 py-0.5">{X_MCP_CLIENT_CONFIG.command}</code></p>
         <p><span className="font-medium text-on-surface">Docs MCP:</span> {X_MCP_CLIENT_CONFIG.docsServer}</p>
         <p><span className="font-medium text-on-surface">Startup timeout:</span> {X_MCP_CLIENT_CONFIG.startupTimeoutSeconds}s minimum for the one-time OAuth login.</p>
+        <p><span className="font-medium text-on-surface">Bookmark access in PiB:</span> Personal X social OAuth now requests <code className="rounded bg-[var(--color-surface-container)] px-1 py-0.5">bookmark.read</code> and <code className="rounded bg-[var(--color-surface-container)] px-1 py-0.5">bookmark.write</code>. If your X account was connected before this update, reconnect it from this Personal accounts page so PiB can read your latest bookmark.</p>
       </div>
 
       {error && <p className="rounded-md border border-red-400/30 bg-red-400/10 px-3 py-2 text-sm text-red-300">{error}</p>}

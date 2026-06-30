@@ -3,6 +3,26 @@ import { adminDb } from '@/lib/firebase/admin'
 import { findDefaultAccount, toPlatformType } from '@/lib/social/account-resolver'
 import type { PostStatus } from '@/lib/social/providers'
 
+const platformAliases: Record<string, string[]> = {
+  twitter: ['twitter'],
+  linkedin: ['linkedin'],
+  facebook: ['facebook'],
+  instagram: ['instagram'],
+  bluesky: ['bluesky'],
+  pinterest: ['pinterest'],
+  threads: ['threads'],
+  tiktok: ['tiktok'],
+  youtube: ['youtube'],
+  mastodon: ['mastodon'],
+  reddit: ['reddit'],
+  dribbble: ['dribbble'],
+}
+
+function accountMatchesPlatform(account: FirebaseFirestore.DocumentData | undefined, platformType: string): boolean {
+  if (!account) return false
+  return (platformAliases[platformType] ?? [platformType]).includes(String(account.platform ?? ''))
+}
+
 export function hasFinalApproval(post: FirebaseFirestore.DocumentData): boolean {
   return Boolean(
     post.approvedAt ||
@@ -31,9 +51,16 @@ export async function hasActivePublishAccount(post: FirebaseFirestore.DocumentDa
     for (const accountId of accountIds) {
       const doc = await adminDb.collection('social_accounts').doc(accountId).get()
       const account = doc.data()
-      const personalMatches = post.accountScope !== 'personal' ||
-        (account?.accountScope === 'personal' && account.ownerUid === post.ownerUid)
-      if (doc.exists && account?.orgId === orgId && account.status === 'active' && personalMatches) return true
+      const personalMatches = post.accountScope === 'personal'
+        ? account?.accountScope === 'personal' && account.ownerUid === post.ownerUid
+        : account?.accountScope !== 'personal'
+      if (
+        doc.exists &&
+        account?.orgId === orgId &&
+        account.status === 'active' &&
+        personalMatches &&
+        accountMatchesPlatform(account, platformType)
+      ) return true
     }
     return false
   }

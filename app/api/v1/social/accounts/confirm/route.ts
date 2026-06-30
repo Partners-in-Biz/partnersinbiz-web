@@ -99,7 +99,12 @@ export const POST = withAuth('client', withTenant(async (req: NextRequest, user:
       existingQuery = existingQuery.where('accountScope', '==', PERSONAL_SCOPE).where('ownerUid', '==', user?.uid ?? '')
     }
 
-    const existing = await existingQuery.limit(1).get()
+    const existing = await existingQuery.limit(personalScope ? 1 : 10).get()
+    const matchingExistingDoc = existing.docs?.find((candidate: any) => {
+      const data = candidate.data?.() ?? {}
+      if (personalScope) return data.accountScope === PERSONAL_SCOPE && data.ownerUid === (user?.uid ?? '')
+      return data.accountScope !== PERSONAL_SCOPE
+    })
 
     const accountData: Record<string, unknown> = {
       orgId,
@@ -115,14 +120,14 @@ export const POST = withAuth('client', withTenant(async (req: NextRequest, user:
       scopes: option.scopes ?? [],
       encryptedTokens,
       platformMeta: option.platformMeta ?? {},
-      ...(personalScope ? { accountScope: PERSONAL_SCOPE, ownerUid: user?.uid ?? '' } : {}),
+      ...(personalScope ? { accountScope: PERSONAL_SCOPE, ownerUid: user?.uid ?? '' } : { accountScope: 'org', ownerUid: null }),
       updatedAt: FieldValue.serverTimestamp(),
     }
 
-    if (!existing.empty) {
-      const ref = existing.docs[0].ref
+    if (matchingExistingDoc) {
+      const ref = matchingExistingDoc.ref
       batch.update(ref, accountData as any)
-      accountIds.push(existing.docs[0].id)
+      accountIds.push(matchingExistingDoc.id)
     } else {
       const ref = adminDb.collection('social_accounts').doc()
       batch.set(ref, {

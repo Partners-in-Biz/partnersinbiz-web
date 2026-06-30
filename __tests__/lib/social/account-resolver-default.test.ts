@@ -69,4 +69,14 @@ describe('findDefaultAccount', () => {
     const result = await findDefaultAccount('org-1', 'instagram')
     expect(result?.id).toBe('good-ig')
   })
+
+  it('never returns personal accounts as company/organisation publishing defaults', async () => {
+    const personalDefaultDoc = { id: 'personal-default', data: () => ({ platform: 'twitter', platformAccountId: 'tw-personal', encryptedTokens: {}, isDefault: true, status: 'active', accountScope: 'personal', ownerUid: 'user-1' }) }
+    const orgFallbackDoc = { id: 'org-fallback', data: () => ({ platform: 'twitter', platformAccountId: 'tw-org', encryptedTokens: {}, isDefault: false, status: 'active', accountScope: 'org', ownerUid: null }) }
+    mockGet
+      .mockResolvedValueOnce({ empty: false, docs: [personalDefaultDoc] })
+      .mockResolvedValueOnce({ empty: false, docs: [personalDefaultDoc, orgFallbackDoc] })
+    const result = await findDefaultAccount('org-1', 'twitter')
+    expect(result?.id).toBe('org-fallback')
+  })
 })
