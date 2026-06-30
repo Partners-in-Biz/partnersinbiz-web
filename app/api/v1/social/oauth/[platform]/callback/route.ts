@@ -27,8 +27,9 @@ export async function GET(req: NextRequest) {
   const stateToken = url.searchParams.get('state')
   const error = url.searchParams.get('error')
 
-  // Default redirect on failure
-  let redirectUrl = '/portal/social'
+  // Default redirect on failure. If X/provider sends an error with state, recover
+  // the saved personal/company return path before redirecting.
+  let redirectUrl = recoverRedirectUrlFromState(stateToken) ?? '/portal/social'
 
   try {
     // Handle platform-side errors
@@ -229,15 +230,22 @@ export async function GET(req: NextRequest) {
       orgId,
     )
 
-    // Check if account already exists for this platform + platformAccountId
-    // Uses top-level social_accounts collection (matching GET/POST /accounts endpoints)
+    // Check if account already exists for this platform + platformAccountId,
+    // but never let a personal OAuth connect mutate a company/org account or vice versa.
     const existingQuery = await adminDb
       .collection('social_accounts')
       .where('orgId', '==', orgId)
       .where('platform', '==', platform)
       .where('platformAccountId', '==', profile.platformAccountId)
-      .limit(1)
+      .limit(10)
       .get()
+    const matchingExistingDoc = existingQuery.docs.find((candidate) => {
+      const candidateData = candidate.data()
+      if (accountScope === 'personal') {
+        return candidateData.accountScope === 'personal' && candidateData.ownerUid === ownerUid
+      }
+      return candidateData.accountScope !== 'personal'
+    })
 
     const now = Timestamp.now()
     const accountData = {
@@ -266,13 +274,17 @@ export async function GET(req: NextRequest) {
     }
 
     let accountId: string
-    if (!existingQuery.empty) {
-      // Update existing account
-      accountId = existingQuery.docs[0].id
+    if (matchingExistingDoc) {
+      // Update existing account within the same account scope
+      accountId = matchingExistingDoc.id
       await adminDb
         .collection('social_accounts')
         .doc(accountId)
-        .update(accountData)
+        .update(accountScope === 'personal' ? accountData : {
+          ...accountData,
+          accountScope: 'org',
+          ownerUid: null,
+        })
     } else {
       // Create new account
       const docRef = await adminDb
@@ -307,6 +319,16 @@ export async function GET(req: NextRequest) {
     return NextResponse.redirect(
       new URL(buildOAuthRedirectPath(redirectUrl, { status: 'error', message }), url.origin),
     )
+  }
+}
+
+function recoverRedirectUrlFromState(stateToken: string | null): string | null {
+  if (!stateToken) return null
+  try {
+    const stateData = JSON.parse(Buffer.from(stateToken, 'base64url').toString())
+    return sanitizeOAuthRedirectPath(stateData?.redirectUrl)
+  } catch {
+    return null
   }
 }
 

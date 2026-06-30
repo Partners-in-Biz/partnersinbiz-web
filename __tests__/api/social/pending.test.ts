@@ -35,7 +35,7 @@ jest.mock('@/lib/firebase/admin', () => ({
 }))
 jest.mock('@/lib/api/auth', () => ({
   withAuth: (_role: string, handler: any) => (req: any, ctx: any) =>
-    handler(req, null, ctx),
+    handler(req, { uid: 'user-1', role: 'client' }, ctx),
 }))
 jest.mock('@/lib/api/tenant', () => ({
   withTenant: (handler: any) => (req: any, _user: any, ctx: any) =>
@@ -86,6 +86,22 @@ describe('GET /api/v1/social/oauth/pending/[nonce]', () => {
       data: () => ({
         orgId: 'org-1',
         expiresAt: { toDate: () => new Date(Date.now() - 1000) },
+        platform: 'linkedin',
+        options: [],
+      }),
+    })
+    const res = await GET({} as any, makeCtx('abc'))
+    expect(res.status).toBe(404)
+  })
+
+  it('returns 404 when a personal pending selection belongs to another user', async () => {
+    mockGet.mockResolvedValue({
+      exists: true,
+      data: () => ({
+        orgId: 'org-1',
+        accountScope: 'personal',
+        ownerUid: 'user-2',
+        expiresAt: { toDate: () => new Date(Date.now() + 60000) },
         platform: 'linkedin',
         options: [],
       }),

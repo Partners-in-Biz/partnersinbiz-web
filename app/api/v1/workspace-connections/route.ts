@@ -54,6 +54,27 @@ export const POST = withAuth('client', async (req: NextRequest, user) => {
       },
     }
   }
+  if (connection.provider === X_MCP_PROVIDER) {
+    const existingSnapshot = await adminDb
+      .collection(WORKSPACE_CONNECTION_COLLECTION)
+      .where('orgId', '==', orgId)
+      .where('provider', '==', X_MCP_PROVIDER)
+      .where('connectionKey', '==', connection.connectionKey ?? X_MCP_CONNECTION_KEY)
+      .get()
+      .catch(() => null)
+    const existing = existingSnapshot?.docs?.find((doc) => {
+      const data = doc.data()
+      return data.deleted !== true && (data.ownerUserId === user.uid || (data.owner?.type === 'user' && data.owner.id === user.uid))
+    })
+    if (existing) {
+      await existing.ref.update({
+        ...connection,
+        updatedAt: FieldValue.serverTimestamp(),
+      })
+      return apiSuccess({ id: existing.id, existing: true })
+    }
+  }
+
   const ref = await adminDb.collection(WORKSPACE_CONNECTION_COLLECTION).add({
     ...connection,
     ...actorFrom(user),

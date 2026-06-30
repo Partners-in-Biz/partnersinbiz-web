@@ -20,7 +20,7 @@ type PendingOption = {
   platformMeta: Record<string, unknown>
 }
 
-export const GET = withAuth('client', withTenant(async (_req: NextRequest, _user, orgId, context) => {
+export const GET = withAuth('client', withTenant(async (_req: NextRequest, user, orgId, context) => {
   const { nonce } = await (context as Params).params
   const doc = await adminDb.collection('social_oauth_pending').doc(nonce).get()
 
@@ -28,9 +28,14 @@ export const GET = withAuth('client', withTenant(async (_req: NextRequest, _user
 
   const data = doc.data()!
   if (data.orgId !== orgId) return apiError('Not found', 404)
+  if (data.accountScope === 'personal' && data.ownerUid !== user.uid) return apiError('Not found', 404)
   if (data.expiresAt.toDate() < new Date()) return apiError('Not found', 404)
 
-  const options = ((data.options ?? []) as PendingOption[]).map(({ encryptedTokens: _, ...opt }) => opt)
+  const options = ((data.options ?? []) as PendingOption[]).map((option) => {
+    const copy = { ...option }
+    delete copy.encryptedTokens
+    return copy
+  })
 
   return apiSuccess({ platform: data.platform, options })
 }))

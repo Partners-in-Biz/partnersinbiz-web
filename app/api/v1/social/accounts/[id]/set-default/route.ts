@@ -9,7 +9,7 @@ export const dynamic = 'force-dynamic'
 
 type Params = { params: Promise<{ id: string }> }
 
-export const PUT = withAuth('client', withTenant(async (_req: NextRequest, _user, orgId, context) => {
+export const PUT = withAuth('client', withTenant(async (_req: NextRequest, user, orgId, context) => {
   const { id } = await (context as Params).params
 
   const doc = await adminDb.collection('social_accounts').doc(id).get()
@@ -17,6 +17,8 @@ export const PUT = withAuth('client', withTenant(async (_req: NextRequest, _user
 
   const data = doc.data()!
   if (data.orgId !== orgId) return apiError('Not found', 404)
+  const isPersonal = data.accountScope === 'personal'
+  if (isPersonal && data.ownerUid !== user.uid) return apiError('Not found', 404)
 
   const existingDefaults = await adminDb
     .collection('social_accounts')
@@ -27,7 +29,11 @@ export const PUT = withAuth('client', withTenant(async (_req: NextRequest, _user
 
   const batch = adminDb.batch()
   for (const d of existingDefaults.docs) {
-    if (d.id !== id) {
+    const defaultData = d.data()
+    const sameDefaultScope = isPersonal
+      ? defaultData.accountScope === 'personal' && defaultData.ownerUid === user.uid
+      : defaultData.accountScope !== 'personal'
+    if (d.id !== id && sameDefaultScope) {
       batch.update(d.ref, { isDefault: false, updatedAt: FieldValue.serverTimestamp() })
     }
   }

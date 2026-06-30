@@ -143,13 +143,43 @@ describe('personal workspace social UI', () => {
     })
   })
 
+  it('shows saved X MCP metadata as authorization-required, not connected', async () => {
+    ;(global.fetch as jest.Mock).mockImplementation((input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url === '/api/v1/portal/orgs') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ activeOrgId: 'org-1', orgs: [{ id: 'org-1', name: 'Acme', logoUrl: '' }] }),
+        } as Response)
+      }
+      if (url === '/api/v1/workspace-connections?orgId=org-1&provider=x_mcp&owner=me') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            data: [{ id: 'x-conn-1', provider: 'x_mcp', connectionKey: 'x-mcp-user-account', status: 'proposed', tokenStatus: 'user_authorization_required' }],
+          }),
+        } as Response)
+      }
+      return Promise.resolve({ ok: true, json: async () => ({ data: [] }) } as Response)
+    })
+
+    render(<PersonalXMcpConnectionCard />)
+
+    expect(await screen.findByText('Authorization required · not usable by agents yet')).toBeInTheDocument()
+    expect(screen.getByText(/authorization is still required in xurl/i)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /x mcp setup saved/i })).toBeDisabled()
+  })
+
   it('prepares a user-owned X MCP registry record from the personal account surface', async () => {
     render(<PersonalXMcpConnectionCard />)
 
     expect(await screen.findByText('Personal X MCP and bookmarks')).toBeInTheDocument()
+    expect(await screen.findByText('Not prepared')).toBeInTheDocument()
     expect(screen.getAllByText(/https:\/\/api\.x\.com\/mcp/i).length).toBeGreaterThan(0)
 
-    fireEvent.click(screen.getByRole('button', { name: /prepare personal x mcp/i }))
+    const prepareButton = screen.getByRole('button', { name: /prepare personal x mcp/i })
+    await waitFor(() => expect(prepareButton).not.toBeDisabled())
+    fireEvent.click(prepareButton)
 
     await waitFor(() => {
       const post = (global.fetch as jest.Mock).mock.calls.find(([url, init]) =>

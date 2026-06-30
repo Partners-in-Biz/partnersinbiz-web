@@ -15,30 +15,35 @@ export const dynamic = 'force-dynamic'
 
 type Params = { params: Promise<{ id: string }> }
 
-export const GET = withAuth('client', withTenant(async (_req, _user, orgId, context) => {
+function canAccessAccount(data: Record<string, unknown>, orgId: string, uid: string): boolean {
+  if (data.orgId !== orgId) return false
+  if (data.accountScope === 'personal') return data.ownerUid === uid
+  return true
+}
+
+export const GET = withAuth('client', withTenant(async (_req: NextRequest, user, orgId, context) => {
   const { id } = await (context as Params).params
   const doc = await adminDb.collection('social_accounts').doc(id).get()
   if (!doc.exists) return apiError('Account not found', 404)
 
   const data = doc.data()!
-  if (data.orgId !== orgId) return apiError('Account not found', 404)
+  if (!canAccessAccount(data, orgId, user.uid)) return apiError('Account not found', 404)
 
-  const { encryptedTokens: _, ...safe } = data
+  const safe = Object.fromEntries(Object.entries(data).filter(([key]) => key !== 'encryptedTokens'))
   return apiSuccess({ id: doc.id, ...safe })
 }))
 
-export const PUT = withAuth('client', withTenant(async (req, _user, orgId, context) => {
+export const PUT = withAuth('client', withTenant(async (req, user, orgId, context) => {
   const { id } = await (context as Params).params
   const doc = await adminDb.collection('social_accounts').doc(id).get()
   if (!doc.exists) return apiError('Account not found', 404)
 
   const data = doc.data()!
-  if (data.orgId !== orgId) return apiError('Account not found', 404)
+  if (!canAccessAccount(data, orgId, user.uid)) return apiError('Account not found', 404)
 
   const body = await req.json()
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const updates: Record<string, any> = {
+  const updates: Record<string, unknown> = {
     updatedAt: FieldValue.serverTimestamp(),
   }
 
@@ -59,7 +64,7 @@ export const DELETE = withAuth('client', withTenant(async (req, user, orgId, con
   if (!doc.exists) return apiError('Account not found', 404)
 
   const data = doc.data()!
-  if (data.orgId !== orgId) return apiError('Account not found', 404)
+  if (!canAccessAccount(data, orgId, user.uid)) return apiError('Account not found', 404)
 
   await adminDb.collection('social_accounts').doc(id).update({
     status: 'disconnected',

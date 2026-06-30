@@ -37,13 +37,18 @@ const X_MCP_CAPABILITIES = {
   xArticlesWrite: true,
 }
 
+function isXMcpVerified(connection: WorkspaceConnectionSummary | null): boolean {
+  return connection?.status === 'active' && ['valid', 'healthy'].includes(connection.tokenStatus ?? '')
+}
+
 function statusLabel(connection: WorkspaceConnectionSummary | null): string {
   if (!connection) return 'Not prepared'
-  return `${connection.status ?? 'proposed'} · ${connection.tokenStatus ?? 'authorization pending'}`
+  if (isXMcpVerified(connection)) return 'Authorized · usable by agents'
+  return 'Authorization required · not usable by agents yet'
 }
 
 function statusClass(connection: WorkspaceConnectionSummary | null): string {
-  return connection
+  return isXMcpVerified(connection)
     ? 'rounded-full bg-green-500/10 px-2 py-0.5 text-[10px] font-label uppercase tracking-wide text-green-300'
     : 'rounded-full bg-amber-500/10 px-2 py-0.5 text-[10px] font-label uppercase tracking-wide text-amber-300'
 }
@@ -149,7 +154,7 @@ export function PersonalXMcpConnectionCard({
       if (!response.ok) {
         throw new Error(typeof body?.error === 'string' ? body.error : 'Failed to prepare personal X MCP connection.')
       }
-      setNotice('Prepared your personal X MCP registry record. Next, authorize your own X account through xurl in your MCP client before agents can read your bookmarks.')
+      setNotice('Setup metadata saved. Authorization is still required in xurl before PiB agents can read your X bookmarks.')
       await loadConnection()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to prepare personal X MCP connection.')
@@ -180,7 +185,12 @@ export function PersonalXMcpConnectionCard({
       </div>
 
       {error && <p className="rounded-md border border-red-400/30 bg-red-400/10 px-3 py-2 text-sm text-red-300">{error}</p>}
-      {notice && <p className="rounded-md border border-green-400/30 bg-green-400/10 px-3 py-2 text-sm text-green-300">{notice}</p>}
+      {notice && <p className="rounded-md border border-amber-400/30 bg-amber-400/10 px-3 py-2 text-sm text-amber-200">{notice}</p>}
+      {connection && !isXMcpVerified(connection) && (
+        <p className="rounded-md border border-amber-400/30 bg-amber-400/10 px-3 py-2 text-sm text-amber-100">
+          X MCP setup metadata is saved, but authorization is still required in xurl and PiB cannot verify a local xurl OAuth session yet. Agents will not use this MCP record for bookmarks until a verified authorization/health check exists.
+        </p>
+      )}
 
       <div className="flex flex-wrap gap-2">
         <button
@@ -189,7 +199,7 @@ export function PersonalXMcpConnectionCard({
           disabled={loading || preparing || Boolean(connection) || !connectionListPath}
           className="pib-btn-primary text-xs disabled:cursor-not-allowed disabled:opacity-50"
         >
-          {preparing ? 'Preparing…' : connection ? 'X MCP record ready' : 'Prepare personal X MCP'}
+          {preparing ? 'Preparing…' : connection ? 'X MCP setup saved — authorize in xurl' : 'Prepare personal X MCP'}
         </button>
         <a href="https://docs.x.com/tools/mcp" className="pib-btn-secondary text-xs" target="_blank" rel="noreferrer">
           Open X MCP docs
