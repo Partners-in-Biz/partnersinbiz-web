@@ -50,12 +50,12 @@ describe('generateInline', () => {
       mimeType: 'image/png',
     })
 
-    // Verify it hit the xAI endpoint with the landscape size mapping.
+    // Verify it hit the xAI endpoint without the unsupported legacy size field.
     expect(fetchMock).toHaveBeenCalledTimes(1)
     const [url, init] = fetchMock.mock.calls[0]
     expect(url).toBe('https://api.x.ai/v1/images/generations')
     const sentBody = JSON.parse((init as RequestInit).body as string)
-    expect(sentBody.size).toBe('landscape')
+    expect(sentBody.size).toBeUndefined()
     expect(sentBody.model).toBe('grok-2-image')
   })
 

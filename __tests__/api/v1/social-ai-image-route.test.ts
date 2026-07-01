@@ -38,7 +38,7 @@ describe('POST /api/v1/social/ai/image', () => {
     jest.restoreAllMocks()
   })
 
-  it('sends the current xAI image payload and returns a data URL for agent upload flows', async () => {
+  it('sends an xAI image payload without unsupported size fields and returns a data URL for agent upload flows', async () => {
     const { POST } = await import('@/app/api/v1/social/ai/image/route')
 
     const res = await POST(new NextRequest('http://localhost/api/v1/social/ai/image', {
@@ -58,8 +58,6 @@ describe('POST /api/v1/social/ai/image', () => {
       body: JSON.stringify({
         model: 'grok-2-image',
         prompt: 'Premium PiB campaign card',
-        num_images: 1,
-        size: 'portrait',
         response_format: 'b64_json',
       }),
     }))
@@ -74,7 +72,7 @@ describe('POST /api/v1/social/ai/image', () => {
     ;(global.fetch as jest.Mock).mockResolvedValueOnce({
       ok: false,
       status: 400,
-      json: async () => ({ error: { message: 'size must be square, portrait, or landscape' } }),
+      json: async () => ({ error: 'Argument not supported: size' }),
     })
     const { POST } = await import('@/app/api/v1/social/ai/image/route')
 
@@ -90,6 +88,6 @@ describe('POST /api/v1/social/ai/image', () => {
     const body = await res.json()
 
     expect(res.status).toBe(400)
-    expect(body.error).toContain('size must be square, portrait, or landscape')
+    expect(body.error).toContain('Argument not supported: size')
   })
 })

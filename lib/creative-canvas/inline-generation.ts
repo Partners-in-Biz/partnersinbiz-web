@@ -26,14 +26,6 @@ export interface InlineGenerationResult {
   mimeType: string
 }
 
-type XaiSize = 'square' | 'portrait' | 'landscape'
-
-const XAI_SIZE_BY_ASPECT_RATIO: Record<string, XaiSize> = {
-  '1:1': 'square',
-  '9:16': 'portrait',
-  '16:9': 'landscape',
-}
-
 /**
  * Single internal network call to the xAI (Grok) image endpoint.
  * Isolated so tests can mock global.fetch.
@@ -41,7 +33,6 @@ const XAI_SIZE_BY_ASPECT_RATIO: Record<string, XaiSize> = {
 async function callXaiImage(
   prompt: string,
   apiKey: string,
-  size: XaiSize,
 ): Promise<InlineGenerationResult> {
   const response = await fetch('https://api.x.ai/v1/images/generations', {
     method: 'POST',
@@ -52,17 +43,17 @@ async function callXaiImage(
     body: JSON.stringify({
       model: 'grok-2-image',
       prompt,
-      num_images: 1,
-      size,
       response_format: 'b64_json',
     }),
   })
 
   if (!response.ok) {
     const errorData = (await response.json().catch(() => ({}))) as {
-      error?: { message?: string }
+      error?: string | { message?: string }
     }
-    const msg = errorData?.error?.message ?? `xAI API error (${response.status})`
+    const msg = typeof errorData?.error === 'string'
+      ? errorData.error
+      : errorData?.error?.message ?? `xAI API error (${response.status})`
     if (response.status === 429) throw new Error('RATE_LIMIT')
     if (response.status === 400 && msg.toLowerCase().includes('policy')) {
       throw new Error('CONTENT_POLICY')
@@ -107,7 +98,5 @@ export async function generateInline(
     throw new Error('XAI_API_KEY not configured')
   }
 
-  const size = XAI_SIZE_BY_ASPECT_RATIO[input.aspectRatio ?? '1:1'] ?? 'square'
-
-  return callXaiImage(input.prompt, apiKey, size)
+  return callXaiImage(input.prompt, apiKey)
 }

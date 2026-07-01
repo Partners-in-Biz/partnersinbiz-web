@@ -24,19 +24,12 @@ class XaiImageError extends Error {
   }
 }
 
-const XAI_SIZE_BY_REQUEST_SIZE: Record<NonNullable<ImageGenerationRequest['size']>, 'square' | 'portrait' | 'landscape'> = {
-  '1024x1024': 'square',
-  '1024x1536': 'portrait',
-  '1536x1024': 'landscape',
-}
-
 // ---------------------------------------------------------------------------
 // xAI (Grok) image generation
 // ---------------------------------------------------------------------------
 async function generateWithXai(
   prompt: string,
   apiKey: string,
-  size: NonNullable<ImageGenerationRequest['size']>,
 ): Promise<{ url: string; revisedPrompt: string }> {
   const response = await fetch('https://api.x.ai/v1/images/generations', {
     method: 'POST',
@@ -47,15 +40,15 @@ async function generateWithXai(
     body: JSON.stringify({
       model: 'grok-2-image',
       prompt,
-      num_images: 1,
-      size: XAI_SIZE_BY_REQUEST_SIZE[size],
       response_format: 'b64_json',
     }),
   })
 
   if (!response.ok) {
-    const errorData = await response.json().catch(() => ({})) as { error?: { message?: string } }
-    const msg = errorData?.error?.message ?? `xAI API error (${response.status})`
+    const errorData = await response.json().catch(() => ({})) as { error?: string | { message?: string } }
+    const msg = typeof errorData?.error === 'string'
+      ? errorData.error
+      : errorData?.error?.message ?? `xAI API error (${response.status})`
     if (response.status === 429) throw new Error('RATE_LIMIT')
     if (response.status === 400 && msg.toLowerCase().includes('policy')) throw new Error('CONTENT_POLICY')
     throw new XaiImageError(msg, response.status)
@@ -93,7 +86,7 @@ export const POST = withAuth('admin', withTenant(async (req) => {
   if (!xaiKey) return apiError('XAI_API_KEY not configured', 500)
 
   try {
-    const result = await generateWithXai(prompt, xaiKey, size)
+    const result = await generateWithXai(prompt, xaiKey)
 
     return apiSuccess({
       url: result.url,
