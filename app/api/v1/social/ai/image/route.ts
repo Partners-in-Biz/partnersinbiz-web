@@ -24,6 +24,25 @@ class XaiImageError extends Error {
   }
 }
 
+const XAI_IMAGE_MODEL = 'grok-imagine-image-quality'
+
+function safeProviderMessage(value: unknown): string | null {
+  if (!value) return null
+  if (typeof value === 'string') return value.slice(0, 500)
+  if (Array.isArray(value)) {
+    return value.map(safeProviderMessage).filter(Boolean).join('; ').slice(0, 500) || null
+  }
+  if (typeof value === 'object') {
+    const obj = value as Record<string, unknown>
+    return safeProviderMessage(obj.message)
+      ?? safeProviderMessage(obj.error)
+      ?? safeProviderMessage(obj.detail)
+      ?? safeProviderMessage(obj.details)
+      ?? safeProviderMessage(obj.errors)
+  }
+  return null
+}
+
 // ---------------------------------------------------------------------------
 // xAI (Grok) image generation
 // ---------------------------------------------------------------------------
@@ -38,17 +57,14 @@ async function generateWithXai(
       Authorization: `Bearer ${apiKey}`,
     },
     body: JSON.stringify({
-      model: 'grok-2-image',
+      model: XAI_IMAGE_MODEL,
       prompt,
-      response_format: 'b64_json',
     }),
   })
 
   if (!response.ok) {
-    const errorData = await response.json().catch(() => ({})) as { error?: string | { message?: string } }
-    const msg = typeof errorData?.error === 'string'
-      ? errorData.error
-      : errorData?.error?.message ?? `xAI API error (${response.status})`
+    const errorData = await response.json().catch(() => null)
+    const msg = safeProviderMessage(errorData) ?? `xAI API error (${response.status})`
     if (response.status === 429) throw new Error('RATE_LIMIT')
     if (response.status === 400 && msg.toLowerCase().includes('policy')) throw new Error('CONTENT_POLICY')
     throw new XaiImageError(msg, response.status)

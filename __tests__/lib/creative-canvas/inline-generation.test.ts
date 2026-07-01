@@ -40,7 +40,7 @@ describe('generateInline', () => {
 
     const result = await generateInline({
       providerKey: 'xai',
-      model: 'grok-2-image',
+      model: 'grok-image',
       prompt: 'a sunset over mountains',
       aspectRatio: '16:9',
     })
@@ -50,13 +50,15 @@ describe('generateInline', () => {
       mimeType: 'image/png',
     })
 
-    // Verify it hit the xAI endpoint without the unsupported legacy size field.
+    // Verify it hit the current xAI Imagine endpoint with the supported payload.
     expect(fetchMock).toHaveBeenCalledTimes(1)
     const [url, init] = fetchMock.mock.calls[0]
     expect(url).toBe('https://api.x.ai/v1/images/generations')
     const sentBody = JSON.parse((init as RequestInit).body as string)
-    expect(sentBody.size).toBeUndefined()
-    expect(sentBody.model).toBe('grok-2-image')
+    expect(sentBody).toEqual({
+      model: 'grok-imagine-image-quality',
+      prompt: 'a sunset over mountains',
+    })
   })
 
   it('returns a data URL for xai when only b64_json is returned', async () => {
@@ -69,7 +71,7 @@ describe('generateInline', () => {
 
     const result = await generateInline({
       providerKey: 'xai',
-      model: 'grok-2-image',
+      model: 'grok-image',
       prompt: 'a logo',
     })
 
@@ -82,7 +84,7 @@ describe('generateInline', () => {
 
     const promise = generateInline({
       providerKey: 'xai',
-      model: 'grok-2-image',
+      model: 'grok-image',
       prompt: 'a tree',
     })
 

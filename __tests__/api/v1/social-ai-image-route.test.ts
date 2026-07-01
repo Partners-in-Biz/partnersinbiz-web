@@ -56,9 +56,8 @@ describe('POST /api/v1/social/ai/image', () => {
     expect(global.fetch).toHaveBeenCalledWith('https://api.x.ai/v1/images/generations', expect.objectContaining({
       method: 'POST',
       body: JSON.stringify({
-        model: 'grok-2-image',
+        model: 'grok-imagine-image-quality',
         prompt: 'Premium PiB campaign card',
-        response_format: 'b64_json',
       }),
     }))
     expect(body.data).toEqual(expect.objectContaining({
@@ -89,5 +88,28 @@ describe('POST /api/v1/social/ai/image', () => {
 
     expect(res.status).toBe(400)
     expect(body.error).toContain('Argument not supported: size')
+  })
+
+  it('extracts xAI validation details when the provider returns a non-OpenAI error shape', async () => {
+    ;(global.fetch as jest.Mock).mockResolvedValueOnce({
+      ok: false,
+      status: 400,
+      json: async () => ({ message: 'Invalid model: grok-2-image' }),
+    })
+    const { POST } = await import('@/app/api/v1/social/ai/image/route')
+
+    const res = await POST(new NextRequest('http://localhost/api/v1/social/ai/image', {
+      method: 'POST',
+      headers: {
+        authorization: 'Bearer test-ai-key',
+        'x-org-id': 'pib-platform-owner',
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({ prompt: 'Premium PiB campaign card' }),
+    }))
+    const body = await res.json()
+
+    expect(res.status).toBe(400)
+    expect(body.error).toContain('Invalid model: grok-2-image')
   })
 })
