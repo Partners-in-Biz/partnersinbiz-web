@@ -18,6 +18,10 @@ function docs(rows: Record<string, unknown>[], prefix: string) {
   return rows.map((row, index) => ({ id: `${prefix}-${index}`, data: () => row }))
 }
 
+function timestamp(iso: string) {
+  return { toDate: () => new Date(iso) }
+}
+
 function collectionRows(name: string): Record<string, unknown>[] {
   if (name === 'organizations') return [{ settings: {} }]
   if (name === 'contacts') return [{ type: 'lead', stage: 'proposal', source: 'manual' }]
@@ -85,5 +89,101 @@ describe('GET /api/v1/agent/growth-command-queue', () => {
       orgId: 'pib-platform-owner',
       limit: 80,
     }))
+  })
+
+  it('downgrades failed agent-run cards when the source conversation has later assistant recovery output', async () => {
+    mockBuildBriefingFeed.mockResolvedValue({
+      generatedAt: '2026-07-01T08:00:00.000Z',
+      total: 1,
+      items: [{
+        id: 'agent-run:run-doc-recovered:hash',
+        title: 'Pip run needs recovery',
+        summary: 'Pip run failed and needs review.',
+        excerpt: null,
+        priority: 'critical',
+        source: { type: 'agent-run', id: 'run-doc-recovered', collectionPath: 'hermes_runs', url: '/admin/agents/pip?run=run_123' },
+        context: { orgId: 'pib-platform-owner', reviewerAgentId: 'pip' },
+        actor: { id: 'agent:pip', role: 'ai', type: 'agent' },
+        occurredAt: new Date('2026-06-29T17:16:46.825Z'),
+        createdAt: new Date('2026-06-29T17:16:46.825Z'),
+        updatedAt: new Date('2026-06-29T17:16:46.825Z'),
+        timeAgo: '2 days ago',
+        unread: true,
+        requiresAction: true,
+        relevanceScore: 100,
+        status: 'active',
+        sourceHash: 'hash',
+        actions: [],
+        metadata: {},
+      }],
+      pageSize: 80,
+      hasMore: false,
+      scope: { orgId: 'pib-platform-owner' },
+    })
+
+    mockCollection.mockImplementation((name: string) => {
+      if (name === 'organizations') {
+        return {
+          doc: jest.fn(() => ({
+            get: jest.fn().mockResolvedValue({ exists: true, data: () => collectionRows(name)[0] }),
+          })),
+        }
+      }
+      if (name === 'hermes_runs') {
+        return {
+          doc: jest.fn(() => ({
+            get: jest.fn().mockResolvedValue({
+              exists: true,
+              data: () => ({
+                status: 'failed',
+                updatedAt: timestamp('2026-06-29T17:16:46.825Z'),
+                prompt: '[Conversation — convId: conv-recovered, participants: Peet Stander (admin), Pip (agent)]',
+              }),
+            }),
+          })),
+        }
+      }
+      if (name === 'conversations') {
+        return {
+          doc: jest.fn(() => ({
+            collection: jest.fn(() => ({
+              orderBy: jest.fn().mockReturnThis(),
+              limit: jest.fn().mockReturnThis(),
+              get: jest.fn().mockResolvedValue({
+                docs: [{
+                  data: () => ({
+                    role: 'assistant',
+                    status: 'completed',
+                    content: 'Done. I recovered the proposal output.',
+                    createdAt: timestamp('2026-06-29T17:37:34.516Z'),
+                  }),
+                }],
+              }),
+            })),
+          })),
+        }
+      }
+      return {
+        where: jest.fn().mockReturnThis(),
+        limit: jest.fn().mockReturnThis(),
+        get: jest.fn().mockResolvedValue({ docs: docs(collectionRows(name), name) }),
+      }
+    })
+
+    const { GET } = await import('@/app/api/v1/agent/growth-command-queue/route')
+    const res = await GET(new NextRequest('http://localhost/api/v1/agent/growth-command-queue', {
+      headers: { authorization: `Bearer ${AI_KEY}`, 'x-org-id': 'pib-platform-owner' },
+    }))
+    const body = await res.json()
+
+    expect(res.status).toBe(200)
+    const recoveredItem = body.data.queue.find((item: { id: string }) => item.id === 'briefing:agent-run:run-doc-recovered:hash')
+    expect(recoveredItem).toMatchObject({
+      kind: 'ops-cleanup',
+      priority: 'review',
+      approvalRequired: false,
+    })
+    expect(recoveredItem.summary).toContain('already recovered')
+    expect(body.data.sourceReports.briefingFeed.approvalLikeItems).toBe(0)
   })
 })

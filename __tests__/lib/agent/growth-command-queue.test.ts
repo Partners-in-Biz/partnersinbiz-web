@@ -254,4 +254,92 @@ describe('buildAgentGrowthCommandQueue', () => {
     })
     expect(queue.sourceReports.briefingFeed.approvalLikeItems).toBe(1)
   })
+
+  it('downgrades recovered failed agent-run cards to cleanup instead of critical retry work', () => {
+    const queue = buildAgentGrowthCommandQueue({
+      orgId: 'pib-platform-owner',
+      crm,
+      social: {
+        ...social,
+        summary: { ...social.summary, draftPosts: 0, failedPosts: 0 },
+        primaryFinding: {
+          code: 'content_ready',
+          title: 'Content is ready',
+          detail: 'No social action needed.',
+        },
+      },
+      failedSocial: {
+        ...failedSocial,
+        summary: { ...failedSocial.summary, failedPosts: 0, blockedFailures: 0 },
+      },
+      briefing: {
+        generatedAt: '2026-07-01T08:00:00.000Z',
+        total: 1,
+        items: [
+          briefing({
+            id: 'agent-run:recovered',
+            title: 'Pip run needs recovery',
+            summary: 'Pip run failed and needs review.',
+            priority: 'critical',
+            source: { type: 'agent-run', id: 'run-doc-recovered', collectionPath: 'hermes_runs', url: '/admin/agents/pip?run=run_123' },
+          }),
+        ],
+      },
+      recoveredAgentRunIds: ['run-doc-recovered'],
+      generatedAt: '2026-07-01T08:01:00.000Z',
+    })
+
+    const runItem = queue.queue.find((item) => item.id === 'briefing:agent-run:recovered')
+    expect(runItem).toMatchObject({
+      kind: 'ops-cleanup',
+      priority: 'review',
+      recommendedAgent: 'pip',
+      approvalRequired: false,
+    })
+    expect(runItem?.summary).toContain('already recovered')
+    expect(runItem?.blockedUntilApproval.join(' ')).toContain('Do not retry')
+    expect(queue.sourceReports.briefingFeed.approvalLikeItems).toBe(0)
+  })
+
+  it('keeps unresolved failed agent-run cards critical and approval-gated', () => {
+    const queue = buildAgentGrowthCommandQueue({
+      orgId: 'pib-platform-owner',
+      crm,
+      social: {
+        ...social,
+        summary: { ...social.summary, draftPosts: 0, failedPosts: 0 },
+        primaryFinding: {
+          code: 'content_ready',
+          title: 'Content is ready',
+          detail: 'No social action needed.',
+        },
+      },
+      failedSocial: {
+        ...failedSocial,
+        summary: { ...failedSocial.summary, failedPosts: 0, blockedFailures: 0 },
+      },
+      briefing: {
+        generatedAt: '2026-07-01T08:00:00.000Z',
+        total: 1,
+        items: [
+          briefing({
+            id: 'agent-run:unresolved',
+            title: 'Maya run needs recovery',
+            summary: 'Maya run failed and needs review.',
+            priority: 'critical',
+            source: { type: 'agent-run', id: 'run-doc-unresolved', collectionPath: 'hermes_runs', url: '/admin/agents/maya?run=run_456' },
+          }),
+        ],
+      },
+      generatedAt: '2026-07-01T08:01:00.000Z',
+    })
+
+    const runItem = queue.queue.find((item) => item.id === 'briefing:agent-run:unresolved')
+    expect(runItem).toMatchObject({
+      kind: 'agent-review',
+      priority: 'critical',
+      approvalRequired: true,
+    })
+    expect(queue.sourceReports.briefingFeed.approvalLikeItems).toBe(1)
+  })
 })
