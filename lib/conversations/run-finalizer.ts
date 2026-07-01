@@ -360,7 +360,7 @@ export async function finalizeConversationRun(input: {
         response: data,
         error: CONVERSATION_RUN_LOST_ERROR,
       })
-      await touchConversation(input.convId, `[run lost] ${CONVERSATION_RUN_LOST_ERROR}`, 'assistant')
+      await touchConversation(input.convId, `[run lost] ${CONVERSATION_RUN_LOST_ERROR}`, 'assistant', input.msgId)
       return {
         status: 'failed',
         content: '',
@@ -427,7 +427,7 @@ export async function finalizeConversationRun(input: {
       error: FieldValue.delete(),
       ...richPatch,
     })
-    await touchConversation(input.convId, previewOutput, 'assistant')
+    await touchConversation(input.convId, previewOutput, 'assistant', input.msgId)
     return { status: 'completed', content: output, runId, hermesStatus, ...richPatch }
   }
 
@@ -462,7 +462,7 @@ export async function finalizeConversationRun(input: {
       error,
       ...richPatch,
     })
-    await touchConversation(input.convId, `[run ${hermesStatus}] ${error}`, 'assistant')
+    await touchConversation(input.convId, `[run ${hermesStatus}] ${error}`, 'assistant', input.msgId)
     return { status: 'failed', content: error, error, runId, hermesStatus, ...richPatch }
   }
 
@@ -495,7 +495,7 @@ export async function finalizeConversationRun(input: {
       response: data,
       error: CONVERSATION_RUN_STALE_ERROR,
     })
-    await touchConversation(input.convId, `[run timed out] ${CONVERSATION_RUN_STALE_ERROR}`, 'assistant')
+    await touchConversation(input.convId, `[run timed out] ${CONVERSATION_RUN_STALE_ERROR}`, 'assistant', input.msgId)
     return {
       status: 'failed',
       content: '',

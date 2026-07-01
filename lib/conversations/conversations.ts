@@ -205,14 +205,17 @@ export async function touchConversation(
   convId: string,
   preview: string,
   role: ConversationMessage['role'],
+  messageId?: string,
 ): Promise<void> {
-  await convDoc(convId).update({
+  const update: Record<string, unknown> = {
     lastMessagePreview: preview.slice(0, 200),
     lastMessageRole: role,
     lastMessageAt: FieldValue.serverTimestamp(),
     messageCount: FieldValue.increment(1),
     updatedAt: FieldValue.serverTimestamp(),
-  })
+  }
+  if (messageId) update.lastMessageId = messageId
+  await convDoc(convId).update(update)
 }
 
 // ---------------------------------------------------------------------------
