@@ -19,6 +19,7 @@ import { hasFinalApproval } from '@/lib/social/scheduling'
 import { validatePublishReadyText } from '@/lib/social/publish-text'
 import { validateOutboundLinks } from '@/lib/social/outbound-link-validation'
 import { getFirstComment, postFirstComment } from '@/lib/social/first-comment'
+import { buildProviderPublishOptions } from '@/lib/social/publish-options'
 
 export const dynamic = 'force-dynamic'
 
@@ -81,7 +82,7 @@ export const POST = withAuth('admin', withTenant(async (_req, user, orgId, conte
         const results = await provider.publishThread(threadParts, mediaUrls)
         externalId = results[0].platformPostId
       } else {
-        const result = await provider.publishPost({ text, mediaUrls, shareType })
+        const result = await provider.publishPost(buildProviderPublishOptions({ post, text, mediaUrls, shareType }))
         externalId = result.platformPostId
       }
     } catch (publishErr) {
@@ -95,7 +96,7 @@ export const POST = withAuth('admin', withTenant(async (_req, user, orgId, conte
             const results = await refreshed.publishThread(threadParts, mediaUrls)
             externalId = results[0].platformPostId
           } else {
-            const result = await refreshed.publishPost({ text, mediaUrls, shareType })
+            const result = await refreshed.publishPost(buildProviderPublishOptions({ post, text, mediaUrls, shareType }))
             externalId = result.platformPostId
           }
           console.log(`[publish] Retry succeeded after refresh for ${accountId}`)
