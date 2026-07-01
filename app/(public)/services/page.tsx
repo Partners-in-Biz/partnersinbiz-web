@@ -229,6 +229,9 @@ export default function ServicesIndexPage() {
                   Start a project
                   <span className="material-symbols-outlined text-base">arrow_outward</span>
                 </Link>
+                <Link href="/properties" className="btn-pib-secondary">
+                  Partners in Biz Properties
+                </Link>
                 <a href={SITE.cal.url} className="btn-pib-secondary" target="_blank" rel="noreferrer">
                   Book a call
                 </a>
