@@ -19,6 +19,7 @@ import { validatePublishReadyText } from '@/lib/social/publish-text'
 import { validateOutboundLinks } from '@/lib/social/outbound-link-validation'
 import { notifySocialPublishFailure } from '@/lib/social/publish-failure-alerts'
 import { getFirstComment, postFirstComment } from '@/lib/social/first-comment'
+import { buildProviderPublishOptions } from '@/lib/social/publish-options'
 import crypto from 'crypto'
 
 /** Backoff schedule in seconds: 1min, 5min, 15min, 1hr */
@@ -56,13 +57,14 @@ async function publishWithRefresh(
   text: string,
   threadParts: string[] | undefined,
   mediaUrls: string[] | undefined,
+  post: FirebaseFirestore.DocumentData,
   accountId: string | null,
   orgId: string,
   platformType: SocialPlatformType,
   shareType: 'profile' | 'organization' | undefined,
 ): Promise<PublishOutcome> {
   try {
-    return { externalId: await doPublish(provider, text, threadParts, mediaUrls, shareType), provider }
+    return { externalId: await doPublish(provider, text, threadParts, mediaUrls, post, shareType), provider }
   } catch (err) {
     const msg = err instanceof Error ? err.message : 'Unknown error'
     if (msg.includes('401') && accountId) {
@@ -70,7 +72,7 @@ async function publishWithRefresh(
       const refreshed = await refreshAccountToken(accountId, orgId, platformType)
       if (refreshed) {
         console.log(`[queue] Token refreshed, retrying ${accountId}`)
-        return { externalId: await doPublish(refreshed, text, threadParts, mediaUrls, shareType), provider: refreshed }
+        return { externalId: await doPublish(refreshed, text, threadParts, mediaUrls, post, shareType), provider: refreshed }
       }
     }
     throw err
@@ -82,13 +84,14 @@ async function doPublish(
   text: string,
   threadParts: string[] | undefined,
   mediaUrls: string[] | undefined,
+  post: FirebaseFirestore.DocumentData,
   shareType: 'profile' | 'organization' | undefined,
 ): Promise<string> {
   if (Array.isArray(threadParts) && threadParts.length > 0) {
     const results = await provider.publishThread(threadParts, mediaUrls)
     return results[0].platformPostId
   }
-  const result = await provider.publishPost({ text, mediaUrls, shareType })
+  const result = await provider.publishPost(buildProviderPublishOptions({ post, text, mediaUrls, shareType }))
   return result.platformPostId
 }
 
@@ -216,7 +219,7 @@ export async function processQueue(): Promise<QueueProcessResult> {
           ? post.linkedinShareType
           : undefined
       const { externalId, provider: publishProvider } = await publishWithRefresh(
-        provider, text, post.threadParts, mediaUrls, resolvedAccountId, orgId, platformType, shareType,
+        provider, text, post.threadParts, mediaUrls, post, resolvedAccountId, orgId, platformType, shareType,
       )
 
       await adminDb.collection('social_posts').doc(entry.postId).update({

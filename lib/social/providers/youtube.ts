@@ -60,7 +60,7 @@ export class YouTubeProvider extends SocialProvider {
     const tags = options.tags?.length
       ? options.tags
       : (description.match(/#(\w+)/g) ?? []).map(t => t.slice(1))
-    const privacyStatus = options.privacyStatus ?? 'private'
+    const privacyStatus = options.privacyStatus ?? options.targetVisibility ?? 'private'
 
     // Step 1: Initiate resumable upload
     const metadata = {
