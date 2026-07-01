@@ -43,6 +43,10 @@ function canAppendForAgent(user: ApiUser, agentId: AgentId): boolean {
   return apiAgentId === agentId || apiAgentId === 'pip'
 }
 
+function isPipRelay(user: ApiUser, agentId: AgentId): boolean {
+  return user.role === 'ai' && user.agentId === 'pip' && agentId !== 'pip'
+}
+
 export const POST = withAuth(
   'admin',
   async (req: NextRequest, user: ApiUser, context?: unknown) => {
@@ -64,7 +68,7 @@ export const POST = withAuth(
     const participantAgentIds = Array.isArray(conversation.participantAgentIds)
       ? conversation.participantAgentIds
       : []
-    if (!participantAgentIds.includes(agentId) && agentId !== 'pip') {
+    if (!participantAgentIds.includes(agentId) && agentId !== 'pip' && !isPipRelay(user, agentId)) {
       return apiError('Agent is not a participant in this conversation', 403)
     }
 
