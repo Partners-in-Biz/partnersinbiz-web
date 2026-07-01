@@ -57,6 +57,7 @@
     "collaboration-runtime",
     "content-engine",
     "crm-sales",
+    "crm-hygiene-gather",
     "data-analyst",
     "docs-lead",
     "email-outreach",
@@ -70,6 +71,7 @@
     "research-intelligence",
     "seo-sprint-manager",
     "social-media-manager",
+    "social-recovery-gather",
     "support-manager"
   ],
   "skillCatalog": {
@@ -1002,6 +1004,31 @@
       ],
       "riskLevel": "medium",
       "syncTarget": "vps"
+    },
+    "crm-hygiene-gather": {
+      "ownerAgentId": "sales",
+      "allowedAgentIds": [
+        "data",
+        "nora",
+        "pip",
+        "qa-release",
+        "sales",
+        "theo"
+      ],
+      "riskLevel": "medium",
+      "syncTarget": "vps"
+    },
+    "social-recovery-gather": {
+      "ownerAgentId": "maya",
+      "allowedAgentIds": [
+        "data",
+        "maya",
+        "pip",
+        "qa-release",
+        "theo"
+      ],
+      "riskLevel": "medium",
+      "syncTarget": "vps"
     }
   },
   "agents": {
@@ -1019,6 +1046,7 @@
         "collaboration-runtime",
         "content-engine",
         "crm-sales",
+        "crm-hygiene-gather",
         "data-analyst",
         "evidence-ledger",
         "google-workspace",
@@ -1028,6 +1056,7 @@
         "research-intelligence",
         "seo-sprint-manager",
         "social-media-manager",
+        "social-recovery-gather",
         "support-manager"
       ],
       "runtimeSkills": [
@@ -1039,6 +1068,7 @@
         "collaboration-runtime",
         "content-engine",
         "crm-sales",
+        "crm-hygiene-gather",
         "data-analyst",
         "evidence-ledger",
         "google-workspace",
@@ -1048,6 +1078,7 @@
         "research-intelligence",
         "seo-sprint-manager",
         "social-media-manager",
+        "social-recovery-gather",
         "support-manager",
         "research/last30days",
         "research/open-notebook",
@@ -1118,6 +1149,7 @@
         "collaboration-runtime",
         "content-engine",
         "crm-sales",
+        "crm-hygiene-gather",
         "data-analyst",
         "docs-lead",
         "email-outreach",
@@ -1131,6 +1163,7 @@
         "research-intelligence",
         "seo-sprint-manager",
         "social-media-manager",
+        "social-recovery-gather",
         "support-manager"
       ],
       "runtimeSkills": [
@@ -1144,6 +1177,7 @@
         "collaboration-runtime",
         "content-engine",
         "crm-sales",
+        "crm-hygiene-gather",
         "data-analyst",
         "docs-lead",
         "email-outreach",
@@ -1158,6 +1192,7 @@
         "research-intelligence",
         "seo-sprint-manager",
         "social-media-manager",
+        "social-recovery-gather",
         "software-development/code-review",
         "software-development/karpathy-guidelines",
         "software-development/plan",
@@ -1265,7 +1300,8 @@
         "google-workspace",
         "project-management",
         "research-intelligence",
-        "social-media-manager"
+        "social-media-manager",
+        "social-recovery-gather"
       ],
       "runtimeSkills": [
         "analytics",
@@ -1288,6 +1324,7 @@
         "project-management",
         "research-intelligence",
         "social-media-manager",
+        "social-recovery-gather",
         "research/last30days",
         "research/open-notebook"
       ],
@@ -1424,6 +1461,7 @@
         "client-manager",
         "collaboration-runtime",
         "crm-sales",
+        "crm-hygiene-gather",
         "data-analyst",
         "email-outreach",
         "evidence-ledger",
@@ -1440,6 +1478,7 @@
         "client-manager",
         "collaboration-runtime",
         "crm-sales",
+        "crm-hygiene-gather",
         "data-analyst",
         "email-outreach",
         "evidence-ledger",
@@ -1602,6 +1641,7 @@
         "collaboration-runtime",
         "content-engine",
         "crm-sales",
+        "crm-hygiene-gather",
         "data-analyst",
         "docs-lead",
         "email-outreach",
@@ -1615,6 +1655,7 @@
         "research-intelligence",
         "seo-sprint-manager",
         "social-media-manager",
+        "social-recovery-gather",
         "support-manager"
       ],
       "runtimeSkills": [
@@ -1628,6 +1669,7 @@
         "collaboration-runtime",
         "content-engine",
         "crm-sales",
+        "crm-hygiene-gather",
         "data-analyst",
         "docs-lead",
         "email-outreach",
@@ -1641,6 +1683,7 @@
         "research-intelligence",
         "seo-sprint-manager",
         "social-media-manager",
+        "social-recovery-gather",
         "software-development/code-review",
         "software-development/requesting-code-review",
         "software-development/systematic-debugging",
@@ -1804,12 +1847,14 @@
         "client-manager",
         "collaboration-runtime",
         "crm-sales",
+        "crm-hygiene-gather",
         "data-analyst",
         "evidence-ledger",
         "platform-ops",
         "project-management",
         "properties",
-        "research-intelligence"
+        "research-intelligence",
+        "social-recovery-gather"
       ],
       "runtimeSkills": [
         "analytics",
@@ -1819,6 +1864,7 @@
         "client-manager",
         "collaboration-runtime",
         "crm-sales",
+        "crm-hygiene-gather",
         "data-analyst",
         "evidence-ledger",
         "marketing/ads-math",
@@ -1827,7 +1873,8 @@
         "project-management",
         "properties",
         "research-intelligence",
-        "platform/headroom"
+        "platform/headroom",
+        "social-recovery-gather"
       ],
       "globalSkills": [
         "data-science/jupyter-live-kernel",
@@ -2037,6 +2084,7 @@
         "client-manager",
         "collaboration-runtime",
         "crm-sales",
+        "crm-hygiene-gather",
         "data-analyst",
         "email-outreach",
         "evidence-ledger",
@@ -2052,6 +2100,7 @@
         "client-manager",
         "collaboration-runtime",
         "crm-sales",
+        "crm-hygiene-gather",
         "data-analyst",
         "email-outreach",
         "evidence-ledger",
