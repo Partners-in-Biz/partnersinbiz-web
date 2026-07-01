@@ -117,10 +117,12 @@ async function main() {
           title: releaseGateSnap.get('title') ?? null,
           agentStatus: releaseGateSnap.get('agentStatus') ?? null,
           columnId: releaseGateSnap.get('columnId') ?? null,
-          releaseHead: releaseOutput.latestFocusedConversationRouteFix?.releaseHead
+          releaseHead: releaseOutput.latestChatBodyFallbackFix?.releaseHead
+            ?? releaseOutput.latestFocusedConversationRouteFix?.releaseHead
             ?? releaseOutput.latestReleaseSkillPolicyUpdate?.releaseHead
             ?? releaseOutput.releaseHead
             ?? null,
+          latestChatBodyFallbackMessageId: releaseOutput.latestChatBodyFallbackFix?.messageId ?? null,
           latestRouteFixMessageId: releaseOutput.latestFocusedConversationRouteFix?.messageId ?? null,
           latestReleasePolicyMessageId: releaseOutput.latestReleaseSkillPolicyUpdate?.messageId ?? null,
         }
