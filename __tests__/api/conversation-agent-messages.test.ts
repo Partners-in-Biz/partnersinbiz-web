@@ -209,6 +209,30 @@ describe('POST /api/v1/conversations/[convId]/agent-messages', () => {
     }))
   })
 
+  it('lets admins relay completed output for a non-participant specialist agent', async () => {
+    mockUser = { uid: 'admin-1', role: 'admin' }
+    const { POST } = await import('@/app/api/v1/conversations/[convId]/agent-messages/route')
+
+    const res = await POST(request({
+      agentId: 'data',
+      content: 'Admin relay: Vera/Data analysis is ready.',
+      richParts: [{
+        type: 'status',
+        title: 'Admin specialist relay',
+        status: 'completed',
+      }],
+    }), {
+      params: Promise.resolve({ convId: 'conv-1' }),
+    })
+
+    expect(res.status).toBe(201)
+    expect(mockCreateMessage).toHaveBeenCalledWith('conv-1', expect.objectContaining({
+      authorId: 'agent:data',
+      dispatchAgentId: 'data',
+      status: 'completed',
+    }))
+  })
+
   it('rejects agents that are not conversation participants unless the author is Pip', async () => {
     mockUser = { uid: 'ai-agent', role: 'ai' }
     const { POST } = await import('@/app/api/v1/conversations/[convId]/agent-messages/route')
