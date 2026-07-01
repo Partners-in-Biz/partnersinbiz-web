@@ -49,6 +49,7 @@
   "repoPibSkills": [
     "ads-manager",
     "analytics",
+    "agent-runtime-gather",
     "approval-queue-gather",
     "chat-surface-gather",
     "billing-finance",
@@ -1029,6 +1030,18 @@
       ],
       "riskLevel": "medium",
       "syncTarget": "vps"
+    },
+    "agent-runtime-gather": {
+      "ownerAgentId": "nora",
+      "allowedAgentIds": [
+        "data",
+        "nora",
+        "pip",
+        "qa-release",
+        "theo"
+      ],
+      "riskLevel": "medium",
+      "syncTarget": "vps"
     }
   },
   "agents": {
@@ -1039,6 +1052,7 @@
       "vpsExternalDir": "/var/lib/hermes/agent-skills/pip",
       "pibSkills": [
         "analytics",
+        "agent-runtime-gather",
         "approval-queue-gather",
         "chat-surface-gather",
         "client-documents",
@@ -1061,6 +1075,7 @@
       ],
       "runtimeSkills": [
         "analytics",
+        "agent-runtime-gather",
         "approval-queue-gather",
         "chat-surface-gather",
         "client-documents",
@@ -1141,6 +1156,7 @@
       "pibSkills": [
         "ads-manager",
         "analytics",
+        "agent-runtime-gather",
         "approval-queue-gather",
         "chat-surface-gather",
         "billing-finance",
@@ -1169,6 +1185,7 @@
       "runtimeSkills": [
         "ads-manager",
         "analytics",
+        "agent-runtime-gather",
         "approval-queue-gather",
         "chat-surface-gather",
         "billing-finance",
@@ -1454,6 +1471,7 @@
       "vpsExternalDir": "/var/lib/hermes/agent-skills/nora",
       "pibSkills": [
         "analytics",
+        "agent-runtime-gather",
         "approval-queue-gather",
         "chat-surface-gather",
         "billing-finance",
@@ -1471,6 +1489,7 @@
       ],
       "runtimeSkills": [
         "analytics",
+        "agent-runtime-gather",
         "approval-queue-gather",
         "chat-surface-gather",
         "billing-finance",
@@ -1633,6 +1652,7 @@
       "pibSkills": [
         "ads-manager",
         "analytics",
+        "agent-runtime-gather",
         "approval-queue-gather",
         "chat-surface-gather",
         "billing-finance",
@@ -1661,6 +1681,7 @@
       "runtimeSkills": [
         "ads-manager",
         "analytics",
+        "agent-runtime-gather",
         "approval-queue-gather",
         "chat-surface-gather",
         "billing-finance",
@@ -1841,6 +1862,7 @@
       "vpsExternalDir": "/var/lib/hermes/agent-skills/data",
       "pibSkills": [
         "analytics",
+        "agent-runtime-gather",
         "approval-queue-gather",
         "chat-surface-gather",
         "client-documents",
@@ -1858,6 +1880,7 @@
       ],
       "runtimeSkills": [
         "analytics",
+        "agent-runtime-gather",
         "approval-queue-gather",
         "chat-surface-gather",
         "client-documents",
