@@ -13,6 +13,7 @@ import { withAuth } from '@/lib/api/auth'
 import { apiError, apiSuccess } from '@/lib/api/response'
 import { adminDb } from '@/lib/firebase/admin'
 import { HERMES_RUNS_COLLECTION, requireHermesProfileAccess } from '@/lib/hermes/server'
+import { reconcileActiveHermesRunsForOrg } from '@/lib/hermes/run-ledger'
 
 export const dynamic = 'force-dynamic'
 
@@ -37,6 +38,13 @@ export const GET = withAuth('admin', async (req: NextRequest, user, ctx) => {
 
   const limitParam = Number(req.nextUrl.searchParams.get('limit') ?? '40')
   const limit = Math.min(Math.max(1, Number.isFinite(limitParam) ? limitParam : 40), 150)
+  let reconciliation: Awaited<ReturnType<typeof reconcileActiveHermesRunsForOrg>> | null = null
+
+  try {
+    reconciliation = await reconcileActiveHermesRunsForOrg(access.link, { limit: 12 })
+  } catch (err) {
+    console.warn('[hermes-logs-reconcile-failed]', err)
+  }
 
   // Query by orgId only (no orderBy) to avoid composite-index requirements.
   const snap = await adminDb
@@ -63,5 +71,5 @@ export const GET = withAuth('admin', async (req: NextRequest, user, ctx) => {
     .sort((a, b) => (b.createdAt ?? '').localeCompare(a.createdAt ?? ''))
     .slice(0, limit)
 
-  return apiSuccess({ orgId, runs, total: runs.length })
+  return apiSuccess({ orgId, runs, total: runs.length, reconciliation })
 })
