@@ -29,6 +29,7 @@ describe('agent skill policy manifest', () => {
       'analytics',
       'agent-runtime-gather',
       'approval-queue-gather',
+      'ceo-on-demand-gather',
       'chat-surface-gather',
       'billing-finance',
       'client-documents',
@@ -209,6 +210,7 @@ describe('agent skill policy manifest', () => {
   it('classifies fully qualified globals without colliding with PiB skills that share a basename', () => {
     const installed = classifyInstalledSkills([
       'partnersinbiz/analytics',
+      'partnersinbiz/ceo-on-demand-gather',
       'partnersinbiz/client-documents',
       'partnersinbiz/client-manager',
       'partnersinbiz/collaboration-runtime',
