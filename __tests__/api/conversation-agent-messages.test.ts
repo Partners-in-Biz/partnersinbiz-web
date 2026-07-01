@@ -134,6 +134,31 @@ describe('POST /api/v1/conversations/[convId]/agent-messages', () => {
     }))
   })
 
+  it('accepts parts as an agent-friendly alias for rich parts', async () => {
+    const { POST } = await import('@/app/api/v1/conversations/[convId]/agent-messages/route')
+
+    const res = await POST(request({
+      agentId: 'qa-release',
+      content: 'CEO operating readback attached.',
+      parts: [{
+        type: 'approval-card',
+        title: 'Dynamic chat output',
+        body: 'Agent updates should render as structured cards even when the payload uses parts.',
+        status_label: 'Verified',
+      }],
+    }), { params: Promise.resolve({ convId: 'conv-1' }) })
+
+    expect(res.status).toBe(201)
+    expect(mockCreateMessage).toHaveBeenCalledWith('conv-1', expect.objectContaining({
+      richParts: [expect.objectContaining({
+        type: 'approval_card',
+        title: 'Dynamic chat output',
+        statusLabel: 'Verified',
+      })],
+      rich_parts: [expect.objectContaining({ type: 'approval_card' })],
+    }))
+  })
+
   it('rejects client callers even if the auth wrapper is misconfigured', async () => {
     mockUser = { uid: 'client-1', role: 'client' }
     const { POST } = await import('@/app/api/v1/conversations/[convId]/agent-messages/route')

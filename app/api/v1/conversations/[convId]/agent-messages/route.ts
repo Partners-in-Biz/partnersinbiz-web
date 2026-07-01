@@ -69,7 +69,7 @@ export const POST = withAuth(
     }
 
     const content = cleanString(raw.content)
-    const richParts = normalizeRichParts(raw.richParts ?? raw.rich_parts).slice(0, 10)
+    const richParts = normalizeRichParts(raw.richParts ?? raw.rich_parts ?? raw.parts).slice(0, 10)
     if (!content && richParts.length === 0) return apiError('content or richParts are required', 400)
 
     const authorDisplayName = cleanString(raw.authorDisplayName, 120)
