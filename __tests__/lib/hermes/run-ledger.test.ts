@@ -54,6 +54,7 @@ describe('reconcileActiveHermesRunsForOrg', () => {
       permissions: { superAdmin: false, restrictedAdmin: false, client: true, allowedUserIds: [] },
     } as HermesProfileLink)
 
+    expect(where).toHaveBeenCalledWith('status', 'in', ['started', 'submitted', 'running', 'pending', 'streaming'])
     expect(result).toMatchObject({ scanned: 1, checked: 1, updated: 1 })
     expect(mockCallHermesJson).toHaveBeenCalledWith(
       expect.objectContaining({ profile: 'pip' }),
