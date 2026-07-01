@@ -94,16 +94,17 @@ async function handler(req: NextRequest, ctx: CrmAuthContext): Promise<Response>
   merged.updatedAt = FieldValue.serverTimestamp()
 
   const winnerWrite = Object.fromEntries(Object.entries(merged).filter(([, value]) => value !== undefined))
+  const loserWrite = Object.fromEntries(Object.entries({
+    deleted: true,
+    mergedIntoId: winnerId,
+    updatedBy: ctx.isAgent ? undefined : ctx.actor.uid,
+    updatedByRef: ctx.actor,
+    updatedAt: FieldValue.serverTimestamp(),
+  }).filter(([, value]) => value !== undefined))
 
   await Promise.all([
     adminDb.collection('contacts').doc(winnerId).update(winnerWrite),
-    adminDb.collection('contacts').doc(loserId).update({
-      deleted: true,
-      mergedIntoId: winnerId,
-      updatedBy: ctx.isAgent ? undefined : ctx.actor.uid,
-      updatedByRef: ctx.actor,
-      updatedAt: FieldValue.serverTimestamp(),
-    }),
+    adminDb.collection('contacts').doc(loserId).update(loserWrite),
   ])
 
   const reparented = {
