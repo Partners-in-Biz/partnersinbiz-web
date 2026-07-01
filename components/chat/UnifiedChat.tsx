@@ -362,13 +362,27 @@ export default function UnifiedChat({
       if (!res.ok) throw new Error(`load conversations: ${res.status}`)
       const body = await res.json()
       const list: Conversation[] = body.data?.conversations ?? []
-      setConversations(list)
-      if (!activeId && list.length) {
-        const preferred = initialConvId && list.find((c) => c.id === initialConvId)
-        setActiveId(preferred ? initialConvId! : list[0].id)
+      let nextList = list
+      if (initialConvId && !list.some((conversation) => conversation.id === initialConvId)) {
+        const focusedRes = await fetch(`/api/v1/conversations/${initialConvId}`)
+        if (focusedRes.ok) {
+          const focusedBody = await focusedRes.json()
+          const focusedConversation: Conversation | undefined = focusedBody.data?.conversation
+          if (focusedConversation) {
+            nextList = [
+              focusedConversation,
+              ...list.filter((conversation) => conversation.id !== focusedConversation.id),
+            ]
+          }
+        }
+      }
+      setConversations(nextList)
+      if (!activeId && nextList.length) {
+        const preferred = initialConvId && nextList.find((c) => c.id === initialConvId)
+        setActiveId(preferred ? initialConvId! : nextList[0].id)
       } else if (
         !activeId &&
-        list.length === 0 &&
+        nextList.length === 0 &&
         autoCreateScopedConversation &&
         allowStartConversations &&
         initialAgentId &&
