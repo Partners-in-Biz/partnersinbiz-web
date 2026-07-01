@@ -275,12 +275,34 @@ export async function createHermesRun(link: HermesProfileLink, requestedBy: stri
 
   const payload = data && typeof data === 'object' ? (data as Record<string, unknown>) : {}
   const hermesRunId = String(payload.run_id ?? payload.runId ?? payload.id ?? '')
+  const metadata = request.metadata && typeof request.metadata === 'object' ? request.metadata : undefined
+  const conversationId = typeof request.conversation_id === 'string'
+    ? request.conversation_id
+    : typeof metadata?.conversationId === 'string'
+      ? metadata.conversationId
+      : typeof metadata?.conversation_id === 'string'
+        ? metadata.conversation_id
+        : undefined
+  const messageId = typeof metadata?.messageId === 'string'
+    ? metadata.messageId
+    : typeof metadata?.message_id === 'string'
+      ? metadata.message_id
+      : undefined
+  const dispatchAgentId = typeof metadata?.dispatchAgentId === 'string'
+    ? metadata.dispatchAgentId
+    : typeof metadata?.agentId === 'string'
+      ? metadata.agentId
+      : undefined
   const docRef = await adminDb.collection(HERMES_RUNS_COLLECTION).add({
     orgId: link.orgId,
     profile: link.profile,
     hermesRunId,
     requestedBy,
     prompt: request.prompt,
+    ...(conversationId ? { conversationId } : {}),
+    ...(messageId ? { messageId } : {}),
+    ...(dispatchAgentId ? { dispatchAgentId } : {}),
+    ...(metadata ? { metadata } : {}),
     ...(request.model ? { model: request.model } : {}),
     ...(request.reasoning_effort ? { reasoningEffort: request.reasoning_effort } : {}),
     status: payload.status ?? 'submitted',
