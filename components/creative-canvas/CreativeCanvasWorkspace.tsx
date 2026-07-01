@@ -16,7 +16,7 @@ import type { CanvasTool } from '@/components/creative-canvas/canvas/BottomToolb
 import { useGraphHistory } from '@/components/creative-canvas/canvas/useGraphHistory'
 import CanvasTopBar from '@/components/creative-canvas/topbar/CanvasTopBar'
 import { canvasNodeTypes } from '@/components/creative-canvas/nodes/nodeTypes'
-import type { CanvasNodeType } from '@/components/creative-canvas/nodes/ports'
+import { isValidConnection, portsForNode, type CanvasNodeType } from '@/components/creative-canvas/nodes/ports'
 import { getCanvasModel } from '@/lib/creative-canvas/model-registry'
 import CreateMenu from '@/components/creative-canvas/canvas/CreateMenu'
 import NodeSettingsPanel from '@/components/creative-canvas/panels/NodeSettingsPanel'
@@ -1742,7 +1742,10 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
       })
       .filter((url): url is string => typeof url === 'string' && url.length > 0)
     return {
-      ...flowNode,
+      // Keep the live React Flow node (measured size, selection, drag state) —
+      // rebuilding from scratch resets measurement and edges never render.
+      ...node,
+      type: flowNode.type,
       data: {
         ...flowNode.data,
         status: generatingNodeIds.has(node.id) ? 'running' : flowNode.data.status,
@@ -1764,6 +1767,26 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
       },
     }
   }), [collaboratorsByNodeId, edges, generatingNodeIds, nodes])
+
+  // Persisted edges carry no handle ids, but presentation nodes expose multiple
+  // typed handles — without an explicit handle id React Flow cannot attach the
+  // edge. Resolve each edge onto the target input whose kind matches the
+  // source node's output kind (falling back to the first input).
+  const displayEdges = useMemo(() => edges.map((edge) => {
+    if (edge.sourceHandle && edge.targetHandle) return edge
+    const sourceType = displayNodes.find((node) => node.id === edge.source)?.type as CanvasNodeType | undefined
+    const targetType = displayNodes.find((node) => node.id === edge.target)?.type as CanvasNodeType | undefined
+    const sourcePorts = sourceType ? portsForNode(sourceType) : undefined
+    const targetPorts = targetType ? portsForNode(targetType) : undefined
+    if (!sourcePorts || !targetPorts) return edge
+    const outputKind = sourcePorts.output.kind
+    const targetInput = targetPorts.inputs.find((port) => isValidConnection(outputKind, port.kind)) ?? targetPorts.inputs[0]
+    return {
+      ...edge,
+      sourceHandle: edge.sourceHandle ?? sourcePorts.output.id,
+      targetHandle: edge.targetHandle ?? targetInput?.id,
+    }
+  }), [displayNodes, edges])
   const selectedMaskBrushStrokes = selectedCanvasNode?.edit?.mask?.brush?.strokes ?? []
   const orchestrationPlan = useMemo(() => buildCreativeCanvasOrchestrationPlan({
     id: activeCanvas?.id,
@@ -4084,18 +4107,14 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
       let canvasId = activeCanvas?.id ?? ''
       let canvasOrgId = resolvedOrgId || activeCanvas?.orgId || ''
       if (!canvasId) {
+        // The create endpoint intentionally ignores nodes/edges (they are
+        // versioned through the graph endpoint), so create bare then PUT the
+        // graph. Never applyCanvasSnapshot here — the created canvas has an
+        // empty graph and would wipe the nodes the user just built.
         const createResponse = await fetch(`/api/v1/creative-canvas${canvasOrgId ? `?orgId=${encodeURIComponent(canvasOrgId)}` : ''}`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            title: 'Untitled canvas',
-            purpose: '',
-            status: 'draft',
-            // Empty orgId is intentional: the server fills in the resolved org
-            // (a 'pending-org' placeholder would fail node sanitisation).
-            nodes: nodes.map((node) => toCanvasNode(node, canvasOrgId)),
-            edges: edges.map((edge) => toCanvasEdge(edge, canvasOrgId)),
-          }),
+          body: JSON.stringify({ title: 'Untitled canvas', purpose: '', status: 'draft' }),
         })
         const createPayload = await createResponse.json().catch(() => null) as CreativeCanvasApiListResponse | null
         const createdCanvas = createPayload?.data?.canvas
@@ -4103,9 +4122,31 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
           setActivityMessage(createPayload?.error ?? 'Could not save the canvas before generating')
           return
         }
-        applyCanvasSnapshot(createdCanvas)
         canvasId = createdCanvas.id
         canvasOrgId = canvasOrgId || createdCanvas.orgId || ''
+        setCanvases((current) => [createdCanvas, ...current.filter((item) => item.id !== createdCanvas.id)])
+        setActiveCanvasId(canvasId)
+
+        const graphResponse = await fetch(`/api/v1/creative-canvas/${canvasId}/graph?orgId=${encodeURIComponent(canvasOrgId)}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            expectedActiveVersion: createdCanvas.activeVersion,
+            mergeOnConflict: true,
+            reason: 'combine_generate_autosave',
+            baseGraph: { nodes: [], edges: [] },
+            nodes: nodes.map((node) => toCanvasNode(node, canvasOrgId)),
+            edges: edges.map((edge) => toCanvasEdge(edge, canvasOrgId)),
+          }),
+        })
+        const graphPayload = await graphResponse.json().catch(() => null) as CreativeCanvasApiListResponse | null
+        const savedCanvas = graphPayload?.data?.canvas
+        if (!graphResponse.ok || !savedCanvas?.id) {
+          setActivityMessage(graphPayload?.error ?? 'Could not save the canvas graph before generating')
+          return
+        }
+        setCanvases((current) => current.map((item) => item.id === savedCanvas.id ? savedCanvas : item))
+        setAcceptedGraphSignature(currentGraphSignature)
       } else if (graphHasUnsavedChanges) {
         await saveGraph('auto')
       }
@@ -4169,7 +4210,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
       })
       void loadCanvasCredits()
     }
-  }, [activeCanvas?.id, activeCanvas?.orgId, applyCanvasSnapshot, edges, graphHasUnsavedChanges, loadCanvasCredits, mode, nodes, resolvedOrgId, runAspectRatio, runDurationSeconds, runGenerateAudio, runModel, runQuality, runVariantCount, saveGraph])
+  }, [activeCanvas?.id, activeCanvas?.orgId, applyCanvasSnapshot, currentGraphSignature, edges, graphHasUnsavedChanges, loadCanvasCredits, mode, nodes, resolvedOrgId, runAspectRatio, runDurationSeconds, runGenerateAudio, runModel, runQuality, runResolution, runVariantCount, saveGraph])
 
   useEffect(() => {
     nodeActionRefs.current = {
@@ -5285,7 +5326,9 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
   }
 
   return (
-    <main className={immersiveCanvas ? 'flex h-full min-h-0 flex-col gap-2 overflow-hidden' : 'mx-auto max-w-7xl space-y-5 px-4 py-6'}>
+    // Immersive sizing is viewport-based: the app shells render page content in
+    // an auto-height wrapper, so h-full collapses to 0 (56px header + 16px padding).
+    <main className={immersiveCanvas ? 'flex h-[calc(100dvh-72px)] min-h-[480px] flex-col gap-2 overflow-hidden' : 'mx-auto max-w-7xl space-y-5 px-4 py-6'}>
       <CanvasTopBar
         eyebrow={mode === 'admin' ? 'Agent creative command' : 'Creative review'}
         title={activeCanvas?.title ?? 'Creative Canvas'}
@@ -6429,7 +6472,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
           <div className={immersiveCanvas ? 'relative h-full min-h-0' : 'relative h-[62vh] min-h-[420px] lg:h-[560px]'}>
             <CanvasStage
               nodes={displayNodes}
-              edges={edges}
+              edges={displayEdges}
               nodeTypes={canvasNodeTypes}
               onNodesChange={onNodesChange}
               onEdgesChange={onEdgesChange}

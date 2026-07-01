@@ -465,6 +465,22 @@ function safeHttpUrl(value: unknown, field: string): string | undefined {
   }
 }
 
+/** Validate linked reference media URLs; invalid entries are dropped, not fatal. */
+function cleanReferenceImageUrls(value: unknown): string[] | undefined {
+  if (!Array.isArray(value)) return undefined
+  const urls = Array.from(new Set(value
+    .map((url) => {
+      try {
+        return safeHttpUrl(url, 'run input.referenceImageUrls[]')
+      } catch {
+        return undefined
+      }
+    })
+    .filter((url): url is string => Boolean(url))))
+    .slice(0, 8)
+  return urls.length ? urls : undefined
+}
+
 function buildOutputNode(input: {
   run: CreativeCanvasRun & { id: string }
   canvas: CreativeCanvas & { id: string }
@@ -629,6 +645,7 @@ export async function createCreativeCanvasRun(
       promptSummary: cleanString(runInput.promptSummary),
       sourceNodeIds: cleanStringArray(runInput.sourceNodeIds),
       sourceArtifactIds: cleanStringArray(runInput.sourceArtifactIds),
+      referenceImageUrls: cleanReferenceImageUrls(runInput.referenceImageUrls),
       format: cleanString(runInput.format),
       aspectRatio: cleanString(runInput.aspectRatio),
       durationSeconds: durationSeconds !== undefined

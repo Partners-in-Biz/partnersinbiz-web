@@ -37,8 +37,8 @@ export const CANVAS_MODELS: CanvasModel[] = [
   // ----- Image -----
   {
     id: 'text2image_soul_v2',
-    label: 'Higgsfield Soul 2.0',
-    family: 'Higgsfield',
+    label: 'Soul 2.0',
+    family: 'Studio',
     featured: true,
     unlimited: true,
     kind: 'image',
@@ -70,7 +70,7 @@ export const CANVAS_MODELS: CanvasModel[] = [
   {
     id: 'soul_cinematic',
     label: 'Soul Cinematic',
-    family: 'Higgsfield',
+    family: 'Studio',
     featured: false,
     unlimited: true,
     kind: 'image',
@@ -86,7 +86,7 @@ export const CANVAS_MODELS: CanvasModel[] = [
   {
     id: 'cinematic_studio_image',
     label: 'Cinematic Studio Image',
-    family: 'Higgsfield',
+    family: 'Studio',
     featured: false,
     unlimited: true,
     kind: 'image',
@@ -223,7 +223,7 @@ export const CANVAS_MODELS: CanvasModel[] = [
   {
     id: 'image_auto',
     label: 'Auto',
-    family: 'Higgsfield',
+    family: 'Studio',
     featured: false,
     kind: 'image',
     providerKey: 'higgsfield',
@@ -239,7 +239,7 @@ export const CANVAS_MODELS: CanvasModel[] = [
   {
     id: 'cinematic_studio_video_3_5',
     label: 'Cinema Studio Video 3.5',
-    family: 'Higgsfield',
+    family: 'Studio',
     featured: true,
     unlimited: true,
     kind: 'video',
@@ -368,7 +368,7 @@ export const CANVAS_MODELS: CanvasModel[] = [
   {
     id: 'marketing_studio_video',
     label: 'Marketing Studio',
-    family: 'Higgsfield',
+    family: 'Studio',
     featured: false,
     kind: 'video',
     providerKey: 'higgsfield',

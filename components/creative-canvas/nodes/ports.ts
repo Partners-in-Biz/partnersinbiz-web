@@ -28,4 +28,8 @@ const MAP: Record<CanvasNodeType, NodePorts> = {
 }
 
 export function portsForNode(type: CanvasNodeType): NodePorts { return MAP[type] }
-export function isValidConnection(from: CanvasPortKind, to: CanvasPortKind): boolean { return from === to }
+// 'output' is the wildcard kind produced by combine/output nodes: their result
+// can be image or video depending on the run, so they may feed any input.
+export function isValidConnection(from: CanvasPortKind, to: CanvasPortKind): boolean {
+  return from === to || from === 'output'
+}

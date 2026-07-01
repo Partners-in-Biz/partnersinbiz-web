@@ -834,7 +834,8 @@ function cleanHttpUrl(value: unknown, field: string): string | undefined {
 
 function cleanLinked(value: unknown) {
   const linked = asRecord(value)
-  return {
+  // Omit undefined entries: Firestore rejects documents containing undefined values.
+  const entries: Record<string, string | string[] | undefined> = {
     projectId: cleanString(linked.projectId),
     taskId: cleanString(linked.taskId),
     campaignId: cleanString(linked.campaignId),
@@ -843,8 +844,11 @@ function cleanLinked(value: unknown) {
     socialPostId: cleanString(linked.socialPostId),
     youtubeVideoProjectId: cleanString(linked.youtubeVideoProjectId),
     bookStudioProjectId: cleanString(linked.bookStudioProjectId),
-    workspaceArtifactIds: cleanStringArray(linked.workspaceArtifactIds),
   }
+  const cleaned = Object.fromEntries(Object.entries(entries).filter(([, entry]) => entry !== undefined))
+  const workspaceArtifactIds = cleanStringArray(linked.workspaceArtifactIds)
+  if (workspaceArtifactIds.length) cleaned.workspaceArtifactIds = workspaceArtifactIds
+  return cleaned
 }
 
 export function sanitizeCreativeCanvasInput(
@@ -1030,14 +1034,33 @@ function sanitizeEdge(raw: unknown, orgId: string, nodeIds: Set<string>): Creati
   }
 }
 
+/**
+ * Recursively drop undefined values (and undefined-only branches) so sanitized
+ * graphs are always valid Firestore payloads — Firestore rejects any document
+ * containing an undefined field.
+ */
+function stripUndefinedDeep<T>(value: T): T {
+  if (Array.isArray(value)) {
+    return value.filter((item) => item !== undefined).map((item) => stripUndefinedDeep(item)) as unknown as T
+  }
+  if (value && typeof value === 'object') {
+    return Object.fromEntries(
+      Object.entries(value as Record<string, unknown>)
+        .filter(([, entry]) => entry !== undefined)
+        .map(([key, entry]) => [key, stripUndefinedDeep(entry)]),
+    ) as unknown as T
+  }
+  return value
+}
+
 export function sanitizeCreativeCanvasGraph(input: unknown, orgId: string): CreativeCanvasGraph {
   const body = asRecord(input)
-  const nodes = Array.isArray(body.nodes) ? body.nodes.map((node) => sanitizeNode(node, orgId)) : []
+  const nodes = Array.isArray(body.nodes) ? body.nodes.map((node) => stripUndefinedDeep(sanitizeNode(node, orgId))) : []
   const nodeIds = new Set(nodes.map((node) => node.id))
   if (nodeIds.size !== nodes.length) throw new Error('graph contains duplicate node ids')
 
   const edges = Array.isArray(body.edges)
-    ? body.edges.map((edge) => sanitizeEdge(edge, orgId, nodeIds))
+    ? body.edges.map((edge) => stripUndefinedDeep(sanitizeEdge(edge, orgId, nodeIds)))
     : []
   const edgeIds = new Set(edges.map((edge) => edge.id))
   if (edgeIds.size !== edges.length) throw new Error('graph contains duplicate edge ids')

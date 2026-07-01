@@ -73,9 +73,8 @@ function buildSourceMedia(
   run: CreativeCanvasRun,
   canvas: Pick<CreativeCanvas, 'nodes'> | undefined,
 ): HiggsfieldExecutionManifest['sourceMedia'] {
-  if (!canvas?.nodes?.length) return []
   const sourceIds = new Set(run.input.sourceNodeIds)
-  return canvas.nodes
+  const fromNodes = (canvas?.nodes ?? [])
     .filter((node) => sourceIds.has(node.id))
     .map((node) => {
       const value = sourceMediaValue(node)
@@ -88,6 +87,18 @@ function buildSourceMedia(
       }
     })
     .filter((item): item is NonNullable<typeof item> => Boolean(item))
+  // Reference URLs gathered from linked nodes at generate time (the combine
+  // flow) arrive on the run input directly — include any not already covered.
+  const covered = new Set(fromNodes.map((item) => item.value))
+  const fromReferences = (run.input.referenceImageUrls ?? [])
+    .filter((url) => !covered.has(url))
+    .map((url, index) => ({
+      nodeId: `reference-${index + 1}`,
+      flag: '--image' as const,
+      value: url,
+      role: 'general',
+    }))
+  return [...fromNodes, ...fromReferences]
 }
 
 export function buildHiggsfieldExecutionManifest(

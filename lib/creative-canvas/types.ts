@@ -441,6 +441,8 @@ export interface CreativeCanvasRun {
     promptSummary?: string
     sourceNodeIds: string[]
     sourceArtifactIds: string[]
+    /** Direct reference media URLs collected from linked/combined nodes. */
+    referenceImageUrls?: string[]
     format?: string
     aspectRatio?: string
     durationSeconds?: number
