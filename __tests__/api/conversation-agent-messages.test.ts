@@ -99,9 +99,39 @@ describe('POST /api/v1/conversations/[convId]/agent-messages', () => {
       })],
       rich_parts: [expect.objectContaining({ type: 'approval_card' })],
     }))
-    expect(mockTouchConversation).toHaveBeenCalledWith('conv-1', 'Quinn QA report is ready.', 'assistant')
+    expect(mockTouchConversation).toHaveBeenCalledWith('conv-1', 'Quinn QA report is ready.', 'assistant', 'agent-message-1')
     const body = await readJson(res)
     expect(body.data.message.id).toBe('agent-message-1')
+  })
+
+  it('normalizes table rows into Firestore-safe objects before appending rich parts', async () => {
+    const { POST } = await import('@/app/api/v1/conversations/[convId]/agent-messages/route')
+
+    const res = await POST(request({
+      agentId: 'qa-release',
+      content: 'Structured SEO ledger readback attached.',
+      richParts: [{
+        type: 'table',
+        title: 'SEO sprint ledger after this pass',
+        columns: ['Item', 'State', 'Evidence'],
+        rows: [
+          ['Metric pull task', 'Done', 'kPy9r23lXeA3dDguu3gI'],
+          ['Bing', 'Blocked', 'slDXFmpzWt8dc3DCDcti'],
+        ],
+      }],
+    }), { params: Promise.resolve({ convId: 'conv-1' }) })
+
+    expect(res.status).toBe(201)
+    expect(mockCreateMessage).toHaveBeenCalledWith('conv-1', expect.objectContaining({
+      richParts: [expect.objectContaining({
+        type: 'table',
+        columns: ['Item', 'State', 'Evidence'],
+        rows: [
+          { Item: 'Metric pull task', State: 'Done', Evidence: 'kPy9r23lXeA3dDguu3gI' },
+          { Item: 'Bing', State: 'Blocked', Evidence: 'slDXFmpzWt8dc3DCDcti' },
+        ],
+      })],
+    }))
   })
 
   it('rejects client callers even if the auth wrapper is misconfigured', async () => {
