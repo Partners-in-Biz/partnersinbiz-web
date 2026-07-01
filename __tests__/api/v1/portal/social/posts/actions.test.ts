@@ -6,6 +6,7 @@ const mockQueueSet = jest.fn()
 const mockCollection = jest.fn()
 const mockPublishPost = jest.fn()
 const mockMarkAccountTokenExpired = jest.fn()
+const mockToPlatformType = jest.fn(() => 'linkedin')
 
 jest.mock('firebase-admin/firestore', () => ({
   FieldValue: {
@@ -42,7 +43,7 @@ jest.mock('@/lib/social/scheduling', () => ({
 jest.mock('@/lib/social/account-resolver', () => ({
   isTokenExpiredError: jest.fn((message: string) => message.includes('Session has expired')),
   markAccountTokenExpired: mockMarkAccountTokenExpired,
-  toPlatformType: jest.fn(() => 'linkedin'),
+  toPlatformType: mockToPlatformType,
   resolveProvider: jest.fn(async () => ({
     accountId: 'account-1',
     provider: { publishPost: mockPublishPost },
@@ -75,6 +76,7 @@ beforeEach(() => {
   mockQueueSet.mockResolvedValue(undefined)
   mockMarkAccountTokenExpired.mockResolvedValue(undefined)
   mockPublishPost.mockResolvedValue({ platformPostId: 'urn:li:share:1' })
+  mockToPlatformType.mockReturnValue('linkedin')
   mockDocGet.mockResolvedValue({
     exists: true,
     data: () => ({
@@ -118,10 +120,49 @@ describe('portal social post actions', () => {
     const body = await res.json()
 
     expect(res.status).toBe(200)
-    expect(mockPublishPost).toHaveBeenCalledWith({ text: 'Post body', mediaUrls: undefined })
+    expect(mockPublishPost).toHaveBeenCalledWith(expect.objectContaining({ text: 'Post body' }))
     expect(mockDocUpdate).toHaveBeenCalledWith(expect.objectContaining({ status: 'published', externalId: 'urn:li:share:1' }))
     expect(mockQueueSet).toHaveBeenCalledWith(expect.objectContaining({ status: 'completed', error: null }), { merge: true })
     expect(body.data).toMatchObject({ id: 'post-1', status: 'published', externalId: 'urn:li:share:1' })
+  })
+
+  it('passes YouTube upload metadata when publishing immediately from the portal', async () => {
+    mockToPlatformType.mockReturnValueOnce('youtube')
+    mockDocGet.mockResolvedValueOnce({
+      exists: true,
+      data: () => ({
+        orgId: 'org-1',
+        platform: 'youtube',
+        status: 'approved',
+        content: { text: 'Video description' },
+        approvedAt: '2026-05-18T06:00:00Z',
+        media: [{ url: 'https://storage.googleapis.com/pib/video.mp4', altText: 'Growth operations clip' }],
+        title: 'Daily Growth Decisions, Not Dashboard Debt',
+        tags: ['ai-employees', 'growth-ops'],
+        privacyStatus: 'public',
+        targetVisibility: 'public',
+        categoryId: '28',
+        publishAt: '2026-07-02T07:00:00.000Z',
+        selfDeclaredMadeForKids: false,
+      }),
+    })
+
+    const { POST } = await import('@/app/api/v1/portal/social/posts/[id]/publish-now/route')
+    const res = await POST(request('http://localhost/api/v1/portal/social/posts/post-1/publish-now'), user, params)
+
+    expect(res.status).toBe(200)
+    expect(mockPublishPost).toHaveBeenCalledWith(expect.objectContaining({
+      text: 'Video description',
+      mediaUrls: ['https://storage.googleapis.com/pib/video.mp4'],
+      altTexts: ['Growth operations clip'],
+      title: 'Daily Growth Decisions, Not Dashboard Debt',
+      tags: ['ai-employees', 'growth-ops'],
+      privacyStatus: 'public',
+      targetVisibility: 'public',
+      categoryId: '28',
+      publishAt: '2026-07-02T07:00:00.000Z',
+      selfDeclaredMadeForKids: false,
+    }))
   })
 
   it('marks the social account expired when publish fails with an expired token', async () => {

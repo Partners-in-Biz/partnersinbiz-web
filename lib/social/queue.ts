@@ -20,6 +20,7 @@ import { validateOutboundLinks } from '@/lib/social/outbound-link-validation'
 import { notifySocialPublishFailure } from '@/lib/social/publish-failure-alerts'
 import { getFirstComment, postFirstComment } from '@/lib/social/first-comment'
 import { buildProviderPublishOptions } from '@/lib/social/publish-options'
+import type { PublishOptions } from '@/lib/social/providers'
 import crypto from 'crypto'
 
 /** Backoff schedule in seconds: 1min, 5min, 15min, 1hr */
@@ -54,17 +55,14 @@ interface PublishOutcome {
 /** Publish via provider, auto-refresh on 401 */
 async function publishWithRefresh(
   provider: QueueProvider,
-  text: string,
+  options: PublishOptions,
   threadParts: string[] | undefined,
-  mediaUrls: string[] | undefined,
-  post: FirebaseFirestore.DocumentData,
   accountId: string | null,
   orgId: string,
   platformType: SocialPlatformType,
-  shareType: 'profile' | 'organization' | undefined,
 ): Promise<PublishOutcome> {
   try {
-    return { externalId: await doPublish(provider, text, threadParts, mediaUrls, post, shareType), provider }
+    return { externalId: await doPublish(provider, options, threadParts), provider }
   } catch (err) {
     const msg = err instanceof Error ? err.message : 'Unknown error'
     if (msg.includes('401') && accountId) {
@@ -72,7 +70,7 @@ async function publishWithRefresh(
       const refreshed = await refreshAccountToken(accountId, orgId, platformType)
       if (refreshed) {
         console.log(`[queue] Token refreshed, retrying ${accountId}`)
-        return { externalId: await doPublish(refreshed, text, threadParts, mediaUrls, post, shareType), provider: refreshed }
+        return { externalId: await doPublish(refreshed, options, threadParts), provider: refreshed }
       }
     }
     throw err
@@ -81,17 +79,14 @@ async function publishWithRefresh(
 
 async function doPublish(
   provider: QueueProvider,
-  text: string,
+  options: PublishOptions,
   threadParts: string[] | undefined,
-  mediaUrls: string[] | undefined,
-  post: FirebaseFirestore.DocumentData,
-  shareType: 'profile' | 'organization' | undefined,
 ): Promise<string> {
   if (Array.isArray(threadParts) && threadParts.length > 0) {
-    const results = await provider.publishThread(threadParts, mediaUrls)
+    const results = await provider.publishThread(threadParts, options.mediaUrls)
     return results[0].platformPostId
   }
-  const result = await provider.publishPost(buildProviderPublishOptions({ post, text, mediaUrls, shareType }))
+  const result = await provider.publishPost(options)
   return result.platformPostId
 }
 
@@ -218,8 +213,9 @@ export async function processQueue(): Promise<QueueProcessResult> {
         post.linkedinShareType === 'organization' || post.linkedinShareType === 'profile'
           ? post.linkedinShareType
           : undefined
+      const publishOptions = buildProviderPublishOptions({ post, text, mediaUrls, shareType })
       const { externalId, provider: publishProvider } = await publishWithRefresh(
-        provider, text, post.threadParts, mediaUrls, post, resolvedAccountId, orgId, platformType, shareType,
+        provider, publishOptions, post.threadParts, resolvedAccountId, orgId, platformType,
       )
 
       await adminDb.collection('social_posts').doc(entry.postId).update({
