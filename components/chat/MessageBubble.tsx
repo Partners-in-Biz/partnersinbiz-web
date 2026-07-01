@@ -985,6 +985,16 @@ function RichMessagePartView({ part }: { part: RichMessagePart }) {
   if (type === 'table') {
     const rows = Array.isArray(part.rows) ? part.rows : []
     const columns = Array.isArray(part.columns) ? part.columns : []
+    const cellsForRow = (row: unknown): unknown[] => {
+      if (Array.isArray(row)) return row
+      if (row && typeof row === 'object') {
+        const record = row as Record<string, unknown>
+        return columns.length > 0
+          ? columns.map((column) => record[String(column)])
+          : Object.values(record)
+      }
+      return [row]
+    }
     return (
       <div className="my-2 overflow-hidden rounded-xl border border-white/10 bg-black/20">
         {part.caption && <div className="border-b border-white/10 px-3 py-2 text-xs font-semibold text-on-surface">{part.caption}</div>}
@@ -1004,7 +1014,7 @@ function RichMessagePartView({ part }: { part: RichMessagePart }) {
             <tbody className="text-on-surface-variant">
               {rows.map((row, rowIndex) => (
                 <tr key={rowIndex} className="border-b border-white/5 last:border-b-0">
-                  {row.map((cell, cellIndex) => (
+                  {cellsForRow(row).map((cell, cellIndex) => (
                     <td key={cellIndex} className="px-3 py-2 align-top">
                       {String(cell ?? '')}
                     </td>
