@@ -5,7 +5,8 @@ import type { HermesProfileLink } from '@/lib/hermes/types'
 
 type JsonObject = Record<string, unknown>
 
-const ACTIVE_STATUSES = new Set(['started', 'submitted', 'running', 'pending', 'streaming'])
+const ACTIVE_STATUS_VALUES = ['started', 'submitted', 'running', 'pending', 'streaming'] as const
+const ACTIVE_STATUSES = new Set<string>(ACTIVE_STATUS_VALUES)
 const COMPLETED_STATUSES = new Set(['completed', 'complete', 'succeeded', 'success', 'done', 'finished'])
 const FAILED_STATUSES = new Set(['failed', 'error', 'errored', 'cancelled', 'canceled', 'stopped', 'interrupted'])
 
@@ -117,7 +118,7 @@ export async function reconcileActiveHermesRunsForOrg(
 
   const snap = await adminDb
     .collection(HERMES_RUNS_COLLECTION)
-    .where('orgId', '==', link.orgId)
+    .where('status', 'in', [...ACTIVE_STATUS_VALUES])
     .limit(limit * 4)
     .get()
 
@@ -126,7 +127,8 @@ export async function reconcileActiveHermesRunsForOrg(
       const data = doc.data() as JsonObject
       const status = cleanString(data.status ?? data.state)?.toLowerCase()
       const profile = cleanString(data.profile)
-      return Boolean(status && ACTIVE_STATUSES.has(status) && profile === link.profile && cleanString(data.hermesRunId ?? data.runId))
+      const orgId = cleanString(data.orgId)
+      return Boolean(orgId === link.orgId && status && ACTIVE_STATUSES.has(status) && profile === link.profile && cleanString(data.hermesRunId ?? data.runId))
     })
     .slice(0, limit)
 
