@@ -49,6 +49,7 @@
   "repoPibSkills": [
     "ads-manager",
     "analytics",
+    "approval-queue-gather",
     "billing-finance",
     "client-documents",
     "client-manager",
@@ -95,6 +96,20 @@
         "sales",
         "seo",
         "support",
+        "theo"
+      ],
+      "riskLevel": "medium",
+      "syncTarget": "vps"
+    },
+    "approval-queue-gather": {
+      "ownerAgentId": "pip",
+      "allowedAgentIds": [
+        "data",
+        "maya",
+        "nora",
+        "pip",
+        "qa-release",
+        "sales",
         "theo"
       ],
       "riskLevel": "medium",
@@ -982,6 +997,7 @@
       "vpsExternalDir": "/var/lib/hermes/agent-skills/pip",
       "pibSkills": [
         "analytics",
+        "approval-queue-gather",
         "client-documents",
         "client-manager",
         "collaboration-runtime",
@@ -1000,6 +1016,7 @@
       ],
       "runtimeSkills": [
         "analytics",
+        "approval-queue-gather",
         "client-documents",
         "client-manager",
         "collaboration-runtime",
@@ -1076,6 +1093,7 @@
       "pibSkills": [
         "ads-manager",
         "analytics",
+        "approval-queue-gather",
         "billing-finance",
         "client-documents",
         "client-manager",
@@ -1100,6 +1118,7 @@
       "runtimeSkills": [
         "ads-manager",
         "analytics",
+        "approval-queue-gather",
         "billing-finance",
         "client-documents",
         "client-manager",
@@ -1215,6 +1234,7 @@
       "vpsExternalDir": "/var/lib/hermes/agent-skills/maya",
       "pibSkills": [
         "analytics",
+        "approval-queue-gather",
         "client-documents",
         "client-manager",
         "collaboration-runtime",
@@ -1230,6 +1250,7 @@
       ],
       "runtimeSkills": [
         "analytics",
+        "approval-queue-gather",
         "client-documents",
         "client-manager",
         "collaboration-runtime",
@@ -1377,6 +1398,7 @@
       "vpsExternalDir": "/var/lib/hermes/agent-skills/nora",
       "pibSkills": [
         "analytics",
+        "approval-queue-gather",
         "billing-finance",
         "client-documents",
         "client-manager",
@@ -1391,6 +1413,7 @@
       ],
       "runtimeSkills": [
         "analytics",
+        "approval-queue-gather",
         "billing-finance",
         "client-documents",
         "client-manager",
@@ -1550,6 +1573,7 @@
       "pibSkills": [
         "ads-manager",
         "analytics",
+        "approval-queue-gather",
         "billing-finance",
         "client-documents",
         "client-manager",
@@ -1574,6 +1598,7 @@
       "runtimeSkills": [
         "ads-manager",
         "analytics",
+        "approval-queue-gather",
         "billing-finance",
         "client-documents",
         "client-manager",
@@ -1748,6 +1773,7 @@
       "vpsExternalDir": "/var/lib/hermes/agent-skills/data",
       "pibSkills": [
         "analytics",
+        "approval-queue-gather",
         "client-documents",
         "client-manager",
         "collaboration-runtime",
@@ -1761,6 +1787,7 @@
       ],
       "runtimeSkills": [
         "analytics",
+        "approval-queue-gather",
         "client-documents",
         "client-manager",
         "collaboration-runtime",
@@ -1977,6 +2004,7 @@
       "vpsExternalDir": "/var/lib/hermes/agent-skills/sales",
       "pibSkills": [
         "analytics",
+        "approval-queue-gather",
         "client-documents",
         "client-manager",
         "collaboration-runtime",
@@ -1990,6 +2018,7 @@
       ],
       "runtimeSkills": [
         "analytics",
+        "approval-queue-gather",
         "client-documents",
         "client-manager",
         "collaboration-runtime",

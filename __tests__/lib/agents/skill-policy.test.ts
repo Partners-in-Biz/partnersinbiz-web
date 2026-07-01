@@ -27,6 +27,7 @@ describe('agent skill policy manifest', () => {
     expect(AGENT_SKILL_POLICY.repoPibSkills).toEqual([
       'ads-manager',
       'analytics',
+      'approval-queue-gather',
       'billing-finance',
       'client-documents',
       'client-manager',
