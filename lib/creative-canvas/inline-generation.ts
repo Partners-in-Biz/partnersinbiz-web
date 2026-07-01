@@ -26,12 +26,23 @@ export interface InlineGenerationResult {
   mimeType: string
 }
 
-type XaiSize = 'square' | 'portrait' | 'landscape'
+const XAI_IMAGE_MODEL = 'grok-imagine-image-quality'
 
-const XAI_SIZE_BY_ASPECT_RATIO: Record<string, XaiSize> = {
-  '1:1': 'square',
-  '9:16': 'portrait',
-  '16:9': 'landscape',
+function safeProviderMessage(value: unknown): string | null {
+  if (!value) return null
+  if (typeof value === 'string') return value.slice(0, 500)
+  if (Array.isArray(value)) {
+    return value.map(safeProviderMessage).filter(Boolean).join('; ').slice(0, 500) || null
+  }
+  if (typeof value === 'object') {
+    const obj = value as Record<string, unknown>
+    return safeProviderMessage(obj.message)
+      ?? safeProviderMessage(obj.error)
+      ?? safeProviderMessage(obj.detail)
+      ?? safeProviderMessage(obj.details)
+      ?? safeProviderMessage(obj.errors)
+  }
+  return null
 }
 
 /**
@@ -41,7 +52,6 @@ const XAI_SIZE_BY_ASPECT_RATIO: Record<string, XaiSize> = {
 async function callXaiImage(
   prompt: string,
   apiKey: string,
-  size: XaiSize,
 ): Promise<InlineGenerationResult> {
   const response = await fetch('https://api.x.ai/v1/images/generations', {
     method: 'POST',
@@ -50,19 +60,14 @@ async function callXaiImage(
       Authorization: `Bearer ${apiKey}`,
     },
     body: JSON.stringify({
-      model: 'grok-2-image',
+      model: XAI_IMAGE_MODEL,
       prompt,
-      num_images: 1,
-      size,
-      response_format: 'b64_json',
     }),
   })
 
   if (!response.ok) {
-    const errorData = (await response.json().catch(() => ({}))) as {
-      error?: { message?: string }
-    }
-    const msg = errorData?.error?.message ?? `xAI API error (${response.status})`
+    const errorData = await response.json().catch(() => null)
+    const msg = safeProviderMessage(errorData) ?? `xAI API error (${response.status})`
     if (response.status === 429) throw new Error('RATE_LIMIT')
     if (response.status === 400 && msg.toLowerCase().includes('policy')) {
       throw new Error('CONTENT_POLICY')
@@ -107,7 +112,5 @@ export async function generateInline(
     throw new Error('XAI_API_KEY not configured')
   }
 
-  const size = XAI_SIZE_BY_ASPECT_RATIO[input.aspectRatio ?? '1:1'] ?? 'square'
-
-  return callXaiImage(input.prompt, apiKey, size)
+  return callXaiImage(input.prompt, apiKey)
 }

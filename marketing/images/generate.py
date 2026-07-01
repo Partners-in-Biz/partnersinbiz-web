@@ -1,12 +1,11 @@
 #!/usr/bin/env python3
 """
 Image generation script for Partners in Biz campaign.
-Uses xAI grok-imagine-image-pro API (NOT Gemini/Imagen).
+Uses xAI Grok Imagine API (NOT Gemini/Imagen).
 """
 
 import os
 import sys
-import base64
 import json
 import urllib.request
 import urllib.error
@@ -23,7 +22,7 @@ ultra-sharp details, photorealistic, no logos no text overlay
 
 def generate_image(prompt: str, aspect_ratio: str = "1:1") -> bytes:
     """
-    Generate an image using xAI grok-imagine-image-pro.
+    Generate an image using xAI Grok Imagine.
 
     Args:
         prompt: The image description (scene only - MASTER_SUFFIX will be appended)
@@ -40,24 +39,13 @@ def generate_image(prompt: str, aspect_ratio: str = "1:1") -> bytes:
     # Combine prompt with master suffix
     full_prompt = f"{prompt}, {MASTER_SUFFIX}"
 
-    # Map aspect ratios to xAI format
-    ratio_map = {
-        "1:1": "square",
-        "9:16": "portrait",
-        "16:9": "landscape"
-    }
-    ratio_format = ratio_map.get(aspect_ratio, "square")
-
     # API endpoint
     url = "https://api.x.ai/v1/images/generations"
 
     # Request payload
     payload = {
         "prompt": full_prompt,
-        "model": "grok-2-image",
-        "num_images": 1,
-        "size": ratio_format,
-        "response_format": "b64_json"
+        "model": "grok-imagine-image-quality",
     }
 
     headers = {
@@ -79,13 +67,14 @@ def generate_image(prompt: str, aspect_ratio: str = "1:1") -> bytes:
             if 'data' not in data or not data['data']:
                 raise ValueError(f"Unexpected response: {data}")
 
-            # Extract base64 image
-            b64_data = data['data'][0]['b64_json']
-
-            # Convert to bytes
-            image_bytes = base64.b64decode(b64_data)
-
-            return image_bytes
+            image = data['data'][0]
+            if 'url' in image:
+                with urllib.request.urlopen(image['url'], timeout=60) as image_response:
+                    return image_response.read()
+            if 'b64_json' in image:
+                import base64
+                return base64.b64decode(image['b64_json'])
+            raise ValueError(f"Unexpected image response: {data}")
 
     except urllib.error.HTTPError as e:
         error_msg = e.read().decode()

@@ -24,10 +24,23 @@ class XaiImageError extends Error {
   }
 }
 
-const XAI_SIZE_BY_REQUEST_SIZE: Record<NonNullable<ImageGenerationRequest['size']>, 'square' | 'portrait' | 'landscape'> = {
-  '1024x1024': 'square',
-  '1024x1536': 'portrait',
-  '1536x1024': 'landscape',
+const XAI_IMAGE_MODEL = 'grok-imagine-image-quality'
+
+function safeProviderMessage(value: unknown): string | null {
+  if (!value) return null
+  if (typeof value === 'string') return value.slice(0, 500)
+  if (Array.isArray(value)) {
+    return value.map(safeProviderMessage).filter(Boolean).join('; ').slice(0, 500) || null
+  }
+  if (typeof value === 'object') {
+    const obj = value as Record<string, unknown>
+    return safeProviderMessage(obj.message)
+      ?? safeProviderMessage(obj.error)
+      ?? safeProviderMessage(obj.detail)
+      ?? safeProviderMessage(obj.details)
+      ?? safeProviderMessage(obj.errors)
+  }
+  return null
 }
 
 // ---------------------------------------------------------------------------
@@ -36,7 +49,6 @@ const XAI_SIZE_BY_REQUEST_SIZE: Record<NonNullable<ImageGenerationRequest['size'
 async function generateWithXai(
   prompt: string,
   apiKey: string,
-  size: NonNullable<ImageGenerationRequest['size']>,
 ): Promise<{ url: string; revisedPrompt: string }> {
   const response = await fetch('https://api.x.ai/v1/images/generations', {
     method: 'POST',
@@ -45,17 +57,14 @@ async function generateWithXai(
       Authorization: `Bearer ${apiKey}`,
     },
     body: JSON.stringify({
-      model: 'grok-2-image',
+      model: XAI_IMAGE_MODEL,
       prompt,
-      num_images: 1,
-      size: XAI_SIZE_BY_REQUEST_SIZE[size],
-      response_format: 'b64_json',
     }),
   })
 
   if (!response.ok) {
-    const errorData = await response.json().catch(() => ({})) as { error?: { message?: string } }
-    const msg = errorData?.error?.message ?? `xAI API error (${response.status})`
+    const errorData = await response.json().catch(() => null)
+    const msg = safeProviderMessage(errorData) ?? `xAI API error (${response.status})`
     if (response.status === 429) throw new Error('RATE_LIMIT')
     if (response.status === 400 && msg.toLowerCase().includes('policy')) throw new Error('CONTENT_POLICY')
     throw new XaiImageError(msg, response.status)
@@ -93,7 +102,7 @@ export const POST = withAuth('admin', withTenant(async (req) => {
   if (!xaiKey) return apiError('XAI_API_KEY not configured', 500)
 
   try {
-    const result = await generateWithXai(prompt, xaiKey, size)
+    const result = await generateWithXai(prompt, xaiKey)
 
     return apiSuccess({
       url: result.url,
