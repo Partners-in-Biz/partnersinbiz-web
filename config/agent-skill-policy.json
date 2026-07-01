@@ -50,6 +50,7 @@
     "ads-manager",
     "analytics",
     "approval-queue-gather",
+    "chat-surface-gather",
     "billing-finance",
     "client-documents",
     "client-manager",
@@ -987,6 +988,20 @@
       ],
       "riskLevel": "medium",
       "syncTarget": "vps"
+    },
+    "chat-surface-gather": {
+      "ownerAgentId": "pip",
+      "allowedAgentIds": [
+        "data",
+        "nora",
+        "pip",
+        "qa-release",
+        "sales",
+        "support",
+        "theo"
+      ],
+      "riskLevel": "medium",
+      "syncTarget": "vps"
     }
   },
   "agents": {
@@ -998,6 +1013,7 @@
       "pibSkills": [
         "analytics",
         "approval-queue-gather",
+        "chat-surface-gather",
         "client-documents",
         "client-manager",
         "collaboration-runtime",
@@ -1017,6 +1033,7 @@
       "runtimeSkills": [
         "analytics",
         "approval-queue-gather",
+        "chat-surface-gather",
         "client-documents",
         "client-manager",
         "collaboration-runtime",
@@ -1094,6 +1111,7 @@
         "ads-manager",
         "analytics",
         "approval-queue-gather",
+        "chat-surface-gather",
         "billing-finance",
         "client-documents",
         "client-manager",
@@ -1119,6 +1137,7 @@
         "ads-manager",
         "analytics",
         "approval-queue-gather",
+        "chat-surface-gather",
         "billing-finance",
         "client-documents",
         "client-manager",
@@ -1399,6 +1418,7 @@
       "pibSkills": [
         "analytics",
         "approval-queue-gather",
+        "chat-surface-gather",
         "billing-finance",
         "client-documents",
         "client-manager",
@@ -1414,6 +1434,7 @@
       "runtimeSkills": [
         "analytics",
         "approval-queue-gather",
+        "chat-surface-gather",
         "billing-finance",
         "client-documents",
         "client-manager",
@@ -1574,6 +1595,7 @@
         "ads-manager",
         "analytics",
         "approval-queue-gather",
+        "chat-surface-gather",
         "billing-finance",
         "client-documents",
         "client-manager",
@@ -1599,6 +1621,7 @@
         "ads-manager",
         "analytics",
         "approval-queue-gather",
+        "chat-surface-gather",
         "billing-finance",
         "client-documents",
         "client-manager",
@@ -1701,6 +1724,7 @@
       "vpsExternalDir": "/var/lib/hermes/agent-skills/support",
       "pibSkills": [
         "analytics",
+        "chat-surface-gather",
         "client-documents",
         "client-manager",
         "collaboration-runtime",
@@ -1715,6 +1739,7 @@
       ],
       "runtimeSkills": [
         "analytics",
+        "chat-surface-gather",
         "client-documents",
         "client-manager",
         "collaboration-runtime",
@@ -1774,6 +1799,7 @@
       "pibSkills": [
         "analytics",
         "approval-queue-gather",
+        "chat-surface-gather",
         "client-documents",
         "client-manager",
         "collaboration-runtime",
@@ -1788,6 +1814,7 @@
       "runtimeSkills": [
         "analytics",
         "approval-queue-gather",
+        "chat-surface-gather",
         "client-documents",
         "client-manager",
         "collaboration-runtime",
@@ -2005,6 +2032,7 @@
       "pibSkills": [
         "analytics",
         "approval-queue-gather",
+        "chat-surface-gather",
         "client-documents",
         "client-manager",
         "collaboration-runtime",
@@ -2019,6 +2047,7 @@
       "runtimeSkills": [
         "analytics",
         "approval-queue-gather",
+        "chat-surface-gather",
         "client-documents",
         "client-manager",
         "collaboration-runtime",

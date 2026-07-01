@@ -28,6 +28,7 @@ describe('agent skill policy manifest', () => {
       'ads-manager',
       'analytics',
       'approval-queue-gather',
+      'chat-surface-gather',
       'billing-finance',
       'client-documents',
       'client-manager',
