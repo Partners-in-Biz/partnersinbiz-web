@@ -50,6 +50,7 @@
     "ads-manager",
     "analytics",
     "agent-runtime-gather",
+    "agent-skill-drift-gather",
     "approval-queue-gather",
     "ceo-on-demand-gather",
     "chat-surface-gather",
@@ -1062,6 +1063,18 @@
       ],
       "riskLevel": "medium",
       "syncTarget": "vps"
+    },
+    "agent-skill-drift-gather": {
+      "ownerAgentId": "nora",
+      "allowedAgentIds": [
+        "data",
+        "nora",
+        "pip",
+        "qa-release",
+        "theo"
+      ],
+      "riskLevel": "medium",
+      "syncTarget": "vps"
     }
   },
   "agents": {
@@ -1073,6 +1086,7 @@
       "pibSkills": [
         "analytics",
         "agent-runtime-gather",
+        "agent-skill-drift-gather",
         "approval-queue-gather",
         "ceo-on-demand-gather",
         "chat-surface-gather",
@@ -1097,6 +1111,7 @@
       "runtimeSkills": [
         "analytics",
         "agent-runtime-gather",
+        "agent-skill-drift-gather",
         "approval-queue-gather",
         "ceo-on-demand-gather",
         "chat-surface-gather",
@@ -1179,6 +1194,7 @@
         "ads-manager",
         "analytics",
         "agent-runtime-gather",
+        "agent-skill-drift-gather",
         "approval-queue-gather",
         "ceo-on-demand-gather",
         "chat-surface-gather",
@@ -1209,6 +1225,7 @@
         "ads-manager",
         "analytics",
         "agent-runtime-gather",
+        "agent-skill-drift-gather",
         "approval-queue-gather",
         "ceo-on-demand-gather",
         "chat-surface-gather",
@@ -1500,6 +1517,7 @@
       "pibSkills": [
         "analytics",
         "agent-runtime-gather",
+        "agent-skill-drift-gather",
         "approval-queue-gather",
         "ceo-on-demand-gather",
         "chat-surface-gather",
@@ -1519,6 +1537,7 @@
       "runtimeSkills": [
         "analytics",
         "agent-runtime-gather",
+        "agent-skill-drift-gather",
         "approval-queue-gather",
         "ceo-on-demand-gather",
         "chat-surface-gather",
@@ -1685,6 +1704,7 @@
         "ads-manager",
         "analytics",
         "agent-runtime-gather",
+        "agent-skill-drift-gather",
         "approval-queue-gather",
         "ceo-on-demand-gather",
         "chat-surface-gather",
@@ -1715,6 +1735,7 @@
         "ads-manager",
         "analytics",
         "agent-runtime-gather",
+        "agent-skill-drift-gather",
         "approval-queue-gather",
         "ceo-on-demand-gather",
         "chat-surface-gather",
@@ -1899,6 +1920,7 @@
       "pibSkills": [
         "analytics",
         "agent-runtime-gather",
+        "agent-skill-drift-gather",
         "approval-queue-gather",
         "ceo-on-demand-gather",
         "chat-surface-gather",
@@ -1918,6 +1940,7 @@
       "runtimeSkills": [
         "analytics",
         "agent-runtime-gather",
+        "agent-skill-drift-gather",
         "approval-queue-gather",
         "ceo-on-demand-gather",
         "chat-surface-gather",
