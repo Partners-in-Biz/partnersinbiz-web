@@ -422,7 +422,16 @@ export default function UnifiedChat({
   const loadMessages = useCallback(async (convId: string, options?: { silent?: boolean }) => {
     if (!options?.silent) setLoading(true)
     try {
-      const res = await fetch(`/api/v1/conversations/${convId}/messages`)
+      let res: Response
+      try {
+        res = await fetch(`/api/v1/conversations/${convId}/messages`)
+      } catch {
+        res = await fetch(`/api/v1/chat-feed/${convId}`)
+      }
+      if (!res.ok && (res.status === 404 || res.status === 403 || res.status >= 500)) {
+        const fallback = await fetch(`/api/v1/chat-feed/${convId}`)
+        if (fallback.ok || !res.ok) res = fallback
+      }
       if (!res.ok) throw new Error(`load messages: ${res.status}`)
       const body = await res.json()
       setMessages(body.data?.messages ?? [])
