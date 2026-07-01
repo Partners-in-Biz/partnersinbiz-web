@@ -185,5 +185,9 @@ describe('GET /api/v1/agent/growth-command-queue', () => {
     })
     expect(recoveredItem.summary).toContain('already recovered')
     expect(body.data.sourceReports.briefingFeed.approvalLikeItems).toBe(0)
+    expect(body.data.sourceReports.briefingFeed.recoveredAgentRuns).toEqual({
+      count: 1,
+      ids: ['run-doc-recovered'],
+    })
   })
 })
