@@ -28,6 +28,89 @@ function rowsFromSnapshot<T extends Record<string, unknown>>(snap: { docs: Array
   return snap.docs.map((doc) => ({ id: doc.id, ...doc.data() }))
 }
 
+function dateFromUnknown(value: unknown): Date | null {
+  if (!value) return null
+  if (value instanceof Date && Number.isFinite(value.getTime())) return value
+  if (typeof value === 'number') {
+    const date = new Date(value > 10_000_000_000 ? value : value * 1000)
+    return Number.isFinite(date.getTime()) ? date : null
+  }
+  if (typeof value === 'string') {
+    const date = new Date(value)
+    return Number.isFinite(date.getTime()) ? date : null
+  }
+  if (typeof value === 'object' && 'toDate' in value && typeof value.toDate === 'function') {
+    const date = value.toDate()
+    return date instanceof Date && Number.isFinite(date.getTime()) ? date : null
+  }
+  return null
+}
+
+function cleanString(value: unknown): string | null {
+  return typeof value === 'string' && value.trim().length > 0 ? value.trim() : null
+}
+
+function conversationIdFromRun(run: Record<string, unknown>): string | null {
+  const direct = cleanString(run.conversationId)
+  if (direct) return direct
+  const prompt = cleanString(run.prompt)
+  if (!prompt) return null
+  const match = prompt.match(/\bconvId:\s*([A-Za-z0-9_-]+)/)
+  return match?.[1] ?? null
+}
+
+function completedAssistantText(data: Record<string, unknown>): string | null {
+  if (data.role !== 'assistant') return null
+  if (data.status === 'failed') return null
+  const content = cleanString(data.content) ?? cleanString(data.text) ?? cleanString(data.message)
+  if (!content) return null
+  if (/^HTTP\s+\d{3}:/i.test(content)) return null
+  return content
+}
+
+async function agentRunRecoveredAfterFailure(runId: string): Promise<boolean> {
+  const runDoc = await adminDb.collection('hermes_runs').doc(runId).get()
+  if (!runDoc.exists) return false
+  const run = runDoc.data() ?? {}
+  const status = cleanString(run.status)?.toLowerCase()
+  if (!['failed', 'error', 'errored', 'cancelled', 'canceled'].includes(status ?? '')) return false
+
+  const failedAt = dateFromUnknown(run.updatedAt) ?? dateFromUnknown(run.completedAt) ?? dateFromUnknown(run.createdAt)
+  const conversationId = conversationIdFromRun(run)
+  if (!failedAt || !conversationId) return false
+
+  const messagesSnap = await adminDb
+    .collection('conversations')
+    .doc(conversationId)
+    .collection('messages')
+    .orderBy('createdAt', 'desc')
+    .limit(20)
+    .get()
+
+  return messagesSnap.docs.some((doc) => {
+    const data = doc.data() ?? {}
+    if (!completedAssistantText(data)) return false
+    const createdAt = dateFromUnknown(data.createdAt)
+    return Boolean(createdAt && createdAt.getTime() > failedAt.getTime())
+  })
+}
+
+async function recoveredAgentRunIdsFromBriefing(items: Awaited<ReturnType<typeof buildBriefingFeed>>['items']): Promise<string[]> {
+  const runIds = Array.from(new Set(items
+    .filter((item) => item.source.type === 'agent-run')
+    .map((item) => item.source.id)
+    .filter(Boolean)))
+
+  const settled = await Promise.allSettled(runIds.map(async (runId) => ({
+    runId,
+    recovered: await agentRunRecoveredAfterFailure(runId),
+  })))
+
+  return settled.flatMap((result) =>
+    result.status === 'fulfilled' && result.value.recovered ? [result.value.runId] : [],
+  )
+}
+
 export const GET = withCrmAuth('member', async (_req, ctx) => {
   try {
     const [
@@ -94,6 +177,7 @@ export const GET = withCrmAuth('member', async (_req, ctx) => {
       sourceType: 'all',
       limit: 80,
     })
+    const recoveredAgentRunIds = await recoveredAgentRunIdsFromBriefing(briefing.items)
 
     return apiSuccess(buildAgentGrowthCommandQueue({
       orgId: ctx.orgId,
@@ -105,6 +189,7 @@ export const GET = withCrmAuth('member', async (_req, ctx) => {
         total: briefing.total,
         items: briefing.items,
       },
+      recoveredAgentRunIds,
     }))
   } catch (err) {
     return apiErrorFromException(err)

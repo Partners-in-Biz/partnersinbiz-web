@@ -60,6 +60,7 @@ export interface BuildAgentGrowthCommandQueueInput {
     total: number
     items: BriefingCard[]
   }
+  recoveredAgentRunIds?: string[]
   generatedAt?: string
 }
 
@@ -111,15 +112,22 @@ function isPastMissingMeetBooking(item: BriefingCard, generatedAt: string): bool
   return bookingDate.getTime() < referenceDate.getTime()
 }
 
-function briefingQueueItem(item: BriefingCard, generatedAt: string): GrowthCommandQueueItem {
+function isRecoveredAgentRun(item: BriefingCard, recoveredAgentRunIds: Set<string>): boolean {
+  return item.source.type === 'agent-run' && recoveredAgentRunIds.has(item.source.id)
+}
+
+function briefingQueueItem(item: BriefingCard, generatedAt: string, recoveredAgentRunIds: Set<string>): GrowthCommandQueueItem {
   const staleBooking = isPastMissingMeetBooking(item, generatedAt)
+  const recoveredAgentRun = isRecoveredAgentRun(item, recoveredAgentRunIds)
   const isAgentReview = item.source.type === 'agent-run' || item.source.type === 'agent-output'
   return {
     id: `briefing:${item.id}`,
-    kind: staleBooking ? 'ops-cleanup' : isAgentReview ? 'agent-review' : 'ceo-approval',
-    priority: staleBooking ? 'review' : item.priority === 'critical' ? 'critical' : item.priority === 'needs-peet' ? 'needs-peet' : 'review',
+    kind: staleBooking || recoveredAgentRun ? 'ops-cleanup' : isAgentReview ? 'agent-review' : 'ceo-approval',
+    priority: staleBooking || recoveredAgentRun ? 'review' : item.priority === 'critical' ? 'critical' : item.priority === 'needs-peet' ? 'needs-peet' : 'review',
     title: item.title,
-    summary: staleBooking
+    summary: recoveredAgentRun
+      ? `${summarizeBriefing(item)} Later same-conversation assistant output indicates this failed run was already recovered, so treat it as queue cleanup instead of a critical retry.`
+      : staleBooking
       ? `${summarizeBriefing(item)} This booking is already in the past, so treat it as cleanup/follow-up review instead of a critical live Meet-link approval.`
       : summarizeBriefing(item),
     source: {
@@ -127,9 +135,15 @@ function briefingQueueItem(item: BriefingCard, generatedAt: string): GrowthComma
       id: item.source.id,
       url: item.source.url ?? null,
     },
-    recommendedAgent: staleBooking ? 'nora' : item.context.reviewerAgentId ?? 'pip',
-    approvalRequired: !staleBooking,
-    allowedNow: staleBooking
+    recommendedAgent: staleBooking ? 'nora' : recoveredAgentRun ? 'pip' : item.context.reviewerAgentId ?? 'pip',
+    approvalRequired: !staleBooking && !recoveredAgentRun,
+    allowedNow: recoveredAgentRun
+      ? [
+          'Analyze the stored Hermes run and related conversation evidence.',
+          'Return a CEO-readable cleanup recommendation in Messages.',
+          'Create an internal-only product follow-up if stale failed-run cards keep recurring.',
+        ]
+      : staleBooking
       ? [
           'Analyze the stored booking and briefing data.',
           'Recommend whether to mark handled, create a follow-up task, or repair the briefing rule.',
@@ -140,7 +154,11 @@ function briefingQueueItem(item: BriefingCard, generatedAt: string): GrowthComma
           'Return a CEO-readable recommendation in Messages.',
           'Create or update internal-only follow-up tasks if needed.',
         ],
-    blockedUntilApproval: staleBooking
+    blockedUntilApproval: recoveredAgentRun
+      ? [
+          'Do not retry, requeue, stop, approve, or mutate Hermes runs without CEO approval.',
+        ]
+      : staleBooking
       ? [
           'Do not create calendar events, Meet links, customer emails, or external notifications without CEO approval.',
         ]
@@ -150,10 +168,10 @@ function briefingQueueItem(item: BriefingCard, generatedAt: string): GrowthComma
   }
 }
 
-function briefingQueueItems(items: BriefingCard[], generatedAt: string): GrowthCommandQueueItem[] {
+function briefingQueueItems(items: BriefingCard[], generatedAt: string, recoveredAgentRunIds: Set<string>): GrowthCommandQueueItem[] {
   return items
     .filter((item) => briefingLooksApprovalLike(item) || isPastMissingMeetBooking(item, generatedAt))
-    .map((item) => briefingQueueItem(item, generatedAt))
+    .map((item) => briefingQueueItem(item, generatedAt, recoveredAgentRunIds))
     .sort((a, b) => priorityRank(a.priority) - priorityRank(b.priority) || a.title.localeCompare(b.title))
     .slice(0, 10)
 }
@@ -244,9 +262,14 @@ function priorityRank(priority: GrowthCommandQueueItem['priority']): number {
 
 export function buildAgentGrowthCommandQueue(input: BuildAgentGrowthCommandQueueInput): AgentGrowthCommandQueue {
   const generatedAt = input.generatedAt ?? new Date().toISOString()
-  const briefingApprovalItems = input.briefing.items.filter((item) => briefingLooksApprovalLike(item) && !isPastMissingMeetBooking(item, generatedAt))
+  const recoveredAgentRunIds = new Set(input.recoveredAgentRunIds ?? [])
+  const briefingApprovalItems = input.briefing.items.filter((item) =>
+    briefingLooksApprovalLike(item)
+    && !isPastMissingMeetBooking(item, generatedAt)
+    && !isRecoveredAgentRun(item, recoveredAgentRunIds)
+  )
   const queue = [
-    ...briefingQueueItems(input.briefing.items, generatedAt),
+    ...briefingQueueItems(input.briefing.items, generatedAt, recoveredAgentRunIds),
     ...crmQueueItems(input.crm),
     ...socialQueueItems(input.social),
     ...failedSocialQueueItems(input.failedSocial),
