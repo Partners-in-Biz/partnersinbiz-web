@@ -8,6 +8,7 @@ const appRequire = createRequire(path.join(process.cwd(), 'package.json'))
 const dotenv = appRequire('dotenv')
 const { initializeApp, getApps, cert } = appRequire('firebase-admin/app')
 const { getFirestore } = appRequire('firebase-admin/firestore')
+const { crmCountsFromRows } = appRequire('./scripts/approval-queue-active-crm-counts')
 
 const args = process.argv.slice(2)
 function arg(name, fallback = '') {
@@ -67,21 +68,26 @@ function recommendationFor(kind) {
   }
 }
 
-async function countCollection(name) {
+async function collectionRows(name) {
   const snap = await db.collection(name).where('orgId', '==', orgId).get()
-  return snap.size
+  return snap.docs.map((doc) => ({ id: doc.id, ...doc.data() }))
 }
 
 async function main() {
-  const [convSnap, tasksSnap, postsSnap, accountsSnap, contacts, companies, deals] = await Promise.all([
+  const [convSnap, tasksSnap, postsSnap, accountsSnap, contactsRows, companiesRows, dealsRows] = await Promise.all([
     db.collection('conversations').doc(conversationId).get(),
     db.collection('tasks').where('orgId', '==', orgId).get(),
     db.collection('social_posts').where('orgId', '==', orgId).get(),
     db.collection('social_accounts').where('orgId', '==', orgId).get(),
-    countCollection('contacts'),
-    countCollection('companies'),
-    countCollection('deals'),
+    collectionRows('contacts'),
+    collectionRows('companies'),
+    collectionRows('deals'),
   ])
+  const crmCounts = crmCountsFromRows({
+    contacts: contactsRows,
+    companies: companiesRows,
+    deals: dealsRows,
+  })
 
   const tasks = tasksSnap.docs.map((doc) => ({ id: doc.id, ...doc.data() }))
   const blockedTasks = tasks
@@ -122,7 +128,7 @@ async function main() {
           lastMessageId: convSnap.get('lastMessageId') ?? null,
         }
       : null,
-    crm: { contacts, companies, deals },
+    crm: crmCounts,
     social: {
       posts: socialCounts,
       accounts: accountsSnap.size,
