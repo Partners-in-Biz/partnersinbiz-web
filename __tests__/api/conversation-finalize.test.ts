@@ -161,6 +161,7 @@ describe('POST /api/v1/conversations/[convId]/messages/[msgId]/finalize', () => 
       'conv-1',
       '[run interrupted] gateway restarted while run was active',
       'assistant',
+      'msg-1',
     )
   })
 
@@ -234,7 +235,7 @@ describe('POST /api/v1/conversations/[convId]/messages/[msgId]/finalize', () => 
         {
           type: 'table',
           columns: ['Check', 'Result'],
-          rows: [['Build', 'Passed']],
+          rows: [{ Check: 'Build', Result: 'Passed' }],
         },
         { type: 'status', title: 'Live checks passed', status: 'completed', body: 'Preview is ready.' },
       ],
@@ -334,6 +335,7 @@ describe('POST /api/v1/conversations/[convId]/messages/[msgId]/finalize', () => 
       'conv-1',
       expect.stringContaining('PIB rich chat smoke test'),
       'assistant',
+      'msg-1',
     )
     expect(mockTouchConversation).not.toHaveBeenCalledWith(
       'conv-1',
@@ -349,7 +351,7 @@ describe('POST /api/v1/conversations/[convId]/messages/[msgId]/finalize', () => 
         {
           type: 'table',
           columns: ['Check', 'Status'],
-          rows: [['Stream parser', 'Ready']],
+          rows: [{ Check: 'Stream parser', Status: 'Ready' }],
         },
       ],
       ui_actions: [
@@ -381,7 +383,7 @@ describe('POST /api/v1/conversations/[convId]/messages/[msgId]/finalize', () => 
         {
           type: 'table',
           columns: ['Check', 'Status'],
-          rows: [['Stream parser', 'Ready']],
+          rows: [{ Check: 'Stream parser', Status: 'Ready' }],
         },
       ],
       uiActions: [
