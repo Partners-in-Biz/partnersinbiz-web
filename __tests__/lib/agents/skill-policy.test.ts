@@ -28,6 +28,7 @@ describe('agent skill policy manifest', () => {
       'ads-manager',
       'analytics',
       'agent-runtime-gather',
+      'agent-skill-drift-gather',
       'approval-queue-gather',
       'ceo-on-demand-gather',
       'chat-surface-gather',
