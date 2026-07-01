@@ -10,17 +10,22 @@ describe('email mailbox shared workspace standard', () => {
     const sharedPath = path.join(process.cwd(), 'components/mailbox/MailboxWorkspace.tsx')
     const oldAdminListPath = path.join(process.cwd(), 'components/admin/email/EmailList.tsx')
     const oldAdminDetailPath = path.join(process.cwd(), 'components/admin/email/EmailDetail.tsx')
+    const adminRoutePath = path.join(process.cwd(), 'app/(admin)/admin/email/mailbox/page.tsx')
+    const adminRoute = source('app/(admin)/admin/email/mailbox/page.tsx')
     const portalRoute = source('app/(portal)/portal/email/page.tsx')
 
     expect(existsSync(sharedPath)).toBe(true)
+    expect(existsSync(adminRoutePath)).toBe(true)
     expect(existsSync(oldAdminListPath)).toBe(false)
     expect(existsSync(oldAdminDetailPath)).toBe(false)
     expect(source('components/mailbox/MailboxWorkspace.tsx')).toContain('export function MailboxWorkspace')
 
+    expect(adminRoute).toContain('@/components/mailbox/MailboxWorkspace')
+    expect(adminRoute).toContain('surface="admin"')
     expect(portalRoute).toContain('@/components/mailbox/MailboxWorkspace')
     expect(portalRoute).toContain('surface="portal"')
 
-    for (const route of [portalRoute]) {
+    for (const route of [adminRoute, portalRoute]) {
       expect(route).not.toContain('const FOLDERS')
       expect(route).not.toContain('const EMAIL_TEMPLATES')
       expect(route).not.toContain('type AccountForm')
