@@ -88,7 +88,7 @@ export const POST = withAuth(
     })
 
     const preview = content || richParts.map((part) => part.title || part.type).filter(Boolean).join(', ')
-    await touchConversation(convId, preview, 'assistant')
+    await touchConversation(convId, preview, 'assistant', message.id)
 
     return apiSuccess({ message }, 201)
   },

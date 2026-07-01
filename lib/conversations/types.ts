@@ -79,6 +79,7 @@ export interface Conversation {
   scopeRefId?: string
   contextRefs?: ContextReference[]
   agentEffort?: AgentEffort | null
+  lastMessageId?: string
   lastMessagePreview?: string
   lastMessageRole?: 'user' | 'agent' | 'system' | 'tool'
   lastMessageAt?: Timestamp
