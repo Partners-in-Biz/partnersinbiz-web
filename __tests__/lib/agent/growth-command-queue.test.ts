@@ -159,6 +159,7 @@ describe('buildAgentGrowthCommandQueue', () => {
     expect(queue.operatingRule.chatOutputContract).toContain('approval_card')
     expect(queue.sourceReports.crmPipelineDiagnostics.primaryFinding.code).toBe('open_deals_without_value')
     expect(queue.sourceReports.briefingFeed.approvalLikeItems).toBe(1)
+    expect(queue.sourceReports.briefingFeed.recoveredAgentRuns).toEqual({ count: 0, ids: [] })
     expect(queue.queue[0].kind).toBe('ceo-approval')
     expect(queue.queue.map((item) => item.kind)).toEqual(expect.arrayContaining([
       'crm-cleanup',
@@ -299,6 +300,10 @@ describe('buildAgentGrowthCommandQueue', () => {
     expect(runItem?.summary).toContain('already recovered')
     expect(runItem?.blockedUntilApproval.join(' ')).toContain('Do not retry')
     expect(queue.sourceReports.briefingFeed.approvalLikeItems).toBe(0)
+    expect(queue.sourceReports.briefingFeed.recoveredAgentRuns).toEqual({
+      count: 1,
+      ids: ['run-doc-recovered'],
+    })
   })
 
   it('keeps unresolved failed agent-run cards critical and approval-gated', () => {

@@ -44,6 +44,10 @@ export interface AgentGrowthCommandQueue {
       generatedAt: string
       total: number
       approvalLikeItems: number
+      recoveredAgentRuns: {
+        count: number
+        ids: string[]
+      }
     }
   }
   queue: GrowthCommandQueueItem[]
@@ -307,6 +311,10 @@ export function buildAgentGrowthCommandQueue(input: BuildAgentGrowthCommandQueue
         generatedAt: input.briefing.generatedAt,
         total: input.briefing.total,
         approvalLikeItems: briefingApprovalItems.length,
+        recoveredAgentRuns: {
+          count: recoveredAgentRunIds.size,
+          ids: Array.from(recoveredAgentRunIds).sort(),
+        },
       },
     },
     queue,
