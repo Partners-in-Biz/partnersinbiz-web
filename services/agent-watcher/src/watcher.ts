@@ -390,6 +390,20 @@ function truncatePromptText(value: string, max = 1_600): string {
   return `${clean.slice(0, max - 1).trimEnd()}…`
 }
 
+function buildCeoDataDecisionOperatingRule(orgId: string): string {
+  return [
+    'CEO data-decision operating rule:',
+    '- Do not create or maintain a permanent dashboard by default.',
+    '- Do not make server Markdown, local files, logs, or a hidden dashboard the CEO-facing delivery surface.',
+    '- Before analyzing CRM, Marketing Studio, campaign performance, agent throughput, pipeline movement, growth decisions, or approval queues, confirm the needed facts are stored in the database.',
+    `- Use or create a reusable gather skill/workflow to collect those facts. For PiB growth decisions, prefer GET /api/v1/agent/growth-command-queue with orgId=${orgId || '<current-org>'} or X-Org-Id.`,
+    '- Analyze the specific question from the gathered data.',
+    '- Create temporary throw-away HTML only when it materially helps answer that one question.',
+    '- Return the evidence, decision, reusable workflow, next actions, and safety readback in the dynamic Messages window.',
+    '- If CEO approval is needed, return a structured approval_card rich part; do not bury the decision in Markdown.',
+  ].join('\n')
+}
+
 async function buildProjectDispatchContext(
   taskRef: DocumentReference,
   taskData: TaskData,
@@ -547,6 +561,7 @@ export async function dispatchTask(taskRef: DocumentReference, taskData: TaskDat
     const commentBlock = formatTaskComments(await loadRecentTaskComments(taskRef))
     const projectContextBlock = await buildProjectDispatchContext(taskRef, taskData)
     const spec = [
+      buildCeoDataDecisionOperatingRule(taskData.orgId ?? ''),
       baseSpec,
       projectContextBlock,
       commentBlock ? `Recent task comments / revision notes:\n${commentBlock}` : '',
