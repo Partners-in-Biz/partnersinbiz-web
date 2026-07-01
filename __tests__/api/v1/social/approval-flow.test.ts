@@ -74,6 +74,7 @@ import { POST as QA_APPROVE } from '@/app/api/v1/social/posts/[id]/qa-approve/ro
 import { POST as QA_REJECT } from '@/app/api/v1/social/posts/[id]/qa-reject/route'
 import { POST as CLIENT_APPROVE } from '@/app/api/v1/social/posts/[id]/client-approve/route'
 import { POST as CLIENT_REJECT } from '@/app/api/v1/social/posts/[id]/client-reject/route'
+import { POST as APPROVE } from '@/app/api/v1/social/posts/[id]/approve/route'
 
 // ---- Helpers --------------------------------------------------------------
 
@@ -86,6 +87,7 @@ interface OrgSettings {
 interface PostFixture {
   status: string
   orgId?: string
+  content?: unknown
   requiresApproval?: boolean
   deliveryMode?: 'auto_publish' | 'download_only' | 'both'
   scheduledAt?: unknown
@@ -171,12 +173,12 @@ function setupMocks(opts: {
         doc: jest.fn().mockReturnValue({
           get: jest.fn().mockResolvedValue({
             exists: true,
-            data: () => ({ orgId: 'org-1', status: 'active' }),
+            data: () => ({ orgId: 'org-1', platform: 'instagram', status: 'active' }),
           }),
         }),
         where: jest.fn().mockReturnValue({
           limit: jest.fn().mockReturnValue({
-            get: jest.fn().mockResolvedValue({ empty: false, docs: [{ id: 'acct-1', data: () => ({ orgId: 'org-1', status: 'active' }) }] }),
+            get: jest.fn().mockResolvedValue({ empty: false, docs: [{ id: 'acct-1', data: () => ({ orgId: 'org-1', platform: 'instagram', status: 'active' }) }] }),
           }),
         }),
       }
@@ -476,5 +478,29 @@ describe('POST /api/v1/social/posts/:id/client-reject', () => {
     expect(res.status).toBe(400)
     const body = await res.json()
     expect(body.error).toMatch(/client_review/)
+  })
+})
+
+describe('POST /api/v1/social/posts/:id/approve', () => {
+  it('approves posts with object-shaped content', async () => {
+    setupMocks({
+      post: {
+        status: 'approved',
+        content: { text: 'Text-only recovery post for X', platformOverrides: {} },
+      },
+    })
+
+    const res = await APPROVE(makeReq({ action: 'approve' }), ctx('p1'))
+
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body.data.status).toBe('approved')
+    expect(mockUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        status: 'approved',
+        approvedBy: 'ai-agent',
+        approvedAt: 'SERVER_TIMESTAMP',
+      }),
+    )
   })
 })

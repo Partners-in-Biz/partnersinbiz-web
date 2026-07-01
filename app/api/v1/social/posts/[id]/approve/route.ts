@@ -14,6 +14,15 @@ export const dynamic = 'force-dynamic'
 
 type Params = { params: Promise<{ id: string }> }
 
+function contentPreview(content: unknown, max = 60): string {
+  const text = typeof content === 'string'
+    ? content
+    : content && typeof content === 'object' && typeof (content as { text?: unknown }).text === 'string'
+      ? (content as { text: string }).text
+      : ''
+  return `${text.slice(0, max)}${text.length > max ? '...' : ''}`
+}
+
 export const POST = withAuth('client', withTenant(async (req, user, orgId, context) => {
   const { id } = await (context as Params).params
   const body = await req.json().catch(() => ({}))
@@ -65,17 +74,17 @@ export const POST = withAuth('client', withTenant(async (req, user, orgId, conte
     ? 'AI Agent'
     : (await adminDb.collection('users').doc(user.uid).get()).data()?.displayName ?? user.uid
 
-  const content = existing.content ?? ''
+  const content = contentPreview(existing.content)
   logActivity({
     orgId,
     type: action === 'approve' ? 'post_approved' : 'post_rejected',
     actorId: user.uid,
     actorName,
     actorRole: user.role === 'ai' ? 'ai' : user.role === 'admin' ? 'admin' : 'client',
-    description: `${action === 'approve' ? 'Approved' : 'Rejected'} post: "${content.slice(0, 60)}${content.length > 60 ? '...' : ''}"`,
+    description: `${action === 'approve' ? 'Approved' : 'Rejected'} post: "${content}"`,
     entityId: id,
     entityType: 'post',
-    entityTitle: content.slice(0, 60),
+    entityTitle: content,
   }).catch(() => {})
 
   return apiSuccess({ id, status: newStatus })
