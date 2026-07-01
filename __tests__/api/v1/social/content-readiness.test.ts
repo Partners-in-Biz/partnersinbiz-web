@@ -72,6 +72,7 @@ describe('social content readiness diagnostics', () => {
     })
 
     expect(diagnostics.summary.readyToSchedulePosts).toBe(2)
+    expect(diagnostics.summary.readyPostsBlockedByMissingActiveAccount).toBe(0)
     expect(diagnostics.summary.upcomingScheduledPosts).toBe(0)
     expect(diagnostics.primaryFinding.code).toBe('calendar_gap')
     expect(diagnostics.nextActions[0]).toContain('Ask Maya to turn the approved Vault content into a dated schedule')
@@ -79,6 +80,40 @@ describe('social content readiness diagnostics', () => {
       postId: 'ready-linkedin',
       action: 'schedule_or_repurpose',
       reason: expect.stringContaining('approved'),
+    }))
+  })
+
+  it('parks approved content when the target platform has no active account', () => {
+    const diagnostics = buildSocialContentReadiness({
+      now: new Date('2026-06-30T08:00:00.000Z'),
+      posts: [
+        { id: 'approved-tiktok', status: 'approved', platforms: ['tiktok'], content: { text: 'Show the AI employee workflow.' }, media: [{ url: 'https://cdn.example/pib.mp4', type: 'video' }] },
+      ],
+      accounts: [
+        { id: 'li', platform: 'linkedin', status: 'active' },
+        { id: 'ig', platform: 'instagram', status: 'active' },
+        { id: 'fb', platform: 'facebook', status: 'active' },
+        { id: 'tw', platform: 'twitter', status: 'active' },
+        { id: 'bs', platform: 'bluesky', status: 'active' },
+        { id: 'pin', platform: 'pinterest', status: 'active' },
+      ],
+      queueEntries: [],
+    })
+
+    expect(diagnostics.summary.readyToSchedulePosts).toBe(1)
+    expect(diagnostics.summary.readyPostsBlockedByMissingActiveAccount).toBe(1)
+    expect(diagnostics.platformBlockers).toEqual([{
+      platform: 'tiktok',
+      reason: 'missing_active_account',
+      affectedReadyPosts: 1,
+      postIds: ['approved-tiktok'],
+    }])
+    expect(diagnostics.primaryFinding.code).toBe('approved_content_missing_active_accounts')
+    expect(diagnostics.actionQueue[0]).toEqual(expect.objectContaining({
+      postId: 'approved-tiktok',
+      action: 'connect_missing_account',
+      platforms: ['tiktok'],
+      reason: expect.stringContaining('no active account'),
     }))
   })
 

@@ -54,12 +54,14 @@ const social = {
     reviewPosts: 0,
     failedPosts: 1,
     postsMissingRequiredMedia: 0,
+    readyPostsBlockedByMissingActiveAccount: 0,
     activeAccounts: 3,
     activePlatformCount: 3,
     missingRecommendedPlatforms: ['instagram'],
     pendingQueueEntries: 0,
   },
   platformCoverage: [],
+  platformBlockers: [],
   actionQueue: [],
   primaryFinding: {
     code: 'failed_posts_need_recovery',
@@ -212,6 +214,60 @@ describe('buildAgentGrowthCommandQueue', () => {
     })
     expect(bookingItem?.summary).toContain('already in the past')
     expect(queue.sourceReports.briefingFeed.approvalLikeItems).toBe(0)
+  })
+
+  it('surfaces approved content blocked by missing active accounts in the CEO chat queue', () => {
+    const queue = buildAgentGrowthCommandQueue({
+      orgId: 'pib-platform-owner',
+      crm,
+      social: {
+        ...social,
+        summary: {
+          ...social.summary,
+          draftPosts: 0,
+          failedPosts: 0,
+          readyToSchedulePosts: 12,
+          readyPostsBlockedByMissingActiveAccount: 12,
+        },
+        platformBlockers: [{
+          platform: 'tiktok',
+          reason: 'missing_active_account',
+          affectedReadyPosts: 12,
+          postIds: ['tiktok-1', 'tiktok-2'],
+        }],
+        primaryFinding: {
+          code: 'approved_content_missing_active_accounts',
+          title: 'Approved content is parked because target accounts are missing',
+          detail: 'Some approved posts target platforms without active accounts.',
+        },
+      },
+      failedSocial: {
+        ...failedSocial,
+        summary: { ...failedSocial.summary, failedPosts: 0, blockedFailures: 0 },
+      },
+      briefing: {
+        generatedAt: '2026-07-01T08:00:00.000Z',
+        total: 0,
+        items: [],
+      },
+      generatedAt: '2026-07-01T08:01:00.000Z',
+    })
+
+    const marketingItem = queue.queue.find((item) => item.id === 'social:approved_content_missing_active_accounts')
+    expect(marketingItem).toMatchObject({
+      kind: 'marketing-review',
+      approvalRequired: true,
+      recommendedAgent: 'maya',
+    })
+    expect(marketingItem?.summary).toContain('12 approved/vaulted posts are parked')
+    expect(marketingItem?.summary).toContain('tiktok (12)')
+    expect(marketingItem?.allowedNow).toContain('Identify approved content parked by missing active platform accounts.')
+    expect(queue.sourceReports.socialContentReadiness.platformBlockers).toEqual([{
+      platform: 'tiktok',
+      reason: 'missing_active_account',
+      affectedReadyPosts: 12,
+      postIds: ['tiktok-1', 'tiktok-2'],
+    }])
   })
 
   it('keeps future missing-Meet booking cards approval-gated', () => {

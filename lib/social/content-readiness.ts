@@ -40,6 +40,7 @@ export type SocialContentFindingCode =
   | 'missing_active_platform_accounts'
   | 'no_stored_content'
   | 'failed_posts_need_recovery'
+  | 'approved_content_missing_active_accounts'
   | 'calendar_gap'
   | 'drafts_need_review'
   | 'media_gap'
@@ -65,6 +66,7 @@ export interface SocialContentReadiness {
     reviewPosts: number
     failedPosts: number
     postsMissingRequiredMedia: number
+    readyPostsBlockedByMissingActiveAccount: number
     activeAccounts: number
     activePlatformCount: number
     missingRecommendedPlatforms: string[]
@@ -78,9 +80,15 @@ export interface SocialContentReadiness {
     publishedLast30Days: number
     missingRequiredMedia: number
   }>
+  platformBlockers: Array<{
+    platform: string
+    reason: 'missing_active_account'
+    affectedReadyPosts: number
+    postIds: string[]
+  }>
   actionQueue: Array<{
     postId: string
-    action: 'schedule_or_repurpose' | 'repair_failed_publish' | 'submit_for_review' | 'attach_required_media'
+    action: 'schedule_or_repurpose' | 'repair_failed_publish' | 'submit_for_review' | 'attach_required_media' | 'connect_missing_account'
     reason: string
     platforms: string[]
   }>
@@ -193,6 +201,13 @@ function findingFor(summary: SocialContentReadiness['summary']): SocialContentRe
       detail: 'Existing failed posts should be inspected and either repaired, rescheduled, or deliberately held before agents add more publishing load.',
     }
   }
+  if (summary.readyPostsBlockedByMissingActiveAccount > 0) {
+    return {
+      code: 'approved_content_missing_active_accounts',
+      title: 'Approved content is parked because target accounts are missing',
+      detail: 'Some approved or vaulted posts target platforms that do not have active accounts, so agents must not schedule them until the account coverage is fixed or the content is repurposed.',
+    }
+  }
   if (summary.readyToSchedulePosts > 0 && summary.upcomingScheduledPosts === 0) {
     return {
       code: 'calendar_gap',
@@ -242,6 +257,11 @@ function nextActionsFor(finding: SocialContentReadiness['primaryFinding']): stri
       return [
         'Ask Maya to inspect failed posts, read provider errors, and prepare a repair or hold list for approval.',
         'Avoid scheduling more volume on the failed platforms until the recovery list is handled.',
+      ]
+    case 'approved_content_missing_active_accounts':
+      return [
+        'Ask Maya to identify approved posts blocked by missing active accounts and propose connect, hold, or repurpose options.',
+        'Do not reconnect accounts or schedule parked content until Peet approves the exact action.',
       ]
     case 'calendar_gap':
       return [
@@ -294,6 +314,8 @@ export function buildSocialContentReadiness(input: SocialContentReadinessInput):
   let reviewPosts = 0
   let failedPosts = 0
   let postsMissingRequiredMedia = 0
+  let readyPostsBlockedByMissingActiveAccount = 0
+  const platformBlockers = new Map<string, SocialContentReadiness['platformBlockers'][number]>()
   const actionQueue: SocialContentReadiness['actionQueue'] = []
 
   for (const post of posts) {
@@ -302,14 +324,31 @@ export function buildSocialContentReadiness(input: SocialContentReadinessInput):
     const scheduledDate = postDate(post, ['scheduledFor', 'scheduledAt'])
     const publishedDate = postDate(post, ['publishedAt', 'updatedAt'])
     const missingMedia = platforms.some((platform) => MEDIA_REQUIRED_PLATFORMS.has(platform)) && !hasMedia(post)
+    const missingActivePlatforms = platforms.filter((platform) => !activePlatforms.has(platform))
 
     if (READY_TO_SCHEDULE_STATUSES.has(status)) {
       readyToSchedulePosts += 1
+      if (missingActivePlatforms.length > 0) {
+        readyPostsBlockedByMissingActiveAccount += 1
+        for (const platform of missingActivePlatforms) {
+          const blocker = platformBlockers.get(platform) ?? {
+            platform,
+            reason: 'missing_active_account' as const,
+            affectedReadyPosts: 0,
+            postIds: [],
+          }
+          blocker.affectedReadyPosts += 1
+          blocker.postIds.push(post.id ?? 'unknown')
+          platformBlockers.set(platform, blocker)
+        }
+      }
       actionQueue.push({
         postId: post.id ?? 'unknown',
-        action: missingMedia ? 'attach_required_media' : 'schedule_or_repurpose',
-        reason: `${status} content is stored in the Vault: ${contentPreview(post)}`,
-        platforms,
+        action: missingActivePlatforms.length > 0 ? 'connect_missing_account' : missingMedia ? 'attach_required_media' : 'schedule_or_repurpose',
+        reason: missingActivePlatforms.length > 0
+          ? `${status} content is parked because these target platforms have no active account: ${missingActivePlatforms.join(', ')}. ${contentPreview(post)}`
+          : `${status} content is stored in the Vault: ${contentPreview(post)}`,
+        platforms: missingActivePlatforms.length > 0 ? missingActivePlatforms : platforms,
       })
     }
     if (REUSABLE_VAULT_STATUSES.has(status)) reusableVaultPosts += 1
@@ -354,6 +393,7 @@ export function buildSocialContentReadiness(input: SocialContentReadinessInput):
     reviewPosts,
     failedPosts,
     postsMissingRequiredMedia,
+    readyPostsBlockedByMissingActiveAccount,
     activeAccounts: activeAccounts.length,
     activePlatformCount: activePlatforms.size,
     missingRecommendedPlatforms,
@@ -366,6 +406,7 @@ export function buildSocialContentReadiness(input: SocialContentReadinessInput):
     recommendedPlatforms: RECOMMENDED_PIB_PLATFORMS,
     summary,
     platformCoverage: Array.from(platformCoverage.values()).sort((a, b) => a.platform.localeCompare(b.platform)),
+    platformBlockers: Array.from(platformBlockers.values()).sort((a, b) => b.affectedReadyPosts - a.affectedReadyPosts || a.platform.localeCompare(b.platform)),
     actionQueue: actionQueue.slice(0, 25),
     primaryFinding,
     nextActions: nextActionsFor(primaryFinding),

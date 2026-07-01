@@ -38,7 +38,7 @@ export interface AgentGrowthCommandQueue {
   }
   sourceReports: {
     crmPipelineDiagnostics: Pick<CrmPipelineDiagnostics, 'generatedAt' | 'summary' | 'dataQuality' | 'primaryFinding' | 'nextActions'>
-    socialContentReadiness: Pick<SocialContentReadiness, 'generatedAt' | 'summary' | 'primaryFinding' | 'nextActions'>
+    socialContentReadiness: Pick<SocialContentReadiness, 'generatedAt' | 'summary' | 'platformBlockers' | 'primaryFinding' | 'nextActions'>
     failedPostDiagnostics: Pick<SocialFailedPostDiagnostics, 'generatedAt' | 'summary' | 'primaryFinding' | 'nextActions'>
     briefingFeed: {
       generatedAt: string
@@ -207,21 +207,25 @@ function crmQueueItems(crm: CrmPipelineDiagnostics): GrowthCommandQueueItem[] {
 
 function socialQueueItems(social: SocialContentReadiness): GrowthCommandQueueItem[] {
   if (social.primaryFinding.code === 'content_ready') return []
+  const accountBlockerSummary = social.platformBlockers.length > 0
+    ? ` ${social.summary.readyPostsBlockedByMissingActiveAccount} approved/vaulted post${social.summary.readyPostsBlockedByMissingActiveAccount === 1 ? '' : 's'} are parked by missing active accounts: ${social.platformBlockers.map((blocker) => `${blocker.platform} (${blocker.affectedReadyPosts})`).join(', ')}.`
+    : ''
   return [{
     id: `social:${social.primaryFinding.code}`,
     kind: 'marketing-review',
     priority: social.summary.failedPosts > 0 || social.summary.draftPosts > 0 || social.summary.reviewPosts > 0 ? 'needs-peet' : 'review',
     title: social.primaryFinding.title,
-    summary: social.primaryFinding.detail,
+    summary: `${social.primaryFinding.detail}${accountBlockerSummary}`,
     source: {
       type: 'social-content-readiness',
       id: social.primaryFinding.code,
       url: '/api/v1/social/reports/content-readiness',
     },
     recommendedAgent: 'maya',
-    approvalRequired: social.summary.draftPosts > 0 || social.summary.reviewPosts > 0 || social.summary.readyToSchedulePosts > 0,
+    approvalRequired: social.summary.draftPosts > 0 || social.summary.reviewPosts > 0 || social.summary.readyToSchedulePosts > 0 || social.summary.readyPostsBlockedByMissingActiveAccount > 0,
     allowedNow: [
       'Review stored Marketing Studio posts and media.',
+      'Identify approved content parked by missing active platform accounts.',
       'Return a recommended approval, rewrite, or scheduling plan in Messages.',
     ],
     blockedUntilApproval: [
@@ -298,6 +302,7 @@ export function buildAgentGrowthCommandQueue(input: BuildAgentGrowthCommandQueue
       socialContentReadiness: {
         generatedAt: input.social.generatedAt,
         summary: input.social.summary,
+        platformBlockers: input.social.platformBlockers,
         primaryFinding: input.social.primaryFinding,
         nextActions: input.social.nextActions,
       },
