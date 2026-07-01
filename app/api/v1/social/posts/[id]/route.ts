@@ -34,6 +34,7 @@ const VALID_STATUSES: PostStatus[] = [
   'publishing', 'published', 'partially_published', 'failed', 'cancelled',
 ]
 const VALID_CATEGORIES: SocialPostCategory[] = ['work', 'personal', 'ai', 'sport', 'sa', 'other']
+const VALID_VISIBILITIES = ['private', 'unlisted', 'public'] as const
 
 type Params = { params: Promise<{ id: string }> }
 
@@ -127,6 +128,42 @@ export const PUT = withAuth('admin', withTenant(async (req, user, orgId, context
   if ('hashtags' in body) updates.hashtags = body.hashtags as string[]
   if ('media' in body) updates.media = body.media
   if ('accountIds' in body) updates.accountIds = body.accountIds
+  if ('title' in body) {
+    const title = typeof body.title === 'string' ? body.title.trim() : ''
+    if (!title) return apiError('title must be a non-empty string', 400)
+    updates.title = title
+  }
+  if ('privacyStatus' in body) {
+    if (!VALID_VISIBILITIES.includes(body.privacyStatus)) return apiError('Invalid privacyStatus', 400)
+    updates.privacyStatus = body.privacyStatus
+  }
+  if ('targetVisibility' in body) {
+    if (!VALID_VISIBILITIES.includes(body.targetVisibility)) return apiError('Invalid targetVisibility', 400)
+    updates.targetVisibility = body.targetVisibility
+  }
+  if ('categoryId' in body) {
+    const categoryId = typeof body.categoryId === 'string' ? body.categoryId.trim() : ''
+    if (!categoryId) return apiError('categoryId must be a non-empty string', 400)
+    updates.categoryId = categoryId
+  }
+  if ('publishAt' in body) {
+    const publishAt = typeof body.publishAt === 'string' ? body.publishAt.trim() : ''
+    if (!publishAt || Number.isNaN(Date.parse(publishAt))) return apiError('publishAt must be a valid ISO date string', 400)
+    updates.publishAt = publishAt
+  }
+  if ('selfDeclaredMadeForKids' in body) {
+    if (typeof body.selfDeclaredMadeForKids !== 'boolean') return apiError('selfDeclaredMadeForKids must be boolean', 400)
+    updates.selfDeclaredMadeForKids = body.selfDeclaredMadeForKids
+  }
+  if ('containsSyntheticMedia' in body) {
+    if (typeof body.containsSyntheticMedia !== 'boolean') return apiError('containsSyntheticMedia must be boolean', 400)
+    updates.containsSyntheticMedia = body.containsSyntheticMedia
+  }
+  if ('aiDisclosureNotes' in body) {
+    const aiDisclosureNotes = typeof body.aiDisclosureNotes === 'string' ? body.aiDisclosureNotes.trim() : ''
+    if (!aiDisclosureNotes) return apiError('aiDisclosureNotes must be a non-empty string', 400)
+    updates.aiDisclosureNotes = aiDisclosureNotes
+  }
   if ('campaignId' in body) updates.campaignId = body.campaignId
   if ('pillarId' in body) updates.pillarId = body.pillarId
   if ('audience' in body) updates.audience = body.audience
