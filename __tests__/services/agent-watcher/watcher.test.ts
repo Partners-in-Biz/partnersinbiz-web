@@ -312,6 +312,25 @@ describe('agent watcher dispatchTask', () => {
     expect(runAndPollMock.mock.calls[0][1].spec).toContain('Please fix the mobile spacing')
   })
 
+  it('injects the CEO data-decision operating rule into every Hermes task dispatch', async () => {
+    const taskRef = makeTaskRef()
+
+    await dispatchTask(taskRef as never, {
+      orgId: 'pib-platform-owner',
+      assigneeAgentId: 'maya',
+      agentStatus: 'pending',
+      columnId: 'todo',
+      agentInput: { spec: 'Analyze the Marketing Studio queue and recommend the next action.' },
+    })
+
+    const spec = runAndPollMock.mock.calls[0][1].spec as string
+    expect(spec).toContain('CEO data-decision operating rule:')
+    expect(spec).toContain('Do not create or maintain a permanent dashboard by default.')
+    expect(spec).toContain('GET /api/v1/agent/growth-command-queue with orgId=pib-platform-owner')
+    expect(spec).toContain('Return the evidence, decision, reusable workflow, next actions, and safety readback in the dynamic Messages window.')
+    expect(spec).toContain('structured approval_card rich part')
+  })
+
   it('passes provenance, risk, capability, and reviewer context into Hermes dispatch', async () => {
     const taskRef = makeTaskRef()
 
