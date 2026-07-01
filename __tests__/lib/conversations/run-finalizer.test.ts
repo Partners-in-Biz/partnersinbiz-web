@@ -1,5 +1,11 @@
+const mockCollection = jest.fn()
+const mockCollectionGroup = jest.fn()
+
 jest.mock('@/lib/firebase/admin', () => ({
-  adminDb: {},
+  adminDb: {
+    collection: (...args: unknown[]) => mockCollection(...args),
+    collectionGroup: (...args: unknown[]) => mockCollectionGroup(...args),
+  },
 }))
 
 jest.mock('@/lib/agents/team', () => ({
@@ -22,8 +28,13 @@ import {
   extractHermesRunError,
   extractHermesRunOutput,
   extractOutputFromEvents,
+  findPendingConversationRuns,
   normalizeHermesRunStatus,
 } from '@/lib/conversations/run-finalizer'
+
+beforeEach(() => {
+  jest.clearAllMocks()
+})
 
 describe('conversation run finalizer helpers', () => {
   it('normalizes direct and nested Hermes statuses', () => {
@@ -52,5 +63,80 @@ describe('conversation run finalizer helpers', () => {
       { event: 'message.delta', delta: 'there' },
       { event: 'tool.call', text: 'ignored', error: true },
     ])).toBe('Hello there')
+  })
+})
+
+describe('conversation run reconciliation discovery', () => {
+  it('includes active unified-chat ledger rows even when their message is already completed', async () => {
+    mockCollectionGroup.mockReturnValue({
+      where: jest.fn(() => ({
+        limit: jest.fn(() => ({
+          get: jest.fn().mockResolvedValue({ empty: true, docs: [] }),
+        })),
+      })),
+    })
+
+    const completedMessageRef = {
+      get: jest.fn().mockResolvedValue({
+        exists: true,
+        data: () => ({
+          status: 'completed',
+          runId: 'run_gateway_completed',
+          dispatchAgentId: 'pip',
+          runDocId: 'ledger-started-1',
+          richParts: [{ type: 'status', title: 'Already delivered', status: 'completed' }],
+        }),
+      }),
+    }
+
+    const where = jest.fn((field: string, op: string, value: unknown) => {
+      if (field !== 'status' || op !== 'in' || !Array.isArray(value)) {
+        throw new Error(`Unexpected hermes_runs query ${field} ${op}`)
+      }
+      return {
+        limit: jest.fn(() => ({
+          get: jest.fn().mockResolvedValue({
+            docs: [
+              {
+                id: 'ledger-started-1',
+                data: () => ({
+                  status: 'started',
+                  hermesRunId: 'run_gateway_completed',
+                  metadata: {
+                    source: 'pib-unified-chat',
+                    conversationId: 'conv-1',
+                    messageId: 'msg-1',
+                    dispatchAgentId: 'pip',
+                  },
+                }),
+              },
+            ],
+          }),
+        })),
+      }
+    })
+
+    mockCollection.mockImplementation((name: string) => {
+      if (name === 'hermes_runs') return { where }
+      if (name === 'conversations') {
+        return {
+          doc: jest.fn(() => ({
+            collection: jest.fn(() => ({ doc: jest.fn(() => completedMessageRef) })),
+          })),
+        }
+      }
+      throw new Error(`Unexpected collection: ${name}`)
+    })
+
+    const candidates = await findPendingConversationRuns({ maxRuns: 10 })
+
+    expect(candidates).toEqual([
+      expect.objectContaining({
+        convId: 'conv-1',
+        msgId: 'msg-1',
+        runId: 'run_gateway_completed',
+        agentId: 'pip',
+      }),
+    ])
   })
 })
