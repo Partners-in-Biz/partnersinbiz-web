@@ -11,7 +11,7 @@ import { apiError, apiSuccess } from '@/lib/api/response'
 import { canAccessOrg } from '@/lib/api/platformAdmin'
 import { AGENT_IDS, type AgentId } from '@/lib/agents/types'
 import { getConversation, createMessage, touchConversation } from '@/lib/conversations/conversations'
-import { normalizeRichParts } from '@/lib/hermes/rich-messages'
+import { normalizeRichParts, normalizeUiActions } from '@/lib/hermes/rich-messages'
 import type { ApiUser } from '@/lib/api/types'
 
 export const dynamic = 'force-dynamic'
@@ -78,7 +78,11 @@ export const POST = withAuth(
 
     const content = cleanString(raw.content)
     const richParts = normalizeRichParts(raw.richParts ?? raw.rich_parts ?? raw.parts).slice(0, 10)
-    if (!content && richParts.length === 0) return apiError('content or richParts are required', 400)
+    const uiActions = normalizeUiActions(raw.uiActions ?? raw.ui_actions).slice(0, 10)
+    const runId = cleanString(raw.runId ?? raw.run_id, 200)
+    if (!content && richParts.length === 0 && uiActions.length === 0) {
+      return apiError('content, richParts, or uiActions are required', 400)
+    }
 
     const authorDisplayName = cleanString(raw.authorDisplayName, 120)
       || displayNameForAgent(conversation, agentId)
@@ -88,6 +92,8 @@ export const POST = withAuth(
       role: 'assistant',
       content,
       ...(richParts.length > 0 ? { richParts, rich_parts: richParts } : {}),
+      ...(uiActions.length > 0 ? { uiActions, ui_actions: uiActions } : {}),
+      ...(runId ? { runId } : {}),
       authorKind: 'agent',
       authorId: `agent:${agentId}`,
       authorDisplayName,
