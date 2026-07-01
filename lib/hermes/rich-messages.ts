@@ -108,10 +108,16 @@ function normalizeChoices(value: unknown): RichMessagePart['choices'] | undefine
   return choices.length > 0 ? choices : undefined
 }
 
-function normalizeRows(value: unknown): unknown[][] | undefined {
+function normalizeRows(value: unknown, columns: string[] = []): Array<Record<string, unknown>> | undefined {
   const rows = arrayValue(value)
-    .map((row) => Array.isArray(row) ? row : asRecord(row) ? Object.values(row as PlainRecord) : null)
-    .filter((row): row is unknown[] => Array.isArray(row))
+    .map((row) => {
+      if (Array.isArray(row)) {
+        return Object.fromEntries(row.map((cell, index) => [columns[index] ?? String(index), cell]))
+      }
+      const record = asRecord(row)
+      return record ? record : null
+    })
+    .filter((row): row is PlainRecord => Boolean(row))
   return rows.length > 0 ? rows : undefined
 }
 
@@ -272,7 +278,7 @@ function normalizeRichPart(value: unknown): RichMessagePart | null {
   } else if (normalizedType === 'table') {
     base.caption = cleanString(record.caption) ?? cleanString(record.title)
     base.columns = stringArray(record.columns) ?? stringArray(record.headers)
-    base.rows = normalizeRows(record.rows)
+    base.rows = normalizeRows(record.rows, Array.isArray(base.columns) ? base.columns : [])
   } else if (normalizedType === 'image') {
     base.url = cleanString(record.url) ?? cleanString(record.src) ?? cleanString(record.imageUrl) ?? cleanString(record.image_url)
     base.alt = cleanString(record.alt) ?? cleanString(record.name)

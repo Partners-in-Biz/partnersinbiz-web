@@ -90,7 +90,7 @@ export type RichMessagePart = {
   language?: string
   caption?: string
   columns?: string[]
-  rows?: unknown[][]
+  rows?: Array<Record<string, unknown> | unknown[]>
   images?: Array<{ url: string; alt?: string; caption?: string; [key: string]: unknown }>
   url?: string
   alt?: string
