@@ -24,11 +24,14 @@ jest.mock('@/lib/auth/crm-middleware', () => ({
         const { NextResponse } = require('next/server')
         return NextResponse.json({ success: false, error: 'Insufficient permissions' }, { status: 403 })
       }
+      const isAgent = role === 'agent'
       return handler(req, {
         orgId: 'org-a',
         role,
-        isAgent: false,
-        actor: { uid: 'admin-1', displayName: 'Admin One', kind: 'human' },
+        isAgent,
+        actor: isAgent
+          ? { uid: 'agent:pip', displayName: 'Pip', kind: 'agent' }
+          : { uid: 'admin-1', displayName: 'Admin One', kind: 'human' },
         permissions: {},
       }, routeCtx)
     },
@@ -143,6 +146,22 @@ describe('POST /api/v1/crm/contacts/merge', () => {
     )
     expect(loserUpdate).toBeDefined()
     expect((loserUpdate![0] as Record<string, unknown>).mergedIntoId).toBe('winner-1')
+  })
+
+  it('omits legacy updatedBy uid when an agent merges contacts', async () => {
+    await POST(makeReq({ winnerId: 'winner-1', loserId: 'loser-1' }, 'agent'))
+
+    const calls = updateMock.mock.calls
+    const loserUpdate = calls.find((c: unknown[]) =>
+      (c[0] as Record<string, unknown>).deleted === true
+    )
+    expect(loserUpdate).toBeDefined()
+    expect(loserUpdate![0]).not.toHaveProperty('updatedBy')
+    expect(loserUpdate![0]).toHaveProperty('updatedByRef', {
+      uid: 'agent:pip',
+      displayName: 'Pip',
+      kind: 'agent',
+    })
   })
 
   it('returns 400 when winnerId is missing', async () => {

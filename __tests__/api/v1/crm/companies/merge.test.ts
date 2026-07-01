@@ -19,11 +19,14 @@ jest.mock('@/lib/auth/crm-middleware', () => ({
         const { NextResponse } = require('next/server')
         return NextResponse.json({ success: false, error: 'Insufficient permissions' }, { status: 403 })
       }
+      const isAgent = role === 'agent'
       return handler(req, {
         orgId: 'org-a',
         role,
-        isAgent: false,
-        actor: { uid: 'admin-1', displayName: 'Admin One', kind: 'human' },
+        isAgent,
+        actor: isAgent
+          ? { uid: 'agent:pip', displayName: 'Pip', kind: 'agent' }
+          : { uid: 'admin-1', displayName: 'Admin One', kind: 'human' },
         permissions: {},
       }, routeCtx)
     },
@@ -151,6 +154,18 @@ describe('POST /api/v1/crm/companies/merge', () => {
     expect(whereCallsByCollection.deals).toContainEqual(['orgId', '==', 'org-a'])
     expect(whereCallsByCollection.quotes).toContainEqual(['orgId', '==', 'org-a'])
     expect(whereCallsByCollection.activities).toContainEqual(['orgId', '==', 'org-a'])
+  })
+
+  it('omits legacy updatedBy uid when an agent merges companies', async () => {
+    const res = await POST(makeReq({ winnerId: 'winner-co', loserId: 'loser-co' }, 'agent'))
+
+    expect(res.status).toBe(200)
+    expect(loserUpdate).toHaveBeenCalledWith(expect.objectContaining({
+      deleted: true,
+      mergedIntoId: 'winner-co',
+      updatedByRef: { uid: 'agent:pip', displayName: 'Pip', kind: 'agent' },
+    }))
+    expect(loserUpdate.mock.calls[0][0]).not.toHaveProperty('updatedBy')
   })
 
   it('rejects merging a company into itself', async () => {
