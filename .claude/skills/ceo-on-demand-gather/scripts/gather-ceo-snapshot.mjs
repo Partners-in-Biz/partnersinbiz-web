@@ -6,6 +6,7 @@ import process from 'node:process'
 import { createRequire } from 'node:module'
 
 const requireFromCwd = createRequire(path.join(process.cwd(), 'package.json'))
+const { activeRows } = requireFromCwd('./scripts/crm-gather-active-records')
 
 function arg(name, fallback = null) {
   const index = process.argv.indexOf(`--${name}`)
@@ -50,6 +51,7 @@ async function main() {
 
   const db = getFirestore()
   const count = async (query) => (await query.count().get()).data().count
+  const activeCount = async (query) => activeRows((await query.get()).docs.map((doc) => doc.data())).length
   const socialStatuses = ['draft', 'approved', 'scheduled', 'published', 'failed', 'cancelled']
   const socialCounts = {}
   for (const status of socialStatuses) {
@@ -57,9 +59,9 @@ async function main() {
   }
 
   const [contacts, companies, deals, tasks, conversation, latestMessages, accounts] = await Promise.all([
-    count(db.collection('contacts').where('orgId', '==', orgId)).catch((error) => ({ error: error.message })),
-    count(db.collection('companies').where('orgId', '==', orgId)).catch((error) => ({ error: error.message })),
-    count(db.collection('deals').where('orgId', '==', orgId)).catch((error) => ({ error: error.message })),
+    activeCount(db.collection('contacts').where('orgId', '==', orgId)).catch((error) => ({ error: error.message })),
+    activeCount(db.collection('companies').where('orgId', '==', orgId)).catch((error) => ({ error: error.message })),
+    activeCount(db.collection('deals').where('orgId', '==', orgId)).catch((error) => ({ error: error.message })),
     db.collection('tasks').where('orgId', '==', orgId).limit(200).get().catch((error) => ({ error: error.message, docs: [] })),
     db.collection('conversations').doc(conversationId).get(),
     db.collection('conversations').doc(conversationId).collection('messages').orderBy('createdAt', 'desc').limit(10).get(),

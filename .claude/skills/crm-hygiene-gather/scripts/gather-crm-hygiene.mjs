@@ -8,6 +8,7 @@ const appRequire = createRequire(path.join(process.cwd(), 'package.json'))
 const dotenv = appRequire('dotenv')
 const { initializeApp, getApps, cert } = appRequire('firebase-admin/app')
 const { getFirestore } = appRequire('firebase-admin/firestore')
+const { activeRows, emailDuplicateGroups } = appRequire('./scripts/crm-gather-active-records')
 
 const args = process.argv.slice(2)
 function arg(name, fallback = '') {
@@ -35,25 +36,6 @@ const ts = (value) => value?.toDate ? value.toDate().toISOString() : value ?? nu
 const text = (value) => typeof value === 'string' ? value.trim() : ''
 const lower = (value) => text(value).toLowerCase()
 const amount = (deal) => Number(deal.value ?? deal.amount ?? deal.dealValue ?? 0)
-
-function emailGroups(contacts) {
-  const groups = new Map()
-  for (const contact of contacts) {
-    const email = lower(contact.email)
-    if (!email) continue
-    const list = groups.get(email) ?? []
-    list.push(contact)
-    groups.set(email, list)
-  }
-  return Array.from(groups.entries())
-    .filter(([, list]) => list.length > 1)
-    .map(([email, list]) => ({
-      email,
-      count: list.length,
-      ids: list.map((contact) => contact.id),
-      names: list.map((contact) => contact.name || contact.displayName || '').filter(Boolean),
-    }))
-}
 
 function isOpenDeal(deal) {
   const status = lower(deal.status)
@@ -83,11 +65,11 @@ async function main() {
     db.collection('tasks').where('orgId', '==', orgId).get(),
   ])
 
-  const contacts = contactsSnap.docs.map((doc) => ({ id: doc.id, ...doc.data() }))
-  const companies = companiesSnap.docs.map((doc) => ({ id: doc.id, ...doc.data() }))
-  const deals = dealsSnap.docs.map((doc) => ({ id: doc.id, ...doc.data() }))
-  const tasks = tasksSnap.docs.map((doc) => ({ id: doc.id, ...doc.data() }))
-  const duplicates = emailGroups(contacts)
+  const contacts = activeRows(contactsSnap.docs.map((doc) => ({ id: doc.id, ...doc.data() })))
+  const companies = activeRows(companiesSnap.docs.map((doc) => ({ id: doc.id, ...doc.data() })))
+  const deals = activeRows(dealsSnap.docs.map((doc) => ({ id: doc.id, ...doc.data() })))
+  const tasks = activeRows(tasksSnap.docs.map((doc) => ({ id: doc.id, ...doc.data() })))
+  const duplicates = emailDuplicateGroups(contacts)
   const openDeals = deals.filter(isOpenDeal)
   const proposalDeals = deals.filter(isProposalDeal)
   const proposalGaps = proposalDeals
