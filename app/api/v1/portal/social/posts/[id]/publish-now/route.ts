@@ -15,6 +15,7 @@ import {
 } from '@/lib/social/account-resolver'
 import { logAudit } from '@/lib/social/audit'
 import { hasFinalApproval } from '@/lib/social/scheduling'
+import { buildProviderPublishOptions } from '@/lib/social/publish-options'
 import { validatePublishReadyText } from '@/lib/social/publish-text'
 import { validateOutboundLinks } from '@/lib/social/outbound-link-validation'
 
@@ -56,6 +57,10 @@ export const POST = withAuth('client', withTenant(async (_req: NextRequest, user
   const mediaUrls: string[] | undefined = Array.isArray(post.media) && post.media.length > 0
     ? (post.media as Array<{ url?: string }>).map((m) => m.url).filter((u): u is string => Boolean(u))
     : undefined
+  const shareType = post.linkedinShareType === 'organization' || post.linkedinShareType === 'profile'
+    ? post.linkedinShareType
+    : undefined
+  const publishOptions = buildProviderPublishOptions({ post, text, mediaUrls, shareType })
 
   let externalId: string
   let resolvedAccountId: string | null = null
@@ -71,7 +76,7 @@ export const POST = withAuth('client', withTenant(async (_req: NextRequest, user
         const results = await provider.publishThread(threadParts, mediaUrls)
         externalId = results[0].platformPostId
       } else {
-        const result = await provider.publishPost({ text, mediaUrls })
+        const result = await provider.publishPost(publishOptions)
         externalId = result.platformPostId
       }
     } catch (publishErr) {
@@ -83,7 +88,7 @@ export const POST = withAuth('client', withTenant(async (_req: NextRequest, user
           const results = await refreshed.publishThread(threadParts, mediaUrls)
           externalId = results[0].platformPostId
         } else {
-          const result = await refreshed.publishPost({ text, mediaUrls })
+          const result = await refreshed.publishPost(publishOptions)
           externalId = result.platformPostId
         }
       } else {

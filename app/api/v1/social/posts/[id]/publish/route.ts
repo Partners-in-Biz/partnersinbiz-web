@@ -63,6 +63,7 @@ export const POST = withAuth('admin', withTenant(async (_req, user, orgId, conte
     post.linkedinShareType === 'organization' || post.linkedinShareType === 'profile'
       ? post.linkedinShareType
       : undefined
+  const publishOptions = buildProviderPublishOptions({ post, text, mediaUrls, shareType })
 
   let externalId: string
   let resolvedAccountId: string | null = null
@@ -82,7 +83,7 @@ export const POST = withAuth('admin', withTenant(async (_req, user, orgId, conte
         const results = await provider.publishThread(threadParts, mediaUrls)
         externalId = results[0].platformPostId
       } else {
-        const result = await provider.publishPost(buildProviderPublishOptions({ post, text, mediaUrls, shareType }))
+        const result = await provider.publishPost(publishOptions)
         externalId = result.platformPostId
       }
     } catch (publishErr) {
@@ -96,7 +97,7 @@ export const POST = withAuth('admin', withTenant(async (_req, user, orgId, conte
             const results = await refreshed.publishThread(threadParts, mediaUrls)
             externalId = results[0].platformPostId
           } else {
-            const result = await refreshed.publishPost(buildProviderPublishOptions({ post, text, mediaUrls, shareType }))
+            const result = await refreshed.publishPost(publishOptions)
             externalId = result.platformPostId
           }
           console.log(`[publish] Retry succeeded after refresh for ${accountId}`)

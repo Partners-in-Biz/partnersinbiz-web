@@ -20,6 +20,14 @@ function cleanBoolean(value: unknown): boolean | undefined {
   return typeof value === 'boolean' ? value : undefined
 }
 
+function cleanAltTexts(value: unknown): string[] | undefined {
+  if (!Array.isArray(value)) return undefined
+  const cleaned = value
+    .map(item => typeof item === 'object' && item !== null ? cleanString((item as Record<string, unknown>).altText) : undefined)
+    .filter((item): item is string => Boolean(item))
+  return cleaned.length > 0 ? cleaned : undefined
+}
+
 export function buildProviderPublishOptions(opts: {
   post: FirebaseFirestore.DocumentData
   text: string
@@ -40,6 +48,7 @@ export function buildProviderPublishOptions(opts: {
   return {
     text,
     mediaUrls,
+    altTexts: cleanAltTexts(post.media),
     shareType,
     title: cleanString(post.title) ?? cleanString(youtubeOverride?.title),
     tags: cleanStringArray(post.tags) ?? cleanStringArray(post.hashtags),
