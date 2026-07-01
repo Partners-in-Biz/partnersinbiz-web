@@ -440,9 +440,10 @@ function PortalLayoutContent({ children }: { children: React.ReactNode }) {
   const requestedSourceCompanyName = searchParams.get('sourceCompanyName')?.trim() ?? ''
   const isEmailRoute = pathname === '/portal/email' || pathname.startsWith('/portal/email/')
   const isMessagesRoute = pathname === '/portal/messages' || pathname.startsWith('/portal/messages/')
+  const isConversationsRoute = pathname === '/portal/conversations' || pathname.startsWith('/portal/conversations/')
   const isCockpitRoute = pathname === '/portal/briefings' || pathname.startsWith('/portal/briefings/')
   const isCreativeCanvasRoute = pathname === '/portal/creative-canvas' || pathname.startsWith('/portal/creative-canvas/')
-  const isWorkspaceRoute = isEmailRoute || isMessagesRoute || isCreativeCanvasRoute
+  const isWorkspaceRoute = isEmailRoute || isMessagesRoute || isConversationsRoute || isCreativeCanvasRoute
 
   const [email, setEmail]       = useState('')
   const [name, setName]         = useState('')
