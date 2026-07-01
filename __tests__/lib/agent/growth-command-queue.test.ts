@@ -159,6 +159,18 @@ describe('buildAgentGrowthCommandQueue', () => {
 
     expect(queue.operatingRule.dashboardPolicy).toContain('Do not create')
     expect(queue.operatingRule.chatOutputContract).toContain('approval_card')
+    expect(queue.dataAvailability.availableSources).toEqual(expect.arrayContaining([
+      'crmPipelineDiagnostics',
+      'socialContentReadiness',
+      'failedPostDiagnostics',
+      'briefingFeed',
+    ]))
+    expect(queue.dataAvailability.requiredGatherSkills).toEqual(expect.arrayContaining([
+      'crm-hygiene-gather',
+      'social-recovery-gather',
+      'approval-queue-gather',
+    ]))
+    expect(queue.dataAvailability.safeNextStep).toContain('If a required fact is missing')
     expect(queue.sourceReports.crmPipelineDiagnostics.primaryFinding.code).toBe('open_deals_without_value')
     expect(queue.sourceReports.briefingFeed.approvalLikeItems).toBe(1)
     expect(queue.sourceReports.briefingFeed.recoveredAgentRuns).toEqual({ count: 0, ids: [] })
@@ -170,6 +182,7 @@ describe('buildAgentGrowthCommandQueue', () => {
     ]))
     expect(queue.queue.every((item) => item.blockedUntilApproval.join(' ').includes('without CEO approval') || item.blockedUntilApproval.join(' ').includes('No send'))).toBe(true)
     expect(queue.analysisPrompt).toContain('dynamic Messages window')
+    expect(queue.analysisPrompt).toContain('If the data is missing, request or create the gather skill first')
   })
 
   it('downgrades past missing-Meet booking cards to cleanup instead of CEO approval', () => {

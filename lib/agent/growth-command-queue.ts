@@ -2,6 +2,7 @@ import type { BriefingCard } from '@/lib/briefing/types'
 import type { CrmPipelineDiagnostics } from '@/lib/crm/pipeline-diagnostics'
 import type { SocialContentReadiness } from '@/lib/social/content-readiness'
 import type { SocialFailedPostDiagnostics } from '@/lib/social/failed-post-diagnostics'
+import { buildCeoDataDecisionOperatingRule } from '@/lib/agent/ceo-operating-rule'
 
 export type GrowthQueueItemKind =
   | 'ceo-approval'
@@ -35,6 +36,12 @@ export interface AgentGrowthCommandQueue {
     dashboardPolicy: string
     nextStepForAgents: string
     chatOutputContract: string
+  }
+  dataAvailability: {
+    availableSources: string[]
+    missingSources: string[]
+    requiredGatherSkills: string[]
+    safeNextStep: string
   }
   sourceReports: {
     crmPipelineDiagnostics: Pick<CrmPipelineDiagnostics, 'generatedAt' | 'summary' | 'dataQuality' | 'primaryFinding' | 'nextActions'>
@@ -291,6 +298,23 @@ export function buildAgentGrowthCommandQueue(input: BuildAgentGrowthCommandQueue
       nextStepForAgents: 'Use this stored-data gatherer first, then analyze the specific question and answer inside Messages.',
       chatOutputContract: 'For CEO decisions, return a structured approval_card rich part with evidence, recommendation, decision fields, copyable reply, and safety note.',
     },
+    dataAvailability: {
+      availableSources: [
+        'crmPipelineDiagnostics',
+        'socialContentReadiness',
+        'failedPostDiagnostics',
+        'briefingFeed',
+      ],
+      missingSources: [],
+      requiredGatherSkills: [
+        'ceo-on-demand-gather',
+        'crm-hygiene-gather',
+        'social-recovery-gather',
+        'approval-queue-gather',
+        'agent-runtime-gather',
+      ],
+      safeNextStep: 'If a required fact is missing, request or create the reusable gather skill/workflow first, then rerun the analysis from stored data before recommending action.',
+    },
     sourceReports: {
       crmPipelineDiagnostics: {
         generatedAt: input.crm.generatedAt,
@@ -326,8 +350,10 @@ export function buildAgentGrowthCommandQueue(input: BuildAgentGrowthCommandQueue
     analysisPrompt: [
       'Use the queue above as the daily CEO growth command input.',
       'Before proposing action, confirm which source data is present and which data is missing.',
-      'Answer in the dynamic Messages window. Use temporary throw-away HTML only when a specific question needs visual comparison.',
+      'If the data is missing, request or create the gather skill first; do not infer or fabricate the answer.',
+      'Answer in the dynamic Messages window. Temporary throw-away HTML is allowed only for a named one-off question where visual comparison materially improves the answer.',
       'Keep all external actions gated until the CEO approves the exact item.',
+      buildCeoDataDecisionOperatingRule({ orgId: input.orgId }),
     ].join(' '),
   }
 }
