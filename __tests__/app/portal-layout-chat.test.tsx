@@ -144,6 +144,24 @@ describe('PortalLayout chat drawer', () => {
     expect(screen.queryByText(/Partners in Biz · Pretoria/)).not.toBeInTheDocument()
   })
 
+  it('gives the focused portal conversations route the same workspace shell', async () => {
+    mockPathname = '/portal/conversations'
+    mockSearchParams = new URLSearchParams({ convId: 'conv-1' })
+
+    render(
+      <PortalLayout>
+        <div>Focused conversation content</div>
+      </PortalLayout>,
+    )
+
+    await screen.findByText('Focused conversation content')
+
+    const main = screen.getByText('Focused conversation content').closest('main')
+    expect(main).toHaveClass('overflow-hidden')
+    expect(main).not.toHaveClass('overflow-y-auto')
+    expect(screen.queryByText(/Partners in Biz · Pretoria/)).not.toBeInTheDocument()
+  })
+
   it('loads the requested workspace when portal routes are opened from a CRM company', async () => {
     mockSearchParams = new URLSearchParams({ orgId: 'lumen-org', orgSlug: 'lumen-speeds' })
 

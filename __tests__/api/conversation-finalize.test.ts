@@ -11,6 +11,7 @@ const mockMessageUpdate = jest.fn()
 const mockTouchConversation = jest.fn()
 const mockCallHermesJson = jest.fn()
 const mockGetAgentDecryptedKey = jest.fn()
+const mockRunDocSet = jest.fn()
 
 let mockUser: MockUser = { uid: 'client-1', role: 'client' }
 
@@ -72,6 +73,7 @@ beforeEach(() => {
   mockMessageUpdate.mockResolvedValue(undefined)
   mockTouchConversation.mockResolvedValue(undefined)
   mockGetAgentDecryptedKey.mockResolvedValue('secret')
+  mockRunDocSet.mockResolvedValue(undefined)
   mockCollection.mockImplementation((name: string) => {
     if (name === 'agent_team') {
       return {
@@ -88,7 +90,7 @@ beforeEach(() => {
         where: () => ({
           limit: () => ({ get: async () => ({ empty: true, docs: [] }) }),
         }),
-        doc: () => ({ set: jest.fn().mockResolvedValue(undefined) }),
+        doc: () => ({ set: mockRunDocSet }),
       }
     }
     throw new Error(`Unexpected collection: ${name}`)
@@ -96,6 +98,46 @@ beforeEach(() => {
 })
 
 describe('POST /api/v1/conversations/[convId]/messages/[msgId]/finalize', () => {
+  it('updates a started ledger row when the message is already completed and the gateway reports completed output', async () => {
+    mockMessageGet.mockResolvedValue({
+      exists: true,
+      data: () => ({
+        status: 'completed',
+        content: 'Already delivered in Messages.',
+        runDocId: 'ledger-started-1',
+        dispatchAgentId: 'pip',
+        richParts: [{ type: 'status', title: 'Already delivered', status: 'completed' }],
+      }),
+    })
+    mockCallHermesJson.mockResolvedValue({
+      response: { ok: true },
+      data: {
+        status: 'completed',
+        output: {
+          text: 'Gateway final output.',
+          rich_parts: [
+            { type: 'markdown', content: '### Gateway evidence preserved' },
+          ],
+        },
+      },
+    })
+
+    const res = await callFinalize({ runId: 'run-ledger-completed', agentId: 'pip', events: [] })
+    const body = await res.json()
+
+    expect(res.status).toBe(200)
+    expect(body.data.status).toBe('completed')
+    expect(body.data.alreadyFinal).toBe(true)
+    expect(mockMessageUpdate).not.toHaveBeenCalled()
+    expect(mockRunDocSet).toHaveBeenCalledWith(expect.objectContaining({
+      hermesRunId: 'run-ledger-completed',
+      status: 'completed',
+      response: expect.objectContaining({ status: 'completed' }),
+      output: 'Gateway final output.',
+      richParts: [{ type: 'markdown', content: '### Gateway evidence preserved' }],
+    }), { merge: true })
+  })
+
   it('treats interrupted agent runs as terminal and preserves streamed events', async () => {
     const events: ChatEvent[] = [{ event: 'run.interrupted', timestamp: 1000 }]
     mockCallHermesJson.mockResolvedValue({

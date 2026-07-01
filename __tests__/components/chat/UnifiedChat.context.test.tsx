@@ -50,6 +50,14 @@ function jsonResponse(body: unknown, ok = true) {
   } as Response
 }
 
+function errorResponse(status: number, body: unknown = { error: 'Unauthorized' }) {
+  return {
+    ok: false,
+    status,
+    json: async () => body,
+  } as Response
+}
+
 describe('UnifiedChat upload and finalize error handling', () => {
   it('formats deployment-protection and network upload failures into useful user-facing errors', async () => {
     expect(formatConversationAttachmentUploadError(new Error('Failed to fetch'), 'photo.png')).toContain(
@@ -708,5 +716,111 @@ describe('UnifiedChat context references', () => {
     await waitFor(() => {
       expect(messageLog.scrollTop).toBe(1200)
     })
+  })
+
+  it('falls back to chat-feed when the focused conversation messages route returns 401', async () => {
+    mockFetch.mockImplementation(async (input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url.includes('/visible-agents')) {
+        return jsonResponse({ data: [] })
+      }
+      if (url.startsWith('/api/v1/conversations?')) {
+        return jsonResponse({ data: { conversations: [conversation] } })
+      }
+      if (url === '/api/v1/conversations/conv-1/messages') {
+        return errorResponse(401)
+      }
+      if (url === '/api/v1/chat-feed/conv-1') {
+        return jsonResponse({
+          data: {
+            messages: [
+              {
+                id: 'msg-digest',
+                conversationId: 'conv-1',
+                role: 'assistant',
+                content: 'CEO dynamic approval digest posted.',
+                authorKind: 'agent',
+                authorId: 'pip',
+                authorDisplayName: 'Pip',
+                status: 'completed',
+                richParts: [
+                  {
+                    type: 'approval_card',
+                    title: 'Release: dynamic chat and gatherer routes',
+                    body: 'Approve release review before production deployment.',
+                    status: 'awaiting-input',
+                  },
+                ],
+                createdAt: { seconds: 2 },
+              },
+            ],
+          },
+        })
+      }
+      throw new Error(`Unhandled fetch: ${url}`)
+    })
+
+    render(
+      <UnifiedChat
+        orgId="org-1"
+        currentUserUid="user-1"
+        currentUserDisplayName="Peet"
+        initialConvId="conv-1"
+      />,
+    )
+
+    expect(await screen.findByText('CEO dynamic approval digest posted.')).toBeInTheDocument()
+    expect(await screen.findByText('Release: dynamic chat and gatherer routes')).toBeInTheDocument()
+    expect(screen.getByText('Approve release review before production deployment.')).toBeInTheDocument()
+    expect(mockFetch).toHaveBeenCalledWith('/api/v1/chat-feed/conv-1')
+  })
+
+  it('loads a focused conversation directly when scoped conversation list does not include it', async () => {
+    mockFetch.mockImplementation(async (input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url.includes('/visible-agents')) {
+        return jsonResponse({ data: [] })
+      }
+      if (url.startsWith('/api/v1/conversations?')) {
+        return jsonResponse({ data: { conversations: [] } })
+      }
+      if (url === '/api/v1/conversations/conv-1') {
+        return jsonResponse({ data: { conversation } })
+      }
+      if (url === '/api/v1/conversations/conv-1/messages') {
+        return jsonResponse({
+          data: {
+            messages: [
+              {
+                id: 'msg-browser-proof',
+                conversationId: 'conv-1',
+                role: 'assistant',
+                content: 'Signed-in Chrome verification completed.',
+                authorKind: 'agent',
+                authorId: 'pip',
+                authorDisplayName: 'Pip',
+                status: 'completed',
+                createdAt: { seconds: 3 },
+              },
+            ],
+          },
+        })
+      }
+      throw new Error(`Unhandled fetch: ${url}`)
+    })
+
+    render(
+      <UnifiedChat
+        orgId="org-1"
+        currentUserUid="user-1"
+        currentUserDisplayName="Peet"
+        initialConvId="conv-1"
+      />,
+    )
+
+    expect(await screen.findAllByText('Launch chat')).toHaveLength(2)
+    expect(await screen.findByText('Signed-in Chrome verification completed.')).toBeInTheDocument()
+    expect(screen.queryByText('No conversations yet. Start one.')).not.toBeInTheDocument()
+    expect(mockFetch).toHaveBeenCalledWith('/api/v1/conversations/conv-1')
   })
 })

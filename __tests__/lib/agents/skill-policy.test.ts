@@ -27,12 +27,18 @@ describe('agent skill policy manifest', () => {
     expect(AGENT_SKILL_POLICY.repoPibSkills).toEqual([
       'ads-manager',
       'analytics',
+      'agent-runtime-gather',
+      'agent-skill-drift-gather',
+      'approval-queue-gather',
+      'ceo-on-demand-gather',
+      'chat-surface-gather',
       'billing-finance',
       'client-documents',
       'client-manager',
       'collaboration-runtime',
       'content-engine',
       'crm-sales',
+      'crm-hygiene-gather',
       'data-analyst',
       'docs-lead',
       'email-outreach',
@@ -46,6 +52,7 @@ describe('agent skill policy manifest', () => {
       'research-intelligence',
       'seo-sprint-manager',
       'social-media-manager',
+      'social-recovery-gather',
       'support-manager',
     ])
 
@@ -204,6 +211,7 @@ describe('agent skill policy manifest', () => {
   it('classifies fully qualified globals without colliding with PiB skills that share a basename', () => {
     const installed = classifyInstalledSkills([
       'partnersinbiz/analytics',
+      'partnersinbiz/ceo-on-demand-gather',
       'partnersinbiz/client-documents',
       'partnersinbiz/client-manager',
       'partnersinbiz/collaboration-runtime',

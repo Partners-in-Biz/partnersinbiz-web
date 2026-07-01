@@ -240,6 +240,31 @@ function createdAtToMillis(value: unknown): number {
   return typeof seconds === 'number' ? seconds * 1000 : 0
 }
 
+const ACTIVE_LEDGER_STATUSES = ['started', 'submitted', 'running', 'pending', 'streaming'] as const
+
+function metadataFromRunDoc(data: JsonObject): JsonObject {
+  return asObject(data.metadata)
+    ?? asObject(asObject(data.request)?.metadata)
+    ?? asObject(asObject(data.response)?.metadata)
+    ?? {}
+}
+
+function runDocUnifiedChatSource(data: JsonObject, metadata: JsonObject): boolean {
+  return cleanString(metadata.source) === 'pib-unified-chat'
+    || cleanString(data.source) === 'pib-unified-chat'
+    || Boolean(cleanString(metadata.conversationId ?? metadata.conversation_id) && cleanString(metadata.messageId ?? metadata.message_id))
+}
+
+function runDocConversationId(data: JsonObject, metadata: JsonObject): string | null {
+  return cleanString(metadata.conversationId ?? metadata.conversation_id)
+    ?? cleanString(data.conversationId ?? data.conversation_id)
+}
+
+function runDocMessageId(data: JsonObject, metadata: JsonObject): string | null {
+  return cleanString(metadata.messageId ?? metadata.message_id)
+    ?? cleanString(data.messageId ?? data.message_id)
+}
+
 async function buildAgentLink(agentId: AgentId, orgId: string): Promise<HermesProfileLink> {
   const agentSnap = await adminDb.collection('agent_team').doc(agentId).get()
   if (!agentSnap.exists) {
@@ -310,14 +335,7 @@ export async function finalizeConversationRun(input: {
   if (!msgDoc.exists) throw new HermesConversationRunError('Message not found', 404)
 
   const msgData = msgDoc.data() ?? {}
-  if (msgData.status === 'completed') {
-    return {
-      status: 'completed',
-      runId,
-      content: typeof msgData.content === 'string' ? msgData.content : '',
-      alreadyFinal: true,
-    }
-  }
+  const messageAlreadyCompleted = msgData.status === 'completed'
 
   const events = input.events ?? (Array.isArray(msgData.events) ? msgData.events as ChatEvent[] : [])
   const agentId = resolveAgentId(input.agentId, msgData)
@@ -367,9 +385,33 @@ export async function finalizeConversationRun(input: {
       extractOutputFromEvents(events) ||
       'Agent completed but returned no text output.'
     const richPatch = richMessagePatchFromRun(data, events, rawOutput)
+    const existingRichPatch = {
+      ...(!richPatch.richParts && Array.isArray(msgData.richParts) ? { richParts: msgData.richParts as RichMessagePart[] } : {}),
+      ...(!richPatch.uiActions && Array.isArray(msgData.uiActions) ? { uiActions: msgData.uiActions as ChatUiAction[] } : {}),
+    }
+    const ledgerRichPatch = { ...existingRichPatch, ...richPatch }
     const outputIsStructuredJson = isRichPayloadText(rawOutput)
     const output = outputIsStructuredJson ? '' : rawOutput
-    const previewOutput = output || richPreviewFromParts(richPatch.richParts) || 'Agent returned a rich response.'
+    const previewOutput = output || richPreviewFromParts(ledgerRichPatch.richParts) || 'Agent returned a rich response.'
+
+    if (messageAlreadyCompleted) {
+      await updateRunDoc(msgData.runDocId, runId, {
+        status: 'completed',
+        response: data,
+        output: previewOutput,
+        error: FieldValue.delete(),
+        ...ledgerRichPatch,
+      })
+      return {
+        status: 'completed',
+        content: typeof msgData.content === 'string' ? msgData.content : output,
+        runId,
+        hermesStatus,
+        alreadyFinal: true,
+        ...ledgerRichPatch,
+      }
+    }
+
     await msgRef.update({
       content: output,
       status: 'completed',
@@ -387,6 +429,20 @@ export async function finalizeConversationRun(input: {
     })
     await touchConversation(input.convId, previewOutput, 'assistant')
     return { status: 'completed', content: output, runId, hermesStatus, ...richPatch }
+  }
+
+  if (messageAlreadyCompleted) {
+    await updateRunDoc(msgData.runDocId, runId, {
+      status: hermesStatus,
+      response: data,
+    })
+    return {
+      status: 'completed',
+      runId,
+      content: typeof msgData.content === 'string' ? msgData.content : '',
+      hermesStatus,
+      alreadyFinal: true,
+    }
   }
 
   if (isFailedStatus(hermesStatus)) {
@@ -466,6 +522,13 @@ export async function findPendingConversationRuns(input: {
   const maxRuns = input.maxRuns ?? 25
 
   const candidates: PendingConversationRun[] = []
+  const candidateKeys = new Set<string>()
+  const addCandidate = (candidate: PendingConversationRun) => {
+    const key = `${candidate.convId}:${candidate.msgId}:${candidate.runId}`
+    if (candidateKeys.has(key)) return
+    candidateKeys.add(key)
+    candidates.push(candidate)
+  }
   try {
     const messagesSnap = await adminDb
       .collectionGroup('messages')
@@ -483,7 +546,7 @@ export async function findPendingConversationRuns(input: {
       const agentId = resolveAgentId(undefined, data)
       if (!agentId) continue
 
-      candidates.push({
+      addCandidate({
         convId,
         msgId: msgDoc.id,
         runId,
@@ -492,12 +555,50 @@ export async function findPendingConversationRuns(input: {
         events: Array.isArray(data.events) ? data.events as ChatEvent[] : [],
       })
     }
+  } catch (err) {
+    console.warn('[conversation-run-pending-query-fallback]', err)
+  }
 
+  try {
+    const activeRunsSnap = await adminDb
+      .collection(HERMES_RUNS_COLLECTION)
+      .where('status', 'in', [...ACTIVE_LEDGER_STATUSES])
+      .limit(maxRuns)
+      .get()
+
+    await Promise.all(activeRunsSnap.docs.map(async (runDoc) => {
+      const data = runDoc.data() ?? {}
+      const metadata = metadataFromRunDoc(data)
+      if (!runDocUnifiedChatSource(data, metadata)) return
+
+      const convId = runDocConversationId(data, metadata)
+      const msgId = runDocMessageId(data, metadata)
+      const runId = cleanString(data.hermesRunId ?? data.runId ?? metadata.runId ?? metadata.run_id)
+      if (!convId || !msgId || !runId) return
+
+      const msgDoc = await adminDb.collection(CONVERSATIONS_COLLECTION).doc(convId).collection('messages').doc(msgId).get()
+      if (!msgDoc.exists) return
+      const msgData = msgDoc.data() ?? {}
+      const agentId = resolveAgentId(cleanString(metadata.dispatchAgentId ?? metadata.agentId) as AgentId | undefined, msgData)
+      if (!agentId) return
+
+      addCandidate({
+        convId,
+        msgId,
+        runId,
+        agentId,
+        createdAtMs: createdAtToMillis(msgData.createdAt) || createdAtToMillis(data.createdAt),
+        events: Array.isArray(msgData.events) ? msgData.events as ChatEvent[] : [],
+      })
+    }))
+  } catch (err) {
+    console.warn('[conversation-run-ledger-query-fallback]', err)
+  }
+
+  if (candidates.length > 0) {
     return candidates
       .sort((a, b) => a.createdAtMs - b.createdAtMs)
       .slice(0, maxRuns)
-  } catch (err) {
-    console.warn('[conversation-run-pending-query-fallback]', err)
   }
 
   const convSnap = await adminDb
@@ -522,7 +623,7 @@ export async function findPendingConversationRuns(input: {
       const agentId = resolveAgentId(undefined, data)
       if (!agentId) continue
 
-      candidates.push({
+      addCandidate({
         convId: convDoc.id,
         msgId: msgDoc.id,
         runId,

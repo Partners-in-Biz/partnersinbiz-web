@@ -362,13 +362,27 @@ export default function UnifiedChat({
       if (!res.ok) throw new Error(`load conversations: ${res.status}`)
       const body = await res.json()
       const list: Conversation[] = body.data?.conversations ?? []
-      setConversations(list)
-      if (!activeId && list.length) {
-        const preferred = initialConvId && list.find((c) => c.id === initialConvId)
-        setActiveId(preferred ? initialConvId! : list[0].id)
+      let nextList = list
+      if (initialConvId && !list.some((conversation) => conversation.id === initialConvId)) {
+        const focusedRes = await fetch(`/api/v1/conversations/${initialConvId}`)
+        if (focusedRes.ok) {
+          const focusedBody = await focusedRes.json()
+          const focusedConversation: Conversation | undefined = focusedBody.data?.conversation
+          if (focusedConversation) {
+            nextList = [
+              focusedConversation,
+              ...list.filter((conversation) => conversation.id !== focusedConversation.id),
+            ]
+          }
+        }
+      }
+      setConversations(nextList)
+      if (!activeId && nextList.length) {
+        const preferred = initialConvId && nextList.find((c) => c.id === initialConvId)
+        setActiveId(preferred ? initialConvId! : nextList[0].id)
       } else if (
         !activeId &&
-        list.length === 0 &&
+        nextList.length === 0 &&
         autoCreateScopedConversation &&
         allowStartConversations &&
         initialAgentId &&
@@ -422,7 +436,16 @@ export default function UnifiedChat({
   const loadMessages = useCallback(async (convId: string, options?: { silent?: boolean }) => {
     if (!options?.silent) setLoading(true)
     try {
-      const res = await fetch(`/api/v1/conversations/${convId}/messages`)
+      let res: Response
+      try {
+        res = await fetch(`/api/v1/conversations/${convId}/messages`)
+      } catch {
+        res = await fetch(`/api/v1/chat-feed/${convId}`)
+      }
+      if (!res.ok && (res.status === 401 || res.status === 403 || res.status === 404 || res.status >= 500)) {
+        const fallback = await fetch(`/api/v1/chat-feed/${convId}`)
+        if (fallback.ok || !res.ok) res = fallback
+      }
       if (!res.ok) throw new Error(`load messages: ${res.status}`)
       const body = await res.json()
       setMessages(body.data?.messages ?? [])

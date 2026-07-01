@@ -65,6 +65,47 @@ function profileDoc(overrides: Record<string, unknown> = {}) {
 }
 
 describe('GET /api/v1/admin/hermes/profiles/[orgId]/runs/[runId]', () => {
+  it('stores unified-chat metadata on newly created Hermes run ledger rows', async () => {
+    ;(global.fetch as jest.Mock).mockResolvedValue({
+      ok: true,
+      status: 200,
+      text: async () => JSON.stringify({ run_id: 'run-1', status: 'started' }),
+    })
+
+    const { createHermesRun } = await import('@/lib/hermes/server')
+    const result = await createHermesRun({
+      orgId: 'org-a',
+      profile: 'pip',
+      baseUrl: 'http://127.0.0.1:8651',
+      apiKey: 'secret-key',
+      enabled: true,
+      capabilities: { runs: true, dashboard: false, cron: false, models: false, tools: false, files: false, terminal: false },
+      permissions: { superAdmin: false, restrictedAdmin: false, client: true, allowedUserIds: [] },
+    }, 'user-1', {
+      prompt: 'Hello',
+      conversation_id: 'conv-1',
+      metadata: {
+        source: 'pib-unified-chat',
+        conversationId: 'conv-1',
+        messageId: 'msg-1',
+        dispatchAgentId: 'pip',
+      },
+    })
+
+    expect(result.runDocId).toBe('stored-run-1')
+    expect(mockAdd).toHaveBeenCalledWith(expect.objectContaining({
+      hermesRunId: 'run-1',
+      status: 'started',
+      conversationId: 'conv-1',
+      metadata: expect.objectContaining({
+        source: 'pib-unified-chat',
+        conversationId: 'conv-1',
+        messageId: 'msg-1',
+        dispatchAgentId: 'pip',
+      }),
+    }))
+  })
+
   it('proxies run status from Hermes', async () => {
     mockGet.mockResolvedValue(profileDoc())
     ;(global.fetch as jest.Mock).mockResolvedValue({
