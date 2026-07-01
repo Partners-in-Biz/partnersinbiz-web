@@ -3097,7 +3097,7 @@ describe('CreativeCanvasWorkspace', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Veo 3.1' }))
 
-    expect(screen.getByLabelText(/higgsfield model id/i)).toHaveValue('veo_3_1')
+    expect(screen.getByLabelText(/model id/i)).toHaveValue('veo_3_1')
     expect(screen.getByLabelText(/output kind/i)).toHaveValue('youtube_render')
     expect(screen.getByLabelText(/aspect ratio/i)).toHaveValue('16:9')
     expect(screen.getByLabelText(/duration seconds/i)).toHaveValue(12)
@@ -3114,7 +3114,7 @@ describe('CreativeCanvasWorkspace', () => {
     expect(screen.getByText('Product style fusion workflow added')).toBeInTheDocument()
     expect(screen.getAllByText('Product reference').length).toBeGreaterThan(0)
     expect(screen.getAllByText('Style reference').length).toBeGreaterThan(0)
-    expect(screen.getAllByText('Higgsfield product shot').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Product shot').length).toBeGreaterThan(0)
     const parityAudit = screen.getByLabelText(/higgsfield parity audit/i)
     expect(parityAudit).toHaveTextContent('1/8 scenarios in graph')
   })
@@ -4496,12 +4496,12 @@ describe('CreativeCanvasWorkspace', () => {
     expect((screen.getByLabelText(/output kind/i) as HTMLSelectElement).value).toBe('social_post_draft')
     expect(screen.getAllByLabelText(/export target/i).some((element) => (element as HTMLSelectElement).value === 'social_draft')).toBe(true)
     expect((screen.getByLabelText(/aspect ratio/i) as HTMLSelectElement).value).toBe('9:16')
-    fireEvent.change(screen.getByLabelText(/higgsfield model id/i), { target: { value: 'seedance_2_0_fast' } })
+    fireEvent.change(screen.getByLabelText(/model id/i), { target: { value: 'seedance_2_0_fast' } })
     fireEvent.change(screen.getByLabelText(/duration seconds/i), { target: { value: '12' } })
     fireEvent.change(screen.getByLabelText(/variants/i), { target: { value: '3' } })
     fireEvent.change(screen.getByLabelText(/negative prompt/i), { target: { value: 'no off-brand props' } })
     fireEvent.click(screen.getByRole('button', { name: /apply settings to node/i }))
-    expect(await screen.findByText(/generation settings applied to higgsfield vertical video/i)).toBeInTheDocument()
+    expect(await screen.findByText(/generation settings applied to vertical video/i)).toBeInTheDocument()
 
     fireEvent.click(screen.getByRole('button', { name: /move first graph node/i }))
     fireEvent.click(screen.getByRole('button', { name: /save graph/i }))
@@ -4533,7 +4533,7 @@ describe('CreativeCanvasWorkspace', () => {
       }),
       expect.objectContaining({
         type: 'model',
-        title: 'Higgsfield vertical video',
+        title: 'Vertical video',
         data: expect.objectContaining({
           generationSettings: expect.objectContaining({
             aspectRatio: '9:16',
@@ -4605,7 +4605,7 @@ describe('CreativeCanvasWorkspace', () => {
     })
     expect(templateBody.nodes).toEqual(expect.arrayContaining([
       expect.objectContaining({
-        title: 'Higgsfield vertical video',
+        title: 'Vertical video',
         provider: expect.objectContaining({ key: 'higgsfield' }),
       }),
     ]))
@@ -4627,7 +4627,7 @@ describe('CreativeCanvasWorkspace', () => {
     const graphBody = JSON.parse(graphCall?.[1]?.body as string)
     expect(graphBody.nodes).toEqual(expect.arrayContaining([
       expect.objectContaining({
-        title: 'Higgsfield vertical video',
+        title: 'Vertical video',
         data: expect.objectContaining({
           createdFrom: 'creative_canvas_saved_template',
           sourceTemplateId: 'template-saved',
@@ -4655,7 +4655,7 @@ describe('CreativeCanvasWorkspace', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /create format variants/i }))
 
-    expect(await screen.findByText(/created 4 format variants from higgsfield vertical video/i)).toBeInTheDocument()
+    expect(await screen.findByText(/created 4 format variants from vertical video/i)).toBeInTheDocument()
     expect(screen.getAllByText(/Vertical social render/i).length).toBeGreaterThan(0)
     expect(screen.getAllByText(/Landscape video output/i).length).toBeGreaterThan(0)
 
@@ -4723,8 +4723,8 @@ describe('CreativeCanvasWorkspace', () => {
     expect(await screen.findByText(/social launch workflow added/i)).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: /duplicate selected node/i }))
 
-    expect(await screen.findByText(/duplicated higgsfield vertical video/i)).toBeInTheDocument()
-    expect(screen.getAllByText(/Higgsfield vertical video copy/i).length).toBeGreaterThan(0)
+    expect(await screen.findByText(/duplicated vertical video/i)).toBeInTheDocument()
+    expect(screen.getAllByText(/Vertical video copy/i).length).toBeGreaterThan(0)
 
     fireEvent.click(screen.getByRole('button', { name: /save graph/i }))
     await waitFor(() => {
@@ -4739,7 +4739,7 @@ describe('CreativeCanvasWorkspace', () => {
     expect(graphBody.nodes).toEqual(expect.arrayContaining([
       expect.objectContaining({
         type: 'model',
-        title: 'Higgsfield vertical video copy',
+        title: 'Vertical video copy',
         provider: expect.objectContaining({
           key: 'higgsfield',
           model: 'nano_banana_flash',
@@ -4751,7 +4751,7 @@ describe('CreativeCanvasWorkspace', () => {
         }),
         data: expect.objectContaining({
           createdFrom: 'creative_canvas_node_duplicate',
-          duplicatedFromTitle: 'Higgsfield vertical video',
+          duplicatedFromTitle: 'Vertical video',
         }),
       }),
     ]))
@@ -5476,7 +5476,7 @@ describe('CreativeCanvasWorkspace', () => {
     fireEvent.click(screen.getByRole('button', { name: /queue run/i }))
 
     expect(await screen.findByText(/run queued: run-1/i)).toBeInTheDocument()
-    expect(screen.getByText('Higgsfield execution')).toBeInTheDocument()
+    expect(screen.getByText('Provider execution')).toBeInTheDocument()
     expect(screen.getByText(/higgsfield generate create nano_banana_flash/i)).toBeInTheDocument()
     expect(screen.getByText('Dispatch: /api/v1/creative-canvas/canvas-1/runs/run-1/provider-dispatch?orgId=org-1')).toBeInTheDocument()
     expect(screen.getByText('Status: /api/v1/creative-canvas/canvas-1/runs/run-1/provider-status?orgId=org-1')).toBeInTheDocument()
@@ -5529,7 +5529,7 @@ describe('CreativeCanvasWorkspace', () => {
 
     await screen.findByText('Launch Canvas')
     fireEvent.click(screen.getByRole('button', { name: /add model node/i }))
-    fireEvent.change(screen.getByLabelText(/higgsfield model id/i), { target: { value: 'nano_banana_pro' } })
+    fireEvent.change(screen.getByLabelText(/model id/i), { target: { value: 'nano_banana_pro' } })
     fireEvent.change(screen.getByLabelText(/output kind/i), { target: { value: 'video' } })
     fireEvent.change(screen.getByLabelText(/aspect ratio/i), { target: { value: '9:16' } })
     fireEvent.change(screen.getByLabelText(/duration seconds/i), { target: { value: '6' } })
