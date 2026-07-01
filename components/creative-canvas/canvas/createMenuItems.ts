@@ -15,6 +15,7 @@ export const createMenuGroups: CreateMenuGroup[] = [
   {
     group: '',
     items: [
+      { type: 'combine', label: 'Combine' },
       { type: 'prompt', label: 'Prompt' },
       { type: 'image_generator', label: 'Image Generator' },
       { type: 'video_generator', label: 'Video Generator' },

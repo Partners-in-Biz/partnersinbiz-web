@@ -315,7 +315,7 @@ const nodeTypeLabels: Record<CreativeCanvasNodeType, string> = {
 const palette: Array<{ type: CreativeCanvasNodeType; label: string; description: string }> = [
   { type: 'source', label: 'Source', description: 'Brand assets, uploads, research, URLs' },
   { type: 'prompt', label: 'Prompt', description: 'Generation brief, style, and constraints' },
-  { type: 'model', label: 'Model', description: 'Higgsfield or agent-backed generation' },
+  { type: 'model', label: 'Model', description: 'AI or agent-backed generation' },
   { type: 'edit', label: 'Edit', description: 'Inpaint, masks, style transfer, and motion' },
   { type: 'review', label: 'Review', description: 'Brand, rights, and approval gate' },
   { type: 'output', label: 'Output', description: 'Draft image, video, copy, blog, book asset' },
@@ -525,7 +525,7 @@ const workflowPresets: CreativeCanvasWorkflowPreset[] = [
   {
     key: 'social-launch',
     label: 'Social launch',
-    description: 'Product source, UGC prompt, Higgsfield model, review, social draft.',
+    description: 'Product source, UGC prompt, AI model, review, social draft.',
     outputKind: 'social_post_draft',
     exportTarget: 'social_draft',
     aspectRatio: '9:16',
@@ -556,7 +556,7 @@ const workflowPresets: CreativeCanvasWorkflowPreset[] = [
       {
         suffix: 'model',
         type: 'model',
-        title: 'Higgsfield vertical video',
+        title: 'Vertical video',
         data: { workflowRole: 'generation', ownerAgentId: 'maya' },
         provider: { key: 'higgsfield', model: 'nano_banana_flash', mode: 'vertical_social' },
         edit: { operation: 'video_motion', outputKind: 'social_post_draft', strength: 0.65, motion: { mode: 'camera_push', durationSeconds: 6 }, references: [] },
@@ -648,7 +648,7 @@ const workflowPresets: CreativeCanvasWorkflowPreset[] = [
   {
     key: 'video-production',
     label: 'Video production',
-    description: 'Script, storyboard, Higgsfield render, review, YouTube/shorts export.',
+    description: 'Script, storyboard, AI render, review, YouTube/shorts export.',
     outputKind: 'youtube_render',
     exportTarget: 'youtube_studio',
     aspectRatio: '16:9',
@@ -679,7 +679,7 @@ const workflowPresets: CreativeCanvasWorkflowPreset[] = [
       {
         suffix: 'model',
         type: 'model',
-        title: 'Higgsfield video render',
+        title: 'Video render',
         data: { workflowRole: 'generation', ownerAgentId: 'maya' },
         provider: { key: 'higgsfield', model: 'nano_banana_flash', mode: 'video_render' },
         edit: { operation: 'video_motion', outputKind: 'youtube_render', strength: 0.7, motion: { mode: 'camera_push', durationSeconds: 15 }, references: [] },
@@ -741,7 +741,7 @@ const workflowPresets: CreativeCanvasWorkflowPreset[] = [
       {
         suffix: 'model',
         type: 'model',
-        title: 'Higgsfield book asset',
+        title: 'Book asset',
         data: { workflowRole: 'generation', ownerAgentId: 'maya' },
         provider: { key: 'higgsfield', model: 'nano_banana_flash', mode: 'book_artifact' },
         edit: { operation: 'variation', outputKind: 'book_artifact', strength: 0.6, motion: { mode: 'none' }, references: [] },
@@ -844,7 +844,7 @@ const workflowPresets: CreativeCanvasWorkflowPreset[] = [
       {
         suffix: 'model',
         type: 'model',
-        title: 'Higgsfield VFX render',
+        title: 'VFX render',
         data: { workflowRole: 'generation', ownerAgentId: 'maya', benchmarkScenario: 'vfx_background_replace' },
         provider: { key: 'higgsfield', model: 'veo_3_1', mode: 'video' },
         edit: { operation: 'video_motion', outputKind: 'video', strength: 0.7, motion: { mode: 'dolly', durationSeconds: 8 }, references: [] },
@@ -894,7 +894,7 @@ const workflowPresets: CreativeCanvasWorkflowPreset[] = [
       {
         suffix: 'model',
         type: 'model',
-        title: 'Higgsfield product shot',
+        title: 'Product shot',
         data: { workflowRole: 'generation', ownerAgentId: 'maya', benchmarkScenario: 'product_style_fusion' },
         provider: { key: 'higgsfield', model: 'nano_banana_pro', mode: 'campaign_asset' },
         edit: { operation: 'variation', outputKind: 'campaign_asset', strength: 0.64, motion: { mode: 'none' }, references: [] },
@@ -951,7 +951,7 @@ const workflowPresets: CreativeCanvasWorkflowPreset[] = [
       {
         suffix: 'model',
         type: 'model',
-        title: 'Higgsfield campaign video',
+        title: 'Campaign video',
         data: { workflowRole: 'generation', ownerAgentId: 'maya', benchmarkScenario: 'model_product_campaign' },
         provider: { key: 'higgsfield', model: 'seedance_2_0_fast', mode: 'social_post_draft' },
         edit: { operation: 'video_motion', outputKind: 'social_post_draft', strength: 0.7, motion: { mode: 'camera_push', durationSeconds: 6 }, references: [] },
@@ -1000,7 +1000,7 @@ const workflowPresets: CreativeCanvasWorkflowPreset[] = [
       {
         suffix: 'model',
         type: 'model',
-        title: 'Higgsfield architectural timelapse',
+        title: 'Architectural timelapse',
         data: { workflowRole: 'generation', ownerAgentId: 'maya', benchmarkScenario: 'architecture_day_night' },
         provider: { key: 'higgsfield', model: 'wan_2_7', mode: 'video' },
         edit: { operation: 'video_motion', outputKind: 'video', strength: 0.66, motion: { mode: 'pan', durationSeconds: 8 }, references: [] },
@@ -1049,7 +1049,7 @@ const workflowPresets: CreativeCanvasWorkflowPreset[] = [
       {
         suffix: 'model',
         type: 'model',
-        title: 'Higgsfield set transition',
+        title: 'Set transition',
         data: { workflowRole: 'generation', ownerAgentId: 'maya', benchmarkScenario: 'set_to_set_style' },
         provider: { key: 'higgsfield', model: 'kling_3_0', mode: 'video' },
         edit: { operation: 'video_motion', outputKind: 'video', strength: 0.68, motion: { mode: 'orbit', durationSeconds: 8 }, references: [] },
@@ -1098,7 +1098,7 @@ const workflowPresets: CreativeCanvasWorkflowPreset[] = [
       {
         suffix: 'model',
         type: 'model',
-        title: 'Higgsfield logo animation',
+        title: 'Logo animation',
         data: { workflowRole: 'generation', ownerAgentId: 'maya', benchmarkScenario: 'logo_animation' },
         provider: { key: 'higgsfield', model: 'kling_3_0', mode: 'video' },
         edit: { operation: 'video_motion', outputKind: 'video', strength: 0.58, motion: { mode: 'none', durationSeconds: 5 }, references: [] },
@@ -1146,7 +1146,7 @@ const workflowPresets: CreativeCanvasWorkflowPreset[] = [
       {
         suffix: 'model',
         type: 'model',
-        title: 'Higgsfield icon system',
+        title: 'Icon system',
         data: { workflowRole: 'generation', ownerAgentId: 'maya', benchmarkScenario: 'brand_icon_system' },
         provider: { key: 'higgsfield', model: 'gpt_image_2_0', mode: 'campaign_asset' },
         edit: { operation: 'variation', outputKind: 'campaign_asset', strength: 0.62, motion: { mode: 'none' }, references: [] },
@@ -1202,7 +1202,7 @@ const workflowPresets: CreativeCanvasWorkflowPreset[] = [
       {
         suffix: 'model',
         type: 'model',
-        title: 'Higgsfield material variants',
+        title: 'Material variants',
         data: { workflowRole: 'generation', ownerAgentId: 'maya', benchmarkScenario: 'sketch_material_exploration' },
         provider: { key: 'higgsfield', model: 'nano_banana_pro', mode: 'campaign_asset' },
         edit: { operation: 'variation', outputKind: 'campaign_asset', strength: 0.62, motion: { mode: 'none' }, references: [] },
@@ -1246,7 +1246,7 @@ function CanvasPreviewBlock({
 
 const PRESENTATION_NODE_TYPES = new Set<CanvasNodeType>([
   'prompt', 'image_generator', 'video_generator', 'voice_generator', 'llm_assistant',
-  'voiceover', 'change_voice', 'translate', 'source', 'output', 'sticky_note', 'text', 'folder',
+  'voiceover', 'change_voice', 'translate', 'source', 'output', 'sticky_note', 'text', 'folder', 'combine',
 ])
 
 /** Backend persistence type for each presentation node type (round-trips via data.presentationType). */
@@ -1264,6 +1264,7 @@ const PRESENTATION_TO_BACKEND: Record<CanvasNodeType, CreativeCanvasNodeType> = 
   folder: 'brief',
   source: 'source',
   output: 'output',
+  combine: 'model',
 }
 
 const PRESENTATION_LABELS: Record<CanvasNodeType, string> = {
@@ -1280,6 +1281,7 @@ const PRESENTATION_LABELS: Record<CanvasNodeType, string> = {
   folder: 'Folder',
   source: 'Source',
   output: 'Output',
+  combine: 'Combine',
 }
 
 const AGENT_PRESENTATION_TYPES = new Set<CanvasNodeType>(['voice_generator', 'voiceover', 'change_voice', 'llm_assistant'])
@@ -1337,6 +1339,9 @@ function toFlowNode(node: CreativeCanvasNode, collaborators: Array<CreativeCanva
       text: typeof (node.data as Record<string, unknown> | undefined)?.text === 'string'
         ? String((node.data as Record<string, unknown>).text)
         : undefined,
+      outputKind: (node.data as Record<string, unknown> | undefined)?.outputKind === 'video' || node.provider?.mode === 'video'
+        ? 'video'
+        : 'image',
       // `label` is retained for the lightweight test mock + legacy rendering paths.
       label: (
         <div className="min-w-36">
@@ -1716,7 +1721,8 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
     updatePrompt: (nodeId: string, value: string) => void
     updateText: (nodeId: string, value: string) => void
     addReference: (nodeId: string) => void
-  }>({ generate: () => {}, updatePrompt: () => {}, updateText: () => {}, addReference: () => {} })
+    updateOutputKind: (nodeId: string, kind: 'image' | 'video') => void
+  }>({ generate: () => {}, updatePrompt: () => {}, updateText: () => {}, addReference: () => {}, updateOutputKind: () => {} })
   const pendingReferenceNodeIdRef = useRef<string>('')
   const referenceFileInputRef = useRef<HTMLInputElement | null>(null)
 
@@ -1724,6 +1730,17 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
     const canvasNode = node.data?.canvasNode as CreativeCanvasNode | undefined
     if (!canvasNode) return node
     const flowNode = toFlowNode({ ...canvasNode, position: node.position }, collaboratorsByNodeId[node.id] ?? [])
+    // Upstream nodes linked into this node (combine nodes surface these).
+    const upstreamNodes = edges
+      .filter((edge) => edge.target === node.id)
+      .map((edge) => nodes.find((candidate) => candidate.id === edge.source))
+      .filter((candidate): candidate is Node => Boolean(candidate))
+    const upstreamPreviews = upstreamNodes
+      .map((candidate) => {
+        const upstream = candidate.data?.canvasNode as CreativeCanvasNode | undefined
+        return upstream?.output?.thumbnailUrl ?? upstream?.output?.url ?? upstream?.source?.thumbnailUrl ?? upstream?.source?.url
+      })
+      .filter((url): url is string => typeof url === 'string' && url.length > 0)
     return {
       ...flowNode,
       data: {
@@ -1732,13 +1749,21 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
         references: Array.isArray((canvasNode.data as Record<string, unknown> | undefined)?.references)
           ? ((canvasNode.data as Record<string, unknown>).references as string[])
           : [],
+        inputCount: upstreamNodes.length,
+        inputPreviews: upstreamPreviews,
         onGenerate: () => nodeActionRefs.current.generate(node.id),
         onPromptChange: (value: string) => nodeActionRefs.current.updatePrompt(node.id, value),
         onTextChange: (value: string) => nodeActionRefs.current.updateText(node.id, value),
         onAddReference: () => nodeActionRefs.current.addReference(node.id),
+        onOutputKindChange: (kind: 'image' | 'video') => nodeActionRefs.current.updateOutputKind(node.id, kind),
+        // "Select model" on a node opens the settings panel (which hosts the picker).
+        onOpenModelPicker: () => {
+          setSelectedFlowNodeId(node.id)
+          setSettingsCollapsed(false)
+        },
       },
     }
-  }), [collaboratorsByNodeId, generatingNodeIds, nodes])
+  }), [collaboratorsByNodeId, edges, generatingNodeIds, nodes])
   const selectedMaskBrushStrokes = selectedCanvasNode?.edit?.mask?.brush?.strokes ?? []
   const orchestrationPlan = useMemo(() => buildCreativeCanvasOrchestrationPlan({
     id: activeCanvas?.id,
@@ -2821,15 +2846,20 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
       type: backendType,
       title,
       position,
-      data: { createdFrom: 'creative_canvas_create_menu', presentationType, ...(mode ? { mode } : {}) },
+      data: {
+        createdFrom: 'creative_canvas_create_menu',
+        presentationType,
+        ...(mode ? { mode } : {}),
+        ...(presentationType === 'combine' ? { outputKind: 'image' } : {}),
+      },
       source: backendType === 'source'
         ? { kind: mode === 'assets' ? 'workspace_artifact' : 'upload', referenceRole: 'general', weight: 1, altText: title }
         : undefined,
       provider: backendType === 'model'
         ? {
             key: isAgentBacked ? 'agent_task' : 'higgsfield',
-            model: runModel,
-            mode: presentationType === 'video_generator' ? 'video' : runOutputKind,
+            model: presentationType === 'combine' ? coerceCanvasModel(runModel) : runModel,
+            mode: presentationType === 'video_generator' ? 'video' : presentationType === 'combine' ? 'image' : runOutputKind,
           }
         : undefined,
       review: backendType === 'output'
@@ -3917,6 +3947,32 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
     }))
   }, [])
 
+  const updateNodeOutputKind = useCallback((nodeId: string, kind: 'image' | 'video') => {
+    setNodes((current) => current.map((node) => {
+      if (node.id !== nodeId) return node
+      const canvasNode = node.data?.canvasNode as CreativeCanvasNode | undefined
+      if (!canvasNode) return node
+      return {
+        ...node,
+        data: {
+          ...node.data,
+          outputKind: kind,
+          canvasNode: {
+            ...canvasNode,
+            provider: canvasNode.provider ? { ...canvasNode.provider, mode: kind } : canvasNode.provider,
+            data: { ...(canvasNode.data as Record<string, unknown>), outputKind: kind },
+          },
+        },
+      }
+    }))
+    // Keep the active run model aligned with the requested output kind.
+    setRunModel((current) => {
+      const model = getCanvasModel(current)
+      if (model?.kind === kind) return current
+      return kind === 'video' ? 'seedance_2_0' : 'text2image_soul_v2'
+    })
+  }, [])
+
   const addReferenceToNode = useCallback((nodeId: string) => {
     setReferencePicker({ nodeId })
   }, [])
@@ -3968,23 +4024,99 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
   }, [activeCanvas?.id, attachReferenceUrl, resolvedOrgId])
 
   const generateInlineForNode = useCallback(async (nodeId: string) => {
-    if (!activeCanvas?.id || mode !== 'admin') return
-    const canvasOrgId = resolvedOrgId || activeCanvas.orgId || ''
+    if (mode !== 'admin') {
+      setActivityMessage('Generation is available in the admin canvas')
+      return
+    }
     const target = nodes.find((node) => node.id === nodeId)
     const canvasNode = target?.data?.canvasNode as CreativeCanvasNode | undefined
-    const promptText = (canvasNode?.data as Record<string, unknown> | undefined)?.prompt
-    const referenceImageUrls = Array.isArray((canvasNode?.data as Record<string, unknown> | undefined)?.references)
-      ? ((canvasNode!.data as Record<string, unknown>).references as string[])
+    if (!canvasNode) {
+      setActivityMessage('Select a generator or combine node first')
+      return
+    }
+    const nodeData = (canvasNode.data ?? {}) as Record<string, unknown>
+    const instruction = typeof nodeData.prompt === 'string' ? nodeData.prompt : ''
+
+    // ---- Gather everything linked into this node (the combine flow). ----
+    const upstreamCanvasNodes = edges
+      .filter((edge) => edge.target === nodeId)
+      .map((edge) => nodes.find((candidate) => candidate.id === edge.source)?.data?.canvasNode as CreativeCanvasNode | undefined)
+      .filter((candidate): candidate is CreativeCanvasNode => Boolean(candidate))
+    const upstreamImageUrls = upstreamCanvasNodes.flatMap((upstream) => {
+      const urls: string[] = []
+      if (upstream.output?.url && upstream.output.kind !== 'video') urls.push(upstream.output.url)
+      else if (upstream.source?.url) urls.push(upstream.source.url)
+      const upstreamRefs = (upstream.data as Record<string, unknown> | undefined)?.references
+      if (Array.isArray(upstreamRefs)) urls.push(...upstreamRefs.filter((url): url is string => typeof url === 'string'))
+      return urls
+    })
+    const upstreamTextFragments = upstreamCanvasNodes.flatMap((upstream) => {
+      const data = (upstream.data ?? {}) as Record<string, unknown>
+      const fragments: string[] = []
+      if (typeof data.text === 'string' && data.text.trim()) fragments.push(data.text.trim())
+      else if (upstream.id !== nodeId && typeof data.prompt === 'string' && data.prompt.trim() && upstream.type === 'prompt') fragments.push(data.prompt.trim())
+      return fragments
+    })
+    const ownReferences = Array.isArray(nodeData.references)
+      ? (nodeData.references as string[]).filter((url): url is string => typeof url === 'string')
       : []
+    const referenceImageUrls = [...new Set([...upstreamImageUrls, ...ownReferences])]
+    const prompt = [instruction, ...(upstreamTextFragments.length ? [`Context from linked notes: ${upstreamTextFragments.join('. ')}`] : [])]
+      .filter(Boolean)
+      .join('\n\n')
+
+    if (!prompt.trim() && !referenceImageUrls.length) {
+      setActivityMessage('Add an instruction or link at least one input before generating')
+      return
+    }
+
+    // ---- Resolve the model against the node's requested output kind. ----
+    const requestedKind = nodeData.outputKind === 'video' || canvasNode.provider?.mode === 'video' ? 'video' : 'image'
+    const activeModel = getCanvasModel(runModel)
+    const effectiveModel = activeModel?.kind === requestedKind
+      ? activeModel.id
+      : (requestedKind === 'video' ? 'seedance_2_0' : 'text2image_soul_v2')
+
     setGeneratingNodeIds((prev) => new Set(prev).add(nodeId))
     try {
-      const response = await fetch(`/api/v1/creative-canvas/${activeCanvas.id}/runs/generate?orgId=${encodeURIComponent(canvasOrgId)}`, {
+      // ---- Make sure a persisted canvas exists and the graph is saved so the
+      // backend sees the node we are generating for. ----
+      let canvasId = activeCanvas?.id ?? ''
+      let canvasOrgId = resolvedOrgId || activeCanvas?.orgId || ''
+      if (!canvasId) {
+        const createResponse = await fetch(`/api/v1/creative-canvas${canvasOrgId ? `?orgId=${encodeURIComponent(canvasOrgId)}` : ''}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            title: 'Untitled canvas',
+            purpose: '',
+            status: 'draft',
+            // Empty orgId is intentional: the server fills in the resolved org
+            // (a 'pending-org' placeholder would fail node sanitisation).
+            nodes: nodes.map((node) => toCanvasNode(node, canvasOrgId)),
+            edges: edges.map((edge) => toCanvasEdge(edge, canvasOrgId)),
+          }),
+        })
+        const createPayload = await createResponse.json().catch(() => null) as CreativeCanvasApiListResponse | null
+        const createdCanvas = createPayload?.data?.canvas
+        if (!createResponse.ok || !createdCanvas?.id) {
+          setActivityMessage(createPayload?.error ?? 'Could not save the canvas before generating')
+          return
+        }
+        applyCanvasSnapshot(createdCanvas)
+        canvasId = createdCanvas.id
+        canvasOrgId = canvasOrgId || createdCanvas.orgId || ''
+      } else if (graphHasUnsavedChanges) {
+        await saveGraph('auto')
+      }
+
+      const response = await fetch(`/api/v1/creative-canvas/${canvasId}/runs/generate?orgId=${encodeURIComponent(canvasOrgId)}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           nodeId,
-          model: runModel,
-          prompt: typeof promptText === 'string' ? promptText : '',
+          model: effectiveModel,
+          prompt,
           aspectRatio: runAspectRatio,
           resolution: runResolution,
           quality: runQuality,
@@ -4006,7 +4138,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
         for (let attempt = 0; attempt < 12 && !found; attempt += 1) {
           await new Promise((resolve) => { window.setTimeout(resolve, 3000) })
           try {
-            const pollResponse = await fetch(`/api/v1/creative-canvas/${activeCanvas.id}?orgId=${encodeURIComponent(canvasOrgId)}`)
+            const pollResponse = await fetch(`/api/v1/creative-canvas/${canvasId}?orgId=${encodeURIComponent(canvasOrgId)}`)
             const pollPayload = await pollResponse.json().catch(() => null) as CreativeCanvasApiListResponse | null
             const polled = pollPayload?.data?.canvas
             if (polled?.id && (polled.nodes ?? []).some((node) => node.id === `${nodeId}-output`)) {
@@ -4018,7 +4150,13 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
         }
         if (!found) setActivityMessage('Generation still processing — it will appear on refresh')
       } else {
-        await reloadActiveCanvas()
+        // Sync result — pull the fresh canvas (with the new output node) by id.
+        try {
+          const refreshResponse = await fetch(`/api/v1/creative-canvas/${canvasId}?orgId=${encodeURIComponent(canvasOrgId)}`)
+          const refreshPayload = await refreshResponse.json().catch(() => null) as CreativeCanvasApiListResponse | null
+          const refreshed = refreshPayload?.data?.canvas
+          if (refreshResponse.ok && refreshed?.id) applyCanvasSnapshot(refreshed)
+        } catch { ignoreCanvasBestEffortFailure() }
         setActivityMessage('Generation complete')
       }
     } catch {
@@ -4031,7 +4169,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
       })
       void loadCanvasCredits()
     }
-  }, [activeCanvas?.id, activeCanvas?.orgId, applyCanvasSnapshot, loadCanvasCredits, mode, nodes, reloadActiveCanvas, resolvedOrgId, runAspectRatio, runDurationSeconds, runGenerateAudio, runModel, runQuality, runVariantCount])
+  }, [activeCanvas?.id, activeCanvas?.orgId, applyCanvasSnapshot, edges, graphHasUnsavedChanges, loadCanvasCredits, mode, nodes, resolvedOrgId, runAspectRatio, runDurationSeconds, runGenerateAudio, runModel, runQuality, runVariantCount, saveGraph])
 
   useEffect(() => {
     nodeActionRefs.current = {
@@ -4039,8 +4177,9 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
       updatePrompt: updateNodePrompt,
       updateText: updateNodeText,
       addReference: addReferenceToNode,
+      updateOutputKind: updateNodeOutputKind,
     }
-  }, [addReferenceToNode, generateInlineForNode, updateNodePrompt, updateNodeText])
+  }, [addReferenceToNode, generateInlineForNode, updateNodeOutputKind, updateNodePrompt, updateNodeText])
 
   const markReviewPassed = async () => {
     if (!activeCanvas?.id || !selectedNodeId) return
@@ -6389,7 +6528,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
           <div className="rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] p-3">
             <p className="text-sm font-semibold text-[var(--color-pib-text)]">Agent controls</p>
             <p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">
-              Queue Higgsfield, copy, document, and review work from prompt/model nodes while keeping approval gates intact.
+              Queue generation, copy, document, and review work from prompt/model nodes while keeping approval gates intact.
             </p>
             {selectedCanvasNode?.provider?.key === 'higgsfield' ? (
               <p className="mt-2 rounded-md bg-white px-2 py-1 text-xs text-[var(--color-pib-text-muted)]">
@@ -6398,7 +6537,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
             ) : null}
             <div className="mt-3 grid grid-cols-2 gap-2">
               <label className="col-span-2 text-xs font-medium text-[var(--color-pib-text-muted)]" htmlFor="creative-canvas-model-id">
-                Higgsfield model id
+                Model id
                 <input
                   id="creative-canvas-model-id"
                   list="creative-canvas-model-suggestions"
@@ -7010,7 +7149,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
               ) : null}
               {latestExecution?.command ? (
                 <div className="rounded-lg border border-[var(--color-pib-line)] bg-white p-3 text-xs">
-                  <p className="font-semibold text-[var(--color-pib-text)]">Higgsfield execution</p>
+                  <p className="font-semibold text-[var(--color-pib-text)]">Provider execution</p>
                   <code className="mt-2 block break-words rounded-md bg-[var(--color-pib-surface)] p-2 text-[11px] text-[var(--color-pib-text)]">
                     {latestExecution.command}
                   </code>

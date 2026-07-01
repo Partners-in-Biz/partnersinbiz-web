@@ -21,6 +21,13 @@ export interface CanvasNodeData {
   reviewStatus?: string
   text?: string
   references?: string[]
+  /** Combine node: desired output type. */
+  outputKind?: 'image' | 'video'
+  /** Combine node: number of upstream nodes linked in. */
+  inputCount?: number
+  /** Combine node: preview thumbnails of linked media inputs. */
+  inputPreviews?: string[]
+  onOutputKindChange?: (kind: 'image' | 'video') => void
   onPromptChange?: (value: string) => void
   onBatchChange?: (next: number) => void
   onTextChange?: (value: string) => void
