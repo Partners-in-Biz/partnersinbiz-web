@@ -428,7 +428,7 @@ export default function UnifiedChat({
       } catch {
         res = await fetch(`/api/v1/chat-feed/${convId}`)
       }
-      if (!res.ok && (res.status === 404 || res.status === 403 || res.status >= 500)) {
+      if (!res.ok && (res.status === 401 || res.status === 403 || res.status === 404 || res.status >= 500)) {
         const fallback = await fetch(`/api/v1/chat-feed/${convId}`)
         if (fallback.ok || !res.ok) res = fallback
       }
