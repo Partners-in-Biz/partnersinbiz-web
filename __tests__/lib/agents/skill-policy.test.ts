@@ -35,6 +35,7 @@ describe('agent skill policy manifest', () => {
       'collaboration-runtime',
       'content-engine',
       'crm-sales',
+      'crm-hygiene-gather',
       'data-analyst',
       'docs-lead',
       'email-outreach',
@@ -48,6 +49,7 @@ describe('agent skill policy manifest', () => {
       'research-intelligence',
       'seo-sprint-manager',
       'social-media-manager',
+      'social-recovery-gather',
       'support-manager',
     ])
 
