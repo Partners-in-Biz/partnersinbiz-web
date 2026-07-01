@@ -159,6 +159,42 @@ describe('POST /api/v1/conversations/[convId]/agent-messages', () => {
     }))
   })
 
+  it('preserves run id and ui actions for executable completed agent outputs', async () => {
+    const { POST } = await import('@/app/api/v1/conversations/[convId]/agent-messages/route')
+
+    const res = await POST(request({
+      agentId: 'qa-release',
+      content: 'Approval action is attached.',
+      runId: 'run_action_123',
+      ui_actions: [{
+        id: 'approve-once',
+        action_id: 'approval-1',
+        type: 'approve',
+        label: 'Allow once',
+        value: 'once',
+        endpoint: '/api/v1/admin/agents/qa-release/runs/run_action_123/actions',
+      }],
+      richParts: [{
+        type: 'approval_card',
+        title: 'Executable approval',
+        body: 'This card has a matching action.',
+      }],
+    }), { params: Promise.resolve({ convId: 'conv-1' }) })
+
+    expect(res.status).toBe(201)
+    expect(mockCreateMessage).toHaveBeenCalledWith('conv-1', expect.objectContaining({
+      runId: 'run_action_123',
+      uiActions: [expect.objectContaining({
+        id: 'approve-once',
+        actionId: 'approval-1',
+        type: 'approve',
+        label: 'Allow once',
+        value: 'once',
+        endpoint: '/api/v1/admin/agents/qa-release/runs/run_action_123/actions',
+      })],
+    }))
+  })
+
   it('rejects client callers even if the auth wrapper is misconfigured', async () => {
     mockUser = { uid: 'client-1', role: 'client' }
     const { POST } = await import('@/app/api/v1/conversations/[convId]/agent-messages/route')
