@@ -163,21 +163,23 @@ export const POST = withAuth('client', withTenant(async (req, user, orgId, conte
       createdAt: FieldValue.serverTimestamp(),
     }).catch(() => {})
 
-    // Hermes agent dispatch (fire-and-forget)
-    getHermesProfileLink(orgId)
-      .then((link) => {
-        if (!link) return
-        const anchorHint =
-          anchor?.type === 'text'
-            ? ` Specifically about this text: "${(anchor.text ?? '').slice(0, 120)}"`
-            : anchor?.type === 'image'
-              ? ' (on an image in the post)'
-              : ''
-        return createHermesRun(link, user.uid, {
-          prompt: `Client ${displayName} left feedback on a social post for org ${orgId}.${anchorHint} Their comment: "${text.trim().slice(0, 300)}". Post ID: ${id}. Please review this feedback and revise the post if appropriate.`,
+    if (userRole === 'client') {
+      // Hermes agent dispatch (fire-and-forget)
+      getHermesProfileLink(orgId)
+        .then((link) => {
+          if (!link) return
+          const anchorHint =
+            anchor?.type === 'text'
+              ? ` Specifically about this text: "${(anchor.text ?? '').slice(0, 120)}"`
+              : anchor?.type === 'image'
+                ? ' (on an image in the post)'
+                : ''
+          return createHermesRun(link, user.uid, {
+            prompt: `Client ${displayName} left feedback on a social post for org ${orgId}.${anchorHint} Their comment: "${text.trim().slice(0, 300)}". Post ID: ${id}. Please review this feedback and revise the post if appropriate.`,
+          })
         })
-      })
-      .catch(() => {})
+        .catch(() => {})
+    }
 
     logActivity({
       orgId,
