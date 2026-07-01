@@ -51,7 +51,47 @@ Implemented via file edits on `development` (sandbox shell was down, so NOT yet 
 - UI copy: "Higgsfield" removed from workflow titles/labels on active surfaces.
 - Test added: `__tests__/components/creative-canvas/ports.test.ts` combine ports.
 
+## Status update (2026-07-02) — QA'd live, 6 more blockers found & fixed
+
+Verified: typecheck clean, 258/258 creative-canvas tests green, pushed as
+`60e280ec` (test copy updates) + `ae3e371d` (QA fixes) on origin/development.
+
+Live-browser QA (localhost, admin session, canvas `2rlspEWvmW8oXBvuqYDS` in
+org `pib-platform-owner`, person+clothes+dog → combine) surfaced these
+previously invisible blockers, all fixed in `ae3e371d`:
+
+1. **Firestore rejected undefined fields** in three write paths (canvas
+   create `linked.projectId`, graph save `node.canvasId`, run create
+   `input.operation`) → creating/saving/generating all 500'd. Fixed with
+   `ignoreUndefinedProperties` on admin Firestore init + deep undefined-strip
+   in the graph sanitizer + omit-empty `cleanLinked`.
+2. **Create endpoint ignores nodes/edges** (`sanitizeCreativeCanvasInput`
+   hardcodes `nodes: []`), and the old auto-persist applied that empty
+   snapshot — wiping the user's local graph. Auto-persist now creates bare,
+   then PUTs the graph, never clobbering local state.
+3. **Edges never rendered.** `displayNodes` rebuilt each React Flow node from
+   the backend node every render, discarding RF's measured dimensions —
+   `nodesInitialized` stayed false and RF draws no edges. Now preserves the
+   live node object. (This alone explains most of "the canvas doesn't work".)
+4. **Persisted edges carry no handle ids**; nodes expose multiple typed
+   handles, so RF couldn't attach edges. New `displayEdges` memo resolves
+   source/target handles from port kinds.
+5. **Immersive canvas had 0 height** — `h-full` chain collapses inside the
+   app shell's auto-height wrapper; canvas was invisible below the tab bar.
+   Now viewport-based `h-[calc(100dvh-72px)]`.
+6. **referenceImageUrls were dropped server-side** (not in run-input
+   whitelist, never read by the manifest) — linked images had zero effect on
+   generation. Now validated + persisted on the run and emitted as `--image`
+   flags in the Higgsfield execution manifest.
+
+Also: model registry labels de-branded (`Soul 2.0`, family `Studio`);
+combine/output port kind is a wildcard so outputs chain into any input.
+
+E2E proof: Generate from the combine node → 201, run submitted to the Hermes
+`pip` profile (VPS bridge), refs `[person, clothes, dog]` + instruction on
+the run doc, status `running` via Hermes.
+
 ## Remaining
-1. Restart Cowork session so the sandbox shell re-provisions, then: git preflight (pull --rebase origin development), `npx tsc --noEmit`, `npm test`, fix fallout, commit + push to origin/development.
-2. Strip the proof/benchmark/certification UI from the workspace component (needs compiler in the loop — ~thousands of lines).
-3. Manual QA: person+clothes+dog → combine → image; output + motion prompt → combine → video.
+1. Strip the proof/benchmark/certification UI from the workspace component (~thousands of lines; compiler in the loop).
+2. Confirm the async run completes and the output node lands + is chainable into a second combine (video). Runs were mid-flight at session close.
+3. Simple media nodes (image/text/video) as first-class create-menu items — today images enter via source Upload/Assets; fine but two taps deeper than the Higgsfield-style mental model.
