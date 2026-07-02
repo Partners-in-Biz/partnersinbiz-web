@@ -50,7 +50,7 @@ import {
   objectToRemoteMutationEvidence,
   latestLocalActivityMutation,
   type CreativeCanvasActivityEvent,
-} from '@/lib/creative-canvas/workspace-proof-evidence'
+} from '@/lib/creative-canvas/collaboration-activity'
 
 type CreativeCanvasMode = 'admin' | 'portal'
 type CreativeCanvasMobilePanel = 'canvas' | 'sources' | 'inspector'
