@@ -16,7 +16,20 @@ describe('client document templates', () => {
       'monthly_report',
       'launch_signoff',
       'change_request',
+      'canvas_draft',
     ])
+  })
+
+  it('ships an internal canvas_draft holding template for creative-canvas publishes', () => {
+    const template = getClientDocumentTemplate('canvas_draft')
+
+    expect(template.approvalMode).toBe('operational')
+    expect(template.clientPermissions).toMatchObject({
+      canDirectEdit: false,
+      canApprove: false,
+    })
+    expect(template.contract.taskFanout).toBe('none')
+    expect(createBlocksFromTemplate('canvas_draft').map(block => block.type)).toEqual(['summary', 'rich_text'])
   })
 
   it('uses formal acceptance for sales proposals', () => {

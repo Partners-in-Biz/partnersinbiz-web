@@ -40,6 +40,9 @@ const TARGET_HINTS: Record<CreativeCanvasExport['target'], string> = {
   youtube_studio: 'Create an internal YouTube Studio asset candidate; do not publish.',
   book_studio: 'Create an internal Book Studio artifact candidate; do not publish to stores.',
   workspace_artifact: 'Create or link an internal workspace artifact; do not mutate Drive ACLs.',
+  ads_creative: 'Create an internal ad creative draft candidate; never launch ads or spend budget.',
+  email_block: 'Create an internal email block/snippet draft; never send or schedule emails.',
+  seo_content: 'Create an internal SEO content draft item; do not publish live pages.',
 }
 
 export const targetCategoryMap = {
@@ -51,6 +54,9 @@ export const targetCategoryMap = {
   youtube_studio: 'video_social',
   book_studio: 'book',
   workspace_artifact: 'image',
+  ads_creative: 'image',
+  email_block: 'blog_document',
+  seo_content: 'blog_document',
 } as const satisfies Record<CreativeCanvasExport['target'], CreativeCanvasProofCategoryKey>
 
 function cleanString(value: unknown): string | undefined {

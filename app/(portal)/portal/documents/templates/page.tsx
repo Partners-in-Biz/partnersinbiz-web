@@ -17,6 +17,7 @@ const TYPE_LABELS: Record<ClientDocumentType, string> = {
   monthly_report: 'Monthly Report',
   launch_signoff: 'Launch Sign-off',
   change_request: 'Change Request',
+  canvas_draft: 'Canvas Draft',
 }
 
 function fmtDate(ts: unknown): string {

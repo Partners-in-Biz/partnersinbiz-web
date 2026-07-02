@@ -2,12 +2,15 @@ import { NextRequest } from 'next/server'
 import { FieldValue } from 'firebase-admin/firestore'
 import { adminDb } from '@/lib/firebase/admin'
 import { withAuth } from '@/lib/api/auth'
+import { actorFrom } from '@/lib/api/actor'
 import { apiError, apiSuccess } from '@/lib/api/response'
 import type { ApiUser } from '@/lib/api/types'
 import { actorFields } from '@/lib/book-studio/api'
 import { sanitizeBookStudioRecordInput } from '@/lib/book-studio/sanitize'
-import { buildCreativeCanvasDraftExport } from '@/lib/creative-canvas/exporters/drafts'
+import { createClientDocument } from '@/lib/client-documents/store'
+import { buildCreativeCanvasDraftExport, resolveExportableNode } from '@/lib/creative-canvas/exporters/drafts'
 import { getCreativeCanvas, CREATIVE_CANVAS_COLLECTION } from '@/lib/creative-canvas/store'
+import { makeBlockId, type Block } from '@/lib/email-builder/types'
 import type { CreativeCanvas, CreativeCanvasActor, CreativeCanvasExport, CreativeCanvasNode } from '@/lib/creative-canvas/types'
 
 export const dynamic = 'force-dynamic'
@@ -36,6 +39,9 @@ function cleanTarget(value: unknown): CreativeCanvasExport['target'] | null {
     'youtube_studio',
     'book_studio',
     'workspace_artifact',
+    'ads_creative',
+    'email_block',
+    'seo_content',
   ]
   return allowed.includes(value as CreativeCanvasExport['target']) ? value as CreativeCanvasExport['target'] : null
 }
@@ -102,23 +108,45 @@ function linkedDownstreamDraftId(canvas: CreativeCanvas, target: CreativeCanvasE
       return Array.isArray(canvas.linked?.workspaceArtifactIds)
         ? cleanString(canvas.linked.workspaceArtifactIds[0])
         : undefined
+    case 'ads_creative':
+      return cleanString(canvas.linked?.adCreativeId)
+    case 'email_block':
+      return cleanString(canvas.linked?.emailSnippetId)
+    case 'seo_content':
+      return cleanString(canvas.linked?.seoContentId)
     default:
       return undefined
   }
 }
 
 /**
+ * Human-friendly base title for auto-created downstream drafts. Empty or
+ * placeholder ("Untitled canvas") titles fall back to a generic label so
+ * downstream modules never show blank/placeholder record names.
+ */
+function canvasBaseTitle(canvas: CreativeCanvas): string {
+  const title = cleanString(canvas.title)
+  return !title || title === 'Untitled canvas' ? 'Creative canvas draft' : title
+}
+
+async function linkCanvas(canvasId: string, field: string, value: string): Promise<void> {
+  await adminDb.collection(CREATIVE_CANVAS_COLLECTION).doc(canvasId).update({
+    [`linked.${field}`]: value,
+    updatedAt: FieldValue.serverTimestamp(),
+  })
+}
+
+/**
  * Publishing to Book Studio from an unlinked canvas auto-creates the book
  * project (the natural container for chapters/manuscripts) and links the
- * canvas to it, so 📤 works on a fresh board without manual setup. Other
- * targets still require an explicitly linked downstream record.
+ * canvas to it, so 📤 works on a fresh board without manual setup.
  */
 async function ensureBookStudioProject(
   canvas: CreativeCanvas & { id: string },
   user: ApiUser,
 ): Promise<string> {
   const record = sanitizeBookStudioRecordInput('projects', {
-    title: canvas.title || 'Creative canvas book project',
+    title: `Book: ${canvasBaseTitle(canvas)}`,
     description: `Auto-created by Creative Canvas publish from canvas ${canvas.id}.`,
     safeSummary: 'Book project created automatically when publishing a canvas text node to Book Studio.',
   }, canvas.orgId)
@@ -126,10 +154,78 @@ async function ensureBookStudioProject(
     ...record,
     ...actorFields(user),
   })
-  await adminDb.collection(CREATIVE_CANVAS_COLLECTION).doc(canvas.id).update({
-    'linked.bookStudioProjectId': ref.id,
-    updatedAt: FieldValue.serverTimestamp(),
+  await linkCanvas(canvas.id, 'bookStudioProjectId', ref.id)
+  return ref.id
+}
+
+/**
+ * Publishing to client_document / blog_post from an unlinked canvas
+ * auto-creates a minimal `canvas_draft` client document (title + body
+ * template, internal_draft, never client-shared) and links the canvas to it,
+ * mirroring the Book Studio behaviour.
+ */
+async function ensureClientDocumentDraft(
+  canvas: CreativeCanvas & { id: string },
+  user: ApiUser,
+): Promise<string> {
+  const { id } = await createClientDocument({
+    title: `Canvas draft: ${canvasBaseTitle(canvas)}`,
+    type: 'canvas_draft',
+    orgId: canvas.orgId,
+    user,
   })
+  await linkCanvas(canvas.id, 'clientDocumentId', id)
+  return id
+}
+
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+}
+
+/**
+ * Publishing to email_block from an unlinked canvas auto-creates a reusable
+ * email snippet (email_snippets, category `custom`) holding the node's text
+ * and/or image, and links the canvas to it. Snippets are internal building
+ * blocks — creating one never sends or schedules email.
+ */
+async function ensureEmailSnippet(
+  canvas: CreativeCanvas & { id: string },
+  node: CreativeCanvasNode,
+  user: ApiUser,
+): Promise<string> {
+  const output = resolveExportableNode(node).output
+  const blocks: Block[] = []
+  if (cleanString(output?.textPreview)) {
+    blocks.push({
+      id: makeBlockId(),
+      type: 'paragraph',
+      props: { html: escapeHtml(String(output?.textPreview).trim()), align: 'left' },
+    })
+  }
+  if (cleanString(output?.url)) {
+    blocks.push({
+      id: makeBlockId(),
+      type: 'image',
+      props: { src: String(output?.url), alt: node.title || 'Creative canvas asset', align: 'center' },
+    })
+  }
+  const ref = await adminDb.collection('email_snippets').add({
+    orgId: canvas.orgId,
+    name: `Canvas draft: ${canvasBaseTitle(canvas)}`,
+    description: `Auto-created by Creative Canvas publish from canvas ${canvas.id}. Internal draft — review before use.`,
+    category: 'custom',
+    blocks,
+    isStarter: false,
+    deleted: false,
+    createdAt: FieldValue.serverTimestamp(),
+    updatedAt: FieldValue.serverTimestamp(),
+    ...actorFrom(user),
+  })
+  await linkCanvas(canvas.id, 'emailSnippetId', ref.id)
   return ref.id
 }
 
@@ -165,8 +261,22 @@ export const POST = withAuth('client', async (req: NextRequest, user: ApiUser, c
 
   try {
     let downstreamDraftId = downstreamDraftIdFrom(canvas, node, target, body)
-    if (!downstreamDraftId && target === 'book_studio') {
-      downstreamDraftId = await ensureBookStudioProject(canvas, user)
+    if (!downstreamDraftId) {
+      if (target === 'book_studio') {
+        downstreamDraftId = await ensureBookStudioProject(canvas, user)
+      } else if (target === 'client_document' || target === 'blog_post') {
+        downstreamDraftId = await ensureClientDocumentDraft(canvas, user)
+      } else if (target === 'email_block') {
+        downstreamDraftId = await ensureEmailSnippet(canvas, node, user)
+      } else if (target === 'ads_creative') {
+        // Ad creatives carry required upload metadata (storage path, file
+        // size, mime type) we cannot synthesize here — no auto-create.
+        return apiError('Link an ad creative first — upload the asset in Ads Studio, then link it to this canvas (linked.adCreativeId).', 400)
+      } else if (target === 'seo_content') {
+        // SEO content items belong to a sprint; creating one without a
+        // sprint would orphan it from every sprint view — no auto-create.
+        return apiError('Link an SEO content item first — create it in the SEO sprint content plan, then link it to this canvas (linked.seoContentId).', 400)
+      }
     }
     const draft = buildCreativeCanvasDraftExport({
       canvas,
