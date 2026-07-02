@@ -81,3 +81,80 @@ describe('creative canvas credits', () => {
     expect(mockSubAdd).toHaveBeenCalledWith(expect.objectContaining({ cost: 5, runId: null, model: null }))
   })
 })
+
+describe('creative canvas credit refunds', () => {
+  const mockSubWhere = jest.fn()
+  const mockSubGet = jest.fn()
+  const mockUsageUpdate = jest.fn()
+
+  const usageDoc = (id: string, data: Record<string, unknown>) => ({
+    id,
+    data: () => data,
+    ref: { update: mockUsageUpdate },
+  })
+
+  beforeEach(() => {
+    mockSubWhere.mockReturnValue({ get: mockSubGet })
+    mockSubCollection.mockReturnValue({ add: mockSubAdd, where: mockSubWhere })
+    mockUsageUpdate.mockResolvedValue(undefined)
+    mockDocGet.mockResolvedValue({
+      exists: true,
+      data: () => ({ orgId: 'org-1', used: 5, limit: null, updatedAt: 'SERVER_TIMESTAMP' }),
+    })
+  })
+
+  it('refunds the recorded charge for a failed run once', async () => {
+    const { refundCanvasCreditUsage } = await import('@/lib/creative-canvas/credits')
+    mockSubGet.mockResolvedValue({ docs: [usageDoc('u1', { cost: 1, runId: 'run-1' })] })
+
+    const result = await refundCanvasCreditUsage('org-1', 'run-1')
+
+    expect(mockSubWhere).toHaveBeenCalledWith('runId', '==', 'run-1')
+    expect(mockUsageUpdate).toHaveBeenCalledWith(expect.objectContaining({ refunded: true }))
+    expect(mockDocSet).toHaveBeenCalledWith(
+      expect.objectContaining({ used: { __increment: -1 } }),
+      { merge: true },
+    )
+    expect(result.adjusted).toBe(true)
+    expect(result.amount).toBe(1)
+  })
+
+  it('is idempotent: already-refunded usage records are skipped', async () => {
+    const { refundCanvasCreditUsage } = await import('@/lib/creative-canvas/credits')
+    mockSubGet.mockResolvedValue({ docs: [usageDoc('u1', { cost: 1, runId: 'run-1', refunded: true })] })
+
+    const result = await refundCanvasCreditUsage('org-1', 'run-1')
+
+    expect(mockUsageUpdate).not.toHaveBeenCalled()
+    expect(mockDocSet).not.toHaveBeenCalled()
+    expect(result.adjusted).toBe(false)
+    expect(result.amount).toBe(0)
+  })
+
+  it('recharges only previously refunded records (same-run-id retry)', async () => {
+    const { rechargeCanvasCreditUsage } = await import('@/lib/creative-canvas/credits')
+    mockSubGet.mockResolvedValue({
+      docs: [
+        usageDoc('u1', { cost: 1, runId: 'run-1', refunded: true }),
+        usageDoc('u2', { cost: 2, runId: 'run-1' }),
+      ],
+    })
+
+    const result = await rechargeCanvasCreditUsage('org-1', 'run-1')
+
+    expect(mockUsageUpdate).toHaveBeenCalledTimes(1)
+    expect(mockUsageUpdate).toHaveBeenCalledWith(expect.objectContaining({ refunded: false }))
+    expect(mockDocSet).toHaveBeenCalledWith(
+      expect.objectContaining({ used: { __increment: 1 } }),
+      { merge: true },
+    )
+    expect(result.amount).toBe(1)
+  })
+
+  it('no-ops on a blank run id', async () => {
+    const { refundCanvasCreditUsage } = await import('@/lib/creative-canvas/credits')
+    const result = await refundCanvasCreditUsage('org-1', '  ')
+    expect(mockSubWhere).not.toHaveBeenCalled()
+    expect(result.adjusted).toBe(false)
+  })
+})
