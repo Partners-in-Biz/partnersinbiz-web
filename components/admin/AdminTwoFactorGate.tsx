@@ -1,7 +1,6 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { usePathname, useRouter } from 'next/navigation'
 import { TwoFactorGate } from '@/components/settings/TwoFactorGate'
 
 function unwrap(body: unknown): Record<string, unknown> {
@@ -12,8 +11,6 @@ function unwrap(body: unknown): Record<string, unknown> {
 }
 
 export function AdminTwoFactorGate() {
-  const router = useRouter()
-  const pathname = usePathname()
   const [ready, setReady] = useState(false)
 
   useEffect(() => {
@@ -27,8 +24,8 @@ export function AdminTwoFactorGate() {
           setReady(true)
           return
         }
-        if (data.enabled !== true && pathname !== '/admin/2fa') {
-          router.replace(`/admin/2fa?returnTo=${encodeURIComponent(pathname || '/admin/dashboard')}`)
+        if (data.enabled !== true) {
+          setReady(true)
           return
         }
         setReady(true)
@@ -40,9 +37,9 @@ export function AdminTwoFactorGate() {
     return () => {
       cancelled = true
     }
-  }, [pathname, router])
+  }, [])
 
-  if (!ready && pathname !== '/admin/2fa') return null
+  if (!ready) return null
 
   return <TwoFactorGate />
 }
