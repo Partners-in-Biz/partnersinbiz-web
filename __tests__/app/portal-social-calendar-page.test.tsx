@@ -11,6 +11,17 @@ jest.mock('next/navigation', () => ({
 }))
 
 describe('PortalSocialCalendarPage', () => {
+  // The calendar opens on the current month and the fixture post is scheduled
+  // for 2026-06-13, so pin the clock to June 2026 to keep the post visible as
+  // real time advances. Real timers stay active so waitFor keeps working.
+  beforeAll(() => {
+    jest.useFakeTimers({ now: new Date('2026-06-10T09:00:00.000Z'), doNotFake: ['nextTick', 'setImmediate', 'setInterval', 'setTimeout', 'queueMicrotask'] })
+  })
+
+  afterAll(() => {
+    jest.useRealTimers()
+  })
+
   beforeEach(() => {
     jest.clearAllMocks()
     mockSearchParams = new URLSearchParams()

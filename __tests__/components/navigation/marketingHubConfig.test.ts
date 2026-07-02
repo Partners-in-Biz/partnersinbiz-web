@@ -11,6 +11,7 @@ describe('marketing hub config', () => {
 
     expect(portal.sections.map((section) => section.title)).toEqual([
       'Brand and campaigns',
+      'Personal workspace',
       'Social media',
       'Email and capture',
       'Audience and setup',
@@ -84,7 +85,18 @@ describe('marketing hub config', () => {
     expect(hrefs.get('GEO SEO')).toBe(`/portal/geo-seo?orgId=client-org&orgSlug=lumen-speeds${sourceSuffix}`)
     expect(hrefs.get('Capture sources')).toBe(`/portal/capture-sources?orgId=client-org&orgSlug=lumen-speeds${sourceSuffix}`)
 
-    for (const href of hrefs.values()) {
+    // Personal workspace links are user-owned and intentionally stay outside the
+    // organisation/company scope.
+    const personalSection = portal.sections.find((section) => section.title === 'Personal workspace')
+    expect(personalSection).toBeDefined()
+    for (const action of personalSection!.actions) {
+      expect(action.href).toMatch(/^\/portal\/personal\//)
+      expect(action.href).not.toContain('orgId=')
+      expect(action.href).not.toContain('sourceCompanyId=')
+    }
+
+    const orgScopedHrefs = actionMap(portal.sections.filter((section) => section.title !== 'Personal workspace'))
+    for (const href of orgScopedHrefs.values()) {
       expect(href).toContain('orgId=client-org')
       expect(href).toContain('orgSlug=lumen-speeds')
       expect(href).toContain('sourceCompanyId=company-1')

@@ -41,6 +41,17 @@ const collections: Record<string, ReturnType<typeof makeDoc>[]> = {}
 const collectionGroups: Record<string, ReturnType<typeof makeDoc>[]> = {}
 const nestedProjectTasks: Record<string, ReturnType<typeof makeDoc>> = {}
 
+// Fixtures use fixed ISO dates (late May / mid June 2026) and the feed
+// derives staleness from Date.now(), so pin the clock to keep the suite
+// deterministic as real time advances.
+beforeAll(() => {
+  jest.useFakeTimers({ now: new Date('2026-06-17T12:00:00.000Z'), doNotFake: ['nextTick', 'setImmediate', 'setInterval', 'setTimeout', 'queueMicrotask'] })
+})
+
+afterAll(() => {
+  jest.useRealTimers()
+})
+
 beforeEach(() => {
   jest.clearAllMocks()
   for (const key of Object.keys(collections)) delete collections[key]

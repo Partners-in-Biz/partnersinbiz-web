@@ -56,7 +56,7 @@ describe('portal document detail scoped routing', () => {
     })
     global.fetch = jest.fn((input: RequestInfo | URL) => {
       const url = String(input)
-      if (url === '/api/v1/client-documents/doc-lumen') {
+      if (url === '/api/v1/client-documents/doc-lumen?orgId=lumen-org') {
         return Promise.resolve({
           ok: true,
           json: async () => ({
@@ -77,7 +77,7 @@ describe('portal document detail scoped routing', () => {
           }),
         } as Response)
       }
-      if (url === '/api/v1/client-documents/doc-lumen/versions') {
+      if (url === '/api/v1/client-documents/doc-lumen/versions?orgId=lumen-org') {
         return Promise.resolve({
           ok: true,
           json: async () => ({
@@ -85,13 +85,13 @@ describe('portal document detail scoped routing', () => {
           }),
         } as Response)
       }
-      if (url === '/api/v1/client-documents/doc-lumen/comments') {
+      if (url === '/api/v1/client-documents/doc-lumen/comments?orgId=lumen-org') {
         return Promise.resolve({
           ok: true,
           json: async () => ({ data: [] }),
         } as Response)
       }
-      if (url === '/api/v1/client-documents/doc-lumen/access-log') {
+      if (url === '/api/v1/client-documents/doc-lumen/access-log?orgId=lumen-org') {
         return Promise.resolve({
           ok: true,
           json: async () => ({ data: { events: [] } }),
@@ -128,7 +128,7 @@ describe('portal document detail scoped routing', () => {
     })
     global.fetch = jest.fn((input: RequestInfo | URL) => {
       const url = String(input)
-      if (url === '/api/v1/client-documents/doc-lumen') {
+      if (url === '/api/v1/client-documents/doc-lumen?orgId=lumen-org') {
         return Promise.resolve({
           ok: true,
           json: async () => ({
@@ -149,7 +149,7 @@ describe('portal document detail scoped routing', () => {
           }),
         } as Response)
       }
-      if (url === '/api/v1/client-documents/doc-lumen/versions') {
+      if (url === '/api/v1/client-documents/doc-lumen/versions?orgId=lumen-org') {
         return Promise.resolve({
           ok: true,
           json: async () => ({
@@ -157,13 +157,13 @@ describe('portal document detail scoped routing', () => {
           }),
         } as Response)
       }
-      if (url === '/api/v1/client-documents/doc-lumen/comments') {
+      if (url === '/api/v1/client-documents/doc-lumen/comments?orgId=lumen-org') {
         return Promise.resolve({
           ok: true,
           json: async () => ({ data: [] }),
         } as Response)
       }
-      if (url === '/api/v1/client-documents/doc-lumen/access-log') {
+      if (url === '/api/v1/client-documents/doc-lumen/access-log?orgId=lumen-org') {
         return Promise.resolve({
           ok: true,
           json: async () => ({ data: { events: [] } }),
