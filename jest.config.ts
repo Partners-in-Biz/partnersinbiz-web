@@ -17,6 +17,22 @@ const config: Config = {
       moduleNameMapper: {
         '^@/(.*)$': '<rootDir>/$1',
       },
+      // @react-pdf/renderer and its @react-pdf/* dependencies ship as native
+      // ESM ("type": "module") with no CJS build, so they must be
+      // transpiled rather than skipped like the rest of node_modules. There's
+      // no @babel/preset-env in this repo, so route their .js files through
+      // ts-jest (allowJs is already on) instead of adding a new dependency.
+      transformIgnorePatterns: [
+        '/node_modules/(?!.*(@react-pdf|@swc/helpers|color-string|color-name|fontkit|jay-peg|linebreak|unicode-properties|restructure|png-js|yoga-layout)/)',
+      ],
+      transform: {
+        // yoga-layout's WASM loader uses `import.meta.url`, which has no
+        // CommonJS equivalent — must be pre-processed before ts-jest sees it.
+        'yoga-layout[\\\\/]dist[\\\\/]binaries[\\\\/]yoga-wasm-base64-esm\\.js$':
+          '<rootDir>/jest.yoga-wasm-transform.js',
+        '^.+\\.tsx?$': ['ts-jest', {}],
+        '^.+\\.js$': ['ts-jest', { isolatedModules: true }],
+      },
     },
     {
       preset: 'ts-jest',

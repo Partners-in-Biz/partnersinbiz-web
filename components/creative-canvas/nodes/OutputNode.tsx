@@ -43,7 +43,6 @@ function OutputNodeComponent({ data, selected }: NodeProps) {
     >
       {d.assetUrl ? (
         d.assetKind === 'video' ? (
-          // eslint-disable-next-line jsx-a11y/media-has-caption
           <video src={d.assetUrl} style={{ display: 'block', width: '100%', maxHeight: 200, objectFit: 'cover' }} controls />
         ) : (
           // eslint-disable-next-line @next/next/no-img-element

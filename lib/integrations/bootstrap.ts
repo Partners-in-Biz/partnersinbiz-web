@@ -14,6 +14,6 @@ import '@/lib/integrations/app_store_connect'
 import '@/lib/integrations/play_console'
 import '@/lib/integrations/google_ads'
 import '@/lib/integrations/ga4'
-// firebase_analytics not yet built — uses BigQuery export, ship in a follow-up.
+import '@/lib/integrations/firebase_analytics'
 
 export {}

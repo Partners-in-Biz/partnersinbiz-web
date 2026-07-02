@@ -1881,17 +1881,6 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
   const [publishSuccess, setPublishSuccess] = useState('')
   const [settingsCollapsed, setSettingsCollapsed] = useState(false)
 
-  const reloadActiveCanvas = useCallback(async () => {
-    if (!activeCanvas?.id) return
-    const canvasOrgId = resolvedOrgId || activeCanvas.orgId || ''
-    try {
-      const response = await fetch(`/api/v1/creative-canvas/${activeCanvas.id}?orgId=${encodeURIComponent(canvasOrgId)}`)
-      const payload = await response.json().catch(() => null) as CreativeCanvasApiListResponse | null
-      const canvas = payload?.data?.canvas
-      if (response.ok && canvas?.id) applyCanvasSnapshot(canvas)
-    } catch { ignoreCanvasBestEffortFailure() }
-  }, [activeCanvas?.id, activeCanvas?.orgId, applyCanvasSnapshot, resolvedOrgId])
-
   const [canvasCredits, setCanvasCredits] = useState<{ used: number; limit: number | null; higgsfieldCredits?: number; higgsfieldPlan?: string } | null>(null)
 
   const loadCanvasCredits = useCallback(async () => {
@@ -3782,7 +3771,6 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
     edges.forEach((edge) => {
       incoming.set(edge.target, [...(incoming.get(edge.target) ?? []), edge.source])
     })
-    const pendingIds = new Set(pending.map((node) => node.id))
     const ordered = [...pending].sort((a, b) => {
       const aDependsOnB = (incoming.get(a.id) ?? []).includes(b.id)
       const bDependsOnA = (incoming.get(b.id) ?? []).includes(a.id)
@@ -3828,6 +3816,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
         const presentation = String(((canvasNode.data ?? {}) as Record<string, unknown>).presentationType ?? 'text')
         const prompt = [
           `Write the content for a ${presentation.replace(/_/g, ' ')} card titled "${canvasNode.title}" on a creative planning board. Return only the content, no preamble.`,
+          ...(brandContext ? [brandContext] : []),
           ...(upstreamContext.length ? [`Context from linked cards:\n${upstreamContext.join('\n')}`] : []),
         ].join('\n\n')
         try {
