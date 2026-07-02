@@ -130,6 +130,28 @@ describe('creative canvas Higgsfield execution manifest', () => {
     expect(manifest?.instructions.join('\n')).toContain('provider-status endpoint')
   })
 
+
+  it('audio runs exclude image references and keep duration settings', () => {
+    const manifest = buildHiggsfieldExecutionManifest({
+      ...run,
+      model: 'mirelo_text_to_audio',
+      input: {
+        ...run.input,
+        outputKind: 'audio',
+        durationSeconds: 8,
+        aspectRatio: undefined,
+        referenceImageUrls: ['https://cdn.example.com/should-not-appear.png'],
+        sourceNodeIds: [],
+      },
+    }, canvas)
+
+    expect(manifest?.cli.args).toContain('mirelo_text_to_audio')
+    expect(manifest?.sourceMedia).toEqual([])
+    expect(manifest?.cli.display).not.toContain('should-not-appear')
+    expect(manifest?.generationSettings.outputKind).toBe('audio')
+    expect(manifest?.generationSettings.durationSeconds).toBe(8)
+  })
+
   it('skips non-Higgsfield runs', () => {
     expect(buildHiggsfieldExecutionManifest({
       ...run,
