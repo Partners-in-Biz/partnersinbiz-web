@@ -4280,9 +4280,12 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
     // ---- Resolve the model against the node's requested output kind. ----
     const requestedKind = nodeData.outputKind === 'video' || canvasNode.provider?.mode === 'video' ? 'video' : 'image'
     const activeModel = getCanvasModel(runModel)
-    const effectiveModel = activeModel?.kind === requestedKind
+    // Soul V2 accepts a single reference image; multi-reference combines need
+    // Nano Banana (input_images array). Provider rejects the run otherwise.
+    const defaultImageModel = referenceImageUrls.length > 1 ? 'nano_banana_flash' : 'text2image_soul_v2'
+    const effectiveModel = activeModel?.kind === requestedKind && !(requestedKind === 'image' && referenceImageUrls.length > 1 && activeModel.id === 'text2image_soul_v2')
       ? activeModel.id
-      : (requestedKind === 'video' ? 'seedance_2_0' : 'text2image_soul_v2')
+      : (requestedKind === 'video' ? 'seedance_2_0' : defaultImageModel)
 
     setGeneratingNodeIds((prev) => new Set(prev).add(nodeId))
     try {
