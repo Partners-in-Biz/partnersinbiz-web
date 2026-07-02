@@ -190,6 +190,8 @@ export interface CreativeCanvas {
   updatedBy: string
   updatedByType: CreativeCanvasActorType
   deleted: boolean
+  shareToken?: string
+  shareEnabled?: boolean
   nodes: CreativeCanvasNode[]
   edges: CreativeCanvasEdge[]
 }

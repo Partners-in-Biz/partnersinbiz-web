@@ -14,6 +14,9 @@ import { nodeActionsFor } from '@/components/creative-canvas/nodes/NodeActionBar
  */
 function ScreenNodeComponent({ data, selected }: NodeProps) {
   const d = data as CanvasNodeData
+  const busy = d.status === 'running'
+  const hasDescription = (d.text ?? '').trim().length > 0
+  const onGenerateMockup = d.onGenerateMockup as (() => void) | undefined
   return (
     <BaseNodeCard type="screen" title={d.title || 'Screen'} selected={Boolean(selected)} actions={nodeActionsFor(d)}>
       {d.assetUrl ? (
@@ -40,6 +43,29 @@ function ScreenNodeComponent({ data, selected }: NodeProps) {
             padding: 8,
           }}
         />
+        {hasDescription ? (
+          <button
+            type="button"
+            onClick={() => onGenerateMockup?.()}
+            disabled={busy}
+            className="nodrag"
+            style={{
+              marginTop: 8,
+              width: '100%',
+              height: 30,
+              borderRadius: 8,
+              border: 'none',
+              background: canvasTheme.accent,
+              color: canvasTheme.accentText,
+              fontWeight: 700,
+              fontSize: 12,
+              cursor: busy ? 'default' : 'pointer',
+              opacity: busy ? 0.6 : 1,
+            }}
+          >
+            {busy ? 'Generating…' : d.assetUrl ? '↻ Regenerate mockup' : '✨ Generate mockup'}
+          </button>
+        ) : null}
       </div>
     </BaseNodeCard>
   )

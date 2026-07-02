@@ -1139,7 +1139,8 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
     replaceContent: (nodeId: string) => void
     editWithAi: (nodeId: string) => void
     publish: (nodeId: string) => void
-  }>({ generate: () => {}, updatePrompt: () => {}, updateText: () => {}, addReference: () => {}, updateOutputKind: () => {}, remove: () => {}, duplicate: () => {}, replaceContent: () => {}, editWithAi: () => {}, publish: () => {} })
+    generateMockup: (nodeId: string) => void
+  }>({ generate: () => {}, updatePrompt: () => {}, updateText: () => {}, addReference: () => {}, updateOutputKind: () => {}, remove: () => {}, duplicate: () => {}, replaceContent: () => {}, editWithAi: () => {}, publish: () => {}, generateMockup: () => {} })
   const pendingReferenceNodeIdRef = useRef<{ nodeId: string; mode: 'attach' | 'replace' } | null>(null)
   const referenceFileInputRef = useRef<HTMLInputElement | null>(null)
 
@@ -1169,6 +1170,23 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
         references: Array.isArray((canvasNode.data as Record<string, unknown> | undefined)?.references)
           ? ((canvasNode.data as Record<string, unknown>).references as string[])
           : [],
+        textPreview: canvasNode.output?.textPreview,
+        // Characters show their first reference image as the visual identity
+        // slot and surface an attached Soul ID badge.
+        ...(flowNode.type === 'character'
+          ? {
+              assetUrl: flowNode.data.assetUrl
+                ?? (Array.isArray((canvasNode.data as Record<string, unknown> | undefined)?.references)
+                  ? ((canvasNode.data as Record<string, unknown>).references as string[])[0]
+                  : undefined),
+              soulId: typeof (canvasNode.data as Record<string, unknown> | undefined)?.soulId === 'string'
+                ? String((canvasNode.data as Record<string, unknown>).soulId)
+                : undefined,
+            }
+          : {}),
+        ...(flowNode.type === 'screen'
+          ? { onGenerateMockup: () => nodeActionRefs.current.generateMockup(node.id) }
+          : {}),
         inputCount: upstreamNodes.length,
         inputPreviews: upstreamPreviews,
         onGenerate: () => nodeActionRefs.current.generate(node.id),
@@ -3286,16 +3304,23 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
     }
 
     // ---- Resolve the model against the node's requested output kind. ----
-    const requestedKind = nodeData.outputKind === 'video' || canvasNode.provider?.mode === 'video' ? 'video' : 'image'
+    const presentationHint = String(nodeData.presentationType ?? '')
+    const isAudioNode = nodeData.outputKind === 'audio'
+      || canvasNode.provider?.mode === 'audio'
+      || ['voice_generator', 'voiceover', 'change_voice'].includes(presentationHint)
+    const requestedKind = isAudioNode
+      ? 'audio'
+      : nodeData.outputKind === 'video' || canvasNode.provider?.mode === 'video' ? 'video' : 'image'
     const activeModel = getCanvasModel(runModel)
     // Some models cap reference media (Soul V2 accepts exactly one — the
     // provider rejects the run otherwise). Fall back to Nano Banana for
     // multi-reference combines and tell the user.
     const modelSupportsRefs = (model: typeof activeModel) => !model?.maxReferenceImages || model.maxReferenceImages >= referenceImageUrls.length
     const defaultImageModel = referenceImageUrls.length > 1 ? 'nano_banana_flash' : 'text2image_soul_v2'
+    const defaultKindModel = requestedKind === 'video' ? 'seedance_2_0' : requestedKind === 'audio' ? 'mirelo_text_to_audio' : defaultImageModel
     const effectiveModel = activeModel?.kind === requestedKind && (requestedKind !== 'image' || modelSupportsRefs(activeModel))
       ? activeModel.id
-      : (requestedKind === 'video' ? 'seedance_2_0' : defaultImageModel)
+      : defaultKindModel
     if (activeModel && activeModel.kind === requestedKind && effectiveModel !== activeModel.id) {
       setActivityMessage(`${activeModel.label} supports ${activeModel.maxReferenceImages} reference image${activeModel.maxReferenceImages === 1 ? '' : 's'} — using Nano Banana for this ${referenceImageUrls.length}-reference combine`)
     }
@@ -3568,11 +3593,100 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
     }
   }, [ensurePersistedCanvas, nodes, recordCanvasActivity])
 
+  /**
+   * Screen nodes: generate a UI mockup image from the screen's description and
+   * store it on the node itself (data.assetUrl) — replace semantics, the
+   * transient output node is dropped like an AI-edit replace.
+   */
+  const generateScreenMockup = useCallback(async (nodeId: string) => {
+    const target = nodes.find((node) => node.id === nodeId)
+    const canvasNode = target?.data?.canvasNode as CreativeCanvasNode | undefined
+    if (!canvasNode) return
+    const nodeData = (canvasNode.data ?? {}) as Record<string, unknown>
+    const description = typeof nodeData.text === 'string' ? nodeData.text.trim() : ''
+    if (!description) {
+      setActivityMessage('Describe the screen first, then generate a mockup')
+      return
+    }
+    const prompt = `Clean modern app/website UI mockup of the "${canvasNode.title}" screen. ${description}. High-fidelity interface design, realistic layout, no watermarks.`
+
+    setGeneratingNodeIds((prev) => new Set(prev).add(nodeId))
+    try {
+      const persisted = await ensurePersistedCanvas()
+      if (!persisted) return
+      const { canvasId, canvasOrgId } = persisted
+      const response = await fetch(`/api/v1/creative-canvas/${canvasId}/runs/generate?orgId=${encodeURIComponent(canvasOrgId)}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ nodeId, model: 'nano_banana_flash', prompt, aspectRatio: '16:9' }),
+      })
+      const payload = await response.json().catch(() => null) as { data?: { pending?: boolean }; error?: string } | null
+      if (!response.ok) {
+        setActivityMessage(payload?.error ?? 'Mockup generation failed')
+        return
+      }
+      setActivityMessage('Mockup queued — waiting for the render…')
+      // Poll for the transient output node, then fold its image back onto the screen node.
+      const outputNodeId = `${nodeId}-output`
+      let polled: CreativeCanvas | undefined
+      for (let attempt = 0; attempt < 12 && !polled; attempt += 1) {
+        await new Promise((resolve) => { window.setTimeout(resolve, 3000) })
+        try {
+          const pollResponse = await fetch(`/api/v1/creative-canvas/${canvasId}?orgId=${encodeURIComponent(canvasOrgId)}`)
+          const pollPayload = await pollResponse.json().catch(() => null) as CreativeCanvasApiListResponse | null
+          const candidate = pollPayload?.data?.canvas
+          if (candidate?.id && (candidate.nodes ?? []).some((node) => node.id === outputNodeId && node.output?.url)) polled = candidate
+        } catch { ignoreCanvasBestEffortFailure() }
+      }
+      if (!polled) {
+        setActivityMessage('Mockup still rendering — it will appear on refresh')
+        return
+      }
+      const outputNode = (polled.nodes ?? []).find((node) => node.id === outputNodeId)
+      const mergedNodes = (polled.nodes ?? [])
+        .filter((node) => node.id !== outputNodeId)
+        .map((node) => node.id === nodeId && outputNode?.output?.url
+          ? { ...node, data: { ...(node.data ?? {}), assetUrl: outputNode.output.url, mockupThumbnailUrl: outputNode.output.thumbnailUrl } }
+          : node)
+      const mergedEdges = (polled.edges ?? []).filter((edge) => edge.sourceNodeId !== outputNodeId && edge.targetNodeId !== outputNodeId)
+      const replaceResponse = await fetch(`/api/v1/creative-canvas/${canvasId}/graph?orgId=${encodeURIComponent(canvasOrgId)}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          expectedActiveVersion: polled.activeVersion,
+          mergeOnConflict: true,
+          reason: 'screen_mockup',
+          baseGraph: { nodes: polled.nodes ?? [], edges: polled.edges ?? [] },
+          nodes: mergedNodes,
+          edges: mergedEdges,
+        }),
+      })
+      const replacePayload = await replaceResponse.json().catch(() => null) as CreativeCanvasApiListResponse | null
+      const replacedCanvas = replacePayload?.data?.canvas
+      if (replaceResponse.ok && replacedCanvas?.id) {
+        applyCanvasSnapshot(replacedCanvas)
+        setActivityMessage('Mockup ready on the screen node')
+      } else {
+        setActivityMessage('Mockup generated — refresh to see it on the screen node')
+      }
+    } catch {
+      setActivityMessage('Mockup generation failed')
+    } finally {
+      setGeneratingNodeIds((prev) => {
+        const next = new Set(prev)
+        next.delete(nodeId)
+        return next
+      })
+      void loadCanvasCredits()
+    }
+  }, [applyCanvasSnapshot, ensurePersistedCanvas, loadCanvasCredits, nodes])
+
   // Re-assigned every render (no dep array) so the handlers always close over
   // fresh state — duplicate/remove read the current nodes list.
   useEffect(() => {
     nodeActionRefs.current = {
       generate: (nodeId: string) => { void generateInlineForNode(nodeId) },
+      generateMockup: (nodeId: string) => { void generateScreenMockup(nodeId) },
       updatePrompt: updateNodePrompt,
       updateText: updateNodeText,
       addReference: addReferenceToNode,

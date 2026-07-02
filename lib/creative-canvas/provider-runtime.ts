@@ -198,6 +198,12 @@ async function markRunSubmissionStarted(run: RunWithId): Promise<void> {
   })
 }
 
+/**
+ * Routes through refreshCreativeCanvasProviderRunStatus, which also refunds
+ * the run's recorded credit charge on terminal failure (idempotently). Do not
+ * add a separate refund here — that would rely on idempotency instead of a
+ * single choke point.
+ */
 async function markRunFailed(run: RunWithId, message: string, code = 'higgsfield_runtime_error', retryable = true): Promise<void> {
   await refreshCreativeCanvasProviderRunStatus(run.id, run.orgId, {
     status: 'failed',

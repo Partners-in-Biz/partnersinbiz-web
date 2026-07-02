@@ -69,3 +69,48 @@ test('hides the image slot when assetUrl is not set', () => {
   renderNode({ presentationType: 'screen', title: 'Dashboard' })
   expect(screen.queryByRole('img')).not.toBeInTheDocument()
 })
+
+test('hides the mockup button when the description is empty', () => {
+  renderNode({ presentationType: 'screen', title: 'Dashboard', text: '' })
+  expect(screen.queryByRole('button', { name: /mockup/i })).not.toBeInTheDocument()
+})
+
+test('shows "Generate mockup" when described and fires onGenerateMockup', () => {
+  const onGenerateMockup = jest.fn()
+  renderNode({
+    presentationType: 'screen',
+    title: 'Dashboard',
+    text: 'KPI cards and charts',
+    onGenerateMockup,
+  })
+  const button = screen.getByRole('button', { name: /✨ generate mockup/i })
+  expect(button).toBeEnabled()
+  fireEvent.click(button)
+  expect(onGenerateMockup).toHaveBeenCalled()
+})
+
+test('shows "Regenerate mockup" below the image when a mockup already exists', () => {
+  renderNode({
+    presentationType: 'screen',
+    title: 'Dashboard',
+    text: 'KPI cards and charts',
+    assetUrl: 'https://example.com/mockup.png',
+  })
+  expect(screen.getByRole('img', { name: 'Dashboard' })).toBeInTheDocument()
+  expect(screen.getByRole('button', { name: /↻ regenerate mockup/i })).toBeInTheDocument()
+})
+
+test('disables the mockup button with a busy label while running', () => {
+  const onGenerateMockup = jest.fn()
+  renderNode({
+    presentationType: 'screen',
+    title: 'Dashboard',
+    text: 'KPI cards and charts',
+    status: 'running',
+    onGenerateMockup,
+  })
+  const button = screen.getByRole('button', { name: /generating…/i })
+  expect(button).toBeDisabled()
+  fireEvent.click(button)
+  expect(onGenerateMockup).not.toHaveBeenCalled()
+})

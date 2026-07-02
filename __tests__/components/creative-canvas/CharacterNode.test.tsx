@@ -54,3 +54,42 @@ test('falls back to default title and shows the action bar when handlers exist',
   fireEvent.click(screen.getByRole('button', { name: /delete node/i }))
   expect(onDelete).toHaveBeenCalled()
 })
+
+test('shows the reference image and hides the add-reference button when assetUrl is set', () => {
+  renderNode({
+    presentationType: 'character',
+    title: 'Hero',
+    assetUrl: 'https://example.com/hero.png',
+  })
+  const img = screen.getByRole('img', { name: 'Hero' })
+  expect(img).toHaveAttribute('src', 'https://example.com/hero.png')
+  expect(screen.queryByRole('button', { name: /add reference/i })).not.toBeInTheDocument()
+})
+
+test('shows the add-reference button when no assetUrl and fires onAddReference', () => {
+  const onAddReference = jest.fn()
+  renderNode({
+    presentationType: 'character',
+    title: 'Hero',
+    onAddReference,
+  })
+  expect(screen.queryByRole('img')).not.toBeInTheDocument()
+  fireEvent.click(screen.getByRole('button', { name: /add reference/i }))
+  expect(onAddReference).toHaveBeenCalled()
+})
+
+test('shows the Soul badge with the id in its tooltip when soulId is set', () => {
+  renderNode({
+    presentationType: 'character',
+    title: 'Hero',
+    soulId: 'soul-abc123',
+  })
+  const badge = screen.getByText('Soul')
+  expect(badge).toBeInTheDocument()
+  expect(badge).toHaveAttribute('title', 'Soul ID: soul-abc123')
+})
+
+test('hides the Soul badge when soulId is missing or empty', () => {
+  renderNode({ presentationType: 'character', title: 'Hero', soulId: '' })
+  expect(screen.queryByText('Soul')).not.toBeInTheDocument()
+})
