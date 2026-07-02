@@ -74,6 +74,33 @@ function assertSafeUrl(value: string | undefined, label: string): void {
   }
 }
 
+/**
+ * Text-bearing nodes (characters, chapters, screens, plain text — persisted as
+ * `prompt` nodes with `data.text`) are exportable as copy drafts without going
+ * through the generation pipeline. Normalize them to an output-shaped node:
+ * a synthesized `copy` output carrying the text, with review defaulting to
+ * `warning` (an honest "unreviewed internal draft" — the payload is always
+ * clientVisible: false / publishEnabled: false regardless).
+ */
+export function resolveExportableNode(node: CreativeCanvasNode): CreativeCanvasNode {
+  if (node.type === 'output') return node
+  const text = typeof (node.data as Record<string, unknown> | undefined)?.text === 'string'
+    ? String((node.data as Record<string, unknown>).text).trim()
+    : ''
+  if (node.type !== 'prompt' || !text) return node
+  return {
+    ...node,
+    type: 'output',
+    output: { kind: 'copy', textPreview: text },
+    review: node.review ?? {
+      status: 'warning',
+      syntheticMediaDisclosure: false,
+      rightsStatus: 'needs_review',
+      brandStatus: 'needs_review',
+    },
+  }
+}
+
 export function assertCanvasOutputCanExport(
   node: CreativeCanvasNode,
   target: CreativeCanvasExport['target'],
@@ -107,26 +134,31 @@ export function buildCreativeCanvasDraftExport(input: {
   downstreamDraftId: string
   createdAt?: string
 }): CreativeCanvasDraftExportResult {
-  assertCanvasOutputCanExport(input.node, input.target, input.canvas.orgId)
-  const lineageSourceNodeIds = uniqueStrings(input.lineageSourceNodeIds)
+  const node = resolveExportableNode(input.node)
+  assertCanvasOutputCanExport(node, input.target, input.canvas.orgId)
+  // Copy drafts (text nodes, agent rewrites) often have no upstream source
+  // nodes — fall back to self-lineage rather than blocking the export.
+  const lineageSourceNodeIds = uniqueStrings(input.lineageSourceNodeIds).length
+    ? uniqueStrings(input.lineageSourceNodeIds)
+    : node.output?.kind === 'copy' ? [node.id] : []
   if (!lineageSourceNodeIds.length) throw new Error('Creative canvas draft export requires lineage source node ids')
   const downstreamDraftId = cleanString(input.downstreamDraftId)
   if (!downstreamDraftId) throw new Error('Creative canvas draft export requires downstream draft id')
-  if (!input.node.output?.kind) throw new Error('Creative canvas output is missing output kind')
-  if (!input.node.review?.status) throw new Error('Creative canvas output is missing review status')
+  if (!node.output?.kind) throw new Error('Creative canvas output is missing output kind')
+  if (!node.review?.status) throw new Error('Creative canvas output is missing review status')
 
   const exportRecord: CreativeCanvasExport = {
     orgId: input.canvas.orgId,
     canvasId: input.canvas.id,
-    nodeId: input.node.id,
+    nodeId: node.id,
     target: input.target,
     targetId: downstreamDraftId,
     categoryKey: targetCategoryMap[input.target],
     downstreamDraftId,
     lineageSourceNodeIds,
-    outputNodeId: input.node.id,
-    outputKind: input.node.output.kind,
-    reviewStatus: input.node.review.status,
+    outputNodeId: node.id,
+    outputKind: node.output.kind,
+    reviewStatus: node.review.status,
     status: 'drafted',
     createdAt: input.createdAt ?? new Date().toISOString(),
     createdBy: input.actor.uid,
@@ -141,14 +173,14 @@ export function buildCreativeCanvasDraftExport(input: {
       target: input.target,
       orgId: input.canvas.orgId,
       sourceCanvasId: input.canvas.id,
-      sourceNodeId: input.node.id,
-      title: titleForTarget(input.canvas, input.node, input.target),
-      textPreview: input.node.output?.textPreview,
-      artifactId: input.node.output?.artifactId,
-      url: input.node.output?.url,
-      thumbnailUrl: input.node.output?.thumbnailUrl,
-      outputKind: input.node.output?.kind,
-      syntheticMedia: input.node.review?.syntheticMediaDisclosure === true,
+      sourceNodeId: node.id,
+      title: titleForTarget(input.canvas, node, input.target),
+      textPreview: node.output?.textPreview,
+      artifactId: node.output?.artifactId,
+      url: node.output?.url,
+      thumbnailUrl: node.output?.thumbnailUrl,
+      outputKind: node.output?.kind,
+      syntheticMedia: node.review?.syntheticMediaDisclosure === true,
       clientVisible: false,
       publishEnabled: false,
       linked: input.canvas.linked ?? {},

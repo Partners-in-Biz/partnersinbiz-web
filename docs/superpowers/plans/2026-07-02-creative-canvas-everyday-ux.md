@@ -149,6 +149,36 @@ draw — this is NOT a code bug (verified by bisecting back to known-good
 ae3e371d, which also showed no edges cold-loaded in a hidden tab). Edge
 rendering was screenshot-verified in a visible tab on 2026-07-02 morning.
 
+## Status (2026-07-02, Phase 3 session)
+
+Phase 3 (book/doc/planning boards, spec's "Phases after this") implemented
+on `development`, commit `92bd22a1`:
+
+- [x] Character / Chapter / Screen node types (persist as `prompt` +
+  `data.presentationType`; character: no inputs/out text, chapter and
+  screen: in_text/out text) — `nodes/{CharacterNode,ChapterNode,ScreenNode}.tsx`,
+  registered in `ports.ts` + `nodeTypes.ts`.
+- [x] Create menu: Book group (Character, Chapter) + Planning group (Screen)
+  in `canvas/createMenuItems.ts`.
+- [x] One-click templates in `workflowPresets`: Book board (3 characters →
+  chapter 1, chapters chained 1→2→3) and App plan board (Landing→Sign up→
+  Onboarding→Dashboard→Settings).
+- [x] Upstream-context AI edit: `gatherUpstreamTextFragments` +
+  `buildTextEditPrompt`; `runNodeEdit` on text nodes prepends
+  "Context from linked notes:" with upstream linked texts.
+- [x] Text-node publishing: `displayNodes` onPublish + `publishNode` accept
+  `data.text` nodes; `resolveExportableNode()` in
+  `lib/creative-canvas/exporters/drafts.ts` (copy drafts, textPreview,
+  review `warning`, self-lineage fallback); NodePublishMenu targets
+  `book_studio` + `research`.
+- [x] Cleanup: 15 orphaned proof-only types removed from
+  `lib/creative-canvas/types.ts`.
+- [x] Wave 0 smoke closed: prod 200, executor health ok, run
+  YrobFRGxz8p0VBU2GpWD completed with output URL, QA canvas output node
+  present — no fix needed.
+- [x] Typecheck clean; 12 affected suites green (117 tests: 81 + 36).
+- [ ] Full suite + production build + PR (Wave 4 — pending).
+
 ### Task 8: Full verification + push
 
 - [ ] `NODE_OPTIONS=--max-old-space-size=8192 npx tsc --noEmit --pretty false --project tsconfig.typecheck.json`

@@ -1,10 +1,13 @@
 import { NextRequest } from 'next/server'
+import { FieldValue } from 'firebase-admin/firestore'
 import { adminDb } from '@/lib/firebase/admin'
 import { withAuth } from '@/lib/api/auth'
 import { apiError, apiSuccess } from '@/lib/api/response'
 import type { ApiUser } from '@/lib/api/types'
+import { actorFields } from '@/lib/book-studio/api'
+import { sanitizeBookStudioRecordInput } from '@/lib/book-studio/sanitize'
 import { buildCreativeCanvasDraftExport } from '@/lib/creative-canvas/exporters/drafts'
-import { getCreativeCanvas } from '@/lib/creative-canvas/store'
+import { getCreativeCanvas, CREATIVE_CANVAS_COLLECTION } from '@/lib/creative-canvas/store'
 import type { CreativeCanvas, CreativeCanvasActor, CreativeCanvasExport, CreativeCanvasNode } from '@/lib/creative-canvas/types'
 
 export const dynamic = 'force-dynamic'
@@ -104,6 +107,32 @@ function linkedDownstreamDraftId(canvas: CreativeCanvas, target: CreativeCanvasE
   }
 }
 
+/**
+ * Publishing to Book Studio from an unlinked canvas auto-creates the book
+ * project (the natural container for chapters/manuscripts) and links the
+ * canvas to it, so 📤 works on a fresh board without manual setup. Other
+ * targets still require an explicitly linked downstream record.
+ */
+async function ensureBookStudioProject(
+  canvas: CreativeCanvas & { id: string },
+  user: ApiUser,
+): Promise<string> {
+  const record = sanitizeBookStudioRecordInput('projects', {
+    title: canvas.title || 'Creative canvas book project',
+    description: `Auto-created by Creative Canvas publish from canvas ${canvas.id}.`,
+    safeSummary: 'Book project created automatically when publishing a canvas text node to Book Studio.',
+  }, canvas.orgId)
+  const ref = await adminDb.collection('book_studio_projects').add({
+    ...record,
+    ...actorFields(user),
+  })
+  await adminDb.collection(CREATIVE_CANVAS_COLLECTION).doc(canvas.id).update({
+    'linked.bookStudioProjectId': ref.id,
+    updatedAt: FieldValue.serverTimestamp(),
+  })
+  return ref.id
+}
+
 function downstreamDraftIdFrom(
   canvas: CreativeCanvas & { id: string },
   node: CreativeCanvasNode,
@@ -135,13 +164,17 @@ export const POST = withAuth('client', async (req: NextRequest, user: ApiUser, c
   if (!node) return apiError('Creative canvas output node not found', 404)
 
   try {
+    let downstreamDraftId = downstreamDraftIdFrom(canvas, node, target, body)
+    if (!downstreamDraftId && target === 'book_studio') {
+      downstreamDraftId = await ensureBookStudioProject(canvas, user)
+    }
     const draft = buildCreativeCanvasDraftExport({
       canvas,
       node,
       target,
       actor: actorFromUser(user),
       lineageSourceNodeIds: sourceLineageFrom(canvas, node, body),
-      downstreamDraftId: downstreamDraftIdFrom(canvas, node, target, body) ?? '',
+      downstreamDraftId: downstreamDraftId ?? '',
     })
 
     const storedRecord = {

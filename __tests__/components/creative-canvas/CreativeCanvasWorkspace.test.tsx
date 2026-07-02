@@ -1,6 +1,6 @@
 import React from 'react'
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
-import { CreativeCanvasWorkspace } from '@/components/creative-canvas/CreativeCanvasWorkspace'
+import { CreativeCanvasWorkspace, buildTextEditPrompt, gatherUpstreamTextFragments } from '@/components/creative-canvas/CreativeCanvasWorkspace'
 
 // This file renders the full workspace ~78 times; under parallel load with the
 // other jsdom canvas suites a few async waitFor tests can exceed the default.
@@ -2544,5 +2544,109 @@ describe('CreativeCanvasWorkspace', () => {
       backgroundImage: 'url(https://cdn.example.com/product-thumb.png)',
     })
     expect(screen.getByText('product / 0.8')).toBeInTheDocument()
+  })
+
+  it('applies the book board workflow preset with characters and chained chapters', async () => {
+    render(<CreativeCanvasWorkspace mode="admin" orgId="org-1" />)
+
+    await screen.findByText('Launch Canvas')
+    fireEvent.click(screen.getByRole('button', { name: /apply book board workflow/i }))
+
+    expect(await screen.findByText(/book board workflow added/i)).toBeInTheDocument()
+    expect(screen.getAllByText('Character 1').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Character 3').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Chapter 1').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Chapter 3').length).toBeGreaterThan(0)
+
+    fireEvent.click(screen.getByRole('button', { name: /save graph/i }))
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith('/api/v1/creative-canvas/canvas-1/graph?orgId=org-1', expect.objectContaining({
+        method: 'PUT',
+      }))
+    })
+    const graphCall = fetchMock.mock.calls.find(([url, init]) =>
+      String(url).includes('/graph?orgId=org-1') && init?.method === 'PUT'
+    )
+    const body = JSON.parse(graphCall?.[1]?.body as string)
+    expect(body.nodes).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        type: 'prompt',
+        title: 'Character 1',
+        data: expect.objectContaining({ presentationType: 'character', workflowPreset: 'book-board' }),
+      }),
+      expect.objectContaining({
+        type: 'prompt',
+        title: 'Chapter 2',
+        data: expect.objectContaining({ presentationType: 'chapter' }),
+      }),
+    ]))
+    expect(body.edges).toEqual(expect.arrayContaining([
+      expect.objectContaining({ label: 'character context' }),
+      expect.objectContaining({ label: 'story so far' }),
+    ]))
+  })
+
+  it('applies the app plan board workflow preset with chained screens', async () => {
+    render(<CreativeCanvasWorkspace mode="admin" orgId="org-1" />)
+
+    await screen.findByText('Launch Canvas')
+    fireEvent.click(screen.getByRole('button', { name: /apply app plan board workflow/i }))
+
+    expect(await screen.findByText(/app plan board workflow added/i)).toBeInTheDocument()
+    expect(screen.getAllByText('Landing').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Dashboard').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Settings').length).toBeGreaterThan(0)
+  })
+})
+
+describe('gatherUpstreamTextFragments + buildTextEditPrompt', () => {
+  const flowNode = (id: string, canvasNode: Record<string, unknown>) => ({
+    id,
+    position: { x: 0, y: 0 },
+    data: { canvasNode: { id, orgId: 'org-1', position: { x: 0, y: 0 }, ...canvasNode } },
+  })
+
+  it('collects upstream character and chapter texts feeding a chapter', () => {
+    const nodes = [
+      flowNode('char-1', { type: 'prompt', title: 'Character 1', data: { presentationType: 'character', text: 'Mira, a wary cartographer.' } }),
+      flowNode('char-2', { type: 'prompt', title: 'Character 2', data: { presentationType: 'character', text: '' } }),
+      flowNode('ch-1', { type: 'prompt', title: 'Chapter 1', data: { presentationType: 'chapter', text: 'Mira finds the map.' } }),
+      flowNode('ch-2', { type: 'prompt', title: 'Chapter 2', data: { presentationType: 'chapter', text: '' } }),
+      flowNode('src-1', { type: 'source', title: 'Cover image', data: {} }),
+    ] as never[]
+    const edges = [
+      { id: 'e1', source: 'char-1', target: 'ch-2' },
+      { id: 'e2', source: 'char-2', target: 'ch-2' },
+      { id: 'e3', source: 'ch-1', target: 'ch-2' },
+      { id: 'e4', source: 'src-1', target: 'ch-2' },
+    ] as never[]
+
+    const fragments = gatherUpstreamTextFragments('ch-2', nodes, edges)
+    expect(fragments).toEqual([
+      'Character 1: Mira, a wary cartographer.',
+      'Chapter 1: Mira finds the map.',
+    ])
+  })
+
+  it('falls back to prompt text for upstream prompt nodes and skips non-linked nodes', () => {
+    const nodes = [
+      flowNode('p-1', { type: 'prompt', title: 'Outline', data: { prompt: 'Three-act structure' } }),
+      flowNode('p-2', { type: 'prompt', title: 'Unlinked', data: { text: 'Should not appear' } }),
+      flowNode('ch-1', { type: 'prompt', title: 'Chapter 1', data: { text: '' } }),
+    ] as never[]
+    const edges = [{ id: 'e1', source: 'p-1', target: 'ch-1' }] as never[]
+
+    expect(gatherUpstreamTextFragments('ch-1', nodes, edges)).toEqual(['Outline: Three-act structure'])
+  })
+
+  it('assembles the rewrite prompt with linked context appended', () => {
+    const prompt = buildTextEditPrompt('Make it darker', 'It was a stormy night.', ['Character 1: Mira'])
+    expect(prompt).toContain('Instruction: Make it darker')
+    expect(prompt).toContain('Content:\nIt was a stormy night.')
+    expect(prompt).toContain('Context from linked notes:\nCharacter 1: Mira')
+
+    const noContext = buildTextEditPrompt('Trim it', '', [])
+    expect(noContext).toContain('Content:\n(empty)')
+    expect(noContext).not.toContain('Context from linked notes')
   })
 })

@@ -417,6 +417,56 @@ describe('MessageBubble', () => {
     )
   })
 
+  it('lets approval-card decisions and reply templates be added to the chat composer', () => {
+    const handleQuote = jest.fn()
+    const Bubble = MessageBubble as any
+
+    render(
+      <Bubble
+        currentUserUid="user-1"
+        onQuoteSelection={handleQuote}
+        message={{
+          id: 'msg-approval',
+          conversationId: 'conv-1',
+          role: 'assistant',
+          content: '',
+          authorKind: 'agent',
+          authorId: 'pip',
+          authorDisplayName: 'Pip',
+          status: 'completed',
+          richParts: [
+            {
+              type: 'approval_card',
+              title: 'Publish Hunt and Gun document',
+              decisions: [
+                { label: 'Approve publish/share with client', required: true },
+                'Keep as internal draft for edits',
+              ],
+              replyTemplate: 'Approved: publish the Hunt and Gun document and give me the client share link.',
+            },
+          ],
+        }}
+      />,
+    )
+
+    const approveRadio = screen.getByRole('radio', { name: /Approve publish\/share with client \(required\)/i })
+    const draftRadio = screen.getByRole('radio', { name: /Keep as internal draft for edits/i })
+
+    expect(approveRadio).not.toBeChecked()
+    expect(draftRadio).not.toBeChecked()
+
+    fireEvent.click(draftRadio)
+
+    expect(draftRadio).toBeChecked()
+    expect(approveRadio).not.toBeChecked()
+
+    fireEvent.click(screen.getByRole('button', { name: /Add selected decision to chat/i }))
+    expect(handleQuote).toHaveBeenCalledWith('Keep as internal draft for edits')
+
+    fireEvent.click(screen.getByRole('button', { name: /Add reply to chat/i }))
+    expect(handleQuote).toHaveBeenCalledWith('Approved: publish the Hunt and Gun document and give me the client share link.')
+  })
+
   it('renders a rich JSON content envelope instead of showing raw JSON text', async () => {
     const handleAction = jest.fn()
     const Bubble = MessageBubble as any

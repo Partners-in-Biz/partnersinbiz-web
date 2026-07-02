@@ -1,11 +1,14 @@
 /**
- * Provider-pure inline (synchronous) image generation for the Creative Canvas.
+ * Provider-pure inline (synchronous) generation for the Creative Canvas.
  *
- * Mirrors the Grok/xAI image path used by app/api/v1/social/ai/image/route.ts.
- * No Firestore, no Next request objects — just provider calls. Only the xAI
- * provider returns synchronously; async providers (e.g. Higgsfield) throw
+ * Images mirror the Grok/xAI path used by app/api/v1/social/ai/image/route.ts;
+ * text (the `agent_task` provider's `agent-llm` model) goes through the Vercel
+ * AI Gateway like the email/SEO generators. No Firestore, no Next request
+ * objects — just provider calls. Async providers (e.g. Higgsfield) throw
  * InlineNotSupportedError so callers fall back to the job-based path.
  */
+import { generateText } from 'ai'
+import { DRAFT_MODEL } from '@/lib/ai/client'
 
 export class InlineNotSupportedError extends Error {
   constructor(message: string) {
@@ -22,8 +25,10 @@ export interface InlineGenerationInput {
 }
 
 export interface InlineGenerationResult {
-  url: string
+  url?: string
   mimeType: string
+  /** Set for text generations (agent_task provider) instead of `url`. */
+  text?: string
 }
 
 const XAI_IMAGE_MODEL = 'grok-imagine-image-quality'
@@ -95,12 +100,31 @@ async function callXaiImage(
 }
 
 /**
- * Generate an image inline (synchronously). Only the 'xai' provider is
- * synchronous; all other providers throw InlineNotSupportedError.
+ * Agent-LLM text generation through the Vercel AI Gateway — the path behind
+ * the canvas ✨ AI-edit on text nodes (characters, chapters, screens, prompts).
+ */
+async function callAgentLlmText(prompt: string): Promise<InlineGenerationResult> {
+  const result = await generateText({
+    model: DRAFT_MODEL,
+    prompt,
+  })
+  const text = result.text?.trim()
+  if (!text) throw new Error('No text returned from the agent LLM')
+  return { text, mimeType: 'text/plain' }
+}
+
+/**
+ * Generate inline (synchronously). The 'xai' provider returns images, the
+ * 'agent_task' provider returns text; all other providers throw
+ * InlineNotSupportedError.
  */
 export async function generateInline(
   input: InlineGenerationInput,
 ): Promise<InlineGenerationResult> {
+  if (input.providerKey === 'agent_task') {
+    return callAgentLlmText(input.prompt)
+  }
+
   if (input.providerKey !== 'xai') {
     throw new InlineNotSupportedError(
       `Provider "${input.providerKey}" does not support inline generation`,

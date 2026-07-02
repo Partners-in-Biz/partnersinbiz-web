@@ -198,6 +198,12 @@ async function markRunSubmissionStarted(run: RunWithId): Promise<void> {
   })
 }
 
+/**
+ * Routes through refreshCreativeCanvasProviderRunStatus, which also refunds
+ * the run's recorded credit charge on terminal failure (idempotently). Do not
+ * add a separate refund here — that would rely on idempotency instead of a
+ * single choke point.
+ */
 async function markRunFailed(run: RunWithId, message: string, code = 'higgsfield_runtime_error', retryable = true): Promise<void> {
   await refreshCreativeCanvasProviderRunStatus(run.id, run.orgId, {
     status: 'failed',
@@ -333,6 +339,9 @@ export async function dispatchCreativeCanvasRunNow(
   run: RunWithId,
   env: NodeJS.ProcessEnv = process.env,
 ): Promise<'submitted' | 'completed' | 'failed' | 'not_configured'> {
+  // Only Higgsfield runs go to the executor — other providers (agent_task,
+  // manual_upload, …) have their own paths and the executor rejects them.
+  if (run.providerKey !== 'higgsfield') return 'not_configured'
   const config = runtimeConfigFromEnv(env)
   if (!config.submitUrl) return 'not_configured'
   if (run.status !== 'queued') return 'not_configured'

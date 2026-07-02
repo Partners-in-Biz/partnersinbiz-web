@@ -447,7 +447,9 @@ export const CANVAS_MODELS: CanvasModel[] = [
     aspectRatios: [],
     maxBatch: 1,
     creditCost: 1,
-    execution: 'async',
+    // Runs inline through the Vercel AI Gateway — never dispatched to the
+    // Higgsfield executor (which has no such model).
+    execution: 'sync',
     description: 'Agent-driven LLM text assistant for prompts, copy and briefs.',
   },
 ]

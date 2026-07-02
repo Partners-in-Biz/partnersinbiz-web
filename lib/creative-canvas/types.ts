@@ -190,6 +190,8 @@ export interface CreativeCanvas {
   updatedBy: string
   updatedByType: CreativeCanvasActorType
   deleted: boolean
+  shareToken?: string
+  shareEnabled?: boolean
   nodes: CreativeCanvasNode[]
   edges: CreativeCanvasEdge[]
 }
@@ -553,44 +555,6 @@ export interface CreativeCanvasProviderRuntimeReadiness {
   warnings: string[]
 }
 
-export type CreativeCanvasProofStatus = 'passed' | 'warning' | 'blocked'
-
-export interface CreativeCanvasRuntimeProofCheck {
-  id: string
-  label: string
-  status: CreativeCanvasProofStatus
-  evidence: string
-  nextAction?: string
-}
-
-export interface CreativeCanvasReliabilityCoverageCategory {
-  key: 'image' | 'video_social' | 'audio' | 'blog_document' | 'book'
-  label: string
-  requiredOutputKinds: CreativeCanvasOutputKind[]
-  requiredCompleted: number
-  status: CreativeCanvasProofStatus
-  total: number
-  completed: number
-  active: number
-  failed: number
-  cancelled: number
-  latestRunId?: string
-  latestCompletedRunId?: string
-  nextAction?: string
-}
-
-export interface CreativeCanvasRuntimeProof {
-  canvasId: string
-  orgId: string
-  status: CreativeCanvasProofStatus
-  checks: CreativeCanvasRuntimeProofCheck[]
-  reliabilityCoverage: CreativeCanvasReliabilityCoverageCategory[]
-  runtimeCategoryEvidence: CreativeCanvasCategoryEvidence[]
-  exportCategoryEvidence: CreativeCanvasCategoryEvidence[]
-  readyForLiveProof: boolean
-  summary: string
-}
-
 export type CreativeCanvasProofCategoryKey =
   | 'image'
   | 'video_social'
@@ -625,14 +589,6 @@ export const creativeCanvasRemoteMutationSources = [
   'poll',
 ] as const
 
-export interface CreativeCanvasProofBinding {
-  orgId: string
-  canvasVersion: number
-  graphSignature: string
-  nodeCount: number
-  edgeCount: number
-}
-
 export interface CreativeCanvasRemoteMutationEvidence {
   actorUid: string
   actorType: CreativeCanvasActorType
@@ -641,21 +597,6 @@ export interface CreativeCanvasRemoteMutationEvidence {
   touchedEdgeIds: string[]
   source: CreativeCanvasRemoteMutationSource
   occurredAt: string
-}
-
-export interface CreativeCanvasCollaborationProofEvidence extends CreativeCanvasProofBinding {
-  collaborationRemoteActorCount?: number
-  collaborationRemoteEventCount?: number
-  collaborationRemoteMutationCount?: number
-  collaborationRemoteMutationKindCount?: number
-  collaborationRemoteTouchedNodeCount?: number
-  collaborationRemoteTouchedEdgeCount?: number
-  collaborationRemoteGraphSignature?: string
-  collaborationRemoteSource?: CreativeCanvasRemoteMutationSource
-  collaborationRemoteOutcome?: 'remote_changes_observed' | 'remote_changes_adopted' | 'conflict_detected' | 'version_forked'
-  collaborationCapturedAt?: string
-  collaborationEvidence?: string
-  collaborationRemoteMutations?: CreativeCanvasRemoteMutationEvidence[]
 }
 
 export interface CreativeCanvasMobileViewportEvidence {
@@ -672,108 +613,6 @@ export interface CreativeCanvasMobileViewportEvidence {
   pointerSmokePassed: boolean
   panelKeys: string[]
   capturedAt: string
-}
-
-export interface CreativeCanvasMobileProof extends CreativeCanvasProofBinding {
-  mobileViewportProofCount?: number
-  mobileViewportRequiredCount?: number
-  mobileViewportProofCapturedAt?: string
-  mobileViewportEvidence?: string
-  mobileViewportBehaviorEvidence?: CreativeCanvasMobileViewportEvidence[]
-}
-
-export interface CreativeCanvasCategoryEvidence extends CreativeCanvasProofBinding {
-  categoryKey: CreativeCanvasProofCategoryKey
-  runIds: string[]
-  providerJobIds: string[]
-  outputUrls: string[]
-  artifactIds: string[]
-  outputNodeIds: string[]
-  exportIds: string[]
-  downstreamDraftIds: string[]
-  lineageSourceNodeIds: string[]
-  providerKeys: CreativeCanvasProviderKey[]
-  outputKinds: CreativeCanvasOutputKind[]
-  reviewStatuses: CreativeCanvasReviewStatus[]
-  completedAt: string
-  evidence: string
-}
-
-export interface CreativeCanvasCertificationArtifactEvidence extends CreativeCanvasProofBinding {
-  passed: boolean
-  evidence?: string
-  artifactRef?: string
-  capturedAt?: string
-}
-
-export interface CreativeCanvasKnowledgeBaseCertificationEvidence extends CreativeCanvasProofBinding {
-  recorded: boolean
-  evidence?: string
-  artifactRef?: string
-  capturedAt?: string
-}
-
-export interface CreativeCanvasBenchmarkProof extends CreativeCanvasProofBinding {
-  key: string
-  passed: boolean
-  evidence?: string
-  proofUrl?: string
-  notes?: string
-  sourceUrl?: string
-  sourceEvidenceReachable?: boolean
-  sourceEvidenceStatus?: number
-  sourceSignalsMatched?: boolean
-  sourceSignals?: string[]
-  sourceSignalsVerifiedAt?: string
-  directComparisonVerdict?: 'pass' | 'fail'
-  directComparisonAt?: string
-  directComparisonNotes?: string
-}
-
-export interface CreativeCanvasLiveProofArtifact {
-  orgId: string
-  canvasVersion: number
-  graphSignature: string
-  nodeCount: number
-  edgeCount: number
-  key: string
-  url: string
-  status: number
-  contentType: string
-  capturedAt: string
-  evidence: string
-}
-
-export interface CreativeCanvasCertificationRuntimeProof extends CreativeCanvasProofBinding {
-  status: CreativeCanvasProofStatus
-  readyForLiveProof: boolean
-}
-
-export interface CreativeCanvasWorldClassCertificationInput {
-  benchmarkProofs: CreativeCanvasBenchmarkProof[]
-  runtimeProof?: CreativeCanvasCertificationRuntimeProof
-  liveProofArtifacts: CreativeCanvasLiveProofArtifact[]
-  requiredBenchmarkCount: number
-  capturedAt: string
-  currentBinding: CreativeCanvasProofBinding
-  signedInPreviewProof?: CreativeCanvasCertificationArtifactEvidence
-  kbCertification?: CreativeCanvasKnowledgeBaseCertificationEvidence
-}
-
-export interface CreativeCanvasWorldClassCertification extends CreativeCanvasProofBinding {
-  status: CreativeCanvasProofStatus
-  capturedAt: string
-  passedGateCount: number
-  requiredGateCount: number
-  blockers: string[]
-  warnings: string[]
-  evidence: string[]
-  signedInPreviewProofPassed: boolean
-  signedInPreviewProofEvidence?: string
-  signedInPreviewProofArtifactRef?: string
-  kbCertificationRecorded: boolean
-  kbCertificationEvidence?: string
-  kbCertificationArtifactRef?: string
 }
 
 export type CreativeCanvasAssetOrigin = 'source_node' | 'output_node' | 'run_output'

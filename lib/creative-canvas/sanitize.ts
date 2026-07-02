@@ -832,7 +832,7 @@ function cleanHttpUrl(value: unknown, field: string): string | undefined {
   }
 }
 
-function cleanLinked(value: unknown) {
+export function cleanLinked(value: unknown) {
   const linked = asRecord(value)
   // Omit undefined entries: Firestore rejects documents containing undefined values.
   const entries: Record<string, string | string[] | undefined> = {

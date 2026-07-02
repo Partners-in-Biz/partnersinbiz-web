@@ -1,5 +1,6 @@
 import { FieldValue } from 'firebase-admin/firestore'
 import { adminDb } from '@/lib/firebase/admin'
+import { rechargeCanvasCreditUsage, refundCanvasCreditUsage } from './credits'
 import { getCreativeCanvasProvider } from './providers'
 import {
   CREATIVE_CANVAS_COLLECTION,
@@ -834,6 +835,17 @@ export async function refreshCreativeCanvasProviderRunStatus(
 
   await adminDb.collection(CREATIVE_CANVAS_RUN_COLLECTION).doc(run.id).update(updatePayload)
 
+  // Credit reconciliation: refund the run's recorded charge when it reaches a
+  // terminal failure state, and restore it if the run later leaves that state
+  // (e.g. the provider re-queues it). Both operations are idempotent, so
+  // repeated failure polls for the same run are safe. 'waiting_for_review'
+  // and other active statuses never trigger a refund.
+  if (status === 'failed' || status === 'cancelled') {
+    await refundCanvasCreditUsage(orgId, run.id).catch(() => undefined)
+  } else if (run.status === 'failed' || run.status === 'cancelled') {
+    await rechargeCanvasCreditUsage(orgId, run.id).catch(() => undefined)
+  }
+
   return nextRun
 }
 
@@ -852,6 +864,11 @@ export async function retryCreativeCanvasProviderRun(
   const nextRun = buildRetriedCreativeCanvasProviderRun(run)
 
   await adminDb.collection(CREATIVE_CANVAS_RUN_COLLECTION).doc(run.id).update(retryRunUpdatePayload(nextRun, actor))
+
+  // Retry reuses the SAME run id, so re-apply any fail-time credit refund
+  // before the run is dispatched again (idempotent no-op when nothing was
+  // refunded). A retried run that ultimately completes stays charged.
+  await rechargeCanvasCreditUsage(orgId, run.id).catch(() => undefined)
 
   return nextRun
 }
@@ -877,6 +894,8 @@ export async function retryCreativeCanvasProviderRunsForCanvas(
       retriedRuns.push(nextRun)
       nextRuns.push(nextRun)
       await adminDb.collection(CREATIVE_CANVAS_RUN_COLLECTION).doc(run.id).update(retryRunUpdatePayload(nextRun, actor))
+      // Same-run-id retry: restore the fail-time credit refund (idempotent).
+      await rechargeCanvasCreditUsage(orgId, run.id).catch(() => undefined)
       continue
     }
 

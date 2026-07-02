@@ -22,6 +22,26 @@ describe('NodePublishMenu', () => {
     expect(onPublish).toHaveBeenCalledWith('workspace_artifact', '', ['instagram'])
   })
 
+  it('publishes to Book Studio when selected (caption field hidden)', () => {
+    const onPublish = jest.fn()
+    render(<NodePublishMenu nodeTitle="Combine output" onPublish={onPublish} onClose={jest.fn()} />)
+
+    fireEvent.click(screen.getByRole('radio', { name: /book studio/i }))
+    expect(screen.queryByLabelText(/social caption/i)).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: /^publish$/i }))
+    expect(onPublish).toHaveBeenCalledWith('book_studio', '', ['instagram'])
+  })
+
+  it('publishes to research when selected', () => {
+    const onPublish = jest.fn()
+    render(<NodePublishMenu nodeTitle="Combine output" onPublish={onPublish} onClose={jest.fn()} />)
+
+    fireEvent.click(screen.getByRole('radio', { name: /research/i }))
+    expect(screen.queryByLabelText(/social caption/i)).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: /^publish$/i }))
+    expect(onPublish).toHaveBeenCalledWith('research', '', ['instagram'])
+  })
+
   it('shows busy, success, and error states', () => {
     const { rerender } = render(
       <NodePublishMenu nodeTitle="Out" busy onPublish={jest.fn()} onClose={jest.fn()} />,

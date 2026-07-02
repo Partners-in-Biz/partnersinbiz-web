@@ -214,6 +214,42 @@ describe('creative canvas store', () => {
     })
   })
 
+  it('merges linked module ids on update instead of dropping them', async () => {
+    mockDocGet.mockResolvedValue({
+      exists: true,
+      id: 'canvas-1',
+      data: () => ({
+        orgId: 'org-1',
+        title: 'Book Canvas',
+        purpose: 'Book board',
+        activeVersion: 1,
+        status: 'draft',
+        visibility: 'admin_agents',
+        deleted: false,
+        data: {},
+        linked: { projectId: 'project-1' },
+        nodes: [],
+        edges: [],
+      }),
+    })
+
+    const updated = await updateCreativeCanvas('canvas-1', 'org-1', {
+      linked: { bookStudioProjectId: 'book-project-1' },
+    }, ACTOR)
+
+    expect(mockDocUpdate).toHaveBeenCalledWith(expect.objectContaining({
+      linked: { projectId: 'project-1', bookStudioProjectId: 'book-project-1' },
+    }))
+    expect(updated.linked).toEqual({ projectId: 'project-1', bookStudioProjectId: 'book-project-1' })
+
+    // Updates without a linked key leave the existing links untouched.
+    mockDocUpdate.mockClear()
+    await updateCreativeCanvas('canvas-1', 'org-1', { title: 'Renamed' }, ACTOR)
+    expect(mockDocUpdate).toHaveBeenCalledWith(expect.objectContaining({
+      linked: { projectId: 'project-1' },
+    }))
+  })
+
   it('saves graph updates and increments activeVersion', async () => {
     mockDocGet.mockResolvedValue({
       exists: true,

@@ -30,7 +30,7 @@ jest.mock('@/lib/creative-canvas/runs', () => ({
   ensureCreativeCanvasRunOutputNode: (...args: unknown[]) => mockEnsureCreativeCanvasRunOutputNode(...args),
 }))
 
-import { drainHiggsfieldCreativeCanvasRuns, getHiggsfieldRuntimeReadiness } from '@/lib/creative-canvas/provider-runtime'
+import { dispatchCreativeCanvasRunNow, drainHiggsfieldCreativeCanvasRuns, getHiggsfieldRuntimeReadiness } from '@/lib/creative-canvas/provider-runtime'
 
 const queuedRun = {
   id: 'run-1',
@@ -113,6 +113,20 @@ describe('Higgsfield creative canvas provider runtime', () => {
       runtimeConfigured: false,
     })
     expect(mockCollection).not.toHaveBeenCalled()
+    expect(global.fetch).not.toHaveBeenCalled()
+  })
+
+  it('never dispatches non-Higgsfield runs to the executor, even with a configured runtime', async () => {
+    const result = await dispatchCreativeCanvasRunNow({
+      ...queuedRun,
+      providerKey: 'agent_task',
+      model: 'agent-llm',
+    } as never, {
+      HIGGSFIELD_RUNTIME_API_KEY: 'secret-key',
+      NEXT_PUBLIC_APP_URL: 'https://partnersinbiz.online',
+    } as NodeJS.ProcessEnv)
+
+    expect(result).toBe('not_configured')
     expect(global.fetch).not.toHaveBeenCalled()
   })
 

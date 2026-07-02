@@ -1,4 +1,5 @@
 import type { CreativeCanvas, CreativeCanvasNode, CreativeCanvasRun } from './types'
+import { getCanvasModel } from './model-registry'
 
 export interface HiggsfieldExecutionManifest {
   providerKey: 'higgsfield'
@@ -72,6 +73,7 @@ function sourceMediaFlag(node: CreativeCanvasNode): '--image' | '--video' | '--a
 function buildSourceMedia(
   run: CreativeCanvasRun,
   canvas: Pick<CreativeCanvas, 'nodes'> | undefined,
+  options?: { includeReferenceImages?: boolean },
 ): HiggsfieldExecutionManifest['sourceMedia'] {
   const sourceIds = new Set(run.input.sourceNodeIds)
   const fromNodes = (canvas?.nodes ?? [])
@@ -89,6 +91,8 @@ function buildSourceMedia(
     .filter((item): item is NonNullable<typeof item> => Boolean(item))
   // Reference URLs gathered from linked nodes at generate time (the combine
   // flow) arrive on the run input directly — include any not already covered.
+  // Audio models take no image references, so callers can opt out.
+  if (options?.includeReferenceImages === false) return fromNodes
   const covered = new Set(fromNodes.map((item) => item.value))
   const fromReferences = (run.input.referenceImageUrls ?? [])
     .filter((url) => !covered.has(url))
@@ -108,8 +112,13 @@ export function buildHiggsfieldExecutionManifest(
   if (run.providerKey !== 'higgsfield') return undefined
 
   const model = run.model || 'nano_banana_flash'
+  // Audio runs carry no visual settings: guard every image/video-only hint so
+  // the executor never receives aspect-ratio / mask / blend flags for a model
+  // that cannot accept them. Detected from the catalog kind (authoritative)
+  // with the run's requested outputKind as fallback for uncatalogued models.
+  const isAudio = getCanvasModel(model)?.kind === 'audio' || run.input.outputKind === 'audio'
   const prompt = run.input.promptSummary || 'Generate a reviewable internal creative asset from the Creative Canvas run.'
-  const sourceMedia = buildSourceMedia(run, canvas)
+  const sourceMedia = buildSourceMedia(run, canvas, { includeReferenceImages: !isAudio })
   const args = ['generate', 'create', model, '--prompt', prompt, '--json']
   sourceMedia.forEach((media) => {
     args.push(media.flag, media.value)

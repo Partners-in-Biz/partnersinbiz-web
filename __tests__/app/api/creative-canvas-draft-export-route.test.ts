@@ -19,6 +19,7 @@ jest.mock('@/lib/api/auth', () => ({
 
 jest.mock('@/lib/creative-canvas/store', () => ({
   getCreativeCanvas: mockGetCreativeCanvas,
+  CREATIVE_CANVAS_COLLECTION: 'creative_canvases',
 }))
 
 beforeEach(() => {
@@ -92,6 +93,65 @@ describe('creative canvas generic draft export API', () => {
           outputNodeId: 'output-1',
         },
         draft: { target: 'campaign_asset', status: 'internal_draft' },
+      },
+    })
+  })
+
+  it('auto-creates and links a Book Studio project when publishing to book_studio from an unlinked canvas', async () => {
+    const { POST } = await import('@/app/api/v1/creative-canvas/[id]/exports/draft/route')
+    const projectAdd = jest.fn().mockResolvedValue({ id: 'book-project-1' })
+    const exportAdd = jest.fn().mockResolvedValue({ id: 'export-2' })
+    const canvasUpdate = jest.fn().mockResolvedValue(undefined)
+    mockCollection.mockImplementation((name: string) => {
+      if (name === 'book_studio_projects') return { add: projectAdd }
+      if (name === 'creative_canvases') return { doc: jest.fn(() => ({ update: canvasUpdate })) }
+      return { add: exportAdd }
+    })
+    // Text-bearing chapter node on a canvas with NO linked book studio project.
+    mockGetCreativeCanvas.mockResolvedValueOnce({
+      id: 'canvas-1',
+      orgId: 'org-1',
+      title: 'Book Canvas',
+      purpose: 'Book board',
+      linked: {},
+      nodes: [{
+        id: 'chapter-1',
+        orgId: 'org-1',
+        type: 'prompt',
+        title: 'Chapter 1',
+        position: { x: 0, y: 0 },
+        data: { presentationType: 'chapter', text: 'It was a dark and stormy night.' },
+      }],
+      edges: [],
+    })
+
+    const res = await POST(new NextRequest('http://test.local/api/v1/creative-canvas/canvas-1/exports/draft?orgId=org-1', {
+      method: 'POST',
+      body: JSON.stringify({ nodeId: 'chapter-1', target: 'book_studio' }),
+    }), { params: Promise.resolve({ id: 'canvas-1' }) })
+    const body = await res.json()
+
+    expect(res.status).toBe(201)
+    expect(projectAdd).toHaveBeenCalledWith(expect.objectContaining({
+      orgId: 'org-1',
+      title: 'Book Canvas',
+      status: 'draft',
+    }))
+    expect(canvasUpdate).toHaveBeenCalledWith(expect.objectContaining({
+      'linked.bookStudioProjectId': 'book-project-1',
+    }))
+    expect(exportAdd).toHaveBeenCalledWith(expect.objectContaining({
+      target: 'book_studio',
+      downstreamDraftId: 'book-project-1',
+      outputKind: 'copy',
+      reviewStatus: 'warning',
+      lineageSourceNodeIds: ['chapter-1'],
+    }))
+    expect(body).toMatchObject({
+      success: true,
+      data: {
+        exportId: 'export-2',
+        draft: { target: 'book_studio', textPreview: 'It was a dark and stormy night.' },
       },
     })
   })
