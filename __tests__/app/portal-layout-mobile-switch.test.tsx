@@ -335,6 +335,25 @@ describe('PortalLayout mobile role switch', () => {
     expect(screen.queryByRole('menuitem', { name: /Book Studio/ })).not.toBeInTheDocument()
   })
 
+  it('gives the Creative Canvas route a full-width no-scroll workspace shell', async () => {
+    mockPathname = '/portal/creative-canvas'
+
+    render(
+      <PortalLayout>
+        <div>Canvas content</div>
+      </PortalLayout>,
+    )
+
+    const content = await screen.findByText('Canvas content')
+    const shell = content.closest('main')
+
+    expect(shell).toHaveClass('flex-1')
+    expect(shell).toHaveClass('min-h-0')
+    expect(shell).toHaveClass('overflow-hidden')
+    expect(shell).toHaveClass('max-w-none')
+    expect(shell).not.toHaveClass('max-w-[1400px]')
+  })
+
   it('shows Book Studio in the marketing Studio subnav', async () => {
     mockPortalModules = { bookStudio: true }
     await renderMarketingAndOpenStudio()

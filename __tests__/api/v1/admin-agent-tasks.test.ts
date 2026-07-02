@@ -46,6 +46,8 @@ describe('GET /api/v1/admin/agent-tasks', () => {
       docs: [
         taskDoc('old-task', { orgId: 'org-1', title: 'Older task', assigneeAgentId: 'theo', agentStatus: 'pending', updatedAt: '2026-05-24T10:00:00.000Z' }),
         taskDoc('new-task', { orgId: 'org-1', title: 'Newer task', assigneeAgentId: 'theo', agentStatus: 'in-progress', updatedAt: '2026-05-25T10:00:00.000Z' }),
+        taskDoc('ready-task', { orgId: 'org-1', title: 'Ready task', assigneeAgentId: 'theo', agentStatus: 'pending', columnId: 'todo', updatedAt: '2026-05-26T10:00:00.000Z' }),
+        taskDoc('approval-task', { orgId: 'org-1', title: 'Approval task', assigneeAgentId: 'theo', agentStatus: 'pending', columnId: 'todo', approvalStatus: 'pending', updatedAt: '2026-05-27T10:00:00.000Z' }),
       ],
     })
     mockGetAll.mockResolvedValue([
@@ -59,8 +61,16 @@ describe('GET /api/v1/admin/agent-tasks', () => {
     expect(res.status).toBe(200)
     expect(mockOrderBy).not.toHaveBeenCalled()
     expect(mockLimit).toHaveBeenCalledWith(500)
-    expect(body.data.cards.map((card: { id: string }) => card.id)).toEqual(['new-task', 'old-task'])
-    expect(body.data.cards[0].href).toBe('/admin/org/acme-co/agent/board?task=new-task')
+    expect(body.data.cards.map((card: { id: string }) => card.id)).toEqual(['approval-task', 'ready-task', 'new-task', 'old-task'])
+    expect(body.data.cards[2].href).toBe('/admin/org/acme-co/agent/board?task=new-task')
     expect(body.data.orgNames).toEqual({ 'org-1': 'Acme Co' })
+    expect(body.data.cards.find((card: { id: string }) => card.id === 'ready-task')).toEqual(expect.objectContaining({
+      dispatchReady: true,
+      dispatchBlocker: null,
+    }))
+    expect(body.data.cards.find((card: { id: string }) => card.id === 'approval-task')).toEqual(expect.objectContaining({
+      dispatchReady: false,
+      dispatchBlocker: 'approval-pending',
+    }))
   })
 })

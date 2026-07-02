@@ -85,6 +85,24 @@ const UPDATABLE_FIELDS = [
   'dependsOn',
 ] as const
 
+function isAgentLifecycleUpdate(body: Record<string, unknown>): boolean {
+  return body.agentStatus !== undefined
+    || body.agentOutput !== undefined
+    || body.reviewStatus !== undefined
+    || body.agentConversationId !== undefined
+    || body.assigneeAgentId !== undefined
+    || body.agentEffort !== undefined
+    || body.agentModel !== undefined
+}
+
+function shouldIgnoreEmptyTagSnapshot(body: Record<string, unknown>, existing: Task): boolean {
+  return Array.isArray(body.tags)
+    && body.tags.length === 0
+    && Array.isArray(existing.tags)
+    && existing.tags.length > 0
+    && isAgentLifecycleUpdate(body)
+}
+
 export const PUT = withAuth('admin', async (req, user, context) => {
   const { id } = await (context as RouteContext).params
   const ref = adminDb.collection('tasks').doc(id)
@@ -156,6 +174,7 @@ export const PUT = withAuth('admin', async (req, user, context) => {
 
   const updates: Record<string, unknown> = {}
   for (const key of UPDATABLE_FIELDS) {
+    if (key === 'tags' && shouldIgnoreEmptyTagSnapshot(body, existing)) continue
     if (body[key] !== undefined) updates[key] = body[key]
   }
   if (body.agentEffort !== undefined) {

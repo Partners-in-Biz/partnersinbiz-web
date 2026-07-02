@@ -16,9 +16,11 @@ import type { CanvasTool } from '@/components/creative-canvas/canvas/BottomToolb
 import { useGraphHistory } from '@/components/creative-canvas/canvas/useGraphHistory'
 import CanvasTopBar from '@/components/creative-canvas/topbar/CanvasTopBar'
 import { canvasNodeTypes } from '@/components/creative-canvas/nodes/nodeTypes'
-import type { CanvasNodeType } from '@/components/creative-canvas/nodes/ports'
+import { isValidConnection, portsForNode, type CanvasNodeType } from '@/components/creative-canvas/nodes/ports'
 import { getCanvasModel } from '@/lib/creative-canvas/model-registry'
 import CreateMenu from '@/components/creative-canvas/canvas/CreateMenu'
+import NodeEditChat from '@/components/creative-canvas/nodes/NodeEditChat'
+import NodePublishMenu, { type NodePublishPlatform, type NodePublishTarget } from '@/components/creative-canvas/nodes/NodePublishMenu'
 import NodeSettingsPanel from '@/components/creative-canvas/panels/NodeSettingsPanel'
 import ReferencePicker, { type ReferenceAsset } from '@/components/creative-canvas/panels/ReferencePicker'
 import CanvasLanding from '@/components/creative-canvas/landing/CanvasLanding'
@@ -26,7 +28,6 @@ import { canvasTheme } from '@/components/creative-canvas/theme/tokens'
 import type {
   CreativeCanvasAssetOrigin,
   CreativeCanvas,
-  CreativeCanvasCategoryEvidence,
   CreativeCanvasComment,
   CreativeCanvasEdge,
   CreativeCanvasEditIntent,
@@ -36,85 +37,21 @@ import type {
   CreativeCanvasOutputKind,
   CreativeCanvasRunOperationsSummary,
   CreativeCanvasRunBatchRetryResult,
-  CreativeCanvasProofBatchResult,
   CreativeCanvasProviderRuntimeReadiness,
   CreativeCanvasPresence,
-  CreativeCanvasRuntimeProof,
   CreativeCanvasRun,
   CreativeCanvasSourceLibraryItem,
   CreativeCanvasTemplate,
   CreativeCanvasVersion,
-  CreativeCanvasBenchmarkProof,
-  CreativeCanvasCertificationRuntimeProof,
-  CreativeCanvasLiveProofArtifact,
-  CreativeCanvasMobileViewportEvidence,
-  CreativeCanvasProofBinding,
   CreativeCanvasRemoteMutationEvidence,
-  CreativeCanvasRemoteMutationSource,
 } from '@/lib/creative-canvas/types'
 import { buildCreativeCanvasOrchestrationPlan } from '@/lib/creative-canvas/orchestration'
 import { buildCreativeCanvasAssetGallery } from '@/lib/creative-canvas/assets'
-import { collectCollaborationMutationProof } from '@/lib/creative-canvas/collaboration-proof'
-import { buildMobileViewportBehaviorProof } from '@/lib/creative-canvas/mobile-proof'
 import {
-  buildWorldClassCertification,
-  hasDurableCategoryEvidence,
-  hasStructuredCollaborationProof,
-  hasStructuredMobileProof,
-} from '@/lib/creative-canvas/parity-proof'
-import {
-  objectRecord,
-  getCanvasVisualProof,
-  hasSignedInViewportProof,
-  hasCurrentVisualProofState,
-  getCanvasBenchmarkProof,
-  hasRequiredBenchmarkSourceSignals,
-  hasDirectBenchmarkComparison,
-  hasSourceBackedBenchmarkProof,
-  hasCurrentCanvasBenchmarkState,
-  buildCertificationBenchmarkProof,
-  readCertificationArtifactEvidence,
-  readKnowledgeBaseCertificationEvidence,
   objectToRemoteMutationEvidence,
-  buildMobileViewportInputs,
   latestLocalActivityMutation,
-  buildWorkspaceCollaborationProof,
-  hasCollaborationSessionProof,
-  collectEditingSessionEvidence,
-  hasEditingSessionProof,
-  buildEditingSessionProofFields,
-  hasMaskingSessionProof,
-  collectGenerationReferenceEvidence,
-  hasGenerationReferenceProof,
-  buildGenerationReferenceProofFields,
-  collectVersioningEvidence,
-  hasVersioningPolishProof,
-  buildVersioningPolishProofFields,
-  collectMultiAssetWorkflowEvidence,
-  hasMultiAssetWorkflowProof,
-  buildMultiAssetWorkflowProofFields,
-  hasAgentOrchestrationProof,
-  hasMobileViewportBenchmarkProof,
-  hasExportArtifactBackedProof,
-  hasProductionRuntimeProof,
-  rebindCategoryEvidence,
-  buildProductionRuntimeProofFields,
-  benchmarkProofUrl,
-  emptyVisualProofDrafts,
-  emptyBenchmarkProofDrafts,
-  visualProofConfigs,
-  benchmarkProofConfigs,
-  exportProofCategories,
-  requiredRuntimeProofCategoryKeys,
-  type CreativeCanvasVisualProofKey,
-  type CreativeCanvasBenchmarkProofKey,
-  type CreativeCanvasVisualProofRecord,
-  type CreativeCanvasVisualProofDraft,
-  type CreativeCanvasBenchmarkProofRecord,
-  type CreativeCanvasBenchmarkProofDraft,
   type CreativeCanvasActivityEvent,
-  type AppliedCollaborationDraftProof,
-} from '@/lib/creative-canvas/workspace-proof-evidence'
+} from '@/lib/creative-canvas/collaboration-activity'
 
 type CreativeCanvasMode = 'admin' | 'portal'
 type CreativeCanvasMobilePanel = 'canvas' | 'sources' | 'inspector'
@@ -144,21 +81,6 @@ interface CreativeCanvasApiListResponse {
   }
 }
 
-interface CreativeCanvasProofUrlResponse {
-  success?: boolean
-  error?: string
-  data?: {
-    proof?: {
-      reachable?: boolean
-      status?: number
-      contentType?: string
-      checkedAt?: string
-      signalMatched?: boolean
-      signalCheckedAt?: string
-      missingSignals?: string[]
-    }
-  }
-}
 
 interface CreativeCanvasVersionApiResponse {
   success?: boolean
@@ -188,8 +110,6 @@ interface CreativeCanvasRunApiResponse {
     runtimeReadiness?: CreativeCanvasProviderRuntimeReadiness
     retriedRuns?: CreativeCanvasRunBatchRetryResult['retriedRuns']
     skippedRuns?: CreativeCanvasRunBatchRetryResult['skippedRuns']
-    queuedRuns?: CreativeCanvasProofBatchResult['queuedRuns']
-    skippedCategories?: CreativeCanvasProofBatchResult['skippedCategories']
     agentTaskDraft?: {
       agentInput?: {
         providerExecution?: {
@@ -211,13 +131,6 @@ interface CreativeCanvasRunApiResponse {
   }
 }
 
-interface CreativeCanvasRuntimeProofApiResponse {
-  success?: boolean
-  data?: {
-    proof?: CreativeCanvasRuntimeProof
-  }
-  error?: string
-}
 
 interface CreativeCanvasExportPackageApiResponse {
   success?: boolean
@@ -259,30 +172,6 @@ function ignoreCanvasBestEffortFailure() {
   return undefined
 }
 
-function buildMaskingSessionProofFields(input: {
-  nodes: CreativeCanvasNode[]
-  capturedAt: string
-}): Pick<CreativeCanvasBenchmarkProofRecord, 'maskingEditNodeCount' | 'maskingPromptCount' | 'maskingIntentCount' | 'maskingRegionCount' | 'maskingBrushStrokeCount' | 'maskingBlendControlCount' | 'maskingCapturedAt' | 'maskingEvidence'> {
-  const editNodes = input.nodes.filter((node) => node.type === 'edit' || Boolean(node.edit))
-  const maskingPromptCount = editNodes.filter((node) => Boolean(node.edit?.prompt?.trim())).length
-  const maskingIntentCount = editNodes.filter((node) => Boolean(node.edit?.intent)).length
-  const maskingRegionCount = editNodes.filter((node) => Boolean(node.edit?.mask?.region || node.edit?.mask?.url || node.edit?.mask?.sourceNodeId)).length
-  const maskingBrushStrokeCount = editNodes.reduce((total, node) => total + (node.edit?.mask?.brush?.strokes?.length ?? 0), 0)
-  const maskingBlendControlCount = editNodes.reduce((total, node) => {
-    const controls = node.edit?.blendControls
-    return total + (controls ? blendControlOptions.filter((option) => controls[option.key] === true).length : 0)
-  }, 0)
-  return {
-    maskingEditNodeCount: editNodes.length,
-    maskingPromptCount,
-    maskingIntentCount,
-    maskingRegionCount,
-    maskingBrushStrokeCount,
-    maskingBlendControlCount,
-    maskingCapturedAt: input.capturedAt,
-    maskingEvidence: `${editNodes.length} edit node${editNodes.length === 1 ? '' : 's'}; ${maskingPromptCount} brush prompt${maskingPromptCount === 1 ? '' : 's'}; ${maskingRegionCount} mask region/source attachment${maskingRegionCount === 1 ? '' : 's'}; ${maskingBrushStrokeCount} brush stroke${maskingBrushStrokeCount === 1 ? '' : 's'}; ${maskingBlendControlCount} blend control${maskingBlendControlCount === 1 ? '' : 's'} enabled`,
-  }
-}
 
 interface CreativeCanvasCommentApiResponse {
   success?: boolean
@@ -315,7 +204,7 @@ const nodeTypeLabels: Record<CreativeCanvasNodeType, string> = {
 const palette: Array<{ type: CreativeCanvasNodeType; label: string; description: string }> = [
   { type: 'source', label: 'Source', description: 'Brand assets, uploads, research, URLs' },
   { type: 'prompt', label: 'Prompt', description: 'Generation brief, style, and constraints' },
-  { type: 'model', label: 'Model', description: 'Higgsfield or agent-backed generation' },
+  { type: 'model', label: 'Model', description: 'AI or agent-backed generation' },
   { type: 'edit', label: 'Edit', description: 'Inpaint, masks, style transfer, and motion' },
   { type: 'review', label: 'Review', description: 'Brand, rights, and approval gate' },
   { type: 'output', label: 'Output', description: 'Draft image, video, copy, blog, book asset' },
@@ -353,7 +242,6 @@ const blendControlOptions: Array<{
   { key: 'preserveSubject', label: 'Preserve subject' },
 ]
 
-const requiredHiggsfieldModelLabels = ['Kling 3.0', 'Seedance 2.0', 'Wan 2.7', 'Soul 2.0', 'GPT Image 2.0', 'Veo 3.1', 'NB Pro']
 
 const higgsfieldModelSuggestions: Array<{
   id: string
@@ -488,7 +376,6 @@ type CreativeCanvasWorkflowPreset = {
   key: string
   label: string
   description: string
-  benchmarkScenario?: string
   outputKind: CreativeCanvasRun['input']['outputKind']
   exportTarget: CreativeCanvasExport['target']
   aspectRatio: string
@@ -510,22 +397,12 @@ type CreativeCanvasWorkflowPreset = {
   edges: Array<{ from: string; to: string; label: string }>
 }
 
-const higgsfieldBenchmarkScenarios = [
-  'vfx_background_replace',
-  'product_style_fusion',
-  'model_product_campaign',
-  'architecture_day_night',
-  'set_to_set_style',
-  'logo_animation',
-  'brand_icon_system',
-  'sketch_material_exploration',
-] as const
 
 const workflowPresets: CreativeCanvasWorkflowPreset[] = [
   {
     key: 'social-launch',
     label: 'Social launch',
-    description: 'Product source, UGC prompt, Higgsfield model, review, social draft.',
+    description: 'Product source, UGC prompt, AI model, review, social draft.',
     outputKind: 'social_post_draft',
     exportTarget: 'social_draft',
     aspectRatio: '9:16',
@@ -556,7 +433,7 @@ const workflowPresets: CreativeCanvasWorkflowPreset[] = [
       {
         suffix: 'model',
         type: 'model',
-        title: 'Higgsfield vertical video',
+        title: 'Vertical video',
         data: { workflowRole: 'generation', ownerAgentId: 'maya' },
         provider: { key: 'higgsfield', model: 'nano_banana_flash', mode: 'vertical_social' },
         edit: { operation: 'video_motion', outputKind: 'social_post_draft', strength: 0.65, motion: { mode: 'camera_push', durationSeconds: 6 }, references: [] },
@@ -648,7 +525,7 @@ const workflowPresets: CreativeCanvasWorkflowPreset[] = [
   {
     key: 'video-production',
     label: 'Video production',
-    description: 'Script, storyboard, Higgsfield render, review, YouTube/shorts export.',
+    description: 'Script, storyboard, AI render, review, YouTube/shorts export.',
     outputKind: 'youtube_render',
     exportTarget: 'youtube_studio',
     aspectRatio: '16:9',
@@ -679,7 +556,7 @@ const workflowPresets: CreativeCanvasWorkflowPreset[] = [
       {
         suffix: 'model',
         type: 'model',
-        title: 'Higgsfield video render',
+        title: 'Video render',
         data: { workflowRole: 'generation', ownerAgentId: 'maya' },
         provider: { key: 'higgsfield', model: 'nano_banana_flash', mode: 'video_render' },
         edit: { operation: 'video_motion', outputKind: 'youtube_render', strength: 0.7, motion: { mode: 'camera_push', durationSeconds: 15 }, references: [] },
@@ -741,7 +618,7 @@ const workflowPresets: CreativeCanvasWorkflowPreset[] = [
       {
         suffix: 'model',
         type: 'model',
-        title: 'Higgsfield book asset',
+        title: 'Book asset',
         data: { workflowRole: 'generation', ownerAgentId: 'maya' },
         provider: { key: 'higgsfield', model: 'nano_banana_flash', mode: 'book_artifact' },
         edit: { operation: 'variation', outputKind: 'book_artifact', strength: 0.6, motion: { mode: 'none' }, references: [] },
@@ -769,460 +646,6 @@ const workflowPresets: CreativeCanvasWorkflowPreset[] = [
       { from: 'review', to: 'output', label: 'book artifact' },
     ],
   },
-  {
-    key: 'benchmark-vfx-background',
-    label: 'VFX background replace',
-    description: 'Drop footage, replace the scene, render a VFX video output.',
-    benchmarkScenario: 'vfx_background_replace',
-    outputKind: 'video',
-    exportTarget: 'youtube_studio',
-    aspectRatio: '16:9',
-    durationSeconds: 8,
-    stylePreset: 'cinematic_product',
-    cameraMotion: 'dolly',
-    negativePrompt: 'warped horizon, broken perspective, flicker, inconsistent lighting',
-    nodes: [
-      {
-        suffix: 'footage',
-        type: 'source',
-        title: 'Source footage',
-        data: { workflowRole: 'source', requiredInputs: ['video_clip', 'subject_continuity'], benchmarkScenario: 'vfx_background_replace' },
-        source: { kind: 'upload', referenceRole: 'motion', weight: 1, altText: 'Footage for background replacement' },
-      },
-      {
-        suffix: 'environment',
-        type: 'source',
-        title: 'Replacement environment',
-        data: { workflowRole: 'source', requiredInputs: ['scene_reference', 'lighting_notes'], benchmarkScenario: 'vfx_background_replace' },
-        source: { kind: 'upload', referenceRole: 'background', weight: 0.9, altText: 'Replacement background reference' },
-      },
-      {
-        suffix: 'edit',
-        type: 'edit',
-        title: 'Background replacement edit',
-        data: {
-          workflowRole: 'edit',
-          benchmarkScenario: 'vfx_background_replace',
-          maskPreset: 'background_subject_holdout',
-        },
-        edit: {
-          operation: 'background_replace',
-          outputKind: 'video',
-          strength: 0.72,
-          motion: { mode: 'dolly', durationSeconds: 8 },
-          references: [],
-          mask: {
-            region: { x: 4, y: 6, width: 92, height: 88, unit: 'percent', feather: 8 },
-            brush: {
-              strokes: [
-                {
-                  id: 'subject-holdout-1',
-                  unit: 'percent',
-                  size: 14,
-                  opacity: 0.5,
-                  mode: 'paint',
-                  points: [
-                    { x: 18, y: 34 },
-                    { x: 26, y: 28 },
-                    { x: 38, y: 24 },
-                    { x: 50, y: 26 },
-                    { x: 62, y: 32 },
-                    { x: 72, y: 44 },
-                    { x: 76, y: 60 },
-                    { x: 69, y: 75 },
-                    { x: 55, y: 82 },
-                    { x: 40, y: 80 },
-                    { x: 28, y: 70 },
-                    { x: 20, y: 54 },
-                  ],
-                },
-              ],
-            },
-          },
-        },
-      },
-      {
-        suffix: 'model',
-        type: 'model',
-        title: 'Higgsfield VFX render',
-        data: { workflowRole: 'generation', ownerAgentId: 'maya', benchmarkScenario: 'vfx_background_replace' },
-        provider: { key: 'higgsfield', model: 'veo_3_1', mode: 'video' },
-        edit: { operation: 'video_motion', outputKind: 'video', strength: 0.7, motion: { mode: 'dolly', durationSeconds: 8 }, references: [] },
-      },
-      {
-        suffix: 'output',
-        type: 'output',
-        title: 'VFX video output',
-        data: { workflowRole: 'output', exportTarget: 'youtube_studio', benchmarkScenario: 'vfx_background_replace' },
-        output: { kind: 'video', textPreview: 'Background replacement video ready for review' },
-      },
-    ],
-    edges: [
-      { from: 'footage', to: 'edit', label: 'footage' },
-      { from: 'environment', to: 'edit', label: 'scene reference' },
-      { from: 'edit', to: 'model', label: 'replace background' },
-      { from: 'model', to: 'output', label: 'render' },
-    ],
-  },
-  {
-    key: 'benchmark-product-style',
-    label: 'Product style fusion',
-    description: 'Drop a product and style reference, generate campaign photography.',
-    benchmarkScenario: 'product_style_fusion',
-    outputKind: 'campaign_asset',
-    exportTarget: 'campaign_asset',
-    aspectRatio: '4:5',
-    durationSeconds: 0,
-    stylePreset: 'editorial',
-    cameraMotion: 'none',
-    negativePrompt: 'wrong product shape, off-brand material, mismatched lighting',
-    nodes: [
-      {
-        suffix: 'product',
-        type: 'source',
-        title: 'Product reference',
-        data: { workflowRole: 'source', benchmarkScenario: 'product_style_fusion' },
-        source: { kind: 'upload', referenceRole: 'product', weight: 1, altText: 'Product reference' },
-      },
-      {
-        suffix: 'style',
-        type: 'source',
-        title: 'Style reference',
-        data: { workflowRole: 'source', benchmarkScenario: 'product_style_fusion' },
-        source: { kind: 'upload', referenceRole: 'style', weight: 0.85, altText: 'Style reference' },
-      },
-      {
-        suffix: 'model',
-        type: 'model',
-        title: 'Higgsfield product shot',
-        data: { workflowRole: 'generation', ownerAgentId: 'maya', benchmarkScenario: 'product_style_fusion' },
-        provider: { key: 'higgsfield', model: 'nano_banana_pro', mode: 'campaign_asset' },
-        edit: { operation: 'variation', outputKind: 'campaign_asset', strength: 0.64, motion: { mode: 'none' }, references: [] },
-      },
-      {
-        suffix: 'review',
-        type: 'review',
-        title: 'Photography review',
-        data: { workflowRole: 'review', checks: ['product_accuracy', 'brand_style', 'rights'], benchmarkScenario: 'product_style_fusion' },
-        review: { status: 'needed', syntheticMediaDisclosure: true, rightsStatus: 'needs_review', brandStatus: 'needs_review' },
-      },
-      {
-        suffix: 'output',
-        type: 'output',
-        title: 'Campaign photography',
-        data: { workflowRole: 'output', exportTarget: 'campaign_asset', benchmarkScenario: 'product_style_fusion' },
-        output: { kind: 'campaign_asset', textPreview: 'Product and style fused campaign asset' },
-      },
-    ],
-    edges: [
-      { from: 'product', to: 'model', label: 'product' },
-      { from: 'style', to: 'model', label: 'style' },
-      { from: 'model', to: 'review', label: 'quality gate' },
-      { from: 'review', to: 'output', label: 'approved asset' },
-    ],
-  },
-  {
-    key: 'benchmark-campaign-model-product',
-    label: 'Model product campaign',
-    description: 'Chain a person/character and product into a campaign-ready video.',
-    benchmarkScenario: 'model_product_campaign',
-    outputKind: 'social_post_draft',
-    exportTarget: 'social_draft',
-    aspectRatio: '9:16',
-    durationSeconds: 6,
-    stylePreset: 'ugc_social',
-    cameraMotion: 'camera_push',
-    negativePrompt: 'identity drift, product distortion, false endorsement',
-    nodes: [
-      {
-        suffix: 'person',
-        type: 'source',
-        title: 'Person or Soul ID',
-        data: { workflowRole: 'source', benchmarkScenario: 'model_product_campaign' },
-        source: { kind: 'brand_kit', referenceRole: 'person', weight: 1, altText: 'Person or Soul ID reference' },
-      },
-      {
-        suffix: 'product',
-        type: 'source',
-        title: 'Product reference',
-        data: { workflowRole: 'source', benchmarkScenario: 'model_product_campaign' },
-        source: { kind: 'upload', referenceRole: 'product', weight: 1, altText: 'Product reference' },
-      },
-      {
-        suffix: 'model',
-        type: 'model',
-        title: 'Higgsfield campaign video',
-        data: { workflowRole: 'generation', ownerAgentId: 'maya', benchmarkScenario: 'model_product_campaign' },
-        provider: { key: 'higgsfield', model: 'seedance_2_0_fast', mode: 'social_post_draft' },
-        edit: { operation: 'video_motion', outputKind: 'social_post_draft', strength: 0.7, motion: { mode: 'camera_push', durationSeconds: 6 }, references: [] },
-      },
-      {
-        suffix: 'output',
-        type: 'output',
-        title: 'Campaign-ready social video',
-        data: { workflowRole: 'output', exportTarget: 'social_draft', benchmarkScenario: 'model_product_campaign' },
-        output: { kind: 'social_post_draft', textPreview: 'Model plus product campaign video draft' },
-      },
-    ],
-    edges: [
-      { from: 'person', to: 'model', label: 'character' },
-      { from: 'product', to: 'model', label: 'product' },
-      { from: 'model', to: 'output', label: 'campaign' },
-    ],
-  },
-  {
-    key: 'benchmark-architecture-day-night',
-    label: 'Architecture day to night',
-    description: 'Use start/end frames to create an architectural timelapse.',
-    benchmarkScenario: 'architecture_day_night',
-    outputKind: 'video',
-    exportTarget: 'youtube_studio',
-    aspectRatio: '16:9',
-    durationSeconds: 8,
-    stylePreset: 'cinematic_product',
-    cameraMotion: 'pan',
-    negativePrompt: 'unstable geometry, warped building lines, flicker',
-    nodes: [
-      {
-        suffix: 'start',
-        type: 'source',
-        title: 'Start frame',
-        data: { workflowRole: 'source', benchmarkScenario: 'architecture_day_night' },
-        source: { kind: 'upload', referenceRole: 'background', weight: 1, altText: 'Day start frame' },
-      },
-      {
-        suffix: 'end',
-        type: 'source',
-        title: 'End frame',
-        data: { workflowRole: 'source', benchmarkScenario: 'architecture_day_night' },
-        source: { kind: 'upload', referenceRole: 'motion', weight: 1, altText: 'Night end frame' },
-      },
-      {
-        suffix: 'model',
-        type: 'model',
-        title: 'Higgsfield architectural timelapse',
-        data: { workflowRole: 'generation', ownerAgentId: 'maya', benchmarkScenario: 'architecture_day_night' },
-        provider: { key: 'higgsfield', model: 'wan_2_7', mode: 'video' },
-        edit: { operation: 'video_motion', outputKind: 'video', strength: 0.66, motion: { mode: 'pan', durationSeconds: 8 }, references: [] },
-      },
-      {
-        suffix: 'output',
-        type: 'output',
-        title: 'Day-night timelapse',
-        data: { workflowRole: 'output', exportTarget: 'youtube_studio', benchmarkScenario: 'architecture_day_night' },
-        output: { kind: 'video', textPreview: 'Architecture day-to-night video' },
-      },
-    ],
-    edges: [
-      { from: 'start', to: 'model', label: 'start frame' },
-      { from: 'end', to: 'model', label: 'end frame' },
-      { from: 'model', to: 'output', label: 'timelapse' },
-    ],
-  },
-  {
-    key: 'benchmark-style-set',
-    label: 'Set to set style',
-    description: 'Blend two location frames into a coherent styled video.',
-    benchmarkScenario: 'set_to_set_style',
-    outputKind: 'video',
-    exportTarget: 'youtube_studio',
-    aspectRatio: '16:9',
-    durationSeconds: 8,
-    stylePreset: 'brand_realism',
-    cameraMotion: 'orbit',
-    negativePrompt: 'location mismatch, subject drift, inconsistent exposure',
-    nodes: [
-      {
-        suffix: 'start',
-        type: 'source',
-        title: 'Set start frame',
-        data: { workflowRole: 'source', benchmarkScenario: 'set_to_set_style' },
-        source: { kind: 'upload', referenceRole: 'background', weight: 1, altText: 'Start set reference' },
-      },
-      {
-        suffix: 'end',
-        type: 'source',
-        title: 'Set destination frame',
-        data: { workflowRole: 'source', benchmarkScenario: 'set_to_set_style' },
-        source: { kind: 'upload', referenceRole: 'style', weight: 1, altText: 'Destination style reference' },
-      },
-      {
-        suffix: 'model',
-        type: 'model',
-        title: 'Higgsfield set transition',
-        data: { workflowRole: 'generation', ownerAgentId: 'maya', benchmarkScenario: 'set_to_set_style' },
-        provider: { key: 'higgsfield', model: 'kling_3_0', mode: 'video' },
-        edit: { operation: 'video_motion', outputKind: 'video', strength: 0.68, motion: { mode: 'orbit', durationSeconds: 8 }, references: [] },
-      },
-      {
-        suffix: 'output',
-        type: 'output',
-        title: 'Styled transition video',
-        data: { workflowRole: 'output', exportTarget: 'youtube_studio', benchmarkScenario: 'set_to_set_style' },
-        output: { kind: 'video', textPreview: 'Styled set-to-set transition video' },
-      },
-    ],
-    edges: [
-      { from: 'start', to: 'model', label: 'start set' },
-      { from: 'end', to: 'model', label: 'style set' },
-      { from: 'model', to: 'output', label: 'transition' },
-    ],
-  },
-  {
-    key: 'benchmark-logo-animation',
-    label: 'Logo animation',
-    description: 'Drop a logo and style reference, render animated brand assets.',
-    benchmarkScenario: 'logo_animation',
-    outputKind: 'video',
-    exportTarget: 'campaign_asset',
-    aspectRatio: '1:1',
-    durationSeconds: 5,
-    stylePreset: 'brand_realism',
-    cameraMotion: 'none',
-    negativePrompt: 'logo distortion, unreadable mark, off-brand colors',
-    nodes: [
-      {
-        suffix: 'logo',
-        type: 'source',
-        title: 'Logo source',
-        data: { workflowRole: 'source', benchmarkScenario: 'logo_animation' },
-        source: { kind: 'brand_kit', referenceRole: 'logo', weight: 1, altText: 'Logo source' },
-      },
-      {
-        suffix: 'style',
-        type: 'source',
-        title: 'Animation style reference',
-        data: { workflowRole: 'source', benchmarkScenario: 'logo_animation' },
-        source: { kind: 'upload', referenceRole: 'style', weight: 0.8, altText: 'Animation style reference' },
-      },
-      {
-        suffix: 'model',
-        type: 'model',
-        title: 'Higgsfield logo animation',
-        data: { workflowRole: 'generation', ownerAgentId: 'maya', benchmarkScenario: 'logo_animation' },
-        provider: { key: 'higgsfield', model: 'kling_3_0', mode: 'video' },
-        edit: { operation: 'video_motion', outputKind: 'video', strength: 0.58, motion: { mode: 'none', durationSeconds: 5 }, references: [] },
-      },
-      {
-        suffix: 'output',
-        type: 'output',
-        title: 'Animated logo package',
-        data: { workflowRole: 'output', exportTarget: 'campaign_asset', benchmarkScenario: 'logo_animation' },
-        output: { kind: 'video', textPreview: 'Animated logo asset package' },
-      },
-    ],
-    edges: [
-      { from: 'logo', to: 'model', label: 'logo' },
-      { from: 'style', to: 'model', label: 'style' },
-      { from: 'model', to: 'output', label: 'animation' },
-    ],
-  },
-  {
-    key: 'benchmark-brand-icons',
-    label: 'Brand icon system',
-    description: 'Use a logo and palette prompt to generate a cohesive icon set.',
-    benchmarkScenario: 'brand_icon_system',
-    outputKind: 'campaign_asset',
-    exportTarget: 'campaign_asset',
-    aspectRatio: '1:1',
-    durationSeconds: 0,
-    stylePreset: 'clean_studio',
-    cameraMotion: 'none',
-    negativePrompt: 'inconsistent icon style, unreadable marks, off-brand palette',
-    nodes: [
-      {
-        suffix: 'logo',
-        type: 'source',
-        title: 'Logo and palette',
-        data: { workflowRole: 'source', requiredInputs: ['logo', 'color_palette'], benchmarkScenario: 'brand_icon_system' },
-        source: { kind: 'brand_kit', referenceRole: 'logo', weight: 1, altText: 'Logo and palette' },
-      },
-      {
-        suffix: 'prompt',
-        type: 'prompt',
-        title: 'Icon system prompt',
-        data: { workflowRole: 'prompt', promptType: 'brand_icon_system', benchmarkScenario: 'brand_icon_system' },
-      },
-      {
-        suffix: 'model',
-        type: 'model',
-        title: 'Higgsfield icon system',
-        data: { workflowRole: 'generation', ownerAgentId: 'maya', benchmarkScenario: 'brand_icon_system' },
-        provider: { key: 'higgsfield', model: 'gpt_image_2_0', mode: 'campaign_asset' },
-        edit: { operation: 'variation', outputKind: 'campaign_asset', strength: 0.62, motion: { mode: 'none' }, references: [] },
-      },
-      {
-        suffix: 'output',
-        type: 'output',
-        title: 'Brand icon grid',
-        data: { workflowRole: 'output', exportTarget: 'campaign_asset', benchmarkScenario: 'brand_icon_system' },
-        output: { kind: 'campaign_asset', textPreview: 'Cohesive brand icon system grid' },
-      },
-    ],
-    edges: [
-      { from: 'logo', to: 'prompt', label: 'brand system' },
-      { from: 'prompt', to: 'model', label: 'generate icons' },
-      { from: 'model', to: 'output', label: 'icon set' },
-    ],
-  },
-  {
-    key: 'benchmark-sketch-material',
-    label: 'Sketch material exploration',
-    description: 'Drop a sketch and branch material concepts into variations.',
-    benchmarkScenario: 'sketch_material_exploration',
-    outputKind: 'campaign_asset',
-    exportTarget: 'campaign_asset',
-    aspectRatio: '1:1',
-    durationSeconds: 0,
-    stylePreset: 'clean_studio',
-    cameraMotion: 'none',
-    negativePrompt: 'changed silhouette, weak material definition, muddy texture',
-    nodes: [
-      {
-        suffix: 'sketch',
-        type: 'source',
-        title: 'Concept sketch',
-        data: { workflowRole: 'source', benchmarkScenario: 'sketch_material_exploration' },
-        source: { kind: 'upload', referenceRole: 'general', weight: 1, altText: 'Concept sketch' },
-      },
-      {
-        suffix: 'leather',
-        type: 'edit',
-        title: 'Leather material branch',
-        data: { workflowRole: 'edit', material: 'leather', benchmarkScenario: 'sketch_material_exploration' },
-        edit: { operation: 'style_transfer', outputKind: 'campaign_asset', strength: 0.58, motion: { mode: 'none' }, references: [] },
-      },
-      {
-        suffix: 'glass',
-        type: 'edit',
-        title: 'Glass material branch',
-        data: { workflowRole: 'edit', material: 'glass', benchmarkScenario: 'sketch_material_exploration' },
-        edit: { operation: 'style_transfer', outputKind: 'campaign_asset', strength: 0.58, motion: { mode: 'none' }, references: [] },
-      },
-      {
-        suffix: 'model',
-        type: 'model',
-        title: 'Higgsfield material variants',
-        data: { workflowRole: 'generation', ownerAgentId: 'maya', benchmarkScenario: 'sketch_material_exploration' },
-        provider: { key: 'higgsfield', model: 'nano_banana_pro', mode: 'campaign_asset' },
-        edit: { operation: 'variation', outputKind: 'campaign_asset', strength: 0.62, motion: { mode: 'none' }, references: [] },
-      },
-      {
-        suffix: 'output',
-        type: 'output',
-        title: 'Material exploration grid',
-        data: { workflowRole: 'output', exportTarget: 'campaign_asset', benchmarkScenario: 'sketch_material_exploration' },
-        output: { kind: 'campaign_asset', textPreview: 'Sketch material variants for leather, glass, and related surfaces' },
-      },
-    ],
-    edges: [
-      { from: 'sketch', to: 'leather', label: 'sketch' },
-      { from: 'sketch', to: 'glass', label: 'sketch' },
-      { from: 'leather', to: 'model', label: 'leather branch' },
-      { from: 'glass', to: 'model', label: 'glass branch' },
-      { from: 'model', to: 'output', label: 'material grid' },
-    ],
-  },
 ]
 
 function CanvasPreviewBlock({
@@ -1246,7 +669,7 @@ function CanvasPreviewBlock({
 
 const PRESENTATION_NODE_TYPES = new Set<CanvasNodeType>([
   'prompt', 'image_generator', 'video_generator', 'voice_generator', 'llm_assistant',
-  'voiceover', 'change_voice', 'translate', 'source', 'output', 'sticky_note', 'text', 'folder',
+  'voiceover', 'change_voice', 'translate', 'source', 'output', 'sticky_note', 'text', 'folder', 'combine',
 ])
 
 /** Backend persistence type for each presentation node type (round-trips via data.presentationType). */
@@ -1264,6 +687,7 @@ const PRESENTATION_TO_BACKEND: Record<CanvasNodeType, CreativeCanvasNodeType> = 
   folder: 'brief',
   source: 'source',
   output: 'output',
+  combine: 'model',
 }
 
 const PRESENTATION_LABELS: Record<CanvasNodeType, string> = {
@@ -1280,6 +704,7 @@ const PRESENTATION_LABELS: Record<CanvasNodeType, string> = {
   folder: 'Folder',
   source: 'Source',
   output: 'Output',
+  combine: 'Combine',
 }
 
 const AGENT_PRESENTATION_TYPES = new Set<CanvasNodeType>(['voice_generator', 'voiceover', 'change_voice', 'llm_assistant'])
@@ -1337,6 +762,9 @@ function toFlowNode(node: CreativeCanvasNode, collaborators: Array<CreativeCanva
       text: typeof (node.data as Record<string, unknown> | undefined)?.text === 'string'
         ? String((node.data as Record<string, unknown>).text)
         : undefined,
+      outputKind: (node.data as Record<string, unknown> | undefined)?.outputKind === 'video' || node.provider?.mode === 'video'
+        ? 'video'
+        : 'image',
       // `label` is retained for the lightweight test mock + legacy rendering paths.
       label: (
         <div className="min-w-36">
@@ -1515,7 +943,6 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
   const [runHistory, setRunHistory] = useState<Array<CreativeCanvasRun & { id: string }>>([])
   const [runOperations, setRunOperations] = useState<CreativeCanvasRunOperationsSummary | null>(null)
   const [runtimeReadiness, setRuntimeReadiness] = useState<CreativeCanvasProviderRuntimeReadiness | null>(null)
-  const [runtimeProof, setRuntimeProof] = useState<CreativeCanvasRuntimeProof | null>(null)
   const [latestExecution, setLatestExecution] = useState<{ command?: string; dispatchPath?: string; callbackPath?: string; statusPath?: string } | null>(null)
   const [sourceQuery, setSourceQuery] = useState('')
   const [sourceKindFilter, setSourceKindFilter] = useState('')
@@ -1560,11 +987,6 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
   const [acceptedGraphSignature, setAcceptedGraphSignature] = useState('')
   const [autoSaveEnabled, setAutoSaveEnabled] = useState(true)
   const [collaborationActivity, setCollaborationActivity] = useState<CreativeCanvasActivityEvent[]>([])
-  const [latestAgentTaskCreation, setLatestAgentTaskCreation] = useState<{ count: number; createdAt: string } | null>(null)
-  const [visualProofDrafts, setVisualProofDrafts] = useState<CreativeCanvasVisualProofDraft>(emptyVisualProofDrafts)
-  const [savingVisualProofKey, setSavingVisualProofKey] = useState<CreativeCanvasVisualProofKey | ''>('')
-  const [benchmarkProofDrafts, setBenchmarkProofDrafts] = useState<CreativeCanvasBenchmarkProofDraft>(emptyBenchmarkProofDrafts)
-  const [savingBenchmarkProofKey, setSavingBenchmarkProofKey] = useState<CreativeCanvasBenchmarkProofKey | ''>('')
   const [conflictDraft, setConflictDraft] = useState<{
     title: string
     purpose: string
@@ -1574,7 +996,6 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
     conflictDetails?: CreativeCanvasApiListResponse['conflictDetails']
   } | null>(null)
   const lastAutoFollowedDraftSignatureRef = useRef('')
-  const latestAppliedDraftProofRef = useRef<AppliedCollaborationDraftProof | undefined>(undefined)
   const activityCounterRef = useRef(0)
 
   const recordCanvasActivity = useCallback((event: Omit<CreativeCanvasActivityEvent, 'id' | 'atMs'>) => {
@@ -1593,94 +1014,6 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
   )
 
   const resolvedOrgId = orgId ?? activeCanvas?.orgId ?? ''
-
-  useEffect(() => {
-    const proof = getCanvasVisualProof(activeCanvas?.data)
-    setVisualProofDrafts({
-      desktop_1440: {
-        screenshotUrl: proof.desktop_1440?.screenshotUrl ?? '',
-        notes: proof.desktop_1440?.notes ?? '',
-        signedIn: proof.desktop_1440?.signedIn === true,
-        sessionEvidence: proof.desktop_1440?.sessionEvidence ?? '',
-        viewportSize: proof.desktop_1440?.viewportSize ?? '1440x900',
-        visiblePanels: proof.desktop_1440?.visiblePanels ?? 'Graph, Sources, Inspector',
-      },
-      tablet_820: {
-        screenshotUrl: proof.tablet_820?.screenshotUrl ?? '',
-        notes: proof.tablet_820?.notes ?? '',
-        signedIn: proof.tablet_820?.signedIn === true,
-        sessionEvidence: proof.tablet_820?.sessionEvidence ?? '',
-        viewportSize: proof.tablet_820?.viewportSize ?? '820x1180',
-        visiblePanels: proof.tablet_820?.visiblePanels ?? 'Responsive panel layout',
-      },
-      mobile_390: {
-        screenshotUrl: proof.mobile_390?.screenshotUrl ?? '',
-        notes: proof.mobile_390?.notes ?? '',
-        signedIn: proof.mobile_390?.signedIn === true,
-        sessionEvidence: proof.mobile_390?.sessionEvidence ?? '',
-        viewportSize: proof.mobile_390?.viewportSize ?? '390x844',
-        visiblePanels: proof.mobile_390?.visiblePanels ?? 'Canvas panel',
-      },
-      mobile_panels: {
-        screenshotUrl: proof.mobile_panels?.screenshotUrl ?? '',
-        notes: proof.mobile_panels?.notes ?? '',
-        signedIn: proof.mobile_panels?.signedIn === true,
-        sessionEvidence: proof.mobile_panels?.sessionEvidence ?? '',
-        viewportSize: proof.mobile_panels?.viewportSize ?? '390x844',
-        visiblePanels: proof.mobile_panels?.visiblePanels ?? 'Canvas, Sources, Inspector panel switcher',
-      },
-    })
-  }, [activeCanvas?.data, activeCanvas?.id])
-
-  useEffect(() => {
-    setLatestAgentTaskCreation(null)
-  }, [activeCanvas?.id])
-
-  useEffect(() => {
-    const proof = getCanvasBenchmarkProof(activeCanvas?.data)
-    setBenchmarkProofDrafts({
-      editing_ergonomics: {
-        proofUrl: proof.editing_ergonomics?.proofUrl ?? '',
-        notes: proof.editing_ergonomics?.notes ?? '',
-      },
-      masking_inpainting: {
-        proofUrl: proof.masking_inpainting?.proofUrl ?? '',
-        notes: proof.masking_inpainting?.notes ?? '',
-      },
-      generation_controls: {
-        proofUrl: proof.generation_controls?.proofUrl ?? '',
-        notes: proof.generation_controls?.notes ?? '',
-      },
-      multi_asset_workflows: {
-        proofUrl: proof.multi_asset_workflows?.proofUrl ?? '',
-        notes: proof.multi_asset_workflows?.notes ?? '',
-      },
-      versioning_polish: {
-        proofUrl: proof.versioning_polish?.proofUrl ?? '',
-        notes: proof.versioning_polish?.notes ?? '',
-      },
-      collaboration: {
-        proofUrl: proof.collaboration?.proofUrl ?? '',
-        notes: proof.collaboration?.notes ?? '',
-      },
-      agent_orchestration: {
-        proofUrl: proof.agent_orchestration?.proofUrl ?? '',
-        notes: proof.agent_orchestration?.notes ?? '',
-      },
-      mobile_behavior: {
-        proofUrl: proof.mobile_behavior?.proofUrl ?? '',
-        notes: proof.mobile_behavior?.notes ?? '',
-      },
-      export_flows: {
-        proofUrl: proof.export_flows?.proofUrl ?? '',
-        notes: proof.export_flows?.notes ?? '',
-      },
-      production_reliability: {
-        proofUrl: proof.production_reliability?.proofUrl ?? '',
-        notes: proof.production_reliability?.notes ?? '',
-      },
-    })
-  }, [activeCanvas?.data, activeCanvas?.id])
 
   const selectedCanvasNode = useMemo(() => {
     const flowNode = nodes.find((node) => node.id === selectedFlowNodeId) ?? nodes[0]
@@ -1716,29 +1049,87 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
     updatePrompt: (nodeId: string, value: string) => void
     updateText: (nodeId: string, value: string) => void
     addReference: (nodeId: string) => void
-  }>({ generate: () => {}, updatePrompt: () => {}, updateText: () => {}, addReference: () => {} })
-  const pendingReferenceNodeIdRef = useRef<string>('')
+    updateOutputKind: (nodeId: string, kind: 'image' | 'video') => void
+    remove: (nodeId: string) => void
+    duplicate: (nodeId: string) => void
+    replaceContent: (nodeId: string) => void
+    editWithAi: (nodeId: string) => void
+    publish: (nodeId: string) => void
+  }>({ generate: () => {}, updatePrompt: () => {}, updateText: () => {}, addReference: () => {}, updateOutputKind: () => {}, remove: () => {}, duplicate: () => {}, replaceContent: () => {}, editWithAi: () => {}, publish: () => {} })
+  const pendingReferenceNodeIdRef = useRef<{ nodeId: string; mode: 'attach' | 'replace' } | null>(null)
   const referenceFileInputRef = useRef<HTMLInputElement | null>(null)
 
   const displayNodes = useMemo(() => nodes.map((node) => {
     const canvasNode = node.data?.canvasNode as CreativeCanvasNode | undefined
     if (!canvasNode) return node
     const flowNode = toFlowNode({ ...canvasNode, position: node.position }, collaboratorsByNodeId[node.id] ?? [])
+    // Upstream nodes linked into this node (combine nodes surface these).
+    const upstreamNodes = edges
+      .filter((edge) => edge.target === node.id)
+      .map((edge) => nodes.find((candidate) => candidate.id === edge.source))
+      .filter((candidate): candidate is Node => Boolean(candidate))
+    const upstreamPreviews = upstreamNodes
+      .map((candidate) => {
+        const upstream = candidate.data?.canvasNode as CreativeCanvasNode | undefined
+        return upstream?.output?.thumbnailUrl ?? upstream?.output?.url ?? upstream?.source?.thumbnailUrl ?? upstream?.source?.url
+      })
+      .filter((url): url is string => typeof url === 'string' && url.length > 0)
     return {
-      ...flowNode,
+      // Keep the live React Flow node (measured size, selection, drag state) —
+      // rebuilding from scratch resets measurement and edges never render.
+      ...node,
+      type: flowNode.type,
       data: {
         ...flowNode.data,
         status: generatingNodeIds.has(node.id) ? 'running' : flowNode.data.status,
         references: Array.isArray((canvasNode.data as Record<string, unknown> | undefined)?.references)
           ? ((canvasNode.data as Record<string, unknown>).references as string[])
           : [],
+        inputCount: upstreamNodes.length,
+        inputPreviews: upstreamPreviews,
         onGenerate: () => nodeActionRefs.current.generate(node.id),
         onPromptChange: (value: string) => nodeActionRefs.current.updatePrompt(node.id, value),
         onTextChange: (value: string) => nodeActionRefs.current.updateText(node.id, value),
         onAddReference: () => nodeActionRefs.current.addReference(node.id),
+        onOutputKindChange: (kind: 'image' | 'video') => nodeActionRefs.current.updateOutputKind(node.id, kind),
+        onDelete: () => nodeActionRefs.current.remove(node.id),
+        onDuplicate: () => nodeActionRefs.current.duplicate(node.id),
+        onEditWithAi: () => nodeActionRefs.current.editWithAi(node.id),
+        ...(canvasNode.type === 'source'
+          ? { onReplaceContent: () => nodeActionRefs.current.replaceContent(node.id) }
+          : {}),
+        ...(canvasNode.output?.url || canvasNode.output?.textPreview
+          ? { onPublish: () => nodeActionRefs.current.publish(node.id) }
+          : {}),
+        downloadUrl: canvasNode.output?.url ?? canvasNode.source?.url,
+        // "Select model" on a node opens the settings panel (which hosts the picker).
+        onOpenModelPicker: () => {
+          setSelectedFlowNodeId(node.id)
+          setSettingsCollapsed(false)
+        },
       },
     }
-  }), [collaboratorsByNodeId, generatingNodeIds, nodes])
+  }), [collaboratorsByNodeId, edges, generatingNodeIds, nodes])
+
+  // Persisted edges carry no handle ids, but presentation nodes expose multiple
+  // typed handles — without an explicit handle id React Flow cannot attach the
+  // edge. Resolve each edge onto the target input whose kind matches the
+  // source node's output kind (falling back to the first input).
+  const displayEdges = useMemo(() => edges.map((edge) => {
+    if (edge.sourceHandle && edge.targetHandle) return edge
+    const sourceType = displayNodes.find((node) => node.id === edge.source)?.type as CanvasNodeType | undefined
+    const targetType = displayNodes.find((node) => node.id === edge.target)?.type as CanvasNodeType | undefined
+    const sourcePorts = sourceType ? portsForNode(sourceType) : undefined
+    const targetPorts = targetType ? portsForNode(targetType) : undefined
+    if (!sourcePorts || !targetPorts) return edge
+    const outputKind = sourcePorts.output.kind
+    const targetInput = targetPorts.inputs.find((port) => isValidConnection(outputKind, port.kind)) ?? targetPorts.inputs[0]
+    return {
+      ...edge,
+      sourceHandle: edge.sourceHandle ?? sourcePorts.output.id,
+      targetHandle: edge.targetHandle ?? targetInput?.id,
+    }
+  }), [displayNodes, edges])
   const selectedMaskBrushStrokes = selectedCanvasNode?.edit?.mask?.brush?.strokes ?? []
   const orchestrationPlan = useMemo(() => buildCreativeCanvasOrchestrationPlan({
     id: activeCanvas?.id,
@@ -1815,7 +1206,6 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
       setRunHistory([])
       setRunOperations(null)
       setRuntimeReadiness(null)
-      setRuntimeProof(null)
       return
     }
 
@@ -1824,16 +1214,6 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
     setRunHistory(payload.data?.runs ?? [])
     setRunOperations(payload.data?.operations ?? null)
     setRuntimeReadiness(payload.data?.runtimeReadiness ?? null)
-  }, [])
-
-  const loadRuntimeProof = useCallback(async (canvasId: string, canvasOrgId: string) => {
-    if (!canvasId || !canvasOrgId) {
-      setRuntimeProof(null)
-      return
-    }
-    const response = await fetch(`/api/v1/creative-canvas/${canvasId}/runtime-proof?orgId=${encodeURIComponent(canvasOrgId)}`)
-    const payload = (await response.json()) as CreativeCanvasRuntimeProofApiResponse
-    setRuntimeProof(payload.data?.proof ?? null)
   }, [])
 
   const loadPresence = useCallback(async (canvasId: string, canvasOrgId: string) => {
@@ -1898,7 +1278,20 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
     })
     setActiveCanvasId(canvas.id ?? '')
     setSelectedFlowNodeId(canvas.nodes?.[0]?.id ?? '')
-    setNodes((canvas.nodes ?? []).map((node) => toFlowNode(node)))
+    // Preserve React Flow runtime state (measured size, selection) for nodes
+    // that survive the snapshot — replacing a node object wipes its measured
+    // dimensions and React Flow will not re-measure without a DOM resize,
+    // which leaves every edge invisible.
+    setNodes((currentNodes) => {
+      const previousById = new Map(currentNodes.map((node) => [node.id, node]))
+      return (canvas.nodes ?? []).map((node) => {
+        const fresh = toFlowNode(node)
+        const previous = previousById.get(node.id)
+        return previous
+          ? { ...fresh, measured: previous.measured, width: previous.width, height: previous.height, selected: previous.selected }
+          : fresh
+      })
+    })
     setEdges((canvas.edges ?? []).map(toFlowEdge))
     setAcceptedGraphSignature(canvasGraphSignature(canvas.nodes ?? [], canvas.edges ?? []))
     setLatestExecution(null)
@@ -1906,347 +1299,12 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
     setVersionPreview(null)
   }, [])
 
-  const saveVisualProof = useCallback(async (key: CreativeCanvasVisualProofKey) => {
-    if (!activeCanvas?.id) return
-    const draft = visualProofDrafts[key]
-    const screenshotUrl = draft.screenshotUrl.trim()
-    const notes = draft.notes.trim()
-    const sessionEvidence = draft.sessionEvidence.trim()
-    const viewportSize = draft.viewportSize.trim()
-    const visiblePanels = draft.visiblePanels.trim()
-    if (!screenshotUrl && !notes) {
-      setActivityMessage('Add a screenshot URL or proof note before saving visual proof')
-      return
-    }
-    let screenshotProof: CreativeCanvasVisualProofRecord = {}
-    if (screenshotUrl) {
-      setSavingVisualProofKey(key)
-      try {
-        const proofResponse = await fetch('/api/v1/creative-canvas/proof-url', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ url: screenshotUrl }),
-        })
-        const proofPayload = await proofResponse.json().catch(() => null) as CreativeCanvasProofUrlResponse | null
-        const proof = proofPayload?.data?.proof
-        if (!proofResponse.ok || !proof?.reachable) {
-          const status = typeof proof?.status === 'number' ? ` (${proof.status})` : ''
-          const contentType = proof?.contentType ? ` · ${proof.contentType}` : ''
-          setActivityMessage(`${proofPayload?.error ?? 'Screenshot proof URL is not a reachable image'}${status}${contentType}`)
-          setSavingVisualProofKey('')
-          return
-        }
-        screenshotProof = {
-          screenshotCheckedAt: proof.checkedAt,
-          screenshotReachable: true,
-          screenshotStatus: proof.status,
-          screenshotContentType: proof.contentType,
-        }
-      } catch {
-        setActivityMessage('Screenshot proof URL check failed')
-        setSavingVisualProofKey('')
-        return
-      }
-    }
-    const canvasOrgId = resolvedOrgId || activeCanvas.orgId
-    const existingProof = getCanvasVisualProof(activeCanvas.data)
-    const nextVisualProof = {
-      ...existingProof,
-      [key]: {
-        ...existingProof[key],
-        screenshotUrl,
-        notes,
-        signedIn: draft.signedIn,
-        sessionEvidence,
-        viewportSize,
-        visiblePanels,
-        capturedAt: new Date().toISOString(),
-        capturedBy: 'Pip',
-        canvasVersion: activeCanvas.activeVersion,
-        graphSignature: currentGraphSignature,
-        nodeCount: nodes.length,
-        edgeCount: edges.length,
-        ...screenshotProof,
-      },
-    }
-
-    try {
-      const response = await fetch(`/api/v1/creative-canvas/${activeCanvas.id}?orgId=${encodeURIComponent(canvasOrgId)}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          data: {
-            ...objectRecord(activeCanvas.data),
-            visualProof: nextVisualProof,
-          },
-        }),
-      })
-      const payload = await response.json().catch(() => null) as CreativeCanvasApiListResponse | null
-      const updatedCanvas = payload?.data?.canvas
-      if (!response.ok || !updatedCanvas?.id) {
-        setActivityMessage(payload?.error ?? 'Visual proof save failed')
-        return
-      }
-      applyCanvasSnapshot(updatedCanvas)
-      const label = visualProofConfigs.find((item) => item.key === key)?.label ?? 'Viewport'
-      setActivityMessage(`Saved ${label} visual proof`)
-    } catch {
-      setActivityMessage('Visual proof save failed')
-    } finally {
-      setSavingVisualProofKey('')
-    }
-  }, [activeCanvas, applyCanvasSnapshot, currentGraphSignature, edges.length, nodes.length, resolvedOrgId, visualProofDrafts])
-
-  const saveBenchmarkProof = useCallback(async (key: CreativeCanvasBenchmarkProofKey) => {
-    if (!activeCanvas?.id) return
-    const draft = benchmarkProofDrafts[key]
-    const proofUrl = draft.proofUrl.trim()
-    const notes = draft.notes.trim()
-    if (!proofUrl || !notes) {
-      setActivityMessage('Add a proof URL and notes before saving benchmark evidence')
-      return
-    }
-    const proofConfig = benchmarkProofConfigs.find((item) => item.key === key)
-    const sourceEvidenceUrl = proofConfig?.sourceUrl
-    if (!sourceEvidenceUrl) {
-      setActivityMessage('Benchmark source URL is missing')
-      return
-    }
-    setSavingBenchmarkProofKey(key)
-    let sourceEvidenceProof: Pick<CreativeCanvasBenchmarkProofRecord, 'sourceEvidenceCheckedAt' | 'sourceEvidenceReachable' | 'sourceEvidenceStatus' | 'sourceEvidenceContentType' | 'sourceSignalsVerifiedAt' | 'sourceSignalsMatched' | 'sourceSignalsMissing'> = {}
-    let benchmarkEvidenceProof: Pick<CreativeCanvasBenchmarkProofRecord, 'canvasEvidenceCheckedAt' | 'canvasEvidenceReachable' | 'canvasEvidenceStatus' | 'canvasEvidenceContentType'> = {}
-    try {
-      const sourceResponse = await fetch('/api/v1/creative-canvas/proof-url', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url: sourceEvidenceUrl, kind: 'evidence', expectedSignals: proofConfig?.sourceSignals ?? [] }),
-      })
-      const sourcePayload = await sourceResponse.json().catch(() => null) as CreativeCanvasProofUrlResponse | null
-      const sourceProof = sourcePayload?.data?.proof
-      if (!sourceResponse.ok || !sourceProof?.reachable) {
-        const status = typeof sourceProof?.status === 'number' ? ` (${sourceProof.status})` : ''
-        const contentType = sourceProof?.contentType ? ` · ${sourceProof.contentType}` : ''
-        setActivityMessage(`${sourcePayload?.error ?? 'Benchmark source URL is not reachable'}${status}${contentType}`)
-        setSavingBenchmarkProofKey('')
-        return
-      }
-      if (sourceProof.signalMatched === false) {
-        const missing = sourceProof.missingSignals?.length ? `: ${sourceProof.missingSignals.join(', ')}` : ''
-        setActivityMessage(`Benchmark source signals were not found${missing}`)
-        setSavingBenchmarkProofKey('')
-        return
-      }
-      sourceEvidenceProof = {
-        sourceEvidenceCheckedAt: sourceProof.checkedAt,
-        sourceEvidenceReachable: true,
-        sourceEvidenceStatus: sourceProof.status,
-        sourceEvidenceContentType: sourceProof.contentType,
-        sourceSignalsVerifiedAt: sourceProof.signalCheckedAt,
-        sourceSignalsMatched: true,
-        sourceSignalsMissing: sourceProof.missingSignals ?? [],
-      }
-      const proofResponse = await fetch('/api/v1/creative-canvas/proof-url', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url: proofUrl, kind: 'evidence' }),
-      })
-      const proofPayload = await proofResponse.json().catch(() => null) as CreativeCanvasProofUrlResponse | null
-      const proof = proofPayload?.data?.proof
-      if (!proofResponse.ok || !proof?.reachable) {
-        const status = typeof proof?.status === 'number' ? ` (${proof.status})` : ''
-        const contentType = proof?.contentType ? ` · ${proof.contentType}` : ''
-        setActivityMessage(`${proofPayload?.error ?? 'Benchmark proof URL is not reachable'}${status}${contentType}`)
-        setSavingBenchmarkProofKey('')
-        return
-      }
-      benchmarkEvidenceProof = {
-        canvasEvidenceCheckedAt: proof.checkedAt,
-        canvasEvidenceReachable: true,
-        canvasEvidenceStatus: proof.status,
-        canvasEvidenceContentType: proof.contentType,
-      }
-    } catch {
-      setActivityMessage('Benchmark evidence URL check failed')
-      setSavingBenchmarkProofKey('')
-      return
-    }
-    const canvasOrgId = resolvedOrgId || activeCanvas.orgId
-    const existingProof = getCanvasBenchmarkProof(activeCanvas.data)
-    const capturedAt = new Date().toISOString()
-    const currentBenchmarkBinding: CreativeCanvasProofBinding = {
-      orgId: canvasOrgId,
-      canvasVersion: activeCanvas.activeVersion,
-      graphSignature: currentGraphSignature,
-      nodeCount: nodes.length,
-      edgeCount: edges.length,
-    }
-    const currentRemotePresence = presence.filter((item) => item.id !== ownPresenceId)
-    const currentExportArtifactBackedCoverage = (runtimeProof?.reliabilityCoverage ?? []).filter((category) => (
-      requiredRuntimeProofCategoryKeys.has(category.key)
-      && category.status === 'passed'
-      && category.completed >= (category.requiredCompleted ?? 2)
-    ))
-    const currentExportArtifactBackedCompletedCount = currentExportArtifactBackedCoverage.reduce((total, category) => total + category.completed, 0)
-    const benchmarkAuditNodes = nodes.map((node) => toCanvasNode(node, canvasOrgId))
-    const benchmarkAuditEdges = edges.map((edge) => toCanvasEdge(edge, canvasOrgId))
-    const editingSessionProof = key === 'editing_ergonomics'
-      ? buildEditingSessionProofFields({ activity: collaborationActivity, nodes: benchmarkAuditNodes, edges: benchmarkAuditEdges, capturedAt })
-      : {}
-    const maskingSessionProof = key === 'masking_inpainting'
-      ? buildMaskingSessionProofFields({ nodes: benchmarkAuditNodes, capturedAt })
-      : {}
-    const generationReferenceProof = key === 'generation_controls'
-      ? buildGenerationReferenceProofFields({ nodes: benchmarkAuditNodes, edges: benchmarkAuditEdges, capturedAt })
-      : {}
-    const versioningPolishProof = key === 'versioning_polish'
-      ? buildVersioningPolishProofFields({ versions, comments, templates, autoSaveEnabled, capturedAt })
-      : {}
-    const multiAssetWorkflowProof = key === 'multi_asset_workflows'
-      ? buildMultiAssetWorkflowProofFields({ nodes: benchmarkAuditNodes, edges: benchmarkAuditEdges, capturedAt })
-      : {}
-    const collaborationSessionProof = key === 'collaboration'
-      ? buildWorkspaceCollaborationProof({
-          remotePresence: currentRemotePresence,
-          activity: collaborationActivity,
-          latestAppliedDraft: latestAppliedDraftProofRef.current,
-          currentGraphSignature,
-          streamConnected: collaborationStreamConnected,
-          capturedAt,
-          binding: {
-            orgId: canvasOrgId,
-            canvasVersion: activeCanvas.activeVersion,
-            graphSignature: currentGraphSignature,
-            nodeCount: nodes.length,
-            edgeCount: edges.length,
-          },
-        })
-      : {}
-    const agentOrchestrationProof = key === 'agent_orchestration'
-      ? {
-          agentStepCount: orchestrationPlan.steps.length,
-          agentActorCount: orchestrationPlan.agents.length,
-          agentTaskCreatedCount: latestAgentTaskCreation?.count ?? 0,
-          agentTaskCreatedAt: latestAgentTaskCreation?.createdAt ?? capturedAt,
-          agentEvidence: `${orchestrationPlan.steps.length} graph-derived handoff step${orchestrationPlan.steps.length === 1 ? '' : 's'} across ${orchestrationPlan.agents.length} agent${orchestrationPlan.agents.length === 1 ? '' : 's'}; ${latestAgentTaskCreation?.count ?? 0} project-linked agent task${latestAgentTaskCreation?.count === 1 ? '' : 's'} created; ${orchestrationPlan.blockers.length} blocker${orchestrationPlan.blockers.length === 1 ? '' : 's'}`,
-        }
-      : {}
-    const currentVisualProofRecords = getCanvasVisualProof(activeCanvas.data)
-    const currentVisualProofItems: Array<{
-      key: CreativeCanvasVisualProofKey
-      status: 'signed-in' | 'needs sign-in' | 'needed'
-      proof?: CreativeCanvasVisualProofRecord
-    }> = visualProofConfigs.map((item) => {
-      const proof = currentVisualProofRecords[item.key]
-      return {
-        ...item,
-        proof,
-        status: hasSignedInViewportProof(proof) && hasCurrentVisualProofState(proof, {
-          canvasVersion: activeCanvas.activeVersion,
-          graphSignature: currentGraphSignature,
-          nodeCount: nodes.length,
-          edgeCount: edges.length,
-        })
-          ? 'signed-in'
-          : proof?.screenshotUrl
-            ? 'needs sign-in'
-            : 'needed',
-      }
-    })
-    const mobileViewportProof = key === 'mobile_behavior'
-      ? buildMobileViewportBehaviorProof({
-          orgId: canvasOrgId,
-          canvasVersion: activeCanvas.activeVersion,
-          graphSignature: currentGraphSignature,
-          nodeCount: nodes.length,
-          edgeCount: edges.length,
-          capturedAt,
-          viewports: buildMobileViewportInputs(currentVisualProofItems),
-        })
-      : {}
-    const exportArtifactProof = key === 'export_flows'
-      ? {
-          exportArtifactBackedCategoryCount: currentExportArtifactBackedCoverage.length,
-          exportArtifactBackedCompletedCount: currentExportArtifactBackedCompletedCount,
-          exportArtifactBackedCapturedAt: capturedAt,
-          runtimeCategoryEvidence: rebindCategoryEvidence(runtimeProof?.runtimeCategoryEvidence, currentBenchmarkBinding),
-          exportCategoryEvidence: rebindCategoryEvidence(runtimeProof?.exportCategoryEvidence, currentBenchmarkBinding),
-          exportArtifactEvidence: `${currentExportArtifactBackedCoverage.length}/${exportProofCategories.length} artifact-backed export categories; ${currentExportArtifactBackedCompletedCount} completed runtime artifacts`,
-        }
-      : {}
-    const productionRuntimeProof = key === 'production_reliability'
-      ? buildProductionRuntimeProofFields({ runtimeProof, runOperations, capturedAt, currentBinding: currentBenchmarkBinding })
-      : {}
-    const nextBenchmarkProof = {
-      ...existingProof,
-      [key]: {
-        ...existingProof[key],
-        proofUrl,
-        notes,
-        capturedAt,
-        capturedBy: 'Pip',
-        sourceTitle: proofConfig?.sourceTitle,
-        sourceUrl: proofConfig?.sourceUrl,
-        sourceCheckedAt: capturedAt,
-        ...sourceEvidenceProof,
-        sourceSignals: proofConfig?.sourceSignals ?? [],
-        higgsfieldUiEvidenceUrl: proofConfig?.sourceUrl,
-        canvasEvidenceUrl: proofUrl,
-        ...benchmarkEvidenceProof,
-        directComparisonAt: capturedAt,
-        directComparisonVerdict: 'pass',
-        directComparisonNotes: notes,
-        orgId: canvasOrgId,
-        canvasVersion: activeCanvas.activeVersion,
-        graphSignature: currentGraphSignature,
-        nodeCount: nodes.length,
-        edgeCount: edges.length,
-        ...editingSessionProof,
-        ...maskingSessionProof,
-        ...generationReferenceProof,
-        ...versioningPolishProof,
-        ...multiAssetWorkflowProof,
-        ...collaborationSessionProof,
-        ...agentOrchestrationProof,
-        ...mobileViewportProof,
-        ...exportArtifactProof,
-        ...productionRuntimeProof,
-      },
-    }
-
-    try {
-      const response = await fetch(`/api/v1/creative-canvas/${activeCanvas.id}?orgId=${encodeURIComponent(canvasOrgId)}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          data: {
-            ...objectRecord(activeCanvas.data),
-            benchmarkProof: nextBenchmarkProof,
-          },
-        }),
-      })
-      const payload = await response.json().catch(() => null) as CreativeCanvasApiListResponse | null
-      const updatedCanvas = payload?.data?.canvas
-      if (!response.ok || !updatedCanvas?.id) {
-        setActivityMessage(payload?.error ?? 'Benchmark proof save failed')
-        return
-      }
-      applyCanvasSnapshot(updatedCanvas)
-      const label = benchmarkProofConfigs.find((item) => item.key === key)?.label ?? 'Benchmark'
-      setActivityMessage(`Saved ${label} benchmark proof`)
-    } catch {
-      setActivityMessage('Benchmark proof save failed')
-    } finally {
-      setSavingBenchmarkProofKey('')
-    }
-  }, [activeCanvas, applyCanvasSnapshot, autoSaveEnabled, benchmarkProofDrafts, collaborationActivity, collaborationStreamConnected, comments, currentGraphSignature, edges, latestAgentTaskCreation, nodes, orchestrationPlan.agents.length, orchestrationPlan.blockers.length, orchestrationPlan.steps.length, ownPresenceId, presence, resolvedOrgId, runOperations, runtimeProof, templates, versions])
-
   const applyRemoteCanvasUpdate = useCallback(async () => {
     if (!remoteCanvasUpdate?.id) return
     const canvasOrgId = resolvedOrgId || remoteCanvasUpdate.orgId
     applyCanvasSnapshot(remoteCanvasUpdate)
     await loadVersions(remoteCanvasUpdate.id, canvasOrgId)
     await loadRuns(remoteCanvasUpdate.id, canvasOrgId)
-    await loadRuntimeProof(remoteCanvasUpdate.id, canvasOrgId)
     await loadPresence(remoteCanvasUpdate.id, canvasOrgId)
     await loadComments(remoteCanvasUpdate.id, canvasOrgId)
     recordCanvasActivity({
@@ -2257,7 +1315,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
     })
     setActivityMessage(`Applied live graph v${remoteCanvasUpdate.activeVersion}`)
     setSaveMessage('')
-  }, [applyCanvasSnapshot, loadComments, loadPresence, loadRuns, loadRuntimeProof, loadVersions, recordCanvasActivity, remoteCanvasUpdate, resolvedOrgId])
+  }, [applyCanvasSnapshot, loadComments, loadPresence, loadRuns, loadVersions, recordCanvasActivity, remoteCanvasUpdate, resolvedOrgId])
 
   const applyCollaborationStreamEvent = useCallback((event: CreativeCanvasCollaborationStreamEvent) => {
     if (Array.isArray(event.presence)) setPresence(event.presence)
@@ -2294,14 +1352,6 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
     setRemoteCanvasUpdate(null)
     setSaveMessage('')
     if (collaborator.graphSignature) lastAutoFollowedDraftSignatureRef.current = collaborator.graphSignature
-    latestAppliedDraftProofRef.current = {
-      actorUid: collaborator.actorUid,
-      actorType: collaborator.actorType,
-      graphSignature: canvasGraphSignature(draftGraph.nodes, draftGraph.edges ?? []),
-      touchedNodeIds: draftGraph.nodes.map((node) => node.id),
-      touchedEdgeIds: (draftGraph.edges ?? []).map((edge) => edge.id),
-      appliedAt: new Date().toISOString(),
-    }
     recordCanvasActivity({
       actorLabel: collaborator.displayName ?? collaborator.actorUid,
       action: options.automatic ? 'Auto-followed live draft' : 'Applied live draft',
@@ -2461,7 +1511,6 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
         if (firstCanvas?.id) {
           await loadVersions(firstCanvas.id, orgId ?? firstCanvas.orgId)
           await loadRuns(firstCanvas.id, orgId ?? firstCanvas.orgId)
-          await loadRuntimeProof(firstCanvas.id, orgId ?? firstCanvas.orgId)
           await loadPresence(firstCanvas.id, orgId ?? firstCanvas.orgId)
           await loadComments(firstCanvas.id, orgId ?? firstCanvas.orgId)
         } else {
@@ -2469,7 +1518,6 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
           setRunHistory([])
           setRunOperations(null)
           setRuntimeReadiness(null)
-          setRuntimeProof(null)
           setPresence([])
           setComments([])
         }
@@ -2489,7 +1537,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
     return () => {
       cancelled = true
     }
-  }, [loadComments, loadPresence, loadRuns, loadRuntimeProof, loadVersions, orgId, writeCanvasDeepLink])
+  }, [loadComments, loadPresence, loadRuns, loadVersions, orgId, writeCanvasDeepLink])
 
   useEffect(() => {
     let cancelled = false
@@ -2691,7 +1739,12 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
   const [createMenu, setCreateMenu] = useState<{ flow: { x: number; y: number }; client: { x: number; y: number } } | null>(null)
   const [showLanding, setShowLanding] = useState(false)
   const [immersiveCanvas, setImmersiveCanvas] = useState(true)
-  const [referencePicker, setReferencePicker] = useState<{ nodeId: string } | null>(null)
+  const [referencePicker, setReferencePicker] = useState<{ nodeId: string; mode?: 'attach' | 'replace' } | null>(null)
+  const [editChatNodeId, setEditChatNodeId] = useState<string | null>(null)
+  const [publishNodeId, setPublishNodeId] = useState<string | null>(null)
+  const [publishBusy, setPublishBusy] = useState(false)
+  const [publishError, setPublishError] = useState('')
+  const [publishSuccess, setPublishSuccess] = useState('')
   const [settingsCollapsed, setSettingsCollapsed] = useState(false)
 
   const reloadActiveCanvas = useCallback(async () => {
@@ -2750,6 +1803,54 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
       setActivityMessage('Rename failed')
     }
   }, [activeCanvas?.id, activeCanvas?.orgId, applyCanvasSnapshot, resolvedOrgId])
+
+  const renameCanvasById = useCallback(async (canvasId: string, nextTitle: string) => {
+    const target = canvases.find((canvas) => canvas.id === canvasId)
+    const canvasOrgId = resolvedOrgId || target?.orgId || ''
+    try {
+      const response = await fetch(`/api/v1/creative-canvas/${canvasId}?orgId=${encodeURIComponent(canvasOrgId)}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title: nextTitle }),
+      })
+      const payload = await response.json().catch(() => null) as CreativeCanvasApiListResponse | null
+      const updatedCanvas = payload?.data?.canvas
+      if (response.ok && updatedCanvas?.id) {
+        setCanvases((current) => current.map((canvas) => canvas.id === canvasId ? { ...canvas, title: updatedCanvas.title } : canvas))
+        setActivityMessage('Canvas renamed')
+      } else {
+        setActivityMessage(payload?.error ?? 'Rename failed')
+      }
+    } catch {
+      setActivityMessage('Rename failed')
+    }
+  }, [canvases, resolvedOrgId])
+
+  const deleteCanvasById = useCallback(async (canvasId: string) => {
+    const target = canvases.find((canvas) => canvas.id === canvasId)
+    const canvasOrgId = resolvedOrgId || target?.orgId || ''
+    try {
+      const response = await fetch(`/api/v1/creative-canvas/${canvasId}?orgId=${encodeURIComponent(canvasOrgId)}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ deleted: true }),
+      })
+      const payload = await response.json().catch(() => null) as CreativeCanvasApiListResponse | null
+      if (response.ok) {
+        setCanvases((current) => current.filter((canvas) => canvas.id !== canvasId))
+        if (activeCanvasId === canvasId) {
+          setActiveCanvasId('')
+          setNodes([])
+          setEdges([])
+        }
+        setActivityMessage('Canvas deleted')
+      } else {
+        setActivityMessage(payload?.error ?? 'Delete failed')
+      }
+    } catch {
+      setActivityMessage('Delete failed')
+    }
+  }, [activeCanvasId, canvases, resolvedOrgId])
 
   const addCanvasNode = (type: CreativeCanvasNodeType) => {
     const nextNumber = nodes.length + 1
@@ -2812,7 +1913,10 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
 
   const addCanvasNodeAt = (presentationType: CanvasNodeType, position: { x: number; y: number }, mode?: string) => {
     const backendType = PRESENTATION_TO_BACKEND[presentationType]
-    const title = PRESENTATION_LABELS[presentationType]
+    const mediaKind = mode?.startsWith('media_') ? mode.slice('media_'.length) : undefined
+    const title = mediaKind
+      ? mediaKind.charAt(0).toUpperCase() + mediaKind.slice(1)
+      : PRESENTATION_LABELS[presentationType]
     const id = `${presentationType}-node-${Date.now()}`
     const isAgentBacked = AGENT_PRESENTATION_TYPES.has(presentationType)
     const canvasNode: CreativeCanvasNode = {
@@ -2821,15 +1925,20 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
       type: backendType,
       title,
       position,
-      data: { createdFrom: 'creative_canvas_create_menu', presentationType, ...(mode ? { mode } : {}) },
+      data: {
+        createdFrom: 'creative_canvas_create_menu',
+        presentationType,
+        ...(mode ? { mode } : {}),
+        ...(presentationType === 'combine' ? { outputKind: 'image' } : {}),
+      },
       source: backendType === 'source'
         ? { kind: mode === 'assets' ? 'workspace_artifact' : 'upload', referenceRole: 'general', weight: 1, altText: title }
         : undefined,
       provider: backendType === 'model'
         ? {
             key: isAgentBacked ? 'agent_task' : 'higgsfield',
-            model: runModel,
-            mode: presentationType === 'video_generator' ? 'video' : runOutputKind,
+            model: presentationType === 'combine' ? coerceCanvasModel(runModel) : runModel,
+            mode: presentationType === 'video_generator' ? 'video' : presentationType === 'combine' ? 'image' : runOutputKind,
           }
         : undefined,
       review: backendType === 'output'
@@ -2848,6 +1957,8 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
       operation: 'node_add',
       source: 'local',
     })
+    // One-tap media nodes: open the asset picker immediately to fill the node.
+    if (mediaKind) setReferencePicker({ nodeId: id, mode: 'replace' })
   }
 
   const applyWorkflowPreset = (preset: CreativeCanvasWorkflowPreset) => {
@@ -2879,52 +1990,6 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
       source: 'local',
     })
     setActivityMessage(`${preset.label} workflow added`)
-  }
-
-  const applyMissingBenchmarkWorkflowSuite = () => {
-    const existingScenarios = new Set(nodes
-      .map((node) => (node.data?.canvasNode as CreativeCanvasNode | undefined)?.data?.benchmarkScenario)
-      .filter((scenario): scenario is string => typeof scenario === 'string'))
-    const missingPresets = workflowPresets.filter((preset) => (
-      preset.benchmarkScenario && !existingScenarios.has(preset.benchmarkScenario)
-    ))
-    if (!missingPresets.length) {
-      setActivityMessage('All Higgsfield benchmark workflows are already in this graph')
-      return
-    }
-    const org = resolvedOrgId || 'pending-org'
-    const stamp = Date.now()
-    const graphs = missingPresets.map((preset, index) => buildWorkflowPresetGraph(preset, {
-      baseX: 80 + (index % 2) * 760,
-      baseY: 120 + Math.floor(index / 2) * 520 + nodes.length * 8,
-      stamp: stamp + index,
-      orgId: org,
-    }))
-    const nextNodes = graphs.flatMap((graph) => graph.nodes)
-    const nextEdges = graphs.flatMap((graph) => graph.edges)
-    const lastPreset = missingPresets[missingPresets.length - 1]
-
-    setNodes((currentNodes) => [...currentNodes, ...nextNodes.map((node) => toFlowNode(node))])
-    setEdges((currentEdges) => [...currentEdges, ...nextEdges])
-    setSelectedFlowNodeId(nextNodes.find((node) => node.type === 'model' || node.type === 'edit')?.id ?? nextNodes[0]?.id ?? '')
-    setRunOutputKind(lastPreset?.outputKind ?? 'image')
-    setRunModel(coerceCanvasModel(nextNodes.find((node) => node.provider?.key === 'higgsfield')?.provider?.model))
-    setExportTarget(lastPreset?.exportTarget ?? 'campaign_asset')
-    setRunAspectRatio(lastPreset?.aspectRatio ?? '1:1')
-    setRunDurationSeconds(lastPreset?.durationSeconds ?? 0)
-    setRunStylePreset(lastPreset?.stylePreset ?? 'clean_studio')
-    setRunCameraMotion(lastPreset?.cameraMotion ?? 'none')
-    setRunNegativePrompt(lastPreset?.negativePrompt ?? '')
-    setSaveMessage('')
-    recordCanvasActivity({
-      actorLabel: 'You',
-      action: 'Added benchmark suite',
-      detail: `${missingPresets.length} workflows: ${nextNodes.length} nodes / ${nextEdges.length} links`,
-      nodeId: nextNodes[0]?.id,
-      operation: 'workflow_add',
-      source: 'local',
-    })
-    setActivityMessage(`Added ${missingPresets.length} Higgsfield benchmark workflow${missingPresets.length === 1 ? '' : 's'}`)
   }
 
   const saveCurrentGraphAsTemplate = async () => {
@@ -3159,44 +2224,46 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
     setActivityMessage(`Created ${variants.length} format variant${variants.length === 1 ? '' : 's'} from ${selectedCanvasNode.title}`)
   }
 
-  const duplicateSelectedNode = () => {
-    if (!selectedCanvasNode) return
-    if (selectedNodeLockedByCollaborator) {
-      setActivityMessage(`${selectedNodeCollaborators[0]?.displayName ?? selectedNodeCollaborators[0]?.actorUid ?? 'A collaborator'} is editing this node`)
+  const duplicateNodeById = (nodeId: string) => {
+    const sourceFlowNode = nodes.find((node) => node.id === nodeId)
+    const canvasNode = sourceFlowNode?.data?.canvasNode as CreativeCanvasNode | undefined
+    if (!canvasNode) return
+    const lockHolders = (collaboratorsByNodeId[nodeId] ?? []).filter((collaborator) => collaborator.id !== ownPresenceId)
+    if (lockHolders.length) {
+      setActivityMessage(`${lockHolders[0]?.displayName ?? lockHolders[0]?.actorUid ?? 'A collaborator'} is editing this node`)
       return
     }
-    const sourceFlowNode = nodes.find((node) => node.id === selectedCanvasNode.id)
     const stamp = Date.now()
-    const duplicateId = `${selectedCanvasNode.id}-copy-${stamp}`
+    const duplicateId = `${canvasNode.id}-copy-${stamp}`
     const duplicateNode: CreativeCanvasNode = {
-      ...selectedCanvasNode,
+      ...canvasNode,
       id: duplicateId,
-      orgId: resolvedOrgId || selectedCanvasNode.orgId,
-      title: `${selectedCanvasNode.title} copy`,
+      orgId: resolvedOrgId || canvasNode.orgId,
+      title: `${canvasNode.title} copy`,
       position: {
-        x: (sourceFlowNode?.position.x ?? selectedCanvasNode.position.x) + 220,
-        y: (sourceFlowNode?.position.y ?? selectedCanvasNode.position.y) + 80,
+        x: (sourceFlowNode?.position.x ?? canvasNode.position.x) + 220,
+        y: (sourceFlowNode?.position.y ?? canvasNode.position.y) + 80,
       },
       data: {
-        ...(cloneCanvasField(selectedCanvasNode.data) ?? {}),
+        ...(cloneCanvasField(canvasNode.data) ?? {}),
         createdFrom: 'creative_canvas_node_duplicate',
-        duplicatedFromNodeId: selectedCanvasNode.id,
-        duplicatedFromTitle: selectedCanvasNode.title,
+        duplicatedFromNodeId: canvasNode.id,
+        duplicatedFromTitle: canvasNode.title,
       },
-      source: cloneCanvasField(selectedCanvasNode.source),
-      provider: cloneCanvasField(selectedCanvasNode.provider),
-      edit: cloneCanvasField(selectedCanvasNode.edit),
-      review: cloneCanvasField(selectedCanvasNode.review),
-      output: cloneCanvasField(selectedCanvasNode.output),
+      source: cloneCanvasField(canvasNode.source),
+      provider: cloneCanvasField(canvasNode.provider),
+      edit: cloneCanvasField(canvasNode.edit),
+      review: cloneCanvasField(canvasNode.review),
+      output: cloneCanvasField(canvasNode.output),
     }
     const branchEdge: Edge = {
-      id: `duplicate-${selectedCanvasNode.id}-${duplicateId}`,
-      source: selectedCanvasNode.id,
+      id: `duplicate-${canvasNode.id}-${duplicateId}`,
+      source: canvasNode.id,
       target: duplicateId,
       label: 'duplicate branch',
       data: {
         createdFrom: 'creative_canvas_node_duplicate',
-        duplicatedFromNodeId: selectedCanvasNode.id,
+        duplicatedFromNodeId: canvasNode.id,
       },
     }
 
@@ -3207,12 +2274,26 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
     recordCanvasActivity({
       actorLabel: 'You',
       action: 'Duplicated node',
-      detail: selectedCanvasNode.title,
+      detail: canvasNode.title,
       nodeId: duplicateId,
       operation: 'node_duplicate',
       source: 'local',
     })
-    setActivityMessage(`Duplicated ${selectedCanvasNode.title}`)
+    setActivityMessage(`Duplicated ${canvasNode.title}`)
+  }
+
+  const duplicateSelectedNode = () => {
+    if (!selectedCanvasNode) return
+    duplicateNodeById(selectedCanvasNode.id)
+  }
+
+  const deleteNodeById = (nodeId: string) => {
+    const lockHolders = (collaboratorsByNodeId[nodeId] ?? []).filter((collaborator) => collaborator.id !== ownPresenceId)
+    if (lockHolders.length) {
+      setActivityMessage(`${lockHolders[0]?.displayName ?? lockHolders[0]?.actorUid ?? 'A collaborator'} is editing this node`)
+      return
+    }
+    onNodesChange([{ type: 'remove', id: nodeId }])
   }
 
   const createInpaintEditBranch = () => {
@@ -3310,7 +2391,6 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
     if (canvas.id) {
       await loadVersions(canvas.id, orgId ?? canvas.orgId)
       await loadRuns(canvas.id, orgId ?? canvas.orgId)
-      await loadRuntimeProof(canvas.id, orgId ?? canvas.orgId)
       await loadPresence(canvas.id, orgId ?? canvas.orgId)
       await loadComments(canvas.id, orgId ?? canvas.orgId)
     }
@@ -3471,16 +2551,6 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
       source: 'local',
     })
     setActivityMessage(`Generation settings applied to ${selectedCanvasNode.title}`)
-  }
-
-  const applyHiggsfieldModelPreset = (model: (typeof higgsfieldModelSuggestions)[number]) => {
-    setRunModel(model.id)
-    setRunOutputKind(model.outputKind)
-    setRunAspectRatio(model.aspectRatio)
-    setRunDurationSeconds(model.durationSeconds)
-    setRunCameraMotion(model.cameraMotion)
-    setRunStylePreset(model.stylePreset)
-    setActivityMessage(`${model.label} routing selected`)
   }
 
   const applyMaskRegion = () => {
@@ -3917,6 +2987,32 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
     }))
   }, [])
 
+  const updateNodeOutputKind = useCallback((nodeId: string, kind: 'image' | 'video') => {
+    setNodes((current) => current.map((node) => {
+      if (node.id !== nodeId) return node
+      const canvasNode = node.data?.canvasNode as CreativeCanvasNode | undefined
+      if (!canvasNode) return node
+      return {
+        ...node,
+        data: {
+          ...node.data,
+          outputKind: kind,
+          canvasNode: {
+            ...canvasNode,
+            provider: canvasNode.provider ? { ...canvasNode.provider, mode: kind } : canvasNode.provider,
+            data: { ...(canvasNode.data as Record<string, unknown>), outputKind: kind },
+          },
+        },
+      }
+    }))
+    // Keep the active run model aligned with the requested output kind.
+    setRunModel((current) => {
+      const model = getCanvasModel(current)
+      if (model?.kind === kind) return current
+      return kind === 'video' ? 'seedance_2_0' : 'text2image_soul_v2'
+    })
+  }, [])
+
   const addReferenceToNode = useCallback((nodeId: string) => {
     setReferencePicker({ nodeId })
   }, [])
@@ -3942,9 +3038,41 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
     setActivityMessage('Reference image added')
   }, [])
 
+  const replaceNodeContent = useCallback((nodeId: string, asset: { url: string; thumbnailUrl?: string; title?: string }) => {
+    setNodes((currentNodes) => currentNodes.map((node) => {
+      if (node.id !== nodeId) return node
+      const canvasNode = node.data?.canvasNode as CreativeCanvasNode | undefined
+      if (!canvasNode) return node
+      const nextSource = {
+        ...(canvasNode.source ?? { kind: 'upload' as const, referenceRole: 'general' as const }),
+        url: asset.url,
+        thumbnailUrl: asset.thumbnailUrl,
+        altText: asset.title ?? canvasNode.source?.altText ?? canvasNode.title,
+      }
+      return {
+        ...node,
+        data: {
+          ...node.data,
+          assetUrl: asset.url,
+          canvasNode: { ...canvasNode, source: nextSource },
+        },
+      }
+    }))
+    recordCanvasActivity({
+      actorLabel: 'You',
+      action: 'Replaced node content',
+      detail: asset.title ?? asset.url,
+      nodeId,
+      operation: 'node_configure',
+      source: 'local',
+    })
+    setActivityMessage('Node content replaced')
+  }, [recordCanvasActivity])
+
   const handleReferenceFileSelected = useCallback(async (files: FileList | null) => {
-    const nodeId = pendingReferenceNodeIdRef.current
-    pendingReferenceNodeIdRef.current = ''
+    const pending = pendingReferenceNodeIdRef.current
+    pendingReferenceNodeIdRef.current = null
+    const nodeId = pending?.nodeId ?? ''
     if (!files?.length || !nodeId || !resolvedOrgId) return
     setActivityMessage('Uploading reference…')
     try {
@@ -3961,30 +3089,146 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
         setActivityMessage('Reference upload failed')
         return
       }
-      attachReferenceUrl(nodeId, url)
+      if (pending?.mode === 'replace') {
+        replaceNodeContent(nodeId, { url, thumbnailUrl: source?.source?.thumbnailUrl, title: source?.title })
+      } else {
+        attachReferenceUrl(nodeId, url)
+      }
     } catch {
       setActivityMessage('Reference upload failed')
     }
-  }, [activeCanvas?.id, attachReferenceUrl, resolvedOrgId])
+  }, [activeCanvas?.id, attachReferenceUrl, replaceNodeContent, resolvedOrgId])
+
+  /**
+   * Make sure a server-persisted canvas exists and the current graph is saved.
+   * The create endpoint intentionally ignores nodes/edges (they are versioned
+   * through the graph endpoint), so create bare then PUT the graph. Never
+   * applyCanvasSnapshot with the freshly created canvas — its empty graph
+   * would wipe the nodes the user just built.
+   */
+  const ensurePersistedCanvas = useCallback(async (): Promise<{ canvasId: string; canvasOrgId: string } | null> => {
+    let canvasId = activeCanvas?.id ?? ''
+    let canvasOrgId = resolvedOrgId || activeCanvas?.orgId || ''
+    if (canvasId) {
+      if (graphHasUnsavedChanges) await saveGraph('auto')
+      return { canvasId, canvasOrgId }
+    }
+    const createResponse = await fetch(`/api/v1/creative-canvas${canvasOrgId ? `?orgId=${encodeURIComponent(canvasOrgId)}` : ''}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title: 'Untitled canvas', purpose: '', status: 'draft' }),
+    })
+    const createPayload = await createResponse.json().catch(() => null) as CreativeCanvasApiListResponse | null
+    const createdCanvas = createPayload?.data?.canvas
+    if (!createResponse.ok || !createdCanvas?.id) {
+      setActivityMessage(createPayload?.error ?? 'Could not save the canvas before generating')
+      return null
+    }
+    canvasId = createdCanvas.id
+    canvasOrgId = canvasOrgId || createdCanvas.orgId || ''
+    setCanvases((current) => [createdCanvas, ...current.filter((item) => item.id !== createdCanvas.id)])
+    setActiveCanvasId(canvasId)
+
+    const graphResponse = await fetch(`/api/v1/creative-canvas/${canvasId}/graph?orgId=${encodeURIComponent(canvasOrgId)}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        expectedActiveVersion: createdCanvas.activeVersion,
+        mergeOnConflict: true,
+        reason: 'combine_generate_autosave',
+        baseGraph: { nodes: [], edges: [] },
+        nodes: nodes.map((node) => toCanvasNode(node, canvasOrgId)),
+        edges: edges.map((edge) => toCanvasEdge(edge, canvasOrgId)),
+      }),
+    })
+    const graphPayload = await graphResponse.json().catch(() => null) as CreativeCanvasApiListResponse | null
+    const savedCanvas = graphPayload?.data?.canvas
+    if (!graphResponse.ok || !savedCanvas?.id) {
+      setActivityMessage(graphPayload?.error ?? 'Could not save the canvas graph before generating')
+      return null
+    }
+    setCanvases((current) => current.map((item) => item.id === savedCanvas.id ? savedCanvas : item))
+    setAcceptedGraphSignature(currentGraphSignature)
+    return { canvasId, canvasOrgId }
+  }, [activeCanvas?.id, activeCanvas?.orgId, currentGraphSignature, edges, graphHasUnsavedChanges, nodes, resolvedOrgId, saveGraph])
 
   const generateInlineForNode = useCallback(async (nodeId: string) => {
-    if (!activeCanvas?.id || mode !== 'admin') return
-    const canvasOrgId = resolvedOrgId || activeCanvas.orgId || ''
+    if (mode !== 'admin') {
+      setActivityMessage('Generation is available in the admin canvas')
+      return
+    }
     const target = nodes.find((node) => node.id === nodeId)
     const canvasNode = target?.data?.canvasNode as CreativeCanvasNode | undefined
-    const promptText = (canvasNode?.data as Record<string, unknown> | undefined)?.prompt
-    const referenceImageUrls = Array.isArray((canvasNode?.data as Record<string, unknown> | undefined)?.references)
-      ? ((canvasNode!.data as Record<string, unknown>).references as string[])
+    if (!canvasNode) {
+      setActivityMessage('Select a generator or combine node first')
+      return
+    }
+    const nodeData = (canvasNode.data ?? {}) as Record<string, unknown>
+    const instruction = typeof nodeData.prompt === 'string' ? nodeData.prompt : ''
+
+    // ---- Gather everything linked into this node (the combine flow). ----
+    const upstreamCanvasNodes = edges
+      .filter((edge) => edge.target === nodeId)
+      .map((edge) => nodes.find((candidate) => candidate.id === edge.source)?.data?.canvasNode as CreativeCanvasNode | undefined)
+      .filter((candidate): candidate is CreativeCanvasNode => Boolean(candidate))
+    const upstreamImageUrls = upstreamCanvasNodes.flatMap((upstream) => {
+      const urls: string[] = []
+      if (upstream.output?.url && upstream.output.kind !== 'video') urls.push(upstream.output.url)
+      else if (upstream.source?.url) urls.push(upstream.source.url)
+      const upstreamRefs = (upstream.data as Record<string, unknown> | undefined)?.references
+      if (Array.isArray(upstreamRefs)) urls.push(...upstreamRefs.filter((url): url is string => typeof url === 'string'))
+      return urls
+    })
+    const upstreamTextFragments = upstreamCanvasNodes.flatMap((upstream) => {
+      const data = (upstream.data ?? {}) as Record<string, unknown>
+      const fragments: string[] = []
+      if (typeof data.text === 'string' && data.text.trim()) fragments.push(data.text.trim())
+      else if (upstream.id !== nodeId && typeof data.prompt === 'string' && data.prompt.trim() && upstream.type === 'prompt') fragments.push(data.prompt.trim())
+      return fragments
+    })
+    const ownReferences = Array.isArray(nodeData.references)
+      ? (nodeData.references as string[]).filter((url): url is string => typeof url === 'string')
       : []
+    const referenceImageUrls = [...new Set([...upstreamImageUrls, ...ownReferences])]
+    const prompt = [instruction, ...(upstreamTextFragments.length ? [`Context from linked notes: ${upstreamTextFragments.join('. ')}`] : [])]
+      .filter(Boolean)
+      .join('\n\n')
+
+    if (!prompt.trim() && !referenceImageUrls.length) {
+      setActivityMessage('Add an instruction or link at least one input before generating')
+      return
+    }
+
+    // ---- Resolve the model against the node's requested output kind. ----
+    const requestedKind = nodeData.outputKind === 'video' || canvasNode.provider?.mode === 'video' ? 'video' : 'image'
+    const activeModel = getCanvasModel(runModel)
+    // Some models cap reference media (Soul V2 accepts exactly one — the
+    // provider rejects the run otherwise). Fall back to Nano Banana for
+    // multi-reference combines and tell the user.
+    const modelSupportsRefs = (model: typeof activeModel) => !model?.maxReferenceImages || model.maxReferenceImages >= referenceImageUrls.length
+    const defaultImageModel = referenceImageUrls.length > 1 ? 'nano_banana_flash' : 'text2image_soul_v2'
+    const effectiveModel = activeModel?.kind === requestedKind && (requestedKind !== 'image' || modelSupportsRefs(activeModel))
+      ? activeModel.id
+      : (requestedKind === 'video' ? 'seedance_2_0' : defaultImageModel)
+    if (activeModel && activeModel.kind === requestedKind && effectiveModel !== activeModel.id) {
+      setActivityMessage(`${activeModel.label} supports ${activeModel.maxReferenceImages} reference image${activeModel.maxReferenceImages === 1 ? '' : 's'} — using Nano Banana for this ${referenceImageUrls.length}-reference combine`)
+    }
+
     setGeneratingNodeIds((prev) => new Set(prev).add(nodeId))
     try {
-      const response = await fetch(`/api/v1/creative-canvas/${activeCanvas.id}/runs/generate?orgId=${encodeURIComponent(canvasOrgId)}`, {
+      // ---- Make sure a persisted canvas exists and the graph is saved so the
+      // backend sees the node we are generating for. ----
+      const persisted = await ensurePersistedCanvas()
+      if (!persisted) return
+      const { canvasId, canvasOrgId } = persisted
+
+      const response = await fetch(`/api/v1/creative-canvas/${canvasId}/runs/generate?orgId=${encodeURIComponent(canvasOrgId)}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           nodeId,
-          model: runModel,
-          prompt: typeof promptText === 'string' ? promptText : '',
+          model: effectiveModel,
+          prompt,
           aspectRatio: runAspectRatio,
           resolution: runResolution,
           quality: runQuality,
@@ -4006,7 +3250,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
         for (let attempt = 0; attempt < 12 && !found; attempt += 1) {
           await new Promise((resolve) => { window.setTimeout(resolve, 3000) })
           try {
-            const pollResponse = await fetch(`/api/v1/creative-canvas/${activeCanvas.id}?orgId=${encodeURIComponent(canvasOrgId)}`)
+            const pollResponse = await fetch(`/api/v1/creative-canvas/${canvasId}?orgId=${encodeURIComponent(canvasOrgId)}`)
             const pollPayload = await pollResponse.json().catch(() => null) as CreativeCanvasApiListResponse | null
             const polled = pollPayload?.data?.canvas
             if (polled?.id && (polled.nodes ?? []).some((node) => node.id === `${nodeId}-output`)) {
@@ -4018,7 +3262,13 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
         }
         if (!found) setActivityMessage('Generation still processing — it will appear on refresh')
       } else {
-        await reloadActiveCanvas()
+        // Sync result — pull the fresh canvas (with the new output node) by id.
+        try {
+          const refreshResponse = await fetch(`/api/v1/creative-canvas/${canvasId}?orgId=${encodeURIComponent(canvasOrgId)}`)
+          const refreshPayload = await refreshResponse.json().catch(() => null) as CreativeCanvasApiListResponse | null
+          const refreshed = refreshPayload?.data?.canvas
+          if (refreshResponse.ok && refreshed?.id) applyCanvasSnapshot(refreshed)
+        } catch { ignoreCanvasBestEffortFailure() }
         setActivityMessage('Generation complete')
       }
     } catch {
@@ -4031,16 +3281,220 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
       })
       void loadCanvasCredits()
     }
-  }, [activeCanvas?.id, activeCanvas?.orgId, applyCanvasSnapshot, loadCanvasCredits, mode, nodes, reloadActiveCanvas, resolvedOrgId, runAspectRatio, runDurationSeconds, runGenerateAudio, runModel, runQuality, runVariantCount])
+  }, [applyCanvasSnapshot, edges, ensurePersistedCanvas, loadCanvasCredits, mode, nodes, runAspectRatio, runDurationSeconds, runGenerateAudio, runModel, runQuality, runResolution, runVariantCount])
 
+  const [editChatBusy, setEditChatBusy] = useState(false)
+  const [editChatError, setEditChatError] = useState('')
+
+  /**
+   * Inline AI edit: send this node's content + an instruction through the run
+   * pipeline. Branch keeps the server-inserted output node (wired from the
+   * original); Replace merges the result back onto the original node and
+   * removes the transient output node (prior state stays in version history).
+   */
+  const runNodeEdit = useCallback(async (nodeId: string, instruction: string, placement: 'branch' | 'replace') => {
+    const target = nodes.find((node) => node.id === nodeId)
+    const canvasNode = target?.data?.canvasNode as CreativeCanvasNode | undefined
+    if (!canvasNode) {
+      setEditChatError('This node cannot be edited yet — save the canvas first')
+      return
+    }
+    const nodeData = (canvasNode.data ?? {}) as Record<string, unknown>
+    const isTextNode = ['prompt', 'brief'].includes(canvasNode.type)
+      || ['text', 'sticky_note', 'prompt'].includes(String(nodeData.presentationType ?? ''))
+    const mediaUrl = canvasNode.output?.url ?? canvasNode.source?.url
+    const isVideo = canvasNode.output?.kind === 'video' || canvasNode.source?.mimeType?.startsWith('video/')
+    const editModel = isTextNode ? 'agent-llm' : isVideo ? 'seedance_2_0' : 'text2image_soul_v2'
+    const existingText = typeof nodeData.text === 'string' && nodeData.text.trim()
+      ? nodeData.text.trim()
+      : typeof nodeData.prompt === 'string' ? String(nodeData.prompt).trim() : ''
+    const prompt = isTextNode
+      ? `Rewrite the following content per the instruction.\n\nInstruction: ${instruction}\n\nContent:\n${existingText || '(empty)'}`
+      : instruction
+
+    setEditChatBusy(true)
+    setEditChatError('')
+    setGeneratingNodeIds((prev) => new Set(prev).add(nodeId))
+    try {
+      const persisted = await ensurePersistedCanvas()
+      if (!persisted) {
+        setEditChatError('Could not save the canvas before editing')
+        return
+      }
+      const { canvasId, canvasOrgId } = persisted
+      const response = await fetch(`/api/v1/creative-canvas/${canvasId}/runs/generate?orgId=${encodeURIComponent(canvasOrgId)}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          nodeId,
+          model: editModel,
+          prompt,
+          ...(mediaUrl && !isTextNode ? { referenceImageUrls: [mediaUrl] } : {}),
+        }),
+      })
+      const payload = await response.json().catch(() => null) as { data?: { pending?: boolean }; error?: string } | null
+      if (!response.ok) {
+        setEditChatError(payload?.error ?? 'Edit generation failed')
+        return
+      }
+      setEditChatNodeId(null)
+      setActivityMessage(placement === 'replace' ? 'AI edit queued — the result will replace this node' : 'AI edit queued — the result will branch from this node')
+
+      // Poll for the output node, then place the result.
+      const outputNodeId = `${nodeId}-output`
+      let polled: CreativeCanvas | undefined
+      for (let attempt = 0; attempt < 12 && !polled; attempt += 1) {
+        await new Promise((resolve) => { window.setTimeout(resolve, 3000) })
+        try {
+          const pollResponse = await fetch(`/api/v1/creative-canvas/${canvasId}?orgId=${encodeURIComponent(canvasOrgId)}`)
+          const pollPayload = await pollResponse.json().catch(() => null) as CreativeCanvasApiListResponse | null
+          const candidate = pollPayload?.data?.canvas
+          if (candidate?.id && (candidate.nodes ?? []).some((node) => node.id === outputNodeId)) polled = candidate
+        } catch { ignoreCanvasBestEffortFailure() }
+      }
+      if (!polled) {
+        setActivityMessage('AI edit still processing — it will appear on refresh')
+        return
+      }
+      if (placement === 'branch') {
+        applyCanvasSnapshot(polled)
+        setActivityMessage('AI edit complete')
+        return
+      }
+      // Replace: merge the output onto the original node, drop the transient
+      // output node + its edges, and persist through the graph endpoint.
+      const outputNode = (polled.nodes ?? []).find((node) => node.id === outputNodeId)
+      const mergedNodes = (polled.nodes ?? [])
+        .filter((node) => node.id !== outputNodeId)
+        .map((node) => {
+          if (node.id !== nodeId || !outputNode) return node
+          if (isTextNode) {
+            const nextText = outputNode.output?.textPreview ?? outputNode.output?.url ?? ''
+            return { ...node, data: { ...(node.data ?? {}), text: nextText, prompt: nextText } }
+          }
+          if (node.type === 'output') {
+            return { ...node, output: outputNode.output }
+          }
+          return {
+            ...node,
+            source: {
+              ...(node.source ?? { kind: 'upload' as const, referenceRole: 'general' as const }),
+              url: outputNode.output?.url,
+              thumbnailUrl: outputNode.output?.thumbnailUrl,
+            },
+          }
+        })
+      const mergedEdges = (polled.edges ?? []).filter((edge) => edge.sourceNodeId !== outputNodeId && edge.targetNodeId !== outputNodeId)
+      const replaceResponse = await fetch(`/api/v1/creative-canvas/${canvasId}/graph?orgId=${encodeURIComponent(canvasOrgId)}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          expectedActiveVersion: polled.activeVersion,
+          mergeOnConflict: true,
+          reason: 'ai_edit_replace',
+          baseGraph: { nodes: polled.nodes ?? [], edges: polled.edges ?? [] },
+          nodes: mergedNodes,
+          edges: mergedEdges,
+        }),
+      })
+      const replacePayload = await replaceResponse.json().catch(() => null) as CreativeCanvasApiListResponse | null
+      const replacedCanvas = replacePayload?.data?.canvas
+      if (replaceResponse.ok && replacedCanvas?.id) {
+        applyCanvasSnapshot(replacedCanvas)
+        setActivityMessage('AI edit complete — node replaced (previous version kept in history)')
+      } else {
+        // The branch result still exists server-side; fall back to showing it.
+        applyCanvasSnapshot(polled)
+        setActivityMessage(replacePayload?.error ?? 'Could not replace the node — the edit landed as a branch instead')
+      }
+    } catch {
+      setEditChatError('Edit generation failed')
+    } finally {
+      setEditChatBusy(false)
+      setGeneratingNodeIds((prev) => {
+        const next = new Set(prev)
+        next.delete(nodeId)
+        return next
+      })
+      void loadCanvasCredits()
+    }
+  }, [applyCanvasSnapshot, ensurePersistedCanvas, loadCanvasCredits, nodes])
+
+  /**
+   * Publish an output-bearing node into the platform: social drafts become
+   * real Marketing Studio posts; other targets create linked export drafts
+   * for their modules. Requires the canvas to be persisted so the server
+   * sees the node.
+   */
+  const publishNode = useCallback(async (nodeId: string, target: NodePublishTarget, caption: string, platforms: NodePublishPlatform[]) => {
+    const targetNode = nodes.find((node) => node.id === nodeId)
+    const canvasNode = targetNode?.data?.canvasNode as CreativeCanvasNode | undefined
+    if (!canvasNode?.output?.url && !canvasNode?.output?.textPreview) {
+      setPublishError('This node has no output to publish yet')
+      return
+    }
+    setPublishBusy(true)
+    setPublishError('')
+    setPublishSuccess('')
+    try {
+      const persisted = await ensurePersistedCanvas()
+      if (!persisted) {
+        setPublishError('Could not save the canvas before publishing')
+        return
+      }
+      const { canvasId, canvasOrgId } = persisted
+      const endpoint = target === 'social_draft'
+        ? `/api/v1/creative-canvas/${canvasId}/exports/social-draft?orgId=${encodeURIComponent(canvasOrgId)}`
+        : `/api/v1/creative-canvas/${canvasId}/exports/draft?orgId=${encodeURIComponent(canvasOrgId)}`
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(target === 'social_draft'
+          ? { nodeId, platforms, ...(caption ? { caption } : {}) }
+          : { nodeId, target }),
+      })
+      const payload = await response.json().catch(() => null) as { data?: { postId?: string; exportId?: string }; error?: string } | null
+      if (!response.ok) {
+        setPublishError(payload?.error ?? 'Publish failed')
+        return
+      }
+      const createdId = payload?.data?.postId ?? payload?.data?.exportId ?? ''
+      const message = target === 'social_draft'
+        ? `Social draft created in Marketing Studio${createdId ? ` (${createdId})` : ''} — approve + schedule there`
+        : `Export draft created${createdId ? ` (${createdId})` : ''}`
+      setPublishSuccess(message)
+      setActivityMessage(message)
+      recordCanvasActivity({
+        actorLabel: 'You',
+        action: 'Published node',
+        detail: `${canvasNode.title}: ${target}`,
+        nodeId,
+        operation: 'draft_apply',
+        source: 'local',
+      })
+    } catch {
+      setPublishError('Publish failed')
+    } finally {
+      setPublishBusy(false)
+    }
+  }, [ensurePersistedCanvas, nodes, recordCanvasActivity])
+
+  // Re-assigned every render (no dep array) so the handlers always close over
+  // fresh state — duplicate/remove read the current nodes list.
   useEffect(() => {
     nodeActionRefs.current = {
       generate: (nodeId: string) => { void generateInlineForNode(nodeId) },
       updatePrompt: updateNodePrompt,
       updateText: updateNodeText,
       addReference: addReferenceToNode,
+      updateOutputKind: updateNodeOutputKind,
+      remove: deleteNodeById,
+      duplicate: duplicateNodeById,
+      replaceContent: (nodeId: string) => setReferencePicker({ nodeId, mode: 'replace' }),
+      editWithAi: (nodeId: string) => setEditChatNodeId(nodeId),
+      publish: (nodeId: string) => { setPublishNodeId(nodeId); setPublishError(''); setPublishSuccess('') },
     }
-  }, [addReferenceToNode, generateInlineForNode, updateNodePrompt, updateNodeText])
+  })
 
   const markReviewPassed = async () => {
     if (!activeCanvas?.id || !selectedNodeId) return
@@ -4190,42 +3644,6 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
     }
   }
 
-  const queueProofBatchRuns = async () => {
-    if (!activeCanvas?.id) return
-
-    const canvasOrgId = resolvedOrgId || activeCanvas.orgId
-    const query = canvasOrgId ? `?orgId=${encodeURIComponent(canvasOrgId)}` : ''
-    const response = await fetch(`/api/v1/creative-canvas/${activeCanvas.id}/runs/proof-batch${query}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-    })
-    const payload = await response.json().catch(() => null) as CreativeCanvasRunApiResponse | null
-    const queuedRuns = payload?.data?.queuedRuns ?? []
-    if (response.ok) {
-      if (queuedRuns.length) {
-        setRunHistory((currentRuns) => {
-          const queuedMap = new Map(queuedRuns.map((run) => [run.id, run]))
-          return [...queuedRuns, ...currentRuns.filter((run) => !queuedMap.has(run.id))]
-        })
-        setLatestRun({ id: queuedRuns[0].id, status: queuedRuns[0].status, nodeId: queuedRuns[0].nodeId })
-      }
-      if (payload?.data?.operations) setRunOperations(payload.data.operations)
-      await loadRuns(activeCanvas.id, canvasOrgId)
-      await loadRuntimeProof(activeCanvas.id, canvasOrgId)
-      setActivityMessage(queuedRuns.length
-        ? `Queued ${queuedRuns.length} proof run${queuedRuns.length === 1 ? '' : 's'}`
-        : 'Proof batch already covered or active')
-    } else {
-      setActivityMessage(payload?.error ?? 'Proof batch queue failed')
-    }
-  }
-
-  const refreshRuntimeProof = async () => {
-    if (!activeCanvas?.id) return
-    await loadRuntimeProof(activeCanvas.id, resolvedOrgId || activeCanvas.orgId)
-    setActivityMessage('Runtime proof refreshed')
-  }
-
   const selectCanvasAsset = (assetId: string) => {
     const asset = canvasAssets.find((item) => item.id === assetId)
     setSelectedAssetId(assetId)
@@ -4342,7 +3760,6 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
     if (response.ok) {
       setLatestRun((current) => current?.id === targetRun.id ? { ...current, status: 'completed' } : current)
       await loadRuns(activeCanvas.id, resolvedOrgId || activeCanvas.orgId)
-      await loadRuntimeProof(activeCanvas.id, resolvedOrgId || activeCanvas.orgId)
       setActivityMessage(`Run completed: ${targetRun.id}`)
     } else {
       setActivityMessage('Run output ingest failed')
@@ -4433,7 +3850,6 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
     const payload = await response.json().catch(() => null) as { data?: { createdTasks?: Array<{ id: string }> }; error?: string } | null
     if (response.ok) {
       const count = payload?.data?.createdTasks?.length ?? 0
-      if (count > 0) setLatestAgentTaskCreation({ count, createdAt: new Date().toISOString() })
       setActivityMessage(count === 1 ? 'Created 1 agent task' : `Created ${count} agent tasks`)
     } else {
       setActivityMessage(payload?.error ?? 'Agent task creation failed')
@@ -4451,673 +3867,6 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
   const mobilePanelClass = (panel: CreativeCanvasMobilePanel) => (
     `${mobilePanel === panel ? 'block' : 'hidden'} lg:block`
   )
-  const responsiveProofItems = [
-    { label: 'Canvas', value: `${nodes.length} nodes` },
-    { label: 'Sources', value: `${sourceLibrary.length} ready` },
-    { label: 'Inspector', value: selectedCanvasNode ? 'node selected' : 'board ready' },
-    { label: 'Desktop', value: '3-column graph' },
-  ]
-  const visualProofRecords = getCanvasVisualProof(activeCanvas?.data)
-  const currentProofGraphState = {
-    canvasVersion: activeCanvas?.activeVersion,
-    graphSignature: currentGraphSignature,
-    nodeCount: nodes.length,
-    edgeCount: edges.length,
-  }
-  const currentCollaborationProofBinding: CreativeCanvasProofBinding = {
-    orgId: resolvedOrgId || activeCanvas?.orgId || '',
-    canvasVersion: activeCanvas?.activeVersion ?? 0,
-    graphSignature: currentGraphSignature,
-    nodeCount: nodes.length,
-    edgeCount: edges.length,
-  }
-  const visualProofItems: Array<{
-    key: CreativeCanvasVisualProofKey
-    label: string
-    status: 'signed-in' | 'needs sign-in' | 'needed'
-    evidence: string
-    proof?: CreativeCanvasVisualProofRecord
-  }> = visualProofConfigs.map((item) => {
-    const proof = visualProofRecords[item.key]
-    return {
-      ...item,
-      proof,
-      status: hasSignedInViewportProof(proof) && hasCurrentVisualProofState(proof, currentProofGraphState)
-        ? 'signed-in'
-        : proof?.screenshotUrl
-          ? 'needs sign-in'
-          : 'needed',
-    }
-  })
-  const liveProofKeyByVisualProofKey: Record<CreativeCanvasVisualProofKey, CreativeCanvasLiveProofArtifact['key']> = {
-    desktop_1440: 'desktop',
-    tablet_820: 'tablet',
-    mobile_390: 'mobile',
-    mobile_panels: 'mobile_panels',
-  }
-  const certificationLiveProofArtifacts: CreativeCanvasLiveProofArtifact[] = visualProofItems.flatMap((item) => {
-    const proof = item.proof
-    if (!proof || item.status !== 'signed-in' || !proof.screenshotUrl || !proof.screenshotStatus || !proof.screenshotContentType || !proof.capturedAt) {
-      return []
-    }
-    return [{
-      ...currentCollaborationProofBinding,
-      key: liveProofKeyByVisualProofKey[item.key],
-      url: proof.screenshotUrl,
-      status: proof.screenshotStatus,
-      contentType: proof.screenshotContentType,
-      capturedAt: proof.capturedAt,
-      evidence: proof.sessionEvidence || proof.notes || item.evidence,
-    }]
-  })
-  const parityAuditNodes = nodes.map((node) => toCanvasNode(node, resolvedOrgId || activeCanvas?.orgId || 'pending-org'))
-  const coreWorkflowPresets = workflowPresets.filter((preset) => !preset.benchmarkScenario)
-  const benchmarkWorkflowPresets = workflowPresets.filter((preset) => preset.benchmarkScenario)
-  const hasEditAffordanceEvidence = parityAuditNodes.some((node) => node.type === 'edit' || Boolean(node.edit))
-  const editingSessionEvidence = collectEditingSessionEvidence({
-    activity: collaborationActivity,
-    nodes: parityAuditNodes,
-    edges: edges.map((edge) => toCanvasEdge(edge, resolvedOrgId || activeCanvas?.orgId || 'pending-org')),
-  })
-  const hasEditingEvidence = hasEditAffordanceEvidence
-    && editingSessionEvidence.editingLocalEventCount > 0
-    && editingSessionEvidence.editingNodeDropCount > 0
-    && editingSessionEvidence.editingNodeMoveCount > 0
-    && editingSessionEvidence.editingConnectionCount > 0
-    && editingSessionEvidence.editingConfiguredGenerationCount > 0
-  const maskingEditNodes = parityAuditNodes.filter((node) => node.type === 'edit' || Boolean(node.edit))
-  const maskingPromptCount = maskingEditNodes.filter((node) => Boolean(node.edit?.prompt?.trim())).length
-  const maskingIntentCount = maskingEditNodes.filter((node) => Boolean(node.edit?.intent)).length
-  const maskingRegionCount = maskingEditNodes.filter((node) => Boolean(node.edit?.mask?.region || node.edit?.mask?.url || node.edit?.mask?.sourceNodeId)).length
-  const maskingBrushStrokeCount = maskingEditNodes.reduce((total, node) => total + (node.edit?.mask?.brush?.strokes?.length ?? 0), 0)
-  const maskingBlendControlCount = maskingEditNodes.reduce((total, node) => {
-    const controls = node.edit?.blendControls
-    return total + (controls ? blendControlOptions.filter((option) => controls[option.key] === true).length : 0)
-  }, 0)
-  const hasPartialMaskEvidence = maskingEditNodes.length > 0
-    || maskingPromptCount > 0
-    || maskingIntentCount > 0
-    || maskingRegionCount > 0
-    || maskingBrushStrokeCount > 0
-    || maskingBlendControlCount > 0
-  const hasMaskEvidence = maskingEditNodes.length > 0
-    && maskingPromptCount > 0
-    && maskingIntentCount > 0
-    && maskingRegionCount > 0
-    && maskingBrushStrokeCount > 0
-    && maskingBlendControlCount >= 3
-  const hasGenerationEvidence = parityAuditNodes.some((node) => node.provider?.key === 'higgsfield' || node.type === 'model')
-    && Boolean(runModel && runOutputKind && runAspectRatio && runVariantCount)
-  const generationReferenceEvidence = collectGenerationReferenceEvidence({
-    nodes: parityAuditNodes,
-    edges: edges.map((edge) => toCanvasEdge(edge, resolvedOrgId || activeCanvas?.orgId || 'pending-org')),
-  })
-  const hasGenerationMultiReferenceEvidence = generationReferenceEvidence.generationModelCount > 0
-    && generationReferenceEvidence.generationReferenceNodeCount >= 3
-    && generationReferenceEvidence.generationReferenceRoleCount >= 3
-    && generationReferenceEvidence.generationLinkedReferenceCount >= 3
-  const routedModelIds = new Set(parityAuditNodes
-    .map((node) => node.provider?.model)
-    .filter((model): model is string => Boolean(model)))
-  const availableHiggsfieldModelLabels = new Set(higgsfieldModelSuggestions.map((model) => model.label))
-  const matchedBenchmarkModelLabels = requiredHiggsfieldModelLabels.filter((label) => availableHiggsfieldModelLabels.has(label))
-  const missingBenchmarkModelLabels = requiredHiggsfieldModelLabels.filter((label) => !availableHiggsfieldModelLabels.has(label))
-  const supportsBenchmarkModelCatalog = missingBenchmarkModelLabels.length === 0
-  const hasMultiModelRoutingEvidence = routedModelIds.size > 1
-  const multiAssetWorkflowEvidence = collectMultiAssetWorkflowEvidence({
-    nodes: parityAuditNodes,
-    edges: edges.map((edge) => toCanvasEdge(edge, resolvedOrgId || activeCanvas?.orgId || 'pending-org')),
-  })
-  const hasMultiAssetWorkflowEvidence = multiAssetWorkflowEvidence.multiAssetSourceNodeCount >= 3
-    && multiAssetWorkflowEvidence.multiAssetSourceKindCount >= 2
-    && multiAssetWorkflowEvidence.multiAssetReferenceRoleCount >= 3
-    && multiAssetWorkflowEvidence.multiAssetConnectedSourceCount >= 3
-    && multiAssetWorkflowEvidence.multiAssetOutputNodeCount > 0
-    && multiAssetWorkflowEvidence.multiAssetWorkflowScenarioCount > 0
-    && multiAssetWorkflowEvidence.multiAssetLineageEdgeCount >= 3
-  const availableBenchmarkScenarioCount = new Set(workflowPresets
-    .map((preset) => preset.benchmarkScenario)
-    .filter((scenario): scenario is string => Boolean(scenario))).size
-  const graphBenchmarkScenarios = new Set(parityAuditNodes
-    .map((node) => node.data?.benchmarkScenario)
-    .filter((scenario): scenario is string => typeof scenario === 'string'))
-  const graphBenchmarkScenarioCount = graphBenchmarkScenarios.size
-  const missingBenchmarkWorkflowCount = benchmarkWorkflowPresets.filter((preset) => (
-    preset.benchmarkScenario && !graphBenchmarkScenarios.has(preset.benchmarkScenario)
-  )).length
-  const hasBenchmarkWorkflowCoverage = availableBenchmarkScenarioCount >= higgsfieldBenchmarkScenarios.length
-  const hasVersionEvidence = versions.length > 0 && autoSaveEnabled
-  const remotePresence = presence.filter((item) => item.id !== ownPresenceId)
-  const remoteActivityCount = collaborationActivity.filter((event) => event.source === 'stream' || event.source === 'draft').length
-  const hasRemoteMutationPresenceEvidence = remotePresence.some((item) => Boolean(item.latestMutation))
-  const hasCollaborationEvidence = remotePresence.length > 0 || Boolean(conflictDraft || latestCollaboratorDraft)
-  const hasRemoteLiveEditEvidence = remoteActivityCount > 0 || hasRemoteMutationPresenceEvidence || Boolean(latestCollaboratorDraft) || remotePresence.some((item) => item.hasUnsavedGraphChanges)
-  const hasTemplateEvidence = templates.length > 0
-  const hasAgentOrchestrationEvidence = orchestrationPlan.steps.length > 0
-    && orchestrationPlan.agents.length > 0
-    && orchestrationPlan.blockers.length === 0
-    && Boolean(activeCanvas?.linked?.projectId)
-  const hasAgentTaskCreationEvidence = hasAgentOrchestrationEvidence && Boolean(latestAgentTaskCreation?.count)
-  const exportPackageOutputKinds = new Set(latestExportPackage?.manifest?.requiredOutputKinds ?? [])
-  const exportPackageTargets = new Set(latestExportPackage?.targets ?? [])
-  const explicitExportCategories = new Set(latestExportPackage?.manifest?.coveredCategories ?? [])
-  const passedExportProofCategories = exportProofCategories.filter((category) => (
-    explicitExportCategories.has(category.key)
-    || (
-      category.outputKinds.some((kind) => exportPackageOutputKinds.has(kind))
-      && category.targets.some((target) => exportPackageTargets.has(target))
-    )
-  ))
-  const draftExportableAssetCount = canvasAssets.filter((asset) => asset.canDraftExport).length
-  const capturedVisualProofCount = visualProofItems.filter((item) => item.status === 'signed-in').length
-  const reliabilityCoverage = runtimeProof?.reliabilityCoverage ?? []
-  const reliabilityCoveragePassed = reliabilityCoverage.length > 0 && reliabilityCoverage.every((category) => category.status === 'passed')
-  const reliabilityPassed = reliabilityCoveragePassed && runtimeProof?.status === 'passed' && runtimeProof.readyForLiveProof
-  const reliabilityObserved = reliabilityCoverage.length > 0 || Boolean(runOperations?.total)
-  const exportArtifactBackedCoverage = reliabilityCoverage.filter((category) => (
-    requiredRuntimeProofCategoryKeys.has(category.key)
-    && category.status === 'passed'
-    && category.completed >= (category.requiredCompleted ?? 2)
-  ))
-  const exportArtifactBackedCompletedCount = exportArtifactBackedCoverage.reduce((total, category) => total + category.completed, 0)
-  const hasExportArtifactBackedCoverage = exportArtifactBackedCoverage.length >= exportProofCategories.length
-  const hasExportPackageProof = Boolean(latestExportPackage)
-    && (latestExportPackage?.assetCount ?? 0) >= exportProofCategories.length
-    && (latestExportPackage?.manifest?.sourceNodeCount ?? 0) > 0
-    && (latestExportPackage?.manifest?.lineageCount ?? 0) >= (latestExportPackage?.assetCount ?? 0)
-    && (latestExportPackage?.manifest?.downstreamDraftCount ?? 0) >= (latestExportPackage?.assetCount ?? 0)
-    && passedExportProofCategories.length >= exportProofCategories.length
-    && hasExportArtifactBackedCoverage
-  const versioningEvidence = collectVersioningEvidence({ versions, comments, templates, autoSaveEnabled })
-  const hasVersioningPolishEvidence = versioningEvidence.versionSnapshotCount > 0
-    && versioningEvidence.versionRestorableSnapshotCount > 0
-    && versioningEvidence.versionNodeCommentCount > 0
-    && versioningEvidence.versionReusableTemplateCount > 0
-    && versioningEvidence.versionAutoSaveEnabled
-  const benchmarkProofRecords = getCanvasBenchmarkProof(activeCanvas?.data)
-  const benchmarkSignals: Record<CreativeCanvasBenchmarkProofKey, boolean> = {
-    editing_ergonomics: hasEditingEvidence,
-    masking_inpainting: hasMaskEvidence,
-    generation_controls: hasGenerationEvidence && hasMultiModelRoutingEvidence && hasGenerationMultiReferenceEvidence,
-    multi_asset_workflows: hasMultiAssetWorkflowEvidence,
-    versioning_polish: hasVersioningPolishEvidence,
-    collaboration: hasCollaborationEvidence && hasRemoteLiveEditEvidence,
-    agent_orchestration: hasAgentTaskCreationEvidence,
-    mobile_behavior: capturedVisualProofCount >= visualProofItems.length,
-    export_flows: hasExportPackageProof,
-    production_reliability: reliabilityPassed,
-  }
-  const benchmarkProofItems = benchmarkProofConfigs.map((item) => {
-    const proof = benchmarkProofRecords[item.key]
-    const proofCaptured = hasSourceBackedBenchmarkProof(proof, item.sourceSignals)
-      && hasCurrentCanvasBenchmarkState(proof, currentProofGraphState)
-      && (item.key !== 'editing_ergonomics' || hasEditingSessionProof(proof))
-      && (item.key !== 'masking_inpainting' || hasMaskingSessionProof(proof))
-      && (item.key !== 'generation_controls' || hasGenerationReferenceProof(proof))
-      && (item.key !== 'multi_asset_workflows' || hasMultiAssetWorkflowProof(proof))
-      && (item.key !== 'versioning_polish' || hasVersioningPolishProof(proof))
-      && (item.key !== 'collaboration' || hasCollaborationSessionProof(proof, currentCollaborationProofBinding))
-      && (item.key !== 'agent_orchestration' || hasAgentOrchestrationProof(proof))
-      && (item.key !== 'mobile_behavior' || hasMobileViewportBenchmarkProof(proof, currentCollaborationProofBinding))
-      && (item.key !== 'export_flows' || hasExportArtifactBackedProof(proof, currentCollaborationProofBinding))
-      && (item.key !== 'production_reliability' || hasProductionRuntimeProof(proof, currentCollaborationProofBinding))
-    return {
-      ...item,
-      proof,
-      signalReady: benchmarkSignals[item.key],
-      status: proofCaptured ? 'passed' : benchmarkSignals[item.key] ? 'proof needed' : 'gap',
-    }
-  })
-  const benchmarkPassedCount = benchmarkProofItems.filter((item) => item.status === 'passed').length
-  const readyBenchmarkProofItems = benchmarkProofItems.filter((item) => item.signalReady && item.status !== 'passed')
-  const proofItemByKey = benchmarkProofItems.reduce((acc, item) => {
-    acc[item.key] = item
-    return acc
-  }, {} as Partial<Record<CreativeCanvasBenchmarkProofKey, (typeof benchmarkProofItems)[number]>>)
-  const captureReadyBenchmarkProofs = async () => {
-    if (!activeCanvas?.id) return
-    if (!readyBenchmarkProofItems.length) {
-      setActivityMessage('No ready benchmark proofs to capture')
-      return
-    }
-    const canvasOrgId = resolvedOrgId || activeCanvas.orgId
-    const proofUrl = benchmarkProofUrl(activeCanvas, canvasOrgId)
-    const capturedAt = new Date().toISOString()
-    const currentBenchmarkBinding = currentCollaborationProofBinding
-    setSavingBenchmarkProofKey(readyBenchmarkProofItems[0].key)
-    const sourceEvidenceByUrl = new Map<string, Pick<CreativeCanvasBenchmarkProofRecord, 'sourceEvidenceCheckedAt' | 'sourceEvidenceReachable' | 'sourceEvidenceStatus' | 'sourceEvidenceContentType' | 'sourceSignalsVerifiedAt' | 'sourceSignalsMatched' | 'sourceSignalsMissing'>>()
-    try {
-      const sourceProofs = await Promise.all(readyBenchmarkProofItems.map(async (item) => {
-        const response = await fetch('/api/v1/creative-canvas/proof-url', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ url: item.sourceUrl, kind: 'evidence', expectedSignals: item.sourceSignals }),
-        })
-        const payload = await response.json().catch(() => null) as CreativeCanvasProofUrlResponse | null
-        return { item, response, payload, proof: payload?.data?.proof }
-      }))
-      const failedSource = sourceProofs.find((item) => !item.response.ok || !item.proof?.reachable)
-      if (failedSource) {
-        const status = typeof failedSource.proof?.status === 'number' ? ` (${failedSource.proof.status})` : ''
-        const contentType = failedSource.proof?.contentType ? ` · ${failedSource.proof.contentType}` : ''
-        setActivityMessage(`${failedSource.payload?.error ?? 'Benchmark source URL is not reachable'}${status}${contentType}`)
-        setSavingBenchmarkProofKey('')
-        return
-      }
-      const failedSignals = sourceProofs.find((item) => item.proof?.signalMatched === false)
-      if (failedSignals) {
-        const missing = failedSignals.proof?.missingSignals?.length ? `: ${failedSignals.proof.missingSignals.join(', ')}` : ''
-        setActivityMessage(`${failedSignals.item.label} source signals were not found${missing}`)
-        setSavingBenchmarkProofKey('')
-        return
-      }
-      sourceProofs.forEach((item) => {
-        if (!item.proof) return
-        sourceEvidenceByUrl.set(item.item.key, {
-          sourceEvidenceCheckedAt: item.proof.checkedAt,
-          sourceEvidenceReachable: true,
-          sourceEvidenceStatus: item.proof.status,
-          sourceEvidenceContentType: item.proof.contentType,
-          sourceSignalsVerifiedAt: item.proof.signalCheckedAt,
-          sourceSignalsMatched: true,
-          sourceSignalsMissing: item.proof.missingSignals ?? [],
-        })
-      })
-    } catch {
-      setActivityMessage('Benchmark source URL check failed')
-      setSavingBenchmarkProofKey('')
-      return
-    }
-    const nextBenchmarkProof = readyBenchmarkProofItems.reduce((acc, item) => {
-      const editingSessionProof = item.key === 'editing_ergonomics'
-        ? buildEditingSessionProofFields({ activity: collaborationActivity, nodes: parityAuditNodes, edges: edges.map((edge) => toCanvasEdge(edge, canvasOrgId)), capturedAt })
-        : {}
-      const maskingSessionProof = item.key === 'masking_inpainting'
-        ? buildMaskingSessionProofFields({ nodes: parityAuditNodes, capturedAt })
-        : {}
-      const generationReferenceProof = item.key === 'generation_controls'
-        ? buildGenerationReferenceProofFields({ nodes: parityAuditNodes, edges: edges.map((edge) => toCanvasEdge(edge, canvasOrgId)), capturedAt })
-        : {}
-      const versioningPolishProof = item.key === 'versioning_polish'
-        ? buildVersioningPolishProofFields({ versions, comments, templates, autoSaveEnabled, capturedAt })
-        : {}
-      const multiAssetWorkflowProof = item.key === 'multi_asset_workflows'
-        ? buildMultiAssetWorkflowProofFields({ nodes: parityAuditNodes, edges: edges.map((edge) => toCanvasEdge(edge, canvasOrgId)), capturedAt })
-        : {}
-      const collaborationSessionProof = item.key === 'collaboration'
-        ? buildWorkspaceCollaborationProof({
-            remotePresence,
-            activity: collaborationActivity,
-            latestAppliedDraft: latestAppliedDraftProofRef.current,
-            currentGraphSignature,
-            streamConnected: collaborationStreamConnected,
-            capturedAt,
-            binding: {
-              orgId: canvasOrgId,
-              canvasVersion: activeCanvas.activeVersion,
-              graphSignature: currentGraphSignature,
-              nodeCount: nodes.length,
-              edgeCount: edges.length,
-            },
-          })
-        : {}
-      const agentOrchestrationProof = item.key === 'agent_orchestration'
-        ? {
-            agentStepCount: orchestrationPlan.steps.length,
-            agentActorCount: orchestrationPlan.agents.length,
-            agentTaskCreatedCount: latestAgentTaskCreation?.count ?? 0,
-            agentTaskCreatedAt: latestAgentTaskCreation?.createdAt ?? capturedAt,
-            agentEvidence: `${orchestrationPlan.steps.length} graph-derived handoff step${orchestrationPlan.steps.length === 1 ? '' : 's'} across ${orchestrationPlan.agents.length} agent${orchestrationPlan.agents.length === 1 ? '' : 's'}; ${latestAgentTaskCreation?.count ?? 0} project-linked agent task${latestAgentTaskCreation?.count === 1 ? '' : 's'} created; ${orchestrationPlan.blockers.length} blocker${orchestrationPlan.blockers.length === 1 ? '' : 's'}`,
-          }
-        : {}
-      const mobileViewportProof = item.key === 'mobile_behavior'
-        ? buildMobileViewportBehaviorProof({
-            orgId: canvasOrgId,
-            canvasVersion: activeCanvas.activeVersion,
-            graphSignature: currentGraphSignature,
-            nodeCount: nodes.length,
-            edgeCount: edges.length,
-            capturedAt,
-            viewports: buildMobileViewportInputs(visualProofItems),
-          })
-        : {}
-      const exportArtifactProof = item.key === 'export_flows'
-        ? {
-            exportArtifactBackedCategoryCount: exportArtifactBackedCoverage.length,
-            exportArtifactBackedCompletedCount: exportArtifactBackedCompletedCount,
-            exportArtifactBackedCapturedAt: capturedAt,
-            runtimeCategoryEvidence: rebindCategoryEvidence(runtimeProof?.runtimeCategoryEvidence, currentBenchmarkBinding),
-            exportCategoryEvidence: rebindCategoryEvidence(runtimeProof?.exportCategoryEvidence, currentBenchmarkBinding),
-            exportArtifactEvidence: `${exportArtifactBackedCoverage.length}/${exportProofCategories.length} artifact-backed export categories; ${exportArtifactBackedCompletedCount} completed runtime artifacts`,
-          }
-        : {}
-      const productionRuntimeProof = item.key === 'production_reliability'
-        ? buildProductionRuntimeProofFields({ runtimeProof, runOperations, capturedAt, currentBinding: currentBenchmarkBinding })
-        : {}
-      acc[item.key] = {
-        ...acc[item.key],
-        proofUrl: acc[item.key]?.proofUrl || proofUrl,
-        notes: acc[item.key]?.notes || `${item.label} captured from live Creative Canvas signals against ${item.sourceTitle}. ${item.benchmark}`,
-        capturedAt,
-        capturedBy: 'Pip',
-        sourceTitle: item.sourceTitle,
-        sourceUrl: item.sourceUrl,
-        sourceCheckedAt: capturedAt,
-        ...sourceEvidenceByUrl.get(item.key),
-        sourceSignals: item.sourceSignals,
-        higgsfieldUiEvidenceUrl: item.sourceUrl,
-        canvasEvidenceUrl: acc[item.key]?.proofUrl || proofUrl,
-        canvasEvidenceCheckedAt: capturedAt,
-        canvasEvidenceReachable: true,
-        canvasEvidenceStatus: 200,
-        canvasEvidenceContentType: 'text/html',
-        directComparisonAt: capturedAt,
-        directComparisonVerdict: 'pass',
-        directComparisonNotes: `${item.label} directly compared against the current Higgsfield UI source signals and live Creative Canvas evidence.`,
-        orgId: canvasOrgId,
-        canvasVersion: activeCanvas.activeVersion,
-        graphSignature: currentGraphSignature,
-        nodeCount: nodes.length,
-        edgeCount: edges.length,
-        ...editingSessionProof,
-        ...maskingSessionProof,
-        ...generationReferenceProof,
-        ...versioningPolishProof,
-        ...multiAssetWorkflowProof,
-        ...collaborationSessionProof,
-        ...agentOrchestrationProof,
-        ...mobileViewportProof,
-        ...exportArtifactProof,
-        ...productionRuntimeProof,
-      }
-      return acc
-    }, { ...benchmarkProofRecords } as Partial<Record<CreativeCanvasBenchmarkProofKey, CreativeCanvasBenchmarkProofRecord>>)
-
-    try {
-      const response = await fetch(`/api/v1/creative-canvas/${activeCanvas.id}?orgId=${encodeURIComponent(canvasOrgId)}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          data: {
-            ...objectRecord(activeCanvas.data),
-            benchmarkProof: nextBenchmarkProof,
-          },
-        }),
-      })
-      const payload = await response.json().catch(() => null) as CreativeCanvasApiListResponse | null
-      const updatedCanvas = payload?.data?.canvas
-      if (!response.ok || !updatedCanvas?.id) {
-        setActivityMessage(payload?.error ?? 'Ready benchmark proof capture failed')
-        return
-      }
-      applyCanvasSnapshot(updatedCanvas)
-      setActivityMessage(`Captured ${readyBenchmarkProofItems.length} ready benchmark proof${readyBenchmarkProofItems.length === 1 ? '' : 's'}`)
-    } catch {
-      setActivityMessage('Ready benchmark proof capture failed')
-    } finally {
-      setSavingBenchmarkProofKey('')
-    }
-  }
-  const parityAuditItems: Array<{
-    label: string
-    status: 'passed' | 'watch' | 'blocked'
-    evidence: string
-  }> = [
-    {
-      label: 'Editing ergonomics',
-      status: hasEditingEvidence ? 'passed' : 'watch',
-      evidence: hasEditingEvidence
-        ? `${editingSessionEvidence.editingNodeDropCount} drop · ${editingSessionEvidence.editingNodeMoveCount} drag · ${editingSessionEvidence.editingConnectionCount} live links · ${editingSessionEvidence.editingConfiguredGenerationCount} generation routes`
-        : hasEditAffordanceEvidence
-          ? `${editingSessionEvidence.editingNodeDropCount} drop · ${editingSessionEvidence.editingNodeMoveCount} drag · ${editingSessionEvidence.editingConnectionCount} live links · ${editingSessionEvidence.editingConfiguredGenerationCount} generation routes`
-          : 'Needs an edit node in this graph',
-    },
-    {
-      label: 'Masking / inpainting',
-      status: hasMaskEvidence ? 'passed' : hasPartialMaskEvidence || hasEditingEvidence ? 'watch' : 'blocked',
-      evidence: hasMaskEvidence
-        ? `${maskingEditNodes.length} edit node${maskingEditNodes.length === 1 ? '' : 's'} · ${maskingBrushStrokeCount} brush stroke${maskingBrushStrokeCount === 1 ? '' : 's'} · ${maskingBlendControlCount}/3+ blend controls`
-        : hasPartialMaskEvidence
-          ? `${maskingPromptCount} prompt · ${maskingRegionCount} mask/source · ${maskingBrushStrokeCount} brush · ${maskingBlendControlCount}/3+ blend controls`
-          : 'No mask evidence on this graph yet',
-    },
-    {
-      label: 'Generation controls',
-      status: hasGenerationEvidence && hasGenerationMultiReferenceEvidence ? 'passed' : hasGenerationEvidence ? 'watch' : 'watch',
-      evidence: hasGenerationEvidence
-        ? `${runModel} · ${runOutputKind} · ${runAspectRatio} · ${generationReferenceEvidence.generationLinkedReferenceCount}/3 linked refs · ${generationReferenceEvidence.generationReferenceRoleCount}/3 roles`
-        : 'Model, output, format, and three linked reference controls need selection',
-    },
-    {
-      label: 'Multi-model routing',
-      status: hasMultiModelRoutingEvidence ? 'passed' : supportsBenchmarkModelCatalog ? 'watch' : 'blocked',
-      evidence: hasMultiModelRoutingEvidence
-        ? `${routedModelIds.size} models routed in graph`
-        : supportsBenchmarkModelCatalog
-          ? `${matchedBenchmarkModelLabels.length}/${requiredHiggsfieldModelLabels.length} current Higgsfield model presets ready`
-          : `Missing current Higgsfield model presets: ${missingBenchmarkModelLabels.join(', ')}`,
-    },
-    {
-      label: 'Multi-asset workflows',
-      status: hasMultiAssetWorkflowEvidence ? 'passed' : multiAssetWorkflowEvidence.multiAssetSourceNodeCount || multiAssetWorkflowEvidence.multiAssetOutputNodeCount ? 'watch' : 'blocked',
-      evidence: hasMultiAssetWorkflowEvidence
-        ? `${multiAssetWorkflowEvidence.multiAssetConnectedSourceCount}/3 connected sources · ${multiAssetWorkflowEvidence.multiAssetReferenceRoleCount}/3 roles · ${multiAssetWorkflowEvidence.multiAssetSourceKindCount}/2 source kinds · ${multiAssetWorkflowEvidence.multiAssetOutputNodeCount} outputs`
-        : `${multiAssetWorkflowEvidence.multiAssetConnectedSourceCount}/3 connected sources · ${multiAssetWorkflowEvidence.multiAssetReferenceRoleCount}/3 roles · ${multiAssetWorkflowEvidence.multiAssetSourceKindCount}/2 source kinds · ${multiAssetWorkflowEvidence.multiAssetOutputNodeCount} outputs`,
-    },
-    {
-      label: 'Benchmark workflows',
-      status: graphBenchmarkScenarioCount >= higgsfieldBenchmarkScenarios.length ? 'passed' : hasBenchmarkWorkflowCoverage ? 'watch' : 'blocked',
-      evidence: graphBenchmarkScenarioCount
-        ? `${graphBenchmarkScenarioCount}/${higgsfieldBenchmarkScenarios.length} scenarios in graph`
-        : `${availableBenchmarkScenarioCount}/${higgsfieldBenchmarkScenarios.length} workflow scenarios ready`,
-    },
-    {
-      label: 'Versioning polish',
-      status: hasVersioningPolishEvidence ? 'passed' : hasVersionEvidence || templates.length || comments.length ? 'watch' : 'blocked',
-      evidence: hasVersioningPolishEvidence
-        ? `${versioningEvidence.versionRestorableSnapshotCount}/${versioningEvidence.versionSnapshotCount} restorable versions · ${versioningEvidence.versionNodeCommentCount} node comments · ${versioningEvidence.versionReusableTemplateCount} templates`
-        : `${versioningEvidence.versionSnapshotCount} saved · ${versioningEvidence.versionNodeCommentCount} node comments · ${versioningEvidence.versionReusableTemplateCount} templates · auto-save ${versioningEvidence.versionAutoSaveEnabled ? 'on' : 'off'}`,
-    },
-    {
-      label: 'Collaboration',
-      status: hasCollaborationEvidence ? 'passed' : 'watch',
-      evidence: collaborationStreamConnected
-        ? `${remotePresence.length} remote collaborator${remotePresence.length === 1 ? '' : 's'} on live stream`
-        : `${remotePresence.length} remote collaborator${remotePresence.length === 1 ? '' : 's'} / ${conflictDraft ? 'conflict draft preserved' : 'conflict-ready'}`,
-    },
-    {
-      label: 'Live edit activity',
-      status: hasRemoteLiveEditEvidence ? 'passed' : hasCollaborationEvidence ? 'watch' : 'blocked',
-      evidence: hasRemoteLiveEditEvidence
-        ? `${remoteActivityCount || remotePresence.length} remote graph event${(remoteActivityCount || remotePresence.length) === 1 ? '' : 's'}`
-        : collaborationActivity.length
-          ? `${collaborationActivity.length} local graph event${collaborationActivity.length === 1 ? '' : 's'}`
-          : 'No recent remote graph mutation evidence',
-    },
-    {
-      label: 'AI agent integration',
-      status: hasAgentTaskCreationEvidence ? 'passed' : hasAgentOrchestrationEvidence ? 'watch' : 'blocked',
-      evidence: hasAgentTaskCreationEvidence
-        ? `${latestAgentTaskCreation?.count ?? 0} project-linked agent task${latestAgentTaskCreation?.count === 1 ? '' : 's'} created`
-        : hasAgentOrchestrationEvidence
-          ? `${orchestrationPlan.steps.length} handoff step${orchestrationPlan.steps.length === 1 ? '' : 's'} ready for ${orchestrationPlan.agents.length} agent${orchestrationPlan.agents.length === 1 ? '' : 's'}`
-          : `${orchestrationPlan.steps.length} handoff step${orchestrationPlan.steps.length === 1 ? '' : 's'} · ${orchestrationPlan.blockers.length} blocker${orchestrationPlan.blockers.length === 1 ? '' : 's'}`,
-    },
-    {
-      label: 'Templates',
-      status: hasTemplateEvidence ? 'passed' : 'watch',
-      evidence: hasTemplateEvidence ? `${templates.length} reusable workflow template${templates.length === 1 ? '' : 's'}` : 'No reusable template loaded',
-    },
-    {
-      label: 'Mobile behavior',
-      status: capturedVisualProofCount >= visualProofItems.length ? 'passed' : responsiveProofItems.length >= 4 ? 'watch' : 'blocked',
-      evidence: capturedVisualProofCount
-        ? `${capturedVisualProofCount}/${visualProofItems.length} signed-in visual proofs captured`
-        : 'Signed-in desktop/tablet/mobile screenshots still required',
-    },
-    {
-      label: 'Export flows',
-      status: hasExportPackageProof ? 'passed' : latestExportPackage || draftExportableAssetCount ? 'watch' : 'blocked',
-      evidence: latestExportPackage
-        ? `${passedExportProofCategories.length}/${exportProofCategories.length} export categories packaged · ${exportArtifactBackedCoverage.length}/${exportProofCategories.length} artifact-backed categories · ${latestExportPackage.assetCount} asset${latestExportPackage.assetCount === 1 ? '' : 's'}`
-        : `${draftExportableAssetCount} draft-exportable assets`,
-    },
-    {
-      label: 'Production reliability',
-      status: reliabilityPassed ? 'passed' : reliabilityObserved ? 'watch' : 'blocked',
-      evidence: reliabilityCoverage.length
-        ? `${reliabilityCoverage.filter((category) => category.status === 'passed').length}/${reliabilityCoverage.length} proof categories passed · ${runtimeProof?.status ?? 'missing'} runtime proof`
-        : `${runOperations?.completed ?? 0} completed provider runs`,
-    },
-  ]
-  const parityPassedCount = parityAuditItems.filter((item) => item.status === 'passed').length
-  const signedInViewportBenchmarkComplete = proofItemByKey.mobile_behavior?.status === 'passed'
-  const liveProofRunbookItems: Array<{
-    label: string
-    status: 'complete' | 'action' | 'blocked'
-    evidence: string
-    nextAction: string
-  }> = [
-    {
-      label: 'Signed-in viewport proof',
-      status: signedInViewportBenchmarkComplete ? 'complete' : 'action',
-      evidence: signedInViewportBenchmarkComplete
-        ? `Mobile behavior benchmark proof is source-backed with ${capturedVisualProofCount}/${visualProofItems.length} signed-in viewport proofs`
-        : `${capturedVisualProofCount}/${visualProofItems.length} signed-in viewport proofs stored`,
-      nextAction: signedInViewportBenchmarkComplete
-        ? 'Mobile behavior benchmark proof is source-backed and stored for desktop, tablet, mobile, and mobile panels.'
-        : capturedVisualProofCount >= visualProofItems.length
-          ? 'Save source-backed Mobile behavior benchmark proof from the signed-in viewport matrix.'
-          : 'Capture signed-in Desktop 1440, Tablet 820, Mobile 390, and Mobile panels screenshots.',
-    },
-    {
-      label: 'Local editing proof',
-      status: proofItemByKey.editing_ergonomics?.status === 'passed' ? 'complete' : hasEditingEvidence ? 'action' : 'blocked',
-      evidence: hasEditingEvidence
-        ? `${editingSessionEvidence.editingNodeDropCount} drop · ${editingSessionEvidence.editingNodeMoveCount} drag · ${editingSessionEvidence.editingConnectionCount} live links · ${editingSessionEvidence.editingConfiguredGenerationCount} generation routes`
-        : hasEditAffordanceEvidence
-          ? `${editingSessionEvidence.editingNodeDropCount} drop · ${editingSessionEvidence.editingNodeMoveCount} drag · ${editingSessionEvidence.editingConnectionCount} live links · ${editingSessionEvidence.editingConfiguredGenerationCount} generation routes`
-          : 'No edit node evidence loaded',
-      nextAction: proofItemByKey.editing_ergonomics?.status === 'passed'
-        ? 'Editing benchmark proof is source-backed and stored.'
-        : hasEditingEvidence
-          ? 'Save source-backed Editing ergonomics benchmark proof with live operation evidence.'
-          : 'Perform a real graph edit on an edit node before saving benchmark proof.',
-    },
-    {
-      label: 'Two-user collaboration proof',
-      status: proofItemByKey.collaboration?.status === 'passed' ? 'complete' : hasRemoteLiveEditEvidence ? 'action' : 'blocked',
-      evidence: hasRemoteLiveEditEvidence
-        ? `${remoteActivityCount || remotePresence.length} remote graph event${(remoteActivityCount || remotePresence.length) === 1 ? '' : 's'} observed`
-        : `${remotePresence.length} remote collaborator${remotePresence.length === 1 ? '' : 's'} currently visible`,
-      nextAction: proofItemByKey.collaboration?.status === 'passed'
-        ? 'Collaboration benchmark proof is source-backed and stored.'
-        : hasRemoteLiveEditEvidence
-          ? 'Capture source-backed Collaboration benchmark proof from the live two-user session.'
-          : 'Open the canvas as a second user or agent, mutate the graph remotely, then capture proof.',
-    },
-    {
-      label: 'AI agent task proof',
-      status: proofItemByKey.agent_orchestration?.status === 'passed' ? 'complete' : hasAgentTaskCreationEvidence ? 'action' : 'blocked',
-      evidence: hasAgentTaskCreationEvidence
-        ? `${latestAgentTaskCreation?.count ?? 0} project-linked agent task${latestAgentTaskCreation?.count === 1 ? '' : 's'} created from ${orchestrationPlan.steps.length} handoff step${orchestrationPlan.steps.length === 1 ? '' : 's'}`
-        : `${orchestrationPlan.steps.length} handoff step${orchestrationPlan.steps.length === 1 ? '' : 's'} · ${orchestrationPlan.agents.length} agent${orchestrationPlan.agents.length === 1 ? '' : 's'} · ${orchestrationPlan.blockers.length} blocker${orchestrationPlan.blockers.length === 1 ? '' : 's'}`,
-      nextAction: proofItemByKey.agent_orchestration?.status === 'passed'
-        ? 'AI agent integration benchmark proof is source-backed and stored.'
-        : hasAgentTaskCreationEvidence
-          ? 'Save source-backed AI agent integration benchmark proof from the created project tasks.'
-          : 'Create project-linked agent tasks from the canvas orchestration chain before saving benchmark proof.',
-    },
-    {
-      label: 'Multi-category export proof',
-      status: proofItemByKey.export_flows?.status === 'passed' ? 'complete' : hasExportPackageProof ? 'action' : 'blocked',
-      evidence: latestExportPackage
-        ? `${passedExportProofCategories.length}/${exportProofCategories.length} export categories packaged · ${exportArtifactBackedCoverage.length}/${exportProofCategories.length} artifact-backed categories`
-        : `${draftExportableAssetCount} draft-exportable asset${draftExportableAssetCount === 1 ? '' : 's'}`,
-      nextAction: proofItemByKey.export_flows?.status === 'passed'
-        ? 'Export benchmark proof is source-backed and stored.'
-        : hasExportPackageProof
-          ? 'Save source-backed Export flows benchmark proof for the completed package.'
-          : 'Generate a package covering image/campaign, video/social, audio, blog/document, and book outputs.',
-    },
-    {
-      label: 'Repeated production job proof',
-      status: proofItemByKey.production_reliability?.status === 'passed' ? 'complete' : reliabilityPassed ? 'action' : 'blocked',
-      evidence: reliabilityCoverage.length
-        ? `${reliabilityCoverage.filter((category) => category.status === 'passed').length}/${reliabilityCoverage.length} reliability categories passed`
-        : `${runOperations?.completed ?? 0} completed provider runs`,
-      nextAction: proofItemByKey.production_reliability?.status === 'passed'
-        ? 'Production reliability benchmark proof is source-backed and stored.'
-        : reliabilityPassed
-          ? 'Save source-backed Production reliability benchmark proof from the passed runtime evidence.'
-          : 'Complete repeated image, video/social, audio, blog/document, and book jobs with drained queues and low failures.',
-    },
-    {
-      label: 'Full source-backed benchmark ledger',
-      status: benchmarkPassedCount >= benchmarkProofItems.length ? 'complete' : readyBenchmarkProofItems.length ? 'action' : 'blocked',
-      evidence: `${benchmarkPassedCount}/${benchmarkProofItems.length} Direct Higgsfield benchmarks passed`,
-      nextAction: benchmarkPassedCount >= benchmarkProofItems.length
-        ? 'All Direct Higgsfield benchmark categories have source-backed stored proof.'
-        : readyBenchmarkProofItems.length
-          ? 'Use Capture ready proofs, then fill any remaining proof URLs and notes from live evidence.'
-          : 'Create the missing live evidence signals before capturing benchmark proof.',
-    },
-  ]
-  const liveProofCompleteCount = liveProofRunbookItems.filter((item) => item.status === 'complete').length
-  const blockedProofCount = liveProofRunbookItems.filter((item) => item.status === 'blocked').length
-  const actionableProofCount = liveProofRunbookItems.filter((item) => item.status === 'action').length
-  const nextRunbookAction = liveProofRunbookItems.find((item) => item.status !== 'complete')?.nextAction
-  const certificationBenchmarkProofs = benchmarkProofItems.map((item) => buildCertificationBenchmarkProof({
-    key: item.key,
-    proof: item.proof,
-    passed: item.status === 'passed',
-    evidence: item.proof?.directComparisonNotes || item.proof?.notes || item.benchmark,
-    currentBinding: currentCollaborationProofBinding,
-  }))
-  const certificationRuntimeProof: CreativeCanvasCertificationRuntimeProof | undefined = runtimeProof
-    ? {
-        ...currentCollaborationProofBinding,
-        status: runtimeProof.status,
-        readyForLiveProof: runtimeProof.readyForLiveProof,
-      }
-    : undefined
-  const signedInPreviewProof = readCertificationArtifactEvidence(activeCanvas?.data, 'signedInPreviewProof')
-  const kbCertification = readKnowledgeBaseCertificationEvidence(activeCanvas?.data)
-  const worldClassCertification = buildWorldClassCertification({
-    benchmarkProofs: certificationBenchmarkProofs,
-    runtimeProof: certificationRuntimeProof,
-    liveProofArtifacts: certificationLiveProofArtifacts,
-    requiredBenchmarkCount: benchmarkProofItems.length,
-    capturedAt: new Date().toISOString(),
-    currentBinding: currentCollaborationProofBinding,
-    signedInPreviewProof,
-    kbCertification,
-  })
-  const isWorldClassCertified = worldClassCertification.status === 'passed'
-  const certificationDetailItems = [
-    {
-      label: 'Collaboration mutation proof',
-      passed: proofItemByKey.collaboration?.status === 'passed',
-      detail: proofItemByKey.collaboration?.status === 'passed'
-        ? proofItemByKey.collaboration.proof?.collaborationEvidence || 'Structured remote mutation evidence passed.'
-        : 'Needs structured remote mutation evidence before collaboration proof can pass.',
-    },
-    {
-      label: 'Signed-in mobile behavior proof',
-      passed: proofItemByKey.mobile_behavior?.status === 'passed',
-      detail: proofItemByKey.mobile_behavior?.status === 'passed'
-        ? proofItemByKey.mobile_behavior.proof?.mobileViewportEvidence || 'Signed-in behavior evidence passed for desktop, tablet, mobile, and mobile panels.'
-        : 'Needs signed-in behavior evidence for desktop, tablet, mobile, and mobile panels before mobile proof can pass.',
-    },
-    {
-      label: 'Durable export/runtime evidence',
-      passed: proofItemByKey.export_flows?.status === 'passed' && proofItemByKey.production_reliability?.status === 'passed',
-      detail: proofItemByKey.export_flows?.status === 'passed' && proofItemByKey.production_reliability?.status === 'passed'
-        ? proofItemByKey.production_reliability.proof?.runtimeEvidence || proofItemByKey.export_flows.proof?.exportArtifactEvidence || 'Durable per-category runtime and export evidence passed.'
-        : 'Needs durable per-category runtime and export evidence before reliability proof can pass.',
-    },
-  ]
-
   if (!loading && (showLanding || canvases.length === 0)) {
     return (
       <main className="mx-auto max-w-7xl px-4 py-6">
@@ -5125,6 +3874,8 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
           boards={canvases.map((canvas) => ({ id: canvas.id ?? '', title: canvas.title }))}
           templates={templates.map((template) => ({ id: template.id, title: template.title }))}
           onCreate={() => { void createBlankCanvas() }}
+          onRenameBoard={(id, nextTitle) => { void renameCanvasById(id, nextTitle) }}
+          onDeleteBoard={(id) => { void deleteCanvasById(id) }}
           onOpenBoard={(id) => {
             const canvas = canvases.find((item) => item.id === id)
             if (canvas) {
@@ -5146,7 +3897,9 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
   }
 
   return (
-    <main className={immersiveCanvas ? 'space-y-2' : 'mx-auto max-w-7xl space-y-5 px-4 py-6'}>
+    // Immersive sizing is viewport-based: the app shells render page content in
+    // an auto-height wrapper, so h-full collapses to 0 (56px header + 16px padding).
+    <main className={immersiveCanvas ? 'flex h-[calc(100dvh-72px)] min-h-[480px] flex-col gap-2 overflow-hidden' : 'mx-auto max-w-7xl space-y-5 px-4 py-6'}>
       <CanvasTopBar
         eyebrow={mode === 'admin' ? 'Agent creative command' : 'Creative review'}
         title={activeCanvas?.title ?? 'Creative Canvas'}
@@ -5162,6 +3915,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
         onOpenChat={() => setTopBarPanel('chat')}
         onShare={() => setTopBarPanel('share')}
         onHome={() => setShowLanding(true)}
+        onNewCanvas={mode === 'admin' ? () => { setShowLanding(false); void createBlankCanvas() } : undefined}
         immersive={immersiveCanvas}
         onToggleImmersive={() => setImmersiveCanvas((value) => !value)}
         creditsLabel={canvasCredits?.higgsfieldCredits != null
@@ -5282,17 +4036,55 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
             return url ? [{ id: node.id, url, thumbnailUrl: canvasNode?.output?.thumbnailUrl, title: canvasNode?.title, kind: 'video' }] : []
           })}
           onSelect={(asset) => {
-            attachReferenceUrl(referencePicker.nodeId, asset.url)
+            if (referencePicker.mode === 'replace') {
+              replaceNodeContent(referencePicker.nodeId, { url: asset.url, thumbnailUrl: asset.thumbnailUrl, title: asset.title })
+            } else {
+              attachReferenceUrl(referencePicker.nodeId, asset.url)
+            }
             setReferencePicker(null)
           }}
           onUploadNew={() => {
-            pendingReferenceNodeIdRef.current = referencePicker.nodeId
+            pendingReferenceNodeIdRef.current = { nodeId: referencePicker.nodeId, mode: referencePicker.mode ?? 'attach' }
             setReferencePicker(null)
             referenceFileInputRef.current?.click()
           }}
           onClose={() => setReferencePicker(null)}
         />
       ) : null}
+
+      {editChatNodeId ? (() => {
+        const editTarget = nodes.find((node) => node.id === editChatNodeId)
+        const editCanvasNode = editTarget?.data?.canvasNode as CreativeCanvasNode | undefined
+        const editNodeData = (editCanvasNode?.data ?? {}) as Record<string, unknown>
+        const editIsText = ['prompt', 'brief'].includes(editCanvasNode?.type ?? '')
+          || ['text', 'sticky_note', 'prompt'].includes(String(editNodeData.presentationType ?? ''))
+        const editIsVideo = editCanvasNode?.output?.kind === 'video' || editCanvasNode?.source?.mimeType?.startsWith('video/')
+        return (
+          <NodeEditChat
+            nodeTitle={editCanvasNode?.title ?? 'Node'}
+            mediaKind={editIsText ? 'text' : editIsVideo ? 'video' : 'image'}
+            busy={editChatBusy}
+            error={editChatError}
+            onSubmit={(prompt, placement) => { void runNodeEdit(editChatNodeId, prompt, placement) }}
+            onClose={() => { setEditChatNodeId(null); setEditChatError('') }}
+          />
+        )
+      })() : null}
+
+      {publishNodeId ? (() => {
+        const publishTarget = nodes.find((node) => node.id === publishNodeId)
+        const publishCanvasNode = publishTarget?.data?.canvasNode as CreativeCanvasNode | undefined
+        return (
+          <NodePublishMenu
+            nodeTitle={publishCanvasNode?.title ?? 'Node'}
+            busy={publishBusy}
+            error={publishError}
+            successMessage={publishSuccess}
+            onPublish={(target, caption, platforms) => { void publishNode(publishNodeId, target, caption, platforms) }}
+            onClose={() => { setPublishNodeId(null); setPublishError(''); setPublishSuccess('') }}
+          />
+        )
+      })() : null}
 
       {error ? (
         <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>
@@ -5391,605 +4183,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
         ))}
       </nav>
 
-      <div
-        aria-label="Creative Canvas responsive readiness"
-        className={`${immersiveCanvas ? 'sr-only' : ''} grid grid-cols-2 gap-2 rounded-lg border border-[var(--color-pib-line)] bg-white px-3 py-2 text-xs text-[var(--color-pib-text-muted)] sm:grid-cols-4`}
-      >
-        {responsiveProofItems.map((item) => (
-          <div key={item.label} className="min-w-0">
-            <p className="font-semibold text-[var(--color-pib-text)]">{item.label}</p>
-            <p className="truncate">{item.value}</p>
-          </div>
-        ))}
-      </div>
-
-      <div className={immersiveCanvas ? 'sr-only' : 'space-y-5'}>
-      <section
-        aria-label="Creative Canvas world-class certification gate"
-        className={`rounded-lg border px-4 py-3 text-sm ${
-          isWorldClassCertified
-            ? 'border-green-200 bg-green-50 text-green-800'
-            : 'border-red-200 bg-red-50 text-red-800'
-        }`}
-      >
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-normal">
-              Higgsfield parity certification
-            </p>
-            <h2 className="text-lg font-semibold">
-              {isWorldClassCertified ? 'World-class certification passed' : 'World-class certification blocked'}
-            </h2>
-            <p className="mt-1">
-              {isWorldClassCertified
-                ? `${worldClassCertification.passedGateCount}/${worldClassCertification.requiredGateCount} hard proof gates passed.`
-                : `${worldClassCertification.passedGateCount}/${worldClassCertification.requiredGateCount} hard proof gates passed; ${worldClassCertification.blockers.length} blocker${worldClassCertification.blockers.length === 1 ? '' : 's'} remain.`}
-            </p>
-            {!isWorldClassCertified && worldClassCertification.blockers.length ? (
-              <p className="mt-1 font-semibold">Next required proof: {worldClassCertification.blockers[0]}</p>
-            ) : null}
-            {!isWorldClassCertified && !worldClassCertification.blockers.length && nextRunbookAction ? (
-              <p className="mt-1 font-semibold">Next required proof: {nextRunbookAction}</p>
-            ) : null}
-            <div className="mt-3 grid gap-2 sm:grid-cols-3">
-              {certificationDetailItems.map((item) => (
-                <div key={item.label} className="rounded-md border border-current/20 bg-white/70 px-2 py-1 text-xs">
-                  <p className="font-semibold">{item.label}</p>
-                  <p className="mt-1">{item.detail}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-          <span className="rounded-full border border-current bg-white px-3 py-1 text-xs font-semibold uppercase tracking-normal">
-            {isWorldClassCertified ? 'passed' : `${blockedProofCount} blocked · ${actionableProofCount} action`}
-          </span>
-        </div>
-      </section>
-
-      <section
-        aria-label="Creative Canvas world-class proof runbook"
-        className="rounded-lg border border-[var(--color-pib-line)] bg-white p-4"
-      >
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-normal text-[var(--color-pib-text-muted)]">World-class proof runbook</p>
-            <h2 className="text-lg font-semibold text-[var(--color-pib-text)]">Live evidence still required for Higgsfield parity</h2>
-          </div>
-          <span className="rounded-full border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] px-3 py-1 text-xs font-semibold text-[var(--color-pib-text)]">
-            {liveProofCompleteCount}/{liveProofRunbookItems.length} complete
-          </span>
-        </div>
-        <div className="mt-3 grid gap-2 lg:grid-cols-3">
-          {liveProofRunbookItems.map((item) => (
-            <div
-              key={item.label}
-              className={`rounded-lg border px-3 py-2 text-xs ${
-                item.status === 'complete'
-                  ? 'border-green-200 bg-green-50 text-green-800'
-                  : item.status === 'action'
-                    ? 'border-amber-200 bg-amber-50 text-amber-800'
-                    : 'border-red-200 bg-red-50 text-red-800'
-              }`}
-            >
-              <div className="flex items-start justify-between gap-2">
-                <p className="font-semibold">{item.label}</p>
-                <span className="shrink-0 rounded-full border border-current px-2 py-0.5 text-[10px] font-semibold uppercase tracking-normal">
-                  {item.status}
-                </span>
-              </div>
-              <p className="mt-1 break-words">{item.evidence}</p>
-              <p className="mt-1 font-semibold">{item.nextAction}</p>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      <section
-        aria-label="Creative Canvas visual QA proof"
-        className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-3 text-xs text-amber-900"
-      >
-        <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <p className="font-semibold text-amber-950">Visual QA proof</p>
-            <p className="mt-0.5">Mobile parity stays in watch state until signed-in viewport screenshots are captured.</p>
-          </div>
-          <span className="rounded-full border border-amber-300 bg-white px-2 py-0.5 font-semibold uppercase tracking-normal">
-            {capturedVisualProofCount}/{visualProofItems.length} signed-in
-          </span>
-        </div>
-        <div className="mt-2 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
-          {visualProofItems.map((item) => (
-            <div key={item.key} className="rounded-md border border-amber-200 bg-white px-2 py-1.5">
-              <div className="flex items-center justify-between gap-2">
-                <p className="font-semibold text-amber-950">{item.label}</p>
-                <span className="rounded-full border border-current px-2 py-0.5 uppercase tracking-normal">{item.status}</span>
-              </div>
-              <p className="mt-1">{item.evidence}</p>
-              {item.proof?.screenshotUrl && !item.proof.signedIn ? (
-                <p className="mt-1 text-[11px] font-semibold text-amber-800">
-                  Mark as signed-in before this counts for mobile parity.
-                </p>
-              ) : null}
-              {item.proof?.screenshotUrl && item.proof.signedIn && !hasSignedInViewportProof(item.proof) ? (
-                <p className="mt-1 text-[11px] font-semibold text-amber-800">
-                  Add session, viewport, visible-panel, and reachable image evidence before this counts for mobile parity.
-                </p>
-              ) : null}
-              {item.proof?.screenshotUrl && hasSignedInViewportProof(item.proof) && !hasCurrentVisualProofState(item.proof, currentProofGraphState) ? (
-                <p className="mt-1 text-[11px] font-semibold text-amber-800">
-                  Recapture this viewport against the current canvas version and graph state before it counts.
-                </p>
-              ) : null}
-              {item.proof?.capturedAt ? (
-                <p className="mt-1 text-[11px] font-semibold text-amber-800">
-                  Captured {new Date(item.proof.capturedAt).toLocaleString()}
-                </p>
-              ) : null}
-              {item.proof?.viewportSize || item.proof?.visiblePanels ? (
-                <p className="mt-1 text-[11px] text-amber-800">
-                  {item.proof.viewportSize ? `${item.proof.viewportSize}` : 'Viewport missing'} · {item.proof.visiblePanels || 'Panels missing'}
-                </p>
-              ) : null}
-              {typeof item.proof?.canvasVersion === 'number' || typeof item.proof?.nodeCount === 'number' || typeof item.proof?.edgeCount === 'number' ? (
-                <p className="mt-1 text-[11px] text-amber-800">
-                  Canvas state: v{item.proof.canvasVersion ?? 'missing'} · {item.proof.nodeCount ?? 0} nodes · {item.proof.edgeCount ?? 0} links
-                </p>
-              ) : null}
-              {item.proof?.screenshotCheckedAt || item.proof?.screenshotStatus || item.proof?.screenshotContentType ? (
-                <p className="mt-1 text-[11px] text-amber-800">
-                  Proof URL: {item.proof.screenshotReachable ? 'reachable' : 'unverified'}{item.proof.screenshotStatus ? ` · ${item.proof.screenshotStatus}` : ''}{item.proof.screenshotContentType ? ` · ${item.proof.screenshotContentType}` : ''}
-                </p>
-              ) : null}
-              {item.proof?.screenshotUrl ? (
-                <a
-                  href={item.proof.screenshotUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="mt-1 inline-flex text-[11px] font-semibold text-[var(--color-pib-primary)] underline"
-                >
-                  Open proof
-                </a>
-              ) : null}
-              <label className="mt-2 block text-[11px] font-semibold text-amber-950">
-                Screenshot URL
-                <input
-                  aria-label={`${item.label} screenshot URL`}
-                  value={visualProofDrafts[item.key].screenshotUrl}
-                  onChange={(event) => {
-                    const value = event.target.value
-                    setVisualProofDrafts((current) => ({
-                      ...current,
-                      [item.key]: { ...current[item.key], screenshotUrl: value },
-                    }))
-                  }}
-                  placeholder="https://..."
-                  className="mt-1 w-full rounded-md border border-amber-200 bg-white px-2 py-1 text-xs text-amber-950 outline-none focus:border-amber-400"
-                />
-              </label>
-              <label className="mt-2 block text-[11px] font-semibold text-amber-950">
-                Notes
-                <textarea
-                  aria-label={`${item.label} proof notes`}
-                  value={visualProofDrafts[item.key].notes}
-                  onChange={(event) => {
-                    const value = event.target.value
-                    setVisualProofDrafts((current) => ({
-                      ...current,
-                      [item.key]: { ...current[item.key], notes: value },
-                    }))
-                  }}
-                  rows={2}
-                  className="mt-1 w-full resize-none rounded-md border border-amber-200 bg-white px-2 py-1 text-xs text-amber-950 outline-none focus:border-amber-400"
-                />
-              </label>
-              <label className="mt-2 block text-[11px] font-semibold text-amber-950">
-                Session evidence
-                <input
-                  aria-label={`${item.label} session evidence`}
-                  value={visualProofDrafts[item.key].sessionEvidence}
-                  onChange={(event) => {
-                    const value = event.target.value
-                    setVisualProofDrafts((current) => ({
-                      ...current,
-                      [item.key]: { ...current[item.key], sessionEvidence: value },
-                    }))
-                  }}
-                  placeholder="Signed-in admin header, user menu, org switcher..."
-                  className="mt-1 w-full rounded-md border border-amber-200 bg-white px-2 py-1 text-xs text-amber-950 outline-none focus:border-amber-400"
-                />
-              </label>
-              <label className="mt-2 block text-[11px] font-semibold text-amber-950">
-                Viewport size
-                <input
-                  aria-label={`${item.label} viewport size`}
-                  value={visualProofDrafts[item.key].viewportSize}
-                  onChange={(event) => {
-                    const value = event.target.value
-                    setVisualProofDrafts((current) => ({
-                      ...current,
-                      [item.key]: { ...current[item.key], viewportSize: value },
-                    }))
-                  }}
-                  placeholder="1440x900"
-                  className="mt-1 w-full rounded-md border border-amber-200 bg-white px-2 py-1 text-xs text-amber-950 outline-none focus:border-amber-400"
-                />
-              </label>
-              <label className="mt-2 block text-[11px] font-semibold text-amber-950">
-                Visible panels
-                <input
-                  aria-label={`${item.label} visible panels`}
-                  value={visualProofDrafts[item.key].visiblePanels}
-                  onChange={(event) => {
-                    const value = event.target.value
-                    setVisualProofDrafts((current) => ({
-                      ...current,
-                      [item.key]: { ...current[item.key], visiblePanels: value },
-                    }))
-                  }}
-                  placeholder="Canvas, Sources, Inspector"
-                  className="mt-1 w-full rounded-md border border-amber-200 bg-white px-2 py-1 text-xs text-amber-950 outline-none focus:border-amber-400"
-                />
-              </label>
-              <label className="mt-2 flex items-start gap-2 text-[11px] font-semibold text-amber-950">
-                <input
-                  type="checkbox"
-                  aria-label={`${item.label} proof is signed-in`}
-                  checked={visualProofDrafts[item.key].signedIn}
-                  onChange={(event) => {
-                    const value = event.target.checked
-                    setVisualProofDrafts((current) => ({
-                      ...current,
-                      [item.key]: { ...current[item.key], signedIn: value },
-                    }))
-                  }}
-                  className="mt-0.5"
-                />
-                Signed-in admin or portal session visible in this proof
-              </label>
-              <button
-                type="button"
-                onClick={() => { void saveVisualProof(item.key) }}
-                disabled={!activeCanvas?.id || savingVisualProofKey === item.key}
-                className="mt-2 w-full rounded-md border border-amber-300 bg-amber-100 px-2 py-1 text-[11px] font-semibold text-amber-950 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                {savingVisualProofKey === item.key ? 'Saving proof' : `Save ${item.label} proof`}
-              </button>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      <section
-        aria-label="Higgsfield parity audit"
-        className="rounded-lg border border-[var(--color-pib-line)] bg-white p-4"
-      >
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-normal text-[var(--color-pib-text-muted)]">Higgsfield parity audit</p>
-            <h2 className="text-lg font-semibold text-[var(--color-pib-text)]">Canvas capability evidence</h2>
-          </div>
-          <span className="rounded-full border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] px-3 py-1 text-xs font-semibold text-[var(--color-pib-text)]">
-            {parityPassedCount}/{parityAuditItems.length} evidenced
-          </span>
-        </div>
-        <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
-          {parityAuditItems.map((item) => (
-            <div
-              key={item.label}
-              className={`min-w-0 rounded-lg border px-3 py-2 text-xs ${
-                item.status === 'passed'
-                  ? 'border-green-200 bg-green-50 text-green-800'
-                  : item.status === 'watch'
-                    ? 'border-amber-200 bg-amber-50 text-amber-800'
-                    : 'border-red-200 bg-red-50 text-red-800'
-              }`}
-            >
-              <div className="flex items-center justify-between gap-2">
-                <p className="font-semibold">{item.label}</p>
-                <span className="shrink-0 rounded-full border border-current px-2 py-0.5 uppercase tracking-normal">
-                  {item.status}
-                </span>
-              </div>
-              <p className="mt-1 break-words">{item.evidence}</p>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      <section
-        id="direct-higgsfield-benchmark-proof"
-        aria-label="Direct Higgsfield benchmark proof"
-        className="rounded-lg border border-[var(--color-pib-line)] bg-white p-4"
-      >
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-normal text-[var(--color-pib-text-muted)]">Direct Higgsfield benchmark proof</p>
-            <h2 className="text-lg font-semibold text-[var(--color-pib-text)]">Capability-by-capability evidence ledger</h2>
-          </div>
-          <span className="rounded-full border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] px-3 py-1 text-xs font-semibold text-[var(--color-pib-text)]">
-            {benchmarkPassedCount}/{benchmarkProofItems.length} benchmark proven
-          </span>
-        </div>
-        <div className="mt-3 flex flex-col gap-2 rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] px-3 py-2 text-xs text-[var(--color-pib-text-muted)] sm:flex-row sm:items-center sm:justify-between">
-          <p>
-            {readyBenchmarkProofItems.length
-              ? `${readyBenchmarkProofItems.length} ready benchmark ${readyBenchmarkProofItems.length === 1 ? 'category needs' : 'categories need'} stored proof.`
-              : 'No uncaptured benchmark category has enough live evidence yet.'}
-          </p>
-          <button
-            type="button"
-            onClick={() => { void captureReadyBenchmarkProofs() }}
-            disabled={!activeCanvas?.id || !readyBenchmarkProofItems.length || Boolean(savingBenchmarkProofKey)}
-            className="rounded-md border border-[var(--color-pib-line)] bg-white px-3 py-1.5 text-xs font-semibold text-[var(--color-pib-text)] disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            Capture ready proofs
-          </button>
-        </div>
-        <div className="mt-3 grid gap-3 lg:grid-cols-3">
-          {benchmarkProofItems.map((item) => (
-            <div
-              key={item.key}
-              className={`rounded-lg border p-3 text-xs ${
-                item.status === 'passed'
-                  ? 'border-green-200 bg-green-50 text-green-800'
-                  : item.status === 'proof needed'
-                    ? 'border-amber-200 bg-amber-50 text-amber-800'
-                    : 'border-red-200 bg-red-50 text-red-800'
-              }`}
-            >
-              <div className="flex items-start justify-between gap-2">
-                <div className="min-w-0">
-                  <p className="font-semibold">{item.label}</p>
-                  <p className="mt-1">{item.benchmark}</p>
-                  <a
-                    href={item.sourceUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="mt-1 inline-flex text-[11px] font-semibold text-[var(--color-pib-primary)] underline"
-                  >
-                    Benchmark source: {item.sourceTitle}
-                  </a>
-                </div>
-                <span className="shrink-0 rounded-full border border-current px-2 py-0.5 text-[10px] font-semibold uppercase tracking-normal">
-                  {item.status}
-                </span>
-              </div>
-              {item.proof?.capturedAt ? (
-                <p className="mt-2 text-[11px] font-semibold">Captured {new Date(item.proof.capturedAt).toLocaleString()}</p>
-              ) : null}
-              {item.proof?.sourceUrl ? (
-                <p className="mt-1 text-[11px]">
-                  Source checked {item.proof.sourceCheckedAt ? new Date(item.proof.sourceCheckedAt).toLocaleString() : 'not dated'}
-                </p>
-              ) : null}
-              {item.proof && (!item.proof.sourceUrl || !item.proof.sourceCheckedAt) ? (
-                <p className="mt-1 text-[11px] font-semibold">Needs Higgsfield source check before this proof can pass.</p>
-              ) : null}
-              {item.proof?.sourceUrl && !item.proof.sourceEvidenceReachable ? (
-                <p className="mt-1 text-[11px] font-semibold">Needs reachable Higgsfield source URL verification before this proof can pass.</p>
-              ) : null}
-              {item.proof?.sourceUrl && item.proof.sourceEvidenceReachable && !item.proof.sourceSignalsMatched ? (
-                <p className="mt-1 text-[11px] font-semibold">Needs current Higgsfield source signal verification before this proof can pass.</p>
-              ) : null}
-              {item.proof && !hasRequiredBenchmarkSourceSignals(item.proof, item.sourceSignals) ? (
-                <p className="mt-1 text-[11px] font-semibold">Needs matched Higgsfield source signals before this proof can pass.</p>
-              ) : null}
-              {item.proof && !hasDirectBenchmarkComparison(item.proof) ? (
-                <p className="mt-1 text-[11px] font-semibold">Needs direct Higgsfield UI comparison evidence before this proof can pass.</p>
-              ) : null}
-              {item.proof?.canvasEvidenceUrl && !item.proof.canvasEvidenceReachable ? (
-                <p className="mt-1 text-[11px] font-semibold">Needs reachable Creative Canvas evidence URL verification before this proof can pass.</p>
-              ) : null}
-              {item.proof && !hasCurrentCanvasBenchmarkState(item.proof, currentProofGraphState) ? (
-                <p className="mt-1 text-[11px] font-semibold">Needs proof captured against the current canvas version and graph state before this benchmark can pass.</p>
-              ) : null}
-              {item.key === 'collaboration' && item.proof && !hasCollaborationSessionProof(item.proof, currentCollaborationProofBinding) ? (
-                <p className="mt-1 text-[11px] font-semibold">Needs structured remote mutation evidence before collaboration proof can pass.</p>
-              ) : null}
-              {item.key === 'editing_ergonomics' && item.proof && !hasEditingSessionProof(item.proof) ? (
-                <p className="mt-1 text-[11px] font-semibold">Needs stored node drop, drag/move, live connection, and configured generation-route evidence before editing proof can pass.</p>
-              ) : null}
-              {item.key === 'masking_inpainting' && item.proof && !hasMaskingSessionProof(item.proof) ? (
-                <p className="mt-1 text-[11px] font-semibold">Needs stored brush mask, prompt, intent, and blend-control evidence before masking proof can pass.</p>
-              ) : null}
-              {item.key === 'generation_controls' && item.proof && !hasGenerationReferenceProof(item.proof) ? (
-                <p className="mt-1 text-[11px] font-semibold">Needs stored three-reference generation routing evidence before generation proof can pass.</p>
-              ) : null}
-              {item.key === 'multi_asset_workflows' && item.proof && !hasMultiAssetWorkflowProof(item.proof) ? (
-                <p className="mt-1 text-[11px] font-semibold">Needs stored connected multi-asset source, role, output, workflow, and lineage evidence before multi-asset proof can pass.</p>
-              ) : null}
-              {item.key === 'versioning_polish' && item.proof && !hasVersioningPolishProof(item.proof) ? (
-                <p className="mt-1 text-[11px] font-semibold">Needs stored restorable version, node comment, reusable template, and auto-save evidence before versioning proof can pass.</p>
-              ) : null}
-              {item.key === 'agent_orchestration' && item.proof && !hasAgentOrchestrationProof(item.proof) ? (
-                <p className="mt-1 text-[11px] font-semibold">Needs stored project-linked agent task evidence before AI agent integration proof can pass.</p>
-              ) : null}
-              {item.key === 'mobile_behavior' && item.proof && !hasMobileViewportBenchmarkProof(item.proof, currentCollaborationProofBinding) ? (
-                <p className="mt-1 text-[11px] font-semibold">Needs signed-in behavior evidence for desktop, tablet, mobile, and mobile panels before mobile proof can pass.</p>
-              ) : null}
-              {item.key === 'export_flows' && item.proof && !hasExportArtifactBackedProof(item.proof, currentCollaborationProofBinding) ? (
-                <p className="mt-1 text-[11px] font-semibold">Needs durable runtime and export category evidence before export proof can pass.</p>
-              ) : null}
-              {item.key === 'production_reliability' && item.proof && !hasProductionRuntimeProof(item.proof, currentCollaborationProofBinding) ? (
-                <p className="mt-1 text-[11px] font-semibold">Needs durable per-category runtime and export evidence before reliability proof can pass.</p>
-              ) : null}
-              <div className="mt-2 rounded-md border border-current/20 bg-white/70 px-2 py-1 text-[11px]">
-                <p className="font-semibold">Current Higgsfield source signals</p>
-                <ul className="mt-1 space-y-0.5">
-                  {item.sourceSignals.map((signal) => (
-                    <li key={signal}>- {signal}</li>
-                  ))}
-                </ul>
-                {item.proof?.sourceSignals?.length ? (
-                  <p className="mt-1">Stored signals: {item.proof.sourceSignals.join(', ')}</p>
-                ) : (
-                  <p className="mt-1 font-semibold">No stored source signals yet.</p>
-                )}
-              </div>
-              {item.proof?.directComparisonAt ? (
-                <div className="mt-2 rounded-md border border-current/20 bg-white/70 px-2 py-1 text-[11px]">
-                  <p className="font-semibold">Direct comparison</p>
-                  <p>Verdict: {item.proof.directComparisonVerdict === 'pass' ? 'pass' : 'gap'}</p>
-                  <p>Compared {new Date(item.proof.directComparisonAt).toLocaleString()}</p>
-                  <p>
-                    Canvas state: v{item.proof.canvasVersion ?? 'missing'} · {item.proof.nodeCount ?? 0} nodes · {item.proof.edgeCount ?? 0} links
-                  </p>
-                  {item.proof.canvasEvidenceUrl ? (
-                    <p className="mt-1">
-                      Canvas evidence URL: {item.proof.canvasEvidenceReachable ? 'reachable' : 'unverified'}{item.proof.canvasEvidenceStatus ? ` · ${item.proof.canvasEvidenceStatus}` : ''}{item.proof.canvasEvidenceContentType ? ` · ${item.proof.canvasEvidenceContentType}` : ''}
-                    </p>
-                  ) : null}
-                  {item.proof.sourceUrl ? (
-                    <p className="mt-1">
-                      Source evidence URL: {item.proof.sourceEvidenceReachable ? 'reachable' : 'unverified'}{item.proof.sourceEvidenceStatus ? ` · ${item.proof.sourceEvidenceStatus}` : ''}{item.proof.sourceEvidenceContentType ? ` · ${item.proof.sourceEvidenceContentType}` : ''}
-                    </p>
-                  ) : null}
-                  {item.proof.sourceSignalsVerifiedAt ? (
-                    <p className="mt-1">
-                      Source signals: {item.proof.sourceSignalsMatched ? 'matched' : 'missing'} · checked {new Date(item.proof.sourceSignalsVerifiedAt).toLocaleString()}
-                    </p>
-                  ) : null}
-                  {item.proof.sourceSignalsMissing?.length ? (
-                    <p className="mt-1">Missing source signals: {item.proof.sourceSignalsMissing.join(', ')}</p>
-                  ) : null}
-                  {item.proof.directComparisonNotes ? <p className="mt-1">{item.proof.directComparisonNotes}</p> : null}
-                  {item.key === 'collaboration' && item.proof.collaborationEvidence ? (
-                    <p className="mt-1">
-                      Collaboration session: {item.proof.collaborationRemoteActorCount ?? 0} remote actor{item.proof.collaborationRemoteActorCount === 1 ? '' : 's'} · {item.proof.collaborationRemoteEventCount ?? 0} remote event{item.proof.collaborationRemoteEventCount === 1 ? '' : 's'} · {item.proof.collaborationStreamConnected ? 'stream connected' : 'poll fallback'}
-                    </p>
-                  ) : null}
-                  {item.key === 'editing_ergonomics' && item.proof.editingEvidence ? (
-                    <p className="mt-1">
-                      Editing session: {item.proof.editingNodeDropCount ?? 0} drop · {item.proof.editingNodeMoveCount ?? 0} drag · {item.proof.editingConnectionCount ?? 0} live links · {item.proof.editingConfiguredGenerationCount ?? 0} generation routes
-                    </p>
-                  ) : null}
-                  {item.key === 'masking_inpainting' && item.proof.maskingEvidence ? (
-                    <p className="mt-1">
-                      Masking session: {item.proof.maskingEditNodeCount ?? 0} edit node{item.proof.maskingEditNodeCount === 1 ? '' : 's'} · {item.proof.maskingBrushStrokeCount ?? 0} brush stroke{item.proof.maskingBrushStrokeCount === 1 ? '' : 's'} · {item.proof.maskingBlendControlCount ?? 0} blend control{item.proof.maskingBlendControlCount === 1 ? '' : 's'}
-                    </p>
-                  ) : null}
-                  {item.key === 'generation_controls' && item.proof.generationMultiReferenceEvidence ? (
-                    <p className="mt-1">
-                      Generation references: {item.proof.generationLinkedReferenceCount ?? 0}/3 linked · {item.proof.generationReferenceRoleCount ?? 0}/3 roles · {item.proof.generationModelCount ?? 0} generation node{item.proof.generationModelCount === 1 ? '' : 's'}
-                    </p>
-                  ) : null}
-                  {item.key === 'multi_asset_workflows' && item.proof.multiAssetEvidence ? (
-                    <p className="mt-1">
-                      Multi-asset workflow: {item.proof.multiAssetConnectedSourceCount ?? 0}/3 connected sources · {item.proof.multiAssetReferenceRoleCount ?? 0}/3 roles · {item.proof.multiAssetSourceKindCount ?? 0}/2 source kinds · {item.proof.multiAssetOutputNodeCount ?? 0} outputs · {item.proof.multiAssetWorkflowScenarioCount ?? 0} scenarios
-                    </p>
-                  ) : null}
-                  {item.key === 'versioning_polish' && item.proof.versionEvidence ? (
-                    <p className="mt-1">
-                      Versioning: {item.proof.versionRestorableSnapshotCount ?? 0}/{item.proof.versionSnapshotCount ?? 0} restorable versions · {item.proof.versionNodeCommentCount ?? 0} node comments · {item.proof.versionReusableTemplateCount ?? 0} templates · auto-save {item.proof.versionAutoSaveEnabled ? 'on' : 'off'}
-                    </p>
-                  ) : null}
-                  {item.key === 'agent_orchestration' && item.proof.agentEvidence ? (
-                    <p className="mt-1">
-                      Agent tasks: {item.proof.agentTaskCreatedCount ?? 0} created · {item.proof.agentStepCount ?? 0} handoff step{item.proof.agentStepCount === 1 ? '' : 's'} · {item.proof.agentActorCount ?? 0} agent{item.proof.agentActorCount === 1 ? '' : 's'}
-                    </p>
-                  ) : null}
-                  {item.key === 'mobile_behavior' && item.proof.mobileViewportEvidence ? (
-                    <p className="mt-1">
-                      Viewport matrix: {item.proof.mobileViewportProofCount ?? 0}/{item.proof.mobileViewportRequiredCount ?? visualProofItems.length} signed-in proofs
-                    </p>
-                  ) : null}
-                  {item.key === 'export_flows' && item.proof.exportArtifactEvidence ? (
-                    <p className="mt-1">
-                      Export artifacts: {item.proof.exportArtifactBackedCategoryCount ?? 0}/{exportProofCategories.length} categories · {item.proof.exportArtifactBackedCompletedCount ?? 0} completed artifacts
-                    </p>
-                  ) : null}
-                  {item.key === 'production_reliability' && item.proof.runtimeEvidence ? (
-                    <>
-                      <p className="mt-1">
-                        Runtime proof: {item.proof.runtimeArtifactBackedCategoryCount ?? 0}/{exportProofCategories.length} categories · {item.proof.runtimeArtifactBackedCompletedCount ?? 0} completed artifacts · {item.proof.runtimeActiveRunCount ?? 0} active · {item.proof.runtimeStaleActiveRunCount ?? 0} stale · {item.proof.runtimeFailureRatePercent ?? 100}% failure rate
-                      </p>
-                      <p className="mt-1">
-                        Provider provenance: {item.proof.runtimeProviderBackedCategoryCount ?? 0}/{exportProofCategories.length} categories · {item.proof.runtimeProviderBackedCompletedCount ?? 0} provider-backed completions
-                      </p>
-                    </>
-                  ) : null}
-                  <div className="mt-1 flex flex-wrap gap-2">
-                    {item.proof.higgsfieldUiEvidenceUrl ? (
-                      <a
-                        href={item.proof.higgsfieldUiEvidenceUrl}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="font-semibold text-[var(--color-pib-primary)] underline"
-                      >
-                        Higgsfield UI evidence
-                      </a>
-                    ) : null}
-                    {item.proof.canvasEvidenceUrl ? (
-                      <a
-                        href={item.proof.canvasEvidenceUrl}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="font-semibold text-[var(--color-pib-primary)] underline"
-                      >
-                        Canvas evidence
-                      </a>
-                    ) : null}
-                  </div>
-                </div>
-              ) : null}
-              {item.proof?.proofUrl ? (
-                <a
-                  href={item.proof.proofUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="mt-1 inline-flex text-[11px] font-semibold text-[var(--color-pib-primary)] underline"
-                >
-                  Open benchmark proof
-                </a>
-              ) : null}
-              <label className="mt-2 block text-[11px] font-semibold">
-                Proof URL
-                <input
-                  aria-label={`${item.label} benchmark proof URL`}
-                  value={benchmarkProofDrafts[item.key].proofUrl}
-                  onChange={(event) => {
-                    const value = event.target.value
-                    setBenchmarkProofDrafts((current) => ({
-                      ...current,
-                      [item.key]: { ...current[item.key], proofUrl: value },
-                    }))
-                  }}
-                  placeholder="https://..."
-                  className="mt-1 w-full rounded-md border border-current/20 bg-white px-2 py-1 text-xs text-[var(--color-pib-text)] outline-none focus:border-current"
-                />
-              </label>
-              <label className="mt-2 block text-[11px] font-semibold">
-                Notes
-                <textarea
-                  aria-label={`${item.label} benchmark proof notes`}
-                  value={benchmarkProofDrafts[item.key].notes}
-                  onChange={(event) => {
-                    const value = event.target.value
-                    setBenchmarkProofDrafts((current) => ({
-                      ...current,
-                      [item.key]: { ...current[item.key], notes: value },
-                    }))
-                  }}
-                  rows={2}
-                  className="mt-1 w-full resize-none rounded-md border border-current/20 bg-white px-2 py-1 text-xs text-[var(--color-pib-text)] outline-none focus:border-current"
-                />
-              </label>
-              <button
-                type="button"
-                onClick={() => { void saveBenchmarkProof(item.key) }}
-                disabled={!activeCanvas?.id || savingBenchmarkProofKey === item.key}
-                className="mt-2 w-full rounded-md border border-current/20 bg-white px-2 py-1 text-[11px] font-semibold disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                {savingBenchmarkProofKey === item.key ? 'Saving proof' : `Save ${item.label} proof`}
-              </button>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      </div>
-
-      <section className={immersiveCanvas ? 'grid min-h-[calc(100vh-150px)]' : 'grid min-h-[620px] gap-4 lg:grid-cols-[260px_minmax(0,1fr)_280px]'}>
+      <section className={immersiveCanvas ? 'grid min-h-0 flex-1 overflow-hidden' : 'grid min-h-[620px] gap-4 lg:grid-cols-[260px_minmax(0,1fr)_280px]'}>
         <aside
           aria-label="Source and workflow tools"
           className={`${immersiveCanvas ? 'sr-only' : ''} ${mobilePanelClass('sources')} space-y-4 rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-card)] p-4`}
@@ -6033,43 +4227,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
           <div>
             <p className="text-xs font-semibold uppercase tracking-normal text-[var(--color-pib-text-muted)]">Workflow presets</p>
             <div className="mt-3 space-y-2">
-              {coreWorkflowPresets.map((preset) => (
-                <button
-                  key={preset.key}
-                  type="button"
-                  aria-label={`Apply ${preset.label} workflow`}
-                  onClick={() => applyWorkflowPreset(preset)}
-                  className="w-full rounded-lg border border-[var(--color-pib-line)] px-3 py-2 text-left transition hover:bg-[var(--color-pib-surface)]"
-                >
-                  <span className="block text-sm font-semibold text-[var(--color-pib-text)]">{preset.label}</span>
-                  <span className="block text-xs text-[var(--color-pib-text-muted)]">{preset.description}</span>
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div>
-            <div className="flex items-center justify-between gap-2">
-              <p className="text-xs font-semibold uppercase tracking-normal text-[var(--color-pib-text-muted)]">Higgsfield benchmark workflows</p>
-              <span className="text-[11px] font-semibold text-[var(--color-pib-text-muted)]">
-                {benchmarkWorkflowPresets.length}/{higgsfieldBenchmarkScenarios.length}
-              </span>
-            </div>
-            <div className="mt-3 rounded-lg border border-[var(--color-pib-line)] bg-white p-3 text-xs text-[var(--color-pib-text-muted)]">
-              <p>{graphBenchmarkScenarioCount}/{higgsfieldBenchmarkScenarios.length} benchmark scenarios are already in this graph.</p>
-              <button
-                type="button"
-                onClick={applyMissingBenchmarkWorkflowSuite}
-                disabled={!missingBenchmarkWorkflowCount}
-                className="mt-2 w-full rounded-md border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] px-2 py-1.5 text-xs font-semibold text-[var(--color-pib-text)] disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                {missingBenchmarkWorkflowCount
-                  ? `Apply ${missingBenchmarkWorkflowCount} missing benchmark workflows`
-                  : 'Benchmark suite complete'}
-              </button>
-            </div>
-            <div className="mt-3 space-y-2">
-              {benchmarkWorkflowPresets.map((preset) => (
+              {workflowPresets.map((preset) => (
                 <button
                   key={preset.key}
                   type="button"
@@ -6287,10 +4445,10 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
             </div>
             {saveMessage ? <p className="text-xs font-medium text-[var(--color-pib-text-muted)]">{saveMessage}</p> : null}
           </div>
-          <div className={immersiveCanvas ? 'relative h-[calc(100vh-140px)] min-h-[480px]' : 'relative h-[62vh] min-h-[420px] lg:h-[560px]'}>
+          <div className={immersiveCanvas ? 'relative h-full min-h-0' : 'relative h-[62vh] min-h-[420px] lg:h-[560px]'}>
             <CanvasStage
               nodes={displayNodes}
-              edges={edges}
+              edges={displayEdges}
               nodeTypes={canvasNodeTypes}
               onNodesChange={onNodesChange}
               onEdgesChange={onEdgesChange}
@@ -6389,7 +4547,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
           <div className="rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] p-3">
             <p className="text-sm font-semibold text-[var(--color-pib-text)]">Agent controls</p>
             <p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">
-              Queue Higgsfield, copy, document, and review work from prompt/model nodes while keeping approval gates intact.
+              Queue generation, copy, document, and review work from prompt/model nodes while keeping approval gates intact.
             </p>
             {selectedCanvasNode?.provider?.key === 'higgsfield' ? (
               <p className="mt-2 rounded-md bg-white px-2 py-1 text-xs text-[var(--color-pib-text-muted)]">
@@ -6398,7 +4556,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
             ) : null}
             <div className="mt-3 grid grid-cols-2 gap-2">
               <label className="col-span-2 text-xs font-medium text-[var(--color-pib-text-muted)]" htmlFor="creative-canvas-model-id">
-                Higgsfield model id
+                Model id
                 <input
                   id="creative-canvas-model-id"
                   list="creative-canvas-model-suggestions"
@@ -6413,30 +4571,6 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
                   ))}
                 </datalist>
               </label>
-              <div className="col-span-2 rounded-lg border border-[var(--color-pib-line)] bg-white p-2">
-                <div className="flex items-center justify-between gap-2">
-                  <p className="text-xs font-semibold text-[var(--color-pib-text)]">Benchmark model routing</p>
-                  <span className="text-[11px] font-semibold text-[var(--color-pib-text-muted)]">
-                    {routedModelIds.size} routed
-                  </span>
-                </div>
-                <div className="mt-2 flex flex-wrap gap-1.5">
-                  {higgsfieldModelSuggestions.map((model) => (
-                    <button
-                      key={model.id}
-                      type="button"
-                      onClick={() => applyHiggsfieldModelPreset(model)}
-                      className={`rounded-full border px-2 py-1 text-[11px] font-semibold ${
-                        runModel === model.id
-                          ? 'border-[var(--color-pib-primary)] bg-[var(--color-pib-primary)] text-white'
-                          : 'border-[var(--color-pib-line)] text-[var(--color-pib-text)]'
-                      }`}
-                    >
-                      {model.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
               <label className="text-xs font-medium text-[var(--color-pib-text-muted)]" htmlFor="creative-canvas-output-kind">
                 Output kind
                 <select
@@ -6949,21 +5083,6 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
                       ) : null}
                     </div>
                   ) : null}
-                  {mode === 'admin' ? (
-                    <div className="mt-2 flex flex-wrap items-center justify-between gap-2 rounded-md border border-[var(--color-pib-line)] bg-white px-2 py-1">
-                      <p className="font-semibold text-[var(--color-pib-text)]">
-                        Reliability proof batch
-                      </p>
-                      <button
-                        type="button"
-                        onClick={queueProofBatchRuns}
-                        disabled={!activeCanvas?.id}
-                        className="rounded-md border border-[var(--color-pib-line)] px-2 py-1 font-semibold text-[var(--color-pib-text)] disabled:cursor-not-allowed disabled:opacity-50"
-                      >
-                        Queue proof batch
-                      </button>
-                    </div>
-                  ) : null}
                   {runOperations.staleActiveRuns ? (
                     <p className="mt-2 font-semibold text-amber-700">
                       {runOperations.staleActiveRuns} active provider run{runOperations.staleActiveRuns === 1 ? '' : 's'} older than {runOperations.staleThresholdMinutes} min
@@ -7010,7 +5129,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
               ) : null}
               {latestExecution?.command ? (
                 <div className="rounded-lg border border-[var(--color-pib-line)] bg-white p-3 text-xs">
-                  <p className="font-semibold text-[var(--color-pib-text)]">Higgsfield execution</p>
+                  <p className="font-semibold text-[var(--color-pib-text)]">Provider execution</p>
                   <code className="mt-2 block break-words rounded-md bg-[var(--color-pib-surface)] p-2 text-[11px] text-[var(--color-pib-text)]">
                     {latestExecution.command}
                   </code>
@@ -7022,70 +5141,6 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
                   ) : null}
                   {latestExecution.statusPath ? (
                     <p className="mt-1 text-[var(--color-pib-text-muted)]">Status: {latestExecution.statusPath}</p>
-                  ) : null}
-                </div>
-              ) : null}
-              {runtimeProof ? (
-                <div className={`rounded-lg border p-3 text-xs ${
-                  runtimeProof.status === 'passed'
-                    ? 'border-green-200 bg-green-50 text-green-800'
-                    : runtimeProof.status === 'warning'
-                      ? 'border-amber-200 bg-amber-50 text-amber-800'
-                      : 'border-red-200 bg-red-50 text-red-800'
-                }`}>
-                  <div className="flex items-center justify-between gap-2">
-                    <p className="font-semibold">Live proof status</p>
-                    <span className="rounded-full border border-current px-2 py-0.5 uppercase tracking-normal">{runtimeProof.status}</span>
-                  </div>
-                  <p className="mt-1">{runtimeProof.summary}</p>
-                  <div className="mt-2 space-y-1">
-                    {runtimeProof.reliabilityCoverage?.length ? (
-                      <div className="rounded-md bg-white/70 px-2 py-2">
-                        <div className="flex items-center justify-between gap-2">
-                          <span className="font-semibold">Production job coverage</span>
-                          <span>
-                            {runtimeProof.reliabilityCoverage.filter((category) => category.status === 'passed').length}/{runtimeProof.reliabilityCoverage.length} complete
-                          </span>
-                        </div>
-                        <div className="mt-2 grid gap-2 sm:grid-cols-2">
-                          {runtimeProof.reliabilityCoverage.map((category) => (
-                            <div key={category.key} className="rounded-md border border-current/20 bg-white px-2 py-1">
-                              <div className="flex items-center justify-between gap-2">
-                                <span className="font-semibold">{category.label}</span>
-                                <span className="uppercase tracking-normal">{category.status}</span>
-                              </div>
-                              <p>
-                                {category.completed}/{category.requiredCompleted ?? 1} required completed · {category.active} active · {category.failed} failed
-                              </p>
-                              {category.latestRunId ? (
-                                <p>Latest: {category.latestRunId}</p>
-                              ) : null}
-                              {category.nextAction ? (
-                                <p>{category.nextAction}</p>
-                              ) : null}
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    ) : null}
-                    {runtimeProof.checks.map((item) => (
-                      <div key={item.id} className="rounded-md bg-white/70 px-2 py-1">
-                        <div className="flex items-center justify-between gap-2">
-                          <span className="font-semibold">{item.label}</span>
-                          <span>{item.status}</span>
-                        </div>
-                        <p>{item.evidence}</p>
-                      </div>
-                    ))}
-                  </div>
-                  {mode === 'admin' ? (
-                    <button
-                      type="button"
-                      onClick={refreshRuntimeProof}
-                      className="mt-2 rounded-md border border-current bg-white px-2 py-1 font-semibold"
-                    >
-                      Refresh runtime proof
-                    </button>
                   ) : null}
                 </div>
               ) : null}

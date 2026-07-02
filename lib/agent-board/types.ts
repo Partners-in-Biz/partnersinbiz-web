@@ -11,6 +11,8 @@ export type AgentTaskCard = {
   agentStatus: string | null
   agentInputSpec: string | null
   agentOutputSummary: string | null
+  dispatchReady?: boolean
+  dispatchBlocker?: string | null
   priority: string | null
   tags: string[]
   labels?: string[]

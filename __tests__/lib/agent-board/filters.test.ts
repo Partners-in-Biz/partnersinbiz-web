@@ -55,6 +55,21 @@ describe('agent board operational filters', () => {
     expect(getAgentBoardBadges(card).map((badge) => badge.id)).toContain('awaiting-input')
   })
 
+  it('surfaces pending dispatch blockers as operator-visible badges', () => {
+    const badges = getAgentBoardBadges(baseCard({
+      agentStatus: 'pending',
+      dispatchReady: false,
+      dispatchBlocker: 'approval-pending',
+    }))
+
+    expect(badges).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        id: 'dispatch-blocked',
+        label: 'Dispatch: approval pending',
+      }),
+    ]))
+  })
+
   it('computes filter counts from cards without double-counting repeated labels', () => {
     const cards = [
       baseCard({ id: 'a', labels: ['document:doc-1', 'document:doc-1'] }),

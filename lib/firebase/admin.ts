@@ -20,8 +20,22 @@ export function getAdminAuth(): Auth {
   return getAuth(getAdminApp())
 }
 
+let firestoreSettingsApplied = false
+
 export function getAdminDb(): Firestore {
-  return wrapFirestoreReadTarget(getFirestore(getAdminApp()))
+  const db = getFirestore(getAdminApp())
+  if (!firestoreSettingsApplied) {
+    firestoreSettingsApplied = true
+    try {
+      // Optional fields sanitized to undefined must be skipped, not fatal —
+      // Firestore otherwise rejects the whole document.
+      db.settings({ ignoreUndefinedProperties: true })
+    } catch {
+      // settings() throws if Firestore was already used (e.g. across HMR); the
+      // instance keeps whatever settings it started with.
+    }
+  }
+  return wrapFirestoreReadTarget(db)
 }
 
 // Lazy singleton accessors — only instantiated when first called (not at build time)

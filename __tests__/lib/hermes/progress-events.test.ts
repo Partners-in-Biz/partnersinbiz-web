@@ -100,7 +100,9 @@ describe('normalizeHermesEvent', () => {
           type: 'table',
           caption: 'Channel mix',
           columns: ['Channel', 'Status'],
-          rows: [['Email', 'Ready']],
+          // Array rows are normalized to column-keyed records so they can be
+          // stored safely in Firestore (no nested arrays).
+          rows: [{ Channel: 'Email', Status: 'Ready' }],
         },
         {
           type: 'gallery',

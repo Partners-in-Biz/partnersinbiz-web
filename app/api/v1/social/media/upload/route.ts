@@ -5,6 +5,7 @@ import { withAuth } from '@/lib/api/auth'
 import { withTenant } from '@/lib/api/tenant'
 import { apiSuccess, apiError } from '@/lib/api/response'
 import { uploadMediaToStorage } from '@/lib/social/storage'
+import { probeSocialMediaMetadata } from '@/lib/social/media-metadata'
 import type { MediaType, MediaStatus } from '@/lib/social/providers'
 
 export const dynamic = 'force-dynamic'
@@ -54,6 +55,7 @@ export const POST = withAuth('client', withTenant(async (req, user, orgId) => {
     : file.type === 'image/gif'
     ? 'gif'
     : 'image'
+  const metadata = await probeSocialMediaMetadata({ buffer, mimeType: file.type })
 
   let publicUrl: string
   let storagePath: string
@@ -79,9 +81,9 @@ export const POST = withAuth('client', withTenant(async (req, user, orgId) => {
       variants: {},
       thumbnailUrl: publicUrl,
       type,
-      width: 0,
-      height: 0,
-      duration: null,
+      width: metadata.width,
+      height: metadata.height,
+      duration: metadata.duration,
       altText,
       storagePath,
       usedInPosts: [],

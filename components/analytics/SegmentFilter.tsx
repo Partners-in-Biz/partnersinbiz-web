@@ -45,7 +45,9 @@ export function loadPersistedSegment(): SegmentValue {
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
     if (raw) return { ...EMPTY_SEGMENT, ...JSON.parse(raw) }
-  } catch { /* ignore */ }
+  } catch (err) {
+    void err
+  }
   return EMPTY_SEGMENT
 }
 
@@ -67,7 +69,7 @@ export function SegmentFilter({
   const [crmSegments, setCrmSegments] = useState<CrmSegmentOption[]>([])
 
   useEffect(() => {
-    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(value)) } catch { /* ignore */ }
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(value)) } catch (err) { void err }
   }, [value])
 
   useEffect(() => {
@@ -80,7 +82,9 @@ export function SegmentFilter({
         const body = await res.json()
         const list = (body.data ?? body.segments ?? []) as CrmSegmentOption[]
         if (!cancelled) setCrmSegments(list)
-      } catch { /* CRM segments optional */ }
+      } catch (err) {
+        void err
+      }
     })()
     return () => { cancelled = true }
   }, [orgId])

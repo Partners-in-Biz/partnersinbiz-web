@@ -7,9 +7,9 @@ interface Props {
   onScrollToAnchor?: (comment: InlineComment) => void
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function formatTs(ts: any): string {
-  const sec = ts?._seconds ?? ts?.seconds
+function formatTs(ts: unknown): string {
+  const value = ts && typeof ts === 'object' ? ts as { _seconds?: unknown; seconds?: unknown } : null
+  const sec = typeof value?._seconds === 'number' ? value._seconds : typeof value?.seconds === 'number' ? value.seconds : null
   if (!sec) return ''
   const d = new Date(sec * 1000)
   return d.toLocaleString('en-ZA', {

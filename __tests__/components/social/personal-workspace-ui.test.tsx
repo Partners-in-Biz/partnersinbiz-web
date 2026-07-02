@@ -40,6 +40,18 @@ describe('personal workspace social UI', () => {
       if (url === '/api/v1/social/posts?scope=personal' && init?.method === 'POST') {
         return Promise.resolve({ ok: true, json: async () => ({ data: { id: 'post-1' } }) } as Response)
       }
+      if (url === '/api/v1/social/posts/post-1?scope=personal' && !init) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            data: {
+              id: 'post-1',
+              status: 'draft',
+              content: { text: 'Personal update' },
+            },
+          }),
+        } as Response)
+      }
       if (url === '/api/v1/workspace-connections?orgId=org-1&provider=x_mcp&owner=me' && !init) {
         return Promise.resolve({ ok: true, json: async () => ({ data: [] }) } as Response)
       }
@@ -141,6 +153,50 @@ describe('personal workspace social UI', () => {
         }),
       )
     })
+  })
+
+  it('keeps publish now disabled until platform, account, and valid content are ready', async () => {
+    render(
+      <SocialPostComposer
+        scope="personal"
+        accountsHref="/portal/personal/social/accounts"
+        afterSaveHref="/portal/personal/marketing"
+      />,
+    )
+
+    const publishButton = screen.getByRole('button', { name: /publish now/i })
+    expect(publishButton).toBeDisabled()
+
+    await screen.findByRole('button', { name: /linkedin/i })
+    fireEvent.click(screen.getByRole('button', { name: /linkedin/i }))
+    expect(publishButton).toBeDisabled()
+
+    fireEvent.change(screen.getByPlaceholderText('Write your post…'), {
+      target: { value: 'Personal update' },
+    })
+
+    await waitFor(() => expect(publishButton).not.toBeDisabled())
+  })
+
+  it('verifies draft save by reading the created post and staying in the composer', async () => {
+    render(
+      <SocialPostComposer
+        scope="personal"
+        accountsHref="/portal/personal/social/accounts"
+        afterSaveHref="/portal/personal/marketing"
+      />,
+    )
+
+    await screen.findByRole('button', { name: /linkedin/i })
+    fireEvent.click(screen.getByRole('button', { name: /linkedin/i }))
+    fireEvent.change(screen.getByPlaceholderText('Write your post…'), {
+      target: { value: 'Personal update' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: /save draft/i }))
+
+    expect(await screen.findByText('Draft saved and verified: post-1')).toBeInTheDocument()
+    expect(global.fetch).toHaveBeenCalledWith('/api/v1/social/posts/post-1?scope=personal')
+    expect(push).not.toHaveBeenCalled()
   })
 
   it('shows saved X MCP metadata as authorization-required, not connected', async () => {

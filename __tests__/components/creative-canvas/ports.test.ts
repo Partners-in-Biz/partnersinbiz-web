@@ -11,3 +11,9 @@ test('rejects connecting a video output into an image-only input', () => {
   expect(isValidConnection('image', 'image')).toBe(true)
   expect(isValidConnection('image', 'text')).toBe(false)
 })
+
+test('combine node accepts every media kind and exposes an output port', () => {
+  const p = portsForNode('combine')
+  expect(p.inputs.map((i) => i.kind).sort()).toEqual(['audio', 'image', 'text', 'video'])
+  expect(p.output.kind).toBe('output')
+})

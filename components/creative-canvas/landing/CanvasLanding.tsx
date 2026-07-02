@@ -23,6 +23,8 @@ export interface CanvasLandingProps {
   onCreate: () => void
   onOpenBoard: (id: string) => void
   onUseTemplate: (id: string) => void
+  onRenameBoard?: (id: string, title: string) => void
+  onDeleteBoard?: (id: string) => void
 }
 
 type LandingTab = 'all' | 'templates'
@@ -48,8 +50,31 @@ export default function CanvasLanding({
   onCreate,
   onOpenBoard,
   onUseTemplate,
+  onRenameBoard,
+  onDeleteBoard,
 }: CanvasLandingProps) {
   const [tab, setTab] = useState<LandingTab>('all')
+  const [renamingId, setRenamingId] = useState<string | null>(null)
+  const [renameDraft, setRenameDraft] = useState('')
+
+  const commitRename = (id: string) => {
+    const next = renameDraft.trim()
+    setRenamingId(null)
+    if (next && onRenameBoard) onRenameBoard(id, next)
+  }
+
+  const boardActionStyle: React.CSSProperties = {
+    width: 26,
+    height: 26,
+    display: 'grid',
+    placeItems: 'center',
+    borderRadius: 7,
+    border: `1px solid ${canvasTheme.border}`,
+    background: canvasTheme.surfaceRaised,
+    color: canvasTheme.text,
+    cursor: 'pointer',
+    fontSize: 12,
+  }
 
   const tabButton = (id: LandingTab, label: string) => {
     const active = tab === id
@@ -152,40 +177,94 @@ export default function CanvasLanding({
             </button>
 
             {boards.map((board) => (
-              <button
-                key={board.id}
-                type="button"
-                onClick={() => onOpenBoard(board.id)}
-                style={{
-                  appearance: 'none',
-                  cursor: 'pointer',
-                  textAlign: 'left',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: '12px',
-                  padding: '12px',
-                  borderRadius: canvasTheme.radius,
-                  border: `1px solid ${canvasTheme.border}`,
-                  background: canvasTheme.surface,
-                  color: canvasTheme.text,
-                  boxShadow: canvasTheme.nodeShadow,
-                }}
-              >
-                {board.thumbnailUrl ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={board.thumbnailUrl} alt="" style={thumbStyle} />
-                ) : (
-                  <div style={placeholderStyle} aria-hidden="true" />
-                )}
-                <div>
-                  <div style={{ fontSize: '15px', fontWeight: 600 }}>{board.title}</div>
-                  {board.updatedLabel && (
-                    <div style={{ fontSize: '13px', color: canvasTheme.textMuted, marginTop: '2px' }}>
-                      {board.updatedLabel}
-                    </div>
+              <div key={board.id} style={{ position: 'relative' }}>
+                <button
+                  type="button"
+                  onClick={() => onOpenBoard(board.id)}
+                  aria-label={`Open ${board.title}`}
+                  style={{
+                    appearance: 'none',
+                    cursor: 'pointer',
+                    textAlign: 'left',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '12px',
+                    padding: '12px',
+                    width: '100%',
+                    borderRadius: canvasTheme.radius,
+                    border: `1px solid ${canvasTheme.border}`,
+                    background: canvasTheme.surface,
+                    color: canvasTheme.text,
+                    boxShadow: canvasTheme.nodeShadow,
+                  }}
+                >
+                  {board.thumbnailUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={board.thumbnailUrl} alt="" style={thumbStyle} />
+                  ) : (
+                    <div style={placeholderStyle} aria-hidden="true" />
                   )}
-                </div>
-              </button>
+                  <div>
+                    {renamingId === board.id ? (
+                      <input
+                        aria-label={`Rename ${board.title}`}
+                        value={renameDraft}
+                        autoFocus
+                        onChange={(event) => setRenameDraft(event.target.value)}
+                        onClick={(event) => event.stopPropagation()}
+                        onKeyDown={(event) => {
+                          if (event.key === 'Enter') commitRename(board.id)
+                          if (event.key === 'Escape') setRenamingId(null)
+                        }}
+                        onBlur={() => commitRename(board.id)}
+                        style={{ width: '100%', fontSize: '15px', fontWeight: 600, background: canvasTheme.surfaceRaised, color: canvasTheme.text, border: `1px solid ${canvasTheme.border}`, borderRadius: 6, padding: '2px 6px' }}
+                      />
+                    ) : (
+                      <div style={{ fontSize: '15px', fontWeight: 600 }}>{board.title}</div>
+                    )}
+                    {board.updatedLabel && (
+                      <div style={{ fontSize: '13px', color: canvasTheme.textMuted, marginTop: '2px' }}>
+                        {board.updatedLabel}
+                      </div>
+                    )}
+                  </div>
+                </button>
+                {(onRenameBoard || onDeleteBoard) && (
+                  <div style={{ position: 'absolute', top: 18, right: 18, display: 'flex', gap: 4 }}>
+                    {onRenameBoard ? (
+                      <button
+                        type="button"
+                        aria-label={`Rename canvas ${board.title}`}
+                        title="Rename"
+                        style={boardActionStyle}
+                        onClick={(event) => {
+                          event.stopPropagation()
+                          setRenamingId(board.id)
+                          setRenameDraft(board.title)
+                        }}
+                      >
+                        ✎
+                      </button>
+                    ) : null}
+                    {onDeleteBoard ? (
+                      <button
+                        type="button"
+                        aria-label={`Delete canvas ${board.title}`}
+                        title="Delete"
+                        style={{ ...boardActionStyle, color: '#ff7a7a' }}
+                        onClick={(event) => {
+                          event.stopPropagation()
+                          if (window.confirm(`Delete "${board.title}"? This canvas will be removed for everyone.`)) {
+                            onDeleteBoard(board.id)
+                          }
+                        }}
+                      >
+                        🗑
+                      </button>
+                    ) : null}
+                  </div>
+                )}
+              </div>
             ))}
           </>
         )}

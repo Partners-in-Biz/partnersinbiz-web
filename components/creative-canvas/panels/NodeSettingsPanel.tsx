@@ -96,13 +96,16 @@ function Segmented<T extends string | number>({ options, value, onChange }: { op
   )
 }
 
-/** Higgsfield-style slide-in node settings. Configure is the default; the
+/** Slide-in node settings. Configure is the default; the
  *  enterprise layer (Review / Provenance / Export) is tucked into tabs. */
 export default function NodeSettingsPanel(props: NodeSettingsPanelProps) {
   const { open, node, presentationType, values, prompt, generating, canGenerate, onPromptChange, onModelSelect, onChange, onGenerate, onClose, onExport } = props
   const [tab, setTab] = useState<Tab>('configure')
   const [modelPickerOpen, setModelPickerOpen] = useState(false)
-  const kind = kindFor(presentationType)
+  const nodeOutputKind = (node?.data as Record<string, unknown> | undefined)?.outputKind
+  const kind = presentationType === 'combine'
+    ? (nodeOutputKind === 'video' || node?.provider?.mode === 'video' ? 'video' : 'image')
+    : kindFor(presentationType)
   const isVideo = kind === 'video'
   const model = getCanvasModel(values.model)
   const creditCost = model?.creditCost

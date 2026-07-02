@@ -354,6 +354,7 @@ export async function updateCreativeCanvas(
     data: sourceData,
     status: enumPatchValue(source.status, CANVAS_STATUSES, current.status),
     visibility: enumPatchValue(source.visibility, VISIBILITIES, current.visibility),
+    deleted: typeof source.deleted === 'boolean' ? source.deleted : current.deleted === true,
     updatedBy: actor.uid,
     updatedByType: actor.type,
     updatedAt: FieldValue.serverTimestamp(),

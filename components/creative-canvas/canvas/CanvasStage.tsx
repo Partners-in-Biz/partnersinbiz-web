@@ -7,6 +7,7 @@ import {
   MiniMap,
   ReactFlow,
   ReactFlowProvider,
+  SelectionMode,
   useReactFlow,
   type Edge,
   type Node,
@@ -94,6 +95,9 @@ function StageInner(props: CanvasStageProps) {
         colorMode="dark"
         connectionLineType={'bezier' as ReactFlowProps['connectionLineType']}
         defaultEdgeOptions={{ type: 'default', animated: false }}
+        selectionOnDrag={activeTool === 'select'}
+        panOnDrag={activeTool === 'select' ? [1, 2] : true}
+        selectionMode={SelectionMode.Partial}
         onDoubleClick={handleDoubleClick}
         onPaneContextMenu={handleContextMenu}
         fitView

@@ -1,0 +1,23 @@
+[Unit]
+Description=Higgsfield executor (deterministic Creative Canvas run runner)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=hermes
+Group=hermes
+Environment=HOME=/var/lib/hermes
+Environment=PATH=/var/lib/hermes/.local/bin:/var/lib/hermes/.local/nodejs/bin:/usr/local/bin:/usr/bin:/bin
+EnvironmentFile=/etc/higgsfield-executor.env
+ExecStart=/var/lib/hermes/.local/nodejs/bin/node /opt/higgsfield-executor/executor.mjs
+Restart=always
+RestartSec=5
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/var/lib/hermes /tmp
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target
