@@ -62,6 +62,7 @@ jest.mock('@xyflow/react', () => ({
     screenToFlowPosition: (position: { x: number; y: number }) => position,
   }),
   BackgroundVariant: { Dots: 'dots', Lines: 'lines', Cross: 'cross' },
+  SelectionMode: { Partial: 'partial', Full: 'full' },
   Background: () => <div data-testid="flow-background" />,
   Controls: () => <div data-testid="flow-controls" />,
   MiniMap: () => <div data-testid="flow-minimap" />,
