@@ -39,6 +39,7 @@ export interface CanvasNodeData {
   onDuplicate?: () => void
   onEditWithAi?: () => void
   onReplaceContent?: () => void
+  onPublish?: () => void
   downloadUrl?: string
   [key: string]: unknown
 }

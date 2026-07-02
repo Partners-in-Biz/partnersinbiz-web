@@ -8,6 +8,7 @@ export interface NodeActionBarProps {
   onDuplicate?: () => void
   onEditWithAi?: () => void
   onReplaceContent?: () => void
+  onPublish?: () => void
   downloadUrl?: string
 }
 
@@ -28,8 +29,8 @@ const actionButtonStyle: React.CSSProperties = {
 }
 
 /** Compact per-node action strip rendered in the node card header. */
-export default function NodeActionBar({ onDelete, onDuplicate, onEditWithAi, onReplaceContent, downloadUrl }: NodeActionBarProps) {
-  if (!onDelete && !onDuplicate && !onEditWithAi && !onReplaceContent && !downloadUrl) return null
+export default function NodeActionBar({ onDelete, onDuplicate, onEditWithAi, onReplaceContent, onPublish, downloadUrl }: NodeActionBarProps) {
+  if (!onDelete && !onDuplicate && !onEditWithAi && !onReplaceContent && !onPublish && !downloadUrl) return null
   return (
     <span className="nodrag" style={{ display: 'inline-flex', gap: 3, alignItems: 'center' }}>
       {onEditWithAi ? (
@@ -37,6 +38,9 @@ export default function NodeActionBar({ onDelete, onDuplicate, onEditWithAi, onR
       ) : null}
       {onReplaceContent ? (
         <button type="button" title="Replace content" aria-label="Replace content" style={actionButtonStyle} onClick={(event) => { event.stopPropagation(); onReplaceContent() }}>⇄</button>
+      ) : null}
+      {onPublish ? (
+        <button type="button" title="Publish to platform" aria-label="Publish node" style={actionButtonStyle} onClick={(event) => { event.stopPropagation(); onPublish() }}>📤</button>
       ) : null}
       {onDuplicate ? (
         <button type="button" title="Duplicate" aria-label="Duplicate node" style={actionButtonStyle} onClick={(event) => { event.stopPropagation(); onDuplicate() }}>⧉</button>
@@ -53,14 +57,15 @@ export default function NodeActionBar({ onDelete, onDuplicate, onEditWithAi, onR
 
 /** Build the action bar element from React Flow node data (shared by all node cards). */
 export function nodeActionsFor(data: CanvasNodeData): React.ReactNode {
-  const { onDelete, onDuplicate, onEditWithAi, onReplaceContent, downloadUrl } = data
-  if (!onDelete && !onDuplicate && !onEditWithAi && !onReplaceContent && !downloadUrl) return null
+  const { onDelete, onDuplicate, onEditWithAi, onReplaceContent, onPublish, downloadUrl } = data
+  if (!onDelete && !onDuplicate && !onEditWithAi && !onReplaceContent && !onPublish && !downloadUrl) return null
   return (
     <NodeActionBar
       onDelete={onDelete}
       onDuplicate={onDuplicate}
       onEditWithAi={onEditWithAi}
       onReplaceContent={onReplaceContent}
+      onPublish={onPublish}
       downloadUrl={downloadUrl}
     />
   )

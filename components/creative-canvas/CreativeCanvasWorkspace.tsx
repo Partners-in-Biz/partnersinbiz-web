@@ -20,6 +20,7 @@ import { isValidConnection, portsForNode, type CanvasNodeType } from '@/componen
 import { getCanvasModel } from '@/lib/creative-canvas/model-registry'
 import CreateMenu from '@/components/creative-canvas/canvas/CreateMenu'
 import NodeEditChat from '@/components/creative-canvas/nodes/NodeEditChat'
+import NodePublishMenu, { type NodePublishPlatform, type NodePublishTarget } from '@/components/creative-canvas/nodes/NodePublishMenu'
 import NodeSettingsPanel from '@/components/creative-canvas/panels/NodeSettingsPanel'
 import ReferencePicker, { type ReferenceAsset } from '@/components/creative-canvas/panels/ReferencePicker'
 import CanvasLanding from '@/components/creative-canvas/landing/CanvasLanding'
@@ -1053,7 +1054,8 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
     duplicate: (nodeId: string) => void
     replaceContent: (nodeId: string) => void
     editWithAi: (nodeId: string) => void
-  }>({ generate: () => {}, updatePrompt: () => {}, updateText: () => {}, addReference: () => {}, updateOutputKind: () => {}, remove: () => {}, duplicate: () => {}, replaceContent: () => {}, editWithAi: () => {} })
+    publish: (nodeId: string) => void
+  }>({ generate: () => {}, updatePrompt: () => {}, updateText: () => {}, addReference: () => {}, updateOutputKind: () => {}, remove: () => {}, duplicate: () => {}, replaceContent: () => {}, editWithAi: () => {}, publish: () => {} })
   const pendingReferenceNodeIdRef = useRef<{ nodeId: string; mode: 'attach' | 'replace' } | null>(null)
   const referenceFileInputRef = useRef<HTMLInputElement | null>(null)
 
@@ -1095,6 +1097,9 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
         onEditWithAi: () => nodeActionRefs.current.editWithAi(node.id),
         ...(canvasNode.type === 'source'
           ? { onReplaceContent: () => nodeActionRefs.current.replaceContent(node.id) }
+          : {}),
+        ...(canvasNode.output?.url || canvasNode.output?.textPreview
+          ? { onPublish: () => nodeActionRefs.current.publish(node.id) }
           : {}),
         downloadUrl: canvasNode.output?.url ?? canvasNode.source?.url,
         // "Select model" on a node opens the settings panel (which hosts the picker).
@@ -1736,6 +1741,10 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
   const [immersiveCanvas, setImmersiveCanvas] = useState(true)
   const [referencePicker, setReferencePicker] = useState<{ nodeId: string; mode?: 'attach' | 'replace' } | null>(null)
   const [editChatNodeId, setEditChatNodeId] = useState<string | null>(null)
+  const [publishNodeId, setPublishNodeId] = useState<string | null>(null)
+  const [publishBusy, setPublishBusy] = useState(false)
+  const [publishError, setPublishError] = useState('')
+  const [publishSuccess, setPublishSuccess] = useState('')
   const [settingsCollapsed, setSettingsCollapsed] = useState(false)
 
   const reloadActiveCanvas = useCallback(async () => {
@@ -3411,6 +3420,65 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
     }
   }, [applyCanvasSnapshot, ensurePersistedCanvas, loadCanvasCredits, nodes])
 
+  /**
+   * Publish an output-bearing node into the platform: social drafts become
+   * real Marketing Studio posts; other targets create linked export drafts
+   * for their modules. Requires the canvas to be persisted so the server
+   * sees the node.
+   */
+  const publishNode = useCallback(async (nodeId: string, target: NodePublishTarget, caption: string, platforms: NodePublishPlatform[]) => {
+    const targetNode = nodes.find((node) => node.id === nodeId)
+    const canvasNode = targetNode?.data?.canvasNode as CreativeCanvasNode | undefined
+    if (!canvasNode?.output?.url && !canvasNode?.output?.textPreview) {
+      setPublishError('This node has no output to publish yet')
+      return
+    }
+    setPublishBusy(true)
+    setPublishError('')
+    setPublishSuccess('')
+    try {
+      const persisted = await ensurePersistedCanvas()
+      if (!persisted) {
+        setPublishError('Could not save the canvas before publishing')
+        return
+      }
+      const { canvasId, canvasOrgId } = persisted
+      const endpoint = target === 'social_draft'
+        ? `/api/v1/creative-canvas/${canvasId}/exports/social-draft?orgId=${encodeURIComponent(canvasOrgId)}`
+        : `/api/v1/creative-canvas/${canvasId}/exports/draft?orgId=${encodeURIComponent(canvasOrgId)}`
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(target === 'social_draft'
+          ? { nodeId, platforms, ...(caption ? { caption } : {}) }
+          : { nodeId, target }),
+      })
+      const payload = await response.json().catch(() => null) as { data?: { postId?: string; exportId?: string }; error?: string } | null
+      if (!response.ok) {
+        setPublishError(payload?.error ?? 'Publish failed')
+        return
+      }
+      const createdId = payload?.data?.postId ?? payload?.data?.exportId ?? ''
+      const message = target === 'social_draft'
+        ? `Social draft created in Marketing Studio${createdId ? ` (${createdId})` : ''} — approve + schedule there`
+        : `Export draft created${createdId ? ` (${createdId})` : ''}`
+      setPublishSuccess(message)
+      setActivityMessage(message)
+      recordCanvasActivity({
+        actorLabel: 'You',
+        action: 'Published node',
+        detail: `${canvasNode.title}: ${target}`,
+        nodeId,
+        operation: 'draft_apply',
+        source: 'local',
+      })
+    } catch {
+      setPublishError('Publish failed')
+    } finally {
+      setPublishBusy(false)
+    }
+  }, [ensurePersistedCanvas, nodes, recordCanvasActivity])
+
   // Re-assigned every render (no dep array) so the handlers always close over
   // fresh state — duplicate/remove read the current nodes list.
   useEffect(() => {
@@ -3424,6 +3492,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
       duplicate: duplicateNodeById,
       replaceContent: (nodeId: string) => setReferencePicker({ nodeId, mode: 'replace' }),
       editWithAi: (nodeId: string) => setEditChatNodeId(nodeId),
+      publish: (nodeId: string) => { setPublishNodeId(nodeId); setPublishError(''); setPublishSuccess('') },
     }
   })
 
@@ -3998,6 +4067,21 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
             error={editChatError}
             onSubmit={(prompt, placement) => { void runNodeEdit(editChatNodeId, prompt, placement) }}
             onClose={() => { setEditChatNodeId(null); setEditChatError('') }}
+          />
+        )
+      })() : null}
+
+      {publishNodeId ? (() => {
+        const publishTarget = nodes.find((node) => node.id === publishNodeId)
+        const publishCanvasNode = publishTarget?.data?.canvasNode as CreativeCanvasNode | undefined
+        return (
+          <NodePublishMenu
+            nodeTitle={publishCanvasNode?.title ?? 'Node'}
+            busy={publishBusy}
+            error={publishError}
+            successMessage={publishSuccess}
+            onPublish={(target, caption, platforms) => { void publishNode(publishNodeId, target, caption, platforms) }}
+            onClose={() => { setPublishNodeId(null); setPublishError(''); setPublishSuccess('') }}
           />
         )
       })() : null}
