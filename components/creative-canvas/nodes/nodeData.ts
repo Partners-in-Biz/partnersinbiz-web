@@ -40,6 +40,12 @@ export interface CanvasNodeData {
   onEditWithAi?: () => void
   onReplaceContent?: () => void
   onPublish?: () => void
+  /** Character node: Soul ID for identity-consistent generation. */
+  soulId?: string
+  /** Screen node: generate a UI mockup image from the description. */
+  onGenerateMockup?: () => void
+  /** Output node: text result preview (copy edits, agent-llm generations). */
+  textPreview?: string
   downloadUrl?: string
   [key: string]: unknown
 }

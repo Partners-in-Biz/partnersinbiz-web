@@ -2066,9 +2066,13 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
   }
 
   const applyWorkflowPreset = (preset: CreativeCanvasWorkflowPreset) => {
+    // Place presets clear of existing content: start to the right of the
+    // right-most node instead of stacking near the origin (fixed-coordinate
+    // presets used to overlap boards that already had nodes).
+    const maxX = nodes.length ? Math.max(...nodes.map((node) => node.position?.x ?? 0)) : 0
     const graph = buildWorkflowPresetGraph(preset, {
-      baseX: 80 + nodes.length * 18,
-      baseY: 90 + nodes.length * 12,
+      baseX: nodes.length ? maxX + 420 : 80,
+      baseY: 90,
       stamp: Date.now(),
       orgId: resolvedOrgId || 'pending-org',
     })
@@ -3593,6 +3597,196 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
     }
   }, [ensurePersistedCanvas, nodes, recordCanvasActivity])
 
+  // ---- Public read-only share link ----
+  const [shareBusy, setShareBusy] = useState(false)
+  const [shareState, setShareState] = useState<{ enabled: boolean; url: string | null } | null>(null)
+  const shareEnabled = shareState?.enabled ?? activeCanvas?.shareEnabled === true
+  const shareUrl = shareState
+    ? shareState.url
+    : activeCanvas?.shareEnabled && activeCanvas?.shareToken
+      ? `${typeof window !== 'undefined' ? window.location.origin : ''}/c/canvas/${activeCanvas.shareToken}`
+      : null
+
+  const toggleCanvasShare = useCallback(async () => {
+    setShareBusy(true)
+    try {
+      const persisted = await ensurePersistedCanvas()
+      if (!persisted) return
+      const { canvasId, canvasOrgId } = persisted
+      const response = await fetch(`/api/v1/creative-canvas/${canvasId}/share?orgId=${encodeURIComponent(canvasOrgId)}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ enabled: !shareEnabled }),
+      })
+      const payload = await response.json().catch(() => null) as { data?: { shareEnabled?: boolean; shareUrl?: string | null }; error?: string } | null
+      if (!response.ok) {
+        setActivityMessage(payload?.error ?? 'Share update failed')
+        return
+      }
+      const enabled = payload?.data?.shareEnabled === true
+      setShareState({ enabled, url: payload?.data?.shareUrl ?? null })
+      setActivityMessage(enabled ? 'Public share link enabled' : 'Public share link disabled')
+    } catch {
+      setActivityMessage('Share update failed')
+    } finally {
+      setShareBusy(false)
+    }
+  }, [ensurePersistedCanvas, shareEnabled])
+
+  // ---- Compile book board → Book Studio manuscript ----
+  const canvasHasChapters = useMemo(() => nodes.some((node) => {
+    const canvasNode = node.data?.canvasNode as CreativeCanvasNode | undefined
+    const data = (canvasNode?.data ?? {}) as Record<string, unknown>
+    return data.presentationType === 'chapter' && typeof data.text === 'string' && data.text.trim()
+  }), [nodes])
+  const [compileBusy, setCompileBusy] = useState(false)
+
+  const compileManuscript = useCallback(async () => {
+    setCompileBusy(true)
+    try {
+      const persisted = await ensurePersistedCanvas()
+      if (!persisted) return
+      const { canvasId, canvasOrgId } = persisted
+      const response = await fetch(`/api/v1/creative-canvas/${canvasId}/exports/manuscript?orgId=${encodeURIComponent(canvasOrgId)}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({}),
+      })
+      const payload = await response.json().catch(() => null) as { data?: { briefId?: string; chapterCount?: number; wordCount?: number; orderingFallback?: boolean }; error?: string } | null
+      if (!response.ok) {
+        setActivityMessage(payload?.error ?? 'Manuscript compile failed')
+        return
+      }
+      const detail = payload?.data
+      setActivityMessage(`Manuscript compiled to Book Studio — ${detail?.chapterCount ?? 0} chapters, ${detail?.wordCount ?? 0} words${detail?.orderingFallback ? ' (chapter order was ambiguous — check the sequence)' : ''}`)
+      recordCanvasActivity({
+        actorLabel: 'You',
+        action: 'Compiled manuscript',
+        detail: `${detail?.chapterCount ?? 0} chapters → Book Studio draft ${detail?.briefId ?? ''}`,
+        operation: 'draft_apply',
+        source: 'local',
+      })
+    } catch {
+      setActivityMessage('Manuscript compile failed')
+    } finally {
+      setCompileBusy(false)
+    }
+  }, [ensurePersistedCanvas, recordCanvasActivity])
+
+  // ---- Auto-fill board: agent-writes every empty text card in link order ----
+  const [autoFillBusy, setAutoFillBusy] = useState(false)
+
+  const autoFillBoard = useCallback(async () => {
+    const textPresentation = new Set(['text', 'sticky_note', 'prompt', 'character', 'chapter', 'screen'])
+    // Fill upstream-first (characters before the chapters they feed) so each
+    // generation can carry the freshly written upstream context.
+    const pending = nodes.filter((node) => {
+      const canvasNode = node.data?.canvasNode as CreativeCanvasNode | undefined
+      const data = (canvasNode?.data ?? {}) as Record<string, unknown>
+      const presentation = String(data.presentationType ?? '')
+      const text = typeof data.text === 'string' ? data.text.trim() : ''
+      return canvasNode && textPresentation.has(presentation) && !text
+    })
+    if (!pending.length) {
+      setActivityMessage('No empty text cards to fill')
+      return
+    }
+    const incoming = new Map<string, string[]>()
+    edges.forEach((edge) => {
+      incoming.set(edge.target, [...(incoming.get(edge.target) ?? []), edge.source])
+    })
+    const pendingIds = new Set(pending.map((node) => node.id))
+    const ordered = [...pending].sort((a, b) => {
+      const aDependsOnB = (incoming.get(a.id) ?? []).includes(b.id)
+      const bDependsOnA = (incoming.get(b.id) ?? []).includes(a.id)
+      if (aDependsOnB && !bDependsOnA) return 1
+      if (bDependsOnA && !aDependsOnB) return -1
+      return 0
+    })
+
+    setAutoFillBusy(true)
+    setActivityMessage(`Auto-filling ${ordered.length} card${ordered.length === 1 ? '' : 's'}…`)
+    try {
+      const persisted = await ensurePersistedCanvas()
+      if (!persisted) return
+      const { canvasId, canvasOrgId } = persisted
+      const written = new Map<string, string>()
+      for (const node of ordered) {
+        const canvasNode = node.data?.canvasNode as CreativeCanvasNode | undefined
+        if (!canvasNode) continue
+        const upstreamContext = (incoming.get(node.id) ?? [])
+          .map((sourceId) => {
+            const fresh = written.get(sourceId)
+            if (fresh) {
+              const title = nodes.find((candidate) => candidate.id === sourceId)?.data?.canvasNode as CreativeCanvasNode | undefined
+              return `${title?.title ?? sourceId}: ${fresh}`
+            }
+            const upstream = nodes.find((candidate) => candidate.id === sourceId)?.data?.canvasNode as CreativeCanvasNode | undefined
+            const data = (upstream?.data ?? {}) as Record<string, unknown>
+            return typeof data.text === 'string' && data.text.trim() ? `${upstream?.title}: ${data.text.trim()}` : null
+          })
+          .filter(Boolean)
+        const presentation = String(((canvasNode.data ?? {}) as Record<string, unknown>).presentationType ?? 'text')
+        const prompt = [
+          `Write the content for a ${presentation.replace(/_/g, ' ')} card titled "${canvasNode.title}" on a creative planning board. Return only the content, no preamble.`,
+          ...(upstreamContext.length ? [`Context from linked cards:\n${upstreamContext.join('\n')}`] : []),
+        ].join('\n\n')
+        try {
+          const response = await fetch(`/api/v1/creative-canvas/${canvasId}/runs/generate?orgId=${encodeURIComponent(canvasOrgId)}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ nodeId: node.id, model: 'agent-llm', prompt }),
+          })
+          const payload = await response.json().catch(() => null) as { data?: { node?: { output?: { textPreview?: string } } }; error?: string } | null
+          const text = payload?.data?.node?.output?.textPreview
+          if (response.ok && text) {
+            written.set(node.id, text)
+            updateNodeText(node.id, text)
+            setActivityMessage(`Auto-filled "${canvasNode.title}" (${written.size}/${ordered.length})`)
+          }
+        } catch { ignoreCanvasBestEffortFailure() }
+      }
+      if (!written.size) {
+        setActivityMessage('Auto-fill could not generate any content — try again or write manually')
+        return
+      }
+      // Drop the transient output nodes the sync generations created and
+      // persist the filled texts in one graph write.
+      try {
+        const refreshResponse = await fetch(`/api/v1/creative-canvas/${canvasId}?orgId=${encodeURIComponent(canvasOrgId)}`)
+        const refreshPayload = await refreshResponse.json().catch(() => null) as CreativeCanvasApiListResponse | null
+        const server = refreshPayload?.data?.canvas
+        if (refreshResponse.ok && server?.id) {
+          const transientIds = new Set([...written.keys()].map((nodeId) => `${nodeId}-output`))
+          const mergedNodes = (server.nodes ?? [])
+            .filter((node) => !transientIds.has(node.id))
+            .map((node) => written.has(node.id)
+              ? { ...node, data: { ...(node.data ?? {}), text: written.get(node.id) } }
+              : node)
+          const mergedEdges = (server.edges ?? []).filter((edge) => !transientIds.has(edge.sourceNodeId) && !transientIds.has(edge.targetNodeId))
+          const saveResponse = await fetch(`/api/v1/creative-canvas/${canvasId}/graph?orgId=${encodeURIComponent(canvasOrgId)}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              expectedActiveVersion: server.activeVersion,
+              mergeOnConflict: true,
+              reason: 'auto_fill_board',
+              baseGraph: { nodes: server.nodes ?? [], edges: server.edges ?? [] },
+              nodes: mergedNodes,
+              edges: mergedEdges,
+            }),
+          })
+          const savePayload = await saveResponse.json().catch(() => null) as CreativeCanvasApiListResponse | null
+          if (saveResponse.ok && savePayload?.data?.canvas?.id) applyCanvasSnapshot(savePayload.data.canvas)
+        }
+      } catch { ignoreCanvasBestEffortFailure() }
+      setActivityMessage(`Auto-fill complete — ${written.size}/${ordered.length} cards written`)
+    } finally {
+      setAutoFillBusy(false)
+      void loadCanvasCredits()
+    }
+  }, [applyCanvasSnapshot, edges, ensurePersistedCanvas, loadCanvasCredits, nodes, updateNodeText])
+
   /**
    * Screen nodes: generate a UI mockup image from the screen's description and
    * store it on the node itself (data.assetUrl) — replace semantics, the
@@ -4424,6 +4618,32 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
                   <span className="block text-xs text-[var(--color-pib-text-muted)]">{item.description}</span>
                 </button>
               ))}
+            </div>
+          </div>
+
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-normal text-[var(--color-pib-text-muted)]">Board actions</p>
+            <div className="mt-3 space-y-2">
+              <button
+                type="button"
+                onClick={() => { void autoFillBoard() }}
+                disabled={autoFillBusy}
+                className="w-full rounded-lg border border-[var(--color-pib-line)] px-3 py-2 text-left transition hover:bg-[var(--color-pib-surface)] disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <span className="block text-sm font-semibold text-[var(--color-pib-text)]">{autoFillBusy ? 'Auto-filling…' : '✨ Auto-fill board'}</span>
+                <span className="block text-xs text-[var(--color-pib-text-muted)]">Agent writes every empty text card, following the links for context.</span>
+              </button>
+              {canvasHasChapters ? (
+                <button
+                  type="button"
+                  onClick={() => { void compileManuscript() }}
+                  disabled={compileBusy}
+                  className="w-full rounded-lg border border-[var(--color-pib-line)] px-3 py-2 text-left transition hover:bg-[var(--color-pib-surface)] disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  <span className="block text-sm font-semibold text-[var(--color-pib-text)]">{compileBusy ? 'Compiling…' : '📖 Compile manuscript'}</span>
+                  <span className="block text-xs text-[var(--color-pib-text-muted)]">Walk the chapter chain into a single Book Studio draft.</span>
+                </button>
+              ) : null}
             </div>
           </div>
 
@@ -5438,6 +5658,26 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
               >
                 {collaborationLinkCopied ? 'Copied link' : 'Copy canvas link'}
               </button>
+            </div>
+            <div className="mt-2 rounded-lg border border-[var(--color-pib-line)] bg-white px-3 py-2">
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-xs font-semibold text-[var(--color-pib-text)]">Public share</p>
+                <button
+                  type="button"
+                  onClick={() => { void toggleCanvasShare() }}
+                  disabled={shareBusy || !activeCanvas?.id}
+                  className="rounded-md border border-[var(--color-pib-line)] px-2 py-1 text-xs font-semibold text-[var(--color-pib-text)] disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {shareBusy ? 'Updating…' : shareEnabled ? 'Disable link' : 'Enable link'}
+                </button>
+              </div>
+              {shareEnabled && shareUrl ? (
+                <p className="mt-1 break-all text-[11px] text-[var(--color-pib-text-muted)]">{shareUrl}</p>
+              ) : (
+                <p className="mt-1 text-[11px] text-[var(--color-pib-text-muted)]">
+                  Read-only preview link anyone can open — no login required.
+                </p>
+              )}
             </div>
             <div
               className="mt-2 rounded-lg border border-[var(--color-pib-line)] bg-white px-3 py-2"

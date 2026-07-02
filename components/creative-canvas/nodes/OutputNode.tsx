@@ -49,9 +49,15 @@ function OutputNodeComponent({ data, selected }: NodeProps) {
           // eslint-disable-next-line @next/next/no-img-element
           <img src={d.assetUrl} alt={d.title} style={{ display: 'block', width: '100%', maxHeight: 200, objectFit: 'cover' }} />
         )
+      ) : d.textPreview || d.text ? (
+        // Text results (copy edits, agent-llm generations) have no asset URL —
+        // show the text itself instead of the empty state.
+        <div style={{ padding: 12, fontSize: 12, color: canvasTheme.text, textAlign: 'left', whiteSpace: 'pre-wrap', maxHeight: 200, overflow: 'hidden' }}>
+          {d.textPreview ?? d.text}
+        </div>
       ) : (
         <div style={{ padding: 16, fontSize: 12, color: canvasTheme.textMuted, textAlign: 'center' }}>
-          {d.text ? d.text : 'No output yet'}
+          No output yet
         </div>
       )}
     </BaseNodeCard>
