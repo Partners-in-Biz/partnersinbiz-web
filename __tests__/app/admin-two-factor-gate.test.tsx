@@ -29,4 +29,15 @@ describe('AdminTwoFactorGate', () => {
     expect(replace).not.toHaveBeenCalled()
     await waitFor(() => expect(global.fetch).toHaveBeenCalledWith('/api/v1/account/2fa/status', { cache: 'no-store' }))
   })
+
+  it('does not redirect away from admin pages when 2FA is disabled for the account', async () => {
+    global.fetch = jest.fn().mockResolvedValue({
+      json: async () => ({ data: { enabled: false, backupCodesRemaining: 0 } }),
+    }) as jest.Mock
+
+    render(<AdminTwoFactorGate />)
+
+    expect(await screen.findByTestId('two-factor-gate')).toBeInTheDocument()
+    expect(replace).not.toHaveBeenCalled()
+  })
 })
