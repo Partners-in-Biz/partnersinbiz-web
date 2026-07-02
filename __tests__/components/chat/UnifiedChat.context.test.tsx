@@ -775,6 +775,66 @@ describe('UnifiedChat context references', () => {
     expect(mockFetch).toHaveBeenCalledWith('/api/v1/chat-feed/conv-1')
   })
 
+  it('falls back to thread-data when browser filters block messages and chat-feed routes', async () => {
+    mockFetch.mockImplementation(async (input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url.includes('/visible-agents')) {
+        return jsonResponse({ data: [] })
+      }
+      if (url.startsWith('/api/v1/conversations?')) {
+        return jsonResponse({ data: { conversations: [conversation] } })
+      }
+      if (url === '/api/v1/conversations/conv-1/messages') {
+        throw new TypeError('Failed to fetch')
+      }
+      if (url === '/api/v1/chat-feed/conv-1') {
+        throw new TypeError('Failed to fetch')
+      }
+      if (url === '/api/v1/thread-data/conv-1') {
+        return jsonResponse({
+          data: {
+            messages: [
+              {
+                id: 'msg-thread-data',
+                conversationId: 'conv-1',
+                role: 'assistant',
+                content: 'Newest CEO dynamic relay is readable.',
+                authorKind: 'agent',
+                authorId: 'pip',
+                authorDisplayName: 'Pip',
+                status: 'completed',
+                richParts: [
+                  {
+                    type: 'approval_card',
+                    title: 'Dynamic Messages live-render proof',
+                    body: 'The thread-data fallback rendered the newest relay.',
+                    statusLabel: 'Verified',
+                  },
+                ],
+                createdAt: { seconds: 2 },
+              },
+            ],
+          },
+        })
+      }
+      throw new Error(`Unhandled fetch: ${url}`)
+    })
+
+    render(
+      <UnifiedChat
+        orgId="org-1"
+        currentUserUid="user-1"
+        currentUserDisplayName="Peet"
+        initialConvId="conv-1"
+      />,
+    )
+
+    expect(await screen.findByText('Newest CEO dynamic relay is readable.')).toBeInTheDocument()
+    expect(await screen.findByText('Dynamic Messages live-render proof')).toBeInTheDocument()
+    expect(screen.getByText('The thread-data fallback rendered the newest relay.')).toBeInTheDocument()
+    expect(mockFetch).toHaveBeenCalledWith('/api/v1/thread-data/conv-1')
+  })
+
   it('loads a focused conversation directly when scoped conversation list does not include it', async () => {
     mockFetch.mockImplementation(async (input: RequestInfo | URL) => {
       const url = String(input)

@@ -136,7 +136,7 @@ export async function createMessage(
 
 export async function listMessages(convId: string, limit = 200): Promise<ConversationMessage[]> {
   const snap = await messagesCollection(convId)
-    .orderBy('createdAt', 'asc')
+    .orderBy('createdAt', 'desc')
     .limit(limit)
     .get()
   const now = Date.now()
@@ -168,7 +168,7 @@ export async function listMessages(convId: string, limit = 200): Promise<Convers
   }
 
   if (staleUpdates.length > 0) await Promise.allSettled(staleUpdates)
-  return messages
+  return messages.reverse()
 }
 
 // ---------------------------------------------------------------------------
