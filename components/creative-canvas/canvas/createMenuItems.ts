@@ -49,6 +49,19 @@ export const createMenuGroups: CreateMenuGroup[] = [
     ],
   },
   {
+    group: 'Book',
+    items: [
+      { type: 'character', label: 'Character' },
+      { type: 'chapter', label: 'Chapter' },
+    ],
+  },
+  {
+    group: 'Planning',
+    items: [
+      { type: 'screen', label: 'Screen' },
+    ],
+  },
+  {
     group: 'Utilities',
     items: [
       { type: 'sticky_note', label: 'Sticky Note' },

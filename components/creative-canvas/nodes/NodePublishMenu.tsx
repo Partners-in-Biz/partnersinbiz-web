@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { canvasTheme } from '@/components/creative-canvas/theme/tokens'
 
-export type NodePublishTarget = 'social_draft' | 'campaign_asset' | 'client_document' | 'blog_post' | 'workspace_artifact'
+export type NodePublishTarget = 'social_draft' | 'campaign_asset' | 'client_document' | 'blog_post' | 'research' | 'book_studio' | 'workspace_artifact'
 
 export type NodePublishPlatform = 'instagram' | 'facebook' | 'twitter' | 'linkedin' | 'tiktok' | 'pinterest' | 'bluesky'
 
@@ -32,6 +32,8 @@ const TARGETS: Array<{ target: NodePublishTarget; label: string; description: st
   { target: 'campaign_asset', label: 'Campaign asset', description: 'Attaches to the linked campaign as a reviewable asset' },
   { target: 'client_document', label: 'Client document', description: 'Creates a client-document draft from this output' },
   { target: 'blog_post', label: 'Blog post', description: 'Creates a blog draft for the insights pipeline' },
+  { target: 'research', label: 'Research', description: 'Saves as a research item in the research library' },
+  { target: 'book_studio', label: 'Book Studio', description: 'Creates a chapter/manuscript draft in Book Studio' },
   { target: 'workspace_artifact', label: 'Org vault', description: 'Saves into the organisation workspace artifacts' },
 ]
 

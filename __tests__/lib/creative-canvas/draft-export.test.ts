@@ -1,6 +1,7 @@
 import {
   assertCanvasOutputCanExport,
   buildCreativeCanvasDraftExport,
+  resolveExportableNode,
 } from '@/lib/creative-canvas/exporters/drafts'
 import { buildCreativeCanvasExportPackage } from '@/lib/creative-canvas/exporters/package'
 import type { CreativeCanvas, CreativeCanvasExport, CreativeCanvasNode } from '@/lib/creative-canvas/types'
@@ -194,6 +195,74 @@ describe('creative canvas generic draft exports', () => {
       publishEnabled: false,
       linked: { clientDocumentId: 'doc-1' },
     })
+  })
+
+  it('exports text-bearing prompt nodes (characters, chapters, screens) as copy drafts', () => {
+    const chapterNode: CreativeCanvasNode = {
+      id: 'chapter-1',
+      orgId: 'org-1',
+      type: 'prompt',
+      title: 'Chapter 1',
+      position: { x: 0, y: 0 },
+      data: { presentationType: 'chapter', text: 'It was a dark and stormy night.' },
+    }
+
+    const resolved = resolveExportableNode(chapterNode)
+    expect(resolved.type).toBe('output')
+    expect(resolved.output).toMatchObject({ kind: 'copy', textPreview: 'It was a dark and stormy night.' })
+    expect(resolved.review?.status).toBe('warning')
+
+    // No upstream source nodes → self-lineage fallback for copy drafts.
+    const draft = buildCreativeCanvasDraftExport({
+      canvas: canvas(),
+      node: chapterNode,
+      target: 'book_studio',
+      actor: { uid: 'user-1', type: 'user' },
+      lineageSourceNodeIds: [],
+      downstreamDraftId: 'book-draft-1',
+    })
+    expect(draft.exportRecord).toMatchObject({
+      nodeId: 'chapter-1',
+      target: 'book_studio',
+      outputKind: 'copy',
+      reviewStatus: 'warning',
+      lineageSourceNodeIds: ['chapter-1'],
+    })
+    expect(draft.payload).toMatchObject({
+      textPreview: 'It was a dark and stormy night.',
+      clientVisible: false,
+      publishEnabled: false,
+    })
+  })
+
+  it('does not normalize text-less prompt nodes or non-prompt nodes', () => {
+    const emptyPrompt: CreativeCanvasNode = {
+      id: 'prompt-1',
+      orgId: 'org-1',
+      type: 'prompt',
+      title: 'Empty prompt',
+      position: { x: 0, y: 0 },
+      data: { text: '   ' },
+    }
+    expect(resolveExportableNode(emptyPrompt).type).toBe('prompt')
+    expect(() => buildCreativeCanvasDraftExport({
+      canvas: canvas(),
+      node: emptyPrompt,
+      target: 'book_studio',
+      actor: { uid: 'user-1', type: 'user' },
+      lineageSourceNodeIds: ['source-1'],
+      downstreamDraftId: 'book-draft-1',
+    })).toThrow('not an output node')
+
+    const sourceNode: CreativeCanvasNode = {
+      id: 'source-1',
+      orgId: 'org-1',
+      type: 'source',
+      title: 'Source',
+      position: { x: 0, y: 0 },
+      data: { text: 'some text' },
+    }
+    expect(resolveExportableNode(sourceNode).type).toBe('source')
   })
 
   it('builds a guarded multi-asset package manifest', () => {

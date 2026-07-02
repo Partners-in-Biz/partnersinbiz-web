@@ -646,6 +646,58 @@ const workflowPresets: CreativeCanvasWorkflowPreset[] = [
       { from: 'review', to: 'output', label: 'book artifact' },
     ],
   },
+  {
+    key: 'book-board',
+    label: 'Book board',
+    description: 'Three characters feeding a chained three-chapter manuscript board.',
+    outputKind: 'book_artifact',
+    exportTarget: 'book_studio',
+    aspectRatio: '2:3',
+    durationSeconds: 5,
+    stylePreset: 'manuscript_board',
+    cameraMotion: 'none',
+    negativePrompt: 'inconsistent character details, contradictory plot points',
+    nodes: [
+      { suffix: 'character-1', type: 'prompt', title: 'Character 1', data: { workflowRole: 'prompt', presentationType: 'character', text: '' } },
+      { suffix: 'character-2', type: 'prompt', title: 'Character 2', data: { workflowRole: 'prompt', presentationType: 'character', text: '' } },
+      { suffix: 'character-3', type: 'prompt', title: 'Character 3', data: { workflowRole: 'prompt', presentationType: 'character', text: '' } },
+      { suffix: 'chapter-1', type: 'prompt', title: 'Chapter 1', data: { workflowRole: 'prompt', presentationType: 'chapter', text: '' } },
+      { suffix: 'chapter-2', type: 'prompt', title: 'Chapter 2', data: { workflowRole: 'prompt', presentationType: 'chapter', text: '' } },
+      { suffix: 'chapter-3', type: 'prompt', title: 'Chapter 3', data: { workflowRole: 'prompt', presentationType: 'chapter', text: '' } },
+    ],
+    edges: [
+      { from: 'character-1', to: 'chapter-1', label: 'character context' },
+      { from: 'character-2', to: 'chapter-1', label: 'character context' },
+      { from: 'character-3', to: 'chapter-1', label: 'character context' },
+      { from: 'chapter-1', to: 'chapter-2', label: 'story so far' },
+      { from: 'chapter-2', to: 'chapter-3', label: 'story so far' },
+    ],
+  },
+  {
+    key: 'app-plan-board',
+    label: 'App plan board',
+    description: 'Five chained screens for planning a website or app flow.',
+    outputKind: 'document_block',
+    exportTarget: 'client_document',
+    aspectRatio: '16:9',
+    durationSeconds: 5,
+    stylePreset: 'app_plan_board',
+    cameraMotion: 'none',
+    negativePrompt: 'dead-end flows, unlabeled screens',
+    nodes: [
+      { suffix: 'screen-1', type: 'prompt', title: 'Landing', data: { workflowRole: 'prompt', presentationType: 'screen', text: '' } },
+      { suffix: 'screen-2', type: 'prompt', title: 'Sign up', data: { workflowRole: 'prompt', presentationType: 'screen', text: '' } },
+      { suffix: 'screen-3', type: 'prompt', title: 'Onboarding', data: { workflowRole: 'prompt', presentationType: 'screen', text: '' } },
+      { suffix: 'screen-4', type: 'prompt', title: 'Dashboard', data: { workflowRole: 'prompt', presentationType: 'screen', text: '' } },
+      { suffix: 'screen-5', type: 'prompt', title: 'Settings', data: { workflowRole: 'prompt', presentationType: 'screen', text: '' } },
+    ],
+    edges: [
+      { from: 'screen-1', to: 'screen-2', label: 'cta' },
+      { from: 'screen-2', to: 'screen-3', label: 'first run' },
+      { from: 'screen-3', to: 'screen-4', label: 'activated' },
+      { from: 'screen-4', to: 'screen-5', label: 'manage' },
+    ],
+  },
 ]
 
 function CanvasPreviewBlock({
@@ -670,6 +722,7 @@ function CanvasPreviewBlock({
 const PRESENTATION_NODE_TYPES = new Set<CanvasNodeType>([
   'prompt', 'image_generator', 'video_generator', 'voice_generator', 'llm_assistant',
   'voiceover', 'change_voice', 'translate', 'source', 'output', 'sticky_note', 'text', 'folder', 'combine',
+  'character', 'chapter', 'screen',
 ])
 
 /** Backend persistence type for each presentation node type (round-trips via data.presentationType). */
@@ -688,6 +741,9 @@ const PRESENTATION_TO_BACKEND: Record<CanvasNodeType, CreativeCanvasNodeType> = 
   source: 'source',
   output: 'output',
   combine: 'model',
+  character: 'prompt',
+  chapter: 'prompt',
+  screen: 'prompt',
 }
 
 const PRESENTATION_LABELS: Record<CanvasNodeType, string> = {
@@ -705,6 +761,9 @@ const PRESENTATION_LABELS: Record<CanvasNodeType, string> = {
   source: 'Source',
   output: 'Output',
   combine: 'Combine',
+  character: 'Character',
+  chapter: 'Chapter',
+  screen: 'Screen',
 }
 
 const AGENT_PRESENTATION_TYPES = new Set<CanvasNodeType>(['voice_generator', 'voiceover', 'change_voice', 'llm_assistant'])
@@ -712,6 +771,31 @@ const AGENT_PRESENTATION_TYPES = new Set<CanvasNodeType>(['voice_generator', 'vo
 /** Keep the active run model on a real catalog model; legacy ids fall back to GPT Image 2. */
 function coerceCanvasModel(id: string | undefined | null): string {
   return id && getCanvasModel(id) ? id : 'text2image_soul_v2'
+}
+
+/**
+ * Text edits pull in upstream linked text nodes (characters feeding a chapter,
+ * chapters feeding a chapter, notes feeding a screen) so the rewrite is
+ * grounded in the linked context — same walk as inline generation.
+ */
+export function gatherUpstreamTextFragments(nodeId: string, nodes: Node[], edges: Edge[]): string[] {
+  return edges
+    .filter((edge) => edge.target === nodeId)
+    .map((edge) => nodes.find((candidate) => candidate.id === edge.source)?.data?.canvasNode as CreativeCanvasNode | undefined)
+    .filter((candidate): candidate is CreativeCanvasNode => Boolean(candidate))
+    .flatMap((upstream) => {
+      const data = (upstream.data ?? {}) as Record<string, unknown>
+      if (typeof data.text === 'string' && data.text.trim()) return [`${upstream.title}: ${data.text.trim()}`]
+      if (typeof data.prompt === 'string' && data.prompt.trim() && upstream.type === 'prompt') return [`${upstream.title}: ${data.prompt.trim()}`]
+      return []
+    })
+}
+
+export function buildTextEditPrompt(instruction: string, existingText: string, upstreamFragments: string[]): string {
+  return [
+    `Rewrite the following content per the instruction.\n\nInstruction: ${instruction}\n\nContent:\n${existingText || '(empty)'}`,
+    ...(upstreamFragments.length ? [`Context from linked notes:\n${upstreamFragments.join('\n')}`] : []),
+  ].join('\n\n')
 }
 
 /** Map a backend node onto a Higgsfield-style presentation node type. */
@@ -1099,6 +1183,8 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
           ? { onReplaceContent: () => nodeActionRefs.current.replaceContent(node.id) }
           : {}),
         ...(canvasNode.output?.url || canvasNode.output?.textPreview
+          || (typeof (canvasNode.data as Record<string, unknown> | undefined)?.text === 'string'
+            && String((canvasNode.data as Record<string, unknown>).text).trim())
           ? { onPublish: () => nodeActionRefs.current.publish(node.id) }
           : {}),
         downloadUrl: canvasNode.output?.url ?? canvasNode.source?.url,
@@ -3309,7 +3395,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
       ? nodeData.text.trim()
       : typeof nodeData.prompt === 'string' ? String(nodeData.prompt).trim() : ''
     const prompt = isTextNode
-      ? `Rewrite the following content per the instruction.\n\nInstruction: ${instruction}\n\nContent:\n${existingText || '(empty)'}`
+      ? buildTextEditPrompt(instruction, existingText, gatherUpstreamTextFragments(nodeId, nodes, edges))
       : instruction
 
     setEditChatBusy(true)
@@ -3418,7 +3504,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
       })
       void loadCanvasCredits()
     }
-  }, [applyCanvasSnapshot, ensurePersistedCanvas, loadCanvasCredits, nodes])
+  }, [applyCanvasSnapshot, edges, ensurePersistedCanvas, loadCanvasCredits, nodes])
 
   /**
    * Publish an output-bearing node into the platform: social drafts become
@@ -3429,7 +3515,10 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
   const publishNode = useCallback(async (nodeId: string, target: NodePublishTarget, caption: string, platforms: NodePublishPlatform[]) => {
     const targetNode = nodes.find((node) => node.id === nodeId)
     const canvasNode = targetNode?.data?.canvasNode as CreativeCanvasNode | undefined
-    if (!canvasNode?.output?.url && !canvasNode?.output?.textPreview) {
+    const nodeText = typeof (canvasNode?.data as Record<string, unknown> | undefined)?.text === 'string'
+      ? String((canvasNode?.data as Record<string, unknown>).text).trim()
+      : ''
+    if (!canvasNode || (!canvasNode.output?.url && !canvasNode.output?.textPreview && !nodeText)) {
       setPublishError('This node has no output to publish yet')
       return
     }

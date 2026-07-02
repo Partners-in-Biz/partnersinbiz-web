@@ -10,6 +10,9 @@ import SourceNode from '@/components/creative-canvas/nodes/SourceNode'
 import OutputNode from '@/components/creative-canvas/nodes/OutputNode'
 import FolderNode from '@/components/creative-canvas/nodes/FolderNode'
 import CombineNode from '@/components/creative-canvas/nodes/CombineNode'
+import CharacterNode from '@/components/creative-canvas/nodes/CharacterNode'
+import ChapterNode from '@/components/creative-canvas/nodes/ChapterNode'
+import ScreenNode from '@/components/creative-canvas/nodes/ScreenNode'
 
 /** Maps each presentation node type to its custom React Flow component. */
 export const canvasNodeTypes: NodeTypes = {
@@ -27,4 +30,7 @@ export const canvasNodeTypes: NodeTypes = {
   output: OutputNode,
   folder: FolderNode,
   combine: CombineNode,
+  character: CharacterNode,
+  chapter: ChapterNode,
+  screen: ScreenNode,
 }

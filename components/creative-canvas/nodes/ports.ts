@@ -4,6 +4,8 @@ export type CanvasNodeType =
   | 'prompt' | 'image_generator' | 'video_generator' | 'voice_generator'
   | 'llm_assistant' | 'voiceover' | 'change_voice' | 'translate'
   | 'source' | 'output' | 'sticky_note' | 'text' | 'folder' | 'combine'
+  | 'character' | 'chapter'
+  | 'screen'
 
 export interface Port { id: string; kind: CanvasPortKind }
 export interface NodePorts { inputs: Port[]; output: Port }
@@ -25,6 +27,10 @@ const MAP: Record<CanvasNodeType, NodePorts> = {
   sticky_note:      { inputs: [], output: { id: 'out', kind: 'text' } },
   text:             { inputs: [], output: { id: 'out', kind: 'text' } },
   folder:           { inputs: [], output: { id: 'out', kind: 'text' } },
+  character:        { inputs: [], output: { id: 'out', kind: 'text' } },
+  chapter:          { inputs: [{ id: 'in_text', kind: 'text' }], output: { id: 'out', kind: 'text' } },
+  // Screen/page planning card: sitemap structure is plain edges between screens.
+  screen:           { inputs: [{ id: 'in_text', kind: 'text' }], output: { id: 'out', kind: 'text' } },
 }
 
 export function portsForNode(type: CanvasNodeType): NodePorts { return MAP[type] }
