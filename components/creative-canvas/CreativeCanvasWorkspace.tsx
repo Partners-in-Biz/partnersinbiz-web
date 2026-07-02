@@ -5344,6 +5344,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
         onOpenChat={() => setTopBarPanel('chat')}
         onShare={() => setTopBarPanel('share')}
         onHome={() => setShowLanding(true)}
+        onNewCanvas={mode === 'admin' ? () => { setShowLanding(false); void createBlankCanvas() } : undefined}
         immersive={immersiveCanvas}
         onToggleImmersive={() => setImmersiveCanvas((value) => !value)}
         creditsLabel={canvasCredits?.higgsfieldCredits != null

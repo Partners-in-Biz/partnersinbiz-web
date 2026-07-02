@@ -18,6 +18,7 @@ interface CanvasTopBarProps {
   onOpenChat: () => void
   onShare: () => void
   onHome?: () => void
+  onNewCanvas?: () => void
   immersive?: boolean
   onToggleImmersive?: () => void
   creditsLabel?: string
@@ -56,6 +57,7 @@ export default function CanvasTopBar({
   onOpenChat,
   onShare,
   onHome,
+  onNewCanvas,
   immersive,
   onToggleImmersive,
   creditsLabel,
@@ -100,9 +102,20 @@ export default function CanvasTopBar({
             aria-label="All canvases"
             title="All canvases"
             onClick={onHome}
-            style={{ width: 32, height: 32, flexShrink: 0, display: 'grid', placeItems: 'center', borderRadius: 8, border: `1px solid ${canvasTheme.border}`, background: canvasTheme.surfaceRaised, color: canvasTheme.text, cursor: 'pointer', fontSize: 14 }}
+            style={{ height: 32, flexShrink: 0, display: 'inline-flex', alignItems: 'center', gap: 6, padding: '0 10px', borderRadius: 8, border: `1px solid ${canvasTheme.border}`, background: canvasTheme.surfaceRaised, color: canvasTheme.text, cursor: 'pointer', fontSize: 12, fontWeight: 600 }}
           >
-            ⬓
+            ⬓ Canvases
+          </button>
+        ) : null}
+        {onNewCanvas ? (
+          <button
+            type="button"
+            aria-label="New canvas"
+            title="New canvas"
+            onClick={onNewCanvas}
+            style={{ height: 32, flexShrink: 0, display: 'inline-flex', alignItems: 'center', gap: 4, padding: '0 10px', borderRadius: 8, border: `1px solid ${canvasTheme.accent}`, background: canvasTheme.surfaceRaised, color: canvasTheme.accent, cursor: 'pointer', fontSize: 12, fontWeight: 700 }}
+          >
+            ＋ New
           </button>
         ) : null}
         <div style={{ minWidth: 0 }}>
