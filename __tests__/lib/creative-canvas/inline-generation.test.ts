@@ -2,6 +2,13 @@ import {
   generateInline,
   InlineNotSupportedError,
 } from '@/lib/creative-canvas/inline-generation'
+import { generateText } from 'ai'
+
+jest.mock('ai', () => ({
+  generateText: jest.fn(),
+}))
+
+const generateTextMock = generateText as jest.Mock
 
 describe('generateInline', () => {
   const originalFetch = global.fetch
@@ -77,6 +84,31 @@ describe('generateInline', () => {
 
     expect(result.mimeType).toBe('image/png')
     expect(result.url).toBe('data:image/png;base64,QUJD')
+  })
+
+  it('returns { text, mimeType } for agent_task via the AI gateway', async () => {
+    generateTextMock.mockResolvedValue({ text: '  The opening scene, rewritten.  ' })
+
+    const result = await generateInline({
+      providerKey: 'agent_task',
+      model: 'agent-llm',
+      prompt: 'Rewrite the chapter opening.',
+    })
+
+    expect(result).toEqual({ text: 'The opening scene, rewritten.', mimeType: 'text/plain' })
+    expect(generateTextMock).toHaveBeenCalledWith(expect.objectContaining({
+      prompt: 'Rewrite the chapter opening.',
+    }))
+  })
+
+  it('throws when the agent LLM returns empty text', async () => {
+    generateTextMock.mockResolvedValue({ text: '   ' })
+
+    await expect(generateInline({
+      providerKey: 'agent_task',
+      model: 'agent-llm',
+      prompt: 'Rewrite.',
+    })).rejects.toThrow('No text returned from the agent LLM')
   })
 
   it('throws a normal Error (not InlineNotSupportedError) when the API key is missing', async () => {

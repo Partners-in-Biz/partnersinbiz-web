@@ -1,6 +1,7 @@
 import { FieldValue } from 'firebase-admin/firestore'
 import { adminDb } from '@/lib/firebase/admin'
 import {
+  cleanLinked,
   sanitizeCreativeCanvasGraph,
   sanitizeCreativeCanvasData,
   sanitizeCreativeCanvasInput,
@@ -354,6 +355,11 @@ export async function updateCreativeCanvas(
     data: sourceData,
     status: enumPatchValue(source.status, CANVAS_STATUSES, current.status),
     visibility: enumPatchValue(source.visibility, VISIBILITIES, current.visibility),
+    // Merge linked module ids so a canvas can be linked (e.g. to a Book Studio
+    // project) after creation — previously PATCH silently dropped `linked`.
+    linked: Object.prototype.hasOwnProperty.call(source, 'linked')
+      ? { ...(current.linked ?? {}), ...cleanLinked(source.linked) }
+      : current.linked ?? {},
     deleted: typeof source.deleted === 'boolean' ? source.deleted : current.deleted === true,
     updatedBy: actor.uid,
     updatedByType: actor.type,

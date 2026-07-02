@@ -119,3 +119,25 @@ AI edits that fail leave the original node untouched.
 - **Phase 3 — creative suites**: book boards (chapter/page/character nodes
   that evolve; exports to Book Studio), doc boards, website/app planning
   boards.
+
+## Status update (2026-07-02, later session)
+
+Phase 3 implemented on `development` (commit `92bd22a1`):
+
+- New node types Character / Chapter / Screen (persist as backend `prompt`
+  with `data.presentationType`; ports in `ports.ts`, cards in
+  `nodes/{CharacterNode,ChapterNode,ScreenNode}.tsx`).
+- Create menu gained **Book** (Character, Chapter) and **Planning** (Screen)
+  groups; two one-click templates in `workflowPresets`: Book board
+  (3 characters → chapter 1, chapters chained 1→2→3) and App plan board
+  (5 chained screens).
+- Upstream-context AI edit: `gatherUpstreamTextFragments` +
+  `buildTextEditPrompt` prepend linked-node texts to `runNodeEdit` on text
+  nodes, so chapter drafts are grounded in linked characters.
+- Text-node publishing via `resolveExportableNode()` in
+  `lib/creative-canvas/exporters/drafts.ts` (copy drafts, review defaults
+  to `warning`, self-lineage fallback); NodePublishMenu adds Book Studio
+  and Research targets.
+
+Verified so far: typecheck clean, 12 affected suites green (117 tests).
+Full suite, production build, and PR are pending (Wave 4).

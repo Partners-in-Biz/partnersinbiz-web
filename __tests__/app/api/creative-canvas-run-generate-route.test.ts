@@ -40,6 +40,9 @@ jest.mock('@/lib/creative-canvas/model-registry', () => ({
     if (id === 'seedance_2_0') {
       return { id, label: 'Async', family: 'Test', featured: true, kind: 'video', providerKey: 'higgsfield', capabilities: [], aspectRatios: [], durations: [8], maxBatch: 4, creditCost: 68, execution: 'async' }
     }
+    if (id === 'agent-llm') {
+      return { id, label: 'LLM Assistant', family: 'PiB Agents', featured: false, kind: 'text', providerKey: 'agent_task', capabilities: [], aspectRatios: [], maxBatch: 1, creditCost: 1, execution: 'sync' }
+    }
     return undefined
   },
 }))
@@ -138,6 +141,53 @@ describe('creative canvas run generate API', () => {
       data: {
         run: { id: 'run-1', status: 'completed', output: { url: 'https://cdn.example.com/out.png' } },
         node: { id: 'source-1-output' },
+        pending: false,
+      },
+    })
+  })
+
+  it('runs agent-llm text edits inline and completes with a copy textPreview (never dispatched to the executor)', async () => {
+    const { POST } = await import('@/app/api/v1/creative-canvas/[id]/runs/generate/route')
+    const providerRuntime = await import('@/lib/creative-canvas/provider-runtime')
+    mockGetCreativeCanvas.mockResolvedValue(CANVAS)
+    mockCreateCreativeCanvasRun.mockResolvedValue({
+      id: 'run-3',
+      orgId: 'org-1',
+      canvasId: 'canvas-1',
+      nodeId: 'source-1',
+      providerKey: 'agent_task',
+      model: 'agent-llm',
+      status: 'queued',
+      input: { promptSummary: 'Rewrite the chapter', sourceNodeIds: ['source-1'], sourceArtifactIds: [] },
+      provenance: { generatedBy: 'agent', agentId: 'maya', promptStored: 'summary', syntheticMedia: true },
+    })
+    mockGenerateInline.mockResolvedValue({ text: 'The rewritten chapter.', mimeType: 'text/plain' })
+    mockCompleteCreativeCanvasRun.mockResolvedValue({
+      run: { id: 'run-3', status: 'completed', providerKey: 'agent_task', output: { outputNodeId: 'source-1-output', textPreview: 'The rewritten chapter.' } },
+      outputNode: { id: 'source-1-output', type: 'output', output: { kind: 'copy', textPreview: 'The rewritten chapter.' } },
+    })
+
+    const res = await POST(new NextRequest('http://test.local/api/v1/creative-canvas/canvas-1/runs/generate?orgId=org-1', {
+      method: 'POST',
+      body: JSON.stringify({ nodeId: 'source-1', model: 'agent-llm', prompt: 'Rewrite the chapter' }),
+    }), { params: Promise.resolve({ id: 'canvas-1' }) })
+    const body = await res.json()
+
+    expect(mockGenerateInline).toHaveBeenCalledWith(
+      expect.objectContaining({ providerKey: 'agent_task', model: 'agent-llm', prompt: 'Rewrite the chapter' }),
+    )
+    expect(mockCompleteCreativeCanvasRun).toHaveBeenCalledWith(
+      'run-3',
+      'org-1',
+      { output: { kind: 'copy', textPreview: 'The rewritten chapter.' } },
+      { uid: 'agent:maya', type: 'agent' },
+    )
+    expect(providerRuntime.dispatchCreativeCanvasRunNow).not.toHaveBeenCalled()
+    expect(body).toMatchObject({
+      success: true,
+      data: {
+        run: { id: 'run-3', status: 'completed' },
+        node: { id: 'source-1-output', output: { kind: 'copy', textPreview: 'The rewritten chapter.' } },
         pending: false,
       },
     })

@@ -333,6 +333,9 @@ export async function dispatchCreativeCanvasRunNow(
   run: RunWithId,
   env: NodeJS.ProcessEnv = process.env,
 ): Promise<'submitted' | 'completed' | 'failed' | 'not_configured'> {
+  // Only Higgsfield runs go to the executor — other providers (agent_task,
+  // manual_upload, …) have their own paths and the executor rejects them.
+  if (run.providerKey !== 'higgsfield') return 'not_configured'
   const config = runtimeConfigFromEnv(env)
   if (!config.submitUrl) return 'not_configured'
   if (run.status !== 'queued') return 'not_configured'

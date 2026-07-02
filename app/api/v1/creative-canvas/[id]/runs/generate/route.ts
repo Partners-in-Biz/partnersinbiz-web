@@ -109,7 +109,7 @@ export const POST = withAuth('client', async (req: NextRequest, user: ApiUser, c
   }
 
   if (m.execution === 'sync') {
-    let inlineResult: { url: string; mimeType: string }
+    let inlineResult: { url?: string; mimeType: string; text?: string }
     let run: Awaited<ReturnType<typeof createCreativeCanvasRun>>
     try {
       run = await createCreativeCanvasRun(runPayload, orgId, actor)
@@ -142,10 +142,10 @@ export const POST = withAuth('client', async (req: NextRequest, user: ApiUser, c
         run.id,
         orgId,
         {
-          output: {
-            kind: m.kind,
-            url: inlineResult.url,
-          },
+          output: inlineResult.text
+            // Text results carry the copy inline — there is no artifact URL.
+            ? { kind: 'copy', textPreview: inlineResult.text }
+            : { kind: m.kind, url: inlineResult.url },
         },
         actor,
       )
