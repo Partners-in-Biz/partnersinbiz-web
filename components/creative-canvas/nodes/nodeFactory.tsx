@@ -26,6 +26,8 @@ export interface GeneratorNodeCardProps {
   onOpenModelPicker?: () => void
   onAddReference?: () => void
   onGenerate?: () => void
+  /** Per-node action bar rendered in the header (delete/duplicate/AI edit…). */
+  actions?: React.ReactNode
   children?: React.ReactNode
 }
 
@@ -93,6 +95,7 @@ export function GeneratorNodeCard(props: GeneratorNodeCardProps) {
     onOpenModelPicker,
     onAddReference,
     onGenerate,
+    actions,
     children,
   } = props
 
@@ -125,9 +128,12 @@ export function GeneratorNodeCard(props: GeneratorNodeCardProps) {
         }}
       >
         <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{title}</span>
-        {status !== 'idle' && status !== 'done' ? (
-          <span style={{ color: status === 'error' ? '#ff6b6b' : canvasTheme.accent }}>{statusLabel[status]}</span>
-        ) : null}
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+          {status !== 'idle' && status !== 'done' ? (
+            <span style={{ color: status === 'error' ? '#ff6b6b' : canvasTheme.accent }}>{statusLabel[status]}</span>
+          ) : null}
+          {actions}
+        </span>
       </div>
 
       {assetUrl ? (
@@ -278,6 +284,7 @@ export function BaseNodeCard({
   accent,
   width = 240,
   headerRight,
+  actions,
   children,
 }: {
   type: CanvasNodeType
@@ -286,6 +293,8 @@ export function BaseNodeCard({
   accent?: string
   width?: number
   headerRight?: React.ReactNode
+  /** Per-node action bar rendered in the header (delete/duplicate/AI edit…). */
+  actions?: React.ReactNode
   children?: React.ReactNode
 }) {
   return (
@@ -315,7 +324,10 @@ export function BaseNodeCard({
         }}
       >
         <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{title}</span>
-        {headerRight}
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+          {headerRight}
+          {actions}
+        </span>
       </div>
       {children}
     </div>

@@ -5,6 +5,7 @@ import type { NodeProps } from '@xyflow/react'
 import { BaseNodeCard } from '@/components/creative-canvas/nodes/nodeFactory'
 import { canvasTheme } from '@/components/creative-canvas/theme/tokens'
 import type { CanvasNodeData } from '@/components/creative-canvas/nodes/nodeData'
+import { nodeActionsFor } from '@/components/creative-canvas/nodes/NodeActionBar'
 
 const reviewPillColor: Record<string, string> = {
   passed: '#3ddc97',
@@ -22,6 +23,7 @@ function OutputNodeComponent({ data, selected }: NodeProps) {
       type="output"
       title={d.title || 'Output'}
       selected={Boolean(selected)}
+      actions={nodeActionsFor(d)}
       headerRight={
         review && review !== 'not_required' ? (
           <span

@@ -34,5 +34,11 @@ export interface CanvasNodeData {
   onOpenModelPicker?: () => void
   onAddReference?: () => void
   onGenerate?: () => void
+  /** Node action bar handlers (delete/duplicate/AI edit/replace) + media link. */
+  onDelete?: () => void
+  onDuplicate?: () => void
+  onEditWithAi?: () => void
+  onReplaceContent?: () => void
+  downloadUrl?: string
   [key: string]: unknown
 }

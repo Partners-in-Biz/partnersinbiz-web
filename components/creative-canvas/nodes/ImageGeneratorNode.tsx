@@ -4,11 +4,13 @@ import { memo } from 'react'
 import type { NodeProps } from '@xyflow/react'
 import { GeneratorNodeCard } from '@/components/creative-canvas/nodes/nodeFactory'
 import type { CanvasNodeData } from '@/components/creative-canvas/nodes/nodeData'
+import { nodeActionsFor } from '@/components/creative-canvas/nodes/NodeActionBar'
 
 function ImageGeneratorNodeComponent({ data, selected }: NodeProps) {
   const d = data as CanvasNodeData
   return (
     <GeneratorNodeCard
+      actions={nodeActionsFor(d)}
       type="image_generator"
       title={d.title}
       prompt={d.prompt}

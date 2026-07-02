@@ -19,6 +19,7 @@ import { canvasNodeTypes } from '@/components/creative-canvas/nodes/nodeTypes'
 import { isValidConnection, portsForNode, type CanvasNodeType } from '@/components/creative-canvas/nodes/ports'
 import { getCanvasModel } from '@/lib/creative-canvas/model-registry'
 import CreateMenu from '@/components/creative-canvas/canvas/CreateMenu'
+import NodeEditChat from '@/components/creative-canvas/nodes/NodeEditChat'
 import NodeSettingsPanel from '@/components/creative-canvas/panels/NodeSettingsPanel'
 import ReferencePicker, { type ReferenceAsset } from '@/components/creative-canvas/panels/ReferencePicker'
 import CanvasLanding from '@/components/creative-canvas/landing/CanvasLanding'
@@ -1722,8 +1723,12 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
     updateText: (nodeId: string, value: string) => void
     addReference: (nodeId: string) => void
     updateOutputKind: (nodeId: string, kind: 'image' | 'video') => void
-  }>({ generate: () => {}, updatePrompt: () => {}, updateText: () => {}, addReference: () => {}, updateOutputKind: () => {} })
-  const pendingReferenceNodeIdRef = useRef<string>('')
+    remove: (nodeId: string) => void
+    duplicate: (nodeId: string) => void
+    replaceContent: (nodeId: string) => void
+    editWithAi: (nodeId: string) => void
+  }>({ generate: () => {}, updatePrompt: () => {}, updateText: () => {}, addReference: () => {}, updateOutputKind: () => {}, remove: () => {}, duplicate: () => {}, replaceContent: () => {}, editWithAi: () => {} })
+  const pendingReferenceNodeIdRef = useRef<{ nodeId: string; mode: 'attach' | 'replace' } | null>(null)
   const referenceFileInputRef = useRef<HTMLInputElement | null>(null)
 
   const displayNodes = useMemo(() => nodes.map((node) => {
@@ -1759,6 +1764,13 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
         onTextChange: (value: string) => nodeActionRefs.current.updateText(node.id, value),
         onAddReference: () => nodeActionRefs.current.addReference(node.id),
         onOutputKindChange: (kind: 'image' | 'video') => nodeActionRefs.current.updateOutputKind(node.id, kind),
+        onDelete: () => nodeActionRefs.current.remove(node.id),
+        onDuplicate: () => nodeActionRefs.current.duplicate(node.id),
+        onEditWithAi: () => nodeActionRefs.current.editWithAi(node.id),
+        ...(canvasNode.type === 'source'
+          ? { onReplaceContent: () => nodeActionRefs.current.replaceContent(node.id) }
+          : {}),
+        downloadUrl: canvasNode.output?.url ?? canvasNode.source?.url,
         // "Select model" on a node opens the settings panel (which hosts the picker).
         onOpenModelPicker: () => {
           setSelectedFlowNodeId(node.id)
@@ -1946,7 +1958,20 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
     })
     setActiveCanvasId(canvas.id ?? '')
     setSelectedFlowNodeId(canvas.nodes?.[0]?.id ?? '')
-    setNodes((canvas.nodes ?? []).map((node) => toFlowNode(node)))
+    // Preserve React Flow runtime state (measured size, selection) for nodes
+    // that survive the snapshot — replacing a node object wipes its measured
+    // dimensions and React Flow will not re-measure without a DOM resize,
+    // which leaves every edge invisible.
+    setNodes((currentNodes) => {
+      const previousById = new Map(currentNodes.map((node) => [node.id, node]))
+      return (canvas.nodes ?? []).map((node) => {
+        const fresh = toFlowNode(node)
+        const previous = previousById.get(node.id)
+        return previous
+          ? { ...fresh, measured: previous.measured, width: previous.width, height: previous.height, selected: previous.selected }
+          : fresh
+      })
+    })
     setEdges((canvas.edges ?? []).map(toFlowEdge))
     setAcceptedGraphSignature(canvasGraphSignature(canvas.nodes ?? [], canvas.edges ?? []))
     setLatestExecution(null)
@@ -2739,7 +2764,8 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
   const [createMenu, setCreateMenu] = useState<{ flow: { x: number; y: number }; client: { x: number; y: number } } | null>(null)
   const [showLanding, setShowLanding] = useState(false)
   const [immersiveCanvas, setImmersiveCanvas] = useState(true)
-  const [referencePicker, setReferencePicker] = useState<{ nodeId: string } | null>(null)
+  const [referencePicker, setReferencePicker] = useState<{ nodeId: string; mode?: 'attach' | 'replace' } | null>(null)
+  const [editChatNodeId, setEditChatNodeId] = useState<string | null>(null)
   const [settingsCollapsed, setSettingsCollapsed] = useState(false)
 
   const reloadActiveCanvas = useCallback(async () => {
@@ -2908,7 +2934,10 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
 
   const addCanvasNodeAt = (presentationType: CanvasNodeType, position: { x: number; y: number }, mode?: string) => {
     const backendType = PRESENTATION_TO_BACKEND[presentationType]
-    const title = PRESENTATION_LABELS[presentationType]
+    const mediaKind = mode?.startsWith('media_') ? mode.slice('media_'.length) : undefined
+    const title = mediaKind
+      ? mediaKind.charAt(0).toUpperCase() + mediaKind.slice(1)
+      : PRESENTATION_LABELS[presentationType]
     const id = `${presentationType}-node-${Date.now()}`
     const isAgentBacked = AGENT_PRESENTATION_TYPES.has(presentationType)
     const canvasNode: CreativeCanvasNode = {
@@ -2949,6 +2978,8 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
       operation: 'node_add',
       source: 'local',
     })
+    // One-tap media nodes: open the asset picker immediately to fill the node.
+    if (mediaKind) setReferencePicker({ nodeId: id, mode: 'replace' })
   }
 
   const applyWorkflowPreset = (preset: CreativeCanvasWorkflowPreset) => {
@@ -3260,44 +3291,46 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
     setActivityMessage(`Created ${variants.length} format variant${variants.length === 1 ? '' : 's'} from ${selectedCanvasNode.title}`)
   }
 
-  const duplicateSelectedNode = () => {
-    if (!selectedCanvasNode) return
-    if (selectedNodeLockedByCollaborator) {
-      setActivityMessage(`${selectedNodeCollaborators[0]?.displayName ?? selectedNodeCollaborators[0]?.actorUid ?? 'A collaborator'} is editing this node`)
+  const duplicateNodeById = (nodeId: string) => {
+    const sourceFlowNode = nodes.find((node) => node.id === nodeId)
+    const canvasNode = sourceFlowNode?.data?.canvasNode as CreativeCanvasNode | undefined
+    if (!canvasNode) return
+    const lockHolders = (collaboratorsByNodeId[nodeId] ?? []).filter((collaborator) => collaborator.id !== ownPresenceId)
+    if (lockHolders.length) {
+      setActivityMessage(`${lockHolders[0]?.displayName ?? lockHolders[0]?.actorUid ?? 'A collaborator'} is editing this node`)
       return
     }
-    const sourceFlowNode = nodes.find((node) => node.id === selectedCanvasNode.id)
     const stamp = Date.now()
-    const duplicateId = `${selectedCanvasNode.id}-copy-${stamp}`
+    const duplicateId = `${canvasNode.id}-copy-${stamp}`
     const duplicateNode: CreativeCanvasNode = {
-      ...selectedCanvasNode,
+      ...canvasNode,
       id: duplicateId,
-      orgId: resolvedOrgId || selectedCanvasNode.orgId,
-      title: `${selectedCanvasNode.title} copy`,
+      orgId: resolvedOrgId || canvasNode.orgId,
+      title: `${canvasNode.title} copy`,
       position: {
-        x: (sourceFlowNode?.position.x ?? selectedCanvasNode.position.x) + 220,
-        y: (sourceFlowNode?.position.y ?? selectedCanvasNode.position.y) + 80,
+        x: (sourceFlowNode?.position.x ?? canvasNode.position.x) + 220,
+        y: (sourceFlowNode?.position.y ?? canvasNode.position.y) + 80,
       },
       data: {
-        ...(cloneCanvasField(selectedCanvasNode.data) ?? {}),
+        ...(cloneCanvasField(canvasNode.data) ?? {}),
         createdFrom: 'creative_canvas_node_duplicate',
-        duplicatedFromNodeId: selectedCanvasNode.id,
-        duplicatedFromTitle: selectedCanvasNode.title,
+        duplicatedFromNodeId: canvasNode.id,
+        duplicatedFromTitle: canvasNode.title,
       },
-      source: cloneCanvasField(selectedCanvasNode.source),
-      provider: cloneCanvasField(selectedCanvasNode.provider),
-      edit: cloneCanvasField(selectedCanvasNode.edit),
-      review: cloneCanvasField(selectedCanvasNode.review),
-      output: cloneCanvasField(selectedCanvasNode.output),
+      source: cloneCanvasField(canvasNode.source),
+      provider: cloneCanvasField(canvasNode.provider),
+      edit: cloneCanvasField(canvasNode.edit),
+      review: cloneCanvasField(canvasNode.review),
+      output: cloneCanvasField(canvasNode.output),
     }
     const branchEdge: Edge = {
-      id: `duplicate-${selectedCanvasNode.id}-${duplicateId}`,
-      source: selectedCanvasNode.id,
+      id: `duplicate-${canvasNode.id}-${duplicateId}`,
+      source: canvasNode.id,
       target: duplicateId,
       label: 'duplicate branch',
       data: {
         createdFrom: 'creative_canvas_node_duplicate',
-        duplicatedFromNodeId: selectedCanvasNode.id,
+        duplicatedFromNodeId: canvasNode.id,
       },
     }
 
@@ -3308,12 +3341,26 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
     recordCanvasActivity({
       actorLabel: 'You',
       action: 'Duplicated node',
-      detail: selectedCanvasNode.title,
+      detail: canvasNode.title,
       nodeId: duplicateId,
       operation: 'node_duplicate',
       source: 'local',
     })
-    setActivityMessage(`Duplicated ${selectedCanvasNode.title}`)
+    setActivityMessage(`Duplicated ${canvasNode.title}`)
+  }
+
+  const duplicateSelectedNode = () => {
+    if (!selectedCanvasNode) return
+    duplicateNodeById(selectedCanvasNode.id)
+  }
+
+  const deleteNodeById = (nodeId: string) => {
+    const lockHolders = (collaboratorsByNodeId[nodeId] ?? []).filter((collaborator) => collaborator.id !== ownPresenceId)
+    if (lockHolders.length) {
+      setActivityMessage(`${lockHolders[0]?.displayName ?? lockHolders[0]?.actorUid ?? 'A collaborator'} is editing this node`)
+      return
+    }
+    onNodesChange([{ type: 'remove', id: nodeId }])
   }
 
   const createInpaintEditBranch = () => {
@@ -4069,9 +4116,41 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
     setActivityMessage('Reference image added')
   }, [])
 
+  const replaceNodeContent = useCallback((nodeId: string, asset: { url: string; thumbnailUrl?: string; title?: string }) => {
+    setNodes((currentNodes) => currentNodes.map((node) => {
+      if (node.id !== nodeId) return node
+      const canvasNode = node.data?.canvasNode as CreativeCanvasNode | undefined
+      if (!canvasNode) return node
+      const nextSource = {
+        ...(canvasNode.source ?? { kind: 'upload' as const, referenceRole: 'general' as const }),
+        url: asset.url,
+        thumbnailUrl: asset.thumbnailUrl,
+        altText: asset.title ?? canvasNode.source?.altText ?? canvasNode.title,
+      }
+      return {
+        ...node,
+        data: {
+          ...node.data,
+          assetUrl: asset.url,
+          canvasNode: { ...canvasNode, source: nextSource },
+        },
+      }
+    }))
+    recordCanvasActivity({
+      actorLabel: 'You',
+      action: 'Replaced node content',
+      detail: asset.title ?? asset.url,
+      nodeId,
+      operation: 'node_configure',
+      source: 'local',
+    })
+    setActivityMessage('Node content replaced')
+  }, [recordCanvasActivity])
+
   const handleReferenceFileSelected = useCallback(async (files: FileList | null) => {
-    const nodeId = pendingReferenceNodeIdRef.current
-    pendingReferenceNodeIdRef.current = ''
+    const pending = pendingReferenceNodeIdRef.current
+    pendingReferenceNodeIdRef.current = null
+    const nodeId = pending?.nodeId ?? ''
     if (!files?.length || !nodeId || !resolvedOrgId) return
     setActivityMessage('Uploading reference…')
     try {
@@ -4088,11 +4167,68 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
         setActivityMessage('Reference upload failed')
         return
       }
-      attachReferenceUrl(nodeId, url)
+      if (pending?.mode === 'replace') {
+        replaceNodeContent(nodeId, { url, thumbnailUrl: source?.source?.thumbnailUrl, title: source?.title })
+      } else {
+        attachReferenceUrl(nodeId, url)
+      }
     } catch {
       setActivityMessage('Reference upload failed')
     }
-  }, [activeCanvas?.id, attachReferenceUrl, resolvedOrgId])
+  }, [activeCanvas?.id, attachReferenceUrl, replaceNodeContent, resolvedOrgId])
+
+  /**
+   * Make sure a server-persisted canvas exists and the current graph is saved.
+   * The create endpoint intentionally ignores nodes/edges (they are versioned
+   * through the graph endpoint), so create bare then PUT the graph. Never
+   * applyCanvasSnapshot with the freshly created canvas — its empty graph
+   * would wipe the nodes the user just built.
+   */
+  const ensurePersistedCanvas = useCallback(async (): Promise<{ canvasId: string; canvasOrgId: string } | null> => {
+    let canvasId = activeCanvas?.id ?? ''
+    let canvasOrgId = resolvedOrgId || activeCanvas?.orgId || ''
+    if (canvasId) {
+      if (graphHasUnsavedChanges) await saveGraph('auto')
+      return { canvasId, canvasOrgId }
+    }
+    const createResponse = await fetch(`/api/v1/creative-canvas${canvasOrgId ? `?orgId=${encodeURIComponent(canvasOrgId)}` : ''}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title: 'Untitled canvas', purpose: '', status: 'draft' }),
+    })
+    const createPayload = await createResponse.json().catch(() => null) as CreativeCanvasApiListResponse | null
+    const createdCanvas = createPayload?.data?.canvas
+    if (!createResponse.ok || !createdCanvas?.id) {
+      setActivityMessage(createPayload?.error ?? 'Could not save the canvas before generating')
+      return null
+    }
+    canvasId = createdCanvas.id
+    canvasOrgId = canvasOrgId || createdCanvas.orgId || ''
+    setCanvases((current) => [createdCanvas, ...current.filter((item) => item.id !== createdCanvas.id)])
+    setActiveCanvasId(canvasId)
+
+    const graphResponse = await fetch(`/api/v1/creative-canvas/${canvasId}/graph?orgId=${encodeURIComponent(canvasOrgId)}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        expectedActiveVersion: createdCanvas.activeVersion,
+        mergeOnConflict: true,
+        reason: 'combine_generate_autosave',
+        baseGraph: { nodes: [], edges: [] },
+        nodes: nodes.map((node) => toCanvasNode(node, canvasOrgId)),
+        edges: edges.map((edge) => toCanvasEdge(edge, canvasOrgId)),
+      }),
+    })
+    const graphPayload = await graphResponse.json().catch(() => null) as CreativeCanvasApiListResponse | null
+    const savedCanvas = graphPayload?.data?.canvas
+    if (!graphResponse.ok || !savedCanvas?.id) {
+      setActivityMessage(graphPayload?.error ?? 'Could not save the canvas graph before generating')
+      return null
+    }
+    setCanvases((current) => current.map((item) => item.id === savedCanvas.id ? savedCanvas : item))
+    setAcceptedGraphSignature(currentGraphSignature)
+    return { canvasId, canvasOrgId }
+  }, [activeCanvas?.id, activeCanvas?.orgId, currentGraphSignature, edges, graphHasUnsavedChanges, nodes, resolvedOrgId, saveGraph])
 
   const generateInlineForNode = useCallback(async (nodeId: string) => {
     if (mode !== 'admin') {
@@ -4152,52 +4288,9 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
     try {
       // ---- Make sure a persisted canvas exists and the graph is saved so the
       // backend sees the node we are generating for. ----
-      let canvasId = activeCanvas?.id ?? ''
-      let canvasOrgId = resolvedOrgId || activeCanvas?.orgId || ''
-      if (!canvasId) {
-        // The create endpoint intentionally ignores nodes/edges (they are
-        // versioned through the graph endpoint), so create bare then PUT the
-        // graph. Never applyCanvasSnapshot here — the created canvas has an
-        // empty graph and would wipe the nodes the user just built.
-        const createResponse = await fetch(`/api/v1/creative-canvas${canvasOrgId ? `?orgId=${encodeURIComponent(canvasOrgId)}` : ''}`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ title: 'Untitled canvas', purpose: '', status: 'draft' }),
-        })
-        const createPayload = await createResponse.json().catch(() => null) as CreativeCanvasApiListResponse | null
-        const createdCanvas = createPayload?.data?.canvas
-        if (!createResponse.ok || !createdCanvas?.id) {
-          setActivityMessage(createPayload?.error ?? 'Could not save the canvas before generating')
-          return
-        }
-        canvasId = createdCanvas.id
-        canvasOrgId = canvasOrgId || createdCanvas.orgId || ''
-        setCanvases((current) => [createdCanvas, ...current.filter((item) => item.id !== createdCanvas.id)])
-        setActiveCanvasId(canvasId)
-
-        const graphResponse = await fetch(`/api/v1/creative-canvas/${canvasId}/graph?orgId=${encodeURIComponent(canvasOrgId)}`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            expectedActiveVersion: createdCanvas.activeVersion,
-            mergeOnConflict: true,
-            reason: 'combine_generate_autosave',
-            baseGraph: { nodes: [], edges: [] },
-            nodes: nodes.map((node) => toCanvasNode(node, canvasOrgId)),
-            edges: edges.map((edge) => toCanvasEdge(edge, canvasOrgId)),
-          }),
-        })
-        const graphPayload = await graphResponse.json().catch(() => null) as CreativeCanvasApiListResponse | null
-        const savedCanvas = graphPayload?.data?.canvas
-        if (!graphResponse.ok || !savedCanvas?.id) {
-          setActivityMessage(graphPayload?.error ?? 'Could not save the canvas graph before generating')
-          return
-        }
-        setCanvases((current) => current.map((item) => item.id === savedCanvas.id ? savedCanvas : item))
-        setAcceptedGraphSignature(currentGraphSignature)
-      } else if (graphHasUnsavedChanges) {
-        await saveGraph('auto')
-      }
+      const persisted = await ensurePersistedCanvas()
+      if (!persisted) return
+      const { canvasId, canvasOrgId } = persisted
 
       const response = await fetch(`/api/v1/creative-canvas/${canvasId}/runs/generate?orgId=${encodeURIComponent(canvasOrgId)}`, {
         method: 'POST',
@@ -4258,8 +4351,147 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
       })
       void loadCanvasCredits()
     }
-  }, [activeCanvas?.id, activeCanvas?.orgId, applyCanvasSnapshot, currentGraphSignature, edges, graphHasUnsavedChanges, loadCanvasCredits, mode, nodes, resolvedOrgId, runAspectRatio, runDurationSeconds, runGenerateAudio, runModel, runQuality, runResolution, runVariantCount, saveGraph])
+  }, [applyCanvasSnapshot, edges, ensurePersistedCanvas, loadCanvasCredits, mode, nodes, runAspectRatio, runDurationSeconds, runGenerateAudio, runModel, runQuality, runResolution, runVariantCount])
 
+  const [editChatBusy, setEditChatBusy] = useState(false)
+  const [editChatError, setEditChatError] = useState('')
+
+  /**
+   * Inline AI edit: send this node's content + an instruction through the run
+   * pipeline. Branch keeps the server-inserted output node (wired from the
+   * original); Replace merges the result back onto the original node and
+   * removes the transient output node (prior state stays in version history).
+   */
+  const runNodeEdit = useCallback(async (nodeId: string, instruction: string, placement: 'branch' | 'replace') => {
+    const target = nodes.find((node) => node.id === nodeId)
+    const canvasNode = target?.data?.canvasNode as CreativeCanvasNode | undefined
+    if (!canvasNode) {
+      setEditChatError('This node cannot be edited yet — save the canvas first')
+      return
+    }
+    const nodeData = (canvasNode.data ?? {}) as Record<string, unknown>
+    const isTextNode = ['prompt', 'brief'].includes(canvasNode.type)
+      || ['text', 'sticky_note', 'prompt'].includes(String(nodeData.presentationType ?? ''))
+    const mediaUrl = canvasNode.output?.url ?? canvasNode.source?.url
+    const isVideo = canvasNode.output?.kind === 'video' || canvasNode.source?.mimeType?.startsWith('video/')
+    const editModel = isTextNode ? 'agent-llm' : isVideo ? 'seedance_2_0' : 'text2image_soul_v2'
+    const existingText = typeof nodeData.text === 'string' && nodeData.text.trim()
+      ? nodeData.text.trim()
+      : typeof nodeData.prompt === 'string' ? String(nodeData.prompt).trim() : ''
+    const prompt = isTextNode
+      ? `Rewrite the following content per the instruction.\n\nInstruction: ${instruction}\n\nContent:\n${existingText || '(empty)'}`
+      : instruction
+
+    setEditChatBusy(true)
+    setEditChatError('')
+    setGeneratingNodeIds((prev) => new Set(prev).add(nodeId))
+    try {
+      const persisted = await ensurePersistedCanvas()
+      if (!persisted) {
+        setEditChatError('Could not save the canvas before editing')
+        return
+      }
+      const { canvasId, canvasOrgId } = persisted
+      const response = await fetch(`/api/v1/creative-canvas/${canvasId}/runs/generate?orgId=${encodeURIComponent(canvasOrgId)}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          nodeId,
+          model: editModel,
+          prompt,
+          ...(mediaUrl && !isTextNode ? { referenceImageUrls: [mediaUrl] } : {}),
+        }),
+      })
+      const payload = await response.json().catch(() => null) as { data?: { pending?: boolean }; error?: string } | null
+      if (!response.ok) {
+        setEditChatError(payload?.error ?? 'Edit generation failed')
+        return
+      }
+      setEditChatNodeId(null)
+      setActivityMessage(placement === 'replace' ? 'AI edit queued — the result will replace this node' : 'AI edit queued — the result will branch from this node')
+
+      // Poll for the output node, then place the result.
+      const outputNodeId = `${nodeId}-output`
+      let polled: CreativeCanvas | undefined
+      for (let attempt = 0; attempt < 12 && !polled; attempt += 1) {
+        await new Promise((resolve) => { window.setTimeout(resolve, 3000) })
+        try {
+          const pollResponse = await fetch(`/api/v1/creative-canvas/${canvasId}?orgId=${encodeURIComponent(canvasOrgId)}`)
+          const pollPayload = await pollResponse.json().catch(() => null) as CreativeCanvasApiListResponse | null
+          const candidate = pollPayload?.data?.canvas
+          if (candidate?.id && (candidate.nodes ?? []).some((node) => node.id === outputNodeId)) polled = candidate
+        } catch { ignoreCanvasBestEffortFailure() }
+      }
+      if (!polled) {
+        setActivityMessage('AI edit still processing — it will appear on refresh')
+        return
+      }
+      if (placement === 'branch') {
+        applyCanvasSnapshot(polled)
+        setActivityMessage('AI edit complete')
+        return
+      }
+      // Replace: merge the output onto the original node, drop the transient
+      // output node + its edges, and persist through the graph endpoint.
+      const outputNode = (polled.nodes ?? []).find((node) => node.id === outputNodeId)
+      const mergedNodes = (polled.nodes ?? [])
+        .filter((node) => node.id !== outputNodeId)
+        .map((node) => {
+          if (node.id !== nodeId || !outputNode) return node
+          if (isTextNode) {
+            const nextText = outputNode.output?.textPreview ?? outputNode.output?.url ?? ''
+            return { ...node, data: { ...(node.data ?? {}), text: nextText, prompt: nextText } }
+          }
+          if (node.type === 'output') {
+            return { ...node, output: outputNode.output }
+          }
+          return {
+            ...node,
+            source: {
+              ...(node.source ?? { kind: 'upload' as const, referenceRole: 'general' as const }),
+              url: outputNode.output?.url,
+              thumbnailUrl: outputNode.output?.thumbnailUrl,
+            },
+          }
+        })
+      const mergedEdges = (polled.edges ?? []).filter((edge) => edge.sourceNodeId !== outputNodeId && edge.targetNodeId !== outputNodeId)
+      const replaceResponse = await fetch(`/api/v1/creative-canvas/${canvasId}/graph?orgId=${encodeURIComponent(canvasOrgId)}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          expectedActiveVersion: polled.activeVersion,
+          mergeOnConflict: true,
+          reason: 'ai_edit_replace',
+          baseGraph: { nodes: polled.nodes ?? [], edges: polled.edges ?? [] },
+          nodes: mergedNodes,
+          edges: mergedEdges,
+        }),
+      })
+      const replacePayload = await replaceResponse.json().catch(() => null) as CreativeCanvasApiListResponse | null
+      const replacedCanvas = replacePayload?.data?.canvas
+      if (replaceResponse.ok && replacedCanvas?.id) {
+        applyCanvasSnapshot(replacedCanvas)
+        setActivityMessage('AI edit complete — node replaced (previous version kept in history)')
+      } else {
+        // The branch result still exists server-side; fall back to showing it.
+        applyCanvasSnapshot(polled)
+        setActivityMessage(replacePayload?.error ?? 'Could not replace the node — the edit landed as a branch instead')
+      }
+    } catch {
+      setEditChatError('Edit generation failed')
+    } finally {
+      setEditChatBusy(false)
+      setGeneratingNodeIds((prev) => {
+        const next = new Set(prev)
+        next.delete(nodeId)
+        return next
+      })
+      void loadCanvasCredits()
+    }
+  }, [applyCanvasSnapshot, ensurePersistedCanvas, loadCanvasCredits, nodes])
+
+  // Re-assigned every render (no dep array) so the handlers always close over
+  // fresh state — duplicate/remove read the current nodes list.
   useEffect(() => {
     nodeActionRefs.current = {
       generate: (nodeId: string) => { void generateInlineForNode(nodeId) },
@@ -4267,8 +4499,12 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
       updateText: updateNodeText,
       addReference: addReferenceToNode,
       updateOutputKind: updateNodeOutputKind,
+      remove: deleteNodeById,
+      duplicate: duplicateNodeById,
+      replaceContent: (nodeId: string) => setReferencePicker({ nodeId, mode: 'replace' }),
+      editWithAi: (nodeId: string) => setEditChatNodeId(nodeId),
     }
-  }, [addReferenceToNode, generateInlineForNode, updateNodeOutputKind, updateNodePrompt, updateNodeText])
+  })
 
   const markReviewPassed = async () => {
     if (!activeCanvas?.id || !selectedNodeId) return
@@ -5515,17 +5751,40 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
             return url ? [{ id: node.id, url, thumbnailUrl: canvasNode?.output?.thumbnailUrl, title: canvasNode?.title, kind: 'video' }] : []
           })}
           onSelect={(asset) => {
-            attachReferenceUrl(referencePicker.nodeId, asset.url)
+            if (referencePicker.mode === 'replace') {
+              replaceNodeContent(referencePicker.nodeId, { url: asset.url, thumbnailUrl: asset.thumbnailUrl, title: asset.title })
+            } else {
+              attachReferenceUrl(referencePicker.nodeId, asset.url)
+            }
             setReferencePicker(null)
           }}
           onUploadNew={() => {
-            pendingReferenceNodeIdRef.current = referencePicker.nodeId
+            pendingReferenceNodeIdRef.current = { nodeId: referencePicker.nodeId, mode: referencePicker.mode ?? 'attach' }
             setReferencePicker(null)
             referenceFileInputRef.current?.click()
           }}
           onClose={() => setReferencePicker(null)}
         />
       ) : null}
+
+      {editChatNodeId ? (() => {
+        const editTarget = nodes.find((node) => node.id === editChatNodeId)
+        const editCanvasNode = editTarget?.data?.canvasNode as CreativeCanvasNode | undefined
+        const editNodeData = (editCanvasNode?.data ?? {}) as Record<string, unknown>
+        const editIsText = ['prompt', 'brief'].includes(editCanvasNode?.type ?? '')
+          || ['text', 'sticky_note', 'prompt'].includes(String(editNodeData.presentationType ?? ''))
+        const editIsVideo = editCanvasNode?.output?.kind === 'video' || editCanvasNode?.source?.mimeType?.startsWith('video/')
+        return (
+          <NodeEditChat
+            nodeTitle={editCanvasNode?.title ?? 'Node'}
+            mediaKind={editIsText ? 'text' : editIsVideo ? 'video' : 'image'}
+            busy={editChatBusy}
+            error={editChatError}
+            onSubmit={(prompt, placement) => { void runNodeEdit(editChatNodeId, prompt, placement) }}
+            onClose={() => { setEditChatNodeId(null); setEditChatError('') }}
+          />
+        )
+      })() : null}
 
       {error ? (
         <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>

@@ -15,8 +15,17 @@ export const createMenuGroups: CreateMenuGroup[] = [
   {
     group: '',
     items: [
+      { type: 'source', label: 'Image', mode: 'media_image' },
+      { type: 'source', label: 'Video', mode: 'media_video' },
+      { type: 'source', label: 'Audio', mode: 'media_audio' },
+      { type: 'text', label: 'Text' },
       { type: 'combine', label: 'Combine' },
       { type: 'prompt', label: 'Prompt' },
+    ],
+  },
+  {
+    group: 'Generators',
+    items: [
       { type: 'image_generator', label: 'Image Generator' },
       { type: 'video_generator', label: 'Video Generator' },
       { type: 'voice_generator', label: 'Voice Generator' },
@@ -42,7 +51,6 @@ export const createMenuGroups: CreateMenuGroup[] = [
   {
     group: 'Utilities',
     items: [
-      { type: 'text', label: 'Text' },
       { type: 'sticky_note', label: 'Sticky Note' },
     ],
   },

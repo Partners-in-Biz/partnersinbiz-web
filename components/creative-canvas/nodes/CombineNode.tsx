@@ -5,6 +5,7 @@ import type { NodeProps } from '@xyflow/react'
 import { canvasTheme } from '@/components/creative-canvas/theme/tokens'
 import { NodeHandles, type CanvasNodeStatus } from '@/components/creative-canvas/nodes/nodeFactory'
 import type { CanvasNodeData } from '@/components/creative-canvas/nodes/nodeData'
+import { nodeActionsFor } from '@/components/creative-canvas/nodes/NodeActionBar'
 
 const statusLabel: Record<CanvasNodeStatus, string> = {
   idle: '',
@@ -57,9 +58,12 @@ function CombineNodeComponent({ data, selected }: NodeProps) {
         }}
       >
         <span>{d.title || 'Combine'}</span>
-        {status !== 'idle' && status !== 'done' ? (
-          <span style={{ color: status === 'error' ? '#ff6b6b' : canvasTheme.accent }}>{statusLabel[status]}</span>
-        ) : null}
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+          {status !== 'idle' && status !== 'done' ? (
+            <span style={{ color: status === 'error' ? '#ff6b6b' : canvasTheme.accent }}>{statusLabel[status]}</span>
+          ) : null}
+          {nodeActionsFor(d)}
+        </span>
       </div>
 
       {d.assetUrl ? (

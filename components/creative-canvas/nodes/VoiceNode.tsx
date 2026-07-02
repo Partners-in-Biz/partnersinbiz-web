@@ -4,12 +4,14 @@ import { memo } from 'react'
 import type { NodeProps } from '@xyflow/react'
 import { GeneratorNodeCard } from '@/components/creative-canvas/nodes/nodeFactory'
 import type { CanvasNodeData } from '@/components/creative-canvas/nodes/nodeData'
+import { nodeActionsFor } from '@/components/creative-canvas/nodes/NodeActionBar'
 
 /** Used for voice_generator, voiceover and change_voice nodes (audio output). */
 function VoiceNodeComponent({ data, selected }: NodeProps) {
   const d = data as CanvasNodeData
   return (
     <GeneratorNodeCard
+      actions={nodeActionsFor(d)}
       type={d.presentationType === 'change_voice' ? 'change_voice' : d.presentationType === 'voiceover' ? 'voiceover' : 'voice_generator'}
       title={d.title}
       prompt={d.prompt}

@@ -134,6 +134,21 @@ then poll canvas (existing pattern) for `${nodeId}-output`:
 
 - [ ] Typecheck + jest; commit `feat(creative-canvas): box-select with select tool, pan with hand tool`.
 
+## Status (2026-07-02, end of session)
+
+Tasks 1–7 implemented and verified (typecheck clean, all creative-canvas
+suites green, DOM-level browser QA passed: New/Canvases buttons, landing
+rename+delete E2E against Firestore, node action bar delete/duplicate,
+Edit-with-AI popover with Branch/Replace, one-tap Image/Video/Audio/Text
+menu). Bonus fix: `applyCanvasSnapshot` now preserves React Flow measured
+state so remote snapshot refreshes can't blank the edges.
+
+QA environment caveat: the preview browser runs as a hidden tab where Chrome
+suspends ResizeObserver, so React Flow never measures nodes and edges don't
+draw — this is NOT a code bug (verified by bisecting back to known-good
+ae3e371d, which also showed no edges cold-loaded in a hidden tab). Edge
+rendering was screenshot-verified in a visible tab on 2026-07-02 morning.
+
 ### Task 8: Full verification + push
 
 - [ ] `NODE_OPTIONS=--max-old-space-size=8192 npx tsc --noEmit --pretty false --project tsconfig.typecheck.json`
