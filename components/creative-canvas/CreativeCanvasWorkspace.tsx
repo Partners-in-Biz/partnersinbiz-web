@@ -2799,6 +2799,54 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
     }
   }, [activeCanvas?.id, activeCanvas?.orgId, applyCanvasSnapshot, resolvedOrgId])
 
+  const renameCanvasById = useCallback(async (canvasId: string, nextTitle: string) => {
+    const target = canvases.find((canvas) => canvas.id === canvasId)
+    const canvasOrgId = resolvedOrgId || target?.orgId || ''
+    try {
+      const response = await fetch(`/api/v1/creative-canvas/${canvasId}?orgId=${encodeURIComponent(canvasOrgId)}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title: nextTitle }),
+      })
+      const payload = await response.json().catch(() => null) as CreativeCanvasApiListResponse | null
+      const updatedCanvas = payload?.data?.canvas
+      if (response.ok && updatedCanvas?.id) {
+        setCanvases((current) => current.map((canvas) => canvas.id === canvasId ? { ...canvas, title: updatedCanvas.title } : canvas))
+        setActivityMessage('Canvas renamed')
+      } else {
+        setActivityMessage(payload?.error ?? 'Rename failed')
+      }
+    } catch {
+      setActivityMessage('Rename failed')
+    }
+  }, [canvases, resolvedOrgId])
+
+  const deleteCanvasById = useCallback(async (canvasId: string) => {
+    const target = canvases.find((canvas) => canvas.id === canvasId)
+    const canvasOrgId = resolvedOrgId || target?.orgId || ''
+    try {
+      const response = await fetch(`/api/v1/creative-canvas/${canvasId}?orgId=${encodeURIComponent(canvasOrgId)}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ deleted: true }),
+      })
+      const payload = await response.json().catch(() => null) as CreativeCanvasApiListResponse | null
+      if (response.ok) {
+        setCanvases((current) => current.filter((canvas) => canvas.id !== canvasId))
+        if (activeCanvasId === canvasId) {
+          setActiveCanvasId('')
+          setNodes([])
+          setEdges([])
+        }
+        setActivityMessage('Canvas deleted')
+      } else {
+        setActivityMessage(payload?.error ?? 'Delete failed')
+      }
+    } catch {
+      setActivityMessage('Delete failed')
+    }
+  }, [activeCanvasId, canvases, resolvedOrgId])
+
   const addCanvasNode = (type: CreativeCanvasNodeType) => {
     const nextNumber = nodes.length + 1
     const title = `${nodeTypeLabels[type]} node`
@@ -5305,6 +5353,8 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
           boards={canvases.map((canvas) => ({ id: canvas.id ?? '', title: canvas.title }))}
           templates={templates.map((template) => ({ id: template.id, title: template.title }))}
           onCreate={() => { void createBlankCanvas() }}
+          onRenameBoard={(id, nextTitle) => { void renameCanvasById(id, nextTitle) }}
+          onDeleteBoard={(id) => { void deleteCanvasById(id) }}
           onOpenBoard={(id) => {
             const canvas = canvases.find((item) => item.id === id)
             if (canvas) {
