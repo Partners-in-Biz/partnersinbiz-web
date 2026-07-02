@@ -21,6 +21,8 @@ export interface CanvasModel {
   description?: string
   /** true for the near-free Higgsfield-native "unlimited-tier" models */
   unlimited?: boolean
+  /** Max reference/input media the provider accepts (verified via `higgsfield model get`). Unset = unknown/unbounded. */
+  maxReferenceImages?: number
 }
 
 // The real Higgsfield model catalog. `id` is the verified Higgsfield CLI
@@ -38,6 +40,7 @@ export const CANVAS_MODELS: CanvasModel[] = [
   {
     id: 'text2image_soul_v2',
     label: 'Soul 2.0',
+    maxReferenceImages: 1,
     family: 'Studio',
     featured: true,
     unlimited: true,

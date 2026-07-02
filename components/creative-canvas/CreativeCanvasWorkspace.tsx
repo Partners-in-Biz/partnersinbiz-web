@@ -4280,12 +4280,17 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
     // ---- Resolve the model against the node's requested output kind. ----
     const requestedKind = nodeData.outputKind === 'video' || canvasNode.provider?.mode === 'video' ? 'video' : 'image'
     const activeModel = getCanvasModel(runModel)
-    // Soul V2 accepts a single reference image; multi-reference combines need
-    // Nano Banana (input_images array). Provider rejects the run otherwise.
+    // Some models cap reference media (Soul V2 accepts exactly one — the
+    // provider rejects the run otherwise). Fall back to Nano Banana for
+    // multi-reference combines and tell the user.
+    const modelSupportsRefs = (model: typeof activeModel) => !model?.maxReferenceImages || model.maxReferenceImages >= referenceImageUrls.length
     const defaultImageModel = referenceImageUrls.length > 1 ? 'nano_banana_flash' : 'text2image_soul_v2'
-    const effectiveModel = activeModel?.kind === requestedKind && !(requestedKind === 'image' && referenceImageUrls.length > 1 && activeModel.id === 'text2image_soul_v2')
+    const effectiveModel = activeModel?.kind === requestedKind && (requestedKind !== 'image' || modelSupportsRefs(activeModel))
       ? activeModel.id
       : (requestedKind === 'video' ? 'seedance_2_0' : defaultImageModel)
+    if (activeModel && activeModel.kind === requestedKind && effectiveModel !== activeModel.id) {
+      setActivityMessage(`${activeModel.label} supports ${activeModel.maxReferenceImages} reference image${activeModel.maxReferenceImages === 1 ? '' : 's'} — using Nano Banana for this ${referenceImageUrls.length}-reference combine`)
+    }
 
     setGeneratingNodeIds((prev) => new Set(prev).add(nodeId))
     try {

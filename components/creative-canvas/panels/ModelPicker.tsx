@@ -60,6 +60,14 @@ function ModelRow({
           </span>
         )}
         <span>{model.label}</span>
+        {model.maxReferenceImages === 1 && (
+          <span
+            title="Accepts a single reference image — multi-reference combines switch to Nano Banana automatically"
+            style={{ fontSize: '10px', fontWeight: 700, padding: '1px 6px', borderRadius: '6px', border: `1px solid ${canvasTheme.border}`, color: canvasTheme.textMuted }}
+          >
+            1 ref
+          </span>
+        )}
       </span>
       <span style={{ color: canvasTheme.textMuted, fontSize: '12px' }}>
         ✦ {model.creditCost}
