@@ -37,7 +37,7 @@ beforeEach(() => {
     orgId: 'org-1',
     title: 'Launch Canvas',
     purpose: 'Product launch',
-    linked: { campaignId: 'campaign-1', clientDocumentId: 'doc-1', adCreativeId: 'creative-1', seoContentId: 'seo-content-1' },
+    linked: { campaignId: 'campaign-1', clientDocumentId: 'doc-1', adCreativeId: 'creative-1', seoContentId: 'seo-content-1', youtubeVideoProjectId: 'video-project-1' },
     nodes: [
       {
         id: 'source-1',
@@ -327,12 +327,13 @@ describe('creative canvas generic draft export API', () => {
     })
   })
 
-  it('exports ads_creative and seo_content drafts when the canvas is linked to downstream records', async () => {
+  it('exports ads_creative, seo_content, and youtube_studio drafts when the canvas is linked to downstream records', async () => {
     const { POST } = await import('@/app/api/v1/creative-canvas/[id]/exports/draft/route')
 
     for (const [target, downstreamDraftId] of [
       ['ads_creative', 'creative-1'],
       ['seo_content', 'seo-content-1'],
+      ['youtube_studio', 'video-project-1'],
     ] as const) {
       const res = await POST(new NextRequest('http://test.local/api/v1/creative-canvas/canvas-1/exports/draft?orgId=org-1', {
         method: 'POST',
@@ -348,12 +349,13 @@ describe('creative canvas generic draft export API', () => {
     }
   })
 
-  it('rejects unlinked ads_creative and seo_content publishes with actionable errors instead of auto-creating', async () => {
+  it('rejects unlinked ads_creative, seo_content, and youtube_studio publishes with actionable errors instead of auto-creating', async () => {
     const { POST } = await import('@/app/api/v1/creative-canvas/[id]/exports/draft/route')
 
     for (const [target, message] of [
       ['ads_creative', 'Link an ad creative first'],
       ['seo_content', 'Link an SEO content item first'],
+      ['youtube_studio', 'Connect/create a YouTube video project first'],
     ] as const) {
       mockGetCreativeCanvas.mockResolvedValueOnce(unlinkedCanvas())
       const res = await POST(new NextRequest('http://test.local/api/v1/creative-canvas/canvas-1/exports/draft?orgId=org-1', {

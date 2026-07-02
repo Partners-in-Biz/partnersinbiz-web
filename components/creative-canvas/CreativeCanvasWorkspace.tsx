@@ -1814,6 +1814,19 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
   const lastStructuralSignatureRef = useRef('')
   const [activeCanvasTool, setActiveCanvasTool] = useState<CanvasTool>('select')
 
+  // Fresh nodes for long-lived async loops (generation polls) — the collaboration
+  // SSE stream may deliver an output node between poll ticks; loops check here
+  // before spending a fetch.
+  const liveNodesRef = useRef<Node[]>([])
+  useEffect(() => { liveNodesRef.current = nodes }, [nodes])
+
+  const lastContentSignatureRef = useRef('')
+  const contentSignatureOf = (list: Node[]) => list.map((node) => {
+    const canvasNode = node.data?.canvasNode as CreativeCanvasNode | undefined
+    const data = (canvasNode?.data ?? {}) as Record<string, unknown>
+    return `${node.id}:${typeof data.text === 'string' ? data.text : ''}:${typeof data.prompt === 'string' ? data.prompt : ''}`
+  }).join('|')
+
   useEffect(() => {
     if (isRestoringHistoryRef.current) {
       isRestoringHistoryRef.current = false
@@ -1822,12 +1835,28 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
     const signature = `${nodes.map((node) => node.id).sort().join(',')}|${edges.map((edge) => edge.id).sort().join(',')}`
     if (signature === lastStructuralSignatureRef.current) return
     lastStructuralSignatureRef.current = signature
+    lastContentSignatureRef.current = contentSignatureOf(nodes)
     graphHistory.commit({ nodes, edges })
+  }, [nodes, edges, graphHistory])
+
+  // Content history: text/prompt edits don't change the structural signature,
+  // so commit them separately, debounced so keystrokes coalesce into one
+  // undo step per pause.
+  useEffect(() => {
+    if (isRestoringHistoryRef.current) return
+    const contentSignature = contentSignatureOf(nodes)
+    if (contentSignature === lastContentSignatureRef.current) return
+    const timer = window.setTimeout(() => {
+      lastContentSignatureRef.current = contentSignature
+      graphHistory.commit({ nodes, edges })
+    }, 800)
+    return () => window.clearTimeout(timer)
   }, [nodes, edges, graphHistory])
 
   const handleCanvasUndo = useCallback(() => {
     const snapshot = graphHistory.undo()
     isRestoringHistoryRef.current = true
+    lastContentSignatureRef.current = contentSignatureOf(snapshot.nodes as Node[])
     setNodes(snapshot.nodes as Node[])
     setEdges(snapshot.edges as Edge[])
   }, [graphHistory])
@@ -1835,6 +1864,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
   const handleCanvasRedo = useCallback(() => {
     const snapshot = graphHistory.redo()
     isRestoringHistoryRef.current = true
+    lastContentSignatureRef.current = contentSignatureOf(snapshot.nodes as Node[])
     setNodes(snapshot.nodes as Node[])
     setEdges(snapshot.edges as Edge[])
   }, [graphHistory])
@@ -3364,6 +3394,13 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
         let found = false
         for (let attempt = 0; attempt < 12 && !found; attempt += 1) {
           await new Promise((resolve) => { window.setTimeout(resolve, 3000) })
+          // The collaboration stream may have already delivered the output
+          // node — skip the fetch when it has.
+          if (liveNodesRef.current.some((liveNode) => liveNode.id === `${nodeId}-output`)) {
+            found = true
+            setActivityMessage('Generation complete')
+            break
+          }
           try {
             const pollResponse = await fetch(`/api/v1/creative-canvas/${canvasId}?orgId=${encodeURIComponent(canvasOrgId)}`)
             const pollPayload = await pollResponse.json().catch(() => null) as CreativeCanvasApiListResponse | null
@@ -3673,6 +3710,56 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
     }
   }, [ensurePersistedCanvas, recordCanvasActivity])
 
+  /**
+   * Tidy layout: layered left-to-right layout. Column = longest edge distance
+   * from a root, rows stacked within each column. Local position change —
+   * persists through the normal graph save.
+   */
+  const tidyLayout = useCallback(() => {
+    if (!nodes.length) return
+    const incomingCount = new Map<string, number>()
+    const outgoing = new Map<string, string[]>()
+    const nodeIds = new Set(nodes.map((node) => node.id))
+    edges.forEach((edge) => {
+      if (!nodeIds.has(edge.source) || !nodeIds.has(edge.target)) return
+      incomingCount.set(edge.target, (incomingCount.get(edge.target) ?? 0) + 1)
+      outgoing.set(edge.source, [...(outgoing.get(edge.source) ?? []), edge.target])
+    })
+    const depth = new Map<string, number>()
+    const queue = nodes.filter((node) => !(incomingCount.get(node.id) ?? 0)).map((node) => node.id)
+    queue.forEach((id) => depth.set(id, 0))
+    // Longest-path layering with a visit cap so cycles cannot loop forever.
+    let guard = nodes.length * edges.length + nodes.length
+    while (queue.length && guard > 0) {
+      guard -= 1
+      const currentId = queue.shift() as string
+      const currentDepth = depth.get(currentId) ?? 0
+      for (const nextId of outgoing.get(currentId) ?? []) {
+        if ((depth.get(nextId) ?? -1) < currentDepth + 1) {
+          depth.set(nextId, currentDepth + 1)
+          queue.push(nextId)
+        }
+      }
+    }
+    const columns = new Map<number, string[]>()
+    nodes.forEach((node) => {
+      const column = depth.get(node.id) ?? 0
+      columns.set(column, [...(columns.get(column) ?? []), node.id])
+    })
+    const positioned = new Map<string, { x: number; y: number }>()
+    columns.forEach((ids, column) => {
+      ids.forEach((id, row) => {
+        positioned.set(id, { x: 80 + column * 380, y: 90 + row * 240 })
+      })
+    })
+    setNodes((current) => current.map((node) => {
+      const position = positioned.get(node.id)
+      return position ? { ...node, position } : node
+    }))
+    setSaveMessage('')
+    setActivityMessage('Layout tidied — save the canvas to keep it')
+  }, [edges, nodes])
+
   // ---- Auto-fill board: agent-writes every empty text card in link order ----
   const [autoFillBusy, setAutoFillBusy] = useState(false)
 
@@ -3710,6 +3797,18 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
       const persisted = await ensurePersistedCanvas()
       if (!persisted) return
       const { canvasId, canvasOrgId } = persisted
+      // Brand-aware writing: ground the agent in the org's brand kit when one
+      // exists (best-effort — a missing kit just means neutral copy).
+      let brandContext = ''
+      try {
+        const brandResponse = await fetch(`/api/v1/brand-kit?orgId=${encodeURIComponent(canvasOrgId)}`)
+        const brandPayload = await brandResponse.json().catch(() => null) as { data?: { brandName?: string; customVoice?: { tone?: string; audience?: string }; brandVoiceId?: string } } | null
+        const kit = brandPayload?.data
+        if (brandResponse.ok && kit?.brandName) {
+          const voice = kit.customVoice?.tone ?? kit.brandVoiceId
+          brandContext = `Brand: ${kit.brandName}${voice ? `, voice: ${voice}` : ''}${kit.customVoice?.audience ? `, audience: ${kit.customVoice.audience}` : ''}.`
+        }
+      } catch { ignoreCanvasBestEffortFailure() }
       const written = new Map<string, string>()
       for (const node of ordered) {
         const canvasNode = node.data?.canvasNode as CreativeCanvasNode | undefined
@@ -4644,6 +4743,15 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
                   <span className="block text-xs text-[var(--color-pib-text-muted)]">Walk the chapter chain into a single Book Studio draft.</span>
                 </button>
               ) : null}
+              <button
+                type="button"
+                onClick={tidyLayout}
+                disabled={!nodes.length}
+                className="w-full rounded-lg border border-[var(--color-pib-line)] px-3 py-2 text-left transition hover:bg-[var(--color-pib-surface)] disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <span className="block text-sm font-semibold text-[var(--color-pib-text)]">🧹 Tidy layout</span>
+                <span className="block text-xs text-[var(--color-pib-text-muted)]">Re-arrange nodes into clean left-to-right columns by link depth.</span>
+              </button>
             </div>
           </div>
 

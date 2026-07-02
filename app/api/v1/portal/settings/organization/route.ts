@@ -8,6 +8,7 @@ import type { OrgRole } from '@/lib/organizations/types'
 import { mergeBillingDetailsForWrite, publicBillingDetails } from '@/lib/organizations/billing-details'
 import { canUsePortalOrg, resolvePortalActiveOrgId } from '@/lib/portal/org-access'
 import { syncPlatformCompanyAgreementFieldsForOrg } from '@/lib/platform-owner/relationships'
+import { isValidIanaTimezone } from '@/lib/email/send-time'
 
 export const dynamic = 'force-dynamic'
 
@@ -26,6 +27,23 @@ function defaultSenderPayload(org: OrgData): { name: string; email: string } {
     name: typeof sender.name === 'string' ? sender.name : '',
     email: typeof sender.email === 'string' ? sender.email : '',
   }
+}
+
+// Canonical storage is `settings.timezone` — the same field the org creation
+// route, the admin org settings page, and every send-time/analytics consumer
+// (lib/email/send-time.ts callers in app/api/cron/{sequences,broadcasts},
+// lib/email-analytics/aggregate.ts) read. A legacy top-level `org.timezone`
+// field existed only in this portal route and was never read by anything
+// else, so PATCH here silently no-op'd for send-time purposes. We keep
+// reading the legacy field as a fallback so orgs that only ever saved via
+// this route don't regress, but all new writes go to `settings.timezone`.
+function orgTimezone(org: OrgData): string {
+  const settings = (org.settings ?? {}) as Record<string, unknown>
+  const nested = typeof settings.timezone === 'string' ? settings.timezone.trim() : ''
+  if (nested) return nested
+  const legacy = typeof org.timezone === 'string' ? org.timezone.trim() : ''
+  if (legacy) return legacy
+  return 'Africa/Johannesburg'
 }
 
 function isOrgRole(value: unknown): value is OrgRole {
@@ -71,7 +89,7 @@ function organizationPayload(orgId: string, org: OrgData, role: OrgRole | null) 
       website: typeof org.website === 'string' ? org.website : '',
       industry: typeof org.industry === 'string' ? org.industry : '',
       billingEmail: typeof org.billingEmail === 'string' ? org.billingEmail : '',
-      timezone: typeof org.timezone === 'string' ? org.timezone : 'Africa/Johannesburg',
+      timezone: orgTimezone(org),
       billingDetails: publicBillingDetails(org.billingDetails),
       defaultSender: defaultSenderPayload(org),
     },
@@ -130,7 +148,19 @@ export const PATCH = withPortalAuth(async (req: NextRequest, uid: string) => {
     if (website !== undefined) updates.website = website
     if (industry !== undefined) updates.industry = industry
     if (billingEmail !== undefined) updates.billingEmail = billingEmail
-    if (timezone !== undefined && timezone) updates.timezone = timezone
+
+    // Timezone — canonical storage is `settings.timezone` (dot-path write so
+    // sibling settings keys like brandColors/permissions/customDomain aren't
+    // clobbered). This is the same field the org creation route, the admin
+    // org settings page, and every send-time/analytics consumer read.
+    let timezoneChanged = false
+    if (timezone !== undefined && timezone) {
+      if (!isValidIanaTimezone(timezone)) {
+        return apiError('Timezone must be a valid IANA timezone identifier (e.g. Africa/Johannesburg)', 400)
+      }
+      updates['settings.timezone'] = timezone
+      timezoneChanged = true
+    }
     if (body.billingDetails && typeof body.billingDetails === 'object') {
       updates.billingDetails = mergeBillingDetailsForWrite(body.billingDetails, org.billingDetails, {
         allowBankingDetails: false,
@@ -165,8 +195,12 @@ export const PATCH = withPortalAuth(async (req: NextRequest, uid: string) => {
 
     await orgRef.update(updates)
 
-    const nextSettings = senderChanged
-      ? { ...(org.settings ?? {}), defaultSender: senderUpdate }
+    const nextSettings = senderChanged || timezoneChanged
+      ? {
+          ...(org.settings ?? {}),
+          ...(senderChanged ? { defaultSender: senderUpdate } : {}),
+          ...(timezoneChanged ? { timezone } : {}),
+        }
       : org.settings
     const nextOrg = { ...org, ...updates, settings: nextSettings }
     await syncPlatformCompanyAgreementFieldsForOrg({ clientOrgId: orgId, clientOrg: nextOrg }).catch((err) => {

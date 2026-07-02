@@ -453,9 +453,16 @@ export function summarizeCreativeCanvasRuns(
   }
 }
 
-function safeHttpUrl(value: unknown, field: string): string | undefined {
+function safeHttpUrl(value: unknown, field: string, options?: { allowRelative?: boolean }): string | undefined {
   const raw = cleanString(value)
   if (!raw) return undefined
+  // Provider status/callback URLs may be root-relative paths resolved against
+  // the provider's own host (the higgsfield-executor sends
+  // `/higgsfield-executor/creative-canvas/runs/<id>`). Accept them verbatim —
+  // no scheme means nothing unsafe to smuggle in.
+  if (options?.allowRelative && raw.startsWith('/') && !raw.startsWith('//')) {
+    return raw
+  }
   try {
     const parsed = new URL(raw)
     if (!['http:', 'https:'].includes(parsed.protocol)) throw new Error()
@@ -758,8 +765,8 @@ export async function dispatchCreativeCanvasProviderRun(
     throw new Error('Creative canvas run cannot be dispatched from its current status')
   }
 
-  const providerStatusUrl = safeHttpUrl(body.providerStatusUrl, 'providerStatusUrl')
-  const providerCallbackUrl = safeHttpUrl(body.providerCallbackUrl, 'providerCallbackUrl')
+  const providerStatusUrl = safeHttpUrl(body.providerStatusUrl, 'providerStatusUrl', { allowRelative: true })
+  const providerCallbackUrl = safeHttpUrl(body.providerCallbackUrl, 'providerCallbackUrl', { allowRelative: true })
   const provenance = {
     ...run.provenance,
     providerJobId,

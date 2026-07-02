@@ -272,6 +272,12 @@ export const POST = withAuth('client', async (req: NextRequest, user: ApiUser, c
         // Ad creatives carry required upload metadata (storage path, file
         // size, mime type) we cannot synthesize here — no auto-create.
         return apiError('Link an ad creative first — upload the asset in Ads Studio, then link it to this canvas (linked.adCreativeId).', 400)
+      } else if (target === 'youtube_studio') {
+        // Video projects require a channelWorkspaceId tied to a real,
+        // connected YouTube channel (sanitizeYouTubeVideoProjectInput hard-
+        // requires it; the videos POST route 404s without one) — we cannot
+        // synthesize a channel connection here, so no auto-create.
+        return apiError('Connect/create a YouTube video project first — set up a channel workspace in YouTube Studio, then link the video project to this canvas (linked.youtubeVideoProjectId).', 400)
       } else if (target === 'seo_content') {
         // SEO content items belong to a sprint; creating one without a
         // sprint would orphan it from every sprint view — no auto-create.
